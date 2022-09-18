@@ -1,0 +1,17 @@
+.vscode/
+src/
+**/test/
+**/tests/
+
+**/*.ts
+**/*.map
+**/*.log
+**/*.lock
+**/*.tsbuildinfo
+**/tsconfig.json
+
+**/node_modules/tree-sitter-awk/
+!**/node_modules/tree-sitter-awk/package.json
+!**/node_modules/tree-sitter-awk/bindings
+!**/node_modules/tree-sitter-awk/queries
+!**/node_modules/tree-sitter-awk/*.wasm

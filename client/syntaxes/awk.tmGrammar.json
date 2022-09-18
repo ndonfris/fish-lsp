@@ -1,0 +1,10 @@
+{
+  "scopeName": "source.awk",
+  "patterns": [{ "include": "#line_continuation" }],
+  "repository": {
+    "line_continuation": {
+      "match": "\\\\\\s*$",
+      "name": "keyword"
+    }
+  }
+}

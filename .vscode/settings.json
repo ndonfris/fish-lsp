@@ -1,0 +1,7 @@
+{
+  "jest.autoRun": {
+    "watch": false,
+    "onSave": "test-src-file"
+  },
+  "jest.jestCommandLine": "npx jest"
+}

@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "noImplicitAny": true,
+    "noImplicitReturns": true,
+    "strict": true,
+    "target": "es6",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "declaration": true,
+    "lib": [
+      "es2021",
+    ],
+    "sourceMap": true,
+    "incremental": true
+  },
+  "files": [],
+  "exclude": [
+    "node_modules",
+    "client/out",
+    "server/out"
+  ],
+  "references": [
+    { "path": "./client" },
+    { "path": "./server" },
+    { "path": "./tsconfig.jest.json" }
+  ]
+}
