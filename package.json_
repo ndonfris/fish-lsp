@@ -1,0 +1,78 @@
+{
+  "name": "typescript-language-server",
+  "version": "1.1.2",
+  "description": "Language Server Protocol (LSP) implementation for TypeScript using tsserver",
+  "author": "TypeFox and others",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/typescript-language-server/typescript-language-server.git"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=14.16"
+  },
+  "files": [
+    "lib"
+  ],
+  "bin": {
+    "typescript-language-server": "./lib/cli.js"
+  },
+  "scripts": {
+    "clean": "rimraf lib *.tsbuildinfo",
+    "test": "cross-env CONSOLE_LOG_LEVEL=warn TS_NODE_PROJECT=./tsconfig.json mocha",
+    "test:watch": "cross-env CONSOLE_LOG_LEVEL=warn TS_NODE_PROJECT=./tsconfig.json mocha --watch",
+    "test:compiled": "cross-env CONSOLE_LOG_LEVEL=warn mocha \"./lib/**/*.spec.js\"",
+    "lint": "eslint --ext \".js,.ts\" src",
+    "fix": "eslint --ext \".js,.ts\" --fix src",
+    "build": "concurrently -n compile,lint -c blue,green \"yarn compile\" \"yarn lint\"",
+    "compile": "tsc -b",
+    "watch": "tsc -b --watch --verbose",
+    "postversion": "git push --follow-tags",
+    "prepare": "cd test-data/jsx && yarn"
+  },
+  "eslintIgnore": [
+    "!.eslintrc.cjs"
+  ],
+  "husky": {
+    "hooks": {
+      "pre-commit": "yarn lint && yarn build && yarn test:compiled",
+      "post-merge": "yarn"
+    }
+  },
+  "dependencies": {
+    "commander": "^9.4.0",
+    "deepmerge": "^4.2.2",
+    "fs-extra": "^10.1.0",
+    "p-debounce": "^4.0.0",
+    "pkg-up": "^4.0.0",
+    "semver": "^7.3.7",
+    "tempy": "^3.0.0",
+    "vscode-languageserver": "^8.0.2",
+    "vscode-languageserver-protocol": "^3.17.2",
+    "vscode-languageserver-textdocument": "1.0.7",
+    "vscode-uri": "^3.0.3",
+    "which": "^2.0.2"
+  },
+  "devDependencies": {
+    "@types/chai": "^4.3.3",
+    "@types/deepmerge": "^2.2.0",
+    "@types/fs-extra": "^9.0.13",
+    "@types/mocha": "^9.1.1",
+    "@types/node": "^16.11.56",
+    "@types/semver": "^7.3.12",
+    "@types/which": "^2.0.1",
+    "@typescript-eslint/eslint-plugin": "^5.36.1",
+    "@typescript-eslint/parser": "^5.36.1",
+    "chai": "^4.3.6",
+    "concurrently": "^7.3.0",
+    "cross-env": "^7.0.3",
+    "eslint": "^8.23.0",
+    "husky": "4.x",
+    "mocha": "^10.0.0",
+    "rimraf": "^3.0.2",
+    "source-map-support": "^0.5.21",
+    "ts-node": "^10.9.1",
+    "typescript": "^4.8.2"
+  }
+}
