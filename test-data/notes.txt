@@ -1,0 +1,78 @@
+nodesFound:   0
+
+┌─────────┬────────────────────────────────────────────────────────────┬─────────────────────────────┬───────────────────────────────────┐
+│ (index) │                            file                            │            type             │               node                │
+├─────────┼────────────────────────────────────────────────────────────┼─────────────────────────────┼───────────────────────────────────┤
+│    0    │           '/usr/share/fish/functions/abbr.fish'            │          'program'          │ 'function abbr --description "M'  │
+│    1    │           '/usr/share/fish/functions/abbr.fish'            │    'function_definition'    │ 'function __fish_abbr_show --no'  │
+│    2    │           '/usr/share/fish/functions/abbr.fish'            │       'for_statement'       │ 'for var_name in (set --names)\n' │
+│    3    │           '/usr/share/fish/functions/abbr.fish'            │       'if_statement'        │ 'if set -q argv[1]\n        prin' │
+│    4    │           '/usr/share/fish/functions/abbr.fish'            │          'command'          │ 'set $abbr_scope $new_var_name '  │
+│    5    │           '/usr/share/fish/functions/abbr.fish'            │   'conditional_execution'   │            'or return'            │
+│    6    │           '/usr/share/fish/functions/abbr.fish'            │    'double_quote_string'    │     '"Manage abbreviations"'      │
+│    7    │           '/usr/share/fish/functions/abbr.fish'            │   'command_substitution'    │          '(set --names)'          │
+│    8    │           '/usr/share/fish/functions/abbr.fish'            │          'return'           │            'return 1'             │
+│    9    │           '/usr/share/fish/functions/abbr.fish'            │   'redirected_statement'    │ 'printf ( _ "%s %s: Unexpected '  │
+│   10    │           '/usr/share/fish/functions/abbr.fish'            │    'variable_expansion'     │          '$old_var_val'           │
+│   11    │           '/usr/share/fish/functions/abbr.fish'            │     'negated_statement'     │    'not set -q abbr_scope[1]'     │
+│   12    │           '/usr/share/fish/functions/abbr.fish'            │       'concatenation'       │ '_fish_abbr_(string escape --st'  │
+│   13    │           '/usr/share/fish/functions/abbr.fish'            │       'test_command'        │    'test (count $argv) -ne 2'     │
+│   14    │           '/usr/share/fish/functions/abbr.fish'            │        'else_clause'        │ 'else\n        printf ( _ "%s: C' │
+│   15    │           '/usr/share/fish/functions/abbr.fish'            │      'else_if_clause'       │ 'else if set -q _flag_query[1]\n' │
+│   16    │           '/usr/share/fish/functions/abbr.fish'            │    'single_quote_string'    │              "'g,U'"              │
+│   17    │           '/usr/share/fish/functions/abbr.fish'            │ 'command_substitution_fish' │          '(set --names)'          │
+│   18    │           '/usr/share/fish/functions/abbr.fish'            │    'list_element_access'    │               '[2]'               │
+│   19    │           '/usr/share/fish/functions/abbr.fish'            │           'index'           │                '2'                │
+│   20    │           '/usr/share/fish/functions/abbr.fish'            │           'range'           │              '2..-1'              │
+│   21    │           '/usr/share/fish/functions/alias.fish'           │           'pipe'            │ 'echo "function $name $wraps --'  │
+│   22    │           '/usr/share/fish/functions/alias.fish'           │        'test_option'        │               '!='                │
+│   23    │       '/usr/share/fish/functions/contains_seq.fish'        │     'switch_statement'      │ 'switch $argv[1]\n        case -' │
+│   24    │       '/usr/share/fish/functions/contains_seq.fish'        │        'case_clause'        │ 'case --printnext\n            s' │
+│   25    │           '/usr/share/fish/functions/diff.fish'            │       'file_redirect'       │           '>/dev/null'            │
+│   26    │           '/usr/share/fish/functions/diff.fish'            │      'brace_expansion'      │               '{,}'               │
+│   27    │    '/usr/share/fish/functions/edit_command_buffer.fish'    │      'while_statement'      │ 'while test $offset -ge (string'  │
+│   28    │ '/usr/share/fish/functions/__fish_config_interactive.fish' │      'begin_statement'      │ 'begin\n            string match' │
+│   29    │  '/usr/share/fish/functions/__fish_print_hostnames.fish'   │           'ERROR'           │ 'set paths $paths (\n           ' │
+└─────────┴────────────────────────────────────────────────────────────┴─────────────────────────────┴───────────────────────────────────┘
+ PASS  test-data/parser_types_debug.test.ts (5.35 s)
+
+Test Suites: 1 passed, 1 total
+Tests:       6 passed, 6 total
+Snapshots:   0 total
+Time:        5.374 s
+Ran all test suites related to changed files.
+
+Watch Usage: Press w to show more.
+┌─────────┬─────────────────────────────────────────────────────────┬───────────────────────────────┬────────────────────────────────────┐
+│ (index) │                          file                           │             type              │                node                │
+├─────────┼─────────────────────────────────────────────────────────┼───────────────────────────────┼────────────────────────────────────┤
+│    0    │          '/usr/share/fish/completions/7z.fish'          │           'program'           │ '# Completions for p7zip\n\n# Com' │
+│    1    │          '/usr/share/fish/completions/7z.fish'          │           'command'           │  'complete -c 7z -n "__fish_seen'  │
+│    2    │          '/usr/share/fish/completions/7z.fish'          │     'double_quote_string'     │   '"Assume yes on all queries"'    │
+│    3    │      '/usr/share/fish/completions/a2disconf.fish'       │     'single_quote_string'     │  "'(__fish_print_debian_apache_c"  │
+│    4    │        '/usr/share/fish/completions/abook.fish'         │     'function_definition'     │  'function __fish_complete_abook'  │
+│    5    │        '/usr/share/fish/completions/abook.fish'         │     'variable_expansion'      │             '$convert'             │
+│    6    │        '/usr/share/fish/completions/abook.fish'         │      'switch_statement'       │ 'switch $argv[1]\n        case i'  │
+│    7    │        '/usr/share/fish/completions/abook.fish'         │            'pipe'             │  'abook --formats | while read -'  │
+│    8    │        '/usr/share/fish/completions/abook.fish'         │         'case_clause'         │  "case '*'\n            return 1"  │
+│    9    │        '/usr/share/fish/completions/abook.fish'         │       'while_statement'       │ 'while read -l x\n        switch'  │
+│   10    │        '/usr/share/fish/completions/abook.fish'         │           'return'            │             'return 1'             │
+│   11    │        '/usr/share/fish/completions/abook.fish'         │        'for_statement'        │ 'for l in $output\n             '  │
+│   12    │        '/usr/share/fish/completions/abook.fish'         │     'list_element_access'     │               '[1]'                │
+│   13    │        '/usr/share/fish/completions/abook.fish'         │            'index'            │                '1'                 │
+│   14    │        '/usr/share/fish/completions/abook.fish'         │    'command_substitution'     │ "(string replace -rf '\\t(.*\\t.*" │
+│   15    │        '/usr/share/fish/completions/abook.fish'         │  'command_substitution_fish'  │ "(string replace -rf '\\t(.*\\t.*" │
+│   16    │         '/usr/share/fish/completions/ack.fish'          │        'if_statement'         │ 'if type ack >/dev/null\n    for'  │
+│   17    │         '/usr/share/fish/completions/ack.fish'          │    'redirected_statement'     │       'type ack >/dev/null'        │
+│   18    │         '/usr/share/fish/completions/ack.fish'          │        'file_redirect'        │            '>/dev/null'            │
+│   19    │         '/usr/share/fish/completions/ack.fish'          │        'concatenation'        │             'no-$type'             │
+│   20    │         '/usr/share/fish/completions/adb.fish'          │        'test_command'         │    'test (count $token) -gt 2'     │
+│   21    │         '/usr/share/fish/completions/adb.fish'          │       'else_if_clause'        │ 'else if contains -- -e $cmd\n  '  │
+│   22    │         '/usr/share/fish/completions/adb.fish'          │         'else_clause'         │ 'else\n            switch $i\n   ' │
+│   23    │    '/usr/share/fish/completions/ansible-vault.fish'     │    'conditional_execution'    │           'and return 1'           │
+│   24    │    '/usr/share/fish/completions/ansible-vault.fish'     │      'negated_statement'      │  "not string match --regex '[^-]"  │
+│   25    │         '/usr/share/fish/completions/ant.fish'          │            'range'            │              '2..-1'               │
+│   26    │         '/usr/share/fish/completions/arc.fish'          │       'brace_expansion'       │   '{uri,token,version,timeout}'    │
+│   27    │        '/usr/share/fish/completions/bundle.fish'        │         'test_option'         │                '='                 │
+│   28    │         '/usr/share/fish/completions/git.fish'          │       'begin_statement'       │ 'begin\n            set -l name '  │
+│   29    │         '/usr/share/fish/completions/mono.fish'         │ 'command_substitution_dollar' │             '$(uname)'             │

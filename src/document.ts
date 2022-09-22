@@ -5,13 +5,21 @@
  * You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
  */
 
-import * as lsp from 'vscode-languageserver';
+import * as LSP from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
+export enum FishFileType {
+    function,
+    completion,
+    script,
+    config,
+}
+
 export class LspDocument implements TextDocument {
+
     protected document: TextDocument;
 
-    constructor(doc: lsp.TextDocumentItem) {
+    constructor(doc: LSP.TextDocumentItem) {
         const { uri, languageId, version, text } = doc;
         this.document = TextDocument.create(uri, languageId, version, text);
     }
@@ -28,15 +36,15 @@ export class LspDocument implements TextDocument {
         return this.document.version;
     }
 
-    getText(range?: lsp.Range): string {
+    getText(range?: LSP.Range): string {
         return this.document.getText(range);
     }
 
-    positionAt(offset: number): lsp.Position {
+    positionAt(offset: number): LSP.Position {
         return this.document.positionAt(offset);
     }
 
-    offsetAt(position: lsp.Position): number {
+    offsetAt(position: LSP.Position): number {
         return this.document.offsetAt(position);
     }
 
@@ -49,13 +57,13 @@ export class LspDocument implements TextDocument {
         return this.getText(lineRange);
     }
 
-    getLineRange(line: number): lsp.Range {
+    getLineRange(line: number): LSP.Range {
         const lineStart = this.getLineStart(line);
         const lineEnd = this.getLineEnd(line);
-        return lsp.Range.create(lineStart, lineEnd);
+        return LSP.Range.create(lineStart, lineEnd);
     }
 
-    getLineEnd(line: number): lsp.Position {
+    getLineEnd(line: number): LSP.Position {
         const nextLineOffset = this.getLineOffset(line + 1);
         return this.positionAt(nextLineOffset - 1);
     }
@@ -65,17 +73,36 @@ export class LspDocument implements TextDocument {
         return this.offsetAt(lineStart);
     }
 
-    getLineStart(line: number): lsp.Position {
-        return lsp.Position.create(line, 0);
+    getLineStart(line: number): LSP.Position {
+        return LSP.Position.create(line, 0);
     }
 
-    applyEdit(version: number, change: lsp.TextDocumentContentChangeEvent): void {
+    /**
+     * checks what type of fish file the current TextDocument is 
+     * from the uri path 
+     * 
+     * @returns {FishFileType} config, functions, completions or script
+     */
+    getFishFileType(): FishFileType {
+        const filepath = this.uri.split('/');
+        if (filepath[-1] === 'config.fish') {
+            return FishFileType.config;
+        } else if (filepath[-2] === 'functions') {
+            return FishFileType.function;
+        } else if (filepath[-2] === 'completions') {
+            return FishFileType.completion;
+        } else {
+            return FishFileType.script;
+        }
+    }
+
+    applyEdit(version: number, change: LSP.TextDocumentContentChangeEvent): void {
         const content = this.getText();
         let newContent = change.text;
-        if (lsp.TextDocumentContentChangeEvent.isIncremental(change)) {
+        if (LSP.TextDocumentContentChangeEvent.isIncremental(change)) {
             const start = this.offsetAt(change.range.start);
             const end = this.offsetAt(change.range.end);
-            newContent = content.substr(0, start) + change.text + content.substr(end);
+            newContent = content.substr(0, start) + change.text + content.substring(end);
         }
         this.document = TextDocument.create(this.uri, this.languageId, version, newContent);
     }
@@ -104,7 +131,7 @@ export class LspDocuments {
         return document;
     }
 
-    open(file: string, doc: lsp.TextDocumentItem): boolean {
+    open(file: string, doc: LSP.TextDocumentItem): boolean {
         if (this.documents.has(file)) {
             return false;
         }

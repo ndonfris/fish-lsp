@@ -1,65 +1,78 @@
 {
-	"name": "lsp-sample",
-	"description": "A language server example",
-	"author": "Microsoft Corporation",
-	"license": "MIT",
-	"version": "1.0.0",
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/Microsoft/vscode-extension-samples"
-	},
-	"publisher": "vscode-samples",
-	"categories": [],
-	"keywords": [
-		"multi-root ready"
-	],
-	"engines": {
-		"vscode": "^1.63.0"
-	},
-	"activationEvents": [
-		"onLanguage:plaintext"
-	],
-	"main": "./client/out/extension",
-	"contributes": {
-		"configuration": {
-			"type": "object",
-			"title": "Example configuration",
-			"properties": {
-				"languageServerExample.maxNumberOfProblems": {
-					"scope": "resource",
-					"type": "number",
-					"default": 100,
-					"description": "Controls the maximum number of problems produced by the server."
-				},
-				"languageServerExample.trace.server": {
-					"scope": "window",
-					"type": "string",
-					"enum": [
-						"off",
-						"messages",
-						"verbose"
-					],
-					"default": "off",
-					"description": "Traces the communication between VS Code and the language server."
-				}
-			}
-		}
-	},
-	"scripts": {
-		"vscode:prepublish": "npm run compile",
-		"compile": "tsc -b",
-		"watch": "tsc -b -w",
-		"lint": "eslint ./client/src ./server/src --ext .ts,.tsx",
-		"postinstall": "cd client && npm install && cd ../server && npm install && cd ..",
-		"test": "sh ./scripts/e2e.sh"
-	},
-	"devDependencies": {
-		"@types/mocha": "^9.1.0",
-		"@types/node": "^16.11.7",
-		"@typescript-eslint/eslint-plugin": "^5.30.0",
-		"@typescript-eslint/parser": "^5.30.0",
-		"eslint": "^8.13.0",
-		"mocha": "^9.2.1",
-		"typescript": "^4.7.2"
-	}
+  "name": "typescript-language-server",
+  "version": "1.1.2",
+  "description": "Language Server Protocol (LSP) implementation for TypeScript using tsserver",
+  "author": "TypeFox and others",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/typescript-language-server/typescript-language-server.git"
+  },
+  "engines": {
+    "node": ">=14.16"
+  },
+  "files": [
+    "lib"
+  ],
+  "bin": {
+    "fish-language-server": "./lib/cli.js"
+  },
+  "scripts": {
+    "clean": "rimraf lib *.tsbuildinfo",
+    "prepare:tests": "rm -f test_data/fish_files/*.fish && yarn run prepare:install:tests",
+    "prepare:install:tests": "cd test_data && ./install_scripts/generate_largest_fish_files.fish && cd ..",
+    "test": "jest --runInBand --watch --verbose='false'",
+    "compile": "tsc -b",
+    "watch": "tsc -b --watch --verbose"
+  },
+  "eslintIgnore": [
+    "!.eslintrc.cjs"
+  ],
+  "husky": {
+    "hooks": {
+      "pre-commit": "yarn run clean",
+      "post-merge": "yarn"
+    }
+  },
+  "dependencies": {
+    "commander": "^9.4.0",
+    "deepmerge": "^4.2.2",
+    "fs-extra": "^10.1.0",
+    "git": "^0.1.5",
+    "global": "^4.4.0",
+    "p-debounce": "^4.0.0",
+    "pkg-up": "^4.0.0",
+    "semver": "^7.3.7",
+    "tempy": "^3.0.0",
+    "top-level-await": "^1.1.0",
+    "tree-sitter-fish": "github:ram02z/tree-sitter-fish",
+    "ts-jest": "^29.0.1",
+    "vscode-languageserver": "^8.0.2",
+    "vscode-languageserver-protocol": "^3.17.2",
+    "vscode-languageserver-textdocument": "1.0.7",
+    "vscode-uri": "^3.0.3",
+    "web-tree-sitter": "^0.20.7",
+    "which": "^2.0.2"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^9.0.13",
+    "@types/jest": "^29.0.3",
+    "@types/node": "^16.11.56",
+    "@types/semver": "^7.3.12",
+    "@types/which": "^2.0.1",
+    "@typescript-eslint/eslint-plugin": "^5.36.1",
+    "@typescript-eslint/parser": "^5.36.1",
+    "chai": "^4.3.6",
+    "concurrently": "^7.3.0",
+    "cross-env": "^7.0.3",
+    "eslint": "^8.23.0",
+    "husky": "^4.3.8",
+    "jest": "^29.0.3",
+    "mocha": "^10.0.0",
+    "rimraf": "^3.0.2",
+    "source-map-support": "^0.5.21",
+    "ts-mocha": "^10.0.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^4.8.2"
+  }
 }
