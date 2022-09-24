@@ -7,7 +7,7 @@ import {initializeParser} from '../src/parser';
 import {
     //nodesGen,
     //isStatement,
-    getChildrenArray,
+    getNodes,
 } from '../src/utils/tree-sitter'
 import {
     isStatement
@@ -53,7 +53,7 @@ import {getAllFunctionLocations, getAllShareLocations, getLargeShareFunctionFile
 
 
 function constructFileNodes(root: SyntaxNode): SyntaxNode[]{
-    return [...getChildrenArray(root)];
+    return [...getNodes(root)];
 }
 
 function getNamedNodesArray(root: SyntaxNode): SyntaxNode[] {

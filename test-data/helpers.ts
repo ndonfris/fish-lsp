@@ -1,7 +1,7 @@
-import {readFileSync} from 'fs';
+import {readdirSync, readFileSync} from 'fs';
 import { resolve } from 'path'
 import {initializeParser} from '../src/parser';
-import {SyntaxNode} from 'web-tree-sitter'
+import {Point, SyntaxNode} from 'web-tree-sitter'
 
 
 export function nodeToString(node: SyntaxNode) : string {
@@ -24,6 +24,10 @@ export async function resolveAbsPath(fname: string): Promise<string[]> {
 }
 
 
+export function positionStr(pos: Point){
+    return `(${pos.row.toString()}, ${pos.column.toString()})`
+}
+
 
 // @ts-ignore
 export async function getRootNode(fname: string): Promise<SyntaxNode> {
@@ -33,7 +37,18 @@ export async function getRootNode(fname: string): Promise<SyntaxNode> {
     return tree.rootNode;
 }
 
-
+export async function readShareDir(): Promise<string[]> {
+    let files: string[] = []
+    try {
+        files = readdirSync('/usr/share/fish/functions/', {encoding:'utf8', withFileTypes: false})
+        //files.forEach(file => {
+        //    result.push('/usr/share/fish/functions/'+file)
+        //})
+    } catch (e) {
+        console.log(e)
+    }
+    return files.map(file => '/usr/share/fish/functions/' + file.toString())
+}
 
 // determine a node to check for a file, to keep implementationo
 // that is not in the lsp-server, test-cases just mainly check 

@@ -25,7 +25,7 @@ set -l type_result (type -t "$argv" 2> /dev/null)
 switch "$type_result"
 case "function"
     if type -f -q $argv 2>/dev/null
-        _flsp_get_manpage
+        _flsp_get_manpage $argv
     else
         functions --all $argv | col -bx 
     end
@@ -34,13 +34,13 @@ case "builtin"
     man $argv | sed -r 's/^ {7}/ /' | col -bx
 
 case "file"
-    set -l bad_manpage ( man -a $argv 2>&1 )
+    set -l bad_manpage ( man -a $argv 2> /dev/null )
     
     if test -z "$bad_manpage" 
         echo ''
         return
 
-    else if string match -rq "No manual entry for $argv"
+    else if string match -rq "No manual entry for $argv" -- $bad_manpage
         _flsp_get_command_without_manpage $argv
 
     else 

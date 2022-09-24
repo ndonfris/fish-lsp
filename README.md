@@ -1,7 +1,36 @@
-[![Build Status](https://travis-ci.org/theia-ide/typescript-language-server.svg?branch=master)](https://travis-ci.org/theia-ide/typescript-language-server)
-[![Discord](https://img.shields.io/discord/873659987413573634)](https://discord.gg/AC7Vs6hwFa)
+# Sources for project thus far
 
-# TypeScript Language Server
+- __Similiar projects__
+    - [coc.fish]( https://github.com/oncomouse/coc-fish )
+    - [awk-language-server]( https://github.com/Beaglefoot/awk-language-server/tree/master/server )
+    - [bash-language-server]( https://github.com/Beaglefoot/awk-language-server/tree/master/server )
+    - [typescript-language-server](https://github.com/typescript-language-server/typescript-language-server#running-the-language-server)
+    - [coc-tsserver](https://github.com/neoclide/coc-tsserver)
+
+- __Important Packages__ (pretty sure that vscode-languageserver links are the same)
+    - [vscode-jsonrpc]( https://www.npmjs.com/package/vscode-jsonrpc )
+    - [vscode-languageserver]( https://github.com/Microsoft/vscode-languageserver-node )
+    - [vscode-languageserver-textdocument]( https://github.com/Microsoft/vscode-languageserver-node )
+    - [vscode-languageserver-types]( https://github.com/Microsoft/vscode-languageserver-node )
+
+- __Default Implementation Git Repos__
+    - [client implementation]( https://github.com/microsoft/vscode-languageserver-node/blob/main/client/src/common )
+    - [server implementation]( https://github.com/microsoft/vscode-languageserver-node/tree/main/server/src/common )  
+
+
+
+#### CURRENT TODO
+
+- [ ] fish-lsp-client.ts
+- [ ] fish-server.ts
+- [ ] documentation.ts
+- [ ] analysis.ts
+- [ ] diagnostics.ts
+
+---
+### Below is for [TypeScript Language Server]( https://github.com/typescript-language-server/typescript-language-server/blob/114d4309cb1450585f991604118d3eff3690237c/src/utils/SnippetString.ts )
+
+<!-- @import "[TOC]" {cmd="toc" depthFrom=1 depthTo=6 orderedList=false} -->
 
 [Language Server Protocol](https://github.com/Microsoft/language-server-protocol) implementation for TypeScript wrapping `tsserver`.
 

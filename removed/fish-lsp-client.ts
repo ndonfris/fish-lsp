@@ -9,26 +9,25 @@
  * You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
  */
 
-import tsp from 'typescript/lib/protocol.d.js';
-import lsp from 'vscode-languageserver';
+import LSP, {Tracer} from 'vscode-languageserver';
 import { CancellationToken } from 'vscode-jsonrpc';
-import { CommandTypes, EventTypes } from './tsp-command-types';
+//import { CommandTypes, EventTypes } from './tsp-command-types';
 import { Logger, PrefixingLogger } from './utils/logger';
-import { ILogDirectoryProvider } from './tsServer/logDirectoryProvider';
-import { ExecConfig, ServerResponse, TypeScriptRequestTypes } from './tsServer/requests';
-import { ITypeScriptServer, TypeScriptServerExitEvent } from './tsServer/server';
-import { TypeScriptServerError } from './tsServer/serverError';
-import { TypeScriptServerSpawner } from './tsServer/spawner';
-import Tracer, { Trace } from './tsServer/tracer';
-import { TypeScriptVersion } from './tsServer/versionProvider';
-import { LspClient } from './lsp-client';
+//import { ILogDirectoryProvider } from './tsServer/logDirectoryProvider';
+//import { ExecConfig, ServerResponse, TypeScriptRequestTypes } from './tsServer/requests';
+//import { ITypeScriptServer, TypeScriptServerExitEvent } from './tsServer/server';
+//import { TypeScriptServerError } from './tsServer/serverError';
+//import { TypeScriptServerSpawner } from './tsServer/spawner';
+//import Tracer, { Trace } from './tsServer/tracer';
+//import { TypeScriptVersion } from './tsServer/versionProvider';
+//import { LspClient } from './lsp-client';
 import { FishServerLogLevel } from './utils/configuration';
 
 class ServerInitializingIndicator {
     private _loadingProjectName?: string;
-    private _progressReporter?: lsp.WorkDoneProgressReporter;
+    private _progressReporter?: LSP.WorkDoneProgressReporter;
 
-    constructor(private lspClient: LspClient) {}
+    constructor(private lspClient: LSP.ClientCapabilities) {}
 
     public reset(): void {
         if (this._loadingProjectName) {
@@ -47,7 +46,7 @@ class ServerInitializingIndicator {
 
         this._loadingProjectName = projectName;
         this._progressReporter = await this.lspClient.createProgressReporter();
-        this._progressReporter.begin('Initializing JS/TS language features…');
+        this._progressReporter!.begin('Initializing Fish language features…');
     }
 
     public finishedLoadingProject(projectName: string): void {
@@ -61,13 +60,12 @@ class ServerInitializingIndicator {
     }
 }
 
-export interface TspClientOptions {
+export interface FishClientOptions {
     lspClient: LspClient;
     trace: Trace;
-    typescriptVersion: TypeScriptVersion;
     logger: Logger;
     logVerbosity: FishServerLogLevel;
-    logDirectoryProvider: ILogDirectoryProvider;
+    //logDirectoryProvider: ILogDirectoryProvider;
     disableAutomaticTypingAcquisition?: boolean;
     maxTsServerMemory?: number;
     npmLocation?: string;
@@ -81,15 +79,15 @@ export interface TspClientOptions {
 export class TspClient {
     private primaryTsServer: ITypeScriptServer | null = null;
     private logger: Logger;
-    private tsserverLogger: Logger;
+    private fishServerLogger: Logger;
     private loadingIndicator: ServerInitializingIndicator;
     private tracer: Tracer;
 
-    constructor(private options: TspClientOptions) {
-        this.logger = new PrefixingLogger(options.logger, '[tsclient]');
-        this.tsserverLogger = new PrefixingLogger(options.logger, '[tsserver]');
+    constructor(private options: FishClientOptions) {
+        this.logger = new PrefixingLogger(options.logger, '[fish-lsp-client]');
+        this.fishServerLogger = new PrefixingLogger(options.logger, '[fish-lsp-server]');
         this.loadingIndicator = new ServerInitializingIndicator(options.lspClient);
-        this.tracer = new Tracer(this.tsserverLogger, options.trace);
+        this.tracer = new Tracer(this.fishServerLogger, options.trace);
     }
 
     start(): boolean {
@@ -97,14 +95,14 @@ export class TspClient {
         const tsServer = tsServerSpawner.spawn(this.options.typescriptVersion, this.options);
         tsServer.onExit((data: TypeScriptServerExitEvent) => {
             this.shutdown();
-            this.tsserverLogger.error(`Exited. Code: ${data.code}. Signal: ${data.signal}`);
+            this.fishServerLogger.error(`Exited. Code: ${data.code}. Signal: ${data.signal}`);
             if (this.options.onExit) {
                 this.options.onExit(data.code, data.signal);
             }
         });
         tsServer.onError((err: Error) => {
             if (err) {
-                this.tsserverLogger.error('Exited with error. Error message is: {0}', err.message || err.name);
+                this.fishServerLogger.error('Exited with error. Error message is: {0}', err.message || err.name);
             }
             this.serviceExited();
         });
@@ -272,9 +270,9 @@ export class TspClient {
     }
 
     private fatalError(command: string, error: unknown): void {
-        this.tsserverLogger.error(`A non-recoverable error occurred while executing command: ${command}`);
+        this.fishServerLogger.error(`A non-recoverable error occurred while executing command: ${command}`);
         if (error instanceof TypeScriptServerError && error.serverErrorText) {
-            this.tsserverLogger.error(error.serverErrorText);
+            this.fishServerLogger.error(error.serverErrorText);
         }
 
         if (this.primaryTsServer) {

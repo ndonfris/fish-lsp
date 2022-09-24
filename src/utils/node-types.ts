@@ -1,5 +1,8 @@
+// use this file to determine node types from ./tree-sitter
+
 import { SyntaxNode } from 'web-tree-sitter'
-import {getChildrenArray} from './utils/tree-sitter';
+import {getNodes} from './tree-sitter';
+
 
 export function isComment(node: SyntaxNode): boolean {
     return node.type == 'comment';
@@ -43,6 +46,14 @@ function isBeforeCommand(node: SyntaxNode) {
     ].includes(node.type) || isFunctionDefinintion(node) || isStatement(node);
 }
 
+export function isVariable(node: SyntaxNode) {
+    if (isVariableDefintion(node)) {
+        return true;
+    } else {
+        return node.type === 'variable_expansion'
+    }
+}
+
 /**
  * finds the parent command of the current node
  *
@@ -64,7 +75,18 @@ export function findParentCommand(node: SyntaxNode): SyntaxNode | null {
 
 
 export function isVariableDefintion(node: SyntaxNode): boolean {
-    return isCommand(node) && node.child(0)?.text == 'set'
+    if (isCommand(node) && node.child(0)?.text == 'set') {
+        return true;
+    } else {
+        const parent = findParentCommand(node)
+        if (!parent) {
+            return false;
+        } 
+        if (isCommand(parent) && parent?.child(0)?.text == 'set') {
+            return findDefinedVariable(parent) == node; 
+        }
+        return false;
+    }
 }
 
 /**
@@ -77,12 +99,15 @@ export function findDefinedVariable(node: SyntaxNode): SyntaxNode | null {
     let parent = findParentCommand(node);
     if (!parent) return null;
 
-    const children: SyntaxNode[] = getChildrenArray(parent)
+    const children: SyntaxNode[] = parent.children
 
     let i = 1;
     let child : SyntaxNode = children[i]!;
 
-    while (child != undefined && child.text.startsWith('-')) {
+    while (child != undefined) {
+        if (!child.text.startsWith('-')) {
+            return child
+        }
         if (i == children.length) {
             return null
         }

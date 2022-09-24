@@ -21,7 +21,7 @@
  */
 declare namespace fish.server.protocol {
     const enum CommandTypes {
-        FishClosingTag = "jsxClosingTag",
+        FishClosingTag = "end",
         Brace = "brace",
         BraceCompletion = "braceCompletion",
         GetSpanOfEnclosingComment = "getSpanOfEnclosingComment",
