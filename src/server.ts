@@ -5,24 +5,15 @@
  * You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
  */
 
-import {config} from 'node:process';
-import {createConnection, ProposedFeatures, TextDocumentPositionParams, TextDocuments} from 'vscode-languageserver';
+import {createConnection, ProposedFeatures, TextDocuments} from 'vscode-languageserver';
 import {TextDocument} from 'vscode-languageserver-textdocument';
 import * as LSP from 'vscode-languageserver/node';
 import Parser from 'web-tree-sitter';
 import {DependencyMap} from './dependencies';
 import {getInitializedHandler} from './handlers/getInitializedHandler';
-import {handleHover} from './handlers/handleHover';
+import {getHandleHover} from './handlers/handleHover';
 import {AstsMap, CliOptions, Context, DocsMap, RootsMap} from './interfaces';
-import {initializeParser} from './parser';
-import { LspClientLogger } from './utils/logger';
 
-export interface IServerOptions {
-    serverPath: string;
-    serverLogFile?: string;
-    serverLogVerbosity?: string;
-    showMessageLevel: LSP.MessageType;
-}
 
 const context: Context = {
   connection:
@@ -30,40 +21,20 @@ const context: Context = {
             ? createConnection(ProposedFeatures.all)
             : createConnection(process.stdin, process.stdout),
     documents: new TextDocuments(TextDocument),
-    capabilities: capabilities(),
+    capabilities: {},
     parser: {} as Parser,
     asts: new Map() as AstsMap,
     roots: new Map() as RootsMap,
-    position: {} as TextDocumentPositionParams, 
     docs: new Map() as DocsMap,
     dependencies: new DependencyMap(),
-    symbols: {},
-    cliOptions: {}
 }
 
-function capabilities(): LSP.ServerCapabilities {
-    return {
-        // For now we're using full-sync even though tree-sitter has great support
-        // for partial updates.
-        textDocumentSync: LSP.TextDocumentSyncKind.Full,
-        completionProvider: {
-            resolveProvider: true,
-            triggerCharacters: ['$'],
-        },
-        hoverProvider: true,
-        documentHighlightProvider: true,
-        definitionProvider: true,
-        documentSymbolProvider: true,
-        workspaceSymbolProvider: true,
-        referencesProvider: true,
-    }
-}
 
 
 /// https://github.com/Beaglefoot/awk-language-server/blob/371492f657ebf6b9aa7a323059fc4c95a34febec/server/src/handlers/handleInitialized.ts#L8
 // $HOME/repos/awk-language-server/server/src/handlers/handleInitialized.ts
 function registerHandlers() {
-  const { connection, documents } = context
+  const { connection } = context
 
   const handleInitialize = getInitializedHandler(context)
   //const handleInitialized = getInitializedHandler(context)
@@ -75,7 +46,7 @@ function registerHandlers() {
   //const handleDocumentSymbol = getDocumentSymbolHandler(context)
   //const handleWorkspaceSymbol = getWorkspaceSymbolHandler(context)
   //const handleReferences = getReferencesHandler(context)
-  //const handleHover = getHoverHandler(context)
+  const handleHover = getHandleHover(context)
   //const handleSemanticTokens = getSemanticTokensHandler(context)
   //const handlePrepareRename = getPrepareRenameHandler(context)
   //const handleRenameRequest = getRenameRequestHandler(context)

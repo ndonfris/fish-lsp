@@ -80,12 +80,12 @@ export interface CliOptions {
 export interface Context {
     connection: Connection
     documents: TextDocuments<TextDocument>
-    dependencies: DependencyMap
-    capabilities: ClientCapabilities
+    dependencies?: DependencyMap
+    capabilities?: ClientCapabilities
     parser: Parser
     asts: AstsMap
     roots: RootsMap
-    symbols: SymbolsMap
+    symbols?: SymbolsMap
     docs: DocsMap
     cliOptions?: CliOptions
 }

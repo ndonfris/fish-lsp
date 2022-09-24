@@ -17,20 +17,25 @@
     - [client implementation]( https://github.com/microsoft/vscode-languageserver-node/blob/main/client/src/common )
     - [server implementation]( https://github.com/microsoft/vscode-languageserver-node/tree/main/server/src/common )  
 
-
-
 #### CURRENT TODO
 
-- [ ] fish-lsp-client.ts
-- [ ] fish-server.ts
-- [ ] documentation.ts
-- [ ] analysis.ts
+- [ ] [server.ts]( ./src/server.ts )
+- [ ] [documentation.ts]( ./src/documentation.ts )
+- [ ] [analysis.ts]( ./src/analyzer.ts )
+- [ ] fish-lsp-client.ts (NOT YET IMPLEMENTED)
 - [ ] diagnostics.ts
-- _Restructuring_ || _TODO_
+- _Restructuring_ || _TODO_ || _NOTES_
+    - you could move `node-types` to parser __??__
     - fix `interfaces.ts` to just have interfaces, and to have a better `context`
         implementation
     - move _AstNodes_ to _analyzer_ __class__?
-    - fix/move to config.ts to work for server.ts
+        - if you choice to stick to functional approach, you need a generic
+            function that can be called from anywhere (probably needs context)
+            to update all variables in context
+    - fix __variableDefinitions__(./src/utils/node-types.ts)
+        - eventually merge `node-types` & `tree-sitter`
+    - fix/move to `config.ts` to work for `server.ts`
+        - move config related stuff to config?? like context??
     - __get simple build going before next features!!__
 
 ---
