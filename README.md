@@ -26,11 +26,12 @@
 - [ ] documentation.ts
 - [ ] analysis.ts
 - [ ] diagnostics.ts
-- Restructuring
-    - fix interfaces.ts to just have interfaces, and to have a better `context`
+- _Restructuring_ || _TODO_
+    - fix `interfaces.ts` to just have interfaces, and to have a better `context`
         implementation
-    - move AstNodes to analyzer class?
-    - fix/move to config.ts to connection.ts
+    - move _AstNodes_ to _analyzer_ __class__?
+    - fix/move to config.ts to work for server.ts
+    - __get simple build going before next features!!__
 
 ---
 ### Below is for [TypeScript Language Server]( https://github.com/typescript-language-server/typescript-language-server/blob/114d4309cb1450585f991604118d3eff3690237c/src/utils/SnippetString.ts )
