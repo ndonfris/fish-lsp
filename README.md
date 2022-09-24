@@ -36,6 +36,7 @@
         - eventually merge `node-types` & `tree-sitter`
     - fix/move to `config.ts` to work for `server.ts`
         - move config related stuff to config?? like context??
+        - move `server.ts` to class/oop approach
     - __get simple build going before next features!!__
 
 ---

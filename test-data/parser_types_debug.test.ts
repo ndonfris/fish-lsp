@@ -11,7 +11,7 @@ import {
 } from '../src/utils/tree-sitter'
 import {
     isStatement
-} from '../src/contexts'
+} from '../src/utils/node-types'
 import {
     getRandomNodeMatches,
     getRandomNodeType,
