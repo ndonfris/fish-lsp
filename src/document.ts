@@ -7,21 +7,30 @@
 
 import * as LSP from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import { FISH_LOCATIONS } from './utils/locations';
+import {basename, resolve, sep} from 'path';
 
 export enum FishFileType {
     function,
     completion,
     script,
     config,
+    builtin_function,
+    builtin_completion,
 }
 
 export class LspDocument implements TextDocument {
 
     protected document: TextDocument;
 
+    private matchingDependency: string;
+    private fishFileType: FishFileType;
+
     constructor(doc: LSP.TextDocumentItem) {
         const { uri, languageId, version, text } = doc;
         this.document = TextDocument.create(uri, languageId, version, text);
+        this.fishFileType = this.setFishFileType()
+        this.matchingDependency = this.setMatchingDep();
     }
 
     get uri(): string {
@@ -77,23 +86,63 @@ export class LspDocument implements TextDocument {
         return LSP.Position.create(line, 0);
     }
 
+    getFileName() {
+        return basename(this.document.uri);
+    }
+
     /**
      * checks what type of fish file the current TextDocument is 
      * from the uri path 
      * 
      * @returns {FishFileType} config, functions, completions or script
      */
-    getFishFileType(): FishFileType {
-        const filepath = this.uri.split('/');
-        if (filepath[-1] === 'config.fish') {
-            return FishFileType.config;
-        } else if (filepath[-2] === 'functions') {
-            return FishFileType.function;
-        } else if (filepath[-2] === 'completions') {
+    setFishFileType(): FishFileType {
+        const filepath = this.uri
+        if (filepath.includes(FISH_LOCATIONS.config.completions)) {
             return FishFileType.completion;
-        } else {
-            return FishFileType.script;
+        } else if (filepath.includes(FISH_LOCATIONS.config.functions)) {
+            return FishFileType.function
+        } else if (filepath.includes(FISH_LOCATIONS.configFile)) {
+            return FishFileType.config
+        } else if (filepath.includes(FISH_LOCATIONS.builtins.functions)) {
+            return FishFileType.builtin_function
+        } else if (filepath.includes(FISH_LOCATIONS.builtins.completions)) {
+            return FishFileType.builtin_completion
+        } else  {
+            return FishFileType.script
         }
+    }
+
+    setMatchingDep(): string {
+        let dependency = ''
+        let dep_file = ''
+        switch(this.fishFileType) {
+        case FishFileType.completion:
+            dep_file = resolve(FISH_LOCATIONS.config.functions, dependency)
+            break;
+        case FishFileType.builtin_completion:
+            dep_file = resolve(FISH_LOCATIONS.builtins.functions, dependency)
+            break;
+        case FishFileType.function:
+            dep_file = resolve(FISH_LOCATIONS.config.completions, dependency)
+            break;
+        case FishFileType.builtin_function:
+            dep_file = resolve(FISH_LOCATIONS.builtins.completions, dependency)
+            break;
+        default:
+            dep_file = ''
+            break;
+        }
+        return dep_file + sep + this.getFileName()
+
+    }
+
+    getFishFileType() : FishFileType {
+        return this.fishFileType
+    }
+
+    getMatchingDep() : string {
+        return this.matchingDependency
     }
 
     applyEdit(version: number, change: LSP.TextDocumentContentChangeEvent): void {
@@ -102,7 +151,7 @@ export class LspDocument implements TextDocument {
         if (LSP.TextDocumentContentChangeEvent.isIncremental(change)) {
             const start = this.offsetAt(change.range.start);
             const end = this.offsetAt(change.range.end);
-            newContent = content.substr(0, start) + change.text + content.substring(end);
+            newContent = content.substring(0, start) + change.text + content.substring(end);
         }
         this.document = TextDocument.create(this.uri, this.languageId, version, newContent);
     }

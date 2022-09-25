@@ -37,6 +37,16 @@ export async function getRootNode(fname: string): Promise<SyntaxNode> {
     return tree.rootNode;
 }
 
+export async function readFishDir(dir: string): Promise<string[]> {
+    let files: string[] = []
+    try {
+        files = readdirSync(dir, {encoding:'utf8', withFileTypes: false})
+    } catch (e) {
+        console.log(e)
+    }
+    return files.map(file => dir + '/' + file.toString())
+}
+
 export async function readShareDir(): Promise<string[]> {
     let files: string[] = []
     try {
