@@ -9,7 +9,6 @@ export class LspDocuments {
 
     private readonly openDocuments: Map<string, LspDocument>;
 
-    // 
     public documents: Map<string, LspDocument>;
     public dependencies: Map<string, LspDocument[]>;
 
@@ -71,24 +70,10 @@ export class LspDocuments {
 
 
     /**
-     * checks if a uri is open for a document
-     */
-    isOpen(uri: string) : boolean {
-        return this._files.filter(openUri => openUri == uri).length > 0
-    }
-
-    /**
      * return all the documents seen in the _files field
      */
     getOpenDocuments(): LspDocument[] {
-        const result: LspDocument[] = [];
-        for (const docUri of this._files) {
-            const doc = this.get(docUri)
-            if (doc) {
-                result.push(doc)
-            }
-        }
-        return result;
+        return [...this.openDocuments.values()];
     }
 
     /**
@@ -96,13 +81,15 @@ export class LspDocuments {
      * and false if a document is already opened
      */
     async open(uri: string): Promise<boolean> {
-        if (this.isOpen(uri)) {
+        if (this.openDocuments.has(uri)) {
             return false;
         }
-        if (!this.get(uri)) {
+        const document = this.get(uri);
+        if (!document) {
             await this.newDocument(uri)
         }
         this._files.unshift(uri);
+        this.openDocuments.set(uri, document)
         return true;
     }
 
@@ -110,11 +97,12 @@ export class LspDocuments {
      * deletes an item from the _files array, and returns the document
      */
     close(uri: string): LspDocument | undefined {
-        const document = this.documents.get(uri);
+        const document = this.openDocuments.get(uri);
         if (!document) {
             return undefined;
         }
         this._files.splice(this._files.indexOf(uri), 1)
+        this.openDocuments.delete(uri);
         return document;
     }
 }
