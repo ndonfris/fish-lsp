@@ -84,12 +84,12 @@ export class LspDocuments {
         if (this.openDocuments.has(uri)) {
             return false;
         }
-        const document = this.get(uri);
-        if (!document) {
+        if (!this.get(uri)) {
             await this.newDocument(uri)
+            const document = this.get(uri) 
+            this.openDocuments.set(uri, document)
         }
         this._files.unshift(uri);
-        this.openDocuments.set(uri, document)
         return true;
     }
 
