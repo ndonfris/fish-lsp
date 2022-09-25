@@ -48,7 +48,7 @@ export class LspClientLogger implements Logger {
                     return p;
                 }
             }).join(' ');
-            const notify = new rpc.NotificationType<string, void>({
+            const notify = new rpc.NotificationType({
                 type: severity,
                 message: message,
             });

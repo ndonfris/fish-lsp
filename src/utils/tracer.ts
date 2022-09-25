@@ -13,7 +13,7 @@
 
 //import type tsp from 'typescript/lib/protocol.d.js';
 import {Event } from 'vscode-languageserver-protocol';
-import { Logger } from '../utils/logger';
+//import { Logger } from '../utils/logger';
 
 export enum Trace {
     Off,
@@ -45,7 +45,7 @@ interface RequestExecutionMetadata {
 
 export default class Tracer {
     constructor(
-        private readonly logger: Logger,
+        //private readonly logger: Logger,
         private readonly trace: Trace,
     ) {
     }
@@ -90,8 +90,8 @@ export default class Tracer {
     //}
 
     public logTrace(serverId: string, message: string, data?: any): void {
-        if (this.trace !== Trace.Off) {
-            this.logger.trace('Trace', `<${serverId}> ${message}`, data);
-        }
+        //if (this.trace !== Trace.Off) {
+        //    this.logger.trace('Trace', `<${serverId}> ${message}`, data);
+        //}
     }
 }

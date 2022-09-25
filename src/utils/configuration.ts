@@ -7,7 +7,7 @@
 
 /* eslint-disable @typescript-eslint/no-unnecessary-qualifier */
 
-import { Logger } from './logger';
+//import { Logger } from './logger';
 //import { LspClient } from '../lsp-client';
 
 export enum FishServerLogLevel {
@@ -47,9 +47,9 @@ export namespace FishServerLogLevel {
     }
 }
 
-export interface FishServiceConfiguration {
-    readonly logger: Logger;
-    //readonly lspClient: LspClient;
-    readonly tsserverLogVerbosity: FishServerLogLevel;
-    readonly tsserverPath?: string;
-}
+//export interface FishServiceConfiguration {
+//    //readonly logger: Logger;
+//    //readonly lspClient: LspClient;
+//    readonly tsserverLogVerbosity: FishServerLogLevel;
+//    readonly tsserverPath?: string;
+//}

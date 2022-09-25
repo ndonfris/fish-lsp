@@ -6,9 +6,8 @@ import {ServerCapabilities, TextDocumentClientCapabilities} from 'vscode-languag
 import which from 'which'
 import deepmerge from 'deepmerge';
 import path from 'node:path';
-import type * as lsp from 'vscode-languageserver';
-import type tsp from 'typescript/lib/protocol.d.js';
-import {CommandTypes, UserPreferences} from './fish-protocol';
+import * as lsp from 'vscode-languageserver';
+//import {CommandTypes, UserPreferences} from './fish-protocol';
 import {TextDocument} from 'vscode-languageserver-textdocument';
 //import { LspDocuments } from './document';
 //import { CommandTypes } from './tsp-command-types';
@@ -70,10 +69,10 @@ export interface WorkspaceConfiguration {
     diagnostics?: WorkspaceConfigurationDiagnosticsOptions;
 }
 
-export interface WorkspaceConfigurationLanguageOptions {
-    format?: tsp.FormatCodeSettings;
-    //inlayHints?: TypeScriptInlayHintsPreferences;
-}
+//export interface WorkspaceConfigurationLanguageOptions {
+//    format?: tsp.FormatCodeSettings;
+//    //inlayHints?: TypeScriptInlayHintsPreferences;
+//}
 
 /* eslint-enable @typescript-eslint/indent */
 interface WorkspaceConfigurationDiagnosticsOptions {

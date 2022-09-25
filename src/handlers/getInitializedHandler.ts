@@ -1,5 +1,5 @@
 import { URL } from 'url'
-import { WorkspaceFolder } from 'vscode-languageserver/node'
+import { InitializeResult, ServerCapabilities, WorkspaceFolder } from 'vscode-languageserver/node'
 import { analyze } from '../analyzer'
 //import { initFormatter } from '../format'
 import { Context } from '../interfaces'
@@ -12,36 +12,18 @@ export function getInitializedHandler(context: Context) {
         const urls: URL[] = workspaceFolders.flatMap((folder) =>
             getFishFilesInDir(folder.uri)
         );
+        // https://github.com/Beaglefoot/awk-language-server/blob/master/server/src/handlers/handleInitialize.ts
+        // youre mising some clear stuff like: parser, context, ...
 
         // Analyze every file in a workspace
         for (const url of urls) {
             const document = readDocumentFromUrl(context, url);
 
             if (!document) continue;
-
-            const update: Context = await analyze(context, document);
-            context.asts.set(url.href, update.asts.get(url.href));
-            //context.symbols.set(url.href, update.symbols.get(url.href));
-            context.roots.set(url.href, update.roots.get(url.href))
-            context.docs.set(url.href, update.docs.get(url.href))
-
-            //publish diagnostics right here ideally
-            //context.asts.get(url.href).getNodes()
-            //    .filter(node => node.firstChild?.text != null)
-            //    .filter(node => !context.symbols
-            //        .get(node.firstChild?.text.toString() || '') 
-            //    ).map(node => 
-            //        context.symbols[url.href]+=context.docs.get(node?.firstChild.text)
-            //    )
-
-            // context.asts.set(url.href) = tree
-            // symbols[url.href] = s
-            // namespaces[url.href] = ns
-            context.dependencies.update(url.href, new Set(update.dependencies));
         }
     }
 
-    return async function handleInitialized() {
+    return async function handleInitialized(){
         const progressReporter =
             await context.connection.window.createWorkDoneProgress();
         const workspaceFolders =
@@ -57,6 +39,30 @@ export function getInitializedHandler(context: Context) {
 
         progressReporter.begin("Initializing formatter");
         //initFormatter(workspaceFolders, context.connection)
+
+        const result: InitializeResult = {
+            capabilities: {
+                completionProvider: {
+                    resolveProvider : true,
+                    completionItem: {
+                        labelDetailsSupport: true
+                    },
+                    workDoneProgress: true,
+                },
+                definitionProvider: true,
+                hoverProvider: true,
+                //inlayHintProvider: true,
+                //executeCommandProvider: {
+                //commands: [
+                //"show.command_history"
+                //]
+                //}
+            }
+        }
+
         progressReporter.done();
+        return result
+
     };
+
 }

@@ -1,9 +1,8 @@
 
-import { execCommandDocs } from '../utils/exec';
-import { findNodeAt } from '../utils/tree-sitter';
+import { findNodeAt, getNodeText } from '../utils/tree-sitter';
 import { analyze } from '../analyzer';
 import {Context} from '../interfaces';
-import {DocumentFormattingParams, Hover, HoverParams, TextDocumentPositionParams} from 'vscode-languageserver-protocol/node';
+import {Hover, HoverParams, TextDocumentPositionParams} from 'vscode-languageserver-protocol/node';
 import {TextDocument} from 'coc.nvim';
 import { findParentCommand } from '../utils/node-types'
 
@@ -22,31 +21,54 @@ export async function getCurrentNodeFromPostition(context: Context,params: TextD
 
 }
 
+export async function resolveUnknownDocument(uri: string, context: Context): Promise<TextDocument | null> {
+    
+    const currDoc = context.documents.get(uri);
+    if (currDoc != undefined) {
+        await analyze(context, currDoc);
+        return currDoc;
+    }
+
+    for (const doc of context.documents.all()) {
+        await analyze(context, doc);
+        if (doc.uri == uri) {
+            return doc;
+        }
+    }
+    return null;
+
+}
+
 
 export function getHandleHover(context: Context) {
 
-    const {docs} = context
+    const {roots, asts, docs} = context
 
 
-    return async function getHover(params: HoverParams | TextDocumentPositionParams) {
-        const cmd = "";
-
-        //findParentCommand(findNodeAt())
-
+    return async function getHover(params: HoverParams): Promise<void | Hover> {
 
         const uri = params.textDocument.uri;
+        const currentDoc = await resolveUnknownDocument(uri, context)
+
+        if (!currentDoc){
+            return 
+        }
+        
+        const currentNode = findNodeAt(context.asts.get(uri).rootNode.tree, params.position.line, params.position.character)
+
+        if (!currentNode) return
+
+        const cmdNode = findParentCommand(currentNode)!
+        if (!cmdNode) return
+
+        const cmd = getNodeText(cmdNode)
+
         if (!cmd) return;
         if (context.docs.has(cmd)) {
             return context.docs.get(cmd);
         }
 
-        const tree = context.asts.get(uri)
-
-        const textDoc = context.documents.get(uri)
-        if (textDoc) {
-            return textDoc
-        }
-        
+        return
 
         //TODO:
         // handle the hover
