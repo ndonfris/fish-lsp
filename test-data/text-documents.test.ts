@@ -8,8 +8,9 @@ import {
 } from './helpers'
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { LspDocuments } from '../src/files'
+import { LspDocuments } from '../src/document'
 import  { getAllFishLocations, FISH_LOCATIONS } from '../src/utils/locations'
+import {TextDocuments} from 'vscode-languageserver';
 
 
 
@@ -28,7 +29,7 @@ describe("analyzer output", () => {
 
     it('testing nodes if FISH_LOCATIONS works', async () => {
         const files = await readShareDir()
-        const docs = new LspDocuments();
+        const docs = new LspDocuments(new TextDocuments(TextDocument));
         if (files.length) {
             files.forEach(async file => {
                 await docs.newDocument(file)
@@ -49,7 +50,7 @@ describe("analyzer output", () => {
         if (!files) {
             fail('getAllFishLocations() failed in text-documents.test.ts')
         }
-        const docs = new LspDocuments();
+        const docs = new LspDocuments(new TextDocuments(TextDocument));
         files.forEach(async file => {
             await docs.newDocument(file)
             const logtxt = docs.get(file)?.uri || "";

@@ -110,3 +110,10 @@ export async function generateCompletionArguments(cmd: string): Promise<Completi
         args: args
     }
 }
+
+
+export async function execFindDependency(cmd: string): Promise<string> {
+    const file = resolve(__dirname, '../fish_files/get-dependency.fish')
+    const docs = execFileSync(file, [cmd])
+    return docs.toString().trim();
+}

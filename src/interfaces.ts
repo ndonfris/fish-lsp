@@ -11,8 +11,8 @@ import {
 } from "vscode-languageserver";
 import { Tree } from 'web-tree-sitter'
 import * as Parser from 'web-tree-sitter'
-import {AstNodes} from './analyzer';
-import {DependencyMap} from './dependencies';
+//import {AstNodes} from './analyzer';
+//import {DependencyMap} from './dependencies';
 
 type SymbolName = string
 type Namespace = string
@@ -64,14 +64,14 @@ export interface DocsMap extends Map<string, Hover> {
     values(): IterableIterator<Hover>
 }
 
-export interface AstsMap extends Map<string, AstNodes> {
-    /** Returns an iterable of entries in the map. */
-    [Symbol.iterator](): IterableIterator<[string, AstNodes]>;
-    has(k: string): boolean;
-    get(k: string): AstNodes;
-    keys(): IterableIterator<string>;
-    values(): IterableIterator<AstNodes>;
-}
+//export interface AstsMap extends Map<string, AstNodes> {
+//    /** Returns an iterable of entries in the map. */
+//    [Symbol.iterator](): IterableIterator<[string, AstNodes]>;
+//    has(k: string): boolean;
+//    get(k: string): AstNodes;
+//    keys(): IterableIterator<string>;
+//    values(): IterableIterator<AstNodes>;
+//}
 
 
 export interface CliOptions {
@@ -81,10 +81,10 @@ export interface CliOptions {
 export interface Context {
     connection: Connection
     documents: TextDocuments<TextDocument>
-    dependencies?: DependencyMap
+    //dependencies?: DependencyMap
     capabilities?: ClientCapabilities
     parser: Parser
-    asts: AstsMap
+    //asts: AstsMap
     roots: RootsMap
     symbols?: SymbolsMap
     docs: DocsMap

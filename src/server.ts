@@ -6,19 +6,19 @@
  */
 
 import {
-    createConnection,
     TextDocuments,
     ProposedFeatures,
     ServerCapabilities,
+    TextDocumentPositionParams,
+    Hover,
 } from "vscode-languageserver/node";
 import * as LSP from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import Parser from "web-tree-sitter";
-import { DependencyMap } from "./dependencies";
 import { getInitializedHandler } from "./handlers/getInitializedHandler";
 import { handleInitialized } from "./handlers/handleInitialized";
 import { getHandleHover } from "./handlers/handleHover";
-import { AstsMap, CliOptions, Context, DocsMap, RootsMap } from "./interfaces";
+//import { AstsMap, CliOptions, Context, DocsMap, RootsMap } from "./interfaces";
 import { LspDocument, LspDocuments } from "./document";
 import { initializeParser } from "./parser";
 import { MyAnalyzer } from "./analyse";
@@ -49,6 +49,7 @@ export default class FishServer {
             parser,
             documents,
             analyzer,
+            //dependencies,
             capabilities
         );
     }
@@ -57,6 +58,7 @@ export default class FishServer {
     private analyzer: MyAnalyzer;
     private parser: Parser;
     //private logger: Logger;
+    //private dependencies: Dependencies;
     private connection: LSP.Connection;
     private clientCapabilities: LSP.ClientCapabilities;
 
@@ -84,12 +86,12 @@ export default class FishServer {
             if (isOpen) {
                 const doc = this.documents.get(uri)!;
                 this.analyzer.analyze(doc);
-                // add dependencies
+                // dependencies are handled in analyze()
                 // push diagnostics
             } else {
                 // already open (republish diagnostics)
                 // check if new command added
-                this.analyzer.analyze(uri);
+                this.analyzer.analyze(document);
             }
         });
 
@@ -118,19 +120,31 @@ export default class FishServer {
             // For now we're using full-sync even though tree-sitter has great support
             // for partial updates.
             textDocumentSync: LSP.TextDocumentSyncKind.Full,
-            completionProvider: {
-                resolveProvider: true,
-                triggerCharacters: ["$", "{"],
-            },
+            //completionProvider: {
+            //    resolveProvider: true,
+            //    triggerCharacters: ["$", "-"],
+            //},
             hoverProvider: true,
-            documentHighlightProvider: true,
-            definitionProvider: true,
-            documentSymbolProvider: true,
-            workspaceSymbolProvider: true,
-            referencesProvider: true,
+            //documentHighlightProvider: true,
+            //definitionProvider: true,
+            //documentSymbolProvider: true,
+            //workspaceSymbolProvider: true,
+            //referencesProvider: true,
         };
     }
 
+    public onHover(params: TextDocumentPositionParams): Hover | void {
+        try {
+            const uri = params.textDocument.uri;
+            if (!uri) return
+            return this.analyzer.getHover(params)
+        } catch (err) {
+        }
+        return; 
+    }
 
+    //public onComplete(params: TextDocumentPositionParams): {}
+
+    //public onCompleteResolve(item: CompletionItem): {}
 
 }

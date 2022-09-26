@@ -85,8 +85,11 @@ export class LspDocuments {
      */
     public addDependency(uri: string, depUri: string) {
         const newDep = this.get(depUri);
-        if (newDep) {
-            const oldDeps = this.getDependencies(uri)
+        const oldDeps = this.getDependencies(uri)
+        if (oldDeps.includes(depUri)) {
+            return 
+        }
+        if (newDep && !oldDeps.includes(depUri)) {
             this.dependencies.set(uri, [...oldDeps, newDep]);
         }
     }
@@ -109,8 +112,10 @@ export class LspDocuments {
         }
         if (!this.get(uri)) {
             await this.newDocument(uri)
-            const document = this.documents.has(uri) && this.get(uri)! 
-            this.openDocuments.set(uri, document)
+            const document = this.documents.get(uri)
+            if (this.documents.has(uri) && document) {
+                this.openDocuments.set(uri, document)
+            }
         }
         this._files.unshift(uri);
         return true;

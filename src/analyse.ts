@@ -1,9 +1,9 @@
-import {CompletionItem, Connection, Hover, TextDocumentPositionParams} from 'vscode-languageserver';
+import {CompletionItem, Connection, Hover, Location, TextDocumentPositionParams} from 'vscode-languageserver';
 import {TextDocument} from 'vscode-languageserver-textdocument';
 import Parser, {SyntaxNode, Point, Range, Tree} from 'web-tree-sitter';
 import {documentationHoverCommandArg, documentationHoverProvider, enrichToCodeBlockMarkdown} from './documentation';
 import {Context} from './interfaces';
-import {CompletionArguments, generateCompletionArguments} from './utils/exec';
+import {CompletionArguments, execFindDependency, generateCompletionArguments} from './utils/exec';
 import {getAllFishLocations} from './utils/locations';
 import {findParentCommand, isCommand, isFunctionDefinintion, isVariable, isVariableDefintion} from './utils/node-types';
 import {findNodeAt, getNodes, getNodeText, getRange} from './utils/tree-sitter';
@@ -14,12 +14,14 @@ export class MyAnalyzer {
     private uriToSyntaxTree: { [uri: string]: SyntaxTree}
     private globalDocs: { [uri: string]: Hover}
     private completions: { [uri: string]: CompletionArguments }
+    private dependencies: { [cmd: string]: string}
 
     constructor(parser: Parser) {
         this.parser = parser;
         this.uriToSyntaxTree = {};
         this.globalDocs = {};
         this.completions = {};
+        this.dependencies = {};
     }
 
     async analyze(document: TextDocument) {
@@ -39,6 +41,12 @@ export class MyAnalyzer {
             const cmps = await generateCompletionArguments(cmd)
             if (docs) this.globalDocs[cmd] = docs;
             if (cmps) this.completions[cmd] = cmps;
+            if (this.dependencies[cmd] === undefined) {
+                const path = await execFindDependency(cmd)
+                if (path.trim() != '') {
+                    this.dependencies[cmd] = path
+                }
+            }
         }
     }
 
@@ -95,11 +103,41 @@ export class MyAnalyzer {
         return
     }
 
+    getTreeForUri(uri: string) : SyntaxTree | null {
+        if (!this.uriToSyntaxTree[uri]) {
+            return null
+        }
+        return this.uriToSyntaxTree[uri]
+    }
 }
 
 function generateInitialSyntaxTree(parser: Parser, text: string) {
     const tree = parser.parse(text);
     return new SyntaxTree(tree);
+}
+
+
+interface depResult {
+    localDeps: string[];
+    globalDeps: {[name: string]: string} ;
+}
+
+async function getDependencies(tree: SyntaxTree, depMap: {[name: string]: string}): Promise<depResult> {
+    const result: string[] = [];
+    for (const cmd of tree.commands) {
+        const cmdText = cmd?.firstChild?.text.trim() || "";
+        if (cmdText && depMap[cmdText] !== undefined) {
+            result.push(depMap[cmdText]);
+            continue;
+        } 
+        if (cmdText && depMap[cmdText] === undefined) {
+            const depUri = await execFindDependency(cmdText);
+            if (!depUri || depUri.trim() == "") continue;
+            depMap[cmdText] = depUri;
+            result.push(depUri);
+        }
+    }
+    return {localDeps: result, globalDeps: depMap};
 }
 
 
