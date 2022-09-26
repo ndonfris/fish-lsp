@@ -1,5 +1,8 @@
 import {Hover, MarkupContent, MarkupKind} from 'vscode-languageserver-protocol/node';
-import {execCommandDocs, execCommandType} from './utils/exec';
+import {SyntaxNode} from 'web-tree-sitter';
+import {execCommandDocs, execCommandType, CompletionArguments} from './utils/exec';
+import {getNodes, getNodeText} from './utils/tree-sitter';
+
 
 
 export type markdownFiletypes = 'fish' | 'man';
@@ -62,5 +65,15 @@ export async function documentationHoverProvider(cmd: string) : Promise<Hover | 
 }
 
 
+export function documentationHoverCommandArg(root: SyntaxNode, cmp: CompletionArguments) : Hover {
+    let text = ['__'+cmp.command+'__','---'].join('\n')
+    for (const node of getNodes(root)) {
+        const nodeText = getNodeText(node)
+        if (nodeText.startsWith('-') && cmp.args[nodeText]) {
+            text += '\n' + nodeText + ' _' +cmp.args[nodeText] + '_'
+        }
+    }
+    return {contents: enrichToMarkdown(text)}
+}
 
 

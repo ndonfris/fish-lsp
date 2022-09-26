@@ -35,6 +35,7 @@ export function getSymbolKind(treeKind: string): SymbolKind {
 // Value is array because symbol with the same name can be defined globally and as a function parameter
 export type SymbolsMap = Map<SymbolName, SymbolInformation[]>
 
+// namespaces can be commands, you could then check if the range of the current node is a namespace
 export type NamespaceMap = Map<Namespace, Range>
 
 export interface SymbolsByUri {

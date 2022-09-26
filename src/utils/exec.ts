@@ -88,3 +88,25 @@ export async function execCommandType(cmd: string): Promise<string> {
     return docs.toString().trim();
 }
 
+export interface CompletionArguments {
+    command: string;
+    args: {
+        [arg: string]: string
+    }
+}
+
+export async function generateCompletionArguments(cmd: string): Promise<CompletionArguments> {
+    const cmdArgs = await execCompleteCmdArgs(cmd)
+    const cmdDescription = await execAsync(`fish -c "__fish_describe_command ${cmd}" | head -n1`)
+    const cmdHeader = cmdDescription.stdout.toString() || cmd;
+    const args: {[arg: string]: string} = {};
+    for (const arg of cmdArgs) {
+        const flag = arg.split('\t', 1)[0].trim()
+        const description =  arg.split('\t', 1)[1].trim()
+        args[flag] = description
+    }
+    return {
+        command: cmdHeader,
+        args: args
+    }
+}
