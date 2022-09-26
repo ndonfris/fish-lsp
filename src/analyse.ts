@@ -2,7 +2,6 @@ import {CompletionItem, Connection, Hover, Location, TextDocumentPositionParams}
 import {TextDocument} from 'vscode-languageserver-textdocument';
 import Parser, {SyntaxNode, Point, Range, Tree} from 'web-tree-sitter';
 import {documentationHoverCommandArg, documentationHoverProvider, enrichToCodeBlockMarkdown} from './documentation';
-import {Context} from './interfaces';
 import {CompletionArguments, execFindDependency, generateCompletionArguments} from './utils/exec';
 import {getAllFishLocations} from './utils/locations';
 import {findParentCommand, isCommand, isFunctionDefinintion, isVariable, isVariableDefintion} from './utils/node-types';

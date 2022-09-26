@@ -32,13 +32,13 @@ export class LspDocuments {
     public listener: TextDocuments<TextDocument>;
 
     public documents: Map<string, LspDocument>;
-    public dependencies: Map<string, LspDocument[]>;
+    //public dependencies: Map<string, LspDocument[]>;
 
     constructor(listener: LSP.TextDocuments<TextDocument>) {
         this.openDocuments = new Map<string, LspDocument>();
         this.listener = listener;
         this.documents = new Map<string, LspDocument>();
-        this.dependencies = new Map<string, LspDocument[]>();
+        //this.dependencies = new Map<string, LspDocument[]>();
     }
 
     /**
@@ -67,32 +67,32 @@ export class LspDocuments {
             return
         }
         this.documents.set(uri, document)
-        this.dependencies.set(uri, [])
+        //this.dependencies.set(uri, [])
     }
 
-    getDependencies(uri: string) {
-        const deps = this.dependencies.get(uri)
-        if (!deps) {
-            return [] as LspDocument[]
-        }
-        return deps
-    }
+    //getDependencies(uri: string) {
+    //    const deps = this.dependencies.get(uri)
+    //    if (!deps) {
+    //        return [] as LspDocument[]
+    //    }
+    //    return deps
+    //}
 
-    /**
-     * add a new Dependency, to the document
-     * @param {string} uri - the uri that has a dependency
-     * @param {string} depUri - the uri that is the depency
-     */
-    public addDependency(uri: string, depUri: string) {
-        const newDep = this.get(depUri);
-        const oldDeps = this.getDependencies(uri)
-        if (oldDeps.includes(depUri)) {
-            return 
-        }
-        if (newDep && !oldDeps.includes(depUri)) {
-            this.dependencies.set(uri, [...oldDeps, newDep]);
-        }
-    }
+    ///**
+    // * add a new Dependency, to the document
+    // * @param {string} uri - the uri that has a dependency
+    // * @param {string} depUri - the uri that is the depency
+    // */
+    //public addDependency(uri: string, depUri: string) {
+    //    const newDep = this.get(depUri);
+    //    const oldDeps = this.getDependencies(uri)
+    //    if (oldDeps.includes(depUri)) {
+    //        return 
+    //    }
+    //    if (newDep && !oldDeps.includes(depUri)) {
+    //        this.dependencies.set(uri, [...oldDeps, newDep]);
+    //    }
+    //}
 
 
     /**

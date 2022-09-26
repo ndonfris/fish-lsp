@@ -15,9 +15,9 @@ import {
 import * as LSP from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import Parser from "web-tree-sitter";
-import { getInitializedHandler } from "./handlers/getInitializedHandler";
-import { handleInitialized } from "./handlers/handleInitialized";
-import { getHandleHover } from "./handlers/handleHover";
+//import { getInitializedHandler } from "./handlers/getInitializedHandler";
+//import { handleInitialized } from "./handlers/handleInitialized";
+//import { getHandleHover } from "./handlers/handleHover";
 //import { AstsMap, CliOptions, Context, DocsMap, RootsMap } from "./interfaces";
 import { LspDocument, LspDocuments } from "./document";
 import { initializeParser } from "./parser";
@@ -104,7 +104,7 @@ export default class FishServer {
         // if formatting is enabled in settings. add onContentDidSave
 
         // Register all the handlers for the LSP events.
-        // connection.onHover(this.onHover.bind(this))
+        connection.onHover(this.onHover.bind(this))
         // connection.onDefinition(this.onDefinition.bind(this))
         // connection.onDocumentSymbol(this.onDocumentSymbol.bind(this))
         // connection.onWorkspaceSymbol(this.onWorkspaceSymbol.bind(this))
@@ -125,22 +125,22 @@ export default class FishServer {
             //    triggerCharacters: ["$", "-"],
             //},
             hoverProvider: true,
-            //documentHighlightProvider: true,
-            //definitionProvider: true,
-            //documentSymbolProvider: true,
-            //workspaceSymbolProvider: true,
-            //referencesProvider: true,
+            documentHighlightProvider: true,
+            definitionProvider: true,
+            documentSymbolProvider: true,
+            workspaceSymbolProvider: true,
+            referencesProvider: true,
         };
     }
 
-    public onHover(params: TextDocumentPositionParams): Hover | void {
-        try {
-            const uri = params.textDocument.uri;
-            if (!uri) return
-            return this.analyzer.getHover(params)
-        } catch (err) {
-        }
-        return; 
+    private async onHover(params: TextDocumentPositionParams): Promise<Hover | null> {
+        const uri = params.textDocument.uri;
+        if (!uri) return null
+        const doc = this.documents.get(uri)!;
+        this.analyzer.analyze(doc);
+        const hover = this.analyzer.getHover(params)
+        if (!hover) return null
+        return hover
     }
 
     //public onComplete(params: TextDocumentPositionParams): {}

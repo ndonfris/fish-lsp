@@ -15,7 +15,7 @@
     "lib"
   ],
   "bin": {
-    "fish-language-server": "./lib/cli.js"
+    "fish-language-server": "./lib/src/index.js"
   },
   "scripts": {
     "clean": "rimraf lib *.tsbuildinfo",
