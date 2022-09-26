@@ -10,6 +10,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { createTextDocumentFromFilePath } from './utils/io';
 import { FISH_LOCATIONS } from './utils/locations';
 import {basename, resolve, sep} from 'path';
+import { TextDocuments } from 'vscode-languageserver'
 
 export enum FishFileType {
     function,
@@ -25,13 +26,17 @@ export class LspDocuments {
     // consider changing to a map or an object with the keyof syntax
     private readonly _files: string[] = [];
 
+    // use TextDocuments 
     private readonly openDocuments: Map<string, LspDocument>;
+
+    public listener: TextDocuments<TextDocument>;
 
     public documents: Map<string, LspDocument>;
     public dependencies: Map<string, LspDocument[]>;
 
-    constructor() {
+    constructor(listener: LSP.TextDocuments<TextDocument>) {
         this.openDocuments = new Map<string, LspDocument>();
+        this.listener = listener;
         this.documents = new Map<string, LspDocument>();
         this.dependencies = new Map<string, LspDocument[]>();
     }
@@ -104,7 +109,7 @@ export class LspDocuments {
         }
         if (!this.get(uri)) {
             await this.newDocument(uri)
-            const document = this.documents.has(uri) && this.get(uri) 
+            const document = this.documents.has(uri) && this.get(uri)! 
             this.openDocuments.set(uri, document)
         }
         this._files.unshift(uri);

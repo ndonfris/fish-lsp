@@ -64,16 +64,30 @@ export async function documentationHoverProvider(cmd: string) : Promise<Hover | 
     }
 }
 
+function commandStringHelper(cmd: string) {
+    const cmdArray = cmd.split(' ', 1)
+    return cmdArray.length > 1
+        ? '___' + cmdArray[0] + '___' + ' ' + cmdArray[1] 
+        :'___' + cmdArray[0] + '___'  
+}
 
 export function documentationHoverCommandArg(root: SyntaxNode, cmp: CompletionArguments) : Hover {
-    let text = ['__'+cmp.command+'__','---'].join('\n')
+    let text = '';
     for (const node of getNodes(root)) {
         const nodeText = getNodeText(node)
         if (nodeText.startsWith('-') && cmp.args[nodeText]) {
-            text += '\n' + nodeText + ' _' +cmp.args[nodeText] + '_'
+            text += '\n' + '_' + nodeText + '_ ' +cmp.args[nodeText]
         }
     }
-    return {contents: enrichToMarkdown(text)}
+    const cmd = commandStringHelper(cmp.command.trim())
+    return {contents: 
+        enrichToMarkdown(
+            [
+                cmd,
+                '---',
+                text.trim()
+            ].join('\n')
+        )
+    }
 }
-
 

@@ -15,7 +15,6 @@ export class MyAnalyzer {
     private globalDocs: { [uri: string]: Hover}
     private completions: { [uri: string]: CompletionArguments }
 
-
     constructor(parser: Parser) {
         this.parser = parser;
         this.uriToSyntaxTree = {};
@@ -43,6 +42,17 @@ export class MyAnalyzer {
         }
     }
 
+    async complete(params: TextDocumentPositionParams) {
+        const uri = params.textDocument.uri;
+        const tree = this.uriToSyntaxTree[uri]
+        const node = this.nodeAtPoint(params)
+        const text = this.wordAtPoint(params)
+        if (!node || !text) {
+            return
+        }
+        const cmd = findParentCommand(node);
+
+    }
 
     nodeAtPoint(params: TextDocumentPositionParams) {
         const uri = params.textDocument.uri;
