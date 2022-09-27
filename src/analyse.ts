@@ -23,15 +23,14 @@ export class MyAnalyzer {
         this.dependencies = {};
     }
 
-    async analyze(document: TextDocument) {
-
-        if (!this.uriToSyntaxTree[document.uri]) {
-            this.uriToSyntaxTree[document.uri] = generateInitialSyntaxTree(this.parser, document.getText());
+    async analyze(uri: string, document: TextDocument) {
+        if (!this.uriToSyntaxTree[uri]) {
+            this.uriToSyntaxTree[uri] = generateInitialSyntaxTree(this.parser, document.getText());
         }
-        this.uriToSyntaxTree[document.uri].ensureAnalyzed()
+        this.uriToSyntaxTree[uri].ensureAnalyzed()
 
         const uniqCommands = 
-            this.uriToSyntaxTree[document.uri]
+            this.uriToSyntaxTree[uri]
             .getUniqueCommands()
             .filter((cmd: string) => this.globalDocs[cmd] === undefined)
 
@@ -52,8 +51,8 @@ export class MyAnalyzer {
     async complete(params: TextDocumentPositionParams) {
         const uri = params.textDocument.uri;
         const tree = this.uriToSyntaxTree[uri]
-        const node = this.nodeAtPoint(params)
-        const text = this.wordAtPoint(params)
+        const node = this.nodeAtPoint(params.textDocument.uri, params.position.line, params.position.character)
+        const text = this.wordAtPoint(params.textDocument.uri, params.position.line, params.position.character) 
         if (!node || !text) {
             return
         }
@@ -61,33 +60,42 @@ export class MyAnalyzer {
 
     }
 
-    nodeAtPoint(params: TextDocumentPositionParams) {
-        const uri = params.textDocument.uri;
-        if (!this.uriToSyntaxTree[uri]) {
-            return;
-        }
-        const currentTree = this.uriToSyntaxTree[uri]
-        const node = findNodeAt(currentTree.tree, params.position.line, params.position.character)
-        if (!node || node.text.trim() == '') {
-            return;
-        }
-        return node;
+  /**
+   * Find the node at the given point.
+   */
+  private nodeAtPoint(
+    uri: string,
+    line: number,
+    column: number,
+  ): Parser.SyntaxNode | null {
+    const document = this.uriToSyntaxTree[uri]
+    if (!document?.rootNode) {
+      // Check for lacking rootNode (due to failed parse?)
+      return null
     }
 
-    wordAtPoint(params: TextDocumentPositionParams) {
-        const node = this.nodeAtPoint(params)
-        if (!node) {
-            return
-        }
-        return getNodeText(node);
+    return document.rootNode.descendantForPosition({ row: line, column })
+  }
+
+  /**
+   * Find the full word at the given point.
+   */
+  public wordAtPoint(uri: string, line: number, column: number): string | null {
+    const node = this.nodeAtPoint(uri, line, column)
+
+    if (!node || node.childCount > 0 || node.text.trim() === '') {
+      return null
     }
+
+    return node.text.trim()
+  }
 
 
     getHover(params: TextDocumentPositionParams) : Hover | void{
         const uri = params.textDocument.uri;
         const tree = this.uriToSyntaxTree[uri]
-        const node = this.nodeAtPoint(params)
-        const text = this.wordAtPoint(params)
+        const node = this.nodeAtPoint(params.textDocument.uri, params.position.line, params.position.character)
+        const text = this.wordAtPoint(params.textDocument.uri, params.position.line, params.position.character) 
         if (!node || !text) {
             return
         }

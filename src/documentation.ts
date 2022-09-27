@@ -23,7 +23,7 @@ export function enrichToCodeBlockMarkdown(doc: string, filetype:markdownFiletype
             '```' + filetype,
             doc.trim(),
             '```'
-        ].join()
+        ].join('\n')
     }
 }
 
@@ -73,10 +73,11 @@ function commandStringHelper(cmd: string) {
 
 export function documentationHoverCommandArg(root: SyntaxNode, cmp: CompletionArguments) : Hover {
     let text = '';
+    const argsArray = [...cmp.args.keys()]
     for (const node of getNodes(root)) {
         const nodeText = getNodeText(node)
-        if (nodeText.startsWith('-') && cmp.args[nodeText]) {
-            text += '\n' + '_' + nodeText + '_ ' +cmp.args[nodeText]
+        if (nodeText.startsWith('-') && argsArray.includes(nodeText)) {
+            text += '\n' + '_' + nodeText + '_ ' + cmp.args.get(nodeText)
         }
     }
     const cmd = commandStringHelper(cmp.command.trim())

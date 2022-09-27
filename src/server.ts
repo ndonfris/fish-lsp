@@ -23,6 +23,10 @@ import { LspDocument, LspDocuments } from "./document";
 import { initializeParser } from "./parser";
 import { MyAnalyzer } from "./analyse";
 import { getAllFishLocations } from "./utils/locations";
+import {findParentCommand} from './utils/node-types';
+import {execCommandDocs} from './utils/exec';
+import {documentationHoverProvider, enrichToMarkdown} from './documentation';
+import {Logger} from './logger';
 
 /**
  * The BashServer glues together the separate components to implement
@@ -60,6 +64,7 @@ export default class FishServer {
     //private logger: Logger;
     //private dependencies: Dependencies;
     private connection: LSP.Connection;
+    private logger: Logger;
     private clientCapabilities: LSP.ClientCapabilities;
 
     private constructor(
@@ -70,6 +75,7 @@ export default class FishServer {
         capabilities: LSP.ClientCapabilities
     ) {
         this.connection = connection;
+        this.logger = new Logger(this.connection)
         this.documents = documents;
         this.parser = parser;
         this.analyzer = analyzer;
@@ -77,21 +83,33 @@ export default class FishServer {
     }
 
     public register(connection: LSP.Connection): void {
-        const opened = this.documents.getOpenDocuments();
+        //const opened = this.documents.getOpenDocuments();
         this.documents.listener.listen(connection);
-        this.documents.listener.onDidChangeContent(async (change) => {
+        this.documents.listener.onDidOpen(async open => {
+            const { document } = open;
+            const uri = document.uri;
+            this.documents.newDocument(uri);
+            this.documents.open(uri)
+            this.logger.log(`${uri}`, 'onDidOpen')
+            this.analyzer.analyze(uri, document)
+        })
+        this.documents.listener.onDidChangeContent(async change => {
             const { document } = change;
             const uri = document.uri;
+            this.documents.newDocument(uri);
+            this.logger.log(uri, 'onDidChangeContent')
             const isOpen = await this.documents.open(uri);
             if (isOpen) {
+                this.documents.newDocument(uri)
                 const doc = this.documents.get(uri)!;
-                this.analyzer.analyze(doc);
+                this.analyzer.analyze(uri, doc);
                 // dependencies are handled in analyze()
                 // push diagnostics
             } else {
                 // already open (republish diagnostics)
                 // check if new command added
-                this.analyzer.analyze(document);
+                const doc = this.documents.get(uri)!;
+                this.analyzer.analyze(uri, doc);
             }
         });
 
@@ -99,6 +117,7 @@ export default class FishServer {
             const { document } = change;
             const uri = document.uri;
             const doc = this.documents.close(uri);
+            this.logger.log(uri, 'onDidClose')
             return doc;
         });
         // if formatting is enabled in settings. add onContentDidSave
@@ -127,7 +146,7 @@ export default class FishServer {
             hoverProvider: true,
             documentHighlightProvider: true,
             definitionProvider: true,
-            documentSymbolProvider: true,
+            //documentSymbolProvider: true,
             workspaceSymbolProvider: true,
             referencesProvider: true,
         };
@@ -135,12 +154,27 @@ export default class FishServer {
 
     private async onHover(params: TextDocumentPositionParams): Promise<Hover | null> {
         const uri = params.textDocument.uri;
-        if (!uri) return null
-        const doc = this.documents.get(uri)!;
-        this.analyzer.analyze(doc);
-        const hover = this.analyzer.getHover(params)
-        if (!hover) return null
-        return hover
+        //if (!uri) return null
+        this.logger.log(uri, 'onHover')
+        //const doc = this.documents.get(uri)!;
+        //this.documents.newDocument(uri)
+        //this.analyzer.analyze(params.textDocument.uri, doc);
+        const node = this.analyzer.wordAtPoint(params.textDocument.uri, params.position.line, params.position.character)
+        //if (!node) return null
+        //const cmd = findParentCommand(node)
+        //const cmdText = cmd?.firstChild?.text.toString() || ""
+        //if (cmdText == "") return null
+        //const text = await execCommandDocs(cmdText)
+        if (!node) return null
+        const hov = this.analyzer.getHover(params)
+        if (!hov) {
+            this.logger.log('onHover: failed')
+            return null
+        }
+        return hov
+        //const hover = this.analyzer.getHover(params)
+        //if (!hover) return null
+        //return hover
     }
 
     //public onComplete(params: TextDocumentPositionParams): {}

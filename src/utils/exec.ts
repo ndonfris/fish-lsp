@@ -44,21 +44,24 @@ export async function execCompleteLine(cmd: string): Promise<string[]> {
 }
 
 export async function execCompleteCmdArgs(cmd: string): Promise<string[]> {
-    let results = await execEscapedCommand(`complete --do-complete='${cmd} -'`)
+    const exec = resolve(__dirname, '../../fish_files/get-command-options.fish')
+    const args = execFileSync(exec, [ cmd ])
+    const results = args.toString().trim().split('\n')
 
     let i = 0;
     let fixedResults: string[] = [];
     while ( i < results.length) {
         const line = results[i]
-        if (!line.startsWith('-', 0)) {
+        if( cmd === 'test') {
+            fixedResults.push(line) 
+        } else if (!line.startsWith('-', 0)) {
             //fixedResults.slice(i-1, i).join(' ')
-            fixedResults.push(fixedResults.pop()?.trimEnd() + ' ' + line.trim())
+            fixedResults.push(fixedResults.pop() + ' ' + line.trim())
         } else {
             fixedResults.push(line)
         }  
         i++;
     }
-
     return fixedResults;
 }
 
@@ -68,7 +71,7 @@ export async function execCompleteAbbrs(): Promise<string[]> {
 }
 
 export async function execCommandDocs(cmd: string): Promise<string> {
-    const file = resolve(__dirname, '../fish_files/get-documentation.fish')
+    const file = resolve(__dirname, '../../fish_files/get-documentation.fish')
     const docs = execFileSync(file, [cmd])
     return docs.toString().trim();
 }
@@ -83,37 +86,34 @@ export async function execCommandDocs(cmd: string): Promise<string> {
  *                     '' ->    cmd is neither
  */
 export async function execCommandType(cmd: string): Promise<string> {
-    const file = resolve(__dirname, '../fish_files/get-type.fish')
+    const file = resolve(__dirname, '../../fish_files/get-type.fish')
     const docs = execFileSync(file, [cmd])
     return docs.toString().trim();
 }
 
 export interface CompletionArguments {
     command: string;
-    args: {
-        [arg: string]: string
-    }
+    args: Map<string, string>;
 }
 
 export async function generateCompletionArguments(cmd: string): Promise<CompletionArguments> {
-    const cmdArgs = await execCompleteCmdArgs(cmd)
+    const outCmdArgs = await execCompleteCmdArgs(cmd)
     const cmdDescription = await execAsync(`fish -c "__fish_describe_command ${cmd}" | head -n1`)
     const cmdHeader = cmdDescription.stdout.toString() || cmd;
-    const args: {[arg: string]: string} = {};
-    for (const arg of cmdArgs) {
-        const flag = arg.split('\t', 1)[0].trim()
-        const description =  arg.split('\t', 1)[1].trim()
-        args[flag] = description
+    const cmdArgs = new Map<string, string>()
+    for (const line of outCmdArgs) {
+        const args = line.split('\t');
+        cmdArgs.set(args[0], args[1])
     }
     return {
         command: cmdHeader,
-        args: args
+        args: cmdArgs
     }
 }
 
 
 export async function execFindDependency(cmd: string): Promise<string> {
-    const file = resolve(__dirname, '../fish_files/get-dependency.fish')
+    const file = resolve(__dirname, '../../fish_files/get-dependency.fish')
     const docs = execFileSync(file, [cmd])
     return docs.toString().trim();
 }

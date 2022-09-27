@@ -1,18 +1,7 @@
 {
-    "include": [
-        "src",
-        "test-data"
-    ],
-    "exclude": [
-        "node_modules",
-        "removed"
-    ],
     "compilerOptions": {
-        "outDir": "./lib",
-        "rootDirs": [
-            "src"
-        ],
-        "rootDir": ".",
+        "outDir": "out",
+        "rootDir": "src",
         "strict": true,
         "composite": true,
         "declarationMap": true,
@@ -25,8 +14,16 @@
         "resolveJsonModule": true,
         "esModuleInterop": true,
         "lib": [
-            "es2021"
+            "es2021",
+            "DOM"
         ],
         "skipLibCheck": true
-    }
+    },
+    "include": [
+        "src"
+    ],
+    "exclude": [
+        "node_modules",
+        "removed"
+    ]
 }

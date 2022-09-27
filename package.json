@@ -11,12 +11,11 @@
   "engines": {
     "node": ">=14.16"
   },
-  "files": [
-    "lib"
-  ],
-  "bin": {
-    "fish-language-server": "./lib/src/index.js"
-  },
+  "main": "./out/server.js",
+  "typings": "./out/server.d.ts",
+    "bin": {
+    "fish-language-server": "./bin/main.js"
+    },
   "scripts": {
     "clean": "rimraf lib *.tsbuildinfo",
     "prepare:tests": "rm -f test_data/fish_files/*.fish && yarn run prepare:install:tests",

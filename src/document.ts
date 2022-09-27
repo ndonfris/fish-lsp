@@ -62,8 +62,9 @@ export class LspDocuments {
      * dependencies for a newDocument.
      */
     async newDocument(uri: string) {
-        const document = await createTextDocumentFromFilePath(uri)
-        if (!document) {
+        let document = await createTextDocumentFromFilePath(uri)
+        if (!document) return;
+        if (this._files.includes(document.uri)) {
             return
         }
         this.documents.set(uri, document)
