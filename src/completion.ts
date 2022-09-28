@@ -7,6 +7,9 @@ import {SyntaxNode} from 'web-tree-sitter';
 // try to get clean implementation of {...CompletionItem.create(), item: desc}
 
 
+// PREVIOUS: https://github.com/ndonfris/fishls/blob/master/server/src/complete.ts
+
+
 // • include pipe completions
 // • include escape character completions
 // • 
