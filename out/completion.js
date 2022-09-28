@@ -14,13 +14,18 @@ const vscode_languageserver_protocol_1 = require("vscode-languageserver-protocol
 // utils create CompletionResolver and CompletionItems
 // also decide which completion icons each item will have
 // try to get clean implementation of {...CompletionItem.create(), item: desc}
+// • include pipe completions
+// • include escape character completions
+// • 
+// • 
 class Completion {
-    // echo -e \
     constructor() {
+        this.isInsideCompletionsFile = false;
         this.completions = [];
         this.isIncomplete = false;
         this.isIncomplete = false;
         this.completions = [];
+        this.isInsideCompletionsFile = false;
     }
     // call in server.initialize()
     // also you could add the syntaxTree on 

@@ -6,6 +6,7 @@ export declare class Completion {
     private abbrList;
     private localVariablesList;
     private localFunctions;
+    private isInsideCompletionsFile;
     private completions;
     private isIncomplete;
     constructor();

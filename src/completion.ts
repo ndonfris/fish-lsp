@@ -5,6 +5,12 @@ import {SyntaxNode} from 'web-tree-sitter';
 // utils create CompletionResolver and CompletionItems
 // also decide which completion icons each item will have
 // try to get clean implementation of {...CompletionItem.create(), item: desc}
+
+
+// • include pipe completions
+// • include escape character completions
+// • 
+// • 
 export class Completion {
 
     private currentNode: SyntaxNode | undefined;
@@ -15,13 +21,15 @@ export class Completion {
     private localVariablesList: CompletionItem[] | undefined;
     private localFunctions: CompletionItem[] | undefined;
 
+    private isInsideCompletionsFile: boolean = false;
+
     private completions: CompletionItem[] = [];
     private isIncomplete: boolean = false;
 
-    // echo -e \
     constructor() {
         this.isIncomplete = false;
         this.completions = []
+        this.isInsideCompletionsFile = false; 
     }
 
     // call in server.initialize()
@@ -57,6 +65,13 @@ export class Completion {
     //      2.) with a params -> allows for fast implementation to server
     //                        -> this also needs to work for server.onHover()
     //      3.) with just text -> allows for extra simple tests
+    // 
+    //
+
+
+
+
+
 
 }
 
