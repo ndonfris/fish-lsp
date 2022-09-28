@@ -54,7 +54,7 @@ export class FishDiagnostics {
     //      • name matches filename
     //      • command not recognized
     //      • move functions to ~/.config/fish/functions/ instead of config/fish/config.fish
-    //
+    //      • local variable is not used
     // (rest of ideas below)
 
     constructor() {
