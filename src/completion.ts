@@ -55,6 +55,7 @@ export class Completion {
     // create (atleast) two methods for generating completions, 
     //      1.) with a syntaxnode -> allows for thorough testing
     //      2.) with a params -> allows for fast implementation to server
+    //                        -> this also needs to work for server.onHover()
     //      3.) with just text -> allows for extra simple tests
 
 }
