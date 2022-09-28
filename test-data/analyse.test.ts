@@ -107,6 +107,9 @@ describe("analyzer output", () => {
             tree.rootNode.descendantForPosition({column: 8, row: 35}),
             tree.rootNode.descendantForPosition({column: 8, row: 119}),
         ]
+        const cmpTestNodes = [
+            tree.rootNode.descendantForPosition({column: 58, row: 135})
+        ]
         //(54, 12)
         //console.log(testNode.text)
         //console.log(testNode.parent?.text)
@@ -123,6 +126,17 @@ describe("analyzer output", () => {
                 console.log(result.text);
                 expect(result.text != "").toBeTruthy()
             } 
+        })
+
+        console.log('\n\n\ncompletions\n---------------')
+        cmpTestNodes.forEach(testNode => {
+            //const result = tree.getNearestVariableDefinition(testNode)
+            console.log(`testNode: ${testNode.text}`)
+            //if (result) {
+            //    console.log(result.text);
+            //    expect(result.text != "").toBeTruthy()
+            //} 
+
         })
         //functionTestNodes.forEach(testNode => {
         //    const result = tree.getLocalFunctionDefinition(testNode)

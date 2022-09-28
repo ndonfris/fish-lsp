@@ -1,6 +1,7 @@
+import { TextDocumentPositionParams, CompletionItem } from "vscode-languageserver/node";
 import * as LSP from "vscode-languageserver/node";
 /**
- * The BashServer glues together the separate components to implement
+ * The FishServer glues together the separate components to implement
  * the various parts of the Language Server Protocol.
  */
 export default class FishServer {
@@ -19,5 +20,7 @@ export default class FishServer {
     register(connection: LSP.Connection): void;
     capabilities(): LSP.ServerCapabilities;
     private onHover;
+    onComplete(params: TextDocumentPositionParams): Promise<CompletionItem[] | void>;
+    onCompleteResolve(item: CompletionItem): Promise<CompletionItem>;
 }
 //# sourceMappingURL=server.d.ts.map

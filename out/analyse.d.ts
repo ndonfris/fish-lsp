@@ -23,6 +23,7 @@ export declare class MyAnalyzer {
     wordAtPoint(uri: string, line: number, column: number): string | null;
     nodeIsLocal(uri: string, node: SyntaxNode): Hover | void;
     getHover(params: TextDocumentPositionParams): Promise<Hover | void>;
+    getHoverFallback(uri: string, currentNode: SyntaxNode): Promise<void>;
     getTreeForUri(uri: string): SyntaxTree | null;
 }
 export declare class SyntaxTree {

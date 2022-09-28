@@ -175,6 +175,19 @@ export class MyAnalyzer {
         return 
     }
 
+    public async getHoverFallback(uri: string, currentNode: SyntaxNode) {
+        const tree = this.uriToSyntaxTree[uri];
+        if (!tree) { return }
+
+        const cmdNode = findParentCommand(currentNode);
+        if (!cmdNode) return
+        if (currentNode.text.startsWith('-')) {
+
+
+        }
+
+    }
+
     getTreeForUri(uri: string): SyntaxTree | null {
         if (!this.uriToSyntaxTree[uri]) {
             return null;

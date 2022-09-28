@@ -8,4 +8,7 @@ export declare function enrichCommandArg(doc: string): MarkupContent;
 export declare function enrichToPlainText(doc: string): MarkupContent;
 export declare function documentationHoverProvider(cmd: string): Promise<Hover | null>;
 export declare function documentationHoverCommandArg(root: SyntaxNode, cmp: CompletionArguments): Hover;
+export declare function forwardSubCommandCollect(rootNode: SyntaxNode): string[];
+export declare function forwardArgCommandCollect(rootNode: SyntaxNode): string[];
+export declare function collectCompletionOptions(rootNode: SyntaxNode): void;
 //# sourceMappingURL=documentation.d.ts.map

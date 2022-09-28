@@ -11,6 +11,7 @@ import {
     ServerCapabilities,
     TextDocumentPositionParams,
     Hover,
+    CompletionItem,
 } from "vscode-languageserver/node";
 import * as LSP from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
@@ -30,7 +31,7 @@ import {Logger} from './logger';
 import {createTextDocumentFromFilePath} from './utils/io';
 
 /**
- * The BashServer glues together the separate components to implement
+ * The FishServer glues together the separate components to implement
  * the various parts of the Language Server Protocol.
  */
 export default class FishServer {
@@ -45,12 +46,12 @@ export default class FishServer {
         const parser = await initializeParser();
         const analyzer = new MyAnalyzer(parser);
         const documents = new LspDocuments(new TextDocuments(TextDocument));
-        //const files = await getAllFishLocations();
-        //for (const file of files) {
-        //    //const doc =  await createTextDocumentFromFilePath(file)
-        //    //if (!doc) continue;
-        //    await analyzer.initialize(file)
-        //}
+        const files = await getAllFishLocations();
+        for (const file of files) {
+            //const doc =  await createTextDocumentFromFilePath(file)
+            //if (!doc) continue;
+            await analyzer.initialize(file)
+        }
         return new FishServer(
             connection,
             parser,
@@ -166,14 +167,16 @@ export default class FishServer {
         if (!node) return null
         this.logger.logmsg({ path: uri, action:'onHover', params: params, node: node})
 
-        const localHoverDoc = this.analyzer.nodeIsLocal(uri, node) 
-        if (localHoverDoc) return localHoverDoc
+        const hoverDoc = this.analyzer.nodeIsLocal(uri, node)  || await this.analyzer.getHover(params) 
+        if (hoverDoc) {
+            return hoverDoc
+        }
 
-        const globalHoverDoc = await this.analyzer.getHover(params) 
-
-        if (globalHoverDoc) return globalHoverDoc
+        // TODO: heres where you should use fallback completion, and argument .
+        // this.analyzer.getHoverFallback(uri, node)
 
         this.logger.logmsg({action:'onHover', message:'ERROR', params: params, node: node})
+
         return null
 
         //if (!node) return null
@@ -186,9 +189,31 @@ export default class FishServer {
         //if (!hover) return null
         //return hover
     }
+    
 
-    //public onComplete(params: TextDocumentPositionParams): {}
+    public async onComplete(params: TextDocumentPositionParams):  Promise<CompletionItem[]| void>{
+        const uri: string = params.textDocument.uri;
+        const node: SyntaxNode | null = this.analyzer.nodeAtPoint(uri, params.position.line, params.position.character);
 
-    //public onCompleteResolve(item: CompletionItem): {}
+        if (!node) return 
+
+        const commandNode: SyntaxNode | null = findParentCommand(node);
+        if (!commandNode) {
+            //use node
+        }
+
+        this.analyzer.getHoverFallback(uri, node)
+
+        // build Completions
+        const completions: CompletionItem[] = []
+
+
+        return completions
+    }
+
+    public async onCompleteResolve(item: CompletionItem): Promise<CompletionItem> {
+
+        return item;
+    }
 
 }

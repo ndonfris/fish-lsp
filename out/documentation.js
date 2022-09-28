@@ -9,8 +9,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.documentationHoverCommandArg = exports.documentationHoverProvider = exports.enrichToPlainText = exports.enrichCommandArg = exports.enrichToCodeBlockMarkdown = exports.enrichToMarkdown = void 0;
+exports.collectCompletionOptions = exports.forwardArgCommandCollect = exports.forwardSubCommandCollect = exports.documentationHoverCommandArg = exports.documentationHoverProvider = exports.enrichToPlainText = exports.enrichCommandArg = exports.enrichToCodeBlockMarkdown = exports.enrichToMarkdown = void 0;
 const node_1 = require("vscode-languageserver-protocol/node");
+const builtins_1 = require("./utils/builtins");
 const exec_1 = require("./utils/exec");
 const tree_sitter_1 = require("./utils/tree-sitter");
 function enrichToMarkdown(doc) {
@@ -92,4 +93,45 @@ function documentationHoverCommandArg(root, cmp) {
     };
 }
 exports.documentationHoverCommandArg = documentationHoverCommandArg;
+function forwardSubCommandCollect(rootNode) {
+    var stringToComplete = [];
+    for (const curr of rootNode.children) {
+        if (curr.text.startsWith('-') && curr.text.startsWith('$')) {
+            break;
+        }
+        else {
+            stringToComplete.push(curr.text);
+        }
+    }
+    return stringToComplete;
+}
+exports.forwardSubCommandCollect = forwardSubCommandCollect;
+function forwardArgCommandCollect(rootNode) {
+    var stringToComplete = [];
+    const currentNode = rootNode.children;
+    for (const curr of rootNode.children) {
+        if (curr.text.startsWith('-') && curr.text.startsWith('$')) {
+            stringToComplete.push(curr.text);
+        }
+        else {
+            continue;
+        }
+    }
+    return stringToComplete;
+}
+exports.forwardArgCommandCollect = forwardArgCommandCollect;
+function collectCompletionOptions(rootNode) {
+    var cmdText = [rootNode.children[0].text];
+    if ((0, builtins_1.hasPossibleSubCommand)(cmdText[0])) {
+        cmdText = forwardSubCommandCollect(rootNode);
+    }
+    // DIFF FLAG FORMATS 
+    // consider the differnece between, find -name .git
+    // and ls --long -l
+    // do complete and check for each flagsToFind
+    //
+    //exec
+    var flagsToFind = forwardArgCommandCollect(rootNode);
+}
+exports.collectCompletionOptions = collectCompletionOptions;
 //# sourceMappingURL=documentation.js.map

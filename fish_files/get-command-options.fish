@@ -1,18 +1,24 @@
 #!/bin/fish 
 
-set -l result 
+function backup_input 
+    set -a -l _fish_lsp_file_cmps (fish -c "complete --do-complete '$argv -' | uniq") (fish -c "complete --do-complete '$argv ' | uniq") 
+
+    for _fish_lsp_cmp in $_fish_lsp_file_cmps
+        echo "$_fish_lsp_cmp"
+    end
+    return 0;
+    and exit
+end
+
+
 
 # file is just used to get command options
 # not used for tokens other than one needing a commandline completion
 
-switch "$argv"
-case "test"
-    set result (complete --do-complete "$argv -") 
-    set -a result (complete --do-complete "$argv ")
-case \*
-    set result (complete --do-complete "$argv -" | less --chop-long-lines +F | col -bx)
+if test (count $argv) -ge 2
+    fish -c "complete --do-complete '$argv' | uniq"
+else 
+    backup_input $argv
 end
 
-for res in $result
-    echo "$res"
-end
+

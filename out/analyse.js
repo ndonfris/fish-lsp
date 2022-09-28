@@ -130,6 +130,19 @@ class MyAnalyzer {
             return;
         });
     }
+    getHoverFallback(uri, currentNode) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const tree = this.uriToSyntaxTree[uri];
+            if (!tree) {
+                return;
+            }
+            const cmdNode = (0, node_types_1.findParentCommand)(currentNode);
+            if (!cmdNode)
+                return;
+            if (currentNode.text.startsWith('-')) {
+            }
+        });
+    }
     getTreeForUri(uri) {
         if (!this.uriToSyntaxTree[uri]) {
             return null;

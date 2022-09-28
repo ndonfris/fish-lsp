@@ -1,5 +1,6 @@
 import {Hover, MarkupContent, MarkupKind} from 'vscode-languageserver-protocol/node';
 import {SyntaxNode} from 'web-tree-sitter';
+import {hasPossibleSubCommand} from './utils/builtins';
 import {execCommandDocs, execCommandType, CompletionArguments} from './utils/exec';
 import {getNodes, getNodeText} from './utils/tree-sitter';
 
@@ -91,3 +92,46 @@ export function documentationHoverCommandArg(root: SyntaxNode, cmp: CompletionAr
     }
 }
 
+
+export function forwardSubCommandCollect(rootNode: SyntaxNode): string[] {
+    var stringToComplete : string[] = []
+    for (const curr of rootNode.children) {
+        if (curr.text.startsWith('-') && curr.text.startsWith('$')) {
+            break;
+        } else {
+            stringToComplete.push(curr.text)
+        }
+    }
+    return stringToComplete
+}
+
+
+export function forwardArgCommandCollect(rootNode: SyntaxNode) : string[]{
+    var stringToComplete : string[] = []
+    const currentNode = rootNode.children;
+    for (const curr of rootNode.children) {
+        if (curr.text.startsWith('-') && curr.text.startsWith('$')) {
+            stringToComplete.push(curr.text)
+        } else {
+            continue;
+        }
+    }
+    return stringToComplete
+}
+
+export function collectCompletionOptions(rootNode: SyntaxNode) {
+    var cmdText = [rootNode.children[0].text];
+    if (hasPossibleSubCommand(cmdText[0])) {
+        cmdText = forwardSubCommandCollect(rootNode)
+    }
+    // DIFF FLAG FORMATS 
+    // consider the differnece between, find -name .git
+    // and ls --long -l
+
+    // do complete and check for each flagsToFind
+    //
+    //exec
+
+    var flagsToFind = forwardArgCommandCollect(rootNode)
+
+}

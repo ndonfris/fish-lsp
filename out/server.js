@@ -48,9 +48,11 @@ const vscode_languageserver_textdocument_1 = require("vscode-languageserver-text
 const document_1 = require("./document");
 const parser_1 = require("./parser");
 const analyse_1 = require("./analyse");
+const locations_1 = require("./utils/locations");
+const node_types_1 = require("./utils/node-types");
 const logger_1 = require("./logger");
 /**
- * The BashServer glues together the separate components to implement
+ * The FishServer glues together the separate components to implement
  * the various parts of the Language Server Protocol.
  */
 class FishServer {
@@ -71,12 +73,12 @@ class FishServer {
             const parser = yield (0, parser_1.initializeParser)();
             const analyzer = new analyse_1.MyAnalyzer(parser);
             const documents = new document_1.LspDocuments(new node_1.TextDocuments(vscode_languageserver_textdocument_1.TextDocument));
-            //const files = await getAllFishLocations();
-            //for (const file of files) {
-            //    //const doc =  await createTextDocumentFromFilePath(file)
-            //    //if (!doc) continue;
-            //    await analyzer.initialize(file)
-            //}
+            const files = yield (0, locations_1.getAllFishLocations)();
+            for (const file of files) {
+                //const doc =  await createTextDocumentFromFilePath(file)
+                //if (!doc) continue;
+                yield analyzer.initialize(file);
+            }
             return new FishServer(connection, parser, documents, analyzer, 
             //dependencies,
             capabilities);
@@ -161,12 +163,12 @@ class FishServer {
             if (!node)
                 return null;
             this.logger.logmsg({ path: uri, action: 'onHover', params: params, node: node });
-            const localHoverDoc = this.analyzer.nodeIsLocal(uri, node);
-            if (localHoverDoc)
-                return localHoverDoc;
-            const globalHoverDoc = yield this.analyzer.getHover(params);
-            if (globalHoverDoc)
-                return globalHoverDoc;
+            const hoverDoc = this.analyzer.nodeIsLocal(uri, node) || (yield this.analyzer.getHover(params));
+            if (hoverDoc) {
+                return hoverDoc;
+            }
+            // TODO: heres where you should use fallback completion, and argument .
+            // this.analyzer.getHoverFallback(uri, node)
             this.logger.logmsg({ action: 'onHover', message: 'ERROR', params: params, node: node });
             return null;
             //if (!node) return null
@@ -178,6 +180,27 @@ class FishServer {
             //const hover = this.analyzer.getHover(params)
             //if (!hover) return null
             //return hover
+        });
+    }
+    onComplete(params) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const uri = params.textDocument.uri;
+            const node = this.analyzer.nodeAtPoint(uri, params.position.line, params.position.character);
+            if (!node)
+                return;
+            const commandNode = (0, node_types_1.findParentCommand)(node);
+            if (!commandNode) {
+                //use node
+            }
+            this.analyzer.getHoverFallback(uri, node);
+            // build Completions
+            const completions = [];
+            return completions;
+        });
+    }
+    onCompleteResolve(item) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return item;
         });
     }
 }
