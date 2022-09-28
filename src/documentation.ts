@@ -4,7 +4,6 @@ import {execCommandDocs, execCommandType, CompletionArguments} from './utils/exe
 import {getNodes, getNodeText} from './utils/tree-sitter';
 
 
-
 export type markdownFiletypes = 'fish' | 'man';
 
 export function enrichToMarkdown(doc: string): MarkupContent {

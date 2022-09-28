@@ -19,4 +19,8 @@ export declare function isVariableDefintion(node: SyntaxNode): boolean;
  * @return {SyntaxNode | null} variable node that was found
  **/
 export declare function findDefinedVariable(node: SyntaxNode): SyntaxNode | null;
+export declare function findGlobalNodes(rootNode: SyntaxNode): SyntaxNode[];
+export declare function hasParentFunction(node: SyntaxNode): boolean;
+export declare function findFunctionScope(node: SyntaxNode): SyntaxNode;
+export declare function findLastVariableRefrence(node: SyntaxNode): SyntaxNode | undefined;
 //# sourceMappingURL=node-types.d.ts.map

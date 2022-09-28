@@ -12,13 +12,18 @@ import {SyntaxNode} from 'web-tree-sitter';
 import {getNodes, getNodeText, nodesGen} from '../src/utils/tree-sitter';
 import {MyAnalyzer} from '../src/analyse';
 import {initializeParser} from '../src/parser';
+import {findDefinedVariable, findFunctionScope, findGlobalNodes, isVariable, isVariableDefintion} from '../src/utils/node-types';
 
-//async function startAnalyze(fname: string) : Promise<MyAnalyzer> {
-//    const usrShareFile = await resolveAbsPath(fname)
-//    const parser = await initializeParser()
-//    const tree = await getRootNode(fname)
-//    return new MyAnalyzer(parser.parse(tree, 'fish', 1, usrShareFile))
-//}
+async function startAnalyze(fname: string) : Promise<MyAnalyzer> {
+    const usrShareFile = await resolveAbsPath(fname)
+    const output = usrShareFile.join('\n')
+    const parser = await initializeParser()
+    //const tree = await getRootNode(fname)
+    const analyzer = new MyAnalyzer(parser);
+    const td = TextDocument.create(fname,'fish', 1, output);
+    await analyzer.analyze(fname, td);
+    return analyzer;
+}
 //
 //interface textDocumentResult {
 //    document : TextDocument;
@@ -77,6 +82,60 @@ describe("analyzer output", () => {
         global.console = jestConsole;
     });
 
+    it('testing variable_finding', async () => {
+        const uri = '/home/ndonfris/.config/fish/functions/set_random_color.fish'
+        const analyzer = await startAnalyze(uri)
+        analyzer.uriToSyntaxTree[uri]?.ensureAnalyzed()
+        const tree = analyzer.getTreeForUri(uri)
+        if (!tree) return
+        //const nodes = findGlobalNodes(tree.rootNode);
+        //for (const node of nodes) {
+        //    if (node.text.trim() != "") {
+        //        console.log(node.type)
+        //        for (const child of node.children) {
+        //            console.log(child.text)
+        //        }
+        //    }
+        //}
+        const variableTestNodes = [
+            tree.rootNode.descendantForPosition({column: 14, row: 34}),
+            tree.rootNode.descendantForPosition({column: 12, row: 54}),
+            tree.rootNode.descendantForPosition({column: 44, row: 418}),
+            //tree.rootNode.descendantForPosition({column: 12, row: 91}),
+        ]
+        const functionTestNodes = [
+            tree.rootNode.descendantForPosition({column: 8, row: 35}),
+            tree.rootNode.descendantForPosition({column: 8, row: 119}),
+        ]
+        //(54, 12)
+        //console.log(testNode.text)
+        //console.log(testNode.parent?.text)
+        //console.log(testNode.parent?.parent?.text)
+        //console.log(testNode.parent?.parent?.parent?.text)
+        //console.log(testNode.parent?.parent?.parent?.parent?.text)
+        ////console.log(testNode.parent?.parent?.parent?.parent?.parent?.text)
+
+
+        variableTestNodes.forEach(testNode => {
+            const result = tree.getNearestVariableDefinition(testNode)
+            //console.log(`testNode: ${testNode.text}`)
+            if (result) {
+                console.log(result.text);
+                expect(result.text != "").toBeTruthy()
+            } 
+        })
+        //functionTestNodes.forEach(testNode => {
+        //    const result = tree.getLocalFunctionDefinition(testNode)
+        //    if (result) {
+        //        console.log(result.text);
+        //        expect(result.text != "").toBeTruthy()
+        //    } 
+        //})
+        //for (const c of tree.rootNode.children) {
+        //    console.log(c.child(0)?.text)
+        //}
+    })
+
     //it('testing nodes array matches nodeGen for all share files', async () => {
     //    const files = await readShareDir()
     //    if (files.length) {
@@ -94,7 +153,7 @@ describe("analyzer output", () => {
     //    //console.log('functions')
     //    const uri = '/usr/share/fish/functions/fish_config.fish'
     //    result.getTreeForUri(uri)?.functions.forEach(element => {
-    //        console.log(element?.child(1)?.text)
+    //        at(index)nsole.log(element?.child(1)?.text)
     //    });
     //    //console.log('commands')
     //    //const uniqueCommands = [...new Set([...result.getTreeForUri(uri)?.commands.map(node => getNodeText(node))])]
@@ -135,7 +194,7 @@ describe("analyzer output", () => {
 
     it('test /usr/share/functions/*.fish', async () => {
         const files = await readShareDir()
-        console.log('more tests should be added')
+        //console.log('more tests should be added')
         expect(true).toBeTruthy()
     })
 })

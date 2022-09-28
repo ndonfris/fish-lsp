@@ -14,7 +14,7 @@ import {
 } from "vscode-languageserver/node";
 import * as LSP from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
-import Parser from "web-tree-sitter";
+import Parser, {SyntaxNode} from "web-tree-sitter";
 //import { getInitializedHandler } from "./handlers/getInitializedHandler";
 //import { handleInitialized } from "./handlers/handleInitialized";
 //import { getHandleHover } from "./handlers/handleHover";
@@ -27,6 +27,7 @@ import {findParentCommand} from './utils/node-types';
 import {execCommandDocs} from './utils/exec';
 import {documentationHoverProvider, enrichToMarkdown} from './documentation';
 import {Logger} from './logger';
+import {createTextDocumentFromFilePath} from './utils/io';
 
 /**
  * The BashServer glues together the separate components to implement
@@ -44,10 +45,12 @@ export default class FishServer {
         const parser = await initializeParser();
         const analyzer = new MyAnalyzer(parser);
         const documents = new LspDocuments(new TextDocuments(TextDocument));
-        const files = await getAllFishLocations();
-        for (const file of files) {
-            await documents.newDocument(file);
-        }
+        //const files = await getAllFishLocations();
+        //for (const file of files) {
+        //    //const doc =  await createTextDocumentFromFilePath(file)
+        //    //if (!doc) continue;
+        //    await analyzer.initialize(file)
+        //}
         return new FishServer(
             connection,
             parser,
@@ -90,14 +93,14 @@ export default class FishServer {
             const uri = document.uri;
             this.documents.newDocument(uri);
             this.documents.open(uri)
-            this.logger.log(`${uri}`, 'onDidOpen')
+            this.logger.logmsg({action:'onOpen', path: uri})
             this.analyzer.analyze(uri, document)
         })
         this.documents.listener.onDidChangeContent(async change => {
             const { document } = change;
             const uri = document.uri;
             this.documents.newDocument(uri);
-            this.logger.log(uri, 'onDidChangeContent')
+            this.logger.logmsg({path:uri, action:'onDidClose'})
             const isOpen = await this.documents.open(uri);
             if (isOpen) {
                 this.documents.newDocument(uri)
@@ -111,13 +114,14 @@ export default class FishServer {
                 const doc = this.documents.get(uri)!;
                 this.analyzer.analyze(uri, doc);
             }
+            this.analyzer.uriToSyntaxTree[uri]?.ensureAnalyzed()
         });
 
         this.documents.listener.onDidClose(async (change) => {
             const { document } = change;
             const uri = document.uri;
             const doc = this.documents.close(uri);
-            this.logger.log(uri, 'onDidClose')
+            this.logger.logmsg({path:uri, action:'onDidClose'})
             return doc;
         });
         // if formatting is enabled in settings. add onContentDidSave
@@ -154,24 +158,30 @@ export default class FishServer {
 
     private async onHover(params: TextDocumentPositionParams): Promise<Hover | null> {
         const uri = params.textDocument.uri;
-        //if (!uri) return null
-        this.logger.log(uri, 'onHover')
-        //const doc = this.documents.get(uri)!;
-        //this.documents.newDocument(uri)
-        //this.analyzer.analyze(params.textDocument.uri, doc);
-        const node = this.analyzer.wordAtPoint(params.textDocument.uri, params.position.line, params.position.character)
+        const node = this.analyzer.nodeAtPoint(params.textDocument.uri, params.position.line, params.position.character)
+        //const doc = this.documents.get(uri)
+        //if (doc) {
+        //    this.analyzer.analyze(uri, doc)
+        //}
+        if (!node) return null
+        this.logger.logmsg({ path: uri, action:'onHover', params: params, node: node})
+
+        const localHoverDoc = this.analyzer.nodeIsLocal(uri, node) 
+        if (localHoverDoc) return localHoverDoc
+
+        const globalHoverDoc = await this.analyzer.getHover(params) 
+
+        if (globalHoverDoc) return globalHoverDoc
+
+        this.logger.logmsg({action:'onHover', message:'ERROR', params: params, node: node})
+        return null
+
         //if (!node) return null
         //const cmd = findParentCommand(node)
         //const cmdText = cmd?.firstChild?.text.toString() || ""
         //if (cmdText == "") return null
         //const text = await execCommandDocs(cmdText)
-        if (!node) return null
-        const hov = this.analyzer.getHover(params)
-        if (!hov) {
-            this.logger.log('onHover: failed')
-            return null
-        }
-        return hov
+        //return hoverDoc
         //const hover = this.analyzer.getHover(params)
         //if (!hover) return null
         //return hover

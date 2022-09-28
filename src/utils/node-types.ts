@@ -50,7 +50,7 @@ export function isVariable(node: SyntaxNode) {
     if (isVariableDefintion(node)) {
         return true;
     } else {
-        return node.type === 'variable_expansion'
+        return ["variable_expansion", "variable_name"].includes(node.type);
     }
 }
 
@@ -83,7 +83,7 @@ export function isVariableDefintion(node: SyntaxNode): boolean {
             return false;
         } 
         if (isCommand(parent) && parent?.child(0)?.text == 'set') {
-            return findDefinedVariable(parent) == node; 
+            return findDefinedVariable(parent)?.text == node?.text; 
         }
         return false;
     }
@@ -108,7 +108,7 @@ export function findDefinedVariable(node: SyntaxNode): SyntaxNode | null {
         if (!child.text.startsWith('-')) {
             return child
         }
-        if (i == children.length) {
+        if (i == children.length - 1) {
             return null
         }
         child = children[i++]!;
@@ -117,6 +117,63 @@ export function findDefinedVariable(node: SyntaxNode): SyntaxNode | null {
     return child;
 }
 
+// global nodes are nodes that are not defined in a function
+// (i.e. stuff in config.fish)
+export function findGlobalNodes(rootNode: SyntaxNode) {
+    const globalNodes : SyntaxNode[] = []
+    //const allNodes = 
+    //    getNodes(rootNode)
+    //    .filter(currentNode => !hasParentFunction(currentNode))
+    const allNodes = [ 
+        ...getNodes(rootNode)
+            .filter(n => !hasParentFunction(n))
+    ].filter(n => n.type != 'program')
+    return allNodes
+}
+
+export function hasParentFunction(node: SyntaxNode) {
+    var currentNode: SyntaxNode = node;
+    while (currentNode != null) {
+        if (isFunctionDefinintion(currentNode) || currentNode.type == 'function') {
+            return true
+        }
+        if (currentNode.parent == null) {
+            return false;
+        }
+        currentNode = currentNode?.parent;
+    }
+    return false;
+}
+
+export function findFunctionScope(node: SyntaxNode) {
+    while (node.parent != null) {
+        if (isFunctionDefinintion(node)) {
+            return node;
+        }
+        node = node.parent;
+    }
+    return node
+}
+
+export function findLastVariableRefrence(node: SyntaxNode) {
+    let currentNode = node.parent || node;
+    while (!isFunctionDefinintion(currentNode) && currentNode != null) {
+        let lastRefrence: SyntaxNode;
+        for (const childNode of getNodes(currentNode)) {
+            if (isVariableDefintion(currentNode)) {
+                const variableDef = findDefinedVariable(childNode)
+                if (variableDef?.text == currentNode.text && variableDef != currentNode) {
+                    return variableDef;
+                }
+            }
+        }
+        if (currentNode.parent == null) {
+            return undefined
+        }
+        currentNode = currentNode.parent;
+    }
+    return undefined;
+}
 
 /*
  * echo $hello_world 

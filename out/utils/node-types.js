@@ -1,7 +1,8 @@
 "use strict";
 // use this file to determine node types from ./tree-sitter
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.findDefinedVariable = exports.isVariableDefintion = exports.findParentCommand = exports.isVariable = exports.isStatement = exports.isCommand = exports.isFunctionDefinintion = exports.isComment = void 0;
+exports.findLastVariableRefrence = exports.findFunctionScope = exports.hasParentFunction = exports.findGlobalNodes = exports.findDefinedVariable = exports.isVariableDefintion = exports.findParentCommand = exports.isVariable = exports.isStatement = exports.isCommand = exports.isFunctionDefinintion = exports.isComment = void 0;
+const tree_sitter_1 = require("./tree-sitter");
 function isComment(node) {
     return node.type == 'comment';
 }
@@ -47,7 +48,7 @@ function isVariable(node) {
         return true;
     }
     else {
-        return node.type === 'variable_expansion';
+        return ["variable_expansion", "variable_name"].includes(node.type);
     }
 }
 exports.isVariable = isVariable;
@@ -72,7 +73,7 @@ function findParentCommand(node) {
 }
 exports.findParentCommand = findParentCommand;
 function isVariableDefintion(node) {
-    var _a, _b;
+    var _a, _b, _c;
     if (isCommand(node) && ((_a = node.child(0)) === null || _a === void 0 ? void 0 : _a.text) == 'set') {
         return true;
     }
@@ -82,7 +83,7 @@ function isVariableDefintion(node) {
             return false;
         }
         if (isCommand(parent) && ((_b = parent === null || parent === void 0 ? void 0 : parent.child(0)) === null || _b === void 0 ? void 0 : _b.text) == 'set') {
-            return findDefinedVariable(parent) == node;
+            return ((_c = findDefinedVariable(parent)) === null || _c === void 0 ? void 0 : _c.text) == (node === null || node === void 0 ? void 0 : node.text);
         }
         return false;
     }
@@ -105,7 +106,7 @@ function findDefinedVariable(node) {
         if (!child.text.startsWith('-')) {
             return child;
         }
-        if (i == children.length) {
+        if (i == children.length - 1) {
             return null;
         }
         child = children[i++];
@@ -113,6 +114,64 @@ function findDefinedVariable(node) {
     return child;
 }
 exports.findDefinedVariable = findDefinedVariable;
+// global nodes are nodes that are not defined in a function
+// (i.e. stuff in config.fish)
+function findGlobalNodes(rootNode) {
+    const globalNodes = [];
+    //const allNodes = 
+    //    getNodes(rootNode)
+    //    .filter(currentNode => !hasParentFunction(currentNode))
+    const allNodes = [
+        ...(0, tree_sitter_1.getNodes)(rootNode)
+            .filter(n => !hasParentFunction(n))
+    ].filter(n => n.type != 'program');
+    return allNodes;
+}
+exports.findGlobalNodes = findGlobalNodes;
+function hasParentFunction(node) {
+    var currentNode = node;
+    while (currentNode != null) {
+        if (isFunctionDefinintion(currentNode) || currentNode.type == 'function') {
+            return true;
+        }
+        if (currentNode.parent == null) {
+            return false;
+        }
+        currentNode = currentNode === null || currentNode === void 0 ? void 0 : currentNode.parent;
+    }
+    return false;
+}
+exports.hasParentFunction = hasParentFunction;
+function findFunctionScope(node) {
+    while (node.parent != null) {
+        if (isFunctionDefinintion(node)) {
+            return node;
+        }
+        node = node.parent;
+    }
+    return node;
+}
+exports.findFunctionScope = findFunctionScope;
+function findLastVariableRefrence(node) {
+    let currentNode = node.parent || node;
+    while (!isFunctionDefinintion(currentNode) && currentNode != null) {
+        let lastRefrence;
+        for (const childNode of (0, tree_sitter_1.getNodes)(currentNode)) {
+            if (isVariableDefintion(currentNode)) {
+                const variableDef = findDefinedVariable(childNode);
+                if ((variableDef === null || variableDef === void 0 ? void 0 : variableDef.text) == currentNode.text && variableDef != currentNode) {
+                    return variableDef;
+                }
+            }
+        }
+        if (currentNode.parent == null) {
+            return undefined;
+        }
+        currentNode = currentNode.parent;
+    }
+    return undefined;
+}
+exports.findLastVariableRefrence = findLastVariableRefrence;
 /*
  * echo $hello_world
  *           ^--- variable_name

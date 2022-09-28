@@ -1,24 +1,28 @@
-import { Hover, TextDocumentPositionParams } from 'vscode-languageserver';
-import { TextDocument } from 'vscode-languageserver-textdocument';
-import Parser, { SyntaxNode, Tree } from 'web-tree-sitter';
+import { Hover, TextDocumentPositionParams } from "vscode-languageserver";
+import { TextDocument } from "vscode-languageserver-textdocument";
+import Parser, { SyntaxNode, Tree } from "web-tree-sitter";
 export declare class MyAnalyzer {
     private parser;
-    private uriToSyntaxTree;
+    uriToSyntaxTree: {
+        [uri: string]: SyntaxTree | null;
+    };
     private globalDocs;
     private completions;
     private dependencies;
     constructor(parser: Parser);
+    initialize(uri: string): Promise<void>;
     analyze(uri: string, document: TextDocument): Promise<void>;
     complete(params: TextDocumentPositionParams): Promise<void>;
     /**
      * Find the node at the given point.
      */
-    private nodeAtPoint;
+    nodeAtPoint(uri: string, line: number, column: number): Parser.SyntaxNode | null;
     /**
      * Find the full word at the given point.
      */
     wordAtPoint(uri: string, line: number, column: number): string | null;
-    getHover(params: TextDocumentPositionParams): Hover | void;
+    nodeIsLocal(uri: string, node: SyntaxNode): Hover | void;
+    getHover(params: TextDocumentPositionParams): Promise<Hover | void>;
     getTreeForUri(uri: string): SyntaxTree | null;
 }
 export declare class SyntaxTree {
@@ -27,14 +31,17 @@ export declare class SyntaxTree {
     nodes: SyntaxNode[];
     functions: SyntaxNode[];
     commands: SyntaxNode[];
-    variable_defintions: SyntaxNode[];
+    variable_definitions: SyntaxNode[];
     variables: SyntaxNode[];
     constructor(tree: Tree);
-    ensureAnalyzed(): any[];
+    ensureAnalyzed(): Parser.SyntaxNode[];
     clearAll(): void;
     getUniqueCommands(): string[];
     getNodeRanges(): import("vscode-languageserver-types").Range[];
     hasRoot(): boolean;
     getNodes(): Parser.SyntaxNode[];
+    getLocalFunctionDefinition(searchNode: SyntaxNode): Parser.SyntaxNode | undefined;
+    getNearestVariableDefinition(searchNode: SyntaxNode): Parser.SyntaxNode | undefined;
+    getOutmostScopedNodes(): Parser.SyntaxNode[];
 }
 //# sourceMappingURL=analyse.d.ts.map
