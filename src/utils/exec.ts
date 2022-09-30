@@ -36,10 +36,6 @@ export async function execCompleteLine(cmd: string): Promise<string[]> {
 
     const child = await execAsync(completeString)
 
-    if (child.stderr) {
-        return ['']
-    }
-
     return child.stdout.trim().split('\n')
 }
  export async function execCompleteSpace(cmd: string): Promise<string[]> {
@@ -83,7 +79,7 @@ export async function execCompleteCmdArgs(cmd: string): Promise<string[]> {
 //}
 
 export async function execCompleteVariables(): Promise<string[]> {
-    return await execEscapedCommand("complete --do-complete='echo $'");
+    return await execEscapedCommand('complete --do-complete="echo \\$"');
 }
 
 export async function execCompleteAbbrs(): Promise<string[]> {
@@ -144,4 +140,47 @@ export async function execFindDependency(cmd: string): Promise<string> {
     const file = resolve(__dirname, '../../fish_files/get-dependency.fish')
     const docs = execFileSync(file, [cmd])
     return docs.toString().trim();
+}
+
+ export async function execFindSubcommand(cmd: string[]): Promise<string[]> {
+    const file = resolve(__dirname, '../../fish_files/get-current-subcommand.fish')
+    const docs = execFileSync(file, cmd)
+    return docs.toString().trim()
+        .split('\n')
+        .map(subcmd => subcmd.split('\t', 1))
+        .filter(subcmd => subcmd.length == 2)
+        .map(subcmd => subcmd[0].trim())
+}
+
+export async function execComplete(cmd: string[]): Promise<string[]> {
+    const exec = resolve(__dirname, '../../fish_files/get-command-options.fish')
+    const args = execFileSync(exec, cmd)
+    const results = args.toString().trim().split('\n')
+
+    let i = 0;
+    let fixedResults: string[] = [];
+    while ( i < results.length) {
+        const line = results[i]
+        if( cmd[0] === 'test') {
+            fixedResults.push(line) 
+        } else if (!line.startsWith('-', 0)) {
+            //fixedResults.slice(i-1, i).join(' ')
+            fixedResults.push(fixedResults.pop() + ' ' + line.trim())
+        } else {
+            fixedResults.push(line)
+        }  
+        i++;
+    }
+    return fixedResults || [];
+}
+
+
+
+
+export async function execCompleteGlobalDocs(cmd: string): Promise<string> {
+    const executable = resolve(__dirname, '../../fish_files/generate-global-completions.fish');
+
+    const exec = execFileSync(executable, [cmd]) 
+
+    return exec.toString('utf8').trim()
 }

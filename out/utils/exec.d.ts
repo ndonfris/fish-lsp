@@ -30,4 +30,7 @@ export interface CompletionArguments {
 export declare function documentCommandDescription(cmd: string): Promise<string>;
 export declare function generateCompletionArguments(cmd: string): Promise<CompletionArguments>;
 export declare function execFindDependency(cmd: string): Promise<string>;
+export declare function execFindSubcommand(cmd: string[]): Promise<string[]>;
+export declare function execComplete(cmd: string[]): Promise<string[]>;
+export declare function execCompleteGlobalDocs(cmd: string): Promise<string>;
 //# sourceMappingURL=exec.d.ts.map

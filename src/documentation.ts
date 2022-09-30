@@ -12,7 +12,7 @@ export function enrichToMarkdown(doc: string): MarkupContent {
     return {
         kind: MarkupKind.Markdown,
         value: [
-            doc.trim(),
+            doc,
         ].join()
     }
 }

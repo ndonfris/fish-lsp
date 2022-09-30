@@ -9,7 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.execFindDependency = exports.generateCompletionArguments = exports.documentCommandDescription = exports.execCommandType = exports.execCommandDocs = exports.execCompleteAbbrs = exports.execCompleteVariables = exports.execCompleteCmdArgs = exports.execCompleteSpace = exports.execCompleteLine = exports.execEscapedCommand = void 0;
+exports.execCompleteGlobalDocs = exports.execComplete = exports.execFindSubcommand = exports.execFindDependency = exports.generateCompletionArguments = exports.documentCommandDescription = exports.execCommandType = exports.execCommandDocs = exports.execCompleteAbbrs = exports.execCompleteVariables = exports.execCompleteCmdArgs = exports.execCompleteSpace = exports.execCompleteLine = exports.execEscapedCommand = void 0;
 const child_process_1 = require("child_process");
 const path_1 = require("path");
 const util_1 = require("util");
@@ -39,9 +39,6 @@ function execCompleteLine(cmd) {
         const escapedCommand = cmd.replace(/(["'$`\\])/g, '\\$1');
         const completeString = `fish -c "${escapedCommand}"`;
         const child = yield execAsync(completeString);
-        if (child.stderr) {
-            return [''];
-        }
         return child.stdout.trim().split('\n');
     });
 }
@@ -89,7 +86,7 @@ exports.execCompleteCmdArgs = execCompleteCmdArgs;
 //}
 function execCompleteVariables() {
     return __awaiter(this, void 0, void 0, function* () {
-        return yield execEscapedCommand("complete --do-complete='echo $'");
+        return yield execEscapedCommand('complete --do-complete="echo \\$"');
     });
 }
 exports.execCompleteVariables = execCompleteVariables;
@@ -158,4 +155,49 @@ function execFindDependency(cmd) {
     });
 }
 exports.execFindDependency = execFindDependency;
+function execFindSubcommand(cmd) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const file = (0, path_1.resolve)(__dirname, '../../fish_files/get-current-subcommand.fish');
+        const docs = (0, child_process_1.execFileSync)(file, cmd);
+        return docs.toString().trim()
+            .split('\n')
+            .map(subcmd => subcmd.split('\t', 1))
+            .filter(subcmd => subcmd.length == 2)
+            .map(subcmd => subcmd[0].trim());
+    });
+}
+exports.execFindSubcommand = execFindSubcommand;
+function execComplete(cmd) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const exec = (0, path_1.resolve)(__dirname, '../../fish_files/get-command-options.fish');
+        const args = (0, child_process_1.execFileSync)(exec, cmd);
+        const results = args.toString().trim().split('\n');
+        let i = 0;
+        let fixedResults = [];
+        while (i < results.length) {
+            const line = results[i];
+            if (cmd[0] === 'test') {
+                fixedResults.push(line);
+            }
+            else if (!line.startsWith('-', 0)) {
+                //fixedResults.slice(i-1, i).join(' ')
+                fixedResults.push(fixedResults.pop() + ' ' + line.trim());
+            }
+            else {
+                fixedResults.push(line);
+            }
+            i++;
+        }
+        return fixedResults || [];
+    });
+}
+exports.execComplete = execComplete;
+function execCompleteGlobalDocs(cmd) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const executable = (0, path_1.resolve)(__dirname, '../../fish_files/generate-global-completions.fish');
+        const exec = (0, child_process_1.execFileSync)(executable, [cmd]);
+        return exec.toString('utf8').trim();
+    });
+}
+exports.execCompleteGlobalDocs = execCompleteGlobalDocs;
 //# sourceMappingURL=exec.js.map

@@ -18,7 +18,7 @@ function enrichToMarkdown(doc) {
     return {
         kind: node_1.MarkupKind.Markdown,
         value: [
-            doc.trim(),
+            doc,
         ].join()
     };
 }

@@ -9,10 +9,11 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Completion = exports.toCompletionItemKind = exports.FishCompletionItemType = void 0;
+exports.buildGlobalAlaises = exports.buildGlobalCommands = exports.buildGlobalBuiltins = exports.buildGlobalVars = exports.buildGlobalAbbrs = exports.Completion = exports.toCompletionItemKind = exports.FishCompletionItemType = void 0;
 const vscode_languageserver_protocol_1 = require("vscode-languageserver-protocol");
 const documentation_1 = require("./documentation");
 const exec_1 = require("./utils/exec");
+const node_types_1 = require("./utils/node-types");
 // utils create CompletionResolver and CompletionItems
 // also decide which completion icons each item will have
 // try to get clean implementation of {...CompletionItem.create(), item: desc}
@@ -42,9 +43,9 @@ function toCompletionItemKind(type) {
     }
 }
 exports.toCompletionItemKind = toCompletionItemKind;
-function buildCompletionItem(name, docs, type, filterText) {
+function buildCompletionItem(name, detail, docs, type, insertText) {
     const itemKind = toCompletionItemKind(type);
-    return Object.assign(Object.assign({}, vscode_languageserver_protocol_1.CompletionItem.create(name)), { documentation: docs, kind: itemKind, filterText: filterText || "", data: {
+    return Object.assign(Object.assign({}, vscode_languageserver_protocol_1.CompletionItem.create(name)), { detail: detail, labelDetails: { detail: detail, description: "(" + detail + ")" }, documentation: docs, kind: itemKind, insertText: insertText, filterText: itemKind === vscode_languageserver_protocol_1.CompletionItemKind.Variable ? "$" : undefined, data: {
             name: name,
             documentation: docs,
             kind: itemKind,
@@ -72,8 +73,11 @@ function buildCompletionItem(name, docs, type, filterText) {
 //
 class Completion {
     constructor() {
-        this.globalVariableList = [];
-        this.abbrList = [];
+        this.globalAbbrs = [];
+        this.globalVars = [];
+        this.globalAlaises = [];
+        this.globalCmds = [];
+        this.globalBuiltins = [];
         this.localVariablesList = [];
         this.localFunctions = [];
         this.isInsideCompletionsFile = false;
@@ -88,55 +92,148 @@ class Completion {
     // this.documents.listener.onDocumentChange(() => {})
     initialDefaults() {
         return __awaiter(this, void 0, void 0, function* () {
-            this.globalVariableList = yield buildGlobalVars();
-            this.abbrList = yield buildGlobalAbbr();
+            this.globalVars = yield buildGlobalVars();
+            this.globalAbbrs = yield buildGlobalAbbrs();
+            this.globalCmds = yield buildGlobalCommands();
+            this.globalAlaises = yield buildGlobalAlaises();
+            this.globalBuiltins = yield buildGlobalBuiltins();
+            return this;
         });
     }
     // here you build the completion data per type
     // call enrichCompletions on new this.completions
     // therefore you probably want to add the defaults (abbr & global variable list)
     // after this.completions is enriched
-    enrichCompletions() { }
+    generateCurrent(node) {
+        return __awaiter(this, void 0, void 0, function* () {
+            this.currentNode = node;
+            this.commandNode = (0, node_types_1.findParentCommand)(node) || this.currentNode;
+            const fishCompletes = [];
+            //if (this.currentNode != this.commandNode) {
+            //    const cmpString = await findEachSubcommand(this.commandNode);
+            //    const cmps = await execComplete(cmpString);
+            //    if (!cmps) return
+            //    for (const cmp of cmps) {
+            //        const cmpArr = cmp.split("\t", 1);
+            //        fishCompletes.push(
+            //            buildCompletionItem(
+            //                cmpArr[0],
+            //                cmpArr[1] || "",
+            //                cmpArr[0].startsWith("$")
+            //                    ? FishCompletionItemType.variable
+            //                    : FishCompletionItemType.flag
+            //            )
+            //        );
+            //    }
+            //} else {
+            //    const cmpString = await findEachSubcommand(this.commandNode);
+            //    const cmps = await execComplete(cmpString);
+            //    if (!cmps) return
+            //    for (const cmp of cmps) {
+            //        const cmpArr = cmp.split("\t", 1);
+            //        fishCompletes.push(
+            //            buildCompletionItem(
+            //                cmpArr[0],
+            //                cmpArr[1] || "",
+            //                cmpArr[0].startsWith("$")
+            //                    ? FishCompletionItemType.variable
+            //                    : FishCompletionItemType.function
+            //            )
+            //        );
+            //    }
+            //}
+            //return fishCompletes;
+        });
+    }
     // probably need some of SyntaxTree class in this file
     generate(node) {
         return __awaiter(this, void 0, void 0, function* () {
+            //const fishCompletions = await this.generateCurrent(node) || []
+            //await this.initialDefaults();
             this.completions = [
-                ...this.abbrList,
-                ...this.globalVariableList,
+                ...this.globalAbbrs,
+                ...this.globalVars,
+                ...this.globalCmds,
+                ...this.globalBuiltins,
+                ...this.globalAlaises,
             ];
+            //...fishCompletions
             return vscode_languageserver_protocol_1.CompletionList.create(this.completions, this.isIncomplete);
         });
     }
 }
 exports.Completion = Completion;
-function buildGlobalAbbr() {
+function buildGlobalAbbrs() {
     return __awaiter(this, void 0, void 0, function* () {
-        const globalVars = yield (0, exec_1.execCompleteAbbrs)();
-        return globalVars
-            .map((abbr) => abbr.split("--", 1)[1].trim())
-            .map((abbr) => {
-            const arr = abbr.split(" ", 1);
-            const name = arr[0];
-            const abbrReplaceText = arr[1];
-            return buildCompletionItem(name, (0, documentation_1.enrichToMarkdown)("__abbreviation__: " + abbrReplaceText), FishCompletionItemType.abbr, abbrReplaceText);
-        });
+        const globalAbbrs = yield (0, exec_1.execCompleteGlobalDocs)('abbrs');
+        const ret = globalAbbrs.split('\n')
+            .map(abbr => abbr.split('\t'))
+            .map((abbr) => buildCompletionItem(abbr[0].trim(), 'abbr', (0, documentation_1.enrichToMarkdown)("__Abbreviation__: " + abbr.at(-1)), FishCompletionItemType.abbr, abbr.at(-1)));
+        return ret;
     });
 }
+exports.buildGlobalAbbrs = buildGlobalAbbrs;
 function buildGlobalVars() {
     return __awaiter(this, void 0, void 0, function* () {
-        const globalVars = yield (0, exec_1.execCompleteVariables)();
-        return globalVars
-            .map((gvar) => gvar.split("\t", 1))
-            .map((arr) => {
-            const name = arr[0];
-            const descArr = arr[1].split(" ", 1);
-            const docs = (0, documentation_1.enrichToMarkdown)(["__" + descArr[0] + "__ ", descArr[1]].join(" "));
-            return buildCompletionItem(name, docs, FishCompletionItemType.variable);
-        });
+        const globalVars = yield (0, exec_1.execCompleteGlobalDocs)('vars');
+        const ret = globalVars.split('\n')
+            .map(gvar => gvar.split("\t"))
+            .map((arr) => buildCompletionItem("$" + arr[0], arr[1], (0, documentation_1.enrichToMarkdown)(arr.slice(1).join(': ') + '  '), FishCompletionItemType.variable, "$" + arr[0]));
+        return ret;
     });
 }
-function buildGlobalFunctions() {
+exports.buildGlobalVars = buildGlobalVars;
+function buildGlobalBuiltins() {
     return __awaiter(this, void 0, void 0, function* () {
+        const globalVars = yield (0, exec_1.execCompleteGlobalDocs)('builtins');
+        const ret = globalVars.split('\n')
+            .map(gvar => gvar.split("\t"))
+            .map((arr) => buildCompletionItem(arr[0], arr[1], arr[0], FishCompletionItemType.builtin));
+        return ret;
+    });
+}
+exports.buildGlobalBuiltins = buildGlobalBuiltins;
+function buildGlobalCommands() {
+    return __awaiter(this, void 0, void 0, function* () {
+        const globalVars = yield (0, exec_1.execCompleteGlobalDocs)('commands');
+        const ret = globalVars.split('\n')
+            .map(gvar => gvar.split("\t"))
+            .map((arr) => buildCompletionItem(arr[0], arr[1], (0, documentation_1.enrichToMarkdown)("__command__: " + arr.at(0)), FishCompletionItemType.function));
+        return ret;
+    });
+}
+exports.buildGlobalCommands = buildGlobalCommands;
+function buildGlobalAlaises() {
+    return __awaiter(this, void 0, void 0, function* () {
+        const globalVars = yield (0, exec_1.execCompleteGlobalDocs)('aliases');
+        const ret = globalVars.split('\n')
+            .map(gvar => gvar.split("\t"))
+            .map((arr) => buildCompletionItem(arr[0], arr[1], (0, documentation_1.enrichToMarkdown)(arr[1]), FishCompletionItemType.function));
+        return ret;
+    });
+}
+exports.buildGlobalAlaises = buildGlobalAlaises;
+function findEachSubcommand(node) {
+    return __awaiter(this, void 0, void 0, function* () {
+        if (node.children.length == 1) {
+            return [];
+        }
+        const children = node.children.slice(1);
+        let text = [node.child(0).text];
+        for (const child of children) {
+            const childText = child.text;
+            if (childText.startsWith("-")) {
+                return text;
+            }
+            const subcmds = yield (0, exec_1.execFindSubcommand)(text);
+            if (subcmds.length > 0) {
+                const found = subcmds.filter(subcmd => subcmd == childText)[0];
+                if (found) {
+                    text.push(found);
+                }
+            }
+        }
+        return text;
     });
 }
 //# sourceMappingURL=completion.js.map

@@ -27,8 +27,6 @@ export declare class MyAnalyzer {
     getTreeForUri(uri: string): SyntaxTree | null;
 }
 export declare class SyntaxTree {
-    document: TextDocument;
-    parser: Parser;
     rootNode: SyntaxNode;
     tree: Tree;
     nodes: SyntaxNode[];
@@ -38,7 +36,7 @@ export declare class SyntaxTree {
     variables: SyntaxNode[];
     statements: SyntaxNode[];
     locations: Location[];
-    constructor(parser: Parser, document: TextDocument);
+    constructor(tree: Parser.Tree);
     ensureAnalyzed(): Parser.SyntaxNode[];
     clearAll(): void;
     getUniqueCommands(): string[];

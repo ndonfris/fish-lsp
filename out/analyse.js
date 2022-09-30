@@ -28,14 +28,10 @@ class MyAnalyzer {
     }
     analyze(uri, document) {
         return __awaiter(this, void 0, void 0, function* () {
-            const tree = this.uriToSyntaxTree[uri];
-            if (tree === undefined) {
-                this.uriToSyntaxTree[uri] = generateInitialSyntaxTree(this.parser, document);
-            }
-            if (!tree) {
-                this.uriToSyntaxTree[uri] = generateInitialSyntaxTree(this.parser, document);
-            }
-            tree === null || tree === void 0 ? void 0 : tree.ensureAnalyzed();
+            const contents = document.getText();
+            const tree = this.parser.parse(contents);
+            this.uriToSyntaxTree[uri] = new SyntaxTree(tree);
+            this.uriToSyntaxTree[uri].ensureAnalyzed();
             //const uniqCommands = this.uriToSyntaxTree[uri]
             //    ?.getUniqueCommands()
             //    .filter((cmd: string) => this.globalDocs[cmd] === undefined)!;
@@ -91,7 +87,6 @@ class MyAnalyzer {
         const tree = this.uriToSyntaxTree[uri];
         if (!tree)
             return;
-        tree.ensureAnalyzed();
         const result = tree.getLocalFunctionDefinition(node) || tree.getNearestVariableDefinition(node);
         if (!result)
             return;
@@ -162,9 +157,9 @@ class MyAnalyzer {
     }
 }
 exports.MyAnalyzer = MyAnalyzer;
-function generateInitialSyntaxTree(parser, document) {
-    return new SyntaxTree(parser, document);
-}
+//function generateInitialSyntaxTree(parser: Parser, document: TextDocument) {
+//    return new SyntaxTree(parser, document);
+//}
 function firstNodeBeforeSecondNodeComaprision(firstNode, secondNode) {
     return (firstNode.startPosition.row < secondNode.startPosition.row &&
         firstNode.startPosition.column < secondNode.startPosition.column &&
@@ -174,7 +169,7 @@ function firstNodeBeforeSecondNodeComaprision(firstNode, secondNode) {
 //    return newArray.filter((node) => !oldArray.includes(node));
 //}
 class SyntaxTree {
-    constructor(parser, document) {
+    constructor(tree) {
         this.nodes = [];
         this.functions = [];
         this.commands = [];
@@ -182,16 +177,13 @@ class SyntaxTree {
         this.variables = [];
         this.statements = [];
         this.locations = [];
-        this.parser = parser;
-        this.document = document;
-        this.tree = this.parser.parse(this.document.getText());
+        this.tree = tree;
         this.rootNode = this.tree.rootNode;
         this.tree = this.tree;
         this.clearAll();
     }
     ensureAnalyzed() {
         this.clearAll();
-        this.parser.parse(this.document.getText());
         const newNodes = (0, tree_sitter_1.getNodes)(this.rootNode);
         for (const newNode of (0, tree_sitter_1.getNodes)(this.rootNode)) {
             if ((0, node_types_1.isCommand)(newNode)) {
@@ -221,7 +213,6 @@ class SyntaxTree {
         return newNodes;
     }
     clearAll() {
-        this.nodes = [];
         this.functions = [];
         this.variables = [];
         this.variable_definitions = [];

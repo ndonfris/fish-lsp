@@ -59,20 +59,11 @@ export class MyAnalyzer {
     }
 
     async analyze(uri: string, document: TextDocument) {
-        const tree = this.uriToSyntaxTree[uri]
-        if (tree === undefined) {
-            this.uriToSyntaxTree[uri] = generateInitialSyntaxTree(
-                this.parser,
-                document
-            );
-        }
-        if (!tree) {
-            this.uriToSyntaxTree[uri] = generateInitialSyntaxTree(
-                this.parser,
-                document
-            );
-        }
-        tree?.ensureAnalyzed()
+        const contents = document.getText()
+        const tree = this.parser.parse(contents)
+
+        this.uriToSyntaxTree[uri] = new SyntaxTree(tree);
+        this.uriToSyntaxTree[uri]!.ensureAnalyzed()
 
         //const uniqCommands = this.uriToSyntaxTree[uri]
         //    ?.getUniqueCommands()
@@ -150,7 +141,6 @@ export class MyAnalyzer {
         const tree = this.uriToSyntaxTree[uri];
         if (!tree) return;
 
-        tree.ensureAnalyzed()
         const result = tree.getLocalFunctionDefinition(node) || tree.getNearestVariableDefinition(node)
         if (!result) return
         return {
@@ -212,9 +202,9 @@ export class MyAnalyzer {
     }
 }
 
-function generateInitialSyntaxTree(parser: Parser, document: TextDocument) {
-    return new SyntaxTree(parser, document);
-}
+//function generateInitialSyntaxTree(parser: Parser, document: TextDocument) {
+//    return new SyntaxTree(parser, document);
+//}
 
 
 function firstNodeBeforeSecondNodeComaprision(
@@ -233,8 +223,6 @@ function firstNodeBeforeSecondNodeComaprision(
 //}
 
 export class SyntaxTree {
-    public document: TextDocument;
-    public parser: Parser;
     public rootNode: SyntaxNode;
     public tree: Tree;
     public nodes: SyntaxNode[] = [];
@@ -245,10 +233,8 @@ export class SyntaxTree {
     public statements: SyntaxNode[] = [];
     public locations: Location[] = [] ;
 
-    constructor( parser: Parser, document: TextDocument) {
-        this.parser = parser;
-        this.document = document;
-        this.tree = this.parser.parse(this.document.getText())
+    constructor(tree: Parser.Tree) {
+        this.tree = tree;
         this.rootNode = this.tree.rootNode;
         this.tree = this.tree;
         this.clearAll();
@@ -256,7 +242,6 @@ export class SyntaxTree {
 
     public ensureAnalyzed() {
         this.clearAll()
-        this.parser.parse(this.document.getText())
         const newNodes = getNodes(this.rootNode)
         for (const newNode of getNodes(this.rootNode)) {
             if (isCommand(newNode)) {
@@ -287,7 +272,6 @@ export class SyntaxTree {
     }
 
     public clearAll() {
-        this.nodes = [];
         this.functions = [];
         this.variables = [];
         this.variable_definitions = [];

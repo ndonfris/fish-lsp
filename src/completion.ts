@@ -1,13 +1,20 @@
-import { MarkupKind } from "coc.nvim";
 import {
     CompletionItem,
     CompletionItemKind,
+    CompletionItemLabelDetails,
     CompletionList,
     MarkupContent,
 } from "vscode-languageserver-protocol";
 import { SyntaxNode } from "web-tree-sitter";
 import { enrichToMarkdown } from "./documentation";
-import { execCompleteAbbrs, execCompleteVariables } from "./utils/exec";
+import {
+    execComplete,
+    execCompleteAbbrs,
+    execCompleteGlobalDocs,
+    execCompleteVariables,
+    execFindSubcommand,
+} from "./utils/exec";
+import { findParentCommand } from "./utils/node-types";
 
 // utils create CompletionResolver and CompletionItems
 // also decide which completion icons each item will have
@@ -44,16 +51,20 @@ export function toCompletionItemKind(
 
 function buildCompletionItem(
     name: string,
+    detail: string,
     docs: string | MarkupContent,
     type: FishCompletionItemType,
-    filterText?: string
+    insertText?: string
 ): CompletionItem {
     const itemKind = toCompletionItemKind(type);
     return {
         ...CompletionItem.create(name),
+        detail: detail,
+        labelDetails: { detail: detail, description: "(" + detail + ")" }as CompletionItemLabelDetails,
         documentation: docs,
         kind: itemKind,
-        filterText: filterText || "",
+        insertText: insertText,
+        filterText: itemKind === CompletionItemKind.Variable ? "$" : undefined,
         data: {
             name: name,
             documentation: docs,
@@ -86,8 +97,11 @@ export class Completion {
     private currentNode: SyntaxNode | undefined;
     private commandNode: SyntaxNode | undefined;
 
-    private globalVariableList: CompletionItem[] = [];
-    private abbrList: CompletionItem[] = [];
+    public globalAbbrs: CompletionItem[] = [];
+    private globalVars: CompletionItem[] = [];
+    public globalAlaises: CompletionItem[] = [];
+    public globalCmds: CompletionItem[] = [];
+    public globalBuiltins: CompletionItem[] = [];
     private localVariablesList: CompletionItem[] = [];
     private localFunctions: CompletionItem[] = [];
 
@@ -106,22 +120,71 @@ export class Completion {
     // also you could add the syntaxTree on
     // this.documents.listener.onDocumentChange(() => {})
     public async initialDefaults() {
-        this.globalVariableList = await buildGlobalVars();
-        this.abbrList = await buildGlobalAbbr();
+        this.globalVars = await buildGlobalVars();
+        this.globalAbbrs = await buildGlobalAbbrs();
+        this.globalCmds = await buildGlobalCommands();
+        this.globalAlaises = await buildGlobalAlaises();
+        this.globalBuiltins = await buildGlobalBuiltins();
+        return this;
     }
 
     // here you build the completion data per type
     // call enrichCompletions on new this.completions
     // therefore you probably want to add the defaults (abbr & global variable list)
     // after this.completions is enriched
-    private enrichCompletions() {}
+
+    public async generateCurrent(node: SyntaxNode) {
+        this.currentNode = node;
+        this.commandNode = findParentCommand(node) || this.currentNode;
+        const fishCompletes: CompletionItem[] = [];
+        //if (this.currentNode != this.commandNode) {
+        //    const cmpString = await findEachSubcommand(this.commandNode);
+        //    const cmps = await execComplete(cmpString);
+        //    if (!cmps) return
+        //    for (const cmp of cmps) {
+        //        const cmpArr = cmp.split("\t", 1);
+        //        fishCompletes.push(
+        //            buildCompletionItem(
+        //                cmpArr[0],
+        //                cmpArr[1] || "",
+        //                cmpArr[0].startsWith("$")
+        //                    ? FishCompletionItemType.variable
+        //                    : FishCompletionItemType.flag
+        //            )
+        //        );
+        //    }
+        //} else {
+        //    const cmpString = await findEachSubcommand(this.commandNode);
+        //    const cmps = await execComplete(cmpString);
+        //    if (!cmps) return
+        //    for (const cmp of cmps) {
+        //        const cmpArr = cmp.split("\t", 1);
+        //        fishCompletes.push(
+        //            buildCompletionItem(
+        //                cmpArr[0],
+        //                cmpArr[1] || "",
+        //                cmpArr[0].startsWith("$")
+        //                    ? FishCompletionItemType.variable
+        //                    : FishCompletionItemType.function
+        //            )
+        //        );
+        //    }
+        //}
+        //return fishCompletes;
+    }
 
     // probably need some of SyntaxTree class in this file
     public async generate(node: SyntaxNode) {
+        //const fishCompletions = await this.generateCurrent(node) || []
+        //await this.initialDefaults();
         this.completions = [
-            ...this.abbrList,
-            ...this.globalVariableList,
+            ...this.globalAbbrs,
+            ...this.globalVars,
+            ...this.globalCmds,
+            ...this.globalBuiltins,
+            ...this.globalAlaises,
         ]
+            //...fishCompletions
         return CompletionList.create(this.completions, this.isIncomplete);
     }
 
@@ -134,36 +197,101 @@ export class Completion {
     //
 }
 
-async function buildGlobalAbbr() {
-    const globalVars = await execCompleteAbbrs();
-    return globalVars
-        .map((abbr) => abbr.split("--", 1)[1].trim())
-        .map((abbr) => {
-            const arr = abbr.split(" ", 1);
-            const name = arr[0];
-            const abbrReplaceText = arr[1];
-            return buildCompletionItem(
-                name,
-                enrichToMarkdown("__abbreviation__: " + abbrReplaceText),
+export async function buildGlobalAbbrs() {
+    const globalAbbrs = await execCompleteGlobalDocs('abbrs');
+    const ret = globalAbbrs.split('\n')
+        .map(abbr => abbr.split('\t'))
+        .map((abbr: string[]) => 
+             buildCompletionItem(
+                abbr[0].trim(),
+                'abbr',
+                enrichToMarkdown("__Abbreviation__: " + abbr.at(-1)),
                 FishCompletionItemType.abbr,
-                abbrReplaceText
-            );
-        });
+                abbr.at(-1)
+            )
+        );
+    return ret;
 }
 
-async function buildGlobalVars() {
-    const globalVars = await execCompleteVariables();
-    return globalVars
-        .map((gvar) => gvar.split("\t", 1))
-        .map((arr) => {
-            const name = arr[0];
-            const descArr = arr[1].split(" ", 1);
-            const docs = enrichToMarkdown(["__" + descArr[0] + "__ ", descArr[1]].join(" "));
-            return buildCompletionItem(name, docs, FishCompletionItemType.variable);
-    });
+export async function buildGlobalVars(): Promise<CompletionItem[]>{
+    const globalVars = await execCompleteGlobalDocs('vars');
+    const ret = globalVars.split('\n')
+        .map(gvar => gvar.split("\t"))
+        .map((arr: string[]) => 
+            buildCompletionItem(
+                    "$"+arr[0],
+                    arr[1],
+                    enrichToMarkdown(arr.slice(1).join(': ') + '  '),
+                    FishCompletionItemType.variable,
+                    "$"+arr[0]
+                ),
+        )
+    return ret;
 }
 
-async function buildGlobalFunctions() {
-
+export async function buildGlobalBuiltins(): Promise<CompletionItem[]>{
+    const globalVars = await execCompleteGlobalDocs('builtins');
+    const ret = globalVars.split('\n')
+        .map(gvar => gvar.split("\t"))
+        .map((arr: string[]) => 
+            buildCompletionItem(
+                arr[0],
+                arr[1],
+                arr[0],
+                FishCompletionItemType.builtin,
+            )
+        )
+    return ret;
 }
 
+export async function buildGlobalCommands(): Promise<CompletionItem[]>{
+    const globalVars = await execCompleteGlobalDocs('commands');
+    const ret = globalVars.split('\n')
+        .map(gvar => gvar.split("\t"))
+        .map((arr: string[]) => 
+            buildCompletionItem(
+                arr[0],
+                arr[1],
+                enrichToMarkdown("__command__: " + arr.at(0)),
+                FishCompletionItemType.function,
+            )
+        )
+    return ret;
+}
+
+export async function buildGlobalAlaises(): Promise<CompletionItem[]>{
+    const globalVars = await execCompleteGlobalDocs('aliases');
+    const ret = globalVars.split('\n')
+        .map(gvar => gvar.split("\t"))
+        .map((arr: string[]) => 
+            buildCompletionItem(
+                arr[0],
+                arr[1],
+                enrichToMarkdown(arr[1]),
+                FishCompletionItemType.function,
+            )
+        )
+    return ret;
+}
+
+async function findEachSubcommand(node: SyntaxNode) {
+    if (node.children.length == 1) {
+        return []
+    }
+    const children = node.children!.slice(1);
+    let text = [node.child(0)!.text];
+    for (const child of children) {
+        const childText = child.text;
+        if (childText.startsWith("-")) {
+            return text;
+        }
+        const subcmds = await execFindSubcommand(text);
+        if (subcmds.length > 0) {
+            const found = subcmds.filter(subcmd => subcmd == childText)[0];
+            if (found) {
+                text.push(found);
+            }
+        }
+    }
+    return text;
+}

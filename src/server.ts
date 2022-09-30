@@ -12,6 +12,8 @@ import {
     TextDocumentPositionParams,
     Hover,
     CompletionItem,
+    CompletionList,
+    Position,
 } from "vscode-languageserver/node";
 import * as LSP from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
@@ -29,6 +31,7 @@ import {execCommandDocs} from './utils/exec';
 import {documentationHoverProvider, enrichToMarkdown} from './documentation';
 import {Logger} from './logger';
 import {createTextDocumentFromFilePath} from './utils/io';
+import {Completion} from './completion';
 
 /**
  * The FishServer glues together the separate components to implement
@@ -47,6 +50,12 @@ export default class FishServer {
         const analyzer = new MyAnalyzer(parser);
         const documents = new LspDocuments(new TextDocuments(TextDocument));
         const files = await getAllFishLocations();
+        const completion = new Completion();
+        try {
+            await completion.initialDefaults()
+        } catch (err) {
+            console.log('error!!!!!!!!!!!!!!!')
+        }
         // for (const file of files) {
         //     //const doc =  await createTextDocumentFromFilePath(file)
         //     //await analyzer.initialize(file)
@@ -64,12 +73,14 @@ export default class FishServer {
             documents,
             analyzer,
             //dependencies,
+            completion,
             capabilities
         );
     }
 
     private documents: LspDocuments;
     private analyzer: MyAnalyzer;
+    private completion: Completion;
     private parser: Parser;
     //private logger: Logger;
     //private dependencies: Dependencies;
@@ -82,6 +93,7 @@ export default class FishServer {
         parser: Parser,
         documents: LspDocuments,
         analyzer: MyAnalyzer,
+        completion: Completion,
         capabilities: LSP.ClientCapabilities
     ) {
         this.connection = connection;
@@ -89,6 +101,7 @@ export default class FishServer {
         this.documents = documents;
         this.parser = parser;
         this.analyzer = analyzer;
+        this.completion = completion;
         this.clientCapabilities = capabilities;
     }
 
@@ -116,13 +129,8 @@ export default class FishServer {
                 // push diagnostics
             }
             const doc = this.documents.get(uri)!;
-            this.analyzer.analyze(uri, doc);
-                // already open (republish diagnostics)
-                // check if new command added
-                //const doc = this.documents.get(uri)!;
-                //this.analyzer.analyze(uri, doc);
-            //}
-            //this.analyzer.uriToSyntaxTree[uri]?.ensureAnalyzed()
+            this.analyzer.analyze(uri, document);
+
         });
 
         this.documents.listener.onDidClose(async (change) => {
@@ -141,7 +149,7 @@ export default class FishServer {
         // connection.onWorkspaceSymbol(this.onWorkspaceSymbol.bind(this))
         // connection.onDocumentHighlight(this.onDocumentHighlight.bind(this))
         // connection.onReferences(this.onReferences.bind(this))
-        // connection.onCompletion(this.onCompletion.bind(this))
+        connection.onCompletion(this.onCompletion.bind(this))
         // connection.onCompletionResolve(this.onCompletionResolve.bind(this))s))
 
     }
@@ -151,10 +159,10 @@ export default class FishServer {
             // For now we're using full-sync even though tree-sitter has great support
             // for partial updates.
             textDocumentSync: LSP.TextDocumentSyncKind.Full,
-            //completionProvider: {
-            //    resolveProvider: true,
-            //    triggerCharacters: ["$", "-"],
-            //},
+            completionProvider: {
+                resolveProvider: false,
+                triggerCharacters: ["$", "-"],
+            },
             hoverProvider: true,
             documentHighlightProvider: true,
             definitionProvider: true,
@@ -197,24 +205,41 @@ export default class FishServer {
     }
     
 
-    public async onComplete(params: TextDocumentPositionParams):  Promise<CompletionItem[]| void>{
+    public async onCompletion(params: TextDocumentPositionParams):  Promise<CompletionList | null>{
         const uri: string = params.textDocument.uri;
-        const node: SyntaxNode | null = this.analyzer.nodeAtPoint(uri, params.position.line, params.position.character);
 
-        if (!node) return 
-
-        const commandNode: SyntaxNode | null = findParentCommand(node);
-        if (!commandNode) {
-            //use node
+        const pos: Position = {
+            line: params.position.line,
+            character: Math.max(0, params.position.character-1)
         }
+        const node: SyntaxNode | null = this.analyzer.nodeAtPoint(uri, pos.line, pos.character);
 
-        this.analyzer.getHoverFallback(uri, node)
+        if (!node) return  null
 
-        // build Completions
-        const completions: CompletionItem[] = []
+        this.logger.logmsg({ path: uri, action:'onComplete', params: params, node: node})
+
+        try {
+            const completionList = await this.completion.generate(node)
+            if (completionList) return completionList
+        } catch (error) {
+            this.logger.log(`ERROR: ${error}`)
+        }
+        this.logger.log(`ERROR: onCompletion !Error`)
+
+        return null
+
+        //const commandNode: SyntaxNode | null = findParentCommand(node);
+        //if (!commandNode) {
+        //    //use node
+        //}
+
+        //this.analyzer.getHoverFallback(uri, node)
+
+        //// build Completions
+        //const completions: CompletionItem[] = []
 
 
-        return completions
+        //return completions
     }
 
     public async onCompleteResolve(item: CompletionItem): Promise<CompletionItem> {

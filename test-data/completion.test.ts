@@ -1,5 +1,7 @@
 
-import {execCompleteAbbrs, execCompleteVariables, execEscapedCommand} from '../src/utils/exec'
+import {execEscapedCommand} from '../src/utils/exec'
+import { buildGlobalAbbrs, buildGlobalAlaises, buildGlobalBuiltins, buildGlobalCommands, Completion } from '../src/completion'
+import {parseFile} from './helpers';
 
 
 
@@ -35,56 +37,80 @@ afterEach(() => {
 
 describe('complete simple tests', () => {
 
-    it('test execEscapeCommand', async () => {
-        let results = await execEscapedCommand('complete --do-complete="ls -"')
-        //results.forEach(arg => console.log(arg))
-    })
+    //it('test execEscapeCommand', async () => {
+    //    let results = await execEscapedCommand('complete --do-complete="ls -"')
+    //    //results.forEach(arg => console.log(arg))
+    //})
 
-    it('test execCommand', async () => {
-        let results = await execEscapedCommand('complete --do-complete="ls -"')
-        //results.forEach(arg => console.log(arg))
-    })
+    //it('test execCommand', async () => {
+    //    let results = await execEscapedCommand('complete --do-complete="ls -"')
+    //    //results.forEach(arg => console.log(arg))
+    //})
 
-    it('test execCommand', async () => {
-        let results = await execEscapedCommand('complete --do-complete="ls -"')
+    //it('test execCommand', async () => {
+    //    let results = await execEscapedCommand('complete --do-complete="ls -"')
 
-        let i = 0;
-        let fixedResults: string[] = [];
-        while ( i < results.length) {
-            const line = results[i]
-            if (!line.startsWith('-', 0)) {
-                //fixedResults.slice(i-1, i).join(' ')
-                fixedResults.push(fixedResults.pop()?.trimEnd() + ' ' + line.trim())
-            } else {
-                fixedResults.push(line)
-            }  
-            i++;
-        }
-        console.log(fixedResults)
+    //    let i = 0;
+    //    let fixedResults: string[] = [];
+    //    while ( i < results.length) {
+    //        const line = results[i]
+    //        if (!line.startsWith('-', 0)) {
+    //            //fixedResults.slice(i-1, i).join(' ')
+    //            fixedResults.push(fixedResults.pop()?.trimEnd() + ' ' + line.trim())
+    //        } else {
+    //            fixedResults.push(line)
+    //        }  
+    //        i++;
+    //    }
+    //    console.log(fixedResults)
 
-        //const args = results
-        //    .map(arg => arg.split('\t', 1))
+    //    //const args = results
+    //    //    .map(arg => arg.split('\t', 1))
 
-        //args.forEach(result => console.log(result))
-    })
+    //    //args.forEach(result => console.log(result))
+    //})
 
 
     it('test allCompletions', async () => {
         //let results = await execEscapeCommand('functions | string split ", "')
-        console.log(await execCompleteVariables())
+        //console.log(await execCompleteVariables())
 
-        console.log(await execCompleteAbbrs())
-        //results.forEach(command => {
-        //    try {
-        //        const result = execComplete(command.trim())
-        //    } catch (err) {
-        //        console.log(err)
-        //    } finally {
-        //        console.log
-        //    }
-        //})
+        //console.log(await execCompleteAbbrs())
+        const file = '/home/ndonfris/.config/fish/functions/test-fish-lsp.fish'
+        const tree = await  parseFile(file)
+        let completions = new Completion()
+        completions = await completions.initialDefaults()
+        const root = tree.rootNode
 
-        //results.forEach(result => console.log(result))
+        const completionSpots = [
+            root.descendantForPosition({ column: 8, row: 13}),
+            root.descendantForPosition({ column: 8, row: 12}),
+            root.descendantForPosition({ column: 8, row: 11}),
+            root.descendantForPosition({ column: 8, row: 10}),
+            root.descendantForPosition({ column: 8, row: 9}),
+            root.descendantForPosition({ column: 8, row: 8}),
+        ]
+
+        //for (const node of completionSpots) {
+
+        //}
+
+        //const globs = await execCompleteGlobalDocs('debug')
+        //let globs = await buildGlobalAbbrs()
+        //console.log(globs.slice(1,10))
+        //globs = await buildGlobalBuiltins()
+        //console.log(globs.slice(1,10))
+
+        //globs = await buildGlobalCommands()
+        //console.log(globs.slice(1,10))
+
+        //globs = await buildGlobalAlaises()
+        //console.log(globs.slice(1,10))
+        for (const node of completionSpots) {
+            const generated = await completions.generate(node)
+            console.log(generated)
+        }
+        expect(true).toBeTruthy();
     })
 
 })

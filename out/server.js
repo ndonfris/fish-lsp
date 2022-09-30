@@ -49,19 +49,20 @@ const document_1 = require("./document");
 const parser_1 = require("./parser");
 const analyse_1 = require("./analyse");
 const locations_1 = require("./utils/locations");
-const node_types_1 = require("./utils/node-types");
 const logger_1 = require("./logger");
+const completion_1 = require("./completion");
 /**
  * The FishServer glues together the separate components to implement
  * the various parts of the Language Server Protocol.
  */
 class FishServer {
-    constructor(connection, parser, documents, analyzer, capabilities) {
+    constructor(connection, parser, documents, analyzer, completion, capabilities) {
         this.connection = connection;
         this.logger = new logger_1.Logger(this.connection);
         this.documents = documents;
         this.parser = parser;
         this.analyzer = analyzer;
+        this.completion = completion;
         this.clientCapabilities = capabilities;
     }
     /**
@@ -74,6 +75,13 @@ class FishServer {
             const analyzer = new analyse_1.MyAnalyzer(parser);
             const documents = new document_1.LspDocuments(new node_1.TextDocuments(vscode_languageserver_textdocument_1.TextDocument));
             const files = yield (0, locations_1.getAllFishLocations)();
+            const completion = new completion_1.Completion();
+            try {
+                yield completion.initialDefaults();
+            }
+            catch (err) {
+                console.log('error!!!!!!!!!!!!!!!');
+            }
             // for (const file of files) {
             //     //const doc =  await createTextDocumentFromFilePath(file)
             //     //await analyzer.initialize(file)
@@ -85,7 +93,7 @@ class FishServer {
             // }
             return new FishServer(connection, parser, documents, analyzer, 
             //dependencies,
-            capabilities);
+            completion, capabilities);
         });
     }
     register(connection) {
@@ -111,13 +119,7 @@ class FishServer {
                 // push diagnostics
             }
             const doc = this.documents.get(uri);
-            this.analyzer.analyze(uri, doc);
-            // already open (republish diagnostics)
-            // check if new command added
-            //const doc = this.documents.get(uri)!;
-            //this.analyzer.analyze(uri, doc);
-            //}
-            //this.analyzer.uriToSyntaxTree[uri]?.ensureAnalyzed()
+            this.analyzer.analyze(uri, document);
         }));
         this.documents.listener.onDidClose((change) => __awaiter(this, void 0, void 0, function* () {
             const { document } = change;
@@ -134,7 +136,7 @@ class FishServer {
         // connection.onWorkspaceSymbol(this.onWorkspaceSymbol.bind(this))
         // connection.onDocumentHighlight(this.onDocumentHighlight.bind(this))
         // connection.onReferences(this.onReferences.bind(this))
-        // connection.onCompletion(this.onCompletion.bind(this))
+        connection.onCompletion(this.onCompletion.bind(this));
         // connection.onCompletionResolve(this.onCompletionResolve.bind(this))s))
     }
     capabilities() {
@@ -142,10 +144,10 @@ class FishServer {
             // For now we're using full-sync even though tree-sitter has great support
             // for partial updates.
             textDocumentSync: LSP.TextDocumentSyncKind.Full,
-            //completionProvider: {
-            //    resolveProvider: true,
-            //    triggerCharacters: ["$", "-"],
-            //},
+            completionProvider: {
+                resolveProvider: false,
+                triggerCharacters: ["$", "-"],
+            },
             hoverProvider: true,
             documentHighlightProvider: true,
             definitionProvider: true,
@@ -183,20 +185,35 @@ class FishServer {
             //return hover
         });
     }
-    onComplete(params) {
+    onCompletion(params) {
         return __awaiter(this, void 0, void 0, function* () {
             const uri = params.textDocument.uri;
-            const node = this.analyzer.nodeAtPoint(uri, params.position.line, params.position.character);
+            const pos = {
+                line: params.position.line,
+                character: Math.max(0, params.position.character - 1)
+            };
+            const node = this.analyzer.nodeAtPoint(uri, pos.line, pos.character);
             if (!node)
-                return;
-            const commandNode = (0, node_types_1.findParentCommand)(node);
-            if (!commandNode) {
-                //use node
+                return null;
+            this.logger.logmsg({ path: uri, action: 'onComplete', params: params, node: node });
+            try {
+                const completionList = yield this.completion.generate(node);
+                if (completionList)
+                    return completionList;
             }
-            this.analyzer.getHoverFallback(uri, node);
-            // build Completions
-            const completions = [];
-            return completions;
+            catch (error) {
+                this.logger.log(`ERROR: ${error}`);
+            }
+            this.logger.log(`ERROR: onCompletion !Error`);
+            return null;
+            //const commandNode: SyntaxNode | null = findParentCommand(node);
+            //if (!commandNode) {
+            //    //use node
+            //}
+            //this.analyzer.getHoverFallback(uri, node)
+            //// build Completions
+            //const completions: CompletionItem[] = []
+            //return completions
         });
     }
     onCompleteResolve(item) {
