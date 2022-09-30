@@ -6,6 +6,7 @@ const path_1 = require("path");
 const vscode_languageserver_1 = require("vscode-languageserver");
 const url_1 = require("url");
 const fs_extra_1 = require("fs-extra");
+const node_types_1 = require("./node-types");
 /**
  * Returns an array for all the nodes in the tree (@see also nodesGen)
  *
@@ -29,12 +30,16 @@ exports.getNodes = getNodes;
 // the first named child.
 // other nodes (such as flags) need just the actual text.
 function getNodeText(node) {
+    var _a;
     if (!node) {
         return "";
     }
-    const firstChild = node.firstNamedChild;
-    if (firstChild) {
-        return firstChild.text.trim();
+    if ((0, node_types_1.isFunctionDefinintion)(node)) {
+        return ((_a = node.child(1)) === null || _a === void 0 ? void 0 : _a.text) || "";
+    }
+    if ((0, node_types_1.isVariableDefintion)(node)) {
+        const defVar = (0, node_types_1.findDefinedVariable)(node);
+        return defVar.text;
     }
     return (node.text != null) ? node.text.trim() : "";
 }

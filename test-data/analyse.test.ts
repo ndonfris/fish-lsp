@@ -3,6 +3,7 @@ import {
     resolveAbsPath,
     getRootNode,
     readShareDir,
+    startAnalyze,
     positionStr
 } from './helpers'
 
@@ -14,16 +15,6 @@ import {MyAnalyzer} from '../src/analyse';
 import {initializeParser} from '../src/parser';
 import {findDefinedVariable, findFunctionScope, findGlobalNodes, isVariable, isVariableDefintion} from '../src/utils/node-types';
 
-async function startAnalyze(fname: string) : Promise<MyAnalyzer> {
-    const usrShareFile = await resolveAbsPath(fname)
-    const output = usrShareFile.join('\n')
-    const parser = await initializeParser()
-    //const tree = await getRootNode(fname)
-    const analyzer = new MyAnalyzer(parser);
-    const td = TextDocument.create(fname,'fish', 1, output);
-    await analyzer.analyze(fname, td);
-    return analyzer;
-}
 //
 //interface textDocumentResult {
 //    document : TextDocument;

@@ -6,6 +6,7 @@ import { Range, URI } from 'vscode-languageserver'
 import { Point, SyntaxNode, Tree } from 'web-tree-sitter'
 import {pathToFileURL} from 'url';
 import {existsSync} from 'fs-extra';
+import {findDefinedVariable, isFunctionDefinintion, isVariableDefintion} from './node-types';
 
 /**
  * Returns an array for all the nodes in the tree (@see also nodesGen)
@@ -32,9 +33,12 @@ export function getNodeText(node: SyntaxNode | null): string {
     if (!node) {
         return ""
     }
-    const firstChild = node.firstNamedChild
-    if (firstChild) {
-       return firstChild.text.trim()
+    if (isFunctionDefinintion(node)) {
+        return node.child(1)?.text || ""
+    }
+    if (isVariableDefintion(node)) {
+        const defVar = findDefinedVariable(node)!
+        return defVar.text;
     }
     return (node.text != null) ? node.text.trim() : ""
 }

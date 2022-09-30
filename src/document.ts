@@ -32,7 +32,7 @@ export class LspDocuments {
     public listener: TextDocuments<TextDocument>;
 
     public documents: Map<string, LspDocument>;
-    //public dependencies: Map<string, LspDocument[]>;
+    //public dependencies: Map<string, SymbolInformation[]>;
 
     constructor(listener: LSP.TextDocuments<TextDocument>) {
         this.openDocuments = new Map<string, LspDocument>();

@@ -35,7 +35,7 @@ export function isStatement(node: SyntaxNode): boolean {
  * Checks for nodes which should stop the search for 
  * command nodes, used in findParentCommand()
  */
-function isBeforeCommand(node: SyntaxNode) {
+export function isBeforeCommand(node: SyntaxNode) {
     return [
         'file_redirect',
         'redirect',

@@ -1,5 +1,5 @@
 
-import {execCompleteAbbrs, execEscapedCommand} from '../src/utils/exec'
+import {execCompleteAbbrs, execCompleteVariables, execEscapedCommand} from '../src/utils/exec'
 
 
 
@@ -71,7 +71,7 @@ describe('complete simple tests', () => {
 
     it('test allCompletions', async () => {
         //let results = await execEscapeCommand('functions | string split ", "')
-        console.log(await execEscapedCommand('tldr cat'))
+        console.log(await execCompleteVariables())
 
         console.log(await execCompleteAbbrs())
         //results.forEach(command => {

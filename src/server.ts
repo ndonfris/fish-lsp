@@ -47,11 +47,17 @@ export default class FishServer {
         const analyzer = new MyAnalyzer(parser);
         const documents = new LspDocuments(new TextDocuments(TextDocument));
         const files = await getAllFishLocations();
-        for (const file of files) {
-            //const doc =  await createTextDocumentFromFilePath(file)
-            //if (!doc) continue;
-            await analyzer.initialize(file)
-        }
+        // for (const file of files) {
+        //     //const doc =  await createTextDocumentFromFilePath(file)
+        //     //await analyzer.initialize(file)
+        //     //if (!doc) continue;
+        //     //await analyzer.analyze(file, doc)
+        //     //const newRefrences = analyzer.uriToSyntaxTree[uri]?.getUniqueCommands()!
+        //     //newRefrences.forEach(refrence => {
+
+
+        //     //})
+        // }
         return new FishServer(
             connection,
             parser,
@@ -97,25 +103,26 @@ export default class FishServer {
             this.logger.logmsg({action:'onOpen', path: uri})
             this.analyzer.analyze(uri, document)
         })
+
         this.documents.listener.onDidChangeContent(async change => {
             const { document } = change;
             const uri = document.uri;
             this.documents.newDocument(uri);
-            this.logger.logmsg({path:uri, action:'onDidClose'})
+            this.logger.logmsg({path:uri, action:'onDidChangeContent'})
             const isOpen = await this.documents.open(uri);
             if (isOpen) {
                 this.documents.newDocument(uri)
-                const doc = this.documents.get(uri)!;
-                this.analyzer.analyze(uri, doc);
                 // dependencies are handled in analyze()
                 // push diagnostics
-            } else {
+            }
+            const doc = this.documents.get(uri)!;
+            this.analyzer.analyze(uri, doc);
                 // already open (republish diagnostics)
                 // check if new command added
-                const doc = this.documents.get(uri)!;
-                this.analyzer.analyze(uri, doc);
-            }
-            this.analyzer.uriToSyntaxTree[uri]?.ensureAnalyzed()
+                //const doc = this.documents.get(uri)!;
+                //this.analyzer.analyze(uri, doc);
+            //}
+            //this.analyzer.uriToSyntaxTree[uri]?.ensureAnalyzed()
         });
 
         this.documents.listener.onDidClose(async (change) => {
@@ -167,13 +174,12 @@ export default class FishServer {
         if (!node) return null
         this.logger.logmsg({ path: uri, action:'onHover', params: params, node: node})
 
-        const hoverDoc = this.analyzer.nodeIsLocal(uri, node)  || await this.analyzer.getHover(params) 
+        let hoverDoc = this.analyzer.nodeIsLocal(uri, node)  || await this.analyzer.getHover(params)
+        // TODO: heres where you should use fallback completion, and argument .
+
         if (hoverDoc) {
             return hoverDoc
         }
-
-        // TODO: heres where you should use fallback completion, and argument .
-        // this.analyzer.getHoverFallback(uri, node)
 
         this.logger.logmsg({action:'onHover', message:'ERROR', params: params, node: node})
 

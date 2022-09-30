@@ -20,7 +20,7 @@ function _flsp_get_manpage -d 'for a command with a manpage'
 end
 
 
-set -l type_result (type -t "$argv" 2> /dev/null)
+set -l type_result (type -t "$argv[1]" 2> /dev/null)
 
 switch "$type_result"
 case "function"

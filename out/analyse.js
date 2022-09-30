@@ -11,7 +11,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SyntaxTree = exports.MyAnalyzer = void 0;
 const documentation_1 = require("./documentation");
-const exec_1 = require("./utils/exec");
 const node_types_1 = require("./utils/node-types");
 const tree_sitter_1 = require("./utils/tree-sitter");
 class MyAnalyzer {
@@ -28,28 +27,31 @@ class MyAnalyzer {
         });
     }
     analyze(uri, document) {
-        var _a;
         return __awaiter(this, void 0, void 0, function* () {
-            if (!this.uriToSyntaxTree[uri]) {
-                this.uriToSyntaxTree[uri] = generateInitialSyntaxTree(this.parser, document.getText());
+            const tree = this.uriToSyntaxTree[uri];
+            if (tree === undefined) {
+                this.uriToSyntaxTree[uri] = generateInitialSyntaxTree(this.parser, document);
             }
-            //this.uriToSyntaxTree[uri]?.ensureAnalyzed()
-            const uniqCommands = (_a = this.uriToSyntaxTree[uri]) === null || _a === void 0 ? void 0 : _a.getUniqueCommands().filter((cmd) => this.globalDocs[cmd] === undefined);
-            if (!uniqCommands)
-                return;
-            for (const cmd of uniqCommands) {
-                const docs = yield (0, documentation_1.documentationHoverProvider)(cmd);
-                //const cmps = await generateCompletionArguments(cmd)
-                if (docs)
-                    this.globalDocs[cmd] = docs;
-                //if (cmps) this.completions[cmd] = cmps;
-                if (this.dependencies[cmd] === undefined) {
-                    const path = yield (0, exec_1.execFindDependency)(cmd);
-                    if (path.trim() != "") {
-                        this.dependencies[cmd] = path;
-                    }
-                }
+            if (!tree) {
+                this.uriToSyntaxTree[uri] = generateInitialSyntaxTree(this.parser, document);
             }
+            tree === null || tree === void 0 ? void 0 : tree.ensureAnalyzed();
+            //const uniqCommands = this.uriToSyntaxTree[uri]
+            //    ?.getUniqueCommands()
+            //    .filter((cmd: string) => this.globalDocs[cmd] === undefined)!;
+            //if (!uniqCommands) return;
+            //for (const cmd of uniqCommands) {
+            //    const docs = await documentationHoverProvider(cmd);
+            //    //const cmps = await generateCompletionArguments(cmd)
+            //    if (docs) this.globalDocs[cmd] = docs;
+            //    //if (cmps) this.completions[cmd] = cmps;
+            //    if (this.dependencies[cmd] === undefined) {
+            //        const path = await execFindDependency(cmd);
+            //        if (path.trim() != "") {
+            //            this.dependencies[cmd] = path;
+            //        }
+            //    }
+            //}
         });
     }
     complete(params) {
@@ -112,22 +114,20 @@ class MyAnalyzer {
             if (!node || !text) {
                 return;
             }
-            if (this.globalDocs[text]) {
-                return this.globalDocs[text];
-            }
+            //if (this.globalDocs[text]) {return this.globalDocs[text];}
             const docs = yield (0, documentation_1.documentationHoverProvider)(text);
-            const cmdNode = (0, node_types_1.findParentCommand)(node);
-            if (!docs && cmdNode) {
-                const cmdDocs = yield (0, documentation_1.documentationHoverProvider)(cmdNode === null || cmdNode === void 0 ? void 0 : cmdNode.text);
-                if (cmdDocs) {
-                    return cmdDocs;
-                }
-            }
+            //const cmdNode = findParentCommand(node);
+            //if (!docs && cmdNode) {
+            //    const cmdDocs = await documentationHoverProvider(cmdNode?.text);
+            //    if (cmdDocs) {
+            //        return cmdDocs
+            //    } 
+            //}
             if (docs) {
-                this.globalDocs[text] = docs;
+                //this.globalDocs[text] = docs
                 return docs;
             }
-            return;
+            return yield this.getHoverFallback(uri, node);
         });
     }
     getHoverFallback(uri, currentNode) {
@@ -139,8 +139,19 @@ class MyAnalyzer {
             const cmdNode = (0, node_types_1.findParentCommand)(currentNode);
             if (!cmdNode)
                 return;
-            if (currentNode.text.startsWith('-')) {
+            const hoverCmp = new documentation_1.HoverFromCompletion(cmdNode, currentNode);
+            let hover;
+            if (currentNode.text.startsWith("-")) {
+                hover = yield hoverCmp.generateForFlags();
             }
+            else {
+                hover = yield hoverCmp.generate();
+            }
+            if (hover)
+                return hover;
+            //if (currentNode.text.startsWith('-')) {
+            //}
+            return;
         });
     }
     getTreeForUri(uri) {
@@ -151,52 +162,36 @@ class MyAnalyzer {
     }
 }
 exports.MyAnalyzer = MyAnalyzer;
-function generateInitialSyntaxTree(parser, text) {
-    const tree = parser.parse(text);
-    return new SyntaxTree(tree);
-}
-function getDependencies(tree, depMap) {
-    var _a;
-    return __awaiter(this, void 0, void 0, function* () {
-        const result = [];
-        for (const cmd of tree.commands) {
-            const cmdText = ((_a = cmd === null || cmd === void 0 ? void 0 : cmd.firstChild) === null || _a === void 0 ? void 0 : _a.text.trim()) || "";
-            if (cmdText && depMap[cmdText] !== undefined) {
-                result.push(depMap[cmdText]);
-                continue;
-            }
-            if (cmdText && depMap[cmdText] === undefined) {
-                const depUri = yield (0, exec_1.execFindDependency)(cmdText);
-                if (!depUri || depUri.trim() == "")
-                    continue;
-                depMap[cmdText] = depUri;
-                result.push(depUri);
-            }
-        }
-        return { localDeps: result, globalDeps: depMap };
-    });
+function generateInitialSyntaxTree(parser, document) {
+    return new SyntaxTree(parser, document);
 }
 function firstNodeBeforeSecondNodeComaprision(firstNode, secondNode) {
     return (firstNode.startPosition.row < secondNode.startPosition.row &&
         firstNode.startPosition.column < secondNode.startPosition.column &&
         firstNode.text == secondNode.text);
 }
-function difference(oldArray, newArray) {
-    return newArray.filter((node) => !oldArray.includes(node));
-}
+//function difference(oldArray: any[], newArray: any[]) {
+//    return newArray.filter((node) => !oldArray.includes(node));
+//}
 class SyntaxTree {
-    constructor(tree) {
+    constructor(parser, document) {
         this.nodes = [];
         this.functions = [];
         this.commands = [];
         this.variable_definitions = [];
         this.variables = [];
-        this.rootNode = tree.rootNode;
-        this.tree = tree;
+        this.statements = [];
+        this.locations = [];
+        this.parser = parser;
+        this.document = document;
+        this.tree = this.parser.parse(this.document.getText());
+        this.rootNode = this.tree.rootNode;
+        this.tree = this.tree;
         this.clearAll();
     }
     ensureAnalyzed() {
         this.clearAll();
+        this.parser.parse(this.document.getText());
         const newNodes = (0, tree_sitter_1.getNodes)(this.rootNode);
         for (const newNode of (0, tree_sitter_1.getNodes)(this.rootNode)) {
             if ((0, node_types_1.isCommand)(newNode)) {
@@ -210,6 +205,9 @@ class SyntaxTree {
             }
             if ((0, node_types_1.isVariableDefintion)(newNode)) {
                 this.variable_definitions.push(newNode);
+            }
+            if ((0, node_types_1.isStatement)(newNode)) {
+                this.statements.push(newNode);
             }
         }
         //this.commands = [...newNodes.filter((node) => isCommand(node))];
@@ -248,7 +246,6 @@ class SyntaxTree {
     }
     getLocalFunctionDefinition(searchNode) {
         var _a;
-        const funcs = [];
         for (const func of (0, tree_sitter_1.getNodes)(this.rootNode)) {
             if ((0, node_types_1.isFunctionDefinintion)(func) && ((_a = func.children[1]) === null || _a === void 0 ? void 0 : _a.text) == searchNode.text) {
                 return func;
@@ -256,6 +253,7 @@ class SyntaxTree {
         }
         return undefined;
     }
+    // techincally this is nearest variable refrence that is a definition
     getNearestVariableDefinition(searchNode) {
         if (!(0, node_types_1.isVariable)(searchNode))
             return undefined;
@@ -274,11 +272,6 @@ class SyntaxTree {
             }
         }
         const result = varaibleDefinitions.pop();
-        //varaibleDefinitions.filter(
-        //    (node: SyntaxNode) =>
-        //    firstNodeBeforeSecondNodeComaprision(node, searchNode) 
-        //    && node?.parent != null
-        //).pop()
         if (!result || !result.parent)
             return undefined;
         return result.parent;

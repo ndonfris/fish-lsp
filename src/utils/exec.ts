@@ -42,6 +42,18 @@ export async function execCompleteLine(cmd: string): Promise<string[]> {
 
     return child.stdout.trim().split('\n')
 }
+ export async function execCompleteSpace(cmd: string): Promise<string[]> {
+    const escapedCommand = cmd.replace(/(["'$`\\])/g,'\\$1');
+    const completeString = `fish -c 'complete --do-complete="${escapedCommand} "'`;
+
+    const child = await execAsync(completeString)
+
+    if (child.stderr) {
+        return ['']
+    }
+
+    return child.stdout.trim().split('\n')
+}
 
 export async function execCompleteCmdArgs(cmd: string): Promise<string[]> {
     const exec = resolve(__dirname, '../../fish_files/get-command-options.fish')
@@ -65,6 +77,14 @@ export async function execCompleteCmdArgs(cmd: string): Promise<string[]> {
     return fixedResults;
 }
 
+//async function execShell(cmd: string) {
+//    const res = await execAsync(`fish -c 'complete --cmd`)
+//    return res.stdout.trim()
+//}
+
+export async function execCompleteVariables(): Promise<string[]> {
+    return await execEscapedCommand("complete --do-complete='echo $'");
+}
 
 export async function execCompleteAbbrs(): Promise<string[]> {
     return await execEscapedCommand('abbr --show');
@@ -72,7 +92,8 @@ export async function execCompleteAbbrs(): Promise<string[]> {
 
 export async function execCommandDocs(cmd: string): Promise<string> {
     const file = resolve(__dirname, '../../fish_files/get-documentation.fish')
-    const docs = execFileSync(file, [cmd])
+    const cmdArr = cmd.split(' ')
+    const docs = execFileSync(file, cmdArr)
     return docs.toString().trim();
 }
 
@@ -87,13 +108,20 @@ export async function execCommandDocs(cmd: string): Promise<string> {
  */
 export async function execCommandType(cmd: string): Promise<string> {
     const file = resolve(__dirname, '../../fish_files/get-type.fish')
-    const docs = execFileSync(file, [cmd])
+    const cmdCheck = cmd.split(' ')[0].trim()
+    const docs = execFileSync(file, [cmdCheck])
     return docs.toString().trim();
 }
 
 export interface CompletionArguments {
     command: string;
     args: Map<string, string>;
+}
+
+export async function documentCommandDescription(cmd: string) : Promise<string> {
+    const cmdDescription = await execAsync(`fish -c "__fish_describe_command ${cmd}" | head -n1`)
+    return cmdDescription.stdout.trim() || cmd
+
 }
 
 export async function generateCompletionArguments(cmd: string): Promise<CompletionArguments> {

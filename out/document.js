@@ -54,7 +54,7 @@ var FishFileType;
     FishFileType[FishFileType["builtin_completion"] = 5] = "builtin_completion";
 })(FishFileType = exports.FishFileType || (exports.FishFileType = {}));
 class LspDocuments {
-    //public dependencies: Map<string, LspDocument[]>;
+    //public dependencies: Map<string, SymbolInformation[]>;
     constructor(listener) {
         // consider changing to a map or an object with the keyof syntax
         this._files = [];

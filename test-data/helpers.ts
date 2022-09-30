@@ -1,7 +1,9 @@
 import {readdirSync, readFileSync} from 'fs';
 import { resolve } from 'path'
 import {initializeParser} from '../src/parser';
-import {Point, SyntaxNode} from 'web-tree-sitter'
+import {Point, SyntaxNode, Tree} from 'web-tree-sitter'
+import {MyAnalyzer} from '../src/analyse';
+import {TextDocument} from 'vscode-languageserver-textdocument';
 
 
 export function nodeToString(node: SyntaxNode) : string {
@@ -85,4 +87,20 @@ export async function getRandomNodeMatches(fileStr: string, nodeStr: string): Pr
 }
 
 
+export async function parseFile(fname: string) : Promise<Tree> {
+    const file = await resolveAbsPath(fname)
+    const parser = await initializeParser();
+    const tree = parser.parse(file.join('\n'));
+    return tree;
+}
 
+export async function startAnalyze(fname: string) : Promise<MyAnalyzer> {
+    const usrShareFile = await resolveAbsPath(fname)
+    const output = usrShareFile.join('\n')
+    const parser = await initializeParser()
+    //const tree = await getRootNode(fname)
+    const analyzer = new MyAnalyzer(parser);
+    const td = TextDocument.create(fname,'fish', 1, output);
+    await analyzer.analyze(fname, td);
+    return analyzer;
+}

@@ -8,7 +8,9 @@
  */
 export declare function execEscapedCommand(cmd: string): Promise<string[]>;
 export declare function execCompleteLine(cmd: string): Promise<string[]>;
+export declare function execCompleteSpace(cmd: string): Promise<string[]>;
 export declare function execCompleteCmdArgs(cmd: string): Promise<string[]>;
+export declare function execCompleteVariables(): Promise<string[]>;
 export declare function execCompleteAbbrs(): Promise<string[]>;
 export declare function execCommandDocs(cmd: string): Promise<string>;
 /**
@@ -25,6 +27,7 @@ export interface CompletionArguments {
     command: string;
     args: Map<string, string>;
 }
+export declare function documentCommandDescription(cmd: string): Promise<string>;
 export declare function generateCompletionArguments(cmd: string): Promise<CompletionArguments>;
 export declare function execFindDependency(cmd: string): Promise<string>;
 //# sourceMappingURL=exec.d.ts.map

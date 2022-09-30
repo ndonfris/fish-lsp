@@ -3,6 +3,7 @@ export declare function isComment(node: SyntaxNode): boolean;
 export declare function isFunctionDefinintion(node: SyntaxNode): boolean;
 export declare function isCommand(node: SyntaxNode): boolean;
 export declare function isStatement(node: SyntaxNode): boolean;
+export declare function isBeforeCommand(node: SyntaxNode): boolean;
 export declare function isVariable(node: SyntaxNode): boolean;
 /**
  * finds the parent command of the current node

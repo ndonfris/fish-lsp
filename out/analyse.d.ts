@@ -1,4 +1,4 @@
-import { Hover, TextDocumentPositionParams } from "vscode-languageserver";
+import { Hover, Location, TextDocumentPositionParams } from "vscode-languageserver";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import Parser, { SyntaxNode, Tree } from "web-tree-sitter";
 export declare class MyAnalyzer {
@@ -23,10 +23,12 @@ export declare class MyAnalyzer {
     wordAtPoint(uri: string, line: number, column: number): string | null;
     nodeIsLocal(uri: string, node: SyntaxNode): Hover | void;
     getHover(params: TextDocumentPositionParams): Promise<Hover | void>;
-    getHoverFallback(uri: string, currentNode: SyntaxNode): Promise<void>;
+    getHoverFallback(uri: string, currentNode: SyntaxNode): Promise<Hover | void>;
     getTreeForUri(uri: string): SyntaxTree | null;
 }
 export declare class SyntaxTree {
+    document: TextDocument;
+    parser: Parser;
     rootNode: SyntaxNode;
     tree: Tree;
     nodes: SyntaxNode[];
@@ -34,7 +36,9 @@ export declare class SyntaxTree {
     commands: SyntaxNode[];
     variable_definitions: SyntaxNode[];
     variables: SyntaxNode[];
-    constructor(tree: Tree);
+    statements: SyntaxNode[];
+    locations: Location[];
+    constructor(parser: Parser, document: TextDocument);
     ensureAnalyzed(): Parser.SyntaxNode[];
     clearAll(): void;
     getUniqueCommands(): string[];

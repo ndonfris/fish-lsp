@@ -1,7 +1,7 @@
 "use strict";
 // use this file to determine node types from ./tree-sitter
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.findLastVariableRefrence = exports.findFunctionScope = exports.hasParentFunction = exports.findGlobalNodes = exports.findDefinedVariable = exports.isVariableDefintion = exports.findParentCommand = exports.isVariable = exports.isStatement = exports.isCommand = exports.isFunctionDefinintion = exports.isComment = void 0;
+exports.findLastVariableRefrence = exports.findFunctionScope = exports.hasParentFunction = exports.findGlobalNodes = exports.findDefinedVariable = exports.isVariableDefintion = exports.findParentCommand = exports.isVariable = exports.isBeforeCommand = exports.isStatement = exports.isCommand = exports.isFunctionDefinintion = exports.isComment = void 0;
 const tree_sitter_1 = require("./tree-sitter");
 function isComment(node) {
     return node.type == 'comment';
@@ -43,6 +43,7 @@ function isBeforeCommand(node) {
         'pipe',
     ].includes(node.type) || isFunctionDefinintion(node) || isStatement(node);
 }
+exports.isBeforeCommand = isBeforeCommand;
 function isVariable(node) {
     if (isVariableDefintion(node)) {
         return true;
