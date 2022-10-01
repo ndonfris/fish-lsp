@@ -134,6 +134,7 @@ export default class FishServer {
         //        capabilities: this.capabilities()
         //    };
         //});
+        //connection.onInitialize(async )
 
         connection.onDidOpenTextDocument(async change => {
             const document = change.textDocument;

@@ -122,6 +122,7 @@ class FishServer {
         //        capabilities: this.capabilities()
         //    };
         //});
+        //connection.onInitialize(async )
         connection.onDidOpenTextDocument((change) => __awaiter(this, void 0, void 0, function* () {
             const document = change.textDocument;
             const uri = document.uri;

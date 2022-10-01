@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 /* eslint-disable no-console */
 
-const server = require('../out/index')
 //const package = require('../package')
 
 const args = process.argv
@@ -11,7 +10,7 @@ const start = args.find((s) => s == 'start')
 const help = args.find((s) => s == '-h' || s == '--help')
 
 if (start) {
-  server.listen()
+  require('../out/fish-lsp-server')
 } else if (help) {
   console.log(`
 Usage:
