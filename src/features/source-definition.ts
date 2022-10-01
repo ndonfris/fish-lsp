@@ -20,7 +20,7 @@ export class SourceDefinitionCommand {
         //documents: LspDocuments,
         //tspClient: TspClient,
         //lspClient: LspClient,
-        reporter: LSP.WorkDoneProgressReporter,
+        //reporter: LSP.WorkDoneProgressReporter,
     ): Promise<LSP.Location[] | void> {
 
         //if (!position || typeof position.character !== 'number' || typeof position.line !== 'number') {

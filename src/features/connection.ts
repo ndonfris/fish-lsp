@@ -5,7 +5,7 @@
  * You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
  */
 
-import * as LSP from 'vscode-languageserver/node';
+import * as LSP from 'vscode-languageserver';
 //import {FishServerLogLevel} from '../config';
 //import * as lspcalls from './lsp-protocol.calls.proposed';
 //import * as lspinlayHints from './lsp-protocol.inlayHints.proposed';

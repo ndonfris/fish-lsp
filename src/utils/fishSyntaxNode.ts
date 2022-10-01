@@ -1,4 +1,4 @@
-import {DocumentUri, Location} from 'vscode-languageserver-protocol/node';
+import {DocumentUri, Location} from 'vscode-languageserver-protocol';
 import {Point, SyntaxNode, Tree, TreeCursor} from 'web-tree-sitter'
 import {isVariableDefintion} from './node-types';
 import {getRange} from './tree-sitter';

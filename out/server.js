@@ -38,8 +38,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const node_1 = require("vscode-languageserver/node");
-const LSP = __importStar(require("vscode-languageserver/node"));
+const vscode_languageserver_1 = require("vscode-languageserver");
+const LSP = __importStar(require("vscode-languageserver"));
 const vscode_languageserver_textdocument_1 = require("vscode-languageserver-textdocument");
 //import { getInitializedHandler } from "./handlers/getInitializedHandler";
 //import { handleInitialized } from "./handlers/handleInitialized";
@@ -51,7 +51,7 @@ const parser_1 = require("./parser");
 const analyze_1 = require("./analyze");
 const logger_1 = require("./logger");
 const completion_1 = require("./completion");
-const documents = new node_1.TextDocuments(vscode_languageserver_textdocument_1.TextDocument);
+const documents = new vscode_languageserver_1.TextDocuments(vscode_languageserver_textdocument_1.TextDocument);
 /**
  * The FishServer glues together the separate components to implement
  * the various parts of the Language Server Protocol.

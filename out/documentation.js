@@ -10,13 +10,13 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.HoverFromCompletion = exports.collectCompletionOptions = exports.forwardArgCommandCollect = exports.forwardSubCommandCollect = exports.documentationHoverCommandArg = exports.documentationHoverProvider = exports.enrichToPlainText = exports.enrichCommandArg = exports.enrichToCodeBlockMarkdown = exports.enrichToMarkdown = void 0;
-const node_1 = require("vscode-languageserver-protocol/node");
+const vscode_languageserver_protocol_1 = require("vscode-languageserver-protocol");
 const builtins_1 = require("./utils/builtins");
 const exec_1 = require("./utils/exec");
 const tree_sitter_1 = require("./utils/tree-sitter");
 function enrichToMarkdown(doc) {
     return {
-        kind: node_1.MarkupKind.Markdown,
+        kind: vscode_languageserver_protocol_1.MarkupKind.Markdown,
         value: [
             doc,
         ].join()
@@ -25,7 +25,7 @@ function enrichToMarkdown(doc) {
 exports.enrichToMarkdown = enrichToMarkdown;
 function enrichToCodeBlockMarkdown(doc, filetype = 'fish') {
     return {
-        kind: node_1.MarkupKind.Markdown,
+        kind: vscode_languageserver_protocol_1.MarkupKind.Markdown,
         value: [
             '```' + filetype,
             doc.trim(),
@@ -47,7 +47,7 @@ function enrichCommandArg(doc) {
 exports.enrichCommandArg = enrichCommandArg;
 function enrichToPlainText(doc) {
     return {
-        kind: node_1.MarkupKind.PlainText,
+        kind: vscode_languageserver_protocol_1.MarkupKind.PlainText,
         value: doc.trim()
     };
 }

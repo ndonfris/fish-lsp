@@ -12,7 +12,6 @@ import { Logger } from "./logger";
 import { Completion } from "./completion";
 import { createTextDocumentFromFilePath } from "./utils/io";
 
-import { getLanguageService } from 'vscode-html-languageservice';
 import { createConnection, InitializeParams, ProposedFeatures, TextDocuments, TextDocumentSyncKind } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
@@ -23,8 +22,6 @@ const connection = createConnection(ProposedFeatures.all);
 // Create a simple text document manager. The text document manager
 // supports full document sync only
 const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
-
-const htmlLanguageService = getLanguageService();
 
 connection.onInitialize((_params: InitializeParams) => {
 	return {
@@ -39,16 +36,11 @@ connection.onInitialize((_params: InitializeParams) => {
 });
 
 connection.onCompletion(async (textDocumentPosition, token) => {
-	const document = documents.get(textDocumentPosition.textDocument.uri);
-	if (!document) {
-		return null;
-	}
+    const document = documents.get(textDocumentPosition.textDocument.uri);
+    if (!document) {
+        return null;
+    }
 
-	return htmlLanguageService.doComplete(
-		document,
-		textDocumentPosition.position,
-		htmlLanguageService.parseHTMLDocument(document)
-	);
 });
 
 documents.listen(connection);

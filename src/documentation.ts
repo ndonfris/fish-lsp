@@ -1,4 +1,4 @@
-import {Hover, MarkupContent, MarkupKind} from 'vscode-languageserver-protocol/node';
+import {Hover, MarkupContent, MarkupKind} from 'vscode-languageserver-protocol';
 import {SyntaxNode} from 'web-tree-sitter';
 import {hasPossibleSubCommand} from './utils/builtins';
 import {execCommandDocs, execCommandType, CompletionArguments, execCompleteSpace, execCompleteCmdArgs, documentCommandDescription} from './utils/exec';

@@ -1,5 +1,5 @@
 import { DocumentUri } from 'vscode-languageserver-textdocument';
-import { SymbolInformation, Location, SymbolKind } from "vscode-languageserver/node";
+import { SymbolInformation, Location, SymbolKind } from "vscode-languageserver";
 import { SyntaxNode } from "web-tree-sitter";
 import { SyntaxTree } from "./analyse";
 export declare class FishDiagnostics {

@@ -17,11 +17,7 @@ exports.SourceDefinitionCommand = void 0;
 //import { CommandTypes } from '../command-types';
 class SourceDefinitionCommand {
     //public static readonly id = '_typescript.goToSourceDefinition';
-    static execute(uri, position, 
-    //documents: LspDocuments,
-    //tspClient: TspClient,
-    //lspClient: LspClient,
-    reporter) {
+    static execute(uri, position) {
         return __awaiter(this, void 0, void 0, function* () {
             //if (!position || typeof position.character !== 'number' || typeof position.line !== 'number') {
             //    lspClient.showErrorMessage('Go to Source Definition failed. Invalid position.');

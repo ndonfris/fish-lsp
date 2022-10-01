@@ -1,4 +1,4 @@
-import * as LSP from 'vscode-languageserver/node';
+import * as LSP from 'vscode-languageserver';
 export interface LspConnectionOptions {
     showMessageLevel: LSP.MessageType;
 }

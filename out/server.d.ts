@@ -1,5 +1,5 @@
-import { TextDocumentPositionParams, CompletionItem, CompletionList } from "vscode-languageserver/node";
-import * as LSP from "vscode-languageserver/node";
+import { TextDocumentPositionParams, CompletionItem, CompletionList } from "vscode-languageserver";
+import * as LSP from "vscode-languageserver";
 /**
  * The FishServer glues together the separate components to implement
  * the various parts of the Language Server Protocol.

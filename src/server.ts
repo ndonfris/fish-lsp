@@ -18,8 +18,8 @@ import {
     InitializedParams,
     InitializeParams,
 
-} from "vscode-languageserver/node";
-import * as LSP from "vscode-languageserver/node";
+} from "vscode-languageserver";
+import * as LSP from "vscode-languageserver";
 import { DocumentUri, TextDocument } from "vscode-languageserver-textdocument";
 import Parser, {SyntaxNode} from "web-tree-sitter";
 //import { getInitializedHandler } from "./handlers/getInitializedHandler";

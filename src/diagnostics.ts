@@ -14,7 +14,7 @@ import {
     SemanticTokens,
     SignatureHelpParams,
     SymbolKind,
-} from "vscode-languageserver/node";
+} from "vscode-languageserver";
 import { SyntaxNode } from "web-tree-sitter";
 import { SyntaxTree } from "./analyse";
 //import {LspDocuments} from './document';

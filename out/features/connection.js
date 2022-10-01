@@ -30,7 +30,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createLspConnection = void 0;
-const LSP = __importStar(require("vscode-languageserver/node"));
+const LSP = __importStar(require("vscode-languageserver"));
 function createLspConnection(options) {
     const connection = LSP.createConnection(LSP.ProposedFeatures.all);
     //const lspClient = new LspClientImpl(connection);
