@@ -12,17 +12,11 @@ import {TextDocumentItem} from 'vscode-languageserver-protocol';
 //const readFileAsync = promisify(readFile)
 
 
-export async function createTextDocumentFromFilePath(uri: string): Promise<LspDocument | null> {
-    try {
-        const content = readFileSync(resolve(uri), "utf8");
-        if (!content) {
-            return null;
-        }
-        const textDoc = TextDocumentItem.create(uri, 'fish', 1, content)
-        return new LspDocument(textDoc)
-    } catch (e) {
-        return null
-    }
+export async function createTextDocumentFromFilePath(uri: string): Promise<TextDocument> {
+    const content = readFileSync(resolve(uri), "utf8");
+    const textDoc = TextDocument.create(uri, 'fish', 1, content)
+    //return new LspDocument(textDoc)
+    return textDoc;
 }
 
 //export function readDocumentFromUrl(context: Context, url: URI): TextDocument | null {

@@ -1,3 +1,3 @@
-import { LspDocument } from '../document';
-export declare function createTextDocumentFromFilePath(uri: string): Promise<LspDocument | null>;
+import { TextDocument } from 'vscode-languageserver-textdocument';
+export declare function createTextDocumentFromFilePath(uri: string): Promise<TextDocument>;
 //# sourceMappingURL=io.d.ts.map

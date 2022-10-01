@@ -7,31 +7,35 @@
 
 import {
     TextDocuments,
-    ProposedFeatures,
-    ServerCapabilities,
     TextDocumentPositionParams,
     Hover,
     CompletionItem,
     CompletionList,
     Position,
+    Range,
+    CompletionParams,
+    Connection,
+    InitializedParams,
+    InitializeParams,
+
 } from "vscode-languageserver/node";
 import * as LSP from "vscode-languageserver/node";
-import { TextDocument } from "vscode-languageserver-textdocument";
+import { DocumentUri, TextDocument } from "vscode-languageserver-textdocument";
 import Parser, {SyntaxNode} from "web-tree-sitter";
 //import { getInitializedHandler } from "./handlers/getInitializedHandler";
 //import { handleInitialized } from "./handlers/handleInitialized";
 //import { getHandleHover } from "./handlers/handleHover";
 //import { AstsMap, CliOptions, Context, DocsMap, RootsMap } from "./interfaces";
-import { LspDocument, LspDocuments } from "./document";
+//import { LspDocuments } from "./document";
 import { initializeParser } from "./parser";
-import { MyAnalyzer } from "./analyse";
+//import { MyAnalyzer } from "./analyse";
+import { MyAnalyzer } from "./analyze";
 import { getAllFishLocations } from "./utils/locations";
-import {findParentCommand} from './utils/node-types';
-import {execCommandDocs} from './utils/exec';
-import {documentationHoverProvider, enrichToMarkdown} from './documentation';
 import {Logger} from './logger';
-import {createTextDocumentFromFilePath} from './utils/io';
 import {Completion} from './completion';
+import {createTextDocumentFromFilePath} from './utils/io';
+
+const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 
 /**
  * The FishServer glues together the separate components to implement
@@ -48,8 +52,12 @@ export default class FishServer {
     ): Promise<FishServer> {
         const parser = await initializeParser();
         const analyzer = new MyAnalyzer(parser);
-        const documents = new LspDocuments(new TextDocuments(TextDocument));
-        const files = await getAllFishLocations();
+        //const documents = new LspDocuments(new TextDocuments(TextDocument));
+        //const files = await getAllFishLocations();
+        //for (const uri of files) {
+        //    const file = await createTextDocumentFromFilePath(uri)
+        //    if (file) await analyzer.initialize(uri, file)
+        //}
         const completion = new Completion();
         try {
             await completion.initialDefaults()
@@ -70,7 +78,7 @@ export default class FishServer {
         return new FishServer(
             connection,
             parser,
-            documents,
+            //documents,
             analyzer,
             //dependencies,
             completion,
@@ -78,7 +86,7 @@ export default class FishServer {
         );
     }
 
-    private documents: LspDocuments;
+    //private documents: LspDocuments;
     private analyzer: MyAnalyzer;
     private completion: Completion;
     private parser: Parser;
@@ -91,14 +99,14 @@ export default class FishServer {
     private constructor(
         connection: LSP.Connection,
         parser: Parser,
-        documents: LspDocuments,
+        //documents: LspDocuments,
         analyzer: MyAnalyzer,
         completion: Completion,
         capabilities: LSP.ClientCapabilities
     ) {
         this.connection = connection;
         this.logger = new Logger(this.connection)
-        this.documents = documents;
+        //this.documents = documents;
         this.parser = parser;
         this.analyzer = analyzer;
         this.completion = completion;
@@ -107,38 +115,48 @@ export default class FishServer {
 
     public register(connection: LSP.Connection): void {
         //const opened = this.documents.getOpenDocuments();
-        this.documents.listener.listen(connection);
-        this.documents.listener.onDidOpen(async open => {
-            const { document } = open;
+        //connection.listen(connection);
+        //connection.dispose()
+
+        //let languageModes: any;
+
+        //connection.onInitialize((_params: InitializeParams) => {
+        //    languageModes = languageModes();
+
+        //    documents.onDidClose(e => {
+        //        languageModes.onDocumentRemoved(e.document);
+        //    });
+        //    connection.onShutdown(() => {
+        //        languageModes.dispose();
+        //    });
+
+        //    return {
+        //        capabilities: this.capabilities()
+        //    };
+        //});
+
+        connection.onDidOpenTextDocument(async change => {
+            const document = change.textDocument;
             const uri = document.uri;
-            this.documents.newDocument(uri);
-            this.documents.open(uri)
+            await this.analyzer.initialize(uri);
             this.logger.logmsg({action:'onOpen', path: uri})
-            this.analyzer.analyze(uri, document)
         })
 
-        this.documents.listener.onDidChangeContent(async change => {
-            const { document } = change;
+        connection.onDidChangeTextDocument(async change => {
+            const document = change.textDocument;
             const uri = document.uri;
-            this.documents.newDocument(uri);
+            //this.documents.newDocument(uri);
             this.logger.logmsg({path:uri, action:'onDidChangeContent'})
-            const isOpen = await this.documents.open(uri);
-            if (isOpen) {
-                this.documents.newDocument(uri)
-                // dependencies are handled in analyze()
-                // push diagnostics
+            let doc = documents.get(uri)
+            if ( document && documents.get(uri) !== undefined ) {
+                doc = await this.analyzer.initialize(uri);
             }
-            const doc = this.documents.get(uri)!;
-            this.analyzer.analyze(uri, document);
-
+            await this.analyzer.analyze(uri, doc);
         });
 
-        this.documents.listener.onDidClose(async (change) => {
-            const { document } = change;
-            const uri = document.uri;
-            const doc = this.documents.close(uri);
+        connection.onDidCloseTextDocument(async change => { 
+            const uri = change.textDocument.uri;
             this.logger.logmsg({path:uri, action:'onDidClose'})
-            return doc;
         });
         // if formatting is enabled in settings. add onContentDidSave
 
@@ -151,7 +169,8 @@ export default class FishServer {
         // connection.onReferences(this.onReferences.bind(this))
         connection.onCompletion(this.onCompletion.bind(this))
         // connection.onCompletionResolve(this.onCompletionResolve.bind(this))s))
-
+        documents.listen(connection)
+        //connection.listen()
     }
 
     public capabilities(): LSP.ServerCapabilities {
@@ -179,8 +198,8 @@ export default class FishServer {
         //if (doc) {
         //    this.analyzer.analyze(uri, doc)
         //}
-        if (!node) return null
         this.logger.logmsg({ path: uri, action:'onHover', params: params, node: node})
+        if (!node) return null
 
         let hoverDoc = this.analyzer.nodeIsLocal(uri, node)  || await this.analyzer.getHover(params)
         // TODO: heres where you should use fallback completion, and argument .
@@ -205,18 +224,37 @@ export default class FishServer {
     }
     
 
-    public async onCompletion(params: TextDocumentPositionParams):  Promise<CompletionList | null>{
-        const uri: string = params.textDocument.uri;
 
-        const pos: Position = {
-            line: params.position.line,
-            character: Math.max(0, params.position.character-1)
+
+    public async onCompletion(completionParams: TextDocumentPositionParams):  Promise<CompletionList | null>{
+        const uri: string = completionParams.textDocument.uri;
+        const position = completionParams.position;
+        const currText = resolveCurrentDocumentLine(uri, position, this.logger)
+        //if (currDoc) {
+            //const currPos = currDoc.offsetAt(position)
+            //const range: Range = Range.create({line: position.line, character: 0}, {line: position.line, character: position.character})
+            //const documentText = this.analyzer.uriToTextDocument[uri].toString()
+            //this.logger.log(`cmpDocText: ${documentText}`)
+        //}
+
+        //const pos: Position = {
+        //    line: position.line,
+        //    character: Math.max(0, position.character-1)
+        //}
+        //if (documentText.endsWith('-')) {
+        //    return null;
+        //}
+        let document = documents.get(uri);
+        if (!document) {
+            document = await this.analyzer.initialize(uri)
+            await this.analyzer.analyze(uri, document)
         }
-        const node: SyntaxNode | null = this.analyzer.nodeAtPoint(uri, pos.line, pos.character);
+        const node: SyntaxNode | null = this.analyzer.nodeAtPoint(uri, position.line, position.character);
 
-        if (!node) return  null
+        this.logger.logmsg({ path: uri, action:'onComplete', node: node})
 
-        this.logger.logmsg({ path: uri, action:'onComplete', params: params, node: node})
+        if (!node) return null
+
 
         try {
             const completionList = await this.completion.generate(node)
@@ -248,3 +286,12 @@ export default class FishServer {
     }
 
 }
+
+function resolveCurrentDocumentLine(uri: DocumentUri, currPos: Position, logger: Logger) {
+    const currDoc = documents.get(uri)
+    if (currDoc === undefined) return ""
+    const currText = currDoc.getText().split('\n').at(currPos.line)
+    logger.log('currText: ' + currText)
+    return currText || "";
+}
+

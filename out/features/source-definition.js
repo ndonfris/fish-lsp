@@ -10,11 +10,15 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SourceDefinitionCommand = void 0;
+//import { Position } from '../utils/typeConverters.js';
+//import { toLocation, uriToPath } from '../protocol-translation';
+//import type { LspDocuments } from '../document';
 //import type { LspClient } from '../lsp-client';
 //import { CommandTypes } from '../command-types';
 class SourceDefinitionCommand {
     //public static readonly id = '_typescript.goToSourceDefinition';
-    static execute(uri, position, documents, 
+    static execute(uri, position, 
+    //documents: LspDocuments,
     //tspClient: TspClient,
     //lspClient: LspClient,
     reporter) {

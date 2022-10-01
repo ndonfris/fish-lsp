@@ -7,7 +7,7 @@
 import * as LSP from 'vscode-languageserver';
 //import { Position } from '../utils/typeConverters.js';
 //import { toLocation, uriToPath } from '../protocol-translation';
-import type { LspDocuments } from '../document';
+//import type { LspDocuments } from '../document';
 //import type { LspClient } from '../lsp-client';
 //import { CommandTypes } from '../command-types';
 
@@ -17,7 +17,7 @@ export class SourceDefinitionCommand {
     public static async execute(
         uri: LSP.DocumentUri | undefined,
         position: LSP.Position | undefined,
-        documents: LspDocuments,
+        //documents: LspDocuments,
         //tspClient: TspClient,
         //lspClient: LspClient,
         reporter: LSP.WorkDoneProgressReporter,

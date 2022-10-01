@@ -21,120 +21,120 @@ export enum FishFileType {
     builtin_completion,
 }
 
-export class LspDocuments {
-
-    // consider changing to a map or an object with the keyof syntax
-    private readonly _files: string[] = [];
-
-    // use TextDocuments 
-    private readonly openDocuments: Map<string, LspDocument>;
-
-    public listener: TextDocuments<TextDocument>;
-
-    public documents: Map<string, LspDocument>;
-    //public dependencies: Map<string, SymbolInformation[]>;
-
-    constructor(listener: LSP.TextDocuments<TextDocument>) {
-        this.openDocuments = new Map<string, LspDocument>();
-        this.listener = listener;
-        this.documents = new Map<string, LspDocument>();
-        //this.dependencies = new Map<string, LspDocument[]>();
-    }
-
-    /**
-     * gets the dependency for the the file/uri passed in
-     *
-     * @param {string} file - the file to find in the documents.
-     * @returns {LspDocument | undefined} - the document found matching 
-     *                                      the uri if it exists
-     */
-    get(file: string): LspDocument | undefined {
-        const uri = file
-        const document = this.documents.get(uri);
-        if (!document) {
-            return undefined;
-        }
-        return document;
-    }                
-
-    /**
-     * normalizes a filepaths uri, and creates the textDocument. Also, sets the
-     * dependencies for a newDocument.
-     */
-    async newDocument(uri: string) {
-        let document = await createTextDocumentFromFilePath(uri)
-        if (!document) return;
-        if (this._files.includes(document.uri)) {
-            return
-        }
-        this.documents.set(uri, document)
-        //this.dependencies.set(uri, [])
-    }
-
-    //getDependencies(uri: string) {
-    //    const deps = this.dependencies.get(uri)
-    //    if (!deps) {
-    //        return [] as LspDocument[]
-    //    }
-    //    return deps
-    //}
-
-    ///**
-    // * add a new Dependency, to the document
-    // * @param {string} uri - the uri that has a dependency
-    // * @param {string} depUri - the uri that is the depency
-    // */
-    //public addDependency(uri: string, depUri: string) {
-    //    const newDep = this.get(depUri);
-    //    const oldDeps = this.getDependencies(uri)
-    //    if (oldDeps.includes(depUri)) {
-    //        return 
-    //    }
-    //    if (newDep && !oldDeps.includes(depUri)) {
-    //        this.dependencies.set(uri, [...oldDeps, newDep]);
-    //    }
-    //}
-
-
-    /**
-     * return all the documents seen in the _files field
-     */
-    getOpenDocuments(): LspDocument[] {
-        return [...this.openDocuments.values()];
-    }
-
-    /**
-     * adds a new Uri to the _files array. Returns true if a document is opened
-     * and false if a document is already opened
-     */
-    async open(uri: string): Promise<boolean> {
-        if (this.openDocuments.has(uri)) {
-            return false;
-        }
-        if (!this.get(uri)) {
-            await this.newDocument(uri)
-            const document = this.documents.get(uri)
-            if (this.documents.has(uri) && document) {
-                this.openDocuments.set(uri, document)
-            }
-        }
-        this._files.unshift(uri);
-        return true;
-    }
-
-    /**
-     * deletes an item from the _files array, and returns the document
-     */
-    close(uri: string): LspDocument | undefined {
-        const document = this.openDocuments.get(uri);
-        if (!document) {
-            return undefined;
-        }
-        this._files.splice(this._files.indexOf(uri), 1)
-        this.openDocuments.delete(uri);
-        return document;
-    }
-}
+//export class LspDocuments {
+//
+//    // consider changing to a map or an object with the keyof syntax
+//    private readonly _files: string[] = [];
+//
+//    // use TextDocuments 
+//    private readonly openDocuments: Map<string, LspDocument>;
+//
+//    public listener: TextDocuments<TextDocument>;
+//
+//    public documents: Map<string, TextDocument>;
+//    //public dependencies: Map<string, SymbolInformation[]>;
+//
+//    constructor(listener: LSP.TextDocuments<TextDocument>) {
+//        this.openDocuments = new Map<string, LspDocument>();
+//        this.listener = listener;
+//        this.documents = new Map<string, TextDocument>();
+//        //this.dependencies = new Map<string, LspDocument[]>();
+//    }
+//
+//    /**
+//     * gets the dependency for the the file/uri passed in
+//     *
+//     * @param {string} file - the file to find in the documents.
+//     * @returns {LspDocument | undefined} - the document found matching 
+//     *                                      the uri if it exists
+//     */
+//    get(file: string): LspDocument | undefined {
+//        const uri = file
+//        const document = this.openDocuments.get(uri);
+//        if (!document) {
+//            return undefined;
+//        }
+//        return document;
+//    }                
+//
+//    /**
+//     * normalizes a filepaths uri, and creates the textDocument. Also, sets the
+//     * dependencies for a newDocument.
+//     */
+//    async newDocument(uri: string) {
+//        let document = await createTextDocumentFromFilePath(uri)
+//        if (!document) return;
+//        if (this._files.includes(document.uri)) {
+//            return
+//        }
+//        this.documents.set(uri, document)
+//        //this.dependencies.set(uri, [])
+//    }
+//
+//    //getDependencies(uri: string) {
+//    //    const deps = this.dependencies.get(uri)
+//    //    if (!deps) {
+//    //        return [] as LspDocument[]
+//    //    }
+//    //    return deps
+//    //}
+//
+//    ///**
+//    // * add a new Dependency, to the document
+//    // * @param {string} uri - the uri that has a dependency
+//    // * @param {string} depUri - the uri that is the depency
+//    // */
+//    //public addDependency(uri: string, depUri: string) {
+//    //    const newDep = this.get(depUri);
+//    //    const oldDeps = this.getDependencies(uri)
+//    //    if (oldDeps.includes(depUri)) {
+//    //        return 
+//    //    }
+//    //    if (newDep && !oldDeps.includes(depUri)) {
+//    //        this.dependencies.set(uri, [...oldDeps, newDep]);
+//    //    }
+//    //}
+//
+//
+//    /**
+//     * return all the documents seen in the _files field
+//     */
+//    getOpenDocuments(): LspDocument[] {
+//        return [...this.openDocuments.values()];
+//    }
+//
+//    /**
+//     * adds a new Uri to the _files array. Returns true if a document is opened
+//     * and false if a document is already opened
+//     */
+//    async open(uri: string): Promise<boolean> {
+//        if (this.openDocuments.has(uri)) {
+//            return false;
+//        }
+//        if (!this.get(uri)) {
+//            await this.newDocument(uri)
+//            const document = this.documents.get(uri)
+//            if (this.documents.has(uri) && document) {
+//                this.openDocuments.set(uri, document)
+//            }
+//        }
+//        this._files.unshift(uri);
+//        return true;
+//    }
+//
+//    /**
+//     * deletes an item from the _files array, and returns the document
+//     */
+//    close(uri: string): LspDocument | undefined {
+//        const document = this.openDocuments.get(uri);
+//        if (!document) {
+//            return undefined;
+//        }
+//        this._files.splice(this._files.indexOf(uri), 1)
+//        this.openDocuments.delete(uri);
+//        return document;
+//    }
+//}
 
 export class LspDocument implements TextDocument {
 
@@ -143,9 +143,9 @@ export class LspDocument implements TextDocument {
     private matchingDependency: string;
     private fishFileType: FishFileType;
 
-    constructor(doc: LSP.TextDocumentItem) {
-        const { uri, languageId, version, text } = doc;
-        this.document = TextDocument.create(uri, languageId, version, text);
+    constructor(doc: TextDocument) {
+        const { uri, languageId, version } = doc;
+        this.document = TextDocument.create(uri, languageId, version, doc.getText());
         this.fishFileType = this.setFishFileType()
         this.matchingDependency = this.setMatchingDep();
     }

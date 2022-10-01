@@ -17,7 +17,7 @@ import {
 } from "vscode-languageserver/node";
 import { SyntaxNode } from "web-tree-sitter";
 import { SyntaxTree } from "./analyse";
-import {LspDocuments} from './document';
+//import {LspDocuments} from './document';
 import { isBuiltin } from "./utils/builtins";
 import {execFindDependency} from './utils/exec';
 import {

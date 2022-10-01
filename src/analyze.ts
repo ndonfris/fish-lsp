@@ -42,78 +42,31 @@ import {
 
 export class MyAnalyzer {
     private parser: Parser;
-    public uriToSyntaxTree: { [uri: string]: SyntaxTree | null };
+    public uriToSyntaxTree: { [uri: string]: SyntaxTree };
     public uriToTextDocument: { [uri: string]: TextDocument}
-    private globalDocs: { [uri: string]: Hover };
-    private completions: { [uri: string]: CompletionArguments };
-    private dependencies: { [cmd: string]: string };
 
     constructor(parser: Parser) {
         this.parser = parser;
         this.uriToSyntaxTree = {};
         this.uriToTextDocument = {};
-        this.globalDocs = {};
-        this.completions = {};
-        this.dependencies = {};
     }
 
-    async initialize(uri: string, document: TextDocument | undefined) {
-        if ( !document ) {
-            this.uriToTextDocument[uri] = await createTextDocumentFromFilePath(uri)
-        } else {
-            this.uriToTextDocument[uri] = document;
-        }
-        const tree = this.parser.parse(this.uriToTextDocument[uri].getText()) 
+    async initialize(uri: string) {
+        const document = await createTextDocumentFromFilePath(uri)
+        const tree = this.parser.parse(document.getText()) 
         this.uriToSyntaxTree[uri] = new SyntaxTree(tree);
-
+        this.uriToTextDocument[uri] = document;
+        return document;
     }
 
     async analyze(uri: string, newDocument: TextDocument | undefined) {
         if (!newDocument) {
-            await this.initialize(uri, newDocument)
+            newDocument = await this.initialize(uri)
         }
         const contents = this.uriToTextDocument[uri].getText()
         const tree = this.parser.parse(contents)
 
-        this.uriToSyntaxTree[uri] = new SyntaxTree(tree);
-        if (this.uriToSyntaxTree[uri] != null) this.uriToSyntaxTree[uri]?.ensureAnalyzed()
-
-        //const uniqCommands = this.uriToSyntaxTree[uri]
-        //    ?.getUniqueCommands()
-        //    .filter((cmd: string) => this.globalDocs[cmd] === undefined)!;
-
-        //if (!uniqCommands) return;
-        //for (const cmd of uniqCommands) {
-        //    const docs = await documentationHoverProvider(cmd);
-        //    //const cmps = await generateCompletionArguments(cmd)
-        //    if (docs) this.globalDocs[cmd] = docs;
-        //    //if (cmps) this.completions[cmd] = cmps;
-        //    if (this.dependencies[cmd] === undefined) {
-        //        const path = await execFindDependency(cmd);
-        //        if (path.trim() != "") {
-        //            this.dependencies[cmd] = path;
-        //        }
-        //    }
-        //}
-    }
-
-    async complete(params: TextDocumentPositionParams) {
-        const uri = params.textDocument.uri;
-        const tree = this.uriToSyntaxTree[uri];
-        const node = this.nodeAtPoint(
-            params.textDocument.uri,
-            params.position.line,
-            params.position.character
-        );
-        const text = this.wordAtPoint(
-            params.textDocument.uri,
-            params.position.line,
-            params.position.character
-        );
-        if (!node || !text) {
-            return;
-        }
-        const cmd = findParentCommand(node);
+        this.uriToSyntaxTree[uri].ensureAnalyzed()
     }
 
     /**
@@ -140,7 +93,7 @@ export class MyAnalyzer {
         uri: string,
         line: number,
         column: number
-    ): string | null {
+    ) : string | null {
         const node = this.nodeAtPoint(uri, line, column);
 
         if (!node || node.childCount > 0 || node.text.trim() === "") {
@@ -149,6 +102,18 @@ export class MyAnalyzer {
 
         return node.text.trim();
     }
+
+    public currentLine(
+        uri: string,
+        line: number
+    ): string {
+        const currDoc = this.uriToTextDocument[uri]
+        if (currDoc === undefined) return ""
+        const currText = currDoc.getText().split('\n').at(line)
+        return currText || "";
+
+    }
+
 
     public nodeIsLocal(uri: string, node: SyntaxNode): Hover | void {
         const tree = this.uriToSyntaxTree[uri];
@@ -170,19 +135,11 @@ export class MyAnalyzer {
         if (!tree) {return ;}
         const node = this.nodeAtPoint(uri,line,character)
         const text = this.wordAtPoint(uri,line,character)
-        if (!node || !text) {return; }
+        if (!node || !text) return;
         //if (this.globalDocs[text]) {return this.globalDocs[text];}
 
         const docs = await documentationHoverProvider(text);
-        //const cmdNode = findParentCommand(node);
-        //if (!docs && cmdNode) {
-        //    const cmdDocs = await documentationHoverProvider(cmdNode?.text);
-        //    if (cmdDocs) {
-        //        return cmdDocs
-        //    } 
-        //}
         if (docs) {
-            //this.globalDocs[text] = docs
             return docs;
         }
         return await this.getHoverFallback(uri, node)
@@ -214,10 +171,6 @@ export class MyAnalyzer {
         return this.uriToSyntaxTree[uri];
     }
 }
-
-//function generateInitialSyntaxTree(parser: Parser, document: TextDocument) {
-//    return new SyntaxTree(parser, document);
-//}
 
 
 function firstNodeBeforeSecondNodeComaprision(

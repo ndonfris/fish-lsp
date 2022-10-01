@@ -4,18 +4,14 @@ import Parser, { SyntaxNode, Tree } from "web-tree-sitter";
 export declare class MyAnalyzer {
     private parser;
     uriToSyntaxTree: {
-        [uri: string]: SyntaxTree | null;
+        [uri: string]: SyntaxTree;
     };
     uriToTextDocument: {
         [uri: string]: TextDocument;
     };
-    private globalDocs;
-    private completions;
-    private dependencies;
     constructor(parser: Parser);
-    initialize(uri: string, document: TextDocument | undefined): Promise<void>;
+    initialize(uri: string): Promise<TextDocument>;
     analyze(uri: string, newDocument: TextDocument | undefined): Promise<void>;
-    complete(params: TextDocumentPositionParams): Promise<void>;
     /**
      * Find the node at the given point.
      */
@@ -24,6 +20,7 @@ export declare class MyAnalyzer {
      * Find the full word at the given point.
      */
     wordAtPoint(uri: string, line: number, column: number): string | null;
+    currentLine(uri: string, line: number): string;
     nodeIsLocal(uri: string, node: SyntaxNode): Hover | void;
     getHover(params: TextDocumentPositionParams): Promise<Hover | void>;
     getHoverFallback(uri: string, currentNode: SyntaxNode): Promise<Hover | void>;
@@ -50,4 +47,4 @@ export declare class SyntaxTree {
     getNearestVariableDefinition(searchNode: SyntaxNode): Parser.SyntaxNode | undefined;
     getOutmostScopedNodes(): Parser.SyntaxNode[];
 }
-//# sourceMappingURL=analyse.d.ts.map
+//# sourceMappingURL=analyze.d.ts.map

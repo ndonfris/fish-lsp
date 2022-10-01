@@ -19,45 +19,24 @@ class MyAnalyzer {
         this.parser = parser;
         this.uriToSyntaxTree = {};
         this.uriToTextDocument = {};
-        this.globalDocs = {};
-        this.completions = {};
-        this.dependencies = {};
     }
-    initialize(uri, document) {
+    initialize(uri) {
         return __awaiter(this, void 0, void 0, function* () {
-            if (!document) {
-                this.uriToTextDocument[uri] = yield (0, io_1.createTextDocumentFromFilePath)(uri);
-            }
-            else {
-                this.uriToTextDocument[uri] = document;
-            }
-            const tree = this.parser.parse(this.uriToTextDocument[uri].getText());
+            const document = yield (0, io_1.createTextDocumentFromFilePath)(uri);
+            const tree = this.parser.parse(document.getText());
             this.uriToSyntaxTree[uri] = new SyntaxTree(tree);
+            this.uriToTextDocument[uri] = document;
+            return document;
         });
     }
     analyze(uri, newDocument) {
-        var _a;
         return __awaiter(this, void 0, void 0, function* () {
             if (!newDocument) {
-                yield this.initialize(uri, newDocument);
+                newDocument = yield this.initialize(uri);
             }
             const contents = this.uriToTextDocument[uri].getText();
             const tree = this.parser.parse(contents);
-            this.uriToSyntaxTree[uri] = new SyntaxTree(tree);
-            if (this.uriToSyntaxTree[uri] != null)
-                (_a = this.uriToSyntaxTree[uri]) === null || _a === void 0 ? void 0 : _a.ensureAnalyzed();
-        });
-    }
-    complete(params) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const uri = params.textDocument.uri;
-            const tree = this.uriToSyntaxTree[uri];
-            const node = this.nodeAtPoint(params.textDocument.uri, params.position.line, params.position.character);
-            const text = this.wordAtPoint(params.textDocument.uri, params.position.line, params.position.character);
-            if (!node || !text) {
-                return;
-            }
-            const cmd = (0, node_types_1.findParentCommand)(node);
+            this.uriToSyntaxTree[uri].ensureAnalyzed();
         });
     }
     /**
@@ -80,6 +59,13 @@ class MyAnalyzer {
             return null;
         }
         return node.text.trim();
+    }
+    currentLine(uri, line) {
+        const currDoc = this.uriToTextDocument[uri];
+        if (currDoc === undefined)
+            return "";
+        const currText = currDoc.getText().split('\n').at(line);
+        return currText || "";
     }
     nodeIsLocal(uri, node) {
         const tree = this.uriToSyntaxTree[uri];
@@ -104,20 +90,11 @@ class MyAnalyzer {
             }
             const node = this.nodeAtPoint(uri, line, character);
             const text = this.wordAtPoint(uri, line, character);
-            if (!node || !text) {
+            if (!node || !text)
                 return;
-            }
             //if (this.globalDocs[text]) {return this.globalDocs[text];}
             const docs = yield (0, documentation_1.documentationHoverProvider)(text);
-            //const cmdNode = findParentCommand(node);
-            //if (!docs && cmdNode) {
-            //    const cmdDocs = await documentationHoverProvider(cmdNode?.text);
-            //    if (cmdDocs) {
-            //        return cmdDocs
-            //    } 
-            //}
             if (docs) {
-                //this.globalDocs[text] = docs
                 return docs;
             }
             return yield this.getHoverFallback(uri, node);
@@ -155,9 +132,6 @@ class MyAnalyzer {
     }
 }
 exports.MyAnalyzer = MyAnalyzer;
-//function generateInitialSyntaxTree(parser: Parser, document: TextDocument) {
-//    return new SyntaxTree(parser, document);
-//}
 function firstNodeBeforeSecondNodeComaprision(firstNode, secondNode) {
     return (firstNode.startPosition.row < secondNode.startPosition.row &&
         firstNode.startPosition.column < secondNode.startPosition.column &&
@@ -276,4 +250,4 @@ class SyntaxTree {
     }
 }
 exports.SyntaxTree = SyntaxTree;
-//# sourceMappingURL=analyse.js.map
+//# sourceMappingURL=analyze.js.map

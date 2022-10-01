@@ -11,6 +11,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getSymbolKind = exports.FishSymbol = exports.FishDiagnostics = void 0;
 const node_1 = require("vscode-languageserver/node");
+//import {LspDocuments} from './document';
 const builtins_1 = require("./utils/builtins");
 const exec_1 = require("./utils/exec");
 const node_types_1 = require("./utils/node-types");

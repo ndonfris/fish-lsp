@@ -10,7 +10,6 @@ export default class FishServer {
      * initialization parameters.
      */
     static initialize(connection: LSP.Connection, { capabilities }: LSP.InitializeParams): Promise<FishServer>;
-    private documents;
     private analyzer;
     private completion;
     private parser;
@@ -21,7 +20,7 @@ export default class FishServer {
     register(connection: LSP.Connection): void;
     capabilities(): LSP.ServerCapabilities;
     private onHover;
-    onCompletion(params: TextDocumentPositionParams): Promise<CompletionList | null>;
+    onCompletion(completionParams: TextDocumentPositionParams): Promise<CompletionList | null>;
     onCompleteResolve(item: CompletionItem): Promise<CompletionItem>;
 }
 //# sourceMappingURL=server.d.ts.map

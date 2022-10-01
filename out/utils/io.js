@@ -11,23 +11,15 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createTextDocumentFromFilePath = void 0;
 const fs_1 = require("fs");
+const vscode_languageserver_textdocument_1 = require("vscode-languageserver-textdocument");
 const path_1 = require("path");
-const document_1 = require("../document");
-const vscode_languageserver_protocol_1 = require("vscode-languageserver-protocol");
 //const readFileAsync = promisify(readFile)
 function createTextDocumentFromFilePath(uri) {
     return __awaiter(this, void 0, void 0, function* () {
-        try {
-            const content = (0, fs_1.readFileSync)((0, path_1.resolve)(uri), "utf8");
-            if (!content) {
-                return null;
-            }
-            const textDoc = vscode_languageserver_protocol_1.TextDocumentItem.create(uri, 'fish', 1, content);
-            return new document_1.LspDocument(textDoc);
-        }
-        catch (e) {
-            return null;
-        }
+        const content = (0, fs_1.readFileSync)((0, path_1.resolve)(uri), "utf8");
+        const textDoc = vscode_languageserver_textdocument_1.TextDocument.create(uri, 'fish', 1, content);
+        //return new LspDocument(textDoc)
+        return textDoc;
     });
 }
 exports.createTextDocumentFromFilePath = createTextDocumentFromFilePath;

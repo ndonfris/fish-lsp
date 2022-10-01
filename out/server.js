@@ -45,21 +45,24 @@ const vscode_languageserver_textdocument_1 = require("vscode-languageserver-text
 //import { handleInitialized } from "./handlers/handleInitialized";
 //import { getHandleHover } from "./handlers/handleHover";
 //import { AstsMap, CliOptions, Context, DocsMap, RootsMap } from "./interfaces";
-const document_1 = require("./document");
+//import { LspDocuments } from "./document";
 const parser_1 = require("./parser");
-const analyse_1 = require("./analyse");
-const locations_1 = require("./utils/locations");
+//import { MyAnalyzer } from "./analyse";
+const analyze_1 = require("./analyze");
 const logger_1 = require("./logger");
 const completion_1 = require("./completion");
+const documents = new node_1.TextDocuments(vscode_languageserver_textdocument_1.TextDocument);
 /**
  * The FishServer glues together the separate components to implement
  * the various parts of the Language Server Protocol.
  */
 class FishServer {
-    constructor(connection, parser, documents, analyzer, completion, capabilities) {
+    constructor(connection, parser, 
+    //documents: LspDocuments,
+    analyzer, completion, capabilities) {
         this.connection = connection;
         this.logger = new logger_1.Logger(this.connection);
-        this.documents = documents;
+        //this.documents = documents;
         this.parser = parser;
         this.analyzer = analyzer;
         this.completion = completion;
@@ -72,9 +75,13 @@ class FishServer {
     static initialize(connection, { capabilities }) {
         return __awaiter(this, void 0, void 0, function* () {
             const parser = yield (0, parser_1.initializeParser)();
-            const analyzer = new analyse_1.MyAnalyzer(parser);
-            const documents = new document_1.LspDocuments(new node_1.TextDocuments(vscode_languageserver_textdocument_1.TextDocument));
-            const files = yield (0, locations_1.getAllFishLocations)();
+            const analyzer = new analyze_1.MyAnalyzer(parser);
+            //const documents = new LspDocuments(new TextDocuments(TextDocument));
+            //const files = await getAllFishLocations();
+            //for (const uri of files) {
+            //    const file = await createTextDocumentFromFilePath(uri)
+            //    if (file) await analyzer.initialize(uri, file)
+            //}
             const completion = new completion_1.Completion();
             try {
                 yield completion.initialDefaults();
@@ -91,42 +98,50 @@ class FishServer {
             //     //newRefrences.forEach(refrence => {
             //     //})
             // }
-            return new FishServer(connection, parser, documents, analyzer, 
+            return new FishServer(connection, parser, 
+            //documents,
+            analyzer, 
             //dependencies,
             completion, capabilities);
         });
     }
     register(connection) {
         //const opened = this.documents.getOpenDocuments();
-        this.documents.listener.listen(connection);
-        this.documents.listener.onDidOpen((open) => __awaiter(this, void 0, void 0, function* () {
-            const { document } = open;
+        //connection.listen(connection);
+        //connection.dispose()
+        //let languageModes: any;
+        //connection.onInitialize((_params: InitializeParams) => {
+        //    languageModes = languageModes();
+        //    documents.onDidClose(e => {
+        //        languageModes.onDocumentRemoved(e.document);
+        //    });
+        //    connection.onShutdown(() => {
+        //        languageModes.dispose();
+        //    });
+        //    return {
+        //        capabilities: this.capabilities()
+        //    };
+        //});
+        connection.onDidOpenTextDocument((change) => __awaiter(this, void 0, void 0, function* () {
+            const document = change.textDocument;
             const uri = document.uri;
-            this.documents.newDocument(uri);
-            this.documents.open(uri);
+            yield this.analyzer.initialize(uri);
             this.logger.logmsg({ action: 'onOpen', path: uri });
-            this.analyzer.analyze(uri, document);
         }));
-        this.documents.listener.onDidChangeContent((change) => __awaiter(this, void 0, void 0, function* () {
-            const { document } = change;
+        connection.onDidChangeTextDocument((change) => __awaiter(this, void 0, void 0, function* () {
+            const document = change.textDocument;
             const uri = document.uri;
-            this.documents.newDocument(uri);
+            //this.documents.newDocument(uri);
             this.logger.logmsg({ path: uri, action: 'onDidChangeContent' });
-            const isOpen = yield this.documents.open(uri);
-            if (isOpen) {
-                this.documents.newDocument(uri);
-                // dependencies are handled in analyze()
-                // push diagnostics
+            let doc = documents.get(uri);
+            if (document && documents.get(uri) !== undefined) {
+                doc = yield this.analyzer.initialize(uri);
             }
-            const doc = this.documents.get(uri);
-            this.analyzer.analyze(uri, document);
+            yield this.analyzer.analyze(uri, doc);
         }));
-        this.documents.listener.onDidClose((change) => __awaiter(this, void 0, void 0, function* () {
-            const { document } = change;
-            const uri = document.uri;
-            const doc = this.documents.close(uri);
+        connection.onDidCloseTextDocument((change) => __awaiter(this, void 0, void 0, function* () {
+            const uri = change.textDocument.uri;
             this.logger.logmsg({ path: uri, action: 'onDidClose' });
-            return doc;
         }));
         // if formatting is enabled in settings. add onContentDidSave
         // Register all the handlers for the LSP events.
@@ -138,6 +153,8 @@ class FishServer {
         // connection.onReferences(this.onReferences.bind(this))
         connection.onCompletion(this.onCompletion.bind(this));
         // connection.onCompletionResolve(this.onCompletionResolve.bind(this))s))
+        documents.listen(connection);
+        //connection.listen()
     }
     capabilities() {
         return {
@@ -164,9 +181,9 @@ class FishServer {
             //if (doc) {
             //    this.analyzer.analyze(uri, doc)
             //}
+            this.logger.logmsg({ path: uri, action: 'onHover', params: params, node: node });
             if (!node)
                 return null;
-            this.logger.logmsg({ path: uri, action: 'onHover', params: params, node: node });
             let hoverDoc = this.analyzer.nodeIsLocal(uri, node) || (yield this.analyzer.getHover(params));
             // TODO: heres where you should use fallback completion, and argument .
             if (hoverDoc) {
@@ -185,17 +202,33 @@ class FishServer {
             //return hover
         });
     }
-    onCompletion(params) {
+    onCompletion(completionParams) {
         return __awaiter(this, void 0, void 0, function* () {
-            const uri = params.textDocument.uri;
-            const pos = {
-                line: params.position.line,
-                character: Math.max(0, params.position.character - 1)
-            };
-            const node = this.analyzer.nodeAtPoint(uri, pos.line, pos.character);
+            const uri = completionParams.textDocument.uri;
+            const position = completionParams.position;
+            const currText = resolveCurrentDocumentLine(uri, position, this.logger);
+            //if (currDoc) {
+            //const currPos = currDoc.offsetAt(position)
+            //const range: Range = Range.create({line: position.line, character: 0}, {line: position.line, character: position.character})
+            //const documentText = this.analyzer.uriToTextDocument[uri].toString()
+            //this.logger.log(`cmpDocText: ${documentText}`)
+            //}
+            //const pos: Position = {
+            //    line: position.line,
+            //    character: Math.max(0, position.character-1)
+            //}
+            //if (documentText.endsWith('-')) {
+            //    return null;
+            //}
+            let document = documents.get(uri);
+            if (!document) {
+                document = yield this.analyzer.initialize(uri);
+                yield this.analyzer.analyze(uri, document);
+            }
+            const node = this.analyzer.nodeAtPoint(uri, position.line, position.character);
+            this.logger.logmsg({ path: uri, action: 'onComplete', node: node });
             if (!node)
                 return null;
-            this.logger.logmsg({ path: uri, action: 'onComplete', params: params, node: node });
             try {
                 const completionList = yield this.completion.generate(node);
                 if (completionList)
@@ -223,4 +256,12 @@ class FishServer {
     }
 }
 exports.default = FishServer;
+function resolveCurrentDocumentLine(uri, currPos, logger) {
+    const currDoc = documents.get(uri);
+    if (currDoc === undefined)
+        return "";
+    const currText = currDoc.getText().split('\n').at(currPos.line);
+    logger.log('currText: ' + currText);
+    return currText || "";
+}
 //# sourceMappingURL=server.js.map
