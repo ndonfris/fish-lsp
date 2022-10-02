@@ -10,7 +10,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getSymbolKind = exports.FishSymbol = exports.FishDiagnostics = void 0;
-const vscode_languageserver_1 = require("vscode-languageserver");
+const node_1 = require("vscode-languageserver/node");
 //import {LspDocuments} from './document';
 const builtins_1 = require("./utils/builtins");
 const exec_1 = require("./utils/exec");
@@ -51,10 +51,10 @@ class FishDiagnostics {
     initializeLocations(uri, tree) {
         return __awaiter(this, void 0, void 0, function* () {
             for (const func of tree.functions) {
-                this.locations.push(vscode_languageserver_1.Location.create(uri, (0, tree_sitter_1.getRange)(func)));
+                this.locations.push(node_1.Location.create(uri, (0, tree_sitter_1.getRange)(func)));
             }
             for (const variable of tree.variable_definitions) {
-                this.locations.push(vscode_languageserver_1.Location.create(uri, (0, tree_sitter_1.getRange)(variable)));
+                this.locations.push(node_1.Location.create(uri, (0, tree_sitter_1.getRange)(variable)));
             }
             for (const cmd of tree.commands) {
                 const cmdDep = yield (0, exec_1.execFindDependency)(cmd.child(0).text);
@@ -80,8 +80,8 @@ class FishSymbol {
         else if (possibleParent) {
             this.containerName = possibleParent.child(1).text;
         }
-        this.location = vscode_languageserver_1.Location.create(uri, this.range);
-        this.symbolInfo = vscode_languageserver_1.SymbolInformation.create(this.name, this.kind, this.range, this.uri, this.containerName);
+        this.location = node_1.Location.create(uri, this.range);
+        this.symbolInfo = node_1.SymbolInformation.create(this.name, this.kind, this.range, this.uri, this.containerName);
     }
     getName() {
         return this.name;
@@ -104,7 +104,7 @@ class FishSymbol {
         return locations;
     }
     addRefrence(uri, node) {
-        this.refrences.push(vscode_languageserver_1.Location.create(uri, (0, tree_sitter_1.getRange)(node)));
+        this.refrences.push(node_1.Location.create(uri, (0, tree_sitter_1.getRange)(node)));
     }
     getGlobalLocations() {
         return this.refrences;
@@ -131,26 +131,26 @@ exports.FishSymbol = FishSymbol;
 function getSymbolKind(node) {
     var _a;
     if ((0, node_types_1.isVariable)(node)) {
-        return vscode_languageserver_1.SymbolKind.Variable;
+        return node_1.SymbolKind.Variable;
     }
     else if ((0, node_types_1.isFunctionDefinintion)(node)) {
-        return vscode_languageserver_1.SymbolKind.Function;
+        return node_1.SymbolKind.Function;
     }
     else if ((0, node_types_1.isStatement)(node)) {
-        return vscode_languageserver_1.SymbolKind.Namespace;
+        return node_1.SymbolKind.Namespace;
     }
     else if ((0, node_types_1.isCommand)(node)) {
         const text = (_a = node.child(0)) === null || _a === void 0 ? void 0 : _a.text;
         if (text && (0, builtins_1.isBuiltin)(text)) {
-            return vscode_languageserver_1.SymbolKind.Struct;
+            return node_1.SymbolKind.Struct;
         }
-        return vscode_languageserver_1.SymbolKind.File;
+        return node_1.SymbolKind.File;
     }
     else if ((0, node_types_1.isBeforeCommand)(node)) {
-        return vscode_languageserver_1.SymbolKind.Interface;
+        return node_1.SymbolKind.Interface;
     }
     else {
-        return vscode_languageserver_1.SymbolKind.Field;
+        return node_1.SymbolKind.Field;
     }
 }
 exports.getSymbolKind = getSymbolKind;

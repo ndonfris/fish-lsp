@@ -1,30 +1,39 @@
-import { Hover, Location, TextDocumentPositionParams } from "vscode-languageserver";
+import { Hover, Location, TextDocumentPositionParams } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import Parser, { SyntaxNode, Tree } from "web-tree-sitter";
-export declare class MyAnalyzer {
+import { Context } from './interfaces';
+export declare class Analyzer {
     private parser;
-    uriToSyntaxTree: {
-        [uri: string]: SyntaxTree;
-    };
-    uriToTextDocument: {
-        [uri: string]: TextDocument;
-    };
     constructor(parser: Parser);
-    initialize(uri: string): Promise<TextDocument>;
-    analyze(uri: string, newDocument: TextDocument | undefined): Promise<void>;
+    /**
+     * @async initialize() - intializes a SyntaxTree on context.trees[document.uri]
+     *
+     * @param {Context} context - context of lsp
+     * @param {TextDocument} document - an initialized TextDocument from createTextDocumentFromFilePath()
+     * @returns {Promise<SyntaxTree>} - SyntaxTree which is also stored on context.trees[uri]
+     */
+    initialize(context: Context, document: TextDocument): Promise<SyntaxTree>;
+    analyze(context: Context, document: TextDocument): Promise<undefined>;
     /**
      * Find the node at the given point.
      */
-    nodeAtPoint(uri: string, line: number, column: number): Parser.SyntaxNode | null;
+    nodeAtPoint(tree: SyntaxTree, line: number, column: number): Parser.SyntaxNode | null;
     /**
      * Find the full word at the given point.
      */
-    wordAtPoint(uri: string, line: number, column: number): string | null;
-    currentLine(uri: string, line: number): string;
-    nodeIsLocal(uri: string, node: SyntaxNode): Hover | void;
-    getHover(params: TextDocumentPositionParams): Promise<Hover | void>;
-    getHoverFallback(uri: string, currentNode: SyntaxNode): Promise<Hover | void>;
-    getTreeForUri(uri: string): SyntaxTree | null;
+    wordAtPoint(tree: SyntaxTree, line: number, column: number): string | null;
+    /**
+     * Gets the entire current line inside of the document. Useful for completions
+     *
+     * @param {Context} context - lsp context
+     * @param {string} uri - DocumentUri
+     * @param {number} line - the line number from from a Position object
+     * @returns {string} the current line in the document, or an empty string
+     */
+    currentLine(context: Context, uri: string, line: number): string;
+    nodeIsLocal(tree: SyntaxTree, node: SyntaxNode): Hover | void;
+    getHover(tree: SyntaxTree, params: TextDocumentPositionParams): Promise<Hover | void>;
+    getHoverFallback(currentNode: SyntaxNode): Promise<Hover | void>;
 }
 export declare class SyntaxTree {
     rootNode: SyntaxNode;

@@ -5,7 +5,7 @@
  * You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
  */
 
-import * as LSP from 'vscode-languageserver';
+import * as LSP from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { createTextDocumentFromFilePath } from './utils/io';
 import { FISH_LOCATIONS } from './utils/locations';

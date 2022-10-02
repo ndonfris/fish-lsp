@@ -30,7 +30,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LspDocument = exports.FishFileType = void 0;
-const LSP = __importStar(require("vscode-languageserver"));
+const LSP = __importStar(require("vscode-languageserver/node"));
 const vscode_languageserver_textdocument_1 = require("vscode-languageserver-textdocument");
 const locations_1 = require("./utils/locations");
 const path_1 = require("path");

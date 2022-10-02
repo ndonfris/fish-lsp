@@ -1,4 +1,4 @@
-import { CompletionItem, CompletionItemKind, CompletionList } from "vscode-languageserver-protocol";
+import { CompletionItem, CompletionItemKind, CompletionList } from "vscode-languageserver-protocol/node";
 import { SyntaxNode } from "web-tree-sitter";
 export declare enum FishCompletionItemType {
     function = 0,
@@ -16,15 +16,17 @@ export declare class Completion {
     globalAlaises: CompletionItem[];
     globalCmds: CompletionItem[];
     globalBuiltins: CompletionItem[];
-    private localVariablesList;
+    private localVariables;
     private localFunctions;
     private isInsideCompletionsFile;
     private completions;
     private isIncomplete;
     constructor();
     initialDefaults(): Promise<this>;
+    addLocalMembers(vars: SyntaxNode[], funcs: SyntaxNode[]): number;
     generateCurrent(node: SyntaxNode): Promise<void>;
     generate(node: SyntaxNode): Promise<CompletionList>;
+    fallback(): CompletionList;
 }
 export declare function buildGlobalAbbrs(): Promise<CompletionItem[]>;
 export declare function buildGlobalVars(): Promise<CompletionItem[]>;

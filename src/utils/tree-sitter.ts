@@ -2,7 +2,7 @@
 import { extname, join } from 'path'
 //import { pathToFileURL, URL } from 'url'
 import { Position } from 'vscode-languageserver-textdocument'
-import { Range, URI } from 'vscode-languageserver'
+import { Range, URI } from 'vscode-languageserver/node'
 import { Point, SyntaxNode, Tree } from 'web-tree-sitter'
 import {pathToFileURL} from 'url';
 import {existsSync} from 'fs-extra';

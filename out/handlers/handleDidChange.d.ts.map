@@ -1,0 +1,1 @@
+{"version":3,"file":"handleDidChange.d.ts","sourceRoot":"","sources":["../../src/handlers/handleDidChange.ts"],"names":[],"mappings":"AACA,OAAO,EAAE,YAAY,EAAE,MAAM,oCAAoC,CAAC;AAClE,OAAO,EAAE,uBAAuB,EAAE,MAAM,4BAA4B,CAAC;AAErE,OAAO,EAAE,OAAO,EAAE,MAAM,eAAe,CAAC;AAIxC,wBAAgB,0BAA0B,CAAC,OAAO,EAAE,OAAO,YAI3C,wBAAwB,YAAY,CAAC,KAC9C,QAAQ,IAAI,CAAC,CAUnB"}

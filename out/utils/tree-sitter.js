@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.findParent = exports.nodesGen = exports.isNodeWithinRange = exports.isPositionWithinRange = exports.isFishExtension = exports.getPrecedingComments = exports.pointToPosition = exports.positionToPoint = exports.getDependencyUrl = exports.getNodeAtRange = exports.getNodeAt = exports.findNodeAt = exports.getRange = exports.getNodeText = exports.getNodes = void 0;
 //import { existsSync } from 'fs'
 const path_1 = require("path");
-const vscode_languageserver_1 = require("vscode-languageserver");
+const node_1 = require("vscode-languageserver/node");
 const url_1 = require("url");
 const fs_extra_1 = require("fs-extra");
 const node_types_1 = require("./node-types");
@@ -83,7 +83,7 @@ exports.getNodeText = getNodeText;
 //    return result
 //}
 function getRange(node) {
-    return vscode_languageserver_1.Range.create(node.startPosition.row, node.startPosition.column, node.endPosition.row, node.endPosition.column);
+    return node_1.Range.create(node.startPosition.row, node.startPosition.column, node.endPosition.row, node.endPosition.column);
 }
 exports.getRange = getRange;
 /**

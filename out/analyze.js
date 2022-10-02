@@ -9,66 +9,73 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SyntaxTree = exports.MyAnalyzer = void 0;
+exports.SyntaxTree = exports.Analyzer = void 0;
 const documentation_1 = require("./documentation");
-const io_1 = require("./utils/io");
 const node_types_1 = require("./utils/node-types");
 const tree_sitter_1 = require("./utils/tree-sitter");
-class MyAnalyzer {
+class Analyzer {
     constructor(parser) {
         this.parser = parser;
-        this.uriToSyntaxTree = {};
-        this.uriToTextDocument = {};
     }
-    initialize(uri) {
+    /**
+     * @async initialize() - intializes a SyntaxTree on context.trees[document.uri]
+     *
+     * @param {Context} context - context of lsp
+     * @param {TextDocument} document - an initialized TextDocument from createTextDocumentFromFilePath()
+     * @returns {Promise<SyntaxTree>} - SyntaxTree which is also stored on context.trees[uri]
+     */
+    initialize(context, document) {
         return __awaiter(this, void 0, void 0, function* () {
-            const document = yield (0, io_1.createTextDocumentFromFilePath)(uri);
-            const tree = this.parser.parse(document.getText());
-            this.uriToSyntaxTree[uri] = new SyntaxTree(tree);
-            this.uriToTextDocument[uri] = document;
-            return document;
+            //const document = await createTextDocumentFromFilePath(uri)
+            const tree = context.parser.parse(document.getText());
+            context.trees[document.uri] = new SyntaxTree(tree);
+            return context.trees[document.uri];
         });
     }
-    analyze(uri, newDocument) {
+    analyze(context, document) {
         return __awaiter(this, void 0, void 0, function* () {
-            if (!newDocument) {
-                newDocument = yield this.initialize(uri);
-            }
-            const contents = this.uriToTextDocument[uri].getText();
-            const tree = this.parser.parse(contents);
-            this.uriToSyntaxTree[uri].ensureAnalyzed();
+            if (!document)
+                return undefined;
+            const tree = context.parser.parse(document.getText());
+            context.trees[document.uri] = new SyntaxTree(tree);
         });
     }
     /**
      * Find the node at the given point.
      */
-    nodeAtPoint(uri, line, column) {
-        const document = this.uriToSyntaxTree[uri];
-        if (!(document === null || document === void 0 ? void 0 : document.rootNode)) {
-            // Check for lacking rootNode (due to failed parse?)
+    nodeAtPoint(tree, line, column) {
+        // Check for lacking rootNode (due to failed parse?)
+        if (!(tree === null || tree === void 0 ? void 0 : tree.rootNode)) {
             return null;
         }
-        return document.rootNode.descendantForPosition({ row: line, column });
+        return tree.rootNode.descendantForPosition({ row: line, column });
     }
     /**
      * Find the full word at the given point.
      */
-    wordAtPoint(uri, line, column) {
-        const node = this.nodeAtPoint(uri, line, column);
+    wordAtPoint(tree, line, column) {
+        const node = this.nodeAtPoint(tree, line, column);
         if (!node || node.childCount > 0 || node.text.trim() === "") {
             return null;
         }
         return node.text.trim();
     }
-    currentLine(uri, line) {
-        const currDoc = this.uriToTextDocument[uri];
+    /**
+     * Gets the entire current line inside of the document. Useful for completions
+     *
+     * @param {Context} context - lsp context
+     * @param {string} uri - DocumentUri
+     * @param {number} line - the line number from from a Position object
+     * @returns {string} the current line in the document, or an empty string
+     */
+    currentLine(context, uri, line) {
+        const currDoc = context.documents.get(uri);
         if (currDoc === undefined)
             return "";
         const currText = currDoc.getText().split('\n').at(line);
         return currText || "";
     }
-    nodeIsLocal(uri, node) {
-        const tree = this.uriToSyntaxTree[uri];
+    nodeIsLocal(tree, node) {
         if (!tree)
             return;
         const result = tree.getLocalFunctionDefinition(node) || tree.getNearestVariableDefinition(node);
@@ -79,33 +86,24 @@ class MyAnalyzer {
             range: (0, tree_sitter_1.getRange)(result),
         };
     }
-    getHover(params) {
+    getHover(tree, params) {
         return __awaiter(this, void 0, void 0, function* () {
             const uri = params.textDocument.uri;
             const line = params.position.line;
             const character = params.position.character;
-            const tree = this.uriToSyntaxTree[uri];
-            if (!tree) {
-                return;
-            }
-            const node = this.nodeAtPoint(uri, line, character);
-            const text = this.wordAtPoint(uri, line, character);
+            const node = this.nodeAtPoint(tree, line, character);
+            const text = this.wordAtPoint(tree, line, character);
             if (!node || !text)
                 return;
-            //if (this.globalDocs[text]) {return this.globalDocs[text];}
             const docs = yield (0, documentation_1.documentationHoverProvider)(text);
             if (docs) {
                 return docs;
             }
-            return yield this.getHoverFallback(uri, node);
+            return yield this.getHoverFallback(node);
         });
     }
-    getHoverFallback(uri, currentNode) {
+    getHoverFallback(currentNode) {
         return __awaiter(this, void 0, void 0, function* () {
-            const tree = this.uriToSyntaxTree[uri];
-            if (!tree) {
-                return;
-            }
             const cmdNode = (0, node_types_1.findParentCommand)(currentNode);
             if (!cmdNode)
                 return;
@@ -124,14 +122,8 @@ class MyAnalyzer {
             return;
         });
     }
-    getTreeForUri(uri) {
-        if (!this.uriToSyntaxTree[uri]) {
-            return null;
-        }
-        return this.uriToSyntaxTree[uri];
-    }
 }
-exports.MyAnalyzer = MyAnalyzer;
+exports.Analyzer = Analyzer;
 function firstNodeBeforeSecondNodeComaprision(firstNode, secondNode) {
     return (firstNode.startPosition.row < secondNode.startPosition.row &&
         firstNode.startPosition.column < secondNode.startPosition.column &&
@@ -153,6 +145,7 @@ class SyntaxTree {
         this.rootNode = this.tree.rootNode;
         this.tree = this.tree;
         this.clearAll();
+        this.ensureAnalyzed();
     }
     ensureAnalyzed() {
         this.clearAll();

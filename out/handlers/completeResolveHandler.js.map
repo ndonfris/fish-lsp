@@ -1,0 +1,1 @@
+{"version":3,"file":"completeResolveHandler.js","sourceRoot":"","sources":["../../src/handlers/completeResolveHandler.ts"],"names":[],"mappings":";;;;;;;;;;;;AAMA,SAAgB,2BAA2B,CAAC,OAAgB;IAExD,MAAM,EAAE,UAAU,EAAE,QAAQ,EAAE,KAAK,EAAE,GAAG,OAAO,CAAA;IAE/C,OAAO,SAAe,wBAAwB,CAAC,IAAoB;;YAC/D,OAAO,IAAI,CAAA;QACf,CAAC;KAAA,CAAA;AAGL,CAAC;AATD,kEASC"}

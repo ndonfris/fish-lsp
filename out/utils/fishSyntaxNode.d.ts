@@ -1,4 +1,4 @@
-import { DocumentUri, Location } from 'vscode-languageserver-protocol';
+import { DocumentUri, Location } from 'vscode-languageserver-protocol/node';
 import { Point, SyntaxNode, Tree, TreeCursor } from 'web-tree-sitter';
 export declare class FishSyntaxNode implements SyntaxNode {
     node: SyntaxNode;

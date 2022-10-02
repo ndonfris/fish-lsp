@@ -9,20 +9,48 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createTextDocumentFromFilePath = void 0;
+exports.getFishFilesInDir = exports.createTextDocumentFromFilePath = void 0;
 const fs_1 = require("fs");
+const url_1 = require("url");
 const vscode_languageserver_textdocument_1 = require("vscode-languageserver-textdocument");
-const path_1 = require("path");
-//const readFileAsync = promisify(readFile)
-function createTextDocumentFromFilePath(uri) {
+const tree_sitter_1 = require("./tree-sitter");
+function createTextDocumentFromFilePath(context, url) {
     return __awaiter(this, void 0, void 0, function* () {
-        const content = (0, fs_1.readFileSync)((0, path_1.resolve)(uri), "utf8");
-        const textDoc = vscode_languageserver_textdocument_1.TextDocument.create(uri, 'fish', 1, content);
-        //return new LspDocument(textDoc)
-        return textDoc;
+        let content;
+        try {
+            content = (0, fs_1.readFileSync)(url.href, "utf8");
+        }
+        catch (err) {
+            const { message, name } = err;
+            context.connection.console.error(`${name}: ${message}`);
+            return null;
+        }
+        return vscode_languageserver_textdocument_1.TextDocument.create(url.href, "fish", 0, content);
     });
 }
 exports.createTextDocumentFromFilePath = createTextDocumentFromFilePath;
+///** Get files ending with .fish recursively */
+function getFishFilesInDir(uri) {
+    const result = [];
+    const url = new url_1.URL(uri);
+    try {
+        (0, fs_1.accessSync)(url, fs_1.constants.R_OK);
+    }
+    catch (_err) {
+        return [];
+    }
+    for (const dirent of (0, fs_1.readdirSync)(url, { withFileTypes: true })) {
+        if ((0, tree_sitter_1.isFishExtension)(dirent.name)) {
+            result.push(new url_1.URL(`${uri}/${dirent.name}`));
+            continue;
+        }
+        if (dirent.isDirectory()) {
+            result.push(...getFishFilesInDir(`${uri}/${dirent.name}`));
+        }
+    }
+    return result;
+}
+exports.getFishFilesInDir = getFishFilesInDir;
 //export function readDocumentFromUrl(context: Context, url: URI): TextDocument | null {
 //  let content: string
 //
@@ -35,30 +63,6 @@ exports.createTextDocumentFromFilePath = createTextDocumentFromFilePath;
 //  }
 //
 //  return TextDocument.create(url.fsPath, 'fish', 0, content)
-//}
-///** Get files ending with .fish recursively */
-//export function getFishFilesInDir(uri: string): URL[] {
-//  const result: URL[] = []
-//  const url = new URL(uri)
-//
-//  try {
-//    accessSync(url, constants.R_OK)
-//  } catch (_err) {
-//    return []
-//  }
-//
-//  for (const dirent of readdirSync(url, { withFileTypes: true })) {
-//    if (isFishExtension(dirent.name)) {
-//      result.push(new URL(`${uri}/${dirent.name}`))
-//      continue
-//    }
-//
-//    if (dirent.isDirectory()) {
-//      result.push(...getFishFilesInDir(`${uri}/${dirent.name}`))
-//    }
-//  }
-//
-//  return result
 //}
 //export function isDir(uri: string): boolean {
 //  return statSync(new URL(uri)).isDirectory()

@@ -1,4 +1,4 @@
-import { Hover, MarkupContent } from 'vscode-languageserver-protocol';
+import { Hover, MarkupContent } from 'vscode-languageserver-protocol/node';
 import { SyntaxNode } from 'web-tree-sitter';
 import { CompletionArguments } from './utils/exec';
 export declare type markdownFiletypes = 'fish' | 'man';

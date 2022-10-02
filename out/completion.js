@@ -10,10 +10,11 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildGlobalAlaises = exports.buildGlobalCommands = exports.buildGlobalBuiltins = exports.buildGlobalVars = exports.buildGlobalAbbrs = exports.Completion = exports.toCompletionItemKind = exports.FishCompletionItemType = void 0;
-const vscode_languageserver_protocol_1 = require("vscode-languageserver-protocol");
+const node_1 = require("vscode-languageserver-protocol/node");
 const documentation_1 = require("./documentation");
 const exec_1 = require("./utils/exec");
 const node_types_1 = require("./utils/node-types");
+const tree_sitter_1 = require("./utils/tree-sitter");
 // utils create CompletionResolver and CompletionItems
 // also decide which completion icons each item will have
 // try to get clean implementation of {...CompletionItem.create(), item: desc}
@@ -29,23 +30,23 @@ var FishCompletionItemType;
 function toCompletionItemKind(type) {
     switch (type) {
         case FishCompletionItemType.function:
-            return vscode_languageserver_protocol_1.CompletionItemKind.Function;
+            return node_1.CompletionItemKind.Function;
         case FishCompletionItemType.builtin:
-            return vscode_languageserver_protocol_1.CompletionItemKind.Function;
+            return node_1.CompletionItemKind.Function;
         case FishCompletionItemType.abbr:
-            return vscode_languageserver_protocol_1.CompletionItemKind.Snippet;
+            return node_1.CompletionItemKind.Snippet;
         case FishCompletionItemType.flag:
-            return vscode_languageserver_protocol_1.CompletionItemKind.Field;
+            return node_1.CompletionItemKind.Field;
         case FishCompletionItemType.variable:
-            return vscode_languageserver_protocol_1.CompletionItemKind.Variable;
+            return node_1.CompletionItemKind.Variable;
         default:
-            return vscode_languageserver_protocol_1.CompletionItemKind.Unit;
+            return node_1.CompletionItemKind.Unit;
     }
 }
 exports.toCompletionItemKind = toCompletionItemKind;
 function buildCompletionItem(name, detail, docs, type, insertText) {
     const itemKind = toCompletionItemKind(type);
-    return Object.assign(Object.assign({}, vscode_languageserver_protocol_1.CompletionItem.create(name)), { detail: detail, labelDetails: { detail: detail, description: "(" + detail + ")" }, documentation: docs, kind: itemKind, insertText: insertText, filterText: itemKind === vscode_languageserver_protocol_1.CompletionItemKind.Variable ? "$" : undefined, data: {
+    return Object.assign(Object.assign({}, node_1.CompletionItem.create(name)), { detail: detail, documentation: docs, kind: itemKind, insertText: insertText, filterText: itemKind === node_1.CompletionItemKind.Variable ? "$" : undefined, data: {
             name: name,
             documentation: docs,
             kind: itemKind,
@@ -78,8 +79,8 @@ class Completion {
         this.globalAlaises = [];
         this.globalCmds = [];
         this.globalBuiltins = [];
-        this.localVariablesList = [];
-        this.localFunctions = [];
+        this.localVariables = new Map();
+        this.localFunctions = new Map();
         this.isInsideCompletionsFile = false;
         this.completions = [];
         this.isIncomplete = false;
@@ -99,6 +100,23 @@ class Completion {
             this.globalBuiltins = yield buildGlobalBuiltins();
             return this;
         });
+    }
+    addLocalMembers(vars, funcs) {
+        const oldVars = [...this.localVariables.keys()];
+        const oldFuncs = [...this.localFunctions.keys()];
+        const newVars = vars.filter(currVar => !oldVars.includes((0, tree_sitter_1.getNodeText)(currVar)));
+        const newFuncs = funcs.filter(currVar => !oldFuncs.includes((0, tree_sitter_1.getNodeText)(currVar)));
+        for (const fishVar of newVars) {
+            const text = (0, tree_sitter_1.getNodeText)(fishVar);
+            const newItem = buildCompletionItem(text, 'local vaiable', (0, documentation_1.enrichToMarkdown)('local variable' + ":  " + text), FishCompletionItemType.variable);
+            this.localVariables.set(text, newItem);
+        }
+        for (const fishFunc of newFuncs) {
+            const text = (0, tree_sitter_1.getNodeText)(fishFunc);
+            const newItem = buildCompletionItem(text, 'local function', (0, documentation_1.enrichToMarkdown)('local function' + ":  " + text), FishCompletionItemType.function);
+            this.localVariables.set(text, newItem);
+        }
+        return newVars.length + newFuncs.length;
     }
     // here you build the completion data per type
     // call enrichCompletions on new this.completions
@@ -151,15 +169,32 @@ class Completion {
             //const fishCompletions = await this.generateCurrent(node) || []
             //await this.initialDefaults();
             this.completions = [
-                ...this.globalAbbrs,
-                ...this.globalVars,
                 ...this.globalCmds,
                 ...this.globalBuiltins,
+                //...this.localFunctions.values(),
+                //...this.localVariables.values(),
+                ...this.globalVars,
                 ...this.globalAlaises,
+                ...this.globalAbbrs,
             ];
             //...fishCompletions
-            return vscode_languageserver_protocol_1.CompletionList.create(this.completions, this.isIncomplete);
+            return node_1.CompletionList.create(this.completions, this.isIncomplete);
         });
+    }
+    fallback() {
+        //const fishCompletions = await this.generateCurrent(node) || []
+        //await this.initialDefaults();
+        this.completions = [
+            ...this.globalCmds,
+            ...this.globalBuiltins,
+            //...this.localFunctions.values(),
+            //...this.localVariables.values(),
+            ...this.globalVars,
+            ...this.globalAlaises,
+            ...this.globalAbbrs,
+        ];
+        //...fishCompletions
+        return node_1.CompletionList.create(this.completions, this.isIncomplete);
     }
 }
 exports.Completion = Completion;

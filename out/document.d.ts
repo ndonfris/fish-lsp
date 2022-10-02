@@ -1,4 +1,4 @@
-import * as LSP from 'vscode-languageserver';
+import * as LSP from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 export declare enum FishFileType {
     function = 0,

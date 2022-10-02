@@ -5,18 +5,45 @@ import { promisify } from 'util'
 import { TextDocument } from 'vscode-languageserver-textdocument'
 import { isFishExtension } from './tree-sitter'
 import { resolve } from 'path';
-import { URI } from 'vscode-uri'
-import { LspDocument } from '../document';
-import {TextDocumentItem} from 'vscode-languageserver-protocol';
+import {Context} from '../interfaces';
 
-//const readFileAsync = promisify(readFile)
+export async function createTextDocumentFromFilePath(context: Context, url: URL): Promise<TextDocument | null> {
+      let content: string
 
+      try {
+          content = readFileSync(url.href, "utf8");
+      } catch (err) {
+          const { message, name } = err as Error;
+          context.connection.console.error(`${name}: ${message}`);
+          return null;
+      }
 
-export async function createTextDocumentFromFilePath(uri: string): Promise<TextDocument> {
-    const content = readFileSync(resolve(uri), "utf8");
-    const textDoc = TextDocument.create(uri, 'fish', 1, content)
-    //return new LspDocument(textDoc)
-    return textDoc;
+      return TextDocument.create(url.href, "fish", 0, content);
+}
+
+///** Get files ending with .fish recursively */
+export function getFishFilesInDir(uri: string): URL[] {
+  const result: URL[] = []
+  const url = new URL(uri)
+
+  try {
+    accessSync(url, constants.R_OK)
+  } catch (_err) {
+    return []
+  }
+
+  for (const dirent of readdirSync(url, { withFileTypes: true })) {
+    if (isFishExtension(dirent.name)) {
+      result.push(new URL(`${uri}/${dirent.name}`))
+      continue
+    }
+
+    if (dirent.isDirectory()) {
+      result.push(...getFishFilesInDir(`${uri}/${dirent.name}`))
+    }
+  }
+
+  return result
 }
 
 //export function readDocumentFromUrl(context: Context, url: URI): TextDocument | null {
@@ -33,30 +60,6 @@ export async function createTextDocumentFromFilePath(uri: string): Promise<TextD
 //  return TextDocument.create(url.fsPath, 'fish', 0, content)
 //}
 
-///** Get files ending with .fish recursively */
-//export function getFishFilesInDir(uri: string): URL[] {
-//  const result: URL[] = []
-//  const url = new URL(uri)
-//
-//  try {
-//    accessSync(url, constants.R_OK)
-//  } catch (_err) {
-//    return []
-//  }
-//
-//  for (const dirent of readdirSync(url, { withFileTypes: true })) {
-//    if (isFishExtension(dirent.name)) {
-//      result.push(new URL(`${uri}/${dirent.name}`))
-//      continue
-//    }
-//
-//    if (dirent.isDirectory()) {
-//      result.push(...getFishFilesInDir(`${uri}/${dirent.name}`))
-//    }
-//  }
-//
-//  return result
-//}
 //export function isDir(uri: string): boolean {
 //  return statSync(new URL(uri)).isDirectory()
 //}

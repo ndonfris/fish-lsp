@@ -1,5 +1,5 @@
 import { Position } from 'vscode-languageserver-textdocument';
-import { Range, URI } from 'vscode-languageserver';
+import { Range, URI } from 'vscode-languageserver/node';
 import { Point, SyntaxNode, Tree } from 'web-tree-sitter';
 /**
  * Returns an array for all the nodes in the tree (@see also nodesGen)

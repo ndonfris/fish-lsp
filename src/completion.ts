@@ -1,11 +1,11 @@
 import {
     CompletionItem,
     CompletionItemKind,
-    CompletionItemLabelDetails,
     CompletionList,
     MarkupContent,
-} from "vscode-languageserver-protocol";
+} from "vscode-languageserver-protocol/node";
 import { SyntaxNode } from "web-tree-sitter";
+import {Analyzer} from './analyze';
 import { enrichToMarkdown } from "./documentation";
 import {
     execComplete,
@@ -14,7 +14,8 @@ import {
     execCompleteVariables,
     execFindSubcommand,
 } from "./utils/exec";
-import { findParentCommand } from "./utils/node-types";
+import { findParentCommand, isVariable } from "./utils/node-types";
+import {getNodeText} from './utils/tree-sitter';
 
 // utils create CompletionResolver and CompletionItems
 // also decide which completion icons each item will have
@@ -60,7 +61,6 @@ function buildCompletionItem(
     return {
         ...CompletionItem.create(name),
         detail: detail,
-        labelDetails: { detail: detail, description: "(" + detail + ")" }as CompletionItemLabelDetails,
         documentation: docs,
         kind: itemKind,
         insertText: insertText,
@@ -102,8 +102,8 @@ export class Completion {
     public globalAlaises: CompletionItem[] = [];
     public globalCmds: CompletionItem[] = [];
     public globalBuiltins: CompletionItem[] = [];
-    private localVariablesList: CompletionItem[] = [];
-    private localFunctions: CompletionItem[] = [];
+    private localVariables: Map<string, CompletionItem> =  new Map<string, CompletionItem>();
+    private localFunctions: Map<string, CompletionItem> =  new Map<string, CompletionItem>();
 
     private isInsideCompletionsFile: boolean = false;
 
@@ -126,6 +126,35 @@ export class Completion {
         this.globalAlaises = await buildGlobalAlaises();
         this.globalBuiltins = await buildGlobalBuiltins();
         return this;
+    }
+
+
+    public addLocalMembers(vars: SyntaxNode[], funcs: SyntaxNode[]) {
+        const oldVars = [...this.localVariables.keys()];
+        const oldFuncs = [...this.localFunctions.keys()];
+        const newVars = vars.filter(currVar => !oldVars.includes(getNodeText(currVar)))
+        const newFuncs = funcs.filter(currVar => !oldFuncs.includes(getNodeText(currVar)))
+        for (const fishVar of newVars) {
+            const text = getNodeText(fishVar)
+            const newItem = buildCompletionItem(
+                text,
+                'local vaiable',
+                enrichToMarkdown('local variable' + ":  " + text),
+                FishCompletionItemType.variable,
+            )
+            this.localVariables.set(text, newItem)
+        }
+        for (const fishFunc of newFuncs) {
+            const text = getNodeText(fishFunc)
+            const newItem = buildCompletionItem(
+                text,
+                'local function',
+                enrichToMarkdown('local function' + ":  " + text),
+                FishCompletionItemType.function,
+            )
+            this.localVariables.set(text, newItem)
+        }
+        return newVars.length + newFuncs.length
     }
 
     // here you build the completion data per type
@@ -178,16 +207,33 @@ export class Completion {
         //const fishCompletions = await this.generateCurrent(node) || []
         //await this.initialDefaults();
         this.completions = [
-            ...this.globalAbbrs,
-            ...this.globalVars,
             ...this.globalCmds,
             ...this.globalBuiltins,
+            //...this.localFunctions.values(),
+            //...this.localVariables.values(),
+            ...this.globalVars,
             ...this.globalAlaises,
+            ...this.globalAbbrs,
         ]
             //...fishCompletions
         return CompletionList.create(this.completions, this.isIncomplete);
     }
 
+    public fallback() {
+        //const fishCompletions = await this.generateCurrent(node) || []
+        //await this.initialDefaults();
+        this.completions = [
+            ...this.globalCmds,
+            ...this.globalBuiltins,
+            //...this.localFunctions.values(),
+            //...this.localVariables.values(),
+            ...this.globalVars,
+            ...this.globalAlaises,
+            ...this.globalAbbrs,
+        ]
+            //...fishCompletions
+        return CompletionList.create(this.completions, this.isIncomplete);
+    }
     // create (atleast) two methods for generating completions,
     //      1.) with a syntaxnode -> allows for thorough testing
     //      2.) with a params -> allows for fast implementation to server
@@ -196,6 +242,7 @@ export class Completion {
     //
     //
 }
+
 
 export async function buildGlobalAbbrs() {
     const globalAbbrs = await execCompleteGlobalDocs('abbrs');
