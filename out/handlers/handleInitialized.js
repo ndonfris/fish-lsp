@@ -10,6 +10,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getInitializedHandler = void 0;
+const analyze_1 = require("../analyze");
+const parser_1 = require("../parser");
 const io_1 = require("../utils/io");
 function getInitializedHandler(context) {
     const { trees, analyzer, documents } = context;
@@ -19,11 +21,27 @@ function getInitializedHandler(context) {
             // Analyze every file in a workspace
             for (const url of urls) {
                 const document = yield (0, io_1.createTextDocumentFromFilePath)(context, url);
-                if (!document)
-                    continue;
-                context.trees[url.href] = yield analyzer.initialize(context, document);
+                if (document) {
+                    context.connection.console.log(`document: ${document.uri}`);
+                    try {
+                        yield context.analyzer.initialize(context, document);
+                    }
+                    catch (error) {
+                        context.connection.console.log(`ERROR: ${error}`);
+                        context.connection.console.log(`ERROR: ${typeof analyzer.initialize}`);
+                    }
+                }
                 //dependencies.update(url.href, new Set(dependencyUris));
             }
+        });
+    }
+    function initializeContext() {
+        return __awaiter(this, void 0, void 0, function* () {
+            context.parser = yield (0, parser_1.initializeParser)();
+            context.analyzer = new analyze_1.Analyzer(context.parser);
+            context.connection.console.log('initializing completionDefaults()');
+            yield context.completion.initialDefaults();
+            context.connection.console.log('finished completionDefaults()');
         });
     }
     return function handleInitialized() {
@@ -36,7 +54,8 @@ function getInitializedHandler(context) {
             }
             else {
                 progressReporter.begin("Indexing");
-                index(workspaceFolders);
+                yield initializeContext();
+                yield index(workspaceFolders);
                 progressReporter.done();
             }
             progressReporter.begin("Initializing formatter");

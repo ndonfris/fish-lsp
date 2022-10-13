@@ -3,12 +3,14 @@ import { WorkspaceFolder } from "vscode-languageserver/node";
 import { Analyzer } from "../analyze";
 //import { initFormatter } from '../format'
 import { Context } from "../interfaces";
+import {initializeParser} from '../parser';
 import { createTextDocumentFromFilePath, getFishFilesInDir } from "../utils/io";
 
 export function getInitializedHandler(context: Context) {
     const { trees, analyzer, documents } = context;
 
     async function index(workspaceFolders: WorkspaceFolder[]) {
+
         const urls: URL[] = workspaceFolders.flatMap((folder) =>
             getFishFilesInDir(folder.uri)
         );
@@ -17,12 +19,28 @@ export function getInitializedHandler(context: Context) {
         for (const url of urls) {
             const document = await createTextDocumentFromFilePath(context, url);
 
-            if (!document) continue;
+            if (document) {
+                context.connection.console.log(`document: ${document.uri}`)
+                try {
+                    await context.analyzer.initialize(context, document)
+                } catch (error) {
+                   context.connection.console.log(`ERROR: ${error}`) 
+                   context.connection.console.log(`ERROR: ${typeof analyzer.initialize}`) 
+                }
+            }
 
-            context.trees[url.href] = await analyzer.initialize(context, document);
             //dependencies.update(url.href, new Set(dependencyUris));
         }
     }
+
+    async function initializeContext() {
+        context.parser = await initializeParser();
+        context.analyzer = new Analyzer(context.parser)
+        context.connection.console.log('initializing completionDefaults()')
+        await context.completion.initialDefaults()
+        context.connection.console.log('finished completionDefaults()')
+    }
+
 
     return async function handleInitialized() {
         const progressReporter =
@@ -34,7 +52,8 @@ export function getInitializedHandler(context: Context) {
             context.connection.console.log("Indexing skipped");
         } else {
             progressReporter.begin("Indexing");
-            index(workspaceFolders);
+            await initializeContext();
+            await index(workspaceFolders);
             progressReporter.done();
         }
 

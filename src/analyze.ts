@@ -56,14 +56,14 @@ export class Analyzer {
      * @param {TextDocument} document - an initialized TextDocument from createTextDocumentFromFilePath()
      * @returns {Promise<SyntaxTree>} - SyntaxTree which is also stored on context.trees[uri]
      */
-    async initialize(context: Context, document: TextDocument): Promise<SyntaxTree> {
+    public async initialize(context: Context, document: TextDocument): Promise<SyntaxTree> {
         //const document = await createTextDocumentFromFilePath(uri)
         const tree = context.parser.parse(document.getText())
         context.trees[document.uri] = new SyntaxTree(tree) 
         return context.trees[document.uri]
     }
 
-    async analyze(context: Context, document: TextDocument) {
+    public async analyze(context: Context, document: TextDocument) {
         if (!document) return undefined
         const tree = context.parser.parse(document.getText())
         context.trees[document.uri] = new SyntaxTree(tree) 

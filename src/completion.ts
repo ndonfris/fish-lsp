@@ -120,7 +120,7 @@ export class Completion {
     // also you could add the syntaxTree on
     // this.documents.listener.onDocumentChange(() => {})
     public async initialDefaults() {
-        this.globalVars = await buildGlobalVars();
+        //this.globalVars = await buildGlobalVars();
         this.globalAbbrs = await buildGlobalAbbrs();
         this.globalCmds = await buildGlobalCommands();
         this.globalAlaises = await buildGlobalAlaises();

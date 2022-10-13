@@ -1,62 +1,42 @@
 #!/usr/bin/env node
+'use strict'
+import { createConnection, InitializeParams, InitializeResult, ProposedFeatures, StreamMessageReader, StreamMessageWriter } from "vscode-languageserver/node";
+import FishServer from './server';
 
-import  parseArgs from 'minimist'
-import { CliOptions } from './interfaces'
-import { main } from './server'
+//const connection = require.main
+//    ? createConnection(ProposedFeatures.all)
+//    : createConnection(process.stdin, process.stdout)
 
-function usage(exitCode: number): never {
-  console.log(
-    'Usage:\n\tfish-language-server [OPTIONS]\n\n' +
-      'Options:\n' +
-      '\t-h|--help\t\tGet this message\n' +
-      '\t-v|--version\t\tGet current version number\n' +
-      '\t--noIndex\t\tSkip indexing. Only opened files will be analyzed\n'
-  )
+export function listen() {
+    // Create a connection for the server.
+    // The connection uses stdin/stdout for communication.
+    let connection = createConnection(new StreamMessageReader(process.stdin), new StreamMessageWriter(process.stdout))
+    //RPC.createConnection(
+    //        new RPC.StreamMessageReader(process.stdin),
+    //        new RPC.StreamMessageWriter(process.stdout));
 
-  process.exit(exitCode)
+
+    //let notification = new RPC.NotificationType<string>('RUNNINg');
+    //msgConnection.sendNotification(notification)
+    //msgConnection.listen()
+
+    connection.onInitialize(
+        async (params: InitializeParams): Promise<InitializeResult> => {
+            connection.console.log(
+                `Initialized server FISH-LSP with ${params.initializationOptions}`
+            );
+
+            const server = await FishServer.initialize(connection, params);
+
+            server.register(connection);
+
+            return {
+                capabilities: server.capabilities(),
+            };
+        },
+    )
+    connection.listen() 
 }
 
-function printVersion(): never {
-  const packageJson = require('../package.json')
 
-  console.log(packageJson.version)
-
-  process.exit(0)
-}
-
-const args = parseArgs(process.argv.slice(2), {
-  alias: {
-    help: 'h',
-    version: 'v',
-  },
-
-  default: {
-    help: false,
-    version: false,
-    noIndex: false,
-    start: false,
-  },
-
-  boolean: ['help', 'version', 'noIndex', 'start'],
-
-  unknown: (key: string): boolean => {
-    if (!key.startsWith('-')) return false
-
-    console.log(`Unknown key: ${key}\n`)
-
-    usage(2)
-  },
-})
-
-if (args.help) usage(0)
-if (args.version) printVersion()
-
-const options: CliOptions = {
-  noIndex: args.noIndex,
-}
-
-main(options)
-
-// Avoid writing to stdout at this point as it's reserved for client/server communication
-//process.stdout.write('Language Server is started.\n')
-process.stderr.write('Language Server is started.\n')
+listen()

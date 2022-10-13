@@ -10,24 +10,33 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getDidChangeContentHandler = void 0;
-const io_1 = require("../utils/io");
 //import { validate } from '../validation/validate'
 function getDidChangeContentHandler(context) {
     const { trees, documents, analyzer } = context;
-    return function handleDidChangeContent(change) {
-        return __awaiter(this, void 0, void 0, function* () {
-            context.connection.console.error('handleDidChangeContent()');
-            const doc = documents.get(change.document.uri);
-            if (doc) {
-                yield analyzer.analyze(context, doc);
-            }
-            else {
-                const newDoc = yield (0, io_1.createTextDocumentFromFilePath)(context, new URL(change.document.uri));
-                if (newDoc)
-                    trees[change.document.uri] = yield analyzer.initialize(context, newDoc);
-            }
-        });
-    };
+    context.connection.onDidChangeTextDocument((change) => __awaiter(this, void 0, void 0, function* () {
+        context.connection.console.error('handleDidChangeContent()');
+        //const uri = change.uri; 
+        //context.connection.console.error(`handleDidChangeContent(): ${uri}`)
+        //const doc = context.documents.get(uri);
+        //if (doc) {
+        //    context.analyzer.analyze(context, doc);
+        //} else {
+        //    const newDoc = await createTextDocumentFromFilePath(context, new URL(change.uri))
+        //    if (newDoc) await context.analyzer.initialize(context, newDoc)
+        //}
+    }));
+    //return function handleDidChangeContent(
+    //change: TextDocumentChangeEvent<TextDocument>
+    //): void {
+    //context.connection.console.error('handleDidChangeContent()')
+    //const doc = context.documents.get(change.document.uri);
+    //if (doc) {
+    //context.analyzer.analyze(context, doc);
+    //} else {
+    //const newDoc = createTextDocumentFromFilePath(context, new URL(change.document.uri))
+    //if (newDoc) context.analyzer.initialize(context, newDoc)
+    //}
+    //};
 }
 exports.getDidChangeContentHandler = getDidChangeContentHandler;
 //# sourceMappingURL=handleDidChange.js.map

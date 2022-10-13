@@ -29,11 +29,9 @@ function getInitializeHandler(context) {
     return function handleInitialize(params, _cancel, progressReporter) {
         return __awaiter(this, void 0, void 0, function* () {
             progressReporter.begin('Initializing');
-            const parser = yield (0, parser_1.initializeParser)();
-            const initializedCompletions = yield context.completion.initialDefaults();
-            context.capabilities = params.capabilities;
-            context.parser = parser;
-            context.completion = initializedCompletions;
+            context.capabilities = context.capabilities;
+            context.parser = yield (0, parser_1.initializeParser)();
+            context.completion = yield context.completion.initialDefaults();
             const result = {
                 capabilities: {
                     textDocumentSync: node_1.TextDocumentSyncKind.Incremental,
@@ -66,7 +64,7 @@ function getInitializeHandler(context) {
                     },
                 },
             };
-            context.connection.console.log('handleInitialized()');
+            //context.connection.console.log('handleInitialized()')
             progressReporter.done();
             return result;
         });

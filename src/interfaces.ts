@@ -2,9 +2,10 @@ import {Analyzer, SyntaxTree} from './analyze';
 import {Completion} from './completion';
 import { TextDocument } from 'vscode-languageserver-textdocument'
 import {
-  ClientCapabilities,
   Connection,
+  InitializedParams,
   Range,
+  ServerCapabilities,
   SymbolInformation,
   TextDocuments,
 } from 'vscode-languageserver/node'
@@ -25,7 +26,7 @@ export interface Context {
     parser: Parser
     completion: Completion
     analyzer: Analyzer
-    capabilities: ClientCapabilities
+    capabilities: InitializedParams
     documents: TextDocuments<TextDocument>
     trees: TreeByUri
     cliOptions?: CliOptions

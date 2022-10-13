@@ -93,7 +93,7 @@ class Completion {
     // this.documents.listener.onDocumentChange(() => {})
     initialDefaults() {
         return __awaiter(this, void 0, void 0, function* () {
-            this.globalVars = yield buildGlobalVars();
+            //this.globalVars = await buildGlobalVars();
             this.globalAbbrs = yield buildGlobalAbbrs();
             this.globalCmds = yield buildGlobalCommands();
             this.globalAlaises = yield buildGlobalAlaises();

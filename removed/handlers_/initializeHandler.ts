@@ -4,6 +4,7 @@ import {
   CancellationToken,
   InitializeParams,
   InitializeResult,
+  ServerCapabilities,
   TextDocumentSyncKind,
 } from 'vscode-languageserver/node'
 import { Completion } from '../completion'
@@ -34,12 +35,9 @@ export function getInitializeHandler(context: Context) {
 
     progressReporter.begin('Initializing')
 
-    const parser = await initializeParser()
-    const initializedCompletions = await context.completion.initialDefaults()
-
-    context.capabilities = params.capabilities
-    context.parser = parser
-    context.completion = initializedCompletions
+    context.capabilities = context.capabilities
+    context.parser = await initializeParser()
+    context.completion = await context.completion.initialDefaults() 
 
     const result: InitializeResult = {
       capabilities: {
@@ -74,7 +72,7 @@ export function getInitializeHandler(context: Context) {
       },
     }
 
-    context.connection.console.log('handleInitialized()')
+    //context.connection.console.log('handleInitialized()')
     progressReporter.done()
 
     return result
