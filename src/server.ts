@@ -31,64 +31,51 @@ import {
 import { TextDocument } from "vscode-languageserver-textdocument";
 import {CliOptions, Context, TreeByUri} from './interfaces';
 import {SyntaxNode} from 'web-tree-sitter';
-//import {getInitializedHandler} from './handlers/handleInitialized';
-//import {getInitializeHandler} from './handlers/initializeHandler';
-//import {getCompletionHandler} from './handlers/completeHandler';
-//import {getCompletionResolveHandler} from './handlers/completeResolveHandler';
-//import {getDidChangeContentHandler} from './handlers/handleDidChange';
-
-// Create a connection for the server. The connection uses Node's IPC as a transport.
-// Also include all preview / proposed LSP features.
-
-// Create a simple text document manager. The text document manager
-// supports full document sync only
-
-const context: Context = {
-    capabilities: {},
-    connection: require.main === module
-      ? createConnection(ProposedFeatures.all)
-      : createConnection(process.stdin, process.stdout),
-    parser: {} as Parser,
-    documents: new TextDocuments(TextDocument),
-    completion: new Completion(),
-    analyzer: {} as Analyzer,
-    trees: {} as TreeByUri
-}
+import {URI} from 'vscode-uri';
 
 export default class FishServer {
+
 
     public static async initialize(
         connection: Connection,
         { capabilities }: InitializeParams
     ): Promise<FishServer> {
-        context.connection = connection;
-        context.parser = await initializeParser();
-        context.analyzer = new Analyzer(context.parser);
-        context.documents = new TextDocuments(TextDocument);
-        context.completion = new Completion();
-        context.capabilities = capabilities;
+        //const connection = connection;
+        const parser = await initializeParser();
+        const analyzer = new Analyzer(parser);
+        const documents = new TextDocuments(TextDocument);
+        const completion = new Completion();
         const files = await getAllFishLocations();
+        for (const fsPath of files) {
+            const fileURI = URI.file(fsPath)
+            connection.console.log(`uri: ${fileURI}`)
+        }
         try {
-            await context.completion.initialDefaults()
+            await completion.initialDefaults()
         } catch (err) {
             console.log('error!!!!!!!!!!!!!!!')
         }
-        for (const uri of files) {
-            const file = await createTextDocumentFromFilePath(new URL(uri))
-            if (file) await context.analyzer.initialize(context, file)
-        }
+        //for (const uri of files) {
+            //const file = await createTextDocumentFromFilePath(new URL(uri))
+            //connection.console.log(`uri: ${uri}, file: ${file?.uri}`)
+            ////if (file) await analyzer.initialize(context, file)
+        //}
         return new FishServer(
-            context,
+            connection,
+            parser,
+            analyzer,
+            documents,
+            completion
         );
     }
 
-    private context: Context;
+    private connection: Connection;
 
     private console: RemoteConsole;
 
-    constructor(context: Context) {
-        this.context = context;
-        this.console = this.context.connection.console;
+    constructor(connection: Connection, parser : Parser, analyzer: Analyzer, documents: TextDocuments<TextDocument>, completion: Completion) {
+        this.connection = connection;
+        this.console = this.connection.console;
     }
 
 
@@ -144,6 +131,7 @@ export default class FishServer {
         })
 
         connection.onDidChangeTextDocument(async change => {
+            this.console.log('onDidChangeText')
             const document = change.textDocument;
             const uri = document.uri;
             //this.documents.newDocument(uri);

@@ -1,3 +1,3 @@
 #!/usr/bin/env node
-export declare function listen(): void;
+export declare function startServer(): void;
 //# sourceMappingURL=cli.d.ts.map

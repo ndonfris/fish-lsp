@@ -64,6 +64,7 @@ class FishServer {
             }
             for (const uri of files) {
                 const file = yield (0, io_1.createTextDocumentFromFilePath)(new URL(uri));
+                context.connection.console.log(`uri: ${uri}, file: ${file === null || file === void 0 ? void 0 : file.uri}`);
                 if (file)
                     yield context.analyzer.initialize(context, file);
             }
@@ -114,6 +115,7 @@ class FishServer {
             //this.logger.logmsg({action:'onOpen', path: uri})
         }));
         connection.onDidChangeTextDocument((change) => __awaiter(this, void 0, void 0, function* () {
+            this.console.log('onDidChangeText');
             const document = change.textDocument;
             const uri = document.uri;
             //this.documents.newDocument(uri);

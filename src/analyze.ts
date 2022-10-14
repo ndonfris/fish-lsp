@@ -41,9 +41,11 @@ import {
     getNodeText,
     getRange,
 } from "./utils/tree-sitter";
+import {URI} from 'vscode-uri';
 
 export class Analyzer {
     private parser: Parser;
+    public uriTree: { [uri: string]: SyntaxNode };
 
     constructor(parser: Parser) {
         this.parser = parser;

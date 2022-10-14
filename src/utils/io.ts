@@ -1,17 +1,17 @@
 import { accessSync, constants, readdirSync, readFileSync, statSync, readFile } from 'fs'
 import { homedir } from 'os'
-import { fileURLToPath, URL } from 'url'
+//import { fileURLToPath, URL } from 'url'
 import { promisify } from 'util'
+import { URI, Utils } from 'vscode-uri'
 import { TextDocument } from 'vscode-languageserver-textdocument'
 import { isFishExtension } from './tree-sitter'
 import { resolve } from 'path';
 import {Context} from '../interfaces';
 
-export async function createTextDocumentFromFilePath(url: URL): Promise<TextDocument | null> {
+export async function createTextDocumentFromFilePath(uri: URI): Promise<TextDocument | null> {
     let content: string
-    let uri: string = fileURLToPath(url)
     try {
-        content = readFileSync(resolve(uri), "utf8");
+        content = readFileSync(resolve(uri.fsPath), "utf8");
     } catch (err) {
         const { message, name } = err as Error;
         //context.connection.console.error(`pathname: ${uri}`);
@@ -19,7 +19,7 @@ export async function createTextDocumentFromFilePath(url: URL): Promise<TextDocu
         return null;
     }
 
-    return TextDocument.create(url.pathname, "fish", 0, content);
+    return TextDocument.create(uri, "fish", 0, content);
 }
 
 ///** Get files ending with .fish recursively */

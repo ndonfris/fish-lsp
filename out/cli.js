@@ -13,22 +13,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.listen = void 0;
+exports.startServer = void 0;
 const node_1 = require("vscode-languageserver/node");
 const server_1 = __importDefault(require("./server"));
-//const connection = require.main
-//    ? createConnection(ProposedFeatures.all)
-//    : createConnection(process.stdin, process.stdout)
-function listen() {
+function startServer() {
     // Create a connection for the server.
     // The connection uses stdin/stdout for communication.
-    let connection = (0, node_1.createConnection)(new node_1.StreamMessageReader(process.stdin), new node_1.StreamMessageWriter(process.stdout));
-    //RPC.createConnection(
-    //        new RPC.StreamMessageReader(process.stdin),
-    //        new RPC.StreamMessageWriter(process.stdout));
-    //let notification = new RPC.NotificationType<string>('RUNNINg');
-    //msgConnection.sendNotification(notification)
-    //msgConnection.listen()
+    const connection = (0, node_1.createConnection)(new node_1.StreamMessageReader(process.stdin), new node_1.StreamMessageWriter(process.stdout));
     connection.onInitialize((params) => __awaiter(this, void 0, void 0, function* () {
         connection.console.log(`Initialized server FISH-LSP with ${params.initializationOptions}`);
         const server = yield server_1.default.initialize(connection, params);
@@ -39,6 +30,6 @@ function listen() {
     }));
     connection.listen();
 }
-exports.listen = listen;
-listen();
+exports.startServer = startServer;
+startServer();
 //# sourceMappingURL=cli.js.map

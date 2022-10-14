@@ -37,20 +37,14 @@
     "fs-extra": "^10.1.0",
     "git": "^0.1.5",
     "global": "^4.4.0",
-    "p-debounce": "^4.0.0",
     "pkg-up": "^4.0.0",
     "semver": "^7.3.7",
-    "tempy": "^3.0.0",
-    "top-level-await": "^1.1.0",
     "tree-sitter-fish": "github:ram02z/tree-sitter-fish",
     "ts-jest": "^29.0.1",
-    "unixify": "^1.0.0",
-    "url": "^0.11.0",
     "vscode-languageserver": "^7.0.0",
     "vscode-languageserver-textdocument": "^1.0.1",
     "vscode-uri": "^3.0.6",
-    "web-tree-sitter": "^0.20.7",
-    "which": "^2.0.2"
+    "web-tree-sitter": "^0.20.7"
   },
   "devDependencies": {
     "@types/fs-extra": "^9.0.13",
