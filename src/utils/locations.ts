@@ -36,9 +36,9 @@ export async function getAllFishLocations(): Promise<string[]> {
     const allDirs = [
         FISH_LOCATIONS.config.completions,
         FISH_LOCATIONS.config.functions,
-        FISH_LOCATIONS.builtins.functions,
-        FISH_LOCATIONS.builtins.completions,
     ]
+    //FISH_LOCATIONS.builtins.functions,
+    //FISH_LOCATIONS.builtins.completions,
     const files: string[] = []
     for (const loc of allDirs) {
         const newFiles = await readFishDir(loc)

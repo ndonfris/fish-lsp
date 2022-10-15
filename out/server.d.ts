@@ -13,7 +13,7 @@ export default class FishServer {
     private completion;
     constructor(connection: Connection, parser: Parser, analyzer: Analyzer, docs: DocumentManager, completion: Completion);
     capabilities(): ServerCapabilities;
-    register(connection: Connection): void;
+    register(): void;
     onCompletion(completionParams: TextDocumentPositionParams): Promise<CompletionList | null>;
 }
 //# sourceMappingURL=server.d.ts.map

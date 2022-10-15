@@ -9,16 +9,15 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getFishFilesInDir = exports.createTextDocumentFromFilePath = void 0;
+exports.createTextDocumentFromFilePath = void 0;
 const fs_1 = require("fs");
+const vscode_uri_1 = require("vscode-uri");
 const vscode_languageserver_textdocument_1 = require("vscode-languageserver-textdocument");
-const tree_sitter_1 = require("./tree-sitter");
-const path_1 = require("path");
 function createTextDocumentFromFilePath(uri) {
     return __awaiter(this, void 0, void 0, function* () {
-        let content;
+        let content = '';
         try {
-            content = (0, fs_1.readFileSync)((0, path_1.resolve)(uri.fsPath), "utf8");
+            content = (0, fs_1.readFileSync)(vscode_uri_1.Utils.resolvePath(uri).fsPath, "utf8");
         }
         catch (err) {
             const { message, name } = err;
@@ -26,32 +25,34 @@ function createTextDocumentFromFilePath(uri) {
             //context.connection.console.error(`${name}: ${message}`);
             return null;
         }
-        return vscode_languageserver_textdocument_1.TextDocument.create(uri.fsPath, "fish", 0, content);
+        return vscode_languageserver_textdocument_1.TextDocument.create(uri.toString(), "fish", 0, content);
     });
 }
 exports.createTextDocumentFromFilePath = createTextDocumentFromFilePath;
 ///** Get files ending with .fish recursively */
-function getFishFilesInDir(uri) {
-    const result = [];
-    const url = new URL(uri);
-    try {
-        (0, fs_1.accessSync)(url, fs_1.constants.R_OK);
-    }
-    catch (_err) {
-        return [];
-    }
-    for (const dirent of (0, fs_1.readdirSync)(url, { withFileTypes: true })) {
-        if ((0, tree_sitter_1.isFishExtension)(dirent.name)) {
-            result.push(new URL(`${uri}/${dirent.name}`));
-            continue;
-        }
-        if (dirent.isDirectory()) {
-            result.push(...getFishFilesInDir(`${uri}/${dirent.name}`));
-        }
-    }
-    return result;
-}
-exports.getFishFilesInDir = getFishFilesInDir;
+//export function getFishFilesInDir(uri: string): URL[] {
+//  const result: URL[] = []
+//  const url = new URL(uri)
+//
+//  try {
+//    accessSync(url, constants.R_OK)
+//  } catch (_err) {
+//    return []
+//  }
+//
+//  for (const dirent of readdirSync(url, { withFileTypes: true })) {
+//    if (isFishExtension(dirent.name)) {
+//      result.push(new URL(`${uri}/${dirent.name}`))
+//      continue
+//    }
+//
+//    if (dirent.isDirectory()) {
+//      result.push(...getFishFilesInDir(`${uri}/${dirent.name}`))
+//    }
+//  }
+//
+//  return result
+//}
 //export function readDocumentFromUrl(context: Context, url: URI): TextDocument | null {
 //  let content: string
 //

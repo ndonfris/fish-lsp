@@ -23,7 +23,7 @@ function startServer() {
     connection.onInitialize((params) => __awaiter(this, void 0, void 0, function* () {
         connection.console.log(`Initialized server FISH-LSP with ${params.initializationOptions}`);
         const server = yield server_1.default.initialize(connection, params);
-        server.register(connection);
+        server.register();
         return {
             capabilities: server.capabilities(),
         };

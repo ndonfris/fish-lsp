@@ -35,13 +35,7 @@ class FishServer {
             const parser = yield (0, parser_1.initializeParser)();
             const analyzer = new analyze_1.Analyzer(parser, connection.console);
             const docs = yield document_1.DocumentManager.indexUserConfig(connection.console);
-            const completion = new completion_1.Completion();
-            try {
-                yield completion.initialDefaults();
-            }
-            catch (err) {
-                console.log('error!!!!!!!!!!!!!!!');
-            }
+            const completion = yield completion_1.Completion.initialDefaults();
             return new FishServer(connection, parser, analyzer, docs, completion);
         });
     }
@@ -62,24 +56,24 @@ class FishServer {
             referencesProvider: true,
         };
     }
-    register(connection) {
-        connection.onDidOpenTextDocument((change) => __awaiter(this, void 0, void 0, function* () {
+    register() {
+        this.connection.onDidOpenTextDocument((change) => __awaiter(this, void 0, void 0, function* () {
             const document = change.textDocument;
             const uri = document.uri;
             let doc = yield this.docs.openOrFind(uri);
             yield this.analyzer.analyze(doc);
-            this.console.log('onDidOpenTextDocument: ' + uri);
+            this.console.log('onDidOpenTextDocument: ' + doc.uri);
             //this.logger.logmsg({action:'onOpen', path: uri})
         }));
-        connection.onDidChangeTextDocument((change) => __awaiter(this, void 0, void 0, function* () {
+        this.connection.onDidChangeTextDocument((change) => __awaiter(this, void 0, void 0, function* () {
             const document = change.textDocument;
             const uri = document.uri;
-            this.console.log('onDidChangeText' + uri);
             //this.documents.newDocument(uri);
             const doc = yield this.docs.openOrFind(uri);
+            this.console.log('onDidChangeText' + doc.uri);
             yield this.analyzer.analyze(doc);
         }));
-        connection.onDidCloseTextDocument((change) => __awaiter(this, void 0, void 0, function* () {
+        this.connection.onDidCloseTextDocument((change) => __awaiter(this, void 0, void 0, function* () {
             const uri = change.textDocument.uri;
             this.docs.close(uri);
         }));
@@ -91,10 +85,9 @@ class FishServer {
         // connection.onWorkspaceSymbol(this.onWorkspaceSymbol.bind(this))
         // connection.onDocumentHighlight(this.onDocumentHighlight.bind(this))
         // connection.onReferences(this.onReferences.bind(this))
-        connection.onCompletion(this.onCompletion.bind(this));
+        this.connection.onCompletion(this.onCompletion.bind(this));
         // connection.onCompletionResolve(this.onCompletionResolve.bind(this))s))
-        this.docs.documents.listen(connection);
-        //this.connection.listen()
+        this.docs.documents.listen(this.connection);
     }
     onCompletion(completionParams) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -114,22 +107,19 @@ class FishServer {
             //if (documentText.endsWith('-')) {
             //    return null;
             //}
-            let doc = yield this.docs.openOrFind(uri);
+            const doc = yield this.docs.openOrFind(uri);
+            this.console.log('onComplete() doc.uri = ' + doc.uri);
             yield this.analyzer.analyze(doc);
-            const node = this.analyzer.nodeAtPoint(uri, position.line, position.character);
+            const node = this.analyzer.nodeAtPoint(doc.uri, position.line, position.character);
+            //console.log('onComplete() -> analyzer.nodeAtPoint' + getNodeText(node))
             //this.logger.logmsg({ path: uri, action:'onComplete', node: node})
             if (!node)
-                return null;
-            try {
-                const completionList = yield this.completion.generate(node);
-                if (completionList)
-                    return completionList;
+                return this.completion.fallbackComplete();
+            const completionList = yield this.completion.generate(node);
+            if (completionList) {
+                return completionList;
             }
-            catch (error) {
-                this.console.log(`ERROR: ${error}`);
-            }
-            this.console.log('ERROR: onCompletion !Error');
-            return null;
+            //this.console.log('ERROR: onCompletion !Error')
             //const commandNode: SyntaxNode | null = findParentCommand(node);
             //if (!commandNode) {
             //    //use node
@@ -138,6 +128,7 @@ class FishServer {
             //// build Completions
             //const completions: CompletionItem[] = []
             //return completions
+            return this.completion.fallbackComplete();
         });
     }
 }

@@ -27,14 +27,14 @@ export function startServer() {
 
             const server = await FishServer.initialize(connection, params);
 
-            server.register(connection);
+            server.register();
 
             return {
                 capabilities: server.capabilities(),
             };
         },
     )
-    connection.listen() 
+    connection.listen()
 }
 
 

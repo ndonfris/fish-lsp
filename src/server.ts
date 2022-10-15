@@ -33,6 +33,7 @@ import {CliOptions, Context, TreeByUri} from './interfaces';
 import {SyntaxNode} from 'web-tree-sitter';
 import {URI} from 'vscode-uri';
 import {DocumentManager} from './document';
+import {getNodeText} from './utils/tree-sitter';
 
 export default class FishServer {
 
@@ -45,12 +46,7 @@ export default class FishServer {
         const parser = await initializeParser();
         const analyzer = new Analyzer(parser, connection.console);
         const docs = await DocumentManager.indexUserConfig(connection.console)
-        const completion = new Completion();
-        try {
-            await completion.initialDefaults()
-        } catch (err) {
-            console.log('error!!!!!!!!!!!!!!!')
-        }
+        const completion = await Completion.initialDefaults();
         return new FishServer(
             connection,
             parser,
@@ -112,27 +108,27 @@ export default class FishServer {
         };
     }
 
-    public register(connection: Connection): void {
+    public register(): void {
 
-        connection.onDidOpenTextDocument(async change => {
+        this.connection.onDidOpenTextDocument(async change => {
             const document = change.textDocument;
             const uri = document.uri;
             let doc = await this.docs.openOrFind(uri)
             await this.analyzer.analyze(doc);
-            this.console.log('onDidOpenTextDocument: '+ uri)
+            this.console.log('onDidOpenTextDocument: '+ doc.uri)
             //this.logger.logmsg({action:'onOpen', path: uri})
         })
 
-        connection.onDidChangeTextDocument(async change => {
+        this.connection.onDidChangeTextDocument(async change => {
             const document = change.textDocument;
             const uri = document.uri;
-            this.console.log('onDidChangeText' + uri)
             //this.documents.newDocument(uri);
             const doc = await this.docs.openOrFind(uri);
+            this.console.log('onDidChangeText' + doc.uri)
             await this.analyzer.analyze(doc);
         });
 
-        connection.onDidCloseTextDocument(async change => { 
+        this.connection.onDidCloseTextDocument(async change => { 
             const uri = change.textDocument.uri;
             this.docs.close(uri);
         });
@@ -145,10 +141,9 @@ export default class FishServer {
         // connection.onWorkspaceSymbol(this.onWorkspaceSymbol.bind(this))
         // connection.onDocumentHighlight(this.onDocumentHighlight.bind(this))
         // connection.onReferences(this.onReferences.bind(this))
-        connection.onCompletion(this.onCompletion.bind(this))
+        this.connection.onCompletion(this.onCompletion.bind(this))
         // connection.onCompletionResolve(this.onCompletionResolve.bind(this))s))
-        this.docs.documents.listen(connection)
-        //this.connection.listen()
+        this.docs.documents.listen(this.connection)
     }
 
     public async onCompletion(completionParams: TextDocumentPositionParams):  Promise<CompletionList | null>{
@@ -169,24 +164,23 @@ export default class FishServer {
         //if (documentText.endsWith('-')) {
         //    return null;
         //}
-        let doc = await this.docs.openOrFind(uri);
+        const doc = await this.docs.openOrFind(uri);
+        this.console.log('onComplete() doc.uri = ' + doc.uri)
         await this.analyzer.analyze(doc)
-        const node: SyntaxNode | null = this.analyzer.nodeAtPoint(uri, position.line, position.character);
+        const node: SyntaxNode | null = this.analyzer.nodeAtPoint(doc.uri, position.line, position.character);
+        //console.log('onComplete() -> analyzer.nodeAtPoint' + getNodeText(node))
 
         //this.logger.logmsg({ path: uri, action:'onComplete', node: node})
 
-        if (!node) return null
+        if (!node) return this.completion.fallbackComplete()
 
 
-        try {
-            const completionList = await this.completion.generate(node)
-            if (completionList) return completionList
-        } catch (error) {
-            this.console.log(`ERROR: ${error}`)
+        const completionList = await this.completion.generate(node)
+        if (completionList) {
+            return completionList
         }
-        this.console.log('ERROR: onCompletion !Error')
+        //this.console.log('ERROR: onCompletion !Error')
 
-        return null
 
         //const commandNode: SyntaxNode | null = findParentCommand(node);
         //if (!commandNode) {
@@ -200,6 +194,7 @@ export default class FishServer {
 
 
         //return completions
+        return this.completion.fallbackComplete();
     }
 }
 

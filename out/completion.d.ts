@@ -21,12 +21,11 @@ export declare class Completion {
     private isInsideCompletionsFile;
     private completions;
     private isIncomplete;
-    constructor();
-    initialDefaults(): Promise<this>;
+    static initialDefaults(): Promise<Completion>;
+    private constructor();
     addLocalMembers(vars: SyntaxNode[], funcs: SyntaxNode[]): number;
-    generateCurrent(node: SyntaxNode): Promise<void>;
     generate(node: SyntaxNode): Promise<CompletionList>;
-    fallback(): CompletionList;
+    fallbackComplete(): CompletionList;
 }
 export declare function buildGlobalAbbrs(): Promise<CompletionItem[]>;
 export declare function buildGlobalVars(): Promise<CompletionItem[]>;

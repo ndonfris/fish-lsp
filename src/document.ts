@@ -39,16 +39,17 @@ export class DocumentManager {
         docs.console.log('DocumentManager.generateUserConfigDocuments(console) -> STARTING!')
         const files = await getAllFishLocations();
         for (const filepath of files) {
-            const fileURI = URI.file(filepath)
-            const path = fileURI.fsPath;
-            docs.console.log(`uri: ${fileURI}, path: ${path}`)
+            const fileURI = URI.file(filepath);
+            //const path = fileURI.fsPath;
+            //docs.console.log(`uri: ${fileURI}, path: ${path}`)
             const newDocument = await createTextDocumentFromFilePath(fileURI);
             if (newDocument != null) {
                 // add to allDocuments
                 docs.allDocuments[newDocument.uri] = newDocument;
                 docs.console.log(`[SUCCESS] uri: ${fileURI}`)
+                //docs.console.log(newDocument.getText())
             } else {
-                docs.console.log(`[ERROR] uri: ${fileURI}`)
+                //docs.console.log(`[ERROR] uri: ${fileURI}`)
             }
         }
         return docs;
@@ -153,10 +154,7 @@ export class DocumentManager {
      * @returns {string} 'file:///path/to/fish/file.fish'
      */
     private validateURI(possibleURI: string) : string {
-        if (possibleURI.startsWith('file:///')) {
-            return possibleURI;
-        } 
-        const correctURI = URI.file(possibleURI)
+        const correctURI = URI.parse(possibleURI)
         return correctURI.toString();
     }
 

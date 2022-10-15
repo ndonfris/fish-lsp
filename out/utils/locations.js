@@ -47,9 +47,9 @@ function getAllFishLocations() {
         const allDirs = [
             exports.FISH_LOCATIONS.config.completions,
             exports.FISH_LOCATIONS.config.functions,
-            exports.FISH_LOCATIONS.builtins.functions,
-            exports.FISH_LOCATIONS.builtins.completions,
         ];
+        //FISH_LOCATIONS.builtins.functions,
+        //FISH_LOCATIONS.builtins.completions,
         const files = [];
         for (const loc of allDirs) {
             const newFiles = yield readFishDir(loc);
