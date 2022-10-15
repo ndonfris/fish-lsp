@@ -19,7 +19,7 @@ export async function createTextDocumentFromFilePath(uri: URI): Promise<TextDocu
         return null;
     }
 
-    return TextDocument.create(uri, "fish", 0, content);
+    return TextDocument.create(uri.fsPath, "fish", 0, content);
 }
 
 ///** Get files ending with .fish recursively */

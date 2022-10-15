@@ -32,6 +32,7 @@ import { TextDocument } from "vscode-languageserver-textdocument";
 import {CliOptions, Context, TreeByUri} from './interfaces';
 import {SyntaxNode} from 'web-tree-sitter';
 import {URI} from 'vscode-uri';
+import {DocumentManager} from './document';
 
 export default class FishServer {
 
@@ -42,40 +43,53 @@ export default class FishServer {
     ): Promise<FishServer> {
         //const connection = connection;
         const parser = await initializeParser();
-        const analyzer = new Analyzer(parser);
-        const documents = new TextDocuments(TextDocument);
+        const analyzer = new Analyzer(parser, connection.console);
+        const docs = await DocumentManager.indexUserConfig(connection.console)
         const completion = new Completion();
-        const files = await getAllFishLocations();
-        for (const fsPath of files) {
-            const fileURI = URI.file(fsPath)
-            connection.console.log(`uri: ${fileURI}`)
-        }
         try {
             await completion.initialDefaults()
         } catch (err) {
             console.log('error!!!!!!!!!!!!!!!')
         }
-        //for (const uri of files) {
-            //const file = await createTextDocumentFromFilePath(new URL(uri))
-            //connection.console.log(`uri: ${uri}, file: ${file?.uri}`)
-            ////if (file) await analyzer.initialize(context, file)
-        //}
         return new FishServer(
             connection,
             parser,
             analyzer,
-            documents,
+            docs,
             completion
         );
     }
 
+    // the connection of the FishServer
     private connection: Connection;
 
+    // for logging output (from connection)
     private console: RemoteConsole;
 
-    constructor(connection: Connection, parser : Parser, analyzer: Analyzer, documents: TextDocuments<TextDocument>, completion: Completion) {
+    // the parser (using tree-sitter-web)
+    private parser : Parser;
+
+    // using the parser & DocumentManager
+    // current implementation ideally works in this order:
+    // 1.) a document is retrieved from the DocumentManager 
+    // 2.) the document is Parsed by the Parser
+    // 3.) the analyzer stores the document???
+    // 4.) 
+    private analyzer: Analyzer; 
+
+    // documentManager 
+    private docs: DocumentManager;
+
+    // completionHandler
+    private completion: Completion;
+
+    constructor(connection: Connection, parser : Parser, analyzer: Analyzer, docs: DocumentManager , completion: Completion) {
         this.connection = connection;
         this.console = this.connection.console;
+        this.parser = parser;
+        this.analyzer = analyzer;
+        this.docs = docs;
+        this.completion = completion;
     }
 
 
@@ -92,58 +106,35 @@ export default class FishServer {
             hoverProvider: true,
             documentHighlightProvider: true,
             definitionProvider: true,
-            //documentSymbolProvider: true,
+            documentSymbolProvider: true,
             workspaceSymbolProvider: true,
             referencesProvider: true,
         };
     }
 
     public register(connection: Connection): void {
-        //const opened = this.documents.getOpenDocuments();
-        //connection.listen(connection);
-        //connection.dispose()
-
-        //let languageModes: any;
-
-        //connection.onInitialize((_params: InitializeParams) => {
-        //    languageModes = languageModes();
-
-        //    documents.onDidClose(e => {
-        //        languageModes.onDocumentRemoved(e.document);
-        //    });
-        //    connection.onShutdown(() => {
-        //        languageModes.dispose();
-        //    });
-
-        //    return {
-        //        capabilities: this.capabilities()
-        //    };
-        //});
 
         connection.onDidOpenTextDocument(async change => {
             const document = change.textDocument;
             const uri = document.uri;
-            let doc = this.context.documents.get(uri);
-            if (doc) {
-                await this.context.analyzer.initialize(this.context, doc);
-            }
+            let doc = await this.docs.openOrFind(uri)
+            await this.analyzer.analyze(doc);
+            this.console.log('onDidOpenTextDocument: '+ uri)
             //this.logger.logmsg({action:'onOpen', path: uri})
         })
 
         connection.onDidChangeTextDocument(async change => {
-            this.console.log('onDidChangeText')
             const document = change.textDocument;
             const uri = document.uri;
+            this.console.log('onDidChangeText' + uri)
             //this.documents.newDocument(uri);
-            let doc = this.context.documents.get(uri)
-            if ( document && this.context.documents.get(uri) !== undefined && doc) {
-                await this.context.analyzer.initialize(this.context, doc);
-                await this.context.analyzer.analyze(this.context, doc);
-            }
+            const doc = await this.docs.openOrFind(uri);
+            await this.analyzer.analyze(doc);
         });
 
         connection.onDidCloseTextDocument(async change => { 
             const uri = change.textDocument.uri;
+            this.docs.close(uri);
         });
         // if formatting is enabled in settings. add onContentDidSave
 
@@ -156,8 +147,8 @@ export default class FishServer {
         // connection.onReferences(this.onReferences.bind(this))
         connection.onCompletion(this.onCompletion.bind(this))
         // connection.onCompletionResolve(this.onCompletionResolve.bind(this))s))
-        this.context.documents.listen(connection)
-        this.context.connection.listen()
+        this.docs.documents.listen(connection)
+        //this.connection.listen()
     }
 
     public async onCompletion(completionParams: TextDocumentPositionParams):  Promise<CompletionList | null>{
@@ -169,6 +160,7 @@ export default class FishServer {
             //const documentText = this.analyzer.uriToTextDocument[uri].toString()
             //this.logger.log(`cmpDocText: ${documentText}`)
         //}
+        this.console.log('onComplete' + uri)
 
         //const pos: Position = {
         //    line: position.line,
@@ -177,12 +169,9 @@ export default class FishServer {
         //if (documentText.endsWith('-')) {
         //    return null;
         //}
-        let doc = this.context.documents.get(uri);
-        if (doc) {
-            await this.context.analyzer.initialize(this.context, doc)
-            await this.context.analyzer.analyze(this.context, doc)
-        }
-        const node: SyntaxNode | null = this.context.analyzer.nodeAtPoint(this.context.trees[uri], position.line, position.character);
+        let doc = await this.docs.openOrFind(uri);
+        await this.analyzer.analyze(doc)
+        const node: SyntaxNode | null = this.analyzer.nodeAtPoint(uri, position.line, position.character);
 
         //this.logger.logmsg({ path: uri, action:'onComplete', node: node})
 
@@ -190,12 +179,12 @@ export default class FishServer {
 
 
         try {
-            const completionList = await this.context.completion.generate(node)
+            const completionList = await this.completion.generate(node)
             if (completionList) return completionList
         } catch (error) {
             this.console.log(`ERROR: ${error}`)
         }
-        this.console.log(`ERROR: onCompletion !Error`)
+        this.console.log('ERROR: onCompletion !Error')
 
         return null
 

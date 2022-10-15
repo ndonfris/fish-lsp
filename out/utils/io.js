@@ -11,16 +11,14 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getFishFilesInDir = exports.createTextDocumentFromFilePath = void 0;
 const fs_1 = require("fs");
-const url_1 = require("url");
 const vscode_languageserver_textdocument_1 = require("vscode-languageserver-textdocument");
 const tree_sitter_1 = require("./tree-sitter");
 const path_1 = require("path");
-function createTextDocumentFromFilePath(url) {
+function createTextDocumentFromFilePath(uri) {
     return __awaiter(this, void 0, void 0, function* () {
         let content;
-        let uri = (0, url_1.fileURLToPath)(url);
         try {
-            content = (0, fs_1.readFileSync)((0, path_1.resolve)(uri), "utf8");
+            content = (0, fs_1.readFileSync)((0, path_1.resolve)(uri.fsPath), "utf8");
         }
         catch (err) {
             const { message, name } = err;
@@ -28,14 +26,14 @@ function createTextDocumentFromFilePath(url) {
             //context.connection.console.error(`${name}: ${message}`);
             return null;
         }
-        return vscode_languageserver_textdocument_1.TextDocument.create(url.pathname, "fish", 0, content);
+        return vscode_languageserver_textdocument_1.TextDocument.create(uri.fsPath, "fish", 0, content);
     });
 }
 exports.createTextDocumentFromFilePath = createTextDocumentFromFilePath;
 ///** Get files ending with .fish recursively */
 function getFishFilesInDir(uri) {
     const result = [];
-    const url = new url_1.URL(uri);
+    const url = new URL(uri);
     try {
         (0, fs_1.accessSync)(url, fs_1.constants.R_OK);
     }
@@ -44,7 +42,7 @@ function getFishFilesInDir(uri) {
     }
     for (const dirent of (0, fs_1.readdirSync)(url, { withFileTypes: true })) {
         if ((0, tree_sitter_1.isFishExtension)(dirent.name)) {
-            result.push(new url_1.URL(`${uri}/${dirent.name}`));
+            result.push(new URL(`${uri}/${dirent.name}`));
             continue;
         }
         if (dirent.isDirectory()) {

@@ -14,36 +14,34 @@ const documentation_1 = require("./documentation");
 const node_types_1 = require("./utils/node-types");
 const tree_sitter_1 = require("./utils/tree-sitter");
 class Analyzer {
-    constructor(parser) {
+    constructor(parser, console) {
         this.parser = parser;
+        this.console = console;
+        this.uriTree = {};
     }
-    /**
-     * @async initialize() - intializes a SyntaxTree on context.trees[document.uri]
-     *
-     * @param {Context} context - context of lsp
-     * @param {TextDocument} document - an initialized TextDocument from createTextDocumentFromFilePath()
-     * @returns {Promise<SyntaxTree>} - SyntaxTree which is also stored on context.trees[uri]
-     */
-    initialize(context, document) {
+    ///**
+    // * @async initialize() - intializes a SyntaxTree on context.trees[document.uri]
+    // *
+    // * @param {Context} context - context of lsp
+    // * @param {TextDocument} document - an initialized TextDocument from createTextDocumentFromFilePath()
+    // * @returns {Promise<SyntaxTree>} - SyntaxTree which is also stored on context.trees[uri]
+    // */
+    //public async initialize(document: TextDocument) {
+    //    //const document = await createTextDocumentFromFilePath(uri)
+    //    const tree = this.parser.parse(document.getText())
+    //    this.uriTree[document.uri] = tree;
+    //}
+    analyze(document) {
         return __awaiter(this, void 0, void 0, function* () {
-            //const document = await createTextDocumentFromFilePath(uri)
-            const tree = context.parser.parse(document.getText());
-            context.trees[document.uri] = new SyntaxTree(tree);
-            return context.trees[document.uri];
-        });
-    }
-    analyze(context, document) {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (!document)
-                return undefined;
-            const tree = context.parser.parse(document.getText());
-            context.trees[document.uri] = new SyntaxTree(tree);
+            const tree = this.parser.parse(document.getText());
+            this.uriTree[document.uri] = tree;
         });
     }
     /**
      * Find the node at the given point.
      */
-    nodeAtPoint(tree, line, column) {
+    nodeAtPoint(uri, line, column) {
+        const tree = this.uriTree[uri];
         // Check for lacking rootNode (due to failed parse?)
         if (!(tree === null || tree === void 0 ? void 0 : tree.rootNode)) {
             return null;
@@ -53,8 +51,9 @@ class Analyzer {
     /**
      * Find the full word at the given point.
      */
-    wordAtPoint(tree, line, column) {
-        const node = this.nodeAtPoint(tree, line, column);
+    wordAtPoint(uri, line, column) {
+        const tree = this.uriTree[uri];
+        const node = this.nodeAtPoint(uri, line, column);
         if (!node || node.childCount > 0 || node.text.trim() === "") {
             return null;
         }
@@ -68,11 +67,11 @@ class Analyzer {
      * @param {number} line - the line number from from a Position object
      * @returns {string} the current line in the document, or an empty string
      */
-    currentLine(context, uri, line) {
-        const currDoc = context.documents.get(uri);
+    currentLine(document, line) {
+        const currDoc = document.uri;
         if (currDoc === undefined)
             return "";
-        const currText = currDoc.getText().split('\n').at(line);
+        const currText = document.getText().split('\n').at(line);
         return currText || "";
     }
     nodeIsLocal(tree, node) {
@@ -85,42 +84,6 @@ class Analyzer {
             contents: (0, documentation_1.enrichToCodeBlockMarkdown)(result.text, 'fish'),
             range: (0, tree_sitter_1.getRange)(result),
         };
-    }
-    getHover(tree, params) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const uri = params.textDocument.uri;
-            const line = params.position.line;
-            const character = params.position.character;
-            const node = this.nodeAtPoint(tree, line, character);
-            const text = this.wordAtPoint(tree, line, character);
-            if (!node || !text)
-                return;
-            const docs = yield (0, documentation_1.documentationHoverProvider)(text);
-            if (docs) {
-                return docs;
-            }
-            return yield this.getHoverFallback(node);
-        });
-    }
-    getHoverFallback(currentNode) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const cmdNode = (0, node_types_1.findParentCommand)(currentNode);
-            if (!cmdNode)
-                return;
-            const hoverCmp = new documentation_1.HoverFromCompletion(cmdNode, currentNode);
-            let hover;
-            if (currentNode.text.startsWith("-")) {
-                hover = yield hoverCmp.generateForFlags();
-            }
-            else {
-                hover = yield hoverCmp.generate();
-            }
-            if (hover)
-                return hover;
-            //if (currentNode.text.startsWith('-')) {
-            //}
-            return;
-        });
     }
 }
 exports.Analyzer = Analyzer;

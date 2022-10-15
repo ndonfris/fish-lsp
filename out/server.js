@@ -17,58 +17,32 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const parser_1 = require("./parser");
 //import { MyAnalyzer } from "./analyse";
 const analyze_1 = require("./analyze");
-const locations_1 = require("./utils/locations");
 const completion_1 = require("./completion");
-const io_1 = require("./utils/io");
 const node_1 = require("vscode-languageserver/node");
-const vscode_languageserver_textdocument_1 = require("vscode-languageserver-textdocument");
-//import {getInitializedHandler} from './handlers/handleInitialized';
-//import {getInitializeHandler} from './handlers/initializeHandler';
-//import {getCompletionHandler} from './handlers/completeHandler';
-//import {getCompletionResolveHandler} from './handlers/completeResolveHandler';
-//import {getDidChangeContentHandler} from './handlers/handleDidChange';
-// Create a connection for the server. The connection uses Node's IPC as a transport.
-// Also include all preview / proposed LSP features.
-// Create a simple text document manager. The text document manager
-// supports full document sync only
-const context = {
-    capabilities: {},
-    connection: require.main === module
-        ? (0, node_1.createConnection)(node_1.ProposedFeatures.all)
-        : (0, node_1.createConnection)(process.stdin, process.stdout),
-    parser: {},
-    documents: new node_1.TextDocuments(vscode_languageserver_textdocument_1.TextDocument),
-    completion: new completion_1.Completion(),
-    analyzer: {},
-    trees: {}
-};
+const document_1 = require("./document");
 class FishServer {
-    constructor(context) {
-        this.context = context;
-        this.console = this.context.connection.console;
+    constructor(connection, parser, analyzer, docs, completion) {
+        this.connection = connection;
+        this.console = this.connection.console;
+        this.parser = parser;
+        this.analyzer = analyzer;
+        this.docs = docs;
+        this.completion = completion;
     }
     static initialize(connection, { capabilities }) {
         return __awaiter(this, void 0, void 0, function* () {
-            context.connection = connection;
-            context.parser = yield (0, parser_1.initializeParser)();
-            context.analyzer = new analyze_1.Analyzer(context.parser);
-            context.documents = new node_1.TextDocuments(vscode_languageserver_textdocument_1.TextDocument);
-            context.completion = new completion_1.Completion();
-            context.capabilities = capabilities;
-            const files = yield (0, locations_1.getAllFishLocations)();
+            //const connection = connection;
+            const parser = yield (0, parser_1.initializeParser)();
+            const analyzer = new analyze_1.Analyzer(parser, connection.console);
+            const docs = yield document_1.DocumentManager.indexUserConfig(connection.console);
+            const completion = new completion_1.Completion();
             try {
-                yield context.completion.initialDefaults();
+                yield completion.initialDefaults();
             }
             catch (err) {
                 console.log('error!!!!!!!!!!!!!!!');
             }
-            for (const uri of files) {
-                const file = yield (0, io_1.createTextDocumentFromFilePath)(new URL(uri));
-                context.connection.console.log(`uri: ${uri}, file: ${file === null || file === void 0 ? void 0 : file.uri}`);
-                if (file)
-                    yield context.analyzer.initialize(context, file);
-            }
-            return new FishServer(context);
+            return new FishServer(connection, parser, analyzer, docs, completion);
         });
     }
     capabilities() {
@@ -83,50 +57,31 @@ class FishServer {
             hoverProvider: true,
             documentHighlightProvider: true,
             definitionProvider: true,
-            //documentSymbolProvider: true,
+            documentSymbolProvider: true,
             workspaceSymbolProvider: true,
             referencesProvider: true,
         };
     }
     register(connection) {
-        //const opened = this.documents.getOpenDocuments();
-        //connection.listen(connection);
-        //connection.dispose()
-        //let languageModes: any;
-        //connection.onInitialize((_params: InitializeParams) => {
-        //    languageModes = languageModes();
-        //    documents.onDidClose(e => {
-        //        languageModes.onDocumentRemoved(e.document);
-        //    });
-        //    connection.onShutdown(() => {
-        //        languageModes.dispose();
-        //    });
-        //    return {
-        //        capabilities: this.capabilities()
-        //    };
-        //});
         connection.onDidOpenTextDocument((change) => __awaiter(this, void 0, void 0, function* () {
             const document = change.textDocument;
             const uri = document.uri;
-            let doc = this.context.documents.get(uri);
-            if (doc) {
-                yield this.context.analyzer.initialize(this.context, doc);
-            }
+            let doc = yield this.docs.openOrFind(uri);
+            yield this.analyzer.analyze(doc);
+            this.console.log('onDidOpenTextDocument: ' + uri);
             //this.logger.logmsg({action:'onOpen', path: uri})
         }));
         connection.onDidChangeTextDocument((change) => __awaiter(this, void 0, void 0, function* () {
-            this.console.log('onDidChangeText');
             const document = change.textDocument;
             const uri = document.uri;
+            this.console.log('onDidChangeText' + uri);
             //this.documents.newDocument(uri);
-            let doc = this.context.documents.get(uri);
-            if (document && this.context.documents.get(uri) !== undefined && doc) {
-                yield this.context.analyzer.initialize(this.context, doc);
-                yield this.context.analyzer.analyze(this.context, doc);
-            }
+            const doc = yield this.docs.openOrFind(uri);
+            yield this.analyzer.analyze(doc);
         }));
         connection.onDidCloseTextDocument((change) => __awaiter(this, void 0, void 0, function* () {
             const uri = change.textDocument.uri;
+            this.docs.close(uri);
         }));
         // if formatting is enabled in settings. add onContentDidSave
         // Register all the handlers for the LSP events.
@@ -138,8 +93,8 @@ class FishServer {
         // connection.onReferences(this.onReferences.bind(this))
         connection.onCompletion(this.onCompletion.bind(this));
         // connection.onCompletionResolve(this.onCompletionResolve.bind(this))s))
-        this.context.documents.listen(connection);
-        this.context.connection.listen();
+        this.docs.documents.listen(connection);
+        //this.connection.listen()
     }
     onCompletion(completionParams) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -151,6 +106,7 @@ class FishServer {
             //const documentText = this.analyzer.uriToTextDocument[uri].toString()
             //this.logger.log(`cmpDocText: ${documentText}`)
             //}
+            this.console.log('onComplete' + uri);
             //const pos: Position = {
             //    line: position.line,
             //    character: Math.max(0, position.character-1)
@@ -158,24 +114,21 @@ class FishServer {
             //if (documentText.endsWith('-')) {
             //    return null;
             //}
-            let doc = this.context.documents.get(uri);
-            if (doc) {
-                yield this.context.analyzer.initialize(this.context, doc);
-                yield this.context.analyzer.analyze(this.context, doc);
-            }
-            const node = this.context.analyzer.nodeAtPoint(this.context.trees[uri], position.line, position.character);
+            let doc = yield this.docs.openOrFind(uri);
+            yield this.analyzer.analyze(doc);
+            const node = this.analyzer.nodeAtPoint(uri, position.line, position.character);
             //this.logger.logmsg({ path: uri, action:'onComplete', node: node})
             if (!node)
                 return null;
             try {
-                const completionList = yield this.context.completion.generate(node);
+                const completionList = yield this.completion.generate(node);
                 if (completionList)
                     return completionList;
             }
             catch (error) {
                 this.console.log(`ERROR: ${error}`);
             }
-            this.console.log(`ERROR: onCompletion !Error`);
+            this.console.log('ERROR: onCompletion !Error');
             return null;
             //const commandNode: SyntaxNode | null = findParentCommand(node);
             //if (!commandNode) {

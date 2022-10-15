@@ -5,6 +5,7 @@ import {
     DocumentUri,
     Hover,
     Location,
+    RemoteConsole,
     TextDocumentPositionParams,
 } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
@@ -45,40 +46,47 @@ import {URI} from 'vscode-uri';
 
 export class Analyzer {
     private parser: Parser;
-    public uriTree: { [uri: string]: SyntaxNode };
+    //private rootMap: Map<string, >
 
-    constructor(parser: Parser) {
+    // maps the uri of document to the parser.parse(document.getText())
+    private uriTree: { [uri: string]: Tree };
+
+    // to log local output
+    private console: RemoteConsole;
+
+    constructor(parser: Parser, console: RemoteConsole) {
         this.parser = parser;
+        this.console = console;
+        this.uriTree = {};
     }
 
-    /**
-     * @async initialize() - intializes a SyntaxTree on context.trees[document.uri]
-     *
-     * @param {Context} context - context of lsp
-     * @param {TextDocument} document - an initialized TextDocument from createTextDocumentFromFilePath()
-     * @returns {Promise<SyntaxTree>} - SyntaxTree which is also stored on context.trees[uri]
-     */
-    public async initialize(context: Context, document: TextDocument): Promise<SyntaxTree> {
-        //const document = await createTextDocumentFromFilePath(uri)
-        const tree = context.parser.parse(document.getText())
-        context.trees[document.uri] = new SyntaxTree(tree) 
-        return context.trees[document.uri]
-    }
+    ///**
+    // * @async initialize() - intializes a SyntaxTree on context.trees[document.uri]
+    // *
+    // * @param {Context} context - context of lsp
+    // * @param {TextDocument} document - an initialized TextDocument from createTextDocumentFromFilePath()
+    // * @returns {Promise<SyntaxTree>} - SyntaxTree which is also stored on context.trees[uri]
+    // */
+    //public async initialize(document: TextDocument) {
+    //    //const document = await createTextDocumentFromFilePath(uri)
+    //    const tree = this.parser.parse(document.getText())
+    //    this.uriTree[document.uri] = tree;
+    //}
 
-    public async analyze(context: Context, document: TextDocument) {
-        if (!document) return undefined
-        const tree = context.parser.parse(document.getText())
-        context.trees[document.uri] = new SyntaxTree(tree) 
+    public async analyze(document: TextDocument) {
+        const tree = this.parser.parse(document.getText())
+        this.uriTree[document.uri] = tree;
     }
 
     /**
      * Find the node at the given point.
      */
     public nodeAtPoint(
-        tree: SyntaxTree,
+        uri: string,
         line: number,
         column: number
     ): Parser.SyntaxNode | null {
+        const tree = this.uriTree[uri]
 
         // Check for lacking rootNode (due to failed parse?)
         if (!tree?.rootNode) {
@@ -92,11 +100,12 @@ export class Analyzer {
      * Find the full word at the given point.
      */
     public wordAtPoint(
-        tree: SyntaxTree,
+        uri: string,
         line: number,
         column: number
     ) : string | null {
-        const node = this.nodeAtPoint(tree, line, column);
+        const tree = this.uriTree[uri]
+        const node = this.nodeAtPoint(uri, line, column);
 
         if (!node || node.childCount > 0 || node.text.trim() === "") {
             return null;
@@ -114,15 +123,13 @@ export class Analyzer {
      * @returns {string} the current line in the document, or an empty string 
      */
     public currentLine(
-        context: Context,
-        uri: string,
+        document: TextDocument,
         line: number
     ): string {
-        const currDoc = context.documents.get(uri)
+        const currDoc = document.uri
         if (currDoc === undefined) return ""
-        const currText = currDoc.getText().split('\n').at(line)
+        const currText = document.getText().split('\n').at(line)
         return currText || "";
-
     }
 
 
@@ -137,37 +144,37 @@ export class Analyzer {
         };
     }
 
-    public async getHover(tree: SyntaxTree, params: TextDocumentPositionParams): Promise<Hover | void> {
-        const uri = params.textDocument.uri;
-        const line = params.position.line;
-        const character = params.position.character;
+    //public async getHover(tree: SyntaxTree, params: TextDocumentPositionParams): Promise<Hover | void> {
+    //    const uri = params.textDocument.uri;
+    //    const line = params.position.line;
+    //    const character = params.position.character;
 
-        const node = this.nodeAtPoint(tree,line,character)
-        const text = this.wordAtPoint(tree,line,character)
-        if (!node || !text) return;
+    //    const node = this.nodeAtPoint(tree,line,character)
+    //    const text = this.wordAtPoint(tree,line,character)
+    //    if (!node || !text) return;
 
-        const docs = await documentationHoverProvider(text);
-        if (docs) {
-            return docs;
-        }
-        return await this.getHoverFallback(node)
-    }
+    //    const docs = await documentationHoverProvider(text);
+    //    if (docs) {
+    //        return docs;
+    //    }
+    //    return await this.getHoverFallback(node)
+    //}
 
-    public async getHoverFallback(currentNode: SyntaxNode): Promise<Hover | void> {
-        const cmdNode = findParentCommand(currentNode);
-        if (!cmdNode) return
-        const hoverCmp = new HoverFromCompletion(cmdNode, currentNode)
-        let hover : Hover | void;
-        if (currentNode.text.startsWith("-")) {
-            hover = await hoverCmp.generateForFlags()
-        } else {
-            hover = await hoverCmp.generate() 
-        }
-        if (hover) return hover;
-        //if (currentNode.text.startsWith('-')) {
-        //}
-        return 
-    }
+    //public async getHoverFallback(currentNode: SyntaxNode): Promise<Hover | void> {
+    //    const cmdNode = findParentCommand(currentNode);
+    //    if (!cmdNode) return
+    //    const hoverCmp = new HoverFromCompletion(cmdNode, currentNode)
+    //    let hover : Hover | void;
+    //    if (currentNode.text.startsWith("-")) {
+    //        hover = await hoverCmp.generateForFlags()
+    //    } else {
+    //        hover = await hoverCmp.generate() 
+    //    }
+    //    if (hover) return hover;
+    //    //if (currentNode.text.startsWith('-')) {
+    //    //}
+    //    return 
+    //}
 
 }
 
