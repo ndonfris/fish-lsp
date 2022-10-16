@@ -2,7 +2,7 @@ import {readdirSync, readFileSync} from 'fs';
 import { resolve } from 'path'
 import {initializeParser} from '../src/parser';
 import {Point, SyntaxNode, Tree} from 'web-tree-sitter'
-import {MyAnalyzer} from '../src/analyse';
+import {Analyzer} from '../src/analyze';
 import {TextDocument} from 'vscode-languageserver-textdocument';
 
 
@@ -94,12 +94,12 @@ export async function parseFile(fname: string) : Promise<Tree> {
     return tree;
 }
 
-export async function startAnalyze(fname: string) : Promise<MyAnalyzer> {
+export async function startAnalyze(fname: string) : Promise<Analyzer> {
     const usrShareFile = await resolveAbsPath(fname)
     const output = usrShareFile.join('\n')
     const parser = await initializeParser()
     //const tree = await getRootNode(fname)
-    const analyzer = new MyAnalyzer(parser);
+    const analyzer = new Analyzer(parser);
     const td = TextDocument.create(fname,'fish', 1, output);
     await analyzer.analyze(fname, td);
     return analyzer;

@@ -18,7 +18,7 @@
     "clean": "rimraf lib *.tsbuildinfo",
     "prepare:tests": "rm -f test_data/fish_files/*.fish && yarn run prepare:install:tests",
     "prepare:install:tests": "cd test_data && ./install_scripts/generate_largest_fish_files.fish && cd ..",
-    "test": "jest --runInBand --watch --verbose='false'",
+    "test": "jest --runInBand --watch ",
     "compile": "tsc -b",
     "watch": "tsc -b --watch --verbose"
   },
@@ -32,8 +32,10 @@
     }
   },
   "dependencies": {
+    "@types/globby": "^9.1.0",
     "commander": "^9.4.0",
     "deepmerge": "^4.2.2",
+    "fast-glob": "^3.2.12",
     "fs-extra": "^10.1.0",
     "git": "^0.1.5",
     "glob": "^8.0.3",

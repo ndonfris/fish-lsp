@@ -11,7 +11,7 @@ import {
 import {TextDocument} from 'vscode-languageserver-textdocument';
 import {SyntaxNode} from 'web-tree-sitter';
 import {getNodes, getNodeText, nodesGen} from '../src/utils/tree-sitter';
-import {MyAnalyzer} from '../src/analyse';
+import {Analyzer} from '../src/analyze';
 import {initializeParser} from '../src/parser';
 import {findDefinedVariable, findFunctionScope, findGlobalNodes, isVariable, isVariableDefintion} from '../src/utils/node-types';
 

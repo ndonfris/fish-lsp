@@ -1,9 +1,10 @@
 {
-  "extends": "./tsconfig.json",
-  "compilerOptions": {
-    "verbose": false,
-    "noEmit": true
-  },
+    "extends": "./tsconfig.json",
+    "compiler_options": {
+        "verbose": true,
+        "noEmit": true
+    },
     "exclude": ["node_modules"],
-  "include": ["./test-data/*.ts", "./src"]
+    "include": ["./test-data/*.ts", "./src"]
+
 }
