@@ -34,25 +34,39 @@ export class DocumentManager {
     public console: RemoteConsole;
 
 
-    public static async indexUserConfig(console: RemoteConsole): Promise<DocumentManager> {
+    public static async indexUserConfig(console: RemoteConsole) {
         const docs = new this(console);
         docs.console.log('DocumentManager.generateUserConfigDocuments(console) -> STARTING!')
         const files = await getAllFishLocations();
-        for (const filepath of files) {
-            const fileURI = URI.file(filepath);
-            //const path = fileURI.fsPath;
-            //docs.console.log(`uri: ${fileURI}, path: ${path}`)
-            const newDocument = await createTextDocumentFromFilePath(fileURI);
-            if (newDocument != null) {
-                // add to allDocuments
-                docs.allDocuments[newDocument.uri] = newDocument;
-                docs.console.log(`[SUCCESS] uri: ${fileURI}`)
-                //docs.console.log(newDocument.getText())
-            } else {
-                //docs.console.log(`[ERROR] uri: ${fileURI}`)
-            }
-        }
-        return docs;
+        // put files in the promise.all
+        
+        //const documentPromises = files.map(file => createTextDocumentFromFilePath(URI.file(file)))
+        await Promise.all(
+            files.map(async file => 
+                await createTextDocumentFromFilePath(URI.file(file))
+            )
+        ).then( (allNewDocs: TextDocument[]) => allNewDocs.forEach(newDoc => {
+            docs.allDocuments[newDoc.uri] = newDoc;
+        }))
+        
+        return docs
+
+        //for (const filepath of files) {
+            //const fileURI = URI.file(filepath);
+            ////const path = fileURI.fsPath;
+            ////docs.console.log(`uri: ${fileURI}, path: ${path}`)
+            //const newDocument = createTextDocumentFromFilePath(fileURI);
+            //if (newDocument != null) {
+                //// add to allDocuments
+                ////docs.allDocuments[newDocument.uri] = newDocument;
+                //documentPromises.push(newDocument)
+                //docs.console.log(`[SUCCESS] uri: ${fileURI}`)
+                ////docs.console.log(newDocument.getText())
+            //} else {
+                ////docs.console.log(`[ERROR] uri: ${fileURI}`)
+            //}
+        //}
+        //return docs;
     }
 
     /**

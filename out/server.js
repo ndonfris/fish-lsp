@@ -31,12 +31,12 @@ class FishServer {
     }
     static initialize(connection, { capabilities }) {
         return __awaiter(this, void 0, void 0, function* () {
-            //const connection = connection;
             const parser = yield (0, parser_1.initializeParser)();
-            const analyzer = new analyze_1.Analyzer(parser, connection.console);
-            const docs = yield document_1.DocumentManager.indexUserConfig(connection.console);
-            const completion = yield completion_1.Completion.initialDefaults();
-            return new FishServer(connection, parser, analyzer, docs, completion);
+            return Promise.all([
+                new analyze_1.Analyzer(parser, connection.console),
+                document_1.DocumentManager.indexUserConfig(connection.console),
+                completion_1.Completion.initialDefaults(),
+            ]).then(([analyzer, docs, completion]) => new FishServer(connection, parser, analyzer, docs, completion));
         });
     }
     capabilities() {

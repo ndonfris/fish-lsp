@@ -42,17 +42,14 @@ export default class FishServer {
         connection: Connection,
         { capabilities }: InitializeParams
     ): Promise<FishServer> {
-        //const connection = connection;
         const parser = await initializeParser();
-        const analyzer = new Analyzer(parser, connection.console);
-        const docs = await DocumentManager.indexUserConfig(connection.console)
-        const completion = await Completion.initialDefaults();
-        return new FishServer(
-            connection,
-            parser,
-            analyzer,
-            docs,
-            completion
+        return Promise.all([
+            new Analyzer(parser, connection.console),
+            DocumentManager.indexUserConfig(connection.console),
+            Completion.initialDefaults(),
+        ]).then(
+            ([analyzer, docs, completion]) =>
+            new FishServer(connection, parser, analyzer, docs, completion)
         );
     }
 

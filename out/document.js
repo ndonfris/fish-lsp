@@ -53,22 +53,28 @@ class DocumentManager {
             const docs = new this(console);
             docs.console.log('DocumentManager.generateUserConfigDocuments(console) -> STARTING!');
             const files = yield (0, locations_1.getAllFishLocations)();
-            for (const filepath of files) {
-                const fileURI = vscode_uri_1.URI.file(filepath);
-                //const path = fileURI.fsPath;
-                //docs.console.log(`uri: ${fileURI}, path: ${path}`)
-                const newDocument = yield (0, io_1.createTextDocumentFromFilePath)(fileURI);
-                if (newDocument != null) {
-                    // add to allDocuments
-                    docs.allDocuments[newDocument.uri] = newDocument;
-                    docs.console.log(`[SUCCESS] uri: ${fileURI}`);
-                    //docs.console.log(newDocument.getText())
-                }
-                else {
-                    //docs.console.log(`[ERROR] uri: ${fileURI}`)
-                }
-            }
+            // put files in the promise.all
+            //const documentPromises = files.map(file => createTextDocumentFromFilePath(URI.file(file)))
+            yield Promise.all(files.map((file) => __awaiter(this, void 0, void 0, function* () { return yield (0, io_1.createTextDocumentFromFilePath)(vscode_uri_1.URI.file(file)); }))).then((allNewDocs) => allNewDocs.forEach(newDoc => {
+                docs.allDocuments[newDoc.uri] = newDoc;
+            }));
             return docs;
+            //for (const filepath of files) {
+            //const fileURI = URI.file(filepath);
+            ////const path = fileURI.fsPath;
+            ////docs.console.log(`uri: ${fileURI}, path: ${path}`)
+            //const newDocument = createTextDocumentFromFilePath(fileURI);
+            //if (newDocument != null) {
+            //// add to allDocuments
+            ////docs.allDocuments[newDocument.uri] = newDocument;
+            //documentPromises.push(newDocument)
+            //docs.console.log(`[SUCCESS] uri: ${fileURI}`)
+            ////docs.console.log(newDocument.getText())
+            //} else {
+            ////docs.console.log(`[ERROR] uri: ${fileURI}`)
+            //}
+            //}
+            //return docs;
         });
     }
     /**

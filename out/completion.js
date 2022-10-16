@@ -92,13 +92,27 @@ class Completion {
     // this.documents.listener.onDocumentChange(() => {})
     static initialDefaults() {
         return __awaiter(this, void 0, void 0, function* () {
-            //this.globalVars = await buildGlobalVars();
             const globs = new this();
-            globs.globalAbbrs = yield buildGlobalAbbrs();
-            globs.globalCmds = yield buildGlobalCommands();
-            globs.globalAlaises = yield buildGlobalAlaises();
-            globs.globalBuiltins = yield buildGlobalBuiltins();
-            return globs;
+            //globs.globalVars = await buildGlobalVars();
+            //globs.globalAbbrs = await buildGlobalAbbrs();
+            //globs.globalCmds = await buildGlobalCommands();
+            //globs.globalAlaises = await buildGlobalAlaises();
+            //globs.globalBuiltins = await buildGlobalBuiltins();
+            //return globs;
+            return Promise.all([
+                buildGlobalVars(),
+                buildGlobalAbbrs(),
+                buildGlobalCommands(),
+                buildGlobalAlaises(),
+                buildGlobalBuiltins(),
+            ]).then(([_gVars, _gAbbrs, _gCmds, _gAliases, _gBuiltins]) => {
+                globs.globalVars = _gVars;
+                globs.globalAbbrs = _gAbbrs;
+                globs.globalCmds = _gCmds;
+                globs.globalAlaises = _gAliases;
+                globs.globalBuiltins = _gBuiltins;
+                return globs;
+            });
         });
     }
     addLocalMembers(vars, funcs) {
@@ -169,8 +183,8 @@ class Completion {
             //...this.localFunctions.values(),
             //...this.localVariables.values(),
             //...fishCompletions
-            //...this.globalVars,
             this.completions = [
+                ...this.globalVars,
                 ...this.globalCmds,
                 ...this.globalBuiltins,
                 ...this.globalAlaises,
@@ -183,12 +197,12 @@ class Completion {
         //const fishCompletions = await this.generateCurrent(node) || []
         //await this.initialDefaults();
         this.completions = [
+            ...this.globalVars,
             ...this.globalCmds,
             ...this.globalBuiltins,
             ...this.globalAlaises,
             ...this.globalAbbrs
         ];
-        //...this.globalVars,
         return node_1.CompletionList.create(this.completions, this.isIncomplete);
     }
 }

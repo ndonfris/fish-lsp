@@ -8,16 +8,9 @@ import { isFishExtension } from './tree-sitter'
 import { resolve } from 'path';
 import {Context} from '../interfaces';
 
-export async function createTextDocumentFromFilePath(uri: URI): Promise<TextDocument | null> {
+export async function createTextDocumentFromFilePath(uri: URI): Promise<TextDocument> {
     let content: string = ''
-    try {
-        content = readFileSync(Utils.resolvePath(uri).fsPath, "utf8");
-    } catch (err) {
-        const { message, name } = err as Error;
-        //context.connection.console.error(`pathname: ${uri}`);
-        //context.connection.console.error(`${name}: ${message}`);
-        return null;
-    }
+    content = readFileSync(Utils.resolvePath(uri).fsPath, "utf8");
     return TextDocument.create(uri.toString(), "fish", 0, content);
 }
 

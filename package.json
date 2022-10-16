@@ -36,7 +36,9 @@
     "deepmerge": "^4.2.2",
     "fs-extra": "^10.1.0",
     "git": "^0.1.5",
+    "glob": "^8.0.3",
     "global": "^4.4.0",
+    "globby": "^13.1.2",
     "pkg-up": "^4.0.0",
     "semver": "^7.3.7",
     "tree-sitter-fish": "github:ram02z/tree-sitter-fish",
@@ -48,6 +50,7 @@
   },
   "devDependencies": {
     "@types/fs-extra": "^9.0.13",
+    "@types/glob": "^8.0.0",
     "@types/jest": "^29.0.3",
     "@types/minimist": "^1.2.2",
     "@types/node": "^16.11.56",

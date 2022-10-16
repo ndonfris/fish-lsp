@@ -114,14 +114,30 @@ export class Completion {
     // also you could add the syntaxTree on
     // this.documents.listener.onDocumentChange(() => {})
     public static async initialDefaults() {
-        //this.globalVars = await buildGlobalVars();
         const globs = new this();
-        globs.globalAbbrs = await buildGlobalAbbrs();
-        globs.globalCmds = await buildGlobalCommands();
-        globs.globalAlaises = await buildGlobalAlaises();
-        globs.globalBuiltins = await buildGlobalBuiltins();
-        return globs;
-    }    
+
+        //globs.globalVars = await buildGlobalVars();
+        //globs.globalAbbrs = await buildGlobalAbbrs();
+        //globs.globalCmds = await buildGlobalCommands();
+        //globs.globalAlaises = await buildGlobalAlaises();
+        //globs.globalBuiltins = await buildGlobalBuiltins();
+        //return globs;
+
+        return Promise.all([
+            buildGlobalVars(),
+            buildGlobalAbbrs(),
+            buildGlobalCommands(),
+            buildGlobalAlaises(),
+            buildGlobalBuiltins(),
+        ]).then(([_gVars, _gAbbrs, _gCmds, _gAliases, _gBuiltins]) => {
+            globs.globalVars = _gVars;
+            globs.globalAbbrs = _gAbbrs;
+            globs.globalCmds = _gCmds;
+            globs.globalAlaises = _gAliases;
+            globs.globalBuiltins = _gBuiltins;
+            return globs;
+        });
+    }
 
     private constructor() {
         this.isIncomplete = false;
@@ -209,8 +225,8 @@ export class Completion {
             //...this.localFunctions.values(),
             //...this.localVariables.values(),
             //...fishCompletions
-        //...this.globalVars,
         this.completions = [
+            ...this.globalVars,
             ...this.globalCmds,
             ...this.globalBuiltins,
             ...this.globalAlaises,
@@ -223,12 +239,12 @@ export class Completion {
         //const fishCompletions = await this.generateCurrent(node) || []
         //await this.initialDefaults();
         this.completions = [
+            ...this.globalVars,
             ...this.globalCmds,
             ...this.globalBuiltins,
             ...this.globalAlaises,
             ...this.globalAbbrs
         ]
-        //...this.globalVars,
         return CompletionList.create(this.completions, this.isIncomplete);
     }
 }

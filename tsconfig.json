@@ -15,7 +15,8 @@
         "esModuleInterop": true,
         "lib": [
             "es2021",
-            "DOM"
+            "DOM",
+            "esnext"
         ],
         "skipLibCheck": true
     },

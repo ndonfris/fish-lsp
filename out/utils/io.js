@@ -16,15 +16,7 @@ const vscode_languageserver_textdocument_1 = require("vscode-languageserver-text
 function createTextDocumentFromFilePath(uri) {
     return __awaiter(this, void 0, void 0, function* () {
         let content = '';
-        try {
-            content = (0, fs_1.readFileSync)(vscode_uri_1.Utils.resolvePath(uri).fsPath, "utf8");
-        }
-        catch (err) {
-            const { message, name } = err;
-            //context.connection.console.error(`pathname: ${uri}`);
-            //context.connection.console.error(`${name}: ${message}`);
-            return null;
-        }
+        content = (0, fs_1.readFileSync)(vscode_uri_1.Utils.resolvePath(uri).fsPath, "utf8");
         return vscode_languageserver_textdocument_1.TextDocument.create(uri.toString(), "fish", 0, content);
     });
 }

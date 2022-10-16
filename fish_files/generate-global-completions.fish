@@ -1,5 +1,6 @@
 #!/usr/bin/fish 
 
+# locally scope _x
 set -l _x
 
 
@@ -13,12 +14,12 @@ set -l _x
 
 # gets all of the possible completions for a user
 function get_all_completions
-    fish -c 'complete --do-complete=" " | uniq -u'
+    fish -c 'complete --do-complete=" " | uniq -i'
 end
 
 # gets all of the aliases a user has defined
 function get_aliases
-    for _x in (fish -c 'complete --do-complete=" " | uniq -u');
+    for _x in (fish -c 'complete --do-complete=" " | uniq -i');
         string match -e -r "\talias " $_x 2>/dev/null
     end
 end
