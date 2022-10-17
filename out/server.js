@@ -19,7 +19,9 @@ const parser_1 = require("./parser");
 const analyze_1 = require("./analyze");
 const completion_1 = require("./completion");
 const node_1 = require("vscode-languageserver/node");
+const vscode_languageserver_textdocument_1 = require("vscode-languageserver-textdocument");
 const document_1 = require("./document");
+const tree_sitter_1 = require("./utils/tree-sitter");
 class FishServer {
     constructor(connection, parser, analyzer, docs, completion) {
         this.connection = connection;
@@ -33,7 +35,7 @@ class FishServer {
         return __awaiter(this, void 0, void 0, function* () {
             const parser = yield (0, parser_1.initializeParser)();
             return Promise.all([
-                new analyze_1.Analyzer(parser, connection.console),
+                new analyze_1.Analyzer(parser),
                 document_1.DocumentManager.indexUserConfig(connection.console),
                 completion_1.Completion.initialDefaults(),
             ]).then(([analyzer, docs, completion]) => new FishServer(connection, parser, analyzer, docs, completion));
@@ -51,27 +53,32 @@ class FishServer {
             hoverProvider: true,
             documentHighlightProvider: true,
             definitionProvider: true,
-            documentSymbolProvider: true,
-            workspaceSymbolProvider: true,
-            referencesProvider: true,
+            //documentSymbolProvider: true,
+            //workspaceSymbolProvider: true,
+            //referencesProvider: true,
         };
     }
     register() {
+        this.docs.documents.listen(this.connection);
         this.connection.onDidOpenTextDocument((change) => __awaiter(this, void 0, void 0, function* () {
             const document = change.textDocument;
+            this.console.log('onDidOpenTextDocument: ' + document.uri);
             const uri = document.uri;
             let doc = yield this.docs.openOrFind(uri);
-            yield this.analyzer.analyze(doc);
-            this.console.log('onDidOpenTextDocument: ' + doc.uri);
+            this.analyzer.analyze(doc);
             //this.logger.logmsg({action:'onOpen', path: uri})
         }));
         this.connection.onDidChangeTextDocument((change) => __awaiter(this, void 0, void 0, function* () {
             const document = change.textDocument;
             const uri = document.uri;
             //this.documents.newDocument(uri);
-            const doc = yield this.docs.openOrFind(uri);
-            this.console.log('onDidChangeText' + doc.uri);
-            yield this.analyzer.analyze(doc);
+            this.console.log('onDidChangeTextDocument: ' + uri);
+            let doc = yield this.docs.openOrFind(uri);
+            this.console.log(doc.getText());
+            this.console.log('onDidChangeTextDocument: ' + doc.uri);
+            doc = vscode_languageserver_textdocument_1.TextDocument.update(doc, change.contentChanges, document.version + 1);
+            this.console.log(doc.getText());
+            this.analyzer.analyze(doc);
         }));
         this.connection.onDidCloseTextDocument((change) => __awaiter(this, void 0, void 0, function* () {
             const uri = change.textDocument.uri;
@@ -87,7 +94,17 @@ class FishServer {
         // connection.onReferences(this.onReferences.bind(this))
         this.connection.onCompletion(this.onCompletion.bind(this));
         // connection.onCompletionResolve(this.onCompletionResolve.bind(this))s))
-        this.docs.documents.listen(this.connection);
+        this.docs.documents.onDidChangeContent((change) => __awaiter(this, void 0, void 0, function* () {
+            const document = change.document;
+            const uri = document.uri;
+            //this.documents.newDocument(uri);
+            let doc = yield this.docs.openOrFind(uri);
+            this.console.log('onDidChangeContentText' + doc.uri);
+            this.console.log(doc.getText());
+            //doc = TextDocument.update(change.document, change.document., document.version+1)
+            //console.log(doc.getText())
+            this.analyzer.analyze(doc);
+        }));
     }
     onCompletion(completionParams) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -109,9 +126,21 @@ class FishServer {
             //}
             const doc = yield this.docs.openOrFind(uri);
             this.console.log('onComplete() doc.uri = ' + doc.uri);
-            yield this.analyzer.analyze(doc);
+            this.analyzer.analyze(doc);
             const node = this.analyzer.nodeAtPoint(doc.uri, position.line, position.character);
-            //console.log('onComplete() -> analyzer.nodeAtPoint' + getNodeText(node))
+            this.console.log('onComplete() -> analyzer.nodeAtPoint' + (0, tree_sitter_1.getNodeText)(node));
+            const line = this.analyzer.currentLine(doc, completionParams.position) || "";
+            this.console.log(`onComplete(${position.line}, ${position.character}) LINE -> ${line}`);
+            const range = doc.offsetAt(position);
+            this.console.log(doc.getText().slice(position.line));
+            //const line2: string = this.analyzer.currentLine(doc, completionParams.position.line+1) || ""
+            //this.console.log(`onComplete() LINE -> ${line2}`)
+            if (line !== "") {
+                yield this.completion.generateLineCompletion(line);
+            }
+            // else if (line.trim() !== "" && line.endsWith(" ")) {
+            //     await this.completion.generateLineCompletion(line + " -")
+            // }
             //this.logger.logmsg({ path: uri, action:'onComplete', node: node})
             if (!node)
                 return this.completion.fallbackComplete();

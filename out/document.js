@@ -50,31 +50,23 @@ class DocumentManager {
     }
     static indexUserConfig(console) {
         return __awaiter(this, void 0, void 0, function* () {
+            ////const documentPromises = files.map(file => createTextDocumentFromFilePath(URI.file(file)))
+            //await Promise.all(
+            //files.map(async file =>
+            //await createTextDocumentFromFilePath(URI.file(file))
+            //)
+            //).then( (allNewDocs: TextDocument[]) => allNewDocs.forEach(newDoc => {
+            //docs.allDocuments[newDoc.uri] = newDoc;
+            //}))
             const docs = new this(console);
-            docs.console.log('DocumentManager.generateUserConfigDocuments(console) -> STARTING!');
-            const files = yield (0, locations_1.getAllFishLocations)();
+            docs.console.log('Indexing Starting in function:\n\t DocumentManager.generateUserConfigDocuments(console)\n');
+            const allDocuments = yield (0, locations_1.getFishTextDocumentsFromStandardLocations)();
             // put files in the promise.all
-            //const documentPromises = files.map(file => createTextDocumentFromFilePath(URI.file(file)))
-            yield Promise.all(files.map((file) => __awaiter(this, void 0, void 0, function* () { return yield (0, io_1.createTextDocumentFromFilePath)(vscode_uri_1.URI.file(file)); }))).then((allNewDocs) => allNewDocs.forEach(newDoc => {
-                docs.allDocuments[newDoc.uri] = newDoc;
-            }));
+            allDocuments.forEach(doc => {
+                docs.allDocuments[doc.uri] = doc;
+            });
+            docs.console.log('Indexing completed');
             return docs;
-            //for (const filepath of files) {
-            //const fileURI = URI.file(filepath);
-            ////const path = fileURI.fsPath;
-            ////docs.console.log(`uri: ${fileURI}, path: ${path}`)
-            //const newDocument = createTextDocumentFromFilePath(fileURI);
-            //if (newDocument != null) {
-            //// add to allDocuments
-            ////docs.allDocuments[newDocument.uri] = newDocument;
-            //documentPromises.push(newDocument)
-            //docs.console.log(`[SUCCESS] uri: ${fileURI}`)
-            ////docs.console.log(newDocument.getText())
-            //} else {
-            ////docs.console.log(`[ERROR] uri: ${fileURI}`)
-            //}
-            //}
-            //return docs;
         });
     }
     /**

@@ -14,7 +14,11 @@ set -l _x
 
 # gets all of the possible completions for a user
 function get_all_completions
-    fish -c 'complete --do-complete=" " | uniq -i'
+    get_builtins | uniq -i
+    get_commands | uniq -i
+    get_aliases | uniq -i
+    get_abbrs | uniq -i
+    get_vars | uniq -i
 end
 
 # gets all of the aliases a user has defined
@@ -65,7 +69,9 @@ end
 
 # gets all of the possible vars for a user
 function get_vars
-    for _x in (set -n | uniq -i); 
+    # printf "\$%s\t%s\n" weather_windy "$weather_windy"
+    # for v in (set -n); begin;  set -l vv (printf %s $$v | head -c 45); printf "%s\t%s\n" $v $vv;end;end; echo $CMD_DURATION
+    for _x in (set -n); 
         set -l var_location (string match -r -g "(universal|global)" (set -S $_x) | head -c 45);
         if test -n "$$_x"
             set -l var_value (echo "$$_x" | head -c 45)
@@ -95,22 +101,16 @@ for i in (seq 1 (count $argv))
     switch "$argv[$i]"
         case builtins
             get_builtins | uniq -i
-            break;
         case commands
             get_commands | uniq -i
-            break;
         case aliases
             get_aliases | uniq -i
-            break;
         case abbrs
             get_abbrs | uniq -i
-            break;
         case vars 
-            get_vars | uniq -i
-            break;
+            get_vars
         case all 
-            get_all
-            break;
+            get_all_completions
         case debug
             printf '\n\nbuiltins\n'
             get_builtins | head -n10
@@ -124,13 +124,11 @@ for i in (seq 1 (count $argv))
             get_vars | head -n10 
         case "-h" "--help"
             get_help
-            break;
         case \*
             echo "ERROR: $argv[$i]"
             echo ""
             get_help
             echo "argument 'debug' will show examples for each query"
-            break
     end
 end
 

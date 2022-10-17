@@ -1,7 +1,7 @@
 // use this file to determine node types from ./tree-sitter
 
 import { SyntaxNode } from 'web-tree-sitter'
-import {getNodes} from './tree-sitter';
+import {getChildNodes} from './tree-sitter';
 
 
 export function isComment(node: SyntaxNode): boolean {
@@ -72,6 +72,14 @@ export function findParentCommand(node: SyntaxNode): SyntaxNode | null {
     }
     return null;
 }
+// isBeforeCommand() is probably not necessary:
+// for example:
+//      echo -n "$asdf"
+//        | ^
+//        | ---- children
+//        |
+//        ---- parent
+//
 
 
 export function isVariableDefintion(node: SyntaxNode): boolean {
@@ -125,7 +133,7 @@ export function findGlobalNodes(rootNode: SyntaxNode) {
     //    getNodes(rootNode)
     //    .filter(currentNode => !hasParentFunction(currentNode))
     const allNodes = [ 
-        ...getNodes(rootNode)
+        ...getChildNodes(rootNode)
             .filter(n => !hasParentFunction(n))
     ].filter(n => n.type != 'program')
     return allNodes
@@ -159,7 +167,7 @@ export function findLastVariableRefrence(node: SyntaxNode) {
     let currentNode = node.parent || node;
     while (!isFunctionDefinintion(currentNode) && currentNode != null) {
         let lastRefrence: SyntaxNode;
-        for (const childNode of getNodes(currentNode)) {
+        for (const childNode of getChildNodes(currentNode)) {
             if (isVariableDefintion(currentNode)) {
                 const variableDef = findDefinedVariable(childNode)
                 if (variableDef?.text == currentNode.text && variableDef != currentNode) {

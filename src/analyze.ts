@@ -8,7 +8,7 @@ import {
     RemoteConsole,
     TextDocumentPositionParams,
 } from "vscode-languageserver/node";
-import { TextDocument } from "vscode-languageserver-textdocument";
+import { Position, TextDocument } from "vscode-languageserver-textdocument";
 import Parser, { SyntaxNode, Point, Range, Tree } from "web-tree-sitter";
 import {
     documentationHoverCommandArg,
@@ -38,7 +38,7 @@ import {
 } from "./utils/node-types";
 import {
     findNodeAt,
-    getNodes,
+    getChildNodes,
     getNodeText,
     getRange,
 } from "./utils/tree-sitter";
@@ -52,11 +52,11 @@ export class Analyzer {
     private uriTree: { [uri: string]: Tree };
 
     // to log local output
-    private console: RemoteConsole;
+    //private console: RemoteConsole | undefined;
 
-    constructor(parser: Parser, console: RemoteConsole) {
+    constructor(parser: Parser) {
         this.parser = parser;
-        this.console = console;
+        //this.console = console || undefined;
         this.uriTree = {};
     }
 
@@ -73,63 +73,37 @@ export class Analyzer {
     //    this.uriTree[document.uri] = tree;
     //}
 
-    public async analyze(document: TextDocument) {
+    public analyze(document: TextDocument) {
+        delete this.uriTree[document.uri];
         const tree = this.parser.parse(document.getText())
         this.uriTree[document.uri] = tree;
     }
 
-    /**
-     * Find the node at the given point.
-     */
-    public nodeAtPoint(
-        uri: string,
-        line: number,
-        column: number
-    ): Parser.SyntaxNode | null {
-        const tree = this.uriTree[uri]
-
-        // Check for lacking rootNode (due to failed parse?)
-        if (!tree?.rootNode) {
-            return null;
-        }
-
-        return tree.rootNode.descendantForPosition({ row: line, column });
-    }
-
-    /**
-     * Find the full word at the given point.
-     */
-    public wordAtPoint(
-        uri: string,
-        line: number,
-        column: number
-    ) : string | null {
-        const tree = this.uriTree[uri]
-        const node = this.nodeAtPoint(uri, line, column);
-
-        if (!node || node.childCount > 0 || node.text.trim() === "") {
-            return null;
-        }
-
-        return node.text.trim();
+    getLocalNodes(document: TextDocument) {
+        const root = this.uriTree[document.uri].rootNode;
+        const allNodes = getChildNodes(root);
+        return allNodes.filter(node => {
+            isFunctionDefinintion(node) || isVariableDefintion(node)
+        })
     }
 
     /**
      * Gets the entire current line inside of the document. Useful for completions
      *
-     * @param {Context} context - lsp context
-     * @param {string} uri - DocumentUri
+     * @param {string} document - TextDocument
      * @param {number} line - the line number from from a Position object
      * @returns {string} the current line in the document, or an empty string 
      */
     public currentLine(
         document: TextDocument,
-        line: number
+        position: Position
     ): string {
         const currDoc = document.uri
+        const row = position.line;
+        const col = position.character;
         if (currDoc === undefined) return ""
-        const currText = document.getText().split('\n').at(line)
-        return currText || "";
+        const currText = document.getText().split('\n').at(row)?.substring(0, col + 1) || "";
+        return currText;
     }
 
 
@@ -176,6 +150,76 @@ export class Analyzer {
     //    return 
     //}
 
+    /**
+     * Find the node at the given point.
+     */
+    public nodeAtPoint(
+        uri: string,
+        line: number,
+        column: number
+    ): Parser.SyntaxNode | null {
+        const tree = this.uriTree[uri]
+
+        // Check for lacking rootNode (due to failed parse?)
+        if (!tree?.rootNode) {
+            return null;
+        }
+
+        return tree.rootNode.descendantForPosition({ row: line, column });
+    }
+
+    /**
+     * Find the full word at the given point.
+     */
+    public wordAtPoint(
+        uri: string,
+        line: number,
+        column: number
+    ) : string | null {
+        const tree = this.uriTree[uri]
+        const node = this.nodeAtPoint(uri, line, column);
+
+        if (!node || node.childCount > 0 || node.text.trim() === "") {
+            return null;
+        }
+
+        return node.text.trim();
+    }
+
+
+    findNodesFromRoot(document: TextDocument, predicate: (n: SyntaxNode) => boolean) {
+        const tree = this.uriTree[document.uri];
+        const rootNode = tree.rootNode;
+        return getChildNodes(rootNode).filter(predicate);
+    }
+
+    /**
+     * finds any children nodes matching predicate
+     *
+     * @param {SyntaxNode} node - root node to search from
+     * @param {(n: SyntaxNode) => boolean} predicate - a predicate to search for matching descedants
+     * @returns {SyntaxNode[]} all matching nodes
+     */
+    public getChildNodes(node: SyntaxNode, predicate: (n: SyntaxNode) => boolean) {
+        return getChildNodes(node).filter(predicate)
+    }
+
+    /**
+     * getParentNodes - takes a descendant node from some 
+     */
+    public getParentNodes(node: SyntaxNode, predicate: (n: SyntaxNode) => boolean) {
+        let current = node.parent;
+        const parentNodes: SyntaxNode[] = [];
+        while (current !== null) {
+            if (predicate(current)) {
+                parentNodes.push(current);
+            }
+            current = current.parent;
+        }
+        return parentNodes;
+    }
+
+
 }
 
 
@@ -215,8 +259,8 @@ export class SyntaxTree {
 
     public ensureAnalyzed() {
         this.clearAll()
-        const newNodes = getNodes(this.rootNode)
-        for (const newNode of getNodes(this.rootNode)) {
+        const newNodes = getChildNodes(this.rootNode)
+        for (const newNode of getChildNodes(this.rootNode)) {
             if (isCommand(newNode)) {
                 this.commands.push(newNode)
             }
@@ -275,7 +319,7 @@ export class SyntaxTree {
     }
 
     public getLocalFunctionDefinition(searchNode: SyntaxNode) {
-        for (const func of getNodes(this.rootNode)) {
+        for (const func of getChildNodes(this.rootNode)) {
             if (isFunctionDefinintion(func) && func.children[1]?.text == searchNode.text) {
                 return func
             }
@@ -290,7 +334,7 @@ export class SyntaxTree {
         const varaibleDefinitions: SyntaxNode[] = [];
         const functionScope = findFunctionScope(searchNode) 
         const scopedVariableLocations: SyntaxNode[] = [
-            ...getNodes(functionScope),
+            ...getChildNodes(functionScope),
             ...this.getOutmostScopedNodes()
         ]
         for (const node of scopedVariableLocations) {
@@ -309,7 +353,7 @@ export class SyntaxTree {
     // (i.e. stuff in config.fish)
     public getOutmostScopedNodes() {
         const allNodes = [ 
-            ...getNodes(this.rootNode)
+            ...getChildNodes(this.rootNode)
                 .filter(n => !hasParentFunction(n))
         ].filter(n => n.type != 'program')
         return allNodes

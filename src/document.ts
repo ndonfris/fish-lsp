@@ -3,7 +3,7 @@
 //import {basename, resolve, sep} from 'path';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { createTextDocumentFromFilePath } from './utils/io';
-import { getAllFishLocations } from './utils/locations';
+import { getAllFishLocations, getFishTextDocumentsFromStandardLocations } from './utils/locations';
 import { RemoteConsole, TextDocuments } from 'vscode-languageserver'
 import {URI, Utils} from 'vscode-uri';
 
@@ -35,38 +35,24 @@ export class DocumentManager {
 
 
     public static async indexUserConfig(console: RemoteConsole) {
+        ////const documentPromises = files.map(file => createTextDocumentFromFilePath(URI.file(file)))
+        //await Promise.all(
+            //files.map(async file =>
+                //await createTextDocumentFromFilePath(URI.file(file))
+            //)
+        //).then( (allNewDocs: TextDocument[]) => allNewDocs.forEach(newDoc => {
+            //docs.allDocuments[newDoc.uri] = newDoc;
+        //}))
+        
         const docs = new this(console);
-        docs.console.log('DocumentManager.generateUserConfigDocuments(console) -> STARTING!')
-        const files = await getAllFishLocations();
+        docs.console.log('Indexing Starting in function:\n\t DocumentManager.generateUserConfigDocuments(console)\n')
+        const allDocuments = await getFishTextDocumentsFromStandardLocations()
         // put files in the promise.all
-        
-        //const documentPromises = files.map(file => createTextDocumentFromFilePath(URI.file(file)))
-        await Promise.all(
-            files.map(async file => 
-                await createTextDocumentFromFilePath(URI.file(file))
-            )
-        ).then( (allNewDocs: TextDocument[]) => allNewDocs.forEach(newDoc => {
-            docs.allDocuments[newDoc.uri] = newDoc;
-        }))
-        
+        allDocuments.forEach(doc => {
+            docs.allDocuments[doc.uri] = doc
+        });
+        docs.console.log('Indexing completed')
         return docs
-
-        //for (const filepath of files) {
-            //const fileURI = URI.file(filepath);
-            ////const path = fileURI.fsPath;
-            ////docs.console.log(`uri: ${fileURI}, path: ${path}`)
-            //const newDocument = createTextDocumentFromFilePath(fileURI);
-            //if (newDocument != null) {
-                //// add to allDocuments
-                ////docs.allDocuments[newDocument.uri] = newDocument;
-                //documentPromises.push(newDocument)
-                //docs.console.log(`[SUCCESS] uri: ${fileURI}`)
-                ////docs.console.log(newDocument.getText())
-            //} else {
-                ////docs.console.log(`[ERROR] uri: ${fileURI}`)
-            //}
-        //}
-        //return docs;
     }
 
     /**

@@ -78,7 +78,7 @@ function commandStringHelper(cmd) {
 function documentationHoverCommandArg(root, cmp) {
     let text = '';
     const argsArray = [...cmp.args.keys()];
-    for (const node of (0, tree_sitter_1.getNodes)(root)) {
+    for (const node of (0, tree_sitter_1.getChildNodes)(root)) {
         const nodeText = (0, tree_sitter_1.getNodeText)(node);
         if (nodeText.startsWith('-') && argsArray.includes(nodeText)) {
             text += '\n' + '_' + nodeText + '_ ' + cmp.args.get(nodeText);

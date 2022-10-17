@@ -99,8 +99,9 @@ export async function startAnalyze(fname: string) : Promise<Analyzer> {
     const output = usrShareFile.join('\n')
     const parser = await initializeParser()
     //const tree = await getRootNode(fname)
+
     const analyzer = new Analyzer(parser);
     const td = TextDocument.create(fname,'fish', 1, output);
-    await analyzer.analyze(fname, td);
+    await analyzer.analyze(td);
     return analyzer;
 }

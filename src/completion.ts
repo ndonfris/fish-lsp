@@ -1,3 +1,5 @@
+import {exec} from 'child_process';
+import { promisify } from 'util';
 import {
     CompletionItem,
     CompletionItemKind,
@@ -29,6 +31,7 @@ export enum FishCompletionItemType {
     abbr,
     flag,
     variable,
+    line,
 }
 
 export function toCompletionItemKind(
@@ -73,6 +76,7 @@ function buildCompletionItem(
         },
     };
 }
+const execAsync = promisify(exec)
 
 // • include pipe completions
 // • include escape character completions
@@ -97,6 +101,7 @@ export class Completion {
     private currentNode: SyntaxNode | undefined;
     private commandNode: SyntaxNode | undefined;
 
+    public lineCmps: CompletionItem[] = [];
     public globalAbbrs: CompletionItem[] = [];
     private globalVars: CompletionItem[] = [];
     public globalAlaises: CompletionItem[] = [];
@@ -124,22 +129,22 @@ export class Completion {
         //return globs;
 
         return Promise.all([
-            buildGlobalVars(),
+            //buildGlobalVars(),
             buildGlobalAbbrs(),
-            buildGlobalCommands(),
+            //buildGlobalCommands(),
             buildGlobalAlaises(),
-            buildGlobalBuiltins(),
-        ]).then(([_gVars, _gAbbrs, _gCmds, _gAliases, _gBuiltins]) => {
-            globs.globalVars = _gVars;
+            //buildGlobalBuiltins(),
+        ]).then(([_gAbbrs, _gAliases]) => {
+            //globs.globalVars = _gVars;
             globs.globalAbbrs = _gAbbrs;
-            globs.globalCmds = _gCmds;
+            //globs.globalCmds = _gCmds;
             globs.globalAlaises = _gAliases;
-            globs.globalBuiltins = _gBuiltins;
+            //globs.globalBuiltins = _gBuiltins;
             return globs;
         });
     }
 
-    private constructor() {
+    public constructor() {
         this.isIncomplete = false;
         this.completions = [];
         this.isInsideCompletionsFile = false;
@@ -178,45 +183,61 @@ export class Completion {
     // therefore you probably want to add the defaults (abbr & global variable list)
     // after this.completions is enriched
 
-    //public async generateCurrent(node: SyntaxNode) {
-    //    this.currentNode = node;
-    //    this.commandNode = findParentCommand(node) || this.currentNode;
-    //    const fishCompletes: CompletionItem[] = [];
-    //    //if (this.currentNode != this.commandNode) {
-    //    //    const cmpString = await findEachSubcommand(this.commandNode);
-    //    //    const cmps = await execComplete(cmpString);
-    //    //    if (!cmps) return
-    //    //    for (const cmp of cmps) {
-    //    //        const cmpArr = cmp.split("\t", 1);
-    //    //        fishCompletes.push(
-    //    //            buildCompletionItem(
-    //    //                cmpArr[0],
-    //    //                cmpArr[1] || "",
-    //    //                cmpArr[0].startsWith("$")
-    //    //                    ? FishCompletionItemType.variable
-    //    //                    : FishCompletionItemType.flag
-    //    //            )
-    //    //        );
-    //    //    }
-    //    //} else {
-    //    //    const cmpString = await findEachSubcommand(this.commandNode);
-    //    //    const cmps = await execComplete(cmpString);
-    //    //    if (!cmps) return
-    //    //    for (const cmp of cmps) {
-    //    //        const cmpArr = cmp.split("\t", 1);
-    //    //        fishCompletes.push(
-    //    //            buildCompletionItem(
-    //    //                cmpArr[0],
-    //    //                cmpArr[1] || "",
-    //    //                cmpArr[0].startsWith("$")
-    //    //                    ? FishCompletionItemType.variable
-    //    //                    : FishCompletionItemType.function
-    //    //            )
-    //    //        );
-    //    //    }
-    //    //}
-    //    //return fishCompletes;
-    //}
+    public async generateLineCompletion(line: string){
+        const cmd = line.replace(/(['$`\\])/g, '\\$1')
+        const res = await execAsync(`fish --command "complete --do-complete='${cmd}' | uniq"`)
+        if (res.stdout) {
+            this.lineCmps = res.stdout
+                .split('\n')
+                .map(line => line.split('\t'))
+                .map((arr: string[]) => buildCompletionItem(
+                    arr[0],
+                    arr[1],
+                    arr.reverse().join(':\t'),
+                    FishCompletionItemType.line,
+                ))
+        }
+    }
+
+    public async generateCurrent(node: SyntaxNode) {
+        this.currentNode = node;
+        this.commandNode = findParentCommand(node) || this.currentNode;
+        const fishCompletes: CompletionItem[] = [];
+        //if (this.currentNode != this.commandNode) {
+        //    const cmpString = await findEachSubcommand(this.commandNode);
+        //    const cmps = await execComplete(cmpString);
+        //    if (!cmps) return
+        //    for (const cmp of cmps) {
+        //        const cmpArr = cmp.split("\t", 1);
+        //        fishCompletes.push(
+        //            buildCompletionItem(
+        //                cmpArr[0],
+        //                cmpArr[1] || "",
+        //                cmpArr[0].startsWith("$")
+        //                    ? FishCompletionItemType.variable
+        //                    : FishCompletionItemType.flag
+        //            )
+        //        );
+        //    }
+        //} else {
+        //    const cmpString = await findEachSubcommand(this.commandNode);
+        //    const cmps = await execComplete(cmpString);
+        //    if (!cmps) return
+        //    for (const cmp of cmps) {
+        //        const cmpArr = cmp.split("\t", 1);
+        //        fishCompletes.push(
+        //            buildCompletionItem(
+        //                cmpArr[0],
+        //                cmpArr[1] || "",
+        //                cmpArr[0].startsWith("$")
+        //                    ? FishCompletionItemType.variable
+        //                    : FishCompletionItemType.function
+        //            )
+        //        );
+        //    }
+        //}
+        //return fishCompletes;
+    }
 
     // probably need some of SyntaxTree class in this file
     public async generate(node: SyntaxNode) {
@@ -226,8 +247,9 @@ export class Completion {
             //...this.localVariables.values(),
             //...fishCompletions
         this.completions = [
+            ...this.lineCmps,
             ...this.globalVars,
-            ...this.globalCmds,
+            //...this.globalCmds,
             ...this.globalBuiltins,
             ...this.globalAlaises,
             ...this.globalAbbrs,
@@ -239,8 +261,9 @@ export class Completion {
         //const fishCompletions = await this.generateCurrent(node) || []
         //await this.initialDefaults();
         this.completions = [
+            ...this.lineCmps,
             ...this.globalVars,
-            ...this.globalCmds,
+            //...this.globalCmds,
             ...this.globalBuiltins,
             ...this.globalAlaises,
             ...this.globalAbbrs

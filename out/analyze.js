@@ -1,22 +1,15 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SyntaxTree = exports.Analyzer = void 0;
 const documentation_1 = require("./documentation");
 const node_types_1 = require("./utils/node-types");
 const tree_sitter_1 = require("./utils/tree-sitter");
 class Analyzer {
-    constructor(parser, console) {
+    // to log local output
+    //private console: RemoteConsole | undefined;
+    constructor(parser) {
         this.parser = parser;
-        this.console = console;
+        //this.console = console || undefined;
         this.uriTree = {};
     }
     ///**
@@ -32,11 +25,73 @@ class Analyzer {
     //    this.uriTree[document.uri] = tree;
     //}
     analyze(document) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const tree = this.parser.parse(document.getText());
-            this.uriTree[document.uri] = tree;
+        delete this.uriTree[document.uri];
+        const tree = this.parser.parse(document.getText());
+        this.uriTree[document.uri] = tree;
+    }
+    getLocalNodes(document) {
+        const root = this.uriTree[document.uri].rootNode;
+        const allNodes = (0, tree_sitter_1.getChildNodes)(root);
+        return allNodes.filter(node => {
+            (0, node_types_1.isFunctionDefinintion)(node) || (0, node_types_1.isVariableDefintion)(node);
         });
     }
+    /**
+     * Gets the entire current line inside of the document. Useful for completions
+     *
+     * @param {string} document - TextDocument
+     * @param {number} line - the line number from from a Position object
+     * @returns {string} the current line in the document, or an empty string
+     */
+    currentLine(document, position) {
+        var _a;
+        const currDoc = document.uri;
+        const row = position.line;
+        const col = position.character;
+        if (currDoc === undefined)
+            return "";
+        const currText = ((_a = document.getText().split('\n').at(row)) === null || _a === void 0 ? void 0 : _a.substring(0, col + 1)) || "";
+        return currText;
+    }
+    nodeIsLocal(tree, node) {
+        if (!tree)
+            return;
+        const result = tree.getLocalFunctionDefinition(node) || tree.getNearestVariableDefinition(node);
+        if (!result)
+            return;
+        return {
+            contents: (0, documentation_1.enrichToCodeBlockMarkdown)(result.text, 'fish'),
+            range: (0, tree_sitter_1.getRange)(result),
+        };
+    }
+    //public async getHover(tree: SyntaxTree, params: TextDocumentPositionParams): Promise<Hover | void> {
+    //    const uri = params.textDocument.uri;
+    //    const line = params.position.line;
+    //    const character = params.position.character;
+    //    const node = this.nodeAtPoint(tree,line,character)
+    //    const text = this.wordAtPoint(tree,line,character)
+    //    if (!node || !text) return;
+    //    const docs = await documentationHoverProvider(text);
+    //    if (docs) {
+    //        return docs;
+    //    }
+    //    return await this.getHoverFallback(node)
+    //}
+    //public async getHoverFallback(currentNode: SyntaxNode): Promise<Hover | void> {
+    //    const cmdNode = findParentCommand(currentNode);
+    //    if (!cmdNode) return
+    //    const hoverCmp = new HoverFromCompletion(cmdNode, currentNode)
+    //    let hover : Hover | void;
+    //    if (currentNode.text.startsWith("-")) {
+    //        hover = await hoverCmp.generateForFlags()
+    //    } else {
+    //        hover = await hoverCmp.generate() 
+    //    }
+    //    if (hover) return hover;
+    //    //if (currentNode.text.startsWith('-')) {
+    //    //}
+    //    return 
+    //}
     /**
      * Find the node at the given point.
      */
@@ -59,31 +114,34 @@ class Analyzer {
         }
         return node.text.trim();
     }
-    /**
-     * Gets the entire current line inside of the document. Useful for completions
-     *
-     * @param {Context} context - lsp context
-     * @param {string} uri - DocumentUri
-     * @param {number} line - the line number from from a Position object
-     * @returns {string} the current line in the document, or an empty string
-     */
-    currentLine(document, line) {
-        const currDoc = document.uri;
-        if (currDoc === undefined)
-            return "";
-        const currText = document.getText().split('\n').at(line);
-        return currText || "";
+    findNodesFromRoot(document, predicate) {
+        const tree = this.uriTree[document.uri];
+        const rootNode = tree.rootNode;
+        return (0, tree_sitter_1.getChildNodes)(rootNode).filter(predicate);
     }
-    nodeIsLocal(tree, node) {
-        if (!tree)
-            return;
-        const result = tree.getLocalFunctionDefinition(node) || tree.getNearestVariableDefinition(node);
-        if (!result)
-            return;
-        return {
-            contents: (0, documentation_1.enrichToCodeBlockMarkdown)(result.text, 'fish'),
-            range: (0, tree_sitter_1.getRange)(result),
-        };
+    /**
+     * finds any children nodes matching predicate
+     *
+     * @param {SyntaxNode} node - root node to search from
+     * @param {(n: SyntaxNode) => boolean} predicate - a predicate to search for matching descedants
+     * @returns {SyntaxNode[]} all matching nodes
+     */
+    getChildNodes(node, predicate) {
+        return (0, tree_sitter_1.getChildNodes)(node).filter(predicate);
+    }
+    /**
+     * getParentNodes - takes a descendant node from some
+     */
+    getParentNodes(node, predicate) {
+        let current = node.parent;
+        const parentNodes = [];
+        while (current !== null) {
+            if (predicate(current)) {
+                parentNodes.push(current);
+            }
+            current = current.parent;
+        }
+        return parentNodes;
     }
 }
 exports.Analyzer = Analyzer;
@@ -112,8 +170,8 @@ class SyntaxTree {
     }
     ensureAnalyzed() {
         this.clearAll();
-        const newNodes = (0, tree_sitter_1.getNodes)(this.rootNode);
-        for (const newNode of (0, tree_sitter_1.getNodes)(this.rootNode)) {
+        const newNodes = (0, tree_sitter_1.getChildNodes)(this.rootNode);
+        for (const newNode of (0, tree_sitter_1.getChildNodes)(this.rootNode)) {
             if ((0, node_types_1.isCommand)(newNode)) {
                 this.commands.push(newNode);
             }
@@ -165,7 +223,7 @@ class SyntaxTree {
     }
     getLocalFunctionDefinition(searchNode) {
         var _a;
-        for (const func of (0, tree_sitter_1.getNodes)(this.rootNode)) {
+        for (const func of (0, tree_sitter_1.getChildNodes)(this.rootNode)) {
             if ((0, node_types_1.isFunctionDefinintion)(func) && ((_a = func.children[1]) === null || _a === void 0 ? void 0 : _a.text) == searchNode.text) {
                 return func;
             }
@@ -179,7 +237,7 @@ class SyntaxTree {
         const varaibleDefinitions = [];
         const functionScope = (0, node_types_1.findFunctionScope)(searchNode);
         const scopedVariableLocations = [
-            ...(0, tree_sitter_1.getNodes)(functionScope),
+            ...(0, tree_sitter_1.getChildNodes)(functionScope),
             ...this.getOutmostScopedNodes()
         ];
         for (const node of scopedVariableLocations) {
@@ -199,7 +257,7 @@ class SyntaxTree {
     // (i.e. stuff in config.fish)
     getOutmostScopedNodes() {
         const allNodes = [
-            ...(0, tree_sitter_1.getNodes)(this.rootNode)
+            ...(0, tree_sitter_1.getChildNodes)(this.rootNode)
                 .filter(n => !(0, node_types_1.hasParentFunction)(n))
         ].filter(n => n.type != 'program');
         return allNodes;

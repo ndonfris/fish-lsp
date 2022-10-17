@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.findParent = exports.nodesGen = exports.isNodeWithinRange = exports.isPositionWithinRange = exports.isFishExtension = exports.getPrecedingComments = exports.pointToPosition = exports.positionToPoint = exports.getDependencyUrl = exports.getNodeAtRange = exports.getNodeAt = exports.findNodeAt = exports.getRange = exports.getNodeText = exports.getNodes = void 0;
+exports.nodesGen = exports.isNodeWithinRange = exports.isPositionWithinRange = exports.isFishExtension = exports.getPrecedingComments = exports.pointToPosition = exports.positionToPoint = exports.getDependencyUrl = exports.getNodeAtRange = exports.getNodeAt = exports.findNodeAt = exports.getRange = exports.descendantMatch = exports.ancestorMatch = exports.nodeIsBefore = exports.getNodeText = exports.getParentNodes = exports.getChildNodes = void 0;
 //import { existsSync } from 'fs'
 const path_1 = require("path");
 const node_1 = require("vscode-languageserver/node");
@@ -13,7 +13,7 @@ const node_types_1 = require("./node-types");
  * @param {SyntaxNode} root - the root node to search from
  * @returns {SyntaxNode[]} all children of the root node (flattend)
  */
-function getNodes(root) {
+function getChildNodes(root) {
     let queue = [root];
     let result = [];
     while (queue.length) {
@@ -25,7 +25,25 @@ function getNodes(root) {
     }
     return result;
 }
-exports.getNodes = getNodes;
+exports.getChildNodes = getChildNodes;
+/**
+ * Gets path to root starting where index 0 is child node passed in.
+ * Format: [child, child.parent, ..., root]
+ *
+ * @param {SyntaxNode} child - the lowest child of root
+ * @returns {SyntaxNode[]} an array of ancestors to the descendent node passed in.
+ */
+function getParentNodes(child) {
+    const result = [child];
+    let current = child.parent;
+    while (current !== null) {
+        // result.unshift(current); // unshift would be used for [root, ..., child]
+        result.push(current);
+        current = current.parent;
+    }
+    return result;
+}
+exports.getParentNodes = getParentNodes;
 // some nodes (such as commands) to get their text, you will need 
 // the first named child.
 // other nodes (such as flags) need just the actual text.
@@ -44,6 +62,39 @@ function getNodeText(node) {
     return (node.text != null) ? node.text.trim() : "";
 }
 exports.getNodeText = getNodeText;
+/**
+ * Checks that arg0 is located before arg1 in parse tree. False
+ * when params are the same node
+ *
+ * @param {SyntaxNode} firstNode - a node that is positioned left or above second node
+ * @param {SyntaxNode} secondNode - some node after first node
+ * @returns {boolean} - true only when first param is located before second param
+ */
+function nodeIsBefore(firstNode, secondNode) {
+    if (firstNode.startPosition.row === secondNode.startPosition.row) {
+        return firstNode.startPosition.column < secondNode.startPosition.column
+            && firstNode.text !== secondNode.text;
+    }
+    else {
+        return firstNode.startPosition.row < secondNode.startPosition.row;
+    }
+}
+exports.nodeIsBefore = nodeIsBefore;
+function ancestorMatch(start, predicate) {
+    const ancestors = getParentNodes(start) || [];
+    return ancestors
+        .filter(ancestor => predicate(ancestor))
+        .filter(ancestor => ancestor !== start);
+}
+exports.ancestorMatch = ancestorMatch;
+function descendantMatch(start, predicate) {
+    const descendants = [];
+    descendants.push(...getChildNodes(start));
+    return descendants
+        .filter(descendant => predicate(descendant))
+        .filter(descendent => descendent !== start);
+}
+exports.descendantMatch = descendantMatch;
 /**
  * uses nodesGen to build an array.
  *
@@ -196,16 +247,6 @@ function* nodesGen(node) {
     }
 }
 exports.nodesGen = nodesGen;
-function findParent(start, predicate) {
-    let node = start.parent;
-    while (node !== null) {
-        if (predicate(node))
-            return node;
-        node = node.parent;
-    }
-    return null;
-}
-exports.findParent = findParent;
 // Check out awk-language-server: 
 //     • https://github.com/Beaglefoot/awk-language-server/tree/master/server/src/utils.ts
 //     • https://github.com/bash-lsp/bash-language-server/blob/main/server/src/util/tree-sitter.ts

@@ -1,24 +1,76 @@
-
-
-import {promises, readdirSync, readFile, readFileSync} from 'fs';
-import {glob} from 'glob';
-import FastGlob from 'fast-glob'
-import {homedir} from 'os';
-import path, { resolve, sep } from 'path'
+import fs, {readFile} from 'fs';
+import FastGlob from 'fast-glob';
+import {promises} from 'fs';
+import {homedir, version} from 'os';
+import {resolve} from 'path';
 import {TextDocument} from 'vscode-languageserver-textdocument';
 //import {globby} from 'globby'
-import promisify from 'util';
 
 
 
+interface TextDocumentPromiseParams {
+    /**
+     * The text document's uri.
+     */
+    uri: string,
+    /*
+     * all documents will be fish files
+     */
+    languageId: string;
+    /**
+     * The version number of this document (it will increase after each
+     * change, including undo/redo).
+     */
+    version: number;
+    /**
+     * The content of the opened text document.
+     */
+    text: Promise<string>;
+}
+
+function getTextDocumentPromiseParams(uri: string): TextDocumentPromiseParams {
+    return {
+        uri,
+        languageId: 'fish',
+        version: 0,
+        text: promises.readFile(uri, 'utf8')
+    }
+}
 
 
+export async function getFishFilesFromStandardLocations() {
+
+    const paths = [`${homedir()}/.config/fish`, "/usr/share/fish"];
+    const allFiles: string[] = [];
+
+    paths.forEach((path) => {
+        const files = FastGlob.sync("**.fish", {
+            absolute: true,
+            dot: true,
+            globstar: true,
+            deep: 5,
+            cwd: path,
+        });
+        allFiles.push(...files);
+    });
+
+    // now allFiles contains every fish file that could be used in the workspace
+    return await Promise.all(
+        allFiles.map(async file => {
+            const contents = await promises.readFile(file, 'utf8')
+            return TextDocument.create(file, 'fish', 0, contents || "")
+        })
+    )
+}
 
 // $HOME/repos/fish-lang-server/src/utils/location.ts
-export async function getGlobalIndex(files: string[]) : Promise<TextDocument> {
-    return Promise.all(
-        files.map(async file => TextDocument.create(file, 'fish', 0, await promises.readFile(file, 'utf8')))
-    ).then()
+export async function getGlobalIndex(files: string[]) {
+    return await Promise.all(
+        files.map(async file => {
+            const contents = await promises.readFile(file, 'utf8')
+            return TextDocument.create(file, 'fish', 0, contents || "")
+        })
+    )
 
 
     // globby -> https://github.com/sindresorhus/globby#readme
@@ -65,6 +117,7 @@ describe("glob_test output", () => {
         })
         console.log(allFiles)
         const t = await getGlobalIndex(allFiles)
+        console.log(t.at(0))
         expect(1).toBeGreaterThan(0)
     })
 })

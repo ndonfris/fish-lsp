@@ -73,6 +73,14 @@ function findParentCommand(node) {
     return null;
 }
 exports.findParentCommand = findParentCommand;
+// isBeforeCommand() is probably not necessary:
+// for example:
+//      echo -n "$asdf"
+//        | ^
+//        | ---- children
+//        |
+//        ---- parent
+//
 function isVariableDefintion(node) {
     var _a, _b, _c;
     if (isCommand(node) && ((_a = node.child(0)) === null || _a === void 0 ? void 0 : _a.text) == 'set') {
@@ -123,7 +131,7 @@ function findGlobalNodes(rootNode) {
     //    getNodes(rootNode)
     //    .filter(currentNode => !hasParentFunction(currentNode))
     const allNodes = [
-        ...(0, tree_sitter_1.getNodes)(rootNode)
+        ...(0, tree_sitter_1.getChildNodes)(rootNode)
             .filter(n => !hasParentFunction(n))
     ].filter(n => n.type != 'program');
     return allNodes;
@@ -157,7 +165,7 @@ function findLastVariableRefrence(node) {
     let currentNode = node.parent || node;
     while (!isFunctionDefinintion(currentNode) && currentNode != null) {
         let lastRefrence;
-        for (const childNode of (0, tree_sitter_1.getNodes)(currentNode)) {
+        for (const childNode of (0, tree_sitter_1.getChildNodes)(currentNode)) {
             if (isVariableDefintion(currentNode)) {
                 const variableDef = findDefinedVariable(childNode);
                 if ((variableDef === null || variableDef === void 0 ? void 0 : variableDef.text) == currentNode.text && variableDef != currentNode) {

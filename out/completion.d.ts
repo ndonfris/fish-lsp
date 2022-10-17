@@ -5,12 +5,14 @@ export declare enum FishCompletionItemType {
     builtin = 1,
     abbr = 2,
     flag = 3,
-    variable = 4
+    variable = 4,
+    line = 5
 }
 export declare function toCompletionItemKind(type: FishCompletionItemType): CompletionItemKind;
 export declare class Completion {
     private currentNode;
     private commandNode;
+    lineCmps: CompletionItem[];
     globalAbbrs: CompletionItem[];
     private globalVars;
     globalAlaises: CompletionItem[];
@@ -22,8 +24,10 @@ export declare class Completion {
     private completions;
     private isIncomplete;
     static initialDefaults(): Promise<Completion>;
-    private constructor();
+    constructor();
     addLocalMembers(vars: SyntaxNode[], funcs: SyntaxNode[]): number;
+    generateLineCompletion(line: string): Promise<void>;
+    generateCurrent(node: SyntaxNode): Promise<void>;
     generate(node: SyntaxNode): Promise<CompletionList>;
     fallbackComplete(): CompletionList;
 }
