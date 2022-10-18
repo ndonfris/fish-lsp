@@ -6,12 +6,11 @@ export declare class Analyzer {
     private uriTree;
     constructor(parser: Parser);
     analyze(document: TextDocument): void;
+    getRoot(document: TextDocument): Parser.SyntaxNode;
     getLocalNodes(document: TextDocument): Parser.SyntaxNode[];
     /**
      * Gets the entire current line inside of the document. Useful for completions
      *
-     * @param {string} document - TextDocument
-     * @param {number} line - the line number from from a Position object
      * @returns {string} the current line in the document, or an empty string
      */
     currentLine(document: TextDocument, position: Position): string;
@@ -24,19 +23,6 @@ export declare class Analyzer {
      * Find the full word at the given point.
      */
     wordAtPoint(uri: string, line: number, column: number): string | null;
-    findNodesFromRoot(document: TextDocument, predicate: (n: SyntaxNode) => boolean): Parser.SyntaxNode[];
-    /**
-     * finds any children nodes matching predicate
-     *
-     * @param {SyntaxNode} node - root node to search from
-     * @param {(n: SyntaxNode) => boolean} predicate - a predicate to search for matching descedants
-     * @returns {SyntaxNode[]} all matching nodes
-     */
-    getChildNodes(node: SyntaxNode, predicate: (n: SyntaxNode) => boolean): Parser.SyntaxNode[];
-    /**
-     * getParentNodes - takes a descendant node from some
-     */
-    getParentNodes(node: SyntaxNode, predicate: (n: SyntaxNode) => boolean): Parser.SyntaxNode[];
 }
 export declare class SyntaxTree {
     rootNode: SyntaxNode;

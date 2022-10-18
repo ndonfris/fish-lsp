@@ -26,6 +26,7 @@ export declare class Completion {
     static initialDefaults(): Promise<Completion>;
     constructor();
     addLocalMembers(vars: SyntaxNode[], funcs: SyntaxNode[]): number;
+    generateLineCmpNew(line: string): Promise<CompletionList>;
     generateLineCompletion(line: string): Promise<void>;
     generateCurrent(node: SyntaxNode): Promise<void>;
     generate(node: SyntaxNode): Promise<CompletionList>;

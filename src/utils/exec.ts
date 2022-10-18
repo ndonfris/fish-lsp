@@ -1,6 +1,6 @@
 
 
-import { exec, execFileSync } from 'child_process';
+import { exec, execFile, execFileSync } from 'child_process';
 import {resolve} from 'path';
 import { promisify } from 'util';
 
@@ -88,8 +88,8 @@ export async function execCompleteAbbrs(): Promise<string[]> {
 
 export async function execCommandDocs(cmd: string): Promise<string> {
     const file = resolve(__dirname, '../../fish_files/get-documentation.fish')
-    const cmdArr = cmd.split(' ')
-    const docs = execFileSync(file, cmdArr)
+    //const cmdArr = cmd.split(' ')
+    const docs = execFileSync(file, [cmd])
     return docs.toString().trim();
 }
 
@@ -105,7 +105,7 @@ export async function execCommandDocs(cmd: string): Promise<string> {
 export async function execCommandType(cmd: string): Promise<string> {
     const file = resolve(__dirname, '../../fish_files/get-type.fish')
     const cmdCheck = cmd.split(' ')[0].trim()
-    const docs = execFileSync(file, [cmdCheck])
+    const docs = execFile(file, [cmdCheck])
     return docs.toString().trim();
 }
 

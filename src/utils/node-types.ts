@@ -1,8 +1,8 @@
 // use this file to determine node types from ./tree-sitter
 
+import {RemoteConsole} from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter'
-import {getChildNodes} from './tree-sitter';
-
+import {getChildNodes, getParentNodes} from './tree-sitter';
 
 export function isComment(node: SyntaxNode): boolean {
     return node.type == 'comment';
@@ -82,9 +82,11 @@ export function findParentCommand(node: SyntaxNode): SyntaxNode | null {
 //
 
 
+// PROBLEM !!!! read --local var
+// for i in (seq )
 export function isVariableDefintion(node: SyntaxNode): boolean {
     if (isCommand(node) && node.child(0)?.text == 'set') {
-        return true;
+        return false;
     } else {
         const parent = findParentCommand(node)
         if (!parent) {
@@ -96,6 +98,7 @@ export function isVariableDefintion(node: SyntaxNode): boolean {
         return false;
     }
 }
+
 
 /**
  * @param {SyntaxNode} node - finds the node in a fish command that will
@@ -124,6 +127,8 @@ export function findDefinedVariable(node: SyntaxNode): SyntaxNode | null {
 
     return child;
 }
+
+
 
 // global nodes are nodes that are not defined in a function
 // (i.e. stuff in config.fish)
@@ -181,6 +186,14 @@ export function findLastVariableRefrence(node: SyntaxNode) {
         currentNode = currentNode.parent;
     }
     return undefined;
+}
+
+export function isLocalVariable(node: SyntaxNode, console: RemoteConsole) {
+    const parents = getParentNodes(node)
+    const pCmd = parents[1]
+    if (pCmd.child(0)?.text === 'read' || pCmd.child(0)?.text === 'set') {
+        console.log(pCmd.text)
+    }
 }
 
 /*

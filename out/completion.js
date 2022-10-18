@@ -14,6 +14,7 @@ const child_process_1 = require("child_process");
 const util_1 = require("util");
 const node_1 = require("vscode-languageserver-protocol/node");
 const documentation_1 = require("./documentation");
+const completion_types_1 = require("./utils/completion-types");
 const exec_1 = require("./utils/exec");
 const node_types_1 = require("./utils/node-types");
 const tree_sitter_1 = require("./utils/tree-sitter");
@@ -142,6 +143,17 @@ class Completion {
     // call enrichCompletions on new this.completions
     // therefore you probably want to add the defaults (abbr & global variable list)
     // after this.completions is enriched
+    generateLineCmpNew(line) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const cmd = line.replace(/(['$`\\])/g, '\\$1');
+            const res = yield execAsync(`fish --command "complete --do-complete='${cmd}' | uniq"`);
+            const lines = res.stdout.split('\n').map(line => line.split('\t', 1));
+            this.lineCmps = yield Promise.all(lines.map((arr) => __awaiter(this, void 0, void 0, function* () {
+                return yield (0, completion_types_1.buildCompletionItemPromise)(arr);
+            })));
+            return node_1.CompletionList.create(this.lineCmps, this.isIncomplete);
+        });
+    }
     generateLineCompletion(line) {
         return __awaiter(this, void 0, void 0, function* () {
             const cmd = line.replace(/(['$`\\])/g, '\\$1');

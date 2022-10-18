@@ -193,7 +193,7 @@ const PossibleSubCommand = [
     "bower",
     "w",
     "feh",
-    "pactl",
+    "pacisAbbr(line)",
     "asp",
     "wajig",
     "bosh",

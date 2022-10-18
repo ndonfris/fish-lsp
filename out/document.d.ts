@@ -1,4 +1,4 @@
-import { TextDocument } from 'vscode-languageserver-textdocument';
+import { Range, Position, TextDocument } from 'vscode-languageserver-textdocument';
 import { RemoteConsole, TextDocuments } from 'vscode-languageserver';
 /**
  *  DO NOT create vscode-uri anywhere outside of DocumentManager. when a document is returned just use the uri on it.
@@ -65,4 +65,9 @@ export declare class DocumentManager {
      */
     private validateURI;
 }
+/**
+ * get a range for document.getText()
+ * returns range for the begining and end of the current line.
+ */
+export declare function getRangeFromPosition(position: Position): Range;
 //# sourceMappingURL=document.d.ts.map

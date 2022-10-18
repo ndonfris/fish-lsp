@@ -9,7 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.DocumentManager = void 0;
+exports.getRangeFromPosition = exports.DocumentManager = void 0;
 //import * as LSP from 'vscode-languageserver/node';
 //import { FISH_LOCATIONS, getAllFishLocations } from './utils/locations';
 //import {basename, resolve, sep} from 'path';
@@ -155,6 +155,25 @@ class DocumentManager {
     }
 }
 exports.DocumentManager = DocumentManager;
+/**
+ * get a range for document.getText()
+ * returns range for the begining and end of the current line.
+ */
+function getRangeFromPosition(position) {
+    const rStart = {
+        line: position.line,
+        character: 0,
+    };
+    const rEnd = {
+        line: position.line,
+        character: position.character,
+    };
+    return {
+        start: rStart,
+        end: rEnd,
+    };
+}
+exports.getRangeFromPosition = getRangeFromPosition;
 //export enum FishFileType {
 //    function,
 //    completion,

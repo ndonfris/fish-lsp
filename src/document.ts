@@ -1,10 +1,10 @@
 //import * as LSP from 'vscode-languageserver/node';
 //import { FISH_LOCATIONS, getAllFishLocations } from './utils/locations';
 //import {basename, resolve, sep} from 'path';
-import { TextDocument } from 'vscode-languageserver-textdocument';
+import { Range, Position, TextDocument } from 'vscode-languageserver-textdocument';
 import { createTextDocumentFromFilePath } from './utils/io';
 import { getAllFishLocations, getFishTextDocumentsFromStandardLocations } from './utils/locations';
-import { RemoteConsole, TextDocuments } from 'vscode-languageserver'
+import { RemoteConsole, TextDocumentPositionParams, TextDocuments } from 'vscode-languageserver'
 import {URI, Utils} from 'vscode-uri';
 
 /**
@@ -159,6 +159,30 @@ export class DocumentManager {
     }
 
 }        
+
+
+/**
+ * get a range for document.getText()
+ * returns range for the begining and end of the current line.
+ */
+export function getRangeFromPosition(position: Position) : Range {
+    const rStart = {
+        line: position.line,
+        character: 0,
+    }
+    const rEnd = {
+        line: position.line,
+        character: position.character,
+    }
+    return {
+        start: rStart,
+        end: rEnd,
+    }
+}
+
+
+
+
 //export enum FishFileType {
 //    function,
 //    completion,

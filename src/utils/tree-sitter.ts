@@ -56,7 +56,7 @@ export function getNodeText(node: SyntaxNode | null): string {
     }
     if (isVariableDefintion(node)) {
         const defVar = findDefinedVariable(node)!
-        return defVar.text;
+        return defVar.text || "";
     }
     return (node.text != null) ? node.text.trim() : ""
 }

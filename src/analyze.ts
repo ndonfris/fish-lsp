@@ -43,6 +43,7 @@ import {
     getRange,
 } from "./utils/tree-sitter";
 import {URI} from 'vscode-uri';
+import {getRangeFromPosition} from './document';
 
 export class Analyzer {
     private parser: Parser;
@@ -79,30 +80,34 @@ export class Analyzer {
         this.uriTree[document.uri] = tree;
     }
 
+    getRoot(document: TextDocument) {
+        return this.uriTree[document.uri].rootNode
+    }
+
     getLocalNodes(document: TextDocument) {
         const root = this.uriTree[document.uri].rootNode;
         const allNodes = getChildNodes(root);
         return allNodes.filter(node => {
-            isFunctionDefinintion(node) || isVariableDefintion(node)
+            return isFunctionDefinintion(node) || isVariableDefintion(node)
         })
     }
 
     /**
      * Gets the entire current line inside of the document. Useful for completions
      *
-     * @param {string} document - TextDocument
-     * @param {number} line - the line number from from a Position object
      * @returns {string} the current line in the document, or an empty string 
      */
     public currentLine(
         document: TextDocument,
         position: Position
     ): string {
-        const currDoc = document.uri
-        const row = position.line;
-        const col = position.character;
+        const currDoc = document.uri;
+        const currRange = getRangeFromPosition(position);
         if (currDoc === undefined) return ""
-        const currText = document.getText().split('\n').at(row)?.substring(0, col + 1) || "";
+        //const row = position.line;
+        //const col = position.character;
+        //const currText = document.getText().split('\n').at(row)?.substring(0, col + 1) || "";
+        const currText = document.getText(currRange)
         return currText;
     }
 
@@ -185,40 +190,6 @@ export class Analyzer {
 
         return node.text.trim();
     }
-
-
-    findNodesFromRoot(document: TextDocument, predicate: (n: SyntaxNode) => boolean) {
-        const tree = this.uriTree[document.uri];
-        const rootNode = tree.rootNode;
-        return getChildNodes(rootNode).filter(predicate);
-    }
-
-    /**
-     * finds any children nodes matching predicate
-     *
-     * @param {SyntaxNode} node - root node to search from
-     * @param {(n: SyntaxNode) => boolean} predicate - a predicate to search for matching descedants
-     * @returns {SyntaxNode[]} all matching nodes
-     */
-    public getChildNodes(node: SyntaxNode, predicate: (n: SyntaxNode) => boolean) {
-        return getChildNodes(node).filter(predicate)
-    }
-
-    /**
-     * getParentNodes - takes a descendant node from some 
-     */
-    public getParentNodes(node: SyntaxNode, predicate: (n: SyntaxNode) => boolean) {
-        let current = node.parent;
-        const parentNodes: SyntaxNode[] = [];
-        while (current !== null) {
-            if (predicate(current)) {
-                parentNodes.push(current);
-            }
-            current = current.parent;
-        }
-        return parentNodes;
-    }
-
 
 }
 

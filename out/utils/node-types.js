@@ -1,7 +1,7 @@
 "use strict";
 // use this file to determine node types from ./tree-sitter
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.findLastVariableRefrence = exports.findFunctionScope = exports.hasParentFunction = exports.findGlobalNodes = exports.findDefinedVariable = exports.isVariableDefintion = exports.findParentCommand = exports.isVariable = exports.isBeforeCommand = exports.isStatement = exports.isCommand = exports.isFunctionDefinintion = exports.isComment = void 0;
+exports.isLocalVariable = exports.findLastVariableRefrence = exports.findFunctionScope = exports.hasParentFunction = exports.findGlobalNodes = exports.findDefinedVariable = exports.isVariableDefintion = exports.findParentCommand = exports.isVariable = exports.isBeforeCommand = exports.isStatement = exports.isCommand = exports.isFunctionDefinintion = exports.isComment = void 0;
 const tree_sitter_1 = require("./tree-sitter");
 function isComment(node) {
     return node.type == 'comment';
@@ -81,10 +81,12 @@ exports.findParentCommand = findParentCommand;
 //        |
 //        ---- parent
 //
+// PROBLEM !!!! read --local var
+// for i in (seq )
 function isVariableDefintion(node) {
     var _a, _b, _c;
     if (isCommand(node) && ((_a = node.child(0)) === null || _a === void 0 ? void 0 : _a.text) == 'set') {
-        return true;
+        return false;
     }
     else {
         const parent = findParentCommand(node);
@@ -181,6 +183,15 @@ function findLastVariableRefrence(node) {
     return undefined;
 }
 exports.findLastVariableRefrence = findLastVariableRefrence;
+function isLocalVariable(node, console) {
+    var _a, _b;
+    const parents = (0, tree_sitter_1.getParentNodes)(node);
+    const pCmd = parents[1];
+    if (((_a = pCmd.child(0)) === null || _a === void 0 ? void 0 : _a.text) === 'read' || ((_b = pCmd.child(0)) === null || _b === void 0 ? void 0 : _b.text) === 'set') {
+        console.log(pCmd.text);
+    }
+}
+exports.isLocalVariable = isLocalVariable;
 /*
  * echo $hello_world
  *           ^--- variable_name

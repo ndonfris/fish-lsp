@@ -4,6 +4,7 @@ exports.SyntaxTree = exports.Analyzer = void 0;
 const documentation_1 = require("./documentation");
 const node_types_1 = require("./utils/node-types");
 const tree_sitter_1 = require("./utils/tree-sitter");
+const document_1 = require("./document");
 class Analyzer {
     // to log local output
     //private console: RemoteConsole | undefined;
@@ -29,28 +30,30 @@ class Analyzer {
         const tree = this.parser.parse(document.getText());
         this.uriTree[document.uri] = tree;
     }
+    getRoot(document) {
+        return this.uriTree[document.uri].rootNode;
+    }
     getLocalNodes(document) {
         const root = this.uriTree[document.uri].rootNode;
         const allNodes = (0, tree_sitter_1.getChildNodes)(root);
         return allNodes.filter(node => {
-            (0, node_types_1.isFunctionDefinintion)(node) || (0, node_types_1.isVariableDefintion)(node);
+            return (0, node_types_1.isFunctionDefinintion)(node) || (0, node_types_1.isVariableDefintion)(node);
         });
     }
     /**
      * Gets the entire current line inside of the document. Useful for completions
      *
-     * @param {string} document - TextDocument
-     * @param {number} line - the line number from from a Position object
      * @returns {string} the current line in the document, or an empty string
      */
     currentLine(document, position) {
-        var _a;
         const currDoc = document.uri;
-        const row = position.line;
-        const col = position.character;
+        const currRange = (0, document_1.getRangeFromPosition)(position);
         if (currDoc === undefined)
             return "";
-        const currText = ((_a = document.getText().split('\n').at(row)) === null || _a === void 0 ? void 0 : _a.substring(0, col + 1)) || "";
+        //const row = position.line;
+        //const col = position.character;
+        //const currText = document.getText().split('\n').at(row)?.substring(0, col + 1) || "";
+        const currText = document.getText(currRange);
         return currText;
     }
     nodeIsLocal(tree, node) {
@@ -113,35 +116,6 @@ class Analyzer {
             return null;
         }
         return node.text.trim();
-    }
-    findNodesFromRoot(document, predicate) {
-        const tree = this.uriTree[document.uri];
-        const rootNode = tree.rootNode;
-        return (0, tree_sitter_1.getChildNodes)(rootNode).filter(predicate);
-    }
-    /**
-     * finds any children nodes matching predicate
-     *
-     * @param {SyntaxNode} node - root node to search from
-     * @param {(n: SyntaxNode) => boolean} predicate - a predicate to search for matching descedants
-     * @returns {SyntaxNode[]} all matching nodes
-     */
-    getChildNodes(node, predicate) {
-        return (0, tree_sitter_1.getChildNodes)(node).filter(predicate);
-    }
-    /**
-     * getParentNodes - takes a descendant node from some
-     */
-    getParentNodes(node, predicate) {
-        let current = node.parent;
-        const parentNodes = [];
-        while (current !== null) {
-            if (predicate(current)) {
-                parentNodes.push(current);
-            }
-            current = current.parent;
-        }
-        return parentNodes;
     }
 }
 exports.Analyzer = Analyzer;

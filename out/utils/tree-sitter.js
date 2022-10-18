@@ -57,7 +57,7 @@ function getNodeText(node) {
     }
     if ((0, node_types_1.isVariableDefintion)(node)) {
         const defVar = (0, node_types_1.findDefinedVariable)(node);
-        return defVar.text;
+        return defVar.text || "";
     }
     return (node.text != null) ? node.text.trim() : "";
 }

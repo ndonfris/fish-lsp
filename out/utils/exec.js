@@ -99,8 +99,8 @@ exports.execCompleteAbbrs = execCompleteAbbrs;
 function execCommandDocs(cmd) {
     return __awaiter(this, void 0, void 0, function* () {
         const file = (0, path_1.resolve)(__dirname, '../../fish_files/get-documentation.fish');
-        const cmdArr = cmd.split(' ');
-        const docs = (0, child_process_1.execFileSync)(file, cmdArr);
+        //const cmdArr = cmd.split(' ')
+        const docs = (0, child_process_1.execFileSync)(file, [cmd]);
         return docs.toString().trim();
     });
 }
@@ -118,7 +118,7 @@ function execCommandType(cmd) {
     return __awaiter(this, void 0, void 0, function* () {
         const file = (0, path_1.resolve)(__dirname, '../../fish_files/get-type.fish');
         const cmdCheck = cmd.split(' ')[0].trim();
-        const docs = (0, child_process_1.execFileSync)(file, [cmdCheck]);
+        const docs = (0, child_process_1.execFile)(file, [cmdCheck]);
         return docs.toString().trim();
     });
 }
