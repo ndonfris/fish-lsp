@@ -1,11 +1,63 @@
 //import * as LSP from 'vscode-languageserver/node';
 //import { FISH_LOCATIONS, getAllFishLocations } from './utils/locations';
 //import {basename, resolve, sep} from 'path';
-import { Range, Position, TextDocument } from 'vscode-languageserver-textdocument';
 import { createTextDocumentFromFilePath } from './utils/io';
-import { getAllFishLocations, getFishTextDocumentsFromStandardLocations } from './utils/locations';
+//import { getAllFishLocations, getFishTextDocumentsFromStandardLocations } from './utils/locations';
+import {TextDocument, Position, Range} from 'vscode-languageserver-textdocument';
 import { RemoteConsole, TextDocumentPositionParams, TextDocuments } from 'vscode-languageserver'
 import {URI, Utils} from 'vscode-uri';
+import FastGlob from 'fast-glob';
+import {homedir} from 'os';
+import {promises, readFileSync} from 'fs';
+
+// removed the need for utils/{io,locations}.ts with funcitons at the top of this file.
+// Add back later
+
+
+/**
+ * @async getFishDocumentsFromFileSystem() - Function to retrieve 
+ *                                           Fish default locations for documents are: 
+ *                                           $HOME/.config/fish, and /usr/share/fish
+ *
+ * @returns {Promise<[TODO:type]>} [TODO:description]
+ */
+async function getTextDocumentsFromPaths(paths: string[]): Promise<TextDocument[]> {
+
+    const allFiles: string[] = [];
+
+    paths.forEach((path) => {
+        const files = FastGlob.sync("**.fish", {
+            absolute: true,
+            dot: true,
+            globstar: true,
+            cwd: path,
+        });
+        allFiles.push(...files);
+    });
+
+    // now allFiles contains every fish file that could be used in the workspace
+    return await Promise.all(allFiles.map(async file => {
+        const contents = await promises.readFile(file, 'utf8')
+        return TextDocument.create(file, 'fish', 0, contents || "")
+    }))
+}
+
+/**
+ * TODO: handle uri: URI | string differently 
+ *       @see https://stackoverflow.com/questions/39065077/typescript-multiple-type-parameter
+ *
+ * @async createTextDocumentFromURI() - creates a text document from a vscode-uri
+ *
+ * @param {URI} uri - vscode uri object
+ * @returns {Promise<TextDocument>} - a textdocument, if the document contents of 
+ *                                    the document cannont be resovled then we will just
+ *                                    create a text document with empty contents
+ */
+async function createTextDocumentFromURI(uri: URI): Promise<TextDocument> {
+    const file = Utils.resolvePath(uri).fsPath
+    const contents = await promises.readFile(file, 'utf8')
+    return TextDocument.create(uri.toString(), 'fish', 0, contents || "")
+}
 
 /**
  *  DO NOT create vscode-uri anywhere outside of DocumentManager. when a document is returned just use the uri on it. 
@@ -33,26 +85,24 @@ export class DocumentManager {
     // the debbuging for the current testcase 
     public console: RemoteConsole;
 
-
     public static async indexUserConfig(console: RemoteConsole) {
-        ////const documentPromises = files.map(file => createTextDocumentFromFilePath(URI.file(file)))
-        //await Promise.all(
-            //files.map(async file =>
-                //await createTextDocumentFromFilePath(URI.file(file))
-            //)
-        //).then( (allNewDocs: TextDocument[]) => allNewDocs.forEach(newDoc => {
-            //docs.allDocuments[newDoc.uri] = newDoc;
-        //}))
-        
         const docs = new this(console);
         docs.console.log('Indexing Starting in function:\n\t DocumentManager.generateUserConfigDocuments(console)\n')
-        const allDocuments = await getFishTextDocumentsFromStandardLocations()
-        // put files in the promise.all
+        
+        // allow for the future plans of adding more paths through client config. 
+        const paths = [
+            `${homedir()}/.config/fish`,
+            '/usr/share/fish'
+        ];
+
+        const allDocuments = await getTextDocumentsFromPaths(paths);
+        
         allDocuments.forEach(doc => {
-            docs.allDocuments[doc.uri] = doc
+            docs.allDocuments[doc.uri] = doc;
         });
-        docs.console.log('Indexing completed')
-        return docs
+
+        docs.console.log('Indexing completed');
+        return docs;
     }
 
     /**
@@ -103,14 +153,15 @@ export class DocumentManager {
         if (this.openDocuments[correctURI] !== undefined) {
             return this.openDocuments[correctURI]
         }
-        // add to openDocuments, 
+        // add to openDocuments 
         if (this.allDocuments[correctURI] !== undefined) {
             const documentToOpen = this.allDocuments[correctURI];
             this.openDocuments[correctURI] = documentToOpen;
             return this.openDocuments[correctURI]
         }
         // we need to create a new document
-        const newDocument = await createTextDocumentFromFilePath(URI.parse(correctURI));
+        //const newDocument = await createTextDocumentFromFilePath(URI.parse(correctURI));
+        const newDocument = await createTextDocumentFromURI(URI.parse(correctURI))
         if (!newDocument) {
             this.console.log(`[ERROR] DocumentManager.openOrFind(${correctURI})`)
             this.console.log(`        Not found: returned empty text document!`)
@@ -133,7 +184,7 @@ export class DocumentManager {
      */
     public close(uri: string): void {
         const correctURI = this.validateURI(uri);
-        // document is already open
+        // document is already closed
         if (this.openDocuments[correctURI] === undefined) {
             this.console.log(`[ERROR] DocumentManager.closeDocument(${correctURI})`)
             this.console.log(`        uri PassedIn: ${uri}`)
@@ -144,6 +195,21 @@ export class DocumentManager {
         return
     }
 
+
+    /**
+     * @async getLine() - Getter method to retrieve the line of the document passed in.
+     *                    Text returned from this method is unedited, and is likely to 
+     *                    have leading whitespace
+     *
+     * @param {TextDocumentPositionParams} params - the uri, and position of a server call
+     *                                              used for server.onHover(), onComplete()
+     * @returns {Promise<string>} - The line of text in the uri, at the postion specified 
+     */
+    public async getLine(params: TextDocumentPositionParams): Promise<string> {
+        const doc = await this.openOrFind(params.textDocument.uri);
+        const range = getRangeFromPosition(params.position)
+        return doc.getText(range)
+    }
 
 
 
@@ -159,6 +225,7 @@ export class DocumentManager {
     }
 
 }        
+
 
 
 /**

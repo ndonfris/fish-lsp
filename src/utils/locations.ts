@@ -27,7 +27,7 @@ export const FISH_LOCATIONS = {
 
 export async function getFishTextDocumentsFromStandardLocations() {
 
-    const paths = [`${homedir()}/.config/fish`, "/usr/share/fish"];
+    const paths = [`${homedir()}/.config/fish`, '/usr/share/fish'];
     const allFiles: string[] = [];
 
     paths.forEach((path) => {
