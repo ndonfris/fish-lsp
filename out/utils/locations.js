@@ -38,7 +38,7 @@ exports.FISH_LOCATIONS = {
 };
 function getFishTextDocumentsFromStandardLocations() {
     return __awaiter(this, void 0, void 0, function* () {
-        const paths = [`${(0, os_1.homedir)()}/.config/fish`, "/usr/share/fish"];
+        const paths = [`${(0, os_1.homedir)()}/.config/fish`, '/usr/share/fish'];
         const allFiles = [];
         paths.forEach((path) => {
             const files = fast_glob_1.default.sync("**.fish", {

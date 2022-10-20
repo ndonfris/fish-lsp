@@ -9,10 +9,22 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.handleCompletionResolver = exports.buildCompletionItemPromise = exports.resolveFishCompletionItemType = exports.getFishCompletionItemType = exports.FishCompletionItemKind = exports.getCompletionItemType = exports.isFishCommand = exports.isGlobalVariable = exports.isFlag = exports.isBuiltIn = exports.BuiltInList = exports.isCommand = exports.isAlias = exports.isAbbr = void 0;
+exports.handleCompletionResolver = exports.buildCompletionItemPromise = exports.resolveFishCompletionItemType = exports.getFishCompletionItemType = exports.FishCompletionItemKind = exports.getCompletionItemKind = exports.isFishCommand = exports.isGlobalVariable = exports.isFlag = exports.isBuiltIn = exports.BuiltInList = exports.isCommand = exports.isAlias = exports.isAbbr = void 0;
 const vscode_languageserver_1 = require("vscode-languageserver");
 const documentation_1 = require("../documentation");
+const logger_1 = require("../logger");
 const exec_1 = require("./exec");
+function createFishBuiltinComplete(arr) {
+    const cmp = {
+        text: "",
+        description: ""
+    };
+    cmp.text = arr[0];
+    if (arr.length === 2) {
+        cmp.description = arr[1];
+    }
+    return cmp;
+}
 /**
  * line is an array of length 2 (Example below)
  *
@@ -24,10 +36,10 @@ const exec_1 = require("./exec");
  *
  */
 function isAbbr(line) {
-    if (line.length <= 1) {
-        return false;
+    if (line.length == 2) {
+        return line[1].split(' ', 1)[0] === "Abbreviation:";
     }
-    return line[1].trim().startsWith("Abbreviation:");
+    return false;
 }
 exports.isAbbr = isAbbr;
 /**
@@ -41,10 +53,10 @@ exports.isAbbr = isAbbr;
  *                     index[1]: alias shortend_cmd=some_longer_cmd
  */
 function isAlias(line) {
-    if (line.length <= 1) {
-        return false;
+    if (line.length > 1) {
+        return line[1].split(' ', 1)[0] === 'alias';
     }
-    return line[1].trim().split(' ', 1)[0] === 'alias';
+    return false;
 }
 exports.isAlias = isAlias;
 /**
@@ -58,13 +70,13 @@ exports.isAlias = isAlias;
  * @return {boolean} - line is a completion for an Shell External Command.
  */
 function isCommand(line) {
-    if (line.length !== 2) {
-        return false;
+    if (line.length === 2) {
+        return [
+            'command',
+            'command link'
+        ].includes(line[1]);
     }
-    return [
-        'command',
-        'command link'
-    ].includes(line[1].trim());
+    return false;
 }
 exports.isCommand = isCommand;
 exports.BuiltInList = [
@@ -194,12 +206,13 @@ function isFishCommand(line) {
     }
     if (line.length === 2) {
         const type_indicator = line[1].split(' ', 1)[0];
-        return ![
+        const somethingElse = [
             'command',
             'command link',
             'alias',
             'Abbreviation:'
-        ].includes(type_indicator) && !isBuiltIn(line) && !isFlag(line);
+        ].includes(type_indicator);
+        return !somethingElse && !isBuiltIn(line) && !isFlag(line);
     }
     return false;
 }
@@ -213,7 +226,7 @@ exports.isFishCommand = isFishCommand;
  *                                 CompletionResolver()  will use this info to enrich
  *                                 the Completion
  */
-function getCompletionItemType(line, fishKind) {
+function getCompletionItemKind(line, fishKind) {
     if (fishKind !== undefined) {
         return fishKind === FishCompletionItemKind.LOCAL_VAR
             ? vscode_languageserver_1.CompletionItemKind.Variable : vscode_languageserver_1.CompletionItemKind.Function;
@@ -241,7 +254,7 @@ function getCompletionItemType(line, fishKind) {
             vscode_languageserver_1.CompletionItemKind.Method : vscode_languageserver_1.CompletionItemKind.Reference;
     }
 }
-exports.getCompletionItemType = getCompletionItemType;
+exports.getCompletionItemKind = getCompletionItemKind;
 var FishCompletionItemKind;
 (function (FishCompletionItemKind) {
     FishCompletionItemKind[FishCompletionItemKind["ABBR"] = 0] = "ABBR";
@@ -318,6 +331,20 @@ function resolveFishCompletionItemType(cmd) {
     });
 }
 exports.resolveFishCompletionItemType = resolveFishCompletionItemType;
+function initailFishCompletion(label, arr) {
+    const cmpKind = getCompletionItemKind(arr);
+    const fishKind = getFishCompletionItemType(cmpKind);
+    const result = vscode_languageserver_1.CompletionItem.create(label);
+    result.kind = cmpKind;
+    result.documentation = arr.length > 1 ? arr[1] : "";
+    result.insertText = '';
+    result.filterText = "";
+    result.data = {
+        fishKind: fishKind,
+        originalCompletion: arr.join('\t'),
+    };
+    return result;
+}
 /**
  * @async buildCompletionItem() - takes the array of nodes from our string.
  *
@@ -325,45 +352,38 @@ exports.resolveFishCompletionItemType = resolveFishCompletionItemType;
  * @returns {Promise<FishCompletionItem>} - CompletionItem to resolve onCompletion()
  */
 function buildCompletionItemPromise(arr) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const name = arr[0];
-        let itemKind = getCompletionItemType(arr);
-        let fishKind = getFishCompletionItemType(itemKind);
-        let originalCompletion = arr.join('\t');
-        let docs = arr[1] || originalCompletion;
-        let insertText = undefined;
-        let resolveCommand = undefined;
-        let commitCharacters = [];
-        switch (fishKind) {
-            case FishCompletionItemKind.RESOLVE:
-                fishKind = getFishCompletionItemType(itemKind);
-                break;
-            case FishCompletionItemKind.ABBR:
-                insertText = docs.split(' ', 1)[-1].trim();
-                commitCharacters = [' ', ';'];
-                break;
-            case FishCompletionItemKind.LOCAL_VAR:
-                //docs = findDefinition()
-                docs = "Local Variable: " + arr[1];
-                break;
-            case FishCompletionItemKind.LOCAL_FUNC:
-                //docs = findDefinition()
-                docs = "Local Function: \n" + arr[1];
-                break;
-            case FishCompletionItemKind.GLOBAL_VAR:
-                //docs = findDefinition
-                resolveCommand = `set -S ${name}`;
-                break;
-            default:
-                break;
-        }
-        return Object.assign(Object.assign({}, vscode_languageserver_1.CompletionItem.create(name)), { documentation: docs, kind: itemKind, insertText,
-            commitCharacters, data: {
-                resolveCommand,
-                fishKind,
-                originalCompletion,
-            } });
-    });
+    const name = arr[0];
+    const result = initailFishCompletion(name, arr);
+    switch (result.data.fishKind) {
+        case FishCompletionItemKind.RESOLVE:
+            result.data.fishKind = getFishCompletionItemType(result.kind);
+        case FishCompletionItemKind.ABBR:
+            result.insertText = arr[1].split(' ', 1)[-1].trim();
+            result.commitCharacters = [' ', ';'];
+        case FishCompletionItemKind.LOCAL_VAR:
+            //docs = findDefinition()
+            result.documentation = "Local Variable: " + arr[1];
+        case FishCompletionItemKind.LOCAL_FUNC:
+            //docs = findDefinition()
+            result.documentation = "Local Function: " + arr[1];
+        case FishCompletionItemKind.GLOBAL_VAR:
+            //docs = findDefinition
+            result.data.resolveCommand = `set -S ${name}`;
+    }
+    logger_1.logger.log('cmpItem ', { completion: result });
+    return result;
+    //const result = {
+    //    ...CompletionItem.create(name),
+    //    documentation: docs,
+    //    kind: itemKind,
+    //    insertText: insertText,
+    //    commitCharacters: commitCharacters,
+    //    data: {
+    //        resolveCommand: resolveCommand,
+    //        fishKind: fishKind, 
+    //        originalCompletion: arr.join('\t'),
+    //    },
+    //}
 }
 exports.buildCompletionItemPromise = buildCompletionItemPromise;
 function handleCompletionResolver(item, console) {

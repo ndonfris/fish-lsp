@@ -148,10 +148,11 @@ class Completion {
             const cmd = line.replace(/(['$`\\])/g, '\\$1');
             const res = yield execAsync(`fish --command "complete --do-complete='${cmd}' | uniq"`);
             const lines = res.stdout.split('\n').map(line => line.split('\t', 1));
-            this.lineCmps = yield Promise.all(lines.map((arr) => __awaiter(this, void 0, void 0, function* () {
+            const lineCmps = yield Promise.all(lines.map((arr) => __awaiter(this, void 0, void 0, function* () {
                 return yield (0, completion_types_1.buildCompletionItemPromise)(arr);
             })));
-            return node_1.CompletionList.create(this.lineCmps, this.isIncomplete);
+            this.lineCmps = lineCmps;
+            return lineCmps;
         });
     }
     generateLineCompletion(line) {

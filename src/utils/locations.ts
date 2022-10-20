@@ -6,7 +6,6 @@ import path, { resolve, sep } from 'path'
 import FastGlob from 'fast-glob';
 import {TextDocument} from 'vscode-languageserver-textdocument';
 
-
 const completionsDir = resolve(homedir(), '.config', 'fish', 'completions')
 const functionsDir = resolve(homedir(), '.config', 'fish', 'functions')
 const configPath = resolve(homedir(), '.config', 'fish', 'config.fish')

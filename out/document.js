@@ -8,16 +8,66 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getRangeFromPosition = exports.DocumentManager = void 0;
-//import * as LSP from 'vscode-languageserver/node';
-//import { FISH_LOCATIONS, getAllFishLocations } from './utils/locations';
-//import {basename, resolve, sep} from 'path';
+//import { getAllFishLocations, getFishTextDocumentsFromStandardLocations } from './utils/locations';
 const vscode_languageserver_textdocument_1 = require("vscode-languageserver-textdocument");
-const io_1 = require("./utils/io");
-const locations_1 = require("./utils/locations");
 const vscode_languageserver_1 = require("vscode-languageserver");
 const vscode_uri_1 = require("vscode-uri");
+const fast_glob_1 = __importDefault(require("fast-glob"));
+const os_1 = require("os");
+const fs_1 = require("fs");
+const logger_1 = require("./logger");
+// removed the need for utils/{io,locations}.ts with funcitons at the top of this file.
+// Add back later
+/**
+ * @async getFishDocumentsFromFileSystem() - Function to retrieve
+ *                                           Fish default locations for documents are:
+ *                                           $HOME/.config/fish, and /usr/share/fish
+ *
+ * @returns {Promise<TextDocument[]>} - Get all fish files in a directory path and return
+ *                                      them as TextDocuments.
+ */
+function getTextDocumentsFromPaths(paths) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const allFiles = [];
+        paths.forEach((path) => {
+            const files = fast_glob_1.default.sync("**.fish", {
+                absolute: true,
+                dot: true,
+                globstar: true,
+                cwd: path,
+            });
+            allFiles.push(...files);
+        });
+        // now allFiles contains every fish file that could be used in the workspace
+        return yield Promise.all(allFiles.map((file) => __awaiter(this, void 0, void 0, function* () {
+            const contents = yield fs_1.promises.readFile(file, 'utf8');
+            return vscode_languageserver_textdocument_1.TextDocument.create(file, 'fish', 0, contents || "");
+        })));
+    });
+}
+/**
+ * TODO: handle uri: URI | string differently
+ *       @see https://stackoverflow.com/questions/39065077/typescript-multiple-type-parameter
+ *
+ * @async createTextDocumentFromURI() - creates a text document from a vscode-uri
+ *
+ * @param {URI} uri - vscode uri object
+ * @returns {Promise<TextDocument>} - a textdocument, if the document contents of
+ *                                    the document cannont be resovled then we will just
+ *                                    create a text document with empty contents
+ */
+function createTextDocumentFromURI(uri) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const file = vscode_uri_1.Utils.resolvePath(uri).fsPath;
+        const contents = yield fs_1.promises.readFile(file, 'utf8');
+        return vscode_languageserver_textdocument_1.TextDocument.create(uri.toString(), 'fish', 0, contents || "");
+    });
+}
 /**
  *  DO NOT create vscode-uri anywhere outside of DocumentManager. when a document is returned just use the uri on it.
  *  ──────
@@ -50,18 +100,14 @@ class DocumentManager {
     }
     static indexUserConfig(console) {
         return __awaiter(this, void 0, void 0, function* () {
-            ////const documentPromises = files.map(file => createTextDocumentFromFilePath(URI.file(file)))
-            //await Promise.all(
-            //files.map(async file =>
-            //await createTextDocumentFromFilePath(URI.file(file))
-            //)
-            //).then( (allNewDocs: TextDocument[]) => allNewDocs.forEach(newDoc => {
-            //docs.allDocuments[newDoc.uri] = newDoc;
-            //}))
             const docs = new this(console);
             docs.console.log('Indexing Starting in function:\n\t DocumentManager.generateUserConfigDocuments(console)\n');
-            const allDocuments = yield (0, locations_1.getFishTextDocumentsFromStandardLocations)();
-            // put files in the promise.all
+            // allow for the future plans of adding more paths through client config. 
+            const paths = [
+                `${(0, os_1.homedir)()}/.config/fish`,
+                '/usr/share/fish'
+            ];
+            const allDocuments = yield getTextDocumentsFromPaths(paths);
             allDocuments.forEach(doc => {
                 docs.allDocuments[doc.uri] = doc;
             });
@@ -103,20 +149,24 @@ class DocumentManager {
             if (this.openDocuments[correctURI] !== undefined) {
                 return this.openDocuments[correctURI];
             }
-            // add to openDocuments, 
+            // add to openDocuments 
             if (this.allDocuments[correctURI] !== undefined) {
                 const documentToOpen = this.allDocuments[correctURI];
                 this.openDocuments[correctURI] = documentToOpen;
                 return this.openDocuments[correctURI];
             }
             // we need to create a new document
-            const newDocument = yield (0, io_1.createTextDocumentFromFilePath)(vscode_uri_1.URI.parse(correctURI));
+            //const newDocument = await createTextDocumentFromFilePath(URI.parse(correctURI));
+            const newDocument = yield createTextDocumentFromURI(vscode_uri_1.URI.parse(correctURI));
             if (!newDocument) {
-                this.console.log(`[ERROR] DocumentManager.openOrFind(${correctURI})`);
-                this.console.log(`        Not found: returned empty text document!`);
-                this.console.log(`        uri PassedIn: ${uri}`);
-                this.console.log(`        uri Corrected: ${correctURI}`);
-                this.console.log('');
+                logger_1.logger.log("", {
+                    error: true,
+                    extraInfo: [
+                        `DocumentManager.openOrFind(${correctURI})`,
+                        `Not found: returned empty text document!`,
+                        `uri PassedIn: ${uri}`,
+                    ],
+                });
                 return vscode_languageserver_textdocument_1.TextDocument.create(correctURI, 'fish', -1, '');
             }
             this.allDocuments[correctURI] = newDocument;
@@ -125,14 +175,13 @@ class DocumentManager {
         });
     }
     /**
-     * @async close(uri) -
+     * @async close(uri) - given a uri from the server, remove it from the open documents
+     *                     object.
      * @param uri - closes this uri its in the currently opened documents
-     *
-     * @returns
      */
     close(uri) {
         const correctURI = this.validateURI(uri);
-        // document is already open
+        // document is already closed
         if (this.openDocuments[correctURI] === undefined) {
             this.console.log(`[ERROR] DocumentManager.closeDocument(${correctURI})`);
             this.console.log(`        uri PassedIn: ${uri}`);
@@ -142,6 +191,22 @@ class DocumentManager {
             delete this.openDocuments[correctURI];
         }
         return;
+    }
+    /**
+     * @async getLine() - Getter method to retrieve the line of the document passed in.
+     *                    Text returned from this method is unedited, and is likely to
+     *                    have leading whitespace
+     *
+     * @param {TextDocumentPositionParams} params - the uri, and position of a server call
+     *                                              used for server.onHover(), onComplete()
+     * @returns {Promise<string>} - The line of text in the uri, at the postion specified
+     */
+    getLine(params) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const doc = yield this.openOrFind(params.textDocument.uri);
+            const range = getRangeFromPosition(params.position);
+            return doc.getText(range);
+        });
     }
     /**
      * returns a correctly formatted string that is a vscode-uri
@@ -475,5 +540,5 @@ exports.getRangeFromPosition = getRangeFromPosition;
 //        this._files.splice(this._files.indexOf(file), 1);
 //        return document;
 //    }
-//}
+//}                  e
 //# sourceMappingURL=document.js.map

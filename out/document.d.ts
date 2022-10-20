@@ -1,5 +1,5 @@
-import { Range, Position, TextDocument } from 'vscode-languageserver-textdocument';
-import { RemoteConsole, TextDocuments } from 'vscode-languageserver';
+import { TextDocument, Position, Range } from 'vscode-languageserver-textdocument';
+import { RemoteConsole, TextDocumentPositionParams, TextDocuments } from 'vscode-languageserver';
 /**
  *  DO NOT create vscode-uri anywhere outside of DocumentManager. when a document is returned just use the uri on it.
  *  ──────
@@ -51,12 +51,21 @@ export declare class DocumentManager {
      */
     openOrFind(uri: string): Promise<TextDocument>;
     /**
-     * @async close(uri) -
+     * @async close(uri) - given a uri from the server, remove it from the open documents
+     *                     object.
      * @param uri - closes this uri its in the currently opened documents
-     *
-     * @returns
      */
     close(uri: string): void;
+    /**
+     * @async getLine() - Getter method to retrieve the line of the document passed in.
+     *                    Text returned from this method is unedited, and is likely to
+     *                    have leading whitespace
+     *
+     * @param {TextDocumentPositionParams} params - the uri, and position of a server call
+     *                                              used for server.onHover(), onComplete()
+     * @returns {Promise<string>} - The line of text in the uri, at the postion specified
+     */
+    getLine(params: TextDocumentPositionParams): Promise<string>;
     /**
      * returns a correctly formatted string that is a vscode-uri
      *

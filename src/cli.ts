@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-'use strict'
+//'use strict'
 import {TextDocument} from 'vscode-languageserver-textdocument';
 import { createConnection, InitializeParams, InitializeResult, ProposedFeatures, StreamMessageReader, StreamMessageWriter, TextDocuments, TextDocumentSyncKind } from "vscode-languageserver/node";
 import {URI} from 'vscode-uri';

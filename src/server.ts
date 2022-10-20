@@ -8,10 +8,9 @@ import { initializeParser } from "./parser";
 //import { MyAnalyzer } from "./analyse";
 import { Analyzer } from "./analyze";
 import { getAllFishLocations } from "./utils/locations";
-import { Logger } from "./logger";
+import { logger } from "./logger";
 import { Completion } from "./completion";
 import { createTextDocumentFromFilePath } from "./utils/io";
-
 import {
     ClientCapabilities,
     createConnection,
@@ -38,6 +37,9 @@ import {getChildNodes, getNodeText} from './utils/tree-sitter';
 import {isLocalVariable, isVariable} from './utils/node-types';
 import {FishCompletionItem, handleCompletionResolver} from './utils/completion-types';
 
+
+
+
 export default class FishServer {
 
 
@@ -45,6 +47,7 @@ export default class FishServer {
         connection: Connection,
         { capabilities }: InitializeParams
     ): Promise<FishServer> {
+        logger.setConsole(connection.console)
         const parser = await initializeParser();
         return Promise.all([
             new Analyzer(parser),
@@ -110,37 +113,22 @@ export default class FishServer {
     }
 
     public register(): void {
-        this.docs.documents.listen(this.connection)
-
         this.connection.onDidOpenTextDocument(async change => {
             const document = change.textDocument;
-            this.console.log('[connection.onDidOpenTextDocument] '+ document.uri)
             const uri = document.uri;
             let doc = await this.docs.openOrFind(uri)
             this.analyzer.analyze(doc);
-            //this.logger.logmsg({action:'onOpen', path: uri})
+            logger.log(this.connection.onDidOpenTextDocument.name, {document:doc})
         })
 
         this.connection.onDidChangeTextDocument(async change => {
-            const document = change.textDocument;
-            const uri = document.uri;
-            //this.documents.newDocument(uri);
-            //this.console.log('[connection.onDidChangeTextDocument] '+ uri)
+            const uri = change.textDocument.uri;
             let doc = await this.docs.openOrFind(uri);
-            //this.console.log(doc.getText())
-            this.console.log('[connection.onDidChangeTextDocument] '+ doc.uri)
-            doc = TextDocument.update(doc, change.contentChanges, document.version+1)
-            //this.console.log(doc.getText())
+            logger.log(this.connection.onDidChangeTextDocument.name, {extraInfo: [doc.uri, '\nchanges:', ...change.contentChanges.map(c => c.text)]})
+            doc = TextDocument.update(doc, change.contentChanges, change.textDocument.version);
             this.analyzer.analyze(doc);
             const root = this.analyzer.getRoot(doc)
-            //for (const n of getChildNodes(root)) {
-            //    try {
-            //        isLocalVariable(n, this.console)
-            //        this.console.log(`localNode: ${getNodeText(n) || ""}`);
-            //    } catch (err) {
-            //        this.console.log("ERROR: " + n.text)
-            //    }
-            //}
+            // do More stuff
         });
 
 
@@ -148,8 +136,8 @@ export default class FishServer {
             const uri = change.textDocument.uri;
             this.docs.close(uri);
         });
-        // if formatting is enabled in settings. add onContentDidSave
 
+        // if formatting is enabled in settings. add onContentDidSave
         // Register all the handlers for the LSP events.
         //connection.onHover(this.onHover.bind(this))
         // connection.onDefinition(this.onDefinition.bind(this))
@@ -162,68 +150,47 @@ export default class FishServer {
         this.docs.documents.onDidChangeContent(async change => {
             const document = change.document;
             const uri = document.uri;
-            //this.documents.newDocument(uri);
             let doc = await this.docs.openOrFind(uri);
-            this.console.log('documents.onDidChangeContent: ' + doc.uri)
-            //this.console.log(doc.getText())
-            //doc = TextDocument.update(change.document, change.document., document.version+1)
-            //console.log(doc.getText())
+            logger.log('documents.onDidChangeContent: ' + doc.uri)
             this.analyzer.analyze(doc);
         })
+        this.docs.documents.listen(this.connection)
+
     }
 
     public async onCompletion(completionParams: TextDocumentPositionParams):  Promise<CompletionList | null>{
         const uri: string = completionParams.textDocument.uri;
         const position = completionParams.position;
 
-        this.console.log('onComplete' + uri)
+        logger.log('server.onComplete' + uri, {caller: this.onCompletion.name, position: completionParams.position})
 
-        //if (documentText.endsWith('-')) {
-        //    return null;
-        //}
         const doc = await this.docs.openOrFind(uri);
-        //this.console.log('onComplete() doc.uri = ' + doc.uri)
-        this.analyzer.analyze(doc)
         const node: SyntaxNode | null = this.analyzer.nodeAtPoint(doc.uri, position.line, position.character);
-        //this.console.log('[connection.onCompletion()] -> analyzer.nodeAtPoint' + getNodeText(node))
+
+        const r = getRangeFromPosition(completionParams.position);
+        logger.log('on complete node', {caller:this.onCompletion.name, rootNode: node || undefined, position: completionParams.position})
 
         const line: string = this.analyzer.currentLine(doc, completionParams.position) || ""
-        const r = getRangeFromPosition(completionParams.position);
-        //this.console.log(`[onComplete(${position.line}, ${position.character})] LINE -> ${line}; RANGE -> {\n\tstart: (${r.start.line}, ${r.start.character}),\n\t end: (${r.end.line}, ${r.end.character})\n}`)
+        if (line.startsWith("#")) {
+            return null;
+        }
 
         if (line !== "") {
-            return await this.completion.generateLineCmpNew(line)
-            //await this.completion.generateLineCompletion(line)
+            return CompletionList.create(await this.completion.generateLineCmpNew(line))
         }
-
-        if (!node) return this.completion.fallbackComplete()
-
-
-        const completionList = await this.completion.generate(node)
-        if (completionList) {
-            return completionList
-        }
-
-        return this.completion.fallbackComplete();
+        return null
     }
 
 
     public async onCompletionResolve(item: CompletionItem): Promise<CompletionItem> {
-        //import
         let newItem = item;
         const fishItem = item as FishCompletionItem;
         try {
+            logger.log('server onCompletionResolve:', {extraInfo: ['beforeResolve:' ], completion: item})
             newItem = await handleCompletionResolver(item as FishCompletionItem, this.console)
-            this.console.log(`
-                { ${fishItem.label}, 
-                    ${fishItem.documentation}, 
-                    ${fishItem.data?.originalCompletion}
-                  ${fishItem.kind}, 
-                }
-            `);
-            
+            logger.log('server onCompletionResolve:', {extraInfo: ['AfterResolve:' ], completion: item})
         } catch (err) {
-            this.console.log("ERRRRRRRRRRRRROOOOORRRR" +err)
+            logger.log("ERRRRRRRRRRRRROOOOORRRR " + err)
             return item;
         }
         return newItem;
@@ -231,88 +198,3 @@ export default class FishServer {
 }
 
 
-//function register(cliOptions?: CliOptions) {
-//    const { connection, documents } = context;
-//    
-//
-//    // store handlers to refrences 
-//    const handleInitialize = getInitializeHandler(context);
-//    const handleInitialized = getInitializedHandler(context);
-//
-//    const handleDidChangeContent = getDidChangeContentHandler(context);
-//    const handleCompletionResolver = getCompletionResolveHandler(context);
-//                                                       
-//
-//    // attach handlers by refrence
-//    connection.onInitialize(handleInitialize);
-//    context.connection.onInitialized(handleInitialized);
-//
-//    //context.connection.window.showWarningMessage("hello world")
-//}
-//
-//
-//
-//
-///**
-// * run the server 
-// *
-// * @param {CliOptions} [cliOptions] - --noIndex, --stdout, --node-rpc
-// */
-//export function main(cliOptions?: CliOptions) { 
-//    const { connection, documents } = context;
-//
-//    if (cliOptions) context.cliOptions
-//
-//    register(cliOptions)
-//
-//    context.documents.onDidChangeContent( async change => {
-//        context.connection.console.error('handleDidChangeContent()')
-//        const uri = change.document.uri; 
-//        context.connection.console.error(`handleDidChangeContent(): ${uri}`)
-//        const doc = context.documents.get(uri);
-//        if (doc) {
-//            context.analyzer.analyze(context, doc);
-//        } else {
-//            const newDoc = await createTextDocumentFromFilePath(context, new URL(change.document.uri))
-//            if (newDoc) await context.analyzer.initialize(context, newDoc);
-//            return null
-//        }
-//    })
-//    context.connection.languages.connection.onCompletion((params: CompletionParams) => {
-//        context.connection.console.log(`completion: ${params}`)
-//        return null
-//    });
-//
-//    context.documents.listen(connection)
-//    context.connection.listen()
-//}
-//
-//if (require.main === module) main()
-
-
-//context.connection.onInitialize((_params: InitializeParams) => {
-//    
-//    return {
-//        capabilities: {
-//            textDocumentSync: TextDocumentSyncKind.Full,
-//            // Tell the client that the server supports code completion
-//            completionProvider: {
-//                resolveProvider: false,
-//            },
-//        },
-//    };
-//});
-//
-//
-//
-//
-//
-//connection.onCompletion(async (textDocumentPosition, token) => {
-//    const document = documents.get(textDocumentPosition.textDocument.uri);
-//    if (!document) {
-//        return null;
-//    }
-//});
-//
-//documents.listen(connection);
-//connection.listen();

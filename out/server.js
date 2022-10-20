@@ -17,6 +17,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const parser_1 = require("./parser");
 //import { MyAnalyzer } from "./analyse";
 const analyze_1 = require("./analyze");
+const logger_1 = require("./logger");
 const completion_1 = require("./completion");
 const node_1 = require("vscode-languageserver/node");
 const vscode_languageserver_textdocument_1 = require("vscode-languageserver-textdocument");
@@ -33,6 +34,7 @@ class FishServer {
     }
     static initialize(connection, { capabilities }) {
         return __awaiter(this, void 0, void 0, function* () {
+            logger_1.logger.setConsole(connection.console);
             const parser = yield (0, parser_1.initializeParser)();
             return Promise.all([
                 new analyze_1.Analyzer(parser),
@@ -59,35 +61,21 @@ class FishServer {
         };
     }
     register() {
-        this.docs.documents.listen(this.connection);
         this.connection.onDidOpenTextDocument((change) => __awaiter(this, void 0, void 0, function* () {
             const document = change.textDocument;
-            this.console.log('[connection.onDidOpenTextDocument] ' + document.uri);
             const uri = document.uri;
             let doc = yield this.docs.openOrFind(uri);
             this.analyzer.analyze(doc);
-            //this.logger.logmsg({action:'onOpen', path: uri})
+            logger_1.logger.log(this.connection.onDidOpenTextDocument.name, { document: doc });
         }));
         this.connection.onDidChangeTextDocument((change) => __awaiter(this, void 0, void 0, function* () {
-            const document = change.textDocument;
-            const uri = document.uri;
-            //this.documents.newDocument(uri);
-            //this.console.log('[connection.onDidChangeTextDocument] '+ uri)
+            const uri = change.textDocument.uri;
             let doc = yield this.docs.openOrFind(uri);
-            //this.console.log(doc.getText())
-            this.console.log('[connection.onDidChangeTextDocument] ' + doc.uri);
-            doc = vscode_languageserver_textdocument_1.TextDocument.update(doc, change.contentChanges, document.version + 1);
-            //this.console.log(doc.getText())
+            logger_1.logger.log(this.connection.onDidChangeTextDocument.name, { extraInfo: [doc.uri, '\nchanges:', ...change.contentChanges.map(c => c.text)] });
+            doc = vscode_languageserver_textdocument_1.TextDocument.update(doc, change.contentChanges, change.textDocument.version);
             this.analyzer.analyze(doc);
             const root = this.analyzer.getRoot(doc);
-            //for (const n of getChildNodes(root)) {
-            //    try {
-            //        isLocalVariable(n, this.console)
-            //        this.console.log(`localNode: ${getNodeText(n) || ""}`);
-            //    } catch (err) {
-            //        this.console.log("ERROR: " + n.text)
-            //    }
-            //}
+            // do More stuff
         }));
         this.connection.onDidCloseTextDocument((change) => __awaiter(this, void 0, void 0, function* () {
             const uri = change.textDocument.uri;
@@ -106,62 +94,42 @@ class FishServer {
         this.docs.documents.onDidChangeContent((change) => __awaiter(this, void 0, void 0, function* () {
             const document = change.document;
             const uri = document.uri;
-            //this.documents.newDocument(uri);
             let doc = yield this.docs.openOrFind(uri);
-            this.console.log('documents.onDidChangeContent: ' + doc.uri);
-            //this.console.log(doc.getText())
-            //doc = TextDocument.update(change.document, change.document., document.version+1)
-            //console.log(doc.getText())
+            logger_1.logger.log('documents.onDidChangeContent: ' + doc.uri);
             this.analyzer.analyze(doc);
         }));
+        this.docs.documents.listen(this.connection);
     }
     onCompletion(completionParams) {
         return __awaiter(this, void 0, void 0, function* () {
             const uri = completionParams.textDocument.uri;
             const position = completionParams.position;
-            this.console.log('onComplete' + uri);
-            //if (documentText.endsWith('-')) {
-            //    return null;
-            //}
+            logger_1.logger.log('server.onComplete' + uri, { caller: this.onCompletion.name, position: completionParams.position });
             const doc = yield this.docs.openOrFind(uri);
-            //this.console.log('onComplete() doc.uri = ' + doc.uri)
-            this.analyzer.analyze(doc);
             const node = this.analyzer.nodeAtPoint(doc.uri, position.line, position.character);
-            //this.console.log('[connection.onCompletion()] -> analyzer.nodeAtPoint' + getNodeText(node))
-            const line = this.analyzer.currentLine(doc, completionParams.position) || "";
             const r = (0, document_1.getRangeFromPosition)(completionParams.position);
-            //this.console.log(`[onComplete(${position.line}, ${position.character})] LINE -> ${line}; RANGE -> {\n\tstart: (${r.start.line}, ${r.start.character}),\n\t end: (${r.end.line}, ${r.end.character})\n}`)
+            logger_1.logger.log('on complete node', { caller: this.onCompletion.name, rootNode: node || undefined, position: completionParams.position });
+            const line = this.analyzer.currentLine(doc, completionParams.position) || "";
+            if (line.startsWith("#")) {
+                return null;
+            }
             if (line !== "") {
-                return yield this.completion.generateLineCmpNew(line);
-                //await this.completion.generateLineCompletion(line)
+                return node_1.CompletionList.create(yield this.completion.generateLineCmpNew(line));
             }
-            if (!node)
-                return this.completion.fallbackComplete();
-            const completionList = yield this.completion.generate(node);
-            if (completionList) {
-                return completionList;
-            }
-            return this.completion.fallbackComplete();
+            return null;
         });
     }
     onCompletionResolve(item) {
-        var _a;
         return __awaiter(this, void 0, void 0, function* () {
-            //import
             let newItem = item;
             const fishItem = item;
             try {
+                logger_1.logger.log('server onCompletionResolve:', { extraInfo: ['beforeResolve:'], completion: item });
                 newItem = yield (0, completion_types_1.handleCompletionResolver)(item, this.console);
-                this.console.log(`
-                { ${fishItem.label}, 
-                    ${fishItem.documentation}, 
-                    ${(_a = fishItem.data) === null || _a === void 0 ? void 0 : _a.originalCompletion}
-                  ${fishItem.kind}, 
-                }
-            `);
+                logger_1.logger.log('server onCompletionResolve:', { extraInfo: ['AfterResolve:'], completion: item });
             }
             catch (err) {
-                this.console.log("ERRRRRRRRRRRRROOOOORRRR" + err);
+                logger_1.logger.log("ERRRRRRRRRRRRROOOOORRRR " + err);
                 return item;
             }
             return newItem;
@@ -169,87 +137,4 @@ class FishServer {
     }
 }
 exports.default = FishServer;
-//function register(cliOptions?: CliOptions) {
-//    const { connection, documents } = context;
-//    
-//
-//    // store handlers to refrences 
-//    const handleInitialize = getInitializeHandler(context);
-//    const handleInitialized = getInitializedHandler(context);
-//
-//    const handleDidChangeContent = getDidChangeContentHandler(context);
-//    const handleCompletionResolver = getCompletionResolveHandler(context);
-//                                                       
-//
-//    // attach handlers by refrence
-//    connection.onInitialize(handleInitialize);
-//    context.connection.onInitialized(handleInitialized);
-//
-//    //context.connection.window.showWarningMessage("hello world")
-//}
-//
-//
-//
-//
-///**
-// * run the server 
-// *
-// * @param {CliOptions} [cliOptions] - --noIndex, --stdout, --node-rpc
-// */
-//export function main(cliOptions?: CliOptions) { 
-//    const { connection, documents } = context;
-//
-//    if (cliOptions) context.cliOptions
-//
-//    register(cliOptions)
-//
-//    context.documents.onDidChangeContent( async change => {
-//        context.connection.console.error('handleDidChangeContent()')
-//        const uri = change.document.uri; 
-//        context.connection.console.error(`handleDidChangeContent(): ${uri}`)
-//        const doc = context.documents.get(uri);
-//        if (doc) {
-//            context.analyzer.analyze(context, doc);
-//        } else {
-//            const newDoc = await createTextDocumentFromFilePath(context, new URL(change.document.uri))
-//            if (newDoc) await context.analyzer.initialize(context, newDoc);
-//            return null
-//        }
-//    })
-//    context.connection.languages.connection.onCompletion((params: CompletionParams) => {
-//        context.connection.console.log(`completion: ${params}`)
-//        return null
-//    });
-//
-//    context.documents.listen(connection)
-//    context.connection.listen()
-//}
-//
-//if (require.main === module) main()
-//context.connection.onInitialize((_params: InitializeParams) => {
-//    
-//    return {
-//        capabilities: {
-//            textDocumentSync: TextDocumentSyncKind.Full,
-//            // Tell the client that the server supports code completion
-//            completionProvider: {
-//                resolveProvider: false,
-//            },
-//        },
-//    };
-//});
-//
-//
-//
-//
-//
-//connection.onCompletion(async (textDocumentPosition, token) => {
-//    const document = documents.get(textDocumentPosition.textDocument.uri);
-//    if (!document) {
-//        return null;
-//    }
-//});
-//
-//documents.listen(connection);
-//connection.listen();
 //# sourceMappingURL=server.js.map

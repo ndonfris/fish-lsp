@@ -1,5 +1,19 @@
 import { CompletionItem, CompletionItemKind, MarkupContent, RemoteConsole } from 'vscode-languageserver';
 /**
+ * text: actual completion text
+ * description: fish shell compleiton description
+ *
+ * bind        (Handle fish key binding)
+ * text          description --> note: no parenthesis when outside of interactive shell
+ *
+ * Descriptions are optionally because things like function files will not show any
+ * description, however we will indcate it empty string
+ */
+export interface FishBuiltinCmp {
+    text: string;
+    description: string;
+}
+/**
  * line is an array of length 2 (Example below)
  *
  *     ta	Abbreviation: tmux attach -t
@@ -84,7 +98,7 @@ export declare function isFishCommand(line: string[]): boolean;
  *                                 CompletionResolver()  will use this info to enrich
  *                                 the Completion
  */
-export declare function getCompletionItemType(line: string[], fishKind?: FishCompletionItemKind): CompletionItemKind;
+export declare function getCompletionItemKind(line: string[], fishKind?: FishCompletionItemKind): CompletionItemKind;
 export declare enum FishCompletionItemKind {
     ABBR = 0,
     ALIAS = 1,
@@ -126,11 +140,10 @@ export interface FishCompletionItem extends CompletionItem {
     kind: CompletionItemKind;
     documentation?: string | MarkupContent;
     insertText?: string;
-    commitCharacters?: string[];
-    data?: {
+    data: {
         originalCompletion?: string;
         resolveCommand?: string;
-        fishKind?: FishCompletionItemKind;
+        fishKind: FishCompletionItemKind;
         range?: Range;
     };
 }
@@ -140,6 +153,6 @@ export interface FishCompletionItem extends CompletionItem {
  * @param {string[]} arr - [name, docs]
  * @returns {Promise<FishCompletionItem>} - CompletionItem to resolve onCompletion()
  */
-export declare function buildCompletionItemPromise(arr: string[]): Promise<FishCompletionItem>;
+export declare function buildCompletionItemPromise(arr: string[]): FishCompletionItem;
 export declare function handleCompletionResolver(item: FishCompletionItem, console: RemoteConsole): Promise<FishCompletionItem>;
 //# sourceMappingURL=completion-types.d.ts.map

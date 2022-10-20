@@ -184,15 +184,16 @@ export class Completion {
     // therefore you probably want to add the defaults (abbr & global variable list)
     // after this.completions is enriched
 
-    public async generateLineCmpNew(line: string) {
+    public async generateLineCmpNew(line: string): Promise<CompletionItem[]> {
         const cmd = line.replace(/(['$`\\])/g, '\\$1')
         const res = await execAsync(`fish --command "complete --do-complete='${cmd}' | uniq"`)
         const lines = res.stdout.split('\n').map(line => line.split('\t', 1)) 
             
-        this.lineCmps = await Promise.all(lines.map(async (arr: string[]) => {
+        const lineCmps = await Promise.all(lines.map(async (arr: string[]) => {
             return await buildCompletionItemPromise(arr);
         }))
-        return CompletionList.create(this.lineCmps, this.isIncomplete);
+        this.lineCmps = lineCmps;
+        return lineCmps
     }
 
     public async generateLineCompletion(line: string){

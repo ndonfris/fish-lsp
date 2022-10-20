@@ -1,24 +1,80 @@
 import {CompletionItem, CompletionItemKind, InsertTextFormat, MarkupContent, RemoteConsole} from 'vscode-languageserver';
 import {enrichCommandArg, enrichToCodeBlockMarkdown} from '../documentation';
+import {logger} from '../logger';
 import {execCommandDocs, execCommandType} from './exec';
 
 
+/**
+ * text: actual completion text
+ * description: fish shell compleiton description  
+ *
+ * bind        (Handle fish key binding) 
+ * text          description --> note: no parenthesis when outside of interactive shell 
+ *
+ * Descriptions are optionally because things like function files will not show any
+ * description, however we will indcate it empty string
+ */
+export interface CmdLineCmp {
+    text: string;
+    description: string;
+}
+
+
+function createFishBuiltinComplete(arr: string[]) {
+    const cmp: CmdLineCmp = {
+        text: "",
+        description: ""
+    }
+    cmp.text = arr[0];
+    if (arr.length === 2) {
+        cmp.description = arr[1];
+    }
+    return cmp;
+}
+
+function parseDescriptionKeywords(cliText: CmdLineCmp) {
+    const secondItem = cliText.description.replace(':', ''); 
+    let results: string[] = []
+    if (secondItem === "") {
+        return [""];
+    } else {
+        if (secondItem.includes(' ')) { 
+            results = secondItem.split(' ', 2)
+            return [results[0].toLowerCase(), ...results.slice(1)]
+        } else {
+            return [secondItem]
+        }
+    }
+}   
+
+
+
+
+export interface FishCompletionItem extends CompletionItem {
+    label: string;
+    kind: CompletionItemKind;
+    documentation?: string | MarkupContent; 
+    data: {
+        originalCompletion: string; // the original line in fish completion call from the terminal
+        fishKind: FishCompletionItemKind; // VERBOSE form of kind
+    }
+    create(label: string): CompletionItem;
+}
 
 /**
- * line is an array of length 2 (Example below)
- *
  *     ta	Abbreviation: tmux attach -t
  *
- * @param {string[]} line - a result from fish's builtin commandline completions
+ * @param {CmdLineCmp} line - a result from fish's builtin commandline completions
  *                     index[0]: the actual abbr
  *                     index[1]: Abbreviation: expansion
  *
  */
-export function isAbbr(line: string[]): boolean {
-    if (line.length <= 1) {
-        return false;
+export function isAbbr(cliText: CmdLineCmp): boolean {
+    if (cliText.description !== "")  {
+        const firstWord = cliText.description.split(' ', 1)[0]
+        return firstWord === "Abbreviation:"
     }
-    return line[1].trim().startsWith("Abbreviation:")
+    return false;
 }
 
 /**
@@ -30,12 +86,12 @@ export function isAbbr(line: string[]): boolean {
  * @param {string[]} line - a result from fish's builtin commandline completions
  *                     index[0]: the alias
  *                     index[1]: alias shortend_cmd=some_longer_cmd
- */
+ */data: {originalCompletion: string; fishKind: FishCompletionItemKind;};
 export function isAlias(line: string[]): boolean {
-    if (line.length <= 1) {
-        return false;
+    if (line.length > 1) {
+        return line[1].split(' ', 1)[0] === 'alias' 
     }
-    return line[1].trim().split(' ', 1)[0] === 'alias' 
+    return false;
 }
 
 /**
@@ -49,13 +105,13 @@ export function isAlias(line: string[]): boolean {
  * @return {boolean} - line is a completion for an Shell External Command. 
  */
 export function isCommand(line: string[]): boolean {
-    if (line.length !== 2) {
-        return false;
+    if (line.length === 2) {
+        return [
+            'command',
+            'command link'
+        ].includes(line[1])
     } 
-    return [
-        'command',
-        'command link'
-    ].includes(line[1].trim())
+    return false;
 }
 
 export const BuiltInList = [
@@ -136,7 +192,7 @@ const BuiltInSET = new Set(BuiltInList);
  * @param {string[]} line - a result from fish's builtin commandline completions
  * @return {boolean} - line is a completion for an builtin 
  */
-export function isBuiltIn(line: string[]): boolean {
+export function isBuiltIn(line: string | [...string[]]): boolean {
     const word = line[0].trim()
     return BuiltInSET.has(word)
 }
@@ -189,12 +245,13 @@ export function isFishCommand(line: string[]): boolean {
     }
     if (line.length === 2 ) {
         const type_indicator = line[1].split(' ', 1)[0]
-        return ![
+        const somethingElse = [
             'command',
             'command link',
             'alias',
             'Abbreviation:'
-        ].includes(type_indicator) && !isBuiltIn(line) && !isFlag(line)
+        ].includes(type_indicator)
+        return !somethingElse && !isBuiltIn(line) && !isFlag(line)
     }
     return false;
 }
@@ -213,7 +270,8 @@ export function isFishCommand(line: string[]): boolean {
  *                                 CompletionResolver()  will use this info to enrich
  *                                 the Completion
  */
-export function getCompletionItemType(line: string[], fishKind?: FishCompletionItemKind) : CompletionItemKind {
+export function getCompletionItemKind(line: string[], fishKind?: FishCompletionItemKind) : CompletionItemKind {
+    const cli = FishBuiltinCmp(line)
     if (fishKind !== undefined) {
         return fishKind === FishCompletionItemKind.LOCAL_VAR
             ? CompletionItemKind.Variable : CompletionItemKind.Function
@@ -237,18 +295,70 @@ export function getCompletionItemType(line: string[], fishKind?: FishCompletionI
 
 
 export enum FishCompletionItemKind {
-    ABBR,              // interface
-    ALIAS,             // interface
-    BUILTIN,           // keyword
-    GLOBAL_VAR,        // variable
-    LOCAL_VAR,         // variable
-    GLOBAL_FUNC,       // function
-    LOCAL_FUNC,        // function
-    FLAG,              // field
-    CMD,               // module
-    CMD_NO_DOC,        // refrence
-    RESOLVE            // method -> module or function
+    ABBR = CompletionItemKind.Interface,                // interface
+    ALIAS = CompletionItemKind.Struct,                  // struct
+    BUILTIN = CompletionItemKind.Keyword,               // keyword
+    GLOBAL_VAR = CompletionItemKind.Constant,           // constant
+    LOCAL_VAR = CompletionItemKind.Variable,            // variable
+    USER_FUNC = CompletionItemKind.Function,            // function
+    GLOBAL_FUNC = CompletionItemKind.Method,            // method
+    LOCAL_FUNC = CompletionItemKind.Constructor,        // constructor
+    FLAG = CompletionItemKind.Field,                    // field
+    CMD = CompletionItemKind.Class,                     // class
+    CMD_NO_DOC = CompletionItemKind.Class,              // class
+    RESOLVE = CompletionItemKind.Unit                   // unit
 }
+
+
+
+
+
+export const fishCompletionItemKindMap = {
+    ABBR: CompletionItemKind.Interface,
+    ALIAS: CompletionItemKind.Struct,
+    BUILTIN: CompletionItemKind.Keyword,
+    FLAG: CompletionItemKind.Field, 
+    LOCAL_VAR: CompletionItemKind.Variable, 
+    GLOBAL_VAR: CompletionItemKind.Constant, 
+    GLOBAL_FUNC: CompletionItemKind.Method, 
+    USER_FUNC: CompletionItemKind.Function, 
+    LOCAL_FUNC: CompletionItemKind.Constructor, 
+    CMD: CompletionItemKind.Class,
+    CMD_NO_DOC: CompletionItemKind.Class,
+    RESOLVE: CompletionItemKind.Unit
+} as const;
+
+//interface CompeltionItemKindKey {
+    //[key in keyof typeof CompletionItemKind]: any;
+//}
+
+export const completionItemKindMap = {
+    Interface:     FishCompletionItemKind.ABBR,
+    Struct:        FishCompletionItemKind.ALIAS,
+    Keyword:       FishCompletionItemKind.BUILTIN,
+    Field:         FishCompletionItemKind.FLAG,
+    Variable:      FishCompletionItemKind.LOCAL_VAR,
+    Constant:      FishCompletionItemKind.GLOBAL_VAR,
+    Method:        FishCompletionItemKind.GLOBAL_FUNC,
+    Function:      FishCompletionItemKind.USER_FUNC,
+    Constructor:   FishCompletionItemKind.LOCAL_FUNC,
+    Class:         FishCompletionItemKind.CMD_NO_DOC,
+    Unit:          FishCompletionItemKind.RESOLVE
+} as const;
+
+
+//export type CompletionItemKindType = Partial<Record<keyof typeof CompletionItemKind, number>>;
+//
+//export type CompletionItemKindMapKey = typeof completionItemKindMap[keyof typeof completionItemKindMap]
+//export function getCorrespondingKind(knownKind: any): FishCompletionItemKind | CompletionItemKind {
+//    if (knownKind instanceof completionItemKindMap) {
+//        return completionItemKindMap.knownKind as CompletionItemKindMapKey;
+//    } else {
+//        return fishCompletionItemKindMap[knownKind] as CompletionItemKindMapKey;
+//    }
+//    
+//
+//}
 
 
 export function getFishCompletionItemType(itemKind: CompletionItemKind, options?: {local?: boolean, usrFile?: boolean, fishFile?:boolean}) {
@@ -321,18 +431,21 @@ export async function resolveFishCompletionItemType(cmd: string): Promise<FishCo
 }
 
 
-export interface FishCompletionItem extends CompletionItem {
-    label: string;
-    kind: CompletionItemKind;
-    documentation?: string | MarkupContent; 
-    insertText?: string;
-    commitCharacters?: string[];
-    data?: {
-        originalCompletion?: string; // the original line in fish completion call from the terminal
-        resolveCommand?: string; // command for connection.CompletionResolveItem()
-        fishKind?: FishCompletionItemKind; // VERBOSE form of kind
-        range?: Range;
+
+
+function initailFishCompletion(label: string, arr: string[]) {
+    const cmpKind = getCompletionItemKind(arr);
+    const fishKind = getFishCompletionItemType(cmpKind)
+    const result: FishCompletionItem = CompletionItem.create(label) as FishCompletionItem
+    result.kind = cmpKind;
+    result.documentation = arr.length > 1 ? arr[1] : "";
+    result.insertText = '';
+    result.filterText = "";
+    result.data = {
+        fishKind: fishKind,
+        originalCompletion: arr.join('\t'),
     }
+    return result;
 }
 
 
@@ -342,53 +455,41 @@ export interface FishCompletionItem extends CompletionItem {
  * @param {string[]} arr - [name, docs]
  * @returns {Promise<FishCompletionItem>} - CompletionItem to resolve onCompletion()
  */
-export async function buildCompletionItemPromise(arr: string[]): Promise<FishCompletionItem> {
+export function buildCompletionItemPromise(arr: string[]): FishCompletionItem {
     const name = arr[0];
-
-    let itemKind = getCompletionItemType(arr)
-    let fishKind = getFishCompletionItemType(itemKind);
-    let originalCompletion = arr.join('\t');
-    let docs = arr[1] || originalCompletion;
-    let insertText = undefined;
-    let resolveCommand = undefined;
-    let commitCharacters: string[] = [];
-
-    switch (fishKind) {
+    const result = initailFishCompletion(name, arr);
+    switch (result.data.fishKind) {
         case FishCompletionItemKind.RESOLVE:
-            fishKind = getFishCompletionItemType(itemKind)
-            break;
+            result.data.fishKind = getFishCompletionItemType(result.kind)
         case FishCompletionItemKind.ABBR:
-            insertText = docs.split(' ', 1)[-1].trim();
-            commitCharacters = [' ', ';']
-            break;
+            result.insertText = arr[1].split(' ', 1)[-1].trim();
+            result.commitCharacters = [' ', ';']
         case FishCompletionItemKind.LOCAL_VAR:
             //docs = findDefinition()
-            docs = "Local Variable: " + arr[1]
-            break;
+            result.documentation = "Local Variable: " + arr[1]
         case FishCompletionItemKind.LOCAL_FUNC:
             //docs = findDefinition()
-            docs = "Local Function: \n" + arr[1]
-            break;
+            result.documentation = "Local Function: " + arr[1]
         case FishCompletionItemKind.GLOBAL_VAR:
             //docs = findDefinition
-            resolveCommand = `set -S ${name}`
-            break;
-        default:
-            break;
+            //result.data.resolveCommand = `set -S ${name}`
+            
     }
+    logger.log('cmpItem ',  {completion: result})
+    return result;
+    //const result = {
+    //    ...CompletionItem.create(name),
+    //    documentation: docs,
+    //    kind: itemKind,
+    //    insertText: insertText,
+    //    commitCharacters: commitCharacters,
+    //    data: {
+    //        resolveCommand: resolveCommand,
+    //        fishKind: fishKind, 
+    //        originalCompletion: arr.join('\t'),
+    //    },
+    //}
 
-    return {
-        ...CompletionItem.create(name),
-        documentation: docs,
-        kind: itemKind,
-        insertText,
-        commitCharacters,
-        data: {
-            resolveCommand,
-            fishKind, 
-            originalCompletion,
-        },
-    }
 }
 
 

@@ -9,6 +9,7 @@ import {URI, Utils} from 'vscode-uri';
 import FastGlob from 'fast-glob';
 import {homedir} from 'os';
 import {promises, readFileSync} from 'fs';
+import {logger} from './logger';
 
 // removed the need for utils/{io,locations}.ts with funcitons at the top of this file.
 // Add back later
@@ -19,7 +20,8 @@ import {promises, readFileSync} from 'fs';
  *                                           Fish default locations for documents are: 
  *                                           $HOME/.config/fish, and /usr/share/fish
  *
- * @returns {Promise<[TODO:type]>} [TODO:description]
+ * @returns {Promise<TextDocument[]>} - Get all fish files in a directory path and return
+ *                                      them as TextDocuments.
  */
 async function getTextDocumentsFromPaths(paths: string[]): Promise<TextDocument[]> {
 
@@ -41,6 +43,7 @@ async function getTextDocumentsFromPaths(paths: string[]): Promise<TextDocument[
         return TextDocument.create(file, 'fish', 0, contents || "")
     }))
 }
+
 
 /**
  * TODO: handle uri: URI | string differently 
@@ -163,11 +166,14 @@ export class DocumentManager {
         //const newDocument = await createTextDocumentFromFilePath(URI.parse(correctURI));
         const newDocument = await createTextDocumentFromURI(URI.parse(correctURI))
         if (!newDocument) {
-            this.console.log(`[ERROR] DocumentManager.openOrFind(${correctURI})`)
-            this.console.log(`        Not found: returned empty text document!`)
-            this.console.log(`        uri PassedIn: ${uri}`)
-            this.console.log(`        uri Corrected: ${correctURI}`)
-            this.console.log('')
+            logger.log("", {
+                error: true,
+                extraInfo: [
+                    `DocumentManager.openOrFind(${correctURI})`,
+                    `Not found: returned empty text document!`,
+                    `uri PassedIn: ${uri}`,
+                ],
+            }); 
             return TextDocument.create(correctURI, 'fish', -1, '')
         }
         this.allDocuments[correctURI] = newDocument;
@@ -177,10 +183,9 @@ export class DocumentManager {
 
 
     /**
-     * @async close(uri) - 
+     * @async close(uri) - given a uri from the server, remove it from the open documents
+     *                     object.
      * @param uri - closes this uri its in the currently opened documents
-     *
-     * @returns 
      */
     public close(uri: string): void {
         const correctURI = this.validateURI(uri);
@@ -210,8 +215,6 @@ export class DocumentManager {
         const range = getRangeFromPosition(params.position)
         return doc.getText(range)
     }
-
-
 
     /**
      * returns a correctly formatted string that is a vscode-uri
@@ -554,4 +557,4 @@ export function getRangeFromPosition(position: Position) : Range {
 //        this._files.splice(this._files.indexOf(file), 1);
 //        return document;
 //    }
-//}
+//}                  e
