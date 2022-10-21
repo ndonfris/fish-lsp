@@ -1,27 +1,4 @@
-/*
- * Copyright (C) 2017, 2018 TypeFox and others.
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
- */
-
-import {
-    TextDocuments,
-    TextDocumentPositionParams,
-    Hover,
-    CompletionItem,
-    CompletionList,
-    Position,
-    Range,
-    CompletionParams,
-    Connection,
-    InitializedParams,
-    InitializeParams,
-
-} from "vscode-languageserver/node";
-import * as LSP from "vscode-languageserver/node";
-import { DocumentUri, TextDocument } from "vscode-languageserver-textdocument";
-import Parser, {SyntaxNode} from "web-tree-sitter";
+import Parser from "web-tree-sitter";
 //import { getInitializedHandler } from "./handlers/getInitializedHandler";
 //import { handleInitialized } from "./handlers/handleInitialized";
 //import { getHandleHover } from "./handlers/handleHover";
@@ -29,269 +6,308 @@ import Parser, {SyntaxNode} from "web-tree-sitter";
 //import { LspDocuments } from "./document";
 import { initializeParser } from "./parser";
 //import { MyAnalyzer } from "./analyse";
-import { MyAnalyzer } from "./analyze";
+import { Analyzer } from "./analyze";
 import { getAllFishLocations } from "./utils/locations";
-import {Logger} from './logger';
-import {Completion} from './completion';
-import {createTextDocumentFromFilePath} from './utils/io';
+import { logger } from "./logger";
+import { Completion, getShellCompletions } from "./completion";
+import { createTextDocumentFromFilePath } from "./utils/io";
+import {
+    ClientCapabilities,
+    createConnection,
+    InitializeParams,
+    ProposedFeatures,
+    TextDocuments,
+    TextDocumentSyncKind,
+    ServerCapabilities,
+    TextDocumentPositionParams,
+    CompletionParams,
+    TextDocumentChangeEvent,
+    Connection,
+    InitializedParams,
+    RemoteConsole,
+    CompletionList,
+    CompletionItem,
+    MarkedString,
+    MarkupContent,
+    CompletionItemKind,
+} from "vscode-languageserver/node";
+import { TextDocument } from "vscode-languageserver-textdocument";
+import {CliOptions, Context, TreeByUri} from './interfaces';
+import {SyntaxNode} from 'web-tree-sitter';
+import {URI} from 'vscode-uri';
+import {DocumentManager, getRangeFromPosition} from './document';
+import {getChildNodes, getNodeText} from './utils/tree-sitter';
+import {isLocalVariable, isVariable} from './utils/node-types';
+import {completionItemKindMap, FishCompletionItem, FishCompletionItemKind, handleCompletionResolver, isBuiltIn} from './utils/completion-types';
+import {FilepathResolver} from './utils/filepathResolver';
+import {CompletionItemBuilder, parseLineForType} from './utils/completionBuilder';
+import {isBuiltin} from './utils/builtins';
+import {documentationHoverProvider, enrichToCodeBlockMarkdown, enrichToMarkdown} from './documentation';
+import {execCommandDocs, execCommandType} from './utils/exec';
 
-const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 
-/**
- * The FishServer glues together the separate components to implement
- * the various parts of the Language Server Protocol.
- */
+
+
 export default class FishServer {
-    /**
-     * Initialize the server based on a connection to the client and the protocols
-     * initialization parameters.
-     */
+
+
     public static async initialize(
-        connection: LSP.Connection,
-        { capabilities }: LSP.InitializeParams
+        connection: Connection,
+        { capabilities }: InitializeParams
     ): Promise<FishServer> {
+        logger.setConsole(connection.console)
         const parser = await initializeParser();
-        const analyzer = new MyAnalyzer(parser);
-        //const documents = new LspDocuments(new TextDocuments(TextDocument));
-        //const files = await getAllFishLocations();
-        //for (const uri of files) {
-        //    const file = await createTextDocumentFromFilePath(uri)
-        //    if (file) await analyzer.initialize(uri, file)
-        //}
-        const completion = new Completion();
-        try {
-            await completion.initialDefaults()
-        } catch (err) {
-            console.log('error!!!!!!!!!!!!!!!')
-        }
-        // for (const file of files) {
-        //     //const doc =  await createTextDocumentFromFilePath(file)
-        //     //await analyzer.initialize(file)
-        //     //if (!doc) continue;
-        //     //await analyzer.analyze(file, doc)
-        //     //const newRefrences = analyzer.uriToSyntaxTree[uri]?.getUniqueCommands()!
-        //     //newRefrences.forEach(refrence => {
-
-
-        //     //})
-        // }
-        return new FishServer(
-            connection,
-            parser,
-            //documents,
-            analyzer,
-            //dependencies,
-            completion,
-            capabilities
+        const filepaths = FilepathResolver.create()
+        return Promise.all([
+            new Analyzer(parser),
+            DocumentManager.indexUserConfig(connection.console),
+            Completion.initialDefaults(filepaths),
+        ]).then(
+            ([analyzer, docs, completion]) =>
+            new FishServer(connection, parser, analyzer, docs, completion)
         );
     }
 
-    //private documents: LspDocuments;
-    private analyzer: MyAnalyzer;
-    private completion: Completion;
-    private parser: Parser;
-    //private logger: Logger;
-    //private dependencies: Dependencies;
-    private connection: LSP.Connection;
-    private logger: Logger;
-    private clientCapabilities: LSP.ClientCapabilities;
+    // the connection of the FishServer
+    private connection: Connection;
 
-    private constructor(
-        connection: LSP.Connection,
-        parser: Parser,
-        //documents: LspDocuments,
-        analyzer: MyAnalyzer,
-        completion: Completion,
-        capabilities: LSP.ClientCapabilities
-    ) {
+    // for logging output (from connection)
+    private console: RemoteConsole;
+    // convert this to a singleton object and globally access it 
+
+    // the parser (using tree-sitter-web)
+    private parser : Parser;
+
+    // using the parser & DocumentManager
+    // current implementation ideally works in this order:
+    // 1.) a document is retrieved from the DocumentManager 
+    // 2.) the document is Parsed by the Parser
+    // 3.) the analyzer stores the document???
+    // 4.) 
+    private analyzer: Analyzer; 
+
+    // documentManager 
+    private docs: DocumentManager;
+
+    // completionHandler
+    private completion: Completion;
+
+    constructor(connection: Connection, parser : Parser, analyzer: Analyzer, docs: DocumentManager , completion: Completion) {
         this.connection = connection;
-        this.logger = new Logger(this.connection)
-        //this.documents = documents;
+        this.console = this.connection.console;
         this.parser = parser;
         this.analyzer = analyzer;
+        this.docs = docs;
         this.completion = completion;
-        this.clientCapabilities = capabilities;
     }
 
-    public register(connection: LSP.Connection): void {
-        //const opened = this.documents.getOpenDocuments();
-        //connection.listen(connection);
-        //connection.dispose()
 
-        //let languageModes: any;
 
-        //connection.onInitialize((_params: InitializeParams) => {
-        //    languageModes = languageModes();
-
-        //    documents.onDidClose(e => {
-        //        languageModes.onDocumentRemoved(e.document);
-        //    });
-        //    connection.onShutdown(() => {
-        //        languageModes.dispose();
-        //    });
-
-        //    return {
-        //        capabilities: this.capabilities()
-        //    };
-        //});
-
-        connection.onDidOpenTextDocument(async change => {
-            const document = change.textDocument;
-            const uri = document.uri;
-            await this.analyzer.initialize(uri);
-            this.logger.logmsg({action:'onOpen', path: uri})
-        })
-
-        connection.onDidChangeTextDocument(async change => {
-            const document = change.textDocument;
-            const uri = document.uri;
-            //this.documents.newDocument(uri);
-            this.logger.logmsg({path:uri, action:'onDidChangeContent'})
-            let doc = documents.get(uri)
-            if ( document && documents.get(uri) !== undefined ) {
-                doc = await this.analyzer.initialize(uri);
-            }
-            await this.analyzer.analyze(uri, doc);
-        });
-
-        connection.onDidCloseTextDocument(async change => { 
-            const uri = change.textDocument.uri;
-            this.logger.logmsg({path:uri, action:'onDidClose'})
-        });
-        // if formatting is enabled in settings. add onContentDidSave
-
-        // Register all the handlers for the LSP events.
-        connection.onHover(this.onHover.bind(this))
-        // connection.onDefinition(this.onDefinition.bind(this))
-        // connection.onDocumentSymbol(this.onDocumentSymbol.bind(this))
-        // connection.onWorkspaceSymbol(this.onWorkspaceSymbol.bind(this))
-        // connection.onDocumentHighlight(this.onDocumentHighlight.bind(this))
-        // connection.onReferences(this.onReferences.bind(this))
-        connection.onCompletion(this.onCompletion.bind(this))
-        // connection.onCompletionResolve(this.onCompletionResolve.bind(this))s))
-        documents.listen(connection)
-        //connection.listen()
-    }
-
-    public capabilities(): LSP.ServerCapabilities {
+    public capabilities(): ServerCapabilities {
         return {
             // For now we're using full-sync even though tree-sitter has great support
             // for partial updates.
-            textDocumentSync: LSP.TextDocumentSyncKind.Full,
+            textDocumentSync: TextDocumentSyncKind.Full,
             completionProvider: {
-                resolveProvider: false,
+                resolveProvider: true,
                 triggerCharacters: ["$", "-"],
             },
             hoverProvider: true,
             documentHighlightProvider: true,
             definitionProvider: true,
             //documentSymbolProvider: true,
-            workspaceSymbolProvider: true,
-            referencesProvider: true,
+            //workspaceSymbolProvider: true,
+            //referencesProvider: true,
         };
     }
 
-    private async onHover(params: TextDocumentPositionParams): Promise<Hover | null> {
-        const uri = params.textDocument.uri;
-        const node = this.analyzer.nodeAtPoint(params.textDocument.uri, params.position.line, params.position.character)
-        //const doc = this.documents.get(uri)
-        //if (doc) {
-        //    this.analyzer.analyze(uri, doc)
-        //}
-        this.logger.logmsg({ path: uri, action:'onHover', params: params, node: node})
-        if (!node) return null
+    public register(): void {
+        this.docs.documents.listen(this.connection)
+        this.connection.onDidOpenTextDocument(async change => {
+            const document = change.textDocument;
+            const uri = document.uri;
+            let doc = await this.docs.openOrFind(uri)
+            this.analyzer.analyze(doc);
+            logger.log(this.connection.onDidOpenTextDocument.name, {document:doc})
+        })
 
-        let hoverDoc = this.analyzer.nodeIsLocal(uri, node)  || await this.analyzer.getHover(params)
-        // TODO: heres where you should use fallback completion, and argument .
+        this.connection.onDidChangeTextDocument(async change => {
+            const uri = change.textDocument.uri;
+            let doc = await this.docs.openOrFind(uri);
+            logger.log(this.connection.onDidChangeTextDocument.name, {extraInfo: [doc.uri, '\nchanges:', ...change.contentChanges.map(c => c.text)]})
+            doc = TextDocument.update(doc, change.contentChanges, change.textDocument.version);
+            this.analyzer.analyze(doc);
+            const root = this.analyzer.getRoot(doc)
+            // do More stuff
+        });
 
-        if (hoverDoc) {
-            return hoverDoc
-        }
 
-        this.logger.logmsg({action:'onHover', message:'ERROR', params: params, node: node})
+        this.connection.onDidCloseTextDocument(async change => { 
+            const uri = change.textDocument.uri;
+            this.docs.close(uri);
+        });
 
-        return null
+        // if formatting is enabled in settings. add onContentDidSave
+        // Register all the handlers for the LSP events.
+        //connection.onHover(this.onHover.bind(this))
+        // connection.onDefinition(this.onDefinition.bind(this))
+        // connection.onDocumentSymbol(this.onDocumentSymbol.bind(this))
+        // connection.onWorkspaceSymbol(this.onWorkspaceSymbol.bind(this))
+        // connection.onDocumentHighlight(this.onDocumentHighlight.bind(this))
+        // connection.onReferences(this.onReferences.bind(this))
+        this.connection.onCompletion(this.onCompletion.bind(this))
+        this.connection.onCompletionResolve(this.onCompletionResolve.bind(this));
+        this.docs.documents.onDidChangeContent(async change => {
+            const document = change.document;
+            const uri = document.uri;
+            let doc = await this.docs.openOrFind(uri);
+            logger.log('documents.onDidChangeContent: ' + doc.uri)
+            logger.log(doc.getText())
+            this.analyzer.analyze(doc);
+        })
 
-        //if (!node) return null
-        //const cmd = findParentCommand(node)
-        //const cmdText = cmd?.firstChild?.text.toString() || ""
-        //if (cmdText == "") return null
-        //const text = await execCommandDocs(cmdText)
-        //return hoverDoc
-        //const hover = this.analyzer.getHover(params)
-        //if (!hover) return null
-        //return hover
     }
-    
-
-
 
     public async onCompletion(completionParams: TextDocumentPositionParams):  Promise<CompletionList | null>{
         const uri: string = completionParams.textDocument.uri;
         const position = completionParams.position;
-        const currText = resolveCurrentDocumentLine(uri, position, this.logger)
-        //if (currDoc) {
-            //const currPos = currDoc.offsetAt(position)
-            //const range: Range = Range.create({line: position.line, character: 0}, {line: position.line, character: position.character})
-            //const documentText = this.analyzer.uriToTextDocument[uri].toString()
-            //this.logger.log(`cmpDocText: ${documentText}`)
-        //}
 
-        //const pos: Position = {
-        //    line: position.line,
-        //    character: Math.max(0, position.character-1)
-        //}
-        //if (documentText.endsWith('-')) {
+        logger.log('server.onComplete' + uri)
+
+        const doc = await this.docs.openOrFind(uri);
+        const node: SyntaxNode | null = this.analyzer.nodeAtPoint(doc.uri, position.line, position.character);
+
+        if (node) {
+            logger.log(`node: ${node.parent?.text}`)
+        }
+
+        //const r = getRangeFromPosition(completionParams.position);
+        this.connection.console.log('on complete node: ' + doc.uri || "" )
+
+        const line: string = this.analyzer.currentLine(doc, completionParams.position) || " "
+        //if (line.startsWith("\#")) {
         //    return null;
         //}
-        let document = documents.get(uri);
-        if (!document) {
-            document = await this.analyzer.initialize(uri)
-            await this.analyzer.analyze(uri, document)
-        }
-        const node: SyntaxNode | null = this.analyzer.nodeAtPoint(uri, position.line, position.character);
-
-        this.logger.logmsg({ path: uri, action:'onComplete', node: node})
-
-        if (!node) return null
-
-
+        const items: CompletionItem[] = []
         try {
-            const completionList = await this.completion.generate(node)
-            if (completionList) return completionList
-        } catch (error) {
-            this.logger.log(`ERROR: ${error}`)
+            logger.log('line' + line)
+            //const newLine = line.trimStart().split(' ')
+            const output = await getShellCompletions(line.trimStart())
+            //output.forEach(([label, keyword, otherInfo]) => {
+            //    logger.log(`label: '${label}'\nkeyword: '${keyword}'\notherInfo: '${otherInfo}'`)
+            //});
+            const cmp = new CompletionItemBuilder()
+            if (output.length == 0) {
+                return null;
+            }
+            for (const [label, desc, other] of output) {
+                const fishKind = parseLineForType(label, desc, other)
+                //logger.log(`fishKind: ${fishKind}`)
+                if (label === 'gt') {
+                logger.log(`label: '${label}'\nkeyword: '${desc}'\notherInfo: '${other}'\n type: ${fishKind}`)
+
+                }
+                const item = cmp.create(label)
+                    .documentation([desc, other].join(' '))
+                    .kind(fishKind)
+                    .originalCompletion([label, desc].join('\t') + ' ' + other)
+                    .build()
+                items.push(item)
+                //logger.log(`label_if:  ${isBuiltIn(label)}`)
+                cmp.reset()
+            }
+        } catch (e) {
+            this.connection.console.log("error" + e)
+            this.connection.console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+            this.connection.console.log(doc.getText())
+            this.connection.console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
         }
-        this.logger.log(`ERROR: onCompletion !Error`)
-
-        return null
-
-        //const commandNode: SyntaxNode | null = findParentCommand(node);
-        //if (!commandNode) {
-        //    //use node
-        //}
-
-        //this.analyzer.getHoverFallback(uri, node)
-
-        //// build Completions
-        //const completions: CompletionItem[] = []
-
-
-        //return completions
+        return CompletionList.create(items, false)
     }
 
-    public async onCompleteResolve(item: CompletionItem): Promise<CompletionItem> {
 
-        return item;
+    public async onCompletionResolve(item: CompletionItem): Promise<CompletionItem> {
+        const fishItem = item as FishCompletionItem
+        //const fishItem = item as FishCompletionItem;
+        //try {
+        //    //logger.log('server onCompletionResolve:', {extraInfo: ['beforeResolve:' ], completion: item})
+        //    //newItem = await handleCompletionResolver(item as FishCompletionItem, this.console)
+        //    let newDoc : string | MarkupContent;
+        //    const fishKind = fishItem.data?.fishKind;
+        //    console.log('handleCmpResolver ' + fishKind)
+        //    switch (fishKind) {
+        //        case FishCompletionItemKind.ABBR:              // interface
+        //        case FishCompletionItemKind.ALIAS:             // interface
+        //            fishItem.documentation = enrichToCodeBlockMarkdown(fishItem.documentation as string)
+        //            break;
+        //        case FishCompletionItemKind.BUILTIN:           // keyword
+        //            newDoc = await execCommandDocs(fishItem.label)
+        //            fishItem.documentation = enrichToCodeBlockMarkdown(newDoc, 'man')
+        //            break;
+        //        case FishCompletionItemKind.LOCAL_VAR:         // variable
+        //        case FishCompletionItemKind.GLOBAL_VAR:        // variable
+        //            fishItem.documentation = enrichToMarkdown(`__${fishItem.label}__ ${fishItem.documentation}`)
+        //            break;
+        //        case FishCompletionItemKind.LOCAL_FUNC:        // function
+        //        case FishCompletionItemKind.GLOBAL_FUNC:       // function
+        //            newDoc = await execCommandDocs(fishItem.label)
+        //            if (newDoc) {
+        //                fishItem.documentation = newDoc;
+        //            }
+        //            break;
+        //        case FishCompletionItemKind.FLAG:              // field
+        //            fishItem.documentation = enrichToMarkdown(`__${fishItem.label}__ ${fishItem.documentation}`)
+        //            break;
+        //        case FishCompletionItemKind.CMD_NO_DOC:        // refrence
+        //            break;
+        //        case FishCompletionItemKind.CMD:               // module
+        //            newDoc = await execCommandDocs(fishItem.label)
+        //            if (newDoc) {
+        //                fishItem.documentation = newDoc;
+        //            }
+        //        case FishCompletionItemKind.RESOLVE:           // method -> module or function
+        //            newDoc = await execCommandDocs(fishItem.label)
+        //            fishItem.documentation = enrichToCodeBlockMarkdown(newDoc, 'man')
+        //            break;
+        //        default:
+        //            return fishItem;
+        //    }            //logger.log('server onCompletionResolve:', {extraInfo: ['AfterResolve:' ], completion: item})
+        //} catch (err) {
+        //    logger.log("ERRRRRRRRRRRRROOOOORRRR " + err)
+        //    return fishItem;
+        //
+        let newDoc: string | MarkupContent;
+        let typeCmdOutput = ''
+        let typeofDoc = ''
+        switch (fishItem.kind) {
+            case CompletionItemKind.Constant: 
+                item.documentation = enrichToCodeBlockMarkdown(fishItem.data?.originalCompletion, 'fish')
+            case CompletionItemKind.Variable: 
+                item.documentation = enrichToCodeBlockMarkdown(fishItem.data?.originalCompletion, 'fish')
+            case CompletionItemKind.Interface: 
+                item.documentation = enrichToCodeBlockMarkdown(fishItem.data?.originalCompletion, 'fish')
+            case CompletionItemKind.Function:
+                newDoc = await execCommandDocs(fishItem.label)
+                item.documentation = enrichToCodeBlockMarkdown(newDoc, 'fish')
+                return item;
+            case CompletionItemKind.Unit:
+                typeCmdOutput = await execCommandType(fishItem.label)
+                if (typeCmdOutput != '') {
+                    newDoc = await execCommandDocs(fishItem.label)
+                    item.documentation = typeCmdOutput === 'file' 
+                        ? enrichToCodeBlockMarkdown(newDoc, 'fish') : enrichToCodeBlockMarkdown(newDoc, 'man')
+                }
+                return item;
+            case CompletionItemKind.Class:
+            case CompletionItemKind.Method:
+            case CompletionItemKind.Keyword:
+                newDoc = await execCommandDocs(fishItem.label)
+                item.documentation = enrichToCodeBlockMarkdown(newDoc, 'man')
+                return item;
+            default:
+                return item;
+        }
     }
-
 }
 
-function resolveCurrentDocumentLine(uri: DocumentUri, currPos: Position, logger: Logger) {
-    const currDoc = documents.get(uri)
-    if (currDoc === undefined) return ""
-    const currText = currDoc.getText().split('\n').at(currPos.line)
-    logger.log('currText: ' + currText)
-    return currText || "";
-}
 

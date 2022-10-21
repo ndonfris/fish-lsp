@@ -14,6 +14,7 @@ const child_process_1 = require("child_process");
 const path_1 = require("path");
 const util_1 = require("util");
 const execAsync = (0, util_1.promisify)(child_process_1.exec);
+const execFileAsync = (0, util_1.promisify)(child_process_1.execFile);
 /**
  * @async execEscapedComplete() - executes the fish command with
  *
@@ -58,7 +59,7 @@ exports.execCompleteSpace = execCompleteSpace;
 function execCompleteCmdArgs(cmd) {
     return __awaiter(this, void 0, void 0, function* () {
         const exec = (0, path_1.resolve)(__dirname, '../../fish_files/get-command-options.fish');
-        const args = (0, child_process_1.execFileSync)(exec, [cmd]);
+        const args = (0, child_process_1.execFile)(exec, [cmd]);
         const results = args.toString().trim().split('\n');
         let i = 0;
         let fixedResults = [];
@@ -99,9 +100,13 @@ exports.execCompleteAbbrs = execCompleteAbbrs;
 function execCommandDocs(cmd) {
     return __awaiter(this, void 0, void 0, function* () {
         const file = (0, path_1.resolve)(__dirname, '../../fish_files/get-documentation.fish');
-        const cmdArr = cmd.split(' ');
-        const docs = (0, child_process_1.execFileSync)(file, cmdArr);
-        return docs.toString().trim();
+        //const cmdArr = cmd.split(' ')
+        const docs = yield execFileAsync(file, [cmd]);
+        if (docs.stderr) {
+            return '';
+        }
+        const out = docs.stdout;
+        return out.toString().trim();
     });
 }
 exports.execCommandDocs = execCommandDocs;
@@ -118,8 +123,11 @@ function execCommandType(cmd) {
     return __awaiter(this, void 0, void 0, function* () {
         const file = (0, path_1.resolve)(__dirname, '../../fish_files/get-type.fish');
         const cmdCheck = cmd.split(' ')[0].trim();
-        const docs = (0, child_process_1.execFileSync)(file, [cmdCheck]);
-        return docs.toString().trim();
+        const docs = yield execFileAsync(file, [cmdCheck]);
+        if (docs.stderr) {
+            return '';
+        }
+        return docs.stdout.toString().trim();
     });
 }
 exports.execCommandType = execCommandType;

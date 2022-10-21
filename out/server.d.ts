@@ -1,26 +1,20 @@
-import { TextDocumentPositionParams, CompletionItem, CompletionList } from "vscode-languageserver/node";
-import * as LSP from "vscode-languageserver/node";
-/**
- * The FishServer glues together the separate components to implement
- * the various parts of the Language Server Protocol.
- */
+import Parser from "web-tree-sitter";
+import { Analyzer } from "./analyze";
+import { Completion } from "./completion";
+import { InitializeParams, ServerCapabilities, TextDocumentPositionParams, Connection, CompletionList, CompletionItem } from "vscode-languageserver/node";
+import { DocumentManager } from './document';
 export default class FishServer {
-    /**
-     * Initialize the server based on a connection to the client and the protocols
-     * initialization parameters.
-     */
-    static initialize(connection: LSP.Connection, { capabilities }: LSP.InitializeParams): Promise<FishServer>;
-    private analyzer;
-    private completion;
-    private parser;
+    static initialize(connection: Connection, { capabilities }: InitializeParams): Promise<FishServer>;
     private connection;
-    private logger;
-    private clientCapabilities;
-    private constructor();
-    register(connection: LSP.Connection): void;
-    capabilities(): LSP.ServerCapabilities;
-    private onHover;
+    private console;
+    private parser;
+    private analyzer;
+    private docs;
+    private completion;
+    constructor(connection: Connection, parser: Parser, analyzer: Analyzer, docs: DocumentManager, completion: Completion);
+    capabilities(): ServerCapabilities;
+    register(): void;
     onCompletion(completionParams: TextDocumentPositionParams): Promise<CompletionList | null>;
-    onCompleteResolve(item: CompletionItem): Promise<CompletionItem>;
+    onCompletionResolve(item: CompletionItem): Promise<CompletionItem>;
 }
 //# sourceMappingURL=server.d.ts.map

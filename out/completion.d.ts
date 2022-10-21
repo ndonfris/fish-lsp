@@ -1,30 +1,36 @@
-import { CompletionItem, CompletionItemKind, CompletionList } from "vscode-languageserver-protocol";
+import { CompletionItem, CompletionItemKind, CompletionList } from "vscode-languageserver-protocol/node";
 import { SyntaxNode } from "web-tree-sitter";
+import { FilepathResolver } from './utils/filepathResolver';
 export declare enum FishCompletionItemType {
     function = 0,
     builtin = 1,
     abbr = 2,
     flag = 3,
-    variable = 4
+    variable = 4,
+    line = 5
 }
 export declare function toCompletionItemKind(type: FishCompletionItemType): CompletionItemKind;
+export declare function getShellCompletions(cmd: string): Promise<[string, string, string][]>;
 export declare class Completion {
     private currentNode;
     private commandNode;
+    lineCmps: CompletionItem[];
     globalAbbrs: CompletionItem[];
     private globalVars;
     globalAlaises: CompletionItem[];
     globalCmds: CompletionItem[];
     globalBuiltins: CompletionItem[];
-    private localVariablesList;
+    private localVariables;
     private localFunctions;
     private isInsideCompletionsFile;
     private completions;
     private isIncomplete;
-    constructor();
-    initialDefaults(): Promise<this>;
-    generateCurrent(node: SyntaxNode): Promise<void>;
+    filepathResolver: FilepathResolver;
+    static initialDefaults(filepathResolver: FilepathResolver): Promise<Completion>;
+    constructor(filepathResolver: FilepathResolver);
+    generateLineCmpNew(line: string): Promise<CompletionItem[] | null>;
     generate(node: SyntaxNode): Promise<CompletionList>;
+    fallbackComplete(): CompletionList;
 }
 export declare function buildGlobalAbbrs(): Promise<CompletionItem[]>;
 export declare function buildGlobalVars(): Promise<CompletionItem[]>;

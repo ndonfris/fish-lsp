@@ -3,7 +3,7 @@ import {SyntaxNode} from 'web-tree-sitter';
 import {hasPossibleSubCommand} from './utils/builtins';
 import {execCommandDocs, execCommandType, CompletionArguments, execCompleteSpace, execCompleteCmdArgs, documentCommandDescription} from './utils/exec';
 import {findParentCommand} from './utils/node-types';
-import {getNodes, getNodeText} from './utils/tree-sitter';
+import {getChildNodes, getNodeText} from './utils/tree-sitter';
 
 
 export type markdownFiletypes = 'fish' | 'man';
@@ -75,7 +75,7 @@ function commandStringHelper(cmd: string) {
 export function documentationHoverCommandArg(root: SyntaxNode, cmp: CompletionArguments) : Hover {
     let text = '';
     const argsArray = [...cmp.args.keys()]
-    for (const node of getNodes(root)) {
+    for (const node of getChildNodes(root)) {
         const nodeText = getNodeText(node)
         if (nodeText.startsWith('-') && argsArray.includes(nodeText)) {
             text += '\n' + '_' + nodeText + '_ ' + cmp.args.get(nodeText)

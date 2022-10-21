@@ -2,11 +2,13 @@ import {doc} from 'prettier';
 import {
     CompletionItem,
     Connection,
+    DocumentUri,
     Hover,
     Location,
+    RemoteConsole,
     TextDocumentPositionParams,
-} from "vscode-languageserver";
-import { TextDocument } from "vscode-languageserver-textdocument";
+} from "vscode-languageserver/node";
+import { Position, TextDocument } from "vscode-languageserver-textdocument";
 import Parser, { SyntaxNode, Point, Range, Tree } from "web-tree-sitter";
 import {
     documentationHoverCommandArg,
@@ -14,6 +16,7 @@ import {
     enrichToCodeBlockMarkdown,
     HoverFromCompletion,
 } from "./documentation";
+import {Context} from './interfaces';
 import {
     CompletionArguments,
     execFindDependency,
@@ -35,88 +38,81 @@ import {
 } from "./utils/node-types";
 import {
     findNodeAt,
-    getNodes,
+    getChildNodes,
     getNodeText,
     getRange,
 } from "./utils/tree-sitter";
+import {URI} from 'vscode-uri';
+import {getRangeFromPosition} from './document';
 
-export class MyAnalyzer {
+export class Analyzer {
     private parser: Parser;
-    public uriToSyntaxTree: { [uri: string]: SyntaxTree };
-    public uriToTextDocument: { [uri: string]: TextDocument}
+    //private rootMap: Map<string, >
+
+    // maps the uri of document to the parser.parse(document.getText())
+    private uriTree: { [uri: string]: Tree };
+
+    // to log local output
+    //private console: RemoteConsole | undefined;
 
     constructor(parser: Parser) {
         this.parser = parser;
-        this.uriToSyntaxTree = {};
-        this.uriToTextDocument = {};
+        //this.console = console || undefined;
+        this.uriTree = {};
     }
 
-    async initialize(uri: string) {
-        const document = await createTextDocumentFromFilePath(uri)
-        const tree = this.parser.parse(document.getText()) 
-        this.uriToSyntaxTree[uri] = new SyntaxTree(tree);
-        this.uriToTextDocument[uri] = document;
-        return document;
+    ///**
+    // * @async initialize() - intializes a SyntaxTree on context.trees[document.uri]
+    // *
+    // * @param {Context} context - context of lsp
+    // * @param {TextDocument} document - an initialized TextDocument from createTextDocumentFromFilePath()
+    // * @returns {Promise<SyntaxTree>} - SyntaxTree which is also stored on context.trees[uri]
+    // */
+    //public async initialize(document: TextDocument) {
+    //    //const document = await createTextDocumentFromFilePath(uri)
+    //    const tree = this.parser.parse(document.getText())
+    //    this.uriTree[document.uri] = tree;
+    //}
+
+    public analyze(document: TextDocument) {
+        delete this.uriTree[document.uri];
+        const tree = this.parser.parse(document.getText())
+        this.uriTree[document.uri] = tree;
     }
 
-    async analyze(uri: string, newDocument: TextDocument | undefined) {
-        if (!newDocument) {
-            newDocument = await this.initialize(uri)
-        }
-        const contents = this.uriToTextDocument[uri].getText()
-        const tree = this.parser.parse(contents)
-
-        this.uriToSyntaxTree[uri].ensureAnalyzed()
+    getRoot(document: TextDocument) {
+        return this.uriTree[document.uri].rootNode
     }
 
-    /**
-     * Find the node at the given point.
-     */
-    public nodeAtPoint(
-        uri: string,
-        line: number,
-        column: number
-    ): Parser.SyntaxNode | null {
-        const document = this.uriToSyntaxTree[uri];
-        if (!document?.rootNode) {
-            // Check for lacking rootNode (due to failed parse?)
-            return null;
-        }
-
-        return document.rootNode.descendantForPosition({ row: line, column });
+    getLocalNodes(document: TextDocument) {
+        const root = this.uriTree[document.uri].rootNode;
+        const allNodes = getChildNodes(root);
+        return allNodes.filter(node => {
+            return isFunctionDefinintion(node) || isVariableDefintion(node)
+        })
     }
 
     /**
-     * Find the full word at the given point.
+     * Gets the entire current line inside of the document. Useful for completions
+     *
+     * @returns {string} the current line in the document, or an empty string 
      */
-    public wordAtPoint(
-        uri: string,
-        line: number,
-        column: number
-    ) : string | null {
-        const node = this.nodeAtPoint(uri, line, column);
-
-        if (!node || node.childCount > 0 || node.text.trim() === "") {
-            return null;
-        }
-
-        return node.text.trim();
-    }
-
     public currentLine(
-        uri: string,
-        line: number
+        document: TextDocument,
+        position: Position
     ): string {
-        const currDoc = this.uriToTextDocument[uri]
+        const currDoc = document.uri;
+        const currRange = getRangeFromPosition(position);
         if (currDoc === undefined) return ""
-        const currText = currDoc.getText().split('\n').at(line)
-        return currText || "";
-
+        //const row = position.line;
+        //const col = position.character;
+        //const currText = document.getText().split('\n').at(row)?.substring(0, col + 1) || "";
+        const currText = document.getText(currRange)
+        return currText;
     }
 
 
-    public nodeIsLocal(uri: string, node: SyntaxNode): Hover | void {
-        const tree = this.uriToSyntaxTree[uri];
+    public nodeIsLocal(tree: SyntaxTree, node: SyntaxNode): Hover | void {
         if (!tree) return;
 
         const result = tree.getLocalFunctionDefinition(node) || tree.getNearestVariableDefinition(node)
@@ -127,49 +123,74 @@ export class MyAnalyzer {
         };
     }
 
-    public async getHover(params: TextDocumentPositionParams): Promise<Hover | void> {
-        const uri = params.textDocument.uri;
-        const line = params.position.line;
-        const character = params.position.character;
-        const tree = this.uriToSyntaxTree[uri];
-        if (!tree) {return ;}
-        const node = this.nodeAtPoint(uri,line,character)
-        const text = this.wordAtPoint(uri,line,character)
-        if (!node || !text) return;
-        //if (this.globalDocs[text]) {return this.globalDocs[text];}
+    //public async getHover(tree: SyntaxTree, params: TextDocumentPositionParams): Promise<Hover | void> {
+    //    const uri = params.textDocument.uri;
+    //    const line = params.position.line;
+    //    const character = params.position.character;
 
-        const docs = await documentationHoverProvider(text);
-        if (docs) {
-            return docs;
-        }
-        return await this.getHoverFallback(uri, node)
-    }
+    //    const node = this.nodeAtPoint(tree,line,character)
+    //    const text = this.wordAtPoint(tree,line,character)
+    //    if (!node || !text) return;
 
-    public async getHoverFallback(uri: string, currentNode: SyntaxNode): Promise<Hover | void> {
-        const tree = this.uriToSyntaxTree[uri];
-        if (!tree) { return }
+    //    const docs = await documentationHoverProvider(text);
+    //    if (docs) {
+    //        return docs;
+    //    }
+    //    return await this.getHoverFallback(node)
+    //}
 
-        const cmdNode = findParentCommand(currentNode);
-        if (!cmdNode) return
-        const hoverCmp = new HoverFromCompletion(cmdNode, currentNode)
-        let hover : Hover | void;
-        if (currentNode.text.startsWith("-")) {
-            hover = await hoverCmp.generateForFlags()
-        } else {
-            hover = await hoverCmp.generate() 
-        }
-        if (hover) return hover;
-        //if (currentNode.text.startsWith('-')) {
-        //}
-        return 
-    }
+    //public async getHoverFallback(currentNode: SyntaxNode): Promise<Hover | void> {
+    //    const cmdNode = findParentCommand(currentNode);
+    //    if (!cmdNode) return
+    //    const hoverCmp = new HoverFromCompletion(cmdNode, currentNode)
+    //    let hover : Hover | void;
+    //    if (currentNode.text.startsWith("-")) {
+    //        hover = await hoverCmp.generateForFlags()
+    //    } else {
+    //        hover = await hoverCmp.generate() 
+    //    }
+    //    if (hover) return hover;
+    //    //if (currentNode.text.startsWith('-')) {
+    //    //}
+    //    return 
+    //}
 
-    getTreeForUri(uri: string): SyntaxTree | null {
-        if (!this.uriToSyntaxTree[uri]) {
+    /**
+     * Find the node at the given point.
+     */
+    public nodeAtPoint(
+        uri: string,
+        line: number,
+        column: number
+    ): Parser.SyntaxNode | null {
+        const tree = this.uriTree[uri]
+
+        // Check for lacking rootNode (due to failed parse?)
+        if (!tree?.rootNode) {
             return null;
         }
-        return this.uriToSyntaxTree[uri];
+
+        return tree.rootNode.descendantForPosition({ row: line, column });
     }
+
+    /**
+     * Find the full word at the given point.
+     */
+    public wordAtPoint(
+        uri: string,
+        line: number,
+        column: number
+    ) : string | null {
+        const tree = this.uriTree[uri]
+        const node = this.nodeAtPoint(uri, line, column);
+
+        if (!node || node.childCount > 0 || node.text.trim() === "") {
+            return null;
+        }
+
+        return node.text.trim();
+    }
+
 }
 
 
@@ -204,12 +225,13 @@ export class SyntaxTree {
         this.rootNode = this.tree.rootNode;
         this.tree = this.tree;
         this.clearAll();
+        this.ensureAnalyzed();
     }
 
     public ensureAnalyzed() {
         this.clearAll()
-        const newNodes = getNodes(this.rootNode)
-        for (const newNode of getNodes(this.rootNode)) {
+        const newNodes = getChildNodes(this.rootNode)
+        for (const newNode of getChildNodes(this.rootNode)) {
             if (isCommand(newNode)) {
                 this.commands.push(newNode)
             }
@@ -268,7 +290,7 @@ export class SyntaxTree {
     }
 
     public getLocalFunctionDefinition(searchNode: SyntaxNode) {
-        for (const func of getNodes(this.rootNode)) {
+        for (const func of getChildNodes(this.rootNode)) {
             if (isFunctionDefinintion(func) && func.children[1]?.text == searchNode.text) {
                 return func
             }
@@ -283,7 +305,7 @@ export class SyntaxTree {
         const varaibleDefinitions: SyntaxNode[] = [];
         const functionScope = findFunctionScope(searchNode) 
         const scopedVariableLocations: SyntaxNode[] = [
-            ...getNodes(functionScope),
+            ...getChildNodes(functionScope),
             ...this.getOutmostScopedNodes()
         ]
         for (const node of scopedVariableLocations) {
@@ -302,7 +324,7 @@ export class SyntaxTree {
     // (i.e. stuff in config.fish)
     public getOutmostScopedNodes() {
         const allNodes = [ 
-            ...getNodes(this.rootNode)
+            ...getChildNodes(this.rootNode)
                 .filter(n => !hasParentFunction(n))
         ].filter(n => n.type != 'program')
         return allNodes

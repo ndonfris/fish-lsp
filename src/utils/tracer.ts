@@ -12,7 +12,7 @@
 /* eslint-disable @typescript-eslint/no-unnecessary-qualifier */
 
 //import type tsp from 'typescript/lib/protocol.d.js';
-import {Event } from 'vscode-languageserver-protocol';
+import {Event } from 'vscode-languageserver-protocol/node';
 //import { Logger } from '../utils/logger';
 
 export enum Trace {

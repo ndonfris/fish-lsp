@@ -11,31 +11,16 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createTextDocumentFromFilePath = void 0;
 const fs_1 = require("fs");
+const vscode_uri_1 = require("vscode-uri");
 const vscode_languageserver_textdocument_1 = require("vscode-languageserver-textdocument");
-const path_1 = require("path");
-//const readFileAsync = promisify(readFile)
 function createTextDocumentFromFilePath(uri) {
     return __awaiter(this, void 0, void 0, function* () {
-        const content = (0, fs_1.readFileSync)((0, path_1.resolve)(uri), "utf8");
-        const textDoc = vscode_languageserver_textdocument_1.TextDocument.create(uri, 'fish', 1, content);
-        //return new LspDocument(textDoc)
-        return textDoc;
+        let content = '';
+        content = (0, fs_1.readFileSync)(vscode_uri_1.Utils.resolvePath(uri).fsPath, "utf8");
+        return vscode_languageserver_textdocument_1.TextDocument.create(uri.toString(), "fish", 0, content);
     });
 }
 exports.createTextDocumentFromFilePath = createTextDocumentFromFilePath;
-//export function readDocumentFromUrl(context: Context, url: URI): TextDocument | null {
-//  let content: string
-//
-//  try {
-//    content = readFileSync(url.fsPath, 'utf8')
-//  } catch (err) {
-//    const { message, name } = err as Error
-//    context.connection.console.error(`${name}: ${message}`)
-//    return null
-//  }
-//
-//  return TextDocument.create(url.fsPath, 'fish', 0, content)
-//}
 ///** Get files ending with .fish recursively */
 //export function getFishFilesInDir(uri: string): URL[] {
 //  const result: URL[] = []
@@ -59,6 +44,19 @@ exports.createTextDocumentFromFilePath = createTextDocumentFromFilePath;
 //  }
 //
 //  return result
+//}
+//export function readDocumentFromUrl(context: Context, url: URI): TextDocument | null {
+//  let content: string
+//
+//  try {
+//    content = readFileSync(url.fsPath, 'utf8')
+//  } catch (err) {
+//    const { message, name } = err as Error
+//    context.connection.console.error(`${name}: ${message}`)
+//    return null
+//  }
+//
+//  return TextDocument.create(url.fsPath, 'fish', 0, content)
 //}
 //export function isDir(uri: string): boolean {
 //  return statSync(new URL(uri)).isDirectory()

@@ -1,5 +1,5 @@
 import { Position } from 'vscode-languageserver-textdocument';
-import { Range, URI } from 'vscode-languageserver';
+import { Range, URI } from 'vscode-languageserver/node';
 import { Point, SyntaxNode, Tree } from 'web-tree-sitter';
 /**
  * Returns an array for all the nodes in the tree (@see also nodesGen)
@@ -7,8 +7,27 @@ import { Point, SyntaxNode, Tree } from 'web-tree-sitter';
  * @param {SyntaxNode} root - the root node to search from
  * @returns {SyntaxNode[]} all children of the root node (flattend)
  */
-export declare function getNodes(root: SyntaxNode): SyntaxNode[];
+export declare function getChildNodes(root: SyntaxNode): SyntaxNode[];
+/**
+ * Gets path to root starting where index 0 is child node passed in.
+ * Format: [child, child.parent, ..., root]
+ *
+ * @param {SyntaxNode} child - the lowest child of root
+ * @returns {SyntaxNode[]} an array of ancestors to the descendent node passed in.
+ */
+export declare function getParentNodes(child: SyntaxNode): SyntaxNode[];
 export declare function getNodeText(node: SyntaxNode | null): string;
+/**
+ * Checks that arg0 is located before arg1 in parse tree. False
+ * when params are the same node
+ *
+ * @param {SyntaxNode} firstNode - a node that is positioned left or above second node
+ * @param {SyntaxNode} secondNode - some node after first node
+ * @returns {boolean} - true only when first param is located before second param
+ */
+export declare function nodeIsBefore(firstNode: SyntaxNode, secondNode: SyntaxNode): boolean;
+export declare function ancestorMatch(start: SyntaxNode, predicate: (n: SyntaxNode) => boolean): SyntaxNode[];
+export declare function descendantMatch(start: SyntaxNode, predicate: (n: SyntaxNode) => boolean): SyntaxNode[];
 /**
  * uses nodesGen to build an array.
  *
@@ -33,5 +52,4 @@ export declare function isFishExtension(path: URI | string): boolean;
 export declare function isPositionWithinRange(position: Position, range: Range): boolean;
 export declare function isNodeWithinRange(node: SyntaxNode, range: Range): boolean;
 export declare function nodesGen(node: SyntaxNode): Generator<SyntaxNode, void, unknown>;
-export declare function findParent(start: SyntaxNode, predicate: (n: SyntaxNode) => boolean): SyntaxNode | null;
 //# sourceMappingURL=tree-sitter.d.ts.map

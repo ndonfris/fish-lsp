@@ -2,6 +2,7 @@
 import {execEscapedCommand} from '../src/utils/exec'
 import { buildGlobalAbbrs, buildGlobalAlaises, buildGlobalBuiltins, buildGlobalCommands, Completion } from '../src/completion'
 import {parseFile} from './helpers';
+import {CompletionItem} from 'vscode-languageserver';
 
 
 
@@ -37,6 +38,28 @@ afterEach(() => {
 
 describe('complete simple tests', () => {
 
+    //it('startup time', async () => {
+    //    var start = new Date().getTime();
+
+    //    const completions = await Completion.initialDefaults()
+    //    var end = new Date().getTime();
+    //    var time = ((end - start) / 1000).toFixed(5);
+    //    console.log(`completion took ${time.toString()}(s) to start`)
+    //    expect(completions !== null).toBeTruthy()
+    //})
+
+    it('startup time', async () => {
+        const completions = new Completion();
+        const line = 'ech'
+        await completions.generateLineCompletion('ech');
+        const cmd = line.replace(/(['$`\\])/g, '\\$1')
+        console.log(cmd)
+        for (const c of completions.lineCmps) {
+            console.log(c.label);
+        }
+        //console.log(c)
+        expect(completions.lineCmps).toBeTruthy()
+    })
     //it('test execEscapeCommand', async () => {
     //    let results = await execEscapedCommand('complete --do-complete="ls -"')
     //    //results.forEach(arg => console.log(arg))
@@ -78,8 +101,7 @@ describe('complete simple tests', () => {
         //console.log(await execCompleteAbbrs())
         const file = '/home/ndonfris/.config/fish/functions/test-fish-lsp.fish'
         const tree = await  parseFile(file)
-        let completions = new Completion()
-        completions = await completions.initialDefaults()
+        //let completions = await Completion.initialDefaults()
         const root = tree.rootNode
 
         const completionSpots = [
@@ -106,10 +128,10 @@ describe('complete simple tests', () => {
 
         //globs = await buildGlobalAlaises()
         //console.log(globs.slice(1,10))
-        for (const node of completionSpots) {
-            const generated = await completions.generate(node)
-            console.log(generated)
-        }
+        ///for (const node of completionSpots) {
+        //    const generated = await completions.generate(node)
+        //    console.log(generated)
+        //}
         expect(true).toBeTruthy();
     })
 

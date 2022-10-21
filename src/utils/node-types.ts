@@ -1,8 +1,8 @@
 // use this file to determine node types from ./tree-sitter
 
+import {RemoteConsole} from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter'
-import {getNodes} from './tree-sitter';
-
+import {getChildNodes, getParentNodes} from './tree-sitter';
 
 export function isComment(node: SyntaxNode): boolean {
     return node.type == 'comment';
@@ -72,11 +72,21 @@ export function findParentCommand(node: SyntaxNode): SyntaxNode | null {
     }
     return null;
 }
+// isBeforeCommand() is probably not necessary:
+// for example:
+//      echo -n "$asdf"
+//        | ^
+//        | ---- children
+//        |
+//        ---- parent
+//
 
 
+// PROBLEM !!!! read --local var
+// for i in (seq )
 export function isVariableDefintion(node: SyntaxNode): boolean {
     if (isCommand(node) && node.child(0)?.text == 'set') {
-        return true;
+        return false;
     } else {
         const parent = findParentCommand(node)
         if (!parent) {
@@ -88,6 +98,7 @@ export function isVariableDefintion(node: SyntaxNode): boolean {
         return false;
     }
 }
+
 
 /**
  * @param {SyntaxNode} node - finds the node in a fish command that will
@@ -117,6 +128,8 @@ export function findDefinedVariable(node: SyntaxNode): SyntaxNode | null {
     return child;
 }
 
+
+
 // global nodes are nodes that are not defined in a function
 // (i.e. stuff in config.fish)
 export function findGlobalNodes(rootNode: SyntaxNode) {
@@ -125,7 +138,7 @@ export function findGlobalNodes(rootNode: SyntaxNode) {
     //    getNodes(rootNode)
     //    .filter(currentNode => !hasParentFunction(currentNode))
     const allNodes = [ 
-        ...getNodes(rootNode)
+        ...getChildNodes(rootNode)
             .filter(n => !hasParentFunction(n))
     ].filter(n => n.type != 'program')
     return allNodes
@@ -159,7 +172,7 @@ export function findLastVariableRefrence(node: SyntaxNode) {
     let currentNode = node.parent || node;
     while (!isFunctionDefinintion(currentNode) && currentNode != null) {
         let lastRefrence: SyntaxNode;
-        for (const childNode of getNodes(currentNode)) {
+        for (const childNode of getChildNodes(currentNode)) {
             if (isVariableDefintion(currentNode)) {
                 const variableDef = findDefinedVariable(childNode)
                 if (variableDef?.text == currentNode.text && variableDef != currentNode) {
@@ -173,6 +186,14 @@ export function findLastVariableRefrence(node: SyntaxNode) {
         currentNode = currentNode.parent;
     }
     return undefined;
+}
+
+export function isLocalVariable(node: SyntaxNode, console: RemoteConsole) {
+    const parents = getParentNodes(node)
+    const pCmd = parents[1]
+    if (pCmd.child(0)?.text === 'read' || pCmd.child(0)?.text === 'set') {
+        console.log(pCmd.text)
+    }
 }
 
 /*

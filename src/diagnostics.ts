@@ -2,9 +2,9 @@ import {DocumentUri, Range} from 'vscode-languageserver-textdocument';
 import {
     Diagnostic,
     DiagnosticRelatedInformation,
-    InlayHint,
+    //InlayHint,
     SymbolInformation,
-    BaseSymbolInformation,
+    //BaseSymbolInformation,
     DocumentSymbol,
     Location,
     Definition,
@@ -16,7 +16,7 @@ import {
     SymbolKind,
 } from "vscode-languageserver/node";
 import { SyntaxNode } from "web-tree-sitter";
-import { SyntaxTree } from "./analyse";
+import { SyntaxTree } from "./analyze";
 //import {LspDocuments} from './document';
 import { isBuiltin } from "./utils/builtins";
 import {execFindDependency} from './utils/exec';

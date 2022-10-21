@@ -2,11 +2,11 @@
 import { extname, join } from 'path'
 //import { pathToFileURL, URL } from 'url'
 import { Position } from 'vscode-languageserver-textdocument'
-import { Range, URI } from 'vscode-languageserver'
+import { Range, URI } from 'vscode-languageserver/node'
 import { Point, SyntaxNode, Tree } from 'web-tree-sitter'
 import {pathToFileURL} from 'url';
 import {existsSync} from 'fs-extra';
-import {findDefinedVariable, isFunctionDefinintion, isVariableDefintion} from './node-types';
+import {findDefinedVariable, findParentCommand, isFunctionDefinintion, isVariableDefintion} from './node-types';
 
 /**
  * Returns an array for all the nodes in the tree (@see also nodesGen)
@@ -14,13 +14,31 @@ import {findDefinedVariable, isFunctionDefinintion, isVariableDefintion} from '.
  * @param {SyntaxNode} root - the root node to search from 
  * @returns {SyntaxNode[]} all children of the root node (flattend)
  */
-export function getNodes(root: SyntaxNode): SyntaxNode[] {
+export function getChildNodes(root: SyntaxNode): SyntaxNode[] {
     let queue: SyntaxNode[] = [root]
     let result: SyntaxNode[] = []
     while (queue.length) {
         let current : SyntaxNode | undefined = queue.shift()
         if (current) result.push(current)
         if (current && current.children) queue.unshift(...current.children)
+    }
+    return result
+}
+
+/**
+ * Gets path to root starting where index 0 is child node passed in.
+ * Format: [child, child.parent, ..., root]
+ *
+ * @param {SyntaxNode} child - the lowest child of root
+ * @returns {SyntaxNode[]} an array of ancestors to the descendent node passed in.
+ */
+export function getParentNodes(child: SyntaxNode): SyntaxNode[] {
+    const result: SyntaxNode[] = [child]
+    let current: SyntaxNode | null = child.parent;
+    while (current !== null) {
+        // result.unshift(current); // unshift would be used for [root, ..., child]
+        result.push(current);
+        current = current.parent;
     }
     return result
 }
@@ -38,9 +56,48 @@ export function getNodeText(node: SyntaxNode | null): string {
     }
     if (isVariableDefintion(node)) {
         const defVar = findDefinedVariable(node)!
-        return defVar.text;
+        return defVar.text || "";
     }
     return (node.text != null) ? node.text.trim() : ""
+}
+
+/**
+ * Checks that arg0 is located before arg1 in parse tree. False 
+ * when params are the same node 
+ *
+ * @param {SyntaxNode} firstNode - a node that is positioned left or above second node
+ * @param {SyntaxNode} secondNode - some node after first node
+ * @returns {boolean} - true only when first param is located before second param
+ */
+export function nodeIsBefore(firstNode: SyntaxNode, secondNode: SyntaxNode): boolean {
+    if (firstNode.startPosition.row === secondNode.startPosition.row) {
+        return firstNode.startPosition.column < secondNode.startPosition.column 
+            && firstNode.text !== secondNode.text;
+    } else {
+        return firstNode.startPosition.row < secondNode.startPosition.row;
+    } 
+}
+
+
+export function ancestorMatch(
+  start: SyntaxNode,
+  predicate: (n: SyntaxNode) => boolean,
+): SyntaxNode[] {
+    const ancestors = getParentNodes(start) || [];
+    return ancestors
+        .filter(ancestor => predicate(ancestor))
+        .filter(ancestor => ancestor !== start)
+}
+
+export function descendantMatch(
+  start: SyntaxNode,
+  predicate: (n: SyntaxNode) => boolean,
+) : SyntaxNode[] {
+    const descendants: SyntaxNode[] = []
+    descendants.push(...getChildNodes(start))
+    return descendants
+        .filter(descendant => predicate(descendant))
+        .filter(descendent => descendent !== start)
 }
 
 /**
@@ -222,20 +279,6 @@ export function* nodesGen(node: SyntaxNode) {
   }
 }
 
-export function findParent(
-  start: SyntaxNode,
-  predicate: (n: SyntaxNode) => boolean,
-): SyntaxNode | null {
-  let node = start.parent
-
-  while (node !== null) {
-    if (predicate(node)) return node
-
-    node = node.parent
-  }
-
-  return null
-}
 
 
 

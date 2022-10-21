@@ -1,7 +1,7 @@
 "use strict";
 // use this file to determine node types from ./tree-sitter
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.findLastVariableRefrence = exports.findFunctionScope = exports.hasParentFunction = exports.findGlobalNodes = exports.findDefinedVariable = exports.isVariableDefintion = exports.findParentCommand = exports.isVariable = exports.isBeforeCommand = exports.isStatement = exports.isCommand = exports.isFunctionDefinintion = exports.isComment = void 0;
+exports.isLocalVariable = exports.findLastVariableRefrence = exports.findFunctionScope = exports.hasParentFunction = exports.findGlobalNodes = exports.findDefinedVariable = exports.isVariableDefintion = exports.findParentCommand = exports.isVariable = exports.isBeforeCommand = exports.isStatement = exports.isCommand = exports.isFunctionDefinintion = exports.isComment = void 0;
 const tree_sitter_1 = require("./tree-sitter");
 function isComment(node) {
     return node.type == 'comment';
@@ -73,10 +73,20 @@ function findParentCommand(node) {
     return null;
 }
 exports.findParentCommand = findParentCommand;
+// isBeforeCommand() is probably not necessary:
+// for example:
+//      echo -n "$asdf"
+//        | ^
+//        | ---- children
+//        |
+//        ---- parent
+//
+// PROBLEM !!!! read --local var
+// for i in (seq )
 function isVariableDefintion(node) {
     var _a, _b, _c;
     if (isCommand(node) && ((_a = node.child(0)) === null || _a === void 0 ? void 0 : _a.text) == 'set') {
-        return true;
+        return false;
     }
     else {
         const parent = findParentCommand(node);
@@ -123,7 +133,7 @@ function findGlobalNodes(rootNode) {
     //    getNodes(rootNode)
     //    .filter(currentNode => !hasParentFunction(currentNode))
     const allNodes = [
-        ...(0, tree_sitter_1.getNodes)(rootNode)
+        ...(0, tree_sitter_1.getChildNodes)(rootNode)
             .filter(n => !hasParentFunction(n))
     ].filter(n => n.type != 'program');
     return allNodes;
@@ -157,7 +167,7 @@ function findLastVariableRefrence(node) {
     let currentNode = node.parent || node;
     while (!isFunctionDefinintion(currentNode) && currentNode != null) {
         let lastRefrence;
-        for (const childNode of (0, tree_sitter_1.getNodes)(currentNode)) {
+        for (const childNode of (0, tree_sitter_1.getChildNodes)(currentNode)) {
             if (isVariableDefintion(currentNode)) {
                 const variableDef = findDefinedVariable(childNode);
                 if ((variableDef === null || variableDef === void 0 ? void 0 : variableDef.text) == currentNode.text && variableDef != currentNode) {
@@ -173,6 +183,15 @@ function findLastVariableRefrence(node) {
     return undefined;
 }
 exports.findLastVariableRefrence = findLastVariableRefrence;
+function isLocalVariable(node, console) {
+    var _a, _b;
+    const parents = (0, tree_sitter_1.getParentNodes)(node);
+    const pCmd = parents[1];
+    if (((_a = pCmd.child(0)) === null || _a === void 0 ? void 0 : _a.text) === 'read' || ((_b = pCmd.child(0)) === null || _b === void 0 ? void 0 : _b.text) === 'set') {
+        console.log(pCmd.text);
+    }
+}
+exports.isLocalVariable = isLocalVariable;
 /*
  * echo $hello_world
  *           ^--- variable_name

@@ -1,17 +1,20 @@
-import { Hover, Location, TextDocumentPositionParams } from "vscode-languageserver";
-import { TextDocument } from "vscode-languageserver-textdocument";
+import { Hover, Location } from "vscode-languageserver/node";
+import { Position, TextDocument } from "vscode-languageserver-textdocument";
 import Parser, { SyntaxNode, Tree } from "web-tree-sitter";
-export declare class MyAnalyzer {
+export declare class Analyzer {
     private parser;
-    uriToSyntaxTree: {
-        [uri: string]: SyntaxTree;
-    };
-    uriToTextDocument: {
-        [uri: string]: TextDocument;
-    };
+    private uriTree;
     constructor(parser: Parser);
-    initialize(uri: string): Promise<TextDocument>;
-    analyze(uri: string, newDocument: TextDocument | undefined): Promise<void>;
+    analyze(document: TextDocument): void;
+    getRoot(document: TextDocument): Parser.SyntaxNode;
+    getLocalNodes(document: TextDocument): Parser.SyntaxNode[];
+    /**
+     * Gets the entire current line inside of the document. Useful for completions
+     *
+     * @returns {string} the current line in the document, or an empty string
+     */
+    currentLine(document: TextDocument, position: Position): string;
+    nodeIsLocal(tree: SyntaxTree, node: SyntaxNode): Hover | void;
     /**
      * Find the node at the given point.
      */
@@ -20,11 +23,6 @@ export declare class MyAnalyzer {
      * Find the full word at the given point.
      */
     wordAtPoint(uri: string, line: number, column: number): string | null;
-    currentLine(uri: string, line: number): string;
-    nodeIsLocal(uri: string, node: SyntaxNode): Hover | void;
-    getHover(params: TextDocumentPositionParams): Promise<Hover | void>;
-    getHoverFallback(uri: string, currentNode: SyntaxNode): Promise<Hover | void>;
-    getTreeForUri(uri: string): SyntaxTree | null;
 }
 export declare class SyntaxTree {
     rootNode: SyntaxNode;

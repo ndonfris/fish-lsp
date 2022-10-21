@@ -5,13 +5,13 @@ import { Context } from '../interfaces'
 //import { validate } from '../validation/validate'
 
 export function getDidChangeContentHandler(context: Context) {
-  const { roots, symbols, asts, dependencies, docs } = context
+  const { roots, symbols, documents } = context
 
   return async function handleDidChangeContent(
     change: TextDocumentChangeEvent<TextDocument>,
   ): Promise<void> {
 
-    const results = await analyze(context, change.document)
+    const results = await context.analyzer.analyze(context, change.document)
 
     const uri = change.document.uri
 

@@ -1,3 +1,4 @@
+import { RemoteConsole } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 export declare function isComment(node: SyntaxNode): boolean;
 export declare function isFunctionDefinintion(node: SyntaxNode): boolean;
@@ -24,4 +25,5 @@ export declare function findGlobalNodes(rootNode: SyntaxNode): SyntaxNode[];
 export declare function hasParentFunction(node: SyntaxNode): boolean;
 export declare function findFunctionScope(node: SyntaxNode): SyntaxNode;
 export declare function findLastVariableRefrence(node: SyntaxNode): SyntaxNode | undefined;
+export declare function isLocalVariable(node: SyntaxNode, console: RemoteConsole): void;
 //# sourceMappingURL=node-types.d.ts.map
