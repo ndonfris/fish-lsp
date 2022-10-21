@@ -1,10 +1,12 @@
-
-
 import { exec, execFile, execFileSync } from 'child_process';
+import {promises} from 'fs';
 import {resolve} from 'path';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
+
+const execFileAsync = promisify(execFile)
+
 
 
 /**
@@ -53,7 +55,7 @@ export async function execCompleteLine(cmd: string): Promise<string[]> {
 
 export async function execCompleteCmdArgs(cmd: string): Promise<string[]> {
     const exec = resolve(__dirname, '../../fish_files/get-command-options.fish')
-    const args = execFileSync(exec, [ cmd ])
+    const args = execFile(exec, [ cmd ])
     const results = args.toString().trim().split('\n')
 
     let i = 0;
@@ -89,8 +91,12 @@ export async function execCompleteAbbrs(): Promise<string[]> {
 export async function execCommandDocs(cmd: string): Promise<string> {
     const file = resolve(__dirname, '../../fish_files/get-documentation.fish')
     //const cmdArr = cmd.split(' ')
-    const docs = execFileSync(file, [cmd])
-    return docs.toString().trim();
+    const docs = await execFileAsync(file, [cmd])
+    if (docs.stderr) {
+        return ''
+    }
+    const out =  docs.stdout
+    return out.toString().trim()
 }
 
 /**
@@ -105,8 +111,11 @@ export async function execCommandDocs(cmd: string): Promise<string> {
 export async function execCommandType(cmd: string): Promise<string> {
     const file = resolve(__dirname, '../../fish_files/get-type.fish')
     const cmdCheck = cmd.split(' ')[0].trim()
-    const docs = execFile(file, [cmdCheck])
-    return docs.toString().trim();
+    const docs = await execFileAsync(file, [cmdCheck])
+    if (docs.stderr) {
+        return '';
+    }
+    return docs.stdout.toString().trim();
 }
 
 export interface CompletionArguments {

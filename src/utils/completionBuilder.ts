@@ -16,7 +16,7 @@ export const toCompletionKind: Record<FishCompletionItemKind, CompletionItemKind
     [FishCompletionItemKind.LOCAL_FUNC]: CompletionItemKind.Constructor,        // constructor
     [FishCompletionItemKind.FLAG]: CompletionItemKind.Field,                    // field
     [FishCompletionItemKind.CMD]: CompletionItemKind.Class,                     // class
-    [FishCompletionItemKind.CMD_NO_DOC]: CompletionItemKind.Class,              // class
+    [FishCompletionItemKind.CMD_NO_DOC]: CompletionItemKind.Unit,              // class
     [FishCompletionItemKind.RESOLVE]: CompletionItemKind.Unit                   // unit
 }
 
@@ -169,20 +169,10 @@ function parseDescriptionKeywords(firstItem: string, ...description: string[]): 
  * @returns {FishCompletionItemKind} - enum used to determine what type of completion to 
  *                                     build.
  */
-export function parseLineForType(label: string, documentationKeyword: string, otherInfo: string) : FishCompletionItemKind{
-    return getTypeFromLabel(label) || getTypeFromDocumentation(documentationKeyword, otherInfo)
-    //if (tokenType == null) {
-    //    //documentation.push(...['', ''])
-    //    //const typedDoc: [string, ...string[]] =  [documentation[0], ...documentation.slice(1)]
-    //    //const betterDoc = splitDescription(documentation);
-    //    //const desc = splitDescription(documentationKeyword);
-    //    //if (label === 'fft') {
-    //    //    logger.log('fft: '+documentationKeyword)
-    //    //    logger.log('fft_documentation: '+otherInfo)
-    //    //}
-    //    tokenType = getTypeFromDocumentation(documentationKeyword, otherInfo)
-    //}
-    //return tokenType;
+export function parseLineForType(label: string, keyword: string, otherInfo: string) : FishCompletionItemKind{
+    let labelType =  getTypeFromLabel(label);
+    let docType = getTypeFromDocumentation(keyword, otherInfo)
+    return labelType !== null ? labelType : docType
 }
 
 function getTypeFromLabel(label: string) {
@@ -198,8 +188,8 @@ function getTypeFromLabel(label: string) {
 }
 
 
-function getTypeFromDocumentation(keyword: string, ...otherInfo: string[]) {
-    console.log(otherInfo)
+function getTypeFromDocumentation(keyword: string, otherInfo: string) {
+    //console.log(otherInfo)
     switch (keyword) {
         case 'command': 
             return otherInfo.length >= 1 ? FishCompletionItemKind.CMD_NO_DOC : FishCompletionItemKind.CMD
@@ -209,10 +199,8 @@ function getTypeFromDocumentation(keyword: string, ...otherInfo: string[]) {
             return FishCompletionItemKind.ALIAS
         case 'abbreviation':
             return FishCompletionItemKind.ABBR
-        case 'Abbreviation:':
-            return FishCompletionItemKind.ABBR
         default:
-            return isGlobalFunction() ?  FishCompletionItemKind.GLOBAL_FUNC : FishCompletionItemKind.USER_FUNC
+            return isGlobalFunction() ?  FishCompletionItemKind.GLOBAL_FUNC : FishCompletionItemKind.RESOLVE
     }
 
 }

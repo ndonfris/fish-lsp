@@ -1,0 +1,48 @@
+import { DocumentUri, Location } from 'vscode-languageserver-protocol/node';
+import { Point, SyntaxNode, Tree, TreeCursor } from 'web-tree-sitter';
+export declare class FishSyntaxNode implements SyntaxNode {
+    node: SyntaxNode;
+    id: number;
+    tree: Tree;
+    type: string;
+    text: string;
+    startPosition: Point;
+    endPosition: Point;
+    startIndex: number;
+    endIndex: number;
+    parent: SyntaxNode | null;
+    children: SyntaxNode[];
+    namedChildren: SyntaxNode[];
+    childCount: number;
+    namedChildCount: number;
+    firstChild: SyntaxNode | null;
+    firstNamedChild: SyntaxNode | null;
+    lastChild: SyntaxNode | null;
+    lastNamedChild: SyntaxNode | null;
+    nextSibling: SyntaxNode | null;
+    nextNamedSibling: SyntaxNode | null;
+    previousSibling: SyntaxNode | null;
+    previousNamedSibling: SyntaxNode | null;
+    uri: DocumentUri;
+    constructor(node: SyntaxNode, uri: DocumentUri);
+    hasChanges(): boolean;
+    hasError(): boolean;
+    equals(other: SyntaxNode): boolean;
+    isMissing(): boolean;
+    isNamed(): boolean;
+    toString(): string;
+    child(index: number): SyntaxNode | null;
+    namedChild(index: number): SyntaxNode | null;
+    childForFieldId(fieldId: number): SyntaxNode | null;
+    childForFieldName(fieldName: string): SyntaxNode | null;
+    descendantForIndex(index: number): SyntaxNode;
+    descendantsOfType(type: string | string[], startPosition?: Point | undefined, endPosition?: Point | undefined): SyntaxNode[];
+    namedDescendantForIndex(index: number): SyntaxNode;
+    namedDescendantForIndex(startIndex: number, endIndex: number): SyntaxNode;
+    descendantForPosition(startPosition: Point, endPosition?: Point): SyntaxNode;
+    namedDescendantForPosition(position: Point): SyntaxNode;
+    walk(): TreeCursor;
+    getLocation(): Location;
+    getFishType(): string;
+}
+//# sourceMappingURL=fishSyntaxNode.d.ts.map

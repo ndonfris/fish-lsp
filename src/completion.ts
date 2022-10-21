@@ -86,7 +86,7 @@ function splitArray(label: string, description?: string): [string, string, strin
     let keyword = "";
     let otherInfo = "";
     if (description != undefined) {
-        const [first, rest] = description.split(/[:|\s+(.*)]/);
+        const [first, rest] = description.split(/:|\s+(.*)/);
         keyword = first.toLowerCase();
         otherInfo = rest || "";
     }
@@ -98,7 +98,7 @@ function splitArray(label: string, description?: string): [string, string, strin
 export async function getShellCompletions(cmd: string): Promise<[string, string, string][]> {
     const entireCommand = `fish --command 'complete --do-complete="${cmd}" | uniq'`
     const terminalOut = await execAsync(entireCommand)
-    if (terminalOut.stderr) {
+    if (terminalOut.stderr || !terminalOut.stdout) {
         return [];
     }
     return terminalOut.stdout.trim()
@@ -224,8 +224,8 @@ export class Completion {
         //logger.log('cmd:' + cmd)
         //logger.log('cmdText: ' + `fish --command 'complete --do-complete=\'${escapedCmd}\' | uniq'`)
         //const entireCommand = `fish --command 'complete --do-complete="${cmd}" | uniq'`
-        const shellOutcompletions: [string, string, string][] | null = await getShellCompletions(cmd)
-        if (!shellOutcompletions) {
+        const shellOutcompletions: [string, string, string][] = await getShellCompletions(cmd)
+        if (shellOutcompletions.length == 0) {
             return null;
         }
 

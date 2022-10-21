@@ -1,5 +1,7 @@
+import FastGlob from 'fast-glob';
+import {homedir} from 'os';
 import {CompletionItem, CompletionItemKind, InsertTextFormat, MarkupContent, RemoteConsole} from 'vscode-languageserver';
-import {enrichCommandArg, enrichToCodeBlockMarkdown} from '../documentation';
+import {enrichCommandArg, enrichToCodeBlockMarkdown, enrichToMarkdown} from '../documentation';
 import {logger} from '../logger';
 import {execCommandDocs, execCommandType} from './exec';
 
@@ -195,9 +197,9 @@ const BuiltInSET = new Set(BuiltInList);
  * @param {string[]} line - a result from fish's builtin commandline completions
  * @return {boolean} - line is a completion for an builtin 
  */
-export function isBuiltIn(line: string | [...string[]]): boolean {
-    const word = line[0].trim()
-    return BuiltInSET.has(word)
+//export function isBuiltIn(line: string | [...string[]]): boolean {
+export function isBuiltIn(line: string): boolean {
+    return BuiltInSET.has(line)
 }
 
 
@@ -214,7 +216,28 @@ export function isFlag(line: string[]): boolean {
     return line[0].startsWith('-')
 }
 
+
+const paths = [ `${homedir()}/.config/fish` ]
+const allFiles = []
+
+paths.forEach((path) => {
+    const files = FastGlob.sync("**.fish", {
+        absolute: true,
+        dot: true,
+        globstar: true,
+        cwd: path,
+    });
+    allFiles.push(...files);
+});
+
+// now allFiles contains every fish file that could be used in the workspace
+//await Promise.all(allFiles.map(async file => {
+//    const contents = await promises.readFile(file, 'utf8')
+//    return TextDocument.create(file, 'fish', 0, contents || "")
+//}))
+
 export function isGlobalFunction(): boolean {
+
     return false;
 }
 
@@ -258,7 +281,7 @@ export function isFishCommand(line: string[]): boolean {
             'alias',
             'Abbreviation:'
         ].includes(type_indicator)
-        return !somethingElse && !isBuiltIn(line) && !isFlag(line)
+        return !somethingElse && !isBuiltIn(line[0]) && !isFlag(line)
     }
     return false;
 }
@@ -286,7 +309,7 @@ export function getCompletionItemKind(line: string[], fishKind?: FishCompletionI
         return CompletionItemKind.Interface
     } else if (isAlias(line)) {
         return CompletionItemKind.Constant
-    } else if (isBuiltIn(line)) {
+    } else if (isBuiltIn(line[0])) {
         return CompletionItemKind.Keyword
     } else if (isGlobalVariable(line)) {
         return CompletionItemKind.Variable
@@ -300,21 +323,36 @@ export function getCompletionItemKind(line: string[], fishKind?: FishCompletionI
     }
 }
 
-
 export enum FishCompletionItemKind {
-    ABBR = CompletionItemKind.Interface,                // interface
-    ALIAS = CompletionItemKind.Struct,                  // struct
-    BUILTIN = CompletionItemKind.Keyword,               // keyword
-    GLOBAL_VAR = CompletionItemKind.Constant,           // constant
-    LOCAL_VAR = CompletionItemKind.Variable,            // variable
-    USER_FUNC = CompletionItemKind.Function,            // function
-    GLOBAL_FUNC = CompletionItemKind.Method,            // method
-    LOCAL_FUNC = CompletionItemKind.Constructor,        // constructor
-    FLAG = CompletionItemKind.Field,                    // field
-    CMD = CompletionItemKind.Class,                     // class
-    CMD_NO_DOC = CompletionItemKind.Class,              // class
-    RESOLVE = CompletionItemKind.Unit                   // unit
+    ABBR,			// interface
+    ALIAS,			// struct
+    BUILTIN,			// keyword
+    GLOBAL_VAR,			// constant
+    LOCAL_VAR,			// variable
+    USER_FUNC,			// function
+    GLOBAL_FUNC,		// method
+    LOCAL_FUNC,			// constructor
+    FLAG,			// field
+    CMD,			// class
+    CMD_NO_DOC,			// class
+    RESOLVE,			// unit
 }
+
+
+//export enum FishCompletionItemKind {
+//    ABBR = CompletionItemKind.Interface,                // interface
+//    ALIAS = CompletionItemKind.Struct,                  // struct
+//    BUILTIN = CompletionItemKind.Keyword,               // keyword
+//    GLOBAL_VAR = CompletionItemKind.Constant,           // constant
+//    LOCAL_VAR = CompletionItemKind.Variable,            // variable
+//    USER_FUNC = CompletionItemKind.Function,            // function
+//    GLOBAL_FUNC = CompletionItemKind.Method,            // method
+//    LOCAL_FUNC = CompletionItemKind.Constructor,        // constructor
+//    FLAG = CompletionItemKind.Field,                    // field
+//    CMD = CompletionItemKind.Class,                     // class
+//    CMD_NO_DOC = CompletionItemKind.Class,              // class
+//    RESOLVE = CompletionItemKind.Unit                   // unit
+//}
 
 
 
@@ -513,25 +551,26 @@ export async function handleCompletionResolver(item: FishCompletionItem, console
     let newDoc = '';
     const fishKind = item.data?.fishKind;
     console.log('handleCmpResolver ' + fishKind)
+    const fallbackString = item.documentation?.toString() || item.data.originalCompletion;
     switch (fishKind) {
         case FishCompletionItemKind.ABBR:              // interface
         case FishCompletionItemKind.ALIAS:             // interface
+            item.documentation = enrichToCodeBlockMarkdown(fallbackString)
             break;
         case FishCompletionItemKind.BUILTIN:           // keyword
             newDoc = await execCommandDocs(item.label)
             item.documentation = enrichToCodeBlockMarkdown(newDoc, 'man')
             break;
         case FishCompletionItemKind.LOCAL_VAR:         // variable
-        case FishCompletionItemKind.LOCAL_FUNC:        // function
-            break;
         case FishCompletionItemKind.GLOBAL_VAR:        // variable
+            item.documentation = enrichToMarkdown(`__${item.label}__ ${fallbackString}`)
+            break;
+        case FishCompletionItemKind.LOCAL_FUNC:        // function
         case FishCompletionItemKind.GLOBAL_FUNC:       // function
             item.documentation = await execCommandDocs(item.label)
             break;
         case FishCompletionItemKind.FLAG:              // field
-            if (item.data?.originalCompletion) {
-                item.documentation = enrichCommandArg(item.data.originalCompletion)
-            }
+            item.documentation = enrichToMarkdown(`__${item.label}__ ${item.documentation}`)
             break;
         case FishCompletionItemKind.CMD:               // module
         case FishCompletionItemKind.CMD_NO_DOC:        // refrence
