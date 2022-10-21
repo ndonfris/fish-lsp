@@ -129,17 +129,20 @@ class FishFileLocationResolver {
     }
 
     private setFunctionPaths() {
-        const locs = FastGlob.sync("functions/**.fish", {
+        const _locals = FastGlob.sync("functions/**.fish", {
             absolute: false,
             dot: true,
             globstar: true,
             cwd: this.defaultUserPath,
         });
-        const globs = FastGlob.sync("functions/**.fish", {
+        const _globals = FastGlob.sync("functions/**.fish", {
             absolute: false,
             dot: true,
             globstar: true,
             cwd: this.defaultGlobalPath
+        })
+        _locals.forEach((localFunction: string) => {
+            this.globalFunctions.push()
         })
     }
 }
