@@ -53,7 +53,7 @@ export default class FishServer {
         const filepaths = FilepathResolver.create()
         return Promise.all([
             new Analyzer(parser),
-            DocumentManager.indexUserConfig(connection.console, filepaths),
+            DocumentManager.indexUserConfig(connection.console),
             Completion.initialDefaults(filepaths),
         ]).then(
             ([analyzer, docs, completion]) =>
@@ -115,6 +115,7 @@ export default class FishServer {
     }
 
     public register(): void {
+        this.docs.documents.listen(this.connection)
         this.connection.onDidOpenTextDocument(async change => {
             const document = change.textDocument;
             const uri = document.uri;
@@ -154,9 +155,9 @@ export default class FishServer {
             const uri = document.uri;
             let doc = await this.docs.openOrFind(uri);
             logger.log('documents.onDidChangeContent: ' + doc.uri)
+            logger.log(doc.getText())
             this.analyzer.analyze(doc);
         })
-        this.docs.documents.listen(this.connection)
 
     }
 
@@ -164,23 +165,30 @@ export default class FishServer {
         const uri: string = completionParams.textDocument.uri;
         const position = completionParams.position;
 
-        logger.log('server.onComplete' + uri, {caller: this.onCompletion.name, position: completionParams.position})
+        logger.log('server.onComplete' + uri)
 
         const doc = await this.docs.openOrFind(uri);
-        //const node: SyntaxNode | null = this.analyzer.nodeAtPoint(doc.uri, position.line, position.character);
+        const node: SyntaxNode | null = this.analyzer.nodeAtPoint(doc.uri, position.line, position.character);
+
+        logger.log(`node: ${node?.text}`)
 
         //const r = getRangeFromPosition(completionParams.position);
         this.connection.console.log('on complete node: ' + doc.uri || "" )
 
-        const line: string = this.analyzer.currentLine(doc, completionParams.position) || ""
+        const line: string = this.analyzer.currentLine(doc, completionParams.position) || " "
         //if (line.startsWith("\#")) {
         //    return null;
         //}
         try {
             logger.log('line' + line)
-            await this.completion.generateLineCmpNew(line)
+            //const newLine = line.trimStart().split(' ')
+            const th = await this.completion.generateLineCmpNew(line.trimStart())
+
         } catch (e) {
-            this.connection.console.log("error")
+            this.connection.console.log("error" + e)
+            this.connection.console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+            this.connection.console.log(doc.getText())
+            this.connection.console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
         }
         return this.completion.fallbackComplete()
     }
@@ -190,9 +198,9 @@ export default class FishServer {
         let newItem = item;
         const fishItem = item as FishCompletionItem;
         try {
-            logger.log('server onCompletionResolve:', {extraInfo: ['beforeResolve:' ], completion: item})
-            newItem = await handleCompletionResolver(item as FishCompletionItem, this.console)
-            logger.log('server onCompletionResolve:', {extraInfo: ['AfterResolve:' ], completion: item})
+            //logger.log('server onCompletionResolve:', {extraInfo: ['beforeResolve:' ], completion: item})
+            //newItem = await handleCompletionResolver(item as FishCompletionItem, this.console)
+            //logger.log('server onCompletionResolve:', {extraInfo: ['AfterResolve:' ], completion: item})
         } catch (err) {
             logger.log("ERRRRRRRRRRRRROOOOORRRR " + err)
             return item;

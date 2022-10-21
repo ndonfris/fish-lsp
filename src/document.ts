@@ -89,7 +89,7 @@ export class DocumentManager {
     // the debbuging for the current testcase 
     public console: RemoteConsole;
 
-    public static async indexUserConfig(console: RemoteConsole, filepathResolver: FilepathResolver) {
+    public static async indexUserConfig(console: RemoteConsole) {
         const docs = new this(console);
         docs.console.log('Indexing Starting in function:\n\t DocumentManager.generateUserConfigDocuments(console)\n')
 
@@ -166,14 +166,15 @@ export class DocumentManager {
         //const newDocument = await createTextDocumentFromFilePath(URI.parse(correctURI));
         const newDocument = await createTextDocumentFromURI(URI.parse(correctURI))
         if (!newDocument) {
-            logger.log("", {
-                error: true,
-                extraInfo: [
-                    `DocumentManager.openOrFind(${correctURI})`,
-                    `Not found: returned empty text document!`,
-                    `uri PassedIn: ${uri}`,
-                ],
-            }); 
+            logger.log('[FAILED] document:' + correctURI)
+            //logger.log("", {
+            //    error: true,
+            //    extraInfo: [
+            //        `DocumentManager.openOrFind(${correctURI})`,
+            //        `Not found: returned empty text document!`,
+            //        `uri PassedIn: ${uri}`,
+            //    ],
+            //}); 
             return TextDocument.create(correctURI, 'fish', -1, '')
         }
         this.allDocuments[correctURI] = newDocument;

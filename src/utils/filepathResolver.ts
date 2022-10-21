@@ -41,7 +41,7 @@ export class FilepathResolver {
     public static create(...locations: string[]) {
         //this.otherPaths.push(...locations)
         FilepathResolver.instance = new FilepathResolver();
-        const allPathsToSearch = [
+        const allPathsToSearch: string[] = [
             FilepathResolver.defaultGlobalPath,
             FilepathResolver.defaultUserPath,
             //...FilepathResolver._otherPaths,
@@ -71,21 +71,21 @@ export class FilepathResolver {
 }
 
 function getFunctionNameFromPath(path: string) {
-    const pathArr = path.split('/');
+    const pathArr = path.split('/') || [""];
     if (pathArr.lastIndexOf('functions') === pathArr.length - 2) {
         const filename = pathArr[-1] || ''
-        return filename.replace('.fish', '')
+        return filename.replace('.fish', '') ||  ""
     }
     if (pathArr.length == 1) {
         const filename = pathArr[-1] || ''
-        return filename.replace('.fish', '')
+        return filename.replace('.fish', '') || ""
     }
     return ''
 }
 
 function findLocalFunctions(path: string) {
     const funcs = []
-    const localFuncs = FastGlob.sync("functions/**.fish", {
+    const localFuncs = FastGlob.sync("**.fish", {
         absolute: false,
         dot: true,
         globstar: true,

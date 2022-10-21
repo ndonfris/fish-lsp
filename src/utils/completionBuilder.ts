@@ -1,9 +1,8 @@
-
-
-import FastGlob from 'fast-glob';
+import FastGlob  from 'fast-glob';
 import {homedir} from 'os';
 import { CompletionItem, CompletionItemKind, MarkupContent } from 'vscode-languageserver';
 import {FishCompletionItemType} from '../completion';
+import {logger} from '../logger';
 import {FishCompletionItemKind, fishCompletionItemKindMap, isBuiltIn, isGlobalFunction} from './completion-types';
 
 export const toCompletionKind: Record<FishCompletionItemKind, CompletionItemKind> = {
@@ -30,31 +29,43 @@ export interface FishCompletionItem extends CompletionItem {
         fishKind?: FishCompletionItemKind; // VERBOSE form of kind
         localSymbol?: boolean;
     }
+    create: () => {}
 }
 
 export class CompletionItemBuilder {
 
-    private _item: FishCompletionItem | CompletionItem | null;
+    private _item: FishCompletionItem | CompletionItem;
 
-    constructor() {
-        this._item = null;
+    public constructor() {
+        this._item = {} as CompletionItem;
+        this._item.label= "";
+        this._item.kind = 1;
+        this._item.documentation = "";
+        this._item.data = {
+            localSymbol: false,
+            originalCompletion: "",
+            fishKind: FishCompletionItemKind.RESOLVE,
+        }
+    }
+
+    public reset() {
+        this._item = {} as CompletionItem;
+        this._item.label= "";
+        this._item.kind = 1;
+        this._item.documentation = "";
+        this._item.data = {
+            localSymbol: false,
+            originalCompletion: "",
+            fishKind: FishCompletionItemKind.RESOLVE,
+        }
+    }
+
+    set item(arg: CompletionItem) {
+        this._item = arg;
     }
 
     get item() {
-        if (!this._item) {
-            this._item = {
-                label: "",
-                description: "",
-                data: {
-                    localSymbol: false,
-                    originalCompletion: "",
-                    fishKind: FishCompletionItemKind.RESOLVE,
-                }
-
-            } as CompletionItem;
-            return this._item
-        }
-        return this._item
+        return this._item;
     }
 
     public create(label: string) { 
@@ -67,37 +78,41 @@ export class CompletionItemBuilder {
         return this;
     }
 
-    kind(fishKind: FishCompletionItemKind) {
-        this.item.kind = toCompletionKind[fishKind];
-        this.item.data.fishKind = fishKind;
+    public kind(fishKind: FishCompletionItemKind) {
+        this._item.kind = toCompletionKind[fishKind];
+        this._item.data.fishKind = fishKind;
         return this;
     }
 
 
-    documentation(docs: string | MarkupContent) {
-        this.item.documentation = docs;
+    public documentation(docs: string | MarkupContent) {
+        this._item.documentation = docs;
+        return this;
     }
 
-    originalCompletion(shellText: string) {
-        this.item.data.originalCompletion = shellText;
+    public originalCompletion(shellText: string) {
+        this._item.data.originalCompletion = shellText;
+        return this;
     }
 
-    commitCharacters(chars: string[]) {
-        this.item.commitCharacters = chars;
+    public commitCharacters(chars: string[]) {
+        this._item.commitCharacters = chars;
+        return this;
     }
 
-    insertText(textToInsert: string) {
-        this.item.insertText = textToInsert;
+    public insertText(textToInsert: string) {
+        this._item.insertText = textToInsert;
+        return this;
     }
 
-    localSymbol() {
-        this.item.data.localSymbol = true;
+    public localSymbol() {
+        this._item.data.localSymbol = true;
+        return this;
     }
 
     public build(): CompletionItem {
-        return this.item;
+        return this._item;
     }
-
 }
 
 // fish --command 'complete --do-complete="somecmd"'
@@ -108,19 +123,39 @@ export class CompletionItemBuilder {
 // where completions are split by tab characters, and descriptions are optional.
 export type TerminalCompletionOutput = [string, ...string[]];
 
-function parseDescriptionKeywords(...description: string[]): TerminalCompletionOutput {
-    const secondItem = description[0].replace(':', ''); 
-    let results: string[] = []
-    if (secondItem === "") {
+function splitDescription(...description: string[]): TerminalCompletionOutput {
+    if (description === undefined || description.length == 0) {
+        return ["", ""]
+    }
+    if (description.length === 1) {
+        return [description[0], ""]
+    }
+    return [description[0], description.slice(1).join(' ')]
+
+}
+
+function parseDescriptionKeywords(firstItem: string, ...description: string[]): [string, ...string[]] {
+    if (description === undefined) {
+        return [""]
+    }
+    if (!firstItem || firstItem === "") {
         return [""];
     } else {
-        if (secondItem.includes(' ')) { 
-            results = secondItem.split(' ', 2)
-            return [results[0].toLowerCase(), ...results.slice(1)]
-        } else {
-            return [secondItem]
+        description.push(...[" ", " "])
+        //logger.log("lastIndex " + firstItem.lastIndexOf(":"))
+        let fixedItem = ""  // .substring(0, firstItem.lastIndexOf(":")) || ""
+        fixedItem += firstItem
+        if (firstItem.includes(":")) {
+            fixedItem.replace(/[^A-Za-z0-9]/g, '')
+            //fixedItem = firstItem.substring(0, firstItem.lastIndexOf(":"))
         }
-    }
+        //const possibleDescriptionName = description.split(' ', 1);
+        if (description.length > 0) { 
+            return [fixedItem.toLowerCase(), description[0] || ""]
+        } else {
+            return [firstItem]
+        }
+    } 
 }   
 
 /**
@@ -134,13 +169,20 @@ function parseDescriptionKeywords(...description: string[]): TerminalCompletionO
  * @returns {FishCompletionItemKind} - enum used to determine what type of completion to 
  *                                     build.
  */
-export function parseLineForType(label: string, ...documentation: string[]) : FishCompletionItemKind{
-    let tokenType = getTypeFromLabel(label) 
-    if (tokenType == null) {
-        const keywordsArray = parseDescriptionKeywords(...documentation)
-        tokenType = getTypeFromDocumentation(...keywordsArray)
-    }
-    return tokenType;
+export function parseLineForType(label: string, documentationKeyword: string, otherInfo: string) : FishCompletionItemKind{
+    return getTypeFromLabel(label) || getTypeFromDocumentation(documentationKeyword, otherInfo)
+    //if (tokenType == null) {
+    //    //documentation.push(...['', ''])
+    //    //const typedDoc: [string, ...string[]] =  [documentation[0], ...documentation.slice(1)]
+    //    //const betterDoc = splitDescription(documentation);
+    //    //const desc = splitDescription(documentationKeyword);
+    //    //if (label === 'fft') {
+    //    //    logger.log('fft: '+documentationKeyword)
+    //    //    logger.log('fft_documentation: '+otherInfo)
+    //    //}
+    //    tokenType = getTypeFromDocumentation(documentationKeyword, otherInfo)
+    //}
+    //return tokenType;
 }
 
 function getTypeFromLabel(label: string) {
@@ -157,12 +199,17 @@ function getTypeFromLabel(label: string) {
 
 
 function getTypeFromDocumentation(keyword: string, ...otherInfo: string[]) {
+    console.log(otherInfo)
     switch (keyword) {
         case 'command': 
             return otherInfo.length >= 1 ? FishCompletionItemKind.CMD_NO_DOC : FishCompletionItemKind.CMD
+        case 'variable': 
+            return isGlobalFunction() ?  FishCompletionItemKind.GLOBAL_FUNC : FishCompletionItemKind.USER_FUNC
         case 'alias': 
             return FishCompletionItemKind.ALIAS
         case 'abbreviation':
+            return FishCompletionItemKind.ABBR
+        case 'Abbreviation:':
             return FishCompletionItemKind.ABBR
         default:
             return isGlobalFunction() ?  FishCompletionItemKind.GLOBAL_FUNC : FishCompletionItemKind.USER_FUNC

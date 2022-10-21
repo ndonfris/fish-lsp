@@ -1,4 +1,5 @@
 import {exec} from 'child_process';
+import { parse, quote, ParseOptions } from 'shell-quote';
 import { promisify } from 'util';
 import {
     CompletionItem,
@@ -8,6 +9,7 @@ import {
 } from "vscode-languageserver-protocol/node";
 import { SyntaxNode } from "web-tree-sitter";
 import {enrichToMarkdown} from './documentation';
+import {logger} from './logger';
 import {CompletionItemBuilder, parseLineForType, TerminalCompletionOutput} from './utils/completionBuilder';
 import {
     execComplete,
@@ -78,6 +80,33 @@ function buildCompletionItem(
     };
 }
 const execAsync = promisify(exec)
+
+
+function splitArray(label: string, description?: string): [string, string, string] {
+    let keyword = "";
+    let otherInfo = "";
+    if (description != undefined) {
+        const [first, rest] = description.split(/[:|\s+(.*)]/);
+        keyword = first.toLowerCase();
+        otherInfo = rest || "";
+    }
+    //console.log(`label: ${label} keyword: ${keyword} otherInfo: ${otherInfo}`)
+    return [label, keyword, otherInfo]
+}
+
+
+export async function getShellCompletions(cmd: string): Promise<[string, string, string][]> {
+    const entireCommand = `fish --command 'complete --do-complete="${cmd}" | uniq'`
+    const terminalOut = await execAsync(entireCommand)
+    if (terminalOut.stderr) {
+        return [];
+    }
+    return terminalOut.stdout.trim()
+        .split('\n').map(line => {
+        const [label, desc] = line.split('\t')
+        return splitArray(label, desc);
+    })
+}
 
 // • include pipe completions
 // • include escape character completions
@@ -187,44 +216,47 @@ export class Completion {
     // therefore you probably want to add the defaults (abbr & global variable list)
     // after this.completions is enriched
 
-    public async generateLineCmpNew(line: string): Promise<CompletionItem[]> {
-        const cmd = line.replace(/(['$`\\])/g, '\\$1')
-        const res = await execAsync(`fish --command "complete --do-complete='${cmd}' | uniq"`)
-        const lines = res.stdout
-            .split('\n')
-            .filter(line => line.trim() !== "")
-            .map(line => line.split('\t').map(l => l.trim()).join('\t'))
-            .map(line  => { 
-                const newLine = line.split('\t')
-                if (newLine.length === 0) {
-                    return ["", ""]
-                }
-                if (newLine.length === 1) {
-                    return [newLine[0], ""]
-                }
-                return newLine
-            }).filter(line => (line !== undefined && line[0] !== undefined))
+    public async generateLineCmpNew(line: string): Promise<CompletionItem[] | null> {
+        //const newLine = entireline.map(item => item.trim())
+        let cmd = line.replace(/(['$`\\])/g, '\\$1');
+        //const cmd = `complete --do-complete="${escapedCmd}" | uniq'`
+        //const escapedCmd = quote(cmd)
+        //logger.log('cmd:' + cmd)
+        //logger.log('cmdText: ' + `fish --command 'complete --do-complete=\'${escapedCmd}\' | uniq'`)
+        //const entireCommand = `fish --command 'complete --do-complete="${cmd}" | uniq'`
+        const shellOutcompletions: [string, string, string][] | null = await getShellCompletions(cmd)
+        if (!shellOutcompletions) {
+            return null;
+        }
 
-        this.lineCmps = await Promise.all(
-            lines.map(async (line) => {
-                return CompletionItem.create(line[0])
-            })
-        )
-            
+        const itemBuilder = new CompletionItemBuilder();
+        const items: CompletionItem[] = []
+
+        for (const [label, desc, moreInfo] of shellOutcompletions) {
+            const itemKind = parseLineForType(label, desc, moreInfo)
+            const item = itemBuilder.create(label)
+                .documentation([desc, moreInfo].join(' '))
+                .kind(itemKind)
+                .build()
+            items.push(item)
+            itemBuilder.reset()
+        }
+        //this.lineCmps = lines.map((line) => CompletionItem.create(line[0]));
         //this.lineCmps = await Promise.all(
-        //    lines.map(async (arr: string[]) => {
-        //        const [label, _desc] = [arr[0], ...arr[1]];
-        //        const fishCmpType = parseLineForType(label, _desc)
-        //        const item = 
-        //            new CompletionItemBuilder()
-        //            .create(label)
+        //        const item = itemBuilder
+        //            .create(arr[])
         //            .kind(fishCmpType)
+        //            .documentation(arr[1])
+        //            .originalCompletion(arr.join('\t'))
         //        return item.build();
 
         //    }
         //))
-        return this.lineCmps;
+
+        this.lineCmps = items;
+        return items;
     }
+            
 
     //public async generateLineCompletion(line: string){
     //    const cmd = line.replace(/(['$`\\])/g, '\\$1')
@@ -291,7 +323,9 @@ export class Completion {
     }
 
     public fallbackComplete() {
-        this.completions = this.lineCmps
+        this.completions = [
+            ...this.lineCmps,
+        ]
         return CompletionList.create(this.completions, this.isIncomplete);
     }
 }
