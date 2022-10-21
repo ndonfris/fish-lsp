@@ -36,6 +36,7 @@ import {DocumentManager, getRangeFromPosition} from './document';
 import {getChildNodes, getNodeText} from './utils/tree-sitter';
 import {isLocalVariable, isVariable} from './utils/node-types';
 import {FishCompletionItem, handleCompletionResolver} from './utils/completion-types';
+import {FilepathResolver} from './utils/filepathResolver';
 
 
 
@@ -49,10 +50,11 @@ export default class FishServer {
     ): Promise<FishServer> {
         logger.setConsole(connection.console)
         const parser = await initializeParser();
+        const filepaths = FilepathResolver.create()
         return Promise.all([
             new Analyzer(parser),
-            DocumentManager.indexUserConfig(connection.console),
-            Completion.initialDefaults(),
+            DocumentManager.indexUserConfig(connection.console, filepaths),
+            Completion.initialDefaults(filepaths),
         ]).then(
             ([analyzer, docs, completion]) =>
             new FishServer(connection, parser, analyzer, docs, completion)
@@ -165,16 +167,21 @@ export default class FishServer {
         logger.log('server.onComplete' + uri, {caller: this.onCompletion.name, position: completionParams.position})
 
         const doc = await this.docs.openOrFind(uri);
-        const node: SyntaxNode | null = this.analyzer.nodeAtPoint(doc.uri, position.line, position.character);
+        //const node: SyntaxNode | null = this.analyzer.nodeAtPoint(doc.uri, position.line, position.character);
 
         //const r = getRangeFromPosition(completionParams.position);
-        logger.log('on complete node', {caller:this.onCompletion.name, rootNode: node || undefined, position: completionParams.position})
+        this.connection.console.log('on complete node: ' + doc.uri || "" )
 
         const line: string = this.analyzer.currentLine(doc, completionParams.position) || ""
         //if (line.startsWith("\#")) {
         //    return null;
         //}
-        await this.completion.generateLineCmpNew(line)
+        try {
+            logger.log('line' + line)
+            await this.completion.generateLineCmpNew(line)
+        } catch (e) {
+            this.connection.console.log("error")
+        }
         return this.completion.fallbackComplete()
     }
 

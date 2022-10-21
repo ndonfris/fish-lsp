@@ -1,5 +1,6 @@
 import { TextDocument, Position, Range } from 'vscode-languageserver-textdocument';
 import { RemoteConsole, TextDocumentPositionParams, TextDocuments } from 'vscode-languageserver';
+import { FilepathResolver } from './utils/filepathResolver';
 /**
  *  DO NOT create vscode-uri anywhere outside of DocumentManager. when a document is returned just use the uri on it.
  *  ──────
@@ -17,7 +18,7 @@ export declare class DocumentManager {
     private openDocuments;
     private allDocuments;
     console: RemoteConsole;
-    static indexUserConfig(console: RemoteConsole): Promise<DocumentManager>;
+    static indexUserConfig(console: RemoteConsole, filepathResolver: FilepathResolver): Promise<DocumentManager>;
     /**
      * Constructor for a single documentManager per FishServer
      *

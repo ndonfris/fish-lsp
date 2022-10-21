@@ -41,7 +41,7 @@ class Logger {
             this.console.log([...opts.extraInfo].join("\n"));
         }
         if (opts === null || opts === void 0 ? void 0 : opts.position) {
-            this.console.log(`position (character: ${opts.position.character}, line: ${opts.position.character})`);
+            this.console.log(`position (character: ${opts.position.character}, line: ${opts.position.line})`);
         }
         if (opts === null || opts === void 0 ? void 0 : opts.document) {
             this.console.log(opts.document.getText());
@@ -56,10 +56,9 @@ class Logger {
     }
     log(msg, opts) {
         if (this.enabled) {
-            if (opts !== undefined)
-                this.logOpts(opts);
-            this.console.log(msg);
+            //if (opts !== undefined) this.logOpts(opts)
         }
+        this.console.log(msg);
     }
     startTimer(msg) {
         if (msg) {

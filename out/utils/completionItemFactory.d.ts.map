@@ -1,1 +1,1 @@
-{"version":3,"file":"completionItemFactory.d.ts","sourceRoot":"","sources":["../../src/utils/completionItemFactory.ts"],"names":[],"mappings":"AAIA;;;;;;;;;GASG;AACH,MAAM,WAAW,UAAU;IACvB,IAAI,EAAE,MAAM,CAAC;IACb,WAAW,EAAE,MAAM,CAAC;CACvB;AAuCD,wBAAgB,yBAAyB,CAAC,GAAG,EAAE,MAAM,EAAE,cAUtD"}
+{"version":3,"file":"completionItemFactory.d.ts","sourceRoot":"","sources":["../../src/utils/completionItemFactory.ts"],"names":[],"mappings":"AAIA;;;;;;;;;GASG;AACH,MAAM,WAAW,UAAU;IACvB,IAAI,EAAE,MAAM,CAAC;IACb,WAAW,EAAE,MAAM,CAAC;CACvB"}

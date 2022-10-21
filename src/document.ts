@@ -10,6 +10,7 @@ import FastGlob from 'fast-glob';
 import {homedir} from 'os';
 import {promises, readFileSync} from 'fs';
 import {logger} from './logger';
+import {FilepathResolver} from './utils/filepathResolver';
 
 // removed the need for utils/{io,locations}.ts with funcitons at the top of this file.
 // Add back later
@@ -88,16 +89,15 @@ export class DocumentManager {
     // the debbuging for the current testcase 
     public console: RemoteConsole;
 
-    public static async indexUserConfig(console: RemoteConsole) {
+    public static async indexUserConfig(console: RemoteConsole, filepathResolver: FilepathResolver) {
         const docs = new this(console);
         docs.console.log('Indexing Starting in function:\n\t DocumentManager.generateUserConfigDocuments(console)\n')
-        
-        // allow for the future plans of adding more paths through client config. 
+
         const paths = [
             `${homedir()}/.config/fish`,
             '/usr/share/fish'
-        ];
-
+        ];        
+        // allow for the future plans of adding more paths through client config. 
         const allDocuments = await getTextDocumentsFromPaths(paths);
         
         allDocuments.forEach(doc => {

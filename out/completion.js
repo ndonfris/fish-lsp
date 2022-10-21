@@ -14,10 +14,7 @@ const child_process_1 = require("child_process");
 const util_1 = require("util");
 const node_1 = require("vscode-languageserver-protocol/node");
 const documentation_1 = require("./documentation");
-const completion_types_1 = require("./utils/completion-types");
 const exec_1 = require("./utils/exec");
-const node_types_1 = require("./utils/node-types");
-const tree_sitter_1 = require("./utils/tree-sitter");
 // utils create CompletionResolver and CompletionItems
 // also decide which completion icons each item will have
 // try to get clean implementation of {...CompletionItem.create(), item: desc}
@@ -78,7 +75,7 @@ const execAsync = (0, util_1.promisify)(child_process_1.exec);
 //         • always get the last SyntaxNode character
 //
 class Completion {
-    constructor() {
+    constructor(filepathResolver) {
         this.lineCmps = [];
         this.globalAbbrs = [];
         this.globalVars = [];
@@ -93,13 +90,14 @@ class Completion {
         this.isIncomplete = false;
         this.completions = [];
         this.isInsideCompletionsFile = false;
+        this.filepathResolver = filepathResolver;
     }
     // call in server.initialize()
     // also you could add the syntaxTree on
     // this.documents.listener.onDocumentChange(() => {})
-    static initialDefaults() {
+    static initialDefaults(filepathResolver) {
         return __awaiter(this, void 0, void 0, function* () {
-            const globs = new this();
+            const globs = new this(filepathResolver);
             //globs.globalVars = await buildGlobalVars();
             //globs.globalAbbrs = await buildGlobalAbbrs();
             //globs.globalCmds = await buildGlobalCommands();
@@ -122,23 +120,33 @@ class Completion {
             });
         });
     }
-    addLocalMembers(vars, funcs) {
-        const oldVars = [...this.localVariables.keys()];
-        const oldFuncs = [...this.localFunctions.keys()];
-        const newVars = vars.filter(currVar => !oldVars.includes((0, tree_sitter_1.getNodeText)(currVar)));
-        const newFuncs = funcs.filter(currVar => !oldFuncs.includes((0, tree_sitter_1.getNodeText)(currVar)));
-        for (const fishVar of newVars) {
-            const text = (0, tree_sitter_1.getNodeText)(fishVar);
-            const newItem = buildCompletionItem(text, 'local vaiable', (0, documentation_1.enrichToMarkdown)('local variable' + ":  " + text), FishCompletionItemType.variable);
-            this.localVariables.set(text, newItem);
-        }
-        for (const fishFunc of newFuncs) {
-            const text = (0, tree_sitter_1.getNodeText)(fishFunc);
-            const newItem = buildCompletionItem(text, 'local function', (0, documentation_1.enrichToMarkdown)('local function' + ":  " + text), FishCompletionItemType.function);
-            this.localVariables.set(text, newItem);
-        }
-        return newVars.length + newFuncs.length;
-    }
+    //public addLocalMembers(vars: SyntaxNode[], funcs: SyntaxNode[]) {
+    //    const oldVars = [...this.localVariables.keys()];
+    //    const oldFuncs = [...this.localFunctions.keys()];
+    //    const newVars = vars.filter(currVar => !oldVars.includes(getNodeText(currVar)))
+    //    const newFuncs = funcs.filter(currVar => !oldFuncs.includes(getNodeText(currVar)))
+    //    for (const fishVar of newVars) {
+    //        const text = getNodeText(fishVar)
+    //        const newItem = buildCompletionItem(
+    //            text,
+    //            'local vaiable',
+    //            enrichToMarkdown('local variable' + ":  " + text),
+    //            FishCompletionItemType.variable,
+    //        )
+    //        this.localVariables.set(text, newItem)
+    //    }
+    //    for (const fishFunc of newFuncs) {
+    //        const text = getNodeText(fishFunc)
+    //        const newItem = buildCompletionItem(
+    //            text,
+    //            'local function',
+    //            enrichToMarkdown('local function' + ":  " + text),
+    //            FishCompletionItemType.function,
+    //        )
+    //        this.localVariables.set(text, newItem)
+    //    }
+    //    return newVars.length + newFuncs.length
+    //}
     // here you build the completion data per type
     // call enrichCompletions on new this.completions
     // therefore you probably want to add the defaults (abbr & global variable list)
@@ -148,99 +156,101 @@ class Completion {
             const cmd = line.replace(/(['$`\\])/g, '\\$1');
             const res = yield execAsync(`fish --command "complete --do-complete='${cmd}' | uniq"`);
             const lines = res.stdout
-                .trim().split('\n')
+                .split('\n')
                 .filter(line => line.trim() !== "")
-                .map(line => line.split('\t', 1))
-                .filter(line => line.length >= 1);
-            this.lineCmps = yield Promise.all(lines.map((arr) => __awaiter(this, void 0, void 0, function* () {
-                return (0, completion_types_1.buildCompletionItemPromise)(arr);
+                .map(line => line.split('\t').map(l => l.trim()).join('\t'))
+                .map(line => {
+                const newLine = line.split('\t');
+                if (newLine.length === 0) {
+                    return ["", ""];
+                }
+                if (newLine.length === 1) {
+                    return [newLine[0], ""];
+                }
+                return newLine;
+            }).filter(line => (line !== undefined && line[0] !== undefined));
+            this.lineCmps = yield Promise.all(lines.map((line) => __awaiter(this, void 0, void 0, function* () {
+                return node_1.CompletionItem.create(line[0]);
             })));
+            //this.lineCmps = await Promise.all(
+            //    lines.map(async (arr: string[]) => {
+            //        const [label, _desc] = [arr[0], ...arr[1]];
+            //        const fishCmpType = parseLineForType(label, _desc)
+            //        const item = 
+            //            new CompletionItemBuilder()
+            //            .create(label)
+            //            .kind(fishCmpType)
+            //        return item.build();
+            //    }
+            //))
             return this.lineCmps;
         });
     }
-    generateLineCompletion(line) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const cmd = line.replace(/(['$`\\])/g, '\\$1');
-            const res = yield execAsync(`fish --command "complete --do-complete='${cmd}' | uniq"`);
-            if (res.stdout) {
-                this.lineCmps = res.stdout
-                    .split('\n')
-                    .map(line => line.split('\t'))
-                    .map((arr) => buildCompletionItem(arr[0], arr[1], arr.reverse().join(':\t'), FishCompletionItemType.line));
-            }
-        });
-    }
-    generateCurrent(node) {
-        return __awaiter(this, void 0, void 0, function* () {
-            this.currentNode = node;
-            this.commandNode = (0, node_types_1.findParentCommand)(node) || this.currentNode;
-            const fishCompletes = [];
-            //if (this.currentNode != this.commandNode) {
-            //    const cmpString = await findEachSubcommand(this.commandNode);
-            //    const cmps = await execComplete(cmpString);
-            //    if (!cmps) return
-            //    for (const cmp of cmps) {
-            //        const cmpArr = cmp.split("\t", 1);
-            //        fishCompletes.push(
-            //            buildCompletionItem(
-            //                cmpArr[0],
-            //                cmpArr[1] || "",
-            //                cmpArr[0].startsWith("$")
-            //                    ? FishCompletionItemType.variable
-            //                    : FishCompletionItemType.flag
-            //            )
-            //        );
-            //    }
-            //} else {
-            //    const cmpString = await findEachSubcommand(this.commandNode);
-            //    const cmps = await execComplete(cmpString);
-            //    if (!cmps) return
-            //    for (const cmp of cmps) {
-            //        const cmpArr = cmp.split("\t", 1);
-            //        fishCompletes.push(
-            //            buildCompletionItem(
-            //                cmpArr[0],
-            //                cmpArr[1] || "",
-            //                cmpArr[0].startsWith("$")
-            //                    ? FishCompletionItemType.variable
-            //                    : FishCompletionItemType.function
-            //            )
-            //        );
-            //    }
-            //}
-            //return fishCompletes;
-        });
-    }
+    //public async generateLineCompletion(line: string){
+    //    const cmd = line.replace(/(['$`\\])/g, '\\$1')
+    //    const res = await execAsync(`fish --command "complete --do-complete='${cmd}' | uniq"`)
+    //    if (res.stdout) {
+    //        this.lineCmps = res.stdout
+    //            .split('\n')
+    //            .map(line => line.split('\t'))
+    //            .map((arr: string[]) => buildCompletionItem(
+    //                arr[0],
+    //                arr[1],
+    //                arr.reverse().join(':\t'),
+    //                FishCompletionItemType.line,
+    //            ))
+    //    }
+    //}
+    //public async generateCurrent(node: SyntaxNode) {
+    //    this.currentNode = node;
+    //    this.commandNode = findParentCommand(node) || this.currentNode;
+    //    const fishCompletes: CompletionItem[] = [];
+    //    //if (this.currentNode != this.commandNode) {
+    //    //    const cmpString = await findEachSubcommand(this.commandNode);
+    //    //    const cmps = await execComplete(cmpString);
+    //    //    if (!cmps) return
+    //    //    for (const cmp of cmps) {
+    //    //        const cmpArr = cmp.split("\t", 1);
+    //    //        fishCompletes.push(
+    //    //            buildCompletionItem(
+    //    //                cmpArr[0],
+    //    //                cmpArr[1] || "",
+    //    //                cmpArr[0].startsWith("$")
+    //    //                    ? FishCompletionItemType.variable
+    //    //                    : FishCompletionItemType.flag
+    //    //            )
+    //    //        );
+    //    //    }
+    //    //} else {
+    //    //    const cmpString = await findEachSubcommand(this.commandNode);
+    //    //    const cmps = await execComplete(cmpString);
+    //    //    if (!cmps) return
+    //    //    for (const cmp of cmps) {
+    //    //        const cmpArr = cmp.split("\t", 1);
+    //    //        fishCompletes.push(
+    //    //            buildCompletionItem(
+    //    //                cmpArr[0],
+    //    //                cmpArr[1] || "",
+    //    //                cmpArr[0].startsWith("$")
+    //    //                    ? FishCompletionItemType.variable
+    //    //                    : FishCompletionItemType.function
+    //    //            )
+    //    //        );
+    //    //    }
+    //    //}
+    //    //return fishCompletes;
+    //}
     // probably need some of SyntaxTree class in this file
     generate(node) {
         return __awaiter(this, void 0, void 0, function* () {
-            //const fishCompletions = await this.generateCurrent(node) || []
-            //await this.initialDefaults();
-            //...this.localFunctions.values(),
-            //...this.localVariables.values(),
-            //...fishCompletions
             this.completions = [
                 ...this.lineCmps,
-                ...this.globalVars,
-                //...this.globalCmds,
-                ...this.globalBuiltins,
-                ...this.globalAlaises,
-                ...this.globalAbbrs,
             ];
             return node_1.CompletionList.create(this.completions, this.isIncomplete);
         });
     }
     fallbackComplete() {
-        //const fishCompletions = await this.generateCurrent(node) || []
-        //await this.initialDefaults();
-        this.completions = this.lineCmps.filter(k => !this.completions.includes(k));
-        //...this.lineCmps.filter(k => !this.completions.includes(k)),
-        //...this.globalVars,
-        //...this.globalCmds,
-        //...this.globalBuiltins,
-        //...this.globalAlaises,
-        //...this.globalAbbrs
-        //]
+        this.completions = this.lineCmps;
         return node_1.CompletionList.create(this.completions, this.isIncomplete);
     }
 }

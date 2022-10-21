@@ -1,5 +1,6 @@
 import { CompletionItem, CompletionItemKind, CompletionList } from "vscode-languageserver-protocol/node";
 import { SyntaxNode } from "web-tree-sitter";
+import { FilepathResolver } from './utils/filepathResolver';
 export declare enum FishCompletionItemType {
     function = 0,
     builtin = 1,
@@ -23,12 +24,10 @@ export declare class Completion {
     private isInsideCompletionsFile;
     private completions;
     private isIncomplete;
-    static initialDefaults(): Promise<Completion>;
-    constructor();
-    addLocalMembers(vars: SyntaxNode[], funcs: SyntaxNode[]): number;
+    filepathResolver: FilepathResolver;
+    static initialDefaults(filepathResolver: FilepathResolver): Promise<Completion>;
+    constructor(filepathResolver: FilepathResolver);
     generateLineCmpNew(line: string): Promise<CompletionItem[]>;
-    generateLineCompletion(line: string): Promise<void>;
-    generateCurrent(node: SyntaxNode): Promise<void>;
     generate(node: SyntaxNode): Promise<CompletionList>;
     fallbackComplete(): CompletionList;
 }

@@ -23,6 +23,7 @@ const node_1 = require("vscode-languageserver/node");
 const vscode_languageserver_textdocument_1 = require("vscode-languageserver-textdocument");
 const document_1 = require("./document");
 const completion_types_1 = require("./utils/completion-types");
+const filepathResolver_1 = require("./utils/filepathResolver");
 class FishServer {
     constructor(connection, parser, analyzer, docs, completion) {
         this.connection = connection;
@@ -36,10 +37,11 @@ class FishServer {
         return __awaiter(this, void 0, void 0, function* () {
             logger_1.logger.setConsole(connection.console);
             const parser = yield (0, parser_1.initializeParser)();
+            const filepaths = filepathResolver_1.FilepathResolver.create();
             return Promise.all([
                 new analyze_1.Analyzer(parser),
-                document_1.DocumentManager.indexUserConfig(connection.console),
-                completion_1.Completion.initialDefaults(),
+                document_1.DocumentManager.indexUserConfig(connection.console, filepaths),
+                completion_1.Completion.initialDefaults(filepaths),
             ]).then(([analyzer, docs, completion]) => new FishServer(connection, parser, analyzer, docs, completion));
         });
     }
@@ -106,14 +108,20 @@ class FishServer {
             const position = completionParams.position;
             logger_1.logger.log('server.onComplete' + uri, { caller: this.onCompletion.name, position: completionParams.position });
             const doc = yield this.docs.openOrFind(uri);
-            const node = this.analyzer.nodeAtPoint(doc.uri, position.line, position.character);
+            //const node: SyntaxNode | null = this.analyzer.nodeAtPoint(doc.uri, position.line, position.character);
             //const r = getRangeFromPosition(completionParams.position);
-            logger_1.logger.log('on complete node', { caller: this.onCompletion.name, rootNode: node || undefined, position: completionParams.position });
+            this.connection.console.log('on complete node: ' + doc.uri || "");
             const line = this.analyzer.currentLine(doc, completionParams.position) || "";
             //if (line.startsWith("\#")) {
             //    return null;
             //}
-            yield this.completion.generateLineCmpNew(line);
+            try {
+                logger_1.logger.log('line' + line);
+                yield this.completion.generateLineCmpNew(line);
+            }
+            catch (e) {
+                this.connection.console.log("error");
+            }
             return this.completion.fallbackComplete();
         });
     }

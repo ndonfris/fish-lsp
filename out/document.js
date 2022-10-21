@@ -98,15 +98,15 @@ class DocumentManager {
         this.openDocuments = {};
         this.console = console;
     }
-    static indexUserConfig(console) {
+    static indexUserConfig(console, filepathResolver) {
         return __awaiter(this, void 0, void 0, function* () {
             const docs = new this(console);
             docs.console.log('Indexing Starting in function:\n\t DocumentManager.generateUserConfigDocuments(console)\n');
-            // allow for the future plans of adding more paths through client config. 
             const paths = [
                 `${(0, os_1.homedir)()}/.config/fish`,
                 '/usr/share/fish'
             ];
+            // allow for the future plans of adding more paths through client config. 
             const allDocuments = yield getTextDocumentsFromPaths(paths);
             allDocuments.forEach(doc => {
                 docs.allDocuments[doc.uri] = doc;

@@ -21,7 +21,6 @@ function getAbsoluteFilePaths(...paths: string[]) {
     return found;
 }
 
-
 export class FilepathResolver {
 
     public fishFunctions: string[] = [];
@@ -29,44 +28,45 @@ export class FilepathResolver {
     /** TODO: implement on server config settings */
     public otherFunctions: string[] = [];
 
-    public readonly defaultGlobalPath = '/usr/share/fish';
-    public readonly defaultUserPath = `${homedir()}/.config/fish`;
+    public static readonly defaultGlobalPath = '/usr/share/fish';
+    public static readonly defaultUserPath = `${homedir()}/.config/fish`;
 
     private _otherPaths: string[] = []
     private _allPaths: string[] = []
 
-    public create(...locations: string[]) {
-        this.otherPaths.push(...locations)
+    private static instance: FilepathResolver
+
+    private constructor() {}
+
+    public static create(...locations: string[]) {
+        //this.otherPaths.push(...locations)
+        FilepathResolver.instance = new FilepathResolver();
         const allPathsToSearch = [
-            this.defaultGlobalPath,
-            this.defaultUserPath,
-            ...this._otherPaths,
+            FilepathResolver.defaultGlobalPath,
+            FilepathResolver.defaultUserPath,
+            //...FilepathResolver._otherPaths,
         ]
-        this._allPaths = getAbsoluteFilePaths(...allPathsToSearch)
-        this.userFunctions = findLocalFunctions(this.defaultUserPath)
-        this.fishFunctions = findLocalFunctions(this.defaultGlobalPath)
-        this.otherFunctions = findLocalFunctions(this.otherPaths)
-        return this._allPaths;
+        FilepathResolver.instance._allPaths = getAbsoluteFilePaths(...allPathsToSearch)
+        FilepathResolver.instance.userFunctions = findLocalFunctions(this.defaultUserPath)
+        FilepathResolver.instance.fishFunctions = findLocalFunctions(this.defaultGlobalPath)
+        //this.otherFunctions = findLocalFunctions(...this.otherPaths)
+        return FilepathResolver.instance;
     }   
     
-    get otherPaths() {
-        return this._otherPaths
-    }
-
-    get allAbsolutePaths() {
-        return this._allPaths;
-    }
-
     public isGlobalFishFunction(name: string) {
-        return this.fishFunctions.includes(name)
+        return FilepathResolver.instance.fishFunctions.includes(name)
     }
 
     public isUserFishFunction(name: string) {
-        return this.userFunctions.includes(name)
+        return FilepathResolver.instance.userFunctions.includes(name)
     }
 
     public isOtherFishFunction(name: string) {
-        return this.userFunctions.includes(name)
+        return FilepathResolver.instance.userFunctions.includes(name)
+    }
+
+    public getAllpaths() {
+        return FilepathResolver.instance._allPaths
     }
 }
 

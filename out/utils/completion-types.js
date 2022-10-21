@@ -9,7 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.handleCompletionResolver = exports.buildCompletionItemPromise = exports.resolveFishCompletionItemType = exports.getFishCompletionItemType = exports.completionItemKindMap = exports.fishCompletionItemKindMap = exports.FishCompletionItemKind = exports.getCompletionItemKind = exports.isFishCommand = exports.isGlobalVariable = exports.isFlag = exports.isBuiltIn = exports.BuiltInList = exports.isCommand = exports.isAlias = exports.isAbbr = void 0;
+exports.handleCompletionResolver = exports.buildCompletionItemPromise = exports.resolveFishCompletionItemType = exports.getFishCompletionItemType = exports.completionItemKindMap = exports.fishCompletionItemKindMap = exports.FishCompletionItemKind = exports.getCompletionItemKind = exports.isFishCommand = exports.isGlobalVariable = exports.isGlobalFunction = exports.isFlag = exports.isBuiltIn = exports.BuiltInList = exports.isCommand = exports.isAlias = exports.isAbbr = void 0;
 const vscode_languageserver_1 = require("vscode-languageserver");
 const documentation_1 = require("../documentation");
 const exec_1 = require("./exec");
@@ -190,6 +190,10 @@ function isFlag(line) {
     return line[0].startsWith('-');
 }
 exports.isFlag = isFlag;
+function isGlobalFunction() {
+    return false;
+}
+exports.isGlobalFunction = isGlobalFunction;
 /**
  * line is an array of length 2 (Example's below). Retrieving a gloabl varaible can be
  * done through the shell in any of the following methods. (We use method 1)

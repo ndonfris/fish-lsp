@@ -21,7 +21,6 @@ export interface FishCompletionItem extends CompletionItem {
         originalCompletion: string;
         fishKind: FishCompletionItemKind;
     };
-    create(label: string): CompletionItem;
 }
 /**
  *     ta	Abbreviation: tmux attach -t
@@ -77,6 +76,7 @@ export declare function isBuiltIn(line: string | [...string[]]): boolean;
  *   -u	    File set-user-ID bit is set
  */
 export declare function isFlag(line: string[]): boolean;
+export declare function isGlobalFunction(): boolean;
 /**
  * line is an array of length 2 (Example's below). Retrieving a gloabl varaible can be
  * done through the shell in any of the following methods. (We use method 1)

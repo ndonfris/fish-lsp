@@ -12,5 +12,4 @@ export interface CmdLineCmp {
     text: string;
     description: string;
 }
-export declare function createFishBuiltinComplete(arr: string[]): CmdLineCmp;
 //# sourceMappingURL=completionItemFactory.d.ts.map

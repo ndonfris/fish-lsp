@@ -79,7 +79,7 @@ class Logger {
             this.console.log([...opts.extraInfo].join("\n"));
         }
         if (opts?.position) {
-            this.console.log(`position (character: ${opts.position.character}, line: ${opts.position.character})`);
+            this.console.log(`position (character: ${opts.position.character}, line: ${opts.position.line})`);
         }
         if (opts?.document) {
             this.console.log(opts.document.getText());
@@ -95,10 +95,9 @@ class Logger {
 
     public log(msg: string, opts?: LogOptions) {
         if (this.enabled) {
-            if (opts !== undefined) this.logOpts(opts)
-
-            this.console.log(msg);
+            //if (opts !== undefined) this.logOpts(opts)
         }
+        this.console.log(msg);
     }
 
     public startTimer(msg?: string) {
