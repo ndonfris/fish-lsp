@@ -5,15 +5,16 @@ export interface FishCompletionItem extends CompletionItem {
     label: string;
     kind: CompletionItemKind;
     documentation?: string | MarkupContent;
-    data: {
-        originalCompletion: string;
-        fishKind: FishCompletionItemKind;
-        localSymbol: boolean;
+    data?: {
+        originalCompletion?: string;
+        fishKind?: FishCompletionItemKind;
+        localSymbol?: boolean;
     };
 }
 export declare class CompletionItemBuilder {
     private _item;
     constructor();
+    get item(): CompletionItem;
     create(label: string): this;
     kind(fishKind: FishCompletionItemKind): this;
     documentation(docs: string | MarkupContent): void;
@@ -21,7 +22,7 @@ export declare class CompletionItemBuilder {
     commitCharacters(chars: string[]): void;
     insertText(textToInsert: string): void;
     localSymbol(): void;
-    build(): FishCompletionItem;
+    build(): CompletionItem;
 }
 export declare type TerminalCompletionOutput = [string, ...string[]];
 /**

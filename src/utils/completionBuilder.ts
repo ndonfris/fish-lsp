@@ -25,55 +25,77 @@ export interface FishCompletionItem extends CompletionItem {
     label: string;
     kind: CompletionItemKind;
     documentation?: string | MarkupContent; 
-    data: {
-        originalCompletion: string; // the original line in fish completion call from the terminal
-        fishKind: FishCompletionItemKind; // VERBOSE form of kind
-        localSymbol: boolean;
+    data?: {
+        originalCompletion?: string; // the original line in fish completion call from the terminal
+        fishKind?: FishCompletionItemKind; // VERBOSE form of kind
+        localSymbol?: boolean;
     }
 }
 
 export class CompletionItemBuilder {
 
-    private _item: FishCompletionItem;
+    private _item: FishCompletionItem | CompletionItem | null;
 
     constructor() {
-        this._item = CompletionItem.create('_') as FishCompletionItem;
-        this._item.data.localSymbol = false;
+        this._item = null;
+    }
+
+    get item() {
+        if (!this._item) {
+            this._item = {
+                label: "",
+                description: "",
+                data: {
+                    localSymbol: false,
+                    originalCompletion: "",
+                    fishKind: FishCompletionItemKind.RESOLVE,
+                }
+
+            } as CompletionItem;
+            return this._item
+        }
+        return this._item
     }
 
     public create(label: string) { 
-        this._item.label = label;
+        this._item = CompletionItem.create(label);
+        this._item.data = {
+            originalCompletion: "",
+            fishKind: FishCompletionItemKind.RESOLVE,
+            localSymbol: false
+        }
         return this;
     }
 
     kind(fishKind: FishCompletionItemKind) {
-        this._item.kind = toCompletionKind[fishKind];
-        this._item.data.fishKind = fishKind;
+        this.item.kind = toCompletionKind[fishKind];
+        this.item.data.fishKind = fishKind;
         return this;
     }
 
+
     documentation(docs: string | MarkupContent) {
-        this._item.documentation = docs;
+        this.item.documentation = docs;
     }
 
     originalCompletion(shellText: string) {
-        this._item.data.originalCompletion = shellText;
+        this.item.data.originalCompletion = shellText;
     }
 
     commitCharacters(chars: string[]) {
-        this._item.commitCharacters = chars;
+        this.item.commitCharacters = chars;
     }
 
     insertText(textToInsert: string) {
-        this._item.insertText = textToInsert;
+        this.item.insertText = textToInsert;
     }
 
     localSymbol() {
-        this._item.data.localSymbol = true;
+        this.item.data.localSymbol = true;
     }
 
-    public build(): FishCompletionItem {
-        return this._item;
+    public build(): CompletionItem {
+        return this.item;
     }
 
 }

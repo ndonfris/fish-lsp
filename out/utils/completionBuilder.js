@@ -19,35 +19,54 @@ exports.toCompletionKind = {
 };
 class CompletionItemBuilder {
     constructor() {
-        this._item = vscode_languageserver_1.CompletionItem.create('_');
-        this._item.data.localSymbol = false;
+        this._item = null;
+    }
+    get item() {
+        if (!this._item) {
+            this._item = {
+                label: "",
+                description: "",
+                data: {
+                    localSymbol: false,
+                    originalCompletion: "",
+                    fishKind: completion_types_1.FishCompletionItemKind.RESOLVE,
+                }
+            };
+            return this._item;
+        }
+        return this._item;
     }
     create(label) {
-        this._item.label = label;
+        this._item = vscode_languageserver_1.CompletionItem.create(label);
+        this._item.data = {
+            originalCompletion: "",
+            fishKind: completion_types_1.FishCompletionItemKind.RESOLVE,
+            localSymbol: false
+        };
         return this;
     }
     kind(fishKind) {
-        this._item.kind = exports.toCompletionKind[fishKind];
-        this._item.data.fishKind = fishKind;
+        this.item.kind = exports.toCompletionKind[fishKind];
+        this.item.data.fishKind = fishKind;
         return this;
     }
     documentation(docs) {
-        this._item.documentation = docs;
+        this.item.documentation = docs;
     }
     originalCompletion(shellText) {
-        this._item.data.originalCompletion = shellText;
+        this.item.data.originalCompletion = shellText;
     }
     commitCharacters(chars) {
-        this._item.commitCharacters = chars;
+        this.item.commitCharacters = chars;
     }
     insertText(textToInsert) {
-        this._item.insertText = textToInsert;
+        this.item.insertText = textToInsert;
     }
     localSymbol() {
-        this._item.data.localSymbol = true;
+        this.item.data.localSymbol = true;
     }
     build() {
-        return this._item;
+        return this.item;
     }
 }
 exports.CompletionItemBuilder = CompletionItemBuilder;
