@@ -180,9 +180,11 @@ function completionToString(completion) {
             str.push("originalComp:" + ((_b = fishCmp.data) === null || _b === void 0 ? void 0 : _b.originalCompletion));
             str.push("insertText: " + fishCmp.insertText);
             str.push('');
+            break;
         case completion_types_1.FishCompletionItemKind.CMD:
             str.push("type: [CMD] ");
             str.push("doc:" + fishCmp.documentation);
+            break;
     }
     return `completionItem '${completion.label}'` + str.join('\n');
 }

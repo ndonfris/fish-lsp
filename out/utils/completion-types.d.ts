@@ -9,16 +9,24 @@ import { CompletionItem, CompletionItemKind, MarkupContent, RemoteConsole } from
  * Descriptions are optionally because things like function files will not show any
  * description, however we will indcate it empty string
  */
-export interface FishBuiltinCmp {
+export interface CmdLineCmp {
     text: string;
     description: string;
 }
+export interface FishCompletionItem extends CompletionItem {
+    label: string;
+    kind: CompletionItemKind;
+    documentation?: string | MarkupContent;
+    data: {
+        originalCompletion: string;
+        fishKind: FishCompletionItemKind;
+    };
+    create(label: string): CompletionItem;
+}
 /**
- * line is an array of length 2 (Example below)
- *
  *     ta	Abbreviation: tmux attach -t
  *
- * @param {string[]} line - a result from fish's builtin commandline completions
+ * @param {CmdLineCmp} line - a result from fish's builtin commandline completions
  *                     index[0]: the actual abbr
  *                     index[1]: Abbreviation: expansion
  *
@@ -58,7 +66,7 @@ export declare const BuiltInList: string[];
  * @param {string[]} line - a result from fish's builtin commandline completions
  * @return {boolean} - line is a completion for an builtin
  */
-export declare function isBuiltIn(line: string[]): boolean;
+export declare function isBuiltIn(line: string | [...string[]]): boolean;
 /**
  *   line array length could be 1 or 2. User completions may not provide description
  *
@@ -100,23 +108,51 @@ export declare function isFishCommand(line: string[]): boolean;
  */
 export declare function getCompletionItemKind(line: string[], fishKind?: FishCompletionItemKind): CompletionItemKind;
 export declare enum FishCompletionItemKind {
-    ABBR = 0,
-    ALIAS = 1,
-    BUILTIN = 2,
-    GLOBAL_VAR = 3,
-    LOCAL_VAR = 4,
-    GLOBAL_FUNC = 5,
-    LOCAL_FUNC = 6,
-    FLAG = 7,
-    CMD = 8,
-    CMD_NO_DOC = 9,
-    RESOLVE = 10
+    ABBR,
+    ALIAS,
+    BUILTIN,
+    GLOBAL_VAR,
+    LOCAL_VAR,
+    USER_FUNC,
+    GLOBAL_FUNC,
+    LOCAL_FUNC,
+    FLAG,
+    CMD,
+    CMD_NO_DOC,
+    RESOLVE
 }
+export declare const fishCompletionItemKindMap: {
+    readonly ABBR: 8;
+    readonly ALIAS: 22;
+    readonly BUILTIN: 14;
+    readonly FLAG: 5;
+    readonly LOCAL_VAR: 6;
+    readonly GLOBAL_VAR: 21;
+    readonly GLOBAL_FUNC: 2;
+    readonly USER_FUNC: 3;
+    readonly LOCAL_FUNC: 4;
+    readonly CMD: 7;
+    readonly CMD_NO_DOC: 7;
+    readonly RESOLVE: 11;
+};
+export declare const completionItemKindMap: {
+    readonly Interface: FishCompletionItemKind;
+    readonly Struct: FishCompletionItemKind;
+    readonly Keyword: FishCompletionItemKind;
+    readonly Field: FishCompletionItemKind;
+    readonly Variable: FishCompletionItemKind;
+    readonly Constant: FishCompletionItemKind;
+    readonly Method: FishCompletionItemKind;
+    readonly Function: FishCompletionItemKind;
+    readonly Constructor: FishCompletionItemKind;
+    readonly Class: FishCompletionItemKind;
+    readonly Unit: FishCompletionItemKind;
+};
 export declare function getFishCompletionItemType(itemKind: CompletionItemKind, options?: {
     local?: boolean;
     usrFile?: boolean;
     fishFile?: boolean;
-}): FishCompletionItemKind.ABBR | FishCompletionItemKind.ALIAS | FishCompletionItemKind.BUILTIN | FishCompletionItemKind.GLOBAL_VAR | FishCompletionItemKind.LOCAL_VAR | FishCompletionItemKind.GLOBAL_FUNC | FishCompletionItemKind.LOCAL_FUNC | FishCompletionItemKind.FLAG | FishCompletionItemKind.CMD | FishCompletionItemKind.RESOLVE;
+}): FishCompletionItemKind;
 /**
  * TODO: convert to promise.all() -> Promise.all should be able to be called in
  *       completion since it returns a promise
@@ -135,18 +171,6 @@ export declare function getFishCompletionItemType(itemKind: CompletionItemKind, 
  *                                              matching cmd.
  */
 export declare function resolveFishCompletionItemType(cmd: string): Promise<FishCompletionItemKind>;
-export interface FishCompletionItem extends CompletionItem {
-    label: string;
-    kind: CompletionItemKind;
-    documentation?: string | MarkupContent;
-    insertText?: string;
-    data: {
-        originalCompletion?: string;
-        resolveCommand?: string;
-        fishKind: FishCompletionItemKind;
-        range?: Range;
-    };
-}
 /**
  * @async buildCompletionItem() - takes the array of nodes from our string.
  *

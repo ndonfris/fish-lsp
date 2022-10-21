@@ -58,7 +58,6 @@ export interface FishCompletionItem extends CompletionItem {
         originalCompletion: string; // the original line in fish completion call from the terminal
         fishKind: FishCompletionItemKind; // VERBOSE form of kind
     }
-    create(label: string): CompletionItem;
 }
 
 /**
@@ -69,12 +68,16 @@ export interface FishCompletionItem extends CompletionItem {
  *                     index[1]: Abbreviation: expansion
  *
  */
-export function isAbbr(cliText: CmdLineCmp): boolean {
-    if (cliText.description !== "")  {
-        const firstWord = cliText.description.split(' ', 1)[0]
-        return firstWord === "Abbreviation:"
+export function isAbbr(line: string[]): boolean {
+    if (line[0] === 'fft') {
+        return true
     }
     return false;
+    ///if (cliText.description !== "")  {
+    ///    const firstWord = cliText.description.split(' ', 1)[0]
+    ///    return firstWord === "Abbreviation:"
+    ///}
+    ///return false;
 }
 
 /**
@@ -86,7 +89,7 @@ export function isAbbr(cliText: CmdLineCmp): boolean {
  * @param {string[]} line - a result from fish's builtin commandline completions
  *                     index[0]: the alias
  *                     index[1]: alias shortend_cmd=some_longer_cmd
- */data: {originalCompletion: string; fishKind: FishCompletionItemKind;};
+ */
 export function isAlias(line: string[]): boolean {
     if (line.length > 1) {
         return line[1].split(' ', 1)[0] === 'alias' 
@@ -211,6 +214,10 @@ export function isFlag(line: string[]): boolean {
     return line[0].startsWith('-')
 }
 
+export function isGlobalFunction(): boolean {
+    return false;
+}
+
 /**
  * line is an array of length 2 (Example's below). Retrieving a gloabl varaible can be
  * done through the shell in any of the following methods. (We use method 1)
@@ -271,7 +278,7 @@ export function isFishCommand(line: string[]): boolean {
  *                                 the Completion
  */
 export function getCompletionItemKind(line: string[], fishKind?: FishCompletionItemKind) : CompletionItemKind {
-    const cli = FishBuiltinCmp(line)
+    const cli = createFishBuiltinComplete(line)
     if (fishKind !== undefined) {
         return fishKind === FishCompletionItemKind.LOCAL_VAR
             ? CompletionItemKind.Variable : CompletionItemKind.Function
@@ -288,7 +295,7 @@ export function getCompletionItemKind(line: string[], fishKind?: FishCompletionI
     } else if (isFlag(line)) {
         return CompletionItemKind.Field
     } else {
-        return  isFishCommand(line)  ? 
+        return  isFishCommand(line) ? 
             CompletionItemKind.Method :  CompletionItemKind.Reference 
     }
 }
@@ -461,21 +468,28 @@ export function buildCompletionItemPromise(arr: string[]): FishCompletionItem {
     switch (result.data.fishKind) {
         case FishCompletionItemKind.RESOLVE:
             result.data.fishKind = getFishCompletionItemType(result.kind)
+            break;
         case FishCompletionItemKind.ABBR:
             result.insertText = arr[1].split(' ', 1)[-1].trim();
             result.commitCharacters = [' ', ';']
+            break;
         case FishCompletionItemKind.LOCAL_VAR:
             //docs = findDefinition()
             result.documentation = "Local Variable: " + arr[1]
+            break;
         case FishCompletionItemKind.LOCAL_FUNC:
             //docs = findDefinition()
             result.documentation = "Local Function: " + arr[1]
+            break;
         case FishCompletionItemKind.GLOBAL_VAR:
             //docs = findDefinition
             //result.data.resolveCommand = `set -S ${name}`
+            break;
+        default:
+            break;
             
     }
-    logger.log('cmpItem ',  {completion: result})
+    //logger.log('cmpItem ',  {completion: result})
     return result;
     //const result = {
     //    ...CompletionItem.create(name),

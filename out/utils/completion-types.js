@@ -9,10 +9,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.handleCompletionResolver = exports.buildCompletionItemPromise = exports.resolveFishCompletionItemType = exports.getFishCompletionItemType = exports.FishCompletionItemKind = exports.getCompletionItemKind = exports.isFishCommand = exports.isGlobalVariable = exports.isFlag = exports.isBuiltIn = exports.BuiltInList = exports.isCommand = exports.isAlias = exports.isAbbr = void 0;
+exports.handleCompletionResolver = exports.buildCompletionItemPromise = exports.resolveFishCompletionItemType = exports.getFishCompletionItemType = exports.completionItemKindMap = exports.fishCompletionItemKindMap = exports.FishCompletionItemKind = exports.getCompletionItemKind = exports.isFishCommand = exports.isGlobalVariable = exports.isFlag = exports.isBuiltIn = exports.BuiltInList = exports.isCommand = exports.isAlias = exports.isAbbr = void 0;
 const vscode_languageserver_1 = require("vscode-languageserver");
 const documentation_1 = require("../documentation");
-const logger_1 = require("../logger");
 const exec_1 = require("./exec");
 function createFishBuiltinComplete(arr) {
     const cmp = {
@@ -25,21 +24,40 @@ function createFishBuiltinComplete(arr) {
     }
     return cmp;
 }
+function parseDescriptionKeywords(cliText) {
+    const secondItem = cliText.description.replace(':', '');
+    let results = [];
+    if (secondItem === "") {
+        return [""];
+    }
+    else {
+        if (secondItem.includes(' ')) {
+            results = secondItem.split(' ', 2);
+            return [results[0].toLowerCase(), ...results.slice(1)];
+        }
+        else {
+            return [secondItem];
+        }
+    }
+}
 /**
- * line is an array of length 2 (Example below)
- *
  *     ta	Abbreviation: tmux attach -t
  *
- * @param {string[]} line - a result from fish's builtin commandline completions
+ * @param {CmdLineCmp} line - a result from fish's builtin commandline completions
  *                     index[0]: the actual abbr
  *                     index[1]: Abbreviation: expansion
  *
  */
 function isAbbr(line) {
-    if (line.length == 2) {
-        return line[1].split(' ', 1)[0] === "Abbreviation:";
+    if (line[0] === 'fft') {
+        return true;
     }
     return false;
+    ///if (cliText.description !== "")  {
+    ///    const firstWord = cliText.description.split(' ', 1)[0]
+    ///    return firstWord === "Abbreviation:"
+    ///}
+    ///return false;
 }
 exports.isAbbr = isAbbr;
 /**
@@ -227,6 +245,7 @@ exports.isFishCommand = isFishCommand;
  *                                 the Completion
  */
 function getCompletionItemKind(line, fishKind) {
+    const cli = createFishBuiltinComplete(line);
     if (fishKind !== undefined) {
         return fishKind === FishCompletionItemKind.LOCAL_VAR
             ? vscode_languageserver_1.CompletionItemKind.Variable : vscode_languageserver_1.CompletionItemKind.Function;
@@ -257,18 +276,61 @@ function getCompletionItemKind(line, fishKind) {
 exports.getCompletionItemKind = getCompletionItemKind;
 var FishCompletionItemKind;
 (function (FishCompletionItemKind) {
-    FishCompletionItemKind[FishCompletionItemKind["ABBR"] = 0] = "ABBR";
-    FishCompletionItemKind[FishCompletionItemKind["ALIAS"] = 1] = "ALIAS";
-    FishCompletionItemKind[FishCompletionItemKind["BUILTIN"] = 2] = "BUILTIN";
-    FishCompletionItemKind[FishCompletionItemKind["GLOBAL_VAR"] = 3] = "GLOBAL_VAR";
-    FishCompletionItemKind[FishCompletionItemKind["LOCAL_VAR"] = 4] = "LOCAL_VAR";
-    FishCompletionItemKind[FishCompletionItemKind["GLOBAL_FUNC"] = 5] = "GLOBAL_FUNC";
-    FishCompletionItemKind[FishCompletionItemKind["LOCAL_FUNC"] = 6] = "LOCAL_FUNC";
-    FishCompletionItemKind[FishCompletionItemKind["FLAG"] = 7] = "FLAG";
-    FishCompletionItemKind[FishCompletionItemKind["CMD"] = 8] = "CMD";
-    FishCompletionItemKind[FishCompletionItemKind["CMD_NO_DOC"] = 9] = "CMD_NO_DOC";
-    FishCompletionItemKind[FishCompletionItemKind["RESOLVE"] = 10] = "RESOLVE"; // method -> module or function
+    FishCompletionItemKind[FishCompletionItemKind["ABBR"] = vscode_languageserver_1.CompletionItemKind.Interface] = "ABBR";
+    FishCompletionItemKind[FishCompletionItemKind["ALIAS"] = vscode_languageserver_1.CompletionItemKind.Struct] = "ALIAS";
+    FishCompletionItemKind[FishCompletionItemKind["BUILTIN"] = vscode_languageserver_1.CompletionItemKind.Keyword] = "BUILTIN";
+    FishCompletionItemKind[FishCompletionItemKind["GLOBAL_VAR"] = vscode_languageserver_1.CompletionItemKind.Constant] = "GLOBAL_VAR";
+    FishCompletionItemKind[FishCompletionItemKind["LOCAL_VAR"] = vscode_languageserver_1.CompletionItemKind.Variable] = "LOCAL_VAR";
+    FishCompletionItemKind[FishCompletionItemKind["USER_FUNC"] = vscode_languageserver_1.CompletionItemKind.Function] = "USER_FUNC";
+    FishCompletionItemKind[FishCompletionItemKind["GLOBAL_FUNC"] = vscode_languageserver_1.CompletionItemKind.Method] = "GLOBAL_FUNC";
+    FishCompletionItemKind[FishCompletionItemKind["LOCAL_FUNC"] = vscode_languageserver_1.CompletionItemKind.Constructor] = "LOCAL_FUNC";
+    FishCompletionItemKind[FishCompletionItemKind["FLAG"] = vscode_languageserver_1.CompletionItemKind.Field] = "FLAG";
+    FishCompletionItemKind[FishCompletionItemKind["CMD"] = vscode_languageserver_1.CompletionItemKind.Class] = "CMD";
+    FishCompletionItemKind[FishCompletionItemKind["CMD_NO_DOC"] = vscode_languageserver_1.CompletionItemKind.Class] = "CMD_NO_DOC";
+    FishCompletionItemKind[FishCompletionItemKind["RESOLVE"] = vscode_languageserver_1.CompletionItemKind.Unit] = "RESOLVE"; // unit
 })(FishCompletionItemKind = exports.FishCompletionItemKind || (exports.FishCompletionItemKind = {}));
+exports.fishCompletionItemKindMap = {
+    ABBR: vscode_languageserver_1.CompletionItemKind.Interface,
+    ALIAS: vscode_languageserver_1.CompletionItemKind.Struct,
+    BUILTIN: vscode_languageserver_1.CompletionItemKind.Keyword,
+    FLAG: vscode_languageserver_1.CompletionItemKind.Field,
+    LOCAL_VAR: vscode_languageserver_1.CompletionItemKind.Variable,
+    GLOBAL_VAR: vscode_languageserver_1.CompletionItemKind.Constant,
+    GLOBAL_FUNC: vscode_languageserver_1.CompletionItemKind.Method,
+    USER_FUNC: vscode_languageserver_1.CompletionItemKind.Function,
+    LOCAL_FUNC: vscode_languageserver_1.CompletionItemKind.Constructor,
+    CMD: vscode_languageserver_1.CompletionItemKind.Class,
+    CMD_NO_DOC: vscode_languageserver_1.CompletionItemKind.Class,
+    RESOLVE: vscode_languageserver_1.CompletionItemKind.Unit
+};
+//interface CompeltionItemKindKey {
+//[key in keyof typeof CompletionItemKind]: any;
+//}
+exports.completionItemKindMap = {
+    Interface: FishCompletionItemKind.ABBR,
+    Struct: FishCompletionItemKind.ALIAS,
+    Keyword: FishCompletionItemKind.BUILTIN,
+    Field: FishCompletionItemKind.FLAG,
+    Variable: FishCompletionItemKind.LOCAL_VAR,
+    Constant: FishCompletionItemKind.GLOBAL_VAR,
+    Method: FishCompletionItemKind.GLOBAL_FUNC,
+    Function: FishCompletionItemKind.USER_FUNC,
+    Constructor: FishCompletionItemKind.LOCAL_FUNC,
+    Class: FishCompletionItemKind.CMD_NO_DOC,
+    Unit: FishCompletionItemKind.RESOLVE
+};
+//export type CompletionItemKindType = Partial<Record<keyof typeof CompletionItemKind, number>>;
+//
+//export type CompletionItemKindMapKey = typeof completionItemKindMap[keyof typeof completionItemKindMap]
+//export function getCorrespondingKind(knownKind: any): FishCompletionItemKind | CompletionItemKind {
+//    if (knownKind instanceof completionItemKindMap) {
+//        return completionItemKindMap.knownKind as CompletionItemKindMapKey;
+//    } else {
+//        return fishCompletionItemKindMap[knownKind] as CompletionItemKindMapKey;
+//    }
+//    
+//
+//}
 function getFishCompletionItemType(itemKind, options) {
     switch (itemKind) {
         case vscode_languageserver_1.CompletionItemKind.Function:
@@ -357,20 +419,27 @@ function buildCompletionItemPromise(arr) {
     switch (result.data.fishKind) {
         case FishCompletionItemKind.RESOLVE:
             result.data.fishKind = getFishCompletionItemType(result.kind);
+            break;
         case FishCompletionItemKind.ABBR:
             result.insertText = arr[1].split(' ', 1)[-1].trim();
             result.commitCharacters = [' ', ';'];
+            break;
         case FishCompletionItemKind.LOCAL_VAR:
             //docs = findDefinition()
             result.documentation = "Local Variable: " + arr[1];
+            break;
         case FishCompletionItemKind.LOCAL_FUNC:
             //docs = findDefinition()
             result.documentation = "Local Function: " + arr[1];
+            break;
         case FishCompletionItemKind.GLOBAL_VAR:
             //docs = findDefinition
-            result.data.resolveCommand = `set -S ${name}`;
+            //result.data.resolveCommand = `set -S ${name}`
+            break;
+        default:
+            break;
     }
-    logger_1.logger.log('cmpItem ', { completion: result });
+    //logger.log('cmpItem ',  {completion: result})
     return result;
     //const result = {
     //    ...CompletionItem.create(name),

@@ -167,18 +167,15 @@ export default class FishServer {
         const doc = await this.docs.openOrFind(uri);
         const node: SyntaxNode | null = this.analyzer.nodeAtPoint(doc.uri, position.line, position.character);
 
-        const r = getRangeFromPosition(completionParams.position);
+        //const r = getRangeFromPosition(completionParams.position);
         logger.log('on complete node', {caller:this.onCompletion.name, rootNode: node || undefined, position: completionParams.position})
 
         const line: string = this.analyzer.currentLine(doc, completionParams.position) || ""
-        if (line.startsWith("#")) {
-            return null;
-        }
-
-        if (line !== "") {
-            return CompletionList.create(await this.completion.generateLineCmpNew(line))
-        }
-        return null
+        //if (line.startsWith("\#")) {
+        //    return null;
+        //}
+        await this.completion.generateLineCmpNew(line)
+        return this.completion.fallbackComplete()
     }
 
 

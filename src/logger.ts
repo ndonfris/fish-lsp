@@ -252,9 +252,11 @@ function completionToString(completion: CompletionItem) {
             str.push("originalComp:" + fishCmp.data?.originalCompletion);
             str.push("insertText: " + fishCmp.insertText);
             str.push('')
+            break;
         case FishCompletionItemKind.CMD: 
             str.push("type: [CMD] ")
             str.push("doc:" + fishCmp.documentation)
+            break;
     }
     return `completionItem '${completion.label}'` + str.join('\n')
 }

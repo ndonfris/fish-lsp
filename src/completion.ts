@@ -187,13 +187,16 @@ export class Completion {
     public async generateLineCmpNew(line: string): Promise<CompletionItem[]> {
         const cmd = line.replace(/(['$`\\])/g, '\\$1')
         const res = await execAsync(`fish --command "complete --do-complete='${cmd}' | uniq"`)
-        const lines = res.stdout.split('\n').map(line => line.split('\t', 1)) 
+        const lines = res.stdout
+            .trim().split('\n')
+            .filter(line => line.trim() !== "")
+            .map(line => line.split('\t', 1))
+            .filter(line => line.length >= 1) 
             
-        const lineCmps = await Promise.all(lines.map(async (arr: string[]) => {
-            return await buildCompletionItemPromise(arr);
+        this.lineCmps = await Promise.all(lines.map(async (arr: string[]) => {
+            return buildCompletionItemPromise(arr);
         }))
-        this.lineCmps = lineCmps;
-        return lineCmps
+        return this.lineCmps;
     }
 
     public async generateLineCompletion(line: string){
@@ -273,14 +276,14 @@ export class Completion {
     public fallbackComplete() {
         //const fishCompletions = await this.generateCurrent(node) || []
         //await this.initialDefaults();
-        this.completions = [
-            ...this.lineCmps,
-            ...this.globalVars,
+        this.completions = this.lineCmps.filter(k => !this.completions.includes(k));
+            //...this.lineCmps.filter(k => !this.completions.includes(k)),
+            //...this.globalVars,
             //...this.globalCmds,
-            ...this.globalBuiltins,
-            ...this.globalAlaises,
-            ...this.globalAbbrs
-        ]
+            //...this.globalBuiltins,
+            //...this.globalAlaises,
+            //...this.globalAbbrs
+        //]
         return CompletionList.create(this.completions, this.isIncomplete);
     }
 }

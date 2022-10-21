@@ -107,16 +107,14 @@ class FishServer {
             logger_1.logger.log('server.onComplete' + uri, { caller: this.onCompletion.name, position: completionParams.position });
             const doc = yield this.docs.openOrFind(uri);
             const node = this.analyzer.nodeAtPoint(doc.uri, position.line, position.character);
-            const r = (0, document_1.getRangeFromPosition)(completionParams.position);
+            //const r = getRangeFromPosition(completionParams.position);
             logger_1.logger.log('on complete node', { caller: this.onCompletion.name, rootNode: node || undefined, position: completionParams.position });
             const line = this.analyzer.currentLine(doc, completionParams.position) || "";
-            if (line.startsWith("#")) {
-                return null;
-            }
-            if (line !== "") {
-                return node_1.CompletionList.create(yield this.completion.generateLineCmpNew(line));
-            }
-            return null;
+            //if (line.startsWith("\#")) {
+            //    return null;
+            //}
+            yield this.completion.generateLineCmpNew(line);
+            return this.completion.fallbackComplete();
         });
     }
     onCompletionResolve(item) {

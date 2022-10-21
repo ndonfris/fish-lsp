@@ -147,12 +147,15 @@ class Completion {
         return __awaiter(this, void 0, void 0, function* () {
             const cmd = line.replace(/(['$`\\])/g, '\\$1');
             const res = yield execAsync(`fish --command "complete --do-complete='${cmd}' | uniq"`);
-            const lines = res.stdout.split('\n').map(line => line.split('\t', 1));
-            const lineCmps = yield Promise.all(lines.map((arr) => __awaiter(this, void 0, void 0, function* () {
-                return yield (0, completion_types_1.buildCompletionItemPromise)(arr);
+            const lines = res.stdout
+                .trim().split('\n')
+                .filter(line => line.trim() !== "")
+                .map(line => line.split('\t', 1))
+                .filter(line => line.length >= 1);
+            this.lineCmps = yield Promise.all(lines.map((arr) => __awaiter(this, void 0, void 0, function* () {
+                return (0, completion_types_1.buildCompletionItemPromise)(arr);
             })));
-            this.lineCmps = lineCmps;
-            return lineCmps;
+            return this.lineCmps;
         });
     }
     generateLineCompletion(line) {
@@ -230,14 +233,14 @@ class Completion {
     fallbackComplete() {
         //const fishCompletions = await this.generateCurrent(node) || []
         //await this.initialDefaults();
-        this.completions = [
-            ...this.lineCmps,
-            ...this.globalVars,
-            //...this.globalCmds,
-            ...this.globalBuiltins,
-            ...this.globalAlaises,
-            ...this.globalAbbrs
-        ];
+        this.completions = this.lineCmps.filter(k => !this.completions.includes(k));
+        //...this.lineCmps.filter(k => !this.completions.includes(k)),
+        //...this.globalVars,
+        //...this.globalCmds,
+        //...this.globalBuiltins,
+        //...this.globalAlaises,
+        //...this.globalAbbrs
+        //]
         return node_1.CompletionList.create(this.completions, this.isIncomplete);
     }
 }

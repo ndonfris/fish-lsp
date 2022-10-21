@@ -34,27 +34,8 @@ function parseDescriptionKeywords(cliText: CmdLineCmp) {
 }   
 
 
-abstract class CompletionItemCreator {
 
-    public abstract produceCompletionItem(): FishCompletionItem;
-
-    public serializeShellOutput(shellLines: string[]): CmdLineCmp {
-        const cmp: CmdLineCmp = {
-            text: "",
-            description: ""
-        }
-        cmp.text = shellLines[0];
-        if (shellLines.length === 2) {
-            cmp.description = shellLines[1];
-        }
-        return cmp;
-    }
-
-
-
-}
-
-function createFishBuiltinComplete(arr: string[]) {
+export function createFishBuiltinComplete(arr: string[]) {
     const cmp: CmdLineCmp = {
         text: "",
         description: ""
@@ -101,9 +82,27 @@ abstract class BaseCompletionItem {
         return this.item;
     }
 
-
 }
 
+class CompletionItemFactory {
+
+    isLocal: boolean;
+
+    constructor(local = false) {
+        this.isLocal = local;
+    }
+
+
+    parseLine(label: string, ...documentation: string[]) {
+        if (label.startsWith('-')) {
+            return FishCompletionItemKind.GLOBAL_VAR
+        }
+
+    }
+
+
+
+}
 
 
 class LabelItems extends BaseCompletionItem {
