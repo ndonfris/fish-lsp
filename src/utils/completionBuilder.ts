@@ -1,9 +1,9 @@
 import FastGlob  from 'fast-glob';
 import {homedir} from 'os';
 import { CompletionItem, CompletionItemKind, MarkupContent } from 'vscode-languageserver';
-import {FishCompletionItemType} from '../completion';
+//import {FishCompletionItemType} from '../completion';
 import {logger} from '../logger';
-import {FishCompletionItemKind, fishCompletionItemKindMap, isBuiltIn, isGlobalFunction} from './completion-types';
+import {FishCompletionItemKind, isBuiltIn} from './completion-types';
 
 export const toCompletionKind: Record<FishCompletionItemKind, CompletionItemKind> = {
     [FishCompletionItemKind.ABBR]: CompletionItemKind.Interface,                // interface
@@ -194,13 +194,15 @@ function getTypeFromDocumentation(keyword: string, otherInfo: string) {
         case 'command': 
             return otherInfo.length >= 1 ? FishCompletionItemKind.CMD_NO_DOC : FishCompletionItemKind.CMD
         case 'variable': 
-            return isGlobalFunction() ?  FishCompletionItemKind.GLOBAL_FUNC : FishCompletionItemKind.USER_FUNC
+            //return isGlobalFunction() ?  FishCompletionItemKind.GLOBAL_FUNC : FishCompletionItemKind.USER_FUNC
+            return FishCompletionItemKind.GLOBAL_VAR
         case 'alias': 
             return FishCompletionItemKind.ALIAS
         case 'abbreviation':
             return FishCompletionItemKind.ABBR
         default:
-            return isGlobalFunction() ?  FishCompletionItemKind.GLOBAL_FUNC : FishCompletionItemKind.RESOLVE
+            //return isGlobalFunction() ?  FishCompletionItemKind.GLOBAL_FUNC : FishCompletionItemKind.RESOLVE
+            return FishCompletionItemKind.GLOBAL_FUNC
     }
 
 }
