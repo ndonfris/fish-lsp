@@ -6,52 +6,6 @@ import {logger} from '../logger';
 import {execCommandDocs, execCommandType} from './exec';
 
 
-/**
- * text: actual completion text
- * description: fish shell compleiton description  
- *
- * bind        (Handle fish key binding) 
- * text          description --> note: no parenthesis when outside of interactive shell 
- *
- * Descriptions are optionally because things like function files will not show any
- * description, however we will indcate it empty string
- */
-export interface CmdLineCmp {
-    text: string;
-    description: string;
-}
-
-
-function createFishBuiltinComplete(arr: string[]) {
-    const cmp: CmdLineCmp = {
-        text: "",
-        description: ""
-    }
-    cmp.text = arr[0];
-    if (arr.length === 2) {
-        cmp.description = arr[1];
-    }
-    return cmp;
-}
-
-function parseDescriptionKeywords(cliText: CmdLineCmp) {
-    const secondItem = cliText.description.replace(':', ''); 
-    let results: string[] = []
-    if (secondItem === "") {
-        return [""];
-    } else {
-        if (secondItem.includes(' ')) { 
-            results = secondItem.split(' ', 2)
-            return [results[0].toLowerCase(), ...results.slice(1)]
-        } else {
-            return [secondItem]
-        }
-    }
-}   
-
-
-
-
 export interface FishCompletionItem extends CompletionItem {
     label: string;
     kind: CompletionItemKind;
@@ -60,43 +14,6 @@ export interface FishCompletionItem extends CompletionItem {
         originalCompletion: string; // the original line in fish completion call from the terminal
         fishKind: FishCompletionItemKind; // VERBOSE form of kind
     }
-}
-
-/**
- *     ta	Abbreviation: tmux attach -t
- *
- * @param {CmdLineCmp} line - a result from fish's builtin commandline completions
- *                     index[0]: the actual abbr
- *                     index[1]: Abbreviation: expansion
- *
- */
-export function isAbbr(line: string[]): boolean {
-    if (line[0] === 'fft') {
-        return true
-    }
-    return false;
-    ///if (cliText.description !== "")  {
-    ///    const firstWord = cliText.description.split(' ', 1)[0]
-    ///    return firstWord === "Abbreviation:"
-    ///}
-    ///return false;
-}
-
-/**
- * line is an array of length 2 (Example below)
- *
- *     vdiff	    alias vdiff=nvim -d
- *     vimdiff	    alias vimdiff=nvim -d
- *
- * @param {string[]} line - a result from fish's builtin commandline completions
- *                     index[0]: the alias
- *                     index[1]: alias shortend_cmd=some_longer_cmd
- */
-export function isAlias(line: string[]): boolean {
-    if (line.length > 1) {
-        return line[1].split(' ', 1)[0] === 'alias' 
-    }
-    return false;
 }
 
 /**
@@ -203,43 +120,70 @@ export function isBuiltIn(line: string): boolean {
 }
 
 
-/**
- *   line array length could be 1 or 2. User completions may not provide description
- *
- *   Example below, seen from 'test -'
- *
- *   -x     File is executable
- *   -w	    File is writable
- *   -u	    File set-user-ID bit is set
- */
-export function isFlag(line: string[]): boolean {
-    return line[0].startsWith('-')
+const escapeChars = {
+    ['a']: 'escapes the alert character',
+    ['b']: 'escapes the backspace character',
+    ['e']: 'escapes the escape character',
+    ['f']: 'escapes the form feed character',
+    ['n']: 'escapes a newline character',
+    ['r']: 'escapes the carriage return character',
+    ['t']: 'escapes the tab character',
+    ['v']: 'escapes the vertical tab character',
+    [' ']: 'escapes the space character',
+    ['$']: 'escapes the dollar character',
+    ['\\']: 'escapes the backslash character',
+    ['*']: 'escapes the star character',
+    ['?']: 'escapes the question mark character',
+    ['~']: 'escapes the tilde character',
+    ['%']: 'escapes the percent character',
+    ['#']: 'escapes the hash character',
+    ['(']: 'escapes the left parenthesis character',
+    [')']: 'escapes the right parenthesis character',
+    ['{']: 'escapes the left curly bracket character',
+    ['}']: 'escapes the right curly bracket character',
+    ['[']: 'escapes the left bracket character',
+    [']']: 'escapes the right bracket character',
+    ['<']: 'escapes the less than character',
+    ['>']: 'escapes the more than character',
+    ['^']: 'escapes the circumflex character',
+    ['&']: 'escapes the ampersand character',
+    [';']: 'escapes the semicolon character',
+    ['"']: 'escapes the quote character',
+    ["'"]: 'escapes the apostrophe character',
+    ['xxx']: "where xx is a hexadecimal number, escapes the ascii character with the specified value. For example, \\x9 is the tab character.",
+    ['Xxx']: "where xx is a hexadecimal number, escapes a byte of data with the specified value. If you are using a mutibyte encoding, this can be used to enter invalid strings. Only use this if you know what you are doing.",
+    ['ooo']: 'where ooo is an octal number, escapes the ascii character with the specified value. For example, \\011 is the tab character.',
+    ['uxxxx']: 'where xxxx is a hexadecimal number, escapes the 16-bit Unicode character with the specified value. For example, \\u9 is the tab character.',
+    ['Uxxxxxxxx']: 'where xxxxxxxx is a hexadecimal number, escapes the 32-bit Unicode character with the specified value. For example, \\U9 is the tab character.',
+    ['cx']:' where x is a letter of the alphabet, escapes the control sequence generated by pressing the control key and the specified letter. for example, \\ci is the tab character',
 }
 
-
-const paths = [ `${homedir()}/.config/fish` ]
-const allFiles = []
-
-paths.forEach((path) => {
-    const files = FastGlob.sync("**.fish", {
-        absolute: true,
-        dot: true,
-        globstar: true,
-        cwd: path,
-    });
-    allFiles.push(...files);
-});
-
-// now allFiles contains every fish file that could be used in the workspace
-//await Promise.all(allFiles.map(async file => {
-//    const contents = await promises.readFile(file, 'utf8')
-//    return TextDocument.create(file, 'fish', 0, contents || "")
-//}))
-
-export function isGlobalFunction(): boolean {
-
-    return false;
+const pipes: {[pipe:string]: string} = {
+    ['READ <SOURCE_FILE']: "To read standard input from a file, use <SOURCE_FILE",
+    ['WRITE >DESTINATION']: "To write standard output to a file, use >DESTINATION",
+    ['WRITE 2>DESTINATION']: 'To write standard error to a file, use 2>DESTINATION',
+    ['APPEND >>DESTINATION_FILE']: 'To append standard output to a file, use >>DESTINATION_FILE',
+    ['APPEND 2>>DESTINATION_FILE']: 'To append standard error to a file, use 2>>DESTINATION_FILE',
+    ['NOCLOBBER >?DESTINATION']: 'To not overwrite (“clobber”) an existing file, use >?DESTINATION or 2>?DESTINATION. This is known as the “noclobber” redirection.',
+    ['NOCLOBBER 1>?DESTINATION']: 'To not overwrite (“clobber”) an existing file, use >?DESTINATION or 2>?DESTINATION. This is known as the “noclobber” redirection.',
+    ['NOCLOBBER 2>?DESTINATION']: 'To not overwrite (“clobber”) an existing file, use >?DESTINATION or 2>?DESTINATION. This is known as the “noclobber” redirection.',
+    ['CLOSE &-']: 'An ampersand followed by a minus sign (&-). The file descriptor will be closed.',
+    ['OUTPUT | INPUT']: 'Pipe one stream with another. Usually standard output of one command will be piped to standard input of another. OUTPUT | INPUT',
+    ['DISOWN &']: 'Disown output . OUTPUT &',
+    ['STDOUT_AND_STDERR &>']: 'the redirection &> can be used to direct both stdout and stderr to the same destination'
 }
+
+const status: {[statusNumber: string]: string} = {
+    ['0']: 'generally the exit status of commands if they successfully performed the requested operation.',
+    ['1']: 'generally the exit status of commands if they failed to perform the requested operation.',
+    ['121']:  'is generally the exit status of commands if they were supplied with invalid arguments.',
+    ['123']: 'means that the command was not executed because the command name contained invalid characters.',
+    ['124']: 'means that the command was not executed because none of the wildcards in the command produced any matches.',
+    ['125']: 'means that while an executable with the specified name was located, the operating system could not actually execute the command.',
+    ['126']: 'means that while a file with the specified name was located, it was not executable.',
+    ['127']: 'means that no function, builtin or command with the given name could be located.'
+}
+
 
 /**
  * line is an array of length 2 (Example's below). Retrieving a gloabl varaible can be
@@ -267,29 +211,6 @@ export function isGlobalVariable(line: string[]): boolean {
     return false;
 }
 
-// not neccessary yet.
-export function isFishCommand(line: string[]): boolean {
-    // noDescription
-    if (line.length === 1) {
-        return true;
-    }
-    if (line.length === 2 ) {
-        const type_indicator = line[1].split(' ', 1)[0]
-        const somethingElse = [
-            'command',
-            'command link',
-            'alias',
-            'Abbreviation:'
-        ].includes(type_indicator)
-        return !somethingElse && !isBuiltIn(line[0]) && !isFlag(line)
-    }
-    return false;
-}
-
-
-
-
-
 
 /**
  * gets the completion item type for Generating a completion item
@@ -300,28 +221,28 @@ export function isFishCommand(line: string[]): boolean {
  *                                 CompletionResolver()  will use this info to enrich
  *                                 the Completion
  */
-export function getCompletionItemKind(line: string[], fishKind?: FishCompletionItemKind) : CompletionItemKind {
-    const cli = createFishBuiltinComplete(line)
-    if (fishKind !== undefined) {
-        return fishKind === FishCompletionItemKind.LOCAL_VAR
-            ? CompletionItemKind.Variable : CompletionItemKind.Function
-    } else if (isAbbr(line)) {
-        return CompletionItemKind.Interface
-    } else if (isAlias(line)) {
-        return CompletionItemKind.Constant
-    } else if (isBuiltIn(line[0])) {
-        return CompletionItemKind.Keyword
-    } else if (isGlobalVariable(line)) {
-        return CompletionItemKind.Variable
-    } else if (isCommand(line)) {
-        return CompletionItemKind.Module
-    } else if (isFlag(line)) {
-        return CompletionItemKind.Field
-    } else {
-        return  isFishCommand(line) ? 
-            CompletionItemKind.Method :  CompletionItemKind.Reference 
-    }
-}
+//export function getCompletionItemKind(line: string[], fishKind?: FishCompletionItemKind) : CompletionItemKind {
+//    const cli = createFishBuiltinComplete(line)
+//    if (fishKind !== undefined) {
+//        return fishKind === FishCompletionItemKind.LOCAL_VAR
+//            ? CompletionItemKind.Variable : CompletionItemKind.Function
+//    } else if (isAbbr(line)) {
+//        return CompletionItemKind.Interface
+//    } else if (isAlias(line)) {
+//        return CompletionItemKind.Constant
+//    } else if (isBuiltIn(line[0])) {
+//        return CompletionItemKind.Keyword
+//    } else if (isGlobalVariable(line)) {
+//        return CompletionItemKind.Variable
+//    } else if (isCommand(line)) {
+//        return CompletionItemKind.Module
+//    } else if (isFlag(line)) {
+//        return CompletionItemKind.Field
+//    } else {
+//        return  isFishCommand(line) ? 
+//            CompletionItemKind.Method :  CompletionItemKind.Reference 
+//    }
+//}
 
 export enum FishCompletionItemKind {
     ABBR,			// interface
@@ -355,41 +276,38 @@ export enum FishCompletionItemKind {
 //}
 
 
-
-
-
-export const fishCompletionItemKindMap = {
-    ABBR: CompletionItemKind.Interface,
-    ALIAS: CompletionItemKind.Struct,
-    BUILTIN: CompletionItemKind.Keyword,
-    FLAG: CompletionItemKind.Field, 
-    LOCAL_VAR: CompletionItemKind.Variable, 
-    GLOBAL_VAR: CompletionItemKind.Constant, 
-    GLOBAL_FUNC: CompletionItemKind.Method, 
-    USER_FUNC: CompletionItemKind.Function, 
-    LOCAL_FUNC: CompletionItemKind.Constructor, 
-    CMD: CompletionItemKind.Class,
-    CMD_NO_DOC: CompletionItemKind.Class,
-    RESOLVE: CompletionItemKind.Unit
-} as const;
+//export const fishCompletionItemKindMap = {
+//    ABBR: CompletionItemKind.Interface,
+//    ALIAS: CompletionItemKind.Struct,
+//    BUILTIN: CompletionItemKind.Keyword,
+//    FLAG: CompletionItemKind.Field, 
+//    LOCAL_VAR: CompletionItemKind.Variable, 
+//    GLOBAL_VAR: CompletionItemKind.Constant, 
+//    GLOBAL_FUNC: CompletionItemKind.Method, 
+//    USER_FUNC: CompletionItemKind.Function, 
+//    LOCAL_FUNC: CompletionItemKind.Constructor, 
+//    CMD: CompletionItemKind.Class,
+//    CMD_NO_DOC: CompletionItemKind.Class,
+//    RESOLVE: CompletionItemKind.Unit
+//} as const;
 
 //interface CompeltionItemKindKey {
     //[key in keyof typeof CompletionItemKind]: any;
 //}
 
-export const completionItemKindMap = {
-    Interface:     FishCompletionItemKind.ABBR,
-    Struct:        FishCompletionItemKind.ALIAS,
-    Keyword:       FishCompletionItemKind.BUILTIN,
-    Field:         FishCompletionItemKind.FLAG,
-    Variable:      FishCompletionItemKind.LOCAL_VAR,
-    Constant:      FishCompletionItemKind.GLOBAL_VAR,
-    Method:        FishCompletionItemKind.GLOBAL_FUNC,
-    Function:      FishCompletionItemKind.USER_FUNC,
-    Constructor:   FishCompletionItemKind.LOCAL_FUNC,
-    Class:         FishCompletionItemKind.CMD_NO_DOC,
-    Unit:          FishCompletionItemKind.RESOLVE
-} as const;
+//export const completionItemKindMap = {
+//    Interface:     FishCompletionItemKind.ABBR,
+//    Struct:        FishCompletionItemKind.ALIAS,
+//    Keyword:       FishCompletionItemKind.BUILTIN,
+//    Field:         FishCompletionItemKind.FLAG,
+//    Variable:      FishCompletionItemKind.LOCAL_VAR,
+//    Constant:      FishCompletionItemKind.GLOBAL_VAR,
+//    Method:        FishCompletionItemKind.GLOBAL_FUNC,
+//    Function:      FishCompletionItemKind.USER_FUNC,
+//    Constructor:   FishCompletionItemKind.LOCAL_FUNC,
+//    Class:         FishCompletionItemKind.CMD_NO_DOC,
+//    Unit:          FishCompletionItemKind.RESOLVE
+//} as const;
 
 
 //export type CompletionItemKindType = Partial<Record<keyof typeof CompletionItemKind, number>>;
@@ -478,20 +396,20 @@ export async function resolveFishCompletionItemType(cmd: string): Promise<FishCo
 
 
 
-function initailFishCompletion(label: string, arr: string[]) {
-    const cmpKind = getCompletionItemKind(arr);
-    const fishKind = getFishCompletionItemType(cmpKind)
-    const result: FishCompletionItem = CompletionItem.create(label) as FishCompletionItem
-    result.kind = cmpKind;
-    result.documentation = arr.length > 1 ? arr[1] : "";
-    result.insertText = '';
-    result.filterText = "";
-    result.data = {
-        fishKind: fishKind,
-        originalCompletion: arr.join('\t'),
-    }
-    return result;
-}
+//function initailFishCompletion(label: string, arr: string[]) {
+//    const cmpKind = getCompletionItemKind(arr);
+//    const fishKind = getFishCompletionItemType(cmpKind)
+//    const result: FishCompletionItem = CompletionItem.create(label) as FishCompletionItem
+//    result.kind = cmpKind;
+//    result.documentation = arr.length > 1 ? arr[1] : "";
+//    result.insertText = '';
+//    result.filterText = "";
+//    result.data = {
+//        fishKind: fishKind,
+//        originalCompletion: arr.join('\t'),
+//    }
+//    return result;
+//}
 
 
 /**
@@ -500,49 +418,49 @@ function initailFishCompletion(label: string, arr: string[]) {
  * @param {string[]} arr - [name, docs]
  * @returns {Promise<FishCompletionItem>} - CompletionItem to resolve onCompletion()
  */
-export function buildCompletionItemPromise(arr: string[]): FishCompletionItem {
-    const name = arr[0];
-    const result = initailFishCompletion(name, arr);
-    switch (result.data.fishKind) {
-        case FishCompletionItemKind.RESOLVE:
-            result.data.fishKind = getFishCompletionItemType(result.kind)
-            break;
-        case FishCompletionItemKind.ABBR:
-            result.insertText = arr[1].split(' ', 1)[-1].trim();
-            result.commitCharacters = [' ', ';']
-            break;
-        case FishCompletionItemKind.LOCAL_VAR:
-            //docs = findDefinition()
-            result.documentation = "Local Variable: " + arr[1]
-            break;
-        case FishCompletionItemKind.LOCAL_FUNC:
-            //docs = findDefinition()
-            result.documentation = "Local Function: " + arr[1]
-            break;
-        case FishCompletionItemKind.GLOBAL_VAR:
-            //docs = findDefinition
-            //result.data.resolveCommand = `set -S ${name}`
-            break;
-        default:
-            break;
-            
-    }
-    //logger.log('cmpItem ',  {completion: result})
-    return result;
-    //const result = {
-    //    ...CompletionItem.create(name),
-    //    documentation: docs,
-    //    kind: itemKind,
-    //    insertText: insertText,
-    //    commitCharacters: commitCharacters,
-    //    data: {
-    //        resolveCommand: resolveCommand,
-    //        fishKind: fishKind, 
-    //        originalCompletion: arr.join('\t'),
-    //    },
-    //}
-
-}
+//export function buildCompletionItemPromise(arr: string[]): FishCompletionItem {
+//    const name = arr[0];
+//    const result = initailFishCompletion(name, arr);
+//    switch (result.data.fishKind) {
+//        case FishCompletionItemKind.RESOLVE:
+//            result.data.fishKind = getFishCompletionItemType(result.kind)
+//            break;
+//        case FishCompletionItemKind.ABBR:
+//            result.insertText = arr[1].split(' ', 1)[-1].trim();
+//            result.commitCharacters = [' ', ';']
+//            break;
+//        case FishCompletionItemKind.LOCAL_VAR:
+//            //docs = findDefinition()
+//            result.documentation = "Local Variable: " + arr[1]
+//            break;
+//        case FishCompletionItemKind.LOCAL_FUNC:
+//            //docs = findDefinition()
+//            result.documentation = "Local Function: " + arr[1]
+//            break;
+//        case FishCompletionItemKind.GLOBAL_VAR:
+//            //docs = findDefinition
+//            //result.data.resolveCommand = `set -S ${name}`
+//            break;
+//        default:
+//            break;
+//            
+//    }
+//    //logger.log('cmpItem ',  {completion: result})
+//    return result;
+//    //const result = {
+//    //    ...CompletionItem.create(name),
+//    //    documentation: docs,
+//    //    kind: itemKind,
+//    //    insertText: insertText,
+//    //    commitCharacters: commitCharacters,
+//    //    data: {
+//    //        resolveCommand: resolveCommand,
+//    //        fishKind: fishKind, 
+//    //        originalCompletion: arr.join('\t'),
+//    //    },
+//    //}
+//
+//}
 
 
 

@@ -28,57 +28,6 @@ import {getNodeText} from './utils/tree-sitter';
 
 // PREVIOUS: https://github.com/ndonfris/fishls/blob/master/server/src/complete.ts
 
-export enum FishCompletionItemType {
-    func,
-    builtin,
-    abbr,
-    flag,
-    variable,
-    line,
-}
-
-export function toCompletionItemKind(
-    type: FishCompletionItemType
-): CompletionItemKind {
-    switch (type) {
-        case FishCompletionItemType.func:
-            return CompletionItemKind.Function;
-        case FishCompletionItemType.builtin:
-            return CompletionItemKind.Function;
-        case FishCompletionItemType.abbr:
-            return CompletionItemKind.Snippet;
-        case FishCompletionItemType.flag:
-            return CompletionItemKind.Field;
-        case FishCompletionItemType.variable:
-            return CompletionItemKind.Variable;
-        default:
-            return CompletionItemKind.Unit;
-    }
-}
-
-function buildCompletionItem(
-    name: string,
-    detail: string,
-    docs: string | MarkupContent,
-    type: FishCompletionItemType,
-    insertText?: string
-): CompletionItem {
-    const itemKind = toCompletionItemKind(type);
-    return {
-        ...CompletionItem.create(name),
-        detail: detail,
-        documentation: docs,
-        kind: itemKind,
-        insertText: insertText,
-        filterText: itemKind === CompletionItemKind.Variable ? "$" : undefined,
-        data: {
-            name: name,
-            documentation: docs,
-            kind: itemKind,
-            fishKind: type,
-        },
-    };
-}
 const execAsync = promisify(exec)
 
 
@@ -128,30 +77,21 @@ export async function getShellCompletions(cmd: string): Promise<[string, string,
 //         • always get the last SyntaxNode character
 //
 export class Completion {
-    private currentNode: SyntaxNode | undefined;
-    private commandNode: SyntaxNode | undefined;
 
-    public lineCmps: CompletionItem[] = [];
-    public globalAbbrs: CompletionItem[] = [];
-    private globalVars: CompletionItem[] = [];
-    public globalAlaises: CompletionItem[] = [];
-    public globalCmds: CompletionItem[] = [];
-    public globalBuiltins: CompletionItem[] = [];
-    private localVariables: Map<string, CompletionItem> =  new Map<string, CompletionItem>();
-    private localFunctions: Map<string, CompletionItem> =  new Map<string, CompletionItem>();
+    public userFunctions: string[] = []
+    public fishFunctions: string[]  = [];
 
     private isInsideCompletionsFile: boolean = false;
 
     private completions: CompletionItem[] = [];
     private isIncomplete: boolean = false;
 
-    public filepathResolver: FilepathResolver;
 
     // call in server.initialize()
     // also you could add the syntaxTree on
     // this.documents.listener.onDocumentChange(() => {})
-    public static async initialDefaults(filepathResolver: FilepathResolver) {
-        const globs = new this(filepathResolver);
+    public static async initialDefaults() {
+        const globs = new this();
 
         //globs.globalVars = await buildGlobalVars();
         //globs.globalAbbrs = await buildGlobalAbbrs();
@@ -160,27 +100,26 @@ export class Completion {
         //globs.globalBuiltins = await buildGlobalBuiltins();
         //return globs;
 
-        return Promise.all([
-            //buildGlobalVars(),
-            buildGlobalAbbrs(),
-            //buildGlobalCommands(),
-            buildGlobalAlaises(),
-            //buildGlobalBuiltins(),
-        ]).then(([_gAbbrs, _gAliases]) => {
-            //globs.globalVars = _gVars;
-            globs.globalAbbrs = _gAbbrs;
-            //globs.globalCmds = _gCmds;
-            globs.globalAlaises = _gAliases;
-            //globs.globalBuiltins = _gBuiltins;
-            return globs;
-        });
+        //return Promise.all([
+        //    //buildGlobalVars(),
+        //    buildGlobalAbbrs(),
+        //    //buildGlobalCommands(),
+        //    buildGlobalAlaises(),
+        //    //buildGlobalBuiltins(),
+        //]).then(([_gAbbrs, _gAliases]) => {
+        //    //globs.globalVars = _gVars;
+        //    globs.globalAbbrs = _gAbbrs;
+        //    //globs.globalCmds = _gCmds;
+        //    globs.globalAlaises = _gAliases;
+        //    //globs.globalBuiltins = _gBuiltins;
+        //    return globs;
+        //});
     }
 
-    public constructor(filepathResolver: FilepathResolver) {
+    public constructor() {
         this.isIncomplete = false;
         this.completions = [];
         this.isInsideCompletionsFile = false;
-        this.filepathResolver = filepathResolver;
     }
 
     //public addLocalMembers(vars: SyntaxNode[], funcs: SyntaxNode[]) {
@@ -253,7 +192,7 @@ export class Completion {
         //    }
         //))
 
-        this.lineCmps = items;
+        //this.lineCmps = items;
         return items;
     }
             
@@ -330,109 +269,3 @@ export class Completion {
     }
 }
 
-    // create (atleast) two methods for generating completions,
-    //      1.) with a syntaxnode -> allows for thorough testing
-    //      2.) with a params -> allows for fast implementation to server
-    //                        -> this also needs to work for server.onHover()
-    //      3.) with just text -> allows for extra simple tests
-    //
-    //
-
-export async function buildGlobalAbbrs() {
-    const globalAbbrs = await execCompleteGlobalDocs('abbrs');
-    const ret = globalAbbrs.split('\n')
-        .map(abbr => abbr.split('\t'))
-        .map((abbr: string[]) => 
-             buildCompletionItem(
-                abbr[0].trim(),
-                'abbr',
-                enrichToMarkdown("__Abbreviation__: " + abbr.at(-1)),
-                FishCompletionItemType.abbr,
-                abbr.at(-1)
-            )
-        );
-    return ret;
-}
-
-export async function buildGlobalVars(): Promise<CompletionItem[]>{
-    const globalVars = await execCompleteGlobalDocs('vars');
-    const ret = globalVars.split('\n')
-        .map(gvar => gvar.split("\t"))
-        .map((arr: string[]) => 
-            buildCompletionItem(
-                    "$"+arr[0],
-                    arr[1],
-                    enrichToMarkdown(arr.slice(1).join(': ') + '  '),
-                    FishCompletionItemType.variable,
-                    "$"+arr[0]
-                ),
-        )
-    return ret;
-}
-
-export async function buildGlobalBuiltins(): Promise<CompletionItem[]>{
-    const globalVars = await execCompleteGlobalDocs('builtins');
-    const ret = globalVars.split('\n')
-        .map(gvar => gvar.split("\t"))
-        .map((arr: string[]) => 
-            buildCompletionItem(
-                arr[0],
-                arr[1],
-                arr[0],
-                FishCompletionItemType.builtin,
-            )
-        )
-    return ret;
-}
-
-export async function buildGlobalCommands(): Promise<CompletionItem[]>{
-    const globalVars = await execCompleteGlobalDocs('commands');
-    const ret = globalVars.split('\n')
-        .map(gvar => gvar.split("\t"))
-        .map((arr: string[]) => 
-            buildCompletionItem(
-                arr[0],
-                arr[1],
-                enrichToMarkdown("__command__: " + arr.at(0)),
-                FishCompletionItemType.function,
-            )
-        )
-    return ret;
-}
-
-export async function buildGlobalAlaises(): Promise<CompletionItem[]>{
-    const globalVars = await execCompleteGlobalDocs('aliases');
-    const ret = globalVars.split('\n')
-        .map(gvar => gvar.split("\t"))
-        .map((arr: string[]) => 
-            buildCompletionItem(
-                arr[0],
-                arr[1],
-                enrichToMarkdown(arr[1]),
-                FishCompletionItemType.function,
-            )
-        )
-    return ret;
-}
-
-async function findEachSubcommand(node: SyntaxNode) {
-    if (node.children.length == 1) {
-        return []
-    }
-    const children = node.children!.slice(1);
-    let text = [node.child(0)!.text];
-    for (const child of children) {
-        const childText = child.text;
-        if (childText.startsWith("-")) {
-            return text;
-        }
-        const subcmds = await execFindSubcommand(text);
-        if (subcmds.length > 0) {
-            const found = subcmds.filter(subcmd => subcmd == childText)[0];
-            if (found) {
-                text.push(found);
-            }
-        }
-    }
-    return text;
-}

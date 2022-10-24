@@ -48,18 +48,18 @@ describe('complete simple tests', () => {
     //    expect(completions !== null).toBeTruthy()
     //})
 
-    it('startup time', async () => {
-        const completions = new Completion();
-        const line = 'ech'
-        await completions.generateLineCompletion('ech');
-        const cmd = line.replace(/(['$`\\])/g, '\\$1')
-        console.log(cmd)
-        for (const c of completions.lineCmps) {
-            console.log(c.label);
-        }
-        //console.log(c)
-        expect(completions.lineCmps).toBeTruthy()
-    })
+    //it('startup time', async () => {
+    //    const completions = new Completion();
+    //    const line = 'ech'
+    //    await completions.generateLineCompletion('ech');
+    //    const cmd = line.replace(/(['$`\\])/g, '\\$1')
+    //    console.log(cmd)
+    //    for (const c of completions.lineCmps) {
+    //        console.log(c.label);
+    //    }
+    //    //console.log(c)
+    //    expect(completions.lineCmps).toBeTruthy()
+    //})
     //it('test execEscapeCommand', async () => {
     //    let results = await execEscapedCommand('complete --do-complete="ls -"')
     //    //results.forEach(arg => console.log(arg))
