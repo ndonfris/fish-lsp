@@ -29,7 +29,7 @@ import {getNodeText} from './utils/tree-sitter';
 // PREVIOUS: https://github.com/ndonfris/fishls/blob/master/server/src/complete.ts
 
 export enum FishCompletionItemType {
-    function,
+    func,
     builtin,
     abbr,
     flag,
@@ -41,7 +41,7 @@ export function toCompletionItemKind(
     type: FishCompletionItemType
 ): CompletionItemKind {
     switch (type) {
-        case FishCompletionItemType.function:
+        case FishCompletionItemType.func:
             return CompletionItemKind.Function;
         case FishCompletionItemType.builtin:
             return CompletionItemKind.Function;
