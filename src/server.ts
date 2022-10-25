@@ -175,20 +175,9 @@ export default class FishServer {
 
         logger.log('server.onComplete' + uri)
         const doc = await this.docs.openOrFind(uri);
-        const node: SyntaxNode | null = this.analyzer.nodeAtPoint(doc.uri, position.line, position.character - 1);
-        //const node2: SyntaxNode | null = this.analyzer.nodeAtPoint(doc.uri, position.line, position.character);
-        const currnode = this.analyzer.boundaryCheckNode(uri, position.line, position.character)
+        const node: SyntaxNode | null = this.analyzer.nodeAtPoint(doc.uri, position.line, position.character - 2);
 
-        //if (node) {
-            ////logger.log(`node2 (char + 1): ${node2?.parent?.text}`)
-            ////const cmdNode2 = findParentCommand(node2)
-            ////logger.log(`node2 cmdnode: ${cmdNode2?.text}`)
-            //logger.log(`node: ${node.parent?.text}`)
-            //const cmdNode = findParentCommand(node)
-            //if (cmdNode?.child(0)?.text === "string" && descendantMatch(cmdNode, child => isRegexArgument(child))) {
-            //}
-            //logger.log(`cmdnode: ${cmdNode?.text}`)
-        //}
+        const currnode = this.analyzer.boundaryCheckNode(uri, position.line, position.character)
 
         //const r = getRangeFromPosition(completionParams.position);
         this.connection.console.log('on complete node: ' + doc.uri || "" )
@@ -208,7 +197,15 @@ export default class FishServer {
             logger.log(`extraCheck: ${isRegexString}: isRegexArgument`)
             items.push(...buildRegexCompletions())
             return CompletionList.create(items, false)
+        }
 
+        let cmdNode = null;
+        if (node) {
+            cmdNode = findParentCommand(node);
+            if (cmdNode) {
+                logger.log('cmdNode ' + cmdNode.text)
+                logger.log('currnode: ' + node.parent?.text)
+            }
         }
 
         //if (line.startsWith("\#")) {
@@ -225,13 +222,16 @@ export default class FishServer {
             if (output.length == 0) {
                 return null;
             }
+            let fishKind = FishCompletionItemKind.FLAG;
             for (const [label, desc, other] of output) {
-                const fishKind = parseLineForType(label, desc, other)
-                //logger.log(`fishKind: ${fishKind}`)
-                if (label === 'gt') {
-                logger.log(`label: '${label}'\nkeyword: '${desc}'\notherInfo: '${other}'\n type: ${fishKind}`)
-
+                if (!cmdNode) {
+                    fishKind = parseLineForType(label, desc, other)
                 }
+                //logger.log(`fishKind: ${fishKind}`)
+                //if (label === 'gt') {
+                //logger.log(`label: '${label}'\nkeyword: '${desc}'\notherInfo: '${other}'\n type: ${fishKind}`)
+
+                //}
                 const item = cmp.create(label)
                     .documentation([desc, other].join(' '))
                     .kind(fishKind)
@@ -242,7 +242,7 @@ export default class FishServer {
                         item.insertText = other;
                         break
                     default:
-                    break
+                        break
                 }
                 items.push(item)
                 //logger.log(`label_if:  ${isBuiltIn(label)}`)
@@ -317,7 +317,9 @@ export default class FishServer {
                 item.documentation = enrichToCodeBlockMarkdown(fishItem.data?.originalCompletion, 'fish')
             case CompletionItemKind.Variable: 
                 item.documentation = enrichToCodeBlockMarkdown(fishItem.data?.originalCompletion, 'fish')
+            case CompletionItemKind.Field: 
             case CompletionItemKind.Interface: 
+                //const newDoc = enrichToCodeBlockMarkdown()
                 return item;
             case CompletionItemKind.Function:
                 newDoc = await execCommandDocs(fishItem.label)

@@ -61,12 +61,12 @@ export function isVariable(node: SyntaxNode) {
  * @returns {SyntaxNode | null} command node or null
  */
 export function findParentCommand(node: SyntaxNode): SyntaxNode | null {
-    let currentNode: SyntaxNode = node;
-    while (currentNode.parent != null) {
+    let currentNode: SyntaxNode | null = node;
+    while (currentNode) {
         if (isCommand(currentNode)) {
             return currentNode;
-        } else if (isBeforeCommand(currentNode)) {
-            return null
+        //} else if (isBeforeCommand(currentNode)) {
+            //return null
         }
         currentNode = currentNode.parent;
     }
