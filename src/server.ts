@@ -199,6 +199,9 @@ export default class FishServer {
             return CompletionList.create(items, false)
         }
 
+        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
+        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
+        // right here parse the line forward for the last command in the scope !!!
         let cmdNode = null;
         if (node) {
             cmdNode = findParentCommand(node);
@@ -213,7 +216,6 @@ export default class FishServer {
         //}
         try {
             logger.log('line' + line)
-            //const newLine = line.trimStart().split(' ')
             const output = await getShellCompletions(line.trimStart())
             //output.forEach(([label, keyword, otherInfo]) => {
             //    logger.log(`label: '${label}'\nkeyword: '${keyword}'\notherInfo: '${otherInfo}'`)
@@ -227,11 +229,6 @@ export default class FishServer {
                 if (!cmdNode) {
                     fishKind = parseLineForType(label, desc, other)
                 }
-                //logger.log(`fishKind: ${fishKind}`)
-                //if (label === 'gt') {
-                //logger.log(`label: '${label}'\nkeyword: '${desc}'\notherInfo: '${other}'\n type: ${fishKind}`)
-
-                //}
                 const item = cmp.create(label)
                     .documentation([desc, other].join(' '))
                     .kind(fishKind)
@@ -245,7 +242,6 @@ export default class FishServer {
                         break
                 }
                 items.push(item)
-                //logger.log(`label_if:  ${isBuiltIn(label)}`)
                 cmp.reset()
             }
         } catch (e) {
@@ -261,54 +257,6 @@ export default class FishServer {
 
     public async onCompletionResolve(item: CompletionItem): Promise<CompletionItem> {
         const fishItem = item as FishCompletionItem
-        //const fishItem = item as FishCompletionItem;
-        //try {
-        //    //logger.log('server onCompletionResolve:', {extraInfo: ['beforeResolve:' ], completion: item})
-        //    //newItem = await handleCompletionResolver(item as FishCompletionItem, this.console)
-        //    let newDoc : string | MarkupContent;
-        //    const fishKind = fishItem.data?.fishKind;
-        //    console.log('handleCmpResolver ' + fishKind)
-        //    switch (fishKind) {
-        //        case FishCompletionItemKind.ABBR:              // interface
-        //        case FishCompletionItemKind.ALIAS:             // interface
-        //            fishItem.documentation = enrichToCodeBlockMarkdown(fishItem.documentation as string)
-        //            break;
-        //        case FishCompletionItemKind.BUILTIN:           // keyword
-        //            newDoc = await execCommandDocs(fishItem.label)
-        //            fishItem.documentation = enrichToCodeBlockMarkdown(newDoc, 'man')
-        //            break;
-        //        case FishCompletionItemKind.LOCAL_VAR:         // variable
-        //        case FishCompletionItemKind.GLOBAL_VAR:        // variable
-        //            fishItem.documentation = enrichToMarkdown(`__${fishItem.label}__ ${fishItem.documentation}`)
-        //            break;
-        //        case FishCompletionItemKind.LOCAL_FUNC:        // function
-        //        case FishCompletionItemKind.GLOBAL_FUNC:       // function
-        //            newDoc = await execCommandDocs(fishItem.label)
-        //            if (newDoc) {
-        //                fishItem.documentation = newDoc;
-        //            }
-        //            break;
-        //        case FishCompletionItemKind.FLAG:              // field
-        //            fishItem.documentation = enrichToMarkdown(`__${fishItem.label}__ ${fishItem.documentation}`)
-        //            break;
-        //        case FishCompletionItemKind.CMD_NO_DOC:        // refrence
-        //            break;
-        //        case FishCompletionItemKind.CMD:               // module
-        //            newDoc = await execCommandDocs(fishItem.label)
-        //            if (newDoc) {
-        //                fishItem.documentation = newDoc;
-        //            }
-        //        case FishCompletionItemKind.RESOLVE:           // method -> module or function
-        //            newDoc = await execCommandDocs(fishItem.label)
-        //            fishItem.documentation = enrichToCodeBlockMarkdown(newDoc, 'man')
-        //            break;
-        //        default:
-        //            return fishItem;
-        //    }            //logger.log('server onCompletionResolve:', {extraInfo: ['AfterResolve:' ], completion: item})
-        //} catch (err) {
-        //    logger.log("ERRRRRRRRRRRRROOOOORRRR " + err)
-        //    return fishItem;
-        //
         let newDoc: string | MarkupContent;
         let typeCmdOutput = ''
         let typeofDoc = ''
