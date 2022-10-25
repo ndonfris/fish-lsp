@@ -26,4 +26,6 @@ export declare function hasParentFunction(node: SyntaxNode): boolean;
 export declare function findFunctionScope(node: SyntaxNode): SyntaxNode;
 export declare function findLastVariableRefrence(node: SyntaxNode): SyntaxNode | undefined;
 export declare function isLocalVariable(node: SyntaxNode, console: RemoteConsole): void;
+export declare function isRegexArgument(n: SyntaxNode): boolean;
+export declare function isQuoteString(n: SyntaxNode): boolean;
 //# sourceMappingURL=node-types.d.ts.map

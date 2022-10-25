@@ -29,7 +29,6 @@ export interface FishCompletionItem extends CompletionItem {
         fishKind?: FishCompletionItemKind; // VERBOSE form of kind
         localSymbol?: boolean;
     }
-    create: () => {}
 }
 
 export class CompletionItemBuilder {
@@ -121,42 +120,6 @@ export class CompletionItemBuilder {
 //     cmp2
 //     cmp3\tdescription
 // where completions are split by tab characters, and descriptions are optional.
-export type TerminalCompletionOutput = [string, ...string[]];
-
-function splitDescription(...description: string[]): TerminalCompletionOutput {
-    if (description === undefined || description.length == 0) {
-        return ["", ""]
-    }
-    if (description.length === 1) {
-        return [description[0], ""]
-    }
-    return [description[0], description.slice(1).join(' ')]
-
-}
-
-function parseDescriptionKeywords(firstItem: string, ...description: string[]): [string, ...string[]] {
-    if (description === undefined) {
-        return [""]
-    }
-    if (!firstItem || firstItem === "") {
-        return [""];
-    } else {
-        description.push(...[" ", " "])
-        //logger.log("lastIndex " + firstItem.lastIndexOf(":"))
-        let fixedItem = ""  // .substring(0, firstItem.lastIndexOf(":")) || ""
-        fixedItem += firstItem
-        if (firstItem.includes(":")) {
-            fixedItem.replace(/[^A-Za-z0-9]/g, '')
-            //fixedItem = firstItem.substring(0, firstItem.lastIndexOf(":"))
-        }
-        //const possibleDescriptionName = description.split(' ', 1);
-        if (description.length > 0) { 
-            return [fixedItem.toLowerCase(), description[0] || ""]
-        } else {
-            return [firstItem]
-        }
-    } 
-}   
 
 /**
  * Retrieves a FishCompletionItemKind for a line of shell output. 

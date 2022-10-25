@@ -13,12 +13,15 @@ export declare class Analyzer {
      *
      * @returns {string} the current line in the document, or an empty string
      */
-    currentLine(document: TextDocument, position: Position): string;
+    currentLine(document: TextDocument, position: Position): TextDocument;
+    blockToDocument(textBlock: string): TextDocument;
     nodeIsLocal(tree: SyntaxTree, node: SyntaxNode): Hover | void;
+    isStringRegex(uri: string, line: number, column: number): boolean;
     /**
      * Find the node at the given point.
      */
     nodeAtPoint(uri: string, line: number, column: number): Parser.SyntaxNode | null;
+    boundaryCheckNode(uri: string, line: number, column: number): Parser.SyntaxNode | null;
     /**
      * Find the full word at the given point.
      */

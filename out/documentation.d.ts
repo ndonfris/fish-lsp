@@ -4,6 +4,7 @@ import { CompletionArguments } from './utils/exec';
 export declare type markdownFiletypes = 'fish' | 'man';
 export declare function enrichToMarkdown(doc: string): MarkupContent;
 export declare function enrichToCodeBlockMarkdown(doc: string, filetype?: markdownFiletypes): MarkupContent;
+export declare function enrichWildcard(label: string, documentation: string, examples: [string, string][]): MarkupContent;
 export declare function enrichCommandArg(doc: string): MarkupContent;
 export declare function enrichToPlainText(doc: string): MarkupContent;
 export declare function documentationHoverProvider(cmd: string): Promise<Hover | null>;

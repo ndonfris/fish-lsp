@@ -35,8 +35,11 @@ import {
     isVariableDefintion,
     hasParentFunction,
     isStatement,
+    isRegexArgument,
+    isQuoteString,
 } from "./utils/node-types";
 import {
+    descendantMatch,
     findNodeAt,
     getChildNodes,
     getNodeText,
@@ -100,15 +103,17 @@ export class Analyzer {
     public currentLine(
         document: TextDocument,
         position: Position
-    ): string {
+    ): TextDocument {
         const currDoc = document.uri;
         const currRange = getRangeFromPosition(position);
-        if (currDoc === undefined) return ""
-        //const row = position.line;
-        //const col = position.character;
-        //const currText = document.getText().split('\n').at(row)?.substring(0, col + 1) || "";
+        if (currDoc === undefined) return this.blockToDocument('') 
         const currText = document.getText(currRange)
-        return currText;
+        const currDocument = this.blockToDocument(currText)
+        return currDocument;
+    }
+
+    public blockToDocument(textBlock: string) {
+        return TextDocument.create('current-document', "fish", 0, textBlock);
     }
 
 
@@ -121,6 +126,22 @@ export class Analyzer {
             contents: enrichToCodeBlockMarkdown(result.text, 'fish'),
             range: getRange(result),
         };
+    }
+
+    public isStringRegex(
+        uri: string,
+        line: number,
+        column: number
+    ): boolean {
+        const node = this.boundaryCheckNode(uri, line, column)
+        if (!node) {
+            return false;
+        }
+        const cmdNode = findParentCommand(node);
+        if (!cmdNode) {
+            return false;
+        }
+        return cmdNode?.child(0)?.text == "string" && descendantMatch(cmdNode, child => isRegexArgument(child)).length > 0
     }
 
     //public async getHover(tree: SyntaxTree, params: TextDocumentPositionParams): Promise<Hover | void> {
@@ -171,6 +192,29 @@ export class Analyzer {
         }
 
         return tree.rootNode.descendantForPosition({ row: line, column });
+    }
+
+    public boundaryCheckNode(
+        uri: string,
+        line: number,
+        column: number
+    ): Parser.SyntaxNode | null {
+        const tree = this.uriTree[uri]
+
+        // Check for lacking rootNode (due to failed parse?)
+        if (!tree?.rootNode) {
+            return null;
+        } 
+        let currColumn = column;
+        while (currColumn > 0) {
+            let currNode = this.nodeAtPoint(uri, line, currColumn)
+            if (currNode != null) {
+               return currNode; 
+            }
+            currColumn--;
+        }
+        return null
+
     }
 
     /**

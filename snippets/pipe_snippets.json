@@ -1,0 +1,32 @@
+[ 
+    {
+        "prefix": "read stdin",
+        "body": ["${1:READ} < ${2: STDIN}"],
+        "description": "Read standard input from a file.\n"
+    },
+    {
+        "prefix": "write stdout",
+        "body": ["${1:WRITE} < ${2: DESTINATION}"],
+        "description": "Write standard output to a file.\n"
+    },
+    {
+        "prefix": "write stdout",
+        "body": ["${1:WRITE} < ${2: DESTINATION}"],
+        "description": "Write standard output to a file.\n"
+
+    }
+    ['WRITE 2>DESTINATION']: 'To write standard error to a file, use 2>DESTINATION',
+    ['APPEND >>DESTINATION_FILE']: 'To append standard output to a file, use >>DESTINATION_FILE',
+    ['APPEND 2>>DESTINATION_FILE']: 'To append standard error to a file, use 2>>DESTINATION_FILE',
+    ['NOCLOBBER >?DESTINATION']: 'To not overwrite (“clobber”) an existing file, use >?DESTINATION or 2>?DESTINATION. This is known as the “noclobber” redirection.',
+    ['NOCLOBBER 1>?DESTINATION']: 'To not overwrite (“clobber”) an existing file, use >?DESTINATION or 2>?DESTINATION. This is known as the “noclobber” redirection.',
+    ['NOCLOBBER 2>?DESTINATION']: 'To not overwrite (“clobber”) an existing file, use >?DESTINATION or 2>?DESTINATION. This is known as the “noclobber” redirection.',
+    ['CLOSE &-']: 'An ampersand followed by a minus sign (&-). The file descriptor will be closed.',
+    ['OUTPUT | INPUT']: 'Pipe one stream with another. Usually standard output of one command will be piped to standard input of another. OUTPUT | INPUT',
+    ['DISOWN &']: 'Disown output . OUTPUT &',
+    ['STDOUT_AND_STDERR &>']: 'the redirection &> can be used to direct both stdout and stderr to the same destination'
+]
+
+
+['READ <SOURCE_FILE']: "To read standard input from a file, use <SOURCE_FILE",
+['WRITE >DESTINATION']: "To write standard output to a file, use >DESTINATION",

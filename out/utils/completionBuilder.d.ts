@@ -10,7 +10,6 @@ export interface FishCompletionItem extends CompletionItem {
         fishKind?: FishCompletionItemKind;
         localSymbol?: boolean;
     };
-    create: () => {};
 }
 export declare class CompletionItemBuilder {
     private _item;
@@ -27,7 +26,6 @@ export declare class CompletionItemBuilder {
     localSymbol(): this;
     build(): CompletionItem;
 }
-export declare type TerminalCompletionOutput = [string, ...string[]];
 /**
  * Retrieves a FishCompletionItemKind for a line of shell output.
  * Input params can be typed by the exported type TerminalCompletionOutput

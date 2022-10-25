@@ -1,8 +1,8 @@
 import {exec} from 'child_process';
+import {InsertTextFormat} from 'coc.nvim';
 import FastGlob from 'fast-glob';
 import {homedir} from 'os';
-import { parse, quote, ParseOptions } from 'shell-quote';
-import { promisify } from 'util';
+import {promisify} from 'util';
 import {
     CompletionItem,
     CompletionItemKind,
@@ -10,19 +10,10 @@ import {
     MarkupContent,
 } from "vscode-languageserver-protocol/node";
 import { SyntaxNode } from "web-tree-sitter";
-import {enrichToMarkdown} from './documentation';
+import {enrichToMarkdown, enrichWildcard} from './documentation';
 import {logger} from './logger';
+import {escapeChars, pipes, statusNumbers, stringRegexExpressions, WildcardItems } from './utils/completion-types';
 import {CompletionItemBuilder, parseLineForType} from './utils/completionBuilder';
-import {
-    execComplete,
-    execCompleteAbbrs,
-    execCompleteGlobalDocs,
-    execCompleteVariables,
-    execFindSubcommand,
-} from "./utils/exec";
-import {FilepathResolver} from './utils/filepathResolver';
-import { findParentCommand, isVariable } from "./utils/node-types";
-import {getNodeText} from './utils/tree-sitter';
 
 // utils create CompletionResolver and CompletionItems
 // also decide which completion icons each item will have
@@ -184,4 +175,86 @@ function convertPathToFunctionName(pathString: string) : undefined | string {
     }
     const fishFuncFile = filepathArray.at(-1)?.replace('.fish', '')
     return fishFuncFile;
+}
+
+
+function buildEscapeChars(): CompletionItem[] {
+    const chars = escapeChars;
+    const cmpChars: CompletionItem[] = []
+    for (const k in chars) {
+        const label = '\\' + k;
+        const desc = chars[k];
+        const item = CompletionItem.create(label)
+        item.kind = CompletionItemKind.Text;
+        item.documentation = desc;
+        cmpChars.push(item)
+    }
+    return cmpChars
+}
+
+
+function buildStatusNumbers(): CompletionItem[] {
+    const numbs = statusNumbers;
+    const statNumbers: CompletionItem[] = []
+    for (const label in numbs) {
+        const item = CompletionItem.create(label)
+        item.documentation = numbs[label];
+        statNumbers.push(item)
+    }
+    return statNumbers
+}
+
+function buildPipes(): CompletionItem[] {
+    const cmpItems: CompletionItem[] = []
+    for (const pipe in pipes) {
+        const item = CompletionItem.create(pipe)
+        const altItem = CompletionItem.create(pipes[pipe].altLabel)
+        item.kind = CompletionItemKind.Text;
+        altItem.kind = CompletionItemKind.Text;
+        item.documentation = pipes[pipe].documentation;
+        altItem.documentation = pipes[pipe].documentation;
+        altItem.insertText = pipes[pipe].insertText;
+        cmpItems.push(item);
+        cmpItems.push(altItem);
+    }
+    return cmpItems;
+
+}
+
+function buildWildcards(): CompletionItem[] {
+    const cmpItems: CompletionItem[] = []
+    for (const char in WildcardItems) {
+        const item = CompletionItem.create(char)
+        item.documentation = enrichWildcard(char, WildcardItems[char].documentation, WildcardItems[char].examples)
+        item.kind = WildcardItems[char].kind;
+        cmpItems.push(item)
+    }
+    return cmpItems;
+}
+
+export function buildRegexCompletions(): CompletionItem[] {
+    const cmpItems: CompletionItem[] = [];
+    for (const regexItem of stringRegexExpressions) {
+        const item = CompletionItem.create(regexItem.label);
+        item.documentation = regexItem.description;
+        //item.insertTextFormat = InsertTextFormat.PlainText;
+        item.insertText = regexItem.insertText;
+        item.kind = CompletionItemKind.Text;
+        cmpItems.push(item)
+    }
+    return cmpItems;
+}
+
+export function buildDefaultCompletions() {
+    const escChars = buildEscapeChars();
+    const statusNumbers = buildStatusNumbers();
+    const pipeObjs = buildPipes();
+    const wildcards = buildWildcards()
+    const cmpChars: CompletionItem[] = [
+        ...escChars,
+        ...statusNumbers,
+        ...pipeObjs,
+        ...wildcards,
+    ]
+    return cmpChars
 }

@@ -9,7 +9,7 @@ import { initializeParser } from "./parser";
 import { Analyzer } from "./analyze";
 import { getAllFishLocations } from "./utils/locations";
 import { logger } from "./logger";
-import { Completion, getShellCompletions } from "./completion";
+import { buildDefaultCompletions, buildRegexCompletions, Completion, getShellCompletions } from "./completion";
 import { createTextDocumentFromFilePath } from "./utils/io";
 import {
     ClientCapabilities,
@@ -33,17 +33,17 @@ import {
 } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import {CliOptions, Context, TreeByUri} from './interfaces';
-import {SyntaxNode} from 'web-tree-sitter';
+import { SyntaxNode } from 'web-tree-sitter';
 import {URI} from 'vscode-uri';
-import {DocumentManager, getRangeFromPosition} from './document';
-import {getChildNodes, getNodeText} from './utils/tree-sitter';
-import {isLocalVariable, isVariable} from './utils/node-types';
-import {completionItemKindMap, FishCompletionItem, FishCompletionItemKind, handleCompletionResolver, isBuiltIn} from './utils/completion-types';
-import {FilepathResolver} from './utils/filepathResolver';
-import {CompletionItemBuilder, parseLineForType} from './utils/completionBuilder';
-import {isBuiltin} from './utils/builtins';
-import {documentationHoverProvider, enrichToCodeBlockMarkdown, enrichToMarkdown} from './documentation';
-import {execCommandDocs, execCommandType} from './utils/exec';
+import { DocumentManager, getRangeFromPosition } from './document';
+import {descendantMatch, getChildNodes, getNodeText} from './utils/tree-sitter';
+import {findParentCommand, isLocalVariable, isQuoteString, isRegexArgument, isVariable} from './utils/node-types';
+import { FishCompletionItem, FishCompletionItemKind, handleCompletionResolver, isBuiltIn} from './utils/completion-types';
+import { FilepathResolver } from './utils/filepathResolver';
+import { CompletionItemBuilder, parseLineForType } from './utils/completionBuilder';
+//import {isBuiltin} from './utils/builtins';
+import { documentationHoverProvider, enrichToCodeBlockMarkdown, enrichToMarkdown } from './documentation';
+import { execCommandDocs, execCommandType } from './utils/exec';
 
 
 
@@ -61,7 +61,7 @@ export default class FishServer {
         return Promise.all([
             new Analyzer(parser),
             DocumentManager.indexUserConfig(connection.console),
-            Completion.initialDefaults(filepaths),
+            Completion.initialDefaults(),
         ]).then(
             ([analyzer, docs, completion]) =>
             new FishServer(connection, parser, analyzer, docs, completion)
@@ -110,7 +110,7 @@ export default class FishServer {
             textDocumentSync: TextDocumentSyncKind.Full,
             completionProvider: {
                 resolveProvider: true,
-                triggerCharacters: ["$", "-"],
+                triggerCharacters: ["$", "-", "\\"],
             },
             hoverProvider: true,
             documentHighlightProvider: true,
@@ -172,23 +172,48 @@ export default class FishServer {
         const uri: string = completionParams.textDocument.uri;
         const position = completionParams.position;
 
+
         logger.log('server.onComplete' + uri)
-
         const doc = await this.docs.openOrFind(uri);
-        const node: SyntaxNode | null = this.analyzer.nodeAtPoint(doc.uri, position.line, position.character);
+        const node: SyntaxNode | null = this.analyzer.nodeAtPoint(doc.uri, position.line, position.character - 1);
+        //const node2: SyntaxNode | null = this.analyzer.nodeAtPoint(doc.uri, position.line, position.character);
+        const currnode = this.analyzer.boundaryCheckNode(uri, position.line, position.character)
 
-        if (node) {
-            logger.log(`node: ${node.parent?.text}`)
-        }
+        //if (node) {
+            ////logger.log(`node2 (char + 1): ${node2?.parent?.text}`)
+            ////const cmdNode2 = findParentCommand(node2)
+            ////logger.log(`node2 cmdnode: ${cmdNode2?.text}`)
+            //logger.log(`node: ${node.parent?.text}`)
+            //const cmdNode = findParentCommand(node)
+            //if (cmdNode?.child(0)?.text === "string" && descendantMatch(cmdNode, child => isRegexArgument(child))) {
+            //}
+            //logger.log(`cmdnode: ${cmdNode?.text}`)
+        //}
 
         //const r = getRangeFromPosition(completionParams.position);
         this.connection.console.log('on complete node: ' + doc.uri || "" )
 
-        const line: string = this.analyzer.currentLine(doc, completionParams.position) || " "
+        const documentLine: TextDocument = this.analyzer.currentLine(doc, completionParams.position) || " "
+        const line = documentLine.getText()
+
+        //if (currnode) {
+        //    logger.log(`currNode: ${currnode?.text} && ${currnode?.type} && ${isQuoteString(currnode)}`)
+        //    logger.log(``)
+        //}
+        const isRegexString = this.analyzer.isStringRegex(uri, position.line, position.character)
+        logger.log(`${isRegexString}: isRegexArgument`)
+        
+        const items: CompletionItem[] = []
+        if (line.endsWith("'") || line.endsWith('"') || (currnode && isQuoteString(currnode))) {
+            logger.log(`extraCheck: ${isRegexString}: isRegexArgument`)
+            items.push(...buildRegexCompletions())
+            return CompletionList.create(items, false)
+
+        }
+
         //if (line.startsWith("\#")) {
         //    return null;
         //}
-        const items: CompletionItem[] = []
         try {
             logger.log('line' + line)
             //const newLine = line.trimStart().split(' ')
@@ -222,6 +247,7 @@ export default class FishServer {
             this.connection.console.log(doc.getText())
             this.connection.console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
         }
+        items.push(...buildDefaultCompletions())
         return CompletionList.create(items, false)
     }
 

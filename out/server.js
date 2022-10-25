@@ -22,8 +22,10 @@ const completion_1 = require("./completion");
 const node_1 = require("vscode-languageserver/node");
 const vscode_languageserver_textdocument_1 = require("vscode-languageserver-textdocument");
 const document_1 = require("./document");
+const node_types_1 = require("./utils/node-types");
 const filepathResolver_1 = require("./utils/filepathResolver");
 const completionBuilder_1 = require("./utils/completionBuilder");
+//import {isBuiltin} from './utils/builtins';
 const documentation_1 = require("./documentation");
 const exec_1 = require("./utils/exec");
 class FishServer {
@@ -43,7 +45,7 @@ class FishServer {
             return Promise.all([
                 new analyze_1.Analyzer(parser),
                 document_1.DocumentManager.indexUserConfig(connection.console),
-                completion_1.Completion.initialDefaults(filepaths),
+                completion_1.Completion.initialDefaults(),
             ]).then(([analyzer, docs, completion]) => new FishServer(connection, parser, analyzer, docs, completion));
         });
     }
@@ -54,7 +56,7 @@ class FishServer {
             textDocumentSync: node_1.TextDocumentSyncKind.Full,
             completionProvider: {
                 resolveProvider: true,
-                triggerCharacters: ["$", "-"],
+                triggerCharacters: ["$", "-", "\\"],
             },
             hoverProvider: true,
             documentHighlightProvider: true,
@@ -106,23 +108,43 @@ class FishServer {
         }));
     }
     onCompletion(completionParams) {
-        var _a;
         return __awaiter(this, void 0, void 0, function* () {
             const uri = completionParams.textDocument.uri;
             const position = completionParams.position;
             logger_1.logger.log('server.onComplete' + uri);
             const doc = yield this.docs.openOrFind(uri);
-            const node = this.analyzer.nodeAtPoint(doc.uri, position.line, position.character);
-            if (node) {
-                logger_1.logger.log(`node: ${(_a = node.parent) === null || _a === void 0 ? void 0 : _a.text}`);
-            }
+            const node = this.analyzer.nodeAtPoint(doc.uri, position.line, position.character - 1);
+            //const node2: SyntaxNode | null = this.analyzer.nodeAtPoint(doc.uri, position.line, position.character);
+            const currnode = this.analyzer.boundaryCheckNode(uri, position.line, position.character);
+            //if (node) {
+            ////logger.log(`node2 (char + 1): ${node2?.parent?.text}`)
+            ////const cmdNode2 = findParentCommand(node2)
+            ////logger.log(`node2 cmdnode: ${cmdNode2?.text}`)
+            //logger.log(`node: ${node.parent?.text}`)
+            //const cmdNode = findParentCommand(node)
+            //if (cmdNode?.child(0)?.text === "string" && descendantMatch(cmdNode, child => isRegexArgument(child))) {
+            //}
+            //logger.log(`cmdnode: ${cmdNode?.text}`)
+            //}
             //const r = getRangeFromPosition(completionParams.position);
             this.connection.console.log('on complete node: ' + doc.uri || "");
-            const line = this.analyzer.currentLine(doc, completionParams.position) || " ";
+            const documentLine = this.analyzer.currentLine(doc, completionParams.position) || " ";
+            const line = documentLine.getText();
+            //if (currnode) {
+            //    logger.log(`currNode: ${currnode?.text} && ${currnode?.type} && ${isQuoteString(currnode)}`)
+            //    logger.log(``)
+            //}
+            const isRegexString = this.analyzer.isStringRegex(uri, position.line, position.character);
+            logger_1.logger.log(`${isRegexString}: isRegexArgument`);
+            const items = [];
+            if (line.endsWith("'") || line.endsWith('"') || (currnode && (0, node_types_1.isQuoteString)(currnode))) {
+                logger_1.logger.log(`extraCheck: ${isRegexString}: isRegexArgument`);
+                items.push(...(0, completion_1.buildRegexCompletions)());
+                return node_1.CompletionList.create(items, false);
+            }
             //if (line.startsWith("\#")) {
             //    return null;
             //}
-            const items = [];
             try {
                 logger_1.logger.log('line' + line);
                 //const newLine = line.trimStart().split(' ')
@@ -156,6 +178,7 @@ class FishServer {
                 this.connection.console.log(doc.getText());
                 this.connection.console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
             }
+            items.push(...(0, completion_1.buildDefaultCompletions)());
             return node_1.CompletionList.create(items, false);
         });
     }

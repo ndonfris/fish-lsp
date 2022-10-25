@@ -85,40 +85,12 @@ class CompletionItemBuilder {
     }
 }
 exports.CompletionItemBuilder = CompletionItemBuilder;
-function splitDescription(...description) {
-    if (description === undefined || description.length == 0) {
-        return ["", ""];
-    }
-    if (description.length === 1) {
-        return [description[0], ""];
-    }
-    return [description[0], description.slice(1).join(' ')];
-}
-function parseDescriptionKeywords(firstItem, ...description) {
-    if (description === undefined) {
-        return [""];
-    }
-    if (!firstItem || firstItem === "") {
-        return [""];
-    }
-    else {
-        description.push(...[" ", " "]);
-        //logger.log("lastIndex " + firstItem.lastIndexOf(":"))
-        let fixedItem = ""; // .substring(0, firstItem.lastIndexOf(":")) || ""
-        fixedItem += firstItem;
-        if (firstItem.includes(":")) {
-            fixedItem.replace(/[^A-Za-z0-9]/g, '');
-            //fixedItem = firstItem.substring(0, firstItem.lastIndexOf(":"))
-        }
-        //const possibleDescriptionName = description.split(' ', 1);
-        if (description.length > 0) {
-            return [fixedItem.toLowerCase(), description[0] || ""];
-        }
-        else {
-            return [firstItem];
-        }
-    }
-}
+// fish --command 'complete --do-complete="somecmd"'
+// yeilds completions of result: 
+//     cmp1\tdescription
+//     cmp2
+//     cmp3\tdescription
+// where completions are split by tab characters, and descriptions are optional.
 /**
  * Retrieves a FishCompletionItemKind for a line of shell output.
  * Input params can be typed by the exported type TerminalCompletionOutput
@@ -153,13 +125,15 @@ function getTypeFromDocumentation(keyword, otherInfo) {
         case 'command':
             return otherInfo.length >= 1 ? completion_types_1.FishCompletionItemKind.CMD_NO_DOC : completion_types_1.FishCompletionItemKind.CMD;
         case 'variable':
-            return (0, completion_types_1.isGlobalFunction)() ? completion_types_1.FishCompletionItemKind.GLOBAL_FUNC : completion_types_1.FishCompletionItemKind.USER_FUNC;
+            //return isGlobalFunction() ?  FishCompletionItemKind.GLOBAL_FUNC : FishCompletionItemKind.USER_FUNC
+            return completion_types_1.FishCompletionItemKind.GLOBAL_VAR;
         case 'alias':
             return completion_types_1.FishCompletionItemKind.ALIAS;
         case 'abbreviation':
             return completion_types_1.FishCompletionItemKind.ABBR;
         default:
-            return (0, completion_types_1.isGlobalFunction)() ? completion_types_1.FishCompletionItemKind.GLOBAL_FUNC : completion_types_1.FishCompletionItemKind.RESOLVE;
+            //return isGlobalFunction() ?  FishCompletionItemKind.GLOBAL_FUNC : FishCompletionItemKind.RESOLVE
+            return completion_types_1.FishCompletionItemKind.GLOBAL_FUNC;
     }
 }
 //# sourceMappingURL=completionBuilder.js.map

@@ -100,6 +100,7 @@ export function descendantMatch(
         .filter(descendent => descendent !== start)
 }
 
+
 /**
  * uses nodesGen to build an array.
  *
@@ -278,7 +279,6 @@ export function* nodesGen(node: SyntaxNode) {
     yield n
   }
 }
-
 
 
 

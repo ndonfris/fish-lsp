@@ -1,18 +1,4 @@
 import { CompletionItem, CompletionItemKind, MarkupContent, RemoteConsole } from 'vscode-languageserver';
-/**
- * text: actual completion text
- * description: fish shell compleiton description
- *
- * bind        (Handle fish key binding)
- * text          description --> note: no parenthesis when outside of interactive shell
- *
- * Descriptions are optionally because things like function files will not show any
- * description, however we will indcate it empty string
- */
-export interface CmdLineCmp {
-    text: string;
-    description: string;
-}
 export interface FishCompletionItem extends CompletionItem {
     label: string;
     kind: CompletionItemKind;
@@ -22,26 +8,6 @@ export interface FishCompletionItem extends CompletionItem {
         fishKind: FishCompletionItemKind;
     };
 }
-/**
- *     ta	Abbreviation: tmux attach -t
- *
- * @param {CmdLineCmp} line - a result from fish's builtin commandline completions
- *                     index[0]: the actual abbr
- *                     index[1]: Abbreviation: expansion
- *
- */
-export declare function isAbbr(line: string[]): boolean;
-/**
- * line is an array of length 2 (Example below)
- *
- *     vdiff	    alias vdiff=nvim -d
- *     vimdiff	    alias vimdiff=nvim -d
- *
- * @param {string[]} line - a result from fish's builtin commandline completions
- *                     index[0]: the alias
- *                     index[1]: alias shortend_cmd=some_longer_cmd
- */
-export declare function isAlias(line: string[]): boolean;
 /**
  * line is an array of length 2 (Example's below). External commands MIGHT have man-pages,
  * and are retrieved as executeables in $PATH.
@@ -66,17 +32,40 @@ export declare const BuiltInList: string[];
  * @return {boolean} - line is a completion for an builtin
  */
 export declare function isBuiltIn(line: string): boolean;
-/**
- *   line array length could be 1 or 2. User completions may not provide description
- *
- *   Example below, seen from 'test -'
- *
- *   -x     File is executable
- *   -w	    File is writable
- *   -u	    File set-user-ID bit is set
- */
-export declare function isFlag(line: string[]): boolean;
-export declare function isGlobalFunction(): boolean;
+export declare const escapeChars: {
+    [char: string]: string;
+};
+interface pipeObj {
+    altLabel: string;
+    insertText: string;
+    documentation: string | MarkupContent;
+}
+export declare const pipes: {
+    [pipe: string]: pipeObj;
+};
+export declare const statusNumbers: {
+    [statusNumber: string]: string;
+};
+interface wildcardCompletionItem {
+    label: string;
+    documentation: string;
+    kind: CompletionItemKind;
+    examples: [string, string][];
+}
+export declare const WildcardItems: {
+    [char: string]: wildcardCompletionItem;
+};
+export declare const bashEquivalentChars: {
+    [char: string]: string;
+};
+interface regexItem {
+    label: string;
+    insertText: string;
+    insertTextFormat?: number;
+    description: string;
+    examples?: string[];
+}
+export declare const stringRegexExpressions: regexItem[];
 /**
  * line is an array of length 2 (Example's below). Retrieving a gloabl varaible can be
  * done through the shell in any of the following methods. (We use method 1)
@@ -96,7 +85,6 @@ export declare function isGlobalFunction(): boolean;
  * @return {boolean} - line is a completion for an builtin
  */
 export declare function isGlobalVariable(line: string[]): boolean;
-export declare function isFishCommand(line: string[]): boolean;
 /**
  * gets the completion item type for Generating a completion item
  *
@@ -106,7 +94,6 @@ export declare function isFishCommand(line: string[]): boolean;
  *                                 CompletionResolver()  will use this info to enrich
  *                                 the Completion
  */
-export declare function getCompletionItemKind(line: string[], fishKind?: FishCompletionItemKind): CompletionItemKind;
 export declare enum FishCompletionItemKind {
     ABBR = 0,
     ALIAS = 1,
@@ -121,33 +108,6 @@ export declare enum FishCompletionItemKind {
     CMD_NO_DOC = 10,
     RESOLVE = 11
 }
-export declare const fishCompletionItemKindMap: {
-    readonly ABBR: 8;
-    readonly ALIAS: 22;
-    readonly BUILTIN: 14;
-    readonly FLAG: 5;
-    readonly LOCAL_VAR: 6;
-    readonly GLOBAL_VAR: 21;
-    readonly GLOBAL_FUNC: 2;
-    readonly USER_FUNC: 3;
-    readonly LOCAL_FUNC: 4;
-    readonly CMD: 7;
-    readonly CMD_NO_DOC: 7;
-    readonly RESOLVE: 11;
-};
-export declare const completionItemKindMap: {
-    readonly Interface: FishCompletionItemKind.ABBR;
-    readonly Struct: FishCompletionItemKind.ALIAS;
-    readonly Keyword: FishCompletionItemKind.BUILTIN;
-    readonly Field: FishCompletionItemKind.FLAG;
-    readonly Variable: FishCompletionItemKind.LOCAL_VAR;
-    readonly Constant: FishCompletionItemKind.GLOBAL_VAR;
-    readonly Method: FishCompletionItemKind.GLOBAL_FUNC;
-    readonly Function: FishCompletionItemKind.USER_FUNC;
-    readonly Constructor: FishCompletionItemKind.LOCAL_FUNC;
-    readonly Class: FishCompletionItemKind.CMD_NO_DOC;
-    readonly Unit: FishCompletionItemKind.RESOLVE;
-};
 export declare function getFishCompletionItemType(itemKind: CompletionItemKind, options?: {
     local?: boolean;
     usrFile?: boolean;
@@ -177,6 +137,6 @@ export declare function resolveFishCompletionItemType(cmd: string): Promise<Fish
  * @param {string[]} arr - [name, docs]
  * @returns {Promise<FishCompletionItem>} - CompletionItem to resolve onCompletion()
  */
-export declare function buildCompletionItemPromise(arr: string[]): FishCompletionItem;
 export declare function handleCompletionResolver(item: FishCompletionItem, console: RemoteConsole): Promise<FishCompletionItem>;
+export {};
 //# sourceMappingURL=completion-types.d.ts.map

@@ -236,3 +236,14 @@ function isCommandArg(node: SyntaxNode) {
 }
 
 
+export function isRegexArgument(n: SyntaxNode): boolean {
+    return n.text === '--regex' || n.text === '-r';
+}
+
+export function isQuoteString(n: SyntaxNode): boolean {
+    return [
+        'double_quote_string',
+        'single_quote_string',
+    ].includes(n.type);
+}
+

@@ -1,28 +1,11 @@
 
 import {execEscapedCommand} from '../src/utils/exec'
-import { buildGlobalAbbrs, buildGlobalAlaises, buildGlobalBuiltins, buildGlobalCommands, Completion } from '../src/completion'
+//import { buildGlobalAbbrs, buildGlobalAlaises, buildGlobalBuiltins, buildGlobalCommands, Completion } from '../src/completion'
 import {parseFile} from './helpers';
 import {CompletionItem} from 'vscode-languageserver';
+import {buildDefaultCompletions} from '../src/completion';
 
 
-
-async function execComplete(cmd: string){
-    let results = await execEscapedCommand(`complete --do-complete='${cmd} -'`)
-
-    let i = 0;
-    let fixedResults: string[] = [];
-    while ( i < results.length) {
-        const line = results[i]
-        if (!line.startsWith('-', 0)) {
-            //fixedResults.slice(i-1, i).join(' ')
-            fixedResults.push(fixedResults.pop()?.trimEnd() + ' ' + line.trim())
-        } else {
-            fixedResults.push(line)
-        }  
-        i++;
-    }
-    console.log(fixedResults)
-}
 
 jest.setTimeout(7000)
 
@@ -65,10 +48,12 @@ describe('complete simple tests', () => {
     //    //results.forEach(arg => console.log(arg))
     //})
 
-    //it('test execCommand', async () => {
-    //    let results = await execEscapedCommand('complete --do-complete="ls -"')
-    //    //results.forEach(arg => console.log(arg))
-    //})
+    it('build escapeChars', async () => {
+        buildDefaultCompletions()
+
+        //results.forEach(arg => console.log(arg))
+        expect(true).toBeTruthy()
+    })
 
     //it('test execCommand', async () => {
     //    let results = await execEscapedCommand('complete --do-complete="ls -"')
@@ -95,10 +80,6 @@ describe('complete simple tests', () => {
 
 
     it('test allCompletions', async () => {
-        //let results = await execEscapeCommand('functions | string split ", "')
-        //console.log(await execCompleteVariables())
-
-        //console.log(await execCompleteAbbrs())
         const file = '/home/ndonfris/.config/fish/functions/test-fish-lsp.fish'
         const tree = await  parseFile(file)
         //let completions = await Completion.initialDefaults()
@@ -112,26 +93,6 @@ describe('complete simple tests', () => {
             root.descendantForPosition({ column: 8, row: 9}),
             root.descendantForPosition({ column: 8, row: 8}),
         ]
-
-        //for (const node of completionSpots) {
-
-        //}
-
-        //const globs = await execCompleteGlobalDocs('debug')
-        //let globs = await buildGlobalAbbrs()
-        //console.log(globs.slice(1,10))
-        //globs = await buildGlobalBuiltins()
-        //console.log(globs.slice(1,10))
-
-        //globs = await buildGlobalCommands()
-        //console.log(globs.slice(1,10))
-
-        //globs = await buildGlobalAlaises()
-        //console.log(globs.slice(1,10))
-        ///for (const node of completionSpots) {
-        //    const generated = await completions.generate(node)
-        //    console.log(generated)
-        //}
         expect(true).toBeTruthy();
     })
 

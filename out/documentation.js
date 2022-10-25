@@ -9,7 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.HoverFromCompletion = exports.collectCompletionOptions = exports.forwardArgCommandCollect = exports.forwardSubCommandCollect = exports.documentationHoverCommandArg = exports.documentationHoverProvider = exports.enrichToPlainText = exports.enrichCommandArg = exports.enrichToCodeBlockMarkdown = exports.enrichToMarkdown = void 0;
+exports.HoverFromCompletion = exports.collectCompletionOptions = exports.forwardArgCommandCollect = exports.forwardSubCommandCollect = exports.documentationHoverCommandArg = exports.documentationHoverProvider = exports.enrichToPlainText = exports.enrichCommandArg = exports.enrichWildcard = exports.enrichToCodeBlockMarkdown = exports.enrichToMarkdown = void 0;
 const node_1 = require("vscode-languageserver-protocol/node");
 const builtins_1 = require("./utils/builtins");
 const exec_1 = require("./utils/exec");
@@ -34,6 +34,21 @@ function enrichToCodeBlockMarkdown(doc, filetype = 'fish') {
     };
 }
 exports.enrichToCodeBlockMarkdown = enrichToCodeBlockMarkdown;
+function enrichWildcard(label, documentation, examples) {
+    const exampleStr = ['---'];
+    for (const [cmd, desc] of examples) {
+        exampleStr.push(`__${cmd}__ - ${desc}`);
+    }
+    return {
+        kind: node_1.MarkupKind.Markdown,
+        value: [
+            `_${label}_ ${documentation}`,
+            '---',
+            exampleStr.join('\n')
+        ].join('\n')
+    };
+}
+exports.enrichWildcard = enrichWildcard;
 function enrichCommandArg(doc) {
     const docArr = doc.split('\t', 1);
     const arg = '__' + docArr[0].trim() + '__';

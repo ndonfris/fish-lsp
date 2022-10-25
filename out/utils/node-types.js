@@ -1,7 +1,7 @@
 "use strict";
 // use this file to determine node types from ./tree-sitter
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.isLocalVariable = exports.findLastVariableRefrence = exports.findFunctionScope = exports.hasParentFunction = exports.findGlobalNodes = exports.findDefinedVariable = exports.isVariableDefintion = exports.findParentCommand = exports.isVariable = exports.isBeforeCommand = exports.isStatement = exports.isCommand = exports.isFunctionDefinintion = exports.isComment = void 0;
+exports.isQuoteString = exports.isRegexArgument = exports.isLocalVariable = exports.findLastVariableRefrence = exports.findFunctionScope = exports.hasParentFunction = exports.findGlobalNodes = exports.findDefinedVariable = exports.isVariableDefintion = exports.findParentCommand = exports.isVariable = exports.isBeforeCommand = exports.isStatement = exports.isCommand = exports.isFunctionDefinintion = exports.isComment = void 0;
 const tree_sitter_1 = require("./tree-sitter");
 function isComment(node) {
     return node.type == 'comment';
@@ -229,4 +229,15 @@ function isCommandArg(node) {
         'index',
     ].includes(node.type);
 }
+function isRegexArgument(n) {
+    return n.text === '--regex' || n.text === '-r';
+}
+exports.isRegexArgument = isRegexArgument;
+function isQuoteString(n) {
+    return [
+        'double_quote_string',
+        'single_quote_string',
+    ].includes(n.type);
+}
+exports.isQuoteString = isQuoteString;
 //# sourceMappingURL=node-types.js.map

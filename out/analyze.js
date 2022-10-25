@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SyntaxTree = exports.Analyzer = void 0;
+const vscode_languageserver_textdocument_1 = require("vscode-languageserver-textdocument");
 const documentation_1 = require("./documentation");
 const node_types_1 = require("./utils/node-types");
 const tree_sitter_1 = require("./utils/tree-sitter");
@@ -49,12 +50,13 @@ class Analyzer {
         const currDoc = document.uri;
         const currRange = (0, document_1.getRangeFromPosition)(position);
         if (currDoc === undefined)
-            return "";
-        //const row = position.line;
-        //const col = position.character;
-        //const currText = document.getText().split('\n').at(row)?.substring(0, col + 1) || "";
+            return this.blockToDocument('');
         const currText = document.getText(currRange);
-        return currText;
+        const currDocument = this.blockToDocument(currText);
+        return currDocument;
+    }
+    blockToDocument(textBlock) {
+        return vscode_languageserver_textdocument_1.TextDocument.create('current-document', "fish", 0, textBlock);
     }
     nodeIsLocal(tree, node) {
         if (!tree)
@@ -66,6 +68,18 @@ class Analyzer {
             contents: (0, documentation_1.enrichToCodeBlockMarkdown)(result.text, 'fish'),
             range: (0, tree_sitter_1.getRange)(result),
         };
+    }
+    isStringRegex(uri, line, column) {
+        var _a;
+        const node = this.boundaryCheckNode(uri, line, column);
+        if (!node) {
+            return false;
+        }
+        const cmdNode = (0, node_types_1.findParentCommand)(node);
+        if (!cmdNode) {
+            return false;
+        }
+        return ((_a = cmdNode === null || cmdNode === void 0 ? void 0 : cmdNode.child(0)) === null || _a === void 0 ? void 0 : _a.text) == "string" && (0, tree_sitter_1.descendantMatch)(cmdNode, child => (0, node_types_1.isRegexArgument)(child)).length > 0;
     }
     //public async getHover(tree: SyntaxTree, params: TextDocumentPositionParams): Promise<Hover | void> {
     //    const uri = params.textDocument.uri;
@@ -105,6 +119,22 @@ class Analyzer {
             return null;
         }
         return tree.rootNode.descendantForPosition({ row: line, column });
+    }
+    boundaryCheckNode(uri, line, column) {
+        const tree = this.uriTree[uri];
+        // Check for lacking rootNode (due to failed parse?)
+        if (!(tree === null || tree === void 0 ? void 0 : tree.rootNode)) {
+            return null;
+        }
+        let currColumn = column;
+        while (currColumn > 0) {
+            let currNode = this.nodeAtPoint(uri, line, currColumn);
+            if (currNode != null) {
+                return currNode;
+            }
+            currColumn--;
+        }
+        return null;
     }
     /**
      * Find the full word at the given point.
