@@ -237,6 +237,13 @@ export default class FishServer {
                     .kind(fishKind)
                     .originalCompletion([label, desc].join('\t') + ' ' + other)
                     .build()
+                switch (fishKind) {
+                    case FishCompletionItemKind.ABBR: 
+                        item.insertText = other;
+                        break
+                    default:
+                    break
+                }
                 items.push(item)
                 //logger.log(`label_if:  ${isBuiltIn(label)}`)
                 cmp.reset()
@@ -311,7 +318,7 @@ export default class FishServer {
             case CompletionItemKind.Variable: 
                 item.documentation = enrichToCodeBlockMarkdown(fishItem.data?.originalCompletion, 'fish')
             case CompletionItemKind.Interface: 
-                item.documentation = enrichToCodeBlockMarkdown(fishItem.data?.originalCompletion, 'fish')
+                return item;
             case CompletionItemKind.Function:
                 newDoc = await execCommandDocs(fishItem.label)
                 item.documentation = enrichToCodeBlockMarkdown(newDoc, 'fish')

@@ -12,7 +12,7 @@ import {
 import { SyntaxNode } from "web-tree-sitter";
 import {enrichToMarkdown, enrichWildcard} from './documentation';
 import {logger} from './logger';
-import {escapeChars, pipes, statusNumbers, stringRegexExpressions, WildcardItems } from './utils/completion-types';
+import {escapeChars, FishCompletionItemKind, pipes, statusNumbers, stringRegexExpressions, WildcardItems } from './utils/completion-types';
 import {CompletionItemBuilder, parseLineForType} from './utils/completionBuilder';
 
 // utils create CompletionResolver and CompletionItems
@@ -27,7 +27,7 @@ function splitArray(label: string, description?: string): [string, string, strin
     let keyword = "";
     let otherInfo = "";
     if (description != undefined) {
-        const [first, rest] = description.split(/:|\s+(.*)/);
+        const [first, rest] = description.split(/:+\s+(.*)/);
         keyword = first.toLowerCase();
         otherInfo = rest || "";
     }
@@ -115,6 +115,13 @@ export class Completion {
                 .documentation([desc, moreInfo].join(' '))
                 .kind(itemKind)
                 .build()
+            switch (itemKind) {
+                case FishCompletionItemKind.ABBR: 
+                    item.insertText = moreInfo;
+                    break
+                default:
+                    break
+            }
             items.push(item)
             itemBuilder.reset()
         }
