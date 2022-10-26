@@ -205,6 +205,7 @@ function buildStatusNumbers(): CompletionItem[] {
     const statNumbers: CompletionItem[] = []
     for (const label in numbs) {
         const item = CompletionItem.create(label)
+        item.kind = CompletionItemKind.Value,
         item.documentation = numbs[label];
         statNumbers.push(item)
     }

@@ -111,6 +111,7 @@ export default class FishServer {
             completionProvider: {
                 resolveProvider: true,
                 triggerCharacters: ["$", "-", "\\"],
+                workDoneProgress: true,
             },
             hoverProvider: true,
             documentHighlightProvider: true,
@@ -157,9 +158,10 @@ export default class FishServer {
         // connection.onReferences(this.onReferences.bind(this))
 
         // • for multiple completionProviders -> https://github.com/microsoft/vscode-extension-samples/blob/main/completions-sample/src/extension.ts#L15
+        // • https://github.com/Dart-Code/Dart-Code/blob/7df6509870d51cc99a90cf220715f4f97c681bbf/src/providers/dart_completion_item_provider.ts#L197-202
+        //this.connection.onCompletion(this.onDefaultCompletion.bind(this))
         this.connection.onCompletion(this.onCompletion.bind(this))
         this.connection.onCompletionResolve(this.onCompletionResolve.bind(this));
-
 
         this.docs.documents.onDidChangeContent(async change => {
             const document = change.document;
@@ -172,10 +174,18 @@ export default class FishServer {
 
     }
 
-    public async onCompletion(completionParams: TextDocumentPositionParams):  Promise<CompletionList | null>{
+    //public onDefaultCompletion(completionParams: TextDocumentPositionParams):  CompletionList{ 
+    //    logger.log('this.onDefaultCompletion()')
+    //    return CompletionList.create(buildDefaultCompletions(), false) 
+    //}
+
+    // https://github.com/Dart-Code/Dart-Code/blob/7df6509870d51cc99a90cf220715f4f97c681bbf/src/providers/dart_completion_item_provider.ts#L197-202
+    // https://github.com/microsoft/vscode-languageserver-node/pull/322
+    // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#insertTextModehttps://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#insertTextMode
+    public async onCompletion(completionParams: CompletionParams):  Promise<CompletionList | null>{
         const uri: string = completionParams.textDocument.uri;
         const position = completionParams.position;
-
+        logger.log(`completionParams.context.triggerKind: ${completionParams.context?.triggerKind}`)
 
         logger.log('server.onComplete' + uri)
         const doc = await this.docs.openOrFind(uri);
@@ -239,9 +249,9 @@ export default class FishServer {
             logger.log( 'lNode: ' + lNode.text );
             logger.log('-------------------------');
             
-            const commandNodes = firstAncestorMatch(lNode, isCommand);
-            if (commandNodes) {
-                logger.log(' n: ' + commandNodes.text)
+            const commandNode = firstAncestorMatch(lNode, isCommand);
+            if (commandNode) {
+                logger.log(' n: ' + commandNode.text)
             } else {
                 logger.log(` firstAncestorMatch(${lNode.text}, isCommand) failed `)
             }
@@ -284,8 +294,8 @@ export default class FishServer {
             this.connection.console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
             this.connection.console.log(doc.getText())
             this.connection.console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-            items.push(...buildDefaultCompletions())
-            return CompletionList.create(items, true) 
+            //items.push(...buildDefaultCompletions())
+            return null;
         }
         return CompletionList.create(items, true)
     }
