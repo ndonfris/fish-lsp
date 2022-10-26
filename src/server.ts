@@ -36,8 +36,8 @@ import {CliOptions, Context, TreeByUri} from './interfaces';
 import { SyntaxNode } from 'web-tree-sitter';
 import {URI} from 'vscode-uri';
 import { DocumentManager, getRangeFromPosition } from './document';
-import {descendantMatch, getChildNodes, getNodeText} from './utils/tree-sitter';
-import {findParentCommand, isLocalVariable, isQuoteString, isRegexArgument, isVariable} from './utils/node-types';
+import {ancestorMatch, descendantMatch, firstAncestorMatch, getChildNodes, getNodeText} from './utils/tree-sitter';
+import {findParentCommand, isCommand, isLocalVariable, isQuoteString, isRegexArgument, isStatement, isVariable} from './utils/node-types';
 import { FishCompletionItem, FishCompletionItemKind, handleCompletionResolver, isBuiltIn} from './utils/completion-types';
 import { FilepathResolver } from './utils/filepathResolver';
 import { CompletionItemBuilder, parseLineForType } from './utils/completionBuilder';
@@ -193,37 +193,68 @@ export default class FishServer {
         logger.log(`${isRegexString}: isRegexArgument`)
         
         const items: CompletionItem[] = []
-        if (line.endsWith("'") || line.endsWith('"') || (currnode && isQuoteString(currnode))) {
+        if (line.endsWith("'") || line.endsWith('"') || (currnode && isQuoteString(currnode)) || isRegexString) {
             logger.log(`extraCheck: ${isRegexString}: isRegexArgument`)
             items.push(...buildRegexCompletions())
-            return CompletionList.create(items, false)
+            return CompletionList.create(items, true)
         }
 
         // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
         // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
         // right here parse the line forward for the last command in the scope !!!
         let cmdNode = null;
-        if (node) {
-            cmdNode = findParentCommand(node);
-            if (cmdNode) {
-                logger.log('cmdNode ' + cmdNode.text)
-                logger.log('currnode: ' + node.parent?.text)
-            }
-        }
+        //if (node) {
+        //    cmdNode = findParentCommand(node);
+        //    if (cmdNode) {
+        //        logger.log('cmdNode ' + cmdNode.text)
+        //        logger.log('currnode: ' + node.parent?.text)
+        //    }
+        //}
 
         //if (line.startsWith("\#")) {
         //    return null;
         //}
         try {
             logger.log('line' + line)
-            const output = await getShellCompletions(line.trimStart())
+            const output = await getShellCompletions(line)
             //output.forEach(([label, keyword, otherInfo]) => {
             //    logger.log(`label: '${label}'\nkeyword: '${keyword}'\notherInfo: '${otherInfo}'`)
             //});
-            const cmp = new CompletionItemBuilder()
-            if (output.length == 0) {
-                return null;
+            const tree = this.parser.parse(line)
+            const rootLineNode = tree.rootNode;
+            const logNode = rootLineNode.descendantForPosition({row: 0, column: completionParams.position.character -1 })
+            const lNode = rootLineNode.namedDescendantForPosition({row: 0, column: completionParams.position.character - 1})
+
+            logger.log(`line length: ${ line.length }`)
+            logger.log('-------------------------');
+            logger.log(`character: ${completionParams.position.character}`)
+            logger.log(`line: ${completionParams.position.line}`)
+            logger.log('-------------------------');
+            logger.log( 'logNode: ' + logNode.text );
+            logger.log('-------------------------');
+            logger.log( 'lNode: ' + lNode.text );
+            logger.log('-------------------------');
+            
+            const commandNodes = firstAncestorMatch(lNode, isCommand);
+            if (commandNodes) {
+                logger.log(' n: ' + commandNodes.text)
+            } else {
+                logger.log(` firstAncestorMatch(${lNode.text}, isCommand) failed `)
             }
+            //for (const n of commandNodes) {
+            //}
+
+            //currentScopeRootIsCommand(this.parser, line);
+            //for (const node of commandNodes) {
+            //    logger.log(`cmdnode: ${node.child(0)?.text}, types: ${node.type}`)
+            //}
+            //for (const node of getChildNodes(rootLineNode)) {
+            //    logger.log(`node: ${node.child(0)?.text}, types: ${node.type}`)
+            //}
+            const cmp = new CompletionItemBuilder()
+            //if (output.length == 0) {
+            //    return null;
+            //}
             let fishKind = FishCompletionItemKind.FLAG;
             for (const [label, desc, other] of output) {
                 if (!cmdNode) {
@@ -249,9 +280,10 @@ export default class FishServer {
             this.connection.console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
             this.connection.console.log(doc.getText())
             this.connection.console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+            items.push(...buildDefaultCompletions())
+            return CompletionList.create(items, true) 
         }
-        items.push(...buildDefaultCompletions())
-        return CompletionList.create(items, false)
+        return CompletionList.create(items, true)
     }
 
 
@@ -293,4 +325,17 @@ export default class FishServer {
     }
 }
 
+
+function currentScopeRootIsCommand(parser: Parser, line: string) {
+    const root = parser.parse(line).rootNode;
+    for (const node of getChildNodes(root)) {
+        logger.log(`scope node: ${node.text}, types: ${node.type}`)
+        //if (isStatement(node)) {
+
+        //}
+        //if (isCommand(node)) {
+
+        //}
+    }
+}
 

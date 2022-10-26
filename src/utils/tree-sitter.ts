@@ -79,14 +79,34 @@ export function nodeIsBefore(firstNode: SyntaxNode, secondNode: SyntaxNode): boo
 }
 
 
+export function firstAncestorMatch(
+  start: SyntaxNode,
+  predicate: (n: SyntaxNode) => boolean,
+): SyntaxNode | null {
+    const ancestors = getParentNodes(start) || [];
+    //const results : SyntaxNode[] = []
+    for (const p of ancestors) {
+        //for (const neighbor of getChildNodes(p)) {
+            if (predicate(p)) {
+                return p;
+            }
+        //}
+    }
+    return null
+        //.filter(ancestor => ancestor !== start)
+}
+
 export function ancestorMatch(
   start: SyntaxNode,
   predicate: (n: SyntaxNode) => boolean,
 ): SyntaxNode[] {
     const ancestors = getParentNodes(start) || [];
-    return ancestors
-        .filter(ancestor => predicate(ancestor))
-        .filter(ancestor => ancestor !== start)
+    const results : SyntaxNode[] = []
+    for (const p of ancestors) {
+        results.push(...getChildNodes(p));
+    }
+    return results.filter(neighbor => predicate(neighbor))
+        //.filter(ancestor => ancestor !== start)
 }
 
 export function descendantMatch(
@@ -97,7 +117,7 @@ export function descendantMatch(
     descendants.push(...getChildNodes(start))
     return descendants
         .filter(descendant => predicate(descendant))
-        .filter(descendent => descendent !== start)
+        //.filter(descendent => descendent !== start)
 }
 
 
@@ -279,6 +299,8 @@ export function* nodesGen(node: SyntaxNode) {
     yield n
   }
 }
+
+
 
 
 
