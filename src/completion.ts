@@ -12,7 +12,7 @@ import {
 import { SyntaxNode } from "web-tree-sitter";
 import {enrichToMarkdown, enrichWildcard} from './documentation';
 import {logger} from './logger';
-import {escapeChars, FishCompletionItemKind, pipes, statusNumbers, stringRegexExpressions, WildcardItems } from './utils/completion-types';
+import {BuiltInList, escapeChars, FishCompletionItemKind, pipes, statusNumbers, stringRegexExpressions, WildcardItems } from './utils/completion-types';
 import {CompletionItemBuilder, parseLineForType} from './utils/completionBuilder';
 
 // utils create CompletionResolver and CompletionItems
@@ -277,7 +277,9 @@ export function buildDefaultCompletions() {
     const statusNumbers = buildStatusNumbers();
     const pipeObjs = buildPipes();
     const wildcards = buildWildcards()
+    const builtIns = buildBuiltins();
     const cmpChars: CompletionItem[] = [
+        ...builtIns,
         ...escChars,
         ...statusNumbers,
         ...pipeObjs,
@@ -287,5 +289,14 @@ export function buildDefaultCompletions() {
 }
 
 
+export function buildBuiltins() {
+    const cmpItems: CompletionItem[] = [];
+    for (const builtin of BuiltInList) {
+        const item = CompletionItem.create(builtin)
+        item.kind = CompletionItemKind.Keyword;
+        cmpItems.push(item)
+    }
+    return cmpItems;
+}
 
 

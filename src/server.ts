@@ -9,7 +9,7 @@ import { initializeParser } from "./parser";
 import { Analyzer } from "./analyze";
 import { getAllFishLocations } from "./utils/locations";
 import { logger } from "./logger";
-import { buildDefaultCompletions, buildRegexCompletions, Completion, getShellCompletions, insideStringRegex } from "./completion";
+import { buildBuiltins, buildDefaultCompletions, buildRegexCompletions, Completion, getShellCompletions, insideStringRegex } from "./completion";
 import { createTextDocumentFromFilePath } from "./utils/io";
 import {
     ClientCapabilities,
@@ -111,6 +111,7 @@ export default class FishServer {
             completionProvider: {
                 resolveProvider: true,
                 triggerCharacters: ["$", "-", "\\"],
+                allCommitCharacters: [";", " ", "\t"],
                 workDoneProgress: true,
             },
             hoverProvider: true,
@@ -183,6 +184,13 @@ export default class FishServer {
     // https://github.com/Dart-Code/Dart-Code/blob/7df6509870d51cc99a90cf220715f4f97c681bbf/src/providers/dart_completion_item_provider.ts#L197-202
     // https://github.com/microsoft/vscode-languageserver-node/pull/322
     // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#insertTextModehttps://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#insertTextMode
+    // clean up into completion.ts file. Decompose to state machine, with a function that gets the state machine in this class.
+    // DART is best example tbh: https://github.com/Dart-Code/Dart-Code/blob/7df6509870d51cc99a90cf220715f4f97c681bbf/src/providers/dart_completion_item_provider.ts#L197-202 
+    // • Add markdown
+    // • USE TRIGGERKIND as seen below in logger (4 lines down).
+    // • Implement both escapedCompletion script and dump synatx tree script
+    // • Add default CompletionLists to complete.ts
+    // • Lastly add parameterInformation items.  [ 1477 : ParameterInformation ]
     public async onCompletion(completionParams: CompletionParams):  Promise<CompletionList | null>{
         const uri: string = completionParams.textDocument.uri;
         const position = completionParams.position;
@@ -213,48 +221,31 @@ export default class FishServer {
         }
         
         // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
-        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
         // right here parse the line forward for the last command in the scope !!!
         let cmdNode = null;
 
         try {
             const output = await getShellCompletions(line)
             const lineToParse = line.trimEnd();
-            const tree = this.parser.parse(lineToParse)
-            const rootLineNode = tree.rootNode;
-            const logNode = rootLineNode.descendantForPosition({row: 0, column: completionParams.position.character -1 })
-            const lNode = rootLineNode.namedDescendantForPosition({row: 0, column: lineToParse.length - 1})
-
-            logger.log(`line length: ${ line.length }`)
-            logger.log('-------------------------');
-            logger.log(`character: ${completionParams.position.character}`)
-            logger.log(`line: ${completionParams.position.line}`)
-            logger.log('-------------------------');
-            logger.log( 'logNode: ' + logNode.text );
-            logger.log('-------------------------');
-            logger.log( lNode.type + ' lNode: ' + lNode.text );
-            logger.log('-------------------------');
-            
-            const commandNode = firstAncestorMatch(lNode, n => isCommand(n));
-            if (commandNode) {
-                logger.log(' n: ' + commandNode.text)
-            } else {
-                logger.log(` firstAncestorMatch(${lNode.text}, isCommand) failed `)
-            }
+            const root = this.parser.parse(lineToParse).rootNode;
+            const currNode = root.namedDescendantForPosition({row: 0, column: lineToParse.length - 1})
 
             const cmp = new CompletionItemBuilder()
+            const commandNode = firstAncestorMatch(currNode, n => isCommand(n));
+
+            if (commandNode) {
+                logger.log(' commandNode: ' + commandNode.text)
+            } else {
+                logger.log(` firstAncestorMatch(${currNode.text}, isCommand) failed `)
+            }
+            let cmdText = commandNode?.text.replace(/\s+(\w+)\s+.*/, '') || "";
+
             let fishKind = FishCompletionItemKind.FLAG;
-            let cmdText = commandNode?.text.split(/\s+(.*)/)[0] || ""
             for (const [label, desc, other] of output) {
                 const otherText = other.length > 0 ? other : cmdText
                 fishKind = parseLineForType(label, desc, otherText)
-                if (commandNode) {
-                    if (fishKind != FishCompletionItemKind.LOCAL_VAR && fishKind != FishCompletionItemKind.GLOBAL_VAR) {
-                        fishKind = FishCompletionItemKind.FLAG;
-                    }
-                }
-                if (label == 'fish_ambiguous_width') {
-                    logger.log(`label: ${label}\r desc: ${desc}\rother: ${other}\rkind: ${fishKind}`)
+                if (commandNode && (fishKind != FishCompletionItemKind.LOCAL_VAR && fishKind != FishCompletionItemKind.GLOBAL_VAR)) {
+                    fishKind = FishCompletionItemKind.FLAG;
                 }
                 const item = cmp.create(label)
                     .documentation([desc, other].join(' '))
@@ -264,6 +255,7 @@ export default class FishServer {
                 switch (fishKind) {
                     case FishCompletionItemKind.ABBR: 
                         item.insertText = other;
+                        item.commitCharacters = [';', " "]; // look at manager way up 
                         break
                     default:
                         break
@@ -278,7 +270,7 @@ export default class FishServer {
             this.connection.console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
             return CompletionList.create(buildDefaultCompletions(), true)
         }
-        items.push(...buildDefaultCompletions());
+        items.push(...buildBuiltins())
         return CompletionList.create(items, true)
     }
 
