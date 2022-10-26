@@ -134,6 +134,9 @@ export class CompletionItemBuilder {
  */
 export function parseLineForType(label: string, keyword: string, otherInfo: string) : FishCompletionItemKind{
     let labelType =  getTypeFromLabel(label);
+    if (otherInfo === "set") {
+        return FishCompletionItemKind.GLOBAL_VAR
+    }
     let docType = getTypeFromDocumentation(keyword, otherInfo)
     return labelType !== null ? labelType : docType
 }

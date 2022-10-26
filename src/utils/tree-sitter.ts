@@ -84,6 +84,9 @@ export function firstAncestorMatch(
   predicate: (n: SyntaxNode) => boolean,
 ): SyntaxNode | null {
     const ancestors = getParentNodes(start) || [];
+    if (ancestors.length <= 1) {
+        return predicate(start) ? start : null;
+    }
     //const results : SyntaxNode[] = []
     for (const p of ancestors) {
         //for (const neighbor of getChildNodes(p)) {

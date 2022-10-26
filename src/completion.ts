@@ -49,6 +49,25 @@ export async function getShellCompletions(cmd: string): Promise<[string, string,
     })
 }
 
+
+export function insideStringRegex(line: string): boolean {
+    const arr: string[] = line.trim().split(/\s+/)
+    const currentNode = arr[arr.length-1];
+    //console.log(currentNode)
+    if (!currentNode.startsWith('"') && !currentNode.startsWith("'")) {
+        //console.log(currentNode + 'does not start with a string charatter')
+        return false;
+    }
+    if (currentNode.length > 1 && currentNode.charAt(0) === currentNode.charAt(currentNode.length-1) ){
+        return false;
+    }
+    if (arr.includes('string') && (arr.includes('--regex') || arr.includes('-r'))) {
+        return !arr.includes('--');
+    }
+    return false
+}
+
+
 // • include pipe completions
 // • include escape character completions
 // • be able to tell the difference between:
@@ -266,3 +285,7 @@ export function buildDefaultCompletions() {
     ]
     return cmpChars
 }
+
+
+
+

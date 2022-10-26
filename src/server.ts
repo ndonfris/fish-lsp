@@ -9,7 +9,7 @@ import { initializeParser } from "./parser";
 import { Analyzer } from "./analyze";
 import { getAllFishLocations } from "./utils/locations";
 import { logger } from "./logger";
-import { buildDefaultCompletions, buildRegexCompletions, Completion, getShellCompletions } from "./completion";
+import { buildDefaultCompletions, buildRegexCompletions, Completion, getShellCompletions, insideStringRegex } from "./completion";
 import { createTextDocumentFromFilePath } from "./utils/io";
 import {
     ClientCapabilities,
@@ -179,6 +179,7 @@ export default class FishServer {
     //    return CompletionList.create(buildDefaultCompletions(), false) 
     //}
 
+    // what you've been looking for: fish_indent --dump-parse-tree test-fish-lsp.fish
     // https://github.com/Dart-Code/Dart-Code/blob/7df6509870d51cc99a90cf220715f4f97c681bbf/src/providers/dart_completion_item_provider.ts#L197-202
     // https://github.com/microsoft/vscode-languageserver-node/pull/322
     // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#insertTextModehttps://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#insertTextMode
@@ -189,9 +190,9 @@ export default class FishServer {
 
         logger.log('server.onComplete' + uri)
         const doc = await this.docs.openOrFind(uri);
-        const node: SyntaxNode | null = this.analyzer.nodeAtPoint(doc.uri, position.line, position.character - 2); // better way to do this below
+        //const node: SyntaxNode | null = this.analyzer.nodeAtPoint(doc.uri, position.line, position.character - 2); // better way to do this below
 
-        const currnode = this.analyzer.boundaryCheckNode(uri, position.line, position.character)
+        //const currnode = this.analyzer.boundaryCheckNode(uri, position.line, position.character)
 
         //const r = getRangeFromPosition(completionParams.position);
         this.connection.console.log('on complete node: ' + doc.uri || "" )
@@ -199,45 +200,30 @@ export default class FishServer {
         const documentLine: TextDocument = this.analyzer.currentLine(doc, completionParams.position) || " "
         const line = documentLine.getText()
 
-        //if (currnode) {
-        //    logger.log(`currNode: ${currnode?.text} && ${currnode?.type} && ${isQuoteString(currnode)}`)
-        //    logger.log(``)
-        //}
-        const isRegexString = this.analyzer.isStringRegex(uri, position.line, position.character)
-        logger.log(`${isRegexString}: isRegexArgument`)
-        
+        if (line.trimStart().startsWith("#")) {
+            return null;
+        }
+
+        logger.log('line' + line)
         const items: CompletionItem[] = []
-        if (line.endsWith("'") || line.endsWith('"') || (currnode && isQuoteString(currnode)) || isRegexString) {
-            logger.log(`extraCheck: ${isRegexString}: isRegexArgument`)
+        if (insideStringRegex(line)) {
+            logger.log(`insideStringRegex: ${true}`)
             items.push(...buildRegexCompletions())
             return CompletionList.create(items, true)
         }
-
+        
         // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
         // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
         // right here parse the line forward for the last command in the scope !!!
         let cmdNode = null;
-        //if (node) {
-        //    cmdNode = findParentCommand(node);
-        //    if (cmdNode) {
-        //        logger.log('cmdNode ' + cmdNode.text)
-        //        logger.log('currnode: ' + node.parent?.text)
-        //    }
-        //}
 
-        //if (line.startsWith("\#")) {
-        //    return null;
-        //}
         try {
-            logger.log('line' + line)
             const output = await getShellCompletions(line)
-            //output.forEach(([label, keyword, otherInfo]) => {
-            //    logger.log(`label: '${label}'\nkeyword: '${keyword}'\notherInfo: '${otherInfo}'`)
-            //});
-            const tree = this.parser.parse(line)
+            const lineToParse = line.trimEnd();
+            const tree = this.parser.parse(lineToParse)
             const rootLineNode = tree.rootNode;
             const logNode = rootLineNode.descendantForPosition({row: 0, column: completionParams.position.character -1 })
-            const lNode = rootLineNode.namedDescendantForPosition({row: 0, column: completionParams.position.character - 1})
+            const lNode = rootLineNode.namedDescendantForPosition({row: 0, column: lineToParse.length - 1})
 
             logger.log(`line length: ${ line.length }`)
             logger.log('-------------------------');
@@ -246,33 +232,29 @@ export default class FishServer {
             logger.log('-------------------------');
             logger.log( 'logNode: ' + logNode.text );
             logger.log('-------------------------');
-            logger.log( 'lNode: ' + lNode.text );
+            logger.log( lNode.type + ' lNode: ' + lNode.text );
             logger.log('-------------------------');
             
-            const commandNode = firstAncestorMatch(lNode, isCommand);
+            const commandNode = firstAncestorMatch(lNode, n => isCommand(n));
             if (commandNode) {
                 logger.log(' n: ' + commandNode.text)
             } else {
                 logger.log(` firstAncestorMatch(${lNode.text}, isCommand) failed `)
             }
-            //for (const n of commandNodes) {
-            //}
 
-            //currentScopeRootIsCommand(this.parser, line);
-            //for (const node of commandNodes) {
-            //    logger.log(`cmdnode: ${node.child(0)?.text}, types: ${node.type}`)
-            //}
-            //for (const node of getChildNodes(rootLineNode)) {
-            //    logger.log(`node: ${node.child(0)?.text}, types: ${node.type}`)
-            //}
             const cmp = new CompletionItemBuilder()
-            //if (output.length == 0) {
-            //    return null;
-            //}
             let fishKind = FishCompletionItemKind.FLAG;
+            let cmdText = commandNode?.text.split(/\s+(.*)/)[0] || ""
             for (const [label, desc, other] of output) {
-                if (!cmdNode) {
-                    fishKind = parseLineForType(label, desc, other)
+                const otherText = other.length > 0 ? other : cmdText
+                fishKind = parseLineForType(label, desc, otherText)
+                if (commandNode) {
+                    if (fishKind != FishCompletionItemKind.LOCAL_VAR && fishKind != FishCompletionItemKind.GLOBAL_VAR) {
+                        fishKind = FishCompletionItemKind.FLAG;
+                    }
+                }
+                if (label == 'fish_ambiguous_width') {
+                    logger.log(`label: ${label}\r desc: ${desc}\rother: ${other}\rkind: ${fishKind}`)
                 }
                 const item = cmp.create(label)
                     .documentation([desc, other].join(' '))
@@ -294,9 +276,9 @@ export default class FishServer {
             this.connection.console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
             this.connection.console.log(doc.getText())
             this.connection.console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-            //items.push(...buildDefaultCompletions())
-            return null;
+            return CompletionList.create(buildDefaultCompletions(), true)
         }
+        items.push(...buildDefaultCompletions());
         return CompletionList.create(items, true)
     }
 
@@ -307,10 +289,9 @@ export default class FishServer {
         let typeCmdOutput = ''
         let typeofDoc = ''
         switch (fishItem.kind) {
+            //item.documentation = enrichToCodeBlockMarkdown(fishItem.data?.originalCompletion, 'fish')
             case CompletionItemKind.Constant: 
-                item.documentation = enrichToCodeBlockMarkdown(fishItem.data?.originalCompletion, 'fish')
             case CompletionItemKind.Variable: 
-                item.documentation = enrichToCodeBlockMarkdown(fishItem.data?.originalCompletion, 'fish')
             case CompletionItemKind.Field: 
             case CompletionItemKind.Interface: 
                 //const newDoc = enrichToCodeBlockMarkdown()
