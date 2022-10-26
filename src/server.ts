@@ -155,8 +155,12 @@ export default class FishServer {
         // connection.onWorkspaceSymbol(this.onWorkspaceSymbol.bind(this))
         // connection.onDocumentHighlight(this.onDocumentHighlight.bind(this))
         // connection.onReferences(this.onReferences.bind(this))
+
+        // • for multiple completionProviders -> https://github.com/microsoft/vscode-extension-samples/blob/main/completions-sample/src/extension.ts#L15
         this.connection.onCompletion(this.onCompletion.bind(this))
         this.connection.onCompletionResolve(this.onCompletionResolve.bind(this));
+
+
         this.docs.documents.onDidChangeContent(async change => {
             const document = change.document;
             const uri = document.uri;
@@ -175,7 +179,7 @@ export default class FishServer {
 
         logger.log('server.onComplete' + uri)
         const doc = await this.docs.openOrFind(uri);
-        const node: SyntaxNode | null = this.analyzer.nodeAtPoint(doc.uri, position.line, position.character - 2);
+        const node: SyntaxNode | null = this.analyzer.nodeAtPoint(doc.uri, position.line, position.character - 2); // better way to do this below
 
         const currnode = this.analyzer.boundaryCheckNode(uri, position.line, position.character)
 
