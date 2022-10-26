@@ -175,21 +175,20 @@ export default class FishServer {
 
     }
 
-    //public onDefaultCompletion(completionParams: TextDocumentPositionParams):  CompletionList{ 
-    //    logger.log('this.onDefaultCompletion()')
-    //    return CompletionList.create(buildDefaultCompletions(), false) 
-    //}
-
-    // what you've been looking for: fish_indent --dump-parse-tree test-fish-lsp.fish
+    // what you've been looking for:
+    //      fish_indent --dump-parse-tree test-fish-lsp.fish
     // https://github.com/Dart-Code/Dart-Code/blob/7df6509870d51cc99a90cf220715f4f97c681bbf/src/providers/dart_completion_item_provider.ts#L197-202
     // https://github.com/microsoft/vscode-languageserver-node/pull/322
     // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#insertTextModehttps://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#insertTextMode
-    // clean up into completion.ts file. Decompose to state machine, with a function that gets the state machine in this class.
-    // DART is best example tbh: https://github.com/Dart-Code/Dart-Code/blob/7df6509870d51cc99a90cf220715f4f97c681bbf/src/providers/dart_completion_item_provider.ts#L197-202 
+    // 
+    // • clean up into completion.ts file & Decompose to state machine, with a function that gets the state machine in this class.
+    //         DART is best example i've seen for this.
+    //         ~ https://github.com/Dart-Code/Dart-Code/blob/7df6509870d51cc99a90cf220715f4f97c681bbf/src/providers/dart_completion_item_provider.ts#L197-202 ~
     // • Add markdown
     // • USE TRIGGERKIND as seen below in logger (4 lines down).
     // • Implement both escapedCompletion script and dump synatx tree script
     // • Add default CompletionLists to complete.ts
+    // • Add local file items.
     // • Lastly add parameterInformation items.  [ 1477 : ParameterInformation ]
     public async onCompletion(completionParams: CompletionParams):  Promise<CompletionList | null>{
         const uri: string = completionParams.textDocument.uri;
@@ -220,11 +219,10 @@ export default class FishServer {
             return CompletionList.create(items, true)
         }
         
-        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
-        // right here parse the line forward for the last command in the scope !!!
-        let cmdNode = null;
-
         try {
+            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
+            // right here parse the line forward for the last command in the scope !!!
+            let cmdNode = null;
             const output = await getShellCompletions(line)
             const lineToParse = line.trimEnd();
             const root = this.parser.parse(lineToParse).rootNode;
