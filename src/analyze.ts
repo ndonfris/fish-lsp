@@ -37,6 +37,7 @@ import {
     isStatement,
     isRegexArgument,
     isQuoteString,
+    isError,
 } from "./utils/node-types";
 import {
     descendantMatch,
@@ -78,13 +79,17 @@ export class Analyzer {
     //}
 
     public analyze(document: TextDocument) {
-        delete this.uriTree[document.uri];
-        const tree = this.parser.parse(document.getText())
-        this.uriTree[document.uri] = tree;
+        //delete this.uriTree[document.uri];
+        if (this.uriTree[document.uri] === undefined) {
+            const tree = this.parser.parse(document.getText())
+            this.uriTree[document.uri] = tree;
+        } else {
+            this.uriTree[document.uri] = this.parser.parse(document.getText(), this.uriTree[document.uri]);
+        }
     }
 
-    getRoot(document: TextDocument) {
-        return this.uriTree[document.uri].rootNode
+    getRoot(uri: string) {
+        return this.uriTree[uri].rootNode
     }
 
     getLocalNodes(document: TextDocument) {
@@ -191,7 +196,38 @@ export class Analyzer {
             return null;
         }
 
+        //const node = tree.rootNode.descendantForPosition({row: line, column})
+        //if (node.type === "ERROR") {
+        //}
         return tree.rootNode.descendantForPosition({ row: line, column });
+    }
+
+
+    public findCommandNodeAtPoint(document: TextDocument, line: number, column: number): SyntaxNode | null {
+        const node = this.nodeAtPoint(document.uri, line, column);
+        if (!node) return null;
+        if (isError(node) || isError(node.parent)) {
+            let newCol = column - 1;
+            let currentTree = removeLastToken(this.parser, this.currentLine(document, { line, character: newCol }))
+            while (newCol > 0) {
+                const currentNode = findNodeAt(currentTree, line, newCol);
+                const newDoc = this.currentLine(document, { line, character: newCol })
+                const shortendDoc = removeLastToken(this.parser, newDoc)
+                const newDocCurrLine = shortendDoc.rootNode
+                //const newDocRoot = this.parser.parse(this.currentLine(document, { line, character: newCol }).getText())
+                const newNode = findNodeAt(shortendDoc, line, newCol)
+                if (newNode) {
+                    const parentCommand = findParentCommand(newNode);
+                    if (parentCommand) {
+                        return parentCommand;
+                    }
+                }
+                newCol--;
+            }
+            return null;
+        }  
+        //if (node.type)
+        return findParentCommand(node);
     }
 
     public boundaryCheckNode(
@@ -235,6 +271,13 @@ export class Analyzer {
         return node.text.trim();
     }
 
+}
+
+function removeLastToken(parser: Parser, document: TextDocument) {
+    const str = document.getText();
+    const tokenArr = str.split(" ");
+    tokenArr.pop();
+    return parser.parse(tokenArr.join(" "));
 }
 
 

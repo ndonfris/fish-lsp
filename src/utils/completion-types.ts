@@ -292,7 +292,7 @@ export const bashEquivalentChars: {[char: string]: string} = {
     ['$-']: 'status is-interactive & status is-login'
 }
 
-interface regexItem {
+export interface regexItem {
     label: string,
     insertText: string,
     insertTextFormat?: number,
@@ -360,7 +360,7 @@ export const stringRegexExpressions: regexItem[] = [
      },
     {
         label: '.',
-        description: 'any character except newline',
+        description: '\'.\' any character except newline',
         insertText: '.',
         examples: [
             
@@ -398,7 +398,7 @@ export const stringRegexExpressions: regexItem[] = [
     ]},
     {
         label: '\\w a “word” character',
-        description: 'a “word” character and \\W, a “non-word” character ',
+        description: '\\w a “word” character and \\W, a “non-word” character ',
         insertText: '\\w'
     },
     {

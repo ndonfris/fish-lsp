@@ -1,6 +1,6 @@
 import FastGlob  from 'fast-glob';
 import {homedir} from 'os';
-import { CompletionItem, CompletionItemKind, MarkupContent } from 'vscode-languageserver';
+import { Command, CompletionItem, CompletionItemKind, MarkupContent } from 'vscode-languageserver';
 //import {FishCompletionItemType} from '../completion';
 import {logger} from '../logger';
 import {FishCompletionItemKind, isBuiltIn} from './completion-types';
@@ -28,6 +28,14 @@ export interface FishCompletionItem extends CompletionItem {
         originalCompletion?: string; // the original line in fish completion call from the terminal
         fishKind?: FishCompletionItemKind; // VERBOSE form of kind
         localSymbol?: boolean;
+    }
+}
+
+
+function completionSignatureHelp(): Command {
+    return {
+        title: 'String regex patterns',
+        command: 'editor.action.triggerParameterHints'
     }
 }
 
@@ -106,6 +114,11 @@ export class CompletionItemBuilder {
 
     public localSymbol() {
         this._item.data.localSymbol = true;
+        return this;
+    }
+
+    public addSignautreHelp() {
+        this._item.command = completionSignatureHelp();
         return this;
     }
 

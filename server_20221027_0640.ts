@@ -46,7 +46,7 @@ import { CompletionItemBuilder, parseLineForType } from './utils/completionBuild
 //import {isBuiltin} from './utils/builtins';
 import { documentationHoverProvider, enrichToCodeBlockMarkdown, enrichToMarkdown } from './documentation';
 import { execCommandDocs, execCommandType } from './utils/exec';
-import { getDefaultSignatures, signatureIndex } from './signature';
+import { getDefaultSignatures, regexStringSignature } from './signature';
 
 
 
@@ -115,10 +115,8 @@ export default class FishServer {
             // for partial updates.
             textDocumentSync: TextDocumentSyncKind.Full,
             completionProvider: {
-
                 resolveProvider: true,
-                triggerCharacters: ["."],
-                //triggerCharacters: ["$", "-", "\\"],
+                triggerCharacters: ["$", "-", "\\"],
                 allCommitCharacters: [";", " ", "\t"],
                 workDoneProgress: true,
             },
@@ -126,7 +124,7 @@ export default class FishServer {
             documentHighlightProvider: true,
             definitionProvider: true,
             signatureHelpProvider: {
-                triggerCharacters: ["'", '"', "["],
+                triggerCharacters: ["'", '"'],
             }
             //documentSymbolProvider: true,
             //workspaceSymbolProvider: true,
@@ -150,7 +148,7 @@ export default class FishServer {
             logger.log(this.connection.onDidChangeTextDocument.name, {extraInfo: [doc.uri, '\nchanges:', ...change.contentChanges.map(c => c.text)]})
             doc = TextDocument.update(doc, change.contentChanges, change.textDocument.version);
             this.analyzer.analyze(doc);
-            //const root = this.analyzer.getRoot(doc)
+            const root = this.analyzer.getRoot(doc)
             // do More stuff
         });
 
@@ -202,10 +200,10 @@ export default class FishServer {
     // • Add default CompletionLists to complete.ts
     // • Add local file items.
     // • Lastly add parameterInformation items.  [ 1477 : ParameterInformation ]
-    public async onCompletion(params: CompletionParams):  Promise<CompletionList | null>{
-        const uri: string = params.textDocument.uri;
-        const position = params.position;
-        logger.log(`completionParams.context.triggerKind: ${params.context?.triggerKind}`)
+    public async onCompletion(completionParams: CompletionParams):  Promise<CompletionList | null>{
+        const uri: string = completionParams.textDocument.uri;
+        const position = completionParams.position;
+        logger.log(`completionParams.context.triggerKind: ${completionParams.context?.triggerKind}`)
 
         logger.log('server.onComplete' + uri)
         const doc = await this.docs.openOrFind(uri);
@@ -216,34 +214,14 @@ export default class FishServer {
         //const r = getRangeFromPosition(completionParams.position);
         this.connection.console.log('on complete node: ' + doc.uri || "" )
 
-        const documentLine: TextDocument = this.analyzer.currentLine(doc, params.position) || " "
+        const documentLine: TextDocument = this.analyzer.currentLine(doc, completionParams.position) || " "
         const line = documentLine.getText()
-
-        const lineToParse = line.trimEnd();
-        const root = this.parser.parse(lineToParse).rootNode;
-        const currNode = root.descendantForPosition({row: 0, column: lineToParse.length - 1})
 
         if (line.trimStart().startsWith("#")) {
             return null;
         }
 
         logger.log('line' + line)
-        let i = 0
-        const loggerRoot = this.analyzer.getRoot(params.textDocument.uri).descendantForPosition({row: params.position.line, column: params.position.character})
-        //for (const node of loggerRoot.)
-        logger.logNode(loggerRoot, 'LOGGERROOT')
-        logger.log(loggerRoot.toString())
-        logger.log('loggerChildren: ' + loggerRoot.childCount)
-        logger.logNode(loggerRoot.parent, 'parent')
-        logger.logNode(loggerRoot.parent?.firstChild, 'firstChild')
-        logger.logNode(loggerRoot.parent?.lastChild || null, 'lastChild')
-        //for (const node of getChildNodes(loggerRoot)) {
-        //      logger.logNode(node, i)
-        //      i++;
-        //}
-        //for (const node of this.analyzer.getRoot(params.textDocument).descendantForPosition(params.position)) {
-        //}
-        //logger.log('line node: ' + currNode.text)
         const items: CompletionItem[] = []
         if (insideStringRegex(line)) {
             logger.log(`insideStringRegex: ${true}`)
@@ -256,6 +234,9 @@ export default class FishServer {
             // right here parse the line forward for the last command in the scope !!!
             let cmdNode = null;
             const output = await getShellCompletions(line)
+            const lineToParse = line.trimEnd();
+            const root = this.parser.parse(lineToParse).rootNode;
+            const currNode = root.namedDescendantForPosition({row: 0, column: lineToParse.length - 1})
 
             const cmp = new CompletionItemBuilder()
             const commandNode = firstAncestorMatch(currNode, n => isCommand(n));
@@ -278,9 +259,9 @@ export default class FishServer {
                     .documentation([desc, other].join(' '))
                     .kind(fishKind)
                     .originalCompletion([label, desc].join('\t') + ' ' + other)
-                //if (cmdText === 'string' && (label === '--regex' || label === '-r')) {
-                //    cmpBuilder.addSignautreHelp()
-                //}
+                if (cmdText === 'string' && (label === '--regex' || label === '-r')) {
+                    cmpBuilder.addSignautreHelp()
+                }
                 switch (fishKind) {
                     case FishCompletionItemKind.ABBR: 
                         cmpBuilder.insertText(other)
@@ -341,29 +322,24 @@ export default class FishServer {
     }
 
 
-    public async onShowSignatureHelp(params: SignatureHelpParams): Promise<SignatureHelp> {
+    public async onShowSignatureHelp(params: SignatureHelpParams): Promise<SignatureHelp | null> {
         const uri: string = params.textDocument.uri;
-        //const position = params.position;
+        const position = params.position;
         const doc = await this.docs.openOrFind(uri);
 
-        const documentLine: string = this.analyzer.currentLine(doc, params.position).getText().trimStart() || " "
-        //const line = documentLine.getText().trimStart()
+        const documentLine: TextDocument = this.analyzer.currentLine(doc, params.position) || " "
+        const line = documentLine.getText().trimStart()
         //const root = this.parser.parse(line).rootNode;
         //const currNode = root.namedDescendantForPosition({row: 0, column: line.length - 1})
         //const commandNode = firstAncestorMatch(currNode, n => isCommand(n));
-        const lastWord = documentLine.split(/\s+/).pop() || ""
-        if (insideStringRegex(documentLine)) {
-            if (lastWord.includes('[[') && !lastWord.includes(']]') ) {
-                this.signature.activeSignature = signatureIndex["stringRegexCharacterSets"]
-            } else {
-                this.signature.activeSignature = signatureIndex["stringRegexPatterns"]
-            }
-        } else {
-            this.signature.activeSignature = null;
+        if (insideStringRegex(line)) {
+            this.signature.activeSignature = 
         }
-        return this.signature;
+
+        return null;
     }
 }
+
 
 
 function currentLineRoot(parser: Parser, line: string) {

@@ -15,9 +15,18 @@ export function isFunctionDefinintion(node: SyntaxNode): boolean {
 export function isCommand(node: SyntaxNode): boolean {
     return [
         'command',
-        'test_command'
+        'test_command',
+        'command_substitution',
     ].includes(node.type);
 }
+
+export function isError(node: SyntaxNode | null = null): boolean {
+    if (node ) {
+        return node.type == 'ERROR';
+    }
+    return false;
+}
+
 
 export function isStatement(node: SyntaxNode): boolean {
     return [
@@ -60,8 +69,11 @@ export function isVariable(node: SyntaxNode) {
  * @param {SyntaxNode} node - the node to check for its parent
  * @returns {SyntaxNode | null} command node or null
  */
-export function findParentCommand(node: SyntaxNode): SyntaxNode | null {
-    let currentNode: SyntaxNode | null = node;
+export function findParentCommand(node?: SyntaxNode): SyntaxNode | null {
+    let currentNode: SyntaxNode | null | undefined = node;
+    if (!currentNode) {
+        return null;
+    }
     while (currentNode) {
         if (isCommand(currentNode)) {
             return currentNode;

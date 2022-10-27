@@ -100,6 +100,23 @@ class Logger {
         this.console.log(msg);
     }
 
+    public logNode(node: SyntaxNode | null | undefined, info="") {
+        if (node) {
+            if (info === "") {
+                this.console.log(nodeToString(node))
+            } else {
+                this.console.log('info: ' + info + '\n' + nodeToString(node))
+            }
+        }
+         else {
+            this.console.log('node is null or undefined')
+        }
+    }
+
+    public logPosition(position: Position) {
+        this.console.log(`position (character: ${position.character}, line: ${position.line})`);
+    }
+
     public startTimer(msg?: string) {
         if (msg) {
             this.console.log(msg)
@@ -235,7 +252,14 @@ function getLogOptionsString(opts: LogOptions) {
 }
 
 function nodeToString(node: SyntaxNode): string {
-    return `node: ${node.text}, type: ${node.type}, (${node.startPosition.row}, ${node.startPosition.column}) (${node.endPosition.row}, ${node.endPosition.column})`;
+    return [
+        '{',
+        `\tnode: ${node.child(0)?.text}`,
+        `\ttype: ${node.type}`,
+        `\tstart: (${node.startPosition.row}, ${node.startPosition.column})`,
+        `\tend: (${node.endPosition.row}, ${node.endPosition.column})`,
+        '}'
+    ].join('\n')
 }
 
 function completionToString(completion: CompletionItem) {

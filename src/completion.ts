@@ -35,6 +35,13 @@ function splitArray(label: string, description?: string): [string, string, strin
     return [label, keyword, otherInfo]
 }
 
+// regex to remove all : and spaces
+//function buildRegexExpressions(line: string): CompletionItem[] {
+//    const items: CompletionItem[] = []
+//    // regex to remove all : and spaces
+//    const regex = /(\w+):?\s?/g
+
+
 
 export async function getShellCompletions(cmd: string): Promise<[string, string, string][]> {
     const entireCommand = `fish --command 'complete --do-complete="${cmd}" | uniq'`
@@ -261,13 +268,14 @@ function buildWildcards(): CompletionItem[] {
 
 export function buildRegexCompletions(): CompletionItem[] {
     const cmpItems: CompletionItem[] = [];
+    const cmpItem = new CompletionItemBuilder();
     for (const regexItem of stringRegexExpressions) {
-        const item = CompletionItem.create(regexItem.label);
-        item.documentation = regexItem.description;
-        //item.insertTextFormat = InsertTextFormat.PlainText;
-        item.insertText = regexItem.insertText;
-        item.kind = CompletionItemKind.Text;
-        cmpItems.push(item)
+        const item = cmpItem.create(regexItem.label)
+            .documentation(regexItem.description)
+            .addSignautreHelp()
+            .kind(CompletionItemKind.Text)
+        cmpItems.push(item.build())
+        cmpItem.reset()
     }
     return cmpItems;
 }
