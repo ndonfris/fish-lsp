@@ -39,6 +39,12 @@ export function isStatement(node: SyntaxNode): boolean {
     ].includes(node.type);
 }
 
+export function isString(node: SyntaxNode) {
+    return [
+        'double_quote_string',
+        'single_quote_string',
+    ].includes(node.type)
+}
 
 /*
  * Checks for nodes which should stop the search for 
@@ -100,13 +106,15 @@ export function isVariableDefintion(node: SyntaxNode): boolean {
     if (isCommand(node) && node.child(0)?.text == 'set') {
         return false;
     } else {
-        const parent = findParentCommand(node)
+        const parent = findParentCommand(node) 
         if (!parent) {
             return false;
         } 
         if (isCommand(parent) && parent?.child(0)?.text == 'set') {
             return findDefinedVariable(parent)?.text == node?.text; 
         }
+        //if (isFunctionDefinintion(parent) &&  parent?.child(0)?.text == 'read') {
+        //}
         return false;
     }
 }
@@ -140,7 +148,33 @@ export function findDefinedVariable(node: SyntaxNode): SyntaxNode | null {
     return child;
 }
 
+export function findReadDefinedVariable(node: SyntaxNode): SyntaxNode | null {
+    let parent = findParentCommand(node);
+    if (!parent) return null;
 
+    //const
+
+    //const seenList: boolean = parent.children.filter((child) => child.text == '-a' || child.text == '--list').length > 0;
+
+    // regex string for: read --local var --global var2 
+    const regex = /(\s+\w+)\s+--(local|global|universal)\s+([a-zA-Z0-9_]+)\s.*/g;
+
+    const children: SyntaxNode[] = parent.children
+    let i = 1;
+    let child : SyntaxNode = children[i]!;
+
+    while (child != undefined) {
+        if (!child.text.startsWith('-') ) {
+            return child
+        }
+        if (i == children.length - 1) {
+            return null
+        }
+        child = children[i++]!;
+    }
+
+    return child;
+}    
 
 // global nodes are nodes that are not defined in a function
 // (i.e. stuff in config.fish)
@@ -245,6 +279,14 @@ function isCommandArg(node: SyntaxNode) {
         'list_element_access',
         'index',
     ].includes(node.type)
+}
+
+export function isCommandFlag(node: SyntaxNode) {
+    return [
+        'test_option',
+        'word',
+        'escape_sequence',
+    ].includes(node.type) || node.text.startsWith('-') || findParentCommand(node) !== null;
 }
 
 

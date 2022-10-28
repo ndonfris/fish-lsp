@@ -1,15 +1,19 @@
-import {Hover} from 'coc.nvim';
 import {
     CompletionItem,
     Connection,
+    DocumentSymbol,
+    Hover,
     Position,
     RemoteConsole,
+    SymbolKind,
     TextDocumentPositionParams,
 } from "vscode-languageserver";
 import {TextDocument} from 'vscode-languageserver-textdocument';
 import {URI, Utils} from 'vscode-uri';
 import { SyntaxNode } from "web-tree-sitter";
 import {FishCompletionItem, FishCompletionItemKind} from './utils/completion-types';
+import { appendFile, appendFileSync, writeFileSync } from 'fs';
+import path, {resolve} from 'path';
 
 
 export interface LogOptions {
@@ -34,6 +38,7 @@ export interface LogOptions {
 class Logger {
     private static instance : Logger;
 
+    private static log_file: string = resolve('/home/ndonfris/repos/fish-lang-server/logs.txt')
     public enabled = true;     // logger.enabled would disable all log messages
     public hasRemote = false; // so that checking which console is possible
     private _console: RemoteConsole | Console;
@@ -55,6 +60,8 @@ class Logger {
     public setConsole(console: RemoteConsole) {
         this.hasRemote = true;
         this._console = console;
+        const logStr = "\n[Logger] set console to RemoteConsole: " + new Date().toISOString();
+        this.log(logStr);
     }
 
     get console() {
@@ -94,22 +101,37 @@ class Logger {
     }
 
     public log(msg: string, opts?: LogOptions) {
-        if (this.enabled) {
-            //if (opts !== undefined) this.logOpts(opts)
-        }
+        const output = '\n'+ msg;
         this.console.log(msg);
+        try {
+            appendFileSync(Logger.log_file, output)
+        } catch (err) {
+            this.console.log("ERROR appending to file. " + err)
+        }
     }
 
     public logNode(node: SyntaxNode | null | undefined, info="") {
         if (node) {
             if (info === "") {
-                this.console.log(nodeToString(node))
+                this.log(nodeToString(node))
             } else {
-                this.console.log('info: ' + info + '\n' + nodeToString(node))
+                this.log('info: ' + info + '\n' + nodeToString(node))
             }
         }
          else {
-            this.console.log('node is null or undefined')
+            this.log('node is null or undefined')
+        }
+    }
+    public logDocumentSymbol(docSym: DocumentSymbol | null | undefined, info="") {
+        if (docSym) {
+            if (info === "") {
+                this.log(documentSymbolToString(docSym))
+            } else {
+                this.log('info: ' + info + '\n' + documentSymbolToString(docSym))
+            }
+        }
+         else {
+            this.log('documentSymbol is null or undefined')
         }
     }
 
@@ -254,7 +276,7 @@ function getLogOptionsString(opts: LogOptions) {
 function nodeToString(node: SyntaxNode): string {
     return [
         '{',
-        `\tnode: ${node.child(0)?.text}`,
+        `\tnode: ${node.child(0)?.text || node.text}`,
         `\ttype: ${node.type}`,
         `\tstart: (${node.startPosition.row}, ${node.startPosition.column})`,
         `\tend: (${node.endPosition.row}, ${node.endPosition.column})`,
@@ -262,6 +284,47 @@ function nodeToString(node: SyntaxNode): string {
     ].join('\n')
 }
 
+function documentSymbolToString(doc: DocumentSymbol): string {
+    let kind = ""
+    switch (doc.kind) {
+        case SymbolKind.File:
+            kind = "File"
+            break;
+        case SymbolKind.Function:
+            kind = "Function"
+            break;
+        case SymbolKind.Variable:
+            kind = "Variable"
+            break;
+        case SymbolKind.Class:
+            kind = "Class"
+            break;
+        case SymbolKind.Field: 
+            kind = "Field"
+            break;
+        case SymbolKind.Null:
+            kind = "Null"
+            break;
+        case SymbolKind.String:
+            kind = "String"
+            break;
+        default:
+
+        kind = "Unknown: " + doc.kind
+        break
+    }
+    return [
+        '{',
+        `\tname: ${doc.name}`,
+        `\tkind: ${kind}`,
+        `\tstart: (${doc.range.start.line}, ${doc.range.start.character})`,
+        `\tend: (${doc.range.end.line}, ${doc.range.end.character})`,
+        `\tselectionStart: (${doc.selectionRange.start.line}, ${doc.selectionRange.start.character})`,
+        `\tselectionEnd: (${doc.selectionRange.end.line}, ${doc.selectionRange.end.character})`,
+        `\tchildren: ${doc.children?.length || 0}`,
+        '}'
+    ].join('\n')
+}
 function completionToString(completion: CompletionItem) {
     const fishCmp = completion as FishCompletionItem;
     let str : string[] = [];

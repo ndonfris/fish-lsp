@@ -48,7 +48,7 @@ export const signatureIndex: {[str in signatureType]: number}= {
 }
 
 
-export function getDefaultSignatures() : SignatureHelp{
+export function getDefaultSignatures() : SignatureHelp {
     return {
         activeParameter: null,
         activeSignature: null,

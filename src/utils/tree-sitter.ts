@@ -40,6 +40,13 @@ export function getParentNodes(child: SyntaxNode): SyntaxNode[] {
         result.push(current);
         current = current.parent;
     }
+    //if (child.parent === null) {
+    //    current = child.previousSibling;
+    //    while (current) {
+    //        result.push(current);
+    //        current = current.previousSibling;
+    //    }
+    //}
     return result
 }
 
@@ -99,28 +106,46 @@ export function firstAncestorMatch(
         //.filter(ancestor => ancestor !== start)
 }
 
+/**
+ * finds all ancestors (parent nodes) of a node that match a predicate
+ *
+ * @param {SyntaxNode} start - the leaf/deepest child node to start searching from
+ * @param {(n: SyntaxNode) => boolean} predicate - a function that returns true if the node matches
+ * @param {boolean} [inclusive] - if true, the start node can be included in the results
+ * @returns {SyntaxNode[]} - an array of nodes that match the predicate
+ */
 export function ancestorMatch(
-  start: SyntaxNode,
-  predicate: (n: SyntaxNode) => boolean,
+    start: SyntaxNode,
+    predicate: (n: SyntaxNode) => boolean,
+    inclusive: boolean = true,
 ): SyntaxNode[] {
     const ancestors = getParentNodes(start) || [];
-    const results : SyntaxNode[] = []
+    const searchNodes : SyntaxNode[] = []
     for (const p of ancestors) {
-        results.push(...getChildNodes(p));
+        searchNodes.push(...getChildNodes(p));
     }
-    return results.filter(neighbor => predicate(neighbor))
-        //.filter(ancestor => ancestor !== start)
+    const results: SyntaxNode[] = searchNodes.filter(neighbor => predicate(neighbor)) 
+    return inclusive ? results : results.filter(ancestor => ancestor !== start)
 }
 
+/**
+ * searches for all children nodes that match the predicate passed in
+ *
+ * @param {SyntaxNode} start - the root node to search from
+ * @param {(n: SyntaxNode) => boolean} predicate - a function that returns a bollean
+ * incating whether the node passed in matches the search criteria
+ *  @param {boolean} inclusive: boolean = true,
+ * @returns {SyntaxNode[]} - all child nodes that match the predicate
+ */
 export function descendantMatch(
-  start: SyntaxNode,
-  predicate: (n: SyntaxNode) => boolean,
+    start: SyntaxNode,
+    predicate: (n: SyntaxNode) => boolean,
+    inclusive = true
 ) : SyntaxNode[] {
     const descendants: SyntaxNode[] = []
     descendants.push(...getChildNodes(start))
-    return descendants
-        .filter(descendant => predicate(descendant))
-        //.filter(descendent => descendent !== start)
+    const results = descendants.filter(descendant => predicate(descendant))
+    return inclusive? results : results.filter(r => r !== start)
 }
 
 

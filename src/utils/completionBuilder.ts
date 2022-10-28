@@ -88,6 +88,9 @@ export class CompletionItemBuilder {
     public kind(fishKind: FishCompletionItemKind) {
         this._item.kind = toCompletionKind[fishKind];
         this._item.data.fishKind = fishKind;
+        if (fishKind === FishCompletionItemKind.ABBR) {
+            this.commitCharacters([';', '\t', ' '])
+        }
         return this;
     }
 

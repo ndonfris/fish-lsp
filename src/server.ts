@@ -32,6 +32,11 @@ import {
     SignatureHelp,
     CompletionItemKind,
     SignatureHelpParams,
+    DocumentSymbolParams,
+    SymbolInformation,
+    DefinitionParams,
+    Location,
+    LocationLink,
 } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import {CliOptions, Context, TreeByUri} from './interfaces';
@@ -47,6 +52,8 @@ import { CompletionItemBuilder, parseLineForType } from './utils/completionBuild
 import { documentationHoverProvider, enrichToCodeBlockMarkdown, enrichToMarkdown } from './documentation';
 import { execCommandDocs, execCommandType } from './utils/exec';
 import { getDefaultSignatures, signatureIndex } from './signature';
+import {findVariableDefinition, getDocumentSymbols} from './symbols';
+import {DocumentSymbol} from 'coc.nvim';
 
 
 
@@ -96,6 +103,7 @@ export default class FishServer {
 
     // completionHandler
     private completion: Completion;
+    private symbolMap: Map<SyntaxNode, DocumentSymbol[]> = new Map();
 
     constructor(connection: Connection, parser : Parser, analyzer: Analyzer, docs: DocumentManager , completion: Completion) {
         this.connection = connection;
@@ -105,6 +113,7 @@ export default class FishServer {
         this.docs = docs;
         this.completion = completion;
         this.signature = getDefaultSignatures();
+        this.symbolMap = new Map<SyntaxNode, DocumentSymbol[]>(); 
     }
 
 
@@ -126,9 +135,9 @@ export default class FishServer {
             documentHighlightProvider: true,
             definitionProvider: true,
             signatureHelpProvider: {
-                triggerCharacters: ["'", '"', "["],
-            }
-            //documentSymbolProvider: true,
+                triggerCharacters: ["'", '"', "[", ":"],
+            },
+            documentSymbolProvider: true,
             //workspaceSymbolProvider: true,
             //referencesProvider: true,
         };
@@ -174,8 +183,10 @@ export default class FishServer {
         //this.connection.onCompletion(this.onDefaultCompletion.bind(this))
         this.connection.onCompletion(this.onCompletion.bind(this))
         this.connection.onCompletionResolve(this.onCompletionResolve.bind(this));
-        this.connection.onSignatureHelp(this.onShowSignatureHelp.bind(this))
+        this.connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
 
+        this.connection.onDocumentSymbol(this.onDocumentSymbols.bind(this));
+        this.connection.onDefinition(this.onDefinition.bind(this));
         this.docs.documents.onDidChangeContent(async change => {
             const document = change.document;
             const uri = document.uri;
@@ -209,9 +220,6 @@ export default class FishServer {
 
         logger.log('server.onComplete' + uri)
         const doc = await this.docs.openOrFind(uri);
-        //const node: SyntaxNode | null = this.analyzer.nodeAtPoint(doc.uri, position.line, position.character - 2); // better way to do this below
-
-        //const currnode = this.analyzer.boundaryCheckNode(uri, position.line, position.character)
 
         //const r = getRangeFromPosition(completionParams.position);
         this.connection.console.log('on complete node: ' + doc.uri || "" )
@@ -219,42 +227,23 @@ export default class FishServer {
         const documentLine: TextDocument = this.analyzer.currentLine(doc, params.position) || " "
         const line = documentLine.getText()
 
-        const lineToParse = line.trimEnd();
-        const root = this.parser.parse(lineToParse).rootNode;
-        const currNode = root.descendantForPosition({row: 0, column: lineToParse.length - 1})
+        logger.log('line' + line)
 
         if (line.trimStart().startsWith("#")) {
             return null;
         }
 
-        logger.log('line' + line)
-        let i = 0
-        const loggerRoot = this.analyzer.getRoot(params.textDocument.uri).descendantForPosition({row: params.position.line, column: params.position.character})
-        //for (const node of loggerRoot.)
-        logger.logNode(loggerRoot, 'LOGGERROOT')
-        logger.log(loggerRoot.toString())
-        logger.log('loggerChildren: ' + loggerRoot.childCount)
-        logger.logNode(loggerRoot.parent, 'parent')
-        logger.logNode(loggerRoot.parent?.firstChild, 'firstChild')
-        logger.logNode(loggerRoot.parent?.lastChild || null, 'lastChild')
-        //for (const node of getChildNodes(loggerRoot)) {
-        //      logger.logNode(node, i)
-        //      i++;
-        //}
-        //for (const node of this.analyzer.getRoot(params.textDocument).descendantForPosition(params.position)) {
-        //}
-        //logger.log('line node: ' + currNode.text)
+        const lineToParse = line.trimEnd();
+        const root = this.parser.parse(lineToParse).rootNode;
+        const currNode = root.descendantForPosition({row: 0, column: lineToParse.length - 1})
+
         const items: CompletionItem[] = []
         if (insideStringRegex(line)) {
             logger.log(`insideStringRegex: ${true}`)
             items.push(...buildRegexCompletions())
             return CompletionList.create(items, true)
         }
-        
         try {
-            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
-            // right here parse the line forward for the last command in the scope !!!
-            let cmdNode = null;
             const output = await getShellCompletions(line)
 
             const cmp = new CompletionItemBuilder()
@@ -265,7 +254,7 @@ export default class FishServer {
             } else {
                 logger.log(` firstAncestorMatch(${currNode.text}, isCommand) failed `)
             }
-            let cmdText = commandNode?.text.replace(/\s+(\w+)\s+.*/, '') || "";
+            const cmdText = commandNode?.text.replace(/\s+(\w+)\s+.*/, '') || "";
 
             let fishKind = FishCompletionItemKind.FLAG;
             for (const [label, desc, other] of output) {
@@ -278,9 +267,9 @@ export default class FishServer {
                     .documentation([desc, other].join(' '))
                     .kind(fishKind)
                     .originalCompletion([label, desc].join('\t') + ' ' + other)
-                //if (cmdText === 'string' && (label === '--regex' || label === '-r')) {
-                //    cmpBuilder.addSignautreHelp()
-                //}
+                if (cmdText === 'string' && (label === '--regex' || label === '-r')) {
+                    cmpBuilder.addSignautreHelp()
+                }
                 switch (fishKind) {
                     case FishCompletionItemKind.ABBR: 
                         cmpBuilder.insertText(other)
@@ -293,7 +282,7 @@ export default class FishServer {
                 cmp.reset()
             }
         } catch (e) {
-            this.connection.console.log("error" + e)
+            this.connection.console.log("ERROR: " + e)
             this.connection.console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
             this.connection.console.log(doc.getText())
             this.connection.console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
@@ -361,7 +350,37 @@ export default class FishServer {
         } else {
             this.signature.activeSignature = null;
         }
+        this.signature.activeParameter = null;
         return this.signature;
+    }
+
+
+    public async onDocumentSymbols(params: DocumentSymbolParams): Promise<DocumentSymbol[]> {
+        logger.log("onDocumentSymbols");
+        const uri: string = params.textDocument.uri;
+        const doc = await this.docs.openOrFind(uri);
+        const root = this.parser.parse(doc.getText()).rootNode;
+        //this.symbolMap = getDocumentSymbols(root);
+        //const returnSymbols = sym
+        //for (const sym of Array.from(symbols.values())) {
+        //    logger.logDocumentSymbol(sym)
+        //}
+        //this.symbolMap = new Map<SyntaxNode, DocumentSymbol[]>(symbols);
+        return []
+    }
+
+    public async onDefinition(params: DefinitionParams): Promise<LocationLink[]> {
+        logger.log("getDefinition");
+        const uri: string = params.textDocument.uri;
+        const position = params.position;
+        const doc = await this.docs.openOrFind(uri);
+        const node = this.analyzer.nodeAtPoint(uri, position.line, position.character);
+        logger.logNode(node);
+        if (!node) return [];
+        if (isVariable(node)) {
+            return findVariableDefinition(node, uri) || []
+        }
+        return []
     }
 }
 
