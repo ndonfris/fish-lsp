@@ -158,7 +158,7 @@ export default class FishServer {
         this.connection.onDidChangeTextDocument(async change => {
             const uri = change.textDocument.uri;
             let doc = await this.docs.openOrFind(uri);
-            logger.log(this.connection.onDidChangeTextDocument.name, {extraInfo: [doc.uri, '\nchanges:', ...change.contentChanges.map(c => c.text)]})
+            logger.log(this.connection.onDidChangeTextDocument.name);
             doc = TextDocument.update(doc, change.contentChanges, change.textDocument.version);
             this.analyzer.analyze(doc);
             //const root = this.analyzer.getRoot(doc)
@@ -252,10 +252,13 @@ export default class FishServer {
                 .localSymbol()
                 .documentation({
                     kind: 'markdown',
-                    value: ['```fish',
+                    value: [
+                        '```fish',
                         doc.getText(symbol.range),
-                        '```'].join('\n')
+                        '```'
+                    ].join('\n')
                 })
+
             items.push(cmp.build());
             cmp.reset()
         }
@@ -353,6 +356,7 @@ export default class FishServer {
     }
 
 
+    // @TODO: fix this to return a signle SignatureHelp object
     public async onShowSignatureHelp(params: SignatureHelpParams): Promise<SignatureHelp> {
         const uri: string = params.textDocument.uri;
         //const position = params.position;
@@ -401,32 +405,6 @@ export default class FishServer {
         let node = this.analyzer.nodeAtPoint(uri, position.line, position.character);
         logger.logNode(node);
         if (!node) return [];
-        //if (isVariable(node)) {
-        //    return findVariableDefinition(uri, root, node) || []
-        //}
-        //const commandNode = findParentCommand(node);
-        //logger.logNode(commandNode, 'onDEF Cmd')
-        //const namedDescendant = this.analyzer.namedNodeAtPoint(uri, position.line, position.character)
-        //logger.logNode(namedDescendant, 'onDEF namedDescendant')
-        //if (commandNode) {
-        //    node = commandNode;
-        //}
-        //if (isCommand(node)) {
-        //    //const results = findLocalCommandDefinitions(node, uri) || []
-        //    //if (results.length > 0) {
-        //    //    return results
-        //    //}
-        //    //const cmdText = node?.text.replace(/\s+(\w+)\s+.*/, '') || "";
-        //    const cmdText = node.child(0)?.text || node?.text.replace(/\s+(\w+)\s+.*/, '') || ""; 
-        //    const depedencyUri = await execFindDependency(cmdText)
-        //    const newDoc = await this.docs.openOrFind(depedencyUri);
-        //    const newDocRoot = this.parser.parse(newDoc.getText()).rootNode;
-        //    return findGlobalCommandDefinitions(newDocRoot, node, newDoc.uri) || []
-        //   // const newDocNode = descendantMatch(newDocRoot, isFunctionDefinintion, true).filter(
-        //   //     n => n.child(1)?.text == cmdText
-        //   // ).
-        //    //return findCommandDefinition(node, uri) || []
-        //}
         const depedencyUri = await execFindDependency(node.text)
         const localDefinitions = findLocalDefinition(uri, root, node) || [];
         if (!depedencyUri) {
