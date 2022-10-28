@@ -17,7 +17,7 @@ import { CompletionItemBuilder, parseLineForType } from './utils/completionBuild
 import { documentationHoverProvider, enrichToCodeBlockMarkdown, enrichToMarkdown } from './documentation';
 import { execCommandDocs, execCommandType, execFindDependency } from './utils/exec';
 import { getDefaultSignatures, signatureIndex } from './signature';
-import { findGlobalDefinition, findLocalDefinition, findVariableDefinition, getDocumentSymbols, getLocalSymbols, getNearestSymbols, getReferences } from './symbols';
+import { findGlobalDefinition, findLocalDefinition, getNearestSymbols, getReferences } from './symbols';
 
 
 

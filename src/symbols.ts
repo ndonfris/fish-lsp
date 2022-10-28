@@ -34,7 +34,6 @@ type lspType = 'definition' | 'refrence';
 export interface FishLspSymbol extends SymbolInformation {
     node: SyntaxNode;
     lspType: lspType;
-
 }
 
 
