@@ -16,7 +16,6 @@ import {
     enrichToCodeBlockMarkdown,
     HoverFromCompletion,
 } from "./documentation";
-import {Context} from './interfaces';
 import {
     CompletionArguments,
     execFindDependency,

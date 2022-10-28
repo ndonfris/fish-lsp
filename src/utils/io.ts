@@ -6,7 +6,6 @@ import { URI, Utils } from 'vscode-uri'
 import { TextDocument } from 'vscode-languageserver-textdocument'
 import { isFishExtension } from './tree-sitter'
 import { resolve } from 'path';
-import {Context} from '../interfaces';
 
 export async function createTextDocumentFromFilePath(uri: URI): Promise<TextDocument> {
     let content: string = ''

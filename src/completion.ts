@@ -5,12 +5,10 @@ import {DocumentSymbol} from 'vscode-languageserver';
 import {
     CompletionItem,
     CompletionItemKind,
-    CompletionList,
     MarkupContent,
 } from "vscode-languageserver-protocol/node";
-import {TextDocument} from 'vscode-languageserver-textdocument';
-import {DocumentUri} from 'vscode-languageserver-textdocument';
 import Parser, { SyntaxNode } from "web-tree-sitter";
+import {TextDocument, DocumentUri} from 'vscode-languageserver-textdocument';
 import {enrichToCodeBlockMarkdown, enrichToMarkdown, enrichWildcard} from './documentation';
 import {logger} from './logger';
 import {BuiltInList, escapeChars, FishCompletionItemKind, pipes, statusNumbers, stringRegexExpressions, WildcardItems } from './utils/completion-types';
@@ -164,6 +162,10 @@ function convertPathToFunctionName(pathString: string) : undefined | string {
     return fishFuncFile;
 }
 
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// @TODO: MOVE TO COMPLETION-TYPES ?
+//////////////////////////////////////////////////////////////////////////////////////////
 
 function buildEscapeChars(): CompletionItem[] {
     const chars = escapeChars;
