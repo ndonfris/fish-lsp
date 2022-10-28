@@ -202,6 +202,19 @@ export class Analyzer {
         return tree.rootNode.descendantForPosition({ row: line, column });
     }
 
+    public namedNodeAtPoint(
+        uri: string,
+        line: number,
+        column: number
+    ): Parser.SyntaxNode | null {
+        const tree = this.uriTree[uri]
+
+        // Check for lacking rootNode (due to failed parse?)
+        if (!tree?.rootNode) {
+            return null;
+        }
+        return tree.rootNode.namedDescendantForPosition({ row: line, column });
+    }
 
     public findCommandNodeAtPoint(document: TextDocument, line: number, column: number): SyntaxNode | null {
         const node = this.nodeAtPoint(document.uri, line, column);
@@ -296,6 +309,12 @@ function firstNodeBeforeSecondNodeComaprision(
 //    return newArray.filter((node) => !oldArray.includes(node));
 //}
 
+/** 
+ * SyntaxTree is necessary because the parse will retrieve node at the given position
+ * with type of word, this instead stores from top down, so we get node types of:
+ * command, function, variable, variable_definition, etc.
+ * Think of better data-structure though and provide method to get completionItems 
+ */
 export class SyntaxTree {
     public rootNode: SyntaxNode;
     public tree: Tree;
@@ -310,7 +329,6 @@ export class SyntaxTree {
     constructor(tree: Parser.Tree) {
         this.tree = tree;
         this.rootNode = this.tree.rootNode;
-        this.tree = this.tree;
         this.clearAll();
         this.ensureAnalyzed();
     }

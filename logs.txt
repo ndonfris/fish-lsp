@@ -1,440 +1,275 @@
-Thu Oct 27 06:36:52 PM CDT 2022
+Fri Oct 28 12:22:39 AM CDT 2022
 
 
-[Logger] set console to RemoteConsole: 2022-10-27T23:37:13.484Z
+[Logger] set console to RemoteConsole: 2022-10-28T05:22:40.548Z
 onDidOpenTextDocument
 getDefinition
 {
-	node: file
-	type: variable_name
-	start: (1, 10)
-	end: (1, 14)
-}
-getDefinition
-{
-	node: file
+	node: fzf-local-node_modules
 	type: word
-	start: (0, 40)
-	end: (0, 44)
+	start: (3, 4)
+	end: (3, 26)
 }
-getDefinition
+info: onDEF Cmd
 {
-	node: --argument-names
-	type: word
-	start: (0, 23)
-	end: (0, 39)
+	node: fzf-local-node_modules
+	type: command
+	start: (3, 4)
+	end: (3, 26)
 }
-getDefinition
+info: onDEF namedDescendant
 {
-	node: test-fish-lsp
+	node: fzf-local-node_modules
 	type: word
-	start: (0, 9)
-	end: (0, 22)
+	start: (3, 4)
+	end: (3, 26)
 }
-getDefinition
+info: insideDefGlobalCommand
 {
 	node: function
-	type: function
+	type: function_definition
 	start: (0, 0)
-	end: (0, 8)
+	end: (15, 3)
 }
-getDefinition
-{
-	node: function
-	type: function
-	start: (0, 0)
-	end: (0, 8)
-}
-getDefinition
-{
-	node: function
-	type: function
-	start: (0, 0)
-	end: (0, 8)
-}
-getDefinition
-{
-	node: test-fish-lsp
-	type: word
-	start: (0, 9)
-	end: (0, 22)
-}
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-linefunction test-fish-lsp --argument-names file --description "Check a file for syntax errors"
- firstAncestorMatch(", isCommand) failed 
-onDocumentSymbols
-onDocumentSymbols
-onDidChangeTextDocument
-onDocumentSymbols
-onDidChangeTextDocument
-onDocumentSymbols
-onDidChangeTextDocument
-onDocumentSymbols
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDocumentSymbols
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDocumentSymbols
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDocumentSymbols
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-line    echo $file | read -l line
- commandNode: read -l line
-getDefinition
-{
-	node:  ec
-	type: 
-
-	start: (18, 3)
-	end: (21, 0)
-}
-getDefinition
-{
-	node:  ec
-	type: 
-
-	start: (18, 3)
-	end: (21, 0)
-}
-getDefinition
-{
-	node:  ec
-	type: 
-
-	start: (18, 3)
-	end: (21, 0)
-}
-onDidChangeTextDocument
+onDidOpenTextDocument
 getDefinition
 {
 	node: function
 	type: function_definition
 	start: (0, 0)
-	end: (18, 3)
+	end: (5, 3)
 }
-onDocumentSymbols
+node is null or undefined
+info: onDEF namedDescendant
+{
+	node: lso
+	type: word
+	start: (2, 4)
+	end: (2, 7)
+}
 getDefinition
+{
+	node: lso
+	type: word
+	start: (2, 4)
+	end: (2, 7)
+}
+info: onDEF Cmd
+{
+	node: lso
+	type: command
+	start: (2, 4)
+	end: (2, 7)
+}
+info: onDEF namedDescendant
+{
+	node: lso
+	type: word
+	start: (2, 4)
+	end: (2, 7)
+}
+info: insideDefGlobalCommand
 {
 	node: function
 	type: function_definition
-	start: (0, 0)
-	end: (18, 3)
+	start: (2, 0)
+	end: (8, 3)
 }
-getDefinition
-{
-	node: function
-	type: function_definition
-	start: (0, 0)
-	end: (18, 3)
-}
-onDidChangeTextDocument
+onDidOpenTextDocument
+onDocumentSymbols
 onDocumentSymbols
 getDefinition
 {
-	node: function
-	type: function_definition
-	start: (0, 0)
-	end: (18, 3)
+	node: __fzf_helper
+	type: word
+	start: (5, 80)
+	end: (5, 92)
+}
+info: onDEF Cmd
+{
+	node: __fzf_helper
+	type: command
+	start: (5, 80)
+	end: (5, 92)
+}
+info: onDEF namedDescendant
+{
+	node: __fzf_helper
+	type: word
+	start: (5, 80)
+	end: (5, 92)
+}
+getDefinition
+{
+	node: __fzf_helper
+	type: word
+	start: (5, 80)
+	end: (5, 92)
+}
+info: onDEF Cmd
+{
+	node: __fzf_helper
+	type: command
+	start: (5, 80)
+	end: (5, 92)
+}
+info: onDEF namedDescendant
+{
+	node: __fzf_helper
+	type: word
+	start: (5, 80)
+	end: (5, 92)
+}
+getDefinition
+{
+	node: __fzf_helper
+	type: word
+	start: (5, 80)
+	end: (5, 92)
+}
+info: onDEF Cmd
+{
+	node: __fzf_helper
+	type: command
+	start: (5, 80)
+	end: (5, 92)
+}
+info: onDEF namedDescendant
+{
+	node: __fzf_helper
+	type: word
+	start: (5, 80)
+	end: (5, 92)
+}
+getDefinition
+{
+	node: __fzf_helper
+	type: word
+	start: (5, 80)
+	end: (5, 92)
+}
+info: onDEF Cmd
+{
+	node: __fzf_helper
+	type: command
+	start: (5, 80)
+	end: (5, 92)
+}
+info: onDEF namedDescendant
+{
+	node: __fzf_helper
+	type: word
+	start: (5, 80)
+	end: (5, 92)
+}
+getDefinition
+{
+	node: __fzf_helper
+	type: word
+	start: (5, 80)
+	end: (5, 92)
+}
+info: onDEF Cmd
+{
+	node: __fzf_helper
+	type: command
+	start: (5, 80)
+	end: (5, 92)
+}
+info: onDEF namedDescendant
+{
+	node: __fzf_helper
+	type: word
+	start: (5, 80)
+	end: (5, 92)
+}
+getDefinition
+{
+	node: __fzf_helper
+	type: word
+	start: (5, 80)
+	end: (5, 92)
+}
+info: onDEF Cmd
+{
+	node: __fzf_helper
+	type: command
+	start: (5, 80)
+	end: (5, 92)
+}
+info: onDEF namedDescendant
+{
+	node: __fzf_helper
+	type: word
+	start: (5, 80)
+	end: (5, 92)
+}
+getDefinition
+{
+	node: __fzf_helper
+	type: word
+	start: (5, 80)
+	end: (5, 92)
+}
+info: onDEF Cmd
+{
+	node: __fzf_helper
+	type: command
+	start: (5, 80)
+	end: (5, 92)
+}
+info: onDEF namedDescendant
+{
+	node: __fzf_helper
+	type: word
+	start: (5, 80)
+	end: (5, 92)
+}
+getDefinition
+{
+	node: __fzf_helper
+	type: word
+	start: (5, 80)
+	end: (5, 92)
+}
+info: onDEF Cmd
+{
+	node: __fzf_helper
+	type: command
+	start: (5, 80)
+	end: (5, 92)
+}
+info: onDEF namedDescendant
+{
+	node: __fzf_helper
+	type: word
+	start: (5, 80)
+	end: (5, 92)
+}
+getDefinition
+{
+	node: __fzf_helper
+	type: word
+	start: (5, 80)
+	end: (5, 92)
+}
+info: onDEF Cmd
+{
+	node: __fzf_helper
+	type: command
+	start: (5, 80)
+	end: (5, 92)
+}
+info: onDEF namedDescendant
+{
+	node: __fzf_helper
+	type: word
+	start: (5, 80)
+	end: (5, 92)
 }
 onDocumentSymbols
 onDocumentSymbols
 onDocumentSymbols
-onDocumentSymbols
-onDocumentSymbols
-onDocumentSymbols
-onDocumentSymbols
-onDocumentSymbols
-
-[Logger] set console to RemoteConsole: 2022-10-28T00:19:02.755Z
-
-[Logger] set console to RemoteConsole: 2022-10-28T00:19:03.593Z
-
-[Logger] set console to RemoteConsole: 2022-10-28T00:19:04.206Z
-
-[Logger] set console to RemoteConsole: 2022-10-28T00:19:04.915Z
-onDocumentSymbols
-onDocumentSymbols
-
-[Logger] set console to RemoteConsole: 2022-10-28T00:20:42.072Z
-onDidOpenTextDocument
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/get-variables.fish
-line    string 
- commandNode: string
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/get-variables.fish
-line    string e
- commandNode: string e
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/get-variables.fish
-line    string es
- commandNode: string es
-onDidChangeTextDocument
-onDidChangeTextDocument
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/get-variables.fish
-line    string escape 
- commandNode: string escape
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/get-variables.fish
-line    string escape -
- commandNode: string escape -
-onDidChangeTextDocument
-onDidChangeTextDocument
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/get-variables.fish
-line    string escape --style 
- commandNode: string escape --style
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-
-[Logger] set console to RemoteConsole: 2022-10-28T00:22:10.117Z
-onDidOpenTextDocument
-onDidChangeTextDocument
-
-[Logger] set console to RemoteConsole: 2022-10-28T00:22:41.449Z
-onDidOpenTextDocument
-onDidChangeTextDocument
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/get-variables.fish
-line    set -l esc_vars (string escape --style=
- commandNode: string escape --style=
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDocumentSymbols
-onDocumentSymbols
-
-[Logger] set console to RemoteConsole: 2022-10-28T00:25:13.328Z
-onDidOpenTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/get-variables.fish
-line    fish_ind
- commandNode: fish_ind
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/get-variables.fish
-line    fish_indent -
- commandNode: fish_indent -
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-
-[Logger] set console to RemoteConsole: 2022-10-28T00:25:49.839Z
-onDidOpenTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDocumentSymbols
-onDocumentSymbols
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDocumentSymbols
-onDidChangeTextDocument
-onDocumentSymbols
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/get-variables.fish
-line    set -
- commandNode: set -
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/get-variables.fish
-line    set -S
- commandNode: set -S
-onDocumentSymbols
-onDocumentSymbols
-onDocumentSymbols
-onDidChangeTextDocument
-onDocumentSymbols
-onDidChangeTextDocument
-onDocumentSymbols
-onDidChangeTextDocument
-onDocumentSymbols
-onDidChangeTextDocument
-onDocumentSymbols
-onDidChangeTextDocument
-onDocumentSymbols
-onDocumentSymbols
-onDocumentSymbols
-
-[Logger] set console to RemoteConsole: 2022-10-28T00:38:51.871Z
-onDidOpenTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDocumentSymbols
-onDocumentSymbols
-onDocumentSymbols
-onDocumentSymbols
-onDocumentSymbols
-onDocumentSymbols
-onDocumentSymbols
-onDocumentSymbols
-onDocumentSymbols
-onDocumentSymbols
-onDidChangeTextDocument
-onDocumentSymbols
-onDidChangeTextDocument
-onDocumentSymbols
-onDidChangeTextDocument
-onDidChangeTextDocument
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-line    echo "$file" | read -l l
-onDocumentSymbols
- commandNode: read -l l
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-line    echo "$file" | read -l line
- commandNode: read -l line
-onDidChangeTextDocument
-onDocumentSymbols
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-line    echo "$file" | read -l 
-onDocumentSymbols
- commandNode: read -l
-onDocumentSymbols
-onDocumentSymbols
-onDidChangeTextDocument
-onDocumentSymbols
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-lineecho "$file" | read -l 
- commandNode: read -l
-onDocumentSymbols
-onDocumentSymbols
-onDidChangeTextDocument
-onDocumentSymbols
-onDidChangeTextDocument
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-line
-onDocumentSymbols
- firstAncestorMatch(, isCommand) failed 
-onDidChangeTextDocument
-onDocumentSymbols
-onDidChangeTextDocument
-onDocumentSymbols
-onDidChangeTextDocument
 onDocumentSymbols
 onDocumentSymbols
 onDocumentSymbols

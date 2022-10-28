@@ -7,6 +7,7 @@ import {
 } from 'vscode-languageserver';
 import {SyntaxNode} from 'web-tree-sitter';
 import {logger} from './logger';
+import {execFindDependency} from './utils/exec';
 import {isCommand, isCommandFlag, isFunctionDefinintion, isStatement, isString, isVariable, isVariableDefintion} from './utils/node-types';
 import {ancestorMatch, descendantMatch, getChildNodes, getPrecedingComments, getRange} from './utils/tree-sitter';
 
@@ -126,6 +127,56 @@ export function findVariableDefinition(node: SyntaxNode, uri: DocumentUri): Loca
 }
 
 
+export function findLocalCommandDefinitions(node: SyntaxNode, uri: DocumentUri): LocationLink[] | undefined {
+
+    const refrences = ancestorMatch(node,
+        isFunctionDefinintion
+    , false).filter((command: SyntaxNode) => command.child(1)?.text === node.text);
+
+    if (refrences.length === 0) {
+        return []
+    }
+
+    for (const ref of refrences) {
+        logger.logNode(ref, 'insideDef')
+    }
+
+    return refrences.map(resultNode => {
+        return {
+            originSelectionRange: getRange(node),
+            targetUri: uri,
+            targetRange: getRange(resultNode),
+            targetSelectionRange: getRange(resultNode),
+        } as LocationLink
+    });
+}
+
+
+export function findGlobalCommandDefinitions(rootNode: SyntaxNode, matchNode: SyntaxNode, uri: DocumentUri) : LocationLink[] | undefined {
+
+    const refrences = descendantMatch(rootNode, isFunctionDefinintion, true).filter((command: SyntaxNode) => command.child(1)?.text === matchNode.text);
+
+    if (refrences.length === 0) {
+        return []
+    }
+
+    for (const ref of refrences) {
+        logger.logNode(ref, 'insideDefGlobalCommand')
+    }
+
+    return refrences.map(resultNode => {
+        return {
+            originSelectionRange: getRange(matchNode),
+            targetUri: uri,
+            targetRange: getRange(resultNode),
+            targetSelectionRange: getRange(resultNode),
+        } as LocationLink
+    });
+
+
+
+
+}
 
 
 
