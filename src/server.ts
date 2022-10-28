@@ -1,60 +1,23 @@
 import Parser from "web-tree-sitter";
-//import { getInitializedHandler } from "./handlers/getInitializedHandler";
-//import { handleInitialized } from "./handlers/handleInitialized";
-//import { getHandleHover } from "./handlers/handleHover";
-//import { AstsMap, CliOptions, Context, DocsMap, RootsMap } from "./interfaces";
-//import { LspDocuments } from "./document";
 import { initializeParser } from "./parser";
-//import { MyAnalyzer } from "./analyse";
 import { Analyzer } from "./analyze";
-import { getAllFishLocations } from "./utils/locations";
 import { logger } from "./logger";
 import { buildBuiltins, buildDefaultCompletions, buildRegexCompletions, Completion, getShellCompletions, insideStringRegex } from "./completion";
-import { createTextDocumentFromFilePath } from "./utils/io";
-import {
-    ClientCapabilities,
-    createConnection,
-    InitializeParams,
-    ProposedFeatures,
-    TextDocuments,
-    TextDocumentSyncKind,
-    ServerCapabilities,
-    TextDocumentPositionParams,
-    CompletionParams,
-    TextDocumentChangeEvent,
-    Connection,
-    InitializedParams,
-    RemoteConsole,
-    CompletionList,
-    CompletionItem,
-    MarkedString,
-    MarkupContent,
-    SignatureHelp,
-    CompletionItemKind,
-    SignatureHelpParams,
-    DocumentSymbolParams,
-    SymbolInformation,
-    DefinitionParams,
-    Location,
-    LocationLink,
-    ReferenceParams,
-    DocumentSymbol,
-} from "vscode-languageserver/node";
+import { ClientCapabilities, createConnection, InitializeParams, ProposedFeatures, TextDocuments, TextDocumentSyncKind, ServerCapabilities, TextDocumentPositionParams, CompletionParams, TextDocumentChangeEvent, Connection, InitializedParams, RemoteConsole, CompletionList, CompletionItem, MarkedString, MarkupContent, SignatureHelp, CompletionItemKind, SignatureHelpParams, DocumentSymbolParams, SymbolInformation, DefinitionParams, Location, LocationLink, ReferenceParams, DocumentSymbol, } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
-import {CliOptions, Context, TreeByUri} from './interfaces';
+//import {CliOptions, Context, TreeByUri} from './interfaces';
 import { SyntaxNode } from 'web-tree-sitter';
 import {URI} from 'vscode-uri';
 import { DocumentManager, getRangeFromPosition } from './document';
-import {ancestorMatch, descendantMatch, firstAncestorMatch, getChildNodes, getNodeText, getRange} from './utils/tree-sitter';
-import {findFunctionScope, findParentCommand, isCommand, isFunctionDefinintion, isLocalVariable, isQuoteString, isRegexArgument, isStatement, isVariable} from './utils/node-types';
-import { FishCompletionItem, FishCompletionItemKind, handleCompletionResolver, isBuiltIn} from './utils/completion-types';
+import { ancestorMatch, descendantMatch, firstAncestorMatch, getChildNodes, getNodeText, getRange } from './utils/tree-sitter';
+import { findFunctionScope, findParentCommand, isCommand, isFunctionDefinintion, isLocalVariable, isQuoteString, isRegexArgument, isStatement, isVariable } from './utils/node-types';
+import { FishCompletionItem, FishCompletionItemKind, handleCompletionResolver, isBuiltIn } from './utils/completion-types';
 import { FilepathResolver } from './utils/filepathResolver';
 import { CompletionItemBuilder, parseLineForType } from './utils/completionBuilder';
-//import {isBuiltin} from './utils/builtins';
 import { documentationHoverProvider, enrichToCodeBlockMarkdown, enrichToMarkdown } from './documentation';
 import { execCommandDocs, execCommandType, execFindDependency } from './utils/exec';
 import { getDefaultSignatures, signatureIndex } from './signature';
-import {findGlobalDefinition, findLocalDefinition, findVariableDefinition, getDocumentSymbols, getLocalSymbols, getReferences} from './symbols';
+import { findGlobalDefinition, findLocalDefinition, findVariableDefinition, getDocumentSymbols, getLocalSymbols, getReferences } from './symbols';
 
 
 
@@ -114,7 +77,6 @@ export default class FishServer {
         this.docs = docs;
         this.completion = completion;
         this.signature = getDefaultSignatures();
-        //this.symbolMap = new Map<SyntaxNode, DocumentSymbol[]>();
     }
 
 
@@ -140,8 +102,6 @@ export default class FishServer {
                 triggerCharacters: ["'", '"', "[", ":"],
             },
             documentSymbolProvider: true,
-            //workspaceSymbolProvider: true,
-            //referencesProvider: true,
         };
     }
 
@@ -198,9 +158,9 @@ export default class FishServer {
             logger.log(doc.getText())
             this.analyzer.analyze(doc);
         })
-
     }
 
+    // @TODO: REFACTOR THIS OUT OF SERVER
     // what you've been looking for:
     //      fish_indent --dump-parse-tree test-fish-lsp.fish
     // https://github.com/Dart-Code/Dart-Code/blob/7df6509870d51cc99a90cf220715f4f97c681bbf/src/providers/dart_completion_item_provider.ts#L197-202
