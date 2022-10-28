@@ -1,9 +1,9 @@
 import FastGlob  from 'fast-glob';
 import {homedir} from 'os';
-import { CompletionItem, CompletionItemKind, MarkupContent } from 'vscode-languageserver';
-import {FishCompletionItemType} from '../completion';
+import { Command, CompletionItem, CompletionItemKind, MarkupContent, SymbolKind } from 'vscode-languageserver';
+//import {FishCompletionItemType} from '../completion';
 import {logger} from '../logger';
-import {FishCompletionItemKind, fishCompletionItemKindMap, isBuiltIn, isGlobalFunction} from './completion-types';
+import {FishCompletionItemKind, isBuiltIn} from './completion-types';
 
 export const toCompletionKind: Record<FishCompletionItemKind, CompletionItemKind> = {
     [FishCompletionItemKind.ABBR]: CompletionItemKind.Interface,                // interface
@@ -29,7 +29,14 @@ export interface FishCompletionItem extends CompletionItem {
         fishKind?: FishCompletionItemKind; // VERBOSE form of kind
         localSymbol?: boolean;
     }
-    create: () => {}
+}
+
+
+function completionSignatureHelp(): Command {
+    return {
+        title: 'String regex patterns',
+        command: 'editor.action.triggerParameterHints'
+    }
 }
 
 export class CompletionItemBuilder {
@@ -78,9 +85,21 @@ export class CompletionItemBuilder {
         return this;
     }
 
+    public symbolInfoKind(symbolKind: SymbolKind) {
+        if (symbolKind === SymbolKind.Function) {
+            this._item.kind = CompletionItemKind.Function;
+        } else if (symbolKind === SymbolKind.Variable) {
+            this._item.kind = CompletionItemKind.Variable;
+        }
+        return this;
+    }
+
     public kind(fishKind: FishCompletionItemKind) {
         this._item.kind = toCompletionKind[fishKind];
         this._item.data.fishKind = fishKind;
+        if (fishKind === FishCompletionItemKind.ABBR) {
+            this.commitCharacters([';', '\t', ' '])
+        }
         return this;
     }
 
@@ -100,13 +119,28 @@ export class CompletionItemBuilder {
         return this;
     }
 
+    /**
+     * only inserted on ABBR items
+     */
     public insertText(textToInsert: string) {
-        this._item.insertText = textToInsert;
+        if (this._item.data.fishKind === FishCompletionItemKind.ABBR) {
+            this._item.insertText = textToInsert;
+        }
         return this;
     }
 
     public localSymbol() {
         this._item.data.localSymbol = true;
+        return this;
+    }
+
+    public addSignautreHelp(cmdText: string) {
+        if (cmdText === 'string' && (this._item.label === '--regex' || this._item.label === '-r')) {
+            this._item.command = completionSignatureHelp();
+        }
+        if (cmdText === 'regexItem') {
+            this._item.command = completionSignatureHelp();
+        }
         return this;
     }
 
@@ -121,42 +155,6 @@ export class CompletionItemBuilder {
 //     cmp2
 //     cmp3\tdescription
 // where completions are split by tab characters, and descriptions are optional.
-export type TerminalCompletionOutput = [string, ...string[]];
-
-function splitDescription(...description: string[]): TerminalCompletionOutput {
-    if (description === undefined || description.length == 0) {
-        return ["", ""]
-    }
-    if (description.length === 1) {
-        return [description[0], ""]
-    }
-    return [description[0], description.slice(1).join(' ')]
-
-}
-
-function parseDescriptionKeywords(firstItem: string, ...description: string[]): [string, ...string[]] {
-    if (description === undefined) {
-        return [""]
-    }
-    if (!firstItem || firstItem === "") {
-        return [""];
-    } else {
-        description.push(...[" ", " "])
-        //logger.log("lastIndex " + firstItem.lastIndexOf(":"))
-        let fixedItem = ""  // .substring(0, firstItem.lastIndexOf(":")) || ""
-        fixedItem += firstItem
-        if (firstItem.includes(":")) {
-            fixedItem.replace(/[^A-Za-z0-9]/g, '')
-            //fixedItem = firstItem.substring(0, firstItem.lastIndexOf(":"))
-        }
-        //const possibleDescriptionName = description.split(' ', 1);
-        if (description.length > 0) { 
-            return [fixedItem.toLowerCase(), description[0] || ""]
-        } else {
-            return [firstItem]
-        }
-    } 
-}   
 
 /**
  * Retrieves a FishCompletionItemKind for a line of shell output. 
@@ -171,6 +169,9 @@ function parseDescriptionKeywords(firstItem: string, ...description: string[]): 
  */
 export function parseLineForType(label: string, keyword: string, otherInfo: string) : FishCompletionItemKind{
     let labelType =  getTypeFromLabel(label);
+    if (otherInfo === "set") {
+        return FishCompletionItemKind.GLOBAL_VAR
+    }
     let docType = getTypeFromDocumentation(keyword, otherInfo)
     return labelType !== null ? labelType : docType
 }
@@ -194,13 +195,15 @@ function getTypeFromDocumentation(keyword: string, otherInfo: string) {
         case 'command': 
             return otherInfo.length >= 1 ? FishCompletionItemKind.CMD_NO_DOC : FishCompletionItemKind.CMD
         case 'variable': 
-            return isGlobalFunction() ?  FishCompletionItemKind.GLOBAL_FUNC : FishCompletionItemKind.USER_FUNC
+            //return isGlobalFunction() ?  FishCompletionItemKind.GLOBAL_FUNC : FishCompletionItemKind.USER_FUNC
+            return FishCompletionItemKind.GLOBAL_VAR
         case 'alias': 
             return FishCompletionItemKind.ALIAS
         case 'abbreviation':
             return FishCompletionItemKind.ABBR
         default:
-            return isGlobalFunction() ?  FishCompletionItemKind.GLOBAL_FUNC : FishCompletionItemKind.RESOLVE
+            //return isGlobalFunction() ?  FishCompletionItemKind.GLOBAL_FUNC : FishCompletionItemKind.RESOLVE
+            return FishCompletionItemKind.GLOBAL_FUNC
     }
 
 }

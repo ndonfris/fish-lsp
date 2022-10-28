@@ -16,7 +16,6 @@ import {
     enrichToCodeBlockMarkdown,
     HoverFromCompletion,
 } from "./documentation";
-import {Context} from './interfaces';
 import {
     CompletionArguments,
     execFindDependency,
@@ -35,8 +34,12 @@ import {
     isVariableDefintion,
     hasParentFunction,
     isStatement,
+    isRegexArgument,
+    isQuoteString,
+    isError,
 } from "./utils/node-types";
 import {
+    descendantMatch,
     findNodeAt,
     getChildNodes,
     getNodeText,
@@ -75,13 +78,20 @@ export class Analyzer {
     //}
 
     public analyze(document: TextDocument) {
-        delete this.uriTree[document.uri];
+        //delete this.uriTree[document.uri];
+        //if (this.uriTree[document.uri] === undefined) {
+            //const tree = this.parser.parse(document.getText())
+            //this.uriTree[document.uri] = tree;
+        //} else {
+        //}
+        this.parser.reset();
         const tree = this.parser.parse(document.getText())
         this.uriTree[document.uri] = tree;
+        //this.uriTree[document.uri] = this.parser.parse(document.getText());
     }
 
-    getRoot(document: TextDocument) {
-        return this.uriTree[document.uri].rootNode
+    getRoot(uri: string) {
+        return this.uriTree[uri].rootNode
     }
 
     getLocalNodes(document: TextDocument) {
@@ -100,15 +110,17 @@ export class Analyzer {
     public currentLine(
         document: TextDocument,
         position: Position
-    ): string {
+    ): TextDocument {
         const currDoc = document.uri;
         const currRange = getRangeFromPosition(position);
-        if (currDoc === undefined) return ""
-        //const row = position.line;
-        //const col = position.character;
-        //const currText = document.getText().split('\n').at(row)?.substring(0, col + 1) || "";
+        if (currDoc === undefined) return this.blockToDocument('') 
         const currText = document.getText(currRange)
-        return currText;
+        const currDocument = this.blockToDocument(currText)
+        return currDocument;
+    }
+
+    public blockToDocument(textBlock: string) {
+        return TextDocument.create('current-document', "fish", 0, textBlock);
     }
 
 
@@ -121,6 +133,22 @@ export class Analyzer {
             contents: enrichToCodeBlockMarkdown(result.text, 'fish'),
             range: getRange(result),
         };
+    }
+
+    public isStringRegex(
+        uri: string,
+        line: number,
+        column: number
+    ): boolean {
+        const node = this.boundaryCheckNode(uri, line, column)
+        if (!node) {
+            return false;
+        }
+        const cmdNode = findParentCommand(node);
+        if (!cmdNode) {
+            return false;
+        }
+        return cmdNode?.child(0)?.text == "string" && descendantMatch(cmdNode, child => isRegexArgument(child)).length > 0
     }
 
     //public async getHover(tree: SyntaxTree, params: TextDocumentPositionParams): Promise<Hover | void> {
@@ -170,7 +198,74 @@ export class Analyzer {
             return null;
         }
 
+        //const node = tree.rootNode.descendantForPosition({row: line, column})
+        //if (node.type === "ERROR") {
+        //}
         return tree.rootNode.descendantForPosition({ row: line, column });
+    }
+
+    public namedNodeAtPoint(
+        uri: string,
+        line: number,
+        column: number
+    ): Parser.SyntaxNode | null {
+        const tree = this.uriTree[uri]
+
+        // Check for lacking rootNode (due to failed parse?)
+        if (!tree?.rootNode) {
+            return null;
+        }
+        return tree.rootNode.namedDescendantForPosition({ row: line, column });
+    }
+
+    public findCommandNodeAtPoint(document: TextDocument, line: number, column: number): SyntaxNode | null {
+        const node = this.nodeAtPoint(document.uri, line, column);
+        if (!node) return null;
+        if (isError(node) || isError(node.parent)) {
+            let newCol = column - 1;
+            let currentTree = removeLastToken(this.parser, this.currentLine(document, { line, character: newCol }))
+            while (newCol > 0) {
+                const currentNode = findNodeAt(currentTree, line, newCol);
+                const newDoc = this.currentLine(document, { line, character: newCol })
+                const shortendDoc = removeLastToken(this.parser, newDoc)
+                const newDocCurrLine = shortendDoc.rootNode
+                //const newDocRoot = this.parser.parse(this.currentLine(document, { line, character: newCol }).getText())
+                const newNode = findNodeAt(shortendDoc, line, newCol)
+                if (newNode) {
+                    const parentCommand = findParentCommand(newNode);
+                    if (parentCommand) {
+                        return parentCommand;
+                    }
+                }
+                newCol--;
+            }
+            return null;
+        }  
+        //if (node.type)
+        return findParentCommand(node);
+    }
+
+    public boundaryCheckNode(
+        uri: string,
+        line: number,
+        column: number
+    ): Parser.SyntaxNode | null {
+        const tree = this.uriTree[uri]
+
+        // Check for lacking rootNode (due to failed parse?)
+        if (!tree?.rootNode) {
+            return null;
+        } 
+        let currColumn = column;
+        while (currColumn > 0) {
+            let currNode = this.nodeAtPoint(uri, line, currColumn)
+            if (currNode != null) {
+               return currNode; 
+            }
+            currColumn--;
+        }
+        return null
+
     }
 
     /**
@@ -193,6 +288,13 @@ export class Analyzer {
 
 }
 
+function removeLastToken(parser: Parser, document: TextDocument) {
+    const str = document.getText();
+    const tokenArr = str.split(" ");
+    tokenArr.pop();
+    return parser.parse(tokenArr.join(" "));
+}
+
 
 function firstNodeBeforeSecondNodeComaprision(
     firstNode: SyntaxNode,
@@ -200,8 +302,8 @@ function firstNodeBeforeSecondNodeComaprision(
 ) {
     return (
         firstNode.startPosition.row < secondNode.startPosition.row &&
-        firstNode.startPosition.column < secondNode.startPosition.column &&
-        firstNode.text == secondNode.text
+            firstNode.text == secondNode.text
+        //firstNode.startPosition.column < secondNode.startPosition.column &&
     );
 }
 
@@ -209,6 +311,12 @@ function firstNodeBeforeSecondNodeComaprision(
 //    return newArray.filter((node) => !oldArray.includes(node));
 //}
 
+/** 
+ * SyntaxTree is necessary because the parse will retrieve node at the given position
+ * with type of word, this instead stores from top down, so we get node types of:
+ * command, function, variable, variable_definition, etc.
+ * Think of better data-structure though and provide method to get completionItems 
+ */
 export class SyntaxTree {
     public rootNode: SyntaxNode;
     public tree: Tree;
@@ -223,7 +331,6 @@ export class SyntaxTree {
     constructor(tree: Parser.Tree) {
         this.tree = tree;
         this.rootNode = this.tree.rootNode;
-        this.tree = this.tree;
         this.clearAll();
         this.ensureAnalyzed();
     }

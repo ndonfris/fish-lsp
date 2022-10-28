@@ -1,5 +1,5 @@
 .DS_Store
-lib
+out
 node_modules
 *.log
 *.tsbuildinfo

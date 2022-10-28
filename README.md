@@ -24,6 +24,14 @@
 - [ ] [analysis.ts]( ./src/analyzer.ts )
 - [ ] fish-lsp-client.ts (NOT YET IMPLEMENTED)
 - [ ] diagnostics.ts
+- [ ] completion.ts - extract from server.ts
+- [x] DocumentSymbols - could implement better scope detection 
+    - [x] completionItem
+    - [x] definition
+    - [x] refrences
+    - [ ] rename
+    - [ ] hover
+
 - _Restructuring_ || _TODO_ || _NOTES_
     - you could move `node-types` to parser __??__
     - fix `interfaces.ts` to just have interfaces, and to have a better `context`

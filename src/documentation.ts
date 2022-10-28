@@ -1,3 +1,4 @@
+import {CompletionItem} from 'vscode-languageserver';
 import {Hover, MarkupContent, MarkupKind} from 'vscode-languageserver-protocol/node';
 import {SyntaxNode} from 'web-tree-sitter';
 import {hasPossibleSubCommand} from './utils/builtins';
@@ -28,6 +29,22 @@ export function enrichToCodeBlockMarkdown(doc: string, filetype:markdownFiletype
     }
 }
 
+
+export function enrichWildcard(label: string, documentation: string, examples: [string, string][]): MarkupContent {
+    const exampleStr: string[] = ['---'];
+    for (const [cmd, desc] of examples) {
+        exampleStr.push(`__${cmd}__ - ${desc}`)
+    }
+    return {
+        kind: MarkupKind.Markdown,
+        value: [
+            `_${label}_ ${documentation}`,
+            '---',
+            exampleStr.join('\n')
+        ].join('\n')
+    }
+
+}
 
 export function enrichCommandArg(doc: string): MarkupContent {
     const docArr = doc.split('\t', 1);

@@ -15,9 +15,22 @@ export function isFunctionDefinintion(node: SyntaxNode): boolean {
 export function isCommand(node: SyntaxNode): boolean {
     return [
         'command',
-        'test_command'
+        'test_command',
+        'command_substitution',
     ].includes(node.type);
 }
+
+export function isProgram(node: SyntaxNode): boolean {
+    return node.type == 'program' || node.parent == null;
+}
+
+export function isError(node: SyntaxNode | null = null): boolean {
+    if (node ) {
+        return node.type == 'ERROR';
+    }
+    return false;
+}
+
 
 export function isStatement(node: SyntaxNode): boolean {
     return [
@@ -30,6 +43,12 @@ export function isStatement(node: SyntaxNode): boolean {
     ].includes(node.type);
 }
 
+export function isString(node: SyntaxNode) {
+    return [
+        'double_quote_string',
+        'single_quote_string',
+    ].includes(node.type)
+}
 
 /*
  * Checks for nodes which should stop the search for 
@@ -60,13 +79,16 @@ export function isVariable(node: SyntaxNode) {
  * @param {SyntaxNode} node - the node to check for its parent
  * @returns {SyntaxNode | null} command node or null
  */
-export function findParentCommand(node: SyntaxNode): SyntaxNode | null {
-    let currentNode: SyntaxNode = node;
-    while (currentNode.parent != null) {
+export function findParentCommand(node?: SyntaxNode): SyntaxNode | null {
+    let currentNode: SyntaxNode | null | undefined = node;
+    if (!currentNode) {
+        return null;
+    }
+    while (currentNode) {
         if (isCommand(currentNode)) {
             return currentNode;
-        } else if (isBeforeCommand(currentNode)) {
-            return null
+        //} else if (isBeforeCommand(currentNode)) {
+            //return null
         }
         currentNode = currentNode.parent;
     }
@@ -88,13 +110,15 @@ export function isVariableDefintion(node: SyntaxNode): boolean {
     if (isCommand(node) && node.child(0)?.text == 'set') {
         return false;
     } else {
-        const parent = findParentCommand(node)
+        const parent = findParentCommand(node) 
         if (!parent) {
             return false;
         } 
         if (isCommand(parent) && parent?.child(0)?.text == 'set') {
             return findDefinedVariable(parent)?.text == node?.text; 
         }
+        //if (isFunctionDefinintion(parent) &&  parent?.child(0)?.text == 'read') {
+        //}
         return false;
     }
 }
@@ -128,7 +152,33 @@ export function findDefinedVariable(node: SyntaxNode): SyntaxNode | null {
     return child;
 }
 
+export function findReadDefinedVariable(node: SyntaxNode): SyntaxNode | null {
+    let parent = findParentCommand(node);
+    if (!parent) return null;
 
+    //const
+
+    //const seenList: boolean = parent.children.filter((child) => child.text == '-a' || child.text == '--list').length > 0;
+
+    // regex string for: read --local var --global var2 
+    const regex = /(\s+\w+)\s+--(local|global|universal)\s+([a-zA-Z0-9_]+)\s.*/g;
+
+    const children: SyntaxNode[] = parent.children
+    let i = 1;
+    let child : SyntaxNode = children[i]!;
+
+    while (child != undefined) {
+        if (!child.text.startsWith('-') ) {
+            return child
+        }
+        if (i == children.length - 1) {
+            return null
+        }
+        child = children[i++]!;
+    }
+
+    return child;
+}    
 
 // global nodes are nodes that are not defined in a function
 // (i.e. stuff in config.fish)
@@ -166,6 +216,16 @@ export function findFunctionScope(node: SyntaxNode) {
         node = node.parent;
     }
     return node
+}
+
+// node1 encloses node2
+export function scopeCheck(node1: SyntaxNode , node2: SyntaxNode) : boolean {
+    const scope1 = findFunctionScope(node1);
+    const scope2 = findFunctionScope(node2);
+    if (isProgram(scope1)) {
+        return true;
+    }
+    return scope1 == scope2;
 }
 
 export function findLastVariableRefrence(node: SyntaxNode) {
@@ -235,4 +295,23 @@ function isCommandArg(node: SyntaxNode) {
     ].includes(node.type)
 }
 
+export function isCommandFlag(node: SyntaxNode) {
+    return [
+        'test_option',
+        'word',
+        'escape_sequence',
+    ].includes(node.type) || node.text.startsWith('-') || findParentCommand(node) !== null;
+}
+
+
+export function isRegexArgument(n: SyntaxNode): boolean {
+    return n.text === '--regex' || n.text === '-r';
+}
+
+export function isQuoteString(n: SyntaxNode): boolean {
+    return [
+        'double_quote_string',
+        'single_quote_string',
+    ].includes(n.type);
+}
 

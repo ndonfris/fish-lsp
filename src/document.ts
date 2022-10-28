@@ -252,6 +252,21 @@ export function getRangeFromPosition(position: Position) : Range {
 }
 
 
+export function getRangeWithoutLastPosition(position: Position) : Range {
+    const rStart = {
+        line: position.line,
+        character: 0,
+    }
+    const rEnd = {
+        line: position.line,
+        character: position.character,
+    }
+    return {
+        start: rStart,
+        end: rEnd,
+    }
+}
+
 
 
 //export enum FishFileType {

@@ -1,0 +1,57 @@
+Fri Oct 28 01:23:33 PM CDT 2022
+
+
+[Logger] set console to RemoteConsole: 2022-10-28T18:23:37.533Z
+onDidOpenTextDocument
+server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDidChangeTextDocument
+onDidChangeTextDocument
+onDidChangeTextDocument
+onDidChangeTextDocument
+onDocumentSymbols
+onDidChangeTextDocument
+onDidChangeTextDocument
+onDocumentSymbols
+server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDidChangeTextDocument
+server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDidChangeTextDocument
+server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDidChangeTextDocument
+server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDidChangeTextDocument
+server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDidChangeTextDocument
+server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDidChangeTextDocument
+onDocumentSymbols
+getDefinition
+{
+	node: argv
+	type: variable_name
+	start: (10, 50)
+	end: (10, 54)
+}
+onDidChangeTextDocument
+server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDidChangeTextDocument
+onDocumentSymbols
+onDidChangeTextDocument
+onDocumentSymbols
+server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDidChangeTextDocument
+server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDidChangeTextDocument
+onDidChangeTextDocument
+onDocumentSymbols
+onDidChangeTextDocument
+onDidChangeTextDocument
+onDocumentSymbols
+server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols

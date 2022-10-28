@@ -1,22 +1,52 @@
 import Parser from "web-tree-sitter";
+//import { getInitializedHandler } from "./handlers/getInitializedHandler";
+//import { handleInitialized } from "./handlers/handleInitialized";
+//import { getHandleHover } from "./handlers/handleHover";
+//import { AstsMap, CliOptions, Context, DocsMap, RootsMap } from "./interfaces";
+//import { LspDocuments } from "./document";
 import { initializeParser } from "./parser";
+//import { MyAnalyzer } from "./analyse";
 import { Analyzer } from "./analyze";
+import { getAllFishLocations } from "./utils/locations";
 import { logger } from "./logger";
-import { buildBuiltins, buildDefaultCompletions, buildRegexCompletions, documentSymbolToCompletionItem, generateShellCompletionItems, getShellCompletions, insideStringRegex, } from "./completion";
-import { ClientCapabilities, createConnection, InitializeParams, ProposedFeatures, TextDocuments, TextDocumentSyncKind, ServerCapabilities, TextDocumentPositionParams, CompletionParams, TextDocumentChangeEvent, Connection, InitializedParams, RemoteConsole, CompletionList, CompletionItem, MarkedString, MarkupContent, SignatureHelp, CompletionItemKind, SignatureHelpParams, DocumentSymbolParams, SymbolInformation, DefinitionParams, Location, LocationLink, ReferenceParams, DocumentSymbol, } from "vscode-languageserver/node";
+import { buildBuiltins, buildDefaultCompletions, buildRegexCompletions, Completion, getShellCompletions, insideStringRegex } from "./completion";
+import { createTextDocumentFromFilePath } from "./utils/io";
+import {
+    ClientCapabilities,
+    createConnection,
+    InitializeParams,
+    ProposedFeatures,
+    TextDocuments,
+    TextDocumentSyncKind,
+    ServerCapabilities,
+    TextDocumentPositionParams,
+    CompletionParams,
+    TextDocumentChangeEvent,
+    Connection,
+    InitializedParams,
+    RemoteConsole,
+    CompletionList,
+    CompletionItem,
+    MarkedString,
+    MarkupContent,
+    SignatureHelp,
+    CompletionItemKind,
+    SignatureHelpParams,
+} from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
-//import {CliOptions, Context, TreeByUri} from './interfaces';
+import {CliOptions, Context, TreeByUri} from './interfaces';
 import { SyntaxNode } from 'web-tree-sitter';
 import {URI} from 'vscode-uri';
 import { DocumentManager, getRangeFromPosition } from './document';
-import { ancestorMatch, descendantMatch, firstAncestorMatch, getChildNodes, getNodeText, getRange } from './utils/tree-sitter';
-import { findFunctionScope, findParentCommand, isCommand, isFunctionDefinintion, isLocalVariable, isQuoteString, isRegexArgument, isStatement, isVariable } from './utils/node-types';
-import { FishCompletionItem, FishCompletionItemKind, } from './utils/completion-types';
+import {ancestorMatch, descendantMatch, firstAncestorMatch, getChildNodes, getNodeText} from './utils/tree-sitter';
+import {findParentCommand, isCommand, isLocalVariable, isQuoteString, isRegexArgument, isStatement, isVariable} from './utils/node-types';
+import { FishCompletionItem, FishCompletionItemKind, handleCompletionResolver, isBuiltIn} from './utils/completion-types';
 import { FilepathResolver } from './utils/filepathResolver';
+import { CompletionItemBuilder, parseLineForType } from './utils/completionBuilder';
+//import {isBuiltin} from './utils/builtins';
 import { documentationHoverProvider, enrichToCodeBlockMarkdown, enrichToMarkdown } from './documentation';
-import { execCommandDocs, execCommandType, execFindDependency } from './utils/exec';
-import { getDefaultSignatures, signatureIndex } from './signature';
-import { findGlobalDefinition, findLocalDefinition, getNearestSymbols, getReferences } from './symbols';
+import { execCommandDocs, execCommandType } from './utils/exec';
+import { getDefaultSignatures, regexStringSignature } from './signature';
 
 
 
@@ -34,10 +64,10 @@ export default class FishServer {
         return Promise.all([
             new Analyzer(parser),
             DocumentManager.indexUserConfig(connection.console),
-            //Completion.initialDefaults(),
+            Completion.initialDefaults(),
         ]).then(
-            ([analyzer, docs]) =>
-            new FishServer(connection, parser, analyzer, docs)
+            ([analyzer, docs, completion]) =>
+            new FishServer(connection, parser, analyzer, docs, completion)
         );
     }
 
@@ -65,16 +95,15 @@ export default class FishServer {
     private signature: SignatureHelp;
 
     // completionHandler
-    //private completion: Completion;
-    private symbolMap: Map<SyntaxNode, DocumentSymbol[]> = new Map();
+    private completion: Completion;
 
-    constructor(connection: Connection, parser : Parser, analyzer: Analyzer, docs: DocumentManager ) {
+    constructor(connection: Connection, parser : Parser, analyzer: Analyzer, docs: DocumentManager , completion: Completion) {
         this.connection = connection;
         this.console = this.connection.console;
         this.parser = parser;
         this.analyzer = analyzer;
         this.docs = docs;
-        //this.completion = completion;
+        this.completion = completion;
         this.signature = getDefaultSignatures();
     }
 
@@ -86,21 +115,20 @@ export default class FishServer {
             // for partial updates.
             textDocumentSync: TextDocumentSyncKind.Full,
             completionProvider: {
-
                 resolveProvider: true,
-                triggerCharacters: ["."],
-                //triggerCharacters: ["$", "-", "\\"],
+                triggerCharacters: ["$", "-", "\\"],
                 allCommitCharacters: [";", " ", "\t"],
                 workDoneProgress: true,
             },
             hoverProvider: true,
             documentHighlightProvider: true,
             definitionProvider: true,
-            referencesProvider: true,
             signatureHelpProvider: {
-                triggerCharacters: ["'", '"', "[", ":"],
-            },
-            documentSymbolProvider: true,
+                triggerCharacters: ["'", '"'],
+            }
+            //documentSymbolProvider: true,
+            //workspaceSymbolProvider: true,
+            //referencesProvider: true,
         };
     }
 
@@ -117,10 +145,10 @@ export default class FishServer {
         this.connection.onDidChangeTextDocument(async change => {
             const uri = change.textDocument.uri;
             let doc = await this.docs.openOrFind(uri);
-            logger.log(this.connection.onDidChangeTextDocument.name);
+            logger.log(this.connection.onDidChangeTextDocument.name, {extraInfo: [doc.uri, '\nchanges:', ...change.contentChanges.map(c => c.text)]})
             doc = TextDocument.update(doc, change.contentChanges, change.textDocument.version);
             this.analyzer.analyze(doc);
-            //const root = this.analyzer.getRoot(doc)
+            const root = this.analyzer.getRoot(doc)
             // do More stuff
         });
 
@@ -144,11 +172,8 @@ export default class FishServer {
         //this.connection.onCompletion(this.onDefaultCompletion.bind(this))
         this.connection.onCompletion(this.onCompletion.bind(this))
         this.connection.onCompletionResolve(this.onCompletionResolve.bind(this));
-        this.connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
+        this.connection.onSignatureHelp(this.onShowSignatureHelp.bind(this))
 
-        this.connection.onDocumentSymbol(this.onDocumentSymbols.bind(this));
-        this.connection.onDefinition(this.onDefinition.bind(this));
-        this.connection.onReferences(this.onReferences.bind(this));
         this.docs.documents.onDidChangeContent(async change => {
             const document = change.document;
             const uri = document.uri;
@@ -157,9 +182,9 @@ export default class FishServer {
             logger.log(doc.getText())
             this.analyzer.analyze(doc);
         })
+
     }
 
-    // @TODO: REFACTOR THIS OUT OF SERVER
     // what you've been looking for:
     //      fish_indent --dump-parse-tree test-fish-lsp.fish
     // https://github.com/Dart-Code/Dart-Code/blob/7df6509870d51cc99a90cf220715f4f97c681bbf/src/providers/dart_completion_item_provider.ts#L197-202
@@ -175,42 +200,87 @@ export default class FishServer {
     // • Add default CompletionLists to complete.ts
     // • Add local file items.
     // • Lastly add parameterInformation items.  [ 1477 : ParameterInformation ]
-    public async onCompletion(params: CompletionParams):  Promise<CompletionList | null>{
-        const uri: string = params.textDocument.uri;
-        //logger.log(`completionParams.context.triggerKind: ${params.context?.triggerKind}`)
-        logger.log('server.onComplete' + uri);
+    public async onCompletion(completionParams: CompletionParams):  Promise<CompletionList | null>{
+        const uri: string = completionParams.textDocument.uri;
+        const position = completionParams.position;
+        logger.log(`completionParams.context.triggerKind: ${completionParams.context?.triggerKind}`)
 
+        logger.log('server.onComplete' + uri)
         const doc = await this.docs.openOrFind(uri);
-        const documentLine: TextDocument = this.analyzer.currentLine(doc, params.position) || " ";
-        const line = documentLine.getText();
+        //const node: SyntaxNode | null = this.analyzer.nodeAtPoint(doc.uri, position.line, position.character - 2); // better way to do this below
+
+        //const currnode = this.analyzer.boundaryCheckNode(uri, position.line, position.character)
+
+        //const r = getRangeFromPosition(completionParams.position);
+        this.connection.console.log('on complete node: ' + doc.uri || "" )
+
+        const documentLine: TextDocument = this.analyzer.currentLine(doc, completionParams.position) || " "
+        const line = documentLine.getText()
 
         if (line.trimStart().startsWith("#")) {
             return null;
         }
 
-
-        const root = this.parser.parse(doc.getText()).rootNode;
-
-        const lineToParse = line.trimEnd();
-        const currNode = this.parser.parse(lineToParse).rootNode.descendantForPosition({row: 0, column: lineToParse.length - 1});
-
-        const items: CompletionItem[] = [
-            ...documentSymbolToCompletionItem(getNearestSymbols(root, currNode), doc),
-            ...buildDefaultCompletions(),
-        ];
-
+        logger.log('line' + line)
+        const items: CompletionItem[] = []
         if (insideStringRegex(line)) {
             logger.log(`insideStringRegex: ${true}`)
             items.push(...buildRegexCompletions())
             return CompletionList.create(items, true)
         }
-        const shellItems: CompletionItem[] = await generateShellCompletionItems(line, currNode);
-        if (shellItems.length > 0) {
-            items.push(...shellItems)
-            return CompletionList.create(items, true)
+        
+        try {
+            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
+            // right here parse the line forward for the last command in the scope !!!
+            let cmdNode = null;
+            const output = await getShellCompletions(line)
+            const lineToParse = line.trimEnd();
+            const root = this.parser.parse(lineToParse).rootNode;
+            const currNode = root.namedDescendantForPosition({row: 0, column: lineToParse.length - 1})
+
+            const cmp = new CompletionItemBuilder()
+            const commandNode = firstAncestorMatch(currNode, n => isCommand(n));
+
+            if (commandNode) {
+                logger.log(' commandNode: ' + commandNode.text)
+            } else {
+                logger.log(` firstAncestorMatch(${currNode.text}, isCommand) failed `)
+            }
+            let cmdText = commandNode?.text.replace(/\s+(\w+)\s+.*/, '') || "";
+
+            let fishKind = FishCompletionItemKind.FLAG;
+            for (const [label, desc, other] of output) {
+                const otherText = other.length > 0 ? other : cmdText
+                fishKind = parseLineForType(label, desc, otherText)
+                if (commandNode && (fishKind != FishCompletionItemKind.LOCAL_VAR && fishKind != FishCompletionItemKind.GLOBAL_VAR)) {
+                    fishKind = FishCompletionItemKind.FLAG;
+                }
+                const cmpBuilder = cmp.create(label)
+                    .documentation([desc, other].join(' '))
+                    .kind(fishKind)
+                    .originalCompletion([label, desc].join('\t') + ' ' + other)
+                if (cmdText === 'string' && (label === '--regex' || label === '-r')) {
+                    cmpBuilder.addSignautreHelp()
+                }
+                switch (fishKind) {
+                    case FishCompletionItemKind.ABBR: 
+                        cmpBuilder.insertText(other)
+                        cmpBuilder.commitCharacters([';', " "])
+                        break
+                    default:
+                        break
+                }
+                items.push(cmpBuilder.build())
+                cmp.reset()
+            }
+        } catch (e) {
+            this.connection.console.log("error" + e)
+            this.connection.console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+            this.connection.console.log(doc.getText())
+            this.connection.console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+            return CompletionList.create(buildDefaultCompletions(), true)
         }
-        //items.push(...await generateShellCompletionItems(line, currNode));
-        //items.push(...buildBuiltins())
+        items.push(...buildBuiltins())
         return CompletionList.create(items, true)
     }
 
@@ -220,9 +290,6 @@ export default class FishServer {
         let newDoc: string | MarkupContent;
         let typeCmdOutput = ''
         let typeofDoc = ''
-        if (fishItem.data.localSymbol == true) {
-            return item;
-        }
         switch (fishItem.kind) {
             //item.documentation = enrichToCodeBlockMarkdown(fishItem.data?.originalCompletion, 'fish')
             case CompletionItemKind.Constant: 
@@ -255,76 +322,36 @@ export default class FishServer {
     }
 
 
-    // @TODO: fix this to return a signle SignatureHelp object
-    public async onShowSignatureHelp(params: SignatureHelpParams): Promise<SignatureHelp> {
+    public async onShowSignatureHelp(params: SignatureHelpParams): Promise<SignatureHelp | null> {
         const uri: string = params.textDocument.uri;
-        //const position = params.position;
+        const position = params.position;
         const doc = await this.docs.openOrFind(uri);
 
-        const documentLine: string = this.analyzer.currentLine(doc, params.position).getText().trimStart() || " "
-        //const line = documentLine.getText().trimStart()
+        const documentLine: TextDocument = this.analyzer.currentLine(doc, params.position) || " "
+        const line = documentLine.getText().trimStart()
         //const root = this.parser.parse(line).rootNode;
         //const currNode = root.namedDescendantForPosition({row: 0, column: line.length - 1})
         //const commandNode = firstAncestorMatch(currNode, n => isCommand(n));
-        const lastWord = documentLine.split(/\s+/).pop() || ""
-        if (insideStringRegex(documentLine)) {
-            if (lastWord.includes('[[') && !lastWord.includes(']]') ) {
-                this.signature.activeSignature = signatureIndex["stringRegexCharacterSets"]
-            } else {
-                this.signature.activeSignature = signatureIndex["stringRegexPatterns"]
-            }
-        } else {
-            this.signature.activeSignature = null;
+        if (insideStringRegex(line)) {
+            this.signature.activeSignature = 
         }
-        this.signature.activeParameter = null;
-        return this.signature;
+
+        return null;
     }
+}
 
 
-    public async onDocumentSymbols(params: DocumentSymbolParams): Promise<DocumentSymbol[]> {
-        logger.log("onDocumentSymbols");
-        const uri: string = params.textDocument.uri;
-        const doc = await this.docs.openOrFind(uri);
-        const root = this.parser.parse(doc.getText()).rootNode;
-        //this.symbolMap = getDocumentSymbols(root);
-        //const returnSymbols = sym
-        //for (const sym of Array.from(symbols.values())) {
-        //    logger.logDocumentSymbol(sym)
+
+function currentLineRoot(parser: Parser, line: string) {
+    const root = parser.parse(line).rootNode;
+    for (const node of getChildNodes(root)) {
+        logger.log(`scope node: ${node.text}, types: ${node.type}`)
+        //if (isStatement(node)) {
+
         //}
-        //this.symbolMap = new Map<SyntaxNode, DocumentSymbol[]>(symbols);
-        return []
-    }
+        //if (isCommand(node)) {
 
-    public async onDefinition(params: DefinitionParams): Promise<LocationLink[]> {
-        logger.log("getDefinition");
-        const uri: string = params.textDocument.uri;
-        const position = params.position;
-        const doc = await this.docs.openOrFind(uri);
-        const root = this.parser.parse(doc.getText()).rootNode;
-        let node = this.analyzer.nodeAtPoint(uri, position.line, position.character);
-        logger.logNode(node);
-        if (!node) return [];
-        const depedencyUri = await execFindDependency(node.text)
-        const localDefinitions = findLocalDefinition(uri, root, node) || [];
-        if (!depedencyUri) {
-            return localDefinitions
-        }
-        const newDoc = await this.docs.openOrFind(depedencyUri);
-        const newDocRoot = this.parser.parse(newDoc.getText()).rootNode;
-        const globalDefinitions = findGlobalDefinition(newDoc.uri, newDocRoot, node) || [];
-        return [...globalDefinitions, ...localDefinitions ]
-    }
-
-
-    public async onReferences(params: ReferenceParams): Promise<Location[]> {
-        logger.log("onReferences");
-        const uri: string = params.textDocument.uri;
-        const position = params.position;
-        const doc = await this.docs.openOrFind(uri);
-        const root = this.parser.parse(doc.getText()).rootNode;
-        const node = this.analyzer.nodeAtPoint(uri, position.line, position.character);
-        if (!node) return [];
-        return getReferences(uri, root, node) || []
+        //}
     }
 }
 
