@@ -1,446 +1,57 @@
-Fri Oct 28 05:06:55 AM CDT 2022
+Fri Oct 28 01:23:33 PM CDT 2022
 
 
-[Logger] set console to RemoteConsole: 2022-10-28T10:06:57.167Z
+[Logger] set console to RemoteConsole: 2022-10-28T18:23:37.533Z
 onDidOpenTextDocument
-onReferences
-onReferences
-onReferences
-onReferences
-onReferences
-onReferences
-onReferences
-onReferences
+server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDidChangeTextDocument
+onDidChangeTextDocument
+onDidChangeTextDocument
+onDidChangeTextDocument
+onDocumentSymbols
+onDidChangeTextDocument
+onDidChangeTextDocument
+onDocumentSymbols
+server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDidChangeTextDocument
+server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDidChangeTextDocument
+server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDidChangeTextDocument
+server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDidChangeTextDocument
+server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDidChangeTextDocument
+server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDidChangeTextDocument
+onDocumentSymbols
 getDefinition
 {
-	node: found
+	node: argv
 	type: variable_name
-	start: (210, 20)
-	end: (210, 25)
+	start: (10, 50)
+	end: (10, 54)
 }
-getDefinition
-{
-	node: found
-	type: variable_name
-	start: (211, 16)
-	end: (211, 21)
-}
-getDefinition
-{
-	node: path_array
-	type: variable_name
-	start: (233, 27)
-	end: (233, 37)
-}
+onDidChangeTextDocument
+server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
 onDocumentSymbols
-
-[Logger] set console to RemoteConsole: 2022-10-28T10:16:23.291Z
-onDidOpenTextDocument
 onDidChangeTextDocument
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        
- firstAncestorMatch(, isCommand) failed 
+onDocumentSymbols
 onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __
- firstAncestorMatch(__, isCommand) failed 
+onDocumentSymbols
+server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
 onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __u
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __up
- firstAncestorMatch(__u, isCommand) failed 
- firstAncestorMatch(__up, isCommand) failed 
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __up_
- firstAncestorMatch(__up_, isCommand) failed 
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __up_d
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __up_di
- commandNode: __up_d
- commandNode: __up_di
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __up_di
- commandNode: __up_di
-onDidChangeTextDocument
-onDidChangeTextDocument
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __up_di
- commandNode: __up_di
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __up_dir
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __up_dire
- commandNode: __up_dir
- commandNode: __up_dire
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __up_direc
- commandNode: __up_direc
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __up_direco
- commandNode: __up_direco
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __up_directo
- commandNode: __up_directo
-onDidChangeTextDocument
-onDidChangeTextDocument
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __up_
- firstAncestorMatch(__up_, isCommand) failed 
-onDidChangeTextDocument
-onDidChangeTextDocument
+server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
 onDidChangeTextDocument
 onDidChangeTextDocument
 onDocumentSymbols
-
-[Logger] set console to RemoteConsole: 2022-10-28T10:18:09.252Z
-onDidOpenTextDocument
 onDidChangeTextDocument
-onDidChangeTextDocument
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __
- firstAncestorMatch(__, isCommand) failed 
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __u
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __up
- firstAncestorMatch(__u, isCommand) failed 
- firstAncestorMatch(__up, isCommand) failed 
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __up_
- firstAncestorMatch(__up_, isCommand) failed 
-onDidChangeTextDocument
-onDidChangeTextDocument
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __up_
- firstAncestorMatch(__up_, isCommand) failed 
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __up_d
- commandNode: __up_d
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __up_di
- commandNode: __up_di
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        go
- firstAncestorMatch(go, isCommand) failed 
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        got
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        goto
- firstAncestorMatch(got, isCommand) failed 
- firstAncestorMatch(goto, isCommand) failed 
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        goto_
- firstAncestorMatch(goto_, isCommand) failed 
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        goto_d
- commandNode: goto_d
-onDidChangeTextDocument
-onDidChangeTextDocument
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __
- firstAncestorMatch(__, isCommand) failed 
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __d
- firstAncestorMatch(__d, isCommand) failed 
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __go
- firstAncestorMatch(__go, isCommand) failed 
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __goto
- commandNode: __goto
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-
-[Logger] set console to RemoteConsole: 2022-10-28T10:24:28.090Z
-onDidOpenTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __
- firstAncestorMatch(__, isCommand) failed 
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __u
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __up
- firstAncestorMatch(__u, isCommand) failed 
- firstAncestorMatch(__up, isCommand) failed 
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __up_
- firstAncestorMatch(__up_, isCommand) failed 
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __up_
- firstAncestorMatch(__up_, isCommand) failed 
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __up_
- firstAncestorMatch(__up_, isCommand) failed 
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __up_
- firstAncestorMatch(__up_, isCommand) failed 
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __up_
- firstAncestorMatch(__up_, isCommand) failed 
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __up_
- firstAncestorMatch(__up_, isCommand) failed 
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __up_
- firstAncestorMatch(__up_, isCommand) failed 
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __up_
- firstAncestorMatch(__up_, isCommand) failed 
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-
-[Logger] set console to RemoteConsole: 2022-10-28T10:26:29.598Z
-onDidOpenTextDocument
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __up_
- firstAncestorMatch(__up_, isCommand) failed 
-onDocumentSymbols
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __up_
- firstAncestorMatch(__up_, isCommand) failed 
-onDidChangeTextDocument
-
-[Logger] set console to RemoteConsole: 2022-10-28T10:28:41.037Z
-onDidOpenTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __
- firstAncestorMatch(__, isCommand) failed 
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __u
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __up
- firstAncestorMatch(__u, isCommand) failed 
- firstAncestorMatch(__up, isCommand) failed 
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __up_
- firstAncestorMatch(__up_, isCommand) failed 
-onDidChangeTextDocument
-
-[Logger] set console to RemoteConsole: 2022-10-28T10:35:21.275Z
-onDidOpenTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __
- firstAncestorMatch(__, isCommand) failed 
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __u
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __up
- firstAncestorMatch(__u, isCommand) failed 
- firstAncestorMatch(__up, isCommand) failed 
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __up_
- firstAncestorMatch(__up_, isCommand) failed 
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        sch
- firstAncestorMatch(sch, isCommand) failed 
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        scho
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        schoo
- firstAncestorMatch(scho, isCommand) failed 
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        school
- firstAncestorMatch(schoo, isCommand) failed 
- commandNode: school
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        school_
- commandNode: school_
 onDidChangeTextDocument
 onDocumentSymbols
-getDefinition
-{
-	node: args_regex_helper
-	type: word
-	start: (23, 17)
-	end: (23, 34)
-}
-onDidOpenTextDocument
-getDefinition
-{
-	node: __up_directories
-	type: word
-	start: (19, 8)
-	end: (19, 24)
-}
-onDocumentSymbols
-
-[Logger] set console to RemoteConsole: 2022-10-28T10:43:52.945Z
-onDidOpenTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __
- firstAncestorMatch(__, isCommand) failed 
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __u
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __up
- firstAncestorMatch(__u, isCommand) failed 
- firstAncestorMatch(__up, isCommand) failed 
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line        __up_
- firstAncestorMatch(__up_, isCommand) failed 
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-onDidChangeTextDocument
-completionParams.context.triggerKind: 1
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line    
- firstAncestorMatch(, isCommand) failed 
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line    a
- firstAncestorMatch(a, isCommand) failed 
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line    ar
- firstAncestorMatch(ar, isCommand) failed 
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line    arg
- firstAncestorMatch(arg, isCommand) failed 
-onDidChangeTextDocument
-completionParams.context.triggerKind: 3
-server.onCompletefile:///home/ndonfris/.config/fish/functions/gt.fish
-line    args
- firstAncestorMatch(args, isCommand) failed 
-onDidChangeTextDocument
-onDidChangeTextDocument
+server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
 onDocumentSymbols

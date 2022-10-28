@@ -119,8 +119,13 @@ export class CompletionItemBuilder {
         return this;
     }
 
+    /**
+     * only inserted on ABBR items
+     */
     public insertText(textToInsert: string) {
-        this._item.insertText = textToInsert;
+        if (this._item.data.fishKind === FishCompletionItemKind.ABBR) {
+            this._item.insertText = textToInsert;
+        }
         return this;
     }
 
@@ -129,8 +134,13 @@ export class CompletionItemBuilder {
         return this;
     }
 
-    public addSignautreHelp() {
-        this._item.command = completionSignatureHelp();
+    public addSignautreHelp(cmdText: string) {
+        if (cmdText === 'string' && (this._item.label === '--regex' || this._item.label === '-r')) {
+            this._item.command = completionSignatureHelp();
+        }
+        if (cmdText === 'regexItem') {
+            this._item.command = completionSignatureHelp();
+        }
         return this;
     }
 

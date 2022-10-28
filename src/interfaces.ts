@@ -1,5 +1,5 @@
 import {Analyzer, SyntaxTree} from './analyze';
-import {Completion} from './completion';
+//import {Completion} from './completion';
 import { TextDocument } from 'vscode-languageserver-textdocument'
 import {
   Connection,
@@ -24,7 +24,7 @@ export interface CliOptions {
 export interface Context {
     connection: Connection
     parser: Parser
-    completion: Completion
+    //completion: Completion
     analyzer: Analyzer
     capabilities: InitializedParams
     documents: TextDocuments<TextDocument>

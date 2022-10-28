@@ -27,15 +27,15 @@ export interface FishCompletionItem extends CompletionItem {
  * @param {string[]} line - a result from fish's builtin commandline completions
  * @return {boolean} - line is a completion for an Shell External Command. 
  */
-export function isCommand(line: string[]): boolean {
-    if (line.length === 2) {
-        return [
-            'command',
-            'command link'
-        ].includes(line[1])
-    } 
-    return false;
-}
+//export function isCommand(line: string[]): boolean {
+//    if (line.length === 2) {
+//        return [
+//            'command',
+//            'command link'
+//        ].includes(line[1])
+//    } 
+//    return false;
+//}
 
 export const BuiltInList = [
     "[",

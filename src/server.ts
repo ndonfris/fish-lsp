@@ -2,7 +2,7 @@ import Parser from "web-tree-sitter";
 import { initializeParser } from "./parser";
 import { Analyzer } from "./analyze";
 import { logger } from "./logger";
-import { buildBuiltins, buildDefaultCompletions, buildRegexCompletions, Completion, getShellCompletions, insideStringRegex } from "./completion";
+import { buildBuiltins, buildDefaultCompletions, buildRegexCompletions, documentSymbolToCompletionItem, generateShellCompletionItems, getShellCompletions, insideStringRegex, } from "./completion";
 import { ClientCapabilities, createConnection, InitializeParams, ProposedFeatures, TextDocuments, TextDocumentSyncKind, ServerCapabilities, TextDocumentPositionParams, CompletionParams, TextDocumentChangeEvent, Connection, InitializedParams, RemoteConsole, CompletionList, CompletionItem, MarkedString, MarkupContent, SignatureHelp, CompletionItemKind, SignatureHelpParams, DocumentSymbolParams, SymbolInformation, DefinitionParams, Location, LocationLink, ReferenceParams, DocumentSymbol, } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 //import {CliOptions, Context, TreeByUri} from './interfaces';
@@ -17,7 +17,7 @@ import { CompletionItemBuilder, parseLineForType } from './utils/completionBuild
 import { documentationHoverProvider, enrichToCodeBlockMarkdown, enrichToMarkdown } from './documentation';
 import { execCommandDocs, execCommandType, execFindDependency } from './utils/exec';
 import { getDefaultSignatures, signatureIndex } from './signature';
-import { findGlobalDefinition, findLocalDefinition, findVariableDefinition, getDocumentSymbols, getLocalSymbols, getReferences } from './symbols';
+import { findGlobalDefinition, findLocalDefinition, findVariableDefinition, getDocumentSymbols, getLocalSymbols, getNearestSymbols, getReferences } from './symbols';
 
 
 
@@ -35,10 +35,10 @@ export default class FishServer {
         return Promise.all([
             new Analyzer(parser),
             DocumentManager.indexUserConfig(connection.console),
-            Completion.initialDefaults(),
+            //Completion.initialDefaults(),
         ]).then(
-            ([analyzer, docs, completion]) =>
-            new FishServer(connection, parser, analyzer, docs, completion)
+            ([analyzer, docs]) =>
+            new FishServer(connection, parser, analyzer, docs)
         );
     }
 
@@ -66,16 +66,16 @@ export default class FishServer {
     private signature: SignatureHelp;
 
     // completionHandler
-    private completion: Completion;
+    //private completion: Completion;
     private symbolMap: Map<SyntaxNode, DocumentSymbol[]> = new Map();
 
-    constructor(connection: Connection, parser : Parser, analyzer: Analyzer, docs: DocumentManager , completion: Completion) {
+    constructor(connection: Connection, parser : Parser, analyzer: Analyzer, docs: DocumentManager ) {
         this.connection = connection;
         this.console = this.connection.console;
         this.parser = parser;
         this.analyzer = analyzer;
         this.docs = docs;
-        this.completion = completion;
+        //this.completion = completion;
         this.signature = getDefaultSignatures();
     }
 
@@ -178,100 +178,40 @@ export default class FishServer {
     // • Lastly add parameterInformation items.  [ 1477 : ParameterInformation ]
     public async onCompletion(params: CompletionParams):  Promise<CompletionList | null>{
         const uri: string = params.textDocument.uri;
-        const position = params.position;
-        logger.log(`completionParams.context.triggerKind: ${params.context?.triggerKind}`)
+        //logger.log(`completionParams.context.triggerKind: ${params.context?.triggerKind}`)
+        logger.log('server.onComplete' + uri);
 
-        logger.log('server.onComplete' + uri)
         const doc = await this.docs.openOrFind(uri);
-
-        //const r = getRangeFromPosition(completionParams.position);
-        this.connection.console.log('on complete node: ' + doc.uri || "" )
-
-        const documentLine: TextDocument = this.analyzer.currentLine(doc, params.position) || " "
-        const line = documentLine.getText()
-
-        logger.log('line' + line)
+        const documentLine: TextDocument = this.analyzer.currentLine(doc, params.position) || " ";
+        const line = documentLine.getText();
 
         if (line.trimStart().startsWith("#")) {
             return null;
         }
 
-        const actualRoot = this.parser.parse(doc.getText()).rootNode
 
+        const root = this.parser.parse(doc.getText()).rootNode;
 
         const lineToParse = line.trimEnd();
-        const root = this.parser.parse(lineToParse).rootNode;
-        const currNode = root.descendantForPosition({row: 0, column: lineToParse.length - 1})
+        const currNode = this.parser.parse(lineToParse).rootNode.descendantForPosition({row: 0, column: lineToParse.length - 1});
 
-        const items: CompletionItem[] = []
-        const symbolItems = getLocalSymbols(actualRoot, doc.uri)
-        const cmp = new CompletionItemBuilder()
-        for (const symbol of symbolItems) {
-            cmp.create(symbol.name)
-                .symbolInfoKind(symbol.kind)
-                .localSymbol()
-                .documentation({
-                    kind: 'markdown',
-                    value: [
-                        '```fish',
-                        doc.getText(symbol.range),
-                        '```'
-                    ].join('\n')
-                })
+        const items: CompletionItem[] = [
+            ...documentSymbolToCompletionItem(getNearestSymbols(root, currNode), doc),
+            ...buildDefaultCompletions(),
+        ];
 
-            items.push(cmp.build());
-            cmp.reset()
-        }
         if (insideStringRegex(line)) {
             logger.log(`insideStringRegex: ${true}`)
             items.push(...buildRegexCompletions())
             return CompletionList.create(items, true)
         }
-        try {
-            const output = await getShellCompletions(line)
-
-            const commandNode = firstAncestorMatch(currNode, n => isCommand(n));
-
-            if (commandNode) {
-                logger.log(' commandNode: ' + commandNode.text)
-            } else {
-                logger.log(` firstAncestorMatch(${currNode.text}, isCommand) failed `)
-            }
-            const cmdText = commandNode?.text.replace(/\s+(\w+)\s+.*/, '') || "";
-
-            let fishKind = FishCompletionItemKind.FLAG;
-            for (const [label, desc, other] of output) {
-                const otherText = other.length > 0 ? other : cmdText
-                fishKind = parseLineForType(label, desc, otherText)
-                if (commandNode && (fishKind != FishCompletionItemKind.LOCAL_VAR && fishKind != FishCompletionItemKind.GLOBAL_VAR)) {
-                    fishKind = FishCompletionItemKind.FLAG;
-                }
-                const cmpBuilder = cmp.create(label)
-                    .documentation([desc, other].join(' '))
-                    .kind(fishKind)
-                    .originalCompletion([label, desc].join('\t') + ' ' + other)
-                if (cmdText === 'string' && (label === '--regex' || label === '-r')) {
-                    cmpBuilder.addSignautreHelp()
-                }
-                switch (fishKind) {
-                    case FishCompletionItemKind.ABBR: 
-                        cmpBuilder.insertText(other)
-                        cmpBuilder.commitCharacters([';', " "])
-                        break
-                    default:
-                        break
-                }
-                items.push(cmpBuilder.build())
-                cmp.reset()
-            }
-        } catch (e) {
-            this.connection.console.log("ERROR: " + e)
-            this.connection.console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-            this.connection.console.log(doc.getText())
-            this.connection.console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-            return CompletionList.create(buildDefaultCompletions(), true)
+        const shellItems: CompletionItem[] = await generateShellCompletionItems(line, currNode);
+        if (shellItems.length > 0) {
+            items.push(...shellItems)
+            return CompletionList.create(items, true)
         }
-        items.push(...buildBuiltins())
+        //items.push(...await generateShellCompletionItems(line, currNode));
+        //items.push(...buildBuiltins())
         return CompletionList.create(items, true)
     }
 

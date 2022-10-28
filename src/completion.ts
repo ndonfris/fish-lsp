@@ -1,19 +1,22 @@
 import {exec} from 'child_process';
-import {InsertTextFormat} from 'coc.nvim';
 import FastGlob from 'fast-glob';
-import {homedir} from 'os';
 import {promisify} from 'util';
+import {DocumentSymbol} from 'vscode-languageserver';
 import {
     CompletionItem,
     CompletionItemKind,
     CompletionList,
     MarkupContent,
 } from "vscode-languageserver-protocol/node";
-import { SyntaxNode } from "web-tree-sitter";
-import {enrichToMarkdown, enrichWildcard} from './documentation';
+import {TextDocument} from 'vscode-languageserver-textdocument';
+import {DocumentUri} from 'vscode-languageserver-textdocument';
+import Parser, { SyntaxNode } from "web-tree-sitter";
+import {enrichToCodeBlockMarkdown, enrichToMarkdown, enrichWildcard} from './documentation';
 import {logger} from './logger';
 import {BuiltInList, escapeChars, FishCompletionItemKind, pipes, statusNumbers, stringRegexExpressions, WildcardItems } from './utils/completion-types';
 import {CompletionItemBuilder, parseLineForType} from './utils/completionBuilder';
+import {isCommand} from './utils/node-types';
+import {firstAncestorMatch} from './utils/tree-sitter';
 
 // utils create CompletionResolver and CompletionItems
 // also decide which completion icons each item will have
@@ -31,7 +34,7 @@ function splitArray(label: string, description?: string): [string, string, strin
         keyword = first.toLowerCase();
         otherInfo = rest || "";
     }
-    //console.log(`label: ${label} keyword: ${keyword} otherInfo: ${otherInfo}`)
+    //logger.log(`label: ${label} keyword: ${keyword} otherInfo: ${otherInfo}`)
     return [label, keyword, otherInfo]
 }
 
@@ -40,8 +43,6 @@ function splitArray(label: string, description?: string): [string, string, strin
 //    const items: CompletionItem[] = []
 //    // regex to remove all : and spaces
 //    const regex = /(\w+):?\s?/g
-
-
 
 export async function getShellCompletions(cmd: string): Promise<[string, string, string][]> {
     const entireCommand = `fish --command 'complete --do-complete="${cmd}" | uniq'`
@@ -60,9 +61,7 @@ export async function getShellCompletions(cmd: string): Promise<[string, string,
 export function insideStringRegex(line: string): boolean {
     const arr: string[] = line.trim().split(/\s+/)
     const currentNode = arr[arr.length-1];
-    //console.log(currentNode)
     if (!currentNode.startsWith('"') && !currentNode.startsWith("'")) {
-        //console.log(currentNode + 'does not start with a string charatter')
         return false;
     }
     if (currentNode.length > 1 && currentNode.charAt(0) === currentNode.charAt(currentNode.length-1) ){
@@ -75,112 +74,67 @@ export function insideStringRegex(line: string): boolean {
 }
 
 
-// • include pipe completions
-// • include escape character completions
-// • be able to tell the difference between:
-//              1.) cm|                        --->  not completed first command                                      no space
-//              2.) cmd |                      --->  completed first command and now looking for next tokens          space
-//              3.) cmd subcm|                 --->  completed first command but needs subcommand                     no space
-//              4.) cmd -flag |                --->  completed first command and last command is flag                 space
-//              5.) |                          --->  no commands have been inserted yet                               space/nothing
-//              6.) cmd -flag "|               --->  completed first command and last command is quotation            space
-//              7.) cmd \|                     --->  escape character                                                 \
-//              8.) # |                        --->  comment                                                          # at begining of line
-//              9.) cmd -flag |                --->  pipe completions                                                 end of line
-//             10.)                            --->
-//
-// [^] solution ideas:
-//     • keep track of text via current line in readFileSync/document.getText().split('\n')[document.position.line]
-//     • use state machine for each of the above states?
-//         • always get the last SyntaxNode character
-//
-export class Completion {
-
-    public userFunctions: string[] = []
-    public globalFunctions: string[]  = [];
-
-    private isInsideCompletionsFile: boolean = false;
-
-    private completions: CompletionItem[] = [];
-    private isIncomplete: boolean = false;
-
-
-    // call in server.initialize()
-    // also you could add the syntaxTree on
-    // this.documents.listener.onDocumentChange(() => {})
-    public static async initialDefaults() {
-        const globs = new this();
-        globs.globalFunctions = getFunctionsFromFilepaths('/usr/share/fish')
-        globs.userFunctions = getFunctionsFromFilepaths(`${homedir()}/.config/fish`)
-        return globs;
-    }
-
-    public constructor() {
-        this.isIncomplete = false;
-        this.completions = [];
-        this.isInsideCompletionsFile = false;
-    }
-
-    // here you build the completion data per type
-    // call enrichCompletions on new this.completions
-    // therefore you probably want to add the defaults (abbr & global variable list)
-    // after this.completions is enriched
-    public async generateLineCmpNew(line: string): Promise<CompletionItem[] | null> {
-        let cmd = line.replace(/(['$`\\])/g, '\\$1');
-        const shellOutcompletions: [string, string, string][] = await getShellCompletions(cmd)
-        if (shellOutcompletions.length == 0) {
-            return null;
-        }
-
-        const itemBuilder = new CompletionItemBuilder();
-        const items: CompletionItem[] = []
-
-        for (const [label, desc, moreInfo] of shellOutcompletions) {
-            const itemKind = parseLineForType(label, desc, moreInfo)
-            const item = itemBuilder.create(label)
-                .documentation([desc, moreInfo].join(' '))
-                .kind(itemKind)
-                .build()
-            switch (itemKind) {
-                case FishCompletionItemKind.ABBR: 
-                    item.insertText = moreInfo;
-                    break
-                default:
-                    break
-            }
-            items.push(item)
-            itemBuilder.reset()
-        }
-        this.completions.push(...items);
+export async function generateShellCompletionItems(line: string, currentNode: SyntaxNode): Promise<CompletionItem[]> {
+    const cmp = new CompletionItemBuilder()
+    const items: CompletionItem[] = [];
+    let output: [string, string, string][] = [];
+    try {
+        output = await getShellCompletions(line)
+    } catch (error) {
+        logger.log("ERROR:" + error + '[inside generateShellCompletionItems()]')
         return items;
     }
-            
+    const commandNode = firstAncestorMatch(currentNode, n => isCommand(n));
+    const cmdText = commandNode?.text.replace(/\s+(\w+)\s+.*/, '') || '';
+    for (const [label, desc, other] of output) {
+        const otherText = other.length > 0 ? other : cmdText
+        let fishKind = parseLineForType(label, desc, otherText)
+        fishKind = fixFishKindForCommandFlags(fishKind, commandNode)
+        const item = cmp.create(label)
+            .documentation([desc, other].join(' '))
+            .kind(fishKind)
+            .originalCompletion([label, desc].join('\t') + ' ' + other)
+            .insertText(other)
+            .addSignautreHelp(cmdText)
+            .build()
 
-
-    // probably need some of SyntaxTree class in this file
-    public async generate(node: SyntaxNode) {
-        //this.completions = [
-        //    //...this.lineCmps,
-        //]
-        return CompletionList.create(this.completions, this.isIncomplete);
+        items.push(item);
+        cmp.reset();
     }
-
-    public reset() {
-        this.completions = [];
-    }
-
-    public fallbackComplete() {
-        return CompletionList.create(this.completions, this.isIncomplete);
-    }
+    return items;
 }
 
-    // create (atleast) two methods for generating completions,
-    //      1.) with a syntaxnode -> allows for thorough testing
-    //      2.) with a params -> allows for fast implementation to server
-    //                        -> this also needs to work for server.onHover()
-    //      3.) with just text -> allows for extra simple tests
-    //
-    //
+
+export function documentSymbolToCompletionItem(symbols: DocumentSymbol[], doc: TextDocument): CompletionItem[] {
+    const cmp = new CompletionItemBuilder()
+    const items: CompletionItem[] = [];
+    for (const symbol of symbols) {
+        const item = cmp.create(symbol.name)
+            .symbolInfoKind(symbol.kind)
+            .localSymbol()
+            .documentation(enrichToCodeBlockMarkdown(doc.getText(symbol.range), 'fish'))
+            .build()
+        items.push(item);
+        cmp.reset();
+    }
+    return items;
+}
+
+
+function fixFishKindForCommandFlags(fishKind: FishCompletionItemKind, commandNode?: SyntaxNode | null) {
+    if (commandNode && (fishKind != FishCompletionItemKind.LOCAL_VAR && fishKind != FishCompletionItemKind.GLOBAL_VAR)) {
+        fishKind = FishCompletionItemKind.FLAG;
+    }
+    return fishKind
+}
+
+// create (atleast) two methods for generating completions,
+//      1.) with a syntaxnode -> allows for thorough testing
+//      2.) with a params -> allows for fast implementation to server
+//                        -> this also needs to work for server.onHover()
+//      3.) with just text -> allows for extra simple tests
+//
+//
 function getFunctionsFromFilepaths(...paths: string[]) {
     const found : string[] = [];
     paths.forEach((path: string) => {
@@ -272,7 +226,7 @@ export function buildRegexCompletions(): CompletionItem[] {
     for (const regexItem of stringRegexExpressions) {
         const item = cmpItem.create(regexItem.label)
             .documentation(regexItem.description)
-            .addSignautreHelp()
+            .addSignautreHelp('regexItem')
             .kind(CompletionItemKind.Text)
         cmpItems.push(item.build())
         cmpItem.reset()

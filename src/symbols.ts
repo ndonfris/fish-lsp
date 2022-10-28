@@ -237,7 +237,7 @@ export function getReferences(uri: DocumentUri, root: SyntaxNode, node: SyntaxNo
     return refrences;
 }
 
-export function getLocalSymbols(root: SyntaxNode, uri: DocumentUri): DocumentSymbol[] {
+export function getLocalSymbols(root: SyntaxNode): DocumentSymbol[] {
     const symbols: DocumentSymbol[] = [];
     for (const node of getChildNodes(root)) {
         if (isVariableDefintion(node) && node.parent) {
@@ -249,6 +249,7 @@ export function getLocalSymbols(root: SyntaxNode, uri: DocumentUri): DocumentSym
                 range: getRange(node.parent),
             })
         }
+        // add variables (i.e. 'for i in ...; end;' -- i is not included in the symbols)
         if (isFunctionDefinintion(node) && node.child(1)) {
             const funcName = node.child(1)!.text ;
             symbols.push({
@@ -261,6 +262,23 @@ export function getLocalSymbols(root: SyntaxNode, uri: DocumentUri): DocumentSym
         }
     }
     return symbols;
+}
+
+export function getNearestSymbols(root: SyntaxNode, leaf: SyntaxNode): DocumentSymbol[] {
+    const symbols: DocumentSymbol[] = getLocalSymbols(root);
+    const leafRange = getRange(leaf);
+    const filteredSymbols: Map<string, DocumentSymbol> = new Map<string, DocumentSymbol>()
+    for (const symbol of symbols) {
+        if (filteredSymbols.has(symbol.name) && symbol.range.start.line < leafRange.start.line) {
+            filteredSymbols.set(symbol.name, symbol)
+            continue;
+        }
+        if (!filteredSymbols.has(symbol.name)) {
+            filteredSymbols.set(symbol.name, symbol)
+            continue;
+        }
+    }
+    return Array.from(filteredSymbols.values());
 }
 
 //export function findLocalCommandDefinitions(node: SyntaxNode, uri: DocumentUri): LocationLink[] | undefined {
