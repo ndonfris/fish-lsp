@@ -13,6 +13,7 @@ export interface FishCompletionItem extends CompletionItem {
     data: {
         originalCompletion: string; // the original line in fish completion call from the terminal
         fishKind: FishCompletionItemKind; // VERBOSE form of kind
+        localSymbol: boolean;
     }
 }
 

@@ -1,6 +1,6 @@
 import FastGlob  from 'fast-glob';
 import {homedir} from 'os';
-import { Command, CompletionItem, CompletionItemKind, MarkupContent } from 'vscode-languageserver';
+import { Command, CompletionItem, CompletionItemKind, MarkupContent, SymbolKind } from 'vscode-languageserver';
 //import {FishCompletionItemType} from '../completion';
 import {logger} from '../logger';
 import {FishCompletionItemKind, isBuiltIn} from './completion-types';
@@ -81,6 +81,15 @@ export class CompletionItemBuilder {
             originalCompletion: "",
             fishKind: FishCompletionItemKind.RESOLVE,
             localSymbol: false
+        }
+        return this;
+    }
+
+    public symbolInfoKind(symbolKind: SymbolKind) {
+        if (symbolKind === SymbolKind.Function) {
+            this._item.kind = CompletionItemKind.Function;
+        } else if (symbolKind === SymbolKind.Variable) {
+            this._item.kind = CompletionItemKind.Variable;
         }
         return this;
     }

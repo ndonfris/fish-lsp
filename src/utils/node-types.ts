@@ -20,6 +20,10 @@ export function isCommand(node: SyntaxNode): boolean {
     ].includes(node.type);
 }
 
+export function isProgram(node: SyntaxNode): boolean {
+    return node.type == 'program' || node.parent == null;
+}
+
 export function isError(node: SyntaxNode | null = null): boolean {
     if (node ) {
         return node.type == 'ERROR';
@@ -212,6 +216,16 @@ export function findFunctionScope(node: SyntaxNode) {
         node = node.parent;
     }
     return node
+}
+
+// node1 encloses node2
+export function scopeCheck(node1: SyntaxNode , node2: SyntaxNode) : boolean {
+    const scope1 = findFunctionScope(node1);
+    const scope2 = findFunctionScope(node2);
+    if (isProgram(scope1)) {
+        return true;
+    }
+    return scope1 == scope2;
 }
 
 export function findLastVariableRefrence(node: SyntaxNode) {

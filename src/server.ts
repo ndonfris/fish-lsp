@@ -37,14 +37,16 @@ import {
     DefinitionParams,
     Location,
     LocationLink,
+    ReferenceParams,
+    DocumentSymbol,
 } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import {CliOptions, Context, TreeByUri} from './interfaces';
 import { SyntaxNode } from 'web-tree-sitter';
 import {URI} from 'vscode-uri';
 import { DocumentManager, getRangeFromPosition } from './document';
-import {ancestorMatch, descendantMatch, firstAncestorMatch, getChildNodes, getNodeText} from './utils/tree-sitter';
-import {findParentCommand, isCommand, isFunctionDefinintion, isLocalVariable, isQuoteString, isRegexArgument, isStatement, isVariable} from './utils/node-types';
+import {ancestorMatch, descendantMatch, firstAncestorMatch, getChildNodes, getNodeText, getRange} from './utils/tree-sitter';
+import {findFunctionScope, findParentCommand, isCommand, isFunctionDefinintion, isLocalVariable, isQuoteString, isRegexArgument, isStatement, isVariable} from './utils/node-types';
 import { FishCompletionItem, FishCompletionItemKind, handleCompletionResolver, isBuiltIn} from './utils/completion-types';
 import { FilepathResolver } from './utils/filepathResolver';
 import { CompletionItemBuilder, parseLineForType } from './utils/completionBuilder';
@@ -52,8 +54,7 @@ import { CompletionItemBuilder, parseLineForType } from './utils/completionBuild
 import { documentationHoverProvider, enrichToCodeBlockMarkdown, enrichToMarkdown } from './documentation';
 import { execCommandDocs, execCommandType, execFindDependency } from './utils/exec';
 import { getDefaultSignatures, signatureIndex } from './signature';
-import {findGlobalCommandDefinitions, findLocalCommandDefinitions, findVariableDefinition, getDocumentSymbols} from './symbols';
-import {DocumentSymbol} from 'coc.nvim';
+import {findGlobalDefinition, findLocalDefinition, findVariableDefinition, getDocumentSymbols, getLocalSymbols, getReferences} from './symbols';
 
 
 
@@ -113,7 +114,7 @@ export default class FishServer {
         this.docs = docs;
         this.completion = completion;
         this.signature = getDefaultSignatures();
-        this.symbolMap = new Map<SyntaxNode, DocumentSymbol[]>(); 
+        //this.symbolMap = new Map<SyntaxNode, DocumentSymbol[]>();
     }
 
 
@@ -134,6 +135,7 @@ export default class FishServer {
             hoverProvider: true,
             documentHighlightProvider: true,
             definitionProvider: true,
+            referencesProvider: true,
             signatureHelpProvider: {
                 triggerCharacters: ["'", '"', "[", ":"],
             },
@@ -187,6 +189,7 @@ export default class FishServer {
 
         this.connection.onDocumentSymbol(this.onDocumentSymbols.bind(this));
         this.connection.onDefinition(this.onDefinition.bind(this));
+        this.connection.onReferences(this.onReferences.bind(this));
         this.docs.documents.onDidChangeContent(async change => {
             const document = change.document;
             const uri = document.uri;
@@ -233,11 +236,29 @@ export default class FishServer {
             return null;
         }
 
+        const actualRoot = this.parser.parse(doc.getText()).rootNode
+
+
         const lineToParse = line.trimEnd();
         const root = this.parser.parse(lineToParse).rootNode;
         const currNode = root.descendantForPosition({row: 0, column: lineToParse.length - 1})
 
         const items: CompletionItem[] = []
+        const symbolItems = getLocalSymbols(actualRoot, doc.uri)
+        const cmp = new CompletionItemBuilder()
+        for (const symbol of symbolItems) {
+            cmp.create(symbol.name)
+                .symbolInfoKind(symbol.kind)
+                .localSymbol()
+                .documentation({
+                    kind: 'markdown',
+                    value: ['```fish',
+                        doc.getText(symbol.range),
+                        '```'].join('\n')
+                })
+            items.push(cmp.build());
+            cmp.reset()
+        }
         if (insideStringRegex(line)) {
             logger.log(`insideStringRegex: ${true}`)
             items.push(...buildRegexCompletions())
@@ -246,7 +267,6 @@ export default class FishServer {
         try {
             const output = await getShellCompletions(line)
 
-            const cmp = new CompletionItemBuilder()
             const commandNode = firstAncestorMatch(currNode, n => isCommand(n));
 
             if (commandNode) {
@@ -298,6 +318,9 @@ export default class FishServer {
         let newDoc: string | MarkupContent;
         let typeCmdOutput = ''
         let typeofDoc = ''
+        if (fishItem.data.localSymbol == true) {
+            return item;
+        }
         switch (fishItem.kind) {
             //item.documentation = enrichToCodeBlockMarkdown(fishItem.data?.originalCompletion, 'fish')
             case CompletionItemKind.Constant: 
@@ -374,36 +397,57 @@ export default class FishServer {
         const uri: string = params.textDocument.uri;
         const position = params.position;
         const doc = await this.docs.openOrFind(uri);
-        let node = this.analyzer.nodeAtPoint(uri, position.line, position.character - 1);
+        const root = this.parser.parse(doc.getText()).rootNode;
+        let node = this.analyzer.nodeAtPoint(uri, position.line, position.character);
         logger.logNode(node);
         if (!node) return [];
-        if (isVariable(node)) {
-            return findVariableDefinition(node, uri) || []
+        //if (isVariable(node)) {
+        //    return findVariableDefinition(uri, root, node) || []
+        //}
+        //const commandNode = findParentCommand(node);
+        //logger.logNode(commandNode, 'onDEF Cmd')
+        //const namedDescendant = this.analyzer.namedNodeAtPoint(uri, position.line, position.character)
+        //logger.logNode(namedDescendant, 'onDEF namedDescendant')
+        //if (commandNode) {
+        //    node = commandNode;
+        //}
+        //if (isCommand(node)) {
+        //    //const results = findLocalCommandDefinitions(node, uri) || []
+        //    //if (results.length > 0) {
+        //    //    return results
+        //    //}
+        //    //const cmdText = node?.text.replace(/\s+(\w+)\s+.*/, '') || "";
+        //    const cmdText = node.child(0)?.text || node?.text.replace(/\s+(\w+)\s+.*/, '') || ""; 
+        //    const depedencyUri = await execFindDependency(cmdText)
+        //    const newDoc = await this.docs.openOrFind(depedencyUri);
+        //    const newDocRoot = this.parser.parse(newDoc.getText()).rootNode;
+        //    return findGlobalCommandDefinitions(newDocRoot, node, newDoc.uri) || []
+        //   // const newDocNode = descendantMatch(newDocRoot, isFunctionDefinintion, true).filter(
+        //   //     n => n.child(1)?.text == cmdText
+        //   // ).
+        //    //return findCommandDefinition(node, uri) || []
+        //}
+        const depedencyUri = await execFindDependency(node.text)
+        const localDefinitions = findLocalDefinition(uri, root, node) || [];
+        if (!depedencyUri) {
+            return localDefinitions
         }
-        const commandNode = findParentCommand(node);
-        logger.logNode(commandNode, 'onDEF Cmd')
-        const namedDescendant = this.analyzer.namedNodeAtPoint(uri, position.line, position.character)
-        logger.logNode(namedDescendant, 'onDEF namedDescendant')
-        if (commandNode) {
-            node = commandNode;
-        }
-        if (isCommand(node)) {
-            //const results = findLocalCommandDefinitions(node, uri) || []
-            //if (results.length > 0) {
-            //    return results
-            //}
-            //const cmdText = node?.text.replace(/\s+(\w+)\s+.*/, '') || "";
-            const cmdText = node.child(0)?.text || node?.text.replace(/\s+(\w+)\s+.*/, '') || ""; 
-            const depedencyUri = await execFindDependency(cmdText)
-            const newDoc = await this.docs.openOrFind(depedencyUri);
-            const newDocRoot = this.parser.parse(newDoc.getText()).rootNode;
-            return findGlobalCommandDefinitions(newDocRoot, node, newDoc.uri) || []
-           // const newDocNode = descendantMatch(newDocRoot, isFunctionDefinintion, true).filter(
-           //     n => n.child(1)?.text == cmdText
-           // ).
-            //return findCommandDefinition(node, uri) || []
-        }
-        return findLocalCommandDefinitions(node, uri) || [] 
+        const newDoc = await this.docs.openOrFind(depedencyUri);
+        const newDocRoot = this.parser.parse(newDoc.getText()).rootNode;
+        const globalDefinitions = findGlobalDefinition(newDoc.uri, newDocRoot, node) || [];
+        return [...globalDefinitions, ...localDefinitions ]
+    }
+
+
+    public async onReferences(params: ReferenceParams): Promise<Location[]> {
+        logger.log("onReferences");
+        const uri: string = params.textDocument.uri;
+        const position = params.position;
+        const doc = await this.docs.openOrFind(uri);
+        const root = this.parser.parse(doc.getText()).rootNode;
+        const node = this.analyzer.nodeAtPoint(uri, position.line, position.character);
+        if (!node) return [];
+        return getReferences(uri, root, node) || []
     }
 }
 

@@ -80,12 +80,15 @@ export class Analyzer {
 
     public analyze(document: TextDocument) {
         //delete this.uriTree[document.uri];
-        if (this.uriTree[document.uri] === undefined) {
-            const tree = this.parser.parse(document.getText())
-            this.uriTree[document.uri] = tree;
-        } else {
-            this.uriTree[document.uri] = this.parser.parse(document.getText(), this.uriTree[document.uri]);
-        }
+        //if (this.uriTree[document.uri] === undefined) {
+            //const tree = this.parser.parse(document.getText())
+            //this.uriTree[document.uri] = tree;
+        //} else {
+        //}
+        this.parser.reset();
+        const tree = this.parser.parse(document.getText())
+        this.uriTree[document.uri] = tree;
+        //this.uriTree[document.uri] = this.parser.parse(document.getText());
     }
 
     getRoot(uri: string) {
@@ -300,8 +303,8 @@ function firstNodeBeforeSecondNodeComaprision(
 ) {
     return (
         firstNode.startPosition.row < secondNode.startPosition.row &&
-        firstNode.startPosition.column < secondNode.startPosition.column &&
-        firstNode.text == secondNode.text
+            firstNode.text == secondNode.text
+        //firstNode.startPosition.column < secondNode.startPosition.column &&
     );
 }
 
