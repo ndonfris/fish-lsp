@@ -50,8 +50,8 @@ export const signatureIndex: {[str in signatureType]: number}= {
 
 export function getDefaultSignatures() : SignatureHelp {
     return {
-        activeParameter: null,
-        activeSignature: null,
+        activeParameter: 0,
+        activeSignature: 0,
         signatures: [
             regexStringSignature(),
             regexStringCharacterSets()
