@@ -62,7 +62,7 @@ export default class FishServer {
     // documentManager 
     private docs: DocumentManager;
 
-    private signature: SignatureHelp;
+    //private signature: SignatureHelp;
 
     // completionHandler
     //private completion: Completion;
@@ -75,7 +75,7 @@ export default class FishServer {
         this.analyzer = analyzer;
         this.docs = docs;
         //this.completion = completion;
-        this.signature = getDefaultSignatures();
+        //this.signature = getDefaultSignatures();
     }
 
 
@@ -86,7 +86,6 @@ export default class FishServer {
             // for partial updates.
             textDocumentSync: TextDocumentSyncKind.Full,
             completionProvider: {
-
                 resolveProvider: true,
                 triggerCharacters: ["."],
                 //triggerCharacters: ["$", "-", "\\"],
@@ -97,9 +96,9 @@ export default class FishServer {
             documentHighlightProvider: true,
             definitionProvider: true,
             referencesProvider: true,
-            signatureHelpProvider: {
-                triggerCharacters: ["'", '"', "[", ":"],
-            },
+            //signatureHelpProvider: {
+            //    triggerCharacters: ["'", '"', "[", ":"],
+            //},
             documentSymbolProvider: true,
         };
     }
@@ -132,7 +131,7 @@ export default class FishServer {
 
         // if formatting is enabled in settings. add onContentDidSave
         // Register all the handlers for the LSP events.
-        //connection.onHover(this.onHover.bind(this))
+        //this.connection.onHover(this.onHover.bind(this))
         // connection.onDefinition(this.onDefinition.bind(this))
         // connection.onDocumentSymbol(this.onDocumentSymbol.bind(this))
         // connection.onWorkspaceSymbol(this.onWorkspaceSymbol.bind(this))
@@ -144,7 +143,7 @@ export default class FishServer {
         //this.connection.onCompletion(this.onDefaultCompletion.bind(this))
         this.connection.onCompletion(this.onCompletion.bind(this))
         this.connection.onCompletionResolve(this.onCompletionResolve.bind(this));
-        this.connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
+        //this.connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
 
         this.connection.onDocumentSymbol(this.onDocumentSymbols.bind(this));
         this.connection.onDefinition(this.onDefinition.bind(this));
@@ -256,29 +255,29 @@ export default class FishServer {
 
 
     // @TODO: fix this to return a signle SignatureHelp object
-    public async onShowSignatureHelp(params: SignatureHelpParams): Promise<SignatureHelp> {
-        const uri: string = params.textDocument.uri;
-        //const position = params.position;
-        const doc = await this.docs.openOrFind(uri);
+    //public async onShowSignatureHelp(params: SignatureHelpParams): Promise<SignatureHelp> {
+    //    const uri: string = params.textDocument.uri;
+    //    //const position = params.position;
+    //    const doc = await this.docs.openOrFind(uri);
 
-        const documentLine: string = this.analyzer.currentLine(doc, params.position).getText().trimStart() || " "
-        //const line = documentLine.getText().trimStart()
-        //const root = this.parser.parse(line).rootNode;
-        //const currNode = root.namedDescendantForPosition({row: 0, column: line.length - 1})
-        //const commandNode = firstAncestorMatch(currNode, n => isCommand(n));
-        const lastWord = documentLine.split(/\s+/).pop() || ""
-        if (insideStringRegex(documentLine)) {
-            if (lastWord.includes('[[') && !lastWord.includes(']]') ) {
-                this.signature.activeSignature = signatureIndex["stringRegexCharacterSets"]
-            } else {
-                this.signature.activeSignature = signatureIndex["stringRegexPatterns"]
-            }
-        } else {
-            this.signature.activeSignature = null;
-        }
-        this.signature.activeParameter = null;
-        return this.signature;
-    }
+    //    const documentLine: string = this.analyzer.currentLine(doc, params.position).getText().trimStart() || " "
+    //    //const line = documentLine.getText().trimStart()
+    //    //const root = this.parser.parse(line).rootNode;
+    //    //const currNode = root.namedDescendantForPosition({row: 0, column: line.length - 1})
+    //    //const commandNode = firstAncestorMatch(currNode, n => isCommand(n));
+    //    const lastWord = documentLine.split(/\s+/).pop() || ""
+    //    if (insideStringRegex(documentLine)) {
+    //        if (lastWord.includes('[[') && !lastWord.includes(']]') ) {
+    //            this.signature.activeSignature = signatureIndex["stringRegexCharacterSets"]
+    //        } else {
+    //            this.signature.activeSignature = signatureIndex["stringRegexPatterns"]
+    //        }
+    //    } else {
+    //        this.signature.activeSignature = null;
+    //    }
+    //    this.signature.activeParameter = null;
+    //    return this.signature;
+    //}
 
 
     public async onDocumentSymbols(params: DocumentSymbolParams): Promise<DocumentSymbol[]> {
