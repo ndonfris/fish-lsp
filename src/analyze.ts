@@ -24,12 +24,12 @@ import {
 import {createTextDocumentFromFilePath} from './utils/io';
 import { getAllFishLocations } from "./utils/locations";
 import {
-    findDefinedVariable,
-    findLastVariableRefrence,
+    findSetDefinedVariable,
+    //findLastVariableRefrence,
     findParentCommand,
     findFunctionScope,
     isCommand,
-    isFunctionDefinintion,
+    isFunctionDefinition,
     isVariable,
     isVariableDefintion,
     hasParentFunction,
@@ -98,7 +98,7 @@ export class Analyzer {
         const root = this.uriTree[document.uri].rootNode;
         const allNodes = getChildNodes(root);
         return allNodes.filter(node => {
-            return isFunctionDefinintion(node) || isVariableDefintion(node)
+            return isFunctionDefinition(node) || isVariableDefintion(node)
         })
     }
 
@@ -342,7 +342,7 @@ export class SyntaxTree {
             if (isCommand(newNode)) {
                 this.commands.push(newNode)
             }
-            if (isFunctionDefinintion(newNode)) {
+            if (isFunctionDefinition(newNode)) {
                 this.functions.push(newNode)
             }
             if (isVariable(newNode)) {
@@ -398,7 +398,7 @@ export class SyntaxTree {
 
     public getLocalFunctionDefinition(searchNode: SyntaxNode) {
         for (const func of getChildNodes(this.rootNode)) {
-            if (isFunctionDefinintion(func) && func.children[1]?.text == searchNode.text) {
+            if (isFunctionDefinition(func) && func.children[1]?.text == searchNode.text) {
                 return func
             }
         }
@@ -417,7 +417,7 @@ export class SyntaxTree {
         ]
         for (const node of scopedVariableLocations) {
             if (isVariableDefintion(node) && firstNodeBeforeSecondNodeComaprision(node, searchNode)) {
-                const v = findDefinedVariable(node);
+                const v = findSetDefinedVariable(node);
                 if (!v || !v?.parent) continue;
                 varaibleDefinitions.push(v);
             }

@@ -1,5 +1,6 @@
 import {
     SymbolInformation,
+    WorkspaceSymbol,
     SymbolKind,
     DocumentSymbol,
     LocationLink,
@@ -9,14 +10,18 @@ import {
 import {SyntaxNode} from 'web-tree-sitter';
 import {logger} from './logger';
 import {execFindDependency} from './utils/exec';
-import {findFunctionScope, isCommand, isCommandFlag, isFunctionDefinintion, scopeCheck, isStatement, isString, isVariable, isVariableDefintion} from './utils/node-types';
+import {findFunctionScope, isCommand, isCommandFlag, isFunctionDefinition, scopeCheck, isStatement, isString, isVariable, isVariableDefintion} from './utils/node-types';
 import {getChildNodes, getPrecedingComments, getRange} from './utils/tree-sitter';
+
+// using vscode-languageserver v8.0.2 sotherefore, you should use a more acvance exampled of
+// SymbolKind, DocumentSymbol,
+
 
 // ~~~~REMOVE IF UNUSED LATER~~~~
 function toSymbolKind(node: SyntaxNode): SymbolKind {
     if (isVariableDefintion(node)) {
         return SymbolKind.Variable
-    } else if (isFunctionDefinintion(node)) {
+    } else if (isFunctionDefinition(node)) {
         return SymbolKind.Function;
     } else if (isCommand(node)) {
         return SymbolKind.Class;
@@ -54,7 +59,7 @@ export function findLocalDefinition(uri: DocumentUri, root: SyntaxNode, findNode
         }]
     }
     for (const node of getChildNodes(root)) {
-        if (isFunctionDefinintion(node) && node.child(1)?.text === findNode.text) {
+        if (isFunctionDefinition(node) && node.child(1)?.text === findNode.text) {
             const funcName = node?.child(1) || node;
             results.push({
                 originSelectionRange: getRange(findNode),
@@ -138,7 +143,7 @@ export function getLocalSymbols(root: SyntaxNode): DocumentSymbol[] {
             })
         }
         // add variables (i.e. 'for i in ...; end;' -- i is not included in the symbols)
-        if (isFunctionDefinintion(node) && node.child(1)) {
+        if (isFunctionDefinition(node) && node.child(1)) {
             const funcName = node.child(1)!.text ;
             symbols.push({
                 name: funcName,
@@ -191,7 +196,7 @@ export function getNearestSymbols(root: SyntaxNode, leaf: SyntaxNode): DocumentS
 export function findGlobalDefinition(uri: DocumentUri, root: SyntaxNode, findNode: SyntaxNode) : LocationLink[] | undefined {
     const results : LocationLink[] = [];
     for (const node of getChildNodes(root)) {
-        if (isFunctionDefinintion(node) && node.child(1)?.text === findNode.text) {
+        if (isFunctionDefinition(node) && node.child(1)?.text === findNode.text) {
             const funcName = node?.child(1) || node;
             results.push({
                 originSelectionRange: getRange(findNode),

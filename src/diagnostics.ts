@@ -24,7 +24,7 @@ import {
     findFunctionScope,
     isBeforeCommand,
     isCommand,
-    isFunctionDefinintion,
+    isFunctionDefinition,
     isStatement,
     isVariable,
 } from "./utils/node-types";
@@ -211,7 +211,7 @@ export class FishSymbol {
 export function getSymbolKind(node: SyntaxNode): SymbolKind {
     if (isVariable(node)) {
         return SymbolKind.Variable;
-    } else if (isFunctionDefinintion(node)) {
+    } else if (isFunctionDefinition(node)) {
         return SymbolKind.Function;
     } else if (isStatement(node)) {
         return SymbolKind.Namespace;

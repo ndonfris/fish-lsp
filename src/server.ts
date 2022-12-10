@@ -10,7 +10,7 @@ import { SyntaxNode } from 'web-tree-sitter';
 import {URI} from 'vscode-uri';
 import { DocumentManager, getRangeFromPosition } from './document';
 import { ancestorMatch, descendantMatch, firstAncestorMatch, getChildNodes, getNodeText, getRange } from './utils/tree-sitter';
-import { findFunctionScope, findParentCommand, isCommand, isFunctionDefinintion, isLocalVariable, isQuoteString, isRegexArgument, isStatement, isVariable } from './utils/node-types';
+import { findFunctionScope, findParentCommand, isCommand, isFunctionDefinition, isLocalVariable, isQuoteString, isRegexArgument, isStatement, isVariable } from './utils/node-types';
 import { FishCompletionItem, FishCompletionItemKind, } from './utils/completion-types';
 import { FilepathResolver } from './utils/filepathResolver';
 import { documentationHoverProvider, enrichToCodeBlockMarkdown, enrichToMarkdown } from './documentation';

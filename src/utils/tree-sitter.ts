@@ -4,9 +4,10 @@ import { extname, join } from 'path'
 import { Position } from 'vscode-languageserver-textdocument'
 import { Range, URI } from 'vscode-languageserver/node'
 import { Point, SyntaxNode, Tree } from 'web-tree-sitter'
-import {pathToFileURL} from 'url';
+import {pathToFileURL} from 'url'; // typescript-langauge-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts
+import vscodeUri from 'vscode-uri'; // typescript-langauge-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts 
 import {existsSync} from 'fs-extra';
-import {findDefinedVariable, findParentCommand, isFunctionDefinintion, isVariableDefintion} from './node-types';
+import {findSetDefinedVariable, findParentCommand, isFunctionDefinition, isVariableDefintion} from './node-types';
 
 /**
  * Returns an array for all the nodes in the tree (@see also nodesGen)
@@ -58,33 +59,15 @@ export function getNodeText(node: SyntaxNode | null): string {
     if (!node) {
         return ""
     }
-    if (isFunctionDefinintion(node)) {
+    if (isFunctionDefinition(node)) {
         return node.child(1)?.text || ""
     }
     if (isVariableDefintion(node)) {
-        const defVar = findDefinedVariable(node)!
+        const defVar = findSetDefinedVariable(node)!
         return defVar.text || "";
     }
     return (node.text != null) ? node.text.trim() : ""
 }
-
-/**
- * Checks that arg0 is located before arg1 in parse tree. False 
- * when params are the same node 
- *
- * @param {SyntaxNode} firstNode - a node that is positioned left or above second node
- * @param {SyntaxNode} secondNode - some node after first node
- * @returns {boolean} - true only when first param is located before second param
- */
-export function nodeIsBefore(firstNode: SyntaxNode, secondNode: SyntaxNode): boolean {
-    if (firstNode.startPosition.row === secondNode.startPosition.row) {
-        return firstNode.startPosition.column < secondNode.startPosition.column 
-            && firstNode.text !== secondNode.text;
-    } else {
-        return firstNode.startPosition.row < secondNode.startPosition.row;
-    } 
-}
-
 
 export function firstAncestorMatch(
   start: SyntaxNode,
@@ -94,13 +77,10 @@ export function firstAncestorMatch(
     if (ancestors.length <= 1) {
         return predicate(start) ? start : null;
     }
-    //const results : SyntaxNode[] = []
     for (const p of ancestors) {
-        //for (const neighbor of getChildNodes(p)) {
-            if (predicate(p)) {
-                return p;
-            }
-        //}
+        //for (const neighbor of getChildNodes(p)) {}
+        if (!predicate(p)) continue;
+        return p;
     }
     return null
         //.filter(ancestor => ancestor !== start)
