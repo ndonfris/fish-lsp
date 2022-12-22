@@ -10,7 +10,7 @@ import {
 import Parser, { SyntaxNode } from "web-tree-sitter";
 import {TextDocument, DocumentUri} from 'vscode-languageserver-textdocument';
 import {enrichToCodeBlockMarkdown, enrichToMarkdown, enrichWildcard} from './documentation';
-import {logger} from './logger';
+//import {logger} from './logger';
 import {BuiltInList, escapeChars, FishCompletionItemKind, pipes, statusNumbers, stringRegexExpressions, WildcardItems } from './utils/completion-types';
 import {CompletionItemBuilder, parseLineForType} from './utils/completionBuilder';
 import {isCommand} from './utils/node-types';
@@ -79,7 +79,7 @@ export async function generateShellCompletionItems(line: string, currentNode: Sy
     try {
         output = await getShellCompletions(line)
     } catch (error) {
-        logger.log("ERROR:" + error + '[inside generateShellCompletionItems()]')
+        //logger.log("ERROR:" + error + '[inside generateShellCompletionItems()]')
         return items;
     }
     const commandNode = firstAncestorMatch(currentNode, n => isCommand(n));

@@ -2,7 +2,7 @@
 
 import {RemoteConsole} from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter'
-import {logger} from '../logger';
+//import {logger} from '../logger';
 import {ancestorMatch, firstAncestorMatch, getChildNodes, getParentNodes} from './tree-sitter';
 
 export function isComment(node: SyntaxNode): boolean {

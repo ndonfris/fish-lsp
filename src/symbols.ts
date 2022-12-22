@@ -8,7 +8,7 @@ import {
     DocumentUri,
 } from 'vscode-languageserver';
 import {SyntaxNode} from 'web-tree-sitter';
-import {logger} from './logger';
+//import {logger} from './logger';
 import {execFindDependency} from './utils/exec';
 import {findFunctionScope, isCommand, isCommandFlag, isFunctionDefinition, scopeCheck, isStatement, isString, isVariable, isVariableDefintion} from './utils/node-types';
 import {getChildNodes, getPrecedingComments, getRange} from './utils/tree-sitter';

@@ -1,22 +1,18 @@
 import Parser from "web-tree-sitter";
 import { initializeParser } from "./parser";
 import { Analyzer } from "./analyze";
-import { logger } from "./logger";
-import { buildBuiltins, buildDefaultCompletions, buildRegexCompletions, documentSymbolToCompletionItem, generateShellCompletionItems, getShellCompletions, insideStringRegex, } from "./completion";
-import { ClientCapabilities, createConnection, InitializeParams, ProposedFeatures, TextDocuments, TextDocumentSyncKind, ServerCapabilities, TextDocumentPositionParams, CompletionParams, TextDocumentChangeEvent, Connection, InitializedParams, RemoteConsole, CompletionList, CompletionItem, MarkedString, MarkupContent, SignatureHelp, CompletionItemKind, SignatureHelpParams, DocumentSymbolParams, SymbolInformation, DefinitionParams, Location, LocationLink, ReferenceParams, DocumentSymbol, } from "vscode-languageserver/node";
+//import { logger } from "./logger";
+import { buildDefaultCompletions, buildRegexCompletions, documentSymbolToCompletionItem, generateShellCompletionItems, insideStringRegex, } from "./completion";
+import { InitializeParams, TextDocumentSyncKind, ServerCapabilities, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, LocationLink, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult } from "vscode-languageserver";
 import { TextDocument } from "vscode-languageserver-textdocument";
 //import {CliOptions, Context, TreeByUri} from './interfaces';
-import { SyntaxNode } from 'web-tree-sitter';
-import {URI} from 'vscode-uri';
-import { DocumentManager, getRangeFromPosition } from './document';
-import { ancestorMatch, descendantMatch, firstAncestorMatch, getChildNodes, getNodeText, getRange } from './utils/tree-sitter';
-import { findFunctionScope, findParentCommand, isCommand, isFunctionDefinition, isLocalVariable, isQuoteString, isRegexArgument, isStatement, isVariable } from './utils/node-types';
-import { FishCompletionItem, FishCompletionItemKind, } from './utils/completion-types';
-import { FilepathResolver } from './utils/filepathResolver';
-import { documentationHoverProvider, enrichToCodeBlockMarkdown, enrichToMarkdown } from './documentation';
+import { LspDocuments, LspDocument } from './document';
+import { FishCompletionItem, } from './utils/completion-types';
+import { enrichToCodeBlockMarkdown } from './documentation';
 import { execCommandDocs, execCommandType, execFindDependency } from './utils/exec';
-import { getDefaultSignatures, signatureIndex } from './signature';
-import { findGlobalDefinition, findLocalDefinition, getNearestSymbols, getReferences } from './symbols';
+import { findLocalDefinition, getNearestSymbols, getReferences } from './symbols';
+import {Logger} from './logger';
+import {uriToPath} from './utils/translation';
 
 
 
@@ -24,110 +20,79 @@ import { findGlobalDefinition, findLocalDefinition, getNearestSymbols, getRefere
 export default class FishServer {
 
 
-    public static async initialize(
+    public static async create(
         connection: Connection,
-        { capabilities }: InitializeParams
+        { rootPath, rootUri, capabilities }: InitializeParams,
     ): Promise<FishServer> {
-        logger.setConsole(connection.console)
         const parser = await initializeParser();
-        const filepaths = FilepathResolver.create()
-        return Promise.all([
-            new Analyzer(parser),
-            DocumentManager.indexUserConfig(connection.console),
-            //Completion.initialDefaults(),
-        ]).then(
-            ([analyzer, docs]) =>
-            new FishServer(connection, parser, analyzer, docs)
-        );
+        const documents = new LspDocuments() ;
+        const analyzer = new Analyzer(parser)
+        return new FishServer(connection, parser, analyzer, documents)
     }
 
     // the connection of the FishServer
     private connection: Connection;
 
-    // for logging output (from connection)
-    private console: RemoteConsole;
-    // convert this to a singleton object and globally access it 
-
     // the parser (using tree-sitter-web)
-    private parser : Parser;
+    private parser: Parser;
 
-    // using the parser & DocumentManager
-    // current implementation ideally works in this order:
-    // 1.) a document is retrieved from the DocumentManager 
-    // 2.) the document is Parsed by the Parser
-    // 3.) the analyzer stores the document???
-    // 4.) 
     private analyzer: Analyzer; 
 
     // documentManager 
-    private docs: DocumentManager;
+    private docs: LspDocuments;
 
-    //private signature: SignatureHelp;
+    protected logger: Logger;
 
-    // completionHandler
-    //private completion: Completion;
-    private symbolMap: Map<SyntaxNode, DocumentSymbol[]> = new Map();
-
-    constructor(connection: Connection, parser : Parser, analyzer: Analyzer, docs: DocumentManager ) {
+    constructor(connection: Connection, parser : Parser, analyzer: Analyzer, docs: LspDocuments ) {
         this.connection = connection;
-        this.console = this.connection.console;
         this.parser = parser;
         this.analyzer = analyzer;
         this.docs = docs;
-        //this.completion = completion;
-        //this.signature = getDefaultSignatures();
+        this.logger = new Logger(connection);
     }
 
 
+    async initialize(params: InitializeParams): Promise<InitializeResult> {
+        this.connection.console.log(
+            `Initialized server FISH-LSP with ${params.workspaceFolders}`
+        )
+        /*const server = await FishServer.create(connection, params);*/
 
-    public capabilities(): ServerCapabilities {
-        return {
-            // For now we're using full-sync even though tree-sitter has great support
-            // for partial updates.
-            textDocumentSync: TextDocumentSyncKind.Full,
-            completionProvider: {
-                resolveProvider: true,
-                triggerCharacters: ["."],
-                //triggerCharacters: ["$", "-", "\\"],
-                allCommitCharacters: [";", " ", "\t"],
-                workDoneProgress: true,
-            },
-            hoverProvider: true,
-            documentHighlightProvider: true,
-            definitionProvider: true,
-            referencesProvider: true,
-            //signatureHelpProvider: {
-            //    triggerCharacters: ["'", '"', "[", ":"],
-            //},
-            documentSymbolProvider: true,
-        };
+
+        const result : InitializeResult = {
+            capabilities: {
+                // For now we're using full-sync even though tree-sitter has great support
+                // for partial updates.
+                textDocumentSync: TextDocumentSyncKind.Full,
+                completionProvider: {
+                    resolveProvider: true,
+                    triggerCharacters: ["."],
+                    //triggerCharacters: ["$", "-", "\\"],
+                    allCommitCharacters: [";", " ", "\t"],
+                    workDoneProgress: true,
+                },
+                hoverProvider: true,
+                documentHighlightProvider: true,
+                definitionProvider: true,
+                referencesProvider: true,
+                //signatureHelpProvider: {
+                //    triggerCharacters: ["'", '"', "[", ":"],
+                //},
+                documentSymbolProvider: true,
+            }
+        }
+        return result;
     }
+
 
     public register(): void {
-        this.docs.documents.listen(this.connection)
-        this.connection.onDidOpenTextDocument(async change => {
-            const document = change.textDocument;
-            const uri = document.uri;
-            let doc = await this.docs.openOrFind(uri)
-            this.analyzer.analyze(doc);
-            logger.log(this.connection.onDidOpenTextDocument.name, {document:doc})
-        })
+        //this.docs. .listen(this.connection)
+        this.connection.console.log("Starting FishLsp.register()")
 
-        this.connection.onDidChangeTextDocument(async change => {
-            const uri = change.textDocument.uri;
-            let doc = await this.docs.openOrFind(uri);
-            logger.log(this.connection.onDidChangeTextDocument.name);
-            doc = TextDocument.update(doc, change.contentChanges, change.textDocument.version);
-            this.analyzer.analyze(doc);
-            //const root = this.analyzer.getRoot(doc)
-            // do More stuff
-        });
-
-
-        this.connection.onDidCloseTextDocument(async change => { 
-            const uri = change.textDocument.uri;
-            this.docs.close(uri);
-        });
+        this.connection.onDidOpenTextDocument(this.didOpenTextDocument.bind(this))
+        this.connection.onDidChangeTextDocument(this.didChangeTextDocument.bind(this))
+        this.connection.onDidCloseTextDocument(this.didCloseTextDocument.bind(this))
+        this.connection.onDidSaveTextDocument(this.didSaveTextDocument.bind(this))
 
         // if formatting is enabled in settings. add onContentDidSave
         // Register all the handlers for the LSP events.
@@ -142,20 +107,69 @@ export default class FishServer {
         // • https://github.com/Dart-Code/Dart-Code/blob/7df6509870d51cc99a90cf220715f4f97c681bbf/src/providers/dart_completion_item_provider.ts#L197-202
         //this.connection.onCompletion(this.onDefaultCompletion.bind(this))
         this.connection.onCompletion(this.onCompletion.bind(this))
-        this.connection.onCompletionResolve(this.onCompletionResolve.bind(this));
+        this.connection.onCompletionResolve(this.onCompletionResolve.bind(this)),
         //this.connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
 
         this.connection.onDocumentSymbol(this.onDocumentSymbols.bind(this));
         this.connection.onDefinition(this.onDefinition.bind(this));
         this.connection.onReferences(this.onReferences.bind(this));
-        this.docs.documents.onDidChangeContent(async change => {
-            const document = change.document;
-            const uri = document.uri;
-            let doc = await this.docs.openOrFind(uri);
-            logger.log('documents.onDidChangeContent: ' + doc.uri)
-            logger.log(doc.getText())
-            this.analyzer.analyze(doc);
+        this.connection.console.log("FINISHED FishLsp.register()")
+    }
+
+    didOpenTextDocument(params: DidOpenTextDocumentParams): void {
+        this.logger.log("[FishLsp.onDidOpenTextDocument()]")
+        //this.logger.log(JSON.stringify({change}, null, 2))
+        /*this.logger.log(JSON.parse(JSON.stringify({"change": change}))); ;*/
+        const document = params.textDocument;
+        //const uri = document.uri;
+        const uri = uriToPath(params.textDocument.uri.toString());
+        this.logger.log(`[FishLsp.onDidOpenTextDocument()] uri: ${uri}`)
+        if (!uri) {
+            this.logger.log("uri is null")
+            return;
+        }
+        if (this.docs.open(uri, params.textDocument) ) { 
+            const doc = this.docs.get(uri);
+            if (doc) {
+                this.logger.log("opened document: " + params.textDocument.uri)
+                this.analyzer.analyze(doc);
+                this.logger.log("analyzed document: " + params.textDocument.uri)
+                return;
+            }
+        } else {
+            this.logger.log(`Cannot open already opened doc '${params.textDocument.uri}'.`);
+            this.didChangeTextDocument({
+                textDocument: params.textDocument,
+                contentChanges: [
+                    {
+                        text: params.textDocument.text,
+                    },
+                ],
+            });
+        }
+    }
+
+    didChangeTextDocument(params: DidChangeTextDocumentParams): void {
+        const uri = uriToPath(params.textDocument.uri);
+        if (!uri) return;
+        const doc = this.docs.get(uri);
+        this.logger.log(`[${ this.connection.onDidChangeTextDocument.name }]: ${params.textDocument.uri}` );
+        if (!doc) return;
+        params.contentChanges.forEach(newContent => {
+            doc.applyEdit(params.textDocument.version, newContent)
         })
+    }
+
+    didCloseTextDocument(params: DidCloseTextDocumentParams): void {
+        const uri = uriToPath(params.textDocument.uri);
+        if (!uri) return;
+        this.logger.log(`[${this.connection.onDidCloseTextDocument.name}]: ${params.textDocument.uri}`);
+        this.docs.close(uri);
+        this.logger.log(`closed uri: ${uri}`);
+    }
+
+    didSaveTextDocument(params: DidSaveTextDocumentParams): void {
+        this.logger.log(`[${this.connection.onDidSaveTextDocument.name}]: ${params.textDocument.uri}`);
     }
 
     // @TODO: REFACTOR THIS OUT OF SERVER
@@ -175,18 +189,22 @@ export default class FishServer {
     // • Add local file items.
     // • Lastly add parameterInformation items.  [ 1477 : ParameterInformation ]
     public async onCompletion(params: CompletionParams):  Promise<CompletionList | null>{
-        const uri: string = params.textDocument.uri;
+        const uri = uriToPath(params.textDocument.uri);
+        if (!uri) return null;
         //logger.log(`completionParams.context.triggerKind: ${params.context?.triggerKind}`)
-        logger.log('server.onComplete' + uri);
+        this.logger.log('server.onComplete' + uri);
 
-        const doc = await this.docs.openOrFind(uri);
-        const documentLine: TextDocument = this.analyzer.currentLine(doc, params.position) || " ";
-        const line = documentLine.getText();
+        const doc = this.docs.get(uri);
+        if (!doc) {
+            this.logger.log('onComplete got [NOT FOUND]: ' + uri)
+            return null;
+        }
+        const line: string = doc.getLine(params.position.line)
+        this.logger.log(`onComplete: ${uri} : ${line}`)
 
         if (line.trimStart().startsWith("#")) {
             return null;
         }
-
 
         const root = this.parser.parse(doc.getText()).rootNode;
 
@@ -199,7 +217,7 @@ export default class FishServer {
         ];
 
         if (insideStringRegex(line)) {
-            logger.log(`insideStringRegex: ${true}`)
+            //logger.log(`insideStringRegex: ${true}`)
             items.push(...buildRegexCompletions())
             return CompletionList.create(items, true)
         }
@@ -281,9 +299,13 @@ export default class FishServer {
 
 
     public async onDocumentSymbols(params: DocumentSymbolParams): Promise<DocumentSymbol[]> {
-        logger.log("onDocumentSymbols");
+        //logger.log("onDocumentSymbols");
         const uri: string = params.textDocument.uri;
-        const doc = await this.docs.openOrFind(uri);
+        const doc = this.docs.get(uri);
+        const symbols : DocumentSymbol[] = [];
+        if (!doc) {
+            return symbols;
+        }
         const root = this.parser.parse(doc.getText()).rootNode;
         //this.symbolMap = getDocumentSymbols(root);
         //const returnSymbols = sym
@@ -291,35 +313,39 @@ export default class FishServer {
         //    logger.logDocumentSymbol(sym)
         //}
         //this.symbolMap = new Map<SyntaxNode, DocumentSymbol[]>(symbols);
-        return []
+        return symbols
     }
 
     public async onDefinition(params: DefinitionParams): Promise<LocationLink[]> {
-        logger.log("getDefinition");
+        //logger.log("getDefinition");
         const uri: string = params.textDocument.uri;
         const position = params.position;
-        const doc = await this.docs.openOrFind(uri);
+        const doc = this.docs.get(uri);
+        if (!doc) {
+            return [];
+        }
         const root = this.parser.parse(doc.getText()).rootNode;
         let node = this.analyzer.nodeAtPoint(uri, position.line, position.character);
-        logger.logNode(node);
+        //logger.logNode(node);
         if (!node) return [];
         const depedencyUri = await execFindDependency(node.text)
         const localDefinitions = findLocalDefinition(uri, root, node) || [];
-        if (!depedencyUri) {
-            return localDefinitions
-        }
-        const newDoc = await this.docs.openOrFind(depedencyUri);
-        const newDocRoot = this.parser.parse(newDoc.getText()).rootNode;
-        const globalDefinitions = findGlobalDefinition(newDoc.uri, newDocRoot, node) || [];
-        return [...globalDefinitions, ...localDefinitions ]
+        return localDefinitions
+        //const newDoc = await this.docs.get(depedencyUri);
+        //const newDocRoot = this.parser.parse(newDoc.getText()).rootNode;
+        //const globalDefinitions = findGlobalDefinition(newDoc.uri, newDocRoot, node) || [];
+        //return [...globalDefinitions, ...localDefinitions ]
     }
 
 
     public async onReferences(params: ReferenceParams): Promise<Location[]> {
-        logger.log("onReferences");
+        //logger.log("onReferences");
         const uri: string = params.textDocument.uri;
         const position = params.position;
-        const doc = await this.docs.openOrFind(uri);
+        const doc = this.docs.get(uri);
+        if (!doc) {
+            return [];
+        }
         const root = this.parser.parse(doc.getText()).rootNode;
         const node = this.analyzer.nodeAtPoint(uri, position.line, position.character);
         if (!node) return [];

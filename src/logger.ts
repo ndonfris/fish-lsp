@@ -35,40 +35,29 @@ export interface LogOptions {
 }
 
 
-class Logger {
-    private static instance : Logger;
+export class Logger {
+    //private static instance : Logger;
 
-    private static log_file: string = resolve('/home/ndonfris/repos/fish-lang-server/logs.txt')
+    private LOGFILE: string = resolve('/home/ndonfris/repos/fish-lang-server/logs.txt')
     public enabled = true;     // logger.enabled would disable all log messages
     public hasRemote = false; // so that checking which console is possible
-    private _console: RemoteConsole | Console;
+    private _console: RemoteConsole | null = null;
     private timer: LogTimer ;
 
-    public static getInstance() {
-        if (!Logger.instance) {
-            Logger.instance = new Logger();
-        }
-        return Logger.instance;
-    }
-
-    private constructor() {
+    constructor(connection: Connection, LOGFILE?: string) {
         this.hasRemote = false;
-        this._console = console;
+        this._console = connection.console;
         this.timer = new LogTimer()
-    }
-
-    public setConsole(console: RemoteConsole) {
-        this.hasRemote = true;
-        this._console = console;
-        const logStr = "\n[Logger] set console to RemoteConsole: " + new Date().toISOString();
-        this.log(logStr);
+        if (LOGFILE) {
+            this.LOGFILE = LOGFILE
+        }
     }
 
     get console() {
-        if (!Logger.instance) {
-            Logger.instance = new Logger();
+        if (!this._console) {
+            throw new Error("Logger has no connection.console");
         }
-        return Logger.instance._console;
+        return this._console;
     }
 
     public logOpts(opts: LogOptions) {
@@ -104,7 +93,7 @@ class Logger {
         const output = '\n'+ msg;
         this.console.log(msg);
         try {
-            appendFileSync(Logger.log_file, output)
+            appendFileSync(this.LOGFILE, output)
         } catch (err) {
             this.console.log("ERROR appending to file. " + err)
         }
@@ -383,7 +372,7 @@ function getLogTitle(opts: LogOptions) {
 }
 
 
-export const logger = Logger.getInstance();
+//export const logger = Logger.getInstance();
 
 
 
