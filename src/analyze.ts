@@ -3,8 +3,10 @@ import Parser, { SyntaxNode, Point, Range, Tree } from "web-tree-sitter";
 import {collectFishSymbols, FishSymbol, FishSymbolMap} from './symbols';
 import {SymbolKind} from 'vscode-languageserver';
 import {getRange} from './utils/tree-sitter';
+import {LspDocument} from './document';
 
 export class Analyzer {
+
     private parser: Parser;
 
     // maps the uri of document to the parser.parse(document.getText())
@@ -20,11 +22,15 @@ export class Analyzer {
         this.fishSymbols = {};
     }
 
-    public analyze(document: TextDocument) {
-        this.parser.reset();
+    public analyze(document: LspDocument) {
+        this.parser.reset()
         const tree = this.parser.parse(document.getText())
+        if (!tree?.rootNode) {
+            return
+        }
         this.uriTree[document.uri] = tree;
-        this.fishSymbols[document.uri] = collectFishSymbols(document.uri, tree.rootNode);
+        const fishSymbols = collectFishSymbols(document.uri, tree?.rootNode);
+        this.fishSymbols[document.uri] = fishSymbols;
     }
 
     getCompletionFishSymbols(uri: string): FishSymbol[] {
@@ -33,18 +39,23 @@ export class Analyzer {
         });
     }
 
-    getDefinition(uri: string, node: SyntaxNode): Location | null {
-        return this.fishSymbols[uri]
-        .filter((symbol) => symbol.name === node.text )
-        .find((symbol) => symbol.location.range !== getRange(node))?.location || null;
+    getDefinition(uri: string, node: SyntaxNode): Location[]{
+        const first = 
+            this.fishSymbols[uri]
+            .filter((symbol) => symbol.name === node.text)
+            .find((symbol) => symbol.location.range.start.line != getRange(node).start.line)?.location
+        if (first) {
+            return [first]
+        }
+        return [];
     }
 
     getRefrences(uri: string, node: SyntaxNode): Location[] | null {
         return this.fishSymbols[uri]
                 .filter(
-                    (symbol) =>
-                        symbol.name === node.text &&
-                            symbol.location.range !== getRange(node))
+                    (symbol) => {
+                    return symbol.name === node.text
+                })
                 .map((symbol) => symbol.location) || null;
     }
 

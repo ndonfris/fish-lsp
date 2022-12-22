@@ -3,7 +3,7 @@ import { initializeParser } from "./parser";
 import { Analyzer } from "./analyze";
 //import { logger } from "./logger";
 import { buildDefaultCompletions, buildRegexCompletions, workspaceSymbolToCompletionItem, generateShellCompletionItems, insideStringRegex, } from "./completion";
-import { InitializeParams, TextDocumentSyncKind, ServerCapabilities, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, LocationLink, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult } from "vscode-languageserver";
+import { InitializeParams, TextDocumentSyncKind, ServerCapabilities, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, LocationLink, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, WorkspaceSymbol, WorkspaceSymbolParams, SymbolKind } from "vscode-languageserver";
 import { TextDocument } from "vscode-languageserver-textdocument";
 //import {CliOptions, Context, TreeByUri} from './interfaces';
 import { LspDocuments, LspDocument } from './document';
@@ -27,7 +27,7 @@ export default class FishServer {
     ): Promise<FishServer> {
         const parser = await initializeParser();
         const documents = new LspDocuments() ;
-        const analyzer = new Analyzer(parser)
+        const analyzer = new Analyzer(await initializeParser());
         return new FishServer(connection, parser, analyzer, documents)
     }
 
@@ -79,7 +79,14 @@ export default class FishServer {
                 //signatureHelpProvider: {
                 //    triggerCharacters: ["'", '"', "[", ":"],
                 //},
-                documentSymbolProvider: true,
+                documentSymbolProvider: {
+                    label: "Fish",
+                },
+                //workspaceSymbolProvider: {
+                //    resolveProvider: true,
+                //}
+                
+                //workspaceSymbolProvider: true,
             }
         }
         return result;
@@ -106,14 +113,13 @@ export default class FishServer {
 
         // • for multiple completionProviders -> https://github.com/microsoft/vscode-extension-samples/blob/main/completions-sample/src/extension.ts#L15
         // • https://github.com/Dart-Code/Dart-Code/blob/7df6509870d51cc99a90cf220715f4f97c681bbf/src/providers/dart_completion_item_provider.ts#L197-202
-        //this.connection.onCompletion(this.onDefaultCompletion.bind(this))
         this.connection.onCompletion(this.onCompletion.bind(this))
         this.connection.onCompletionResolve(this.onCompletionResolve.bind(this)),
         //this.connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
 
-        //this.connection.onDocumentSymbol(this.onDocumentSymbols.bind(this));
+        this.connection.onDocumentSymbol(this.onDocumentSymbols.bind(this));
         this.connection.onDefinition(this.onDefinition.bind(this));
-        //this.connection.onReferences(this.onReferences.bind(this));
+        this.connection.onReferences(this.onReferences.bind(this));
         this.connection.console.log("FINISHED FishLsp.register()")
     }
 
@@ -132,7 +138,6 @@ export default class FishServer {
                 this.logger.log("opened document: " + params.textDocument.uri)
                 this.analyzer.analyze(doc);
                 this.logger.log("analyzed document: " + params.textDocument.uri)
-                return;
             }
         } else {
             this.logger.log(`Cannot open already opened doc '${params.textDocument.uri}'.`);
@@ -145,6 +150,10 @@ export default class FishServer {
                 ],
             });
         }
+        //const toAnalyze = this.docs.get(uri);
+        //if (toAnalyze) {
+        //    this.analyzer.analyze(toAnalyze);
+        //}
     }
 
     didChangeTextDocument(params: DidChangeTextDocumentParams): void {
@@ -207,6 +216,7 @@ export default class FishServer {
         }
 
         const root = this.getRootNode(doc.getText());
+        this.logger.log(`root: ${root}`)
 
         const lineToParse = line.trimEnd();
         const currNode = root.descendantForPosition({row: 0, column: lineToParse.length - 1});
@@ -298,14 +308,26 @@ export default class FishServer {
     //}
 
 
-    async onDocumentSymbols(params: DocumentSymbolParams): Promise<FishSymbol[]> {
+    // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#workspace_symbol
+    async onDocumentSymbols(params: DocumentSymbolParams): Promise<DocumentSymbol[]> {
         this.logger.log("onDocumentSymbols");
         const uri = uriToPath(params.textDocument.uri);
         const doc = this.docs.get(uri);
         if (!doc || !uri) {
             return [];
         }
-        return this.analyzer.getSymbols(uri);
+        this.logger.log("length: "+ this.analyzer.getSymbols(doc.uri).length.toString())
+        return this.analyzer.getSymbols(doc.uri).filter(
+            (symbol) => {symbol.kind === SymbolKind.Function}
+        ).map(symbol => {
+            return DocumentSymbol.create(
+                symbol.name,
+                symbol.data.parent?.text || symbol.name,
+                symbol.kind,
+                symbol.location.range,
+                symbol.location.range
+            );
+        }) as DocumentSymbol[];
     }
 
     async onDefinition(params: DefinitionParams): Promise<Location[]> {
@@ -315,16 +337,13 @@ export default class FishServer {
         if (!doc || !uri) {
             return [];
         }
-        const root = this.getRootNode(doc.getText());
-        let node = this.analyzer.nodeAtPoint(uri, params.position.line, params.position.character);
-        //logger.logNode(node);
+        //const root = this.getRootNode(doc.getText());
+        let node = this.analyzer.nodeAtPoint(doc.uri, params.position.line, params.position.character - 1);
+        this.logger.log(node?.text.toString() || "no node")
         if (!node) return [];
-        const depedencyUri = await execFindDependency(node.text)
-        const localDefinitions = this.analyzer.getDefinition(uri, node);
-        if (localDefinitions) {
-            return [localDefinitions];
-        }
-        return []
+        //const depedencyUri = await execFindDependency(node.text)
+        const localDefinitions = this.analyzer.getDefinition(doc.uri, node);
+        return localDefinitions;
         //const newDoc = await this.docs.get(depedencyUri);
         //const newDocRoot = this.parser.parse(newDoc.getText()).rootNode;
         //const globalDefinitions = findGlobalDefinition(newDoc.uri, newDocRoot, node) || [];
@@ -339,8 +358,13 @@ export default class FishServer {
         if (!doc || !uri) {
             return [];
         }
-        const root = this.getRootNode(doc.getText());
+        //const root = this.getRootNode(doc.getText());
+        this.analyzer.analyze(doc);
+        this.analyzer.getSymbols(doc.uri).forEach((s) => {
+            this.logger.log(JSON.stringify({s}, null, 2))
+        })
         const node = this.analyzer.nodeAtPoint(uri, params.position.line, params.position.character);
+        this.logger.log(node?.toString() || "no NODE in onRefrence")
         if (!node) return [];
         return this.analyzer.getRefrences(uri, node) || [];
     }

@@ -17,7 +17,9 @@ import {findFunctionScope, isCommand, isCommandFlag, isFunctionDefinitionName, i
 import {getChildNodes, getPrecedingComments, getRange, nodesGen} from './utils/tree-sitter';
 
 
-export type FishSymbolMap = {[uri: string]: FishSymbol[]};
+export interface FishSymbolMap {
+    [uri: string]: FishSymbol[]
+};
 
 // ~~~~REMOVE IF UNUSED LATER~~~~
 export function toSymbolKind(node: SyntaxNode): SymbolKind {
@@ -50,7 +52,7 @@ function createFishWorkspaceSymbol(node: SyntaxNode, uri: DocumentUri, container
 }
 
 // use symbolInformation instead, then use the symbols found to search for external dependencies
-export function collectFishSymbols(documentUri: DocumentUri, rootNode: SyntaxNode): FishSymbol[] {
+export function collectFishSymbols(documentUri: string, rootNode: SyntaxNode): FishSymbol[] {
     const symbols: FishSymbol[] = [];
     for (const node of nodesGen(rootNode)) {
         const symbolKind = toSymbolKind(node);
@@ -58,13 +60,17 @@ export function collectFishSymbols(documentUri: DocumentUri, rootNode: SyntaxNod
             case SymbolKind.Variable:
                 const parentSymbolName = findEnclosingVariableScope(node)?.text || "block"
                 symbols.push(createFishWorkspaceSymbol(node, documentUri, parentSymbolName));
+                break;
             case SymbolKind.Function:
                 symbols.push(createFishWorkspaceSymbol(node, documentUri));
+                break;
             case SymbolKind.Namespace:
                 symbols.push(createFishWorkspaceSymbol(node, documentUri));
-            case SymbolKind.Class:
-                // findParent function or program
-                symbols.push(createFishWorkspaceSymbol(node, documentUri));
+                break;
+            //case SymbolKind.Class:
+            //    // findParent function or program
+            //    symbols.push(createFishWorkspaceSymbol(node, documentUri));
+            //    break;
             default:
                 break;
         }
@@ -192,21 +198,6 @@ export function getReferences(symbols: FishSymbol[], node: SyntaxNode): FishSymb
     return refrences;
 }
 
-
-export function getAllRefrenceLocations(uri: DocumentUri, root: SyntaxNode, currentNode: SyntaxNode): Location[] {
-    const refrences: Location[] = [];
-    // find out what we are looking for
-    // conditionally check if we are looking for a variable or a function !
-    for (const node of getChildNodes(root)) {
-        if (node.text === currentNode.text) {
-            refrences.push({
-                uri: uri,
-                range: getRange(node),
-            })
-        }
-    }
-    return refrences;
-}
 
 /**
  * finds all LOCAL DocumentSymbols for a document (given by its root). getChildNodes is
