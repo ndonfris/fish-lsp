@@ -57,3 +57,212 @@ analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fi
 [FishLsp.onDidOpenTextDocument()]
 [onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
 [FishLsp.onDidOpenTextDocument()]
+[FishLsp.onDidOpenTextDocument()]
+[FishLsp.onDidOpenTextDocument()]
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete/home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :     f
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete/home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :     fo
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete/home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :     for
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete/home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :     for i
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete/home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :     for i in
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete/home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :     for i in (s)
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete/home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :     for i in (se)
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete/home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :     for i in (se
+server.onComplete/home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :     for i in (se
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete/home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :     for i in (seq
+server.onComplete/home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :     for i in (seq
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete/home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :     for i in (seq 
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete/home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :     for i in (seq 1
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete/home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :     for i in (seq 1 
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete/home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :     for i in (seq 1 10
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete/home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :         
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete/home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :         e
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete/home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :         ec
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete/home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :         ech
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete/home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :         echo
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete/home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :         echo 
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete/home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :         echo $
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+[object Object]
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :     a
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :     f
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :     fo
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :     for
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :     for i in (s
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :     for i in (se
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :     for i in (seq
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :     for i in (se
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+[object Object]
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :     f
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :     fo
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :     for
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :     for i
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+[object Object]
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+[object Object]
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/config.fish
+opened document: file:///home/ndonfris/.config/fish/config.fish
+analyzed document: file:///home/ndonfris/.config/fish/config.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/config.fish
+closed uri: /home/ndonfris/.config/fish/config.fish
+[FishLsp.onDidOpenTextDocument()]
+[object Object]
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+[object Object]
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+[object Object]
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+[object Object]
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\n    __test_small\nend\n\n\n## this is a comment\nfunction __test_small \n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo \"matched\" | string pad -c ' ' \n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv \n\n    set_color --background black white \n    set -l variable_name \"v\" \n    whatis -? --config-file --help --regex \"*\" \n\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n\n    string pad --width 10 --char \" \" \"$argv\" \n\n    set -l variable_name \"value\" \n\n    if test -n \"$variable_name\" \n        echo \"variable_name is not empty\" \n    end\n\n    for i in (seq 1 (count $variable_name))\n    end\n\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name \"value\" \nend\n\n\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish

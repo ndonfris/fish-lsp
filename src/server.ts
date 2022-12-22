@@ -1,4 +1,4 @@
-import Parser from "web-tree-sitter";
+import Parser, {SyntaxNode} from "web-tree-sitter";
 import { initializeParser } from "./parser";
 import { Analyzer } from "./analyze";
 //import { logger } from "./logger";
@@ -110,25 +110,25 @@ export default class FishServer {
         this.connection.onCompletionResolve(this.onCompletionResolve.bind(this)),
         //this.connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
 
-        this.connection.onDocumentSymbol(this.onDocumentSymbols.bind(this));
-        this.connection.onDefinition(this.onDefinition.bind(this));
-        this.connection.onReferences(this.onReferences.bind(this));
+        //this.connection.onDocumentSymbol(this.onDocumentSymbols.bind(this));
+        //this.connection.onDefinition(this.onDefinition.bind(this));
+        //this.connection.onReferences(this.onReferences.bind(this));
         this.connection.console.log("FINISHED FishLsp.register()")
     }
 
     didOpenTextDocument(params: DidOpenTextDocumentParams): void {
         this.logger.log("[FishLsp.onDidOpenTextDocument()]")
-        //this.logger.log(JSON.stringify({change}, null, 2))
-        /*this.logger.log(JSON.parse(JSON.stringify({"change": change}))); ;*/
-        const document = params.textDocument;
+        this.logger.log(JSON.stringify({params}, null, 2))
+        //this.logger.log(JSON.parse(JSON.stringify({params: params.textDocument})));
+        //const document = params.textDocument;
         //const uri = document.uri;
-        const uri = uriToPath(params.textDocument.uri.toString());
+        const uri = uriToPath(params.textDocument.uri);
         this.logger.log(`[FishLsp.onDidOpenTextDocument()] uri: ${uri}`)
         if (!uri) {
             this.logger.log("uri is null")
             return;
         }
-        if (this.docs.open(uri, params.textDocument) ) { 
+        if (this.docs.open(uri, params.textDocument)) { 
             const doc = this.docs.get(uri);
             if (doc) {
                 this.logger.log("opened document: " + params.textDocument.uri)
@@ -172,6 +172,11 @@ export default class FishServer {
         this.logger.log(`[${this.connection.onDidSaveTextDocument.name}]: ${params.textDocument.uri}`);
     }
 
+    private getRootNode(documentText: string): SyntaxNode {
+        const tree = this.parser.parse(documentText);
+        return tree.rootNode;
+    }
+
     // @TODO: REFACTOR THIS OUT OF SERVER
     // what you've been looking for:
     //      fish_indent --dump-parse-tree test-fish-lsp.fish
@@ -190,26 +195,23 @@ export default class FishServer {
     // • Lastly add parameterInformation items.  [ 1477 : ParameterInformation ]
     public async onCompletion(params: CompletionParams):  Promise<CompletionList | null>{
         const uri = uriToPath(params.textDocument.uri);
-        if (!uri) return null;
-        //logger.log(`completionParams.context.triggerKind: ${params.context?.triggerKind}`)
-        this.logger.log('server.onComplete' + uri);
-
+        this.logger.log('server.onComplete');
         const doc = this.docs.get(uri);
         if (!doc) {
             this.logger.log('onComplete got [NOT FOUND]: ' + uri)
             return null;
         }
-        const line: string = doc.getLine(params.position.line)
+        const line: string = doc.getLineBeforeCursor(params.position)
         this.logger.log(`onComplete: ${uri} : ${line}`)
 
         if (line.trimStart().startsWith("#")) {
             return null;
         }
 
-        const root = this.parser.parse(doc.getText()).rootNode;
+        const root = this.getRootNode(doc.getText());
 
         const lineToParse = line.trimEnd();
-        const currNode = this.parser.parse(lineToParse).rootNode.descendantForPosition({row: 0, column: lineToParse.length - 1});
+        const currNode = root.descendantForPosition({row: 0, column: lineToParse.length - 1});
 
         const items: CompletionItem[] = [
             ...documentSymbolToCompletionItem(getNearestSymbols(root, currNode), doc),
@@ -299,14 +301,14 @@ export default class FishServer {
 
 
     public async onDocumentSymbols(params: DocumentSymbolParams): Promise<DocumentSymbol[]> {
-        //logger.log("onDocumentSymbols");
-        const uri: string = params.textDocument.uri;
+        this.logger.log("onDocumentSymbols");
+        const uri = uriToPath(params.textDocument.uri);
         const doc = this.docs.get(uri);
         const symbols : DocumentSymbol[] = [];
         if (!doc) {
             return symbols;
         }
-        const root = this.parser.parse(doc.getText()).rootNode;
+        const root = this.getRootNode(doc.getText());
         //this.symbolMap = getDocumentSymbols(root);
         //const returnSymbols = sym
         //for (const sym of Array.from(symbols.values())) {
@@ -317,15 +319,14 @@ export default class FishServer {
     }
 
     public async onDefinition(params: DefinitionParams): Promise<LocationLink[]> {
-        //logger.log("getDefinition");
-        const uri: string = params.textDocument.uri;
-        const position = params.position;
+        this.logger.log("onDefinition");
+        const uri = uriToPath(params.textDocument.uri);
         const doc = this.docs.get(uri);
-        if (!doc) {
+        if (!doc || !uri) {
             return [];
         }
-        const root = this.parser.parse(doc.getText()).rootNode;
-        let node = this.analyzer.nodeAtPoint(uri, position.line, position.character);
+        const root = this.getRootNode(doc.getText());
+        let node = this.analyzer.nodeAtPoint(uri, params.position.line, params.position.character);
         //logger.logNode(node);
         if (!node) return [];
         const depedencyUri = await execFindDependency(node.text)
@@ -339,15 +340,14 @@ export default class FishServer {
 
 
     public async onReferences(params: ReferenceParams): Promise<Location[]> {
-        //logger.log("onReferences");
-        const uri: string = params.textDocument.uri;
-        const position = params.position;
+        this.logger.log("onReference");
+        const uri = uriToPath(params.textDocument.uri);
         const doc = this.docs.get(uri);
-        if (!doc) {
+        if (!doc || !uri) {
             return [];
         }
-        const root = this.parser.parse(doc.getText()).rootNode;
-        const node = this.analyzer.nodeAtPoint(uri, position.line, position.character);
+        const root = this.getRootNode(doc.getText());
+        const node = this.analyzer.nodeAtPoint(uri, params.position.line, params.position.character);
         if (!node) return [];
         return getReferences(uri, root, node) || []
     }

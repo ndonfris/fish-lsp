@@ -105,10 +105,21 @@ export class LspDocument implements TextDocument {
         return this.document.lineCount;
     }
 
+    /*
+     * @see getLineBeforeCursor()
+     */
     getLine(line: number): string {
         const lineRange = this.getLineRange(line);
         return this.getText(lineRange);
     }
+
+    getLineBeforeCursor(position: Position): string {
+        const lineStart = Position.create(position.line, 0);
+        const lineEnd = Position.create(position.line, position.character);
+        const lineRange = Range.create(lineStart, lineEnd);
+        return this.getText(lineRange);
+    }
+
 
     getLineRange(line: number): Range {
         const lineStart = this.getLineStart(line);
@@ -153,7 +164,10 @@ export class LspDocuments {
         return this._files;
     }
 
-    get(file: string): LspDocument | undefined {
+    get(file?: string): LspDocument | undefined {
+        if (!file) {
+            return undefined;
+        }
         const document = this.documents.get(file);
         if (!document) {
             return undefined;
