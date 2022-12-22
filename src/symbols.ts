@@ -1,38 +1,76 @@
 import {
     SymbolInformation,
-    WorkspaceSymbol,
     SymbolKind,
+    WorkspaceSymbol,
     DocumentSymbol,
     LocationLink,
     Location,
     DocumentUri,
+    ColorInformation,
+    Color,
+    LinkedEditingRanges,
 } from 'vscode-languageserver';
 import {SyntaxNode} from 'web-tree-sitter';
 //import {logger} from './logger';
-import {execFindDependency} from './utils/exec';
-import {findFunctionScope, isCommand, isCommandFlag, isFunctionDefinition, scopeCheck, isStatement, isString, isVariable, isVariableDefintion} from './utils/node-types';
-import {getChildNodes, getPrecedingComments, getRange} from './utils/tree-sitter';
+import {isBuiltin} from './utils/builtins';
+import {findFunctionScope, isCommand, isCommandFlag, isFunctionDefinitionName, isFunctionDefinition, scopeCheck, isStatement, isString, isVariable, isVariableDefintion, findParentCommand, isProgram, isCommandName, findEnclosingVariableScope} from './utils/node-types';
+import {getChildNodes, getPrecedingComments, getRange, nodesGen} from './utils/tree-sitter';
 
-// using vscode-languageserver v8.0.2 sotherefore, you should use a more acvance exampled of
-// SymbolKind, DocumentSymbol,
 
+export type FishSymbolMap = {[uri: string]: FishSymbol[]};
 
 // ~~~~REMOVE IF UNUSED LATER~~~~
-function toSymbolKind(node: SyntaxNode): SymbolKind {
+export function toSymbolKind(node: SyntaxNode): SymbolKind {
     if (isVariableDefintion(node)) {
         return SymbolKind.Variable
-    } else if (isFunctionDefinition(node)) {
+    } else if (isFunctionDefinitionName(node)) {
         return SymbolKind.Function;
-    } else if (isCommand(node)) {
-        return SymbolKind.Class;
     } else if (isString(node)) { 
         return SymbolKind.String;
-    } else if (isCommandFlag(node)) {
-        return SymbolKind.Field;
+    } else if (isProgram(node) || isFunctionDefinition(node) || isStatement(node)) {
+        return SymbolKind.Namespace
+    } else if (isBuiltin(node.text) || isCommandName(node)) {
+        return SymbolKind.Class;
     }
     return SymbolKind.Null
 }
 
+export interface FishSymbol extends WorkspaceSymbol {
+    location: Location;
+    data: SyntaxNode;
+}
+
+function createFishWorkspaceSymbol(node: SyntaxNode, uri: DocumentUri, containerName?: string): FishSymbol {
+    const symbol = WorkspaceSymbol.create(node.text, toSymbolKind(node), uri, getRange(node));
+    return {
+        ...symbol,
+        location: Location.create(uri, getRange(node)),
+        data: node,
+    }
+}
+
+// use symbolInformation instead, then use the symbols found to search for external dependencies
+export function collectFishSymbols(documentUri: DocumentUri, rootNode: SyntaxNode): FishSymbol[] {
+    const symbols: FishSymbol[] = [];
+    for (const node of nodesGen(rootNode)) {
+        const symbolKind = toSymbolKind(node);
+        switch (symbolKind) {
+            case SymbolKind.Variable:
+                const parentSymbolName = findEnclosingVariableScope(node)?.text || "block"
+                symbols.push(createFishWorkspaceSymbol(node, documentUri, parentSymbolName));
+            case SymbolKind.Function:
+                symbols.push(createFishWorkspaceSymbol(node, documentUri));
+            case SymbolKind.Namespace:
+                symbols.push(createFishWorkspaceSymbol(node, documentUri));
+            case SymbolKind.Class:
+                // findParent function or program
+                symbols.push(createFishWorkspaceSymbol(node, documentUri));
+            default:
+                break;
+        }
+    }
+    return symbols;
+}
 
 function firstNodeBeforeSecondNodeComaprision(
     firstNode: SyntaxNode,
@@ -44,76 +82,126 @@ function firstNodeBeforeSecondNodeComaprision(
     )
 }
 
-export function findLocalDefinition(uri: DocumentUri, root: SyntaxNode, findNode: SyntaxNode): LocationLink[] | undefined {
-    const results: LocationLink[] = []
-    const possibleResults: LocationLink[] = [];
-    const fallbackResults: LocationLink[] = [];
+export function fishSymbolCompare(symbol1: FishSymbol, symbol2: FishSymbol) {
+    return locationCompare(symbol1.location, symbol2.location)
+}
+
+function  locationCompare(location1: Location, location2: Location) {
+    return location1.uri === location2.uri &&
+        location1.range.start.line === location2.range.start.line &&
+        location1.range.start.character === location2.range.start.character;
+}
+
+//export function findLocalDefinition(uri: DocumentUri, root: SyntaxNode, findNode: SyntaxNode): LocationLink[] | undefined {
+//    const results: LocationLink[] = []
+//    const possibleResults: LocationLink[] = [];
+//    const fallbackResults: LocationLink[] = [];
+//    if (findNode.text === "argv") { 
+//        const func = findFunctionScope(findNode);
+//        const funcName = func?.child(1) || func;
+//        return [{
+//            targetUri: uri,
+//            targetRange: getRange(func),
+//            originSelectionRange: getRange(findNode),
+//            targetSelectionRange: getRange(funcName),
+//        }]
+//    }
+//    for (const node of getChildNodes(root)) {
+//        if (isFunctionDefinition(node) && node.child(1)?.text === findNode.text) {
+//            const funcName = node?.child(1) || node;
+//            results.push({
+//                originSelectionRange: getRange(findNode),
+//                targetUri: uri,
+//                targetRange: getRange(node),
+//                targetSelectionRange: getRange(funcName),
+//            })
+//        }
+//        if (isVariableDefintion(node) && firstNodeBeforeSecondNodeComaprision(node, findNode)) {
+//            results.push({
+//                originSelectionRange: getRange(findNode),
+//                targetUri: uri,
+//                targetRange: getRange(node),
+//                targetSelectionRange: getRange(node),
+//            })
+//        }
+//        if (node.type === 'variable_name' && firstNodeBeforeSecondNodeComaprision(node, findNode)) {
+//            possibleResults.push({
+//                originSelectionRange: getRange(findNode),
+//                targetUri: uri,
+//                targetRange: getRange(node),
+//                targetSelectionRange: getRange(node),
+//            })
+//        }
+//        // @TODO: fix this now that definitions are now working
+//        // for commands like:
+//        //      read arg1 arg2 arg3 
+//        //           or
+//        //      function funcName -a arg1 arg2 arg3
+//        //
+//        if (node.type === 'word' && firstNodeBeforeSecondNodeComaprision(node, findNode)) {
+//            fallbackResults.push({
+//                originSelectionRange: getRange(findNode),
+//                targetUri: uri,
+//                targetRange: getRange(node),
+//                targetSelectionRange: getRange(node),
+//            })
+//        }
+//    }
+//    if (results.length === 0 && possibleResults.length === 0) {
+//        return fallbackResults
+//    }
+//    if (results.length === 0) {
+//        return possibleResults
+//    }
+//    return results;
+//}
+
+
+// https://fishshell.com/docs/current/language.html#variables-scope
+export function newGetFileDefintions(uri: DocumentUri, root: SyntaxNode, findNode: SyntaxNode): LocationLink[]{
+    const results: LocationLink[] = [];
     if (findNode.text === "argv") { 
         const func = findFunctionScope(findNode);
         const funcName = func?.child(1) || func;
-        return [{
-            targetUri: uri,
-            targetRange: getRange(func),
-            originSelectionRange: getRange(findNode),
-            targetSelectionRange: getRange(funcName),
-        }]
+        return [LocationLink.create(uri, getRange(func), getRange(findNode), getRange(funcName))]
     }
-    for (const node of getChildNodes(root)) {
-        if (isFunctionDefinition(node) && node.child(1)?.text === findNode.text) {
-            const funcName = node?.child(1) || node;
-            results.push({
-                originSelectionRange: getRange(findNode),
-                targetUri: uri,
-                targetRange: getRange(node),
-                targetSelectionRange: getRange(funcName),
-            })
-        }
-        if (isVariableDefintion(node) && firstNodeBeforeSecondNodeComaprision(node, findNode)) {
-            results.push({
-                originSelectionRange: getRange(findNode),
-                targetUri: uri,
-                targetRange: getRange(node),
-                targetSelectionRange: getRange(node),
-            })
-        }
-        if (node.type === 'variable_name' && firstNodeBeforeSecondNodeComaprision(node, findNode)) {
-            possibleResults.push({
-                originSelectionRange: getRange(findNode),
-                targetUri: uri,
-                targetRange: getRange(node),
-                targetSelectionRange: getRange(node),
-            })
-        }
-        // for commands like:
-        //      read arg1 arg2 arg3 
-        //           or
-        //      function funcName -a arg1 arg2 arg3
-        //
-        if (node.type === 'word' && firstNodeBeforeSecondNodeComaprision(node, findNode)) {
-            fallbackResults.push({
-                originSelectionRange: getRange(findNode),
-                targetUri: uri,
-                targetRange: getRange(node),
-                targetSelectionRange: getRange(node),
-            })
+    const allDefs = getChildNodes(root).filter((node) => {
+        return isFunctionDefinition(node) || isVariableDefintion(node)
+    })
+
+    for (const node of allDefs) {
+        if (isFunctionDefinition(node)) {
+            const funcName = node?.child(1);
+            if (funcName && funcName.text === findNode.text) {
+                results.push(LocationLink.create(uri, getRange(node), getRange(funcName), getRange(findNode)))
+            }
+        } else if (node.text === findNode.text) {
+            results.push(LocationLink.create(uri, getRange(node), getRange(node), getRange(findNode)))
         }
     }
-    if (results.length === 0 && possibleResults.length === 0) {
-        return fallbackResults
-    }
-    if (results.length === 0) {
-        return possibleResults
-    }
-    return results;
+    return results
 }
 
-export function getReferences(uri: DocumentUri, root: SyntaxNode, node: SyntaxNode): Location[] {
+export function getReferences(symbols: FishSymbol[], node: SyntaxNode): FishSymbol[] {
+    const refrences: FishSymbol[] = [];
+    for (const newNode of symbols) {
+        if (newNode.kind === SymbolKind.Variable && newNode.name === node.text) {
+            refrences.push(newNode)
+        }
+    }
+    return refrences;
+}
+
+
+export function getAllRefrenceLocations(uri: DocumentUri, root: SyntaxNode, currentNode: SyntaxNode): Location[] {
     const refrences: Location[] = [];
-    for (const newNode of getChildNodes(root)) {
-        if (isVariable(newNode) && newNode.text === node.text) {
+    // find out what we are looking for
+    // conditionally check if we are looking for a variable or a function !
+    for (const node of getChildNodes(root)) {
+        if (node.text === currentNode.text) {
             refrences.push({
                 uri: uri,
-                range: getRange(newNode),
+                range: getRange(node),
             })
         }
     }
@@ -143,14 +231,13 @@ export function getLocalSymbols(root: SyntaxNode): DocumentSymbol[] {
             })
         }
         // add variables (i.e. 'for i in ...; end;' -- i is not included in the symbols)
-        if (isFunctionDefinition(node) && node.child(1)) {
-            const funcName = node.child(1)!.text ;
+        if (isFunctionDefinitionName(node) && node.parent) {
             symbols.push({
-                name: funcName,
+                name: node.text,
                 kind: SymbolKind.Function,
-                detail: [getPrecedingComments(node), node.text].join('\n'),
-                selectionRange: getRange(node.child(1)!),
-                range: getRange(node),
+                detail: [getPrecedingComments(node.parent), node.text].join('\n'),
+                selectionRange: getRange(node!),
+                range: getRange(node.parent),
             })
         }
     }
@@ -163,24 +250,42 @@ export function getLocalSymbols(root: SyntaxNode): DocumentSymbol[] {
  *
  * @param {SyntaxNode} root - the root node to search from
  * @param {SyntaxNode} leaf - the node that results should be nearest to
- * @returns {DocumentSymbol[]} - deduplicated symbols that are nearest to leaf
+ * @returns {FishSymbol[]} - deduplicated symbols that are nearest to leaf
  */
-export function getNearestSymbols(root: SyntaxNode, leaf: SyntaxNode): DocumentSymbol[] {
-    const symbols: DocumentSymbol[] = getLocalSymbols(root);
+export function getNearestSymbols(uri: DocumentUri, leaf: SyntaxNode, collectedSymbols: FishSymbol[] = []): FishSymbol[] {
     const leafRange = getRange(leaf);
-    const filteredSymbols: Map<string, DocumentSymbol> = new Map<string, DocumentSymbol>()
-    for (const symbol of symbols) {
-        if (filteredSymbols.has(symbol.name) && symbol.range.start.line < leafRange.start.line) {
-            filteredSymbols.set(symbol.name, symbol)
-            continue;
-        }
-        if (!filteredSymbols.has(symbol.name)) {
-            filteredSymbols.set(symbol.name, symbol)
-            continue;
+    const filteredSymbols = new Map<string, FishSymbol>()
+    for (const symbol of collectedSymbols) {
+        if (symbol.kind === SymbolKind.Variable) {
+            if (symbol.name === leaf.text && symbol.location.uri === uri &&
+                symbol.location.range.start.line <= leafRange.start.line) {
+                    filteredSymbols.set(symbol.name, symbol)
+            }
+        } else if (symbol.kind === SymbolKind.Function) {
+           filteredSymbols.set(symbol.name, symbol)
         }
     }
+    //for (const symbol of collectedSymbols) {
+        //if (filteredSymbols.has(symbol.name) && symbol.range.start.line < leafRange.start.line) {
+            //filteredSymbols.set(symbol.name, symbol)
+            //continue;
+        //}
+        //if (!filteredSymbols.has(symbol.name) && ! isBuiltin(symbol.name)) {
+            //filteredSymbols.set(symbol.name, symbol)
+            //continue;
+        //}
+    //}
     return Array.from(filteredSymbols.values());
 }
+
+export function getDefinitionSymbols(uri: DocumentUri, root: SyntaxNode): SymbolInformation[] {
+    return getChildNodes(root)
+        .filter((node) => isFunctionDefinitionName(node) || isVariableDefintion(node))
+        .map((node) => {
+            return SymbolInformation.create(node.text, toSymbolKind(node), getRange(node), uri.toString());
+        })
+}
+
 
 
 /**

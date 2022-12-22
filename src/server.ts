@@ -2,7 +2,7 @@ import Parser, {SyntaxNode} from "web-tree-sitter";
 import { initializeParser } from "./parser";
 import { Analyzer } from "./analyze";
 //import { logger } from "./logger";
-import { buildDefaultCompletions, buildRegexCompletions, documentSymbolToCompletionItem, generateShellCompletionItems, insideStringRegex, } from "./completion";
+import { buildDefaultCompletions, buildRegexCompletions, workspaceSymbolToCompletionItem, generateShellCompletionItems, insideStringRegex, } from "./completion";
 import { InitializeParams, TextDocumentSyncKind, ServerCapabilities, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, LocationLink, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult } from "vscode-languageserver";
 import { TextDocument } from "vscode-languageserver-textdocument";
 //import {CliOptions, Context, TreeByUri} from './interfaces';
@@ -10,7 +10,8 @@ import { LspDocuments, LspDocument } from './document';
 import { FishCompletionItem, } from './utils/completion-types';
 import { enrichToCodeBlockMarkdown } from './documentation';
 import { execCommandDocs, execCommandType, execFindDependency } from './utils/exec';
-import { findLocalDefinition, getNearestSymbols, getReferences } from './symbols';
+//import { findLocalDefinition, getNearestSymbols, getReferences } from './symbols';
+import { collectFishSymbols, FishSymbol, getNearestSymbols } from './symbols';
 import {Logger} from './logger';
 import {uriToPath} from './utils/translation';
 
@@ -111,7 +112,7 @@ export default class FishServer {
         //this.connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
 
         //this.connection.onDocumentSymbol(this.onDocumentSymbols.bind(this));
-        //this.connection.onDefinition(this.onDefinition.bind(this));
+        this.connection.onDefinition(this.onDefinition.bind(this));
         //this.connection.onReferences(this.onReferences.bind(this));
         this.connection.console.log("FINISHED FishLsp.register()")
     }
@@ -119,9 +120,6 @@ export default class FishServer {
     didOpenTextDocument(params: DidOpenTextDocumentParams): void {
         this.logger.log("[FishLsp.onDidOpenTextDocument()]")
         this.logger.log(JSON.stringify({params}, null, 2))
-        //this.logger.log(JSON.parse(JSON.stringify({params: params.textDocument})));
-        //const document = params.textDocument;
-        //const uri = document.uri;
         const uri = uriToPath(params.textDocument.uri);
         this.logger.log(`[FishLsp.onDidOpenTextDocument()] uri: ${uri}`)
         if (!uri) {
@@ -193,7 +191,7 @@ export default class FishServer {
     // • Add default CompletionLists to complete.ts
     // • Add local file items.
     // • Lastly add parameterInformation items.  [ 1477 : ParameterInformation ]
-    public async onCompletion(params: CompletionParams):  Promise<CompletionList | null>{
+    async onCompletion(params: CompletionParams):  Promise<CompletionList | null>{
         const uri = uriToPath(params.textDocument.uri);
         this.logger.log('server.onComplete');
         const doc = this.docs.get(uri);
@@ -214,7 +212,7 @@ export default class FishServer {
         const currNode = root.descendantForPosition({row: 0, column: lineToParse.length - 1});
 
         const items: CompletionItem[] = [
-            ...documentSymbolToCompletionItem(getNearestSymbols(root, currNode), doc),
+            //...workspaceSymbolToCompletionItem(getNearestSymbols(uri, root, currNode), doc),
             ...buildDefaultCompletions(),
         ];
 
@@ -234,7 +232,7 @@ export default class FishServer {
     }
 
 
-    public async onCompletionResolve(item: CompletionItem): Promise<CompletionItem> {
+    async onCompletionResolve(item: CompletionItem): Promise<CompletionItem> {
         const fishItem = item as FishCompletionItem
         let newDoc: string | MarkupContent;
         let typeCmdOutput = ''
@@ -300,25 +298,17 @@ export default class FishServer {
     //}
 
 
-    public async onDocumentSymbols(params: DocumentSymbolParams): Promise<DocumentSymbol[]> {
+    async onDocumentSymbols(params: DocumentSymbolParams): Promise<FishSymbol[]> {
         this.logger.log("onDocumentSymbols");
         const uri = uriToPath(params.textDocument.uri);
         const doc = this.docs.get(uri);
-        const symbols : DocumentSymbol[] = [];
-        if (!doc) {
-            return symbols;
+        if (!doc || !uri) {
+            return [];
         }
-        const root = this.getRootNode(doc.getText());
-        //this.symbolMap = getDocumentSymbols(root);
-        //const returnSymbols = sym
-        //for (const sym of Array.from(symbols.values())) {
-        //    logger.logDocumentSymbol(sym)
-        //}
-        //this.symbolMap = new Map<SyntaxNode, DocumentSymbol[]>(symbols);
-        return symbols
+        return this.analyzer.getSymbols(uri);
     }
 
-    public async onDefinition(params: DefinitionParams): Promise<LocationLink[]> {
+    async onDefinition(params: DefinitionParams): Promise<Location[]> {
         this.logger.log("onDefinition");
         const uri = uriToPath(params.textDocument.uri);
         const doc = this.docs.get(uri);
@@ -330,8 +320,11 @@ export default class FishServer {
         //logger.logNode(node);
         if (!node) return [];
         const depedencyUri = await execFindDependency(node.text)
-        const localDefinitions = findLocalDefinition(uri, root, node) || [];
-        return localDefinitions
+        const localDefinitions = this.analyzer.getDefinition(uri, node);
+        if (localDefinitions) {
+            return [localDefinitions];
+        }
+        return []
         //const newDoc = await this.docs.get(depedencyUri);
         //const newDocRoot = this.parser.parse(newDoc.getText()).rootNode;
         //const globalDefinitions = findGlobalDefinition(newDoc.uri, newDocRoot, node) || [];
@@ -349,7 +342,7 @@ export default class FishServer {
         const root = this.getRootNode(doc.getText());
         const node = this.analyzer.nodeAtPoint(uri, params.position.line, params.position.character);
         if (!node) return [];
-        return getReferences(uri, root, node) || []
+        return this.analyzer.getRefrences(uri, node) || [];
     }
 }
 

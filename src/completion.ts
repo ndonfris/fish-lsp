@@ -1,20 +1,20 @@
 import {exec} from 'child_process';
 import FastGlob from 'fast-glob';
 import {promisify} from 'util';
-import {DocumentSymbol} from 'vscode-languageserver';
 import {
     CompletionItem,
     CompletionItemKind,
     MarkupContent,
-} from "vscode-languageserver-protocol/node";
+} from 'vscode-languageserver';
 import Parser, { SyntaxNode } from "web-tree-sitter";
 import {TextDocument, DocumentUri} from 'vscode-languageserver-textdocument';
 import {enrichToCodeBlockMarkdown, enrichToMarkdown, enrichWildcard} from './documentation';
 //import {logger} from './logger';
+import { FishSymbol } from './symbols';
 import {BuiltInList, escapeChars, FishCompletionItemKind, pipes, statusNumbers, stringRegexExpressions, WildcardItems } from './utils/completion-types';
 import {CompletionItemBuilder, parseLineForType} from './utils/completionBuilder';
 import {isCommand} from './utils/node-types';
-import {firstAncestorMatch} from './utils/tree-sitter';
+import {firstAncestorMatch, getRange} from './utils/tree-sitter';
 
 // utils create CompletionResolver and CompletionItems
 // also decide which completion icons each item will have
@@ -103,14 +103,14 @@ export async function generateShellCompletionItems(line: string, currentNode: Sy
 }
 
 
-export function documentSymbolToCompletionItem(symbols: DocumentSymbol[], doc: TextDocument): CompletionItem[] {
+export function workspaceSymbolToCompletionItem(symbols: FishSymbol[], doc: TextDocument): CompletionItem[] {
     const cmp = new CompletionItemBuilder()
     const items: CompletionItem[] = [];
     for (const symbol of symbols) {
         const item = cmp.create(symbol.name)
             .symbolInfoKind(symbol.kind)
             .localSymbol()
-            .documentation(enrichToCodeBlockMarkdown(doc.getText(symbol.range), 'fish'))
+            .documentation(enrichToCodeBlockMarkdown(doc.getText(symbol.location.range), 'fish'))
             .build()
         items.push(item);
         cmp.reset();
