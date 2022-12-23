@@ -29,7 +29,7 @@ export class Analyzer {
             return
         }
         this.uriTree[document.uri] = tree;
-        const fishSymbols = collectFishSymbols(document.uri, tree?.rootNode);
+        const fishSymbols = collectFishSymbols(document.uri, tree.rootNode);
         this.fishSymbols[document.uri] = fishSymbols;
     }
 
@@ -43,9 +43,9 @@ export class Analyzer {
         const first = 
             this.fishSymbols[uri]
             .filter((symbol) => symbol.name === node.text)
-            .find((symbol) => symbol.location.range.start.line != getRange(node).start.line)?.location
+            .find((symbol) => symbol.location.range.start.line != getRange(node).start.line)
         if (first) {
-            return [first]
+            return [first.location]
         }
         return [];
     }

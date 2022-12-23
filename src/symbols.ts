@@ -9,12 +9,13 @@ import {
     ColorInformation,
     Color,
     LinkedEditingRanges,
+    
 } from 'vscode-languageserver';
 import {SyntaxNode} from 'web-tree-sitter';
 //import {logger} from './logger';
 import {isBuiltin} from './utils/builtins';
 import {findFunctionScope, isCommand, isCommandFlag, isFunctionDefinitionName, isFunctionDefinition, scopeCheck, isStatement, isString, isVariable, isVariableDefintion, findParentCommand, isProgram, isCommandName, findEnclosingVariableScope} from './utils/node-types';
-import {getChildNodes, getPrecedingComments, getRange, nodesGen} from './utils/tree-sitter';
+import {getChildNodes, getNodeAtRange, getPrecedingComments, getRange, nodesGen} from './utils/tree-sitter';
 
 
 export interface FishSymbolMap {
@@ -54,7 +55,7 @@ function createFishWorkspaceSymbol(node: SyntaxNode, uri: DocumentUri, container
 // use symbolInformation instead, then use the symbols found to search for external dependencies
 export function collectFishSymbols(documentUri: string, rootNode: SyntaxNode): FishSymbol[] {
     const symbols: FishSymbol[] = [];
-    for (const node of nodesGen(rootNode)) {
+    for (const node of getChildNodes(rootNode)) {
         const symbolKind = toSymbolKind(node);
         switch (symbolKind) {
             case SymbolKind.Variable:
@@ -172,7 +173,7 @@ export function newGetFileDefintions(uri: DocumentUri, root: SyntaxNode, findNod
         return [LocationLink.create(uri, getRange(func), getRange(findNode), getRange(funcName))]
     }
     const allDefs = getChildNodes(root).filter((node) => {
-        return isFunctionDefinition(node) || isVariableDefintion(node)
+        return isFunctionDefinitionName(node) || isVariableDefintion(node)
     })
 
     for (const node of allDefs) {
@@ -186,6 +187,53 @@ export function newGetFileDefintions(uri: DocumentUri, root: SyntaxNode, findNod
         }
     }
     return results
+}
+
+export function collectDocumentSymbols(documentUri: string, rootNode: SyntaxNode): DocumentSymbol[] {
+    const symbols: DocumentSymbol[] = [];
+    const functionNodes : SyntaxNode[] = getChildNodes(rootNode).filter((node) => isFunctionDefinitionName(node))
+    //const variableNodes: SyntaxNode[] = getChildNodes(rootNode).filter((node) => isVariableDefintion(node))
+    const variableNodes: SyntaxNode[] = []
+    while (functionNodes.length > 0) {
+        const node: SyntaxNode | undefined = functionNodes.shift();
+        if (node) {
+            const parent = node.parent || node
+            const children = getNodesInScope(parent)
+            const symbol = DocumentSymbol.create(
+                node.text,
+                parent.text,
+                toSymbolKind(node),
+                getRange(node),
+                getRange(parent),
+                children
+            )
+            //variableNodes.push(...children.map(child => getNodeAtRange(rootNode, child.range)));
+            symbols.push(symbol);
+        }
+    }
+    const globalVariableNodes = getChildNodes(rootNode).filter((node) => isVariableDefintion(node) && !variableNodes.includes(node))
+
+    return symbols;
+}
+
+function getNodesInScope(functionNode: SyntaxNode) {
+    const enclosingNodes: SyntaxNode[] = [];
+    for (const node of getChildNodes(functionNode)) {
+        if (isFunctionDefinition(node)) {
+            enclosingNodes.push(node)
+        } else if (isVariableDefintion(node)) {
+            enclosingNodes.push(node)
+        }
+    }
+    return enclosingNodes.map((node) => {
+        return DocumentSymbol.create(
+            node.text,
+            node.text,
+            toSymbolKind(node),
+            getRange(node),
+            getRange(node)
+        )
+    })
 }
 
 export function getReferences(symbols: FishSymbol[], node: SyntaxNode): FishSymbol[] {

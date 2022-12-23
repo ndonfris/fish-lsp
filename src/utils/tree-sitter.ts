@@ -206,10 +206,8 @@ export function getNodeAt(tree: Tree, line: number, column: number): SyntaxNode 
 }
 
 
-export function getNodeAtRange(tree: Tree, range: Range): SyntaxNode | null {
-  if (!tree.rootNode) return null
-
-  return tree.rootNode.descendantForPosition(
+export function getNodeAtRange(root: SyntaxNode, range: Range): SyntaxNode | null {
+  return root.descendantForPosition(
     positionToPoint(range.start),
     positionToPoint(range.end),
   )

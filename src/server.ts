@@ -23,14 +23,15 @@ export default class FishServer {
 
     public static async create(
         connection: Connection,
-        { rootPath, rootUri, capabilities }: InitializeParams,
+        params: InitializeParams,
     ): Promise<FishServer> {
         const parser = await initializeParser();
         const documents = new LspDocuments() ;
         const analyzer = new Analyzer(await initializeParser());
-        return new FishServer(connection, parser, analyzer, documents)
+        return new FishServer(connection, params, parser, analyzer, documents)
     }
 
+    private initializeParams: InitializeParams | undefined;
     // the connection of the FishServer
     private connection: Connection;
 
@@ -44,8 +45,9 @@ export default class FishServer {
 
     protected logger: Logger;
 
-    constructor(connection: Connection, parser : Parser, analyzer: Analyzer, docs: LspDocuments ) {
+    constructor(connection: Connection, params: InitializeParams ,parser : Parser, analyzer: Analyzer, docs: LspDocuments ) {
         this.connection = connection;
+        this.initializeParams = params;
         this.parser = parser;
         this.analyzer = analyzer;
         this.docs = docs;
@@ -308,7 +310,9 @@ export default class FishServer {
     //}
 
 
-    // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#workspace_symbol
+    // • lsp-spec: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#workspace_symbol
+    // • hierachy of symbols support on line 554: https://github.com/typescript-language-server/typescript-language-server/blob/114d4309cb1450585f991604118d3eff3690237c/src/lsp-server.ts#L554
+    //
     async onDocumentSymbols(params: DocumentSymbolParams): Promise<DocumentSymbol[]> {
         this.logger.log("onDocumentSymbols");
         const uri = uriToPath(params.textDocument.uri);
@@ -330,6 +334,12 @@ export default class FishServer {
         }) as DocumentSymbol[];
     }
 
+    protected get supportHierarchicalDocumentSymbol(): boolean {
+        const textDocument = this.initializeParams?.capabilities.textDocument;
+        const documentSymbol = textDocument && textDocument.documentSymbol;
+        return !!documentSymbol && !!documentSymbol.hierarchicalDocumentSymbolSupport;
+    }
+
     async onDefinition(params: DefinitionParams): Promise<Location[]> {
         this.logger.log("onDefinition");
         const uri = uriToPath(params.textDocument.uri);
@@ -338,7 +348,7 @@ export default class FishServer {
             return [];
         }
         //const root = this.getRootNode(doc.getText());
-        let node = this.analyzer.nodeAtPoint(doc.uri, params.position.line, params.position.character - 1);
+        let node = this.analyzer.nodeAtPoint(doc.uri, params.position.line, params.position.character);
         this.logger.log(node?.text.toString() || "no node")
         if (!node) return [];
         //const depedencyUri = await execFindDependency(node.text)
