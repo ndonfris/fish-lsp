@@ -244,37 +244,6 @@ __fish_whatis
 __fish_whatis_current_token
 set gvar 1
 `
-async function getDependencyMap(uri: string, rootNode: SyntaxNode, dependencyMap = new Map<string, string>()) {
-    const uniqueCommandNodes = new Set<string>();
-    getChildNodes(rootNode).forEach(node => {
-        if (isCommandName(node) && !isBuiltin(node.text) && !dependencyMap.has(node.text)) {
-            uniqueCommandNodes.add(node.text);
-        }
-    })
-    for (const command of uniqueCommandNodes) {
-        const commandUri = await execFindDependency(command);
-        if (commandUri === null) continue;
-        dependencyMap.set(command, commandUri);
-    }
-    return dependencyMap;
-}
-
-type extDepMap = Map<string, string>
-type uriDeps = Map<string, SymbolInformation[]>
-type uriSymbolMap = {[uri: string]: uriDeps}
-
-async function getSymbolMapForUri(uri: string, rootNode: SyntaxNode, symbolMap: uriSymbolMap = {}) {
-    if (symbolMap[uri] === undefined) symbolMap[uri] = new Map<string, SymbolInformation[]>();
-    getChildNodes(rootNode).forEach(node => {
-        
-    })
-    //symbolMap[uri]
-    //const symbols = await getSymbolsForUri(uri, rootNode);
-    //if (symbols.length === 0) return symbolMap;
-    //symbolMap[uri] = symbols;
-    return symbolMap;
-}
-
 // pass 1: get all local definitions, (including scopes)
 // pass 2: get all commands, then find their deinition
 
@@ -314,7 +283,7 @@ async function getSymbolMapForUri(uri: string, rootNode: SyntaxNode, symbolMap: 
         const s : DocumentSymbol[]= []
         const flatSym = flattenSymbols(symbols, s)
         for (const sym of flatSym) {
-          console.log(`${sym.name.black}`)
+          console.log(`${sym.name.bgBlack}`)
           ////logDocSymbol(SHOULD_LOG || true, sym)
         }
         console.log("currentNode:".white, currentNode?.text, currentNode?.endPosition)
