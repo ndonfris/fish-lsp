@@ -14,6 +14,7 @@ import { execCommandDocs, execCommandType, execFindDependency } from './utils/ex
 import { collectFishSymbols, FishSymbol, getNearestSymbols } from './symbols';
 import {Logger} from './logger';
 import {uriToPath} from './utils/translation';
+import {ConfigManager} from './configManager';
 
 
 
@@ -43,6 +44,8 @@ export default class FishServer {
     // documentManager 
     private docs: LspDocuments;
 
+    private config: ConfigManager;
+
     protected logger: Logger;
 
     constructor(connection: Connection, params: InitializeParams ,parser : Parser, analyzer: Analyzer, docs: LspDocuments ) {
@@ -51,6 +54,7 @@ export default class FishServer {
         this.parser = parser;
         this.analyzer = analyzer;
         this.docs = docs;
+        this.config = new ConfigManager(this.docs);
         this.logger = new Logger(connection);
     }
 
@@ -70,7 +74,6 @@ export default class FishServer {
                 completionProvider: {
                     resolveProvider: true,
                     triggerCharacters: ["."],
-                    //triggerCharacters: ["$", "-", "\\"],
                     allCommitCharacters: [";", " ", "\t"],
                     workDoneProgress: true,
                 },
@@ -224,7 +227,7 @@ export default class FishServer {
         const currNode = root.descendantForPosition({row: 0, column: lineToParse.length - 1});
 
         const items: CompletionItem[] = [
-            //...workspaceSymbolToCompletionItem(getNearestSymbols(uri, root, currNode), doc),
+            //...workspaceSymbolToCompletionItem(getNearestSymbols(doc.uri, root, currNode), doc),
             ...buildDefaultCompletions(),
         ];
 

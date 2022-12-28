@@ -1,5 +1,6 @@
 import {URI, Utils} from 'vscode-uri';
 import { LspDocuments } from '../document';
+import { Range } from 'vscode-languageserver';
 
 const RE_PATHSEP_WINDOWS = /\\/g;
 
@@ -54,3 +55,4 @@ function currentVersion(filepath: string, documents: LspDocuments | undefined): 
     const document = documents && documents.get(normalizedFilepath);
     return document ? document.version : null;
 }
+
