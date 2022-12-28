@@ -4,6 +4,7 @@ import {promisify} from 'util';
 import {
     CompletionItem,
     CompletionItemKind,
+    DocumentSymbol,
     MarkupContent,
 } from 'vscode-languageserver';
 import Parser, { SyntaxNode } from "web-tree-sitter";
@@ -103,14 +104,14 @@ export async function generateShellCompletionItems(line: string, currentNode: Sy
 }
 
 
-export function workspaceSymbolToCompletionItem(symbols: FishSymbol[], doc: TextDocument): CompletionItem[] {
+export function workspaceSymbolToCompletionItem(symbols: DocumentSymbol[]): CompletionItem[] {
     const cmp = new CompletionItemBuilder()
     const items: CompletionItem[] = [];
     for (const symbol of symbols) {
         const item = cmp.create(symbol.name)
             .symbolInfoKind(symbol.kind)
             .localSymbol()
-            .documentation(enrichToCodeBlockMarkdown(doc.getText(symbol.location.range), 'fish'))
+            .documentation(enrichToCodeBlockMarkdown(symbol.detail || symbol.name, 'fish'))
             .build()
         items.push(item);
         cmp.reset();
