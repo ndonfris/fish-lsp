@@ -1,3 +1,4 @@
+import {green} from 'colors';
 import {SymbolInformation, Range, SymbolKind, DocumentUri, Location, WorkspaceSymbol, DocumentSymbol} from 'vscode-languageserver';
 import {SyntaxNode} from 'web-tree-sitter';
 import {toSymbolKind} from './symbols';
@@ -24,15 +25,24 @@ export function collectSymbolInformation(uri: string, parent: SyntaxNode, symbol
 export function collectDocumentSymbols(uri: string, parent: SyntaxNode,  symbols: DocumentSymbol[]): boolean {
     let shouldInclude = shouldIncludeNode(parent);
     const children = new Set(parent.children || []);
-    const docSymbol = createDocSymbol(parent);
     let includedChild = false;
+    const docSymbol = createDocSymbol(parent, uri);
+    //const docChildren: DocumentSymbol[] = []
+    //if (Array.from(children).some( c => shouldIncludeNode(c))) {
     for (const child of children) {
-        if (containsRange(getRange(parent), getRange(child))) {
-            if (!docSymbol.children) docSymbol.children = []
-            includedChild = collectDocumentSymbols(uri, child, docSymbol.children);
-            shouldInclude = shouldInclude || includedChild;
-        } 
+        if (!docSymbol.children) docSymbol.children = []
+        //if (child.children.some( c => shouldIncludeNode(c))) {
+        includedChild = collectDocumentSymbols(uri, child, docSymbol.children);
+        //}
+        //shouldInclude = shouldInclude || includedChild;
         children.delete(child)
+        //for (const grandChild of getChildNodes(child)) {
+            //children.delete(grandChild)
+        //}
+        //includedChild = collectDocumentSymbols(uri, child, docSymbol.children);
+        if (!shouldInclude && includedChild && docSymbol.children) {
+            symbols.push(...docSymbol.children)
+        }
     }
     if (shouldInclude) {
         symbols.push(docSymbol)
@@ -42,19 +52,22 @@ export function collectDocumentSymbols(uri: string, parent: SyntaxNode,  symbols
 }
 
 
-function createDocSymbol(node: SyntaxNode): DocumentSymbol {
+function createDocSymbol(node: SyntaxNode, uri: string): DocumentSymbol {
     const kind = toSymbolKind(node);
-    const parent = node.parent;
     switch (kind) {
         case SymbolKind.Namespace:
-            return DocumentSymbol.create(node.type, 'block', kind, getRange(node), getRange(node))
+            return DocumentSymbol.create(pathToRelativeFilename(uri), 'block', kind, getRange(node), getRange(node))
         case SymbolKind.Function:
+            const funcName = node.firstNamedChild as SyntaxNode;
+            return DocumentSymbol.create(funcName.text, node.text, kind, getRange(node), getRange(funcName))
         case SymbolKind.Variable:
-            return parent ? DocumentSymbol.create(node.text, parent.text, kind, getRange(parent), getRange(node))
+            return node.parent ? DocumentSymbol.create(node.text, node.parent.text, kind, getRange(node.parent), getRange(node))
                           : DocumentSymbol.create(node.text, '', kind, getRange(node), getRange(node))
+        case SymbolKind.Class:
+            return DocumentSymbol.create(node.text, node.text, kind, getRange(node), getRange(node))
         default:
-           console.log('null docCreate: ', node.text, kind);
-            return DocumentSymbol.create(node.text, 'null', kind, getRange(node), getRange(node))
+            //console.log(green('null: '), node.text, node.type.bgWhite);
+            return DocumentSymbol.create(node.text, node.type, kind, getRange(node), getRange(node))
     }
 }
 // function convertNavTree(
@@ -114,7 +127,21 @@ export function createSymbolInformation(node: SyntaxNode, uri: DocumentUri, pare
 }
 
 export function shouldIncludeNode(node: SyntaxNode) {
-    const rootProgramNode = isProgram(node) && node.parent === null;
-    return rootProgramNode || isFunctionDefinitionName(node) || isVariableDefinition(node);
+    const kind = toSymbolKind(node);
+    //const rootProgramNode = isProgram(node) && node.parent === null;
+    //return rootProgramNode || isFunctionDefinitionName(node) || isVariableDefinition(node);
+    return kind === SymbolKind.Function || kind === SymbolKind.Variable || kind === SymbolKind.Namespace
+}
+
+function includeFinal(kind: SymbolKind) {
+    switch (kind) {
+        case SymbolKind.Function:
+        case SymbolKind.Variable:
+        case SymbolKind.Namespace:
+            return true
+        default:
+            return false
+    }
+    
 }
 

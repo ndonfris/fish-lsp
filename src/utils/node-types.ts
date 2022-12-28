@@ -42,8 +42,8 @@ export function isFunctionDefinitionName(node: SyntaxNode): boolean {
  * checks if a node is the firstNamedChild of a command
  */
 export function isCommandName(node: SyntaxNode) : boolean {
-    const parent = node.parent;
-    const cmdName = parent?.firstNamedChild
+    const parent = node.parent || node;
+    const cmdName = parent?.firstNamedChild || node?.firstNamedChild;
     if (!parent || !cmdName) return false;
     if (!isCommand(parent)) return false;
     return node.type == 'word' && node.equals(cmdName);
@@ -396,9 +396,9 @@ export function scopeCheck(node1: SyntaxNode , node2: SyntaxNode) : boolean {
 export function isLocalVariable(node: SyntaxNode, console: RemoteConsole) {
     const parents = getParentNodes(node)
     const pCmd = parents[1]
-    if (pCmd.child(0)?.text === 'read' || pCmd.child(0)?.text === 'set') {
-        console.log(pCmd.text)
-    }
+    //if (pCmd.child(0)?.text === 'read' || pCmd.child(0)?.text === 'set') {
+    //    console.log(pCmd.text)
+    //}
 }
 
 export function wordNodeIsCommand(node: SyntaxNode) {

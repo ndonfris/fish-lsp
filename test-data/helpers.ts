@@ -302,7 +302,7 @@ function splitSpaceStr(c: (s: string) => string, ...strs: string[]) {
     const preText = strs.map(t => t.split('\n')).flat()
     const result = []
     for (const t of preText) {
-        const whiteSpace = Math.max(0, t.length - t.trimStart().length)
+        const whiteSpace = t.length - t.trimStart().length
         result.push(t.slice(0, whiteSpace) + c(t.slice(whiteSpace)))
     }
     return result.join('\n')

@@ -26,13 +26,14 @@ export interface FishSymbolMap {
 export function toSymbolKind(node: SyntaxNode): SymbolKind {
     if (isVariableDefinition(node)) {
         return SymbolKind.Variable
-    } else if (isFunctionDefinitionName(node)) {
+    } else if (isFunctionDefinition(node)) { // change from isFunctionDefinition(node)
         return SymbolKind.Function;
     } else if (isString(node)) { 
         return SymbolKind.String;
-    } else if (isProgram(node) || isFunctionDefinition(node) || isStatement(node)) {
+    //} else if (isProgram(node) || isFunctionDefinition(node) || isStatement(node)) {
+    } else if (isProgram(node)) {
         return SymbolKind.Namespace
-    } else if (isBuiltin(node.text) || isCommandName(node)) {
+    } else if (isBuiltin(node.text) || isCommandName(node) || isCommand(node)) {
         return SymbolKind.Class;
     }
     return SymbolKind.Null
