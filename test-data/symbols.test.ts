@@ -306,15 +306,16 @@ async function getSymbolMapForUri(uri: string, rootNode: SyntaxNode, symbolMap: 
         logFile(SHOULD_LOG || true, uri, root.text)
         const _currentNode= root.descendantForPosition({column: 6, row: 9}) // 9, 7 would be past
         const currentNode= _currentNode?.lastChild || _currentNode
-        //const nearSymbols = nearbySymbols(uri, root, currentNode)
-        //for (const sym of nearSymbols) {
-        //    logDocSymbol(SHOULD_LOG || true, sym)
-        //}
+        const nearSymbols = nearbySymbols(uri, root, currentNode)
+        for (const sym of nearSymbols) {
+            console.log(`nearby symbol: ${sym.name}`)
+            //logDocSymbol(SHOULD_LOG || true, sym)
+        }
         const s : DocumentSymbol[]= []
         const flatSym = flattenSymbols(symbols, s)
         for (const sym of flatSym) {
-            console.log(`\n${sym.name.black}`)
-            //logDocSymbol(SHOULD_LOG || true, sym)
+          console.log(`${sym.name.black}`)
+          ////logDocSymbol(SHOULD_LOG || true, sym)
         }
         console.log("currentNode:".white, currentNode?.text, currentNode?.endPosition)
         expect(true).toBe(true);

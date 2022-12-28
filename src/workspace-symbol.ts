@@ -27,19 +27,10 @@ export function collectDocumentSymbols(uri: string, parent: SyntaxNode,  symbols
     const children = new Set(parent.children || []);
     let includedChild = false;
     const docSymbol = createDocSymbol(parent, uri);
-    //const docChildren: DocumentSymbol[] = []
-    //if (Array.from(children).some( c => shouldIncludeNode(c))) {
     for (const child of children) {
         if (!docSymbol.children) docSymbol.children = []
-        //if (child.children.some( c => shouldIncludeNode(c))) {
         includedChild = collectDocumentSymbols(uri, child, docSymbol.children);
-        //}
-        //shouldInclude = shouldInclude || includedChild;
         children.delete(child)
-        //for (const grandChild of getChildNodes(child)) {
-            //children.delete(grandChild)
-        //}
-        //includedChild = collectDocumentSymbols(uri, child, docSymbol.children);
         if (!shouldInclude && includedChild && docSymbol.children) {
             symbols.push(...docSymbol.children)
         }
@@ -47,7 +38,6 @@ export function collectDocumentSymbols(uri: string, parent: SyntaxNode,  symbols
     if (shouldInclude) {
         symbols.push(docSymbol)
     }
-
     return shouldInclude
 }
 
@@ -58,11 +48,7 @@ export function collectDocumentSymbols(uri: string, parent: SyntaxNode,  symbols
 export function nearbySymbols(uri: string, root: SyntaxNode, curr: SyntaxNode): DocumentSymbol[] {
     const symbols: DocumentSymbol[] = []
     collectDocumentSymbols(uri, root, symbols)
-    const close = symbols.filter( s => containsRange(s.range, getRange(curr)))
-    //for (const s of close) {
-        //close.unshift(...s.children || [])
-    //}
-    return close
+    return flattenSymbols(symbols, []).filter( outer => containsRange(outer.range, getRange(curr)))
 }
 
 export function flattenSymbols(current: DocumentSymbol[], result: DocumentSymbol[]): DocumentSymbol[] {
@@ -153,7 +139,7 @@ export function shouldIncludeNode(node: SyntaxNode) {
     const kind = toSymbolKind(node);
     //const rootProgramNode = isProgram(node) && node.parent === null;
     //return rootProgramNode || isFunctionDefinitionName(node) || isVariableDefinition(node);
-    return kind === SymbolKind.Function || kind === SymbolKind.Variable || kind === SymbolKind.Namespace
+    return kind === SymbolKind.Function || kind === SymbolKind.Variable;
 }
 
 function includeFinal(kind: SymbolKind) {

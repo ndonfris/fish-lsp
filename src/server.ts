@@ -15,7 +15,7 @@ import { collectFishSymbols, FishSymbol, getNearestSymbols } from './symbols';
 import {Logger} from './logger';
 import {uriToPath} from './utils/translation';
 import {ConfigManager} from './configManager';
-import {nearbySymbols} from './workspace-symbol';
+import {nearbySymbols, collectDocumentSymbols} from './workspace-symbol';
 
 
 
@@ -228,7 +228,7 @@ export default class FishServer {
         const currNode = root.descendantForPosition({row: 0, column: lineToParse.length - 1});
 
         const items: CompletionItem[] = [
-            //...workspaceSymbolToCompletionItem(nearbySymbols(currNode, uri)), // collectDocumentSymbols(root, doc.uri, [])
+            ...workspaceSymbolToCompletionItem(nearbySymbols(doc.uri, root, currNode)), // collectDocumentSymbols(root, doc.uri, [])
             ...buildDefaultCompletions(),
         ];
 
@@ -324,18 +324,11 @@ export default class FishServer {
         if (!doc || !uri) {
             return [];
         }
+        const root = this.getRootNode(doc.getText());
         this.logger.log("length: "+ this.analyzer.getSymbols(doc.uri).length.toString())
-        return this.analyzer.getSymbols(doc.uri).filter(
-            (symbol) => {symbol.kind === SymbolKind.Function}
-        ).map(symbol => {
-            return DocumentSymbol.create(
-                symbol.name,
-                symbol.data.parent?.text || symbol.name,
-                symbol.kind,
-                symbol.location.range,
-                symbol.location.range
-            );
-        }) as DocumentSymbol[];
+        const symbols: DocumentSymbol[] = []
+        collectDocumentSymbols(doc.uri, root, symbols);
+        return symbols;
     }
 
     protected get supportHierarchicalDocumentSymbol(): boolean {
