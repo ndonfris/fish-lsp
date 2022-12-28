@@ -52,6 +52,29 @@ export function collectDocumentSymbols(uri: string, parent: SyntaxNode,  symbols
 }
 
 
+// for completions
+// needs testcase
+// retry with recursive range match against collected symbols
+export function nearbySymbols(uri: string, root: SyntaxNode, curr: SyntaxNode): DocumentSymbol[] {
+    const symbols: DocumentSymbol[] = []
+    collectDocumentSymbols(uri, root, symbols)
+    const close = symbols.filter( s => containsRange(s.range, getRange(curr)))
+    //for (const s of close) {
+        //close.unshift(...s.children || [])
+    //}
+    return close
+}
+
+export function flattenSymbols(current: DocumentSymbol[], result: DocumentSymbol[]): DocumentSymbol[] {
+    for (const symbol of current) {
+        if (!result.includes(symbol)) result.unshift(symbol)
+        if (symbol.children) {
+            result.unshift(...flattenSymbols(symbol.children, result))
+        }
+    }
+    return Array.from(new Set(result))
+}
+
 function createDocSymbol(node: SyntaxNode, uri: string): DocumentSymbol {
     const kind = toSymbolKind(node);
     switch (kind) {

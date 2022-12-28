@@ -9,7 +9,7 @@ import { getDefinitionSymbols } from '../src/symbols'
 import {execFindDependency} from '../src/utils/exec';
 import {isBuiltin} from '../src/utils/builtins';
 //import {DocumentManager} from '../src/document';
-import {collectDocumentSymbols, collectSymbolInformation} from '../src/workspace-symbol'
+import {collectDocumentSymbols, collectSymbolInformation, flattenSymbols, nearbySymbols} from '../src/workspace-symbol'
 
 let SHOULD_LOG = false; // toggle to print testcase output
 
@@ -298,15 +298,25 @@ async function getSymbolMapForUri(uri: string, rootNode: SyntaxNode, symbolMap: 
     it('getting workspaceSymbol map 1', async () => {
         const testFiles: string = [testCommandFile1].join('\n');
         const rootNodes = await getRootNodesForTestFiles([testFiles]) 
-        const root = rootNodes[0];                                    
+        const root: SyntaxNode = rootNodes[0];                                    
         const uri = 'file://symbol_map_test_1.fish'
         //printTestName(uri, SHOULD_LOG)
         const symbols: DocumentSymbol[] = [];
         collectDocumentSymbols(uri, root, symbols);
         logFile(SHOULD_LOG || true, uri, root.text)
-        for (const sym of symbols) {
-            logDocSymbol(SHOULD_LOG || true, sym)
+        const _currentNode= root.descendantForPosition({column: 6, row: 9}) // 9, 7 would be past
+        const currentNode= _currentNode?.lastChild || _currentNode
+        //const nearSymbols = nearbySymbols(uri, root, currentNode)
+        //for (const sym of nearSymbols) {
+        //    logDocSymbol(SHOULD_LOG || true, sym)
+        //}
+        const s : DocumentSymbol[]= []
+        const flatSym = flattenSymbols(symbols, s)
+        for (const sym of flatSym) {
+            console.log(`\n${sym.name.black}`)
+            //logDocSymbol(SHOULD_LOG || true, sym)
         }
+        console.log("currentNode:".white, currentNode?.text, currentNode?.endPosition)
         expect(true).toBe(true);
     }, 20000)
 ////// 

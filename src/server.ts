@@ -15,6 +15,7 @@ import { collectFishSymbols, FishSymbol, getNearestSymbols } from './symbols';
 import {Logger} from './logger';
 import {uriToPath} from './utils/translation';
 import {ConfigManager} from './configManager';
+import {nearbySymbols} from './workspace-symbol';
 
 
 
@@ -227,7 +228,7 @@ export default class FishServer {
         const currNode = root.descendantForPosition({row: 0, column: lineToParse.length - 1});
 
         const items: CompletionItem[] = [
-            //...workspaceSymbolToCompletionItem(getNearestSymbols(doc.uri, root, currNode), doc),
+            //...workspaceSymbolToCompletionItem(nearbySymbols(currNode, uri)), // collectDocumentSymbols(root, doc.uri, [])
             ...buildDefaultCompletions(),
         ];
 
