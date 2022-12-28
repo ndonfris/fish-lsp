@@ -95,7 +95,7 @@ export function isBeforeCommand(node: SyntaxNode) {
 }
 
 export function isVariable(node: SyntaxNode) {
-    if (isVariableDefintion(node)) {
+    if (isVariableDefinition(node)) {
         return true;
     } else {
         return ["variable_expansion", "variable_name"].includes(node.type);
@@ -170,7 +170,7 @@ function findParentVariableDefintionKeyword(node?: SyntaxNode): SyntaxNode | nul
  * @param {SyntaxNode} node - the node to check if it is a variable defintion
  * @returns {boolean} true if the node is a variable defintion, false otherwise
  */
-export function isVariableDefintion(node: SyntaxNode): boolean {
+export function isVariableDefinition(node: SyntaxNode): boolean {
     if (isFunctionDefinition(node) || isCommand(node) || isCommandName(node) || defintionKeywords.includes(node.firstChild?.text || "")) {
         return false;
     } 
@@ -210,10 +210,10 @@ function findParentForScope(currentNode: SyntaxNode, switchFound: VariableScope 
 }
 
 export function findEnclosingVariableScope(currentNode: SyntaxNode): SyntaxNode | null {
-    if (!isVariableDefintion(currentNode)) return null
+    if (!isVariableDefinition(currentNode)) return null
     const parent = findParentVariableDefintionKeyword(currentNode);
     const switchFound = findSwitchForVariable(currentNode);
-    console.log(`switchFound: ${switchFound}`)
+    //console.log(`switchFound: ${switchFound}`)
     if (!parent) return null;
     switch (parent.firstChild?.text) {
         case 'set':

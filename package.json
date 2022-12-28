@@ -15,7 +15,7 @@
   "main": "./out/server.js",
   "typings": "./out/server.d.ts",
   "scripts": {
-    "pre:clean":  "rimraf lib *.tsbuildinfo out", 
+    "pre:clean": "rimraf lib *.tsbuildinfo out",
     "clean": "npm run pre:clean && tsc -b && chmod 755 ./out/cli.js",
     "prepare:tests": "rm -f test_data/fish_files/*.fish && yarn run prepare:install:tests",
     "prepare:install:tests": "cd test_data && ./install_scripts/generate_largest_fish_files.fish && cd ..",
@@ -33,6 +33,7 @@
     }
   },
   "dependencies": {
+    "colors": "^1.4.0",
     "commander": "^9.4.0",
     "deepmerge": "^4.2.2",
     "fast-glob": "^3.2.12",

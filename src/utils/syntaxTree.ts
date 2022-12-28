@@ -1,6 +1,6 @@
 import Parser, {SyntaxNode, Tree} from 'web-tree-sitter';
 import { getChildNodes, getRange } from './tree-sitter'
-import { isCommand, findSetDefinedVariable, isFunctionDefinition, isVariable, findFunctionScope, hasParentFunction, isStatement, isVariableDefintion,  } from './node-types'
+import { isCommand, findSetDefinedVariable, isFunctionDefinition, isVariable, findFunctionScope, hasParentFunction, isStatement, isVariableDefinition,  } from './node-types'
 import { Location } from 'vscode-languageserver';
 
 // @TODO: NOTHING EXPORTED 
@@ -52,7 +52,7 @@ class SyntaxTree {
             if (isVariable(newNode)) {
                 this.variables.push(newNode)
             }
-            if (isVariableDefintion(newNode)) {
+            if (isVariableDefinition(newNode)) {
                 this.variable_definitions.push(newNode)
             }
             if (isStatement(newNode)) {
@@ -112,7 +112,7 @@ class SyntaxTree {
             ...this.getOutmostScopedNodes()
         ]
         for (const node of scopedVariableLocations) {
-            if (isVariableDefintion(node) && firstNodeBeforeSecondNodeComaprision(node, searchNode)) {
+            if (isVariableDefinition(node) && firstNodeBeforeSecondNodeComaprision(node, searchNode)) {
                 const v = findSetDefinedVariable(node);
                 if (!v || !v?.parent) continue;
                 varaibleDefinitions.push(v);

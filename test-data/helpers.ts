@@ -5,10 +5,14 @@ import { Point, SyntaxNode, Tree } from 'web-tree-sitter'
 import { Analyzer } from '../src/analyze';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {getChildNodes, positionToPoint} from '../src/utils/tree-sitter';
+import {SymbolInformation, Location, SymbolKind, Range, DocumentSymbol} from 'vscode-languageserver';
+import {symbolKindToString} from '../src/symbols';
+import {bgBlack, bgBlue, black, inverse, white} from 'colors';
+//import { blue, inverse } from 'colors'
 
 
-export function nodeToString(node: SyntaxNode) : string {
-    return `node: ${node.text}, type: ${node.type}, (${node.startPosition.row}, ${node.startPosition.column}) (${node.endPosition.row}, ${node.endPosition.column})`
+export function nodeToString(node: SyntaxNode, shouldLog = true) : string {
+    return shouldLog ? `node: ${node.text}, type: ${node.type}, (${node.startPosition.row}, ${node.startPosition.column}) (${node.endPosition.row}, ${node.endPosition.column})` : ""
 }
 
 type nodeConsoleArray = {text: string, node_type: string, start: string, end: string}
@@ -172,3 +176,138 @@ export function printTestName(name = "NEW TEST", shouldLog = true) {
     console.log(`${name}`)
     printDebugSeperator(shouldLog)
 } 
+
+
+export function logCompareNodes(shouldLog = true, ...nodes: SyntaxNode[]) {
+    if (!shouldLog) return
+    console.log('COMPARING:')
+    const out = nodes.map(node => {
+        return {
+            "this.text": node.text,
+            "this.parent.parent": node.parent?.text.slice(0, 15) + '...',
+            "more": nodeToString(node),
+        }
+    })
+    console.table(out)
+}
+
+export function logNode(shouldLog = true, node?: SyntaxNode) {
+    if (!shouldLog) return
+    if (!node) {
+        console.log('Node is undefined')
+        return
+    }
+    console.log(nodeToString(node))
+}
+
+export function logVerboseNode(shouldLog = true, node: SyntaxNode) {
+    if (!shouldLog) return
+    console.log('VERBOSE: ' + node.text)
+    console.log(nodeToString(node))
+    console.log('parent: "' + node.parent?.text.slice(0, 15) + '"...')
+    console.log(node.toString())
+}
+
+export class ShouldLogger {
+
+    constructor(private shouldLog: boolean) {}
+
+    toggle() {
+        this.shouldLog = !this.shouldLog
+    }
+
+    get isOn() {
+        return this.shouldLog
+    }
+
+}
+
+export function rangeToString(range: Range) {
+    return locationToString({uri: '', range})
+}
+
+export function locationToString(loc: Location) {
+    let result = '';
+    if (loc.uri) {
+        result += loc.uri + ' ';
+    }
+    result += `(${loc.range.start.line}, ${loc.range.start.character}), (${loc.range.end.line}, ${loc.range.end.character})`
+    return result
+}
+
+export function logSymbolInfo(shouldLog = true, symbol: SymbolInformation) {
+    if (!shouldLog) return
+    console.log('------------------------------------')
+    console.log(`SYMBOL\n{\n\tname: ${symbol.name}`)
+    console.log(`\tkind: ${symbolKindToString(symbol.kind)}`)
+    console.log(`\tlocation: ${locationToString(symbol.location)}`)
+    if (symbol.containerName) {
+        console.log(`\tcontainerName: ${symbol.containerName}`)
+    }
+    console.log('}')
+}
+
+export function logDocSymbol(shouldLog = true, symbol: DocumentSymbol, indent = 0) {
+    if (!shouldLog) return
+    const indentStr = '\t'.repeat(indent)
+    logColor(`${indentStr}{`);
+    logColor(`${indentStr} name:`, ` ${symbol.name}`)
+    logColor(`${indentStr} detail:\n${indentStr}`,`${symbol.detail?.split('\n').join('\n' + indentStr)}`)
+    logColor(`${indentStr} kind:`,` ${symbolKindToString(symbol.kind)}`)
+    logColor(`${indentStr} range:`,` ${rangeToString(symbol.range)}`)
+    logColor(`${indentStr} selection range:`,` ${rangeToString(symbol.selectionRange)}`)
+    logColor(`${indentStr} children amount:`,` ${symbol.children?.length || 0}`)
+    const children = symbol.children || []
+    for (const child of children) {
+        logDocSymbol(shouldLog, child, indent + 1)
+    }
+    logColor(`${indentStr}}`);
+
+}
+
+export function logFile(shouldLog = true, uri: string, text: string) {
+    if (!shouldLog) return
+    console.log('------------------------------------')
+    console.log(`URI: ${uri}`)
+    console.log(`TEXT:\n${text}`)
+    console.log('------------------------------------')
+}
+
+//export colorOutput(text: string, otherText: string) {
+    //return text.inverse.underline + otherText
+//}
+
+export function logColor(infoStr: string, ...text: string[]) {
+    if (text.length === 0) {
+        console.log(infoStr.green.bold);
+    } else {
+        const s1 =  splitSpaceStr(toBlackFg, infoStr); 
+        const s2 = splitSpaceStr(toWhite, text.toString()); 
+        console.log(s1 + s2);
+    }
+}
+
+const toBlackFg = (text: string) => {
+    return text.black.underline.bold.toString()
+}
+const toBlack = (text: string) => {
+    return text.bgBlue.black.underline.bold.toString()
+}
+
+const toWhite = (text: string) => {
+    return white.bgYellow(text)
+}
+
+function splitSpaceStr(c: (s: string) => string, ...strs: string[]) {
+    const preText = strs.map(t => t.split('\n')).flat()
+    const result = []
+    for (const t of preText) {
+        const whiteSpace = Math.max(0, t.length - t.trimStart().length)
+        result.push(t.slice(0, whiteSpace) + c(t.slice(whiteSpace)))
+    }
+    return result.join('\n')
+
+
+}
+
+

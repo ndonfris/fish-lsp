@@ -1,6 +1,6 @@
 import {DocumentUri, Location} from 'vscode-languageserver-protocol/node';
 import {Point, SyntaxNode, Tree, TreeCursor} from 'web-tree-sitter'
-import {isVariableDefintion} from './node-types';
+import {isVariableDefinition} from './node-types';
 import {getRange} from './tree-sitter';
 
 // implement all useful methods for a syntax node
@@ -141,7 +141,7 @@ export class FishSyntaxNode implements SyntaxNode {
     // implement
     getFishType() {
         let fishType = this.node.type;
-        if (isVariableDefintion(this.node)) {
+        if (isVariableDefinition(this.node)) {
             this.node.type = 'variable_definition'
             fishType = this.node.type
         } 

@@ -14,7 +14,7 @@ import {
 import {SyntaxNode} from 'web-tree-sitter';
 //import {logger} from './logger';
 import {isBuiltin} from './utils/builtins';
-import {findFunctionScope, isCommand, isCommandFlag, isFunctionDefinitionName, isFunctionDefinition, scopeCheck, isStatement, isString, isVariable, isVariableDefintion, findParentCommand, isProgram, isCommandName, findEnclosingVariableScope} from './utils/node-types';
+import {findFunctionScope, isCommand, isCommandFlag, isFunctionDefinitionName, isFunctionDefinition, scopeCheck, isStatement, isString, isVariable, isVariableDefinition, findParentCommand, isProgram, isCommandName, findEnclosingVariableScope} from './utils/node-types';
 import {getChildNodes, getNodeAtRange, getPrecedingComments, getRange, nodesGen} from './utils/tree-sitter';
 
 
@@ -24,7 +24,7 @@ export interface FishSymbolMap {
 
 // ~~~~REMOVE IF UNUSED LATER~~~~
 export function toSymbolKind(node: SyntaxNode): SymbolKind {
-    if (isVariableDefintion(node)) {
+    if (isVariableDefinition(node)) {
         return SymbolKind.Variable
     } else if (isFunctionDefinitionName(node)) {
         return SymbolKind.Function;
@@ -36,6 +36,26 @@ export function toSymbolKind(node: SyntaxNode): SymbolKind {
         return SymbolKind.Class;
     }
     return SymbolKind.Null
+}
+
+export function symbolKindToString(kind: SymbolKind) {
+    switch (kind) {
+        case SymbolKind.Variable:
+            return 'Variable';
+        case SymbolKind.Function:
+            return 'Function';
+        case SymbolKind.String:
+            return 'String';
+        case SymbolKind.Namespace:
+            return 'Namespace';
+        case SymbolKind.Class:
+            return 'Class';
+        case SymbolKind.Null:
+            return 'Null';
+        default:
+            return 'Other'
+
+    }
 }
 
 export interface FishSymbol extends WorkspaceSymbol {
@@ -173,7 +193,7 @@ export function newGetFileDefintions(uri: DocumentUri, root: SyntaxNode, findNod
         return [LocationLink.create(uri, getRange(func), getRange(findNode), getRange(funcName))]
     }
     const allDefs = getChildNodes(root).filter((node) => {
-        return isFunctionDefinitionName(node) || isVariableDefintion(node)
+        return isFunctionDefinitionName(node) || isVariableDefinition(node)
     })
 
     for (const node of allDefs) {
@@ -211,7 +231,7 @@ export function collectDocumentSymbols(documentUri: string, rootNode: SyntaxNode
             symbols.push(symbol);
         }
     }
-    const globalVariableNodes = getChildNodes(rootNode).filter((node) => isVariableDefintion(node) && !variableNodes.includes(node))
+    const globalVariableNodes = getChildNodes(rootNode).filter((node) => isVariableDefinition(node) && !variableNodes.includes(node))
 
     return symbols;
 }
@@ -221,7 +241,7 @@ function getNodesInScope(functionNode: SyntaxNode) {
     for (const node of getChildNodes(functionNode)) {
         if (isFunctionDefinition(node)) {
             enclosingNodes.push(node)
-        } else if (isVariableDefintion(node)) {
+        } else if (isVariableDefinition(node)) {
             enclosingNodes.push(node)
         }
     }
@@ -260,7 +280,7 @@ export function getReferences(symbols: FishSymbol[], node: SyntaxNode): FishSymb
 export function getLocalSymbols(root: SyntaxNode): DocumentSymbol[] {
     const symbols: DocumentSymbol[] = [];
     for (const node of getChildNodes(root)) {
-        if (isVariableDefintion(node) && node.parent) {
+        if (isVariableDefinition(node) && node.parent) {
             symbols.push({
                 name: node.text,
                 kind: SymbolKind.Variable,
@@ -319,12 +339,11 @@ export function getNearestSymbols(uri: DocumentUri, leaf: SyntaxNode, collectedS
 
 export function getDefinitionSymbols(uri: DocumentUri, root: SyntaxNode): SymbolInformation[] {
     return getChildNodes(root)
-        .filter((node) => isFunctionDefinitionName(node) || isVariableDefintion(node))
+        .filter((node) => isFunctionDefinitionName(node) || isVariableDefinition(node))
         .map((node) => {
             return SymbolInformation.create(node.text, toSymbolKind(node), getRange(node), uri.toString());
         })
 }
-
 
 
 /**

@@ -1,16 +1,17 @@
-import { printDebugSeperator, printTestName } from './helpers';
+import { logCompareNodes, logDocSymbol, logFile, logNode, logSymbolInfo, logVerboseNode, printDebugSeperator, printTestName } from './helpers';
 import { SyntaxNode } from 'web-tree-sitter';
-import { Location, SymbolInformation, WorkspaceSymbol } from 'vscode-languageserver';
+import { DocumentSymbol, Location, SymbolInformation, WorkspaceSymbol } from 'vscode-languageserver';
 import { initializeParser } from '../src/parser';
 import { getChildNodes, getNodeAtRange } from '../src/utils/tree-sitter';
-import { isFunctionDefinition, isFunctionDefinitionName, isVariableDefintion, isCommand, isCommandName, findEnclosingVariableScope } from '../src/utils/node-types'
+import { isFunctionDefinition, isFunctionDefinitionName, isVariableDefinition, isCommand, isCommandName, findEnclosingVariableScope } from '../src/utils/node-types'
 //import { collectSymbolInformation, FishSymbolMap } from '../src/workspace-symbol'
 import { getDefinitionSymbols } from '../src/symbols'
 import {execFindDependency} from '../src/utils/exec';
 import {isBuiltin} from '../src/utils/builtins';
 //import {DocumentManager} from '../src/document';
+import {collectDocumentSymbols, collectSymbolInformation} from '../src/workspace-symbol'
 
-const SHOULD_LOG = true; // toggle to print testcase output
+let SHOULD_LOG = false; // toggle to print testcase output
 
 
 
@@ -100,6 +101,7 @@ describe('symbols tests for definitions and renames', () => {
                 }
                 if (testNode1 !== null && testNode2 !== null) {
                     expect(testNode1.text).toEqual(testNode2.text);
+                    logCompareNodes(SHOULD_LOG, testNode1, testNode2);
                     testNode1 = null;
                     testNode2 = null;
                 }
@@ -123,8 +125,9 @@ describe('symbols tests for definitions and renames', () => {
             logTestFileInfo(testIndex.toString(), root)
             let argIndex = 0;
             for (const child of getChildNodes(root)) {
-                if (!isVariableDefintion(child)) continue
+                if (!isVariableDefinition(child)) continue
                 expect(child.text).toEqual(testFileArgs[argIndex]);
+                logVerboseNode(SHOULD_LOG, child);
                 argIndex++
             }
         })
@@ -141,7 +144,7 @@ describe('symbols tests for definitions and renames', () => {
             logTestFileInfo(testIndex.toString(), root)
             const vars: SyntaxNode[] = []; 
             for (const child of getChildNodes(root)) {                                   
-                if (!isVariableDefintion(child)) continue;
+                if (!isVariableDefinition(child)) continue;
                 vars.push(child);                                                
             }                                                                            
             expect(vars.length == testIndex + 1).toBe(true);
@@ -157,7 +160,7 @@ describe('symbols tests for definitions and renames', () => {
             logTestFileInfo(i.toString(), root)
             const vars: SyntaxNode[] = []; 
             for (const child of getChildNodes(root)) {                                   
-                if (!isVariableDefintion(child)) continue;
+                if (!isVariableDefinition(child)) continue;
                 vars.push(child);                                                
             }                                                                            
             expect(vars.length == 1).toBe(true);
@@ -168,16 +171,19 @@ describe('symbols tests for definitions and renames', () => {
     it('parsing set variable definitions SyntaxNodes', async () => {                 
         const testFiles = [testSetFile1, testSetFile2, testSetFile3, testSetFile4];
         const rootNodes = await getRootNodesForTestFiles(testFiles)                      
+        SHOULD_LOG = true;
         printTestName('PARSING SET VARIABLE DEFINITIONS SYNTAXNODES', SHOULD_LOG)    
         rootNodes.forEach((root, i) => {                                                 
             logTestFileInfo(i.toString(), root)                                          
             const vars: SyntaxNode[] = []; 
             for (const child of getChildNodes(root)) {                                   
-                if (!isVariableDefintion(child)) continue;
+                if (!isVariableDefinition(child)) continue;
                 vars.push(child);                                                
             }                                                                            
+            logNode(SHOULD_LOG, vars[0])
             expect(vars.length == 1).toBe(true);                                           
         })                                                                               
+        SHOULD_LOG = false;
     })                                                                                   
 
     it('parsing symbol enclosing scope', async () => {
@@ -188,7 +194,7 @@ describe('symbols tests for definitions and renames', () => {
             logTestFileInfo(i.toString(), root)                                          
             const vars: SyntaxNode[] = []; 
             for (const child of getChildNodes(root)) {                                   
-                if (!isVariableDefintion(child)) continue;
+                if (!isVariableDefinition(child)) continue;
                 const parentScope = findEnclosingVariableScope(child)
                 if (SHOULD_LOG) {
                     printDebugSeperator()
@@ -236,6 +242,7 @@ __fish_complete
 man
 __fish_whatis
 __fish_whatis_current_token
+set gvar 1
 `
 async function getDependencyMap(uri: string, rootNode: SyntaxNode, dependencyMap = new Map<string, string>()) {
     const uniqueCommandNodes = new Set<string>();
@@ -271,101 +278,131 @@ async function getSymbolMapForUri(uri: string, rootNode: SyntaxNode, symbolMap: 
 // pass 1: get all local definitions, (including scopes)
 // pass 2: get all commands, then find their deinition
 
-describe('symbol map tests', () => {
-
-    it('generic symbol map', async () => {
-        const testFiles: string = [testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1].join('\n');
-        const rootNodes = await getRootNodesForTestFiles([testFiles])
-        const root = rootNodes[0];
-        printTestName('GENERIC SYMBOL MAP', SHOULD_LOG)
-        let dependencyMap = new Map<string, string>();
-        for (const child of getChildNodes(root)) {
-            if (isFunctionDefinitionName(child)) {
-                dependencyMap.set(child.text, 'testUri');
-            }
-        }
-        for (let i = 0; i < 50; i++) {
-            dependencyMap = await getDependencyMap(i.toString(), root, dependencyMap);
-        }
-        for (const [name, uri] of dependencyMap) {
-            if (name && uri) {
-                console.log(uri)
-                expect(true).toBe(true)
-            }
-        }
-    }, 15000)
-
-    it('new generic symbol map', async () => {
-        const testFiles: string = [testCommandFile1, testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1].join('\n');
-        const parser = await initializeParser();
-        const rootNodes = await getRootNodesForTestFiles([testFiles])
-        const root = rootNodes[0];
-        printTestName('GENERIC SYMBOL MAP', SHOULD_LOG)
-        //const docs = await DocumentManager.indexUserConfig();
-        const allSymbols = new Map<string, Map<string, SymbolInformation[]>>()
-        for (let i = 0; i < 50; i++) {
-            const filename = "testing"
-            //const symbols = allSymbols.has(filename) ? allSymbols.get(filename) : new Map<string, SymbolInformation[]>();
-            //allSymbols.set(filename, collectSymbolInformation(filename, root))
-        }
-        for (const [uri, symbolMap] of allSymbols) {
-            console.log(`test: ${uri}`)
-            for (const [name, symbol] of symbolMap) {
-                if (name === "program") {
-                    console.log(`parsing file of length: ${root.text.split('\n').length}, 50 times`)
-                }
-                console.log(`${name} ${symbol.length}: ${symbol.map(s => `${ s.location.range.start.character },${ s.location.range.start.line }`).join(', ').slice(0, 40)}\n`)
-                expect(name.length > 0).toBe(true)
-            }
-        }
-        expect(true).toBe(true)
-    }, 25000)
-
-    //it('generic symbol map', async () => {
-    //    const testFiles = [testFunctionFile1, testFunctionFile2, testFunctionFile3];
-    //    const rootNodes = await getRootNodesForTestFiles(testFiles)
-    //    printTestName('GENERIC SYMBOL MAP', SHOULD_LOG)
-    //    rootNodes.forEach((root, fileIdx) => {
-    //        logTestFileInfo(fileIdx.toString(), root)
-    //        const symbols = getDefinitionSymbols(`file://test_${fileIdx}.fish`, root)
-    //        const nodes: SyntaxNode[] = [];
-    //        for (const sym of symbols) {
-    //            //nodes.push(sym.name)
-    //            if (SHOULD_LOG) console.log(sym.name);
-    //        }
-    //        //expect(nodes.length).toEqual(3);
-    //    })
-    //})
-
-    //it('growing symbol map', async () => {
-    //    const fileVersion1 = testFunctionFile1;
-    //    const fileVersion2 = [fileVersion1 , testSetFile1].join('\n');
-    //    const fileVersion3 = [fileVersion2 , testReadFile1].join('\n');
-    //    const fileVersion4 = [fileVersion3 , testForLoop1].join('\n');
-    //    console.log(fileVersion4);
-    //    const testFiles = [fileVersion1, fileVersion2, fileVersion3, fileVersion4];
-    //    const rootNodes = await getRootNodesForTestFiles(testFiles)
-    //    printTestName('GROWING SYMBOL MAP', SHOULD_LOG)
-    //    let map = new Map<SyntaxNode, Location>();
-    //    rootNodes.forEach(root => {
-    //        const oldSize = map.size;
-    //        map = getDefinitionLocations(`file://test_fileVersion.fish` , root, map)
-    //        expect(map.size).toBeGreaterThan(oldSize);
-    //    })
-    //    const root = rootNodes[rootNodes.length - 1];
-    //    for (const value of map.values()) {
-    //        const node = getNodeAtRange(root, value.range)
-    //        if (SHOULD_LOG) console.log(`found: ${node.text}`);
+// HERE
+ describe('symbol map tests', () => {
+    //it('getting symbolInfo map 1', async () => {
+    //    const testFiles: string = [testCommandFile1].join('\n');
+    //    const rootNodes = await getRootNodesForTestFiles([testFiles]) 
+    //    const root = rootNodes[0];                                    
+    //    const uri = 'file://symbol_map_test_1.fish'
+    //    printTestName(uri, SHOULD_LOG)               
+    //    const symbols: SymbolInformation[] = [];
+    //    collectSymbolInformation(uri, root, symbols);
+    //    for (const sym of symbols) {
+    //        logSymbolInfo(SHOULD_LOG, sym)
     //    }
-    //    let count = 0;
-    //    for (const node of getChildNodes(root)) {
-    //        if (isVariableDefintion(node) || isFunctionDefinitionName(node)) {
-    //            count++;
-    //            console.log(node.text)
-    //        } 
-    //    }
-    //    console.log(`variable count: ${count}, map size: ${map.size}`);
-    //})
+    //    logFile(SHOULD_LOG, uri, root.text)
+    //    expect(true).toBe(true);
+    //}, 20000)
+
+    it('getting workspaceSymbol map 1', async () => {
+        const testFiles: string = [testCommandFile1].join('\n');
+        const rootNodes = await getRootNodesForTestFiles([testFiles]) 
+        const root = rootNodes[0];                                    
+        const uri = 'file://symbol_map_test_1.fish'
+        //printTestName(uri, SHOULD_LOG)
+        const symbols: DocumentSymbol[] = [];
+        collectDocumentSymbols(uri, root, symbols);
+        logFile(SHOULD_LOG || true, uri, root.text)
+        for (const sym of symbols) {
+            logDocSymbol(SHOULD_LOG || true, sym)
+        }
+        expect(true).toBe(true);
+    }, 20000)
+////// 
+//////     it('generic symbol map', async () => {
+//////         const testFiles: string = [testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1].join('\n');
+//////         const rootNodes = await getRootNodesForTestFiles([testFiles])
+//////         const root = rootNodes[0];
+//////         printTestName('GENERIC SYMBOL MAP', SHOULD_LOG)
+//////         let dependencyMap = new Map<string, string>();
+//////         for (const child of getChildNodes(root)) {
+//////             if (isFunctionDefinitionName(child)) {
+//////                 dependencyMap.set(child.text, 'testUri');
+//////             }
+//////         }
+//////         for (let i = 0; i < 50; i++) {
+//////             dependencyMap = await getDependencyMap(i.toString(), root, dependencyMap);
+//////         }
+//////         for (const [name, uri] of dependencyMap) {
+//////             if (name && uri) {
+//////                 //console.log(uri)
+//////                 expect(true).toBe(true)
+//////             }
+//////         }
+//////     }, 15000)
+////// 
+//////     it('new generic symbol map', async () => {
+//////         const testFiles: string = [testCommandFile1, testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1].join('\n');
+//////         const parser = await initializeParser();
+//////         const rootNodes = await getRootNodesForTestFiles([testFiles])
+//////         const root = rootNodes[0];
+//////         printTestName('GENERIC SYMBOL MAP', SHOULD_LOG)
+//////         //const docs = await DocumentManager.indexUserConfig();
+//////         const allSymbols = new Map<string, Map<string, SymbolInformation[]>>()
+//////         for (let i = 0; i < 50; i++) {
+//////             const filename = "testing"
+//////             //const symbols = allSymbols.has(filename) ? allSymbols.get(filename) : new Map<string, SymbolInformation[]>();
+//////             //allSymbols.set(filename, collectSymbolInformation(filename, root))
+//////         }
+//////         for (const [uri, symbolMap] of allSymbols) {
+//////             console.log(`test: ${uri}`)
+//////             for (const [name, symbol] of symbolMap) {
+//////                 if (name === "program") {
+//////                     console.log(`parsing file of length: ${root.text.split('\n').length}, 50 times`)
+//////                 }
+//////                 //console.log(`${name} ${symbol.length}: ${symbol.map(s => `${ s.location.range.start.character },${ s.location.range.start.line }`).join(', ').slice(0, 40)}\n`)
+//////                 expect(name.length > 0).toBe(true)
+//////             }
+//////         }
+//////         expect(true).toBe(true)
+//////     }, 25000)
+////// 
+//////     //it('generic symbol map', async () => {
+//////     //    const testFiles = [testFunctionFile1, testFunctionFile2, testFunctionFile3];
+//////     //    const rootNodes = await getRootNodesForTestFiles(testFiles)
+//////     //    printTestName('GENERIC SYMBOL MAP', SHOULD_LOG)
+//////     //    rootNodes.forEach((root, fileIdx) => {
+//////     //        logTestFileInfo(fileIdx.toString(), root)
+//////     //        const symbols = getDefinitionSymbols(`file://test_${fileIdx}.fish`, root)
+//////     //        const nodes: SyntaxNode[] = [];
+//////     //        for (const sym of symbols) {
+//////     //            //nodes.push(sym.name)
+//////     //            if (SHOULD_LOG) console.log(sym.name);
+//////     //        }
+//////     //        //expect(nodes.length).toEqual(3);
+//////     //    })
+//////     //})
+////// 
+//////     //it('growing symbol map', async () => {
+//////     //    const fileVersion1 = testFunctionFile1;
+//////     //    const fileVersion2 = [fileVersion1 , testSetFile1].join('\n');
+//////     //    const fileVersion3 = [fileVersion2 , testReadFile1].join('\n');
+//////     //    const fileVersion4 = [fileVersion3 , testForLoop1].join('\n');
+//////     //    console.log(fileVersion4);
+//////     //    const testFiles = [fileVersion1, fileVersion2, fileVersion3, fileVersion4];
+//////     //    const rootNodes = await getRootNodesForTestFiles(testFiles)
+//////     //    printTestName('GROWING SYMBOL MAP', SHOULD_LOG)
+//////     //    let map = new Map<SyntaxNode, Location>();
+//////     //    rootNodes.forEach(root => {
+//////     //        const oldSize = map.size;
+//////     //        map = getDefinitionLocations(`file://test_fileVersion.fish` , root, map)
+//////     //        expect(map.size).toBeGreaterThan(oldSize);
+//////     //    })
+//////     //    const root = rootNodes[rootNodes.length - 1];
+//////     //    for (const value of map.values()) {
+//////     //        const node = getNodeAtRange(root, value.range)
+//////     //        if (SHOULD_LOG) console.log(`found: ${node.text}`);
+//////     //    }
+//////     //    let count = 0;
+//////     //    for (const node of getChildNodes(root)) {
+//////     //        if (isVariableDefintion(node) || isFunctionDefinitionName(node)) {
+//////     //            count++;
+//////     //            console.log(node.text)
+//////     //        } 
+//////     //    }
+//////     //    console.log(`variable count: ${count}, map size: ${map.size}`);
+//////     //})
 })
 
 // helper functions specific to these tests

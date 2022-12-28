@@ -7,7 +7,7 @@ import { Point, SyntaxNode, Tree } from 'web-tree-sitter'
 import {pathToFileURL} from 'url'; // typescript-langauge-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts
 import vscodeUri from 'vscode-uri'; // typescript-langauge-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts 
 import {existsSync} from 'fs-extra';
-import {findSetDefinedVariable, findParentCommand, isFunctionDefinition, isVariableDefintion} from './node-types';
+import {findSetDefinedVariable, findParentCommand, isFunctionDefinition, isVariableDefinition} from './node-types';
 
 /**
  * Returns an array for all the nodes in the tree (@see also nodesGen)
@@ -62,7 +62,7 @@ export function getNodeText(node: SyntaxNode | null): string {
     if (isFunctionDefinition(node)) {
         return node.child(1)?.text || ""
     }
-    if (isVariableDefintion(node)) {
+    if (isVariableDefinition(node)) {
         const defVar = findSetDefinedVariable(node)!
         return defVar.text || "";
     }
