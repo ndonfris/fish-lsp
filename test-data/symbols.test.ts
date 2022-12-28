@@ -244,6 +244,49 @@ __fish_whatis
 __fish_whatis_current_token
 set gvar 1
 `
+
+const testCompleteFile2 = `
+function test-fish-lsp --argument-names file --description "Check a file for syntax errors"
+    echo "$file"
+    lso
+    fzf-local-node_modules
+    __test_small
+end
+
+
+## this is a comment
+function __test_small 
+    if string match --regex '^(\w{10}).fish' -- "$argv"
+        echo "matched" | string pad -c ' ' 
+    end
+    string match --regex '[[:alnum:]]' "$argv"
+
+    # padding a stirng
+    string pad --char " " $argv 
+
+    set_color --background black white 
+    set -l variable_name "v" 
+    whatis -? --config-file --help --regex "*" 
+
+    set -l variable_name (string split0 --fields 1 --right --max 4 '\t' "$argv")
+    
+    string pad --width 10 --char " " "$argv" 
+
+    set -l variable_name "value" 
+
+
+    if test -n "$variable_name" 
+        echo "variable_name is not empty" 
+    end
+
+    for i in (seq 1 (count $variable_name))
+    end
+
+    for i in $variable_name
+        echo $i
+    end
+    set variable_name "value" 
+end`
 // pass 1: get all local definitions, (including scopes)
 // pass 2: get all commands, then find their deinition
 
@@ -265,29 +308,31 @@ set gvar 1
     //}, 20000)
 
     it('getting workspaceSymbol map 1', async () => {
-        const testFiles: string = [testCommandFile1].join('\n');
-        const rootNodes = await getRootNodesForTestFiles([testFiles]) 
-        const root: SyntaxNode = rootNodes[0];                                    
-        const uri = 'file://symbol_map_test_1.fish'
-        //printTestName(uri, SHOULD_LOG)
-        const symbols: DocumentSymbol[] = [];
-        collectDocumentSymbols(uri, root, symbols);
-        logFile(SHOULD_LOG || true, uri, root.text)
-        const _currentNode= root.descendantForPosition({column: 6, row: 9}) // 9, 7 would be past
-        const currentNode= _currentNode?.lastChild || _currentNode
-        const nearSymbols = nearbySymbols(uri, root, currentNode)
-        for (const sym of nearSymbols) {
-            console.log(`nearby symbol: ${sym.name}`)
-            //logDocSymbol(SHOULD_LOG || true, sym)
-        }
-        const s : DocumentSymbol[]= []
-        const flatSym = flattenSymbols(symbols, s)
-        for (const sym of flatSym) {
-          console.log(`${sym.name.bgBlack}`)
-          ////logDocSymbol(SHOULD_LOG || true, sym)
-        }
-        console.log("currentNode:".white, currentNode?.text, currentNode?.endPosition)
+        SHOULD_LOG = true;
+        const testFiles: string[] = [testCommandFile1, testCompleteFile2]
+        const rootNodes = await getRootNodesForTestFiles(testFiles) 
+        rootNodes.forEach((root, i) => {
+            const uri = `file://symbol_map_test_${i}.fish`
+            printTestName(uri, SHOULD_LOG)
+            const symbols: DocumentSymbol[] = [];
+            collectDocumentSymbols(uri, root, symbols);
+            logFile(SHOULD_LOG, uri, root.text)
+            const _currentNode= root.descendantForPosition({column: 6, row: 9}) // 9, 7 would be past (for test 1)
+            const currentNode = _currentNode?.lastChild || _currentNode
+            const nearSymbols = nearbySymbols(uri, root, currentNode)
+            for (const sym of nearSymbols) {
+                console.log(`nearby symbol: ${sym.name}`)
+                //logDocSymbol(SHOULD_LOG || true, sym)
+            }
+            const flatSym = flattenSymbols(symbols, [])
+            for (const sym of flatSym) {
+                console.log(`flat symbol: ${sym.name.bgBlack}`)
+                ////logDocSymbol(SHOULD_LOG || true, sym)
+            }
+            console.log("currentNode:".white, currentNode?.text, currentNode?.endPosition)
+        })
         expect(true).toBe(true);
+        SHOULD_LOG = false;
     }, 20000)
 ////// 
 //////     it('generic symbol map', async () => {
