@@ -7,6 +7,7 @@ import {
     RemoteConsole,
     SymbolKind,
     TextDocumentPositionParams,
+    Range,
 } from "vscode-languageserver";
 import {TextDocument} from 'vscode-languageserver-textdocument';
 import {URI, Utils} from 'vscode-uri';
@@ -122,6 +123,11 @@ export class Logger {
          else {
             this.log('documentSymbol is null or undefined')
         }
+    }
+
+    public logRange(range: Range) {
+        this.console.log(`position (character: ${range.start.character}, line: ${range.start.line})`);
+        this.console.log(`position (character: ${range.end.character}, line: ${range.end.line})`);
     }
 
     public logPosition(position: Position) {

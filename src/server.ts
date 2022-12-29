@@ -3,7 +3,7 @@ import { initializeParser } from "./parser";
 import { Analyzer } from "./analyze";
 //import { logger } from "./logger";
 import { buildDefaultCompletions, buildRegexCompletions, workspaceSymbolToCompletionItem, generateShellCompletionItems, insideStringRegex, } from "./completion";
-import { InitializeParams, TextDocumentSyncKind, ServerCapabilities, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, LocationLink, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, WorkspaceSymbol, WorkspaceSymbolParams, SymbolKind } from "vscode-languageserver";
+import { InitializeParams, TextDocumentSyncKind, ServerCapabilities, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, LocationLink, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, WorkspaceSymbol, WorkspaceSymbolParams, SymbolKind, TextDocumentItem } from "vscode-languageserver";
 import { TextDocument } from "vscode-languageserver-textdocument";
 //import {CliOptions, Context, TreeByUri} from './interfaces';
 import { LspDocuments, LspDocument } from './document';
@@ -15,7 +15,8 @@ import { collectFishSymbols, FishSymbol, getNearestSymbols } from './symbols';
 import {Logger} from './logger';
 import {uriToPath} from './utils/translation';
 import {ConfigManager} from './configManager';
-import {nearbySymbols, collectDocumentSymbols} from './workspace-symbol';
+import {nearbySymbols, collectDocumentSymbols, getDefinitionKind, DefinitionKind, SpanTree, countParentScopes, flattenSymbols, } from './workspace-symbol';
+import {getRange} from './utils/tree-sitter';
 
 
 
@@ -326,7 +327,7 @@ export default class FishServer {
         }
         const root = this.getRootNode(doc.getText());
         this.logger.log("length: "+ this.analyzer.getSymbols(doc.uri).length.toString())
-        const symbols: DocumentSymbol[] = collectDocumentSymbols(root);
+        const symbols: DocumentSymbol[] = collectDocumentSymbols(SpanTree.defintionNodes(root));
         return symbols;
     }
 
@@ -343,13 +344,51 @@ export default class FishServer {
         if (!doc || !uri) {
             return [];
         }
-        //const root = this.getRootNode(doc.getText());
-        let node = this.analyzer.nodeAtPoint(doc.uri, params.position.line, params.position.character);
-        this.logger.log(node?.text.toString() || "no node")
-        if (!node) return [];
+        const root = this.getRootNode(doc.getText());
+        let current = this.analyzer.nodeAtPoint(doc.uri, params.position.line, params.position.character);
+        const definitions: Location[] = [];
+        if (!current) {this.logger.log('bad');return definitions;}
+        const currentText = current.text.toString() || "";
+        this.logger.log(currentText || "no node")
+        this.logger.log('scopes: ' + countParentScopes(current))
+        //const currentRange = getRange(current);
         //const depedencyUri = await execFindDependency(node.text)
-        const localDefinitions = this.analyzer.getDefinition(doc.uri, node);
-        return localDefinitions;
+        const definitionKind: DefinitionKind = getDefinitionKind(uri, root, current, definitions)
+        //const parentScopes = countParentScopes(current)
+        const localSymbols = flattenSymbols(collectDocumentSymbols(SpanTree.defintionNodes(root)), [] , 0)
+        localSymbols.forEach(s => {
+            this.logger.logDocumentSymbol(s)
+        })
+        //definitions.forEach(element => {
+        //    this.logger.log(`${element.uri}: ${element.range.start.character}, ${element.range.start.line}`)
+        //    this.logger.log('----')
+        //})
+
+        //});
+        switch (definitionKind) {
+            case DefinitionKind.FILE:
+                const foundUri = await execFindDependency(current.text)
+                const foundText = await execCommandDocs(current.text)
+                if (foundUri && foundText) {
+                    const defUri = uriToPath(foundUri) || foundUri
+                    const newDoc = TextDocumentItem.create(foundUri, 'fish', 0, foundText);
+                    const newRoot = this.parser.parse(foundText).rootNode
+                    const findDefs = SpanTree.documentSymbolArray(SpanTree.defintionNodes(newRoot))
+                        .filter(def => def.name === currentText)
+                        .map(def => Location.create(defUri, def.range))
+                    //this.docs.open(foundUri, TextDocumentItem.create(foundUri, 'fish', 0, foundText))
+                    definitions.push(...findDefs)
+                    break
+                }
+                return definitions
+            case DefinitionKind.LOCAL:
+                return definitions
+            case DefinitionKind.NONE:
+            default:
+                return definitions
+
+        }
+        return definitions;
         //const newDoc = await this.docs.get(depedencyUri);
         //const newDocRoot = this.parser.parse(newDoc.getText()).rootNode;
         //const globalDefinitions = findGlobalDefinition(newDoc.uri, newDocRoot, node) || [];

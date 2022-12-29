@@ -30,8 +30,8 @@ export function toSymbolKind(node: SyntaxNode): SymbolKind {
         return SymbolKind.Function;
     } else if (isString(node)) { 
         return SymbolKind.String;
-    //} else if (isProgram(node) || isFunctionDefinition(node) || isStatement(node)) {
-    } else if (isProgram(node)) {
+    } else if (isProgram(node) || isFunctionDefinition(node) || isStatement(node)) {
+    //} else if (isProgram(node)) {
         return SymbolKind.Namespace
     } else if (isBuiltin(node.text) || isCommandName(node) || isCommand(node)) {
         return SymbolKind.Class;

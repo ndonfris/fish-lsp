@@ -72,6 +72,10 @@ export function isStatement(node: SyntaxNode): boolean {
     ].includes(node.type);
 }
 
+export function isScope(node: SyntaxNode): boolean {
+    return isProgram(node) || isFunctionDefinition(node) || isStatement(node)
+}
+
 export function isString(node: SyntaxNode) {
     return [
         'double_quote_string',
