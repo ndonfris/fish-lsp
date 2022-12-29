@@ -1,7 +1,8 @@
 import { exec, execFile, execFileSync } from 'child_process';
-import {promises} from 'fs';
+import {promises, readFile} from 'fs';
 import {resolve} from 'path';
 import { promisify } from 'util';
+import {URI} from 'vscode-uri';
 
 const execAsync = promisify(exec);
 
@@ -184,6 +185,12 @@ export async function execComplete(cmd: string[]): Promise<string[]> {
 }
 
 
+// open the uri and read the file
+export async function execOpenFile(uri: string): Promise<string> {
+    const fileUri = URI.parse(uri).fsPath
+    const file = await promises.readFile(fileUri.toString(), 'utf8')
+    return file.toString()
+}
 
 
 export async function execCompleteGlobalDocs(cmd: string): Promise<string> {

@@ -9,7 +9,7 @@ import { TextDocument } from "vscode-languageserver-textdocument";
 import { LspDocuments, LspDocument } from './document';
 import { FishCompletionItem, } from './utils/completion-types';
 import { enrichToCodeBlockMarkdown } from './documentation';
-import { execCommandDocs, execCommandType, execFindDependency } from './utils/exec';
+import { execCommandDocs, execCommandType, execFindDependency, execOpenFile } from './utils/exec';
 //import { findLocalDefinition, getNearestSymbols, getReferences } from './symbols';
 import { collectFishSymbols, FishSymbol, getNearestSymbols } from './symbols';
 import {Logger} from './logger';
@@ -230,7 +230,7 @@ export default class FishServer {
 
         const items: CompletionItem[] = [
             ...workspaceSymbolToCompletionItem(nearbySymbols(root, currNode)), // collectDocumentSymbols(root, doc.uri, [])
-            ...buildDefaultCompletions(),
+            //...buildDefaultCompletions(),
         ];
 
         if (insideStringRegex(line)) {
@@ -347,7 +347,7 @@ export default class FishServer {
         const root = this.getRootNode(doc.getText());
         let current = this.analyzer.nodeAtPoint(doc.uri, params.position.line, params.position.character);
         const definitions: Location[] = [];
-        if (!current) {this.logger.log('bad');return definitions;}
+        if (!current) {this.logger.log('ERROR');return definitions;}
         const currentText = current.text.toString() || "";
         this.logger.log(currentText || "no node")
         this.logger.log('scopes: ' + countParentScopes(current))
@@ -368,14 +368,15 @@ export default class FishServer {
         switch (definitionKind) {
             case DefinitionKind.FILE:
                 const foundUri = await execFindDependency(current.text)
-                const foundText = await execCommandDocs(current.text)
-                if (foundUri && foundText) {
-                    const defUri = uriToPath(foundUri) || foundUri
+                const defUri = uriToPath(foundUri) || foundUri
+                if (defUri) {
+                    const foundText = await execOpenFile(defUri)
+                    this.logger.log(foundText)
                     const newDoc = TextDocumentItem.create(foundUri, 'fish', 0, foundText);
                     const newRoot = this.parser.parse(foundText).rootNode
                     const findDefs = SpanTree.documentSymbolArray(SpanTree.defintionNodes(newRoot))
                         .filter(def => def.name === currentText)
-                        .map(def => Location.create(defUri, def.range))
+                        .map(def => Location.create(defUri, def.selectionRange))
                     //this.docs.open(foundUri, TextDocumentItem.create(foundUri, 'fish', 0, foundText))
                     definitions.push(...findDefs)
                     break
@@ -404,13 +405,13 @@ export default class FishServer {
             return [];
         }
         const root = this.getRootNode(doc.getText());
+        const current = this.analyzer.nodeAtPoint(doc.uri, params.position.line, params.position.character);
         //this.analyzer.analyze(doc);
         //this.analyzer.getSymbols(doc.uri).forEach((s) => {
         //    this.logger.log(JSON.stringify({s}, null, 2))
         //})
-        this.logger.log(root.text?.toString() || "no ROOTNODE in onRefrence")
-        const current = this.analyzer.nodeAtPoint(doc.uri, params.position.line, params.position.character);
-        this.logger.log(current?.text?.toString() || "no NODE in onRefrence")
+        this.logger.log(root.text?.toString() || "null ROOTNODE in onRefrence".red)
+        this.logger.log(current?.text?.toString() || "null NODE in onRefrence".red)
         if (!current) return [];
         return getReferences(uri, root, current)
     }

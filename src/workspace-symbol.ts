@@ -6,7 +6,7 @@ import {toSymbolKind} from './symbols';
 import {isBuiltin} from './utils/builtins';
 import {findEnclosingVariableScope, findParentFunction, isCommandName, isFunctionDefinition, isFunctionDefinitionName, isProgram, isScope, isStatement, isVariable, isVariableDefinition} from './utils/node-types';
 import {nodeToDocumentSymbol, nodeToSymbolInformation, pathToRelativeFilename} from './utils/translation';
-import {getChildNodes, getRange, positionToPoint} from './utils/tree-sitter';
+import {getChildNodes, getParentNodes, getRange, positionToPoint} from './utils/tree-sitter';
 
 export function collectSymbolInformation(uri: string, root: SyntaxNode) {
     const symbols: SymbolInformation[] = SpanTree.symbolInformationArray(SpanTree.defintionNodes(root), uri)
@@ -238,9 +238,11 @@ export function getDefinitionKind(uri: string, root: SyntaxNode, current: Syntax
 
 export function getReferences(uri: string, root: SyntaxNode, current: SyntaxNode) {
     const currentText = current.text
-    return flattenSymbols(collectDocumentSymbols(SpanTree.refrenceNodes(root)), [])
+    const definition: Location[] = [];
+    const newRoot = findEnclosingVariableScope(current) || root
+    //const newRoot = getNodeFromRange(root, definition.at(0)!.range).parent!
+    return flattenSymbols(collectDocumentSymbols(SpanTree.refrenceNodes(newRoot)), [])
         .filter(symbol => symbol.name === currentText)
         .map(symbol => Location.create(uri, symbol.selectionRange)).reverse()
 }
-
 
