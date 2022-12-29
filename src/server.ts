@@ -1,28 +1,19 @@
 import Parser, {SyntaxNode} from "web-tree-sitter";
 import { initializeParser } from "./parser";
 import { Analyzer } from "./analyze";
-//import { logger } from "./logger";
-import { buildDefaultCompletions, buildRegexCompletions, workspaceSymbolToCompletionItem, generateShellCompletionItems, insideStringRegex, } from "./completion";
-import { InitializeParams, TextDocumentSyncKind, ServerCapabilities, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, LocationLink, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, WorkspaceSymbol, WorkspaceSymbolParams, SymbolKind, TextDocumentItem } from "vscode-languageserver";
-import { TextDocument } from "vscode-languageserver-textdocument";
-//import {CliOptions, Context, TreeByUri} from './interfaces';
-import { LspDocuments, LspDocument } from './document';
+import { buildRegexCompletions, workspaceSymbolToCompletionItem, generateShellCompletionItems, insideStringRegex, } from "./completion";
+import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, TextDocumentItem } from "vscode-languageserver";
+import { LspDocuments } from './document';
 import { FishCompletionItem, } from './utils/completion-types';
 import { enrichToCodeBlockMarkdown } from './documentation';
 import { execCommandDocs, execCommandType, execFindDependency, execOpenFile } from './utils/exec';
-//import { findLocalDefinition, getNearestSymbols, getReferences } from './symbols';
-import { collectFishSymbols, FishSymbol, getNearestSymbols } from './symbols';
 import {Logger} from './logger';
 import {uriToPath} from './utils/translation';
 import {ConfigManager} from './configManager';
-import {nearbySymbols, collectDocumentSymbols, getDefinitionKind, DefinitionKind, SpanTree, countParentScopes, flattenSymbols, getReferences } from './workspace-symbol';
-import {getRange} from './utils/tree-sitter';
-
-
+import {nearbySymbols, collectDocumentSymbols, getDefinitionKind, DefinitionKind, SpanTree, countParentScopes, getReferences } from './workspace-symbol';
 
 
 export default class FishServer {
-
 
     public static async create(
         connection: Connection,
@@ -65,9 +56,6 @@ export default class FishServer {
         this.connection.console.log(
             `Initialized server FISH-LSP with ${params.workspaceFolders}`
         )
-        /*const server = await FishServer.create(connection, params);*/
-
-
         const result : InitializeResult = {
             capabilities: {
                 // For now we're using full-sync even though tree-sitter has great support
@@ -100,7 +88,7 @@ export default class FishServer {
     }
 
 
-    public register(): void {
+    register(): void {
         //this.docs. .listen(this.connection)
         this.connection.console.log("Starting FishLsp.register()")
 
@@ -157,10 +145,6 @@ export default class FishServer {
                 ],
             });
         }
-        //const toAnalyze = this.docs.get(uri);
-        //if (toAnalyze) {
-        //    this.analyzer.analyze(toAnalyze);
-        //}
     }
 
     didChangeTextDocument(params: DidChangeTextDocumentParams): void {
@@ -351,20 +335,11 @@ export default class FishServer {
         const currentText = current.text.toString() || "";
         this.logger.log(currentText || "no node")
         this.logger.log('scopes: ' + countParentScopes(current))
-        //const currentRange = getRange(current);
-        //const depedencyUri = await execFindDependency(node.text)
         const definitionKind: DefinitionKind = getDefinitionKind(uri, root, current, definitions)
-        //const parentScopes = countParentScopes(current)
-        const localSymbols = flattenSymbols(collectDocumentSymbols(SpanTree.defintionNodes(root)), [] , 0)
-        localSymbols.forEach(s => {
-            this.logger.logDocumentSymbol(s)
-        })
-        //definitions.forEach(element => {
-        //    this.logger.log(`${element.uri}: ${element.range.start.character}, ${element.range.start.line}`)
-        //    this.logger.log('----')
+        //const localSymbols = flattenSymbols(collectDocumentSymbols(SpanTree.defintionNodes(root)), [] , 0)
+        //localSymbols.forEach(s => {
+        //    this.logger.logDocumentSymbol(s)
         //})
-
-        //});
         switch (definitionKind) {
             case DefinitionKind.FILE:
                 const foundUri = await execFindDependency(current.text)
@@ -390,14 +365,10 @@ export default class FishServer {
 
         }
         return definitions;
-        //const newDoc = await this.docs.get(depedencyUri);
-        //const newDocRoot = this.parser.parse(newDoc.getText()).rootNode;
-        //const globalDefinitions = findGlobalDefinition(newDoc.uri, newDocRoot, node) || [];
-        //return [...globalDefinitions, ...localDefinitions ]
     }
 
 
-    public async onReferences(params: ReferenceParams): Promise<Location[]> {
+    async onReferences(params: ReferenceParams): Promise<Location[]> {
         this.logger.log("onReference");
         const uri = uriToPath(params.textDocument.uri);
         const doc = this.docs.get(uri);
@@ -406,12 +377,8 @@ export default class FishServer {
         }
         const root = this.getRootNode(doc.getText());
         const current = this.analyzer.nodeAtPoint(doc.uri, params.position.line, params.position.character);
-        //this.analyzer.analyze(doc);
-        //this.analyzer.getSymbols(doc.uri).forEach((s) => {
-        //    this.logger.log(JSON.stringify({s}, null, 2))
-        //})
-        this.logger.log(root.text?.toString() || "null ROOTNODE in onRefrence".red)
-        this.logger.log(current?.text?.toString() || "null NODE in onRefrence".red)
+        this.logger.log(root.text?.toString() || "NULL ROOTNODE in onRefrence".red)
+        this.logger.log(current?.text?.toString() || "NULL NODE in onRefrence".red)
         if (!current) return [];
         return getReferences(uri, root, current)
     }
