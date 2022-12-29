@@ -15,7 +15,7 @@ import { collectFishSymbols, FishSymbol, getNearestSymbols } from './symbols';
 import {Logger} from './logger';
 import {uriToPath} from './utils/translation';
 import {ConfigManager} from './configManager';
-import {nearbySymbols, collectDocumentSymbols, getDefinitionKind, DefinitionKind, SpanTree, countParentScopes, flattenSymbols, } from './workspace-symbol';
+import {nearbySymbols, collectDocumentSymbols, getDefinitionKind, DefinitionKind, SpanTree, countParentScopes, flattenSymbols, getReferences } from './workspace-symbol';
 import {getRange} from './utils/tree-sitter';
 
 
@@ -403,15 +403,16 @@ export default class FishServer {
         if (!doc || !uri) {
             return [];
         }
-        //const root = this.getRootNode(doc.getText());
-        this.analyzer.analyze(doc);
-        this.analyzer.getSymbols(doc.uri).forEach((s) => {
-            this.logger.log(JSON.stringify({s}, null, 2))
-        })
-        const node = this.analyzer.nodeAtPoint(uri, params.position.line, params.position.character);
-        this.logger.log(node?.toString() || "no NODE in onRefrence")
-        if (!node) return [];
-        return this.analyzer.getRefrences(uri, node) || [];
+        const root = this.getRootNode(doc.getText());
+        //this.analyzer.analyze(doc);
+        //this.analyzer.getSymbols(doc.uri).forEach((s) => {
+        //    this.logger.log(JSON.stringify({s}, null, 2))
+        //})
+        this.logger.log(root.text?.toString() || "no ROOTNODE in onRefrence")
+        const current = this.analyzer.nodeAtPoint(doc.uri, params.position.line, params.position.character);
+        this.logger.log(current?.text?.toString() || "no NODE in onRefrence")
+        if (!current) return [];
+        return getReferences(uri, root, current)
     }
 }
 

@@ -33,7 +33,7 @@ export namespace SpanTree {
             isFunctionDefinitionName(node) || isVariableDefinition(node))
 
     export const refrenceNodes = (root: SyntaxNode) => 
-        getChildNodes(root).filter((node: SyntaxNode) => isVariable(node))
+        getChildNodes(root).filter((node: SyntaxNode) => isVariable(node) || isCommandName(node))
 
     export const commandNodes = (root: SyntaxNode) => getChildNodes(root)
         .filter((node: SyntaxNode) => isCommandName(node))
@@ -193,20 +193,23 @@ export enum DefinitionKind {
 export function getDefinitionKind(uri: string, root: SyntaxNode, current: SyntaxNode, locations: Location[]): DefinitionKind {
     if (isBuiltin(current.text)) return DefinitionKind.NONE;
 
-    let hasLocalSymbols = false;
     const currentRange = getRange(current)
     let localSymbols: DocumentSymbol[] = []
     const currentHeight = countParentScopes(current)
-    
-
-    localSymbols = flattenSymbols(collectDocumentSymbols(SpanTree.defintionNodes(root)), localSymbols, currentHeight)
-        .filter((symbol: DocumentSymbol) => {
-            if (current.text === 'argv') {
-                return symbol.kind === SymbolKind.Function && containsRange(symbol.range, currentRange)
-            } else {
-                return symbol.name === current.text
-            }
-        });
+    localSymbols = flattenSymbols(
+        collectDocumentSymbols(SpanTree.defintionNodes(root)),
+        localSymbols,
+        currentHeight
+    ).filter((symbol: DocumentSymbol) => {
+        if (current.text === "argv") {
+            return (
+                symbol.kind === SymbolKind.Function &&
+                containsRange(symbol.range, currentRange)
+            );
+        } else {
+            return symbol.name === current.text;
+        }
+    });
 
     if (localSymbols.length > 0) {
         if (isVariable(current) && current.text !== 'argv') {
@@ -233,5 +236,11 @@ export function getDefinitionKind(uri: string, root: SyntaxNode, current: Syntax
 }
 
 
+export function getReferences(uri: string, root: SyntaxNode, current: SyntaxNode) {
+    const currentText = current.text
+    return flattenSymbols(collectDocumentSymbols(SpanTree.refrenceNodes(root)), [])
+        .filter(symbol => symbol.name === currentText)
+        .map(symbol => Location.create(uri, symbol.selectionRange)).reverse()
+}
 
 

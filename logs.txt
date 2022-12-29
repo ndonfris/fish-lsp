@@ -1,4 +1,4 @@
-Thu Dec 29 03:13:32 AM CST 2022
+Thu Dec 29 04:41:30 AM CST 2022
 
 [FishLsp.onDidOpenTextDocument()]
 {
@@ -7,33 +7,103 @@ Thu Dec 29 03:13:32 AM CST 2022
       "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
       "languageId": "fish",
       "version": 1,
-      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\n    __test_small\nend\n\n\n## this is a comment\nfunction __test_small \n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo \"matched\" | string pad -c ' ' \n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv \n\n    set_color --background black white \n    set -l variable_name \"v\" \n    whatis -? --config-file --help --regex \"*\" \n\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    \n    string pad --width 10 --char \" \" \"$argv\" \n\n    set -l variable_name \"value\" \n\n\n    if test -n \"$variable_name\" \n        echo \"variable_name is not empty\" \n    end\n\n    for i in (seq 1 (count $variable_name))\n    end\n\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name \"value\" \nend\n\n\n"
+      "text": "set variable_name \"value\" \n\nfunction test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\n    __test_small\nend\n\n\n## this is a comment\nfunction __test_small \n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo \"matched\" | string pad -c ' ' \n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv \n\n    set_color --background black white \n    set -l variable_name \"v\" \n    whatis -? --config-file --help --regex \"*\" \n\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    \n    string pad --width 10 --char \" \" \"$argv\" \n\n    set -l variable_name \"value\" \n\n\n    if test -n \"$variable_name\" \n        echo \"variable_name is not empty\" \n    end\n\n    for i in (seq 1 (count $variable_name))\n    end\n\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name \"value\" \nend\n\nset variable_name \"value\" \n\n"
     }
   }
 }
 [FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
 opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
 analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDefinition
-argv
 onDocumentSymbols
-length: 16
+length: 18
 onDefinition
-argv
-onDefinition
-argv
-onDefinition
-argv
-onDefinition
-argv
-onDefinition
-argv
-onDefinition
-argv
-onDefinition
-argv
-onDefinition
-argv
+variable_name
+scopes: 1
+{
+	name: variable_name
+	kind: Variable
+	start: (44, 0)
+	end: (44, 25)
+	selectionStart: (44, 4)
+	selectionEnd: (44, 17)
+	children: 0
+}
+{
+	name: __test_small
+	kind: Function
+	start: (11, 0)
+	end: (42, 3)
+	selectionStart: (11, 9)
+	selectionEnd: (11, 21)
+	children: 6
+}
+{
+	name: test-fish-lsp
+	kind: Function
+	start: (2, 0)
+	end: (7, 3)
+	selectionStart: (2, 9)
+	selectionEnd: (2, 22)
+	children: 1
+}
+{
+	name: variable_name
+	kind: Variable
+	start: (0, 0)
+	end: (0, 25)
+	selectionStart: (0, 4)
+	selectionEnd: (0, 17)
+	children: 0
+}
+onReference
+set variable_name "value" 
+
+function test-fish-lsp --argument-names file --description "Check a file for syntax errors"
+    echo "$file"
+    lso
+    fzf-local-node_modules
+    __test_small
+end
+
+
+## this is a comment
+function __test_small 
+    if string match --regex '^(\w{10}).fish' -- "$argv"
+        echo "matched" | string pad -c ' ' 
+    end
+    string match --regex '[[:alnum:]]' "$argv"
+
+    # padding a stirng
+    string pad --char " " $argv 
+
+    set_color --background black white 
+    set -l variable_name "v" 
+    whatis -? --config-file --help --regex "*" 
+
+    set -l variable_name (string split0 --fields 1 --right --max 4 '\t' "$argv")
+    
+    string pad --width 10 --char " " "$argv" 
+
+    set -l variable_name "value" 
+
+
+    if test -n "$variable_name" 
+        echo "variable_name is not empty" 
+    end
+
+    for i in (seq 1 (count $variable_name))
+    end
+
+    for i in $variable_name
+        echo $i
+    end
+    set variable_name "value" 
+end
+
+set variable_name "value" 
+
+
+no NODE in onRefrence
 [onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
 closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
 [FishLsp.onDidOpenTextDocument()]
@@ -43,25 +113,64 @@ closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
       "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
       "languageId": "fish",
       "version": 1,
-      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\n    __test_small\nend\n\n\n## this is a comment\nfunction __test_small \n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo \"matched\" | string pad -c ' ' \n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv \n\n    set_color --background black white \n    set -l variable_name \"v\" \n    whatis -? --config-file --help --regex \"*\" \n\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    \n    string pad --width 10 --char \" \" \"$argv\" \n\n    set -l variable_name \"value\" \n\n\n    if test -n \"$variable_name\" \n        echo \"variable_name is not empty\" \n    end\n\n    for i in (seq 1 (count $variable_name))\n    end\n\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name \"value\" \nend\n\n\n"
+      "text": "set variable_name \"value\" \n\nfunction test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\n    __test_small\nend\n\n\n## this is a comment\nfunction __test_small \n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo \"matched\" | string pad -c ' ' \n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv \n\n    set_color --background black white \n    set -l variable_name \"v\" \n    whatis -? --config-file --help --regex \"*\" \n\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    \n    string pad --width 10 --char \" \" \"$argv\" \n\n    set -l variable_name \"value\" \n\n\n    if test -n \"$variable_name\" \n        echo \"variable_name is not empty\" \n    end\n\n    for i in (seq 1 (count $variable_name))\n    end\n\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name \"value\" \nend\n\nset variable_name \"value\" \n\n"
     }
   }
 }
 [FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
 opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
 analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDefinition
-argv
-onDefinition
-argv
-onDefinition
-argv
+onReference
+set variable_name "value" 
+
+function test-fish-lsp --argument-names file --description "Check a file for syntax errors"
+    echo "$file"
+    lso
+    fzf-local-node_modules
+    __test_small
+end
+
+
+## this is a comment
+function __test_small 
+    if string match --regex '^(\w{10}).fish' -- "$argv"
+        echo "matched" | string pad -c ' ' 
+    end
+    string match --regex '[[:alnum:]]' "$argv"
+
+    # padding a stirng
+    string pad --char " " $argv 
+
+    set_color --background black white 
+    set -l variable_name "v" 
+    whatis -? --config-file --help --regex "*" 
+
+    set -l variable_name (string split0 --fields 1 --right --max 4 '\t' "$argv")
+    
+    string pad --width 10 --char " " "$argv" 
+
+    set -l variable_name "value" 
+
+
+    if test -n "$variable_name" 
+        echo "variable_name is not empty" 
+    end
+
+    for i in (seq 1 (count $variable_name))
+    end
+
+    for i in $variable_name
+        echo $i
+    end
+    set variable_name "value" 
+end
+
+set variable_name "value" 
+
+
+variable_name
 onDocumentSymbols
-length: 16
-onDefinition
-argv
-onDefinition
-argv
+length: 18
 [onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
 closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
 [FishLsp.onDidOpenTextDocument()]
@@ -71,2364 +180,399 @@ closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
       "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
       "languageId": "fish",
       "version": 1,
-      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\n    __test_small\nend\n\n\n## this is a comment\nfunction __test_small \n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo \"matched\" | string pad -c ' ' \n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv \n\n    set_color --background black white \n    set -l variable_name \"v\" \n    whatis -? --config-file --help --regex \"*\" \n\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    \n    string pad --width 10 --char \" \" \"$argv\" \n\n    set -l variable_name \"value\" \n\n\n    if test -n \"$variable_name\" \n        echo \"variable_name is not empty\" \n    end\n\n    for i in (seq 1 (count $variable_name))\n    end\n\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name \"value\" \nend\n\n\n"
+      "text": "set variable_name \"value\" \n\nfunction test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\n    __test_small\nend\n\n\n## this is a comment\nfunction __test_small \n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo \"matched\" | string pad -c ' ' \n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv \n\n    set_color --background black white \n    set -l variable_name \"v\" \n    whatis -? --config-file --help --regex \"*\" \n\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    \n    string pad --width 10 --char \" \" \"$argv\" \n\n    set -l variable_name \"value\" \n\n\n    if test -n \"$variable_name\" \n        echo \"variable_name is not empty\" \n    end\n\n    for i in (seq 1 (count $variable_name))\n    end\n\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name \"value\" \nend\n\nset variable_name \"value\" \n\n"
     }
   }
 }
 [FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
 opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
 analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDefinition
-argv
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 9, 9
-----
+onReference
+set variable_name "value" 
+
+function test-fish-lsp --argument-names file --description "Check a file for syntax errors"
+    echo "$file"
+    lso
+    fzf-local-node_modules
+    __test_small
+end
+
+
+## this is a comment
+function __test_small 
+    if string match --regex '^(\w{10}).fish' -- "$argv"
+        echo "matched" | string pad -c ' ' 
+    end
+    string match --regex '[[:alnum:]]' "$argv"
+
+    # padding a stirng
+    string pad --char " " $argv 
+
+    set_color --background black white 
+    set -l variable_name "v" 
+    whatis -? --config-file --help --regex "*" 
+
+    set -l variable_name (string split0 --fields 1 --right --max 4 '\t' "$argv")
+    
+    string pad --width 10 --char " " "$argv" 
+
+    set -l variable_name "value" 
+
+
+    if test -n "$variable_name" 
+        echo "variable_name is not empty" 
+    end
+
+    for i in (seq 1 (count $variable_name))
+    end
+
+    for i in $variable_name
+        echo $i
+    end
+    set variable_name "value" 
+end
+
+set variable_name "value" 
+
+
+variable_name
 onDocumentSymbols
-length: 16
-onDefinition
-argv
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 9, 9
-----
-onDefinition
-__test_small
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 0, 9
-----
-[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[FishLsp.onDidOpenTextDocument()]
-{
-  "params": {
-    "textDocument": {
-      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
-      "languageId": "fish",
-      "version": 1,
-      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\n    __test_small\nend\n\n\n## this is a comment\nfunction __test_small \n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo \"matched\" | string pad -c ' ' \n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv \n\n    set_color --background black white \n    set -l variable_name \"v\" \n    whatis -? --config-file --help --regex \"*\" \n\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    \n    string pad --width 10 --char \" \" \"$argv\" \n\n    set -l variable_name \"value\" \n\n\n    if test -n \"$variable_name\" \n        echo \"variable_name is not empty\" \n    end\n\n    for i in (seq 1 (count $variable_name))\n    end\n\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name \"value\" \nend\n\n\n"
-    }
-  }
-}
-[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDefinition
-argv
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 9, 9
-----
-onDefinition
-__test_small
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 9, 9
-----
-onDefinition
+length: 18
+onReference
+set variable_name "value" 
+
+function test-fish-lsp --argument-names file --description "Check a file for syntax errors"
+    echo "$file"
+    lso
+    fzf-local-node_modules
+    __test_small
+end
+
+
+## this is a comment
+function __test_small 
+    if string match --regex '^(\w{10}).fish' -- "$argv"
+        echo "matched" | string pad -c ' ' 
+    end
+    string match --regex '[[:alnum:]]' "$argv"
+
+    # padding a stirng
+    string pad --char " " $argv 
+
+    set_color --background black white 
+    set -l variable_name "v" 
+    whatis -? --config-file --help --regex "*" 
+
+    set -l variable_name (string split0 --fields 1 --right --max 4 '\t' "$argv")
+    
+    string pad --width 10 --char " " "$argv" 
+
+    set -l variable_name "value" 
+
+
+    if test -n "$variable_name" 
+        echo "variable_name is not empty" 
+    end
+
+    for i in (seq 1 (count $variable_name))
+    end
+
+    for i in $variable_name
+        echo $i
+    end
+    set variable_name "value" 
+end
+
+set variable_name "value" 
+
+
 variable_name
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 11, 19
-----
-onDefinition
-variable_name
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 11, 22
-----
-onDefinition
-variable_name
-onDefinition
+onReference
+set variable_name "value" 
+
+function test-fish-lsp --argument-names file --description "Check a file for syntax errors"
+    echo "$file"
+    lso
+    fzf-local-node_modules
+    __test_small
+end
+
+
+## this is a comment
+function __test_small 
+    if string match --regex '^(\w{10}).fish' -- "$argv"
+        echo "matched" | string pad -c ' ' 
+    end
+    string match --regex '[[:alnum:]]' "$argv"
+
+    # padding a stirng
+    string pad --char " " $argv 
+
+    set_color --background black white 
+    set -l variable_name "v" 
+    whatis -? --config-file --help --regex "*" 
+
+    set -l variable_name (string split0 --fields 1 --right --max 4 '\t' "$argv")
+    
+    string pad --width 10 --char " " "$argv" 
+
+    set -l variable_name "value" 
+
+
+    if test -n "$variable_name" 
+        echo "variable_name is not empty" 
+    end
+
+    for i in (seq 1 (count $variable_name))
+    end
+
+    for i in $variable_name
+        echo $i
+    end
+    set variable_name "value" 
+end
+
+set variable_name "value" 
+
+
 i
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 8, 36
-----
-onDefinition
-variable_name
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 11, 26
-----
-onDefinition
-variable_name
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 11, 26
-----
-onDocumentSymbols
-length: 16
-onDefinition
-argv
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 9, 9
-----
-onDefinition
-argv
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 9, 9
-----
-onDefinition
-argv
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 9, 9
-----
-onDefinition
-set_color
-onDefinition
-lso
-[FishLsp.onDidOpenTextDocument()]
-{
-  "params": {
-    "textDocument": {
-      "uri": "file:///home/ndonfris/.config/fish/functions/lso.fish",
-      "languageId": "fish",
-      "version": 1,
-      "text": "# ls original version (ascii, system version)\n\nfunction lso\n    if test (count $argv) -eq 0\n        /usr/bin/ls;\n    else \n        /usr/bin/ls $argv;\n    end\nend\n\n\n#complete -c lso --wraps ls\n"
-    }
-  }
-}
-[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/lso.fish
-opened document: file:///home/ndonfris/.config/fish/functions/lso.fish
-analyzed document: file:///home/ndonfris/.config/fish/functions/lso.fish
-onDocumentSymbols
-length: 5
-onDefinition
-__test_small
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 9, 9
-----
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDocumentSymbols
-length: 16
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDocumentSymbols
-length: 16
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDocumentSymbols
-length: 16
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDocumentSymbols
-length: 16
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDocumentSymbols
-length: 16
-onDefinition
-
-
-
-
-onDefinition
-
-
-
-
-onDefinition
-
-
-
-
-onDefinition
-variable_name
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 11, 26
-----
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDocumentSymbols
-length: 16
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDocumentSymbols
-length: 16
-onDefinition
-function test-fish-lsp --argument-names file --description "Check a file for syntax errors"
-    echo "$file"
-    lso
-    fzf-local-node_modules
-    __test_small
-end
-
-
-## this is a comment
-function __test_small 
-    if string match --regex '^(\w{10}).fish' -- "$argv"
-        echo "matched" | string pad -c ' ' 
-    end
-    string match --regex '[[:alnum:]]' "$argv"
-
-    # padding a stirng
-    string pad --char " " $argv 
-
-    set_color --background black white 
-    set -l variable_name "v" 
-    whatis -? --config-file --help --regex "*" 
-
-    set -l variable_name (string split0 --fields 1 --right --max 4 '\t' "$argv")
-    
-    string pad --width 10 --char " " "$argv" 
-
-    set -l variable_name "value" 
-
-
-    if test -n "$variable_name" 
-        echo "variable_name is not empty" 
-    end
-
-    for i in (seq 1 (count $variable_name))
-    end
-
-    for i in $variable_name
-        echo $i
-    end
-    set variable_name "value" 
-end
-
-
-
-onDefinition
-function test-fish-lsp --argument-names file --description "Check a file for syntax errors"
-    echo "$file"
-    lso
-    fzf-local-node_modules
-    __test_small
-end
-
-
-## this is a comment
-function __test_small 
-    if string match --regex '^(\w{10}).fish' -- "$argv"
-        echo "matched" | string pad -c ' ' 
-    end
-    string match --regex '[[:alnum:]]' "$argv"
-
-    # padding a stirng
-    string pad --char " " $argv 
-
-    set_color --background black white 
-    set -l variable_name "v" 
-    whatis -? --config-file --help --regex "*" 
-
-    set -l variable_name (string split0 --fields 1 --right --max 4 '\t' "$argv")
-    
-    string pad --width 10 --char " " "$argv" 
-
-    set -l variable_name "value" 
-
-
-    if test -n "$variable_name" 
-        echo "variable_name is not empty" 
-    end
-
-    for i in (seq 1 (count $variable_name))
-    end
-
-    for i in $variable_name
-        echo $i
-    end
-    set variable_name "value" 
-end
-
-
-
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDefinition
-
-
-
-
-onDocumentSymbols
-length: 16
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDocumentSymbols
-length: 16
-onDefinition
-function test-fish-lsp --argument-names file --description "Check a file for syntax errors"
-    echo "$file"
-    lso
-    fzf-local-node_modules
-    __test_small
-end
-
-
-## this is a comment
-function __test_small 
-    if string match --regex '^(\w{10}).fish' -- "$argv"
-        echo "matched" | string pad -c ' ' 
-    end
-    string match --regex '[[:alnum:]]' "$argv"
-
-    # padding a stirng
-    string pad --char " " $argv 
-
-    set_color --background black white 
-    set -l variable_name "v" 
-    whatis -? --config-file --help --regex "*" 
-
-    set -l variable_name (string split0 --fields 1 --right --max 4 '\t' "$argv")
-    
-    string pad --width 10 --char " " "$argv" 
-
-    set -l variable_name "value" 
-
-
-    if test -n "$variable_name" 
-        echo "variable_name is not empty" 
-    end
-
-    for i in (seq 1 (count $variable_name))
-    end
-
-    for i in $variable_name
-        echo $i
-    end
-    set variable_name "value" 
-end
-
-
-
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDocumentSymbols
-length: 16
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDocumentSymbols
-length: 16
-onDefinition
-function test-fish-lsp --argument-names file --description "Check a file for syntax errors"
-    echo "$file"
-    lso
-    fzf-local-node_modules
-    __test_small
-end
-
-
-## this is a comment
-function __test_small 
-    if string match --regex '^(\w{10}).fish' -- "$argv"
-        echo "matched" | string pad -c ' ' 
-    end
-    string match --regex '[[:alnum:]]' "$argv"
-
-    # padding a stirng
-    string pad --char " " $argv 
-
-    set_color --background black white 
-    set -l variable_name "v" 
-    whatis -? --config-file --help --regex "*" 
-
-    set -l variable_name (string split0 --fields 1 --right --max 4 '\t' "$argv")
-    
-    string pad --width 10 --char " " "$argv" 
-
-    set -l variable_name "value" 
-
-
-    if test -n "$variable_name" 
-        echo "variable_name is not empty" 
-    end
-
-    for i in (seq 1 (count $variable_name))
-    end
-
-    for i in $variable_name
-        echo $i
-    end
-    set variable_name "value" 
-end
-
-
-
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDocumentSymbols
-length: 16
-onDefinition
-function test-fish-lsp --argument-names file --description "Check a file for syntax errors"
-    echo "$file"
-    lso
-    fzf-local-node_modules
-    __test_small
-end
-
-
-## this is a comment
-function __test_small 
-    if string match --regex '^(\w{10}).fish' -- "$argv"
-        echo "matched" | string pad -c ' ' 
-    end
-    string match --regex '[[:alnum:]]' "$argv"
-
-    # padding a stirng
-    string pad --char " " $argv 
-
-    set_color --background black white 
-    set -l variable_name "v" 
-    whatis -? --config-file --help --regex "*" 
-
-    set -l variable_name (string split0 --fields 1 --right --max 4 '\t' "$argv")
-    
-    string pad --width 10 --char " " "$argv" 
-
-    set -l variable_name "value" 
-
-
-    if test -n "$variable_name" 
-        echo "variable_name is not empty" 
-    end
-
-    for i in (seq 1 (count $variable_name))
-    end
-
-    for i in $variable_name
-        echo $i
-    end
-    set variable_name "value" 
-end
-
-
-
-onDefinition
-function test-fish-lsp --argument-names file --description "Check a file for syntax errors"
-    echo "$file"
-    lso
-    fzf-local-node_modules
-    __test_small
-end
-
-
-## this is a comment
-function __test_small 
-    if string match --regex '^(\w{10}).fish' -- "$argv"
-        echo "matched" | string pad -c ' ' 
-    end
-    string match --regex '[[:alnum:]]' "$argv"
-
-    # padding a stirng
-    string pad --char " " $argv 
-
-    set_color --background black white 
-    set -l variable_name "v" 
-    whatis -? --config-file --help --regex "*" 
-
-    set -l variable_name (string split0 --fields 1 --right --max 4 '\t' "$argv")
-    
-    string pad --width 10 --char " " "$argv" 
-
-    set -l variable_name "value" 
-
-
-    if test -n "$variable_name" 
-        echo "variable_name is not empty" 
-    end
-
-    for i in (seq 1 (count $variable_name))
-    end
-
-    for i in $variable_name
-        echo $i
-    end
-    set variable_name "value" 
-end
-
-
-
-[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/lso.fish
-closed uri: /home/ndonfris/.config/fish/functions/lso.fish
-[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[FishLsp.onDidOpenTextDocument()]
-{
-  "params": {
-    "textDocument": {
-      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
-      "languageId": "fish",
-      "version": 1,
-      "text": "set variable_name \"value\" \n\nfunction test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\n    __test_small\nend\n\n\n## this is a comment\nfunction __test_small \n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo \"matched\" | string pad -c ' ' \n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv \n\n    set_color --background black white \n    set -l variable_name \"v\" \n    whatis -? --config-file --help --regex \"*\" \n\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    \n    string pad --width 10 --char \" \" \"$argv\" \n\n    set -l variable_name \"value\" \n\n\n    if test -n \"$variable_name\" \n        echo \"variable_name is not empty\" \n    end\n\n    for i in (seq 1 (count $variable_name))\n    end\n\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name \"value\" \nend\n\nset variable_name \"value\" \n\n"
-    }
-  }
-}
-[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDefinition
-variable_name
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 8, 41
-----
-onDefinition
-variable_name
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 8, 41
-----
-onDefinition
-variable_name
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 11, 28
-----
-onDefinition
-variable_name
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 11, 24
-----
-onDefinition
-variable_name
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 11, 21
-----
-onDefinition
-variable_name
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 4, 0
-----
-onDocumentSymbols
-length: 18
-onDefinition
-variable_name
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 8, 41
-----
-onDefinition
-variable_name
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 11, 28
-----
-[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[FishLsp.onDidOpenTextDocument()]
-{
-  "params": {
-    "textDocument": {
-      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
-      "languageId": "fish",
-      "version": 1,
-      "text": "set variable_name \"value\" \n\nfunction test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\n    __test_small\nend\n\n\n## this is a comment\nfunction __test_small \n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo \"matched\" | string pad -c ' ' \n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv \n\n    set_color --background black white \n    set -l variable_name \"v\" \n    whatis -? --config-file --help --regex \"*\" \n\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    \n    string pad --width 10 --char \" \" \"$argv\" \n\n    set -l variable_name \"value\" \n\n\n    if test -n \"$variable_name\" \n        echo \"variable_name is not empty\" \n    end\n\n    for i in (seq 1 (count $variable_name))\n    end\n\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name \"value\" \nend\n\nset variable_name \"value\" \n\n"
-    }
-  }
-}
-[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDefinition
-variable_name
-onDefinition
-variable_name
-onDocumentSymbols
-length: 18
-onDefinition
-variable_name
-onDefinition
-variable_name
-onDefinition
-variable_name
-onDefinition
-variable_name
-[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[FishLsp.onDidOpenTextDocument()]
-{
-  "params": {
-    "textDocument": {
-      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
-      "languageId": "fish",
-      "version": 1,
-      "text": "set variable_name \"value\" \n\nfunction test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\n    __test_small\nend\n\n\n## this is a comment\nfunction __test_small \n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo \"matched\" | string pad -c ' ' \n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv \n\n    set_color --background black white \n    set -l variable_name \"v\" \n    whatis -? --config-file --help --regex \"*\" \n\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    \n    string pad --width 10 --char \" \" \"$argv\" \n\n    set -l variable_name \"value\" \n\n\n    if test -n \"$variable_name\" \n        echo \"variable_name is not empty\" \n    end\n\n    for i in (seq 1 (count $variable_name))\n    end\n\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name \"value\" \nend\n\nset variable_name \"value\" \n\n"
-    }
-  }
-}
-[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDefinition
-variable_name
-onDefinition
-variable_name
-onDefinition
-variable_name
-onDefinition
-variable_name
-onDefinition
-"
-onDefinition
-argv
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 9, 11
-----
-onDefinition
-variable_name
-onDefinition
-variable_name
-onDocumentSymbols
-length: 18
-[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[FishLsp.onDidOpenTextDocument()]
-{
-  "params": {
-    "textDocument": {
-      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
-      "languageId": "fish",
-      "version": 1,
-      "text": "set variable_name \"value\" \n\nfunction test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\n    __test_small\nend\n\n\n## this is a comment\nfunction __test_small \n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo \"matched\" | string pad -c ' ' \n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv \n\n    set_color --background black white \n    set -l variable_name \"v\" \n    whatis -? --config-file --help --regex \"*\" \n\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    \n    string pad --width 10 --char \" \" \"$argv\" \n\n    set -l variable_name \"value\" \n\n\n    if test -n \"$variable_name\" \n        echo \"variable_name is not empty\" \n    end\n\n    for i in (seq 1 (count $variable_name))\n    end\n\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name \"value\" \nend\n\nset variable_name \"value\" \n\n"
-    }
-  }
-}
-[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDefinition
-variable_name
-onDefinition
-variable_name
-onDefinition
-variable_name
-onDocumentSymbols
-length: 18
-onDefinition
-argv
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 9, 11
-----
-onDefinition
-__test_small
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 9, 11
-----
-onDefinition
-i
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 8, 38
-----
-onDefinition
-variable_name
-[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[FishLsp.onDidOpenTextDocument()]
-{
-  "params": {
-    "textDocument": {
-      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
-      "languageId": "fish",
-      "version": 1,
-      "text": "set variable_name \"value\" \n\nfunction test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\n    __test_small\nend\n\n\n## this is a comment\nfunction __test_small \n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo \"matched\" | string pad -c ' ' \n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv \n\n    set_color --background black white \n    set -l variable_name \"v\" \n    whatis -? --config-file --help --regex \"*\" \n\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    \n    string pad --width 10 --char \" \" \"$argv\" \n\n    set -l variable_name \"value\" \n\n\n    if test -n \"$variable_name\" \n        echo \"variable_name is not empty\" \n    end\n\n    for i in (seq 1 (count $variable_name))\n    end\n\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name \"value\" \nend\n\nset variable_name \"value\" \n\n"
-    }
-  }
-}
-[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDefinition
-variable_name
-onDefinition
-variable_name
-onDefinition
-variable_name
-onDefinition
-variable_name
-onDocumentSymbols
-length: 18
-onDefinition
-variable_name
-onDefinition
-variable_name
-[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[FishLsp.onDidOpenTextDocument()]
-{
-  "params": {
-    "textDocument": {
-      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
-      "languageId": "fish",
-      "version": 1,
-      "text": "set variable_name \"value\" \n\nfunction test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\n    __test_small\nend\n\n\n## this is a comment\nfunction __test_small \n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo \"matched\" | string pad -c ' ' \n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv \n\n    set_color --background black white \n    set -l variable_name \"v\" \n    whatis -? --config-file --help --regex \"*\" \n\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    \n    string pad --width 10 --char \" \" \"$argv\" \n\n    set -l variable_name \"value\" \n\n\n    if test -n \"$variable_name\" \n        echo \"variable_name is not empty\" \n    end\n\n    for i in (seq 1 (count $variable_name))\n    end\n\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name \"value\" \nend\n\nset variable_name \"value\" \n\n"
-    }
-  }
-}
-[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDefinition
-variable_name
-onDefinition
-variable_name
-onDocumentSymbols
-length: 18
-onDefinition
-variable_name
-onDefinition
-variable_name
-onDefinition
-variable_name
-onDefinition
-test-fish-lsp
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 9, 2
-----
-onDefinition
-fzf-local-node_modules
-[FishLsp.onDidOpenTextDocument()]
-{
-  "params": {
-    "textDocument": {
-      "uri": "file:///home/ndonfris/.config/fish/functions/fzf-local-node_modules.fish",
-      "languageId": "fish",
-      "version": 1,
-      "text": "function fzf-local-node_modules -d \"upwards search to containing node_modules && search packages\"\n    set -l nodedir (upfind -name 'node_modules')\n\n    set -l nodedir (echo \"$nodedir/\"node_modules)\n    \n    set -l _goto_dir (fd --base-directory=\"$nodedir\" --type d --maxdepth=1 -a | __fzf_helper )\n\n    if test -n \"$_goto_dir\" -a -d \"$_goto_dir\"\n        cd \"$_goto_dir\" \n        return 0\n    end\n\n    echo \"'fzf-local-node_modules' could not find:\"\n    echo -e \"\\t$_goto_dir\"\n    return 1\nend\n\nfunction __fzf_helper\n    fzf -d '/' --with-nth=-1 --preview 'echo -e  PACKAGE: {-1}\\nPATH: {}  | bat --color=always -pp --theme=base16 -H1:2; exa --icons --color=always --across {} | bat-fzf-helper' --preview-window 'right:55%'\nend\n\n"
-    }
-  }
-}
-[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/fzf-local-node_modules.fish
-opened document: file:///home/ndonfris/.config/fish/functions/fzf-local-node_modules.fish
-analyzed document: file:///home/ndonfris/.config/fish/functions/fzf-local-node_modules.fish
-onDocumentSymbols
-length: 9
-[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-local-node_modules.fish
-closed uri: /home/ndonfris/.config/fish/functions/fzf-local-node_modules.fish
-[FishLsp.onDidOpenTextDocument()]
-{
-  "params": {
-    "textDocument": {
-      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
-      "languageId": "fish",
-      "version": 1,
-      "text": "set variable_name \"value\" \n\nfunction test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\n    __test_small\nend\n\n\n## this is a comment\nfunction __test_small \n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo \"matched\" | string pad -c ' ' \n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv \n\n    set_color --background black white \n    set -l variable_name \"v\" \n    whatis -? --config-file --help --regex \"*\" \n\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    \n    string pad --width 10 --char \" \" \"$argv\" \n\n    set -l variable_name \"value\" \n\n\n    if test -n \"$variable_name\" \n        echo \"variable_name is not empty\" \n    end\n\n    for i in (seq 1 (count $variable_name))\n    end\n\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name \"value\" \nend\n\nset variable_name \"value\" \n\n"
-    }
-  }
-}
-[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDefinition
-variable_name
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 11, 28
-----
-onDocumentSymbols
-length: 18
-onDefinition
-variable_name
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 8, 41
-----
-onDefinition
-variable_name
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 8, 41
-----
-onDefinition
-variable_name
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 8, 41
-----
-onDefinition
-variable_name
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 8, 41
-----
-onDefinition
-variable_name
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 8, 41
-----
-onDefinition
-variable_name
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 8, 41
-----
-onDefinition
-variable_name
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 8, 41
-----
-onDefinition
-variable_name
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 8, 41
-----
-onDefinition
-variable_name
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 8, 41
-----
-[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[FishLsp.onDidOpenTextDocument()]
-{
-  "params": {
-    "textDocument": {
-      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
-      "languageId": "fish",
-      "version": 1,
-      "text": "set variable_name \"value\" \n\nfunction test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\n    __test_small\nend\n\n\n## this is a comment\nfunction __test_small \n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo \"matched\" | string pad -c ' ' \n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv \n\n    set_color --background black white \n    set -l variable_name \"v\" \n    whatis -? --config-file --help --regex \"*\" \n\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    \n    string pad --width 10 --char \" \" \"$argv\" \n\n    set -l variable_name \"value\" \n\n\n    if test -n \"$variable_name\" \n        echo \"variable_name is not empty\" \n    end\n\n    for i in (seq 1 (count $variable_name))\n    end\n\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name \"value\" \nend\n\nset variable_name \"value\" \n\n"
-    }
-  }
-}
-[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDocumentSymbols
-length: 18
-onDefinition
-variable_name
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 8, 41
-----
-[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[FishLsp.onDidOpenTextDocument()]
-{
-  "params": {
-    "textDocument": {
-      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
-      "languageId": "fish",
-      "version": 1,
-      "text": "set variable_name \"value\" \n\nfunction test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\n    __test_small\nend\n\n\n## this is a comment\nfunction __test_small \n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo \"matched\" | string pad -c ' ' \n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv \n\n    set_color --background black white \n    set -l variable_name \"v\" \n    whatis -? --config-file --help --regex \"*\" \n\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    \n    string pad --width 10 --char \" \" \"$argv\" \n\n    set -l variable_name \"value\" \n\n\n    if test -n \"$variable_name\" \n        echo \"variable_name is not empty\" \n    end\n\n    for i in (seq 1 (count $variable_name))\n    end\n\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name \"value\" \nend\n\nset variable_name \"value\" \n\n"
-    }
-  }
-}
-[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDefinition
-variable_name
-scopes: 2
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 11, 28
-----
-onDocumentSymbols
-length: 18
-onDefinition
-variable_name
-scopes: 2
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 11, 28
-----
-onDefinition
-variable_name
-scopes: 3
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 11, 28
-----
-onDefinition
-variable_name
-scopes: 2
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 11, 28
-----
-onDefinition
-variable_name
-scopes: 1
-/home/ndonfris/.config/fish/functions/test-fish-lsp.fish: 8, 41
-----
-onDefinition
-variable_name
-scopes: 1
-[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[FishLsp.onDidOpenTextDocument()]
-{
-  "params": {
-    "textDocument": {
-      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
-      "languageId": "fish",
-      "version": 1,
-      "text": "set variable_name \"value\" \n\nfunction test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\n    __test_small\nend\n\n\n## this is a comment\nfunction __test_small \n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo \"matched\" | string pad -c ' ' \n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv \n\n    set_color --background black white \n    set -l variable_name \"v\" \n    whatis -? --config-file --help --regex \"*\" \n\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    \n    string pad --width 10 --char \" \" \"$argv\" \n\n    set -l variable_name \"value\" \n\n\n    if test -n \"$variable_name\" \n        echo \"variable_name is not empty\" \n    end\n\n    for i in (seq 1 (count $variable_name))\n    end\n\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name \"value\" \nend\n\nset variable_name \"value\" \n\n"
-    }
-  }
-}
-[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDefinition
-variable_name
-scopes: 1
-{
-	name: variable_name
-	kind: Variable
-	start: (44, 0)
-	end: (44, 25)
-	selectionStart: (44, 4)
-	selectionEnd: (44, 17)
-	children: 0
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (41, 4)
-	end: (41, 29)
-	selectionStart: (41, 8)
-	selectionEnd: (41, 21)
-	children: 0
-}
-{
-	name: i
-	kind: Variable
-	start: (38, 4)
-	end: (40, 7)
-	selectionStart: (38, 8)
-	selectionEnd: (38, 9)
-	children: 0
-}
-{
-	name: i
-	kind: Variable
-	start: (35, 4)
-	end: (36, 7)
-	selectionStart: (35, 8)
-	selectionEnd: (35, 9)
-	children: 0
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (28, 4)
-	end: (28, 32)
-	selectionStart: (28, 11)
-	selectionEnd: (28, 24)
-	children: 0
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (24, 4)
-	end: (24, 80)
-	selectionStart: (24, 11)
-	selectionEnd: (24, 24)
-	children: 0
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (21, 4)
-	end: (21, 28)
-	selectionStart: (21, 11)
-	selectionEnd: (21, 24)
-	children: 0
-}
-{
-	name: __test_small
-	kind: Function
-	start: (11, 0)
-	end: (42, 3)
-	selectionStart: (11, 9)
-	selectionEnd: (11, 21)
-	children: 6
-}
-{
-	name: file
-	kind: Variable
-	start: (2, 0)
-	end: (7, 3)
-	selectionStart: (2, 40)
-	selectionEnd: (2, 44)
-	children: 0
-}
-{
-	name: test-fish-lsp
-	kind: Function
-	start: (2, 0)
-	end: (7, 3)
-	selectionStart: (2, 9)
-	selectionEnd: (2, 22)
-	children: 1
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (0, 0)
-	end: (0, 25)
-	selectionStart: (0, 4)
-	selectionEnd: (0, 17)
-	children: 0
-}
-onDocumentSymbols
-length: 18
-[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[FishLsp.onDidOpenTextDocument()]
-{
-  "params": {
-    "textDocument": {
-      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
-      "languageId": "fish",
-      "version": 1,
-      "text": "set variable_name \"value\" \n\nfunction test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\n    __test_small\nend\n\n\n## this is a comment\nfunction __test_small \n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo \"matched\" | string pad -c ' ' \n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv \n\n    set_color --background black white \n    set -l variable_name \"v\" \n    whatis -? --config-file --help --regex \"*\" \n\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    \n    string pad --width 10 --char \" \" \"$argv\" \n\n    set -l variable_name \"value\" \n\n\n    if test -n \"$variable_name\" \n        echo \"variable_name is not empty\" \n    end\n\n    for i in (seq 1 (count $variable_name))\n    end\n\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name \"value\" \nend\n\nset variable_name \"value\" \n\n"
-    }
-  }
-}
-[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDefinition
-variable_name
-scopes: 2
-{
-	name: variable_name
-	kind: Variable
-	start: (44, 0)
-	end: (44, 25)
-	selectionStart: (44, 4)
-	selectionEnd: (44, 17)
-	children: 0
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (41, 4)
-	end: (41, 29)
-	selectionStart: (41, 8)
-	selectionEnd: (41, 21)
-	children: 0
-}
-{
-	name: i
-	kind: Variable
-	start: (38, 4)
-	end: (40, 7)
-	selectionStart: (38, 8)
-	selectionEnd: (38, 9)
-	children: 0
-}
-{
-	name: i
-	kind: Variable
-	start: (35, 4)
-	end: (36, 7)
-	selectionStart: (35, 8)
-	selectionEnd: (35, 9)
-	children: 0
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (28, 4)
-	end: (28, 32)
-	selectionStart: (28, 11)
-	selectionEnd: (28, 24)
-	children: 0
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (24, 4)
-	end: (24, 80)
-	selectionStart: (24, 11)
-	selectionEnd: (24, 24)
-	children: 0
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (21, 4)
-	end: (21, 28)
-	selectionStart: (21, 11)
-	selectionEnd: (21, 24)
-	children: 0
-}
-{
-	name: __test_small
-	kind: Function
-	start: (11, 0)
-	end: (42, 3)
-	selectionStart: (11, 9)
-	selectionEnd: (11, 21)
-	children: 6
-}
-{
-	name: file
-	kind: Variable
-	start: (2, 0)
-	end: (7, 3)
-	selectionStart: (2, 40)
-	selectionEnd: (2, 44)
-	children: 0
-}
-{
-	name: test-fish-lsp
-	kind: Function
-	start: (2, 0)
-	end: (7, 3)
-	selectionStart: (2, 9)
-	selectionEnd: (2, 22)
-	children: 1
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (0, 0)
-	end: (0, 25)
-	selectionStart: (0, 4)
-	selectionEnd: (0, 17)
-	children: 0
-}
-onDocumentSymbols
-length: 18
-onDefinition
-test-fish-lsp
-scopes: 2
-{
-	name: variable_name
-	kind: Variable
-	start: (44, 0)
-	end: (44, 25)
-	selectionStart: (44, 4)
-	selectionEnd: (44, 17)
-	children: 0
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (41, 4)
-	end: (41, 29)
-	selectionStart: (41, 8)
-	selectionEnd: (41, 21)
-	children: 0
-}
-{
-	name: i
-	kind: Variable
-	start: (38, 4)
-	end: (40, 7)
-	selectionStart: (38, 8)
-	selectionEnd: (38, 9)
-	children: 0
-}
-{
-	name: i
-	kind: Variable
-	start: (35, 4)
-	end: (36, 7)
-	selectionStart: (35, 8)
-	selectionEnd: (35, 9)
-	children: 0
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (28, 4)
-	end: (28, 32)
-	selectionStart: (28, 11)
-	selectionEnd: (28, 24)
-	children: 0
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (24, 4)
-	end: (24, 80)
-	selectionStart: (24, 11)
-	selectionEnd: (24, 24)
-	children: 0
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (21, 4)
-	end: (21, 28)
-	selectionStart: (21, 11)
-	selectionEnd: (21, 24)
-	children: 0
-}
-{
-	name: __test_small
-	kind: Function
-	start: (11, 0)
-	end: (42, 3)
-	selectionStart: (11, 9)
-	selectionEnd: (11, 21)
-	children: 6
-}
-{
-	name: file
-	kind: Variable
-	start: (2, 0)
-	end: (7, 3)
-	selectionStart: (2, 40)
-	selectionEnd: (2, 44)
-	children: 0
-}
-{
-	name: test-fish-lsp
-	kind: Function
-	start: (2, 0)
-	end: (7, 3)
-	selectionStart: (2, 9)
-	selectionEnd: (2, 22)
-	children: 1
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (0, 0)
-	end: (0, 25)
-	selectionStart: (0, 4)
-	selectionEnd: (0, 17)
-	children: 0
-}
-onDefinition
-variable_name
-scopes: 1
-[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[FishLsp.onDidOpenTextDocument()]
-{
-  "params": {
-    "textDocument": {
-      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
-      "languageId": "fish",
-      "version": 1,
-      "text": "set variable_name \"value\" \n\nfunction test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\n    __test_small\nend\n\n\n## this is a comment\nfunction __test_small \n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo \"matched\" | string pad -c ' ' \n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv \n\n    set_color --background black white \n    set -l variable_name \"v\" \n    whatis -? --config-file --help --regex \"*\" \n\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    \n    string pad --width 10 --char \" \" \"$argv\" \n\n    set -l variable_name \"value\" \n\n\n    if test -n \"$variable_name\" \n        echo \"variable_name is not empty\" \n    end\n\n    for i in (seq 1 (count $variable_name))\n    end\n\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name \"value\" \nend\n\nset variable_name \"value\" \n\n"
-    }
-  }
-}
-[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDefinition
-variable_name
-scopes: 2
-{
-	name: variable_name
-	kind: Variable
-	start: (44, 0)
-	end: (44, 25)
-	selectionStart: (44, 4)
-	selectionEnd: (44, 17)
-	children: 0
-}
-{
-	name: __test_small
-	kind: Function
-	start: (11, 0)
-	end: (42, 3)
-	selectionStart: (11, 9)
-	selectionEnd: (11, 21)
-	children: 6
-}
-{
-	name: test-fish-lsp
-	kind: Function
-	start: (2, 0)
-	end: (7, 3)
-	selectionStart: (2, 9)
-	selectionEnd: (2, 22)
-	children: 1
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (0, 0)
-	end: (0, 25)
-	selectionStart: (0, 4)
-	selectionEnd: (0, 17)
-	children: 0
-}
-onDocumentSymbols
-length: 18
-onDefinition
-test-fish-lsp
-scopes: 2
-{
-	name: variable_name
-	kind: Variable
-	start: (44, 0)
-	end: (44, 25)
-	selectionStart: (44, 4)
-	selectionEnd: (44, 17)
-	children: 0
-}
-{
-	name: __test_small
-	kind: Function
-	start: (11, 0)
-	end: (42, 3)
-	selectionStart: (11, 9)
-	selectionEnd: (11, 21)
-	children: 6
-}
-{
-	name: test-fish-lsp
-	kind: Function
-	start: (2, 0)
-	end: (7, 3)
-	selectionStart: (2, 9)
-	selectionEnd: (2, 22)
-	children: 1
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (0, 0)
-	end: (0, 25)
-	selectionStart: (0, 4)
-	selectionEnd: (0, 17)
-	children: 0
-}
-onDefinition
-test-fish-lsp
-scopes: 2
-{
-	name: variable_name
-	kind: Variable
-	start: (44, 0)
-	end: (44, 25)
-	selectionStart: (44, 4)
-	selectionEnd: (44, 17)
-	children: 0
-}
-{
-	name: __test_small
-	kind: Function
-	start: (11, 0)
-	end: (42, 3)
-	selectionStart: (11, 9)
-	selectionEnd: (11, 21)
-	children: 6
-}
-{
-	name: test-fish-lsp
-	kind: Function
-	start: (2, 0)
-	end: (7, 3)
-	selectionStart: (2, 9)
-	selectionEnd: (2, 22)
-	children: 1
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (0, 0)
-	end: (0, 25)
-	selectionStart: (0, 4)
-	selectionEnd: (0, 17)
-	children: 0
-}
-onDefinition
-variable_name
-scopes: 1
-onDefinition
-variable_name
-scopes: 1
-{
-	name: variable_name
-	kind: Variable
-	start: (44, 0)
-	end: (44, 25)
-	selectionStart: (44, 4)
-	selectionEnd: (44, 17)
-	children: 0
-}
-{
-	name: __test_small
-	kind: Function
-	start: (11, 0)
-	end: (42, 3)
-	selectionStart: (11, 9)
-	selectionEnd: (11, 21)
-	children: 6
-}
-{
-	name: test-fish-lsp
-	kind: Function
-	start: (2, 0)
-	end: (7, 3)
-	selectionStart: (2, 9)
-	selectionEnd: (2, 22)
-	children: 1
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (0, 0)
-	end: (0, 25)
-	selectionStart: (0, 4)
-	selectionEnd: (0, 17)
-	children: 0
-}
-[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[FishLsp.onDidOpenTextDocument()]
-{
-  "params": {
-    "textDocument": {
-      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
-      "languageId": "fish",
-      "version": 1,
-      "text": "set variable_name \"value\" \n\nfunction test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\n    __test_small\nend\n\n\n## this is a comment\nfunction __test_small \n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo \"matched\" | string pad -c ' ' \n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv \n\n    set_color --background black white \n    set -l variable_name \"v\" \n    whatis -? --config-file --help --regex \"*\" \n\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    \n    string pad --width 10 --char \" \" \"$argv\" \n\n    set -l variable_name \"value\" \n\n\n    if test -n \"$variable_name\" \n        echo \"variable_name is not empty\" \n    end\n\n    for i in (seq 1 (count $variable_name))\n    end\n\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name \"value\" \nend\n\nset variable_name \"value\" \n\n"
-    }
-  }
-}
-[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDefinition
-variable_name
-scopes: 0
-{
-	name: variable_name
-	kind: Variable
-	start: (44, 0)
-	end: (44, 25)
-	selectionStart: (44, 4)
-	selectionEnd: (44, 17)
-	children: 0
-}
-{
-	name: __test_small
-	kind: Function
-	start: (11, 0)
-	end: (42, 3)
-	selectionStart: (11, 9)
-	selectionEnd: (11, 21)
-	children: 6
-}
-{
-	name: test-fish-lsp
-	kind: Function
-	start: (2, 0)
-	end: (7, 3)
-	selectionStart: (2, 9)
-	selectionEnd: (2, 22)
-	children: 1
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (0, 0)
-	end: (0, 25)
-	selectionStart: (0, 4)
-	selectionEnd: (0, 17)
-	children: 0
-}
-onDocumentSymbols
-length: 18
-onDefinition
-variable_name
-scopes: 1
-{
-	name: variable_name
-	kind: Variable
-	start: (44, 0)
-	end: (44, 25)
-	selectionStart: (44, 4)
-	selectionEnd: (44, 17)
-	children: 0
-}
-{
-	name: __test_small
-	kind: Function
-	start: (11, 0)
-	end: (42, 3)
-	selectionStart: (11, 9)
-	selectionEnd: (11, 21)
-	children: 6
-}
-{
-	name: test-fish-lsp
-	kind: Function
-	start: (2, 0)
-	end: (7, 3)
-	selectionStart: (2, 9)
-	selectionEnd: (2, 22)
-	children: 1
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (0, 0)
-	end: (0, 25)
-	selectionStart: (0, 4)
-	selectionEnd: (0, 17)
-	children: 0
-}
-onDefinition
-variable_name
-scopes: 2
-{
-	name: variable_name
-	kind: Variable
-	start: (44, 0)
-	end: (44, 25)
-	selectionStart: (44, 4)
-	selectionEnd: (44, 17)
-	children: 0
-}
-{
-	name: __test_small
-	kind: Function
-	start: (11, 0)
-	end: (42, 3)
-	selectionStart: (11, 9)
-	selectionEnd: (11, 21)
-	children: 6
-}
-{
-	name: test-fish-lsp
-	kind: Function
-	start: (2, 0)
-	end: (7, 3)
-	selectionStart: (2, 9)
-	selectionEnd: (2, 22)
-	children: 1
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (0, 0)
-	end: (0, 25)
-	selectionStart: (0, 4)
-	selectionEnd: (0, 17)
-	children: 0
-}
-[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[FishLsp.onDidOpenTextDocument()]
-{
-  "params": {
-    "textDocument": {
-      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
-      "languageId": "fish",
-      "version": 1,
-      "text": "set variable_name \"value\" \n\nfunction test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\n    __test_small\nend\n\n\n## this is a comment\nfunction __test_small \n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo \"matched\" | string pad -c ' ' \n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv \n\n    set_color --background black white \n    set -l variable_name \"v\" \n    whatis -? --config-file --help --regex \"*\" \n\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    \n    string pad --width 10 --char \" \" \"$argv\" \n\n    set -l variable_name \"value\" \n\n\n    if test -n \"$variable_name\" \n        echo \"variable_name is not empty\" \n    end\n\n    for i in (seq 1 (count $variable_name))\n    end\n\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name \"value\" \nend\n\nset variable_name \"value\" \n\n"
-    }
-  }
-}
-[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDefinition
-variable_name
-scopes: 2
-onDocumentSymbols
-length: 18
-onDefinition
-variable_name
-scopes: 0
-[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[FishLsp.onDidOpenTextDocument()]
-{
-  "params": {
-    "textDocument": {
-      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
-      "languageId": "fish",
-      "version": 1,
-      "text": "set variable_name \"value\" \n\nfunction test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\n    __test_small\nend\n\n\n## this is a comment\nfunction __test_small \n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo \"matched\" | string pad -c ' ' \n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv \n\n    set_color --background black white \n    set -l variable_name \"v\" \n    whatis -? --config-file --help --regex \"*\" \n\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    \n    string pad --width 10 --char \" \" \"$argv\" \n\n    set -l variable_name \"value\" \n\n\n    if test -n \"$variable_name\" \n        echo \"variable_name is not empty\" \n    end\n\n    for i in (seq 1 (count $variable_name))\n    end\n\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name \"value\" \nend\n\nset variable_name \"value\" \n\n"
-    }
-  }
-}
-[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDefinition
-variable_name
-scopes: 2
-onDocumentSymbols
-length: 18
-onDefinition
-variable_name
-scopes: 1
-onDefinition
-variable_name
-scopes: 3
-onDefinition
-variable_name
-scopes: 2
-onDefinition
-variable_name
-scopes: 2
-[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[FishLsp.onDidOpenTextDocument()]
-{
-  "params": {
-    "textDocument": {
-      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
-      "languageId": "fish",
-      "version": 1,
-      "text": "set variable_name \"value\" \n\nfunction test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\n    __test_small\nend\n\n\n## this is a comment\nfunction __test_small \n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo \"matched\" | string pad -c ' ' \n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv \n\n    set_color --background black white \n    set -l variable_name \"v\" \n    whatis -? --config-file --help --regex \"*\" \n\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    \n    string pad --width 10 --char \" \" \"$argv\" \n\n    set -l variable_name \"value\" \n\n\n    if test -n \"$variable_name\" \n        echo \"variable_name is not empty\" \n    end\n\n    for i in (seq 1 (count $variable_name))\n    end\n\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name \"value\" \nend\n\nset variable_name \"value\" \n\n"
-    }
-  }
-}
-[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDefinition
-variable_name
-scopes: 2
-{
-	name: variable_name
-	kind: Variable
-	start: (44, 0)
-	end: (44, 25)
-	selectionStart: (44, 4)
-	selectionEnd: (44, 17)
-	children: 0
-}
-{
-	name: __test_small
-	kind: Function
-	start: (11, 0)
-	end: (42, 3)
-	selectionStart: (11, 9)
-	selectionEnd: (11, 21)
-	children: 6
-}
-{
-	name: test-fish-lsp
-	kind: Function
-	start: (2, 0)
-	end: (7, 3)
-	selectionStart: (2, 9)
-	selectionEnd: (2, 22)
-	children: 1
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (0, 0)
-	end: (0, 25)
-	selectionStart: (0, 4)
-	selectionEnd: (0, 17)
-	children: 0
-}
-onDocumentSymbols
-length: 18
-onDefinition
-variable_name
-scopes: 2
-{
-	name: variable_name
-	kind: Variable
-	start: (44, 0)
-	end: (44, 25)
-	selectionStart: (44, 4)
-	selectionEnd: (44, 17)
-	children: 0
-}
-{
-	name: __test_small
-	kind: Function
-	start: (11, 0)
-	end: (42, 3)
-	selectionStart: (11, 9)
-	selectionEnd: (11, 21)
-	children: 6
-}
-{
-	name: test-fish-lsp
-	kind: Function
-	start: (2, 0)
-	end: (7, 3)
-	selectionStart: (2, 9)
-	selectionEnd: (2, 22)
-	children: 1
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (0, 0)
-	end: (0, 25)
-	selectionStart: (0, 4)
-	selectionEnd: (0, 17)
-	children: 0
-}
-onDefinition
-variable_name
-scopes: 1
-{
-	name: variable_name
-	kind: Variable
-	start: (44, 0)
-	end: (44, 25)
-	selectionStart: (44, 4)
-	selectionEnd: (44, 17)
-	children: 0
-}
-{
-	name: __test_small
-	kind: Function
-	start: (11, 0)
-	end: (42, 3)
-	selectionStart: (11, 9)
-	selectionEnd: (11, 21)
-	children: 6
-}
-{
-	name: test-fish-lsp
-	kind: Function
-	start: (2, 0)
-	end: (7, 3)
-	selectionStart: (2, 9)
-	selectionEnd: (2, 22)
-	children: 1
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (0, 0)
-	end: (0, 25)
-	selectionStart: (0, 4)
-	selectionEnd: (0, 17)
-	children: 0
-}
-[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[FishLsp.onDidOpenTextDocument()]
-{
-  "params": {
-    "textDocument": {
-      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
-      "languageId": "fish",
-      "version": 1,
-      "text": "set variable_name \"value\" \n\nfunction test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\n    __test_small\nend\n\n\n## this is a comment\nfunction __test_small \n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo \"matched\" | string pad -c ' ' \n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv \n\n    set_color --background black white \n    set -l variable_name \"v\" \n    whatis -? --config-file --help --regex \"*\" \n\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    \n    string pad --width 10 --char \" \" \"$argv\" \n\n    set -l variable_name \"value\" \n\n\n    if test -n \"$variable_name\" \n        echo \"variable_name is not empty\" \n    end\n\n    for i in (seq 1 (count $variable_name))\n    end\n\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name \"value\" \nend\n\nset variable_name \"value\" \n\n"
-    }
-  }
-}
-[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDefinition
-variable_name
-scopes: 1
-{
-	name: variable_name
-	kind: Variable
-	start: (44, 0)
-	end: (44, 25)
-	selectionStart: (44, 4)
-	selectionEnd: (44, 17)
-	children: 0
-}
-{
-	name: __test_small
-	kind: Function
-	start: (11, 0)
-	end: (42, 3)
-	selectionStart: (11, 9)
-	selectionEnd: (11, 21)
-	children: 6
-}
-{
-	name: test-fish-lsp
-	kind: Function
-	start: (2, 0)
-	end: (7, 3)
-	selectionStart: (2, 9)
-	selectionEnd: (2, 22)
-	children: 1
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (0, 0)
-	end: (0, 25)
-	selectionStart: (0, 4)
-	selectionEnd: (0, 17)
-	children: 0
-}
-onDefinition
-variable_name
-scopes: 1
-{
-	name: variable_name
-	kind: Variable
-	start: (44, 0)
-	end: (44, 25)
-	selectionStart: (44, 4)
-	selectionEnd: (44, 17)
-	children: 0
-}
-{
-	name: __test_small
-	kind: Function
-	start: (11, 0)
-	end: (42, 3)
-	selectionStart: (11, 9)
-	selectionEnd: (11, 21)
-	children: 6
-}
-{
-	name: test-fish-lsp
-	kind: Function
-	start: (2, 0)
-	end: (7, 3)
-	selectionStart: (2, 9)
-	selectionEnd: (2, 22)
-	children: 1
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (0, 0)
-	end: (0, 25)
-	selectionStart: (0, 4)
-	selectionEnd: (0, 17)
-	children: 0
-}
-onDefinition
-variable_name
-scopes: 1
-{
-	name: variable_name
-	kind: Variable
-	start: (44, 0)
-	end: (44, 25)
-	selectionStart: (44, 4)
-	selectionEnd: (44, 17)
-	children: 0
-}
-{
-	name: __test_small
-	kind: Function
-	start: (11, 0)
-	end: (42, 3)
-	selectionStart: (11, 9)
-	selectionEnd: (11, 21)
-	children: 6
-}
-{
-	name: test-fish-lsp
-	kind: Function
-	start: (2, 0)
-	end: (7, 3)
-	selectionStart: (2, 9)
-	selectionEnd: (2, 22)
-	children: 1
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (0, 0)
-	end: (0, 25)
-	selectionStart: (0, 4)
-	selectionEnd: (0, 17)
-	children: 0
-}
-onDocumentSymbols
-length: 18
-onDefinition
-variable_name
-scopes: 1
-{
-	name: variable_name
-	kind: Variable
-	start: (44, 0)
-	end: (44, 25)
-	selectionStart: (44, 4)
-	selectionEnd: (44, 17)
-	children: 0
-}
-{
-	name: __test_small
-	kind: Function
-	start: (11, 0)
-	end: (42, 3)
-	selectionStart: (11, 9)
-	selectionEnd: (11, 21)
-	children: 6
-}
-{
-	name: test-fish-lsp
-	kind: Function
-	start: (2, 0)
-	end: (7, 3)
-	selectionStart: (2, 9)
-	selectionEnd: (2, 22)
-	children: 1
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (0, 0)
-	end: (0, 25)
-	selectionStart: (0, 4)
-	selectionEnd: (0, 17)
-	children: 0
-}
-onDefinition
-__test_small
-scopes: 2
-{
-	name: variable_name
-	kind: Variable
-	start: (44, 0)
-	end: (44, 25)
-	selectionStart: (44, 4)
-	selectionEnd: (44, 17)
-	children: 0
-}
-{
-	name: __test_small
-	kind: Function
-	start: (11, 0)
-	end: (42, 3)
-	selectionStart: (11, 9)
-	selectionEnd: (11, 21)
-	children: 6
-}
-{
-	name: test-fish-lsp
-	kind: Function
-	start: (2, 0)
-	end: (7, 3)
-	selectionStart: (2, 9)
-	selectionEnd: (2, 22)
-	children: 1
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (0, 0)
-	end: (0, 25)
-	selectionStart: (0, 4)
-	selectionEnd: (0, 17)
-	children: 0
-}
-onDefinition
-variable_name
-scopes: 1
-{
-	name: variable_name
-	kind: Variable
-	start: (44, 0)
-	end: (44, 25)
-	selectionStart: (44, 4)
-	selectionEnd: (44, 17)
-	children: 0
-}
-{
-	name: __test_small
-	kind: Function
-	start: (11, 0)
-	end: (42, 3)
-	selectionStart: (11, 9)
-	selectionEnd: (11, 21)
-	children: 6
-}
-{
-	name: test-fish-lsp
-	kind: Function
-	start: (2, 0)
-	end: (7, 3)
-	selectionStart: (2, 9)
-	selectionEnd: (2, 22)
-	children: 1
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (0, 0)
-	end: (0, 25)
-	selectionStart: (0, 4)
-	selectionEnd: (0, 17)
-	children: 0
-}
-onDefinition
-variable_name
-scopes: 1
-{
-	name: variable_name
-	kind: Variable
-	start: (44, 0)
-	end: (44, 25)
-	selectionStart: (44, 4)
-	selectionEnd: (44, 17)
-	children: 0
-}
-{
-	name: __test_small
-	kind: Function
-	start: (11, 0)
-	end: (42, 3)
-	selectionStart: (11, 9)
-	selectionEnd: (11, 21)
-	children: 6
-}
-{
-	name: test-fish-lsp
-	kind: Function
-	start: (2, 0)
-	end: (7, 3)
-	selectionStart: (2, 9)
-	selectionEnd: (2, 22)
-	children: 1
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (0, 0)
-	end: (0, 25)
-	selectionStart: (0, 4)
-	selectionEnd: (0, 17)
-	children: 0
-}
-onDefinition
-variable_name
-scopes: 2
-{
-	name: variable_name
-	kind: Variable
-	start: (44, 0)
-	end: (44, 25)
-	selectionStart: (44, 4)
-	selectionEnd: (44, 17)
-	children: 0
-}
-{
-	name: __test_small
-	kind: Function
-	start: (11, 0)
-	end: (42, 3)
-	selectionStart: (11, 9)
-	selectionEnd: (11, 21)
-	children: 6
-}
-{
-	name: test-fish-lsp
-	kind: Function
-	start: (2, 0)
-	end: (7, 3)
-	selectionStart: (2, 9)
-	selectionEnd: (2, 22)
-	children: 1
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (0, 0)
-	end: (0, 25)
-	selectionStart: (0, 4)
-	selectionEnd: (0, 17)
-	children: 0
-}
-onDefinition
-argv
-scopes: 2
-{
-	name: variable_name
-	kind: Variable
-	start: (44, 0)
-	end: (44, 25)
-	selectionStart: (44, 4)
-	selectionEnd: (44, 17)
-	children: 0
-}
-{
-	name: __test_small
-	kind: Function
-	start: (11, 0)
-	end: (42, 3)
-	selectionStart: (11, 9)
-	selectionEnd: (11, 21)
-	children: 6
-}
-{
-	name: test-fish-lsp
-	kind: Function
-	start: (2, 0)
-	end: (7, 3)
-	selectionStart: (2, 9)
-	selectionEnd: (2, 22)
-	children: 1
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (0, 0)
-	end: (0, 25)
-	selectionStart: (0, 4)
-	selectionEnd: (0, 17)
-	children: 0
-}
-onDefinition
-variable_name
-scopes: 1
-[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[FishLsp.onDidOpenTextDocument()]
-{
-  "params": {
-    "textDocument": {
-      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
-      "languageId": "fish",
-      "version": 1,
-      "text": "set variable_name \"value\" \n\nfunction test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\n    __test_small\nend\n\n\n## this is a comment\nfunction __test_small \n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo \"matched\" | string pad -c ' ' \n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv \n\n    set_color --background black white \n    set -l variable_name \"v\" \n    whatis -? --config-file --help --regex \"*\" \n\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    \n    string pad --width 10 --char \" \" \"$argv\" \n\n    set -l variable_name \"value\" \n\n\n    if test -n \"$variable_name\" \n        echo \"variable_name is not empty\" \n    end\n\n    for i in (seq 1 (count $variable_name))\n    end\n\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name \"value\" \nend\n\nset variable_name \"value\" \n\n"
-    }
-  }
-}
-[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDefinition
-variable_name
-scopes: 0
-{
-	name: variable_name
-	kind: Variable
-	start: (44, 0)
-	end: (44, 25)
-	selectionStart: (44, 4)
-	selectionEnd: (44, 17)
-	children: 0
-}
-{
-	name: __test_small
-	kind: Function
-	start: (11, 0)
-	end: (42, 3)
-	selectionStart: (11, 9)
-	selectionEnd: (11, 21)
-	children: 6
-}
-{
-	name: test-fish-lsp
-	kind: Function
-	start: (2, 0)
-	end: (7, 3)
-	selectionStart: (2, 9)
-	selectionEnd: (2, 22)
-	children: 1
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (0, 0)
-	end: (0, 25)
-	selectionStart: (0, 4)
-	selectionEnd: (0, 17)
-	children: 0
-}
-onDocumentSymbols
-length: 18
-onDefinition
-variable_name
-scopes: 1
-{
-	name: variable_name
-	kind: Variable
-	start: (44, 0)
-	end: (44, 25)
-	selectionStart: (44, 4)
-	selectionEnd: (44, 17)
-	children: 0
-}
-{
-	name: __test_small
-	kind: Function
-	start: (11, 0)
-	end: (42, 3)
-	selectionStart: (11, 9)
-	selectionEnd: (11, 21)
-	children: 6
-}
-{
-	name: test-fish-lsp
-	kind: Function
-	start: (2, 0)
-	end: (7, 3)
-	selectionStart: (2, 9)
-	selectionEnd: (2, 22)
-	children: 1
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (0, 0)
-	end: (0, 25)
-	selectionStart: (0, 4)
-	selectionEnd: (0, 17)
-	children: 0
-}
-onDefinition
-variable_name
-scopes: 0
-{
-	name: variable_name
-	kind: Variable
-	start: (44, 0)
-	end: (44, 25)
-	selectionStart: (44, 4)
-	selectionEnd: (44, 17)
-	children: 0
-}
-{
-	name: __test_small
-	kind: Function
-	start: (11, 0)
-	end: (42, 3)
-	selectionStart: (11, 9)
-	selectionEnd: (11, 21)
-	children: 6
-}
-{
-	name: test-fish-lsp
-	kind: Function
-	start: (2, 0)
-	end: (7, 3)
-	selectionStart: (2, 9)
-	selectionEnd: (2, 22)
-	children: 1
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (0, 0)
-	end: (0, 25)
-	selectionStart: (0, 4)
-	selectionEnd: (0, 17)
-	children: 0
-}
-onDefinition
-__test_small
-scopes: 1
-{
-	name: variable_name
-	kind: Variable
-	start: (44, 0)
-	end: (44, 25)
-	selectionStart: (44, 4)
-	selectionEnd: (44, 17)
-	children: 0
-}
-{
-	name: __test_small
-	kind: Function
-	start: (11, 0)
-	end: (42, 3)
-	selectionStart: (11, 9)
-	selectionEnd: (11, 21)
-	children: 6
-}
-{
-	name: test-fish-lsp
-	kind: Function
-	start: (2, 0)
-	end: (7, 3)
-	selectionStart: (2, 9)
-	selectionEnd: (2, 22)
-	children: 1
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (0, 0)
-	end: (0, 25)
-	selectionStart: (0, 4)
-	selectionEnd: (0, 17)
-	children: 0
-}
-onDefinition
-variable_name
-scopes: 1
-{
-	name: variable_name
-	kind: Variable
-	start: (44, 0)
-	end: (44, 25)
-	selectionStart: (44, 4)
-	selectionEnd: (44, 17)
-	children: 0
-}
-{
-	name: __test_small
-	kind: Function
-	start: (11, 0)
-	end: (42, 3)
-	selectionStart: (11, 9)
-	selectionEnd: (11, 21)
-	children: 6
-}
-{
-	name: test-fish-lsp
-	kind: Function
-	start: (2, 0)
-	end: (7, 3)
-	selectionStart: (2, 9)
-	selectionEnd: (2, 22)
-	children: 1
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (0, 0)
-	end: (0, 25)
-	selectionStart: (0, 4)
-	selectionEnd: (0, 17)
-	children: 0
-}
-onDefinition
-variable_name
-scopes: 1
-{
-	name: variable_name
-	kind: Variable
-	start: (44, 0)
-	end: (44, 25)
-	selectionStart: (44, 4)
-	selectionEnd: (44, 17)
-	children: 0
-}
-{
-	name: __test_small
-	kind: Function
-	start: (11, 0)
-	end: (42, 3)
-	selectionStart: (11, 9)
-	selectionEnd: (11, 21)
-	children: 6
-}
-{
-	name: test-fish-lsp
-	kind: Function
-	start: (2, 0)
-	end: (7, 3)
-	selectionStart: (2, 9)
-	selectionEnd: (2, 22)
-	children: 1
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (0, 0)
-	end: (0, 25)
-	selectionStart: (0, 4)
-	selectionEnd: (0, 17)
-	children: 0
-}
-onDefinition
-argv
-scopes: 1
-{
-	name: variable_name
-	kind: Variable
-	start: (44, 0)
-	end: (44, 25)
-	selectionStart: (44, 4)
-	selectionEnd: (44, 17)
-	children: 0
-}
-{
-	name: __test_small
-	kind: Function
-	start: (11, 0)
-	end: (42, 3)
-	selectionStart: (11, 9)
-	selectionEnd: (11, 21)
-	children: 6
-}
-{
-	name: test-fish-lsp
-	kind: Function
-	start: (2, 0)
-	end: (7, 3)
-	selectionStart: (2, 9)
-	selectionEnd: (2, 22)
-	children: 1
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (0, 0)
-	end: (0, 25)
-	selectionStart: (0, 4)
-	selectionEnd: (0, 17)
-	children: 0
-}
-onDefinition
-variable_name
-scopes: 2
-{
-	name: variable_name
-	kind: Variable
-	start: (44, 0)
-	end: (44, 25)
-	selectionStart: (44, 4)
-	selectionEnd: (44, 17)
-	children: 0
-}
-{
-	name: __test_small
-	kind: Function
-	start: (11, 0)
-	end: (42, 3)
-	selectionStart: (11, 9)
-	selectionEnd: (11, 21)
-	children: 6
-}
-{
-	name: test-fish-lsp
-	kind: Function
-	start: (2, 0)
-	end: (7, 3)
-	selectionStart: (2, 9)
-	selectionEnd: (2, 22)
-	children: 1
-}
-{
-	name: variable_name
-	kind: Variable
-	start: (0, 0)
-	end: (0, 25)
-	selectionStart: (0, 4)
-	selectionEnd: (0, 17)
-	children: 0
-}
 onDefinition
 i
 scopes: 2
+{
+	name: variable_name
+	kind: Variable
+	start: (44, 0)
+	end: (44, 25)
+	selectionStart: (44, 4)
+	selectionEnd: (44, 17)
+	children: 0
+}
+{
+	name: __test_small
+	kind: Function
+	start: (11, 0)
+	end: (42, 3)
+	selectionStart: (11, 9)
+	selectionEnd: (11, 21)
+	children: 6
+}
+{
+	name: test-fish-lsp
+	kind: Function
+	start: (2, 0)
+	end: (7, 3)
+	selectionStart: (2, 9)
+	selectionEnd: (2, 22)
+	children: 1
+}
+{
+	name: variable_name
+	kind: Variable
+	start: (0, 0)
+	end: (0, 25)
+	selectionStart: (0, 4)
+	selectionEnd: (0, 17)
+	children: 0
+}
+onDefinition
+variable_name
+scopes: 2
+{
+	name: variable_name
+	kind: Variable
+	start: (44, 0)
+	end: (44, 25)
+	selectionStart: (44, 4)
+	selectionEnd: (44, 17)
+	children: 0
+}
+{
+	name: __test_small
+	kind: Function
+	start: (11, 0)
+	end: (42, 3)
+	selectionStart: (11, 9)
+	selectionEnd: (11, 21)
+	children: 6
+}
+{
+	name: test-fish-lsp
+	kind: Function
+	start: (2, 0)
+	end: (7, 3)
+	selectionStart: (2, 9)
+	selectionEnd: (2, 22)
+	children: 1
+}
+{
+	name: variable_name
+	kind: Variable
+	start: (0, 0)
+	end: (0, 25)
+	selectionStart: (0, 4)
+	selectionEnd: (0, 17)
+	children: 0
+}
+onDefinition
+file
+scopes: 1
+{
+	name: variable_name
+	kind: Variable
+	start: (44, 0)
+	end: (44, 25)
+	selectionStart: (44, 4)
+	selectionEnd: (44, 17)
+	children: 0
+}
+{
+	name: __test_small
+	kind: Function
+	start: (11, 0)
+	end: (42, 3)
+	selectionStart: (11, 9)
+	selectionEnd: (11, 21)
+	children: 6
+}
+{
+	name: test-fish-lsp
+	kind: Function
+	start: (2, 0)
+	end: (7, 3)
+	selectionStart: (2, 9)
+	selectionEnd: (2, 22)
+	children: 1
+}
+{
+	name: variable_name
+	kind: Variable
+	start: (0, 0)
+	end: (0, 25)
+	selectionStart: (0, 4)
+	selectionEnd: (0, 17)
+	children: 0
+}
+onDefinition
+argv
+scopes: 2
+{
+	name: variable_name
+	kind: Variable
+	start: (44, 0)
+	end: (44, 25)
+	selectionStart: (44, 4)
+	selectionEnd: (44, 17)
+	children: 0
+}
+{
+	name: __test_small
+	kind: Function
+	start: (11, 0)
+	end: (42, 3)
+	selectionStart: (11, 9)
+	selectionEnd: (11, 21)
+	children: 6
+}
+{
+	name: test-fish-lsp
+	kind: Function
+	start: (2, 0)
+	end: (7, 3)
+	selectionStart: (2, 9)
+	selectionEnd: (2, 22)
+	children: 1
+}
+{
+	name: variable_name
+	kind: Variable
+	start: (0, 0)
+	end: (0, 25)
+	selectionStart: (0, 4)
+	selectionEnd: (0, 17)
+	children: 0
+}
+onDefinition
+variable_name
+scopes: 0
+{
+	name: variable_name
+	kind: Variable
+	start: (44, 0)
+	end: (44, 25)
+	selectionStart: (44, 4)
+	selectionEnd: (44, 17)
+	children: 0
+}
+{
+	name: __test_small
+	kind: Function
+	start: (11, 0)
+	end: (42, 3)
+	selectionStart: (11, 9)
+	selectionEnd: (11, 21)
+	children: 6
+}
+{
+	name: test-fish-lsp
+	kind: Function
+	start: (2, 0)
+	end: (7, 3)
+	selectionStart: (2, 9)
+	selectionEnd: (2, 22)
+	children: 1
+}
+{
+	name: variable_name
+	kind: Variable
+	start: (0, 0)
+	end: (0, 25)
+	selectionStart: (0, 4)
+	selectionEnd: (0, 17)
+	children: 0
+}
+onDefinition
+variable_name
+scopes: 1
+{
+	name: variable_name
+	kind: Variable
+	start: (44, 0)
+	end: (44, 25)
+	selectionStart: (44, 4)
+	selectionEnd: (44, 17)
+	children: 0
+}
+{
+	name: __test_small
+	kind: Function
+	start: (11, 0)
+	end: (42, 3)
+	selectionStart: (11, 9)
+	selectionEnd: (11, 21)
+	children: 6
+}
+{
+	name: test-fish-lsp
+	kind: Function
+	start: (2, 0)
+	end: (7, 3)
+	selectionStart: (2, 9)
+	selectionEnd: (2, 22)
+	children: 1
+}
+{
+	name: variable_name
+	kind: Variable
+	start: (0, 0)
+	end: (0, 25)
+	selectionStart: (0, 4)
+	selectionEnd: (0, 17)
+	children: 0
+}
+onDefinition
+variable_name
+scopes: 1
 {
 	name: variable_name
 	kind: Variable
