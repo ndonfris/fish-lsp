@@ -12,7 +12,10 @@ import {bgBlack, bgBlue, black, inverse, white} from 'colors';
 
 
 export function nodeToString(node: SyntaxNode, shouldLog = true) : string {
-    return shouldLog ? `node: ${node.text}, type: ${node.type}, (${node.startPosition.row}, ${node.startPosition.column}) (${node.endPosition.row}, ${node.endPosition.column})` : ""
+    const pos = `(${node.startPosition.row}, ${node.startPosition.column}) (${node.endPosition.row}, ${node.endPosition.column})`.bgBlack.white
+    return shouldLog
+        ? `\nNODE: ${node.text.bgBlack.white},\nTYPE: ${node.type.bgBlack.white},\n      ${pos}\n`
+        : "";
 }
 
 type nodeConsoleArray = {text: string, node_type: string, start: string, end: string}
@@ -194,7 +197,7 @@ export function logCompareNodes(shouldLog = true, ...nodes: SyntaxNode[]) {
 export function logNode(shouldLog = true, node?: SyntaxNode) {
     if (!shouldLog) return
     if (!node) {
-        console.log('Node is undefined')
+        console.log('Node is undefined'.bgRed.white)
         return
     }
     console.log(nodeToString(node))

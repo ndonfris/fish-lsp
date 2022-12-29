@@ -246,13 +246,24 @@ export function pointToPosition(point: Point): Position {
 }
 
 export function getPrecedingComments(node: SyntaxNode | null): string {
+    if (!node) return ''
+    const comments = commentsHelper(node)
+    if (!comments) return node.text
+    return [
+        commentsHelper(node),
+        node.text,
+    ].join('\n')
+}
+
+function commentsHelper(node: SyntaxNode | null) : string {
   if (!node) return ''
 
   let comment: string[] = []
   let currentNode = node.previousNamedSibling
 
   while (currentNode?.type === 'comment') {
-    comment.unshift(currentNode.text.replaceAll(/#+\s?/g, ''))
+    //comment.unshift(currentNode.text.replaceAll(/#+\s?/g, ''))
+    comment.unshift(currentNode.text)
     currentNode = currentNode.previousNamedSibling
   }
 

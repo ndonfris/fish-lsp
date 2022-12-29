@@ -145,7 +145,7 @@ export function findParentFunction(node?: SyntaxNode): SyntaxNode | null {
 
 const defintionKeywords = ['set', 'read', 'function', 'for']
 
-function findParentVariableDefintionKeyword(node?: SyntaxNode): SyntaxNode | null {
+export function findParentVariableDefintionKeyword(node?: SyntaxNode): SyntaxNode | null {
     const currentNode: SyntaxNode | null | undefined = node;
     const parent = currentNode?.parent;
     if (!currentNode || !parent) {

@@ -57,9 +57,9 @@ export namespace SpanTree {
     }
 
     export const nearbySymbols = (root: SyntaxNode, current: SyntaxNode) => {
-        const symbols = SpanTree.documentSymbolArray(SpanTree.defintionNodes(root))
-        const currRange = getRange(current)
-        const nearby = symbols.filter((symbol) => containsRange(symbol.range, currRange))
+        const symbols = SpanTree.documentSymbolArray(SpanTree.defintionNodes(root), '')
+        const findRange = getRange(current)
+        const nearby = symbols.filter((symbol) => containsRange(symbol.range, findRange))
         return nearby
     }
 

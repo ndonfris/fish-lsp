@@ -26,7 +26,7 @@ export interface FishSymbolMap {
 export function toSymbolKind(node: SyntaxNode): SymbolKind {
     if (isVariableDefinition(node)) {
         return SymbolKind.Variable
-    } else if (isFunctionDefinition(node)) { // change from isFunctionDefinition(node)
+    } else if (isFunctionDefinitionName(node)) { // change from isFunctionDefinition(node)
         return SymbolKind.Function;
     } else if (isString(node)) { 
         return SymbolKind.String;

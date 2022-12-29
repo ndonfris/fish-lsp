@@ -2,14 +2,15 @@ import { logCompareNodes, logDocSymbol, logFile, logNode, logSymbolInfo, logVerb
 import { SyntaxNode } from 'web-tree-sitter';
 import { DocumentSymbol, Location, SymbolInformation, WorkspaceSymbol } from 'vscode-languageserver';
 import { initializeParser } from '../src/parser';
-import { getChildNodes, getNodeAtRange } from '../src/utils/tree-sitter';
+import { getChildNodes, getNodeAtRange, getRange } from '../src/utils/tree-sitter';
 import { isFunctionDefinition, isFunctionDefinitionName, isVariableDefinition, isCommand, isCommandName, findEnclosingVariableScope } from '../src/utils/node-types'
 //import { collectSymbolInformation, FishSymbolMap } from '../src/workspace-symbol'
-import { getDefinitionSymbols } from '../src/symbols'
+//import { getDefinitionSymbols } from '../src/symbols'
 import {execFindDependency} from '../src/utils/exec';
 import {isBuiltin} from '../src/utils/builtins';
 //import {DocumentManager} from '../src/document';
-import {collectDocumentSymbols, collectSymbolInformation, flattenSymbols, nearbySymbols} from '../src/workspace-symbol'
+import {collectDocumentSymbols, collectSymbolInformation, flattenSymbols, nearbySymbols, SpanTree} from '../src/workspace-symbol'
+import {nodeToDocumentSymbol, nodeToSymbolInformation} from '../src/utils/translation';
 
 let SHOULD_LOG = false; // toggle to print testcase output
 
@@ -89,7 +90,7 @@ describe('symbols tests for definitions and renames', () => {
         const rootNodes = await getRootNodesForTestFiles(testFiles)
         printTestName('PARSING FUNCTION NAMES SYNTAXNODES', SHOULD_LOG)
         rootNodes.forEach((rootNode, i) => {
-            logTestFileInfo(i.toString(), rootNode)
+            logTestFileInfo(i.toString(), rootNode, SHOULD_LOG)
             let testNode1 : SyntaxNode | null = null;
             let testNode2 : SyntaxNode | null = null;
             for (const child of getChildNodes(rootNode)) {
@@ -171,7 +172,6 @@ describe('symbols tests for definitions and renames', () => {
     it('parsing set variable definitions SyntaxNodes', async () => {                 
         const testFiles = [testSetFile1, testSetFile2, testSetFile3, testSetFile4];
         const rootNodes = await getRootNodesForTestFiles(testFiles)                      
-        SHOULD_LOG = true;
         printTestName('PARSING SET VARIABLE DEFINITIONS SYNTAXNODES', SHOULD_LOG)    
         rootNodes.forEach((root, i) => {                                                 
             logTestFileInfo(i.toString(), root)                                          
@@ -183,7 +183,6 @@ describe('symbols tests for definitions and renames', () => {
             logNode(SHOULD_LOG, vars[0])
             expect(vars.length == 1).toBe(true);                                           
         })                                                                               
-        SHOULD_LOG = false;
     })                                                                                   
 
     it('parsing symbol enclosing scope', async () => {
@@ -292,48 +291,41 @@ end`
 
 // HERE
  describe('symbol map tests', () => {
-    //it('getting symbolInfo map 1', async () => {
-    //    const testFiles: string = [testCommandFile1].join('\n');
-    //    const rootNodes = await getRootNodesForTestFiles([testFiles]) 
-    //    const root = rootNodes[0];                                    
-    //    const uri = 'file://symbol_map_test_1.fish'
-    //    printTestName(uri, SHOULD_LOG)               
-    //    const symbols: SymbolInformation[] = [];
-    //    collectSymbolInformation(uri, root, symbols);
-    //    for (const sym of symbols) {
-    //        logSymbolInfo(SHOULD_LOG, sym)
-    //    }
-    //    logFile(SHOULD_LOG, uri, root.text)
-    //    expect(true).toBe(true);
-    //}, 20000)
-
     it('getting workspaceSymbol map 1', async () => {
-        SHOULD_LOG = true;
         const testFiles: string[] = [testCommandFile1, testCompleteFile2]
         const rootNodes = await getRootNodesForTestFiles(testFiles) 
         rootNodes.forEach((root, i) => {
             const uri = `file://symbol_map_test_${i}.fish`
             printTestName(uri, SHOULD_LOG)
-            const symbols: DocumentSymbol[] = [];
-            collectDocumentSymbols(uri, root, symbols);
+            const symbols: DocumentSymbol[] = collectDocumentSymbols(root);
             logFile(SHOULD_LOG, uri, root.text)
-            const _currentNode= root.descendantForPosition({column: 6, row: 9}) // 9, 7 would be past (for test 1)
-            const currentNode = _currentNode?.lastChild || _currentNode
-            const nearSymbols = nearbySymbols(uri, root, currentNode)
-            for (const sym of nearSymbols) {
-                console.log(`nearby symbol: ${sym.name}`)
-                //logDocSymbol(SHOULD_LOG || true, sym)
+            //symbols.forEach(sym =>  logDocSymbol(SHOULD_LOG, sym) )
+            expect(symbols.length > 0).toBe(true);
+
+            // NEARBY SYMBOLS
+            if (SHOULD_LOG) console.log("TESTING NEARBY SYMBOLS".bgBlack.underline)
+            let currentNode: SyntaxNode = root;
+            if (i === 0) {
+                currentNode = root.descendantForPosition({column: 6, row: 9}).lastChild || root.descendantForPosition({column: 6, row: 9})
+            } else {
+                currentNode = root.descendantsOfType('function_definition').at(0)?.lastChild || root.descendantsOfType('function_definition').at(0) || root.lastNamedChild || root
             }
+            if (SHOULD_LOG) console.log("currentNode:".white, currentNode?.text.red.bold, currentNode?.endPosition)
+            const nearSymbols = nearbySymbols(root, currentNode)
+            nearSymbols.forEach((sym) => {
+                if (SHOULD_LOG) console.log(`nearby symbol: ${sym.name}`)
+            })
+            expect(nearbySymbols.length > 0).toBe(true);
+
+            // FLATTEN SYMBOLS
+            if (SHOULD_LOG) console.log("TESTING FLATTEN SYMBOLS".bgBlack.underline)
             const flatSym = flattenSymbols(symbols, [])
-            for (const sym of flatSym) {
-                console.log(`flat symbol: ${sym.name.bgBlack}`)
-                ////logDocSymbol(SHOULD_LOG || true, sym)
-            }
-            console.log("currentNode:".white, currentNode?.text, currentNode?.endPosition)
+            flatSym.forEach((sym) => {
+                if (SHOULD_LOG) console.log(`flat symbol: ${sym.name.bgBlack}`)
+            })
+            expect(flatSym.length > 0).toBe(true);
         })
-        expect(true).toBe(true);
-        SHOULD_LOG = false;
-    }, 20000)
+    }, 2000)
 ////// 
 //////     it('generic symbol map', async () => {
 //////         const testFiles: string = [testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1,testCommandFile1].join('\n');
@@ -432,8 +424,8 @@ end`
 
 // helper functions specific to these tests
 
-function logTestFileInfo(filename = "-1" , rootNode: SyntaxNode) {
-    if (!SHOULD_LOG) return;
+function logTestFileInfo(filename = "-1" , rootNode: SyntaxNode, shouldLog = false) {
+    if (!shouldLog) return;
     if (filename !== "-1") {
         console.log(`TESTFILE: ${filename}\n`)
     }

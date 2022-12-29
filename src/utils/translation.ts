@@ -1,6 +1,10 @@
 import {URI, Utils} from 'vscode-uri';
 import { LspDocuments } from '../document';
-import { Range } from 'vscode-languageserver';
+import { DocumentSymbol, Range, SymbolInformation, SymbolKind } from 'vscode-languageserver';
+import {SyntaxNode} from 'web-tree-sitter';
+import {toSymbolKind} from '../symbols';
+import {getPrecedingComments, getRange} from './tree-sitter';
+import {findEnclosingVariableScope, findParentVariableDefintionKeyword} from './node-types';
 
 const RE_PATHSEP_WINDOWS = /\\/g;
 
@@ -61,5 +65,52 @@ export function pathToRelativeFilename(uriPath: string) : string {
     const relativeName = uriPath.split('/').at(-1) || uriPath;
     return relativeName.replace('.fish', '');
 
+}
+
+export function nodeToSymbolInformation(node: SyntaxNode, uri: string) : SymbolInformation {
+    let name = node.text
+    let kind = toSymbolKind(node);
+    let range = getRange(node)
+    switch (kind) {
+        case SymbolKind.Namespace: 
+            name = pathToRelativeFilename(uri)
+            break
+        case SymbolKind.Function: 
+        case SymbolKind.Variable: 
+        case SymbolKind.File: 
+        case SymbolKind.Class: 
+        case SymbolKind.Null: 
+        default: 
+            break
+    }
+    return SymbolInformation.create(name, kind, range, uri)
+}
+
+export function nodeToDocumentSymbol(node: SyntaxNode) : DocumentSymbol {
+    let name = node.text
+    let detail = node.text
+    let kind = toSymbolKind(node);
+    let range = getRange(node)
+    let selectionRange = getRange(node)
+    let children : DocumentSymbol[] = []
+    let parent = node.parent || node
+    switch (kind) {
+        case SymbolKind.Variable: 
+            parent = findParentVariableDefintionKeyword(node) || node
+            detail = getPrecedingComments(parent)
+            range = getRange(parent)
+            break
+        case SymbolKind.Function: 
+            detail = getPrecedingComments(parent)
+            range = getRange(parent)
+            break
+        case SymbolKind.File: 
+        case SymbolKind.Class: 
+        case SymbolKind.Namespace: 
+        case SymbolKind.Null: 
+        default: 
+            break
+    }
+    return DocumentSymbol.create(name, detail, kind, range, selectionRange, children)
 }
 
