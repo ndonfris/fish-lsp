@@ -306,9 +306,7 @@ export default class FishServer {
         this.logger.log("onDocumentSymbols");
         const uri = uriToPath(params.textDocument.uri);
         const doc = this.docs.get(uri);
-        if (!doc || !uri) {
-            return [];
-        }
+        if (!doc || !uri) return [];
         const root = this.getRootNode(doc.getText());
         this.logger.log("length: "+ this.analyzer.getSymbols(doc.uri).length.toString())
         const symbols: DocumentSymbol[] = collectDocumentSymbols(SpanTree.defintionNodes(root));
@@ -325,9 +323,7 @@ export default class FishServer {
         this.logger.log("onDefinition");
         const uri = uriToPath(params.textDocument.uri);
         const doc = this.docs.get(uri);
-        if (!doc || !uri) {
-            return [];
-        }
+        if (!doc || !uri) return [];
         const root = this.getRootNode(doc.getText());
         let current = this.analyzer.nodeAtPoint(doc.uri, params.position.line, params.position.character);
         const definitions: Location[] = [];
@@ -372,9 +368,7 @@ export default class FishServer {
         this.logger.log("onReference");
         const uri = uriToPath(params.textDocument.uri);
         const doc = this.docs.get(uri);
-        if (!doc || !uri) {
-            return [];
-        }
+        if (!doc || !uri) return [];
         const root = this.getRootNode(doc.getText());
         const current = this.analyzer.nodeAtPoint(doc.uri, params.position.line, params.position.character);
         this.logger.log(root.text?.toString() || "NULL ROOTNODE in onRefrence".red)
