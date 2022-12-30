@@ -1,5 +1,6 @@
 .DS_Store
 out
-node_modules
+node_modules/**
+removed/**
 *.log
 *.tsbuildinfo

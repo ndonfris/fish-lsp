@@ -57,29 +57,6 @@ export namespace SpanTree {
             .filter((innerSymbol: DocumentSymbol) => containsRange(parentSymbol.range, innerSymbol.selectionRange))
     }
 
-    export const nearbySymbols = (root: SyntaxNode, current: SyntaxNode) => {
-        const symbols = SpanTree.documentSymbolArray(SpanTree.defintionNodes(root))
-        const currRange = getRange(current)
-        const nearby = symbols.filter((symbol) => containsRange(symbol.range, currRange))
-        return nearby
-    }
-
-    export const findDefinitions = (uri: string, root: SyntaxNode, current: SyntaxNode) => {
-        const symbols = collectDocumentSymbols(defintionNodes(root))
-        const currRange = getRange(current)
-        const found : DocumentSymbol[] = symbols.filter(symbol => containsRange(symbol.range, currRange));
-        const results: Location[] = []
-        let last: DocumentSymbol;
-        found.forEach(sym => {
-            sym.children?.forEach(child => {
-                if (child.name === current.text && beforeRange(child.range, currRange)) {
-                    results.push(Location.create(uri, child.range))
-                }
-            })
-        })
-    }
-
-
 }
 export function countParentScopes(first: SyntaxNode){
     let node1 : SyntaxNode | null = first;
@@ -91,19 +68,6 @@ export function countParentScopes(first: SyntaxNode){
         node1 = node1.parent
     }
     return count - 1;
-}
-
-export function compareParentScopes(first: SyntaxNode, second: SyntaxNode){
-    let node1 : SyntaxNode | null = first;
-    let node2 : SyntaxNode | null = second;
-    while (node1 && node2) {
-        if (node1 !== node2) {
-            break;
-        }
-        node1 = node1.parent
-        node2 = node2.parent
-    }
-    return node1?.parent === null && node2?.parent === null;
 }
 
 export function getNodeFromRange(root: SyntaxNode, range: Range) {
@@ -144,16 +108,6 @@ export function flattenSymbols(current: DocumentSymbol[], result: DocumentSymbol
     return Array.from(new Set(result))
 }
 
-export function flattenScopeSymbols(current: DocumentSymbol[], result: DocumentSymbol[], height: number): DocumentSymbol[] {
-    for (const symbol of current) {
-        if (!result.includes(symbol)) result.unshift(symbol)
-        if (symbol.children && height >= 0) {
-            result.unshift(...flattenScopeSymbols(symbol.children, result, height-1))
-        }
-    }
-    return Array.from(new Set(result))
-}
-
 export function containsRange(range: Range, otherRange: Range): boolean {
   if (otherRange.start.line < range.start.line || otherRange.end.line < range.start.line) {
     return false
@@ -179,6 +133,9 @@ export function beforeRange(range: Range, otherRange: Range): boolean {
     return false
 }
 
+/* Either we need to open a new doc or we have a definition in our current document
+ * Or there is no definition (i.e. a builtin)
+ */
 export enum DefinitionKind {
     LOCAL,
     FILE,
@@ -192,7 +149,6 @@ export enum DefinitionKind {
 // • look for definition
 export function getDefinitionKind(uri: string, root: SyntaxNode, current: SyntaxNode, locations: Location[]): DefinitionKind {
     if (isBuiltin(current.text)) return DefinitionKind.NONE;
-
     const currentRange = getRange(current)
     let localSymbols: DocumentSymbol[] = []
     const currentHeight = countParentScopes(current)
