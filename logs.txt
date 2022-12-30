@@ -4059,3 +4059,198 @@ end
 
 
 argv
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+server.onComplete
+onComplete: /home/ndonfris/.config/fish/functions/fzf-dir-preview.fish : function exa_cmd --
+root: (program (function_definition name: (word) (command name: (word) argument: (word) argument: (word) argument: (command_substitution (command_substitution_fish (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string) argument: (double_quote_string (variable_expansion (variable_name))) argument: (double_quote_string (variable_expansion (variable_name))))))) (if_statement condition: (test_command argument: (test_option) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (variable_expansion (variable_name))) (else_clause (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (double_quote_string))))) (function_definition name: (word) (command name: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (word) argument: (word) argument: (word))) (function_definition name: (word) option: (word) (command name: (word) argument: (word) argument: (word) argument: (command_substitution (command_substitution_fish (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string) argument: (double_quote_string (variable_expansion (variable_name))) argument: (double_quote_string (variable_expansion (variable_name))))))) (if_statement condition: (test_command argument: (test_option) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (variable_expansion (variable_name))) (else_clause (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (double_quote_string))))))
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
+onDocumentSymbols
+length: 8
