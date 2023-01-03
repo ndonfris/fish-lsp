@@ -1,7 +1,7 @@
 //import * as LSP from 'vscode-languageserver/node';
 //import { FISH_LOCATIONS, getAllFishLocations } from './utils/locations';
 //import {basename, resolve, sep} from 'path';
-import { createTextDocumentFromFilePath } from './utils/io';
+//import { createTextDocumentFromFilePath } from './utils/io';
 //import { getAllFishLocations, getFishTextDocumentsFromStandardLocations } from './utils/locations';
 import {TextDocument} from 'vscode-languageserver-textdocument';
 import { RemoteConsole, Position, Range, TextDocumentItem, TextDocumentPositionParams, TextDocuments, TextDocumentContentChangeEvent } from 'vscode-languageserver'

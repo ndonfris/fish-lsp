@@ -2,7 +2,7 @@ import Parser, {Edit, SyntaxNode} from "web-tree-sitter";
 import { initializeParser } from "./parser";
 import { Analyzer } from "./analyze";
 import { buildRegexCompletions, workspaceSymbolToCompletionItem, generateShellCompletionItems, insideStringRegex, } from "./completion";
-import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, TextDocumentItem, HoverParams, Hover, RenameParams, TextDocumentPositionParams, PartialResultParams, TextDocumentIdentifier } from "vscode-languageserver";
+import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, TextDocumentItem, HoverParams, Hover, RenameParams, TextDocumentPositionParams, PartialResultParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit } from "vscode-languageserver";
 import { LspDocument, LspDocuments } from './document';
 import { FishCompletionItem, } from './utils/completion-types';
 import { enrichToCodeBlockMarkdown } from './documentation';
@@ -71,6 +71,7 @@ export default class FishServer {
                 documentHighlightProvider: true,
                 definitionProvider: true,
                 referencesProvider: true,
+                renameProvider: true,
                 documentSymbolProvider: {
                     label: "Fish-LSP",
                 },
@@ -98,6 +99,7 @@ export default class FishServer {
         this.connection.onDefinition(this.onDefinition.bind(this));
         this.connection.onReferences(this.onReferences.bind(this));
         this.connection.onHover(this.onHover.bind(this));
+        this.connection.onRenameRequest(this.onRename.bind(this));
         this.connection.console.log("FINISHED FishLsp.register()")
     }
 
@@ -339,19 +341,29 @@ export default class FishServer {
         return await handleHover(doc.uri, root, current);
     }
 
-   // async onRenamge(params: RenameParams) : Promise<Edit> {
-   //     this.logger.log("onRename");
-   //     const uri = uriToPath(params.textDocument.uri);
-   //     const doc = this.docs.get(uri);
-   //     if (!doc || !uri) return null;
-   //     const root = this.getRootNode(doc.getText());
-   //     const current = this.analyzer.nodeAtPoint(doc.uri, params.position.line, params.position.character);
-   //     if (!current) return null;
-   //     return await handleRename(doc.uri, root, current, params.newName);
-   // }
+    async onRename(params: RenameParams) : Promise<WorkspaceEdit | null> {
+        this.logger.log("onRename");
+        const {doc, uri, root, current} = this.getDefaults(params)
+        if (!doc || !uri || !root || !current) return null;
+        const refs = getReferences(doc.uri, root, current);
+        const edits: TextEdit[] = refs.map(ref => {
+            return {
+                newText: params.newName,
+                range: ref.range
+            }
+        })
+        return {
+            changes: {
+                [uri]: edits
+            }
+        }
+    }
 
 
-    getDefaults(params: TextDocumentPositionParams) : {
+
+    // helper to get all the default objects needed when a TextDocumentPositionParam is passed
+    // into a handler
+    private getDefaults(params: TextDocumentPositionParams) : {
         doc?: LspDocument,
         uri?: string,
         root?: SyntaxNode | null,
@@ -365,7 +377,7 @@ export default class FishServer {
         return {doc, uri, root, current}
     }
 
-    getDefaultsForPartialParams(params: {textDocument: TextDocumentIdentifier}) : {
+    private getDefaultsForPartialParams(params: {textDocument: TextDocumentIdentifier}) : {
         doc?: LspDocument,
         uri?: string,
         root?: SyntaxNode | null,

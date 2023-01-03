@@ -205,7 +205,6 @@ export enum DefinitionKind {
     NONE
 }
 
-
 export function getDefinitionKind(uri: string, root: SyntaxNode, current: SyntaxNode, localDefintions: Location[]): DefinitionKind {
     if (isBuiltin(current.text)) return DefinitionKind.NONE;
     localDefintions.push(...getLocalDefs(uri, root, current))

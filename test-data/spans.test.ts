@@ -142,7 +142,6 @@ describe('spans tests', () => {
         SHOULD_LOG = false
     })
 
-
  })
 
 
