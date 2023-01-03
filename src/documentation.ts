@@ -58,6 +58,17 @@ export function enrichCommandArg(doc: string): MarkupContent {
 }
 
 
+export function enrichCommandWithFlags(command: string, flags: string[]): MarkupContent {
+    const retString = [
+        `___${command}___`,
+        '___',
+        flags.map(line => line.split('\t'))
+            .map(line => `__${line[0]}__ _${line.slice(1).join(' ')}_`)
+            .join('\n')
+    ].join('\n')
+    return enrichToMarkdown(retString)
+}
+
 export function enrichToPlainText(doc: string): MarkupContent  {
     return {
         kind: MarkupKind.PlainText,

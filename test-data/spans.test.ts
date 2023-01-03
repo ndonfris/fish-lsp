@@ -7,7 +7,8 @@ import {getChildNodes, positionToPoint} from '../src/utils/tree-sitter';
 import {initializeParser} from '../src/parser';
 import * as colors from 'colors'
 import {toSymbolKind} from '../src/symbols';
-import {containsRange, getReferences, SymbolTree} from '../src/workspace-symbol';
+import {containsRange, getReferences, getMostRecentReference} from '../src/workspace-symbol';
+import { collectCommandString, getHoverForFlag, } from '../src/hover'
 //import
 
 let SHOULD_LOG = true
@@ -76,12 +77,13 @@ function getSymbols(root: SyntaxNode) {
 
 describe('spans tests', () => {
     it('simple definition spans', async () => {
+        let SHOULD_LOG = false
         const rootNodes = await getRootNodesFromTexts(test_1)
         rootNodes.forEach(root => {
             let symbols: DocumentSymbol[] = []
             symbols = getSymbols(root)
             for (const c of symbols) {
-                console.log(logStringSymbol(c))
+                if (SHOULD_LOG) console.log(logStringSymbol(c))
             }
         })
         expect(true).toBe(true);
@@ -89,34 +91,57 @@ describe('spans tests', () => {
 
 
     it('simple ref spans', async () => {
+        let SHOULD_LOG = false
         const rootNodes = await getRootNodesFromTexts(test_1)
         const root = rootNodes[0]
-        const tree = new SymbolTree(root)
-        tree.setDefinitions()
-        tree.setScopes()
         const testNodes = [
             root.descendantForPosition({ row: 15, column: 14 }),
             root.descendantForPosition({ row: 15, column: 0 }),
             root.descendantForPosition({ row: 16, column: 11 }),
             root.descendantForPosition({ row: 20, column: 10 }),
-            //root.descendantForPosition({ row: 14, column: 7 }),
-            //root.descendantForPosition({ row: 2, column: 8 }),
-            //root.descendantForPosition({ row: 3, column: 28 }),
+            root.descendantForPosition({ row: 14, column: 7 }),
+            root.descendantForPosition({ row: 2, column: 8 }),
+            root.descendantForPosition({ row: 3, column: 28 }),
         ]
         testNodes.forEach(testNode => {
-            console.log(getNodeText(testNode, root))
+            if (SHOULD_LOG) console.log(getNodeText(testNode, root))
             const refs = getReferences('file://test.fish', root, testNode)
             for (const scope of refs) {
                 const refNode = getNodeAtRange(root, scope.range)
                 if (!scope || !refNode) continue;
-                console.log("NODE: " + testNode.text.red)
-                console.log("SCOPE: " + getNodeText(refNode, root))
-                //console.log("OUT: " + getNodeText(scope, root).split('\n').slice(getRange(testNode).start.line, getRange(testNode).end.line+1).join('\n'))
+                if (SHOULD_LOG) {
+                    console.log("NODE: " + testNode.text.red)
+                    console.log("SCOPE: " + getNodeText(refNode, root))
+                }
+            }
+            const mostRecent = getMostRecentReference('file://test.fish', root, testNode)
+            if (mostRecent) {
+                const mostRecentParent = findEnclosingScope(mostRecent)
+                if (SHOULD_LOG) console.log('mostRecent: ' + getNodeText(mostRecent, root))
+                expect(mostRecentParent).toBeDefined()
             }
         })
-        //console.log(getNodeText(node, root))
-        expect(true).toBe(true);
+        SHOULD_LOG = false
     })
+
+    it('find hover cmd text', async () => {
+        SHOULD_LOG = true
+        const rootNodes = await getRootNodesFromTexts(test_1)
+        const root = rootNodes[0]
+        const testNodes = [
+            root.descendantForPosition({ row: 3, column: 18 }),
+        ]
+        for (const testNode of testNodes) {
+            if (SHOULD_LOG) console.log(getNodeText(testNode, root))
+            const cmdText = await collectCommandString(testNode)
+            if (SHOULD_LOG) console.log(cmdText.bgRed)
+            const cmdFlags = await getHoverForFlag(testNode) || []
+            console.log(cmdFlags);
+        }
+        expect(true).toBe(true);
+        SHOULD_LOG = false
+    })
+
 
  })
 

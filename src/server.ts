@@ -2,7 +2,7 @@ import Parser, {SyntaxNode} from "web-tree-sitter";
 import { initializeParser } from "./parser";
 import { Analyzer } from "./analyze";
 import { buildRegexCompletions, workspaceSymbolToCompletionItem, generateShellCompletionItems, insideStringRegex, } from "./completion";
-import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, TextDocumentItem } from "vscode-languageserver";
+import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, TextDocumentItem, HoverParams, Hover } from "vscode-languageserver";
 import { LspDocuments } from './document';
 import { FishCompletionItem, } from './utils/completion-types';
 import { enrichToCodeBlockMarkdown } from './documentation';
@@ -13,6 +13,7 @@ import {ConfigManager} from './configManager';
 import {nearbySymbols, collectDocumentSymbols, getDefinitionKind, DefinitionKind, SpanTree, countParentScopes, getReferences, getLocalDefs } from './workspace-symbol';
 import {getDefinitionSymbols} from './workspace-symbol';
 import {getNodeAtRange} from './utils/tree-sitter';
+import {handleHover} from './hover';
 
 
 export default class FishServer {
@@ -117,6 +118,7 @@ export default class FishServer {
         this.connection.onDocumentSymbol(this.onDocumentSymbols.bind(this));
         this.connection.onDefinition(this.onDefinition.bind(this));
         this.connection.onReferences(this.onReferences.bind(this));
+        this.connection.onHover(this.onHover.bind(this));
         this.connection.console.log("FINISHED FishLsp.register()")
     }
 
@@ -363,6 +365,17 @@ export default class FishServer {
         this.logger.log(current?.text?.toString() || "NULL NODE in onRefrence".red)
         if (!current) return [];
         return getReferences(doc.uri, root, current);
+    }
+
+    async onHover(params: HoverParams): Promise<Hover | null> {
+        this.logger.log("onHover");
+        const uri = uriToPath(params.textDocument.uri);
+        const doc = this.docs.get(uri);
+        if (!doc || !uri) return null;
+        const root = this.getRootNode(doc.getText());
+        const current = this.analyzer.nodeAtPoint(doc.uri, params.position.line, params.position.character);
+        if (!current) return null;
+        return await handleHover(doc.uri, root, current);
     }
 }
 

@@ -186,6 +186,15 @@ export function containsRange(range: Range, otherRange: Range): boolean {
   return true
 }
 
+export function precedesRange(before: Range, after: Range): boolean {
+  if (before.start.line < after.start.line) {
+    return true
+  } 
+  if (before.start.line === after.start.line && before.start.character < after.start.character) {
+    return true
+  }
+  return false
+}
 
 /* Either we need to open a new doc or we have a definition in our current document
  * Or there is no definition (i.e. a builtin)
@@ -208,16 +217,12 @@ export function getDefinitionKind(uri: string, root: SyntaxNode, current: Syntax
 }
 
 export function getLocalDefs(uri: string, root: SyntaxNode, current: SyntaxNode) {
-    let definition : SyntaxNode | undefined | null = null;
-    if (current.text === "argv") {
-        definition = findEnclosingScope(current)
-    } else {
-        definition = getReferences(uri, root, current)
+    const definition = current.text === "argv" 
+        ? findEnclosingScope(current)
+        : getReferences(uri, root, current)
             .map(refLocation => getNodeAtRange(root, refLocation.range))
             .filter(n => n)
-            .find(n => n && isDefinition(n))
-    } 
-        
+            .find(n => n && isDefinition(n)) 
     if (!definition) return []
     return [Location.create(uri, getRange(definition))]
 }
@@ -230,3 +235,18 @@ export function getReferences(uri: string, root: SyntaxNode, current: SyntaxNode
         .map((n) => Location.create(uri, getRange(n))) || []
 }
 
+export function getMostRecentReference(uri: string, root: SyntaxNode, current: SyntaxNode) {
+    const definitions : SyntaxNode[] = current.text === "argv"
+        ? [findEnclosingScope(current)]
+        : getChildNodes(root)
+        .filter((n) => n.text === current.text)
+        .filter((n) => isDefinition(n))
+
+    let mostRecent = definitions.find(n => n && isDefinition(n))
+    definitions.forEach(defNode => {
+        if (isVariable(current) && precedesRange(getRange(defNode), getRange(current))) {
+            mostRecent = defNode
+        }
+    })
+    return mostRecent
+}

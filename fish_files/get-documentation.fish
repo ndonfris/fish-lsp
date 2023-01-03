@@ -19,7 +19,6 @@ function _flsp_get_manpage -d 'for a command with a manpage'
     man $argv | sed -r 's/^ {7}/ /' | col -bx
 end
 
-
 set -l type_result (type -t "$argv[1]" 2> /dev/null)
 
 switch "$type_result"
@@ -46,7 +45,13 @@ case "file"
     else 
         _flsp_get_manpage $argv
     end
-    
 case \*
-    echo ''
+    set -l bad_manpage ( man -a $argv 2> /dev/null )
+    if test -z "$bad_manpage" 
+        echo ''
+        return 0
+    else 
+        _flsp_get_manpage $argv
+        return 0
+    end
 end

@@ -8,8 +8,6 @@ const execAsync = promisify(exec);
 
 const execFileAsync = promisify(execFile)
 
-
-
 /**
  * @async execEscapedComplete() - executes the fish command with 
  * 
@@ -32,6 +30,18 @@ export async function execEscapedCommand(cmd: string): Promise<string[]> {
 }
 
 
+export async function execCompletions(...cmd: string[]) : Promise<string[]> {
+    //const completeInput = cmd.join(' ').replace(/(["'$`\\])/g,'\\$1');
+    const file = resolve(__dirname, '../../fish_files/get-completion.fish')
+    const cmps = await execFileAsync(file, cmd)
+    return cmps.stdout.trim().split('\n')
+    //const escapedInput = await execAsync(`fish -c "string escape --style=script -n '${completeInput}'"`)
+    //const complete = escapedInput.stdout.trim().endsWith('-') ? escapedInput.stdout.trim() : escapedInput.stdout.trim() + ' '
+    //console.log(complete.bgRed);
+    //const completeString = `fish -c 'complete --do-complete="${complete}"'`;
+    //const completions = await execAsync(completeString)
+    //return completions.stdout.trim().split('\n')
+}
 
 export async function execCompleteLine(cmd: string): Promise<string[]> {
     const escapedCommand = cmd.replace(/(["'$`\\])/g,'\\$1');
@@ -41,6 +51,7 @@ export async function execCompleteLine(cmd: string): Promise<string[]> {
 
     return child.stdout.trim().split('\n')
 }
+
  export async function execCompleteSpace(cmd: string): Promise<string[]> {
     const escapedCommand = cmd.replace(/(["'$`\\])/g,'\\$1');
     const completeString = `fish -c 'complete --do-complete="${escapedCommand} "'`;
@@ -91,11 +102,7 @@ export async function execCompleteAbbrs(): Promise<string[]> {
 
 export async function execCommandDocs(cmd: string): Promise<string> {
     const file = resolve(__dirname, '../../fish_files/get-documentation.fish')
-    //const cmdArr = cmd.split(' ')
     const docs = await execFileAsync(file, [cmd])
-    if (docs.stderr) {
-        return ''
-    }
     const out =  docs.stdout
     return out.toString().trim()
 }
@@ -162,7 +169,7 @@ export async function execFindDependency(cmd: string): Promise<string> {
         .map(subcmd => subcmd[0].trim())
 }
 
-export async function execComplete(cmd: string[]): Promise<string[]> {
+export async function execComplete(...cmd: string[]): Promise<string[]> {
     const exec = resolve(__dirname, '../../fish_files/get-command-options.fish')
     const args = execFileSync(exec, cmd)
     const results = args.toString().trim().split('\n')
