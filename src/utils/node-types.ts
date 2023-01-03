@@ -38,6 +38,10 @@ export function isFunctionDefinitionName(node: SyntaxNode): boolean {
     return node.type == 'word' && node.equals(funcName);
 }
 
+export function isDefinition(node: SyntaxNode): boolean {
+    return isFunctionDefinitionName(node) || isVariableDefinition(node);
+}
+
 /**
  * checks if a node is the firstNamedChild of a command
  */
@@ -58,6 +62,10 @@ export function isError(node: SyntaxNode | null = null): boolean {
         return node.type == 'ERROR';
     }
     return false;
+}
+
+export function isForLoop(node: SyntaxNode): boolean {
+    return node.type === 'for_statement'
 }
 
 
@@ -234,7 +242,7 @@ export function findEnclosingVariableScope(currentNode: SyntaxNode): SyntaxNode 
 
 }
 
-function findForLoopVariable(node: SyntaxNode) : SyntaxNode | null{
+export function findForLoopVariable(node: SyntaxNode) : SyntaxNode | null{
     for (let i = 0; i < node.children.length; i++) {
         const child = node.children[i]
         if (child.type === 'variable_name') {

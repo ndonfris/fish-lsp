@@ -10,8 +10,9 @@ import { execCommandDocs, execCommandType, execFindDependency, execOpenFile } fr
 import {Logger} from './logger';
 import {uriToPath} from './utils/translation';
 import {ConfigManager} from './configManager';
-import {nearbySymbols, collectDocumentSymbols, getDefinitionKind, DefinitionKind, SpanTree, countParentScopes, getReferences } from './workspace-symbol';
+import {nearbySymbols, collectDocumentSymbols, getDefinitionKind, DefinitionKind, SpanTree, countParentScopes, getReferences, getLocalDefs } from './workspace-symbol';
 import {getDefinitionSymbols} from './workspace-symbol';
+import {getNodeAtRange} from './utils/tree-sitter';
 
 
 export default class FishServer {
@@ -330,39 +331,24 @@ export default class FishServer {
         let current = this.analyzer.nodeAtPoint(doc.uri, params.position.line, params.position.character);
         const definitions: Location[] = [];
         if (!current) {this.logger.log('ERROR');return definitions;}
-        const currentText = current.text.toString() || "";
-        this.logger.log(currentText || "no node")
-        this.logger.log('scopes: ' + countParentScopes(current))
-        const definitionKind: DefinitionKind = getDefinitionKind(uri, root, current, definitions)
-        //const localSymbols = flattenSymbols(collectDocumentSymbols(SpanTree.defintionNodes(root)), [] , 0)
-        //localSymbols.forEach(s => {
-        //    this.logger.logDocumentSymbol(s)
-        //})
+        this.logger.log(current.text || "no node")
+        const definitionKind = getDefinitionKind(uri, root, current, definitions);
         switch (definitionKind) {
             case DefinitionKind.FILE:
                 const foundUri = await execFindDependency(current.text)
                 const defUri = uriToPath(foundUri) || foundUri
-                if (defUri) {
-                    const foundText = await execOpenFile(defUri)
-                    this.logger.log(foundText)
-                    const newDoc = TextDocumentItem.create(foundUri, 'fish', 0, foundText);
-                    const newRoot = this.parser.parse(foundText).rootNode
-                    const findDefs = SpanTree.documentSymbolArray(SpanTree.defintionNodes(newRoot))
-                        .filter(def => def.name === currentText)
-                        .map(def => Location.create(defUri, def.selectionRange))
-                    //this.docs.open(foundUri, TextDocumentItem.create(foundUri, 'fish', 0, foundText))
-                    definitions.push(...findDefs)
-                    break
-                }
-                return definitions
+                const foundText = await execOpenFile(defUri)
+                this.logger.log(foundText)
+                const newDoc = TextDocumentItem.create(foundUri, 'fish', 0, foundText);
+                const newRoot = this.parser.parse(foundText).rootNode
+                return getLocalDefs(defUri, newRoot, current)
             case DefinitionKind.LOCAL:
                 return definitions
             case DefinitionKind.NONE:
+                return []
             default:
                 return definitions
-
         }
-        return definitions;
     }
 
 
@@ -376,7 +362,7 @@ export default class FishServer {
         this.logger.log(root.text?.toString() || "NULL ROOTNODE in onRefrence".red)
         this.logger.log(current?.text?.toString() || "NULL NODE in onRefrence".red)
         if (!current) return [];
-        return this.analyzer.getReferences(doc.uri, current);
+        return getReferences(doc.uri, root, current);
     }
 }
 

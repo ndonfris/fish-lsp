@@ -7,7 +7,7 @@ import { Point, SyntaxNode, Tree } from 'web-tree-sitter'
 import {pathToFileURL} from 'url'; // typescript-langauge-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts
 import vscodeUri from 'vscode-uri'; // typescript-langauge-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts 
 import {existsSync} from 'fs-extra';
-import {findSetDefinedVariable, findParentCommand, isFunctionDefinition, isVariableDefinition} from './node-types';
+import {findSetDefinedVariable, findParentCommand, isFunctionDefinition, isVariableDefinition, isFunctionDefinitionName, isVariable, isScope, isProgram, isCommandName, isForLoop, findForLoopVariable} from './node-types';
 
 /**
  * Returns an array for all the nodes in the tree (@see also nodesGen)
@@ -51,6 +51,34 @@ export function getParentNodes(child: SyntaxNode): SyntaxNode[] {
     return result
 }
 
+export function findFirstParent(node: SyntaxNode, predicate: (node: SyntaxNode) => boolean) : SyntaxNode | null {
+    let current: SyntaxNode | null = node.parent;
+    while (current !== null) {
+        if (predicate(current)) return current;
+        current = current.parent;
+    }
+    return null;
+}
+
+export function findEnclosingScope(node: SyntaxNode) : SyntaxNode {
+    let parent = node.parent || node;
+    if (isFunctionDefinitionName(node)) {
+        return findFirstParent(parent, n => isFunctionDefinition(n) || isProgram(n)) || parent
+    } else if (node.text === "argv") {
+        parent = findFirstParent(node, n => isFunctionDefinition(n) || isProgram(n)) || parent
+        return isFunctionDefinition(parent) ? parent.firstNamedChild || parent : parent
+    } else if (isVariable(node)) {
+        parent = findFirstParent(node, n => isScope(n)) || parent
+        return isForLoop(parent) && findForLoopVariable(parent)?.text === node.text 
+            ? parent
+            : findFirstParent(node, n => isProgram(n) || isFunctionDefinitionName(n))
+                || parent
+    } else if (isCommandName(node))  {
+        return findFirstParent(node, n => isProgram(n)) || parent
+    } else {
+        return findFirstParent(node, n => isScope(n)) || parent
+    }
+}
 
 // some nodes (such as commands) to get their text, you will need 
 // the first named child.

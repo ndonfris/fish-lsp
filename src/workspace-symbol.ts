@@ -4,14 +4,10 @@ import {SyntaxNode, Tree} from 'web-tree-sitter';
 import {Analyzer} from './analyze';
 import {toSymbolKind} from './symbols';
 import {isBuiltin} from './utils/builtins';
-import {findEnclosingVariableScope, findParentFunction, isCommandName, isFunctionDefinition, isFunctionDefinitionName, isProgram, isScope, isStatement, isVariable, isVariableDefinition} from './utils/node-types';
+import {findEnclosingVariableScope, findParentFunction, isCommandName, isDefinition, isFunctionDefinition, isFunctionDefinitionName, isProgram, isScope, isStatement, isVariable, isVariableDefinition} from './utils/node-types';
 import {nodeToDocumentSymbol, nodeToSymbolInformation, pathToRelativeFilename} from './utils/translation';
-import {getChildNodes, getParentNodes, getRange, positionToPoint} from './utils/tree-sitter';
+import {findEnclosingScope, findFirstParent, getChildNodes, getNodeAtRange, getParentNodes, getRange, positionToPoint} from './utils/tree-sitter';
 
-export function collectSymbolInformation(uri: string, root: SyntaxNode) {
-    const symbols: SymbolInformation[] = SpanTree.symbolInformationArray(SpanTree.defintionNodes(root), uri)
-    return symbols;
-}
 
 export function collectDocumentSymbols(mixedNodes: SyntaxNode[]): DocumentSymbol[] {
     const symbols: DocumentSymbol[] = []
@@ -122,77 +118,6 @@ export function getDefinitionSymbols(root: SyntaxNode) {
     return symbols;
 }
 
-export class SymbolTree {
-
-    root: SyntaxNode;
-    _defs: DocumentSymbol[] = [];
-    _scopes: SyntaxNode[] = [];
-
-    constructor(root: SyntaxNode) {
-        this.root = root;
-    }
-
-    setDefinitions() {
-        this._defs = getDefinitionSymbols(this.root);
-    }
-
-    get definitions() {
-        return this._defs;
-    }
-
-    setScopes() {
-        this._scopes = getChildNodes(this.root).filter((node: SyntaxNode) => isScope(node))
-    }
-
-    get functions() {
-        return this._defs.filter((symbol: DocumentSymbol) => symbol.kind === SymbolKind.Function)
-    }
-
-    getReferences(node: SyntaxNode) {
-        if (isVariable(node)) {
-            for (const scope of this._scopes) {
-                if (containsRange(getRange(scope), getRange(node))) {
-                    return getChildNodes(scope).filter((child: SyntaxNode) => isVariable(child) && child.text === node.text)
-                }
-            }
-            //}
-            //for (const c of this.functions) {
-                //const current = getNodeFromRange(this.root, c.range)
-                //if (containsRange(getRange(current), getRange(node))) {
-                    //return getChildNodes(current).filter((n: SyntaxNode) => n.text === node.text)
-                //}
-            //}
-        }
-        return getChildNodes(this.root).filter((n: SyntaxNode) => n.text === node.text)
-    }
-
-    getDefinition(node: SyntaxNode) {
-        const result: SyntaxNode[] = []
-        if (isVariable(node)) {
-            const vars = this.definitions
-                .filter((sym: DocumentSymbol) => sym.name === node.text)
-                .map((sym: DocumentSymbol) => getNodeFromRange(this.root, sym.range))
-
-            for (const func of this.functions) {
-                if (containsRange(func.range, getRange(node))) {
-                    const first = func.children?.filter((sym: DocumentSymbol) => sym.name === node.text)
-                    //return getNodeFromRange(this.root, first)
-                }
-            
-            }
-
-            for (const c of this.definitions) {
-                result.push(getNodeFromRange(this.root, c.selectionRange))
-            }
-        }
-        return null
-    }
-
-    get scopes() {
-        return this._scopes;
-    }
-
-}
 
 
 export function countParentScopes(first: SyntaxNode){
@@ -261,14 +186,6 @@ export function containsRange(range: Range, otherRange: Range): boolean {
   return true
 }
 
-export function beforeRange(range: Range, otherRange: Range): boolean {
-    if (range.start.line < otherRange.start.line) {
-        return true
-    } else if (range.start.line === otherRange.start.line) {
-        return range.start.character < otherRange.start.character
-    } 
-    return false
-}
 
 /* Either we need to open a new doc or we have a definition in our current document
  * Or there is no definition (i.e. a builtin)
@@ -279,63 +196,37 @@ export enum DefinitionKind {
     NONE
 }
 
-// Heres a way better idea: 
-// • get scopes
-// • pass nodes to localSymbols(collectDocumentSymbols(scope_node))
-// • find scope in range
-// • look for definition
-export function getDefinitionKind(uri: string, root: SyntaxNode, current: SyntaxNode, locations: Location[]): DefinitionKind {
+
+export function getDefinitionKind(uri: string, root: SyntaxNode, current: SyntaxNode, localDefintions: Location[]): DefinitionKind {
     if (isBuiltin(current.text)) return DefinitionKind.NONE;
-    const currentRange = getRange(current)
-    let localSymbols: DocumentSymbol[] = []
-    const currentHeight = countParentScopes(current)
-    localSymbols = flattenSymbols(
-        collectDocumentSymbols(SpanTree.defintionNodes(root)),
-        localSymbols,
-        currentHeight
-    ).filter((symbol: DocumentSymbol) => {
-        if (current.text === "argv") {
-            return (
-                symbol.kind === SymbolKind.Function &&
-                containsRange(symbol.range, currentRange)
-            );
-        } else {
-            return symbol.name === current.text;
-        }
-    });
-
-    if (localSymbols.length > 0) {
-        if (isVariable(current) && current.text !== 'argv') {
-            const variableScopes = localSymbols
-                .filter(symbol => containsRange(symbol.range, currentRange) || symbol.kind === SymbolKind.Variable)
-                .filter((symbol: DocumentSymbol) => beforeRange(symbol.selectionRange, currentRange))
-
-            let last: DocumentSymbol = variableScopes.at(-1)!;
-            variableScopes.forEach(node => {
-                if (beforeRange(last.selectionRange, node.selectionRange)) {
-                    last = node
-                }
-            })
-            locations.push(Location.create(uri, last.selectionRange))
-        } else {
-            for (const symbol of localSymbols) {
-                locations.push(Location.create(uri, symbol.selectionRange))
-            }
-        }
+    localDefintions.push(...getLocalDefs(uri, root, current))
+    if (localDefintions.length > 0) {
         return DefinitionKind.LOCAL;
     }
     if (isCommandName(current)) return DefinitionKind.FILE;
     return DefinitionKind.NONE;
 }
 
+export function getLocalDefs(uri: string, root: SyntaxNode, current: SyntaxNode) {
+    let definition : SyntaxNode | undefined | null = null;
+    if (current.text === "argv") {
+        definition = findEnclosingScope(current)
+    } else {
+        definition = getReferences(uri, root, current)
+            .map(refLocation => getNodeAtRange(root, refLocation.range))
+            .filter(n => n)
+            .find(n => n && isDefinition(n))
+    } 
+        
+    if (!definition) return []
+    return [Location.create(uri, getRange(definition))]
+}
 
-export function getReferences(uri: string, root: SyntaxNode, current: SyntaxNode) {
-    const currentText = current.text
-    const definition: Location[] = [];
-    const newRoot = findEnclosingVariableScope(current) || root
-    //const newRoot = getNodeFromRange(root, definition.at(0)!.range).parent!
-    return flattenSymbols(collectDocumentSymbols(SpanTree.refrenceNodes(newRoot)), [])
-        .filter(symbol => symbol.name === currentText)
-        .map(symbol => Location.create(uri, symbol.selectionRange)).reverse()
+export function getReferences(uri: string, root: SyntaxNode, current: SyntaxNode) : Location[]{
+    return getChildNodes(root)
+        .filter((n) => n.text === current.text)
+        .filter((n) => isVariable(n) || isFunctionDefinitionName(n) || isCommandName(n))
+        .filter((n) => containsRange(getRange(findEnclosingScope(n)), getRange(current)))
+        .map((n) => Location.create(uri, getRange(n))) || []
 }
 

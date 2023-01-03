@@ -1,13 +1,13 @@
 import {  getRootNodesFromTexts, logCompareNodes, logDocSymbol, logFile, logNode, logSymbolInfo, logVerboseNode, printDebugSeperator, printTestName } from './helpers';
 import {Point, SyntaxNode, Tree} from 'web-tree-sitter';
-import {findEnclosingVariableScope, isFunctionDefinition, isFunctionDefinitionName, isScope, isVariable, isVariableDefinition} from '../src/utils/node-types';
-import {getNodeAtRange, getRange, nodesGen} from '../src/utils/tree-sitter';
-import { Range, DocumentSymbol } from 'vscode-languageserver'
+import {findEnclosingVariableScope, isCommand, isCommandName, isFunctionDefinition, isFunctionDefinitionName, isScope, isVariable, isVariableDefinition} from '../src/utils/node-types';
+import {findEnclosingScope, findFirstParent, getNodeAtRange, getRange, nodesGen} from '../src/utils/tree-sitter';
+import { Range, DocumentSymbol, Location } from 'vscode-languageserver'
 import {getChildNodes, positionToPoint} from '../src/utils/tree-sitter';
 import {initializeParser} from '../src/parser';
 import * as colors from 'colors'
 import {toSymbolKind} from '../src/symbols';
-import {containsRange, SymbolTree} from '../src/workspace-symbol';
+import {containsRange, getReferences, SymbolTree} from '../src/workspace-symbol';
 //import
 
 let SHOULD_LOG = true
@@ -95,36 +95,24 @@ describe('spans tests', () => {
         tree.setDefinitions()
         tree.setScopes()
         const testNodes = [
-            //root.descendantForPosition({ row: 15, column: 14 }),
+            root.descendantForPosition({ row: 15, column: 14 }),
+            root.descendantForPosition({ row: 15, column: 0 }),
+            root.descendantForPosition({ row: 16, column: 11 }),
+            root.descendantForPosition({ row: 20, column: 10 }),
             //root.descendantForPosition({ row: 14, column: 7 }),
-            root.descendantForPosition({ row: 2, column: 8 }),
+            //root.descendantForPosition({ row: 2, column: 8 }),
             //root.descendantForPosition({ row: 3, column: 28 }),
         ]
         testNodes.forEach(testNode => {
             console.log(getNodeText(testNode, root))
-            const defs = tree.definitions
-            const scopes = tree.scopes
-            for (const def of tree.definitions) {
-                //const defNode = getNodeAtRange(root, def.range)
-                //if (defNode) {
-                //    console.log(getNodeText(defNode, root))
-                //}
-                console.log(def.name);
-                if (def.name === testNode.text) {
-                    console.log("DEF: ".black + def.name)
-                }
-                
-                //const defNode = getNodeAtRange(root, def.range)
-                //if (containsRange(def.range, getRange(testNode)) && defNode) {
-                //    console.log(getNodeText(defNode, root).white)
-                //}
+            const refs = getReferences('file://test.fish', root, testNode)
+            for (const scope of refs) {
+                const refNode = getNodeAtRange(root, scope.range)
+                if (!scope || !refNode) continue;
+                console.log("NODE: " + testNode.text.red)
+                console.log("SCOPE: " + getNodeText(refNode, root))
+                //console.log("OUT: " + getNodeText(scope, root).split('\n').slice(getRange(testNode).start.line, getRange(testNode).end.line+1).join('\n'))
             }
-
-            //for (const scope of scopes) {
-            //    if (containsRange(getRange(scope), getRange(node))) {
-            //        console.log(getNodeText(scope, root))
-            //    }
-            //}
         })
         //console.log(getNodeText(node, root))
         expect(true).toBe(true);
@@ -149,6 +137,12 @@ end
 set -l h "hello"
 set -l w "world"
 span_test $h $w
+span_test $argv
+for i in (seq 1 (count $variable_name))
+end
+for i in $variable_name
+    echo $i
+end
 `
 
 function getNodeText(node: SyntaxNode, rootNode: SyntaxNode) {
