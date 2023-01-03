@@ -10,6 +10,35 @@ import {symbolKindToString} from '../src/symbols';
 import {bgBlack, bgBlue, black, inverse, white} from 'colors';
 //import { blue, inverse } from 'colors'
 
+/**
+ * texts: array of file contents (entire file as a string), 
+ *       one for each file to be parsed
+ */
+export async function getRootNodesFromTexts(...texts: string[]): Promise<SyntaxNode[]> {
+    const parser = await initializeParser();
+    const rootNodes: SyntaxNode[] = [];
+    for (const t of texts) {
+        parser.reset()
+        rootNodes.push(parser.parse(t).rootNode)
+    }
+    return rootNodes;
+}
+
+/**
+ * @async
+ * takes an absolute path to a file, and returns the parsed root node.
+ * For more simple tests, where no file text is already available (as a string),
+ * use getRootNodesFromTexts instead.
+ *
+ * @param {string} fname - absolute path to file
+ * @returns {Promise<SyntaxNode>} - root node of the parsed file
+ */
+export async function getRootNodeFromPath(fname: string): Promise<SyntaxNode> {
+    const file = await resolveAbsPath(fname)
+    const parser = await initializeParser();
+    const tree = parser.parse(file.join('\n'));
+    return tree.rootNode;
+}
 
 export function nodeToString(node: SyntaxNode, shouldLog = true) : string {
     const pos = `(${node.startPosition.row}, ${node.startPosition.column}) (${node.endPosition.row}, ${node.endPosition.column})`.bgBlack.white
@@ -55,13 +84,6 @@ export function positionStr(pos: Point){
 }
 
 
-// @ts-ignore
-export async function getRootNode(fname: string): Promise<SyntaxNode> {
-    const file = await resolveAbsPath(fname)
-    const parser = await initializeParser();
-    const tree = parser.parse(file.join('\n'));
-    return tree.rootNode;
-}
 
 export async function readFishDir(dir: string): Promise<string[]> {
     let files: string[] = []

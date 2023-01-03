@@ -57,7 +57,53 @@ export namespace SpanTree {
             .filter((innerSymbol: DocumentSymbol) => containsRange(parentSymbol.range, innerSymbol.selectionRange))
     }
 
+    export const spans = (root: SyntaxNode) => {
+        const spans: Range[] = []
+        const scopeNodes = SpanTree.scopeNodes(root)
+        for (const scope of scopeNodes) {
+            const span = getRange(scope)
+            spans.push(span)
+        }
+        return spans
+    }
 }
+
+export namespace SymbolTree {
+
+    export interface tree {
+        root: SyntaxNode,
+        uri: string,
+        symbols: DocumentSymbol[],
+        spans: Range[],
+        build: (uri: string, root: SyntaxNode) => tree
+    }
+
+    // extend DocumentSymbol to include a function to get 
+
+    export class Tree implements tree {
+
+        root: SyntaxNode
+        uri: string
+        symbols: DocumentSymbol[]
+        spans: Range[]
+
+        constructor(uri: string, root: SyntaxNode) {
+            this.root = root
+            this.uri = uri
+            this.symbols = collectDocumentSymbols(SpanTree.defintionNodes(root))
+            this.spans = collectDocumentSymbols(SpanTree.scopeNodes(root))
+                .map((symbol: DocumentSymbol) => symbol.range)
+        }
+
+        build(uri: string, root: SyntaxNode) {
+            return new Tree(uri, root)
+        }
+
+    }
+
+}
+
+
 export function countParentScopes(first: SyntaxNode){
     let node1 : SyntaxNode | null = first;
     let count = 0;
