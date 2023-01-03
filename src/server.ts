@@ -15,7 +15,6 @@ import {getDefinitionSymbols} from './workspace-symbol';
 import {getNodeAtRange} from './utils/tree-sitter';
 import {handleHover} from './hover';
 
-
 export default class FishServer {
 
     public static async create(
