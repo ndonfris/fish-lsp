@@ -61,8 +61,6 @@ export default class FishServer {
         )
         const result : InitializeResult = {
             capabilities: {
-                // For now we're using full-sync even though tree-sitter has great support
-                // for partial updates.
                 textDocumentSync: TextDocumentSyncKind.Full,
                 completionProvider: {
                     resolveProvider: true,
@@ -74,17 +72,9 @@ export default class FishServer {
                 documentHighlightProvider: true,
                 definitionProvider: true,
                 referencesProvider: true,
-                //signatureHelpProvider: {
-                //    triggerCharacters: ["'", '"', "[", ":"],
-                //},
                 documentSymbolProvider: {
-                    label: "Fish",
+                    label: "Fish-LSP",
                 },
-                //workspaceSymbolProvider: {
-                //    resolveProvider: true,
-                //}
-                
-                //workspaceSymbolProvider: true,
             }
         }
         return result;
@@ -92,22 +82,12 @@ export default class FishServer {
 
 
     register(): void {
-        //this.docs. .listen(this.connection)
         this.connection.console.log("Starting FishLsp.register()")
 
         this.connection.onDidOpenTextDocument(this.didOpenTextDocument.bind(this))
         this.connection.onDidChangeTextDocument(this.didChangeTextDocument.bind(this))
         this.connection.onDidCloseTextDocument(this.didCloseTextDocument.bind(this))
         this.connection.onDidSaveTextDocument(this.didSaveTextDocument.bind(this))
-
-        // if formatting is enabled in settings. add onContentDidSave
-        // Register all the handlers for the LSP events.
-        //this.connection.onHover(this.onHover.bind(this))
-        // connection.onDefinition(this.onDefinition.bind(this))
-        // connection.onDocumentSymbol(this.onDocumentSymbol.bind(this))
-        // connection.onWorkspaceSymbol(this.onWorkspaceSymbol.bind(this))
-        // connection.onDocumentHighlight(this.onDocumentHighlight.bind(this))
-        // connection.onReferences(this.onReferences.bind(this))
 
         // • for multiple completionProviders -> https://github.com/microsoft/vscode-extension-samples/blob/main/completions-sample/src/extension.ts#L15
         // • https://github.com/Dart-Code/Dart-Code/blob/7df6509870d51cc99a90cf220715f4f97c681bbf/src/providers/dart_completion_item_provider.ts#L197-202
@@ -322,22 +302,18 @@ export default class FishServer {
 
     async onDefinition(params: DefinitionParams): Promise<Location[]> {
         this.logger.log("onDefinition");
-        const uri = uriToPath(params.textDocument.uri);
-        const doc = this.docs.get(uri);
-        if (!doc || !uri) return [];
-        const root = this.getRootNode(doc.getText());
-        let current = this.analyzer.nodeAtPoint(doc.uri, params.position.line, params.position.character);
+        const {doc, uri, root, current} = this.getDefaults(params)
+        if (!doc || !uri || !root || !current) return [];
         const definitions: Location[] = [];
-        if (!current) {this.logger.log('ERROR');return definitions;}
-        this.logger.log(current.text || "no node")
+        this.logger.log(current.text || "no definition current node")
         const definitionKind = getDefinitionKind(uri, root, current, definitions);
         switch (definitionKind) {
             case DefinitionKind.FILE:
                 const foundUri = await execFindDependency(current.text)
                 const defUri = uriToPath(foundUri) || foundUri
                 const foundText = await execOpenFile(defUri)
-                this.logger.log(foundText)
-                const newDoc = TextDocumentItem.create(foundUri, 'fish', 0, foundText);
+                //this.logger.log(foundText)
+                //const newDoc = TextDocumentItem.create(foundUri, 'fish', 0, foundText);
                 const newRoot = this.parser.parse(foundText).rootNode
                 return getLocalDefs(defUri, newRoot, current)
             case DefinitionKind.LOCAL:
@@ -394,7 +370,6 @@ export default class FishServer {
         doc?: LspDocument,
         uri?: string,
         root?: SyntaxNode | null,
-        current?: SyntaxNode | null,
     } {
         const uri = uriToPath(params.textDocument.uri);
         const doc = this.docs.get(uri);
