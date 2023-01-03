@@ -1,12 +1,13 @@
 import {  getRootNodesFromTexts, logCompareNodes, logDocSymbol, logFile, logNode, logSymbolInfo, logVerboseNode, printDebugSeperator, printTestName } from './helpers';
 import {Point, SyntaxNode, Tree} from 'web-tree-sitter';
-import {isFunctionDefinitionName, isScope, isVariable, isVariableDefinition} from '../src/utils/node-types';
-import {getRange, nodesGen} from '../src/utils/tree-sitter';
+import {findEnclosingVariableScope, isFunctionDefinition, isFunctionDefinitionName, isScope, isVariable, isVariableDefinition} from '../src/utils/node-types';
+import {getNodeAtRange, getRange, nodesGen} from '../src/utils/tree-sitter';
 import { Range, DocumentSymbol } from 'vscode-languageserver'
 import {getChildNodes, positionToPoint} from '../src/utils/tree-sitter';
 import {initializeParser} from '../src/parser';
 import * as colors from 'colors'
 import {toSymbolKind} from '../src/symbols';
+import {containsRange, SymbolTree} from '../src/workspace-symbol';
 //import
 
 let SHOULD_LOG = true
@@ -20,128 +21,112 @@ afterEach(() => {
     global.console = jestConsole;
 });
 
-
-interface SpanNode extends SyntaxNode {
-    span: Range
-    innerSpans: SpanNode[]
+function createSymbol(node: SyntaxNode, children?: DocumentSymbol[]) : DocumentSymbol | null{
+    if (isVariableDefinition(node)) {
+        return {
+            name: node.text,
+            kind: toSymbolKind(node),
+            range: getRange(node),
+            selectionRange: getRange(node),
+            children: children || []
+        }
+    } else if (isFunctionDefinitionName(node)) {
+        const name = node.firstNamedChild || node
+        return {
+            name: name.text,
+            kind: toSymbolKind(name),
+            range: getRange(node.parent!),
+            selectionRange: getRange(name),
+            children: children || []
+        }
+    } else {
+        return null;
+    }
 }
 
-function buildSpans(root: SyntaxNode, spans: SpanNode[] = []): boolean {
-    let isSpan = isScope(root);
-    const spanNode : SpanNode = root as SpanNode;
-    const innerSpans: SpanNode[] = [];
+function getSymbols(root: SyntaxNode) {
+    let parentSymbol: DocumentSymbol | null = null;
+    let currentSymbol: DocumentSymbol | null = null;
+    let symbols: DocumentSymbol[] = [];
+    let queue: SyntaxNode[] = [root];
 
-    for (const c of root.children) {
-        const childSpan = buildSpans(c, innerSpans);
-        isSpan = isSpan || childSpan;
-    }
-
-    if (isSpan) {
-        spanNode.span = getRange(root);
-        spanNode.innerSpans = innerSpans;
-        spans.push(spanNode);
-    }
-
-    return isSpan
-}
-
-class SpanTree {
-    root: SyntaxNode;
-    childTrees: SpanTree[] = [];
-
-    constructor(root: SyntaxNode) {
-        this.root = root;
-    }
-
-    getChildren(): SpanTree[] {
-        return this.childTrees;
-    }
-
-    getDefinitionChildren(): DocumentSymbol[] {
-        const result : DocumentSymbol[] = []
-        for (const c of nodesGen(this.root)) {
-            if (isFunctionDefinitionName(c)) {
-                const range = getRange(c);
-                const symbol = DocumentSymbol.create(c.text, '', toSymbolKind(c), range, range);
-                result.push(symbol);
-            } else if (isVariableDefinition(c)) {
-                const range = getRange(c);
-                const symbol = DocumentSymbol.create(c.text, '', toSymbolKind(c), range, range);
-                result.push(symbol);
+    while (queue.length > 0) {
+        const node = queue.shift()!;
+        if (isVariableDefinition(node)) {
+            currentSymbol = createSymbol(node);
+            if (!currentSymbol) continue; // should never happen
+            if (!parentSymbol) symbols.push(currentSymbol);
+            if (parentSymbol && containsRange(parentSymbol.range, currentSymbol.range)) {
+                if (!parentSymbol.children) {
+                    parentSymbol.children = [];
+                }
+                parentSymbol.children.push(currentSymbol);
             }
+        } else if (isFunctionDefinitionName(node)) {
+            currentSymbol = createSymbol(node);
+            parentSymbol = currentSymbol;
+        } else if (parentSymbol && !containsRange(parentSymbol.range, getRange(node))) {
+            symbols.push(parentSymbol)
+            parentSymbol = null;
         }
-        return result
+        queue.unshift(...node?.children)
     }
-
-    setChildren(children: SpanTree[]) {
-        this.childTrees = children;
-    }
-
-    toString() {
-        const result : string[] = [this.root.type.bgBlack + ', children: ' + this.childTrees.length, ""]
-        for (const c of this.childTrees) {
-            //result.push(getNodeText(c.root, this.root))
-            result.push(c.toString())
-        }
-        return result.join('\n')
-    }
+    return symbols;
 }
-
-function collectSymbols(root: SyntaxNode, syms: DocumentSymbol[] = []) : boolean {
-    let shouldInclude = isScope(root) || isFunctionDefinitionName(root) || isVariable(root)
-    const children: DocumentSymbol[] = [];
-    for (const c of root.children) {
-        let didAdd = collectSymbols(c, children);
-        shouldInclude =  didAdd || shouldInclude;
-    }
-    if (shouldInclude) {
-        syms.push({
-            name: root.text,
-            kind: toSymbolKind(root),
-            range: getRange(root),
-            selectionRange: getRange(root),
-            children
-        })
-    }
-    return shouldInclude
-}
-
-function buildSpanTree(root: SyntaxNode, spanTree: SpanTree) {
-    let isSpan = isScope(root);
-    const children: SpanTree[] = [];
-    for (const c of root.children) {
-        const childSpan = new SpanTree(c);
-        let didAdd = buildSpanTree(c, childSpan);
-        if (didAdd) {
-            children.push(childSpan);
-        }
-    }
-    if (isSpan) {
-        spanTree.setChildren(children);
-    }
-    return isSpan
-}
-
 
 describe('spans tests', () => {
-    it('simple span', async () => {
+    it('simple definition spans', async () => {
         const rootNodes = await getRootNodesFromTexts(test_1)
         rootNodes.forEach(root => {
-            const spans: SpanNode[] = [];
-            buildSpans(root, spans);
-            const tree = new SpanTree(root);
-            buildSpanTree(root, tree);
-            const symbols: DocumentSymbol[] = [];
-            collectSymbols(root, symbols)
-            //logSymbol(symbols[0])
-            for (const span of spans) {
-                logSpan(span, root)
+            let symbols: DocumentSymbol[] = []
+            symbols = getSymbols(root)
+            for (const c of symbols) {
+                console.log(logStringSymbol(c))
+            }
+        })
+        expect(true).toBe(true);
+    })
+
+
+    it('simple ref spans', async () => {
+        const rootNodes = await getRootNodesFromTexts(test_1)
+        const root = rootNodes[0]
+        const tree = new SymbolTree(root)
+        tree.setDefinitions()
+        tree.setScopes()
+        const testNodes = [
+            //root.descendantForPosition({ row: 15, column: 14 }),
+            //root.descendantForPosition({ row: 14, column: 7 }),
+            root.descendantForPosition({ row: 2, column: 8 }),
+            //root.descendantForPosition({ row: 3, column: 28 }),
+        ]
+        testNodes.forEach(testNode => {
+            console.log(getNodeText(testNode, root))
+            const defs = tree.definitions
+            const scopes = tree.scopes
+            for (const def of tree.definitions) {
+                //const defNode = getNodeAtRange(root, def.range)
+                //if (defNode) {
+                //    console.log(getNodeText(defNode, root))
+                //}
+                console.log(def.name);
+                if (def.name === testNode.text) {
+                    console.log("DEF: ".black + def.name)
+                }
+                
+                //const defNode = getNodeAtRange(root, def.range)
+                //if (containsRange(def.range, getRange(testNode)) && defNode) {
+                //    console.log(getNodeText(defNode, root).white)
+                //}
             }
 
-            //console.log(spans[0].text?.slice(0, 20));
-            //logSpan(spans[0], root)
+            //for (const scope of scopes) {
+            //    if (containsRange(getRange(scope), getRange(node))) {
+            //        console.log(getNodeText(scope, root))
+            //    }
+            //}
         })
-
+        //console.log(getNodeText(node, root))
         expect(true).toBe(true);
     })
 
@@ -207,19 +192,14 @@ function getNodeText(node: SyntaxNode, rootNode: SyntaxNode) {
     ].join('\n')
 }
 
-function logSymbol(sym: DocumentSymbol) {
-    console.log(`name: ${sym.name.toString()}`)
-    console.log(`len: ${sym.children?.length.toString()}`)
+function logStringSymbol(sym: DocumentSymbol, indent=0) {
+    const indentStr = '    '.repeat(indent)
+    const result: string[] = [
+        indentStr+ `name: ${sym.name.toString()}`,
+        indentStr+ `len: ${sym.children?.length.toString()}`,
+    ]
     for (const t of sym.children || []) {
-        logSymbol(t)
+        result.push(logStringSymbol(t, indent+1))
     }
-    console.log('-'.repeat(30))
-}
-function logSpan(n: SpanNode, rootNode: SyntaxNode) {
-    //console.log("span: \n".bgRed, n?.text.toString(),)
-    getNodeText(n, rootNode)
-    //console.log(n?.type, n?.startPosition, n?.endPosition);
-    n.innerSpans.forEach((child) => {
-        logSpan(child, rootNode)
-    })
+    return result.join('\n')
 }

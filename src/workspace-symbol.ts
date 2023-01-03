@@ -68,37 +68,128 @@ export namespace SpanTree {
     }
 }
 
-export namespace SymbolTree {
+function createSymbol(node: SyntaxNode, children?: DocumentSymbol[]) : DocumentSymbol | null{
+    const parent = node.parent || node;
+    if (isVariableDefinition(node)) {
+        return {
+            name: node.text,
+            kind: toSymbolKind(node),
+            range: getRange(parent),
+            selectionRange: getRange(node),
+            children: children || []
+        }
+    } else if (isFunctionDefinitionName(node)) {
+        const name = node.firstNamedChild || node
+        return {
+            name: name.text,
+            kind: toSymbolKind(name),
+            range: getRange(parent),
+            selectionRange: getRange(name),
+            children: children || []
+        }
+    } else {
+        return null;
+    }
+}
 
-    export interface tree {
-        root: SyntaxNode,
-        uri: string,
-        symbols: DocumentSymbol[],
-        spans: Range[],
-        build: (uri: string, root: SyntaxNode) => tree
+export function getDefinitionSymbols(root: SyntaxNode) {
+    let parentSymbol: DocumentSymbol | null = null;
+    let currentSymbol: DocumentSymbol | null = null;
+    let symbols: DocumentSymbol[] = [];
+    let queue: SyntaxNode[] = [root];
+
+    while (queue.length > 0) {
+        const node = queue.shift()!;
+        if (isVariableDefinition(node)) {
+            currentSymbol = createSymbol(node);
+            if (!currentSymbol) continue; // should never happen
+            if (!parentSymbol) symbols.push(currentSymbol);
+            if (parentSymbol && containsRange(parentSymbol.range, currentSymbol.range)) {
+                if (!parentSymbol.children) {
+                    parentSymbol.children = [];
+                }
+                parentSymbol.children.push(currentSymbol);
+            }
+        } else if (isFunctionDefinitionName(node)) {
+            currentSymbol = createSymbol(node);
+            parentSymbol = currentSymbol;
+        } else if (parentSymbol && !containsRange(parentSymbol.range, getRange(node))) {
+            symbols.push(parentSymbol)
+            parentSymbol = null;
+        }
+        queue.unshift(...node?.children)
+    }
+    return symbols;
+}
+
+export class SymbolTree {
+
+    root: SyntaxNode;
+    _defs: DocumentSymbol[] = [];
+    _scopes: SyntaxNode[] = [];
+
+    constructor(root: SyntaxNode) {
+        this.root = root;
     }
 
-    // extend DocumentSymbol to include a function to get 
+    setDefinitions() {
+        this._defs = getDefinitionSymbols(this.root);
+    }
 
-    export class Tree implements tree {
+    get definitions() {
+        return this._defs;
+    }
 
-        root: SyntaxNode
-        uri: string
-        symbols: DocumentSymbol[]
-        spans: Range[]
+    setScopes() {
+        this._scopes = getChildNodes(this.root).filter((node: SyntaxNode) => isScope(node))
+    }
 
-        constructor(uri: string, root: SyntaxNode) {
-            this.root = root
-            this.uri = uri
-            this.symbols = collectDocumentSymbols(SpanTree.defintionNodes(root))
-            this.spans = collectDocumentSymbols(SpanTree.scopeNodes(root))
-                .map((symbol: DocumentSymbol) => symbol.range)
+    get functions() {
+        return this._defs.filter((symbol: DocumentSymbol) => symbol.kind === SymbolKind.Function)
+    }
+
+    getReferences(node: SyntaxNode) {
+        if (isVariable(node)) {
+            for (const scope of this._scopes) {
+                if (containsRange(getRange(scope), getRange(node))) {
+                    return getChildNodes(scope).filter((child: SyntaxNode) => isVariable(child) && child.text === node.text)
+                }
+            }
+            //}
+            //for (const c of this.functions) {
+                //const current = getNodeFromRange(this.root, c.range)
+                //if (containsRange(getRange(current), getRange(node))) {
+                    //return getChildNodes(current).filter((n: SyntaxNode) => n.text === node.text)
+                //}
+            //}
         }
+        return getChildNodes(this.root).filter((n: SyntaxNode) => n.text === node.text)
+    }
 
-        build(uri: string, root: SyntaxNode) {
-            return new Tree(uri, root)
+    getDefinition(node: SyntaxNode) {
+        const result: SyntaxNode[] = []
+        if (isVariable(node)) {
+            const vars = this.definitions
+                .filter((sym: DocumentSymbol) => sym.name === node.text)
+                .map((sym: DocumentSymbol) => getNodeFromRange(this.root, sym.range))
+
+            for (const func of this.functions) {
+                if (containsRange(func.range, getRange(node))) {
+                    const first = func.children?.filter((sym: DocumentSymbol) => sym.name === node.text)
+                    //return getNodeFromRange(this.root, first)
+                }
+            
+            }
+
+            for (const c of this.definitions) {
+                result.push(getNodeFromRange(this.root, c.selectionRange))
+            }
         }
+        return null
+    }
 
+    get scopes() {
+        return this._scopes;
     }
 
 }

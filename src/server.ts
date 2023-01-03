@@ -11,6 +11,7 @@ import {Logger} from './logger';
 import {uriToPath} from './utils/translation';
 import {ConfigManager} from './configManager';
 import {nearbySymbols, collectDocumentSymbols, getDefinitionKind, DefinitionKind, SpanTree, countParentScopes, getReferences } from './workspace-symbol';
+import {getDefinitionSymbols} from './workspace-symbol';
 
 
 export default class FishServer {
@@ -309,7 +310,8 @@ export default class FishServer {
         if (!doc || !uri) return [];
         const root = this.getRootNode(doc.getText());
         this.logger.log("length: "+ this.analyzer.getSymbols(doc.uri).length.toString())
-        const symbols: DocumentSymbol[] = collectDocumentSymbols(SpanTree.defintionNodes(root));
+        //const symbols: DocumentSymbol[] = collectDocumentSymbols(SpanTree.defintionNodes(root));
+        const symbols: DocumentSymbol[] = getDefinitionSymbols(root)
         return symbols;
     }
 
@@ -364,7 +366,7 @@ export default class FishServer {
     }
 
 
-    async onReferences(params: ReferenceParams): Promise<Location[]> {
+    async onReferences(params: ReferenceParams): Promise<Location[] | null> {
         this.logger.log("onReference");
         const uri = uriToPath(params.textDocument.uri);
         const doc = this.docs.get(uri);
@@ -374,7 +376,7 @@ export default class FishServer {
         this.logger.log(root.text?.toString() || "NULL ROOTNODE in onRefrence".red)
         this.logger.log(current?.text?.toString() || "NULL NODE in onRefrence".red)
         if (!current) return [];
-        return getReferences(uri, root, current)
+        return this.analyzer.getReferences(doc.uri, current);
     }
 }
 

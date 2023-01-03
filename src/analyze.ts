@@ -1,8 +1,10 @@
-import { CompletionItem, Connection, DocumentUri, Hover, Location, Position, RemoteConsole, TextDocumentPositionParams, } from "vscode-languageserver/node"; import { TextDocument } from "vscode-languageserver-textdocument";
+import { CompletionItem, Connection, DocumentUri, Hover, Location, Position, RemoteConsole, TextDocumentPositionParams, } from "vscode-languageserver";
+import { TextDocument } from "vscode-languageserver-textdocument";
 import Parser, { SyntaxNode, Point, Range, Tree } from "web-tree-sitter";
 import {collectFishSymbols, FishSymbol, FishSymbolMap} from './symbols';
+import {containsRange, SymbolTree} from './workspace-symbol'
 import {SymbolKind} from 'vscode-languageserver';
-import {getRange} from './utils/tree-sitter';
+import {getChildNodes, getRange} from './utils/tree-sitter';
 import {LspDocument} from './document';
 
 export class Analyzer {
@@ -12,6 +14,8 @@ export class Analyzer {
     // maps the uri of document to the parser.parse(document.getText())
     private uriTree: { [uri: string]: Tree };
 
+    private uriSymbolTree : { [uri: string]: SymbolTree };
+
     private fishSymbols: FishSymbolMap;
 
 
@@ -20,6 +24,7 @@ export class Analyzer {
         //this.console = console || undefined;
         this.uriTree = {};
         this.fishSymbols = {};
+        this.uriSymbolTree = {}
     }
 
     public analyze(document: LspDocument) {
@@ -31,6 +36,11 @@ export class Analyzer {
         this.uriTree[document.uri] = tree;
         const fishSymbols = collectFishSymbols(document.uri, tree.rootNode);
         this.fishSymbols[document.uri] = fishSymbols;
+        const symbolTree = new SymbolTree(tree.rootNode);
+        symbolTree.setScopes()
+        symbolTree.setDefinitions()
+        this.uriSymbolTree[document.uri] = symbolTree;
+
     }
 
     getCompletionFishSymbols(uri: string): FishSymbol[] {
@@ -50,13 +60,10 @@ export class Analyzer {
         return [];
     }
 
-    getRefrences(uri: string, node: SyntaxNode): Location[] | null {
-        return this.fishSymbols[uri]
-                .filter(
-                    (symbol) => {
-                    return symbol.name === node.text
-                })
-                .map((symbol) => symbol.location) || null;
+    getReferences(uri: string, node: SyntaxNode): Location[] | null {
+        const symbolTree = this.uriSymbolTree[uri]
+        return symbolTree?.getReferences(node)
+            .map((node) => Location.create(uri, getRange(node))) || null
     }
 
 

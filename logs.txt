@@ -12148,3 +12148,2065 @@ closed uri: /home/ndonfris/.config/fish/functions/fzf-dir-preview.fish
 [onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/config.fish
 [onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/config.fish
 closed uri: /home/ndonfris/.config/fish/config.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\n    __test_small\nend\n\n\n## this is a comment\nfunction __test_small \n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo \"matched\" | string pad -c ' ' \n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv \n\n    set_color --background black white \n    set -l variable_name \"v\" \n    whatis -? --config-file --help --regex \"*\" \n\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    \n    string pad --width 10 --char \" \" \"$argv\" \n\n    set -l variable_name \"value\" \n\n\n    if test -n \"$variable_name\" \n        echo \"variable_name is not empty\" \n    end\n\n    for i in (seq 1 (count $variable_name))\n    end\n\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name \"value\" \nend\n\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+length: 16
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+length: 16
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+length: 16
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+length: 16
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+length: 16
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+length: 16
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+length: 16
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish : set -l file "test.
+root: (program (function_definition name: (word) option: (word) option: (word) option: (word) option: (double_quote_string) (command name: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word)) (command name: (word)) (command name: (word))) (comment) (function_definition name: (word) (if_statement condition: (command name: (word) argument: (word) argument: (word) argument: (single_quote_string (escape_sequence)) argument: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (pipe (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (single_quote_string)))) (command name: (word) argument: (word) argument: (word) argument: (single_quote_string) argument: (double_quote_string (variable_expansion (variable_name)))) (comment) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string) argument: (variable_expansion (variable_name))) (command name: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (command_substitution (command_substitution_fish (command name: (word) argument: (word) argument: (word) argument: (integer) argument: (word) argument: (word) argument: (integer) argument: (single_quote_string (escape_sequence)) argument: (double_quote_string (variable_expansion (variable_name))))))) (command name: (word) argument: (word) argument: (word) argument: (integer) argument: (word) argument: (double_quote_string) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (if_statement condition: (test_command argument: (test_option) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (double_quote_string))) (for_statement variable: (variable_name) value: (command_substitution (command_substitution_fish (command name: (word) argument: (integer) argument: (command_substitution (command_substitution_fish (command name: (word) argument: (variable_expansion (variable_name))))))))) (for_statement variable: (variable_name) value: (variable_expansion (variable_name)) (command name: (word) argument: (variable_expansion (variable_name)))) (command name: (word) argument: (word) argument: (double_quote_string))) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (double_quote_string)))
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish : set -l file "test.f
+root: (program (function_definition name: (word) option: (word) option: (word) option: (word) option: (double_quote_string) (command name: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word)) (command name: (word)) (command name: (word))) (comment) (function_definition name: (word) (if_statement condition: (command name: (word) argument: (word) argument: (word) argument: (single_quote_string (escape_sequence)) argument: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (pipe (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (single_quote_string)))) (command name: (word) argument: (word) argument: (word) argument: (single_quote_string) argument: (double_quote_string (variable_expansion (variable_name)))) (comment) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string) argument: (variable_expansion (variable_name))) (command name: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (command_substitution (command_substitution_fish (command name: (word) argument: (word) argument: (word) argument: (integer) argument: (word) argument: (word) argument: (integer) argument: (single_quote_string (escape_sequence)) argument: (double_quote_string (variable_expansion (variable_name))))))) (command name: (word) argument: (word) argument: (word) argument: (integer) argument: (word) argument: (double_quote_string) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (if_statement condition: (test_command argument: (test_option) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (double_quote_string))) (for_statement variable: (variable_name) value: (command_substitution (command_substitution_fish (command name: (word) argument: (integer) argument: (command_substitution (command_substitution_fish (command name: (word) argument: (variable_expansion (variable_name))))))))) (for_statement variable: (variable_name) value: (variable_expansion (variable_name)) (command name: (word) argument: (variable_expansion (variable_name)))) (command name: (word) argument: (word) argument: (double_quote_string))) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (double_quote_string)))
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish : set -l file "test.fi
+root: (program (function_definition name: (word) option: (word) option: (word) option: (word) option: (double_quote_string) (command name: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word)) (command name: (word)) (command name: (word))) (comment) (function_definition name: (word) (if_statement condition: (command name: (word) argument: (word) argument: (word) argument: (single_quote_string (escape_sequence)) argument: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (pipe (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (single_quote_string)))) (command name: (word) argument: (word) argument: (word) argument: (single_quote_string) argument: (double_quote_string (variable_expansion (variable_name)))) (comment) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string) argument: (variable_expansion (variable_name))) (command name: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (command_substitution (command_substitution_fish (command name: (word) argument: (word) argument: (word) argument: (integer) argument: (word) argument: (word) argument: (integer) argument: (single_quote_string (escape_sequence)) argument: (double_quote_string (variable_expansion (variable_name))))))) (command name: (word) argument: (word) argument: (word) argument: (integer) argument: (word) argument: (double_quote_string) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (if_statement condition: (test_command argument: (test_option) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (double_quote_string))) (for_statement variable: (variable_name) value: (command_substitution (command_substitution_fish (command name: (word) argument: (integer) argument: (command_substitution (command_substitution_fish (command name: (word) argument: (variable_expansion (variable_name))))))))) (for_statement variable: (variable_name) value: (variable_expansion (variable_name)) (command name: (word) argument: (variable_expansion (variable_name)))) (command name: (word) argument: (word) argument: (double_quote_string))) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (double_quote_string)))
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish : set -l file "test.fis
+root: (program (function_definition name: (word) option: (word) option: (word) option: (word) option: (double_quote_string) (command name: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word)) (command name: (word)) (command name: (word))) (comment) (function_definition name: (word) (if_statement condition: (command name: (word) argument: (word) argument: (word) argument: (single_quote_string (escape_sequence)) argument: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (pipe (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (single_quote_string)))) (command name: (word) argument: (word) argument: (word) argument: (single_quote_string) argument: (double_quote_string (variable_expansion (variable_name)))) (comment) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string) argument: (variable_expansion (variable_name))) (command name: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (command_substitution (command_substitution_fish (command name: (word) argument: (word) argument: (word) argument: (integer) argument: (word) argument: (word) argument: (integer) argument: (single_quote_string (escape_sequence)) argument: (double_quote_string (variable_expansion (variable_name))))))) (command name: (word) argument: (word) argument: (word) argument: (integer) argument: (word) argument: (double_quote_string) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (if_statement condition: (test_command argument: (test_option) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (double_quote_string))) (for_statement variable: (variable_name) value: (command_substitution (command_substitution_fish (command name: (word) argument: (integer) argument: (command_substitution (command_substitution_fish (command name: (word) argument: (variable_expansion (variable_name))))))))) (for_statement variable: (variable_name) value: (variable_expansion (variable_name)) (command name: (word) argument: (variable_expansion (variable_name)))) (command name: (word) argument: (word) argument: (double_quote_string))) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (double_quote_string)))
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+length: 16
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+length: 16
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+length: 16
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+length: 16
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+length: 16
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDefinition
+lso
+scopes: 1
+# ls original version (ascii, system version)
+
+function lso
+    if test (count $argv) -eq 0
+        /usr/bin/ls;
+    else 
+        /usr/bin/ls $argv;
+    end
+end
+
+
+#complete -c lso --wraps ls
+
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/lso.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "# ls original version (ascii, system version)\n\nfunction lso\n    if test (count $argv) -eq 0\n        /usr/bin/ls;\n    else \n        /usr/bin/ls $argv;\n    end\nend\n\n\n#complete -c lso --wraps ls\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/lso.fish
+opened document: file:///home/ndonfris/.config/fish/functions/lso.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/lso.fish
+onDocumentSymbols
+length: 5
+onDefinition
+__test_small
+scopes: 1
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/lso.fish
+closed uri: /home/ndonfris/.config/fish/functions/lso.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\n    __test_small\nend\n\n\n## this is a comment\nfunction __test_small \n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo \"matched\" | string pad -c ' ' \n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv \n\n    set_color --background black white \n    set -l variable_name \"v\" \n    whatis -? --config-file --help --regex \"*\" \n\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    \n    string pad --width 10 --char \" \" \"$argv\" \n\n    set -l variable_name \"value\" \n\n\n    if test -n \"$variable_name\" \n        echo \"variable_name is not empty\" \n    end\n\n    for i in (seq 1 (count $variable_name))\n    end\n\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name \"value\" \nend\n\n\nset -l file \"test.fish\"\ntest-fish-lsp $file\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onReference
+function test-fish-lsp --argument-names file --description "Check a file for syntax errors"
+    echo "$file"
+    lso
+    fzf-local-node_modules
+    __test_small
+end
+
+
+## this is a comment
+function __test_small 
+    if string match --regex '^(\w{10}).fish' -- "$argv"
+        echo "matched" | string pad -c ' ' 
+    end
+    string match --regex '[[:alnum:]]' "$argv"
+
+    # padding a stirng
+    string pad --char " " $argv 
+
+    set_color --background black white 
+    set -l variable_name "v" 
+    whatis -? --config-file --help --regex "*" 
+
+    set -l variable_name (string split0 --fields 1 --right --max 4 '\t' "$argv")
+    
+    string pad --width 10 --char " " "$argv" 
+
+    set -l variable_name "value" 
+
+
+    if test -n "$variable_name" 
+        echo "variable_name is not empty" 
+    end
+
+    for i in (seq 1 (count $variable_name))
+    end
+
+    for i in $variable_name
+        echo $i
+    end
+    set variable_name "value" 
+end
+
+
+set -l file "test.fish"
+test-fish-lsp $file
+
+variable_name
+onReference
+function test-fish-lsp --argument-names file --description "Check a file for syntax errors"
+    echo "$file"
+    lso
+    fzf-local-node_modules
+    __test_small
+end
+
+
+## this is a comment
+function __test_small 
+    if string match --regex '^(\w{10}).fish' -- "$argv"
+        echo "matched" | string pad -c ' ' 
+    end
+    string match --regex '[[:alnum:]]' "$argv"
+
+    # padding a stirng
+    string pad --char " " $argv 
+
+    set_color --background black white 
+    set -l variable_name "v" 
+    whatis -? --config-file --help --regex "*" 
+
+    set -l variable_name (string split0 --fields 1 --right --max 4 '\t' "$argv")
+    
+    string pad --width 10 --char " " "$argv" 
+
+    set -l variable_name "value" 
+
+
+    if test -n "$variable_name" 
+        echo "variable_name is not empty" 
+    end
+
+    for i in (seq 1 (count $variable_name))
+    end
+
+    for i in $variable_name
+        echo $i
+    end
+    set variable_name "value" 
+end
+
+
+set -l file "test.fish"
+test-fish-lsp $file
+
+file
+onReference
+function test-fish-lsp --argument-names file --description "Check a file for syntax errors"
+    echo "$file"
+    lso
+    fzf-local-node_modules
+    __test_small
+end
+
+
+## this is a comment
+function __test_small 
+    if string match --regex '^(\w{10}).fish' -- "$argv"
+        echo "matched" | string pad -c ' ' 
+    end
+    string match --regex '[[:alnum:]]' "$argv"
+
+    # padding a stirng
+    string pad --char " " $argv 
+
+    set_color --background black white 
+    set -l variable_name "v" 
+    whatis -? --config-file --help --regex "*" 
+
+    set -l variable_name (string split0 --fields 1 --right --max 4 '\t' "$argv")
+    
+    string pad --width 10 --char " " "$argv" 
+
+    set -l variable_name "value" 
+
+
+    if test -n "$variable_name" 
+        echo "variable_name is not empty" 
+    end
+
+    for i in (seq 1 (count $variable_name))
+    end
+
+    for i in $variable_name
+        echo $i
+    end
+    set variable_name "value" 
+end
+
+
+set -l file "test.fish"
+test-fish-lsp $file
+
+file
+onReference
+function test-fish-lsp --argument-names file --description "Check a file for syntax errors"
+    echo "$file"
+    lso
+    fzf-local-node_modules
+    __test_small
+end
+
+
+## this is a comment
+function __test_small 
+    if string match --regex '^(\w{10}).fish' -- "$argv"
+        echo "matched" | string pad -c ' ' 
+    end
+    string match --regex '[[:alnum:]]' "$argv"
+
+    # padding a stirng
+    string pad --char " " $argv 
+
+    set_color --background black white 
+    set -l variable_name "v" 
+    whatis -? --config-file --help --regex "*" 
+
+    set -l variable_name (string split0 --fields 1 --right --max 4 '\t' "$argv")
+    
+    string pad --width 10 --char " " "$argv" 
+
+    set -l variable_name "value" 
+
+
+    if test -n "$variable_name" 
+        echo "variable_name is not empty" 
+    end
+
+    for i in (seq 1 (count $variable_name))
+    end
+
+    for i in $variable_name
+        echo $i
+    end
+    set variable_name "value" 
+end
+
+
+set -l file "test.fish"
+test-fish-lsp $file
+
+file
+onDocumentSymbols
+length: 17
+onReference
+function test-fish-lsp --argument-names file --description "Check a file for syntax errors"
+    echo "$file"
+    lso
+    fzf-local-node_modules
+    __test_small
+end
+
+
+## this is a comment
+function __test_small 
+    if string match --regex '^(\w{10}).fish' -- "$argv"
+        echo "matched" | string pad -c ' ' 
+    end
+    string match --regex '[[:alnum:]]' "$argv"
+
+    # padding a stirng
+    string pad --char " " $argv 
+
+    set_color --background black white 
+    set -l variable_name "v" 
+    whatis -? --config-file --help --regex "*" 
+
+    set -l variable_name (string split0 --fields 1 --right --max 4 '\t' "$argv")
+    
+    string pad --width 10 --char " " "$argv" 
+
+    set -l variable_name "value" 
+
+
+    if test -n "$variable_name" 
+        echo "variable_name is not empty" 
+    end
+
+    for i in (seq 1 (count $variable_name))
+    end
+
+    for i in $variable_name
+        echo $i
+    end
+    set variable_name "value" 
+end
+
+
+set -l file "test.fish"
+test-fish-lsp $file
+
+file
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\n    __test_small\nend\n\n\n## this is a comment\nfunction __test_small \n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo \"matched\" | string pad -c ' ' \n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv \n\n    set_color --background black white \n    set -l variable_name \"v\" \n    whatis -? --config-file --help --regex \"*\" \n\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    \n    string pad --width 10 --char \" \" \"$argv\" \n\n    set -l variable_name \"value\" \n\n\n    if test -n \"$variable_name\" \n        echo \"variable_name is not empty\" \n    end\n\n    for i in (seq 1 (count $variable_name))\n    end\n\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name \"value\" \nend\n\n\nset -l file \"test.fish\"\ntest-fish-lsp $file\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDefinition
+__test_small
+scopes: 1
+onReference
+function test-fish-lsp --argument-names file --description "Check a file for syntax errors"
+    echo "$file"
+    lso
+    fzf-local-node_modules
+    __test_small
+end
+
+
+## this is a comment
+function __test_small 
+    if string match --regex '^(\w{10}).fish' -- "$argv"
+        echo "matched" | string pad -c ' ' 
+    end
+    string match --regex '[[:alnum:]]' "$argv"
+
+    # padding a stirng
+    string pad --char " " $argv 
+
+    set_color --background black white 
+    set -l variable_name "v" 
+    whatis -? --config-file --help --regex "*" 
+
+    set -l variable_name (string split0 --fields 1 --right --max 4 '\t' "$argv")
+    
+    string pad --width 10 --char " " "$argv" 
+
+    set -l variable_name "value" 
+
+
+    if test -n "$variable_name" 
+        echo "variable_name is not empty" 
+    end
+
+    for i in (seq 1 (count $variable_name))
+    end
+
+    for i in $variable_name
+        echo $i
+    end
+    set variable_name "value" 
+end
+
+
+set -l file "test.fish"
+test-fish-lsp $file
+
+__test_small
+onDocumentSymbols
+length: 17
+onReference
+function test-fish-lsp --argument-names file --description "Check a file for syntax errors"
+    echo "$file"
+    lso
+    fzf-local-node_modules
+    __test_small
+end
+
+
+## this is a comment
+function __test_small 
+    if string match --regex '^(\w{10}).fish' -- "$argv"
+        echo "matched" | string pad -c ' ' 
+    end
+    string match --regex '[[:alnum:]]' "$argv"
+
+    # padding a stirng
+    string pad --char " " $argv 
+
+    set_color --background black white 
+    set -l variable_name "v" 
+    whatis -? --config-file --help --regex "*" 
+
+    set -l variable_name (string split0 --fields 1 --right --max 4 '\t' "$argv")
+    
+    string pad --width 10 --char " " "$argv" 
+
+    set -l variable_name "value" 
+
+
+    if test -n "$variable_name" 
+        echo "variable_name is not empty" 
+    end
+
+    for i in (seq 1 (count $variable_name))
+    end
+
+    for i in $variable_name
+        echo $i
+    end
+    set variable_name "value" 
+end
+
+
+set -l file "test.fish"
+test-fish-lsp $file
+
+test-fish-lsp
+onReference
+function test-fish-lsp --argument-names file --description "Check a file for syntax errors"
+    echo "$file"
+    lso
+    fzf-local-node_modules
+    __test_small
+end
+
+
+## this is a comment
+function __test_small 
+    if string match --regex '^(\w{10}).fish' -- "$argv"
+        echo "matched" | string pad -c ' ' 
+    end
+    string match --regex '[[:alnum:]]' "$argv"
+
+    # padding a stirng
+    string pad --char " " $argv 
+
+    set_color --background black white 
+    set -l variable_name "v" 
+    whatis -? --config-file --help --regex "*" 
+
+    set -l variable_name (string split0 --fields 1 --right --max 4 '\t' "$argv")
+    
+    string pad --width 10 --char " " "$argv" 
+
+    set -l variable_name "value" 
+
+
+    if test -n "$variable_name" 
+        echo "variable_name is not empty" 
+    end
+
+    for i in (seq 1 (count $variable_name))
+    end
+
+    for i in $variable_name
+        echo $i
+    end
+    set variable_name "value" 
+end
+
+
+set -l file "test.fish"
+test-fish-lsp $file
+
+test-fish-lsp
+onReference
+function test-fish-lsp --argument-names file --description "Check a file for syntax errors"
+    echo "$file"
+    lso
+    fzf-local-node_modules
+    __test_small
+end
+
+
+## this is a comment
+function __test_small 
+    if string match --regex '^(\w{10}).fish' -- "$argv"
+        echo "matched" | string pad -c ' ' 
+    end
+    string match --regex '[[:alnum:]]' "$argv"
+
+    # padding a stirng
+    string pad --char " " $argv 
+
+    set_color --background black white 
+    set -l variable_name "v" 
+    whatis -? --config-file --help --regex "*" 
+
+    set -l variable_name (string split0 --fields 1 --right --max 4 '\t' "$argv")
+    
+    string pad --width 10 --char " " "$argv" 
+
+    set -l variable_name "value" 
+
+
+    if test -n "$variable_name" 
+        echo "variable_name is not empty" 
+    end
+
+    for i in (seq 1 (count $variable_name))
+    end
+
+    for i in $variable_name
+        echo $i
+    end
+    set variable_name "value" 
+end
+
+
+set -l file "test.fish"
+test-fish-lsp $file
+
+file
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\n    __test_small\nend\n\n\n## this is a comment\nfunction __test_small \n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo \"matched\" | string pad -c ' ' \n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv \n\n    set_color --background black white \n    set -l variable_name \"v\" \n    whatis -? --config-file --help --regex \"*\" \n\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    \n    string pad --width 10 --char \" \" \"$argv\" \n\n    set -l variable_name \"value\" \n\n\n    if test -n \"$variable_name\" \n        echo \"variable_name is not empty\" \n    end\n\n    for i in (seq 1 (count $variable_name))\n    end\n\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name \"value\" \nend\n\n\nset -l file \"test.fish\"\ntest-fish-lsp $file\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onReference
+function test-fish-lsp --argument-names file --description "Check a file for syntax errors"
+    echo "$file"
+    lso
+    fzf-local-node_modules
+    __test_small
+end
+
+
+## this is a comment
+function __test_small 
+    if string match --regex '^(\w{10}).fish' -- "$argv"
+        echo "matched" | string pad -c ' ' 
+    end
+    string match --regex '[[:alnum:]]' "$argv"
+
+    # padding a stirng
+    string pad --char " " $argv 
+
+    set_color --background black white 
+    set -l variable_name "v" 
+    whatis -? --config-file --help --regex "*" 
+
+    set -l variable_name (string split0 --fields 1 --right --max 4 '\t' "$argv")
+    
+    string pad --width 10 --char " " "$argv" 
+
+    set -l variable_name "value" 
+
+
+    if test -n "$variable_name" 
+        echo "variable_name is not empty" 
+    end
+
+    for i in (seq 1 (count $variable_name))
+    end
+
+    for i in $variable_name
+        echo $i
+    end
+    set variable_name "value" 
+end
+
+
+set -l file "test.fish"
+test-fish-lsp $file
+
+file
+onReference
+function test-fish-lsp --argument-names file --description "Check a file for syntax errors"
+    echo "$file"
+    lso
+    fzf-local-node_modules
+    __test_small
+end
+
+
+## this is a comment
+function __test_small 
+    if string match --regex '^(\w{10}).fish' -- "$argv"
+        echo "matched" | string pad -c ' ' 
+    end
+    string match --regex '[[:alnum:]]' "$argv"
+
+    # padding a stirng
+    string pad --char " " $argv 
+
+    set_color --background black white 
+    set -l variable_name "v" 
+    whatis -? --config-file --help --regex "*" 
+
+    set -l variable_name (string split0 --fields 1 --right --max 4 '\t' "$argv")
+    
+    string pad --width 10 --char " " "$argv" 
+
+    set -l variable_name "value" 
+
+
+    if test -n "$variable_name" 
+        echo "variable_name is not empty" 
+    end
+
+    for i in (seq 1 (count $variable_name))
+    end
+
+    for i in $variable_name
+        echo $i
+    end
+    set variable_name "value" 
+end
+
+
+set -l file "test.fish"
+test-fish-lsp $file
+
+i
+onDocumentSymbols
+length: 17
+onReference
+function test-fish-lsp --argument-names file --description "Check a file for syntax errors"
+    echo "$file"
+    lso
+    fzf-local-node_modules
+    __test_small
+end
+
+
+## this is a comment
+function __test_small 
+    if string match --regex '^(\w{10}).fish' -- "$argv"
+        echo "matched" | string pad -c ' ' 
+    end
+    string match --regex '[[:alnum:]]' "$argv"
+
+    # padding a stirng
+    string pad --char " " $argv 
+
+    set_color --background black white 
+    set -l variable_name "v" 
+    whatis -? --config-file --help --regex "*" 
+
+    set -l variable_name (string split0 --fields 1 --right --max 4 '\t' "$argv")
+    
+    string pad --width 10 --char " " "$argv" 
+
+    set -l variable_name "value" 
+
+
+    if test -n "$variable_name" 
+        echo "variable_name is not empty" 
+    end
+
+    for i in (seq 1 (count $variable_name))
+    end
+
+    for i in $variable_name
+        echo $i
+    end
+    set variable_name "value" 
+end
+
+
+set -l file "test.fish"
+test-fish-lsp $file
+
+variable_name
+onDefinition
+variable_name
+scopes: 2
+onReference
+function test-fish-lsp --argument-names file --description "Check a file for syntax errors"
+    echo "$file"
+    lso
+    fzf-local-node_modules
+    __test_small
+end
+
+
+## this is a comment
+function __test_small 
+    if string match --regex '^(\w{10}).fish' -- "$argv"
+        echo "matched" | string pad -c ' ' 
+    end
+    string match --regex '[[:alnum:]]' "$argv"
+
+    # padding a stirng
+    string pad --char " " $argv 
+
+    set_color --background black white 
+    set -l variable_name "v" 
+    whatis -? --config-file --help --regex "*" 
+
+    set -l variable_name (string split0 --fields 1 --right --max 4 '\t' "$argv")
+    
+    string pad --width 10 --char " " "$argv" 
+
+    set -l variable_name "value" 
+
+
+    if test -n "$variable_name" 
+        echo "variable_name is not empty" 
+    end
+
+    for i in (seq 1 (count $variable_name))
+    end
+
+    for i in $variable_name
+        echo $i
+    end
+    set variable_name "value" 
+end
+
+
+set -l file "test.fish"
+test-fish-lsp $file
+
+__test_small
+onReference
+function test-fish-lsp --argument-names file --description "Check a file for syntax errors"
+    echo "$file"
+    lso
+    fzf-local-node_modules
+    __test_small
+end
+
+
+## this is a comment
+function __test_small 
+    if string match --regex '^(\w{10}).fish' -- "$argv"
+        echo "matched" | string pad -c ' ' 
+    end
+    string match --regex '[[:alnum:]]' "$argv"
+
+    # padding a stirng
+    string pad --char " " $argv 
+
+    set_color --background black white 
+    set -l variable_name "v" 
+    whatis -? --config-file --help --regex "*" 
+
+    set -l variable_name (string split0 --fields 1 --right --max 4 '\t' "$argv")
+    
+    string pad --width 10 --char " " "$argv" 
+
+    set -l variable_name "value" 
+
+
+    if test -n "$variable_name" 
+        echo "variable_name is not empty" 
+    end
+
+    for i in (seq 1 (count $variable_name))
+    end
+
+    for i in $variable_name
+        echo $i
+    end
+    set variable_name "value" 
+end
+
+
+set -l file "test.fish"
+test-fish-lsp $file
+
+__test_small
+onDefinition
+__test_small
+scopes: 1
+onReference
+function test-fish-lsp --argument-names file --description "Check a file for syntax errors"
+    echo "$file"
+    lso
+    fzf-local-node_modules
+    __test_small
+end
+
+
+## this is a comment
+function __test_small 
+    if string match --regex '^(\w{10}).fish' -- "$argv"
+        echo "matched" | string pad -c ' ' 
+    end
+    string match --regex '[[:alnum:]]' "$argv"
+
+    # padding a stirng
+    string pad --char " " $argv 
+
+    set_color --background black white 
+    set -l variable_name "v" 
+    whatis -? --config-file --help --regex "*" 
+
+    set -l variable_name (string split0 --fields 1 --right --max 4 '\t' "$argv")
+    
+    string pad --width 10 --char " " "$argv" 
+
+    set -l variable_name "value" 
+
+
+    if test -n "$variable_name" 
+        echo "variable_name is not empty" 
+    end
+
+    for i in (seq 1 (count $variable_name))
+    end
+
+    for i in $variable_name
+        echo $i
+    end
+    set variable_name "value" 
+end
+
+
+set -l file "test.fish"
+test-fish-lsp $file
+
+__test_small
+onReference
+function test-fish-lsp --argument-names file --description "Check a file for syntax errors"
+    echo "$file"
+    lso
+    fzf-local-node_modules
+    __test_small
+end
+
+
+## this is a comment
+function __test_small 
+    if string match --regex '^(\w{10}).fish' -- "$argv"
+        echo "matched" | string pad -c ' ' 
+    end
+    string match --regex '[[:alnum:]]' "$argv"
+
+    # padding a stirng
+    string pad --char " " $argv 
+
+    set_color --background black white 
+    set -l variable_name "v" 
+    whatis -? --config-file --help --regex "*" 
+
+    set -l variable_name (string split0 --fields 1 --right --max 4 '\t' "$argv")
+    
+    string pad --width 10 --char " " "$argv" 
+
+    set -l variable_name "value" 
+
+
+    if test -n "$variable_name" 
+        echo "variable_name is not empty" 
+    end
+
+    for i in (seq 1 (count $variable_name))
+    end
+
+    for i in $variable_name
+        echo $i
+    end
+    set variable_name "value" 
+end
+
+
+set -l file "test.fish"
+test-fish-lsp $file
+
+__test_small
+onReference
+function test-fish-lsp --argument-names file --description "Check a file for syntax errors"
+    echo "$file"
+    lso
+    fzf-local-node_modules
+    __test_small
+end
+
+
+## this is a comment
+function __test_small 
+    if string match --regex '^(\w{10}).fish' -- "$argv"
+        echo "matched" | string pad -c ' ' 
+    end
+    string match --regex '[[:alnum:]]' "$argv"
+
+    # padding a stirng
+    string pad --char " " $argv 
+
+    set_color --background black white 
+    set -l variable_name "v" 
+    whatis -? --config-file --help --regex "*" 
+
+    set -l variable_name (string split0 --fields 1 --right --max 4 '\t' "$argv")
+    
+    string pad --width 10 --char " " "$argv" 
+
+    set -l variable_name "value" 
+
+
+    if test -n "$variable_name" 
+        echo "variable_name is not empty" 
+    end
+
+    for i in (seq 1 (count $variable_name))
+    end
+
+    for i in $variable_name
+        echo $i
+    end
+    set variable_name "value" 
+end
+
+
+set -l file "test.fish"
+test-fish-lsp $file
+
+__test_small
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\n    __test_small\nend\n\n\n## this is a comment\nfunction __test_small \n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo \"matched\" | string pad -c ' ' \n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv \n\n    set_color --background black white \n    set -l variable_name \"v\" \n    whatis -? --config-file --help --regex \"*\" \n\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    \n    string pad --width 10 --char \" \" \"$argv\" \n\n    set -l variable_name \"value\" \n\n\n    if test -n \"$variable_name\" \n        echo \"variable_name is not empty\" \n    end\n\n    for i in (seq 1 (count $variable_name))\n    end\n\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name \"value\" \nend\n\n\nset -l file \"test.fish\"\ntest-fish-lsp $file\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onReference
+function test-fish-lsp --argument-names file --description "Check a file for syntax errors"
+    echo "$file"
+    lso
+    fzf-local-node_modules
+    __test_small
+end
+
+
+## this is a comment
+function __test_small 
+    if string match --regex '^(\w{10}).fish' -- "$argv"
+        echo "matched" | string pad -c ' ' 
+    end
+    string match --regex '[[:alnum:]]' "$argv"
+
+    # padding a stirng
+    string pad --char " " $argv 
+
+    set_color --background black white 
+    set -l variable_name "v" 
+    whatis -? --config-file --help --regex "*" 
+
+    set -l variable_name (string split0 --fields 1 --right --max 4 '\t' "$argv")
+    
+    string pad --width 10 --char " " "$argv" 
+
+    set -l variable_name "value" 
+
+
+    if test -n "$variable_name" 
+        echo "variable_name is not empty" 
+    end
+
+    for i in (seq 1 (count $variable_name))
+    end
+
+    for i in $variable_name
+        echo $i
+    end
+    set variable_name "value" 
+end
+
+
+set -l file "test.fish"
+test-fish-lsp $file
+
+file
+onReference
+function test-fish-lsp --argument-names file --description "Check a file for syntax errors"
+    echo "$file"
+    lso
+    fzf-local-node_modules
+    __test_small
+end
+
+
+## this is a comment
+function __test_small 
+    if string match --regex '^(\w{10}).fish' -- "$argv"
+        echo "matched" | string pad -c ' ' 
+    end
+    string match --regex '[[:alnum:]]' "$argv"
+
+    # padding a stirng
+    string pad --char " " $argv 
+
+    set_color --background black white 
+    set -l variable_name "v" 
+    whatis -? --config-file --help --regex "*" 
+
+    set -l variable_name (string split0 --fields 1 --right --max 4 '\t' "$argv")
+    
+    string pad --width 10 --char " " "$argv" 
+
+    set -l variable_name "value" 
+
+
+    if test -n "$variable_name" 
+        echo "variable_name is not empty" 
+    end
+
+    for i in (seq 1 (count $variable_name))
+    end
+
+    for i in $variable_name
+        echo $i
+    end
+    set variable_name "value" 
+end
+
+
+set -l file "test.fish"
+test-fish-lsp $file
+
+__test_small
+onDocumentSymbols
+length: 17
+onReference
+function test-fish-lsp --argument-names file --description "Check a file for syntax errors"
+    echo "$file"
+    lso
+    fzf-local-node_modules
+    __test_small
+end
+
+
+## this is a comment
+function __test_small 
+    if string match --regex '^(\w{10}).fish' -- "$argv"
+        echo "matched" | string pad -c ' ' 
+    end
+    string match --regex '[[:alnum:]]' "$argv"
+
+    # padding a stirng
+    string pad --char " " $argv 
+
+    set_color --background black white 
+    set -l variable_name "v" 
+    whatis -? --config-file --help --regex "*" 
+
+    set -l variable_name (string split0 --fields 1 --right --max 4 '\t' "$argv")
+    
+    string pad --width 10 --char " " "$argv" 
+
+    set -l variable_name "value" 
+
+
+    if test -n "$variable_name" 
+        echo "variable_name is not empty" 
+    end
+
+    for i in (seq 1 (count $variable_name))
+    end
+
+    for i in $variable_name
+        echo $i
+    end
+    set variable_name "value" 
+end
+
+
+set -l file "test.fish"
+test-fish-lsp $file
+
+test-fish-lsp
+onReference
+function test-fish-lsp --argument-names file --description "Check a file for syntax errors"
+    echo "$file"
+    lso
+    fzf-local-node_modules
+    __test_small
+end
+
+
+## this is a comment
+function __test_small 
+    if string match --regex '^(\w{10}).fish' -- "$argv"
+        echo "matched" | string pad -c ' ' 
+    end
+    string match --regex '[[:alnum:]]' "$argv"
+
+    # padding a stirng
+    string pad --char " " $argv 
+
+    set_color --background black white 
+    set -l variable_name "v" 
+    whatis -? --config-file --help --regex "*" 
+
+    set -l variable_name (string split0 --fields 1 --right --max 4 '\t' "$argv")
+    
+    string pad --width 10 --char " " "$argv" 
+
+    set -l variable_name "value" 
+
+
+    if test -n "$variable_name" 
+        echo "variable_name is not empty" 
+    end
+
+    for i in (seq 1 (count $variable_name))
+    end
+
+    for i in $variable_name
+        echo $i
+    end
+    set variable_name "value" 
+end
+
+
+set -l file "test.fish"
+test-fish-lsp $file
+
+file
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/toggle_prompt.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "# changes the size of the powerline prompt\n\nfunction toggle_prompt -d \"Toggle the size of the powerline prompt\"\n    touch $prompt_size_file;\n    set -l file_found (cat -p $prompt_size_file)\n    if test \"$file_found\" = \"\"\n        echo \"0\" > $prompt_size_file;\n    end\n    if set -q argv;and test \"$argv\" = \"-r\";\n        __reset_prompt_size_flag;\n        return;\n    end\n    if test $file_found -eq 0\n        echo \"1\" > $prompt_size_file;\n        lengthen_prompt; commandline -f repaint;\n        return;\n    else if test $file_found -eq 1\n        echo \"0\" > $prompt_size_file;\n        shorten_prompt; commandline -f repaint;\n        return;\n    else \n        __debug_info_unseen_pflag;\n    end\nend\n\nfunction __debug_info_unseen_pflag\n    spaced_print_seperator;\n    set_color red --bold;\n    echo -n \"Error:\";\n    reset_color;set_color brred --italic;\n    echo \" $prompt_size_file is not a valid value\";\n    echo \"       this message also means that the no value\";\n    echo \"       was read from the file in ~/.config/fish\";\n    spaced_print_seperator;\n    cat $prompt_size_file;\n    spaced_print_seperator;\n    set_random_color --background;\n    echo \" USAGE: toggle_prompt [-r]\";\n    echo \"\"\n    echo \"        -r: reset the prompt size to the default\";\n    echo \"\";\n    echo \"        all other flags will print this message\";\n    echo \"\";\n    echo \"ideally toggle_prompt function should not take flags\";\n    print_seperator;\n    set_random_color --underline --background;\n    echo \"Two files called from spaced_print_seperator.fish\";\n    echo \"\"\n    set_random_color --background;\n    echo -n \"    [1] -\"; set_random_color; echo \" $HOME/.config/fish/functions/shorten_prompt.fish\";\n    echo \"\"\n    set_random_color --background;\n    echo -n \"    [2] -\"; set_random_color; echo \" $HOME/.config/fish/functions/lengthen_prompt.fish\";\n    spaced_print_seperator;\n    set_random_color --italic;\n    echo \"Now setting to default value of 0\";\n    echo \"\"\n    set_random_color --italic;\n    echo \"this should never happen, but if it does you can reset\"\n    set_random_color;echo -n \"file: \";\n    set_random_color;echo \"$prompt_size_file\"\n    echo \"\";\n    spaced_print_seperator;\n    echo 'Use Command: echo \"0\" > $prompt_size_file';\n    spaced_print_seperator;\nend\n\n#function __help_print_helper\n#    spaced_print_seperator\n#    echo \"toggle_prompt / toggle_prompt.fish\"\n#    spaced_print_seperator\n#    echo \"Toggle the size of the powerline prompt\"\n#    spaced_print_seperator;\n#    echo \"Usage: toggle_prompt [h|help] [s|small] [l|large] [n|no-change]\"\n#    echo \"\"\n#    echo \"passing no flags will just directly toggle the prompt, where as flags will override this default behavior\"\n#    spaced_print_seperator;\n#    echo \"Options:\"\n#    echo \"  [ f | first ]     - do not change the prompt from prev size \"\n#    echo \"  [ n | no-change ] - do not change the prompt\"\n#    echo \"  [ s | short ]     - make the prompt short\"\n#    echo \"  [ l | long ]      - make the prompt large\"\n#    echo \"  [ h | help ]      - Print this help message\"\n#    spaced_print_seperator;\n#end\n\nfunction __reset_prompt_size_flag\n    echo \"0\" > $prompt_size_file;\n    shorten_prompt; commandline -f repaint;\n    spaced_print_seperator;\n    echo \"saw reset flag in toggle_prompt.fish\";\n    spaced_print_seperator;\n    source_fish;and exec fish;\nend\n\n\n\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/toggle_prompt.fish
+opened document: file:///home/ndonfris/.config/fish/functions/toggle_prompt.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/toggle_prompt.fish
+onDocumentSymbols
+length: 13
+onReference
+# changes the size of the powerline prompt
+
+function toggle_prompt -d "Toggle the size of the powerline prompt"
+    touch $prompt_size_file;
+    set -l file_found (cat -p $prompt_size_file)
+    if test "$file_found" = ""
+        echo "0" > $prompt_size_file;
+    end
+    if set -q argv;and test "$argv" = "-r";
+        __reset_prompt_size_flag;
+        return;
+    end
+    if test $file_found -eq 0
+        echo "1" > $prompt_size_file;
+        lengthen_prompt; commandline -f repaint;
+        return;
+    else if test $file_found -eq 1
+        echo "0" > $prompt_size_file;
+        shorten_prompt; commandline -f repaint;
+        return;
+    else 
+        __debug_info_unseen_pflag;
+    end
+end
+
+function __debug_info_unseen_pflag
+    spaced_print_seperator;
+    set_color red --bold;
+    echo -n "Error:";
+    reset_color;set_color brred --italic;
+    echo " $prompt_size_file is not a valid value";
+    echo "       this message also means that the no value";
+    echo "       was read from the file in ~/.config/fish";
+    spaced_print_seperator;
+    cat $prompt_size_file;
+    spaced_print_seperator;
+    set_random_color --background;
+    echo " USAGE: toggle_prompt [-r]";
+    echo ""
+    echo "        -r: reset the prompt size to the default";
+    echo "";
+    echo "        all other flags will print this message";
+    echo "";
+    echo "ideally toggle_prompt function should not take flags";
+    print_seperator;
+    set_random_color --underline --background;
+    echo "Two files called from spaced_print_seperator.fish";
+    echo ""
+    set_random_color --background;
+    echo -n "    [1] -"; set_random_color; echo " $HOME/.config/fish/functions/shorten_prompt.fish";
+    echo ""
+    set_random_color --background;
+    echo -n "    [2] -"; set_random_color; echo " $HOME/.config/fish/functions/lengthen_prompt.fish";
+    spaced_print_seperator;
+    set_random_color --italic;
+    echo "Now setting to default value of 0";
+    echo ""
+    set_random_color --italic;
+    echo "this should never happen, but if it does you can reset"
+    set_random_color;echo -n "file: ";
+    set_random_color;echo "$prompt_size_file"
+    echo "";
+    spaced_print_seperator;
+    echo 'Use Command: echo "0" > $prompt_size_file';
+    spaced_print_seperator;
+end
+
+#function __help_print_helper
+#    spaced_print_seperator
+#    echo "toggle_prompt / toggle_prompt.fish"
+#    spaced_print_seperator
+#    echo "Toggle the size of the powerline prompt"
+#    spaced_print_seperator;
+#    echo "Usage: toggle_prompt [h|help] [s|small] [l|large] [n|no-change]"
+#    echo ""
+#    echo "passing no flags will just directly toggle the prompt, where as flags will override this default behavior"
+#    spaced_print_seperator;
+#    echo "Options:"
+#    echo "  [ f | first ]     - do not change the prompt from prev size "
+#    echo "  [ n | no-change ] - do not change the prompt"
+#    echo "  [ s | short ]     - make the prompt short"
+#    echo "  [ l | long ]      - make the prompt large"
+#    echo "  [ h | help ]      - Print this help message"
+#    spaced_print_seperator;
+#end
+
+function __reset_prompt_size_flag
+    echo "0" > $prompt_size_file;
+    shorten_prompt; commandline -f repaint;
+    spaced_print_seperator;
+    echo "saw reset flag in toggle_prompt.fish";
+    spaced_print_seperator;
+    source_fish;and exec fish;
+end
+
+
+
+
+prompt_size_file
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/config.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "\n# ┌──────────┐\n# │┏━╸╻┏━┓╻ ╻│\n# │┣╸ ┃┗━┓┣━┫│\n# │╹  ╹┗━┛╹ ╹│\n# └──────────┘\n\nset -gx OS_NAME (get-os-name) # check for mac or linux\n\n# ┌──────────┐\n# │ defaults │\n# └──────────┘\nset -gx TERM \"xterm-256color\"\nset -gx SCRIPTS \"$HOME/.config/fish/scripts\"\nset -gx EXE \"$HOME/.config/fish/scripts\"\n#set -gx TERMINAL 'terminator'\n#set -gx TERMINAL 'gnome-terminal'\nset -gx TERMINAL 'tilix'\nset -gx COLOR_TERM \"truecolor\"\nset -gx EDITOR 'nvim'\nset -gx VISUAL 'nvim'\nset -gx NVIM_RANGER_FILE \"$HOME/.config/nvim/nvim_ranger_file\"\nset -gx NODE_MODULES_PATH '/usr/local/lib/node_modules/'\n\n# ┌────────┐\n# │ prompt │\n# └────────┘\noh-my-posh init fish | source\nsource ~/.local/share/icons-in-terminal/icons.fish\n\nset -gx prompt_size_file $HOME/.config/fish/fish_prompt_is_long\nset_first_prompt_size;\n\n# ┌─────────────┐\n# │┏━┓╻  ╻┏━┓┏━┓│\n# │┣━┫┃  ┃┣━┫┗━┓│\n# │╹ ╹┗━╸╹╹ ╹┗━┛│\n# └─────────────┘\nalias lt=\"ls --tree\"\nalias lst=\"ls --tree\"\nalias sl=\"sl -l -e -F\"\nalias cs=\"sl -l -e -F\"\nalias cmatrix=\"unimatrix -l nnnnkkgGcAas -n -s 97 -f --color=yellow\"\nalias cbon=\"cbonsai --multiplier=3 --life=45 --live\"\nalias vimdiff=\"nvim -d\"\nalias vdiff=\"nvim -d\"\nalias vd=\"nvim -d\"\n#alias neovide=\"neovide --multigrid\"\nalias gitqc='git add . && git commit -m \"added minor changes\" && git push ' \nalias gcan='git commit --amend --no-edit'\nalias nvim_norc='nvim -U norc'\nalias nvim_search='nvim -c \":FZFAll\"'\nalias prompt_fix='commandline -f repaint'\n#alias cat='batcat'\nalias lg='lazygit'\nalias f='floaterm'\nalias fmui=\"~/fmui/fmui\"\n\n# ┌─────────────────────┐\n# │┏━╸╻ ╻┏━┓┏━┓┏━┓╺┳╸┏━┓│\n# │┣╸ ┏╋┛┣━┛┃ ┃┣┳┛ ┃ ┗━┓│\n# │┗━╸╹ ╹╹  ┗━┛╹┗╸ ╹ ┗━┛│\n# └─────────────────────┘\n\n# ┌───────┐\n# │ paths │\n# └───────┘\nset -x PATH /home/ndonfris/.local/bin /usr/local/bin /usr/bin /usr/sbin /home/ndonfris/.cargo/env /usr/share/dasht/bin $PATH\nset -gx GOPATH $HOME/go\nset -gx FISH_PATH \"$HOME/.config/fish\"\nset -gx NVIM_PATH \"$HOME/.config/nvim\"\nset -gx DIR_MUSIC $HOME/Music\nset -gx XDG_CONFIG_HOME /home/ndonfris/.config\nset -gx ff $HOME/.config/fish/functions/\n\n\n# ┌───────┐\n# │ theme │\n# └───────┘\nset -gx LS_COLORS (vivid generate ls_theme)\nset -gx EXA_COLORS (vivid generate exa_theme)\nset fish_cursor_unknown block\nset fish_pager_color_description blue\nset fish_color_search_match blue\nset -gx BAT_PAGER \"less -RF\"\nset -gx BAT_THEME \"base16\"\nset -gx fish_pager_color_prefix '#815bf5' --bold\nset -gx fish_pager_color_completion '#685abc'\nset -gx fish_pager_color_secondary_prefix '#685abc'\nset -gx fish_pager_color_secondary_completion '#685abc'\nset -gx fish_pager_color_secondary_descrition '#685abc'\nset -gx fish_pager_color_selected_prefix white\nset -gx fish_pager_color_selected_completion white \nset -gx fish_pager_color_selected_description white\nset -gx fish_pager_color_selected_background --background='#685abc'\nset -gx DASHT_DOCSETS_DIR \"$HOME/.local/share/Zeal/Zeal/docsets\"\n\n\n# ┌──────┐\n# │ ENV  │\n# └──────┘\nload_env_vars $NVIM_PATH/.openai_key\n\n\n# ┌──────┐\n# │ TMUX │\n# └──────┘\nset -gx pref_tmux_session_names 'expo' 'fish' 'nvim' 'work' 'nvim-lua' '445' 'leetcode' 'temp' 'working' 'main' 'master' 'backend' 'frontend' 'project' 'git' 'tmp' 'default' 'other' 'source' 'hw' 'new'\nset -gx tmux_conf $HOME/.tmux.conf\nset -gx tmux_dir $HOME/.config/tmux/\n\n\n# ┌─────┐\n# │ FZF │\n# └─────┘\n# alias's for fzf so that default formatting is always availible\nset -gx _FZF_COLORS \"--color='fg:#7ba2f3,bg:-1,hl:#5f87af,fg+:#15a9bf,bg+:#414868,hl+:#5fd7ff,info:#c0caf5,prompt:#685abc,pointer:#af5fff,marker:#685abc,spinner:#af5fff,header:#797fda,border:#5fd7ff,gutter:-1'\"\nset -gx _FZF_PREVIEW \"--preview='_fzf_preview {}'\"\nset -gx _FZF_WINDOW \"--ansi --height 75% --min-height 30  --margin 5% --padding 1% --border=rounded --reverse\"\nset -gx _FZF_TMUX_WINDOW \"--ansi --reverse\"\nset -gx _FZF_NAV_KEYS \"--bind=ctrl-u:page-up,ctrl-d:page-down,ctrl-h:backward-kill-word,tab:replace-query,down:preview-page-down,up:preview-page-up,change:top\"\nset -gx _FZF_CMD_KEYS \"--bind='ctrl-g:reload(_fzf_subcommand_git_status),ctrl-r:reload(history),ctrl-f:reload(find_child_files),alt-d:reload(_fzf_search_directory),alt-g:reload(_fzf_search_git_log),ctrl-o:reload(list_parents),ctrl-l:execute(fd . --type f),?:reload(fzf_subcommand_man)'\"\nset -gx _FZF_DEFAULT_OPTS \"$_FZF_COLORS $_FZF_WINDOW $_FZF_PREVIEW $_FZF_NAV_KEYS $_FZF_CMD_KEYS\"\n\n# fzf aliases\nset -gx FZF_DEFAULT_OPTS \"$_FZF_COLORS $_FZF_TMUX_WINDOW $_FZF_NAV_KEYS\"\nset -gx FZF_DEFAULT_COMMAND \"all_finder\";\n#set -U FZF_LEGACY_KEYBINDINGS 1\nalias fzf_mini=\"fzf $_FZF_COLORS $_FZF_TMUX_WINDOW $_FZF_NAV_KEYS $_FZF_PREVIEW --preview-window='down,65%,rounded'\"\nalias fzf_min=\"/usr/bin/fzf $_FZF_COLORS $_FZF_WINDOW $_FZF_NAV_KEYS\"\nalias fzf_mine=\"fzf $_FZF_DEFAULT_OPTS\"\nalias fzf_gt='__fzf_open_mine'\n\n# ┌──────┐\n# │ Man  │\n# └──────┘\nif test \"$MANPATH\" = \"\";\n    set -gx MANPATH (manpath)\nend\nset -gx MANPATH /usr/share/fish/man /usr/share/dasht/man $MANPATH\nset -g man_blink -o magenta\nset -g man_bold -o blue \nset -g man_standout -b blue --bold white\nset -g man_underline -u white\n\n# ┌──────┐\n# │ JAVA │\n# └──────┘\nset -gx JAVA_HOME /usr/lib/jvm/zulu-18-amd64\nset -gx PATH_TO_FX ~/Downloads/javafx-sdk-17.0.1/lib\n\n\n# ┌──────────────────────────┐\n# │ ranger fzf marks plugins │\n# └──────────────────────────┘\nset -gx _fzf_fzm_defaults \"--ansi --margin 5% --padding 1% --border=rounded --reverse --height 95% --min-height 30 --cycle +m\"\nset -gx _fzf_fzm_preview_window \"--with-nth -1 --preview='exa --icons /home/ndonfris/{3}' --preview-window=right:25%\"\nset -gx FZF_FZM_OPTS \"$_fzf_fzm_defaults $_fzf_fzm_preview_window $_FZF_COLORS $_FZF_NAV_KEYS\"\nset -gx FZF_MARKS_CMD \"/usr/bin/fzf $FZF_FZM_OPTS\"\n\n# ┌──────────────────────┐\n# │╻┏ ┏━╸╻ ╻┏┓ ╻┏┓╻╺┳┓┏━┓│\n# │┣┻┓┣╸ ┗┳┛┣┻┓┃┃┗┫ ┃┃┗━┓│\n# │╹ ╹┗━╸ ╹ ┗━┛╹╹ ╹╺┻┛┗━┛│\n# └──────────────────────┘\n\n# fish function for user key bindings -> u can goto the files in the function calls\nfunction fish_user_key_bindings\n    #bind \" \" expand-abbr or self-insert\n    bind \\t 'expand_abbr_or_tab_complete'\n    bind \\cA 'beginning-of-buffer'\n    bind \\cE 'accept-autosuggestion-or-end-of-buffer'\n    bind \\cH 'backward-kill-word' \n    bind \\cW 'suppress-autosuggestion-and-backward-kill-bigword'\n    bind \\e\\[A 'page-up-or-history-backward' \n    bind \\e\\[B 'page-down-or-history-forward'\n    bind \\cd 'exit-or-smart-clear'\n    bind \\cc 'toggle-comment-or-cancel-command'\n    bind \\cj 'down-or-nextd-or-forward-word'\n    bind \\ck 'up-or-prevd-or-backward-word'\n    bind \\cr 'ranger; commandline -f repaint'\n    #bind \\ct 'commandline -f repaint'\n    bind -k nul 'fzf-or-toggle-auto-complete;commandline -f repaint' \n    bind \\cv 'fish_clipboard_paste'\n    bind \\cS 'toggle_prompt; commandline -f repaint'\n    bind \\cG 'lazygit; commandline -f repaint'\n    bind \\cB 'bt-fzf-grep; commandline -f repaint'\n    bind \\e\\cN '$TERMINAL && xdotool key \"super+n\"'\n    bind \\e\\cT '$TERMINAL && xdotool key \"super+n\"'\n    bind \\e\\cR '$EXE/open_term_run_ranger.sh $PWD'\n    bind \\cT '$TERMINAL'\n    bind ~~~ 'tmux -2; commandline -f repaint;'\n    bind \\cY 'fzf-history-or-copy-to-clipboard'\n    bind \\ey 'select_from_last'\n    bind \\ez 'fzf-search; commandline -f repaint'\n    bind \\c_ 'backward-jump' # ctrl + /\n    bind \\cF 'fzf-recent-dirs; commandline -f repaint'\n    bind \\ef 'forward-jump'\n    bind \\e\\; 'repeat-jump'\n    bind \\e\\, 'repeat-jump-reverse'\n    bind \\eo 'insert-line-under'\n    #bind \\c\\; 'repeat-jump'\n    #bind \\cT 'fzf-search;commandline -f repaint'\n    bind \\eu 'undo' # DNE on ergodox layout\n    bind \\er 'redo'\n    bind \\em '__fish_man_page'\n    bind \\eg 'commandline -r \"gt \"; commandline -f repaint; commandline -f complete';\nend\n\n# ┌────────────┐\n# │┏━┓┏┓ ┏┓ ┏━┓│\n# │┣━┫┣┻┓┣┻┓┣┳┛│\n# │╹ ╹┗━┛┗━┛╹┗╸│\n# └────────────┘\nset -g test_var true # set test_var equal to something then run tvif abbr\n\n# ┌─────────────────┐\n# │ system commands │\n# └─────────────────┘\nset -a -g rmf 'rm -f'\nset -a -g rmr 'rm -rf'\nset -a -g mkdir 'mkdir -p'\nabbr -a -g apt 'sudo apt'\nabbr -a -g aptg 'sudo apt-get'\nabbr -a -g apti 'sudo apt install'\nabbr -a -g apts 'apt search'\nabbr -a -g apty 'sudo apt install -y'\n\nabbr -a -g tvif 'if test $test_var; echi 1; else; echi 0; end;'\n\n# ┌────────┐\n# │ github │\n# └────────┘\nabbr -a -g readme 'nvim README.md'\nabbr -a -g clog 'nvim CHANGELOG.md'\nabbr -a -g gwa 'git worktree add'\nabbr -a -g rdme 'nvim README.md'\nabbr -a -g ignr 'nvim .gitignore'\nabbr -a -g gti 'nvim .gitignore'\n\n# ┌────────┐\n# │ cutsom │\n# └────────┘\nabbr -a -g nvimff \"nvim -O $HOME/.config/fish/{functions,completions}/\"\nabbr -a -g gacc \"git@github.com:ndonfris/SOMEREPO.git\"\nabbr -a -g fish_path \"$HOME/.config/fish\"\nabbr -a -g nvim_path \"$HOME/.config/nvim\"\nabbr -a -g fz \"fzf-\"\nabbr -a -g fzs \"bt-fzf-switch\"\nabbr -a -g fzt \"bt-fzf-grep\"\nabbr -a -g fzff \"ls $HOME/.config/fish/functions | grep \\\"fzf\\\"\"\nabbr -a -g tm \"tmux -2\"\nabbr -a -g sf \"source_fish -q;\"\nabbr -a -g ech \"echi\"\nabbr -a -g echy \"echi y;\"\nabbr -a -g echn \"echi n;\"\nabbr -a -g echf \"echi f;\"\nabbr -a -g echm \"echi m;\"\nabbr -a -g ya \"echi y\"\nabbr -a -g no \"echi n\"\nabbr -a -g fff \"fzf-search\"\nabbr -a -g lsg '(ls . | grep \"*\")'\nabbr -a -g grepf '(ls . | grep \"*\")'\nabbr -a -g fdn 'set -l var \"\"; nvim (lso -t | fd \"$var\" | grep \"$var\" | head -n 5)'\nabbr -a -g fd_n 'nvim (lso -t | grep \"*\")'\nabbr -a -g fds 'set -l var \"\"; lso -t | fd \"$var\" | grep \"$var\" | head -n 5'\nabbr -a -g fd_s 'lso -t | grep \"*\"'\nabbr -a -g ls_start 'lso -t | grep -e \"^\\(word\\)\\.*\"'\nabbr -a -g ls_end 'lso -t | grep  -e \"\\(word\\)\\$\"'\nabbr -a -g ls_not 'lso -t | grep --invert-match -e \"\\(word\\)\"'\n\nabbr -a -g ls_recent \"lso -t | head -n 10\"\n\nabbr -a -g no_stderr '$history[1] 2>/dev/null'\nabbr -a -g no_stdout '$history[1] 1>/dev/null'\n\nabbr -a -g h10 'head -n 10'\nabbr -a -g t10 'tail -n 10'\n\nabbr -a -g ls_full 'realpath (lso -t | grep --exclude-dir \"**/node_modules\" -e \"\\(SEARCH\\)\")'\n#abbr -a -g ff 'nvim (fd --type f)'\nabbr -a -g gtree 'git worktree'\nabbr -a -g gw 'git worktree'\nabbr -a -g gc-b 'git clone --bare'\n\nabbr -a -g cpff 'cp -r $HOME/.config/fish/functions/ '\n\nabbr -a -g nn 'nvim $HOME/.config/nvim/'\nabbr -a -g nl 'nvim lua/user/'\nabbr -a -g nlu 'nvim lua/user/'\nabbr -a -g nlc 'nvim lua/completion/'\nabbr -a -g np 'nvim plug-config/'\nabbr -a -g npp 'nvim vim-plug/plugins.vim'\nabbr -a -g na 'nvim autoload/plugged/'\n\n# ┌───────────┐\n# │ tmux abbr │\n# └───────────┘\nabbr -a -g tns \"tmux-new-session\"\nabbr -a -g tmuxs \"fzf-tmux-search\"\n\nabbr -a -g in_neovim_statement 'if set -q $NVIM; echi y;else;echi n;end'\n\n# ┌─────────────────────────┐\n# │ multiline abbreviations │\n# └─────────────────────────┘\n#abbr -a -g qwhile 'while true;  read -t -l var -P \"(q to quit) var > \"; \\\n#switch \"$var\"; \\\n#case q Q; \\\n#break; \\\n#case \\*; \\\n#echo \"$var\"; \\\n#continue; \\\n#end;end;'\n#\n#abbr -a -g qread 'while true;  read -t -l var -P \"(q to quit) var > \"; \\\n#switch \"$var\"; \\\n#case q Q; \\\n#break; \\\n#case \\*; \\\n#echo \"$var\"; \\\n#continue; \\\n#end;end;'\n#\n#abbr -a -g qif 'set -l var (echo \"\" ); \\\n#if test \"$var\" = \"_\";\\\n#echi yes;\\\n#else; \\\n#echi no;\\\n#end;'\n\nabbr -a -g fft 'firefox_tab'\n\nabbr -a -g gr 'gt r'\nabbr -a -g rr 'gt r'\n\nabbr -a -g lss 'ls -l --sort=size'\nabbr -a -g conf 'cd ~/.config/'\nabbr -a -g npmw 'npm run watch'\nabbr -a -g npmr 'npm run'\nabbr -a -g home 'cd $HOME'\n\nset -gx fish_tmux_autostart false\nset -gx fish_tmux_autostart_once true\nset -gx fish_tmux_autoconnect false\n\nset -gx open_in_working_dir_file $HOME/.open_in_working_dir_file\n\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/config.fish
+opened document: file:///home/ndonfris/.config/fish/config.fish
+analyzed document: file:///home/ndonfris/.config/fish/config.fish
+onDocumentSymbols
+length: 71
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/config.fish
+onDocumentSymbols
+length: 71
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/config.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/set_first_prompt_size.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "# set_first_prompt_size - sets the initial prompt, (without toggling it)\n#\n# see also:\n#          toggle_prompt.fish\n#          config.fish\n\n\nfunction set_first_prompt_size -d \"Called on startup to keep prompt size consistent. Provides the opposite functionality to toggle_prompt\"\n    touch $prompt_size_file;\n    set -l file_found (/usr/bin/cat $prompt_size_file)\n    if test \"$file_found\" = \"\"\n        echo \"0\" > $prompt_size_file;\n    end\n    if test $file_found -eq 0\n        shorten_prompt;\n        return;\n    else if test $file_found -eq 1\n        lengthen_prompt;\n        return;\n    end\nend\n\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/set_first_prompt_size.fish
+opened document: file:///home/ndonfris/.config/fish/functions/set_first_prompt_size.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/set_first_prompt_size.fish
+onDocumentSymbols
+length: 7
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/config.fish
+onDocumentSymbols
+length: 71
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/config.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/config.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/config.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/config.fish
+server.onComplete
+onComplete: /home/ndonfris/.config/fish/config.fish : set -gx prompt_size_file "$FISH_
+root: (program (comment) (comment) (comment) (comment) (comment) (command name: (word) argument: (word) argument: (word) argument: (command_substitution (command_substitution_fish (command name: (word))))) (comment) (comment) (comment) (comment) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (comment) (comment) (command name: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (word) argument: (word) argument: (single_quote_string)) (comment) (comment) (comment) (pipe (command name: (word) argument: (word) argument: (word)) (command name: (word))) (command name: (word) argument: (concatenation (home_dir_expansion) (word))) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word)) (comment) (comment) (comment) (comment) (comment) (command name: (word) argument: (concatenation (word) (double_quote_string))) (command name: (word) argument: (concatenation (word) (double_quote_string))) (command name: (word) argument: (concatenation (word) (double_quote_string))) (command name: (word) argument: (concatenation (word) (double_quote_string))) (command name: (word) argument: (concatenation (word) (double_quote_string))) (command name: (word) argument: (concatenation (word) (double_quote_string))) (command name: (word) argument: (concatenation (word) (double_quote_string))) (command name: (word) argument: (concatenation (word) (double_quote_string))) (command name: (word) argument: (concatenation (word) (double_quote_string))) (comment) (command name: (word) argument: (concatenation (word) (single_quote_string))) (command name: (word) argument: (concatenation (word) (single_quote_string))) (command name: (word) argument: (concatenation (word) (single_quote_string))) (command name: (word) argument: (concatenation (word) (single_quote_string))) (command name: (word) argument: (concatenation (word) (single_quote_string))) (comment) (command name: (word) argument: (concatenation (word) (single_quote_string))) (command name: (word) argument: (concatenation (word) (single_quote_string))) (command name: (word) argument: (concatenation (word) (double_quote_string))) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word) argument: (word) argument: (word) argument: (word) argument: (word) argument: (variable_expansion (variable_name))) (command name: (word) argument: (word) argument: (word) argument: (concatenation (variable_expansion (variable_name)) (word))) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (word) argument: (word) argument: (concatenation (variable_expansion (variable_name)) (word))) (command name: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (concatenation (variable_expansion (variable_name)) (word))) (comment) (comment) (comment) (command name: (word) argument: (word) argument: (word) argument: (command_substitution (command_substitution_fish (command name: (word) argument: (word) argument: (word))))) (command name: (word) argument: (word) argument: (word) argument: (command_substitution (command_substitution_fish (command name: (word) argument: (word) argument: (word))))) (command name: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (single_quote_string) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (concatenation (word) (single_quote_string))) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (comment) (comment) (comment) (command name: (word) argument: (concatenation (variable_expansion (variable_name)) (word))) (comment) (comment) (comment) (command name: (word) argument: (word) argument: (word) argument: (single_quote_string) argument: (single_quote_string) argument: (single_quote_string) argument: (single_quote_string) argument: (single_quote_string) argument: (single_quote_string) argument: (single_quote_string) argument: (single_quote_string) argument: (single_quote_string) argument: (single_quote_string) argument: (single_quote_string) argument: (single_quote_string) argument: (single_quote_string) argument: (single_quote_string) argument: (single_quote_string) argument: (single_quote_string) argument: (single_quote_string) argument: (single_quote_string) argument: (single_quote_string) argument: (single_quote_string) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (concatenation (variable_expansion (variable_name)) (word))) (command name: (word) argument: (word) argument: (word) argument: (concatenation (variable_expansion (variable_name)) (word))) (comment) (comment) (comment) (comment) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string (variable_expansion (variable_name)) (variable_expansion (variable_name)) (variable_expansion (variable_name)) (variable_expansion (variable_name)) (variable_expansion (variable_name)))) (comment) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string (variable_expansion (variable_name)) (variable_expansion (variable_name)) (variable_expansion (variable_name)))) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (comment) (command name: (word) argument: (concatenation (word) (double_quote_string (variable_expansion (variable_name)) (variable_expansion (variable_name)) (variable_expansion (variable_name)) (variable_expansion (variable_name))))) (command name: (word) argument: (concatenation (word) (double_quote_string (variable_expansion (variable_name)) (variable_expansion (variable_name)) (variable_expansion (variable_name))))) (command name: (word) argument: (concatenation (word) (double_quote_string (variable_expansion (variable_name))))) (command name: (word) argument: (concatenation (word) (single_quote_string))) (comment) (comment) (comment) (if_statement condition: (test_command argument: (double_quote_string (variable_expansion (variable_name))) argument: (test_option) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (command_substitution (command_substitution_fish (command name: (word)))))) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word) argument: (variable_expansion (variable_name))) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word)) (comment) (comment) (comment) (command name: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (concatenation (home_dir_expansion) (word))) (comment) (comment) (comment) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string (variable_expansion (variable_name)) (variable_expansion (variable_name)) (variable_expansion (variable_name)) (variable_expansion (variable_name)))) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (comment) (comment) (comment) (comment) (comment) (comment) (function_definition name: (word) (comment) (command name: (word) argument: (escape_sequence) argument: (single_quote_string)) (command name: (word) argument: (escape_sequence) argument: (single_quote_string)) (command name: (word) argument: (escape_sequence) argument: (single_quote_string)) (command name: (word) argument: (escape_sequence) argument: (single_quote_string)) (command name: (word) argument: (escape_sequence) argument: (single_quote_string)) (command name: (word) argument: (concatenation (escape_sequence) (escape_sequence) (word)) argument: (single_quote_string)) (command name: (word) argument: (concatenation (escape_sequence) (escape_sequence) (word)) argument: (single_quote_string)) (command name: (word) argument: (escape_sequence) argument: (single_quote_string)) (command name: (word) argument: (escape_sequence) argument: (single_quote_string)) (command name: (word) argument: (escape_sequence) argument: (single_quote_string)) (command name: (word) argument: (escape_sequence) argument: (single_quote_string)) (command name: (word) argument: (escape_sequence) argument: (single_quote_string)) (comment) (command name: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (escape_sequence) argument: (single_quote_string)) (command name: (word) argument: (escape_sequence) argument: (single_quote_string)) (command name: (word) argument: (escape_sequence) argument: (single_quote_string)) (command name: (word) argument: (escape_sequence) argument: (single_quote_string)) (command name: (word) argument: (concatenation (escape_sequence) (escape_sequence)) argument: (single_quote_string)) (command name: (word) argument: (concatenation (escape_sequence) (escape_sequence)) argument: (single_quote_string)) (command name: (word) argument: (concatenation (escape_sequence) (escape_sequence)) argument: (single_quote_string)) (command name: (word) argument: (escape_sequence) argument: (single_quote_string)) (command name: (word) argument: (concatenation (home_dir_expansion) (home_dir_expansion) (home_dir_expansion)) argument: (single_quote_string)) (command name: (word) argument: (escape_sequence) argument: (single_quote_string)) (command name: (word) argument: (concatenation (escape_sequence) (word)) argument: (single_quote_string)) (command name: (word) argument: (concatenation (escape_sequence) (word)) argument: (single_quote_string)) (command name: (word) argument: (concatenation (escape_sequence) (word)) argument: (single_quote_string)) (comment) (command name: (word) argument: (escape_sequence) argument: (single_quote_string)) (command name: (word) argument: (concatenation (escape_sequence) (word)) argument: (single_quote_string)) (command name: (word) argument: (concatenation (escape_sequence) (escape_sequence)) argument: (single_quote_string)) (command name: (word) argument: (concatenation (escape_sequence) (escape_sequence)) argument: (single_quote_string)) (command name: (word) argument: (concatenation (escape_sequence) (word)) argument: (single_quote_string)) (comment) (comment) (command name: (word) argument: (concatenation (escape_sequence) (word)) argument: (single_quote_string)) (comment) (command name: (word) argument: (concatenation (escape_sequence) (word)) argument: (single_quote_string)) (command name: (word) argument: (concatenation (escape_sequence) (word)) argument: (single_quote_string)) (command name: (word) argument: (concatenation (escape_sequence) (word)) argument: (single_quote_string))) (comment) (comment) (comment) (comment) (comment) (command name: (word) argument: (word) argument: (word) argument: (word)) (comment) (comment) (comment) (comment) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (comment) (comment) (comment) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (comment) (comment) (comment) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (double_quote_string (variable_expansion (variable_name)) (escape_sequence) (escape_sequence))) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string (escape_sequence) (escape_sequence) (escape_sequence))) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string (escape_sequence) (escape_sequence) (escape_sequence))) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string (escape_sequence) (escape_sequence))) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string (escape_sequence) (escape_sequence))) (comment) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (comment) (comment) (comment) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (concatenation (variable_expansion (variable_name)) (word))))
+onDocumentSymbols
+length: 71
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/config.fish
+onDocumentSymbols
+length: 71
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/config.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/toggle_prompt.fish
+onDocumentSymbols
+length: 13
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/toggle_prompt.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/toggle_prompt.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/toggle_prompt.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/toggle_prompt.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/toggle_prompt.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/toggle_prompt.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/toggle_prompt.fish
+onDocumentSymbols
+length: 13
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/toggle_prompt.fish
+server.onComplete
+onComplete: /home/ndonfris/.config/fish/functions/toggle_prompt.fish :     set -l file_found (cat $prompt_size_file | wc -
+root: (program (comment) (function_definition name: (word) option: (word) option: (double_quote_string) (command name: (word) argument: (variable_expansion (variable_name))) (command name: (word) argument: (word) argument: (word) argument: (command_substitution (command_substitution_fish (pipe (command name: (word) argument: (variable_expansion (variable_name))) (command name: (word) argument: (word)))))) (if_statement condition: (test_command argument: (double_quote_string (variable_expansion (variable_name))) argument: (test_option) argument: (double_quote_string)) (redirected_statement (command name: (word) argument: (double_quote_string)) (file_redirect operator: (direction) destination: (variable_expansion (variable_name))))) (if_statement condition: (command name: (word) argument: (word) argument: (word)) (conditional_execution (test_command argument: (double_quote_string (variable_expansion (variable_name))) argument: (test_option) argument: (double_quote_string))) (command name: (word)) (return)) (if_statement condition: (test_command argument: (variable_expansion (variable_name)) argument: (test_option) argument: (integer)) (redirected_statement (command name: (word) argument: (double_quote_string)) (file_redirect operator: (direction) destination: (variable_expansion (variable_name)))) (command name: (word)) (command name: (word) argument: (word) argument: (word)) (return) (else_if_clause condition: (test_command argument: (variable_expansion (variable_name)) argument: (test_option) argument: (integer)) (redirected_statement (command name: (word) argument: (double_quote_string)) (file_redirect operator: (direction) destination: (variable_expansion (variable_name)))) (command name: (word)) (command name: (word) argument: (word) argument: (word)) (return)) (else_clause (command name: (word))))) (function_definition name: (word) (command name: (word)) (command name: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (double_quote_string)) (command name: (word)) (command name: (word) argument: (word) argument: (word)) (command name: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (double_quote_string)) (command name: (word)) (command name: (word) argument: (variable_expansion (variable_name))) (command name: (word)) (command name: (word) argument: (word)) (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (double_quote_string)) (command name: (word)) (command name: (word) argument: (word) argument: (word)) (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (word)) (command name: (word) argument: (word) argument: (double_quote_string)) (command name: (word)) (command name: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (word)) (command name: (word) argument: (word) argument: (double_quote_string)) (command name: (word)) (command name: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word)) (command name: (word) argument: (word)) (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (word)) (command name: (word) argument: (double_quote_string)) (command name: (word)) (command name: (word) argument: (word) argument: (double_quote_string)) (command name: (word)) (command name: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (double_quote_string)) (command name: (word)) (command name: (word) argument: (single_quote_string)) (command name: (word))) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (function_definition name: (word) (redirected_statement (command name: (word) argument: (double_quote_string)) (file_redirect operator: (direction) destination: (variable_expansion (variable_name)))) (command name: (word)) (command name: (word) argument: (word) argument: (word)) (command name: (word)) (command name: (word) argument: (double_quote_string)) (command name: (word)) (command name: (word)) (conditional_execution (command name: (word) argument: (word)))))
+onDocumentSymbols
+length: 13
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/toggle_prompt.fish
+server.onComplete
+onComplete: /home/ndonfris/.config/fish/functions/toggle_prompt.fish :     set -l file_found (cat $prompt_size_file | wc -l
+root: (program (comment) (function_definition name: (word) option: (word) option: (double_quote_string) (command name: (word) argument: (variable_expansion (variable_name))) (command name: (word) argument: (word) argument: (word) argument: (command_substitution (command_substitution_fish (pipe (command name: (word) argument: (variable_expansion (variable_name))) (command name: (word) argument: (word)))))) (if_statement condition: (test_command argument: (double_quote_string (variable_expansion (variable_name))) argument: (test_option) argument: (double_quote_string)) (redirected_statement (command name: (word) argument: (double_quote_string)) (file_redirect operator: (direction) destination: (variable_expansion (variable_name))))) (if_statement condition: (command name: (word) argument: (word) argument: (word)) (conditional_execution (test_command argument: (double_quote_string (variable_expansion (variable_name))) argument: (test_option) argument: (double_quote_string))) (command name: (word)) (return)) (if_statement condition: (test_command argument: (variable_expansion (variable_name)) argument: (test_option) argument: (integer)) (redirected_statement (command name: (word) argument: (double_quote_string)) (file_redirect operator: (direction) destination: (variable_expansion (variable_name)))) (command name: (word)) (command name: (word) argument: (word) argument: (word)) (return) (else_if_clause condition: (test_command argument: (variable_expansion (variable_name)) argument: (test_option) argument: (integer)) (redirected_statement (command name: (word) argument: (double_quote_string)) (file_redirect operator: (direction) destination: (variable_expansion (variable_name)))) (command name: (word)) (command name: (word) argument: (word) argument: (word)) (return)) (else_clause (command name: (word))))) (function_definition name: (word) (command name: (word)) (command name: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (double_quote_string)) (command name: (word)) (command name: (word) argument: (word) argument: (word)) (command name: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (double_quote_string)) (command name: (word)) (command name: (word) argument: (variable_expansion (variable_name))) (command name: (word)) (command name: (word) argument: (word)) (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (double_quote_string)) (command name: (word)) (command name: (word) argument: (word) argument: (word)) (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (word)) (command name: (word) argument: (word) argument: (double_quote_string)) (command name: (word)) (command name: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (word)) (command name: (word) argument: (word) argument: (double_quote_string)) (command name: (word)) (command name: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word)) (command name: (word) argument: (word)) (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (word)) (command name: (word) argument: (double_quote_string)) (command name: (word)) (command name: (word) argument: (word) argument: (double_quote_string)) (command name: (word)) (command name: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (double_quote_string)) (command name: (word)) (command name: (word) argument: (single_quote_string)) (command name: (word))) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (comment) (function_definition name: (word) (redirected_statement (command name: (word) argument: (double_quote_string)) (file_redirect operator: (direction) destination: (variable_expansion (variable_name)))) (command name: (word)) (command name: (word) argument: (word) argument: (word)) (command name: (word)) (command name: (word) argument: (double_quote_string)) (command name: (word)) (command name: (word)) (conditional_execution (command name: (word) argument: (word)))))
+onDocumentSymbols
+length: 13
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/toggle_prompt.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/toggle_prompt.fish
+onDocumentSymbols
+length: 13
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/toggle_prompt.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/toggle_prompt.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/toggle_prompt.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/toggle_prompt.fish
+onDocumentSymbols
+length: 13
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/toggle_prompt.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/toggle_prompt.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/toggle_prompt.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/toggle_prompt.fish
+closed uri: /home/ndonfris/.config/fish/functions/toggle_prompt.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/config.fish
+closed uri: /home/ndonfris/.config/fish/config.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/set_first_prompt_size.fish
+closed uri: /home/ndonfris/.config/fish/functions/set_first_prompt_size.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/config.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "\n# ┌──────────┐\n# │┏━╸╻┏━┓╻ ╻│\n# │┣╸ ┃┗━┓┣━┫│\n# │╹  ╹┗━┛╹ ╹│\n# └──────────┘\n\nset -gx OS_NAME (get-os-name) # check for mac or linux\n\n# ┌──────────┐\n# │ defaults │\n# └──────────┘\nset -gx TERM \"xterm-256color\"\nset -gx SCRIPTS \"$HOME/.config/fish/scripts\"\nset -gx EXE \"$HOME/.config/fish/scripts\"\n#set -gx TERMINAL 'terminator'\n#set -gx TERMINAL 'gnome-terminal'\nset -gx TERMINAL 'tilix'\nset -gx COLOR_TERM \"truecolor\"\nset -gx EDITOR 'nvim'\nset -gx VISUAL 'nvim'\nset -gx NVIM_RANGER_FILE \"$HOME/.config/nvim/nvim_ranger_file\"\nset -gx NODE_MODULES_PATH '/usr/local/lib/node_modules/'\n\n# ┌────────┐\n# │ prompt │\n# └────────┘\noh-my-posh init fish | source\nsource ~/.local/share/icons-in-terminal/icons.fish\n\nset -gx prompt_size_file \"$FISH_PATH/fish_prompt_is_long\"\nset_first_prompt_size;\n\n# ┌─────────────┐\n# │┏━┓╻  ╻┏━┓┏━┓│\n# │┣━┫┃  ┃┣━┫┗━┓│\n# │╹ ╹┗━╸╹╹ ╹┗━┛│\n# └─────────────┘\nalias lt=\"ls --tree\"\nalias lst=\"ls --tree\"\nalias sl=\"sl -l -e -F\"\nalias cs=\"sl -l -e -F\"\nalias cmatrix=\"unimatrix -l nnnnkkgGcAas -n -s 97 -f --color=yellow\"\nalias cbon=\"cbonsai --multiplier=3 --life=45 --live\"\nalias vimdiff=\"nvim -d\"\nalias vdiff=\"nvim -d\"\nalias vd=\"nvim -d\"\n#alias neovide=\"neovide --multigrid\"\nalias gitqc='git add . && git commit -m \"added minor changes\" && git push ' \nalias gcan='git commit --amend --no-edit'\nalias nvim_norc='nvim -U norc'\nalias nvim_search='nvim -c \":FZFAll\"'\nalias prompt_fix='commandline -f repaint'\n#alias cat='batcat'\nalias lg='lazygit'\nalias f='floaterm'\nalias fmui=\"~/fmui/fmui\"\n\n# ┌─────────────────────┐\n# │┏━╸╻ ╻┏━┓┏━┓┏━┓╺┳╸┏━┓│\n# │┣╸ ┏╋┛┣━┛┃ ┃┣┳┛ ┃ ┗━┓│\n# │┗━╸╹ ╹╹  ┗━┛╹┗╸ ╹ ┗━┛│\n# └─────────────────────┘\n\n# ┌───────┐\n# │ paths │\n# └───────┘\nset -x PATH /home/ndonfris/.local/bin /usr/local/bin /usr/bin /usr/sbin /home/ndonfris/.cargo/env /usr/share/dasht/bin $PATH\nset -gx GOPATH $HOME/go\nset -gx FISH_PATH \"$HOME/.config/fish\"\nset -gx NVIM_PATH \"$HOME/.config/nvim\"\nset -gx DIR_MUSIC $HOME/Music\nset -gx XDG_CONFIG_HOME /home/ndonfris/.config\nset -gx ff $HOME/.config/fish/functions/\n\n\n# ┌───────┐\n# │ theme │\n# └───────┘\nset -gx LS_COLORS (vivid generate ls_theme)\nset -gx EXA_COLORS (vivid generate exa_theme)\nset fish_cursor_unknown block\nset fish_pager_color_description blue\nset fish_color_search_match blue\nset -gx BAT_PAGER \"less -RF\"\nset -gx BAT_THEME \"base16\"\nset -gx fish_pager_color_prefix '#815bf5' --bold\nset -gx fish_pager_color_completion '#685abc'\nset -gx fish_pager_color_secondary_prefix '#685abc'\nset -gx fish_pager_color_secondary_completion '#685abc'\nset -gx fish_pager_color_secondary_descrition '#685abc'\nset -gx fish_pager_color_selected_prefix white\nset -gx fish_pager_color_selected_completion white \nset -gx fish_pager_color_selected_description white\nset -gx fish_pager_color_selected_background --background='#685abc'\nset -gx DASHT_DOCSETS_DIR \"$HOME/.local/share/Zeal/Zeal/docsets\"\n\n\n# ┌──────┐\n# │ ENV  │\n# └──────┘\nload_env_vars $NVIM_PATH/.openai_key\n\n\n# ┌──────┐\n# │ TMUX │\n# └──────┘\nset -gx pref_tmux_session_names 'expo' 'fish' 'nvim' 'work' 'nvim-lua' '445' 'leetcode' 'temp' 'working' 'main' 'master' 'backend' 'frontend' 'project' 'git' 'tmp' 'default' 'other' 'source' 'hw' 'new'\nset -gx tmux_conf $HOME/.tmux.conf\nset -gx tmux_dir $HOME/.config/tmux/\n\n\n# ┌─────┐\n# │ FZF │\n# └─────┘\n# alias's for fzf so that default formatting is always availible\nset -gx _FZF_COLORS \"--color='fg:#7ba2f3,bg:-1,hl:#5f87af,fg+:#15a9bf,bg+:#414868,hl+:#5fd7ff,info:#c0caf5,prompt:#685abc,pointer:#af5fff,marker:#685abc,spinner:#af5fff,header:#797fda,border:#5fd7ff,gutter:-1'\"\nset -gx _FZF_PREVIEW \"--preview='_fzf_preview {}'\"\nset -gx _FZF_WINDOW \"--ansi --height 75% --min-height 30  --margin 5% --padding 1% --border=rounded --reverse\"\nset -gx _FZF_TMUX_WINDOW \"--ansi --reverse\"\nset -gx _FZF_NAV_KEYS \"--bind=ctrl-u:page-up,ctrl-d:page-down,ctrl-h:backward-kill-word,tab:replace-query,down:preview-page-down,up:preview-page-up,change:top\"\nset -gx _FZF_CMD_KEYS \"--bind='ctrl-g:reload(_fzf_subcommand_git_status),ctrl-r:reload(history),ctrl-f:reload(find_child_files),alt-d:reload(_fzf_search_directory),alt-g:reload(_fzf_search_git_log),ctrl-o:reload(list_parents),ctrl-l:execute(fd . --type f),?:reload(fzf_subcommand_man)'\"\nset -gx _FZF_DEFAULT_OPTS \"$_FZF_COLORS $_FZF_WINDOW $_FZF_PREVIEW $_FZF_NAV_KEYS $_FZF_CMD_KEYS\"\n\n# fzf aliases\nset -gx FZF_DEFAULT_OPTS \"$_FZF_COLORS $_FZF_TMUX_WINDOW $_FZF_NAV_KEYS\"\nset -gx FZF_DEFAULT_COMMAND \"all_finder\";\n#set -U FZF_LEGACY_KEYBINDINGS 1\nalias fzf_mini=\"fzf $_FZF_COLORS $_FZF_TMUX_WINDOW $_FZF_NAV_KEYS $_FZF_PREVIEW --preview-window='down,65%,rounded'\"\nalias fzf_min=\"/usr/bin/fzf $_FZF_COLORS $_FZF_WINDOW $_FZF_NAV_KEYS\"\nalias fzf_mine=\"fzf $_FZF_DEFAULT_OPTS\"\nalias fzf_gt='__fzf_open_mine'\n\n# ┌──────┐\n# │ Man  │\n# └──────┘\nif test \"$MANPATH\" = \"\";\n    set -gx MANPATH (manpath)\nend\nset -gx MANPATH /usr/share/fish/man /usr/share/dasht/man $MANPATH\nset -g man_blink -o magenta\nset -g man_bold -o blue \nset -g man_standout -b blue --bold white\nset -g man_underline -u white\n\n# ┌──────┐\n# │ JAVA │\n# └──────┘\nset -gx JAVA_HOME /usr/lib/jvm/zulu-18-amd64\nset -gx PATH_TO_FX ~/Downloads/javafx-sdk-17.0.1/lib\n\n\n# ┌──────────────────────────┐\n# │ ranger fzf marks plugins │\n# └──────────────────────────┘\nset -gx _fzf_fzm_defaults \"--ansi --margin 5% --padding 1% --border=rounded --reverse --height 95% --min-height 30 --cycle +m\"\nset -gx _fzf_fzm_preview_window \"--with-nth -1 --preview='exa --icons /home/ndonfris/{3}' --preview-window=right:25%\"\nset -gx FZF_FZM_OPTS \"$_fzf_fzm_defaults $_fzf_fzm_preview_window $_FZF_COLORS $_FZF_NAV_KEYS\"\nset -gx FZF_MARKS_CMD \"/usr/bin/fzf $FZF_FZM_OPTS\"\n\n# ┌──────────────────────┐\n# │╻┏ ┏━╸╻ ╻┏┓ ╻┏┓╻╺┳┓┏━┓│\n# │┣┻┓┣╸ ┗┳┛┣┻┓┃┃┗┫ ┃┃┗━┓│\n# │╹ ╹┗━╸ ╹ ┗━┛╹╹ ╹╺┻┛┗━┛│\n# └──────────────────────┘\n\n# fish function for user key bindings -> u can goto the files in the function calls\nfunction fish_user_key_bindings\n    #bind \" \" expand-abbr or self-insert\n    bind \\t 'expand_abbr_or_tab_complete'\n    bind \\cA 'beginning-of-buffer'\n    bind \\cE 'accept-autosuggestion-or-end-of-buffer'\n    bind \\cH 'backward-kill-word' \n    bind \\cW 'suppress-autosuggestion-and-backward-kill-bigword'\n    bind \\e\\[A 'page-up-or-history-backward' \n    bind \\e\\[B 'page-down-or-history-forward'\n    bind \\cd 'exit-or-smart-clear'\n    bind \\cc 'toggle-comment-or-cancel-command'\n    bind \\cj 'down-or-nextd-or-forward-word'\n    bind \\ck 'up-or-prevd-or-backward-word'\n    bind \\cr 'ranger; commandline -f repaint'\n    #bind \\ct 'commandline -f repaint'\n    bind -k nul 'fzf-or-toggle-auto-complete;commandline -f repaint' \n    bind \\cv 'fish_clipboard_paste'\n    bind \\cS 'toggle_prompt; commandline -f repaint'\n    bind \\cG 'lazygit; commandline -f repaint'\n    bind \\cB 'bt-fzf-grep; commandline -f repaint'\n    bind \\e\\cN '$TERMINAL && xdotool key \"super+n\"'\n    bind \\e\\cT '$TERMINAL && xdotool key \"super+n\"'\n    bind \\e\\cR '$EXE/open_term_run_ranger.sh $PWD'\n    bind \\cT '$TERMINAL'\n    bind ~~~ 'tmux -2; commandline -f repaint;'\n    bind \\cY 'fzf-history-or-copy-to-clipboard'\n    bind \\ey 'select_from_last'\n    bind \\ez 'fzf-search; commandline -f repaint'\n    bind \\c_ 'backward-jump' # ctrl + /\n    bind \\cF 'fzf-recent-dirs; commandline -f repaint'\n    bind \\ef 'forward-jump'\n    bind \\e\\; 'repeat-jump'\n    bind \\e\\, 'repeat-jump-reverse'\n    bind \\eo 'insert-line-under'\n    #bind \\c\\; 'repeat-jump'\n    #bind \\cT 'fzf-search;commandline -f repaint'\n    bind \\eu 'undo' # DNE on ergodox layout\n    bind \\er 'redo'\n    bind \\em '__fish_man_page'\n    bind \\eg 'commandline -r \"gt \"; commandline -f repaint; commandline -f complete';\nend\n\n# ┌────────────┐\n# │┏━┓┏┓ ┏┓ ┏━┓│\n# │┣━┫┣┻┓┣┻┓┣┳┛│\n# │╹ ╹┗━┛┗━┛╹┗╸│\n# └────────────┘\nset -g test_var true # set test_var equal to something then run tvif abbr\n\n# ┌─────────────────┐\n# │ system commands │\n# └─────────────────┘\nset -a -g rmf 'rm -f'\nset -a -g rmr 'rm -rf'\nset -a -g mkdir 'mkdir -p'\nabbr -a -g apt 'sudo apt'\nabbr -a -g aptg 'sudo apt-get'\nabbr -a -g apti 'sudo apt install'\nabbr -a -g apts 'apt search'\nabbr -a -g apty 'sudo apt install -y'\n\nabbr -a -g tvif 'if test $test_var; echi 1; else; echi 0; end;'\n\n# ┌────────┐\n# │ github │\n# └────────┘\nabbr -a -g readme 'nvim README.md'\nabbr -a -g clog 'nvim CHANGELOG.md'\nabbr -a -g gwa 'git worktree add'\nabbr -a -g rdme 'nvim README.md'\nabbr -a -g ignr 'nvim .gitignore'\nabbr -a -g gti 'nvim .gitignore'\n\n# ┌────────┐\n# │ cutsom │\n# └────────┘\nabbr -a -g nvimff \"nvim -O $HOME/.config/fish/{functions,completions}/\"\nabbr -a -g gacc \"git@github.com:ndonfris/SOMEREPO.git\"\nabbr -a -g fish_path \"$HOME/.config/fish\"\nabbr -a -g nvim_path \"$HOME/.config/nvim\"\nabbr -a -g fz \"fzf-\"\nabbr -a -g fzs \"bt-fzf-switch\"\nabbr -a -g fzt \"bt-fzf-grep\"\nabbr -a -g fzff \"ls $HOME/.config/fish/functions | grep \\\"fzf\\\"\"\nabbr -a -g tm \"tmux -2\"\nabbr -a -g sf \"source_fish -q;\"\nabbr -a -g ech \"echi\"\nabbr -a -g echy \"echi y;\"\nabbr -a -g echn \"echi n;\"\nabbr -a -g echf \"echi f;\"\nabbr -a -g echm \"echi m;\"\nabbr -a -g ya \"echi y\"\nabbr -a -g no \"echi n\"\nabbr -a -g fff \"fzf-search\"\nabbr -a -g lsg '(ls . | grep \"*\")'\nabbr -a -g grepf '(ls . | grep \"*\")'\nabbr -a -g fdn 'set -l var \"\"; nvim (lso -t | fd \"$var\" | grep \"$var\" | head -n 5)'\nabbr -a -g fd_n 'nvim (lso -t | grep \"*\")'\nabbr -a -g fds 'set -l var \"\"; lso -t | fd \"$var\" | grep \"$var\" | head -n 5'\nabbr -a -g fd_s 'lso -t | grep \"*\"'\nabbr -a -g ls_start 'lso -t | grep -e \"^\\(word\\)\\.*\"'\nabbr -a -g ls_end 'lso -t | grep  -e \"\\(word\\)\\$\"'\nabbr -a -g ls_not 'lso -t | grep --invert-match -e \"\\(word\\)\"'\n\nabbr -a -g ls_recent \"lso -t | head -n 10\"\n\nabbr -a -g no_stderr '$history[1] 2>/dev/null'\nabbr -a -g no_stdout '$history[1] 1>/dev/null'\n\nabbr -a -g h10 'head -n 10'\nabbr -a -g t10 'tail -n 10'\n\nabbr -a -g ls_full 'realpath (lso -t | grep --exclude-dir \"**/node_modules\" -e \"\\(SEARCH\\)\")'\n#abbr -a -g ff 'nvim (fd --type f)'\nabbr -a -g gtree 'git worktree'\nabbr -a -g gw 'git worktree'\nabbr -a -g gc-b 'git clone --bare'\n\nabbr -a -g cpff 'cp -r $HOME/.config/fish/functions/ '\n\nabbr -a -g nn 'nvim $HOME/.config/nvim/'\nabbr -a -g nl 'nvim lua/user/'\nabbr -a -g nlu 'nvim lua/user/'\nabbr -a -g nlc 'nvim lua/completion/'\nabbr -a -g np 'nvim plug-config/'\nabbr -a -g npp 'nvim vim-plug/plugins.vim'\nabbr -a -g na 'nvim autoload/plugged/'\n\n# ┌───────────┐\n# │ tmux abbr │\n# └───────────┘\nabbr -a -g tns \"tmux-new-session\"\nabbr -a -g tmuxs \"fzf-tmux-search\"\n\nabbr -a -g in_neovim_statement 'if set -q $NVIM; echi y;else;echi n;end'\n\n# ┌─────────────────────────┐\n# │ multiline abbreviations │\n# └─────────────────────────┘\n#abbr -a -g qwhile 'while true;  read -t -l var -P \"(q to quit) var > \"; \\\n#switch \"$var\"; \\\n#case q Q; \\\n#break; \\\n#case \\*; \\\n#echo \"$var\"; \\\n#continue; \\\n#end;end;'\n#\n#abbr -a -g qread 'while true;  read -t -l var -P \"(q to quit) var > \"; \\\n#switch \"$var\"; \\\n#case q Q; \\\n#break; \\\n#case \\*; \\\n#echo \"$var\"; \\\n#continue; \\\n#end;end;'\n#\n#abbr -a -g qif 'set -l var (echo \"\" ); \\\n#if test \"$var\" = \"_\";\\\n#echi yes;\\\n#else; \\\n#echi no;\\\n#end;'\n\nabbr -a -g fft 'firefox_tab'\n\nabbr -a -g gr 'gt r'\nabbr -a -g rr 'gt r'\n\nabbr -a -g lss 'ls -l --sort=size'\nabbr -a -g conf 'cd ~/.config/'\nabbr -a -g npmw 'npm run watch'\nabbr -a -g npmr 'npm run'\nabbr -a -g home 'cd $HOME'\n\nset -gx fish_tmux_autostart false\nset -gx fish_tmux_autostart_once true\nset -gx fish_tmux_autoconnect false\n\nset -gx open_in_working_dir_file $HOME/.open_in_working_dir_file\n\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/config.fish
+opened document: file:///home/ndonfris/.config/fish/config.fish
+analyzed document: file:///home/ndonfris/.config/fish/config.fish
+onDocumentSymbols
+length: 71
+onDefinition
+oh-my-posh
+scopes: 0
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/nvim_toggleterm.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/nvim_toggleterm.fish
+opened document: file:///home/ndonfris/.config/fish/nvim_toggleterm.fish
+analyzed document: file:///home/ndonfris/.config/fish/nvim_toggleterm.fish
+onDocumentSymbols
+length: 1
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "### put fish config here for inner neovim terminal\n#  \n#  \n#  \n\nfunction nvim_toggleterm\n    alias nvim=\"$HOME/.config/nvim/nvr_opener\"\n    #alias fish_greeting='lsd'\n    for arg in $argv\n        switch \"$arg\"\n            case no-greeting\n                alias neofetch=\"\"\n            case shorten-ls\n                alias ls='lsd'\n            case pad\n                echo -e \"\\n\"\n        end    \n    end\n        \n            \n    pushd_all_in_path\n    printf\nend\n\n\n\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+opened document: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+closed uri: /home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "### put fish config here for inner neovim terminal\n#  \n#  \n#  \n\nfunction nvim_toggleterm\n    alias nvim=\"$HOME/.config/nvim/nvr_opener\"\n    #alias fish_greeting='lsd'\n    for arg in $argv\n        switch \"$arg\"\n            case no-greeting\n                alias neofetch=\"\"\n            case shorten-ls\n                alias ls='lsd'\n            case pad\n                echo -e \"\\n\"\n        end    \n    end\n        \n            \n    pushd_all_in_path\n    printf \"\"\nend\n\n\n\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+opened document: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/nvim_toggleterm.fish
+closed uri: /home/ndonfris/.config/fish/nvim_toggleterm.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+closed uri: /home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "### put fish config here for inner neovim terminal\n#  \n#  \n#  \n\nfunction nvim_toggleterm\n    alias nvim=\"$HOME/.config/nvim/nvr_opener\"\n    #alias fish_greeting='lsd'\n    for arg in $argv\n        switch \"$arg\"\n            case no-greeting\n                alias neofetch=\"\"\n            case shorten-ls\n                alias ls='lsd'\n            case pad\n                echo -e \"\\n\"\n        end    \n    end\n        \n            \n    pushd_all_in_path\n    printf \"\"\nend\n\n\n\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+opened document: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+onDefinition
+pushd_all_in_path
+scopes: 1
+# cdh and dirs are controlled by variables "$dirprev" and "$dirnext", and directly use
+# variable "$dirstack" to store the stack of directories.
+# $dirstack is an array where index 0 is the top of the stack.
+function pushd_all_in_path
+    set -l curr_dirs
+    set -l dirpath_array (string split '/' --no-empty "$PWD" || echo '') # arrary of dirs in $PWD -> ["home", "user", "dir1", "dir2"] 
+    for new_dir in $dirpath_array
+        set --append  curr_dirs (string join '/' -- "$curr_dirs[-1]" "$new_dir")
+        if not test -d "$curr_dirs[-1]"
+            echo "[ERROR] pushd_all_in_path could not find '$existing_dir'"
+            return 1
+        end
+    end
+    if not test (count $dirpath_array) -eq 0
+        set --prepend curr_dirs '/' # add root since path is correct
+    end
+    for existing_dir in $curr_dirs
+        pushd "$existing_dir"
+    end
+    return 0
+end
+
+
+
+
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/pushd_all_in_path.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "# cdh and dirs are controlled by variables \"$dirprev\" and \"$dirnext\", and directly use\n# variable \"$dirstack\" to store the stack of directories.\n# $dirstack is an array where index 0 is the top of the stack.\nfunction pushd_all_in_path\n    set -l curr_dirs\n    set -l dirpath_array (string split '/' --no-empty \"$PWD\" || echo '') # arrary of dirs in $PWD -> [\"home\", \"user\", \"dir1\", \"dir2\"] \n    for new_dir in $dirpath_array\n        set --append  curr_dirs (string join '/' -- \"$curr_dirs[-1]\" \"$new_dir\")\n        if not test -d \"$curr_dirs[-1]\"\n            echo \"[ERROR] pushd_all_in_path could not find '$existing_dir'\"\n            return 1\n        end\n    end\n    if not test (count $dirpath_array) -eq 0\n        set --prepend curr_dirs '/' # add root since path is correct\n    end\n    for existing_dir in $curr_dirs\n        pushd \"$existing_dir\"\n    end\n    return 0\nend\n\n\n\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/pushd_all_in_path.fish
+opened document: file:///home/ndonfris/.config/fish/functions/pushd_all_in_path.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/pushd_all_in_path.fish
+onDocumentSymbols
+length: 12
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+onDefinition
+
+
+scopes: 1
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 6
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/config.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "\n# ┌──────────┐\n# │┏━╸╻┏━┓╻ ╻│\n# │┣╸ ┃┗━┓┣━┫│\n# │╹  ╹┗━┛╹ ╹│\n# └──────────┘\n\nset -gx OS_NAME (get-os-name) # check for mac or linux\n\n# ┌──────────┐\n# │ defaults │\n# └──────────┘\nset -gx TERM \"xterm-256color\"\nset -gx SCRIPTS \"$HOME/.config/fish/scripts\"\nset -gx EXE \"$HOME/.config/fish/scripts\"\n#set -gx TERMINAL 'terminator'\n#set -gx TERMINAL 'gnome-terminal'\nset -gx TERMINAL 'tilix'\nset -gx COLOR_TERM \"truecolor\"\nset -gx EDITOR 'nvim'\nset -gx VISUAL 'nvim'\nset -gx NVIM_RANGER_FILE \"$HOME/.config/nvim/nvim_ranger_file\"\nset -gx NODE_MODULES_PATH '/usr/local/lib/node_modules/'\n\n# ┌────────┐\n# │ prompt │\n# └────────┘\noh-my-posh init fish | source\nsource ~/.local/share/icons-in-terminal/icons.fish\n\nset -gx prompt_size_file \"$FISH_PATH/fish_prompt_is_long\"\nset_first_prompt_size;\n\n# ┌─────────────┐\n# │┏━┓╻  ╻┏━┓┏━┓│\n# │┣━┫┃  ┃┣━┫┗━┓│\n# │╹ ╹┗━╸╹╹ ╹┗━┛│\n# └─────────────┘\nalias lt=\"ls --tree\"\nalias lst=\"ls --tree\"\nalias sl=\"sl -l -e -F\"\nalias cs=\"sl -l -e -F\"\nalias cmatrix=\"unimatrix -l nnnnkkgGcAas -n -s 97 -f --color=yellow\"\nalias cbon=\"cbonsai --multiplier=3 --life=45 --live\"\nalias vimdiff=\"nvim -d\"\nalias vdiff=\"nvim -d\"\nalias vd=\"nvim -d\"\n#alias neovide=\"neovide --multigrid\"\nalias gitqc='git add . && git commit -m \"added minor changes\" && git push ' \nalias gcan='git commit --amend --no-edit'\nalias nvim_norc='nvim -U norc'\nalias nvim_search='nvim -c \":FZFAll\"'\nalias prompt_fix='commandline -f repaint'\n#alias cat='batcat'\nalias lg='lazygit'\nalias f='floaterm'\nalias fmui=\"~/fmui/fmui\"\n\n# ┌─────────────────────┐\n# │┏━╸╻ ╻┏━┓┏━┓┏━┓╺┳╸┏━┓│\n# │┣╸ ┏╋┛┣━┛┃ ┃┣┳┛ ┃ ┗━┓│\n# │┗━╸╹ ╹╹  ┗━┛╹┗╸ ╹ ┗━┛│\n# └─────────────────────┘\n\n# ┌───────┐\n# │ paths │\n# └───────┘\nset -x PATH /home/ndonfris/.local/bin /usr/local/bin /usr/bin /usr/sbin /home/ndonfris/.cargo/env /usr/share/dasht/bin $PATH\nset -gx GOPATH $HOME/go\nset -gx FISH_PATH \"$HOME/.config/fish\"\nset -gx NVIM_PATH \"$HOME/.config/nvim\"\nset -gx DIR_MUSIC $HOME/Music\nset -gx XDG_CONFIG_HOME /home/ndonfris/.config\nset -gx ff $HOME/.config/fish/functions/\n\n\n# ┌───────┐\n# │ theme │\n# └───────┘\nset -gx LS_COLORS (vivid generate ls_theme)\nset -gx EXA_COLORS (vivid generate exa_theme)\nset fish_cursor_unknown block\nset fish_pager_color_description blue\nset fish_color_search_match blue\nset -gx BAT_PAGER \"less -RF\"\nset -gx BAT_THEME \"base16\"\nset -gx fish_pager_color_prefix '#815bf5' --bold\nset -gx fish_pager_color_completion '#685abc'\nset -gx fish_pager_color_secondary_prefix '#685abc'\nset -gx fish_pager_color_secondary_completion '#685abc'\nset -gx fish_pager_color_secondary_descrition '#685abc'\nset -gx fish_pager_color_selected_prefix white\nset -gx fish_pager_color_selected_completion white \nset -gx fish_pager_color_selected_description white\nset -gx fish_pager_color_selected_background --background='#685abc'\nset -gx DASHT_DOCSETS_DIR \"$HOME/.local/share/Zeal/Zeal/docsets\"\n\n\n# ┌──────┐\n# │ ENV  │\n# └──────┘\nload_env_vars $NVIM_PATH/.openai_key\n\n\n# ┌──────┐\n# │ TMUX │\n# └──────┘\nset -gx pref_tmux_session_names 'expo' 'fish' 'nvim' 'work' 'nvim-lua' '445' 'leetcode' 'temp' 'working' 'main' 'master' 'backend' 'frontend' 'project' 'git' 'tmp' 'default' 'other' 'source' 'hw' 'new'\nset -gx tmux_conf $HOME/.tmux.conf\nset -gx tmux_dir $HOME/.config/tmux/\n\n\n# ┌─────┐\n# │ FZF │\n# └─────┘\n# alias's for fzf so that default formatting is always availible\nset -gx _FZF_COLORS \"--color='fg:#7ba2f3,bg:-1,hl:#5f87af,fg+:#15a9bf,bg+:#414868,hl+:#5fd7ff,info:#c0caf5,prompt:#685abc,pointer:#af5fff,marker:#685abc,spinner:#af5fff,header:#797fda,border:#5fd7ff,gutter:-1'\"\nset -gx _FZF_PREVIEW \"--preview='_fzf_preview {}'\"\nset -gx _FZF_WINDOW \"--ansi --height 75% --min-height 30  --margin 5% --padding 1% --border=rounded --reverse\"\nset -gx _FZF_TMUX_WINDOW \"--ansi --reverse\"\nset -gx _FZF_NAV_KEYS \"--bind=ctrl-u:page-up,ctrl-d:page-down,ctrl-h:backward-kill-word,tab:replace-query,down:preview-page-down,up:preview-page-up,change:top\"\nset -gx _FZF_CMD_KEYS \"--bind='ctrl-g:reload(_fzf_subcommand_git_status),ctrl-r:reload(history),ctrl-f:reload(find_child_files),alt-d:reload(_fzf_search_directory),alt-g:reload(_fzf_search_git_log),ctrl-o:reload(list_parents),ctrl-l:execute(fd . --type f),?:reload(fzf_subcommand_man)'\"\nset -gx _FZF_DEFAULT_OPTS \"$_FZF_COLORS $_FZF_WINDOW $_FZF_PREVIEW $_FZF_NAV_KEYS $_FZF_CMD_KEYS\"\n\n# fzf aliases\nset -gx FZF_DEFAULT_OPTS \"$_FZF_COLORS $_FZF_TMUX_WINDOW $_FZF_NAV_KEYS\"\nset -gx FZF_DEFAULT_COMMAND \"all_finder\";\n#set -U FZF_LEGACY_KEYBINDINGS 1\nalias fzf_mini=\"fzf $_FZF_COLORS $_FZF_TMUX_WINDOW $_FZF_NAV_KEYS $_FZF_PREVIEW --preview-window='down,65%,rounded'\"\nalias fzf_min=\"/usr/bin/fzf $_FZF_COLORS $_FZF_WINDOW $_FZF_NAV_KEYS\"\nalias fzf_mine=\"fzf $_FZF_DEFAULT_OPTS\"\nalias fzf_gt='__fzf_open_mine'\n\n# ┌──────┐\n# │ Man  │\n# └──────┘\nif test \"$MANPATH\" = \"\";\n    set -gx MANPATH (manpath)\nend\nset -gx MANPATH /usr/share/fish/man /usr/share/dasht/man $MANPATH\nset -g man_blink -o magenta\nset -g man_bold -o blue \nset -g man_standout -b blue --bold white\nset -g man_underline -u white\n\n# ┌──────┐\n# │ JAVA │\n# └──────┘\nset -gx JAVA_HOME /usr/lib/jvm/zulu-18-amd64\nset -gx PATH_TO_FX ~/Downloads/javafx-sdk-17.0.1/lib\n\n\n# ┌──────────────────────────┐\n# │ ranger fzf marks plugins │\n# └──────────────────────────┘\nset -gx _fzf_fzm_defaults \"--ansi --margin 5% --padding 1% --border=rounded --reverse --height 95% --min-height 30 --cycle +m\"\nset -gx _fzf_fzm_preview_window \"--with-nth -1 --preview='exa --icons /home/ndonfris/{3}' --preview-window=right:25%\"\nset -gx FZF_FZM_OPTS \"$_fzf_fzm_defaults $_fzf_fzm_preview_window $_FZF_COLORS $_FZF_NAV_KEYS\"\nset -gx FZF_MARKS_CMD \"/usr/bin/fzf $FZF_FZM_OPTS\"\n\n# ┌──────────────────────┐\n# │╻┏ ┏━╸╻ ╻┏┓ ╻┏┓╻╺┳┓┏━┓│\n# │┣┻┓┣╸ ┗┳┛┣┻┓┃┃┗┫ ┃┃┗━┓│\n# │╹ ╹┗━╸ ╹ ┗━┛╹╹ ╹╺┻┛┗━┛│\n# └──────────────────────┘\n\n# fish function for user key bindings -> u can goto the files in the function calls\nfunction fish_user_key_bindings\n    #bind \" \" expand-abbr or self-insert\n    bind \\t 'expand_abbr_or_tab_complete'\n    bind \\cA 'beginning-of-buffer'\n    bind \\cE 'accept-autosuggestion-or-end-of-buffer'\n    bind \\cH 'backward-kill-word' \n    bind \\cW 'suppress-autosuggestion-and-backward-kill-bigword'\n    bind \\e\\[A 'page-up-or-history-backward' \n    bind \\e\\[B 'page-down-or-history-forward'\n    bind \\cd 'exit-or-smart-clear'\n    bind \\cc 'toggle-comment-or-cancel-command'\n    bind \\cj 'down-or-nextd-or-forward-word'\n    bind \\ck 'up-or-prevd-or-backward-word'\n    bind \\cr 'ranger; commandline -f repaint'\n    #bind \\ct 'commandline -f repaint'\n    bind -k nul 'fzf-or-toggle-auto-complete;commandline -f repaint' \n    bind \\cv 'fish_clipboard_paste'\n    bind \\cS 'toggle_prompt; commandline -f repaint'\n    bind \\cG 'lazygit; commandline -f repaint'\n    bind \\cB 'bt-fzf-grep; commandline -f repaint'\n    bind \\e\\cN '$TERMINAL && xdotool key \"super+n\"'\n    bind \\e\\cT '$TERMINAL && xdotool key \"super+n\"'\n    bind \\e\\cR '$EXE/open_term_run_ranger.sh $PWD'\n    bind \\cT '$TERMINAL'\n    bind ~~~ 'tmux -2; commandline -f repaint;'\n    bind \\cY 'fzf-history-or-copy-to-clipboard'\n    bind \\ey 'select_from_last'\n    bind \\ez 'fzf-search; commandline -f repaint'\n    bind \\c_ 'backward-jump' # ctrl + /\n    bind \\cF 'fzf-recent-dirs; commandline -f repaint'\n    bind \\ef 'forward-jump'\n    bind \\e\\; 'repeat-jump'\n    bind \\e\\, 'repeat-jump-reverse'\n    bind \\eo 'insert-line-under'\n    #bind \\c\\; 'repeat-jump'\n    #bind \\cT 'fzf-search;commandline -f repaint'\n    bind \\eu 'undo' # DNE on ergodox layout\n    bind \\er 'redo'\n    bind \\em '__fish_man_page'\n    bind \\eg 'commandline -r \"gt \"; commandline -f repaint; commandline -f complete';\nend\n\n# ┌────────────┐\n# │┏━┓┏┓ ┏┓ ┏━┓│\n# │┣━┫┣┻┓┣┻┓┣┳┛│\n# │╹ ╹┗━┛┗━┛╹┗╸│\n# └────────────┘\nset -g test_var true # set test_var equal to something then run tvif abbr\n\n# ┌─────────────────┐\n# │ system commands │\n# └─────────────────┘\nset -a -g rmf 'rm -f'\nset -a -g rmr 'rm -rf'\nset -a -g mkdir 'mkdir -p'\nabbr -a -g apt 'sudo apt'\nabbr -a -g aptg 'sudo apt-get'\nabbr -a -g apti 'sudo apt install'\nabbr -a -g apts 'apt search'\nabbr -a -g apty 'sudo apt install -y'\n\nabbr -a -g tvif 'if test $test_var; echi 1; else; echi 0; end;'\n\n# ┌────────┐\n# │ github │\n# └────────┘\nabbr -a -g readme 'nvim README.md'\nabbr -a -g clog 'nvim CHANGELOG.md'\nabbr -a -g gwa 'git worktree add'\nabbr -a -g rdme 'nvim README.md'\nabbr -a -g ignr 'nvim .gitignore'\nabbr -a -g gti 'nvim .gitignore'\n\n# ┌────────┐\n# │ cutsom │\n# └────────┘\nabbr -a -g nvimff \"nvim -O $HOME/.config/fish/{functions,completions}/\"\nabbr -a -g gacc \"git@github.com:ndonfris/SOMEREPO.git\"\nabbr -a -g fish_path \"$HOME/.config/fish\"\nabbr -a -g nvim_path \"$HOME/.config/nvim\"\nabbr -a -g fz \"fzf-\"\nabbr -a -g fzs \"bt-fzf-switch\"\nabbr -a -g fzt \"bt-fzf-grep\"\nabbr -a -g fzff \"ls $HOME/.config/fish/functions | grep \\\"fzf\\\"\"\nabbr -a -g tm \"tmux -2\"\nabbr -a -g sf \"source_fish -q;\"\nabbr -a -g ech \"echi\"\nabbr -a -g echy \"echi y;\"\nabbr -a -g echn \"echi n;\"\nabbr -a -g echf \"echi f;\"\nabbr -a -g echm \"echi m;\"\nabbr -a -g ya \"echi y\"\nabbr -a -g no \"echi n\"\nabbr -a -g fff \"fzf-search\"\nabbr -a -g lsg '(ls . | grep \"*\")'\nabbr -a -g grepf '(ls . | grep \"*\")'\nabbr -a -g fdn 'set -l var \"\"; nvim (lso -t | fd \"$var\" | grep \"$var\" | head -n 5)'\nabbr -a -g fd_n 'nvim (lso -t | grep \"*\")'\nabbr -a -g fds 'set -l var \"\"; lso -t | fd \"$var\" | grep \"$var\" | head -n 5'\nabbr -a -g fd_s 'lso -t | grep \"*\"'\nabbr -a -g ls_start 'lso -t | grep -e \"^\\(word\\)\\.*\"'\nabbr -a -g ls_end 'lso -t | grep  -e \"\\(word\\)\\$\"'\nabbr -a -g ls_not 'lso -t | grep --invert-match -e \"\\(word\\)\"'\n\nabbr -a -g ls_recent \"lso -t | head -n 10\"\n\nabbr -a -g no_stderr '$history[1] 2>/dev/null'\nabbr -a -g no_stdout '$history[1] 1>/dev/null'\n\nabbr -a -g h10 'head -n 10'\nabbr -a -g t10 'tail -n 10'\n\nabbr -a -g ls_full 'realpath (lso -t | grep --exclude-dir \"**/node_modules\" -e \"\\(SEARCH\\)\")'\n#abbr -a -g ff 'nvim (fd --type f)'\nabbr -a -g gtree 'git worktree'\nabbr -a -g gw 'git worktree'\nabbr -a -g gc-b 'git clone --bare'\n\nabbr -a -g cpff 'cp -r $HOME/.config/fish/functions/ '\n\nabbr -a -g nn 'nvim $HOME/.config/nvim/'\nabbr -a -g nl 'nvim lua/user/'\nabbr -a -g nlu 'nvim lua/user/'\nabbr -a -g nlc 'nvim lua/completion/'\nabbr -a -g np 'nvim plug-config/'\nabbr -a -g npp 'nvim vim-plug/plugins.vim'\nabbr -a -g na 'nvim autoload/plugged/'\n\n# ┌───────────┐\n# │ tmux abbr │\n# └───────────┘\nabbr -a -g tns \"tmux-new-session\"\nabbr -a -g tmuxs \"fzf-tmux-search\"\n\nabbr -a -g in_neovim_statement 'if set -q $NVIM; echi y;else;echi n;end'\n\n# ┌─────────────────────────┐\n# │ multiline abbreviations │\n# └─────────────────────────┘\n#abbr -a -g qwhile 'while true;  read -t -l var -P \"(q to quit) var > \"; \\\n#switch \"$var\"; \\\n#case q Q; \\\n#break; \\\n#case \\*; \\\n#echo \"$var\"; \\\n#continue; \\\n#end;end;'\n#\n#abbr -a -g qread 'while true;  read -t -l var -P \"(q to quit) var > \"; \\\n#switch \"$var\"; \\\n#case q Q; \\\n#break; \\\n#case \\*; \\\n#echo \"$var\"; \\\n#continue; \\\n#end;end;'\n#\n#abbr -a -g qif 'set -l var (echo \"\" ); \\\n#if test \"$var\" = \"_\";\\\n#echi yes;\\\n#else; \\\n#echi no;\\\n#end;'\n\nabbr -a -g fft 'firefox_tab'\n\nabbr -a -g gr 'gt r'\nabbr -a -g rr 'gt r'\n\nabbr -a -g lss 'ls -l --sort=size'\nabbr -a -g conf 'cd ~/.config/'\nabbr -a -g npmw 'npm run watch'\nabbr -a -g npmr 'npm run'\nabbr -a -g home 'cd $HOME'\n\nset -gx fish_tmux_autostart false\nset -gx fish_tmux_autostart_once true\nset -gx fish_tmux_autoconnect false\n\nset -gx open_in_working_dir_file $HOME/.open_in_working_dir_file\n\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/config.fish
+opened document: file:///home/ndonfris/.config/fish/config.fish
+analyzed document: file:///home/ndonfris/.config/fish/config.fish
+onDocumentSymbols
+length: 71
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+closed uri: /home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/pushd_all_in_path.fish
+closed uri: /home/ndonfris/.config/fish/functions/pushd_all_in_path.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/config.fish
+closed uri: /home/ndonfris/.config/fish/config.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/toggle_prompt.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "# changes the size of the powerline prompt\n\nfunction toggle_prompt -d \"Toggle the size of the powerline prompt\"\n    touch $prompt_size_file;\n    set -l file_found (cat $prompt_size_file | head -n 1)\n    if test \"$file_found\" = \"\"\n        echo \"0\" > $prompt_size_file;\n    end\n    if set -q argv;and test \"$argv\" = \"-r\";\n        __reset_prompt_size_flag;\n        return;\n    end\n    if test $file_found -eq 0\n        echo \"1\" > $prompt_size_file;\n        lengthen_prompt; commandline -f repaint;\n        return;\n    else if test $file_found -eq 1\n        echo \"0\" > $prompt_size_file;\n        shorten_prompt; commandline -f repaint;\n        return;\n    else \n        __debug_info_unseen_pflag;\n    end\nend\n\nfunction __debug_info_unseen_pflag\n    spaced_print_seperator;\n    set_color red --bold;\n    echo -n \"Error:\";\n    reset_color;set_color brred --italic;\n    echo \" $prompt_size_file is not a valid value\";\n    echo \"       this message also means that the no value\";\n    echo \"       was read from the file in ~/.config/fish\";\n    spaced_print_seperator;\n    cat $prompt_size_file;\n    spaced_print_seperator;\n    set_random_color --background;\n    echo \" USAGE: toggle_prompt [-r]\";\n    echo \"\"\n    echo \"        -r: reset the prompt size to the default\";\n    echo \"\";\n    echo \"        all other flags will print this message\";\n    echo \"\";\n    echo \"ideally toggle_prompt function should not take flags\";\n    print_seperator;\n    set_random_color --underline --background;\n    echo \"Two files called from spaced_print_seperator.fish\";\n    echo \"\"\n    set_random_color --background;\n    echo -n \"    [1] -\"; set_random_color; echo \" $HOME/.config/fish/functions/shorten_prompt.fish\";\n    echo \"\"\n    set_random_color --background;\n    echo -n \"    [2] -\"; set_random_color; echo \" $HOME/.config/fish/functions/lengthen_prompt.fish\";\n    spaced_print_seperator;\n    set_random_color --italic;\n    echo \"Now setting to default value of 0\";\n    echo \"\"\n    set_random_color --italic;\n    echo \"this should never happen, but if it does you can reset\"\n    set_random_color;echo -n \"file: \";\n    set_random_color;echo \"$prompt_size_file\"\n    echo \"\";\n    spaced_print_seperator;\n    echo 'Use Command: echo \"0\" > $prompt_size_file';\n    spaced_print_seperator;\nend\n\n#function __help_print_helper\n#    spaced_print_seperator\n#    echo \"toggle_prompt / toggle_prompt.fish\"\n#    spaced_print_seperator\n#    echo \"Toggle the size of the powerline prompt\"\n#    spaced_print_seperator;\n#    echo \"Usage: toggle_prompt [h|help] [s|small] [l|large] [n|no-change]\"\n#    echo \"\"\n#    echo \"passing no flags will just directly toggle the prompt, where as flags will override this default behavior\"\n#    spaced_print_seperator;\n#    echo \"Options:\"\n#    echo \"  [ f | first ]     - do not change the prompt from prev size \"\n#    echo \"  [ n | no-change ] - do not change the prompt\"\n#    echo \"  [ s | short ]     - make the prompt short\"\n#    echo \"  [ l | long ]      - make the prompt large\"\n#    echo \"  [ h | help ]      - Print this help message\"\n#    spaced_print_seperator;\n#end\n\nfunction __reset_prompt_size_flag\n    echo \"0\" > $prompt_size_file;\n    shorten_prompt; commandline -f repaint;\n    spaced_print_seperator;\n    echo \"saw reset flag in toggle_prompt.fish\";\n    spaced_print_seperator;\n    source_fish;and exec fish;\nend\n\n\n\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/toggle_prompt.fish
+opened document: file:///home/ndonfris/.config/fish/functions/toggle_prompt.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/toggle_prompt.fish
+onDefinition
+shorten_prompt
+scopes: 3
+
+
+function shorten_prompt
+    oh-my-posh init fish --config '/home/ndonfris/.poshthemes/cyan_purple_shortest.json' | source
+    #oh-my-posh --init --shell fish --config ~/.poshthemes/cyan_purple_shortest.json | source
+end
+
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/shorten_prompt.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "\n\nfunction shorten_prompt\n    oh-my-posh init fish --config '/home/ndonfris/.poshthemes/cyan_purple_shortest.json' | source\n    #oh-my-posh --init --shell fish --config ~/.poshthemes/cyan_purple_shortest.json | source\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/shorten_prompt.fish
+opened document: file:///home/ndonfris/.config/fish/functions/shorten_prompt.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/shorten_prompt.fish
+onDocumentSymbols
+length: 3
+onDocumentSymbols
+length: 13
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "### put fish config here for inner neovim terminal\n#  \n#  \n#  \n\nfunction nvim_toggleterm\n    alias nvim=\"$HOME/.config/nvim/nvr_opener\"\n    #alias fish_greeting='lsd'\n    function fish_prompt \n        echo (pwd)\n        echo '\\>'\n    end\n    fish_prompt\n    for arg in $argv\n        switch \"$arg\"\n            case no-greeting\n                alias neofetch=\"\"\n            case shorten-ls\n                alias ls='lsd'\n            case pad\n                echo -e \"\\n\"\n            case \"*\"\n                break\n        end    \n    end\n        \n    pushd_all_in_path\n    printf \"\"\nend\n\n\n\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+opened document: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 8
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+server.onComplete
+onComplete: /home/ndonfris/.config/fish/functions/nvim_toggleterm.fish :     oh-my-posh init fish --config '/
+root: (program (comment) (comment) (comment) (comment) (function_definition name: (word) (command name: (word) argument: (concatenation (word) (double_quote_string (variable_expansion (variable_name))))) (comment) (comment) (comment) (comment) (comment) (comment) (for_statement variable: (variable_name) value: (variable_expansion (variable_name)) (switch_statement value: (double_quote_string (variable_expansion (variable_name))) (case_clause (word) (command name: (word) argument: (concatenation (word) (double_quote_string)))) (case_clause (word) (command name: (word) argument: (concatenation (word) (single_quote_string)))) (case_clause (word) (command name: (word) argument: (word) argument: (double_quote_string (escape_sequence)))) (case_clause (double_quote_string) (break)))) (command name: (word)) (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string))))
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+server.onComplete
+onComplete: /home/ndonfris/.config/fish/functions/nvim_toggleterm.fish :     oh-my-posh init fish --config "$HOME/
+root: (program (comment) (comment) (comment) (comment) (function_definition name: (word) (command name: (word) argument: (concatenation (word) (double_quote_string (variable_expansion (variable_name))))) (comment) (comment) (comment) (comment) (comment) (comment) (for_statement variable: (variable_name) value: (variable_expansion (variable_name)) (switch_statement value: (double_quote_string (variable_expansion (variable_name))) (case_clause (word) (command name: (word) argument: (concatenation (word) (double_quote_string)))) (case_clause (word) (command name: (word) argument: (concatenation (word) (single_quote_string)))) (case_clause (word) (command name: (word) argument: (word) argument: (double_quote_string (escape_sequence)))) (case_clause (double_quote_string) (break)))) (command name: (word)) (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (double_quote_string (variable_expansion (variable_name))))))
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+server.onComplete
+onComplete: /home/ndonfris/.config/fish/functions/nvim_toggleterm.fish :     oh-my-posh init fish --config "$HOME/.config/poshthemes/
+root: (program (comment) (comment) (comment) (comment) (function_definition name: (word) (command name: (word) argument: (concatenation (word) (double_quote_string (variable_expansion (variable_name))))) (comment) (comment) (comment) (comment) (comment) (comment) (for_statement variable: (variable_name) value: (variable_expansion (variable_name)) (switch_statement value: (double_quote_string (variable_expansion (variable_name))) (case_clause (word) (command name: (word) argument: (concatenation (word) (double_quote_string)))) (case_clause (word) (command name: (word) argument: (concatenation (word) (single_quote_string)))) (case_clause (word) (command name: (word) argument: (word) argument: (double_quote_string (escape_sequence)))) (case_clause (double_quote_string) (break)))) (command name: (word)) (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (double_quote_string (variable_expansion (variable_name))))))
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+server.onComplete
+onComplete: /home/ndonfris/.config/fish/functions/nvim_toggleterm.fish :     oh-my-posh init fish --config "$HOME/.config/poshthemes/sho
+root: (program (comment) (comment) (comment) (comment) (function_definition name: (word) (command name: (word) argument: (concatenation (word) (double_quote_string (variable_expansion (variable_name))))) (comment) (comment) (comment) (comment) (comment) (comment) (for_statement variable: (variable_name) value: (variable_expansion (variable_name)) (switch_statement value: (double_quote_string (variable_expansion (variable_name))) (case_clause (word) (command name: (word) argument: (concatenation (word) (double_quote_string)))) (case_clause (word) (command name: (word) argument: (concatenation (word) (single_quote_string)))) (case_clause (word) (command name: (word) argument: (word) argument: (double_quote_string (escape_sequence)))) (case_clause (double_quote_string) (break)))) (command name: (word)) (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (double_quote_string (variable_expansion (variable_name))))))
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+server.onComplete
+onComplete: /home/ndonfris/.config/fish/functions/nvim_toggleterm.fish :     oh-my-posh init fish --config "$HOME/.config/poshthemes/short_with_newline.
+root: (program (comment) (comment) (comment) (comment) (function_definition name: (word) (command name: (word) argument: (concatenation (word) (double_quote_string (variable_expansion (variable_name))))) (comment) (comment) (comment) (comment) (comment) (comment) (for_statement variable: (variable_name) value: (variable_expansion (variable_name)) (switch_statement value: (double_quote_string (variable_expansion (variable_name))) (case_clause (word) (command name: (word) argument: (concatenation (word) (double_quote_string)))) (case_clause (word) (command name: (word) argument: (concatenation (word) (single_quote_string)))) (case_clause (word) (command name: (word) argument: (word) argument: (double_quote_string (escape_sequence)))) (case_clause (double_quote_string) (break)))) (command name: (word)) (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (double_quote_string (variable_expansion (variable_name))))))
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+server.onComplete
+onComplete: /home/ndonfris/.config/fish/functions/nvim_toggleterm.fish :     oh-my-posh init fish --config '$HOME/.
+root: (program (comment) (comment) (comment) (comment) (function_definition name: (word) (command name: (word) argument: (concatenation (word) (double_quote_string (variable_expansion (variable_name))))) (comment) (comment) (comment) (comment) (comment) (comment) (for_statement variable: (variable_name) value: (variable_expansion (variable_name)) (switch_statement value: (double_quote_string (variable_expansion (variable_name))) (case_clause (word) (command name: (word) argument: (concatenation (word) (double_quote_string)))) (case_clause (word) (command name: (word) argument: (concatenation (word) (double_quote_string)))) (case_clause (word) (command name: (word) argument: (word) argument: (double_quote_string (escape_sequence)))) (case_clause (double_quote_string) (break)))) (command name: (word)) (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string))))
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+server.onComplete
+onComplete: /home/ndonfris/.config/fish/functions/nvim_toggleterm.fish :     oh-my-posh init fish --config '/
+root: (program (comment) (comment) (comment) (comment) (function_definition name: (word) (command name: (word) argument: (concatenation (word) (double_quote_string (variable_expansion (variable_name))))) (comment) (comment) (comment) (comment) (comment) (comment) (for_statement variable: (variable_name) value: (variable_expansion (variable_name)) (switch_statement value: (double_quote_string (variable_expansion (variable_name))) (case_clause (word) (command name: (word) argument: (concatenation (word) (double_quote_string)))) (case_clause (word) (command name: (word) argument: (concatenation (word) (double_quote_string)))) (case_clause (word) (command name: (word) argument: (word) argument: (double_quote_string (escape_sequence)))) (case_clause (double_quote_string) (break)))) (command name: (word)) (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string))))
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+server.onComplete
+onComplete: /home/ndonfris/.config/fish/functions/nvim_toggleterm.fish :     oh-my-posh init fish --config '/home/
+root: (program (comment) (comment) (comment) (comment) (function_definition name: (word) (command name: (word) argument: (concatenation (word) (double_quote_string (variable_expansion (variable_name))))) (comment) (comment) (comment) (comment) (comment) (comment) (for_statement variable: (variable_name) value: (variable_expansion (variable_name)) (switch_statement value: (double_quote_string (variable_expansion (variable_name))) (case_clause (word) (command name: (word) argument: (concatenation (word) (double_quote_string)))) (case_clause (word) (command name: (word) argument: (concatenation (word) (double_quote_string)))) (case_clause (word) (command name: (word) argument: (word) argument: (double_quote_string (escape_sequence)))) (case_clause (double_quote_string) (break)))) (command name: (word)) (command name: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (single_quote_string))))
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 8
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 8
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 8
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+onDocumentSymbols
+length: 8
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/toggle_prompt.fish
+closed uri: /home/ndonfris/.config/fish/functions/toggle_prompt.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/shorten_prompt.fish
+closed uri: /home/ndonfris/.config/fish/functions/shorten_prompt.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+closed uri: /home/ndonfris/.config/fish/functions/nvim_toggleterm.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/toggle_prompt.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "# changes the size of the powerline prompt\n\nfunction toggle_prompt -d \"Toggle the size of the powerline prompt\"\n    touch $prompt_size_file;\n    set -l file_found (cat $prompt_size_file | head -n 1)\n    if test \"$file_found\" = \"\"\n        echo \"0\" > $prompt_size_file;\n    end\n    if set -q argv;and test \"$argv\" = \"-r\";\n        __reset_prompt_size_flag;\n        return;\n    end\n    if test $file_found -eq 0\n        echo \"1\" > $prompt_size_file;\n        lengthen_prompt; commandline -f repaint;\n        return;\n    else if test $file_found -eq 1\n        echo \"0\" > $prompt_size_file;\n        shorten_prompt; commandline -f repaint;\n        return;\n    else \n        __debug_info_unseen_pflag;\n    end\nend\n\nfunction __debug_info_unseen_pflag\n    spaced_print_seperator;\n    set_color red --bold;\n    echo -n \"Error:\";\n    reset_color;set_color brred --italic;\n    echo \" $prompt_size_file is not a valid value\";\n    echo \"       this message also means that the no value\";\n    echo \"       was read from the file in ~/.config/fish\";\n    spaced_print_seperator;\n    cat $prompt_size_file;\n    spaced_print_seperator;\n    set_random_color --background;\n    echo \" USAGE: toggle_prompt [-r]\";\n    echo \"\"\n    echo \"        -r: reset the prompt size to the default\";\n    echo \"\";\n    echo \"        all other flags will print this message\";\n    echo \"\";\n    echo \"ideally toggle_prompt function should not take flags\";\n    print_seperator;\n    set_random_color --underline --background;\n    echo \"Two files called from spaced_print_seperator.fish\";\n    echo \"\"\n    set_random_color --background;\n    echo -n \"    [1] -\"; set_random_color; echo \" $HOME/.config/fish/functions/shorten_prompt.fish\";\n    echo \"\"\n    set_random_color --background;\n    echo -n \"    [2] -\"; set_random_color; echo \" $HOME/.config/fish/functions/lengthen_prompt.fish\";\n    spaced_print_seperator;\n    set_random_color --italic;\n    echo \"Now setting to default value of 0\";\n    echo \"\"\n    set_random_color --italic;\n    echo \"this should never happen, but if it does you can reset\"\n    set_random_color;echo -n \"file: \";\n    set_random_color;echo \"$prompt_size_file\"\n    echo \"\";\n    spaced_print_seperator;\n    echo 'Use Command: echo \"0\" > $prompt_size_file';\n    spaced_print_seperator;\nend\n\n#function __help_print_helper\n#    spaced_print_seperator\n#    echo \"toggle_prompt / toggle_prompt.fish\"\n#    spaced_print_seperator\n#    echo \"Toggle the size of the powerline prompt\"\n#    spaced_print_seperator;\n#    echo \"Usage: toggle_prompt [h|help] [s|small] [l|large] [n|no-change]\"\n#    echo \"\"\n#    echo \"passing no flags will just directly toggle the prompt, where as flags will override this default behavior\"\n#    spaced_print_seperator;\n#    echo \"Options:\"\n#    echo \"  [ f | first ]     - do not change the prompt from prev size \"\n#    echo \"  [ n | no-change ] - do not change the prompt\"\n#    echo \"  [ s | short ]     - make the prompt short\"\n#    echo \"  [ l | long ]      - make the prompt large\"\n#    echo \"  [ h | help ]      - Print this help message\"\n#    spaced_print_seperator;\n#end\n\nfunction __reset_prompt_size_flag\n    echo \"0\" > $prompt_size_file;\n    shorten_prompt; commandline -f repaint;\n    spaced_print_seperator;\n    echo \"saw reset flag in toggle_prompt.fish\";\n    spaced_print_seperator;\n    source_fish;and exec fish;\nend\n\n\n\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/toggle_prompt.fish
+opened document: file:///home/ndonfris/.config/fish/functions/toggle_prompt.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/toggle_prompt.fish
+onDocumentSymbols
+length: 13
