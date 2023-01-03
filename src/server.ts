@@ -1,9 +1,9 @@
-import Parser, {SyntaxNode} from "web-tree-sitter";
+import Parser, {Edit, SyntaxNode} from "web-tree-sitter";
 import { initializeParser } from "./parser";
 import { Analyzer } from "./analyze";
 import { buildRegexCompletions, workspaceSymbolToCompletionItem, generateShellCompletionItems, insideStringRegex, } from "./completion";
-import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, TextDocumentItem, HoverParams, Hover } from "vscode-languageserver";
-import { LspDocuments } from './document';
+import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, TextDocumentItem, HoverParams, Hover, RenameParams, TextDocumentPositionParams, PartialResultParams, TextDocumentIdentifier } from "vscode-languageserver";
+import { LspDocument, LspDocuments } from './document';
 import { FishCompletionItem, } from './utils/completion-types';
 import { enrichToCodeBlockMarkdown } from './documentation';
 import { execCommandDocs, execCommandType, execFindDependency, execOpenFile } from './utils/exec';
@@ -308,14 +308,10 @@ export default class FishServer {
     //
     async onDocumentSymbols(params: DocumentSymbolParams): Promise<DocumentSymbol[]> {
         this.logger.log("onDocumentSymbols");
-        const uri = uriToPath(params.textDocument.uri);
-        const doc = this.docs.get(uri);
-        if (!doc || !uri) return [];
-        const root = this.getRootNode(doc.getText());
+        const {doc, uri, root} = this.getDefaultsForPartialParams(params)
+        if (!doc || !uri || !root) return [];
         this.logger.log("length: "+ this.analyzer.getSymbols(doc.uri).length.toString())
-        //const symbols: DocumentSymbol[] = collectDocumentSymbols(SpanTree.defintionNodes(root));
-        const symbols: DocumentSymbol[] = getDefinitionSymbols(root)
-        return symbols;
+        return getDefinitionSymbols(root);
     }
 
     protected get supportHierarchicalDocumentSymbol(): boolean {
@@ -356,26 +352,56 @@ export default class FishServer {
 
     async onReferences(params: ReferenceParams): Promise<Location[] | null> {
         this.logger.log("onReference");
-        const uri = uriToPath(params.textDocument.uri);
-        const doc = this.docs.get(uri);
-        if (!doc || !uri) return [];
-        const root = this.getRootNode(doc.getText());
-        const current = this.analyzer.nodeAtPoint(doc.uri, params.position.line, params.position.character);
-        this.logger.log(root.text?.toString() || "NULL ROOTNODE in onRefrence".red)
-        this.logger.log(current?.text?.toString() || "NULL NODE in onRefrence".red)
-        if (!current) return [];
+        const {doc, uri, root, current} = this.getDefaults(params)
+        if (!doc || !uri || !root || !current) return [];
         return getReferences(doc.uri, root, current);
     }
 
     async onHover(params: HoverParams): Promise<Hover | null> {
         this.logger.log("onHover");
-        const uri = uriToPath(params.textDocument.uri);
-        const doc = this.docs.get(uri);
-        if (!doc || !uri) return null;
-        const root = this.getRootNode(doc.getText());
-        const current = this.analyzer.nodeAtPoint(doc.uri, params.position.line, params.position.character);
-        if (!current) return null;
+        const {doc, uri, root, current} = this.getDefaults(params)
+        if (!doc || !uri || !root || !current) return null;
         return await handleHover(doc.uri, root, current);
     }
+
+   // async onRenamge(params: RenameParams) : Promise<Edit> {
+   //     this.logger.log("onRename");
+   //     const uri = uriToPath(params.textDocument.uri);
+   //     const doc = this.docs.get(uri);
+   //     if (!doc || !uri) return null;
+   //     const root = this.getRootNode(doc.getText());
+   //     const current = this.analyzer.nodeAtPoint(doc.uri, params.position.line, params.position.character);
+   //     if (!current) return null;
+   //     return await handleRename(doc.uri, root, current, params.newName);
+   // }
+
+
+    getDefaults(params: TextDocumentPositionParams) : {
+        doc?: LspDocument,
+        uri?: string,
+        root?: SyntaxNode | null,
+        current?: SyntaxNode | null,
+    } {
+        const uri = uriToPath(params.textDocument.uri);
+        const doc = this.docs.get(uri);
+        if (!doc || !uri) return {};
+        const root = this.getRootNode(doc.getText());
+        const current = this.analyzer.nodeAtPoint(doc.uri, params.position.line, params.position.character);
+        return {doc, uri, root, current}
+    }
+
+    getDefaultsForPartialParams(params: {textDocument: TextDocumentIdentifier}) : {
+        doc?: LspDocument,
+        uri?: string,
+        root?: SyntaxNode | null,
+        current?: SyntaxNode | null,
+    } {
+        const uri = uriToPath(params.textDocument.uri);
+        const doc = this.docs.get(uri);
+        if (!doc || !uri) return {};
+        const root = this.getRootNode(doc.getText());
+        return {doc, uri, root}
+    }
+
 }
 

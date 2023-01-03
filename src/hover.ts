@@ -8,8 +8,6 @@ import {findEnclosingScope, findFirstParent, getNodeAtRange, getRange} from './u
 import * as Symbols from './workspace-symbol';
 
 
-
-
 export async function handleHover(uri: string, root: Parser.SyntaxNode, current: Parser.SyntaxNode) : Promise<LSP.Hover | null>{
     if (current.text.startsWith('-')) {
         return await getHoverForFlag(current)
@@ -29,8 +27,6 @@ export async function handleHover(uri: string, root: Parser.SyntaxNode, current:
 }
 
 
-
-
 export async function getHoverForFlag(current: Parser.SyntaxNode): Promise<Hover | null> {
     const commandNode = findFirstParent(current, n => isCommand(n))
     if (!commandNode) return null;
@@ -48,7 +44,7 @@ export async function getHoverForFlag(current: Parser.SyntaxNode): Promise<Hover
     }
     const flagCompletions = await execCompletions(...commandStr, '-')
     const shouldSplitShortFlags = hasOldUnixStyleFlags(flagCompletions)
-    const fixedFlags = spiltShortFlags(flags, shouldSplitShortFlags)
+    const fixedFlags = spiltShortFlags(flags, !shouldSplitShortFlags)
     const found = flagCompletions
         .map(line => line.split('\t'))
         .filter(line => fixedFlags.includes(line[0]))
@@ -60,7 +56,8 @@ export async function getHoverForFlag(current: Parser.SyntaxNode): Promise<Hover
 }
 
 function hasOldUnixStyleFlags(allFlags: string[]) {
-    for (const [flag, desc] of allFlags.map(line => line.split('\t'))) {
+    for (const line of allFlags.map(line => line.split('\t'))) {
+        const flag = line[0]
         if (flag.startsWith('-') && !flag.startsWith('--')) {
             if (flag.length > 2) {
                 return true;
