@@ -73,7 +73,6 @@ function createFishWorkspaceSymbol(node: SyntaxNode, uri: DocumentUri, container
     }
 }
 
-// use symbolInformation instead, then use the symbols found to search for external dependencies
 export function collectFishSymbols(documentUri: string, rootNode: SyntaxNode): FishSymbol[] {
     const symbols: FishSymbol[] = [];
     for (const node of getChildNodes(rootNode)) {

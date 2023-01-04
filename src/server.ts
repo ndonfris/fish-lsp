@@ -2,18 +2,20 @@ import Parser, {Edit, SyntaxNode} from "web-tree-sitter";
 import { initializeParser } from "./parser";
 import { Analyzer } from "./analyze";
 import { buildRegexCompletions, workspaceSymbolToCompletionItem, generateShellCompletionItems, insideStringRegex, } from "./completion";
-import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, TextDocumentItem, HoverParams, Hover, RenameParams, TextDocumentPositionParams, PartialResultParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit } from "vscode-languageserver";
+import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, TextDocumentItem, HoverParams, Hover, RenameParams, TextDocumentPositionParams, PartialResultParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, uinteger, CodeActionParams, CodeAction, DocumentRangeFormattingParams } from "vscode-languageserver";
 import { LspDocument, LspDocuments } from './document';
 import { FishCompletionItem, } from './utils/completion-types';
-import { enrichToCodeBlockMarkdown } from './documentation';
-import { execCommandDocs, execCommandType, execFindDependency, execOpenFile } from './utils/exec';
+import {  enrichToCodeBlockMarkdown } from './documentation';
+import { applyFormatterSettings } from './formatting';
+import { execCommandDocs, execCommandType, execFindDependency, execFormatter, execOpenFile } from './utils/exec';
 import {Logger} from './logger';
 import {uriToPath} from './utils/translation';
 import {ConfigManager} from './configManager';
 import {nearbySymbols, collectDocumentSymbols, getDefinitionKind, DefinitionKind, SpanTree, countParentScopes, getReferences, getLocalDefs } from './workspace-symbol';
 import {getDefinitionSymbols} from './workspace-symbol';
-import {getNodeAtRange} from './utils/tree-sitter';
+import {getNodeAtRange, getRange} from './utils/tree-sitter';
 import {handleHover} from './hover';
+import {Position} from 'vscode-languageserver';
 
 export default class FishServer {
 
@@ -53,7 +55,6 @@ export default class FishServer {
         this.logger = new Logger(connection);
     }
 
-
     async initialize(params: InitializeParams): Promise<InitializeResult> {
         this.connection.console.log(
             `Initialized server FISH-LSP with ${params.workspaceFolders}`
@@ -72,6 +73,10 @@ export default class FishServer {
                 definitionProvider: true,
                 referencesProvider: true,
                 renameProvider: true,
+                documentFormattingProvider: true,
+                documentRangeFormattingProvider: true,
+                //diagnosticProvider: {
+                //}
                 documentSymbolProvider: {
                     label: "Fish-LSP",
                 },
@@ -80,7 +85,6 @@ export default class FishServer {
         return result;
     }
 
-
     register(): void {
         this.connection.console.log("Starting FishLsp.register()")
 
@@ -88,7 +92,6 @@ export default class FishServer {
         this.connection.onDidChangeTextDocument(this.didChangeTextDocument.bind(this))
         this.connection.onDidCloseTextDocument(this.didCloseTextDocument.bind(this))
         this.connection.onDidSaveTextDocument(this.didSaveTextDocument.bind(this))
-
         // • for multiple completionProviders -> https://github.com/microsoft/vscode-extension-samples/blob/main/completions-sample/src/extension.ts#L15
         // • https://github.com/Dart-Code/Dart-Code/blob/7df6509870d51cc99a90cf220715f4f97c681bbf/src/providers/dart_completion_item_provider.ts#L197-202
         this.connection.onCompletion(this.onCompletion.bind(this))
@@ -100,6 +103,8 @@ export default class FishServer {
         this.connection.onReferences(this.onReferences.bind(this));
         this.connection.onHover(this.onHover.bind(this));
         this.connection.onRenameRequest(this.onRename.bind(this));
+        this.connection.onDocumentFormatting(this.onDocumentFormatting.bind(this));
+        this.connection.onDocumentRangeFormatting(this.onDocumentRangeFormatting.bind(this));
         this.connection.console.log("FINISHED FishLsp.register()")
     }
 
@@ -153,11 +158,10 @@ export default class FishServer {
 
     didSaveTextDocument(params: DidSaveTextDocumentParams): void {
         this.logger.log(`[${this.connection.onDidSaveTextDocument.name}]: ${params.textDocument.uri}`);
-    }
-
-    private getRootNode(documentText: string): SyntaxNode {
-        const tree = this.parser.parse(documentText);
-        return tree.rootNode;
+        //if (this.config.getFormattingOptions().formatOnSave) {
+        //    return;
+        //} else {
+        return;
     }
 
     // @TODO: REFACTOR THIS OUT OF SERVER
@@ -291,7 +295,7 @@ export default class FishServer {
         this.logger.log("onDocumentSymbols");
         const {doc, uri, root} = this.getDefaultsForPartialParams(params)
         if (!doc || !uri || !root) return [];
-        this.logger.log("length: "+ this.analyzer.getSymbols(doc.uri).length.toString())
+        //this.logger.log("length: "+ this.analyzer.getSymbols(doc.uri).length.toString())
         return getDefinitionSymbols(root);
     }
 
@@ -359,7 +363,71 @@ export default class FishServer {
         }
     }
 
+    async onCodeAction(params: CodeActionParams): Promise<CodeAction[]> {
+        this.logger.log("onCodeAction");
+        //const {doc, uri, root, current} = this.getDefaults(params)
+        //if (!doc || !uri || !root || !current) return [];
+        const actions: CodeAction[] = [];
+        return actions
+    }
 
+    async onDocumentFormatting(params: DocumentFormattingParams): Promise<TextEdit[]> {
+        this.logger.log(`onDocumentFormatting: ${params.textDocument.uri}`);
+        const {doc, uri, root} = this.getDefaultsForPartialParams(params)
+        if (!doc || !uri || !root) return [];
+        let formattedText: string | null = null
+        try {
+            formattedText = await execFormatter(uri)
+        } catch (err) {
+            if (err instanceof Error) {
+                this.connection.window.showErrorMessage(err.message)
+            }
+            if (typeof err === 'string') {
+                this.connection.window.showErrorMessage(err)
+            }
+            return []
+        }
+        if (!formattedText) return []
+        formattedText = applyFormatterSettings(this.parser.parse(formattedText).rootNode, this.config.getFormattingOptions())
+        const editedRange = getRange(root)
+        this.connection.window.showInformationMessage(`Formatted: ${uri}`)
+        return [TextEdit.replace(editedRange, formattedText)]
+    }
+
+    async onDocumentRangeFormatting(params: DocumentRangeFormattingParams): Promise<TextEdit[]> {
+        this.logger.log(`onDocumentRangeFormatting: ${params.textDocument.uri}`);
+        const {doc, uri, root} = this.getDefaultsForPartialParams(params)
+        const range = params.range
+        if (!doc || !uri || !root) return [];
+        let formattedText: string | null = null
+        try {
+            formattedText = await execFormatter(uri)
+        } catch (err) {
+            if (err instanceof Error) {
+                this.connection.window.showErrorMessage(err.message)
+            }
+            if (typeof err === 'string') {
+                this.connection.window.showErrorMessage(err)
+            }
+            return []
+        }
+        if (!formattedText) return []
+        formattedText = applyFormatterSettings(this.parser.parse(formattedText).rootNode, this.config.getFormattingOptions())
+        formattedText = formattedText.split('\n').slice(range.start.line, range.end.line).join('\n') + '\n'
+        this.connection.window.showInformationMessage(`Formatted Range: ${uri}`)
+        return [TextEdit.replace(range, formattedText)]
+    }
+
+
+
+    /////////////////////////////////////////////////////////////////////////////////////
+    // HELPERS
+    /////////////////////////////////////////////////////////////////////////////////////
+
+    private getRootNode(documentText: string): SyntaxNode {
+        const tree = this.parser.parse(documentText);
+        return tree.rootNode;
+    }
 
     // helper to get all the default objects needed when a TextDocumentPositionParam is passed
     // into a handler

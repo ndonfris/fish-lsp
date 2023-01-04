@@ -30,17 +30,15 @@ export async function execEscapedCommand(cmd: string): Promise<string[]> {
 }
 
 
+export async function execFormatter(path: string) {
+    const child = await execEscapedCommand(`fish_indent ${path}`);
+    return child.join('\n');
+}
+
 export async function execCompletions(...cmd: string[]) : Promise<string[]> {
-    //const completeInput = cmd.join(' ').replace(/(["'$`\\])/g,'\\$1');
     const file = resolve(__dirname, '../../fish_files/get-completion.fish')
     const cmps = await execFileAsync(file, cmd)
     return cmps.stdout.trim().split('\n')
-    //const escapedInput = await execAsync(`fish -c "string escape --style=script -n '${completeInput}'"`)
-    //const complete = escapedInput.stdout.trim().endsWith('-') ? escapedInput.stdout.trim() : escapedInput.stdout.trim() + ' '
-    //console.log(complete.bgRed);
-    //const completeString = `fish -c 'complete --do-complete="${complete}"'`;
-    //const completions = await execAsync(completeString)
-    //return completions.stdout.trim().split('\n')
 }
 
 export async function execCompleteLine(cmd: string): Promise<string[]> {

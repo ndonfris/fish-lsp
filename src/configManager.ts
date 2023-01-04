@@ -3,7 +3,7 @@
 import deepmerge from 'deepmerge';
 import { LspDocuments } from './document';
 import {
-    Connection,
+    Connection, FormattingOptions,
 } from 'vscode-languageserver';
 
 
@@ -12,6 +12,28 @@ export interface ServerPreferences {
     completeFunctionCalls?: boolean,
     completeVariables?: boolean,
     hirearchicalDocumentSymbolSupport?: boolean,
+    // formatting
+    // debugging
+
+    formatting?: FishFormattingOptions,
+}
+
+export interface FishFormattingOptions extends FormattingOptions {
+    formatOnSave?: boolean,
+    trimTrailingWhitespace?: boolean,
+    trimFinalNewlines?: boolean,
+    removeLeadingSwitchCaseWhitespace?: boolean,
+    insertFinalNewline?: boolean
+}
+
+export const FishFormattingDefaults : FishFormattingOptions = {
+    formatOnSave: false,
+    tabSize: 4,
+    insertSpaces: true,
+    trimTrailingWhitespace: true,
+    trimFinalNewlines: true,
+    insertFinalNewline: true,
+    removeLeadingSwitchCaseWhitespace: true,
 }
 
 const DEFAULT_PREFERENCES: ServerPreferences  = {
@@ -20,6 +42,8 @@ const DEFAULT_PREFERENCES: ServerPreferences  = {
     completeVariables: true,
     hirearchicalDocumentSymbolSupport: false,
 
+    formatting: FishFormattingDefaults,
+
 }
 
 
@@ -27,18 +51,16 @@ const DEFAULT_PREFERENCES: ServerPreferences  = {
 
 export class ConfigManager {
 
-    private preferences: ServerPreferences;
+    private preferences: Required<ServerPreferences> = deepmerge({}, DEFAULT_PREFERENCES);
 
-    constructor(private readonly documents: LspDocuments) {
-        this.preferences = DEFAULT_PREFERENCES;
+    constructor(private readonly documents: LspDocuments) {}
+
+    public mergeTsPreferences(preferences: ServerPreferences): void {
+        this.preferences = deepmerge(this.preferences, preferences);
     }
 
-    getPreference(key: keyof ServerPreferences) {
-        return this.preferences[key];
-    }
-
-    setPreference(key: keyof ServerPreferences, value: any) {
-        this.preferences[key] = value;
+    public getFormattingOptions() : FishFormattingOptions {
+        return this.preferences.formatting;
     }
 
 }

@@ -1,5 +1,27 @@
-Tue Jan  3 03:34:46 PM CST 2023
+Tue Jan  3 04:44:22 PM CST 2023
 
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n  echo \"$file\"\n  lso\n  fzf-local-node_modules\n  __test_small $argv\nend\n\n\n## this is a comment\nfunction __test_small\n  if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n    echo matched | string pad -c ' '\n  end\n  string match --regex '[[:alnum:]]' \"$argv\"\n\n  # padding a stirng\n  string pad --char \" \" $argv\n\n  set_color --background black white\n  set -l variable_name v\n  whatis -? --config-file --help --regex \"*\"\n\n  set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n\n  string pad --width 10 --char \" \" \"$argv\"\n\n  set -l variable_name value\n\n\n  if test -n \"$variable_name\"\n    echo \"$variable_name is not empty\"\n  end\n\n  for i in (seq 1 (count $variable_name))\n  end\n\n  for i in $variable_name\n    echo $i\n  end\n  set variable_name value\nend\n\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
 [onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
 closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
 [FishLsp.onDidOpenTextDocument()]
@@ -9,7 +31,340 @@ closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
       "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
       "languageId": "fish",
       "version": 1,
-      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\n    __test_small $argv\nend\n\n\n## this is a comment\nfunction __test_small \n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo \"matched\" | string pad -c ' ' \n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv \n\n    set_color --background black white \n    set -l variable_name \"v\" \n    whatis -? --config-file --help --regex \"*\" \n\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    \n    string pad --width 10 --char \" \" \"$argv\" \n\n    set -l variable_name \"value\" \n\n\n    if test -n \"$variable_name\" \n        echo \"$variable_name is not empty\" \n    end\n\n    for i in (seq 1 (count $variable_name))\n    end\n\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name \"value\" \nend\n\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n"
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n  echo \"$file\"\n  lso\n  fzf-local-node_modules\n  __test_small $argv\nend\n\n\n## this is a comment\nfunction __test_small\n  if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n    echo matched | string pad -c ' '\n  end\n  string match --regex '[[:alnum:]]' \"$argv\"\n\n  # padding a stirng\n  string pad --char \" \" $argv\n\n  set_color --background black white\n  set -l variable_name v\n  whatis -? --config-file --help --regex \"*\"\n\n  set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n\n  string pad --width 10 --char \" \" \"$argv\"\n\n  set -l variable_name value\n\n\n  if test -n \"$variable_name\"\n    echo \"$variable_name is not empty\"\n  end\n\n  for i in (seq 1 (count $variable_name))\n  end\n\n  for i in $variable_name\n    echo $i\n  end\n  set variable_name value\nend\n\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n  echo \"$file\"\n  lso\n  fzf-local-node_modules\n  __test_small $argv\nend\n\n\n## this is a comment\nfunction __test_small\n  if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n    echo matched | string pad -c ' '\n  end\n  string match --regex '[[:alnum:]]' \"$argv\"\n\n  # padding a stirng\n  string pad --char \" \" $argv\n\n  set_color --background black white\n  set -l variable_name v\n  whatis -? --config-file --help --regex \"*\"\n\n  set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n\n  string pad --width 10 --char \" \" \"$argv\"\n\n  set -l variable_name value\n\n\n  if test -n \"$variable_name\"\n    echo \"$variable_name is not empty\"\n  end\n\n  for i in (seq 1 (count $variable_name))\n  end\n\n  for i in $variable_name\n    echo $i\n  end\n  set variable_name value\nend\n\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n  echo \"$file\"\n  lso\n  fzf-local-node_modules\n  __test_small $argv\nend\n\n\n## this is a comment\nfunction __test_small\n  if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n    echo matched | string pad -c ' '\n  end\n  string match --regex '[[:alnum:]]' \"$argv\"\n\n  # padding a stirng\n  string pad --char \" \" $argv\n\n  set_color --background black white\n  set -l variable_name v\n  whatis -? --config-file --help --regex \"*\"\n\n  set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n\n  string pad --width 10 --char \" \" \"$argv\"\n\n  set -l variable_name value\n\n\n  if test -n \"$variable_name\"\n    echo \"$variable_name is not empty\"\n  end\n\n  for i in (seq 1 (count $variable_name))\n  end\n\n  for i in $variable_name\n    echo $i\n  end\n  set variable_name value\nend\n\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n  echo \"$file\"\n  lso\n  fzf-local-node_modules\n  __test_small $argv\nend\n\n\n## this is a comment\nfunction __test_small\n  if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n    echo matched | string pad -c ' '\n  end\n  string match --regex '[[:alnum:]]' \"$argv\"\n\n  # padding a stirng\n  string pad --char \" \" $argv\n\n  set_color --background black white\n  set -l variable_name v\n  whatis -? --config-file --help --regex \"*\"\n\n  set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n\n  string pad --width 10 --char \" \" \"$argv\"\n\n  set -l variable_name value\n\n\n  if test -n \"$variable_name\"\n    echo \"$variable_name is not empty\"\n  end\n\n  for i in (seq 1 (count $variable_name))\n  end\n\n  for i in $variable_name\n    echo $i\n  end\n  set variable_name value\nend\n\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n  echo \"$file\"\n  lso\n  fzf-local-node_modules\n  __test_small $argv\nend\n\n\n## this is a comment\nfunction __test_small\n  if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n    echo matched | string pad -c ' '\n  end\n  string match --regex '[[:alnum:]]' \"$argv\"\n\n  # padding a stirng\n  string pad --char \" \" $argv\n\n  set_color --background black white\n  set -l variable_name v\n  whatis -? --config-file --help --regex \"*\"\n\n  set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n\n  string pad --width 10 --char \" \" \"$argv\"\n\n  set -l variable_name value\n\n\n  if test -n \"$variable_name\"\n    echo \"$variable_name is not empty\"\n  end\n\n  for i in (seq 1 (count $variable_name))\n  end\n\n  for i in $variable_name\n    echo $i\n  end\n  set variable_name value\nend\n\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n  echo \"$file\"\n  lso\n  fzf-local-node_modules\n  __test_small $argv\nend\n\n\n## this is a comment\nfunction __test_small\n  if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n    echo matched | string pad -c ' '\n  end\n  string match --regex '[[:alnum:]]' \"$argv\"\n\n  # padding a stirng\n  string pad --char \" \" $argv\n\n  set_color --background black white\n  set -l variable_name v\n  whatis -? --config-file --help --regex \"*\"\n\n  set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n\n  string pad --width 10 --char \" \" \"$argv\"\n\n  set -l variable_name value\n\n\n  if test -n \"$variable_name\"\n    echo \"$variable_name is not empty\"\n  end\n\n  for i in (seq 1 (count $variable_name))\n  end\n\n  for i in $variable_name\n    echo $i\n  end\n  set variable_name value\nend\n\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n  echo \"$file\"\n  lso\n  fzf-local-node_modules\n  __test_small $argv\nend\n\n\n## this is a comment\nfunction __test_small\n  if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n    echo matched | string pad -c ' '\n  end\n  string match --regex '[[:alnum:]]' \"$argv\"\n\n  # padding a stirng\n  string pad --char \" \" $argv\n\n  set_color --background black white\n  set -l variable_name v\n  whatis -? --config-file --help --regex \"*\"\n\n  set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n\n  string pad --width 10 --char \" \" \"$argv\"\n\n  set -l variable_name value\n\n\n  if test -n \"$variable_name\"\n    echo \"$variable_name is not empty\"\n  end\n\n  for i in (seq 1 (count $variable_name))\n  end\n\n  for i in $variable_name\n    echo $i\n  end\n  set variable_name value\nend\n\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n  echo \"$file\"\n  lso\n  fzf-local-node_modules\n  __test_small $argv\nend\n\n\n## this is a comment\nfunction __test_small\n  if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n    echo matched | string pad -c ' '\n  end\n  string match --regex '[[:alnum:]]' \"$argv\"\n\n  # padding a stirng\n  string pad --char \" \" $argv\n\n  set_color --background black white\n  set -l variable_name v\n  whatis -? --config-file --help --regex \"*\"\n\n  set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n\n  string pad --width 10 --char \" \" \"$argv\"\n\n  set -l variable_name value\n\n\n  if test -n \"$variable_name\"\n    echo \"$variable_name is not empty\"\n  end\n\n  for i in (seq 1 (count $variable_name))\n  end\n\n  for i in $variable_name\n    echo $i\n  end\n  set variable_name value\nend\n\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n  echo \"$file\"\n  lso\n  fzf-local-node_modules\n  __test_small $argv\nend\n\n\n## this is a comment\nfunction __test_small\n  if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n    echo matched | string pad -c ' '\n  end\n  string match --regex '[[:alnum:]]' \"$argv\"\n\n  # padding a stirng\n  string pad --char \" \" $argv\n\n  set_color --background black white\n  set -l variable_name v\n  whatis -? --config-file --help --regex \"*\"\n\n  set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n\n  string pad --width 10 --char \" \" \"$argv\"\n\n  set -l variable_name value\n\n\n  if test -n \"$variable_name\"\n    echo \"$variable_name is not empty\"\n  end\n\n  for i in (seq 1 (count $variable_name))\n  end\n\n  for i in $variable_name\n    echo $i\n  end\n  set variable_name value\nend\n\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n\n  echo \"$file\"\n\n  lso\n\n  fzf-local-node_modules\n\n  __test_small $argv\n\nend\n\n\n\n\n\n## this is a comment\n\nfunction __test_small\n\n  if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n\n    echo matched | string pad -c ' '\n\n  end\n\n  string match --regex '[[:alnum:]]' \"$argv\"\n\n\n\n  # padding a stirng\n\n  string pad --char \" \" $argv\n\n\n\n  set_color --background black white\n\n  set -l variable_name v\n\n  whatis -? --config-file --help --regex \"*\"\n\n\n\n  set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n\n\n\n  string pad --width 10 --char \" \" \"$argv\"\n\n\n\n  set -l variable_name value\n\n\n\n\n\n  if test -n \"$variable_name\"\n\n    echo \"$variable_name is not empty\"\n\n  end\n\n\n\n  for i in (seq 1 (count $variable_name))\n\n  end\n\n\n\n  for i in $variable_name\n\n    echo $i\n\n  end\n\n  set variable_name value\n\nend\n\n\n\n\n\nset -l file \"$argv\"\n\ntest-fish-lsp $file\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n  echo \"$file\"\n  lso\n  fzf-local-node_modules\n  __test_small $argv\nend\n\n## this is a comment\nfunction __test_small\n  if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n    echo matched | string pad -c ' '\n  end\n  string match --regex '[[:alnum:]]' \"$argv\"\n\n  # padding a stirng\n  string pad --char \" \" $argv\n  set_color --background black white\n  set -l variable_name v\n  whatis -? --config-file --help --regex \"*\"\n  set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n  string pad --width 10 --char \" \" \"$argv\"\n  set -l variable_name value\n  if test -n \"$variable_name\"\n    echo \"$variable_name is not empty\"\n  end\n  for i in (seq 1 (count $variable_name))\n  end\n  for i in $variable_name\n    echo $i\n  end\n  set variable_name value\nend\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n"
     }
   }
 }
@@ -17,18 +372,657 @@ closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
 opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
 analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
 onDocumentSymbols
-length: 17
-onRename
 [onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
 onDocumentSymbols
-length: 17
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
 [onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
 onDocumentSymbols
-length: 17
-onRename
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
 [onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
 onDocumentSymbols
-length: 17
 [onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
 onDocumentSymbols
-length: 17
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n  echo \"$file\"\n  lso\n  fzf-local-node_modules\n  __test_small $argv\nend\n\n## this is a comment\nfunction __test_small\n  if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n    echo matched | string pad -c ' '\n  end\n  string match --regex '[[:alnum:]]' \"$argv\"\n\n  # padding a stirng\n  string pad --char \" \" $argv\n  set_color --background black white\n  set -l variable_name v\n  whatis -? --config-file --help --regex \"*\"\n  set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n  string pad --width 10 --char \" \" \"$argv\"\n  set -l variable_name value\n  if test -n \"$variable_name\"\n    echo \"$variable_name is not empty\"\n  end\n  for i in (seq 1 (count $variable_name))\n  end\n  for i in $variable_name\n    echo $i\n  end\n  set variable_name value\nend\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n  echo \"$file\"\n  lso\n  fzf-local-node_modules\n  __test_small $argv\nend\n\n## this is a comment\nfunction __test_small\n  if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n    echo matched | string pad -c ' '\n  end\n  string match --regex '[[:alnum:]]' \"$argv\"\n\n  # padding a stirng\n  string pad --char \" \" $argv\n  set_color --background black white\n  set -l variable_name v\n  whatis -? --config-file --help --regex \"*\"\n  set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n  string pad --width 10 --char \" \" \"$argv\"\n  set -l variable_name value\n  if test -n \"$variable_name\"\n    echo \"$variable_name is not empty\"\n  end\n  for i in (seq 1 (count $variable_name))\n  end\n  for i in $variable_name\n    echo $i\n  end\n  set variable_name value\nend\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDefinition
+lso
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/lso.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "# ls original version (ascii, system version)\n\nfunction lso\n    if test (count $argv) -eq 0\n        /usr/bin/ls;\n    else \n        /usr/bin/ls $argv;\n    end\nend\n\n\n#complete -c lso --wraps ls\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/lso.fish
+opened document: file:///home/ndonfris/.config/fish/functions/lso.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/lso.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/lso.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/lso.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/lso.fish
+closed uri: /home/ndonfris/.config/fish/functions/lso.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/lso.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n  echo \"$file\"\n  lso\n  fzf-local-node_modules\n  __test_small $argv\nend\n\n## this is a comment\nfunction __test_small\n  if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n    echo matched | string pad -c ' '\n  end\n  string match --regex '[[:alnum:]]' \"$argv\"\n\n  # padding a stirng\n  string pad --char \" \" $argv\n  set_color --background black white\n  set -l variable_name v\n  whatis -? --config-file --help --regex \"*\"\n  set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n  string pad --width 10 --char \" \" \"$argv\"\n  set -l variable_name value\n  if test -n \"$variable_name\"\n    echo \"$variable_name is not empty\"\n  end\n  for i in (seq 1 (count $variable_name))\n  end\n  for i in $variable_name\n    echo $i\n  end\n  set variable_name value\nend\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 2,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n  echo \"$file\"\n  lso\n  fzf-local-node_modules\n  __test_small $argv\nend\n\n## this is a comment\nfunction __test_small\n  if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n    echo matched | string pad -c ' '\n  end\n  string match --regex '[[:alnum:]]' \"$argv\"\n\n  # padding a stirng\n  string pad --char \" \" $argv\n  set_color --background black white\n  set -l variable_name v\n  whatis -? --config-file --help --regex \"*\"\n  set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n  string pad --width 10 --char \" \" \"$argv\"\n  set -l variable_name value\n  if test -n \"$variable_name\"\n    echo \"$variable_name is not empty\"\n  end\n  for i in (seq 1 (count $variable_name))\n  end\nfor i in $variable_name\n    echo $i\n  end\n  set variable_name value\nend\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n  echo \"$file\"\n  lso\nfzf-local-node_modules\n  __test_small $argv\nend\n\n## this is a comment\nfunction __test_small\n  if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n    echo matched | string pad -c ' '\n  end\n  string match --regex '[[:alnum:]]' \"$argv\"\n\n  # padding a stirng\n  string pad --char \" \" $argv\n  set_color --background black white\n  set -l variable_name v\n  whatis -? --config-file --help --regex \"*\"\n  set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n  string pad --width 10 --char \" \" \"$argv\"\n  set -l variable_name value\n  if test -n \"$variable_name\"\n    echo \"$variable_name is not empty\"\n  end\n  for i in (seq 1 (count $variable_name))\n  end\n  for i in $variable_name\n    echo $i\n  end\n  set variable_name value\nend\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 2,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n  echo \"$file\"\n  lso\nfzf-local-node_modules\n  __test_small $argv\nend\n\n## this is a comment\nfunction __test_small\n  if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n    echo matched | string pad -c ' '\n  end\n  string match --regex '[[:alnum:]]' \"$argv\"\n\n  # padding a stirng\n  string pad --char \" \" $argv\n  set_color --background black white\n  set -l variable_name v\n  whatis -? --config-file --help --regex \"*\"\n  set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n  string pad --width 10 --char \" \" \"$argv\"\n  set -l variable_name value\n  if test -n \"$variable_name\"\n    echo \"$variable_name is not empty\"\n  end\n  for i in (seq 1 (count $variable_name))\n  end\n  for i in $variable_name\n    echo $i\n  end\n  set variable_name value\nend\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n  echo \"$file\"\n  lso\nfzf-local-node_modules\n  __test_small $argv\nend\n\n## this is a comment\nfunction __test_small\n  if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n    echo matched | string pad -c ' '\n  end\n  string match --regex '[[:alnum:]]' \"$argv\"\n\n  # padding a stirng\n  string pad --char \" \" $argv\n  set_color --background black white\n  set -l variable_name v\n  whatis -? --config-file --help --regex \"*\"\n  set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n  string pad --width 10 --char \" \" \"$argv\"\n  set -l variable_name value\n  if test -n \"$variable_name\"\n    echo \"$variable_name is not empty\"\n  end\n  for i in (seq 1 (count $variable_name))\n  end\n  for i in $variable_name\n    echo $i\n  end\n  set variable_name value\nend\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n  echo \"$file\"\n  lso\nfzf-local-node_modules\n  __test_small $argv\nend\n\n## this is a comment\nfunction __test_small\n  if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n    echo matched | string pad -c ' '\n  end\n  string match --regex '[[:alnum:]]' \"$argv\"\n\n  # padding a stirng\n  string pad --char \" \" $argv\n  set_color --background black white\n  set -l variable_name v\n  whatis -? --config-file --help --regex \"*\"\n  set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n  string pad --width 10 --char \" \" \"$argv\"\n  set -l variable_name value\n  if test -n \"$variable_name\"\n    echo \"$variable_name is not empty\"\n  end\n  for i in (seq 1 (count $variable_name))\n  end\n  for i in $variable_name\n    echo $i\n  end\n  set variable_name value\nend\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n  echo \"$file\"\n  lso\n  fzf-local-node_modules\n  __test_small $argv\nend\n\n## this is a comment\nfunction __test_small\n  if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n    echo matched | string pad -c ' '\n  end\n  string match --regex '[[:alnum:]]' \"$argv\"\n\n  # padding a stirng\n  string pad --char \" \" $argv\n  set_color --background black white\n  set -l variable_name v\n  whatis -? --config-file --help --regex \"*\"\n  set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n  string pad --width 10 --char \" \" \"$argv\"\n  set -l variable_name value\n  if test -n \"$variable_name\"\n    echo \"$variable_name is not empty\"\n  end\n  for i in (seq 1 (count $variable_name))\n  end\n  for i in $variable_name\n    echo $i\n  end\n  set variable_name value\nend\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n  echo \"$file\"\n  lso\n  fzf-local-node_modules\n__test_small $argv\nend\n\n## this is a comment\nfunction __test_small\n  if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n    echo matched | string pad -c ' '\n  end\n  string match --regex '[[:alnum:]]' \"$argv\"\n\n  # padding a stirng\n  string pad --char \" \" $argv\n  set_color --background black white\n  set -l variable_name v\n  whatis -? --config-file --help --regex \"*\"\n  set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n  string pad --width 10 --char \" \" \"$argv\"\n  set -l variable_name value\n  if test -n \"$variable_name\"\n    echo \"$variable_name is not empty\"\n  end\n  for i in (seq 1 (count $variable_name))\n  end\n  for i in $variable_name\n    echo $i\n  end\n  set variable_name value\nend\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\n__test_small $argv\nend\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv\n    set_color --background black white\n    set -l variable_name v\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name value\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n    for i in (seq 1 (count $variable_name))\n    end\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name value\nend\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentRangeFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDocumentRangeFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDocumentRangeFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\n__test_small $argv\nend\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv\n    set_color --background black white\n    set -l variable_name v\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name value\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n    for i in (seq 1 (count $variable_name))\n    end\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name value\nend\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentRangeFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDocumentRangeFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\n__test_small $argv\nend\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv\n    set_color --background black white\n    set -l variable_name v\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name value\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n    for i in (seq 1 (count $variable_name))\n    end\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name value\nend\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentRangeFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDocumentRangeFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 2,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\nfzf-local-node_modules\nend\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv\n    set_color --background black white\n    set -l variable_name v\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name value\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n    for i in (seq 1 (count $variable_name))\n    end\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name value\nend\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDocumentRangeFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDocumentRangeFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\nfzf-local-node_modules\nend\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv\n    set_color --background black white\n    set -l variable_name v\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name value\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n    for i in (seq 1 (count $variable_name))\n    end\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name value\nend\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentRangeFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDocumentRangeFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDocumentRangeFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDocumentRangeFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onHover
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\nend\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" $argv\n    set_color --background black white\n    set -l variable_name v\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n    for i in (seq 1 (count $variable_name))\n    end\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name \"value\"\nend\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDocumentRangeFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onHover
+onHover
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\nend\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n    for i in (seq 1 (count $variable_name))\n    end\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name \"value\"\nend\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\nend\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n    for i in (seq 1 (count $variable_name))\n    end\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name \"value\"\nend\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    fzf-local-node_modules\nend\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n    for i in (seq 1 (count $variable_name))\n    end\n    for i in $variable_name\n        echo $i\n    end\n    set variable_name \"value asdf\"\nend\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDocumentRangeFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentRangeFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onHover
+onDefinition
+lso
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/lso.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "# ls original version (ascii, system version)\n\nfunction lso\n  if test (count $argv) -eq 0\n    /usr/bin/ls\n  else\n    /usr/bin/ls $argv\n  end\nend\n\n\n#complete -c lso --wraps ls\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/lso.fish
+opened document: file:///home/ndonfris/.config/fish/functions/lso.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/lso.fish
+onHover
+onDocumentSymbols
+onDefinition
+/usr/bin/ls
+onDefinition
+lso
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/lso.fish
+closed uri: /home/ndonfris/.config/fish/functions/lso.fish
+onDefinition
+fzf-local-node_modules
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/fzf-local-node_modules.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function fzf-local-node_modules -d \"upwards search to containing node_modules && search packages\"\n    set -l nodedir (upfind -name 'node_modules')\n\n    set -l nodedir (echo \"$nodedir/\"node_modules)\n    \n    set -l _goto_dir (fd --base-directory=\"$nodedir\" --type d --maxdepth=1 -a | __fzf_helper )\n\n    if test -n \"$_goto_dir\" -a -d \"$_goto_dir\"\n        cd \"$_goto_dir\" \n        return 0\n    end\n\n    echo \"'fzf-local-node_modules' could not find:\"\n    echo -e \"\\t$_goto_dir\"\n    return 1\nend\n\nfunction __fzf_helper\n    fzf -d '/' --with-nth=-1 --preview 'echo -e  PACKAGE: {-1}\\nPATH: {}  | bat --color=always -pp --theme=base16 -H1:2; exa --icons --color=always --across {} | bat-fzf-helper' --preview-window 'right:55%'\nend\n\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/fzf-local-node_modules.fish
+opened document: file:///home/ndonfris/.config/fish/functions/fzf-local-node_modules.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/fzf-local-node_modules.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/fzf-local-node_modules.fish
+closed uri: /home/ndonfris/.config/fish/functions/fzf-local-node_modules.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish

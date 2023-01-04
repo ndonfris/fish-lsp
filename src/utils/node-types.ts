@@ -418,6 +418,13 @@ export function wordNodeIsCommand(node: SyntaxNode) {
     return node.parent ? isCommand(node.parent) && node.parent.firstChild?.text === node.text : false
 }
 
+export function isSwitchStatement(node: SyntaxNode) {
+    return node.type === 'switch_statement'
+}
+
+export function isCaseClause(node: SyntaxNode) {
+    return node.type === 'case_clause'
+}    
 /*
  * echo $hello_world 
  *           ^--- variable_name

@@ -1,4 +1,26 @@
-# Sources for project thus far
+# CURRENT TODO
+
+- [ ] [server.ts]( ./src/server.ts )
+    - [ ] onFold
+    - [ ] onCommand
+    - [ ] onComplete
+    - [ ] diagnostics
+- [x] [documentation.ts]( ./src/documentation.ts )
+- [ ] [analysis.ts]( ./src/analyzer.ts )
+    - [ ] implement diagnostics
+- [ ] [completion.ts]( ./src/completion.ts )
+    - [ ] fix/update to v.8.0.2 with `editRange` in `CompletionList.create()`
+    - [ ] fix WorkspaceSymbol/DocumentSymbol completions
+- [ ] [commands.ts]( ./src/commands.ts )
+    - [ ] implement commands to be used in server.ts. 
+        - formatting
+        - folding
+        - executeSelection
+- [ ] [code-actions.ts]( ./src/code-actions.ts ) implement code actions
+- [ ] [code-lens.ts]( ./src/code-lens.ts ) implement code lens
+
+
+## Sources for project thus far
 
 - __Similiar projects__
     - [coc.fish]( https://github.com/oncomouse/coc-fish )
@@ -16,36 +38,6 @@
 - __Default Implementation Git Repos__
     - [client implementation]( https://github.com/microsoft/vscode-languageserver-node/blob/main/client/src/common )
     - [server implementation]( https://github.com/microsoft/vscode-languageserver-node/tree/main/server/src/common )  
-
-#### CURRENT TODO
-
-- [ ] [server.ts]( ./src/server.ts )
-- [ ] [documentation.ts]( ./src/documentation.ts )
-- [ ] [analysis.ts]( ./src/analyzer.ts )
-- [ ] fish-lsp-client.ts (NOT YET IMPLEMENTED)
-- [ ] diagnostics.ts
-- [x] completion.ts - extract from server.ts
-- [x] DocumentSymbols - could implement better scope detection 
-    - [x] completionItem
-    - [x] definition
-    - [x] refrences
-    - [ ] rename
-    - [ ] hover
-
-- _Restructuring_ || _TODO_ || _NOTES_
-    - you could move `node-types` to parser __??__
-    - fix `interfaces.ts` to just have interfaces, and to have a better `context`
-        implementation
-    - move _AstNodes_ to _analyzer_ __class__?
-        - if you choice to stick to functional approach, you need a generic
-            function that can be called from anywhere (probably needs context)
-            to update all variables in context
-    - fix __variableDefinitions__(./src/utils/node-types.ts)
-        - eventually merge `node-types` & `tree-sitter`
-    - fix/move to `config.ts` to work for `server.ts`
-        - move config related stuff to config?? like context??
-        - move `server.ts` to class/oop approach
-    - __get simple build going before next features!!__
 
 ---
 ### Below is for [TypeScript Language Server]( https://github.com/typescript-language-server/typescript-language-server/blob/114d4309cb1450585f991604118d3eff3690237c/src/utils/SnippetString.ts )

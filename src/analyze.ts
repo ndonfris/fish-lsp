@@ -15,13 +15,10 @@ export class Analyzer {
     // maps the uri of document to the parser.parse(document.getText())
     private uriTree: { [uri: string]: Tree };
 
-    private fishSymbols: FishSymbolMap;
-
     constructor(parser: Parser) {
         this.parser = parser;
         //this.console = console || undefined;
         this.uriTree = {};
-        this.fishSymbols = {};
     }
 
     public analyze(document: LspDocument) {
@@ -31,15 +28,6 @@ export class Analyzer {
             return
         }
         this.uriTree[document.uri] = tree;
-        const fishSymbols = collectFishSymbols(document.uri, tree.rootNode);
-        this.fishSymbols[document.uri] = fishSymbols;
-
-    }
-
-    getCompletionFishSymbols(uri: string): FishSymbol[] {
-        return this.fishSymbols[uri].filter((symbol) => {
-            return symbol.kind === SymbolKind.Function || symbol.kind === SymbolKind.Variable
-        });
     }
 
     /**
@@ -63,8 +51,6 @@ export class Analyzer {
         return tree.rootNode.namedDescendantForPosition({ row: line, column });
     }
 
-    getSymbols(uri: string): FishSymbol[] {
-        return this.fishSymbols[uri] || [];
-    }
+
 
 }
