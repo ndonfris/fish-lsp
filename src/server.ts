@@ -34,17 +34,12 @@ export default class FishServer {
     private initializeParams: InitializeParams | undefined;
     // the connection of the FishServer
     private connection: Connection;
-
     // the parser (using tree-sitter-web)
     private parser: Parser;
-
     private analyzer: Analyzer; 
-
     // documentManager 
     private docs: LspDocuments;
-
     private config: ConfigManager;
-
     protected logger: Logger;
 
     constructor(connection: Connection, params: InitializeParams ,parser : Parser, analyzer: Analyzer, docs: LspDocuments ) {
@@ -81,7 +76,6 @@ export default class FishServer {
                     identifier: "fish-lsp",
                     workspaceDiagnostics: true,
                     interFileDependencies: true,
-                    id: "fish-lsp",
                 },
                 codeActionProvider: {
                     codeActionKinds: [
@@ -100,8 +94,7 @@ export default class FishServer {
     }
 
     register(): void {
-        this.connection.console.log("Starting FishLsp.register()")
-
+        //this.connection.window.createWorkDoneProgress();
         this.connection.onDidOpenTextDocument(this.didOpenTextDocument.bind(this))
         this.connection.onDidChangeTextDocument(this.didChangeTextDocument.bind(this))
         this.connection.onDidCloseTextDocument(this.didCloseTextDocument.bind(this))
@@ -428,16 +421,17 @@ export default class FishServer {
 
 
     onCodeAction(params: CodeActionParams) : CodeAction[] {
-        //const {doc, uri, root, current} = this.getDefaults({textDocument: params.textDocument, position: params.range.start})
+        const {doc, uri, root, current} = this.getDefaults({textDocument: params.textDocument, position: params.range.start})
         this.logger.log("onCodeAction: " + params.textDocument.uri);
         this.logger.logRange(params.range, "onCodeAction.range")
         //params.context.diagnostics
+        if (!uri || !root) return [];
 
         //console.log(current?.text || 'no node');
         //if (!uri || !root || !current) return [];
         const actions: CodeAction[] = [
-            //createExtractPrivateFunction(uri, root, params.range),
-            //createExtractVariable(uri, root, params.range),
+            createExtractPrivateFunction(uri, root, params.range),
+            createExtractVariable(uri, root, params.range),
         ]
         return actions
     }

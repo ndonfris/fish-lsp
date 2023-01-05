@@ -22,6 +22,10 @@ export function startServer() {
         new StreamMessageReader(process.stdin),
         new StreamMessageWriter(process.stdout)
     )
+    const token = connection.window.attachWorkDoneProgress('Initializing Fish Language Server');
+    token.begin('Fish Language Server', 0, 'Initializing', true);
+    token.report(0);
+    //token.begin('Initializing Fish Language Server');
     connection.onInitialize(
         async (params: InitializeParams): Promise<InitializeResult> => {
             connection.console.log(`Initialized server FISH-LSP with ${params.workspaceFolders}`);
@@ -31,6 +35,7 @@ export function startServer() {
         }
     )
     connection.listen()
+    token.done();
 }
 
 

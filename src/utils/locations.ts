@@ -4,6 +4,7 @@
 import  * as  LSP from 'vscode-languageserver';
 import { FishProtocol } from './fishProtocol';
 
+
 export namespace Range {
     export const fromTextSpan = (span: FishProtocol.TextSpan): LSP.Range => fromLocations(span.start, span.end);
 

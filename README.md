@@ -17,9 +17,15 @@
         - folding
         - executeSelection
 - [ ] [code-actions.ts]( ./src/code-actions.ts ) implement code actions
+    - use `CodeActionContext.create()` to create contexts, potentially while also creating
+      diagnostics at the same time.
+    - Need to get range working for `CodeActions`. Otherwise, it will only work on the first line
+      of the document.
 - [ ] [code-lens.ts]( ./src/code-lens.ts ) implement code lens
 
 - what is a [ __text_span__ ](https://github.com/typescript-language-server/typescript-language-server/blob/5a39c1f801ab0cad725a2b8711c0e0d46606a08b/src/utils/typeConverters.ts#L12)
+    - __@SEE__ [utils/locations.ts]( ./src/utils/locations.ts )
+
 
 
 ## Sources for project thus far

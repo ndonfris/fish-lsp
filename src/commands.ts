@@ -5,7 +5,7 @@
 
 export const Commands = {
 
-    //APPLY_WO
+    APPLY_WORKSPACE_EDIT: ''
 
 
 }
