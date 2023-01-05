@@ -6,7 +6,7 @@ import {URI} from 'vscode-uri';
 import Parser from 'web-tree-sitter';
 import {initializeParser} from './parser';
 import FishServer from './server';
-import {getAllFishLocations} from './utils/locations';
+//import {getAllFishLocations} from './utils/locations';
 
 
 

@@ -1,3 +1,4 @@
+import os from 'os'
 import {URI, Utils} from 'vscode-uri';
 import { LspDocuments } from '../document';
 import { DocumentSymbol, Range, SymbolInformation, SymbolKind } from 'vscode-languageserver';
@@ -64,7 +65,11 @@ function currentVersion(filepath: string, documents: LspDocuments | undefined): 
 export function pathToRelativeFilename(uriPath: string) : string {
     const relativeName = uriPath.split('/').at(-1) || uriPath;
     return relativeName.replace('.fish', '');
+}
 
+export function uriInUserFunctions(uri: string) {
+    const path = uriToPath(uri);
+    return path?.startsWith(`${os.homedir()}/.config/fish/functions`) 
 }
 
 export function nodeToSymbolInformation(node: SyntaxNode, uri: string) : SymbolInformation {

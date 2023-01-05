@@ -80,6 +80,30 @@ export function isStatement(node: SyntaxNode): boolean {
     ].includes(node.type);
 }
 
+
+/**
+ * similiar to isStatement, but only returns true for the first child of a statement,
+ * where a 'end' token is needed to close the statement
+ *
+ * @param {SyntaxNode} node - the node to check
+ * @returns {boolean} true if getRange(node) should be closed with an 'end' token
+ */
+export function isBlock(node: SyntaxNode): boolean {
+    return [
+        'for_statement',
+        'switch_statement',
+        'while_statement',
+        'if_statement',
+        'function_definition',
+    ].includes(node.type);
+    
+}
+
+export function isEnd(node: SyntaxNode): boolean {
+    return node.type == 'end';
+}
+
+
 export function isScope(node: SyntaxNode): boolean {
     return isProgram(node) || isFunctionDefinition(node) || isStatement(node)
 }

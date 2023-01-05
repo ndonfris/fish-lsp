@@ -19,6 +19,8 @@
 - [ ] [code-actions.ts]( ./src/code-actions.ts ) implement code actions
 - [ ] [code-lens.ts]( ./src/code-lens.ts ) implement code lens
 
+- what is a [ __text_span__ ](https://github.com/typescript-language-server/typescript-language-server/blob/5a39c1f801ab0cad725a2b8711c0e0d46606a08b/src/utils/typeConverters.ts#L12)
+
 
 ## Sources for project thus far
 

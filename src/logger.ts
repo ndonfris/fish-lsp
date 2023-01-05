@@ -112,6 +112,8 @@ export class Logger {
             this.log('node is null or undefined')
         }
     }
+
+
     public logDocumentSymbol(docSym: DocumentSymbol | null | undefined, info="") {
         if (docSym) {
             if (info === "") {
@@ -125,12 +127,18 @@ export class Logger {
         }
     }
 
-    public logRange(range: Range) {
-        this.console.log(`position (character: ${range.start.character}, line: ${range.start.line})`);
-        this.console.log(`position (character: ${range.end.character}, line: ${range.end.line})`);
+    public logRange(range: Range, text?: string) {
+        if (text) {
+            this.log(text)
+        }
+        this.log(`position (character: ${range.start.character}, line: ${range.start.line})`);
+        this.log(`position (character: ${range.end.character}, line: ${range.end.line})`);
     }
 
-    public logPosition(position: Position) {
+    public logPosition(position: Position, text?: string) {
+        if (text) {
+            this.console.log(text)
+        }
         this.console.log(`position (character: ${position.character}, line: ${position.line})`);
     }
 

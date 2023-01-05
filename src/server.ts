@@ -13,9 +13,11 @@ import {uriToPath} from './utils/translation';
 import {ConfigManager} from './configManager';
 import {nearbySymbols, collectDocumentSymbols, getDefinitionKind, DefinitionKind, SpanTree, countParentScopes, getReferences, getLocalDefs } from './workspace-symbol';
 import {getDefinitionSymbols} from './workspace-symbol';
-import {getNodeAtRange, getRange} from './utils/tree-sitter';
+import {findFirstParent, getNodeAtRange, getRange} from './utils/tree-sitter';
 import {handleHover} from './hover';
 import {Position} from 'vscode-languageserver';
+import {getDiagnostics} from './diagnostics/validate';
+import {createExtractPrivateFunction, createExtractVariable, createFunctionNameMatchesUri, } from './code-action';
 
 export default class FishServer {
 
@@ -75,8 +77,20 @@ export default class FishServer {
                 renameProvider: true,
                 documentFormattingProvider: true,
                 documentRangeFormattingProvider: true,
-                //diagnosticProvider: {
-                //}
+                diagnosticProvider: {
+                    identifier: "fish-lsp",
+                    workspaceDiagnostics: true,
+                    interFileDependencies: true,
+                    id: "fish-lsp",
+                },
+                codeActionProvider: {
+                    codeActionKinds: [
+                        "refactor.extract.function",
+                        "refactor.extract.variable",
+                        "quickfix.rename.function",
+                    ],
+                    resolveProvider: true,
+                },
                 documentSymbolProvider: {
                     label: "Fish-LSP",
                 },
@@ -105,6 +119,7 @@ export default class FishServer {
         this.connection.onRenameRequest(this.onRename.bind(this));
         this.connection.onDocumentFormatting(this.onDocumentFormatting.bind(this));
         this.connection.onDocumentRangeFormatting(this.onDocumentRangeFormatting.bind(this));
+        this.connection.onCodeAction(this.onCodeAction.bind(this));
         this.connection.console.log("FINISHED FishLsp.register()")
     }
 
@@ -123,6 +138,8 @@ export default class FishServer {
                 this.logger.log("opened document: " + params.textDocument.uri)
                 this.analyzer.analyze(doc);
                 this.logger.log("analyzed document: " + params.textDocument.uri)
+                const root = this.getRootNode(doc.getText())
+                this.connection.sendDiagnostics({uri: uri, diagnostics: getDiagnostics(uri, root)});
             }
         } else {
             this.logger.log(`Cannot open already opened doc '${params.textDocument.uri}'.`);
@@ -138,14 +155,13 @@ export default class FishServer {
     }
 
     didChangeTextDocument(params: DidChangeTextDocumentParams): void {
-        const uri = uriToPath(params.textDocument.uri);
-        if (!uri) return;
-        const doc = this.docs.get(uri);
         this.logger.log(`[${ this.connection.onDidChangeTextDocument.name }]: ${params.textDocument.uri}` );
-        if (!doc) return;
+        const { uri, doc, root} = this.getDefaultsForPartialParams({textDocument: params.textDocument})
+        if (!uri || !doc || !root) return;
         params.contentChanges.forEach(newContent => {
             doc.applyEdit(params.textDocument.version, newContent)
         })
+        this.connection.sendDiagnostics({uri, diagnostics: getDiagnostics(uri, root)});
     }
 
     didCloseTextDocument(params: DidCloseTextDocumentParams): void {
@@ -363,14 +379,6 @@ export default class FishServer {
         }
     }
 
-    async onCodeAction(params: CodeActionParams): Promise<CodeAction[]> {
-        this.logger.log("onCodeAction");
-        //const {doc, uri, root, current} = this.getDefaults(params)
-        //if (!doc || !uri || !root || !current) return [];
-        const actions: CodeAction[] = [];
-        return actions
-    }
-
     async onDocumentFormatting(params: DocumentFormattingParams): Promise<TextEdit[]> {
         this.logger.log(`onDocumentFormatting: ${params.textDocument.uri}`);
         const {doc, uri, root} = this.getDefaultsForPartialParams(params)
@@ -419,12 +427,35 @@ export default class FishServer {
     }
 
 
+    onCodeAction(params: CodeActionParams) : CodeAction[] {
+        //const {doc, uri, root, current} = this.getDefaults({textDocument: params.textDocument, position: params.range.start})
+        this.logger.log("onCodeAction: " + params.textDocument.uri);
+        this.logger.logRange(params.range, "onCodeAction.range")
+        //params.context.diagnostics
+
+        //console.log(current?.text || 'no node');
+        //if (!uri || !root || !current) return [];
+        const actions: CodeAction[] = [
+            //createExtractPrivateFunction(uri, root, params.range),
+            //createExtractVariable(uri, root, params.range),
+        ]
+        return actions
+    }
+    //params.context.diagnostics.forEach(n => {
+        //if (n.code === 1) {
+            //actions.push(createFunctionNameMatchesUri(uri, params.range))
+            //return actions;
+        //}
+    //})
+    //return actions
+
 
     /////////////////////////////////////////////////////////////////////////////////////
     // HELPERS
     /////////////////////////////////////////////////////////////////////////////////////
 
     private getRootNode(documentText: string): SyntaxNode {
+        this.parser.reset()
         const tree = this.parser.parse(documentText);
         return tree.rootNode;
     }
@@ -452,8 +483,14 @@ export default class FishServer {
     } {
         const uri = uriToPath(params.textDocument.uri);
         const doc = this.docs.get(uri);
-        if (!doc || !uri) return {};
-        const root = this.getRootNode(doc.getText());
+        const root = this.getRootNode(doc?.getText() || '');
+        return {doc, uri, root}
+    }
+
+    private getDefaultsFallback(paramURI: string) : { doc?: LspDocument, uri?: string, root?: SyntaxNode } {
+        const uri = uriToPath(paramURI);
+        const doc = this.docs.get(uri);
+        const root = doc?.getText ? this.getRootNode(doc?.getText()) : undefined;
         return {doc, uri, root}
     }
 
