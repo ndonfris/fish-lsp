@@ -130,7 +130,7 @@ export class Logger {
     }
 
     public logCommand(command: ExecuteCommandParams) {
-        const args = command.arguments?.map((arg, i) => `arg_${i}: ${arg.name.toString()}`).join('\n');
+        const args = command.arguments?.map((arg, i) => `arg_${i}: ${JSON.stringify(arg)}`).join('\n');
         this.log(command.toString() + '\n' + args)
     }
 

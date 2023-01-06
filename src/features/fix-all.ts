@@ -234,6 +234,3 @@ export class FishAutoFixProvider {
         return (await Promise.all(results)).flatMap(result => result || []);
     }
 }
-
-
-

@@ -5,6 +5,10 @@ import  * as  LSP from 'vscode-languageserver';
 import { FishProtocol } from './fishProtocol';
 
 export namespace Range {
+
+    export const create = (start: LSP.Position, end: LSP.Position): LSP.Range => LSP.Range.create(start, end)
+    export const is = (value: any): value is LSP.Range => LSP.Range.is(value)
+
     export const fromTextSpan = (span: FishProtocol.TextSpan): LSP.Range => fromLocations(span.start, span.end);
 
     export const toTextSpan = (range: LSP.Range): FishProtocol.TextSpan => ({
@@ -47,6 +51,10 @@ export namespace Range {
 }
 
 export namespace Position {
+
+    export const create = (line: number, character: number): LSP.Position => LSP.Position.create(line, character)
+    export const is = (value: any): value is LSP.Position => LSP.Position.is(value)
+
     export const fromLocation = (tslocation: FishProtocol.Location): LSP.Position => {
         // Clamping on the low side to 0 since Typescript returns 0, 0 when creating new file
         // even though position is supposed to be 1-based.
@@ -119,6 +127,8 @@ export namespace Position {
 }
 
 export namespace Location {
+    export const create = (uri: string, range: LSP.Range): LSP.Location => LSP.Location.create(uri, range)
+    export const is = (value: any): value is LSP.Location => LSP.Location.is(value)
     export const fromTextSpan = (resource: LSP.DocumentUri, fishTextSpan: FishProtocol.TextSpan): LSP.Location =>
         LSP.Location.create(resource, Range.fromTextSpan(fishTextSpan));
 }

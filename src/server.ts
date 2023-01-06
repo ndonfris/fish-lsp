@@ -2,7 +2,7 @@ import Parser, {Edit, SyntaxNode} from "web-tree-sitter";
 import { initializeParser } from "./parser";
 import { Analyzer } from "./analyze";
 import { buildRegexCompletions, workspaceSymbolToCompletionItem, generateShellCompletionItems, insideStringRegex, } from "./completion";
-import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, TextDocumentItem, HoverParams, Hover, RenameParams, TextDocumentPositionParams, PartialResultParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, uinteger, CodeActionParams, CodeAction, DocumentRangeFormattingParams, ExecuteCommandParams, CancellationToken, WorkDoneProgress, WorkDoneProgressReporter, RemoteClient } from "vscode-languageserver";
+import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, TextDocumentItem, HoverParams, Hover, RenameParams, TextDocumentPositionParams, PartialResultParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, uinteger, CodeActionParams, CodeAction, DocumentRangeFormattingParams, ExecuteCommandParams, CancellationToken, WorkDoneProgress, WorkDoneProgressReporter, RemoteClient, Command, ServerRequestHandler } from "vscode-languageserver";
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
 import { FishCompletionItem, } from './utils/completion-types';
@@ -13,17 +13,18 @@ import {Logger} from './logger';
 import {uriToPath} from './utils/translation';
 import {ConfigManager} from './configManager';
 import {nearbySymbols, collectDocumentSymbols, getDefinitionKind, DefinitionKind, SpanTree, countParentScopes, getReferences, getLocalDefs } from './workspace-symbol';
-import {getDefinitionSymbols} from './workspace-symbol';
-import {findFirstParent, getNodeAtRange, getRange} from './utils/tree-sitter';
+import { getDefinitionSymbols}  from './workspace-symbol';
+import { findFirstParent, getNodeAtRange, getRange } from './utils/tree-sitter';
 import { handleHover } from './hover';
-import {Position} from 'vscode-languageserver';
 import { getDiagnostics } from './diagnostics/validate';
 import { CodeActionKind } from './code-action';
 import {FishAutoFixProvider} from './features/fix-all';
-import { Range } from './utils/locations';
+import * as Locations from './utils/locations';
 import {FishProtocol} from './utils/fishProtocol';
 import {provideQuickFix} from './features/quickfix';
 import {provideRefactor, provideRefactors} from './features/refactor';
+import {CommandParams, Commands, /*executeCommandHandler*/} from './commands';
+import * as ExecCommands from './commands';
 
 export type SupportedFeatures = {
     codeActionDisabledSupport : boolean;
@@ -87,13 +88,13 @@ export default class FishServer {
                 renameProvider: true,
                 documentFormattingProvider: true,
                 documentRangeFormattingProvider: true,
-                diagnosticProvider: {
-                    identifier: "fish-lsp",
-                    workspaceDiagnostics: true,
-                    interFileDependencies: true,
-                    //documentSelector: true,
-                    id: "fish-lsp",
-                },
+                //diagnosticProvider: {
+                //    identifier: "fish-lsp",
+                //    workspaceDiagnostics: false,
+                //    interFileDependencies: false,
+                //    //documentSelector: true,
+                //    id: "fish-lsp",
+                //},
                 codeActionProvider: {
                     codeActionKinds: [
                         ...FishAutoFixProvider.kinds.map(kind => kind.value),
@@ -102,6 +103,17 @@ export default class FishServer {
                     ],
                     resolveProvider: true,
                 },
+                executeCommandProvider: {
+                    commands: [
+                        Commands.APPLY_REFACTORING,
+                        Commands.SELECT_REFACTORING,
+                        Commands.APPLY_WORKSPACE_EDIT,
+                        Commands.RENAME,
+                        "onHover",
+                    ],
+                    workDoneProgress: true,
+                },
+
                 documentSymbolProvider: {
                     label: "Fish-LSP",
                 },
@@ -130,18 +142,55 @@ export default class FishServer {
         this.connection.onDocumentFormatting(this.onDocumentFormatting.bind(this));
         this.connection.onDocumentRangeFormatting(this.onDocumentRangeFormatting.bind(this));
         this.connection.onCodeAction(this.onCodeAction.bind(this));
+        //executeCommandHandler;
+        this.connection.onExecuteCommand(this.onExecuteCommand.bind(this));
+        this.connection.onRequest('onHover', this.onHover.bind(this));
         this.connection.console.log("FINISHED FishLsp.register()")
     }
 
 
-    async executeCommand(params: ExecuteCommandParams, token?: CancellationToken, workDoneProgress?: WorkDoneProgressReporter): Promise<any> {
-        this.logger.log('executeCommand');
+    async onExecuteCommand(params: ExecuteCommandParams): Promise<any> {
+        this.connection.window.showInformationMessage(`FishLsp: ${params.command} executed`)
+        this.logger.log('executeCommand: ' + params.command);
         this.logger.logCommand(params);
-        switch (params.command) {
-            //case execCommandType:
-            default:
-                this.logger.log(`Unknown command ${params.command}`);
+        //const args = params.arguments?.shift() || {};
+        //switch (params.command) {
+        //    case Commands.HOVER:
+        //        break;
+        //    case Commands.RENAME:
+        //        //if (CommandParams.isRenameParams(params)) await this.connection.sendRequest('rename', params, token)
+        //        break;
+        //    case Commands.FORMAT: 
+        //        if (CommandParams.isDocumentFormattingParams(params)) await this.onDocumentFormatting(params);
+        //        break;
+        //    //case Commands.APPLY_REFACTORING:
+        //    default:
+        //        this.logger.log(`Unknown command ${params.command}`);
+        //        return
+
+        //}
+        //this.connection.window.showInformationMessage(`FishLsp: ${params.command} Completed`)
+
+        //this.connection.onExecuteCommand(this.connection.onHover.bind(this.onHover))
+    }
+    onRequest(command: string): LSP.ServerRequestHandler<ExecuteCommandParams, any, never, void> {
+        let h : ServerRequestHandler<ExecuteCommandParams, any | undefined | null, never, void>;
+        switch (command) {
+            case Commands.HOVER:
+                h = async ( params, token, workDoneProgress, resultProgress) =>{
+                    this.connection.onRequest('onHover', this.connection.onHover)
+                }
+            case Commands.RENAME:
+            case Commands.FORMAT:
+            default: 
+                h  = async ( params, token, workDoneProgress, resultProgress) => {
+                this.connection.onRequest('onHover', this.onHover).dispose()
+                }
+
+
         }
+        return h 
+        //throw new Error('Method not implemented.');
     }
 
 
@@ -475,24 +524,31 @@ export default class FishServer {
 
     async onCodeAction(params: CodeActionParams) : Promise<CodeAction[]> {
         const uri = uriToPath(params.textDocument.uri)
-        this.logger.log("onCodeAction: " + params.textDocument.uri);
-        this.logger.logRange(params.range, "onCodeAction.range")
-        params.context.only = FishAutoFixProvider.kinds.map(kind => kind.value)
-        this.logger.log('params.context.only: '+ params.context.only?.join(','))
-        
-        if (!uri) return []
-        const fileRangeArgs = Range.toFileRangeRequestArgs(uri, params.range);
+        if (!uri || params.range) return []
+         const loc = Locations.Position.toFileLocationRequestArgs(uri, params.range)
+        const hoverArgs : HoverParams = { textDocument: {uri: loc.file}, position: {character: loc.offset, line: loc.line} }
+        //const command = Command.create('hover', 'textDocument/hover', hoverArgs)
+        return [await this.onExecuteCommand({command: 'onHover', arguments: [hoverArgs]})]
+        //this.onExecuteCommand({command: 'workspace/onDefinition', arguments: [hoverArgs]})
+        //returncc[]
+        //this.logger.log("onCodeAction: " + params.textDocument.uri);
+        //this.logger.logRange(params.range, "onCodeAction.range")
+        //params.context.only = FishAutoFixProvider.kinds.map(kind => kind.value)
+        //this.logger.log('params.context.only: '+ params.context.only?.join(','))
+        //
+        //if (!uri) return []
+        //const fileRangeArgs = Locations.Range.toFileRangeRequestArgs(uri, params.range);
         const codeActions: CodeAction[] = [];
 
-        //params.context.only = ['quickfix', 'refactor', 'source', 'sourceAll']
-        const kinds = params.context.only?.map(kind => new CodeActionKind(kind));
-        if (!kinds || kinds.some(kind => kind.contains(CodeActionKind.QuickFix))) {
-            codeActions.push(...provideQuickFix(await this.getCodeFixes(fileRangeArgs, params.context), this.docs))
-        }
-        if (!kinds || kinds.some(kind => kind.contains(CodeActionKind.Refactor))) {
-            codeActions.push(...provideRefactors(await this.getRefactors(fileRangeArgs, params.context), fileRangeArgs, this.features));
-        }
-        codeActions.push(...await this.fishAutoFixProvider!.provideCodeActions(kinds, uri, params.context.diagnostics, this.docs))
+        ////params.context.only = ['quickfix', 'refactor', 'source', 'sourceAll']
+        //const kinds = params.context.only?.map(kind => new CodeActionKind(kind));
+        //if (!kinds || kinds.some(kind => kind.contains(CodeActionKind.QuickFix))) {
+        //    codeActions.push(...provideQuickFix(await this.getCodeFixes(fileRangeArgs, params.context), this.docs))
+        //}
+        //if (!kinds || kinds.some(kind => kind.contains(CodeActionKind.Refactor))) {
+        //    codeActions.push(...provideRefactors(await this.getRefactors(fileRangeArgs, params.context), fileRangeArgs, this.features));
+        //}
+        //codeActions.push(...await this.fishAutoFixProvider!.provideCodeActions(kinds, uri, params.context.diagnostics, this.docs))
         return codeActions
     }
     //params.context.diagnostics.forEach(n => {
