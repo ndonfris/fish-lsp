@@ -1,11 +1,13 @@
 import os from 'os'
 import {URI, Utils} from 'vscode-uri';
 import { LspDocuments } from '../document';
-import { DocumentSymbol, Range, SymbolInformation, SymbolKind } from 'vscode-languageserver';
+import { DocumentSymbol, SelectionRange, SymbolInformation, SymbolKind, TextDocumentEdit, TextEdit } from 'vscode-languageserver';
 import {SyntaxNode} from 'web-tree-sitter';
 import {toSymbolKind} from '../symbols';
-import {getPrecedingComments, getRange} from './tree-sitter';
+import { getPrecedingComments, getRange } from './tree-sitter';
 import {findEnclosingVariableScope, findParentVariableDefintionKeyword} from './node-types';
+import {Position, Range} from './locations';
+import { FishProtocol} from './fishProtocol';
 
 const RE_PATHSEP_WINDOWS = /\\/g;
 
@@ -119,3 +121,30 @@ export function nodeToDocumentSymbol(node: SyntaxNode) : DocumentSymbol {
     return DocumentSymbol.create(name, detail, kind, range, selectionRange, children)
 }
 
+export function toSelectionRange(range: SelectionRange): SelectionRange {
+    const span = Range.toTextSpan(range.range)
+    return SelectionRange.create(
+        Range.fromTextSpan(span),
+        range.parent ? toSelectionRange(range.parent) : undefined,
+    );
+}
+
+export function toTextEdit(edit: FishProtocol.CodeEdit): TextEdit {
+    return {
+        range: {
+            start: Position.fromLocation(edit.start),
+            end: Position.fromLocation(edit.end),
+        },
+        newText: edit.newText,
+    };
+}
+
+export function toTextDocumentEdit(change: FishProtocol.FileCodeEdits, documents: LspDocuments | undefined): TextDocumentEdit {
+    return {
+        textDocument: {
+            uri: pathToUri(change.fileName, documents),
+            version: currentVersion(change.fileName, documents),
+        },
+        edits: change.textChanges.map(c => toTextEdit(c)),
+    };
+}

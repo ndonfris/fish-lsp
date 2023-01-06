@@ -1,5 +1,9 @@
 // @see $HOME/repos/typescript-language-server/src/utils/typeConverters.ts
+
+import {CodeAction} from 'vscode-languageserver';
+
 // @see $HOME/repos/typescript-language-server/node_modules/typescript/lib/protocol.d.ts
+
 
 /**
  * OUTLINE Protocol types in this namespace
@@ -16,6 +20,9 @@ export declare namespace FishProtocol {
         GetOutliningSpans = "getOutliningSpans",
         GetSpanOfEnclosingComment = "getSpanOfEnclosingComment",
         Rename = "rename",
+        GetCodeFixes = "getCodeFixes",
+        GetCombinedCodeFix = "getCombinedCodeFix",
+        GetApplicableRefactors = "getApplicableRefactors",
     }
 
     enum ScriptElementKind {
@@ -352,6 +359,26 @@ export declare namespace FishProtocol {
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
 
+    interface CodeEdit {
+        /**
+         * First character of the text span to edit.
+         */
+        start: Location;
+        /**
+         * One character past last character of the text span to edit.
+         */
+        end: Location;
+        /**
+         * Replace the span defined above with this string (may be
+         * the empty string).
+         */
+        newText: string;
+    }
+    interface FileCodeEdits {
+        fileName: string;
+        textChanges: CodeEdit[];
+    }
+
     /**
      * Rename request; value of command field is "rename". Return
      * response giving the file locations that reference the symbol
@@ -430,6 +457,74 @@ export declare namespace FishProtocol {
     interface RenameResponse extends Response {
         body?: RenameResponseBody;
     }
+    /**
+     * Request refactorings at a given position or selection area.
+     */
+    type FileLocationOrRangeRequestArgs = FileLocationRequestArgs | FileRangeRequestArgs;
+    interface GetApplicableRefactorsRequest extends Request {
+        command: CommandTypes.GetApplicableRefactors;
+        arguments: GetApplicableRefactorsRequestArgs;
+    }
+    type GetApplicableRefactorsRequestArgs = FileLocationOrRangeRequestArgs & {
+        triggerReason?: RefactorTriggerReason;
+        kind?: string;
+    };
+    type RefactorTriggerReason = "implicit" | "invoked";
+    /**
+     * A set of one or more available refactoring actions, grouped under a parent refactoring.
+     */
+    interface ApplicableRefactorInfo {
+        /**
+         * The programmatic name of the refactoring
+         */
+        name: string;
+        /**
+         * A description of this refactoring category to show to the user.
+         * If the refactoring gets inlined (see below), this text will not be visible.
+         */
+        description: string;
+        /**
+         * Inlineable refactorings can have their actions hoisted out to the top level
+         * of a context menu. Non-inlineanable refactorings should always be shown inside
+         * their parent grouping.
+         *
+         * If not specified, this value is assumed to be 'true'
+         */
+        inlineable?: boolean;
+        actions: RefactorActionInfo[];
+    }
+    /**
+     * Represents a single refactoring action - for example, the "Extract Method..." refactor might
+     * offer several actions, each corresponding to a surround class or closure to extract into.
+     */
+    interface RefactorActionInfo {
+        /**
+         * The programmatic name of the refactoring action
+         */
+        name: string;
+        /**
+         * A description of this refactoring action to show to the user.
+         * If the parent refactoring is inlined away, this will be the only text shown,
+         * so this description should make sense by itself if the parent is inlineable=true
+         */
+        description: string;
+        /**
+         * A message to show to the user if the refactoring cannot be applied in
+         * the current context.
+         */
+        notApplicableReason?: string;
+        /**
+         * The hierarchical dotted name of the refactor action.
+         */
+        kind?: string;
+    }
+    interface GetApplicableRefactorsResponse extends Response {
+        body?: ApplicableRefactorInfo[];
+    }
+    /**
+     * Response is a list of available refactorings.
+     * Each refactoring exposes one or more "Actions"; a user selects one action to invoke a refactoring
+     */
 
     interface FileSpanWithContext extends FileSpan, TextSpanWithContext {}
     interface DefinitionInfo extends FileSpanWithContext {
@@ -438,4 +533,35 @@ export declare namespace FishProtocol {
          */
         unverified?: boolean;
     }
+
+    interface CodeAction {
+        /** Description of the code action to display in the UI of the editor */
+        description: string;
+        /** Text changes to apply to each file as part of the code action */
+        changes: FileCodeEdits[];
+        /** A command is an opaque object that should be passed to `ApplyCodeActionCommandRequestArgs` without modification.  */
+        commands?: {}[];
+    }
+
+    /**
+     * Instances of this interface specify errorcodes on a specific location in a sourcefile.
+     */
+    interface CodeFixRequestArgs extends FileRangeRequestArgs {
+        /**
+         * Errorcodes we want to get the fixes for.
+         */
+        errorCodes: readonly number[];
+    }
+    interface GetCombinedCodeFixRequestArgs {
+        scope: GetCombinedCodeFixScope;
+        fixId: {};
+    }
+    interface GetCombinedCodeFixScope {
+        type: "file";
+        args: FileRequestArgs;
+    }
+    interface GetCodeFixesResponse extends Response {
+        body?: CodeAction[];
+    }
+
 }

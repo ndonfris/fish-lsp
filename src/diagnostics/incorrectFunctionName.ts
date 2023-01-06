@@ -4,7 +4,7 @@ import {SyntaxNode} from 'web-tree-sitter';
 import {isBlock, isFunctionDefinition, isFunctionDefinitionName} from '../utils/node-types';
 import {findFirstParent, getChildNodes, getRange} from '../utils/tree-sitter';
 import { pathToRelativeFilename, uriInUserFunctions, uriToPath} from '../utils/translation';
-
+import * as errorCodes from './errorCodes';
 
 
 export function incorrectFunctionName(uri: string, root: SyntaxNode, nodes: SyntaxNode[]): Diagnostic[] {
@@ -21,16 +21,15 @@ export function incorrectFunctionName(uri: string, root: SyntaxNode, nodes: Synt
         return result
     }
     return nodes
-        .filter(n => isFunctionDefinitionName(n))
-        .map((node: SyntaxNode) => {
-            return Diagnostic.create(
+        .filter((n) => isFunctionDefinitionName(n))
+        .map((node: SyntaxNode) =>
+            Diagnostic.create(
                 getRange(node),
                 `Warning: fish function '${shouldHave}' not found in '${uriToPath(uri)}'`,
                 DiagnosticSeverity.Warning,
-                1,
-                'fish-lsp'
-            )}
-        )
+                errorCodes.incorrectFunctionName,
+                "fish-lsp"
+            ))
 }
 
 

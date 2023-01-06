@@ -1,47 +1,67 @@
-import {CodeAction, TextEdit, Range, CodeActionKind} from 'vscode-languageserver';
-import {SyntaxNode} from 'web-tree-sitter';
-import {pathToRelativeFilename, uriInUserFunctions} from './utils/translation';
-import {getNodeAtRange, getRange} from './utils/tree-sitter';
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
 
-export function createFunctionNameMatchesUri(uri: string, range: Range): CodeAction {
-    const funcName = pathToRelativeFilename(uri)
-    return CodeAction.create(
-        'Rename function to match file name',
-        { changes: { [uri]: [TextEdit.replace(range, funcName)] } },
-        'quickfix.rename.function'
-    )
+import * as LSP from 'vscode-languageserver';
+
+export class CodeActionKind {
+    private static readonly sep = '.';
+
+    public static readonly Empty = new CodeActionKind(LSP.CodeActionKind.Empty);
+
+    public static readonly Refactor = new CodeActionKind(LSP.CodeActionKind.Refactor);
+    public static readonly RefactorToFunction = CodeActionKind.Refactor.append('function');
+    public static readonly RefactorToVariable = CodeActionKind.Refactor.append('variable');
+
+    public static readonly QuickFix = new CodeActionKind(LSP.CodeActionKind.QuickFix);
+    public static readonly QuickFixFunctionName = CodeActionKind.QuickFix.append('functionName');
+    public static readonly QuickFixMissingEnd = CodeActionKind.QuickFix.append('missingEnd');
+
+    public static readonly Source = new CodeActionKind(LSP.CodeActionKind.Source);
+    public static readonly SourceRemoveUnused = CodeActionKind.Source.append('removeUnused')
+    public static readonly SourceRemoveUnreachable = CodeActionKind.Source.append('removeUnreachable')
+
+    public static readonly SourceFixAll = new CodeActionKind(LSP.CodeActionKind.SourceFixAll);
+
+    constructor(public readonly value: string) { }
+
+    public equals(other: CodeActionKind): boolean {
+        return this.value === other.value;
+    }
+
+    /**
+     * Checks if `other` is a sub-kind of this `CodeActionKind`.
+     *
+     * The kind `"refactor.extract"` for example contains `"refactor.extract"` and ``"refactor.extract.function"`,
+     * but not `"unicorn.refactor.extract"`, or `"refactor.extractAll"` or `refactor`.
+     *
+     * @param other Kind to check.
+     */
+    public contains(other: CodeActionKind): boolean {
+        return this.equals(other) || this.value === '' || other.value.startsWith(this.value + CodeActionKind.sep);
+    }
+
+    /**
+     * Checks if this code action kind intersects `other`.
+     *
+     * The kind `"refactor.extract"` for example intersects `refactor`, `"refactor.extract"` and ``"refactor.extract.function"`,
+     * but not `"unicorn.refactor.extract"`, or `"refactor.extractAll"`.
+     *
+     * @param other Kind to check.
+     */
+    public intersects(other: CodeActionKind): boolean {
+        return this.contains(other) || other.contains(this);
+    }
+
+    /**
+     * Create a new kind by appending a more specific selector to the current kind.
+     *
+     * Does not modify the current kind.
+     */
+    public append(part: string): CodeActionKind {
+        return new CodeActionKind(this.value + CodeActionKind.sep + part);
+    }
 }
-
-export function createExtractPrivateFunction(uri: string, root: SyntaxNode, range: Range): CodeAction {
-    const text = [
-        'function _',
-        getNodeAtRange(root, range)?.text || '',
-        'end'
-    ].join('\n')
-    return CodeAction.create(
-        'Refactor to private function',
-        {
-            changes: {
-                [uri]: [
-                    TextEdit.del(range),
-                    TextEdit.insert({
-                        line: getRange(root).end.line,
-                        character: 0
-                    }, text),
-                ],
-            },
-        },
-        "quickfix.extract.function"
-    );
-}                                                                                        
-
-export function createExtractVariable(uri: string, curr: SyntaxNode, range: Range): CodeAction {
-    const text = 'set    (' + curr.text! + ')'
-    return CodeAction.create(
-        'Refactor to variable',
-        { changes: { [uri]: [TextEdit.replace(range, text)] } },
-        'quickfix.extract.variable'
-    )
-}                                                                                        
 
 

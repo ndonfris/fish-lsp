@@ -2,7 +2,8 @@ import Parser, {Edit, SyntaxNode} from "web-tree-sitter";
 import { initializeParser } from "./parser";
 import { Analyzer } from "./analyze";
 import { buildRegexCompletions, workspaceSymbolToCompletionItem, generateShellCompletionItems, insideStringRegex, } from "./completion";
-import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, TextDocumentItem, HoverParams, Hover, RenameParams, TextDocumentPositionParams, PartialResultParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, uinteger, CodeActionParams, CodeAction, DocumentRangeFormattingParams } from "vscode-languageserver";
+import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, TextDocumentItem, HoverParams, Hover, RenameParams, TextDocumentPositionParams, PartialResultParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, uinteger, CodeActionParams, CodeAction, DocumentRangeFormattingParams, ExecuteCommandParams, CancellationToken, WorkDoneProgress, WorkDoneProgressReporter, RemoteClient } from "vscode-languageserver";
+import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
 import { FishCompletionItem, } from './utils/completion-types';
 import {  enrichToCodeBlockMarkdown } from './documentation';
@@ -14,10 +15,19 @@ import {ConfigManager} from './configManager';
 import {nearbySymbols, collectDocumentSymbols, getDefinitionKind, DefinitionKind, SpanTree, countParentScopes, getReferences, getLocalDefs } from './workspace-symbol';
 import {getDefinitionSymbols} from './workspace-symbol';
 import {findFirstParent, getNodeAtRange, getRange} from './utils/tree-sitter';
-import {handleHover} from './hover';
+import { handleHover } from './hover';
 import {Position} from 'vscode-languageserver';
-import {getDiagnostics} from './diagnostics/validate';
-import {createExtractPrivateFunction, createExtractVariable, createFunctionNameMatchesUri, } from './code-action';
+import { getDiagnostics } from './diagnostics/validate';
+import { CodeActionKind } from './code-action';
+import {FishAutoFixProvider} from './features/fix-all';
+import { Range } from './utils/locations';
+import {FishProtocol} from './utils/fishProtocol';
+import {provideQuickFix} from './features/quickfix';
+import {provideRefactor, provideRefactors} from './features/refactor';
+
+export type SupportedFeatures = {
+    codeActionDisabledSupport : boolean;
+}
 
 export default class FishServer {
 
@@ -34,13 +44,16 @@ export default class FishServer {
     private initializeParams: InitializeParams | undefined;
     // the connection of the FishServer
     private connection: Connection;
+    //private client: RemoteClient;
     // the parser (using tree-sitter-web)
     private parser: Parser;
     private analyzer: Analyzer; 
     // documentManager 
     private docs: LspDocuments;
     private config: ConfigManager;
+    private fishAutoFixProvider: FishAutoFixProvider;
     protected logger: Logger;
+    protected features: SupportedFeatures;
 
     constructor(connection: Connection, params: InitializeParams ,parser : Parser, analyzer: Analyzer, docs: LspDocuments ) {
         this.connection = connection;
@@ -50,6 +63,8 @@ export default class FishServer {
         this.docs = docs;
         this.config = new ConfigManager(this.docs);
         this.logger = new Logger(connection);
+        this.features = { codeActionDisabledSupport: false };
+        this.fishAutoFixProvider = new FishAutoFixProvider(this.connection)
     }
 
     async initialize(params: InitializeParams): Promise<InitializeResult> {
@@ -76,12 +91,14 @@ export default class FishServer {
                     identifier: "fish-lsp",
                     workspaceDiagnostics: true,
                     interFileDependencies: true,
+                    //documentSelector: true,
+                    id: "fish-lsp",
                 },
                 codeActionProvider: {
                     codeActionKinds: [
-                        "refactor.extract.function",
-                        "refactor.extract.variable",
-                        "quickfix.rename.function",
+                        ...FishAutoFixProvider.kinds.map(kind => kind.value),
+                        CodeActionKind.RefactorToFunction.value,
+                        CodeActionKind.RefactorToVariable.value,
                     ],
                     resolveProvider: true,
                 },
@@ -115,6 +132,18 @@ export default class FishServer {
         this.connection.onCodeAction(this.onCodeAction.bind(this));
         this.connection.console.log("FINISHED FishLsp.register()")
     }
+
+
+    async executeCommand(params: ExecuteCommandParams, token?: CancellationToken, workDoneProgress?: WorkDoneProgressReporter): Promise<any> {
+        this.logger.log('executeCommand');
+        this.logger.logCommand(params);
+        switch (params.command) {
+            //case execCommandType:
+            default:
+                this.logger.log(`Unknown command ${params.command}`);
+        }
+    }
+
 
     didOpenTextDocument(params: DidOpenTextDocumentParams): void {
         this.logger.log("[FishLsp.onDidOpenTextDocument()]")
@@ -419,21 +448,52 @@ export default class FishServer {
         return [TextEdit.replace(range, formattedText)]
     }
 
+    protected async getCodeFixes(fileRangeArgs: FishProtocol.FileRangeRequestArgs, context: LSP.CodeActionContext): Promise<FishProtocol.GetCodeFixesResponse | undefined> {
+        const errorCodes = context.diagnostics.map(diagnostic => Number(diagnostic.code));
+        const args: FishProtocol.CodeFixRequestArgs = {
+            ...fileRangeArgs,
+            errorCodes,
+        };
+        try {
+            return await this.connection.sendRequest(FishProtocol.CommandTypes.GetCodeFixes, args);
+        } catch (err) {
+            return undefined;
+        }
+    }
+    protected async getRefactors(fileRangeArgs: FishProtocol.FileRangeRequestArgs, context: LSP.CodeActionContext): Promise<FishProtocol.GetApplicableRefactorsResponse | undefined> {
+        const args: FishProtocol.GetApplicableRefactorsRequestArgs = {
+            ...fileRangeArgs,
+            triggerReason: context.triggerKind === LSP.CodeActionTriggerKind.Invoked ? 'invoked' : undefined,
+            kind: context.only?.length === 1 ? context.only[0] : undefined,
+        };
+        try {
+            return await this.connection.sendRequest(FishProtocol.CommandTypes.GetApplicableRefactors, args);
+        } catch (err) {
+            return undefined;
+        }
+    }
 
-    onCodeAction(params: CodeActionParams) : CodeAction[] {
-        const {doc, uri, root, current} = this.getDefaults({textDocument: params.textDocument, position: params.range.start})
+    async onCodeAction(params: CodeActionParams) : Promise<CodeAction[]> {
+        const uri = uriToPath(params.textDocument.uri)
         this.logger.log("onCodeAction: " + params.textDocument.uri);
         this.logger.logRange(params.range, "onCodeAction.range")
-        //params.context.diagnostics
-        if (!uri || !root) return [];
+        params.context.only = FishAutoFixProvider.kinds.map(kind => kind.value)
+        this.logger.log('params.context.only: '+ params.context.only?.join(','))
+        
+        if (!uri) return []
+        const fileRangeArgs = Range.toFileRangeRequestArgs(uri, params.range);
+        const codeActions: CodeAction[] = [];
 
-        //console.log(current?.text || 'no node');
-        //if (!uri || !root || !current) return [];
-        const actions: CodeAction[] = [
-            createExtractPrivateFunction(uri, root, params.range),
-            createExtractVariable(uri, root, params.range),
-        ]
-        return actions
+        //params.context.only = ['quickfix', 'refactor', 'source', 'sourceAll']
+        const kinds = params.context.only?.map(kind => new CodeActionKind(kind));
+        if (!kinds || kinds.some(kind => kind.contains(CodeActionKind.QuickFix))) {
+            codeActions.push(...provideQuickFix(await this.getCodeFixes(fileRangeArgs, params.context), this.docs))
+        }
+        if (!kinds || kinds.some(kind => kind.contains(CodeActionKind.Refactor))) {
+            codeActions.push(...provideRefactors(await this.getRefactors(fileRangeArgs, params.context), fileRangeArgs, this.features));
+        }
+        codeActions.push(...await this.fishAutoFixProvider!.provideCodeActions(kinds, uri, params.context.diagnostics, this.docs))
+        return codeActions
     }
     //params.context.diagnostics.forEach(n => {
         //if (n.code === 1) {

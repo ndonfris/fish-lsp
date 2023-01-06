@@ -8,6 +8,8 @@ import {
     SymbolKind,
     TextDocumentPositionParams,
     Range,
+    Command,
+    ExecuteCommandParams,
 } from "vscode-languageserver";
 import {TextDocument} from 'vscode-languageserver-textdocument';
 import {URI, Utils} from 'vscode-uri';
@@ -127,12 +129,17 @@ export class Logger {
         }
     }
 
+    public logCommand(command: ExecuteCommandParams) {
+        const args = command.arguments?.map((arg, i) => `arg_${i}: ${arg.name.toString()}`).join('\n');
+        this.log(command.toString() + '\n' + args)
+    }
+
     public logRange(range: Range, text?: string) {
-        if (text) {
+        if (text !== undefined) {
             this.log(text)
         }
-        this.log(`position (character: ${range.start.character}, line: ${range.start.line})`);
-        this.log(`position (character: ${range.end.character}, line: ${range.end.line})`);
+        this.log(`position (character: ${range.start.character.toString()}, line: ${range.start.line.toString()})`);
+        this.log(`position (character: ${range.end.character.toString()}, line: ${range.end.line.toString()})`);
     }
 
     public logPosition(position: Position, text?: string) {
