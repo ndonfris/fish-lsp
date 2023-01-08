@@ -1,13 +1,13 @@
 import os from 'os'
-import {SyntaxNode} from 'web-tree-sitter';
-//import {isEnd, isError} from '../src/utils/node-types';
-import {getNodeAtRange, nodesGen} from '../src/utils/tree-sitter';
+import { SyntaxNode } from 'web-tree-sitter';
+import { getNodeAtRange, getSiblingNodes, nodesGen } from '../src/utils/tree-sitter';
 import { Diagnostic, DiagnosticSeverity, TextDocumentItem } from 'vscode-languageserver'
-//import {getChildNodes} from '../src/utils/tree-sitter';
-import {initializeParser} from '../src/parser';
+import { initializeParser } from '../src/parser';
 import { getExtraEndSyntaxError, getMissingEndSyntaxError, getUnreachableCodeSyntaxError } from '../src/diagnostics/syntaxError';
 import { getUniversalVariableDiagnostics } from '../src/diagnostics/universalVariable';
-import {getDuplicateFunctionNames, getMissingFunctionName} from '../src/diagnostics/missingFunctionName';
+import { createAllFunctionDiagnostics } from '../src/diagnostics/missingFunctionName';
+import * as errorCodes from '../src/diagnostics/errorCodes';
+import {isReturn} from '../src/utils/node-types';
 
 let SHOULD_LOG = false
 const jestConsole = console;
@@ -61,19 +61,20 @@ describe('test diagnostics', () => {
         const parser = await initializeParser();
         const docs: TextDocumentItem[] = [
              fishTextDocumentItem(`config.fish`,'set -U universal_var universal_value'),
-             fishTextDocumentItem(`functions/random_func.fish`, 'set -U universal_var universal_value'),
+             fishTextDocumentItem(`functions/random_func.fish`, 'set -Ug universal_var universal_value'),
              fishTextDocumentItem(`functions/other_func.fish`, 'for i in (seq 1 10);set -U universal_var universal_value;end'),
         ];
         const diagnosticsErrors: Diagnostic[] = [];
         docs.forEach(doc => {
             parser.reset()
             const root = parser.parse(doc.text).rootNode;
-            const diagnostics = getUniversalVariableDiagnostics(root, doc);
-            if (SHOULD_LOG) {
-                diagnostics.forEach(d => logDiagnostics(d, root))
-                expect(diagnostics.length).toBe(1);
+            for (const node of nodesGen(root)) {
+                const diagnostic = getUniversalVariableDiagnostics(node, doc);
+                if (diagnostic) {
+                    if (SHOULD_LOG) logDiagnostics(diagnostic, root)
+                    diagnosticsErrors.push(diagnostic);
+                }
             }
-            diagnosticsErrors.push(...diagnostics);
         })
         expect(diagnosticsErrors.length).toBe(3);
     })
@@ -92,7 +93,7 @@ describe('test diagnostics', () => {
             parser.reset()
             const root = parser.parse(doc.text).rootNode;
             for (const node of nodesGen(root)) {
-                const d = getMissingEndSyntaxError(node, doc);
+                const d = getMissingEndSyntaxError(node)
                 if (!d) continue;
                 if (SHOULD_LOG) logDiagnostics(d, root)
                 diagnosticsErrors.push(d);
@@ -113,7 +114,7 @@ describe('test diagnostics', () => {
             parser.reset()
             const root = parser.parse(doc.text).rootNode;
             for (const node of nodesGen(root)) {
-                const d = getExtraEndSyntaxError(node, doc);
+                const d = getExtraEndSyntaxError(node);
                 if (!d) continue;
                 if (SHOULD_LOG) logDiagnostics(d, root)
                 diagnosticsErrors.push(d);
@@ -133,18 +134,18 @@ describe('test diagnostics', () => {
             parser.reset()
             root = parser.parse(doc.text).rootNode;
             for (const node of nodesGen(root)) {
-                const diagnostic = getUnreachableCodeSyntaxError(node, doc);
-                if (diagnostic.length === 0) continue;
-                diagnosticsErrors.push(...diagnostic);
-                if (SHOULD_LOG) diagnostic.forEach(d => logDiagnostics(d, root))
+                const diagnostic = getUnreachableCodeSyntaxError(node);
+                if (!diagnostic) continue;
+                diagnosticsErrors.push(diagnostic);
+                if (SHOULD_LOG) logDiagnostics(diagnostic, root)
             }
         })
         expect(diagnosticsErrors.length).toBe(3);
     })
 
     it('test bad function name', async () => {
-        SHOULD_LOG = false
-        if (SHOULD_LOG) console.log('\n\n\t\tFUNCTION NAME');
+        SHOULD_LOG = true
+        if (SHOULD_LOG) console.log('\n\n\t\tURI FUNCTION NAME');
         const parser = await initializeParser();
         const docs: TextDocumentItem[] = [
             fishTextDocumentItem(`functions/pass_func.fish`, 'function pass_func;begin; printf "hello "; printf "world\\n"; end;end;'),         // no diagnostics
@@ -154,14 +155,33 @@ describe('test diagnostics', () => {
         docs.forEach(doc => {
             parser.reset()
             const root = parser.parse(doc.text).rootNode;
-            const diagnostics = getMissingFunctionName(root, doc);
+            const diagnostics = createAllFunctionDiagnostics(root, doc);
             if (SHOULD_LOG) diagnostics.forEach(d => logDiagnostics(d, root))
-            diagnosticsErrors.push(...diagnostics);
+            diagnosticsErrors.push(...diagnostics)
         })
         expect(diagnosticsErrors.length).toBe(1);
     })
 
     it('test duplicate function name', async () => {
+        SHOULD_LOG = true
+        if (SHOULD_LOG) console.log('\n\n\t\tDUPLICATE FUNCTION NAME');
+        const parser = await initializeParser();
+        const docs: TextDocumentItem[] = [
+            fishTextDocumentItem(`functions/pass_func.fish`, 'function pass_func;begin; printf "hello "; printf "world\\n";end;end;'),         // no diagnostics
+            fishTextDocumentItem(`functions/duplicate_func.fish`, ['function should_fail_func;echo "hi";end;', 'function should_fail_func; echo "world"; end;'].join('\n')),  // bad func name diagnostics
+        ];
+        const diagnosticsErrors: Diagnostic[] = [];
+        docs.forEach(doc => {
+            parser.reset()
+            const root = parser.parse(doc.text).rootNode;
+            const diagnostics = createAllFunctionDiagnostics(root, doc);
+            if (SHOULD_LOG) diagnostics.forEach(d => logDiagnostics(d, root))
+            diagnosticsErrors.push(...diagnostics);
+        })
+        expect(diagnosticsErrors.length).toBe(2);
+    })
+
+    it('bundled functions', async () => {
         SHOULD_LOG = true
         if (SHOULD_LOG) console.log('\n\n\t\tFUNCTION NAME');
         const parser = await initializeParser();
@@ -173,12 +193,11 @@ describe('test diagnostics', () => {
         docs.forEach(doc => {
             parser.reset()
             const root = parser.parse(doc.text).rootNode;
-            const diagnostics =  getDuplicateFunctionNames(root, doc);
+            const diagnostics =  createAllFunctionDiagnostics(root, doc);
             if (SHOULD_LOG) diagnostics.forEach(d => logDiagnostics(d, root))
             diagnosticsErrors.push(...diagnostics);
         })
         expect(diagnosticsErrors.length).toBe(2);
-
 
     })
 })

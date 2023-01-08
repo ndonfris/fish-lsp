@@ -10,7 +10,7 @@ import * as errorCodes from '../diagnostics/errorCodes';
 import * as fixNames from '../diagnostics/fixNames';
 import { FishProtocol} from '../utils/fishProtocol';
 import { Range } from '../utils/locations';
-import { pathToRelativeFilename, toTextDocumentEdit } from '../utils/translation';
+import { pathToRelativeFunctionName, toTextDocumentEdit } from '../utils/translation';
 
 import CommandTypes = FishProtocol.CommandTypes;
 
@@ -117,7 +117,7 @@ class SourceFixAll extends SourceAction {
         const edits = await buildCombinedFix([
             { code: errorCodes.unreachableCode, fixName: fixNames.unreachableCode },
             { code: errorCodes.missingEnd, fixName: fixNames.addMissingEnd },
-            { code: errorCodes.incorrectFunctionName, fixName: fixNames.incorrectFunctionName },
+            { code: errorCodes.missingAutoloadedFunctionName, fixName: fixNames.incorrectFunctionName },
             { code: errorCodes.unusedIdentifier, fixName: fixNames.unusedIdentifier },
         ], connection, file, documents, diagnostics);
         if (!edits.length) {
@@ -138,10 +138,10 @@ class QuickFixFunctionName extends SourceAction {
         documents: LspDocuments,
         diagnostics: readonly Diagnostic[],
     ): Promise<CodeAction | null> {
-        const newName = pathToRelativeFilename(file);
+        const newName = pathToRelativeFunctionName(file);
         this.title =  newName.length ? `change function name to ${newName}` : this.title
         const edits = await buildCombinedFix([
-            { code: errorCodes.incorrectFunctionName, fixName: fixNames.incorrectFunctionName },
+            { code: errorCodes.missingAutoloadedFunctionName, fixName: fixNames.incorrectFunctionName },
         ], connection, file, documents, diagnostics);
         if (!edits.length) {
             return null;

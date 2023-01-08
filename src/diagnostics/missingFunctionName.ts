@@ -1,9 +1,10 @@
-import {Diagnostic, DiagnosticRelatedInformation, DiagnosticSeverity, TextDocumentItem} from 'vscode-languageserver';
+import {Diagnostic, DiagnosticSeverity, TextDocumentItem} from 'vscode-languageserver';
 import {SyntaxNode} from 'web-tree-sitter';
-import {isBlock, isFunctionDefinition, isFunctionDefinitionName} from '../utils/node-types';
-import {findFirstParent, getChildNodes, getRange, nodesGen} from '../utils/tree-sitter';
-import { pathToRelativeFilename, uriInUserFunctions, uriToPath} from '../utils/translation';
+import {isFunctionDefinition, isFunctionDefinitionName} from '../utils/node-types';
+import {getChildNodes, getRange, nodesGen} from '../utils/tree-sitter';
+import { pathToRelativeFunctionName, uriInUserFunctions, uriToPath} from '../utils/translation';
 import * as errorCodes from './errorCodes';
+import {createDiagnostic} from './fishLspDiagnostic';
 
 
 /**
@@ -17,7 +18,7 @@ import * as errorCodes from './errorCodes';
 export function getMissingFunctionName(root: SyntaxNode, doc: TextDocumentItem): Diagnostic[] {
     const uri = uriToPath(doc.uri)
     if (!uri || !uriInUserFunctions(uri)) return []
-    const shouldHaveName = pathToRelativeFilename(uri);
+    const shouldHaveName = pathToRelativeFunctionName(uri);
     const childs = getChildNodes(root)
     if (childs.some(n => isFunctionDefinitionName(n) && n.text === shouldHaveName)) return [] // has a function with the matching name
     return childs
@@ -27,7 +28,7 @@ export function getMissingFunctionName(root: SyntaxNode, doc: TextDocumentItem):
                 getRange(node),
                 `Warning: function '${shouldHaveName}' not found in '${uri}'`,
                 DiagnosticSeverity.Warning,
-                errorCodes.incorrectFunctionName,
+                errorCodes.missingAutoloadedFunctionName,
                 "fish-lsp"
             ))
 }
@@ -60,4 +61,48 @@ export function getDuplicateFunctionNames(root: SyntaxNode, doc: TextDocumentIte
     }
     return diagnostics
 }
+
+function findDupes(nodes: SyntaxNode[]): Diagnostic[] {
+    const dupes: SyntaxNode[] = [] 
+    //const seenNames = new Set<string>()
+    const results: Diagnostic[] = []
+    for (const node of nodes) {
+        if (!dupes.some(n => n.text === node.text)) continue
+        results.push(Diagnostic.create(
+            getRange(node),
+            `Warning: duplicate function name '${node.text}'`,
+            DiagnosticSeverity.Error,
+            errorCodes.duplicateFunctionName,
+            "fish-lsp"
+        ))
+    }
+    return results
+}
+
+function isAutoLoadedFunction(doc: TextDocumentItem): string | null {
+    const uri = uriToPath(doc.uri)
+    if (!uri || !uriInUserFunctions(uri)) return null
+    return pathToRelativeFunctionName(uri)
+}
+
+export function createAllFunctionDiagnostics(root: SyntaxNode, doc: TextDocumentItem): Diagnostic[] {
+    const funcs = getChildNodes(root).filter(isFunctionDefinitionName)
+    const autoLoadedFuncName = isAutoLoadedFunction(doc) || ''
+    //let possibleFuncsToFilenames : SyntaxNode[] = !!funcs.some(n => n.text === autoLoadedFuncName) ? [] : funcs.filter(n => n.text !== autoLoadedFuncName)
+    let possibleFuncsToFilenames : SyntaxNode[] =  []
+    if (autoLoadedFuncName && !funcs.some(n => n.text === autoLoadedFuncName)) {
+        possibleFuncsToFilenames =  funcs.filter(n => n.text !== autoLoadedFuncName)
+    }
+    const duplicateFuncNames : SyntaxNode[] = funcs.filter(func => funcs.some(n => n.text !== func.text))
+    return [
+        ...possibleFuncsToFilenames.map(n => createDiagnostic(n, errorCodes.missingAutoloadedFunctionName, doc)),
+        ...duplicateFuncNames.map(n => createDiagnostic(n, errorCodes.duplicateFunctionName, doc)),
+    ]
+}
+//if (!lazyLoaded)
+//const diagnostics: Diagnostic[] = [
+//    ...getMissingFunctionName(root, doc),
+//    ...findDupes(funcs)
+//]
+//return diagnostics;
 

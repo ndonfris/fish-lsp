@@ -1,13 +1,14 @@
 import os from 'os'
-import {URI, Utils} from 'vscode-uri';
+import { URI, Utils } from 'vscode-uri';
 import { LspDocuments } from '../document';
-import { DocumentSymbol, SelectionRange, SymbolInformation, SymbolKind, TextDocumentEdit, TextEdit } from 'vscode-languageserver';
-import {SyntaxNode} from 'web-tree-sitter';
+import { Diagnostic, DocumentSymbol, SelectionRange, SymbolInformation, SymbolKind, TextDocumentEdit, TextEdit } from 'vscode-languageserver';
+import { SyntaxNode } from 'web-tree-sitter';
 import {toSymbolKind} from '../symbols';
 import { getPrecedingComments, getRange } from './tree-sitter';
-import {findEnclosingVariableScope, findParentVariableDefintionKeyword} from './node-types';
-import {Position, Range} from './locations';
-import { FishProtocol} from './fishProtocol';
+import { findEnclosingVariableScope, findParentVariableDefintionKeyword } from './node-types';
+import { Position, Range } from './locations';
+import { FishProtocol } from './fishProtocol';
+import { FishLspDiagnostic } from '../diagnostics/fishLspDiagnostic';
 
 const RE_PATHSEP_WINDOWS = /\\/g;
 
@@ -64,7 +65,7 @@ function currentVersion(filepath: string, documents: LspDocuments | undefined): 
 }
 
 
-export function pathToRelativeFilename(uriPath: string) : string {
+export function pathToRelativeFunctionName(uriPath: string) : string {
     const relativeName = uriPath.split('/').at(-1) || uriPath;
     return relativeName.replace('.fish', '');
 }
@@ -80,7 +81,7 @@ export function nodeToSymbolInformation(node: SyntaxNode, uri: string) : SymbolI
     let range = getRange(node)
     switch (kind) {
         case SymbolKind.Namespace: 
-            name = pathToRelativeFilename(uri)
+            name = pathToRelativeFunctionName(uri)
             break
         case SymbolKind.Function: 
         case SymbolKind.Variable: 
@@ -147,4 +148,17 @@ export function toTextDocumentEdit(change: FishProtocol.FileCodeEdits, documents
         },
         edits: change.textChanges.map(c => toTextEdit(c)),
     };
+}
+
+export function toLspDiagnostic(diagnostic: FishLspDiagnostic): Diagnostic[] {
+    return Array.from(diagnostic.code).map((code) => {
+        return {
+            range: diagnostic.range,
+            message: diagnostic.message,
+            serverity: diagnostic.severity,
+            code: code,
+            source: diagnostic.source,
+            CodeDescription: diagnostic.codeDescription,
+        } as Diagnostic
+    });
 }

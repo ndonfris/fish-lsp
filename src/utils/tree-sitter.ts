@@ -61,8 +61,16 @@ export function findFirstParent(node: SyntaxNode, predicate: (node: SyntaxNode) 
 }
 
 
-export function getSiblingNodes(node: SyntaxNode, after: boolean=true) : SyntaxNode[] {
-    const siblingFunc = (n: SyntaxNode) => after ? n.nextNamedSibling : n.previousNamedSibling
+/**
+ * collects all siblings either before or after the current node.
+ *
+ * @param {SyntaxNode} node - the node to start from
+ * @param {boolean} [lookForward] -  if (DEFAULT) true, looks nodes after the current node.
+ * otherwise if specified false, looks for nodes before the current node.
+ * @returns {SyntaxNode[]} - an array of either previous siblings or next siblings.
+ */
+export function getSiblingNodes(node: SyntaxNode, lookForward: boolean=true) : SyntaxNode[] {
+    const siblingFunc = (n: SyntaxNode) => lookForward ? n.nextNamedSibling : n.previousNamedSibling
     let current: SyntaxNode | null = node;
     const result: SyntaxNode[] = []
     while (current) {
@@ -244,14 +252,6 @@ export function getNodeAt(tree: Tree, line: number, column: number): SyntaxNode 
 
     return tree.rootNode.descendantForPosition({ row: line, column })
 }
-
-export function getNodesInsideRange(root: SyntaxNode, range: Range): SyntaxNode[] {
-    return [
-    root.descendantForPosition({row: range.start.line, column: range.start.character}),
-    root.descendantForPosition({row: range.end.line, column: range.end.character}),
-    ]
-}
-
 
 export function getNodeAtRange(root: SyntaxNode, range: Range): SyntaxNode | null {
   return root.descendantForPosition(
