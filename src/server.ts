@@ -143,8 +143,8 @@ export default class FishServer {
         this.connection.onDocumentRangeFormatting(this.onDocumentRangeFormatting.bind(this));
         this.connection.onCodeAction(this.onCodeAction.bind(this));
         //executeCommandHandler;
-        this.connection.onExecuteCommand(this.onExecuteCommand.bind(this));
-        this.connection.onRequest('onHover', this.onHover.bind(this));
+        //this.connection.onExecuteCommand(this.onExecuteCommand.bind(this));
+        //this.connection.onRequest('onHover', this.onHover.bind(this));
         this.connection.console.log("FINISHED FishLsp.register()")
     }
 
@@ -173,6 +173,7 @@ export default class FishServer {
 
         //this.connection.onExecuteCommand(this.connection.onHover.bind(this.onHover))
     }
+
     onRequest(command: string): LSP.ServerRequestHandler<ExecuteCommandParams, any, never, void> {
         let h : ServerRequestHandler<ExecuteCommandParams, any | undefined | null, never, void>;
         switch (command) {

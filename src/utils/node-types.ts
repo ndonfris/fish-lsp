@@ -347,8 +347,8 @@ export const VariableScopeFlags: {[flag: string]: VariableScope} = {
     '--unexport': 'unexport',
 }
 
-//// for read variables
 
+//// for read variables
 function findLastFlag(nodes: SyntaxNode[]) {
     let maxIdx = 0;
     for (let i = 0; i < nodes.length; i++) {
@@ -449,6 +449,11 @@ export function isSwitchStatement(node: SyntaxNode) {
 export function isCaseClause(node: SyntaxNode) {
     return node.type === 'case_clause'
 }    
+
+export function isReturn(node: SyntaxNode) {
+    return node.type === 'return' && node.firstChild?.text === 'return'
+}
+
 /*
  * echo $hello_world 
  *           ^--- variable_name

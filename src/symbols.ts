@@ -6,16 +6,12 @@ import {
     LocationLink,
     Location,
     DocumentUri,
-    ColorInformation,
-    Color,
-    LinkedEditingRanges,
     
 } from 'vscode-languageserver';
 import {SyntaxNode} from 'web-tree-sitter';
-//import {logger} from './logger';
 import {isBuiltin} from './utils/builtins';
-import {findFunctionScope, isCommand, isCommandFlag, isFunctionDefinitionName, isFunctionDefinition, scopeCheck, isStatement, isString, isVariable, isVariableDefinition, findParentCommand, isProgram, isCommandName, findEnclosingVariableScope} from './utils/node-types';
-import {getChildNodes, getNodeAtRange, getPrecedingComments, getRange, nodesGen} from './utils/tree-sitter';
+import {findFunctionScope, isCommand, isFunctionDefinitionName, isFunctionDefinition, isStatement, isString, isVariableDefinition, isProgram, isCommandName, findEnclosingVariableScope} from './utils/node-types';
+import {getChildNodes, getPrecedingComments, getRange} from './utils/tree-sitter';
 
 
 export interface FishSymbolMap {
@@ -99,15 +95,6 @@ export function collectFishSymbols(documentUri: string, rootNode: SyntaxNode): F
     return symbols;
 }
 
-function firstNodeBeforeSecondNodeComaprision(
-    firstNode: SyntaxNode,
-    secondNode: SyntaxNode
-) {
-    return (
-        firstNode.startPosition.row < secondNode.startPosition.row &&
-        firstNode.text == secondNode.text
-    )
-}
 
 export function fishSymbolCompare(symbol1: FishSymbol, symbol2: FishSymbol) {
     return locationCompare(symbol1.location, symbol2.location)
@@ -209,7 +196,7 @@ export function newGetFileDefintions(uri: DocumentUri, root: SyntaxNode, findNod
     return results
 }
 
-export function collectDocumentSymbols(documentUri: string, rootNode: SyntaxNode): DocumentSymbol[] {
+export function collectDocumentSymbols(rootNode: SyntaxNode): DocumentSymbol[] {
     const symbols: DocumentSymbol[] = [];
     const functionNodes : SyntaxNode[] = getChildNodes(rootNode).filter((node) => isFunctionDefinitionName(node))
     //const variableNodes: SyntaxNode[] = getChildNodes(rootNode).filter((node) => isVariableDefintion(node))
@@ -231,7 +218,6 @@ export function collectDocumentSymbols(documentUri: string, rootNode: SyntaxNode
             symbols.push(symbol);
         }
     }
-    const globalVariableNodes = getChildNodes(rootNode).filter((node) => isVariableDefinition(node) && !variableNodes.includes(node))
 
     return symbols;
 }

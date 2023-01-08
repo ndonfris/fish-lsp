@@ -3,15 +3,15 @@
 import { Diagnostic } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { getChildNodes } from '../utils/tree-sitter';
-import { incorrectFunctionName } from './incorrectFunctionName';
-import { syntaxError } from './syntaxError';
+import { getMissingFunctionName } from './missingFunctionName';
+import { getMissingEndSyntaxError } from './syntaxError';
 
 
 
 export function getDiagnostics(uri: string, root: SyntaxNode) : Diagnostic[] {
     const children = getChildNodes(root);
     return [
-        ...incorrectFunctionName( uri, root, children ),
+        //...getMissingFunctionName( uri, root ),
         //...syntaxError( uri, root, children )
     ]
 }

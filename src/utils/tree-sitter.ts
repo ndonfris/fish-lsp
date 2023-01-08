@@ -60,6 +60,18 @@ export function findFirstParent(node: SyntaxNode, predicate: (node: SyntaxNode) 
     return null;
 }
 
+
+export function getSiblingNodes(node: SyntaxNode, after: boolean=true) : SyntaxNode[] {
+    const siblingFunc = (n: SyntaxNode) => after ? n.nextNamedSibling : n.previousNamedSibling
+    let current: SyntaxNode | null = node;
+    const result: SyntaxNode[] = []
+    while (current) {
+        current = siblingFunc(current)
+        if (current) result.push(current)
+    }
+    return result;
+}
+
 export function findEnclosingScope(node: SyntaxNode) : SyntaxNode {
     let parent = node.parent || node;
     if (isFunctionDefinitionName(node)) {
@@ -233,6 +245,13 @@ export function getNodeAt(tree: Tree, line: number, column: number): SyntaxNode 
     return tree.rootNode.descendantForPosition({ row: line, column })
 }
 
+export function getNodesInsideRange(root: SyntaxNode, range: Range): SyntaxNode[] {
+    return [
+    root.descendantForPosition({row: range.start.line, column: range.start.character}),
+    root.descendantForPosition({row: range.end.line, column: range.end.character}),
+    ]
+}
+
 
 export function getNodeAtRange(root: SyntaxNode, range: Range): SyntaxNode | null {
   return root.descendantForPosition(
@@ -240,6 +259,8 @@ export function getNodeAtRange(root: SyntaxNode, range: Range): SyntaxNode | nul
     positionToPoint(range.end),
   )
 }
+
+
 
 export function getDependencyUrl(node: SyntaxNode, baseUri: string): URL {
   let filename = node.children[1].text.replaceAll('"', '')
