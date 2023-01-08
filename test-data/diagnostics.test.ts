@@ -6,8 +6,10 @@ import { initializeParser } from '../src/parser';
 import { getExtraEndSyntaxError, getMissingEndSyntaxError, getUnreachableCodeSyntaxError } from '../src/diagnostics/syntaxError';
 import { getUniversalVariableDiagnostics } from '../src/diagnostics/universalVariable';
 import { createAllFunctionDiagnostics } from '../src/diagnostics/missingFunctionName';
+import  {  getDiagnostics } from '../src/diagnostics/validate'
 import * as errorCodes from '../src/diagnostics/errorCodes';
 import {isReturn} from '../src/utils/node-types';
+import {LspDocument} from '../src/document';
 
 let SHOULD_LOG = false
 const jestConsole = console;
@@ -23,13 +25,13 @@ afterEach(() => {
 });
 
 
-function fishTextDocumentItem(uri: string, text: string): TextDocumentItem {
-    return {
+function fishTextDocumentItem(uri: string, text: string): LspDocument {
+    return new LspDocument({
         uri: `file://${os.homedir()}/.config/fish/${uri}`,
         languageId: 'fish',
         version: 1,
         text
-    }
+    } as TextDocumentItem)
 }
 
 function severityStr(severity: DiagnosticSeverity | undefined) {
@@ -59,7 +61,7 @@ describe('test diagnostics', () => {
         SHOULD_LOG = false
         if (SHOULD_LOG) console.log('\n\n\t\tVARIABLES');
         const parser = await initializeParser();
-        const docs: TextDocumentItem[] = [
+        const docs: LspDocument[] = [
              fishTextDocumentItem(`config.fish`,'set -U universal_var universal_value'),
              fishTextDocumentItem(`functions/random_func.fish`, 'set -Ug universal_var universal_value'),
              fishTextDocumentItem(`functions/other_func.fish`, 'for i in (seq 1 10);set -U universal_var universal_value;end'),
@@ -67,7 +69,7 @@ describe('test diagnostics', () => {
         const diagnosticsErrors: Diagnostic[] = [];
         docs.forEach(doc => {
             parser.reset()
-            const root = parser.parse(doc.text).rootNode;
+            const root = parser.parse(doc.getText()).rootNode;
             for (const node of nodesGen(root)) {
                 const diagnostic = getUniversalVariableDiagnostics(node, doc);
                 if (diagnostic) {
@@ -83,7 +85,7 @@ describe('test diagnostics', () => {
         SHOULD_LOG = false
         if (SHOULD_LOG) console.log('\n\n\t\tMISSING END BLOCKS');
         const parser = await initializeParser();
-        const docs: TextDocumentItem[] = [
+        const docs: LspDocument[] = [
             fishTextDocumentItem(`functions/pass_begin_block.fish`, 'begin; printf "hello "; printf "world\\n"; end'),                     // no diagnostics
             fishTextDocumentItem(`functions/fail_begin_block.fish`, 'for i in (seq 1 10); printf "hello "; printf "world";'),              // missing end diagnostic
             fishTextDocumentItem(`functions/fail_random_func.fish`, 'function fail_random_func; if test -z $argv; echo "match"; end;'),   // missing end diagnostic
@@ -91,7 +93,7 @@ describe('test diagnostics', () => {
         const diagnosticsErrors: Diagnostic[] = [];
         docs.forEach(doc => {
             parser.reset()
-            const root = parser.parse(doc.text).rootNode;
+            const root = parser.parse(doc.getText()).rootNode;
             for (const node of nodesGen(root)) {
                 const d = getMissingEndSyntaxError(node)
                 if (!d) continue;
@@ -106,13 +108,13 @@ describe('test diagnostics', () => {
         SHOULD_LOG = false
         if (SHOULD_LOG) console.log('\n\n\t\tEXTRA END BLOCKS');
         const parser = await initializeParser();
-        const docs: TextDocumentItem[] = [
+        const docs: LspDocument[] = [
             fishTextDocumentItem(`functions/fail_extra_end.fish`,  'function fail_extra_end; if test -z $argv; echo "match"; end;end;end'),   // missing end diagnostic
         ];
         const diagnosticsErrors: Diagnostic[] = [];
         docs.forEach(doc => {
             parser.reset()
-            const root = parser.parse(doc.text).rootNode;
+            const root = parser.parse(doc.getText()).rootNode;
             for (const node of nodesGen(root)) {
                 const d = getExtraEndSyntaxError(node);
                 if (!d) continue;
@@ -127,12 +129,12 @@ describe('test diagnostics', () => {
         SHOULD_LOG = false
         if (SHOULD_LOG) console.log('\n\n\t\tUNREACHABLE CODE');
         const parser = await initializeParser();
-        const docs: TextDocumentItem[] = unreacableDocs()
+        const docs: LspDocument[] = unreacableDocs()
         const diagnosticsErrors: Diagnostic[] = [];
-        let root = parser.parse(docs[0].text).rootNode;
+        let root = parser.parse(docs[0].getText()).rootNode;
         docs.forEach(doc => {
             parser.reset()
-            root = parser.parse(doc.text).rootNode;
+            root = parser.parse(doc.getText()).rootNode;
             for (const node of nodesGen(root)) {
                 const diagnostic = getUnreachableCodeSyntaxError(node);
                 if (!diagnostic) continue;
@@ -147,14 +149,14 @@ describe('test diagnostics', () => {
         SHOULD_LOG = true
         if (SHOULD_LOG) console.log('\n\n\t\tURI FUNCTION NAME');
         const parser = await initializeParser();
-        const docs: TextDocumentItem[] = [
+        const docs: LspDocument[] = [
             fishTextDocumentItem(`functions/pass_func.fish`, 'function pass_func;begin; printf "hello "; printf "world\\n"; end;end;'),         // no diagnostics
             fishTextDocumentItem(`functions/fail_func.fish`, 'function should_fail_func;begin; printf "hello "; printf "world\\n"; end;end;'),  // bad func name diagnostics
         ];
         const diagnosticsErrors: Diagnostic[] = [];
         docs.forEach(doc => {
             parser.reset()
-            const root = parser.parse(doc.text).rootNode;
+            const root = parser.parse(doc.getText()).rootNode;
             const diagnostics = createAllFunctionDiagnostics(root, doc);
             if (SHOULD_LOG) diagnostics.forEach(d => logDiagnostics(d, root))
             diagnosticsErrors.push(...diagnostics)
@@ -166,38 +168,38 @@ describe('test diagnostics', () => {
         SHOULD_LOG = true
         if (SHOULD_LOG) console.log('\n\n\t\tDUPLICATE FUNCTION NAME');
         const parser = await initializeParser();
-        const docs: TextDocumentItem[] = [
+        const docs: LspDocument[] = [
             fishTextDocumentItem(`functions/pass_func.fish`, 'function pass_func;begin; printf "hello "; printf "world\\n";end;end;'),         // no diagnostics
             fishTextDocumentItem(`functions/duplicate_func.fish`, ['function should_fail_func;echo "hi";end;', 'function should_fail_func; echo "world"; end;'].join('\n')),  // bad func name diagnostics
         ];
         const diagnosticsErrors: Diagnostic[] = [];
         docs.forEach(doc => {
             parser.reset()
-            const root = parser.parse(doc.text).rootNode;
+            const root = parser.parse(doc.getText()).rootNode;
             const diagnostics = createAllFunctionDiagnostics(root, doc);
             if (SHOULD_LOG) diagnostics.forEach(d => logDiagnostics(d, root))
             diagnosticsErrors.push(...diagnostics);
         })
-        expect(diagnosticsErrors.length).toBe(2);
+        expect(diagnosticsErrors.length).toBe(3);
     })
 
-    it('bundled functions', async () => {
+    it('validate', async () => {
         SHOULD_LOG = true
-        if (SHOULD_LOG) console.log('\n\n\t\tFUNCTION NAME');
+        if (SHOULD_LOG) console.log('\n\n\t\tVALIDATE');
         const parser = await initializeParser();
-        const docs: TextDocumentItem[] = [
-            fishTextDocumentItem(`functions/pass_func.fish`, 'function pass_func;begin; printf "hello "; printf "world\\n";end;end;'),         // no diagnostics
+        const docs: LspDocument[] = [
+            fishTextDocumentItem(`functions/pass_func.fish`, `function pass_func;set -U asdf 'g';end; function pass_func; echo $argv;end;`),         // no diagnostics
             fishTextDocumentItem(`functions/duplicate_func.fish`, ['function should_fail_func;echo "hi";end;', 'function should_fail_func; echo "world"; end;'].join('\n')),  // bad func name diagnostics
         ];
         const diagnosticsErrors: Diagnostic[] = [];
         docs.forEach(doc => {
             parser.reset()
-            const root = parser.parse(doc.text).rootNode;
-            const diagnostics =  createAllFunctionDiagnostics(root, doc);
+            const root = parser.parse(doc.getText()).rootNode;
+            const diagnostics = getDiagnostics(root, doc);
             if (SHOULD_LOG) diagnostics.forEach(d => logDiagnostics(d, root))
             diagnosticsErrors.push(...diagnostics);
         })
-        expect(diagnosticsErrors.length).toBe(2);
+        expect(diagnosticsErrors.length).toBe(5);
 
     })
 })

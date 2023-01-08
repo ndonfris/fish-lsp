@@ -1,10 +1,9 @@
-import { getRange } from '../utils/tree-sitter'
 import { SyntaxNode } from "web-tree-sitter";
-import { Diagnostic, DiagnosticSeverity, TextDocumentItem } from "vscode-languageserver";
+import { Diagnostic } from "vscode-languageserver";
 import {findParentCommand, isVariableDefinition} from '../utils/node-types';
-import { universalVariable } from './errorCodes';
 import {createDiagnostic} from './fishLspDiagnostic';
 import * as errorCodes from './errorCodes';
+import {LspDocument} from '../document';
 
 
 function getUniversalOption(node: SyntaxNode): SyntaxNode | null {
@@ -20,7 +19,7 @@ function getUniversalOption(node: SyntaxNode): SyntaxNode | null {
     return null
 }
 
-export function getUniversalVariableDiagnostics(node: SyntaxNode, document: TextDocumentItem): Diagnostic | null{
+export function getUniversalVariableDiagnostics(node: SyntaxNode, document: LspDocument): Diagnostic | null{
     if (!isVariableDefinition(node)) return null;
     const universalFlag = getUniversalOption(node);
     return universalFlag ? createDiagnostic(universalFlag, errorCodes.universalVariable, document) : null;

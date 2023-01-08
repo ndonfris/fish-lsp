@@ -211,7 +211,7 @@ export default class FishServer {
                 this.analyzer.analyze(doc);
                 this.logger.log("analyzed document: " + params.textDocument.uri)
                 const root = this.getRootNode(doc.getText())
-                this.connection.sendDiagnostics({uri: uri, diagnostics: getDiagnostics(uri, root)});
+                this.connection.sendDiagnostics({uri: uri, diagnostics: getDiagnostics(root, doc)});
             }
         } else {
             this.logger.log(`Cannot open already opened doc '${params.textDocument.uri}'.`);
@@ -233,7 +233,7 @@ export default class FishServer {
         params.contentChanges.forEach(newContent => {
             doc.applyEdit(params.textDocument.version, newContent)
         })
-        this.connection.sendDiagnostics({uri, diagnostics: getDiagnostics(uri, root)});
+        this.connection.sendDiagnostics({uri, diagnostics: getDiagnostics(root, doc)});
     }
 
     didCloseTextDocument(params: DidCloseTextDocumentParams): void {

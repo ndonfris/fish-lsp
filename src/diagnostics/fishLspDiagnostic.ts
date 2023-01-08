@@ -1,5 +1,6 @@
-import {Range, CodeDescription, Diagnostic, DiagnosticSeverity, TextDocumentItem} from 'vscode-languageserver';
+import {Range, CodeDescription, Diagnostic, DiagnosticSeverity} from 'vscode-languageserver';
 import {SyntaxNode} from 'web-tree-sitter';
+import {LspDocument} from '../document';
 import {toLspDiagnostic} from '../utils/translation';
 import {getRange} from '../utils/tree-sitter';
 import * as errorCodes from './errorCodes';
@@ -13,7 +14,7 @@ export interface FishLspDiagnostic {
     codeDescription?: CodeDescription,
 }
 
-export function createDiagnostic(node: SyntaxNode, code: number, document?: TextDocumentItem): Diagnostic {
+export function createDiagnostic(node: SyntaxNode, code: number, document?: LspDocument): Diagnostic {
     let severity: DiagnosticSeverity = DiagnosticSeverity.Error;
     let message: string;
     let source: string = "fish-lsp";
