@@ -1,10 +1,9 @@
 import {Range, CodeDescription, Diagnostic, DiagnosticSeverity} from 'vscode-languageserver';
 import {SyntaxNode} from 'web-tree-sitter';
 import {LspDocument} from '../document';
-import {toLspDiagnostic} from '../utils/translation';
 import {getRange} from '../utils/tree-sitter';
 import * as errorCodes from './errorCodes';
-
+import { createCodeDescription } from './codeDescription';
 export interface FishLspDiagnostic {
     range: Range,
     severity: DiagnosticSeverity,
@@ -49,24 +48,27 @@ export function createDiagnostic(node: SyntaxNode, code: number, document?: LspD
             severity = DiagnosticSeverity.Error;
             break;
     }
-    return Diagnostic.create(
-        range,
-        message,
-        severity,
-        code,
-        source,
-    );
+    return {
+        ...Diagnostic.create(
+            range,
+            message,
+            severity,
+            code,
+            source,
+        ),
+        codeDescription: createCodeDescription(code)
+    }
 }
 
 
 export class DiagnosticQueue {
-    private diagnostics: Map<string, FishLspDiagnostic[]> = new Map();
+    private diagnostics: Map<string, Diagnostic[]> = new Map();
 
     public getUris(): string[] {
         return Array.from(this.diagnostics.keys());
     }
 
-    public addDiagnostics(uri: string, diagnostics: FishLspDiagnostic[]): void {
+    public addDiagnostics(uri: string, diagnostics: Diagnostic[]): void {
         if (!this.diagnostics.has(uri)) {
             this.diagnostics.set(uri, []);
         }
@@ -74,13 +76,13 @@ export class DiagnosticQueue {
     }
 
     public getDiagnostics(uri: string): Diagnostic[] {
-        const fishDiagnostic = this.getFishLspDiagnostics(uri);
-        return fishDiagnostic.map((diagnostic) => toLspDiagnostic(diagnostic)).flat()
+        //const fishDiagnostic = this.getFishLspDiagnostics(uri);
+        return this.diagnostics.get(uri) || []
     }
 
-    public getFishLspDiagnostics(uri: string): FishLspDiagnostic[] {
-        return this.diagnostics.get(uri) || [];
-    }
+    //public getFishLspDiagnostics(uri: string): FishLspDiagnostic[] {
+        //return this.diagnostics.get(uri) || [];
+    //}
 
     public clearDiagnostics(uri: string): void {
         this.diagnostics.delete(uri);

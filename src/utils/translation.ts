@@ -1,14 +1,14 @@
-import os from 'os'
-import { URI, Utils } from 'vscode-uri';
-import { LspDocuments } from '../document';
 import { Diagnostic, DocumentSymbol, SelectionRange, SymbolInformation, SymbolKind, TextDocumentEdit, TextEdit } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
+import { URI } from 'vscode-uri';
+import { findParentVariableDefintionKeyword } from './node-types';
+import { LspDocuments } from '../document';
 import {toSymbolKind} from '../symbols';
-import { getPrecedingComments, getRange } from './tree-sitter';
-import { findEnclosingVariableScope, findParentVariableDefintionKeyword } from './node-types';
-import { Position, Range } from './locations';
 import { FishProtocol } from './fishProtocol';
+import { getPrecedingComments, getRange } from './tree-sitter';
+import * as LocationNamespace from './locations';
 import { FishLspDiagnostic } from '../diagnostics/fishLspDiagnostic';
+import os from 'os'
 
 const RE_PATHSEP_WINDOWS = /\\/g;
 
@@ -123,9 +123,9 @@ export function nodeToDocumentSymbol(node: SyntaxNode) : DocumentSymbol {
 }
 
 export function toSelectionRange(range: SelectionRange): SelectionRange {
-    const span = Range.toTextSpan(range.range)
+    const span = LocationNamespace.Range.toTextSpan(range.range)
     return SelectionRange.create(
-        Range.fromTextSpan(span),
+        LocationNamespace.Range.fromTextSpan(span),
         range.parent ? toSelectionRange(range.parent) : undefined,
     );
 }
@@ -133,8 +133,8 @@ export function toSelectionRange(range: SelectionRange): SelectionRange {
 export function toTextEdit(edit: FishProtocol.CodeEdit): TextEdit {
     return {
         range: {
-            start: Position.fromLocation(edit.start),
-            end: Position.fromLocation(edit.end),
+            start: LocationNamespace.Position.fromLocation(edit.start),
+            end: LocationNamespace.Position.fromLocation(edit.end),
         },
         newText: edit.newText,
     };
@@ -150,6 +150,16 @@ export function toTextDocumentEdit(change: FishProtocol.FileCodeEdits, documents
     };
 }
 
+//export function toFishDiagnostic(diagnostic: Diagnostic): FishLspDiagnostic {
+//        return {
+//        range: diagnostic.range,
+//        message: diagnostic.message,
+//        severity: diagnostic.severity!,
+//        code: new Set<number>(diagnostic.code),
+//        source: 'fish-lsp',
+//        CodeDescription: getCodeDescription(diagnostic),
+//    };
+//}
 export function toLspDiagnostic(diagnostic: FishLspDiagnostic): Diagnostic[] {
     return Array.from(diagnostic.code).map((code) => {
         return {
