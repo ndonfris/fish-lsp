@@ -153,18 +153,24 @@ describe("FISH web-tree-sitter SUITE", () => {
         const root = parser.parse(test_doc.getText()).rootNode;
 
         const returns : SyntaxNode[] = [];
-        const chained : SyntaxNode[] = [];
+        const obsolete : SyntaxNode[] = [];
         //const got = rdp(root, returns)
         //logger.log(rdp(root, returns).toString())
         //logger.log(got.toString())
+        let hasRets = false
         for (const n of getChildNodes(root)) {
             if (NodeTypes.isFunctionDefinition(n)) {
-                const hasRets = checkStatement(root, returns)
-                logger.log(hasRets.toString())
+                const statements = n.namedChildren.filter((c) => NodeTypes.isStatement(c))
+                for (const statement  of statements) {
+                    if (hasRets) {
+                        obsolete.push(statement)
+                        continue
+                    }
+                    hasRets = checkStatement(statement, returns)
+                }
             }
-
         }
-        returns.forEach(n => logger.log(n.text))
+        obsolete.forEach(n => logger.log(n.text))
         expect([].length === 0).toEqual(true);
     })
 
@@ -206,7 +212,6 @@ describe("FISH web-tree-sitter SUITE", () => {
 
 function checkStatement(root: SyntaxNode, collection: SyntaxNode[]) {
     let shouldReturn = NodeTypes.isReturn(root)
-    const current: SyntaxNode[] = []
     for (const child of root.namedChildren) {
         const include = checkStatement(child, collection) || NodeTypes.isReturn(child)
         if (NodeTypes.isStatement(child) && !include) {

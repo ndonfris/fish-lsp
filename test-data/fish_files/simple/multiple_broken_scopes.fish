@@ -10,5 +10,8 @@ function multiple_broken_scopes
         echo hi;
         return 0
     end
+    for i in (seq 1 10) 
+        echo "hi"
+    end
 end
 
