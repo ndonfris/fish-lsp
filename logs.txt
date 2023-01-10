@@ -13385,3 +13385,165 @@ closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/mu
 [FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
 opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
 analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onHover
+onHover
+onDocumentSymbols
+onHover
+onHover
+onHover
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function multiple_broken_scopes\n    set -l var \"$argv\"\n    if test \"$var\" = hello\n        echo hello\n        or echo \"bad 1\"\n        and echo \"bad 2\"\n        or echo \"bad 3\"; \n        return 1;\n    else\n        echo hi; return 1\n    end\nend\n\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onHover
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+onHover
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish

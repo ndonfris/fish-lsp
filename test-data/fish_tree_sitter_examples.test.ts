@@ -52,8 +52,6 @@ const logger = new TestLogger(jestConsole);
 
 
 beforeEach(async () => {
-    if (parser) parser.reset();
-    parser = await initializeParser();
     global.console = require("console");
 });
 
@@ -66,8 +64,9 @@ afterEach(() => {
 
 // BEGIN TESTS
 describe("FISH web-tree-sitter SUITE", () => {
-    it("test defined", () => {
+    it("test defined", async () => {
         const test_variable_definitions = resolveLspDocumentForHelperTestFile("fish_files/simple/set_var.fish");
+        parser = await initializeParser();
         const root = parser.parse(test_variable_definitions.getText()).rootNode;
 
         const defs    : SyntaxNode[] = [];
@@ -89,8 +88,9 @@ describe("FISH web-tree-sitter SUITE", () => {
     });
 
 
-    it("test defined function", () => {
+    it("test defined function", async () => {
         const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/simple_function.fish");
+        const parser = await initializeParser();
         const root = parser.parse(test_doc.getText()).rootNode;
 
         const funcs    : SyntaxNode[] = [];
@@ -108,8 +108,9 @@ describe("FISH web-tree-sitter SUITE", () => {
         if (SHOULD_LOG) [...funcs, ...funcNames].forEach((node) => logger.logNode(node, 'funcs vs funcName'))
     })
 
-    it("test defined function", () => {
+    it("test defined function", async () => {
         const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/function_variable_def.fish");
+        const parser = await initializeParser();
         const root = parser.parse(test_doc.getText()).rootNode;
 
         const funcNames : SyntaxNode[] = [];
@@ -127,8 +128,9 @@ describe("FISH web-tree-sitter SUITE", () => {
         if (SHOULD_LOG) [...vars].forEach((node) => logger.logNode(node, 'function variable definitions'))
     })   
 
-    it("test all variable def types ", () => {
+    it("test all variable def types ", async () => {
         const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/all_variable_def_types.fish");
+        const parser = await initializeParser();
         const root = parser.parse(test_doc.getText()).rootNode;
 
         const vars      : SyntaxNode[] = [];
@@ -143,48 +145,137 @@ describe("FISH web-tree-sitter SUITE", () => {
         if (SHOULD_LOG) [...vars].forEach((node) => logger.logNode(node, 'function variable definitions'))
     })
 
-    it("test is ConditionalCommand", () => {
+    it("test is ConditionalCommand", async () => {
         loggingON();
         //const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/is_chained_return.fish");
-
+        const parser = await initializeParser();
         const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/multiple_broken_scopes.fish");
         const root = parser.parse(test_doc.getText()).rootNode;
 
         const returns : SyntaxNode[] = [];
         const chained : SyntaxNode[] = [];
-
-        for (const node of nodesGen(root)) {
-            const outside : SyntaxNode[] = [];
-            if (!node.isNamed()) continue;
-            if (NodeTypes.isReturn(node)) {
-                logger.logNode(node);
-                let sib: SyntaxNode | null = node;
-                let setPush = false; 
-                for (
-                    sib = sib.nextNamedSibling;
-                    sib;
-                    sib = sib.nextNamedSibling
-                ) {
-                    console.log('1st loop: ' + sib.text);
-                    if (NodeTypes.isNewline(sib)) continue;
-                    if (!NodeTypes.isConditionalCommand(sib)) {
-                        console.log('not a conditional command ' + sib.text + sib.type);
-                        setPush = true;
-                    } else if (NodeTypes.isBlock(sib)) {
-                        break;
-                    } else if (setPush) {
-                        returns.push(sib)
-                    }
-                }
-                sib = null;
-                returns.forEach( n => logger.log(n.text))
-                setPush = true; 
+        //const got = rdp(root, returns)
+        //logger.log(rdp(root, returns).toString())
+        //logger.log(got.toString())
+        for (const n of getChildNodes(root)) {
+            if (NodeTypes.isFunctionDefinition(n)) {
+                const hasRets = checkStatement(root, returns)
+                logger.log(hasRets.toString())
             }
-            //for (sib;sib && !NodeTypes.isScope(sib); sib = sib.nextNamedSibling) {
-            //    console.log('2nd loop: ' + sib.text);
-            //    outside.push(sib)
-            //outside.forEach( n=> logger.logNode(n))
+
         }
+        returns.forEach(n => logger.log(n.text))
         expect([].length === 0).toEqual(true);
     })
+
 })
+//for (sib;sib && !NodeTypes.isScope(sib); sib = sib.nextNamedSibling) {
+//    console.log('2nd loop: ' + sib.text);
+//    outside.push(sib)
+//outside.forEach( n=> logger.logNode(n))
+
+
+    //for (const node of nodesGen(root)) {
+        //const outside : SyntaxNode[] = [];
+        //if (!node.isNamed()) continue;
+        //if (NodeTypes.isReturn(node)) {
+            //logger.logNode(node);
+            //let sib: SyntaxNode | null = node;
+            //let setPush = false;
+            //for (
+                //sib = sib.nextNamedSibling;
+                //sib;
+                //sib = sib.nextNamedSibling
+            //) {
+                //console.log('1st loop: ' + sib.text);
+                //if (NodeTypes.isNewline(sib)) continue;
+                //if (!NodeTypes.isConditionalCommand(sib)) {
+                    //console.log('not a conditional command ' + sib.text + sib.type);
+                    //setPush = true;
+                //} else if (NodeTypes.isBlock(sib)) {
+                    //break;
+                //} else if (setPush) {
+                    //returns.push(sib)
+                //}
+            //}
+            //sib = null;
+            //returns.forEach( n => logger.log(n.text))
+            //setPush = true;
+        //}
+    //}
+
+function checkStatement(root: SyntaxNode, collection: SyntaxNode[]) {
+    let shouldReturn = NodeTypes.isReturn(root)
+    const current: SyntaxNode[] = []
+    for (const child of root.namedChildren) {
+        const include = checkStatement(child, collection) || NodeTypes.isReturn(child)
+        if (NodeTypes.isStatement(child) && !include) {
+            return false;
+        }
+        shouldReturn = include || shouldReturn
+    }
+    if (shouldReturn) {
+        collection.push(root)
+    }
+    return shouldReturn;
+}
+
+
+function collectFuncs(root: SyntaxNode, collection: SyntaxNode[]) : boolean {
+    let shouldInclude = false;
+    let include = false;
+    for (const child of root.children) {
+        if (NodeTypes.isScope(child)) {
+            include = collectFuncs(child, collection);
+            shouldInclude = include || shouldInclude
+        }
+    }
+    if (NodeTypes.isFunctionDefinition(root)) {
+        for (const child of root.children) {
+            include = collectStatements(child, collection);
+            shouldInclude = include && shouldInclude
+        }
+        collection.push(root)
+    }
+    return shouldInclude
+}
+
+
+
+function collectStatements(root: SyntaxNode, collection: SyntaxNode[]) : boolean {
+    let shouldInclude = true
+    for (const child of root.children) {
+        if (NodeTypes.isScope(child)) {
+            const include = collectStatements(child, collection)
+            shouldInclude = include || shouldInclude
+
+        }
+    }
+    if (NodeTypes.isStatement(root)) {
+        for (const child of root.children) {
+            let include = collectReturns(child, collection);
+            shouldInclude = include && shouldInclude
+        }
+        collection.push(root)
+        return shouldInclude
+    }
+    return false 
+}
+
+
+
+function collectReturns(root: SyntaxNode, collection: SyntaxNode[]) {
+    let shouldInclude = NodeTypes.isReturn(root) || NodeTypes.isScope(root)
+    for (const child of root.namedChildren) {
+        if (NodeTypes.isReturn(child)) {
+            let include = collectReturns(child, collection);
+            shouldInclude = include || shouldInclude
+        }
+    }
+    if (NodeTypes.isReturn(root)) {
+        collection.push(root)
+        return true
+    }
+    return false
+
+}

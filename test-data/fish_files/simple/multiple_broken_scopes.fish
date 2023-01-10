@@ -4,11 +4,11 @@ function multiple_broken_scopes
         echo hello
         or echo "bad 1"
         and echo "bad 2"
-        or echo "bad 3"; and return 1;
-        echo "bad 4"
+        or echo "bad 3"; 
+        return 1
     else
-        echo hi; return 1
-        echo 'bad again'
+        echo hi;
+        return 0
     end
 end
 
