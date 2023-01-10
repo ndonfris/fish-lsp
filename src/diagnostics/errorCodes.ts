@@ -14,7 +14,7 @@ export const unusedVariable = 2100
 
 export const syntaxError = 2910
 
-export const unusedIdentifier = 7028;
+export const unusedIdentifier = 6028;
 
 //export const cannotFindName = 2552;
 

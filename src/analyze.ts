@@ -9,7 +9,7 @@ import {LspDocument} from './document';
 import {isVariable} from './utils/node-types';
 import {DiagnosticQueue} from './diagnostics/queue';
 import {uriToPath} from './utils/translation';
-import {getDiagnostics} from './diagnostics/validate';
+import {collectDiagnosticsRecursive, /* getDiagnostics */} from './diagnostics/validate';
 
 export class Analyzer {
 
@@ -36,7 +36,7 @@ export class Analyzer {
         if (!useCache) {
             this.diagnosticQueue.clear(uri);
         } 
-        this.diagnosticQueue.set(uri, getDiagnostics(tree.rootNode, document));
+        this.diagnosticQueue.set(uri, collectDiagnosticsRecursive(tree.rootNode, document));
     }
 
 

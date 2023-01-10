@@ -16,7 +16,7 @@ import {nearbySymbols, collectDocumentSymbols, getDefinitionKind, DefinitionKind
 import { getDefinitionSymbols}  from './workspace-symbol';
 import { findFirstParent, getNodeAtRange, getRange } from './utils/tree-sitter';
 import { handleHover } from './hover';
-import { getDiagnostics } from './diagnostics/validate';
+import { /*getDiagnostics*/ } from './diagnostics/validate';
 import { CodeActionKind } from './code-action';
 import {FishAutoFixProvider} from './features/fix-all';
 import * as Locations from './utils/locations';

@@ -1,7 +1,7 @@
 import { Diagnostic } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { LspDocument } from '../document';
-import {findParentCommand, isCommandName, isConditionalCommand, isEnd, isError, isFunctionDefinition, isFunctionDefinitionName, isReturn, isScope, isStatement, isVariable, isVariableDefinition} from '../utils/node-types';
+import {findParentCommand, isCommandName, isConditionalCommand, isEnd, isError, isFunctionDefinition, isFunctionDefinitionName, isNewline, isReturn, isScope, isStatement, isVariable, isVariableDefinition} from '../utils/node-types';
 import { findFirstSibling, nodesGen } from '../utils/tree-sitter';
 import {createDiagnostic} from './create';
 import { createAllFunctionDiagnostics } from './missingFunctionName';
@@ -56,10 +56,10 @@ function isSyntaxError(node: SyntaxNode, diagnostic: Diagnostic | null) : Diagno
 function collectEndError(node: SyntaxNode, diagnostics: Diagnostic[]): boolean {
     let didAdd = false;
     let endError = isMissingEnd(node) || isExtraEnd(node)
-    endError = isSyntaxError(node, endError)
+    if (!endError) endError = isSyntaxError(node, endError)
     if (endError) {
-        didAdd = true;
         diagnostics.push(endError)
+        didAdd = true;
     }
     return didAdd;
 }
@@ -75,7 +75,7 @@ function collectFunctionsScopes(node: SyntaxNode, doc: LspDocument, diagnostic: 
             continue
         }
         // just to be safe for the time being without testing more thorough
-        if (statement.type !== "if_statement") continue;
+        //if (statement.type !== "if_statement") continue;
         hasRets = completeStatementCoverage(statement, [])
     }
     return hasRets
@@ -194,24 +194,31 @@ function collectReturnError(node: SyntaxNode, diagnostic: Diagnostic[]) {
     let currentNode : SyntaxNode | null = node
     const siblings: SyntaxNode[] = []
     while (currentNode) {
-        if (isStatement(currentNode)) break;
+        if (isStatement(currentNode) || isEnd(currentNode)) break;
+        if (isReturn(currentNode) && siblings.length === 0) {
+            currentNode = currentNode.nextNamedSibling
+            continue;
+        } else if (isNewline(currentNode)) {
+            currentNode = currentNode.nextNamedSibling
+            continue;
+        }
         siblings.push(currentNode)
         currentNode = currentNode.nextNamedSibling
     }
     let stillChaining = true;  // an example of chianing -> echo "$foo" ; and return 0 
     for (const sibling of siblings) {
-        if (!stillChaining) {
+        if (isStatement(sibling) || isEnd(sibling)) {
+            break;
+        } else if (!stillChaining) {
             diagnostic.push(createDiagnostic(sibling, errorCodes.unreachableCode))
             continue;
-        }
-        if (stillChaining && isConditionalCommand(sibling)) {
-            stillChaining = true;
-            continue;
-        }
-        if (stillChaining && !isConditionalCommand(sibling)) {
-            stillChaining = false;
-            diagnostic.push(createDiagnostic(sibling, errorCodes.unreachableCode))
-            continue;
+        } else if (stillChaining) {
+            if (!isConditionalCommand(sibling) && !isStatement(sibling)) {
+                stillChaining = false;
+                diagnostic.push(createDiagnostic(sibling, errorCodes.unreachableCode))
+            } else {
+                continue
+            }
         }
     }
     return true;
@@ -222,12 +229,12 @@ export function collectAllDiagnostics(root: SyntaxNode, doc: LspDocument, diagno
         || collectFunctionNames(root, doc, diagnostics, functionNames) 
         || collectVariableNames(root, doc, diagnostics, variableNames)
         || collectFunctionsScopes(root, doc, diagnostics)
-        || collectReturnError(root, diagnostics)
+        //|| collectReturnError(root, diagnostics)
         //collectReturnError(root, diagnostics);
     for (const node of root.children) {
         shouldAdd = collectAllDiagnostics(node, doc, diagnostics, functionNames, variableNames);
     }
-    return shouldAdd || false;
+    return shouldAdd
 }
 
 

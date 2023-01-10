@@ -48,7 +48,7 @@ export function createDiagnostic(node: SyntaxNode, code: number, document?: LspD
             message = "Information: Path variables are split with ':'. '/usr/bin:/usr/local/bin' is equivalent to '/usr/bin' '/usr/local/bin'";
             severity = DiagnosticSeverity.Information;
             break;
-        case errorCodes.pathVariable: 
+        case errorCodes.pathFlag: 
             message = "Information: The preferred naming convention to handle path variables specially requires a 'PATH' in your variable name";
             severity = DiagnosticSeverity.Information;
             break;
@@ -59,8 +59,9 @@ export function createDiagnostic(node: SyntaxNode, code: number, document?: LspD
         case errorCodes.privateHelperFunction:
             message = "Warning: private helper functions in autoloaded path, should begin with leading '_' to avoid name collisions";
             severity = DiagnosticSeverity.Warning;
+            break;
         default:
-            message = "Error: unknown error";
+            message = " E" + code.toString();
             severity = DiagnosticSeverity.Error;
             break;
     }
