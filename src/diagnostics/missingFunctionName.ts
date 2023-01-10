@@ -4,7 +4,7 @@ import {isFunctionDefinitionName} from '../utils/node-types';
 import {getChildNodes, getRange, nodesGen} from '../utils/tree-sitter';
 import { pathToRelativeFunctionName, uriInUserFunctions, uriToPath} from '../utils/translation';
 import * as errorCodes from './errorCodes';
-import {createDiagnostic} from './fishLspDiagnostic';
+import {createDiagnostic} from './create';
 import {LspDocument} from '../document';
 
 /**
@@ -47,14 +47,13 @@ const duplicateNodeNames = (nodes: SyntaxNode[]): SyntaxNode[] => {
  *
  * @param {SyntaxNode} root - the root node of the tree
  * @param {TextDocumentItem} doc - the document of for the same tree
- * @returns {Diagnostic[]} - a list of diagnostics for all functions that do not have a matching name
+ * @returns {Diapgnostic[]} - a list of diagnostics for all functions that do not have a matching name
  */
 export function createAllFunctionDiagnostics(root: SyntaxNode, doc: LspDocument): Diagnostic[] {
     const funcs = getChildNodes(root).filter(isFunctionDefinitionName)
-    const autoLoadedFuncName = isAutoLoadedFunction(doc)
     let possibleFuncsToFilenames : SyntaxNode[] =  []
-    if (autoLoadedFuncName && !hasOnlyOneDefinition(funcs, autoLoadedFuncName)) {
-        possibleFuncsToFilenames =  funcs.filter(n => n.text !== autoLoadedFuncName)
+    if (doc.isAutoLoaded() && !hasOnlyOneDefinition(funcs, doc.getAutoLoadName())) {
+        possibleFuncsToFilenames =  funcs.filter(n => n.text !== doc.getAutoLoadName())
     }
     const duplicateFuncNames : SyntaxNode[] = duplicateNodeNames(funcs)
     return [

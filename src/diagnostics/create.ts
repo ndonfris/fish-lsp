@@ -4,6 +4,7 @@ import {LspDocument} from '../document';
 import {getRange} from '../utils/tree-sitter';
 import * as errorCodes from './errorCodes';
 import { createCodeDescription } from './codeDescription';
+
 export interface FishLspDiagnostic {
     range: Range,
     severity: DiagnosticSeverity,
@@ -43,6 +44,21 @@ export function createDiagnostic(node: SyntaxNode, code: number, document?: LspD
             message = 'Warning: Universal variables are discouraged outside of interactive sessions';
             severity = DiagnosticSeverity.Warning;
             break;
+        case errorCodes.pathVariable: 
+            message = "Information: Path variables are split with ':'. '/usr/bin:/usr/local/bin' is equivalent to '/usr/bin' '/usr/local/bin'";
+            severity = DiagnosticSeverity.Information;
+            break;
+        case errorCodes.pathVariable: 
+            message = "Information: The preferred naming convention to handle path variables specially requires a 'PATH' in your variable name";
+            severity = DiagnosticSeverity.Information;
+            break;
+        case errorCodes.syntaxError: 
+            message = "Error: could not parse command";
+            severity = DiagnosticSeverity.Error;
+            break;
+        case errorCodes.privateHelperFunction:
+            message = "Warning: private helper functions in autoloaded path, should begin with leading '_' to avoid name collisions";
+            severity = DiagnosticSeverity.Warning;
         default:
             message = "Error: unknown error";
             severity = DiagnosticSeverity.Error;
@@ -61,38 +77,6 @@ export function createDiagnostic(node: SyntaxNode, code: number, document?: LspD
 }
 
 
-export class DiagnosticQueue {
-    private diagnostics: Map<string, Diagnostic[]> = new Map();
-
-    public getUris(): string[] {
-        return Array.from(this.diagnostics.keys());
-    }
-
-    public addDiagnostics(uri: string, diagnostics: Diagnostic[]): void {
-        if (!this.diagnostics.has(uri)) {
-            this.diagnostics.set(uri, []);
-        }
-        this.diagnostics.get(uri)?.push(...diagnostics);
-    }
-
-    public getDiagnostics(uri: string): Diagnostic[] {
-        //const fishDiagnostic = this.getFishLspDiagnostics(uri);
-        return this.diagnostics.get(uri) || []
-    }
-
-    //public getFishLspDiagnostics(uri: string): FishLspDiagnostic[] {
-        //return this.diagnostics.get(uri) || [];
-    //}
-
-    public clearDiagnostics(uri: string): void {
-        this.diagnostics.delete(uri);
-    }
-
-    public clearAllDiagnostics(): void {
-        this.diagnostics.clear();
-    }
-
-}
 
 
 

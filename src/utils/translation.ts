@@ -7,7 +7,7 @@ import {toSymbolKind} from '../symbols';
 import { FishProtocol } from './fishProtocol';
 import { getPrecedingComments, getRange } from './tree-sitter';
 import * as LocationNamespace from './locations';
-import { FishLspDiagnostic } from '../diagnostics/fishLspDiagnostic';
+import { FishLspDiagnostic } from '../diagnostics/create';
 import os from 'os'
 
 const RE_PATHSEP_WINDOWS = /\\/g;

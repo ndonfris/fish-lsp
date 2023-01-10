@@ -1,14 +1,18 @@
 import { readdirSync, readFileSync } from 'fs';
 import { resolve } from 'path'
 import { initializeParser } from '../src/parser';
-import { Point, SyntaxNode, Tree } from 'web-tree-sitter'
+import { Point, SyntaxNode, Tree, Logger } from 'web-tree-sitter'
 import { Analyzer } from '../src/analyze';
+import {getChildNodes, getNodesTextAsSingleLine, getRange, positionToPoint} from '../src/utils/tree-sitter';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import {getChildNodes, positionToPoint} from '../src/utils/tree-sitter';
-import {SymbolInformation, Location, SymbolKind, Range, DocumentSymbol} from 'vscode-languageserver';
+import {SymbolInformation, Location, SymbolKind, Range, DocumentSymbol, TextDocumentItem} from 'vscode-languageserver';
 import {symbolKindToString} from '../src/symbols';
 import {bgBlack, bgBlue, black, inverse, white} from 'colors';
+import {LspDocument} from '../src/document';
+import console from 'console';
 //import { blue, inverse } from 'colors'
+
+const util = require('util')
 
 /**
  * texts: array of file contents (entire file as a string), 
@@ -40,6 +44,70 @@ export async function getRootNodeFromPath(fname: string): Promise<SyntaxNode> {
     return tree.rootNode;
 }
 
+
+const logChildShort = (node: SyntaxNode | undefined | null) => {
+    if (!node) return {}
+    return {
+        type: node.type,
+        text: node.text,
+    }
+}
+
+export class TestLogger {
+    public console = require('console');
+    INSPECT_OPTIONS = {showHidden: true, depth: 2, colors: true}
+    constructor(console: Console) { this.console = console}
+
+    log(...str: string[]) {
+        this.console.log(str.join(' '))
+    }
+    
+    getLogNodeChild(root: SyntaxNode, node: SyntaxNode) {
+        const range = getRange(node)
+        let text = getNodesTextAsSingleLine([node])
+        let parentText = getNodesTextAsSingleLine([root])
+        if (text.length > 20) text = text.slice(0, 20) + '...';
+        if (parentText.length > 20) parentText = parentText.slice(0, 20) + '...';
+        return {
+            type: node.type,
+            text: text,
+            parentText: parentText,
+            parentType: root.type,
+        }
+    }
+
+    logNode(node: SyntaxNode, ...extraData: string[]) {
+        const range = getRange(node)
+        if (extraData.length > 0) {
+            this.console.log(extraData.join('\n'))
+        }
+        this.console.log({
+            text: node.text,
+            type: node.type,
+            id: node.id,
+            range: {start: range.start, end: range.end},
+            isNamed: node.isNamed(),
+            hasError: node.hasError(),
+            firstChild: logChildShort(node.firstChild),
+            firstNamedChild: logChildShort(node.firstNamedChild),
+            lastChild: logChildShort(node.lastChild),
+            lastNamedChild: logChildShort(node.lastNamedChild),
+            siblings: {
+                previousSibling: logChildShort(node.previousSibling),
+                previousNamedSibling: logChildShort(node.previousNamedSibling),
+                nextSibling: logChildShort(node.nextSibling),
+                nextNamedSibling: logChildShort(node.nextNamedSibling),
+            },
+            namedChildCount: node.namedChildCount,
+            namedChildren: node.namedChildren.map(n => JSON.parse(JSON.stringify(this.getLogNodeChild(node, n)))),
+            childCount: node.childCount,
+            children: node.children.map(n => JSON.parse(JSON.stringify({text: n.text, type: n.type}))),
+            tree: node.toString(),
+        })
+    }
+}
+
+
 export function nodeToString(node: SyntaxNode, shouldLog = true) : string {
     const pos = `(${node.startPosition.row}, ${node.startPosition.column}) (${node.endPosition.row}, ${node.endPosition.column})`.bgBlack.white
     return shouldLog
@@ -61,6 +129,18 @@ export function nodeToArrayString(node: SyntaxNode) : nodeConsoleArray {
         start: `(${node.startPosition.row}, ${node.startPosition.column})`,
         end: `(${node.endPosition.row}, ${node.endPosition.column})`
     }
+}
+
+/**
+ * @param {string} fname - relative path to file, in test-data folder 
+ * @returns {LspDocument} - lsp document (from '../src/document.ts')
+ */
+export function resolveLspDocumentForHelperTestFile(fname: string): LspDocument {
+    const path = resolve(__dirname, fname)
+    console.log("testing: " + path);
+    const file = readFileSync(resolve(__dirname, fname), 'utf8')
+    const doc = TextDocumentItem.create(fname, 'fish', 0, file)
+    return new LspDocument(doc)
 }
 
 export function resolveRelPath(dirname: string, fname: string): string {
@@ -223,6 +303,24 @@ export function logNode(shouldLog = true, node?: SyntaxNode) {
         return
     }
     console.log(nodeToString(node))
+}
+
+export function nodesSingleLine(nodes: SyntaxNode[]) : string{
+    let text = '';
+    for (const node of nodes) {
+        text += node.text.split('\n').map(n => n.trim()).join(';')
+        if (!text.endsWith(';')) text+=';'
+    }
+    return text
+    //return `named: ${node?.isNamed()} text: ${node?.text.split('\n').map(n => n.trim()).join(';')}  type: ${node?.type}`)
+}
+
+export function logNodeSingleLine(node?: SyntaxNode) {
+    if (!node) {
+        console.log('Node is undefined'.white)
+        return
+    }
+    console.log(`named: ${node.isNamed()} text: ${node.text.split('\n').map(n => n.trim()).join(';')}  type: ${node.type}`)
 }
 
 export function logVerboseNode(shouldLog = true, node: SyntaxNode) {

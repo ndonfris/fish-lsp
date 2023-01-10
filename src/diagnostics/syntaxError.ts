@@ -1,9 +1,10 @@
 import {Diagnostic} from 'vscode-languageserver';
 import {SyntaxNode} from 'web-tree-sitter';
-import {isCommandName, isError, isReturn} from '../utils/node-types';
-import {getSiblingNodes} from '../utils/tree-sitter';
+import {isCommandName, isConditionalCommand, isError, isReturn} from '../utils/node-types';
+import {findFirstSibling, getRange, getSiblingNodes} from '../utils/tree-sitter';
 import * as errorCodes from './errorCodes';
-import {createDiagnostic} from './fishLspDiagnostic';
+import {createDiagnostic} from './create';
+import {containsRange} from '../workspace-symbol';
 
 // https://github.com/typescript-language-server/typescript-language-server/blob/5a39c1f801ab0cad725a2b8711c0e0d46606a08b/src/diagnostic-queue.ts
 export function getMissingEndSyntaxError(node: SyntaxNode): Diagnostic | null {
@@ -22,11 +23,32 @@ export function getExtraEndSyntaxError(node: SyntaxNode): Diagnostic | null {
         : null;
 }
 
+export function getReturnSiblings(node: SyntaxNode) : SyntaxNode[] {
+    let current : SyntaxNode | null = node;
+    let results: SyntaxNode[] = [];
+    while (current) {
+        if (!current.isNamed()) continue;
+        results.unshift(current)
+        if (isReturn(current)) {
+            current = current.nextNamedSibling;
+            continue;
+        } 
+        if (!isConditionalCommand(current)) break;
+        current = current.nextNamedSibling;
+    }
+    return results;
+}
+
 export function getUnreachableCodeSyntaxError(node: SyntaxNode): Diagnostic | null {
     if (!node.isNamed()) return null;
-    return getSiblingNodes(node, false).find(n => isReturn(n))
-        ?  createDiagnostic(node, errorCodes.unreachableCode)
-        : null
+    //const siblings = findFirstSibling(node, (n) => isConditionalCommand(n) || isReturn(n));
+    //diagnostic.push(...siblings.map(sibling => createDiagnostic(sibling, errorCodes.unreachableCode)))
+    //return null;
+    const returnSibling = findFirstSibling(node, (n: SyntaxNode) => isReturn(n), 'before');
+    if (!returnSibling) return null
+    return findFirstSibling(returnSibling, (n) => !isConditionalCommand(n) && containsRange(getRange(n), getRange(node)), 'after')
+        ? createDiagnostic(node, errorCodes.unreachableCode)
+        : null;
 }
 
 // was -> getMissingEndSyntaxError(node: SyntaxNode): Diagnostic | null

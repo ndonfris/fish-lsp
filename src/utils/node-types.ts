@@ -3,7 +3,7 @@
 import {RemoteConsole} from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter'
 //import {logger} from '../logger';
-import {ancestorMatch, firstAncestorMatch, getChildNodes, getParentNodes} from './tree-sitter';
+import {ancestorMatch, findFirstParent, findFirstSibling, firstAncestorMatch, getChildNodes, getParentNodes, getSiblingNodes} from './tree-sitter';
 
 export function isComment(node: SyntaxNode): boolean {
     return node.type == 'comment';
@@ -106,6 +106,10 @@ export function isEnd(node: SyntaxNode): boolean {
 
 export function isScope(node: SyntaxNode): boolean {
     return isProgram(node) || isFunctionDefinition(node) || isStatement(node)
+}
+
+export function isNewline(node: SyntaxNode): boolean {
+    return node.type == '\n';
 }
 
 export function isString(node: SyntaxNode) {
@@ -454,6 +458,75 @@ export function isReturn(node: SyntaxNode) {
     return node.type === 'return' && node.firstChild?.text === 'return'
 }
 
+export function isConditionalCommand(node: SyntaxNode) {
+    return node.type === 'conditional_execution' 
+}
+
+export function isReturnConditionalChain(node: SyntaxNode) {
+    if (!isConditionalCommand(node))  return null
+    let current : SyntaxNode | null = node;
+    while (current && (isReturn(current) || isConditionalCommand(current))) {
+        //if (!isConditionalCommand(current)) break;
+        if (!current.isNamed()) {
+            current = current.previousSibling;
+            continue;
+        //} else if (isCommand(current)) {
+            //return null
+        }
+        //console.log(`named: ${current?.isNamed()} text: ${current?.text.split('\n').map(n => n.trim()).join(';')}  type: ${current?.type}`)
+        current = current.previousNamedSibling;
+    }
+    //console.log(current?.text + ' ' + current?.type)
+    return current && isReturn(current) ? current : null;
+}
+
+export function chainedCommandGroup(node: SyntaxNode) : SyntaxNode[] {
+    const results : SyntaxNode[] = []
+    //if (!isConditionalCommand(node) || !isCommand(node) )  return results
+    let current : SyntaxNode | null = node;
+    while (current) {
+        //if (!isConditionalCommand(current)) break;
+        results.unshift(current)
+        if (!current.isNamed()) {
+            current = current.previousSibling;
+            continue;
+        }
+        if (isCommand(current) || isReturn(current)) {
+            //results.unshift(current)
+            break;
+        }
+        //if (isCommand(current))
+        //if (!isReturn(current) && !isConditionalCommand(current)) {
+        if (!isConditionalCommand(current)) {
+            break;
+        } 
+        //console.log(`named: ${current?.isNamed()} text: ${current?.text.split('\n').map(n => n.trim()).join(';')}  type: ${current?.type}`)
+        current = current.previousSibling;
+    }
+    //console.log(current?.text + ' ' + current?.type)
+    return results 
+}
+
+export function isAfterReturn(node: SyntaxNode) : boolean {
+    const results : SyntaxNode[] = []
+    //if (isReturn(node))
+    //if (!isConditionalCommand(node) || !isCommand(node) )  return results
+    let notChained: SyntaxNode[] = []
+    let chained: SyntaxNode[] = []
+    const start: SyntaxNode | null = findFirstParent(node, n => isCommand(n) || isConditionalCommand(n) || isReturn(n)) || node
+    let current : SyntaxNode | null = start;
+    while (current) {
+        //if (current.isNamed()) {
+            //
+        //}
+        if (!isConditionalCommand(current) && !isReturn(current)) {
+            return true;
+        } 
+        current = current.previousNamedSibling;
+    }
+    //console.log(current?.text + ' ' + current?.type)
+    return false
+}
 /*
  * echo $hello_world 
  *           ^--- variable_name

@@ -1,9 +1,10 @@
 import { SyntaxNode } from "web-tree-sitter";
 import { Diagnostic } from "vscode-languageserver";
 import {findParentCommand, isVariableDefinition} from '../utils/node-types';
-import {createDiagnostic} from './fishLspDiagnostic';
+import {createDiagnostic} from './create';
 import * as errorCodes from './errorCodes';
 import {LspDocument} from '../document';
+import {findFirstSibling} from '../utils/tree-sitter';
 
 
 function getUniversalOption(node: SyntaxNode): SyntaxNode | null {
@@ -21,7 +22,12 @@ function getUniversalOption(node: SyntaxNode): SyntaxNode | null {
 
 export function getUniversalVariableDiagnostics(node: SyntaxNode, document: LspDocument): Diagnostic | null{
     if (!isVariableDefinition(node)) return null;
-    const universalFlag = getUniversalOption(node);
+    const isUniveralOption = (n: SyntaxNode) => {
+        if (n.text.startsWith('--')) return n.text == '--universal';
+        if (!n.text.startsWith('--') && n.text.startsWith('-')) return n.text.includes('U');
+        return false
+    }
+    const universalFlag = findFirstSibling(node, isUniveralOption);
     return universalFlag ? createDiagnostic(universalFlag, errorCodes.universalVariable, document) : null;
 }
 

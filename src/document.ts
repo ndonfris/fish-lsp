@@ -11,6 +11,8 @@ import {homedir} from 'os';
 import {promises, readFileSync} from 'fs';
 //import {logger} from './logger';
 import {FilepathResolver} from './utils/filepathResolver';
+import {uriToPath} from './utils/translation';
+import {sep} from 'path';
 
 // removed the need for utils/{io,locations}.ts with funcitons at the top of this file.
 // Add back later
@@ -150,6 +152,29 @@ export class LspDocument implements TextDocument {
             newContent = content.substring(0, start) + change.text + content.substring(end);
         }
         this.document = TextDocument.create(this.uri, this.languageId, version, newContent);
+    }
+
+    getFilePath(): string | undefined {
+        return uriToPath(this.uri);
+    }
+
+    /**
+     * checks if the document is in fish/functions directory
+     */
+    isAutoLoaded(): boolean {
+        const path = uriToPath(this.uri);
+        return path?.startsWith(`${homedir()}/.config/fish/functions`) || false; 
+    }
+
+    /**
+     * helper that gets the document URI if it is fish/functions directory 
+     * @returns {string} - what the function name should be, or '' if it is not autoloaded
+     */
+    getAutoLoadName(): string {
+        if (!this.isAutoLoaded()) return '';
+        const parts = uriToPath(this.uri)?.split('/') || [];
+        const name = parts[parts.length - 1];
+        return name.replace('.fish', '');
     }
 }
 

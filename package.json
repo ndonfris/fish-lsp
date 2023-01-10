@@ -55,7 +55,7 @@
   "devDependencies": {
     "@types/fs-extra": "^9.0.13",
     "@types/glob": "^8.0.0",
-    "@types/jest": "^29.0.3",
+    "@types/jest": "^29.2.5",
     "@types/minimist": "^1.2.2",
     "@types/node": "^16.11.56",
     "@types/semver": "^7.3.12",

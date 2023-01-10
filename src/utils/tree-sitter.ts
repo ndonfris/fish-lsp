@@ -61,23 +61,52 @@ export function findFirstParent(node: SyntaxNode, predicate: (node: SyntaxNode) 
 }
 
 
+//const getSiblingFunc = (n: SyntaxNode, direction: 'before' | 'after') => {
+    //if (direction === 'before') return n.nextNamedSibling
+    //if (direction === 'after') return n.previousNamedSibling
+    //return null
+//}
+
 /**
  * collects all siblings either before or after the current node.
  *
  * @param {SyntaxNode} node - the node to start from
- * @param {boolean} [lookForward] -  if (DEFAULT) true, looks nodes after the current node.
+ * @param {'forward' | 'backward'} [lookForward] -  if 'backward' (DEFAULT), looks nodes after the current node.
  * otherwise if specified false, looks for nodes before the current node.
  * @returns {SyntaxNode[]} - an array of either previous siblings or next siblings.
  */
-export function getSiblingNodes(node: SyntaxNode, lookForward: boolean=true) : SyntaxNode[] {
-    const siblingFunc = (n: SyntaxNode) => lookForward ? n.nextNamedSibling : n.previousNamedSibling
+export function getSiblingNodes(
+    node: SyntaxNode,
+    predicate : (n: SyntaxNode) => true,
+    direction: "before" | "after" = "before",
+): SyntaxNode[] {
+    const siblingFunc = (n: SyntaxNode) =>
+        direction === "before" ? n.previousNamedSibling : n.nextNamedSibling;
     let current: SyntaxNode | null = node;
-    const result: SyntaxNode[] = []
+    const result: SyntaxNode[] = [];
     while (current) {
-        current = siblingFunc(current)
-        if (current) result.push(current)
+        current = siblingFunc(current);
+        if (current && predicate(current)) result.push(current);
     }
     return result;
+}
+
+/**
+ * Similiar to getSiblingNodes. Only returns first node matching the predicate
+ */
+export function findFirstSibling(
+    node: SyntaxNode,
+    predicate: (n: SyntaxNode) => boolean,
+    direction: 'before' | 'after' = 'before', 
+): SyntaxNode | null {
+    const siblingFunc = (n: SyntaxNode) =>
+        direction === 'before' ? n.previousNamedSibling : n.nextNamedSibling;
+    let current: SyntaxNode | null = node;
+    while (current) {
+        current = siblingFunc(current);
+        if (current && predicate(current)) return current;
+    }
+    return null;
 }
 
 export function findEnclosingScope(node: SyntaxNode) : SyntaxNode {
@@ -115,6 +144,15 @@ export function getNodeText(node: SyntaxNode | null): string {
         return defVar.text || "";
     }
     return (node.text != null) ? node.text.trim() : ""
+}
+
+export function getNodesTextAsSingleLine(nodes: SyntaxNode[]): string {
+    let text = '';
+    for (const node of nodes) {
+        text += ' ' + node.text.split('\n').map(n => n.split(' ').map(n => n.trim()).join(' ')).map(n =>  n.trim()).join(';')
+        if (!text.endsWith(';')) text+=';'
+    }
+    return text.replaceAll(/;+/g, ';').trim()
 }
 
 export function firstAncestorMatch(
@@ -176,6 +214,17 @@ export function descendantMatch(
     return inclusive? results : results.filter(r => r !== start)
 }
 
+
+export function hasNode(allNodes: SyntaxNode[], matchNode: SyntaxNode) {
+    for (const node of allNodes) {
+        if (node.equals(matchNode)) return true;
+    }
+    return false
+}
+
+export function getNamedNeighbors(node: SyntaxNode): SyntaxNode[] {
+    return node.parent?.namedChildren || []
+}
 
 /**
  * uses nodesGen to build an array.

@@ -1,4 +1,4 @@
-import { CompletionItem, Connection, DocumentUri, Hover, Location, Position, RemoteConsole, TextDocumentPositionParams, } from "vscode-languageserver";
+import { CompletionItem, Connection, Diagnostic, DocumentUri, Hover, Location, Position, PublishDiagnosticsParams, RemoteConsole, TextDocumentPositionParams, } from "vscode-languageserver";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import Parser, { SyntaxNode, Point, Range, Tree } from "web-tree-sitter";
 import {collectFishSymbols, FishSymbol, FishSymbolMap} from './symbols';
@@ -7,6 +7,9 @@ import {SymbolKind} from 'vscode-languageserver';
 import {getChildNodes, getRange} from './utils/tree-sitter';
 import {LspDocument} from './document';
 import {isVariable} from './utils/node-types';
+import {DiagnosticQueue} from './diagnostics/queue';
+import {uriToPath} from './utils/translation';
+import {getDiagnostics} from './diagnostics/validate';
 
 export class Analyzer {
 
@@ -14,6 +17,7 @@ export class Analyzer {
 
     // maps the uri of document to the parser.parse(document.getText())
     private uriTree: { [uri: string]: Tree };
+    private diagnosticQueue: DiagnosticQueue = new DiagnosticQueue();
 
     constructor(parser: Parser) {
         this.parser = parser;
@@ -21,13 +25,30 @@ export class Analyzer {
         this.uriTree = {};
     }
 
-    public analyze(document: LspDocument) {
-        this.parser.reset()
+    public analyze(document: LspDocument, useCache: boolean = false) {
+        //this.parser.reset()
+        //const tree = shouldCache ? ;
+        const uri = document.uri;
         const tree = this.parser.parse(document.getText())
-        if (!tree?.rootNode) {
-            return
+        if (!uri) return
+        if (!tree?.rootNode) return
+        this.uriTree[uri] = tree;
+        if (!useCache) {
+            this.diagnosticQueue.clear(uri);
+        } 
+        this.diagnosticQueue.set(uri, getDiagnostics(tree.rootNode, document));
+    }
+
+
+    public getDiagnostics(doc: LspDocument): PublishDiagnosticsParams {
+        return {
+            uri: doc.uri,
+            diagnostics: this.diagnosticQueue.get(doc.uri) || [],
         }
-        this.uriTree[document.uri] = tree;
+    }
+
+    clear(doc: LspDocument) {
+        this.diagnosticQueue.clear(doc.uri);
     }
 
     /**
@@ -50,7 +71,5 @@ export class Analyzer {
         }
         return tree.rootNode.namedDescendantForPosition({ row: line, column });
     }
-
-
 
 }

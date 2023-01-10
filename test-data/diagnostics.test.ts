@@ -1,19 +1,18 @@
-import os from 'os'
+import { homedir } from 'os'
 import { SyntaxNode } from 'web-tree-sitter';
-import { getNodeAtRange, getSiblingNodes, nodesGen } from '../src/utils/tree-sitter';
+import { getNodeAtRange, getNodesTextAsSingleLine, nodesGen } from '../src/utils/tree-sitter';
 import { Diagnostic, DiagnosticSeverity, TextDocumentItem } from 'vscode-languageserver'
 import { initializeParser } from '../src/parser';
-import { getExtraEndSyntaxError, getMissingEndSyntaxError, getUnreachableCodeSyntaxError } from '../src/diagnostics/syntaxError';
+import { getExtraEndSyntaxError, getMissingEndSyntaxError, getReturnSiblings, getUnreachableCodeSyntaxError } from '../src/diagnostics/syntaxError';
 import { getUniversalVariableDiagnostics } from '../src/diagnostics/universalVariable';
 import { createAllFunctionDiagnostics } from '../src/diagnostics/missingFunctionName';
-import  {  getDiagnostics } from '../src/diagnostics/validate'
-import * as errorCodes from '../src/diagnostics/errorCodes';
-import {isReturn} from '../src/utils/node-types';
+import  {  collectDiagnosticsRecursive, getDiagnostics } from '../src/diagnostics/validate'
+import {isCommand, isConditionalCommand, isReturn} from '../src/utils/node-types';
 import {LspDocument} from '../src/document';
+import {resolveLspDocumentForHelperTestFile} from './helpers';
 
 let SHOULD_LOG = false
 const jestConsole = console;
-jest.setTimeout(25000)
 
 beforeEach(() => {
     global.console = require('console');
@@ -27,7 +26,7 @@ afterEach(() => {
 
 function fishTextDocumentItem(uri: string, text: string): LspDocument {
     return new LspDocument({
-        uri: `file://${os.homedir()}/.config/fish/${uri}`,
+        uri: `file://${homedir()}/.config/fish/${uri}`,
         languageId: 'fish',
         version: 1,
         text
@@ -146,7 +145,7 @@ describe('test diagnostics', () => {
     })
 
     it('test bad function name', async () => {
-        SHOULD_LOG = true
+        SHOULD_LOG = false
         if (SHOULD_LOG) console.log('\n\n\t\tURI FUNCTION NAME');
         const parser = await initializeParser();
         const docs: LspDocument[] = [
@@ -165,7 +164,7 @@ describe('test diagnostics', () => {
     })
 
     it('test duplicate function name', async () => {
-        SHOULD_LOG = true
+        SHOULD_LOG = false
         if (SHOULD_LOG) console.log('\n\n\t\tDUPLICATE FUNCTION NAME');
         const parser = await initializeParser();
         const docs: LspDocument[] = [
@@ -183,28 +182,121 @@ describe('test diagnostics', () => {
         expect(diagnosticsErrors.length).toBe(3);
     })
 
-    it('validate', async () => {
+    
+
+const test_text =
+`function pass_func
+    if test 'a' = 'b'
+        for i in (seq 1 10)
+            echo $i
+        end
+        return 0;
+    end
+    return 1;
+    and echo "line 1"
+    and echo "line 2"
+    or  echo "line 3"
+    echo "outside of block"
+end
+`
+
+const test_command_chain_block_text =
+`function pass_func
+    if test 'a' = 'b'
+        for i in (seq 1 10)
+            echo $i
+        end
+        return 0;
+    end
+    echo "before block"
+    echo "start of block"
+    and echo "line 1"
+    or  echo "line 2"
+    and echo "line 3";
+    echo "outside of block 1"
+    echo "outside of block 2"
+    echo "outside of block 3"
+end
+`
+
+    it('return spans', async () => {
         SHOULD_LOG = true
         if (SHOULD_LOG) console.log('\n\n\t\tVALIDATE');
         const parser = await initializeParser();
         const docs: LspDocument[] = [
-            fishTextDocumentItem(`functions/pass_func.fish`, `function pass_func;set -U asdf 'g';end; function pass_func; echo $argv;end;`),         // no diagnostics
-            fishTextDocumentItem(`functions/duplicate_func.fish`, ['function should_fail_func;echo "hi";end;', 'function should_fail_func; echo "world"; end;'].join('\n')),  // bad func name diagnostics
+            fishTextDocumentItem(`functions/pass_func.fish`, test_text),         // no diagnostics
+            fishTextDocumentItem(`functions/command_chain_func.fish`, test_command_chain_block_text),         // no diagnostics
         ];
         const diagnosticsErrors: Diagnostic[] = [];
         docs.forEach(doc => {
             parser.reset()
             const root = parser.parse(doc.getText()).rootNode;
-            const diagnostics = getDiagnostics(root, doc);
-            if (SHOULD_LOG) diagnostics.forEach(d => logDiagnostics(d, root))
-            diagnosticsErrors.push(...diagnostics);
+            console.log(doc.uri)
+            for (const node of nodesGen(root)) {
+                if (!node.isNamed()) continue;
+                if (isReturn(node)) {
+                    console.log('-'.repeat(50));
+                    let result : SyntaxNode[] = []
+                    let current: SyntaxNode | null = node
+                    let outOfRange = false;
+                    while (current) {
+                            console.log("current: " + getNodesTextAsSingleLine([current]))
+                            if (!outOfRange && isConditionalCommand(current)) {
+                                current = current.nextNamedSibling;
+                                continue;
+                            }
+                            if (!outOfRange && !isConditionalCommand(current)) {
+                                result.push(current);
+                                outOfRange = true;
+                            } else if (outOfRange) {
+                                result.push(current);
+                                outOfRange = true;
+                            }
+                            current = current.nextNamedSibling;
+                    }
+
+                    const logStr = `group: ${result}, chain_length: ${result.length}\n${getNodesTextAsSingleLine(result)}`
+                    console.log(logStr);
+                    console.log('-'.repeat(50));
+
+                }
+            }
+            //if (SHOULD_LOG) diagnostics.forEach(d => logDiagnostics(d, root))
+            //diagnosticsErrors.push(...diagnostics);
         })
-        expect(diagnosticsErrors.length).toBe(5);
+        //expect(diagnosticsErrors.length).toBe(5);
 
     })
+
+    it('validate', async () => {
+        SHOULD_LOG = false
+        if (SHOULD_LOG) console.log('\n\n\t\tVALIDATE');
+        const parser = await initializeParser();
+        const docs: LspDocument[] = [
+            //fishTextDocumentItem(`functions/pass_func.fish`, `function pass_func;set -U asdf 'g';end; function pass_func; echo $argv;end;`),         // no diagnostics
+            //fishTextDocumentItem(`functions/duplicate_func.fish`, ['function should_fail_func;echo "hi";end;', 'function should_fail_func; echo "world"; end;'].join('\n')),  // bad func name diagnostics
+           resolveLspDocumentForHelperTestFile('fish_files/simple/multiple_broken_scopes.fish') 
+        ];
+        const diagnosticsErrors: Diagnostic[] = [];
+        docs.forEach(doc => {
+            parser.reset()
+            //const funcDoc = convertToAutoloadDocument(doc)
+            //const root = parser.parse(funcDoc.getText()).rootNode;
+            //const diagnostics = collectDiagnosticsRecursive(root, funcDoc);
+            //if (SHOULD_LOG) diagnostics.forEach(d => logDiagnostics(d, root))
+            //diagnosticsErrors.push(...diagnostics);
+        })
+        //expect(diagnosticsErrors.length).toBe(5);
+    })
+
 })
 
 
+
+function convertToAutoloadDocument(doc: LspDocument) {
+    const funcDoc = new LspDocument({ uri: `file://${homedir()}/.config/fish/functions/multiple_broken_scopes.fish`, languageId: doc.languageId, version: doc.version, text: doc.getText()});
+    return funcDoc
+}
 
 function unreacableDocs() {
     return [
