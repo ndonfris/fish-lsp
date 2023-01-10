@@ -619,3 +619,4 @@ yarn watch
 ### Publishing
 
 New version of the package is published automatically on pushing new tag to the upstream repo.
+fixed coc folding error: `set foldmethod=marker foldlevel=0 nomodeline:`
