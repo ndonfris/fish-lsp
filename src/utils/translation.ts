@@ -1,8 +1,9 @@
-import { Diagnostic, DocumentSymbol, SelectionRange, SymbolInformation, SymbolKind, TextDocumentEdit, TextEdit } from 'vscode-languageserver';
+import { Diagnostic, DocumentSymbol, FoldingRange, FoldingRangeKind, SelectionRange, SymbolInformation, SymbolKind, TextDocumentEdit, TextEdit } from 'vscode-languageserver';
+import * as LSP from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { URI } from 'vscode-uri';
-import { findParentVariableDefintionKeyword } from './node-types';
-import { LspDocuments } from '../document';
+import { findParentVariableDefintionKeyword, isComment, isFunctionDefinition, isFunctionDefinitionName, isVariableDefinition } from './node-types';
+import { LspDocument, LspDocuments } from '../document';
 import {toSymbolKind} from '../symbols';
 import { FishProtocol } from './fishProtocol';
 import { getPrecedingComments, getRange } from './tree-sitter';
@@ -171,4 +172,42 @@ export function toLspDiagnostic(diagnostic: FishLspDiagnostic): Diagnostic[] {
             CodeDescription: diagnostic.codeDescription,
         } as Diagnostic
     });
+}
+
+
+
+export function toFoldingRange(node: SyntaxNode, document: LspDocument): FoldingRange {
+    let foldText = ''
+    let kind = FoldingRangeKind.Region;
+    if (isFunctionDefinition(node) || isFunctionDefinitionName(node.firstNamedChild || node)) {
+        foldText = node.firstNamedChild?.text || node.text.split(' ')[0]
+    }
+    if (isVariableDefinition(node)) {
+        foldText = node.text
+    }
+    if (isComment(node)) {
+        foldText = node.text.slice(0, 10) 
+        if (node.text.length >= 10) foldText += '...'
+        kind = FoldingRangeKind.Comment
+    }
+    const range = getRange(node);
+    const startLine = range.start.line;
+    const endLine = range.end.line > 0 && document.getText(LSP.Range.create(
+        LSP.Position.create(range.end.line, range.end.character - 1),
+        range.end,
+    )) === '}' ? Math.max(range.end.line -1, range.start.line) : range.end.line;
+    return {
+        startLine,
+        endLine,
+        collapsedText: foldText,
+        kind: FoldingRangeKind.Region
+    }
+    //return {
+        //startLine: node.startPosition.row,
+        //startCharacter: node.startPosition.column,
+        //endLine: node.endPosition.row,
+        //endCharacter: node.endPosition.column,
+        //collapsedText: foldText,
+        //kind: kind,
+    //}
 }

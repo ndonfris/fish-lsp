@@ -1,8 +1,8 @@
-import Parser, {Edit, SyntaxNode} from "web-tree-sitter";
+import Parser, {SyntaxNode} from "web-tree-sitter";
 import { initializeParser } from "./parser";
 import { Analyzer } from "./analyze";
 import { buildRegexCompletions, workspaceSymbolToCompletionItem, generateShellCompletionItems, insideStringRegex, } from "./completion";
-import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, TextDocumentItem, HoverParams, Hover, RenameParams, TextDocumentPositionParams, PartialResultParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, uinteger, CodeActionParams, CodeAction, DocumentRangeFormattingParams, ExecuteCommandParams, CancellationToken, WorkDoneProgress, WorkDoneProgressReporter, RemoteClient, Command, ServerRequestHandler } from "vscode-languageserver";
+import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, ExecuteCommandParams, ServerRequestHandler, FoldingRangeParams, FoldingRange } from "vscode-languageserver";
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
 import { FishCompletionItem, } from './utils/completion-types';
@@ -10,21 +10,19 @@ import {  enrichToCodeBlockMarkdown } from './documentation';
 import { applyFormatterSettings } from './formatting';
 import { execCommandDocs, execCommandType, execFindDependency, execFormatter, execOpenFile } from './utils/exec';
 import {Logger} from './logger';
-import {uriToPath} from './utils/translation';
+import {toFoldingRange, uriToPath} from './utils/translation';
 import {ConfigManager} from './configManager';
-import {nearbySymbols, collectDocumentSymbols, getDefinitionKind, DefinitionKind, SpanTree, countParentScopes, getReferences, getLocalDefs } from './workspace-symbol';
+import {nearbySymbols, getDefinitionKind, DefinitionKind, getReferences, getLocalDefs } from './workspace-symbol';
 import { getDefinitionSymbols}  from './workspace-symbol';
-import { findFirstParent, getNodeAtRange, getRange } from './utils/tree-sitter';
+import { getChildNodes, getRange } from './utils/tree-sitter';
 import { handleHover } from './hover';
 import { /*getDiagnostics*/ } from './diagnostics/validate';
 import { CodeActionKind } from './code-action';
 import {FishAutoFixProvider} from './features/fix-all';
 import * as Locations from './utils/locations';
 import {FishProtocol} from './utils/fishProtocol';
-import {provideQuickFix} from './features/quickfix';
-import {provideRefactor, provideRefactors} from './features/refactor';
-import {CommandParams, Commands, /*executeCommandHandler*/} from './commands';
-import * as ExecCommands from './commands';
+import {Commands, /*executeCommandHandler*/} from './commands';
+import {isFunctionDefinition} from './utils/node-types';
 
 export type SupportedFeatures = {
     codeActionDisabledSupport : boolean;
@@ -88,6 +86,8 @@ export default class FishServer {
                 renameProvider: true,
                 documentFormattingProvider: true,
                 documentRangeFormattingProvider: true,
+                foldingRangeProvider: true,
+
                 //diagnosticProvider: {
                 //    identifier: "fish-lsp",
                 //    workspaceDiagnostics: false,
@@ -113,7 +113,6 @@ export default class FishServer {
                     ],
                     workDoneProgress: true,
                 },
-
                 documentSymbolProvider: {
                     label: "Fish-LSP",
                 },
@@ -142,6 +141,7 @@ export default class FishServer {
         this.connection.onDocumentFormatting(this.onDocumentFormatting.bind(this));
         this.connection.onDocumentRangeFormatting(this.onDocumentRangeFormatting.bind(this));
         this.connection.onCodeAction(this.onCodeAction.bind(this));
+        this.connection.onFoldingRanges(this.onFoldingRanges.bind(this))
         //executeCommandHandler;
         //this.connection.onExecuteCommand(this.onExecuteCommand.bind(this));
         //this.connection.onRequest('onHover', this.onHover.bind(this));
@@ -522,6 +522,22 @@ export default class FishServer {
         } catch (err) {
             return undefined;
         }
+    }
+
+    async onFoldingRanges(params: FoldingRangeParams): Promise<FoldingRange[] | undefined> {
+        const file = uriToPath(params.textDocument.uri);
+        const result: FoldingRange[] = [];
+        const document = this.docs.get(file);
+        if (!document) {
+            throw new Error(`The document should not be opened in the folding range, file: ${file}`)
+        }
+        const root = this.parser.parse(document.getText()).rootNode;
+        const funcs = getChildNodes(root).filter(f => isFunctionDefinition(f));
+        // see folds.ts @ might be unnecessary
+        for (const node of funcs) {
+            result.push(toFoldingRange(node, document))
+        }
+        return result;
     }
 
     async onCodeAction(params: CodeActionParams) : Promise<CodeAction[]> {
