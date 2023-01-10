@@ -13613,3 +13613,46 @@ onDocumentSymbols
 [onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
 onDocumentSymbols
 [onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
