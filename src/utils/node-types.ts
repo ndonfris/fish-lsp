@@ -76,6 +76,10 @@ export function isElseStatement(node: SyntaxNode): boolean {
     return node.type === 'else_clause'
 }
 
+export function isConditional(node: SyntaxNode) : boolean {
+    return ['if_statement', 'else_if_clause', 'else_clause'].includes(node.type)
+}
+
 export function isPossibleUnreachableStatement(node: SyntaxNode) : boolean {
     if (isIfStatement(node)) {
         return node.lastNamedChild?.type === 'else_clause'

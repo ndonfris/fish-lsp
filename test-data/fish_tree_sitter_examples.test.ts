@@ -8,6 +8,7 @@ import {
     resolveLspDocumentForHelperTestFile,
     TestLogger,
 } from "./helpers";
+import { buildStatementChildren, ifStatementHasReturn } from '../src/diagnostics/statementHasReturn'
 
 // This file will be used to display what the expected output should be for the
 // tree-sitter parses. While the AST defined for fish shell is very helpful, the token
@@ -159,11 +160,22 @@ describe("FISH web-tree-sitter SUITE", () => {
         //logger.log(got.toString())
         let hasRets = false
         for (const n of getChildNodes(root)) {
-            if (NodeTypes.isIfStatement(n)) {
-                hasRets = true
-                logger.log('if statement')
-                logger.logNode(n)
+            if (NodeTypes.isConditional(n)) {
+                if (!!buildStatementChildren(n).find((node) => NodeTypes.isReturn(node))) {
+                    continue;
+                } else {
+                    logger.log('not a conditional with a return')
+                }
+
+                //for (const c of buildStatementChildren(n)) {
+                    //logger.log(`parent:${n.text.slice(0,20)+'...'}'\nchild:${c.text.slice(0,20)+'...'}`)
+                    //logger.log('-'.repeat(30))
+                //}
             }
+            //if (NodeTypes.isElseStatement(n)) {
+                //logger.log('else statement')
+                ////logger.logNode(n);
+            //}
             //if (NodeTypes.isFunctionDefinition(n)) {
             //    const statements = n.namedChildren.filter((c) => NodeTypes.isStatement(c))
             //    for (const statement  of statements) {

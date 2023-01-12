@@ -74,6 +74,9 @@ export function collectFunctionsScopes(node: SyntaxNode, doc: LspDocument, diagn
             diagnostic.push(createDiagnostic(child, errorCodes.unreachableCode, doc))
             continue
         }
+        if (!isPossibleUnreachableStatement(child)) {
+            continue;
+        }
         // just to be safe for the time being without testing more thorough
         //if (statement.type !== "if_statement") continue;
         if (isPossibleUnreachableStatement(child)) {
@@ -103,9 +106,9 @@ function completeStatementCoverage(root: SyntaxNode, collection: SyntaxNode[]) {
     let shouldReturn = isReturn(root)
     for (const child of root.namedChildren) {
         const include = completeStatementCoverage(child, collection) || isReturn(child)
-        if (isPossibleUnreachableStatement(child) && !include) {
+        if (isStatement(child) && !include) {
             return false;
-        }
+        } 
         shouldReturn = include || shouldReturn
     }
     if (shouldReturn) {
