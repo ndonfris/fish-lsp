@@ -159,16 +159,21 @@ describe("FISH web-tree-sitter SUITE", () => {
         //logger.log(got.toString())
         let hasRets = false
         for (const n of getChildNodes(root)) {
-            if (NodeTypes.isFunctionDefinition(n)) {
-                const statements = n.namedChildren.filter((c) => NodeTypes.isStatement(c))
-                for (const statement  of statements) {
-                    if (hasRets) {
-                        obsolete.push(statement)
-                        continue
-                    }
-                    hasRets = checkStatement(statement, returns)
-                }
+            if (NodeTypes.isIfStatement(n)) {
+                hasRets = true
+                logger.log('if statement')
+                logger.logNode(n)
             }
+            //if (NodeTypes.isFunctionDefinition(n)) {
+            //    const statements = n.namedChildren.filter((c) => NodeTypes.isStatement(c))
+            //    for (const statement  of statements) {
+            //        if (hasRets) {
+            //            obsolete.push(statement)
+            //            continue
+            //        }
+            //        hasRets = checkStatement(statement, returns)
+            //    }
+            //}
         }
         obsolete.forEach(n => logger.log(n.text))
         expect([].length === 0).toEqual(true);

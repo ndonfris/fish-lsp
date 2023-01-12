@@ -1,7 +1,7 @@
 import { Diagnostic } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { LspDocument } from '../document';
-import {findParentCommand, isCommandName, isConditionalCommand, isEnd, isError, isFunctionDefinition, isFunctionDefinitionName, isNewline, isReturn, isScope, isStatement, isVariable, isVariableDefinition} from '../utils/node-types';
+import {findParentCommand, isCommand, isCommandName, isConditionalCommand, isEnd, isError, isFunctionDefinition, isFunctionDefinitionName, isIfStatement, isNewline, isPossibleUnreachableStatement, isReturn, isScope, isStatement, isVariable, isVariableDefinition} from '../utils/node-types';
 import { findFirstSibling, nodesGen } from '../utils/tree-sitter';
 import {createDiagnostic} from './create';
 import { createAllFunctionDiagnostics } from './missingFunctionName';
@@ -65,18 +65,21 @@ function collectEndError(node: SyntaxNode, diagnostics: Diagnostic[]): boolean {
 }
 
 // check if code is reachable 
-function collectFunctionsScopes(node: SyntaxNode, doc: LspDocument, diagnostic: Diagnostic[]): boolean {
+export function collectFunctionsScopes(node: SyntaxNode, doc: LspDocument, diagnostic: Diagnostic[]): boolean {
     if (!isFunctionDefinition(node)) return false
-    const statements = node.namedChildren.filter((c) => isStatement(c))
+    //const nodes = node.namedChildren.filter((c) => isStatement(c) || isCommandName(c))
     let hasRets = false;
-    for (const statement of statements) {
+    for (const child of node.namedChildren) {
         if (hasRets) {
-            diagnostic.push(createDiagnostic(statement, errorCodes.unreachableCode, doc))
+            diagnostic.push(createDiagnostic(child, errorCodes.unreachableCode, doc))
             continue
         }
         // just to be safe for the time being without testing more thorough
         //if (statement.type !== "if_statement") continue;
-        hasRets = completeStatementCoverage(statement, [])
+        if (isPossibleUnreachableStatement(child)) {
+            const statement = child;
+            hasRets = completeStatementCoverage(statement, [])
+        }
     }
     return hasRets
 }
@@ -100,7 +103,7 @@ function completeStatementCoverage(root: SyntaxNode, collection: SyntaxNode[]) {
     let shouldReturn = isReturn(root)
     for (const child of root.namedChildren) {
         const include = completeStatementCoverage(child, collection) || isReturn(child)
-        if (isStatement(child) && !include) {
+        if (isPossibleUnreachableStatement(child) && !include) {
             return false;
         }
         shouldReturn = include || shouldReturn

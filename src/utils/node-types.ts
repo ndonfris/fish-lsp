@@ -68,6 +68,24 @@ export function isForLoop(node: SyntaxNode): boolean {
     return node.type === 'for_statement'
 }
 
+export function isIfStatement(node: SyntaxNode): boolean {
+    return node.type === 'if_statement'
+}
+
+export function isElseStatement(node: SyntaxNode): boolean {
+    return node.type === 'else_clause'
+}
+
+export function isPossibleUnreachableStatement(node: SyntaxNode) : boolean {
+    if (isIfStatement(node)) {
+        return node.lastNamedChild?.type === 'else_clause'
+    } else if (node.type === 'for_statement') {
+        return true;
+    } else if (node.type === 'switch_statement') {
+        return false;
+    }
+    return false;
+}
 
 export function isStatement(node: SyntaxNode): boolean {
     return [
@@ -96,7 +114,6 @@ export function isBlock(node: SyntaxNode): boolean {
         'if_statement',
         'function_definition',
     ].includes(node.type);
-    
 }
 
 export function isEnd(node: SyntaxNode): boolean {

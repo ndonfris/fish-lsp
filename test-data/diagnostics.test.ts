@@ -6,10 +6,10 @@ import { initializeParser } from '../src/parser';
 import { getExtraEndSyntaxError, getMissingEndSyntaxError, getReturnSiblings, getUnreachableCodeSyntaxError } from '../src/diagnostics/syntaxError';
 import { getUniversalVariableDiagnostics } from '../src/diagnostics/universalVariable';
 import { createAllFunctionDiagnostics } from '../src/diagnostics/missingFunctionName';
-import  {  collectDiagnosticsRecursive, getDiagnostics } from '../src/diagnostics/validate'
-import {isCommand, isConditionalCommand, isReturn} from '../src/utils/node-types';
+import  {  collectDiagnosticsRecursive, collectFunctionsScopes, getDiagnostics } from '../src/diagnostics/validate'
+import {isCommand, isConditionalCommand, isFunctionDefinition, isReturn} from '../src/utils/node-types';
 import {LspDocument} from '../src/document';
-import {resolveLspDocumentForHelperTestFile} from './helpers';
+import {logNode, resolveLspDocumentForHelperTestFile} from './helpers';
 
 let SHOULD_LOG = false
 const jestConsole = console;
@@ -46,7 +46,7 @@ function severityStr(severity: DiagnosticSeverity | undefined) {
 function logDiagnostics(diagnostic: Diagnostic, root: SyntaxNode) {
     if (SHOULD_LOG) {
         console.log('-'.repeat(80));
-        console.log(`entire text:     \n${root.text}`);
+        console.log(`entire text:     \n${root.text.slice(0, 20)+'...'}`);
         console.log(`diagnostic node: ${getNodeAtRange(root, diagnostic.range)?.text}`);
         console.log(`message:         ${diagnostic.message.toString()}`); // check uri for config.fish
         console.log(`severity:        ${severityStr(diagnostic.severity)}`); // check uri for config.fish
@@ -220,7 +220,7 @@ end
 `
 
     it('return spans', async () => {
-        SHOULD_LOG = true
+        SHOULD_LOG = false
         if (SHOULD_LOG) console.log('\n\n\t\tVALIDATE');
         const parser = await initializeParser();
         const docs: LspDocument[] = [
@@ -235,7 +235,7 @@ end
             for (const node of nodesGen(root)) {
                 if (!node.isNamed()) continue;
                 if (isReturn(node)) {
-                    console.log('-'.repeat(50));
+                    //console.log('-'.repeat(50));
                     let result : SyntaxNode[] = []
                     let current: SyntaxNode | null = node
                     let outOfRange = false;
@@ -256,20 +256,18 @@ end
                     }
 
                     const logStr = `group: ${result}, chain_length: ${result.length}\n${getNodesTextAsSingleLine(result)}`
-                    console.log(logStr);
-                    console.log('-'.repeat(50));
+                    //console.log(logStr);
+                    //console.log('-'.repeat(50));
 
                 }
             }
             //if (SHOULD_LOG) diagnostics.forEach(d => logDiagnostics(d, root))
             //diagnosticsErrors.push(...diagnostics);
         })
-        //expect(diagnosticsErrors.length).toBe(5);
-
     })
 
     it('validate', async () => {
-        SHOULD_LOG = false
+        SHOULD_LOG = true
         if (SHOULD_LOG) console.log('\n\n\t\tVALIDATE');
         const parser = await initializeParser();
         const docs: LspDocument[] = [
@@ -277,15 +275,19 @@ end
             //fishTextDocumentItem(`functions/duplicate_func.fish`, ['function should_fail_func;echo "hi";end;', 'function should_fail_func; echo "world"; end;'].join('\n')),  // bad func name diagnostics
            resolveLspDocumentForHelperTestFile('fish_files/simple/multiple_broken_scopes.fish') 
         ];
-        const diagnosticsErrors: Diagnostic[] = [];
-        docs.forEach(doc => {
-            parser.reset()
-            //const funcDoc = convertToAutoloadDocument(doc)
-            //const root = parser.parse(funcDoc.getText()).rootNode;
-            //const diagnostics = collectDiagnosticsRecursive(root, funcDoc);
-            //if (SHOULD_LOG) diagnostics.forEach(d => logDiagnostics(d, root))
-            //diagnosticsErrors.push(...diagnostics);
-        })
+        const doc : LspDocument = resolveLspDocumentForHelperTestFile('fish_files/simple/multiple_broken_scopes.fish')
+        let diagnostics: Diagnostic[] = [];
+        parser.reset()
+        const funcDoc = convertToAutoloadDocument(doc)
+        const root = parser.parse(funcDoc.getText()).rootNode;
+        for (const node of nodesGen(root)) {
+            if (isFunctionDefinition(node)) {
+                collectFunctionsScopes(node, funcDoc, diagnostics);
+            }
+        }
+        //const diagnostics = collectDiagnosticsRecursive(root, funcDoc);
+        if (SHOULD_LOG) diagnostics.forEach(d => logDiagnostics(d, root))
+        //diagnostics.push(...diagnostics);
         //expect(diagnosticsErrors.length).toBe(5);
     })
 

@@ -5,11 +5,11 @@ function multiple_broken_scopes
         or echo "bad 1"
         and echo "bad 2"
         or echo "bad 3"; 
-        return 1
     else
         echo hi;
         return 0
     end
+    set -l var "$argv"
     for i in (seq 1 10) 
         echo "hi"
     end
