@@ -2899,3 +2899,816 @@ onDocumentSymbols
 [onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
 onDocumentSymbols
 [onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function func_a\n    set -l a 'a' 'a'\nend\n\n\nfunction func_b\n    set -l b 'bb' 'bb'\nend\n\nfunction func_b\n    set -l b 'bbb' 'bbb'\nend\n\nfunction func_c\n    set -l c 'ccc' 'ccc'\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function func_a\n    set -l a 'a' 'a'\nend\n\n\nfunction func_b\n    set -l b 'bb' 'bb'\nend\n\nfunction func_b\n    set -l b 'bbb' 'bbb'\nend\n\nfunction func_c\n    set -l c 'ccc' 'ccc'\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function func_a\n    set -l a 'a' 'a'\nend\n\n\nfunction func_b\n    set -l b 'bb' 'bb'\nend\n\nfunction func_b\n    set -l b 'bbb' 'bbb'\nend\n\nfunction func_c\n    set -l c 'ccc' 'ccc'\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function func_a\n    set -l a 'a' 'a'\nend\n\n\nfunction func_b\n    set -l b 'bb' 'bb'\nend\n\nfunction func_b\n    set -l b 'bbb' 'bbb'\nend\n\nfunction func_c\n    set -l c 'ccc' 'ccc'\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function func_a\n    set -l a 'a' 'a'\nend\n\n\nfunction func_b\n    set -l b 'bb' 'bb'\nend\n\nfunction func_b\n    set -l b 'bbb' 'bbb'\nend\n\nfunction func_c\n    set -l c 'ccc' 'ccc'\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function func_a\n    set -l a 'a' 'a'\nend\n\n\nfunction func_b\n    set -l b 'bb' 'bb'\nend\n\nfunction func_b\n    set -l b 'bbb' 'bbb'\nend\n\nfunction func_c\n    set -l c 'ccc' 'ccc'\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function func_a\n    set -l a 'a' 'a'\nend\n\n\nfunction func_b\n    set -l b 'bb' 'bb'\nend\n\nfunction func_b\n    set -l b 'bbb' 'bbb'\nend\n\nfunction func_c\n    set -l c 'ccc' 'ccc'\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+onHover
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function func_a\n    set -l a 'a' 'a'\nend\n\nfunction func_b\n    set -l b 'bb' 'bb'\nend\n\nfunction func_b\n    set -l b 'bbb' 'bbb'\nend\n\nfunction func_c\n    set -l c 'ccc' 'ccc'\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function func_a\n    set -l a 'a' 'a'\nend\n\nfunction func_b\n    set -l b 'bb' 'bb'\n    ls -l \nend\n\nfunction func_b\n    set -l b 'bbb' 'bbb'\n    set -l b 'bbb' 'bbb'\n    set -l b 'bbb' 'bbb'\n    set -l b 'bbb' 'bbb'\n    set -l b 'bbb' 'bbb'\n    set -l b 'bbb' 'bbb'\nend\n\nfunction func_c\n    set -l c 'ccc' 'ccc'\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function func_a\n    set -l a 'a' 'a'\nend\n\nfunction func_b\n    set -l b 'bb' 'bb'\n    ls -l \nend\n\nfunction func_b\n    set -l b 'bbb' 'bbb'\n    set -l b 'bbb' 'bbb'\n    set -l b 'bbb' 'bbb'\n    set -l b 'bbb' 'bbb'\n    set -l b 'bbb' 'bbb'\n    set -l b 'bbb' 'bbb'\nend\n\nfunction func_c\n    set -l c 'ccc' 'ccc'\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function func_a\n    set -l a 'a' 'a'\nend\n\nfunction func_b\n    set -l b 'bb' 'bb'\n    ls -l \nend\n\nfunction func_b\n    set -l b 'bbb' 'bbb'\n    set -l b 'bbb' 'bbb'\n    set -l b 'bbb' 'bbb'\n    set -l b 'bbb' 'bbb'\n    set -l b 'bbb' 'bbb'\n    set -l b 'bbb' 'bbb'\nend\n\nfunction func_c\n    set -l c 'ccc' 'ccc'\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function func_a\n    set -l a 'a' 'a'\nend\n\nfunction func_b\n    set -l b 'bb' 'bb'\n    ls -l \nend\n\nfunction func_b\n    set -l b 'bbb' 'bbb'\n    set -l b 'bbb' 'bbb'\n    set -l b 'bbb' 'bbb'\n    set -l b 'bbb' 'bbb'\n    set -l b 'bbb' 'bbb'\n    set -l b 'bbb' 'bbb'\nend\n\nfunction func_c\n    set -l c 'ccc' 'ccc'\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function func_a\n    set -l a 'a' 'a'\nend\n\nfunction func_b\n    set -l b 'bb' 'bb'\n    ls -l \nend\n\nfunction func_b\n    set -l b 'bbb' 'bbb'\n    set -l b 'bbb' 'bbb'\n    set -l b 'bbb' 'bbb'\n    set -l b 'bbb' 'bbb'\n    set -l b 'bbb' 'bbb'\n    set -l b 'bbb' 'bbb'\nend\n\nfunction func_c\n    set -l c 'ccc' 'ccc'\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function func_a\n    set -l a 'a' 'a'\nend\n\nfunction func_b\n    set -l b 'bb' 'bb'\n    ls -l \nend\n\nfunction func_b\n    set -l b 'bbb' 'bbb'\n    set -l b 'bbb' 'bbb'\n    set -l b 'bbb' 'bbb'\n    set -l b 'bbb' 'bbb'\n    set -l b 'bbb' 'bbb'\n    set -l b 'bbb' 'bbb'\nend\n\nfunction func_c\n    set -l c 'ccc' 'ccc'\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+onHover
+onHover
+onHover
+onHover
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish",
+      "languageId": "fish",
+      "version": 2,
+      "text": "function func_a\n    set -l a 'a' 'a'\nend\n\nfunction func_b\n    set -l b 'bb' 'bb'\n    ls -l \nend\n\nfunction func_b\n    set -l b 'bbb' 'bbb'\n    set -l b 'bbb' 'bbb'\n    set -l b 'bbb' 'bbb'\n    set -l b 'bbb' 'bbb'\n    set -l b 'bbb' 'bbb'\n    set -l b 'bbb' 'bbb'\n\nend\nfunction func_c\n    set -l c 'ccc' 'ccc'\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+onDocumentFormatting: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+onDocumentFormatting: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentFormatting: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentFormatting: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+onDocumentFormatting: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+onDocumentFormatting: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+onDocumentFormatting: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+onDocumentFormatting: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentFormatting: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+onHover
+onHover
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+onDocumentFormatting: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+server.onComplete
+onComplete: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish :         
+root: (program (function_definition name: (word) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word))) (function_definition name: (word) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word))) (function_definition name: (word) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word)) (if_statement condition: (test_command argument: (test_option) argument: (double_quote_string (variable_expansion (variable_name)))))) (function_definition name: (word) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word))))
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+server.onComplete
+onComplete: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish :         for
+root: (program (function_definition name: (word) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word))) (function_definition name: (word) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word))) (ERROR (word) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word)) (if_statement condition: (test_command argument: (test_option) argument: (double_quote_string (variable_expansion (variable_name)))) (ERROR (variable_name))) (function_definition name: (word) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word)))))
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+onHover
+onHover
+onHover
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+server.onComplete
+onComplete: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish :     set --
+root: (program (function_definition name: (word) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word))) (function_definition name: (word) (comment) (command name: (word) argument: (word) argument: (word))) (function_definition name: (word) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word))))
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+server.onComplete
+onComplete: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish :     set --u
+root: (program (function_definition name: (word) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word))) (function_definition name: (word) (comment) (command name: (word) argument: (word) argument: (word))) (function_definition name: (word) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word))))
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish",
+      "languageId": "fish",
+      "version": 2,
+      "text": "function func_a\n    set -l a a a\nend\n\nfunction func_b\n    #set -l b bb bb\n    set --universal b\n    \nend\n\nfunction func_c\n    set -l c ccc ccc\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+server.onComplete
+onComplete: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish :     s
+root: (program (function_definition name: (word) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word))) (function_definition name: (word) (comment) (command name: (word) argument: (word) argument: (word)) (command name: (word))) (function_definition name: (word) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word))))
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function func_a\n    set -l a a a\nend\n\nfunction func_b\n    #set -l b bb bb\n    set --universal b\nend\n\nfunction func_c\n    set -l c ccc ccc\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+onHover
+onHover
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+server.onComplete
+onComplete: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish :     
+root: (program (function_definition name: (word) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word))) (function_definition name: (word) (comment) (command name: (word) argument: (word) argument: (word))) (function_definition name: (word) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word))))
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+onHover
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function func_a\n    set -l a a a\nend\n\nfunction func_b\n    #set -l b bb bb\n    set --universal b\nend\n\nfunction func_c\n    set -l c ccc ccc\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onHover
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function func_a\n    set -l a a a\nend\n\nfunction func_b\n    #set -l b bb bb\n    set -U b\nend\n\nfunction func_c\n    set -l c ccc ccc\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/func_a.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onHover
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    set -U asdf g\n\n    set --unpath vPATH \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction __pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n    end\n    set --universal asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onHover
+onHover
+onHover
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onHover
+onHover
+onHover
+onHover
+onHover
+onHover
+onHover
+onHover
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onHover
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onHover
+onHover
+onHover
+onHover
+onHover
+onHover
+onHover
+onHover
+onHover
+onHover
+onHover
+onHover
+onDefinition
+test_fish_lsp
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDefinition
+test-fish-lsp
+onDefinition
+test-fish-lsp
+onReference
+onHover
+onHover
+onHover
+onDefinition
+test-fish-lsp
+onDefinition
+file
+onDefinition
+file
+onReference
+onReference
+onHover
+onHover
+onDefinition
+pass_func
+onHover
+onDefinition
+argv
+onHover
+onHover
+onHover
+onHover
+onHover
+onHover
+onHover
+onDefinition
+argv
+onDefinition
+argv

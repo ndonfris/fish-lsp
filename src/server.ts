@@ -101,6 +101,7 @@ export default class FishServer {
                         ...FishAutoFixProvider.kinds.map(kind => kind.value),
                         CodeActionKind.RefactorToFunction.value,
                         CodeActionKind.RefactorToVariable.value,
+                        CodeActionKind.QuickFix.append('extraEnd').value,
                     ],
                     resolveProvider: true,
                 },
@@ -111,6 +112,7 @@ export default class FishServer {
                         Commands.APPLY_WORKSPACE_EDIT,
                         Commands.RENAME,
                         "onHover",
+                        'rename'
                     ],
                     workDoneProgress: true,
                 },

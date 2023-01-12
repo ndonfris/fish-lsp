@@ -16,6 +16,7 @@ export class CodeActionKind {
 
     public static readonly QuickFix = new CodeActionKind(LSP.CodeActionKind.QuickFix);
     public static readonly QuickFixFunctionName = CodeActionKind.QuickFix.append('functionName');
+    public static readonly QuickFixExtraEnd = CodeActionKind.QuickFix.append('extraEnd');
     public static readonly QuickFixMissingEnd = CodeActionKind.QuickFix.append('missingEnd');
 
     public static readonly Source = new CodeActionKind(LSP.CodeActionKind.Source);

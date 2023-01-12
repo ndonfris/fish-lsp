@@ -200,7 +200,7 @@ function getPathVariable(node: SyntaxNode, document: LspDocument, seen: Set<stri
 
 function getUniversalVariable(node: SyntaxNode, document: LspDocument, seen: Set<string>): Diagnostic | null {
     if (!isVariableDefinition(node)) return null ;
-    let univeralFlag = findVariableFlagsIfSeen(node, ['u'], ['universal']);
+    let univeralFlag = findVariableFlagsIfSeen(node, ['U'], ['universal']);
     if (!univeralFlag) return null ;
     seen.add(node.text)
     return createDiagnostic(univeralFlag , errorCodes.universalVariable, document)

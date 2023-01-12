@@ -1,13 +1,13 @@
 import { homedir } from 'os'
 import { SyntaxNode } from 'web-tree-sitter';
-import { getNodeAtRange, getNodesTextAsSingleLine, nodesGen } from '../src/utils/tree-sitter';
+import { getChildNodes, getNodeAtRange, getNodesTextAsSingleLine, nodesGen } from '../src/utils/tree-sitter';
 import { Diagnostic, DiagnosticSeverity, TextDocumentItem } from 'vscode-languageserver'
 import { initializeParser } from '../src/parser';
 import { getExtraEndSyntaxError, getMissingEndSyntaxError, getReturnSiblings, getUnreachableCodeSyntaxError } from '../src/diagnostics/syntaxError';
 import { getUniversalVariableDiagnostics } from '../src/diagnostics/universalVariable';
 import { createAllFunctionDiagnostics } from '../src/diagnostics/missingFunctionName';
-import  {  collectDiagnosticsRecursive, collectFunctionsScopes, getDiagnostics } from '../src/diagnostics/validate'
-import {isCommand, isConditionalCommand, isFunctionDefinition, isReturn} from '../src/utils/node-types';
+import  {  collectDiagnosticsRecursive, collectFunctionNames, collectFunctionsScopes, getDiagnostics } from '../src/diagnostics/validate'
+import {isCommand, isConditionalCommand, isFunctionDefinition, isFunctionDefinitionName, isReturn} from '../src/utils/node-types';
 import {LspDocument} from '../src/document';
 import {logNode, resolveLspDocumentForHelperTestFile} from './helpers';
 
@@ -56,6 +56,33 @@ function logDiagnostics(diagnostic: Diagnostic, root: SyntaxNode) {
 }
 
 describe('test diagnostics', () => {
+    it('test simple function diagnostics', async () => {
+        const parser = await initializeParser();
+        const docs: LspDocument[] = [
+            resolveLspDocumentForHelperTestFile(
+                "fish_files/simple/func_a.fish",
+                true
+            ),
+            resolveLspDocumentForHelperTestFile(
+                "fish_files/simple/func_a.fish",
+                false
+            ),
+        ];
+        docs.forEach((doc: LspDocument, index: number) => {
+            const root = parser.parse(doc.getText()).rootNode;
+            const diagnostics: Diagnostic[] = [];
+            const funcNames: string[] = []
+            getChildNodes(root).filter(isFunctionDefinitionName).forEach((node) => {
+                if (collectFunctionNames(node, doc, diagnostics, funcNames)) {
+                    logNode(SHOULD_LOG, node);
+                }
+            })
+            if (index === 0) expect(diagnostics).toHaveLength(4);
+            if (index === 1) expect(diagnostics).toHaveLength(1);
+        })
+    })
+
+
     it('test universal variable', async () => {
         SHOULD_LOG = false
         if (SHOULD_LOG) console.log('\n\n\t\tVARIABLES');
@@ -256,18 +283,14 @@ end
                     }
 
                     const logStr = `group: ${result}, chain_length: ${result.length}\n${getNodesTextAsSingleLine(result)}`
-                    //console.log(logStr);
-                    //console.log('-'.repeat(50));
 
                 }
             }
-            //if (SHOULD_LOG) diagnostics.forEach(d => logDiagnostics(d, root))
-            //diagnosticsErrors.push(...diagnostics);
         })
     })
 
     it('validate', async () => {
-        SHOULD_LOG = true
+        SHOULD_LOG = false
         if (SHOULD_LOG) console.log('\n\n\t\tVALIDATE');
         const parser = await initializeParser();
         const docs: LspDocument[] = [
