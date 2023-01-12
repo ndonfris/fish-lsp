@@ -789,3 +789,1808 @@ onDocumentSymbols
 [onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
 onDocumentSymbols
 [onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function multiple_broken_scopes\n    set -l var \"$argv\"\n    if test \"$var\" = hello\n        echo hello\n        or echo \"bad 1\"\n        and echo \"bad 2\"\n        or echo \"bad 3\"; \n        return 0\n    else if test \"$var\" = world\n        echo $var\n        return 0\n    else\n        echo hi;\n        return 1\n    end\n    set -l var \"$argv\"\n    for i in (seq 1 10) \n        echo \"hi\"\n    end\nend\n\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function multiple_broken_scopes\n    set -l var \"$argv\"\n    if test \"$var\" = hello\n        echo hello\n        or echo \"bad 1\"\n        and echo \"bad 2\"\n        or echo \"bad 3\"; \n        return 0\n    else if test \"$var\" = world\n        echo $var\n    else\n        echo a\n    end\n\n    set -l var \"$argv\"\n    for i in (seq 1 10) \n        echo \"hi\"\n    end\nend\n\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function multiple_broken_scopes\n    set -l var \"$argv\"\n    if test \"$var\" = hello\n        echo hello\n        or echo \"bad 1\"\n        and echo \"bad 2\"\n        or echo \"bad 3\"; \n    else if test \"$var\" = world\n        echo $var\n        return 0\n    else\n        echo a\n    end\n    set -l var \"$argv\"\n    for i in (seq 1 10) \n        echo \"hi\"\n    end\nend\n\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function multiple_broken_scopes\n    set -l var \"$argv\"\n    if test \"$var\" = hello\n        echo hello\n        or echo \"bad 1\"\n        and echo \"bad 2\"\n        or echo \"bad 3\"; \n    else if test \"$var\" = world\n        echo $var\n        return 0\n    else\n        echo a\n    end\n    set -l var \"$argv\"\n    for i in (seq 1 10) \n        echo \"hi\"\n    end\nend\n\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function multiple_broken_scopes\n    set -l var \"$argv\"\n    if test \"$var\" = hello\n        echo hello\n        or echo \"bad 1\"\n        and echo \"bad 2\"\n        or echo \"bad 3\"; \n        return 0\n    else if test \"$var\" = world\n        echo $var\n        return 0\n    else\n        echo a\n        return 1\n    end\n    set -l var \"$argv\"\n    for i in (seq 1 10) \n        echo \"hi\"\n    end\nend\n\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function multiple_broken_scopes\n    set -l var \"$argv\"\n    if test \"$var\" = hello\n        echo hello\n        or echo \"bad 1\"\n        and echo \"bad 2\"\n        or echo \"bad 3\"; \n        return 0\n    else if test \"$var\" = world\n        echo $var\n        return 0\n    else\n        echo a\n    end\n    set -l var \"$argv\"\n    for i in (seq 1 10) \n        echo \"hi\"\n    end\nend\n\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function multiple_broken_scopes\n    set -l var \"$argv\"\n    if test \"$var\" = hello\n        echo hello\n        or echo \"bad 1\"\n        and echo \"bad 2\"\n        or echo \"bad 3\"; \n    else if test \"$var\" = world\n        echo $var\n    else\n        echo a\n    end\n    set -l var \"$argv\"\n    for i in (seq 1 10) \n        echo \"hi\"\n    end\nend\n\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onHover
+onHover
+onHover
+onHover
+onHover
+onHover
+onHover
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function multiple_broken_scopes\n    set -l var \"$argv\"\n    if test \"$var\" = hello\n        echo hello\n        or echo \"bad 1\"\n        and echo \"bad 2\"\n        or echo \"bad 3\"; \n        return 0\n    else if test \"$var\" = world\n        echo $var\n    else\n        echo a\n        return 0\n    end\n    set -l var \"$argv\"\n\n    if test -z \"$argv\"\n        if test -z 'a'\n            return 0\n        else\n            return 0\n        end\n        echo \"hi\"\n    else \n        return 0\n    end\n    echo \"hi\"\nend\n\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function multiple_broken_scopes\n    set -l var \"$argv\"\n    if test \"$var\" = hello\n        echo hello\n        or echo \"bad 1\"\n        and echo \"bad 2\"\n        or echo \"bad 3\"; \n    else if test \"$var\" = world\n        echo $var\n    else\n        echo a\n    end\n    set -l var \"$argv\"\n    for i in (seq 1 10) \n        echo \"hi\"\n    end\nend\n\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function multiple_broken_scopes\n    set -l var \"$argv\"\n    if test \"$var\" = hello\n        echo hello\n        or echo \"bad 1\"\n        and echo \"bad 2\"\n        or echo \"bad 3\"; \n        return 0\n    else if test \"$var\" = world\n        echo $var\n    else\n        echo a\n        return 0\n    end\n    set -l var \"$argv\"\n\n    if test -z \"$argv\"\n        if test -z 'a'\n            return 0\n        else\n            return 0\n        end\n        echo \"hi\"\n        return 0\n    else \n        return 0\n    end\n    echo \"hi\"\nend\n\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onHover
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function multiple_broken_scopes\n    set -l var \"$argv\"\n    if test \"$var\" = hello\n        echo hello\n        or echo \"bad 1\"\n        and echo \"bad 2\"\n        or echo \"bad 3\"; \n        return 0\n    else if test \"$var\" = world\n        echo $var; and\n        return 0\n    else\n        echo a\n        return 0\n    end\n    set -l var \"$argv\"\n\n    if test -z \"$argv\"\n        if test -z 'a'\n            return 0\n        else\n            return 0\n        end\n        echo \"hi\"\n        return 0\n    else \n        return 0\n    end\n    echo \"hi\"\nend\n\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function multiple_broken_scopes\n    set -l var \"$argv\"\n    if test \"$var\" = hello\n        echo hello\n        or echo \"bad 1\"\n        and echo \"bad 2\"\n        or echo \"bad 3\"; \n        return 0\n    else if test \"$var\" = world\n        echo $var; and\n        return 0\n    else\n        echo a\n        return 0\n    end\n    set -l var \"$argv\"\n\n    if test -z \"$argv\"\n        if test -z 'a'\n            return 0\n        else\n            return 0\n        end\n        echo \"hi\"\n        return 0\n    else \n        return 0\n    end\n    echo \"hi\"\nend\n\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onHover
+onHover
+onHover
+onHover
+onHover
+onHover
+onHover
+onDocumentSymbols
+onHover
+onHover
+onHover
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+onHover
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function multiple_broken_scopes\n    set -l var \"$argv\"\n    if test \"$var\" = hello\n        echo hello\n        or echo \"bad 1\"\n        and echo \"bad 2\"\n        or echo \"bad 3\"; \n        return 0\n    else if test \"$var\" = world\n        echo $var; and\n        return 0\n    else\n        echo a\n        return 0\n    end\n    set -l var \"$argv\"\n\n    if test -z \"$argv\"\n        if test -z 'a'\n            return 0\n        else\n            return 0\n        end\n        echo \"hi\"\n        return 0\n    else \n        return 1\n    end\n\n    echo \"hi\"\n\nend\n\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+onHover
+onHover
+onHover
+onHover
+onHover
+onHover
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+onHover
+onHover
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function multiple_broken_scopes\n    set -l var \"$argv\"\n    if test \"$var\" = hello\n        echo hello\n        or echo \"bad 1\"\n        and echo \"bad 2\"\n        or echo \"bad 3\"; \n        return 0\n    else if test \"$var\" = world\n        echo $var; and\n        return 0\n    else\n        echo a\n        if test -z 'a'\n            return 0\n        end\n        return 0\n    end\n\n\n    echo \"hi\"\n\nend\n\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+onHover
+onHover
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function multiple_broken_scopes\n    set -l var \"$argv\"\n    if test \"$var\" = hello\n        echo hello\n        or echo \"bad 1\"\n        and echo \"bad 2\"\n        or echo \"bad 3\"; \n        return 0\n    else if test \"$var\" = world\n        echo $var; and\n        return 0\n    else\n\n        echo a\n        return 0\n    end\n    if test -z 'a'\n        return 0\n    else\n        return 0\n    end\n\n    echo \"hi\"\n\nend\n\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+onHover
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+onHover
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onHover
+onHover
+onHover
+onHover
+onHover
+onHover
+onHover
+onHover
+onHover
+onHover
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onHover
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function __multiple_broken_scopes\n    set -l var \"$argv\"\n    if test \"$var\" = hello\n        echo hello\n        or echo \"bad 1\"\n        and echo \"bad 2\"\n        or echo \"bad 3\"; \n        return 0\n    else\n        return 0\n    end\n    echo 'yes'\nend\n\nif test -z $argv\n    return 0\n    echo 'a'\nelse \n    return 1\n    echo 'b'\nend\necho \"howdy\"\n\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/multiple_broken_scopes.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test_fish_lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test_fish_lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test_fish_lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onHover
+onHover
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onHover
+onHover
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onHover
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :     a
+root: (program (function_definition name: (word) option: (word) option: (word) option: (word) option: (double_quote_string) (command name: (word)) (command name: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word)) (comment) (command name: (word) argument: (double_quote_string)) (conditional_execution (command name: (word) argument: (variable_expansion (variable_name))))) (comment) (function_definition name: (word) (if_statement condition: (command name: (word) argument: (word) argument: (word) argument: (single_quote_string (escape_sequence)) argument: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (pipe (command name: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (single_quote_string)))) (command name: (word) argument: (word) argument: (word) argument: (single_quote_string) argument: (double_quote_string (variable_expansion (variable_name)))) (comment) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (command_substitution (command_substitution_fish (command name: (word) argument: (word) argument: (word) argument: (integer) argument: (word) argument: (word) argument: (integer) argument: (single_quote_string (escape_sequence)) argument: (double_quote_string (variable_expansion (variable_name))))))) (command name: (word) argument: (word) argument: (word) argument: (integer) argument: (word) argument: (double_quote_string) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (if_statement condition: (test_command argument: (test_option) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (double_quote_string (variable_expansion (variable_name))))) (for_statement variable: (variable_name) value: (variable_expansion (variable_name)) (command name: (word) argument: (variable_expansion (variable_name))) (return)) (command name: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (for_statement variable: (variable_name) value: (variable_expansion (variable_name)) (command name: (word) argument: (variable_expansion (variable_name))))) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (variable_expansion (variable_name))) (comment) (function_definition name: (word) (if_statement condition: (test_command argument: (test_option) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (double_quote_string)) (return (integer)) (else_if_clause condition: (test_command argument: (test_option) argument: (double_quote_string (variable_expansion (variable_name)))) (return (integer))) (else_clause (command name: (word) argument: (double_quote_string)) (return (integer)))) (command name: (word) argument: (word) argument: (word) argument: (word))) (function_definition name: (word) (command name: (word) argument: (variable_expansion (variable_name)))))
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :     i
+root: (program (function_definition name: (word) option: (word) option: (word) option: (word) option: (double_quote_string) (command name: (word)) (command name: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word)) (comment) (command name: (word) argument: (double_quote_string)) (conditional_execution (command name: (word) argument: (variable_expansion (variable_name))))) (comment) (function_definition name: (word) (if_statement condition: (command name: (word) argument: (word) argument: (word) argument: (single_quote_string (escape_sequence)) argument: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (pipe (command name: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (single_quote_string)))) (command name: (word) argument: (word) argument: (word) argument: (single_quote_string) argument: (double_quote_string (variable_expansion (variable_name)))) (comment) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (command_substitution (command_substitution_fish (command name: (word) argument: (word) argument: (word) argument: (integer) argument: (word) argument: (word) argument: (integer) argument: (single_quote_string (escape_sequence)) argument: (double_quote_string (variable_expansion (variable_name))))))) (command name: (word) argument: (word) argument: (word) argument: (integer) argument: (word) argument: (double_quote_string) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (if_statement condition: (test_command argument: (test_option) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (double_quote_string (variable_expansion (variable_name))))) (for_statement variable: (variable_name) value: (variable_expansion (variable_name)) (command name: (word) argument: (variable_expansion (variable_name))) (return)) (command name: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (for_statement variable: (variable_name) value: (variable_expansion (variable_name)) (command name: (word) argument: (variable_expansion (variable_name))))) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (variable_expansion (variable_name))) (comment) (function_definition name: (word) (if_statement condition: (test_command argument: (test_option) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (double_quote_string)) (return (integer)) (else_if_clause condition: (test_command argument: (test_option) argument: (double_quote_string (variable_expansion (variable_name)))) (return (integer))) (else_clause (command name: (word) argument: (double_quote_string)) (return (integer)))) (command name: (word) argument: (word) argument: (word) argument: (word))) (function_definition name: (word) (command name: (word) argument: (variable_expansion (variable_name)))))
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :     fo
+root: (program (function_definition name: (word) option: (word) option: (word) option: (word) option: (double_quote_string) (command name: (word)) (command name: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word)) (comment) (command name: (word) argument: (double_quote_string)) (conditional_execution (command name: (word) argument: (variable_expansion (variable_name))))) (comment) (function_definition name: (word) (if_statement condition: (command name: (word) argument: (word) argument: (word) argument: (single_quote_string (escape_sequence)) argument: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (pipe (command name: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (single_quote_string)))) (command name: (word) argument: (word) argument: (word) argument: (single_quote_string) argument: (double_quote_string (variable_expansion (variable_name)))) (comment) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (command_substitution (command_substitution_fish (command name: (word) argument: (word) argument: (word) argument: (integer) argument: (word) argument: (word) argument: (integer) argument: (single_quote_string (escape_sequence)) argument: (double_quote_string (variable_expansion (variable_name))))))) (command name: (word) argument: (word) argument: (word) argument: (integer) argument: (word) argument: (double_quote_string) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (if_statement condition: (test_command argument: (test_option) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (double_quote_string (variable_expansion (variable_name))))) (for_statement variable: (variable_name) value: (variable_expansion (variable_name)) (command name: (word) argument: (variable_expansion (variable_name))) (return)) (command name: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (for_statement variable: (variable_name) value: (variable_expansion (variable_name)) (command name: (word) argument: (variable_expansion (variable_name))))) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (variable_expansion (variable_name))) (comment) (function_definition name: (word) (if_statement condition: (test_command argument: (test_option) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (double_quote_string)) (return (integer)) (else_if_clause condition: (test_command argument: (test_option) argument: (double_quote_string (variable_expansion (variable_name)))) (return (integer))) (else_clause (command name: (word) argument: (double_quote_string)) (return (integer)))) (command name: (word) argument: (word) argument: (word) argument: (word))) (function_definition name: (word) (command name: (word) argument: (variable_expansion (variable_name)))))
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :     for
+root: (program (function_definition name: (word) option: (word) option: (word) option: (word) option: (double_quote_string) (ERROR (variable_name)) (command name: (double_quote_string (variable_expansion (variable_name)))) (command name: (word)) (comment) (command name: (word) argument: (double_quote_string)) (conditional_execution (command name: (word) argument: (variable_expansion (variable_name))))) (comment) (function_definition name: (word) (if_statement condition: (command name: (word) argument: (word) argument: (word) argument: (single_quote_string (escape_sequence)) argument: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (pipe (command name: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (single_quote_string)))) (command name: (word) argument: (word) argument: (word) argument: (single_quote_string) argument: (double_quote_string (variable_expansion (variable_name)))) (comment) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (command_substitution (command_substitution_fish (command name: (word) argument: (word) argument: (word) argument: (integer) argument: (word) argument: (word) argument: (integer) argument: (single_quote_string (escape_sequence)) argument: (double_quote_string (variable_expansion (variable_name))))))) (command name: (word) argument: (word) argument: (word) argument: (integer) argument: (word) argument: (double_quote_string) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (if_statement condition: (test_command argument: (test_option) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (double_quote_string (variable_expansion (variable_name))))) (for_statement variable: (variable_name) value: (variable_expansion (variable_name)) (command name: (word) argument: (variable_expansion (variable_name))) (return)) (command name: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (for_statement variable: (variable_name) value: (variable_expansion (variable_name)) (command name: (word) argument: (variable_expansion (variable_name))))) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (variable_expansion (variable_name))) (comment) (function_definition name: (word) (if_statement condition: (test_command argument: (test_option) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (double_quote_string)) (return (integer)) (else_if_clause condition: (test_command argument: (test_option) argument: (double_quote_string (variable_expansion (variable_name)))) (return (integer))) (else_clause (command name: (word) argument: (double_quote_string)) (return (integer)))) (command name: (word) argument: (word) argument: (word) argument: (word))) (function_definition name: (word) (command name: (word) argument: (variable_expansion (variable_name)))))
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+server.onComplete
+onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :     for  i
+root: (program (function_definition name: (word) option: (word) option: (word) option: (word) option: (double_quote_string) (ERROR (variable_name) (UNEXPECTED 'c')) (command name: (double_quote_string (variable_expansion (variable_name)))) (command name: (word)) (comment) (command name: (word) argument: (double_quote_string)) (conditional_execution (command name: (word) argument: (variable_expansion (variable_name))))) (comment) (function_definition name: (word) (if_statement condition: (command name: (word) argument: (word) argument: (word) argument: (single_quote_string (escape_sequence)) argument: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (pipe (command name: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (single_quote_string)))) (command name: (word) argument: (word) argument: (word) argument: (single_quote_string) argument: (double_quote_string (variable_expansion (variable_name)))) (comment) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (word) argument: (word) argument: (double_quote_string)) (command name: (word) argument: (word) argument: (word) argument: (command_substitution (command_substitution_fish (command name: (word) argument: (word) argument: (word) argument: (integer) argument: (word) argument: (word) argument: (integer) argument: (single_quote_string (escape_sequence)) argument: (double_quote_string (variable_expansion (variable_name))))))) (command name: (word) argument: (word) argument: (word) argument: (integer) argument: (word) argument: (double_quote_string) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (if_statement condition: (test_command argument: (test_option) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (double_quote_string (variable_expansion (variable_name))))) (for_statement variable: (variable_name) value: (variable_expansion (variable_name)) (command name: (word) argument: (variable_expansion (variable_name))) (return)) (command name: (word) argument: (word) argument: (word) argument: (word)) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string)) (for_statement variable: (variable_name) value: (variable_expansion (variable_name)) (command name: (word) argument: (variable_expansion (variable_name))))) (command name: (word) argument: (word) argument: (word) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (variable_expansion (variable_name))) (comment) (function_definition name: (word) (if_statement condition: (test_command argument: (test_option) argument: (double_quote_string (variable_expansion (variable_name)))) (command name: (word) argument: (double_quote_string)) (return (integer)) (else_if_clause condition: (test_command argument: (test_option) argument: (double_quote_string (variable_expansion (variable_name)))) (return (integer))) (else_clause (command name: (word) argument: (double_quote_string)) (return (integer)))) (command name: (word) argument: (word) argument: (word) argument: (word))) (function_definition name: (word) (command name: (word) argument: (variable_expansion (variable_name)))))
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onHover
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onHover
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onHover
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\" ; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    for i in $variable_name\n        echo $i\n        return;\n    end\n    set -U asdf g\n\n    set --unpath v \"var\"\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest_fish_lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction pass_func\n    if test -n \"$argv\"\n        echo \"pass\"\n        return 0 \n    else if test -z \"$argv\"\n        return 0\n    else \n        echo \"fail\"\n        return 1\n    end\n    set -U asdf g\nend\n\n\nfunction pass_func\n    echo $argv\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onHover
+onHover
+onHover
+onHover
+onHover
+onHover
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish

@@ -1,7 +1,7 @@
 import { Diagnostic } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { LspDocument } from '../document';
-import {findParentCommand, isCommand, isCommandName, isConditionalCommand, isEnd, isError, isFunctionDefinition, isFunctionDefinitionName, isIfStatement, isNewline, isPossibleUnreachableStatement, isReturn, isScope, isStatement, isVariable, isVariableDefinition} from '../utils/node-types';
+import {findParentCommand, isClause, isCommand, isCommandName, isConditionalCommand, isEnd, isError, isFunctionDefinition, isFunctionDefinitionName, isIfStatement, isNewline, isPossibleUnreachableStatement, isReturn, isScope, isStatement, isVariable, isVariableDefinition} from '../utils/node-types';
 import { findFirstSibling, nodesGen } from '../utils/tree-sitter';
 import {createDiagnostic} from './create';
 import { createAllFunctionDiagnostics } from './missingFunctionName';
@@ -9,6 +9,7 @@ import { getExtraEndSyntaxError, getMissingEndSyntaxError, getUnreachableCodeSyn
 import { getUniversalVariableDiagnostics } from './universalVariable';
 import * as errorCodes from './errorCodes'
 import {pathVariable} from './errorCodes';
+import {buildStatementChildren} from './statementHasReturn';
 
 export function getDiagnostics(root: SyntaxNode, doc: LspDocument) : Diagnostic[] {
     const diagnostics: Diagnostic[] = createAllFunctionDiagnostics(root, doc)
@@ -26,7 +27,7 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) : Diagnostic[
 
 export function collectDiagnosticsRecursive(root: SyntaxNode, doc: LspDocument) : Diagnostic[] {
     const diagnostics: Diagnostic[] = []
-    const functionNames: Set<string> = new Set();
+    const functionNames: string[] = []
     const variableNames: Set<string> = new Set();
     collectAllDiagnostics(root, doc, diagnostics, functionNames, variableNames);
     return diagnostics;
@@ -65,28 +66,47 @@ function collectEndError(node: SyntaxNode, diagnostics: Diagnostic[]): boolean {
 }
 
 // check if code is reachable 
-export function collectFunctionsScopes(node: SyntaxNode, doc: LspDocument, diagnostic: Diagnostic[]): boolean {
-    if (!isFunctionDefinition(node)) return false
+export function collectFunctionsScopes(func: SyntaxNode, doc: LspDocument, diagnostics: Diagnostic[]): boolean {
+    if (!isFunctionDefinition(func)) return false
     //const nodes = node.namedChildren.filter((c) => isStatement(c) || isCommandName(c))
     let hasRets = false;
-    for (const child of node.namedChildren) {
-        if (hasRets) {
-            diagnostic.push(createDiagnostic(child, errorCodes.unreachableCode, doc))
-            continue
-        }
-        if (!isPossibleUnreachableStatement(child)) {
+    for (const node of func.namedChildren) {
+        if (!hasRets && isStatement(node)) {
+            hasRets = checkAllStatements(node)
             continue;
-        }
-        // just to be safe for the time being without testing more thorough
-        //if (statement.type !== "if_statement") continue;
-        if (isPossibleUnreachableStatement(child)) {
-            const statement = child;
-            hasRets = completeStatementCoverage(statement, [])
+        } 
+        if (hasRets) {
+            diagnostics.push(createDiagnostic(node, errorCodes.unreachableCode, doc))
         }
     }
     return hasRets
 }
 
+// check if code is reachable 
+function checkAllStatements(statementNode: SyntaxNode): boolean {
+    const statements = [statementNode, ...statementNode.namedChildren.filter(c => isClause(c))]
+    for (const statement of statements) {
+        if (!checkStatement(statement, [])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function checkStatement(root: SyntaxNode, collection: SyntaxNode[]) {
+    let shouldReturn = isReturn(root)
+    for (const child of buildStatementChildren(root)) {
+        const include = checkStatement(child, collection) || isReturn(child)
+        if (isStatement(child) && !include) {
+            return false;
+        }
+        shouldReturn = include || shouldReturn
+    }
+    if (shouldReturn) {
+        collection.push(root)
+    }
+    return shouldReturn;
+}
 
 /**
  * @TODO: make sure you test switch statement, because I assume that this will need a minor
@@ -104,11 +124,11 @@ export function collectFunctionsScopes(node: SyntaxNode, doc: LspDocument, diagn
  */
 function completeStatementCoverage(root: SyntaxNode, collection: SyntaxNode[]) {
     let shouldReturn = isReturn(root)
-    for (const child of root.namedChildren) {
+    for (const child of buildStatementChildren(root)) {
         const include = completeStatementCoverage(child, collection) || isReturn(child)
         if (isStatement(child) && !include) {
             return false;
-        } 
+        }
         shouldReturn = include || shouldReturn
     }
     if (shouldReturn) {
@@ -127,24 +147,24 @@ function completeStatementCoverage(root: SyntaxNode, collection: SyntaxNode[]) {
  *   3.) Will give a diagnostic for applying '__' to helper functions, for uniqueue
  *       signature across the workspace. 
  */
-function collectFunctionNames(node: SyntaxNode, doc: LspDocument, diagnostics: Diagnostic[], functionNames: Set<string>) : boolean {
+function collectFunctionNames(node: SyntaxNode, doc: LspDocument, diagnostics: Diagnostic[], functionNames: string[]) : boolean {
     let didAdd = false;
     const name : string =  node.text
     if (!isFunctionDefinitionName(node)) return didAdd;
     const needsAutoloadName = doc.isAutoLoaded() && name !== doc.getAutoLoadName()
-        && !functionNames.has(name) && functionNames.size === 0
-    if (functionNames.has(name)) {
-        functionNames.add(name);
+        && !diagnostics.some(d => d.code === errorCodes.missingAutoloadedFunctionName)
+    if (functionNames.includes(name)) {
+        functionNames.push(name);
         diagnostics.push(createDiagnostic(node, errorCodes.duplicateFunctionName)); 
-        didAdd = true
+        didAdd = true;
     }
-    if (needsAutoloadName) {
-        functionNames.add(name);
+    if ( needsAutoloadName ) {
+        functionNames.push(name);
         diagnostics.push(createDiagnostic(node, errorCodes.missingAutoloadedFunctionName))
-        didAdd = true
+        return true
     }
-    if (!needsAutoloadName && !name.startsWith('_')) {
-        functionNames.add(name);
+    else if (diagnostics.filter(d => d.code === errorCodes.missingAutoloadedFunctionName).length != 0 && !name.startsWith('_')) {
+        functionNames.push(name);
         diagnostics.push(createDiagnostic(node, errorCodes.privateHelperFunction))
         didAdd = true
     }
@@ -230,7 +250,7 @@ function collectReturnError(node: SyntaxNode, diagnostic: Diagnostic[]) {
     return true;
 }
 
-export function collectAllDiagnostics(root: SyntaxNode, doc: LspDocument, diagnostics: Diagnostic[], functionNames: Set<string>, variableNames: Set<string>) : boolean {
+export function collectAllDiagnostics(root: SyntaxNode, doc: LspDocument, diagnostics: Diagnostic[], functionNames: string[], variableNames: Set<string>) : boolean {
     let shouldAdd = collectEndError(root, diagnostics) 
         || collectFunctionNames(root, doc, diagnostics, functionNames) 
         || collectVariableNames(root, doc, diagnostics, variableNames)

@@ -91,17 +91,25 @@ export function isPossibleUnreachableStatement(node: SyntaxNode) : boolean {
     return false;
 }
 
+export function isClause(node: SyntaxNode): boolean {
+    return [
+        'case_clause',
+        'else_clause',
+        'else_if_clause',
+    ].includes(node.type);
+}
 export function isStatement(node: SyntaxNode): boolean {
     return [
         'for_statement',
         'switch_statement',
         'while_statement',
         'if_statement',
-        'else_clause',
-        'else_if_clause',
     ].includes(node.type);
 }
 
+export function isBlock(node: SyntaxNode): boolean {
+    return isClause(node) || isStatement(node);
+}
 
 /**
  * similiar to isStatement, but only returns true for the first child of a statement,
@@ -110,16 +118,16 @@ export function isStatement(node: SyntaxNode): boolean {
  * @param {SyntaxNode} node - the node to check
  * @returns {boolean} true if getRange(node) should be closed with an 'end' token
  */
-export function isBlock(node: SyntaxNode): boolean {
-    return [
-        'for_statement',
-        'switch_statement',
-        'while_statement',
-        'if_statement',
-        'function_definition',
-    ].includes(node.type);
-}
-
+//export function isBlock(node: SyntaxNode): boolean {
+//    return [
+//        'for_statement',
+//        'switch_statement',
+//        'while_statement',
+//        'if_statement',
+//        'function_definition',
+//    ].includes(node.type);
+//}
+//
 export function isEnd(node: SyntaxNode): boolean {
     return node.type == 'end';
 }

@@ -1,13 +1,13 @@
 import {SyntaxNode} from 'web-tree-sitter';
-import {isConditional, isIfStatement, isReturn, isStatement} from '../utils/node-types';
+import {isBlock, isConditional, isIfStatement, isReturn, isStatement} from '../utils/node-types';
 
 
 export const buildStatementChildren = (n: SyntaxNode) => {
-    if (!isConditional(n)) return [];
+    if (!isBlock(n)) return [];
     const children = n.namedChildren;
     const childrenBeforeNextClause: SyntaxNode[] = []
     for (const child of children) {
-        if (isConditional(child)) {
+        if (isBlock(child)) {
             return childrenBeforeNextClause;
         } else {
             childrenBeforeNextClause.push(child);

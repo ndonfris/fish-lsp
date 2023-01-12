@@ -163,7 +163,7 @@ export class LspDocument implements TextDocument {
      */
     isAutoLoaded(): boolean {
         const path = uriToPath(this.uri);
-        return path?.startsWith(`${homedir()}/.config/fish/functions`) || false; 
+        return path?.includes(`${homedir()}/.config/fish/functions`) || false; 
     }
 
     /**

@@ -2,13 +2,18 @@ import Parser, { SyntaxNode, Tree } from "web-tree-sitter";
 import {getReturnSiblings} from '../src/diagnostics/syntaxError';
 import { initializeParser } from "../src/parser";
 import * as NodeTypes from "../src/utils/node-types";
-import { getChildNodes, getNodesTextAsSingleLine, getNodeText, nodesGen } from "../src/utils/tree-sitter";
+import { getChildNodes, getNamedChildNodes, getNodesTextAsSingleLine, getNodeText, getRange, nodesGen } from "../src/utils/tree-sitter";
 import {
     logNodeSingleLine,
     resolveLspDocumentForHelperTestFile,
     TestLogger,
 } from "./helpers";
 import { buildStatementChildren, ifStatementHasReturn } from '../src/diagnostics/statementHasReturn'
+import {collectFunctionsScopes} from '../src/diagnostics/validate';
+import {Diagnostic} from 'vscode-languageserver';
+import {createDiagnostic} from '../src/diagnostics/create';
+import * as errorCodes from '../src/diagnostics/errorCodes'
+import {precedesRange} from '../src/workspace-symbol';
 
 // This file will be used to display what the expected output should be for the
 // tree-sitter parses. While the AST defined for fish shell is very helpful, the token
@@ -155,39 +160,28 @@ describe("FISH web-tree-sitter SUITE", () => {
 
         const returns : SyntaxNode[] = [];
         const obsolete : SyntaxNode[] = [];
-        //const got = rdp(root, returns)
-        //logger.log(rdp(root, returns).toString())
-        //logger.log(got.toString())
         let hasRets = false
-        for (const n of getChildNodes(root)) {
-            if (NodeTypes.isConditional(n)) {
-                if (!!buildStatementChildren(n).find((node) => NodeTypes.isReturn(node))) {
-                    continue;
-                } else {
-                    logger.log('not a conditional with a return')
-                }
-
-                //for (const c of buildStatementChildren(n)) {
-                    //logger.log(`parent:${n.text.slice(0,20)+'...'}'\nchild:${c.text.slice(0,20)+'...'}`)
-                    //logger.log('-'.repeat(30))
-                //}
+        const diagnostics : Diagnostic[] = [];
+        const ret = getChildNodes(root)
+            .filter(n => NodeTypes.isStatement(n))
+        if (!ret) return
+        for (const c of ret) {
+            //console.log(checkAllStatements(c));
+            if (checkAllStatements(c)) {
+                returns.push(c)
             }
-            //if (NodeTypes.isElseStatement(n)) {
-                //logger.log('else statement')
-                ////logger.logNode(n);
-            //}
-            //if (NodeTypes.isFunctionDefinition(n)) {
-            //    const statements = n.namedChildren.filter((c) => NodeTypes.isStatement(c))
-            //    for (const statement  of statements) {
-            //        if (hasRets) {
-            //            obsolete.push(statement)
-            //            continue
-            //        }
-            //        hasRets = checkStatement(statement, returns)
-            //    }
-            //}
         }
-        obsolete.forEach(n => logger.log(n.text))
+        const first = returns[0]
+        if (first) {
+            console.log(first.text);
+            const c : SyntaxNode[] = root.namedChildren
+                .filter(n => n.childCount > 1)
+                .filter(n => first.endPosition.row < n.startPosition.row)
+                .filter(n => n.childCount > 1)
+                .filter(n => n !== null)
+            c.forEach(n => console.log('got: ' +n.text))
+        }
+        diagnostics.forEach(d => console.log(d.code + d.message ))
         expect([].length === 0).toEqual(true);
     })
 
@@ -227,9 +221,20 @@ describe("FISH web-tree-sitter SUITE", () => {
         //}
     //}
 
+function checkAllStatements(statementNode: SyntaxNode): boolean {
+    const statements = [statementNode, ...statementNode.namedChildren].filter(c => NodeTypes.isBlock(c))
+    for (const statement of statements) {
+        //console.log(statement.type);
+        if (!checkStatement(statement, [])) {
+            return false;
+        }
+    }
+    return true;
+}
+
 function checkStatement(root: SyntaxNode, collection: SyntaxNode[]) {
     let shouldReturn = NodeTypes.isReturn(root)
-    for (const child of root.namedChildren) {
+    for (const child of buildStatementChildren(root)) {
         const include = checkStatement(child, collection) || NodeTypes.isReturn(child)
         if (NodeTypes.isStatement(child) && !include) {
             return false;
@@ -242,62 +247,10 @@ function checkStatement(root: SyntaxNode, collection: SyntaxNode[]) {
     return shouldReturn;
 }
 
-
-function collectFuncs(root: SyntaxNode, collection: SyntaxNode[]) : boolean {
-    let shouldInclude = false;
-    let include = false;
-    for (const child of root.children) {
-        if (NodeTypes.isScope(child)) {
-            include = collectFuncs(child, collection);
-            shouldInclude = include || shouldInclude
-        }
-    }
-    if (NodeTypes.isFunctionDefinition(root)) {
-        for (const child of root.children) {
-            include = collectStatements(child, collection);
-            shouldInclude = include && shouldInclude
-        }
-        collection.push(root)
-    }
-    return shouldInclude
-}
-
-
-
-function collectStatements(root: SyntaxNode, collection: SyntaxNode[]) : boolean {
-    let shouldInclude = true
-    for (const child of root.children) {
-        if (NodeTypes.isScope(child)) {
-            const include = collectStatements(child, collection)
-            shouldInclude = include || shouldInclude
-
-        }
-    }
-    if (NodeTypes.isStatement(root)) {
-        for (const child of root.children) {
-            let include = collectReturns(child, collection);
-            shouldInclude = include && shouldInclude
-        }
-        collection.push(root)
-        return shouldInclude
-    }
-    return false 
-}
-
-
-
-function collectReturns(root: SyntaxNode, collection: SyntaxNode[]) {
-    let shouldInclude = NodeTypes.isReturn(root) || NodeTypes.isScope(root)
-    for (const child of root.namedChildren) {
-        if (NodeTypes.isReturn(child)) {
-            let include = collectReturns(child, collection);
-            shouldInclude = include || shouldInclude
-        }
-    }
-    if (NodeTypes.isReturn(root)) {
-        collection.push(root)
-        return true
-    }
-    return false
-
-}
+// if_statement
+//    return
+//    else_if_clause
+//      return
+//    else_clause
+//      return
+// write function that checks if all statements have returns

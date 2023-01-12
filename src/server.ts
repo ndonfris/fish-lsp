@@ -23,6 +23,7 @@ import * as Locations from './utils/locations';
 import {FishProtocol} from './utils/fishProtocol';
 import {Commands, /*executeCommandHandler*/} from './commands';
 import {isFunctionDefinition} from './utils/node-types';
+import {handleConversionToCodeAction} from './diagnostics/handleConversion';
 
 export type SupportedFeatures = {
     codeActionDisabledSupport : boolean;
@@ -542,11 +543,18 @@ export default class FishServer {
 
     async onCodeAction(params: CodeActionParams) : Promise<CodeAction[]> {
         const uri = uriToPath(params.textDocument.uri)
-        if (!uri || params.range) return []
-         const loc = Locations.Position.toFileLocationRequestArgs(uri, params.range)
-        const hoverArgs : HoverParams = { textDocument: {uri: loc.file}, position: {character: loc.offset, line: loc.line} }
+        const document = this.docs.get(uri);
+        if (!uri || !document) return []
+        const root = this.parser.parse(document.getText()).rootNode;
+        const results: CodeAction[]  = []
+        for (const diagnostic of params.context.diagnostics) {
+            const res = handleConversionToCodeAction(diagnostic, root, document)
+            if (res) results.push(res)
+        }
+
+        // const loc = Locations.Position.toFileLocationRequestArgs(uri, params.range)
+        //const hoverArgs : HoverParams = { textDocument: {uri: loc.file}, position: {character: loc.offset, line: loc.line} }
         //const command = Command.create('hover', 'textDocument/hover', hoverArgs)
-        return [await this.onExecuteCommand({command: 'onHover', arguments: [hoverArgs]})]
         //this.onExecuteCommand({command: 'workspace/onDefinition', arguments: [hoverArgs]})
         //returncc[]
         //this.logger.log("onCodeAction: " + params.textDocument.uri);
@@ -556,7 +564,6 @@ export default class FishServer {
         //
         //if (!uri) return []
         //const fileRangeArgs = Locations.Range.toFileRangeRequestArgs(uri, params.range);
-        const codeActions: CodeAction[] = [];
 
         ////params.context.only = ['quickfix', 'refactor', 'source', 'sourceAll']
         //const kinds = params.context.only?.map(kind => new CodeActionKind(kind));
@@ -567,7 +574,7 @@ export default class FishServer {
         //    codeActions.push(...provideRefactors(await this.getRefactors(fileRangeArgs, params.context), fileRangeArgs, this.features));
         //}
         //codeActions.push(...await this.fishAutoFixProvider!.provideCodeActions(kinds, uri, params.context.diagnostics, this.docs))
-        return codeActions
+        return results
     }
     //params.context.diagnostics.forEach(n => {
         //if (n.code === 1) {
