@@ -3712,3 +3712,20 @@ onDefinition
 argv
 onDefinition
 argv
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/set_var.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "set var \"hello world\"\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/set_var.fish
+opened document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/set_var.fish
+analyzed document: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/set_var.fish
+onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/set_var.fish
+closed uri: /home/ndonfris/repos/fish-lang-server/test-data/fish_files/simple/set_var.fish
