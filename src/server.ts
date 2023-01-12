@@ -1,7 +1,7 @@
 import Parser, {SyntaxNode} from "web-tree-sitter";
 import { initializeParser } from "./parser";
 import { Analyzer } from "./analyze";
-import { buildRegexCompletions, workspaceSymbolToCompletionItem, generateShellCompletionItems, insideStringRegex, } from "./completion";
+import { buildRegexCompletions, workspaceSymbolToCompletionItem, generateShellCompletionItems, insideStringRegex, buildDefaultCompletionItems, createCompletionList, } from "./completion";
 import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, ExecuteCommandParams, ServerRequestHandler, FoldingRangeParams, FoldingRange } from "vscode-languageserver";
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
@@ -250,9 +250,6 @@ export default class FishServer {
 
     didSaveTextDocument(params: DidSaveTextDocumentParams): void {
         this.logger.log(`[${this.connection.onDidSaveTextDocument.name}]: ${params.textDocument.uri}`);
-        //if (this.config.getFormattingOptions().formatOnSave) {
-        //    return;
-        //} else {
         return;
     }
 
@@ -276,47 +273,30 @@ export default class FishServer {
         const uri = uriToPath(params.textDocument.uri);
         this.logger.log('server.onComplete');
         const doc = this.docs.get(uri);
-        if (!doc) {
+        if (!uri || !doc) {
             this.logger.log('onComplete got [NOT FOUND]: ' + uri)
             return null;
         }
         const line: string = doc.getLineBeforeCursor(params.position)
-        this.logger.log(`onComplete: ${uri} : ${line}`)
-
-        if (line.trimStart().startsWith("#")) {
-            return null;
-        }
-
+        //this.logger.log(`onComplete: ${uri} : ${line}`)
+        if (line.trimStart().startsWith("#")) return null;
         const root = this.getRootNode(doc.getText());
-        this.logger.log(`root: ${root}`)
-
-        const lineToParse = line.trimEnd();
-        const currNode = root.descendantForPosition({row: 0, column: lineToParse.length - 1});
-
-        const items: CompletionItem[] = [
-            ...workspaceSymbolToCompletionItem(nearbySymbols(root, currNode)), // collectDocumentSymbols(root, doc.uri, [])
-            //...buildDefaultCompletions(),
-        ];
-
-        if (insideStringRegex(line)) {
-            //logger.log(`insideStringRegex: ${true}`)
-            items.push(...buildRegexCompletions())
-            return CompletionList.create(items, true)
-        }
+        const currNode = root.descendantForPosition({row: params.position.line, column: params.position.character - 1});
+        const items: CompletionItem[] = workspaceSymbolToCompletionItem(nearbySymbols(root, currNode)); // collectDocumentSymbols(root, doc.uri, [])
+        const currCommand = this.analyzer.commandAtPoint(doc.uri, params.position.line, line.trimEnd().length - 1)
+        this.logger.log(`onComplete: ${uri} : ${line} : ${currCommand?.text.toString()}`)
+        const word = this.analyzer.wordAtPoint(doc.uri, params.position.line, params.position.character-1)
+        let wordLen = word ? word.length : 0;
         const shellItems: CompletionItem[] = await generateShellCompletionItems(line, currNode);
-        if (shellItems.length > 0) {
-            items.push(...shellItems)
-            return CompletionList.create(items, true)
-        }
-        //items.push(...await generateShellCompletionItems(line, currNode));
-        //items.push(...buildBuiltins())
-        return CompletionList.create(items, true)
+        items.push(...shellItems)
+        return createCompletionList(items, params.position, wordLen, !!currCommand)
     }
 
 
     async onCompletionResolve(item: CompletionItem): Promise<CompletionItem> {
-        const fishItem = item as FishCompletionItem
         let newDoc: string | MarkupContent;
+        this.logger.log(JSON.stringify({item: item}));
+        const fishItem = item as FishCompletionItem
         let typeCmdOutput = ''
         let typeofDoc = ''
         if (fishItem.data.localSymbol == true) {

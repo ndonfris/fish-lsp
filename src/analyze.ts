@@ -4,9 +4,9 @@ import Parser, { SyntaxNode, Point, Range, Tree } from "web-tree-sitter";
 import {collectFishSymbols, FishSymbol, FishSymbolMap} from './symbols';
 import {containsRange} from './workspace-symbol'
 import {SymbolKind} from 'vscode-languageserver';
-import {getChildNodes, getRange} from './utils/tree-sitter';
+import {findNodeAt, getChildNodes, getRange} from './utils/tree-sitter';
 import {LspDocument} from './document';
-import {isVariable} from './utils/node-types';
+import {isCommand, isCommandName, isVariable} from './utils/node-types';
 import {DiagnosticQueue} from './diagnostics/queue';
 import {uriToPath} from './utils/translation';
 import {collectDiagnosticsRecursive, /* getDiagnostics */} from './diagnostics/validate';
@@ -66,10 +66,39 @@ export class Analyzer {
     public namedNodeAtPoint(uri: string, line: number, column: number): Parser.SyntaxNode | null {
         const tree = this.uriTree[uri]
         // Check for lacking rootNode (due to failed parse?)
-        if (!tree?.rootNode) { 
+        if (!tree.rootNode) { 
             return null;
         }
         return tree.rootNode.namedDescendantForPosition({ row: line, column });
+    }
+
+    public wordAtPoint(uri: string, line: number, column: number): string | null {
+        const node = this.nodeAtPoint(uri, line, column)
+        if (!node || node.childCount > 0 || node.text.trim() === '') return null;
+
+        return node.text.trim();
+    }
+
+    public commandAtPoint(uri: string, line: number, column: number): SyntaxNode | null {
+        const tree = this.uriTree[uri]
+        if (tree === undefined) return null;
+        const node = findNodeAt(tree, line, column)
+        const parent = node?.parent;
+        if (parent) {
+            if (isCommand(parent)) {
+                return parent;
+            }
+            if (isCommandName(parent)) {
+                return parent.parent!
+            }
+        } else if (node) {
+            if (isCommand(node)) {
+                return node;
+            } else if (isCommandName(node)) {
+                return node.parent;
+            }
+        }
+        return null;
     }
 
 }

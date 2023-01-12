@@ -2,6 +2,7 @@ import * as LSP from 'vscode-languageserver';
 import {Hover, MarkedString, MarkupKind} from 'vscode-languageserver';
 import * as Parser from 'web-tree-sitter';
 import {documentationHoverProvider, enrichCommandWithFlags, enrichToCodeBlockMarkdown} from './documentation';
+import {isBuiltIn} from './utils/completion-types';
 import {execCommandDocs, execComplete, execCompletions} from './utils/exec';
 import {isCommand, isCommandName} from './utils/node-types';
 import {findEnclosingScope, findFirstParent, getNodeAtRange, getRange} from './utils/tree-sitter';
@@ -11,6 +12,9 @@ import * as Symbols from './workspace-symbol';
 export async function handleHover(uri: string, root: Parser.SyntaxNode, current: Parser.SyntaxNode) : Promise<LSP.Hover | null>{
     if (current.text.startsWith('-')) {
         return await getHoverForFlag(current)
+    } 
+    if (isBuiltIn(current.text)) {
+        return await documentationHoverProvider(current.text)
     }
     const local = Symbols.getMostRecentReference(uri, root, current);
     if (local) {
