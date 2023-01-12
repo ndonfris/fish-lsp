@@ -10,6 +10,7 @@ import {symbolKindToString} from '../src/symbols';
 import {bgBlack, bgBlue, black, inverse, white} from 'colors';
 import {LspDocument} from '../src/document';
 import console from 'console';
+import {homedir} from 'os';
 //import { blue, inverse } from 'colors'
 
 const util = require('util')
@@ -133,13 +134,15 @@ export function nodeToArrayString(node: SyntaxNode) : nodeConsoleArray {
 
 /**
  * @param {string} fname - relative path to file, in test-data folder 
+ * @param {boolean} inAutoloadPath - simulate the doc uri being in ~/.config/fish/functions/*.fish
  * @returns {LspDocument} - lsp document (from '../src/document.ts')
  */
-export function resolveLspDocumentForHelperTestFile(fname: string): LspDocument {
-    const path = resolve(__dirname, fname)
-    console.log("testing: " + path);
+export function resolveLspDocumentForHelperTestFile(fname: string, inAutoloadPath: boolean = true): LspDocument {
+    const abspath = resolve(__dirname, fname)
+    console.log("testing: " + abspath);
     const file = readFileSync(resolve(__dirname, fname), 'utf8')
-    const doc = TextDocumentItem.create(fname, 'fish', 0, file)
+    const filename = inAutoloadPath ? `file://${homedir()}/.config/fish/functions/${fname}` : `file://${abspath}`
+    const doc = TextDocumentItem.create(filename, 'fish', 0, file)
     return new LspDocument(doc)
 }
 

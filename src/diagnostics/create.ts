@@ -5,15 +5,6 @@ import {getRange} from '../utils/tree-sitter';
 import * as errorCodes from './errorCodes';
 import { createCodeDescription } from './codeDescription';
 
-export interface FishLspDiagnostic {
-    range: Range,
-    severity: DiagnosticSeverity,
-    code: Set<number>,
-    message: string,
-    source: string,
-    codeDescription?: CodeDescription,
-}
-
 export function createDiagnostic(node: SyntaxNode, code: number, document?: LspDocument): Diagnostic {
     let severity: DiagnosticSeverity = DiagnosticSeverity.Error;
     let message: string;
@@ -66,13 +57,11 @@ export function createDiagnostic(node: SyntaxNode, code: number, document?: LspD
             break;
     }
     return {
-        ...Diagnostic.create(
-            range,
-            message,
-            severity,
-            code,
-            source,
-        ),
+        message: message,
+        range: range,
+        severity: severity,
+        code: code,
+        source: 'fish-lsp',
         codeDescription: createCodeDescription(code)
     }
 }

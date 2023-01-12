@@ -147,26 +147,25 @@ function completeStatementCoverage(root: SyntaxNode, collection: SyntaxNode[]) {
  *   3.) Will give a diagnostic for applying '__' to helper functions, for uniqueue
  *       signature across the workspace. 
  */
-function collectFunctionNames(node: SyntaxNode, doc: LspDocument, diagnostics: Diagnostic[], functionNames: string[]) : boolean {
+export function collectFunctionNames(node: SyntaxNode, doc: LspDocument, diagnostics: Diagnostic[], functionNames: string[]) : boolean {
     let didAdd = false;
     const name : string =  node.text
     if (!isFunctionDefinitionName(node)) return didAdd;
-    const needsAutoloadName = doc.isAutoLoaded() && name !== doc.getAutoLoadName()
-        && !diagnostics.some(d => d.code === errorCodes.missingAutoloadedFunctionName)
-    if (functionNames.includes(name)) {
-        functionNames.push(name);
+    functionNames.push(name);
+    const needsAutoloadName = doc.isAutoLoaded()
+    const hasAutoloadName = needsAutoloadName && functionNames.includes(doc.getAutoLoadName()) 
+    if (functionNames.filter(n => n===name).length > 1) {
         diagnostics.push(createDiagnostic(node, errorCodes.duplicateFunctionName)); 
         didAdd = true;
     }
-    if ( needsAutoloadName ) {
-        functionNames.push(name);
-        diagnostics.push(createDiagnostic(node, errorCodes.missingAutoloadedFunctionName))
-        return true
-    }
-    else if (diagnostics.filter(d => d.code === errorCodes.missingAutoloadedFunctionName).length != 0 && !name.startsWith('_')) {
-        functionNames.push(name);
-        diagnostics.push(createDiagnostic(node, errorCodes.privateHelperFunction))
-        didAdd = true
+    if (needsAutoloadName) {
+        if ( !hasAutoloadName && functionNames.length === 1) {
+            diagnostics.push(createDiagnostic(node, errorCodes.missingAutoloadedFunctionName))
+            return true
+        } else if ( needsAutoloadName && doc.getAutoLoadName() !== name && !name.startsWith('_')) {
+            diagnostics.push(createDiagnostic(node, errorCodes.privateHelperFunction))
+            didAdd = true
+        }
     }
     return didAdd;
 }

@@ -8,7 +8,6 @@ import {toSymbolKind} from '../symbols';
 import { FishProtocol } from './fishProtocol';
 import { getPrecedingComments, getRange } from './tree-sitter';
 import * as LocationNamespace from './locations';
-import { FishLspDiagnostic } from '../diagnostics/create';
 import os from 'os'
 
 const RE_PATHSEP_WINDOWS = /\\/g;
@@ -161,19 +160,6 @@ export function toTextDocumentEdit(change: FishProtocol.FileCodeEdits, documents
 //        CodeDescription: getCodeDescription(diagnostic),
 //    };
 //}
-export function toLspDiagnostic(diagnostic: FishLspDiagnostic): Diagnostic[] {
-    return Array.from(diagnostic.code).map((code) => {
-        return {
-            range: diagnostic.range,
-            message: diagnostic.message,
-            serverity: diagnostic.severity,
-            code: code,
-            source: diagnostic.source,
-            CodeDescription: diagnostic.codeDescription,
-        } as Diagnostic
-    });
-}
-
 
 
 export function toFoldingRange(node: SyntaxNode, document: LspDocument): FoldingRange {

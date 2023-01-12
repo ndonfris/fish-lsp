@@ -9,7 +9,7 @@ import {
     TestLogger,
 } from "./helpers";
 import { buildStatementChildren, ifStatementHasReturn } from '../src/diagnostics/statementHasReturn'
-import {collectFunctionsScopes} from '../src/diagnostics/validate';
+import {collectFunctionNames, collectFunctionsScopes} from '../src/diagnostics/validate';
 import {Diagnostic} from 'vscode-languageserver';
 import {createDiagnostic} from '../src/diagnostics/create';
 import * as errorCodes from '../src/diagnostics/errorCodes'
@@ -155,72 +155,20 @@ describe("FISH web-tree-sitter SUITE", () => {
         loggingON();
         //const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/is_chained_return.fish");
         const parser = await initializeParser();
-        const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/multiple_broken_scopes.fish");
+        const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/func_a.fish", true);
         const root = parser.parse(test_doc.getText()).rootNode;
-
-        const returns : SyntaxNode[] = [];
-        const obsolete : SyntaxNode[] = [];
-        let hasRets = false
-        const diagnostics : Diagnostic[] = [];
-        const ret = getChildNodes(root)
-            .filter(n => NodeTypes.isStatement(n))
-        if (!ret) return
-        for (const c of ret) {
-            //console.log(checkAllStatements(c));
-            if (checkAllStatements(c)) {
-                returns.push(c)
+        const funcs: string[] = [];
+        const diagnostics: Diagnostic[] = [];
+        for (const node of nodesGen(root)) {
+            if (NodeTypes.isFunctionDefinitionName(node)) {
+                collectFunctionNames(node, test_doc, diagnostics, funcs)
             }
         }
-        const first = returns[0]
-        if (first) {
-            console.log(first.text);
-            const c : SyntaxNode[] = root.namedChildren
-                .filter(n => n.childCount > 1)
-                .filter(n => first.endPosition.row < n.startPosition.row)
-                .filter(n => n.childCount > 1)
-                .filter(n => n !== null)
-            c.forEach(n => console.log('got: ' +n.text))
-        }
-        diagnostics.forEach(d => console.log(d.code + d.message ))
-        expect([].length === 0).toEqual(true);
+        diagnostics.forEach(d => console.log(d.code + ' ' + d.message ))
+        expect(diagnostics.length === 4).toEqual(true);
     })
 
 })
-//for (sib;sib && !NodeTypes.isScope(sib); sib = sib.nextNamedSibling) {
-//    console.log('2nd loop: ' + sib.text);
-//    outside.push(sib)
-//outside.forEach( n=> logger.logNode(n))
-
-
-    //for (const node of nodesGen(root)) {
-        //const outside : SyntaxNode[] = [];
-        //if (!node.isNamed()) continue;
-        //if (NodeTypes.isReturn(node)) {
-            //logger.logNode(node);
-            //let sib: SyntaxNode | null = node;
-            //let setPush = false;
-            //for (
-                //sib = sib.nextNamedSibling;
-                //sib;
-                //sib = sib.nextNamedSibling
-            //) {
-                //console.log('1st loop: ' + sib.text);
-                //if (NodeTypes.isNewline(sib)) continue;
-                //if (!NodeTypes.isConditionalCommand(sib)) {
-                    //console.log('not a conditional command ' + sib.text + sib.type);
-                    //setPush = true;
-                //} else if (NodeTypes.isBlock(sib)) {
-                    //break;
-                //} else if (setPush) {
-                    //returns.push(sib)
-                //}
-            //}
-            //sib = null;
-            //returns.forEach( n => logger.log(n.text))
-            //setPush = true;
-        //}
-    //}
-
 function checkAllStatements(statementNode: SyntaxNode): boolean {
     const statements = [statementNode, ...statementNode.namedChildren].filter(c => NodeTypes.isBlock(c))
     for (const statement of statements) {
