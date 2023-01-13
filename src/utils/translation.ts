@@ -165,7 +165,7 @@ export function toTextDocumentEdit(change: FishProtocol.FileCodeEdits, documents
 export function toFoldingRange(node: SyntaxNode, document: LspDocument): FoldingRange {
     let foldText = ''
     let kind = FoldingRangeKind.Region;
-    if (isFunctionDefinition(node) || isFunctionDefinitionName(node.firstNamedChild || node)) {
+    if (isFunctionDefinition(node) || isFunctionDefinitionName(node.firstNamedChild!)) {
         foldText = node.firstNamedChild?.text || node.text.split(' ')[0]
     }
     if (isVariableDefinition(node)) {
@@ -181,10 +181,10 @@ export function toFoldingRange(node: SyntaxNode, document: LspDocument): Folding
     const endLine = range.end.line > 0 && document.getText(LSP.Range.create(
         LSP.Position.create(range.end.line, range.end.character - 1),
         range.end,
-    )) === '}' ? Math.max(range.end.line -1, range.start.line) : range.end.line;
+    )) === 'end' ? Math.max(range.end.line + 1, range.start.line) : range.end.line;
     return {
         startLine,
-        endLine,
+        endLine: range.end.line,
         collapsedText: foldText,
         kind: FoldingRangeKind.Region
     }

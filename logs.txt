@@ -1,10 +1,10 @@
-Thu Jan 12 02:31:17 PM CST 2023
+Thu Jan 12 07:04:18 PM CST 2023
 
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
 [onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
 closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/lso.fish
-closed uri: /home/ndonfris/.config/fish/functions/lso.fish
-[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/lso.fish
 [FishLsp.onDidOpenTextDocument()]
 {
   "params": {
@@ -12,65 +12,32 @@ closed uri: /home/ndonfris/.config/fish/functions/lso.fish
       "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
       "languageId": "fish",
       "version": 1,
-      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\"; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    set -gx asdf g\n\n    set --unpath vPATH var\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction __pass_func\n    if test -n \"$argv\"\n        echo pass\n        return 0\n    else if test -z \"$argv\"\n        return 0\n    else\n        echo fail\n    end\n    set --universal asdf g\nend\n\n\nfunction _pass_func\n    echo $file\n    lsd --all --almost-all --classic -F\n    echo pass\n    if test -z \"$argv\"\n        echo fail\n        if test -a \"$argv\"\n            cmdtest --command=\"$argv\"\n        end\n        eval 'ls' \n    end\nend\n"
+      "text": "\nfunction test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\"; and echo $file\nend\n\n\n## this is a comment\nfunction test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    set -gx asdf g\n\n    set --unpath vPATH var\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction __pass_func\n    if test -n \"$argv\"\n        echo pass\n        return 0\n    else if test -z \"$argv\"\n        return 0\n    else\n        echo fail\n        return 0;\n    end\nend\n#set --global --export asdf g\n\nfunction _pass_func\n    echo $file\n    lsd --all --almost-all --classic -F\n    echo pass\n    if test -z \"$argv\"\n        echo fail\n        if test -a \"$argv\"\n            cmdtest --command=\"$argv\"\n        end\n        eval 'ls' \n    end\nend\n"
     }
   }
 }
 [FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
 opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
 analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "\nfunction test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\"; and echo $file\nend\n\n\n## this is a comment\nfunction test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    set -gx asdf g\n\n    set --unpath vPATH var\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction __pass_func\n    if test -n \"$argv\"\n        echo pass\n        return 0\n    else if test -z \"$argv\"\n        return 0\n    else\n        echo fail\n        return 0;\n    end\nend\n#set --global --export asdf g\n\nfunction _pass_func\n    echo $file\n    lsd --all --almost-all --classic -F\n    echo pass\n    if test -z \"$argv\"\n        echo fail\n        if test -a \"$argv\"\n            cmdtest --command=\"$argv\"\n        end\n        eval 'ls' \n    end\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+{"params":{"textDocument":{"uri":"file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish"},"range":{"start":{"line":0,"character":0},"end":{"line":66,"character":0}},"context":{"diagnostics":[{"message":"Warning: private helper functions in autoloaded path, should begin with leading '_' to avoid name collisions","range":{"start":{"line":10,"character":9},"end":{"line":10,"character":19}},"severity":2,"code":1003,"source":"fish-lsp","codeDescription":{"href":"https://fishshell.com/docs/current/completions.html#useful-functions-for-writing-completions"}}],"triggerKind":1}}}
 onDocumentSymbols
-onHover
-onHover
-onHover
-onHover
-onHover
-onHover
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDocumentSymbols
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDocumentSymbols
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDocumentSymbols
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDocumentSymbols
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDocumentSymbols
-onHover
-onHover
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDocumentSymbols
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDocumentSymbols
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDocumentSymbols
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDocumentSymbols
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDocumentSymbols
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDocumentSymbols
-onHover
-onHover
-onHover
-onHover
-onHover
-onHover
-onHover
-onHover
+{"params":{"textDocument":{"uri":"file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish"},"range":{"start":{"line":0,"character":0},"end":{"line":66,"character":0}},"context":{"diagnostics":[{"message":"Warning: private helper functions in autoloaded path, should begin with leading '_' to avoid name collisions","range":{"start":{"line":10,"character":9},"end":{"line":10,"character":19}},"severity":2,"code":1003,"source":"fish-lsp","codeDescription":{"href":"https://fishshell.com/docs/current/completions.html#useful-functions-for-writing-completions"}}],"triggerKind":1}}}
+{"params":{"textDocument":{"uri":"file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish"},"range":{"start":{"line":10,"character":9},"end":{"line":10,"character":19}},"context":{"diagnostics":[{"message":"Warning: private helper functions in autoloaded path, should begin with leading '_' to avoid name collisions","range":{"start":{"line":10,"character":9},"end":{"line":10,"character":19}},"severity":2,"code":1003,"source":"fish-lsp","codeDescription":{"href":"https://fishshell.com/docs/current/completions.html#useful-functions-for-writing-completions"}}],"triggerKind":1}}}
+{"params":{"textDocument":{"uri":"file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish"},"range":{"start":{"line":0,"character":0},"end":{"line":66,"character":0}},"context":{"diagnostics":[{"message":"Warning: private helper functions in autoloaded path, should begin with leading '_' to avoid name collisions","range":{"start":{"line":10,"character":9},"end":{"line":10,"character":19}},"severity":2,"code":1003,"source":"fish-lsp","codeDescription":{"href":"https://fishshell.com/docs/current/completions.html#useful-functions-for-writing-completions"}}],"triggerKind":1}}}
+{"params":{"textDocument":{"uri":"file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish"},"range":{"start":{"line":10,"character":9},"end":{"line":10,"character":19}},"context":{"diagnostics":[{"message":"Warning: private helper functions in autoloaded path, should begin with leading '_' to avoid name collisions","range":{"start":{"line":10,"character":9},"end":{"line":10,"character":19}},"severity":2,"code":1003,"source":"fish-lsp","codeDescription":{"href":"https://fishshell.com/docs/current/completions.html#useful-functions-for-writing-completions"}}],"triggerKind":1}}}

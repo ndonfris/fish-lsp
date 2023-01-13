@@ -21,13 +21,10 @@ export class Analyzer {
 
     constructor(parser: Parser) {
         this.parser = parser;
-        //this.console = console || undefined;
         this.uriTree = {};
     }
 
     public analyze(document: LspDocument, useCache: boolean = false) {
-        //this.parser.reset()
-        //const tree = shouldCache ? ;
         const uri = document.uri;
         const tree = this.parser.parse(document.getText())
         if (!uri) return
@@ -39,6 +36,20 @@ export class Analyzer {
         this.diagnosticQueue.set(uri, collectDiagnosticsRecursive(tree.rootNode, document));
     }
 
+
+    /**
+     * Finds the rootnode given a LspDocument. If useCache is set to false, it will
+     * use the parser to parse the document passed in, and then return the rootNode.
+     */
+    public getRootNode(document: LspDocument, useCache: boolean = true): SyntaxNode | undefined {
+        if (!useCache) {
+            return this.parser.parse(document.getText()).rootNode;
+        }
+        if (this.uriTree[document.uri] === undefined) {
+            this.uriTree[document.uri] = this.parser.parse(document.getText());
+        }
+        return this.uriTree[document.uri].rootNode;
+    }
 
     public getDiagnostics(doc: LspDocument): PublishDiagnosticsParams {
         return {

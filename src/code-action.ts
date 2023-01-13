@@ -4,6 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as LSP from 'vscode-languageserver';
+import {CodeActionTriggerKind} from 'vscode-languageserver';
+import {LspDocument} from './document';
 
 export class CodeActionKind {
     private static readonly sep = '.';
@@ -65,4 +67,18 @@ export class CodeActionKind {
     }
 }
 
+export enum FishLspCodeActionTriggerKind {
+    ALL,
+    REFACTOR,
+    QUICKFIX,
+}
 
+export function getTriggerKind(document: LspDocument, params: LSP.CodeActionParams): FishLspCodeActionTriggerKind {
+    const range = params.range;
+    if (range.start.line === 0 && range.start.character === 0
+        && range.end.line === document.lineCount - 1 && range.end.character === 0) {
+        return FishLspCodeActionTriggerKind.ALL
+    } else {
+        return FishLspCodeActionTriggerKind.REFACTOR;
+    }
+}

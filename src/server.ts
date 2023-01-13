@@ -2,7 +2,7 @@ import Parser, {SyntaxNode} from "web-tree-sitter";
 import { initializeParser } from "./parser";
 import { Analyzer } from "./analyze";
 import { buildRegexCompletions, workspaceSymbolToCompletionItem, generateShellCompletionItems, insideStringRegex, buildDefaultCompletionItems, createCompletionList, } from "./completion";
-import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, ExecuteCommandParams, ServerRequestHandler, FoldingRangeParams, FoldingRange } from "vscode-languageserver";
+import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, ExecuteCommandParams, ServerRequestHandler, FoldingRangeParams, FoldingRange, Position } from "vscode-languageserver";
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
 import { FishCompletionItem, } from './utils/completion-types';
@@ -88,14 +88,6 @@ export default class FishServer {
                 documentFormattingProvider: true,
                 documentRangeFormattingProvider: true,
                 foldingRangeProvider: true,
-
-                //diagnosticProvider: {
-                //    identifier: "fish-lsp",
-                //    workspaceDiagnostics: false,
-                //    interFileDependencies: false,
-                //    //documentSelector: true,
-                //    id: "fish-lsp",
-                //},
                 codeActionProvider: {
                     codeActionKinds: [
                         ...FishAutoFixProvider.kinds.map(kind => kind.value),
@@ -277,22 +269,29 @@ export default class FishServer {
             this.logger.log('onComplete got [NOT FOUND]: ' + uri)
             return null;
         }
+        const pos: Position = params.position;
         const line: string = doc.getLineBeforeCursor(params.position)
-        //this.logger.log(`onComplete: ${uri} : ${line}`)
         if (line.trimStart().startsWith("#")) return null;
-        const root = this.getRootNode(doc.getText());
-        const currNode = root.descendantForPosition({row: params.position.line, column: params.position.character - 1});
+        const root = this.analyzer.getRootNode(doc)
+        const currNode = this.analyzer.nodeAtPoint(doc.uri, pos.line, pos.character - 1);
+        const currCommand = this.analyzer.commandAtPoint(doc.uri, pos.line, line.trimEnd().length - 1)
+        const word = this.analyzer.wordAtPoint(doc.uri, pos.line, pos.character-1)
+        if (!currNode || !root) return null;
         const items: CompletionItem[] = workspaceSymbolToCompletionItem(nearbySymbols(root, currNode)); // collectDocumentSymbols(root, doc.uri, [])
-        const currCommand = this.analyzer.commandAtPoint(doc.uri, params.position.line, line.trimEnd().length - 1)
         this.logger.log(`onComplete: ${uri} : ${line} : ${currCommand?.text.toString()}`)
-        const word = this.analyzer.wordAtPoint(doc.uri, params.position.line, params.position.character-1)
         let wordLen = word ? word.length : 0;
         const shellItems: CompletionItem[] = await generateShellCompletionItems(line, currNode);
         items.push(...shellItems)
-        return createCompletionList(items, params.position, wordLen, !!currCommand)
+        return createCompletionList(items, pos, wordLen, !!currCommand)
     }
 
 
+
+    /**
+     * until further reworking, onCompletionResolve requires that when a completionBuilderItem() is .build()
+     * it it also given the method .kind(FishCompletionItemKind) to set the kind of the item.
+     * Not seeing a completion result, with typed correctly is likely caused from this.
+     */
     async onCompletionResolve(item: CompletionItem): Promise<CompletionItem> {
         let newDoc: string | MarkupContent;
         this.logger.log(JSON.stringify({item: item}));
@@ -333,31 +332,6 @@ export default class FishServer {
         }
     }
 
-
-    // @TODO: fix this to return a signle SignatureHelp object
-    //public async onShowSignatureHelp(params: SignatureHelpParams): Promise<SignatureHelp> {
-    //    const uri: string = params.textDocument.uri;
-    //    //const position = params.position;
-    //    const doc = await this.docs.openOrFind(uri);
-
-    //    const documentLine: string = this.analyzer.currentLine(doc, params.position).getText().trimStart() || " "
-    //    //const line = documentLine.getText().trimStart()
-    //    //const root = this.parser.parse(line).rootNode;
-    //    //const currNode = root.namedDescendantForPosition({row: 0, column: line.length - 1})
-    //    //const commandNode = firstAncestorMatch(currNode, n => isCommand(n));
-    //    const lastWord = documentLine.split(/\s+/).pop() || ""
-    //    if (insideStringRegex(documentLine)) {
-    //        if (lastWord.includes('[[') && !lastWord.includes(']]') ) {
-    //            this.signature.activeSignature = signatureIndex["stringRegexCharacterSets"]
-    //        } else {
-    //            this.signature.activeSignature = signatureIndex["stringRegexPatterns"]
-    //        }
-    //    } else {
-    //        this.signature.activeSignature = null;
-    //    }
-    //    this.signature.activeParameter = null;
-    //    return this.signature;
-    //}
 
 
     // • lsp-spec: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#workspace_symbol
@@ -511,13 +485,16 @@ export default class FishServer {
         const file = uriToPath(params.textDocument.uri);
         const result: FoldingRange[] = [];
         const document = this.docs.get(file);
+        this.logger.log(`onFoldingRanges: ${params.textDocument.uri}`);
         if (!document) {
             throw new Error(`The document should not be opened in the folding range, file: ${file}`)
         }
-        const root = this.parser.parse(document.getText()).rootNode;
+        const root = this.analyzer.getRootNode(document)
+        if (!root) return 
         const funcs = getChildNodes(root).filter(f => isFunctionDefinition(f));
         // see folds.ts @ might be unnecessary
         for (const node of funcs) {
+            this.logger.log(`onFoldingRanges: ${node.type} ${node.startPosition.row} ${node.endPosition.row}`);
             result.push(toFoldingRange(node, document))
         }
         return result;
@@ -526,6 +503,7 @@ export default class FishServer {
     async onCodeAction(params: CodeActionParams) : Promise<CodeAction[]> {
         const uri = uriToPath(params.textDocument.uri)
         const document = this.docs.get(uri);
+        this.logger.log(JSON.stringify({params}))
         if (!uri || !document) return []
         const root = this.parser.parse(document.getText()).rootNode;
         const results: CodeAction[]  = []
@@ -534,38 +512,8 @@ export default class FishServer {
             if (res) results.push(res)
         }
 
-        // const loc = Locations.Position.toFileLocationRequestArgs(uri, params.range)
-        //const hoverArgs : HoverParams = { textDocument: {uri: loc.file}, position: {character: loc.offset, line: loc.line} }
-        //const command = Command.create('hover', 'textDocument/hover', hoverArgs)
-        //this.onExecuteCommand({command: 'workspace/onDefinition', arguments: [hoverArgs]})
-        //returncc[]
-        //this.logger.log("onCodeAction: " + params.textDocument.uri);
-        //this.logger.logRange(params.range, "onCodeAction.range")
-        //params.context.only = FishAutoFixProvider.kinds.map(kind => kind.value)
-        //this.logger.log('params.context.only: '+ params.context.only?.join(','))
-        //
-        //if (!uri) return []
-        //const fileRangeArgs = Locations.Range.toFileRangeRequestArgs(uri, params.range);
-
-        ////params.context.only = ['quickfix', 'refactor', 'source', 'sourceAll']
-        //const kinds = params.context.only?.map(kind => new CodeActionKind(kind));
-        //if (!kinds || kinds.some(kind => kind.contains(CodeActionKind.QuickFix))) {
-        //    codeActions.push(...provideQuickFix(await this.getCodeFixes(fileRangeArgs, params.context), this.docs))
-        //}
-        //if (!kinds || kinds.some(kind => kind.contains(CodeActionKind.Refactor))) {
-        //    codeActions.push(...provideRefactors(await this.getRefactors(fileRangeArgs, params.context), fileRangeArgs, this.features));
-        //}
-        //codeActions.push(...await this.fishAutoFixProvider!.provideCodeActions(kinds, uri, params.context.diagnostics, this.docs))
         return results
     }
-    //params.context.diagnostics.forEach(n => {
-        //if (n.code === 1) {
-            //actions.push(createFunctionNameMatchesUri(uri, params.range))
-            //return actions;
-        //}
-    //})
-    //return actions
-
 
     /////////////////////////////////////////////////////////////////////////////////////
     // HELPERS
