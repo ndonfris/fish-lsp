@@ -2,7 +2,7 @@ import { Diagnostic, DocumentSymbol, FoldingRange, FoldingRangeKind, SelectionRa
 import * as LSP from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { URI } from 'vscode-uri';
-import { findParentVariableDefintionKeyword, isComment, isFunctionDefinition, isFunctionDefinitionName, isVariableDefinition } from './node-types';
+import { findParentVariableDefintionKeyword, isComment, isFunctionDefinition, isFunctionDefinitionName, isScope, isVariableDefinition } from './node-types';
 import { LspDocument, LspDocuments } from '../document';
 import {toSymbolKind} from '../symbols';
 import { FishProtocol } from './fishProtocol';
@@ -156,6 +156,9 @@ export function toFoldingRange(node: SyntaxNode, document: LspDocument): Folding
     let kind = FoldingRangeKind.Region;
     if (isFunctionDefinition(node) || isFunctionDefinitionName(node.firstNamedChild!)) {
         collapsedText = node.firstNamedChild?.text || node.text.split(' ')[0]
+    } 
+    if (isScope(node)) {
+        collapsedText = node.text
     }
     if (isVariableDefinition(node)) {
         collapsedText = node.text
@@ -176,12 +179,4 @@ export function toFoldingRange(node: SyntaxNode, document: LspDocument): Folding
         collapsedText: collapsedText,
         kind: FoldingRangeKind.Region
     }
-    //return {
-        //startLine: node.startPosition.row,
-        //startCharacter: node.startPosition.column,
-        //endLine: node.endPosition.row,
-        //endCharacter: node.endPosition.column,
-        //collapsedText: foldText,
-        //kind: kind,
-    //}
 }

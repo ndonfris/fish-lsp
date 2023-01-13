@@ -22,7 +22,7 @@ import {FishAutoFixProvider} from './features/fix-all';
 import * as Locations from './utils/locations';
 import {FishProtocol} from './utils/fishProtocol';
 import {Commands, /*executeCommandHandler*/} from './commands';
-import {isFunctionDefinition} from './utils/node-types';
+import {isFunctionDefinition, isStatement} from './utils/node-types';
 import {handleConversionToCodeAction} from './diagnostics/handleConversion';
 import {FishShellInlayHintsProvider} from './features/inlay-hints';
 
@@ -464,9 +464,9 @@ export default class FishServer {
         }
         const root = this.analyzer.getRootNode(document)
         if (!root) return 
-        const funcs = getChildNodes(root).filter(f => isFunctionDefinition(f));
+        const foldNodes = getChildNodes(root).filter(node => isFunctionDefinition(node) || isStatement(node));
         // see folds.ts @ might be unnecessary
-        for (const node of funcs) {
+        for (const node of foldNodes) {
             this.logger.log(`onFoldingRanges: ${node.type} ${node.startPosition.row} ${node.endPosition.row}`);
             result.push(toFoldingRange(node, document))
         }
