@@ -1,19 +1,29 @@
 // use this file to determine node types from ./tree-sitter
-
 import {RemoteConsole} from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter'
-//import {logger} from '../logger';
 import {ancestorMatch, findFirstParent, findFirstSibling, firstAncestorMatch, getChildNodes, getParentNodes, getSiblingNodes} from './tree-sitter';
 
+/** 
+ * fish shell comment: '# ...'                    
+ */
 export function isComment(node: SyntaxNode): boolean {
     return node.type == 'comment';
 }
 
+/**
+ * function some_fish_func
+ *     ...
+ * end
+ * @see isFunctionDefinitionName()
+ */
 export function isFunctionDefinition(node: SyntaxNode): boolean {
     return node.type == 'function_definition';
 }
 
 
+/**
+ * checks for all fish types of SyntaxNodes that are commands.
+ */
 export function isCommand(node: SyntaxNode): boolean {
     return [
         'command',
@@ -21,8 +31,7 @@ export function isCommand(node: SyntaxNode): boolean {
         'command_substitution',
     ].includes(node.type);
 }
-// isFunctionDefinition
-// isFunctionDefinintion
+
 /**
  * essentailly avoids having to null check functionDefinition nodes for having a function
  * name, since 
@@ -53,6 +62,9 @@ export function isCommandName(node: SyntaxNode) : boolean {
     return node.type == 'word' && node.equals(cmdName);
 }
 
+/**
+ * the root node of a fish script 
+ */
 export function isProgram(node: SyntaxNode): boolean {
     return node.type == 'program' || node.parent == null;
 }
@@ -76,6 +88,7 @@ export function isElseStatement(node: SyntaxNode): boolean {
     return node.type === 'else_clause'
 }
 
+// strict check for if statement or else clauses
 export function isConditional(node: SyntaxNode) : boolean {
     return ['if_statement', 'else_if_clause', 'else_clause'].includes(node.type)
 }
@@ -98,6 +111,10 @@ export function isClause(node: SyntaxNode): boolean {
         'else_if_clause',
     ].includes(node.type);
 }
+
+/**
+ * statements contain clauses
+ */
 export function isStatement(node: SyntaxNode): boolean {
     return [
         'for_statement',
@@ -107,32 +124,25 @@ export function isStatement(node: SyntaxNode): boolean {
     ].includes(node.type);
 }
 
+/**
+ * since statement SyntaxNodes contains clauses, treats statements and clauses the same:
+ * if ...           - if_statement 
+ * else if ...      --- else_if_clause
+ * else ...         --- else_clause 
+ * end;
+ */
 export function isBlock(node: SyntaxNode): boolean {
     return isClause(node) || isStatement(node);
 }
 
-/**
- * similiar to isStatement, but only returns true for the first child of a statement,
- * where a 'end' token is needed to close the statement
- *
- * @param {SyntaxNode} node - the node to check
- * @returns {boolean} true if getRange(node) should be closed with an 'end' token
- */
-//export function isBlock(node: SyntaxNode): boolean {
-//    return [
-//        'for_statement',
-//        'switch_statement',
-//        'while_statement',
-//        'if_statement',
-//        'function_definition',
-//    ].includes(node.type);
-//}
-//
 export function isEnd(node: SyntaxNode): boolean {
     return node.type == 'end';
 }
 
-
+/**
+ * Any SyntaxNode that will enclose a new local scope: 
+ *      Program, Function, if, for, while
+ */
 export function isScope(node: SyntaxNode): boolean {
     return isProgram(node) || isFunctionDefinition(node) || isStatement(node)
 }
@@ -492,71 +502,13 @@ export function isConditionalCommand(node: SyntaxNode) {
     return node.type === 'conditional_execution' 
 }
 
-export function isReturnConditionalChain(node: SyntaxNode) {
-    if (!isConditionalCommand(node))  return null
-    let current : SyntaxNode | null = node;
-    while (current && (isReturn(current) || isConditionalCommand(current))) {
-        //if (!isConditionalCommand(current)) break;
-        if (!current.isNamed()) {
-            current = current.previousSibling;
-            continue;
-        //} else if (isCommand(current)) {
-            //return null
-        }
-        //console.log(`named: ${current?.isNamed()} text: ${current?.text.split('\n').map(n => n.trim()).join(';')}  type: ${current?.type}`)
-        current = current.previousNamedSibling;
-    }
-    //console.log(current?.text + ' ' + current?.type)
-    return current && isReturn(current) ? current : null;
-}
 
+// @TODO: see ./tree-sitter.ts -> getRangeWithPrecedingComments(),
+//        for implementation of chained returns of conditional_executions
 export function chainedCommandGroup(node: SyntaxNode) : SyntaxNode[] {
-    const results : SyntaxNode[] = []
-    //if (!isConditionalCommand(node) || !isCommand(node) )  return results
-    let current : SyntaxNode | null = node;
-    while (current) {
-        //if (!isConditionalCommand(current)) break;
-        results.unshift(current)
-        if (!current.isNamed()) {
-            current = current.previousSibling;
-            continue;
-        }
-        if (isCommand(current) || isReturn(current)) {
-            //results.unshift(current)
-            break;
-        }
-        //if (isCommand(current))
-        //if (!isReturn(current) && !isConditionalCommand(current)) {
-        if (!isConditionalCommand(current)) {
-            break;
-        } 
-        //console.log(`named: ${current?.isNamed()} text: ${current?.text.split('\n').map(n => n.trim()).join(';')}  type: ${current?.type}`)
-        current = current.previousSibling;
-    }
-    //console.log(current?.text + ' ' + current?.type)
-    return results 
+    return []
 }
 
-export function isAfterReturn(node: SyntaxNode) : boolean {
-    const results : SyntaxNode[] = []
-    //if (isReturn(node))
-    //if (!isConditionalCommand(node) || !isCommand(node) )  return results
-    let notChained: SyntaxNode[] = []
-    let chained: SyntaxNode[] = []
-    const start: SyntaxNode | null = findFirstParent(node, n => isCommand(n) || isConditionalCommand(n) || isReturn(n)) || node
-    let current : SyntaxNode | null = start;
-    while (current) {
-        //if (current.isNamed()) {
-            //
-        //}
-        if (!isConditionalCommand(current) && !isReturn(current)) {
-            return true;
-        } 
-        current = current.previousNamedSibling;
-    }
-    //console.log(current?.text + ' ' + current?.type)
-    return false
-}
 /*
  * echo $hello_world 
  *           ^--- variable_name

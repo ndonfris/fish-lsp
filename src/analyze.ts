@@ -37,7 +37,6 @@ export class Analyzer {
         this.diagnosticQueue.set(uri, collectDiagnosticsRecursive(tree.rootNode, document));
     }
 
-
     /**
      * Finds the rootnode given a LspDocument. If useCache is set to false, it will
      * use the parser to parse the document passed in, and then return the rootNode.

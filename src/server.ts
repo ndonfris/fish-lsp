@@ -26,6 +26,7 @@ import {isFunctionDefinition, isStatement} from './utils/node-types';
 import {handleConversionToCodeAction} from './diagnostics/handleConversion';
 import {FishShellInlayHintsProvider} from './features/inlay-hints';
 
+// @TODO 
 export type SupportedFeatures = {
     codeActionDisabledSupport : boolean;
 }
@@ -290,7 +291,6 @@ export default class FishServer {
 
     // • lsp-spec: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#workspace_symbol
     // • hierachy of symbols support on line 554: https://github.com/typescript-language-server/typescript-language-server/blob/114d4309cb1450585f991604118d3eff3690237c/src/lsp-server.ts#L554
-    //
     async onDocumentSymbols(params: DocumentSymbolParams): Promise<DocumentSymbol[]> {
         this.logger.log("onDocumentSymbols");
         const {doc, uri, root} = this.getDefaultsForPartialParams(params)
