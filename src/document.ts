@@ -10,7 +10,7 @@ import FastGlob from 'fast-glob';
 import {homedir} from 'os';
 import {promises, readFileSync} from 'fs';
 //import {logger} from './logger';
-import {FilepathResolver} from './utils/filepathResolver';
+//import {FilepathResolver} from './utils/filepathResolver';
 import {uriToPath} from './utils/translation';
 import {sep} from 'path';
 
