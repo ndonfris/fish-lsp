@@ -1,207 +1,201 @@
+import Parser, { SyntaxNode, Tree } from "web-tree-sitter";
+import {getReturnSiblings} from '../src/diagnostics/syntaxError';
+import * as NodeTypes from "../src/utils/node-types";
+import { getChildNodes, getNamedChildNodes, getNodesTextAsSingleLine, getNodeText, getRange, nodesGen } from "../src/utils/tree-sitter";
 import {
-    //resolveRelPath,
-    resolveAbsPath,
-    getRootNode,
-    readShareDir,
-    positionStr,
-    readFishDir,
-    startAnalyze,
-    parseFile
-} from './helpers'
-
-import {getNodes, getNodeText, nodesGen} from '../src/utils/tree-sitter';
+    logNodeSingleLine,
+    resolveLspDocumentForHelperTestFile,
+    TestLogger,
+} from "./helpers";
+import { buildStatementChildren, ifStatementHasReturn } from '../src/diagnostics/statementHasReturn'
+import {collectFunctionNames, collectFunctionsScopes} from '../src/diagnostics/validate';
+import {Diagnostic} from 'vscode-languageserver';
 import {FishSyntaxNode} from '../src/utils/fishSyntaxNode';
-
 import {initializeParser} from '../src/parser';
 import {findParentCommand} from '../src/utils/node-types';
 import {execCommandDocs, execCommandType, execCompleteCmdArgs, execCompleteSpace} from '../src/utils/exec';
-import {SyntaxNode} from 'web-tree-sitter';
 import {documentationHoverProvider, HoverFromCompletion} from '../src/documentation';
+import {createDiagnostic} from '../src/diagnostics/create';
+import * as errorCodes from '../src/diagnostics/errorCodes'
+import {precedesRange} from '../src/workspace-symbol';
 
 
+// This file will be used to display what the expected output should be for the
+// tree-sitter parses. While the AST defined for fish shell is very helpful, the token
+// set required in for an LSP implementation, needs more strongly defined tokens.
+// We can see how this is problematic, in the following example:
 //
-// string match -ra '.*' 'hi' -- $argv 
-// should return 'string match'
+// set -l var1 "hello world"
+//  ^  ^   ^        ^-------------- double_quote_string
+//  |  |   ------------------------ word
+//  |  ---------------------------- word
+//  ------------------------------- command: [0,4] - [0, 25]
+//                                        name:     word                  [0, 0] [0, 3]
+//                                        argument: word                  [0, 4] [0, 6]
+//                                        argument: word                  [0, 7] [0, 11]
+//                                        argument: double_quote_string   [0, 12] [0, 25]
 //
-// for strings without subcommands, returns just the command
+// Some data we want to be prepared to collect from the AST shown above, can be shown in the following example:
 //
+//  1. get the variable name.
+//       - check if the name command has a parent which is a command
+//       - check if the command has a firstNamedChild.text that is 'set'
+//       - check if the first non-option ('-l' is the option) is the same node
+//         that we are currently checking.
 //
-async function getSubCommandString(cmdNode: SyntaxNode): Promise<string> {
-    let cmdStr = cmdNode.child(0)!.text.trim()
-    // check if subCommands completions exist 
-    const spaceCmps = await execCompleteSpace(cmdStr)
-    if (spaceCmps.length == 0) return cmdStr
-    const cmdArr = cmdNode.text.split(' ').slice(1);
-    var i = 0;
-    while (i < cmdArr.length) {
-        const argStr = cmdArr[i].trim();
-        if (!argStr.startsWith('-') && spaceCmps.includes(argStr)) {
-            cmdStr += ' ' + argStr.toString()
-        } else if (argStr.includes('-')) {
-            break;
-        }
-        i++
-    }
-    return cmdStr
-}
+// 2. get the option(s) seen.
+//      - here similiarly we check that it is a command node,
+//      - then we can also check that the node.text starts with '-' char, and is not an
+//        actual '--' which would escape the command. (Example: string match -ra '\-.*' -- '-l')
+//
+// In this example, the checks are done through a series of very low computation time
+// lookups. All implementations, should do their best to use O(1) lookups that fail
+// fast, before checking the children nodes.
+//
+// Feel free to improve this file, as a reference for other developers.
 
-function extractCmdNodeFlags(cmdNode: SyntaxNode, cmpFlags: string[]) {
-    const cmdArr = cmdNode.text.split(' ').slice(1);
-    if (cmdArr.length == 0) return 
-    if (hasOldStyleOptions(cmpFlags)) {
-        return cmdArr
-            .filter(arg => arg.startsWith('-'))
-            .map(arg => arg.split('=')[0])
-    }
-    const newArr: string[] = []
-    for (const flag of cmpFlags) {
-        if (flag.startsWith('-') && flag.length > 2) {
-            const flags = 
-                flag.split('').slice(1)
-                .map(curr => curr = '-' + curr.toString())
-            newArr.push(...flags)
-        }
-    }
-    return newArr;    
-}
+let SHOULD_LOG = false; // enable for verbose
 
-/**
- * @see man complete: styles --> long options
- * enables the ability to differentiate between
- * short flags chained together, or a command 
- * that 
- * a command option like:
- *            '-Wall' or             --> returns true
- *            find -name '.git'      --> returns true
- *
- *            ls -la                 --> returns false
- * @param {string[]} cmpFlags - [TODO:description]
- * @returns {boolean} true if old styles are valid
- *                    false if short flags can be chained
- */
-function hasOldStyleOptions(cmpFlags: string[]): boolean {
-    for (const cmpFlag of cmpFlags) {
-        if (cmpFlag.startsWith('--')) {
-           continue;
-        } else if (cmpFlag.startsWith('-') && cmpFlag.length > 2) {
-            return true
-        }
-    }
-    return false
-
-}
-
-async function generateCompletionFlags(cmpStr: string, cmd: SyntaxNode) {
-    const res = await execCompleteCmdArgs(cmpStr);
-    const flags = extractCmdNodeFlags(cmd, res)
-    console.log(res)
-    console.log(flags)
-}
+let parser: Parser;
+const jestConsole = console;
+const logger = new TestLogger(jestConsole);
 
 
-async function generateDocumentationFromComplete(node: SyntaxNode) {
-    const cmd = findParentCommand(node)!; // string
-    //const cmdText = cmd.child(1)!.text; // match
-    var cmdText = await getSubCommandString(cmd);
-    await generateCompletionFlags(cmdText, cmd)
-    console.log()
-    console.log()
-    console.log(`cmdText: ${cmdText}`);
-    //if (cmdArr.includes(cmdText)) {
-    //    console.log(`\ntrue: cmdArray contains ${cmdText}`)
-    //}
-}
 
-describe("fish syntax node output", () => {
-    jest.setTimeout(7000)
 
-    const jestConsole = console;
+const loggingON = () => { SHOULD_LOG = true; }
 
-    beforeEach(() => {
-        global.console = require('console');
+
+
+// BEGIN TESTS
+describe("FISH web-tree-sitter SUITE", () => {
+    beforeEach(async () => {
+        parser = await initializeParser();
+        global.console = require("console");
     });
-
     afterEach(() => {
         global.console = jestConsole;
+        SHOULD_LOG = false;
+    });
+
+    it("test simple variable definitions", async () => {
+        const test_variable_definitions = resolveLspDocumentForHelperTestFile("fish_files/simple/set_var.fish");
+        const root = parser.parse(test_variable_definitions.getText()).rootNode;
+
+        const defs    : SyntaxNode[] = [];
+        const defNames: SyntaxNode[] = [];
+        const vars    : SyntaxNode[]= [];
+        getChildNodes(root).forEach((node, idx) => {
+            if (!node.isNamed()) return;
+            if (NodeTypes.isCommand(node)) defs.push(node)
+            if (NodeTypes.isCommandName(node))defNames.push(node)
+            if (NodeTypes.isVariableDefinition(node)) vars.push(node)
+            return node
+        });
+
+        expect(defs.length === 1).toBeTruthy();
+        expect(defNames.length === 1).toBeTruthy();
+        expect(vars.length === 1).toBeTruthy();
+
+        if (SHOULD_LOG) [...defs, ...defNames, ...vars].forEach((node) => logger.logNode(node))
     });
 
 
-    it('testing nodes if getNodeText() works', async () => {
+    it("test defined function", async () => {
+        const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/simple_function.fish");
+        const root = parser.parse(test_doc.getText()).rootNode;
 
-        const uri = '/home/ndonfris/.config/fish/functions/set_random_color.fish'
-        const tree = await parseFile(uri)
+        const funcs    : SyntaxNode[] = [];
+        const funcNames : SyntaxNode[] = [];
 
-        const variableDefNodes = [
-            tree.rootNode.namedDescendantForPosition({column: 14, row: 34}),
-            tree.rootNode.namedDescendantForPosition({column: 12, row: 54}),
-            tree.rootNode.namedDescendantForPosition({column: 44, row: 418}),
-            tree.rootNode.namedDescendantForPosition({column: 22, row: 374}),
-        ]
+        getChildNodes(root).forEach((node, idx) => {
+            if (!node.isNamed()) return;
+            if (NodeTypes.isFunctionDefinition(node)) funcs.push(node)
+            if (NodeTypes.isFunctionDefinitionName(node)) funcNames.push(node)
+            return node
+        })
 
-        const functionNodes = [
-            tree.rootNode.namedDescendantForPosition({column: 9, row: 471}),
-            tree.rootNode.namedDescendantForPosition({column: 9, row: 457}),
-            tree.rootNode.namedDescendantForPosition({column: 0, row: 412}),
-            tree.rootNode.namedDescendantForPosition({column: 0, row: 387}),
-        ]
-
-        const commandNodes = [
-            tree.rootNode.namedDescendantForPosition({column: 4, row: 353}),
-            tree.rootNode.namedDescendantForPosition({column: 4, row: 349}),
-            tree.rootNode.namedDescendantForPosition({column: 4, row: 272})
-        ]
-
-        //for (const node of variableDefNodes) {
-        //    console.log(`[${node.type}]: ${getNodeText(node)}`)
-        //}
-
-        //for (const node of functionNodes) {
-        //    console.log(`[${node.type}]: ${getNodeText(node)}`)
-        //}
-
-        //for (const node of commandNodes) {
-        //    console.log(`[${node.type}]: ${getNodeText(node)}`)
-        //}   
-        expect(true).toBeTruthy()
+        expect(funcs.length === 1).toBeTruthy();
+        expect(funcNames.length === 1).toBeTruthy();
+        if (SHOULD_LOG) [...funcs, ...funcNames].forEach((node) => logger.logNode(node, 'funcs vs funcName'))
     })
 
+    it("test defined function", async () => {
+        const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/function_variable_def.fish");
+        const root = parser.parse(test_doc.getText()).rootNode;
 
-    // variable definition vs variable 
-    it('testing documentationResolver for subcommand args', async () => {
+        const funcNames : SyntaxNode[] = [];
+        const vars      : SyntaxNode[] = [];
 
-        const uri = '/home/ndonfris/.config/fish/functions/test-fish-lsp.fish'
-        const tree = await parseFile(uri)
+        getChildNodes(root).forEach((node, idx) => {
+            if (!node.isNamed()) return;
+            if (NodeTypes.isFunctionDefinitionName(node)) funcNames.push(node)
+            if (NodeTypes.isVariableDefinition(node)) vars.push(node)
+            return node
+        })
 
-        //const nodes = getNodes(tree.rootNode)
-        const commandNodes = [
-            ...getNodes(tree.rootNode),
-            tree.rootNode.descendantForPosition({row: 1, column: 4}),
-            //tree.rootNode.namedDescendantForPosition({column: 11, row: 1}),
-            //tree.rootNode.namedDescendantForPosition({column: 4, row: 349}),
-            //tree.rootNode.namedDescendantForPosition({column: 4, row: 271})
-        ]
+        expect(funcNames.length === 1).toBeTruthy();
+        expect(vars.length === 2).toBeTruthy();
+        if (SHOULD_LOG) [...vars].forEach((node) => logger.logNode(node, 'function variable definitions'))
+    })   
 
-        console.log('-----')
-        for (const node of commandNodes) {
-            const cmd = findParentCommand(node)!
-            if (node.text == "string match -ra '.*' 'hi' -- echo") {
-                const onode = node.child(2)!
-                //const cmdType = await execCommandType('string match')
-                console.log(onode)
-                //const hovert = await execCommandDocs('string match')
-                //if (hovert) console.log(hovert)
-                const hoverProvider = new HoverFromCompletion(cmd, onode)
-                const hover = await hoverProvider.generate()
-                if (hover) console.log(hover.contents)
+    it("test all variable def types ", async () => {
+        const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/all_variable_def_types.fish");
+        const parser = await initializeParser();
+        const root = parser.parse(test_doc.getText()).rootNode;
+
+        const vars      : SyntaxNode[] = [];
+
+        getChildNodes(root).forEach((node, idx) => {
+            if (!node.isNamed()) return;
+            if (NodeTypes.isVariableDefinition(node)) vars.push(node)
+            return node
+        })
+
+        expect(vars.length).toEqual(7);
+        if (SHOULD_LOG) [...vars].forEach((node) => logger.logNode(node, 'function variable definitions'))
+    })
+
+    it("test is ConditionalCommand", async () => {
+        loggingON();
+        //const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/is_chained_return.fish");
+        const parser = await initializeParser();
+        const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/func_a.fish", true);
+        const root = parser.parse(test_doc.getText()).rootNode;
+        const funcs: string[] = [];
+        const diagnostics: Diagnostic[] = [];
+        for (const node of nodesGen(root)) {
+            if (NodeTypes.isFunctionDefinitionName(node)) {
+                collectFunctionNames(node, test_doc, diagnostics, funcs)
             }
-            //const cmdText = cmd.child(1)!.text
-            //const cmdArray = await execCompleteSpace(cmd.child(0)!.text)
-            //for (const arg of cmdArray) {
-            //}
-            //console.log(`[${cmd.type}]: ${cmdText}`)
-            //console.log(getNodeText(node))
-            //console.log(`[${node.type}]: ${node.text}`)
-        }   
-        expect(true).toBeTruthy()
+        }
+        diagnostics.forEach(d => console.log(d.code + ' ' + d.message ))
+        expect(diagnostics.length === 4).toEqual(true);
     })
+
 })
+function checkAllStatements(statementNode: SyntaxNode): boolean {
+    const statements = [statementNode, ...statementNode.namedChildren].filter(c => NodeTypes.isBlock(c))
+    for (const statement of statements) {
+        //console.log(statement.type);
+        if (!checkStatement(statement, [])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function checkStatement(root: SyntaxNode, collection: SyntaxNode[]) {
+    let shouldReturn = NodeTypes.isReturn(root)
+    for (const child of buildStatementChildren(root)) {
+        const include = checkStatement(child, collection) || NodeTypes.isReturn(child)
+        if (NodeTypes.isStatement(child) && !include) {
+            return false;
+        }
+        shouldReturn = include || shouldReturn
+    }
+    if (shouldReturn) {
+        collection.push(root)
+    }
+    return shouldReturn;
+}

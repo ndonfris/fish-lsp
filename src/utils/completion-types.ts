@@ -2,7 +2,7 @@ import FastGlob from 'fast-glob';
 import {homedir} from 'os';
 import {CompletionItem, CompletionItemKind, InsertTextFormat, MarkupContent, RemoteConsole} from 'vscode-languageserver';
 import {enrichCommandArg, enrichToCodeBlockMarkdown, enrichToMarkdown} from '../documentation';
-import {logger} from '../logger';
+//import {logger} from '../logger';
 import {execCommandDocs, execCommandType} from './exec';
 
 
