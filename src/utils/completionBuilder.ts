@@ -2,7 +2,7 @@ import FastGlob  from 'fast-glob';
 import {homedir} from 'os';
 import { Command, CompletionItem, CompletionItemKind, MarkupContent, SymbolKind } from 'vscode-languageserver';
 //import {FishCompletionItemType} from '../completion';
-import {logger} from '../logger';
+//import {logger} from '../logger';
 import {FishCompletionItemKind, isBuiltIn} from './completion-types';
 
 export const toCompletionKind: Record<FishCompletionItemKind, CompletionItemKind> = {
