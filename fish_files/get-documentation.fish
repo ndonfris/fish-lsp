@@ -3,7 +3,7 @@
 ## commands like mkdir or touch should reach this point 
 function _flsp_get_command_without_manpage -d 'fallback for a command passed in without a manpage'
     set -l completions_docs (fish -c "complete --do-complete='$argv -'")
-    set -l cmd_hist (fish -c "history -p $argv -n 1")
+    #set -l cmd_hist (fish -c "history -p $argv -n 1")
     if test -n ($completions_docs)
         echo -e "\t$argv Completions"
         echo $completions_docs

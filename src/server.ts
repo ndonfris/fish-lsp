@@ -117,6 +117,7 @@ export default class FishServer {
         }
         return result;
     }
+    
 
     register(): void {
         //this.connection.window.createWorkDoneProgress();
@@ -155,15 +156,12 @@ export default class FishServer {
             case Commands.FORMAT:
             default: 
                 h  = async ( params, token, workDoneProgress, resultProgress) => {
-                this.connection.onRequest('onHover', this.onHover).dispose()
+                    this.connection.onRequest('onHover', this.onHover).dispose()
                 }
-
-
         }
         return h 
         //throw new Error('Method not implemented.');
     }
-
 
     didOpenTextDocument(params: DidOpenTextDocumentParams): void {
         this.logger.log("[FishLsp.onDidOpenTextDocument()]")
