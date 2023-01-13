@@ -6,7 +6,7 @@ import { findParentVariableDefintionKeyword, isComment, isFunctionDefinition, is
 import { LspDocument, LspDocuments } from '../document';
 import {toSymbolKind} from '../symbols';
 import { FishProtocol } from './fishProtocol';
-import { getPrecedingComments, getRange } from './tree-sitter';
+import { getPrecedingComments, getRange, getRangeWithPrecedingComments } from './tree-sitter';
 import * as LocationNamespace from './locations';
 import os from 'os'
 
@@ -150,42 +150,30 @@ export function toTextDocumentEdit(change: FishProtocol.FileCodeEdits, documents
     };
 }
 
-//export function toFishDiagnostic(diagnostic: Diagnostic): FishLspDiagnostic {
-//        return {
-//        range: diagnostic.range,
-//        message: diagnostic.message,
-//        severity: diagnostic.severity!,
-//        code: new Set<number>(diagnostic.code),
-//        source: 'fish-lsp',
-//        CodeDescription: getCodeDescription(diagnostic),
-//    };
-//}
-
 
 export function toFoldingRange(node: SyntaxNode, document: LspDocument): FoldingRange {
-    let foldText = ''
+    let collapsedText = ''
     let kind = FoldingRangeKind.Region;
     if (isFunctionDefinition(node) || isFunctionDefinitionName(node.firstNamedChild!)) {
-        foldText = node.firstNamedChild?.text || node.text.split(' ')[0]
+        collapsedText = node.firstNamedChild?.text || node.text.split(' ')[0]
     }
     if (isVariableDefinition(node)) {
-        foldText = node.text
+        collapsedText = node.text
     }
     if (isComment(node)) {
-        foldText = node.text.slice(0, 10) 
-        if (node.text.length >= 10) foldText += '...'
+        collapsedText = node.text.slice(0, 10) 
+        if (node.text.length >= 10) collapsedText += '...'
         kind = FoldingRangeKind.Comment
     }
-    const range = getRange(node);
+    const range = getRangeWithPrecedingComments(node);
     const startLine = range.start.line;
     const endLine = range.end.line > 0 && document.getText(LSP.Range.create(
         LSP.Position.create(range.end.line, range.end.character - 1),
         range.end,
     )) === 'end' ? Math.max(range.end.line + 1, range.start.line) : range.end.line;
     return {
-        startLine,
-        endLine: range.end.line,
-        collapsedText: foldText,
+        ...FoldingRange.create(startLine, endLine),
+        collapsedText: collapsedText,
         kind: FoldingRangeKind.Region
     }
     //return {

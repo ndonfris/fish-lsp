@@ -354,6 +354,19 @@ export function pointToPosition(point: Point): Position {
   }
 }
 
+export function getRangeWithPrecedingComments(node: SyntaxNode): Range {
+    let currentNode: SyntaxNode | null = node.previousNamedSibling;
+    let previousNode: SyntaxNode = node; 
+    while (currentNode?.type === 'comment') {
+        previousNode = currentNode;
+        currentNode = currentNode.previousNamedSibling;
+    }
+    return Range.create(
+        pointToPosition(previousNode.startPosition),
+        pointToPosition(node.endPosition)
+    );
+}
+
 export function getPrecedingComments(node: SyntaxNode | null): string {
     if (!node) return ''
     const comments = commentsHelper(node)

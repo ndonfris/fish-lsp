@@ -1,4 +1,4 @@
-import {green} from 'colors';
+//import {green} from 'colors';
 import {SymbolInformation, Range, SymbolKind, DocumentUri, Location, WorkspaceSymbol, DocumentSymbol} from 'vscode-languageserver';
 import {SyntaxNode, Tree} from 'web-tree-sitter';
 import {Analyzer} from './analyze';
@@ -6,71 +6,15 @@ import {toSymbolKind} from './symbols';
 import {isBuiltin} from './utils/builtins';
 import {findEnclosingVariableScope, findParentFunction, isCommandName, isDefinition, isFunctionDefinition, isFunctionDefinitionName, isProgram, isScope, isStatement, isVariable, isVariableDefinition} from './utils/node-types';
 import {nodeToDocumentSymbol, nodeToSymbolInformation, pathToRelativeFunctionName} from './utils/translation';
-import {findEnclosingScope, findFirstParent, getChildNodes, getNodeAtRange, getParentNodes, getRange, positionToPoint} from './utils/tree-sitter';
+import {findEnclosingScope, findFirstParent, getChildNodes, getNodeAtRange, getParentNodes, getRange, getRangeWithPrecedingComments, positionToPoint} from './utils/tree-sitter';
 
-
-export function collectDocumentSymbols(mixedNodes: SyntaxNode[]): DocumentSymbol[] {
-    const symbols: DocumentSymbol[] = []
-    const tempSymbols = SpanTree.documentSymbolArray(mixedNodes)
-    for (const symbol of tempSymbols) {
-        symbol.children = SpanTree.childDocumentSymbols(symbol, tempSymbols)
-        symbol.children.forEach((child) => {
-            tempSymbols.splice(tempSymbols.indexOf(child), 1)
-        })
-        symbols.push(symbol)
-    }
-    return symbols
-}
-
-export namespace SpanTree {
-
-    export const defintionNodes = (root: SyntaxNode) => 
-        getChildNodes(root).filter((node: SyntaxNode) => 
-            isFunctionDefinitionName(node) || isVariableDefinition(node))
-
-    export const refrenceNodes = (root: SyntaxNode) => 
-        getChildNodes(root).filter((node: SyntaxNode) => isVariable(node) || isCommandName(node))
-
-    export const commandNodes = (root: SyntaxNode) => getChildNodes(root)
-        .filter((node: SyntaxNode) => isCommandName(node))
-        .filter((node: SyntaxNode) => !isBuiltin(node.text))
-
-    export const scopeNodes = (root: SyntaxNode) => getChildNodes(root)
-        .filter((node: SyntaxNode) => isStatement(node) || isProgram(node) || isFunctionDefinition(node))
-
-    export const documentSymbolArray = (nodes: SyntaxNode[]) =>
-        nodes.map((node: SyntaxNode) => nodeToDocumentSymbol(node))
-
-    export const symbolInformationArray = (nodes: SyntaxNode[], uri: string) =>
-        nodes.map((node: SyntaxNode) => nodeToSymbolInformation(node, uri)) 
-
-    export const childDocumentSymbols = (parentSymbol: DocumentSymbol, allSymbols: DocumentSymbol[]) => {
-        if (parentSymbol.kind === SymbolKind.Variable) {
-            return []
-        }
-        return allSymbols
-            .filter((innerSymbol: DocumentSymbol) => parentSymbol != innerSymbol)
-            .filter((innerSymbol: DocumentSymbol) => containsRange(parentSymbol.range, innerSymbol.selectionRange))
-    }
-
-    export const spans = (root: SyntaxNode) => {
-        const spans: Range[] = []
-        const scopeNodes = SpanTree.scopeNodes(root)
-        for (const scope of scopeNodes) {
-            const span = getRange(scope)
-            spans.push(span)
-        }
-        return spans
-    }
-}
-
-function createSymbol(node: SyntaxNode, children?: DocumentSymbol[]) : DocumentSymbol | null{
+function createSymbol(node: SyntaxNode, children?: DocumentSymbol[]) : DocumentSymbol | null {
     const parent = node.parent || node;
     if (isVariableDefinition(node)) {
         return {
             name: node.text,
             kind: toSymbolKind(node),
-            range: getRange(parent),
+            range: getRangeWithPrecedingComments(parent),
             selectionRange: getRange(node),
             children: children || []
         }
@@ -79,7 +23,7 @@ function createSymbol(node: SyntaxNode, children?: DocumentSymbol[]) : DocumentS
         return {
             name: name.text,
             kind: toSymbolKind(name),
-            range: getRange(parent),
+            range: getRangeWithPrecedingComments(parent),
             selectionRange: getRange(name),
             children: children || []
         }
@@ -146,7 +90,7 @@ export function getNodeFromSymbol(root: SyntaxNode, symbol: DocumentSymbol) {
 // needs testcase
 // retry with recursive range match against collected symbols
 export function nearbySymbols(root: SyntaxNode, curr: SyntaxNode): DocumentSymbol[] {
-    const symbols: DocumentSymbol[] = collectDocumentSymbols(SpanTree.defintionNodes(root))
+    const symbols: DocumentSymbol[] = getDefinitionSymbols(root)
     return flattenSymbols(symbols, []).filter( outer => containsRange(outer.range, getRange(curr)))
 }
 
