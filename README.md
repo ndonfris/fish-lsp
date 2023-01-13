@@ -1,42 +1,4 @@
-# CURRENT TODO
-
-- [ ] [server.ts]( ./src/server.ts )
-    - [x] onFold
-    - [x] onComplete
-        - [ ] still needs minor tweaks to support chained short options 
-        - [x] support ranges
-    - [x] diagnostics
-        - [ ] ideas for more here
-- [x] [documentation.ts]( ./src/documentation.ts 
-- [x] [analysis.ts]( ./src/analyzer.ts )
-    - [x] implement diagnostics
-    - [x] `getCommandAtLine()` for onComplete()/onHover()
-- [ ] [completion.ts]( ./src/completion.ts )
-    - [x] fix/update to v.8.0.2 with `editRange` in `CompletionList.create()`
-    - [ ] fix WorkspaceSymbol/DocumentSymbol completions
-    - [ ] add in completion short options, that are chained together.
-    - [ ] add in option for sorting by short options first
-    - [ ] add in option for including descriptions 
-- [ ] [commands.ts]( ./src/commands.ts )
-    - [ ] implement commands to be used in server.ts. 
-        - formatting
-        - folding
-        - executeSelection
-- [ ] [code-actions.ts]( ./src/code-actions.ts ) implement code actions
-    - use `CodeActionContext.create()` to create contexts, potentially while also creating
-      diagnostics at the same time.
-    - Need to get range working for `CodeActions`. Otherwise, it will only work on the first line
-      of the document.
-- [ ] [code-lens.ts]( ./src/code-lens.ts ) implement code lens
-
-- what is a [ __text_span__ ](https://github.com/typescript-language-server/typescript-language-server/blob/5a39c1f801ab0cad725a2b8711c0e0d46606a08b/src/utils/typeConverters.ts#L12)
-    - __@SEE__ [utils/locations.ts]( ./src/utils/locations.ts )
-
-
-
-
-
-## Sources for project thus far
+# Sources for project thus far
 
 - __Similiar projects__
     - [coc.fish]( https://github.com/oncomouse/coc-fish )
@@ -54,6 +16,36 @@
 - __Default Implementation Git Repos__
     - [client implementation]( https://github.com/microsoft/vscode-languageserver-node/blob/main/client/src/common )
     - [server implementation]( https://github.com/microsoft/vscode-languageserver-node/tree/main/server/src/common )  
+
+#### CURRENT TODO
+
+- [ ] [server.ts]( ./src/server.ts )
+- [ ] [documentation.ts]( ./src/documentation.ts )
+- [ ] [analysis.ts]( ./src/analyzer.ts )
+- [ ] fish-lsp-client.ts (NOT YET IMPLEMENTED)
+- [ ] diagnostics.ts
+- [ ] completion.ts - extract from server.ts
+- [x] DocumentSymbols - could implement better scope detection 
+    - [x] completionItem
+    - [x] definition
+    - [x] refrences
+    - [ ] rename
+    - [ ] hover
+
+- _Restructuring_ || _TODO_ || _NOTES_
+    - you could move `node-types` to parser __??__
+    - fix `interfaces.ts` to just have interfaces, and to have a better `context`
+        implementation
+    - move _AstNodes_ to _analyzer_ __class__?
+        - if you choice to stick to functional approach, you need a generic
+            function that can be called from anywhere (probably needs context)
+            to update all variables in context
+    - fix __variableDefinitions__(./src/utils/node-types.ts)
+        - eventually merge `node-types` & `tree-sitter`
+    - fix/move to `config.ts` to work for `server.ts`
+        - move config related stuff to config?? like context??
+        - move `server.ts` to class/oop approach
+    - __get simple build going before next features!!__
 
 ---
 ### Below is for [TypeScript Language Server]( https://github.com/typescript-language-server/typescript-language-server/blob/114d4309cb1450585f991604118d3eff3690237c/src/utils/SnippetString.ts )
@@ -626,4 +618,3 @@ yarn watch
 ### Publishing
 
 New version of the package is published automatically on pushing new tag to the upstream repo.
-fixed coc folding error: `set foldmethod=marker foldlevel=0 nomodeline:`

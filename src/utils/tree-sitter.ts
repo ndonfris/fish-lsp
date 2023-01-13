@@ -2,12 +2,11 @@
 import { extname, join } from 'path'
 //import { pathToFileURL, URL } from 'url'
 import { Position } from 'vscode-languageserver-textdocument'
-import { Range, URI } from 'vscode-languageserver'
+import { Range, URI } from 'vscode-languageserver/node'
 import { Point, SyntaxNode, Tree } from 'web-tree-sitter'
-import {pathToFileURL} from 'url'; // typescript-langauge-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts
-import vscodeUri from 'vscode-uri'; // typescript-langauge-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts 
+import {pathToFileURL} from 'url';
 import {existsSync} from 'fs-extra';
-import {findSetDefinedVariable, findParentCommand, isFunctionDefinition, isVariableDefinition, isFunctionDefinitionName, isVariable, isScope, isProgram, isCommandName, isForLoop, findForLoopVariable} from './node-types';
+import {findDefinedVariable, findParentCommand, isFunctionDefinintion, isVariableDefintion} from './node-types';
 
 /**
  * Returns an array for all the nodes in the tree (@see also nodesGen)
@@ -22,17 +21,6 @@ export function getChildNodes(root: SyntaxNode): SyntaxNode[] {
         let current : SyntaxNode | undefined = queue.shift()
         if (current) result.push(current)
         if (current && current.children) queue.unshift(...current.children)
-    }
-    return result
-}
-
-export function getNamedChildNodes(root: SyntaxNode): SyntaxNode[] {
-    let queue: SyntaxNode[] = [root]
-    let result: SyntaxNode[] = []
-    while (queue.length) {
-        let current : SyntaxNode | undefined = queue.shift()
-        if (current && current.isNamed()) result.push(current)
-        if (current && current.namedChildren) queue.unshift(...current.namedChildren)
     }
     return result
 }
@@ -62,83 +50,6 @@ export function getParentNodes(child: SyntaxNode): SyntaxNode[] {
     return result
 }
 
-export function findFirstParent(node: SyntaxNode, predicate: (node: SyntaxNode) => boolean) : SyntaxNode | null {
-    let current: SyntaxNode | null = node.parent;
-    while (current !== null) {
-        if (predicate(current)) return current;
-        current = current.parent;
-    }
-    return null;
-}
-
-
-//const getSiblingFunc = (n: SyntaxNode, direction: 'before' | 'after') => {
-    //if (direction === 'before') return n.nextNamedSibling
-    //if (direction === 'after') return n.previousNamedSibling
-    //return null
-//}
-
-/**
- * collects all siblings either before or after the current node.
- *
- * @param {SyntaxNode} node - the node to start from
- * @param {'forward' | 'backward'} [lookForward] -  if 'backward' (DEFAULT), looks nodes after the current node.
- * otherwise if specified false, looks for nodes before the current node.
- * @returns {SyntaxNode[]} - an array of either previous siblings or next siblings.
- */
-export function getSiblingNodes(
-    node: SyntaxNode,
-    predicate : (n: SyntaxNode) => true,
-    direction: "before" | "after" = "before",
-): SyntaxNode[] {
-    const siblingFunc = (n: SyntaxNode) =>
-        direction === "before" ? n.previousNamedSibling : n.nextNamedSibling;
-    let current: SyntaxNode | null = node;
-    const result: SyntaxNode[] = [];
-    while (current) {
-        current = siblingFunc(current);
-        if (current && predicate(current)) result.push(current);
-    }
-    return result;
-}
-
-/**
- * Similiar to getSiblingNodes. Only returns first node matching the predicate
- */
-export function findFirstSibling(
-    node: SyntaxNode,
-    predicate: (n: SyntaxNode) => boolean,
-    direction: 'before' | 'after' = 'before', 
-): SyntaxNode | null {
-    const siblingFunc = (n: SyntaxNode) =>
-        direction === 'before' ? n.previousNamedSibling : n.nextNamedSibling;
-    let current: SyntaxNode | null = node;
-    while (current) {
-        current = siblingFunc(current);
-        if (current && predicate(current)) return current;
-    }
-    return null;
-}
-
-export function findEnclosingScope(node: SyntaxNode) : SyntaxNode {
-    let parent = node.parent || node;
-    if (isFunctionDefinitionName(node)) {
-        return findFirstParent(parent, n => isFunctionDefinition(n) || isProgram(n)) || parent
-    } else if (node.text === "argv") {
-        parent = findFirstParent(node, n => isFunctionDefinition(n) || isProgram(n)) || parent
-        return isFunctionDefinition(parent) ? parent.firstNamedChild || parent : parent
-    } else if (isVariable(node)) {
-        parent = findFirstParent(node, n => isScope(n)) || parent
-        return isForLoop(parent) && findForLoopVariable(parent)?.text === node.text 
-            ? parent
-            : findFirstParent(node, n => isProgram(n) || isFunctionDefinitionName(n))
-                || parent
-    } else if (isCommandName(node))  {
-        return findFirstParent(node, n => isProgram(n)) || parent
-    } else {
-        return findFirstParent(node, n => isScope(n)) || parent
-    }
-}
 
 // some nodes (such as commands) to get their text, you will need 
 // the first named child.
@@ -147,24 +58,33 @@ export function getNodeText(node: SyntaxNode | null): string {
     if (!node) {
         return ""
     }
-    if (isFunctionDefinition(node)) {
+    if (isFunctionDefinintion(node)) {
         return node.child(1)?.text || ""
     }
-    if (isVariableDefinition(node)) {
-        const defVar = findSetDefinedVariable(node)!
+    if (isVariableDefintion(node)) {
+        const defVar = findDefinedVariable(node)!
         return defVar.text || "";
     }
     return (node.text != null) ? node.text.trim() : ""
 }
 
-export function getNodesTextAsSingleLine(nodes: SyntaxNode[]): string {
-    let text = '';
-    for (const node of nodes) {
-        text += ' ' + node.text.split('\n').map(n => n.split(' ').map(n => n.trim()).join(' ')).map(n =>  n.trim()).join(';')
-        if (!text.endsWith(';')) text+=';'
-    }
-    return text.replaceAll(/;+/g, ';').trim()
+/**
+ * Checks that arg0 is located before arg1 in parse tree. False 
+ * when params are the same node 
+ *
+ * @param {SyntaxNode} firstNode - a node that is positioned left or above second node
+ * @param {SyntaxNode} secondNode - some node after first node
+ * @returns {boolean} - true only when first param is located before second param
+ */
+export function nodeIsBefore(firstNode: SyntaxNode, secondNode: SyntaxNode): boolean {
+    if (firstNode.startPosition.row === secondNode.startPosition.row) {
+        return firstNode.startPosition.column < secondNode.startPosition.column 
+            && firstNode.text !== secondNode.text;
+    } else {
+        return firstNode.startPosition.row < secondNode.startPosition.row;
+    } 
 }
+
 
 export function firstAncestorMatch(
   start: SyntaxNode,
@@ -174,10 +94,13 @@ export function firstAncestorMatch(
     if (ancestors.length <= 1) {
         return predicate(start) ? start : null;
     }
+    //const results : SyntaxNode[] = []
     for (const p of ancestors) {
-        //for (const neighbor of getChildNodes(p)) {}
-        if (!predicate(p)) continue;
-        return p;
+        //for (const neighbor of getChildNodes(p)) {
+            if (predicate(p)) {
+                return p;
+            }
+        //}
     }
     return null
         //.filter(ancestor => ancestor !== start)
@@ -225,17 +148,6 @@ export function descendantMatch(
     return inclusive? results : results.filter(r => r !== start)
 }
 
-
-export function hasNode(allNodes: SyntaxNode[], matchNode: SyntaxNode) {
-    for (const node of allNodes) {
-        if (node.equals(matchNode)) return true;
-    }
-    return false
-}
-
-export function getNamedNeighbors(node: SyntaxNode): SyntaxNode[] {
-    return node.parent?.namedChildren || []
-}
 
 /**
  * uses nodesGen to build an array.
@@ -313,14 +225,15 @@ export function getNodeAt(tree: Tree, line: number, column: number): SyntaxNode 
     return tree.rootNode.descendantForPosition({ row: line, column })
 }
 
-export function getNodeAtRange(root: SyntaxNode, range: Range): SyntaxNode | null {
-  return root.descendantForPosition(
+
+export function getNodeAtRange(tree: Tree, range: Range): SyntaxNode | null {
+  if (!tree.rootNode) return null
+
+  return tree.rootNode.descendantForPosition(
     positionToPoint(range.start),
     positionToPoint(range.end),
   )
 }
-
-
 
 export function getDependencyUrl(node: SyntaxNode, baseUri: string): URL {
   let filename = node.children[1].text.replaceAll('"', '')
@@ -354,38 +267,14 @@ export function pointToPosition(point: Point): Position {
   }
 }
 
-export function getRangeWithPrecedingComments(node: SyntaxNode): Range {
-    let currentNode: SyntaxNode | null = node.previousNamedSibling;
-    let previousNode: SyntaxNode = node; 
-    while (currentNode?.type === 'comment') {
-        previousNode = currentNode;
-        currentNode = currentNode.previousNamedSibling;
-    }
-    return Range.create(
-        pointToPosition(previousNode.startPosition),
-        pointToPosition(node.endPosition)
-    );
-}
-
 export function getPrecedingComments(node: SyntaxNode | null): string {
-    if (!node) return ''
-    const comments = commentsHelper(node)
-    if (!comments) return node.text
-    return [
-        commentsHelper(node),
-        node.text,
-    ].join('\n')
-}
-
-function commentsHelper(node: SyntaxNode | null) : string {
   if (!node) return ''
 
   let comment: string[] = []
   let currentNode = node.previousNamedSibling
 
   while (currentNode?.type === 'comment') {
-    //comment.unshift(currentNode.text.replaceAll(/#+\s?/g, ''))
-    comment.unshift(currentNode.text)
+    comment.unshift(currentNode.text.replaceAll(/#+\s?/g, ''))
     currentNode = currentNode.previousNamedSibling
   }
 

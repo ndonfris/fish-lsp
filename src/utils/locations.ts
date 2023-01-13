@@ -1,135 +1,108 @@
-// https://github.com/typescript-language-server/typescript-language-server/blob/5a39c1f801ab0cad725a2b8711c0e0d46606a08b/src/utils/typeConverters.ts#L12
+import {promises, readdirSync} from 'fs';
+import {homedir} from 'os';
+import path, { resolve, sep } from 'path'
+//import * as glob from 'glob';
+//import  { globby } from 'globby'
+import FastGlob from 'fast-glob';
+import {TextDocument} from 'vscode-languageserver-textdocument';
 
+const completionsDir = resolve(homedir(), '.config', 'fish', 'completions')
+const functionsDir = resolve(homedir(), '.config', 'fish', 'functions')
+const configPath = resolve(homedir(), '.config', 'fish', 'config.fish')
+const builtinFunctionsDir = resolve('/', 'usr', 'share', 'fish', 'functions')
+const builtinCompletionsDir = resolve('/', 'usr', 'share', 'fish', 'completions')
 
-import  * as  LSP from 'vscode-languageserver';
-import { FishProtocol } from './fishProtocol';
-
-export namespace Range {
-
-    export const create = (start: LSP.Position, end: LSP.Position): LSP.Range => LSP.Range.create(start, end)
-    export const is = (value: any): value is LSP.Range => LSP.Range.is(value)
-
-    export const fromTextSpan = (span: FishProtocol.TextSpan): LSP.Range => fromLocations(span.start, span.end);
-
-    export const toTextSpan = (range: LSP.Range): FishProtocol.TextSpan => ({
-        start: Position.toLocation(range.start),
-        end: Position.toLocation(range.end),
-    });
-
-    export const fromLocations = (start: FishProtocol.Location, end: FishProtocol.Location): LSP.Range =>
-        LSP.Range.create(
-            Math.max(0, start.line - 1), Math.max(start.offset - 1, 0),
-            Math.max(0, end.line - 1), Math.max(0, end.offset - 1));
-
-    export const toFileRangeRequestArgs = (file: string, range: LSP.Range): FishProtocol.FileRangeRequestArgs => ({
-        file,
-        startLine: range.start.line + 1,
-        startOffset: range.start.character + 1,
-        endLine: range.end.line + 1,
-        endOffset: range.end.character + 1,
-    });
-
-    export const toFormattingRequestArgs = (file: string, range: LSP.Range): FishProtocol.FormatRequestArgs => ({
-        file,
-        line: range.start.line + 1,
-        offset: range.start.character + 1,
-        endLine: range.end.line + 1,
-        endOffset: range.end.character + 1,
-    });
-
-    export function intersection(one: LSP.Range, other: LSP.Range): LSP.Range | undefined {
-        const start = Position.Max(other.start, one.start);
-        const end = Position.Min(other.end, one.end);
-        if (Position.isAfter(start, end)) {
-            // this happens when there is no overlap:
-            // |-----|
-            //          |----|
-            return undefined;
-        }
-        return LSP.Range.create(start, end);
+export const FISH_LOCATIONS = {
+    configFile: configPath,
+    config: {
+        completions: completionsDir,
+        functions:  functionsDir, 
+    },
+    builtins: {
+        completions: builtinCompletionsDir,
+        functions: builtinFunctionsDir,
     }
 }
 
-export namespace Position {
+export async function getFishTextDocumentsFromStandardLocations() {
 
-    export const create = (line: number, character: number): LSP.Position => LSP.Position.create(line, character)
-    export const is = (value: any): value is LSP.Position => LSP.Position.is(value)
+    const paths = [`${homedir()}/.config/fish`, '/usr/share/fish'];
+    const allFiles: string[] = [];
 
-    export const fromLocation = (fishlocation: FishProtocol.Location): LSP.Position => {
-        // Clamping on the low side to 0 since Typescript returns 0, 0 when creating new file
-        // even though position is supposed to be 1-based.
-        return {
-            line: Math.max(fishlocation.line - 1, 0),
-            character: Math.max(fishlocation.offset - 1, 0),
-        };
-    };
-
-    export const toLocation = (position: LSP.Position): FishProtocol.Location => ({
-        line: position.line + 1,
-        offset: position.character + 1,
+    paths.forEach((path) => {
+        const files = FastGlob.sync("**.fish", {
+            absolute: true,
+            dot: true,
+            globstar: true,
+            deep: 5,
+            cwd: path,
+        });
+        allFiles.push(...files);
     });
 
-    export const toFileLocationRequestArgs = (file: string, position: LSP.Position): FishProtocol.FileLocationRequestArgs => ({
-        file,
-        line: position.line + 1,
-        offset: position.character + 1,
-    });
-
-    export function Min(): undefined;
-    export function Min(...positions: LSP.Position[]): LSP.Position;
-    export function Min(...positions: LSP.Position[]): LSP.Position | undefined {
-        if (!positions.length) {
-            return undefined;
-        }
-        let result = positions.pop()!;
-        for (const p of positions) {
-            if (isBefore(p, result)) {
-                result = p;
-            }
-        }
-        return result;
-    }
-    export function isBefore(one: LSP.Position, other: LSP.Position): boolean {
-        if (one.line < other.line) {
-            return true;
-        }
-        if (other.line < one.line) {
-            return false;
-        }
-        return one.character < other.character;
-    }
-    export function Max(): undefined;
-    export function Max(...positions: LSP.Position[]): LSP.Position;
-    export function Max(...positions: LSP.Position[]): LSP.Position | undefined {
-        if (!positions.length) {
-            return undefined;
-        }
-        let result = positions.pop()!;
-        for (const p of positions) {
-            if (isAfter(p, result)) {
-                result = p;
-            }
-        }
-        return result;
-    }
-    export function isAfter(one: LSP.Position, other: LSP.Position): boolean {
-        return !isBeforeOrEqual(one, other);
-    }
-    export function isBeforeOrEqual(one: LSP.Position, other: LSP.Position): boolean {
-        if (one.line < other.line) {
-            return true;
-        }
-        if (other.line < one.line) {
-            return false;
-        }
-        return one.character <= other.character;
-    }
+    // now allFiles contains every fish file that could be used in the workspace
+    return await Promise.all(allFiles.map(async file => {
+        const contents = await promises.readFile(file, 'utf8')
+        return TextDocument.create(file, 'fish', 0, contents || "")
+    }))
 }
 
-export namespace Location {
-    export const create = (uri: string, range: LSP.Range): LSP.Location => LSP.Location.create(uri, range)
-    export const is = (value: any): value is LSP.Location => LSP.Location.is(value)
-    export const fromTextSpan = (resource: LSP.DocumentUri, fishTextSpan: FishProtocol.TextSpan): LSP.Location =>
-        LSP.Location.create(resource, Range.fromTextSpan(fishTextSpan));
+
+// TODO: globby might not be necessary ? probably is though because you still need the uri's 
+//
+// @see https://code.visualstudio.com/api/references/vscode-api#workspace.registerFileSystemProvider
+// @see https://code.visualstudio.com/api/references/vscode-api#workspace.workspaceFolders
+//
+// @see https://github.com/microsoft/vscode-extension-samples/tree/main/lsp-multi-server-sample
+//       has workspace configuration in client
+//
+// @see bash-lsp using glob
+//      • https://github.com/bash-lsp/bash-language-server/blob/main/server/src/config.ts
+//      • https://github.com/bash-lsp/bash-language-server/blob/293f41cfcd881b9c3d99808469de0050896b9a1b/server/src/analyser.ts#L50
+//export async function getGlobalIndex(rootPath: string) : Promise<string[]> {
+//    const pattern: string = path.posix.join(homedir() ,'.config' , 'fish', '**.fish');
+//    // globby -> https://github.com/sindresorhus/globby#readme
+//    // patterns ->  https://github.com/sindresorhus/multimatch/blob/main/test/test.js
+//    // fast-glob -> https://github.com/mrmlnc/fast-glob#how-to-use-unc-path
+//    // note: fast-glob is used under the hood, and the second param of options 
+//    //       is from @types/fast-glob
+//    //return await globby([pattern], {onlyFiles: true, absolute: true})
+//
+//    //return new Promise(glob.default(
+//    //    pattern,
+//    //    { cwd: rootPath, nodir: true, absolute: true, strict: false },
+//    //    function (err, files) {
+//    //        if (err) {
+//    //            return Promise.reject(err)
+//    //        }
+//
+//    //        Promise.resolve(files)
+//    //    },
+//    //))
+//}
+
+export async function readFishDir(dir: string): Promise<string[]> {
+    let files: string[] = []
+    try {
+        files = readdirSync(dir, {encoding:'utf8', withFileTypes: false})
+    } catch (e) {
+        console.log(e)
+    }
+    return files.map(file => dir + sep + file.toString())
 }
 
+export async function getAllFishLocations(): Promise<string[]> {
+    const allDirs = [
+        FISH_LOCATIONS.config.completions,
+        FISH_LOCATIONS.config.functions,
+    ]
+    //FISH_LOCATIONS.builtins.functions,
+    //FISH_LOCATIONS.builtins.completions,
+    const files: string[] = []
+    for (const loc of allDirs) {
+        const newFiles = await readFishDir(loc)
+        files.push(...newFiles)
+    }
+    files.push(FISH_LOCATIONS.configFile)
+    return files;
+}

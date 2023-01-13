@@ -1,0 +1,186 @@
+Fri Oct 28 01:23:33 PM CDT 2022
+
+
+[Logger] set console to RemoteConsole: 2022-10-28T18:23:37.533Z
+onDidOpenTextDocument
+server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDidChangeTextDocument
+onDidChangeTextDocument
+onDidChangeTextDocument
+onDidChangeTextDocument
+onDocumentSymbols
+onDidChangeTextDocument
+onDidChangeTextDocument
+onDocumentSymbols
+server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDidChangeTextDocument
+server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDidChangeTextDocument
+server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDidChangeTextDocument
+server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDidChangeTextDocument
+server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDidChangeTextDocument
+server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDidChangeTextDocument
+onDocumentSymbols
+getDefinition
+{
+	node: argv
+	type: variable_name
+	start: (10, 50)
+	end: (10, 54)
+}
+onDidChangeTextDocument
+server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDidChangeTextDocument
+onDocumentSymbols
+onDidChangeTextDocument
+onDocumentSymbols
+server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDidChangeTextDocument
+server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+onDidChangeTextDocument
+onDidChangeTextDocument
+onDocumentSymbols
+onDidChangeTextDocument
+onDidChangeTextDocument
+onDocumentSymbols
+server.onCompletefile:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+
+[Logger] set console to RemoteConsole: 2022-12-08T09:16:08.809Z
+
+[Logger] set console to RemoteConsole: 2022-12-08T09:17:20.262Z
+onDidOpenTextDocument
+onDocumentSymbols
+server.onCompletefile:///home/ndonfris/.config/fish/functions/get-os-name.fish
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDidChangeTextDocument
+onDocumentSymbols
+getDefinition
+{
+	node: os_name
+	type: variable_name
+	start: (5, 19)
+	end: (5, 26)
+}
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+getDefinition
+{
+	node: os_name
+	type: variable_name
+	start: (5, 19)
+	end: (5, 26)
+}
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+
+[Logger] set console to RemoteConsole: 2022-12-08T09:18:41.364Z
+onDidOpenTextDocument
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+getDefinition
+{
+	node: os_name
+	type: variable_name
+	start: (5, 19)
+	end: (5, 26)
+}
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+
+[Logger] set console to RemoteConsole: 2022-12-08T20:39:43.213Z
+onDidOpenTextDocument
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDidChangeTextDocument
+onDocumentSymbols
+onDidChangeTextDocument
+server.onCompletefile:///home/ndonfris/.config/fish/functions/get-os-name.fish
+onDocumentSymbols
+onDidChangeTextDocument
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+
+[Logger] set console to RemoteConsole: 2022-12-08T21:20:54.990Z
+onDidOpenTextDocument
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDidChangeTextDocument
+onDidChangeTextDocument
+server.onCompletefile:///home/ndonfris/.config/fish/functions/get-os-name.fish
+onDocumentSymbols
+onDidChangeTextDocument
+onDidChangeTextDocument
+onDidChangeTextDocument
+server.onCompletefile:///home/ndonfris/.config/fish/functions/get-os-name.fish
+onDocumentSymbols
+onDidChangeTextDocument
+server.onCompletefile:///home/ndonfris/.config/fish/functions/get-os-name.fish
+onDocumentSymbols
+server.onCompletefile:///home/ndonfris/.config/fish/functions/get-os-name.fish
+server.onCompletefile:///home/ndonfris/.config/fish/functions/get-os-name.fish
+server.onCompletefile:///home/ndonfris/.config/fish/functions/get-os-name.fish
+onDidChangeTextDocument
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+
+[Logger] set console to RemoteConsole: 2022-12-08T21:21:40.831Z
+onDidOpenTextDocument
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
+onDocumentSymbols
