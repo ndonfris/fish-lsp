@@ -144,25 +144,6 @@ export default class FishServer {
         this.connection.console.log("FINISHED FishLsp.register()")
     }
 
-
-    onRequest(command: string): LSP.ServerRequestHandler<ExecuteCommandParams, any, never, void> {
-        let h : ServerRequestHandler<ExecuteCommandParams, any | undefined | null, never, void>;
-        switch (command) {
-            case Commands.HOVER:
-                h = async ( params, token, workDoneProgress, resultProgress) =>{
-                    this.connection.onRequest('onHover', this.connection.onHover)
-                }
-            case Commands.RENAME:
-            case Commands.FORMAT:
-            default: 
-                h  = async ( params, token, workDoneProgress, resultProgress) => {
-                    this.connection.onRequest('onHover', this.onHover).dispose()
-                }
-        }
-        return h 
-        //throw new Error('Method not implemented.');
-    }
-
     didOpenTextDocument(params: DidOpenTextDocumentParams): void {
         this.logger.log("[FishLsp.onDidOpenTextDocument()]")
         this.logger.log(JSON.stringify({params}, null, 2))
@@ -246,9 +227,9 @@ export default class FishServer {
         const line: string = doc.getLineBeforeCursor(params.position)
         if (line.trimStart().startsWith("#")) return null;
         const root = this.analyzer.getRootNode(doc)
-        const currNode = this.analyzer.nodeAtPoint(doc.uri, pos.line, pos.character - 1);
-        const currCommand = this.analyzer.commandAtPoint(doc.uri, pos.line, line.trimEnd().length - 1)
-        const word = this.analyzer.wordAtPoint(doc.uri, pos.line, pos.character-1)
+        const currNode = this.analyzer.nodeAtPoint(doc, pos.line, pos.character - 1);
+        const currCommand = this.analyzer.commandAtPoint(doc, pos.line, line.trimEnd().length - 1)
+        const word = this.analyzer.wordAtPoint(doc, pos.line, pos.character-1)
         if (!currNode || !root) return null;
         const items: CompletionItem[] = workspaceSymbolToCompletionItem(nearbySymbols(root, currNode)); // collectDocumentSymbols(root, doc.uri, [])
         this.logger.log(`onComplete: ${uri} : ${line} : ${currCommand?.text.toString()}`)
@@ -521,7 +502,7 @@ export default class FishServer {
         const doc = this.docs.get(uri);
         if (!doc || !uri) return {};
         const root = this.getRootNode(doc.getText());
-        const current = this.analyzer.nodeAtPoint(doc.uri, params.position.line, params.position.character);
+        const current = this.analyzer.nodeAtPoint(doc, params.position.line, params.position.character);
         return {doc, uri, root, current}
     }
 

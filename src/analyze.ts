@@ -66,8 +66,8 @@ export class Analyzer {
     /**
      * Find the node at the given point.
      */
-    public nodeAtPoint(uri: string, line: number, column: number): Parser.SyntaxNode | null {
-        const tree = this.uriTree[uri]
+    public nodeAtPoint(document: LspDocument, line: number, column: number): Parser.SyntaxNode | null {
+        const tree = this.uriTree[document.uri]
         // Check for lacking rootNode (due to failed parse?)
         if (!tree?.rootNode) {  
             return null;
@@ -75,8 +75,8 @@ export class Analyzer {
         return tree.rootNode.descendantForPosition({ row: line, column });
     }
 
-    public namedNodeAtPoint(uri: string, line: number, column: number): Parser.SyntaxNode | null {
-        const tree = this.uriTree[uri]
+    public namedNodeAtPoint(document: LspDocument, line: number, column: number): Parser.SyntaxNode | null {
+        const tree = this.uriTree[document.uri]
         // Check for lacking rootNode (due to failed parse?)
         if (!tree.rootNode) { 
             return null;
@@ -84,15 +84,15 @@ export class Analyzer {
         return tree.rootNode.namedDescendantForPosition({ row: line, column });
     }
 
-    public wordAtPoint(uri: string, line: number, column: number): string | null {
-        const node = this.nodeAtPoint(uri, line, column)
+    public wordAtPoint(document: LspDocument, line: number, column: number): string | null {
+        const node = this.nodeAtPoint(document, line, column)
         if (!node || node.childCount > 0 || node.text.trim() === '') return null;
 
         return node.text.trim();
     }
 
-    public commandAtPoint(uri: string, line: number, column: number): SyntaxNode | null {
-        const tree = this.uriTree[uri]
+    public commandAtPoint(document: LspDocument, line: number, column: number): SyntaxNode | null {
+        const tree = this.uriTree[document.uri]
         if (tree === undefined) return null;
         const node = findNodeAt(tree, line, column)
         const parent = node?.parent;
