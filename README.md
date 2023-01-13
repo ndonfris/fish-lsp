@@ -1,14 +1,16 @@
 # CURRENT TODO
 
 - [ ] [server.ts]( ./src/server.ts )
-    - [ ] onFold
-    - [ ] onCommand
-    - [ ] onComplete
-    - [ ] diagnostics
+    - [x] onFold
+    - [x] onComplete
+        - [ ] still needs minor tweaks to support chained short options 
+        - [x] support ranges
+    - [x] diagnostics
+        - [ ] ideas for more here
 - [x] [documentation.ts]( ./src/documentation.ts 
 - [x] [analysis.ts]( ./src/analyzer.ts )
     - [x] implement diagnostics
-    - [ ] `getCommandAtLine()` for onComplete()/onHover()
+    - [x] `getCommandAtLine()` for onComplete()/onHover()
 - [ ] [completion.ts]( ./src/completion.ts )
     - [x] fix/update to v.8.0.2 with `editRange` in `CompletionList.create()`
     - [ ] fix WorkspaceSymbol/DocumentSymbol completions
