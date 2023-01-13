@@ -128,7 +128,6 @@ export default class FishServer {
         // • https://github.com/Dart-Code/Dart-Code/blob/7df6509870d51cc99a90cf220715f4f97c681bbf/src/providers/dart_completion_item_provider.ts#L197-202
         this.connection.onCompletion(this.onCompletion.bind(this))
         this.connection.onCompletionResolve(this.onCompletionResolve.bind(this)),
-        //this.connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
 
         this.connection.onDocumentSymbol(this.onDocumentSymbols.bind(this));
         this.connection.onDefinition(this.onDefinition.bind(this));
@@ -139,38 +138,11 @@ export default class FishServer {
         this.connection.onDocumentRangeFormatting(this.onDocumentRangeFormatting.bind(this));
         this.connection.onCodeAction(this.onCodeAction.bind(this));
         this.connection.onFoldingRanges(this.onFoldingRanges.bind(this))
-        this.connection.languages.inlayHint.on(this.onInlayHints.bind(this));
-        //executeCommandHandler;
-        //this.connection.onExecuteCommand(this.onExecuteCommand.bind(this));
-        //this.connection.onRequest('onHover', this.onHover.bind(this));
+        //this.connection.languages.inlayHint.on(this.onInlayHints.bind(this));
+        //this.connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
         this.connection.console.log("FINISHED FishLsp.register()")
     }
 
-
-    async onExecuteCommand(params: ExecuteCommandParams): Promise<any> {
-        this.connection.window.showInformationMessage(`FishLsp: ${params.command} executed`)
-        this.logger.log('executeCommand: ' + params.command);
-        this.logger.logCommand(params);
-        //const args = params.arguments?.shift() || {};
-        //switch (params.command) {
-        //    case Commands.HOVER:
-        //        break;
-        //    case Commands.RENAME:
-        //        //if (CommandParams.isRenameParams(params)) await this.connection.sendRequest('rename', params, token)
-        //        break;
-        //    case Commands.FORMAT: 
-        //        if (CommandParams.isDocumentFormattingParams(params)) await this.onDocumentFormatting(params);
-        //        break;
-        //    //case Commands.APPLY_REFACTORING:
-        //    default:
-        //        this.logger.log(`Unknown command ${params.command}`);
-        //        return
-
-        //}
-        //this.connection.window.showInformationMessage(`FishLsp: ${params.command} Completed`)
-
-        //this.connection.onExecuteCommand(this.connection.onHover.bind(this.onHover))
-    }
 
     onRequest(command: string): LSP.ServerRequestHandler<ExecuteCommandParams, any, never, void> {
         let h : ServerRequestHandler<ExecuteCommandParams, any | undefined | null, never, void>;
