@@ -1,13 +1,12 @@
 import { exec, execFile, execFileSync } from 'child_process';
-import {promises} from 'fs';
+import {promises, readFile} from 'fs';
 import {resolve} from 'path';
 import { promisify } from 'util';
+import {URI} from 'vscode-uri';
 
 const execAsync = promisify(exec);
 
 const execFileAsync = promisify(execFile)
-
-
 
 /**
  * @async execEscapedComplete() - executes the fish command with 
@@ -31,6 +30,21 @@ export async function execEscapedCommand(cmd: string): Promise<string[]> {
 }
 
 
+export async function execFormatter(path: string) {
+    const child = await execEscapedCommand(`fish_indent ${path}`);
+    return child.join('\n');
+}
+
+export async function execInlayHintType(...cmd: string[]): Promise<string> {
+    const child = await execEscapedCommand(`type -t ${cmd.join(' ')} 2>/dev/null`);
+    return child.join(' ');
+}
+
+export async function execCompletions(...cmd: string[]) : Promise<string[]> {
+    const file = resolve(__dirname, '../../fish_files/get-completion.fish')
+    const cmps = await execFileAsync(file, cmd)
+    return cmps.stdout.trim().split('\n')
+}
 
 export async function execCompleteLine(cmd: string): Promise<string[]> {
     const escapedCommand = cmd.replace(/(["'$`\\])/g,'\\$1');
@@ -40,6 +54,7 @@ export async function execCompleteLine(cmd: string): Promise<string[]> {
 
     return child.stdout.trim().split('\n')
 }
+
  export async function execCompleteSpace(cmd: string): Promise<string[]> {
     const escapedCommand = cmd.replace(/(["'$`\\])/g,'\\$1');
     const completeString = `fish -c 'complete --do-complete="${escapedCommand} "'`;
@@ -90,11 +105,7 @@ export async function execCompleteAbbrs(): Promise<string[]> {
 
 export async function execCommandDocs(cmd: string): Promise<string> {
     const file = resolve(__dirname, '../../fish_files/get-documentation.fish')
-    //const cmdArr = cmd.split(' ')
     const docs = await execFileAsync(file, [cmd])
-    if (docs.stderr) {
-        return ''
-    }
     const out =  docs.stdout
     return out.toString().trim()
 }
@@ -161,7 +172,7 @@ export async function execFindDependency(cmd: string): Promise<string> {
         .map(subcmd => subcmd[0].trim())
 }
 
-export async function execComplete(cmd: string[]): Promise<string[]> {
+export async function execComplete(...cmd: string[]): Promise<string[]> {
     const exec = resolve(__dirname, '../../fish_files/get-command-options.fish')
     const args = execFileSync(exec, cmd)
     const results = args.toString().trim().split('\n')
@@ -184,6 +195,12 @@ export async function execComplete(cmd: string[]): Promise<string[]> {
 }
 
 
+// open the uri and read the file
+export async function execOpenFile(uri: string): Promise<string> {
+    const fileUri = URI.parse(uri).fsPath
+    const file = await promises.readFile(fileUri.toString(), 'utf8')
+    return file.toString()
+}
 
 
 export async function execCompleteGlobalDocs(cmd: string): Promise<string> {

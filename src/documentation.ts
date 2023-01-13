@@ -1,4 +1,4 @@
-import {CompletionItem} from 'vscode-languageserver';
+import {CompletionItem, FormattingOptions} from 'vscode-languageserver';
 import {Hover, MarkupContent, MarkupKind} from 'vscode-languageserver-protocol/node';
 import {SyntaxNode} from 'web-tree-sitter';
 import {hasPossibleSubCommand} from './utils/builtins';
@@ -58,14 +58,23 @@ export function enrichCommandArg(doc: string): MarkupContent {
 }
 
 
+export function enrichCommandWithFlags(command: string, flags: string[]): MarkupContent {
+    const retString = [
+        `___${command}___`,
+        '___',
+        flags.map(line => line.split('\t'))
+            .map(line => `__${line[0]}__ _${line.slice(1).join(' ')}_`)
+            .join('\n')
+    ].join('\n')
+    return enrichToMarkdown(retString)
+}
+
 export function enrichToPlainText(doc: string): MarkupContent  {
     return {
         kind: MarkupKind.PlainText,
         value: doc.trim()
     }
 }
-
-
 
 export async function documentationHoverProvider(cmd: string) : Promise<Hover | null> {
     const cmdDocs = await execCommandDocs(cmd);
@@ -78,6 +87,25 @@ export async function documentationHoverProvider(cmd: string) : Promise<Hover | 
             contents: cmdType == 'command' 
             ? enrichToCodeBlockMarkdown(cmdDocs, 'man')
             : enrichToCodeBlockMarkdown(cmdDocs, 'fish')
+        }
+    }
+}
+
+export async function documentationHoverProviderForBuiltIns(cmd: string): Promise<Hover | null> {
+    const cmdDocs: string = await execCommandDocs(cmd);
+    if (!cmdDocs) return null
+    const splitDocs = cmdDocs.split('\n');
+    const startIndex = splitDocs.findIndex((line: string) => line.trim() === 'NAME')
+    return {
+        contents: {
+            kind: MarkupKind.Markdown,
+            value: [
+                `__${cmd.toUpperCase()}__ - _https://fishshell.com/docs/current/cmds/${cmd.trim()}.html_`,
+                `___`,
+                '```man',
+                splitDocs.slice(startIndex).join('\n'),
+                '```'
+            ].join('\n')
         }
     }
 }
