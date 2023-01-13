@@ -63,5 +63,11 @@ export class ConfigManager {
         return this.preferences.formatting;
     }
 
+    // @TODO: write config
+    public getInlayHintsEnabled() : boolean {
+        return true;
+    }
+
 }
+
 

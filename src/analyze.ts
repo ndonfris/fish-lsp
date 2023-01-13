@@ -1,6 +1,7 @@
 import { CompletionItem, Connection, Diagnostic, DocumentUri, Hover, Location, Position, PublishDiagnosticsParams, RemoteConsole, TextDocumentPositionParams, } from "vscode-languageserver";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import Parser, { SyntaxNode, Point, Range, Tree } from "web-tree-sitter";
+import * as LSP from 'vscode-languageserver';
 //import {collectFishSymbols, FishSymbol} from './symbols';
 import {containsRange} from './workspace-symbol'
 import {SymbolKind} from 'vscode-languageserver';
@@ -110,6 +111,15 @@ export class Analyzer {
             }
         }
         return null;
+    }
+
+    public getNodes(document: LspDocument): SyntaxNode[] {
+        return getChildNodes(this.parser.parse(document.getText()).rootNode);
+    }
+
+    public getNodesInRange(document: LspDocument, range: LSP.Range): SyntaxNode[] {
+        const root = this.parser.parse(document.getText()).rootNode;
+        return getChildNodes(root).filter(node => containsRange(range, getRange(node)));
     }
 
 }

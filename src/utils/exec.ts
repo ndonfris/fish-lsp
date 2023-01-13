@@ -35,6 +35,11 @@ export async function execFormatter(path: string) {
     return child.join('\n');
 }
 
+export async function execInlayHintType(...cmd: string[]): Promise<string> {
+    const child = await execEscapedCommand(`type -t ${cmd.join(' ')} 2>/dev/null`);
+    return child.join(' ');
+}
+
 export async function execCompletions(...cmd: string[]) : Promise<string[]> {
     const file = resolve(__dirname, '../../fish_files/get-completion.fish')
     const cmps = await execFileAsync(file, cmd)

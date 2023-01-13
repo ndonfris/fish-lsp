@@ -2,7 +2,7 @@ import Parser, {SyntaxNode} from "web-tree-sitter";
 import { initializeParser } from "./parser";
 import { Analyzer } from "./analyze";
 import { buildRegexCompletions, workspaceSymbolToCompletionItem, generateShellCompletionItems, insideStringRegex, buildDefaultCompletionItems, createCompletionList, } from "./completion";
-import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, ExecuteCommandParams, ServerRequestHandler, FoldingRangeParams, FoldingRange, Position } from "vscode-languageserver";
+import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, ExecuteCommandParams, ServerRequestHandler, FoldingRangeParams, FoldingRange, Position, InlayHintParams } from "vscode-languageserver";
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
 import { FishCompletionItem, } from './utils/completion-types';
@@ -24,6 +24,7 @@ import {FishProtocol} from './utils/fishProtocol';
 import {Commands, /*executeCommandHandler*/} from './commands';
 import {isFunctionDefinition} from './utils/node-types';
 import {handleConversionToCodeAction} from './diagnostics/handleConversion';
+import {FishShellInlayHintsProvider} from './features/inlay-hints';
 
 export type SupportedFeatures = {
     codeActionDisabledSupport : boolean;
@@ -111,6 +112,7 @@ export default class FishServer {
                 documentSymbolProvider: {
                     label: "Fish-LSP",
                 },
+                inlayHintProvider: true,
             }
         }
         return result;
@@ -137,6 +139,7 @@ export default class FishServer {
         this.connection.onDocumentRangeFormatting(this.onDocumentRangeFormatting.bind(this));
         this.connection.onCodeAction(this.onCodeAction.bind(this));
         this.connection.onFoldingRanges(this.onFoldingRanges.bind(this))
+        this.connection.languages.inlayHint.on(this.onInlayHints.bind(this));
         //executeCommandHandler;
         //this.connection.onExecuteCommand(this.onExecuteCommand.bind(this));
         //this.connection.onRequest('onHover', this.onHover.bind(this));
@@ -511,8 +514,19 @@ export default class FishServer {
             const res = handleConversionToCodeAction(diagnostic, root, document)
             if (res) results.push(res)
         }
-
         return results
+    }
+
+    // works but is super slow and resource intensive, plus it doesn't really display much
+    async onInlayHints(params: InlayHintParams) {
+        return await FishShellInlayHintsProvider.provideInlayHints(
+            params.textDocument.uri,
+            params.range,
+            this.docs,
+            this.analyzer,
+            this.config
+        );
+
     }
 
     /////////////////////////////////////////////////////////////////////////////////////

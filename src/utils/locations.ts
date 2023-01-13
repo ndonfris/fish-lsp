@@ -55,12 +55,12 @@ export namespace Position {
     export const create = (line: number, character: number): LSP.Position => LSP.Position.create(line, character)
     export const is = (value: any): value is LSP.Position => LSP.Position.is(value)
 
-    export const fromLocation = (tslocation: FishProtocol.Location): LSP.Position => {
+    export const fromLocation = (fishlocation: FishProtocol.Location): LSP.Position => {
         // Clamping on the low side to 0 since Typescript returns 0, 0 when creating new file
         // even though position is supposed to be 1-based.
         return {
-            line: Math.max(tslocation.line - 1, 0),
-            character: Math.max(tslocation.offset - 1, 0),
+            line: Math.max(fishlocation.line - 1, 0),
+            character: Math.max(fishlocation.offset - 1, 0),
         };
     };
 
