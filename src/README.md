@@ -1,6 +1,12 @@
 tree-sitter-fish
 ================
 
+##TODO: 
+- [ ] clean up [hover](./hover.ts), and support completions having multiple short options
+    chained together
+
+
+
 Fish grammar for [tree-sitter](https://github.com/tree-sitter/tree-sitter).
 
 ### Development

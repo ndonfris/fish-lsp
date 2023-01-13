@@ -6,6 +6,7 @@ import {execCommandDocs, execCommandType, CompletionArguments, execCompleteSpace
 import {findParentCommand} from './utils/node-types';
 import {getChildNodes, getNodeText} from './utils/tree-sitter';
 
+//////// @TODO: clean up this file
 
 export type markdownFiletypes = 'fish' | 'man';
 
