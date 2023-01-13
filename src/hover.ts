@@ -1,7 +1,7 @@
 import * as LSP from 'vscode-languageserver';
 import {Hover, MarkedString, MarkupKind} from 'vscode-languageserver';
 import * as Parser from 'web-tree-sitter';
-import {documentationHoverProvider, enrichCommandWithFlags, enrichToCodeBlockMarkdown} from './documentation';
+import {documentationHoverProvider, documentationHoverProviderForBuiltIns, enrichCommandWithFlags, enrichToCodeBlockMarkdown} from './documentation';
 import {isBuiltIn} from './utils/completion-types';
 import {execCommandDocs, execComplete, execCompletions} from './utils/exec';
 import {isCommand, isCommandName} from './utils/node-types';
@@ -14,7 +14,7 @@ export async function handleHover(uri: string, root: Parser.SyntaxNode, current:
         return await getHoverForFlag(current)
     } 
     if (isBuiltIn(current.text)) {
-        return await documentationHoverProvider(current.text)
+        return await documentationHoverProviderForBuiltIns(current.text)
     }
     const local = Symbols.getMostRecentReference(uri, root, current);
     if (local) {

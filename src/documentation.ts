@@ -76,8 +76,6 @@ export function enrichToPlainText(doc: string): MarkupContent  {
     }
 }
 
-
-
 export async function documentationHoverProvider(cmd: string) : Promise<Hover | null> {
     const cmdDocs = await execCommandDocs(cmd);
     const cmdType = await execCommandType(cmd);
@@ -89,6 +87,25 @@ export async function documentationHoverProvider(cmd: string) : Promise<Hover | 
             contents: cmdType == 'command' 
             ? enrichToCodeBlockMarkdown(cmdDocs, 'man')
             : enrichToCodeBlockMarkdown(cmdDocs, 'fish')
+        }
+    }
+}
+
+export async function documentationHoverProviderForBuiltIns(cmd: string): Promise<Hover | null> {
+    const cmdDocs: string = await execCommandDocs(cmd);
+    if (!cmdDocs) return null
+    const splitDocs = cmdDocs.split('\n');
+    const startIndex = splitDocs.findIndex((line: string) => line.trim() === 'NAME')
+    return {
+        contents: {
+            kind: MarkupKind.Markdown,
+            value: [
+                `__${cmd.toUpperCase()}__ - _https://fishshell.com/docs/current/cmds/${cmd.trim()}.html_`,
+                `___`,
+                '```man',
+                splitDocs.slice(startIndex).join('\n'),
+                '```'
+            ].join('\n')
         }
     }
 }
