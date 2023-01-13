@@ -1,7 +1,7 @@
 import { CompletionItem, Connection, Diagnostic, DocumentUri, Hover, Location, Position, PublishDiagnosticsParams, RemoteConsole, TextDocumentPositionParams, } from "vscode-languageserver";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import Parser, { SyntaxNode, Point, Range, Tree } from "web-tree-sitter";
-import {collectFishSymbols, FishSymbol, FishSymbolMap} from './symbols';
+//import {collectFishSymbols, FishSymbol} from './symbols';
 import {containsRange} from './workspace-symbol'
 import {SymbolKind} from 'vscode-languageserver';
 import {findNodeAt, getChildNodes, getRange} from './utils/tree-sitter';

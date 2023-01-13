@@ -18,7 +18,7 @@ import {
     enrichWildcard,
 } from "./documentation";
 //import {logger} from './logger';
-import { FishSymbol } from "./symbols";
+//import { FishSymbol } from "./symbols";
 import {
     BuiltInList,
     escapeChars,
