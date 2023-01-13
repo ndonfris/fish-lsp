@@ -7,9 +7,6 @@ import {
     RemoteConsole,
     SymbolKind,
     TextDocumentPositionParams,
-    Range,
-    Command,
-    ExecuteCommandParams,
 } from "vscode-languageserver";
 import {TextDocument} from 'vscode-languageserver-textdocument';
 import {URI, Utils} from 'vscode-uri';
@@ -38,29 +35,40 @@ export interface LogOptions {
 }
 
 
-export class Logger {
-    //private static instance : Logger;
+class Logger {
+    private static instance : Logger;
 
-    private LOGFILE: string = resolve('/home/ndonfris/repos/fish-lang-server/logs.txt')
+    private static log_file: string = resolve('/home/ndonfris/repos/fish-lang-server/logs.txt')
     public enabled = true;     // logger.enabled would disable all log messages
     public hasRemote = false; // so that checking which console is possible
-    private _console: RemoteConsole | null = null;
+    private _console: RemoteConsole | Console;
     private timer: LogTimer ;
 
-    constructor(connection: Connection, LOGFILE?: string) {
-        this.hasRemote = false;
-        this._console = connection.console;
-        this.timer = new LogTimer()
-        if (LOGFILE) {
-            this.LOGFILE = LOGFILE
+    public static getInstance() {
+        if (!Logger.instance) {
+            Logger.instance = new Logger();
         }
+        return Logger.instance;
+    }
+
+    private constructor() {
+        this.hasRemote = false;
+        this._console = console;
+        this.timer = new LogTimer()
+    }
+
+    public setConsole(console: RemoteConsole) {
+        this.hasRemote = true;
+        this._console = console;
+        const logStr = "\n[Logger] set console to RemoteConsole: " + new Date().toISOString();
+        this.log(logStr);
     }
 
     get console() {
-        if (!this._console) {
-            throw new Error("Logger has no connection.console");
+        if (!Logger.instance) {
+            Logger.instance = new Logger();
         }
-        return this._console;
+        return Logger.instance._console;
     }
 
     public logOpts(opts: LogOptions) {
@@ -96,7 +104,7 @@ export class Logger {
         const output = '\n'+ msg;
         this.console.log(msg);
         try {
-            appendFileSync(this.LOGFILE, output)
+            appendFileSync(Logger.log_file, output)
         } catch (err) {
             this.console.log("ERROR appending to file. " + err)
         }
@@ -114,8 +122,6 @@ export class Logger {
             this.log('node is null or undefined')
         }
     }
-
-
     public logDocumentSymbol(docSym: DocumentSymbol | null | undefined, info="") {
         if (docSym) {
             if (info === "") {
@@ -129,23 +135,7 @@ export class Logger {
         }
     }
 
-    public logCommand(command: ExecuteCommandParams) {
-        const args = command.arguments?.map((arg, i) => `arg_${i}: ${JSON.stringify(arg)}`).join('\n');
-        this.log(command.toString() + '\n' + args)
-    }
-
-    public logRange(range: Range, text?: string) {
-        if (text !== undefined) {
-            this.log(text)
-        }
-        this.log(`position (character: ${range.start.character.toString()}, line: ${range.start.line.toString()})`);
-        this.log(`position (character: ${range.end.character.toString()}, line: ${range.end.line.toString()})`);
-    }
-
-    public logPosition(position: Position, text?: string) {
-        if (text) {
-            this.console.log(text)
-        }
+    public logPosition(position: Position) {
         this.console.log(`position (character: ${position.character}, line: ${position.line})`);
     }
 
@@ -393,7 +383,7 @@ function getLogTitle(opts: LogOptions) {
 }
 
 
-//export const logger = Logger.getInstance();
+export const logger = Logger.getInstance();
 
 
 

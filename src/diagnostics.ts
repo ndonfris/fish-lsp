@@ -16,7 +16,7 @@ import {
     SymbolKind,
 } from "vscode-languageserver/node";
 import { SyntaxNode } from "web-tree-sitter";
-//import { SyntaxTree } from "./analyze";
+import { SyntaxTree } from "./analyze";
 //import {LspDocuments} from './document';
 import { isBuiltin } from "./utils/builtins";
 import {execFindDependency} from './utils/exec';
@@ -24,7 +24,7 @@ import {
     findFunctionScope,
     isBeforeCommand,
     isCommand,
-    isFunctionDefinition,
+    isFunctionDefinintion,
     isStatement,
     isVariable,
 } from "./utils/node-types";
@@ -74,8 +74,12 @@ export class FishDiagnostics {
 
     private locations: Location[];
     private symbols: Map<string, SymbolInformation[]>;
+    //private tree: SyntaxTree;
+    //private uri: string;
 
     constructor() {
+        //this.uri = uri
+        //this.tree = tree;
         this.locations = [];
         this.symbols = new Map<string, SymbolInformation[]>();
         // this.diagnostics = diagnostics
@@ -90,14 +94,139 @@ export class FishDiagnostics {
     // TODO: ...stuff...
     //
 
+    public async initializeLocations(uri: string, tree: SyntaxTree) {
+        for (const func of tree.functions) {
+            this.locations.push(Location.create(uri, getRange(func)))
+        }
+        for (const variable of tree.variable_definitions) {
+            this.locations.push(Location.create(uri, getRange(variable)))
+        }
+        for (const cmd of tree.commands) {
+            const cmdDep = await execFindDependency(cmd.child(0)!.text)
+        }
+
+    }
+
+    //public async initializeDocSymbols() {
+    //    const tree = this.tree;
+    //    for (const func of tree.functions) {
+    //        const funcDef = func.child(1)!
+    //        const funcName = funcDef.text || ""
+    //        const funcKind = getSymbolKind(func)
+    //        const funcText = func.text
+    //        const funcRange = getRange(func)
+    //        const defRange = getRange(funcDef)
+    //        this.symbols.push(DocumentSymbol.create(funcName, funcText, funcKind, funcRange, defRange))
+    //    }
+    //}
+
 }
 
 
 // might be better to just create on the fly, and only show inlayHints for current document
 // tldr signature would be nice
-//export class FishSymbol
+export class FishSymbol {
+    private kind: SymbolKind;
+    private name: string;
+    private range: Range;
+    private uri: DocumentUri;
+    private location: Location;
+    private refrences: Location[] = [];
+    private containerName?: string;
+    private symbolInfo: SymbolInformation;
+
+    private children: FishSymbol[] = [];
+
+    constructor(name: string, node: SyntaxNode, uri: DocumentUri, containerName?: string) {
+        this.name = name;
+        this.kind = getSymbolKind(node)
+        this.range = getRange(node)
+        this.uri = uri;
+        const possibleParent = findFunctionScope(node)
+        if (containerName != "") {
+            this.containerName = containerName
+        }else if (possibleParent)  {
+            this.containerName = possibleParent.child(1)!.text
+        }
+        this.location = Location.create(uri, this.range)
+        this.symbolInfo = SymbolInformation.create(this.name, this.kind, this.range, this.uri, this.containerName)
+    }
+
+    getName() {
+        return this.name
+    }
+
+    getUri() {
+        return this.uri
+    }
+
+    getSymbolInfo() {
+        return this.symbolInfo
+    }
+
+    addChild( node: SyntaxNode ) {
+        const child = new FishSymbol(this.name, node, this.uri, this.name)
+        this.children.push(child)
+    }
+
+    getLocalLocations() {
+        const locations = []
+        for (const child of this.children.values()) {
+            locations.push(child.location)
+        }
+        return locations;
+    }
+
+    addRefrence(uri: string, node: SyntaxNode) {
+        this.refrences.push(Location.create(uri, getRange(node)))
+    }
 
 
+    getGlobalLocations() {
+        return this.refrences
+    }
+
+    getAllLocations() {
+        return [
+            ...this.refrences,
+            ...this.children.map(child => child.location)
+        ]
+    }
+
+    getRefrenceCount() {
+        return this.getAllLocations().length
+    }
+
+    getDefinintion() {
+        return this.location
+    }
+}
+
+//export function buildSymbol(tree: SyntaxTree, documents: LspDocuments) {
+//    
+//
+//}
+//
+
+export function getSymbolKind(node: SyntaxNode): SymbolKind {
+    if (isVariable(node)) {
+        return SymbolKind.Variable;
+    } else if (isFunctionDefinintion(node)) {
+        return SymbolKind.Function;
+    } else if (isStatement(node)) {
+        return SymbolKind.Namespace;
+    } else if (isCommand(node)) {
+        const text = node.child(0)?.text
+        if (text && isBuiltin(text)) {
+            return SymbolKind.Struct;
+        }
+        return SymbolKind.File;
+    } else if (isBeforeCommand(node)) {
+        return SymbolKind.Interface;
+    } else {
+        return SymbolKind.Field;
+    }
+}
 
 //
 //  goto defintion
