@@ -1,447 +1,71 @@
-Thu Jan 12 02:16:16 PM CST 2023
+Thu Jan 12 02:31:17 PM CST 2023
 
-{"item":{"label":"[","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"[","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
 [onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
 closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[FishLsp.onDidOpenTextDocument()]
-{
-  "params": {
-    "textDocument": {
-      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
-      "languageId": "fish",
-      "version": 1,
-      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\"; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    set -gx asdf g\n\n    set --unpath vPATH var\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction __pass_func\n    if test -n \"$argv\"\n        echo pass\n        return 0\n    else if test -z \"$argv\"\n        return 0\n    else\n        echo fail\n    end\n    set --universal asdf g\nend\n\n\nfunction pass_func\n    echo $file \n    lsd  --all  --almost-all --classic -F \n    if test  -n \"$\"\n        echo pass\n    else if test -z \"$argv\"\n        echo fail  \n\n    end\nend\n"
-    }
-  }
-}
-[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-server.onComplete
-onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :          : undefined
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-server.onComplete
-onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :         e : e
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-server.onComplete
-onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :         ec : ec
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-server.onComplete
-onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :         ech : ech
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-server.onComplete
-onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :         echo : echo
-{"item":{"label":"echo","data":{"originalCompletion":"echo\tdisplay a line of text ","fishKind":8,"localSymbol":false},"documentation":"display a line of text ","kind":5}}
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-server.onComplete
-onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :         echo  : echo
-{"item":{"label":"pass_func","data":{"originalCompletion":"","fishKind":11,"localSymbol":true},"kind":3,"documentation":{"kind":"markdown","value":"```fish\nfunction pass_func\n    echo $file \n    lsd  --all  --almost-all --classic -F \n    if test  -n \"$\"\n        echo pass\n    else if test -z \"$argv\"\n        echo fail  \n        echo \n\n    end\nend\n```"}}}
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-server.onComplete
-onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :         echo - : echo -
-{"item":{"label":"--help","data":{"originalCompletion":"--help\tdisplay help and exit ","fishKind":8,"localSymbol":false},"documentation":"display help and exit ","kind":5}}
-{"item":{"label":"-e","data":{"originalCompletion":"-e\tenable backslash escapes ","fishKind":8,"localSymbol":false},"documentation":"enable backslash escapes ","kind":5}}
-{"item":{"label":"-E","data":{"originalCompletion":"-E\tdisable backslash escapes ","fishKind":8,"localSymbol":false},"documentation":"disable backslash escapes ","kind":5}}
-{"item":{"label":"-h","data":{"originalCompletion":"-h\tdisplay help and exit ","fishKind":8,"localSymbol":false},"documentation":"display help and exit ","kind":5}}
-{"item":{"label":"-n","data":{"originalCompletion":"-n\tdo not output a newline ","fishKind":8,"localSymbol":false},"documentation":"do not output a newline ","kind":5}}
-{"item":{"label":"-s","data":{"originalCompletion":"-s\tdo not separate arguments with spaces ","fishKind":8,"localSymbol":false},"documentation":"do not separate arguments with spaces ","kind":5}}
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-server.onComplete
-onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :          : undefined
-{"item":{"label":"[","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"_","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"and","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"argparse","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"begin","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"bg","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"bind","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"block","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"break","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"breakpoint","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"builtin","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"case","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"cd","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"command","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"commandline","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"complete","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"contains","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"continue","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"count","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"disown","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"echo","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"else","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"emit","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"end","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"eval","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"exec","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"exit","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"false","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"fg","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"for","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"function","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"functions","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"history","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"if","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"jobs","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"math","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"not","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"math","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"jobs","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"if","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-{"item":{"label":"if","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-server.onComplete
-onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :         if  : undefined
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-server.onComplete
-onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :         if te : te
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-server.onComplete
-onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :         if tes : tes
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-server.onComplete
-onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :         if test : test
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-server.onComplete
-onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :         if test  : test
-{"item":{"label":"!=","data":{"originalCompletion":"!=\tstrings are not identical ","fishKind":6,"localSymbol":false},"documentation":"strings are not identical ","kind":2}}
-{"item":{"label":"!=","data":{"originalCompletion":"!=\tstrings are not identical ","fishKind":6,"localSymbol":false},"documentation":"strings are not identical ","kind":2}}
-{"item":{"label":"=","data":{"originalCompletion":"=\tstrings are identical ","fishKind":6,"localSymbol":false},"documentation":"strings are identical ","kind":2}}
-{"item":{"label":"!","data":{"originalCompletion":"!\tnegate expression ","fishKind":6,"localSymbol":false},"documentation":"negate expression ","kind":2}}
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-server.onComplete
-onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :         if test - : test -
-{"item":{"label":"--help","data":{"originalCompletion":"--help\tdisplay help and exit ","fishKind":8,"localSymbol":false},"documentation":"display help and exit ","kind":5}}
-{"item":{"label":"-a","data":{"originalCompletion":"-a\tlogical and ","fishKind":8,"localSymbol":false},"documentation":"logical and ","kind":5}}
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-server.onComplete
-onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :         if test -a  : test -a
-{"item":{"label":"!=","data":{"originalCompletion":"!=\tstrings are not identical ","fishKind":6,"localSymbol":false},"documentation":"strings are not identical ","kind":2}}
-{"item":{"label":"!=","data":{"originalCompletion":"!=\tstrings are not identical ","fishKind":6,"localSymbol":false},"documentation":"strings are not identical ","kind":2}}
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-server.onComplete
-onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :         if test -a " : undefined
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-server.onComplete
-onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :              : undefined
-{"item":{"label":"[","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-server.onComplete
-onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :             c : c
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-server.onComplete
-onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :             cm : cm
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-server.onComplete
-onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :             cmd : cmd
-{"item":{"label":"cmdtest","data":{"originalCompletion":"cmdtest\tblackbox testing of unix command line tools ","fishKind":8,"localSymbol":false},"documentation":"blackbox testing of unix command line tools ","kind":5}}
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-server.onComplete
-onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :             cmdtest  : cmdtest
-{"item":{"label":"pass_func","data":{"originalCompletion":"","fishKind":11,"localSymbol":true},"kind":3,"documentation":{"kind":"markdown","value":"```fish\nfunction pass_func\n    echo $file \n    lsd  --all  --almost-all --classic -F \n    if test  -n \"$\"\n        echo pass\n    else if test -z \"$argv\"\n        echo fail  \n        if test -a \"$argv\"\n            cmdtest \n        end\n\n    end\nend\n```"}}}
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-server.onComplete
-onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :             cmdtest - : cmdtest -
-{"item":{"label":"---","data":{"originalCompletion":"---\t+++ echo-tests/hello. stdout-actual ","fishKind":8,"localSymbol":false},"documentation":"+++ echo-tests/hello. stdout-actual ","kind":5}}
-{"item":{"label":"--command","data":{"originalCompletion":"--command\tignored for backwards compatibility ","fishKind":8,"localSymbol":false},"documentation":"ignored for backwards compatibility ","kind":5}}
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDocumentSymbols
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDocumentSymbols
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDocumentSymbols
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDocumentSymbols
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDocumentSymbols
-[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDocumentSymbols
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDocumentSymbols
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDocumentSymbols
-onDocumentFormatting: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDocumentSymbols
-[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDocumentSymbols
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-server.onComplete
-onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :          : undefined
-onDocumentSymbols
-{"item":{"label":"[","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"_","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"and","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"argparse","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"begin","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"bg","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"bind","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"block","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"break","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"breakpoint","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"builtin","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"case","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"cd","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"command","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"commandline","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"complete","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"contains","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"continue","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"count","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"disown","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"echo","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"else","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"emit","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"end","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"eval","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-{"item":{"label":"eval","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-onDocumentSymbols
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-server.onComplete
-onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :         eval  : eval
-onDocumentSymbols
-{"item":{"label":"_pass_func","data":{"originalCompletion":"","fishKind":11,"localSymbol":true},"kind":3,"documentation":{"kind":"markdown","value":"```fish\nfunction _pass_func\n    echo $file\n    lsd --all --almost-all --classic -F\n    echo pass\n    if test -z \"$argv\"\n        echo fail\n        if test -a \"$argv\"\n            cmdtest --command=\"$argv\"\n        end\n        eval \n    end\nend\n```"}}}
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-server.onComplete
-onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :         eval ' : undefined
-onDocumentSymbols
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDocumentSymbols
-[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-server.onComplete
-onComplete: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish :         eval 'ls' : undefined
-{"item":{"label":"[","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"[","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"_","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"and","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"argparse","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"begin","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"bg","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"bind","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"block","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"break","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"breakpoint","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"builtin","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"case","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"cd","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"command","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"commandline","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"complete","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"contains","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"continue","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"count","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"disown","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"echo","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"else","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"emit","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"end","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"eval","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"exec","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-{"item":{"label":"exit","data":{"originalCompletion":"","fishKind":2,"localSymbol":false},"kind":14}}
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onDocumentSymbols
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onHover
-onDocumentSymbols
-onHover
-onHover
-onHover
-onHover
-onHover
-onHover
-onHover
-onHover
-onHover
-onHover
-onHover
-onHover
-onHover
-[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[FishLsp.onDidOpenTextDocument()]
-{
-  "params": {
-    "textDocument": {
-      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
-      "languageId": "fish",
-      "version": 1,
-      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\"; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    set -gx asdf g\n\n    set --unpath vPATH var\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction __pass_func\n    if test -n \"$argv\"\n        echo pass\n        return 0\n    else if test -z \"$argv\"\n        return 0\n    else\n        echo fail\n    end\n    set --universal asdf g\nend\n\n\nfunction _pass_func\n    echo $file\n    lsd --all --almost-all --classic -F\n    echo pass\n    if test -z \"$argv\"\n        echo fail\n        if test -a \"$argv\"\n            cmdtest --command=\"$argv\"\n        end\n        eval 'ls' \n    end\nend\n"
-    }
-  }
-}
-[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onHover
-onDocumentSymbols
-onHover
-onHover
-[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[FishLsp.onDidOpenTextDocument()]
-{
-  "params": {
-    "textDocument": {
-      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
-      "languageId": "fish",
-      "version": 1,
-      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\"; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    set -gx asdf g\n\n    set --unpath vPATH var\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction __pass_func\n    if test -n \"$argv\"\n        echo pass\n        return 0\n    else if test -z \"$argv\"\n        return 0\n    else\n        echo fail\n    end\n    set --universal asdf g\nend\n\n\nfunction _pass_func\n    echo $file\n    lsd --all --almost-all --classic -F\n    echo pass\n    if test -z \"$argv\"\n        echo fail\n        if test -a \"$argv\"\n            cmdtest --command=\"$argv\"\n        end\n        eval 'ls' \n    end\nend\n"
-    }
-  }
-}
-[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onHover
-onHover
-onHover
-onHover
-onDocumentSymbols
-onHover
-[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-closed uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-[FishLsp.onDidOpenTextDocument()]
-{
-  "params": {
-    "textDocument": {
-      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
-      "languageId": "fish",
-      "version": 1,
-      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\"; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    set -gx asdf g\n\n    set --unpath vPATH var\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction __pass_func\n    if test -n \"$argv\"\n        echo pass\n        return 0\n    else if test -z \"$argv\"\n        return 0\n    else\n        echo fail\n    end\n    set --universal asdf g\nend\n\n\nfunction _pass_func\n    echo $file\n    lsd --all --almost-all --classic -F\n    echo pass\n    if test -z \"$argv\"\n        echo fail\n        if test -a \"$argv\"\n            cmdtest --command=\"$argv\"\n        end\n        eval 'ls' \n    end\nend\n"
-    }
-  }
-}
-[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
-onHover
-onHover
-onHover
-onDocumentSymbols
-onHover
-onHover
-onHover
-onHover
-onHover
-onHover
-onHover
-onHover
-onHover
-onHover
-onHover
-onHover
-onHover
-onHover
-onHover
-onHover
-onHover
-onHover
-onHover
-onHover
-onHover
-onHover
-onDefinition
-test-fish-lsp
-onDefinition
-lso
-[FishLsp.onDidOpenTextDocument()]
-{
-  "params": {
-    "textDocument": {
-      "uri": "file:///home/ndonfris/.config/fish/functions/lso.fish",
-      "languageId": "fish",
-      "version": 1,
-      "text": "# ls original version (ascii, system version)\n\nfunction lso\n  if test (count $argv) -eq 0\n    /usr/bin/ls\n  else\n    /usr/bin/ls $argv\n  end\nend\n\n\n#complete -c lso --wraps ls\n"
-    }
-  }
-}
-[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/lso.fish
-opened document: file:///home/ndonfris/.config/fish/functions/lso.fish
-analyzed document: file:///home/ndonfris/.config/fish/functions/lso.fish
-onHover
-onDocumentSymbols
-onHover
-onHover
-onHover
-onHover
-onHover
-onHover
-onHover
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/lso.fish
-onDocumentSymbols
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/lso.fish
-onDocumentSymbols
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/lso.fish
-onDocumentSymbols
-onDocumentRangeFormatting: file:///home/ndonfris/.config/fish/functions/lso.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/lso.fish
-onDocumentSymbols
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/lso.fish
-onDocumentSymbols
+[onDidCloseTextDocument]: file:///home/ndonfris/.config/fish/functions/lso.fish
+closed uri: /home/ndonfris/.config/fish/functions/lso.fish
 [onDidSaveTextDocument]: file:///home/ndonfris/.config/fish/functions/lso.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/lso.fish
-onDocumentSymbols
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/lso.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/lso.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/lso.fish
-onDocumentSymbols
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/lso.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/lso.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/lso.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/lso.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/lso.fish
-onDocumentSymbols
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/lso.fish
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/lso.fish
-onDocumentSymbols
-[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/lso.fish
+[FishLsp.onDidOpenTextDocument()]
+{
+  "params": {
+    "textDocument": {
+      "uri": "file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish",
+      "languageId": "fish",
+      "version": 1,
+      "text": "function test-fish-lsp --argument-names file --description \"Check a file for syntax errors\"\n    echo \"$file\"\n    lso\n    #return 0; or fzf-local-node_modules\n    echo \"hello world\"; and echo $file\nend\n\n\n## this is a comment\nfunction __test_small\n    if string match --regex '^(\\w{10}).fish' -- \"$argv\"\n        echo matched | string pad -c ' '\n    end\n    string match --regex '[[:alnum:]]' \"$argv\"\n\n    # padding a stirng\n    string pad --char \" \" \"$argv\"\n    set_color --background black white\n    set -l variable_name \"v a\"\n    whatis -? --config-file --help --regex \"*\"\n    set -l variable_name (string split0 --fields 1 --right --max 4 '\\t' \"$argv\")\n    string pad --width 10 --char \" \" \"$argv\"\n    set -l variable_name \"value u\"\n    if test -n \"$variable_name\"\n        echo \"$variable_name is not empty\"\n    end\n\n    set -gx asdf g\n\n    set --unpath vPATH var\n\n    for i in $variable_name\n        echo $i\n    end\nend\n\nset -l file \"$argv\"\ntest-fish-lsp $file\n\n# implement Algorithm Implementation/Strings/Levenshtein distance\nfunction __pass_func\n    if test -n \"$argv\"\n        echo pass\n        return 0\n    else if test -z \"$argv\"\n        return 0\n    else\n        echo fail\n    end\n    set --universal asdf g\nend\n\n\nfunction _pass_func\n    echo $file\n    lsd --all --almost-all --classic -F\n    echo pass\n    if test -z \"$argv\"\n        echo fail\n        if test -a \"$argv\"\n            cmdtest --command=\"$argv\"\n        end\n        eval 'ls' \n    end\nend\n"
+    }
+  }
+}
+[FishLsp.onDidOpenTextDocument()] uri: /home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+opened document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+analyzed document: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
 onDocumentSymbols
 onHover
-onDefinition
-echo
 onHover
 onHover
 onHover
 onHover
 onHover
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
 onHover
 onHover
-onHover
-onHover
-onHover
-onHover
-onHover
-onHover
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+[onDidChangeTextDocument]: file:///home/ndonfris/.config/fish/functions/test-fish-lsp.fish
+onDocumentSymbols
 onHover
 onHover
 onHover

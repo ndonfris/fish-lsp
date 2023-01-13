@@ -5,12 +5,16 @@
     - [ ] onCommand
     - [ ] onComplete
     - [ ] diagnostics
-- [x] [documentation.ts]( ./src/documentation.ts )
-- [ ] [analysis.ts]( ./src/analyzer.ts )
-    - [ ] implement diagnostics
+- [x] [documentation.ts]( ./src/documentation.ts 
+- [x] [analysis.ts]( ./src/analyzer.ts )
+    - [x] implement diagnostics
+    - [ ] `getCommandAtLine()` for onComplete()/onHover()
 - [ ] [completion.ts]( ./src/completion.ts )
-    - [ ] fix/update to v.8.0.2 with `editRange` in `CompletionList.create()`
+    - [x] fix/update to v.8.0.2 with `editRange` in `CompletionList.create()`
     - [ ] fix WorkspaceSymbol/DocumentSymbol completions
+    - [ ] add in completion short options, that are chained together.
+    - [ ] add in option for sorting by short options first
+    - [ ] add in option for including descriptions 
 - [ ] [commands.ts]( ./src/commands.ts )
     - [ ] implement commands to be used in server.ts. 
         - formatting
@@ -25,6 +29,7 @@
 
 - what is a [ __text_span__ ](https://github.com/typescript-language-server/typescript-language-server/blob/5a39c1f801ab0cad725a2b8711c0e0d46606a08b/src/utils/typeConverters.ts#L12)
     - __@SEE__ [utils/locations.ts]( ./src/utils/locations.ts )
+
 
 
 
