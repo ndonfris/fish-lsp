@@ -67,7 +67,7 @@ export function getDefinitionSymbols(root: SyntaxNode) {
 export function countParentScopes(first: SyntaxNode){
     let node1 : SyntaxNode | null = first;
     let count = 0;
-    while (node1 ) {
+    while (node1) {
         if (isScope(node1)) {
             count++;
         }
@@ -86,32 +86,39 @@ export function getNodeFromSymbol(root: SyntaxNode, symbol: DocumentSymbol) {
     return getNodeFromRange(root, symbol.selectionRange)
 }
 
-// for completions
-// needs testcase
-// retry with recursive range match against collected symbols
-export function nearbySymbols(root: SyntaxNode, curr: SyntaxNode): DocumentSymbol[] {
-    const symbols: DocumentSymbol[] = getDefinitionSymbols(root)
-    return flattenSymbols(symbols, []).filter( outer => containsRange(outer.range, getRange(curr)))
+function getMostRecentSymbols(symbols: DocumentSymbol[], range: Range) {
+    const symbolMap: Map<string, DocumentSymbol> = new Map();
+    for (const sym of symbols) {
+        if (range.start.line <= sym.range.start.line) continue; // skip symbols on same line
+        if (symbolMap.has(sym.name)) {                          // place duplicate symbols
+            symbolMap.set(sym.name, sym);
+            continue;
+        } 
+        symbolMap.set(sym.name, sym)                             // place initial symbols
+    }
+    return Array.from(symbolMap.values())
 }
 
-// not really necessary since symbols are converted from flat default
-export function flattenSymbols(current: DocumentSymbol[], result: DocumentSymbol[], height?: number): DocumentSymbol[] {
-    for (const symbol of current) {
-        if (height === undefined) {
-            if (!result.includes(symbol)) result.unshift(symbol)
-            if (symbol.children) {
-                result.unshift(...flattenSymbols(symbol.children, result))
-            }
-        } else {
-            if (height >= 0) {
-                if (!result.includes(symbol)) result.unshift(symbol)
-                if (symbol.children) {
-                    result.unshift(...flattenSymbols(symbol.children, result, height - 1))
-                }
-            }
-        }
+export function getNearbySymbols(root: SyntaxNode, range: Range) {
+    const symbols: DocumentSymbol[] = getDefinitionSymbols(root);
+    const flatSymbols : DocumentSymbol[] = flattenSymbols(symbols);
+    const funcs = symbols.filter((sym) => sym.kind === SymbolKind.Function);
+    const scopeSymbol = funcs.find((funcSym) => containsRange(funcSym.range, range))
+    if (!scopeSymbol) {                                          // symbols outside of any local scope
+        return Array.from(new Set([...getMostRecentSymbols(symbols, range), ...funcs]))  // remove duplicates
     }
-    return Array.from(new Set(result))
+    return Array.from(new Set([...getMostRecentSymbols(flatSymbols, range), ...funcs])) // remove duplicate function symbols
+}
+
+function flattenSymbols(symbols: DocumentSymbol[]) {
+    const queue = [...symbols];
+    const result: DocumentSymbol[] = [];
+    while (queue.length > 0) {
+        const symbol = queue.shift();
+        if (symbol) result.push(symbol);
+        if (symbol && symbol.children) queue.unshift(...symbol.children);
+    }
+    return result;
 }
 
 export function containsRange(range: Range, otherRange: Range): boolean {
@@ -193,3 +200,6 @@ export function getMostRecentReference(uri: string, root: SyntaxNode, current: S
     })
     return mostRecent
 }
+
+
+

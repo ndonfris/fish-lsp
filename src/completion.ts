@@ -33,7 +33,8 @@ import {
     parseLineForType,
 } from "./utils/completionBuilder";
 import { isCommand } from "./utils/node-types";
-import { firstAncestorMatch, getRange } from "./utils/tree-sitter";
+import { firstAncestorMatch, getNodeAtRange, getRange } from "./utils/tree-sitter";
+import { getNodeFromSymbol } from './workspace-symbol';
 
 // utils create CompletionResolver and CompletionItems
 // also decide which completion icons each item will have
@@ -137,6 +138,7 @@ export async function generateShellCompletionItems(
 }
 
 export function workspaceSymbolToCompletionItem(
+    root: SyntaxNode,
     symbols: DocumentSymbol[]
 ): CompletionItem[] {
     const cmp = new CompletionItemBuilder();
@@ -147,7 +149,7 @@ export function workspaceSymbolToCompletionItem(
             .symbolInfoKind(symbol.kind)
             .localSymbol()
             .documentation(
-                enrichToCodeBlockMarkdown(symbol.detail || symbol.name, "fish")
+                enrichToCodeBlockMarkdown(getNodeAtRange(root, symbol.range)?.text || symbol.name, "fish")
             )
             .build();
         items.push(item);

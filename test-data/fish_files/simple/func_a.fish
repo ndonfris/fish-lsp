@@ -4,7 +4,7 @@ end
 
 function func_b
     #set -l b bb bb
-    set -U b
+    set -U b bb
 end
 
 function func_c

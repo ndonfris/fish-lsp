@@ -129,6 +129,14 @@ export class Logger {
         }
     }
 
+    public logObj(obj: any, msg?: string) {
+        if (msg) {
+            this.console.log(msg)
+        }
+        this.console.log(JSON.stringify(obj, null, 2));
+    }
+
+
     public logCommand(command: ExecuteCommandParams) {
         const args = command.arguments?.map((arg, i) => `arg_${i}: ${JSON.stringify(arg)}`).join('\n');
         this.log(command.toString() + '\n' + args)

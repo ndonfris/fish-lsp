@@ -1,7 +1,7 @@
 import * as LSP from 'vscode-languageserver';
 import { MessageType } from 'vscode-languageserver';
 import { attachWorkDone } from 'vscode-languageserver/lib/common/progress.js';
-import { FishRenameRequest } from './commands';
+import {FishRenameRequest} from "./commands";
 import { FishProtocol } from './utils/fishProtocol';
 
 export interface WithProgressOptions {

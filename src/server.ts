@@ -12,7 +12,7 @@ import { execCommandDocs, execCommandType, execFindDependency, execFormatter, ex
 import {Logger} from './logger';
 import {toFoldingRange, uriToPath} from './utils/translation';
 import {ConfigManager} from './configManager';
-import {nearbySymbols, getDefinitionKind, DefinitionKind, getReferences, getLocalDefs } from './workspace-symbol';
+import { getNearbySymbols, getDefinitionKind, DefinitionKind, getReferences, getLocalDefs } from './workspace-symbol';
 import { getDefinitionSymbols}  from './workspace-symbol';
 import { getChildNodes, getRange } from './utils/tree-sitter';
 import { handleHover } from './hover';
@@ -21,7 +21,7 @@ import { CodeActionKind } from './code-action';
 import {FishAutoFixProvider} from './features/fix-all';
 import * as Locations from './utils/locations';
 import {FishProtocol} from './utils/fishProtocol';
-import {Commands, /*executeCommandHandler*/} from './commands';
+import {Commands} from "./commands"
 import {isFunctionDefinition, isStatement} from './utils/node-types';
 import {handleConversionToCodeAction} from './diagnostics/handleConversion';
 import {FishShellInlayHintsProvider} from './features/inlay-hints';
@@ -228,14 +228,15 @@ export default class FishServer {
         const line: string = doc.getLineBeforeCursor(params.position)
         if (line.trimStart().startsWith("#")) return null;
         const root = this.analyzer.getRootNode(doc)
-        const currNode = this.analyzer.nodeAtPoint(doc, pos.line, pos.character - 1);
-        const currCommand = this.analyzer.commandAtPoint(doc, pos.line, line.trimEnd().length - 1)
+        const prevPos: Position = this.positionBackOneCharacter(pos);
+        const currNode = this.analyzer.nodeAtPoint(doc, prevPos.line, prevPos.character - 1);
+        const currCommand = this.analyzer.commandAtPoint(doc, prevPos.line, line.trimEnd().length - 1)
         const word = this.analyzer.wordAtPoint(doc, pos.line, pos.character-1)
         if (!currNode || !root) return null;
-        const items: CompletionItem[] = workspaceSymbolToCompletionItem(nearbySymbols(root, currNode)); // collectDocumentSymbols(root, doc.uri, [])
+        const items: CompletionItem[] = workspaceSymbolToCompletionItem(root, getNearbySymbols(root, getRange(currNode))); // collectDocumentSymbols(root, doc.uri, [])
         this.logger.log(`onComplete: ${uri} : ${line} : ${currCommand?.text.toString()}`)
         let wordLen = word ? word.length : 0;
-        const shellItems: CompletionItem[] = await generateShellCompletionItems(line, currNode);
+        const shellItems: CompletionItem[] = await generateShellCompletionItems(line, currCommand || currNode);
         items.push(...shellItems)
         return createCompletionList(items, pos, wordLen, !!currCommand)
     }
@@ -249,7 +250,7 @@ export default class FishServer {
      */
     async onCompletionResolve(item: CompletionItem): Promise<CompletionItem> {
         let newDoc: string | MarkupContent;
-        this.logger.log(JSON.stringify({item: item}));
+        this.logger.log(JSON.stringify({item: item}, null,2));
         const fishItem = item as FishCompletionItem
         let typeCmdOutput = ''
         let typeofDoc = ''
@@ -524,5 +525,11 @@ export default class FishServer {
         return {doc, uri, root}
     }
 
+    private positionBackOneCharacter(position: Position) : Position{
+        return {
+            character: position.character - 1,
+            line: position.line
+        }
+    }
 }
 

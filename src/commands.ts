@@ -1,4 +1,4 @@
-import {ApplyWorkspaceEditParams, CodeActionParams, DocumentFormattingParams, DocumentRangeFormattingParams, FormattingOptions, HoverParams, Position, RenameParams, RequestType, TextDocumentIdentifier, TextDocumentPositionParams, WorkspaceEdit, Range, CodeActionContext, _Connection, _, ServerCapabilities} from 'vscode-languageserver';
+import {Command, ApplyWorkspaceEditParams, CodeActionParams, DocumentFormattingParams, DocumentRangeFormattingParams, FormattingOptions, HoverParams, Position, RenameParams, RequestType, TextDocumentIdentifier, TextDocumentPositionParams, WorkspaceEdit, Range, CodeActionContext, _Connection, _, ServerCapabilities} from 'vscode-languageserver';
 import { ExecuteCommandParams, ServerRequestHandler, } from "vscode-languageserver";
 
 export const Commands = {
@@ -10,12 +10,60 @@ export const Commands = {
     CODE_ACTION: 'codeAction',
     FORMAT: 'format',
     FORMAT_RANGE: 'formatRange',
-    //APPLY_REFACTORING: '_fish.applyRefactoring',
-    //SELECT_REFACTORING: '_fish.selectRefactoring',
-    //APPLY_WORKSPACE_EDIT: '_fish.applyWorkspaceEdit',
-    //RENAME: '_fish.rename',
 }
 
+
+export enum CommandTypes {
+    APPLY_REFACTORING = 'applyRefactoring',
+    SELECT_REFACTORING = 'selectRefactoring',
+    APPLY_WORKSPACE_EDIT = 'applyWorkspaceEdit',
+    RENAME = 'rename',
+    RENAME_FILE = 'renameFile',
+    HOVER = 'hover',
+    CODE_ACTION = 'codeAction',
+    FORMAT = 'format',
+    FORMAT_RANGE = 'formatRange',
+}
+
+export const commands: Record<CommandTypes, Command> = {
+    [CommandTypes.APPLY_REFACTORING]: {
+        title: 'applyRefactoring',
+        command: 'editor.action.refactor',
+    },
+    [CommandTypes.SELECT_REFACTORING]: {
+        title: 'selectRefactoring',
+        command: 'editor.action.selectRefactoring',
+    },
+    [CommandTypes.APPLY_WORKSPACE_EDIT]: {
+        title: 'applyWorkspaceEdit',
+        command: 'editor.action.applyWorkspaceEdit',
+    },
+    [CommandTypes.RENAME]: {
+        title: 'rename',
+        command: 'editor.action.rename',
+    },
+    [CommandTypes.RENAME_FILE]: {
+        title: 'rename file',
+        //command: 'workspace.renameCurrentFile',
+        command: 'editor.action.renameCurrentFile',
+    },
+    [CommandTypes.HOVER]: {
+        title: 'hover',
+        command: 'editor.action.hover',
+    },
+    [CommandTypes.CODE_ACTION]: {
+        title: 'codeAction',
+        command: 'editor.action.codeAction',
+    },
+    [CommandTypes.FORMAT]: {
+        title: 'format',
+        command: 'editor.action.format',
+    },
+    [CommandTypes.FORMAT_RANGE]: {
+        title: 'formatRange',
+        command: 'editor.action.formatRange',
+    }
+}
 
 export namespace FishRenameRequest {
     export const type = new RequestType<TextDocumentPositionParams, void, void>('rename');
