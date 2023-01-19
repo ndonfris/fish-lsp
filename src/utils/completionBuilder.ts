@@ -29,6 +29,7 @@ export interface FishCompletionItem extends CompletionItem {
         fishKind?: FishCompletionItemKind; // VERBOSE form of kind
         localSymbol?: boolean;
     }
+    filterText?: string;
 }
 
 
@@ -99,6 +100,8 @@ export class CompletionItemBuilder {
         this._item.data.fishKind = fishKind;
         if (fishKind === FishCompletionItemKind.ABBR) {
             this.commitCharacters([';', '\t', ' '])
+        } else if (fishKind === FishCompletionItemKind.FLAG) {
+            this._item.filterText = this._item.label.startsWith('--') ? '--' : '-'
         }
         return this;
     }

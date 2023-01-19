@@ -35,6 +35,7 @@ import {
 import { isCommand } from "./utils/node-types";
 import { firstAncestorMatch, getNodeAtRange, getRange } from "./utils/tree-sitter";
 import { getNodeFromSymbol } from './workspace-symbol';
+import { execCompletions } from './utils/exec';
 
 // utils create CompletionResolver and CompletionItems
 // also decide which completion icons each item will have
@@ -68,14 +69,13 @@ function splitArray(
 export async function getShellCompletions(
     cmd: string
 ): Promise<[string, string, string][]> {
-    const entireCommand = `fish --command 'complete --do-complete="${cmd}" | uniq'`;
-    const terminalOut = await execAsync(entireCommand);
-    if (terminalOut.stderr || !terminalOut.stdout) {
-        return [];
-    }
-    return terminalOut.stdout
-        .trim()
-        .split("\n")
+    //const entireCommand = `fish --command 'complete --do-complete="${cmd}" | uniq'`;
+    //const terminalOut = await execAsync(entireCommand);
+    const terminalOut = await execCompletions(cmd);
+    //if (terminalOut.stderr || !terminalOut.stdout) {
+        //return [];
+    //}
+    return terminalOut
         .map((line) => {
             const [label, desc] = line.split("\t");
             return splitArray(label, desc);
@@ -144,13 +144,12 @@ export function workspaceSymbolToCompletionItem(
     const cmp = new CompletionItemBuilder();
     const items: CompletionItem[] = [];
     for (const symbol of symbols) {
+        const docText = getNodeAtRange(root, symbol.range)?.text || symbol.name;
         const item = cmp
             .create(symbol.name)
             .symbolInfoKind(symbol.kind)
             .localSymbol()
-            .documentation(
-                enrichToCodeBlockMarkdown(getNodeAtRange(root, symbol.range)?.text || symbol.name, "fish")
-            )
+            .documentation(enrichToCodeBlockMarkdown(docText, "fish"))
             .build();
         items.push(item);
         cmp.reset();
