@@ -3,13 +3,13 @@
 import {resolveLspDocumentForHelperTestFile} from './helpers';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {CompletionItem, CompletionParams, DocumentSymbol, Position, Range, SymbolKind, TextDocumentIdentifier} from 'vscode-languageserver';
-import { BUILT_INS, createCompletionList, generateShellCompletionItems, getShellCompletions } from '../src/completion';
+import { BUILT_INS, createCompletionList, generateShellCompletionItems, getShellCompletions, workspaceSymbolToCompletionItem } from '../src/completion';
 import Parser, {SyntaxNode} from 'web-tree-sitter';
 import {initializeParser} from '../src/parser';
 import {resolve} from 'dns';
 import {LspDocument} from '../src/document';
-import { containsRange, getDefinitionSymbols} from '../src/workspace-symbol';
-import {getNodeAtRange} from '../src/utils/tree-sitter';
+import { containsRange, getDefinitionSymbols, getNearbySymbols} from '../src/workspace-symbol';
+import {getNodeAtRange, getRange} from '../src/utils/tree-sitter';
 import { Color } from 'colors';
 import { Analyzer } from '../src/analyze';
 
@@ -153,7 +153,7 @@ describe('complete simple tests', () => {
         expect(errors.length).toBe(0)
     })
 
-    it('testing flag completions on string "set -" in symbols.fish [line:4]', async () => {
+    it('testing flag completions on string "function func_c --" in symbols.fish [line:20]', async () => {
         const doc: LspDocument =  resolveLspDocumentForHelperTestFile('./fish_files/simple/symbols.fish');
         const params: CompletionParams = {
             textDocument:{
@@ -167,13 +167,41 @@ describe('complete simple tests', () => {
         expect(line).toMatch('function func_c --')
         expect(lineRootNode!.text).toMatch('function func_c --')
         expect(lineLastNode!.text).toMatch('--')
-        //console.log(line);
         const [output, errors]: [CompletionItem[], CompletionItem[]] = [await generateShellCompletionItems(line, lineLastNode), []];
         for (const cmp of output) {
-            console.log(cmp.label);
-            //console.log(JSON.stringify({cmp}, null, 2));
+            if (!cmp.label.startsWith("--")) {
+                errors.push(cmp)
+                console.log(JSON.stringify({errorCompletionItem: cmp}, null, 2));
+            }
         }
+        expect(output.length).toBe(10)
         //expect(errors.length).toBe(0)
+    })
+
+    it('testing symbol completions in symbols.fish [line:20]', async () => {
+        const doc: LspDocument =  resolveLspDocumentForHelperTestFile('./fish_files/simple/symbols.fish');
+        const params: CompletionParams = {
+            textDocument:{
+                uri: doc.uri
+            } as TextDocumentIdentifier,
+            position: {line: 22, character: 7},
+        }
+        analyzer.analyze(doc);
+        const pos = params.position
+        const {root, currentNode} = analyzer.parsePosition(doc, {
+            line : pos.line,
+            character: pos.character - 1,
+        });
+        const {line , lineRootNode, lineLastNode} = analyzer.parseCurrentLine(doc, pos)
+        expect(line).toMatch(' ')
+        expect(lineRootNode!.text).toMatch('')
+        expect(lineLastNode!.text).toMatch('')
+        const [output, errors]: [CompletionItem[], CompletionItem[]] = [workspaceSymbolToCompletionItem(root, getNearbySymbols(root, getRange(currentNode))),[]];
+        for (const cmp of output) {
+            console.log(cmp.label);
+        }
+
+
     })
 
 })

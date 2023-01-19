@@ -67,6 +67,24 @@ export class Analyzer {
         this.diagnosticQueue.clear(doc.uri);
     }
 
+    public parsePosition(
+        document: LspDocument,
+        position: Position
+    ): {
+        root: SyntaxNode,
+        currentNode: SyntaxNode
+    } {
+        return {
+            root: this.parser.parse(document.getText()).rootNode,
+            currentNode: this.parser
+                .parse(document.getText())
+                .rootNode.descendantForPosition({
+                    row: position.line,
+                    column: position.character,
+                }),
+        };
+    }
+
     /**
      * Find the node at the given point.
      */
@@ -134,24 +152,27 @@ export class Analyzer {
         return null;
     }
 
-   /**
-    * Returns an object to be deconstructed, for the onComplete function in the server.
-    * This function is necessary because the normal onComplete parse of the LspDocument
-    * will commonly throw errors (user is incomplete typing a command, etc.). To avoid
-    * inaccurate parses for the entire document, we instead parse just the current line
-    * that the user is on, and send it to the shell script to complete. 
-    *
-    * @Note: the position should not edited (pass in the direct position from the CompletionParams)
-    *
-    * @returns 
-    *        line - the string output of the line the cursor is on
-    *        lineRootNode - the rootNode for the line that the cursor is on
-    *        lineCurrentNode - the last node in the line
-    */
-    public parseCurrentLine(document: LspDocument, position: Position): {
-        line: string,
-        lineRootNode: SyntaxNode,
-        lineLastNode: SyntaxNode,
+    /**
+     * Returns an object to be deconstructed, for the onComplete function in the server.
+     * This function is necessary because the normal onComplete parse of the LspDocument
+     * will commonly throw errors (user is incomplete typing a command, etc.). To avoid
+     * inaccurate parses for the entire document, we instead parse just the current line
+     * that the user is on, and send it to the shell script to complete.
+     *
+     * @Note: the position should not edited (pass in the direct position from the CompletionParams)
+     *
+     * @returns
+     *        line - the string output of the line the cursor is on
+     *        lineRootNode - the rootNode for the line that the cursor is on
+     *        lineCurrentNode - the last node in the line
+     */
+    public parseCurrentLine(
+        document: LspDocument,
+        position: Position
+    ): {
+        line: string;
+        lineRootNode: SyntaxNode;
+        lineLastNode: SyntaxNode;
     } {
         const line: string = document.getLineBeforeCursor(position);
         const lineRootNode = this.parser.parse(line).rootNode;

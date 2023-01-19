@@ -337,7 +337,7 @@ export function createCompletionList(
     );
     return {
         items: cmpList,
-        isIncomplete: true,
+        isIncomplete: false,
         itemDefaults: {
             editRange: {
                 insert: {

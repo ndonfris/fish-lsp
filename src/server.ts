@@ -225,20 +225,30 @@ export default class FishServer {
             return null;
         }
         const pos: Position = params.position;
-        const line: string = doc.getLineBeforeCursor(params.position)
+        const {root, currentNode} = this.analyzer.parsePosition(doc, {
+            line : pos.line,
+            character: pos.character - 1,
+        });
+        const {line , lineRootNode, lineLastNode} = this.analyzer.parseCurrentLine(doc, pos)
         if (line.trimStart().startsWith("#")) return null;
-        const root = this.analyzer.getRootNode(doc)
-        const prevPos: Position = this.positionBackOneCharacter(pos);
-        const currNode = this.analyzer.nodeAtPoint(doc, prevPos.line, prevPos.character - 1);
-        const currCommand = this.analyzer.commandAtPoint(doc, prevPos.line, line.trimEnd().length - 1)
-        const word = this.analyzer.wordAtPoint(doc, pos.line, pos.character-1)
-        if (!currNode || !root) return null;
-        const items: CompletionItem[] = workspaceSymbolToCompletionItem(root, getNearbySymbols(root, getRange(currNode))); // collectDocumentSymbols(root, doc.uri, [])
-        this.logger.log(`onComplete: ${uri} : ${line} : ${currCommand?.text.toString()}`)
-        let wordLen = word ? word.length : 0;
-        const shellItems: CompletionItem[] = await generateShellCompletionItems(line, currCommand || currNode);
-        items.push(...shellItems)
-        return createCompletionList(items, pos, wordLen, !!currCommand)
+
+        const items: CompletionItem[] = [
+            ...workspaceSymbolToCompletionItem(root, getNearbySymbols(root, getRange(currentNode))),
+            ...await generateShellCompletionItems(line, lineLastNode)
+        ]
+        return createCompletionList(items, pos, lineLastNode.text.length, false)
+
+        //const prevPos: Position = this.positionBackOneCharacter(pos);
+        //const currNode = this.analyzer.nodeAtPoint(doc, prevPos.line, prevPos.character - 1);
+        //const currCommand = this.analyzer.commandAtPoint(doc, prevPos.line, line.trimEnd().length - 1)
+        //const word = this.analyzer.wordAtPoint(doc, pos.line, pos.character-1)
+        //if (!currNode || !root) return null;
+        //const items: CompletionItem[] = workspaceSymbolToCompletionItem(root, getNearbySymbols(root, getRange(currNode))); // collectDocumentSymbols(root, doc.uri, [])
+        //this.logger.log(`onComplete: ${uri} : ${line} : ${currCommand?.text.toString()}`)
+        //let wordLen = word ? word.length : 0;
+        //const shellItems: CompletionItem[] = await generateShellCompletionItems(line, currCommand || currNode);
+        //items.push(...shellItems)
+        //return createCompletionList(items, pos, wordLen, !!currCommand)
     }
 
 

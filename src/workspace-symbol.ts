@@ -105,9 +105,14 @@ export function getNearbySymbols(root: SyntaxNode, range: Range) {
     const funcs = symbols.filter((sym) => sym.kind === SymbolKind.Function);
     const scopeSymbol = funcs.find((funcSym) => containsRange(funcSym.range, range))
     if (!scopeSymbol) {                                          // symbols outside of any local scope
-        return Array.from(new Set([...getMostRecentSymbols(symbols, range), ...funcs]))  // remove duplicates
+        return [...getMostRecentSymbols(symbols, range), ...funcs].filter(
+        (item: DocumentSymbol, index: number, self: DocumentSymbol[]) =>
+            self.findIndex((otherItem) => item.name === otherItem.name) === index ) // remove duplicate function symbols
     }
-    return Array.from(new Set([...getMostRecentSymbols(flatSymbols, range), ...funcs])) // remove duplicate function symbols
+    return [...getMostRecentSymbols(flatSymbols, range), ...funcs].filter(
+        (item: DocumentSymbol, index: number, self: DocumentSymbol[]) =>
+            self.findIndex((otherItem) => item.name === otherItem.name) === index 
+    ) // remove duplicate function symbols
 }
 
 function flattenSymbols(symbols: DocumentSymbol[]) {
@@ -174,7 +179,7 @@ export function getLocalDefs(uri: string, root: SyntaxNode, current: SyntaxNode)
             .filter(n => n)
             .find(n => n && isDefinition(n)) 
     if (!definition) return []
-    return [Location.create(uri, getRange(definition))]
+    return [Location.create(uri, getRangeWithPrecedingComments(definition))]
 }
 
 export function getReferences(uri: string, root: SyntaxNode, current: SyntaxNode) : Location[]{

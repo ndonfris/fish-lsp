@@ -14,10 +14,8 @@ function build_cmd --argument-names input
     end
 end
 
-# from my fish functions
+# taken from my fish_config
 function get-completions
-    #set --local last_word (string split --right --max 1 --fields 2 ' ' -- "$argv")
-    #set --local input_str (string escape -n --style=script "$argv")
     set --local cmd (build_cmd "$argv")
     eval $cmd
 end
