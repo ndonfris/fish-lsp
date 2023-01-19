@@ -8,7 +8,7 @@ function build_cmd --argument-names input
         case ''
             string match -req '^\s?\$' -- "$input_arr[1]"; 
             and printf "complete --escape --do-complete '$input' | uniq ";
-            or printf "complete --escape --do-complete '$input -' | uniq | string match --regex --entire '^\-'";
+            or printf "complete --escape --do-complete '$input -' | uniq | string match --regex --entire '^\-' && complete --escape --do-complete '$input ' | uniq";
         case '*'
             printf "complete --escape --do-complete '$input' | uniq"
     end
@@ -20,6 +20,16 @@ function get-completions
     eval $cmd
 end
 
+function get-subcommand-completions 
+    set --local cmd (printf "complete --escape --do-complete '$argv ' | uniq")
+    eval $cmd
+end
+
+switch "$argv[1]"
+    case '1'
+        get-completions "$argv[2]"
+    case '2'
+        get-subcommand-completions "$argv[2]"
+end
 
 
-get-completions "$argv"

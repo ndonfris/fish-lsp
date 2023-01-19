@@ -4,7 +4,7 @@ import * as Parser from 'web-tree-sitter';
 import {documentationHoverProvider, documentationHoverProviderForBuiltIns, enrichCommandWithFlags, enrichToCodeBlockMarkdown} from './documentation';
 import { CommentRange } from './symbols';
 import {isBuiltIn} from './utils/completion-types';
-import {execCommandDocs, execComplete, execCompletions} from './utils/exec';
+import {execCommandDocs, execComplete, execCompletions, execSubCommandCompletions} from './utils/exec';
 import {isCommand, isCommandName} from './utils/node-types';
 import {findEnclosingScope, findFirstParent, getNodeAtRange, getRange} from './utils/tree-sitter';
 import * as Symbols from './workspace-symbol';
@@ -47,7 +47,6 @@ export async function getHoverForFlag(current: Parser.SyntaxNode): Promise<Hover
     for (const child of commandNode?.children) {
         if (!hasFlags && !child.text.startsWith('-')) {
             commandStr = await appendToCommand(commandStr, child.text );
-            //console.log(commandStr.join(' ').bgBlack);
         } else if (child.text.startsWith('-')) {
             flags.push(child.text)
             hasFlags = true;
@@ -94,7 +93,7 @@ function spiltShortFlags(flags: string[], shouldSplit: boolean): string[] {
 }
 
 async function appendToCommand(commands: string[], subCommand: string): Promise<string[]> {
-    const completions = await execCompletions(...commands, ' ')
+    const completions = await execSubCommandCompletions(...commands, ' ') // HERE
     if (completions.includes(subCommand)) {
         commands.push(subCommand)
         return commands

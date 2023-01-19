@@ -42,7 +42,15 @@ export async function execInlayHintType(...cmd: string[]): Promise<string> {
 
 export async function execCompletions(...cmd: string[]) : Promise<string[]> {
     const file = resolve(__dirname, '../../fish_files/get-completion.fish')
-    const cmps = await execFileAsync(file, cmd)
+    const cmpArgs = ["1", cmd.join(' ')]
+    const cmps = await execFileAsync(file, cmpArgs)
+    return cmps.stdout.trim().split('\n')
+}
+
+export async function execSubCommandCompletions(...cmd: string[]) : Promise<string[]> {
+    const file = resolve(__dirname, '../../fish_files/get-completion.fish')
+    const cmpArgs = ["2", cmd.join(' ')];
+    const cmps = await execFileAsync(file, cmpArgs)
     return cmps.stdout.trim().split('\n')
 }
 
@@ -201,7 +209,6 @@ export async function execOpenFile(uri: string): Promise<string> {
     const file = await promises.readFile(fileUri.toString(), 'utf8')
     return file.toString()
 }
-
 
 export async function execCompleteGlobalDocs(cmd: string): Promise<string> {
     const executable = resolve(__dirname, '../../fish_files/generate-global-completions.fish');
