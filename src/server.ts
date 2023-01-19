@@ -260,7 +260,7 @@ export default class FishServer {
      */
     async onCompletionResolve(item: CompletionItem): Promise<CompletionItem> {
         let newDoc: string | MarkupContent;
-        this.logger.log(JSON.stringify({item: item}, null,2));
+        //this.logger.log(JSON.stringify({item: item}, null,2));
         const fishItem = item as FishCompletionItem
         let typeCmdOutput = ''
         let typeofDoc = ''
