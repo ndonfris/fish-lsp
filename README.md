@@ -8,6 +8,9 @@
     - [x] diagnostics
         - [ ] ideas for more here
 - [x] [documentation.ts]( ./src/documentation.ts 
+- [ ] [workspace-symbol.ts]( ./src/workspace-symbol.ts )
+    - [ ] add inherit variable (see `man function`)
+    - [x] add `--variable-names` variable definition
 - [x] [analysis.ts]( ./src/analyzer.ts )
     - [x] implement diagnostics
     - [x] `getCommandAtLine()` for onComplete()/onHover()
