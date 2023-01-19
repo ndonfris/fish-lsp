@@ -2,6 +2,7 @@ import * as LSP from 'vscode-languageserver';
 import {Hover, MarkedString, MarkupKind} from 'vscode-languageserver';
 import * as Parser from 'web-tree-sitter';
 import {documentationHoverProvider, documentationHoverProviderForBuiltIns, enrichCommandWithFlags, enrichToCodeBlockMarkdown} from './documentation';
+import { CommentRange } from './symbols';
 import {isBuiltIn} from './utils/completion-types';
 import {execCommandDocs, execComplete, execCompletions} from './utils/exec';
 import {isCommand, isCommandName} from './utils/node-types';
@@ -18,13 +19,19 @@ export async function handleHover(uri: string, root: Parser.SyntaxNode, current:
     }
     const local = Symbols.getMostRecentReference(uri, root, current);
     if (local) {
-        const localParent = local.parent ;
-        if (!localParent) return null;
-        const nodeText = localParent.text || '';
+        const fishSymbol = CommentRange.createFishDocumentSymbol(local);
         return {
-            contents: enrichToCodeBlockMarkdown(nodeText, 'fish'),
-            range: getRange(local),
-        }
+            contents: fishSymbol.markupContent,
+            range: fishSymbol.selectionRange
+        };
+
+        //const localParent = local.parent ;
+        //if (!localParent) return null;
+        //const nodeText = localParent.text || '';
+        //return {
+            //contents: enrichToCodeBlockMarkdown(nodeText, 'fish'),
+            //range: getRange(local),
+        //}
     } 
     const commandString = await collectCommandString(current);
     return await documentationHoverProvider(commandString)

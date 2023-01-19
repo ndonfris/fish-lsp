@@ -236,7 +236,7 @@ export default class FishServer {
             ...workspaceSymbolToCompletionItem(root, getNearbySymbols(root, getRange(currentNode))),
             ...await generateShellCompletionItems(line, lineLastNode)
         ]
-        return createCompletionList(items, pos, lineLastNode.text.length, false)
+        return createCompletionList(items, pos, currentNode.text.length, true)
 
         //const prevPos: Position = this.positionBackOneCharacter(pos);
         //const currNode = this.analyzer.nodeAtPoint(doc, prevPos.line, prevPos.character - 1);

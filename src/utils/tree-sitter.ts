@@ -367,6 +367,7 @@ export function getRangeWithPrecedingComments(node: SyntaxNode): Range {
     );
 }
 
+
 export function getPrecedingComments(node: SyntaxNode | null): string {
     if (!node) return ''
     const comments = commentsHelper(node)

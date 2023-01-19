@@ -2,30 +2,18 @@
 import {SymbolInformation, Range, SymbolKind, DocumentUri, Location, WorkspaceSymbol, DocumentSymbol} from 'vscode-languageserver';
 import {SyntaxNode, Tree} from 'web-tree-sitter';
 import {Analyzer} from './analyze';
-import {toSymbolKind} from './symbols';
+import {CommentRange, toSymbolKind} from './symbols';
 import {isBuiltin} from './utils/builtins';
 import {findEnclosingVariableScope, findParentFunction, isCommandName, isDefinition, isFunctionDefinition, isFunctionDefinitionName, isProgram, isScope, isStatement, isVariable, isVariableDefinition} from './utils/node-types';
 import {nodeToDocumentSymbol, nodeToSymbolInformation, pathToRelativeFunctionName} from './utils/translation';
-import {findEnclosingScope, findFirstParent, getChildNodes, getNodeAtRange, getParentNodes, getRange, getRangeWithPrecedingComments, positionToPoint} from './utils/tree-sitter';
+import {findEnclosingScope, findFirstParent, getChildNodes, getNodeAtRange, getParentNodes, getRange, positionToPoint} from './utils/tree-sitter';
 
-function createSymbol(node: SyntaxNode, children?: DocumentSymbol[]) : DocumentSymbol | null {
-    const parent = node.parent || node;
-    if (isVariableDefinition(node)) {
+export function createSymbol(node: SyntaxNode, children: DocumentSymbol[] = []) : DocumentSymbol | null {
+    if (isDefinition(node)) {
+        const formattedRange = CommentRange.create(node)
         return {
-            name: node.text,
-            kind: toSymbolKind(node),
-            range: getRangeWithPrecedingComments(parent),
-            selectionRange: getRange(node),
-            children: children || []
-        }
-    } else if (isFunctionDefinitionName(node)) {
-        const name = node.firstNamedChild || node
-        return {
-            name: name.text,
-            kind: toSymbolKind(name),
-            range: getRangeWithPrecedingComments(parent),
-            selectionRange: getRange(name),
-            children: children || []
+            ...formattedRange.toDocumentSymbol(),
+            children,
         }
     } else {
         return null;
@@ -179,7 +167,7 @@ export function getLocalDefs(uri: string, root: SyntaxNode, current: SyntaxNode)
             .filter(n => n)
             .find(n => n && isDefinition(n)) 
     if (!definition) return []
-    return [Location.create(uri, getRangeWithPrecedingComments(definition))]
+    return [Location.create(uri, getRange(definition))]
 }
 
 export function getReferences(uri: string, root: SyntaxNode, current: SyntaxNode) : Location[]{
