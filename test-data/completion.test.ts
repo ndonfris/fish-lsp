@@ -1,5 +1,3 @@
-
-//import { buildGlobalAbbrs, buildGlobalAlaises, buildGlobalBuiltins, buildGlobalCommands, Completion } from '../src/completion'
 import {resolveLspDocumentForHelperTestFile} from './helpers';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {CompletionItem, CompletionParams, DocumentSymbol, Position, Range, SymbolKind, TextDocumentIdentifier} from 'vscode-languageserver';
@@ -8,10 +6,15 @@ import Parser, {SyntaxNode} from 'web-tree-sitter';
 import {initializeParser} from '../src/parser';
 import {resolve} from 'dns';
 import {LspDocument} from '../src/document';
+import { DocumentationCache } from '../src/utils/documentationCache'
 import { containsRange, getDefinitionSymbols, getNearbySymbols} from '../src/workspace-symbol';
 import {getNodeAtRange, getRange} from '../src/utils/tree-sitter';
 import { Color } from 'colors';
 import { Analyzer } from '../src/analyze';
+import { execCompleteGlobalDocs, execCompleteVariables, execCompletionHelper, execEscapedCommand } from '../src/utils/exec';
+//import  from 'child_process';
+import { promisify } from 'util';
+import { exec } from 'child_process';
 
 let parser: Parser;
 let analyzer: Analyzer;
@@ -94,40 +97,40 @@ describe('complete simple tests', () => {
 
     
 
-    it('complete local symbols test', async () => {
-        const doc: LspDocument =  resolveLspDocumentForHelperTestFile('./fish_files/simple/symbols.fish');
-        const root = parser.parse(doc.getText()).rootNode
-        const cursorRanges :Range[] = [
-            {
-                start:{line: 4, character: 27},
-                end:  {line: 4, character: 28}
-            },
-            {
-                start:{line: 10, character: 2},
-                end:  {line: 10, character: 4}
-            },
-            {
-                start:{line: 25, character: 2},
-                end:  {line: 25, character: 4}
-            }
-        ]
-
-        //for (const cursorRange of cursorRanges) {
-        //    const curr = getNodeAtRange(root, cursorRange);
-        //    //const symbols: DocumentSymbol[] = flattenSymbols(getDefinitionSymbols(root))
-        //    console.log(`current_text: ${getRootNodeToTextRange(root, cursorRange)}`.bgBlack)
-        //    //logColor(`current_text: ${curr?.text}`);
-        //    const symbols: DocumentSymbol[] = getNearbySymbols(root, cursorRange)
-
-        //    const tbl : { selectionRange: string, range: string}[] = []
-        //    for (const sym of symbols) {
-        //        tbl.push({selectionRange: getNodeAtRange(root, sym.selectionRange)?.text || '', range: getNodeAtRange(root, sym.range)?.text || ''})
-        //    }
-        //    console.table(tbl);
-        //    loggedAmount++;
-
-        //}
-    })
+    //it('complete local symbols test', async () => {
+        //const doc: LspDocument =  resolveLspDocumentForHelperTestFile('./fish_files/simple/symbols.fish');
+        //const root = parser.parse(doc.getText()).rootNode
+        //const cursorRanges :Range[] = [
+            //{
+                //start:{line: 4, character: 27},
+                //end:  {line: 4, character: 28}
+            //},
+            //{
+                //start:{line: 10, character: 2},
+                //end:  {line: 10, character: 4}
+            //},
+            //{
+                //start:{line: 25, character: 2},
+                //end:  {line: 25, character: 4}
+            //}
+        //]
+//
+        ////for (const cursorRange of cursorRanges) {
+        ////    const curr = getNodeAtRange(root, cursorRange);
+        ////    //const symbols: DocumentSymbol[] = flattenSymbols(getDefinitionSymbols(root))
+        ////    console.log(`current_text: ${getRootNodeToTextRange(root, cursorRange)}`.bgBlack)
+        ////    //logColor(`current_text: ${curr?.text}`);
+        ////    const symbols: DocumentSymbol[] = getNearbySymbols(root, cursorRange)
+//
+        ////    const tbl : { selectionRange: string, range: string}[] = []
+        ////    for (const sym of symbols) {
+        ////        tbl.push({selectionRange: getNodeAtRange(root, sym.selectionRange)?.text || '', range: getNodeAtRange(root, sym.range)?.text || ''})
+        ////    }
+        ////    console.table(tbl);
+        ////    loggedAmount++;
+//
+        ////}
+    //})
 
     it('testing variable completions on string "set -l arg_one $" in symbols.fish [line:4]', async () => {
         const doc: LspDocument =  resolveLspDocumentForHelperTestFile('./fish_files/simple/symbols.fish');
@@ -200,9 +203,26 @@ describe('complete simple tests', () => {
         for (const cmp of output) {
             console.log(cmp.label);
         }
-
-
     })
+
+    it("testing Documentation Cache", async () => {
+        const execAsync = promisify(exec);
+
+        //const out = t.
+        //if (t.)
+        //t.forEach(l => console.log(l));
+
+        console.time('test execCompletionHelper');
+        const docCache = new DocumentationCache();
+        await docCache.parse()
+        for (const item of docCache.items) {
+            console.log(item);
+        }
+        console.log(await docCache.resolve('PATH'));
+        console.log(await docCache.resolve('while'));
+        console.log(await docCache.resolve('get-completions'));
+        console.timeEnd('test execCompletionHelper')
+    }, 20000)
 
 })
 
