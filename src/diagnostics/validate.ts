@@ -253,22 +253,13 @@ export function collectAllDiagnostics(root: SyntaxNode, doc: LspDocument, diagno
     let shouldAdd = collectEndError(root, diagnostics) 
         || collectFunctionNames(root, doc, diagnostics, functionNames) 
         || collectVariableNames(root, doc, diagnostics, variableNames)
-        || collectFunctionsScopes(root, doc, diagnostics)
-        //|| collectReturnError(root, diagnostics)
+        //|| collectFunctionsScopes(root, doc, diagnostics) // DOES NOT HANDLE if without ELSE
+        //|| collectReturnError(root, diagnostics)          // BROKEN
         //collectReturnError(root, diagnostics);
     for (const node of root.children) {
         shouldAdd = collectAllDiagnostics(node, doc, diagnostics, functionNames, variableNames);
     }
     return shouldAdd
 }
-
-
-
-
-
-
-
-
-
 
 
