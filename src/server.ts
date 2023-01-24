@@ -2,7 +2,7 @@ import Parser, {SyntaxNode} from "web-tree-sitter";
 import { initializeParser } from "./parser";
 import { Analyzer } from "./analyze";
 import { buildRegexCompletions, workspaceSymbolToCompletionItem, generateShellCompletionItems, insideStringRegex, buildDefaultCompletionItems, createCompletionList, } from "./completion";
-import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, ExecuteCommandParams, ServerRequestHandler, FoldingRangeParams, FoldingRange, Position, InlayHintParams } from "vscode-languageserver";
+import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, ExecuteCommandParams, ServerRequestHandler, FoldingRangeParams, FoldingRange, Position, InlayHintParams, MarkupKind } from "vscode-languageserver";
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
 import { FishCompletionItem, } from './utils/completion-types';
@@ -42,7 +42,7 @@ export default class FishServer {
         const documents = new LspDocuments() ;
         const documentationCache = new DocumentationCache();
         await documentationCache.parse();
-        const analyzer = new Analyzer(await initializeParser());
+        const analyzer = new Analyzer(parser);
         return new FishServer(connection, params, parser, analyzer, documents, documentationCache)
     }
 
@@ -358,8 +358,16 @@ export default class FishServer {
         this.logger.log("onHover");
         const {doc, uri, root, current} = this.getDefaults(params)
         if (!doc || !uri || !root || !current) return null;
-        const globalItem =await this.documentationCache.resolve(current.text.trim(), uri)
+        const globalItem = await this.documentationCache.resolve(current.text.trim(), uri)
         this.logger.log(globalItem?.resolved.toString() || `docCache not found ${current.text}`)
+        if (globalItem && globalItem.docs) {
+            return {
+                contents: {
+                    kind: MarkupKind.Markdown,
+                    value: globalItem.docs
+                }
+            }
+        }
         return await handleHover(doc.uri, root, current, this.documentationCache);
     }
 
