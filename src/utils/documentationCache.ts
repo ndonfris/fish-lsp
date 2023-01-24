@@ -1,9 +1,35 @@
-import { MarkupContent } from 'coc.nvim';
-import { MarkupKind, SymbolKind } from 'vscode-languageserver';
+import { MarkupKind, SymbolKind, MarkupContent, DocumentSymbol } from 'vscode-languageserver';
 import Parser from 'web-tree-sitter';
 import { documentationHoverProviderForBuiltIns } from '../documentation';
 import { execCommandDocs, execEscapedCommand } from './exec';
 import { uriToPath } from './translation';
+
+
+/****************************************************************************************
+ *                                                                                      *
+ * @TODO: DO NOT convert this to a FishDocumentSymbol! Instead, use this to cache to    *
+ * FishDocumentSymbol documentation strings cached. FishDocumentSymbol will lookup      *
+ * base documentation from this cache. Converting this to a FishDocumentSymbol will     *
+ * cause issues with the lsp api because, documentSymbols require a range/location      *
+ *        (Maybe check BaseSymbol, I vaguely remember that one of the Symbol's          *
+ *         mentions not requiring a Range, having multiple symbols is still             *
+ *         not a capability the protocol supports, as per the v.0.7.0)                  *
+ * With that in mind, build out a structure inside analyzer, that will be able to use   *
+ * everything that is necessary for a well-informed detail to the client.               *
+ * Current goal likely needs:                                                           *
+ *       • parser                                                                       *
+ *       • FishDocumentSymbol                                                           *
+ *       • This DocumentationCache                                                      *
+ *       • some kind of flag resolver (the function flags '--description',              *
+ *         '--argument-names', '--inherit-variables', come to mind)                     *
+ *                                                                                      *
+ *                                                                                      *
+ * @TODO: support docs & formatted docs. (non-markdown version will be docs)            *
+ *                                                                                      *
+ * @TODO: Refactor building documentation string! Potentially remove documentation.ts   *
+ * and replace it with a lot of the methods seen here.                                  *
+ *                                                                                      *
+ ****************************************************************************************/
 
 export interface CachedGlobalItem {
     docs?: string;
@@ -24,46 +50,21 @@ export function createCachedItem(type: SymbolKind, uri?: string): CachedGlobalIt
 }
 
 
+/**
+ * Currrently spoofs docs as FormattedDocs, likely to change in future versions.
+ */
 async function getNewDocSring(name: string, item: CachedGlobalItem) : Promise<string | undefined> {
     switch (item.type) {
     case SymbolKind.Variable:
         return await getVariableDocs(name);
     case SymbolKind.Function:
-        return await getFunctionDocString(name, item)
+        return await getFunctionDocString(name)
     case SymbolKind.Class:
         return await getBuiltinDocString(name)
     default:
         return undefined;
     }
-
 }
-
-//async function getFormattedDocString(name: string, item: CachedGlobalItem) : Promise<MarkupContent | undefined> {
-//    switch (item.type) {
-//    case SymbolKind.Variable:
-//        return {
-//            kind: MarkupKind.Markdown,
-//            value: [
-//                    item.docs,
-//                ].join('\n')
-//        }
-//    case SymbolKind.Function:
-//        return {
-//            kind: MarkupKind.Markdown,
-//            value: [
-//                    `${name} defined in ${item.uri}`
-//                    '___',
-//            ].join('\n')
-//        }
-//    case SymbolKind.Class:
-//        return {
-//                kind: MarkupKind.Markdown,
-//                value: item?.docs || "",
-//            }
-//    default:
-//        return undefined;
-//    }
-//}                                                                  
 
 export async function resolveItem(name: string, item: CachedGlobalItem, uri?: string) {
     if (uri !== undefined) { item.refrenceUris.add(uri)}
@@ -80,6 +81,71 @@ export async function resolveItem(name: string, item: CachedGlobalItem, uri?: st
     return item;
 }
 
+/**
+ * just a getter for the absolute path to a function defined
+ */
+async function getFunctionUri(name: string): Promise<string | undefined> {
+    const uriString = await execEscapedCommand(`type -ap ${name}`)
+    const uri = uriString.join('\n').trim();
+    if (!uri) {
+        return undefined;
+    }
+    return uri;
+}
+
+/**
+ * builds MarkupString for function names, since fish shell standard for private functions
+ * is naming convention with leading '__', this function ensures that our MarkupStrings
+ * will be able to display the FunctionName (instead of interpreting it as '__' bold text)
+ */
+function escapePathStr(functionTitleLine: string) : string {
+    const afterComment =  functionTitleLine.split(' ').slice(1)
+    const pathIndex = afterComment.findIndex((str: string) => str.includes('/')) 
+    const path = afterComment[pathIndex]
+    return [
+    '**'+afterComment.slice(0, pathIndex).join(' ').trim() + '**',
+    `*\`${path.toString()}\`*`,
+    '**'+afterComment.slice(pathIndex + 1).join(' ').trim() + '**'
+    ].join(' ')
+}
+
+/**
+ * builds FunctionDocumentaiton string
+ */
+async function getFunctionDocString(name: string): Promise<string | undefined> {
+    const docStr = await execCommandDocs(name);
+    if (docStr) {
+        const docTitle = docStr.split('\n')[0]
+        const docBody = docStr.split('\n').slice(1).join('\n');
+        return [
+            `${escapePathStr(docTitle).trim()}`,
+            '___',
+            '```fish',
+            docBody,
+            '```'
+        ].join('\n');
+    }
+    return undefined;
+}
+/** 
+ * builds MarkupString for builtin documentation
+ */
+async function getBuiltinDocString(name: string): Promise<string | undefined> {
+    const cmdDocs: string = await execCommandDocs(name);
+    if (!cmdDocs) return undefined
+    const splitDocs = cmdDocs.split('\n');
+    const startIndex = splitDocs.findIndex((line: string) => line.trim() === 'NAME')
+    return [
+        `__${name.toUpperCase()}__ - _https://fishshell.com/docs/current/cmds/${name.trim()}.html_`,
+        `___`,
+        '```man',
+        splitDocs.slice(startIndex).join('\n'),
+        '```'
+    ].join('\n') 
+}
+/**
+ * builds MarkupString for global variable documentation
+ */
 async function getVariableDocs(name: string): Promise<string | undefined> {
     const docs = await execEscapedCommand(`set --show ${name}`)
     if (!docs) {
@@ -100,54 +166,6 @@ async function getVariableDocs(name: string): Promise<string | undefined> {
     ].join('\n')
 }
 
-async function getFunctionUri(name: string): Promise<string | undefined> {
-    const uriString = await execEscapedCommand(`type -ap ${name}`)
-    const uri = uriString.join('\n').trim();
-    if (!uri) {
-        return undefined;
-    }
-    return uri;
-}
-
-function escapePathStr(functionTitleLine: string) : string {
-    const afterComment =  functionTitleLine.split(' ').slice(1)
-    const pathIndex = afterComment.findIndex((str: string) => str.includes('/')) 
-    const path = afterComment[pathIndex]
-    return [
-    '**'+afterComment.slice(0, pathIndex).join(' ').trim() + '**',
-    `*\`${path.toString()}\`*`,
-    '**'+afterComment.slice(pathIndex + 1).join(' ').trim() + '**'
-    ].join(' ')
-}
-
-async function getFunctionDocString(name: string, item: CachedGlobalItem): Promise<string | undefined> {
-    const docStr = await execCommandDocs(name);
-    if (docStr) {
-        const docTitle = docStr.split('\n')[0]
-        const docBody = docStr.split('\n').slice(1).join('\n');
-        return [
-            `${escapePathStr(docTitle).trim()}`,
-            '___',
-            '```fish',
-            docBody,
-            '```'
-        ].join('\n');
-    }
-    return undefined;
-}
-async function getBuiltinDocString(name: string): Promise<string | undefined> {
-    const cmdDocs: string = await execCommandDocs(name);
-    if (!cmdDocs) return undefined
-    const splitDocs = cmdDocs.split('\n');
-    const startIndex = splitDocs.findIndex((line: string) => line.trim() === 'NAME')
-    return [
-        `__${name.toUpperCase()}__ - _https://fishshell.com/docs/current/cmds/${name.trim()}.html_`,
-        `___`,
-        '```man',
-        splitDocs.slice(startIndex).join('\n'),
-        '```'
-    ].join('\n') 
-}
 
 export function initializeMap(collection: string[], type: SymbolKind, uri?: string): Map<string, CachedGlobalItem> {
     const items: Map<string, CachedGlobalItem> = new Map<string, CachedGlobalItem>();
@@ -186,6 +204,19 @@ export class DocumentationCache {
         })
     }
 
+    //setExportUri(uri: string, definitionSymbols: DocumentSymbol[]) {
+    //    const variables = definitionSymbols
+    //    .filter((symbol) => symbol.kind === SymbolKind.Variable)
+    //    .filter(
+    //        (item: DocumentSymbol, index: number, self: DocumentSymbol[]) =>
+    //            self.findIndex((otherItem) => item.name === otherItem.name) === index 
+    //    ).forEach((symbol) => {
+    //        let item = this._variables.get(symbol.name);
+    //        if (!this._variables.has(symbol.name)) {
+    //            this.resolve(symbol.name, uri, SymbolKind.Variable)
+    //        }
+    //    })
+    //}
 
     find(name: string, type?: SymbolKind): CachedGlobalItem | undefined {
         if (type === SymbolKind.Variable) {
@@ -213,11 +244,11 @@ export class DocumentationCache {
         return SymbolKind.Null;
     }
 
-    private setUnknown(name: string, item: CachedGlobalItem) {
-        item.resolved = true;
-        this._unknowns.set(name, item);
-    }
-
+    /**
+     * @async
+     * Resolves a symbol's documentation. Store's resolved items in the Cache, otherwise
+     * returns the already cached item.
+     */
     async resolve(name: string, uri?:string, type?: SymbolKind) {
         const itemType = type || this.findType(name);
         let item : CachedGlobalItem | undefined = this.find(name, itemType);
@@ -225,37 +256,24 @@ export class DocumentationCache {
             item = createCachedItem(itemType, uri);
             this._unknowns.set(name, item);
         }
+        if (item.resolved && item.docs) return item;
         if (!item.resolved) {
-            //if (itemType === SymbolKind.Function) {
-                //item.uri = await getFunctionUri(name)
-                //if (!item.uri) {
-                    //this._unknowns.set(name, item);
-                //}
-            //}
             item = await resolveItem(name, item)
         } 
         if (!item.docs) { 
             this._unknowns.set(name, item)
         }
-        //item
-        //switch (itemType) {
-            //case SymbolKind.Variable:
-                //item.formattedDocs = this._variables.get(name)
-                //break;
-            //case SymbolKind.Function:
-                //item = this._functions.get(name)
-                //break;
-            //case SymbolKind.Class:
-                //item = this._builtins.get(name)
-                //break;
-            //default:
-                //item = this._unknowns.get(name)
-                //break;
-        //}
         this.setItem(name, item)
         return item
     }
 
+    /**
+     * sets an item, mostly called within this class, because CachedGlobalItem will typically
+     * already be resolved.
+     *
+     * @param {string} name - string for the symbol
+     * @param {CachedGlobalItem} item - the item to set
+     */
     setItem(name: string, item: CachedGlobalItem) {
         switch (item.type) {
             case SymbolKind.Variable:
@@ -273,6 +291,9 @@ export class DocumentationCache {
         }
     }
 
+    /**
+    * getter for a cached item, guarding SymbolKind.Null from retrieved.
+    */
     getItem(name: string) {
         const item = this.find(name);
         if (!item || item.type === SymbolKind.Null) {
@@ -281,21 +302,5 @@ export class DocumentationCache {
         return item;
     }
 
-
-
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
