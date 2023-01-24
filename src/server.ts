@@ -2,7 +2,7 @@ import Parser, {SyntaxNode} from "web-tree-sitter";
 import { initializeParser } from "./parser";
 import { Analyzer } from "./analyze";
 import { buildRegexCompletions, workspaceSymbolToCompletionItem, generateShellCompletionItems, insideStringRegex, buildDefaultCompletionItems, createCompletionList, } from "./completion";
-import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, ExecuteCommandParams, ServerRequestHandler, FoldingRangeParams, FoldingRange, Position, InlayHintParams, MarkupKind } from "vscode-languageserver";
+import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, ExecuteCommandParams, ServerRequestHandler, FoldingRangeParams, FoldingRange, Position, InlayHintParams, MarkupKind, SymbolInformation } from "vscode-languageserver";
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
 import { FishCompletionItem, } from './utils/completion-types';
@@ -25,7 +25,8 @@ import {Commands} from "./commands"
 import {isFunctionDefinition, isStatement} from './utils/node-types';
 import {handleConversionToCodeAction} from './diagnostics/handleConversion';
 import {FishShellInlayHintsProvider} from './features/inlay-hints';
-import { DocumentationCache } from './utils/documentationCache';
+import { DocumentationCache, initializeDocumentationCache } from './utils/documentationCache';
+import { collectAllSymbolInformation } from './symbols';
 
 // @TODO 
 export type SupportedFeatures = {
@@ -38,12 +39,14 @@ export default class FishServer {
         connection: Connection,
         params: InitializeParams,
     ): Promise<FishServer> {
-        const parser = await initializeParser();
         const documents = new LspDocuments() ;
-        const documentationCache = new DocumentationCache();
-        await documentationCache.parse();
-        const analyzer = new Analyzer(parser);
-        return new FishServer(connection, params, parser, analyzer, documents, documentationCache)
+        return await Promise.all([
+            initializeParser(),
+            initializeDocumentationCache(),
+        ]).then(([parser, cache]) => {
+            const analyzer = new Analyzer(parser, cache);
+            return new FishServer(connection, params, parser, analyzer, documents, cache);
+        })
     }
 
     private initializeParams: InitializeParams | undefined;
@@ -152,7 +155,7 @@ export default class FishServer {
 
     didOpenTextDocument(params: DidOpenTextDocumentParams): void {
         this.logger.log("[FishLsp.onDidOpenTextDocument()]")
-        this.logger.log(JSON.stringify({params}, null, 2))
+        //this.logger.log(JSON.stringify({params}, null, 2))
         const uri = uriToPath(params.textDocument.uri);
         this.logger.log(`[FishLsp.onDidOpenTextDocument()] uri: ${uri}`)
         if (!uri) {
@@ -183,8 +186,14 @@ export default class FishServer {
 
     didChangeTextDocument(params: DidChangeTextDocumentParams): void {
         this.logger.log(`[${ this.connection.onDidChangeTextDocument.name }]: ${params.textDocument.uri}` );
-        const { uri, doc, root} = this.getDefaultsForPartialParams({textDocument: params.textDocument})
-        if (!uri || !doc || !root) return;
+        //const { uri, doc, root} = this.getDefaultsForPartialParams({textDocument: params.textDocument})
+        const uri = uriToPath(params.textDocument.uri);
+        const doc = this.docs.get(uri);
+        if (!uri || !doc) return;
+        this.analyzer.analyze(doc);
+
+        const root = this.analyzer.getRootNode(doc);
+        if (!root) return 
         params.contentChanges.forEach(newContent => {
             doc.applyEdit(params.textDocument.version, newContent)
         })
@@ -210,6 +219,7 @@ export default class FishServer {
     //      fish_indent --dump-parse-tree test-fish-lsp.fish
     // https://github.com/Dart-Code/Dart-Code/blob/7df6509870d51cc99a90cf220715f4f97c681bbf/src/providers/dart_completion_item_provider.ts#L197-202
     // https://github.com/microsoft/vscode-languageserver-node/pull/322
+    // 
     // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#insertTextModehttps://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#insertTextMode
     // 
     // • clean up into completion.ts file & Decompose to state machine, with a function that gets the state machine in this class.
@@ -307,12 +317,16 @@ export default class FishServer {
 
     // • lsp-spec: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#workspace_symbol
     // • hierachy of symbols support on line 554: https://github.com/typescript-language-server/typescript-language-server/blob/114d4309cb1450585f991604118d3eff3690237c/src/lsp-server.ts#L554
-    async onDocumentSymbols(params: DocumentSymbolParams): Promise<DocumentSymbol[]> {
+    //
+    // ResolveWorkspaceResult
+    // https://github.com/Dart-Code/Dart-Code/blob/master/src/extension/providers/dart_workspace_symbol_provider.ts#L7
+    //
+    async onDocumentSymbols(params: DocumentSymbolParams): Promise<SymbolInformation[]> {
         this.logger.log("onDocumentSymbols");
         const {doc, uri, root} = this.getDefaultsForPartialParams(params)
         if (!doc || !uri || !root) return [];
         //this.logger.log("length: "+ this.analyzer.getSymbols(doc.uri).length.toString())
-        return getDefinitionSymbols(root);
+        return collectAllSymbolInformation(uri, root);
     }
 
     protected get supportHierarchicalDocumentSymbol(): boolean {
@@ -471,7 +485,7 @@ export default class FishServer {
         }
         const root = this.analyzer.getRootNode(document)
         if (!root) return 
-        const foldNodes = getChildNodes(root).filter(node => isFunctionDefinition(node) || isStatement(node));
+        const foldNodes = getChildNodes(root).filter(node => isFunctionDefinition(node));
         // see folds.ts @ might be unnecessary
         for (const node of foldNodes) {
             this.logger.log(`onFoldingRanges: ${node.type} ${node.startPosition.row} ${node.endPosition.row}`);
@@ -483,7 +497,7 @@ export default class FishServer {
     async onCodeAction(params: CodeActionParams) : Promise<CodeAction[]> {
         const uri = uriToPath(params.textDocument.uri)
         const document = this.docs.get(uri);
-        this.logger.log(JSON.stringify({params}))
+        //this.logger.log(JSON.stringify({params}))
         if (!uri || !document) return []
         const root = this.parser.parse(document.getText()).rootNode;
         const results: CodeAction[]  = []

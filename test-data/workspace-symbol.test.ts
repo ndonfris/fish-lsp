@@ -11,9 +11,11 @@ import {getChildNodes, getNodeAtRange, getRange, getRangeWithPrecedingComments} 
 import { Color } from 'colors';
 import { Analyzer } from '../src/analyze';
 import { isFunctionDefinition, isFunctionDefinitionName, isDefinition, isVariableDefinition } from '../src/utils/node-types';
-import { CommentRange } from '../src/symbols';
+import { collectAllSymbolInformation, CommentRange } from '../src/symbols';
+import { DocumentationCache, initializeDocumentationCache } from '../src/utils/documentationCache';
 
 let parser: Parser;
+let documentationCache: DocumentationCache;
 let analyzer: Analyzer;
 let symbols: DocumentSymbol[] = [];
 let loggedAmount: number = 0;
@@ -23,7 +25,8 @@ const jestConsole = console;
 beforeEach(async () => {
     global.console = require('console');
     parser = await  initializeParser();
-    analyzer = new Analyzer(parser);
+    documentationCache = await initializeDocumentationCache();
+    analyzer = new Analyzer(parser, documentationCache);
     symbols = [];
 });
 
@@ -67,6 +70,23 @@ describe('workspace-symbols tests', () => {
         expect(commentRanges.length).toBe(1);
     })
 
+    it('function with variable symbols', async () => {
+        const doc = resolveLspDocumentForHelperTestFile('./fish_files/simple/function_variable_def.fish');
+        //const commentRanges = pushCommentRanges(doc)
+        analyzer.analyze(doc)
+        const toFind = analyzer.getNodes(doc).filter(n => n.text === 'simple_function');
+        const symbols = collectAllSymbolInformation(doc.uri, parser.parse(doc.getText()).rootNode)
+        symbols.forEach((symbol) => {
+            console.log(JSON.stringify({symbol: symbol}, null, 2))
+        })
+        //const result = await analyzer.getDefinition(doc, toFind[0])
+        //result.forEach(n => {
+            //console.log(n);
+            //console.log();
+        //})
+        //console.log(toFind[0]?.text);
+        //expect(commentRanges.length).toBe(3);
+    })   
 })
 
 

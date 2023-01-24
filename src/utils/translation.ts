@@ -1,4 +1,4 @@
-import { Diagnostic, DocumentSymbol, FoldingRange, FoldingRangeKind, SelectionRange, SymbolInformation, SymbolKind, TextDocumentEdit, TextEdit } from 'vscode-languageserver';
+import { Diagnostic, DocumentSymbol, FoldingRange, FoldingRangeKind, SelectionRange, SymbolInformation, SymbolKind, TextDocumentEdit, TextDocumentItem, TextEdit } from 'vscode-languageserver';
 import * as LSP from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { URI } from 'vscode-uri';
@@ -25,7 +25,7 @@ export function uriToPath(stringUri: string): string | undefined {
     return normalizeFsPath(uri.fsPath);
 }
 
-export function pathToUri(filepath: string, documents: LspDocuments | undefined): string {
+export function pathToUri(filepath: string, documents?: LspDocuments | undefined): string {
     // Yarn v2+ hooks tsserver and sends `zipfile:` URIs for Vim. Keep as-is.
     // Example: zipfile:///foo/bar/baz.zip::path/to/module
     if (filepath.startsWith('zipfile:')) {
@@ -180,3 +180,10 @@ export function toFoldingRange(node: SyntaxNode, document: LspDocument): Folding
         kind: FoldingRangeKind.Region
     }
 }
+
+
+export function toLspDocument(filename: string, content: string): LspDocument {
+    const doc = TextDocumentItem.create(pathToUri(filename), 'fish', 0, content)
+    return new LspDocument(doc)
+}
+

@@ -223,32 +223,6 @@ export async function parseFile(fname: string) : Promise<Tree> {
     return tree;
 }
 
-export async function startAnalyze(fname: string) : Promise<Analyzer> {
-    const usrShareFile = await resolveAbsPath(fname)
-    const output = usrShareFile.join('\n')
-    const parser = await initializeParser()
-    //const tree = await getRootNode(fname)
-
-    const analyzer = new Analyzer(parser);
-    //const td = TextDocument.create(fname,'fish', 1, output);
-    //analyzer.analyze(td);
-    return analyzer;
-}
-
-
-export async function getDocumentFromFilename(fname: string) : Promise<TextDocument> {
-    const usrShareFile = await resolveAbsPath(fname)
-    const output = usrShareFile.join('\n')
-    const parser = await initializeParser()
-    //const tree = await getRootNode(fname)
-    const analyzer = new Analyzer(parser);
-    return TextDocument.create(fname,'fish', 1, parser.parse(output).rootNode.text.toString());
-}
-
-export function getDocumentFromString(text: string = "") : TextDocument {
-    return TextDocument.create(`file://test_textdocument_from_string.fish`,'fish', 1, text);
-}
-
 
 export function printAllChildNodes(root: SyntaxNode) {
     console.log(nodeToString(root))
@@ -376,18 +350,18 @@ export function logSymbolInfo(shouldLog = true, symbol: SymbolInformation) {
 export function logDocSymbol(shouldLog = true, symbol: DocumentSymbol, indent = 0) {
     if (!shouldLog) return
     const indentStr = '\t'.repeat(indent)
-    logColor(`${indentStr}{`);
-    logColor(`${indentStr} name:`, ` ${symbol.name}`)
-    logColor(`${indentStr} detail:\n${indentStr}`,`${symbol.detail?.split('\n').join('\n' + indentStr)}`)
-    logColor(`${indentStr} kind:`,` ${symbolKindToString(symbol.kind)}`)
-    logColor(`${indentStr} range:`,` ${rangeToString(symbol.range)}`)
-    logColor(`${indentStr} selection range:`,` ${rangeToString(symbol.selectionRange)}`)
-    logColor(`${indentStr} children amount:`,` ${symbol.children?.length || 0}`)
+    console.log(`${indentStr}{`);
+    console.log(`${indentStr} name:`, ` ${symbol.name}`)
+    console.log(`${indentStr} detail:\n${indentStr}`,`${symbol.detail?.split('\n').join('\n' + indentStr)}`)
+    console.log(`${indentStr} kind:`,` ${symbolKindToString(symbol.kind)}`)
+    console.log(`${indentStr} range:`,` ${rangeToString(symbol.range)}`)
+    console.log(`${indentStr} selection range:`,` ${rangeToString(symbol.selectionRange)}`)
+    console.log(`${indentStr} children amount:`,` ${symbol.children?.length || 0}`)
     const children = symbol.children || []
     for (const child of children) {
         logDocSymbol(shouldLog, child, indent + 1)
     }
-    logColor(`${indentStr}}`);
+    console.log(`${indentStr}}`);
 
 }
 
@@ -402,38 +376,4 @@ export function logFile(shouldLog = true, uri: string, text: string) {
 //export colorOutput(text: string, otherText: string) {
     //return text.inverse.underline + otherText
 //}
-
-export function logColor(infoStr: string, ...text: string[]) {
-    if (text.length === 0) {
-        console.log(infoStr.green.bold);
-    } else {
-        const s1 =  splitSpaceStr(toBlackFg, infoStr); 
-        const s2 = splitSpaceStr(toWhite, text.toString()); 
-        console.log(s1 + s2);
-    }
-}
-
-const toBlackFg = (text: string) => {
-    return text.black.underline.bold.toString()
-}
-const toBlack = (text: string) => {
-    return text.bgBlue.black.underline.bold.toString()
-}
-
-const toWhite = (text: string) => {
-    return white.bgYellow(text)
-}
-
-function splitSpaceStr(c: (s: string) => string, ...strs: string[]) {
-    const preText = strs.map(t => t.split('\n')).flat()
-    const result = []
-    for (const t of preText) {
-        const whiteSpace = t.length - t.trimStart().length
-        result.push(t.slice(0, whiteSpace) + c(t.slice(whiteSpace)))
-    }
-    return result.join('\n')
-
-
-}
-
 

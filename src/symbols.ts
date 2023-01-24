@@ -10,10 +10,12 @@ import {
     MarkupKind,
     Range
 } from 'vscode-languageserver';
+
+ import * as LSP from 'vscode-languageserver'; 
 import {SyntaxNode} from 'web-tree-sitter';
 import {isBuiltin} from './utils/builtins';
-import {findFunctionScope, isCommand, isFunctionDefinitionName, isFunctionDefinition, isStatement, isString, isVariableDefinition, isProgram, isCommandName, findEnclosingVariableScope} from './utils/node-types';
-import {getChildNodes, getPrecedingComments, getRange} from './utils/tree-sitter';
+import {findFunctionScope, isCommand, isFunctionDefinitionName, isFunctionDefinition, isStatement, isString, isVariableDefinition, isProgram, isCommandName, findEnclosingVariableScope, isDefinition, findParentFunction} from './utils/node-types';
+import {findEnclosingScope, findFirstParent, getChildNodes, getPrecedingComments, getRange} from './utils/tree-sitter';
 
 export interface FishDocumentSymbol extends DocumentSymbol {
     markupContent: MarkupContent;
@@ -58,6 +60,31 @@ export function symbolKindToString(kind: SymbolKind) {
             return 'Other'
     }
 }
+
+export function collectAllSymbolInformation(uri: DocumentUri, root: SyntaxNode): SymbolInformation[] {
+    const symbols: SymbolInformation[] = [];
+    for (const node of getChildNodes(root).filter(n => isDefinition(n))) {
+        const commentRange = CommentRange.create(node)
+        const text = commentRange.getInnerText().trim();
+        const kind = toSymbolKind(node);
+        let range = getRange(node);
+        if (kind === SymbolKind.Function) {
+            range = commentRange.collect().toFoldRange()
+        }
+        const parent = commentRange.findParent()
+        symbols.push(
+            SymbolInformation.create(
+                text,
+                toSymbolKind(node),
+                range,
+                uri,
+                parent?.text || ''
+            )
+        );
+    }
+    return symbols
+}
+
 
 /**
  * CommentRange is used to collect the range of a Symbol and its preceding comments.
@@ -120,10 +147,10 @@ export namespace CommentRange {
             const end = this.collection[this.collection.length - 1].endPosition;                   
             return Range.create(start.row, start.column, end.row, end.column); 
         }
-        private getInnerText(): string {
+        public getInnerText(): string {
             return this.innerNode.text;
         }
-        private getEnclosingText(): string {
+        public getEnclosingText(): string {
             const lines = this.outerNode.text.split('\n')
             if (lines.length > 1) {
                 const lastLine = this.outerNode.lastChild?.startPosition.column || 0;
@@ -157,6 +184,9 @@ export namespace CommentRange {
          * the symbol's text.
          */
         text(): string {
+            if (this.type === 'variable' && this.outerNode.type === 'function_definition') {
+                return this.getInnerText()
+            }
             if (this.leadingComments.length > 0) {
                 return [
                     this.leadingCommentsText,
@@ -206,7 +236,17 @@ export namespace CommentRange {
                 markupContent: this.markdown(),
                 commentRange: this,
             }
+
         }
+
+        findParent(): SyntaxNode | null {
+            const parent = findFirstParent(this.innerNode, n => isFunctionDefinition(n))
+            if (parent && isFunctionDefinitionName(parent.firstNamedChild || parent)) {
+                return parent.firstNamedChild
+            }
+            return  null;
+        }
+
     }
     /**
      * Handles the creation of a CommentRange.WithPrecedingComments object.
@@ -228,6 +268,12 @@ export namespace CommentRange {
 }
 
 
-
-
-
+// FishSymbols {
+//     GlobalSymbol
+//          - CommandSymbol
+//          - VariableSymbol
+//     LocalSymbol
+//          - FunctionSymbol
+//          - VariableSymbol
+//          - ScopeSymbol
+// }

@@ -202,6 +202,7 @@ export class DocumentationCache {
             this._functions = initializeMap(funcs, SymbolKind.Function, uri);
             this._builtins = initializeMap(builtins, SymbolKind.Class, uri);
         })
+        return this
     }
 
     //setExportUri(uri: string, definitionSymbols: DocumentSymbol[]) {
@@ -304,3 +305,12 @@ export class DocumentationCache {
 
 }
 
+/**
+ * Function to be called when the server is initialized, so that the DocumentationCache
+ * can be populated.
+ */
+export async function initializeDocumentationCache() {
+    const cache = new DocumentationCache();
+    await cache.parse();
+    return cache;
+}

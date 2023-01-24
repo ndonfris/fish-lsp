@@ -3,40 +3,116 @@ import { TextDocument } from "vscode-languageserver-textdocument";
 import Parser, { SyntaxNode, Point, Range, Tree } from "web-tree-sitter";
 import * as LSP from 'vscode-languageserver';
 //import {collectFishSymbols, FishSymbol} from './symbols';
-import {containsRange} from './workspace-symbol'
+import {containsRange, getDefinitionSymbols} from './workspace-symbol'
 import {SymbolKind} from 'vscode-languageserver';
-import {findNodeAt, getChildNodes, getRange} from './utils/tree-sitter';
+import {findEnclosingScope, findNodeAt, getChildNodes, getRange} from './utils/tree-sitter';
 import {LspDocument} from './document';
-import {isCommand, isCommandName, isVariable} from './utils/node-types';
+import {isCommand, isCommandName, isDefinition, isVariable} from './utils/node-types';
 import {DiagnosticQueue} from './diagnostics/queue';
-import {uriToPath} from './utils/translation';
+import {toLspDocument, uriToPath} from './utils/translation';
 import {collectDiagnosticsRecursive, /* getDiagnostics */} from './diagnostics/validate';
+import { DocumentationCache } from './utils/documentationCache';
+import { DocumentSymbol } from 'vscode-languageserver';
+import { toSymbolKind } from './symbols';
+import { execOpenFile } from './utils/exec';
 
 export class Analyzer {
+
     private parser: Parser;
 
     // maps the uri of document to the parser.parse(document.getText())
     private uriTree: { [uri: string]: Tree };
     private diagnosticQueue: DiagnosticQueue = new DiagnosticQueue();
 
-    constructor(parser: Parser) {
+    private uriToSymbols: { [uri: string]: DocumentSymbol[]} = {};
+    private globalSymbolsCache: DocumentationCache;
+
+    constructor(parser: Parser, globalSymbolsCache: DocumentationCache) {
         this.parser = parser;
         this.uriTree = {};
+        this.globalSymbolsCache = globalSymbolsCache;
     }
 
-    public analyze(document: LspDocument, useCache: boolean = false) {
+    public analyze(document: LspDocument) {
         const uri = document.uri;
         const tree = this.parser.parse(document.getText());
         if (!uri) return;
         if (!tree?.rootNode) return;
         this.uriTree[uri] = tree;
-        if (!useCache) {
-            this.diagnosticQueue.clear(uri);
-        }
+        this.uriToSymbols[uri] = getDefinitionSymbols(tree.rootNode)
         this.diagnosticQueue.set(
             uri,
             collectDiagnosticsRecursive(tree.rootNode, document)
         );
+        return this.uriToSymbols[uri]
+    }
+
+
+    public async getDocumentation(document: LspDocument, node: SyntaxNode) {
+        const localSymbols = this.uriToSymbols[document.uri].filter((symbol) => {
+            return symbol.name === node.text
+        });
+        if (localSymbols.length > 0) {
+            return localSymbols[0].detail
+        }
+        if (!localSymbols) {
+            const documentation = await this.globalSymbolsCache.resolve(node.text);
+            if (documentation) {
+                return documentation.docs;
+            }
+        }
+        return null;
+    }
+
+    public getRefrences(document: LspDocument, node: SyntaxNode): Location[] {
+        const references: Location[] = [];
+        const parent = findEnclosingScope(node)
+        const childNodes = getChildNodes(parent);
+        childNodes.forEach((child) => {
+            if (child.text === node.text) {
+                references.push({
+                    uri: document.uri,
+                    range: getRange(child),
+                });
+            };
+        });
+        return references;
+    }
+
+    protected getLocalDefinitionSymbols(document: LspDocument,node: SyntaxNode, symbols: DocumentSymbol[]): DocumentSymbol[] {
+        if (this.hasLocalSymbol(document, node)) {
+            let localSymbol: DocumentSymbol[];
+            if (!isVariable(node)) {
+                localSymbol = scopedFunctionDefinitionSymbols(symbols, node)
+            } else {
+                localSymbol = scopedVariableDefinitionSymbols(symbols, node) || []
+            }
+            if (localSymbol) {
+                return localSymbol
+            }
+        }
+        return []
+    }
+
+    public async getDefinition(document: LspDocument, node: SyntaxNode): Promise<DocumentSymbol[]> {
+        if (this.hasLocalSymbol(document, node)) {
+            return this.getLocalDefinitionSymbols(document, node, this.uriToSymbols[document.uri] )
+        }
+        await this.globalSymbolsCache.resolve(node.text)
+        const globalSymbol = this.globalSymbolsCache.getItem(node.text)
+        if (!globalSymbol?.uri) return []
+        const fileText = await execOpenFile(globalSymbol.uri)
+        const newDoc = toLspDocument(globalSymbol.uri, fileText)
+        if (!newDoc) return []
+        this.analyze(newDoc)
+        return this.getLocalDefinitionSymbols(newDoc, node, this.uriToSymbols[globalSymbol.uri])
+    }
+
+    public hasLocalSymbol(docuemnt: LspDocument, node: SyntaxNode): boolean {
+        const symbols = this.uriToSymbols[docuemnt.uri]
+        return symbols.some((symbol: DocumentSymbol) => {
+            return symbol.name === node.text
+        }) || false;
     }
 
     /**
@@ -197,3 +273,38 @@ export class Analyzer {
         );
     }
 }
+
+
+function scopedFunctionDefinitionSymbols(allSymbols: DocumentSymbol[], node: SyntaxNode) : DocumentSymbol[] {
+    const symbolStack : DocumentSymbol[] = [...allSymbols];
+    let currentSymbol: DocumentSymbol | undefined;
+    while (symbolStack.length > 0) {
+        currentSymbol = symbolStack.shift();
+        if (!currentSymbol) break;
+        if (currentSymbol.kind === SymbolKind.Function && currentSymbol.name === node.text) {
+            return [currentSymbol];
+        }
+        if (currentSymbol?.children) {
+            symbolStack.unshift(...currentSymbol?.children);
+        }
+    }
+    return [];
+}
+
+function scopedVariableDefinitionSymbols(allSymbols: DocumentSymbol[], node: SyntaxNode) : DocumentSymbol[] {
+    const symbolStack : DocumentSymbol[] = [...allSymbols];
+    let currentSymbol: DocumentSymbol | undefined;
+    while (symbolStack.length > 0) {
+        currentSymbol = symbolStack.shift();
+        if (!currentSymbol) break;
+        if (currentSymbol.kind === SymbolKind.Function) {
+            if ( currentSymbol.children && containsRange(currentSymbol.range, getRange(node))) {
+                symbolStack.unshift(...currentSymbol?.children);
+            }
+        } else if (currentSymbol.name === node.text) {
+            return [currentSymbol];
+        }
+    }
+    return [];
+}
+

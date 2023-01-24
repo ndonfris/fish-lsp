@@ -15,18 +15,6 @@ export async function handleHover(uri: string, root: Parser.SyntaxNode, current:
     if (current.text.startsWith('-')) {
         return await getHoverForFlag(current)
     } 
-    if (cache.find(current.text) !== undefined) {
-        await cache.resolve(current.text)
-        const item = cache.getItem(current.text);
-        if (item?.docs) {
-            return  {
-                contents: {
-                    kind: MarkupKind.Markdown,
-                    value: item.docs.toString()
-                }
-            }
-        }
-    }
     const local = Symbols.getMostRecentReference(uri, root, current);
     if (local) {
         const fishSymbol = CommentRange.createFishDocumentSymbol(local);
@@ -43,6 +31,18 @@ export async function handleHover(uri: string, root: Parser.SyntaxNode, current:
             //range: getRange(local),
         //}
     } 
+    if (cache.find(current.text) !== undefined) {
+        await cache.resolve(current.text)
+        const item = cache.getItem(current.text);
+        if (item?.docs) {
+            return  {
+                contents: {
+                    kind: MarkupKind.Markdown,
+                    value: item.docs.toString()
+                }
+            }
+        }
+    }
     const commandString = await collectCommandString(current);
     return await documentationHoverProvider(commandString)
 }
