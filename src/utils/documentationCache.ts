@@ -29,7 +29,7 @@ async function getNewDocSring(name: string, item: CachedGlobalItem) : Promise<st
     case SymbolKind.Variable:
         return await getVariableDocs(name);
     case SymbolKind.Function:
-        return await getFunctionDocString(name)
+        return await getFunctionDocString(name, item)
     case SymbolKind.Class:
         return await getBuiltinDocString(name)
     default:
@@ -87,13 +87,17 @@ async function getVariableDocs(name: string): Promise<string | undefined> {
     }
     const splitDocs = docs.join('\n').split('\n');
     const splitTitleArray = splitDocs[0].split(':');
-    const splitOther = splitDocs.slice(1);
+    const splitOther: string[] = splitDocs.slice(1);
+    const formattedOther = splitOther.map((line: string) => {
+        const arr = line.split(': ');
+        const fishScript = ['**|**', arr[1].slice(1,-1), '**|**'].join('`')
+        return `*${arr[0]}*: ${fishScript}`
+    }).join('\n')
     return [
-        `__${splitTitleArray[0].trim()}__ - _${splitTitleArray[1].trim()}_`,
+        `**${splitTitleArray[0].trim()}** - *${splitTitleArray[1].trim()}*`,
         '___',
-        splitOther.join('\n')
+        formattedOther
     ].join('\n')
-    //return docs.join('\n').trim();
 }
 
 async function getFunctionUri(name: string): Promise<string | undefined> {
@@ -105,13 +109,24 @@ async function getFunctionUri(name: string): Promise<string | undefined> {
     return uri;
 }
 
-async function getFunctionDocString(name: string): Promise<string | undefined> {
+function escapePathStr(functionTitleLine: string) : string {
+    const afterComment =  functionTitleLine.split(' ').slice(1)
+    const pathIndex = afterComment.findIndex((str: string) => str.includes('/')) 
+    const path = afterComment[pathIndex]
+    return [
+    '**'+afterComment.slice(0, pathIndex).join(' ').trim() + '**',
+    `*\`${path.toString()}\`*`,
+    '**'+afterComment.slice(pathIndex + 1).join(' ').trim() + '**'
+    ].join(' ')
+}
+
+async function getFunctionDocString(name: string, item: CachedGlobalItem): Promise<string | undefined> {
     const docStr = await execCommandDocs(name);
     if (docStr) {
-        const docTitle = docStr.split('\n')[0];
+        const docTitle = docStr.split('\n')[0]
         const docBody = docStr.split('\n').slice(1).join('\n');
         return [
-            `_${docTitle.substring(2)}_`,
+            `${escapePathStr(docTitle).trim()}`,
             '___',
             '```fish',
             docBody,
