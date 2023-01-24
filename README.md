@@ -1,5 +1,8 @@
 # CURRENT TODO
 
+- [ ] [all]
+    - replace BuiltinsSet.has('command_name') with new implementation using DocumentationCache
+    - server, completion, hover, rename?, fold? 
 - [ ] [server.ts]( ./src/server.ts )
     - [x] onFold
     - [x] onComplete
