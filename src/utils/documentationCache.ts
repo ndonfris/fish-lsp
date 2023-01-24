@@ -237,8 +237,33 @@ export class DocumentationCache {
                 //item = this._unknowns.get(name)
                 //break;
         //}
-        //item.formattedDocs =
+        this.setItem(name, item)
         return item
+    }
+
+    setItem(name: string, item: CachedGlobalItem) {
+        switch (item.type) {
+            case SymbolKind.Variable:
+                this._variables.set(name, item)
+                break;
+            case SymbolKind.Function:
+                this._functions.set(name, item)
+                break;
+            case SymbolKind.Class:
+                this._builtins.set(name, item)
+                break;
+            default:
+                this._unknowns.set(name, item)
+                break;
+        }
+    }
+
+    getItem(name: string) {
+        const item = this.find(name);
+        if (!item || item.type === SymbolKind.Null) {
+            return undefined;
+        }
+        return item;
     }
 
 

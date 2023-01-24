@@ -206,23 +206,14 @@ describe('complete simple tests', () => {
     })
 
     it("testing Documentation Cache", async () => {
-        const execAsync = promisify(exec);
-
-        //const out = t.
-        //if (t.)
-        //t.forEach(l => console.log(l));
-
         console.time('test execCompletionHelper');
         const docCache = new DocumentationCache();
         await docCache.parse()
-        for (const item of docCache.items) {
-            console.log(item);
-        }
         console.log(await docCache.resolve('PATH'));
         console.log(await docCache.resolve('while'));
         console.log(await docCache.resolve('get-completions'));
         console.timeEnd('test execCompletionHelper')
-    }, 20000)
+    })
 
 })
 

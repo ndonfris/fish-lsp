@@ -4,18 +4,28 @@ import * as Parser from 'web-tree-sitter';
 import {documentationHoverProvider, documentationHoverProviderForBuiltIns, enrichCommandWithFlags, enrichToCodeBlockMarkdown} from './documentation';
 import { CommentRange } from './symbols';
 import {isBuiltIn} from './utils/completion-types';
+import { DocumentationCache } from './utils/documentationCache';
 import {execCommandDocs, execComplete, execCompletions, execSubCommandCompletions} from './utils/exec';
 import {isCommand, isCommandName} from './utils/node-types';
 import {findEnclosingScope, findFirstParent, getNodeAtRange, getRange} from './utils/tree-sitter';
 import * as Symbols from './workspace-symbol';
 
 
-export async function handleHover(uri: string, root: Parser.SyntaxNode, current: Parser.SyntaxNode) : Promise<LSP.Hover | null>{
+export async function handleHover(uri: string, root: Parser.SyntaxNode, current: Parser.SyntaxNode, cache: DocumentationCache) : Promise<LSP.Hover | null>{
     if (current.text.startsWith('-')) {
         return await getHoverForFlag(current)
     } 
-    if (isBuiltIn(current.text)) {
-        return await documentationHoverProviderForBuiltIns(current.text)
+    if (cache.find(current.text) !== undefined) {
+        await cache.resolve(current.text)
+        const item = cache.getItem(current.text);
+        if (item?.docs) {
+            return  {
+                contents: {
+                    kind: MarkupKind.Markdown,
+                    value: item.docs.toString()
+                }
+            }
+        }
     }
     const local = Symbols.getMostRecentReference(uri, root, current);
     if (local) {

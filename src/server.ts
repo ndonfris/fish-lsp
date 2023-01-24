@@ -25,6 +25,7 @@ import {Commands} from "./commands"
 import {isFunctionDefinition, isStatement} from './utils/node-types';
 import {handleConversionToCodeAction} from './diagnostics/handleConversion';
 import {FishShellInlayHintsProvider} from './features/inlay-hints';
+import { DocumentationCache } from './utils/documentationCache';
 
 // @TODO 
 export type SupportedFeatures = {
@@ -39,13 +40,16 @@ export default class FishServer {
     ): Promise<FishServer> {
         const parser = await initializeParser();
         const documents = new LspDocuments() ;
+        const documentationCache = new DocumentationCache();
+        await documentationCache.parse();
         const analyzer = new Analyzer(await initializeParser());
-        return new FishServer(connection, params, parser, analyzer, documents)
+        return new FishServer(connection, params, parser, analyzer, documents, documentationCache)
     }
 
     private initializeParams: InitializeParams | undefined;
     // the connection of the FishServer
     private connection: Connection;
+    private documentationCache: DocumentationCache;
     //private client: RemoteClient;
     // the parser (using tree-sitter-web)
     private parser: Parser;
@@ -57,7 +61,7 @@ export default class FishServer {
     protected logger: Logger;
     protected features: SupportedFeatures;
 
-    constructor(connection: Connection, params: InitializeParams ,parser : Parser, analyzer: Analyzer, docs: LspDocuments ) {
+    constructor(connection: Connection, params: InitializeParams ,parser : Parser, analyzer: Analyzer, docs: LspDocuments, documentationCache: DocumentationCache ) {
         this.connection = connection;
         this.initializeParams = params;
         this.parser = parser;
@@ -67,6 +71,7 @@ export default class FishServer {
         this.logger = new Logger(connection);
         this.features = { codeActionDisabledSupport: false };
         this.fishAutoFixProvider = new FishAutoFixProvider(this.connection)
+        this.documentationCache = documentationCache;
     }
 
     async initialize(params: InitializeParams): Promise<InitializeResult> {
@@ -353,7 +358,9 @@ export default class FishServer {
         this.logger.log("onHover");
         const {doc, uri, root, current} = this.getDefaults(params)
         if (!doc || !uri || !root || !current) return null;
-        return await handleHover(doc.uri, root, current);
+        const globalItem =await this.documentationCache.resolve(current.text.trim(), uri)
+        this.logger.log(globalItem?.resolved.toString() || `docCache not found ${current.text}`)
+        return await handleHover(doc.uri, root, current, this.documentationCache);
     }
 
     async onRename(params: RenameParams) : Promise<WorkspaceEdit | null> {
