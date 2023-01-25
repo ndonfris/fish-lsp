@@ -274,3 +274,37 @@ export namespace CommentRange {
 //          - VariableSymbol
 //          - ScopeSymbol
 // }
+
+//import { SyntaxNode, DocumentSymbol, SymbolKind } from "web-tree-sitter"
+//
+//function collapseToSymbols(root: SyntaxNode): DocumentSymbol[] {
+//    const symbols: DocumentSymbol[] = []
+//    const stack: SyntaxNode[] = [root]
+//
+//    while (stack.length > 0) {
+//        const node = stack.pop()
+//
+//        if (node.type === "function_def") {
+//            symbols.push({
+//                name: node.children.find(c => c.type === "identifier").text,
+//                kind: SymbolKind.Function,
+//                range: node.range,
+//                selectionRange: node.range
+//            })
+//        } else if (node.type === "variable_def") {
+//            symbols.push({
+//                name: node.children.find(c => c.type === "identifier").text,
+//                kind: SymbolKind.Variable,
+//                range: node.range,
+//                selectionRange: node.range
+//            })
+//        } else {
+//            for (const child of node.children) {
+//                stack.push(child)
+//            }
+//        }
+//    }
+//
+//    return symbols
+//}
+//

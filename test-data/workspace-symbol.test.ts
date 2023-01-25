@@ -121,9 +121,20 @@ describe("workspace-symbols tests", () => {
             .getNodes(doc)
             .filter((n) => n.text === "simple_function");
         //const symbols = collectAllSymbolInformation(doc.uri, parser.parse(doc.getText()).rootNode)
-        const symbols = collapseToSymbolsRecursive(
-            parser.parse(doc.getText()).rootNode
+        const root = parser.parse(doc.getText()).rootNode
+        const symbols = collapseToSymbolsRecursive(root);
+        const tree = toClientTree(root)
+        expect(symbols.length).toBe(1);
+        expect(tree.length).toBe(1);
+    });
+
+
+    it("multiple function hierarchical symbols", async () => {
+        const doc = resolveLspDocumentForHelperTestFile(
+            "./fish_files/advanced/multiple_functions.fish"
         );
+        const root = parser.parse(doc.getText()).rootNode
+        const symbols = collapseToSymbolsRecursive(root);
         symbols.forEach((symbol, index) => {
             console.log(symbol.name);
             //console.log(symbol.name)
@@ -135,16 +146,19 @@ describe("workspace-symbols tests", () => {
                 )
             );
         });
-        console.log(symbols.length);
+        expect(symbols.length).toBe(3);
+        console.log("\nLOGGING SCOPES:");
+        const tree = toClientTree(root)
+        logClientTree(tree)
 
-        const tree = toClientTree(parser.parse(doc.getText()).rootNode)
-        console.log(
-                JSON.stringify(
-                    {tree},
-                    null,
-                    2
-                )
-        );
+        //expect(tree.length).toBe(1);
+        //console.log(
+                //JSON.stringify(
+                    //{tree},
+                    //null,
+                    //2
+                //)
+        //);
         //const result = await analyzer.getDefinition(doc, toFind[0])
         //result.forEach(n => {
         //console.log(n);
@@ -153,9 +167,18 @@ describe("workspace-symbols tests", () => {
         //console.log(toFind[0]?.text);
         //expect(commentRanges.length).toBe(3);
     });
+
 });
 
 
+// small helper to print out the client tree like the editor would tree
+function logClientTree(symbols: DocumentSymbol[], level = 0) {
+    for (const symbol of symbols) {
+        const logIcon = symbol.kind === SymbolKind.Function ? "  " :  "  " 
+        console.log("  ".repeat(level) + `${logIcon}${symbol.name}`);
+        logClientTree(symbol.children || [], level + 1);
+    }
+}
 
 
 /****************************************************************************************
@@ -193,24 +216,34 @@ function collapseToSymbolsRecursive(node: SyntaxNode): DocumentSymbol[] {
     const symbols: DocumentSymbol[] = [];
     if (isFunctionDefinition(node)) {
         const symbol = createFunctionDocumentSymbol(node);
-        for (const child of node.children) {
+        node.children.forEach((child) => {
             const childSymbols = collapseToSymbolsRecursive(child);
             if (!symbol.children) symbol.children = [];
             symbol.children.push(...childSymbols);
-        }
+        })
         symbols.push(symbol);
     } else if (isVariableDefinition(node)) {
         const symbol = createVariableDocumentSymbol(node);
         symbols.push(symbol);
     } else {
-        for (const child of node.children) {
+        node.children.forEach((child) => {
             symbols.push(...collapseToSymbolsRecursive(child));
-        }
+        })
     }
     return symbols;
 }
 
 
+
+/**
+ * Shows the workspace heirarcharal symbols, in a tree format in the client. Unlike
+ * collapseToSymbolsRecursive(), this function removes duplicate identifiers in the same
+ * scope, and only ends up storing the last refrence.
+ *
+ * @param {SyntaxNode} root - The root node of the syntax tree.
+ *
+ * @returns {DocumentSymbol[]} - The document symbols, without duplicates in the same scope.
+ */
 function toClientTree(root: SyntaxNode): DocumentSymbol[] {
     const symbols = collapseToSymbolsRecursive(root);
     const seenSymbols: Set<string> = new Set();
@@ -232,3 +265,4 @@ function toClientTree(root: SyntaxNode): DocumentSymbol[] {
     }
     return result;
 }
+
