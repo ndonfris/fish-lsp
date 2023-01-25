@@ -42,6 +42,7 @@ import {
     isFunctionDefinitionName,
     isDefinition,
     isVariableDefinition,
+    isScope,
 } from "../src/utils/node-types";
 import { collectAllSymbolInformation, CommentRange } from "../src/symbols";
 import {
@@ -135,6 +136,15 @@ describe("workspace-symbols tests", () => {
             );
         });
         console.log(symbols.length);
+
+        const tree = toClientTree(parser.parse(doc.getText()).rootNode)
+        console.log(
+                JSON.stringify(
+                    {tree},
+                    null,
+                    2
+                )
+        );
         //const result = await analyzer.getDefinition(doc, toFind[0])
         //result.forEach(n => {
         //console.log(n);
@@ -145,57 +155,14 @@ describe("workspace-symbols tests", () => {
     });
 });
 
-//function collapseToSymbolsRecursive(node: SyntaxNode, parent: DocumentSymbol | null = null): DocumentSymbol[] {
-//    let symbols: DocumentSymbol[] = []
-//
-//    let parentNode: SyntaxNode | null = null;
-//    let identifier: SyntaxNode | null = node;
-//    const selectionRange = getRange(node);
-//
-//    if (isFunctionDefinitionName(node)) {
-//        parentNode = node.parent!
-//        const symbol: DocumentSymbol = {
-//            name: identifier?.text!,
-//            kind: SymbolKind.Function,
-//            range: getRange(parentNode),
-//            selectionRange: getRange(identifier),
-//            children: []
-//        }
-//        if(parent) parent.children?.push(symbol);
-//        symbols.push(symbol);
-//    } else if (isVariableDefinition(node)) {
-//        parentNode = node.parent!
-//        const symbol: DocumentSymbol = {
-//            name: identifier.text,
-//            kind: SymbolKind.Variable,
-//            range: getRange(parentNode),
-//            selectionRange: getRange(identifier),
-//            children: []
-//        }
-//        if(parent) parent.children?.push(symbol);
-//        symbols.push(symbol);
-//    } else {
-//        for (const child of node.children) {
-//            symbols = symbols.concat(
-//                collapseToSymbolsRecursive(
-//                    child,
-//                    parent
-//                        ? parent
-//                        : symbols.find(
-//                              (s) =>
-//                                  s.range.start.line ===
-//                                      selectionRange.start.line &&
-//                                  s.range.start.character ===
-//                                      selectionRange.start.character
-//                          )
-//                )
-//            );
-//        }
-//    }
-//
-//    return symbols
-//}
 
+
+
+/****************************************************************************************
+ *  here we need to add collecting comments, for the range/detail output. Generate      *
+ *  a special detail output. And lastly probably would be more simple using a namespace *
+ *                                                                                      *
+ ***************************************************************************************/
 function createFunctionDocumentSymbol(node: SyntaxNode) {
     const identifier = node.firstNamedChild!;
     return DocumentSymbol.create(
@@ -208,6 +175,7 @@ function createFunctionDocumentSymbol(node: SyntaxNode) {
     )
 }
 
+// add specific detail handler for different variable types.
 function createVariableDocumentSymbol(node: SyntaxNode) {
     const parentNode = node.parent!;
     return DocumentSymbol.create(
@@ -222,19 +190,9 @@ function createVariableDocumentSymbol(node: SyntaxNode) {
 
 
 function collapseToSymbolsRecursive(node: SyntaxNode): DocumentSymbol[] {
-    let symbols: DocumentSymbol[] = [];
-    let parentNode: SyntaxNode | null = node.parent;
-    let identifier: SyntaxNode = node;
+    const symbols: DocumentSymbol[] = [];
     if (isFunctionDefinition(node)) {
-        identifier = node.firstNamedChild!;
-        const symbol = DocumentSymbol.create(
-            identifier.text,
-            identifier.text,
-            SymbolKind.Function,
-            getRange(node),
-            getRange(identifier),
-            []
-        );
+        const symbol = createFunctionDocumentSymbol(node);
         for (const child of node.children) {
             const childSymbols = collapseToSymbolsRecursive(child);
             if (!symbol.children) symbol.children = [];
@@ -242,15 +200,7 @@ function collapseToSymbolsRecursive(node: SyntaxNode): DocumentSymbol[] {
         }
         symbols.push(symbol);
     } else if (isVariableDefinition(node)) {
-        parentNode = node.parent!;
-        const symbol = DocumentSymbol.create(
-            identifier.text,
-            identifier.text,
-            SymbolKind.Variable,
-            getRange(parentNode),
-            getRange(identifier),
-            []
-        );
+        const symbol = createVariableDocumentSymbol(node);
         symbols.push(symbol);
     } else {
         for (const child of node.children) {
@@ -258,4 +208,27 @@ function collapseToSymbolsRecursive(node: SyntaxNode): DocumentSymbol[] {
         }
     }
     return symbols;
+}
+
+
+function toClientTree(root: SyntaxNode): DocumentSymbol[] {
+    const symbols = collapseToSymbolsRecursive(root);
+    const seenSymbols: Set<string> = new Set();
+    const result: DocumentSymbol[] = [];
+
+    for (const symbol of symbols) {
+        const node = getNodeAtRange(root, symbol.range);
+        let parent = node!.parent;
+        while (parent) {
+            if (isScope(parent)) {
+                if (!seenSymbols.has(symbol.name)) {
+                    seenSymbols.add(symbol.name);
+                    result.push(symbol);
+                }
+                break;
+            }
+            parent = parent.parent;
+        }
+    }
+    return result;
 }
