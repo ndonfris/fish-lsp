@@ -184,9 +184,6 @@ export namespace CommentRange {
          * the symbol's text.
          */
         text(): string {
-            if (this.type === 'variable' && this.outerNode.type === 'function_definition') {
-                return this.getInnerText()
-            }
             if (this.leadingComments.length > 0) {
                 return [
                     this.leadingCommentsText,
