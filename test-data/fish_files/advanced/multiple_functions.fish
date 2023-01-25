@@ -16,4 +16,3 @@ end
 
 set --local files file1 file2 file3
 other_functions $files
-

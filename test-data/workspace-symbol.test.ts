@@ -117,9 +117,6 @@ describe("workspace-symbols tests", () => {
         );
         //const commentRanges = pushCommentRanges(doc)
         analyzer.analyze(doc);
-        const toFind = analyzer
-            .getNodes(doc)
-            .filter((n) => n.text === "simple_function");
         //const symbols = collectAllSymbolInformation(doc.uri, parser.parse(doc.getText()).rootNode)
         const root = parser.parse(doc.getText()).rootNode
         const symbols = collapseToSymbolsRecursive(root);
