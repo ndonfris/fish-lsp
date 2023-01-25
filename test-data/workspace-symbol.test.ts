@@ -1,54 +1,20 @@
 import { resolveLspDocumentForHelperTestFile } from "./helpers";
 import { TextDocument } from "vscode-languageserver-textdocument";
-import {
-    CompletionItem,
-    CompletionParams,
-    DocumentSymbol,
-    MarkupContent,
-    MarkupKind,
-    Position,
-    Range,
-    SymbolKind,
-    TextDocumentIdentifier,
-} from "vscode-languageserver";
-import {
-    BUILT_INS,
-    createCompletionList,
-    generateShellCompletionItems,
-    getShellCompletions,
-    workspaceSymbolToCompletionItem,
-} from "../src/completion";
+import {CompletionItem,CompletionParams,DocumentSymbol,MarkupContent,MarkupKind,Position,Range,SymbolKind,TextDocumentIdentifier,} from "vscode-languageserver";
+import {BUILT_INS,createCompletionList,generateShellCompletionItems,getShellCompletions,workspaceSymbolToCompletionItem,} from "../src/completion";
 import Parser, { SyntaxNode } from "web-tree-sitter";
 import { initializeParser } from "../src/parser";
 import { resolve } from "dns";
 import { LspDocument } from "../src/document";
-import {
-    containsRange,
-    createSymbol,
-    //getDefinitionSymbols,
-    getNearbySymbols,
-    getNodeFromRange,
-} from "../src/workspace-symbol";
-import {
-    getChildNodes,
-    getNodeAtRange,
-    getRange,
-    getRangeWithPrecedingComments,
-} from "../src/utils/tree-sitter";
+import {containsRange,createSymbol,getDefinitionSymbols,getNearbySymbols,getNodeFromRange,} from "../src/workspace-symbol";
+import {getChildNodes,getNodeAtRange,getRange,getRangeWithPrecedingComments } from "../src/utils/tree-sitter";
 import { Color } from "colors";
 import { Analyzer } from "../src/analyze";
-import {
-    isFunctionDefinition,
-    isFunctionDefinitionName,
-    isDefinition,
-    isVariableDefinition,
-    isScope,
-} from "../src/utils/node-types";
+import {isFunctionDefinition,isFunctionDefinitionName,isDefinition,isVariableDefinition,isScope,} from "../src/utils/node-types";
 import { collectAllSymbolInformation, CommentRange } from "../src/symbols";
-import {
-    DocumentationCache,
-    initializeDocumentationCache,
-} from "../src/utils/documentationCache";
+import { DocumentationCache, initializeDocumentationCache } from "../src/utils/documentationCache";
+
+
 
 let parser: Parser;
 let documentationCache: DocumentationCache;
@@ -88,33 +54,25 @@ function pushCommentRanges(doc: LspDocument) {
  */
 describe("workspace-symbols tests", () => {
     it("simple function symbols", async () => {
-        const doc = resolveLspDocumentForHelperTestFile(
-            "./fish_files/simple/simple_function.fish"
-        );
+        const doc = resolveLspDocumentForHelperTestFile("./fish_files/simple/simple_function.fish");
         const commentRanges = pushCommentRanges(doc);
         expect(commentRanges.length).toBe(1);
     });
 
     it("simple variable symbols", async () => {
-        const doc = resolveLspDocumentForHelperTestFile(
-            "./fish_files/simple/set_var.fish"
-        );
+        const doc = resolveLspDocumentForHelperTestFile("./fish_files/simple/set_var.fish");
         const commentRanges = pushCommentRanges(doc);
         expect(commentRanges.length).toBe(1);
     });
 
     it("simple for variable symbols", async () => {
-        const doc = resolveLspDocumentForHelperTestFile(
-            "./fish_files/simple/for_var.fish"
-        );
+        const doc = resolveLspDocumentForHelperTestFile("./fish_files/simple/for_var.fish");
         const commentRanges = pushCommentRanges(doc);
         expect(commentRanges.length).toBe(1);
     });
 
     it("function with variable symbols", async () => {
-        const doc = resolveLspDocumentForHelperTestFile(
-            "./fish_files/simple/function_variable_def.fish"
-        );
+        const doc = resolveLspDocumentForHelperTestFile("./fish_files/simple/function_variable_def.fish");
         //const commentRanges = pushCommentRanges(doc)
         analyzer.analyze(doc);
         //const symbols = collectAllSymbolInformation(doc.uri, parser.parse(doc.getText()).rootNode)
@@ -127,36 +85,20 @@ describe("workspace-symbols tests", () => {
 
 
     it("multiple function hierarchical symbols", async () => {
-        const doc = resolveLspDocumentForHelperTestFile(
-            "./fish_files/advanced/multiple_functions.fish"
-        );
+        const doc = resolveLspDocumentForHelperTestFile("./fish_files/advanced/multiple_functions.fish");
         const root = parser.parse(doc.getText()).rootNode
         const symbols = collapseToSymbolsRecursive(root);
         symbols.forEach((symbol, index) => {
             console.log(symbol.name);
-            //console.log(symbol.name)
-            console.log(
-                JSON.stringify(
-                    { index: index, children: symbol.children },
-                    null,
-                    2
-                )
-            );
+            console.log(JSON.stringify({ index: index, children: symbol.children },null,2))
         });
         expect(symbols.length).toBe(3);
         console.log("\nLOGGING SCOPES:");
         const tree = toClientTree(root)
         logClientTree(tree)
-
+        console.log();
         //expect(tree.length).toBe(1);
-        //console.log(
-                //JSON.stringify(
-                    //{tree},
-                    //null,
-                    //2
-                //)
-        //);
-        //const result = await analyzer.getDefinition(doc, toFind[0])
+        //console.log(JSON.stringify({tree},null,2));//const result = await analyzer.getDefinition(doc, toFind[0])
         //result.forEach(n => {
         //console.log(n);
         //console.log();
@@ -209,6 +151,15 @@ function createVariableDocumentSymbol(node: SyntaxNode) {
 }
 
 
+/**
+ * This is the recursive solution to building the document symbols (for definitions).
+ *
+ * @see createFunctionDocumentSymbol
+ * @see createVariableDocumentSymbol
+ *
+ * @param {SyntaxNode} node - the node to start the recursive search from
+ * @returns {DocumentSymbol[]} - the resulting DocumentSymbols, which is a TREE not a flat list
+ */
 function collapseToSymbolsRecursive(node: SyntaxNode): DocumentSymbol[] {
     const symbols: DocumentSymbol[] = [];
     if (isFunctionDefinition(node)) {
