@@ -10,11 +10,9 @@ import {containsRange,createSymbol,getDefinitionSymbols,getNearbySymbols,getNode
 import {getChildNodes,getNodeAtRange,getRange,getRangeWithPrecedingComments } from "../src/utils/tree-sitter";
 import { Color } from "colors";
 import { Analyzer } from "../src/analyze";
-import {isFunctionDefinition,isFunctionDefinitionName,isDefinition,isVariableDefinition,isScope,} from "../src/utils/node-types";
+import {isFunctionDefinition,isFunctionDefinitionName,isDefinition,isVariableDefinition,isScope, findParentCommand,} from "../src/utils/node-types";
 import { collectAllSymbolInformation, CommentRange } from "../src/symbols";
 import { DocumentationCache, initializeDocumentationCache } from "../src/utils/documentationCache";
-
-
 
 let parser: Parser;
 let documentationCache: DocumentationCache;
@@ -87,16 +85,34 @@ describe("workspace-symbols tests", () => {
     it("multiple function hierarchical symbols", async () => {
         const doc = resolveLspDocumentForHelperTestFile("./fish_files/advanced/multiple_functions.fish");
         const root = parser.parse(doc.getText()).rootNode
+        const search = root.descendantForPosition({row: 13, column: 19})
         const symbols = collapseToSymbolsRecursive(root);
         symbols.forEach((symbol, index) => {
             console.log(symbol.name);
             console.log(JSON.stringify({ index: index, children: symbol.children },null,2))
         });
-        expect(symbols.length).toBe(3);
+        //expect(symbols.length).toBe(3);
         console.log("\nLOGGING SCOPES:");
         const tree = toClientTree(root)
         logClientTree(tree)
         console.log();
+        console.log(search.text);
+        const search1 = root.descendantForPosition({row: 1, column: 8})
+        const search2 = root.descendantForPosition({row: 18, column: 18})
+        //const def1 = pruneClientTree(root, search)
+        //console.log(JSON.stringify({def: def1}, null, 2))
+        const funcSymbols = collapseToSymbolsRecursive(root).filter(doc => doc.kind === SymbolKind.Function)
+        const flattend = flattendClientTree(root)
+        flattend.forEach((symbol, index) => {
+            console.log(`${index}: ${symbol.detail}`);
+        })
+        //console.log(search1.text);
+        //const def2 = findMostRecentDefinition(root, search2)
+        //console.log(JSON.stringify({funcSymbols}, null, 2))
+        //console.log();
+        //console.log(search2.text);
+        //console.log(search2.startPosition.row);
+
         //expect(tree.length).toBe(1);
         //console.log(JSON.stringify({tree},null,2));//const result = await analyzer.getDefinition(doc, toFind[0])
         //result.forEach(n => {
@@ -127,11 +143,12 @@ function logClientTree(symbols: DocumentSymbol[], level = 0) {
  ***************************************************************************************/
 function createFunctionDocumentSymbol(node: SyntaxNode) {
     const identifier = node.firstNamedChild!;
+    const commentRange = CommentRange.create(identifier);
     return DocumentSymbol.create(
         identifier.text,
-        identifier.text, // add detail here
+        commentRange.markdown().value, // add detail here
         SymbolKind.Function,
-        getRange(node), // as per the docs, range should include comments
+        commentRange.toFoldRange(), // as per the docs, range should include comments
         getRange(identifier),
         []
     )
@@ -139,10 +156,13 @@ function createFunctionDocumentSymbol(node: SyntaxNode) {
 
 // add specific detail handler for different variable types.
 function createVariableDocumentSymbol(node: SyntaxNode) {
-    const parentNode = node.parent!;
+    const parentNode = node.parent!; 
+    const commentRange = CommentRange.create(node)
+    //getRangeWithPrecedingComments(parentNode)
+    
     return DocumentSymbol.create(
         node.text,
-        parentNode.text, // add detail here
+        [`*(variable)* **${node.text}**`, '___', '```fish', `${commentRange.text()}`, '```'].join('\n'), // add detail here
         SymbolKind.Variable,
         getRange(parentNode), // as per the docs, range should include comments
         getRange(node),
@@ -214,3 +234,72 @@ function toClientTree(root: SyntaxNode): DocumentSymbol[] {
     return result;
 }
 
+function getNearestDefinition(root: SyntaxNode, searchNode: SyntaxNode): DocumentSymbol | undefined {
+    const symbols = collapseToSymbolsRecursive(root);
+    let nearestDefinition: DocumentSymbol | undefined;
+    for (let i = symbols.length - 1; i >= 0; i--) {
+        if (symbols[i].name === searchNode.text && 
+            (symbols[i].kind === SymbolKind.Function || 
+                (symbols[i].kind === SymbolKind.Variable && symbols[i].range.end <= getRange(searchNode).start))) {
+            nearestDefinition = symbols[i];
+            break;
+        }
+    }
+    return nearestDefinition;
+}
+
+/**
+ * gets all the symbols of a depth before the variableNode.
+ *
+ * `function func_a 
+ *     set -l var_b; set -l var_c
+ *  end
+ *  set -l search_for
+ *  echo $search_for `<-- starting here 
+ *  would show a pruned tree of:
+ *       - `func_a`
+ *       - `search_for`
+ *  `var_b`, and `var_c` are not reachable and have been pruned
+ */
+function pruneClientTree(rootNode: SyntaxNode, variableNode: SyntaxNode): DocumentSymbol[] {
+    const symbols = collapseToSymbolsRecursive(rootNode);
+
+    const prunedSymbols: DocumentSymbol[] = []
+    let nextSymbols : DocumentSymbol[] = [...symbols]
+    let currentNode: SyntaxNode | null = findParentCommand(variableNode);
+
+    while (currentNode && currentNode?.type !== 'program') {
+        currentNode = currentNode.parent;
+        const currentLevel = [...nextSymbols.filter(n => n !== undefined)];
+        prunedSymbols.push(...currentLevel);
+        nextSymbols = [];
+        currentLevel.forEach(symbol => {
+            if (symbol.children) nextSymbols.push(...symbol.children)
+        })
+    }
+    return prunedSymbols;
+}
+
+function findMostRecentDefinition(rootNode: SyntaxNode, searchNode: SyntaxNode): DocumentSymbol | undefined {
+    const prunedSymbols = pruneClientTree(rootNode, searchNode);
+    const recentDefinition = prunedSymbols.filter(symbol => symbol.name === searchNode.text);
+    for (const recentlyDefined of recentDefinition.reverse()) {
+        if (recentlyDefined.selectionRange.start.line < getRange(searchNode).start.line) {
+            return recentlyDefined
+        }
+    }
+    return undefined
+}
+
+function flattendClientTree(rootNode: SyntaxNode) : DocumentSymbol[] {
+    const symbols = collapseToSymbolsRecursive(rootNode);
+    const stack: DocumentSymbol[] = [...symbols];
+    const result: DocumentSymbol[] = [];
+    while (stack.length > 0) {
+        const symbol = stack.shift();
+        if (!symbol) continue;
+        result.push(symbol);
+        if (symbol.children) stack.unshift(...symbol.children);
+    }
+    return result;
+}

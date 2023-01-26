@@ -1,3 +1,4 @@
+# preceding chars
 function multiple_functions --argument-names file1 file2 file3
     echo "file1 is $file1"
     echo "file2 is $file2"
@@ -14,5 +15,9 @@ function other_functions
     end
 end
 
-set --local files file1 file2 file3
-other_functions $files
+set --local files 'file1' 'file2' 'file3'
+other_functions "$files"
+
+
+
+set --local files 'not'

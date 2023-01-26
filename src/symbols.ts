@@ -202,7 +202,7 @@ export namespace CommentRange {
             return {
                 kind: MarkupKind.Markdown,
                 value: [
-                    `*(${this.type})* **${this.getInnerText()}**`,
+                    `*(${this.type})* \**${this.getInnerText()}**`,
                     this.leadingCommentsToMarkdown(),
                     '```fish',
                     this.getEnclosingText(),

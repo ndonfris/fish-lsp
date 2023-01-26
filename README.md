@@ -1,68 +1,66 @@
 # CURRENT TODO
 
-- [ ] [all]
-    - replace BuiltinsSet.has('command_name') with new implementation using DocumentationCache
-    - server, completion, hover, rename?, fold? 
+- [ ] [MarkedString](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument\_hover)
+- [ ] (_all_)
+  - replace BuiltinsSet.has('`command_name`') with new implementation using DocumentationCache
+  - server, completion, hover, rename?, fold?
 - [ ] [server.ts]( ./src/server.ts )
-    - [x] onFold
-    - [x] onComplete
-        - [ ] still needs minor tweaks to support chained short options 
-        - [x] support ranges
-    - [x] diagnostics
-        - [ ] ideas for more here
-- [x] [documentation.ts]( ./src/documentation.ts 
+  - [x] onFold
+  - [x] onComplete
+    - [ ] still needs minor tweaks to support chained short options
+    - [x] support ranges
+  - [x] diagnostics
+    - [ ] ideas for more here
+- [x] [documentation.ts]( ./src/documentation.ts
         - [ ] hover args broken from onComplete changes
 - [ ] [workspace-symbol.ts]( ./src/workspace-symbol.ts )
-    - [ ] add inherit variable (see `man function`)
-    - [x] add `--variable-names` variable definition
+  - [ ] add inherit variable (see `man function`)
+  - [x] add `--variable-names` variable definition
 - [x] [analysis.ts]( ./src/analyzer.ts )
-    - [x] implement diagnostics
-    - [x] `getCommandAtLine()` for onComplete()/onHover()
+  - [x] implement diagnostics
+  - [x] `getCommandAtLine()` for onComplete()/onHover()
 - [ ] [completion.ts]( ./src/completion.ts )
-    - [x] fix/update to v.8.0.2 with `editRange` in `CompletionList.create()`
-    - [ ] fix WorkspaceSymbol/DocumentSymbol completions
-    - [ ] add in completion short options, that are chained together.
-    - [ ] add in option for sorting by short options first
-    - [ ] add in option for including descriptions 
+  - [x] fix/update to v.8.0.2 with `editRange` in `CompletionList.create()`
+  - [ ] fix WorkspaceSymbol/DocumentSymbol completions
+  - [ ] add in completion short options, that are chained together.
+  - [ ] add in option for sorting by short options first
+  - [ ] add in option for including descriptions
 - [ ] [commands.ts]( ./src/commands.ts )
-    - [ ] implement commands to be used in server.ts. 
-        - formatting
-        - folding
-        - executeSelection
+  - [ ] implement commands to be used in server.ts.
+    - formatting
+    - folding
+    - executeSelection
 - [ ] [code-actions.ts]( ./src/code-actions.ts ) implement code actions
-    - use `CodeActionContext.create()` to create contexts, potentially while also creating
+  - use `CodeActionContext.create()` to create contexts, potentially while also creating
       diagnostics at the same time.
-    - Need to get range working for `CodeActions`. Otherwise, it will only work on the first line
+  - Need to get range working for `CodeActions`. Otherwise, it will only work on the first line
       of the document.
 - [ ] [code-lens.ts]( ./src/code-lens.ts ) implement code lens
 
-- what is a [ __text_span__ ](https://github.com/typescript-language-server/typescript-language-server/blob/5a39c1f801ab0cad725a2b8711c0e0d46606a08b/src/utils/typeConverters.ts#L12)
-    - __@SEE__ [utils/locations.ts]( ./src/utils/locations.ts )
-
-
-
-
+- what is a [__text_span__](https://github.com/typescript-language-server/typescript-language-server/blob/5a39c1f801ab0cad725a2b8711c0e0d46606a08b/src/utils/typeConverters.ts#L12)
+  - __@SEE__ [utils/locations.ts]( ./src/utils/locations.ts )
 
 ## Sources for project thus far
 
 - __Similiar projects__
-    - [coc.fish]( https://github.com/oncomouse/coc-fish )
-    - [awk-language-server]( https://github.com/Beaglefoot/awk-language-server/tree/master/server )
-    - [bash-language-server]( https://github.com/Beaglefoot/awk-language-server/tree/master/server )
-    - [typescript-language-server](https://github.com/typescript-language-server/typescript-language-server#running-the-language-server)
-    - [coc-tsserver](https://github.com/neoclide/coc-tsserver)
+  - [coc.fish]( https://github.com/oncomouse/coc-fish )
+  - [awk-language-server]( https://github.com/Beaglefoot/awk-language-server/tree/master/server )
+  - [bash-language-server]( https://github.com/Beaglefoot/awk-language-server/tree/master/server )
+  - [typescript-language-server](https://github.com/typescript-language-server/typescript-language-server#running-the-language-server)
+  - [coc-tsserver](https://github.com/neoclide/coc-tsserver)
 
 - __Important Packages__ (pretty sure that vscode-languageserver links are the same)
-    - [vscode-jsonrpc]( https://www.npmjs.com/package/vscode-jsonrpc )
-    - [vscode-languageserver]( https://github.com/Microsoft/vscode-languageserver-node )
-    - [vscode-languageserver-textdocument]( https://github.com/Microsoft/vscode-languageserver-node )
-    - [vscode-languageserver-types]( https://github.com/Microsoft/vscode-languageserver-node )
+  - [vscode-jsonrpc]( https://www.npmjs.com/package/vscode-jsonrpc )
+  - [vscode-languageserver]( https://github.com/Microsoft/vscode-languageserver-node )
+  - [vscode-languageserver-textdocument]( https://github.com/Microsoft/vscode-languageserver-node )
+  - [vscode-languageserver-types]( https://github.com/Microsoft/vscode-languageserver-node )
 
 - __Default Implementation Git Repos__
-    - [client implementation]( https://github.com/microsoft/vscode-languageserver-node/blob/main/client/src/common )
-    - [server implementation]( https://github.com/microsoft/vscode-languageserver-node/tree/main/server/src/common )  
+  - [client implementation]( https://github.com/microsoft/vscode-languageserver-node/blob/main/client/src/common )
+  - [server implementation]( https://github.com/microsoft/vscode-languageserver-node/tree/main/server/src/common )  
 
 ---
+
 ### Below is for [TypeScript Language Server]( https://github.com/typescript-language-server/typescript-language-server/blob/114d4309cb1450585f991604118d3eff3690237c/src/utils/SnippetString.ts )
 
 <!-- @import "[TOC]" {cmd="toc" depthFrom=1 depthTo=6 orderedList=false} -->
@@ -71,7 +69,7 @@
 
 [![https://nodei.co/npm/typescript-language-server.png?downloads=true&downloadRank=true&stars=true](https://nodei.co/npm/typescript-language-server.png?downloads=true&downloadRank=true&stars=true)](https://www.npmjs.com/package/typescript-language-server)
 
-Based on concepts and ideas from https://github.com/prabirshrestha/typescript-language-server and originally maintained by [TypeFox](https://typefox.io)
+Based on concepts and ideas from <https://github.com/prabirshrestha/typescript-language-server> and originally maintained by [TypeFox](https://typefox.io)
 
 Maintained by a [community of contributors](https://github.com/typescript-language-server/typescript-language-server/graphs/contributors) like you
 
@@ -84,21 +82,21 @@ Maintained by a [community of contributors](https://github.com/typescript-langua
 - [workspace/didChangeConfiguration](#workspacedidchangeconfiguration)
 - [Code actions on save](#code-actions-on-save)
 - [Workspace commands \(`workspace/executeCommand`\)](#workspace-commands-workspaceexecutecommand)
-    - [Go to Source Definition](#go-to-source-definition)
-    - [Apply Workspace Edits](#apply-workspace-edits)
-    - [Apply Code Action](#apply-code-action)
-    - [Apply Refactoring](#apply-refactoring)
-    - [Organize Imports](#organize-imports)
-    - [Rename File](#rename-file)
+  - [Go to Source Definition](#go-to-source-definition)
+  - [Apply Workspace Edits](#apply-workspace-edits)
+  - [Apply Code Action](#apply-code-action)
+  - [Apply Refactoring](#apply-refactoring)
+  - [Organize Imports](#organize-imports)
+  - [Rename File](#rename-file)
 - [Inlay hints \(`typescript/inlayHints`\) \(experimental\)](#inlay-hints-typescriptinlayhints-experimental)
 - [Callers and callees \(`textDocument/calls`\) \(experimental\)](#callers-and-callees-textdocumentcalls-experimental)
 - [Supported Protocol features](#supported-protocol-features)
-    - [Experimental](#experimental)
+  - [Experimental](#experimental)
 - [Development](#development)
-    - [Build](#build)
-    - [Test](#test)
-    - [Watch](#watch)
-    - [Publishing](#publishing)
+  - [Build](#build)
+  - [Test](#test)
+  - [Watch](#watch)
+  - [Publishing](#publishing)
 
 <!-- /MarkdownTOC -->
 
@@ -139,13 +137,13 @@ The language server accepts various settings through the `initializationOptions`
 
 | Setting           | Type     | Description                                                                                                                                                                                                                                                          |
 |:------------------|:---------|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| hostInfo          | string   | Information about the host, for example `"Emacs 24.4"` or `"Sublime Text v3075"`. **Default**: `undefined`                                                                                                                                                           |
+| hostInfo          | string   | Information about the host, for example `"Emacs 24.4"` or `"Sublime Text v3075"`. __Default__: `undefined`                                                                                                                                                           |
 | disableAutomaticTypingAcquisition | boolean | Disables tsserver from automatically fetching missing type definitions (`@types` packages) for external modules. |
-| logVerbosity      | string   | The verbosity level of the information printed in the log by `tsserver`. Accepts values: `"off"`, `"terse"`, `"normal"`, `"requesttime"`, `"verbose"`. **Default**: `undefined` (`"off"`).                                                                                         |
-| maxTsServerMemory | number   | The maximum size of the V8's old memory section in megabytes (for example `4096` means 4GB). The default value is dynamically configured by Node so can differ per system. Increase for very big projects that exceed allowed memory usage. **Default**: `undefined` |
+| logVerbosity      | string   | The verbosity level of the information printed in the log by `tsserver`. Accepts values: `"off"`, `"terse"`, `"normal"`, `"requesttime"`, `"verbose"`. __Default__: `undefined` (`"off"`).                                                                                         |
+| maxTsServerMemory | number   | The maximum size of the V8's old memory section in megabytes (for example `4096` means 4GB). The default value is dynamically configured by Node so can differ per system. Increase for very big projects that exceed allowed memory usage. __Default__: `undefined` |
 | npmLocation       | string   | Specifies the path to the NPM executable used for Automatic Type Acquisition. |
 | locale            | string   | The locale to use to show error messages. |
-| plugins           | object[] | An array of `{ name: string, location: string }` objects for registering a Typescript plugins. **Default**: []                                                                                                                                                         |
+| plugins           | object[] | An array of `{ name: string, location: string }` objects for registering a Typescript plugins. __Default__: []                                                                                                                                                         |
 | preferences       | object   | Preferences passed to the Typescript (`tsserver`) process. See below for more info.                                                                                                                              |
 
 The `preferences` object is an object specifying preferences for the internal `tsserver` process. Those options depend on the version of Typescript used but at the time of writing Typescript v4.4.3 contains these options:
@@ -331,10 +329,10 @@ diagnostics.ignoredCodes: number[];
 
 Server announces support for the following code action kinds:
 
- - `source.addMissingImports.ts` - adds imports for used but not imported symbols
- - `source.fixAll.ts` - despite the name, fixes a couple of specific issues: unreachable code, await in non-async functions, incorrectly implemented interface
- - `source.removeUnused.ts` - removes declared but unused variables
- - `source.organizeImports.ts` - organizes and removes unused imports
+- `source.addMissingImports.ts` - adds imports for used but not imported symbols
+- `source.fixAll.ts` - despite the name, fixes a couple of specific issues: unreachable code, await in non-async functions, incorrectly implemented interface
+- `source.removeUnused.ts` - removes declared but unused variables
+- `source.organizeImports.ts` - organizes and removes unused imports
 
 This allows editors that support running code actions on save to automatically run fixes associated with those kinds.
 
@@ -361,6 +359,7 @@ Most of the time, you'll execute commands with arguments retrieved from another 
 ### Go to Source Definition
 
 - Request:
+
     ```ts
     {
         command: `_typescript.goToSourceDefinition`
@@ -370,7 +369,9 @@ Most of the time, you'll execute commands with arguments retrieved from another 
         ]
     }
     ```
+
 - Response:
+
     ```ts
     lsp.Location[] | null
     ```
@@ -380,13 +381,16 @@ Most of the time, you'll execute commands with arguments retrieved from another 
 ### Apply Workspace Edits
 
 - Request:
+
     ```ts
     {
         command: `_typescript.applyWorkspaceEdit`
         arguments: [lsp.WorkspaceEdit]
     }
     ```
+
 - Response:
+
     ```ts
     lsp.ApplyWorkspaceEditResult
     ```
@@ -394,6 +398,7 @@ Most of the time, you'll execute commands with arguments retrieved from another 
 ### Apply Code Action
 
 - Request:
+
     ```ts
     {
         command: `_typescript.applyCodeAction`
@@ -402,7 +407,9 @@ Most of the time, you'll execute commands with arguments retrieved from another 
         ]
     }
     ```
+
 - Response:
+
     ```ts
     void
     ```
@@ -410,6 +417,7 @@ Most of the time, you'll execute commands with arguments retrieved from another 
 ### Apply Refactoring
 
 - Request:
+
     ```ts
     {
         command: `_typescript.applyRefactoring`
@@ -418,7 +426,9 @@ Most of the time, you'll execute commands with arguments retrieved from another 
         ]
     }
     ```
+
 - Response:
+
     ```ts
     void
     ```
@@ -426,6 +436,7 @@ Most of the time, you'll execute commands with arguments retrieved from another 
 ### Organize Imports
 
 - Request:
+
     ```ts
     {
         command: `_typescript.organizeImports`
@@ -435,7 +446,9 @@ Most of the time, you'll execute commands with arguments retrieved from another 
         ]
     }
     ```
+
 - Response:
+
     ```ts
     void
     ```
@@ -443,6 +456,7 @@ Most of the time, you'll execute commands with arguments retrieved from another 
 ### Rename File
 
 - Request:
+
     ```ts
     {
         command: `_typescript.applyRenameFile`
@@ -451,7 +465,9 @@ Most of the time, you'll execute commands with arguments retrieved from another 
         ]
     }
     ```
+
 - Response:
+
     ```ts
     void
     ```
@@ -619,8 +635,8 @@ yarn
 
 ### Test
 
- - `yarn test` - run all tests
- - `yarn test:watch` - run all tests and enable watch mode for developing
+- `yarn test` - run all tests
+- `yarn test:watch` - run all tests and enable watch mode for developing
 
 By default only console logs of level `warn` and higher are printed to the console. You can override the `CONSOLE_LOG_LEVEL` level in `package.json` to either `log`, `info`, `warn` or `error` to log other levels.
 
@@ -634,4 +650,6 @@ yarn watch
 
 New version of the package is published automatically on pushing new tag to the upstream repo.
 fixed coc folding error: `set foldmethod=marker foldlevel=0 nomodeline:`
+
+<https://daringfireball.net/projects/markdown/syntax>
 
