@@ -123,8 +123,9 @@ describe("workspace-symbols tests", () => {
         //})
         const cmds = ['read', 'set', 'function', 'for']
 
-        //console.log(JSON.stringify({map: DefinitionSyntaxNode._flagsMap}, null, 2))
         console.log(DefinitionSyntaxNode._flagsMap);
+        console.log(DefinitionSyntaxNode._flagsMap.keys());
+        console.log(Object.entries(DefinitionSyntaxNode._flagsMap.values()));
         //const cmdMap = DefinitionSyntaxNode.ScopeFlagMap
         //console.log(DefinitionSyntaxNode.hasCommand(allDefNodes[-1]));
         //console.log(DefinitionSyntaxNode.hasCommand(allDefNodes.at(-1)!));
@@ -340,7 +341,7 @@ export namespace DefinitionSyntaxNode {
     export type DefinitionScopes = "global" | "function" | "local" | "block"
 
     export type VariableCommandNames = "set" | "read" | "for" | "function"
-    const _Map = {
+    export const _Map = {
         read: {
             global:   ["-g", '--global'],
             local:    ["-l", "--local"],
@@ -360,16 +361,21 @@ export namespace DefinitionSyntaxNode {
     export const FlagsMap = new Map(Object.entries(_Map));
 
     // HERE's what you wanted
-    export const _flagsMap = new Map(Object.entries(_Map).map(([command, scopes]) => [
-        command,
-        new Map(Object.entries(scopes).map(([scope, flags]) => [scope, flags]))
-    ]));
+    //export const _FlagsMap = new Map(Object.entries(_Map).map(([command, scopes]) => [
+        //command,
+        //new Map(Object.entries(scopes).map(([scope, flags]) => [scope, flags]))
+    //]));
+    export const _flagsMap = new Map(Object.entries(_Map).map(([command, scopes]) => {
+        return [command, new Map(Object.entries(scopes).map(([scope, flags]) => {
+            return [scope, new Set(flags)];
+        }))];
+    }));
 
     export function hasCommand(node: SyntaxNode){
         const parent = findParentCommand(node) || node?.parent;
         const commandName = parent?.text.split(' ')[0] || ''
         console.log({commandName, var: node.text})
-        return parent && Object.keys(FlagsMap).includes(commandName)
+        return parent && [...FlagsMap.keys()].includes(commandName)
     }
 
     export function hasScope(node: SyntaxNode) {
@@ -377,20 +383,37 @@ export namespace DefinitionSyntaxNode {
         return hasCommand(node) && isVariableDefinition(node)
     }
 
+    // old
+    // export function _getScope(node: SyntaxNode) {
+    //     if (isFunctionDefinition(node)) return "function"
+    //     const commandNode = findParentCommand(node) || node.parent
+    //     const commandName = commandNode?.text.split(' ')[0] || ''
+    //     const flags = commandNode?.children.map(c => c.text).filter(flag => flag.startsWith('--')) || []
+    //     if (!flags || commandName === 'for') return 'local'
+    //     for (const [k, v] of FlagsMap.entries()) {
+    //         if  (k !== commandName) continue
+    //         const [foundScope, _] = Object.entries(v).filter(
+    //             ([_, toMatchFlags]) =>
+    //                 flags.some((flag) => toMatchFlags.includes(flag))
+    //         );
+    //         if (!foundScope) continue
+    //         return foundScope
+    //     }
+    //     return 'local'
+    // }
+
     export function getScope(node: SyntaxNode) {
         if (isFunctionDefinition(node)) return "function"
         const commandNode = findParentCommand(node) || node.parent
         const commandName = commandNode?.text.split(' ')[0] || ''
         const flags = commandNode?.children.map(c => c.text).filter(flag => flag.startsWith('--')) || []
         if (!flags || commandName === 'for') return 'local'
-        for (const [k, v] of FlagsMap.entries()) {
-            if  (k !== commandName) continue
-            const [foundScope, _] = Object.entries(v).filter(
-                ([_, toMatchFlags]) =>
-                    flags.some((flag) => toMatchFlags.includes(flag))
-            );
-            if (!foundScope) continue
-            return foundScope
+
+        const commandScopes = _flagsMap.get(commandName);
+        if (!commandScopes) return 'local';
+
+        for (const [scope, flagSet] of commandScopes.entries()) {
+            if (flags.some(flag => flagSet.has(flag))) return scope;
         }
         return 'local'
     }
