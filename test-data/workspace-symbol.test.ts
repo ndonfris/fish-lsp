@@ -6,7 +6,7 @@ import Parser, { SyntaxNode } from "web-tree-sitter";
 import { initializeParser } from "../src/parser";
 import { resolve } from "dns";
 import { LspDocument } from "../src/document";
-import {containsRange,createSymbol,getDefinitionSymbols,getNearbySymbols,getNodeFromRange,} from "../src/workspace-symbol";
+import {containsRange,createSymbol,getDefinitionSymbols,getNearbySymbols,getNodeFromRange, getNodeFromSymbol,} from "../src/workspace-symbol";
 import {getChildNodes,getNodeAtRange,getRange,getRangeWithPrecedingComments } from "../src/utils/tree-sitter";
 import { Color } from "colors";
 import { Analyzer } from "../src/analyze";
@@ -83,29 +83,59 @@ describe("workspace-symbols tests", () => {
 
 
     it("multiple function hierarchical symbols", async () => {
-        const doc = resolveLspDocumentForHelperTestFile("./fish_files/advanced/multiple_functions.fish");
+        //const doc = resolveLspDocumentForHelperTestFile("./fish_files/advanced/multiple_functions.fish");
+        const doc = resolveLspDocumentForHelperTestFile("./fish_files/history.fish");
         const root = parser.parse(doc.getText()).rootNode
         const search = root.descendantForPosition({row: 13, column: 19})
         const symbols = collapseToSymbolsRecursive(root);
-        symbols.forEach((symbol, index) => {
-            console.log(symbol.name);
-            console.log(JSON.stringify({ index: index, children: symbol.children },null,2))
-        });
+        //symbols.forEach((symbol, index) => {
+            //console.log(symbol.name);
+            //console.log(JSON.stringify({ index: index, children: symbol.children },null,2))
+        //});
         //expect(symbols.length).toBe(3);
-        console.log("\nLOGGING SCOPES:");
+        //console.log("\nLOGGING SCOPES:");
         const tree = toClientTree(root)
         logClientTree(tree)
-        console.log();
-        console.log(search.text);
+        //console.log();
+        //console.log(search.text);
         const search1 = root.descendantForPosition({row: 1, column: 8})
         const search2 = root.descendantForPosition({row: 18, column: 18})
         //const def1 = pruneClientTree(root, search)
         //console.log(JSON.stringify({def: def1}, null, 2))
         const funcSymbols = collapseToSymbolsRecursive(root).filter(doc => doc.kind === SymbolKind.Function)
         const flattend = flattendClientTree(root)
-        flattend.forEach((symbol, index) => {
-            console.log(`${index}: ${symbol.detail}`);
+        const allDefNodes = flattend.map(symbol => getNodeFromSymbol(root, symbol))
+        
+        //flattend.forEach((symbol, index) => {
+            //console.log(`${index}: ${symbol.detail}`);
+        //})
+        console.log();
+        allDefNodes.forEach((symbol, index) => {
+            //console.log(`${index}: ${symbol.text}`);
+            const scope = DefinitionSyntaxNode.getScope(symbol)
+            console.log(`${index}: ${symbol.text} ${scope}`);
+            //console.log((DefinitionSyntaxNode.hasCommand(symbol)));
         })
+        //getChildNodes(root).forEach((node, index) => {
+            //console.log(`${index}: ${node.text}`);
+            //console.log({hasCommand: (DefinitionSyntaxNode.hasCommand(node)), hasScope: DefinitionSyntaxNode.hasScope(node), getScope: DefinitionSyntaxNode.getScope(node)
+            //})
+        //})
+        const cmds = ['read', 'set', 'function', 'for']
+
+        //console.log(JSON.stringify({map: DefinitionSyntaxNode._flagsMap}, null, 2))
+        console.log(DefinitionSyntaxNode._flagsMap);
+        //const cmdMap = DefinitionSyntaxNode.ScopeFlagMap
+        //console.log(DefinitionSyntaxNode.hasCommand(allDefNodes[-1]));
+        //console.log(DefinitionSyntaxNode.hasCommand(allDefNodes.at(-1)!));
+        //console.log(cmdMap.getScope('read', '-l'))
+        //console.log(Object.entries(VariableSyntaxNode.CommandFlagMap.map))
+    
+
+        //cmds.forEach(cmd => {
+            //console.log(VariableSyntaxNode.commandFlagMap[cmd]);
+        //})
+
         //console.log(search1.text);
         //const def2 = findMostRecentDefinition(root, search2)
         //console.log(JSON.stringify({funcSymbols}, null, 2))
@@ -302,4 +332,71 @@ function flattendClientTree(rootNode: SyntaxNode) : DocumentSymbol[] {
         if (symbol.children) stack.unshift(...symbol.children);
     }
     return result;
+}
+
+
+
+export namespace DefinitionSyntaxNode {
+    export type DefinitionScopes = "global" | "function" | "local" | "block"
+
+    export type VariableCommandNames = "set" | "read" | "for" | "function"
+    const _Map = {
+        read: {
+            global:   ["-g", '--global'],
+            local:    ["-l", "--local"],
+            function: ["-f", "--function"],
+        },
+        set: {
+            global:   ["-g", '--global'],
+            local:    ["-l", "--local"],
+            function: ["-f", "--function"],
+        },
+        for: {block: [] },
+        function: { 
+            function: ["-A", "--argument-names", "-v", "--on-variable"],
+            global:   ["-V", "--inherit-variable", '-S', '--no-scope-shadowing'],
+        },
+    }
+    export const FlagsMap = new Map(Object.entries(_Map));
+
+    // HERE's what you wanted
+    export const _flagsMap = new Map(Object.entries(_Map).map(([command, scopes]) => [
+        command,
+        new Map(Object.entries(scopes).map(([scope, flags]) => [scope, flags]))
+    ]));
+
+    export function hasCommand(node: SyntaxNode){
+        const parent = findParentCommand(node) || node?.parent;
+        const commandName = parent?.text.split(' ')[0] || ''
+        console.log({commandName, var: node.text})
+        return parent && Object.keys(FlagsMap).includes(commandName)
+    }
+
+    export function hasScope(node: SyntaxNode) {
+        if (isFunctionDefinition(node)) return true
+        return hasCommand(node) && isVariableDefinition(node)
+    }
+
+    export function getScope(node: SyntaxNode) {
+        if (isFunctionDefinition(node)) return "function"
+        const commandNode = findParentCommand(node) || node.parent
+        const commandName = commandNode?.text.split(' ')[0] || ''
+        const flags = commandNode?.children.map(c => c.text).filter(flag => flag.startsWith('--')) || []
+        if (!flags || commandName === 'for') return 'local'
+        for (const [k, v] of FlagsMap.entries()) {
+            if  (k !== commandName) continue
+            const [foundScope, _] = Object.entries(v).filter(
+                ([_, toMatchFlags]) =>
+                    flags.some((flag) => toMatchFlags.includes(flag))
+            );
+            if (!foundScope) continue
+            return foundScope
+        }
+        return 'local'
+    }
+
+    // @TODO: implement find enclosing scope for a node
+    // export findEnClosingScope(node: SyntaxNode) {}
+
+
 }
