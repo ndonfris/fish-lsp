@@ -1,5 +1,4 @@
-import { resolveLspDocumentForHelperTestFile } from "./helpers";
-import { TextDocument } from "vscode-languageserver-textdocument";
+import { resolveLspDocumentForHelperTestFile, setMarkedterminal } from "./helpers";
 import {CompletionItem,CompletionParams,DocumentSymbol,MarkupContent,MarkupKind,Position,Range,SymbolKind,TextDocumentIdentifier,} from "vscode-languageserver";
 import {BUILT_INS,createCompletionList,generateShellCompletionItems,getShellCompletions,workspaceSymbolToCompletionItem,} from "../src/completion";
 import Parser, { SyntaxNode } from "web-tree-sitter";
@@ -8,19 +7,30 @@ import { resolve } from "dns";
 import { LspDocument } from "../src/document";
 import {containsRange,createSymbol,getDefinitionSymbols,getNearbySymbols,getNodeFromRange, getNodeFromSymbol,} from "../src/workspace-symbol";
 import {getChildNodes,getNodeAtRange,getRange,getRangeWithPrecedingComments } from "../src/utils/tree-sitter";
-import { Color } from "colors";
 import { Analyzer } from "../src/analyze";
-import {isFunctionDefinition,isFunctionDefinitionName,isDefinition,isVariableDefinition,isScope, findParentCommand,} from "../src/utils/node-types";
+import {isFunctionDefinition,isFunctionDefinitionName,isDefinition,isVariableDefinition,isScope, findParentCommand, isForLoop,} from "../src/utils/node-types";
 import { collectAllSymbolInformation, CommentRange } from "../src/symbols";
 import { DocumentationCache, initializeDocumentationCache } from "../src/utils/documentationCache";
-
+//import { marked } from 'marked';
+//import { Chalk } from 'chalk';
+//import   TerminalRenderer   from 'marked-terminal';
+//import { Marked } from "marked-terminal";
+//import { marginBlockEnd:cc}
 let parser: Parser;
 let documentationCache: DocumentationCache;
 let analyzer: Analyzer;
 let symbols: DocumentSymbol[] = [];
 let loggedAmount: number = 0;
 
+//const chalk = new Chalk();
+//const term = new TerminalRenderer()
+//marked.setOptions({
+    //// Define custom renderer
+    //renderer: term,
+    //gfm: true,
+//});
 const jestConsole = console;
+//setMarkedterminal();
 
 beforeEach(async () => {
     global.console = require("console");
@@ -83,8 +93,8 @@ describe("workspace-symbols tests", () => {
 
 
     it("multiple function hierarchical symbols", async () => {
-        //const doc = resolveLspDocumentForHelperTestFile("./fish_files/advanced/multiple_functions.fish");
-        const doc = resolveLspDocumentForHelperTestFile("./fish_files/history.fish");
+        const doc = resolveLspDocumentForHelperTestFile("./fish_files/advanced/multiple_functions.fish");
+        //const doc = resolveLspDocumentForHelperTestFile("./fish_files/history.fish");
         const root = parser.parse(doc.getText()).rootNode
         const search = root.descendantForPosition({row: 13, column: 19})
         const symbols = collapseToSymbolsRecursive(root);
@@ -98,8 +108,8 @@ describe("workspace-symbols tests", () => {
         logClientTree(tree)
         //console.log();
         //console.log(search.text);
-        const search1 = root.descendantForPosition({row: 1, column: 8})
-        const search2 = root.descendantForPosition({row: 18, column: 18})
+        //const search1 = root.descendantForPosition({row: 1, column: 8})
+        //const search2 = root.descendantForPosition({row: 18, column: 18})
         //const def1 = pruneClientTree(root, search)
         //console.log(JSON.stringify({def: def1}, null, 2))
         const funcSymbols = collapseToSymbolsRecursive(root).filter(doc => doc.kind === SymbolKind.Function)
@@ -109,49 +119,26 @@ describe("workspace-symbols tests", () => {
         //flattend.forEach((symbol, index) => {
             //console.log(`${index}: ${symbol.detail}`);
         //})
+
         console.log();
-        allDefNodes.forEach((symbol, index) => {
-            //console.log(`${index}: ${symbol.text}`);
-            const scope = DefinitionSyntaxNode.getScope(symbol)
-            console.log(`${index}: ${symbol.text} ${scope}`);
-            //console.log((DefinitionSyntaxNode.hasCommand(symbol)));
+        flattend.forEach((symbol, index) => {
+            //const m = marked(c).toString()
+            console.log(`${index.toString()}: ${symbol.name}`);
+            console.log(symbol?.detail || "");
+            console.log();
         })
+        //allDefNodes.forEach((symbol, index) => {
+        //    const scope = DefinitionSyntaxNode.getScope(symbol);
+        //    console.log(`${index}: ${symbol.text} ${scope}`);
+        //})
         //getChildNodes(root).forEach((node, index) => {
             //console.log(`${index}: ${node.text}`);
             //console.log({hasCommand: (DefinitionSyntaxNode.hasCommand(node)), hasScope: DefinitionSyntaxNode.hasScope(node), getScope: DefinitionSyntaxNode.getScope(node)
             //})
         //})
-        const cmds = ['read', 'set', 'function', 'for']
+        //console.log(DefinitionSyntaxNode.FlagsMap);
 
-        console.log(DefinitionSyntaxNode._flagsMap);
-        console.log(DefinitionSyntaxNode._flagsMap.keys());
-        console.log(Object.entries(DefinitionSyntaxNode._flagsMap.values()));
-        //const cmdMap = DefinitionSyntaxNode.ScopeFlagMap
-        //console.log(DefinitionSyntaxNode.hasCommand(allDefNodes[-1]));
-        //console.log(DefinitionSyntaxNode.hasCommand(allDefNodes.at(-1)!));
-        //console.log(cmdMap.getScope('read', '-l'))
-        //console.log(Object.entries(VariableSyntaxNode.CommandFlagMap.map))
-    
-
-        //cmds.forEach(cmd => {
-            //console.log(VariableSyntaxNode.commandFlagMap[cmd]);
-        //})
-
-        //console.log(search1.text);
-        //const def2 = findMostRecentDefinition(root, search2)
-        //console.log(JSON.stringify({funcSymbols}, null, 2))
-        //console.log();
-        //console.log(search2.text);
-        //console.log(search2.startPosition.row);
-
-        //expect(tree.length).toBe(1);
-        //console.log(JSON.stringify({tree},null,2));//const result = await analyzer.getDefinition(doc, toFind[0])
-        //result.forEach(n => {
-        //console.log(n);
-        //console.log();
-        //})
-        //console.log(toFind[0]?.text);
-        //expect(commentRanges.length).toBe(3);
+        console.log();
     });
 
 });
@@ -173,13 +160,14 @@ function logClientTree(symbols: DocumentSymbol[], level = 0) {
  *                                                                                      *
  ***************************************************************************************/
 function createFunctionDocumentSymbol(node: SyntaxNode) {
-    const identifier = node.firstNamedChild!;
+    const identifier = node.firstNamedChild || node.firstChild!;
     const commentRange = CommentRange.create(identifier);
+    const {  enclosingText, enclosingNode, encolsingType } = DefinitionSyntaxNode.getEnclosingScope(node);
     return DocumentSymbol.create(
         identifier.text,
-        commentRange.markdown().value, // add detail here
+        commentRange.markdown(), // add detail here
         SymbolKind.Function,
-        commentRange.toFoldRange(), // as per the docs, range should include comments
+        getRange(node), //commentRange.(), // as per the docs, range should include comments
         getRange(identifier),
         []
     )
@@ -189,16 +177,26 @@ function createFunctionDocumentSymbol(node: SyntaxNode) {
 function createVariableDocumentSymbol(node: SyntaxNode) {
     const parentNode = node.parent!; 
     const commentRange = CommentRange.create(node)
+    const withCommentText = isFunctionDefinition(parentNode) ? parentNode.text.toString() : commentRange.text()
     //getRangeWithPrecedingComments(parentNode)
-    
+    const {  enclosingText, enclosingNode, encolsingType } = DefinitionSyntaxNode.getEnclosingScope(parentNode);
     return DocumentSymbol.create(
         node.text,
-        [`*(variable)* **${node.text}**`, '___', '```fish', `${commentRange.text()}`, '```'].join('\n'), // add detail here
+        [ 
+            `\*(variable)* \**${node.text}**`,
+            'enclosingText:     '+ enclosingText,
+            `enclosingNode.text: ${enclosingNode.text}`,
+            `enclosingType     : ${encolsingType}`,
+            "___",
+            "```fish",
+            `${withCommentText.trim()}`,
+            "```",
+        ].join("\n"),
         SymbolKind.Variable,
         getRange(parentNode), // as per the docs, range should include comments
         getRange(node),
         []
-    )
+    );
 }
 
 
@@ -250,7 +248,7 @@ function toClientTree(root: SyntaxNode): DocumentSymbol[] {
 
     for (const symbol of symbols) {
         const node = getNodeAtRange(root, symbol.range);
-        let parent = node!.parent;
+        let parent = node?.parent || node;
         while (parent) {
             if (isScope(parent)) {
                 if (!seenSymbols.has(symbol.name)) {
@@ -338,10 +336,10 @@ function flattendClientTree(rootNode: SyntaxNode) : DocumentSymbol[] {
 
 
 export namespace DefinitionSyntaxNode {
-    export type DefinitionScopes = "global" | "function" | "local" | "block"
-
-    export type VariableCommandNames = "set" | "read" | "for" | "function"
-    export const _Map = {
+    export const ScopeTypesSet = new Set(["global", "function", "local", "block"]);
+    export type ScopeTypes = "global" | "function" | "local" | "block";
+    export type VariableCommandNames = "set" | "read" | "for" | "function" // FlagsMap.keys()
+    const _Map = {
         read: {
             global:   ["-g", '--global'],
             local:    ["-l", "--local"],
@@ -358,19 +356,32 @@ export namespace DefinitionSyntaxNode {
             global:   ["-V", "--inherit-variable", '-S', '--no-scope-shadowing'],
         },
     }
-    export const FlagsMap = new Map(Object.entries(_Map));
-
-    // HERE's what you wanted
-    //export const _FlagsMap = new Map(Object.entries(_Map).map(([command, scopes]) => [
-        //command,
-        //new Map(Object.entries(scopes).map(([scope, flags]) => [scope, flags]))
-    //]));
-    export const _flagsMap = new Map(Object.entries(_Map).map(([command, scopes]) => {
+    /**
+     * Map containing the flags, for a command
+     * {
+     *     "read": => Map(3) {
+     *           "global" => Set(2) { "-g", "--global" },
+     *           "local" => Set(2) { "-l", "--local" },
+     *           "function" => Set(2) { "-f", "--function" }
+     *     }
+     *     ...
+     * }
+     * Usage:
+     * FlagsMap.keys()                    => Set(4) { "read", "set", "for", "function }
+     * FlagsMap.get("read").get("global") => Set(2) { "-g", "--global" }
+     * FlagsMap.get("read").get("global").has("-g") => true
+     */
+    export const FlagsMap = new Map(Object.entries(_Map).map(([command, scopes]) => {
         return [command, new Map(Object.entries(scopes).map(([scope, flags]) => {
             return [scope, new Set(flags)];
         }))];
     }));
-
+    /**
+     * Simple helper to check if the parent node is found in our look up FlagMap.keys()
+     *
+     * @param {SyntaxNode} node - variable or function node 
+     * @returns {boolean} true if the parent node is a a key in the FlagMap
+     */
     export function hasCommand(node: SyntaxNode){
         const parent = findParentCommand(node) || node?.parent;
         const commandName = parent?.text.split(' ')[0] || ''
@@ -383,25 +394,6 @@ export namespace DefinitionSyntaxNode {
         return hasCommand(node) && isVariableDefinition(node)
     }
 
-    // old
-    // export function _getScope(node: SyntaxNode) {
-    //     if (isFunctionDefinition(node)) return "function"
-    //     const commandNode = findParentCommand(node) || node.parent
-    //     const commandName = commandNode?.text.split(' ')[0] || ''
-    //     const flags = commandNode?.children.map(c => c.text).filter(flag => flag.startsWith('--')) || []
-    //     if (!flags || commandName === 'for') return 'local'
-    //     for (const [k, v] of FlagsMap.entries()) {
-    //         if  (k !== commandName) continue
-    //         const [foundScope, _] = Object.entries(v).filter(
-    //             ([_, toMatchFlags]) =>
-    //                 flags.some((flag) => toMatchFlags.includes(flag))
-    //         );
-    //         if (!foundScope) continue
-    //         return foundScope
-    //     }
-    //     return 'local'
-    // }
-
     export function getScope(node: SyntaxNode) {
         if (isFunctionDefinition(node)) return "function"
         const commandNode = findParentCommand(node) || node.parent
@@ -409,7 +401,7 @@ export namespace DefinitionSyntaxNode {
         const flags = commandNode?.children.map(c => c.text).filter(flag => flag.startsWith('--')) || []
         if (!flags || commandName === 'for') return 'local'
 
-        const commandScopes = _flagsMap.get(commandName);
+        const commandScopes = FlagsMap.get(commandName);
         if (!commandScopes) return 'local';
 
         for (const [scope, flagSet] of commandScopes.entries()) {
@@ -418,8 +410,38 @@ export namespace DefinitionSyntaxNode {
         return 'local'
     }
 
-    // @TODO: implement find enclosing scope for a node
-    // export findEnClosingScope(node: SyntaxNode) {}
+    export interface EnclosingDefinitionScope {
+        encolsingType: "function" | "block" | "local" | "global";
+        enclosingText: string;
+        enclosingNode: SyntaxNode;
+    }
+    export function createEnclosingScope(type: ScopeTypes, node: SyntaxNode): EnclosingDefinitionScope {
+        let enclosingText = `in \**${type}** scope`
+        if (type === 'function') enclosingText = `in \**${type.toString()}** scope`  
+        else if (type === 'block' && isForLoop(node)) enclosingText = `in \**${type.toString()}** \*for_loop* scope`  
+        //let enclosingText = `in \**${type.toString()}** scope`
+        //if (type === 'global') {enclosingText = `in \**${type}** scope`}
+        //else if (type === 'local') {enclosingText = `in \**${type}** scope`}
+        //else if (type === 'function') {enclosingText = `in \**${type}** scope: \*${node.firstChild}*`}
+        return {encolsingType: type, enclosingText, enclosingNode: node}
+    } 
 
+    // @TODO: implement find enclosing scope for a node
+    export function getEnclosingScope(node: SyntaxNode) : EnclosingDefinitionScope {
+        if (isFunctionDefinition(node)) return createEnclosingScope("function", node)
+        const commandNode = node?.parent?.type === 'for_loop' ? node.parent : findParentCommand(node)
+        const commandName = commandNode?.text.split(' ')[0] || ''
+        const flags = commandNode?.children.map(c => c.text).filter(flag => flag.startsWith('--')) || []
+        if (!commandNode) return createEnclosingScope('local', node)
+        if (commandName === 'for') return createEnclosingScope("block", commandNode)
+
+        const commandScopes = FlagsMap.get(commandName);
+        if (!flags.length || !commandScopes) return createEnclosingScope('local', commandNode)
+
+        for (const [scope, flagSet] of commandScopes.entries()) {
+            if (flags.some(flag => flagSet.has(flag))) return createEnclosingScope(scope.toString() as ScopeTypes, commandNode);
+        }
+        return createEnclosingScope('local', commandNode)
+    }
 
 }

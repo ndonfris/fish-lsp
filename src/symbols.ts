@@ -147,6 +147,9 @@ export namespace CommentRange {
             const end = this.collection[this.collection.length - 1].endPosition;                   
             return Range.create(start.row, start.column, end.row, end.column); 
         }
+        get getTitleString(): string {
+            return `*(${this.type})* \**${this.getInnerText()}**`;
+        }
         public getInnerText(): string {
             return this.innerNode.text;
         }
@@ -167,7 +170,7 @@ export namespace CommentRange {
             return this.comments;
         }
         get leadingCommentsText(): string {
-            return this.leadingComments.map(node => node.text.trimStart()).join('\n');
+            return this.leadingComments.map(node => node.text.trimStart()).filter(line => line.trim() !== '').join('\n');
         }
         get type(): "function" | "variable" | 'scope' {
             return isFunctionDefinitionName(this.innerNode) ? 'function' 
@@ -193,21 +196,31 @@ export namespace CommentRange {
                 return this.getEnclosingText();
             }
         }
+        markdown(): string {
+            return [
+                    '```fish',
+                    this.leadingCommentsText,
+                    this.getEnclosingText(),
+                    '```'
+                ].join('\n');
+        }
         /**
          * Returns a formatted string for a symbol.detail, or Hover Contents.
          *
          * @returns {MarkupContent} - Formatted MarkupContent String
          */
-        markdown(): MarkupContent {
+        toMarkupContent(): MarkupContent {
             return {
                 kind: MarkupKind.Markdown,
                 value: [
-                    `*(${this.type})* \**${this.getInnerText()}**`,
-                    this.leadingCommentsToMarkdown(),
-                    '```fish',
+                    this.getTitleString,
+                    "```fish",
+                    this.comments.length > 0
+                        ? ["```fish", this.leadingCommentsText, "```", "___"].join("\n")
+                        : "___",
                     this.getEnclosingText(),
-                    '```',
-                ].join('\n')
+                    "```",
+                ].join("\n")
             }
         }
         /**
@@ -230,7 +243,7 @@ export namespace CommentRange {
         toFishDocumentSymbol(): FishDocumentSymbol {
             return {
                 ...this.toDocumentSymbol(),
-                markupContent: this.markdown(),
+                markupContent: this.toMarkupContent(),
                 commentRange: this,
             }
 
@@ -253,7 +266,7 @@ export namespace CommentRange {
      *     • isScope(node)
      */
     export const create = (innerNode: SyntaxNode): WithPrecedingComments => {
-        const outerNode = innerNode.parent!;
+        const outerNode = innerNode.parent!
         const comments = new WithPrecedingComments(innerNode, outerNode);
         return comments.collect();
     }

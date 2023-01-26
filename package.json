@@ -33,6 +33,10 @@
     }
   },
   "dependencies": {
+    "@types/marked": "^4.0.8",
+    "@types/marked-terminal": "^3.1.3",
+    "cardinal": "^2.1.1",
+    "chalk": "^5.2.0",
     "colors": "^1.4.0",
     "commander": "^9.4.0",
     "deepmerge": "^4.2.2",
@@ -42,6 +46,8 @@
     "glob": "^8.0.3",
     "global": "^4.4.0",
     "globby": "^13.1.2",
+    "marked": "^4.2.12",
+    "marked-terminal": "^5.1.1",
     "pkg-up": "^4.0.0",
     "semver": "^7.3.7",
     "tree-sitter-fish": "github:ram02z/tree-sitter-fish",

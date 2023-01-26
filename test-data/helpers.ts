@@ -11,6 +11,7 @@ import {bgBlack, bgBlue, black, inverse, white} from 'colors';
 import {LspDocument} from '../src/document';
 import console from 'console';
 import {homedir} from 'os';
+//import { Marked }
 //import { blue, inverse } from 'colors'
 
 const util = require('util')
@@ -377,3 +378,13 @@ export function logFile(shouldLog = true, uri: string, text: string) {
     //return text.inverse.underline + otherText
 //}
 
+
+
+export function setMarkedterminal() {
+    const marked = require('marked');
+    const TerminalRenderer = require('marked-terminal');
+    marked.setOptions({
+        // Define custom renderer
+        renderer: new TerminalRenderer()
+    });
+}
