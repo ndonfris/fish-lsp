@@ -286,8 +286,7 @@ export function DocumentSymbolTree(root: SyntaxNode) {
     }
 
     /**
-     * returns an array of folding ranges
-     *
+     * returns an array of folding ranges, currently only for function
      * @returns {FoldingRange} - the folding ranges for any node that is a child of rootNode
      */
     function getFolds() {
@@ -405,8 +404,7 @@ function findMostRecentDefinition(rootNode: SyntaxNode, searchNode: SyntaxNode):
     return undefined
 }
 
-
-
+// @TODO: Finish and test
 export namespace DefinitionSyntaxNode {
     export const ScopeTypesSet = new Set(["global", "function", "local", "block"]);
     export type ScopeTypes = "global" | "function" | "local" | "block";
@@ -481,7 +479,6 @@ export namespace DefinitionSyntaxNode {
         }
         return 'local'
     }
-
     export interface EnclosingDefinitionScope {
         encolsingType: "function" | "block" | "local" | "global";
         enclosingText: string;
@@ -491,10 +488,6 @@ export namespace DefinitionSyntaxNode {
         let enclosingText = `in \**${type}** scope`
         if (type === 'function') enclosingText = `in \**${type.toString()}** scope`  
         else if (type === 'block' && isForLoop(node)) enclosingText = `in \**${type.toString()}** \*for_loop* scope`  
-        //let enclosingText = `in \**${type.toString()}** scope`
-        //if (type === 'global') {enclosingText = `in \**${type}** scope`}
-        //else if (type === 'local') {enclosingText = `in \**${type}** scope`}
-        //else if (type === 'function') {enclosingText = `in \**${type}** scope: \*${node.firstChild}*`}
         return {encolsingType: type, enclosingText, enclosingNode: node}
     } 
 

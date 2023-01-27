@@ -85,6 +85,45 @@ export function collectAllSymbolInformation(uri: DocumentUri, root: SyntaxNode):
     return symbols
 }
 
+// @TODO: implement const {  enclosingText, enclosingNode, encolsingType } 
+//        = DefinitionSyntaxNode.getEnclosingScope(parentNode);
+export function DocumentDefSymbol (opts?: {}) {
+    const createFunc = (node: SyntaxNode) => {
+        const identifier = node.firstNamedChild || node.firstChild!;
+        const commentRange = CommentRange.create(identifier);
+        return DocumentSymbol.create(
+            identifier.text,
+            commentRange.markdown(),
+            SymbolKind.Function,
+            getRange(node), // as per the docs, range should include comments
+            getRange(identifier),
+            []
+        );
+    }
+    const createVar = (node: SyntaxNode) => {
+        const parentNode = node.parent!; 
+        const commentRange = CommentRange.create(node)
+        const withCommentText = isFunctionDefinition(parentNode) ? parentNode.text.toString() : commentRange.text()
+        return DocumentSymbol.create(
+            node.text,
+            [ 
+                `\*(variable)* \**${node.text}**`,
+                "___",
+                "```fish",
+                `${withCommentText.trim()}`,
+                "```",
+            ].join("\n"),
+            SymbolKind.Variable,
+            getRange(parentNode), // as per the docs, range should include comments
+            getRange(node),
+            []
+        );
+    }
+    return {
+        createFunc: (node: SyntaxNode) => createFunc(node),
+        createVar: (node: SyntaxNode) => createVar(node),
+    }
+}
 
 /**
  * CommentRange is used to collect the range of a Symbol and its preceding comments.
