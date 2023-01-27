@@ -272,8 +272,10 @@ function toClientTree(root: SyntaxNode): DocumentSymbol[] {
 }
 
 export function DocumentSymbolTree(root: SyntaxNode) {
+    /**
+     * all caches the result of toClientTree(), so that it can be accessed in any other function.
+     */
     const all: DocumentSymbol[] = toClientTree(root);
-    
     /**
      * creates the flat list of symbols, for the client to use as completions.
      */
