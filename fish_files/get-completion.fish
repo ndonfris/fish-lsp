@@ -42,11 +42,13 @@ end
 
 switch "$argv[1]"
     case '1'
-        get-completions "$argv[2]"
+        get-completions "$argv[2..]"
     case '2'
-        get-subcommand-completions "$argv[2]"
+        get-subcommand-completions "$argv[2..]"
     case '3'
-        get-variable-completions "$argv[2]"
+        get-variable-completions "$argv[2..]"
+    case '*'
+        get-completions "$argv"
 end
 
 

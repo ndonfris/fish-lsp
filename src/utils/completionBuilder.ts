@@ -1,6 +1,7 @@
 import FastGlob  from 'fast-glob';
 import {homedir} from 'os';
 import { Command, CompletionItem, CompletionItemKind, MarkupContent, SymbolKind } from 'vscode-languageserver';
+import { CompleteCommand } from '../completion';
 //import {FishCompletionItemType} from '../completion';
 //import {logger} from '../logger';
 import {FishCompletionItemKind, isBuiltIn} from './completion-types';
@@ -101,7 +102,8 @@ export class CompletionItemBuilder {
         if (fishKind === FishCompletionItemKind.ABBR) {
             this.commitCharacters([';', '\t', ' '])
         } else if (fishKind === FishCompletionItemKind.FLAG) {
-            this._item.filterText = this._item.label.startsWith('--') ? '--' : '-'
+            this._item.insertText = this._item.label + ' '
+            this._item.command = CompleteCommand
         }
         return this;
     }

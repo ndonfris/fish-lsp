@@ -49,7 +49,7 @@ export async function execCompletionHelper(...cmd: string[]): Promise<string[]> 
 
 export async function execCompletions(...cmd: string[]) : Promise<string[]> {
     const file = resolve(__dirname, '../../fish_files/get-completion.fish')
-    const cmpArgs = ["1", cmd.join(' ')]
+    const cmpArgs = ["1", `${cmd.join(' ').trim()}`]
     const cmps = await execFileAsync(file, cmpArgs)
     return cmps.stdout.trim().split('\n')
 }

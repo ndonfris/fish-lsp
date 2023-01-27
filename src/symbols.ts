@@ -92,8 +92,12 @@ export function DocumentDefSymbol (opts?: {}) {
         const identifier = node.firstNamedChild || node.firstChild!;
         const commentRange = CommentRange.create(identifier);
         return DocumentSymbol.create(
-            identifier.text,
-            commentRange.markdown(),
+            identifier?.text || '',
+            [
+                `\*(function)* \**${identifier?.text}**`,
+                '___',
+                commentRange.markdown()
+            ].join('\n'),
             SymbolKind.Function,
             getRange(node), // as per the docs, range should include comments
             getRange(identifier),
@@ -155,14 +159,14 @@ export namespace CommentRange {
          */
         constructor(inner: SyntaxNode, outer: SyntaxNode) {
             this.innerNode = inner;
-            this.outerNode = outer;
+            this.outerNode = outer || this.innerNode;
         }
         /**
          * Handled when CommentRange.create(node) is called.
          */
         collect(): WithPrecedingComments {
             this.collection = [this.outerNode];
-            let current: SyntaxNode | null = this.outerNode.previousNamedSibling;
+            let current: SyntaxNode | null = this.outerNode?.previousNamedSibling || this.innerNode?.previousNamedSibling;
             while (current && current.type === 'comment') {
                 this.comments.unshift(current);
                 this.collection.unshift(current);
@@ -193,6 +197,7 @@ export namespace CommentRange {
             return this.innerNode.text;
         }
         public getEnclosingText(): string {
+            if (!this.outerNode) return ''
             const lines = this.outerNode.text.split('\n')
             if (lines.length > 1) {
                 const lastLine = this.outerNode.lastChild?.startPosition.column || 0;
@@ -305,7 +310,7 @@ export namespace CommentRange {
      *     • isScope(node)
      */
     export const create = (innerNode: SyntaxNode): WithPrecedingComments => {
-        const outerNode = innerNode.parent!
+        const outerNode = innerNode?.parent || innerNode
         const comments = new WithPrecedingComments(innerNode, outerNode);
         return comments.collect();
     }

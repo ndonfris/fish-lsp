@@ -12,7 +12,7 @@ import { execCommandDocs, execCommandType, execFindDependency, execFormatter, ex
 import {Logger} from './logger';
 import {toFoldingRange, uriToPath} from './utils/translation';
 import {ConfigManager} from './configManager';
-import { getNearbySymbols, getDefinitionKind, DefinitionKind, getReferences, getLocalDefs, toClientTree } from './workspace-symbol';
+import { getNearbySymbols, getDefinitionKind, DefinitionKind, getReferences, getLocalDefs, toClientTree, DefinitionSyntaxNode, DocumentSymbolTree } from './workspace-symbol';
 import { getDefinitionSymbols}  from './workspace-symbol';
 import { getChildNodes, getRange } from './utils/tree-sitter';
 import { handleHover } from './hover';
@@ -26,7 +26,7 @@ import {isFunctionDefinition, isStatement} from './utils/node-types';
 import {handleConversionToCodeAction} from './diagnostics/handleConversion';
 import {FishShellInlayHintsProvider} from './features/inlay-hints';
 import { DocumentationCache, initializeDocumentationCache } from './utils/documentationCache';
-import { collectAllSymbolInformation } from './symbols';
+import { collectAllSymbolInformation, DocumentDefSymbol } from './symbols';
 
 // @TODO 
 export type SupportedFeatures = {
@@ -233,37 +233,20 @@ export default class FishServer {
     // • Lastly add parameterInformation items.  [ 1477 : ParameterInformation ]
     async onCompletion(params: CompletionParams):  Promise<CompletionList | null>{
         const uri = uriToPath(params.textDocument.uri);
-        this.logger.log('server.onComplete');
-        const doc = this.docs.get(uri);
-        if (!uri || !doc) {
-            this.logger.log('onComplete got [NOT FOUND]: ' + uri)
-            return null;
+        let newCompletionList: CompletionList | null = null;
+        try {
+            this.logger.log('server.onComplete');
+            const doc = this.docs.get(uri);
+            if (!uri || !doc) {
+                this.logger.log('onComplete got [NOT FOUND]: ' + uri)
+                return null;
+            }
+            newCompletionList = await createCompletionList(doc, this.analyzer, params.position);
+        } catch (error) {
+            this.logger.log("ERROR: onComplete " + error);
         }
-        const pos: Position = params.position;
-        const {root, currentNode} = this.analyzer.parsePosition(doc, {
-            line : pos.line,
-            character: pos.character - 1,
-        });
-        const {line , lineRootNode, lineLastNode} = this.analyzer.parseCurrentLine(doc, pos)
-        if (line.trimStart().startsWith("#")) return null;
-
-        const items: CompletionItem[] = [
-            ...workspaceSymbolToCompletionItem(root, getNearbySymbols(root, getRange(currentNode))),
-            ...await generateShellCompletionItems(line, lineLastNode)
-        ]
-        return createCompletionList(items, pos, currentNode.text.length, true)
-
-        //const prevPos: Position = this.positionBackOneCharacter(pos);
-        //const currNode = this.analyzer.nodeAtPoint(doc, prevPos.line, prevPos.character - 1);
-        //const currCommand = this.analyzer.commandAtPoint(doc, prevPos.line, line.trimEnd().length - 1)
-        //const word = this.analyzer.wordAtPoint(doc, pos.line, pos.character-1)
-        //if (!currNode || !root) return null;
-        //const items: CompletionItem[] = workspaceSymbolToCompletionItem(root, getNearbySymbols(root, getRange(currNode))); // collectDocumentSymbols(root, doc.uri, [])
-        //this.logger.log(`onComplete: ${uri} : ${line} : ${currCommand?.text.toString()}`)
-        //let wordLen = word ? word.length : 0;
-        //const shellItems: CompletionItem[] = await generateShellCompletionItems(line, currCommand || currNode);
-        //items.push(...shellItems)
-        //return createCompletionList(items, pos, wordLen, !!currCommand)
+        this.logger.log(JSON.stringify({data: newCompletionList!.itemDefaults?.data || "error"}, null, 2))
+        return newCompletionList;
     }
 
 
@@ -325,9 +308,7 @@ export default class FishServer {
         this.logger.log("onDocumentSymbols");
         const {doc, uri, root} = this.getDefaultsForPartialParams(params)
         if (!doc || !uri || !root) return [];
-        //this.logger.log("length: "+ this.analyzer.getSymbols(doc.uri).length.toString())
-        //return collectAllSymbolInformation(uri, root);
-        return toClientTree(root)
+        return DocumentSymbolTree(root).last();
     }
 
     protected get supportHierarchicalDocumentSymbol(): boolean {
@@ -478,7 +459,7 @@ export default class FishServer {
 
     async onFoldingRanges(params: FoldingRangeParams): Promise<FoldingRange[] | undefined> {
         const file = uriToPath(params.textDocument.uri);
-        const result: FoldingRange[] = [];
+        //const result: FoldingRange[] = [];
         const document = this.docs.get(file);
         this.logger.log(`onFoldingRanges: ${params.textDocument.uri}`);
         if (!document) {
@@ -486,13 +467,13 @@ export default class FishServer {
         }
         const root = this.analyzer.getRootNode(document)
         if (!root) return 
-        const foldNodes = getChildNodes(root).filter(node => isFunctionDefinition(node));
+        const foldNodes: FoldingRange[] = DocumentSymbolTree(root).folds(document)
         // see folds.ts @ might be unnecessary
-        for (const node of foldNodes) {
-            this.logger.log(`onFoldingRanges: ${node.type} ${node.startPosition.row} ${node.endPosition.row}`);
-            result.push(toFoldingRange(node, document))
-        }
-        return result;
+        //for (const node of foldNodes) {
+            //this.logger.log(`onFoldingRanges: ${node.type} ${node.startPosition.row} ${node.endPosition.row}`);
+            //result.push(toFoldingRange(node, document))
+        //}
+        return foldNodes;
     }
 
     async onCodeAction(params: CodeActionParams) : Promise<CodeAction[]> {

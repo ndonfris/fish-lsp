@@ -15,7 +15,7 @@ export async function handleHover(uri: string, root: Parser.SyntaxNode, current:
     if (current.text.startsWith('-')) {
         return await getHoverForFlag(current)
     } 
-    const local = Symbols.findMostRecentDefinition(root, current);
+    const local = Symbols.DocumentSymbolTree(root).find(current)[0]
     if (local) {
         //const fishSymbol = CommentRange.createFishDocumentSymbol(local);
         return {
@@ -25,7 +25,6 @@ export async function handleHover(uri: string, root: Parser.SyntaxNode, current:
             },
             range: local.selectionRange
         };
-
         //const localParent = local.parent ;
         //if (!localParent) return null;
         //const nodeText = localParent.text || '';

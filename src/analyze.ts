@@ -120,15 +120,8 @@ export class Analyzer {
      * use the parser to parse the document passed in, and then return the rootNode.
      */
     public getRootNode(
-        document: LspDocument,
-        useCache: boolean = true
+        document: LspDocument
     ): SyntaxNode | undefined {
-        if (!useCache) {
-            return this.parser.parse(document.getText()).rootNode;
-        }
-        if (this.uriTree[document.uri] === undefined) {
-            this.uriTree[document.uri] = this.parser.parse(document.getText());
-        }
         return this.uriTree[document.uri].rootNode;
     }
 

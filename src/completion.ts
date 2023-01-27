@@ -2,6 +2,7 @@ import { exec } from "child_process";
 import FastGlob from "fast-glob";
 import { promisify } from "util";
 import {
+    Command,
     CompletionItem,
     CompletionItemKind,
     CompletionList,
@@ -33,9 +34,19 @@ import {
     parseLineForType,
 } from "./utils/completionBuilder";
 import { isCommand } from "./utils/node-types";
-import { firstAncestorMatch, getNodeAtRange, getRange } from "./utils/tree-sitter";
-import { getNodeFromSymbol } from './workspace-symbol';
-import { execCompletions } from './utils/exec';
+import {
+    firstAncestorMatch,
+    getNodeAtRange,
+    getRange,
+} from "./utils/tree-sitter";
+import { DocumentSymbolTree, getNodeFromSymbol } from "./workspace-symbol";
+import { execCompletions } from "./utils/exec";
+import { DocumentationCache } from "./utils/documentationCache";
+import { LspDocument } from './document';
+import { Analyzer } from './analyze';
+
+
+export const CompleteCommand = Command.create('Complete', 'editor.action.triggerSuggest');
 
 // utils create CompletionResolver and CompletionItems
 // also decide which completion icons each item will have
@@ -71,15 +82,15 @@ export async function getShellCompletions(
 ): Promise<[string, string, string][]> {
     //const entireCommand = `fish --command 'complete --do-complete="${cmd}" | uniq'`;
     //const terminalOut = await execAsync(entireCommand);
+    //const terminalIn = cmd.replace(/(["'$`\\])/g,'\\$1');
     const terminalOut = await execCompletions(cmd);
     //if (terminalOut.stderr || !terminalOut.stdout) {
-        //return [];
+    //return [];
     //}
-    return terminalOut
-        .map((line) => {
-            const [label, desc] = line.split("\t");
-            return splitArray(label, desc);
-        });
+    return terminalOut.map((line) => {
+        const [label, desc] = line.split("\t");
+        return splitArray(label, desc);
+    });
 }
 
 export function insideStringRegex(line: string): boolean {
@@ -130,7 +141,6 @@ export async function generateShellCompletionItems(
             .insertText(other)
             .addSignautreHelp(cmdText)
             .build();
-
         items.push(item);
         cmp.reset();
     }
@@ -324,37 +334,131 @@ export function buildDefaultCompletionItems() {
 
 export const BUILT_INS: CompletionItem[] = buildDefaultCompletionItems();
 
-export function createCompletionList(
-    newItems: CompletionItem[],
-    position: Position,
-    wordLen: number,
-    hasCommandNode: boolean = false
-): CompletionList {
-    const cmpDefaults = !hasCommandNode ? BUILT_INS : [];
-    let cmpList = [...cmpDefaults, ...newItems].filter(
-        (item: CompletionItem, index: number, self: CompletionItem[]) =>
-            self.findIndex((cmp) => cmp.label === item.label) === index
-    );
-    return {
-        items: cmpList,
-        isIncomplete: false,
-        itemDefaults: {
-            editRange: {
-                insert: {
-                    start: {
-                        line: position.line,
-                        character: position.character - wordLen,
-                    },
-                    end: { line: position.line, character: position.character },
+export class CompletionListProvier {
+    _items: CompletionItem[] = [];
+    public constructor() {}
+    public get items(): CompletionItem[] { return this._items; }
+    public pushItems(...newItems: CompletionItem[]) {
+        this.items.push(
+            ...newItems.filter(
+                (item: CompletionItem, index: number, self: CompletionItem[]) =>
+                    self.findIndex((cmp) => cmp.label === item.label) === index
+            )
+        );
+    }
+    public pushLocalSymbols(root: SyntaxNode, position: Position) {
+        const nearbySymbols = DocumentSymbolTree(root).nearby(position);
+        const cmp = new CompletionItemBuilder();
+        const items: CompletionItem[] = [];
+        for (const symbol of nearbySymbols) {
+            const item = cmp
+                .create(symbol.name)
+                .symbolInfoKind(symbol.kind)
+                .localSymbol()
+                .documentation({kind: "markdown", value: symbol?.detail || ""})
+                .build();
+            items.push(item);
+            cmp.reset();
+        }
+        this.pushItems(...items);
+    }
+    public async pushShellCompletionItems(line: string, lastNode: SyntaxNode) {
+        const shellCompletionItems: CompletionItem[] = await generateShellCompletionItems(line, lastNode)
+        if (shellCompletionItems) this.pushItems(...shellCompletionItems);
+    }
+    public pushDefaultItems() {
+        const cmpItem = new CompletionItemBuilder();
+        const cmpItems: CompletionItem[] = [];
+        for (const builtin of BuiltInList) {
+            const item = cmpItem
+            .create(builtin)
+            .kind(FishCompletionItemKind.BUILTIN)
+            .build();
+            cmpItems.push(item);
+            cmpItem.reset();
+        }
+        this.pushItems(...cmpItems);
+    }
+    public setEditRange(position: Position, wordLen: number) {
+        return {
+            insert: {
+                start: {
+                    line: position.line,
+                    character: position.character,
                 },
-                replace: {
-                    start: {
-                        line: position.line,
-                        character: position.character - wordLen,
-                    },
-                    end: { line: position.line, character: position.character },
+                end: {
+                    line: position.line,
+                    character: position.character + wordLen,
                 },
             },
-        },
-    };
+            replace: {
+                start: {
+                    line: position.line,
+                    character: position.character,
+                },
+                end: {
+                    line: position.line,
+                    character: position.character + wordLen,
+                },
+            },
+        };
+    }
+    public buildCompletionList(position: Position, wordLen: number): CompletionList {
+        return {
+            ...CompletionList.create(this.items, true),
+            itemDefaults: {
+                editRange: {
+                    insert: {
+                        start: {
+                            line: position.line,
+                            character: position.character,
+                        },
+                        end: {
+                            line: position.line,
+                            character: position.character + wordLen,
+                        },
+                    },
+                    replace: {
+                        start: {
+                            line: position.line,
+                            character: position.character,
+                        },
+                        end: {
+                            line: position.line,
+                            character: position.character + wordLen,
+                        },
+                    },
+                },
+                data: {
+                    itemsLength: this.items.length,
+                    position: position,
+                    wordLen: wordLen,
+                    userOptions: {}
+                },
+                insertTextMode: 1,
+            }
+        }
+    }
+}
+
+export async function createCompletionList(
+    document: LspDocument,
+    analyzer: Analyzer,
+    position: Position,
+): Promise<CompletionList | null> {
+    const result = new CompletionListProvier();
+    const {root, currentNode} = analyzer.parsePosition(document, {
+            line : position.line,
+            character: position.character,
+    })
+    const {line , lineRootNode, lineLastNode} = analyzer.parseCurrentLine(document, position);
+
+    if (line.trimStart().startsWith("#")) return null;
+
+    await result.pushShellCompletionItems(line, lineLastNode);
+    result.pushLocalSymbols(root, position);
+    result.pushDefaultItems();
+
+    const wordLen = currentNode.text.length;
+    return result.buildCompletionList(position, wordLen);
 }

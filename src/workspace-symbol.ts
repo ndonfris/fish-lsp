@@ -2,11 +2,12 @@
 import {SymbolInformation, Range, SymbolKind, DocumentUri, Location, WorkspaceSymbol, DocumentSymbol, Position, FoldingRange, FoldingRangeKind} from 'vscode-languageserver';
 import {SyntaxNode, Tree} from 'web-tree-sitter';
 import {Analyzer} from './analyze';
+import { LspDocument } from './document';
 import {CommentRange, DocumentDefSymbol, toSymbolKind} from './symbols';
 import {isBuiltin} from './utils/builtins';
 import {findEnclosingVariableScope, findParentCommand, findParentFunction, isCommandName, isDefinition, isForLoop, isFunctionDefinition, isFunctionDefinitionName, isProgram, isScope, isStatement, isVariable, isVariableDefinition} from './utils/node-types';
 import {nodeToDocumentSymbol, nodeToSymbolInformation, pathToRelativeFunctionName} from './utils/translation';
-import {findEnclosingScope, findFirstParent, getChildNodes, getNodeAtRange, getParentNodes, getRange, positionToPoint} from './utils/tree-sitter';
+import {findEnclosingScope, findFirstParent, getChildNodes, getNodeAtRange, getParentNodes, getRange, getRangeWithPrecedingComments, positionToPoint} from './utils/tree-sitter';
 
 export function DocumentSymbolTree(root: SyntaxNode) {
     /**
@@ -82,39 +83,44 @@ export function DocumentSymbolTree(root: SyntaxNode) {
      * returns an array of folding ranges, currently only for function
      * @returns {FoldingRange} - the folding ranges for any node that is a child of rootNode
      */
-    function getFolds() {
+    function getFolds(document: LspDocument): FoldingRange[] {
         const folds: FoldingRange[] = [];
         const flattendDocs = flattendClientTree(all).filter((symbol) => symbol.kind === SymbolKind.Function);
         for (const symbol of flattendDocs) {
-            const node = getNodeAtRange(root, symbol.range);
+            const node = getNodeAtRange(root, symbol.selectionRange);
             if (!node) continue;
+            const range = getRangeWithPrecedingComments(node);
+            const startLine = range.start.line;
+            const endLine = range.end.line > 0 && document.getText(Range.create(
+                Position.create(range.end.line, range.end.character - 1),
+                range.end,
+            )) === 'end' ? Math.max(range.end.line + 1, range.start.line) : range.end.line;
             const foldRange = CommentRange.create(node).toFoldRange()
-            folds.push(
-                FoldingRange.create(
-                    foldRange.start.line,
-                    foldRange.end.line,
-                    foldRange.start.character,
-                    foldRange.end.character,
-                    FoldingRangeKind.Region,
-                    symbol.name
-                )
-            );
+            folds.push({
+                startLine: foldRange.start.line,
+                endLine: foldRange.end.line,
+                collapsedText: symbol.name,
+                kind: FoldingRangeKind.Region
+            });
         }
         return folds;
     }
     function find(node?: SyntaxNode) {
         if (!node) return [];
+        if (node.text === "argv" || node.text === "$argv") {
+            return flattendClientTree(all).filter(symbol => symbol.kind === SymbolKind.Function && containsRange(symbol.range, targetRange))
+        }
         const matchingDocSymbols = findAll(node);
         if (matchingDocSymbols.length === 0) return [];
         if (!isVariable(node)) return matchingDocSymbols;
         const targetRange = getRange(node)
-        if (node.text === "argv") {
-            return matchingDocSymbols.filter(symbol => symbol.kind === SymbolKind.Function && containsRange(symbol.range, targetRange))
-        }
         const topDownSymbols = [...matchingDocSymbols]
         while (topDownSymbols.length) {
             const docSymbol = topDownSymbols.pop();
             if (docSymbol && precedesRange(docSymbol?.selectionRange, targetRange)) {
+                return [docSymbol];
+            }
+            if (docSymbol?.selectionRange.start.line === targetRange.start.line && docSymbol?.selectionRange.start.character === targetRange.start.character) {
                 return [docSymbol];
             }
         }
@@ -132,7 +138,7 @@ export function DocumentSymbolTree(root: SyntaxNode) {
         nearby: (position: Position) => getNearbyCompletionSymbols(position),
         find: (node: SyntaxNode) => find(node),
         findAll: (node: SyntaxNode) => findAll(node),
-        folds: () => getFolds(),
+        folds: (document: LspDocument) => getFolds(document),
         //exports: () => @TODO
     }
 }
@@ -199,22 +205,22 @@ function pruneClientTree(rootNode: SyntaxNode, variableNode: SyntaxNode): Docume
     return prunedSymbols;
 }
 
-export function findMostRecentDefinition(rootNode: SyntaxNode, searchNode: SyntaxNode): DocumentSymbol | undefined {
-    const prunedSymbols = pruneClientTree(rootNode, searchNode);
-    const recentDefinition = prunedSymbols.filter(symbol => symbol.name === searchNode.text);
-    for (const recentlyDefined of recentDefinition.reverse()) {
-        if (recentlyDefined.selectionRange.start.line < getRange(searchNode).start.line
-        ) {
-            return recentlyDefined
-        } else if ( recentlyDefined.selectionRange.start.line === getRange(searchNode).start.line
-            //&& recentlyDefined.selectionRange.start.character <= getRange(searchNode).start.character
-            //&& recentlyDefined.selectionRange.end.character <= getRange(searchNode).end.character
-        ) {
-            return recentlyDefined
-        }
-    }
-    return undefined
-}
+//export function findMostRecentDefinition(rootNode: SyntaxNode, searchNode: SyntaxNode): DocumentSymbol | undefined {
+//    const prunedSymbols = pruneClientTree(rootNode, searchNode);
+//    const recentDefinition = prunedSymbols.filter(symbol => symbol.name === searchNode.text);
+//    for (const recentlyDefined of recentDefinition.reverse()) {
+//        if (recentlyDefined.selectionRange.start.line < getRange(searchNode).start.line
+//        ) {
+//            return recentlyDefined
+//        } else if ( recentlyDefined.selectionRange.start.line === getRange(searchNode).start.line
+//            //&& recentlyDefined.selectionRange.start.character <= getRange(searchNode).start.character
+//            //&& recentlyDefined.selectionRange.end.character <= getRange(searchNode).end.character
+//        ) {
+//            return recentlyDefined
+//        }
+//    }
+//    return undefined
+//}
 
 /**
  * @param {SyntaxNode} root - The root node of the syntax tree.
