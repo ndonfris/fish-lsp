@@ -20,42 +20,44 @@ export function createSymbol(node: SyntaxNode, children: DocumentSymbol[] = []) 
     }
 }
 
-function createFunctionDocumentSymbol(node: SyntaxNode) {
-    const identifier = node.firstNamedChild || node.firstChild!;
-    const commentRange = CommentRange.create(identifier);
-    const {  enclosingText, enclosingNode, encolsingType } = DefinitionSyntaxNode.getEnclosingScope(node);
-    return DocumentSymbol.create(
-        identifier.text,
-        commentRange.markdown(), // add detail here
-        SymbolKind.Function,
-        getRange(node), //commentRange.(), // as per the docs, range should include comments
-        getRange(identifier),
-        []
-    )
-}
+export namespace DefinitionSymbol {
+    export const createFunction = (node: SyntaxNode) => {
+        const identifier = node.firstNamedChild || node.firstChild!;
+        const commentRange = CommentRange.create(identifier);
+        // @TODO: implement const {  enclosingText, enclosingNode, encolsingType } 
+        //        = DefinitionSyntaxNode.getEnclosingScope(parentNode);
+        return DocumentSymbol.create(
+            identifier.text,
+            commentRange.markdown(), // add detail here
+            SymbolKind.Function,
+            getRange(node), //commentRange.(), // as per the docs, range should include comments
+            getRange(identifier),
+            []
+        );
+    }
 
-// add specific detail handler for different variable types.
-function createVariableDocumentSymbol(node: SyntaxNode) {
-    const parentNode = node.parent!; 
-    const commentRange = CommentRange.create(node)
-    const withCommentText = isFunctionDefinition(parentNode) ? parentNode.text.toString() : commentRange.text()
-    //getRangeWithPrecedingComments(parentNode)
-    const {  enclosingText, enclosingNode, encolsingType } = DefinitionSyntaxNode.getEnclosingScope(parentNode);
-    return DocumentSymbol.create(
-        node.text,
-        [ 
-            `\*(variable)* \**${node.text}**`,
-            //enclosingText,
-            "___",
-            "```fish",
-            `${withCommentText.trim()}`,
-            "```",
-        ].join("\n"),
-        SymbolKind.Variable,
-        getRange(parentNode), // as per the docs, range should include comments
-        getRange(node),
-        []
-    );
+    export const createVariable = (node: SyntaxNode) => {
+        const parentNode = node.parent!; 
+        const commentRange = CommentRange.create(node)
+        const withCommentText = isFunctionDefinition(parentNode) ? parentNode.text.toString() : commentRange.text()
+        // @TODO: implement const {  enclosingText, enclosingNode, encolsingType }
+        //        = DefinitionSyntaxNode.getEnclosingScope(parentNode);
+        return DocumentSymbol.create(
+            node.text,
+            [ 
+                `\*(variable)* \**${node.text}**`,
+                //enclosingText,
+                "___",
+                "```fish",
+                `${withCommentText.trim()}`,
+                "```",
+            ].join("\n"),
+            SymbolKind.Variable,
+            getRange(parentNode), // as per the docs, range should include comments
+            getRange(node),
+            []
+        );
+    }
 }
 
 
@@ -71,7 +73,7 @@ function createVariableDocumentSymbol(node: SyntaxNode) {
 export function collapseToSymbolsRecursive(node: SyntaxNode): DocumentSymbol[] {
     const symbols: DocumentSymbol[] = [];
     if (isFunctionDefinition(node)) {
-        const symbol = createFunctionDocumentSymbol(node);
+        const symbol = DefinitionSymbol.createFunction(node);
         node.children.forEach((child) => {
             const childSymbols = collapseToSymbolsRecursive(child);
             if (!symbol.children) symbol.children = [];
@@ -79,7 +81,7 @@ export function collapseToSymbolsRecursive(node: SyntaxNode): DocumentSymbol[] {
         })
         symbols.push(symbol);
     } else if (isVariableDefinition(node)) {
-        const symbol = createVariableDocumentSymbol(node);
+        const symbol = DefinitionSymbol.createVariable(node);
         symbols.push(symbol);
     } else {
         node.children.forEach((child) => {

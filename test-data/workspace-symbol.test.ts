@@ -1,5 +1,5 @@
 import { resolveLspDocumentForHelperTestFile, setMarkedterminal } from "./helpers";
-import {CompletionItem,CompletionParams,DocumentSymbol,MarkupContent,MarkupKind,Position,Range,SymbolKind,TextDocumentIdentifier,} from "vscode-languageserver";
+import {CompletionItem,CompletionParams,DocumentSymbol,FoldingRange,FoldingRangeKind,MarkupContent,MarkupKind,Position,Range,SymbolKind,TextDocumentIdentifier,} from "vscode-languageserver";
 import {BUILT_INS,createCompletionList,generateShellCompletionItems,getShellCompletions,workspaceSymbolToCompletionItem,} from "../src/completion";
 import Parser, { SyntaxNode } from "web-tree-sitter";
 import { initializeParser } from "../src/parser";
@@ -11,6 +11,7 @@ import { Analyzer } from "../src/analyze";
 import {isFunctionDefinition,isFunctionDefinitionName,isDefinition,isVariableDefinition,isScope, findParentCommand, isForLoop,} from "../src/utils/node-types";
 import { collectAllSymbolInformation, CommentRange } from "../src/symbols";
 import { DocumentationCache, initializeDocumentationCache } from "../src/utils/documentationCache";
+import { toFoldingRange } from '../src/utils/translation';
 //import { marked } from 'marked';
 //import { Chalk } from 'chalk';
 //import   TerminalRenderer   from 'marked-terminal';
@@ -96,22 +97,11 @@ describe("workspace-symbols tests", () => {
         const doc = resolveLspDocumentForHelperTestFile("./fish_files/advanced/inner_functions.fish");
         const root = parser.parse(doc.getText()).rootNode
         const search = root.descendantForPosition({row: 13, column: 19})
+        const position_1 : Position = Position.create(4, 22);
         const symbols = collapseToSymbolsRecursive(root);
-        //symbols.forEach((symbol, index) => {
-            //console.log(symbol.name);
-            //console.log(JSON.stringify({ index: index, children: symbol.children },null,2))
-        //});
-        //expect(symbols.length).toBe(3);
-        //console.log("\nLOGGING SCOPES:");
-        //console.log();
-        //console.log(search.text);
-        //const search1 = root.descendantForPosition({row: 1, column: 8})
-        //const search2 = root.descendantForPosition({row: 18, column: 18})
-        //const def1 = pruneClientTree(root, search)
-        //console.log(JSON.stringify({def: def1}, null, 2))
-        const funcSymbols = collapseToSymbolsRecursive(root).filter(doc => doc.kind === SymbolKind.Function)
-        const flattend = flattendClientTree(root)
-        const allDefNodes = flattend.map(symbol => getNodeFromSymbol(root, symbol))
+        //const funcSymbols = collapseToSymbolsRecursive(root).filter(doc => doc.kind === SymbolKind.Function)
+        const flattend = flattendClientTree(collapseToSymbolsRecursive(root))
+        //const allDefNodes = flattend.map(symbol => getNodeFromSymbol(root, symbol))
         
         flattend.forEach((symbol, index) => {
             console.log(`${index}: ${symbol.detail}`);
@@ -119,38 +109,25 @@ describe("workspace-symbols tests", () => {
         })
 
         console.log();
-        //const tree = toClientTree(root)
-        //logClientTree(tree)
-        //console.log('uniqtree');
-        //const uniqTree = toUniqClientTree(root)
-        //logClientTree(uniqTree)
         const results = getLastOccurrence(symbols)
         const tree = DocumentSymbolTree(root)
 
-        console.log("AST all: ");
+        console.log("\nAST all: ");
         logClientTree(tree.all())
 
-        console.log("AST last: ");
+        console.log("\nAST last: ");
         logClientTree(tree.last())
-        //flattend.forEach((symbol, index) => {
-            ////const m = marked(c).toString()
-            //console.log(`${index.toString()}: ${symbol.name}`);
-            //console.log(symbol?.detail || "");
-            //console.log();
-        //})
-        //allDefNodes.forEach((symbol, index) => {
-        //    const scope = DefinitionSyntaxNode.getScope(symbol);
-        //    console.log(`${index}: ${symbol.text} ${scope}`);
-        //})
-        //getChildNodes(root).forEach((node, index) => {
-            //console.log(`${index}: ${node.text}`);
-            //console.log({hasCommand: (DefinitionSyntaxNode.hasCommand(node)), hasScope: DefinitionSyntaxNode.hasScope(node), getScope: DefinitionSyntaxNode.getScope(node)
-            //})
-        //})
-        //console.log(DefinitionSyntaxNode.FlagsMap);
-
+        console.log(`\n${doc.getLineBeforeCursor(position_1)}`)
+        console.log("AST nearby: ");
+        tree.nearby(position_1).forEach((symbol, index) => {
+            console.log(`${index}: ${symbol.name}`);
+        })
         console.log();
-    });
+        console.log("folding Range: ");
+        tree.folds().forEach((symbol: FoldingRange, index: number) => {
+            console.log(`${index}: ${symbol.collapsedText}`);
+        })
+    })
 });
 
 
@@ -188,8 +165,8 @@ function createVariableDocumentSymbol(node: SyntaxNode) {
     const parentNode = node.parent!; 
     const commentRange = CommentRange.create(node)
     const withCommentText = isFunctionDefinition(parentNode) ? parentNode.text.toString() : commentRange.text()
-    //getRangeWithPrecedingComments(parentNode)
-    const {  enclosingText, enclosingNode, encolsingType } = DefinitionSyntaxNode.getEnclosingScope(parentNode);
+    // @TODO: implement
+    // const {  enclosingText, enclosingNode, encolsingType } = DefinitionSyntaxNode.getEnclosingScope(parentNode);
     return DocumentSymbol.create(
         node.text,
         [ 
@@ -279,18 +256,66 @@ export function DocumentSymbolTree(root: SyntaxNode) {
     /**
      * creates the flat list of symbols, for the client to use as completions.
      */
-    function getNearbyCompletionSymbols(flattend: DocumentSymbol[], position: Position) {
+    function getNearbyCompletionSymbols( position: Position) {
         const positionToRange: Range = Range.create(position.line, position.character, position.line, position.character + 1)
-        return flattend.filter((symbol) => {
-            return containsRange(symbol.range, positionToRange);
+        const nearby: DocumentSymbol[] = [];
+        const stack: DocumentSymbol[] = [...getLastOccurrence(all)];
+        while (stack.length) {
+            const symbol = stack.pop()!;
+            if (!containsRange(symbol.range, positionToRange)) continue; 
+            nearby.push(symbol);
+            if (symbol.children) stack.push(...symbol.children)
+        }
+        // grab all enclosing nearby symbols, then pass in the all symbols
+        // to pass in definitions that are found in the same scope.
+        // Then we check for duplicates in the same scope, and lastly make sure that 
+        // the resulting array does not have false positives.
+        return [...nearby, ...all] 
+            .filter((item: DocumentSymbol, index: number, self: DocumentSymbol[]) =>
+                self.findIndex((otherItem) => item.name === otherItem.name) === index)
+            .filter((symbol) => {
+                if (symbol.kind === SymbolKind.Function) return true;
+                if (symbol.kind === SymbolKind.Variable) {
+                    if (symbol.selectionRange.start.line > position.line) return false;
+                    const parentNode = getNodeAtRange(root, symbol.range);
+                    if (parentNode && isForLoop(parentNode)
+                        && !containsRange(symbol.range, positionToRange)) return false;
+                }
+            return true
         })
+    }
+
+    /**
+     * returns an array of folding ranges
+     *
+     * @returns {FoldingRange} - the folding ranges for any node that is a child of rootNode
+     */
+    function getFolds() {
+        const folds: FoldingRange[] = [];
+        const flattendDocs = flattendClientTree(all).filter((symbol) => symbol.kind === SymbolKind.Function);
+        for (const symbol of flattendDocs) {
+            const node = getNodeAtRange(root, symbol.range);
+            if (!node) continue;
+            const foldRange = CommentRange.create(node).toFoldRange()
+            folds.push(
+                FoldingRange.create(
+                    foldRange.start.line,
+                    foldRange.end.line,
+                    foldRange.start.character,
+                    foldRange.end.character,
+                    FoldingRangeKind.Region,
+                    symbol.name
+                )
+            );
+        }
+        return folds;
     }
     return {
         all: () => all,
-        flat: () => flattendClientTree(root),
+        flat: () => flattendClientTree(all),
         last: () => getLastOccurrence(all),
-        nearby: (position: Position) => getNearbyCompletionSymbols(getLastOccurrence(all), position),
-        //folds: () => 
+        nearby: (position: Position) => getNearbyCompletionSymbols(position),
+        folds: () => getFolds(),
         //exports: () =>
     }
 }
@@ -310,57 +335,19 @@ export function getLastOccurrence(symbols: DocumentSymbol[]) {
     return result;
 }
 
-function toUniqClientTree(root: SyntaxNode): DocumentSymbol[] {
-    const symbols: DocumentSymbol[] = flattendClientTree(root);
-    //const symbols = collapseToSymbolsRecursive(root);
-    //const seenSymbols: Map<string, DocumentSymbol> = new Map();
+function flattendClientTree(symbols: DocumentSymbol[]) : DocumentSymbol[] {
+    const stack: DocumentSymbol[] = [...symbols];
     const result: DocumentSymbol[] = [];
-    symbols.reduce(
-        (unique: DocumentSymbol[], item: DocumentSymbol) => unique.some(n => n.name === item.name) ? unique : [...unique, item],
-        [],
-    );
-    //for (const symbol of symbols)) {
-        //let uniqueScopeSymbols = new Map<string, DocumentSymbol>();
-        ////const parent = DocumentSymbol.create(symbol.name, symbol.detail, symbol.kind, symbol.range, symbol.selectionRange, symbol.children);
-//
-//
-//
-        //// 3: "Reduce"
-        ////parent.children.filter(child => child.)
-        ////let children = parent.children || []
-        ////children.forEach((child) => {
-            //////console.log({parent: parent.name, child: child.name})
-            ////uniqueScopeSymbols.set(child.name, child);
-        ////})
-        ////if (!parent.children) parent.children = [];
-        ////parent.children.unshift(...Array.from(uniqueScopeSymbols.values()))
-        ////console.log(uniqueScopeSymbols.entries());
-        ////children.forEach((child) => {
-            ////if (!uniqueScopeSymbols.has(child.name)) {
-                ////uniqueScopeSymbols.add(child.name);
-                ////result.unshift(child);
-            ////}
-        ////})
-//
-        ////if (!uniqueScopeSymbols.has(symbol.name)) {
-            ////uniqueScopeSymbols.set(symbol.name, symbol);
-            ////result.unshift(symbol);
-        ////}
-        ////result.unshift(parent)
-        ////let parent: SyntaxNode | null = getNodeFromRange(root, symbol.range);
-        ////while (parent) {
-            ////if (isScope(parent)) {
-                ////seenSymbols.set(symbol.name, symbol);
-                ////break;
-            ////}
-            ////parent = parent.parent;
-        ////}
-    //}
-    //seenSymbols.forEach((value:DocumentSymbol) => {
-        //result.push(value);
-    //});
-    return symbols;
+    while (stack.length > 0) {
+        const symbol = stack.shift();
+        if (!symbol) continue;
+        result.push(symbol);
+        if (symbol.children) stack.unshift(...symbol.children);
+    }
+    return result;
 }
+
+
 function getNearestDefinition(root: SyntaxNode, searchNode: SyntaxNode): DocumentSymbol | undefined {
     const symbols = collapseToSymbolsRecursive(root);
     let nearestDefinition: DocumentSymbol | undefined;
@@ -416,19 +403,6 @@ function findMostRecentDefinition(rootNode: SyntaxNode, searchNode: SyntaxNode):
         }
     }
     return undefined
-}
-
-function flattendClientTree(rootNode: SyntaxNode) : DocumentSymbol[] {
-    const symbols = collapseToSymbolsRecursive(rootNode);
-    const stack: DocumentSymbol[] = [...symbols];
-    const result: DocumentSymbol[] = [];
-    while (stack.length > 0) {
-        const symbol = stack.shift();
-        if (!symbol) continue;
-        result.push(symbol);
-        if (symbol.children) stack.unshift(...symbol.children);
-    }
-    return result;
 }
 
 

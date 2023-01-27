@@ -9,7 +9,7 @@ function func_a --argument-names arg_1 arg_2
     end
 
     function func_c
-        set --local args "$argv"
+        set --local args "$argv" 
     end
 
     func_b $args
@@ -25,7 +25,5 @@ function func_outside --argument-names arg_1 arg_2
     echo $argv
 end
 
-
 func_a 1 2
 func_outside 1 2
-
