@@ -12,7 +12,7 @@ import { execCommandDocs, execCommandType, execFindDependency, execFormatter, ex
 import {Logger} from './logger';
 import {toFoldingRange, uriToPath} from './utils/translation';
 import {ConfigManager} from './configManager';
-import { getNearbySymbols, getDefinitionKind, DefinitionKind, getReferences, getLocalDefs } from './workspace-symbol';
+import { getNearbySymbols, getDefinitionKind, DefinitionKind, getReferences, getLocalDefs, toClientTree } from './workspace-symbol';
 import { getDefinitionSymbols}  from './workspace-symbol';
 import { getChildNodes, getRange } from './utils/tree-sitter';
 import { handleHover } from './hover';
@@ -321,12 +321,13 @@ export default class FishServer {
     // ResolveWorkspaceResult
     // https://github.com/Dart-Code/Dart-Code/blob/master/src/extension/providers/dart_workspace_symbol_provider.ts#L7
     //
-    async onDocumentSymbols(params: DocumentSymbolParams): Promise<SymbolInformation[]> {
+    async onDocumentSymbols(params: DocumentSymbolParams): Promise<DocumentSymbol[]> {
         this.logger.log("onDocumentSymbols");
         const {doc, uri, root} = this.getDefaultsForPartialParams(params)
         if (!doc || !uri || !root) return [];
         //this.logger.log("length: "+ this.analyzer.getSymbols(doc.uri).length.toString())
-        return collectAllSymbolInformation(uri, root);
+        //return collectAllSymbolInformation(uri, root);
+        return toClientTree(root)
     }
 
     protected get supportHierarchicalDocumentSymbol(): boolean {

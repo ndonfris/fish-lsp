@@ -15,12 +15,15 @@ export async function handleHover(uri: string, root: Parser.SyntaxNode, current:
     if (current.text.startsWith('-')) {
         return await getHoverForFlag(current)
     } 
-    const local = Symbols.getMostRecentReference(uri, root, current);
+    const local = Symbols.findMostRecentDefinition(root, current);
     if (local) {
-        const fishSymbol = CommentRange.createFishDocumentSymbol(local);
+        //const fishSymbol = CommentRange.createFishDocumentSymbol(local);
         return {
-            contents: fishSymbol.markupContent,
-            range: fishSymbol.selectionRange
+            contents: {
+                kind: MarkupKind.Markdown,
+                value: local.detail!,
+            },
+            range: local.selectionRange
         };
 
         //const localParent = local.parent ;

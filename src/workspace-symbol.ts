@@ -4,7 +4,7 @@ import {SyntaxNode, Tree} from 'web-tree-sitter';
 import {Analyzer} from './analyze';
 import {CommentRange, toSymbolKind} from './symbols';
 import {isBuiltin} from './utils/builtins';
-import {findEnclosingVariableScope, findParentFunction, isCommandName, isDefinition, isFunctionDefinition, isFunctionDefinitionName, isProgram, isScope, isStatement, isVariable, isVariableDefinition} from './utils/node-types';
+import {findEnclosingVariableScope, findParentCommand, findParentFunction, isCommandName, isDefinition, isForLoop, isFunctionDefinition, isFunctionDefinitionName, isProgram, isScope, isStatement, isVariable, isVariableDefinition} from './utils/node-types';
 import {nodeToDocumentSymbol, nodeToSymbolInformation, pathToRelativeFunctionName} from './utils/translation';
 import {findEnclosingScope, findFirstParent, getChildNodes, getNodeAtRange, getParentNodes, getRange, positionToPoint} from './utils/tree-sitter';
 
@@ -18,6 +18,156 @@ export function createSymbol(node: SyntaxNode, children: DocumentSymbol[] = []) 
     } else {
         return null;
     }
+}
+
+function createFunctionDocumentSymbol(node: SyntaxNode) {
+    const identifier = node.firstNamedChild || node.firstChild!;
+    const commentRange = CommentRange.create(identifier);
+    const {  enclosingText, enclosingNode, encolsingType } = DefinitionSyntaxNode.getEnclosingScope(node);
+    return DocumentSymbol.create(
+        identifier.text,
+        commentRange.markdown(), // add detail here
+        SymbolKind.Function,
+        getRange(node), //commentRange.(), // as per the docs, range should include comments
+        getRange(identifier),
+        []
+    )
+}
+
+// add specific detail handler for different variable types.
+function createVariableDocumentSymbol(node: SyntaxNode) {
+    const parentNode = node.parent!; 
+    const commentRange = CommentRange.create(node)
+    const withCommentText = isFunctionDefinition(parentNode) ? parentNode.text.toString() : commentRange.text()
+    //getRangeWithPrecedingComments(parentNode)
+    const {  enclosingText, enclosingNode, encolsingType } = DefinitionSyntaxNode.getEnclosingScope(parentNode);
+    return DocumentSymbol.create(
+        node.text,
+        [ 
+            `\*(variable)* \**${node.text}**`,
+            //enclosingText,
+            "___",
+            "```fish",
+            `${withCommentText.trim()}`,
+            "```",
+        ].join("\n"),
+        SymbolKind.Variable,
+        getRange(parentNode), // as per the docs, range should include comments
+        getRange(node),
+        []
+    );
+}
+
+
+/**
+ * This is the recursive solution to building the document symbols (for definitions).
+ *
+ * @see createFunctionDocumentSymbol
+ * @see createVariableDocumentSymbol
+ *
+ * @param {SyntaxNode} node - the node to start the recursive search from
+ * @returns {DocumentSymbol[]} - the resulting DocumentSymbols, which is a TREE not a flat list
+ */
+export function collapseToSymbolsRecursive(node: SyntaxNode): DocumentSymbol[] {
+    const symbols: DocumentSymbol[] = [];
+    if (isFunctionDefinition(node)) {
+        const symbol = createFunctionDocumentSymbol(node);
+        node.children.forEach((child) => {
+            const childSymbols = collapseToSymbolsRecursive(child);
+            if (!symbol.children) symbol.children = [];
+            symbol.children.push(...childSymbols);
+        })
+        symbols.push(symbol);
+    } else if (isVariableDefinition(node)) {
+        const symbol = createVariableDocumentSymbol(node);
+        symbols.push(symbol);
+    } else {
+        node.children.forEach((child) => {
+            symbols.push(...collapseToSymbolsRecursive(child));
+        })
+    }
+    return symbols;
+}
+
+/**
+ * gets all the symbols of a depth before the variableNode.
+ *
+ * `function func_a 
+ *     set -l var_b; set -l var_c
+ *  end
+ *  set -l search_for
+ *  echo $search_for `<-- starting here 
+ *  would show a pruned tree of:
+ *       - `func_a`
+ *       - `search_for`
+ *  `var_b`, and `var_c` are not reachable and have been pruned
+ */
+function pruneClientTree(rootNode: SyntaxNode, variableNode: SyntaxNode): DocumentSymbol[] {
+    const symbols = collapseToSymbolsRecursive(rootNode);
+
+    const prunedSymbols: DocumentSymbol[] = []
+    let nextSymbols : DocumentSymbol[] = [...symbols]
+    let currentNode: SyntaxNode | null = variableNode.parent;
+
+    while (currentNode && currentNode?.type !== 'program') {
+        currentNode = currentNode.parent;
+        const currentLevel = [...nextSymbols.filter(n => n !== undefined)];
+        prunedSymbols.push(...currentLevel);
+        nextSymbols = [];
+        currentLevel.forEach(symbol => {
+            if (symbol.children) nextSymbols.push(...symbol.children)
+        })
+    }
+    return prunedSymbols;
+}
+
+export function findMostRecentDefinition(rootNode: SyntaxNode, searchNode: SyntaxNode): DocumentSymbol | undefined {
+    const prunedSymbols = pruneClientTree(rootNode, searchNode);
+    const recentDefinition = prunedSymbols.filter(symbol => symbol.name === searchNode.text);
+    for (const recentlyDefined of recentDefinition.reverse()) {
+        if (recentlyDefined.selectionRange.start.line < getRange(searchNode).start.line
+        ) {
+            return recentlyDefined
+        } else if ( recentlyDefined.selectionRange.start.line === getRange(searchNode).start.line
+            //&& recentlyDefined.selectionRange.start.character <= getRange(searchNode).start.character
+            //&& recentlyDefined.selectionRange.end.character <= getRange(searchNode).end.character
+        ) {
+            return recentlyDefined
+        }
+    }
+    return undefined
+}
+
+
+/**
+ * Shows the workspace heirarcharal symbols, in a tree format in the client. Unlike
+ * collapseToSymbolsRecursive(), this function removes duplicate identifiers in the same
+ * scope, and only ends up storing the last refrence.
+ *
+ * @param {SyntaxNode} root - The root node of the syntax tree.
+ *
+ * @returns {DocumentSymbol[]} - The document symbols, without duplicates in the same scope.
+ */
+export function toClientTree(root: SyntaxNode): DocumentSymbol[] {
+    const symbols = collapseToSymbolsRecursive(root);
+    const seenSymbols: Set<string> = new Set();
+    const result: DocumentSymbol[] = [];
+
+    for (const symbol of symbols) {
+        const node = getNodeAtRange(root, symbol.range);
+        let parent = node?.parent || node;
+        while (parent) {
+            if (isScope(parent)) {
+                if (!seenSymbols.has(symbol.name)) {
+                    seenSymbols.add(symbol.name);
+                    result.push(symbol);
+                }
+                break;
+            }
+            parent = parent.parent;
+        }
+    }
+    return result;
 }
 
 export function getDefinitionSymbols(root: SyntaxNode) {
@@ -193,6 +343,115 @@ export function getMostRecentReference(uri: string, root: SyntaxNode, current: S
     })
     return mostRecent
 }
+export namespace DefinitionSyntaxNode {
+    export const ScopeTypesSet = new Set(["global", "function", "local", "block"]);
+    export type ScopeTypes = "global" | "function" | "local" | "block";
+    export type VariableCommandNames = "set" | "read" | "for" | "function" // FlagsMap.keys()
+    const _Map = {
+        read: {
+            global:   ["-g", '--global'],
+            local:    ["-l", "--local"],
+            function: ["-f", "--function"],
+        },
+        set: {
+            global:   ["-g", '--global'],
+            local:    ["-l", "--local"],
+            function: ["-f", "--function"],
+        },
+        for: {block: [] },
+        function: { 
+            function: ["-A", "--argument-names", "-v", "--on-variable"],
+            global:   ["-V", "--inherit-variable", '-S', '--no-scope-shadowing'],
+        },
+    }
+    /**
+     * Map containing the flags, for a command
+     * {
+     *     "read": => Map(3) {
+     *           "global" => Set(2) { "-g", "--global" },
+     *           "local" => Set(2) { "-l", "--local" },
+     *           "function" => Set(2) { "-f", "--function" }
+     *     }
+     *     ...
+     * }
+     * Usage:
+     * FlagsMap.keys()                    => Set(4) { "read", "set", "for", "function }
+     * FlagsMap.get("read").get("global") => Set(2) { "-g", "--global" }
+     * FlagsMap.get("read").get("global").has("-g") => true
+     */
+    export const FlagsMap = new Map(Object.entries(_Map).map(([command, scopes]) => {
+        return [command, new Map(Object.entries(scopes).map(([scope, flags]) => {
+            return [scope, new Set(flags)];
+        }))];
+    }));
+    /**
+     * Simple helper to check if the parent node is found in our look up FlagMap.keys()
+     *
+     * @param {SyntaxNode} node - variable or function node 
+     * @returns {boolean} true if the parent node is a a key in the FlagMap
+     */
+    export function hasCommand(node: SyntaxNode){
+        const parent = findParentCommand(node) || node?.parent;
+        const commandName = parent?.text.split(' ')[0] || ''
+        console.log({commandName, var: node.text})
+        return parent && [...FlagsMap.keys()].includes(commandName)
+    }
 
+    export function hasScope(node: SyntaxNode) {
+        if (isFunctionDefinition(node)) return true
+        return hasCommand(node) && isVariableDefinition(node)
+    }
+
+    export function getScope(node: SyntaxNode) {
+        if (isFunctionDefinition(node)) return "function"
+        const commandNode = findParentCommand(node) || node.parent
+        const commandName = commandNode?.text.split(' ')[0] || ''
+        const flags = commandNode?.children.map(c => c.text).filter(flag => flag.startsWith('--')) || []
+        if (!flags || commandName === 'for') return 'local'
+
+        const commandScopes = FlagsMap.get(commandName);
+        if (!commandScopes) return 'local';
+
+        for (const [scope, flagSet] of commandScopes.entries()) {
+            if (flags.some(flag => flagSet.has(flag))) return scope;
+        }
+        return 'local'
+    }
+
+    export interface EnclosingDefinitionScope {
+        encolsingType: "function" | "block" | "local" | "global";
+        enclosingText: string;
+        enclosingNode: SyntaxNode;
+    }
+    export function createEnclosingScope(type: ScopeTypes, node: SyntaxNode): EnclosingDefinitionScope {
+        let enclosingText = `in \**${type}** scope`
+        if (type === 'function') enclosingText = `in \**${type.toString()}** scope`  
+        else if (type === 'block' && isForLoop(node)) enclosingText = `in \**${type.toString()}** \*for_loop* scope`  
+        //let enclosingText = `in \**${type.toString()}** scope`
+        //if (type === 'global') {enclosingText = `in \**${type}** scope`}
+        //else if (type === 'local') {enclosingText = `in \**${type}** scope`}
+        //else if (type === 'function') {enclosingText = `in \**${type}** scope: \*${node.firstChild}*`}
+        return {encolsingType: type, enclosingText, enclosingNode: node}
+    } 
+
+    // @TODO: implement find enclosing scope for a node
+    export function getEnclosingScope(node: SyntaxNode) : EnclosingDefinitionScope {
+        if (isFunctionDefinition(node)) return createEnclosingScope("function", node)
+        const commandNode = node?.parent?.type === 'for_loop' ? node.parent : findParentCommand(node)
+        const commandName = commandNode?.text.split(' ')[0] || ''
+        const flags = commandNode?.children.map(c => c.text).filter(flag => flag.startsWith('--')) || []
+        if (!commandNode) return createEnclosingScope('local', node)
+        if (commandName === 'for') return createEnclosingScope("block", commandNode)
+
+        const commandScopes = FlagsMap.get(commandName);
+        if (!flags.length || !commandScopes) return createEnclosingScope('local', commandNode)
+
+        for (const [scope, flagSet] of commandScopes.entries()) {
+            if (flags.some(flag => flagSet.has(flag))) return createEnclosingScope(scope.toString() as ScopeTypes, commandNode);
+        }
+        return createEnclosingScope('local', commandNode)
+    }
+
+}
 
 

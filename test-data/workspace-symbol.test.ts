@@ -6,7 +6,7 @@ import { initializeParser } from "../src/parser";
 import { resolve } from "dns";
 import { LspDocument } from "../src/document";
 import {containsRange,createSymbol,getDefinitionSymbols,getNearbySymbols,getNodeFromRange, getNodeFromSymbol,} from "../src/workspace-symbol";
-import {getChildNodes,getNodeAtRange,getRange,getRangeWithPrecedingComments } from "../src/utils/tree-sitter";
+import {getChildNodes,getNodeAtRange,getRange,getRangeWithPrecedingComments, positionToPoint } from "../src/utils/tree-sitter";
 import { Analyzer } from "../src/analyze";
 import {isFunctionDefinition,isFunctionDefinitionName,isDefinition,isVariableDefinition,isScope, findParentCommand, isForLoop,} from "../src/utils/node-types";
 import { collectAllSymbolInformation, CommentRange } from "../src/symbols";
@@ -93,8 +93,7 @@ describe("workspace-symbols tests", () => {
 
 
     it("multiple function hierarchical symbols", async () => {
-        const doc = resolveLspDocumentForHelperTestFile("./fish_files/advanced/multiple_functions.fish");
-        //const doc = resolveLspDocumentForHelperTestFile("./fish_files/history.fish");
+        const doc = resolveLspDocumentForHelperTestFile("./fish_files/advanced/inner_functions.fish");
         const root = parser.parse(doc.getText()).rootNode
         const search = root.descendantForPosition({row: 13, column: 19})
         const symbols = collapseToSymbolsRecursive(root);
@@ -104,8 +103,6 @@ describe("workspace-symbols tests", () => {
         //});
         //expect(symbols.length).toBe(3);
         //console.log("\nLOGGING SCOPES:");
-        const tree = toClientTree(root)
-        logClientTree(tree)
         //console.log();
         //console.log(search.text);
         //const search1 = root.descendantForPosition({row: 1, column: 8})
@@ -116,17 +113,31 @@ describe("workspace-symbols tests", () => {
         const flattend = flattendClientTree(root)
         const allDefNodes = flattend.map(symbol => getNodeFromSymbol(root, symbol))
         
-        //flattend.forEach((symbol, index) => {
-            //console.log(`${index}: ${symbol.detail}`);
-        //})
+        flattend.forEach((symbol, index) => {
+            console.log(`${index}: ${symbol.detail}`);
+            //console.log(JSON.stringify({selectionRange: symbol.selectionRange, range: symbol.range}, null, 2));
+        })
 
         console.log();
-        flattend.forEach((symbol, index) => {
-            //const m = marked(c).toString()
-            console.log(`${index.toString()}: ${symbol.name}`);
-            console.log(symbol?.detail || "");
-            console.log();
-        })
+        //const tree = toClientTree(root)
+        //logClientTree(tree)
+        //console.log('uniqtree');
+        //const uniqTree = toUniqClientTree(root)
+        //logClientTree(uniqTree)
+        const results = getLastOccurrence(symbols)
+        const tree = DocumentSymbolTree(root)
+
+        console.log("AST all: ");
+        logClientTree(tree.all())
+
+        console.log("AST last: ");
+        logClientTree(tree.last())
+        //flattend.forEach((symbol, index) => {
+            ////const m = marked(c).toString()
+            //console.log(`${index.toString()}: ${symbol.name}`);
+            //console.log(symbol?.detail || "");
+            //console.log();
+        //})
         //allDefNodes.forEach((symbol, index) => {
         //    const scope = DefinitionSyntaxNode.getScope(symbol);
         //    console.log(`${index}: ${symbol.text} ${scope}`);
@@ -140,7 +151,6 @@ describe("workspace-symbols tests", () => {
 
         console.log();
     });
-
 });
 
 
@@ -184,9 +194,7 @@ function createVariableDocumentSymbol(node: SyntaxNode) {
         node.text,
         [ 
             `\*(variable)* \**${node.text}**`,
-            'enclosingText:     '+ enclosingText,
-            `enclosingNode.text: ${enclosingNode.text}`,
-            `enclosingType     : ${encolsingType}`,
+            //enclosingText,
             "___",
             "```fish",
             `${withCommentText.trim()}`,
@@ -263,6 +271,94 @@ function toClientTree(root: SyntaxNode): DocumentSymbol[] {
     return result;
 }
 
+export function DocumentSymbolTree(root: SyntaxNode) {
+    const all: DocumentSymbol[] = toClientTree(root);
+    
+    /**
+     * creates the flat list of symbols, for the client to use as completions.
+     */
+    function getNearbyCompletionSymbols(flattend: DocumentSymbol[], position: Position) {
+        const positionToRange: Range = Range.create(position.line, position.character, position.line, position.character + 1)
+        return flattend.filter((symbol) => {
+            return containsRange(symbol.range, positionToRange);
+        })
+    }
+    return {
+        all: () => all,
+        flat: () => flattendClientTree(root),
+        last: () => getLastOccurrence(all),
+        nearby: (position: Position) => getNearbyCompletionSymbols(getLastOccurrence(all), position),
+        //folds: () => 
+        //exports: () =>
+    }
+}
+
+export function getLastOccurrence(symbols: DocumentSymbol[]) {
+    const seenSymbols: Set<string> = new Set();
+    const result: DocumentSymbol[] = [];
+    for (const symbol of symbols) {
+        if (!seenSymbols.has(symbol.name)) {
+            seenSymbols.add(symbol.name);
+            result.push(symbol);
+        }
+        if (symbol.children) {
+            symbol.children = getLastOccurrence(symbol.children);
+        }
+    }
+    return result;
+}
+
+function toUniqClientTree(root: SyntaxNode): DocumentSymbol[] {
+    const symbols: DocumentSymbol[] = flattendClientTree(root);
+    //const symbols = collapseToSymbolsRecursive(root);
+    //const seenSymbols: Map<string, DocumentSymbol> = new Map();
+    const result: DocumentSymbol[] = [];
+    symbols.reduce(
+        (unique: DocumentSymbol[], item: DocumentSymbol) => unique.some(n => n.name === item.name) ? unique : [...unique, item],
+        [],
+    );
+    //for (const symbol of symbols)) {
+        //let uniqueScopeSymbols = new Map<string, DocumentSymbol>();
+        ////const parent = DocumentSymbol.create(symbol.name, symbol.detail, symbol.kind, symbol.range, symbol.selectionRange, symbol.children);
+//
+//
+//
+        //// 3: "Reduce"
+        ////parent.children.filter(child => child.)
+        ////let children = parent.children || []
+        ////children.forEach((child) => {
+            //////console.log({parent: parent.name, child: child.name})
+            ////uniqueScopeSymbols.set(child.name, child);
+        ////})
+        ////if (!parent.children) parent.children = [];
+        ////parent.children.unshift(...Array.from(uniqueScopeSymbols.values()))
+        ////console.log(uniqueScopeSymbols.entries());
+        ////children.forEach((child) => {
+            ////if (!uniqueScopeSymbols.has(child.name)) {
+                ////uniqueScopeSymbols.add(child.name);
+                ////result.unshift(child);
+            ////}
+        ////})
+//
+        ////if (!uniqueScopeSymbols.has(symbol.name)) {
+            ////uniqueScopeSymbols.set(symbol.name, symbol);
+            ////result.unshift(symbol);
+        ////}
+        ////result.unshift(parent)
+        ////let parent: SyntaxNode | null = getNodeFromRange(root, symbol.range);
+        ////while (parent) {
+            ////if (isScope(parent)) {
+                ////seenSymbols.set(symbol.name, symbol);
+                ////break;
+            ////}
+            ////parent = parent.parent;
+        ////}
+    //}
+    //seenSymbols.forEach((value:DocumentSymbol) => {
+        //result.push(value);
+    //});
+    return symbols;
+}
 function getNearestDefinition(root: SyntaxNode, searchNode: SyntaxNode): DocumentSymbol | undefined {
     const symbols = collapseToSymbolsRecursive(root);
     let nearestDefinition: DocumentSymbol | undefined;
