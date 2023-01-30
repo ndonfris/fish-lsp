@@ -39,11 +39,12 @@ import {
     getNodeAtRange,
     getRange,
 } from "./utils/tree-sitter";
-import { DocumentSymbolTree, getNodeFromSymbol } from "./workspace-symbol";
+import { getNodeFromSymbol } from "./workspace-symbol";
 import { execCompletions } from "./utils/exec";
 import { DocumentationCache } from "./utils/documentationCache";
 import { LspDocument } from './document';
 import { Analyzer } from './analyze';
+import { DocumentSymbolTree } from './symbolTree';
 
 
 export const CompleteCommand = Command.create('Complete', 'editor.action.triggerSuggest');
@@ -433,11 +434,11 @@ export class CompletionListProvier {
                     itemsLength: this.items.length,
                     position: position,
                     wordLen: wordLen,
-                    userOptions: {}
+                    userOptions: {},
                 },
                 insertTextMode: 1,
-            }
-        }
+            },
+        };
     }
 }
 

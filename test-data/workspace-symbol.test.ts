@@ -1,22 +1,14 @@
-import { resolveLspDocumentForHelperTestFile, setMarkedterminal } from "./helpers";
-import {CompletionItem,CompletionParams,DocumentSymbol,FoldingRange,FoldingRangeKind,MarkupContent,MarkupKind,Position,Range,SymbolKind,TextDocumentIdentifier,} from "vscode-languageserver";
-import {BUILT_INS,createCompletionList,generateShellCompletionItems,getShellCompletions,workspaceSymbolToCompletionItem,} from "../src/completion";
+import { resolveLspDocumentForHelperTestFile } from "./helpers";
+import {DocumentSymbol,SymbolKind,} from "vscode-languageserver";
 import Parser, { SyntaxNode } from "web-tree-sitter";
 import { initializeParser } from "../src/parser";
-import { resolve } from "dns";
 import { LspDocument } from "../src/document";
-import {collapseToSymbolsRecursive, containsRange,DocumentSymbolTree,getDefinitionSymbols,getNearbySymbols,getNodeFromRange, getNodeFromSymbol, toClientTree,} from "../src/workspace-symbol";
-import {getChildNodes,getNodeAtRange,getRange,getRangeWithPrecedingComments, positionToPoint } from "../src/utils/tree-sitter";
+import {findFirstParent, getChildNodes } from "../src/utils/tree-sitter";
 import { Analyzer } from "../src/analyze";
-import {isFunctionDefinition,isFunctionDefinitionName,isDefinition,isVariableDefinition,isScope, findParentCommand, isForLoop,} from "../src/utils/node-types";
-import { collectAllSymbolInformation, CommentRange } from "../src/symbols";
+import { isFunctionDefinition,isDefinition,isVariableDefinition,isScope, findParentCommand, isForLoop,} from "../src/utils/node-types";
+import { CommentRange, symbolKindToString } from "../src/symbols";
 import { DocumentationCache, initializeDocumentationCache } from "../src/utils/documentationCache";
-import { toFoldingRange } from '../src/utils/translation';
-//import { marked } from 'marked';
-//import { Chalk } from 'chalk';
-//import   TerminalRenderer   from 'marked-terminal';
-//import { Marked } from "marked-terminal";
-//import { marginBlockEnd:cc}
+import { DocumentSymbolTree } from "../src/symbolTree";
 let parser: Parser;
 let documentationCache: DocumentationCache;
 let analyzer: Analyzer;
@@ -80,57 +72,53 @@ describe("workspace-symbols tests", () => {
         expect(commentRanges.length).toBe(1);
     });
 
-    //it("function with variable symbols", async () => {
-    //    const doc = resolveLspDocumentForHelperTestFile("./fish_files/simple/function_variable_def.fish");
-    //    //const commentRanges = pushCommentRanges(doc)
-    //    analyzer.analyze(doc);
-    //    //const symbols = collectAllSymbolInformation(doc.uri, parser.parse(doc.getText()).rootNode)
+    //it("multiple function hierarchical symbols", async () => {
+    //    const doc = resolveLspDocumentForHelperTestFile("./fish_files/advanced/inner_functions.fish");
     //    const root = parser.parse(doc.getText()).rootNode
-    //    const symbols = DocumentSymbolTree(root).all()
-    //    expect(true).toBeTruthy()
-    //    //const tree = toClientTree(root)
-    //    //expect(symbols.length).toBe(1);
-    //    //expect(tree.length).toBe(1);
-    //});
+    //    const search = root.descendantForPosition({row: 13, column: 19})
+    //    const position_1 : Position = Position.create(4, 22);
+    //    const flattend = DocumentSymbolTree(root).all()
+    //    
+    //    flattend.forEach((symbol, index) => {
+    //        console.log(`${index}: ${symbol.detail}`);
+    //    })
 
+    //    console.log();
+    //    const tree = DocumentSymbolTree(root)
 
-    it("multiple function hierarchical symbols", async () => {
-        const doc = resolveLspDocumentForHelperTestFile("./fish_files/advanced/inner_functions.fish");
-        const root = parser.parse(doc.getText()).rootNode
-        const search = root.descendantForPosition({row: 13, column: 19})
-        const position_1 : Position = Position.create(4, 22);
-        const symbols = collapseToSymbolsRecursive(root);
-        //const funcSymbols = collapseToSymbolsRecursive(root).filter(doc => doc.kind === SymbolKind.Function)
-        const flattend = DocumentSymbolTree(root).all()
-        //const allDefNodes = flattend.map(symbol => getNodeFromSymbol(root, symbol))
-        
-        flattend.forEach((symbol, index) => {
-            console.log(`${index}: ${symbol.detail}`);
-            //console.log(JSON.stringify({selectionRange: symbol.selectionRange, range: symbol.range}, null, 2));
-        })
+    //    console.log("\nAST all: ");
+    //    logClientTree(tree.all())
 
-        console.log();
-        //const results = getLastOccurrence(symbols)
-        const tree = DocumentSymbolTree(root)
+    //    console.log("\nAST last: ");
+    //    logClientTree(tree.last())
+    //    console.log(`\n${doc.getLineBeforeCursor(position_1)}`)
+    //    console.log("AST nearby: ");
+    //    tree.nearby(position_1).forEach((symbol, index) => {
+    //        console.log(`${index}: ${symbol.name}`);
+    //    })
+    //    console.log();
+    //    console.log("folding Range: ");
+    //    tree.folds(doc).forEach((symbol: FoldingRange, index: number) => {
+    //        console.log(`${index}: ${symbol.collapsedText}`);
+    //    })
+    //})
 
-        console.log("\nAST all: ");
-        logClientTree(tree.all())
-
-        console.log("\nAST last: ");
-        logClientTree(tree.last())
-        console.log(`\n${doc.getLineBeforeCursor(position_1)}`)
-        console.log("AST nearby: ");
-        tree.nearby(position_1).forEach((symbol, index) => {
-            console.log(`${index}: ${symbol.name}`);
-        })
-        console.log();
-        console.log("folding Range: ");
-        tree.folds().forEach((symbol: FoldingRange, index: number) => {
-            console.log(`${index}: ${symbol.collapsedText}`);
-        })
+    it('getRefrences for a documentSymbol', async () => {
+        const doc = resolveLspDocumentForHelperTestFile("./fish_files/advanced/inner_functions.fish"); 
+        const root = parser.parse(doc.getText()).rootNode                                              
+        //const normal_1 = root.descendantForPosition({row: 13, column: 15})
+        const normal_1 = root.descendantForPosition({row: 19, column: 16})                               
+        const for_1 = root.descendantForPosition({row: 22, column: 15})                               
+        const tree = DocumentSymbolTree(root);
+        const defNode = tree.findDef(normal_1)
+        const forNode = tree.findDef(for_1)
+        logSyntaxNodeArray(tree.findRefs(normal_1))
+        logSyntaxNodeArray(tree.findRefs(for_1))
+        //const position_1 : Position = Position.create(4, 22);
+        //const tree = DocumentSymbolTree(root).all()
     })
-});
 
+});
 
 // small helper to print out the client tree like the editor would tree
 function logClientTree(symbols: DocumentSymbol[], level = 0) {
@@ -139,6 +127,14 @@ function logClientTree(symbols: DocumentSymbol[], level = 0) {
         console.log("  ".repeat(level) + `${logIcon}${symbol.name}`);
         logClientTree(symbol.children || [], level + 1);
     }
+}
+
+function logSyntaxNodeArray(nodes: SyntaxNode[]) {
+    console.log(`\tnodes array of size ${nodes.length}`);
+    nodes.forEach((node, index) => {
+        console.log(`node${index}: ${node.text}`);
+    })
+    console.log('-----------------------------------');
 }
 
 

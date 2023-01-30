@@ -5,7 +5,6 @@ function func_a --argument-names arg_1 arg_2
         set --local args "$argv 1"
         set --local args "$args 2"
         set --local args "$args 3"
-
     end
 
     function func_c
@@ -19,6 +18,15 @@ function func_a --argument-names arg_1 arg_2
 
 
     set --local args "$argv"
+
+    for arg in $argv
+        echo $arg
+    end
+
+    for arg in $argv
+        echo $arg
+    end
+
 end
 
 function func_outside --argument-names arg_1 arg_2

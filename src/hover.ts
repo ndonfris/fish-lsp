@@ -1,21 +1,22 @@
 import * as LSP from 'vscode-languageserver';
 import {Hover, MarkedString, MarkupKind} from 'vscode-languageserver';
 import * as Parser from 'web-tree-sitter';
-import {documentationHoverProvider, documentationHoverProviderForBuiltIns, enrichCommandWithFlags, enrichToCodeBlockMarkdown} from './documentation';
+import { documentationHoverProvider, documentationHoverProviderForBuiltIns, enrichCommandWithFlags, enrichToCodeBlockMarkdown } from './documentation';
 import { CommentRange } from './symbols';
 import {isBuiltIn} from './utils/completion-types';
 import { DocumentationCache } from './utils/documentationCache';
-import {execCommandDocs, execComplete, execCompletions, execSubCommandCompletions} from './utils/exec';
-import {isCommand, isCommandName} from './utils/node-types';
+import { execCommandDocs, execComplete, execCompletions, execSubCommandCompletions } from './utils/exec';
+import { isCommand, isCommandName } from './utils/node-types';
 import {findEnclosingScope, findFirstParent, getNodeAtRange, getRange} from './utils/tree-sitter';
-import * as Symbols from './workspace-symbol';
+//import * as Symbols from './workspace-symbol';
+import { DocumentSymbolTree } from './symbolTree';
 
 
 export async function handleHover(uri: string, root: Parser.SyntaxNode, current: Parser.SyntaxNode, cache: DocumentationCache) : Promise<LSP.Hover | null>{
     if (current.text.startsWith('-')) {
         return await getHoverForFlag(current)
     } 
-    const local = Symbols.DocumentSymbolTree(root).find(current)[0]
+    const local = DocumentSymbolTree(root).findDef(current)
     if (local) {
         //const fishSymbol = CommentRange.createFishDocumentSymbol(local);
         return {

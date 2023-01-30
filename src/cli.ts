@@ -22,20 +22,20 @@ export function startServer() {
         new StreamMessageReader(process.stdin),
         new StreamMessageWriter(process.stdout)
     )
-    const token = connection.window.attachWorkDoneProgress('Initializing Fish Language Server');
-    token.begin('Fish Language Server', 0, 'Initializing', true);
-    token.report(0);
+    //const token = connection.window.attachWorkDoneProgress('Initializing Fish Language Server');
+    //token.begin('Fish Language Server', 0, 'Initializing', true);
+    //token.report(0);
     //token.begin('Initializing Fish Language Server');
     connection.onInitialize(
         async (params: InitializeParams): Promise<InitializeResult> => {
-            connection.console.log(`Initialized server FISH-LSP with ${params.workspaceFolders}`);
+            connection.console.log(`Initialized server FISH-LSP with ${JSON.stringify(params)}`);
             const server = await FishServer.create(connection, params);
             server.register();
             return server.initialize(params);
         }
     )
     connection.listen()
-    token.done();
+    //token.done();
 }
 
 

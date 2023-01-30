@@ -4,144 +4,157 @@ import {SyntaxNode, Tree} from 'web-tree-sitter';
 import {Analyzer} from './analyze';
 import { LspDocument } from './document';
 import {CommentRange, DocumentDefSymbol, toSymbolKind} from './symbols';
+import { DocumentSymbolTree } from './symbolTree';
 import {isBuiltin} from './utils/builtins';
 import {findEnclosingVariableScope, findParentCommand, findParentFunction, isCommandName, isDefinition, isForLoop, isFunctionDefinition, isFunctionDefinitionName, isProgram, isScope, isStatement, isVariable, isVariableDefinition} from './utils/node-types';
 import {nodeToDocumentSymbol, nodeToSymbolInformation, pathToRelativeFunctionName} from './utils/translation';
 import {findEnclosingScope, findFirstParent, getChildNodes, getNodeAtRange, getParentNodes, getRange, getRangeWithPrecedingComments, positionToPoint} from './utils/tree-sitter';
 
-export function DocumentSymbolTree(root: SyntaxNode) {
+export function getLocalDefs(uri: string, root: SyntaxNode, current: SyntaxNode) {
+    const definition = DocumentSymbolTree(root).findDef(current)
+    if (!definition) return []
+    return [Location.create(uri, definition.selectionRange)]
+}
+
+export function getLocalRefs(uri: string, root: SyntaxNode, current: SyntaxNode) {
+    const refs = DocumentSymbolTree(root).findRefs(current)
+    if (!refs) return []
+    return refs.map((ref: SyntaxNode) => Location.create(uri, getRange(ref)))
+}
+
+//export function DocumentSymbolTree(root: SyntaxNode) {
     /**
      * all caches the result of toClientTree(), so that it can be accessed in any other function.
      */
-    const all: DocumentSymbol[] = toClientTree(root);
+    //const all: DocumentSymbol[] = toClientTree(root);
     /**
-     * Takes in a array of DocumentSymbol[], and returns the last definition for each 
+     * Takes in a array of DocumentSymbol[], and returns the last definition for each
      * duplicate identifier seen (per scope). Used directly to display the hierarchical
      */
-    function getLastOccurrences(symbols: DocumentSymbol[]) {
-        const seenSymbols: Set<string> = new Set();
-        const result: DocumentSymbol[] = [];
-        for (const symbol of symbols) {
-            if (!seenSymbols.has(symbol.name)) {
-                seenSymbols.add(symbol.name);
-                result.push(symbol);
-            }
-            if (symbol.children) {
-                symbol.children = getLastOccurrences(symbol.children);
-            }
-        }
-        return result;
-    }
+    //function getLastOccurrences(symbols: DocumentSymbol[]) {
+        //const seenSymbols: Set<string> = new Set();
+        //const result: DocumentSymbol[] = [];
+        //for (const symbol of symbols) {
+            //if (!seenSymbols.has(symbol.name)) {
+                //seenSymbols.add(symbol.name);
+                //result.push(symbol);
+            //}
+            //if (symbol.children) {
+                //symbol.children = getLastOccurrences(symbol.children);
+            //}
+        //}
+        //return result;
+    //}
     /**
      * Flattens the array of DocumentSymbols, passed in (returns a new array). Is reffered
      * to as ClientTree, because ClientTree's have already removed duplicate identifiers
      * and can be used to display in the Client
      */
-    function flattendClientTree(symbols: DocumentSymbol[]) : DocumentSymbol[] {
-        const stack: DocumentSymbol[] = [...symbols];
-        const result: DocumentSymbol[] = [];
-        while (stack.length > 0) {
-            const symbol = stack.shift();
-            if (!symbol) continue;
-            result.push(symbol);
-            if (symbol.children) stack.unshift(...symbol.children);
-        }
-        return result;
-    }
+    //function flattendClientTree(symbols: DocumentSymbol[]) : DocumentSymbol[] {
+        //const stack: DocumentSymbol[] = [...symbols];
+        //const result: DocumentSymbol[] = [];
+        //while (stack.length > 0) {
+            //const symbol = stack.shift();
+            //if (!symbol) continue;
+            //result.push(symbol);
+            //if (symbol.children) stack.unshift(...symbol.children);
+        //}
+        //return result;
+    //}
     /**
      * creates the flat list of symbols, for the client to use as completions.
      */
-    function getNearbyCompletionSymbols( position: Position) {
-        const positionToRange: Range = Range.create(position.line, position.character, position.line, position.character + 1)
-        const nearby: DocumentSymbol[] = [];
-        const stack: DocumentSymbol[] = [...getLastOccurrences(all)];
-        while (stack.length) {
-            const symbol = stack.pop()!;
-            if (!containsRange(symbol.range, positionToRange)) continue; 
-            nearby.push(symbol);
-            if (symbol.children) stack.push(...symbol.children)
-        }
-        // grab all enclosing nearby symbols, then pass in the all symbols
-        // to pass in definitions that are found in the same scope.
-        // Then we check for duplicates in the same scope, and lastly make sure that 
-        // the resulting array does not have false positives.
-        return [...nearby, ...all] 
-            .filter((item: DocumentSymbol, index: number, self: DocumentSymbol[]) =>
-                self.findIndex((otherItem) => item.name === otherItem.name) === index)
-            .filter((symbol) => {
-                if (symbol.kind === SymbolKind.Function) return true;
-                if (symbol.kind === SymbolKind.Variable) {
-                    if (symbol.selectionRange.start.line > position.line) return false;
-                    const parentNode = getNodeAtRange(root, symbol.range);
-                    if (parentNode && isForLoop(parentNode)
-                        && !containsRange(symbol.range, positionToRange)) return false;
-                }
-            return true
-        })
-    }
+    //function getNearbyCompletionSymbols( position: Position) {
+        //const positionToRange: Range = Range.create(position.line, position.character, position.line, position.character + 1)
+        //const nearby: DocumentSymbol[] = [];
+        //const stack: DocumentSymbol[] = [...getLastOccurrences(all)];
+        //while (stack.length) {
+            //const symbol = stack.pop()!;
+            //if (!containsRange(symbol.range, positionToRange)) continue;
+            //nearby.push(symbol);
+            //if (symbol.children) stack.push(...symbol.children)
+        //}
+        //// grab all enclosing nearby symbols, then pass in the all symbols
+        //// to pass in definitions that are found in the same scope.
+        //// Then we check for duplicates in the same scope, and lastly make sure that
+        //// the resulting array does not have false positives.
+        //return [...nearby, ...all]
+            //.filter((item: DocumentSymbol, index: number, self: DocumentSymbol[]) =>
+                //self.findIndex((otherItem) => item.name === otherItem.name) === index)
+            //.filter((symbol) => {
+                //if (symbol.kind === SymbolKind.Function) return true;
+                //if (symbol.kind === SymbolKind.Variable) {
+                    //if (symbol.selectionRange.start.line > position.line) return false;
+                    //const parentNode = getNodeAtRange(root, symbol.range);
+                    //if (parentNode && isForLoop(parentNode)
+                        //&& !containsRange(symbol.range, positionToRange)) return false;
+                //}
+            //return true
+        //})
+    //}
     /**
      * returns an array of folding ranges, currently only for function
      * @returns {FoldingRange} - the folding ranges for any node that is a child of rootNode
      */
-    function getFolds(document: LspDocument): FoldingRange[] {
-        const folds: FoldingRange[] = [];
-        const flattendDocs = flattendClientTree(all).filter((symbol) => symbol.kind === SymbolKind.Function);
-        for (const symbol of flattendDocs) {
-            const node = getNodeAtRange(root, symbol.selectionRange);
-            if (!node) continue;
-            const range = getRangeWithPrecedingComments(node);
-            const startLine = range.start.line;
-            const endLine = range.end.line > 0 && document.getText(Range.create(
-                Position.create(range.end.line, range.end.character - 1),
-                range.end,
-            )) === 'end' ? Math.max(range.end.line + 1, range.start.line) : range.end.line;
-            const foldRange = CommentRange.create(node).toFoldRange()
-            folds.push({
-                startLine: foldRange.start.line,
-                endLine: foldRange.end.line,
-                collapsedText: symbol.name,
-                kind: FoldingRangeKind.Region
-            });
-        }
-        return folds;
-    }
-    function find(node?: SyntaxNode) {
-        if (!node) return [];
-        if (node.text === "argv" || node.text === "$argv") {
-            return flattendClientTree(all).filter(symbol => symbol.kind === SymbolKind.Function && containsRange(symbol.range, targetRange))
-        }
-        const matchingDocSymbols = findAll(node);
-        if (matchingDocSymbols.length === 0) return [];
-        if (!isVariable(node)) return matchingDocSymbols;
-        const targetRange = getRange(node)
-        const topDownSymbols = [...matchingDocSymbols]
-        while (topDownSymbols.length) {
-            const docSymbol = topDownSymbols.pop();
-            if (docSymbol && precedesRange(docSymbol?.selectionRange, targetRange)) {
-                return [docSymbol];
-            }
-            if (docSymbol?.selectionRange.start.line === targetRange.start.line && docSymbol?.selectionRange.start.character === targetRange.start.character) {
-                return [docSymbol];
-            }
-        }
-        return matchingDocSymbols;
-    }
-    function findAll(node?: SyntaxNode) {
-        if (!node) return [];
-        const flattenedDocs = flattendClientTree(all);
-        return flattenedDocs.filter((symbol) => symbol.name === node.text);
-    }
-    return {
-        all: () => all,
-        flat: () => flattendClientTree(all),
-        last: () => getLastOccurrences(all),
-        nearby: (position: Position) => getNearbyCompletionSymbols(position),
-        find: (node: SyntaxNode) => find(node),
-        findAll: (node: SyntaxNode) => findAll(node),
-        folds: (document: LspDocument) => getFolds(document),
-        //exports: () => @TODO
-    }
-}
+    //function getFolds(document: LspDocument): FoldingRange[] {
+        //const folds: FoldingRange[] = [];
+        //const flattendDocs = flattendClientTree(all).filter((symbol) => symbol.kind === SymbolKind.Function);
+        //for (const symbol of flattendDocs) {
+            //const node = getNodeAtRange(root, symbol.selectionRange);
+            //if (!node) continue;
+            //const range = getRangeWithPrecedingComments(node);
+            //const startLine = range.start.line;
+            //const endLine = range.end.line > 0 && document.getText(Range.create(
+                //Position.create(range.end.line, range.end.character - 1),
+                //range.end,
+            //)) === 'end' ? Math.max(range.end.line + 1, range.start.line) : range.end.line;
+            //const foldRange = CommentRange.create(node).toFoldRange()
+            //folds.push({
+                //startLine: foldRange.start.line,
+                //endLine: foldRange.end.line,
+                //collapsedText: symbol.name,
+                //kind: FoldingRangeKind.Region
+            //});
+        //}
+        //return folds;
+    //}
+    //function find(node?: SyntaxNode) {
+        //if (!node) return null;
+        //if (node.text === "argv" || node.text === "$argv") {
+            //return flattendClientTree(all).filter(symbol => symbol.kind === SymbolKind.Function && containsRange(symbol.range, targetRange))[0] || null
+        //}
+        //const matchingDocSymbols = findAll(node);
+        //if (matchingDocSymbols.length === 0) return null;
+        //if (!isVariable(node)) return matchingDocSymbols[0] || null
+        //const targetRange = getRange(node)
+        //const topDownSymbols = [...matchingDocSymbols]
+        //while (topDownSymbols.length) {
+            //const docSymbol = topDownSymbols.pop();
+            //if (docSymbol && precedesRange(docSymbol?.selectionRange, targetRange)) {
+                //return docSymbol;
+            //}
+            //if (docSymbol?.selectionRange.start.line === targetRange.start.line && docSymbol?.selectionRange.start.character === targetRange.start.character) {
+                //return docSymbol;
+            //}
+        //}
+        //return matchingDocSymbols[0] || null;
+    //}
+    //function findAll(node?: SyntaxNode) {
+        //if (!node) return [];
+        //const flattenedDocs = flattendClientTree(all);
+        //return flattenedDocs.filter((symbol) => symbol.name === node.text);
+    //}
+    //return {
+        //all: () => all,
+        //flat: () => flattendClientTree(all),
+        //last: () => getLastOccurrences(all),
+        //nearby: (position: Position) => getNearbyCompletionSymbols(position),
+        //find: (node: SyntaxNode) => find(node),
+        //findAll: (node: SyntaxNode) => findAll(node),
+        //folds: (document: LspDocument) => getFolds(document),
+        ////exports: () => @TODO
+    //}
+//}
 
 /**
  * This is the recursive solution to building the document symbols (for definitions).
@@ -173,6 +186,7 @@ export function collapseToSymbolsRecursive(node: SyntaxNode): DocumentSymbol[] {
     }
     return symbols;
 }
+
 /**
  * gets all the symbols of a depth before the variableNode.
  *
@@ -222,32 +236,6 @@ function pruneClientTree(rootNode: SyntaxNode, variableNode: SyntaxNode): Docume
 //    return undefined
 //}
 
-/**
- * @param {SyntaxNode} root - The root node of the syntax tree.
- *
- * @returns {DocumentSymbol[]} - The document symbols, with duplicates in the same scope.
- */
-export function toClientTree(root: SyntaxNode): DocumentSymbol[] {
-    const symbols = collapseToSymbolsRecursive(root);
-    const seenSymbols: Set<string> = new Set();
-    const result: DocumentSymbol[] = [];
-
-    for (const symbol of symbols) {
-        const node = getNodeAtRange(root, symbol.range);
-        let parent = node?.parent || node;
-        while (parent) {
-            if (isScope(parent)) {
-                if (!seenSymbols.has(symbol.name)) {
-                    seenSymbols.add(symbol.name);
-                    result.push(symbol);
-                }
-                break;
-            }
-            parent = parent.parent;
-        }
-    }
-    return result;
-}
 
 export function getDefinitionSymbols(root: SyntaxNode) {
     let parentSymbol: DocumentSymbol | null = null;
@@ -373,27 +361,20 @@ export function getDefinitionKind(uri: string, root: SyntaxNode, current: Syntax
     if (isCommandName(current)) return DefinitionKind.FILE;
     return DefinitionKind.NONE;
 }
-export function getLocalDefs(uri: string, root: SyntaxNode, current: SyntaxNode) {
-    const definition = DocumentSymbolTree(root).find(current)
-    if (definition.length) {
-        return definition.map((symbol: DocumentSymbol) => {
-            return Location.create(uri, symbol.selectionRange)
-        })
-    }
-    return []
-}
+
+
 //
 // @TODO: REMOVE THIS ONCE COMPLETE PORTING NEW FUNCS
 //
 // OLD CODE Pre -> DocumentDefSymbol()
 //
-export function getReferences(uri: string, root: SyntaxNode, current: SyntaxNode) : Location[]{
-    return getChildNodes(root)
-        .filter((n) => n.text === current.text)
-        .filter((n) => isVariable(n) || isFunctionDefinitionName(n) || isCommandName(n))
-        .filter((n) => containsRange(getRange(findEnclosingScope(n)), getRange(current)))
-        .map((n) => Location.create(uri, getRange(n))) || []
-}
+//export function getReferences(uri: string, root: SyntaxNode, current: SyntaxNode) : Location[]{
+//    return getChildNodes(root)
+//        .filter((n) => n.text === current.text)
+//        .filter((n) => isVariable(n) || isFunctionDefinitionName(n) || isCommandName(n))
+//        .filter((n) => containsRange(getRange(findEnclosingScope(n)), getRange(current)))
+//        .map((n) => Location.create(uri, getRange(n))) || []
+//}
 // 
 // export function getMostRecentReference(uri: string, root: SyntaxNode, current: SyntaxNode) {
 //     const definitions : SyntaxNode[] = current.text === "argv"

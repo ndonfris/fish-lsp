@@ -12,7 +12,7 @@ import { execCommandDocs, execCommandType, execFindDependency, execFormatter, ex
 import {Logger} from './logger';
 import {toFoldingRange, uriToPath} from './utils/translation';
 import {ConfigManager} from './configManager';
-import { getNearbySymbols, getDefinitionKind, DefinitionKind, getReferences, getLocalDefs, toClientTree, DefinitionSyntaxNode, DocumentSymbolTree } from './workspace-symbol';
+import { getNearbySymbols, getDefinitionKind, DefinitionKind, getLocalDefs, getLocalRefs } from './workspace-symbol';
 import { getDefinitionSymbols}  from './workspace-symbol';
 import { getChildNodes, getRange } from './utils/tree-sitter';
 import { handleHover } from './hover';
@@ -27,6 +27,7 @@ import {handleConversionToCodeAction} from './diagnostics/handleConversion';
 import {FishShellInlayHintsProvider} from './features/inlay-hints';
 import { DocumentationCache, initializeDocumentationCache } from './utils/documentationCache';
 import { collectAllSymbolInformation, DocumentDefSymbol } from './symbols';
+import { DocumentSymbolTree } from './symbolTree';
 
 // @TODO 
 export type SupportedFeatures = {
@@ -204,13 +205,13 @@ export default class FishServer {
     didCloseTextDocument(params: DidCloseTextDocumentParams): void {
         const uri = uriToPath(params.textDocument.uri);
         if (!uri) return;
-        this.logger.log(`[${this.connection.onDidCloseTextDocument.name}]: ${params.textDocument.uri}`);
+        this.logger.log(`[${this.didCloseTextDocument.name}]: ${params.textDocument.uri}`);
         this.docs.close(uri);
         this.logger.log(`closed uri: ${uri}`);
     }
 
     didSaveTextDocument(params: DidSaveTextDocumentParams): void {
-        this.logger.log(`[${this.connection.onDidSaveTextDocument.name}]: ${params.textDocument.uri}`);
+        this.logger.log(`[${this.didSaveTextDocument.name}]: ${params.textDocument.uri}`);
         return;
     }
 
@@ -241,6 +242,7 @@ export default class FishServer {
                 this.logger.log('onComplete got [NOT FOUND]: ' + uri)
                 return null;
             }
+            this.logger.log(`currentLine: "${this.analyzer.parseCurrentLine(doc, params.position).line}"`);
             newCompletionList = await createCompletionList(doc, this.analyzer, params.position);
         } catch (error) {
             this.logger.log("ERROR: onComplete " + error);
@@ -317,6 +319,7 @@ export default class FishServer {
         return !!documentSymbol && !!documentSymbol.hierarchicalDocumentSymbolSupport;
     }
 
+    // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#showDocumentParams
     async onDefinition(params: DefinitionParams): Promise<Location[]> {
         this.logger.log("onDefinition");
         const {doc, uri, root, current} = this.getDefaults(params)
@@ -347,7 +350,7 @@ export default class FishServer {
         this.logger.log("onReference");
         const {doc, uri, root, current} = this.getDefaults(params)
         if (!doc || !uri || !root || !current) return [];
-        return getReferences(doc.uri, root, current);
+        return getLocalRefs(doc.uri, root, current);
     }
 
     async onHover(params: HoverParams): Promise<Hover | null> {
@@ -355,7 +358,7 @@ export default class FishServer {
         const {doc, uri, root, current} = this.getDefaults(params)
         if (!doc || !uri || !root || !current) return null;
         const globalItem = await this.documentationCache.resolve(current.text.trim(), uri)
-        this.logger.log(globalItem?.resolved.toString() || `docCache not found ${current.text}`)
+        //this.logger.log(globalItem?.resolved.toString() || `docCache not found ${current.text}`)
         if (globalItem && globalItem.docs) {
             return {
                 contents: {
@@ -371,8 +374,8 @@ export default class FishServer {
         this.logger.log("onRename");
         const {doc, uri, root, current} = this.getDefaults(params)
         if (!doc || !uri || !root || !current) return null;
-        const refs = getReferences(doc.uri, root, current);
-        const edits: TextEdit[] = refs.map(ref => {
+        const refs = getLocalRefs(doc.uri, root, current);
+        const edits: TextEdit[] = refs.map((ref: Location) => {
             return {
                 newText: params.newName,
                 range: ref.range
