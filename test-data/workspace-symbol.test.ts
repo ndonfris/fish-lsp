@@ -5,11 +5,12 @@ import { initializeParser } from "../src/parser";
 import { LspDocument } from "../src/document";
 import {findFirstParent, getChildNodes } from "../src/utils/tree-sitter";
 import { Analyzer } from "../src/analyze";
-import { isFunctionDefinition,isDefinition,isVariableDefinition,isScope, findParentCommand, isForLoop,} from "../src/utils/node-types";
+import { isFunctionDefinition,isDefinition,isVariableDefinition,isScope, findParentCommand, isForLoop, isVariable, isCommand, isCommandName,} from "../src/utils/node-types";
 import { CommentRange, symbolKindToString } from "../src/symbols";
 import { DocumentationCache, initializeDocumentationCache } from "../src/utils/documentationCache";
 import { DocumentSymbolTree } from "../src/symbolTree";
 import { homedir } from 'os';
+import { pathToRelativeFunctionName } from '../src/utils/translation';
 let parser: Parser;
 let documentationCache: DocumentationCache;
 let analyzer: Analyzer;
@@ -129,14 +130,38 @@ describe("workspace-symbols tests", () => {
         analyzer.analyze(doc);
         const root = analyzer.getRootNode(doc)
         const posis = analyzer.parsePosition(doc, Position.create(0, 0));
-        console.log(`${posis.root?.toString()}`);
-        console.log(`'${posis.currentNode?.text}'`);
-        const tree = root && DocumentSymbolTree(root).all()
-        if (tree) {
-            logClientTree(tree)
+        //console.log(`${posis.root?.toString()}`);
+        //console.log(`'${posis.currentNode?.text}'`);
+        if (!root) return
+        for (const node of getChildNodes(root).filter(isDefinition)) {
+            const scope = DefinitionSyntaxNode.getScope(node)
+            console.log(`scope: ${scope} node: ${node.text}`);
+        }
+
+        console.log();
+        console.log();
+        console.log();
+        for (const scopeNode of collectScopes(root, doc.uri, true)) {
+            console.log(`scope: ${scopeNode.text}`);
         }
     })
 });
+
+function collectScopes(root: SyntaxNode, uri: string, autoloaded = false): SyntaxNode[] {
+    const functionName = pathToRelativeFunctionName(uri)
+    const scopes: SyntaxNode[] = [];
+    for (const node of getChildNodes(root).filter(isDefinition)) {
+        const scope = DefinitionSyntaxNode.getScope(node)
+        if (scope === "global") {
+            scopes.push(node)
+        } else if (scope === "function" && node.text === functionName && autoloaded) {
+            scopes.push(node)
+        } else if (scope === "function" && "config" === functionName && autoloaded) {
+            scopes.push(node)
+        }
+    }
+    return scopes;
+}
 
 // small helper to print out the client tree like the editor would tree
 function logClientTree(symbols: DocumentSymbol[], level = 0) {
@@ -156,26 +181,67 @@ function logSyntaxNodeArray(nodes: SyntaxNode[]) {
 }
 
 
+
+//function checkDefinitionScope()
+
+
+
 // @TODO: Finish and test
 export namespace DefinitionSyntaxNode {
     export const ScopeTypesSet = new Set(["global", "function", "local", "block"]);
     export type ScopeTypes = "global" | "function" | "local" | "block";
     export type VariableCommandNames = "set" | "read" | "for" | "function" // FlagsMap.keys()
+    export interface CommandOption {
+        short: string[]
+        long: string[]
+        isDefault: boolean
+    }
+    export class CommandOption {
+        constructor(short: string[], long: string[], isDefault: boolean) {
+            this.short = short;
+            this.long = long;
+            this.isDefault = isDefault;
+        }
+        has(option: string): boolean {
+            if (option.startsWith('--')) {
+                const withoutDash = option.slice(2);
+                return this.long.includes(withoutDash);
+            } else if (option.startsWith('-')) {
+                const withoutDash = option.slice(1);
+                return this.short.some(opt => withoutDash.split('').includes(opt));
+            } else {
+                return false;
+            }
+        }
+        toString() {
+            return '[' + this.short.map(s => '-'+s).join(', ') + ', ' + this.long.map(l => '--'+l).join(', ') + ']';
+            //return returnString;
+        }
+    }
+    const createFlags = (flags: string[], isDefault: boolean = false): CommandOption => {
+        return new CommandOption(
+            flags.filter((flag) => flag.startsWith("-") && flag.length === 2).map((flag) => flag.slice(1)),
+            flags.filter((flag) => flag.startsWith("--")).map((flag) => flag.slice(2)), 
+            isDefault
+        );
+    }
     const _Map = {
         read: {
-            global:   ["-g", '--global'],
-            local:    ["-l", "--local"],
-            function: ["-f", "--function"],
+            global:   createFlags(["-g", '--global'])      ,
+            local:    createFlags(["-l", "--local"], true) ,
+            function: createFlags(["-f", "--function"])    ,
         },
         set: {
-            global:   ["-g", '--global'],
-            local:    ["-l", "--local"],
-            function: ["-f", "--function"],
+            global:   createFlags(["-g", '--global'])      ,
+            local:    createFlags(["-l", "--local"], true) ,
+            function: createFlags(["-f", "--function"])    ,
         },
-        for: {block: [] },
+        for: {
+            block: createFlags([]) 
+        },
         function: { 
-            function: ["-A", "--argument-names", "-v", "--on-variable"],
-            global:   ["-V", "--inherit-variable", '-S', '--no-scope-shadowing'],
+            function: createFlags(["-A", "--argument-names", "-v", "--on-variable"], true)   ,
+            global:   createFlags(["-V", "--inherit-variable", '-S', '--no-scope-shadowing']),
         },
     }
     /**
@@ -195,70 +261,36 @@ export namespace DefinitionSyntaxNode {
      */
     export const FlagsMap = new Map(Object.entries(_Map).map(([command, scopes]) => {
         return [command, new Map(Object.entries(scopes).map(([scope, flags]) => {
-            return [scope, new Set(flags)];
+            return [scope, flags];
         }))];
     }));
-    /**
-     * Simple helper to check if the parent node is found in our look up FlagMap.keys()
-     *
-     * @param {SyntaxNode} node - variable or function node 
-     * @returns {boolean} true if the parent node is a a key in the FlagMap
-     */
-    export function hasCommand(node: SyntaxNode): boolean {
-        const parent = findParentCommand(node) || node?.parent;
-        const commandName = parent?.text.split(' ')[0] || ''
-        //console.log({commandName, var: node.text})
-        return !!parent && !![...FlagsMap.keys()].includes(commandName)
+
+    function collectFlags(cmdNode: SyntaxNode): string[] {
+        //const flags = [];
+        return cmdNode.children.filter(n => n.text.startsWith("-")).map(n => n.text);
+        //for (const flag of cmdNode.children.filter(n => n.text.startsWith("-"))) {
+            //flags.push(flag?.text);
+        //}
+        //return flags;
     }
 
-    export function hasScope(node: SyntaxNode) {
-        if (isFunctionDefinition(node)) return true
-        return hasCommand(node) && isVariableDefinition(node)
-    }
-
-    export function getScope(node: SyntaxNode) {
-        if (isFunctionDefinition(node)) return "function"
-        const commandNode = findParentCommand(node) || node.parent
-        const commandName = commandNode?.text.split(' ')[0] || ''
-        const flags = commandNode?.children.map(c => c.text).filter(flag => flag.startsWith('--')) || []
-        if (!flags || commandName === 'for') return 'local'
-
-        const commandScopes = FlagsMap.get(commandName);
-        if (!commandScopes) return 'local';
-
-        for (const [scope, flagSet] of commandScopes.entries()) {
-            if (flags.some(flag => flagSet.has(flag))) return scope;
+    export const getScope = (definitionNode: SyntaxNode) => {
+        if (!isDefinition(definitionNode)) return null;
+        const command = findFirstParent(definitionNode, isCommandName) || definitionNode.parent;
+        const commandName = command?.firstChild?.text || "";
+        if (!command || !commandName) return
+        const currentFlags = collectFlags(command)
+        //console.log(`command: ${command?.text}`);
+        //console.log(`commandName: ${commandName}`);
+        //console.log(`flagsSeen: [${currentFlags.join(', ')}]`);
+        let saveScope : string = 'local';
+        for (const [scope, scopeFlags] of FlagsMap.get(commandName)!.entries()) {
+            if (currentFlags.some(flag => scopeFlags.has(flag))) {
+                return scope
+            } else if (scopeFlags.isDefault) {
+                saveScope = scope
+            }
         }
-        return 'local'
+        return saveScope
     }
-    export interface EnclosingDefinitionScope {
-        encolsingType: "function" | "block" | "local" | "global";
-        enclosingText: string;
-        enclosingNode: SyntaxNode;
-    }
-    export function createEnclosingScope(type: ScopeTypes, node: SyntaxNode): EnclosingDefinitionScope {
-        let enclosingText = `in \**${type}** scope`
-        if (type === 'function') enclosingText = `in \**${type.toString()}** scope`  
-        else if (type === 'block' && isForLoop(node)) enclosingText = `in \**${type.toString()}** \*for_loop* scope`  
-        return {encolsingType: type, enclosingText, enclosingNode: node}
-    } 
-
-    // @TODO: implement find enclosing scope for a node
-    export function getEnclosingScope(node: SyntaxNode) : EnclosingDefinitionScope {
-        if (isFunctionDefinition(node)) return createEnclosingScope("function", node)
-        const commandNode = node?.parent?.type === 'for_loop' ? node.parent : findParentCommand(node)
-        const commandName = commandNode?.text.split(' ')[0] || ''
-        const flags = commandNode?.children.map(c => c.text).filter(flag => flag.startsWith('--')) || []
-        if (!commandNode) return createEnclosingScope('local', node)
-        if (commandName === 'for') return createEnclosingScope("block", commandNode)
-
-        const commandScopes = FlagsMap.get(commandName);
-        if (!flags.length || !commandScopes) return createEnclosingScope('local', commandNode)
-
-        for (const [scope, flagSet] of commandScopes.entries()) {
-            if (flags.some(flag => flagSet.has(flag))) return createEnclosingScope(scope.toString() as ScopeTypes, commandNode);
-        }
-        return createEnclosingScope('local', commandNode)
-    }
-
 }
