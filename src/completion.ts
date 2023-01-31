@@ -462,9 +462,13 @@ export async function createCompletionList(
 
     if (line.trimStart().startsWith("#")) return null;
 
-    result.pushLocalSymbols(root, position);
-    await result.pushShellCompletionItems(line, lineLastNode);
-    result.pushDefaultItems();
+    if (!root) {
+        result.pushDefaultItems();
+    } else {
+        result.pushLocalSymbols(root, position);
+        await result.pushShellCompletionItems(line, lineLastNode);
+        result.pushDefaultItems();
+    }
     //if (line.trim().length === 0) {
     //} else if (line.split(' ').length <= 2) {
         //result.pushLocalSymbols(root, position, SymbolKind.Function);

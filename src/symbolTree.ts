@@ -226,7 +226,7 @@ function getFolds(document: LspDocument, root: SyntaxNode, all: DocumentSymbol[]
  * Uses the DocumentSymbol[] tree passed in.
  * @returns {DocumentSymbol} - the most recent definition of the SyntaxNode passed in
  */
-function find(all: DocumentSymbol[], node?: SyntaxNode) {
+function find(all: DocumentSymbol[], node: SyntaxNode) {
     if (!node) return null;
     if (node.text === "argv" || node.text === "$argv") {
         return flattendClientTree(all).filter(symbol => symbol.kind === SymbolKind.Function && containsRange(symbol.range, targetRange))[0] || null

@@ -31,7 +31,7 @@ export class Analyzer {
 
     constructor(parser: Parser, globalSymbolsCache: DocumentationCache) {
         this.parser = parser;
-        this.parser.setTimeoutMicros(1000)
+        this.parser.setTimeoutMicros(2000)
         this.uriTree = {};
         this.globalSymbolsCache = globalSymbolsCache;
     }
@@ -130,7 +130,8 @@ export class Analyzer {
     public getRootNode(
         document: LspDocument
     ): SyntaxNode | undefined {
-        return this.uriTree[document.uri].rootNode;
+        const tree = this.uriToTreeMap.get(document.uri)
+        return tree?.rootNode
     }
 
     public getDiagnostics(doc: LspDocument): PublishDiagnosticsParams {
@@ -148,14 +149,13 @@ export class Analyzer {
         document: LspDocument,
         position: Position
     ): {
-        root: SyntaxNode,
-        currentNode: SyntaxNode
+        root: SyntaxNode | undefined,
+        currentNode: SyntaxNode | undefined
     } {
-        const tree = this.uriTree[document.uri];
-        const root = tree?.rootNode;
+        const root = this.getRootNode(document)
         return {
             root: root,
-            currentNode: root.descendantForPosition({
+            currentNode: root?.descendantForPosition({
                     row: position.line,
                     column: position.character - 1,
                 }),
@@ -170,12 +170,9 @@ export class Analyzer {
         line: number,
         column: number
     ): Parser.SyntaxNode | null {
-        const tree = this.uriTree[document.uri];
+        const root = this.getRootNode(document)
         // Check for lacking rootNode (due to failed parse?)
-        if (!tree?.rootNode) {
-            return null;
-        }
-        return tree.rootNode.descendantForPosition({ row: line, column });
+        return root?.descendantForPosition({ row: line, column }) || null
     }
 
     public namedNodeAtPoint(
@@ -208,7 +205,7 @@ export class Analyzer {
         line: number,
         column: number
     ): SyntaxNode | null {
-        const tree = this.uriTree[document.uri];
+        const tree = this.uriToTreeMap.get(document.uri);
         if (tree === undefined) return null;
         const node = findNodeAt(tree, line, column);
         const parent = node?.parent;

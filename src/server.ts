@@ -354,11 +354,11 @@ export default class FishServer {
     }
 
 
-    async onReferences(params: ReferenceParams): Promise<Location[] | null> {
+    async onReferences(params: ReferenceParams): Promise<Location[]> {
         this.logger.log("onReference");
         const {doc, uri, root, current} = this.getDefaults(params)
         if (!doc || !uri || !root || !current) return [];
-        return getLocalRefs(doc.uri, root, current);
+        return getLocalRefs(doc.uri, root, current) || [];
     }
 
     async onHover(params: HoverParams): Promise<Hover | null> {
