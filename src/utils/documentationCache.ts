@@ -130,7 +130,7 @@ async function getFunctionDocString(name: string): Promise<string | undefined> {
 /** 
  * builds MarkupString for builtin documentation
  */
-async function getBuiltinDocString(name: string): Promise<string | undefined> {
+export async function getBuiltinDocString(name: string): Promise<string | undefined> {
     const cmdDocs: string = await execCommandDocs(name);
     if (!cmdDocs) return undefined
     const splitDocs = cmdDocs.split('\n');

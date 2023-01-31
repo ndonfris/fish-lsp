@@ -9,9 +9,9 @@ import { isFunctionDefinition, isFunctionDefinitionName, isVariableDefinition, i
 import {execFindDependency} from '../src/utils/exec';
 import {isBuiltin} from '../src/utils/builtins';
 //import {DocumentManager} from '../src/document';
-import {collectDocumentSymbols, collectSymbolInformation, containsRange, flattenSymbols, nearbySymbols, SpanTree} from '../src/workspace-symbol'
 import {nodeToDocumentSymbol, nodeToSymbolInformation} from '../src/utils/translation';
 import {symbolKindToString, toSymbolKind} from '../src/symbols';
+import { containsRange } from '../src/workspace-symbol';
 
 let SHOULD_LOG = false; // toggle to print testcase output
 
