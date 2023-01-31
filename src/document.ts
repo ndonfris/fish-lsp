@@ -143,15 +143,18 @@ export class LspDocument implements TextDocument {
         return Position.create(line, 0);
     }
 
-    applyEdit(version: number, change: TextDocumentContentChangeEvent): void {
+    applyEdits(version: number, ...changes: TextDocumentContentChangeEvent[]): void {
         const content = this.getText();
-        let newContent = change.text;
-        if (TextDocumentContentChangeEvent.isIncremental(change)) {
-            const start = this.offsetAt(change.range.start);
-            const end = this.offsetAt(change.range.end);
-            newContent = content.substring(0, start) + change.text + content.substring(end);
+        for (const change of changes) {
+            let newContent = change.text;
+
+            if (TextDocumentContentChangeEvent.isIncremental(change)) {
+                const start = this.offsetAt(change.range.start);
+                const end = this.offsetAt(change.range.end);
+                newContent = content.substring(0, start) + change.text + content.substring(end);
+            }
+            this.document = TextDocument.create(this.uri, this.languageId, version, newContent);
         }
-        this.document = TextDocument.create(this.uri, this.languageId, version, newContent);
     }
 
     getFilePath(): string | undefined {

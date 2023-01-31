@@ -10,6 +10,7 @@ import {
     MarkupContent,
     Position,
     Range,
+    SymbolKind,
 } from "vscode-languageserver";
 import Parser, { SyntaxNode } from "web-tree-sitter";
 import { TextDocument, DocumentUri } from "vscode-languageserver-textdocument";
@@ -189,135 +190,135 @@ function fixFishKindForCommandFlags(
 //      3.) with just text -> allows for extra simple tests
 //
 //
-function getFunctionsFromFilepaths(...paths: string[]) {
-    const found: string[] = [];
-    paths.forEach((path: string) => {
-        const files = FastGlob.sync("functions/**.fish", {
-            absolute: false,
-            dot: true,
-            globstar: true,
-            cwd: path,
-        });
-        files.forEach((file) => {
-            const funcName = convertPathToFunctionName(file);
-            if (funcName) {
-                found.push(funcName);
-            }
-        });
-    });
-    return found;
-}
+//function getFunctionsFromFilepaths(...paths: string[]) {
+//    const found: string[] = [];
+//    paths.forEach((path: string) => {
+//        const files = FastGlob.sync("functions/**.fish", {
+//            absolute: false,
+//            dot: true,
+//            globstar: true,
+//            cwd: path,
+//        });
+//        files.forEach((file) => {
+//            const funcName = convertPathToFunctionName(file);
+//            if (funcName) {
+//                found.push(funcName);
+//            }
+//        });
+//    });
+//    return found;
+//}
 
-function convertPathToFunctionName(pathString: string): undefined | string {
-    const filepathArray = pathString.split("/");
-    if (!filepathArray.includes("functions")) {
-        return undefined;
-    }
-    const fishFuncFile = filepathArray.at(-1)?.replace(".fish", "");
-    return fishFuncFile;
-}
+//function convertPathToFunctionName(pathString: string): undefined | string {
+//    const filepathArray = pathString.split("/");
+//    if (!filepathArray.includes("functions")) {
+//        return undefined;
+//    }
+//    const fishFuncFile = filepathArray.at(-1)?.replace(".fish", "");
+//    return fishFuncFile;
+//}
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // @TODO: MOVE TO COMPLETION-TYPES ?
 //////////////////////////////////////////////////////////////////////////////////////////
 
-function buildEscapeChars(): CompletionItem[] {
-    const chars = escapeChars;
-    const cmpChars: CompletionItem[] = [];
-    for (const k in chars) {
-        const label = "\\" + k;
-        const desc = chars[k];
-        const item = CompletionItem.create(label);
-        item.kind = CompletionItemKind.Text;
-        item.documentation = desc;
-        cmpChars.push(item);
-    }
-    return cmpChars;
-}
-
-function buildStatusNumbers(): CompletionItem[] {
-    const numbs = statusNumbers;
-    const statNumbers: CompletionItem[] = [];
-    for (const label in numbs) {
-        const item = CompletionItem.create(label);
-        (item.kind = CompletionItemKind.Value),
-            (item.documentation = numbs[label]);
-        statNumbers.push(item);
-    }
-    return statNumbers;
-}
-
-function buildPipes(): CompletionItem[] {
-    const cmpItems: CompletionItem[] = [];
-    for (const pipe in pipes) {
-        const item = CompletionItem.create(pipe);
-        const altItem = CompletionItem.create(pipes[pipe].altLabel);
-        item.kind = CompletionItemKind.Text;
-        altItem.kind = CompletionItemKind.Text;
-        item.documentation = pipes[pipe].documentation;
-        altItem.documentation = pipes[pipe].documentation;
-        altItem.insertText = pipes[pipe].insertText;
-        cmpItems.push(item);
-        cmpItems.push(altItem);
-    }
-    return cmpItems;
-}
-
-function buildWildcards(): CompletionItem[] {
-    const cmpItems: CompletionItem[] = [];
-    for (const char in WildcardItems) {
-        const item = CompletionItem.create(char);
-        item.documentation = enrichWildcard(
-            char,
-            WildcardItems[char].documentation,
-            WildcardItems[char].examples
-        );
-        item.kind = WildcardItems[char].kind;
-        cmpItems.push(item);
-    }
-    return cmpItems;
-}
-
-export function buildRegexCompletions(): CompletionItem[] {
-    const cmpItems: CompletionItem[] = [];
-    const cmpItem = new CompletionItemBuilder();
-    for (const regexItem of stringRegexExpressions) {
-        const item = cmpItem
-            .create(regexItem.label)
-            .documentation(regexItem.description)
-            .addSignautreHelp("regexItem")
-            .kind(CompletionItemKind.Text);
-        cmpItems.push(item.build());
-        cmpItem.reset();
-    }
-    return cmpItems;
-}
-
-export function buildDefaultCompletions() {
-    const escChars = buildEscapeChars();
-    const statusNumbers = buildStatusNumbers();
-    const pipeObjs = buildPipes();
-    const wildcards = buildWildcards();
-    const builtIns = buildBuiltins();
-    const cmpChars: CompletionItem[] = [
-        ...builtIns,
-        ...escChars,
-        ...statusNumbers,
-        ...pipeObjs,
-        ...wildcards,
-    ];
-    return cmpChars;
-}
-
-export function buildBuiltins() {
-    const cmpItems: CompletionItem[] = [];
-    for (const builtin of BuiltInList) {
-        const item = CompletionItem.create(builtin);
-        item.kind = CompletionItemKind.Keyword;
-        cmpItems.push(item);
-    }
-    return cmpItems;
-}
+//function buildEscapeChars(): CompletionItem[] {
+//    const chars = escapeChars;
+//    const cmpChars: CompletionItem[] = [];
+//    for (const k in chars) {
+//        const label = "\\" + k;
+//        const desc = chars[k];
+//        const item = CompletionItem.create(label);
+//        item.kind = CompletionItemKind.Text;
+//        item.documentation = desc;
+//        cmpChars.push(item);
+//    }
+//    return cmpChars;
+//}
+//
+//function buildStatusNumbers(): CompletionItem[] {
+//    const numbs = statusNumbers;
+//    const statNumbers: CompletionItem[] = [];
+//    for (const label in numbs) {
+//        const item = CompletionItem.create(label);
+//        (item.kind = CompletionItemKind.Value),
+//            (item.documentation = numbs[label]);
+//        statNumbers.push(item);
+//    }
+//    return statNumbers;
+//}
+//
+//function buildPipes(): CompletionItem[] {
+//    const cmpItems: CompletionItem[] = [];
+//    for (const pipe in pipes) {
+//        const item = CompletionItem.create(pipe);
+//        const altItem = CompletionItem.create(pipes[pipe].altLabel);
+//        item.kind = CompletionItemKind.Text;
+//        altItem.kind = CompletionItemKind.Text;
+//        item.documentation = pipes[pipe].documentation;
+//        altItem.documentation = pipes[pipe].documentation;
+//        altItem.insertText = pipes[pipe].insertText;
+//        cmpItems.push(item);
+//        cmpItems.push(altItem);
+//    }
+//    return cmpItems;
+//}
+//
+//function buildWildcards(): CompletionItem[] {
+//    const cmpItems: CompletionItem[] = [];
+//    for (const char in WildcardItems) {
+//        const item = CompletionItem.create(char);
+//        item.documentation = enrichWildcard(
+//            char,
+//            WildcardItems[char].documentation,
+//            WildcardItems[char].examples
+//        );
+//        item.kind = WildcardItems[char].kind;
+//        cmpItems.push(item);
+//    }
+//    return cmpItems;
+//}
+//
+//export function buildRegexCompletions(): CompletionItem[] {
+//    const cmpItems: CompletionItem[] = [];
+//    const cmpItem = new CompletionItemBuilder();
+//    for (const regexItem of stringRegexExpressions) {
+//        const item = cmpItem
+//            .create(regexItem.label)
+//            .documentation(regexItem.description)
+//            .addSignautreHelp("regexItem")
+//            .kind(CompletionItemKind.Text);
+//        cmpItems.push(item.build());
+//        cmpItem.reset();
+//    }
+//    return cmpItems;
+//}
+//
+//export function buildDefaultCompletions() {
+//    const escChars = buildEscapeChars();
+//    const statusNumbers = buildStatusNumbers();
+//    const pipeObjs = buildPipes();
+//    const wildcards = buildWildcards();
+//    const builtIns = buildBuiltins();
+//    const cmpChars: CompletionItem[] = [
+//        ...builtIns,
+//        ...escChars,
+//        ...statusNumbers,
+//        ...pipeObjs,
+//        ...wildcards,
+//    ];
+//    return cmpChars;
+//}
+//
+//export function buildBuiltins() {
+//    const cmpItems: CompletionItem[] = [];
+//    for (const builtin of BuiltInList) {
+//        const item = CompletionItem.create(builtin);
+//        item.kind = CompletionItemKind.Keyword;
+//        cmpItems.push(item);
+//    }
+//    return cmpItems;
+//}
 
 export function buildDefaultCompletionItems() {
     const cmpItem = new CompletionItemBuilder();
@@ -348,7 +349,12 @@ export class CompletionListProvier {
         );
     }
     public pushLocalSymbols(root: SyntaxNode, position: Position) {
-        const nearbySymbols = DocumentSymbolTree(root).nearby(position);
+        const nearbySymbols = DocumentSymbolTree(root)
+            .nearby(position)
+            //.filter((symbol) => {
+                //if (symbolKind === undefined) return true;
+                //return symbol.kind === symbolKind;
+            //});
         const cmp = new CompletionItemBuilder();
         const items: CompletionItem[] = [];
         for (const symbol of nearbySymbols) {
@@ -412,21 +418,21 @@ export class CompletionListProvier {
                     insert: {
                         start: {
                             line: position.line,
-                            character: position.character,
+                            character: position.character - wordLen,
                         },
                         end: {
                             line: position.line,
-                            character: position.character + wordLen,
+                            character: position.character,
                         },
                     },
                     replace: {
                         start: {
                             line: position.line,
-                            character: position.character,
+                            character: position.character - wordLen,
                         },
                         end: {
                             line: position.line,
-                            character: position.character + wordLen,
+                            character: position.character,
                         },
                     },
                 },
@@ -452,14 +458,24 @@ export async function createCompletionList(
             line : position.line,
             character: position.character,
     })
-    const {line , lineRootNode, lineLastNode} = analyzer.parseCurrentLine(document, position);
+    const {line, lastWord, lineRootNode, lineLastNode} = analyzer.parseCurrentLine(document, position);
 
     if (line.trimStart().startsWith("#")) return null;
 
-    await result.pushShellCompletionItems(line, lineLastNode);
     result.pushLocalSymbols(root, position);
+    await result.pushShellCompletionItems(line, lineLastNode);
     result.pushDefaultItems();
+    //if (line.trim().length === 0) {
+    //} else if (line.split(' ').length <= 2) {
+        //result.pushLocalSymbols(root, position, SymbolKind.Function);
+        //result.pushDefaultItems();
+    //} else {
+        //result.pushLocalSymbols(root, position, SymbolKind.Variable);
+        //await result.pushShellCompletionItems(line, lineLastNode);
+    //}
 
-    const wordLen = currentNode.text.length;
-    return result.buildCompletionList(position, wordLen);
+    //const wordLen = currentNode.text.length;
+    return result.buildCompletionList(position, lastWord.length);
 }
+
+

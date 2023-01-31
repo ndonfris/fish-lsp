@@ -1,7 +1,7 @@
 import Parser, {SyntaxNode} from "web-tree-sitter";
 import { initializeParser } from "./parser";
 import { Analyzer } from "./analyze";
-import { buildRegexCompletions, workspaceSymbolToCompletionItem, generateShellCompletionItems, insideStringRegex, buildDefaultCompletionItems, createCompletionList, } from "./completion";
+import { createCompletionList, } from "./completion";
 import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, ExecuteCommandParams, ServerRequestHandler, FoldingRangeParams, FoldingRange, Position, InlayHintParams, MarkupKind, SymbolInformation } from "vscode-languageserver";
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
@@ -61,7 +61,7 @@ export default class FishServer {
     // documentManager 
     private docs: LspDocuments;
     private config: ConfigManager;
-    private fishAutoFixProvider: FishAutoFixProvider;
+    //private fishAutoFixProvider: FishAutoFixProvider;
     protected logger: Logger;
     protected features: SupportedFeatures;
 
@@ -74,20 +74,20 @@ export default class FishServer {
         this.config = new ConfigManager(this.docs);
         this.logger = new Logger(connection);
         this.features = { codeActionDisabledSupport: false };
-        this.fishAutoFixProvider = new FishAutoFixProvider(this.connection)
+        //this.fishAutoFixProvider = new FishAutoFixProvider(this.connection)
         this.documentationCache = documentationCache;
     }
 
     async initialize(params: InitializeParams): Promise<InitializeResult> {
         this.connection.console.log(
-            `Initialized server FISH-LSP with ${params.workspaceFolders}`
+            `Initialized server FISH-LSP with ${params.workspaceFolders || ''}`
         )
         const result : InitializeResult = {
             capabilities: {
-                textDocumentSync: TextDocumentSyncKind.Full,
+                textDocumentSync: TextDocumentSyncKind.Incremental,
                 completionProvider: {
                     resolveProvider: true,
-                    //triggerCharacters: ["."],
+                    triggerCharacters: ["-", "$"],
                     allCommitCharacters: [";", " ", "\t"],
                     workDoneProgress: true,
                 },
@@ -191,10 +191,12 @@ export default class FishServer {
         const uri = uriToPath(params.textDocument.uri);
         const doc = this.docs.get(uri);
         if (!uri || !doc) return;
+        doc.applyEdits(doc.version+1, ...params.contentChanges)
         this.analyzer.analyze(doc);
-        for (const f of this.docs.files) {
-            this.logger.log(`file in docs: ${f}`)
-        }
+        this.logger.log(`${doc.version}:::${doc.uri}`)
+        //for (const f of this.docs.files) {
+            //this.logger.log(`file in docs: ${f}`)
+        //}
         const root = this.analyzer.getRootNode(doc);
         if (!root) return 
         //params.contentChanges.forEach(newContent => {
@@ -245,6 +247,8 @@ export default class FishServer {
         }
         //this.analyzer.analyze(doc)
         this.logger.log(JSON.stringify({position: params.position}, null , 2))
+        //for (const edit of this.analyzer.get(doc)?.getChangedRanges(other))
+        this.logger.log(this.analyzer.get(doc)?.rootNode.text || "new doc not found")
         this.logger.log(`currentLine: "${this.analyzer.parseCurrentLine(doc, params.position).line}"`);
         try {
             newCompletionList = await createCompletionList(doc, this.analyzer, params.position);
@@ -336,7 +340,7 @@ export default class FishServer {
                 const foundUri = await execFindDependency(current.text)
                 const defUri = uriToPath(foundUri) || foundUri
                 const foundText = await execOpenFile(defUri)
-                //this.logger.log(foundText)
+                this.logger.log(foundText)
                 //const newDoc = TextDocumentItem.create(foundUri, 'fish', 0, foundText);
                 const newRoot = this.parser.parse(foundText).rootNode
                 return getLocalDefs(defUri, newRoot, current)

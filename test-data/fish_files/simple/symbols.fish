@@ -1,4 +1,4 @@
-set -l arg_two 'seen one time'
+set -l arg_two 'seen one time' 
 
 function func_a
     set -l arg_one $argv[1]

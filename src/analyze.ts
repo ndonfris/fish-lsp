@@ -19,11 +19,12 @@ import { execOpenFile } from './utils/exec';
 
 export class Analyzer {
 
-    private parser: Parser;
+    protected parser: Parser;
 
     // maps the uri of document to the parser.parse(document.getText())
-    private uriTree: { [uri: string]: Tree };
+    protected uriTree: { [uri: string]: Tree };
     private diagnosticQueue: DiagnosticQueue = new DiagnosticQueue();
+    protected uriToTreeMap: Map<string, Tree> = new Map();
 
     private uriToSymbols: { [uri: string]: DocumentSymbol[]} = {};
     private globalSymbolsCache: DocumentationCache;
@@ -38,7 +39,9 @@ export class Analyzer {
     public analyze(document: LspDocument) {
         const uri = document.uri;
         this.parser.reset()
-        this.uriTree[uri] = this.parser.parse(document.getText());
+        const tree = this.parser.parse(document.getText());
+        this.uriTree[uri] = tree
+        this.uriToTreeMap.set(document.uri, tree)
         //if (!uri) return;
         //if (!tree?.rootNode) return;
         this.uriToSymbols[uri] = getDefinitionSymbols(this.uriTree[uri].rootNode)
@@ -49,6 +52,9 @@ export class Analyzer {
         return this.uriToSymbols[uri]
     }
 
+    get(document: LspDocument) {
+        return this.uriToTreeMap.get(document.uri)
+    }
 
     public async getDocumentation(document: LspDocument, node: SyntaxNode) {
         const localSymbols = this.uriToSymbols[document.uri].filter((symbol) => {
@@ -242,16 +248,20 @@ export class Analyzer {
         position: Position
     ): {
         line: string;
+        lastWord: string;
         lineRootNode: SyntaxNode;
         lineLastNode: SyntaxNode;
     } {
-        const line: string = document.getLineBeforeCursor(position);
+        //const linePreTrim: string = document.getLineBeforeCursor(position);
+        //const line = linePreTrim.slice(0,linePreTrim.lastIndexOf('\n'));
+        const line = document.getLineBeforeCursor(position).replace(/^(.*)\n$/, '$1')
+        const lastWord = line.slice(line.lastIndexOf(' ')+1) || ""
         const lineRootNode = this.parser.parse(line).rootNode;
         const lineLastNode = lineRootNode.descendantForPosition({
             row: 0,
             column: line.length - 1,
         });
-        return { line, lineRootNode, lineLastNode };
+        return { line, lastWord, lineRootNode, lineLastNode };
     }
 
     public getNodes(document: LspDocument): SyntaxNode[] {

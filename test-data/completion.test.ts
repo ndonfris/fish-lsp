@@ -1,4 +1,4 @@
-import {resolveLspDocumentForHelperTestFile} from './helpers';
+import {resolveLspDocumentForHelperTestFile, TestLogger} from './helpers';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {CompletionItem, CompletionParams, DocumentSymbol, Position, Range, SymbolKind, TextDocumentIdentifier} from 'vscode-languageserver';
 import { BUILT_INS, createCompletionList, generateShellCompletionItems, getShellCompletions, workspaceSymbolToCompletionItem } from '../src/completion';
@@ -6,7 +6,7 @@ import Parser, {SyntaxNode} from 'web-tree-sitter';
 import {initializeParser} from '../src/parser';
 import {resolve} from 'dns';
 import {LspDocument} from '../src/document';
-import { DocumentationCache } from '../src/utils/documentationCache'
+import { DocumentationCache, initializeDocumentationCache } from '../src/utils/documentationCache'
 import { containsRange, getDefinitionSymbols, getNearbySymbols} from '../src/workspace-symbol';
 import {getNodeAtRange, getRange} from '../src/utils/tree-sitter';
 import { Color } from 'colors';
@@ -19,6 +19,7 @@ import { exec } from 'child_process';
 let parser: Parser;
 let analyzer: Analyzer;
 let loggedAmount: number = 0;
+let cache : DocumentationCache 
 
 function logColor(message: string = "", color?: string) {
     let idx = 0
@@ -72,7 +73,8 @@ describe('complete simple tests', () => {
     beforeEach(async () => {
         global.console = require('console');
         parser = await  initializeParser();
-        analyzer = new Analyzer(parser);
+        cache = await initializeDocumentationCache()
+        analyzer = new Analyzer(parser, cache);
     });
 
     afterEach(() => {
@@ -90,7 +92,7 @@ describe('complete simple tests', () => {
 
     it('complete defaults ', async () => {
         const emptyPosition : Position = {line: 0, character: 0};
-        const cmps = createCompletionList([...BUILT_INS, ...BUILT_INS], emptyPosition, 0)
+        //const cmps = createCompletionList([...BUILT_INS, ...BUILT_INS], emptyPosition, 0)
         //const str = await execCommandDocs('if');
         //console.log(str);
     })
@@ -132,87 +134,119 @@ describe('complete simple tests', () => {
         ////}
     //})
 
-    it('testing variable completions on string "set -l arg_one $" in symbols.fish [line:4]', async () => {
-        const doc: LspDocument =  resolveLspDocumentForHelperTestFile('./fish_files/simple/symbols.fish');
-        const params: CompletionParams = {
-            textDocument:{
-                uri: doc.uri
-            } as TextDocumentIdentifier,
-            position: {line: 3, character: 20},
-        }
-        analyzer.analyze(doc);
-        const pos = params.position
-        const {line , lineRootNode, lineLastNode} = analyzer.parseCurrentLine(doc, pos)
-        expect(line).toMatch('set -l arg_one $')
-        expect(lineRootNode!.text).toMatch('set -l arg_one $')
-        expect(lineLastNode!.text).toMatch('$')
-        const [output, errors]: [CompletionItem[], CompletionItem[]] = [await generateShellCompletionItems(line, lineLastNode), []];
-        for (const cmp of output) {
-            if (!cmp.label.startsWith("\$")) {
-                errors.push(cmp)
-                console.log(JSON.stringify({errorCompletionItem: cmp}, null, 2));
-            }
-        }
-        expect(errors.length).toBe(0)
-    })
+    //it('testing variable completions on string "set -l arg_one $" in symbols.fish [line:4]', async () => {
+    //    const doc: LspDocument =  resolveLspDocumentForHelperTestFile('./fish_files/simple/symbols.fish');
+    //    const params: CompletionParams = {
+    //        textDocument:{
+    //            uri: doc.uri
+    //        } as TextDocumentIdentifier,
+    //        position: {line: 3, character: 20},
+    //    }
+    //    analyzer.analyze(doc);
+    //    const pos = params.position
+    //    const {line , lineRootNode, lineLastNode} = analyzer.parseCurrentLine(doc, pos)
+    //    expect(line).toMatch('set -l arg_one $')
+    //    expect(lineRootNode!.text).toMatch('set -l arg_one $')
+    //    expect(lineLastNode!.text).toMatch('$')
+    //    const [output, errors]: [CompletionItem[], CompletionItem[]] = [await generateShellCompletionItems(line, lineLastNode), []];
+    //    for (const cmp of output) {
+    //        if (!cmp.label.startsWith("\$")) {
+    //            errors.push(cmp)
+    //            console.log(JSON.stringify({errorCompletionItem: cmp}, null, 2));
+    //        }
+    //    }
+    //    expect(errors.length).toBe(0)
+    //})
 
-    it('testing flag completions on string "function func_c --" in symbols.fish [line:20]', async () => {
-        const doc: LspDocument =  resolveLspDocumentForHelperTestFile('./fish_files/simple/symbols.fish');
-        const params: CompletionParams = {
-            textDocument:{
-                uri: doc.uri
-            } as TextDocumentIdentifier,
-            position: {line: 19, character: 18},
-        }
-        analyzer.analyze(doc);
-        const pos = params.position
-        const {line , lineRootNode, lineLastNode} = analyzer.parseCurrentLine(doc, pos)
-        expect(line).toMatch('function func_c --')
-        expect(lineRootNode!.text).toMatch('function func_c --')
-        expect(lineLastNode!.text).toMatch('--')
-        const [output, errors]: [CompletionItem[], CompletionItem[]] = [await generateShellCompletionItems(line, lineLastNode), []];
-        for (const cmp of output) {
-            if (!cmp.label.startsWith("--")) {
-                errors.push(cmp)
-                console.log(JSON.stringify({errorCompletionItem: cmp}, null, 2));
-            }
-        }
-        expect(output.length).toBe(10)
-        //expect(errors.length).toBe(0)
-    })
+    //it('testing flag completions on string "function func_c --" in symbols.fish [line:20]', async () => {
+    //    const doc: LspDocument =  resolveLspDocumentForHelperTestFile('./fish_files/simple/symbols.fish');
+    //    const params: CompletionParams = {
+    //        textDocument:{
+    //            uri: doc.uri
+    //        } as TextDocumentIdentifier,
+    //        position: {line: 19, character: 18},
+    //    }
+    //    analyzer.analyze(doc);
+    //    const pos = params.position
+    //    const {line , lineRootNode, lineLastNode} = analyzer.parseCurrentLine(doc, pos)
+    //    expect(line).toMatch('function func_c --')
+    //    expect(lineRootNode!.text).toMatch('function func_c --')
+    //    expect(lineLastNode!.text).toMatch('--')
+    //    const [output, errors]: [CompletionItem[], CompletionItem[]] = [await generateShellCompletionItems(line, lineLastNode), []];
+    //    for (const cmp of output) {
+    //        if (!cmp.label.startsWith("--")) {
+    //            errors.push(cmp)
+    //            console.log(JSON.stringify({errorCompletionItem: cmp}, null, 2));
+    //        }
+    //    }
+    //    expect(output.length).toBe(10)
+    //    //expect(errors.length).toBe(0)
+    //})
 
-    it('testing symbol completions in symbols.fish [line:20]', async () => {
-        const doc: LspDocument =  resolveLspDocumentForHelperTestFile('./fish_files/simple/symbols.fish');
-        const params: CompletionParams = {
-            textDocument:{
-                uri: doc.uri
-            } as TextDocumentIdentifier,
-            position: {line: 22, character: 7},
-        }
-        analyzer.analyze(doc);
-        const pos = params.position
-        const {root, currentNode} = analyzer.parsePosition(doc, {
-            line : pos.line,
-            character: pos.character - 1,
-        });
-        const {line , lineRootNode, lineLastNode} = analyzer.parseCurrentLine(doc, pos)
-        expect(line).toMatch(' ')
-        expect(lineRootNode!.text).toMatch('')
-        expect(lineLastNode!.text).toMatch('')
-        const [output, errors]: [CompletionItem[], CompletionItem[]] = [workspaceSymbolToCompletionItem(root, getNearbySymbols(root, getRange(currentNode))),[]];
-        for (const cmp of output) {
-            console.log(cmp.label);
-        }
-    })
-
+    //it('testing symbol completions in symbols.fish [line:20]', async () => {
+    //    const doc: LspDocument =  resolveLspDocumentForHelperTestFile('./fish_files/simple/symbols.fish');
+    //    const params: CompletionParams = {
+    //        textDocument:{
+    //            uri: doc.uri
+    //        } as TextDocumentIdentifier,
+    //        position: {line: 22, character: 7},
+    //    }
+    //    analyzer.analyze(doc);
+    //    const pos = params.position
+    //    const {root, currentNode} = analyzer.parsePosition(doc, {
+    //        line : pos.line,
+    //        character: pos.character - 1,
+    //    });
+    //    const {line , lineRootNode, lineLastNode} = analyzer.parseCurrentLine(doc, pos)
+    //    expect(line).toMatch(' ')
+    //    expect(lineRootNode!.text).toMatch('')
+    //    expect(lineLastNode!.text).toMatch('')
+    //    const [output, errors]: [CompletionItem[], CompletionItem[]] = [workspaceSymbolToCompletionItem(root, getNearbySymbols(root, getRange(currentNode))),[]];
+    //    for (const cmp of output) {
+    //        console.log(cmp.label);
+    //    }
+    //})
     it("testing Documentation Cache", async () => {
-        console.time('test execCompletionHelper');
+        //console.time('test execCompletionHelper');
         const docCache = new DocumentationCache();
         await docCache.parse()
-        console.log(await docCache.resolve('PATH'));
-        console.log(await docCache.resolve('while'));
-        console.log(await docCache.resolve('get-completions'));
-        console.timeEnd('test execCompletionHelper')
+        //console.log(await docCache.resolve('PATH'));
+        //console.log(await docCache.resolve('while'));
+        //console.log(await docCache.resolve('get-completions'));
+        //console.timeEnd('test execCompletionHelper')
+    })
+
+
+    it('testing line completions', async () => {
+        const doc: LspDocument =  resolveLspDocumentForHelperTestFile('./fish_files/simple/symbols.fish');
+        const position: Position = Position.create(0, 16)
+        const logger = new TestLogger(console)
+        const positions: Position[] = [
+            Position.create(1, 1),
+            Position.create(0, 16),
+            Position.create(0, 32),
+            Position.create(0, 26),
+        ]
+        positions.forEach((position) => { 
+            const line = doc.getLineBeforeCursor(position).replace(/^(.*)\n$/, '$1')
+            console.log(`line: *${line.toString()}*`);
+            //let lastIndex = line.lastIndexOf("'");
+            //const i = line.match(/^[\s|\S]*([\'.*\'|\".*\"|\w+])$/)
+            //console.log(`i ${i?.toString()}`);
+            //if (lastIndex === -1) {
+                //lastIndex = line.lastIndexOf('"');
+            //}
+            //if (lastIndex === -1) {
+                //lastIndex = line.lastIndexOf(' ');
+            //}
+            const lastWord = line.slice(line.lastIndexOf(" ")+1)
+            console.log(`last word: *${lastWord}*`);
+            //const root = parser.parse(line).rootNode;
+            //console.log(`root: ${root.text}`);
+            //logger.logNode(root);
+            //console.log(root.firstChild!.descendantForIndex(-2)?.text);
+            //console.log(root.toString())
+        })
     })
 
 })

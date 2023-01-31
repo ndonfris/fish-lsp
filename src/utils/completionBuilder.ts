@@ -30,7 +30,6 @@ export interface FishCompletionItem extends CompletionItem {
         fishKind?: FishCompletionItemKind; // VERBOSE form of kind
         localSymbol?: boolean;
     }
-    filterText?: string;
 }
 
 
@@ -50,6 +49,7 @@ export class CompletionItemBuilder {
         this._item.label= "";
         this._item.kind = 1;
         this._item.documentation = "";
+        this._item.commitCharacters = [];
         this._item.data = {
             localSymbol: false,
             originalCompletion: "",
@@ -100,10 +100,13 @@ export class CompletionItemBuilder {
         this._item.kind = toCompletionKind[fishKind];
         this._item.data.fishKind = fishKind;
         if (fishKind === FishCompletionItemKind.ABBR) {
-            this.commitCharacters([';', '\t', ' '])
+            this.commitCharacters([';', '\t', ' ', "<tab>"])
+            //this._item.commitCharacters = [';', "\t", ' ']
         } else if (fishKind === FishCompletionItemKind.FLAG) {
             this._item.insertText = this._item.label + ' '
             this._item.command = CompleteCommand
+            this._item.labelDetails = {description:  '('+ this._item.documentation?.toString().trim() +')'}
+            this._item.filterText = this._item.label + '\t' + this._item.documentation?.toString()
         }
         return this;
     }
@@ -135,6 +138,9 @@ export class CompletionItemBuilder {
     }
 
     public localSymbol() {
+        if (this._item.kind === CompletionItemKind.Variable) {
+            this._item.label = '$' + this._item.label;
+        }
         this._item.data.localSymbol = true;
         return this;
     }

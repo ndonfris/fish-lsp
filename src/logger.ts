@@ -6,17 +6,15 @@ import {
     Position,
     RemoteConsole,
     SymbolKind,
-    TextDocumentPositionParams,
     Range,
-    Command,
     ExecuteCommandParams,
 } from "vscode-languageserver";
 import {TextDocument} from 'vscode-languageserver-textdocument';
-import {URI, Utils} from 'vscode-uri';
+import {URI} from 'vscode-uri';
 import { SyntaxNode } from "web-tree-sitter";
 import {FishCompletionItem, FishCompletionItemKind} from './utils/completion-types';
-import { appendFile, appendFileSync, writeFileSync } from 'fs';
-import path, {resolve} from 'path';
+import {resolve} from 'path';
+import { appendFileSync } from 'fs';
 
 
 export interface LogOptions {
@@ -92,7 +90,7 @@ export class Logger {
         }
     }
 
-    public log(msg: string, opts?: LogOptions) {
+    public log(msg: string) {
         const output = '\n'+ msg;
         this.console.log(msg);
         try {
