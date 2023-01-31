@@ -139,10 +139,10 @@ export function nodeToArrayString(node: SyntaxNode) : nodeConsoleArray {
  * @returns {LspDocument} - lsp document (from '../src/document.ts')
  */
 export function resolveLspDocumentForHelperTestFile(fname: string, inAutoloadPath: boolean = true): LspDocument {
-    const abspath = resolve(__dirname, fname)
-    //console.log("testing: " + abspath);
-    const file = readFileSync(resolve(__dirname, fname), 'utf8')
-    const filename = inAutoloadPath ? `file://${homedir()}/.config/fish/functions/${fname.split('/').at(-1)}` : `file://${abspath}`
+    // check which path type is fname -----------> absolute path  | relative path
+    const filepath = fname.startsWith(homedir()) ? resolve(fname) : resolve(__dirname, fname)
+    const file = readFileSync(filepath, 'utf8')
+    const filename = inAutoloadPath ? `file://${homedir()}/.config/fish/functions/${fname.split('/').at(-1)}` : `file://${filepath}`
     const doc = TextDocumentItem.create(filename, 'fish', 0, file)
     return new LspDocument(doc)
 }

@@ -1,5 +1,5 @@
 import { resolveLspDocumentForHelperTestFile } from "./helpers";
-import {DocumentSymbol,SymbolKind,} from "vscode-languageserver";
+import {DocumentSymbol,Position,SymbolKind,} from "vscode-languageserver";
 import Parser, { SyntaxNode } from "web-tree-sitter";
 import { initializeParser } from "../src/parser";
 import { LspDocument } from "../src/document";
@@ -9,6 +9,7 @@ import { isFunctionDefinition,isDefinition,isVariableDefinition,isScope, findPar
 import { CommentRange, symbolKindToString } from "../src/symbols";
 import { DocumentationCache, initializeDocumentationCache } from "../src/utils/documentationCache";
 import { DocumentSymbolTree } from "../src/symbolTree";
+import { homedir } from 'os';
 let parser: Parser;
 let documentationCache: DocumentationCache;
 let analyzer: Analyzer;
@@ -25,17 +26,19 @@ let loggedAmount: number = 0;
 const jestConsole = console;
 //setMarkedterminal();
 
-beforeEach(async () => {
-    global.console = require("console");
+beforeAll(async () => {
     parser = await initializeParser();
     documentationCache = await initializeDocumentationCache();
     analyzer = new Analyzer(parser, documentationCache);
     symbols = [];
+})
+beforeEach(async () => {
+    global.console = require("console");
 });
 
 afterEach(() => {
     global.console = jestConsole;
-    parser.delete();
+    parser.reset();
 });
 
 function pushCommentRanges(doc: LspDocument) {
@@ -114,10 +117,25 @@ describe("workspace-symbols tests", () => {
         const forNode = tree.findDef(for_1)
         logSyntaxNodeArray(tree.findRefs(normal_1))
         logSyntaxNodeArray(tree.findRefs(for_1))
-        //const position_1 : Position = Position.create(4, 22);
-        //const tree = DocumentSymbolTree(root).all()
     })
 
+    it('getRefrences for config.fish', async () => {
+        const doc = resolveLspDocumentForHelperTestFile(`${homedir}/.config/fish/config.fish`); 
+        //const parser = await initializeParser();
+        //const analyzer = new Analyzer(parser, documentationCache);
+        //const normal_1 = root.descendantForPosition({row: 13, column: 15})
+        //const tree = DocumentSymbolTree().last();
+        console.log(JSON.stringify(doc, null, 2));
+        analyzer.analyze(doc);
+        const root = analyzer.getRootNode(doc)
+        const posis = analyzer.parsePosition(doc, Position.create(0, 0));
+        console.log(`${posis.root?.toString()}`);
+        console.log(`'${posis.currentNode?.text}'`);
+        const tree = root && DocumentSymbolTree(root).all()
+        if (tree) {
+            logClientTree(tree)
+        }
+    })
 });
 
 // small helper to print out the client tree like the editor would tree

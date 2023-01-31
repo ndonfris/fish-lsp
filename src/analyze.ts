@@ -31,7 +31,6 @@ export class Analyzer {
 
     constructor(parser: Parser, globalSymbolsCache: DocumentationCache) {
         this.parser = parser;
-        this.parser.setTimeoutMicros(2000)
         this.uriTree = {};
         this.globalSymbolsCache = globalSymbolsCache;
     }
@@ -40,16 +39,16 @@ export class Analyzer {
         const uri = document.uri;
         this.parser.reset()
         const tree = this.parser.parse(document.getText());
-        this.uriTree[uri] = tree
+        //this.uriTree[uri] = tree
         this.uriToTreeMap.set(document.uri, tree)
         //if (!uri) return;
         //if (!tree?.rootNode) return;
-        this.uriToSymbols[uri] = getDefinitionSymbols(this.uriTree[uri].rootNode)
+        //this.uriToSymbols[uri] = getDefinitionSymbols(this.uriTree[uri].rootNode)
         //this.diagnosticQueue.set(
         //    uri,
         //    collectDiagnosticsRecursive(tree.rootNode, document)
         //);
-        return this.uriToSymbols[uri]
+        //return this.uriToSymbols[uri]
     }
 
     get(document: LspDocument) {
@@ -149,16 +148,16 @@ export class Analyzer {
         document: LspDocument,
         position: Position
     ): {
-        root: SyntaxNode | undefined,
-        currentNode: SyntaxNode | undefined
+        root: SyntaxNode | null,
+        currentNode: SyntaxNode | null
     } {
         const root = this.getRootNode(document)
         return {
-            root: root,
+            root: root || null,
             currentNode: root?.descendantForPosition({
                     row: position.line,
-                    column: position.character - 1,
-                }),
+                    column: Math.max(0, position.character - 1),
+                }) || null,
         };
     }
 
@@ -180,12 +179,7 @@ export class Analyzer {
         line: number,
         column: number
     ): Parser.SyntaxNode | null {
-        const tree = this.uriTree[document.uri];
-        // Check for lacking rootNode (due to failed parse?)
-        if (!tree.rootNode) {
-            return null;
-        }
-        return tree.rootNode.namedDescendantForPosition({ row: line, column });
+        return this.get(document)?.rootNode.namedDescendantForPosition({ row: line, column }) || null;
     }
 
     public wordAtPoint(

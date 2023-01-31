@@ -517,11 +517,6 @@ export default class FishServer {
     // HELPERS
     /////////////////////////////////////////////////////////////////////////////////////
 
-    private getRootNode(documentText: string): SyntaxNode {
-        this.parser.reset()
-        const tree = this.parser.parse(documentText);
-        return tree.rootNode;
-    }
 
     // helper to get all the default objects needed when a TextDocumentPositionParam is passed
     // into a handler
@@ -534,7 +529,7 @@ export default class FishServer {
         const uri = uriToPath(params.textDocument.uri);
         const doc = this.docs.get(uri);
         if (!doc || !uri) return {};
-        const root = this.getRootNode(doc.getText());
+        const root = this.analyzer.getRootNode(doc)
         const current = this.analyzer.nodeAtPoint(doc, params.position.line, params.position.character);
         return {doc, uri, root, current}
     }
@@ -546,14 +541,14 @@ export default class FishServer {
     } {
         const uri = uriToPath(params.textDocument.uri);
         const doc = this.docs.get(uri);
-        const root = this.getRootNode(doc?.getText() || '');
+        const root = doc ? this.analyzer.getRootNode(doc) : undefined
         return {doc, uri, root}
     }
 
     private getDefaultsFallback(paramURI: string) : { doc?: LspDocument, uri?: string, root?: SyntaxNode } {
         const uri = uriToPath(paramURI);
         const doc = this.docs.get(uri);
-        const root = doc?.getText ? this.getRootNode(doc?.getText()) : undefined;
+        const root = doc ? this.analyzer.getRootNode(doc) : undefined
         return {doc, uri, root}
     }
 
