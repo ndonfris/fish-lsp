@@ -26,32 +26,32 @@ import {sep} from 'path';
  * @returns {Promise<TextDocument[]>} - Get all fish files in a directory path and return
  *                                      them as TextDocuments.
  */
-export async function getWorkspacePaths(documents: LspDocuments, paths: string[]): Promise<LspDocuments> {
-
-    const allFiles: string[] = [];
-
-    paths.forEach((path) => {
-        const files = FastGlob.sync("**.fish", {
-            absolute: true,
-            dot: true,
-            globstar: true,
-            cwd: path,
-        });
-        allFiles.push(...files);
-    });
-
-    // now allFiles contains every fish file that could be used in the workspace
-    await Promise.allSettled(allFiles.map(async file => {
-        const doc = documents.get(file.toString());
-        if (!doc) {
-            return false;
-        }
-        return true
-    }))
-
-    return documents
-
-}
+// export async function getWorkspacePaths(documents: LspDocuments, paths: string[]): Promise<LspDocuments> {
+// 
+//     const allFiles: string[] = [];
+// 
+//     paths.forEach((path) => {
+//         const files = FastGlob.sync("**.fish", {
+//             absolute: true,
+//             dot: true,
+//             globstar: true,
+//             cwd: path,
+//         });
+//         allFiles.push(...files);
+//     });
+// 
+//     // now allFiles contains every fish file that could be used in the workspace
+//     await Promise.allSettled(allFiles.map(async file => {
+//         const doc = documents.get(file.toString());
+//         if (!doc) {
+//             return false;
+//         }
+//         return true
+//     }))
+// 
+//     return documents
+// 
+// }
 
 
 /**

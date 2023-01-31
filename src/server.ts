@@ -87,7 +87,7 @@ export default class FishServer {
                 textDocumentSync: TextDocumentSyncKind.Full,
                 completionProvider: {
                     resolveProvider: true,
-                    triggerCharacters: ["."],
+                    //triggerCharacters: ["."],
                     allCommitCharacters: [";", " ", "\t"],
                     workDoneProgress: true,
                 },
@@ -170,7 +170,7 @@ export default class FishServer {
                 this.analyzer.analyze(doc);
                 this.logger.log("analyzed document: " + params.textDocument.uri)
                 //const root = this.getRootNode(doc.getText())
-                this.connection.sendDiagnostics(this.analyzer.getDiagnostics(doc));
+                //this.connection.sendDiagnostics(this.analyzer.getDiagnostics(doc));
             }
         } else {
             this.logger.log(`Cannot open already opened doc '${params.textDocument.uri}'.`);
@@ -192,14 +192,16 @@ export default class FishServer {
         const doc = this.docs.get(uri);
         if (!uri || !doc) return;
         this.analyzer.analyze(doc);
-
+        for (const f of this.docs.files) {
+            this.logger.log(`file in docs: ${f}`)
+        }
         const root = this.analyzer.getRootNode(doc);
         if (!root) return 
-        params.contentChanges.forEach(newContent => {
-            doc.applyEdit(params.textDocument.version, newContent)
-        })
-        this.analyzer.analyze(doc);
-        this.connection.sendDiagnostics(this.analyzer.getDiagnostics(doc));
+        //params.contentChanges.forEach(newContent => {
+            //doc.applyEdit(params.textDocument.version, newContent)
+        //})
+        //this.analyzer.analyze(doc);
+        //this.connection.sendDiagnostics(this.analyzer.getDiagnostics(doc));
     }
 
     didCloseTextDocument(params: DidCloseTextDocumentParams): void {
@@ -235,14 +237,16 @@ export default class FishServer {
     async onCompletion(params: CompletionParams):  Promise<CompletionList | null>{
         const uri = uriToPath(params.textDocument.uri);
         let newCompletionList: CompletionList | null = null;
+        this.logger.log('server.onComplete');
+        const doc = this.docs.get(uri);
+        if (!uri || !doc) {
+            this.logger.log('onComplete got [NOT FOUND]: ' + uri)
+            return null;
+        }
+        //this.analyzer.analyze(doc)
+        this.logger.log(JSON.stringify({position: params.position}, null , 2))
+        this.logger.log(`currentLine: "${this.analyzer.parseCurrentLine(doc, params.position).line}"`);
         try {
-            this.logger.log('server.onComplete');
-            const doc = this.docs.get(uri);
-            if (!uri || !doc) {
-                this.logger.log('onComplete got [NOT FOUND]: ' + uri)
-                return null;
-            }
-            this.logger.log(`currentLine: "${this.analyzer.parseCurrentLine(doc, params.position).line}"`);
             newCompletionList = await createCompletionList(doc, this.analyzer, params.position);
         } catch (error) {
             this.logger.log("ERROR: onComplete " + error);

@@ -16,6 +16,7 @@ import { DocumentSymbol } from 'vscode-languageserver';
 import { toSymbolKind } from './symbols';
 import { execOpenFile } from './utils/exec';
 
+
 export class Analyzer {
 
     private parser: Parser;
@@ -29,21 +30,22 @@ export class Analyzer {
 
     constructor(parser: Parser, globalSymbolsCache: DocumentationCache) {
         this.parser = parser;
+        this.parser.setTimeoutMicros(1000)
         this.uriTree = {};
         this.globalSymbolsCache = globalSymbolsCache;
     }
 
     public analyze(document: LspDocument) {
         const uri = document.uri;
-        const tree = this.parser.parse(document.getText());
-        if (!uri) return;
-        if (!tree?.rootNode) return;
-        this.uriTree[uri] = tree;
-        this.uriToSymbols[uri] = getDefinitionSymbols(tree.rootNode)
-        this.diagnosticQueue.set(
-            uri,
-            collectDiagnosticsRecursive(tree.rootNode, document)
-        );
+        this.parser.reset()
+        this.uriTree[uri] = this.parser.parse(document.getText());
+        //if (!uri) return;
+        //if (!tree?.rootNode) return;
+        this.uriToSymbols[uri] = getDefinitionSymbols(this.uriTree[uri].rootNode)
+        //this.diagnosticQueue.set(
+        //    uri,
+        //    collectDiagnosticsRecursive(tree.rootNode, document)
+        //);
         return this.uriToSymbols[uri]
     }
 
@@ -143,13 +145,13 @@ export class Analyzer {
         root: SyntaxNode,
         currentNode: SyntaxNode
     } {
+        const tree = this.uriTree[document.uri];
+        const root = tree?.rootNode;
         return {
-            root: this.parser.parse(document.getText()).rootNode,
-            currentNode: this.parser
-                .parse(document.getText())
-                .rootNode.descendantForPosition({
+            root: root,
+            currentNode: root.descendantForPosition({
                     row: position.line,
-                    column: position.character,
+                    column: position.character - 1,
                 }),
         };
     }
