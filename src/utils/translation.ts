@@ -64,7 +64,6 @@ function currentVersion(filepath: string, documents: LspDocuments | undefined): 
     return document ? document.version : null;
 }
 
-
 export function pathToRelativeFunctionName(uriPath: string) : string {
     const relativeName = uriPath.split('/').at(-1) || uriPath;
     return relativeName.replace('.fish', '');

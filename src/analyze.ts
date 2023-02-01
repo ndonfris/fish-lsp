@@ -16,6 +16,20 @@ import { DocumentSymbol } from 'vscode-languageserver';
 import { toSymbolKind } from './symbols';
 import { execOpenFile } from './utils/exec';
 
+type SourceCommand = {
+    name: string,
+    uri: string,
+    range: Range
+}
+
+type uriToAnalyzedDocument = {
+    document: LspDocument,
+    globalDefinitions: DocumentSymbol[],
+    sourcedUris: Set<string>
+    sourceCommands: SourceCommand[]
+    tree: Parser.Tree
+}
+
 
 export class Analyzer {
 

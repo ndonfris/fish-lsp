@@ -1,3 +1,5 @@
+import fs from 'fs'
+import os from 'os'
 import { resolveLspDocumentForHelperTestFile } from "./helpers";
 import {DocumentSymbol,Position,SymbolKind,} from "vscode-languageserver";
 import Parser, { SyntaxNode } from "web-tree-sitter";
@@ -6,11 +8,14 @@ import { LspDocument } from "../src/document";
 import {findFirstParent, getChildNodes } from "../src/utils/tree-sitter";
 import { Analyzer } from "../src/analyze";
 import { isFunctionDefinition,isDefinition,isVariableDefinition,isScope, findParentCommand, isForLoop, isVariable, isCommand, isCommandName,} from "../src/utils/node-types";
-import { CommentRange, symbolKindToString } from "../src/symbols";
+import { CommentRange, DocumentDefSymbol, symbolKindToString } from "../src/symbols";
 import { DocumentationCache, initializeDocumentationCache } from "../src/utils/documentationCache";
 import { DocumentSymbolTree } from "../src/symbolTree";
 import { homedir } from 'os';
-import { pathToRelativeFunctionName } from '../src/utils/translation';
+import { pathToRelativeFunctionName, toLspDocument, uriToPath } from '../src/utils/translation';
+import * as fastGlob from 'fast-glob'
+import { execEscapedCommand } from '../src/utils/exec';
+ 
 let parser: Parser;
 let documentationCache: DocumentationCache;
 let analyzer: Analyzer;
@@ -137,31 +142,107 @@ describe("workspace-symbols tests", () => {
             const scope = DefinitionSyntaxNode.getScope(node)
             console.log(`scope: ${scope} node: ${node.text}`);
         }
-
         console.log();
         console.log();
         console.log();
-        for (const scopeNode of collectScopes(root, doc.uri, true)) {
+        for (const scopeNode of collectScopes(root, doc.uri)) {
             console.log(`scope: ${scopeNode.text}`);
         }
     })
+
+    it('testing generating WorkspaceSymbols', async () => {
+        console.log();
+        await readAll(analyzer)
+        console.log();
+        //console.log(process.env);
+    })
 });
 
-function collectScopes(root: SyntaxNode, uri: string, autoloaded = false): SyntaxNode[] {
+export async function readAll(analyzer: Analyzer) {
+    const allPaths = await getFilePaths({maxItems: 10000});
+    for (const filePath of allPaths) {
+        try {
+            const fileContent = await fs.promises.readFile(filePath, 'utf8')
+            console.log('------------------------------------------------------------------------');
+            console.log(filePath);
+            console.log('------------------------------------------------------------------------');
+            console.log(fileContent.toString())
+            const document = toLspDocument(filePath, fileContent);
+            analyzer.analyze(document);
+        } catch (err) {
+            console.error(err)
+        }
+    }
+}
+
+
+export async function getFilePaths({
+  //globPattern,
+  //rootPath,
+  maxItems,
+}: {
+  //globPattern: string
+  //rootPath: string
+  maxItems: number
+}): Promise<string[]> {
+    //const rootPath = uriToPath(rootPath)
+    //const paths = await execEscapedCommand('echo $fish_function_path | string split " "')
+    //const results: string[] = [];
+    const stream = fastGlob.stream(['**.fish'], {
+        absolute: true,
+        onlyFiles: true,
+        cwd: `${homedir}/.config/fish`,
+        followSymbolicLinks: true,
+        suppressErrors: true,
+    })
+
+    // NOTE: we use a stream here to not block the event loop
+    // and ensure that we stop reading files if the glob returns
+    // too many files.
+    const files: string[] = []
+    let i = 0
+    for await (const fileEntry of stream) {
+        if (i >= maxItems) {
+            // NOTE: Close the stream to stop reading files paths.
+            stream.emit('close')
+            break
+        }
+
+        files.push(fileEntry.toString())
+        i++
+    }
+    return files
+}
+
+const checkUriIsAutoloaded = (uri: string) => {
+    const paths = [
+        `${homedir}/.config/fish/functions`,
+        `${homedir}/.config/fish/config.fish`,
+        `/usr/share/fish/functions`,
+    ]
+    return paths.includes(uri)
+}
+
+function collectScopes(root: SyntaxNode, uri: string): SyntaxNode[] {
+    const isAutoloaded = checkUriIsAutoloaded(uri)
     const functionName = pathToRelativeFunctionName(uri)
     const scopes: SyntaxNode[] = [];
-    for (const node of getChildNodes(root).filter(isDefinition)) {
+    const definitionNodes = getChildNodes(root).filter(isDefinition)
+    for (const node of definitionNodes) {
         const scope = DefinitionSyntaxNode.getScope(node)
         if (scope === "global") {
             scopes.push(node)
-        } else if (scope === "function" && node.text === functionName && autoloaded) {
+        } else if (scope === "function" && node.text === functionName && isAutoloaded) {
             scopes.push(node)
-        } else if (scope === "function" && "config" === functionName && autoloaded) {
+        } else if (scope === "function" && "config" === functionName && isAutoloaded) {
             scopes.push(node)
         }
     }
     return scopes;
 }
+
+
+
 
 // small helper to print out the client tree like the editor would tree
 function logClientTree(symbols: DocumentSymbol[], level = 0) {
