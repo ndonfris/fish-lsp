@@ -1,8 +1,8 @@
 import Parser, {SyntaxNode} from "web-tree-sitter";
 import { initializeParser } from "./parser";
-import { Analyzer } from "./analyze";
+import { Analyzer, getAllPaths } from "./analyze";
 import { createCompletionList, } from "./completion";
-import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, ExecuteCommandParams, ServerRequestHandler, FoldingRangeParams, FoldingRange, Position, InlayHintParams, MarkupKind, SymbolInformation } from "vscode-languageserver";
+import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, ExecuteCommandParams, ServerRequestHandler, FoldingRangeParams, FoldingRange, Position, InlayHintParams, MarkupKind, SymbolInformation, WorkspaceSymbolParams, WorkspaceSymbol } from "vscode-languageserver";
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
 import { FishCompletionItem, } from './utils/completion-types';
@@ -44,8 +44,9 @@ export default class FishServer {
         return await Promise.all([
             initializeParser(),
             initializeDocumentationCache(),
-        ]).then(([parser, cache]) => {
-            const analyzer = new Analyzer(parser, cache);
+            getAllPaths(),
+        ]).then(([parser, cache, allUris]) => {
+            const analyzer = new Analyzer(parser, cache, allUris);
             return new FishServer(connection, params, parser, analyzer, documents, cache);
         })
     }
@@ -122,6 +123,9 @@ export default class FishServer {
                 documentSymbolProvider: {
                     label: "Fish-LSP",
                 },
+                workspaceSymbolProvider: {
+                    resolveProvider: true,
+                },
                 inlayHintProvider: true,
             }
         }
@@ -131,6 +135,7 @@ export default class FishServer {
 
     register(): void {
         //this.connection.window.createWorkDoneProgress();
+        this.connection.onInitialized(this.onInitialized.bind(this));
         this.connection.onDidOpenTextDocument(this.didOpenTextDocument.bind(this))
         this.connection.onDidChangeTextDocument(this.didChangeTextDocument.bind(this))
         this.connection.onDidCloseTextDocument(this.didCloseTextDocument.bind(this))
@@ -141,6 +146,8 @@ export default class FishServer {
         this.connection.onCompletionResolve(this.onCompletionResolve.bind(this)),
 
         this.connection.onDocumentSymbol(this.onDocumentSymbols.bind(this));
+        this.connection.onWorkspaceSymbol(this.onWorkspaceSymbol.bind(this));
+        //this.connection.onWorkspaceSymbolResolve(this.onWorkspaceSymbolResolve.bind(this))
         this.connection.onDefinition(this.onDefinition.bind(this));
         this.connection.onReferences(this.onReferences.bind(this));
         this.connection.onHover(this.onHover.bind(this));
@@ -217,6 +224,15 @@ export default class FishServer {
     didSaveTextDocument(params: DidSaveTextDocumentParams): void {
         this.logger.log(`[${this.didSaveTextDocument.name}]: ${params.textDocument.uri}`);
         return;
+    }
+
+
+    // @see:
+    //  • @link [bash-lsp](https://github.com/bash-lsp/bash-language-server/blob/3a319865af9bd525d8e08cd0dd94504d5b5b7d66/server/src/server.ts#L236)
+    async onInitialized() {
+        return {
+            backgroundAnalysisCompleted: this.startBackgroundAnalysis()
+        }
     }
 
     // @TODO: REFACTOR THIS OUT OF SERVER
@@ -326,6 +342,18 @@ export default class FishServer {
         const documentSymbol = textDocument && textDocument.documentSymbol;
         return !!documentSymbol && !!documentSymbol.hierarchicalDocumentSymbolSupport;
     }
+
+    async onWorkspaceSymbol(params: WorkspaceSymbolParams): Promise<WorkspaceSymbol[]> {
+        this.logger.log('onWorkspaceSymbol: ' + params.query);
+        const workspaceSymbols = this.analyzer.getAllWorkspaceSymbols();
+        return workspaceSymbols.filter((symbol) => symbol.name.includes(params.query))
+    }
+
+    //async onWorkspaceSymbolResolve(params: WorkspaceSymbolParams): Promise<WorkspaceSymbol[]> {
+        //this.logger.log('onWorkspaceSymbolResolve: ' + params.query);
+        //return [];
+    //}
+
 
     // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#showDocumentParams
     async onDefinition(params: DefinitionParams): Promise<Location[]> {
@@ -557,6 +585,17 @@ export default class FishServer {
             character: position.character - 1,
             line: position.line
         }
+    }
+
+
+    private async startBackgroundAnalysis(): Promise<{ filesParsed: number }> {
+        //const { workspaceFolder } = this
+        //if (workspaceFolder) {
+        return this.analyzer.initiateBackgroundAnalysis({
+            backgroundAnalysisMaxFiles: 1000,
+        })
+        //}
+        //return Promise.resolve({ filesParsed: 0 })
     }
 }
 

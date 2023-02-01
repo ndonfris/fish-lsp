@@ -71,7 +71,7 @@ export function pathToRelativeFunctionName(uriPath: string) : string {
 
 export function uriInUserFunctions(uri: string) {
     const path = uriToPath(uri);
-    return path?.startsWith(`${os.homedir()}/.config/fish/functions`) 
+    return path?.startsWith(`${os.homedir}/.config/fish/functions`) 
 }
 
 export function nodeToSymbolInformation(node: SyntaxNode, uri: string) : SymbolInformation {

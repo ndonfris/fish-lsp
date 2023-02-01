@@ -16,6 +16,7 @@ import {SyntaxNode} from 'web-tree-sitter';
 import {isBuiltin} from './utils/builtins';
 import {findFunctionScope, isCommand, isFunctionDefinitionName, isFunctionDefinition, isStatement, isString, isVariableDefinition, isProgram, isCommandName, findEnclosingVariableScope, isDefinition, findParentFunction} from './utils/node-types';
 import {findEnclosingScope, findFirstParent, getChildNodes, getPrecedingComments, getRange} from './utils/tree-sitter';
+import { uriToPath } from './utils/translation';
 
 export interface FishDocumentSymbol extends DocumentSymbol {
     markupContent: MarkupContent;
@@ -128,6 +129,64 @@ export function DocumentDefSymbol (opts?: {}) {
         createVar: (node: SyntaxNode) => createVar(node),
     }
 }
+
+
+// @TODO: implement const {  enclosingText, enclosingNode, encolsingType } 
+//        = DefinitionSyntaxNode.getEnclosingScope(parentNode);
+export function GlobalWorkspaceSymbol (opts?: {}) {
+    const createFunc = (node: SyntaxNode, uri: string) => {
+        const identifier = node.firstNamedChild || node.firstChild || node;
+        const path = uriToPath(uri)
+        const commentRange = CommentRange.create(identifier);
+        return {
+            ...WorkspaceSymbol.create(
+                identifier?.text || '',
+                SymbolKind.Function,
+                uri,
+                //getRange(node), // as per the docs, range should include comments
+                getRange(identifier),
+            ),
+            data: {
+                documentation: [
+                    `\*(function)* \**${identifier?.text}**`,
+                        'defined in file: ' + path,
+                    '___',
+                    commentRange.markdown()
+                ].join('\n'),
+            }
+        };
+    }
+    const createVar = (node: SyntaxNode, uri: string) => {
+        const parentNode = node.parent || node
+        const commentRange = CommentRange.create(node)
+        const path = uriToPath(uri)
+        const withCommentText = isFunctionDefinition(parentNode) ? parentNode.text.toString() : commentRange.text()
+        return  {
+            ...WorkspaceSymbol.create(
+                node.text,
+                SymbolKind.Variable,
+                uri,
+                getRange(node),
+            ),
+            data: {
+                documentation: [ 
+                        `\*(variable)* \**${node.text}**`,
+                        'defined in file: ' + path,
+                        "___",
+                        "```fish",
+                        `${withCommentText.trim()}`,
+                        "```",
+                    ].join("\n"),
+            }
+        }
+    }
+    return {
+        createFunc: (node: SyntaxNode, uri: string) => createFunc(node, uri),
+        createVar: (node: SyntaxNode, uri: string) => createVar(node, uri),
+    }
+}
+
+
 
 /**
  * CommentRange is used to collect the range of a Symbol and its preceding comments.

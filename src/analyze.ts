@@ -1,33 +1,66 @@
-import { CompletionItem, Connection, Diagnostic, DocumentUri, Hover, Location, Position, PublishDiagnosticsParams, RemoteConsole, TextDocumentPositionParams, } from "vscode-languageserver";
-import { TextDocument } from "vscode-languageserver-textdocument";
-import Parser, { SyntaxNode, Point, Range, Tree } from "web-tree-sitter";
+import { Position, PublishDiagnosticsParams, WorkspaceSymbol, } from "vscode-languageserver";
+import Parser, { SyntaxNode, Range, Tree } from "web-tree-sitter";
 import * as LSP from 'vscode-languageserver';
 //import {collectFishSymbols, FishSymbol} from './symbols';
-import {containsRange, getDefinitionSymbols} from './workspace-symbol'
-import {SymbolKind} from 'vscode-languageserver';
-import {findEnclosingScope, findNodeAt, getChildNodes, getRange} from './utils/tree-sitter';
+import {containsRange} from './workspace-symbol'
+import {findFirstParent, getChildNodes, getRange} from './utils/tree-sitter';
 import {LspDocument} from './document';
-import {isCommand, isCommandName, isDefinition, isVariable} from './utils/node-types';
+import {isCommandName, isDefinition} from './utils/node-types';
 import {DiagnosticQueue} from './diagnostics/queue';
-import {toLspDocument, uriToPath} from './utils/translation';
-import {collectDiagnosticsRecursive, /* getDiagnostics */} from './diagnostics/validate';
+import {pathToRelativeFunctionName, toLspDocument, uriInUserFunctions, uriToPath} from './utils/translation';
 import { DocumentationCache } from './utils/documentationCache';
 import { DocumentSymbol } from 'vscode-languageserver';
-import { toSymbolKind } from './symbols';
-import { execOpenFile } from './utils/exec';
+import { GlobalWorkspaceSymbol } from './symbols';
+import fs from 'fs'
+import { homedir } from 'os';
+import * as fastGlob from 'fast-glob'
 
 type SourceCommand = {
     name: string,
     uri: string,
-    range: Range
 }
+
+type Definition = { [name: string] : WorkspaceSymbol[] }
 
 type uriToAnalyzedDocument = {
     document: LspDocument,
-    globalDefinitions: DocumentSymbol[],
-    sourcedUris: Set<string>
-    sourceCommands: SourceCommand[]
+    globalDefinitions: Definition,
+    //sourcedUris: Set<string>
+    sourcedUris: SourceCommand[]
     tree: Parser.Tree
+}
+
+export async function getFilePaths({
+  rootPath,
+  maxItems,
+}: {
+  rootPath: string
+  maxItems: number
+}): Promise<string[]> {
+    const stream = fastGlob.stream(['**.fish'], {
+        absolute: true,
+        onlyFiles: true,
+        cwd: rootPath,
+        followSymbolicLinks: true,
+        suppressErrors: true,
+    })
+
+    // NOTE: we use a stream here to not block the event loop
+    // and ensure that we stop reading files if the glob returns
+    // too many files.
+    const files: string[] = []
+    let i = 0
+    for await (const fileEntry of stream) {
+        if (i >= maxItems) {
+            // NOTE: Close the stream to stop reading files paths.
+            stream.emit('close')
+            break
+        }
+
+        files.push(fileEntry.toString())
+        i++
+    }
+    return files
 }
 
 
@@ -39,14 +72,20 @@ export class Analyzer {
     protected uriTree: { [uri: string]: Tree };
     private diagnosticQueue: DiagnosticQueue = new DiagnosticQueue();
     protected uriToTreeMap: Map<string, Tree> = new Map();
+    public uriToAnalyzedDocument: {[uri: string]: uriToAnalyzedDocument} = {}
+
+    public allUris: string[] = [];
+    public lookupUriMap: Map<string, string> = new Map();
 
     private uriToSymbols: { [uri: string]: DocumentSymbol[]} = {};
     private globalSymbolsCache: DocumentationCache;
 
-    constructor(parser: Parser, globalSymbolsCache: DocumentationCache) {
+    constructor(parser: Parser, globalSymbolsCache: DocumentationCache, allUris: string[]) {
         this.parser = parser;
         this.uriTree = {};
         this.globalSymbolsCache = globalSymbolsCache;
+        this.allUris = allUris;
+        this.lookupUriMap = createLookupUriMap(allUris);
     }
 
     public analyze(document: LspDocument) {
@@ -55,6 +94,14 @@ export class Analyzer {
         const tree = this.parser.parse(document.getText());
         //this.uriTree[uri] = tree
         this.uriToTreeMap.set(document.uri, tree)
+        const globalDefinitions = collectScopes(tree.rootNode, uri)
+        const sourcedUris = uniqueCommands(tree.rootNode, this.lookupUriMap)
+        this.uriToAnalyzedDocument[uri] = {
+            document,
+            globalDefinitions,
+            sourcedUris,
+            tree
+        }
         //if (!uri) return;
         //if (!tree?.rootNode) return;
         //this.uriToSymbols[uri] = getDefinitionSymbols(this.uriTree[uri].rootNode)
@@ -65,75 +112,41 @@ export class Analyzer {
         //return this.uriToSymbols[uri]
     }
 
+    public async initiateBackgroundAnalysis({
+        backgroundAnalysisMaxFiles
+    }:{
+        backgroundAnalysisMaxFiles: number
+    }) : Promise<{ filesParsed: number }> {
+        let amount = 0;
+        for (const filePath of this.allUris) {
+            if (amount >= backgroundAnalysisMaxFiles) break;
+            try {
+                const fileContent = await fs.promises.readFile(filePath, 'utf8')
+                const document = toLspDocument(filePath, fileContent);
+                this.analyze(document);
+                amount++;
+            } catch (err) {
+                console.error(err)
+            }
+        }
+        return { filesParsed: amount };
+    }
+
+    public getAllWorkspaceSymbols() {
+        const symbols: WorkspaceSymbol[] = []
+        for (const [key, value] of Object.entries(this.uriToAnalyzedDocument)) {
+            const { globalDefinitions } = this.uriToAnalyzedDocument[key]
+            Object.values(globalDefinitions).forEach((def) => {
+                symbols.push(...def)
+            })
+        }
+        return symbols
+    }
+
+
+
     get(document: LspDocument) {
         return this.uriToTreeMap.get(document.uri)
-    }
-
-    public async getDocumentation(document: LspDocument, node: SyntaxNode) {
-        const localSymbols = this.uriToSymbols[document.uri].filter((symbol) => {
-            return symbol.name === node.text
-        });
-        if (localSymbols.length > 0) {
-            return localSymbols[0].detail
-        }
-        if (!localSymbols) {
-            const documentation = await this.globalSymbolsCache.resolve(node.text);
-            if (documentation) {
-                return documentation.docs;
-            }
-        }
-        return null;
-    }
-
-    public getRefrences(document: LspDocument, node: SyntaxNode): Location[] {
-        const references: Location[] = [];
-        const parent = findEnclosingScope(node)
-        const childNodes = getChildNodes(parent);
-        childNodes.forEach((child) => {
-            if (child.text === node.text) {
-                references.push({
-                    uri: document.uri,
-                    range: getRange(child),
-                });
-            };
-        });
-        return references;
-    }
-
-    protected getLocalDefinitionSymbols(document: LspDocument,node: SyntaxNode, symbols: DocumentSymbol[]): DocumentSymbol[] {
-        if (this.hasLocalSymbol(document, node)) {
-            let localSymbol: DocumentSymbol[];
-            if (!isVariable(node)) {
-                localSymbol = scopedFunctionDefinitionSymbols(symbols, node)
-            } else {
-                localSymbol = scopedVariableDefinitionSymbols(symbols, node) || []
-            }
-            if (localSymbol) {
-                return localSymbol
-            }
-        }
-        return []
-    }
-
-    public async getDefinition(document: LspDocument, node: SyntaxNode): Promise<DocumentSymbol[]> {
-        if (this.hasLocalSymbol(document, node)) {
-            return this.getLocalDefinitionSymbols(document, node, this.uriToSymbols[document.uri] )
-        }
-        await this.globalSymbolsCache.resolve(node.text)
-        const globalSymbol = this.globalSymbolsCache.getItem(node.text)
-        if (!globalSymbol?.uri) return []
-        const fileText = await execOpenFile(globalSymbol.uri)
-        const newDoc = toLspDocument(globalSymbol.uri, fileText)
-        if (!newDoc) return []
-        this.analyze(newDoc)
-        return this.getLocalDefinitionSymbols(newDoc, node, this.uriToSymbols[globalSymbol.uri])
-    }
-
-    public hasLocalSymbol(docuemnt: LspDocument, node: SyntaxNode): boolean {
-        const symbols = this.uriToSymbols[docuemnt.uri]
-        return symbols.some((symbol: DocumentSymbol) => {
-            return symbol.name === node.text
-        }) || false;
     }
 
     /**
@@ -188,52 +201,6 @@ export class Analyzer {
         return root?.descendantForPosition({ row: line, column }) || null
     }
 
-    public namedNodeAtPoint(
-        document: LspDocument,
-        line: number,
-        column: number
-    ): Parser.SyntaxNode | null {
-        return this.get(document)?.rootNode.namedDescendantForPosition({ row: line, column }) || null;
-    }
-
-    public wordAtPoint(
-        document: LspDocument,
-        line: number,
-        column: number
-    ): string | null {
-        const node = this.nodeAtPoint(document, line, column);
-        if (!node || node.childCount > 0 || node.text.trim() === "")
-            return null;
-
-        return node.text.trim();
-    }
-
-    public commandAtPoint(
-        document: LspDocument,
-        line: number,
-        column: number
-    ): SyntaxNode | null {
-        const tree = this.uriToTreeMap.get(document.uri);
-        if (tree === undefined) return null;
-        const node = findNodeAt(tree, line, column);
-        const parent = node?.parent;
-        if (parent) {
-            if (isCommand(parent)) {
-                return parent;
-            }
-            if (isCommandName(parent)) {
-                return parent.parent!;
-            }
-        } else if (node) {
-            if (isCommand(node)) {
-                return node;
-            } else if (isCommandName(node)) {
-                return node.parent;
-            }
-        }
-        return null;
-    }
-
     /**
      * Returns an object to be deconstructed, for the onComplete function in the server.
      * This function is necessary because the normal onComplete parse of the LspDocument
@@ -282,39 +249,193 @@ export class Analyzer {
             containsRange(range, getRange(node))
         );
     }
+
 }
 
-
-function scopedFunctionDefinitionSymbols(allSymbols: DocumentSymbol[], node: SyntaxNode) : DocumentSymbol[] {
-    const symbolStack : DocumentSymbol[] = [...allSymbols];
-    let currentSymbol: DocumentSymbol | undefined;
-    while (symbolStack.length > 0) {
-        currentSymbol = symbolStack.shift();
-        if (!currentSymbol) break;
-        if (currentSymbol.kind === SymbolKind.Function && currentSymbol.name === node.text) {
-            return [currentSymbol];
-        }
-        if (currentSymbol?.children) {
-            symbolStack.unshift(...currentSymbol?.children);
-        }
+ export async function getAllPaths() {
+    const paths = [
+        `${homedir}/.config/fish`,
+        `/usr/share/fish/functions`,
+    ]
+    const allPaths: string[] = [];
+    for (const path of paths) {
+        const newPaths = await getFilePaths({rootPath: path , maxItems: 10000});
+        allPaths.push(...newPaths)
     }
-    return [];
+    return allPaths;
 }
 
-function scopedVariableDefinitionSymbols(allSymbols: DocumentSymbol[], node: SyntaxNode) : DocumentSymbol[] {
-    const symbolStack : DocumentSymbol[] = [...allSymbols];
-    let currentSymbol: DocumentSymbol | undefined;
-    while (symbolStack.length > 0) {
-        currentSymbol = symbolStack.shift();
-        if (!currentSymbol) break;
-        if (currentSymbol.kind === SymbolKind.Function) {
-            if ( currentSymbol.children && containsRange(currentSymbol.range, getRange(node))) {
-                symbolStack.unshift(...currentSymbol?.children);
+
+function createLookupUriMap(uris: string[]): Map<string, string> {
+    const lookupUris = new Map<string, string>()
+    uris.forEach(fullUri => {
+        lookupUris.set(
+            fullUri.slice(
+                fullUri.lastIndexOf("/") + 1,
+                fullUri.lastIndexOf(".fish")
+            ),
+            fullUri
+        );
+    })
+    return lookupUris
+}
+
+function uniqueCommands(root: SyntaxNode, uris: Map<string, string>): SourceCommand[] {
+    const result: SourceCommand[] = []
+    const commands = getChildNodes(root).filter(n => isCommandName(n)).map(n => n.text)
+    const uniqueCommands = new Set(commands)
+    uniqueCommands.forEach(cmd => {
+        if (uris.has(cmd)) {
+            const command: SourceCommand = {
+                name: cmd,
+                uri: uris.get(cmd)!,
             }
-        } else if (currentSymbol.name === node.text) {
-            return [currentSymbol];
+            result.push(command)
+        }
+    })
+    return result
+}
+
+const checkUriIsAutoloaded = (uri: string) => {
+    const paths = [
+        `${homedir}/.config/fish/functions`,
+        `${homedir}/.config/fish/config.fish`,
+        `/usr/share/fish/functions`,
+    ]
+    if (uri.startsWith('file://')) {
+        const path = uriToPath(uri)!
+        return paths.some(p => p.startsWith(path))
+    }
+    //return
+    return paths.some(p => uri.startsWith(p))
+    
+}
+
+function collectScopes(root: SyntaxNode, uri: string): Definition {
+    const isAutoloaded = checkUriIsAutoloaded(uri)
+    const functionName = pathToRelativeFunctionName(uri)
+    const result : Definition = {};
+    const definitionNodes = getChildNodes(root).filter(n => isDefinition(n))
+    for (const node of definitionNodes) {
+        const scope = DefinitionSyntaxNode.getScope(node)
+        if (node.text === "argv" || node.text === "$argv") continue;
+        if (scope === "global" && isAutoloaded) {
+            const symbol = GlobalWorkspaceSymbol().createVar(node, uri);
+            if (!result[symbol.name]) result[symbol.name] = []
+            result[symbol.name].push(symbol)
+        } else if (scope === "function" && [functionName, "config"].includes(node.text)) {
+            const symbol = GlobalWorkspaceSymbol().createFunc(node, uri)
+            if (!result[symbol.name]) result[symbol.name] = []
+            result[symbol.name].push(symbol)
+        //} else if (scope === "function" && "config" === functionName && isAutoloaded) {
+            //const symbol = GlobalWorkspaceSymbol().createFunc(node, uri)
+            //if (!result[symbol.name]) result[symbol.name] = []
+            //result[symbol.name].push(symbol)
         }
     }
-    return [];
+    return result;
 }
+
+export namespace DefinitionSyntaxNode {
+    export const ScopeTypesSet = new Set(["global", "function", "local", "block"]);
+    export type ScopeTypes = "global" | "function" | "local" | "block";
+    export type VariableCommandNames = "set" | "read" | "for" | "function" // FlagsMap.keys()
+    export interface CommandOption {
+        short: string[]
+        long: string[]
+        isDefault: boolean
+    }
+    export class CommandOption {
+        constructor(short: string[], long: string[], isDefault: boolean) {
+            this.short = short;
+            this.long = long;
+            this.isDefault = isDefault;
+        }
+        has(option: string): boolean {
+            if (option.startsWith('--')) {
+                const withoutDash = option.slice(2);
+                return this.long.includes(withoutDash);
+            } else if (option.startsWith('-')) {
+                const withoutDash = option.slice(1);
+                return this.short.some(opt => withoutDash.split('').includes(opt));
+            } else {
+                return false;
+            }
+        }
+        toString() {
+            return '[' + this.short.map(s => '-'+s).join(', ') + ', ' + this.long.map(l => '--'+l).join(', ') + ']';
+            //return returnString;
+        }
+    }
+    const createFlags = (flags: string[], isDefault: boolean = false): CommandOption => {
+        return new CommandOption(
+            flags.filter((flag) => flag.startsWith("-") && flag.length === 2).map((flag) => flag.slice(1)),
+            flags.filter((flag) => flag.startsWith("--")).map((flag) => flag.slice(2)), 
+            isDefault
+        );
+    }
+    const _Map = {
+        read: {
+            global:   createFlags(["-g", '--global'])      ,
+            local:    createFlags(["-l", "--local"], true) ,
+            function: createFlags(["-f", "--function"])    ,
+        },
+        set: {
+            global:   createFlags(["-g", '--global'])      ,
+            local:    createFlags(["-l", "--local"], true) ,
+            function: createFlags(["-f", "--function"])    ,
+        },
+        for: {
+            block: createFlags([]) 
+        },
+        function: { 
+            function: createFlags(["-A", "--argument-names", "-v", "--on-variable"], true)   ,
+            global:   createFlags(["-V", "--inherit-variable", '-S', '--no-scope-shadowing']),
+        },
+    }
+    /**
+     * Map containing the flags, for a command
+     * {
+     *     "read": => Map(3) {
+     *           "global" => Set(2) { "-g", "--global" },
+     *           "local" => Set(2) { "-l", "--local" },
+     *           "function" => Set(2) { "-f", "--function" }
+     *     }
+     *     ...
+     * }
+     * Usage:
+     * FlagsMap.keys()                    => Set(4) { "read", "set", "for", "function }
+     * FlagsMap.get("read").get("global") => Set(2) { "-g", "--global" }
+     * FlagsMap.get("read").get("global").has("-g") => true
+     */
+    export const FlagsMap = new Map(Object.entries(_Map).map(([command, scopes]) => {
+        return [command, new Map(Object.entries(scopes).map(([scope, flags]) => {
+            return [scope, flags];
+        }))];
+    }));
+
+    function collectFlags(cmdNode: SyntaxNode): string[] {
+        return cmdNode.children
+            .filter((n) => n.text.startsWith("-"))
+            .map((n) => n.text);
+    }
+
+    export const getScope = (definitionNode: SyntaxNode) => {
+        if (!isDefinition(definitionNode)) return null;
+        const command = findFirstParent(definitionNode, isCommandName) || definitionNode.parent;
+        const commandName = command?.firstChild?.text || "";
+        if (!command || !commandName) return
+        const currentFlags = collectFlags(command)
+        let saveScope : string = 'local';
+        for (const [scope, scopeFlags] of FlagsMap.get(commandName)!.entries()) {
+            if (currentFlags.some(flag => scopeFlags.has(flag))) {
+                return scope
+            } else if (scopeFlags.isDefault) {
+                saveScope = scope
+            }
+        }
+        return saveScope
+    }
+}
+
 

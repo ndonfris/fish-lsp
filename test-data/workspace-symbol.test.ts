@@ -6,7 +6,7 @@ import Parser, { SyntaxNode } from "web-tree-sitter";
 import { initializeParser } from "../src/parser";
 import { LspDocument } from "../src/document";
 import {findFirstParent, getChildNodes } from "../src/utils/tree-sitter";
-import { Analyzer } from "../src/analyze";
+import { Analyzer, getAllPaths } from "../src/analyze";
 import { isFunctionDefinition,isDefinition,isVariableDefinition,isScope, findParentCommand, isForLoop, isVariable, isCommand, isCommandName,} from "../src/utils/node-types";
 import { CommentRange, DocumentDefSymbol, symbolKindToString } from "../src/symbols";
 import { DocumentationCache, initializeDocumentationCache } from "../src/utils/documentationCache";
@@ -35,7 +35,8 @@ const jestConsole = console;
 beforeAll(async () => {
     parser = await initializeParser();
     documentationCache = await initializeDocumentationCache();
-    analyzer = new Analyzer(parser, documentationCache);
+    const allPaths = await getAllPaths()
+    analyzer = new Analyzer(parser, documentationCache, allPaths);
     symbols = [];
 })
 beforeEach(async () => {
@@ -112,55 +113,60 @@ describe("workspace-symbols tests", () => {
     //    })
     //})
 
-    it('getRefrences for a documentSymbol', async () => {
-        const doc = resolveLspDocumentForHelperTestFile("./fish_files/advanced/inner_functions.fish"); 
-        const root = parser.parse(doc.getText()).rootNode                                              
-        //const normal_1 = root.descendantForPosition({row: 13, column: 15})
-        const normal_1 = root.descendantForPosition({row: 19, column: 16})                               
-        const for_1 = root.descendantForPosition({row: 22, column: 15})                               
-        const tree = DocumentSymbolTree(root);
-        const defNode = tree.findDef(normal_1)
-        const forNode = tree.findDef(for_1)
-        logSyntaxNodeArray(tree.findRefs(normal_1))
-        logSyntaxNodeArray(tree.findRefs(for_1))
-    })
+    //it('getRefrences for a documentSymbol', async () => {
+    //    const doc = resolveLspDocumentForHelperTestFile("./fish_files/advanced/inner_functions.fish"); 
+    //    const root = parser.parse(doc.getText()).rootNode                                              
+    //    //const normal_1 = root.descendantForPosition({row: 13, column: 15})
+    //    const normal_1 = root.descendantForPosition({row: 19, column: 16})                               
+    //    const for_1 = root.descendantForPosition({row: 22, column: 15})                               
+    //    const tree = DocumentSymbolTree(root);
+    //    const defNode = tree.findDef(normal_1)
+    //    const forNode = tree.findDef(for_1)
+    //    logSyntaxNodeArray(tree.findRefs(normal_1))
+    //    logSyntaxNodeArray(tree.findRefs(for_1))
+    //})
 
-    it('getRefrences for config.fish', async () => {
-        const doc = resolveLspDocumentForHelperTestFile(`${homedir}/.config/fish/config.fish`); 
-        //const parser = await initializeParser();
-        //const analyzer = new Analyzer(parser, documentationCache);
-        //const normal_1 = root.descendantForPosition({row: 13, column: 15})
-        //const tree = DocumentSymbolTree().last();
-        console.log(JSON.stringify(doc, null, 2));
-        analyzer.analyze(doc);
-        const root = analyzer.getRootNode(doc)
-        const posis = analyzer.parsePosition(doc, Position.create(0, 0));
-        //console.log(`${posis.root?.toString()}`);
-        //console.log(`'${posis.currentNode?.text}'`);
-        if (!root) return
-        for (const node of getChildNodes(root).filter(isDefinition)) {
-            const scope = DefinitionSyntaxNode.getScope(node)
-            console.log(`scope: ${scope} node: ${node.text}`);
-        }
-        console.log();
-        console.log();
-        console.log();
-        for (const scopeNode of collectScopes(root, doc.uri)) {
-            console.log(`scope: ${scopeNode.text}`);
-        }
-    })
+    //it('getRefrences for config.fish', async () => {
+        //const doc = resolveLspDocumentForHelperTestFile(`${homedir}/.config/fish/config.fish`);
+        ////const parser = await initializeParser();
+        ////const analyzer = new Analyzer(parser, documentationCache);
+        ////const normal_1 = root.descendantForPosition({row: 13, column: 15})
+        ////const tree = DocumentSymbolTree().last();
+        //console.log(JSON.stringify(doc, null, 2));
+        //analyzer.analyze(doc);
+        //const root = analyzer.getRootNode(doc)
+        //const posis = analyzer.parsePosition(doc, Position.create(0, 0));
+        ////console.log(`${posis.root?.toString()}`);
+        ////console.log(`'${posis.currentNode?.text}'`);
+        //if (!root) return
+        //for (const node of getChildNodes(root).filter(isDefinition)) {
+            //const scope = DefinitionSyntaxNode.getScope(node)
+            //console.log(`scope: ${scope} node: ${node.text}`);
+        //}
+        //console.log();
+        //console.log();
+        //console.log();
+        //for (const scopeNode of collectScopes(root, doc.uri)) {
+            //console.log(`scope: ${scopeNode.text}`);
+        //}
+    //})
 
     it('testing generating WorkspaceSymbols', async () => {
         console.log();
-        await readAll(analyzer)
-        console.log();
+        //await readAll(analyzer)
+        const amount = await analyzer.initiateBackgroundAnalysis({backgroundAnalysisMaxFiles: 1000})
+        console.log(amount);
+        for (const [k, v] of analyzer.lookupUriMap.entries()) {
+            console.log(`${k} ${v}`);
+        }
+
         //console.log(process.env);
     })
 });
 
+
 export async function readAll(analyzer: Analyzer) {
-    const allPaths = await getFilePaths({maxItems: 10000});
-    for (const filePath of allPaths) {
+    for (const filePath of analyzer.allUris) {
         try {
             const fileContent = await fs.promises.readFile(filePath, 'utf8')
             console.log('------------------------------------------------------------------------');
@@ -176,44 +182,6 @@ export async function readAll(analyzer: Analyzer) {
 }
 
 
-export async function getFilePaths({
-  //globPattern,
-  //rootPath,
-  maxItems,
-}: {
-  //globPattern: string
-  //rootPath: string
-  maxItems: number
-}): Promise<string[]> {
-    //const rootPath = uriToPath(rootPath)
-    //const paths = await execEscapedCommand('echo $fish_function_path | string split " "')
-    //const results: string[] = [];
-    const stream = fastGlob.stream(['**.fish'], {
-        absolute: true,
-        onlyFiles: true,
-        cwd: `${homedir}/.config/fish`,
-        followSymbolicLinks: true,
-        suppressErrors: true,
-    })
-
-    // NOTE: we use a stream here to not block the event loop
-    // and ensure that we stop reading files if the glob returns
-    // too many files.
-    const files: string[] = []
-    let i = 0
-    for await (const fileEntry of stream) {
-        if (i >= maxItems) {
-            // NOTE: Close the stream to stop reading files paths.
-            stream.emit('close')
-            break
-        }
-
-        files.push(fileEntry.toString())
-        i++
-    }
-    return files
-}
-
 const checkUriIsAutoloaded = (uri: string) => {
     const paths = [
         `${homedir}/.config/fish/functions`,
@@ -222,26 +190,6 @@ const checkUriIsAutoloaded = (uri: string) => {
     ]
     return paths.includes(uri)
 }
-
-function collectScopes(root: SyntaxNode, uri: string): SyntaxNode[] {
-    const isAutoloaded = checkUriIsAutoloaded(uri)
-    const functionName = pathToRelativeFunctionName(uri)
-    const scopes: SyntaxNode[] = [];
-    const definitionNodes = getChildNodes(root).filter(isDefinition)
-    for (const node of definitionNodes) {
-        const scope = DefinitionSyntaxNode.getScope(node)
-        if (scope === "global") {
-            scopes.push(node)
-        } else if (scope === "function" && node.text === functionName && isAutoloaded) {
-            scopes.push(node)
-        } else if (scope === "function" && "config" === functionName && isAutoloaded) {
-            scopes.push(node)
-        }
-    }
-    return scopes;
-}
-
-
 
 
 // small helper to print out the client tree like the editor would tree
@@ -265,6 +213,23 @@ function logSyntaxNodeArray(nodes: SyntaxNode[]) {
 
 //function checkDefinitionScope()
 
+function collectScopes(root: SyntaxNode, uri: string): SyntaxNode[] {
+    const isAutoloaded = checkUriIsAutoloaded(uri)
+    const functionName = pathToRelativeFunctionName(uri)
+    const scopes: SyntaxNode[] = [];
+    const definitionNodes = getChildNodes(root).filter(isDefinition)
+    for (const node of definitionNodes) {
+        const scope = DefinitionSyntaxNode.getScope(node)
+        if (scope === "global") {
+            scopes.push(node)
+        } else if (scope === "function" && node.text === functionName && isAutoloaded) {
+            scopes.push(node)
+        } else if (scope === "function" && "config" === functionName && isAutoloaded) {
+            scopes.push(node)
+        }
+    }
+    return scopes;
+}
 
 
 // @TODO: Finish and test
