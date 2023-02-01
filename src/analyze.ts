@@ -144,7 +144,6 @@ export class Analyzer {
     }
 
 
-
     get(document: LspDocument) {
         return this.uriToTreeMap.get(document.uri)
     }
@@ -304,7 +303,7 @@ const checkUriIsAutoloaded = (uri: string) => {
     ]
     if (uri.startsWith('file://')) {
         const path = uriToPath(uri)!
-        return paths.some(p => p.startsWith(path))
+        return paths.some(p => path.startsWith(p))
     }
     //return
     return paths.some(p => uri.startsWith(p))
