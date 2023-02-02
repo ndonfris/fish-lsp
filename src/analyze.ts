@@ -2,122 +2,35 @@ import { Position, PublishDiagnosticsParams, SymbolInformation, SymbolKind, Work
 import Parser, { SyntaxNode, Range, Tree } from "web-tree-sitter";
 import * as LSP from 'vscode-languageserver';
 //import {collectFishSymbols, FishSymbol} from './symbols';
-import {containsRange} from './workspace-symbol'
-import {findFirstParent, getChildNodes, getRange} from './utils/tree-sitter';
-import {LspDocument} from './document';
-import {isCommandName, isDefinition, isFunctionDefinition, isFunctionDefinitionName, isVariableDefinition} from './utils/node-types';
-import {DiagnosticQueue} from './diagnostics/queue';
+import { containsRange } from './workspace-symbol'
+import { findFirstParent , getChildNodes, getRange} from './utils/tree-sitter';
+import { LspDocument } from './document';
+import { isCommandName, isDefinition, isFunctionDefinition, isFunctionDefinitionName, isVariableDefinition} from './utils/node-types';
+import { DiagnosticQueue } from './diagnostics/queue';
 import {pathToRelativeFunctionName, toLspDocument, uriInUserFunctions, uriToPath} from './utils/translation';
 import { DocumentationCache } from './utils/documentationCache';
 import { DocumentSymbol } from 'vscode-languageserver';
 import { GlobalWorkspaceSymbol } from './symbols';
 import fs from 'fs'
-import { homedir } from 'os';
-import * as fastGlob from 'fast-glob'
+//import { homedir } from 'os';
+//import * as fastGlob from 'fast-glob'
 import { DocumentSymbolTree, SymbolTree } from './symbolTree';
+import { FishWorkspaces, Workspace } from './utils/workspace';
 
 type SourceCommand = {
     name: string,
     uri: string,
 }
-
 type GlobalDefinition = { [name: string] : WorkspaceSymbol[] }
-
 type uriToAnalyzedDocument = {
     document: LspDocument,
     documentSymbols: SymbolTree,
-    //sourcedUris: Set<string>
     sourcedUris: SourceCommand[]
     tree: Parser.Tree
 }
 
-export async function getFilePaths({
-  rootPath,
-  maxItems,
-}: {
-  rootPath: string
-  maxItems: number
-}): Promise<string[]> {
-    const stream = fastGlob.stream(['**.fish'], {
-        absolute: true,
-        onlyFiles: true,
-        globstar: true,
-        cwd: rootPath,
-        deep: 1,
-        followSymbolicLinks: false,
-        suppressErrors: true,
-    })
-
-    // NOTE: we use a stream here to not block the event loop
-    // and ensure that we stop reading files if the glob returns
-    // too many files.
-    const files: string[] = []
-    let i = 0
-    for await (const fileEntry of stream) {
-        if (i >= maxItems) {
-            // NOTE: Close the stream to stop reading files paths.
-            stream.emit('close')
-            break
-        }
-
-        files.push(fileEntry.toString())
-        i++
-    }
-    return files
-}
-
-export class Workspace {
-
-    public path: string ;
-    public autoloaded: boolean;
-    public files: Set<string> = new Set();
-
-    constructor(name: string, autoloaded: boolean = false) {
-        this.path = name;
-        this.autoloaded = autoloaded;
-        this.setFiles();
-    }
-
-    private setFiles() {
-        const files = fastGlob.sync('*.fish', {
-            cwd: this.path,
-            absolute: true,
-            onlyFiles: true,
-            globstar: true,
-            deep: 1,
-            unique: true,
-            followSymbolicLinks: false,
-            suppressErrors: true,
-        })
-        for (const file of files) {
-            this.files.add(file)
-        }
-    }
-
-    contains(uri: string) {
-        //const uriPath = uri.startsWith('file://') ? uriToPath(uri) || uri : uri;
-        return this.files.has(uri)
-    }
-
-    hasFunction(uri: string) {
-        if (uri.endsWith('config.fish')) return true
-        return this.contains(uri) && uri.includes('/functions/')
-    }
-
-    hasCompletion(uri: string) {
-        return this.contains(uri) && uri.includes('/completions/')
-    }
-
-    // don't care about completions
-    isAutoloadedSymbol(uri: string) {
-        return this.autoloaded ? this.hasFunction(uri) : false
-    }
-}
-
 export class Analyzer {
-
     protected parser: Parser;
-
     // maps the uri of document to the parser.parse(document.getText())
     protected uriTree: { [uri: string]: Tree };
     private diagnosticQueue: DiagnosticQueue = new DiagnosticQueue();
@@ -127,20 +40,19 @@ export class Analyzer {
 
     public allUris: string[] = [];
     public lookupUriMap: Map<string, string> = new Map();
-    public static workspaces: Workspace[] = [
-        new Workspace(`${homedir()}/.config/fish`, true),
-        new Workspace(`/usr/share/fish`, true),
-    ];
+    public workspaces: FishWorkspaces;
 
     private uriToSymbols: { [uri: string]: DocumentSymbol[]} = {};
     private globalSymbolsCache: DocumentationCache;
 
-    constructor(parser: Parser, globalSymbolsCache: DocumentationCache, allUris: string[]) {
+    constructor(parser: Parser, globalSymbolsCache: DocumentationCache, workspaces: FishWorkspaces) {
         this.parser = parser;
+        this.workspaces = workspaces;
         this.uriTree = {};
         this.globalSymbolsCache = globalSymbolsCache;
-        this.allUris = allUris;
-        this.lookupUriMap = createLookupUriMap(allUris);
+        //this.allUris = allUris;
+        this.allUris = FishWorkspaces.getAllFilePaths();
+        this.lookupUriMap = createLookupUriMap(this.allUris);
     }
 
     public analyze(document: LspDocument) {
@@ -179,52 +91,62 @@ export class Analyzer {
         return { filesParsed: amount };
     }
 
+    public getWorkspaceSymbols() {
+        const results: WorkspaceSymbol[] = []
+        for (const [name, symbols] of this.workspaceSymbols) {
+            let toAdd: WorkspaceSymbol[] = []
+            for (const symbol of symbols) {
+                if (symbol.kind == SymbolKind.Function) {
+                    toAdd = []
+                    toAdd.push(symbol)
+                    break;
+                } else {
+                    toAdd.push(symbol)
+                }
+            }
+            results.push(...toAdd)
+        }
+        return results
+    }
+
     private setWorkspaceSymbols(root: SyntaxNode, uri: string) {
         const result: WorkspaceSymbol[] = []
         const definitionNodes = getChildNodes(root).filter(n => isDefinition(n))
-        const ws = Analyzer.workspaces.find(w => w.contains(uri))
         for (const node of definitionNodes) {
             const scope = DefinitionSyntaxNode.getScope(node, uri)
-            if (scope != 'global') continue;
+            if (scope !== 'global') continue;
             if (isVariableDefinition(node)) {
                 result.push(GlobalWorkspaceSymbol().createVar(node, uri))
             }
-            if (isFunctionDefinitionName(node) && ws?.isAutoloadedSymbol(uri)) {
+            if (isFunctionDefinitionName(node) && node.text === pathToRelativeFunctionName(uri)) {
                 result.push(GlobalWorkspaceSymbol().createFunc(node, uri))
             }
         }
-        result.forEach((symbol: WorkspaceSymbol) => {
-            const existing: WorkspaceSymbol[] = this.workspaceSymbols.get(symbol.name) || []
+        for (const symbol of result) {
+            const existing: WorkspaceSymbol[] = this.workspaceSymbols.get(symbol.name) ?? [];
             const count = existing.filter(s => symbol.location.uri === s.location.uri).length
             if (count === 0) {
                 existing.push(symbol)
+            } else if (existing.length === 0) {
+                existing.push(symbol)
             }
             this.workspaceSymbols.set(symbol.name, existing)
-        })
+        }
         return result
-    }
-
-    public static setWorkspaces(dirs: string[]) {
-        dirs.forEach(dir => {
-            Analyzer.workspaces.push(new Workspace(dir))
-        })
-    }
-
-    public static getWorkspaces() {
-        return Analyzer.workspaces;
-    }
-    
-    public static getContainingWorkspace(uri: string) {
-        return Analyzer.workspaces.find(w => w.contains(uri))
     }
 
     public static autoloadedInWorkspace(symbol: WorkspaceSymbol) {
         const uri = symbol.location.uri;
+        const workspace: Workspace | undefined = FishWorkspaces.getWorkspace(uri);
+        if (!workspace) return false;
         switch (symbol.kind) {
             case SymbolKind.Function:
-                return Analyzer.workspaces.some(w => w.isAutoloadedSymbol(uri)) 
+                return workspace.isAutoloadedSymbol(uri);
+                //return workspace?.path === `${homedir()}/.config/fish`
+                //    || workspace?.functions.some(w => w.isAutoloadedSymbol(uri))
             case SymbolKind.Variable:
-                return Analyzer.getContainingWorkspace(uri)?.path === `${homedir()}/.config/fish`
+                return workspace.editable
+                //return Analyzer.getContainingWorkspace(uri)?.path === `${homedir()}/.config/fish`
             default:
                 return false
         }
@@ -337,31 +259,6 @@ export class Analyzer {
 
 }
 
-function equalWorkspaceSymbols(a: LSP.Location, b: LSP.Location) {
-    if (a.uri !== b.uri) {
-        return false
-    } 
-    if (a.range.start.line !== b.range.start.line || a.range.end.line !== b.range.end.line) {
-        return false
-    } 
-    if (a.range.start.character !== b.range.start.character || a.range.end.character !== b.range.end.character) {
-        return false
-    }
-    return true
-}
-
-
- export async function getAllPaths() {
-    const workspaces = Analyzer.getWorkspaces().map(w => w.path);
-    const allPaths: string[] = [];
-    for (const path of workspaces) {
-        const newPaths = await getFilePaths({rootPath: path, maxItems: 10000});
-        allPaths.push(...newPaths)
-    }
-    return allPaths;
-}
-
-
 function createLookupUriMap(uris: string[]): Map<string, string> {
     const lookupUris = new Map<string, string>()
     uris.forEach(fullUri => {
@@ -449,41 +346,22 @@ export namespace DefinitionSyntaxNode {
             global:   createFlags(["-V", "--inherit-variable", '-S', '--no-scope-shadowing']),
         },
     }
-    /**
-     * Map containing the flags, for a command
-     * {
-     *     "read": => Map(3) {
-     *           "global" => Set(2) { "-g", "--global" },
-     *           "local" => Set(2) { "-l", "--local" },
-     *           "function" => Set(2) { "-f", "--function" }
-     *     }
-     *     ...
-     * }
-     * Usage:
-     * FlagsMap.keys()                    => Set(4) { "read", "set", "for", "function }
-     * FlagsMap.get("read").get("global") => Set(2) { "-g", "--global" }
-     * FlagsMap.get("read").get("global").has("-g") => true
-     */
     export const FlagsMap = new Map(Object.entries(_Map).map(([command, scopes]) => {
         return [command, new Map(Object.entries(scopes).map(([scope, flags]) => {
             return [scope, flags];
         }))];
     }));
-
     function collectFlags(cmdNode: SyntaxNode): string[] {
         return cmdNode.children
             .filter((n) => n.text.startsWith("-"))
             .map((n) => n.text);
     }
-
     export const getScope = (definitionNode: SyntaxNode, uri: string) => {
         if (!isDefinition(definitionNode)) return null;
         if (definitionNode.text.startsWith("$") || definitionNode.text === "argv" || definitionNode.text.endsWith("]")) return 'local';
-        //const isAutoloaded = uriInUserFunctions(uri) || uri.endsWith("config.fish");
-        //const isAutoloaded =  || uri.endsWith("config.fish");
         if (isFunctionDefinitionName(definitionNode)) {
             const loadedName = pathToRelativeFunctionName(uri);
-            return loadedName.endsWith(definitionNode.text) || loadedName.endsWith('config') ? "global" : "local";
+            return loadedName === definitionNode.text || loadedName.endsWith('config') ? "global" : "local";
         }
         const command = findFirstParent(definitionNode, isCommandName) || definitionNode.parent;
         const commandName = command?.firstChild?.text || "";

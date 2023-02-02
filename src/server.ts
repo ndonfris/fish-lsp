@@ -1,6 +1,6 @@
 import Parser, {SyntaxNode} from "web-tree-sitter";
 import { initializeParser } from "./parser";
-import { Analyzer, getAllPaths } from "./analyze";
+import { Analyzer } from "./analyze";
 import { createCompletionList, } from "./completion";
 import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, ExecuteCommandParams, ServerRequestHandler, FoldingRangeParams, FoldingRange, Position, InlayHintParams, MarkupKind, SymbolInformation, WorkspaceSymbolParams, WorkspaceSymbol } from "vscode-languageserver";
 import * as LSP from 'vscode-languageserver';
@@ -28,6 +28,8 @@ import {FishShellInlayHintsProvider} from './features/inlay-hints';
 import { DocumentationCache, initializeDocumentationCache } from './utils/documentationCache';
 import { collectAllSymbolInformation, DocumentDefSymbol } from './symbols';
 import { DocumentSymbolTree } from './symbolTree';
+import { homedir } from 'os';
+import { FishWorkspaces, initializeFishWorkspaces } from './utils/workspace';
 
 // @TODO 
 export type SupportedFeatures = {
@@ -44,9 +46,10 @@ export default class FishServer {
         return await Promise.all([
             initializeParser(),
             initializeDocumentationCache(),
-            getAllPaths(),
-        ]).then(([parser, cache, allUris]) => {
-            const analyzer = new Analyzer(parser, cache, allUris);
+            initializeFishWorkspaces(),
+        ]).then(([parser, cache, workspaces]) => {
+            const analyzer = new Analyzer(parser, cache,  workspaces);
+            //workspaces.get(`${homedir()}/.config/fish`).
             return new FishServer(connection, params, parser, analyzer, documents, cache);
         })
     }
@@ -66,7 +69,7 @@ export default class FishServer {
     protected logger: Logger;
     protected features: SupportedFeatures;
 
-    constructor(connection: Connection, params: InitializeParams ,parser : Parser, analyzer: Analyzer, docs: LspDocuments, documentationCache: DocumentationCache ) {
+    constructor(connection: Connection, params: InitializeParams ,parser : Parser, analyzer: Analyzer, docs: LspDocuments, documentationCache: DocumentationCache) {
         this.connection = connection;
         this.initializeParams = params;
         this.parser = parser;
@@ -284,13 +287,9 @@ export default class FishServer {
      */
     async onCompletionResolve(item: CompletionItem): Promise<CompletionItem> {
         let newDoc: string | MarkupContent;
-        //this.logger.log(JSON.stringify({item: item}, null,2));
         const fishItem = item as FishCompletionItem
-        let typeCmdOutput = ''
-        let typeofDoc = ''
-        if (fishItem.data.localSymbol == true) {
-            return item;
-        }
+        if (fishItem.data.localSymbol == true) return item;
+        let [typeCmdOutput, typeofDoc] = ['', '']
         switch (fishItem.kind) {
             //item.documentation = enrichToCodeBlockMarkdown(fishItem.data?.originalCompletion, 'fish')
             case CompletionItemKind.Constant: 
@@ -345,11 +344,10 @@ export default class FishServer {
 
     async onWorkspaceSymbol(params: WorkspaceSymbolParams): Promise<WorkspaceSymbol[]> {
         this.logger.log('onWorkspaceSymbol: ' + params.query);
-        const workspaceSymbols = this.analyzer.workspaceSymbols
-        if (params.query && workspaceSymbols.has(params.query)) {
-            return this.analyzer.workspaceSymbols.get(params.query) || []
+        if (!!params.query && this.analyzer.workspaceSymbols.has(params.query)) {
+            return this.analyzer.workspaceSymbols.get(params.query) || this.analyzer.getWorkspaceSymbols()
         }
-        return []
+        return this.analyzer.getWorkspaceSymbols()
     }
 
     //async onWorkspaceSymbolResolve(params: WorkspaceSymbolParams): Promise<WorkspaceSymbol[]> {
