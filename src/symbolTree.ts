@@ -6,6 +6,8 @@ import { isForLoop, isFunctionDefinition, isScope, isVariable, isVariableDefinit
 import { findFirstParent, getChildNodes, getNodeAtRange, getRange, getRangeWithPrecedingComments } from './utils/tree-sitter';
 import { containsRange, getNodeFromSymbol, precedesRange } from './workspace-symbol';
 
+export type SymbolTree = ReturnType<typeof DocumentSymbolTree>;
+
 export function DocumentSymbolTree(root: SyntaxNode) {
     /**
      * all caches the result of toClientTree(), so that it can be accessed in any other function.

@@ -1,6 +1,6 @@
 import fs from 'fs'
 import { resolveLspDocumentForHelperTestFile } from "./helpers";
-import {DocumentSymbol,Position,SymbolKind,} from "vscode-languageserver";
+import {DocumentSymbol,Position,SymbolKind, WorkspaceSymbol,} from "vscode-languageserver";
 import Parser, { SyntaxNode } from "web-tree-sitter";
 import { initializeParser } from "../src/parser";
 import { LspDocument } from "../src/document";
@@ -37,14 +37,25 @@ beforeEach(async () => {
     documentationCache = await initializeDocumentationCache();
     allPaths = await getAllPaths()
     analyzer = new Analyzer(parser, documentationCache, allPaths);
+    const amount = await analyzer.initiateBackgroundAnalysis({
+        backgroundAnalysisMaxFiles: 1000,
+    })
+    loggedAmount = amount.filesParsed;
     symbols = [];
     global.console = require("console");
-});
+}, 10000);
 
 afterEach(() => {
     global.console = jestConsole;
     parser.reset();
+    symbols = [];
 });
+
+function analyzeConfigDocument() {
+    const doc = resolveLspDocumentForHelperTestFile(`${homedir()}/.config/fish/config.fish`);
+    analyzer.analyze(doc);
+    return {doc: doc, analyzer: analyzer};
+}
 
 /**
  * Workspace Symbols are coupled to essentially every feature that the language server
@@ -52,27 +63,44 @@ afterEach(() => {
  * being generated correctly.
  */
 describe("analyze tests", () => {
-    it('testing generating WorkspaceSymbols in background', async () => {
-        const doc = resolveLspDocumentForHelperTestFile(`${homedir}/.config/fish/config.fish`);
-        console.log();
-        analyzer.analyze(doc)
-        const amount = await analyzer.initiateBackgroundAnalysis({backgroundAnalysisMaxFiles: 1000})
-        for await (const [k, v] of analyzer.lookupUriMap.entries()) {
-            console.log(`k: ${k} v: ${v}`);
+    const analyze_test_1 = 'generates WorkspaceSymbols in background (logging total files parsed)';
+    it(analyze_test_1, async () => {
+        console.log(analyze_test_1);
+        const { analyzer, doc } = analyzeConfigDocument();
+        for (const [key, value] of analyzer.lookupUriMap.entries()) {
+            expect(value).toBeTruthy();
         }
-        //const { globalDefinitions } = analyzer.uriToAnalyzedDocument[doc.uri]
-        //Object.values(globalDefinitions).forEach((symbol) => {
-            //console.log(symbol);
-        //})
-        const wsSymbols = analyzer.getAllWorkspaceSymbols();
-        for (const symbol of wsSymbols) {
-            if (symbol.kind === SymbolKind.Function) {
-                console.log(symbol);
+        console.log(`amount of files parsed: ${loggedAmount}\n`);
+        expect(loggedAmount).toBeGreaterThan(0);
+    });
+
+    const analyze_test_2 = 'exports in config.fish file';
+    it(analyze_test_2, async () => {
+        const { doc, analyzer } = analyzeConfigDocument();
+        analyzer.analyze(doc);
+        analyzer.analyze(doc);
+        analyzer.analyze(doc);
+        analyzer.analyze(doc);
+        const { documentSymbols } = analyzer.uriToAnalyzedDocument[doc.uri]
+        console.log(analyzer.workspaceSymbols.get('ls'))
+        for (const [key, values] of analyzer.workspaceSymbols.entries()) {
+            if (values.length >= 2) {
+                console.log({
+                    name: key,
+                    types: values.map(value => symbolKindToString(value.kind)).join(','),
+                    locations: '\n' + values.map(value => value.location.uri).join('\n')
+                })
             }
+
         }
-        console.log(amount);
-        expect(true).toBeTruthy()
-    })
+        //console.log(Analyzer.workspaces.map(n => n.files))
+        console.log(doc.uri)
+    });
+
+    //const analyze_test_3 = 'logging all WorkspaceSymbols background uris';
+    //it(analyze_test_3, async () => {
+//
+    //});
 });
 
 

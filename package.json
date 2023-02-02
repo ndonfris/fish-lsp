@@ -19,7 +19,7 @@
     "clean": "npm run pre:clean && tsc -b && chmod 755 ./out/cli.js",
     "prepare:tests": "rm -f test_data/fish_files/*.fish && yarn run prepare:install:tests",
     "prepare:install:tests": "cd test_data && ./install_scripts/generate_largest_fish_files.fish && cd ..",
-    "test": "jest --runInBand --watch ",
+    "test": "jest --runInBand --watch --verbose true",
     "compile": "tsc -b",
     "watch": "npm run clean; tsc --watch"
   },

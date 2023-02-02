@@ -1,11 +1,11 @@
-import { Position, PublishDiagnosticsParams, WorkspaceSymbol, } from "vscode-languageserver";
+import { Position, PublishDiagnosticsParams, SymbolInformation, SymbolKind, WorkspaceSymbol, } from "vscode-languageserver";
 import Parser, { SyntaxNode, Range, Tree } from "web-tree-sitter";
 import * as LSP from 'vscode-languageserver';
 //import {collectFishSymbols, FishSymbol} from './symbols';
 import {containsRange} from './workspace-symbol'
 import {findFirstParent, getChildNodes, getRange} from './utils/tree-sitter';
 import {LspDocument} from './document';
-import {isCommandName, isDefinition} from './utils/node-types';
+import {isCommandName, isDefinition, isFunctionDefinition, isFunctionDefinitionName, isVariableDefinition} from './utils/node-types';
 import {DiagnosticQueue} from './diagnostics/queue';
 import {pathToRelativeFunctionName, toLspDocument, uriInUserFunctions, uriToPath} from './utils/translation';
 import { DocumentationCache } from './utils/documentationCache';
@@ -14,17 +14,18 @@ import { GlobalWorkspaceSymbol } from './symbols';
 import fs from 'fs'
 import { homedir } from 'os';
 import * as fastGlob from 'fast-glob'
+import { DocumentSymbolTree, SymbolTree } from './symbolTree';
 
 type SourceCommand = {
     name: string,
     uri: string,
 }
 
-type Definition = { [name: string] : WorkspaceSymbol[] }
+type GlobalDefinition = { [name: string] : WorkspaceSymbol[] }
 
 type uriToAnalyzedDocument = {
     document: LspDocument,
-    globalDefinitions: Definition,
+    documentSymbols: SymbolTree,
     //sourcedUris: Set<string>
     sourcedUris: SourceCommand[]
     tree: Parser.Tree
@@ -40,8 +41,10 @@ export async function getFilePaths({
     const stream = fastGlob.stream(['**.fish'], {
         absolute: true,
         onlyFiles: true,
+        globstar: true,
         cwd: rootPath,
-        followSymbolicLinks: true,
+        deep: 1,
+        followSymbolicLinks: false,
         suppressErrors: true,
     })
 
@@ -63,6 +66,53 @@ export async function getFilePaths({
     return files
 }
 
+export class Workspace {
+
+    public path: string ;
+    public autoloaded: boolean;
+    public files: Set<string> = new Set();
+
+    constructor(name: string, autoloaded: boolean = false) {
+        this.path = name;
+        this.autoloaded = autoloaded;
+        this.setFiles();
+    }
+
+    private setFiles() {
+        const files = fastGlob.sync('*.fish', {
+            cwd: this.path,
+            absolute: true,
+            onlyFiles: true,
+            globstar: true,
+            deep: 1,
+            unique: true,
+            followSymbolicLinks: false,
+            suppressErrors: true,
+        })
+        for (const file of files) {
+            this.files.add(file)
+        }
+    }
+
+    contains(uri: string) {
+        //const uriPath = uri.startsWith('file://') ? uriToPath(uri) || uri : uri;
+        return this.files.has(uri)
+    }
+
+    hasFunction(uri: string) {
+        if (uri.endsWith('config.fish')) return true
+        return this.contains(uri) && uri.includes('/functions/')
+    }
+
+    hasCompletion(uri: string) {
+        return this.contains(uri) && uri.includes('/completions/')
+    }
+
+    // don't care about completions
+    isAutoloadedSymbol(uri: string) {
+        return this.autoloaded ? this.hasFunction(uri) : false
+    }
+}
 
 export class Analyzer {
 
@@ -73,9 +123,14 @@ export class Analyzer {
     private diagnosticQueue: DiagnosticQueue = new DiagnosticQueue();
     protected uriToTreeMap: Map<string, Tree> = new Map();
     public uriToAnalyzedDocument: {[uri: string]: uriToAnalyzedDocument} = {}
+    public workspaceSymbols: Map<string, WorkspaceSymbol[]> = new Map();
 
     public allUris: string[] = [];
     public lookupUriMap: Map<string, string> = new Map();
+    public static workspaces: Workspace[] = [
+        new Workspace(`${homedir()}/.config/fish`, true),
+        new Workspace(`/usr/share/fish`, true),
+    ];
 
     private uriToSymbols: { [uri: string]: DocumentSymbol[]} = {};
     private globalSymbolsCache: DocumentationCache;
@@ -92,24 +147,16 @@ export class Analyzer {
         const uri = document.uri;
         this.parser.reset()
         const tree = this.parser.parse(document.getText());
-        //this.uriTree[uri] = tree
         this.uriToTreeMap.set(document.uri, tree)
-        const globalDefinitions = collectScopes(tree.rootNode, uri)
         const sourcedUris = uniqueCommands(tree.rootNode, this.lookupUriMap)
+        const documentSymbols = DocumentSymbolTree(tree.rootNode)
         this.uriToAnalyzedDocument[uri] = {
             document,
-            globalDefinitions,
+            documentSymbols,
             sourcedUris,
             tree
         }
-        //if (!uri) return;
-        //if (!tree?.rootNode) return;
-        //this.uriToSymbols[uri] = getDefinitionSymbols(this.uriTree[uri].rootNode)
-        //this.diagnosticQueue.set(
-        //    uri,
-        //    collectDiagnosticsRecursive(tree.rootNode, document)
-        //);
-        //return this.uriToSymbols[uri]
+        this.setWorkspaceSymbols(tree.rootNode, uri)
     }
 
     public async initiateBackgroundAnalysis({
@@ -132,17 +179,56 @@ export class Analyzer {
         return { filesParsed: amount };
     }
 
-    public getAllWorkspaceSymbols() {
-        const symbols: WorkspaceSymbol[] = []
-        for (const [key, value] of Object.entries(this.uriToAnalyzedDocument)) {
-            const { globalDefinitions } = this.uriToAnalyzedDocument[key]
-            Object.values(globalDefinitions).forEach((def) => {
-                symbols.push(...def)
-            })
+    private setWorkspaceSymbols(root: SyntaxNode, uri: string) {
+        const result: WorkspaceSymbol[] = []
+        const definitionNodes = getChildNodes(root).filter(n => isDefinition(n))
+        const ws = Analyzer.workspaces.find(w => w.contains(uri))
+        for (const node of definitionNodes) {
+            const scope = DefinitionSyntaxNode.getScope(node, uri)
+            if (scope != 'global') continue;
+            if (isVariableDefinition(node)) {
+                result.push(GlobalWorkspaceSymbol().createVar(node, uri))
+            }
+            if (isFunctionDefinitionName(node) && ws?.isAutoloadedSymbol(uri)) {
+                result.push(GlobalWorkspaceSymbol().createFunc(node, uri))
+            }
         }
-        return symbols
+        result.forEach((symbol: WorkspaceSymbol) => {
+            const existing: WorkspaceSymbol[] = this.workspaceSymbols.get(symbol.name) || []
+            const count = existing.filter(s => symbol.location.uri === s.location.uri).length
+            if (count === 0) {
+                existing.push(symbol)
+            }
+            this.workspaceSymbols.set(symbol.name, existing)
+        })
+        return result
     }
 
+    public static setWorkspaces(dirs: string[]) {
+        dirs.forEach(dir => {
+            Analyzer.workspaces.push(new Workspace(dir))
+        })
+    }
+
+    public static getWorkspaces() {
+        return Analyzer.workspaces;
+    }
+    
+    public static getContainingWorkspace(uri: string) {
+        return Analyzer.workspaces.find(w => w.contains(uri))
+    }
+
+    public static autoloadedInWorkspace(symbol: WorkspaceSymbol) {
+        const uri = symbol.location.uri;
+        switch (symbol.kind) {
+            case SymbolKind.Function:
+                return Analyzer.workspaces.some(w => w.isAutoloadedSymbol(uri)) 
+            case SymbolKind.Variable:
+                return Analyzer.getContainingWorkspace(uri)?.path === `${homedir()}/.config/fish`
+            default:
+                return false
+        }
+    }
 
     get(document: LspDocument) {
         return this.uriToTreeMap.get(document.uri)
@@ -251,14 +337,25 @@ export class Analyzer {
 
 }
 
+function equalWorkspaceSymbols(a: LSP.Location, b: LSP.Location) {
+    if (a.uri !== b.uri) {
+        return false
+    } 
+    if (a.range.start.line !== b.range.start.line || a.range.end.line !== b.range.end.line) {
+        return false
+    } 
+    if (a.range.start.character !== b.range.start.character || a.range.end.character !== b.range.end.character) {
+        return false
+    }
+    return true
+}
+
+
  export async function getAllPaths() {
-    const paths = [
-        `${homedir}/.config/fish`,
-        `/usr/share/fish/functions`,
-    ]
+    const workspaces = Analyzer.getWorkspaces().map(w => w.path);
     const allPaths: string[] = [];
-    for (const path of paths) {
-        const newPaths = await getFilePaths({rootPath: path , maxItems: 10000});
+    for (const path of workspaces) {
+        const newPaths = await getFilePaths({rootPath: path, maxItems: 10000});
         allPaths.push(...newPaths)
     }
     return allPaths;
@@ -293,46 +390,6 @@ function uniqueCommands(root: SyntaxNode, uris: Map<string, string>): SourceComm
         }
     })
     return result
-}
-
-const checkUriIsAutoloaded = (uri: string) => {
-    const paths = [
-        `${homedir}/.config/fish/functions`,
-        `${homedir}/.config/fish/config.fish`,
-        `/usr/share/fish/functions`,
-    ]
-    if (uri.startsWith('file://')) {
-        const path = uriToPath(uri)!
-        return paths.some(p => path.startsWith(p))
-    }
-    //return
-    return paths.some(p => uri.startsWith(p))
-    
-}
-
-function collectScopes(root: SyntaxNode, uri: string): Definition {
-    const isAutoloaded = checkUriIsAutoloaded(uri)
-    const functionName = pathToRelativeFunctionName(uri)
-    const result : Definition = {};
-    const definitionNodes = getChildNodes(root).filter(n => isDefinition(n))
-    for (const node of definitionNodes) {
-        const scope = DefinitionSyntaxNode.getScope(node)
-        if (node.text === "argv" || node.text === "$argv") continue;
-        if (scope === "global" && isAutoloaded) {
-            const symbol = GlobalWorkspaceSymbol().createVar(node, uri);
-            if (!result[symbol.name]) result[symbol.name] = []
-            result[symbol.name].push(symbol)
-        } else if (scope === "function" && [functionName, "config"].includes(node.text)) {
-            const symbol = GlobalWorkspaceSymbol().createFunc(node, uri)
-            if (!result[symbol.name]) result[symbol.name] = []
-            result[symbol.name].push(symbol)
-        //} else if (scope === "function" && "config" === functionName && isAutoloaded) {
-            //const symbol = GlobalWorkspaceSymbol().createFunc(node, uri)
-            //if (!result[symbol.name]) result[symbol.name] = []
-            //result[symbol.name].push(symbol)
-        }
-    }
-    return result;
 }
 
 export namespace DefinitionSyntaxNode {
@@ -419,8 +476,15 @@ export namespace DefinitionSyntaxNode {
             .map((n) => n.text);
     }
 
-    export const getScope = (definitionNode: SyntaxNode) => {
+    export const getScope = (definitionNode: SyntaxNode, uri: string) => {
         if (!isDefinition(definitionNode)) return null;
+        if (definitionNode.text.startsWith("$") || definitionNode.text === "argv" || definitionNode.text.endsWith("]")) return 'local';
+        //const isAutoloaded = uriInUserFunctions(uri) || uri.endsWith("config.fish");
+        //const isAutoloaded =  || uri.endsWith("config.fish");
+        if (isFunctionDefinitionName(definitionNode)) {
+            const loadedName = pathToRelativeFunctionName(uri);
+            return loadedName.endsWith(definitionNode.text) || loadedName.endsWith('config') ? "global" : "local";
+        }
         const command = findFirstParent(definitionNode, isCommandName) || definitionNode.parent;
         const commandName = command?.firstChild?.text || "";
         if (!command || !commandName) return

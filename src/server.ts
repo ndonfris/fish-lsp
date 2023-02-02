@@ -345,8 +345,11 @@ export default class FishServer {
 
     async onWorkspaceSymbol(params: WorkspaceSymbolParams): Promise<WorkspaceSymbol[]> {
         this.logger.log('onWorkspaceSymbol: ' + params.query);
-        const workspaceSymbols = this.analyzer.getAllWorkspaceSymbols();
-        return workspaceSymbols.filter((symbol) => symbol.name.includes(params.query))
+        const workspaceSymbols = this.analyzer.workspaceSymbols
+        if (params.query && workspaceSymbols.has(params.query)) {
+            return this.analyzer.workspaceSymbols.get(params.query) || []
+        }
+        return []
     }
 
     //async onWorkspaceSymbolResolve(params: WorkspaceSymbolParams): Promise<WorkspaceSymbol[]> {
