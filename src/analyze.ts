@@ -12,8 +12,6 @@ import { DocumentationCache } from './utils/documentationCache';
 import { DocumentSymbol } from 'vscode-languageserver';
 import { GlobalWorkspaceSymbol } from './symbols';
 import fs from 'fs'
-//import { homedir } from 'os';
-//import * as fastGlob from 'fast-glob'
 import { DocumentSymbolTree, SymbolTree } from './symbolTree';
 import { FishWorkspaces, Workspace } from './utils/workspace';
 
@@ -51,7 +49,8 @@ export class Analyzer {
         this.uriTree = {};
         this.globalSymbolsCache = globalSymbolsCache;
         //this.allUris = allUris;
-        this.allUris = FishWorkspaces.getAllFilePaths();
+        this.allUris = workspaces.getAllFilePaths();
+        this.workspaces = workspaces;
         this.lookupUriMap = createLookupUriMap(this.allUris);
     }
 
@@ -135,18 +134,16 @@ export class Analyzer {
         return result
     }
 
-    public static autoloadedInWorkspace(symbol: WorkspaceSymbol) {
+    public autoloadedInWorkspace(symbol: WorkspaceSymbol) {
         const uri = symbol.location.uri;
-        const workspace: Workspace | undefined = FishWorkspaces.getWorkspace(uri);
+        const workspace = this.workspaces.getWorkspace(uri);
         if (!workspace) return false;
         switch (symbol.kind) {
             case SymbolKind.Function:
-                return workspace.isAutoloadedSymbol(uri);
-                //return workspace?.path === `${homedir()}/.config/fish`
-                //    || workspace?.functions.some(w => w.isAutoloadedSymbol(uri))
+                return workspace.functionNames.some((func) => func === symbol.name) ||
+                    uri.endsWith("config.fish")
             case SymbolKind.Variable:
                 return workspace.editable
-                //return Analyzer.getContainingWorkspace(uri)?.path === `${homedir()}/.config/fish`
             default:
                 return false
         }

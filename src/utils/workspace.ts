@@ -1,6 +1,13 @@
 import { homedir } from 'os';
 import * as fastGlob from 'fast-glob'
 import { Analyzer } from '../analyze';
+import { create } from 'domain';
+
+async function createWorkspace(path: string) {
+    const workspace = new Workspace(path);
+    await workspace.initializeFiles();
+    return workspace;
+}
 
 export class Workspace {
 
@@ -20,17 +27,11 @@ export class Workspace {
         this.editable = false;
     }
 
-    public static async init(name: string) {
-        const curr = new Workspace(name)
-        await curr.setFiles();
-        return curr;
-    }
-
     /**
      * Helper function to get all files in workspace.
      *
-     * {@link https://nodejs.org/api/stream.html#stream_readable_streams | NodeJS Readable Stream}
-     * {@link https://github.com/mrmlnc/fast-glob#readme | FastGlob }
+     * @link https://nodejs.org/api/stream.html#stream_readable_streams
+     * @link https://github.com/mrmlnc/fast-glob#readme
      *
      * @return {Promise<string[]>} Array of file paths.
      */
@@ -63,7 +64,7 @@ export class Workspace {
         return files
     }
 
-    private async setFiles() {
+    public async initializeFiles() {
         const allFiles = await this.getFilesStream()
         for (const file of allFiles) {
             this._files.add(file)
@@ -86,21 +87,6 @@ export class Workspace {
     setEditable() {
         this.editable = true;
     }
-
-    hasFunction(uri: string) {
-        if (uri.endsWith('config.fish')) return true
-        return this.contains(uri) && uri.includes('/functions/')
-    }
-
-    hasCompletion(uri: string) {
-        return this.contains(uri) && uri.includes('/completions/')
-    }
-
-    // don't care about completions
-    isAutoloadedSymbol(uri: string) {
-        return this.autoloaded ? this.hasFunction(uri) : false
-    }
-
     get files() {
         return Array.from(this._files);
     }
@@ -110,43 +96,52 @@ export class Workspace {
     get completions() {
         return Array.from(this._completions);
     }
+    get functionNames() {
+        return Array.from(
+            this.functions.map((func: string) => {
+                const startIndex = func.lastIndexOf("/") + 1
+                const endIndex = func.lastIndexOf(".fish");
+                return func.slice(startIndex, endIndex)
+            })
+        );
+    }
 }
 
 
 export class FishWorkspaces {
 
     static fileAmount = 5000;
-    static workspaces: Set<Workspace> = new Set();
+    protected workspaces: Map<string, Workspace> = new Map();
 
     //initializeObject: {fileAmount?: number, workspaces?: string[], editableWorkspaces: string[]}
-    static async init() {
+    async init(initializationnObject: {}) {
         //initializeObject.editableWorkspaces = initializeObject.editableWorkspaces || [];
-        FishWorkspaces.setDefaultWorkspaces();
-        FishWorkspaces.setEdiableWorkspaces(`${homedir()}/.config/fish`);
-        return FishWorkspaces;
+        await this.setDefaultWorkspaces();
+        this.setEdiableWorkspaces(`${homedir()}/.config/fish`);
+        return this;
     }
 
-    static async setDefaultWorkspaces() {
-        await FishWorkspaces.addWorkspace(
+    async setDefaultWorkspaces() {
+        await this.addWorkspace(
             `${homedir()}/.config/fish`,
             `/usr/share/fish`,
         );
     }
 
-    static async addWorkspace(...workspaces: string[]) {
+    async addWorkspace(...workspaces: string[]) {
         for (const name of workspaces) {
-            const workspace = await Workspace.init(name);
-            this.workspaces.add(workspace);
+            const workspace = await createWorkspace(name)
+            this.workspaces.set(name, workspace);
         }
     }
 
-    static getEditableWorkspaces() {
+    getEditableWorkspaces() {
         return Array
-            .from(this.workspaces)
+            .from(this.workspaces.values())
             .filter(workspace => workspace.editable);
     }
 
-    static setEdiableWorkspaces(...workspaces: string[]) {
+    setEdiableWorkspaces(...workspaces: string[]) {
         for (const workspace of workspaces) {
             const editableWorkspace = this.getWorkspace(workspace);
             if (editableWorkspace) {
@@ -157,31 +152,32 @@ export class FishWorkspaces {
         }
     }
 
-    static getAllFilePaths() {
+    getAllFilePaths() {
         const allFiles : string[] = [];
-        for (const workspace of FishWorkspaces.workspaces) {
+        for (const workspace of this.workspaces.values()) {
             allFiles.push(...workspace.files)
         }
         return allFiles;
     }
 
-    static getWorkspace(uri: string) {
+    getWorkspace(uri: string) {
         return Array
-            .from(this.workspaces)
+            .from(this.workspaces.values())
             .find(workspace => workspace.contains(uri));
     }
 
-    static getAllWorkspacePaths() {
+    getAllWorkspacePaths() {
         return Array
-            .from(this.workspaces)
+            .from(this.workspaces.values())
             .map(workspace => workspace.path);
     }
 
-    static clear() {
-        FishWorkspaces.workspaces.clear();
+    clear() {
+        this.workspaces.clear();
     }
 }
 
 export async function initializeFishWorkspaces() {
-    return await FishWorkspaces.init();
+    const workspaces = new FishWorkspaces();
+    return await workspaces.init({});
 }
