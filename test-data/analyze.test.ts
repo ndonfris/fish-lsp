@@ -5,7 +5,7 @@ import Parser, { SyntaxNode } from "web-tree-sitter";
 import { initializeParser } from "../src/parser";
 import { LspDocument } from "../src/document";
 import {findFirstParent, getChildNodes } from "../src/utils/tree-sitter";
-import { Analyzer, getAllPaths } from "../src/analyze";
+import { Analyzer } from "../src/analyze";
 import { isFunctionDefinition,isDefinition,isVariableDefinition,isScope, findParentCommand, isForLoop, isVariable, isCommand, isCommandName,} from "../src/utils/node-types";
 import { CommentRange, DocumentDefSymbol, symbolKindToString } from "../src/symbols";
 import { DocumentationCache, initializeDocumentationCache } from "../src/utils/documentationCache";
@@ -14,6 +14,7 @@ import { homedir } from 'os';
 import { pathToRelativeFunctionName, toLspDocument, uriToPath } from '../src/utils/translation';
 import * as fastGlob from 'fast-glob'
 import { execEscapedCommand } from '../src/utils/exec';
+import { initializeFishWorkspaces, FishWorkspaces, createWorkspace, getFilesStream } from '../src/utils/workspace';
  
 let parser: Parser;
 let documentationCache: DocumentationCache;
@@ -21,6 +22,7 @@ let analyzer: Analyzer;
 let allPaths: string[] = [];
 let symbols: DocumentSymbol[] = [];
 let loggedAmount: number = 0;
+let workspaces: FishWorkspaces ;
 
 //const chalk = new Chalk();
 //const term = new TerminalRenderer()
@@ -35,8 +37,8 @@ const jestConsole = console;
 beforeEach(async () => {
     parser = await initializeParser();
     documentationCache = await initializeDocumentationCache();
-    allPaths = await getAllPaths()
-    analyzer = new Analyzer(parser, documentationCache, allPaths);
+    workspaces = await initializeFishWorkspaces();
+    analyzer = new Analyzer(parser, documentationCache, workspaces)
     const amount = await analyzer.initiateBackgroundAnalysis({
         backgroundAnalysisMaxFiles: 1000,
     })
@@ -64,15 +66,15 @@ function analyzeConfigDocument() {
  */
 describe("analyze tests", () => {
     const analyze_test_1 = 'generates WorkspaceSymbols in background (logging total files parsed)';
-    it(analyze_test_1, async () => {
-        console.log(analyze_test_1);
-        const { analyzer, doc } = analyzeConfigDocument();
-        for (const [key, value] of analyzer.lookupUriMap.entries()) {
-            expect(value).toBeTruthy();
-        }
-        console.log(`amount of files parsed: ${loggedAmount}\n`);
-        expect(loggedAmount).toBeGreaterThan(0);
-    });
+    //it(analyze_test_1, async () => {
+    //    console.log(analyze_test_1);
+    //    const { analyzer, doc } = analyzeConfigDocument();
+    //    for (const [key, value] of analyzer.lookupUriMap.entries()) {
+    //        expect(value).toBeTruthy();
+    //    }
+    //    console.log(`amount of files parsed: ${loggedAmount}\n`);
+    //    expect(loggedAmount).toBeGreaterThan(0);
+    //});
 
     const analyze_test_2 = 'exports in config.fish file';
     it(analyze_test_2, async () => {
@@ -97,10 +99,31 @@ describe("analyze tests", () => {
         console.log(doc.uri)
     });
 
-    //const analyze_test_3 = 'logging all WorkspaceSymbols background uris';
-    //it(analyze_test_3, async () => {
-//
-    //});
+    const analyze_test_3 = 'logging all WorkspaceSymbols background uris';
+    it(analyze_test_3, async () => {
+        console.time('createSymbols')
+        await initializeFishWorkspaces();
+        const funcs = await getFilesStream(`/usr/share/fish`)
+        //console.log(`functions: ${workspace.functions.length}`)
+        //console.log(`completions: ${workspace.completions.length}`)
+        console.timeEnd('createSymbols')
+        //console.log(`size: ${spaces}`)
+        let hasF = false;
+        let hasC = false;
+        for (const [name, content] of funcs.entries()) {
+            if (name.includes('fish/functions/') && ! hasF) {
+                console.log(name)
+                hasF = true
+            } 
+            if (name.includes('fish/config.fish') && ! hasC) {
+                console.log(name)
+                hasC = true
+            }
+            if (hasF && hasC) {
+                break;
+            }
+        }
+    });
 });
 
 

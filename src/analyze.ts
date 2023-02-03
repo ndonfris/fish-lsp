@@ -49,7 +49,7 @@ export class Analyzer {
         this.uriTree = {};
         this.globalSymbolsCache = globalSymbolsCache;
         //this.allUris = allUris;
-        this.allUris = workspaces.getAllFilePaths();
+        this.allUris = workspaces.workspaces.map((ws: Workspace) => ws.files).flat();
         this.workspaces = workspaces;
         this.lookupUriMap = createLookupUriMap(this.allUris);
     }
@@ -76,11 +76,12 @@ export class Analyzer {
         backgroundAnalysisMaxFiles: number
     }) : Promise<{ filesParsed: number }> {
         let amount = 0;
-        for (const filePath of this.allUris) {
-            if (amount >= backgroundAnalysisMaxFiles) break;
+        const allDocs = this.workspaces.workspaceDocs
+        for (const document of allDocs) {
+            //if (amount >= backgroundAnalysisMaxFiles) break;
             try {
-                const fileContent = await fs.promises.readFile(filePath, 'utf8')
-                const document = toLspDocument(filePath, fileContent);
+                //const fileContent = await fs.promises.readFile(filePath, 'utf8')
+                //const document = toLspDocument(file, content);
                 this.analyze(document);
                 amount++;
             } catch (err) {
@@ -136,12 +137,14 @@ export class Analyzer {
 
     public autoloadedInWorkspace(symbol: WorkspaceSymbol) {
         const uri = symbol.location.uri;
-        const workspace = this.workspaces.getWorkspace(uri);
-        if (!workspace) return false;
+        const workspace = this.workspaces.find(uri)
+        if (workspace === undefined) return false;
         switch (symbol.kind) {
             case SymbolKind.Function:
-                return workspace.functionNames.some((func) => func === symbol.name) ||
-                    uri.endsWith("config.fish")
+                if (workspace.functions.some((doc: LspDocument) => doc.getAutoLoadName()  === symbol.name)) {
+                    return true
+                }
+                return uri.endsWith("config.fish")
             case SymbolKind.Variable:
                 return workspace.editable
             default:
@@ -375,5 +378,3 @@ export namespace DefinitionSyntaxNode {
         return saveScope
     }
 }
-
-

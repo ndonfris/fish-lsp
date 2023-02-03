@@ -1,12 +1,96 @@
 import { homedir } from 'os';
 import * as fastGlob from 'fast-glob'
 import { Analyzer } from '../analyze';
-import { create } from 'domain';
+import { createReadStream } from 'fs';
+import { toLspDocument } from './translation';
+import { LspDocument } from '../document';
 
-async function createWorkspace(path: string) {
+/**
+ * call to initialize all workspaces in the fish-lsp-config,
+ * @TODO: or the use the defaults set by the configManager
+ */
+export async function initializeFishWorkspaces() {
+    const spaces = new FishWorkspaces();
+    Workspace.MAX_FILE_AMOUNT = 5000;
+    const toAdd = [
+        `${homedir()}/.config/fish`,
+        `/usr/share/fish`,
+    ]
+    const isEditable = [
+        `${homedir()}/.config/fish`,
+    ]
+    for (const path of toAdd) {
+        const newWS = await createWorkspace(path);
+        if (isEditable.includes(path)) {
+            newWS.editable = true;
+        }
+        spaces.add(newWS)
+    }
+    return spaces
+    //ws.workspaces.push();
+}
+
+/**
+ * @internal For testing purposes.
+ * call to initialize a single workspace. 
+ *
+ * Use workspaces.addWorkspace() to add a workspace to the
+ * process-wide workspaces object.
+ */
+export async function createWorkspace(path: string) {
     const workspace = new Workspace(path);
     await workspace.initializeFiles();
     return workspace;
+}
+
+
+/**
+ * Helper function to get all files in workspace.
+ * Adding completions to this list increases time exponentially.
+ *
+ * @link https://nodejs.org/api/stream.html#stream_readable_streams
+ * @link https://github.com/mrmlnc/fast-glob#readme
+ *
+ * @return {Promise<Map<string, string>>} Map of file uris to file contents.
+ */
+export async function getFilesStream(path: string, maxFilesAmount: number = 1000): Promise<Map<string, LspDocument>> {
+    const filesMap: Map<string, LspDocument> = new Map<string, LspDocument>();
+
+    const stream = fastGlob.stream(['config.fish','functions/*.fish'], {
+        extglob: true,
+        absolute: true,
+        onlyFiles: true,
+        globstar: true,
+        cwd: path,
+        braceExpansion: true,
+        deep: 1,
+        followSymbolicLinks: false,
+        suppressErrors: true,
+    })
+
+    // NOTE: we use a stream here to not block the event loop
+    // and ensure that we stop reading files if the glob returns
+    // too many files.
+    let i = 0
+    for await (const fileEntry of stream) {
+        if (i >= maxFilesAmount) {
+            // NOTE: Close the stream to stop reading files paths.
+            stream.emit('close')
+            break
+        }
+        const filename = fileEntry.toString()
+        const content = await new Promise<string>((resolve, reject) => {
+            const chunks: string[] = [];
+            createReadStream(filename)
+                .on("data", (chunk) => chunks.push(chunk.toString()))
+                .on("end", () => resolve(chunks.join("")))
+                .on("error", reject);
+        });
+        const doc = toLspDocument(filename, content);
+        filesMap.set(filename, doc)
+        i++
+    }
+    return filesMap
 }
 
 export class Workspace {
@@ -17,9 +101,7 @@ export class Workspace {
     public autoloaded: boolean;
     public editable: boolean;
 
-    public _files: Set<string> = new Set();
-    private _functions:   Set<string> = new Set<string>();
-    private _completions: Set<string> = new Set<string>();
+    public documents: Map<string, LspDocument> = new Map<string, LspDocument>();
 
     constructor(name: string) {
         this.path = name;
@@ -27,157 +109,77 @@ export class Workspace {
         this.editable = false;
     }
 
-    /**
-     * Helper function to get all files in workspace.
-     *
-     * @link https://nodejs.org/api/stream.html#stream_readable_streams
-     * @link https://github.com/mrmlnc/fast-glob#readme
-     *
-     * @return {Promise<string[]>} Array of file paths.
-     */
-    private async getFilesStream(): Promise<string[]> {
-        const stream = fastGlob.stream(['**.fish'], {
-            absolute: true,
-            onlyFiles: true,
-            globstar: true,
-            cwd: this.path,
-            deep: 2,
-            followSymbolicLinks: false,
-            suppressErrors: true,
-        })
-
-        // NOTE: we use a stream here to not block the event loop
-        // and ensure that we stop reading files if the glob returns
-        // too many files.
-        const files: string[] = []
-        let i = 0
-        for await (const fileEntry of stream) {
-            if (i >= Workspace.MAX_FILE_AMOUNT) {
-                // NOTE: Close the stream to stop reading files paths.
-                stream.emit('close')
-                break
-            }
-
-            files.push(fileEntry.toString())
-            i++
-        }
-        return files
-    }
-
     public async initializeFiles() {
-        const allFiles = await this.getFilesStream()
-        for (const file of allFiles) {
-            this._files.add(file)
-            const autoloadName = file.slice(file.lastIndexOf('/') + 1, file.lastIndexOf('.fish'))
-            if (file.includes('/functions/')) this._functions.add(autoloadName)
-            if (file.includes('/completions/')) this._completions.add(autoloadName)
+        const allFiles = await getFilesStream(this.path);
+        for (const [file, contents] of allFiles.entries()) {
+            this.documents.set(file, contents);
         }
     }
 
     contains(uri: string) {
-        //const uriPath = uri.startsWith('file://') ? uriToPath(uri) || uri : uri;
-        return (
-            this._files.has(uri) ||
-            this._files.has("file://" + uri) ||
-            this.path.startsWith(uri.slice(0, this.path.lastIndexOf("/"))) ||
-            this.path.startsWith(uri.slice("file://".length + 1, this.path.lastIndexOf("/")))
-        );
+        return this.path === uri ||
+            this.documents.has(uri) ||
+            this.documents.has("file://" + uri)
     }
 
     setEditable() {
         this.editable = true;
     }
-    get files() {
-        return Array.from(this._files);
+    getfileContents(uri: string) {
+        return this.documents.get(uri);
     }
-    get functions() {
-        return Array.from(this._functions);
+    get files() : string[] {
+        return Array.from(this.documents.keys());
     }
-    get completions() {
-        return Array.from(this._completions);
+    get docs() : LspDocument[] {
+        return Array.from(this.documents.values());
     }
-    get functionNames() {
-        return Array.from(
-            this.functions.map((func: string) => {
-                const startIndex = func.lastIndexOf("/") + 1
-                const endIndex = func.lastIndexOf(".fish");
-                return func.slice(startIndex, endIndex)
-            })
-        );
+    get functions(): LspDocument[] {
+        return this.docs.filter(doc => doc.isFunction) || []
     }
 }
 
 
+/**
+ * @see LspDocuments in ../document.ts
+ *
+ * Similiar to LspDocuments, except that for clarity and simplicity, LspDocuments stores
+ * opened documents in the client. FishWorkspaces stores all workspaces analyzed by the 
+ * server.
+ *
+ * Currently does not open a file/uri, but rather just stores the reachable uri's for a
+ * given workspace. 
+ *
+ * Consider moving Analyzer.initiateBackgroundAnalysis to this class.
+ */
 export class FishWorkspaces {
-
-    static fileAmount = 5000;
-    protected workspaces: Map<string, Workspace> = new Map();
-
-    //initializeObject: {fileAmount?: number, workspaces?: string[], editableWorkspaces: string[]}
-    async init(initializationnObject: {}) {
-        //initializeObject.editableWorkspaces = initializeObject.editableWorkspaces || [];
-        await this.setDefaultWorkspaces();
-        this.setEdiableWorkspaces(`${homedir()}/.config/fish`);
-        return this;
+    //static fileAmount = 5000;
+    public _workspaces: Workspace[] = [];
+    add(workspace: Workspace) {
+        this._workspaces.push(workspace);
     }
-
-    async setDefaultWorkspaces() {
-        await this.addWorkspace(
-            `${homedir()}/.config/fish`,
-            `/usr/share/fish`,
-        );
+    find(uri: string) {
+        return this._workspaces.find((workspace: Workspace) => workspace.contains(uri));
     }
-
-    async addWorkspace(...workspaces: string[]) {
-        for (const name of workspaces) {
-            const workspace = await createWorkspace(name)
-            this.workspaces.set(name, workspace);
-        }
+    get workspaces() {
+        return this._workspaces;
     }
-
-    getEditableWorkspaces() {
-        return Array
-            .from(this.workspaces.values())
+    get workspaceNames() {
+        return this._workspaces.map((workspace: Workspace) => workspace.path);
+    }
+    get workspaceDocs() {
+        return this._workspaces.map((workspace: Workspace) => workspace.docs).flat();
+    }
+    get editable() {
+        return this.workspaces
             .filter(workspace => workspace.editable);
     }
-
-    setEdiableWorkspaces(...workspaces: string[]) {
-        for (const workspace of workspaces) {
-            const editableWorkspace = this.getWorkspace(workspace);
-            if (editableWorkspace) {
-                editableWorkspace.setEditable();
-            } else {
-                throw new Error(`Workspace ${workspace} not found`);
-            }
-        }
+    get autoloaded() {
+        return this.workspaces
+            .filter(workspace => workspace.autoloaded);
     }
-
-    getAllFilePaths() {
-        const allFiles : string[] = [];
-        for (const workspace of this.workspaces.values()) {
-            allFiles.push(...workspace.files)
-        }
-        return allFiles;
-    }
-
-    getWorkspace(uri: string) {
-        return Array
-            .from(this.workspaces.values())
-            .find(workspace => workspace.contains(uri));
-    }
-
-    getAllWorkspacePaths() {
-        return Array
-            .from(this.workspaces.values())
-            .map(workspace => workspace.path);
-    }
-
     clear() {
-        this.workspaces.clear();
+        this._workspaces = []
     }
 }
 
-export async function initializeFishWorkspaces() {
-    const workspaces = new FishWorkspaces();
-    return await workspaces.init({});
-}
