@@ -45,7 +45,7 @@ import { execCompletions } from "./utils/exec";
 import { DocumentationCache } from "./utils/documentationCache";
 import { LspDocument } from './document';
 import { Analyzer } from './analyze';
-import { DocumentSymbolTree } from './symbolTree';
+import { SymbolTree } from './symbolTree';
 
 
 export const CompleteCommand = Command.create('Complete', 'editor.action.triggerSuggest');
@@ -348,8 +348,8 @@ export class CompletionListProvier {
             )
         );
     }
-    public pushLocalSymbols(root: SyntaxNode, position: Position) {
-        const nearbySymbols = DocumentSymbolTree(root)
+    public pushLocalSymbols(uri: string, root: SyntaxNode, position: Position) {
+        const nearbySymbols = SymbolTree(root, uri)
             .nearby(position)
             //.filter((symbol) => {
                 //if (symbolKind === undefined) return true;
@@ -465,7 +465,7 @@ export async function createCompletionList(
     if (!root) {
         result.pushDefaultItems();
     } else {
-        result.pushLocalSymbols(root, position);
+        result.pushLocalSymbols(document.uri, root, position);
         await result.pushShellCompletionItems(line, lineLastNode);
         result.pushDefaultItems();
     }

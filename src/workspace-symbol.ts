@@ -4,20 +4,20 @@ import {SyntaxNode, Tree} from 'web-tree-sitter';
 import {Analyzer} from './analyze';
 import { LspDocument } from './document';
 import {CommentRange, DocumentDefSymbol, toSymbolKind} from './symbols';
-import { DocumentSymbolTree } from './symbolTree';
+import { SymbolTree } from './symbolTree';
 import {isBuiltin} from './utils/builtins';
 import {findEnclosingVariableScope, findParentCommand, findParentFunction, isCommandName, isDefinition, isForLoop, isFunctionDefinition, isFunctionDefinitionName, isProgram, isScope, isStatement, isVariable, isVariableDefinition} from './utils/node-types';
 import {nodeToDocumentSymbol, nodeToSymbolInformation, pathToRelativeFunctionName} from './utils/translation';
 import {findEnclosingScope, findFirstParent, getChildNodes, getNodeAtRange, getParentNodes, getRange, getRangeWithPrecedingComments, positionToPoint} from './utils/tree-sitter';
 
 export function getLocalDefs(uri: string, root: SyntaxNode, current: SyntaxNode) {
-    const definition = DocumentSymbolTree(root).findDef(current)
+    const definition = SymbolTree(root, uri).findDef(current)
     if (!definition) return []
     return [Location.create(uri, definition.selectionRange)]
 }
 
 export function getLocalRefs(uri: string, root: SyntaxNode, current: SyntaxNode) {
-    const refs = DocumentSymbolTree(root).findRefs(current)
+    const refs = SymbolTree(root, uri).findRefs(current)
     if (!refs) return []
     return refs.map((ref: SyntaxNode) => Location.create(uri, getRange(ref)))
 }

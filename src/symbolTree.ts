@@ -1,14 +1,16 @@
-import { DocumentSymbol, FoldingRange, FoldingRangeKind, Position, Range, SymbolKind } from 'vscode-languageserver';
+import { DocumentSymbol, FoldingRange, FoldingRangeKind, Position, Range, SymbolKind, WorkspaceSymbol } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { LspDocument } from './document';
-import { CommentRange, DocumentDefSymbol } from './symbols';
-import { isForLoop, isFunctionDefinition, isScope, isVariable, isVariableDefinition } from './utils/node-types';
+import { CommentRange, DocumentDefSymbol, GlobalWorkspaceSymbol } from './symbols';
+import { isDefinition, isForLoop, isFunctionDefinition, isFunctionDefinitionName, isScope, isVariable, isVariableDefinition } from './utils/node-types';
+import { pathToRelativeFunctionName } from './utils/translation';
 import { findFirstParent, getChildNodes, getNodeAtRange, getRange, getRangeWithPrecedingComments } from './utils/tree-sitter';
-import { containsRange, getNodeFromSymbol, precedesRange } from './workspace-symbol';
+import { containsRange,  getNodeFromSymbol, precedesRange } from './workspace-symbol';
+import { DefinitionSyntaxNode } from './analyze';
 
-export type SymbolTree = ReturnType<typeof DocumentSymbolTree>;
+export type SymbolTree = ReturnType<typeof SymbolTree>;
 
-export function DocumentSymbolTree(root: SyntaxNode) {
+export function SymbolTree(root: SyntaxNode, uri: string) {
     /**
      * all caches the result of toClientTree(), so that it can be accessed in any other function.
      */
@@ -23,6 +25,7 @@ export function DocumentSymbolTree(root: SyntaxNode) {
         //findAll: (node: SyntaxNode) => findAll(all, node),
         findRefs: (node: SyntaxNode) => findRefrences(root, all, node),
         folds: (document: LspDocument) => getFolds(document, root, all),
+        globalExports: () => getExported(root, uri),
         //exports: () => @TODO
     }
 }
@@ -264,4 +267,20 @@ function findRefrences(root: SyntaxNode, all: DocumentSymbol[], node?: SyntaxNod
     const parentScope = findFirstParent(defNode, (n: SyntaxNode) => isScope(n));
     if (!parentScope) return [];
     return getChildNodes(parentScope).filter((child) => child.text === node.text);
+}
+
+function getExported(root: SyntaxNode, uri: string): WorkspaceSymbol[] {
+    const result: WorkspaceSymbol[] = []
+    const definitionNodes = getChildNodes(root).filter(n => isDefinition(n))
+    for (const node of definitionNodes) {
+        const scope = DefinitionSyntaxNode.getScope(node, uri)
+        if (scope !== 'global') continue;
+        if (isVariableDefinition(node)) {
+            result.push(GlobalWorkspaceSymbol().createVar(node, uri))
+        }
+        if (isFunctionDefinitionName(node) && node.text === pathToRelativeFunctionName(uri)) {
+            result.push(GlobalWorkspaceSymbol().createFunc(node, uri))
+        }
+    }
+    return result
 }

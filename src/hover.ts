@@ -9,14 +9,14 @@ import { execCommandDocs, execComplete, execCompletions, execSubCommandCompletio
 import { isCommand, isCommandName } from './utils/node-types';
 import {findEnclosingScope, findFirstParent, getNodeAtRange, getRange} from './utils/tree-sitter';
 //import * as Symbols from './workspace-symbol';
-import { DocumentSymbolTree } from './symbolTree';
+import { SymbolTree } from './symbolTree';
 
 
 export async function handleHover(uri: string, root: Parser.SyntaxNode, current: Parser.SyntaxNode, cache: DocumentationCache) : Promise<LSP.Hover | null>{
     if (current.text.startsWith('-')) {
         return await getHoverForFlag(current)
     } 
-    const local = DocumentSymbolTree(root).findDef(current)
+    const local = SymbolTree(root, uri).findDef(current)
     if (local) {
         //const fishSymbol = CommentRange.createFishDocumentSymbol(local);
         return {

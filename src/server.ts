@@ -27,7 +27,7 @@ import {handleConversionToCodeAction} from './diagnostics/handleConversion';
 import {FishShellInlayHintsProvider} from './features/inlay-hints';
 import { DocumentationCache, initializeDocumentationCache } from './utils/documentationCache';
 import { collectAllSymbolInformation, DocumentDefSymbol } from './symbols';
-import { DocumentSymbolTree } from './symbolTree';
+import { SymbolTree } from './symbolTree';
 import { homedir } from 'os';
 import { FishWorkspaces, initializeFishWorkspaces } from './utils/workspace';
 
@@ -43,14 +43,15 @@ export default class FishServer {
         params: InitializeParams,
     ): Promise<FishServer> {
         const documents = new LspDocuments() ;
+        const config = new ConfigManager(documents);
         return await Promise.all([
             initializeParser(),
             initializeDocumentationCache(),
-            initializeFishWorkspaces(),
+            initializeFishWorkspaces({}),
         ]).then(([parser, cache, workspaces]) => {
-            const analyzer = new Analyzer(parser, cache,  workspaces);
+            const analyzer = new Analyzer(parser, cache, workspaces);
             //workspaces.get(`${homedir()}/.config/fish`).
-            return new FishServer(connection, params, parser, analyzer, documents, cache);
+            return new FishServer(connection, config, parser, analyzer, documents, cache);
         })
     }
 
@@ -69,13 +70,12 @@ export default class FishServer {
     protected logger: Logger;
     protected features: SupportedFeatures;
 
-    constructor(connection: Connection, params: InitializeParams ,parser : Parser, analyzer: Analyzer, docs: LspDocuments, documentationCache: DocumentationCache) {
+    constructor(connection: Connection, config: ConfigManager, parser : Parser, analyzer: Analyzer, docs: LspDocuments, documentationCache: DocumentationCache) {
         this.connection = connection;
-        this.initializeParams = params;
         this.parser = parser;
         this.analyzer = analyzer;
         this.docs = docs;
-        this.config = new ConfigManager(this.docs);
+        this.config = config;
         this.logger = new Logger(connection);
         this.features = { codeActionDisabledSupport: false };
         //this.fishAutoFixProvider = new FishAutoFixProvider(this.connection)
@@ -131,6 +131,10 @@ export default class FishServer {
                 },
                 inlayHintProvider: true,
             }
+        }
+
+        if (params.initializationOptions) {
+            this.config.mergeTsPreferences(params.initializationOptions);
         }
         return result;
     }
@@ -204,15 +208,8 @@ export default class FishServer {
         doc.applyEdits(doc.version+1, ...params.contentChanges)
         this.analyzer.analyze(doc);
         this.logger.log(`${doc.version}:::${doc.uri}`)
-        //for (const f of this.docs.files) {
-            //this.logger.log(`file in docs: ${f}`)
-        //}
         const root = this.analyzer.getRootNode(doc);
         if (!root) return 
-        //params.contentChanges.forEach(newContent => {
-            //doc.applyEdit(params.textDocument.version, newContent)
-        //})
-        //this.analyzer.analyze(doc);
         //this.connection.sendDiagnostics(this.analyzer.getDiagnostics(doc));
     }
 
@@ -333,7 +330,7 @@ export default class FishServer {
         this.logger.log("onDocumentSymbols");
         const {doc, uri, root} = this.getDefaultsForPartialParams(params)
         if (!doc || !uri || !root) return [];
-        return DocumentSymbolTree(root).last();
+        return SymbolTree(root, uri).last();
     }
 
     protected get supportHierarchicalDocumentSymbol(): boolean {
@@ -507,7 +504,7 @@ export default class FishServer {
         }
         const root = this.analyzer.getRootNode(document)
         if (!root) return 
-        const foldNodes: FoldingRange[] = DocumentSymbolTree(root).folds(document)
+        const foldNodes: FoldingRange[] = SymbolTree(root, document.uri).folds(document)
         // see folds.ts @ might be unnecessary
         //for (const node of foldNodes) {
             //this.logger.log(`onFoldingRanges: ${node.type} ${node.startPosition.row} ${node.endPosition.row}`);
@@ -592,9 +589,7 @@ export default class FishServer {
     private async startBackgroundAnalysis(): Promise<{ filesParsed: number }> {
         //const { workspaceFolder } = this
         //if (workspaceFolder) {
-        return this.analyzer.initiateBackgroundAnalysis({
-            backgroundAnalysisMaxFiles: 1000,
-        })
+        return this.analyzer.initiateBackgroundAnalysis()
         //}
         //return Promise.resolve({ filesParsed: 0 })
     }

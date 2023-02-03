@@ -9,25 +9,24 @@ import { LspDocument } from '../document';
  * call to initialize all workspaces in the fish-lsp-config,
  * @TODO: or the use the defaults set by the configManager
  */
-export async function initializeFishWorkspaces() {
+export async function initializeFishWorkspaces(config?: {}) {
     const spaces = new FishWorkspaces();
     Workspace.MAX_FILE_AMOUNT = 5000;
-    const toAdd = [
-        `${homedir()}/.config/fish`,
+    const defaultWorkspaces = [
+        `${homedir}/.config/fish`,
         `/usr/share/fish`,
     ]
-    const isEditable = [
-        `${homedir()}/.config/fish`,
+    const canRename = [
+        `${homedir}/.config/fish`,
     ]
-    for (const path of toAdd) {
+    for (const path of defaultWorkspaces) {
         const newWS = await createWorkspace(path);
-        if (isEditable.includes(path)) {
-            newWS.editable = true;
+        if (canRename.includes(path)) {
+            newWS.canRename = true;
         }
         spaces.add(newWS)
     }
     return spaces
-    //ws.workspaces.push();
 }
 
 /**
@@ -51,19 +50,21 @@ export async function createWorkspace(path: string) {
  * @link https://nodejs.org/api/stream.html#stream_readable_streams
  * @link https://github.com/mrmlnc/fast-glob#readme
  *
- * @return {Promise<Map<string, string>>} Map of file uris to file contents.
+ * @return {Promise<Map<string, LspDocument>>} Map of file uris to file contents.
+ * convert back to Map<string, string> 
  */
-export async function getFilesStream(path: string, maxFilesAmount: number = 1000): Promise<Map<string, LspDocument>> {
+export async function getFilesStream(path: string, maxFilesAmount: number = 5000): Promise<Map<string, LspDocument>> {
     const filesMap: Map<string, LspDocument> = new Map<string, LspDocument>();
 
-    const stream = fastGlob.stream(['config.fish','functions/*.fish'], {
-        extglob: true,
+    const stream = fastGlob.stream(['functions/*.fish', '**.fish'], {
+        //extglob: true,
         absolute: true,
         onlyFiles: true,
         globstar: true,
         cwd: path,
         braceExpansion: true,
-        deep: 1,
+        deep: 2,
+        ignore: ['completions'],
         followSymbolicLinks: false,
         suppressErrors: true,
     })
@@ -98,15 +99,15 @@ export class Workspace {
     public static MAX_FILE_AMOUNT = 5000;
 
     public path: string ;
-    public autoloaded: boolean;
-    public editable: boolean;
+    public autoloaded: boolean = false;
+    public canRename: boolean = false;
 
     public documents: Map<string, LspDocument> = new Map<string, LspDocument>();
 
     constructor(name: string) {
         this.path = name;
         this.autoloaded = false;
-        this.editable = false;
+        this.canRename = false;
     }
 
     public async initializeFiles() {
@@ -121,9 +122,8 @@ export class Workspace {
             this.documents.has(uri) ||
             this.documents.has("file://" + uri)
     }
-
-    setEditable() {
-        this.editable = true;
+    setCanRename() {
+        this.canRename = true;
     }
     getfileContents(uri: string) {
         return this.documents.get(uri);
@@ -172,7 +172,7 @@ export class FishWorkspaces {
     }
     get editable() {
         return this.workspaces
-            .filter(workspace => workspace.editable);
+            .filter(workspace => workspace.canRename);
     }
     get autoloaded() {
         return this.workspaces

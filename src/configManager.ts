@@ -5,17 +5,134 @@ import { LspDocuments } from './document';
 import {
     Connection, FormattingOptions,
 } from 'vscode-languageserver';
+import { homedir } from 'os';
 
 
 export interface ServerPreferences {
-    displaySuggestions?: boolean
-    completeFunctionCalls?: boolean,
-    completeVariables?: boolean,
     hirearchicalDocumentSymbolSupport?: boolean,
-    // formatting
+    completions?: CompletionOptions,
+    documentation?: DocumentationOptions,
     // debugging
-
     formatting?: FishFormattingOptions,
+    workspaces?: FishWorkspaceOptions,
+    codeActions?: FishCodeActionsOptions,
+    diagnostics?: FishDiagnosticsOptions,
+}
+
+const DEFAULT_PREFERENCES: ServerPreferences  = {
+    hirearchicalDocumentSymbolSupport: false,
+    completions: {
+        enable: true,
+        functions: true,
+        variables: true,
+        extraDetails: true,
+        expandAbbreviations: { 
+            enabled: true,
+            keys: [';', ' ', '\t', ]
+        },
+    },
+    documentation: {
+        enable: true,
+        syntax: 'markdown',
+        manPage: {
+            showLinks: true,
+            removeLeadingTabs: true,
+        },
+        symbolPrefrence: {
+            showComments: true,
+            showCode: true,
+            showLine: true,
+            showScope: true,
+        },
+        fallbackCommands: [
+            // COULD BE:
+            //{   
+            //    command: 'tldr',
+            //    args: [''],
+            //    symbolType: ['function', 'command'],
+            //},
+            //{
+        ],
+    },
+    formatting: {
+        formatOnSave: false,
+        tabSize: 4,
+        insertSpaces: true,
+        trimTrailingWhitespace: true,
+        trimFinalNewlines: true,
+        insertFinalNewline: true,
+        removeLeadingSwitchCaseWhitespace: true,
+    },
+    workspaces: {
+        symbols: {
+            enable: true,
+            max: 5000,
+            prefer: 'functions',
+        },
+        paths: {
+            defaults: [
+                `${homedir()}/.config/fish`,
+                '/usr/share/fish',
+            ],
+            allowRename: [
+                `${homedir()}/.config/fish`,
+            ]
+        },
+    },
+    codeActions: {
+        enable: true,
+        create: {
+            completionsFile: false,
+            fromArgParse: false,
+        },
+        extract: {
+            toPrivateFunction: false,
+            toLocalVariable: false,
+        },
+        quickfix: {
+            addMissingEnd: true,
+            removeUnnecessaryEnd: true,
+        },
+    },
+    diagnostics: {
+        enable: true,
+        maxNumberOfProblems: 10,
+    },
+}
+
+
+
+export interface CompletionOptions {
+    enable: boolean,
+    functions: boolean,
+    variables: boolean,
+    extraDetails: boolean,
+    expandAbbreviations: {
+        enabled: boolean,
+        keys: string[],
+    }, 
+}
+
+type SymbolType = 'function' | 'command' | 'variable';
+interface FallbackCommand {
+    command: string,
+    args: string[],
+    symbolType: SymbolType[],
+}
+export interface DocumentationOptions {
+    enable: boolean,
+    syntax: 'markdown' | 'plaintext',
+    fallbackCommands: FallbackCommand[],
+    manPage: {
+        showLinks: boolean,
+        removeLeadingTabs: boolean,
+    },
+    symbolPrefrence: {
+        showComments: boolean,
+        showCode: boolean,
+        showLine: boolean,
+        showScope: boolean,
+    },
 }
 
 export interface FishFormattingOptions extends FormattingOptions {
@@ -26,28 +143,40 @@ export interface FishFormattingOptions extends FormattingOptions {
     insertFinalNewline?: boolean
 }
 
-export const FishFormattingDefaults : FishFormattingOptions = {
-    formatOnSave: false,
-    tabSize: 4,
-    insertSpaces: true,
-    trimTrailingWhitespace: true,
-    trimFinalNewlines: true,
-    insertFinalNewline: true,
-    removeLeadingSwitchCaseWhitespace: true,
+export interface FishWorkspaceOptions {
+    symbols: {
+        enable: boolean,
+        max: number,
+        prefer: 'functions' | 'variables',
+    },
+    paths: {
+        defaults: string[],
+        allowRename: string[],
+    }
 }
 
-const DEFAULT_PREFERENCES: ServerPreferences  = {
-    displaySuggestions: true,
-    completeFunctionCalls: true,
-    completeVariables: true,
-    hirearchicalDocumentSymbolSupport: false,
-
-    formatting: FishFormattingDefaults,
-
+export interface FishCodeActionsOptions {
+    enable: boolean,
+    create: {
+        completionsFile: boolean,
+        fromArgParse: boolean,
+    },
+    extract: {
+        toPrivateFunction: boolean,
+        toLocalVariable: boolean,
+    },
+    quickfix: {
+        addMissingEnd: boolean,
+        removeUnnecessaryEnd: boolean,
+    },
 }
 
+export interface FishDiagnosticsOptions {
+    enable: boolean,
+    maxNumberOfProblems: number,
+}
 
-
+export type ConfigKeys = keyof Required<ServerPreferences>;
 
 export class ConfigManager {
 
@@ -68,6 +197,19 @@ export class ConfigManager {
         return true;
     }
 
+    public getWorkspaceOptions() : FishWorkspaceOptions {
+        return this.preferences.workspaces;
+    }
+
+    public getOption(key: ConfigKeys) : ServerPreferences[ConfigKeys] {
+        return this.preferences[key];
+    }
+
+    public updateOption(key: ConfigKeys, value: ServerPreferences[ConfigKeys]) : void {
+        //if (key in this.preferences) {
+        //    this.preferences[key] = value;
+        //}
+    }
 }
 
 

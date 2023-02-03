@@ -12,7 +12,7 @@ import { DocumentationCache } from './utils/documentationCache';
 import { DocumentSymbol } from 'vscode-languageserver';
 import { GlobalWorkspaceSymbol } from './symbols';
 import fs from 'fs'
-import { DocumentSymbolTree, SymbolTree } from './symbolTree';
+import { SymbolTree } from './symbolTree';
 import { FishWorkspaces, Workspace } from './utils/workspace';
 
 type SourceCommand = {
@@ -23,6 +23,7 @@ type GlobalDefinition = { [name: string] : WorkspaceSymbol[] }
 type uriToAnalyzedDocument = {
     document: LspDocument,
     documentSymbols: SymbolTree,
+    globalDefinitions: WorkspaceSymbol[],
     sourcedUris: SourceCommand[]
     tree: Parser.Tree
 }
@@ -60,28 +61,34 @@ export class Analyzer {
         const tree = this.parser.parse(document.getText());
         this.uriToTreeMap.set(document.uri, tree)
         const sourcedUris = uniqueCommands(tree.rootNode, this.lookupUriMap)
-        const documentSymbols = DocumentSymbolTree(tree.rootNode)
+        const documentSymbols = SymbolTree(tree.rootNode, uri)
         this.uriToAnalyzedDocument[uri] = {
             document,
             documentSymbols,
+            globalDefinitions: documentSymbols.globalExports(),
             sourcedUris,
             tree
         }
-        this.setWorkspaceSymbols(tree.rootNode, uri)
+        for (const symbol of documentSymbols.globalExports()) {
+            //console.log(symbol)
+            const existing: WorkspaceSymbol[] = this.workspaceSymbols.get(symbol.name) ?? [];
+            const count = existing.filter(s => symbol.location.uri === s.location.uri).length
+            if (count === 0) {
+                existing.push(symbol)
+            } else if (existing.length === 0) {
+               existing.push(symbol)
+            }
+            //existing.push(symbol)
+            this.workspaceSymbols.set(symbol.name, existing)
+        }
+
     }
 
-    public async initiateBackgroundAnalysis({
-        backgroundAnalysisMaxFiles
-    }:{
-        backgroundAnalysisMaxFiles: number
-    }) : Promise<{ filesParsed: number }> {
+    public async initiateBackgroundAnalysis() : Promise<{ filesParsed: number }> {
         let amount = 0;
         const allDocs = this.workspaces.workspaceDocs
         for (const document of allDocs) {
-            //if (amount >= backgroundAnalysisMaxFiles) break;
             try {
-                //const fileContent = await fs.promises.readFile(filePath, 'utf8')
-                //const document = toLspDocument(file, content);
                 this.analyze(document);
                 amount++;
             } catch (err) {
@@ -96,49 +103,23 @@ export class Analyzer {
         for (const [name, symbols] of this.workspaceSymbols) {
             let toAdd: WorkspaceSymbol[] = []
             for (const symbol of symbols) {
-                if (symbol.kind == SymbolKind.Function) {
-                    toAdd = []
-                    toAdd.push(symbol)
-                    break;
-                } else {
-                    toAdd.push(symbol)
-                }
+                //if (symbol.kind == SymbolKind.Function) {
+                    //toAdd = [symbol]
+                    //break;
+                //} else {
+                //}
+                toAdd.push(symbol)
             }
             results.push(...toAdd)
         }
         return results
     }
 
-    private setWorkspaceSymbols(root: SyntaxNode, uri: string) {
-        const result: WorkspaceSymbol[] = []
-        const definitionNodes = getChildNodes(root).filter(n => isDefinition(n))
-        for (const node of definitionNodes) {
-            const scope = DefinitionSyntaxNode.getScope(node, uri)
-            if (scope !== 'global') continue;
-            if (isVariableDefinition(node)) {
-                result.push(GlobalWorkspaceSymbol().createVar(node, uri))
-            }
-            if (isFunctionDefinitionName(node) && node.text === pathToRelativeFunctionName(uri)) {
-                result.push(GlobalWorkspaceSymbol().createFunc(node, uri))
-            }
-        }
-        for (const symbol of result) {
-            const existing: WorkspaceSymbol[] = this.workspaceSymbols.get(symbol.name) ?? [];
-            const count = existing.filter(s => symbol.location.uri === s.location.uri).length
-            if (count === 0) {
-                existing.push(symbol)
-            } else if (existing.length === 0) {
-                existing.push(symbol)
-            }
-            this.workspaceSymbols.set(symbol.name, existing)
-        }
-        return result
-    }
 
     public autoloadedInWorkspace(symbol: WorkspaceSymbol) {
         const uri = symbol.location.uri;
         const workspace = this.workspaces.find(uri)
-        if (workspace === undefined) return false;
+        if (!workspace) return false;
         switch (symbol.kind) {
             case SymbolKind.Function:
                 if (workspace.functions.some((doc: LspDocument) => doc.getAutoLoadName()  === symbol.name)) {
@@ -146,7 +127,7 @@ export class Analyzer {
                 }
                 return uri.endsWith("config.fish")
             case SymbolKind.Variable:
-                return workspace.editable
+                return workspace.canRename
             default:
                 return false
         }
