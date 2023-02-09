@@ -92,11 +92,15 @@ describe("analyze tests", () => {
             //}
 //
         }
-        console.log(analyzer.getWorkspaceSymbols( ).find(s => s.name === 'ls') || 'no ls')
+        console.log(analyzer.getWorkspaceSymbols().find(s => s.name === 'ls') || 'no ls')
         //console.log(analyzer.workspaceSymbols)
         //console.log(Analyzer.workspaces.map(n => n.files))
         console.log(doc.uri)
     });
+
+
+    // TODO: convert all symbols to SymbolInformation, and only grab the document symbols per
+    // request from client
 
     const analyze_test_3 = 'logging all WorkspaceSymbols background uris';
     it(analyze_test_3, async () => {

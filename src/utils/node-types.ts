@@ -47,7 +47,9 @@ export function isFunctionDefinitionName(node: SyntaxNode): boolean {
     return node.type == 'word' && node.equals(funcName);
 }
 
-// isVariableDefinition || isFunctionDefinitionName
+/**
+ * isVariableDefinition() || isFunctionDefinitionName()
+ */
 export function isDefinition(node: SyntaxNode): boolean {
     return isFunctionDefinitionName(node) || isVariableDefinition(node);
 }
