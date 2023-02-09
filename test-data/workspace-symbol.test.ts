@@ -96,7 +96,8 @@ const logNode = (node: SyntaxNode | null) => {
 describe("workspace-symbols tests", () => {
     it("simple function symbols", async () => {
         const doc = resolveLspDocumentForHelperTestFile("./fish_files/simple/simple_function.fish");
-        const symbols = collectFishWorkspaceSymbols(doc.uri, parser.parse(doc.getText()).rootNode);
+        const root = parser.parse(doc.getText()).rootNode
+        const symbols = collectFishWorkspaceSymbols(root, doc.uri);
         symbols.forEach(s => {
             logSymbol(s);
         })

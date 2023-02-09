@@ -1,4 +1,4 @@
-import { Position, PublishDiagnosticsParams, SymbolInformation, SymbolKind, WorkspaceSymbol, } from "vscode-languageserver";
+import { Hover, MarkupContent, MarkupKind, Position, PublishDiagnosticsParams, SymbolInformation, SymbolKind, WorkspaceSymbol, } from "vscode-languageserver";
 import Parser, { SyntaxNode, Range, Tree } from "web-tree-sitter";
 import * as LSP from 'vscode-languageserver';
 //import {collectFishSymbols, FishSymbol} from './symbols';
@@ -14,6 +14,7 @@ import { GlobalWorkspaceSymbol } from './symbols';
 import fs from 'fs'
 import { SymbolTree } from './symbolTree';
 import { FishWorkspaces, Workspace } from './utils/workspace';
+import { collectFishWorkspaceSymbols, FishWorkspaceSymbol } from './utils/fishWorkspaceSymbol';
 
 type SourceCommand = {
     name: string,
@@ -62,14 +63,15 @@ export class Analyzer {
         this.uriToTreeMap.set(document.uri, tree)
         const sourcedUris = uniqueCommands(tree.rootNode, this.lookupUriMap)
         const documentSymbols = SymbolTree(tree.rootNode, uri)
+        const workspaceSymbols = collectFishWorkspaceSymbols(tree.rootNode, uri)
         this.uriToAnalyzedDocument[uri] = {
             document,
             documentSymbols,
-            globalDefinitions: documentSymbols.globalExports(),
+            globalDefinitions: workspaceSymbols,
             sourcedUris,
             tree
         }
-        for (const symbol of documentSymbols.globalExports()) {
+        for (const symbol of workspaceSymbols) {
             //console.log(symbol)
             const existing: WorkspaceSymbol[] = this.workspaceSymbols.get(symbol.name) ?? [];
             const count = existing.filter(s => symbol.location.uri === s.location.uri).length
@@ -135,6 +137,22 @@ export class Analyzer {
 
     get(document: LspDocument) {
         return this.uriToTreeMap.get(document.uri)
+    }
+
+    public getHover(document: LspDocument, position: Position): Hover | null {
+        const tree = this.get(document)
+        if (!tree) return null;
+        const node = this.nodeAtPoint(document, position.line, position.character);
+        if (!node) return null
+        const symbols = this.workspaceSymbols.get(node.text)
+        if (!symbols) return null
+        const symbol = symbols.at(0) as FishWorkspaceSymbol
+        return {
+            contents: {
+                kind: MarkupKind.Markdown,
+                value: symbol.documentation.markdown,
+            } as MarkupContent
+        }
     }
 
     /**
@@ -270,92 +288,3 @@ function uniqueCommands(root: SyntaxNode, uris: Map<string, string>): SourceComm
     return result
 }
 
-export namespace DefinitionSyntaxNode {
-    export const ScopeTypesSet = new Set(["global", "function", "local", "block"]);
-    export type ScopeTypes = "global" | "function" | "local" | "block";
-    export type VariableCommandNames = "set" | "read" | "for" | "function" // FlagsMap.keys()
-    export interface CommandOption {
-        short: string[]
-        long: string[]
-        isDefault: boolean
-    }
-    export class CommandOption {
-        constructor(short: string[], long: string[], isDefault: boolean) {
-            this.short = short;
-            this.long = long;
-            this.isDefault = isDefault;
-        }
-        has(option: string): boolean {
-            if (option.startsWith('--')) {
-                const withoutDash = option.slice(2);
-                return this.long.includes(withoutDash);
-            } else if (option.startsWith('-')) {
-                const withoutDash = option.slice(1);
-                return this.short.some(opt => withoutDash.split('').includes(opt));
-            } else {
-                return false;
-            }
-        }
-        toString() {
-            return '[' + this.short.map(s => '-'+s).join(', ') + ', ' + this.long.map(l => '--'+l).join(', ') + ']';
-            //return returnString;
-        }
-    }
-    const createFlags = (flags: string[], isDefault: boolean = false): CommandOption => {
-        return new CommandOption(
-            flags.filter((flag) => flag.startsWith("-") && flag.length === 2).map((flag) => flag.slice(1)),
-            flags.filter((flag) => flag.startsWith("--")).map((flag) => flag.slice(2)), 
-            isDefault
-        );
-    }
-    const _Map = {
-        read: {
-            global:   createFlags(["-g", '--global'])      ,
-            local:    createFlags(["-l", "--local"], true) ,
-            function: createFlags(["-f", "--function"])    ,
-        },
-        set: {
-            global:   createFlags(["-g", '--global'])      ,
-            local:    createFlags(["-l", "--local"], true) ,
-            function: createFlags(["-f", "--function"])    ,
-        },
-        for: {
-            block: createFlags([]) 
-        },
-        function: { 
-            function: createFlags(["-A", "--argument-names", "-v", "--on-variable"], true)   ,
-            global:   createFlags(["-V", "--inherit-variable", '-S', '--no-scope-shadowing']),
-        },
-    }
-    export const FlagsMap = new Map(Object.entries(_Map).map(([command, scopes]) => {
-        return [command, new Map(Object.entries(scopes).map(([scope, flags]) => {
-            return [scope, flags];
-        }))];
-    }));
-    function collectFlags(cmdNode: SyntaxNode): string[] {
-        return cmdNode.children
-            .filter((n) => n.text.startsWith("-"))
-            .map((n) => n.text);
-    }
-    export const getScope = (definitionNode: SyntaxNode, uri: string) => {
-        if (!isDefinition(definitionNode)) return null;
-        if (definitionNode.text.startsWith("$") || definitionNode.text === "argv" || definitionNode.text.endsWith("]")) return 'local';
-        if (isFunctionDefinitionName(definitionNode)) {
-            const loadedName = pathToRelativeFunctionName(uri);
-            return loadedName === definitionNode.text || loadedName.endsWith('config') ? "global" : "local";
-        }
-        const command = findFirstParent(definitionNode, isCommandName) || definitionNode.parent;
-        const commandName = command?.firstChild?.text || "";
-        if (!command || !commandName) return
-        const currentFlags = collectFlags(command)
-        let saveScope : string = 'local';
-        for (const [scope, scopeFlags] of FlagsMap.get(commandName)!.entries()) {
-            if (currentFlags.some(flag => scopeFlags.has(flag))) {
-                return scope
-            } else if (scopeFlags.isDefault) {
-                saveScope = scope
-            }
-        }
-        return saveScope
-    }
-}

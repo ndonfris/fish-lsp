@@ -6,7 +6,7 @@ import { isDefinition, isForLoop, isFunctionDefinition, isFunctionDefinitionName
 import { pathToRelativeFunctionName } from './utils/translation';
 import { findFirstParent, getChildNodes, getNodeAtRange, getRange, getRangeWithPrecedingComments } from './utils/tree-sitter';
 import { containsRange,  getNodeFromSymbol, precedesRange } from './workspace-symbol';
-import { DefinitionSyntaxNode } from './analyze';
+//import { DefinitionSyntaxNode } from './analyze';
 
 export type SymbolTree = ReturnType<typeof SymbolTree>;
 
@@ -25,7 +25,7 @@ export function SymbolTree(root: SyntaxNode, uri: string) {
         //findAll: (node: SyntaxNode) => findAll(all, node),
         findRefs: (node: SyntaxNode) => findRefrences(root, all, node),
         folds: (document: LspDocument) => getFolds(document, root, all),
-        globalExports: () => getExported(root, uri),
+        //globalExports: () => getExported(root, uri),
         //exports: () => @TODO
     }
 }
@@ -269,18 +269,18 @@ function findRefrences(root: SyntaxNode, all: DocumentSymbol[], node?: SyntaxNod
     return getChildNodes(parentScope).filter((child) => child.text === node.text);
 }
 
-function getExported(root: SyntaxNode, uri: string): WorkspaceSymbol[] {
-    const result: WorkspaceSymbol[] = []
-    const definitionNodes = getChildNodes(root).filter(n => isDefinition(n))
-    for (const node of definitionNodes) {
-        const scope = DefinitionSyntaxNode.getScope(node, uri)
-        if (scope !== 'global') continue;
-        if (isVariableDefinition(node)) {
-            result.push(GlobalWorkspaceSymbol().createVar(node, uri))
-        }
-        if (isFunctionDefinitionName(node) && node.text === pathToRelativeFunctionName(uri)) {
-            result.push(GlobalWorkspaceSymbol().createFunc(node, uri))
-        }
-    }
-    return result
-}
+//function getExported(root: SyntaxNode, uri: string): WorkspaceSymbol[] {
+//    const result: WorkspaceSymbol[] = []
+//    const definitionNodes = getChildNodes(root).filter(n => isDefinition(n))
+//    for (const node of definitionNodes) {
+//        const scope = DefinitionSyntaxNode.getScope(node, uri)
+//        if (scope !== 'global') continue;
+//        if (isVariableDefinition(node)) {
+//            result.push(GlobalWorkspaceSymbol().createVar(node, uri))
+//        }
+//        if (isFunctionDefinitionName(node) && node.text === pathToRelativeFunctionName(uri)) {
+//            result.push(GlobalWorkspaceSymbol().createFunc(node, uri))
+//        }
+//    }
+//    return result
+//}

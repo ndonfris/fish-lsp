@@ -401,7 +401,7 @@ export default class FishServer {
                 }
             }
         }
-        return await handleHover(doc.uri, root, current, this.documentationCache);
+        return this.analyzer.getHover(doc, params.position) || await handleHover(doc.uri, root, current, this.documentationCache);
     }
 
     async onRename(params: RenameParams) : Promise<WorkspaceEdit | null> {

@@ -130,6 +130,16 @@ export function DocumentDefSymbol (opts?: {}) {
     }
 }
 
+export function getMarkdownDocumentation(node: SyntaxNode) {
+    const commentRange = CommentRange.create(node);
+    return [
+        `\*(function)* \**${node.text}**`,
+        '___',
+        commentRange.markdown()
+    ].join('\n')
+
+}
+
 
 // @TODO: implement const {  enclosingText, enclosingNode, encolsingType } 
 //        = DefinitionSyntaxNode.getEnclosingScope(parentNode);
@@ -349,7 +359,6 @@ export namespace CommentRange {
                 markupContent: this.toMarkupContent(),
                 commentRange: this,
             }
-
         }
 
         findParent(): SyntaxNode | null {
@@ -359,6 +368,7 @@ export namespace CommentRange {
             }
             return  null;
         }
+
 
     }
     /**
