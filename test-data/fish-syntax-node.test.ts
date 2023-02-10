@@ -159,7 +159,6 @@ describe("FISH web-tree-sitter SUITE", () => {
 
     it("test is func_a", async () => {
         loggingON();
-        //const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/is_chained_return.fish");
         const parser = await initializeParser();
         const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/func_a.fish", true);
         const root = parser.parse(test_doc.getText()).rootNode;
