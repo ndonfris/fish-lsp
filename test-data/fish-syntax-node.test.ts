@@ -12,6 +12,7 @@ import {collectFunctionNames, collectFunctionsScopes} from '../src/diagnostics/v
 import {Diagnostic} from 'vscode-languageserver';
 //import {FishSyntaxNode} from '../src/utils/fishSyntaxNode';
 import {initializeParser} from '../src/parser';
+import { filterFishFlagOption, findAllOptions, FunctionOpts, VariableOpts } from '../src/utils/options';
 import {findParentCommand} from '../src/utils/node-types';
 import {execCommandDocs, execCommandType, execCompleteCmdArgs, execCompleteSpace} from '../src/utils/exec';
 import {documentationHoverProvider, HoverFromCompletion} from '../src/documentation';
@@ -167,10 +168,10 @@ describe("FISH web-tree-sitter SUITE", () => {
             .filter(node => NodeTypes.isDefinition(node))
             .find(node => NodeTypes.isFunctionDefinitionName(node))
         let curr: SyntaxNode | null = func as SyntaxNode;
-        let d_opt = DefinitionOption.create(['-d', '--description'], {values : 'single'} );
+        //let d_opt = DefinitionOption.create(['-d', '--description'], {values : 'single'} );
         //console.log(d_opt.toString());
-        const result = findFlags(curr, d_opt)
-        console.log(result);
+        //const result = findFlags(curr, d_opt)
+        //console.log(result);
     })
     it("test is ConditionalCommand", async () => {
         loggingON();
@@ -183,91 +184,17 @@ describe("FISH web-tree-sitter SUITE", () => {
             .filter(node => NodeTypes.isDefinition(node))
             .find(node => NodeTypes.isFunctionDefinitionName(node))
         let curr: SyntaxNode | null = func as SyntaxNode;
-        let d_opt = DefinitionOption.create(['-a', '--argument-names'], {values : 'multi'} );
+        const opts = findAllOptions(curr, FunctionOpts);
+        console.log(opts);
+        //const functionOpts = FunctionOpts;
+        //console.log(functionOpts);
+        //let d_opt = DefinitionOption.create(['-a', '--argument-names'], {values : 'multi'} );
         //console.log(d_opt.toString());
-        const result = findFlags(curr, d_opt)
-        console.log(result);
+        //const result = findFlags(curr, d_opt)
+        //console.log(result);
     })
 
 })
 
 
-const isLongOption = (text: string): boolean => text.startsWith('--');
-const isShortOption = (text: string): boolean => text.startsWith('-') && !isLongOption(text);
-const isOption = (text: string): boolean => isShortOption(text) || isLongOption(text);
 
-class DefinitionOption {
-    constructor(
-        public shortFlags: string[],
-        public longFlags: string[],
-        public values: 'none' | 'single' | 'multi' = 'none',
-        public partialShortFlags: boolean = true
-    ) {}
-
-    is(text: string): boolean {
-        if (isShortOption(text)) {
-            const newText = text.slice(1);
-            return this.partialShortFlags 
-                ? newText.split('').some((flag) => this.shortFlags.includes(flag))
-                : this.shortFlags.includes(newText);
-        } else if (isLongOption(text)) {
-            return this.longFlags.includes(text.slice(2));
-        }
-        return false;
-    }
-
-    toString() {
-        return this.longFlags[0]
-    }
-}
-
-namespace DefinitionOption {
-    export const create = (
-        opts: string[],
-        options: {
-            values?: 'none' | 'single' | 'multi',
-            partialShortFlags?: boolean,
-        }
-    ): DefinitionOption => {
-        const shortFlags: string[] = opts.filter((opt) => isShortOption(opt)).map((opt) => opt.slice(1))
-        const longFlags: string[] = opts.filter((opt) => isLongOption(opt)).map((opt) => opt.slice(2))
-        return new DefinitionOption(
-            shortFlags,
-            longFlags,
-            options?.values,
-            options?.partialShortFlags
-       );
-    };
-}
-
-function findFlags(
-    node: SyntaxNode,
-    option: DefinitionOption
-) {
-    let current: SyntaxNode | null = node;
-    while (current) {
-        if (current.type === '\n') {
-            break;
-        }
-        if (option.is(current.text)) {
-            switch (option.values) {
-                case 'none':
-                    return option.toString();
-                case 'single':
-                    return current.nextSibling?.text || null;
-                case 'multi':
-                    let retString = ''
-                    let i = 1
-                    while (current.nextSibling && current.nextSibling.type !== '\n' && !isOption(current.nextSibling.text)) {
-                        retString += `    creates variable \`${current.nextSibling.text}\` from \`$argv[${i}]\`\n`
-                        current = current.nextSibling;
-                        i++
-                    }
-                    return retString || null
-            }
-        }
-        //console.log(current.text);
-        current = current.nextSibling;
-    }
-    return null;
-}
