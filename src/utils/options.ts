@@ -18,10 +18,10 @@ export class FishCommandOption {
         if (isShortOption(text)) {
             const newText = text.slice(1);
             return this.partialShortFlags 
-                ? newText.split('').some((flag) => this.shortFlags.includes(flag))
+                ? newText.split('').some((flag) => this.shortFlags ===flag)
                 : this.shortFlags.includes(newText);
         } else if (isLongOption(text)) {
-            return this.longFlags.includes(text.slice(2));
+            return this.longFlags === text.slice(2);
         }
         return false;
     }
@@ -29,77 +29,20 @@ export class FishCommandOption {
 }
 
 
-const FunctionDescription = new FishCommandOption(
-    'A description of the function',
-    'd',
-    'description',
-    'single',
-    false
-);
-
-const FunctionArgumentsNames = new FishCommandOption(
-    'A list of arguments for the function',
-    'a',
-    'argument-names',
-    'multi',
-    false,
-);
-
-const FunctionInheritVariables = new FishCommandOption(
-    "inherits variables from the caller scope",
-    'V',
-    'inherit-variable',
-    'multi',
-    false
-);
-
-const FunctionScopeVariables = new FishCommandOption(
-    'no scope shadowing',
-    'S',
-    'no-scope-shadowing',
-    'none',
-    false
-)
 
 const FunctionOptions = [
-    FunctionDescription,
-    FunctionArgumentsNames,
-    FunctionInheritVariables,
-    FunctionScopeVariables
+    new FishCommandOption('description',                              'd', 'description',      'single',  false),
+    new FishCommandOption('list of arguments',                        'a','argument-names',    'multi',   false,),
+    new FishCommandOption("variables inherited from the caller scope",'V','inherit-variable',  'multi',   false),
+    new FishCommandOption('no scope shadowing',                       'S','no-scope-shadowing','none',    false),
 ]
 
-const v_local = new FishCommandOption(
-    'Declare a local variable',
-    'l',
-    'local',
-    'none',
-)
-const v_export = new FishCommandOption(
-    'exported',
-    'x',
-    'export',
-    'none',
-)
-
-const v_global = new FishCommandOption(
-    'globally scoped',
-    'g',
-    'global',
-    'none',
-)
-    
-const v_universal = new FishCommandOption(
-    'universally scoped',
-    'U',
-    'universal',
-    'none',
-)
 
 const VariableOptions = [
-    v_local,
-    v_export,
-    v_global,
-    v_universal
+    new FishCommandOption('locally scoped',    'l',    'local',  'none'),
+    new FishCommandOption('exported',          'x',   'export',  'none'),
+    new FishCommandOption('globally scoped',   'g',   'global',  'none'),
+    new FishCommandOption('universally scoped','U','universal',  'none'),
 ]
 
 
