@@ -51,18 +51,64 @@ const FunctionArgumentsNames = new FishCommandOption(
 const FunctionInheritVariables = new FishCommandOption(
     'inherit',
     'inherit variables from the caller scope',
-    ['i'],
+    ['V'],
     ['inherit-variable'],
     'multi',
     false
 );
 
+const FunctionScopeVariables = new FishCommandOption(
+    'scope shadowing',
+    'no scope shadowing',
+    ['S'],
+    ['no-scope-shadowing'],
+    'none',
+    false
+)
 
+const FunctionOptions = [
+    FunctionDescription,
+    FunctionArgumentsNames,
+    FunctionInheritVariables,
+    FunctionScopeVariables
+]
+
+const v_local = new FishCommandOption(
+    'local',
+    'Declare a local variable',
+    ['l'],
+    ['local'],
+    'none',
+)
+const v_export = new FishCommandOption(
+    'exported',
+    'exported',
+    ['x'],
+    ['export'],
+    'none',
+)
+
+const v_global = new FishCommandOption(
+    'global',
+    'globally scoped',
+    ['g'],
+    ['global'],
+    'none',
+)
     
+const v_universal = new FishCommandOption(
+    'global',
+    'universally scoped',
+    ['U'],
+    ['universal'],
+    'none',
+)
 
-
-
-
-
+const VariableOptions = [
+    v_local,
+    v_export,
+    v_global,
+    v_universal
+]
 
 
