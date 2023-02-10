@@ -18,7 +18,7 @@ export class FishCommandOption {
             const newText = text.slice(1);
             return this.partialShortFlags 
                 ? newText.split('').some((flag) => this.shortFlags ===flag)
-                : this.shortFlags.includes(newText);
+                : this.shortFlags === newText;
         } else if (isLongOption(text)) {
             return this.longFlags === text.slice(2);
         }
@@ -41,11 +41,9 @@ const VariableOptions = [
 ]
 
 
-export function findOption(node: SyntaxNode) {
+export function findOptionString(node: SyntaxNode) {
     if (!isDefinition(node)) return null;
     if (isVariableDefinition(node)) return ""
     if (isFunctionDefinitionName(node)) return ""
+    return null;
 }
-
-
-
