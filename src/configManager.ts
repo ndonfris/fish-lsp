@@ -20,7 +20,7 @@ export interface ServerPreferences {
 }
 
 const DEFAULT_PREFERENCES: ServerPreferences  = {
-    hirearchicalDocumentSymbolSupport: false,
+    hirearchicalDocumentSymbolSupport: true,
     completions: {
         enable: true,
         functions: true,
@@ -180,16 +180,18 @@ export type ConfigKeys = keyof Required<ServerPreferences>;
 
 export class ConfigManager {
 
-    private preferences: Required<ServerPreferences> = deepmerge({}, DEFAULT_PREFERENCES);
+    private _preferences: Required<ServerPreferences> = deepmerge({}, DEFAULT_PREFERENCES);
+    //private _preferences: Required<ServerPreferences> = Object.assign({}, DEFAULT_PREFERENCES, {}) as Required<ServerPreferences>
 
     constructor(private readonly documents: LspDocuments) {}
 
-    public mergeTsPreferences(preferences: ServerPreferences): void {
-        this.preferences = deepmerge(this.preferences, preferences);
+    public mergePreferences(preferences: ServerPreferences): void {
+        ////this._preferences = deepmerge(this._preferences, preferences);
+        this._preferences = {...this._preferences, ...preferences};
     }
 
     public getFormattingOptions() : FishFormattingOptions {
-        return this.preferences.formatting;
+        return this._preferences.formatting;
     }
 
     // @TODO: write config
@@ -198,17 +200,21 @@ export class ConfigManager {
     }
 
     public getWorkspaceOptions() : FishWorkspaceOptions {
-        return this.preferences.workspaces;
+        return this._preferences.workspaces;
     }
 
     public getOption(key: ConfigKeys) : ServerPreferences[ConfigKeys] {
-        return this.preferences[key];
+        return this._preferences[key];
     }
 
     public updateOption(key: ConfigKeys, value: ServerPreferences[ConfigKeys]) : void {
         //if (key in this.preferences) {
         //    this.preferences[key] = value;
         //}
+    }
+
+    public get options() : ServerPreferences {
+        return this._preferences;
     }
 }
 

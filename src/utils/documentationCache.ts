@@ -161,7 +161,7 @@ async function getVariableDocs(name: string): Promise<string | undefined> {
     }).join('\n')
     return [
         `**${splitTitleArray[0].trim()}** - *${splitTitleArray[1].trim()}*`,
-        '___',
+        //'___',
         formattedOther
     ].join('\n')
 }

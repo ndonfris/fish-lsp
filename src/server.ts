@@ -44,6 +44,7 @@ export default class FishServer {
     ): Promise<FishServer> {
         const documents = new LspDocuments() ;
         const config = new ConfigManager(documents);
+        config.mergePreferences(params.initializationOptions);
         return await Promise.all([
             initializeParser(),
             initializeDocumentationCache(),
@@ -86,6 +87,7 @@ export default class FishServer {
         this.connection.console.log(
             `Initialized server FISH-LSP with ${params.workspaceFolders || ''}`
         )
+        //this.logger.log(JSON.stringify(params, null, 2));
         const result : InitializeResult = {
             capabilities: {
                 textDocumentSync: TextDocumentSyncKind.Incremental,
@@ -96,7 +98,6 @@ export default class FishServer {
                     workDoneProgress: true,
                 },
                 hoverProvider: true,
-                documentHighlightProvider: true,
                 definitionProvider: true,
                 referencesProvider: true,
                 renameProvider: true,
@@ -129,13 +130,13 @@ export default class FishServer {
                 workspaceSymbolProvider: {
                     resolveProvider: true,
                 },
-                inlayHintProvider: true,
+                documentHighlightProvider: false,
+                inlayHintProvider: false,
             }
         }
-
-        if (params.initializationOptions) {
-            this.config.mergeTsPreferences(params.initializationOptions);
-        }
+        this.config.mergePreferences(params.initializationOptions);
+        this.logger.log("FISH-LSP INITIALIZED with options:");
+        this.logger.log(JSON.stringify(this.config.options, null, 2));
         return result;
     }
     
@@ -387,6 +388,7 @@ export default class FishServer {
         return getLocalRefs(doc.uri, root, current) || [];
     }
 
+    // opens package.json on hover of document symbol!
     async onHover(params: HoverParams): Promise<Hover | null> {
         this.logger.log("onHover");
         const {doc, uri, root, current} = this.getDefaults(params)

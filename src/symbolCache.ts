@@ -42,17 +42,17 @@ export class WorkspaceCache {
     public async initialize() {
         await Promise.all([
             execEscapedCommand('set -n'),
-            execEscapedCommand(`functions -an`),
+            //execEscapedCommand(`functions -an`),
             execEscapedCommand('builtin -n'),
-        ]).then(([vars, funcs, builtins]) => {
+        ]).then(([vars, /*funcs,*/ builtins]) => {
             vars.forEach((varName: string) => {
                 const newSymbol = FishWorkspaceSymbol.create(varName, SymbolKind.Variable);
                 this.unresolved.set(varName, [newSymbol])
             });
-            funcs.forEach((funcName: string) => {
-                const newSymbol = FishWorkspaceSymbol.create(funcName, SymbolKind.Function);
-                this.unresolved.set(funcName, [newSymbol])
-            });
+            //funcs.forEach((funcName: string) => {
+                //const newSymbol = FishWorkspaceSymbol.create(funcName, SymbolKind.Function);
+                //this.unresolved.set(funcName, [newSymbol])
+            //});
             builtins.forEach((builtinName: string) => {
                 const newSymbol = FishWorkspaceSymbol.create(builtinName, SymbolKind.Class);
                 this.unresolved.set(builtinName, [newSymbol])

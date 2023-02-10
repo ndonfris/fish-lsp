@@ -10,7 +10,7 @@ import {
 import { buildStatementChildren, ifStatementHasReturn } from '../src/diagnostics/statementHasReturn'
 import {collectFunctionNames, collectFunctionsScopes} from '../src/diagnostics/validate';
 import {Diagnostic} from 'vscode-languageserver';
-import {FishSyntaxNode} from '../src/utils/fishSyntaxNode';
+//import {FishSyntaxNode} from '../src/utils/fishSyntaxNode';
 import {initializeParser} from '../src/parser';
 import {findParentCommand} from '../src/utils/node-types';
 import {execCommandDocs, execCommandType, execCompleteCmdArgs, execCompleteSpace} from '../src/utils/exec';
@@ -163,39 +163,111 @@ describe("FISH web-tree-sitter SUITE", () => {
         const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/func_a.fish", true);
         const root = parser.parse(test_doc.getText()).rootNode;
         const funcs: string[] = [];
-        const diagnostics: Diagnostic[] = [];
-        for (const node of nodesGen(root)) {
-            if (NodeTypes.isFunctionDefinitionName(node)) {
-                collectFunctionNames(node, test_doc, diagnostics, funcs)
-            }
-        }
-        diagnostics.forEach(d => console.log(d.code + ' ' + d.message ))
-        expect(diagnostics.length === 4).toEqual(true);
+        const func = getChildNodes(root)
+            .filter(node => NodeTypes.isDefinition(node))
+            .find(node => NodeTypes.isFunctionDefinitionName(node))
+        let curr: SyntaxNode | null = func as SyntaxNode;
+        let d_opt = DefinitionOption.create(['-d', '--description'], {values : 'single'} );
+        //console.log(d_opt.toString());
+        const result = findFlags(curr, d_opt)
+        console.log(result);
+    })
+    it("test is ConditionalCommand", async () => {
+        loggingON();
+        //const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/is_chained_return.fish");
+        const parser = await initializeParser();
+        const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/function_variable_def.fish", true);
+        const root = parser.parse(test_doc.getText()).rootNode;
+        const funcs: string[] = [];
+        const func = getChildNodes(root)
+            .filter(node => NodeTypes.isDefinition(node))
+            .find(node => NodeTypes.isFunctionDefinitionName(node))
+        let curr: SyntaxNode | null = func as SyntaxNode;
+        let d_opt = DefinitionOption.create(['-a', '--argument-names'], {values : 'multi'} );
+        //console.log(d_opt.toString());
+        const result = findFlags(curr, d_opt)
+        console.log(result);
     })
 
 })
-function checkAllStatements(statementNode: SyntaxNode): boolean {
-    const statements = [statementNode, ...statementNode.namedChildren].filter(c => NodeTypes.isBlock(c))
-    for (const statement of statements) {
-        //console.log(statement.type);
-        if (!checkStatement(statement, [])) {
-            return false;
+
+
+const isLongOption = (text: string): boolean => text.startsWith('--');
+const isShortOption = (text: string): boolean => text.startsWith('-') && !isLongOption(text);
+const isOption = (text: string): boolean => isShortOption(text) || isLongOption(text);
+
+class DefinitionOption {
+    constructor(
+        public shortFlags: string[],
+        public longFlags: string[],
+        public values: 'none' | 'single' | 'multi' = 'none',
+        public partialShortFlags: boolean = true
+    ) {}
+
+    is(text: string): boolean {
+        if (isShortOption(text)) {
+            const newText = text.slice(1);
+            return this.partialShortFlags 
+                ? newText.split('').some((flag) => this.shortFlags.includes(flag))
+                : this.shortFlags.includes(newText);
+        } else if (isLongOption(text)) {
+            return this.longFlags.includes(text.slice(2));
         }
+        return false;
     }
-    return true;
+
+    toString() {
+        return this.longFlags[0]
+    }
 }
 
-function checkStatement(root: SyntaxNode, collection: SyntaxNode[]) {
-    let shouldReturn = NodeTypes.isReturn(root)
-    for (const child of buildStatementChildren(root)) {
-        const include = checkStatement(child, collection) || NodeTypes.isReturn(child)
-        if (NodeTypes.isStatement(child) && !include) {
-            return false;
+namespace DefinitionOption {
+    export const create = (
+        opts: string[],
+        options: {
+            values?: 'none' | 'single' | 'multi',
+            partialShortFlags?: boolean,
         }
-        shouldReturn = include || shouldReturn
+    ): DefinitionOption => {
+        const shortFlags: string[] = opts.filter((opt) => isShortOption(opt)).map((opt) => opt.slice(1))
+        const longFlags: string[] = opts.filter((opt) => isLongOption(opt)).map((opt) => opt.slice(2))
+        return new DefinitionOption(
+            shortFlags,
+            longFlags,
+            options?.values,
+            options?.partialShortFlags
+       );
+    };
+}
+
+function findFlags(
+    node: SyntaxNode,
+    option: DefinitionOption
+) {
+    let current: SyntaxNode | null = node;
+    while (current) {
+        if (current.type === '\n') {
+            break;
+        }
+        if (option.is(current.text)) {
+            switch (option.values) {
+                case 'none':
+                    return option.toString();
+                case 'single':
+                    return current.nextSibling?.text || null;
+                case 'multi':
+                    let retString = ''
+                    let i = 1
+                    while (current.nextSibling && current.nextSibling.type !== '\n' && !isOption(current.nextSibling.text)) {
+                        retString += `    creates variable \`${current.nextSibling.text}\` from \`$argv[${i}]\`\n`
+                        current = current.nextSibling;
+                        i++
+                    }
+                    return retString || null
+            }
+        }
+        //console.log(current.text);
+        current = current.nextSibling;
     }
-    if (shouldReturn) {
-        collection.push(root)
-    }
-    return shouldReturn;
+    return null;
 }
