@@ -1,5 +1,7 @@
 # CURRENT TODO
 
+- update docsCache to parse in background analysis, and then use [options.ts](./src/utils/options.ts)
+    to build markdown string.
 - [ ] [MarkedString](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument\_hover)
 - [ ] (_all_)
   - replace BuiltinsSet.has('`command_name`') with new implementation using DocumentationCache
