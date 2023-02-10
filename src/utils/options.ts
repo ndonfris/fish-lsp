@@ -32,7 +32,7 @@ export const FunctionOpts: FishFlagOption[] = [
         stored: [],
     },
     {
-        name: "inherit variables",
+        name: "inherits variable",
         shortFlags: "V",
         longFlags: "inherit-variable",
         storeNextValues: "multi",
@@ -51,7 +51,7 @@ export const FunctionOpts: FishFlagOption[] = [
 
 export const VariableOpts: FishFlagOption[] = [
     {
-        name: "local",
+        name: "locally",
         shortFlags: "l",
         longFlags: "local",
         storeNextValues: "none",
@@ -59,7 +59,7 @@ export const VariableOpts: FishFlagOption[] = [
         stored: [],
     },
     {
-        name: "export",
+        name: "exported",
         shortFlags: "x",
         longFlags: "export",
         storeNextValues: "none",
@@ -67,7 +67,7 @@ export const VariableOpts: FishFlagOption[] = [
         stored: [],
     },
     {
-        name: "global",
+        name: "globally",
         shortFlags: "g",
         longFlags: "global",
         storeNextValues: "none",
@@ -75,7 +75,7 @@ export const VariableOpts: FishFlagOption[] = [
         stored: [],
     },
     {
-        name: "universal",
+        name: "universally",
         shortFlags: "U",
         longFlags: "universal",
         storeNextValues: "none",
@@ -83,7 +83,8 @@ export const VariableOpts: FishFlagOption[] = [
         stored: [],
     },
 ];
-export function filterFishFlagOption(node: SyntaxNode, options: FishFlagOption[]): FishFlagOption[] {
+
+function filterFishFlagOption(node: SyntaxNode, options: FishFlagOption[]): FishFlagOption[] {
     if (!isOption(node.text)) return []
     if (isShortOption(node.text)) {
         const shortFlag = node.text.slice(1);
@@ -133,13 +134,31 @@ export function findAllOptions(node: SyntaxNode, options: FishFlagOption[]) {
         current = current.nextSibling;
     }
     return matchingOpts;
-
 }
 
 
 export function findOptionString(node: SyntaxNode) {
-    if (!isDefinition(node)) return null;
-    if (isVariableDefinition(node)) return ""
-    if (isFunctionDefinitionName(node)) return ""
+    if (!isDefinition(node)) return null
+    if (isVariableDefinition(node)) {
+        const parent = node.parent?.firstChild;
+        if (!parent) return "locally scoped"
+        const opts = findAllOptions(parent, VariableOpts).map((opt) => opt.name);
+        if (opts.length === 0) return "locally scoped"
+        return opts.join(' and ') + ' scoped'
+    }
+    if (isFunctionDefinitionName(node)) {
+        const opts = findAllOptions(node, FunctionOpts);
+        if (opts.length === 0) return null;
+        return [
+            opts.find((opt) => opt.name === "description")?.stored[0] || "",
+            opts.find((opt) => opt.name === "arguments")?.stored
+                .map((arg, index) => `\t(argument) ${arg} $argv[${index}]`).join('\n')
+                || "",
+            opts
+                .find((opt)  => opt.name === "inherit variable")?.stored
+                .map((varName) => `\t$inherits variable ${varName}`) || "",
+            opts.find((opt) => opt.name === "no scope shadowing")?.name || "",
+        ].filter((str) => str !== "").join('\n').trimEnd()
+    } 
     return null;
 }

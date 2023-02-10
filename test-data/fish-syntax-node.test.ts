@@ -12,7 +12,7 @@ import {collectFunctionNames, collectFunctionsScopes} from '../src/diagnostics/v
 import {Diagnostic} from 'vscode-languageserver';
 //import {FishSyntaxNode} from '../src/utils/fishSyntaxNode';
 import {initializeParser} from '../src/parser';
-import { filterFishFlagOption, findAllOptions, FunctionOpts, VariableOpts } from '../src/utils/options';
+import { findOptionString, findAllOptions, FunctionOpts, VariableOpts } from '../src/utils/options';
 import {findParentCommand} from '../src/utils/node-types';
 import {execCommandDocs, execCommandType, execCompleteCmdArgs, execCompleteSpace} from '../src/utils/exec';
 import {documentationHoverProvider, HoverFromCompletion} from '../src/documentation';
@@ -164,10 +164,16 @@ describe("FISH web-tree-sitter SUITE", () => {
         const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/func_a.fish", true);
         const root = parser.parse(test_doc.getText()).rootNode;
         const funcs: string[] = [];
-        const func = getChildNodes(root)
+        const opts = getChildNodes(root)
             .filter(node => NodeTypes.isDefinition(node))
-            .find(node => NodeTypes.isFunctionDefinitionName(node))
-        let curr: SyntaxNode | null = func as SyntaxNode;
+            .map(node => {
+                console.log(node.text);
+                const t =findOptionString(node)
+                console.log(t);
+                return t;
+            })
+        console.log(opts);
+        //let curr: SyntaxNode | null = func as SyntaxNode;
         //let d_opt = DefinitionOption.create(['-d', '--description'], {values : 'single'} );
         //console.log(d_opt.toString());
         //const result = findFlags(curr, d_opt)
@@ -180,11 +186,12 @@ describe("FISH web-tree-sitter SUITE", () => {
         const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/function_variable_def.fish", true);
         const root = parser.parse(test_doc.getText()).rootNode;
         const funcs: string[] = [];
-        const func = getChildNodes(root)
+        const opts = getChildNodes(root)
             .filter(node => NodeTypes.isDefinition(node))
-            .find(node => NodeTypes.isFunctionDefinitionName(node))
-        let curr: SyntaxNode | null = func as SyntaxNode;
-        const opts = findAllOptions(curr, FunctionOpts);
+            .map(node => {
+                console.log(node.text);
+                return findOptionString(node)
+            })
         console.log(opts);
         //const functionOpts = FunctionOpts;
         //console.log(functionOpts);
