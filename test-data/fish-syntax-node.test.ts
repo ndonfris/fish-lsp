@@ -157,51 +157,29 @@ describe("FISH web-tree-sitter SUITE", () => {
         if (SHOULD_LOG) [...vars].forEach((node) => logger.logNode(node, 'function variable definitions'))
     })
 
-    it("test is ConditionalCommand", async () => {
+    it("test is func_a", async () => {
         loggingON();
         //const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/is_chained_return.fish");
         const parser = await initializeParser();
         const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/func_a.fish", true);
         const root = parser.parse(test_doc.getText()).rootNode;
-        const funcs: string[] = [];
         const opts = getChildNodes(root)
             .filter(node => NodeTypes.isDefinition(node))
             .map(node => {
-                console.log(node.text);
-                const t =findOptionString(node)
-                console.log(t);
-                return t;
+                return node.text + ' ' + findOptionString(node)
             })
         console.log(opts);
-        //let curr: SyntaxNode | null = func as SyntaxNode;
-        //let d_opt = DefinitionOption.create(['-d', '--description'], {values : 'single'} );
-        //console.log(d_opt.toString());
-        //const result = findFlags(curr, d_opt)
-        //console.log(result);
     })
-    it("test is ConditionalCommand", async () => {
+    it("test is function_variable_def", async () => {
         loggingON();
-        //const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/is_chained_return.fish");
         const parser = await initializeParser();
         const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/function_variable_def.fish", true);
         const root = parser.parse(test_doc.getText()).rootNode;
-        const funcs: string[] = [];
         const opts = getChildNodes(root)
             .filter(node => NodeTypes.isDefinition(node))
             .map(node => {
-                console.log(node.text);
-                return findOptionString(node)
+                return node.text + ' ' + findOptionString(node)
             })
         console.log(opts);
-        //const functionOpts = FunctionOpts;
-        //console.log(functionOpts);
-        //let d_opt = DefinitionOption.create(['-a', '--argument-names'], {values : 'multi'} );
-        //console.log(d_opt.toString());
-        //const result = findFlags(curr, d_opt)
-        //console.log(result);
     })
-
 })
-
-
-

@@ -133,7 +133,7 @@ export function findAllOptions(node: SyntaxNode, options: FishFlagOption[]) {
         }
         current = current.nextSibling;
     }
-    return matchingOpts;
+    return matchingOpts.sort((a, b) => options.indexOf(a) - options.indexOf(b));
 }
 
 
@@ -149,16 +149,18 @@ export function findOptionString(node: SyntaxNode) {
     if (isFunctionDefinitionName(node)) {
         const opts = findAllOptions(node, FunctionOpts);
         if (opts.length === 0) return null;
-        return [
-            opts.find((opt) => opt.name === "description")?.stored[0] || "",
-            opts.find((opt) => opt.name === "arguments")?.stored
-                .map((arg, index) => `\t(argument) ${arg} $argv[${index}]`).join('\n')
-                || "",
-            opts
-                .find((opt)  => opt.name === "inherit variable")?.stored
-                .map((varName) => `\t$inherits variable ${varName}`) || "",
-            opts.find((opt) => opt.name === "no scope shadowing")?.name || "",
-        ].filter((str) => str !== "").join('\n').trimEnd()
+        return opts.map((opt) => {
+            switch (opt.name) {
+                case "description":
+                    return opt.stored[0];
+                case "arguments":
+                    return opt.stored.map((arg, index) => `\t(argument) ${arg} $argv[${index}]`).join('\n');
+                case "inherits variable":
+                    return opt.stored.map((varName) => `\t$inherits variable ${varName}`);
+                case "no scope shadowing":
+                    return opt.name;
+            }
+        }).join('\n').trimEnd() || "";
     } 
     return null;
 }
