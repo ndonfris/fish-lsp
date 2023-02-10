@@ -7,10 +7,9 @@ const isOption = (text: string): boolean => isShortOption(text) || isLongOption(
 export class FishCommandOption {
 
     constructor(
-        public name: string,
         public description: string,
-        public shortFlags: string[],
-        public longFlags: string[],
+        public shortFlags: string,
+        public longFlags: string,
         public values: 'none' | 'single' | 'multi' = 'none',
         public partialShortFlags: boolean = true
     ) {}
@@ -31,37 +30,33 @@ export class FishCommandOption {
 
 
 const FunctionDescription = new FishCommandOption(
-    'description',
     'A description of the function',
-    ['d'],
-    ['description'],
+    'd',
+    'description',
     'single',
     false
 );
 
 const FunctionArgumentsNames = new FishCommandOption(
-    'arguments',
     'A list of arguments for the function',
-    ['a'],
-    ['argument-names'],
+    'a',
+    'argument-names',
     'multi',
     false,
 );
 
 const FunctionInheritVariables = new FishCommandOption(
-    'inherit',
-    'inherit variables from the caller scope',
-    ['V'],
-    ['inherit-variable'],
+    "inherits variables from the caller scope",
+    'V',
+    'inherit-variable',
     'multi',
     false
 );
 
 const FunctionScopeVariables = new FishCommandOption(
-    'scope shadowing',
     'no scope shadowing',
-    ['S'],
-    ['no-scope-shadowing'],
+    'S',
+    'no-scope-shadowing',
     'none',
     false
 )
@@ -74,33 +69,29 @@ const FunctionOptions = [
 ]
 
 const v_local = new FishCommandOption(
-    'local',
     'Declare a local variable',
-    ['l'],
-    ['local'],
+    'l',
+    'local',
     'none',
 )
 const v_export = new FishCommandOption(
     'exported',
-    'exported',
-    ['x'],
-    ['export'],
+    'x',
+    'export',
     'none',
 )
 
 const v_global = new FishCommandOption(
-    'global',
     'globally scoped',
-    ['g'],
-    ['global'],
+    'g',
+    'global',
     'none',
 )
     
 const v_universal = new FishCommandOption(
-    'global',
     'universally scoped',
-    ['U'],
-    ['universal'],
+    'U',
+    'universal',
     'none',
 )
 
