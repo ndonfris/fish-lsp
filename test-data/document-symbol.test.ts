@@ -1,6 +1,7 @@
 
+import { DocumentSymbol, SymbolKind } from 'vscode-languageserver';
 import Parser from 'web-tree-sitter';
-import { betterGetFishDocumentSymbols, FishDocumentSymbol, flattenFishDocumentSymbols, getFishDocumentSymbols } from '../src/document-symbol'
+import { betterGetFishDocumentSymbols, FishDocumentSymbol, flattenFishDocumentSymbols,} from '../src/document-symbol'
 import { initializeParser } from '../src/parser';
 import { symbolKindToString } from '../src/symbols';
 import { resolveLspDocumentForHelperTestFile } from './helpers';
@@ -41,34 +42,64 @@ function documentSymbolString(symbol: FishDocumentSymbol, indent: number = 0): s
     }, null, 2).split('\n').map(line => indentStr + line).join('\n');
 }
 
-const printDocumentSymbol = (symbol: FishDocumentSymbol, indent: number = 0) => {
-    console.log(documentSymbolString(symbol, indent));
+const debugOutput = (symbols: FishDocumentSymbol[], options?: {showTree?: boolean, showAllSymbols?: boolean, showNamesAndDescriptions?: boolean}) => {
+    if (options?.showTree) {
+        logClientTree(symbols);
+    }
+    if (options?.showAllSymbols) {
+        symbols.forEach(s => {
+            console.log(documentSymbolString(s));
+        })
+    }
+    if (options?.showNamesAndDescriptions) {
+        logNameAndDescription(symbols);
+    }
 }
 
+function logNameAndDescription(symbols: FishDocumentSymbol[], level = 0) {
+    for (const symbol of symbols) {
+        const logIcon = symbol.kind === SymbolKind.Function ? "  " :  "  " 
+        const description = symbol.detail.length < 30 ? symbol.detail : symbol.detail.slice(0, 30) + '......';
+        console.log("      ".repeat(level) + `${logIcon}${symbol.name} - \`${description}\``)
+        logNameAndDescription(symbol.children || [], level + 1);
+    }
+}
 
+function logClientTree(symbols: DocumentSymbol[], level = 0) {
+    for (const symbol of symbols) {
+        const logIcon = symbol.kind === SymbolKind.Function ? "  " :  "  " 
+        console.log("      ".repeat(level) + `${logIcon}${symbol.name}`);
+        logClientTree(symbol.children || [], level + 1);
+    }
+}
 
 
 describe("document-symbols tests", () => {
     it("simple function symbols", async () => {
         const doc = resolveLspDocumentForHelperTestFile("./fish_files/simple/func_abc.fish");
         const root = parser.parse(doc.getText()).rootNode
-        const symbols = betterGetFishDocumentSymbols([root], doc.uri);
+        const symbols = betterGetFishDocumentSymbols(doc.uri, root);
         console.log('simple function symbols');
-        symbols.forEach(s => {
-            printDocumentSymbol(s)
-        })
+        debugOutput(symbols, {})
         //expect(flattenFishDocumentSymbols(symbols).length).toEqual(6);
     });
 
     it("advanced function symbols", async () => {
         const doc = resolveLspDocumentForHelperTestFile("./fish_files/advanced/multiple_functions.fish");
         const root = parser.parse(doc.getText()).rootNode
-        const symbols = betterGetFishDocumentSymbols([root], doc.uri);
+        const symbols = betterGetFishDocumentSymbols(doc.uri, root);
         console.log();
         console.log('advanced function symbols');
-        symbols.forEach(s => {
-            printDocumentSymbol(s)
-        })
+        debugOutput(symbols, {})
+    });
+
+    it("advanced nested-function symbols", async () => {
+        const doc = resolveLspDocumentForHelperTestFile("./fish_files/advanced/inner_functions.fish");
+        const root = parser.parse(doc.getText()).rootNode
+        const symbols = betterGetFishDocumentSymbols(doc.uri, root);
+        console.log();
+        console.log('advanced inner-function symbols');
+        debugOutput(symbols, {showTree: true, showNamesAndDescriptions: true})
     });
 
 })
