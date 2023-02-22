@@ -35,7 +35,9 @@ export class DocumentationStringBuilder {
         return [
             this.tagsString,
             '---',
-            this.text
+            '```fish',
+            this.text,
+            '```'
         ].join('\n');
     }
 }

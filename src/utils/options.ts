@@ -7,8 +7,6 @@ const isOption = (text: string): boolean => isShortOption(text) || isLongOption(
 
 // rework this class to be simpler/shorter, and then use it in 
 // ../document-symbol.ts
-
-
 export interface FishFlagOption {
     name: string;
     shortFlags: string;
@@ -38,7 +36,7 @@ class FunctionOption implements FishFlagOption {
     toString(): string {
         switch (this.name) {
             case "description":
-                return '-- ' + this.stored?.at(0)
+                return `${this.selected} --  ${this.stored?.at(0)}`
             case "arguments":
                 if (this.selected === "") {
                     return this.stored.map((arg, index) => `\t(argument) ${arg} $argv[${index + 1}]`).join('\n');
@@ -185,19 +183,13 @@ export function findAllOptions(node: SyntaxNode, options: FishFlagOption[]) {
 
 export function optionTagProvider(child: SyntaxNode, parent: SyntaxNode | null) {
     let tags: FishFlagOption[] = []
-    if (!parent) {
-        //console.log('parent was null');
-        return []
-    }
-    //console.log(JSON.stringify({parent: parent.text, child: child.text}, null, 2));
+    if (!parent) {return []}
     if (isFunctionDefinition(parent)) {
-        //console.log("FUNCTION DEFINITION");
         tags = findAllOptions(parent.firstChild || child.parent!, getFunctionOpts(child))
     } else if (isVariableDefinition(child)) {
-        //console.log("VARIABLE DEFINITION");
-        const results = findAllOptions(parent.firstChild || child, getVariableOpts(child));
-        if (results.length === 0) tags = getLocalOption(child)
+        const results = findAllOptions(parent.firstChild || child.parent || child, getVariableOpts(child));
         tags = results;
+        if (results.length === 0) tags = getLocalOption(child)
     }
     return tags
 }
