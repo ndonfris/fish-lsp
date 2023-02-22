@@ -6,11 +6,13 @@ import { isFunctionDefinitionName, isDefinition, isVariableDefinition, isFunctio
 import { DocumentationStringBuilder } from './utils/symbol-documentation-builder';
 import { getRange } from './utils/tree-sitter';
 
+// add some form of tags to the symbol so that we can extend the symbol with more information
+// current implementation is WIP inside file : ./utils/options.ts
 export interface FishDocumentSymbol extends DocumentSymbol {
     name: string;
+    uri: string;
     detail: string;
     kind: SymbolKind;
-    uri: string;
     range: Range;
     selectionRange: Range;
     children: FishDocumentSymbol[];
@@ -28,12 +30,12 @@ export namespace FishDocumentSymbol {
      * @param selectionRange The selectionRange of the symbol.
      * @param children Children of the symbol.
      */
-    export function create(name: string, detail: string, kind: SymbolKind, uri: string, range: Range, selectionRange: Range, children: FishDocumentSymbol[]): FishDocumentSymbol {
+    export function create(name: string,  uri: string, detail: string, kind: SymbolKind, range: Range, selectionRange: Range, children: FishDocumentSymbol[]): FishDocumentSymbol {
         return {
             name,
+            uri,
             detail,
             kind,
-            uri,
             range,
             selectionRange,
             children,
@@ -43,9 +45,9 @@ export namespace FishDocumentSymbol {
     export function copy(symbol: FishDocumentSymbol, newChildren?: FishDocumentSymbol[]): FishDocumentSymbol {
         return {
             name: symbol.name,
+            uri: symbol.uri,
             detail: symbol.detail,
             kind: symbol.kind,
-            uri: symbol.uri,
             range: symbol.range,
             selectionRange: symbol.selectionRange,
             children: newChildren || symbol.children,
@@ -63,9 +65,9 @@ export function getFishDocumentSymbols(uri: string, ...currentNodes: SyntaxNode[
         if (shouldCreate) {
             symbols.push(FishDocumentSymbol.create(
                 child.text,
+                uri,
                 new DocumentationStringBuilder(child, parent).toString(),
                 kind,
-                uri,
                 getRange(parent),
                 getRange(child),
                 childrenSymbols

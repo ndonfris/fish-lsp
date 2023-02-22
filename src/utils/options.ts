@@ -5,6 +5,10 @@ const isLongOption = (text: string): boolean => text.startsWith('--');
 const isShortOption = (text: string): boolean => text.startsWith('-') && !isLongOption(text);
 const isOption = (text: string): boolean => isShortOption(text) || isLongOption(text);
 
+// rework this class to be simpler/shorter, and then use it in 
+// ../document-symbol.ts
+
+
 export interface FishFlagOption {
     name: string;
     shortFlags: string;
