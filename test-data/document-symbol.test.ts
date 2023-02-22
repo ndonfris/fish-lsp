@@ -1,6 +1,6 @@
 
 import Parser from 'web-tree-sitter';
-import { FishDocumentSymbol, getFishDocumentSymbols } from '../src/document-symbol'
+import { betterGetFishDocumentSymbols, FishDocumentSymbol, flattenFishDocumentSymbols, getFishDocumentSymbols } from '../src/document-symbol'
 import { initializeParser } from '../src/parser';
 import { symbolKindToString } from '../src/symbols';
 import { resolveLspDocumentForHelperTestFile } from './helpers';
@@ -33,7 +33,7 @@ function documentSymbolString(symbol: FishDocumentSymbol, indent: number = 0): s
     const indentStr = "   ".repeat(indent);
     return JSON.stringify({
         name: symbol.name,
-        detail: `${symbol.detail.toString()}`,
+        detail: symbol.detail.split('\n'),
         kind: symbolKindToString(symbol.kind),
         range: `${symbol.range.start.line}:${symbol.range.start.character} - ${symbol.range.end.line}:${symbol.range.end.character}`,
         selectionRange: `${symbol.selectionRange.start.line}:${symbol.selectionRange.start.character} - ${symbol.selectionRange.end.line}:${symbol.selectionRange.end.character}`,
@@ -45,14 +45,31 @@ const printDocumentSymbol = (symbol: FishDocumentSymbol, indent: number = 0) => 
     console.log(documentSymbolString(symbol, indent));
 }
 
+
+
+
 describe("document-symbols tests", () => {
     it("simple function symbols", async () => {
         const doc = resolveLspDocumentForHelperTestFile("./fish_files/simple/func_abc.fish");
         const root = parser.parse(doc.getText()).rootNode
-        const symbols = getFishDocumentSymbols(root, doc.uri);
+        const symbols = betterGetFishDocumentSymbols([root], doc.uri);
+        console.log('simple function symbols');
+        symbols.forEach(s => {
+            printDocumentSymbol(s)
+        })
+        //expect(flattenFishDocumentSymbols(symbols).length).toEqual(6);
+    });
+
+    it("advanced function symbols", async () => {
+        const doc = resolveLspDocumentForHelperTestFile("./fish_files/advanced/multiple_functions.fish");
+        const root = parser.parse(doc.getText()).rootNode
+        const symbols = betterGetFishDocumentSymbols([root], doc.uri);
+        console.log();
+        console.log('advanced function symbols');
         symbols.forEach(s => {
             printDocumentSymbol(s)
         })
     });
+
 })
 
