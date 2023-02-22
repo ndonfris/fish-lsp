@@ -7,6 +7,7 @@ function func_b
     set -U b bb
 end
 
+# func_c -> c
 function func_c
     set -l c ccc ccc
 end

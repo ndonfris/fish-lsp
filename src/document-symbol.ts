@@ -37,15 +37,38 @@ export namespace FishDocumentSymbol {
     }
 }
 
+
+export function getPrecedingComments(node: SyntaxNode): string {
+    const comments: string[] = [node.text];
+    let current: SyntaxNode | null = node.previousNamedSibling;
+    while (current && current.type === 'comment') {
+        comments.unshift(current.text);
+        current = current.previousNamedSibling;
+    }
+    return comments.join('\n');
+}
+
+
+// write out different methods to structure this function
+// 1.) recursive approach with if statements
+//     1.1 -> FishDocumentSymbol namespace takes either (functionDefinitionName, variableDefinition) node as argument
+//     1.2 -> 
+// 2.) recursive approach with (child) nodes to search over as argument 
+// 3.) iterative approach
+//     2.1 -> 
+//     
+
+
 export function getFishDocumentSymbols(currentNode: SyntaxNode, uri: string): FishDocumentSymbol[] {
     const symbols: FishDocumentSymbol[] = [];
     if (isFunctionDefinition(currentNode)) {
+        const namedNode = currentNode.firstNamedChild!;
         const symbol = FishDocumentSymbol.create(
-            currentNode.text,
-            currentNode.text,
+            namedNode.text,
+            getPrecedingComments(currentNode),
             SymbolKind.Function,
             getRange(currentNode),
-            getRange(currentNode.firstNamedChild!)
+            getRange(namedNode!)
         );
         currentNode.children.forEach((child: SyntaxNode) => {
             const childSymbols = getFishDocumentSymbols(child, uri);
@@ -55,10 +78,10 @@ export function getFishDocumentSymbols(currentNode: SyntaxNode, uri: string): Fi
     } else if (isVariableDefinition(currentNode)) {
         const symbol = FishDocumentSymbol.create(
             currentNode.text,
-            currentNode.text,
+            getPrecedingComments(currentNode.parent!),
             SymbolKind.Variable,
+            getRange(currentNode.parent!),
             getRange(currentNode),
-            getRange(currentNode.firstNamedChild!),
             []
         );
         symbols.push(symbol);
