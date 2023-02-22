@@ -1,9 +1,16 @@
 
 import { SyntaxNode } from 'web-tree-sitter';
 import { isFunctionDefinitionName, isDefinition, isVariableDefinition, isFunctionDefinition } from './node-types'
+import { FishFlagOption, optionTagProvider } from './options';
 
 export class DocumentationStringBuilder {
-    constructor(private inner: SyntaxNode = inner, private outer: SyntaxNode | null = inner.parent ) { }
+    constructor(private inner: SyntaxNode = inner, private outer = inner.parent || inner.previousSibling || null) { }
+
+    get tagsString(): string {
+        return optionTagProvider(this.inner, this.outer).map(tag => {
+            return tag.toString();
+        }).join('\n');
+    }
 
     private get precedingComments(): string {
         if (hasPrecedingFunctionDefinition(this.inner) && isVariableDefinition(this.inner)) {
@@ -23,7 +30,13 @@ export class DocumentationStringBuilder {
     }
 
     toString() {
-        return [this.text].join('\n');
+        const optionTags =  optionTagProvider(this.inner, this.outer)
+        const tagsText =  optionTags.map(tag => tag.toString()).join('\n')
+        return [
+            this.tagsString,
+            '---',
+            this.text
+        ].join('\n');
     }
 }
 

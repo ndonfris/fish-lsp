@@ -119,6 +119,15 @@ describe("document-symbols tests", () => {
         expect(length).toEqual(13)
     });
 
-
+    it("simple test option tags", async () => {
+        const doc = resolveLspDocumentForHelperTestFile("./fish_files/simple/all_variable_def_types.fish");
+        const root = parser.parse(doc.getText()).rootNode
+        let symbols = getFishDocumentSymbols(doc.uri, root);
+        const result = filterLastFishDocumentSymbols(symbols)
+        console.log();
+        console.log('simple test option tags');
+        debugOutput(result, {showAllSymbols: true})
+        //const length = flattenFishDocumentSymbols(result).length
+    })
 
 })
