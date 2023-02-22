@@ -1,7 +1,7 @@
 
 import { DocumentSymbol, SymbolKind } from 'vscode-languageserver';
-import Parser from 'web-tree-sitter';
-import { betterGetFishDocumentSymbols, FishDocumentSymbol, flattenFishDocumentSymbols,} from '../src/document-symbol'
+import Parser, { SyntaxNode } from 'web-tree-sitter';
+import { getFishDocumentSymbols, filterLastFishDocumentSymbols, FishDocumentSymbol, flattenFishDocumentSymbols,} from '../src/document-symbol'
 import { initializeParser } from '../src/parser';
 import { symbolKindToString } from '../src/symbols';
 import { resolveLspDocumentForHelperTestFile } from './helpers';
@@ -42,17 +42,27 @@ function documentSymbolString(symbol: FishDocumentSymbol, indent: number = 0): s
     }, null, 2).split('\n').map(line => indentStr + line).join('\n');
 }
 
-const debugOutput = (symbols: FishDocumentSymbol[], options?: {showTree?: boolean, showAllSymbols?: boolean, showNamesAndDescriptions?: boolean}) => {
+
+function debugOutput(symbols: FishDocumentSymbol[], options?: {showTree?: boolean, showAllSymbols?: boolean, showNamesAndDescriptions?: boolean, showArray?: boolean}){
     if (options?.showTree) {
         logClientTree(symbols);
+        console.log();
     }
     if (options?.showAllSymbols) {
-        symbols.forEach(s => {
+        for (const s of symbols) {
             console.log(documentSymbolString(s));
-        })
+        }
+        console.log();
     }
     if (options?.showNamesAndDescriptions) {
         logNameAndDescription(symbols);
+        console.log();
+    }
+    if (options?.showArray) {
+        for (const s of symbols) {
+            console.log(s.name);
+        }
+        console.log();
     }
 }
 
@@ -78,29 +88,37 @@ describe("document-symbols tests", () => {
     it("simple function symbols", async () => {
         const doc = resolveLspDocumentForHelperTestFile("./fish_files/simple/func_abc.fish");
         const root = parser.parse(doc.getText()).rootNode
-        const symbols = betterGetFishDocumentSymbols(doc.uri, root);
-        console.log('simple function symbols');
-        debugOutput(symbols, {})
-        //expect(flattenFishDocumentSymbols(symbols).length).toEqual(6);
+        const symbols = getFishDocumentSymbols(doc.uri, root);
+        //console.log();
+        //console.log('simple function symbols');
+        //debugOutput(symbols, {})
+        const length = flattenFishDocumentSymbols(symbols).length
+        expect(length).toEqual(6);
     });
 
     it("advanced function symbols", async () => {
         const doc = resolveLspDocumentForHelperTestFile("./fish_files/advanced/multiple_functions.fish");
         const root = parser.parse(doc.getText()).rootNode
-        const symbols = betterGetFishDocumentSymbols(doc.uri, root);
-        console.log();
-        console.log('advanced function symbols');
-        debugOutput(symbols, {})
+        const symbols = getFishDocumentSymbols(doc.uri, root);
+        //console.log();
+        //console.log('advanced function symbols');
+        //debugOutput(symbols, {showTree: true})
+        const length = flattenFishDocumentSymbols(symbols).length
+        expect(length).toBeGreaterThan(8);
     });
 
-    it("advanced nested-function symbols", async () => {
+    it("advanced nested-function symbols single per-scope", async () => {
         const doc = resolveLspDocumentForHelperTestFile("./fish_files/advanced/inner_functions.fish");
         const root = parser.parse(doc.getText()).rootNode
-        const symbols = betterGetFishDocumentSymbols(doc.uri, root);
-        console.log();
-        console.log('advanced inner-function symbols');
-        debugOutput(symbols, {showTree: true, showNamesAndDescriptions: true})
+        let symbols = getFishDocumentSymbols(doc.uri, root);
+        const result = filterLastFishDocumentSymbols(symbols)
+        //console.log();
+        //console.log('advanced inner-function symbols single per-scope');
+        //debugOutput(result, {showTree: true})
+        const length = flattenFishDocumentSymbols(result).length
+        expect(length).toEqual(13)
     });
 
-})
 
+
+})
