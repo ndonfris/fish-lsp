@@ -38,22 +38,20 @@ class FunctionOption implements FishFlagOption {
     toString(): string {
         switch (this.name) {
             case "description":
-                if (this?.stored) {
-                    return '--' + this?.stored.join(' ')
-                }
+                return '-- ' + this.stored?.at(0)
             case "arguments":
                 if (this.selected === "") {
                     return this.stored.map((arg, index) => `\t(argument) ${arg} $argv[${index + 1}]`).join('\n');
                 } else {
                     return this.stored.map((arg, index) => {
                         if (arg === this.selected) {
-                            return `\t(argument) \**${arg}** $argv[${index + 1}] (match)`
+                            return `\t(argument) \**${arg}** \$argv[${index + 1}] (match)`
                         }
                         return `\t(argument) ${arg} $argv[${index + 1}]`
                     }).join('\n');
                 }
             case "inherits variable":
-                return this.stored.map((varName) => `\t$inherits variable ${varName}`).join('\n');
+                return this.stored.map((varName) => `\tinherits variable ${varName}`).join('\n');
             case "no scope shadowing":
             default: 
                 return `${this.name}`
@@ -156,7 +154,7 @@ function storeNextValues(node: SyntaxNode | null, option: FishFlagOption) {
         case 'none':
             break;
         case 'single':
-            if (current.nextSibling) option.stored.push(current.nextSibling.text)
+            if (current) option.stored.push(current.text)
             break;
         case 'multi':
             while (current && current.type !== '\n' && !isOption(current.text)) {
@@ -185,34 +183,6 @@ export function findAllOptions(node: SyntaxNode, options: FishFlagOption[]) {
 }
 
 
-//export function findOptionString(node: SyntaxNode) {
-    //if (!isDefinition(node)) return null
-    //if (isVariableDefinition(node)) {
-        //const parent = node.parent?.firstChild;
-        //if (!parent) return "locally scoped"
-        //const opts = findAllOptions(parent, VariableOpts).map((opt) => opt.name);
-        //if (opts.length === 0) return "locally scoped"
-        //return opts.join(' and ') + ' scoped'
-    //}
-    //if (isFunctionDefinitionName(node)) {
-        //const opts = findAllOptions(node, FunctionOpts);
-        //if (opts.length === 0) return null;
-        //return opts.map((opt) => {
-            //switch (opt.name) {
-                //case "description":
-                    //return opt.stored[0];
-                //case "arguments":
-                    //return opt.stored.map((arg, index) => `\t(argument) ${arg} $argv[${index}]`).join('\n');
-                //case "inherits variable":
-                    //return opt.stored.map((varName) => `\t$inherits variable ${varName}`);
-                //case "no scope shadowing":
-                    //return opt.name;
-            //}
-        //}).join('\n').trimEnd() || "";
-    //}
-    //return null;
-//}
-
 export function optionTagProvider(child: SyntaxNode, parent: SyntaxNode | null) {
     let tags: FishFlagOption[] = []
     if (!parent) {
@@ -222,7 +192,7 @@ export function optionTagProvider(child: SyntaxNode, parent: SyntaxNode | null) 
     //console.log(JSON.stringify({parent: parent.text, child: child.text}, null, 2));
     if (isFunctionDefinition(parent)) {
         //console.log("FUNCTION DEFINITION");
-        tags = findAllOptions(parent.firstChild || child, getFunctionOpts(child))
+        tags = findAllOptions(parent.firstChild || child.parent!, getFunctionOpts(child))
     } else if (isVariableDefinition(child)) {
         //console.log("VARIABLE DEFINITION");
         const results = findAllOptions(parent.firstChild || child, getVariableOpts(child));
