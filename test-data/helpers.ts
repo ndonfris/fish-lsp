@@ -55,60 +55,50 @@ const logChildShort = (node: SyntaxNode | undefined | null) => {
     }
 }
 
-export class TestLogger {
-    public console = require('console');
-    INSPECT_OPTIONS = {showHidden: true, depth: 2, colors: true}
-    constructor(console: Console) { this.console = console}
 
-    log(...str: string[]) {
-        this.console.log(str.join(' '))
-    }
-    
-    getLogNodeChild(root: SyntaxNode, node: SyntaxNode) {
-        const range = getRange(node)
-        let text = getNodesTextAsSingleLine([node])
-        let parentText = getNodesTextAsSingleLine([root])
-        if (text.length > 20) text = text.slice(0, 20) + '...';
-        if (parentText.length > 20) parentText = parentText.slice(0, 20) + '...';
-        return {
-            type: node.type,
-            text: text,
-            parentText: parentText,
-            parentType: root.type,
-        }
-    }
-
-    logNode(node: SyntaxNode, ...extraData: string[]) {
-        const range = getRange(node)
-        if (extraData.length > 0) {
-            this.console.log(extraData.join('\n'))
-        }
-        this.console.log({
-            text: node.text,
-            type: node.type,
-            id: node.id,
-            range: {start: range.start, end: range.end},
-            isNamed: node.isNamed(),
-            hasError: node.hasError(),
-            firstChild: logChildShort(node.firstChild),
-            firstNamedChild: logChildShort(node.firstNamedChild),
-            lastChild: logChildShort(node.lastChild),
-            lastNamedChild: logChildShort(node.lastNamedChild),
-            siblings: {
-                previousSibling: logChildShort(node.previousSibling),
-                previousNamedSibling: logChildShort(node.previousNamedSibling),
-                nextSibling: logChildShort(node.nextSibling),
-                nextNamedSibling: logChildShort(node.nextNamedSibling),
-            },
-            namedChildCount: node.namedChildCount,
-            namedChildren: node.namedChildren.map(n => JSON.parse(JSON.stringify(this.getLogNodeChild(node, n)))),
-            childCount: node.childCount,
-            children: node.children.map(n => JSON.parse(JSON.stringify({text: n.text, type: n.type}))),
-            tree: node.toString(),
-        })
+export function getLogNodeChild(root: SyntaxNode, node: SyntaxNode) {
+    const range = getRange(node)
+    let text = getNodesTextAsSingleLine([node])
+    let parentText = getNodesTextAsSingleLine([root])
+    if (text.length > 20) text = text.slice(0, 20) + '...';
+    if (parentText.length > 20) parentText = parentText.slice(0, 20) + '...';
+    return {
+        type: node.type,
+        text: text,
+        parentText: parentText,
+        parentType: root.type,
     }
 }
 
+export function logNode(node: SyntaxNode, ...extraData: string[]) {
+    const range = getRange(node)
+    if (extraData.length > 0) {
+        console.log(extraData.join('\n'))
+    }
+    console.log(JSON.stringify({
+        text: node.text,
+        type: node.type,
+        id: node.id,
+        range: {start: range.start, end: range.end},
+        isNamed: node.isNamed(),
+        hasError: node.hasError(),
+        firstChild: logChildShort(node.firstChild),
+        firstNamedChild: logChildShort(node.firstNamedChild),
+        lastChild: logChildShort(node.lastChild),
+        lastNamedChild: logChildShort(node.lastNamedChild),
+        siblings: {
+            previousSibling: logChildShort(node.previousSibling),
+            previousNamedSibling: logChildShort(node.previousNamedSibling),
+            nextSibling: logChildShort(node.nextSibling),
+            nextNamedSibling: logChildShort(node.nextNamedSibling),
+        },
+        namedChildCount: node.namedChildCount,
+        namedChildren: node.namedChildren.map(n => JSON.parse(JSON.stringify(getLogNodeChild(node, n)))),
+        childCount: node.childCount,
+        children: node.children.map(n => JSON.parse(JSON.stringify({text: n.text, type: n.type}))),
+        tree: node.toString(),
+    }, null, 2));
+}
 
 export function nodeToString(node: SyntaxNode, shouldLog = true) : string {
     const pos = `(${node.startPosition.row}, ${node.startPosition.column}) (${node.endPosition.row}, ${node.endPosition.column})`.bgBlack.white
@@ -272,15 +262,6 @@ export function logCompareNodes(shouldLog = true, ...nodes: SyntaxNode[]) {
         }
     })
     console.table(out)
-}
-
-export function logNode(shouldLog = true, node?: SyntaxNode) {
-    if (!shouldLog) return
-    if (!node) {
-        console.log('Node is undefined'.bgRed.white)
-        return
-    }
-    console.log(nodeToString(node))
 }
 
 export function nodesSingleLine(nodes: SyntaxNode[]) : string{

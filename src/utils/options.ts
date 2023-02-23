@@ -1,9 +1,5 @@
 import Parser, { SyntaxNode, Tree } from "web-tree-sitter";
-import { isDefinition, isVariableDefinition, isFunctionDefinitionName, isFunctionDefinition } from "./node-types";
-
-const isLongOption = (text: string): boolean => text.startsWith('--');
-const isShortOption = (text: string): boolean => text.startsWith('-') && !isLongOption(text);
-const isOption = (text: string): boolean => isShortOption(text) || isLongOption(text);
+import { isDefinition, isVariableDefinition, isFunctionDefinitionName, isFunctionDefinition, isLongOption, isShortOption, isOption } from "./node-types";
 
 // rework this class to be simpler/shorter, and then use it in 
 // ../document-symbol.ts
@@ -129,8 +125,8 @@ function getVariableOpts(selectedNode: SyntaxNode): FishFlagOption[]{
 }
 
 function filterFishFlagOption(node: SyntaxNode, options: FishFlagOption[]): FishFlagOption[] {
-    if (!isOption(node.text)) return []
-    if (isShortOption(node.text)) {
+    if (!isOption(node)) return []
+    if (isShortOption(node)) {
         const shortFlag = node.text.slice(1);
         if (options.some((opt) => opt.combinable)) {
             const currentFlags = shortFlag.split('');
@@ -138,7 +134,7 @@ function filterFishFlagOption(node: SyntaxNode, options: FishFlagOption[]): Fish
         }
         return options.filter((opt) => shortFlag === opt.shortFlags)
     }
-    if (isLongOption(node.text)) {
+    if (isLongOption(node)) {
         const longFlag = node.text.slice(2);
         return options.filter((opt) => longFlag === opt.longFlags)
     }
@@ -155,7 +151,7 @@ function storeNextValues(node: SyntaxNode | null, option: FishFlagOption) {
             if (current) option.stored.push(current.text)
             break;
         case 'multi':
-            while (current && current.type !== '\n' && !isOption(current.text)) {
+            while (current && current.type !== '\n' && !isOption(current)) {
                 option.stored.push(current.text);
                 current = current.nextSibling;
             }
@@ -168,7 +164,7 @@ export function findAllOptions(node: SyntaxNode, options: FishFlagOption[]) {
     let current: SyntaxNode | null = node;
     const matchingOpts: FishFlagOption[] = [];
     while (current && current.type !== '\n') {
-        if (isOption(current.text)) {
+        if (isOption(current)) {
             matchingOpts.push(
                 ...filterFishFlagOption(current, options).map(
                     (opt) => storeNextValues(current, opt)
@@ -180,6 +176,16 @@ export function findAllOptions(node: SyntaxNode, options: FishFlagOption[]) {
     return matchingOpts.sort((a, b) => options.indexOf(a) - options.indexOf(b));
 }
 
+export function findFunctionDefinitionOptions(funcNode: SyntaxNode, node: SyntaxNode) {
+    const functionOptions = [
+        createFunctionOption("arguments", "a", "argument-names", "multi"),
+        createFunctionOption("inherits variable", "V", "inherit-variable", "multi"),
+    ]
+    return findAllOptions(funcNode, functionOptions).filter((opt) => {
+            return opt.stored.some((storedOpt) => storedOpt === node.text)
+        }
+    ).length > 0;
+}
 
 export function optionTagProvider(child: SyntaxNode, parent: SyntaxNode | null) {
     let tags: FishFlagOption[] = []
@@ -192,4 +198,8 @@ export function optionTagProvider(child: SyntaxNode, parent: SyntaxNode | null) 
         if (results.length === 0) tags = getLocalOption(child)
     }
     return tags
+}
+
+export function getScopeTags() {
+
 }

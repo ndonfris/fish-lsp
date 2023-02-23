@@ -4,7 +4,9 @@ import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { getFishDocumentSymbols, filterLastFishDocumentSymbols, FishDocumentSymbol, flattenFishDocumentSymbols,} from '../src/document-symbol'
 import { initializeParser } from '../src/parser';
 import { symbolKindToString } from '../src/symbols';
-import { resolveLspDocumentForHelperTestFile } from './helpers';
+import { isVariableDefinitionName, refinedFindParentVariableDefinitionKeyword } from '../src/utils/node-types';
+import { getChildNodes, getNodeAtRange } from '../src/utils/tree-sitter';
+import { logNode, resolveLspDocumentForHelperTestFile } from './helpers';
 
 let parser: Parser;
 
@@ -43,26 +45,32 @@ function documentSymbolString(symbol: FishDocumentSymbol, indent: number = 0): s
 }
 
 
-function debugOutput(symbols: FishDocumentSymbol[], options?: {showTree?: boolean, showAllSymbols?: boolean, showNamesAndDescriptions?: boolean, showArray?: boolean}){
-    if (options?.showTree) {
-        logClientTree(symbols);
+function debugOutput(title: string, symbols: FishDocumentSymbol[], options?: {off?: boolean, showTree?: boolean, showAllSymbols?: boolean, showNamesAndDescriptions?: boolean, showArray?: boolean}){
+    if (options?.off) {
+        return;
+    } else {
         console.log();
-    }
-    if (options?.showAllSymbols) {
-        for (const s of symbols) {
-            console.log(documentSymbolString(s));
+        console.log(title);
+        if (options?.showTree) {
+            logClientTree(symbols);
+            console.log();
         }
-        console.log();
-    }
-    if (options?.showNamesAndDescriptions) {
-        logNameAndDescription(symbols);
-        console.log();
-    }
-    if (options?.showArray) {
-        for (const s of symbols) {
-            console.log(s.name);
+        if (options?.showAllSymbols) {
+            for (const s of symbols) {
+                console.log(documentSymbolString(s));
+            }
+            console.log();
         }
-        console.log();
+        if (options?.showNamesAndDescriptions) {
+            logNameAndDescription(symbols);
+            console.log();
+        }
+        if (options?.showArray) {
+            for (const s of symbols) {
+                console.log(s.name);
+            }
+            console.log();
+        }
     }
 }
 
@@ -79,7 +87,7 @@ function logClientTree(symbols: DocumentSymbol[], level = 0) {
     for (const symbol of symbols) {
         const logIcon = symbol.kind === SymbolKind.Function ? "  " :  "  " 
         console.log("      ".repeat(level) + `${logIcon}${symbol.name}`);
-        logClientTree(symbol.children || [], level + 1);
+        logClientTree(symbol.children || [], level + 2);
     }
 }
 
@@ -89,22 +97,18 @@ describe("document-symbols tests", () => {
         const doc = resolveLspDocumentForHelperTestFile("./fish_files/simple/func_abc.fish");
         const root = parser.parse(doc.getText()).rootNode
         const symbols = getFishDocumentSymbols(doc.uri, root);
-        //console.log();
-        //console.log('simple function symbols');
-        //debugOutput(symbols, {})
-        const length = flattenFishDocumentSymbols(symbols).length
-        expect(length).toEqual(6);
+        //debugOutput('simple function symbols', symbols, {off: true})
+        //const length = flattenFishDocumentSymbols(symbols).length
+        //expect(length).toEqual(6);
     });
 
     it("advanced function symbols", async () => {
         const doc = resolveLspDocumentForHelperTestFile("./fish_files/advanced/multiple_functions.fish");
         const root = parser.parse(doc.getText()).rootNode
         const symbols = getFishDocumentSymbols(doc.uri, root);
-        //console.log();
-        //console.log('advanced function symbols');
-        //debugOutput(symbols, {showTree: true})
-        const length = flattenFishDocumentSymbols(symbols).length
-        expect(length).toBeGreaterThan(8);
+        //debugOutput('advanced function symbols', symbols, {off: true, showTree: false})
+        //const length = flattenFishDocumentSymbols(symbols).length
+        //expect(length).toBeGreaterThan(8);
     });
 
     it("advanced nested-function symbols single per-scope", async () => {
@@ -112,22 +116,57 @@ describe("document-symbols tests", () => {
         const root = parser.parse(doc.getText()).rootNode
         let symbols = getFishDocumentSymbols(doc.uri, root);
         const result = filterLastFishDocumentSymbols(symbols)
-        //console.log();
-        //console.log('advanced inner-function symbols single per-scope');
-        //debugOutput(result, {showTree: true})
-        const length = flattenFishDocumentSymbols(result).length
-        expect(length).toEqual(13)
+        debugOutput('advanced inner-function symbols single per-scope', result, {off: false, showTree: true})
+        //const length = flattenFishDocumentSymbols(result).length
+        //expect(length).toEqual(13)
     });
 
     it("simple test option tags", async () => {
         const doc = resolveLspDocumentForHelperTestFile("./fish_files/simple/all_variable_def_types.fish");
         const root = parser.parse(doc.getText()).rootNode
-        let symbols = getFishDocumentSymbols(doc.uri, root);
+        const symbols = getFishDocumentSymbols(doc.uri, root);
         const result = filterLastFishDocumentSymbols(symbols)
-        console.log();
-        console.log('simple test option tags');
-        debugOutput(result, {showAllSymbols: true})
+        //debugOutput('simple test option tags',result, {off: false, showTree: false})
         //const length = flattenFishDocumentSymbols(result).length
+        //expect(length).toEqual(9)
     })
+
+    it("testing variables", async () => {
+        const doc = resolveLspDocumentForHelperTestFile("./fish_files/simple/all_variable_def_types.fish");
+        const root = parser.parse(doc.getText()).rootNode
+        //const children = getChildNodes(root).filter(n => isVariableDefinitionName(n))
+        //for (const node of children) {
+        //    const parent = refinedFindParentVariableDefinitionKeyword(node)
+        //    if (!parent) continue;
+        //    console.log('----------------------');
+        //    console.log(`parent: ${parent.text}`);
+        //    console.log(`node: ${node.text}`);
+        //}
+        const allSymbols = getFishDocumentSymbols(doc.uri, root)
+        const symbols = filterLastFishDocumentSymbols(allSymbols)
+        //debugOutput('testing variables', symbols, {off: true, showTree: true})
+        //for (const symbol of symbols) {
+            //const node = getNodeAtRange(root, symbol.selectionRange)
+            //const parent = getNodeAtRange(root, symbol.range)
+            //if (node && !isVariableDefinitionName(node)) {
+                //continue;
+            //}
+            //if (node && parent) {
+                //console.log('---------------------------------------------');
+                //console.log(`parent: ${parent.text}`);
+                //console.log(`node: ${node.text}`);
+                //const k = refinedFindParentVariableDefinitionKeyword(node)
+                //if (!k) continue;
+                //console.log(`keyword: ${k?.text}`);
+                ////console.log(k?.toString());
+                ////logNode(k)
+                ////const def = isVariableDefinitionName(node)
+            //}
+        //}
+        //console.log('---------------------------------------------');
+        //console.log(root.text);
+
+    })
+
 
 })

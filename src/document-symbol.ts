@@ -2,7 +2,7 @@
 
 import { DocumentSymbol, SymbolKind, Range, } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
-import { isFunctionDefinitionName, isDefinition, isVariableDefinition, isFunctionDefinition } from './utils/node-types'
+import { isFunctionDefinitionName, isDefinition, isVariableDefinition, isFunctionDefinition, isVariableDefinitionName, refinedFindParentVariableDefinitionKeyword } from './utils/node-types'
 import { DocumentationStringBuilder } from './utils/symbol-documentation-builder';
 import { getRange } from './utils/tree-sitter';
 
@@ -42,7 +42,7 @@ export namespace FishDocumentSymbol {
         } as FishDocumentSymbol;
     }
 
-    export function copy(symbol: FishDocumentSymbol, newChildren?: FishDocumentSymbol[]): FishDocumentSymbol {
+    export function copy(symbol: FishDocumentSymbol, newChildren: FishDocumentSymbol[] = []): FishDocumentSymbol {
         return {
             name: symbol.name,
             uri: symbol.uri,
@@ -50,7 +50,7 @@ export namespace FishDocumentSymbol {
             kind: symbol.kind,
             range: symbol.range,
             selectionRange: symbol.selectionRange,
-            children: newChildren || symbol.children,
+            children: newChildren,
         } as FishDocumentSymbol;
     }
 }
@@ -72,6 +72,7 @@ export function getFishDocumentSymbols(uri: string, ...currentNodes: SyntaxNode[
                 getRange(child),
                 childrenSymbols
             ));
+            delete currentNodes[currentNodes.indexOf(node)];
             continue;
         }
         symbols.push(...childrenSymbols);
@@ -86,15 +87,16 @@ function symbolCheck(node: SyntaxNode): {
     parent: SyntaxNode;
 }{
     let shouldCreate = false;
-    let [child, parent] = [ node, node ];
+    let [child, parent] = [ node, node.parent || node ];
     let kind: SymbolKind = SymbolKind.Null;
     if (isVariableDefinition(node)) {
-        parent = node.parent!;
+        parent = node.parent || node.firstChild || node
+        //console.log('V PARENT : ' + parent.text);
         kind = SymbolKind.Variable;
         shouldCreate = true;
-    }
-    if (isFunctionDefinition(node)) {
-        child = node.firstNamedChild!;
+    } else if (isFunctionDefinitionName(node)) {
+        parent = node.parent!;
+        //console.log('PARENT : ' + parent.text);
         kind = SymbolKind.Function;
         shouldCreate = true;
     }

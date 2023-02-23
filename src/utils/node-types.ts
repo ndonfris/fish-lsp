@@ -2,6 +2,7 @@
 import {RemoteConsole} from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter'
 import {ancestorMatch, findFirstParent, findFirstSibling, firstAncestorMatch, getChildNodes, getParentNodes, getSiblingNodes} from './tree-sitter';
+import {  findFunctionDefinitionOptions } from './options'
 
 /** 
  * fish shell comment: '# ...'                    
@@ -48,10 +49,10 @@ export function isFunctionDefinitionName(node: SyntaxNode): boolean {
 }
 
 /**
- * isVariableDefinition() || isFunctionDefinitionName()
+ * isVariableDefinitionName() || isFunctionDefinitionName()
  */
 export function isDefinition(node: SyntaxNode): boolean {
-    return isFunctionDefinitionName(node) || isVariableDefinition(node);
+    return isFunctionDefinitionName(node) || isVariableDefinitionName(node);
 }
 
 /**
@@ -161,6 +162,26 @@ export function isString(node: SyntaxNode) {
     ].includes(node.type)
 }
 
+export function isLongOption(node: SyntaxNode): boolean {
+    return node.text.startsWith('--');
+} 
+export function isShortOption(node: SyntaxNode): boolean {
+    return node.text.startsWith('-') && !isLongOption(node);
+}
+export function isOption(node: SyntaxNode): boolean {
+    return isShortOption(node) || isLongOption(node);
+}
+
+export function gatherSiblingsTillEol(node: SyntaxNode): SyntaxNode[] {
+    const siblings = [];
+    let next = node.nextSibling;
+    while (next && !isNewline(next)) {
+        siblings.push(next);
+        next = next.nextSibling;
+    }
+    return siblings;
+}
+
 /*
  * Checks for nodes which should stop the search for 
  * command nodes, used in findParentCommand()
@@ -242,6 +263,58 @@ export function findParentVariableDefintionKeyword(node?: SyntaxNode): SyntaxNod
         return parent;
     }
     return null;
+}
+
+export function refinedFindParentVariableDefinitionKeyword(node?: SyntaxNode): SyntaxNode | null {
+    const currentNode: SyntaxNode | null | undefined = node;
+    const parent = currentNode?.parent;
+    if (!currentNode || !parent) return null;
+    const varKeyword = parent.firstChild?.text.trim() || "";
+    if (!varKeyword) return null;
+    if (defintionKeywords.includes(varKeyword)) {
+        return parent.firstChild!;
+    }
+    return null;
+}
+
+// @TODO: replace isVariableDefinition with this
+export function isVariableDefinitionName(node: SyntaxNode): boolean {
+    if (isFunctionDefinition(node) ||
+        isCommand(node) ||
+        isCommandName(node) ||
+        defintionKeywords.includes(node.firstChild?.text || "")
+    ){
+        return false;
+    } 
+    const keyword = refinedFindParentVariableDefinitionKeyword(node);
+    if (!keyword) return false;
+    const siblings = gatherSiblingsTillEol(keyword);
+    switch (keyword.text) {
+        case 'set':
+            return siblings.find(sibling => !isOption(sibling))?.text === node.text;
+        case 'read':
+            return findReadVariablesDefinition(siblings, node)
+        case 'function':
+            return findFunctionDefinitionOptions(keyword, node);
+        case 'for':
+            return siblings.shift()?.text === node.text;
+        default:
+            return false;
+    }
+}
+
+function findReadVariablesDefinition(siblings: SyntaxNode[], node: SyntaxNode): boolean {
+    const readVariables: SyntaxNode[] = [];
+    while (siblings.length > 0) {
+        const current = siblings.pop();
+        if (!current) break;
+        if (isOption(current) || isString(current)) break;
+        readVariables.push(current);
+    }
+    return (
+        readVariables.find((sibling) => sibling.text === node.text) !==
+        undefined
+    );
 }
 
 /**
