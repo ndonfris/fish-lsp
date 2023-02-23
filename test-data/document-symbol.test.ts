@@ -87,7 +87,7 @@ function logClientTree(symbols: DocumentSymbol[], level = 0) {
     for (const symbol of symbols) {
         const logIcon = symbol.kind === SymbolKind.Function ? "  " :  "  " 
         console.log("      ".repeat(level) + `${logIcon}${symbol.name}`);
-        logClientTree(symbol.children || [], level + 2);
+        logClientTree(symbol.children || [], level + 1);
     }
 }
 
@@ -97,18 +97,18 @@ describe("document-symbols tests", () => {
         const doc = resolveLspDocumentForHelperTestFile("./fish_files/simple/func_abc.fish");
         const root = parser.parse(doc.getText()).rootNode
         const symbols = getFishDocumentSymbols(doc.uri, root);
-        //debugOutput('simple function symbols', symbols, {off: true})
-        //const length = flattenFishDocumentSymbols(symbols).length
-        //expect(length).toEqual(6);
+        debugOutput('simple function symbols', symbols, {off: false, showTree: true})
+        const length = flattenFishDocumentSymbols(symbols).length
+        expect(length).toEqual(6);
     });
 
     it("advanced function symbols", async () => {
         const doc = resolveLspDocumentForHelperTestFile("./fish_files/advanced/multiple_functions.fish");
         const root = parser.parse(doc.getText()).rootNode
         const symbols = getFishDocumentSymbols(doc.uri, root);
-        //debugOutput('advanced function symbols', symbols, {off: true, showTree: false})
-        //const length = flattenFishDocumentSymbols(symbols).length
-        //expect(length).toBeGreaterThan(8);
+        debugOutput('advanced function symbols', symbols, {off: true, showTree: false})
+        const length = flattenFishDocumentSymbols(symbols).length
+        expect(length).toBeGreaterThan(8);
     });
 
     it("advanced nested-function symbols single per-scope", async () => {
@@ -117,8 +117,8 @@ describe("document-symbols tests", () => {
         let symbols = getFishDocumentSymbols(doc.uri, root);
         const result = filterLastFishDocumentSymbols(symbols)
         debugOutput('advanced inner-function symbols single per-scope', result, {off: false, showTree: true})
-        //const length = flattenFishDocumentSymbols(result).length
-        //expect(length).toEqual(13)
+        const length = flattenFishDocumentSymbols(result).length
+        expect(length).toEqual(13)
     });
 
     it("simple test option tags", async () => {
@@ -126,9 +126,9 @@ describe("document-symbols tests", () => {
         const root = parser.parse(doc.getText()).rootNode
         const symbols = getFishDocumentSymbols(doc.uri, root);
         const result = filterLastFishDocumentSymbols(symbols)
-        //debugOutput('simple test option tags',result, {off: false, showTree: false})
-        //const length = flattenFishDocumentSymbols(result).length
-        //expect(length).toEqual(9)
+        debugOutput('simple test option tags',result, {off: false, showTree: false})
+        const length = flattenFishDocumentSymbols(result).length
+        expect(length).toEqual(9)
     })
 
     it("testing variables", async () => {

@@ -291,13 +291,13 @@ export function isVariableDefinitionName(node: SyntaxNode): boolean {
     const siblings = gatherSiblingsTillEol(keyword);
     switch (keyword.text) {
         case 'set':
-            return siblings.find(sibling => !isOption(sibling))?.text === node.text;
+            return siblings.find(sibling => !isOption(sibling))?.equals(node) || false;
         case 'read':
             return findReadVariablesDefinition(siblings, node)
         case 'function':
             return findFunctionDefinitionOptions(keyword, node);
         case 'for':
-            return siblings.shift()?.text === node.text;
+            return siblings.shift()?.equals(node) || false;
         default:
             return false;
     }
@@ -311,10 +311,7 @@ function findReadVariablesDefinition(siblings: SyntaxNode[], node: SyntaxNode): 
         if (isOption(current) || isString(current)) break;
         readVariables.push(current);
     }
-    return (
-        readVariables.find((sibling) => sibling.text === node.text) !==
-        undefined
-    );
+    return readVariables.find((sibling) => sibling.equals(node)) !== undefined;
 }
 
 /**

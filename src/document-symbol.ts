@@ -89,14 +89,12 @@ function symbolCheck(node: SyntaxNode): {
     let shouldCreate = false;
     let [child, parent] = [ node, node.parent || node ];
     let kind: SymbolKind = SymbolKind.Null;
-    if (isVariableDefinition(node)) {
-        parent = node.parent || node.firstChild || node
-        //console.log('V PARENT : ' + parent.text);
+    if (isVariableDefinitionName(node)) {
+        parent = refinedFindParentVariableDefinitionKeyword(node)!.parent!;
         kind = SymbolKind.Variable;
         shouldCreate = true;
-    } else if (isFunctionDefinitionName(node)) {
-        parent = node.parent!;
-        //console.log('PARENT : ' + parent.text);
+    } else if (node.firstNamedChild && isFunctionDefinitionName(node.firstNamedChild)) {
+        child = node.firstNamedChild!;
         kind = SymbolKind.Function;
         shouldCreate = true;
     }
