@@ -1,7 +1,7 @@
 
 import { DocumentSymbol, SymbolKind } from 'vscode-languageserver';
 import Parser, { SyntaxNode } from 'web-tree-sitter';
-import { getFishDocumentSymbols, filterLastFishDocumentSymbols, FishDocumentSymbol, flattenFishDocumentSymbols,} from '../src/document-symbol'
+import { getFishDocumentSymbols, filterLastFishDocumentSymbols, FishDocumentSymbol, flattenFishDocumentSymbols, filterGlobalSymbols,} from '../src/document-symbol'
 import { initializeParser } from '../src/parser';
 import { symbolKindToString } from '../src/symbols';
 import { isVariableDefinitionName, refinedFindParentVariableDefinitionKeyword } from '../src/utils/node-types';
@@ -9,16 +9,7 @@ import { getChildNodes, getNodeAtRange } from '../src/utils/tree-sitter';
 import { logNode, resolveLspDocumentForHelperTestFile } from './helpers';
 
 let parser: Parser;
-
-//const chalk = new Chalk();
-//const term = new TerminalRenderer()
-//marked.setOptions({
-    //// Define custom renderer
-    //renderer: term,
-    //gfm: true,
-//});
 const jestConsole = console;
-//setMarkedterminal();
 
 beforeAll(async () => {
     parser = await initializeParser();
@@ -106,15 +97,16 @@ describe("document-symbols tests", () => {
         const doc = resolveLspDocumentForHelperTestFile("./fish_files/advanced/multiple_functions.fish");
         const root = parser.parse(doc.getText()).rootNode
         const symbols = getFishDocumentSymbols(doc.uri, root);
-        debugOutput('advanced function symbols', symbols, {off: true, showTree: false})
-        const length = flattenFishDocumentSymbols(symbols).length
-        expect(length).toBeGreaterThan(8);
+        const result = filterLastFishDocumentSymbols(symbols)
+        debugOutput('advanced function symbols', result, {off: false, showTree: true})
+        const length = flattenFishDocumentSymbols(result).length
+        expect(length).toEqual(7);
     });
 
     it("advanced nested-function symbols single per-scope", async () => {
         const doc = resolveLspDocumentForHelperTestFile("./fish_files/advanced/inner_functions.fish");
         const root = parser.parse(doc.getText()).rootNode
-        let symbols = getFishDocumentSymbols(doc.uri, root);
+        const symbols = getFishDocumentSymbols(doc.uri, root);
         const result = filterLastFishDocumentSymbols(symbols)
         debugOutput('advanced inner-function symbols single per-scope', result, {off: false, showTree: true})
         const length = flattenFishDocumentSymbols(result).length
@@ -126,47 +118,19 @@ describe("document-symbols tests", () => {
         const root = parser.parse(doc.getText()).rootNode
         const symbols = getFishDocumentSymbols(doc.uri, root);
         const result = filterLastFishDocumentSymbols(symbols)
-        debugOutput('simple test option tags',result, {off: false, showTree: false})
+        debugOutput('simple test option tags',result, {off: false, showTree: true})
         const length = flattenFishDocumentSymbols(result).length
         expect(length).toEqual(9)
     })
 
-    it("testing variables", async () => {
-        const doc = resolveLspDocumentForHelperTestFile("./fish_files/simple/all_variable_def_types.fish");
+    it("advanced test global tags", async () => {
+        const doc = resolveLspDocumentForHelperTestFile("./fish_files/advanced/lots_of_globals.fish", true);
         const root = parser.parse(doc.getText()).rootNode
-        //const children = getChildNodes(root).filter(n => isVariableDefinitionName(n))
-        //for (const node of children) {
-        //    const parent = refinedFindParentVariableDefinitionKeyword(node)
-        //    if (!parent) continue;
-        //    console.log('----------------------');
-        //    console.log(`parent: ${parent.text}`);
-        //    console.log(`node: ${node.text}`);
-        //}
-        const allSymbols = getFishDocumentSymbols(doc.uri, root)
-        const symbols = filterLastFishDocumentSymbols(allSymbols)
-        //debugOutput('testing variables', symbols, {off: true, showTree: true})
-        //for (const symbol of symbols) {
-            //const node = getNodeAtRange(root, symbol.selectionRange)
-            //const parent = getNodeAtRange(root, symbol.range)
-            //if (node && !isVariableDefinitionName(node)) {
-                //continue;
-            //}
-            //if (node && parent) {
-                //console.log('---------------------------------------------');
-                //console.log(`parent: ${parent.text}`);
-                //console.log(`node: ${node.text}`);
-                //const k = refinedFindParentVariableDefinitionKeyword(node)
-                //if (!k) continue;
-                //console.log(`keyword: ${k?.text}`);
-                ////console.log(k?.toString());
-                ////logNode(k)
-                ////const def = isVariableDefinitionName(node)
-            //}
-        //}
-        //console.log('---------------------------------------------');
-        //console.log(root.text);
-
+        const symbols = getFishDocumentSymbols(doc.uri, root);
+        const result = filterGlobalSymbols(symbols)
+        debugOutput('advanced test global tags', result, {off: false, showArray: true})
+        const length = result.length
+        expect(length).toEqual(7)
     })
-
 
 })

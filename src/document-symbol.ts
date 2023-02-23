@@ -3,8 +3,28 @@
 import { DocumentSymbol, SymbolKind, Range, } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { isFunctionDefinitionName, isDefinition, isVariableDefinition, isFunctionDefinition, isVariableDefinitionName, refinedFindParentVariableDefinitionKeyword } from './utils/node-types'
-import { DocumentationStringBuilder } from './utils/symbol-documentation-builder';
+import { findVariableDefinitionOptions } from './utils/options';
+import { DocumentSymbolDetail } from './utils/symbol-documentation-builder';
+import { pathToRelativeFunctionName } from './utils/translation';
 import { getRange } from './utils/tree-sitter';
+
+export enum ScopeTags {
+    Global = 'global',
+    Local = 'local',
+    Universal = 'universal',
+}
+
+export function getScopeTags(uri: string, parent: SyntaxNode, child: SyntaxNode): ScopeTags[] {
+    if (isFunctionDefinitionName(child)) {
+        const loadedName = pathToRelativeFunctionName(uri);
+        return loadedName === child.text || loadedName === "config"
+            ? [ScopeTags.Global]
+            : [ScopeTags.Local];
+    } else if (isVariableDefinitionName(child)) {
+        return findVariableDefinitionOptions(parent, child)
+    }
+    return [];
+}
 
 // add some form of tags to the symbol so that we can extend the symbol with more information
 // current implementation is WIP inside file : ./utils/options.ts
@@ -15,6 +35,7 @@ export interface FishDocumentSymbol extends DocumentSymbol {
     kind: SymbolKind;
     range: Range;
     selectionRange: Range;
+    scopeTags: ScopeTags[];
     children: FishDocumentSymbol[];
 }
 
@@ -30,7 +51,7 @@ export namespace FishDocumentSymbol {
      * @param selectionRange The selectionRange of the symbol.
      * @param children Children of the symbol.
      */
-    export function create(name: string,  uri: string, detail: string, kind: SymbolKind, range: Range, selectionRange: Range, children: FishDocumentSymbol[]): FishDocumentSymbol {
+    export function create(name: string,  uri: string, detail: string, kind: SymbolKind, range: Range, selectionRange: Range, scopeTags: ScopeTags[], children: FishDocumentSymbol[]): FishDocumentSymbol {
         return {
             name,
             uri,
@@ -38,6 +59,7 @@ export namespace FishDocumentSymbol {
             kind,
             range,
             selectionRange,
+            scopeTags,
             children,
         } as FishDocumentSymbol;
     }
@@ -50,6 +72,7 @@ export namespace FishDocumentSymbol {
             kind: symbol.kind,
             range: symbol.range,
             selectionRange: symbol.selectionRange,
+            scopeTags: symbol.scopeTags,
             children: newChildren,
         } as FishDocumentSymbol;
     }
@@ -66,13 +89,13 @@ export function getFishDocumentSymbols(uri: string, ...currentNodes: SyntaxNode[
             symbols.push(FishDocumentSymbol.create(
                 child.text,
                 uri,
-                new DocumentationStringBuilder(child, parent).toString(),
+                DocumentSymbolDetail.create(child.text, uri, kind, child, parent),
                 kind,
                 getRange(parent),
                 getRange(child),
+                getScopeTags(uri, parent, child),
                 childrenSymbols
             ));
-            delete currentNodes[currentNodes.indexOf(node)];
             continue;
         }
         symbols.push(...childrenSymbols);
@@ -120,6 +143,9 @@ export function flattenFishDocumentSymbols(symbols: FishDocumentSymbol[]): FishD
 export function filterLastFishDocumentSymbols(symbols: FishDocumentSymbol[]): FishDocumentSymbol[] {
     const result: FishDocumentSymbol[] = []
     for (const symbol of symbols) {
+        if (result.filter(res => res.name === symbol.name).length > 0) {
+            result.splice(result.findIndex(res => res.name === symbol.name), 1)
+        }
         const uniqs: FishDocumentSymbol[] = [];
         const dupes = filterLastFishDocumentSymbols(symbol.children)
         while (dupes.length > 0) {
@@ -134,6 +160,11 @@ export function filterLastFishDocumentSymbols(symbols: FishDocumentSymbol[]): Fi
     return result;
 }
 
+
+export function filterGlobalSymbols(symbols: FishDocumentSymbol[]): FishDocumentSymbol[] {
+    return flattenFishDocumentSymbols(symbols)
+        .filter((symbol) => symbol.scopeTags.includes(ScopeTags.Global))
+}
 
 export function tagsParser(child: SyntaxNode, parent: SyntaxNode, uri: string) {
     return;

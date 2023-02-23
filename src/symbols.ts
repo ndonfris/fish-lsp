@@ -46,19 +46,19 @@ export function toSymbolKind(node: SyntaxNode): SymbolKind {
 export function symbolKindToString(kind: SymbolKind) {
     switch (kind) {
         case SymbolKind.Variable:
-            return 'Variable';
+            return 'variable';
         case SymbolKind.Function:
-            return 'Function';
+            return 'function';
         case SymbolKind.String:
-            return 'String';
+            return 'string';
         case SymbolKind.Namespace:
-            return 'Namespace';
+            return 'namespace';
         case SymbolKind.Class:
-            return 'Class';
+            return 'class';
         case SymbolKind.Null:
-            return 'Null';
+            return 'null';
         default:
-            return 'Other'
+            return 'other'
     }
 }
 

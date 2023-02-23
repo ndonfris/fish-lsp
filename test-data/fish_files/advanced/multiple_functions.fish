@@ -20,4 +20,4 @@ other_functions "$files"
 
 
 
-set --local files 'not'
+set --universal files 'not'

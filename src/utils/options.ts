@@ -1,4 +1,5 @@
 import Parser, { SyntaxNode, Tree } from "web-tree-sitter";
+import { ScopeTags } from '../document-symbol';
 import { isDefinition, isVariableDefinition, isFunctionDefinitionName, isFunctionDefinition, isLongOption, isShortOption, isOption } from "./node-types";
 
 // rework this class to be simpler/shorter, and then use it in 
@@ -185,6 +186,33 @@ export function findFunctionDefinitionOptions(funcNode: SyntaxNode, node: Syntax
             return opt.stored.some((storedOpt) => storedOpt === node.text)
         }
     ).length > 0;
+}
+
+export function findVariableDefinitionOptions(parent: SyntaxNode, child: SyntaxNode): ScopeTags[] {
+    const variableOptions = [
+        createVariableOption("locally","l","local"),
+        createVariableOption("globally","g","global"),
+        createVariableOption("universally","U","universal"),
+        createVariableOption("exported","x","export"),
+    ]
+    const result = findAllOptions(parent.firstChild!, variableOptions)
+    if (result.length === 0) {
+        return [ScopeTags.Local]
+    } else {
+        return result.map((opt) => {
+            switch (opt.name) {
+                case "locally":
+                    return ScopeTags.Local
+                case "globally":
+                    return ScopeTags.Global
+                case "universally":
+                    return ScopeTags.Universal
+                case "exported":
+                default:
+                    return ScopeTags.Local
+            }
+        })
+    }
 }
 
 export function optionTagProvider(child: SyntaxNode, parent: SyntaxNode | null) {
