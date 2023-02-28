@@ -47,7 +47,6 @@ export class Analyzer {
     private uriToSymbols: { [uri: string]: DocumentSymbol[]} = {};
     private globalSymbolsCache: DocumentationCache;
 
-    //constructor(parser: Parser, globalSymbolsCache: DocumentationCache, workspaces: FishWorkspaces) {
     constructor(parser: Parser, globalSymbolsCache: DocumentationCache, workspaces: Workspace[]) {
         this.parser = parser;
         this.workspaces = workspaces;
