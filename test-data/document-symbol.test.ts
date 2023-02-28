@@ -133,4 +133,13 @@ describe("document-symbols tests", () => {
         expect(length).toEqual(7)
     })
 
+    it("", async () => {
+        const doc = resolveLspDocumentForHelperTestFile("./fish_files/advanced/lots_of_globals.fish", true);
+        const root = parser.parse(doc.getText()).rootNode
+        const symbols = getFishDocumentSymbols(doc.uri, root);
+        const result = filterGlobalSymbols(symbols)
+        //debugOutput('advanced test global tags', result, {off: false, showArray: true})
+        const length = result.length
+        expect(length).toEqual(7)
+    })
 })

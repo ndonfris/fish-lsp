@@ -10,7 +10,7 @@ import { LspDocument } from '../document';
  * @TODO: or the use the defaults set by the configManager
  */
 export async function initializeFishWorkspaces(config?: {}) {
-    const spaces = new FishWorkspaces();
+    const spaces: Workspace[] = [];
     Workspace.MAX_FILE_AMOUNT = 5000;
     const defaultWorkspaces = [
         `${homedir}/.config/fish`,
@@ -19,29 +19,16 @@ export async function initializeFishWorkspaces(config?: {}) {
     const canRename = [
         `${homedir}/.config/fish`,
     ]
+
     for (const path of defaultWorkspaces) {
-        const newWS = await createWorkspace(path);
+        const ws = new Workspace(path);
         if (canRename.includes(path)) {
-            newWS.canRename = true;
+            ws.canRename = true;
         }
-        spaces.add(newWS)
+        spaces.push(ws)
     }
     return spaces
 }
-
-/**
- * @internal For testing purposes.
- * call to initialize a single workspace. 
- *
- * Use workspaces.addWorkspace() to add a workspace to the
- * process-wide workspaces object.
- */
-export async function createWorkspace(path: string) {
-    const workspace = new Workspace(path);
-    await workspace.initializeFiles();
-    return workspace;
-}
-
 
 /**
  * Helper function to get all files in workspace.
@@ -116,11 +103,15 @@ export class Workspace {
             this.documents.set(file, contents);
         }
     }
-
     contains(uri: string) {
         return this.path === uri ||
-            this.documents.has(uri) ||
-            this.documents.has("file://" + uri)
+            this.documents.has(uri)
+            //||
+            //this.documents.has("file://" + uri)
+    }
+    containsFunction(functionName: string) {
+        const functionPath = `${this.path}/functions/${functionName}.fish`;
+        return this.documents.has(functionPath)
     }
     setCanRename() {
         this.canRename = true;
@@ -137,49 +128,52 @@ export class Workspace {
     get functions(): LspDocument[] {
         return this.docs.filter(doc => doc.isFunction) || []
     }
-}
-
-
-/**
- * @see LspDocuments in ../document.ts
- *
- * Similiar to LspDocuments, except that for clarity and simplicity, LspDocuments stores
- * opened documents in the client. FishWorkspaces stores all workspaces analyzed by the 
- * server.
- *
- * Currently does not open a file/uri, but rather just stores the reachable uri's for a
- * given workspace. 
- *
- * Consider moving Analyzer.initiateBackgroundAnalysis to this class.
- */
-export class FishWorkspaces {
-    //static fileAmount = 5000;
-    public _workspaces: Workspace[] = [];
-    add(workspace: Workspace) {
-        this._workspaces.push(workspace);
-    }
-    find(uri: string) {
-        return this._workspaces.find((workspace: Workspace) => workspace.contains(uri));
-    }
-    get workspaces() {
-        return this._workspaces;
-    }
-    get workspaceNames() {
-        return this._workspaces.map((workspace: Workspace) => workspace.path);
-    }
-    get workspaceDocs() {
-        return this._workspaces.map((workspace: Workspace) => workspace.docs).flat();
-    }
-    get editable() {
-        return this.workspaces
-            .filter(workspace => workspace.canRename);
-    }
-    get autoloaded() {
-        return this.workspaces
-            .filter(workspace => workspace.autoloaded);
-    }
-    clear() {
-        this._workspaces = []
+    get relativeNames(): string[] {
+        return this.files.map((file: string) => file.replace(this.path + '/', ''));
     }
 }
 
+
+// /**
+//  * @see LspDocuments in ../document.ts
+//  *
+//  * Similiar to LspDocuments, except that for clarity and simplicity, LspDocuments stores
+//  * opened documents in the client. FishWorkspaces stores all workspaces analyzed by the 
+//  * server.
+//  *
+//  * Currently does not open a file/uri, but rather just stores the reachable uri's for a
+//  * given workspace. 
+//  *
+//  * Consider moving Analyzer.initiateBackgroundAnalysis to this class.
+//  */
+// export class FishWorkspaces {
+//     //static fileAmount = 5000;
+//     public _workspaces: Workspace[] = [];
+//     add(workspace: Workspace) {
+//         this._workspaces.push(workspace);
+//     }
+//     find(uri: string) {
+//         return this._workspaces.find((workspace: Workspace) => workspace.contains(uri));
+//     }
+//     get workspaces() {
+//         return this._workspaces;
+//     }
+//     get workspaceNames() {
+//         return this._workspaces.map((workspace: Workspace) => workspace.path);
+//     }
+//     get workspaceDocs() {
+//         return this._workspaces.map((workspace: Workspace) => workspace.docs).flat();
+//     }
+//     get editable() {
+//         return this.workspaces
+//             .filter(workspace => workspace.canRename);
+//     }
+//     get autoloaded() {
+//         return this.workspaces
+//             .filter(workspace => workspace.autoloaded);
+//     }
+//     clear() {
+//         this._workspaces = []
+//     }
+// }
+// 

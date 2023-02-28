@@ -13,8 +13,9 @@ import { DocumentSymbol } from 'vscode-languageserver';
 import { GlobalWorkspaceSymbol } from './symbols';
 import fs from 'fs'
 import { SymbolTree } from './symbolTree';
-import { FishWorkspaces, Workspace } from './utils/workspace';
+import { Workspace } from './utils/workspace';
 import { collectFishWorkspaceSymbols, FishWorkspaceSymbol } from './utils/fishWorkspaceSymbol';
+import { filterGlobalSymbols, FishDocumentSymbol, getFishDocumentSymbols } from './document-symbol';
 
 type SourceCommand = {
     name: string,
@@ -23,9 +24,10 @@ type SourceCommand = {
 type GlobalDefinition = { [name: string] : WorkspaceSymbol[] }
 type uriToAnalyzedDocument = {
     document: LspDocument,
-    documentSymbols: SymbolTree,
-    globalDefinitions: WorkspaceSymbol[],
-    sourcedUris: SourceCommand[]
+    documentSymbols: FishDocumentSymbol[],
+    commands: string[],
+    //globalDefinitions: WorkspaceSymbol[],
+    //sourcedUris: SourceCommand[]
     tree: Parser.Tree
 }
 
@@ -38,37 +40,45 @@ export class Analyzer {
     public uriToAnalyzedDocument: {[uri: string]: uriToAnalyzedDocument} = {}
     public workspaceSymbols: Map<string, WorkspaceSymbol[]> = new Map();
 
-    public allUris: string[] = [];
-    public lookupUriMap: Map<string, string> = new Map();
-    public workspaces: FishWorkspaces;
+    //public allUris: string[] = [];
+    //public lookupUriMap: Map<string, string> = new Map();
+    public workspaces: Workspace[];
 
     private uriToSymbols: { [uri: string]: DocumentSymbol[]} = {};
     private globalSymbolsCache: DocumentationCache;
 
-    constructor(parser: Parser, globalSymbolsCache: DocumentationCache, workspaces: FishWorkspaces) {
+    //constructor(parser: Parser, globalSymbolsCache: DocumentationCache, workspaces: FishWorkspaces) {
+    constructor(parser: Parser, globalSymbolsCache: DocumentationCache, workspaces: Workspace[]) {
         this.parser = parser;
         this.workspaces = workspaces;
         this.uriTree = {};
         this.globalSymbolsCache = globalSymbolsCache;
         //this.allUris = allUris;
-        this.allUris = workspaces.workspaces.map((ws: Workspace) => ws.files).flat();
+        //this.allUris = workspaces.workspaces.map((ws: Workspace) => ws.files).flat();
         this.workspaces = workspaces;
-        this.lookupUriMap = createLookupUriMap(this.allUris);
+        //this.lookupUriMap = createLookupUriMap(this.allUris);
     }
 
     public analyze(document: LspDocument) {
-        const uri = document.uri;
         this.parser.reset()
         const tree = this.parser.parse(document.getText());
         this.uriToTreeMap.set(document.uri, tree)
-        const sourcedUris = uniqueCommands(tree.rootNode, this.lookupUriMap)
-        const documentSymbols = SymbolTree(tree.rootNode, uri)
-        const workspaceSymbols = collectFishWorkspaceSymbols(tree.rootNode, uri)
-        this.uriToAnalyzedDocument[uri] = {
+        //const sourcedUris = uniqueCommands(tree.rootNode, this.lookupUriMap)
+        const documentSymbols = getFishDocumentSymbols(document.uri, tree.rootNode)
+        const workspaceSymbols = collectFishWorkspaceSymbols(tree.rootNode, document.uri)
+        //filterGlobalSymbols(documentSymbols).forEach((symbol: FishDocumentSymbol) => {
+        //    console.log(symbol.name + ' in ' + uri)
+        //})
+        const commands = this.getCommandNames(document)
+        //commands.forEach((cmd: string) => {
+        //    console.log(cmd)
+        //})
+        this.uriToAnalyzedDocument[document.uri] = {
             document,
             documentSymbols,
-            globalDefinitions: workspaceSymbols,
-            sourcedUris,
+            commands,
+            //globalDefinitions: workspaceSymbols,
+            //sourcedUris,
             tree
         }
         for (const symbol of workspaceSymbols) {
@@ -88,14 +98,18 @@ export class Analyzer {
 
     public async initiateBackgroundAnalysis() : Promise<{ filesParsed: number }> {
         let amount = 0;
-        const allDocs = this.workspaces.workspaceDocs
-        for (const document of allDocs) {
-            try {
-                this.analyze(document);
-                amount++;
-            } catch (err) {
-                console.error(err)
-            }
+        //const allDocs = this.workspaces.workspaceDocs
+        for (const workspace of this.workspaces) {
+            await workspace.initializeFiles()
+            workspace.docs.forEach((doc: LspDocument) => {
+                try {
+                    this.analyze(doc);
+                    amount++;
+                } catch (err) {
+                    console.error(err)
+                }
+                //amount++;
+            })
         }
         return { filesParsed: amount };
     }
@@ -115,24 +129,6 @@ export class Analyzer {
             results.push(...toAdd)
         }
         return results
-    }
-
-
-    public autoloadedInWorkspace(symbol: WorkspaceSymbol) {
-        const uri = symbol.location.uri;
-        const workspace = this.workspaces.find(uri)
-        if (!workspace) return false;
-        switch (symbol.kind) {
-            case SymbolKind.Function:
-                if (workspace.functions.some((doc: LspDocument) => doc.getAutoLoadName()  === symbol.name)) {
-                    return true
-                }
-                return uri.endsWith("config.fish")
-            case SymbolKind.Variable:
-                return workspace.canRename
-            default:
-                return false
-        }
     }
 
     get(document: LspDocument) {
@@ -256,35 +252,12 @@ export class Analyzer {
         );
     }
 
-}
+    private getCommandNames(document: LspDocument): string[] {
+        const allCommands = this.getNodes(document)
+            .filter((node) => isCommandName(node))
+            .map((node) => node.text);
+        const result = new Set(allCommands);
+        return Array.from(result);
+    }
 
-function createLookupUriMap(uris: string[]): Map<string, string> {
-    const lookupUris = new Map<string, string>()
-    uris.forEach(fullUri => {
-        lookupUris.set(
-            fullUri.slice(
-                fullUri.lastIndexOf("/") + 1,
-                fullUri.lastIndexOf(".fish")
-            ),
-            fullUri
-        );
-    })
-    return lookupUris
 }
-
-function uniqueCommands(root: SyntaxNode, uris: Map<string, string>): SourceCommand[] {
-    const result: SourceCommand[] = []
-    const commands = getChildNodes(root).filter(n => isCommandName(n)).map(n => n.text)
-    const uniqueCommands = new Set(commands)
-    uniqueCommands.forEach(cmd => {
-        if (uris.has(cmd)) {
-            const command: SourceCommand = {
-                name: cmd,
-                uri: uris.get(cmd)!,
-            }
-            result.push(command)
-        }
-    })
-    return result
-}
-

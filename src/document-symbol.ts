@@ -1,5 +1,4 @@
 
-
 import { DocumentSymbol, SymbolKind, Range, } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { isFunctionDefinitionName, isDefinition, isVariableDefinition, isFunctionDefinition, isVariableDefinitionName, refinedFindParentVariableDefinitionKeyword } from './utils/node-types'
@@ -21,6 +20,7 @@ export function getScopeTags(uri: string, parent: SyntaxNode, child: SyntaxNode)
             ? [ScopeTags.Global]
             : [ScopeTags.Local];
     } else if (isVariableDefinitionName(child)) {
+        if (child.text.startsWith("$") || child.text.endsWith(']')) return [];
         return findVariableDefinitionOptions(parent, child)
     }
     return [];
@@ -169,4 +169,3 @@ export function filterGlobalSymbols(symbols: FishDocumentSymbol[]): FishDocument
 export function tagsParser(child: SyntaxNode, parent: SyntaxNode, uri: string) {
     return;
 }
-

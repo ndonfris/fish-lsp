@@ -29,7 +29,7 @@ import { DocumentationCache, initializeDocumentationCache } from './utils/docume
 import { collectAllSymbolInformation, DocumentDefSymbol } from './symbols';
 import { SymbolTree } from './symbolTree';
 import { homedir } from 'os';
-import { FishWorkspaces, initializeFishWorkspaces } from './utils/workspace';
+import { initializeFishWorkspaces } from './utils/workspace';
 
 // @TODO 
 export type SupportedFeatures = {
@@ -596,4 +596,3 @@ export default class FishServer {
         //return Promise.resolve({ filesParsed: 0 })
     }
 }
-
