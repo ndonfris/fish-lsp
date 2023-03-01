@@ -76,6 +76,15 @@ export namespace FishDocumentSymbol {
             children: newChildren,
         } as FishDocumentSymbol;
     }
+
+    export function equal(a: FishDocumentSymbol, b: FishDocumentSymbol): boolean {
+        return a.name === b.name &&
+            a.uri === b.uri &&
+            a.range.start === b.range.start &&
+            a.range.end === b.range.end &&
+            a.selectionRange.start === b.selectionRange.start &&
+            a.selectionRange.end === b.selectionRange.end;
+    }
 }
 
 

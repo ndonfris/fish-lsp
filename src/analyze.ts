@@ -39,6 +39,7 @@ export class Analyzer {
     protected uriToTreeMap: Map<string, Tree> = new Map();
     public uriToAnalyzedDocument: {[uri: string]: uriToAnalyzedDocument} = {}
     public workspaceSymbols: Map<string, WorkspaceSymbol[]> = new Map();
+    public globalSymbols: Map<string, FishDocumentSymbol[]> = new Map();
 
     //public allUris: string[] = [];
     //public lookupUriMap: Map<string, string> = new Map();
@@ -64,10 +65,7 @@ export class Analyzer {
         this.uriToTreeMap.set(document.uri, tree)
         //const sourcedUris = uniqueCommands(tree.rootNode, this.lookupUriMap)
         const documentSymbols = getFishDocumentSymbols(document.uri, tree.rootNode)
-        const workspaceSymbols = collectFishWorkspaceSymbols(tree.rootNode, document.uri)
-        //filterGlobalSymbols(documentSymbols).forEach((symbol: FishDocumentSymbol) => {
-        //    console.log(symbol.name + ' in ' + uri)
-        //})
+        //const workspaceSymbols = collectFishWorkspaceSymbols(tree.rootNode, document.uri)
         const commands = this.getCommandNames(document)
         //commands.forEach((cmd: string) => {
         //    console.log(cmd)
@@ -80,19 +78,11 @@ export class Analyzer {
             //sourcedUris,
             tree
         }
-        for (const symbol of workspaceSymbols) {
-            //console.log(symbol)
-            const existing: WorkspaceSymbol[] = this.workspaceSymbols.get(symbol.name) ?? [];
-            const count = existing.filter(s => symbol.location.uri === s.location.uri).length
-            if (count === 0) {
-                existing.push(symbol)
-            } else if (existing.length === 0) {
-               existing.push(symbol)
-            }
-            //existing.push(symbol)
-            this.workspaceSymbols.set(symbol.name, existing)
-        }
-
+        filterGlobalSymbols(documentSymbols).forEach((symbol: FishDocumentSymbol) => {
+            const existing: FishDocumentSymbol[] = this.globalSymbols.get(symbol.name) ?? [];
+            if (existing.some(s => FishDocumentSymbol.equal(s, symbol))) return
+            this.globalSymbols.set(symbol.name, [...existing, symbol])
+        })
     }
 
     public async initiateBackgroundAnalysis() : Promise<{ filesParsed: number }> {
@@ -115,7 +105,7 @@ export class Analyzer {
 
     public getWorkspaceSymbols() {
         const results: WorkspaceSymbol[] = []
-        for (const [name, symbols] of this.workspaceSymbols) {
+        for (const [name, symbols] of this.globalSymbols) {
             let toAdd: WorkspaceSymbol[] = []
             for (const symbol of symbols) {
                 //if (symbol.kind == SymbolKind.Function) {
@@ -123,7 +113,7 @@ export class Analyzer {
                     //break;
                 //} else {
                 //}
-                toAdd.push(symbol)
+                toAdd.push(WorkspaceSymbol.create(name, symbol.kind, symbol.uri, symbol.range))
             }
             results.push(...toAdd)
         }

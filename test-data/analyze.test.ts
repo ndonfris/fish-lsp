@@ -78,6 +78,7 @@ describe("analyze tests", () => {
     it(analyze_test_2, async () => {
         const a = await analyzer.initiateBackgroundAnalysis();
         console.log(a);
+        console.log(Array.from(analyzer.globalSymbols.keys()).length);
         //const UserConfig = {
         //    paths: ['/usr/share/fish'],
         //    rename_paths: [''],
@@ -109,4 +110,3 @@ describe("analyze tests", () => {
     //}
 //
 //}
-
