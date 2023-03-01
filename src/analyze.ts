@@ -63,19 +63,12 @@ export class Analyzer {
         this.parser.reset()
         const tree = this.parser.parse(document.getText());
         this.uriToTreeMap.set(document.uri, tree)
-        //const sourcedUris = uniqueCommands(tree.rootNode, this.lookupUriMap)
         const documentSymbols = getFishDocumentSymbols(document.uri, tree.rootNode)
-        //const workspaceSymbols = collectFishWorkspaceSymbols(tree.rootNode, document.uri)
         const commands = this.getCommandNames(document)
-        //commands.forEach((cmd: string) => {
-        //    console.log(cmd)
-        //})
         this.uriToAnalyzedDocument[document.uri] = {
             document,
             documentSymbols,
             commands,
-            //globalDefinitions: workspaceSymbols,
-            //sourcedUris,
             tree
         }
         filterGlobalSymbols(documentSymbols).forEach((symbol: FishDocumentSymbol) => {
@@ -87,7 +80,6 @@ export class Analyzer {
 
     public async initiateBackgroundAnalysis() : Promise<{ filesParsed: number }> {
         let amount = 0;
-        //const allDocs = this.workspaces.workspaceDocs
         for (const workspace of this.workspaces) {
             await workspace.initializeFiles()
             workspace.docs.forEach((doc: LspDocument) => {
@@ -97,7 +89,6 @@ export class Analyzer {
                 } catch (err) {
                     console.error(err)
                 }
-                //amount++;
             })
         }
         return { filesParsed: amount };
