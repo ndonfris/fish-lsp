@@ -76,6 +76,7 @@ export class Analyzer {
             if (existing.some(s => FishDocumentSymbol.equal(s, symbol))) return
             this.globalSymbols.set(symbol.name, [...existing, symbol])
         })
+        return documentSymbols
     }
 
     public async initiateBackgroundAnalysis() : Promise<{ filesParsed: number }> {

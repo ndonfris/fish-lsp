@@ -65,16 +65,16 @@ export namespace FishDocumentSymbol {
     }
 
     export function copy(symbol: FishDocumentSymbol, newChildren: FishDocumentSymbol[] = []): FishDocumentSymbol {
-        return {
-            name: symbol.name,
-            uri: symbol.uri,
-            detail: symbol.detail,
-            kind: symbol.kind,
-            range: symbol.range,
-            selectionRange: symbol.selectionRange,
-            scopeTags: symbol.scopeTags,
-            children: newChildren,
-        } as FishDocumentSymbol;
+        return create(
+            symbol.name,
+            symbol.uri,
+            symbol.detail,
+            symbol.kind,
+            symbol.range,
+            symbol.selectionRange,
+            symbol.scopeTags,
+            newChildren,
+        )
     }
 
     export function equal(a: FishDocumentSymbol, b: FishDocumentSymbol): boolean {
