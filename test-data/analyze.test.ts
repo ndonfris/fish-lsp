@@ -82,7 +82,7 @@ describe("analyze tests", () => {
         console.log(Array.from(analyzer.globalSymbols.keys()).length);
         const symbols = Array.from(analyzer.globalSymbols.values()).flat();
         for (const symbol of symbols) {
-            if (!symbol.uri.startsWith("file:///usr/share/fish/functions")) {
+            if (!symbol.uri.startsWith("file:///usr/share")) {
                 console.log(symbol.name);
                 console.log(symbol.uri);
                 console.log(symbol.detail);
