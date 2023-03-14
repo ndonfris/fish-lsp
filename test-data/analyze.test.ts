@@ -63,6 +63,7 @@ function analyzeConfigDocument() {
  * being generated correctly.
  */
 describe("analyze tests", () => {
+
     //const analyze_test_1 = 'generates WorkspaceSymbols in background (logging total files parsed)';
     //it(analyze_test_1, async () => {
     //    console.log(analyze_test_1);
@@ -79,24 +80,19 @@ describe("analyze tests", () => {
         const a = await analyzer.initiateBackgroundAnalysis();
         console.log(a);
         console.log(Array.from(analyzer.globalSymbols.keys()).length);
-        //const UserConfig = {
-        //    paths: ['/usr/share/fish'],
-        //    rename_paths: [''],
-        //}
-        //for (const path of UserConfig.paths) {
-        //    const ws = new Workspace(path)
-        //    if (UserConfig.rename_paths.includes(path)) {
-        //        ws.setCanRename()
-        //    }
-        //    await ws.initializeFiles();
-        //    console.log(ws.containsFunction('ls'))
-        //}
+        const symbols = Array.from(analyzer.globalSymbols.values()).flat();
+        for (const symbol of symbols) {
+            if (!symbol.uri.startsWith("file:///usr/share/fish/functions")) {
+                console.log(symbol.name);
+                console.log(symbol.uri);
+                console.log(symbol.detail);
+                console.log("-".repeat(symbol.uri.length) + '\n');
+            }
+        }
     });
-
 
     // TODO: convert all symbols to SymbolInformation, and only grab the document symbols per
     // request from client
-
 });
 
 
