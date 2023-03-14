@@ -39,7 +39,8 @@ export class DocumentationStringBuilder {
             const lastLine = this.outer.lastChild?.startPosition.column || 0;
             return lines
                 .map((line) => line.replace(" ".repeat(lastLine), ""))
-                .join("\n");
+                .join("\n")
+                .trimEnd();
         }
         return text;
     }
@@ -85,5 +86,4 @@ function hasPrecedingFunctionDefinition(node: SyntaxNode): boolean {
     }
     return false;
 }
-
 
