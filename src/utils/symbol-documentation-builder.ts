@@ -1,9 +1,11 @@
+import os from 'os'
 
 import { SymbolKind } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { symbolKindToString } from '../symbols';
 import { isFunctionDefinitionName, isDefinition, isVariableDefinition, isFunctionDefinition } from './node-types'
 import { FishFlagOption, optionTagProvider } from './options';
+import { pathToRelativeFunctionName, uriToPath } from './translation';
 
 export class DocumentationStringBuilder {
     constructor(
@@ -22,6 +24,9 @@ export class DocumentationStringBuilder {
             .join("\n");
     }
 
+    // ~/.config/fish/functions/yarn_reset.fish
+    // causes error, shows entire file instead of just function
+    // meaning that the outer node is being used when it shouldn't be
     private get precedingComments(): string {
         if (
             hasPrecedingFunctionDefinition(this.inner) &&
@@ -45,13 +50,18 @@ export class DocumentationStringBuilder {
         return text;
     }
 
+    get shortenendUri(): string {
+        const uriPath = uriToPath(this.uri)!;
+        return uriPath.replace(os.homedir(), "~");
+    }   
+
     // add this.tagString once further implemented
     toString() {
         const optionTags = optionTagProvider(this.inner, this.outer);
         const tagsText = optionTags.map((tag) => tag.toString()).join("\n");
         return [
             `\*(${symbolKindToString(this.kind)})* \**${this.name}**`,
-            `defined in file: '${this.uri}'`,
+            `defined in file: '${this.shortenendUri}'`,
             "___",
             "```fish",
             this.text,
