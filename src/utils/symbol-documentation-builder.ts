@@ -1,11 +1,27 @@
 import os from 'os'
-
 import { SymbolKind } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { symbolKindToString } from '../symbols';
-import { isFunctionDefinitionName, isDefinition, isVariableDefinition, isFunctionDefinition } from './node-types'
+import { isFunctionDefinitionName, isDefinition, isVariableDefinition, isFunctionDefinition, isProgram, isVariableDefinitionName } from './node-types'
 import { FishFlagOption, optionTagProvider } from './options';
 import { pathToRelativeFunctionName, uriToPath } from './translation';
+
+
+/**
+ * Current CHANGELOG for documentation:
+ *     • functions with preceding spaces between their comments keep whitespace between
+ *        the comments and the function definition
+ *     • @see zoom_out.fish and yarn_reset.fish
+ *            -    ~/.config/fish/functions/yarn_reset.fish (shows whole program)
+ *
+ *                  ** SHOULD NOW BE WORKING AS OF 3/15/2023 **
+ *                     consider moving this to a singular function call or something? 
+ *                     It's over complicated, a single function would have an easier
+ *                     control flow to follow instead of the setters seen below and the
+ *                     toString() function that builds the entire object.
+ *
+ *            -    ~/.config/fish/functions/zoom_out.fish (shows whitespace mentioned in previous bullet point)
+ */
 
 export class DocumentationStringBuilder {
     constructor(
@@ -13,8 +29,16 @@ export class DocumentationStringBuilder {
         private uri: string = uri,
         private kind: SymbolKind = kind,
         private inner: SyntaxNode = inner,
-        private outer = inner.parent || inner.previousSibling || null,
+        //private outer = inner.parent || inner.previousSibling || null,
+        // removed 
     ) {}
+
+    private get outer() {
+        if (isFunctionDefinitionName(this.inner) || isVariableDefinitionName(this.inner)) {
+            return this.inner.parent;
+        }
+        return this.inner.previousSibling || null;
+    }
 
     get tagsString(): string {
         return optionTagProvider(this.inner, this.outer)
@@ -24,10 +48,14 @@ export class DocumentationStringBuilder {
             .join("\n");
     }
 
-    // ~/.config/fish/functions/yarn_reset.fish
-    // causes error, shows entire file instead of just function
-    // meaning that the outer node is being used when it shouldn't be
+    /** ~/.config/fish/functions/yarn_reset.fish
+     *  causes error, shows entire file instead of just function
+     *  meaning that the outer node is being used when it shouldn't be
+     */
     private get precedingComments(): string {
+        if (this.outer && isProgram(this.outer)) {
+            return getPrecedingCommentString(this.inner);
+        }
         if (
             hasPrecedingFunctionDefinition(this.inner) &&
             isVariableDefinition(this.inner)
@@ -72,7 +100,7 @@ export class DocumentationStringBuilder {
 
 export namespace DocumentSymbolDetail {
     export function create(name: string, uri: string, kind: SymbolKind, inner: SyntaxNode, outer: SyntaxNode | null = inner.parent || inner.previousSibling || null): string {
-        return new DocumentationStringBuilder(name, uri, kind, inner, outer).toString();
+        return new DocumentationStringBuilder(name, uri, kind, inner).toString();
     }
 }
 
@@ -81,7 +109,7 @@ function getPrecedingCommentString(node: SyntaxNode): string {
     let current: SyntaxNode | null = node.previousNamedSibling;
     while (current && current.type === 'comment') {
         comments.unshift(current.text);
-        current = current.previousNamedSibling;
+        current = current.previousSibling;
     }
     return comments.join('\n');
 }
@@ -96,4 +124,3 @@ function hasPrecedingFunctionDefinition(node: SyntaxNode): boolean {
     }
     return false;
 }
-

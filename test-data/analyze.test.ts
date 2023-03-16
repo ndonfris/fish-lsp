@@ -7,7 +7,8 @@ import { LspDocument } from "../src/document";
 import {findFirstParent, getChildNodes } from "../src/utils/tree-sitter";
 import { Analyzer } from "../src/analyze";
 import { isFunctionDefinition,isDefinition,isVariableDefinition,isScope, findParentCommand, isForLoop, isVariable, isCommand, isCommandName,} from "../src/utils/node-types";
-import { CommentRange, DocumentDefSymbol, symbolKindToString } from "../src/symbols";
+//import { CommentRange, DocumentDefSymbol, symbolKindToString } from "../src/symbols";
+import { FishDocumentSymbol } from '../src/document-symbol';
 import { DocumentationCache, initializeDocumentationCache } from "../src/utils/documentationCache";
 import { SymbolTree } from "../src/symbolTree";
 import { homedir } from 'os';
@@ -64,22 +65,17 @@ function analyzeConfigDocument() {
  */
 describe("analyze tests", () => {
 
-    //const analyze_test_1 = 'generates WorkspaceSymbols in background (logging total files parsed)';
-    //it(analyze_test_1, async () => {
-    //    console.log(analyze_test_1);
-    //    const { analyzer, doc } = analyzeConfigDocument();
-    //    for (const [key, value] of analyzer.lookupUriMap.entries()) {
-    //        expect(value).toBeTruthy();
-    //    }
-    //    console.log(`amount of files parsed: ${loggedAmount}\n`);
-    //    expect(loggedAmount).toBeGreaterThan(0);
-    //});
+    const analyze_test_1 = 'generates WorkspaceSymbols in background (logging total files parsed)';
+    it(analyze_test_1, async () => {
+        const shouldLog = false;
 
-    const analyze_test_2 = 'exports in config.fish file';
-    it(analyze_test_2, async () => {
-        const a = await analyzer.initiateBackgroundAnalysis();
-        console.log(a);
-        console.log(Array.from(analyzer.globalSymbols.keys()).length);
+        const initializedResult = await analyzer.initiateBackgroundAnalysis();
+        if (shouldLog) console.log(initializedResult);
+
+        expect(initializedResult.filesParsed).toBeGreaterThan(0);
+        if (shouldLog) console.log(Array.from(analyzer.globalSymbols.keys()).length);
+        if (!shouldLog) return
+
         const symbols = Array.from(analyzer.globalSymbols.values()).flat();
         for (const symbol of symbols) {
             if (!symbol.uri.startsWith("file:///usr/share")) {
@@ -89,10 +85,31 @@ describe("analyze tests", () => {
                 console.log("-".repeat(symbol.uri.length) + '\n');
             }
         }
+
+    });
+
+    const analyze_test_2 = `checking specific 'config.fish' analysis`
+    it(analyze_test_2, async () => {
+        const shouldLog = true;
+
+        const doc = resolveLspDocumentForHelperTestFile(`${homedir()}/.config/fish/config.fish`);
+        analyzer.analyze(doc);
+
+        //const result = analyzer.uriToAnalyzedDocument[doc.uri]
+
+        if (!shouldLog) return
+
+        const symbolMap: Map<string, FishDocumentSymbol[]> = analyzer.globalSymbols;
+        const brokenSymbol: FishDocumentSymbol = symbolMap.get('fish_user_key_bindings')!.at(0)!
+        console.log(brokenSymbol.detail);
+        // detail looks like its working now (3/21/2023)
+
     });
 
     // TODO: convert all symbols to SymbolInformation, and only grab the document symbols per
     // request from client
+    //
+    // WHY?
 });
 
 

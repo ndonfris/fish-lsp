@@ -98,7 +98,7 @@ export function getFishDocumentSymbols(uri: string, ...currentNodes: SyntaxNode[
             symbols.push(FishDocumentSymbol.create(
                 child.text,
                 uri,
-                DocumentSymbolDetail.create(child.text, uri, kind, child, parent),
+                DocumentSymbolDetail.create(child.text, uri, kind, child),
                 kind,
                 getRange(parent),
                 getRange(child),
