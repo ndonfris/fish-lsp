@@ -1,5 +1,5 @@
 
-import { DocumentSymbol, SymbolKind, Range, } from 'vscode-languageserver';
+import { DocumentSymbol, SymbolKind, Range, WorkspaceSymbol, } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { isFunctionDefinitionName, isDefinition, isVariableDefinition, isFunctionDefinition, isVariableDefinitionName, refinedFindParentVariableDefinitionKeyword } from './utils/node-types'
 import { findVariableDefinitionOptions } from './utils/options';
@@ -85,6 +85,15 @@ export namespace FishDocumentSymbol {
             a.selectionRange.start === b.selectionRange.start &&
             a.selectionRange.end === b.selectionRange.end;
     }
+
+    export function toWorkspaceSymbol(symbol: FishDocumentSymbol): WorkspaceSymbol {
+        return WorkspaceSymbol.create(
+            symbol.name,
+            symbol.kind,
+            symbol.uri,
+            symbol.range,
+        )
+    }
 }
 
 
@@ -169,6 +178,13 @@ export function filterLastFishDocumentSymbols(symbols: FishDocumentSymbol[]): Fi
     return result;
 }
 
+export function isGlobalSymbol(symbol: FishDocumentSymbol): boolean {
+    return symbol.scopeTags.includes(ScopeTags.Global);
+}
+
+export function isUniversalSymbol(symbol: FishDocumentSymbol): boolean {
+    return symbol.scopeTags.includes(ScopeTags.Universal);
+}
 
 export function filterGlobalSymbols(symbols: FishDocumentSymbol[]): FishDocumentSymbol[] {
     return flattenFishDocumentSymbols(symbols)

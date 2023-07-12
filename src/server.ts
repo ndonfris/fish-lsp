@@ -51,7 +51,7 @@ export default class FishServer {
             initializeDocumentationCache(),
             initializeFishWorkspaces({}),
         ]).then(([parser, cache, workspaces]) => {
-            const analyzer = new Analyzer(parser, cache, workspaces);
+            const analyzer = new Analyzer(parser, workspaces);
             //workspaces.get(`${homedir()}/.config/fish`).
             return new FishServer(connection, config, parser, analyzer, documents, cache);
         })
@@ -266,7 +266,7 @@ export default class FishServer {
         //this.analyzer.analyze(doc)
         this.logger.log(JSON.stringify({position: params.position}, null , 2))
         //for (const edit of this.analyzer.get(doc)?.getChangedRanges(other))
-        this.logger.log(this.analyzer.get(doc)?.rootNode.text || "new doc not found")
+        this.logger.log(this.analyzer.getTree(doc)?.rootNode.text || "new doc not found")
         this.logger.log(`currentLine: "${this.analyzer.parseCurrentLine(doc, params.position).line}"`);
         try {
             newCompletionList = await createCompletionList(doc, this.analyzer, params.position);
@@ -343,10 +343,7 @@ export default class FishServer {
 
     async onWorkspaceSymbol(params: WorkspaceSymbolParams): Promise<WorkspaceSymbol[]> {
         this.logger.log('onWorkspaceSymbol: ' + params.query);
-        if (!!params.query && this.analyzer.workspaceSymbols.has(params.query)) {
-            return this.analyzer.workspaceSymbols.get(params.query) || this.analyzer.getWorkspaceSymbols()
-        }
-        return this.analyzer.getWorkspaceSymbols()
+        return this.analyzer.getWorkspaceSymbols(params.query)
     }
 
     //async onWorkspaceSymbolResolve(params: WorkspaceSymbolParams): Promise<WorkspaceSymbol[]> {

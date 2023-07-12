@@ -1,5 +1,5 @@
 import fs from 'fs'
-import { resolveLspDocumentForHelperTestFile } from "./helpers";
+import { printTestName, resolveLspDocumentForHelperTestFile } from "./helpers";
 import {DocumentSymbol,Position,SymbolKind, WorkspaceSymbol,} from "vscode-languageserver";
 import Parser, { SyntaxNode } from "web-tree-sitter";
 import { initializeParser } from "../src/parser";
@@ -39,7 +39,7 @@ beforeEach(async () => {
     parser = await initializeParser();
     documentationCache = await initializeDocumentationCache();
     workspaces = await initializeFishWorkspaces({});
-    analyzer = new Analyzer(parser, documentationCache, workspaces)
+    analyzer = new Analyzer(parser, workspaces)
     //const amount = await analyzer.initiateBackgroundAnalysis()
     //loggedAmount = amount.filesParsed;
     //symbols = [];
@@ -73,10 +73,10 @@ describe("analyze tests", () => {
         if (shouldLog) console.log(initializedResult);
 
         expect(initializedResult.filesParsed).toBeGreaterThan(0);
-        if (shouldLog) console.log(Array.from(analyzer.globalSymbols.keys()).length);
-        if (!shouldLog) return
+        printTestName(analyze_test_1);
+        if (shouldLog) console.log(analyzer.globalSymbols.allNames.length);
 
-        const symbols = Array.from(analyzer.globalSymbols.values()).flat();
+        const symbols = await analyzer.globalSymbols.allSymbols
         for (const symbol of symbols) {
             if (!symbol.uri.startsWith("file:///usr/share")) {
                 console.log(symbol.name);
@@ -99,12 +99,30 @@ describe("analyze tests", () => {
 
         if (!shouldLog) return
 
-        const symbolMap: Map<string, FishDocumentSymbol[]> = analyzer.globalSymbols;
-        const brokenSymbol: FishDocumentSymbol = symbolMap.get('fish_user_key_bindings')!.at(0)!
-        console.log(brokenSymbol.detail);
+        const symbols = analyzer.globalSymbols;
+        printTestName(analyze_test_2);
+        console.log(symbols.find('fish_user_key_bindings')[0].detail);
         // detail looks like its working now (3/21/2023)
 
     });
+
+    const analyze_test_3 = `checking analyze.ts`
+    it(analyze_test_3, async () => {
+        const shouldLog = true;
+
+        const doc = resolveLspDocumentForHelperTestFile(`${homedir()}/.config/fish/config.fish`);
+        analyzer.analyze(doc);
+        if (!shouldLog) return
+        printTestName(analyze_test_3);
+        const commands = analyzer.cache.getCommands(doc.uri)
+        const tree = analyzer.cache.getTree(doc.uri)
+        const symbols = analyzer.cache.getDocumentSymbols(doc.uri)
+        const analyzedDoc = analyzer.cache.getDocument(doc.uri)
+
+        console.log(commands);
+    });
+
+
 
     // TODO: convert all symbols to SymbolInformation, and only grab the document symbols per
     // request from client

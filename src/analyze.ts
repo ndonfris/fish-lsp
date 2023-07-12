@@ -1,4 +1,4 @@
-import { Hover, MarkupContent, MarkupKind, Position, PublishDiagnosticsParams, SymbolInformation, SymbolKind, WorkspaceSymbol, } from "vscode-languageserver";
+import { Hover, MarkupContent, MarkupKind, Position, PublishDiagnosticsParams, SymbolInformation, SymbolKind, WorkspaceSymbol, URI } from "vscode-languageserver";
 import Parser, { SyntaxNode, Range, Tree } from "web-tree-sitter";
 import * as LSP from 'vscode-languageserver';
 //import {collectFishSymbols, FishSymbol} from './symbols';
@@ -15,68 +15,43 @@ import fs from 'fs'
 import { SymbolTree } from './symbolTree';
 import { Workspace } from './utils/workspace';
 import { collectFishWorkspaceSymbols, FishWorkspaceSymbol } from './utils/fishWorkspaceSymbol';
-import { filterGlobalSymbols, FishDocumentSymbol, getFishDocumentSymbols } from './document-symbol';
+import { filterGlobalSymbols, FishDocumentSymbol, getFishDocumentSymbols, isGlobalSymbol, isUniversalSymbol } from './document-symbol';
 
-type SourceCommand = {
-    name: string,
-    uri: string,
-}
-type GlobalDefinition = { [name: string] : WorkspaceSymbol[] }
-type uriToAnalyzedDocument = {
-    document: LspDocument,
-    documentSymbols: FishDocumentSymbol[],
-    commands: string[],
-    //globalDefinitions: WorkspaceSymbol[],
-    //sourcedUris: SourceCommand[]
-    tree: Parser.Tree
-}
 
 export class Analyzer {
     protected parser: Parser;
-    // maps the uri of document to the parser.parse(document.getText())
-    protected uriTree: { [uri: string]: Tree };
-    private diagnosticQueue: DiagnosticQueue = new DiagnosticQueue();
-    protected uriToTreeMap: Map<string, Tree> = new Map();
-    public uriToAnalyzedDocument: {[uri: string]: uriToAnalyzedDocument} = {}
-    public workspaceSymbols: Map<string, WorkspaceSymbol[]> = new Map();
-    public globalSymbols: Map<string, FishDocumentSymbol[]> = new Map();
-
-    //public allUris: string[] = [];
-    //public lookupUriMap: Map<string, string> = new Map();
     public workspaces: Workspace[];
+    public cache: AnalyzedDocumentCache = new AnalyzedDocumentCache();
+    public globalSymbols: GlobalDefinitionCache = new GlobalDefinitionCache();
+    private diagnosticQueue: DiagnosticQueue = new DiagnosticQueue();
 
-    private uriToSymbols: { [uri: string]: DocumentSymbol[]} = {};
-    private globalSymbolsCache: DocumentationCache;
-
-    constructor(parser: Parser, globalSymbolsCache: DocumentationCache, workspaces: Workspace[]) {
+    constructor(parser: Parser, workspaces: Workspace[]) {
         this.parser = parser;
         this.workspaces = workspaces;
-        this.uriTree = {};
-        this.globalSymbolsCache = globalSymbolsCache;
-        //this.allUris = allUris;
-        //this.allUris = workspaces.workspaces.map((ws: Workspace) => ws.files).flat();
-        this.workspaces = workspaces;
-        //this.lookupUriMap = createLookupUriMap(this.allUris);
     }
 
     public analyze(document: LspDocument) {
         this.parser.reset()
-        const tree = this.parser.parse(document.getText());
-        this.uriToTreeMap.set(document.uri, tree)
-        const documentSymbols = getFishDocumentSymbols(document.uri, tree.rootNode)
-        const commands = this.getCommandNames(document)
-        this.uriToAnalyzedDocument[document.uri] = {
+        const analyzedDocument = this.getAnalyzedDocument(this.parser, document);
+        this.cache.setDocument(document.uri, analyzedDocument);
+        this.cache.getDocumentSymbols(document.uri)
+            .filter((symbol: FishDocumentSymbol) => isGlobalSymbol(symbol) || isUniversalSymbol(symbol))
+            .forEach((symbol: FishDocumentSymbol) => {
+                this.globalSymbols.add(symbol);
+            })
+        return this.cache.getDocumentSymbols(document.uri);
+    }
+
+    private getAnalyzedDocument(parser: Parser, document: LspDocument): AnalyzedDocument {
+        const tree = parser.parse(document.getText());
+        const documentSymbols =  getFishDocumentSymbols(document.uri, tree.rootNode);
+        const commands = this.getCommandNames(document);
+        return {
             document,
             documentSymbols,
             commands,
-            tree
-        }
-        filterGlobalSymbols(documentSymbols).forEach((symbol: FishDocumentSymbol) => {
-            const existing: FishDocumentSymbol[] = this.globalSymbols.get(symbol.name) ?? [];
-            if (existing.some(s => FishDocumentSymbol.equal(s, symbol))) return
-            this.globalSymbols.set(symbol.name, [...existing, symbol])
-        })
-        return documentSymbols
+            tree,
+        };
     }
 
     public async initiateBackgroundAnalysis() : Promise<{ filesParsed: number }> {
@@ -95,90 +70,66 @@ export class Analyzer {
         return { filesParsed: amount };
     }
 
-    public getWorkspaceSymbols() {
-        const results: WorkspaceSymbol[] = []
-        for (const [name, symbols] of this.globalSymbols) {
-            let toAdd: WorkspaceSymbol[] = []
-            for (const symbol of symbols) {
-                //if (symbol.kind == SymbolKind.Function) {
-                    //toAdd = [symbol]
-                    //break;
-                //} else {
-                //}
-                toAdd.push(WorkspaceSymbol.create(name, symbol.kind, symbol.uri, symbol.range))
-            }
-            results.push(...toAdd)
-        }
-        return results
-    }
-
-    get(document: LspDocument) {
-        return this.uriToTreeMap.get(document.uri)
+    
+    /**
+     * method that returns all the workspaceSymbols that are in the same scope as the given 
+     * shell
+     * @returns {WorkspaceSymbol[]} array of all symbols
+     */
+    public getWorkspaceSymbols(query: string = ""): WorkspaceSymbol[] {
+        const results : WorkspaceSymbol[] = 
+            this.globalSymbols.allSymbols.map(s => FishDocumentSymbol.toWorkspaceSymbol(s));
+        return query === '' || query.trim() === ''
+            ? results 
+            : results.filter((symbol: WorkspaceSymbol) => {
+                symbol.name.includes(query)
+            });
     }
 
     public getHover(document: LspDocument, position: Position): Hover | null {
-        const tree = this.get(document)
+        const tree = this.getTree(document)
         if (!tree) return null;
         const node = this.nodeAtPoint(document, position.line, position.character);
-        if (!node) return null
-        const symbols = this.workspaceSymbols.get(node.text)
-        if (!symbols) return null
-        const symbol = symbols.at(0) as FishWorkspaceSymbol
+        if (!node || !this.globalSymbols.has(node.text)) return null
+        const symbols = this.globalSymbols.find(node.text);
+        if (!this.globalSymbols.has(node.text) || symbols.length === 0) return null;
+        const symbol = symbols[0];
         return {
             contents: {
                 kind: MarkupKind.Markdown,
-                value: symbol.documentation.markdown,
+                value: symbol.detail,
             } as MarkupContent
         }
+    }
+
+    getTree(document: LspDocument) {
+        return this.cache.getDocument(document.uri)?.tree;
     }
 
     /**
      * Finds the rootnode given a LspDocument. If useCache is set to false, it will
      * use the parser to parse the document passed in, and then return the rootNode.
      */
-    public getRootNode(
-        document: LspDocument
-    ): SyntaxNode | undefined {
-        const tree = this.uriToTreeMap.get(document.uri)
-        return tree?.rootNode
+    getRootNode(document: LspDocument): SyntaxNode | undefined {
+        return this.cache.getTree(document.uri)?.rootNode
     }
 
-    public getDiagnostics(doc: LspDocument): PublishDiagnosticsParams {
+
+    public parsePosition(document: LspDocument, position: Position): {root: SyntaxNode | null, currentNode: SyntaxNode | null} {
+        const root = this.getRootNode(document) || null;
         return {
-            uri: doc.uri,
-            diagnostics: this.diagnosticQueue.get(doc.uri) || [],
-        };
-    }
-
-    clear(doc: LspDocument) {
-        this.diagnosticQueue.clear(doc.uri);
-    }
-
-    public parsePosition(
-        document: LspDocument,
-        position: Position
-    ): {
-        root: SyntaxNode | null,
-        currentNode: SyntaxNode | null
-    } {
-        const root = this.getRootNode(document)
-        return {
-            root: root || null,
+            root: root,
             currentNode: root?.descendantForPosition({
-                    row: position.line,
-                    column: Math.max(0, position.character - 1),
-                }) || null,
+                row: position.line,
+                column: Math.max(0, position.character - 1),
+            }) || null,
         };
     }
 
     /**
      * Find the node at the given point.
      */
-    public nodeAtPoint(
-        document: LspDocument,
-        line: number,
-        column: number
-    ): Parser.SyntaxNode | null {
+    public nodeAtPoint(document: LspDocument,line: number,column: number): Parser.SyntaxNode | null {
         const root = this.getRootNode(document)
         // Check for lacking rootNode (due to failed parse?)
         return root?.descendantForPosition({ row: line, column }) || null
@@ -223,14 +174,9 @@ export class Analyzer {
         return getChildNodes(this.parser.parse(document.getText()).rootNode);
     }
 
-    public getNodesInRange(
-        document: LspDocument,
-        range: LSP.Range
-    ): SyntaxNode[] {
+    public getNodesInRange(document: LspDocument, range: LSP.Range): SyntaxNode[] {
         const root = this.parser.parse(document.getText()).rootNode;
-        return getChildNodes(root).filter((node) =>
-            containsRange(range, getRange(node))
-        );
+        return getChildNodes(root).filter((node) => containsRange(range, getRange(node)));
     }
 
     private getCommandNames(document: LspDocument): string[] {
@@ -241,4 +187,68 @@ export class Analyzer {
         return Array.from(result);
     }
 
+    public clearDiagnostics(doc: LspDocument) {
+        this.diagnosticQueue.clear(doc.uri);
+    }
+
+    public getDiagnostics(doc: LspDocument): PublishDiagnosticsParams {
+        return {
+            uri: doc.uri,
+            diagnostics: this.diagnosticQueue.get(doc.uri) || [],
+        };
+    }
+
+}
+
+export class GlobalDefinitionCache {
+    constructor(private _definitions: Map<string, FishDocumentSymbol[]> = new Map()) {}
+    add(symbol: FishDocumentSymbol) {
+        return this._definitions.has(symbol.name) 
+            ? this._definitions.set(symbol.name, [...this.find(symbol.name), symbol]) 
+            : this._definitions.set(symbol.name, [symbol]);
+    }   
+    find(name: string): FishDocumentSymbol[] {
+        return this._definitions.get(name) || [];
+    }
+    has(name: string): boolean {
+        return this._definitions.has(name);
+    }
+    get allSymbols(): FishDocumentSymbol[] {
+        return [...this._definitions.values()].flat();
+    }
+    get allNames(): string[] {
+        return [...this._definitions.keys()];
+    }
+    get map() { return this._definitions };
+}
+
+type AnalyzedDocument = {
+    document: LspDocument,
+    documentSymbols: FishDocumentSymbol[],
+    commands: string[],
+    tree: Parser.Tree
+};
+
+export class AnalyzedDocumentCache {
+    constructor(private _documents: Map<URI, AnalyzedDocument> = new Map()) {}
+    uris(): string[] {
+        return [...this._documents.keys()];
+    }
+    setDocument(uri: URI, analyzedDocument: AnalyzedDocument) {
+        this._documents.set(uri, analyzedDocument);
+    }
+    getDocument(uri: URI): AnalyzedDocument | undefined {
+        if (!this._documents.has(uri)) return undefined;
+        return this._documents.get(uri);
+    }
+    getDocumentSymbols(uri: URI): FishDocumentSymbol[] {
+        return this._documents.get(uri)?.documentSymbols || [];
+    }
+    getCommands(uri: URI): string[] {
+        return this._documents.get(uri)?.commands || [];
+    }
+    getTree(uri: URI): Parser.Tree | undefined {
+        return this._documents.get(uri)?.tree;
+    }
+    get map() { return this._documents }
 }
