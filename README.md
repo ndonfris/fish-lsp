@@ -6,6 +6,7 @@
 - [ ] (_all_)
   - replace BuiltinsSet.has('`command_name`') with new implementation using DocumentationCache
   - server, completion, hover, rename?, fold?
+- [ ] __implement__ `source ~/file_path/name.fish` working with [workspace.ts](./src/utils/workspace.ts) and [analyze.ts](./src/analyze.ts)
 - [ ] [server.ts]( ./src/server.ts )
   - [x] onFold
   - [x] onComplete
@@ -654,4 +655,3 @@ New version of the package is published automatically on pushing new tag to the 
 fixed coc folding error: `set foldmethod=marker foldlevel=0 nomodeline:`
 
 <https://daringfireball.net/projects/markdown/syntax>
-

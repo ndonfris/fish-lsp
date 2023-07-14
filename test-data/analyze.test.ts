@@ -8,7 +8,7 @@ import {findFirstParent, getChildNodes } from "../src/utils/tree-sitter";
 import { Analyzer } from "../src/analyze";
 import { isFunctionDefinition,isDefinition,isVariableDefinition,isScope, findParentCommand, isForLoop, isVariable, isCommand, isCommandName,} from "../src/utils/node-types";
 //import { CommentRange, DocumentDefSymbol, symbolKindToString } from "../src/symbols";
-import { FishDocumentSymbol } from '../src/document-symbol';
+import { filterLastFishDocumentSymbols, FishDocumentSymbol, flattenFishDocumentSymbols } from '../src/document-symbol';
 import { DocumentationCache, initializeDocumentationCache } from "../src/utils/documentationCache";
 import { SymbolTree } from "../src/symbolTree";
 import { homedir } from 'os';
@@ -117,27 +117,80 @@ describe("analyze tests", () => {
         const commands = analyzer.cache.getCommands(doc.uri)
         const tree = analyzer.cache.getTree(doc.uri)
         const symbols = analyzer.cache.getDocumentSymbols(doc.uri)
+        // {commands, tree, symbols} should be used from the result properties of this function
         const analyzedDoc = analyzer.cache.getDocument(doc.uri)
 
         console.log(commands);
+        console.log(tree?.rootNode.type);
+        console.log(...symbols, `\nSYMBOLS TOTAL: ${symbols.length}`)
+        if (!analyzedDoc) return
+        console.log(analyzedDoc);
+
+    });
+
+    const analyze_test_4 = `inner_functions.fish client tree`
+    it(analyze_test_4, async () => {
+        const doc = resolveLspDocumentForHelperTestFile(`fish_files/advanced/inner_functions.fish`);
+        analyzer.analyze(doc);
+
+        const symbols = analyzer.cache.getDocumentSymbols(doc.uri)
+        const flatSymbols =  filterLastFishDocumentSymbols(symbols)
+
+        // small helper to print out the client tree like the editor would tree
+        function logClientTree(symbols: FishDocumentSymbol[], level = 0) {
+            for (const symbol of symbols) {
+                const logIcon = symbol.kind === SymbolKind.Function ? "  " :  "  "
+                console.log("  ".repeat(level) + `${logIcon}${symbol.name}`);
+                logClientTree(symbol.children || [], level + 1);
+            }
+        }
+
+        logClientTree(flatSymbols);
+        console.log(`TOP LEVEL SYMBOLS TOTAL: ${flatSymbols.length}`)
     });
 
 
+    function findFishDocumentSymbols(arr: FishDocumentSymbol[]) {
+        const flatSymbols =  flattenFishDocumentSymbols(arr)
 
-    // TODO: convert all symbols to SymbolInformation, and only grab the document symbols per
-    // request from client
-    //
-    // WHY?
+        flatSymbols.map((s, i) => { 
+            const idx = i.toString().padStart(2, " ");
+            console.log(`${idx} :: ${s.name}`);
+        })
+
+        const s0 = flatSymbols[1]    // arg_1 symbol -> `function func_a --argument-names arg_1 arg_2`
+        const s1 = flatSymbols[3]    // args symbol -> `set --local args "$argv"`
+        const s2 = flatSymbols[12]   // arg symbol -> `for arg in $argv[-3..-1];...;end`
+        console.log(...[s0, s1, s2].map(s=>s.name));
+    }
+
+    function flatNodes(root: SyntaxNode) {
+        const flatSymbols =  getChildNodes(root)
+
+        flatSymbols.map((s, i) => { 
+            const idx = i.toString().padStart(2, " ");
+            console.log(`${idx} :: ${s.text}`);
+        })
+
+        const s0 = flatSymbols[85]    // arg_1 symbol -> `function func_a --argument-names arg_1 arg_2`
+        const s1 = flatSymbols[11]    // args symbol -> `set --local args "$argv"`
+        const s2 = flatSymbols[150]   // arg symbol -> `for arg in $argv[-3..-1];...;end`
+        console.log(...[s0, s1, s2].map(s=>s.text));
+    }
+
+    const analyze_test_5 = `inner_functions.fish documentation for nearest definition symbols`
+    it(analyze_test_5, async () => {
+        const doc = resolveLspDocumentForHelperTestFile(`fish_files/advanced/inner_functions.fish`);
+        analyzer.analyze(doc);
+
+        const symbols = analyzer.cache.getDocumentSymbols(doc.uri)
+
+        const t = analyzer.cache.getTree(doc.uri)!.rootNode;
+        flatNodes(t);
+        
+        //console.log(flatSymbols.map(s=>s.name));
+
+        //console.log(`Symbol Documentation for: (line 1, 'args' ) === ${flatSymbols.length}`)
+    });
 });
 
-
-
-// small helper to print out the client tree like the editor would tree
-//function logClientTree(symbols: DocumentSymbol[], level = 0) {
-    //for (const symbol of symbols) {
-        //const logIcon = symbol.kind === SymbolKind.Function ? "  " :  "  "
-        //console.log("  ".repeat(level) + `${logIcon}${symbol.name}`);
-        //logClientTree(symbol.children || [], level + 1);
-    //}
-//
-//}

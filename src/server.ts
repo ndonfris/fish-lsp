@@ -52,7 +52,6 @@ export default class FishServer {
             initializeFishWorkspaces({}),
         ]).then(([parser, cache, workspaces]) => {
             const analyzer = new Analyzer(parser, workspaces);
-            //workspaces.get(`${homedir()}/.config/fish`).
             return new FishServer(connection, config, parser, analyzer, documents, cache);
         })
     }
@@ -61,14 +60,11 @@ export default class FishServer {
     // the connection of the FishServer
     private connection: Connection;
     private documentationCache: DocumentationCache;
-    //private client: RemoteClient;
-    // the parser (using tree-sitter-web)
     private parser: Parser;
     private analyzer: Analyzer; 
     // documentManager 
     private docs: LspDocuments;
     private config: ConfigManager;
-    //private fishAutoFixProvider: FishAutoFixProvider;
     protected logger: Logger;
     protected features: SupportedFeatures;
 
@@ -80,7 +76,6 @@ export default class FishServer {
         this.config = config;
         this.logger = new Logger(connection);
         this.features = { codeActionDisabledSupport: false };
-        //this.fishAutoFixProvider = new FishAutoFixProvider(this.connection)
         this.documentationCache = documentationCache;
     }
 
@@ -172,7 +167,6 @@ export default class FishServer {
 
     didOpenTextDocument(params: DidOpenTextDocumentParams): void {
         this.logger.log("[FishLsp.onDidOpenTextDocument()]")
-        //this.logger.log(JSON.stringify({params}, null, 2))
         const uri = uriToPath(params.textDocument.uri);
         this.logger.log(`[FishLsp.onDidOpenTextDocument()] uri: ${uri}`)
         if (!uri) {
@@ -185,8 +179,6 @@ export default class FishServer {
                 this.logger.log("opened document: " + params.textDocument.uri)
                 this.analyzer.analyze(doc);
                 this.logger.log("analyzed document: " + params.textDocument.uri)
-                //const root = this.getRootNode(doc.getText())
-                //this.connection.sendDiagnostics(this.analyzer.getDiagnostics(doc));
             }
         } else {
             this.logger.log(`Cannot open already opened doc '${params.textDocument.uri}'.`);
@@ -203,7 +195,6 @@ export default class FishServer {
 
     didChangeTextDocument(params: DidChangeTextDocumentParams): void {
         this.logger.log(`[${ this.connection.onDidChangeTextDocument.name }]: ${params.textDocument.uri}` );
-        //const { uri, doc, root} = this.getDefaultsForPartialParams({textDocument: params.textDocument})
         const uri = uriToPath(params.textDocument.uri);
         const doc = this.docs.get(uri);
         if (!uri || !doc) return;
@@ -212,7 +203,6 @@ export default class FishServer {
         this.logger.log(`${doc.version}:::${doc.uri}`)
         const root = this.analyzer.getRootNode(doc);
         if (!root) return 
-        //this.connection.sendDiagnostics(this.analyzer.getDiagnostics(doc));
     }
 
     didCloseTextDocument(params: DidCloseTextDocumentParams): void {
@@ -267,7 +257,9 @@ export default class FishServer {
         this.logger.log(JSON.stringify({position: params.position}, null , 2))
         //for (const edit of this.analyzer.get(doc)?.getChangedRanges(other))
         this.logger.log(this.analyzer.getTree(doc)?.rootNode.text || "new doc not found")
+        const { line } = this.analyzer.parseCurrentLine(doc, params.position)
         this.logger.log(`currentLine: "${this.analyzer.parseCurrentLine(doc, params.position).line}"`);
+        if (line.trim().startsWith("#")) return null;
         try {
             newCompletionList = await createCompletionList(doc, this.analyzer, params.position);
         } catch (error) {
@@ -387,12 +379,16 @@ export default class FishServer {
     }
 
     // opens package.json on hover of document symbol!
+    //
+    // NEED TO REMOVE documentationCache. It works but is too expensive memory wise.
+    // REFACTOR into a procedure that conditionally determines output type needed.
+    // Also plan to get rid of any other cache's, so that the garbage collector can do its job. 
     async onHover(params: HoverParams): Promise<Hover | null> {
         this.logger.log("onHover");
         const {doc, uri, root, current} = this.getDefaults(params)
         if (!doc || !uri || !root || !current) return null;
         const globalItem = await this.documentationCache.resolve(current.text.trim(), uri)
-        //this.logger.log(globalItem?.resolved.toString() || `docCache not found ${current.text}`)
+        this.logger.log('docCache found '+ globalItem?.resolved.toString() || `docCache not found ${current.text}`)
         if (globalItem && globalItem.docs) {
             return {
                 contents: {
@@ -570,21 +566,6 @@ export default class FishServer {
         const root = doc ? this.analyzer.getRootNode(doc) : undefined
         return {doc, uri, root}
     }
-
-    private getDefaultsFallback(paramURI: string) : { doc?: LspDocument, uri?: string, root?: SyntaxNode } {
-        const uri = uriToPath(paramURI);
-        const doc = this.docs.get(uri);
-        const root = doc ? this.analyzer.getRootNode(doc) : undefined
-        return {doc, uri, root}
-    }
-
-    private positionBackOneCharacter(position: Position) : Position{
-        return {
-            character: position.character - 1,
-            line: position.line
-        }
-    }
-
 
     private async startBackgroundAnalysis(): Promise<{ filesParsed: number }> {
         //const { workspaceFolder } = this

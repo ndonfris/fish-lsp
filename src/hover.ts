@@ -11,6 +11,14 @@ import {findEnclosingScope, findFirstParent, getNodeAtRange, getRange} from './u
 //import * as Symbols from './workspace-symbol';
 import { SymbolTree } from './symbolTree';
 
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//  GOAL: 
+//       • remove SymbolTree dependency (in './symbolTree')
+//         use FishDocumentSymbol instead
+//       • remove or shrink documentationCache to compute these values on the fly
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 export async function handleHover(uri: string, root: Parser.SyntaxNode, current: Parser.SyntaxNode, cache: DocumentationCache) : Promise<LSP.Hover | null>{
     if (current.text.startsWith('-')) {
@@ -18,7 +26,6 @@ export async function handleHover(uri: string, root: Parser.SyntaxNode, current:
     } 
     const local = SymbolTree(root, uri).findDef(current)
     if (local) {
-        //const fishSymbol = CommentRange.createFishDocumentSymbol(local);
         return {
             contents: {
                 kind: MarkupKind.Markdown,
@@ -26,13 +33,6 @@ export async function handleHover(uri: string, root: Parser.SyntaxNode, current:
             },
             range: local.selectionRange
         };
-        //const localParent = local.parent ;
-        //if (!localParent) return null;
-        //const nodeText = localParent.text || '';
-        //return {
-            //contents: enrichToCodeBlockMarkdown(nodeText, 'fish'),
-            //range: getRange(local),
-        //}
     } 
     if (cache.find(current.text) !== undefined) {
         await cache.resolve(current.text)
@@ -126,4 +126,3 @@ export async function collectCommandString(current: Parser.SyntaxNode): Promise<
     if (docs) return commandText
     return commandNodeText || ''
 }
-

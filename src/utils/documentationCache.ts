@@ -175,6 +175,12 @@ export function initializeMap(collection: string[], type: SymbolKind, uri?: stri
     return items
 }
 
+/**
+ * Uses internal fish shell commands to store brief output for global variables, functions,
+ * builtins, and unknown identifiers. This class is meant to be initialized once, on server
+ * startup. It is then used as fallback documentation provider, if our analysis can't 
+ * resolve any documentation for a given identifier.
+ */
 export class DocumentationCache {
 
     private _variables: Map<string, CachedGlobalItem> = new Map();
@@ -204,20 +210,6 @@ export class DocumentationCache {
         })
         return this
     }
-
-    //setExportUri(uri: string, definitionSymbols: DocumentSymbol[]) {
-    //    const variables = definitionSymbols
-    //    .filter((symbol) => symbol.kind === SymbolKind.Variable)
-    //    .filter(
-    //        (item: DocumentSymbol, index: number, self: DocumentSymbol[]) =>
-    //            self.findIndex((otherItem) => item.name === otherItem.name) === index 
-    //    ).forEach((symbol) => {
-    //        let item = this._variables.get(symbol.name);
-    //        if (!this._variables.has(symbol.name)) {
-    //            this.resolve(symbol.name, uri, SymbolKind.Variable)
-    //        }
-    //    })
-    //}
 
     find(name: string, type?: SymbolKind): CachedGlobalItem | undefined {
         if (type === SymbolKind.Variable) {

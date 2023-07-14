@@ -13,19 +13,6 @@ export enum ScopeTags {
     Universal = 'universal',
 }
 
-export function getScopeTags(uri: string, parent: SyntaxNode, child: SyntaxNode): ScopeTags[] {
-    if (isFunctionDefinitionName(child)) {
-        const loadedName = pathToRelativeFunctionName(uri);
-        return loadedName === child.text || loadedName === "config"
-            ? [ScopeTags.Global]
-            : [ScopeTags.Local];
-    } else if (isVariableDefinitionName(child)) {
-        if (child.text.startsWith("$") || child.text.endsWith(']')) return [];
-        return findVariableDefinitionOptions(parent, child)
-    }
-    return [];
-}
-
 // add some form of tags to the symbol so that we can extend the symbol with more information
 // current implementation is WIP inside file : ./utils/options.ts
 export interface FishDocumentSymbol extends DocumentSymbol {
@@ -96,55 +83,40 @@ export namespace FishDocumentSymbol {
     }
 }
 
-
-
-export function getFishDocumentSymbols(uri: string, ...currentNodes: SyntaxNode[]): FishDocumentSymbol[] {
-    const symbols: FishDocumentSymbol[] = [];
-    for (const node of currentNodes) {
-        const childrenSymbols = getFishDocumentSymbols(uri, ...node.children);
-        const { shouldCreate, kind, child, parent } = symbolCheck(node);
-        if (shouldCreate) {
-            symbols.push(FishDocumentSymbol.create(
-                child.text,
-                uri,
-                DocumentSymbolDetail.create(child.text, uri, kind, child),
-                kind,
-                getRange(parent),
-                getRange(child),
-                getScopeTags(uri, parent, child),
-                childrenSymbols
-            ));
-            continue;
-        }
-        symbols.push(...childrenSymbols);
-    }
-    return symbols;
+/**
+ * Checks if a FishDocumentSymbol's state, should NOT be changeable.
+ * Renaming a FishDocumentSymbol across the entire workspace, shouldn't
+ * be possible for internal symbols (seen in '/usr/share/fish/**.fish').
+ */
+export function symbolIsImmutable(symbol: FishDocumentSymbol): boolean {
+    const {uri, scopeTags} = symbol;
+    return uri.startsWith('/usr/share/fish/') || scopeTags.includes(ScopeTags.Universal);
 }
 
-function symbolCheck(node: SyntaxNode): {
-    shouldCreate: boolean;
-    kind: SymbolKind;
-    child: SyntaxNode;
-    parent: SyntaxNode;
-}{
-    let shouldCreate = false;
-    let [child, parent] = [ node, node.parent || node ];
-    let kind: SymbolKind = SymbolKind.Null;
-    if (isVariableDefinitionName(node)) {
-        parent = refinedFindParentVariableDefinitionKeyword(node)!.parent!;
-        kind = SymbolKind.Variable;
-        shouldCreate = true;
-    } else if (node.firstNamedChild && isFunctionDefinitionName(node.firstNamedChild)) {
-        child = node.firstNamedChild!;
-        kind = SymbolKind.Function;
-        shouldCreate = true;
+export function isGlobalSymbol(symbol: FishDocumentSymbol): boolean {
+    return symbol.scopeTags.includes(ScopeTags.Global);
+}
+
+export function isUniversalSymbol(symbol: FishDocumentSymbol): boolean {
+    return symbol.scopeTags.includes(ScopeTags.Universal);
+}
+
+export function filterGlobalSymbols(symbols: FishDocumentSymbol[]): FishDocumentSymbol[] {
+    return flattenFishDocumentSymbols(symbols)
+        .filter((symbol) => symbol.scopeTags.includes(ScopeTags.Global))
+}
+
+export function getScopeTags(uri: string, parent: SyntaxNode, child: SyntaxNode): ScopeTags[] {
+    if (isFunctionDefinitionName(child)) {
+        const loadedName = pathToRelativeFunctionName(uri);
+        return loadedName === child.text || loadedName === "config"
+            ? [ScopeTags.Global]
+            : [ScopeTags.Local];
+    } else if (isVariableDefinitionName(child)) {
+        if (child.text.startsWith("$") || child.text.endsWith(']')) return [];
+        return findVariableDefinitionOptions(parent, child)
     }
-    return {
-        shouldCreate,
-        kind,
-        child,
-        parent,
-    }
+    return [];
 }
 
 export function flattenFishDocumentSymbols(symbols: FishDocumentSymbol[]): FishDocumentSymbol[] {
@@ -178,19 +150,71 @@ export function filterLastFishDocumentSymbols(symbols: FishDocumentSymbol[]): Fi
     return result;
 }
 
-export function isGlobalSymbol(symbol: FishDocumentSymbol): boolean {
-    return symbol.scopeTags.includes(ScopeTags.Global);
+/**
+ * TreeSitter definition nodes in fish shell rely on commands, and thus create trees that
+ * need specific traversals per command. Creates a standard object of properties to be
+ * deconstructed into a FishDocumentSymbol. Where parent is the root most node of the 
+ * entire command to create a symbol. Child is the identifier of the symbol. 
+ *
+ * See fish below:
+ * ---------------------------------------------------------------------------------------
+ * set -gx FOO BAR; # FOO is a variable we globally define and export
+ * ---------------------------------------------------------------------------------------
+ * Child is just the identifier `$FOO`
+ * Parent is the entire string `set -gx FOO BAR;` for the command
+ */
+function definitionSymbolHandler(node: SyntaxNode): {
+    shouldCreate: boolean;
+    kind: SymbolKind;
+    child: SyntaxNode;
+    parent: SyntaxNode;
+}{
+    let shouldCreate = false;
+    let [child, parent] = [ node, node.parent || node ];
+    let kind: SymbolKind = SymbolKind.Null;
+    if (isVariableDefinitionName(node)) {
+        parent = refinedFindParentVariableDefinitionKeyword(node)!.parent!;
+        kind = SymbolKind.Variable;
+        shouldCreate = true;
+    } else if (node.firstNamedChild && isFunctionDefinitionName(node.firstNamedChild)) {
+        child = node.firstNamedChild!;
+        kind = SymbolKind.Function;
+        shouldCreate = true;
+    }
+    return {
+        shouldCreate,
+        kind,
+        child,
+        parent,
+    }
 }
 
-export function isUniversalSymbol(symbol: FishDocumentSymbol): boolean {
-    return symbol.scopeTags.includes(ScopeTags.Universal);
+/**
+ * Creates all FishDocumentSymbols in a file
+ * @param {string} uri - path to the file 
+ * @param {SyntaxNode[]} currentNodes - root node(s) to traverse for definitions 
+ * @returns {FishDocumentSymbol[]} - all defined FishDocumentSymbol's in file
+ */
+export function getFishDocumentSymbols(uri: string, ...currentNodes: SyntaxNode[]): FishDocumentSymbol[] {
+    const symbols: FishDocumentSymbol[] = [];
+    for (const node of currentNodes) {
+        const childrenSymbols = getFishDocumentSymbols(uri, ...node.children);
+        const { shouldCreate, kind, child, parent } = definitionSymbolHandler(node);
+        if (shouldCreate) {
+            symbols.push(FishDocumentSymbol.create(
+                child.text,
+                uri,
+                DocumentSymbolDetail.create(child.text, uri, kind, child),
+                kind,
+                getRange(parent),
+                getRange(child),
+                getScopeTags(uri, parent, child),
+                childrenSymbols
+            ));
+            continue;
+        }
+        symbols.push(...childrenSymbols);
+    }
+    return symbols;
 }
 
-export function filterGlobalSymbols(symbols: FishDocumentSymbol[]): FishDocumentSymbol[] {
-    return flattenFishDocumentSymbols(symbols)
-        .filter((symbol) => symbol.scopeTags.includes(ScopeTags.Global))
-}
-
-export function tagsParser(child: SyntaxNode, parent: SyntaxNode, uri: string) {
-    return;
-}
