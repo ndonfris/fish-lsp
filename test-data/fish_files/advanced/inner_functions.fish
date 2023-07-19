@@ -18,7 +18,7 @@ function func_a --argument-names arg_1 arg_2
 
 
     set --local args "$argv"
-
+    set arg $argv[1]
     for arg in $argv[-2..-1]
         echo $arg
     end

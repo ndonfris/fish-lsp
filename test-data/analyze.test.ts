@@ -4,8 +4,8 @@ import {DocumentSymbol,Position,SymbolKind, WorkspaceSymbol,} from "vscode-langu
 import Parser, { SyntaxNode } from "web-tree-sitter";
 import { initializeParser } from "../src/parser";
 import { LspDocument } from "../src/document";
-import {findFirstParent, getChildNodes } from "../src/utils/tree-sitter";
-import { Analyzer } from "../src/analyze";
+import {findFirstParent, getChildNodes,  getRange, isNodeWithinRange } from "../src/utils/tree-sitter";
+import { Analyzer, findParentScopes, findDefs, findLocalDefinitionSymbol } from "../src/analyze";
 import { isFunctionDefinition,isDefinition,isVariableDefinition,isScope, findParentCommand, isForLoop, isVariable, isCommand, isCommandName,} from "../src/utils/node-types";
 //import { CommentRange, DocumentDefSymbol, symbolKindToString } from "../src/symbols";
 import { filterLastFishDocumentSymbols, FishDocumentSymbol, flattenFishDocumentSymbols } from '../src/document-symbol';
@@ -167,16 +167,17 @@ describe("analyze tests", () => {
     function flatNodes(root: SyntaxNode) {
         const flatSymbols =  getChildNodes(root)
 
-        flatSymbols.map((s, i) => { 
-            const idx = i.toString().padStart(2, " ");
-            console.log(`${idx} :: ${s.text}`);
-        })
+        //flatSymbols.map((s, i) => { 
+        //    const idx = i.toString().padStart(2, " ");
+        //    console.log(`${idx} :: ${s.text}`);
+        //})
 
         const s0 = flatSymbols[85]    // arg_1 symbol -> `function func_a --argument-names arg_1 arg_2`
         const s1 = flatSymbols[11]    // args symbol -> `set --local args "$argv"`
         const s2 = flatSymbols[150]   // arg symbol -> `for arg in $argv[-3..-1];...;end`
         console.log(...[s0, s1, s2].map(s=>s.text));
     }
+    
 
     const analyze_test_5 = `inner_functions.fish documentation for nearest definition symbols`
     it(analyze_test_5, async () => {
@@ -185,12 +186,51 @@ describe("analyze tests", () => {
 
         const symbols = analyzer.cache.getDocumentSymbols(doc.uri)
 
-        const t = analyzer.cache.getTree(doc.uri)!.rootNode;
-        flatNodes(t);
-        
-        //console.log(flatSymbols.map(s=>s.name));
+        //const t = analyzer.cache.getTree(doc.uri)!.rootNode;
+        const root = analyzer.getRootNode(doc)!;
+        flatNodes(root);
 
-        //console.log(`Symbol Documentation for: (line 1, 'args' ) === ${flatSymbols.length}`)
+        const needle1 = root.descendantForPosition({row:  6, column: 20}, {row:  6, column: 24}); // set --local args "$args 3"
+                                                                                                  //              ^---
+        const needle2 = root.descendantForPosition({row:  6, column: 27}, {row:  6, column: 31}); // set --local args "$args 3" 
+                                                                                                  //                     ^---
+        const needle3 = root.descendantForPosition({row: 26, column: 14}, {row: 26, column: 17}); // echo $arg
+                                                                                                  //        ^---
+        //const needle4 = root.descendantForPosition({row: 6,  column: 27}, {row:  6, column: 31});
+        symbols.forEach((s, i) => console.log(`${i} :: ${s.name}`));
+        console.log(...findParentScopes(needle2).map(m => ({
+            name: m.firstChild?.text || m.type,
+            type: m.type
+        })));
+        //const res = findLocalDefinitionSymbol(symbols, needle3)
+        //console.log(...res);
     });
-});
 
+    const analyze_test_6 = `inner_functions.fish documentation for nearest definition symbols`
+    it(analyze_test_6, async () => {
+        const doc = resolveLspDocumentForHelperTestFile(`fish_files/advanced/variable_scope.fish`);
+        analyzer.analyze(doc);
+
+        const symbols = analyzer.cache.getDocumentSymbols(doc.uri)
+
+        //const t = analyzer.cache.getTree(doc.uri)!.rootNode;
+        const root = analyzer.getRootNode(doc)!;
+
+        const needle1 = root.descendantForPosition({row:  26, column: 10}, {row:  26, column: 11}); // echo $v
+                                                                                                    //       ^---
+        const needle2 = root.descendantForPosition({row:  22, column: 13}, {row:  22, column: 16}); // function bbb
+                                                                                                    //           ^---
+                                                                                                  
+        symbols.forEach((s, i) => console.log(`${i} :: ${s.name}`));
+        console.log(...findParentScopes(needle2).map(m => ({
+            name: m.firstChild?.text || m.type,
+            type: m.type
+        })));
+        console.log(...findDefs(symbols, needle1));
+
+        //const res = findLocalDefinitionSymbol(symbols, needle1);
+        //console.log(isNodeWithinRange(needle1, getRange(needle2)));
+        //console.log(...res);
+    })
+    // we need a function that will return the nearest definition symbol for a given symbol
+});

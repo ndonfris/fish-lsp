@@ -143,12 +143,16 @@ export function isEnd(node: SyntaxNode): boolean {
     return node.type == 'end';
 }
 
+export function isLocalBlock(node: SyntaxNode): boolean {
+    return ['begin_statement'].includes(node.type);
+}
+
 /**
  * Any SyntaxNode that will enclose a new local scope: 
  *      Program, Function, if, for, while
  */
 export function isScope(node: SyntaxNode): boolean {
-    return isProgram(node) || isFunctionDefinition(node) || isStatement(node)
+    return isProgram(node) || isFunctionDefinition(node) || isLocalBlock(node)//|| isStatement(node)
 }
 
 export function isNewline(node: SyntaxNode): boolean {

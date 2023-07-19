@@ -163,7 +163,7 @@ export function filterLastFishDocumentSymbols(symbols: FishDocumentSymbol[]): Fi
  * Child is just the identifier `$FOO`
  * Parent is the entire string `set -gx FOO BAR;` for the command
  */
-function definitionSymbolHandler(node: SyntaxNode): {
+export function definitionSymbolHandler(node: SyntaxNode): {
     shouldCreate: boolean;
     kind: SymbolKind;
     child: SyntaxNode;
@@ -217,4 +217,3 @@ export function getFishDocumentSymbols(uri: string, ...currentNodes: SyntaxNode[
     }
     return symbols;
 }
-

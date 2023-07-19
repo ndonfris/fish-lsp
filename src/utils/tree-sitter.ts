@@ -52,13 +52,6 @@ export function getParentNodes(child: SyntaxNode): SyntaxNode[] {
         result.push(current);
         current = current.parent;
     }
-    //if (child.parent === null) {
-    //    current = child.previousSibling;
-    //    while (current) {
-    //        result.push(current);
-    //        current = current.previousSibling;
-    //    }
-    //}
     return result
 }
 
@@ -484,4 +477,3 @@ export function* nodesGen(node: SyntaxNode) {
 //
 //  return result
 //}
-

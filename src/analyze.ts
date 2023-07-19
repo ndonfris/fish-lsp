@@ -2,10 +2,10 @@ import { Hover, MarkupContent, MarkupKind, Position, PublishDiagnosticsParams, S
 import Parser, { SyntaxNode, Range, Tree } from "web-tree-sitter";
 import * as LSP from 'vscode-languageserver';
 //import {collectFishSymbols, FishSymbol} from './symbols';
-import { containsRange } from './workspace-symbol'
-import { findFirstParent , getChildNodes, getRange} from './utils/tree-sitter';
+import { containsRange, precedesRange } from './workspace-symbol'
+import { findFirstParent , getChildNodes, getRange, isNodeWithinRange} from './utils/tree-sitter';
 import { LspDocument } from './document';
-import { isCommandName, isDefinition, isFunctionDefinition, isFunctionDefinitionName, isVariableDefinition} from './utils/node-types';
+import { isCommandName, isDefinition, isFunctionDefinition, isFunctionDefinitionName, isScope, isVariableDefinition} from './utils/node-types';
 import { DiagnosticQueue } from './diagnostics/queue';
 import {pathToRelativeFunctionName, toLspDocument, uriInUserFunctions, uriToPath} from './utils/translation';
 import { DocumentationCache } from './utils/documentationCache';
@@ -251,4 +251,103 @@ export class AnalyzedDocumentCache {
         return this._documents.get(uri)?.tree;
     }
     get map() { return this._documents }
+}
+
+export class SymbolCache {
+    constructor(
+        private _names: Set<string> = new Set(),
+        private _variables: Map<string, FishDocumentSymbol[]> = new Map(),
+        private _functions: Map<string, FishDocumentSymbol[]> = new Map(),
+    ) {}
+    
+    add(symbol: FishDocumentSymbol) {
+        const oldVars = this._variables.get(symbol.name) || [];
+        switch (symbol.kind) {
+            case SymbolKind.Variable:
+                this._variables.set(symbol.name, [...oldVars, symbol]);
+                break;
+            case SymbolKind.Function:
+                this._functions.set(symbol.name, [...oldVars, symbol]);
+                break;
+        }
+        this._names.add(symbol.name);
+    }
+
+    isVariable(name: string): boolean {
+        return this._variables.has(name);
+    }
+
+    isFunction(name: string): boolean {
+        return this._functions.has(name);
+    }
+
+    has(name: string): boolean {
+        return this._names.has(name);
+    }
+
+}
+
+const MatchesNeedle = (needle: SyntaxNode, symbol: FishDocumentSymbol) => symbol.name === needle.text && precedesRange(symbol.selectionRange, getRange(needle))
+/**
+ * recursive function that finds all variable definitions in a given syntax tree,
+ * returning an array of FishDocumentSymbols that are in heirarchical order, and before
+ * needle
+ */
+export function findLocalDefinitionSymbol(allSymbols: FishDocumentSymbol[], needle: SyntaxNode) : FishDocumentSymbol[] {
+    return bfs(allSymbols, needle)
+}
+
+const bfs = (root: FishDocumentSymbol[], needle: SyntaxNode, results: FishDocumentSymbol[] = []) => {
+    if (!root) return results;
+
+    const q: FishDocumentSymbol[] = [...root]
+    const scopeQ: boolean[] = [...root.map((node) => true)]
+
+    while (q.length > 0) {
+        const node = q.shift();
+        const pScope = scopeQ.shift();
+        if (!node || pScope === undefined) continue;
+        if (
+            node.name === needle.text &&
+            precedesRange(node.selectionRange, getRange(needle)) &&
+            pScope
+        ) {
+            results.push(node);
+        }
+        if (containsRange(node.range, getRange(needle))) {
+            for (let child of node.children) {
+                q.unshift(child)
+                scopeQ.unshift(true)
+            } 
+        }
+    }
+    return results
+}
+
+export function findDefs(allSymbols: FishDocumentSymbol[], needle: SyntaxNode): FishDocumentSymbol[] {
+    const needleScopeQueue: SyntaxNode[] = findParentScopes(needle);
+    const results: FishDocumentSymbol[] = []
+
+    while (needleScopeQueue.length > 0) {
+        const scope = needleScopeQueue.shift();
+        if (!scope) continue;
+        const possibleSymbols = allSymbols.filter((symbol) =>  containsRange(getRange(scope), symbol.range))
+        if (possibleSymbols.length > 0) {
+            const found = possibleSymbols.filter((symbol) => MatchesNeedle(needle, symbol)) || []
+            results.unshift(...found);
+        }
+    }
+    return results
+}
+
+export function findParentScopes(needle: Parser.SyntaxNode) {
+    const scopes: Parser.SyntaxNode[] = [];
+    let current = needle.parent;
+    while (current) {
+        if (isScope(current)) {
+            scopes.push(current);
+        }
+        current = current.parent;
+    }
+    return scopes;
 }
