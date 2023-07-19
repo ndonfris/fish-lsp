@@ -23,8 +23,8 @@ function aaa
     function bbb
         set v "hello"
     end
-    bbb
     echo $v
+    bbb
 end
 
 aaa
