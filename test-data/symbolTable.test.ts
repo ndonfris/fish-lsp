@@ -1,5 +1,5 @@
 
-import Parser from 'web-tree-sitter';
+import Parser, { QueryMatch, Query, Language } from 'web-tree-sitter';
 import { SymbolTable } from '../src/utils/symbolTable';
 import { Analyzer, findParentScopes, findDefs, findLocalDefinitionSymbol } from "../src/analyze";
 import { initializeParser } from "../src/parser";
@@ -13,10 +13,13 @@ import { isProgram, isScope } from '../src/utils/node-types';
 let parser: Parser;
 let analyzer: Analyzer;
 let workspaces: Workspace[] ;
+let lang:Language;
+let query: Query;
 const jestConsole = console;
 
 beforeEach(async () => {
     parser = await initializeParser();
+    lang = parser.getLanguage();
     workspaces = await initializeFishWorkspaces({});
     analyzer = new Analyzer(parser, workspaces)
     //const amount = await analyzer.initiateBackgroundAnalysis()
@@ -56,5 +59,24 @@ describe("analyze tests", () => {
     })
 
 
+    it("testing tree parse/query method", async () => {
+        const doc = resolveLspDocumentForHelperTestFile(`fish_files/advanced/variable_scope.fish`);
+        const text = doc.getText()
+        const tree = parser.parse(text)
+
+        const query = lang.query(
+            `(function_definition
+                name: [
+                    (word) (concatenation)
+                ] 
+            @function)`);
+
+        const result = query.captures(tree.rootNode)
+
+        result.forEach((capture) => {
+            console.log(capture.node.text);
+        })
+                                 
+    })
 
 })

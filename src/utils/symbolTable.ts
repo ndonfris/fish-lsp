@@ -4,6 +4,10 @@ import { isCommandName, isDefinition, isFunctionDefinition, isFunctionDefinition
 import { getChildNodes, getRange } from './tree-sitter';
 import { Range } from 'vscode-languageserver'
 
+// something like: https://gist.github.com/JPTredway/962dd13c3ba7f30208572b761ce226f7
+//          [+] JUST FOR IDEAS
+//          [+] maybe do this for the actual Parser.Tree
+//          [+] test `for_loop`
 
 export class SymbolTable {
     private root: ScopeSymbol;

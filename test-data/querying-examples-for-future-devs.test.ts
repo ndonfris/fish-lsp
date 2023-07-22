@@ -1,0 +1,142 @@
+import Parser, { Tree, QueryMatch, Query, Language, SyntaxNode } from 'web-tree-sitter';
+import { Analyzer, findParentScopes, findDefs, findLocalDefinitionSymbol } from "../src/analyze";
+import { initializeParser } from "../src/parser";
+import { printTestName, resolveLspDocumentForHelperTestFile } from "./helpers";
+import { homedir } from 'os';
+import { getChildNodes } from '../src/utils/tree-sitter';
+import { isCommandName, isFunctionDefinitionName, isProgram, isScope } from '../src/utils/node-types';
+import { assert } from 'chai';
+ 
+let parser: Parser;
+let analyzer: Analyzer;
+let lang:Language;
+let query: Query;
+const jestConsole = console;
+beforeEach(async () => {
+    parser = await initializeParser();
+    lang = parser.getLanguage();
+    global.console = require("console");
+}, 10000);
+
+afterEach(() => {
+    global.console = jestConsole;
+    if (query) query.delete();
+    if (parser) parser.delete();
+});
+
+
+describe("analyze tests", () => {
+    /**
+     * Starting off we have using the query method from the tree-sitter framework:
+     *  • http://tree-sitter.github.io/tree-sitter/using-parsers#query-syntax
+     *  • https://github.com/ram02z/tree-sitter-fish/blob/master/queries/highlights.scm
+     *  • https://github.com/tree-sitter/tree-sitter/blob/master/lib/binding_web/test/query-test.js
+     */
+    it("tree-sitter query method [function_definition nodes]", async () => {
+        const doc = resolveLspDocumentForHelperTestFile(`fish_files/advanced/variable_scope.fish`);
+        const tree = parser.parse(doc.getText())
+        //tree.printDotGraph()
+        const query = lang.query(
+            `(function_definition
+                name: [
+                    (word) (concatenation)
+                ] 
+            @function)`
+        );
+        //query.captures(tree.rootNode).forEach((capture) => console.log(capture.node.text));
+        //query.matches(tree.rootNode).forEach((match) => console.log(match))
+        //query.captureNames.forEach((capture) => console.log(capture))
+        assert.deepEqual(
+            query.captures(tree.rootNode).map((cap) => cap.node.text),
+            ["aaa", "bbb"]
+        );
+        assert.deepEqual(query.captureNames.length, 1)
+    })
+
+    /**
+     * Common practice among LSPs using tree-sitter for parsing does not typically use the
+     * query method defined above. Currently it appears the api's node-tree-sitter vs web-tree-sitter,
+     * are not 1 to 1. When writting this LSP, it appeared simplier to use SyntaxNode methods
+     * provided, to determine how trees are queried.
+     */
+    it("fish-lsp method to get [function_definition nodes]", async () => {
+        const doc = resolveLspDocumentForHelperTestFile(`fish_files/advanced/variable_scope.fish`);
+        const tree = parser.parse(doc.getText())
+
+        /**
+         * get all function definitions via 'src/utils/node-types.ts' & 'src/utils/tree-sitter.ts'
+         */
+        const allNodes = getChildNodes(tree.rootNode!);
+        const functionNodes: SyntaxNode[] = allNodes.filter((node: SyntaxNode) => isFunctionDefinitionName(node))
+
+        //functionNodes.forEach((node: SyntaxNode) => console.log(node.text))
+        assert.deepEqual(functionNodes.map((node: SyntaxNode) => node.text), ["aaa", "bbb"]);
+    })
+
+    const fishbangOne = [
+        `#!/usr/bin/env fish`,
+        `fish -c 'echo "hello world"'`,
+        `builtin --names`
+    ].join('\n');
+    const fishbangTwo = [
+        `#!/usr/bin/fish`,
+        `echo "executing some fish commands..."`
+    ].join('\n')
+    const fishbangFail = [
+        `echo 'not necessarily a fish script';`,
+        `printf "%s\n" "this should fail the shebangTest"`,
+    ].join("\n");
+
+
+    /**
+     * FEATURES extending the functionality of this LSP (debugging, etc...), can build off of either of these methods,
+     */
+    it("fish-lsp more examples", async () => {
+        const doc = resolveLspDocumentForHelperTestFile(`fish_files/advanced/variable_scope.fish`);
+        const tree = parser.parse(doc.getText())
+
+        const allNodes = getChildNodes(tree.rootNode!);
+
+        const uniqueCommands = Array.from(new Set(allNodes.filter((n) => isCommandName(n)).map((n) => n.text)))
+
+        assert.deepEqual(uniqueCommands,  ['seq', 'echo', 'true', 'set', 'bbb', 'aaa']); //console.log(uniqueCommands);
+    })
+
+    it("example to check if first line of script as a fish shell shebang implementations", async () => {
+        const doc = resolveLspDocumentForHelperTestFile(`fish_files/advanced/variable_scope.fish`);
+
+        function approachOne(text: string) {
+            const firstLine = text.split('\n').slice(0, 1).join('');
+            return firstLine.startsWith("#!") && firstLine.includes("/fish");
+        }
+
+        function approachTwo(text: string) {
+            const tree = parser.parse(text)
+            const firstNode = tree.rootNode.firstChild;
+            return firstNode && firstNode.text.startsWith("#!") && firstNode.text.includes("/fish") 
+        }
+
+        // writing tests for the Lsp become significantly simpler once understanding the LspDocument class
+        // is just an abstraction for the Lsp to keep track of files (seen below). 
+        const shebangScript = doc.getText();
+        const notShebangScript = `fish -c "ls"; echo "executing some fish commands...";builtin --names`
+
+        assert.deepEqual( approachOne(shebangScript) , approachTwo(shebangScript)    );
+        assert.notEqual(  approachOne(shebangScript) , approachOne(notShebangScript) );
+        assert.notEqual(  approachTwo(shebangScript) , approachTwo(notShebangScript) );
+
+        assert.deepEqual( approachOne(fishbangOne)  , approachTwo(fishbangTwo)    );
+        assert.notEqual(  approachOne(fishbangFail) , approachOne(fishbangTwo) );
+        assert.notEqual(  approachTwo(fishbangOne) , approachTwo(fishbangFail) );
+
+    })
+
+
+    /**
+     * If you are trying to be a maintainer for the fish-lsp, determining variable scoping,
+     * through tree-sitter is something that likely needs more rigirous testing.
+     */
+    it("more serious testing for scopes in fish", async () => {
+        const forScoping = resolveLspDocumentForHelperTestFile(`fish_files/simple/for_var.fish`);
+    })
+})

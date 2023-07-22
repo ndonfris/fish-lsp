@@ -25,5 +25,3 @@ export async function initializeParser(): Promise<Parser> {
 
     return parser;
 }
-
-

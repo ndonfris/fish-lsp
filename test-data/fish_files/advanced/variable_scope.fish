@@ -30,7 +30,7 @@ end
 aaa
 
 begin;
-    set ii 20
+    set ii 30
 end;
 
 echo $ii

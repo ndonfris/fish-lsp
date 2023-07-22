@@ -692,6 +692,11 @@
   dependencies:
     "@babel/types" "^7.3.0"
 
+"@types/chai@^4.3.5":
+  "integrity" "sha512-mEo1sAde+UCE6b2hxn332f1g1E8WfYRu6p5SvTKr2ZKC1f7gFJXk4h5PyGP9Dt6gCaG8y8XhwnXWC6Iy2cmBng=="
+  "resolved" "https://registry.npmjs.org/@types/chai/-/chai-4.3.5.tgz"
+  "version" "4.3.5"
+
 "@types/colors@^1.2.1":
   "integrity" "sha512-7jNkpfN2lVO07nJ1RWzyMnNhH/I5N9iWuMPx9pedptxJ4MODf8rRV0lbJi6RakQ4sKQk231Fw4e2W9n3D7gZ3w=="
   "resolved" "https://registry.npmjs.org/@types/colors/-/colors-1.2.1.tgz"
@@ -1188,7 +1193,7 @@
     "ansicolors" "~0.3.2"
     "redeyed" "~2.1.0"
 
-"chai@^4.3.6":
+"chai@^4.3.7":
   "integrity" "sha512-HLnAzZ2iupm25PlN0xFreAlBA5zaBSv3og0DdeGA4Ar6h6rJ3A0rolRUKJhSF2V10GZKDgWF/VmAEsNWjCRB+A=="
   "resolved" "https://registry.npmjs.org/chai/-/chai-4.3.7.tgz"
   "version" "4.3.7"
@@ -3621,10 +3626,10 @@
   dependencies:
     "makeerror" "1.0.12"
 
-"web-tree-sitter@^0.20.7":
-  "integrity" "sha512-flC9JJmTII9uAeeYpWF8hxDJ7bfY+leldQryetll8Nv4WgI+MXc6h7TiyAZASWl9uC9TvmfdgOjZn1DAQecb3A=="
-  "resolved" "https://registry.npmjs.org/web-tree-sitter/-/web-tree-sitter-0.20.7.tgz"
-  "version" "0.20.7"
+"web-tree-sitter@^0.20.8":
+  "integrity" "sha512-weOVgZ3aAARgdnb220GqYuh7+rZU0Ka9k9yfKtGAzEYMa6GgiCzW9JjQRJyCJakvibQW+dfjJdihjInKuuCAUQ=="
+  "resolved" "https://registry.npmjs.org/web-tree-sitter/-/web-tree-sitter-0.20.8.tgz"
+  "version" "0.20.8"
 
 "which-pm-runs@^1.0.0":
   "integrity" "sha512-n1brCuqClxfFfq/Rb0ICg9giSZqCS+pLtccdag6C2HyufBrh3fBOiy9nb6ggRMvWOVH5GrdJskj5iGTZNxd7SA=="
