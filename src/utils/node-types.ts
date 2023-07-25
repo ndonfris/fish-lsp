@@ -266,6 +266,12 @@ export function findParentFunction(node?: SyntaxNode): SyntaxNode | null {
 
 const defintionKeywords = ['set', 'read', 'function', 'for']
 
+// TODO: check if theres a child node that is a variable definition -> return full command
+export function isVariableDefinitionCommandName(node: SyntaxNode): boolean {
+    const varKeyword = node.text.trim();
+    return defintionKeywords.includes(varKeyword);
+}
+
 export function findParentVariableDefintionKeyword(node?: SyntaxNode): SyntaxNode | null {
     const currentNode: SyntaxNode | null | undefined = node;
     const parent = currentNode?.parent;

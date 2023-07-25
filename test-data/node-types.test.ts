@@ -29,21 +29,26 @@ afterEach(() => {
 
 
 describe("node-types tests", () => {
+
+    /**
+     * NOTICE: isCommand vs isCommandName
+     */
     it('isCommand', () => {
         const commands = parseStringForNodeType('echo "hello world"', NodeTypes.isCommand);
+        //logNodes(commands)
         assert.equal(commands[0].text, 'echo "hello world"')
     })
 
-
     it('isCommandName', () => {
         const commandsName = parseStringForNodeType('echo "hello world"', NodeTypes.isCommandName);
+        //logNodes(commandsName)
         assert.equal(commandsName[0].text, 'echo')
     })
 
     it('isComment', () => {
         const comments = parseStringForNodeType('# this is a comment', NodeTypes.isComment);
+        //logNodes(comments)
         assert.equal(comments[0].text, '# this is a comment')
-
     })
 
     it('isShebang', () => {
@@ -54,6 +59,8 @@ describe("node-types tests", () => {
         ].join("\n");
         const shebang = parseStringForNodeType(testString, NodeTypes.isShebang);
         const comments = parseStringForNodeType(testString, NodeTypes.isComment);
+        //logNodes(shebang)
+        //logNodes(comments)
         assert.equal(shebang.length, 1)
         assert.equal(comments.length, 2)
     })
@@ -66,6 +73,10 @@ describe("node-types tests", () => {
     })
 
     it('isStatement', () => {
+        /**
+         * checks for 5 different kinds of statements ->
+         *    for_statement, while_statement, if_statement, switch_statement, begin_statement
+         */
         const input = [ 
             'for i in (seq 1 10); echo $i; end;',
             'while read -S line; echo $line;end;',
@@ -73,9 +84,8 @@ describe("node-types tests", () => {
             'switch $var; case 1; echo "one"; case 2; echo "two"; case 3; echo "three"; end;',
             'begin; echo "hello world"; end;',
         ].join('\n');
-        // checks for 5 different kinds of statements ->
-        //        for_statement, while_statement, if_statement, switch_statement, begin_statement
         const statement = parseStringForNodeType(input, NodeTypes.isStatement);
+        //logNodes(statement)
         assert.equal(statement.length, 5)
     })
 
@@ -88,6 +98,7 @@ describe("node-types tests", () => {
             'begin; echo "hello world"; end;',
         ].join('\n');
         const ends = parseStringForNodeType(input, NodeTypes.isEnd);
+        //logNodes(ends)
         assert.equal(ends.length, 5)
     })
 
@@ -97,6 +108,7 @@ describe("node-types tests", () => {
             `echo 'hello world'`,
         ].join('\n');
         const strings = parseStringForNodeType(input, NodeTypes.isString);
+        //logNodes(strings)
         assert.equal(strings.length, 2)
     })
 
@@ -111,6 +123,9 @@ describe("node-types tests", () => {
         assert.equal(returns.length, 1)
     })
 
+    /**
+     * NOTICE: isFunctionDefinitionName vs isFunctionDefinition
+     */
     it('isFunctionDefinition', () => {
         const input = [
             `function foo; echo "hello world"; end;`,
@@ -122,6 +137,7 @@ describe("node-types tests", () => {
             `end`,
         ].join('\n')
         const functionDefinitions = parseStringForNodeType(input, NodeTypes.isFunctionDefinition);
+        //logNodes(functionDefinitions)
         assert.equal(functionDefinitions.length, 3)
     })
 
@@ -136,8 +152,20 @@ describe("node-types tests", () => {
             `end`,
         ].join('\n')
         const functionDefinitionNames = parseStringForNodeType(input, NodeTypes.isFunctionDefinitionName);
+        //logNodes(functionDefinitionNames)
         assert.equal(functionDefinitionNames.length, 3)
         assert.deepEqual(functionDefinitionNames.map(n => n.text), ['foo', 'foo_2', 'foo_2_inner'])
+    })
+
+    // TODO
+    it('isVariableDefinitionCommand', () => {
+        const input = [
+            'set -x set_foo 1',
+            'echo "hi" | read read_foo'
+        ].join('\n');
+        const variableDefinitions = parseStringForNodeType(input, NodeTypes.isVariableDefinitionCommandName);
+        //NodeTypes.findParentVariableDefintionKeyword
+        logNodes(variableDefinitions)
     })
 
 })

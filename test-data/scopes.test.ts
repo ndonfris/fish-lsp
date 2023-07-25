@@ -40,8 +40,6 @@ function testHelper(docPath: string, inAutoloadPath: boolean = true) {
     }
 }
 
-
-
 describe("scopes tests", () => {
 
     it("finding all scope nodes in a document", async () => {
@@ -55,5 +53,4 @@ describe("scopes tests", () => {
     })
 
 })
-
 
