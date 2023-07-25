@@ -37,6 +37,17 @@ export function getNamedChildNodes(root: SyntaxNode): SyntaxNode[] {
     return result
 }
 
+export function findChildNodes(root: SyntaxNode, predicate: (node: SyntaxNode) => boolean): SyntaxNode[] {
+    let queue: SyntaxNode[] = [root]
+    let result: SyntaxNode[] = []
+    while (queue.length) {
+        let current : SyntaxNode | undefined = queue.shift()
+        if (current && predicate(current)) result.push(current)
+        if (current && current.children) queue.unshift(...current.children)
+    }
+    return result
+}
+
 /**
  * Gets path to root starting where index 0 is child node passed in.
  * Format: [child, child.parent, ..., root]

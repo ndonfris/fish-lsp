@@ -3,6 +3,7 @@ import { initializeParser } from '../src/parser';
 import { getChildNodes } from '../src/utils/tree-sitter';
 import * as NodeTypes from '../src/utils/node-types'
 import { assert } from 'chai';
+import { expandEntireVariableLine, getVariableCommand } from '../src/utils/variable-scopes'
 
 function parseStringForNodeType(str: string, predicate: (n:SyntaxNode) => boolean) {
     const tree = parser.parse(str);
@@ -161,13 +162,21 @@ describe("node-types tests", () => {
     it('isVariableDefinitionCommand', () => {
         const input = [
             'set -x set_foo 1',
-            'echo "hi" | read read_foo'
+            'echo "hi" | read read_foo',
+            'function func_foo -a func_foo_arg',
+            '    echo $func_foo_arg',
+            'end',
+            'set -gx OS_NAME (set -l f) # check for mac or linux',
         ].join('\n');
-        const variableDefinitions = parseStringForNodeType(input, NodeTypes.isVariableDefinitionCommandName);
+        const variableDefinitions = parseStringForNodeType(input, NodeTypes.isVariableDefinition);
         //NodeTypes.findParentVariableDefintionKeyword
+        for (const v of variableDefinitions) {
+            const nodes =  expandEntireVariableLine(v)
+            console.log(nodes.map(n => n.text), nodes.filter(n => NodeTypes.isOption(n)).map(n => n.text))
+        }
         logNodes(variableDefinitions)
     })
 
-})
 
+})
 

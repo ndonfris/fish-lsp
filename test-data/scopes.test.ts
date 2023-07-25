@@ -10,6 +10,7 @@ import { initializeParser } from "../src/parser";
 import { Analyzer, findParentScopes, findDefs, findLocalDefinitionSymbol } from "../src/analyze";
 import { LspDocument } from "../src/document";
 import { FishDocumentSymbol } from "../src/document-symbol";
+import { expandEntireVariableLine, getVariableScope } from '../src/utils/variable-scopes';
  
 let parser: Parser;
 let lang:Language;
@@ -40,6 +41,12 @@ function testHelper(docPath: string, inAutoloadPath: boolean = true) {
     }
 }
 
+function parseStringForNodeType(str: string, predicate: (n:SyntaxNode) => boolean) {
+    const tree = parser.parse(str);
+    const root = tree.rootNode;
+    return getChildNodes(root).filter(predicate);
+}
+
 describe("scopes tests", () => {
 
     it("finding all scope nodes in a document", async () => {
@@ -52,5 +59,26 @@ describe("scopes tests", () => {
 
     })
 
-})
+    it('finding scope', async () => {
+        const input = [
+            'function func_foo -a func_foo_arg',
+            '    begin',
+            '         echo "hi" | read --local read_foo_1',
+            '         echo "hi" | read -l read_foo_2',
+            '    end',
+            '    echo $func_foo_arg',
+            'end',
+            'set -gx OS_NAME (get-os-name) # check for mac or linux',
+        ].join('\n');
+        const variableDefinitions = parseStringForNodeType(input, NodeTypes.isVariableDefinition);
+        for (const v of variableDefinitions) {
+            const scope = getVariableScope(v)
+            console.log(v.text);
+            console.log(scope?.text)
+            console.log();
+            console.log();
+            console.log();
+        }
+    })
 
+})

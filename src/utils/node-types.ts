@@ -1,7 +1,7 @@
 // use this file to determine node types from ./tree-sitter
 import {RemoteConsole} from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter'
-import {ancestorMatch, findFirstParent, findFirstSibling, firstAncestorMatch, getChildNodes, getParentNodes, getSiblingNodes} from './tree-sitter';
+import {ancestorMatch, findChildNodes, findFirstParent, findFirstSibling, firstAncestorMatch, getChildNodes, getParentNodes, getSiblingNodes} from './tree-sitter';
 import {  findFunctionDefinitionOptions } from './options'
 
 /** 
@@ -267,9 +267,19 @@ export function findParentFunction(node?: SyntaxNode): SyntaxNode | null {
 const defintionKeywords = ['set', 'read', 'function', 'for']
 
 // TODO: check if theres a child node that is a variable definition -> return full command
-export function isVariableDefinitionCommandName(node: SyntaxNode): boolean {
-    const varKeyword = node.text.trim();
-    return defintionKeywords.includes(varKeyword);
+export function isVariableDefinitionCommand(node: SyntaxNode): boolean {
+    if (!isCommand(node)) return false;
+    const command = node.firstChild?.text.trim() || "";
+    if (defintionKeywords.includes(command)) {
+        return true;
+    }
+    // if (isCommand(node) && defintionKeywords.includes(node.firstChild?.text || '')) {
+    //     const variableDef = findChildNodes(node, isVariableDefinition)
+    //     if (variableDef.length > 0) {
+    //         return true;
+    //     }
+    // }
+    return false;
 }
 
 export function findParentVariableDefintionKeyword(node?: SyntaxNode): SyntaxNode | null {
