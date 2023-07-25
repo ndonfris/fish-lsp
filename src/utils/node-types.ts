@@ -8,7 +8,20 @@ import {  findFunctionDefinitionOptions } from './options'
  * fish shell comment: '# ...'                    
  */
 export function isComment(node: SyntaxNode): boolean {
-    return node.type == 'comment';
+    return node.type == 'comment' && !isShebang(node);
+}
+
+export function isShebang(node: SyntaxNode) {
+    const parent = node.parent;
+    if (!parent || !isProgram(parent)) return false
+    const firstLine = parent.firstChild
+    if (!firstLine) return false
+    if (!node.equals(firstLine)) return false
+    return (
+        firstLine.type == "comment" &&
+        firstLine.text.startsWith("#!") &&
+        firstLine.text.includes("fish")
+    );
 }
 
 /**
@@ -125,6 +138,7 @@ export function isStatement(node: SyntaxNode): boolean {
         'switch_statement',
         'while_statement',
         'if_statement',
+        'begin_statement',
     ].includes(node.type);
 }
 
@@ -143,16 +157,16 @@ export function isEnd(node: SyntaxNode): boolean {
     return node.type == 'end';
 }
 
-export function isLocalBlock(node: SyntaxNode): boolean {
-    return ['begin_statement'].includes(node.type);
-}
+//export function isLocalBlock(node: SyntaxNode): boolean {
+    //return ['begin_statement'].includes(node.type);
+//}
 
 /**
  * Any SyntaxNode that will enclose a new local scope: 
  *      Program, Function, if, for, while
  */
 export function isScope(node: SyntaxNode): boolean {
-    return isProgram(node) || isFunctionDefinition(node) || isLocalBlock(node)//|| isStatement(node)
+    return isProgram(node) || isFunctionDefinition(node) || isStatement(node) // || isLocalBlock(node)//
 }
 
 export function isNewline(node: SyntaxNode): boolean {
@@ -258,12 +272,9 @@ export function findParentVariableDefintionKeyword(node?: SyntaxNode): SyntaxNod
     if (!currentNode || !parent) {
         return null;
     }
-    //const oKeyword = currentNode.previousNamedSibling?.text.trim() || "";
     const varKeyword = parent.firstChild?.text.trim() || "";
     if (!varKeyword) return null;
-    //console.log(`oKeyword: ${oKeyword}, varKeyword: ${varKeyword}`)
     if (defintionKeywords.includes(varKeyword)) {
-        //console.log(`varKeyword: ${varKeyword}, node: ${currentNode.text}`)
         return parent;
     }
     return null;
@@ -571,8 +582,8 @@ export function isCaseClause(node: SyntaxNode) {
 }    
 
 export function isReturn(node: SyntaxNode) {
-    //return node.type === 'return' && node.firstChild?.text === 'return'
-    return node.type === 'return' 
+    return node.type === 'return' && node.firstChild?.text === 'return'
+    //return node.type === 'return'
 }
 
 export function isConditionalCommand(node: SyntaxNode) {

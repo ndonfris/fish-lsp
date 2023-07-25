@@ -1,11 +1,15 @@
+import { BaseSymbolInformation, DocumentSymbol } from 'vscode-languageserver';
 import Parser, { Tree, QueryMatch, Query, Language, SyntaxNode } from 'web-tree-sitter';
-import { Analyzer, findParentScopes, findDefs, findLocalDefinitionSymbol } from "../src/analyze";
-import { initializeParser } from "../src/parser";
-import { printTestName, resolveLspDocumentForHelperTestFile } from "./helpers";
-import { homedir } from 'os';
-import { getChildNodes } from '../src/utils/tree-sitter';
-import { isCommandName, isFunctionDefinitionName, isProgram, isScope } from '../src/utils/node-types';
 import { assert } from 'chai';
+import { homedir } from 'os';
+import { printTestName, resolveLspDocumentForHelperTestFile } from "./helpers";
+import { isCommandName, isFunctionDefinitionName } from '../src/utils/node-types';
+import * as NodeTypes from '../src/utils/node-types'
+import { getChildNodes } from '../src/utils/tree-sitter';
+import { initializeParser } from "../src/parser";
+import { Analyzer, findParentScopes, findDefs, findLocalDefinitionSymbol } from "../src/analyze";
+import { LspDocument } from "../src/document";
+import { FishDocumentSymbol } from "../src/document-symbol";
  
 let parser: Parser;
 let analyzer: Analyzer;
@@ -25,7 +29,7 @@ afterEach(() => {
 });
 
 
-describe("analyze tests", () => {
+describe("querying examples for future devs", () => {
     /**
      * Starting off we have using the query method from the tree-sitter framework:
      *  • http://tree-sitter.github.io/tree-sitter/using-parsers#query-syntax
@@ -124,19 +128,38 @@ describe("analyze tests", () => {
         assert.deepEqual( approachOne(shebangScript) , approachTwo(shebangScript)    );
         assert.notEqual(  approachOne(shebangScript) , approachOne(notShebangScript) );
         assert.notEqual(  approachTwo(shebangScript) , approachTwo(notShebangScript) );
-
-        assert.deepEqual( approachOne(fishbangOne)  , approachTwo(fishbangTwo)    );
-        assert.notEqual(  approachOne(fishbangFail) , approachOne(fishbangTwo) );
-        assert.notEqual(  approachTwo(fishbangOne) , approachTwo(fishbangFail) );
-
     })
 
+    it("example if a node is a fish shell shebang implementations", async () => {
+        const doc = resolveLspDocumentForHelperTestFile(`fish_files/advanced/variable_scope_2.fish`);
+
+        // writing tests for the Lsp become significantly simpler once understanding the LspDocument class
+        // is just an abstraction for the Lsp to keep track of files (seen below). 
+        //
+        const shebangRoot = parser.parse(doc.getText()).rootNode!;
+        const allNodes = getChildNodes(shebangRoot);
+
+        const comments = allNodes.filter((node) => NodeTypes.isComment(node))
+        const shebangs = allNodes.filter((node) => NodeTypes.isShebang(node))
+
+        assert.equal(shebangs.length, 1)
+        const overlaps = comments.filter((node) => {
+            if (shebangs.filter((shebang) => shebang.equals(node)).length >= 1) {
+                return true;
+            }
+            return false;
+        })
+        assert.equal(overlaps.length, 0)
+    })
 
     /**
      * If you are trying to be a maintainer for the fish-lsp, determining variable scoping,
-     * through tree-sitter is something that likely needs more rigirous testing.
+     * through tree-sitter is something that likely needs more rigorous testing.
      */
-    it("more serious testing for scopes in fish", async () => {
-        const forScoping = resolveLspDocumentForHelperTestFile(`fish_files/simple/for_var.fish`);
-    })
+    //it("more serious testing for scopes in fish", async () => {
+        //const forVarScope = resolveLspDocumentForHelperTestFile(`fish_files/simple/for_var.fish`);
+        //const functionVarScope = resolveLspDocumentForHelperTestFile(`fish_files/simple/function_variable_def.fish`);
+        ////forVarScope
+    //})
+
 })

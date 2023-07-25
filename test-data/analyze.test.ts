@@ -24,31 +24,18 @@ let allPaths: string[] = [];
 let symbols: DocumentSymbol[] = [];
 let loggedAmount: number = 0;
 let workspaces: Workspace[] ;
-
-//const chalk = new Chalk();
-//const term = new TerminalRenderer()
-//marked.setOptions({
-    //// Define custom renderer
-    //renderer: term,
-    //gfm: true,
-//});
 const jestConsole = console;
-//setMarkedterminal();
 
 beforeEach(async () => {
     parser = await initializeParser();
     documentationCache = await initializeDocumentationCache();
     workspaces = await initializeFishWorkspaces({});
     analyzer = new Analyzer(parser, workspaces)
-    //const amount = await analyzer.initiateBackgroundAnalysis()
-    //loggedAmount = amount.filesParsed;
-    //symbols = [];
     global.console = require("console");
 }, 10000);
 
 afterEach(() => {
     global.console = jestConsole;
-    //parser.reset();
     symbols = [];
 });
 
