@@ -104,6 +104,14 @@ function logClientTree(symbols: FishDocumentSymbol[], level = 0) {
     }
 }
 
+const getNodeStr = (node: SyntaxNode | null) => {
+    if (!node) return 'got NULL'
+    const {startPosition, endPosition} = node;
+    return [
+        `(${startPosition.row}:${startPosition.column},${endPosition.row}:${endPosition.column})`,
+        node.text,
+    ].join("\n");
+}
 
 function filterLastPerScopeSymbols(root: SyntaxNode,symbols: FishDocumentSymbol[]) {
     const flatSymbols = [...FishDocumentSymbol.flattenArray(symbols)]
@@ -114,10 +122,15 @@ function filterLastPerScopeSymbols(root: SyntaxNode,symbols: FishDocumentSymbol[
         const matchingScopes = matchingNames.filter((s) =>
             FishDocumentSymbol.equalScopes(symbol, s)
         );
+        // pop() will give you the last seen match?
+        //    ~or~
+        // write a function which will check the last seen match using: FishDocumentSymbol.isAfter()
+        //
+        // actually I think easiest method is to remove `symbol` if we find a match.
         const symbolNode = FishDocumentSymbol.getSyntaxNode(root, symbol)
         matchingScopes.forEach((s) => {
             const matchNode = FishDocumentSymbol.getSyntaxNode(root, s)
-            console.log(`${symbolNode?.text}\n === \n${matchNode?.text}`)
+            console.log([ getNodeStr(symbolNode!) , '===', getNodeStr(matchNode)].join('\n'))
             console.log('-'.repeat(40))
         })
     }
