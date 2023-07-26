@@ -72,9 +72,9 @@ describe("scopes tests", () => {
         ].join('\n');
         const variableDefinitions = parseStringForNodeType(input, NodeTypes.isVariableDefinition);
         for (const v of variableDefinitions) {
-            const scope = getVariableScope(v)
+            const {scopeNode, scopeTag} = getVariableScope(v)
             console.log(v.text);
-            console.log(scope?.text)
+            console.log(scopeNode?.text)
             console.log();
             console.log();
             console.log();

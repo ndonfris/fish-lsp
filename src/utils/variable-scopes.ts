@@ -1,7 +1,22 @@
 import Parser, { Tree, SyntaxNode } from 'web-tree-sitter';
 import * as NodeTypes from './node-types'
 import { gatherSiblingsTillEol } from './node-types';
+import { pathToRelativeFunctionName, uriInUserFunctions } from './translation';
 import { ancestorMatch, firstAncestorMatch } from './tree-sitter';
+
+
+export interface DefinitionScope {
+    scopeNode: SyntaxNode | null;
+    scopeTag: 'global' | 'universal' | 'local'  | 'function';
+}
+export namespace DefinitionScope {
+    export function create(scopeNode: SyntaxNode | null, scopeTag: 'global' | 'universal' | 'local' | 'function'): DefinitionScope {
+        return {
+            scopeNode,
+            scopeTag,
+        }
+    }
+}
 
 export class VariableDefinitionFlag { 
     public short: string;
@@ -65,19 +80,22 @@ export function expandEntireVariableLine(node: SyntaxNode): SyntaxNode[] {
 
 function findScopeFromFlag(node: SyntaxNode, flag: VariableDefinitionFlag) {
     switch (flag.kind) {
-        case 'global':
-        case 'universal':
-            return firstAncestorMatch(node, NodeTypes.isProgram)
-        case 'local':
-            return firstAncestorMatch(node, NodeTypes.isScope)
-        case 'function':
-            return  firstAncestorMatch(node, NodeTypes.isFunctionDefinition)
-        case 'for_scope':
-            return firstAncestorMatch(node, NodeTypes.isFunctionDefinition) || firstAncestorMatch(node, NodeTypes.isProgram)
+        case "global":
+        case "universal":
+            return DefinitionScope.create(firstAncestorMatch(node, NodeTypes.isProgram), flag.kind);
+        case "local":
+            return DefinitionScope.create(firstAncestorMatch(node, NodeTypes.isScope), flag.kind);
+        case "function":
+            return DefinitionScope.create(firstAncestorMatch(node, NodeTypes.isFunctionDefinition), flag.kind);
+        case "for_scope":
+            return DefinitionScope.create(firstAncestorMatch(node, NodeTypes.isFunctionDefinition), 'function') ||
+                DefinitionScope.create(firstAncestorMatch(node, NodeTypes.isProgram), 'global')
         default:
-            return firstAncestorMatch(node, NodeTypes.isScope)
+            return DefinitionScope.create(firstAncestorMatch(node, NodeTypes.isScope), 'local');
     }
 }
+
+
 
 export function getVariableScope(node: SyntaxNode) {
 
@@ -101,3 +119,23 @@ export function getVariableScope(node: SyntaxNode) {
     const scope = findScopeFromFlag(node, matchingFlag)
     return scope;
 }
+
+
+export function getScope(uri: string, node: SyntaxNode) {
+    if (NodeTypes.isFunctionDefinitionName(node)) {
+        const loadedName = pathToRelativeFunctionName(uri);
+        return loadedName === node.text || loadedName === "config" ?
+                DefinitionScope.create(firstAncestorMatch(node, NodeTypes.isProgram), 'global') :
+                DefinitionScope.create(firstAncestorMatch(node, NodeTypes.isProgram), 'local')
+    } else if (NodeTypes.isVariableDefinitionName(node)) {
+        return getVariableScope(node)
+    }
+    return DefinitionScope.create(firstAncestorMatch(node, NodeTypes.isScope), 'local');
+
+}
+
+
+
+
+
+

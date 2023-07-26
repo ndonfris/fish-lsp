@@ -201,16 +201,18 @@ export function getFishDocumentSymbols(uri: string, ...currentNodes: SyntaxNode[
         const childrenSymbols = getFishDocumentSymbols(uri, ...node.children);
         const { shouldCreate, kind, child, parent } = definitionSymbolHandler(node);
         if (shouldCreate) {
-            symbols.push(FishDocumentSymbol.create(
-                child.text,
-                uri,
-                DocumentSymbolDetail.create(child.text, uri, kind, child),
-                kind,
-                getRange(parent),
-                getRange(child),
-                getScopeTags(uri, parent, child),
-                childrenSymbols
-            ));
+            symbols.push(
+                FishDocumentSymbol.create(
+                    child.text,
+                    uri,
+                    DocumentSymbolDetail.create(child.text, uri, kind, child),
+                    kind,
+                    getRange(parent),
+                    getRange(child),
+                    getScopeTags(uri, parent, child),
+                    childrenSymbols
+                )
+            );
             continue;
         }
         symbols.push(...childrenSymbols);
