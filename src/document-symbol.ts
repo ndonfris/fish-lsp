@@ -5,7 +5,7 @@ import { isFunctionDefinitionName, isDefinition, isVariableDefinition, isFunctio
 import { findVariableDefinitionOptions } from './utils/options';
 import { DocumentSymbolDetail } from './utils/symbol-documentation-builder';
 import { pathToRelativeFunctionName } from './utils/translation';
-import { getRange } from './utils/tree-sitter';
+import { getNodeAtRange, getRange, positionToPoint } from './utils/tree-sitter';
 import { DefinitionScope, getScope } from './utils/definition-scope'
 
 
@@ -76,6 +76,44 @@ export namespace FishDocumentSymbol {
             symbol.uri,
             symbol.range,
         )
+    }
+
+    export function logString(symbol: FishDocumentSymbol): string {
+        const symbolIcon = symbol.kind === SymbolKind.Function ? "  " :  "  " 
+        return `${symbolIcon}${symbol.name}   ::::  ${symbol.scope.scopeTag}`;   
+    }
+
+    export function* flattenArray(symbols: FishDocumentSymbol[]) : Generator<FishDocumentSymbol> {
+        for (const symbol of symbols) {
+            yield symbol;
+            yield* flattenArray(symbol.children);
+        }
+    }
+
+    export function equalScopes(a: FishDocumentSymbol, b: FishDocumentSymbol): boolean {
+        if (a.scope.scopeNode && b.scope.scopeNode) {
+            return a.scope.scopeTag === b.scope.scopeTag &&
+                a.scope.scopeNode.equals(b.scope.scopeNode)
+        }
+        return false;
+    }
+
+    /*
+     * the first symbol is before the second symbol
+     */
+    export function isBefore(first: FishDocumentSymbol, second: FishDocumentSymbol): boolean {
+        return first.range.start.line < second.range.start.line;
+    }
+
+    /*
+     * the first symbol is after the second symbol
+     */
+    export function isAfter(first: FishDocumentSymbol, second: FishDocumentSymbol): boolean {
+        return first.range.start.line > second.range.start.line;
+    }
+
+    export function getSyntaxNode(root: SyntaxNode, symbol: FishDocumentSymbol): SyntaxNode | null {
+        return getNodeAtRange(root, symbol.range);
     }
 }
 

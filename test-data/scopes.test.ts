@@ -1,16 +1,16 @@
-import { BaseSymbolInformation, DocumentSymbol } from 'vscode-languageserver';
+import { BaseSymbolInformation, DocumentSymbol, SymbolKind } from 'vscode-languageserver';
 import Parser, { Tree, QueryMatch, Query, Language, SyntaxNode } from 'web-tree-sitter';
 import { assert } from 'chai';
 import { homedir } from 'os';
 import { printTestName, resolveLspDocumentForHelperTestFile } from "./helpers";
 import { isCommandName, isFunctionDefinitionName } from '../src/utils/node-types';
 import * as NodeTypes from '../src/utils/node-types'
-import { getChildNodes } from '../src/utils/tree-sitter';
+import { firstAncestorMatch, getChildNodes, pointToPosition, positionToPoint } from '../src/utils/tree-sitter';
 import { initializeParser } from "../src/parser";
 import { Analyzer, findParentScopes, findDefs, findLocalDefinitionSymbol } from "../src/analyze";
 import { LspDocument } from "../src/document";
-import { FishDocumentSymbol } from "../src/document-symbol";
-import { expandEntireVariableLine, getVariableScope } from '../src/utils/definition-scope';
+import { FishDocumentSymbol, getFishDocumentSymbols } from "../src/document-symbol";
+import { expandEntireVariableLine, getScope, getVariableScope } from '../src/utils/definition-scope';
  
 let parser: Parser;
 let lang:Language;
@@ -80,5 +80,47 @@ describe("scopes tests", () => {
             console.log();
         }
     })
+    it('checking scope for FishDocumentSymbol', async () => {
+        const doc = resolveLspDocumentForHelperTestFile(`fish_files/advanced/inner_functions.fish`);
+        const root = parser.parse(doc.getText()).rootNode!;
+        const symbolArray = getFishDocumentSymbols(doc.uri, root);
+        const flatSymbolArray = [...FishDocumentSymbol.flattenArray(symbolArray)]
+
+
+        logClientTree(symbolArray)
+        console.log('-'.repeat(40));
+        flatSymbolArray.forEach((def, index) => console.log(index, FishDocumentSymbol.logString(def)))
+
+
+        filterLastPerScopeSymbols(root, symbolArray)
+    })
 
 })
+
+function logClientTree(symbols: FishDocumentSymbol[], level = 0) {
+    for (const symbol of symbols) {
+        console.log("      ".repeat(level) + `${FishDocumentSymbol.logString(symbol)}`);
+        logClientTree(symbol.children || [], level + 1);
+    }
+}
+
+
+function filterLastPerScopeSymbols(root: SyntaxNode,symbols: FishDocumentSymbol[]) {
+    const flatSymbols = [...FishDocumentSymbol.flattenArray(symbols)]
+    for (const symbol of flatSymbols) {
+        const matchingNames = flatSymbols.filter((s) =>
+            s.name === symbol.name && !FishDocumentSymbol.equal(symbol, s)
+        );
+        const matchingScopes = matchingNames.filter((s) =>
+            FishDocumentSymbol.equalScopes(symbol, s)
+        );
+        const symbolNode = FishDocumentSymbol.getSyntaxNode(root, symbol)
+        matchingScopes.forEach((s) => {
+            const matchNode = FishDocumentSymbol.getSyntaxNode(root, s)
+            console.log(`${symbolNode?.text}\n === \n${matchNode?.text}`)
+            console.log('-'.repeat(40))
+        })
+    }
+}
+
+

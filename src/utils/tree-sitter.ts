@@ -1,8 +1,7 @@
 //import { existsSync } from 'fs'
 import { extname, join } from 'path'
 //import { pathToFileURL, URL } from 'url'
-import { Position } from 'vscode-languageserver-textdocument'
-import { Range, URI } from 'vscode-languageserver'
+import { Position, Range, URI } from 'vscode-languageserver'
 import { Point, SyntaxNode, Tree } from 'web-tree-sitter'
 import {pathToFileURL} from 'url'; // typescript-langauge-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts
 import vscodeUri from 'vscode-uri'; // typescript-langauge-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts 
@@ -179,12 +178,10 @@ export function firstAncestorMatch(
         return predicate(start) ? start : null;
     }
     for (const p of ancestors) {
-        //for (const neighbor of getChildNodes(p)) {}
         if (!predicate(p)) continue;
         return p;
     }
-    return null
-        //.filter(ancestor => ancestor !== start)
+    return start
 }
 
 /**
@@ -355,6 +352,13 @@ export function pointToPosition(point: Point): Position {
   return {
     line: point.row,
     character: point.column,
+  }
+}
+
+export function rangeToPoint(range: Range): Point {
+  return {
+    row: range.start.line,
+    column: range.start.character,
   }
 }
 
