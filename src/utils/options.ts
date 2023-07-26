@@ -1,6 +1,23 @@
+//
+// PROBABLY REMOVE!!!!!!!!!!!!!!!!!!!!!!!
+//
+//
+// functionality is now in document-symbol.ts and definition-scope.ts
+//
+//
+//
+
 import Parser, { SyntaxNode, Tree } from "web-tree-sitter";
-import { ScopeTags } from '../document-symbol';
 import { isDefinition, isVariableDefinition, isFunctionDefinitionName, isFunctionDefinition, isLongOption, isShortOption, isOption } from "./node-types";
+
+
+
+enum ScopeTags {
+    Global = 'global',
+    Local = 'local',
+    Universal = 'universal',
+}
+
 
 // rework this class to be simpler/shorter, and then use it in 
 // ../document-symbol.ts

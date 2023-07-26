@@ -6,12 +6,8 @@ import { findVariableDefinitionOptions } from './utils/options';
 import { DocumentSymbolDetail } from './utils/symbol-documentation-builder';
 import { pathToRelativeFunctionName } from './utils/translation';
 import { getRange } from './utils/tree-sitter';
+import { DefinitionScope, getScope } from './utils/definition-scope'
 
-export enum ScopeTags {
-    Global = 'global',
-    Local = 'local',
-    Universal = 'universal',
-}
 
 // add some form of tags to the symbol so that we can extend the symbol with more information
 // current implementation is WIP inside file : ./utils/options.ts
@@ -22,7 +18,7 @@ export interface FishDocumentSymbol extends DocumentSymbol {
     kind: SymbolKind;
     range: Range;
     selectionRange: Range;
-    scopeTags: ScopeTags[];
+    scope: DefinitionScope;
     children: FishDocumentSymbol[];
 }
 
@@ -38,7 +34,7 @@ export namespace FishDocumentSymbol {
      * @param selectionRange The selectionRange of the symbol.
      * @param children Children of the symbol.
      */
-    export function create(name: string,  uri: string, detail: string, kind: SymbolKind, range: Range, selectionRange: Range, scopeTags: ScopeTags[], children: FishDocumentSymbol[]): FishDocumentSymbol {
+    export function create(name: string,  uri: string, detail: string, kind: SymbolKind, range: Range, selectionRange: Range, scope: DefinitionScope, children: FishDocumentSymbol[]): FishDocumentSymbol {
         return {
             name,
             uri,
@@ -46,7 +42,7 @@ export namespace FishDocumentSymbol {
             kind,
             range,
             selectionRange,
-            scopeTags,
+            scope,
             children,
         } as FishDocumentSymbol;
     }
@@ -59,7 +55,7 @@ export namespace FishDocumentSymbol {
             symbol.kind,
             symbol.range,
             symbol.selectionRange,
-            symbol.scopeTags,
+            symbol.scope,
             newChildren,
         )
     }
@@ -89,35 +85,23 @@ export namespace FishDocumentSymbol {
  * be possible for internal symbols (seen in '/usr/share/fish/**.fish').
  */
 export function symbolIsImmutable(symbol: FishDocumentSymbol): boolean {
-    const {uri, scopeTags} = symbol;
-    return uri.startsWith('/usr/share/fish/') || scopeTags.includes(ScopeTags.Universal);
+    const {uri, scope} = symbol;
+    return uri.startsWith('/usr/share/fish/') || scope.scopeTag === 'universal';
 }
 
 export function isGlobalSymbol(symbol: FishDocumentSymbol): boolean {
-    return symbol.scopeTags.includes(ScopeTags.Global);
+    return symbol.scope.scopeTag === 'global';
 }
 
 export function isUniversalSymbol(symbol: FishDocumentSymbol): boolean {
-    return symbol.scopeTags.includes(ScopeTags.Universal);
+    return symbol.scope.scopeTag === 'universal';
 }
 
 export function filterGlobalSymbols(symbols: FishDocumentSymbol[]): FishDocumentSymbol[] {
     return flattenFishDocumentSymbols(symbols)
-        .filter((symbol) => symbol.scopeTags.includes(ScopeTags.Global))
+        .filter((symbol) => symbol.scope.scopeTag === 'global')
 }
 
-export function getScopeTags(uri: string, parent: SyntaxNode, child: SyntaxNode): ScopeTags[] {
-    if (isFunctionDefinitionName(child)) {
-        const loadedName = pathToRelativeFunctionName(uri);
-        return loadedName === child.text || loadedName === "config"
-            ? [ScopeTags.Global]
-            : [ScopeTags.Local];
-    } else if (isVariableDefinitionName(child)) {
-        if (child.text.startsWith("$") || child.text.endsWith(']')) return [];
-        return findVariableDefinitionOptions(parent, child)
-    }
-    return [];
-}
 
 export function flattenFishDocumentSymbols(symbols: FishDocumentSymbol[]): FishDocumentSymbol[] {
     const queue = [...symbols];
@@ -209,7 +193,7 @@ export function getFishDocumentSymbols(uri: string, ...currentNodes: SyntaxNode[
                     kind,
                     getRange(parent),
                     getRange(child),
-                    getScopeTags(uri, parent, child),
+                    getScope(uri, child),
                     childrenSymbols
                 )
             );

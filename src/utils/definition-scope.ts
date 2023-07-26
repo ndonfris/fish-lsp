@@ -9,6 +9,7 @@ export interface DefinitionScope {
     scopeNode: SyntaxNode | null;
     scopeTag: 'global' | 'universal' | 'local'  | 'function';
 }
+
 export namespace DefinitionScope {
     export function create(scopeNode: SyntaxNode | null, scopeTag: 'global' | 'universal' | 'local' | 'function'): DefinitionScope {
         return {

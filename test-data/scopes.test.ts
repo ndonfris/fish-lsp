@@ -10,7 +10,7 @@ import { initializeParser } from "../src/parser";
 import { Analyzer, findParentScopes, findDefs, findLocalDefinitionSymbol } from "../src/analyze";
 import { LspDocument } from "../src/document";
 import { FishDocumentSymbol } from "../src/document-symbol";
-import { expandEntireVariableLine, getVariableScope } from '../src/utils/variable-scopes';
+import { expandEntireVariableLine, getVariableScope } from '../src/utils/definition-scope';
  
 let parser: Parser;
 let lang:Language;
