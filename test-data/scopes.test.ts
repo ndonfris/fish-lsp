@@ -117,11 +117,9 @@ function filterLastPerScopeSymbols(root: SyntaxNode,symbols: FishDocumentSymbol[
     const flatSymbols = [...FishDocumentSymbol.flattenArray(symbols)]
     for (const symbol of flatSymbols) {
         const matchingNames = flatSymbols.filter((s) =>
-            s.name === symbol.name && !FishDocumentSymbol.equal(symbol, s)
-        );
+             s.name === symbol.name && !FishDocumentSymbol.equal(symbol, s));
         const matchingScopes = matchingNames.filter((s) =>
-            FishDocumentSymbol.equalScopes(symbol, s)
-        );
+            FishDocumentSymbol.equalScopes(symbol, s));
         // pop() will give you the last seen match?
         //    ~or~
         // write a function which will check the last seen match using: FishDocumentSymbol.isAfter()
@@ -135,5 +133,4 @@ function filterLastPerScopeSymbols(root: SyntaxNode,symbols: FishDocumentSymbol[
         })
     }
 }
-
 
