@@ -2,12 +2,14 @@ import Parser, { Tree, SyntaxNode } from 'web-tree-sitter';
 import * as NodeTypes from './node-types'
 import { gatherSiblingsTillEol } from './node-types';
 import { pathToRelativeFunctionName, uriInUserFunctions } from './translation';
-import { ancestorMatch, firstAncestorMatch } from './tree-sitter';
+import { ancestorMatch, firstAncestorMatch, getRange, isPositionWithinRange } from './tree-sitter';
+import { Position, Range } from 'vscode-languageserver'
 
 type ScopeTag = 'global' | 'universal' | 'local'  | 'function';
 export interface DefinitionScope {
     scopeNode: SyntaxNode;
     scopeTag: ScopeTag;
+    containsRange: (position: Position) => boolean;
 }
 
 export namespace DefinitionScope {
@@ -15,6 +17,9 @@ export namespace DefinitionScope {
         return {
             scopeNode,
             scopeTag,
+            containsRange: (position: Position) => {
+                return isPositionWithinRange(position, getRange(scopeNode))
+            }
         }
     }
 }
@@ -159,3 +164,4 @@ export function expandEntireVariableLine(node: SyntaxNode): SyntaxNode[] {
 
     return results;
 }
+

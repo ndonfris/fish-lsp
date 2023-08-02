@@ -1,5 +1,5 @@
 
-import { DocumentSymbol, SymbolKind, Range, WorkspaceSymbol, } from 'vscode-languageserver';
+import { DocumentSymbol, SymbolKind, Range, WorkspaceSymbol, Position, } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { isFunctionDefinitionName, isDefinition, isVariableDefinition, isFunctionDefinition, isVariableDefinitionName, refinedFindParentVariableDefinitionKeyword } from './utils/node-types'
 import { findVariableDefinitionOptions } from './utils/options';
@@ -7,6 +7,7 @@ import { DocumentSymbolDetail } from './utils/symbol-documentation-builder';
 import { pathToRelativeFunctionName } from './utils/translation';
 import { getNodeAtRange, getRange, positionToPoint } from './utils/tree-sitter';
 import { DefinitionScope, getScope } from './utils/definition-scope'
+import { GenericTree } from './utils/generic-tree';
 
 
 // add some form of tags to the symbol so that we can extend the symbol with more information
@@ -115,6 +116,11 @@ export namespace FishDocumentSymbol {
     export function getSyntaxNode(root: SyntaxNode, symbol: FishDocumentSymbol): SyntaxNode | null {
         return getNodeAtRange(root, symbol.range);
     }
+
+    export function toTree(symbols: FishDocumentSymbol[]) {
+        return new GenericTree<FishDocumentSymbol>(symbols);
+    }
+
 }
 
 /**
@@ -136,41 +142,39 @@ export function isUniversalSymbol(symbol: FishDocumentSymbol): boolean {
 }
 
 export function filterGlobalSymbols(symbols: FishDocumentSymbol[]): FishDocumentSymbol[] {
-    return flattenFishDocumentSymbols(symbols)
+    return FishDocumentSymbol
+        .toTree(symbols)
+        .toFlatArray()
         .filter((symbol) => symbol.scope.scopeTag === 'global')
 }
 
 
-export function flattenFishDocumentSymbols(symbols: FishDocumentSymbol[]): FishDocumentSymbol[] {
-    const queue = [...symbols];
-    const result: FishDocumentSymbol[] = [];
-    while (queue.length > 0) {
-        const symbol = queue.shift();
-        if (symbol) result.push(symbol);
-        if (symbol && symbol.children) queue.unshift(...symbol.children);
-    }
-    return result;
+export function filterLastPerScopeSymbol(symbolArray: FishDocumentSymbol[]) {
+    const symbolTree: GenericTree<FishDocumentSymbol> = new GenericTree(symbolArray);
+    const flatArray: FishDocumentSymbol[] = symbolTree.toFlatArray()
+    return symbolTree
+        .filterToTree((symbol: FishDocumentSymbol) => !flatArray.some((s) => {
+            return (
+                s.name === symbol.name &&
+                !FishDocumentSymbol.equal(symbol, s) &&
+                FishDocumentSymbol.equalScopes(symbol, s) &&
+                FishDocumentSymbol.isBefore(symbol, s)
+            )
+        }))
+        .toArray();
 }
 
-export function filterLastFishDocumentSymbols(symbols: FishDocumentSymbol[]): FishDocumentSymbol[] {
-    const result: FishDocumentSymbol[] = []
-    for (const symbol of symbols) {
-        if (result.filter(res => res.name === symbol.name).length > 0) {
-            result.splice(result.findIndex(res => res.name === symbol.name), 1)
-        }
-        const uniqs: FishDocumentSymbol[] = [];
-        const dupes = filterLastFishDocumentSymbols(symbol.children)
-        while (dupes.length > 0) {
-            const child = dupes.pop();
-            if (child && uniqs.filter(uniq => uniq.name === child.name).length === 0) {
-                uniqs.unshift(child);
-                continue;
-            }
-        }
-        result.push(FishDocumentSymbol.copy(symbol, uniqs));
-    }
-    return result;
+export function findSymbolsForCompletion(symbols: FishDocumentSymbol[], position: Position): FishDocumentSymbol[] {
+    const symbolTree = new GenericTree<FishDocumentSymbol>(symbols);
+    return symbolTree
+        .filterToTree((symbol: FishDocumentSymbol) => {
+            return symbol.scope.containsRange(position);
+        })
+        .toFlatArray();
 }
+// needs to consider if the symbol is the last of its scope
+// needs to consider if the symbol is before the position
+// needs to consider if the symbol is already shown (remove duplicates, even though not really duplicates)
 
 /**
  * TreeSitter definition nodes in fish shell rely on commands, and thus create trees that

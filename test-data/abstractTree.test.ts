@@ -1,4 +1,4 @@
-import { AbstractTree } from '../src/utils/abstractTree'; // Replace with the actual path to your AbstractTree class
+//import { AbstractTree } from '../src/utils/abstractTree'; // Replace with the actual path to your AbstractTree class
 import { SyntaxNode } from 'web-tree-sitter'; // Replace with the actual package import
 import { FishDocumentSymbol } from '../src/document-symbol'; // Replace with the actual package import
 

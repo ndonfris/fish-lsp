@@ -30,7 +30,7 @@ import { collectAllSymbolInformation, DocumentDefSymbol } from './symbols';
 import { SymbolTree } from './symbolTree';
 import { homedir } from 'os';
 import { initializeFishWorkspaces } from './utils/workspace';
-import { filterLastFishDocumentSymbols } from './document-symbol';
+import { filterLastPerScopeSymbol } from './document-symbol';
 
 // @TODO 
 export type SupportedFeatures = {
@@ -324,7 +324,7 @@ export default class FishServer {
         this.logger.log("onDocumentSymbols");
         const {doc, uri, root} = this.getDefaultsForPartialParams(params)
         if (!doc || !uri || !root) return [];
-        return filterLastFishDocumentSymbols(this.analyzer.analyze(doc));
+        return filterLastPerScopeSymbol(this.analyzer.analyze(doc));
     }
 
     protected get supportHierarchicalDocumentSymbol(): boolean {

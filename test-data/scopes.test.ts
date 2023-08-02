@@ -86,17 +86,18 @@ describe("scopes tests", () => {
         const root = parser.parse(doc.getText()).rootNode!;
         const symbolArray = getFishDocumentSymbols(doc.uri, root);
         const symbolTree = new GenericTree<FishDocumentSymbol>(symbolArray);
-        const uniqueSymbols = filterLastPerScopeSymbols(root, symbolArray)
-        const result = symbolTree.filterToTree((symbol: FishDocumentSymbol) => !!uniqueSymbols.find((s) => FishDocumentSymbol.equal(s, symbol))).toArray()
-
-        logClientTree(result)
+        const uniqueSymbols = filterLastPerScopeSymbol(symbolTree)
+        //const result = symbolTree.filterToTree((symbol: FishDocumentSymbol) => !!uniqueSymbols.find((s) => FishDocumentSymbol.equal(s, symbol))).toArray()
+//
+        //const shorter = shorterVersion(symbolTree);
+        logClientTree(uniqueSymbols);
     })
 
 })
 
 function logClientTree(symbols: FishDocumentSymbol[], level = 0) {
     for (const symbol of symbols) {
-        console.log("      ".repeat(level) + `${FishDocumentSymbol.logString(symbol)}`);
+        console.log("  ".repeat(level) + `${FishDocumentSymbol.logString(symbol)}`);
         logClientTree(symbol.children || [], level + 1);
     }
 }
@@ -115,20 +116,17 @@ const getNodeStr = (node: SyntaxNode | null) => {
 // write a function which will check the last seen match using: FishDocumentSymbol.isAfter()
 //
 // actually I think easiest method is to remove `symbol` if we find a match.
-function filterLastPerScopeSymbols(root: SyntaxNode, symbols: FishDocumentSymbol[]) {
-    const flatSymbols = [...FishDocumentSymbol.flattenArray(symbols)]
-    const result: FishDocumentSymbol[] = []
-    for (const currentSymbol of flatSymbols) {
-        if (!flatSymbols.some((s) => {
+
+function filterLastPerScopeSymbol(symbolTree: GenericTree<FishDocumentSymbol>) {
+    const flatArray: FishDocumentSymbol[] = symbolTree.toFlatArray()
+    return symbolTree
+        .filterToTree((symbol: FishDocumentSymbol) => !flatArray.some((s) => {
             return (
-                s.name === currentSymbol.name
-                && !FishDocumentSymbol.equal(currentSymbol, s)
-                && FishDocumentSymbol.equalScopes(currentSymbol, s)
-                && FishDocumentSymbol.isBefore(currentSymbol, s)
+                s.name === symbol.name &&
+                !FishDocumentSymbol.equal(symbol, s) &&
+                FishDocumentSymbol.equalScopes(symbol, s) &&
+                FishDocumentSymbol.isBefore(symbol, s)
             )
-        })) {
-            result.push(currentSymbol);
-        }
-    }
-    return result;
+        }))
+        .toArray();
 }
