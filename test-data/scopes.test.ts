@@ -5,6 +5,7 @@ import { homedir } from 'os';
 import { printTestName, resolveLspDocumentForHelperTestFile } from "./helpers";
 import { isCommandName, isFunctionDefinitionName } from '../src/utils/node-types';
 import * as NodeTypes from '../src/utils/node-types'
+import { GenericTree } from '../src/utils/generic-tree'
 import { firstAncestorMatch, getChildNodes, pointToPosition, positionToPoint } from '../src/utils/tree-sitter';
 import { initializeParser } from "../src/parser";
 import { Analyzer, findParentScopes, findDefs, findLocalDefinitionSymbol } from "../src/analyze";
@@ -53,9 +54,9 @@ describe("scopes tests", () => {
         const { allNodes } = testHelper(`fish_files/advanced/variable_scope_2.fish`);
         const scopes = allNodes.filter((node) => NodeTypes.isScope(node))
 
-        scopes.forEach((scope, index) => {
-            console.log(index, scope.text.split('\n')[0]);
-        })
+        //scopes.forEach((scope, index) => {
+        //    console.log(index, scope.text.split('\n')[0]);
+        //})
 
     })
 
@@ -71,28 +72,24 @@ describe("scopes tests", () => {
             'set -gx OS_NAME (get-os-name) # check for mac or linux',
         ].join('\n');
         const variableDefinitions = parseStringForNodeType(input, NodeTypes.isVariableDefinition);
-        for (const v of variableDefinitions) {
-            const {scopeNode, scopeTag} = getVariableScope(v)
-            console.log(v.text);
-            console.log(scopeNode?.text)
-            console.log();
-            console.log();
-            console.log();
-        }
+        //for (const v of variableDefinitions) {
+        //    const {scopeNode, scopeTag} = getVariableScope(v)
+        //    console.log(v.text);
+        //    console.log(scopeNode?.text)
+        //    console.log();
+        //    console.log();
+        //    console.log();
+        //}
     })
     it('checking scope for FishDocumentSymbol', async () => {
-        const doc = resolveLspDocumentForHelperTestFile(`fish_files/advanced/inner_functions.fish`);
+        const doc = resolveLspDocumentForHelperTestFile(`fish_files/simple/inner_function.fish`);
         const root = parser.parse(doc.getText()).rootNode!;
         const symbolArray = getFishDocumentSymbols(doc.uri, root);
-        const flatSymbolArray = [...FishDocumentSymbol.flattenArray(symbolArray)]
+        const symbolTree = new GenericTree<FishDocumentSymbol>(symbolArray);
+        const uniqueSymbols = filterLastPerScopeSymbols(root, symbolArray)
+        const result = symbolTree.filterToTree((symbol: FishDocumentSymbol) => !!uniqueSymbols.find((s) => FishDocumentSymbol.equal(s, symbol))).toArray()
 
-
-        logClientTree(symbolArray)
-        console.log('-'.repeat(40));
-        flatSymbolArray.forEach((def, index) => console.log(index, FishDocumentSymbol.logString(def)))
-
-
-        filterLastPerScopeSymbols(root, symbolArray)
+        logClientTree(result)
     })
 
 })
@@ -113,24 +110,25 @@ const getNodeStr = (node: SyntaxNode | null) => {
     ].join("\n");
 }
 
-function filterLastPerScopeSymbols(root: SyntaxNode,symbols: FishDocumentSymbol[]) {
+// pop() will give you the last seen match?
+//    ~or~
+// write a function which will check the last seen match using: FishDocumentSymbol.isAfter()
+//
+// actually I think easiest method is to remove `symbol` if we find a match.
+function filterLastPerScopeSymbols(root: SyntaxNode, symbols: FishDocumentSymbol[]) {
     const flatSymbols = [...FishDocumentSymbol.flattenArray(symbols)]
-    for (const symbol of flatSymbols) {
-        const matchingNames = flatSymbols.filter((s) =>
-             s.name === symbol.name && !FishDocumentSymbol.equal(symbol, s));
-        const matchingScopes = matchingNames.filter((s) =>
-            FishDocumentSymbol.equalScopes(symbol, s));
-        // pop() will give you the last seen match?
-        //    ~or~
-        // write a function which will check the last seen match using: FishDocumentSymbol.isAfter()
-        //
-        // actually I think easiest method is to remove `symbol` if we find a match.
-        const symbolNode = FishDocumentSymbol.getSyntaxNode(root, symbol)
-        matchingScopes.forEach((s) => {
-            const matchNode = FishDocumentSymbol.getSyntaxNode(root, s)
-            console.log([ getNodeStr(symbolNode!) , '===', getNodeStr(matchNode)].join('\n'))
-            console.log('-'.repeat(40))
-        })
+    const result: FishDocumentSymbol[] = []
+    for (const currentSymbol of flatSymbols) {
+        if (!flatSymbols.some((s) => {
+            return (
+                s.name === currentSymbol.name
+                && !FishDocumentSymbol.equal(currentSymbol, s)
+                && FishDocumentSymbol.equalScopes(currentSymbol, s)
+                && FishDocumentSymbol.isBefore(currentSymbol, s)
+            )
+        })) {
+            result.push(currentSymbol);
+        }
     }
+    return result;
 }
-
