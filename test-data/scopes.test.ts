@@ -1,4 +1,4 @@
-import { BaseSymbolInformation, DocumentSymbol, SymbolKind } from 'vscode-languageserver';
+import { BaseSymbolInformation, DocumentSymbol, Position, SymbolKind } from 'vscode-languageserver';
 import Parser, { Tree, QueryMatch, Query, Language, SyntaxNode } from 'web-tree-sitter';
 import { assert } from 'chai';
 import { homedir } from 'os';
@@ -10,7 +10,7 @@ import { firstAncestorMatch, getChildNodes, pointToPosition, positionToPoint } f
 import { initializeParser } from "../src/parser";
 import { Analyzer, findParentScopes, findDefs, findLocalDefinitionSymbol } from "../src/analyze";
 import { LspDocument } from "../src/document";
-import { FishDocumentSymbol, getFishDocumentSymbols } from "../src/document-symbol";
+import { findSymbolsForCompletion, FishDocumentSymbol, getFishDocumentSymbols } from "../src/document-symbol";
 import { expandEntireVariableLine, getScope, getVariableScope } from '../src/utils/definition-scope';
  
 let parser: Parser;
@@ -91,6 +91,16 @@ describe("scopes tests", () => {
 //
         //const shorter = shorterVersion(symbolTree);
         logClientTree(uniqueSymbols);
+    })
+
+    it("test completion position with ScopeSymbol", async () => {
+        const doc = resolveLspDocumentForHelperTestFile(`fish_files/simple/inner_function.fish`);
+        const root = parser.parse(doc.getText()).rootNode!;
+        const symbolArray = getFishDocumentSymbols(doc.uri, root);
+        const pos: Position = Position.create(1, 10)
+        const cmpResults : FishDocumentSymbol[] = findSymbolsForCompletion(symbolArray, pos)
+
+        logClientTree(cmpResults);
     })
 
 })
