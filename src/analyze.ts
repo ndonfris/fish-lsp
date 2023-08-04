@@ -16,6 +16,7 @@ import { SymbolTree } from './symbolTree';
 import { Workspace } from './utils/workspace';
 import { collectFishWorkspaceSymbols, FishWorkspaceSymbol } from './utils/fishWorkspaceSymbol';
 import { filterGlobalSymbols, FishDocumentSymbol, getFishDocumentSymbols, isGlobalSymbol, isUniversalSymbol } from './document-symbol';
+import { GenericTree } from './utils/generic-tree';
 
 
 export class Analyzer {
@@ -34,11 +35,10 @@ export class Analyzer {
         this.parser.reset()
         const analyzedDocument = this.getAnalyzedDocument(this.parser, document);
         this.cache.setDocument(document.uri, analyzedDocument);
-        this.cache.getDocumentSymbols(document.uri)
-            .filter((symbol: FishDocumentSymbol) => isGlobalSymbol(symbol) || isUniversalSymbol(symbol))
-            .forEach((symbol: FishDocumentSymbol) => {
-                this.globalSymbols.add(symbol);
-            })
+        const symbols = this.cache.getDocumentSymbols(document.uri)
+        filterGlobalSymbols(symbols).forEach((symbol: FishDocumentSymbol) => {
+            this.globalSymbols.add(symbol);
+        })
         return this.cache.getDocumentSymbols(document.uri);
     }
 
@@ -111,7 +111,7 @@ export class Analyzer {
      * use the parser to parse the document passed in, and then return the rootNode.
      */
     getRootNode(document: LspDocument): SyntaxNode | undefined {
-        return this.cache.getTree(document.uri)?.rootNode
+        return this.cache.getParsedTree(document.uri)?.rootNode
     }
 
 
@@ -247,9 +247,15 @@ export class AnalyzedDocumentCache {
     getCommands(uri: URI): string[] {
         return this._documents.get(uri)?.commands || [];
     }
-    getTree(uri: URI): Parser.Tree | undefined {
+    getParsedTree(uri: URI): Parser.Tree | undefined {
         return this._documents.get(uri)?.tree;
     }
+    getSymbolTree(uri: URI): GenericTree<FishDocumentSymbol> {
+        const document = this.getDocument(uri);
+        if (!document) return new GenericTree<FishDocumentSymbol>([]);
+        return new GenericTree<FishDocumentSymbol>(document.documentSymbols);
+    }
+
     get map() { return this._documents }
 }
 

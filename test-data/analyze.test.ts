@@ -8,7 +8,7 @@ import {findFirstParent, getChildNodes,  getRange, isNodeWithinRange } from "../
 import { Analyzer, findParentScopes, findDefs, findLocalDefinitionSymbol } from "../src/analyze";
 import { isFunctionDefinition,isDefinition,isVariableDefinition,isScope, findParentCommand, isForLoop, isVariable, isCommand, isCommandName,} from "../src/utils/node-types";
 //import { CommentRange, DocumentDefSymbol, symbolKindToString } from "../src/symbols";
-import { filterLastFishDocumentSymbols, FishDocumentSymbol, flattenFishDocumentSymbols } from '../src/document-symbol';
+import { filterLastPerScopeSymbol, FishDocumentSymbol} from '../src/document-symbol';
 import { DocumentationCache, initializeDocumentationCache } from "../src/utils/documentationCache";
 import { SymbolTree } from "../src/symbolTree";
 import { homedir } from 'os';
@@ -102,7 +102,7 @@ describe("analyze tests", () => {
         if (!shouldLog) return
         printTestName(analyze_test_3);
         const commands = analyzer.cache.getCommands(doc.uri)
-        const tree = analyzer.cache.getTree(doc.uri)
+        const tree = analyzer.cache.getParsedTree(doc.uri)
         const symbols = analyzer.cache.getDocumentSymbols(doc.uri)
         // {commands, tree, symbols} should be used from the result properties of this function
         const analyzedDoc = analyzer.cache.getDocument(doc.uri)
@@ -121,7 +121,7 @@ describe("analyze tests", () => {
         analyzer.analyze(doc);
 
         const symbols = analyzer.cache.getDocumentSymbols(doc.uri)
-        const flatSymbols =  filterLastFishDocumentSymbols(symbols)
+        const flatSymbols = filterLastPerScopeSymbol(symbols)
 
         // small helper to print out the client tree like the editor would tree
         function logClientTree(symbols: FishDocumentSymbol[], level = 0) {
@@ -136,20 +136,6 @@ describe("analyze tests", () => {
         console.log(`TOP LEVEL SYMBOLS TOTAL: ${flatSymbols.length}`)
     });
 
-
-    function findFishDocumentSymbols(arr: FishDocumentSymbol[]) {
-        const flatSymbols =  flattenFishDocumentSymbols(arr)
-
-        flatSymbols.map((s, i) => { 
-            const idx = i.toString().padStart(2, " ");
-            console.log(`${idx} :: ${s.name}`);
-        })
-
-        const s0 = flatSymbols[1]    // arg_1 symbol -> `function func_a --argument-names arg_1 arg_2`
-        const s1 = flatSymbols[3]    // args symbol -> `set --local args "$argv"`
-        const s2 = flatSymbols[12]   // arg symbol -> `for arg in $argv[-3..-1];...;end`
-        console.log(...[s0, s1, s2].map(s=>s.name));
-    }
 
     function flatNodes(root: SyntaxNode) {
         const flatSymbols =  getChildNodes(root)

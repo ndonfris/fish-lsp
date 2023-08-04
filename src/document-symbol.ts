@@ -5,7 +5,7 @@ import { isFunctionDefinitionName, isDefinition, isVariableDefinition, isFunctio
 import { findVariableDefinitionOptions } from './utils/options';
 import { DocumentSymbolDetail } from './utils/symbol-documentation-builder';
 import { pathToRelativeFunctionName } from './utils/translation';
-import { getNodeAtRange, getRange, isPositionAfter, positionToPoint } from './utils/tree-sitter';
+import { getNodeAtRange, getRange, isPositionAfter, pointToPosition, positionToPoint } from './utils/tree-sitter';
 import { ScopeTag, DefinitionScope, getScope } from './utils/definition-scope'
 import { GenericTree } from './utils/generic-tree';
 
@@ -226,20 +226,23 @@ export function filterLastPerScopeSymbol(symbolArray: FishDocumentSymbol[]) {
         .toArray();
 }
 
-export function findSymbolsForCompletion(symbols: FishDocumentSymbol[], position: Position): FishDocumentSymbol[] {
-    const symbolTree = new GenericTree<FishDocumentSymbol>(symbols);
-    const symbolFunctionCompare = (symbol: FishDocumentSymbol, position: Position) => {
+const compareSymbolToPosition = (symbol: FishDocumentSymbol, position: Position) => {
+    const compareHelper = (symbol: FishDocumentSymbol, position: Position) => {
         const {scope} = symbol;
         if (['global', 'universal'].includes(scope.scopeTag)) return true;
         return scope.containsPosition(position) 
     }
+
+    return symbol.kind === SymbolKind.Function
+        ? compareHelper(symbol, position)
+        : (symbol.scope.containsPosition(position)
+           && isPositionAfter(symbol.selectionRange.end, position))
+}
+
+export function findSymbolsForCompletion(symbols: FishDocumentSymbol[], position: Position): FishDocumentSymbol[] {
+    const symbolTree = new GenericTree<FishDocumentSymbol>(symbols);
     const possibleDuplicates = symbolTree
-        .filterToTree((symbol: FishDocumentSymbol) => {
-            return symbol.kind ===  SymbolKind.Function 
-                ? symbolFunctionCompare(symbol, position)
-                : (symbol.scope.containsPosition(position) &&
-                   isPositionAfter(symbol.selectionRange.end, position))
-        })
+        .filterToTree((symbol: FishDocumentSymbol) => compareSymbolToPosition(symbol, position))
         .toFlatArray()
         .reverse()
     const uniqueSymbolsArray: FishDocumentSymbol[] = [];
@@ -250,6 +253,9 @@ export function findSymbolsForCompletion(symbols: FishDocumentSymbol[], position
     return uniqueSymbolsArray;
 }
 
+/**
+ * finds all symbols (variables and function that have been defined) 
+ */
 export function findSymbolReferences(symbols: FishDocumentSymbol[], matchSymbol: FishDocumentSymbol): FishDocumentSymbol[] {
     return new GenericTree<FishDocumentSymbol>(symbols)
         .filterToTree((symbol: FishDocumentSymbol) => {
@@ -259,6 +265,20 @@ export function findSymbolReferences(symbols: FishDocumentSymbol[], matchSymbol:
         })
         .toFlatArray()
 
+}
+
+export function findLastDefinition(symbols: FishDocumentSymbol[], matchNode: SyntaxNode) {
+    const symbolTree = new GenericTree<FishDocumentSymbol>(symbols);
+    const symbolFunctionCompare = (symbol: FishDocumentSymbol, matchNode: SyntaxNode) => {
+        const matchPosition = pointToPosition(matchNode.startPosition);
+        const {name, kind, scope} = symbol;
+        return (name === matchNode.text 
+                && compareSymbolToPosition(symbol, matchPosition))
+    }
+    return symbolTree
+        .filterToTree((symbol: FishDocumentSymbol) => symbolFunctionCompare(symbol, matchNode))
+        .toFlatArray()
+        .pop()
 }
 
 /**

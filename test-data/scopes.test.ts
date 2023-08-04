@@ -11,7 +11,7 @@ import { firstAncestorMatch, getChildNodes, getRange, isPositionWithinRange, poi
 import { initializeParser } from "../src/parser";
 import { Analyzer, findParentScopes, findDefs, findLocalDefinitionSymbol } from "../src/analyze";
 import { LspDocument } from "../src/document";
-import { findSymbolsForCompletion, FishDocumentSymbol,  filterLastPerScopeSymbol, getFishDocumentSymbols,  findSymbolReferences } from "../src/document-symbol";
+import { findSymbolsForCompletion, FishDocumentSymbol,  filterLastPerScopeSymbol, getFishDocumentSymbols,  findSymbolReferences, findLastDefinition } from "../src/document-symbol";
 import { ScopeTag, expandEntireVariableLine, getScope, getVariableScope } from '../src/utils/definition-scope';
  
 let parser: Parser;
@@ -142,7 +142,44 @@ describe("scopes tests", () => {
         // logMockSymbols(newSymbols);
     })
 
+    it('find last definition', async () => {
+        const doc = resolveLspDocumentForHelperTestFile(`fish_files/simple/symbols.fish`);
+        const root = parser.parse(doc.getText()).rootNode!;
+        const symbols = getFishDocumentSymbols(doc.uri, root);
 
+        const arg_one = root.descendantForPosition({row: 21, column: 16})!
+        const arg_two = root.descendantForPosition({row: 26, column:  8})!
+        const func_a = root.descendantForPosition({row: 21, column:  8})!
+        const func_b = root.descendantForPosition({row: 26, column:  0})!
+        const for_i = root.descendantForPosition({row: 5, column:  15})!
+
+        let lastSymbol = findLastDefinition(symbols, arg_one)!
+        assert.deepEqual(
+            FishDocumentSymbol.createMock('arg_one', 'function', createRange(19, 0, 24, 3)),
+            FishDocumentSymbol.toMock(lastSymbol)
+        )
+        lastSymbol = findLastDefinition(symbols, arg_two)!
+        assert.deepEqual(
+            FishDocumentSymbol.createMock('arg_two', 'local',  createRange(17, 0, 17, 33)),
+            FishDocumentSymbol.toMock(lastSymbol)
+        )
+        lastSymbol = findLastDefinition(symbols, func_a)!
+        assert.deepEqual(
+            FishDocumentSymbol.createMock('func_a', 'local', createRange(0, 0, 27, 0)),
+            FishDocumentSymbol.toMock(lastSymbol)
+        )
+        lastSymbol = findLastDefinition(symbols, func_b)!
+        assert.deepEqual(
+            FishDocumentSymbol.createMock('func_b', 'local', createRange(0, 0, 27, 0)),
+            FishDocumentSymbol.toMock(lastSymbol)
+        )
+        lastSymbol = findLastDefinition(symbols, for_i)!
+        assert.deepEqual(
+            FishDocumentSymbol.createMock('i', 'function', createRange(4, 4, 6, 7)),
+            FishDocumentSymbol.toMock(lastSymbol)
+        )
+        //logMockSymbols([lastSymbol])
+    })
 })
 
 function logClientTree(symbols: FishDocumentSymbol[], level = 0) {
