@@ -183,3 +183,22 @@ export class GenericTree<T extends TNode>{
 //const allSymbols = abstractSymbolTree.flattenAllChildren();
 //const filteredSymbols = abstractSymbolTree.filter((symbol) => symbol.kind === 'Class');
 //abstractSymbolTree.removeChild(rootSymbol);
+
+export function filterTree<T extends TNode>(nodes: T[], callbackfn: (node: T) => boolean): T[] {
+
+    function inner(nodes: T[], callbackfn: (node: T) => boolean) : T[] {
+        const result: T[] = [];
+        for (const n of nodes) {
+            let children: T[] = []
+            if ('children' in n) children = inner(n.children as T[], callbackfn)
+            if (callbackfn(n)) {
+                result.push(n);
+                continue;
+            }
+            if (children.length > 0 ) result.push(...children as T[])
+        }
+        return result;
+    }
+
+    return inner(nodes, callbackfn) as T[];
+}

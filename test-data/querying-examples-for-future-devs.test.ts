@@ -150,7 +150,7 @@ describe("querying examples for future devs", () => {
             return false;
         })
         assert.equal(overlaps.length, 0)
-    })
+        })
 
     /**
      * If you are trying to be a maintainer for the fish-lsp, determining variable scoping,

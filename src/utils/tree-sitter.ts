@@ -55,7 +55,7 @@ export function findChildNodes(root: SyntaxNode, predicate: (node: SyntaxNode) =
  * @returns {SyntaxNode[]} an array of ancestors to the descendent node passed in.
  */
 export function getParentNodes(child: SyntaxNode): SyntaxNode[] {
-    const result: SyntaxNode[] = [child]
+    const result: SyntaxNode[] = []
     let current: SyntaxNode | null = child.parent;
     while (current !== null) {
         // result.unshift(current); // unshift would be used for [root, ..., child]
@@ -174,14 +174,13 @@ export function firstAncestorMatch(
   predicate: (n: SyntaxNode) => boolean,
 ): SyntaxNode | null {
     const ancestors = getParentNodes(start) || [];
-    if (ancestors.length <= 1) {
-        return predicate(start) ? start : null;
-    }
+    let root = ancestors[ancestors.length - 1];
+    //if (ancestors.length < 1) return root;
     for (const p of ancestors) {
         if (!predicate(p)) continue;
         return p;
     }
-    return start
+    return predicate(root) ? root : null;
 }
 
 /**
@@ -418,6 +417,12 @@ export function isPositionWithinRange(position: Position, range: Range): boolean
   return doesStartInside && doesEndInside
 }
 
+export function isPositionAfter(first: Position, second: Position): boolean {
+    return (
+        first.line < second.line ||
+        (first.line === second.line && first.character < second.character)
+    )
+}
 export function isNodeWithinRange(node: SyntaxNode, range: Range): boolean {
   const doesStartInside =
     node.startPosition.row > range.start.line ||

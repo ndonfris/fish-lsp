@@ -1,5 +1,6 @@
 import { Diagnostic, DocumentSymbol, FoldingRange, FoldingRangeKind, SelectionRange, SymbolInformation, SymbolKind, TextDocumentEdit, TextDocumentItem, TextEdit } from 'vscode-languageserver';
 import * as LSP from 'vscode-languageserver';
+import * as TreeSitter from 'web-tree-sitter';
 import { SyntaxNode } from 'web-tree-sitter';
 import { URI } from 'vscode-uri';
 import { findParentVariableDefintionKeyword, isComment, isFunctionDefinition, isFunctionDefinitionName, isScope, isVariableDefinition } from './node-types';
@@ -121,6 +122,19 @@ export function nodeToDocumentSymbol(node: SyntaxNode) : DocumentSymbol {
     return DocumentSymbol.create(name, detail, kind, range, selectionRange, children)
 }
 
+export function createRange(startLine: number, startCharacter: number, endLine: number, endCharacter: number): LSP.Range {
+    return {
+        start: {
+            line: startLine,
+            character: startCharacter,
+        },
+        end: {
+            line: endLine,
+            character: endCharacter,
+        },
+    };
+}
+
 export function toSelectionRange(range: SelectionRange): SelectionRange {
     const span = LocationNamespace.Range.toTextSpan(range.range)
     return SelectionRange.create(
@@ -185,4 +199,3 @@ export function toLspDocument(filename: string, content: string): LspDocument {
     const doc = TextDocumentItem.create(pathToUri(filename), 'fish', 0, content)
     return new LspDocument(doc)
 }
-

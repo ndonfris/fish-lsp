@@ -1,9 +1,13 @@
 
 function outer
-    function inner
+    function inner 
         set --local a "a"
         set --local a "aa"
-        set --local a "aaa"
+        set --local a "aaa"       
     end
-    set a "A"
+    set a "A" 
+end
+
+function _helper
+    set --function b "b"
 end

@@ -1,20 +1,21 @@
-import { BaseSymbolInformation, DocumentSymbol, Position, SymbolKind } from 'vscode-languageserver';
 import Parser, { Tree, QueryMatch, Query, Language, SyntaxNode } from 'web-tree-sitter';
+import { Position, Range, SymbolKind, URI } from 'vscode-languageserver'
 import { assert } from 'chai';
 import { homedir } from 'os';
+import { createRange } from '../src/utils/translation';
 import { printTestName, resolveLspDocumentForHelperTestFile } from "./helpers";
 import { isCommandName, isFunctionDefinitionName } from '../src/utils/node-types';
 import * as NodeTypes from '../src/utils/node-types'
-import { GenericTree } from '../src/utils/generic-tree'
-import { firstAncestorMatch, getChildNodes, pointToPosition, positionToPoint } from '../src/utils/tree-sitter';
+import { GenericTree, TNode, filterTree } from '../src/utils/generic-tree'
+import { firstAncestorMatch, getChildNodes, getRange, isPositionWithinRange, pointToPosition, positionToPoint } from '../src/utils/tree-sitter';
 import { initializeParser } from "../src/parser";
 import { Analyzer, findParentScopes, findDefs, findLocalDefinitionSymbol } from "../src/analyze";
 import { LspDocument } from "../src/document";
-import { findSymbolsForCompletion, FishDocumentSymbol, getFishDocumentSymbols } from "../src/document-symbol";
-import { expandEntireVariableLine, getScope, getVariableScope } from '../src/utils/definition-scope';
+import { findSymbolsForCompletion, FishDocumentSymbol,  filterLastPerScopeSymbol, getFishDocumentSymbols,  findSymbolReferences } from "../src/document-symbol";
+import { ScopeTag, expandEntireVariableLine, getScope, getVariableScope } from '../src/utils/definition-scope';
  
 let parser: Parser;
-let lang:Language;
+let lang: Language;
 let query: Query;
 const jestConsole = console;
 beforeEach(async () => {
@@ -26,82 +27,121 @@ beforeEach(async () => {
 afterEach(() => {
     global.console = jestConsole;
     if (query) query.delete();
-    if (parser) parser.delete();
-});
-
-function testHelper(docPath: string, inAutoloadPath: boolean = true) {
-    const doc = resolveLspDocumentForHelperTestFile(docPath, inAutoloadPath);
-    const tree = parser.parse(doc.getText())
-    const root = tree.rootNode;
-    const allNodes = getChildNodes(root);
-    return {
-        document: doc,
-        tree: tree,
-        root: root,
-        allNodes: allNodes
-    }
-}
-
-function parseStringForNodeType(str: string, predicate: (n:SyntaxNode) => boolean) {
-    const tree = parser.parse(str);
-    const root = tree.rootNode;
-    return getChildNodes(root).filter(predicate);
-}
+    if (parser) parser.reset();
+}, 10000);
 
 describe("scopes tests", () => {
 
-    it("finding all scope nodes in a document", async () => {
-        const { allNodes } = testHelper(`fish_files/advanced/variable_scope_2.fish`);
-        const scopes = allNodes.filter((node) => NodeTypes.isScope(node))
-
-        //scopes.forEach((scope, index) => {
-        //    console.log(index, scope.text.split('\n')[0]);
-        //})
-
-    })
-
-    it('finding scope', async () => {
-        const input = [
-            'function func_foo -a func_foo_arg',
-            '    begin',
-            '         echo "hi" | read --local read_foo_1',
-            '         echo "hi" | read -l read_foo_2',
-            '    end',
-            '    echo $func_foo_arg',
-            'end',
-            'set -gx OS_NAME (get-os-name) # check for mac or linux',
-        ].join('\n');
-        const variableDefinitions = parseStringForNodeType(input, NodeTypes.isVariableDefinition);
-        //for (const v of variableDefinitions) {
-        //    const {scopeNode, scopeTag} = getVariableScope(v)
-        //    console.log(v.text);
-        //    console.log(scopeNode?.text)
-        //    console.log();
-        //    console.log();
-        //    console.log();
-        //}
-    })
-    it('checking scope for FishDocumentSymbol', async () => {
+    it('checking for last unique FishDocumentSymbol per scope', async () => {
         const doc = resolveLspDocumentForHelperTestFile(`fish_files/simple/inner_function.fish`);
         const root = parser.parse(doc.getText()).rootNode!;
-        const symbolArray = getFishDocumentSymbols(doc.uri, root);
-        const symbolTree = new GenericTree<FishDocumentSymbol>(symbolArray);
-        const uniqueSymbols = filterLastPerScopeSymbol(symbolTree)
-        //const result = symbolTree.filterToTree((symbol: FishDocumentSymbol) => !!uniqueSymbols.find((s) => FishDocumentSymbol.equal(s, symbol))).toArray()
-//
-        //const shorter = shorterVersion(symbolTree);
-        logClientTree(uniqueSymbols);
+        const symbols = getFishDocumentSymbols(doc.uri, root);
+
+        const uniqueSymbols = filterLastPerScopeSymbol(symbols)
+        const flatUniqueSymbols = new GenericTree<FishDocumentSymbol>(uniqueSymbols).toFlatArray()
+        assert.equal(6, flatUniqueSymbols.length)
+        assert.deepEqual([
+            FishDocumentSymbol.createMock('outer',   'local',     createRange( 0,  0, 12,  3)),
+            FishDocumentSymbol.createMock('inner',   'local',     createRange( 1,  0,  8,  3)),
+            FishDocumentSymbol.createMock('a',       'local',     createRange( 5,  8,  5, 27)),
+            FishDocumentSymbol.createMock('a',       'function',  createRange( 7,  4,  7, 13)),
+            FishDocumentSymbol.createMock('_helper', 'local',     createRange( 0,  0, 12,  3)),
+            FishDocumentSymbol.createMock('b',       'function',  createRange(11,  4, 11, 24)),
+        ], flatUniqueSymbols.map((s) => FishDocumentSymbol.toMock(s)))
+        //logMockSymbols(flatUniqueSymbols)
+        //logClientTree(uniqueSymbols);
     })
 
-    it("test completion position with ScopeSymbol", async () => {
+
+    it('finding scope for completion', async () => {
         const doc = resolveLspDocumentForHelperTestFile(`fish_files/simple/inner_function.fish`);
         const root = parser.parse(doc.getText()).rootNode!;
-        const symbolArray = getFishDocumentSymbols(doc.uri, root);
-        const pos: Position = Position.create(1, 10)
-        const cmpResults : FishDocumentSymbol[] = findSymbolsForCompletion(symbolArray, pos)
 
-        logClientTree(cmpResults);
+        let [ cursor , symbols ] = [ Position.create(5, 34), getFishDocumentSymbols(doc.uri, root) ]
+        let newSymbols = findSymbolsForCompletion(symbols, cursor)
+
+        // should have 4 symbols (theres only 4 unique in the file)
+        assert.equal(newSymbols.length, 4)
+        //logMockSymbols(newSymbols)
+
+        // if ranges are incorrect, the nearest symbol to the cursor was not found.
+        assert.deepEqual([
+            FishDocumentSymbol.createMock('_helper', 'local', createRange( 0,  0, 12,  3)),
+            FishDocumentSymbol.createMock('a',       'local', createRange( 5,  8,  5, 27)),
+            FishDocumentSymbol.createMock('inner',   'local', createRange( 1,  0,  8,  3)),
+            FishDocumentSymbol.createMock('outer',   'local', createRange( 0,  0, 12,  3))
+        ], newSymbols.map((s) => FishDocumentSymbol.toMock(s))) 
+
+        // testing if variable scope works correctly (`a` should be function scoped )
+        cursor = Position.create(7, 15)
+        newSymbols = findSymbolsForCompletion(symbols, cursor)
+
+        assert.deepEqual([
+            FishDocumentSymbol.createMock('_helper', 'local',    createRange( 0,  0, 12,  3)),
+            FishDocumentSymbol.createMock('a',       'function', createRange( 7,  4,  7, 13)),
+            FishDocumentSymbol.createMock('inner',   'local',    createRange( 1,  0,  8,  3)),
+            FishDocumentSymbol.createMock('outer',   'local',    createRange( 0,  0, 12,  3))
+        ], newSymbols.map((s) => FishDocumentSymbol.toMock(s))) 
+
+        cursor = Position.create(11, 1)
+        newSymbols = findSymbolsForCompletion(symbols, cursor)
+        assert.deepEqual([
+            FishDocumentSymbol.createMock('_helper', 'local',    createRange( 0,  0, 12,  3)),
+            FishDocumentSymbol.createMock('outer',   'local',    createRange( 0,  0, 12,  3))
+        ], newSymbols.map((s) => FishDocumentSymbol.toMock(s))) 
+
+        cursor = Position.create(0, 1)
+        newSymbols = findSymbolsForCompletion(symbols, cursor)
+        assert.deepEqual([
+            FishDocumentSymbol.createMock('_helper', 'local',    createRange( 0,  0, 12,  3)),
+            FishDocumentSymbol.createMock('outer',   'local',    createRange( 0,  0, 12,  3))
+        ], newSymbols.map((s) => FishDocumentSymbol.toMock(s))) 
     })
+
+    it('find references for variables in scope', async () => {
+        const doc = resolveLspDocumentForHelperTestFile(`fish_files/simple/global_vs_local.fish`);
+        const root = parser.parse(doc.getText()).rootNode!;
+        let symbols = getFishDocumentSymbols(doc.uri, root)
+
+        function debug(symbols: FishDocumentSymbol[]) {
+            const tree = new GenericTree<FishDocumentSymbol>(symbols)
+            return {
+                allSymbols: () => logDebbugingAllSymbols(tree.toFlatArray()),
+                varSymbols: () => {
+                    const result = tree
+                        .filterToTree((node) => node.kind === SymbolKind.Variable)
+                        .toFlatArray()
+                    logDebbugingAllSymbols(result);
+                },
+            }
+        }
+        /////// LOCAL DEBUGGING
+        //debug(symbols).allSymbols()
+        //debug(symbols).varSymbols() 
+
+        const flatSymbols = new GenericTree<FishDocumentSymbol>(symbols).toFlatArray()
+
+        /////// GLOBAL VARIABLE SYMBOL
+        const globalSymbol = flatSymbols[0]
+        let newSymbols = findSymbolReferences(symbols, globalSymbol)
+        assert.equal(3, newSymbols.length);
+        assert.deepEqual([
+            FishDocumentSymbol.createMock('testvar', 'global',  createRange( 1,  0,  1, 36)),
+            FishDocumentSymbol.createMock('testvar', 'global',  createRange( 7,  4,  7, 46)),
+            FishDocumentSymbol.createMock('testvar', 'inherit', createRange(13,  0, 13, 27)),
+        ], newSymbols.map((s) => FishDocumentSymbol.toMock(s)))
+        // logMockSymbols(newSymbols);
+
+        /////// LOCAL VARIABLE SYMBOL 
+        const localSymbol = flatSymbols[2]
+        newSymbols = findSymbolReferences(symbols, localSymbol)
+        assert.equal(1, newSymbols.length);
+        assert.deepEqual([
+            FishDocumentSymbol.createMock('testvar', 'local', createRange( 5,  4,  5, 38)),
+        ], newSymbols.map((s) => FishDocumentSymbol.toMock(s)))        
+        // logMockSymbols(newSymbols);
+    })
+
 
 })
 
@@ -112,31 +152,27 @@ function logClientTree(symbols: FishDocumentSymbol[], level = 0) {
     }
 }
 
-const getNodeStr = (node: SyntaxNode | null) => {
-    if (!node) return 'got NULL'
-    const {startPosition, endPosition} = node;
-    return [
-        `(${startPosition.row}:${startPosition.column},${endPosition.row}:${endPosition.column})`,
-        node.text,
-    ].join("\n");
+function logMockSymbols(symbols: FishDocumentSymbol[]) {
+    symbols.forEach((s) => {
+        console.log(FishDocumentSymbol.toMock(s));
+    })
 }
 
-// pop() will give you the last seen match?
-//    ~or~
-// write a function which will check the last seen match using: FishDocumentSymbol.isAfter()
-//
-// actually I think easiest method is to remove `symbol` if we find a match.
-
-function filterLastPerScopeSymbol(symbolTree: GenericTree<FishDocumentSymbol>) {
-    const flatArray: FishDocumentSymbol[] = symbolTree.toFlatArray()
-    return symbolTree
-        .filterToTree((symbol: FishDocumentSymbol) => !flatArray.some((s) => {
-            return (
-                s.name === symbol.name &&
-                !FishDocumentSymbol.equal(symbol, s) &&
-                FishDocumentSymbol.equalScopes(symbol, s) &&
-                FishDocumentSymbol.isBefore(symbol, s)
-            )
-        }))
-        .toArray();
+function logDebbugingAllSymbols(symbols: FishDocumentSymbol[]) {
+    const tree = new GenericTree<FishDocumentSymbol>(symbols);
+    tree.toFlatArray().forEach((s, index) => {
+        console.log(index, FishDocumentSymbol.debug(s));
+    })
 }
+
+//const input = [
+//    'function func_foo -a func_foo_arg',
+//    '    begin',
+//    '         echo "hi" | read --local read_foo_1',
+//    '         echo "hi" | read -l read_foo_2',
+//    '    end',
+//    '    echo $func_foo_arg',
+//    'end',
+//    'set -gx OS_NAME (get-os-name) # check for mac or linux',
+//].join('\n');
+//const root = parser.parse(input).rootNode!;

@@ -5,8 +5,8 @@ import { isFunctionDefinitionName, isDefinition, isVariableDefinition, isFunctio
 import { findVariableDefinitionOptions } from './utils/options';
 import { DocumentSymbolDetail } from './utils/symbol-documentation-builder';
 import { pathToRelativeFunctionName } from './utils/translation';
-import { getNodeAtRange, getRange, positionToPoint } from './utils/tree-sitter';
-import { DefinitionScope, getScope } from './utils/definition-scope'
+import { getNodeAtRange, getRange, isPositionAfter, positionToPoint } from './utils/tree-sitter';
+import { ScopeTag, DefinitionScope, getScope } from './utils/definition-scope'
 import { GenericTree } from './utils/generic-tree';
 
 
@@ -15,6 +15,7 @@ import { GenericTree } from './utils/generic-tree';
 export interface FishDocumentSymbol extends DocumentSymbol {
     name: string;
     uri: string;
+    text: string;
     detail: string;
     kind: SymbolKind;
     range: Range;
@@ -28,17 +29,19 @@ export namespace FishDocumentSymbol {
      * Creates a new symbol information literal.
      *
      * @param name The name of the symbol.
-     * @param detail The detail of the symbol.
-     * @param kind The kind of the symbol.
      * @param uri The documentUri of the symbol.
-     * @param range The range of the symbol.
+     * @param text The text in the symbol scope.
+     * @param detail The detail of the symbol. (Markdown included inside 'range')
+     * @param kind The kind of the symbol.
+     * @param range The enclosing range of the symbol.
      * @param selectionRange The selectionRange of the symbol.
      * @param children Children of the symbol.
      */
-    export function create(name: string,  uri: string, detail: string, kind: SymbolKind, range: Range, selectionRange: Range, scope: DefinitionScope, children: FishDocumentSymbol[]): FishDocumentSymbol {
+    export function create(name: string,  uri: string, text: string, detail: string, kind: SymbolKind, range: Range, selectionRange: Range, scope: DefinitionScope, children: FishDocumentSymbol[]): FishDocumentSymbol {
         return {
             name,
             uri,
+            text,
             detail,
             kind,
             range,
@@ -52,6 +55,7 @@ export namespace FishDocumentSymbol {
         return create(
             symbol.name,
             symbol.uri,
+            symbol.text,
             symbol.detail,
             symbol.kind,
             symbol.range,
@@ -93,6 +97,14 @@ export namespace FishDocumentSymbol {
 
     export function equalScopes(a: FishDocumentSymbol, b: FishDocumentSymbol): boolean {
         if (a.scope.scopeNode && b.scope.scopeNode) {
+            if ([a.scope.scopeTag, b.scope.scopeTag].includes("inherit")) {
+                return a.scope.scopeNode.equals(b.scope.scopeNode);
+            } else if (
+                ["global", "universal"].includes(a.scope.scopeTag) &&
+                ["global", "universal"].includes(b.scope.scopeTag)
+            ) {
+                return true;
+            }
             return a.scope.scopeTag === b.scope.scopeTag &&
                 a.scope.scopeNode.equals(b.scope.scopeNode)
         }
@@ -121,6 +133,56 @@ export namespace FishDocumentSymbol {
         return new GenericTree<FishDocumentSymbol>(symbols);
     }
 
+    export function debug(symbol: FishDocumentSymbol) {
+        const positionString = (pos: Position) => `(line: ${pos.line}, char: ${pos.character})`;
+        const rangeString = (n: SyntaxNode) => {
+            const range = getRange(n)
+            return `${positionString(range.start)} --- ${positionString(range.end)}`
+        }
+
+        const scopeNodeLines = symbol.scope.scopeNode.text.split('\n')
+        return {
+            name: symbol.name,
+            range: positionString(symbol.range.start) + " --- " + positionString(symbol.range.end),
+            selectionRange: positionString(symbol.selectionRange.start) + " --- " + positionString(symbol.selectionRange.end),
+            text: symbol.text.split('\n').length > 1 
+                    ?  symbol.text + '...' 
+                    : symbol.text,
+            scope: {
+                scopeTag: symbol.scope.scopeTag,
+                scopeNode: {
+                    text: scopeNodeLines[0] + '...',
+                    type: symbol.scope.scopeNode.type,
+                    range: rangeString(symbol.scope.scopeNode),
+                }
+            }, 
+            type: symbol.kind === SymbolKind.Function ? 'function' : 'variable',
+            uri: symbol.uri,
+        }
+    }
+
+    export type MockSymbol = {
+        name: string,
+        scope: ScopeTag,
+        range: Range,
+    }
+
+    export function toMock(symbol: FishDocumentSymbol): MockSymbol {
+        const {name, scope, range} = symbol;
+        return {
+            name,
+            scope: scope.scopeTag,
+            range,
+        }
+    }
+
+    export function createMock(name: string, scope: ScopeTag, range: Range): MockSymbol {
+        return {
+            name,
+            scope,
+            range,
+        }
+    }
 }
 
 /**
@@ -166,15 +228,38 @@ export function filterLastPerScopeSymbol(symbolArray: FishDocumentSymbol[]) {
 
 export function findSymbolsForCompletion(symbols: FishDocumentSymbol[], position: Position): FishDocumentSymbol[] {
     const symbolTree = new GenericTree<FishDocumentSymbol>(symbols);
-    return symbolTree
+    const symbolFunctionCompare = (symbol: FishDocumentSymbol, position: Position) => {
+        const {scope} = symbol;
+        if (['global', 'universal'].includes(scope.scopeTag)) return true;
+        return scope.containsPosition(position) 
+    }
+    const possibleDuplicates = symbolTree
         .filterToTree((symbol: FishDocumentSymbol) => {
-            return symbol.scope.containsRange(position);
+            return symbol.kind ===  SymbolKind.Function 
+                ? symbolFunctionCompare(symbol, position)
+                : (symbol.scope.containsPosition(position) &&
+                   isPositionAfter(symbol.selectionRange.end, position))
         })
-        .toFlatArray();
+        .toFlatArray()
+        .reverse()
+    const uniqueSymbolsArray: FishDocumentSymbol[] = [];
+    for (const symbol of possibleDuplicates) {
+        if (uniqueSymbolsArray.some((s) => s.name === symbol.name)) continue;
+        uniqueSymbolsArray.push(symbol);
+    }
+    return uniqueSymbolsArray;
 }
-// needs to consider if the symbol is the last of its scope
-// needs to consider if the symbol is before the position
-// needs to consider if the symbol is already shown (remove duplicates, even though not really duplicates)
+
+export function findSymbolReferences(symbols: FishDocumentSymbol[], matchSymbol: FishDocumentSymbol): FishDocumentSymbol[] {
+    return new GenericTree<FishDocumentSymbol>(symbols)
+        .filterToTree((symbol: FishDocumentSymbol) => {
+            //if (symbol.scope.scopeTag === 'global' ) return true;
+            return matchSymbol.name === symbol.name 
+                && FishDocumentSymbol.equalScopes(matchSymbol, symbol)
+        })
+        .toFlatArray()
+
+}
 
 /**
  * TreeSitter definition nodes in fish shell rely on commands, and thus create trees that
@@ -231,6 +316,7 @@ export function getFishDocumentSymbols(uri: string, ...currentNodes: SyntaxNode[
                 FishDocumentSymbol.create(
                     child.text,
                     uri,
+                    parent.text,
                     DocumentSymbolDetail.create(child.text, uri, kind, child),
                     kind,
                     getRange(parent),
