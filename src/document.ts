@@ -161,7 +161,14 @@ export class LspDocument implements TextDocument {
         return uriToPath(this.uri);
     }
 
-    get isFunction(): boolean {
+    isFunction(): boolean {
+        const pathArray = this.uri.split('/');
+        const fileName = pathArray.pop();
+        const parentDir = pathArray.pop();
+        return parentDir === 'functions' || fileName === 'config.fish';
+    }
+
+    shouldAnalyzeInBackground(): boolean {
         const pathArray = this.uri.split('/');
         const fileName = pathArray.pop();
         const parentDir = pathArray.pop();

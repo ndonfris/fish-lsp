@@ -307,6 +307,7 @@ export function definitionSymbolHandler(node: SyntaxNode): {
         parent = refinedFindParentVariableDefinitionKeyword(node)!.parent!;
         kind = SymbolKind.Variable;
         shouldCreate = true;
+        if (node.text.startsWith('$')) shouldCreate = false;
     } else if (node.firstNamedChild && isFunctionDefinitionName(node.firstNamedChild)) {
         child = node.firstNamedChild!;
         kind = SymbolKind.Function;

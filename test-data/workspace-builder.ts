@@ -6,15 +6,18 @@ import { resolve } from 'path';
 import * as fastGlob from 'fast-glob'
 import Parser from 'web-tree-sitter';
 import { TextDocumentItem } from 'vscode-languageserver';
+import { pathToUri } from '../src/utils/translation';
+import { FishWorkspace, Workspace } from '../src/utils/workspace';
 
 export type WorkspaceName = 'workspace_1' | 'workspace_2' | 'workspace_3'
 
-export class WorkspaceSpoofer {
+export class WorkspaceSpoofer implements FishWorkspace {
 
     public name: WorkspaceName
     public path: string
     public actualPath: string
     public files: SpoofedFile[]
+    public uris: Set<string>
 
     public static async create(workspaceName: WorkspaceName) {
         const actualPath = getTestDirectory(workspaceName)
@@ -24,21 +27,16 @@ export class WorkspaceSpoofer {
     }
 
     private constructor(workspaceName: WorkspaceName, actualPath: string, files: SpoofedFile[]) {
+        //super(`${homedir()}/.config/fish`, new Set([...files].map(file => file.fakePath)))
         this.name = workspaceName
         this.path = `${homedir()}/.config/fish`
         this.actualPath = actualPath
         this.files = files
+        this.uris = new Set(files.map(file => file.uri));
     }
 
     get count() {
         return this.files.length
-    }
-
-    /**
-     * Are uris or contents editable in this workspace
-     */
-    isEditable() {
-        return this.path.includes(`${homedir()}/.config/fish`)
     }
 
     contains(...uris: string[]) {
@@ -48,6 +46,14 @@ export class WorkspaceSpoofer {
             }
         }
         return true
+    }
+
+    urisToLspDocuments(): LspDocument[] {
+        const docs: LspDocument[] = []
+        for (const file of this.files) {
+            docs.push(file.toLspDocument())
+        }
+        return docs
     }
 }
 
@@ -62,7 +68,7 @@ export class SpoofedFile {
         this.realPath = realPath
         this.relativePath = getRelativePath(realPath)
         this.fakePath = spoofRelavtivePath(this.relativePath)
-        this.uri = `file://${this.fakePath}`
+        this.uri = pathToUri(this.fakePath)
     }
 
     get content() {

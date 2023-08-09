@@ -4,6 +4,7 @@ import { Analyzer } from '../analyze';
 import { createReadStream, readFileSync } from 'fs';
 import { pathToUri, toLspDocument, uriToPath } from './translation';
 import { LspDocument } from '../document';
+import { FishDocumentSymbol } from '../document-symbol';
 
 
 async function getFileUriSet(path: string) {
@@ -25,16 +26,24 @@ export async function initializeDefaultFishWorkspaces(): Promise<Workspace[]> {
     return defaultSpaces
 }
 
-export class Workspace {
+export interface FishWorkspace {
+    path: string
+    uris: Set<string>
+    contains(...checkUris: string[]): boolean
+    urisToLspDocuments(): LspDocument[]
+}
+
+export class Workspace implements FishWorkspace {
     public path: string
     public uris: Set<string>;
+    public symbols: Map<string, FishDocumentSymbol[]> = new Map()
 
     public static async create(path: string) {
         const foundUris = await getFileUriSet(path)
         return new Workspace(path, foundUris)
     }
 
-    private constructor(path: string, fileUris: Set<string>) {
+    public constructor(path: string, fileUris: Set<string>) {
         this.path = path
         this.uris = fileUris
     }
@@ -106,9 +115,10 @@ export class Workspace {
         for (const uri of this.uris) {
             const path = uriToPath(uri)
             const content = readFileSync(path)
-            const doc = toLspDocument(uri, content.toString())
+            const doc = toLspDocument(path, content.toString())
             docs.push(doc)
         }
         return docs
     }
+
 }

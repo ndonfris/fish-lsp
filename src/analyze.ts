@@ -13,7 +13,7 @@ import { DocumentSymbol } from 'vscode-languageserver';
 import { GlobalWorkspaceSymbol } from './symbols';
 import fs from 'fs'
 import { SymbolTree } from './symbolTree';
-import { Workspace } from './utils/workspace';
+import { FishWorkspace, Workspace } from './utils/workspace';
 import { collectFishWorkspaceSymbols, FishWorkspaceSymbol } from './utils/fishWorkspaceSymbol';
 import { filterGlobalSymbols, FishDocumentSymbol, getFishDocumentSymbols, isGlobalSymbol, isUniversalSymbol } from './document-symbol';
 import { GenericTree } from './utils/generic-tree';
@@ -21,12 +21,12 @@ import { GenericTree } from './utils/generic-tree';
 
 export class Analyzer {
     protected parser: Parser;
-    public workspaces: Workspace[];
+    public workspaces: FishWorkspace[];
     public cache: AnalyzedDocumentCache = new AnalyzedDocumentCache();
     public globalSymbols: GlobalDefinitionCache = new GlobalDefinitionCache();
     private diagnosticQueue: DiagnosticQueue = new DiagnosticQueue();
 
-    constructor(parser: Parser, workspaces: Workspace[]) {
+    constructor(parser: Parser, workspaces: FishWorkspace[]) {
         this.parser = parser;
         this.workspaces = workspaces;
     }
@@ -56,9 +56,10 @@ export class Analyzer {
 
     public async initiateBackgroundAnalysis() : Promise<{ filesParsed: number }> {
         let amount = 0;
-        for (const workspace of this.workspaces) {
+        this.workspaces.forEach(workspace => {
             workspace
                 .urisToLspDocuments()
+                .filter((doc: LspDocument) => doc.shouldAnalyzeInBackground())
                 .forEach((doc: LspDocument) => {
                     try {
                         this.analyze(doc);
@@ -67,7 +68,7 @@ export class Analyzer {
                         console.error(err)
                     }
                 })
-        }
+        })
         return { filesParsed: amount };
     }
 
