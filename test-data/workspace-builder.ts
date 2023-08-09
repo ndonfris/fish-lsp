@@ -69,7 +69,7 @@ export class WorkspaceSpoofer implements FishWorkspace {
 
     getDocument(uri: string) {
         return this.files.find(file => file.uri === uri)
-    }toFlatArray()
+    }
 }
 
 

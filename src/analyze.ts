@@ -206,9 +206,11 @@ export class Analyzer {
 export class GlobalDefinitionCache {
     constructor(private _definitions: Map<string, FishDocumentSymbol[]> = new Map()) {}
     add(symbol: FishDocumentSymbol) {
-        return this._definitions.has(symbol.name) 
-            ? this._definitions.set(symbol.name, [...this.find(symbol.name), symbol]) 
-            : this._definitions.set(symbol.name, [symbol]);
+        const current = this._definitions.get(symbol.name) || [];
+        if (!current.some(s => FishDocumentSymbol.equal(s, symbol))) {
+            current.push(symbol);
+        }
+        this._definitions.set(symbol.name, current);
     }   
     find(name: string): FishDocumentSymbol[] {
         return this._definitions.get(name) || [];

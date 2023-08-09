@@ -66,12 +66,19 @@ export namespace FishDocumentSymbol {
     }
 
     export function equal(a: FishDocumentSymbol, b: FishDocumentSymbol): boolean {
-        return a.name === b.name &&
+        return (
+            a.name === b.name &&
             a.uri === b.uri &&
-            a.range.start === b.range.start &&
-            a.range.end === b.range.end &&
-            a.selectionRange.start === b.selectionRange.start &&
-            a.selectionRange.end === b.selectionRange.end;
+            a.range.start.character === b.range.start.character &&
+            a.range.start.line === b.range.start.line &&
+            a.range.end.character === b.range.end.character &&
+            a.range.end.line === b.range.end.line &&
+            a.selectionRange.start.character ===
+                b.selectionRange.start.character &&
+            a.selectionRange.start.line === b.selectionRange.start.line &&
+            a.selectionRange.end.line === b.selectionRange.end.line &&
+            a.selectionRange.end.character === b.selectionRange.end.character
+        );
     }
 
     export function toWorkspaceSymbol(symbol: FishDocumentSymbol): WorkspaceSymbol {

@@ -7,7 +7,6 @@ function func-inner --argument-names arg1 arg2
         printf "%s\n" $argv
     end
 
-    set -l arg1 $arg1 ; set -l arg2 $arg2;
     if set -q arg1 && set -q arg2
         __inner "arg1 and arg2 are set"
         __inner "arg1: $arg1"

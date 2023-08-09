@@ -45,18 +45,13 @@ describe("analyze tests", () => {
         analyzer = new Analyzer(parser, workspaces)
         const initializedResult = await analyzer.initiateBackgroundAnalysis();
         const amount = initializedResult.filesParsed;
-        //analyzer.globalSymbols.allSymbols.forEach((symbol) => {
-        //    console.log(symbol.name);
-        //})
-        //console.log(amount);
         assert.isAbove(amount, 100)
     });
 
     it('checking spoofed workspace_1', async () => {
         const ws = await WorkspaceSpoofer.create('workspace_1')
-        workspaces = [ws]
-
-        analyzer = new Analyzer(parser, workspaces)
+        analyzer = new Analyzer(parser, [ws])
+        await analyzer.initiateBackgroundAnalysis();
         const initializedResult = await analyzer.initiateBackgroundAnalysis();
         const amount = initializedResult.filesParsed;
         analyzer.globalSymbols.allSymbols.forEach((symbol) => {
@@ -64,15 +59,10 @@ describe("analyze tests", () => {
         })
 
 
-        const innerUri = ws.findMatchingFishIdentifiers('func-inner')[0]!
-        //const innerDoc = ws.getDocument(innerUri)!
-        
+        const innerUri = ws.findMatchingFishIdentifiers('func-inner').shift()!
         const symbols = analyzer.cache.getDocumentSymbols(innerUri)
-
         const tree = filterLastPerScopeSymbol(symbols);
         logClientTree(tree);
-
-
         console.log(amount);
         //assert.isAbove(amount, 100)
     });
