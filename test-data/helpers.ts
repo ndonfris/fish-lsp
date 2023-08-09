@@ -11,10 +11,33 @@ import {bgBlack, bgBlue, black, inverse, white} from 'colors';
 import {LspDocument} from '../src/document';
 import console from 'console';
 import {homedir} from 'os';
+import { URI } from 'vscode-uri';
 //import { Marked }
 //import { blue, inverse } from 'colors'
 
 const util = require('util')
+
+export function buildUri(absolutePath: string) {
+    return URI.parse(absolutePath).toString()
+}
+
+export function setLogger(
+    beforeCallback: () => void = () => { return },
+    afterCallback: () => void = () => { return },
+){
+    const jestConsole = console;
+    beforeEach(async () => {
+        global.console = require("console");
+        beforeCallback();
+    }, 10000);
+
+    afterEach(() => {
+        global.console = jestConsole;
+        afterCallback();
+    }, 10000);
+}
+
+
 
 /**
  * texts: array of file contents (entire file as a string), 

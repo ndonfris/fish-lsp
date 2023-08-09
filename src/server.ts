@@ -29,7 +29,7 @@ import { DocumentationCache, initializeDocumentationCache } from './utils/docume
 import { collectAllSymbolInformation, DocumentDefSymbol } from './symbols';
 import { SymbolTree } from './symbolTree';
 import { homedir } from 'os';
-import { initializeFishWorkspaces } from './utils/workspace';
+import { initializeDefaultFishWorkspaces } from './utils/workspace';
 import { filterLastPerScopeSymbol } from './document-symbol';
 
 // @TODO 
@@ -49,7 +49,7 @@ export default class FishServer {
         return await Promise.all([
             initializeParser(),
             initializeDocumentationCache(),
-            initializeFishWorkspaces({}),
+            initializeDefaultFishWorkspaces(),
         ]).then(([parser, cache, workspaces]) => {
             const analyzer = new Analyzer(parser, workspaces);
             return new FishServer(connection, config, parser, analyzer, documents, cache);

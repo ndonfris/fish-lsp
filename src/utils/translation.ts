@@ -13,16 +13,25 @@ import os from 'os'
 
 const RE_PATHSEP_WINDOWS = /\\/g;
 
-export function uriToPath(stringUri: string): string | undefined {
-    // Vim may send `zipfile:` URIs which tsserver with Yarn v2+ hook can handle. Keep as-is.
-    // Example: zipfile:///foo/bar/baz.zip::path/to/module
-    if (stringUri.startsWith('zipfile:')) {
-        return stringUri;
-    }
+//export function uriToPath(stringUri: string): string | undefined {
+//    // Vim may send `zipfile:` URIs which tsserver with Yarn v2+ hook can handle. Keep as-is.
+//    // Example: zipfile:///foo/bar/baz.zip::path/to/module
+//    if (stringUri.startsWith('zipfile:')) {
+//        return stringUri;
+//    }
+//    const uri = URI.parse(stringUri);
+//    if (uri.scheme !== 'file') {
+//        return undefined;
+//    }
+//    return normalizeFsPath(uri.fsPath);
+//}
+export function isUri(stringUri: string): boolean {
     const uri = URI.parse(stringUri);
-    if (uri.scheme !== 'file') {
-        return undefined;
-    }
+    return URI.isUri(uri)
+}
+
+export function uriToPath(stringUri: string): string {
+    const uri = URI.parse(stringUri);
     return normalizeFsPath(uri.fsPath);
 }
 

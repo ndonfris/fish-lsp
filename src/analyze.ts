@@ -57,15 +57,16 @@ export class Analyzer {
     public async initiateBackgroundAnalysis() : Promise<{ filesParsed: number }> {
         let amount = 0;
         for (const workspace of this.workspaces) {
-            await workspace.initializeFiles()
-            workspace.docs.forEach((doc: LspDocument) => {
-                try {
-                    this.analyze(doc);
-                    amount++;
-                } catch (err) {
-                    console.error(err)
-                }
-            })
+            workspace
+                .urisToLspDocuments()
+                .forEach((doc: LspDocument) => {
+                    try {
+                        this.analyze(doc);
+                        amount++;
+                    } catch (err) {
+                        console.error(err)
+                    }
+                })
         }
         return { filesParsed: amount };
     }
