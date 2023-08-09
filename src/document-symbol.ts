@@ -1,5 +1,5 @@
 
-import { DocumentSymbol, SymbolKind, Range, WorkspaceSymbol, Position, } from 'vscode-languageserver';
+import { DocumentSymbol, SymbolKind, Range, WorkspaceSymbol, Position, Location, } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { isFunctionDefinitionName, isDefinition, isVariableDefinition, isFunctionDefinition, isVariableDefinitionName, refinedFindParentVariableDefinitionKeyword } from './utils/node-types'
 import { findVariableDefinitionOptions } from './utils/options';
@@ -73,8 +73,7 @@ export namespace FishDocumentSymbol {
             a.range.start.line === b.range.start.line &&
             a.range.end.character === b.range.end.character &&
             a.range.end.line === b.range.end.line &&
-            a.selectionRange.start.character ===
-                b.selectionRange.start.character &&
+            a.selectionRange.start.character === b.selectionRange.start.character &&
             a.selectionRange.start.line === b.selectionRange.start.line &&
             a.selectionRange.end.line === b.selectionRange.end.line &&
             a.selectionRange.end.character === b.selectionRange.end.character
@@ -87,6 +86,13 @@ export namespace FishDocumentSymbol {
             symbol.kind,
             symbol.uri,
             symbol.range,
+        )
+    }
+
+    export function toLocation(symbol: FishDocumentSymbol): Location {
+        return Location.create(
+            symbol.uri,
+            symbol.selectionRange,
         )
     }
 

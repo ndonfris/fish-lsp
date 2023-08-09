@@ -482,4 +482,3 @@ export async function createCompletionList(
     return result.buildCompletionList(position, lastWord.length);
 }
 
-

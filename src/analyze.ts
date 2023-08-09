@@ -15,7 +15,7 @@ import fs from 'fs'
 import { SymbolTree } from './symbolTree';
 import { FishWorkspace, Workspace } from './utils/workspace';
 import { collectFishWorkspaceSymbols, FishWorkspaceSymbol } from './utils/fishWorkspaceSymbol';
-import { filterGlobalSymbols, FishDocumentSymbol, getFishDocumentSymbols, isGlobalSymbol, isUniversalSymbol } from './document-symbol';
+import { filterGlobalSymbols, findLastDefinition, findSymbolsForCompletion, FishDocumentSymbol, getFishDocumentSymbols, isGlobalSymbol, isUniversalSymbol } from './document-symbol';
 import { GenericTree } from './utils/generic-tree';
 
 
@@ -72,6 +72,15 @@ export class Analyzer {
         return { filesParsed: amount };
     }
 
+    public findDocumentSymbol(document: LspDocument, position: Position): FishDocumentSymbol | null {
+        const tree = this.getTree(document);
+        if (!tree) return null;
+        const node = this.nodeAtPoint(document, position.line, position.character);
+        if (!node) return null;
+        const symbols = this.cache.getDocumentSymbols(document.uri);
+        const symbol = findLastDefinition(symbols, node)
+        return symbol || null;
+    }
 
     
     /**
@@ -80,29 +89,44 @@ export class Analyzer {
      * @returns {WorkspaceSymbol[]} array of all symbols
      */
     public getWorkspaceSymbols(query: string = ""): WorkspaceSymbol[] {
-        const results : WorkspaceSymbol[] = 
-            this.globalSymbols.allSymbols.map(s => FishDocumentSymbol.toWorkspaceSymbol(s));
-        return query === '' || query.trim() === ''
-            ? results 
-            : results.filter((symbol: WorkspaceSymbol) => {
-                symbol.name.includes(query)
-            });
+        return this.globalSymbols.allSymbols
+                .map(s => FishDocumentSymbol.toWorkspaceSymbol(s))
+                .filter((symbol: WorkspaceSymbol) => {
+                    return symbol.name.startsWith(query)
+                })
+    }
+
+    public getDefinition(document: LspDocument, position: Position): LSP.Location[] {
+        const tree = this.getTree(document)
+        const node = this.nodeAtPoint(document, position.line, position.character);
+        if (!tree || !node) return [];
+        const symbols: FishDocumentSymbol[] = [];
+        const localSymbol = this.findDocumentSymbol(document, position)
+        if (localSymbol) symbols.push(localSymbol)
+        if (symbols.length === 0) symbols.push(...this.globalSymbols.find(node.text))
+        return symbols.map(symbol => FishDocumentSymbol.toLocation(symbol)) || [];
     }
 
     public getHover(document: LspDocument, position: Position): Hover | null {
         const tree = this.getTree(document)
-        if (!tree) return null;
         const node = this.nodeAtPoint(document, position.line, position.character);
-        if (!node || !this.globalSymbols.has(node.text)) return null
-        const symbols = this.globalSymbols.find(node.text);
-        if (!this.globalSymbols.has(node.text) || symbols.length === 0) return null;
-        const symbol = symbols[0];
-        return {
-            contents: {
-                kind: MarkupKind.Markdown,
-                value: symbol.detail,
-            } as MarkupContent
+        if (!tree || !node) return null;
+        const symbol = this.findDocumentSymbol(document, position) || this.globalSymbols.findFirst(node.text);
+        if (symbol) {
+            return {
+                contents: {
+                    kind: MarkupKind.Markdown,
+                    value: symbol.detail,
+                } as MarkupContent
+            }
         }
+        return null;
+    }
+
+    public findCompletions(document: LspDocument, position: Position) {
+        const symbols = this.cache.getDocumentSymbols(document.uri);
+        const completionSymbols = findSymbolsForCompletion(symbols, position);
+        return completionSymbols
     }
 
     getTree(document: LspDocument) {
@@ -215,6 +239,11 @@ export class GlobalDefinitionCache {
     find(name: string): FishDocumentSymbol[] {
         return this._definitions.get(name) || [];
     }
+    findFirst(name: string): FishDocumentSymbol | undefined {
+        const symbols = this.find(name);
+        if (symbols.length === 0) return undefined;
+        return symbols[0];
+    }
     has(name: string): boolean {
         return this._definitions.has(name);
     }
@@ -248,6 +277,9 @@ export class AnalyzedDocumentCache {
     }
     getDocumentSymbols(uri: URI): FishDocumentSymbol[] {
         return this._documents.get(uri)?.documentSymbols || [];
+    }
+    getFlatDocumentSymbols(uri: URI): FishDocumentSymbol[] {
+        return this.getSymbolTree(uri).toFlatArray() || []
     }
     getCommands(uri: URI): string[] {
         return this._documents.get(uri)?.commands || [];

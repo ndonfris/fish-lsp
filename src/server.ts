@@ -244,6 +244,7 @@ export default class FishServer {
     // • Add default CompletionLists to complete.ts
     // • Add local file items.
     // • Lastly add parameterInformation items.  [ 1477 : ParameterInformation ]
+    // convert to CompletionItem[]
     async onCompletion(params: CompletionParams):  Promise<CompletionList | null>{
         const uri = uriToPath(params.textDocument.uri);
         let newCompletionList: CompletionList | null = null;
@@ -335,39 +336,16 @@ export default class FishServer {
 
     async onWorkspaceSymbol(params: WorkspaceSymbolParams): Promise<WorkspaceSymbol[]> {
         this.logger.log('onWorkspaceSymbol: ' + params.query);
-        return this.analyzer.getWorkspaceSymbols(params.query)
+        return this.analyzer.getWorkspaceSymbols(params.query) || []
     }
-
-    //async onWorkspaceSymbolResolve(params: WorkspaceSymbolParams): Promise<WorkspaceSymbol[]> {
-        //this.logger.log('onWorkspaceSymbolResolve: ' + params.query);
-        //return [];
-    //}
 
 
     // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#showDocumentParams
     async onDefinition(params: DefinitionParams): Promise<Location[]> {
         this.logger.log("onDefinition");
         const {doc, uri, root, current} = this.getDefaults(params)
-        if (!doc || !uri || !root || !current) return [];
-        const definitions: Location[] = [];
-        this.logger.log(current.text || "no definition current node")
-        const definitionKind = getDefinitionKind(uri, root, current, definitions);
-        switch (definitionKind) {
-            case DefinitionKind.FILE:
-                const foundUri = await execFindDependency(current.text)
-                const defUri = uriToPath(foundUri) || foundUri
-                const foundText = await execOpenFile(defUri)
-                this.logger.log(foundText)
-                //const newDoc = TextDocumentItem.create(foundUri, 'fish', 0, foundText);
-                const newRoot = this.parser.parse(foundText).rootNode
-                return getLocalDefs(defUri, newRoot, current)
-            case DefinitionKind.LOCAL:
-                return definitions
-            case DefinitionKind.NONE:
-                return []
-            default:
-                return definitions
-        }
+        if (!doc) return [];
+        return this.analyzer.getDefinition(doc, params.position)
     }
 
 
