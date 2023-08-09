@@ -165,12 +165,12 @@ describe("scopes tests", () => {
         )
         lastSymbol = findLastDefinition(symbols, func_a)!
         assert.deepEqual(
-            FishDocumentSymbol.createMock('func_a', 'local', createRange(0, 0, 27, 0)),
+            FishDocumentSymbol.createMock('func_a', 'local', createRange(0, 0, 26, 15)),
             FishDocumentSymbol.toMock(lastSymbol)
         )
         lastSymbol = findLastDefinition(symbols, func_b)!
         assert.deepEqual(
-            FishDocumentSymbol.createMock('func_b', 'local', createRange(0, 0, 27, 0)),
+            FishDocumentSymbol.createMock('func_b', 'local', createRange(0, 0, 26, 15)),
             FishDocumentSymbol.toMock(lastSymbol)
         )
         lastSymbol = findLastDefinition(symbols, for_i)!

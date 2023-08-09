@@ -2,8 +2,9 @@ import Parser, { Tree, SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from '../src/parser';
 import { getChildNodes } from '../src/utils/tree-sitter';
 import * as NodeTypes from '../src/utils/node-types'
+import * as VarTypes from '../src/utils/variable-syntax-nodes'
 import { assert } from 'chai';
-import { expandEntireVariableLine, getVariableCommand } from '../src/utils/variable-scopes'
+import { expandEntireVariableLine } from '../src/utils/definition-scope'
 
 function parseStringForNodeType(str: string, predicate: (n:SyntaxNode) => boolean) {
     const tree = parser.parse(str);
@@ -166,17 +167,25 @@ describe("node-types tests", () => {
             'function func_foo -a func_foo_arg',
             '    echo $func_foo_arg',
             'end',
-            'set -gx OS_NAME (set -l f) # check for mac or linux',
+            'set -gx OS_NAME (set -l f "v" | echo $v) # check for mac or linux',
         ].join('\n');
-        const variableDefinitions = parseStringForNodeType(input, NodeTypes.isVariableDefinition);
-        //NodeTypes.findParentVariableDefintionKeyword
-        for (const v of variableDefinitions) {
-            const nodes =  expandEntireVariableLine(v)
-            console.log(nodes.map(n => n.text), nodes.filter(n => NodeTypes.isOption(n)).map(n => n.text))
-        }
-        logNodes(variableDefinitions)
+        const variableDefinitions = parseStringForNodeType(input, NodeTypes.isDefinition);
+        assert.deepEqual(
+            variableDefinitions.map((v) => v.text),
+            ["set_foo", "read_foo", "func_foo", "func_foo_arg", "OS_NAME", "f"]
+        );
     })
 
+    it('isVariableDef', () => {
+        const input = [
+            "set -x set_foo 1",
+            "set -q local_foo 2",
+            "function _f -a param_foo;end;",
+            "for i in (seq 1 10); echo $i; end;",
+            "echo 'var' | read -l read_foo" 
+        ].join("\n");
+        const defs = parseStringForNodeType(input, NodeTypes.isVariableDefinition);
+        assert.deepEqual(defs.map(d => d.text), ['set_foo', 'param_foo', 'i', 'read_foo'])
+    })
 
 })
-

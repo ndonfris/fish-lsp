@@ -53,15 +53,36 @@ describe("analyze tests", () => {
     });
 
     it('checking spoofed workspace_1', async () => {
-        workspaces = [await WorkspaceSpoofer.create('workspace_1')]
+        const ws = await WorkspaceSpoofer.create('workspace_1')
+        workspaces = [ws]
+
         analyzer = new Analyzer(parser, workspaces)
         const initializedResult = await analyzer.initiateBackgroundAnalysis();
         const amount = initializedResult.filesParsed;
         analyzer.globalSymbols.allSymbols.forEach((symbol) => {
             console.log(symbol.name);
         })
+
+
+        const innerUri = ws.findMatchingFishIdentifiers('func-inner')[0]!
+        //const innerDoc = ws.getDocument(innerUri)!
+        
+        const symbols = analyzer.cache.getDocumentSymbols(innerUri)
+
+        const tree = filterLastPerScopeSymbol(symbols);
+        logClientTree(tree);
+
+
         console.log(amount);
         //assert.isAbove(amount, 100)
     });
 
 });
+
+
+function logClientTree(symbols: FishDocumentSymbol[], level = 0) {
+    for (const symbol of symbols) {
+        console.log("  ".repeat(level) + `${FishDocumentSymbol.logString(symbol)}`);
+        logClientTree(symbol.children || [], level + 1);
+    }
+}

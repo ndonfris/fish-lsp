@@ -1,0 +1,6 @@
+
+
+
+describe('variable syntax nodes', () => {
+
+})

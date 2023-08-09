@@ -192,3 +192,14 @@ export function expandEntireVariableLine(node: SyntaxNode): SyntaxNode[] {
 
     return results;
 }
+
+
+export function setQuery(searchNodes: SyntaxNode[]) {
+    const queryFlag = new VariableDefinitionFlag('q', 'query')
+    for (const flag of searchNodes)  {
+        if (queryFlag.isMatch(flag)) {
+            return true
+        }
+    }
+    return false
+}

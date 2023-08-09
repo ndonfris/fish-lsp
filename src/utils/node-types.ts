@@ -3,6 +3,8 @@ import {RemoteConsole} from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter'
 import {ancestorMatch, findChildNodes, findFirstParent, findFirstSibling, firstAncestorMatch, getChildNodes, getParentNodes, getSiblingNodes} from './tree-sitter';
 import {  findFunctionDefinitionOptions } from './options'
+import { setQuery } from './definition-scope';
+import * as VariableTypes from './variable-syntax-nodes'
 
 /** 
  * fish shell comment: '# ...'                    
@@ -169,6 +171,10 @@ export function isScope(node: SyntaxNode): boolean {
     return isProgram(node) || isFunctionDefinition(node) || isStatement(node) // || isLocalBlock(node)//
 }
 
+export function isSemicolon(node: SyntaxNode): boolean {
+    return node.type == ';';
+}
+
 export function isNewline(node: SyntaxNode): boolean {
     return node.type == '\n';
 }
@@ -313,37 +319,28 @@ export function isVariableDefinitionName(node: SyntaxNode): boolean {
     if (isFunctionDefinition(node) ||
         isCommand(node) ||
         isCommandName(node) ||
-        defintionKeywords.includes(node.firstChild?.text || "")
+        defintionKeywords.includes(node.firstChild?.text || "") ||
+        !VariableTypes.isPossible(node)
     ){
         return false;
     } 
     const keyword = refinedFindParentVariableDefinitionKeyword(node);
     if (!keyword) return false;
-    const siblings = gatherSiblingsTillEol(keyword);
+    const siblings = VariableTypes.gatherVariableSiblings(keyword);
     switch (keyword.text) {
         case 'set':
-            return siblings.find(sibling => !isOption(sibling))?.equals(node) || false;
+            return VariableTypes.isSetDefinitionNode(siblings, node);
         case 'read':
-            return findReadVariablesDefinition(siblings, node)
+            return VariableTypes.isReadDefinitionNode(siblings, node)
         case 'function':
-            return findFunctionDefinitionOptions(keyword, node);
+            return VariableTypes.isFunctionArgumentDefinitionNode(siblings, node)
         case 'for':
-            return siblings.shift()?.equals(node) || false;
+            return VariableTypes.isForLoopDefinitionNode(siblings, node)
         default:
             return false;
     }
 }
 
-function findReadVariablesDefinition(siblings: SyntaxNode[], node: SyntaxNode): boolean {
-    const readVariables: SyntaxNode[] = [];
-    while (siblings.length > 0) {
-        const current = siblings.pop();
-        if (!current) break;
-        if (isOption(current) || isString(current)) break;
-        readVariables.push(current);
-    }
-    return readVariables.find((sibling) => sibling.equals(node)) !== undefined;
-}
 
 /**
  * checks if a node is a variable defintion. Current syntax tree from tree-sitter-fish will
@@ -354,25 +351,7 @@ function findReadVariablesDefinition(siblings: SyntaxNode[], node: SyntaxNode): 
  * @returns {boolean} true if the node is a variable defintion, false otherwise
  */
 export function isVariableDefinition(node: SyntaxNode): boolean {
-    if (isFunctionDefinition(node) || isCommand(node) || isCommandName(node) || defintionKeywords.includes(node.firstChild?.text || "")) {
-        return false;
-    } 
-    const parent = findParentVariableDefintionKeyword(node);
-    if (!parent) return false;
-    switch (parent.firstChild?.text) {
-        case 'set':
-            const setVar = findSetDefinedVariable(parent);
-            return setVar !== null ? node.equals(setVar) : false;
-        case 'read':
-            return findReadVariables(parent).filter(n => n.equals(node)).length > 0;
-        case 'function':
-            return findArgumentFlag(parent).filter(n => n.equals(node)).length > 0;
-        case 'for':
-            const forVar = findForLoopVariable(parent);
-            return forVar !== null ? node.equals(forVar) : false;
-        default:          
-            return false; 
-    }
+    return isVariableDefinitionName(node)
 }
 
 function findParentForScope(currentNode: SyntaxNode, switchFound: VariableScope | "") : SyntaxNode | null {
@@ -453,25 +432,6 @@ export function findSetDefinedVariable(node: SyntaxNode): SyntaxNode | null {
 
 //// for function variables
 
-/** 
- * for function variable defintions
- * @param {SyntaxNode} node - finds the node in a fish command that will
- * @return {SyntaxNode[]} variable nodes that were found
- */
-function findArgumentFlag(node: SyntaxNode) : SyntaxNode[] {
-    const flags : SyntaxNode[] = [];
-    for (let i = 0; i < node.children.length; i++) {
-        const child = node.children[i]
-        if (isArgFlags(child)) {
-            let varName = child.nextSibling;
-            while (varName !== null && varName.type === 'word' && !varName.text.startsWith("-")) {
-                flags.push(varName)
-                varName = varName.nextSibling
-            }
-        }
-    }
-    return flags;
-}
 
 function isArgFlags(node: SyntaxNode) {
     return node.type === 'word'
@@ -576,9 +536,8 @@ export function scopeCheck(node1: SyntaxNode , node2: SyntaxNode) : boolean {
     return scope1 == scope2;
 }
 
-export function isLocalVariable(node: SyntaxNode, console: RemoteConsole) {
+export function isLocalVariable(node: SyntaxNode) {
     const parents = getParentNodes(node)
-    const pCmd = parents[1]
     //if (pCmd.child(0)?.text === 'read' || pCmd.child(0)?.text === 'set') {
     //    console.log(pCmd.text)
     //}
@@ -609,7 +568,7 @@ export function isConditionalCommand(node: SyntaxNode) {
 
 // @TODO: see ./tree-sitter.ts -> getRangeWithPrecedingComments(),
 //        for implementation of chained returns of conditional_executions
-export function chainedCommandGroup(node: SyntaxNode) : SyntaxNode[] {
+export function chainedCommandGroup() : SyntaxNode[] {
     return []
 }
 
@@ -620,37 +579,7 @@ export function chainedCommandGroup(node: SyntaxNode) : SyntaxNode[] {
  *        ^------- word
  *           ^--- word
  */
-function vaildCommandArgument(node: SyntaxNode) {
-    return [
-        'variable_expansion',
-        'variable_name',
-        'argument',
-        'escape_sequence',
-        'word',
-        'double_quote_string',
-        'single_quote_string',
-        'test_option',
-        'integer',
-        'concatenation',
-        'list_element_access',
-        'index',
-    ].includes(node.type)
-}
 
-function isCommandArg(node: SyntaxNode) {
-    return [
-        'word',
-        'variable_name',
-        'variable_expansion',
-        'word',
-        'double_quote_string',
-        'single_quote_string',
-        'integer',
-        'concatenation',
-        'list_element_access',
-        'index',
-    ].includes(node.type)
-}
 
 export function isCommandFlag(node: SyntaxNode) {
     return [

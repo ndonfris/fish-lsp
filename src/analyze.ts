@@ -72,6 +72,7 @@ export class Analyzer {
         return { filesParsed: amount };
     }
 
+
     
     /**
      * method that returns all the workspaceSymbols that are in the same scope as the given 

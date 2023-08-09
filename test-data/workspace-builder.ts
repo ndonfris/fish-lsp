@@ -48,6 +48,17 @@ export class WorkspaceSpoofer implements FishWorkspace {
         return true
     }
 
+    findMatchingFishIdentifiers(fishIdentifier: string) {
+        const matches: string[] = []
+        const toMatch = `/${fishIdentifier}.fish`
+        for (const uri of this.uris) {
+            if (uri.endsWith(toMatch)) {
+                matches.push(uri)
+            }
+        }
+        return matches
+    }
+
     urisToLspDocuments(): LspDocument[] {
         const docs: LspDocument[] = []
         for (const file of this.files) {
@@ -55,6 +66,10 @@ export class WorkspaceSpoofer implements FishWorkspace {
         }
         return docs
     }
+
+    getDocument(uri: string) {
+        return this.files.find(file => file.uri === uri)
+    }toFlatArray()
 }
 
 
