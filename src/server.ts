@@ -1,11 +1,10 @@
 import Parser, {SyntaxNode} from "web-tree-sitter";
 import { initializeParser } from "./parser";
 import { Analyzer } from "./analyze";
-import { createCompletionList, } from "./completion";
+import {  generateCompletionList, } from "./completion";
 import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, ExecuteCommandParams, ServerRequestHandler, FoldingRangeParams, FoldingRange, Position, InlayHintParams, MarkupKind, SymbolInformation, WorkspaceSymbolParams, WorkspaceSymbol } from "vscode-languageserver";
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
-import { FishCompletionItem, } from './utils/completion-types';
 import {  enrichToCodeBlockMarkdown } from './documentation';
 import { applyFormatterSettings } from './formatting';
 import { execCommandDocs, execCommandType, execFindDependency, execFormatter, execOpenFile } from './utils/exec';
@@ -31,6 +30,7 @@ import { SymbolTree } from './symbolTree';
 import { homedir } from 'os';
 import { initializeDefaultFishWorkspaces } from './utils/workspace';
 import { filterLastPerScopeSymbol } from './document-symbol';
+import { FishCompletionItem, FishCompletionData } from './utils/completion-strategy';
 
 // @TODO 
 export type SupportedFeatures = {
@@ -245,28 +245,30 @@ export default class FishServer {
     // • Add local file items.
     // • Lastly add parameterInformation items.  [ 1477 : ParameterInformation ]
     // convert to CompletionItem[]
-    async onCompletion(params: CompletionParams):  Promise<CompletionList | null>{
-        const uri = uriToPath(params.textDocument.uri);
-        let newCompletionList: CompletionList | null = null;
+    async onCompletion(params: CompletionParams):  Promise<CompletionItem[]>{
+        //const t = params.
         this.logger.log('server.onComplete');
+        const uri = uriToPath(params.textDocument.uri);
+        let newCompletionList: CompletionItem[] = [];
         const doc = this.docs.get(uri);
+
         if (!uri || !doc) {
             this.logger.log('onComplete got [NOT FOUND]: ' + uri)
-            return null;
+            return [];
         }
-        //this.analyzer.analyze(doc)
-        this.logger.log(JSON.stringify({position: params.position}, null , 2))
-        //for (const edit of this.analyzer.get(doc)?.getChangedRanges(other))
-        this.logger.log(this.analyzer.getTree(doc)?.rootNode.text || "new doc not found")
         const { line } = this.analyzer.parseCurrentLine(doc, params.position)
-        this.logger.log(`currentLine: "${this.analyzer.parseCurrentLine(doc, params.position).line}"`);
-        if (line.trim().startsWith("#")) return null;
+        this.logger.log(`currentLine: "${line}"`);
+
+        if (line.trim().startsWith("#")) return [];
+
         try {
-            newCompletionList = await createCompletionList(doc, this.analyzer, params.position);
+            newCompletionList = await generateCompletionList(doc, this.analyzer, params.position, params.context);
+            newCompletionList.forEach((item) => {
+                this.logger.logObj({item: item})
+            })
         } catch (error) {
             this.logger.log("ERROR: onComplete " + error);
         }
-        this.logger.log(JSON.stringify({data: newCompletionList!.itemDefaults?.data || "error"}, null, 2))
         return newCompletionList;
     }
 
@@ -280,7 +282,7 @@ export default class FishServer {
     async onCompletionResolve(item: CompletionItem): Promise<CompletionItem> {
         let newDoc: string | MarkupContent;
         const fishItem = item as FishCompletionItem
-        if (fishItem.data.localSymbol == true) return item;
+        if (fishItem.localSymbol == true) return item;
         let [typeCmdOutput, typeofDoc] = ['', '']
         switch (fishItem.kind) {
             //item.documentation = enrichToCodeBlockMarkdown(fishItem.data?.originalCompletion, 'fish')
@@ -348,7 +350,6 @@ export default class FishServer {
         return this.analyzer.getDefinition(doc, params.position)
     }
 
-
     async onReferences(params: ReferenceParams): Promise<Location[]> {
         this.logger.log("onReference");
         const {doc, uri, root, current} = this.getDefaults(params)
@@ -365,6 +366,8 @@ export default class FishServer {
         this.logger.log("onHover");
         const {doc, uri, root, current} = this.getDefaults(params)
         if (!doc || !uri || !root || !current) return null;
+        const symbolItem = this.analyzer.getHover(doc, params.position)
+        if (symbolItem) return symbolItem;
         const globalItem = await this.documentationCache.resolve(current.text.trim(), uri)
         this.logger.log('docCache found '+ globalItem?.resolved.toString() || `docCache not found ${current.text}`)
         if (globalItem && globalItem.docs) {
@@ -375,7 +378,7 @@ export default class FishServer {
                 }
             }
         }
-        return this.analyzer.getHover(doc, params.position) || await handleHover(doc.uri, root, current, this.documentationCache);
+        return await handleHover(doc.uri, root, current, this.documentationCache);
     }
 
     async onRename(params: RenameParams) : Promise<WorkspaceEdit | null> {
@@ -530,7 +533,7 @@ export default class FishServer {
         const doc = this.docs.get(uri);
         if (!doc || !uri) return {};
         const root = this.analyzer.getRootNode(doc)
-        const current = this.analyzer.nodeAtPoint(doc, params.position.line, params.position.character);
+        const current = this.analyzer.nodeAtPoint(doc.uri, params.position.line, params.position.character);
         return {doc, uri, root, current}
     }
 

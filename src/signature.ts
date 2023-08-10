@@ -1,5 +1,3 @@
-
-
 import {MarkupContent} from 'coc.nvim';
 import {
     SignatureHelp,
@@ -7,7 +5,8 @@ import {
     SignatureHelpParams,
     Command,
 } from 'vscode-languageserver';
-import {FishCompletionItemKind, isBuiltIn, stringRegexExpressions} from './utils/completion-types';
+import { FishCompletionItemKind } from './utils/completion-strategy';
+import { isBuiltIn, stringRegexExpressions} from './utils/completion-types';
 
 
 function regexStringSignature() : SignatureInformation {

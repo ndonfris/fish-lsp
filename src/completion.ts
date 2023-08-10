@@ -11,6 +11,8 @@ import {
     Position,
     Range,
     SymbolKind,
+    CompletionContext,
+    CompletionParams,
 } from "vscode-languageserver";
 import Parser, { SyntaxNode } from "web-tree-sitter";
 import { TextDocument, DocumentUri } from "vscode-languageserver-textdocument";
@@ -24,17 +26,15 @@ import {
 import {
     BuiltInList,
     escapeChars,
-    FishCompletionItemKind,
     pipes,
     statusNumbers,
     stringRegexExpressions,
     WildcardItems,
 } from "./utils/completion-types";
 import {
-    CompletionItemBuilder,
     parseLineForType,
 } from "./utils/completionBuilder";
-import { isCommand } from "./utils/node-types";
+import { isCommand, isCommandName } from "./utils/node-types";
 import {
     firstAncestorMatch,
     getNodeAtRange,
@@ -46,6 +46,7 @@ import { DocumentationCache } from "./utils/documentationCache";
 import { LspDocument } from './document';
 import { Analyzer } from './analyze';
 import { SymbolTree } from './symbolTree';
+import { createCompletionItem, FishCompletionItem, FishCompletionItemKind, FishCompletionData } from './utils/completion-strategy';
 
 
 export const CompleteCommand = Command.create('Complete', 'editor.action.triggerSuggest');
@@ -118,10 +119,10 @@ export function insideStringRegex(line: string): boolean {
 
 export async function generateShellCompletionItems(
     line: string,
-    currentNode: SyntaxNode
-): Promise<CompletionItem[]> {
-    const cmp = new CompletionItemBuilder();
-    const items: CompletionItem[] = [];
+    currentNode: SyntaxNode,
+    data: FishCompletionData
+): Promise<FishCompletionItem[]> {
+    const items: FishCompletionItem[] = [];
     let output: [string, string, string][] = [];
     try {
         output = await getShellCompletions(line);
@@ -134,37 +135,9 @@ export async function generateShellCompletionItems(
     for (const [label, desc, other] of output) {
         const otherText = other.length > 0 ? other : cmdText;
         let fishKind = parseLineForType(label, desc, otherText);
-        fishKind = fixFishKindForCommandFlags(fishKind, commandNode);
-        const item = cmp
-            .create(label)
-            .documentation([desc, other].join(" "))
-            .kind(fishKind)
-            .originalCompletion([label, desc].join("\t") + " " + other)
-            .insertText(other)
-            .addSignautreHelp(cmdText)
-            .build();
+        let fixedKind = fixFishKindForCommandFlags(fishKind, commandNode);
+        const item = createCompletionItem(label, fixedKind, desc, data, other)
         items.push(item);
-        cmp.reset();
-    }
-    return items;
-}
-
-export function workspaceSymbolToCompletionItem(
-    root: SyntaxNode,
-    symbols: DocumentSymbol[]
-): CompletionItem[] {
-    const cmp = new CompletionItemBuilder();
-    const items: CompletionItem[] = [];
-    for (const symbol of symbols) {
-        const docText = getNodeAtRange(root, symbol.range)?.text || symbol.name;
-        const item = cmp
-            .create(symbol.name)
-            .symbolInfoKind(symbol.kind)
-            .localSymbol()
-            .documentation(enrichToCodeBlockMarkdown(docText, "fish"))
-            .build();
-        items.push(item);
-        cmp.reset();
     }
     return items;
 }
@@ -173,14 +146,15 @@ function fixFishKindForCommandFlags(
     fishKind: FishCompletionItemKind,
     commandNode?: SyntaxNode | null
 ) {
+    let newKind = fishKind;
     if (
         commandNode &&
-        fishKind != FishCompletionItemKind.LOCAL_VAR &&
-        fishKind != FishCompletionItemKind.GLOBAL_VAR
+        fishKind != FishCompletionItemKind.LOCAL_VARIABLE &&
+        fishKind != FishCompletionItemKind.GLOBAL_VARIABLE
     ) {
-        fishKind = FishCompletionItemKind.FLAG;
+        newKind = FishCompletionItemKind.FLAG;
     }
-    return fishKind;
+    return newKind;
 }
 
 // create (atleast) two methods for generating completions,
@@ -320,165 +294,102 @@ function fixFishKindForCommandFlags(
 //    return cmpItems;
 //}
 
-export function buildDefaultCompletionItems() {
-    const cmpItem = new CompletionItemBuilder();
-    const cmpItems: CompletionItem[] = [];
+export function buildDefaultCompletionItems(data: FishCompletionData) {
+    const cmpItems: FishCompletionItem[] = [];
     for (const builtin of BuiltInList) {
-        const item = cmpItem
-            .create(builtin)
-            .kind(FishCompletionItemKind.BUILTIN)
-            .build();
+        const item = createCompletionItem(builtin, FishCompletionItemKind.BUILTIN, '', data);
         cmpItems.push(item);
-        cmpItem.reset();
     }
     return cmpItems;
 }
 
-export const BUILT_INS: CompletionItem[] = buildDefaultCompletionItems();
 
-export class CompletionListProvier {
-    _items: CompletionItem[] = [];
-    public constructor() {}
-    public get items(): CompletionItem[] { return this._items; }
-    public pushItems(...newItems: CompletionItem[]) {
-        this.items.push(
-            ...newItems.filter(
-                (item: CompletionItem, index: number, self: CompletionItem[]) =>
-                    self.findIndex((cmp) => cmp.label === item.label) === index
-            )
-        );
-    }
-    public pushLocalSymbols(uri: string, root: SyntaxNode, position: Position) {
-        const nearbySymbols = SymbolTree(root, uri)
-            .nearby(position)
-            //.filter((symbol) => {
-                //if (symbolKind === undefined) return true;
-                //return symbol.kind === symbolKind;
-            //});
-        const cmp = new CompletionItemBuilder();
-        const items: CompletionItem[] = [];
-        for (const symbol of nearbySymbols) {
-            const item = cmp
-                .create(symbol.name)
-                .symbolInfoKind(symbol.kind)
-                .localSymbol()
-                .documentation({kind: "markdown", value: symbol?.detail || ""})
-                .build();
-            items.push(item);
-            cmp.reset();
-        }
-        this.pushItems(...items);
-    }
-    public async pushShellCompletionItems(line: string, lastNode: SyntaxNode) {
-        const shellCompletionItems: CompletionItem[] = await generateShellCompletionItems(line, lastNode)
-        if (shellCompletionItems) this.pushItems(...shellCompletionItems);
-    }
-    public pushDefaultItems() {
-        const cmpItem = new CompletionItemBuilder();
-        const cmpItems: CompletionItem[] = [];
-        for (const builtin of BuiltInList) {
-            const item = cmpItem
-            .create(builtin)
-            .kind(FishCompletionItemKind.BUILTIN)
-            .build();
-            cmpItems.push(item);
-            cmpItem.reset();
-        }
-        this.pushItems(...cmpItems);
-    }
-    public setEditRange(position: Position, wordLen: number) {
-        return {
-            insert: {
-                start: {
-                    line: position.line,
-                    character: position.character,
-                },
-                end: {
-                    line: position.line,
-                    character: position.character + wordLen,
-                },
-            },
-            replace: {
-                start: {
-                    line: position.line,
-                    character: position.character,
-                },
-                end: {
-                    line: position.line,
-                    character: position.character + wordLen,
-                },
-            },
-        };
-    }
-    public buildCompletionList(position: Position, wordLen: number): CompletionList {
-        return {
-            ...CompletionList.create(this.items, true),
-            itemDefaults: {
-                editRange: {
-                    insert: {
-                        start: {
-                            line: position.line,
-                            character: position.character - wordLen,
-                        },
-                        end: {
-                            line: position.line,
-                            character: position.character,
-                        },
-                    },
-                    replace: {
-                        start: {
-                            line: position.line,
-                            character: position.character - wordLen,
-                        },
-                        end: {
-                            line: position.line,
-                            character: position.character,
-                        },
-                    },
-                },
-                data: {
-                    itemsLength: this.items.length,
-                    position: position,
-                    wordLen: wordLen,
-                    userOptions: {},
-                },
-                insertTextMode: 1,
-            },
-        };
-    }
+type includeCompletionItemsTypes = {
+    addBuiltins: boolean,
+    addSymbols: boolean,
+    addShell: boolean,
+    addVariables: boolean,
 }
 
-export async function createCompletionList(
+export function includeCompletionItemsTypes(
+    document: LspDocument,
+    analyzer: Analyzer,
+    position: Position
+): includeCompletionItemsTypes {
+    const [addBuiltins, addSymbols, addShell, addVariables] = [false, false, false, false];
+    const {line, word: lastWord, lineRootNode, lineLastNode} = analyzer.parseCurrentLine(document, position);
+
+    if (line.startsWith("#")) return {addBuiltins, addSymbols, addShell, addVariables};
+
+    if (lastWord.startsWith("-")) return {addBuiltins, addSymbols, addShell: true, addVariables};
+
+    if (isCommandName(lineRootNode) || isCommand(lineRootNode)) return {addBuiltins, addSymbols, addShell: true, addVariables};
+
+    return {
+        addBuiltins,
+        addSymbols,
+        addShell,
+        addVariables
+    };
+}
+
+export async function generateCompletionList(
     document: LspDocument,
     analyzer: Analyzer,
     position: Position,
-): Promise<CompletionList | null> {
-    const result = new CompletionListProvier();
-    const {root, currentNode} = analyzer.parsePosition(document, {
-            line : position.line,
-            character: position.character,
-    })
-    const {line, lastWord, lineRootNode, lineLastNode} = analyzer.parseCurrentLine(document, position);
+    context?: CompletionContext
+): Promise<FishCompletionItem[]> {
 
-    if (line.trimStart().startsWith("#")) return null;
+    const {line, word, lineRootNode, lineLastNode} = analyzer.parseCurrentLine(document, position);
+    const data = FishCompletionData.create(document.uri, line, word, position, context)
 
-    if (!root) {
-        result.pushDefaultItems();
-    } else {
-        result.pushLocalSymbols(document.uri, root, position);
-        await result.pushShellCompletionItems(line, lineLastNode);
-        result.pushDefaultItems();
+    if (line.startsWith("#") || word === ')') return [];
+
+    if (!word) {
+        const nextCharacter = analyzer.getDocument(document.uri)?.getText({
+            start: position,
+            end: { ...position, character: position.character + 1 },
+        })
+        const isNextCharacterSpaceOrEmpty = nextCharacter === '' || nextCharacter === ' '
+        if (!isNextCharacterSpaceOrEmpty) {
+            // We are in the middle of something, so don't complete
+            return []
+        }
     }
-    //if (line.trim().length === 0) {
-    //} else if (line.split(' ').length <= 2) {
-        //result.pushLocalSymbols(root, position, SymbolKind.Function);
-        //result.pushDefaultItems();
-    //} else {
-        //result.pushLocalSymbols(root, position, SymbolKind.Variable);
-        //await result.pushShellCompletionItems(line, lineLastNode);
-    //}
 
-    //const wordLen = currentNode.text.length;
-    return result.buildCompletionList(position, lastWord.length);
+    const shouldCompleteVariables = word && word.startsWith('$')
+    const symbolCompletions =
+        word === null
+            ? []
+            : shouldCompleteVariables
+                ? analyzer.findCompletions(document, position, data).filter((s) =>
+                    [
+                        FishCompletionItemKind.LOCAL_VARIABLE,
+                        FishCompletionItemKind.GLOBAL_VARIABLE,
+                    ].includes(s.kind))
+                : analyzer.findCompletions(document, position, data)
+
+
+    const builtinCompletions = buildDefaultCompletionItems(data);
+
+    let optionsCompletions: FishCompletionItem[] = [];
+    if (word?.startsWith('-')) {
+        const commandName = analyzer.commandNameAtPoint(
+            document.uri,
+            position.line,
+            // Go one character back to get completion on the current word
+            Math.max(position.character - 1, 0),
+        )
+        if (commandName) optionsCompletions = await generateShellCompletionItems(line, lineLastNode, data);
+    }
+
+    const allCompletions = [
+        ...symbolCompletions,
+        ...builtinCompletions,
+        ...optionsCompletions,
+    ];
+
+    if (word) return allCompletions.filter(c => c.label.startsWith(word))
+    
+    return allCompletions
 }
-

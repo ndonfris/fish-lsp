@@ -1,7 +1,7 @@
-import {resolveLspDocumentForHelperTestFile, TestLogger} from './helpers';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import {CompletionItem, CompletionParams, DocumentSymbol, Position, Range, SymbolKind, TextDocumentIdentifier} from 'vscode-languageserver';
-import { BUILT_INS, createCompletionList, generateShellCompletionItems, getShellCompletions, workspaceSymbolToCompletionItem } from '../src/completion';
+import {CompletionItem,  CompletionContext, CompletionParams, DocumentSymbol, Position, Range, SymbolKind, TextDocumentIdentifier, CompletionTriggerKind} from 'vscode-languageserver';
+import { assert } from 'chai'
+import { generateCompletionList } from '../src/completion';
 import Parser, {SyntaxNode} from 'web-tree-sitter';
 import {initializeParser} from '../src/parser';
 import {resolve} from 'dns';
@@ -11,244 +11,210 @@ import { containsRange, getDefinitionSymbols, getNearbySymbols} from '../src/wor
 import {getNodeAtRange, getRange} from '../src/utils/tree-sitter';
 import { Color } from 'colors';
 import { Analyzer } from '../src/analyze';
+import { setLogger } from './helpers'
 import { execCompleteGlobalDocs, execCompleteVariables, execCompletionHelper, execEscapedCommand } from '../src/utils/exec';
 //import  from 'child_process';
 import { promisify } from 'util';
 import { exec } from 'child_process';
+import { initializeDefaultFishWorkspaces, Workspace } from '../src/utils/workspace';
+import { toLspDocument } from '../src/utils/translation';
+import { homedir } from 'os';
+import { FishCompletionItem, FishCompletionItemKind, toCompletionKindString } from '../src/utils/completion-strategy';
 
 let parser: Parser;
+let workspaces: Workspace[] = []
 let analyzer: Analyzer;
-let loggedAmount: number = 0;
-let cache : DocumentationCache 
 
-function logColor(message: string = "", color?: string) {
-    let idx = 0
-    if (!color) {
-        idx = loggedAmount % 6;
-    } else {
-        const colors = ['red', 'magenta', 'white', 'black', 'blue', 'yellow'];
-        idx = colors.indexOf(color) || 0;
+setLogger(
+    async () => {
+        parser = await initializeParser();
+        workspaces = await initializeDefaultFishWorkspaces()
+        analyzer = new Analyzer(parser, workspaces);
+    },
+    async () => {
+        parser.reset();
     }
-    switch (idx) {
-        case 0:
-            console.log(message.red);
-            break
-        case 1:
-            console.log(message.magenta);
-            break
-        case 2:
-            console.log(message.white);
-            break
-        case 3:
-            console.log(message.black);
-            break
-        case 4:
-            console.log(message.blue);
-            break
-        case 5:
-            console.log(message.yellow);
-            break
+)
+
+const spoofedPath = `${homedir()}/.config/fish/functions`
+
+function noMock(filename: string){
+    return filename.startsWith(spoofedPath) && filename.endsWith('.fish')
+}
+function getMockFile(filename: string){
+    if (noMock(filename)) return filename
+    const startIdx = filename.lastIndexOf('/') ===  -1 ? 0 : filename.lastIndexOf('/')
+    const endIdx = filename.lastIndexOf('.fish') === -1 ? filename.length : filename.lastIndexOf('.fish')
+    //console.log({startIdx, endIdx});
+    const name = filename.slice(startIdx, endIdx)
+    return `${spoofedPath}/${name}.fish`
+}
+
+function createContext(kind: CompletionTriggerKind, character?: string) : CompletionContext  {
+    return { 
+        triggerKind: kind,
+        triggerCharacter: character,
     }
 }
 
-function getRootNodeToTextRange(root: SyntaxNode, range: Range): string {
-    let text = root.text.split('\n').slice(0, range.start.line).join('\n')
-    let output = '\n'
-    const lines = text.split('\n')
-    const lastLine = lines[lines.length - 1]
-    for (const line of lines) {
-        if (line === lastLine) {
-            output += line.slice(0, range.start.character) + '•'
-        } else {
-            output += line
-        }
-        output+='\n'
+function mockAnalyzeCompletion(filename: string, ...lines: string[]){
+    let path = getMockFile(filename)
+    let content = lines.join('\n')
+    const doc = toLspDocument(path, content)
+    analyzer.analyze(doc);
+    let pos = doc.getLineEnd(doc.lineCount)
+    let node = analyzer.nodeAtPoint(doc.uri, pos.line, pos.character)!
+    return {
+        document: doc,
+        position: { line: pos.line, character: pos.character + 1},
+        analyzer: analyzer,
+        node: node,
     }
-    return output
 }
+
 
 describe('complete simple tests', () => {
-    const jestConsole = console;
 
-    beforeEach(async () => {
-        global.console = require('console');
-        parser = await  initializeParser();
-        cache = await initializeDocumentationCache()
-        analyzer = new Analyzer(parser, cache);
-    });
+    it('complete analyze functions (with autoload)', async () => {
+        const {document, position, analyzer} = mockAnalyzeCompletion('test_1', ...[
+            'function test_1', 
+            '   echo "hello 1"',
+            'end',
+            'function test_2', 
+            '   echo "hello 2"',
+            'end',
+            'function test_3', 
+            '   echo "hello 3"',
+            'end',
+            'test_'
+        ])
+        const context = createContext(CompletionTriggerKind.Invoked)
 
-    afterEach(() => {
-        global.console = jestConsole;
-        parser.delete()
-    });
+        const completions = await generateCompletionList(document, analyzer, position, context)
+        //TestCompletionItem.log(completions, 3)
+        assert.deepEqual(completions.slice(0,3).map(TestCompletionItem.fromCompletion), [
+            TestCompletionItem.create('test_3', FishCompletionItemKind.LOCAL_FUNCTION),
+            TestCompletionItem.create('test_2', FishCompletionItemKind.LOCAL_FUNCTION),
+            TestCompletionItem.create('test_1', FishCompletionItemKind.USER_FUNCTION),
+        ])
+    })
+    it('complete analyze variables', async () => {
+        const {document, position, analyzer} = mockAnalyzeCompletion('test_2', ...[
+            `set -gx test_a 'a'`,
+            `set -gx test_b 'b'`,
+            `set -gx test_c 'c'`,
+            `set -gx test_d 'd'`,
+            `set -gx test_e 'e'`,
+            `if set -q test_`
+        ])
+        const context = createContext(CompletionTriggerKind.Invoked)
 
-    it('complete BUILT_INS ', async () => {
-        //for (const cmp of BUILT_INS) {
-        //    console.log(cmp.label);
-        //}
-        //console.log();
-        //console.log();
+        const completions = await generateCompletionList(document, analyzer, position, context)
+        //TestCompletionItem.log(completions)
+
+        assert.deepEqual(
+            completions.slice(0,5).map(TestCompletionItem.fromCompletion),
+            [
+                TestCompletionItem.create('test_e', FishCompletionItemKind.GLOBAL_VARIABLE),
+                TestCompletionItem.create('test_d', FishCompletionItemKind.GLOBAL_VARIABLE),
+                TestCompletionItem.create('test_c', FishCompletionItemKind.GLOBAL_VARIABLE),
+                TestCompletionItem.create('test_b', FishCompletionItemKind.GLOBAL_VARIABLE),
+                TestCompletionItem.create('test_a', FishCompletionItemKind.GLOBAL_VARIABLE)
+            ]
+        )
     })
 
-    it('complete defaults ', async () => {
-        const emptyPosition : Position = {line: 0, character: 0};
-        //const cmps = createCompletionList([...BUILT_INS, ...BUILT_INS], emptyPosition, 0)
-        //const str = await execCommandDocs('if');
-        //console.log(str);
+    it('complete functions nested', async () => {
+        const {document, position, analyzer} = mockAnalyzeCompletion('test_3', 
+            'function test_3',
+            `     set test_a 'a'`,
+            `     set test_b 'b'`,
+            `     set test_c 'c'`,
+            `     set test_d 'd'`,
+            `     set test_e 'e'`,
+            '     function test_inner',
+            `          set -f test_f 'f'`,
+            '     end',
+            '     test_inner',
+            `end`,
+            `test_`,
+        )
+        const context = createContext(CompletionTriggerKind.Invoked)
+
+        const completions = await generateCompletionList(document, analyzer, position, context)
+        const funcs = completions.filter(
+            (c) =>
+                (
+                    c.fishKind === FishCompletionItemKind.USER_FUNCTION ||
+                    c.fishKind === FishCompletionItemKind.LOCAL_FUNCTION 
+                ) && c.localSymbol
+        );
+        //TestCompletionItem.log(funcs, 12)
+        //console.log(document.uri);
+        assert.equal(funcs.length, 1);
     })
 
-    
+    it('complete `set -`', async () => {
+        function filterFlags(items: FishCompletionItem[]){
+            return items.filter((c) => c.fishKind === FishCompletionItemKind.FLAG)
+        }
+        async function getFlags(context: CompletionContext){
+            let {document, position, analyzer} = mockAnalyzeCompletion('test_4', `set -`)
+            let completions = await generateCompletionList(document, analyzer, position, context)
+            return completions
+        }
+        let context = createContext(CompletionTriggerKind.Invoked) // test TriggerCharacter: '-'
+        let invokedFlags = await getFlags(context)
+        TestCompletionItem.log(invokedFlags, 100)
 
-    //it('complete local symbols test', async () => {
-        //const doc: LspDocument =  resolveLspDocumentForHelperTestFile('./fish_files/simple/symbols.fish');
-        //const root = parser.parse(doc.getText()).rootNode
-        //const cursorRanges :Range[] = [
-            //{
-                //start:{line: 4, character: 27},
-                //end:  {line: 4, character: 28}
-            //},
-            //{
-                //start:{line: 10, character: 2},
-                //end:  {line: 10, character: 4}
-            //},
-            //{
-                //start:{line: 25, character: 2},
-                //end:  {line: 25, character: 4}
-            //}
-        //]
-//
-        ////for (const cursorRange of cursorRanges) {
-        ////    const curr = getNodeAtRange(root, cursorRange);
-        ////    //const symbols: DocumentSymbol[] = flattenSymbols(getDefinitionSymbols(root))
-        ////    console.log(`current_text: ${getRootNodeToTextRange(root, cursorRange)}`.bgBlack)
-        ////    //logColor(`current_text: ${curr?.text}`);
-        ////    const symbols: DocumentSymbol[] = getNearbySymbols(root, cursorRange)
-//
-        ////    const tbl : { selectionRange: string, range: string}[] = []
-        ////    for (const sym of symbols) {
-        ////        tbl.push({selectionRange: getNodeAtRange(root, sym.selectionRange)?.text || '', range: getNodeAtRange(root, sym.range)?.text || ''})
-        ////    }
-        ////    console.table(tbl);
-        ////    loggedAmount++;
-//
-        ////}
-    //})
+        context = createContext(CompletionTriggerKind.TriggerCharacter, '-') // test TriggerCharacter: '-'
+        let triggerFlags = await getFlags(context)
+        TestCompletionItem.log(triggerFlags, 100)
 
-    //it('testing variable completions on string "set -l arg_one $" in symbols.fish [line:4]', async () => {
-    //    const doc: LspDocument =  resolveLspDocumentForHelperTestFile('./fish_files/simple/symbols.fish');
-    //    const params: CompletionParams = {
-    //        textDocument:{
-    //            uri: doc.uri
-    //        } as TextDocumentIdentifier,
-    //        position: {line: 3, character: 20},
-    //    }
-    //    analyzer.analyze(doc);
-    //    const pos = params.position
-    //    const {line , lineRootNode, lineLastNode} = analyzer.parseCurrentLine(doc, pos)
-    //    expect(line).toMatch('set -l arg_one $')
-    //    expect(lineRootNode!.text).toMatch('set -l arg_one $')
-    //    expect(lineLastNode!.text).toMatch('$')
-    //    const [output, errors]: [CompletionItem[], CompletionItem[]] = [await generateShellCompletionItems(line, lineLastNode), []];
-    //    for (const cmp of output) {
-    //        if (!cmp.label.startsWith("\$")) {
-    //            errors.push(cmp)
-    //            console.log(JSON.stringify({errorCompletionItem: cmp}, null, 2));
-    //        }
-    //    }
-    //    expect(errors.length).toBe(0)
-    //})
-
-    //it('testing flag completions on string "function func_c --" in symbols.fish [line:20]', async () => {
-    //    const doc: LspDocument =  resolveLspDocumentForHelperTestFile('./fish_files/simple/symbols.fish');
-    //    const params: CompletionParams = {
-    //        textDocument:{
-    //            uri: doc.uri
-    //        } as TextDocumentIdentifier,
-    //        position: {line: 19, character: 18},
-    //    }
-    //    analyzer.analyze(doc);
-    //    const pos = params.position
-    //    const {line , lineRootNode, lineLastNode} = analyzer.parseCurrentLine(doc, pos)
-    //    expect(line).toMatch('function func_c --')
-    //    expect(lineRootNode!.text).toMatch('function func_c --')
-    //    expect(lineLastNode!.text).toMatch('--')
-    //    const [output, errors]: [CompletionItem[], CompletionItem[]] = [await generateShellCompletionItems(line, lineLastNode), []];
-    //    for (const cmp of output) {
-    //        if (!cmp.label.startsWith("--")) {
-    //            errors.push(cmp)
-    //            console.log(JSON.stringify({errorCompletionItem: cmp}, null, 2));
-    //        }
-    //    }
-    //    expect(output.length).toBe(10)
-    //    //expect(errors.length).toBe(0)
-    //})
-
-    //it('testing symbol completions in symbols.fish [line:20]', async () => {
-    //    const doc: LspDocument =  resolveLspDocumentForHelperTestFile('./fish_files/simple/symbols.fish');
-    //    const params: CompletionParams = {
-    //        textDocument:{
-    //            uri: doc.uri
-    //        } as TextDocumentIdentifier,
-    //        position: {line: 22, character: 7},
-    //    }
-    //    analyzer.analyze(doc);
-    //    const pos = params.position
-    //    const {root, currentNode} = analyzer.parsePosition(doc, {
-    //        line : pos.line,
-    //        character: pos.character - 1,
-    //    });
-    //    const {line , lineRootNode, lineLastNode} = analyzer.parseCurrentLine(doc, pos)
-    //    expect(line).toMatch(' ')
-    //    expect(lineRootNode!.text).toMatch('')
-    //    expect(lineLastNode!.text).toMatch('')
-    //    const [output, errors]: [CompletionItem[], CompletionItem[]] = [workspaceSymbolToCompletionItem(root, getNearbySymbols(root, getRange(currentNode))),[]];
-    //    for (const cmp of output) {
-    //        console.log(cmp.label);
-    //    }
-    //})
-    it("testing Documentation Cache", async () => {
-        //console.time('test execCompletionHelper');
-        const docCache = new DocumentationCache();
-        await docCache.parse()
-        //console.log(await docCache.resolve('PATH'));
-        //console.log(await docCache.resolve('while'));
-        //console.log(await docCache.resolve('get-completions'));
-        //console.timeEnd('test execCompletionHelper')
+        //console.log(document.uri);
+        //assert.equal(funcs.length, 1);
     })
-
-
-    it('testing line completions', async () => {
-        const doc: LspDocument =  resolveLspDocumentForHelperTestFile('./fish_files/simple/symbols.fish');
-        const position: Position = Position.create(0, 16)
-        const logger = new TestLogger(console)
-        const positions: Position[] = [
-            Position.create(1, 1),
-            Position.create(0, 16),
-            Position.create(0, 32),
-            Position.create(0, 26),
-        ]
-        positions.forEach((position) => { 
-            const line = doc.getLineBeforeCursor(position).replace(/^(.*)\n$/, '$1')
-            console.log(`line: *${line.toString()}*`);
-            //let lastIndex = line.lastIndexOf("'");
-            //const i = line.match(/^[\s|\S]*([\'.*\'|\".*\"|\w+])$/)
-            //console.log(`i ${i?.toString()}`);
-            //if (lastIndex === -1) {
-                //lastIndex = line.lastIndexOf('"');
-            //}
-            //if (lastIndex === -1) {
-                //lastIndex = line.lastIndexOf(' ');
-            //}
-            const lastWord = line.slice(line.lastIndexOf(" ")+1)
-            console.log(`last word: *${lastWord}*`);
-            //const root = parser.parse(line).rootNode;
-            //console.log(`root: ${root.text}`);
-            //logger.logNode(root);
-            //console.log(root.firstChild!.descendantForIndex(-2)?.text);
-            //console.log(root.toString())
-        })
-    })
-
 })
 
 
+
+export namespace TestCompletionItem {
+
+    export interface Item {
+        label: string,
+        kind: string,
+        fishKind: string,
+    }
+
+    export function fromCompletion(cmp: FishCompletionItem) : Item {
+        return {
+            label: cmp.label,
+            kind: toCompletionKindString[cmp.fishKind],
+            fishKind: FishCompletionItemKind[cmp.fishKind],
+        }
+    }
+
+    export function create(label: string, fishKind: FishCompletionItemKind ) : Item {
+         return {
+             label: label,
+             kind: toCompletionKindString[fishKind], 
+             fishKind: FishCompletionItemKind[fishKind],
+        }
+    }
+
+    export function readable(item: FishCompletionItem){
+        return {
+            ...item,
+            kind: toCompletionKindString[item.fishKind],
+            fishKind: FishCompletionItemKind[item.fishKind],
+        };
+    }
+
+    export function log(items: FishCompletionItem[], max: number = 5){
+        items.forEach((item: FishCompletionItem, i: number) => {
+            if (i < max) console.log(i, '::', readable(item), '\n');
+        })
+        console.log(`...`)
+        console.log(`total items: ${items.length}`);
+    }
+}

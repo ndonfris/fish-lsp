@@ -22,18 +22,18 @@ export function buildUri(absolutePath: string) {
 }
 
 export function setLogger(
-    beforeCallback: () => void = () => { return },
-    afterCallback: () => void = () => { return },
+    beforeCallback: () => Promise<void> = async () => {},
+    afterCallback: () => Promise<void> = async () => {}
 ){
     const jestConsole = console;
     beforeEach(async () => {
         global.console = require("console");
-        beforeCallback();
+        await beforeCallback();
     }, 10000);
 
-    afterEach(() => {
+    afterEach(async () => {
         global.console = jestConsole;
-        afterCallback();
+        await afterCallback();
     }, 10000);
 }
 

@@ -1,5 +1,5 @@
 
-import { DocumentSymbol, SymbolKind, Range, WorkspaceSymbol, Position, Location, } from 'vscode-languageserver';
+import { DocumentSymbol, SymbolKind, Range, WorkspaceSymbol, Position, Location, MarkupContent, } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { isFunctionDefinitionName, isDefinition, isVariableDefinition, isFunctionDefinition, isVariableDefinitionName, refinedFindParentVariableDefinitionKeyword } from './utils/node-types'
 import { findVariableDefinitionOptions } from './utils/options';
@@ -8,6 +8,8 @@ import { pathToRelativeFunctionName } from './utils/translation';
 import { getNodeAtRange, getRange, isPositionAfter, pointToPosition, positionToPoint } from './utils/tree-sitter';
 import { ScopeTag, DefinitionScope, getScope } from './utils/definition-scope'
 import { GenericTree } from './utils/generic-tree';
+import { FishCompletionItem, createCompletionItem, FishCompletionItemKind, FishCompletionData } from './utils/completion-strategy';
+import { enrichToCodeBlockMarkdown } from './documentation';
 
 
 // add some form of tags to the symbol so that we can extend the symbol with more information
@@ -172,6 +174,21 @@ export namespace FishDocumentSymbol {
             type: symbol.kind === SymbolKind.Function ? 'function' : 'variable',
             uri: symbol.uri,
         }
+    }
+
+
+    export function toGlobalCompletion(symbol: FishDocumentSymbol, data: FishCompletionData): FishCompletionItem {
+        const kind = symbol.kind === SymbolKind.Function ? FishCompletionItemKind.GLOBAL_FUNCTION : FishCompletionItemKind.GLOBAL_VARIABLE;
+        const detail: MarkupContent = {kind: 'markdown', value: symbol.detail}
+        return createCompletionItem(symbol.name, kind, detail, data)
+    }
+
+    export function toLocalCompletion(symbol: FishDocumentSymbol, data: FishCompletionData): FishCompletionItem {
+        const kind = symbol.kind === SymbolKind.Function
+            ? isGlobalSymbol(symbol) ? FishCompletionItemKind.USER_FUNCTION : FishCompletionItemKind.LOCAL_FUNCTION 
+            : isGlobalSymbol(symbol) ? FishCompletionItemKind.GLOBAL_VARIABLE : FishCompletionItemKind.LOCAL_VARIABLE;
+        const detail: MarkupContent = {kind: 'markdown', value: symbol.detail}
+        return createCompletionItem(symbol.name, kind, detail, data)
     }
 
     export type MockSymbol = {

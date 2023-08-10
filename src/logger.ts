@@ -12,7 +12,7 @@ import {
 import {TextDocument} from 'vscode-languageserver-textdocument';
 import {URI} from 'vscode-uri';
 import { SyntaxNode } from "web-tree-sitter";
-import {FishCompletionItem, FishCompletionItemKind} from './utils/completion-types';
+import {FishCompletionItem, FishCompletionItemKind} from './utils/completion-strategy';
 import {resolve} from 'path';
 import { appendFileSync } from 'fs';
 
@@ -131,7 +131,8 @@ export class Logger {
         if (msg) {
             this.console.log(msg)
         }
-        this.console.log(JSON.stringify(obj, null, 2));
+        //this.console.log(JSON.stringify(obj, null, 2));
+        this.log(JSON.stringify(obj, null, 2))
     }
 
 
@@ -344,14 +345,14 @@ function documentSymbolToString(doc: DocumentSymbol): string {
 function completionToString(completion: CompletionItem) {
     const fishCmp = completion as FishCompletionItem;
     let str : string[] = [];
-    const fishType = fishCmp.data?.fishKind;
+    const fishType = fishCmp.fishKind;
     const cmpType = fishCmp.kind;
     switch (fishType) {
         case FishCompletionItemKind.ABBR:
             str.push('')
             str.push("type: [ABBREVIATION]: " + fishCmp.label);
             str.push("doc:" + fishCmp.documentation);
-            str.push("originalComp:" + fishCmp.data?.originalCompletion);
+            //str.push("originalComp:" + fishCmp.data?.originalCompletion);
             str.push("insertText: " + fishCmp.insertText);
             str.push('')
             break;

@@ -2,20 +2,10 @@ import FastGlob from 'fast-glob';
 import {homedir} from 'os';
 import {CompletionItem, CompletionItemKind, InsertTextFormat, MarkupContent, RemoteConsole} from 'vscode-languageserver';
 import {enrichCommandArg, enrichToCodeBlockMarkdown, enrichToMarkdown} from '../documentation';
+import { FishCompletionItemKind } from './completion-strategy';
 //import {logger} from '../logger';
 import {execCommandDocs, execCommandType} from './exec';
 
-
-export interface FishCompletionItem extends CompletionItem {
-    label: string;
-    kind: CompletionItemKind;
-    documentation?: string | MarkupContent; 
-    data: {
-        originalCompletion: string; // the original line in fish completion call from the terminal
-        fishKind: FishCompletionItemKind; // VERBOSE form of kind
-        localSymbol: boolean;
-    }
-}
 
 export const BuiltInList = [
     "[",
@@ -530,21 +520,6 @@ export const stringRegexExpressions: regexItem[] = [
     }
 ]
 
-export enum FishCompletionItemKind {
-    ABBR,			// interface
-    ALIAS,			// struct
-    BUILTIN,			// keyword
-    GLOBAL_VAR,			// constant
-    LOCAL_VAR,			// variable
-    USER_FUNC,			// function
-    GLOBAL_FUNC,		// method
-    LOCAL_FUNC,			// constructor
-    FLAG,			// field
-    CMD,			// class
-    CMD_NO_DOC,			// class
-    RESOLVE,			// unit
-}
-
 
 /**
  * TODO: convert to promise.all() -> Promise.all should be able to be called in
@@ -568,7 +543,7 @@ export async function resolveFishCompletionItemType(cmd: string): Promise<FishCo
         .then(cmdType => {
             switch (cmdType) {
                 case 'file':
-                    return FishCompletionItemKind.GLOBAL_FUNC
+                    return FishCompletionItemKind.GLOBAL_FUNCTION
                 case 'builtin':
                     return FishCompletionItemKind.CMD
                 default:
