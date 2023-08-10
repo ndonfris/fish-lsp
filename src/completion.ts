@@ -303,36 +303,6 @@ export function buildDefaultCompletionItems(data: FishCompletionData) {
     return cmpItems;
 }
 
-
-type includeCompletionItemsTypes = {
-    addBuiltins: boolean,
-    addSymbols: boolean,
-    addShell: boolean,
-    addVariables: boolean,
-}
-
-export function includeCompletionItemsTypes(
-    document: LspDocument,
-    analyzer: Analyzer,
-    position: Position
-): includeCompletionItemsTypes {
-    const [addBuiltins, addSymbols, addShell, addVariables] = [false, false, false, false];
-    const {line, word: lastWord, lineRootNode, lineLastNode} = analyzer.parseCurrentLine(document, position);
-
-    if (line.startsWith("#")) return {addBuiltins, addSymbols, addShell, addVariables};
-
-    if (lastWord.startsWith("-")) return {addBuiltins, addSymbols, addShell: true, addVariables};
-
-    if (isCommandName(lineRootNode) || isCommand(lineRootNode)) return {addBuiltins, addSymbols, addShell: true, addVariables};
-
-    return {
-        addBuiltins,
-        addSymbols,
-        addShell,
-        addVariables
-    };
-}
-
 export async function generateCompletionList(
     document: LspDocument,
     analyzer: Analyzer,
@@ -357,7 +327,9 @@ export async function generateCompletionList(
         }
     }
 
-    const shouldCompleteVariables = word && word.startsWith('$')
+    // https://github.com/bash-lsp/bash-language-server/blob/main/server/src/server.ts#L448
+    // edit here to check if we could possible reference variable (set, for, function -a ...)
+    const shouldCompleteVariables = word ? word.startsWith('$') : false
     const symbolCompletions =
         word === null
             ? []
@@ -366,9 +338,10 @@ export async function generateCompletionList(
                     [
                         FishCompletionItemKind.LOCAL_VARIABLE,
                         FishCompletionItemKind.GLOBAL_VARIABLE,
-                    ].includes(s.kind))
+                    ].includes(s.fishKind))
                 : analyzer.findCompletions(document, position, data)
 
+    if (shouldCompleteVariables) return symbolCompletions
 
     const builtinCompletions = buildDefaultCompletionItems(data);
 

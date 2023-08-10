@@ -1,4 +1,4 @@
-import { Position, CompletionContext, Command, CompletionItem, CompletionItemKind, MarkupContent } from 'vscode-languageserver';
+import { Position, CompletionContext, Command, CompletionItem, CompletionItemKind, MarkupContent, TextEdit } from 'vscode-languageserver';
 
 export enum FishCompletionItemKind {
     ABBR,			          // interface
@@ -112,23 +112,27 @@ class LocalSymbolCompletionItemBuilder extends BaseCompletionItemBuilder {
 
 class FlagCompletionItemBuilder extends BaseCompletionItemBuilder {
     build(label: string, kind: FishCompletionItemKind, documentation: string | MarkupContent, data: FishCompletionData, insertText?: string): FishCompletionItem {
-        const replaceText = label.startsWith('--') ? `${label} ` : label;
-        return {
-            ...this.buildBase(label, kind, documentation, data, insertText),
-            command: Command.create('Complete', 'editor.action.triggerSuggest'),
-            textEdit: {
-                newText:label.slice(data.word.length),
+        // goto definition: TextEdit --> notice start===end
+        let textEdit: TextEdit | undefined;
+        if (label.startsWith('-')) {
+            textEdit = {
+                newText: label,
                 range: {
                     start: {
-                        character: data.position.character,
+                        character: data.position.character - data.word.length,
                         line: data.position.line,
                     },
                     end: {
                         character: data.position.character,
                         line: data.position.line,
                     }
-                }
-            },
+                },
+            }
+        }
+        return {
+            ...this.buildBase(label, kind, documentation, data, insertText),
+            command: Command.create('Complete', 'editor.action.triggerSuggest'),
+            textEdit: textEdit,
             filterText: label + '     ' + documentation,
             fishKind: FishCompletionItemKind.FLAG,
             localSymbol: false,

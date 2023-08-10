@@ -266,6 +266,7 @@ export default class FishServer {
             newCompletionList.forEach((item) => {
                 this.logger.logObj({item: item})
             })
+            this.logger.log(`line: '${line}' got ${newCompletionList.length} items"`)
         } catch (error) {
             this.logger.log("ERROR: onComplete " + error);
         }
