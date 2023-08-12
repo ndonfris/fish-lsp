@@ -72,6 +72,10 @@ export class Analyzer {
         return { filesParsed: amount };
     }
 
+    public getDocumentSymbols(document: LspDocument): FishDocumentSymbol[] {
+        return this.cache.getDocumentSymbols(document.uri) || [];
+    }
+
     public findDocumentSymbol(document: LspDocument, position: Position): FishDocumentSymbol | null {
         const tree = this.getTree(document);
         if (!tree) return null;

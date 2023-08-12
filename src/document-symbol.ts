@@ -1,5 +1,5 @@
 
-import { DocumentSymbol, SymbolKind, Range, WorkspaceSymbol, Position, Location, MarkupContent, } from 'vscode-languageserver';
+import { DocumentSymbol, SymbolKind, Range, WorkspaceSymbol, Position, Location, MarkupContent, FoldingRange, FoldingRangeKind, } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { isFunctionDefinitionName, isDefinition, isVariableDefinition, isFunctionDefinition, isVariableDefinitionName, refinedFindParentVariableDefinitionKeyword } from './utils/node-types'
 import { findVariableDefinitionOptions } from './utils/options';
@@ -176,6 +176,21 @@ export namespace FishDocumentSymbol {
         }
     }
 
+    export function toFoldingRange(symbol: FishDocumentSymbol): FoldingRange {
+        return {
+            startLine: symbol.range.start.line,
+            endLine: symbol.range.end.line,
+            collapsedText: symbol.name,
+        }
+        //return FoldingRange.create(
+        //    symbol.range.start.line,
+        //    symbol.range.end.line,
+        //    symbol.range.start.character,
+        //    symbol.range.end.character,
+        //    FoldingRangeKind.Region,
+        //    symbol.name
+        //)
+    }
 
     export function toGlobalCompletion(symbol: FishDocumentSymbol, data: FishCompletionData): FishCompletionItem {
         const kind = symbol.kind === SymbolKind.Function ? FishCompletionItemKind.GLOBAL_FUNCTION : FishCompletionItemKind.GLOBAL_VARIABLE;
@@ -339,6 +354,7 @@ export function definitionSymbolHandler(node: SyntaxNode): {
         shouldCreate = true;
         if (node.text.startsWith('$')) shouldCreate = false;
     } else if (node.firstNamedChild && isFunctionDefinitionName(node.firstNamedChild)) {
+        parent = node;
         child = node.firstNamedChild!;
         kind = SymbolKind.Function;
         shouldCreate = true;

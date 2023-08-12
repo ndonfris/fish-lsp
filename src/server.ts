@@ -2,13 +2,13 @@ import Parser, {SyntaxNode} from "web-tree-sitter";
 import { initializeParser } from "./parser";
 import { Analyzer } from "./analyze";
 import {  generateCompletionList, } from "./completion";
-import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, ExecuteCommandParams, ServerRequestHandler, FoldingRangeParams, FoldingRange, Position, InlayHintParams, MarkupKind, SymbolInformation, WorkspaceSymbolParams, WorkspaceSymbol } from "vscode-languageserver";
+import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, ExecuteCommandParams, ServerRequestHandler, FoldingRangeParams, FoldingRange, Position, InlayHintParams, MarkupKind, SymbolInformation, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, RemoteConsole } from "vscode-languageserver";
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
-import {  enrichToCodeBlockMarkdown } from './documentation';
+import { enrichToCodeBlockMarkdown } from './documentation';
 import { applyFormatterSettings } from './formatting';
 import { execCommandDocs, execCommandType, execFindDependency, execFormatter, execOpenFile } from './utils/exec';
-import {Logger} from './logger';
+import {createServerLogger, Logger, ServerLogsPath} from './logger';
 import {toFoldingRange, uriToPath} from './utils/translation';
 import {ConfigManager} from './configManager';
 import { getNearbySymbols, getDefinitionKind, DefinitionKind, getLocalDefs, getLocalRefs } from './workspace-symbol';
@@ -29,7 +29,7 @@ import { collectAllSymbolInformation, DocumentDefSymbol } from './symbols';
 import { SymbolTree } from './symbolTree';
 import { homedir } from 'os';
 import { initializeDefaultFishWorkspaces } from './utils/workspace';
-import { filterLastPerScopeSymbol } from './document-symbol';
+import { filterLastPerScopeSymbol, FishDocumentSymbol } from './document-symbol';
 import { FishCompletionItem, FishCompletionData } from './utils/completion-strategy';
 
 // @TODO 
@@ -74,7 +74,7 @@ export default class FishServer {
         this.analyzer = analyzer;
         this.docs = docs;
         this.config = config;
-        this.logger = new Logger(connection);
+        this.logger = new Logger(ServerLogsPath, true, connection.console);
         this.features = { codeActionDisabledSupport: false };
         this.documentationCache = documentationCache;
     }
@@ -263,9 +263,8 @@ export default class FishServer {
 
         try {
             newCompletionList = await generateCompletionList(doc, this.analyzer, params.position, params.context);
-            newCompletionList.forEach((item) => {
-                this.logger.logObj({item: item})
-            })
+            this.logger.logPropertiesForEachObject(newCompletionList, "label", "kind", "insertText", "insertTextFormat", "data")
+            
             this.logger.log(`line: '${line}' got ${newCompletionList.length} items"`)
         } catch (error) {
             this.logger.log("ERROR: onComplete " + error);
@@ -473,22 +472,28 @@ export default class FishServer {
     }
 
     async onFoldingRanges(params: FoldingRangeParams): Promise<FoldingRange[] | undefined> {
-        const file = uriToPath(params.textDocument.uri);
-        //const result: FoldingRange[] = [];
-        const document = this.docs.get(file);
         this.logger.log(`onFoldingRanges: ${params.textDocument.uri}`);
+
+        const file = uriToPath(params.textDocument.uri);
+        const document = this.docs.get(file);
+
         if (!document) {
             throw new Error(`The document should not be opened in the folding range, file: ${file}`)
         }
-        const root = this.analyzer.getRootNode(document)
-        if (!root) return 
-        const foldNodes: FoldingRange[] = SymbolTree(root, document.uri).folds(document)
-        // see folds.ts @ might be unnecessary
-        //for (const node of foldNodes) {
-            //this.logger.log(`onFoldingRanges: ${node.type} ${node.startPosition.row} ${node.endPosition.row}`);
-            //result.push(toFoldingRange(node, document))
-        //}
-        return foldNodes;
+        //this.analyzer.analyze(document)
+        const symbols = this.analyzer.getDocumentSymbols(document)
+        const flatSymbols = FishDocumentSymbol.toTree(symbols).toFlatArray()
+        this.logger.logPropertiesForEachObject(flatSymbols.filter(s => s.kind === SymbolKind.Function), 'name', 'range')
+        const folds = flatSymbols
+            .filter(symbol => symbol.kind === SymbolKind.Function)
+            .map(symbol => FishDocumentSymbol.toFoldingRange(symbol))
+
+        folds.forEach(fold => {
+            this.logger.log({fold})
+        })
+
+
+        return folds
     }
 
     async onCodeAction(params: CodeActionParams) : Promise<CodeAction[]> {
