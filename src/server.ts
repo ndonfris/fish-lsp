@@ -46,13 +46,14 @@ export default class FishServer {
         const documents = new LspDocuments() ;
         const config = new ConfigManager(documents);
         config.mergePreferences(params.initializationOptions);
+        const logger = new Logger(ServerLogsPath, true, connection.console);
         return await Promise.all([
             initializeParser(),
             initializeDocumentationCache(),
             initializeDefaultFishWorkspaces(),
         ]).then(([parser, cache, workspaces]) => {
             const analyzer = new Analyzer(parser, workspaces);
-            return new FishServer(connection, config, parser, analyzer, documents, cache);
+            return new FishServer(connection, config, parser, analyzer, documents, cache, logger);
         })
     }
 
@@ -68,28 +69,27 @@ export default class FishServer {
     protected logger: Logger;
     protected features: SupportedFeatures;
 
-    constructor(connection: Connection, config: ConfigManager, parser : Parser, analyzer: Analyzer, docs: LspDocuments, documentationCache: DocumentationCache) {
+    constructor(connection: Connection, config: ConfigManager, parser : Parser, analyzer: Analyzer, docs: LspDocuments, documentationCache: DocumentationCache, logger: Logger) {
         this.connection = connection;
         this.parser = parser;
         this.analyzer = analyzer;
         this.docs = docs;
         this.config = config;
-        this.logger = new Logger(ServerLogsPath, true, connection.console);
+        this.logger = logger;
         this.features = { codeActionDisabledSupport: false };
         this.documentationCache = documentationCache;
     }
 
     async initialize(params: InitializeParams): Promise<InitializeResult> {
-        this.connection.console.log(
+        this.logger.log(
             `Initialized server FISH-LSP with ${params.workspaceFolders || ''}`
         )
-        //this.logger.log(JSON.stringify(params, null, 2));
         const result : InitializeResult = {
             capabilities: {
                 textDocumentSync: TextDocumentSyncKind.Incremental,
                 completionProvider: {
                     resolveProvider: true,
-                    triggerCharacters: ["-", "$"],
+                    triggerCharacters: ["-", "\$"],
                     allCommitCharacters: [";", " ", "\t"],
                     workDoneProgress: true,
                 },
@@ -128,11 +128,11 @@ export default class FishServer {
                 },
                 documentHighlightProvider: false,
                 inlayHintProvider: false,
-            }
+            },
         }
         this.config.mergePreferences(params.initializationOptions);
         this.logger.log("FISH-LSP INITIALIZED with options:");
-        this.logger.log(JSON.stringify(this.config.options, null, 2));
+        this.logger.log({options: this.config});
         return result;
     }
     
@@ -149,6 +149,7 @@ export default class FishServer {
         this.connection.onCompletion(this.onCompletion.bind(this))
         this.connection.onCompletionResolve(this.onCompletionResolve.bind(this)),
 
+        //this.on
         this.connection.onDocumentSymbol(this.onDocumentSymbols.bind(this));
         this.connection.onWorkspaceSymbol(this.onWorkspaceSymbol.bind(this));
         //this.connection.onWorkspaceSymbolResolve(this.onWorkspaceSymbolResolve.bind(this))
@@ -166,11 +167,10 @@ export default class FishServer {
     }
 
     didOpenTextDocument(params: DidOpenTextDocumentParams): void {
-        this.logger.log("[FishLsp.onDidOpenTextDocument()]")
+        this.logParams("didOpenTextDocument", params);
         const uri = uriToPath(params.textDocument.uri);
-        this.logger.log(`[FishLsp.onDidOpenTextDocument()] uri: ${uri}`)
         if (!uri) {
-            this.logger.log("uri is null")
+            this.logger.log(`DID NOT OPEN ${uri} \n URI is null or undefined`)
             return;
         }
         if (this.docs.open(uri, params.textDocument)) { 
@@ -194,18 +194,19 @@ export default class FishServer {
     }
 
     didChangeTextDocument(params: DidChangeTextDocumentParams): void {
-        this.logger.log(`[${ this.connection.onDidChangeTextDocument.name }]: ${params.textDocument.uri}` );
+        this.logParams("didChangeTextDocument", params);
         const uri = uriToPath(params.textDocument.uri);
         const doc = this.docs.get(uri);
         if (!uri || !doc) return;
         doc.applyEdits(doc.version+1, ...params.contentChanges)
         this.analyzer.analyze(doc);
-        this.logger.log(`${doc.version}:::${doc.uri}`)
+        this.logger.log(`CHANGED -> ${doc.version}:::${doc.uri}`)
         const root = this.analyzer.getRootNode(doc);
         if (!root) return 
     }
 
     didCloseTextDocument(params: DidCloseTextDocumentParams): void {
+        this.logParams("didCloseTextDocument", params);
         const uri = uriToPath(params.textDocument.uri);
         if (!uri) return;
         this.logger.log(`[${this.didCloseTextDocument.name}]: ${params.textDocument.uri}`);
@@ -214,7 +215,7 @@ export default class FishServer {
     }
 
     didSaveTextDocument(params: DidSaveTextDocumentParams): void {
-        this.logger.log(`[${this.didSaveTextDocument.name}]: ${params.textDocument.uri}`);
+        this.logParams("didSaveTextDocument", params);
         return;
     }
 
@@ -247,7 +248,7 @@ export default class FishServer {
     // convert to CompletionItem[]
     async onCompletion(params: CompletionParams):  Promise<CompletionItem[]>{
         //const t = params.
-        this.logger.log('server.onComplete');
+        this.logParams("onCompletion", params)
         const uri = uriToPath(params.textDocument.uri);
         let newCompletionList: CompletionItem[] = [];
         const doc = this.docs.get(uri);
@@ -324,10 +325,10 @@ export default class FishServer {
     // https://github.com/Dart-Code/Dart-Code/blob/master/src/extension/providers/dart_workspace_symbol_provider.ts#L7
     //
     async onDocumentSymbols(params: DocumentSymbolParams): Promise<DocumentSymbol[]> {
-        this.logger.log("onDocumentSymbols");
-        const {doc, uri, root} = this.getDefaultsForPartialParams(params)
-        if (!doc || !uri || !root) return [];
-        return filterLastPerScopeSymbol(this.analyzer.analyze(doc));
+        this.logParams('onDocumentSymbols', params);
+        const {doc} = this.getDefaultsForPartialParams(params)
+        if (!doc) return [];
+        return this.analyzer.getDocumentSymbols(doc, 'clientTree')
     }
 
     protected get supportHierarchicalDocumentSymbol(): boolean {
@@ -337,21 +338,21 @@ export default class FishServer {
     }
 
     async onWorkspaceSymbol(params: WorkspaceSymbolParams): Promise<WorkspaceSymbol[]> {
-        this.logger.log('onWorkspaceSymbol: ' + params.query);
+        this.logParams('onWorkspaceSymbol', params.query);
         return this.analyzer.getWorkspaceSymbols(params.query) || []
     }
 
 
     // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#showDocumentParams
     async onDefinition(params: DefinitionParams): Promise<Location[]> {
-        this.logger.log("onDefinition");
+        this.logParams("onDefinition", params);
         const {doc, uri, root, current} = this.getDefaults(params)
         if (!doc) return [];
         return this.analyzer.getDefinition(doc, params.position)
     }
 
     async onReferences(params: ReferenceParams): Promise<Location[]> {
-        this.logger.log("onReference");
+        this.logParams("onReference", params);
         const {doc, uri, root, current} = this.getDefaults(params)
         if (!doc || !uri || !root || !current) return [];
         return getLocalRefs(doc.uri, root, current) || [];
@@ -363,7 +364,7 @@ export default class FishServer {
     // REFACTOR into a procedure that conditionally determines output type needed.
     // Also plan to get rid of any other cache's, so that the garbage collector can do its job. 
     async onHover(params: HoverParams): Promise<Hover | null> {
-        this.logger.log("onHover");
+        this.logParams("onHover", params);
         const {doc, uri, root, current} = this.getDefaults(params)
         if (!doc || !uri || !root || !current) return null;
         const symbolItem = this.analyzer.getHover(doc, params.position)
@@ -382,7 +383,7 @@ export default class FishServer {
     }
 
     async onRename(params: RenameParams) : Promise<WorkspaceEdit | null> {
-        this.logger.log("onRename");
+        this.logParams('onRename', params);
         const {doc, uri, root, current} = this.getDefaults(params)
         if (!doc || !uri || !root || !current) return null;
         const refs = getLocalRefs(doc.uri, root, current);
@@ -400,7 +401,7 @@ export default class FishServer {
     }
 
     async onDocumentFormatting(params: DocumentFormattingParams): Promise<TextEdit[]> {
-        this.logger.log(`onDocumentFormatting: ${params.textDocument.uri}`);
+        this.logParams(`onDocumentFormatting: ${params.textDocument.uri}`);
         const {doc, uri, root} = this.getDefaultsForPartialParams(params)
         if (!doc || !uri || !root) return [];
         let formattedText: string | null = null
@@ -423,7 +424,7 @@ export default class FishServer {
     }
 
     async onDocumentRangeFormatting(params: DocumentRangeFormattingParams): Promise<TextEdit[]> {
-        this.logger.log(`onDocumentRangeFormatting: ${params.textDocument.uri}`);
+        this.logParams('onDocumentRangeFormatting', params);
         const {doc, uri, root} = this.getDefaultsForPartialParams(params)
         const range = params.range
         if (!doc || !uri || !root) return [];
@@ -472,7 +473,7 @@ export default class FishServer {
     }
 
     async onFoldingRanges(params: FoldingRangeParams): Promise<FoldingRange[] | undefined> {
-        this.logger.log(`onFoldingRanges: ${params.textDocument.uri}`);
+        this.logParams('onFoldingRanges', params);
 
         const file = uriToPath(params.textDocument.uri);
         const document = this.docs.get(file);
@@ -525,6 +526,16 @@ export default class FishServer {
     /////////////////////////////////////////////////////////////////////////////////////
     // HELPERS
     /////////////////////////////////////////////////////////////////////////////////////
+    
+    /**
+     * Logs the params passed into a handler
+     *
+     * @param {string} methodName - the FishLsp method name that was called
+     * @param {any[]} params - the params passed into the method
+     */
+    private logParams(methodName: string, ...params: any[]) {
+        this.logger.log({handler: methodName, params})
+    }
 
 
     // helper to get all the default objects needed when a TextDocumentPositionParam is passed

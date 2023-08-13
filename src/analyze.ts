@@ -15,7 +15,7 @@ import fs from 'fs'
 import { SymbolTree } from './symbolTree';
 import { FishWorkspace, Workspace } from './utils/workspace';
 import { collectFishWorkspaceSymbols, FishWorkspaceSymbol } from './utils/fishWorkspaceSymbol';
-import { filterGlobalSymbols, findLastDefinition, findSymbolsForCompletion, FishDocumentSymbol, getFishDocumentSymbols, isGlobalSymbol, isUniversalSymbol } from './document-symbol';
+import { filterGlobalSymbols, filterLastPerScopeSymbol, findLastDefinition, findSymbolsForCompletion, FishDocumentSymbol, getFishDocumentSymbols, isGlobalSymbol, isUniversalSymbol } from './document-symbol';
 import { GenericTree } from './utils/generic-tree';
 import { FishCompletionItem, FishCompletionData } from './utils/completion-strategy';
 
@@ -72,7 +72,18 @@ export class Analyzer {
         return { filesParsed: amount };
     }
 
-    public getDocumentSymbols(document: LspDocument): FishDocumentSymbol[] {
+    public getDocumentSymbols(document: LspDocument, types: 'variables' | 'functions' | 'clientTree' | 'all' = 'all'): FishDocumentSymbol[] {
+        const symbols = this.cache.getDocumentSymbols(document.uri);
+        switch (types) {
+            case 'variables':
+                return symbols.filter((symbol: FishDocumentSymbol) => SymbolKind.Variable === symbol.kind);
+            case 'functions':
+                return symbols.filter((symbol: FishDocumentSymbol) => SymbolKind.Function === symbol.kind);
+            case 'clientTree':
+                return filterLastPerScopeSymbol(symbols)
+            case 'all':
+                return symbols
+        }
         return this.cache.getDocumentSymbols(document.uri) || [];
     }
 
