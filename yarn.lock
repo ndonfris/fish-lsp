@@ -3430,7 +3430,7 @@
   "version" "1.2.2"
 
 "tree-sitter-fish@github:ram02z/tree-sitter-fish":
-  "resolved" "git+ssh://git@github.com/ram02z/tree-sitter-fish.git#6675b56266b3f615fb112205b6b83a79315309c4"
+  "resolved" "git+ssh://git@github.com/ram02z/tree-sitter-fish.git#f9176908c9eb2e11eb684d79e1d00f3b29bd65c9"
   "version" "3.5.1"
   dependencies:
     "nan" "^2.14.2"
@@ -3584,40 +3584,40 @@
     "@types/istanbul-lib-coverage" "^2.0.1"
     "convert-source-map" "^1.6.0"
 
-"vscode-jsonrpc@8.0.2":
-  "integrity" "sha512-RY7HwI/ydoC1Wwg4gJ3y6LpU9FJRZAUnTYMXthqhFXXu77ErDd/xkREpGuk4MyYkk4a+XDWAMqe0S3KkelYQEQ=="
-  "resolved" "https://registry.npmjs.org/vscode-jsonrpc/-/vscode-jsonrpc-8.0.2.tgz"
-  "version" "8.0.2"
+"vscode-jsonrpc@8.1.0":
+  "integrity" "sha512-6TDy/abTQk+zDGYazgbIPc+4JoXdwC8NHU9Pbn4UJP1fehUyZmM4RHp5IthX7A6L5KS30PRui+j+tbbMMMafdw=="
+  "resolved" "https://registry.npmjs.org/vscode-jsonrpc/-/vscode-jsonrpc-8.1.0.tgz"
+  "version" "8.1.0"
 
-"vscode-languageserver-protocol@^3.17.2", "vscode-languageserver-protocol@3.17.2":
-  "integrity" "sha512-8kYisQ3z/SQ2kyjlNeQxbkkTNmVFoQCqkmGrzLH6A9ecPlgTbp3wDTnUNqaUxYr4vlAcloxx8zwy7G5WdguYNg=="
-  "resolved" "https://registry.npmjs.org/vscode-languageserver-protocol/-/vscode-languageserver-protocol-3.17.2.tgz"
-  "version" "3.17.2"
+"vscode-languageserver-protocol@^3.17.3", "vscode-languageserver-protocol@3.17.3":
+  "integrity" "sha512-924/h0AqsMtA5yK22GgMtCYiMdCOtWTSGgUOkgEDX+wk2b0x4sAfLiO4NxBxqbiVtz7K7/1/RgVrVI0NClZwqA=="
+  "resolved" "https://registry.npmjs.org/vscode-languageserver-protocol/-/vscode-languageserver-protocol-3.17.3.tgz"
+  "version" "3.17.3"
   dependencies:
-    "vscode-jsonrpc" "8.0.2"
-    "vscode-languageserver-types" "3.17.2"
+    "vscode-jsonrpc" "8.1.0"
+    "vscode-languageserver-types" "3.17.3"
 
-"vscode-languageserver-textdocument@1.0.7":
-  "integrity" "sha512-bFJH7UQxlXT8kKeyiyu41r22jCZXG8kuuVVA33OEJn1diWOZK5n8zBSPZFHVBOu8kXZ6h0LIRhf5UnCo61J4Hg=="
-  "resolved" "https://registry.npmjs.org/vscode-languageserver-textdocument/-/vscode-languageserver-textdocument-1.0.7.tgz"
-  "version" "1.0.7"
+"vscode-languageserver-textdocument@1.0.8":
+  "integrity" "sha512-1bonkGqQs5/fxGT5UchTgjGVnfysL0O8v1AYMBjqTbWQTFn721zaPGDYFkOKtfDgFiSgXM3KwaG3FMGfW4Ed9Q=="
+  "resolved" "https://registry.npmjs.org/vscode-languageserver-textdocument/-/vscode-languageserver-textdocument-1.0.8.tgz"
+  "version" "1.0.8"
 
-"vscode-languageserver-types@3.17.2":
-  "integrity" "sha512-zHhCWatviizPIq9B7Vh9uvrH6x3sK8itC84HkamnBWoDFJtzBf7SWlpLCZUit72b3os45h6RWQNC9xHRDF8dRA=="
-  "resolved" "https://registry.npmjs.org/vscode-languageserver-types/-/vscode-languageserver-types-3.17.2.tgz"
-  "version" "3.17.2"
+"vscode-languageserver-types@3.17.3":
+  "integrity" "sha512-SYU4z1dL0PyIMd4Vj8YOqFvHu7Hz/enbWtpfnVbJHU4Nd1YNYx8u0ennumc6h48GQNeOLxmwySmnADouT/AuZA=="
+  "resolved" "https://registry.npmjs.org/vscode-languageserver-types/-/vscode-languageserver-types-3.17.3.tgz"
+  "version" "3.17.3"
 
-"vscode-languageserver@^8.0.2":
-  "integrity" "sha512-bpEt2ggPxKzsAOZlXmCJ50bV7VrxwCS5BI4+egUmure/oI/t4OlFzi/YNtVvY24A2UDOZAgwFGgnZPwqSJubkA=="
-  "resolved" "https://registry.npmjs.org/vscode-languageserver/-/vscode-languageserver-8.0.2.tgz"
-  "version" "8.0.2"
+"vscode-languageserver@^8.1.0":
+  "integrity" "sha512-eUt8f1z2N2IEUDBsKaNapkz7jl5QpskN2Y0G01T/ItMxBxw1fJwvtySGB9QMecatne8jFIWJGWI61dWjyTLQsw=="
+  "resolved" "https://registry.npmjs.org/vscode-languageserver/-/vscode-languageserver-8.1.0.tgz"
+  "version" "8.1.0"
   dependencies:
-    "vscode-languageserver-protocol" "3.17.2"
+    "vscode-languageserver-protocol" "3.17.3"
 
-"vscode-uri@^3.0.3":
-  "integrity" "sha512-fmL7V1eiDBFRRnu+gfRWTzyPpNIHJTc4mWnFkwBUmO9U3KPgJAmTx7oxi2bl/Rh6HLdU7+4C9wlj0k2E4AdKFQ=="
-  "resolved" "https://registry.npmjs.org/vscode-uri/-/vscode-uri-3.0.6.tgz"
-  "version" "3.0.6"
+"vscode-uri@^3.0.7":
+  "integrity" "sha512-eOpPHogvorZRobNqJGhapa0JdwaxpjVvyBp0QIUMRMSf8ZAlqOdEquKuRmw9Qwu0qXtJIWqFtMkmvJjUZmMjVA=="
+  "resolved" "https://registry.npmjs.org/vscode-uri/-/vscode-uri-3.0.7.tgz"
+  "version" "3.0.7"
 
 "walker@^1.0.8":
   "integrity" "sha512-ts/8E8l5b7kY0vlWLewOkDXMmPdLcVV4GmOQLyxuSswIJsweeFZtAsMF7k1Nszz+TYBQrlYRmzOnr398y1JemQ=="

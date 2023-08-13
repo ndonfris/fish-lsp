@@ -131,8 +131,7 @@ export default class FishServer {
             },
         }
         this.config.mergePreferences(params.initializationOptions);
-        this.logger.log("FISH-LSP INITIALIZED with options:");
-        this.logger.log({options: this.config});
+        this.logger.log('onInitializedResult', result)
         return result;
     }
     
