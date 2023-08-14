@@ -1,11 +1,11 @@
-import { Hover, MarkupContent, MarkupKind, Position, PublishDiagnosticsParams, SymbolInformation, SymbolKind, WorkspaceSymbol, URI } from "vscode-languageserver";
+import { Hover, MarkupContent, MarkupKind, Position, PublishDiagnosticsParams, SymbolInformation, SymbolKind, WorkspaceSymbol, URI, CallHierarchyOutgoingCall } from "vscode-languageserver";
 import Parser, { SyntaxNode, Range, Tree } from "web-tree-sitter";
 import * as LSP from 'vscode-languageserver';
 //import {collectFishSymbols, FishSymbol} from './symbols';
 import { containsRange, precedesRange } from './workspace-symbol'
-import { findFirstParent , getChildNodes, getRange, isNodeWithinRange} from './utils/tree-sitter';
+import { findFirstParent , getChildNodes, getRange, isNodeWithinRange, equalRanges, findEnclosingScope} from './utils/tree-sitter';
 import { LspDocument } from './document';
-import { isCommand, isCommandName, isDefinition, isFunctionDefinition, isFunctionDefinitionName, isScope, isVariableDefinition} from './utils/node-types';
+import { isCommand, isCommandName, isDefinition, isFunctionDefinition, isFunctionDefinitionName, isScope, isVariable, isVariableDefinition} from './utils/node-types';
 import { DiagnosticQueue } from './diagnostics/queue';
 import {pathToRelativeFunctionName, toLspDocument, uriInUserFunctions, uriToPath} from './utils/translation';
 import { DocumentationCache } from './utils/documentationCache';
@@ -15,11 +15,12 @@ import fs from 'fs'
 import { SymbolTree } from './symbolTree';
 import { FishWorkspace, Workspace } from './utils/workspace';
 import { collectFishWorkspaceSymbols, FishWorkspaceSymbol } from './utils/fishWorkspaceSymbol';
-import { filterGlobalSymbols, filterLastPerScopeSymbol, findLastDefinition, findSymbolsForCompletion, FishDocumentSymbol, getFishDocumentSymbols, isGlobalSymbol, isUniversalSymbol } from './document-symbol';
+import { filterGlobalSymbols, filterLastPerScopeSymbol, findLastDefinition, findSymbolsForCompletion, FishDocumentSymbol, getFishDocumentSymbols, isGlobalSymbol, isUniversalSymbol, symbolIsImmutable } from './document-symbol';
 import { GenericTree } from './utils/generic-tree';
 import { FishCompletionItem, FishCompletionData } from './utils/completion-strategy';
 
 export class Analyzer {
+
     protected parser: Parser;
     public workspaces: FishWorkspace[];
     public cache: AnalyzedDocumentCache = new AnalyzedDocumentCache();
@@ -46,12 +47,7 @@ export class Analyzer {
         const tree = parser.parse(document.getText());
         const documentSymbols =  getFishDocumentSymbols(document.uri, tree.rootNode);
         const commands = this.getCommandNames(document);
-        return {
-            document,
-            documentSymbols,
-            commands,
-            tree,
-        };
+        return AnalyzedDocument.create(document, documentSymbols, commands, tree);
     }
 
     public async initiateBackgroundAnalysis() : Promise<{ filesParsed: number }> {
@@ -87,14 +83,12 @@ export class Analyzer {
         return this.cache.getDocumentSymbols(document.uri) || [];
     }
 
-    public findDocumentSymbol(document: LspDocument, position: Position): FishDocumentSymbol | null {
-        const tree = this.getTree(document);
-        if (!tree) return null;
-        const node = this.nodeAtPoint(document.uri, position.line, position.character);
-        if (!node) return null;
+    public findDocumentSymbol(document: LspDocument, position: Position): FishDocumentSymbol | undefined {
+        let node = this.nodeAtPoint(document.uri, position.line, position.character);
+        if (!node) return undefined
         const symbols = this.cache.getDocumentSymbols(document.uri);
         const symbol = findLastDefinition(symbols, node)
-        return symbol || null;
+        return symbol
     }
 
     
@@ -296,6 +290,132 @@ export class Analyzer {
         };
     }
 
+    public isRenamablePosition(doc: LspDocument, position: Position): boolean {
+        const { currentNode } = this.parsePosition(doc, position);
+        if (!currentNode) return false;
+
+        const localSymbol = this.findDocumentSymbol(doc, position);
+        if (localSymbol) return true;
+
+        if (this.globalSymbols.has(currentNode.text)) {
+            const globalSymbol = this.globalSymbols.find(currentNode.text);
+            for (const symbol of globalSymbol) {
+                if (symbolIsImmutable(symbol)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+
+    public getRenames(doc: LspDocument, position: Position): LSP.Location[] {
+        const currentNode = this.nodeAtPoint(doc.uri, position.line, position.character)
+        if (!currentNode) return [];
+
+        const renames : LSP.Location[] = [];
+
+        const pushRename = (uri: string, range: LSP.Range) => {
+            if (!renames.some((rename) => rename.uri === uri && equalRanges(rename.range, range))) {
+                renames.push({
+                    uri,
+                    range,
+                })
+            }
+        }
+
+        // first we check the current document
+        const foundLocal = this.findDocumentSymbol(doc, position);
+        if (foundLocal) {
+            const { scopeNode } = foundLocal.scope;
+            getChildNodes(scopeNode).forEach((node) => {
+                if (node.text === foundLocal.name) {
+                    pushRename(doc.uri, getRange(node))
+                }
+            })
+            return renames;
+        } 
+
+        const containingWorkspace = this.workspaces.find((workspace) => workspace.contains(doc.uri));
+        //this.workspaces.forEach((w) => console.log(w.path, doc.uri))
+        //console.log();
+        //console.log(containingWorkspace);
+        if (!containingWorkspace) return [];
+
+        containingWorkspace.forEach((doc: LspDocument) => {
+            const root = this.cache.getParsedTree(doc.uri)?.rootNode;
+            if (!root) return
+            const symbols = this.cache
+                .getFlatDocumentSymbols(doc.uri)
+                .some((symbol) => symbol.name === currentNode.text);
+            const commands = this.cache
+                .getCommands(doc.uri)
+                .includes(currentNode.text);
+            if (commands || symbols) {
+                const foundRefs = getReferences(doc.uri, root, currentNode)
+                renames.push(...foundRefs)
+            }
+
+        })
+        return renames;
+        
+        // then we check the global symbols
+        //if (currentNode && this.globalSymbols.has(currentNode.text)) {
+        //    const configSymbols = this.globalSymbols
+        //        .find(currentNode.text)
+        //        .filter(symbolIsImmutable);
+
+        //    if (!configSymbols) return [];
+
+        //    const editableWorkspaces = this.workspaces.filter((workspace) =>
+        //        configSymbols.some((symbol) => workspace.contains(symbol.uri))
+        //    )
+
+        //    for (const workspace of editableWorkspaces) {
+        //        workspace.uris.forEach((uri) => {
+        //            const root = this.cache.getParsedTree(uri)?.rootNode;
+        //            if (!root) return [];
+        //            getChildNodes(root)
+        //                .filter((node) => node.text === currentNode.text)
+        //                .map((node) => {
+        //                    pushRename(uri, getRange(node))
+        //                })
+        //        })
+        //    }
+        //    return renames
+        //} 
+        //return [];
+    }
+
+    public getOutgoingCalls(document: LspDocument, ): CallHierarchyOutgoingCall[] {
+        const outgoingCalls: CallHierarchyOutgoingCall[] = [];
+        this.cache.getCommands(document.uri)
+        return outgoingCalls;
+    }
+
+}
+export function getReferences(
+    uri: string,
+    root: SyntaxNode,
+    current: SyntaxNode
+): LSP.Location[] {
+    return (
+        getChildNodes(root)
+            .filter((n) => n.text === current.text)
+            .filter(
+                (n) =>
+                    isVariable(n) ||
+                    isFunctionDefinitionName(n) ||
+                    isCommandName(n)
+            )
+            .filter((n) =>
+                containsRange(
+                    getRange(findEnclosingScope(n)),
+                    getRange(current)
+                )
+            )
+            .map((n) => LSP.Location.create(uri, getRange(n))) || []
+    );
 }
 
 export class GlobalDefinitionCache {
@@ -327,7 +447,12 @@ export class GlobalDefinitionCache {
         return unique;
     }
     get allSymbols(): FishDocumentSymbol[] {
-        return [...this._definitions.values()].flat();
+        const all: FishDocumentSymbol[] = [];
+        for (const [_, symbols] of this._definitions.entries()) {
+            all.push(...symbols);
+        }
+        return all;
+
     }
     get allNames(): string[] {
         return [...this._definitions.keys()];
@@ -341,6 +466,17 @@ type AnalyzedDocument = {
     commands: string[],
     tree: Parser.Tree
 };
+
+export namespace AnalyzedDocument {
+    export function create(document: LspDocument, documentSymbols: FishDocumentSymbol[], commands: string[], tree: Parser.Tree): AnalyzedDocument {
+        return {
+            document,
+            documentSymbols,
+            commands,
+            tree,
+        }
+    }
+}
 
 export class AnalyzedDocumentCache {
     constructor(private _documents: Map<URI, AnalyzedDocument> = new Map()) {}
@@ -363,6 +499,9 @@ export class AnalyzedDocumentCache {
     getCommands(uri: URI): string[] {
         return this._documents.get(uri)?.commands || [];
     }
+    getRootNode(uri: URI): Parser.SyntaxNode | undefined {
+        return this.getParsedTree(uri)?.rootNode;
+    }
     getParsedTree(uri: URI): Parser.Tree | undefined {
         return this._documents.get(uri)?.tree;
     }
@@ -371,8 +510,42 @@ export class AnalyzedDocumentCache {
         if (!document) return new GenericTree<FishDocumentSymbol>([]);
         return new GenericTree<FishDocumentSymbol>(document.documentSymbols);
     }
-
-    get map() { return this._documents }
+    /**
+     * Name is a string that will be searched across all symbols in cache. tree-sitter-fish
+     * type of symbols that will be searched is 'word' (i.e. variables, functions, commands)
+     * @param {string} name - string SyntaxNode.name to search in cache
+     * @returns {map<URI, SyntaxNode[]>} - map of URIs to SyntaxNodes that match the name
+     */
+    findMatchingNames(name: string): Map<URI, SyntaxNode[]> {
+        const matches = new Map<URI, SyntaxNode[]>();
+        this.forEach((uri, doc) => {
+            const root = doc.tree.rootNode;
+            const nodes = root.descendantsOfType('word').filter(node => node.text === name);
+            if (nodes.length > 0) matches.set(uri, nodes);
+        });
+        return matches;
+    }
+    forEach(callbackfn: (uri: URI, document: AnalyzedDocument) => void) {
+        for (const [uri, document] of this._documents) {
+            callbackfn(uri, document);
+        }
+    }
+    filter(callbackfn: (uri: URI, document?: AnalyzedDocument) => boolean): AnalyzedDocument[] {
+        const result: AnalyzedDocument[] = [];
+        this.forEach((currentUri, currentDocument) => {
+            if (callbackfn(currentUri, currentDocument)) result.push(currentDocument);
+        })
+        return result
+    }
+    mapUris<U>(callbackfn: (doc: AnalyzedDocument) => U, uris: URI[] = this.uris()): U[] {
+        const result: U[] = [];
+        for (const uri of uris) {
+            const doc = this.getDocument(uri);
+            if (!doc) continue;
+            result.push(callbackfn(doc));
+        }
+        return result;
+    }
 }
 
 export class SymbolCache {

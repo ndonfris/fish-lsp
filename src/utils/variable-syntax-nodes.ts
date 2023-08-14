@@ -46,7 +46,7 @@ export function gatherVariableSiblings(node: SyntaxNode): SyntaxNode[] {
 }
 
 export function isSetDefinitionNode(nodes: SyntaxNode[], match: SyntaxNode): boolean {
-    if (setHasQuery(nodes)) return false;
+    //if (setHasQuery(nodes)) return false;
     for (const node of nodes) {
         if (NodeTypes.isOption(node)) continue;
         if (node.equals(match)) return true;

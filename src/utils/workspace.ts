@@ -31,6 +31,8 @@ export interface FishWorkspace {
     uris: Set<string>
     contains(...checkUris: string[]): boolean
     urisToLspDocuments(): LspDocument[]
+    filter(callbackfn: (lspDocument: LspDocument) => boolean): LspDocument[]
+    forEach(callbackfn: (lspDocument: LspDocument) => void): void
 }
 
 export class Workspace implements FishWorkspace {
@@ -119,6 +121,20 @@ export class Workspace implements FishWorkspace {
             docs.push(doc)
         }
         return docs
+    }
+
+    forEach(callback: (lspDocument: LspDocument) => void) {
+        for (const doc of this.urisToLspDocuments()) {
+            callback(doc)
+        }
+    }
+
+    filter(callbackfn: (lspDocument: LspDocument) => boolean): LspDocument[] {
+        const result: LspDocument[] = []
+        for (const doc of this.urisToLspDocuments()) {
+            if (callbackfn(doc)) result.push(doc)
+        }
+        return result
     }
 
 }

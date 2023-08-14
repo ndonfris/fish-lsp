@@ -6,7 +6,7 @@ import { resolve } from 'path';
 import * as fastGlob from 'fast-glob'
 import Parser from 'web-tree-sitter';
 import { TextDocumentItem } from 'vscode-languageserver';
-import { pathToUri } from '../src/utils/translation';
+import { pathToUri, uriToPath } from '../src/utils/translation';
 import { FishWorkspace, Workspace } from '../src/utils/workspace';
 
 export type WorkspaceName = 'workspace_1' | 'workspace_2' | 'workspace_3'
@@ -39,11 +39,10 @@ export class WorkspaceSpoofer implements FishWorkspace {
         return this.files.length
     }
 
-    contains(...uris: string[]) {
-        for (const uri of uris) {
-            if (!this.files.some(file => file.fakePath === uri)) {
-                return false
-            }
+    contains(...checkUris: string[]) {
+        for (const uri of checkUris) {
+            const uriAsPath = uriToPath(uri)
+            if (!uriAsPath.startsWith(this.path)) return false
         }
         return true
     }
@@ -68,7 +67,27 @@ export class WorkspaceSpoofer implements FishWorkspace {
     }
 
     getDocument(uri: string) {
-        return this.files.find(file => file.uri === uri)
+        return this.urisToLspDocuments().find(doc => doc.uri === uri)
+    }
+
+    forEachLspDocument(callback: (doc: LspDocument) => void) {
+        for (const doc of this.urisToLspDocuments()) {
+            callback(doc)
+        }
+    }
+
+    forEach(callback: (doc: LspDocument) => void) {
+        for (const doc of this.urisToLspDocuments()) {
+            callback(doc)
+        }
+    }
+
+    filter(callbackfn: (lspDocument: LspDocument) => boolean): LspDocument[] {
+        const result: LspDocument[] = []
+        for (const doc of this.urisToLspDocuments()) {
+            if (callbackfn(doc)) result.push(doc)
+        }
+        return result
     }
 }
 
@@ -94,6 +113,8 @@ export class SpoofedFile {
         const doc = TextDocumentItem.create(this.uri, 'fish', 0, this.content)
         return new LspDocument(doc)
     }
+
+
 }
 
 function getTestDirectory(workspaceName: WorkspaceName) {
