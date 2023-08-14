@@ -1,4 +1,8 @@
-# CURRENT TODO
+#  fish-lsp 
+
+Experimental language server for the fish shell. Upstream [branches]( https://github.com/ndonfris/fish-lsp/branches ) offer various features
+for the fish shell, but are highly experimental. Maintainers are welcome to contribute, 
+as the project is still in its infancy.  
 
 - [ ] [server.ts]( ./src/server.ts )
     - [x] onFold
@@ -6,22 +10,17 @@
         - [ ] still needs minor tweaks to support chained short options 
         - [x] support ranges
     - [x] diagnostics
-        - [ ] ideas for more here
-- [x] [documentation.ts]( ./src/documentation.ts 
+        - [ ] tons of possibility for future ideas here. Diagnostic Provider is implemented upstream.
+- [x] [documentation.ts]( ./src/documentation.ts )
 - [x] [analysis.ts]( ./src/analyzer.ts )
     - [x] implement diagnostics
-    - [x] `getCommandAtLine()` for onComplete()/onHover()
-- [ ] [completion.ts]( ./src/completion.ts )
+    - [x] `getCommandAtLine()` for `onComplete()/onHover()`
+- [x] [completion.ts]( ./src/completion.ts )
     - [x] fix/update to v.8.0.2 with `editRange` in `CompletionList.create()`
-    - [ ] fix WorkspaceSymbol/DocumentSymbol completions
-    - [ ] add in completion short options, that are chained together.
+    - [x] fix WorkspaceSymbol/DocumentSymbol completions
+    - [x] add in completion short options, that are chained together.
     - [ ] add in option for sorting by short options first
     - [ ] add in option for including descriptions 
-- [ ] [commands.ts]( ./src/commands.ts )
-    - [ ] implement commands to be used in server.ts. 
-        - formatting
-        - folding
-        - executeSelection
 - [ ] [code-actions.ts]( ./src/code-actions.ts ) implement code actions
     - use `CodeActionContext.create()` to create contexts, potentially while also creating
       diagnostics at the same time.
@@ -29,8 +28,70 @@
       of the document.
 - [ ] [code-lens.ts]( ./src/code-lens.ts ) implement code lens
 
-- what is a [ __text_span__ ](https://github.com/typescript-language-server/typescript-language-server/blob/5a39c1f801ab0cad725a2b8711c0e0d46606a08b/src/utils/typeConverters.ts#L12)
-    - __@SEE__ [utils/locations.ts]( ./src/utils/locations.ts )
+## Current recommendations:
+- For production I have use neovim with [coc.nvim]( https://github.com/neoclide/coc.nvim ):
+```json
+    "languageserver": {
+        "fishls": {
+            "command": "$HOME/path/to/fish-lang-server/out/cli.js",
+            "filetypes": ["fish"],
+            "args": ["--stdio"],
+            "revealOutputChannelOn": "info",
+            "initializationOptions": {
+                "workspaces": {
+                    "paths": {
+                        "defaults": [
+                            "$HOME/.config/fish",
+                            "/usr/share/fish"
+                        ],
+                },
+            }
+            //"additionalSchemes": ['']
+        },
+    },
+```
+- Development setup has also been tested with [cmp.nvim]( https://github.com/hrsh7th/nvim-cmp )
+- To get your own setup working, you will need to:
+    1. clone the repo
+    2. run: `npm install && npm run build`
+    3. You will need the [ tree-sitter-fish ]( https://github.com/ram02z/tree-sitter-fish ) package & the [ tree-sitter-cli ]( https://github.com/tree-sitter/tree-sitter/blob/master/cli/README.md ) 
+    ```fish
+    npm install tree-sitter-cli
+    cd /path/to/tree-sitter-fish # see package.json for adding git path to npm
+    tree-sitter build-wasm fish
+    ```
+    4. Most importantly, it should do-able to get into most editor's, by providing the [~/path/to/cli.js]( /src/cli.ts ) to the editor language client configuration.
+    5. options provided past that are optional, and set by default during `server.on_attach()`
+
+
+## Various notes:
+- [fish-lsp]( ./src/server.ts ) is the main entry point for the language server.
+- [test-data]( ./test-data/ ) contains the test data for the language server. Here is
+  the quickest way to get a grasp of major features.
+```fish
+npm run test analyze # to test: `./fish_data/analyze.test.ts`
+```
+- [DocumentSymbol]( https://microsoft.github.io/language-server-protocol/specifications/specification-current/#textDocument_documentSymbol ) has been implemented
+across various branches, I still have not figured out the best way to resolve a symbol
+based on scope using this protocol.
+- [SymbolInformation]( https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#symbolInformation ) has been implemented,
+but was abandoned due to official documentation stating that it is deprecated. Having now
+used the DocumentSymbol protocol, the tree structure that this protocol avoids makes it
+significantly easier to implement across server handlers.
+> NOTE: you can not use partial result: `DocumentSymbol[] | SymbolInformation[]. DocumentSymbol[]` and `SymbolInformation[]` can not be mixed. That means the first chunk defines the type of all the other chunks.
+- [node-types.ts]( ./src/utils/node-types.ts ) contains the node types for the fish language. A more verbose version of tokenization via [tree-sitter-fish](#tree-sitter-fish), would make this file significantly more readable. It would
+also greatly simplify the process of detecting what the type of a node is. [ __If you are interested in helping with this, please reach out.__ ]
+
+<center>
+
+| fish-shell                  | TreeSitter.SyntaxNode.type   |
+|:---------------------------:|:---------------------------:|
+|`set --local var "value"`    | var.type === 'word'         |
+| `echo "$var"`               | var.type === 'variable'     |
+
+</center>
+
+- [tree-sitter.ts]( ./src/utils/tree-sitter.ts ) contains the node flattening and searching utilities for the fish language.
 
 
 
@@ -41,589 +102,19 @@
 - __Similiar projects__
     - [coc.fish]( https://github.com/oncomouse/coc-fish )
     - [awk-language-server]( https://github.com/Beaglefoot/awk-language-server/tree/master/server )
-    - [bash-language-server]( https://github.com/Beaglefoot/awk-language-server/tree/master/server )
+    - [bash-language-server]( https://github.com/bash-lsp/bash-language-server/tree/main/server/src )
     - [typescript-language-server](https://github.com/typescript-language-server/typescript-language-server#running-the-language-server)
     - [coc-tsserver](https://github.com/neoclide/coc-tsserver)
 
-- __Important Packages__ (pretty sure that vscode-languageserver links are the same)
+- __Important Packages__ 
     - [vscode-jsonrpc]( https://www.npmjs.com/package/vscode-jsonrpc )
     - [vscode-languageserver]( https://github.com/Microsoft/vscode-languageserver-node )
     - [vscode-languageserver-textdocument]( https://github.com/Microsoft/vscode-languageserver-node )
-    - [vscode-languageserver-types]( https://github.com/Microsoft/vscode-languageserver-node )
 
 - __Default Implementation Git Repos__
     - [client implementation]( https://github.com/microsoft/vscode-languageserver-node/blob/main/client/src/common )
     - [server implementation]( https://github.com/microsoft/vscode-languageserver-node/tree/main/server/src/common )  
 
+
+
 ---
-### Below is for [TypeScript Language Server]( https://github.com/typescript-language-server/typescript-language-server/blob/114d4309cb1450585f991604118d3eff3690237c/src/utils/SnippetString.ts )
-
-<!-- @import "[TOC]" {cmd="toc" depthFrom=1 depthTo=6 orderedList=false} -->
-
-[Language Server Protocol](https://github.com/Microsoft/language-server-protocol) implementation for TypeScript wrapping `tsserver`.
-
-[![https://nodei.co/npm/typescript-language-server.png?downloads=true&downloadRank=true&stars=true](https://nodei.co/npm/typescript-language-server.png?downloads=true&downloadRank=true&stars=true)](https://www.npmjs.com/package/typescript-language-server)
-
-Based on concepts and ideas from https://github.com/prabirshrestha/typescript-language-server and originally maintained by [TypeFox](https://typefox.io)
-
-Maintained by a [community of contributors](https://github.com/typescript-language-server/typescript-language-server/graphs/contributors) like you
-
-<!-- MarkdownTOC -->
-
-- [Installing](#installing)
-- [Running the language server](#running-the-language-server)
-- [CLI Options](#cli-options)
-- [initializationOptions](#initializationoptions)
-- [workspace/didChangeConfiguration](#workspacedidchangeconfiguration)
-- [Code actions on save](#code-actions-on-save)
-- [Workspace commands \(`workspace/executeCommand`\)](#workspace-commands-workspaceexecutecommand)
-    - [Go to Source Definition](#go-to-source-definition)
-    - [Apply Workspace Edits](#apply-workspace-edits)
-    - [Apply Code Action](#apply-code-action)
-    - [Apply Refactoring](#apply-refactoring)
-    - [Organize Imports](#organize-imports)
-    - [Rename File](#rename-file)
-- [Inlay hints \(`typescript/inlayHints`\) \(experimental\)](#inlay-hints-typescriptinlayhints-experimental)
-- [Callers and callees \(`textDocument/calls`\) \(experimental\)](#callers-and-callees-textdocumentcalls-experimental)
-- [Supported Protocol features](#supported-protocol-features)
-    - [Experimental](#experimental)
-- [Development](#development)
-    - [Build](#build)
-    - [Test](#test)
-    - [Watch](#watch)
-    - [Publishing](#publishing)
-
-<!-- /MarkdownTOC -->
-
-## Installing
-
-```sh
-npm install -g typescript-language-server typescript
-```
-
-## Running the language server
-
-```
-typescript-language-server --stdio
-```
-
-## CLI Options
-
-```
-  Usage: typescript-language-server [options]
-
-
-  Options:
-
-    -V, --version                          output the version number
-    --stdio                                use stdio (required option)
-    --log-level <log-level>                A number indicating the log level (4 = log, 3 = info, 2 = warn, 1 = error). Defaults to `3`.
-    --tsserver-log-file <tsServerLogFile>  Specify a tsserver log file. example: --tsserver-log-file=ts-logs.txt
-    --tsserver-log-verbosity <verbosity>   Specify tsserver log verbosity (off, terse, normal, verbose). Defaults to `normal`. example: --tsserver-log-verbosity=verbose
-    --tsserver-path <path>                 Specify path to tsserver directory. example: --tsserver-path=/Users/me/typescript/lib/
-    -h, --help                             output usage information
-```
-
-> Note: The path passed to `--tsserver-path` should ideally be a path to the `/.../typescript/lib/` directory and not to the shell script `/.../node_modules/.bin/tsserver` or `tsserver`. Though for backward-compatibility reasons, the server will try to do the right thing even when passed a path to the shell script.
-
-## initializationOptions
-
-The language server accepts various settings through the `initializationOptions` object passed through the `initialize` request. Refer to your LSP client's documentation on how to set these. Here is the list of supported options:
-
-| Setting           | Type     | Description                                                                                                                                                                                                                                                          |
-|:------------------|:---------|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| hostInfo          | string   | Information about the host, for example `"Emacs 24.4"` or `"Sublime Text v3075"`. **Default**: `undefined`                                                                                                                                                           |
-| disableAutomaticTypingAcquisition | boolean | Disables tsserver from automatically fetching missing type definitions (`@types` packages) for external modules. |
-| logVerbosity      | string   | The verbosity level of the information printed in the log by `tsserver`. Accepts values: `"off"`, `"terse"`, `"normal"`, `"requesttime"`, `"verbose"`. **Default**: `undefined` (`"off"`).                                                                                         |
-| maxTsServerMemory | number   | The maximum size of the V8's old memory section in megabytes (for example `4096` means 4GB). The default value is dynamically configured by Node so can differ per system. Increase for very big projects that exceed allowed memory usage. **Default**: `undefined` |
-| npmLocation       | string   | Specifies the path to the NPM executable used for Automatic Type Acquisition. |
-| locale            | string   | The locale to use to show error messages. |
-| plugins           | object[] | An array of `{ name: string, location: string }` objects for registering a Typescript plugins. **Default**: []                                                                                                                                                         |
-| preferences       | object   | Preferences passed to the Typescript (`tsserver`) process. See below for more info.                                                                                                                              |
-
-The `preferences` object is an object specifying preferences for the internal `tsserver` process. Those options depend on the version of Typescript used but at the time of writing Typescript v4.4.3 contains these options:
-
-```ts
-interface UserPreferences {
-    /**
-     * Glob patterns of files to exclude from auto imports. Requires using TypeScript 4.8 or newer in the workspace.
-     * Relative paths are resolved relative to the workspace root.
-     * @since 4.8.2
-     */
-    autoImportFileExcludePatterns: [],
-    disableSuggestions: boolean;
-    quotePreference: "auto" | "double" | "single";
-    /**
-     * If enabled, TypeScript will search through all external modules' exports and add them to the completions list.
-     * This affects lone identifier completions but not completions on the right hand side of `obj.`.
-     */
-    includeCompletionsForModuleExports: boolean;
-    /**
-     * Enables auto-import-style completions on partially-typed import statements. E.g., allows
-     * `import write|` to be completed to `import { writeFile } from "fs"`.
-     */
-    includeCompletionsForImportStatements: boolean;
-    /**
-     * Allows completions to be formatted with snippet text, indicated by `CompletionItem["isSnippet"]`.
-     */
-    includeCompletionsWithSnippetText: boolean;
-    /**
-     * If enabled, the completion list will include completions with invalid identifier names.
-     * For those entries, The `insertText` and `replacementSpan` properties will be set to change from `.x` property access to `["x"]`.
-     */
-    includeCompletionsWithInsertText: boolean;
-    /**
-     * Unless this option is `false`, or `includeCompletionsWithInsertText` is not enabled,
-     * member completion lists triggered with `.` will include entries on potentially-null and potentially-undefined
-     * values, with insertion text to replace preceding `.` tokens with `?.`.
-     */
-    includeAutomaticOptionalChainCompletions: boolean;
-    /**
-     * If enabled, completions for class members (e.g. methods and properties) will include
-     * a whole declaration for the member.
-     * E.g., `class A { f| }` could be completed to `class A { foo(): number {} }`, instead of
-     * `class A { foo }`.
-     * @since 4.5.2
-     * @default true
-     */
-    includeCompletionsWithClassMemberSnippets: boolean;
-    /**
-     * If enabled, object literal methods will have a method declaration completion entry in addition
-     * to the regular completion entry containing just the method name.
-     * E.g., `const objectLiteral: T = { f| }` could be completed to `const objectLiteral: T = { foo(): void {} }`,
-     * in addition to `const objectLiteral: T = { foo }`.
-     * @since 4.7.2
-     * @default true
-     */
-    includeCompletionsWithObjectLiteralMethodSnippets: boolean;
-    /**
-     * Indicates whether {@link CompletionEntry.labelDetails completion entry label details} are supported.
-     * If not, contents of `labelDetails` may be included in the {@link CompletionEntry.name} property.
-     * Only supported if the client supports `textDocument.completion.completionItem.labelDetailsSupport` capability
-     * and a compatible TypeScript version is used.
-     * @since 4.7.2
-     * @default true
-     */
-    useLabelDetailsInCompletionEntries: boolean;
-    /**
-     * Allows import module names to be resolved in the initial completions request.
-     * @default false
-     */
-    allowIncompleteCompletions: boolean;
-    importModuleSpecifierPreference: "shortest" | "project-relative" | "relative" | "non-relative";
-    /** Determines whether we import `foo/index.ts` as "foo", "foo/index", or "foo/index.js" */
-    importModuleSpecifierEnding: "auto" | "minimal" | "index" | "js";
-    allowTextChangesInNewFiles: boolean;
-    lazyConfiguredProjectsFromExternalProject: boolean;
-    providePrefixAndSuffixTextForRename: boolean;
-    provideRefactorNotApplicableReason: boolean;
-    allowRenameOfImportPath: boolean;
-    includePackageJsonAutoImports: "auto" | "on" | "off";
-    /**
-     * Preferred style for JSX attribute completions:
-     * - `"auto"` - Insert `={}` or `=\"\"` after attribute names based on the prop type.
-     * - `"braces"` - Insert `={}` after attribute names.
-     * - `"none"` - Only insert attribute names.
-     * @since 4.5.2
-     * @default 'auto'
-     */
-    jsxAttributeCompletionStyle: "auto" | "braces" | "none";
-    displayPartsForJSDoc: boolean;
-    generateReturnInDocTemplate: boolean;
-
-    includeInlayParameterNameHints: "none" | "literals" | "all";
-    includeInlayParameterNameHintsWhenArgumentMatchesName: boolean;
-    includeInlayFunctionParameterTypeHints: boolean,
-    includeInlayVariableTypeHints: boolean;
-    /**
-     * When disabled then type hints on variables whose name is identical to the type name won't be shown. Requires using TypeScript 4.8+ in the workspace.
-     * @since 4.8.2
-     * @default false
-     */
-    includeInlayVariableTypeHintsWhenTypeMatchesName: boolean;
-    includeInlayPropertyDeclarationTypeHints: boolean;
-    includeInlayFunctionLikeReturnTypeHints: boolean;
-    includeInlayEnumMemberValueHints: boolean;
-}
-```
-
-From the `preferences` options listed above, this server explicilty sets the following options (all other options use their default values):
-
-```js
-{
-    allowIncompleteCompletions: true,
-    allowRenameOfImportPath: true,
-    allowTextChangesInNewFiles: true,
-    displayPartsForJSDoc: true,
-    generateReturnInDocTemplate: true,
-    includeAutomaticOptionalChainCompletions: true,
-    includeCompletionsForImportStatements: true,
-    includeCompletionsForModuleExports: true,
-    includeCompletionsWithClassMemberSnippets: true,
-    includeCompletionsWithObjectLiteralMethodSnippets: true,
-    includeCompletionsWithInsertText: true,
-    includeCompletionsWithSnippetText: true,
-    jsxAttributeCompletionStyle: "auto",
-    providePrefixAndSuffixTextForRename: true,
-    provideRefactorNotApplicableReason: true,
-}
-```
-
-## workspace/didChangeConfiguration
-
-Some of the preferences can be controlled through the `workspace/didChangeConfiguration` notification. Below is a list of supported options that can be passed. Note that the settings are specified separately for the typescript and javascript files so `[language]` can be either `javascript` or `typescript`.
-
-```ts
-// Formatting preferences
-[language].format.baseIndentSize: number;
-[language].format.convertTabsToSpaces: boolean;
-[language].format.indentSize: number;
-[language].format.indentStyle: 'None' | 'Block' | 'Smart';
-[language].format.insertSpaceAfterCommaDelimiter: boolean;
-[language].format.insertSpaceAfterConstructor: boolean;
-[language].format.insertSpaceAfterFunctionKeywordForAnonymousFunctions: boolean;
-[language].format.insertSpaceAfterKeywordsInControlFlowStatements: boolean;
-[language].format.insertSpaceAfterOpeningAndBeforeClosingEmptyBraces: boolean;
-[language].format.insertSpaceAfterOpeningAndBeforeClosingJsxExpressionBraces: boolean;
-[language].format.insertSpaceAfterOpeningAndBeforeClosingNonemptyBraces: boolean;
-[language].format.insertSpaceAfterOpeningAndBeforeClosingNonemptyBrackets: boolean;
-[language].format.insertSpaceAfterOpeningAndBeforeClosingNonemptyParenthesis: boolean;
-[language].format.insertSpaceAfterOpeningAndBeforeClosingTemplateStringBraces: boolean;
-[language].format.insertSpaceAfterSemicolonInForStatements: boolean;
-[language].format.insertSpaceAfterTypeAssertion: boolean;
-[language].format.insertSpaceBeforeAndAfterBinaryOperators: boolean;
-[language].format.insertSpaceBeforeFunctionParenthesis: boolean;
-[language].format.insertSpaceBeforeTypeAnnotation: boolean;
-[language].format.newLineCharacter: string;
-[language].format.placeOpenBraceOnNewLineForControlBlocks: boolean;
-[language].format.placeOpenBraceOnNewLineForFunctions: boolean;
-[language].format.semicolons: 'ignore' | 'insert' | 'remove';
-[language].format.tabSize: number;
-[language].format.trimTrailingWhitespace: boolean;
-// Inlay Hints preferences
-[language].inlayHints.includeInlayEnumMemberValueHints: boolean;
-[language].inlayHints.includeInlayFunctionLikeReturnTypeHints: boolean;
-[language].inlayHints.includeInlayFunctionParameterTypeHints: boolean;
-[language].inlayHints.includeInlayParameterNameHints: 'none' | 'literals' | 'all';
-[language].inlayHints.includeInlayParameterNameHintsWhenArgumentMatchesName: boolean;
-[language].inlayHints.includeInlayPropertyDeclarationTypeHints: boolean;
-[language].inlayHints.includeInlayVariableTypeHints: boolean;
-[language].inlayHints.includeInlayVariableTypeHintsWhenTypeMatchesName: boolean;
-/**
- * Complete functions with their parameter signature.
- * @default false
- */
-completions.completeFunctionCalls: boolean;
-// Diagnostics code to be omitted when reporting diagnostics.
-// See https://github.com/microsoft/TypeScript/blob/master/src/compiler/diagnosticMessages.json for a full list of valid codes.
-diagnostics.ignoredCodes: number[];
-
-```
-
-## Code actions on save
-
-Server announces support for the following code action kinds:
-
- - `source.addMissingImports.ts` - adds imports for used but not imported symbols
- - `source.fixAll.ts` - despite the name, fixes a couple of specific issues: unreachable code, await in non-async functions, incorrectly implemented interface
- - `source.removeUnused.ts` - removes declared but unused variables
- - `source.organizeImports.ts` - organizes and removes unused imports
-
-This allows editors that support running code actions on save to automatically run fixes associated with those kinds.
-
-Those code actions, if they apply in the current code, should also be presented in the list of "Source Actions" if the editor exposes those.
-
-The user can enable it with a setting similar to (can vary per-editor):
-
-```js
-"codeActionsOnSave": {
-    "source.organizeImports.ts": true,
-    // or just
-    "source.organizeImports": true,
-}
-```
-
-## Workspace commands (`workspace/executeCommand`)
-
-See [LSP specification](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#workspace_executeCommand).
-
-Most of the time, you'll execute commands with arguments retrieved from another request like `textDocument/codeAction`. There are some use cases for calling them manually.
-
-`lsp` refers to the language server protocol types, `tsp` refers to the typescript server protocol types.
-
-### Go to Source Definition
-
-- Request:
-    ```ts
-    {
-        command: `_typescript.goToSourceDefinition`
-        arguments: [
-            lsp.DocumentUri,  // String URI of the document
-            lsp.Position,     // Line and character position (zero-based)
-        ]
-    }
-    ```
-- Response:
-    ```ts
-    lsp.Location[] | null
-    ```
-
-(This command is supported from Typescript 4.7.)
-
-### Apply Workspace Edits
-
-- Request:
-    ```ts
-    {
-        command: `_typescript.applyWorkspaceEdit`
-        arguments: [lsp.WorkspaceEdit]
-    }
-    ```
-- Response:
-    ```ts
-    lsp.ApplyWorkspaceEditResult
-    ```
-
-### Apply Code Action
-
-- Request:
-    ```ts
-    {
-        command: `_typescript.applyCodeAction`
-        arguments: [
-            tsp.CodeAction,  // TypeScript Code Action object
-        ]
-    }
-    ```
-- Response:
-    ```ts
-    void
-    ```
-
-### Apply Refactoring
-
-- Request:
-    ```ts
-    {
-        command: `_typescript.applyRefactoring`
-        arguments: [
-            tsp.GetEditsForRefactorRequestArgs,
-        ]
-    }
-    ```
-- Response:
-    ```ts
-    void
-    ```
-
-### Organize Imports
-
-- Request:
-    ```ts
-    {
-        command: `_typescript.organizeImports`
-        arguments: [
-            // The "skipDestructiveCodeActions" argument is supported from Typescript 4.4+
-            [string] | [string, { skipDestructiveCodeActions?: boolean }],
-        ]
-    }
-    ```
-- Response:
-    ```ts
-    void
-    ```
-
-### Rename File
-
-- Request:
-    ```ts
-    {
-        command: `_typescript.applyRenameFile`
-        arguments: [
-            { sourceUri: string; targetUri: string; },
-        ]
-    }
-    ```
-- Response:
-    ```ts
-    void
-    ```
-
-## Inlay hints (`typescript/inlayHints`) (experimental)
-
-> !!! This implementation is deprecated. Use the spec-compliant `textDocument/inlayHint` request instead. !!!
-
-Supports experimental inline hints.
-
-```ts
-type Request = {
-  textDocument: TextDocumentIdentifier,
-  range?: Range,
-}
-
-type Response = {
-  inlayHints: InlayHint[];
-}
-
-type InlayHint = {
-    text: string;
-    position: lsp.Position;
-    kind: 'Type' | 'Parameter' | 'Enum';
-    whitespaceBefore?: boolean;
-    whitespaceAfter?: boolean;
-};
-```
-
-For the request to return any results, some or all of the following options need to be enabled through `preferences`:
-
-```ts
-// Not officially part of UserPreferences yet but you can send them along with the UserPreferences just fine:
-export interface InlayHintsOptions extends UserPreferences {
-    includeInlayParameterNameHints: 'none' | 'literals' | 'all';
-    includeInlayParameterNameHintsWhenArgumentMatchesName: boolean;
-    includeInlayFunctionParameterTypeHints: boolean;
-    includeInlayVariableTypeHints: boolean;
-    includeInlayVariableTypeHintsWhenTypeMatchesName: boolean;
-    includeInlayPropertyDeclarationTypeHints: boolean;
-    includeInlayFunctionLikeReturnTypeHints: boolean;
-    includeInlayEnumMemberValueHints: boolean;
-}
-```
-
-## Callers and callees (`textDocument/calls`) (experimental)
-
-Supports showing callers and calles for a given symbol. If the editor has support for appropriate UI, it can generate a tree of callers and calles for a document.
-
-```ts
-type Request = {
-    /**
-     * The text document.
-     */
-    textDocument: TextDocumentIdentifier;
-    /**
-     * The position inside the text document.
-     */
-    position: Position;
-    /**
-     * Outgoing direction for callees.
-     * The default is incoming for callers.
-     */
-    direction?: CallDirection;
-}
-
-export enum CallDirection {
-    /**
-     * Incoming calls aka. callers
-     */
-    Incoming = 'incoming',
-    /**
-     * Outgoing calls aka. callees
-     */
-    Outgoing = 'outgoing',
-}
-
-type Result = {
-    /**
-     * The symbol of a definition for which the request was made.
-     *
-     * If no definition is found at a given text document position, the symbol is undefined.
-     */
-    symbol?: DefinitionSymbol;
-    /**
-     * List of calls.
-     */
-    calls: Call[];
-}
-
-interface Call {
-    /**
-     * Actual location of a call to a definition.
-     */
-    location: Location;
-    /**
-     * Symbol refered to by this call. For outgoing calls this is a callee,
-     * otherwise a caller.
-     */
-    symbol: DefinitionSymbol;
-}
-
-interface DefinitionSymbol {
-    /**
-     * The name of this symbol.
-     */
-    name: string;
-    /**
-     * More detail for this symbol, e.g the signature of a function.
-     */
-    detail?: string;
-    /**
-     * The kind of this symbol.
-     */
-    kind: SymbolKind;
-    /**
-     * The range enclosing this symbol not including leading/trailing whitespace but everything else
-     * like comments. This information is typically used to determine if the the clients cursor is
-     * inside the symbol to reveal in the symbol in the UI.
-     */
-    location: Location;
-    /**
-     * The range that should be selected and revealed when this symbol is being picked, e.g the name of a function.
-     * Must be contained by the the `range`.
-     */
-    selectionRange: Range;
-}
-```
-
-## Supported Protocol features
-
-- [x] textDocument/codeAction
-- [x] textDocument/completion (incl. `completion/resolve`)
-- [x] textDocument/definition
-- [x] textDocument/didChange (incremental)
-- [x] textDocument/didClose
-- [x] textDocument/didOpen
-- [x] textDocument/didSave
-- [x] textDocument/documentHighlight
-- [x] textDocument/documentSymbol
-- [x] textDocument/executeCommand
-- [x] textDocument/formatting
-- [x] textDocument/hover
-- [x] textDocument/inlayHint (no support for `inlayHint/resolve` or `workspace/inlayHint/refresh`)
-- [x] textDocument/rangeFormatting
-- [x] textDocument/references
-- [x] textDocument/rename
-- [x] textDocument/signatureHelp
-- [x] workspace/symbol
-- [x] workspace/didChangeConfiguration
-- [x] workspace/executeCommand
-
-### Experimental
-
-- [x] textDocument/calls (experimental)
-- [x] typescript/inlayHints (experimental, supported from Typescript v4.4.2) DEPRECATED (use  `textDocument/inlayHint` instead)
-
-## Development
-
-### Build
-
-```sh
-yarn
-```
-
-### Test
-
- - `yarn test` - run all tests
- - `yarn test:watch` - run all tests and enable watch mode for developing
-
-By default only console logs of level `warn` and higher are printed to the console. You can override the `CONSOLE_LOG_LEVEL` level in `package.json` to either `log`, `info`, `warn` or `error` to log other levels.
-
-### Watch
-
-```sh
-yarn watch
-```
-
-### Publishing
-
-New version of the package is published automatically on pushing new tag to the upstream repo.
-fixed coc folding error: `set foldmethod=marker foldlevel=0 nomodeline:`
