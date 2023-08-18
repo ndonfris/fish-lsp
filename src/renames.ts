@@ -1,7 +1,7 @@
 import { filterGlobalSymbols, filterLastPerScopeSymbol, filterLocalSymbols, findLastDefinition, findSymbolsForCompletion, FishDocumentSymbol, getFishDocumentSymbols, isGlobalSymbol, isUniversalSymbol, symbolIsImmutable } from './document-symbol';
 import { Analyzer } from './analyze';
 import { LspDocument } from './document';
-import { Position, Location, Range, SymbolKind } from 'vscode-languageserver';
+import { Position, Location, Range, SymbolKind, TextEdit, DocumentUri, WorkspaceEdit, RenameFile } from 'vscode-languageserver';
 import { getChildNodes, getRange } from './utils/tree-sitter';
 import { SyntaxNode } from 'web-tree-sitter';
 import { containsRange } from './workspace-symbol';
@@ -21,6 +21,10 @@ export function getRenameSymbolType(analyzer: Analyzer, document: LspDocument, p
         return 'global'
     }
     return 'local'
+}
+
+export type RenameChanges = {
+    [uri: DocumentUri]: TextEdit[]
 }
 
 function findLocations(uri: string, nodes: SyntaxNode[], matchName: string): Location[] {
@@ -89,4 +93,63 @@ export function getRenameLocations(analyzer: Analyzer, document: LspDocument, po
         default:
             return []
     }
+}
+
+export function getRefrenceLocations(analyzer: Analyzer, document: LspDocument, position: Position): Location[] {
+    const node = analyzer.nodeAtPoint(document.uri, position.line, position.character)
+    const symbol = analyzer.getDefinition(document, position).pop()
+    if (!node || !symbol) return []
+    const doc = analyzer.getDocument(symbol.uri)!
+    const {scopeTag} = symbol.scope
+    switch (scopeTag) {
+        case 'global':
+        case 'universal':
+            return findGlobalLocations(analyzer, doc, symbol.selectionRange.start)
+        case 'local':
+        default:
+            return findLocalLocations(analyzer, document, symbol.selectionRange.start)
+    }
+}
+
+const createRenameFile = (oldUri: DocumentUri, newUri: DocumentUri): RenameFile => {
+    return {
+        kind: 'rename',
+        oldUri,
+        newUri
+    }
+}
+
+export function getRenameFiles(analyzer: Analyzer, document: LspDocument, position: Position, newName: string): RenameFile[] | null {
+    const renameFiles: RenameFile[] = []
+    const symbol = analyzer.findDocumentSymbol(document, position);
+    if (!symbol) return null
+    if (symbol.kind !== SymbolKind.Function) return null
+    if (symbolIsImmutable(symbol)) return null
+    if (symbol.scope.scopeTag === 'global') {
+        analyzer.getExistingAutoloadedFiles(symbol.name).forEach(uri => {
+            const newUri = uri.replace(symbol.name, newName)
+            renameFiles.push(createRenameFile(uri, newUri))
+        })
+    }
+    return renameFiles
+}
+export function getRenameWorkspaceEdit(analyzer: Analyzer, document: LspDocument, position: Position, newName: string): WorkspaceEdit | null {
+    const locations = getRenameLocations(analyzer, document, position)
+    if (!locations || locations.length === 0) return null
+
+    const changes: RenameChanges = {}
+
+    for (const location of locations) {
+        const uri = location.uri
+        const edits = changes[uri] || []
+        edits.push(TextEdit.replace(location.range, newName))
+        changes[uri] = edits
+    }
+
+    const documentChanges: RenameFile[] | null = getRenameFiles(analyzer, document, position, newName)
+    if (documentChanges && documentChanges.length > 0) {
+        return { changes, documentChanges }
+    }
+
+    return { changes }
 }

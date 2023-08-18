@@ -2,11 +2,11 @@ import Parser, {SyntaxNode} from "web-tree-sitter";
 import { initializeParser } from "./parser";
 import { Analyzer } from "./analyze";
 import {  generateCompletionList, } from "./completion";
-import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, ExecuteCommandParams, ServerRequestHandler, FoldingRangeParams, FoldingRange, Position, InlayHintParams, MarkupKind, SymbolInformation, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, RemoteConsole } from "vscode-languageserver";
+import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, ExecuteCommandParams, ServerRequestHandler, FoldingRangeParams, FoldingRange, Position, InlayHintParams, MarkupKind, SymbolInformation, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, RemoteConsole, RenameFilesParams } from "vscode-languageserver";
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
 import { enrichToCodeBlockMarkdown } from './documentation';
-import { applyFormatterSettings } from './formatting';
+import { applyFormattedTextInRange, applyFormatterSettings } from './formatting';
 import { execCommandDocs, execCommandType, execFindDependency, execFormatter, execOpenFile } from './utils/exec';
 import {createServerLogger, Logger, ServerLogsPath} from './logger';
 import {toFoldingRange, uriToPath} from './utils/translation';
@@ -31,7 +31,7 @@ import { homedir } from 'os';
 import { initializeDefaultFishWorkspaces } from './utils/workspace';
 import { filterLastPerScopeSymbol, FishDocumentSymbol } from './document-symbol';
 import { FishCompletionItem, FishCompletionData } from './utils/completion-strategy';
-import { getRenameLocations } from './renames';
+import { getRenameLocations, getRenameWorkspaceEdit, getRefrenceLocations } from './renames';
 
 // @TODO 
 export type SupportedFeatures = {
@@ -161,6 +161,7 @@ export default class FishServer {
         this.connection.onDocumentRangeFormatting(this.onDocumentRangeFormatting.bind(this));
         this.connection.onCodeAction(this.onCodeAction.bind(this));
         this.connection.onFoldingRanges(this.onFoldingRanges.bind(this))
+        //this.connection.workspace.applyEdit()
         //this.connection.languages.inlayHint.on(this.onInlayHints.bind(this));
         //this.connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
         this.connection.console.log("FINISHED FishLsp.register()")
@@ -218,6 +219,7 @@ export default class FishServer {
         this.logParams("didSaveTextDocument", params);
         return;
     }
+
 
 
     // @see:
@@ -355,7 +357,7 @@ export default class FishServer {
         this.logParams("onReference", params);
         const {doc, uri, root, current} = this.getDefaults(params)
         if (!doc || !uri || !root || !current) return [];
-        return getLocalRefs(doc.uri, root, current) || [];
+        return getRefrenceLocations(this.analyzer, doc, params.position)
     }
 
     // opens package.json on hover of document symbol!
@@ -382,22 +384,29 @@ export default class FishServer {
         return await handleHover(doc.uri, root, current, this.documentationCache);
     }
 
+    // workspace.fileOperations.didRename
+    // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.18/specification/#fileEvent
+    //applyEdits(params: WorkspaceEdit): void {
+    //    this.logParams("applyRenameFile", params);
+    //    const changes : ResoucreOperation = params.
+    //    for (const change of changes) {
+    //        switch (change.kind) {
+    //            case 'rename':
+    //                this.docs.rename(change.oldUri, change.newUri);
+    //                this.analyzer.cache.updateUri(change.oldUri, change.newUri);
+    //
+    //
+    //        }
+    //        const newUri = change.
+    //    }
+    //
+    //    return;
+    //}
     async onRename(params: RenameParams) : Promise<WorkspaceEdit | null> {
         this.logParams('onRename', params);
-        const {doc, uri, root, current} = this.getDefaults(params)
-        if (!doc || !uri || !root || !current) return null;
-        const refs = getRenameLocations(this.analyzer, doc, params.position)
-        const edits: TextEdit[] = refs.map((ref: Location) => {
-            return {
-                newText: params.newName,
-                range: ref.range
-            }
-        })
-        return {
-            changes: {
-                [uri]: edits
-            }
-        }
+        const {doc} = this.getDefaults(params)
+        if (!doc) return null;
+        return getRenameWorkspaceEdit(this.analyzer, doc, params.position, params.newName)
     }
 
     async onDocumentFormatting(params: DocumentFormattingParams): Promise<TextEdit[]> {
@@ -442,9 +451,9 @@ export default class FishServer {
         }
         if (!formattedText) return []
         formattedText = applyFormatterSettings(this.parser.parse(formattedText).rootNode, this.config.getFormattingOptions())
-        formattedText = formattedText.split('\n').slice(range.start.line, range.end.line).join('\n') + '\n'
+        //formattedText = formattedText.split('\n').slice(range.start.line, range.end.line).join('\n') + '\n'
         this.connection.window.showInformationMessage(`Formatted Range: ${uri}`)
-        return [TextEdit.replace(range, formattedText)]
+        return [TextEdit.replace(range, applyFormattedTextInRange(formattedText, range))]
     }
 
     protected async getCodeFixes(fileRangeArgs: FishProtocol.FileRangeRequestArgs, context: LSP.CodeActionContext): Promise<FishProtocol.GetCodeFixesResponse | undefined> {

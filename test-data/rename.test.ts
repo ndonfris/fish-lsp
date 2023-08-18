@@ -56,6 +56,12 @@ setLogger(
                 'function __helper',                      // test6 here
                 '    echo "helper"',
                 'end',
+            ],
+            "completions/with-helper.fish": [
+                'function _cmp_helper',
+                '    printf "%s%s\n" \'h\' \'help msg\'',
+                'end',
+                'complete -c with-helper -f -a "_cmp_helper"',
             ]
         }, analyzer)
     },
@@ -172,6 +178,21 @@ describe("rename tests", () => {
         assert.deepEqual(result6, [
             createTestLocation('functions/with-helper.fish', 1,  4, 1, 12),
             createTestLocation('functions/with-helper.fish', 3,  9, 3, 17),
+        ])
+    })
+
+
+
+    it("WorkspaceEdit RenameFile  (test7)", async () => {
+        let test7 = createTestData('functions/with-helper.fish', 0, 10)
+        //printNodes(analyzer.getRootNode(test7.document)!)
+        //assert.equal(canRenamePosition(analyzer, test6.document, test6.position), true);
+        let result7 = getRenameLocations(analyzer, test7.document, test7.position)
+        //logLocations(result7)
+        //assert.equal(result6.length, 2)
+        assert.deepEqual(result7, [
+            createTestLocation('functions/with-helper.fish',   0,  9, 0, 20),
+            createTestLocation('completions/with-helper.fish', 4,  12, 4, 23),
         ])
     })
 

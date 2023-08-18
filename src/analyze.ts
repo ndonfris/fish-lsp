@@ -7,11 +7,12 @@ import { isPositionWithinRange, findFirstParent , getChildNodes, getRange, isNod
 import { LspDocument } from './document';
 import { isCommand, isCommandName, isDefinition, isFunctionDefinition, isFunctionDefinitionName, isScope, isVariable, isVariableDefinition} from './utils/node-types';
 import { DiagnosticQueue } from './diagnostics/queue';
-import {pathToRelativeFunctionName, toLspDocument, uriInUserFunctions, uriToPath} from './utils/translation';
+import {pathToRelativeFunctionName, pathToUri, toLspDocument, uriInUserFunctions, uriToPath} from './utils/translation';
 import { DocumentationCache } from './utils/documentationCache';
 import { DocumentSymbol } from 'vscode-languageserver';
 import { GlobalWorkspaceSymbol } from './symbols';
-import fs from 'fs'
+import { existsSync } from 'fs'
+import homedir from 'os'
 import { SymbolTree } from './symbolTree';
 import { FishWorkspace, Workspace } from './utils/workspace';
 import { collectFishWorkspaceSymbols, FishWorkspaceSymbol } from './utils/fishWorkspaceSymbol';
@@ -102,7 +103,7 @@ export class Analyzer {
                 })
     }
 
-    public getDefinition(document: LspDocument, position: Position): LSP.Location[] {
+    public getDefinition(document: LspDocument, position: Position): FishDocumentSymbol[] {
         const symbols: FishDocumentSymbol[] = [];
         const localSymbol = this.findDocumentSymbol(document, position)
         if (localSymbol) symbols.push(localSymbol)
@@ -110,6 +111,11 @@ export class Analyzer {
         const node = this.nodeAtPoint(document.uri, position.line, position.character);
         if (!tree || !node) return [];
         if (symbols.length === 0) symbols.push(...this.globalSymbols.find(node.text))
+        return symbols;
+    }
+
+    public getDefinitionLocation(document: LspDocument, position: Position): LSP.Location[] {
+        const symbols = this.getDefinition(document, position)
         return symbols.map(symbol => FishDocumentSymbol.toLocation(symbol)) || [];
     }
 
@@ -305,6 +311,16 @@ export class Analyzer {
         return false;
     }
 
+    public getExistingAutoloadedFiles(name: string): string[] {
+        const searchNames = [
+            `${homedir}/.config/functions/${name}.fish`,
+            `${homedir}/.config/completions/${name}.fish`,
+        ]
+        return searchNames
+            .filter((path) => existsSync(path))
+            .map((path) => pathToUri(path));
+    }
+
 
     public getRenames(doc: LspDocument, position: Position): LSP.Location[] {
         const currentNode = this.nodeAtPoint(doc.uri, position.line, position.character)
@@ -481,6 +497,13 @@ export class AnalyzedDocumentCache {
     getDocument(uri: URI): AnalyzedDocument | undefined {
         if (!this._documents.has(uri)) return undefined;
         return this._documents.get(uri);
+    }
+    updateUri(oldUri: URI, newUri: URI) {
+        const oldValue = this.getDocument(oldUri);
+        if (oldValue) {
+            this._documents.delete(oldUri)
+            this._documents.set(newUri, oldValue);
+        }
     }
     getDocumentSymbols(uri: URI): FishDocumentSymbol[] {
         return this._documents.get(uri)?.documentSymbols || [];

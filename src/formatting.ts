@@ -1,7 +1,8 @@
-import {SyntaxNode} from 'web-tree-sitter';
+import Parser, {SyntaxNode} from 'web-tree-sitter';
 import {getChildNodes, getNodeText, getRange} from './utils/tree-sitter';
 import {FishFormattingOptions} from './configManager';
 import {isSwitchStatement} from './utils/node-types';
+import { Range } from 'vscode-languageserver'
 
 export function applyFormatterSettings(root: SyntaxNode, options: FishFormattingOptions) {
     let formattedText = root.text;
@@ -37,3 +38,22 @@ export function applyFormatterSettings(root: SyntaxNode, options: FishFormatting
     return result;
 }
 
+
+export function applyFormattedTextInRange(formattedText: string, range: Range): string {
+    const newText = formattedText.split('\n')
+
+    const {start, end} = range
+
+    if (start.line === end.line) {
+        return newText[start.line].slice(start.character, end.character)
+    } 
+
+    let result = newText[start.line].slice(start.character)
+
+    for (let i = start.line + 1; i < end.line - 1; i++) {
+        result += '\n' + newText[i]
+    }
+
+    result += '\n' + newText[end.line].slice(0, end.character)
+    return result
+}

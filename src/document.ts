@@ -157,6 +157,10 @@ export class LspDocument implements TextDocument {
         }
     }
 
+    rename(newUri: string): void {
+        this.document = TextDocument.create(newUri, this.languageId, this.version, this.getText());
+    }
+
     getFilePath(): string | undefined {
         return uriToPath(this.uri);
     }
@@ -238,6 +242,18 @@ export class LspDocuments {
         this.documents.delete(file);
         this._files.splice(this._files.indexOf(file), 1);
         return document;
+    }
+
+    rename(oldFile: string, newFile: string): boolean {
+        const document = this.documents.get(oldFile);
+        if (!document) {
+            return false;
+        }
+        document.rename(newFile);
+        this.documents.delete(oldFile);
+        this.documents.set(newFile, document);
+        this._files[this._files.indexOf(oldFile)] = newFile;
+        return true;
     }
 
     public toResource(filepath: string): URI {
