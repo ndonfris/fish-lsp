@@ -4,6 +4,9 @@ Experimental language server for the fish shell. Upstream [branches]( https://gi
 for the fish shell, but are highly experimental. Maintainers are welcome to contribute, 
 as the project is still in its infancy.  
 
+![](https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNXVjeWx6cGp6eHRtZnpoMmppN3JkempqZzI3OG9sNTc3aWozbnFpOCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/HIvxnghggOOpdgqDEi/giphy.gif)
+> showing different hover documentation, goto definition, and some other features.
+
 - [ ] [server.ts]( ./src/server.ts )
     - [x] onFold
     - [x] onComplete
