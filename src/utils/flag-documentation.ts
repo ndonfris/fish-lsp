@@ -31,8 +31,9 @@ const ensureEndOfArgs = (inputArray: string[]) => {
 }
 
 const removeStrings = (input: string) => {
-    let output = input.replace(/^\s?if\s+/,'');
-    output = output.replace(/^\s?else  if\s+/,'');
+    let output = input.replace(/^\s+/, '')
+    output = output.replace(/^if\s+/,'');
+    output = output.replace(/^else  if\s+/,'');
     output = output.replace(/"(.+)"/, '');
     output = output.replace(/'(.+)'/, '');
     return output
@@ -114,11 +115,11 @@ export async function getFlagDocumentationString(input: string) : Promise<string
     let matchingFlags = findMatchingFlags(parsedInputFlags, outputFlagLines)
     return matchingFlags
             .map(line => line.split('\t'))
-            .map(([flag, doc]) => `**\`${flag}\`** \`${doc}\``)
+            .map(([flag, doc]) => `**\`${flag}\`** *\`${doc}\`*`)
             .reverse()
 }
 
-export async function getFlagCommand(input: string) : Promise<string> {
+export function getFlagCommand(input: string) : string {
     let splitInputArray = tokenizeInput(input);
     const firstFlag = findFirstFlagIndex(splitInputArray)
     let cmd = splitInputArray.slice(0, firstFlag)
@@ -127,7 +128,7 @@ export async function getFlagCommand(input: string) : Promise<string> {
 
 
 export async function getFlagDocumentationAsMarkup(input: string) : Promise<MarkupContent> {
-    let cmdName = await getFlagCommand(input)
+    let cmdName = getFlagCommand(input)
     let flagLines = await getFlagDocumentationString(input)
     let flagString = flagLines.join('\n')
     return {

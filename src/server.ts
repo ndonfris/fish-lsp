@@ -30,8 +30,9 @@ import { SymbolTree } from './symbolTree';
 import { homedir } from 'os';
 import { initializeDefaultFishWorkspaces } from './utils/workspace';
 import { filterLastPerScopeSymbol, FishDocumentSymbol } from './document-symbol';
-import { FishCompletionItem, FishCompletionData } from './utils/completion-strategy';
+import { FishCompletionItem, FishCompletionData, FishCompletionItemKind } from './utils/completion-strategy';
 import { getRenameLocations, getRenameWorkspaceEdit, getRefrenceLocations } from './renames';
+import { getFlagDocumentationAsMarkup } from './utils/flag-documentation';
 
 // @TODO 
 export type SupportedFeatures = {
@@ -287,19 +288,18 @@ export default class FishServer {
         const fishItem = item as FishCompletionItem
         if (fishItem.localSymbol == true) return item;
         let [typeCmdOutput, typeofDoc] = ['', '']
-        switch (fishItem.kind) {
-            //item.documentation = enrichToCodeBlockMarkdown(fishItem.data?.originalCompletion, 'fish')
-            case CompletionItemKind.Constant: 
-            case CompletionItemKind.Variable: 
-            case CompletionItemKind.Field: 
-            case CompletionItemKind.Interface: 
-                //const newDoc = enrichToCodeBlockMarkdown()
+        switch (fishItem.fishKind) {
+            case FishCompletionItemKind.GLOBAL_FUNCTION: 
+            case FishCompletionItemKind.LOCAL_FUNCTION: 
+            case FishCompletionItemKind.GLOBAL_VARIABLE:
+            case FishCompletionItemKind.LOCAL_VARIABLE:
                 return item;
-            case CompletionItemKind.Function:
+            case FishCompletionItemKind.USER_FUNCTION:
                 newDoc = await execCommandDocs(fishItem.label)
                 item.documentation = enrichToCodeBlockMarkdown(newDoc, 'fish')
                 return item;
-            case CompletionItemKind.Unit:
+            case FishCompletionItemKind.GLOBAL_FUNCTION:
+            case FishCompletionItemKind.RESOLVE:
                 typeCmdOutput = await execCommandType(fishItem.label)
                 if (typeCmdOutput != '') {
                     newDoc = await execCommandDocs(fishItem.label)
@@ -307,9 +307,12 @@ export default class FishServer {
                         ? enrichToCodeBlockMarkdown(newDoc, 'fish') : enrichToCodeBlockMarkdown(newDoc, 'man')
                 }
                 return item;
-            case CompletionItemKind.Class:
-            case CompletionItemKind.Method:
-            case CompletionItemKind.Keyword:
+            case FishCompletionItemKind.FLAG:
+                const line = fishItem.data.line.slice(0, fishItem.data.line.length - fishItem.data.word.length) + item.label
+                this.logger.log('line: ' + line);
+                item.documentation = await getFlagDocumentationAsMarkup(line)
+                return item
+            case FishCompletionItemKind.BUILTIN:
                 newDoc = await execCommandDocs(fishItem.label)
                 item.documentation = enrichToCodeBlockMarkdown(newDoc, 'man')
                 return item;
@@ -402,6 +405,7 @@ export default class FishServer {
     //
     //    return;
     //}
+
     async onRename(params: RenameParams) : Promise<WorkspaceEdit | null> {
         this.logParams('onRename', params);
         const {doc} = this.getDefaults(params)
