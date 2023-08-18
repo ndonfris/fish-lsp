@@ -5,6 +5,7 @@ import { Position, Location, Range, SymbolKind, TextEdit, DocumentUri, Workspace
 import { getChildNodes, getRange } from './utils/tree-sitter';
 import { SyntaxNode } from 'web-tree-sitter';
 import { containsRange } from './workspace-symbol';
+import { isCommandName } from './utils/node-types';
 
 
 export function canRenamePosition(analyzer: Analyzer, document: LspDocument, position: Position): boolean {
@@ -74,6 +75,7 @@ function findGlobalLocations(analyzer: Analyzer, document: LspDocument, position
     const uris = analyzer.cache.uris()
     for (const uri of uris) {
         const doc = analyzer.getDocument(uri)!
+        if (!doc.isAutoLoaded()) continue
         const rootNode = analyzer.getRootNode(doc)!
         const toSearchNodes = removeLocalSymbols(symbol, getChildNodes(rootNode), analyzer.cache.getFlatDocumentSymbols(uri))
         const newLocations = findLocations(uri, toSearchNodes, symbol.name)
@@ -97,18 +99,33 @@ export function getRenameLocations(analyzer: Analyzer, document: LspDocument, po
 
 export function getRefrenceLocations(analyzer: Analyzer, document: LspDocument, position: Position): Location[] {
     const node = analyzer.nodeAtPoint(document.uri, position.line, position.character)
+    if (!node) return []
     const symbol = analyzer.getDefinition(document, position).pop()
-    if (!node || !symbol) return []
-    const doc = analyzer.getDocument(symbol.uri)!
-    const {scopeTag} = symbol.scope
-    switch (scopeTag) {
-        case 'global':
-        case 'universal':
-            return findGlobalLocations(analyzer, doc, symbol.selectionRange.start)
-        case 'local':
-        default:
-            return findLocalLocations(analyzer, document, symbol.selectionRange.start)
+    if (symbol) {
+        const doc = analyzer.getDocument(symbol.uri)!
+        const {scopeTag} = symbol.scope
+        switch (scopeTag) {
+            case 'global':
+            case 'universal':
+                return findGlobalLocations(analyzer, doc, symbol.selectionRange.start)
+            case 'local':
+            default:
+                return findLocalLocations(analyzer, document, symbol.selectionRange.start)
+        }
     }
+    if (isCommandName(node)) {
+        const uris = analyzer.cache.uris()
+        const locations: Location[] = []
+        for (const uri of uris) {
+            const doc = analyzer.getDocument(uri)!
+            const rootNode = analyzer.getRootNode(doc)!
+            const nodes = getChildNodes(rootNode).filter(n => isCommandName(n))
+            const newLocations = findLocations(uri, nodes, node.text)
+            locations.push(...newLocations)
+        }
+        return locations
+    }
+    return []
 }
 
 const createRenameFile = (oldUri: DocumentUri, newUri: DocumentUri): RenameFile => {

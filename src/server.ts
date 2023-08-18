@@ -350,7 +350,7 @@ export default class FishServer {
         this.logParams("onDefinition", params);
         const {doc, uri, root, current} = this.getDefaults(params)
         if (!doc) return [];
-        return this.analyzer.getDefinition(doc, params.position)
+        return this.analyzer.getDefinitionLocation(doc, params.position)
     }
 
     async onReferences(params: ReferenceParams): Promise<Location[]> {
@@ -577,7 +577,10 @@ export default class FishServer {
     private async startBackgroundAnalysis(): Promise<{ filesParsed: number }> {
         //const { workspaceFolder } = this
         //if (workspaceFolder) {
-        return this.analyzer.initiateBackgroundAnalysis()
+        // this.connection.window.showInformationMessage("FishLsp.register() called")
+        //this.connection.window.showInformationMessage("FishLsp.register() called")
+        const notifyCallback = (text: string) => this.connection.window.showInformationMessage(text)
+        return this.analyzer.initiateBackgroundAnalysis(notifyCallback)
         //}
         //return Promise.resolve({ filesParsed: 0 })
     }

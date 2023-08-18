@@ -51,8 +51,12 @@ export class Analyzer {
         return AnalyzedDocument.create(document, documentSymbols, commands, tree);
     }
 
-    public async initiateBackgroundAnalysis() : Promise<{ filesParsed: number }> {
+    public async initiateBackgroundAnalysis(notifyCallback: (text: string) => void) : Promise<{ filesParsed: number }> {
         let amount = 0;
+
+        const lookupStartTime = Date.now()
+        const getTimePassed = (): string => `${(Date.now() - lookupStartTime) / 1000} seconds`
+
         this.workspaces.forEach(workspace => {
             workspace
                 .urisToLspDocuments()
@@ -66,6 +70,8 @@ export class Analyzer {
                     }
                 })
         })
+
+        notifyCallback(`analyzed ${amount} files after ${getTimePassed()}`)
         return { filesParsed: amount };
     }
 
