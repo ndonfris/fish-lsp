@@ -3,7 +3,7 @@ import Parser, { SyntaxNode, Range, Tree } from "web-tree-sitter";
 import * as LSP from 'vscode-languageserver';
 //import {collectFishSymbols, FishSymbol} from './symbols';
 import { containsRange, precedesRange } from './workspace-symbol'
-import { findFirstParent , getChildNodes, getRange, isNodeWithinRange, equalRanges, findEnclosingScope} from './utils/tree-sitter';
+import { isPositionWithinRange, findFirstParent , getChildNodes, getRange, isNodeWithinRange, equalRanges, findEnclosingScope} from './utils/tree-sitter';
 import { LspDocument } from './document';
 import { isCommand, isCommandName, isDefinition, isFunctionDefinition, isFunctionDefinitionName, isScope, isVariable, isVariableDefinition} from './utils/node-types';
 import { DiagnosticQueue } from './diagnostics/queue';
@@ -27,7 +27,7 @@ export class Analyzer {
     public globalSymbols: GlobalDefinitionCache = new GlobalDefinitionCache();
     private diagnosticQueue: DiagnosticQueue = new DiagnosticQueue();
 
-    constructor(parser: Parser, workspaces: FishWorkspace[]) {
+    constructor(parser: Parser, workspaces: FishWorkspace[] = []) {
         this.parser = parser;
         this.workspaces = workspaces;
     }
@@ -84,11 +84,8 @@ export class Analyzer {
     }
 
     public findDocumentSymbol(document: LspDocument, position: Position): FishDocumentSymbol | undefined {
-        let node = this.nodeAtPoint(document.uri, position.line, position.character);
-        if (!node) return undefined
-        const symbols = this.cache.getDocumentSymbols(document.uri);
-        const symbol = findLastDefinition(symbols, node)
-        return symbol
+        const symbols = FishDocumentSymbol.flattenArray(this.cache.getDocumentSymbols(document.uri))
+        return symbols.find(symbol => isPositionWithinRange(position, symbol.selectionRange));
     }
 
     
@@ -387,11 +384,6 @@ export class Analyzer {
         //return [];
     }
 
-    public getOutgoingCalls(document: LspDocument, ): CallHierarchyOutgoingCall[] {
-        const outgoingCalls: CallHierarchyOutgoingCall[] = [];
-        this.cache.getCommands(document.uri)
-        return outgoingCalls;
-    }
 
 }
 export function getReferences(
@@ -494,7 +486,7 @@ export class AnalyzedDocumentCache {
         return this._documents.get(uri)?.documentSymbols || [];
     }
     getFlatDocumentSymbols(uri: URI): FishDocumentSymbol[] {
-        return this.getSymbolTree(uri).toFlatArray() || []
+        return FishDocumentSymbol.flattenArray(this.getDocumentSymbols(uri));
     }
     getCommands(uri: URI): string[] {
         return this._documents.get(uri)?.commands || [];

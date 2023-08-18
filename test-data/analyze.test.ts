@@ -1,36 +1,15 @@
 import { homedir } from "os";
 import { assert } from "chai";
 import { printTestName, resolveLspDocumentForHelperTestFile } from "./helpers";
-import {
-    DocumentSymbol,
-    Position,
-    SymbolKind,
-    Location,
-} from "vscode-languageserver";
+import { DocumentSymbol, Position, SymbolKind, Location, } from "vscode-languageserver";
 import Parser, { SyntaxNode } from "web-tree-sitter";
 import { initializeParser } from "../src/parser";
 import { Analyzer, findParentScopes, findDefs } from "../src/analyze";
-import {
-    filterLastPerScopeSymbol,
-    FishDocumentSymbol,
-} from "../src/document-symbol";
-import {
-    FishWorkspace,
-    initializeDefaultFishWorkspaces,
-    Workspace,
-} from "../src/utils/workspace";
+import {filterLastPerScopeSymbol, FishDocumentSymbol, } from "../src/document-symbol";
+import {FishWorkspace,initializeDefaultFishWorkspaces,Workspace,} from "../src/utils/workspace";
 import { WorkspaceSpoofer } from "./workspace-builder";
-import {
-    findEnclosingScope,
-    getChildNodes,
-    getRange,
-} from "../src/utils/tree-sitter";
-import {
-    isCommand,
-    isCommandName,
-    isFunctionDefinitionName,
-    isVariable,
-} from "../src/utils/node-types";
+import { findEnclosingScope, getChildNodes, getRange, } from "../src/utils/tree-sitter";
+import {isCommand, isCommandName, isFunctionDefinitionName, isVariable, } from "../src/utils/node-types";
 import { LspDocument } from "../src/document";
 import { containsRange } from "../src/workspace-symbol";
 
@@ -117,7 +96,6 @@ describe("analyze tests", () => {
         const cmdNameRange = getRange(cmdNode);
         const searchPosition = cmdNameRange.start;
         const renames = analyzer.getRenames(doc, searchPosition);
-
         return {
             cmd: cmdNode,
             cmdNameRange: cmdNameRange,
@@ -165,15 +143,11 @@ describe("analyze tests", () => {
         analyzer = new Analyzer(parser, [ws]);
         await analyzer.initiateBackgroundAnalysis();
 
-        let { testDoc } = setupTestUriAndDoc(
-            ws,
-            "test-variable-renames"
-        );
+        let { testDoc } = setupTestUriAndDoc(ws, "test-variable-renames");
         const cmdName = "PATH";
         const { renames } = getRenamesForType(testDoc, cmdName, isVariable);
         assert.equal(renames.length, 4);
     });
-    
 });
 
 function createTestRange(

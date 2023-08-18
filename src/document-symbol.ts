@@ -5,7 +5,7 @@ import { isFunctionDefinitionName, isDefinition, isVariableDefinition, isFunctio
 import { findVariableDefinitionOptions } from './utils/options';
 import { DocumentSymbolDetail } from './utils/symbol-documentation-builder';
 import { pathToRelativeFunctionName } from './utils/translation';
-import { getNodeAtRange, getRange, isPositionAfter, pointToPosition, positionToPoint } from './utils/tree-sitter';
+import { getNodeAtRange, getRange, isPositionAfter, isPositionWithinRange, pointToPosition, positionToPoint } from './utils/tree-sitter';
 import { ScopeTag, DefinitionScope, getScope } from './utils/definition-scope'
 import { GenericTree } from './utils/generic-tree';
 import { FishCompletionItem, createCompletionItem, FishCompletionItemKind, FishCompletionData } from './utils/completion-strategy';
@@ -103,11 +103,14 @@ export namespace FishDocumentSymbol {
         return `${symbolIcon}${symbol.name}   ::::  ${symbol.scope.scopeTag}`;   
     }
 
-    export function* flattenArray(symbols: FishDocumentSymbol[]) : Generator<FishDocumentSymbol> {
-        for (const symbol of symbols) {
-            yield symbol;
-            yield* flattenArray(symbol.children);
+    export function flattenArray(symbols: FishDocumentSymbol[]) : FishDocumentSymbol[] {
+        function* flattenGenerator(symbols: FishDocumentSymbol[]): Generator<FishDocumentSymbol> {
+            for (const symbol of symbols) {
+                yield symbol;
+                yield* flattenGenerator(symbol.children);
+            }
         }
+        return [...flattenGenerator(symbols)];
     }
 
     export function equalScopes(a: FishDocumentSymbol, b: FishDocumentSymbol): boolean {
@@ -255,6 +258,12 @@ export function filterGlobalSymbols(symbols: FishDocumentSymbol[]): FishDocument
         .filter((symbol) => symbol.scope.scopeTag === 'global')
 }
 
+export function filterLocalSymbols(symbols: FishDocumentSymbol[]): FishDocumentSymbol[] {
+    return FishDocumentSymbol
+        .toTree(symbols)
+        .toFlatArray()
+        .filter((symbol) => symbol.scope.scopeTag !== 'global' && symbol.scope.scopeTag !== 'universal')
+}
 
 export function filterLastPerScopeSymbol(symbolArray: FishDocumentSymbol[]) {
     const symbolTree: GenericTree<FishDocumentSymbol> = new GenericTree(symbolArray);
