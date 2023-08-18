@@ -12,7 +12,7 @@ import { findEnclosingScope, getChildNodes, getRange, positionToPoint, } from ".
 import {isCommand, isCommandName, isFunctionDefinitionName, isVariable, } from "../src/utils/node-types";
 import { LspDocument } from "../src/document";
 import { containsRange } from "../src/workspace-symbol";
-import { canRenamePosition, getRenamePositions, getRenameSymbolType } from "../src/renames";
+import { canRenamePosition, getRenameLocations, getRenameSymbolType } from "../src/renames";
 
 let parser: Parser;
 let analyzer: Analyzer;
@@ -48,6 +48,14 @@ setLogger(
                 '    echo $argv',
                 '    echo $test-v',
                 "end",
+            ],
+            "functions/with-helper.fish": [
+                'function with-helper',
+                '    __helper',
+                'end',
+                'function __helper',                      // test6 here
+                '    echo "helper"',
+                'end',
             ]
         }, analyzer)
     },
@@ -96,7 +104,7 @@ describe("rename tests", () => {
         const test1 = createTestData('functions/rename.fish', 1, 9)
         assert.equal(    canRenamePosition(analyzer, test1.document, test1.position), true);
         assert.equal(  getRenameSymbolType(analyzer, test1.document, test1.position), 'local');
-        const result1 = getRenamePositions(analyzer, test1.document, test1.position)
+        const result1 = getRenameLocations(analyzer, test1.document, test1.position)
         //logLocations(result1)
         assert.deepEqual(result1, [
             createTestLocation('functions/rename.fish', 1, 8, 1, 11),
@@ -110,7 +118,7 @@ describe("rename tests", () => {
         //printNodes(analyzer.getRootNode(test2.document)!)
         assert.equal(canRenamePosition(analyzer, test2.document, test2.position), true);
         assert.equal(getRenameSymbolType(analyzer, test2.document, test2.position), 'global');
-        const result2 = getRenamePositions(analyzer, test2.document, test2.position)
+        const result2 = getRenameLocations(analyzer, test2.document, test2.position)
         //logLocations(result2)
         assert.equal(result2.length, 2)
         assert.deepEqual(result2, [
@@ -124,7 +132,7 @@ describe("rename tests", () => {
         const test3 = createTestData('functions/rename.fish', 0, 9)
         assert.equal(canRenamePosition(analyzer, test3.document, test3.position), true);
         assert.equal(getRenameSymbolType(analyzer, test3.document, test3.position), 'global');
-        const result3 = getRenamePositions(analyzer, test3.document, test3.position)
+        const result3 = getRenameLocations(analyzer, test3.document, test3.position)
         //logLocations(result3)
         assert.equal(result3.length, 2)
         assert.deepEqual(result3, [
@@ -136,7 +144,7 @@ describe("rename tests", () => {
     it("shouldn't rename          (test4)", async () => {
         const test4 = createTestData('functions/rename.fish', 0, 0)
         assert.equal(canRenamePosition(analyzer, test4.document, test4.position), false);
-        const result4 = getRenamePositions(analyzer, test4.document, test4.position)
+        const result4 = getRenameLocations(analyzer, test4.document, test4.position)
         assert.equal(result4.length, 0)
     })
 
@@ -145,12 +153,25 @@ describe("rename tests", () => {
         let test5 = createTestData('functions/rename2.fish', 0, 35)
         //printNodes(analyzer.getRootNode(test5.document)!)
         assert.equal(canRenamePosition(analyzer, test5.document, test5.position), true);
-        let result5 = getRenamePositions(analyzer, test5.document, test5.position)
+        let result5 = getRenameLocations(analyzer, test5.document, test5.position)
         //logLocations(result5)
         assert.equal(result5.length, 2)
         assert.deepEqual(result5, [
             createTestLocation('functions/rename2.fish', 0, 34, 0, 37),
             createTestLocation('functions/rename2.fish', 1, 10, 1, 13),
+        ])
+    })
+
+    it("local function rename     (test6)", async () => {
+        let test6 = createTestData('functions/with-helper.fish', 3, 10)
+        //printNodes(analyzer.getRootNode(test6.document)!)
+        assert.equal(canRenamePosition(analyzer, test6.document, test6.position), true);
+        let result6 = getRenameLocations(analyzer, test6.document, test6.position)
+        //logLocations(result6)
+        assert.equal(result6.length, 2)
+        assert.deepEqual(result6, [
+            createTestLocation('functions/with-helper.fish', 1,  4, 1, 12),
+            createTestLocation('functions/with-helper.fish', 3,  9, 3, 17),
         ])
     })
 

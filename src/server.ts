@@ -31,6 +31,7 @@ import { homedir } from 'os';
 import { initializeDefaultFishWorkspaces } from './utils/workspace';
 import { filterLastPerScopeSymbol, FishDocumentSymbol } from './document-symbol';
 import { FishCompletionItem, FishCompletionData } from './utils/completion-strategy';
+import { getRenameLocations } from './renames';
 
 // @TODO 
 export type SupportedFeatures = {
@@ -385,7 +386,7 @@ export default class FishServer {
         this.logParams('onRename', params);
         const {doc, uri, root, current} = this.getDefaults(params)
         if (!doc || !uri || !root || !current) return null;
-        const refs = getLocalRefs(doc.uri, root, current);
+        const refs = getRenameLocations(this.analyzer, doc, params.position)
         const edits: TextEdit[] = refs.map((ref: Location) => {
             return {
                 newText: params.newName,

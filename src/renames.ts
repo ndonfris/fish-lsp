@@ -78,7 +78,7 @@ function findGlobalLocations(analyzer: Analyzer, document: LspDocument, position
     return locations
 }
 
-export function getRenamePositions(analyzer: Analyzer, document: LspDocument, position: Position): Location[] {
+export function getRenameLocations(analyzer: Analyzer, document: LspDocument, position: Position): Location[] {
     if (!canRenamePosition(analyzer, document, position)) return []
     let renameScope = getRenameSymbolType(analyzer, document, position)
     switch (renameScope) {

@@ -1,5 +1,7 @@
 # CURRENT TODO
 
+![](https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNXVjeWx6cGp6eHRtZnpoMmppN3JkempqZzI3OG9sNTc3aWozbnFpOCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/HIvxnghggOOpdgqDEi/giphy.gif)
+
 - update docsCache to parse in background analysis, and then use [options.ts](./src/utils/options.ts)
     to build markdown string.
 - [ ] [MarkedString](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument\_hover)
