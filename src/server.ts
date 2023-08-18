@@ -575,13 +575,7 @@ export default class FishServer {
     }
 
     private async startBackgroundAnalysis(): Promise<{ filesParsed: number }> {
-        //const { workspaceFolder } = this
-        //if (workspaceFolder) {
-        // this.connection.window.showInformationMessage("FishLsp.register() called")
-        //this.connection.window.showInformationMessage("FishLsp.register() called")
         const notifyCallback = (text: string) => this.connection.window.showInformationMessage(text)
         return this.analyzer.initiateBackgroundAnalysis(notifyCallback)
-        //}
-        //return Promise.resolve({ filesParsed: 0 })
     }
 }

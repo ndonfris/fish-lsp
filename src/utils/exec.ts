@@ -69,12 +69,9 @@ export async function getGloablVariable(...cmd: string[]) : Promise<string[]> {
 }
 
 export async function execCompleteLine(cmd: string): Promise<string[]> {
-    const escapedCommand = cmd.replace(/(["'$`\\])/g,'\\$1');
-    const completeString = `fish -c "${escapedCommand}"`;
-
-    const child = await execAsync(completeString)
-
-    return child.stdout.trim().split('\n')
+    const completeString = `complete --do-complete="${cmd}"`;
+    const out = await execEscapedCommand(completeString)
+    return out
 }
 
  export async function execCompleteSpace(cmd: string): Promise<string[]> {
