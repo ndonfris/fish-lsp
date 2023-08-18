@@ -4,5 +4,5 @@ node_modules
 removed
 *.log
 *.tsbuildinfo
-
+package-lock.json
 logs.txt
