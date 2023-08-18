@@ -24,14 +24,13 @@ import {
 //import {logger} from './logger';
 //import { FishSymbol } from "./symbols";
 import {
-    BuiltInList,
     escapeChars,
-    isBuiltIn,
     pipes,
     statusNumbers,
     stringRegexExpressions,
     WildcardItems,
 } from "./utils/completion-types";
+import { isBuiltin, BuiltInList } from "./utils/builtins";
 //import {
 //    parseLineForType,
 //} from "./utils/completionBuilder";
@@ -227,7 +226,7 @@ function getTypeFromLabel(label: string) {
         case '$': 
             return FishCompletionItemKind.GLOBAL_VARIABLE
         default:
-            return isBuiltIn(label) ? FishCompletionItemKind.BUILTIN : null
+            return isBuiltin(label) ? FishCompletionItemKind.BUILTIN : null
     }
 }
 

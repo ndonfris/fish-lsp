@@ -26,7 +26,7 @@ import { homedir } from 'os';
 import { initializeDefaultFishWorkspaces } from './utils/workspace';
 import { filterLastPerScopeSymbol, FishDocumentSymbol } from './document-symbol';
 import { FishCompletionItem, FishCompletionData, FishCompletionItemKind } from './utils/completion-strategy';
-import { getRenameLocations, getRenameWorkspaceEdit, getRefrenceLocations } from './renames';
+import { getRenameLocations, getRenameWorkspaceEdit, getRefrenceLocations } from './workspace-symbol';
 import { getFlagDocumentationAsMarkup } from './utils/flag-documentation';
 
 // @TODO 

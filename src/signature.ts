@@ -1,12 +1,13 @@
-import {MarkupContent} from 'coc.nvim';
 import {
+    MarkupContent,
     SignatureHelp,
     SignatureInformation,
     SignatureHelpParams,
     Command,
 } from 'vscode-languageserver';
 import { FishCompletionItemKind } from './utils/completion-strategy';
-import { isBuiltIn, stringRegexExpressions} from './utils/completion-types';
+import { isBuiltin, } from './utils/builtins'
+import { stringRegexExpressions} from './utils/completion-types';
 
 
 function regexStringSignature() : SignatureInformation {
