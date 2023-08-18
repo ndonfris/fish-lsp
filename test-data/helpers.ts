@@ -6,14 +6,11 @@ import { Analyzer } from '../src/analyze';
 import {getChildNodes, getNodesTextAsSingleLine, getRange, positionToPoint} from '../src/utils/tree-sitter';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {SymbolInformation, Location, SymbolKind, Range, DocumentSymbol, TextDocumentItem} from 'vscode-languageserver';
-import {symbolKindToString} from '../src/symbols';
-import {bgBlack, bgBlue, black, inverse, white} from 'colors';
-import {LspDocument} from '../src/document';
+import {symbolKindToString} from '../src/utils/translation';
+import {bgBlack, bgBlue, black, inverse, white} from 'colors'; import {LspDocument} from '../src/document';
 import console from 'console';
 import {homedir} from 'os';
 import { URI } from 'vscode-uri';
-//import { Marked }
-//import { blue, inverse } from 'colors'
 
 const util = require('util')
 
