@@ -1,10 +1,9 @@
 import os from 'os'
 import { SymbolKind } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
-import { symbolKindToString } from '../symbols';
 import { isFunctionDefinitionName, isDefinition, isVariableDefinition, isFunctionDefinition, isProgram, isVariableDefinitionName } from './node-types'
-import { FishFlagOption, optionTagProvider } from './options';
-import { pathToRelativeFunctionName, uriToPath } from './translation';
+//import { FishFlagOption, optionTagProvider } from './options';
+import { symbolKindToString, pathToRelativeFunctionName, uriToPath } from './translation';
 
 
 /**
@@ -40,13 +39,13 @@ export class DocumentationStringBuilder {
         return this.inner.previousSibling || null;
     }
 
-    get tagsString(): string {
-        return optionTagProvider(this.inner, this.outer)
-            .map((tag) => {
-                return tag.toString();
-            })
-            .join("\n");
-    }
+    //get tagsString(): string {
+    //    return optionTagProvider(this.inner, this.outer)
+    //        .map((tag) => {
+    //            return tag.toString();
+    //        })
+    //        .join("\n");
+    //}
 
     /** ~/.config/fish/functions/yarn_reset.fish
      *  causes error, shows entire file instead of just function
@@ -85,8 +84,8 @@ export class DocumentationStringBuilder {
 
     // add this.tagString once further implemented
     toString() {
-        const optionTags = optionTagProvider(this.inner, this.outer);
-        const tagsText = optionTags.map((tag) => tag.toString()).join("\n");
+        //const optionTags = optionTagProvider(this.inner, this.outer);
+        //const tagsText = optionTags.map((tag) => tag.toString()).join("\n");
         return [
             `\*(${symbolKindToString(this.kind)})* \**${this.name}**`,
             `defined in file: '${this.shortenendUri}'`,

@@ -2,7 +2,7 @@
 import { DocumentSymbol, SymbolKind, Range, WorkspaceSymbol, Position, Location, MarkupContent, FoldingRange, FoldingRangeKind, CallHierarchyOutgoingCall} from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { isFunctionDefinitionName, isDefinition, isVariableDefinition, isFunctionDefinition, isVariableDefinitionName, refinedFindParentVariableDefinitionKeyword } from './utils/node-types'
-import { findVariableDefinitionOptions } from './utils/options';
+//import { findVariableDefinitionOptions } from './utils/options';
 import { DocumentSymbolDetail } from './utils/symbol-documentation-builder';
 import { pathToRelativeFunctionName } from './utils/translation';
 import { getNodeAtRange, getRange, isPositionAfter, isPositionWithinRange, pointToPosition, positionToPoint } from './utils/tree-sitter';

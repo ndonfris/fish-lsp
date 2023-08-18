@@ -11,22 +11,17 @@ import { execCommandDocs, execCommandType, execFindDependency, execFormatter, ex
 import {createServerLogger, Logger, ServerLogsPath} from './logger';
 import {toFoldingRange, uriToPath} from './utils/translation';
 import {ConfigManager} from './configManager';
-import { getNearbySymbols, getDefinitionKind, DefinitionKind, getLocalDefs, getLocalRefs } from './workspace-symbol';
-import { getDefinitionSymbols}  from './workspace-symbol';
 import { getChildNodes, getRange } from './utils/tree-sitter';
 import { handleHover } from './hover';
 import { /*getDiagnostics*/ } from './diagnostics/validate';
 import { CodeActionKind } from './code-action';
 import {FishAutoFixProvider} from './features/fix-all';
-import * as Locations from './utils/locations';
+/*import * as Locations from './utils/locations';*/
 import {FishProtocol} from './utils/fishProtocol';
 import {Commands} from "./commands"
-import {isFunctionDefinition, isStatement} from './utils/node-types';
 import {handleConversionToCodeAction} from './diagnostics/handleConversion';
 import {FishShellInlayHintsProvider} from './features/inlay-hints';
 import { DocumentationCache, initializeDocumentationCache } from './utils/documentationCache';
-import { collectAllSymbolInformation, DocumentDefSymbol } from './symbols';
-import { SymbolTree } from './symbolTree';
 import { homedir } from 'os';
 import { initializeDefaultFishWorkspaces } from './utils/workspace';
 import { filterLastPerScopeSymbol, FishDocumentSymbol } from './document-symbol';
@@ -384,7 +379,7 @@ export default class FishServer {
                 }
             }
         }
-        return await handleHover(doc.uri, root, current, this.documentationCache);
+        return await handleHover(this.analyzer, doc, params.position, current, this.documentationCache);
     }
 
     // workspace.fileOperations.didRename

@@ -4,8 +4,35 @@ import { LspDocument } from './document';
 import { Position, Location, Range, SymbolKind, TextEdit, DocumentUri, WorkspaceEdit, RenameFile } from 'vscode-languageserver';
 import { getChildNodes, getRange } from './utils/tree-sitter';
 import { SyntaxNode } from 'web-tree-sitter';
-import { containsRange } from './workspace-symbol';
+//import { containsRange } from './workspace-symbol';
 import { isCommandName } from './utils/node-types';
+
+export function containsRange(range: Range, otherRange: Range): boolean {
+  if (otherRange.start.line < range.start.line || otherRange.end.line < range.start.line) {
+    return false
+  }
+  if (otherRange.start.line > range.end.line || otherRange.end.line > range.end.line) {
+    return false
+  }
+  if (otherRange.start.line === range.start.line && otherRange.start.character < range.start.character) {
+    return false
+  }
+  if (otherRange.end.line === range.end.line && otherRange.end.character > range.end.character) {
+    return false
+  }
+  return true
+}
+
+export function precedesRange(before: Range, after: Range): boolean {
+  if (before.start.line < after.start.line) {
+    return true
+  } 
+  if (before.start.line === after.start.line && before.start.character < after.start.character) {
+    return true
+  }
+  return false
+}
+
 
 
 export function canRenamePosition(analyzer: Analyzer, document: LspDocument, position: Position): boolean {
@@ -67,7 +94,6 @@ function removeLocalSymbols(matchSymbol: FishDocumentSymbol, nodes: SyntaxNode[]
         return true;
     })
 }
-
 function findGlobalLocations(analyzer: Analyzer, document: LspDocument, position: Position): Location[] {
     const locations: Location[] = []
     const symbol = analyzer.findDocumentSymbol(document, position);

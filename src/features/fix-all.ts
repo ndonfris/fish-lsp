@@ -1,7 +1,5 @@
-
-
 import {Diagnostic, TextDocumentEdit, RemoteClient, Connection, CodeAction} from 'vscode-languageserver';
-import { LspClient } from '../client';
+//import { LspClient } from '../client';
 import {CodeActionKind} from '../code-action';
 import { Commands, FishRenameRequest } from '../commands';
 import {LspDocuments} from '../document';

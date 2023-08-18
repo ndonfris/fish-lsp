@@ -3,13 +3,13 @@ import * as LSP from 'vscode-languageserver';
 import * as TreeSitter from 'web-tree-sitter';
 import { SyntaxNode } from 'web-tree-sitter';
 import { URI } from 'vscode-uri';
-import { findParentVariableDefintionKeyword, isComment, isFunctionDefinition, isFunctionDefinitionName, isScope, isVariableDefinition } from './node-types';
+import { findParentVariableDefintionKeyword, isCommand, isCommandName, isComment, isFunctionDefinition, isFunctionDefinitionName, isProgram, isScope, isStatement, isString, isVariableDefinition } from './node-types';
 import { LspDocument, LspDocuments } from '../document';
-import {toSymbolKind} from '../symbols';
 import { FishProtocol } from './fishProtocol';
 import { getPrecedingComments, getRange, getRangeWithPrecedingComments } from './tree-sitter';
 import * as LocationNamespace from './locations';
 import os from 'os'
+import { isBuiltin } from './builtins';
 
 const RE_PATHSEP_WINDOWS = /\\/g;
 
@@ -207,4 +207,42 @@ export function toFoldingRange(node: SyntaxNode, document: LspDocument): Folding
 export function toLspDocument(filename: string, content: string): LspDocument {
     const doc = TextDocumentItem.create(pathToUri(filename), 'fish', 0, content)
     return new LspDocument(doc)
+}
+
+
+export function toSymbolKind(node: SyntaxNode): SymbolKind {
+    if (isVariableDefinition(node)) {
+        return SymbolKind.Variable
+    } else if (isFunctionDefinitionName(node)) { // change from isFunctionDefinition(node)
+        return SymbolKind.Function;
+    } else if (isString(node)) { 
+        return SymbolKind.String;
+    } else if (isProgram(node) || isFunctionDefinition(node) || isStatement(node)) {
+        return SymbolKind.Namespace
+    } else if (isBuiltin(node.text) || isCommandName(node) || isCommand(node)) {
+        return SymbolKind.Class;
+    }
+    return SymbolKind.Null
+}
+
+/**
+ *  Pretty much just for logging a symbol kind 
+ */
+export function symbolKindToString(kind: SymbolKind) {
+    switch (kind) {
+        case SymbolKind.Variable:
+            return 'variable';
+        case SymbolKind.Function:
+            return 'function';
+        case SymbolKind.String:
+            return 'string';
+        case SymbolKind.Namespace:
+            return 'namespace';
+        case SymbolKind.Class:
+            return 'class';
+        case SymbolKind.Null:
+            return 'null';
+        default:
+            return 'other'
+    }
 }

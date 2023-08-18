@@ -1,21 +1,14 @@
 import { Hover, MarkupContent, MarkupKind, Position, PublishDiagnosticsParams, SymbolInformation, SymbolKind, WorkspaceSymbol, URI, CallHierarchyOutgoingCall } from "vscode-languageserver";
 import Parser, { SyntaxNode, Range, Tree } from "web-tree-sitter";
 import * as LSP from 'vscode-languageserver';
-//import {collectFishSymbols, FishSymbol} from './symbols';
-import { containsRange, precedesRange } from './workspace-symbol'
 import { isPositionWithinRange, findFirstParent , getChildNodes, getRange, isNodeWithinRange, equalRanges, findEnclosingScope} from './utils/tree-sitter';
 import { LspDocument } from './document';
 import { isCommand, isCommandName, isDefinition, isFunctionDefinition, isFunctionDefinitionName, isScope, isVariable, isVariableDefinition} from './utils/node-types';
 import { DiagnosticQueue } from './diagnostics/queue';
-import {pathToRelativeFunctionName, pathToUri, toLspDocument, uriInUserFunctions, uriToPath} from './utils/translation';
-import { DocumentationCache } from './utils/documentationCache';
-import { DocumentSymbol } from 'vscode-languageserver';
-import { GlobalWorkspaceSymbol } from './symbols';
+import { pathToUri } from './utils/translation';
 import { existsSync } from 'fs'
 import homedir from 'os'
-import { SymbolTree } from './symbolTree';
 import { FishWorkspace, Workspace } from './utils/workspace';
-import { collectFishWorkspaceSymbols, FishWorkspaceSymbol } from './utils/fishWorkspaceSymbol';
 import { filterGlobalSymbols, filterLastPerScopeSymbol, findLastDefinition, findSymbolsForCompletion, FishDocumentSymbol, getFishDocumentSymbols, isGlobalSymbol, isUniversalSymbol, symbolIsImmutable } from './document-symbol';
 import { GenericTree } from './utils/generic-tree';
 import { FishCompletionItem, FishCompletionData } from './utils/completion-strategy';
@@ -275,11 +268,6 @@ export class Analyzer {
         return getChildNodes(this.parser.parse(document.getText()).rootNode);
     }
 
-    public getNodesInRange(document: LspDocument, range: LSP.Range): SyntaxNode[] {
-        const root = this.parser.parse(document.getText()).rootNode;
-        return getChildNodes(root).filter((node) => containsRange(range, getRange(node)));
-    }
-
     private getCommandNames(document: LspDocument): string[] {
         const allCommands = this.getNodes(document)
             .filter((node) => isCommandName(node))
@@ -328,110 +316,7 @@ export class Analyzer {
     }
 
 
-    public getRenames(doc: LspDocument, position: Position): LSP.Location[] {
-        const currentNode = this.nodeAtPoint(doc.uri, position.line, position.character)
-        if (!currentNode) return [];
-
-        const renames : LSP.Location[] = [];
-
-        const pushRename = (uri: string, range: LSP.Range) => {
-            if (!renames.some((rename) => rename.uri === uri && equalRanges(rename.range, range))) {
-                renames.push({
-                    uri,
-                    range,
-                })
-            }
-        }
-
-        // first we check the current document
-        const foundLocal = this.findDocumentSymbol(doc, position);
-        if (foundLocal) {
-            const { scopeNode } = foundLocal.scope;
-            getChildNodes(scopeNode).forEach((node) => {
-                if (node.text === foundLocal.name) {
-                    pushRename(doc.uri, getRange(node))
-                }
-            })
-            return renames;
-        } 
-
-        const containingWorkspace = this.workspaces.find((workspace) => workspace.contains(doc.uri));
-        //this.workspaces.forEach((w) => console.log(w.path, doc.uri))
-        //console.log();
-        //console.log(containingWorkspace);
-        if (!containingWorkspace) return [];
-
-        containingWorkspace.forEach((doc: LspDocument) => {
-            const root = this.cache.getParsedTree(doc.uri)?.rootNode;
-            if (!root) return
-            const symbols = this.cache
-                .getFlatDocumentSymbols(doc.uri)
-                .some((symbol) => symbol.name === currentNode.text);
-            const commands = this.cache
-                .getCommands(doc.uri)
-                .includes(currentNode.text);
-            if (commands || symbols) {
-                const foundRefs = getReferences(doc.uri, root, currentNode)
-                renames.push(...foundRefs)
-            }
-
-        })
-        return renames;
-        
-        // then we check the global symbols
-        //if (currentNode && this.globalSymbols.has(currentNode.text)) {
-        //    const configSymbols = this.globalSymbols
-        //        .find(currentNode.text)
-        //        .filter(symbolIsImmutable);
-
-        //    if (!configSymbols) return [];
-
-        //    const editableWorkspaces = this.workspaces.filter((workspace) =>
-        //        configSymbols.some((symbol) => workspace.contains(symbol.uri))
-        //    )
-
-        //    for (const workspace of editableWorkspaces) {
-        //        workspace.uris.forEach((uri) => {
-        //            const root = this.cache.getParsedTree(uri)?.rootNode;
-        //            if (!root) return [];
-        //            getChildNodes(root)
-        //                .filter((node) => node.text === currentNode.text)
-        //                .map((node) => {
-        //                    pushRename(uri, getRange(node))
-        //                })
-        //        })
-        //    }
-        //    return renames
-        //} 
-        //return [];
-    }
-
-
 }
-export function getReferences(
-    uri: string,
-    root: SyntaxNode,
-    current: SyntaxNode
-): LSP.Location[] {
-    return (
-        getChildNodes(root)
-            .filter((n) => n.text === current.text)
-            .filter(
-                (n) =>
-                    isVariable(n) ||
-                    isFunctionDefinitionName(n) ||
-                    isCommandName(n)
-            )
-            .filter((n) =>
-                containsRange(
-                    getRange(findEnclosingScope(n)),
-                    getRange(current)
-                )
-            )
-            .map((n) => LSP.Location.create(uri, getRange(n))) || []
-    );
-}
-
 export class GlobalDefinitionCache {
     constructor(private _definitions: Map<string, FishDocumentSymbol[]> = new Map()) {}
     add(symbol: FishDocumentSymbol) {
@@ -601,69 +486,4 @@ export class SymbolCache {
         return this._names.has(name);
     }
 
-}
-
-const MatchesNeedle = (needle: SyntaxNode, symbol: FishDocumentSymbol) => symbol.name === needle.text && precedesRange(symbol.selectionRange, getRange(needle))
-/**
- * recursive function that finds all variable definitions in a given syntax tree,
- * returning an array of FishDocumentSymbols that are in heirarchical order, and before
- * needle
- */
-export function findLocalDefinitionSymbol(allSymbols: FishDocumentSymbol[], needle: SyntaxNode) : FishDocumentSymbol[] {
-    return bfs(allSymbols, needle)
-}
-
-const bfs = (root: FishDocumentSymbol[], needle: SyntaxNode, results: FishDocumentSymbol[] = []) => {
-    if (!root) return results;
-
-    const q: FishDocumentSymbol[] = [...root]
-    const scopeQ: boolean[] = [...root.map((node) => true)]
-
-    while (q.length > 0) {
-        const node = q.shift();
-        const pScope = scopeQ.shift();
-        if (!node || pScope === undefined) continue;
-        if (
-            node.name === needle.text &&
-            precedesRange(node.selectionRange, getRange(needle)) &&
-            pScope
-        ) {
-            results.push(node);
-        }
-        if (containsRange(node.range, getRange(needle))) {
-            for (let child of node.children) {
-                q.unshift(child)
-                scopeQ.unshift(true)
-            } 
-        }
-    }
-    return results
-}
-
-export function findDefs(allSymbols: FishDocumentSymbol[], needle: SyntaxNode): FishDocumentSymbol[] {
-    const needleScopeQueue: SyntaxNode[] = findParentScopes(needle);
-    const results: FishDocumentSymbol[] = []
-
-    while (needleScopeQueue.length > 0) {
-        const scope = needleScopeQueue.shift();
-        if (!scope) continue;
-        const possibleSymbols = allSymbols.filter((symbol) =>  containsRange(getRange(scope), symbol.range))
-        if (possibleSymbols.length > 0) {
-            const found = possibleSymbols.filter((symbol) => MatchesNeedle(needle, symbol)) || []
-            results.unshift(...found);
-        }
-    }
-    return results
-}
-
-export function findParentScopes(needle: Parser.SyntaxNode) {
-    const scopes: Parser.SyntaxNode[] = [];
-    let current = needle.parent;
-    while (current) {
-        if (isScope(current)) {
-            scopes.push(current);
-        }
-        current = current.parent;
-    }
-    return scopes;
 }

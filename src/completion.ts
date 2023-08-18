@@ -26,26 +26,25 @@ import {
 import {
     BuiltInList,
     escapeChars,
+    isBuiltIn,
     pipes,
     statusNumbers,
     stringRegexExpressions,
     WildcardItems,
 } from "./utils/completion-types";
-import {
-    parseLineForType,
-} from "./utils/completionBuilder";
+//import {
+//    parseLineForType,
+//} from "./utils/completionBuilder";
 import { isCommand, isCommandName } from "./utils/node-types";
 import {
     firstAncestorMatch,
     getNodeAtRange,
     getRange,
 } from "./utils/tree-sitter";
-import { getNodeFromSymbol } from "./workspace-symbol";
 import { execCompletions } from "./utils/exec";
 import { DocumentationCache } from "./utils/documentationCache";
 import { LspDocument } from './document';
 import { Analyzer } from './analyze';
-import { SymbolTree } from './symbolTree';
 import { createCompletionItem, FishCompletionItem, FishCompletionItemKind, FishCompletionData } from './utils/completion-strategy';
 
 
@@ -192,6 +191,65 @@ function fixFishKindForCommandFlags(
 //    return fishFuncFile;
 //}
 
+
+// fish --command 'complete --do-complete="somecmd"'
+// yeilds completions of result: 
+//     cmp1\tdescription
+//     cmp2
+//     cmp3\tdescription
+// where completions are split by tab characters, and descriptions are optional.
+
+/**
+ * Retrieves a FishCompletionItemKind for a line of shell output. 
+ * Input params can be typed by the exported type TerminalCompletionOutput
+ * @see TerminalTCompletionOutput
+ *
+ * @param {string} label - the label we should use for a completion
+ * @param {string[]} documentation - the documentation for a completion which might not
+ *                                   have been written.
+ * @returns {FishCompletionItemKind} - enum used to determine what type of completion to 
+ *                                     build.
+ */
+export function parseLineForType(label: string, keyword: string, otherInfo: string) : FishCompletionItemKind{
+    let labelType =  getTypeFromLabel(label);
+    if (otherInfo === "set") {
+        return FishCompletionItemKind.GLOBAL_VARIABLE
+    }
+    let docType = getTypeFromDocumentation(keyword, otherInfo)
+    return labelType !== null ? labelType : docType
+}
+
+function getTypeFromLabel(label: string) {
+    const firstChar = label.charAt(0)
+    switch (firstChar) {
+        case '-' :
+            return FishCompletionItemKind.FLAG
+        case '$': 
+            return FishCompletionItemKind.GLOBAL_VARIABLE
+        default:
+            return isBuiltIn(label) ? FishCompletionItemKind.BUILTIN : null
+    }
+}
+
+
+function getTypeFromDocumentation(keyword: string, otherInfo: string) {
+    //console.log(otherInfo)
+    switch (keyword) {
+        case 'command': 
+            return otherInfo.length >= 1 ? FishCompletionItemKind.CMD_NO_DOC : FishCompletionItemKind.CMD
+        case 'variable': 
+            //return isGlobalFunction() ?  FishCompletionItemKind.GLOBAL_FUNC : FishCompletionItemKind.USER_FUNC
+            return FishCompletionItemKind.GLOBAL_VARIABLE
+        case 'alias': 
+            return FishCompletionItemKind.ALIAS
+        case 'abbreviation':
+            return FishCompletionItemKind.ABBR
+        default:
+            //return isGlobalFunction() ?  FishCompletionItemKind.GLOBAL_FUNC : FishCompletionItemKind.RESOLVE
+            return FishCompletionItemKind.GLOBAL_FUNCTION
+    }
+
+}
 //////////////////////////////////////////////////////////////////////////////////////////
 // @TODO: MOVE TO COMPLETION-TYPES ?
 //////////////////////////////////////////////////////////////////////////////////////////

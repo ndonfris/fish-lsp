@@ -1,15 +1,13 @@
 import * as LSP from 'vscode-languageserver';
 import {Hover, MarkedString, MarkupKind} from 'vscode-languageserver';
 import * as Parser from 'web-tree-sitter';
+import { Analyzer } from './analyze';
+import { LspDocument } from './document';
 import { documentationHoverProvider, documentationHoverProviderForBuiltIns, enrichCommandWithFlags, enrichToCodeBlockMarkdown } from './documentation';
-import { CommentRange } from './symbols';
-import {isBuiltIn} from './utils/completion-types';
 import { DocumentationCache } from './utils/documentationCache';
 import { execCommandDocs, execComplete, execCompletions, execSubCommandCompletions } from './utils/exec';
 import { isCommand, isCommandName } from './utils/node-types';
 import {findEnclosingScope, findFirstParent, getNodeAtRange, getRange} from './utils/tree-sitter';
-//import * as Symbols from './workspace-symbol';
-import { SymbolTree } from './symbolTree';
 
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -20,34 +18,40 @@ import { SymbolTree } from './symbolTree';
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-export async function handleHover(uri: string, root: Parser.SyntaxNode, current: Parser.SyntaxNode, cache: DocumentationCache) : Promise<LSP.Hover | null>{
-    if (current.text.startsWith('-')) {
-        return await getHoverForFlag(current)
-    } 
-    const local = SymbolTree(root, uri).findDef(current)
+export async function handleHover(
+    analyzer: Analyzer,
+    document: LspDocument,
+    position: LSP.Position,
+    current: Parser.SyntaxNode,
+    cache: DocumentationCache
+): Promise<LSP.Hover | null> {
+    if (current.text.startsWith("-")) {
+        return await getHoverForFlag(current);
+    }
+    const local = analyzer.getDefinition(document, position).pop();
     if (local) {
         return {
             contents: {
                 kind: MarkupKind.Markdown,
                 value: local.detail!,
             },
-            range: local.selectionRange
+            range: local.selectionRange,
         };
-    } 
+    }
     if (cache.find(current.text) !== undefined) {
-        await cache.resolve(current.text)
+        await cache.resolve(current.text);
         const item = cache.getItem(current.text);
         if (item?.docs) {
-            return  {
+            return {
                 contents: {
                     kind: MarkupKind.Markdown,
-                    value: item.docs.toString()
-                }
-            }
+                    value: item.docs.toString(),
+                },
+            };
         }
     }
     const commandString = await collectCommandString(current);
-    return await documentationHoverProvider(commandString)
+    return await documentationHoverProvider(commandString);
 }
 
 

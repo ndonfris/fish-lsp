@@ -1,6 +1,5 @@
 // https://github.com/typescript-language-server/typescript-language-server/blob/5a39c1f801ab0cad725a2b8711c0e0d46606a08b/src/utils/typeConverters.ts#L12
 
-
 import  * as  LSP from 'vscode-languageserver';
 import { FishProtocol } from './fishProtocol';
 
@@ -132,4 +131,3 @@ export namespace Location {
     export const fromTextSpan = (resource: LSP.DocumentUri, fishTextSpan: FishProtocol.TextSpan): LSP.Location =>
         LSP.Location.create(resource, Range.fromTextSpan(fishTextSpan));
 }
-

@@ -1,9 +1,5 @@
-// use this file to determine node types from ./tree-sitter
-import {RemoteConsole} from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter'
 import {ancestorMatch, findChildNodes, findFirstParent, findFirstSibling, firstAncestorMatch, getChildNodes, getParentNodes, getSiblingNodes} from './tree-sitter';
-import {  findFunctionDefinitionOptions } from './options'
-import { setQuery } from './definition-scope';
 import * as VariableTypes from './variable-syntax-nodes'
 
 /** 
