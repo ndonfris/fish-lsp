@@ -328,7 +328,8 @@ export default class FishServer {
         this.logParams('onDocumentSymbols', params);
         const {doc} = this.getDefaultsForPartialParams(params)
         if (!doc) return [];
-        return this.analyzer.getDocumentSymbols(doc, 'clientTree')
+        const symbols = this.analyzer.cache.getDocumentSymbols(doc.uri)
+        return filterLastPerScopeSymbol(symbols)
     }
 
     protected get supportHierarchicalDocumentSymbol(): boolean {
@@ -490,7 +491,7 @@ export default class FishServer {
             throw new Error(`The document should not be opened in the folding range, file: ${file}`)
         }
         //this.analyzer.analyze(document)
-        const symbols = this.analyzer.getDocumentSymbols(document)
+        const symbols = this.analyzer.getDocumentSymbols(document.uri)
         const flatSymbols = FishDocumentSymbol.toTree(symbols).toFlatArray()
         this.logger.logPropertiesForEachObject(flatSymbols.filter(s => s.kind === SymbolKind.Function), 'name', 'range')
         const folds = flatSymbols

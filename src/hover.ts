@@ -28,7 +28,7 @@ export async function handleHover(
     if (current.text.startsWith("-")) {
         return await getHoverForFlag(current);
     }
-    const local = analyzer.getDefinition(document, position).pop();
+    const local = analyzer.getDefinition(document, position);
     if (local) {
         return {
             contents: {

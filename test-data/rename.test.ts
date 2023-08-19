@@ -4,7 +4,7 @@ import { setLogger,  createTestWorkspaceDocuments, createFakeUriPath, truncatedN
 import { DocumentSymbol, Position, SymbolKind, Location, TextDocumentItem, } from "vscode-languageserver";
 import Parser, { SyntaxNode } from "web-tree-sitter";
 import { initializeParser } from "../src/parser";
-import { Analyzer, findParentScopes, findDefs } from "../src/analyze";
+import { Analyzer } from "../src/analyze";
 import {filterLastPerScopeSymbol, FishDocumentSymbol, } from "../src/document-symbol";
 import {FishWorkspace,initializeDefaultFishWorkspaces,Workspace,} from "../src/utils/workspace";
 import { WorkspaceSpoofer } from "./workspace-builder";
@@ -12,7 +12,7 @@ import { findEnclosingScope, getChildNodes, getRange, positionToPoint, } from ".
 import {isCommand, isCommandName, isFunctionDefinitionName, isVariable, } from "../src/utils/node-types";
 import { LspDocument } from "../src/document";
 import { containsRange } from "../src/workspace-symbol";
-import { canRenamePosition, getRenameLocations, getRenameSymbolType } from "../src/renames";
+import { canRenamePosition, getRenameLocations, getRenameSymbolType } from "../src/workspace-symbol";
 
 let parser: Parser;
 let analyzer: Analyzer;

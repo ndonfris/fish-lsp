@@ -76,7 +76,7 @@ function findLocations(uri: string, nodes: SyntaxNode[], matchName: string): Loc
 
 
 function findLocalLocations(analyzer: Analyzer, document: LspDocument, position: Position): Location[] {
-    const symbol = analyzer.findDocumentSymbol(document, position);
+    const symbol = findDefinitionSymbols(analyzer, document, position).pop()
     if (!symbol) return []
     const nodesToSearch = getChildNodes(symbol.scope.scopeNode)
     return findLocations(document.uri, nodesToSearch, symbol.name)
@@ -126,7 +126,7 @@ export function getRenameLocations(analyzer: Analyzer, document: LspDocument, po
 export function getRefrenceLocations(analyzer: Analyzer, document: LspDocument, position: Position): Location[] {
     const node = analyzer.nodeAtPoint(document.uri, position.line, position.character)
     if (!node) return []
-    const symbol = analyzer.getDefinition(document, position).pop()
+    const symbol = analyzer.getDefinition(document, position)
     if (symbol) {
         const doc = analyzer.getDocument(symbol.uri)!
         const {scopeTag} = symbol.scope
@@ -195,4 +195,33 @@ export function getRenameWorkspaceEdit(analyzer: Analyzer, document: LspDocument
     }
 
     return { changes }
+}
+
+
+export function findDefinitionSymbols(analyzer: Analyzer, document: LspDocument, position: Position): FishDocumentSymbol[] {
+    const symbols: FishDocumentSymbol[] = []
+    const localSymbols = analyzer.getFlatDocumentSymbols(document.uri);
+    const toFind = analyzer.nodeAtPoint(document.uri, position.line, position.character)
+    if (!toFind) return []
+    const localSymbol = analyzer.findDocumentSymbol(document, position)
+    if (localSymbol) {
+        symbols.push(localSymbol)
+    } else {
+        const toAdd: FishDocumentSymbol[] = localSymbols.filter((s) => {
+            const variableBefore = (s.kind === SymbolKind.Variable ? precedesRange(s.selectionRange, getRange(toFind)) : true)
+            return (
+                s.name === toFind.text 
+                && containsRange(
+                    getRange(s.scope.scopeNode),
+                    getRange(toFind)
+                )
+                && variableBefore
+            )
+        })
+        symbols.push(...toAdd)
+    }
+    if (!symbols.length) {
+        symbols.push(...analyzer.globalSymbols.find(toFind.text))
+    }
+    return symbols
 }

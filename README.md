@@ -169,6 +169,7 @@ shell, to display the logs:
 
 ## Sources
 - [ __LSIF__ ](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#headerPart)
+- [ __vscode-extension-sampes__ ](https://github.com/microsoft/vscode-extension-samples/tree/main)
 
 - __Similiar projects__
     - [coc.fish]( https://github.com/oncomouse/coc-fish )
