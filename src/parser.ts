@@ -13,7 +13,7 @@ export async function initializeParser(): Promise<Parser> {
     const parser = new Parser();
 
     const tsFishPath = resolve(
-        //require.resolve('tree-sitter-fish'),
+        require('tree-sitter-fish'),
         //'..',
         __dirname,
         '..',
@@ -25,5 +25,3 @@ export async function initializeParser(): Promise<Parser> {
 
     return parser;
 }
-
-

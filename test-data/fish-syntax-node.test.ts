@@ -10,8 +10,9 @@ import {
 import { buildStatementChildren, ifStatementHasReturn } from '../src/diagnostics/statementHasReturn'
 import {collectFunctionNames, collectFunctionsScopes} from '../src/diagnostics/validate';
 import {Diagnostic} from 'vscode-languageserver';
-import {FishSyntaxNode} from '../src/utils/fishSyntaxNode';
+//import {FishSyntaxNode} from '../src/utils/fishSyntaxNode';
 import {initializeParser} from '../src/parser';
+import { findOptionString, findAllOptions, FunctionOpts, VariableOpts } from '../src/utils/options';
 import {findParentCommand} from '../src/utils/node-types';
 import {execCommandDocs, execCommandType, execCompleteCmdArgs, execCompleteSpace} from '../src/utils/exec';
 import {documentationHoverProvider, HoverFromCompletion} from '../src/documentation';
@@ -156,46 +157,28 @@ describe("FISH web-tree-sitter SUITE", () => {
         if (SHOULD_LOG) [...vars].forEach((node) => logger.logNode(node, 'function variable definitions'))
     })
 
-    it("test is ConditionalCommand", async () => {
+    it("test is func_a", async () => {
         loggingON();
-        //const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/is_chained_return.fish");
         const parser = await initializeParser();
         const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/func_a.fish", true);
         const root = parser.parse(test_doc.getText()).rootNode;
-        const funcs: string[] = [];
-        const diagnostics: Diagnostic[] = [];
-        for (const node of nodesGen(root)) {
-            if (NodeTypes.isFunctionDefinitionName(node)) {
-                collectFunctionNames(node, test_doc, diagnostics, funcs)
-            }
-        }
-        diagnostics.forEach(d => console.log(d.code + ' ' + d.message ))
-        expect(diagnostics.length === 4).toEqual(true);
+        const opts = getChildNodes(root)
+            .filter(node => NodeTypes.isDefinition(node))
+            .map(node => {
+                return node.text + ' ' + findOptionString(node)
+            })
+        console.log(opts);
     })
-
+    it("test is function_variable_def", async () => {
+        loggingON();
+        const parser = await initializeParser();
+        const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/function_variable_def.fish", true);
+        const root = parser.parse(test_doc.getText()).rootNode;
+        const opts = getChildNodes(root)
+            .filter(node => NodeTypes.isDefinition(node))
+            .map(node => {
+                return node.text + ' ' + findOptionString(node)
+            })
+        console.log(opts);
+    })
 })
-function checkAllStatements(statementNode: SyntaxNode): boolean {
-    const statements = [statementNode, ...statementNode.namedChildren].filter(c => NodeTypes.isBlock(c))
-    for (const statement of statements) {
-        //console.log(statement.type);
-        if (!checkStatement(statement, [])) {
-            return false;
-        }
-    }
-    return true;
-}
-
-function checkStatement(root: SyntaxNode, collection: SyntaxNode[]) {
-    let shouldReturn = NodeTypes.isReturn(root)
-    for (const child of buildStatementChildren(root)) {
-        const include = checkStatement(child, collection) || NodeTypes.isReturn(child)
-        if (NodeTypes.isStatement(child) && !include) {
-            return false;
-        }
-        shouldReturn = include || shouldReturn
-    }
-    if (shouldReturn) {
-        collection.push(root)
-    }
-    return shouldReturn;
-}

@@ -1,118 +1,11 @@
-//import {green} from 'colors';
-import {SymbolInformation, Range, SymbolKind, DocumentUri, Location, WorkspaceSymbol, DocumentSymbol} from 'vscode-languageserver';
-import {SyntaxNode, Tree} from 'web-tree-sitter';
-import {Analyzer} from './analyze';
-import {toSymbolKind} from './symbols';
-import {isBuiltin} from './utils/builtins';
-import {findEnclosingVariableScope, findParentFunction, isCommandName, isDefinition, isFunctionDefinition, isFunctionDefinitionName, isProgram, isScope, isStatement, isVariable, isVariableDefinition} from './utils/node-types';
-import {nodeToDocumentSymbol, nodeToSymbolInformation, pathToRelativeFunctionName} from './utils/translation';
-import {findEnclosingScope, findFirstParent, getChildNodes, getNodeAtRange, getParentNodes, getRange, getRangeWithPrecedingComments, positionToPoint} from './utils/tree-sitter';
-
-function createSymbol(node: SyntaxNode, children?: DocumentSymbol[]) : DocumentSymbol | null {
-    const parent = node.parent || node;
-    if (isVariableDefinition(node)) {
-        return {
-            name: node.text,
-            kind: toSymbolKind(node),
-            range: getRangeWithPrecedingComments(parent),
-            selectionRange: getRange(node),
-            children: children || []
-        }
-    } else if (isFunctionDefinitionName(node)) {
-        const name = node.firstNamedChild || node
-        return {
-            name: name.text,
-            kind: toSymbolKind(name),
-            range: getRangeWithPrecedingComments(parent),
-            selectionRange: getRange(name),
-            children: children || []
-        }
-    } else {
-        return null;
-    }
-}
-
-export function getDefinitionSymbols(root: SyntaxNode) {
-    let parentSymbol: DocumentSymbol | null = null;
-    let currentSymbol: DocumentSymbol | null = null;
-    let symbols: DocumentSymbol[] = [];
-    let queue: SyntaxNode[] = [root];
-
-    while (queue.length > 0) {
-        const node = queue.shift()!;
-        if (isVariableDefinition(node)) {
-            currentSymbol = createSymbol(node);
-            if (!currentSymbol) continue; // should never happen
-            if (!parentSymbol) symbols.push(currentSymbol);
-            if (parentSymbol && containsRange(parentSymbol.range, currentSymbol.range)) {
-                if (!parentSymbol.children) {
-                    parentSymbol.children = [];
-                }
-                parentSymbol.children.push(currentSymbol);
-            }
-        } else if (isFunctionDefinitionName(node)) {
-            currentSymbol = createSymbol(node);
-            parentSymbol = currentSymbol;
-        } else if (parentSymbol && !containsRange(parentSymbol.range, getRange(node))) {
-            symbols.push(parentSymbol)
-            parentSymbol = null;
-        }
-        queue.unshift(...node?.children)
-    }
-    return symbols;
-}
-
-
-
-export function countParentScopes(first: SyntaxNode){
-    let node1 : SyntaxNode | null = first;
-    let count = 0;
-    while (node1 ) {
-        if (isScope(node1)) {
-            count++;
-        }
-        node1 = node1.parent
-    }
-    return count - 1;
-}
-
-export function getNodeFromRange(root: SyntaxNode, range: Range) {
-    return root.descendantForPosition(
-        positionToPoint(range.start),
-        positionToPoint(range.end)
-    ); 
-}
-export function getNodeFromSymbol(root: SyntaxNode, symbol: DocumentSymbol) {
-    return getNodeFromRange(root, symbol.selectionRange)
-}
-
-// for completions
-// needs testcase
-// retry with recursive range match against collected symbols
-export function nearbySymbols(root: SyntaxNode, curr: SyntaxNode): DocumentSymbol[] {
-    const symbols: DocumentSymbol[] = getDefinitionSymbols(root)
-    return flattenSymbols(symbols, []).filter( outer => containsRange(outer.range, getRange(curr)))
-}
-
-// not really necessary since symbols are converted from flat default
-export function flattenSymbols(current: DocumentSymbol[], result: DocumentSymbol[], height?: number): DocumentSymbol[] {
-    for (const symbol of current) {
-        if (height === undefined) {
-            if (!result.includes(symbol)) result.unshift(symbol)
-            if (symbol.children) {
-                result.unshift(...flattenSymbols(symbol.children, result))
-            }
-        } else {
-            if (height >= 0) {
-                if (!result.includes(symbol)) result.unshift(symbol)
-                if (symbol.children) {
-                    result.unshift(...flattenSymbols(symbol.children, result, height - 1))
-                }
-            }
-        }
-    }
-    return Array.from(new Set(result))
-}
+import { filterGlobalSymbols, filterLastPerScopeSymbol, filterLocalSymbols, findLastDefinition, findSymbolsForCompletion, FishDocumentSymbol, getFishDocumentSymbols, isGlobalSymbol, isUniversalSymbol, symbolIsImmutable } from './document-symbol';
+import { Analyzer } from './analyze';
+import { LspDocument } from './document';
+import { Position, Location, Range, SymbolKind, TextEdit, DocumentUri, WorkspaceEdit, RenameFile } from 'vscode-languageserver';
+import { getChildNodes, getRange } from './utils/tree-sitter';
+import { SyntaxNode } from 'web-tree-sitter';
+//import { containsRange } from './workspace-symbol';
+import { isCommandName } from './utils/node-types';
 
 export function containsRange(range: Range, otherRange: Range): boolean {
   if (otherRange.start.line < range.start.line || otherRange.end.line < range.start.line) {
@@ -140,56 +33,166 @@ export function precedesRange(before: Range, after: Range): boolean {
   return false
 }
 
-/* Either we need to open a new doc or we have a definition in our current document
- * Or there is no definition (i.e. a builtin)
- */
-export enum DefinitionKind {
-    LOCAL,
-    FILE,
-    NONE
+
+
+export function canRenamePosition(analyzer: Analyzer, document: LspDocument, position: Position): boolean {
+    return !!analyzer.findDocumentSymbol(document, position);
 }
 
-export function getDefinitionKind(uri: string, root: SyntaxNode, current: SyntaxNode, localDefintions: Location[]): DefinitionKind {
-    if (isBuiltin(current.text)) return DefinitionKind.NONE;
-    localDefintions.push(...getLocalDefs(uri, root, current))
-    if (localDefintions.length > 0) {
-        return DefinitionKind.LOCAL;
+export type RenameSymbolType = 'local' | 'global'
+
+export function getRenameSymbolType(analyzer: Analyzer, document: LspDocument, position: Position): RenameSymbolType {
+    const symbol = analyzer.findDocumentSymbol(document, position);
+    if (!symbol) return 'local'
+
+    if (isGlobalSymbol(symbol) || isUniversalSymbol(symbol)) {
+        return 'global'
     }
-    if (isCommandName(current)) return DefinitionKind.FILE;
-    return DefinitionKind.NONE;
+    return 'local'
 }
 
-export function getLocalDefs(uri: string, root: SyntaxNode, current: SyntaxNode) {
-    const definition = current.text === "argv" 
-        ? findEnclosingScope(current)
-        : getReferences(uri, root, current)
-            .map(refLocation => getNodeAtRange(root, refLocation.range))
-            .filter(n => n)
-            .find(n => n && isDefinition(n)) 
-    if (!definition) return []
-    return [Location.create(uri, getRange(definition))]
+export type RenameChanges = {
+    [uri: DocumentUri]: TextEdit[]
 }
 
-export function getReferences(uri: string, root: SyntaxNode, current: SyntaxNode) : Location[]{
-    return getChildNodes(root)
-        .filter((n) => n.text === current.text)
-        .filter((n) => isVariable(n) || isFunctionDefinitionName(n) || isCommandName(n))
-        .filter((n) => containsRange(getRange(findEnclosingScope(n)), getRange(current)))
-        .map((n) => Location.create(uri, getRange(n))) || []
-}
-
-export function getMostRecentReference(uri: string, root: SyntaxNode, current: SyntaxNode) {
-    const definitions : SyntaxNode[] = current.text === "argv"
-        ? [findEnclosingScope(current)]
-        : getChildNodes(root)
-        .filter((n) => n.text === current.text)
-        .filter((n) => isDefinition(n))
-
-    let mostRecent = definitions.find(n => n && isDefinition(n))
-    definitions.forEach(defNode => {
-        if (isVariable(current) && precedesRange(getRange(defNode), getRange(current))) {
-            mostRecent = defNode
-        }
+function findLocations(uri: string, nodes: SyntaxNode[], matchName: string): Location[] {
+    const equalRanges = (a: Range, b: Range) => {
+        return (
+            a.start.line === b.start.line &&
+            a.start.character === b.start.character &&
+            a.end.line === b.end.line &&
+            a.end.character === b.end.character
+        );
+    }
+    const matchingNames = nodes.filter(node => node.text === matchName)
+    const uniqueRanges: Range[] = [] 
+    matchingNames.forEach(node => {
+        const range = getRange(node)
+        if (uniqueRanges.some(u => equalRanges(u, range))) return
+        uniqueRanges.push(range)
     })
-    return mostRecent
+    return uniqueRanges.map(range => Location.create(uri, range))
+}
+
+
+function findLocalLocations(analyzer: Analyzer, document: LspDocument, position: Position): Location[] {
+    const symbol = analyzer.findDocumentSymbol(document, position);
+    if (!symbol) return []
+    const nodesToSearch = getChildNodes(symbol.scope.scopeNode)
+    return findLocations(document.uri, nodesToSearch, symbol.name)
+}
+
+function removeLocalSymbols(matchSymbol: FishDocumentSymbol, nodes: SyntaxNode[], symbols: FishDocumentSymbol[]) {
+    const name = matchSymbol.name
+    const matchingSymbols = filterLocalSymbols(symbols.filter(symbol => symbol.name === name)).map(symbol => symbol.scope.scopeNode)
+    const matchingNodes = nodes.filter(node => node.text === name)
+
+    if (matchingSymbols.length === 0 || matchSymbol.kind === SymbolKind.Function) return matchingNodes
+
+    return matchingNodes.filter((node) => {
+        if (matchingSymbols.some(scopeNode => containsRange(getRange(scopeNode), getRange(node)))) return false
+        return true;
+    })
+}
+function findGlobalLocations(analyzer: Analyzer, document: LspDocument, position: Position): Location[] {
+    const locations: Location[] = []
+    const symbol = analyzer.findDocumentSymbol(document, position);
+    if (!symbol) return []
+    const uris = analyzer.cache.uris()
+    for (const uri of uris) {
+        const doc = analyzer.getDocument(uri)!
+        if (!doc.isAutoLoaded()) continue
+        const rootNode = analyzer.getRootNode(doc)!
+        const toSearchNodes = removeLocalSymbols(symbol, getChildNodes(rootNode), analyzer.cache.getFlatDocumentSymbols(uri))
+        const newLocations = findLocations(uri, toSearchNodes, symbol.name)
+        locations.push(...newLocations)
+    }
+    return locations
+}
+
+export function getRenameLocations(analyzer: Analyzer, document: LspDocument, position: Position): Location[] {
+    if (!canRenamePosition(analyzer, document, position)) return []
+    let renameScope = getRenameSymbolType(analyzer, document, position)
+    switch (renameScope) {
+        case 'local':
+            return findLocalLocations(analyzer, document, position)
+        case 'global':
+            return findGlobalLocations(analyzer, document, position)
+        default:
+            return []
+    }
+}
+
+export function getRefrenceLocations(analyzer: Analyzer, document: LspDocument, position: Position): Location[] {
+    const node = analyzer.nodeAtPoint(document.uri, position.line, position.character)
+    if (!node) return []
+    const symbol = analyzer.getDefinition(document, position).pop()
+    if (symbol) {
+        const doc = analyzer.getDocument(symbol.uri)!
+        const {scopeTag} = symbol.scope
+        switch (scopeTag) {
+            case 'global':
+            case 'universal':
+                return findGlobalLocations(analyzer, doc, symbol.selectionRange.start)
+            case 'local':
+            default:
+                return findLocalLocations(analyzer, document, symbol.selectionRange.start)
+        }
+    }
+    if (isCommandName(node)) {
+        const uris = analyzer.cache.uris()
+        const locations: Location[] = []
+        for (const uri of uris) {
+            const doc = analyzer.getDocument(uri)!
+            const rootNode = analyzer.getRootNode(doc)!
+            const nodes = getChildNodes(rootNode).filter(n => isCommandName(n))
+            const newLocations = findLocations(uri, nodes, node.text)
+            locations.push(...newLocations)
+        }
+        return locations
+    }
+    return []
+}
+
+const createRenameFile = (oldUri: DocumentUri, newUri: DocumentUri): RenameFile => {
+    return {
+        kind: 'rename',
+        oldUri,
+        newUri
+    }
+}
+
+export function getRenameFiles(analyzer: Analyzer, document: LspDocument, position: Position, newName: string): RenameFile[] | null {
+    const renameFiles: RenameFile[] = []
+    const symbol = analyzer.findDocumentSymbol(document, position);
+    if (!symbol) return null
+    if (symbol.kind !== SymbolKind.Function) return null
+    if (symbolIsImmutable(symbol)) return null
+    if (symbol.scope.scopeTag === 'global') {
+        analyzer.getExistingAutoloadedFiles(symbol.name).forEach(uri => {
+            const newUri = uri.replace(symbol.name, newName)
+            renameFiles.push(createRenameFile(uri, newUri))
+        })
+    }
+    return renameFiles
+}
+export function getRenameWorkspaceEdit(analyzer: Analyzer, document: LspDocument, position: Position, newName: string): WorkspaceEdit | null {
+    const locations = getRenameLocations(analyzer, document, position)
+    if (!locations || locations.length === 0) return null
+
+    const changes: RenameChanges = {}
+
+    for (const location of locations) {
+        const uri = location.uri
+        const edits = changes[uri] || []
+        edits.push(TextEdit.replace(location.range, newName))
+        changes[uri] = edits
+    }
+
+    const documentChanges: RenameFile[] | null = getRenameFiles(analyzer, document, position, newName)
+    if (documentChanges && documentChanges.length > 0) {
+        return { changes, documentChanges }
+    }
+
+    return { changes }
 }

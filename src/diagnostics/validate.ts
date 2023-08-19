@@ -5,7 +5,7 @@ import {findParentCommand, isClause, isCommand, isCommandName, isConditionalComm
 import { findFirstSibling, nodesGen } from '../utils/tree-sitter';
 import {createDiagnostic} from './create';
 import { createAllFunctionDiagnostics } from './missingFunctionName';
-import { getExtraEndSyntaxError, getMissingEndSyntaxError, getUnreachableCodeSyntaxError } from './syntaxError';
+import { getExtraEndSyntaxError, getMissingEndSyntaxError } from './syntaxError';
 import { getUniversalVariableDiagnostics } from './universalVariable';
 import * as errorCodes from './errorCodes'
 import {pathVariable} from './errorCodes';
@@ -17,7 +17,7 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) : Diagnostic[
         const diagnostic =
             getMissingEndSyntaxError(child) ||
             getExtraEndSyntaxError(child) ||
-            getUnreachableCodeSyntaxError(child) ||
+            //getUnreachableCodeSyntaxError(child) ||
             getUniversalVariableDiagnostics(child, doc);
         if (diagnostic) diagnostics.push(diagnostic)
     }
@@ -253,22 +253,12 @@ export function collectAllDiagnostics(root: SyntaxNode, doc: LspDocument, diagno
     let shouldAdd = collectEndError(root, diagnostics) 
         || collectFunctionNames(root, doc, diagnostics, functionNames) 
         || collectVariableNames(root, doc, diagnostics, variableNames)
-        || collectFunctionsScopes(root, doc, diagnostics)
-        //|| collectReturnError(root, diagnostics)
+        //|| collectFunctionsScopes(root, doc, diagnostics) // DOES NOT HANDLE if without ELSE
+        //|| collectReturnError(root, diagnostics)          // BROKEN
         //collectReturnError(root, diagnostics);
     for (const node of root.children) {
         shouldAdd = collectAllDiagnostics(node, doc, diagnostics, functionNames, variableNames);
     }
     return shouldAdd
 }
-
-
-
-
-
-
-
-
-
-
 

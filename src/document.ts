@@ -26,32 +26,32 @@ import {sep} from 'path';
  * @returns {Promise<TextDocument[]>} - Get all fish files in a directory path and return
  *                                      them as TextDocuments.
  */
-export async function getWorkspacePaths(documents: LspDocuments, paths: string[]): Promise<LspDocuments> {
-
-    const allFiles: string[] = [];
-
-    paths.forEach((path) => {
-        const files = FastGlob.sync("**.fish", {
-            absolute: true,
-            dot: true,
-            globstar: true,
-            cwd: path,
-        });
-        allFiles.push(...files);
-    });
-
-    // now allFiles contains every fish file that could be used in the workspace
-    await Promise.allSettled(allFiles.map(async file => {
-        const doc = documents.get(file.toString());
-        if (!doc) {
-            return false;
-        }
-        return true
-    }))
-
-    return documents
-
-}
+// export async function getWorkspacePaths(documents: LspDocuments, paths: string[]): Promise<LspDocuments> {
+// 
+//     const allFiles: string[] = [];
+// 
+//     paths.forEach((path) => {
+//         const files = FastGlob.sync("**.fish", {
+//             absolute: true,
+//             dot: true,
+//             globstar: true,
+//             cwd: path,
+//         });
+//         allFiles.push(...files);
+//     });
+// 
+//     // now allFiles contains every fish file that could be used in the workspace
+//     await Promise.allSettled(allFiles.map(async file => {
+//         const doc = documents.get(file.toString());
+//         if (!doc) {
+//             return false;
+//         }
+//         return true
+//     }))
+// 
+//     return documents
+// 
+// }
 
 
 /**
@@ -143,19 +143,40 @@ export class LspDocument implements TextDocument {
         return Position.create(line, 0);
     }
 
-    applyEdit(version: number, change: TextDocumentContentChangeEvent): void {
+    applyEdits(version: number, ...changes: TextDocumentContentChangeEvent[]): void {
         const content = this.getText();
-        let newContent = change.text;
-        if (TextDocumentContentChangeEvent.isIncremental(change)) {
-            const start = this.offsetAt(change.range.start);
-            const end = this.offsetAt(change.range.end);
-            newContent = content.substring(0, start) + change.text + content.substring(end);
+        for (const change of changes) {
+            let newContent = change.text;
+
+            if (TextDocumentContentChangeEvent.isIncremental(change)) {
+                const start = this.offsetAt(change.range.start);
+                const end = this.offsetAt(change.range.end);
+                newContent = content.substring(0, start) + change.text + content.substring(end);
+            }
+            this.document = TextDocument.create(this.uri, this.languageId, version, newContent);
         }
-        this.document = TextDocument.create(this.uri, this.languageId, version, newContent);
+    }
+
+    rename(newUri: string): void {
+        this.document = TextDocument.create(newUri, this.languageId, this.version, this.getText());
     }
 
     getFilePath(): string | undefined {
         return uriToPath(this.uri);
+    }
+
+    isFunction(): boolean {
+        const pathArray = this.uri.split('/');
+        const fileName = pathArray.pop();
+        const parentDir = pathArray.pop();
+        return parentDir === 'functions' || fileName === 'config.fish';
+    }
+
+    shouldAnalyzeInBackground(): boolean {
+        const pathArray = this.uri.split('/');
+        const fileName = pathArray.pop();
+        const parentDir = pathArray.pop();
+        return parentDir === 'functions' || fileName === 'config.fish';
     }
 
     /**
@@ -163,7 +184,7 @@ export class LspDocument implements TextDocument {
      */
     isAutoLoaded(): boolean {
         const path = uriToPath(this.uri);
-        return path?.includes(`${homedir()}/.config/fish/functions`) || false; 
+        return path?.includes(`${homedir()}/.config/fish`) || false; 
     }
 
     /**
@@ -221,6 +242,18 @@ export class LspDocuments {
         this.documents.delete(file);
         this._files.splice(this._files.indexOf(file), 1);
         return document;
+    }
+
+    rename(oldFile: string, newFile: string): boolean {
+        const document = this.documents.get(oldFile);
+        if (!document) {
+            return false;
+        }
+        document.rename(newFile);
+        this.documents.delete(oldFile);
+        this.documents.set(newFile, document);
+        this._files[this._files.indexOf(oldFile)] = newFile;
+        return true;
     }
 
     public toResource(filepath: string): URI {

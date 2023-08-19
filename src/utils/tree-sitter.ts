@@ -1,8 +1,7 @@
 //import { existsSync } from 'fs'
 import { extname, join } from 'path'
 //import { pathToFileURL, URL } from 'url'
-import { Position } from 'vscode-languageserver-textdocument'
-import { Range, URI } from 'vscode-languageserver'
+import { Position, Range, URI } from 'vscode-languageserver'
 import { Point, SyntaxNode, Tree } from 'web-tree-sitter'
 import {pathToFileURL} from 'url'; // typescript-langauge-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts
 import vscodeUri from 'vscode-uri'; // typescript-langauge-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts 
@@ -37,6 +36,17 @@ export function getNamedChildNodes(root: SyntaxNode): SyntaxNode[] {
     return result
 }
 
+export function findChildNodes(root: SyntaxNode, predicate: (node: SyntaxNode) => boolean): SyntaxNode[] {
+    let queue: SyntaxNode[] = [root]
+    let result: SyntaxNode[] = []
+    while (queue.length) {
+        let current : SyntaxNode | undefined = queue.shift()
+        if (current && predicate(current)) result.push(current)
+        if (current && current.children) queue.unshift(...current.children)
+    }
+    return result
+}
+
 /**
  * Gets path to root starting where index 0 is child node passed in.
  * Format: [child, child.parent, ..., root]
@@ -45,20 +55,13 @@ export function getNamedChildNodes(root: SyntaxNode): SyntaxNode[] {
  * @returns {SyntaxNode[]} an array of ancestors to the descendent node passed in.
  */
 export function getParentNodes(child: SyntaxNode): SyntaxNode[] {
-    const result: SyntaxNode[] = [child]
+    const result: SyntaxNode[] = []
     let current: SyntaxNode | null = child.parent;
     while (current !== null) {
         // result.unshift(current); // unshift would be used for [root, ..., child]
         result.push(current);
         current = current.parent;
     }
-    //if (child.parent === null) {
-    //    current = child.previousSibling;
-    //    while (current) {
-    //        result.push(current);
-    //        current = current.previousSibling;
-    //    }
-    //}
     return result
 }
 
@@ -171,16 +174,13 @@ export function firstAncestorMatch(
   predicate: (n: SyntaxNode) => boolean,
 ): SyntaxNode | null {
     const ancestors = getParentNodes(start) || [];
-    if (ancestors.length <= 1) {
-        return predicate(start) ? start : null;
-    }
+    let root = ancestors[ancestors.length - 1];
+    //if (ancestors.length < 1) return root;
     for (const p of ancestors) {
-        //for (const neighbor of getChildNodes(p)) {}
         if (!predicate(p)) continue;
         return p;
     }
-    return null
-        //.filter(ancestor => ancestor !== start)
+    return predicate(root) ? root : null;
 }
 
 /**
@@ -304,6 +304,15 @@ export function findNodeAt(tree: Tree, line: number, column: number): SyntaxNode
     return tree.rootNode.descendantForPosition({ row: line, column })
 }
 
+export function equalRanges(a: Range, b: Range): boolean {
+  return (
+    a.start.line === b.start.line &&
+    a.start.character === b.start.character &&
+    a.end.line === b.end.line &&
+    a.end.character === b.end.character
+  )
+}
+
 /**
  * getNodeAt() - handles moving backwards if the cursor i
  */
@@ -354,6 +363,13 @@ export function pointToPosition(point: Point): Position {
   }
 }
 
+export function rangeToPoint(range: Range): Point {
+  return {
+    row: range.start.line,
+    column: range.start.character,
+  }
+}
+
 export function getRangeWithPrecedingComments(node: SyntaxNode): Range {
     let currentNode: SyntaxNode | null = node.previousNamedSibling;
     let previousNode: SyntaxNode = node; 
@@ -366,6 +382,7 @@ export function getRangeWithPrecedingComments(node: SyntaxNode): Range {
         pointToPosition(node.endPosition)
     );
 }
+
 
 export function getPrecedingComments(node: SyntaxNode | null): string {
     if (!node) return ''
@@ -409,6 +426,12 @@ export function isPositionWithinRange(position: Position, range: Range): boolean
   return doesStartInside && doesEndInside
 }
 
+export function isPositionAfter(first: Position, second: Position): boolean {
+    return (
+        first.line < second.line ||
+        (first.line === second.line && first.character < second.character)
+    )
+}
 export function isNodeWithinRange(node: SyntaxNode, range: Range): boolean {
   const doesStartInside =
     node.startPosition.row > range.start.line ||
@@ -483,4 +506,3 @@ export function* nodesGen(node: SyntaxNode) {
 //
 //  return result
 //}
-

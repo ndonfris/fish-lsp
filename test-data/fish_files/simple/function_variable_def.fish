@@ -1,4 +1,4 @@
 function simple_function --argument-names hello world
-    printf "$hello $world\n"
+    printf "$hello $world"
 end
 

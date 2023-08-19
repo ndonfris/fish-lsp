@@ -1,33 +1,57 @@
 import * as LSP from 'vscode-languageserver';
 import {Hover, MarkedString, MarkupKind} from 'vscode-languageserver';
 import * as Parser from 'web-tree-sitter';
-import {documentationHoverProvider, documentationHoverProviderForBuiltIns, enrichCommandWithFlags, enrichToCodeBlockMarkdown} from './documentation';
-import {isBuiltIn} from './utils/completion-types';
-import {execCommandDocs, execComplete, execCompletions} from './utils/exec';
-import {isCommand, isCommandName} from './utils/node-types';
+import { Analyzer } from './analyze';
+import { LspDocument } from './document';
+import { documentationHoverProvider, documentationHoverProviderForBuiltIns, enrichCommandWithFlags, enrichToCodeBlockMarkdown } from './documentation';
+import { DocumentationCache } from './utils/documentationCache';
+import { execCommandDocs, execComplete, execCompletions, execSubCommandCompletions } from './utils/exec';
+import { isCommand, isCommandName } from './utils/node-types';
 import {findEnclosingScope, findFirstParent, getNodeAtRange, getRange} from './utils/tree-sitter';
-import * as Symbols from './workspace-symbol';
 
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//  GOAL: 
+//       • remove SymbolTree dependency (in './symbolTree')
+//         use FishDocumentSymbol instead
+//       • remove or shrink documentationCache to compute these values on the fly
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-export async function handleHover(uri: string, root: Parser.SyntaxNode, current: Parser.SyntaxNode) : Promise<LSP.Hover | null>{
-    if (current.text.startsWith('-')) {
-        return await getHoverForFlag(current)
-    } 
-    if (isBuiltIn(current.text)) {
-        return await documentationHoverProviderForBuiltIns(current.text)
+export async function handleHover(
+    analyzer: Analyzer,
+    document: LspDocument,
+    position: LSP.Position,
+    current: Parser.SyntaxNode,
+    cache: DocumentationCache
+): Promise<LSP.Hover | null> {
+    if (current.text.startsWith("-")) {
+        return await getHoverForFlag(current);
     }
-    const local = Symbols.getMostRecentReference(uri, root, current);
+    const local = analyzer.getDefinition(document, position).pop();
     if (local) {
-        const localParent = local.parent ;
-        if (!localParent) return null;
-        const nodeText = localParent.text || '';
         return {
-            contents: enrichToCodeBlockMarkdown(nodeText, 'fish'),
-            range: getRange(local),
+            contents: {
+                kind: MarkupKind.Markdown,
+                value: local.detail!,
+            },
+            range: local.selectionRange,
+        };
+    }
+    if (cache.find(current.text) !== undefined) {
+        await cache.resolve(current.text);
+        const item = cache.getItem(current.text);
+        if (item?.docs) {
+            return {
+                contents: {
+                    kind: MarkupKind.Markdown,
+                    value: item.docs.toString(),
+                },
+            };
         }
-    } 
+    }
     const commandString = await collectCommandString(current);
-    return await documentationHoverProvider(commandString)
+    return await documentationHoverProvider(commandString);
 }
 
 
@@ -40,7 +64,6 @@ export async function getHoverForFlag(current: Parser.SyntaxNode): Promise<Hover
     for (const child of commandNode?.children) {
         if (!hasFlags && !child.text.startsWith('-')) {
             commandStr = await appendToCommand(commandStr, child.text );
-            //console.log(commandStr.join(' ').bgBlack);
         } else if (child.text.startsWith('-')) {
             flags.push(child.text)
             hasFlags = true;
@@ -87,7 +110,7 @@ function spiltShortFlags(flags: string[], shouldSplit: boolean): string[] {
 }
 
 async function appendToCommand(commands: string[], subCommand: string): Promise<string[]> {
-    const completions = await execCompletions(...commands, ' ')
+    const completions = await execSubCommandCompletions(...commands, ' ') // HERE
     if (completions.includes(subCommand)) {
         commands.push(subCommand)
         return commands
@@ -107,4 +130,3 @@ export async function collectCommandString(current: Parser.SyntaxNode): Promise<
     if (docs) return commandText
     return commandNodeText || ''
 }
-

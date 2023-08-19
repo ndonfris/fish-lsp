@@ -2,104 +2,9 @@ import FastGlob from 'fast-glob';
 import {homedir} from 'os';
 import {CompletionItem, CompletionItemKind, InsertTextFormat, MarkupContent, RemoteConsole} from 'vscode-languageserver';
 import {enrichCommandArg, enrichToCodeBlockMarkdown, enrichToMarkdown} from '../documentation';
+import { FishCompletionItemKind } from './completion-strategy';
 //import {logger} from '../logger';
 import {execCommandDocs, execCommandType} from './exec';
-
-
-export interface FishCompletionItem extends CompletionItem {
-    label: string;
-    kind: CompletionItemKind;
-    documentation?: string | MarkupContent; 
-    data: {
-        originalCompletion: string; // the original line in fish completion call from the terminal
-        fishKind: FishCompletionItemKind; // VERBOSE form of kind
-        localSymbol: boolean;
-    }
-}
-
-export const BuiltInList = [
-    "[",
-    "_",
-    "and",
-    "argparse",
-    "begin",
-    "bg",
-    "bind",
-    "block",
-    "break",
-    "breakpoint",
-    "builtin",
-    "case",
-    "cd",
-    "command",
-    "commandline",
-    "complete",
-    "contains",
-    "continue",
-    "count",
-    "disown",
-    "echo",
-    "else",
-    "emit",
-    "end",
-    "eval",
-    "exec",
-    "exit",
-    "false",
-    "fg",
-    "for",
-    "function",
-    "functions",
-    "history",
-    "if",
-    "jobs",
-    "math",
-    "not",
-    "or",
-    "path",
-    "printf",
-    "pwd",
-    "random",
-    "read",
-    "realpath",
-    "return",
-    "set",
-    "set_color",
-    "source",
-    "status",
-    "string",
-    "switch",
-    "test",
-    "time",
-    "true",
-    "type",
-    "ulimit",
-    "wait",
-    "while",
-];
-
-// You can generate this list by running `builtin --names` in a fish session
-// note that '.', and ':' are removed from the list because they do not contain
-// a man-page
-const BuiltInSET = new Set(BuiltInList);
-
-
-/**
- * line is an array of length 2 (Example's below). Builtins are retreived via:
- *          builtins --names 
- * builtins 
- *
- *     true	Do nothing, successfully
- *     while	Perform a command multiple times
- *
- * @param {string[]} line - a result from fish's builtin commandline completions
- * @return {boolean} - line is a completion for an builtin 
- */
-//export function isBuiltIn(line: string | [...string[]]): boolean {
-export function isBuiltIn(line: string): boolean {
-    return BuiltInSET.has(line)
-}
-
 
 export const escapeChars: {[char: string]: string} = {
     ['a']: 'escapes the alert character',
@@ -530,21 +435,6 @@ export const stringRegexExpressions: regexItem[] = [
     }
 ]
 
-export enum FishCompletionItemKind {
-    ABBR,			// interface
-    ALIAS,			// struct
-    BUILTIN,			// keyword
-    GLOBAL_VAR,			// constant
-    LOCAL_VAR,			// variable
-    USER_FUNC,			// function
-    GLOBAL_FUNC,		// method
-    LOCAL_FUNC,			// constructor
-    FLAG,			// field
-    CMD,			// class
-    CMD_NO_DOC,			// class
-    RESOLVE,			// unit
-}
-
 
 /**
  * TODO: convert to promise.all() -> Promise.all should be able to be called in
@@ -568,7 +458,7 @@ export async function resolveFishCompletionItemType(cmd: string): Promise<FishCo
         .then(cmdType => {
             switch (cmdType) {
                 case 'file':
-                    return FishCompletionItemKind.GLOBAL_FUNC
+                    return FishCompletionItemKind.GLOBAL_FUNCTION
                 case 'builtin':
                     return FishCompletionItemKind.CMD
                 default:
