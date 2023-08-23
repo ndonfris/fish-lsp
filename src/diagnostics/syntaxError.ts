@@ -1,7 +1,7 @@
 import {Diagnostic} from 'vscode-languageserver';
 import {SyntaxNode} from 'web-tree-sitter';
 import {isCommandName, isConditionalCommand, isError, isReturn} from '../utils/node-types';
-import {findFirstSibling, getRange, getSiblingNodes} from '../utils/tree-sitter';
+import {findFirstNamedSibling, getRange, getSiblingNodes} from '../utils/tree-sitter';
 import * as errorCodes from './errorCodes';
 import {createDiagnostic} from './create';
 //import {containsRange} from '../workspace-symbol';

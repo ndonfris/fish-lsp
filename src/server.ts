@@ -1,7 +1,7 @@
 import Parser, {SyntaxNode} from "web-tree-sitter";
 import { initializeParser } from "./parser";
 import { Analyzer } from "./analyze";
-import {  generateCompletionList, } from "./completion";
+//import {  generateCompletionList, } from "./completion";
 import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, ExecuteCommandParams, ServerRequestHandler, FoldingRangeParams, FoldingRange, Position, InlayHintParams, MarkupKind, SymbolInformation, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, RemoteConsole, RenameFilesParams } from "vscode-languageserver";
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
@@ -261,7 +261,7 @@ export default class FishServer {
         if (line.trim().startsWith("#")) return [];
 
         try {
-            newCompletionList = await generateCompletionList(doc, this.analyzer, params.position, params.context);
+            //newCompletionList = await generateCompletionList(doc, this.analyzer, params.position, params.context);
             this.logger.logPropertiesForEachObject(newCompletionList, "label", "kind", "insertText", "insertTextFormat", "data")
             
             this.logger.log(`line: '${line}' got ${newCompletionList.length} items"`)

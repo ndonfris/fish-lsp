@@ -1,5 +1,5 @@
 import { SyntaxNode } from 'web-tree-sitter'
-import {ancestorMatch, findChildNodes, findFirstParent, findFirstSibling, firstAncestorMatch, getChildNodes, getParentNodes, getSiblingNodes} from './tree-sitter';
+import {ancestorMatch, findChildNodes, findFirstParent, findFirstNamedSibling, firstAncestorMatch, getChildNodes, getParentNodes, getSiblingNodes} from './tree-sitter';
 import * as VariableTypes from './variable-syntax-nodes'
 
 /** 
@@ -108,6 +108,10 @@ export function isConditional(node: SyntaxNode) : boolean {
     return ['if_statement', 'else_if_clause', 'else_clause'].includes(node.type)
 }
 
+export function isIfOrElseIfConditional(node: SyntaxNode) : boolean {
+    return ['if_statement', 'else_if_clause'].includes(node.type)
+}
+
 export function isPossibleUnreachableStatement(node: SyntaxNode) : boolean {
     if (isIfStatement(node)) {
         return node.lastNamedChild?.type === 'else_clause'
@@ -168,11 +172,15 @@ export function isScope(node: SyntaxNode): boolean {
 }
 
 export function isSemicolon(node: SyntaxNode): boolean {
-    return node.type == ';';
+    return node.type === ';' && node.text === ';';
 }
 
 export function isNewline(node: SyntaxNode): boolean {
     return node.type == '\n';
+}
+
+export function isBlockBreak(node: SyntaxNode): boolean {
+    return isEnd(node) || isSemicolon(node) || isNewline(node);
 }
 
 export function isString(node: SyntaxNode) {
@@ -182,9 +190,21 @@ export function isString(node: SyntaxNode) {
     ].includes(node.type)
 }
 
+export function isStringCharacter(node: SyntaxNode) {
+    return [
+        "'",
+        '"',
+    ].includes(node.type)
+}
+
+export function isEndStdinCharacter(node: SyntaxNode) {
+    return ('--' === node.text && node.type === 'word')
+}
+
 export function isLongOption(node: SyntaxNode): boolean {
-    return node.text.startsWith('--');
+    return node.text.startsWith('--') && !isEndStdinCharacter(node);
 } 
+
 export function isShortOption(node: SyntaxNode): boolean {
     return node.text.startsWith('-') && !isLongOption(node);
 }
@@ -214,7 +234,7 @@ export function isBeforeCommand(node: SyntaxNode) {
         'conditional_execution',
         'stream_redirect',
         'pipe',
-    ].includes(node.type) || isFunctionDefinition(node) || isStatement(node);
+    ].includes(node.type) || isFunctionDefinition(node) || isStatement(node) || isSemicolon(node) || isNewline(node) || isEnd(node);
 }
 
 export function isVariable(node: SyntaxNode) {
@@ -225,6 +245,25 @@ export function isVariable(node: SyntaxNode) {
     }
 }
 
+/**
+ * finds the parent command of the current node
+ *
+ * @param {SyntaxNode} node - the node to check for its parent
+ * @returns {SyntaxNode | null} command node or null
+ */
+export function findPreviousSibling(node?: SyntaxNode): SyntaxNode | null {
+    let currentNode: SyntaxNode | null | undefined = node;
+    if (!currentNode) {
+        return null;
+    }
+    while (currentNode !== null) {
+        if (isCommand(currentNode)) {
+            return currentNode;
+        }
+        currentNode = currentNode.parent;
+    }
+    return null;
+}
 /**
  * finds the parent command of the current node
  *
@@ -588,11 +627,4 @@ export function isCommandFlag(node: SyntaxNode) {
 
 export function isRegexArgument(n: SyntaxNode): boolean {
     return n.text === '--regex' || n.text === '-r';
-}
-
-export function isQuoteString(n: SyntaxNode): boolean {
-    return [
-        'double_quote_string',
-        'single_quote_string',
-    ].includes(n.type);
 }

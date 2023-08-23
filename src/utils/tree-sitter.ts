@@ -31,7 +31,7 @@ export function getNamedChildNodes(root: SyntaxNode): SyntaxNode[] {
     while (queue.length) {
         let current : SyntaxNode | undefined = queue.shift()
         if (current && current.isNamed()) result.push(current)
-        if (current && current.namedChildren) queue.unshift(...current.namedChildren)
+        if (current && current.children) queue.unshift(...current.children)
     }
     return result
 }
@@ -108,7 +108,7 @@ export function getSiblingNodes(
 /**
  * Similiar to getSiblingNodes. Only returns first node matching the predicate
  */
-export function findFirstSibling(
+export function findFirstNamedSibling(
     node: SyntaxNode,
     predicate: (n: SyntaxNode) => boolean,
     direction: 'before' | 'after' = 'before', 
@@ -117,6 +117,22 @@ export function findFirstSibling(
         direction === 'before' ? n.previousNamedSibling : n.nextNamedSibling;
     let current: SyntaxNode | null = node;
     while (current) {
+        current = siblingFunc(current);
+        if (current && predicate(current)) return current;
+    }
+    return null;
+}
+
+export function findFirstSibling(
+    node: SyntaxNode,
+    predicate: (n: SyntaxNode) => boolean,
+    direction: 'before' | 'after' = 'before', 
+): SyntaxNode | null {
+    const siblingFunc = (n: SyntaxNode) =>
+        direction === 'before' ? n.previousSibling : n.nextSibling;
+    let current: SyntaxNode | null = node;
+    while (current) {
+        console.log('curr: ', current.text);
         current = siblingFunc(current);
         if (current && predicate(current)) return current;
     }
@@ -460,6 +476,20 @@ export function* nodesGen(node: SyntaxNode) {
 
     yield n
   }
+}
+
+export function getLeafs(node: SyntaxNode): SyntaxNode[] {
+    function gatherLeafs(node: SyntaxNode, leafs: SyntaxNode[] = []): SyntaxNode[]{
+        if (node.childCount === 0 && node.text !== '') {
+            leafs.push(node)
+            return leafs
+        }
+        for (const child of node.children) {
+            leafs = gatherLeafs(child, leafs)
+        }
+        return leafs
+    }
+    return gatherLeafs(node)
 }
 
 

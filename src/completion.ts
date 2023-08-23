@@ -232,7 +232,6 @@ function getTypeFromLabel(label: string) {
 
 
 function getTypeFromDocumentation(keyword: string, otherInfo: string) {
-    //console.log(otherInfo)
     switch (keyword) {
         case 'command': 
             return otherInfo.length >= 1 ? FishCompletionItemKind.CMD_NO_DOC : FishCompletionItemKind.CMD
@@ -247,8 +246,8 @@ function getTypeFromDocumentation(keyword: string, otherInfo: string) {
             //return isGlobalFunction() ?  FishCompletionItemKind.GLOBAL_FUNC : FishCompletionItemKind.RESOLVE
             return FishCompletionItemKind.GLOBAL_FUNCTION
     }
-
 }
+
 //////////////////////////////////////////////////////////////////////////////////////////
 // @TODO: MOVE TO COMPLETION-TYPES ?
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -351,6 +350,20 @@ function getTypeFromDocumentation(keyword: string, otherInfo: string) {
 //    return cmpItems;
 //}
 
+export async function buildCompletions(
+    document: LspDocument,
+    analyzer: Analyzer,
+    position: Position,
+    context?: CompletionContext
+): Promise<FishCompletionItem[]> { 
+    const {line, word, lineRootNode, lineLastNode} = analyzer.parseCurrentLine(document, position);
+    const data = FishCompletionData.create(document.uri, line, word, position, context)
+    const result: FishCompletionItem[] = [];
+
+
+    return result;
+}
+
 export function buildDefaultCompletionItems(data: FishCompletionData) {
     const cmpItems: FishCompletionItem[] = [];
     for (const builtin of BuiltInList) {
@@ -360,66 +373,66 @@ export function buildDefaultCompletionItems(data: FishCompletionData) {
     return cmpItems;
 }
 
-export async function generateCompletionList(
-    document: LspDocument,
-    analyzer: Analyzer,
-    position: Position,
-    context?: CompletionContext
-): Promise<FishCompletionItem[]> {
-
-    const {line, word, lineRootNode, lineLastNode} = analyzer.parseCurrentLine(document, position);
-    const data = FishCompletionData.create(document.uri, line, word, position, context)
-
-    if (line.startsWith("#") || word === ')') return [];
-
-    if (!word) {
-        const nextCharacter = analyzer.getDocument(document.uri)?.getText({
-            start: position,
-            end: { ...position, character: position.character + 1 },
-        })
-        const isNextCharacterSpaceOrEmpty = nextCharacter === '' || nextCharacter === ' '
-        if (!isNextCharacterSpaceOrEmpty) {
-            // We are in the middle of something, so don't complete
-            return []
-        }
-    }
-
-    // https://github.com/bash-lsp/bash-language-server/blob/main/server/src/server.ts#L448
-    // edit here to check if we could possible reference variable (set, for, function -a ...)
-    const shouldCompleteVariables = word ? word.startsWith('$') : false
-    const symbolCompletions =
-        word === null
-            ? []
-            : shouldCompleteVariables
-                ? analyzer.findCompletions(document, position, data).filter((s) =>
-                    [
-                        FishCompletionItemKind.LOCAL_VARIABLE,
-                        FishCompletionItemKind.GLOBAL_VARIABLE,
-                    ].includes(s.fishKind))
-                : analyzer.findCompletions(document, position, data)
-
-    if (shouldCompleteVariables) return symbolCompletions
-
-    const builtinCompletions = buildDefaultCompletionItems(data);
-
-    let optionsCompletions: FishCompletionItem[] = [];
-    if (word?.startsWith('-')) {
-        const commandName = analyzer.commandNameAtPoint(
-            document.uri,
-            position.line,
-            // Go one character back to get completion on the current word
-            Math.max(position.character - 1, 0),
-        )
-        if (commandName) optionsCompletions = await generateShellCompletionItems(line, lineLastNode, data);
-    }
-
-    const allCompletions = [
-        ...symbolCompletions,
-        ...builtinCompletions,
-        ...optionsCompletions,
-    ];
-
-    if (word) return allCompletions.filter(c => c.label.startsWith(word))
-    
-    return allCompletions
-}
+//export async function generateCompletionList(
+//    document: LspDocument,
+//    analyzer: Analyzer,
+//    position: Position,
+//    context?: CompletionContext
+//): Promise<FishCompletionItem[]> {
+//
+//    const {line, word, lineRootNode, lineLastNode} = analyzer.parseCurrentLine(document, position);
+//    const data = FishCompletionData.create(document.uri, line, word, position, context)
+//
+//    if (line.startsWith("#") || word === ')') return [];
+//
+//    if (!word) {
+//        const nextCharacter = analyzer.getDocument(document.uri)?.getText({
+//            start: position,
+//            end: { ...position, character: position.character + 1 },
+//        })
+//        const isNextCharacterSpaceOrEmpty = nextCharacter === '' || nextCharacter === ' '
+//        if (!isNextCharacterSpaceOrEmpty) {
+//            // We are in the middle of something, so don't complete
+//            return []
+//        }
+//    }
+//
+//    // https://github.com/bash-lsp/bash-language-server/blob/main/server/src/server.ts#L448
+//    // edit here to check if we could possible reference variable (set, for, function -a ...)
+//    const shouldCompleteVariables = word ? word.startsWith('$') : false
+//    const symbolCompletions =
+//        word === null
+//            ? []
+//            : shouldCompleteVariables
+//                ? analyzer.findCompletions(document, position, data).filter((s) =>
+//                    [
+//                        FishCompletionItemKind.LOCAL_VARIABLE,
+//                        FishCompletionItemKind.GLOBAL_VARIABLE,
+//                    ].includes(s.fishKind))
+//                : analyzer.findCompletions(document, position, data)
+//
+//    if (shouldCompleteVariables) return symbolCompletions
+//
+//    const builtinCompletions = buildDefaultCompletionItems(data);
+//
+//    let optionsCompletions: FishCompletionItem[] = [];
+//    if (word?.startsWith('-')) {
+//        const commandName = analyzer.commandNameAtPoint(
+//            document.uri,
+//            position.line,
+//            // Go one character back to get completion on the current word
+//            Math.max(position.character - 1, 0),
+//        )
+//        if (commandName) optionsCompletions = await generateShellCompletionItems(line, lineLastNode, data);
+//    }
+//
+//    const allCompletions = [
+//        ...symbolCompletions,
+//        ...builtinCompletions,
+//        ...optionsCompletions,
+//    ];
+//
+//    if (word) return allCompletions.filter(c => c.label.startsWith(word))
+//    
+//    return allCompletions
+//}
