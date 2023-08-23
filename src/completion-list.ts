@@ -7,7 +7,7 @@ import { initializeParser } from './parser';
 import { getChildNodes, getNamedChildNodes, getLeafs } from './utils/tree-sitter';
 import { isCommand, isCommandName, isOption, isConditional, isString, isStringCharacter,  isIfOrElseIfConditional, } from './utils/node-types';
 import { CompletionItemsArrayTypes, WordsToNotCompleteAfter } from './utils/completion-types';
-import { isBuiltin, BuiltInList } from "./utils/builtins";
+import { isBuiltin, BuiltInList, isFunction } from "./utils/builtins";
 
 export type ParsedLine = {
     rootNode: SyntaxNode,
@@ -64,7 +64,7 @@ export class FishCompletionList {
 
         lastNode = lookbackExpandNonsplitToken(lastNode)
         let parent = lastNode.parent
-        console.log({lastNode: lastNode.type, parent: parent!.type});
+        //console.log({lastNode: lastNode.type, parent: parent!.type});
 
         let commandNode = getCommand(tokens)
         //let conditionalNode = commandNode && commandNode.parent
@@ -85,7 +85,7 @@ export class FishCompletionList {
         const {rootNode, lastNode, prevNode, commandNode, conditionalNode} = this.getNodeContext(line)
         const result: CompletionItemsArrayTypes[] = []
 
-        console.log({lastNode: lastNode.text});
+        //console.log({lastNode: lastNode.text});
         const command = commandNode ? commandNode.firstChild!.text : ''
         switch (command) {
             case 'functions': result.push(CompletionItemsArrayTypes.FUNCTIONS); break
@@ -198,7 +198,7 @@ function getCommand(tokens: SyntaxNode[]) {
             return null;
         }
         if (isOption(curr)) continue
-        if (isCommandName(curr) || isBuiltin(curr.text)) return curr
+        if (isFunction(curr.text) || isCommandName(curr) || isBuiltin(curr.text)) return curr
         prev = curr
     }
     //let current: SyntaxNode | null = last.parent || last

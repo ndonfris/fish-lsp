@@ -21,7 +21,8 @@ import { isBeforeCommand, isBlockBreak, isCommand, isCommandName, isScope, isSem
 import { Node } from './mock-datatypes';
 import { FishCompletionList } from '../src/completion-list';
 import { getChildNodes,  getLeafs } from '../src/utils/tree-sitter';
-import { isBuiltin } from '../src/utils/builtins';
+import { AbbrList, EventNamesList, FunctionNamesList, GlobalVariableList, isBuiltin, isFunction } from '../src/utils/builtins';
+import { /*ExternalShellItems,*/  createShellItems, SHELL_ITEMS_TYPE } from '../src/utils/startup-shell-items';
 
 let parser: Parser;
 let workspaces: Workspace[] = []
@@ -145,7 +146,7 @@ describe('complete simple tests', () => {
         matchOutput('    if test -n /path/$argv', '/path/$argv');
     })
 
-    it('complete `set -lx var "asdf";`', async () => {
+    it('complete AllShellItems";`', async () => {
         const inputs: [string, string][] = [
             //['set -lx var (', '('],
             //['while test -f foo.txt; or test -f bar.txt; echo file exists; sleep 10; en', 'en'],     // notice while vs while_statement
@@ -154,12 +155,13 @@ describe('complete simple tests', () => {
             //['else if', ';'],
             //['echo |', '|'],
             ['echo ', ''],
+            ['ls', 'ls']
         ];
         inputs.forEach(( [input, match]: [string, string] ) => {
             const output = completions.getNodeContext(input);
             const {tokens} = completions.parseLine(input);
-            const cmd = tokens[tokens.length-1]!;
-            logArr(tokens.filter(n => isCommandName(n) || isBuiltin(n.text)))
+            //const cmd = tokens[tokens.length-1]!;
+            logArr(tokens.filter(n => isCommandName(n) || isBuiltin(n.text) || isFunction(n.text)))
             let  {conditionalNode, commandNode} = output;
             if (commandNode) {
                 console.log('cmd', {text: commandNode.text, type: commandNode.type})
@@ -167,11 +169,32 @@ describe('complete simple tests', () => {
             if (conditionalNode) {
                 console.log('conditional',{text: conditionalNode.text, type: conditionalNode.type})
             }
-            logArr(getChildNodes(output.rootNode))
+            //logArr(getChildNodes(output.rootNode))
             const values = Object.entries(output).filter(([k, v]) => v).map(([k, v]) => `${k}: \`${v!.text}\``)
             console.log(JSON.stringify({input, values, match}, null, 2));
             //assert.equal(output, match)
+            
         })
+        //console.log('func names');
+        //AllShellItems['function'].forEach((input: string) => {
+        //    console.log(input);
+        //})
+        //console.log('event names');
+        //AllShellItems['event'].forEach((input) => {
+        //    console.log(input);
+        //})
+        ////
+        ////console.log("abbr --show");
+        ////AllShellItems['abbr'].forEach((input) => {
+        ////    console.log(input);
+        ////})
+        //
+        //console.log("var names");
+        //AllShellItems['variable'].forEach((input) => {
+        //    console.log(input);
+        //})
+        const AllShellItems = createShellItems();
+        //console.log(toShellItemType('argv'));
     })
 })
 

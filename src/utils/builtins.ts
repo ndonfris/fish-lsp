@@ -1,3 +1,5 @@
+import { exec, execSync, spawn, spawnSync, SpawnSyncOptionsWithBufferEncoding, SpawnSyncOptionsWithStringEncoding } from 'child_process';
+
 export const BuiltInList = [
     "[",
     "_",
@@ -69,6 +71,56 @@ export function isBuiltin(word: string): boolean {
     return BuiltInSET.has(word);
 }
 
+export function findShell() {
+    const result = spawnSync('which fish', {shell: true, stdio: ['ignore', 'pipe', 'inherit'], encoding: 'utf-8'})
+    return result.stdout.toString().trim()
+}
+const fishShell = findShell()
+
+const spawnOpts: SpawnSyncOptionsWithStringEncoding  = {
+    shell: fishShell,
+    stdio: ['ignore', 'pipe', 'inherit'],
+    encoding: 'utf-8',
+}
+
+function createFunctionNamesList() {
+    const result = spawnSync(`functions --names | string split -n '\\n'`, spawnOpts)
+    return result.stdout.toString().split('\n')
+}
+export const FunctionNamesList = createFunctionNamesList()
+export function isFunction(word: string): boolean {
+    return FunctionNamesList.includes(word)
+}
+function createFunctionEventsList() {
+    const result = spawnSync(`functions --handlers | string match -vr '^Event \\w+' | string split -n '\\n'`, spawnOpts)
+    return result.stdout.toString().split('\n')
+}
+
+export const EventNamesList = createFunctionEventsList()
+export function isEvent(word: string): boolean {
+    return EventNamesList.includes(word)
+}
+
+function createAbbrList() {
+    const {stdout} = spawnSync(`abbr --show`, spawnOpts)
+    return stdout.toString().split('\n')
+}
+export const AbbrList = createAbbrList()
+
+function createGlobalVariableList() {
+    const {stdout} = spawnSync(`set -n`, spawnOpts)
+    return stdout.toString().split('\n')
+}
+
+export const GlobalVariableList = createGlobalVariableList()
+
+//function createAliasList() {
+//    // `alias | string unescape | string shorten -m 100`
+//    const {stdout} = spawnSync(`alias | string unescape --style=var | string split -n '\\n'`, spawnOpts)
+//    return stdout.toString().split('\n')
+//}
+//export const AliasList = createAliasList()
+
 // cd /usr/share/fish/completions/
 // for i in (rg -e '-a' -l); echo (string split -f 1 '.fish' -m1 $i);end
 // commands with potential subcommands
@@ -76,8 +128,6 @@ export function isBuiltin(word: string): boolean {
 //  • killall node
 //  • man vim
 //  • command fish
-
-
 
 // useful when checking the current Command for documentation/completion
 // suggestions. If a match is hit, check one more node back, and if it is
