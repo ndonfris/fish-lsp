@@ -22,20 +22,24 @@ import { Node } from './mock-datatypes';
 import { FishCompletionList } from '../src/completion-list';
 import { getChildNodes,  getLeafs } from '../src/utils/tree-sitter';
 import { AbbrList, EventNamesList, FunctionNamesList, GlobalVariableList, isBuiltin, isFunction } from '../src/utils/builtins';
-import { /*ExternalShellItems,*/  createShellItems, SHELL_ITEMS_TYPE } from '../src/utils/startup-shell-items';
+import { ShellItems } from '../src/utils/startup-shell-items';
 
 let parser: Parser;
 let workspaces: Workspace[] = []
 let analyzer: Analyzer;
 let completions: FishCompletionList;
+let items: ShellItems;
 
 setLogger(
     async () => {
         parser = await initializeParser();
-        workspaces = await initializeDefaultFishWorkspaces()
-        analyzer = new Analyzer(parser, workspaces);
+        //workspaces = await initializeDefaultFishWorkspaces()
+        analyzer = new Analyzer(parser);
         completions = await FishCompletionList.create()
+        items = await ShellItems.create()
     },
+    async () => {
+    }
 )
 
 const spoofedPath = `${homedir()}/.config/fish/functions`
@@ -157,24 +161,24 @@ describe('complete simple tests', () => {
             ['echo ', ''],
             ['ls', 'ls']
         ];
-        inputs.forEach(( [input, match]: [string, string] ) => {
-            const output = completions.getNodeContext(input);
-            const {tokens} = completions.parseLine(input);
-            //const cmd = tokens[tokens.length-1]!;
-            logArr(tokens.filter(n => isCommandName(n) || isBuiltin(n.text) || isFunction(n.text)))
-            let  {conditionalNode, commandNode} = output;
-            if (commandNode) {
-                console.log('cmd', {text: commandNode.text, type: commandNode.type})
-            }
-            if (conditionalNode) {
-                console.log('conditional',{text: conditionalNode.text, type: conditionalNode.type})
-            }
-            //logArr(getChildNodes(output.rootNode))
-            const values = Object.entries(output).filter(([k, v]) => v).map(([k, v]) => `${k}: \`${v!.text}\``)
-            console.log(JSON.stringify({input, values, match}, null, 2));
-            //assert.equal(output, match)
-            
-        })
+        //inputs.forEach(( [input, match]: [string, string] ) => {
+        //    const output = completions.getNodeContext(input);
+        //    const {tokens} = completions.parseLine(input);
+        //    //const cmd = tokens[tokens.length-1]!;
+        //    logArr(tokens.filter(n => isCommandName(n) || isBuiltin(n.text) || isFunction(n.text)))
+        //    let  {conditionalNode, commandNode} = output;
+        //    if (commandNode) {
+        //        console.log('cmd', {text: commandNode.text, type: commandNode.type})
+        //    }
+        //    if (conditionalNode) {
+        //        console.log('conditional',{text: conditionalNode.text, type: conditionalNode.type})
+        //    }
+        //    //logArr(getChildNodes(output.rootNode))
+        //    const values = Object.entries(output).filter(([k, v]) => v).map(([k, v]) => `${k}: \`${v!.text}\``)
+        //    console.log(JSON.stringify({input, values, match}, null, 2));
+        //    //assert.equal(output, match)
+        //
+        //})
         //console.log('func names');
         //AllShellItems['function'].forEach((input: string) => {
         //    console.log(input);
@@ -193,8 +197,13 @@ describe('complete simple tests', () => {
         //AllShellItems['variable'].forEach((input) => {
         //    console.log(input);
         //})
-        const AllShellItems = createShellItems();
-        //console.log(toShellItemType('argv'));
+        //console.log((await items.getItemDocumentation(ShellItems.SHELL_ITEMS_TYPE.builtin, 'printf')));
+        //items = FishItems.initializeItems();
+        //console.log((await items.getItemDocumentation(ShellItems.SHELL_ITEMS_TYPE.abbr, 'fdn')));
+        //const result = await items.getAllDocs(ShellItems.SHELL_ITEMS_TYPE.abbr);
+        //console.log(result);
+        //const AllShellItems = await createShellItems();
+        //console.log(completions.['abbr']);
     })
 })
 
