@@ -1,7 +1,4 @@
-import { spawn, exec, SpawnOptions, spawnSync, SpawnSyncOptionsWithStringEncoding, ExecOptions, ExecOptionsWithStringEncoding } from 'child_process';
-import { promisify } from 'util';
-
-const execAsync = promisify(exec);
+import { spawnSync, SpawnSyncOptionsWithStringEncoding } from 'child_process';
 //import { FishCompletionItem } from './completion-strategy';
 
 export function findShellPath() {
@@ -11,25 +8,17 @@ export function findShellPath() {
 
 const FishShellPath = findShellPath()
 
-async function spawnAsyncRawShellOutput(cmd: string, splitChar: string = '\n'): Promise<string[]> {
-    const {stdout} = await execAsync(cmd, {shell: FishShellPath, encoding: 'utf-8'});
-    return stdout.toString().split(splitChar);
+export const SpawnOpts: SpawnSyncOptionsWithStringEncoding  = {
+    shell: FishShellPath,
+    stdio: ['ignore', 'pipe', 'inherit'],
+    encoding: 'utf-8',
 }
 
-export namespace ShellItemsBuilder {
-    export function createFromArray(rawOutput: string[]): Set<string> {
-        return new Set(rawOutput);
-    }
-    export async function createFromCmd(cmd: string, sliceString: string = '', splitChar?: string): Promise<Set<string>> {
-        const rawItems = await spawnAsyncRawShellOutput(cmd, splitChar);
-        const sliceStart = sliceString ? sliceString.length : 0;
-        const rawNames = rawItems.map((item) => {
-            const result = item.slice(sliceStart).split(' ', 1);
-            return result[0];
-        });
-        return new Set(rawNames);
-    }
+export function spawnSyncRawShellOutput(cmd: string) {
+    const result = spawnSync(cmd, SpawnOpts)
+    return result.stdout.toString().split('\n')
 }
+
 
 export enum SHELL_ITEMS_TYPE {
     abbr = 'abbr',
@@ -41,124 +30,137 @@ export enum SHELL_ITEMS_TYPE {
     scope = 'scope',
     null = 'null',
 }
-export type IRecord = Record<SHELL_ITEMS_TYPE, Set<string>>
-export type ShellItemsDocumentationCallback = (item: string) => Promise<string[]>;
-export type IRecordCallback = Record<SHELL_ITEMS_TYPE, ShellItemsDocumentationCallback>
-function defaultItems(): IRecord {
-    return {
-        [SHELL_ITEMS_TYPE.abbr]:     new Set<string>(),
-        [SHELL_ITEMS_TYPE.function]: new Set<string>(),
-        [SHELL_ITEMS_TYPE.variable]: new Set<string>(),
-        [SHELL_ITEMS_TYPE.builtin]:  new Set<string>(),
-        [SHELL_ITEMS_TYPE.event]:    new Set<string>(),
-        [SHELL_ITEMS_TYPE.combiner]: new Set<string>(),
-        [SHELL_ITEMS_TYPE.scope]:    new Set<string>(), 
-        [SHELL_ITEMS_TYPE.null]:     new Set<string>(), 
-    }
+
+export const SHELL_ITEMS_STRING_TYPE_LOOKUP: Record<string, SHELL_ITEMS_TYPE> = {
+    ['abbr']:       SHELL_ITEMS_TYPE.abbr,
+    ['function']:   SHELL_ITEMS_TYPE.function,
+    ['variable']:   SHELL_ITEMS_TYPE.variable,
+    ['builtin']:    SHELL_ITEMS_TYPE.builtin,
+    ['event']:      SHELL_ITEMS_TYPE.event,
+    ['combiner']:   SHELL_ITEMS_TYPE.combiner,
+    ['scope']:      SHELL_ITEMS_TYPE.scope,
+    ['null']:       SHELL_ITEMS_TYPE.null,
 }
 
-export class ShellItems {
-    static async create(): Promise<ShellItems> {
-        const items = await initializeShellItemsHelper();
-        return new ShellItems(items);
-    }
-
-    private items: IRecord;
-    constructor(items: IRecord) {
-        this.items = items;
-    }
-
-    getItemType(word: string) {
-        if (this.items['abbr'].has(word))     return 'abbr'     
-        if (this.items['combiner'].has(word)) return 'combiner' 
-        if (this.items['scope'].has(word))    return 'scope'    
-        if (this.items['builtin'].has(word))  return 'builtin'  
-        if (this.items['function'].has(word)) return 'function' 
-        if (this.items['variable'].has(word)) return 'variable' 
-        if (this.items['event'].has(word))    return 'event'    
-        return 'null'                                                   
-    }
-
-    getItems(key: SHELL_ITEMS_TYPE): Set<string> {
-        return this.items[key];
-    }
-
-    getKeys(): SHELL_ITEMS_TYPE[] {
-        return Object.keys(this.items) as SHELL_ITEMS_TYPE[];
-    }
-
-    //setItemDocumentationResolver(key: SHELL_ITEMS_TYPE, resolver: (item: string) => Promise<string[]>) {
-    //    this.documentation[key] = resolver;
-    //}
-    //
-    //async getItemDocumentation(key: SHELL_ITEMS_TYPE, item: string): Promise<string> {
-    //    const res = await this.documentation[key](item);
-    //    return res.join('\n');
-    //}
-
-    //async getAllDocs(key: SHELL_ITEMS_TYPE): Promise<string[]> {
-    //    const items = this.items[key];
-    //    const result: Promise<string[]>[] = []
-    //    for (const item of items) {
-    //        const promise = this.documentation[key](item);
-    //        result.push(promise);
-    //    }
-    //    return await Promise.all(result).then((docs) => docs.map(doc => doc.slice(0,1).join('\n')))
-    //}
+export const SHELL_ITEMS_TYPE_LOOKUP: Record<SHELL_ITEMS_TYPE, string> = {
+    [SHELL_ITEMS_TYPE.abbr]: 'abbr',
+    [SHELL_ITEMS_TYPE.function]: 'function',
+    [SHELL_ITEMS_TYPE.variable]: 'variable',
+    [SHELL_ITEMS_TYPE.builtin]: 'builtin',
+    [SHELL_ITEMS_TYPE.event]: 'event',
+    [SHELL_ITEMS_TYPE.combiner]: 'combiner',
+    [SHELL_ITEMS_TYPE.scope]: 'scope',
+    [SHELL_ITEMS_TYPE.null]: 'null',
 }
 
+export type CachedItem = Record<SHELL_ITEMS_TYPE, ShellItems.ShellOutput[]>
 
-async function initializeShellItemsHelper() {
-    return await Promise.all([
-        ShellItemsBuilder.createFromCmd("abbr --list"),
-        ShellItemsBuilder.createFromCmd(`functions -n`, "", ","),
-        ShellItemsBuilder.createFromCmd(`set -n`),
-        ShellItemsBuilder.createFromCmd(`functions --handlers \| string match -vr 'Event \\w+' `),
-        ShellItemsBuilder.createFromCmd(`builtin -n`),
-        ShellItemsBuilder.createFromArray(["and", "or", "not", "||", "&&", "!"]),
-        ShellItemsBuilder.createFromArray(["if", "else", "switch", "while", "else if"]),
-        Promise.resolve(new Set<string>()),
-    ]).then(
-            ([
-                abbrItems,
-                functionItems,
-                variableItems,
-                eventItems,
-                builtinItems,
-                combinerItems,
-                scopeItems,
-                nullItems
-            ]) => {
-                return {
-                    [SHELL_ITEMS_TYPE.abbr]: abbrItems,
-                    [SHELL_ITEMS_TYPE.function]: functionItems,
-                    [SHELL_ITEMS_TYPE.variable]: variableItems,
-                    [SHELL_ITEMS_TYPE.event]: eventItems,
-                    [SHELL_ITEMS_TYPE.builtin]: builtinItems,
-                    [SHELL_ITEMS_TYPE.combiner]: combinerItems,
-                    [SHELL_ITEMS_TYPE.scope]: scopeItems,
-                    [SHELL_ITEMS_TYPE.null]: nullItems,
-                };
+export namespace ShellItems {
+
+    export function createFromArray(rawOutput: string[], type: SHELL_ITEMS_TYPE): ShellOutput[] {
+        let output: ShellOutput[] = []
+        rawOutput.forEach((line: string) => {
+            let item = line.trim()
+            let splitItem = item.split(' ')
+            let spaceCount = splitItem.length
+            let result = spaceCount > 1 ? [splitItem[0], splitItem.slice(1).join(' ')] : [item, '']
+            output.push(new ShellOutput(result[0], type, result[1], result[1]))
+        })
+        return output
+    }
+
+    export function createFromCmd(cmd: string, type: SHELL_ITEMS_TYPE): ShellOutput[] {
+        const rawItems = spawnSyncRawShellOutput(cmd)
+        let output: ShellOutput[] = []
+        rawItems.forEach((line: string) => {
+            let item = line.trim()
+            let splitItem = item.split(' ')
+            let spaceCount = splitItem.length
+            let result = spaceCount > 1 ? [splitItem[0], splitItem.slice(1).join(' ')] : [item, '']
+            output.push(new ShellOutput(result[0], type, result[1], result[1].slice(0, result[1].lastIndexOf('#'))))
+        })
+        return output
+    }
+
+    export class ShellOutput {
+        constructor(
+            protected name: string = "",
+            protected type: string = "",
+            protected docs: string = "",
+            protected replaceStr: string = ""
+        ) {}
+
+        public getName() {
+            return this.name;
+        }
+        public getType() {
+            return this.type;
+        }
+
+    }
+
+
+    export class Cached {
+        private static cache: CachedItem = createShellItems()
+        private static typeToNames: Record<SHELL_ITEMS_TYPE, Set<string>> = {
+            [SHELL_ITEMS_TYPE.abbr]:       new Set<string>(Cached.cache.abbr.map((item) => item.getName())),
+            [SHELL_ITEMS_TYPE.function]:   new Set<string>(Cached.cache.function.map((item) => item.getName())),
+            [SHELL_ITEMS_TYPE.variable]:   new Set<string>(Cached.cache.variable.map((item) => item.getName())),
+            [SHELL_ITEMS_TYPE.event]:      new Set<string>(Cached.cache.event.map((item) => item.getName())),
+            [SHELL_ITEMS_TYPE.builtin]:    new Set<string>(Cached.cache.builtin.map((item) => item.getName())),
+            [SHELL_ITEMS_TYPE.combiner]:   new Set<string>(Cached.cache.combiner.map((item) => item.getName())),
+            [SHELL_ITEMS_TYPE.scope]:      new Set<string>(Cached.cache.scope.map((item) => item.getName())),
+            [SHELL_ITEMS_TYPE.null]:       new Set<string>(Cached.cache.null.map((item) => item.getName())),
+        };
+
+        public static getCache() {
+            if (!Cached.cache) {
+                Cached.cache = createShellItems()
             }
-        ); 
+            return Cached.cache
+        }
+
+        public getTypes() {
+            return Object.keys(SHELL_ITEMS_TYPE).map((key) => key)
+        }
+
+        public getType(name: string) {
+            for (const type of this.getTypes()) {
+                let lookup = SHELL_ITEMS_STRING_TYPE_LOOKUP[type]
+                if (Cached.typeToNames[lookup].has(name)) {
+                    return type
+                }
+            }
+            return SHELL_ITEMS_TYPE.null
+        }
+
+        public getAllItemsOfType(t: SHELL_ITEMS_TYPE) {
+            return Cached.cache[t]
+        }
+    }
 }
 
+//export const ExternalShellItems: Record<SHELL_ITEMS_TYPE, Set<string>> = {
+//    [SHELL_ITEMS_TYPE.abbr]:       ShellItems.createFromCmd('abbr --show', `abbr -a -- `),
+//    [SHELL_ITEMS_TYPE.function]:   ShellItems.createFromCmd(`functions --names | string split -n '\\n'`),
+//    [SHELL_ITEMS_TYPE.variable]:   ShellItems.createFromCmd(`set -n`),
+//    [SHELL_ITEMS_TYPE.event]:      ShellItems.createFromCmd(`functions --handlers | string match -vr '^Event \\w+' | string split -n '\\n'`),
+//    [SHELL_ITEMS_TYPE.builtin]:    ShellItems.createFromCmd(`builtin -n`),
+//    [SHELL_ITEMS_TYPE.combiner]:   ShellItems.createFromArray(['and', 'or', 'not', '||', '&&', '!']),
+//    [SHELL_ITEMS_TYPE.scope]:      ShellItems.createFromArray(['if', 'else', 'switch', 'while', 'else if']),
+//    [SHELL_ITEMS_TYPE.null]:       new Set(),
+//}
 
-export async function executeAsyncCommand(cmd: string): Promise<string[]> {
-    const {stdout} = await execAsync(cmd, {shell: FishShellPath});
-    return stdout.toString().split('\n');
-}
 
-
-async function initializeShellItemDocumentation(kind: SHELL_ITEMS_TYPE, item: string): Promise<string[]> {
-    switch (kind) {
-        case SHELL_ITEMS_TYPE.abbr:     return await executeAsyncCommand(`abbr | string split ' -- ' -f2 | string match -e '${item}' | string split ' ' -m1 -f2 | string unescape`);
-        case SHELL_ITEMS_TYPE.function: return await executeAsyncCommand(`echo "$(functions --details --verbose ${item})"`);
-        case SHELL_ITEMS_TYPE.variable: return await executeAsyncCommand(`echo "$(set -n ${item})"`);
-        case SHELL_ITEMS_TYPE.builtin:  return await executeAsyncCommand(`man '${item}' | col -bx`);
-        case SHELL_ITEMS_TYPE.event:    return await executeAsyncCommand(`functions --handlers ${item} | string match -vr 'Event \\w+'`);
-        case SHELL_ITEMS_TYPE.combiner: return await executeAsyncCommand(`man '${item}' | col -bx`);
-        case SHELL_ITEMS_TYPE.scope:    return await executeAsyncCommand(`man '${item}' | col -bx`);
-        case SHELL_ITEMS_TYPE.null:     return await executeAsyncCommand(`man '${item}' | col -bx`);
+export function createShellItems(): CachedItem {
+    return {
+        [SHELL_ITEMS_TYPE.abbr]:       ShellItems.createFromCmd(`abbr | string split ' -- ' -f2 | string unescape`, SHELL_ITEMS_TYPE.abbr),
+        [SHELL_ITEMS_TYPE.function]:   ShellItems.createFromCmd(`functions --names | string split -n '\\n'`, SHELL_ITEMS_TYPE.function),
+        [SHELL_ITEMS_TYPE.variable]:   ShellItems.createFromCmd(`set -n`, SHELL_ITEMS_TYPE.variable),
+        [SHELL_ITEMS_TYPE.event]:      ShellItems.createFromCmd(`functions --handlers | string match -vr '^Event \\w+' | string split -n '\\n'`, SHELL_ITEMS_TYPE.event),
+        [SHELL_ITEMS_TYPE.builtin]:    ShellItems.createFromCmd(`builtin -n`, SHELL_ITEMS_TYPE.builtin),
+        [SHELL_ITEMS_TYPE.combiner]:   ShellItems.createFromArray(['and', 'or', 'not', '||', '&&', '!'], SHELL_ITEMS_TYPE.combiner),
+        [SHELL_ITEMS_TYPE.scope]:      ShellItems.createFromArray(['if', 'else', 'switch', 'while', 'else if'], SHELL_ITEMS_TYPE.scope),
+        [SHELL_ITEMS_TYPE.null]:       ShellItems.createFromArray([], SHELL_ITEMS_TYPE.null),
     }
 }

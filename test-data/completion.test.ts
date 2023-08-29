@@ -1,4 +1,4 @@
-import {CompletionItem,  CompletionContext, CompletionParams, DocumentSymbol, Position, Range, SymbolKind, TextDocumentIdentifier, CompletionTriggerKind} from 'vscode-languageserver';
+import {CompletionItem,  CompletionContext, CompletionParams, DocumentSymbol, Position, Range, SymbolKind, TextDocumentIdentifier, CompletionTriggerKind, CompletionItemKind} from 'vscode-languageserver';
 import { assert } from 'chai'
 //import { generateCompletionList } from '../src/completion';
 import Parser, {SyntaxNode} from 'web-tree-sitter';
@@ -9,7 +9,7 @@ import { containsRange, findDefinitionSymbols, } from '../src/workspace-symbol';
 import { Color } from 'colors';
 import { Analyzer } from '../src/analyze';
 import { setLogger } from './helpers'
-import { execCompleteGlobalDocs, execCompleteVariables, execCompletionHelper, execEscapedCommand } from '../src/utils/exec';
+import { execCmd, execCompleteGlobalDocs, execCompleteVariables, execCompletionHelper, execEscapedCommand } from '../src/utils/exec';
 //import  from 'child_process';
 import { promisify } from 'util';
 import { exec } from 'child_process';
@@ -22,13 +22,13 @@ import { Node } from './mock-datatypes';
 import { FishCompletionList } from '../src/completion-list';
 import { getChildNodes,  getLeafs } from '../src/utils/tree-sitter';
 import { AbbrList, EventNamesList, FunctionNamesList, GlobalVariableList, isBuiltin, isFunction } from '../src/utils/builtins';
-import { ShellItems } from '../src/utils/startup-shell-items';
+import { createShellItems, findShellPath, ShellItems, spawnSyncRawShellOutput } from '../src/utils/startup-shell-items';
 
 let parser: Parser;
 let workspaces: Workspace[] = []
 let analyzer: Analyzer;
 let completions: FishCompletionList;
-let items: ShellItems;
+//let items: ShellItems;
 
 setLogger(
     async () => {
@@ -36,7 +36,6 @@ setLogger(
         //workspaces = await initializeDefaultFishWorkspaces()
         analyzer = new Analyzer(parser);
         completions = await FishCompletionList.create()
-        items = await ShellItems.create()
     },
     async () => {
     }
@@ -161,6 +160,60 @@ describe('complete simple tests', () => {
             ['echo ', ''],
             ['ls', 'ls']
         ];
+        let shellPath = ''
+        for (let i = 0; i < 10; ++i) {
+            console.time(`shellPath ${i}`)
+            shellPath = findShellPath()
+            console.timeEnd(`shellPath ${i}`)
+        }
+        console.log(shellPath);
+        const cached = ShellItems.Cached.getCache()
+
+        console.time('abbr')
+        let output = spawnSyncRawShellOutput(`abbr | string split ' -- ' -f2 | string unescape`)
+        console.timeEnd('abbr')
+
+        console.time('functions')
+        output = spawnSyncRawShellOutput(`functions --names | string split -n '\\n'`)
+        console.timeEnd('functions')
+
+        console.time('vars')
+        output = spawnSyncRawShellOutput(`set -n`)
+        console.timeEnd('vars')
+
+        console.time('handlers')
+        output = spawnSyncRawShellOutput(`functions --handlers | string match -vr '^Event \\w+' | string split -n '\\n'`)
+        console.timeEnd('handlers')
+
+        
+        console.time('builtin')
+        output = spawnSyncRawShellOutput(`builtin -n`)
+        console.timeEnd('builtin')
+
+        const items = new DefaultCompletionItemProvider()
+        console.time('all')
+        const all = await Promise.all([
+            execCmd(`abbr | string split " -- " -f2 | string unescape`),
+            execCmd(`functions --names | string split -n '\\n'`),
+            execCmd(`set -n`),
+            execCmd(`functions --handlers | string match -vr '^Event \\w+' | string split -n '\\n'`),
+            execCmd('builtin -n')
+        ]).then(([abbrs, funcs, vars, handlers, builtins]) => {
+            console.log('abbrs', abbrs);
+            items.addAbbrs(abbrs);
+            //console.log('funcs', funcs);
+            //console.log('vars', vars);
+            //console.log('handlers', handlers);
+            //console.log('builtins', builtins);
+        })
+        console.timeEnd('all')
+
+        //output.forEach((v: string, i: number) => {
+        //    console.log(i, v);
+        //})
+
+        //const shellItems = createShellItems()
+        //console.log(cached['abbr']);
         //inputs.forEach(( [input, match]: [string, string] ) => {
         //    const output = completions.getNodeContext(input);
         //    const {tokens} = completions.parseLine(input);
@@ -204,7 +257,7 @@ describe('complete simple tests', () => {
         //console.log(result);
         //const AllShellItems = await createShellItems();
         //console.log(completions.['abbr']);
-    })
+    }, 1000000)
 })
 
 export namespace TestCompletionItem {
@@ -307,6 +360,31 @@ export function getCompletionsViaPosition(analyzer: Analyzer, document: LspDocum
 
 }
 
+
+class DefaultCompletionItemProvider {
+
+    constructor(
+        private items: Map<string, CompletionItem> = new Map(),
+    ) {}
+
+    addAbbrs(shellOutput: string[]) {
+        shellOutput.forEach((line) => {
+            let [name, ...output] = line.split(' ');
+            let [replacement, comment] = output.join(' ').trim().split('# ');
+            //const [replacement, comment] = output.split("#");
+
+            let doc = comment ? [`# ${comment}`, replacement].join('\n') : replacement;
+            const item = {
+                label: name,
+                kind: CompletionItemKind.Text,
+                //detail: output.join(' '),
+                documentation: doc,
+                insertText: replacement,
+            }
+            console.log(item);
+        })
+    }
+}
 
 type NoNullFields<Ob> = { [K in keyof Ob]: Ob[K] extends object ? NoNullFields<Ob[K]> : NonNullable<Ob[K]> };
 function logNonNull<T>(O: NoNullFields<T>) {

@@ -1,4 +1,4 @@
-import { exec, execFile, execFileSync } from 'child_process';
+import { exec, execFile, execFileSync, spawn } from 'child_process';
 import {promises, readFile} from 'fs';
 import {resolve} from 'path';
 import { promisify } from 'util';
@@ -27,6 +27,22 @@ export async function execEscapedCommand(cmd: string): Promise<string[]> {
     }
 
     return child.stdout.trim().split('\n')
+}
+
+export function execCmd(cmd: string): Promise<string[]> {
+    return new Promise((resolve, reject) => {
+        exec(cmd, {shell: '/usr/bin/fish'}, (err, stdout, stderr) => {
+            if (err) {
+                reject(err)
+            }
+            resolve(
+                stdout
+                    .toString()
+                    .split("\n")
+                    .filter((line) => line.trim().length !== 0)
+            );
+        })
+    })
 }
 
 
