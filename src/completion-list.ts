@@ -51,6 +51,44 @@ export class FishCompletionList {
         };
     }
 
+    needsCommand(line: string) {
+        const fixedLine = `${line}`
+        //const { rootNode } = this.parser.parse(fixedLine)
+
+        console.log(`line: '${line}'`);
+        const {root, leafs} = findFix(line, this.parser)
+        console.log(root.toString());
+        leafs.forEach((c: SyntaxNode, i: number) => {
+            console.log(i, `text: '${c.text}'`, `type: '${c.type}'`, `${c.startPosition.row}, ${c.startPosition.column} - ${c.endPosition.row}, ${c.endPosition.column}`);
+        })
+        console.log('line.length', line.length);
+        console.log();
+        //let first = children[0]
+        //while (first.parent !== null) {
+        //    first = first.parent
+        //}
+        //console.log(first.toString());
+
+        //let children = getLeafs(rootNode)
+        //children = children.slice(0, children.length - 4)
+        //const focusedNode = children[children.length - 1]
+        //console.log();
+        //console.log(rootNode.toString());
+        //console.log('line: ', `'${line}'`, `fixedLine: '${fixedLine}'`);
+        //children.forEach((c) => {
+        //    console.log('text', `"${c.text}"`, 'isCommandName', `"${isCommandName(c)}"`);
+        //})
+        //let lastNode = rootNode.descendantForPosition({row: 0, column: line.length - 1})!
+        //console.log('lastNode', `'${lastNode.text}'`, `${lastNode.toString()}`);
+        //console.log('focusedNode', `'${focusedNode.text}'`, `, commandName: ${isCommandName(focusedNode)}`, `${focusedNode.toString()}`);
+
+        //console.log(rootNode.toString());
+        //console.log(rootNode.hasError() ? 'rootNode.hasError() -> true' : 'NO ERROR');
+        //console.log(rootNode.isMissing() ? 'rootNode.isMissing() -> true' : 'NO MISSING');
+        //console.log('lastNode', `'${lastNode.text}'`, `${lastNode.toString()}`);
+        //console.log();
+    }
+
     getNodeContext(line: string): {
         rootNode: SyntaxNode,
         lastNode: SyntaxNode,
@@ -149,6 +187,68 @@ class CompletionLineQueue {
     peek(): string | undefined {
         return this._items[0]
     }
+}
+
+// fixParse get matching trees for addToStartOfLine and addToEndOfLine:
+//      
+function fixParse(line: string, addToStartOfLine: string, addToEndOfLine: string, parser: Parser): {root: SyntaxNode, leafs: SyntaxNode[]} {
+    let fixedLine = addToStartOfLine + line + addToEndOfLine
+    let {rootNode} = parser.parse(fixedLine)
+    if (addToStartOfLine.trim() !== '') {
+        rootNode = rootNode.descendantsOfType(line.split(' ')[0])[0].parent!
+    }
+    if (addToEndOfLine.trim() === '') {
+        return {root: rootNode, leafs: getLeafs(rootNode)}
+    }
+    //const addedRoot = parser.parse(addToEndOfLine).rootNode
+    rootNode = rootNode.type === 'program' ? rootNode.firstChild! : rootNode
+    return {root: rootNode, leafs: getLeafs(rootNode).filter(c => c.startPosition.column < addToStartOfLine.length + line.length) }
+}
+
+function findAddToStartStr(line: string) {
+    if (line.startsWith('else')) return 'if true;'
+    if (line.startsWith('case')) return 'switch $argv;'
+    return ''
+}
+
+function parseRootNode(line: string, start: string, end: string, parser: Parser): SyntaxNode {
+    let checkLine = start + line + end
+    if (start != '') return parser.parse(checkLine).rootNode.lastChild!.parent!
+    return parser.parse(checkLine).rootNode
+}
+
+function findFix(line: string, parser: Parser): {root: SyntaxNode, leafs: SyntaxNode[]} {
+    let startFix = findAddToStartStr(line)
+    const fixes = [
+        ";",
+        ")",
+        ");",
+        '";',
+        "';",
+        " true;end;",
+        ";end;",
+        '";end;',
+        "';end;",
+        '\*; end;',
+        " true);end;",
+        " true)",
+        " i in $argv;end;",
+        " in $argv;end;",
+        " $argv;end;",
+        "i in $argv;end;",
+        "in $argv;end;",
+        "n $argv;end;",
+        "$argv;end;",
+        " head; end;",
+    ];
+    let endFix =  ""
+    let rootNode = parseRootNode(line, startFix, endFix, parser)
+    while (rootNode.hasError()) {
+        endFix = fixes.shift() || ""
+        rootNode = parseRootNode(line, startFix, endFix, parser)
+        if (endFix === '') break;
+    }
+    return fixParse(line, startFix, endFix, parser)
 }
 
 function checkLastNode(node: SyntaxNode) {

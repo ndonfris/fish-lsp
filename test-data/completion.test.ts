@@ -150,243 +150,106 @@ describe('complete simple tests', () => {
     })
 
     it('complete AllShellItems";`', async () => {
-        const inputs: [string, string][] = [
-            //['set -lx var (', '('],
-            //['while test -f foo.txt; or test -f bar.txt; echo file exists; sleep 10; en', 'en'],     // notice while vs while_statement
-            //['while test -f foo.txt; or test -f bar.txt; echo file exists; sleep 10; end', 'end'],
-            //['if', ';'],
-            //['else if', ';'],
-            //['echo |', '|'],
-            ['echo ', ''],
-            ['ls', 'ls']
+        const parser = await initializeParser();
+        const inputs: string[] = [
+            'echo ',
+            'ls',
+            'ls ',
+            'ls -',
+            'if',
+            'if ',
+            'if t',
+            ';',
+            'if [',
+            'if test',
+            'if (a',
+            'printf "',
+            '',
+            'for',
+            'for ',
+            'for i',
+            'for i ',
+            'for i in',
+            'while',
+            'while (',
+            'while ()',
+            'echo "hi" > ',
+            'function',
+            'else if',
+            'else',
+            'case',
+            'case ',
+            "case '*",
+            'end',
+            'ls |',
+            'not',
+            'and',
+            'or',
+            'if test -f file.txt; and test -f file2.txt; or ',
         ];
-        let shellPath = ''
-        for (let i = 0; i < 10; ++i) {
-            console.time(`shellPath ${i}`)
-            shellPath = findShellPath()
-            console.timeEnd(`shellPath ${i}`)
-        }
-        console.log(shellPath);
-        const cached = ShellItems.Cached.getCache()
-
-        console.time('abbr')
-        let output = spawnSyncRawShellOutput(`abbr | string split ' -- ' -f2 | string unescape`)
-        console.timeEnd('abbr')
-
-        console.time('functions')
-        output = spawnSyncRawShellOutput(`functions --names | string split -n '\\n'`)
-        console.timeEnd('functions')
-
-        console.time('vars')
-        output = spawnSyncRawShellOutput(`set -n`)
-        console.timeEnd('vars')
-
-        console.time('handlers')
-        output = spawnSyncRawShellOutput(`functions --handlers | string match -vr '^Event \\w+' | string split -n '\\n'`)
-        console.timeEnd('handlers')
-
-        
-        console.time('builtin')
-        output = spawnSyncRawShellOutput(`builtin -n`)
-        console.timeEnd('builtin')
-
-        const items = new DefaultCompletionItemProvider()
-        console.time('all')
-        const all = await Promise.all([
-            execCmd(`abbr | string split " -- " -f2 | string unescape`),
-            execCmd(`functions --names | string split -n '\\n'`),
-            execCmd(`set -n`),
-            execCmd(`functions --handlers | string match -vr '^Event \\w+' | string split -n '\\n'`),
-            execCmd('builtin -n')
-        ]).then(([abbrs, funcs, vars, handlers, builtins]) => {
-            console.log('abbrs', abbrs);
-            items.addAbbrs(abbrs);
-            //console.log('funcs', funcs);
-            //console.log('vars', vars);
-            //console.log('handlers', handlers);
-            //console.log('builtins', builtins);
+        //inputs.forEach((input: string) => {
+        //    completions.needsCommand(input);
+        //})
+        inputs.forEach((input: string) => {
+            runTest(input, parser);
         })
-        console.timeEnd('all')
-
-        //output.forEach((v: string, i: number) => {
-        //    console.log(i, v);
-        //})
-
-        //const shellItems = createShellItems()
-        //console.log(cached['abbr']);
-        //inputs.forEach(( [input, match]: [string, string] ) => {
-        //    const output = completions.getNodeContext(input);
-        //    const {tokens} = completions.parseLine(input);
-        //    //const cmd = tokens[tokens.length-1]!;
-        //    logArr(tokens.filter(n => isCommandName(n) || isBuiltin(n.text) || isFunction(n.text)))
-        //    let  {conditionalNode, commandNode} = output;
-        //    if (commandNode) {
-        //        console.log('cmd', {text: commandNode.text, type: commandNode.type})
-        //    }
-        //    if (conditionalNode) {
-        //        console.log('conditional',{text: conditionalNode.text, type: conditionalNode.type})
-        //    }
-        //    //logArr(getChildNodes(output.rootNode))
-        //    const values = Object.entries(output).filter(([k, v]) => v).map(([k, v]) => `${k}: \`${v!.text}\``)
-        //    console.log(JSON.stringify({input, values, match}, null, 2));
-        //    //assert.equal(output, match)
-        //
-        //})
-        //console.log('func names');
-        //AllShellItems['function'].forEach((input: string) => {
-        //    console.log(input);
-        //})
-        //console.log('event names');
-        //AllShellItems['event'].forEach((input) => {
-        //    console.log(input);
-        //})
-        ////
-        ////console.log("abbr --show");
-        ////AllShellItems['abbr'].forEach((input) => {
-        ////    console.log(input);
-        ////})
-        //
-        //console.log("var names");
-        //AllShellItems['variable'].forEach((input) => {
-        //    console.log(input);
-        //})
-        //console.log((await items.getItemDocumentation(ShellItems.SHELL_ITEMS_TYPE.builtin, 'printf')));
-        //items = FishItems.initializeItems();
-        //console.log((await items.getItemDocumentation(ShellItems.SHELL_ITEMS_TYPE.abbr, 'fdn')));
-        //const result = await items.getAllDocs(ShellItems.SHELL_ITEMS_TYPE.abbr);
-        //console.log(result);
-        //const AllShellItems = await createShellItems();
-        //console.log(completions.['abbr']);
-    }, 1000000)
+    }, 1000)
 })
 
-export namespace TestCompletionItem {
 
-    export interface Item {
-        label: string,
-        kind: string,
-        fishKind: string,
-    }
-
-    export function fromCompletion(cmp: FishCompletionItem) : Item {
-        return {
-            label: cmp.label,
-            kind: toCompletionKindString[cmp.fishKind],
-            fishKind: FishCompletionItemKind[cmp.fishKind],
+function runTest(input: string, parser: Parser) {
+    function parseRoot(start: string, text: string, end: string) {
+        let {rootNode} = parser.parse(start + text + end);
+        if (start.length > 0) {
+            //console.log('text', text, 'node', rootNode.toString());
+            const result = rootNode.descendantsOfType(skipStartDescendantType(start, text))[0]!
+            return result.parent || result
         }
+        return rootNode
     }
 
-    export function create(label: string, fishKind: FishCompletionItemKind ) : Item {
-         return {
-             label: label,
-             kind: toCompletionKindString[fishKind], 
-             fishKind: FishCompletionItemKind[fishKind],
-        }
+    function skipStartDescendantType(start: string, text: string) {
+        if (start.startsWith('if')) return 'else' 
+        if (start.startsWith('switch')) return 'case'
+        return 'name'
     }
 
-    export function readable(item: FishCompletionItem){
-        return {
-            ...item,
-            kind: toCompletionKindString[item.fishKind],
-            fishKind: FishCompletionItemKind[item.fishKind],
-        };
+    let start = input.startsWith('else') 
+        ? `if 1;` 
+        : input.startsWith('case') ? `switch 1;` : ''
+
+    let text = input.endsWith(' ') ? input : input + ' '
+
+    let rootNode = parser.parse(start + text).rootNode
+
+    let endFixes = ['', '"', "'", '_', '\*',  ']', ')', '}', 'true', '$argv', 'in _', 'i in _']
+
+    while (endFixes.length > 0) {
+        if (!rootNode.hasError()) break;
+        const addToEnd = endFixes.shift()!
+        let [end1, end2, end3] = [addToEnd, `${addToEnd};`, `${addToEnd};end;`]
+        let [root1, root2, root3] = [
+            parseRoot(start, text, end1),
+            parseRoot(start, text, end2),
+            parseRoot(start, text, end3),
+        ];
+        if (!root1.hasError()) {rootNode = root1; break}
+        if (!root2.hasError()) {rootNode = root2; break}
+        if (!root3.hasError()) {rootNode = root3; break}
     }
 
-    export function log(items: FishCompletionItem[], max: number = 5){
-        items.forEach((item: FishCompletionItem, i: number) => {
-            if (i < max) console.log(i, '::', readable(item), '\n');
-        })
-        console.log(`...`)
-        console.log(`total items: ${items.length}`);
-    }
-}
-
-export function getCompletionsViaPosition(analyzer: Analyzer, document: LspDocument, position: Position) {
-
-    function backtrack(node: SyntaxNode, callback: (node: SyntaxNode) => boolean) {
-        let current: SyntaxNode | null = node;
-        while (current) {
-            if (!current.previousSibling) {
-                current = current.parent;
-            }  else {
-                current = current.previousSibling;
-            }
-            if (current && callback(current)) {
-                return current;
-            }
-
-        }
-        return null
-    }
-
-    const {line, word, lineRootNode, lineLastNode} = analyzer.parseCurrentLine(document, position);
-
-    console.log('line', `'${line}'`);
-    console.log('word', `'${word}'`);
-    console.log('lineRootNode', `'${lineRootNode.text}'`);
-    console.log('lineLastNode', `'${lineLastNode.text}'`);
-    const cmdName = backtrack(lineLastNode, isCommand)
-    const cmdBreak =  backtrack(lineLastNode, isSemicolon)
-    const cmdScope =  backtrack(lineLastNode, (n) => isScope(n) || isBlockBreak(n))
-    console.log('cmdName', `'${cmdName?.text}'`);
-    console.log('cmdBreak', `'${cmdBreak?.text}'`);
-    console.log('cmdScope', `'${cmdScope?.text}'`);
-
-    console.log('lineLastNode', Node.debugSyntaxNode(lineLastNode));
-    if (cmdName) {
-        console.log('cmdName is true');
-        console.log('cmdName', Node.debugSyntaxNode(cmdName));
-        // cmp variables
-        // cmp pipes
-        // cmp status
-        // cmp flags
-        // dont cmp commands
-        //
-    } 
-
-    if (cmdBreak) {
-        console.log('cmdBreak is true');
-        console.log('cmdBreak', Node.debugSyntaxNode(cmdBreak));
-        // cmp commands
-        // cmp builtins
-    }
-
-    if (cmdScope) {
-        console.log('cmdScope is true');
-        console.log('cmdScope', Node.debugSyntaxNode(cmdScope));
-        // cmp commands
-        // cmp builtins
-    }
-
-}
-
-
-class DefaultCompletionItemProvider {
-
-    constructor(
-        private items: Map<string, CompletionItem> = new Map(),
-    ) {}
-
-    addAbbrs(shellOutput: string[]) {
-        shellOutput.forEach((line) => {
-            let [name, ...output] = line.split(' ');
-            let [replacement, comment] = output.join(' ').trim().split('# ');
-            //const [replacement, comment] = output.split("#");
-
-            let doc = comment ? [`# ${comment}`, replacement].join('\n') : replacement;
-            const item = {
-                label: name,
-                kind: CompletionItemKind.Text,
-                //detail: output.join(' '),
-                documentation: doc,
-                insertText: replacement,
-            }
-            console.log(item);
-        })
-    }
-}
-
-type NoNullFields<Ob> = { [K in keyof Ob]: Ob[K] extends object ? NoNullFields<Ob[K]> : NonNullable<Ob[K]> };
-function logNonNull<T>(O: NoNullFields<T>) {
-    console.log(JSON.stringify(O, null, 2));
+    rootNode = rootNode.type === 'program' ? rootNode.firstChild! || rootNode : rootNode
+    const leafs = getLeafs(rootNode).filter((v: SyntaxNode) => v.startPosition.column < start.length + input.length) || [] as SyntaxNode[]
+    console.log(
+        JSON.stringify(
+            {
+                line: input,
+                text: rootNode.text,
+                //lastNode: leafs[leafs.length-1]?.parent ? leafs[leafs.length-1]?.parent?.text + ',str: ' + leafs[leafs.length-1]?.parent?.toString() : '',
+                lastNode: leafs[leafs.length-1] ? leafs[leafs.length-1]?.text + ',str: ' + leafs[leafs.length-1]?.toString() : '',
+                str: rootNode.toString(),
+                leafs: leafs.map((l) => `\`${l.text}\` ${l.type} ${l.startPosition.column}`),
+            }, null, 2)
+    );
+    //console.log('text', `'${ rootNode.text }'`, rootNode.toString(), 'leafs: ', leafs.map(l => `'${l.text}'`).join(' '));
 }
