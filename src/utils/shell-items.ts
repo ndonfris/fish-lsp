@@ -1,5 +1,6 @@
 import { CompletionItemKind, CompletionItem } from 'vscode-languageserver';
-import { FishCompletionItem } from './completion-strategy';
+import { enrichToCodeBlockMarkdown } from '../documentation';
+import { FishCompletionItem, FishCompletionItemKind, toCompletionKind } from './completion-strategy';
 import { execCmd } from './exec';
 
 export enum ShellItemType {
@@ -9,6 +10,14 @@ export enum ShellItemType {
     eventHandler = 'eventHandler',
     builtin = 'builtin',
 } 
+
+export const ShellItemToCompletionKind: Record<ShellItemType, CompletionItemKind> = {
+    [ShellItemType.abbr]: toCompletionKind[FishCompletionItemKind.ABBR],
+    [ShellItemType.function]: toCompletionKind[FishCompletionItemKind.GLOBAL_FUNCTION],
+    [ShellItemType.variable]: toCompletionKind[FishCompletionItemKind.GLOBAL_VARIABLE],
+    [ShellItemType.eventHandler]: toCompletionKind[FishCompletionItemKind.GLOBAL_VARIABLE],
+    [ShellItemType.builtin]: toCompletionKind[FishCompletionItemKind.BUILTIN],
+}
 
 export const SetupShellCommands = {
     [ShellItemType.abbr]: `abbr | string split " -- " -f2 | string unescape`,
@@ -43,11 +52,20 @@ export class ShellItems {
     }
 
     getItemType(name: string) : ShellItemType | undefined {
+        let fixedName = name.startsWith('$') ? name.slice(1) : name
+        if (name.startsWith('$')) return this._items['variable']?.find((item) => item.label === fixedName) ? ShellItemType.variable : undefined
         for (let type of this.keys()) {
-            if (this._items[type]?.find((item) => item.label === name)) {
+            if (this._items[type]?.find((item) => item.label === fixedName)) {
                 return type as ShellItemType
             }
         }
+    }
+
+    hasItem(name: string, possibleTypes: ShellItemsKey[] = this.keys()): boolean {
+        if (name.startsWith('$')) {
+            return possibleTypes.includes('variable') ? this.hasItem(name.slice(1), ['variable']) : false
+        }
+        return possibleTypes.some((type) => this._items[type]?.find((item) => item.label === name))
     }
 
     keys(): ShellItemsKey[] {
@@ -68,15 +86,8 @@ function createItemArray(lines: string[], type: ShellItemType): CompletionItem[]
                 let doc = comment ? [`# ${comment}`, replacement].join('\n') : replacement;
                 return {
                     label: name,
-                    kind: CompletionItemKind.Text,
-                    documentation: {
-                        kind: 'markdown',
-                        value: [
-                            '```fish',
-                            doc,
-                            '```'
-                        ].join('\n'),
-                    },
+                    kind: ShellItemToCompletionKind[type],
+                    documentation: enrichToCodeBlockMarkdown(doc, 'fish'),
                     insertText: replacement,
                     commitCharacters: [' ', '\t', '\n']
                 }
@@ -85,18 +96,14 @@ function createItemArray(lines: string[], type: ShellItemType): CompletionItem[]
                 let handlerCaller = handler.join(' ');
                 return {
                     label: event,
-                    kind: CompletionItemKind.Text,
-                    documentation: {
-                        kind: 'markdown',
-                        value: [
-                            '```fish',
-                            handlerCaller,
-                            '```'
-                        ].join('\n'),
-                    }
+                    kind: ShellItemToCompletionKind[type],
+                    documentation: enrichToCodeBlockMarkdown(handlerCaller, 'fish'),
                 }
             default: 
-                return CompletionItem.create(line) 
+                return {
+                    ...CompletionItem.create(line),
+                    kind: ShellItemToCompletionKind[type],
+                }
         }
     })
 }

@@ -29,7 +29,7 @@ export type LoggerOptions = {
     Space?: boolean,
 }
 
-export const LogOpts: Record<string, LoggerOptions> = {
+export const LogOpts: Record<'clean' | 'separated' | 'extra', LoggerOptions> = {
     clean: {LogSep: true, Space: true, LogTestName: true},
     separated: {LogSep: true, Space: true},
     extra: {LogSep: true, Space: true, LogStartEnd: true},
@@ -41,7 +41,6 @@ export function setLogger(
     afterCallback: () => Promise<void> = async () => {},
     Opts?: LoggerOptions
 ){
-    //const logSpy = spyOn(console, 'log')
     const jestConsole = console;
     beforeEach(async () => {
         global.console = require("console");
@@ -52,7 +51,6 @@ export function setLogger(
     afterEach(async () => {
         global.console = jestConsole;
         LogSpecial("after", Opts);
-        //logSpy.calls.reset();
         await afterCallback();
     }, 10000);
 }
