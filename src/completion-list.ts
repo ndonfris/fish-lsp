@@ -71,6 +71,19 @@ export class FishCompletionList {
         return command?.firstChild || command;
     }
 
+   /**
+    * here we will specifically populate the completion list with items specific to their
+    * command & word context. 
+    * For example:     
+    * ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+    *     LINE      •   CONTEXTUAL INFO FROM LINE       •    ITEMS ADDED
+    * ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+    *     `end `    •  {word: null, command: 'end'}     •   pipes
+    * ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+    *    `printf "` •  {word: '"',  command: 'printf'}  •   format specifiers, 
+    *               •                                   •   strings, variables
+    * ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+    */
     getCompletionArrayTypes(line: string) {
         //const {rootNode, lastNode, prevNode, commandNode, conditionalNode} = this.getNodeContext(line)
         //const result: CompletionItemsArrayTypes[] = []
@@ -97,6 +110,15 @@ export class FishCompletionList {
     }
 }
 
+/**
+ * Checks input 'word' against lists of strings that represent fish shell tokens that 
+ * denote the next item could be a command. The tokens seen below, are mostly commands
+ * that should be treated specially (to help determine the current completion context)
+ *
+ * @param {string | null} word - the current word which might not exists
+ * @returns {boolean} - True if the word is a token that precedes a command. 
+ *                      False if the word is not something that precedes a command, (i.e. a flag)
+ */
 export function wordPrecedesCommand(word: string | null) {
     if (!word) return false;
 
@@ -113,15 +135,16 @@ export function wordPrecedesCommand(word: string | null) {
     )
 }
 
+/**
+ * Helper functions to edit lines in the ComletionList methods.
+ */
 export namespace Line {
     export function isEmpty(line: string): boolean {
         return line.trim().length === 0
     }
-
     export function isComment(line: string): boolean {
         return line.trim().startsWith('#')
     }
-
     export function hasMultipleLastSpaces(line: string): boolean {
         return line.trim().endsWith(' ')
     }
@@ -129,23 +152,32 @@ export namespace Line {
         if (line.endsWith(' ')) return line
         return line.split(' ')[-1]
     }
-    export function appendEndSequence(oldLine: string, wordNode: SyntaxNode | null, endSequence: string = ';end;') {
-        let virtualEOLChars = endSequence
-        let maxLength = oldLine.length
+    export function appendEndSequence(
+        oldLine: string,
+        wordNode: SyntaxNode | null,
+        endSequence: string = ";end;"
+    ) {
+        let virtualEOLChars = endSequence;
+        let maxLength = oldLine.length;
         if (wordNode && isUnmatchedStringCharacter(wordNode)) {
-            virtualEOLChars = wordNode.text + endSequence
-            maxLength -= 1
+            virtualEOLChars = wordNode.text + endSequence;
+            maxLength -= 1;
         }
         if (wordNode && isPartialForLoop(wordNode)) {
-            const completeForLoop = ['for', 'i', 'in', '_']
-            const errorNode = firstAncestorMatch(wordNode, n => n.hasError())!
-            const leafs = getLeafs(errorNode)
-            virtualEOLChars = ' ' + completeForLoop.slice(leafs.length).join(' ') + endSequence
+            const completeForLoop = ["for", "i", "in", "_"];
+            const errorNode = firstAncestorMatch(wordNode, (n) =>
+                n.hasError()
+            )!;
+            const leafs = getLeafs(errorNode);
+            virtualEOLChars =
+                " " +
+                completeForLoop.slice(leafs.length).join(" ") +
+                endSequence;
         }
         return {
-            virtualLine: [oldLine, virtualEOLChars].join(''),
-            virtualEOLChars:  virtualEOLChars,
-            maxLength: maxLength
-        }
+            virtualLine: [oldLine, virtualEOLChars].join(""),
+            virtualEOLChars: virtualEOLChars,
+            maxLength: maxLength,
+        };
     }
 }
