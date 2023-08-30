@@ -4,8 +4,8 @@ import Parser, { SyntaxNode } from 'web-tree-sitter'
 import { createCompletionItem, FishCompletionItem, FishCompletionItemKind, FishCompletionData } from './utils/completion-strategy';
 import { LspDocument } from './document';
 import { initializeParser } from './parser';
-import { getChildNodes, getNamedChildNodes, getLeafs } from './utils/tree-sitter';
-import { isCommand, isCommandName, isOption, isConditional, isString, isStringCharacter,  isIfOrElseIfConditional, } from './utils/node-types';
+import { getChildNodes, getNamedChildNodes, getLeafs, getLastLeaf, ancestorMatch, firstAncestorMatch } from './utils/tree-sitter';
+import { isCommand, isCommandName, isOption, isConditional, isString, isStringCharacter,  isIfOrElseIfConditional, isUnmatchedStringCharacter, isPartialForLoop, } from './utils/node-types';
 import { CompletionItemsArrayTypes, WordsToNotCompleteAfter } from './utils/completion-types';
 import { isBuiltin, BuiltInList, isFunction } from "./utils/builtins";
 
@@ -51,43 +51,70 @@ export class FishCompletionList {
         };
     }
 
-    needsCommand(line: string) {
-        const fixedLine = `${line}`
-        //const { rootNode } = this.parser.parse(fixedLine)
-
-        console.log(`line: '${line}'`);
-        const {root, leafs} = findFix(line, this.parser)
-        console.log(root.toString());
-        leafs.forEach((c: SyntaxNode, i: number) => {
-            console.log(i, `text: '${c.text}'`, `type: '${c.type}'`, `${c.startPosition.row}, ${c.startPosition.column} - ${c.endPosition.row}, ${c.endPosition.column}`);
-        })
-        console.log('line.length', line.length);
-        console.log();
-        //let first = children[0]
-        //while (first.parent !== null) {
-        //    first = first.parent
-        //}
-        //console.log(first.toString());
-
-        //let children = getLeafs(rootNode)
-        //children = children.slice(0, children.length - 4)
-        //const focusedNode = children[children.length - 1]
-        //console.log();
-        //console.log(rootNode.toString());
-        //console.log('line: ', `'${line}'`, `fixedLine: '${fixedLine}'`);
-        //children.forEach((c) => {
-        //    console.log('text', `"${c.text}"`, 'isCommandName', `"${isCommandName(c)}"`);
-        //})
-        //let lastNode = rootNode.descendantForPosition({row: 0, column: line.length - 1})!
-        //console.log('lastNode', `'${lastNode.text}'`, `${lastNode.toString()}`);
-        //console.log('focusedNode', `'${focusedNode.text}'`, `, commandName: ${isCommandName(focusedNode)}`, `${focusedNode.toString()}`);
-
-        //console.log(rootNode.toString());
-        //console.log(rootNode.hasError() ? 'rootNode.hasError() -> true' : 'NO ERROR');
-        //console.log(rootNode.isMissing() ? 'rootNode.isMissing() -> true' : 'NO MISSING');
-        //console.log('lastNode', `'${lastNode.text}'`, `${lastNode.toString()}`);
-        //console.log();
+    parseWord(line: string) : {
+        wordNode: SyntaxNode | null,
+        word: string | null,
+    } {
+        const { rootNode } = this.parser.parse(line)
+        const node = getLastLeaf(rootNode)
+        if (!node || node.text.trim() === '') {
+            return { word: null, wordNode: null}
+        }
+        return {
+            word: node.text.trim(),
+            wordNode: node,
+        }
     }
+
+    parseCommand(line: string) {
+        const { word, wordNode } = this.parseWord(line);
+        if (wordPrecedesCommand(word)) return null
+        let {virtualLine, maxLength } =  Line.appendEndSequence(line, wordNode)
+        const { rootNode } = this.parser.parse(virtualLine)
+        //let maxIndex = line.length
+        let node = getLastLeaf(rootNode, maxLength)
+        if (!node) return null
+        let command = firstAncestorMatch(node, n => ['command', 'for_statement', 'case', 'function'].includes(n.type))
+        return command?.firstChild || command
+    }
+
+    //needsCommand(line: string) {
+    //    const fixedLine = `${line}`
+    //    //const { rootNode } = this.parser.parse(fixedLine)
+    //
+    //    console.log(`line: '${line}'`);
+    //    const {root, leafs} = findFix(line, this.parser)
+    //    console.log(root.toString());
+    //    leafs.forEach((c: SyntaxNode, i: number) => {
+    //        console.log(i, `text: '${c.text}'`, `type: '${c.type}'`, `${c.startPosition.row}, ${c.startPosition.column} - ${c.endPosition.row}, ${c.endPosition.column}`);
+    //    })
+    //    console.log('line.length', line.length);
+    //    console.log();
+    //    //let first = children[0]
+    //    //while (first.parent !== null) {
+    //    //    first = first.parent
+    //    //}
+    //    //console.log(first.toString());
+    //
+    //    //let children = getLeafs(rootNode)
+    //    //children = children.slice(0, children.length - 4)
+    //    //const focusedNode = children[children.length - 1]
+    //    //console.log();
+    //    //console.log(rootNode.toString());
+    //    //console.log('line: ', `'${line}'`, `fixedLine: '${fixedLine}'`);
+    //    //children.forEach((c) => {
+    //    //    console.log('text', `"${c.text}"`, 'isCommandName', `"${isCommandName(c)}"`);
+    //    //})
+    //    //let lastNode = rootNode.descendantForPosition({row: 0, column: line.length - 1})!
+    //    //console.log('lastNode', `'${lastNode.text}'`, `${lastNode.toString()}`);
+    //    //console.log('focusedNode', `'${focusedNode.text}'`, `, commandName: ${isCommandName(focusedNode)}`, `${focusedNode.toString()}`);
+    //
+    //    //console.log(rootNode.toString());
+    //    //console.log(rootNode.hasError() ? 'rootNode.hasError() -> true' : 'NO ERROR');
+    //    //console.log(rootNode.isMissing() ? 'rootNode.isMissing() -> true' : 'NO MISSING');
+    //    //console.log('lastNode', `'${lastNode.text}'`, `${lastNode.toString()}`);
+    //    //console.log();
+    //}
 
     getNodeContext(line: string): {
         rootNode: SyntaxNode,
@@ -150,6 +177,20 @@ export class FishCompletionList {
 
 }
 
+export function wordPrecedesCommand(word: string | null) {
+    if (!word) return false;
+
+    let chars = ['(', ';']
+    let combiners = ['and', 'or', 'not', '!', '&&', '||']
+    let conditional = ['if', 'while', 'else if', 'switch']
+    let pipes = ['|', '&', '1>|', '2>|', '&|']
+
+    return (chars.includes(word)
+        || combiners.includes(word)
+        || conditional.includes(word)
+        || pipes.includes(word))
+}
+
 export namespace Line {
     export function isEmpty(line: string): boolean {
         return line.trim().length === 0
@@ -166,28 +207,27 @@ export namespace Line {
         if (line.endsWith(' ')) return line
         return line.split(' ')[-1]
     }
-}
-
-class CompletionLineQueue {
-
-    private _items: string[] = []
-    
-    enqueue(line: string) {
-        this._items.push(line)
-    }
-
-    dequeue(): string | undefined {
-        return this._items.shift()
-    }
-
-    isEmpty(): boolean {
-        return this._items.length === 0
-    }
-
-    peek(): string | undefined {
-        return this._items[0]
+    export function appendEndSequence(oldLine: string, wordNode: SyntaxNode | null, endSequence: string = ';end;') {
+        let virtualEOLChars = endSequence
+        let maxLength = oldLine.length
+        if (wordNode && isUnmatchedStringCharacter(wordNode)) {
+            virtualEOLChars = wordNode.text + endSequence
+            maxLength -= 1
+        }
+        if (wordNode && isPartialForLoop(wordNode)) {
+            const completeForLoop = ['for', 'i', 'in', '_']
+            const errorNode = firstAncestorMatch(wordNode, n => n.hasError())!
+            const leafs = getLeafs(errorNode)
+            virtualEOLChars = ' ' + completeForLoop.slice(leafs.length).join(' ') + endSequence
+        }
+        return {
+            virtualLine: [oldLine, virtualEOLChars].join(''),
+            virtualEOLChars:  virtualEOLChars,
+            maxLength: maxLength
+        }
     }
 }
+
 
 // fixParse get matching trees for addToStartOfLine and addToEndOfLine:
 //      

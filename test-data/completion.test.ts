@@ -17,7 +17,7 @@ import { initializeDefaultFishWorkspaces, Workspace } from '../src/utils/workspa
 import { toLspDocument } from '../src/utils/translation';
 import { homedir } from 'os';
 import { FishCompletionItem, FishCompletionItemKind, toCompletionKindString } from '../src/utils/completion-strategy';
-import { isBeforeCommand, isBlockBreak, isCommand, isCommandName, isScope, isSemicolon } from '../src/utils/node-types';
+import { isBeforeCommand, isBlockBreak, isCommand, isCommandName, isPartialForLoop, isScope, isSemicolon } from '../src/utils/node-types';
 import { Node } from './mock-datatypes';
 import { FishCompletionList } from '../src/completion-list';
 import { getChildNodes,  getLeafs } from '../src/utils/tree-sitter';
@@ -149,6 +149,43 @@ describe('complete simple tests', () => {
         matchOutput('    if test -n /path/$argv', '/path/$argv');
     })
 
+
+    it('testing edits to completionLine, to find commands";`', async () => {
+        const parser = await initializeParser();
+        const inputs: string[] = [
+            'echo',
+            'ls -',
+            'if',
+            'if t',
+            'if [',
+            'if test',
+            'if (a',
+            'printf "',
+            'for _',
+            'for i in',
+        ];
+        type tblItem = {input: string, addChar: string, hasCmd: boolean, cmd: string, lineNodes: string} 
+        const buildTable = (addChar: string) => {
+            console.log("LOGGING WHAT HAPPENS WHEN CHAR ADDED TO LINE IS : ", `'${addChar}'`);
+            const tbl: tblItem[] = []
+            inputs.forEach( (input: string) => {
+                const {rootNode} = parser.parse(input + addChar)
+                let cmd = rootNode.descendantsOfType('command')
+                let firstCmd = cmd.at(0)?.text || 'NULL'
+                let hasCmd = false
+                if (input === 'for _') {
+                    firstCmd = rootNode.firstChild!.lastChild!.toString();
+                    hasCmd = isPartialForLoop(rootNode.firstChild!.lastChild!);
+                }
+                tbl.push({input, addChar, hasCmd: hasCmd, cmd: firstCmd, lineNodes: rootNode.toString()})
+            })
+            console.table(tbl);
+        }
+        //buildTable('-')
+        buildTable(';')
+        buildTable(';end;')
+    }, 1000)
+
     it('complete AllShellItems";`', async () => {
         const parser = await initializeParser();
         const inputs: string[] = [
@@ -185,14 +222,16 @@ describe('complete simple tests', () => {
             'not',
             'and',
             'or',
-            'if test -f file.txt; and test -f file2.txt; or ',
+            //'if test -f file.txt; and test -f file2.txt; or ',
         ];
-        //inputs.forEach((input: string) => {
-        //    completions.needsCommand(input);
-        //})
+        type tblItem = {input: string, cmd: string, word: string} 
+        const tbl: tblItem[] = []
         inputs.forEach((input: string) => {
-            runTest(input, parser);
+            const {word} = completions.parseWord(input);
+            const cmd = completions.parseCommand(input);
+            tbl.push({input: input, cmd: cmd?.text || 'NULL', word: word || 'NULL'})
         })
+        console.table(tbl);
     }, 1000)
 })
 

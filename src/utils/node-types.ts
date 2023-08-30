@@ -1,5 +1,5 @@
 import { SyntaxNode } from 'web-tree-sitter'
-import {ancestorMatch, findChildNodes, findFirstParent, findFirstNamedSibling, firstAncestorMatch, getChildNodes, getParentNodes, getSiblingNodes} from './tree-sitter';
+import {ancestorMatch, findChildNodes, findFirstParent, findFirstNamedSibling, firstAncestorMatch, getChildNodes, getParentNodes, getSiblingNodes, getLeafs} from './tree-sitter';
 import * as VariableTypes from './variable-syntax-nodes'
 
 /** 
@@ -627,4 +627,27 @@ export function isCommandFlag(node: SyntaxNode) {
 
 export function isRegexArgument(n: SyntaxNode): boolean {
     return n.text === '--regex' || n.text === '-r';
+}
+
+
+export function isUnmatchedStringCharacter(node: SyntaxNode) {
+    if (!isStringCharacter(node)) return false;
+    if (node.parent && isString(node.parent)) return false;
+    return true
+}
+
+export function isPartialForLoop(node: SyntaxNode) {
+    let semiCompleteForLoop = ['for', 'i', 'in', '_']
+    let errorNode = node.parent 
+    if (node.text === 'for' && node.type === 'for') {
+        if (!errorNode) return true
+        if (getLeafs(errorNode).length < semiCompleteForLoop.length) return true
+        return false
+    }
+    if (!errorNode) return false
+    return (
+        errorNode.hasError() &&
+        errorNode.text.startsWith("for") &&
+        !errorNode.text.includes(" in ")
+    );
 }

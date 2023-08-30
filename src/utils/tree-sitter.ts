@@ -56,11 +56,11 @@ export function findChildNodes(root: SyntaxNode, predicate: (node: SyntaxNode) =
  */
 export function getParentNodes(child: SyntaxNode): SyntaxNode[] {
     const result: SyntaxNode[] = []
-    let current: SyntaxNode | null = child.parent;
+    let current: null | SyntaxNode = child
     while (current !== null) {
         // result.unshift(current); // unshift would be used for [root, ..., child]
-        result.push(current);
-        current = current.parent;
+        if (current) result.push(current);
+        current = current?.parent || null;
     }
     return result
 }
@@ -493,6 +493,10 @@ export function getLeafs(node: SyntaxNode): SyntaxNode[] {
 }
 
 
+export function getLastLeaf(node: SyntaxNode, maxIndex: number = Infinity): SyntaxNode {
+    let allLeafs = getLeafs(node).filter(leaf => leaf.startPosition.column < maxIndex)
+    return allLeafs[allLeafs.length - 1]!
+}
 
 
 
