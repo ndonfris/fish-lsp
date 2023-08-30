@@ -41,117 +41,9 @@ setLogger(
     }
 )
 
-const spoofedPath = `${homedir()}/.config/fish/functions`
-
-function noMock(filename: string){
-    return filename.startsWith(spoofedPath) && filename.endsWith('.fish')
-}
-
-function getMockFile(filename: string){
-    if (noMock(filename)) return filename
-    const startIdx = filename.lastIndexOf('/') ===  -1 ? 0 : filename.lastIndexOf('/')
-    const endIdx = filename.lastIndexOf('.fish') === -1 ? filename.length : filename.lastIndexOf('.fish')
-    //console.log({startIdx, endIdx});
-    const name = filename.slice(startIdx, endIdx)
-    return `${spoofedPath}/${name}.fish`
-}
-
-function createContext(kind: CompletionTriggerKind, character?: string) : CompletionContext  {
-    return { 
-        triggerKind: kind,
-        triggerCharacter: character,
-    }
-}
-
-function mockAnalyzeCompletion(filename: string, ...lines: string[]){
-    let path = getMockFile(filename)
-    let content = lines.join('\n')
-    const doc = toLspDocument(path, content)
-    analyzer.analyze(doc);
-    let pos = doc.getLineEnd(doc.lineCount)
-    let node = analyzer.nodeAtPoint(doc.uri, pos.line, pos.character)!
-    return {
-        document: doc,
-        position: { line: pos.line, character: pos.character + 1},
-        analyzer: analyzer,
-        node: node,
-    }
-}
-
-
-const logArr = (items: SyntaxNode[]) => {
-    type tableItem = {type: string, text: string, indexes: string}
-    const table: tableItem[] = []
-    items.forEach((v: SyntaxNode, i: number) => {
-        table.push({type: v.type, text: v.text, indexes: `${v.startIndex}:::${v.endIndex}`});
-    })
-    console.table(table)
-}
-
-function runTestWithOutput(input: string, matchWord: string) {
-    
-    let {rootNode, lastNode, tokens, word} = completions.parseLine(input);
-    //console.log("---".repeat(20));
-    //console.log(`'${input}'`);
-    //completions.parseLine(input);
-    //let l : SyntaxNode = lastNode;
-    //for (const child of getChildNodes(root)) {
-    //    if (child.text.split(' ').length === 0) {
-    //        l = child
-    //    }
-    //}
-    //console.table();
-    //const table: [string, string, string, string][] = []
-    //const other = gatherLeafs(root)
-    //const table: [string, string][] = logArr(tokens)
-    //logArr(tokens)
-    //logArr(leafs)
-    //console.log(root.descendantForIndex(-1).text);
-    //console.log(JSON.stringify({lastNode: lastNode.text, type: lastNode.type, word}, null, 2));
-    assert.equal(word, matchWord)
-    
-}
-
 describe('complete simple tests', () => {
 
-
-    it('complete `set -lx var "asdf";`', async () => {
-        const matchOutput = (inputStr: string, wordStr: string) => {
-            let {rootNode, lastNode, tokens, word} = completions.parseLine(inputStr);
-            assert.equal(word, wordStr)
-        }
-
-        const logOutput = (inputStr: string, matchStr: string) => {
-            let {rootNode, lastNode, tokens, word} = completions.parseLine(inputStr);
-            console.log(JSON.stringify({inputStr, matchStr, word}, null, 2));
-        }
-        matchOutput('    echo "a', '"a');
-        matchOutput('    echo "a b', 'b');
-        matchOutput('    echo "a b c"', 'c"');
-        matchOutput('    echo "a b c";', ";");
-        matchOutput('    echo "a b c"; ', ' ');
-        matchOutput('    echo "a b c"; ls', 'ls');
-        matchOutput('    echo "a b c"; ls && ', ' ');
-        matchOutput('    echo "a b c"; ls && grep ', ' ');
-        matchOutput('    echo "a b c"; ls && grep -e \'', '\'');
-        matchOutput('    echo "a b c"; ls && grep -e "*', '"*');
-        matchOutput('    return ', ' ');
-        matchOutput('    i', 'i');
-        matchOutput('    if', 'if');
-        matchOutput('    if ', ' ');
-        matchOutput('    if tes', 'tes');
-        matchOutput('    if test ', ' ');
-        matchOutput('    if test -', '-');
-        matchOutput('    if test -n', '-n');
-        matchOutput('    if test -n $', '$');
-        matchOutput('    if test -n $a', '$a');
-        matchOutput('    if test -n $argv', '$argv');
-        matchOutput('    if test -n /path/$argv', '/path/$argv');
-    })
-
-
     it('testing edits to completionLine, to find commands";`', async () => {
-        const parser = await initializeParser();
         const inputs: string[] = [
             'echo',
             'ls -',
@@ -172,11 +64,7 @@ describe('complete simple tests', () => {
                 const {rootNode} = parser.parse(input + addChar)
                 let cmd = rootNode.descendantsOfType('command')
                 let firstCmd = cmd.at(0)?.text || 'NULL'
-                let hasCmd = false
-                if (input === 'for _') {
-                    firstCmd = rootNode.firstChild!.lastChild!.toString();
-                    hasCmd = isPartialForLoop(rootNode.firstChild!.lastChild!);
-                }
+                let hasCmd = cmd.length > 0
                 tbl.push({input, addChar, hasCmd: hasCmd, cmd: firstCmd, lineNodes: rootNode.toString()})
             })
             console.table(tbl);
@@ -187,8 +75,10 @@ describe('complete simple tests', () => {
     }, 1000)
 
     it('complete AllShellItems";`', async () => {
-        const parser = await initializeParser();
-        const inputs: string[] = [
+        type tblItem = {input: string, cmd: string, word: string} 
+        const tbl: tblItem[] = [];
+
+        [
             'echo ',
             'ls',
             'ls ',
@@ -221,16 +111,14 @@ describe('complete simple tests', () => {
             'ls |',
             'not',
             'and',
-            'or',
-            //'if test -f file.txt; and test -f file2.txt; or ',
-        ];
-        type tblItem = {input: string, cmd: string, word: string} 
-        const tbl: tblItem[] = []
-        inputs.forEach((input: string) => {
+            'or ',
+            'if test -f file.txt; and test -f file2.txt; or ',
+        ].forEach((input: string) => {
             const {word} = completions.parseWord(input);
             const cmd = completions.parseCommand(input);
             tbl.push({input: input, cmd: cmd?.text || 'NULL', word: word || 'NULL'})
         })
+
         console.table(tbl);
     }, 1000)
 })
@@ -290,5 +178,4 @@ function runTest(input: string, parser: Parser) {
                 leafs: leafs.map((l) => `\`${l.text}\` ${l.type} ${l.startPosition.column}`),
             }, null, 2)
     );
-    //console.log('text', `'${ rootNode.text }'`, rootNode.toString(), 'leafs: ', leafs.map(l => `'${l.text}'`).join(' '));
 }
