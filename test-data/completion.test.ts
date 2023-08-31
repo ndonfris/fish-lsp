@@ -109,10 +109,16 @@ describe('complete simple tests', () => {
             'and',
             'or ',
             'if test -f file.txt; and test -f file2.txt; or ',
+            'ls | read',
+            'ls | read ',
+            'ls | read -',
+            'ls | read -L',
+            'ls | read -L ',
+            'ls | read -L -l',
+            'ls | read -L -l v',
         ].forEach((input: string) => {
-            const {word} = completions.parseWord(input);
-            const cmd = completions.parseCommand(input);
-            tbl.push({input: input, cmd: cmd?.text || 'NULL', word: word || 'NULL'})
+            const {word, command} = completions.getNodeContext(input)
+            tbl.push({input: input, cmd: command || 'NULL', word: word || 'NULL'})
         })
         console.table(tbl);
     }, 1000)

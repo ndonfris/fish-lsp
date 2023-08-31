@@ -10,6 +10,7 @@ import { CompletionItemsArrayTypes, WordsToNotCompleteAfter } from './utils/comp
 import { isBuiltin, BuiltInList, isFunction } from "./utils/builtins";
 
 export class FishCompletionList {
+    private readonly COMMAND_TYPES = ['command', 'for_statement', 'case', 'function']
 
     static async create() {
         const parser = await initializeParser();
@@ -35,8 +36,11 @@ export class FishCompletionList {
         wordNode: SyntaxNode | null;
         word: string | null;
     } {
+        if (line.endsWith(' ')) return { word: null, wordNode: null };
         const { rootNode } = this.parser.parse(line);
-        const node = getLastLeaf(rootNode);
+        //let node = rootNode.descendantForPosition({row: 0, column: line.length-1});
+        //const node = getLastLeaf(rootNode);
+        let node = getLastLeaf(rootNode);
         if (!node || node.text.trim() === "") return { word: null, wordNode: null };
         return {
             word: node.text.trim(),
@@ -58,17 +62,33 @@ export class FishCompletionList {
      *    'for ...', 'case ...', 'function ...', 'end ',  ⟶   returns 'command' node shown
      *  ───────────────────────────────────────────────────────────────────────────────
      */
-    parseCommand(line: string): SyntaxNode | null {
-        const { word, wordNode } = this.parseWord(line);
-        if (wordPrecedesCommand(word)) return null;
+    parseCommand(line: string) : {
+        command: string | null;
+        commandNode: SyntaxNode | null;
+    } {
+        const { word, wordNode } = this.parseWord(line.trimEnd());
+        if (wordPrecedesCommand(word)) return {command: null, commandNode: null};
         let { virtualLine, maxLength } = Line.appendEndSequence(line, wordNode);
         const { rootNode } = this.parser.parse(virtualLine);
         let node = getLastLeaf(rootNode, maxLength);
-        if (!node) return null;
-        let command = firstAncestorMatch(node, (n) =>
-            ["command", "for_statement", "case", "function"].includes(n.type)
-        );
-        return command?.firstChild || command;
+        if (!node) return {command: null, commandNode: null};
+        let commandNode = firstAncestorMatch(node, (n) => this.COMMAND_TYPES.includes(n.type));
+        commandNode = commandNode?.firstChild || commandNode;
+        return {
+            command: commandNode?.text || null,
+            commandNode: commandNode || null,
+        }
+    }
+
+    getNodeContext(line: string) {
+        return {
+            ...this.parseWord(line),
+            ...this.parseCommand(line)
+        }
+    }
+
+    hasOption(command: SyntaxNode, options: string[]) {
+        return getChildNodes(command).some(n => options.includes(n.text))
     }
 
    /**
@@ -85,28 +105,28 @@ export class FishCompletionList {
     * ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
     */
     getCompletionArrayTypes(line: string) {
-        //const {rootNode, lastNode, prevNode, commandNode, conditionalNode} = this.getNodeContext(line)
-        //const result: CompletionItemsArrayTypes[] = []
-        ////console.log({lastNode: lastNode.text});
-        //const command = commandNode ? commandNode.firstChild!.text : ''
-        //switch (command) {
-        //    case 'functions': result.push(CompletionItemsArrayTypes.FUNCTIONS); break
-        //    case 'end': result.push(CompletionItemsArrayTypes.PIPES); break
-        //    case 'printf': result.push(CompletionItemsArrayTypes.FORMAT_SPECIFIERS); break
-        //    case 'set': result.push(CompletionItemsArrayTypes.VARIABLES); break
-        //    case 'function':
-        //        if (isOption(lastNode) && ['-e', '--on-event'].includes(lastNode.text)) result.push(CompletionItemsArrayTypes.FUNCTIONS);
-        //        if (isOption(lastNode) && ['-v', '--on-variable'].includes(lastNode.text)) result.push(CompletionItemsArrayTypes.VARIABLES);
-        //        if (isOption(lastNode) && ['-V', '--inherit-variable'].includes(lastNode.text)) result.push(CompletionItemsArrayTypes.VARIABLES);
-        //        if (lastNode.text === 'function') result.push(CompletionItemsArrayTypes.AUTOLOAD_FILENAME);
-        //        break
-        //    case 'return': result.push(CompletionItemsArrayTypes.STATUS_NUMBERS, CompletionItemsArrayTypes.VARIABLES); break
-        //    default:
-        //        result.push(CompletionItemsArrayTypes.VARIABLES, CompletionItemsArrayTypes.FUNCTIONS, CompletionItemsArrayTypes.PIPES, CompletionItemsArrayTypes.WILDCARDS, CompletionItemsArrayTypes.ESCAPE_CHARS)
-        //        break
-        //}
+        const {word, command, wordNode, commandNode} = this.getNodeContext(line)
+        const result: CompletionItemsArrayTypes[] = []
+        switch (command) {
+            case 'functions': result.push(CompletionItemsArrayTypes.FUNCTIONS); break
+            case 'end': result.push(CompletionItemsArrayTypes.PIPES); break
+            case 'printf': result.push(CompletionItemsArrayTypes.FORMAT_SPECIFIERS); break
+            case 'set': result.push(CompletionItemsArrayTypes.VARIABLES); break
+            case 'function':
+                //if (isOption(lastNode) && ['-e', '--on-event'].includes(lastNode.text)) result.push(CompletionItemsArrayTypes.FUNCTIONS);
+                //if (isOption(lastNode) && ['-v', '--on-variable'].includes(lastNode.text)) result.push(CompletionItemsArrayTypes.VARIABLES);
+                //if (isOption(lastNode) && ['-V', '--inherit-variable'].includes(lastNode.text)) result.push(CompletionItemsArrayTypes.VARIABLES);
+                result.push(CompletionItemsArrayTypes.AUTOLOAD_FILENAME);
+                break
+            case 'return':
+                result.push(CompletionItemsArrayTypes.STATUS_NUMBERS, CompletionItemsArrayTypes.VARIABLES);
+                break
+            default:
+                result.push(CompletionItemsArrayTypes.VARIABLES, CompletionItemsArrayTypes.FUNCTIONS, CompletionItemsArrayTypes.PIPES, CompletionItemsArrayTypes.WILDCARDS, CompletionItemsArrayTypes.ESCAPE_CHARS)
+                break
+        }
         //if (isStringCharacter(lastNode)) result.push(CompletionItemsArrayTypes.VARIABLES, CompletionItemsArrayTypes.ESCAPE_CHARS)
-        //return result
+        return result
     }
 }
 
