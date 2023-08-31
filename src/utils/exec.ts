@@ -45,6 +45,12 @@ export function execCmd(cmd: string): Promise<string[]> {
     })
 }
 
+//export async function execSubshellCompletions(line: string): Promise<string[]> {
+//    const escapedCommand = line.replace(/(["'$`\\])/g,'\\$1');
+//    const completeString = `fish -c "complete --do-complete='${escapedCommand}'"`;
+//    const child = await execAsync(completeString)
+//    return child
+//}
 
 export async function execFormatter(path: string) {
     const child = await execEscapedCommand(`fish_indent ${path}`);
@@ -85,14 +91,16 @@ export async function getGloablVariable(...cmd: string[]) : Promise<string[]> {
 }
 
 export async function execCompleteLine(cmd: string): Promise<string[]> {
-    const completeString = `complete --do-complete="${cmd}"`;
-    const out = await execEscapedCommand(completeString)
-    return out
+    const escapedCommand = cmd.replace(/(["'$`\\])/g,'\\$1');
+    const completeString = `fish -c "complete --do-complete='${escapedCommand}'"`;
+
+    const child = await execAsync(completeString)
+    return child.stdout.trim().split('\n') || []
 }
 
  export async function execCompleteSpace(cmd: string): Promise<string[]> {
     const escapedCommand = cmd.replace(/(["'$`\\])/g,'\\$1');
-    const completeString = `fish -c 'complete --do-complete="${escapedCommand} "'`;
+    const completeString = `fish -c "complete --do-complete='${escapedCommand} '"`;
 
     const child = await execAsync(completeString)
 

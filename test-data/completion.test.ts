@@ -122,4 +122,10 @@ describe('complete simple tests', () => {
         })
         console.table(tbl);
     }, 1000)
+
+    it('get subshell completions from stdout', async () => {
+        const outputArray = await completions.getSubshellStdoutCompletions('ls -');
+        console.log(outputArray.length, outputArray);
+    })
+
 })

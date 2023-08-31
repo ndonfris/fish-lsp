@@ -8,6 +8,9 @@ import { getChildNodes, getNamedChildNodes, getLeafs, getLastLeaf, ancestorMatch
 import { isCommand, isCommandName, isOption, isConditional, isString, isStringCharacter,  isIfOrElseIfConditional, isUnmatchedStringCharacter, isPartialForLoop, } from './utils/node-types';
 import { CompletionItemsArrayTypes, WordsToNotCompleteAfter } from './utils/completion-types';
 import { isBuiltin, BuiltInList, isFunction } from "./utils/builtins";
+import { execCompleteLine } from './utils/exec';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 
 export class FishCompletionList {
     private readonly COMMAND_TYPES = ['command', 'for_statement', 'case', 'function']
@@ -90,6 +93,34 @@ export class FishCompletionList {
     hasOption(command: SyntaxNode, options: string[]) {
         return getChildNodes(command).some(n => options.includes(n.text))
     }
+
+    async getSubshellStdoutCompletions(line: string) {
+        const resultItem = (splitLine: string[]) => {
+            let name = splitLine[0] || ''
+            let description = splitLine.length > 1 ? splitLine.slice(1).join(' ') : ''
+            return [name, description] as [string, string]
+        }
+        const outputLines = await execCompleteLine(line)
+        //const result: [string, string][] = []
+        //for (let line of outputLines) {
+        //    let lineArray = line.split('\t')
+        //    result.push(resultItem(lineArray))
+        //}
+        //return result
+        return outputLines
+            .filter(line => line.trim().length !== 0)
+            .map(line => line.split('\t'))
+            .map((splitLine) => resultItem(splitLine))
+    }
+    //const execPromise = promisify(exec)
+    //const cmd = line.replace(/(["'$`\\])/g,'\\$1');
+    //const result = await execPromise(`fish -c "complete --do-complete='${cmd}'"`)
+    //return result.stdout
+    //    .trim()
+    //    .split('\n')
+    //    .filter(line => line.trim().length !== 0)
+    //    .map(line => line.split('\t'))
+    //    .map((splitLine) => resultItem(splitLine))
 
    /**
     * here we will specifically populate the completion list with items specific to their
