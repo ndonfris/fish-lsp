@@ -15,6 +15,8 @@
   "main": "./out/server.js",
   "typings": "./out/server.d.ts",
   "scripts": {
+    "build:wasm:pre" : "npm install; pushd node_modules/tree-sitter-fish; npm install",
+    "build:wasm" : "npm run build:wasm:pre && tree-sitter build-wasm ./grammar.js && cp tree-sitter-fish.wasm ../../src/tree-sitter-fish.wasm && popd",
     "pre:clean": "rimraf lib *.tsbuildinfo out",
     "clean": "npm run pre:clean && tsc -b && chmod 755 ./out/cli.js",
     "prepare:tests": "rm -f test_data/fish_files/*.fish && yarn run prepare:install:tests",

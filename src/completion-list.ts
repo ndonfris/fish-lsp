@@ -46,7 +46,7 @@ export class FishCompletionList {
         let node = getLastLeaf(rootNode);
         if (!node || node.text.trim() === "") return { word: null, wordNode: null };
         return {
-            word: node.text.trim(),
+            word: node.text.trim()+line.slice(node.endIndex),
             wordNode: node,
         };
     }
@@ -84,9 +84,14 @@ export class FishCompletionList {
     }
 
     getNodeContext(line: string) {
+        const {word, wordNode} = this.parseWord(line)
+        const {command, commandNode} = this.parseCommand(line)
+        if (word === command) return {word, wordNode, command: null, commandNode: null}
         return {
-            ...this.parseWord(line),
-            ...this.parseCommand(line)
+            word,
+            wordNode,
+            command,
+            commandNode,
         }
     }
 
@@ -101,26 +106,13 @@ export class FishCompletionList {
             return [name, description] as [string, string]
         }
         const outputLines = await execCompleteLine(line)
-        //const result: [string, string][] = []
-        //for (let line of outputLines) {
-        //    let lineArray = line.split('\t')
-        //    result.push(resultItem(lineArray))
-        //}
-        //return result
         return outputLines
             .filter(line => line.trim().length !== 0)
             .map(line => line.split('\t'))
             .map((splitLine) => resultItem(splitLine))
     }
-    //const execPromise = promisify(exec)
-    //const cmd = line.replace(/(["'$`\\])/g,'\\$1');
-    //const result = await execPromise(`fish -c "complete --do-complete='${cmd}'"`)
-    //return result.stdout
-    //    .trim()
-    //    .split('\n')
-    //    .filter(line => line.trim().length !== 0)
-    //    .map(line => line.split('\t'))
-    //    .map((splitLine) => resultItem(splitLine))
+
+
 
    /**
     * here we will specifically populate the completion list with items specific to their
@@ -152,7 +144,7 @@ export class FishCompletionList {
             case 'return':
                 result.push(CompletionItemsArrayTypes.STATUS_NUMBERS, CompletionItemsArrayTypes.VARIABLES);
                 break
-            default:
+            default:       
                 result.push(CompletionItemsArrayTypes.VARIABLES, CompletionItemsArrayTypes.FUNCTIONS, CompletionItemsArrayTypes.PIPES, CompletionItemsArrayTypes.WILDCARDS, CompletionItemsArrayTypes.ESCAPE_CHARS)
                 break
         }

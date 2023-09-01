@@ -1,6 +1,7 @@
 {
     "extends": "./tsconfig.json",
     "compiler_options": {
+        "resolveJsonModule": true,
         "verbose": true,
         "noEmit": true
     },

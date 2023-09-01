@@ -663,6 +663,7 @@ export const WordsToNotCompleteAfter: string[] = [
     'begin',
     'true',
     'false',
+    //'else'     //
 ]
 
 export enum CompletionItemsArrayTypes {
