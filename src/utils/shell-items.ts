@@ -20,7 +20,7 @@ export const ShellItemToCompletionKind: Record<ShellItemType, CompletionItemKind
 }
 
 export const SetupShellCommands = {
-    [ShellItemType.abbr]: `abbr | string split " -- " -f2 | string unescape`,
+    [ShellItemType.abbr]: `abbr --list`,
     [ShellItemType.function]: `functions --names | string collect`,
     [ShellItemType.variable]: `set -n`,
     [ShellItemType.eventHandler]: `functions --handlers | string match -vr '^Event \\w+'`,
@@ -99,7 +99,7 @@ function createItemArray(lines: string[], type: ShellItemType): CompletionItem[]
                     kind: ShellItemToCompletionKind[type],
                     documentation: enrichToCodeBlockMarkdown(handlerCaller, 'fish'),
                 }
-            default: 
+            default:
                 return {
                     ...CompletionItem.create(line),
                     kind: ShellItemToCompletionKind[type],
@@ -107,4 +107,3 @@ function createItemArray(lines: string[], type: ShellItemType): CompletionItem[]
         }
     })
 }
-// 

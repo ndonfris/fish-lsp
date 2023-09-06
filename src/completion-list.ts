@@ -99,7 +99,7 @@ export class FishCompletionList {
         return getChildNodes(command).some(n => options.includes(n.text))
     }
 
-    async getSubshellStdoutCompletions(line: string) {
+    async getSubshellStdoutCompletions(line: string): Promise<[string, string][]> {
         const resultItem = (splitLine: string[]) => {
             let name = splitLine[0] || ''
             let description = splitLine.length > 1 ? splitLine.slice(1).join(' ') : ''
@@ -149,6 +149,19 @@ export class FishCompletionList {
                 break
         }
         //if (isStringCharacter(lastNode)) result.push(CompletionItemsArrayTypes.VARIABLES, CompletionItemsArrayTypes.ESCAPE_CHARS)
+        return result
+    }
+
+    async createCompletionList(line: string): Promise<FishCompletionItem[]> {
+        const {word, command, wordNode, commandNode} = this.getNodeContext(line)
+        const result: FishCompletionItem[] = []
+        const completionArrayTypes = this.getCompletionArrayTypes(line)
+        //const completionData: FishCompletionData = {
+        //    word, command, wordNode, commandNode, line
+        //}
+        for (const arrayType of completionArrayTypes) {
+            //result.push(...await createCompletionItem(arrayType, completionData))
+        }
         return result
     }
 }

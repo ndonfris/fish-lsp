@@ -23,14 +23,17 @@ import { Node } from './mock-datatypes';
 import { FishCompletionList } from '../src/completion-list';
 import { getChildNodes,  getLeafs } from '../src/utils/tree-sitter';
 import { AbbrList, EventNamesList, FunctionNamesList, GlobalVariableList, isBuiltin, isFunction } from '../src/utils/builtins';
-import { createShellItems, findShellPath, ShellItems, spawnSyncRawShellOutput } from '../src/utils/startup-shell-items';
-import * as ParserTypes from '../node_modules/tree-sitter-fish/src/node-types.json';
+//import { createShellItems, findShellPath, ShellItems, spawnSyncRawShellOutput } from '../src/utils/startup-shell-items';
+import { ShellItems } from '../src/utils/shell-items';
+import { ShellCachedItems } from '../src/utils/shell-cache';
+//import * as ParserTypes from '../node_modules/tree-sitter-fish/src/node-types.json';
 
 let parser: Parser;
 //let workspaces: Workspace[] = []
 //let analyzer: Analyzer;
 let completions: FishCompletionList;
-//let items: ShellItems;
+let items: ShellItems = new ShellItems();
+let cached: ShellCachedItems = new ShellCachedItems();
 
 setLogger(
     async () => {
@@ -132,26 +135,44 @@ describe('complete simple tests', () => {
     }, 1000)
 
     //it('get subshell completions from stdout', async () => {
+    //    let inputText = 'g';
+    //    const {word,command} = completions.getNodeContext(inputText);
+    //    console.log({word,command});
+    //    const outputArray = await completions.getSubshellStdoutCompletions(inputText);
+    //    for (const [label, desc] of outputArray) {
+    //        if (items.hasItem(label, ['function'])) console.log('FUNCTION', {label, desc});
+    //        if (items.hasItem(label, ['builtin'])) console.log('BUILTIN', {label, desc});
+    //        if (items.hasItem(label, ['abbr'])) console.log('ABBR', {label, desc});
+    //        //if (desc.startsWith('command')) continue
+    //        //if (label === 'ls') console.log('LSLSLSLS', {label, desc});
+    //        //console.log({label, desc});
+    //    }
     //    //const outputArray = await completions.getSubshellStdoutCompletions('ls -');
     //    //console.log(outputArray.length, outputArray);
-    //    const lang: Parser.Language = parser.getLanguage()
-    //    //let i = 0;
-    //    console.log(JSON.stringify(lang, null, 2));
-    //    for (const [k, v] of Object.entries(ParserTypes)) {
-    //        console.log(JSON.stringify({index: k, k: lang.nodeTypeForId(parseInt(k)), v: v}, null, 2));
-    //    }
-    //    //for (let i = 0; i < lang.nodeTypeCount; i++) {
-    //    //    const node = lang.nodeTypeForId(i)
-    //    //    let id = i;
-    //    //    let fieldName = lang.fieldNameForId(id)
-    //    //    console.log('id: ',id, '\nnodeType', node, '\nfieldName', fieldName, '\n')
-    //    //    //lang.idForNodeType(lang.nodeTypeForId(i), )
-    //    //
-    //    //}
-    //    //
-    //    // we want the captures
-    //    //testCompletionCaptures()
+    //    console.log("");
+    //    console.log("");
+    //    console.log("");
+    //    //await cached.init()
+    //    console.log(cached._cached);
+    //    console.log();
+    //    console.log(cached.getCompletionType('ls'));
+    //    console.log(cached.hasLabel('ls'));
     //})
+
+    it('timing ShellItems', async () => {
+        const start = Date.now();
+        await items.init()
+        const end = Date.now();
+        console.log(`ShellItems took ${end - start} ms to initialize`);
+    })
+
+    it('timing ShellCachedItems', async () => {
+        const start = Date.now();
+        await cached.init()
+        const end = Date.now();
+        console.log(`ShellCachedItems took ${end - start} ms to initialize`);
+    })
+
 
 })
 

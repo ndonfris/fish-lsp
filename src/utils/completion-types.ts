@@ -774,3 +774,184 @@ export async function resolveFishCompletionItemType(
             return FishCompletionItemKind.CMD_NO_DOC;
         });
 }
+
+
+
+//export const FormatSpecifierCompletionItems: FishSimpleCompletionItem[] = [
+//    {
+//        label: "%d",
+//        type: FishCompletionItemType.FormatSpecifier,
+//        description:
+//            "Argument will be used as decimal integer (signed or unsigned)",
+//        documentation: "Argument will be used as decimal integer (signed or unsigned)",
+//    },
+//    {
+//        label: "%i",
+//        type: FishCompletionItemType.FormatSpecifier,
+//        description:
+//            "Argument will be used as decimal integer (signed or unsigned)",
+//        documentation: "Argument will be used as decimal integer (signed or unsigned)",
+//    },
+//    {
+//        label: "%o",
+//        type: FishCompletionItemType.FormatSpecifier,
+//        description: "An octal unsigned integer",
+//        documentation: "An octal unsigned integer",
+//    },
+//    {
+//        label: "%u",
+//        type: FishCompletionItemType.FormatSpecifier,
+//        description:
+//            "An unsigned decimal integer - this means negative numbers will wrap around",
+//        documentation: "An octal unsigned integer",
+//    },
+//    {
+//        label: "%x",
+//        type: FishCompletionItemType.FormatSpecifier,
+//        description: "An unsigned hexadecimal integer",
+//        documentation: "An unsigned hexadecimal integer",
+//    },
+//    {
+//        label: "%X",
+//        type: FishCompletionItemType.FormatSpecifier,
+//        description: "An unsigned hexadecimal integer",
+//        documentation: "An unsigned hexadecimal integer",
+//    },
+//    {
+//        label: "%f",
+//        type: FishCompletionItemType.FormatSpecifier,
+//        description:
+//            "A floating-point number. %f defaults to 6 places after the decimal point (which is  locale-dependent  - e.g. in de_DE it will be a ,).",
+//        documentation: "A floating-point number. %f defaults to 6 places after the decimal point (which is  locale-dependent  - e.g. in de_DE it will be a ,).",
+//    },
+//    {
+//        label: "%g",
+//        type: FishCompletionItemType.FormatSpecifier,
+//        description:
+//            "will trim trailing zeroes and switch to scientific notation (like %e) if the numbers get small or large enough.",
+//        documentation: "will trim trailing zeroes and switch to scientific notation (like %e) if the numbers get small or large enough.",
+//    },
+//    {
+//        label: "%G",
+//        type: FishCompletionItemType.FormatSpecifier,
+//        description:
+//            "will trim trailing zeroes and switch to scientific notation (like %e) if the numbers get small or large enough.",
+//        documentation: "will trim trailing zeroes and switch to scientific notation (like %e) if the numbers get small or large enough.",
+//    },
+//    {
+//        label: "%s",
+//        type: FishCompletionItemType.FormatSpecifier,
+//        description: "A string",
+//        documentation: "A string",
+//    },
+//    {
+//        label: "%b",
+//        type: FishCompletionItemType.FormatSpecifier,
+//        description:
+//            "As a string, interpreting backslash escapes, except that octal escapes are of the  form  0 or 0ooo.",
+//        documentation: "As a string, interpreting backslash escapes, except that octal escapes are of the  form  0 or 0ooo.",
+//    },
+//    {
+//        label: "%%",
+//        type: FishCompletionItemType.FormatSpecifier,
+//        description: 'Signifies a literal "%"',
+//        documentation: 'Signifies a literal "%"',
+//    },
+//}
+//
+
+
+
+//
+//export const FormatSpecifierCompletionItems: CompletionItem[] = [
+//    {
+//        label: "%d",
+//        description:
+//            "Argument will be used as decimal integer (signed or unsigned)",
+//    },
+//    {
+//        label: "%i",
+//        description:
+//            "Argument will be used as decimal integer (signed or unsigned)",
+//    },
+//    {
+//        label: "%o",
+//        description: "An octal unsigned integer",
+//    },
+//    {
+//        label: "%u",
+//        description:
+//            "An unsigned decimal integer - this means negative numbers will wrap around",
+//    },
+//    {
+//        label: "%x",
+//        description: "An unsigned hexadecimal integer",
+//    },
+//    {
+//        label: "%X",
+//        description: "An unsigned hexadecimal integer",
+//    },
+//    {
+//        label: "%f",
+//        description:
+//            "A floating-point number. %f defaults to 6 places after the decimal point (which is  locale-dependent  - e.g. in de_DE it will be a ,).",
+//    },
+//    {
+//        label: "%g",
+//        description:
+//            "will trim trailing zeroes and switch to scientific notation (like %e) if the numbers get small or large enough.",
+//    },
+//    {
+//        label: "%G",
+//        description:
+//            "will trim trailing zeroes and switch to scientific notation (like %e) if the numbers get small or large enough.",
+//    },
+//    {
+//        label: "%s",
+//        description: "A string",
+//    },
+//    {
+//        label: "%b",
+//        description:
+//            "As a string, interpreting backslash escapes, except that octal escapes are of the  form  0 or 0ooo.",
+//    },
+//    {
+//        label: "%%",
+//        description: 'Signifies a literal "%"',
+//    },
+//]
+//export const StatusNumbersCompletionItems: CompletionItem[] = [
+//    {
+//        label: "0",
+//        description: "Success",
+//    },
+//    {
+//        label: "1",
+//        description: "Failure",
+//    },
+//    {
+//        label: "121",
+//        description: "is generally the exit status of commands if they were supplied with invalid arguments.",
+//    },
+//    {
+//        label: "123",
+//        description: "means that the command was not executed because the command name contained invalid characters.",
+//    },
+//    {
+//        label: "124",
+//        description: "means that the command was not executed because none of the wildcards in the command produced any matches.",
+//    },
+//    {
+//        label: "125",
+//        description: "means that while an executable with the specified name was located, the operating system could not actually execute the command.",
+//    },
+//    {
+//        label: "126",
+//        description: "means that while a file with the specified name was located, it was not executable.",
+//    },
+//    {
+//        label: "127",
+//        description: "means that no function, builtin or command with the given name could be located.",
+//    },
+//]
+//

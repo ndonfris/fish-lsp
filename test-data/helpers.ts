@@ -47,7 +47,6 @@ export function setLogger(
         LogSpecial("before", Opts);
         await beforeCallback();
     }, 10000);
-
     afterEach(async () => {
         global.console = jestConsole;
         LogSpecial("after", Opts);
