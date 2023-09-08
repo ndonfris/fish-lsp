@@ -29,21 +29,28 @@ export async function execEscapedCommand(cmd: string): Promise<string[]> {
     return child.stdout.trim().split('\n')
 }
 
-export function execCmd(cmd: string): Promise<string[]> {
-    return new Promise((resolve, reject) => {
-        exec(cmd, {shell: '/usr/bin/fish'}, (err, stdout, stderr) => {
-            if (err) {
-                reject(err)
-            }
-            resolve(
-                stdout
-                    .toString()
-                    .split("\n")
-                    .filter((line) => line.trim().length !== 0)
-            );
-        })
-    })
+export async function execCmd(cmd: string): Promise<string[]> {
+    const { stdout } = await execAsync(cmd, {shell: '/usr/bin/fish'});
+    return stdout
+        .toString()
+        .split("\n")
+        .filter((line) => line.trim().length !== 0);
 }
+//export function execCmd(cmd: string): Promise<string[]> {
+//    return new Promise((resolve, reject) => {
+//        exec(cmd, {shell: '/usr/bin/fish'}, (err, stdout, stderr) => {
+//            if (err) {
+//                reject(err)
+//            }
+//            resolve(
+//                stdout
+//                    .toString()
+//                    .split("\n")
+//                    .filter((line) => line.trim().length !== 0)
+//            );
+//        })
+//    })
+//}
 
 //export async function execSubshellCompletions(line: string): Promise<string[]> {
 //    const escapedCommand = line.replace(/(["'$`\\])/g,'\\$1');
