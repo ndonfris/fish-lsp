@@ -4,12 +4,12 @@ import { assert } from 'chai'
 import Parser, {SyntaxNode} from 'web-tree-sitter';
 import {initializeParser} from '../src/parser';
 import {LspDocument} from '../src/document';
-import { DocumentationCache, initializeDocumentationCache } from '../src/utils/documentationCache'
+import { DocumentationCache, getVariableDocString, getAbbrDocString, getFunctionDocString, initializeDocumentationCache } from '../src/utils/documentationCache'
 import { containsRange, findDefinitionSymbols, } from '../src/workspace-symbol';
 import { Color } from 'colors';
 import { Analyzer } from '../src/analyze';
 import { setLogger } from './helpers'
-import { execCmd, execCompleteGlobalDocs, execCompleteVariables, execCompletionHelper, execEscapedCommand } from '../src/utils/exec';
+import { execCmd, execCommandDocs, execCompleteGlobalDocs, execCompleteVariables, execCompletionHelper, execEscapedCommand } from '../src/utils/exec';
 import { promisify } from 'util';
 import { resolve } from 'path';
 import { readFileSync } from 'fs';
@@ -25,8 +25,9 @@ import { getChildNodes,  getLeafs } from '../src/utils/tree-sitter';
 import { AbbrList, EventNamesList, FunctionNamesList, GlobalVariableList, isBuiltin, isFunction } from '../src/utils/builtins';
 //import { createShellItems, findShellPath, ShellItems, spawnSyncRawShellOutput } from '../src/utils/startup-shell-items';
 import { ShellItems } from '../src/utils/shell-items';
-import { ShellCachedItems, initializeShellCache } from '../src/utils/shell-cache';
+//import { initializeShellCache } from '../src/utils/shell-cache';
 import * as SHELL from '../src/utils/shell-cache';
+import { FishSimpleCompletionItem } from '../src/utils/completion-types';
 //import * as ParserTypes from '../node_modules/tree-sitter-fish/src/node-types.json';
 
 let parser: Parser;
@@ -34,7 +35,6 @@ let parser: Parser;
 //let analyzer: Analyzer;
 let completions: FishCompletionList;
 let items: ShellItems = new ShellItems();
-let cached: ShellCachedItems = new ShellCachedItems();
 
 setLogger(
     async () => {
@@ -160,52 +160,58 @@ describe('complete simple tests', () => {
     //    console.log(cached.hasLabel('ls'));
     //})
 
-    it('timing ShellItems', async () => {
-        const start = Date.now();
-        await items.init()
-        const end = Date.now();
-        console.log(`ShellItems took ${end - start} ms to initialize`);
-    })
-
-    it('timing ShellCachedItems', async () => {
-        const start = Date.now();
-        await cached.init()
-        const end = Date.now();
-    console.log(`ShellCachedItems took ${end - start} ms to initialize`);
-    })
-
-    it('timing OBJ', async () => {
-        const start = Date.now();
-        const ObjCache = await initializeShellCache()
-        //Object.entries(ObjCache).
-        Object.entries(ObjCache).forEach(([k,v]) => {
-            console.log(v.labelNamesResolver)
-        })
-        const end = Date.now();
-        console.log(`OBJ took ${end - start} ms to initialize`);
-        console.log();
-        Object.keys(ObjCache).forEach((k) => {
-            console.log(`"FishCompletionItemKind.${k}": {},`);
-        })
-        console.log('keys',    SHELL.FishCompletionItemKind.getKeys());
-        console.log('values',  SHELL.FishCompletionItemKind.getValues());
-        console.log('entry',  SHELL.FishCompletionItemKind.getEntries());
-        console.log("findKey", SHELL.FishCompletionItemKind.getEnumKey('ABBR'), SHELL.FishCompletionItemKind['ABBR']);
-        //console.log("findValue", SHELL.FishCompletionItemKind.getEnumValue('ABBR') === SHELL.FishCompletionItemKind.ABBR);
-        //console.log("last", SHELL.FishCompletionItemKind['ABBR']);
-    })
+    /*it('timing ShellItems', async () => {*/
+    /*    const start = Date.now();*/
+    /*    await items.init()*/
+    /*    const end = Date.now();*/
+    /*    console.log(`ShellItems took ${end - start} ms to initialize`);*/
+    /*})*/
 
     it('timing SHELL.initFishCompletionItemKinds()', async () => {
         const start = Date.now();
         const cachedAll = await SHELL.initFishCompletionItemKinds()
         const allEntries = Object.entries(cachedAll)
         for (const [k,v] of allEntries) {
-            console.log(k.toString(), v.labels);
+            //console.log(k.toString(), v.labels);
+            console.log(`${k}: ${v.labels.size}`);
         }
         const end = Date.now();
         console.log(`SHELL.initFishCompletionItemKinds() took ${end - start} ms to initialize`);
     })
 
+
+    it('docs testing', async () => {
+        const cached = await SHELL.initFishCompletionItemKinds()
+        const values = Object.values(cached)
+        const getOnlyFirst = (value: SHELL.ICached) => {
+            const _i = value.items[0]!
+            return {
+                [value.toFishCompletionItemKind]: {
+                    ...value,
+                    labels: [_i.label || ''],
+                    items:  [_i],
+                }
+            }
+        }
+        const firstValues = values
+            .filter((value)=> value.labels.size > 0 && value.items.length > 0)
+            .map((value) => {
+                return getOnlyFirst(value)
+            })
+
+
+        const firstValuesEntries = Object.entries(cached)
+        for (const [k,v] of firstValuesEntries) {
+            if (v.toFishCompletionItemKind === 'function') {
+                console.log(k.toString(), JSON.stringify(v, null, 2));
+            }
+        }
+        //console.log((await execCmd('functions -D -v lso')));
+        //console.log((await execCommandDocs('lso')));
+        //console.log((await getFunctionDocString('lso')));
+        //console.log((await getAbbrDocString('gw')));
+        //console.log((await  getVariableDocString('PATH')));
+    })
 })
 
 //    id: number,
@@ -289,3 +295,4 @@ export const testCompletionCaptures = () => {
         console.log(k, JSON.stringify(v, null, 4));
     }
 }
+

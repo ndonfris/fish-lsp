@@ -1,7 +1,7 @@
 import { MarkupKind, SymbolKind, MarkupContent, DocumentSymbol } from 'vscode-languageserver';
 import Parser from 'web-tree-sitter';
 import { documentationHoverProviderForBuiltIns } from '../documentation';
-import { execCommandDocs, execEscapedCommand } from './exec';
+import { execCmd, execCommandDocs, execEscapedCommand } from './exec';
 import { uriToPath } from './translation';
 
 
@@ -56,7 +56,7 @@ export function createCachedItem(type: SymbolKind, uri?: string): CachedGlobalIt
 async function getNewDocSring(name: string, item: CachedGlobalItem) : Promise<string | undefined> {
     switch (item.type) {
     case SymbolKind.Variable:
-        return await getVariableDocs(name);
+        return await getVariableDocString(name);
     case SymbolKind.Function:
         return await getFunctionDocString(name)
     case SymbolKind.Class:
@@ -109,23 +109,62 @@ function escapePathStr(functionTitleLine: string) : string {
     ].join(' ')
 }
 
+function ensureMinLength<T>(arr: T[], minLength: number, fillValue?: T): T[] {
+  while (arr.length < minLength) {
+    arr.push(fillValue as T);
+  }
+  return arr;
+}
+
 /**
  * builds FunctionDocumentaiton string
  */
-async function getFunctionDocString(name: string): Promise<string | undefined> {
-    const docStr = await execCommandDocs(name);
-    if (docStr) {
-        const docTitle = docStr.split('\n')[0]
-        const docBody = docStr.split('\n').slice(1).join('\n');
+export async function getFunctionDocString(name: string): Promise<string | undefined> {
+    function formatTitle(title: string[]) {
+        const ensured = ensureMinLength(title, 5, '')
+        let [path, autoloaded, line, scope, description] = ensured;
+        
         return [
-            `${escapePathStr(docTitle).trim()}`,
-            '___',
-            '```fish',
-            docBody,
-            '```'
-        ].join('\n');
+            `\`${path}\``,
+            `- autoloaded: ${autoloaded === 'autoloaded' ? '_true_' : '_false_'}`,
+            `- line: _${line}_`,
+            `- scope: _${scope}_`,
+            `${description}`,
+        ].map((str) => str.trim()).filter(l => l.trim().length).join('\n')
     }
-    return undefined;
+    const [title, body] = await Promise.all([
+        execCmd(`functions -D -v ${name}`),
+        execCmd(`functions --no-details ${name}`)
+    ])
+    return [
+        formatTitle(title), 
+        '___',
+        '```fish',
+        body.join('\n'),
+        '```'
+    ].join('\n') || ''
+}
+
+export async function getAbbrDocString(name: string): Promise<string | undefined> {
+    const items: string[] = await execCmd(`abbr --show | string split ' -- ' -m1 -f2`)
+    function getAbbr(items: string[]) : [string, string]           {
+        const start : string = `${name} `
+        for (const item of items) {
+            if (item.startsWith(start)) {
+                return [start.trimEnd(), item.slice(start.length)]
+            }
+        }
+        return ['', '']
+    }
+    const [title, body] = getAbbr(items)
+    return [
+        `Abbreviation: _${title}_`,
+        '___',
+        '```fish',
+        body.trimEnd(),
+        '```'
+    ].join('\n') || ''
+
 }
 /** 
  * builds MarkupString for builtin documentation
@@ -146,24 +185,27 @@ export async function getBuiltinDocString(name: string): Promise<string | undefi
 /**
  * builds MarkupString for global variable documentation
  */
-async function getVariableDocs(name: string): Promise<string | undefined> {
-    const docs = await execEscapedCommand(`set --show ${name}`)
-    if (!docs) {
-        return undefined;
-    }
-    const splitDocs = docs.join('\n').split('\n');
-    const splitTitleArray = splitDocs[0].split(':');
-    const splitOther: string[] = splitDocs.slice(1);
-    const formattedOther = splitOther.map((line: string) => {
-        const arr = line.split(': ');
-        const fishScript = ['**|**', arr[1].slice(1,-1), '**|**'].join('`')
-        return `*${arr[0]}*: ${fishScript}`
-    }).join('\n')
+export async function getVariableDocString(name: string): Promise<string | undefined> {
+    let vName = name.startsWith('$') ? name.slice(name.lastIndexOf('$')) : name
+    const out = await execCmd(`set --show --long ${vName}`)
+    const { first, middle, last } = out.reduce((acc, curr, idx, arr) => {
+        if (idx === 0) {
+            acc.first = curr;
+        } else if (idx === arr.length - 1) {
+            acc.last = curr;
+        } else {
+            acc.middle.push(curr);
+        }
+        return acc;
+    }, { first: '', middle: [] as string[], last: '' });
     return [
-        `**${splitTitleArray[0].trim()}** - *${splitTitleArray[1].trim()}*`,
-        //'___',
-        formattedOther
-    ].join('\n')
+            first, 
+            '___',
+            middle.join('\n'),
+            '___',
+            last,
+        ].join('\n')
+    
 }
 
 
