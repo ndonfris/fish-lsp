@@ -4,7 +4,7 @@ import { assert } from 'chai'
 import Parser, {SyntaxNode} from 'web-tree-sitter';
 import {initializeParser} from '../src/parser';
 import {LspDocument} from '../src/document';
-import { DocumentationCache, getVariableDocString, getAbbrDocString, getFunctionDocString, initializeDocumentationCache } from '../src/utils/documentationCache'
+import { DocumentationCache, getVariableDocString, getAbbrDocString, getFunctionDocString, initializeDocumentationCache, getBuiltinDocString, getCommandDocString } from '../src/utils/documentationCache'
 import { containsRange, findDefinitionSymbols, } from '../src/workspace-symbol';
 import { Color } from 'colors';
 import { Analyzer } from '../src/analyze';
@@ -22,12 +22,12 @@ import { isBeforeCommand, isBlockBreak, isCommand, isCommandName, isPartialForLo
 import { Node } from './mock-datatypes';
 import { FishCompletionList } from '../src/completion-list';
 import { getChildNodes,  getLeafs } from '../src/utils/tree-sitter';
-import { AbbrList, EventNamesList, FunctionNamesList, GlobalVariableList, isBuiltin, isFunction } from '../src/utils/builtins';
+//import { AbbrList, EventNamesList, FunctionNamesList, GlobalVariableList, isBuiltin, isFunction } from '../src/utils/builtins';
 //import { createShellItems, findShellPath, ShellItems, spawnSyncRawShellOutput } from '../src/utils/startup-shell-items';
 import * as SHELL from '../src/utils/shell-items';
 //import { initializeShellCache } from '../src/utils/shell-cache';
 import * as CACHE from '../src/utils/shell-cache';
-import { FishSimpleCompletionItem } from '../src/utils/completion-types';
+import { FishCompletionItem } from '../src/utils/completion-types';
 //import * as ParserTypes from '../node_modules/tree-sitter-fish/src/node-types.json';
 
 let parser: Parser;
@@ -46,6 +46,13 @@ setLogger(
 )
 
 describe('complete simple tests', () => {
+    //it('testing execCmd', async () => {
+    //    const start = Date.now();
+    //    let out = await execCmd(`builtin complete -C ''`)
+    //    const end = Date.now();
+    //    console.log(`execCmd took ${end - start} ms to initialize`);
+    //
+    //})
 
     it('testing edits to completionLine, to find commands";`', async () => {
         const inputs: string[] = [
@@ -167,18 +174,6 @@ describe('complete simple tests', () => {
     /*    console.log(`ShellItems took ${end - start} ms to initialize`);*/
     /*})*/
 
-    it('timing SHELL.initFishCompletionItemKinds()', async () => {
-        const start = Date.now();
-        const cachedAll = await CACHE.initFishCompletionItemKinds()
-        const allEntries = Object.entries(cachedAll)
-        for (const [k,v] of allEntries) {
-            console.log(k.toString(), v.labels);
-            //console.log(`${k}: ${v.labels.size}`);
-        }
-        const end = Date.now();
-        console.log(`SHELL.initFishCompletionItemKinds() took ${end - start} ms to initialize`);
-    })
-
 
     it('docs testing', async () => {
         const start = Date.now();
@@ -187,37 +182,15 @@ describe('complete simple tests', () => {
         const end = Date.now();
         console.log(`SHELL.ShellItems().initialize() took ${end - start} ms to initialize`);
         for (const [k, v] of items.entries()) {
-            console.log(`key: '${k}'`, `values: [${Array.from(v.labels.values()).slice(0, 5).map((v) => `'${v}'`).join(', ')}]`);
+            console.log(k, JSON.stringify({
+                labels: Array.from(v.labels.keys()).slice(-10),
+                items: v.items.slice(0,5),
+                kind: v.completionKind,
+                fishKind: v.fishCompletionKind,
+            }, null, 2));
         }
-        //const txt: string[] = []
-        //for (const i of SHELL.FishCompletionItemKind.enums()) {
-        //    txt.push(`'${i}'`)
-        //}
-        //console.log(txt.join('|'))
-        //FishCompletionItemKind.en
-        //items.initForCommands()
-        //console.log((await execCmd('functions -D -v lso')));
-        //console.log((await execCommandDocs('lso')));
-        //console.log((await getFunctionDocString('lso')));
-        //console.log((await getAbbrDocString('gw')));
-        //console.log((await  getVariableDocString('PATH')));
     })
 
-    it('testing execCmd', async () => {
-        const start = Date.now();
-        let out = await execCmd(`builtin complete -C ''`)
-        out = out.slice(0,5)
-        for (const o of out) {
-            let [start, ...end] = o.split(/\s/g,2)
-            let endStr = end.join(' ')
-            console.log({start, endStr});
-        }
-        
-        //console.log(out.slice(0, i));
-        //console.log(out.slice(0, 5));
-        const end = Date.now();
-        console.log(`execCmd took ${end - start} ms to initialize`);
-    })
 })
 
 //    id: number,

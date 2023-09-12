@@ -37,6 +37,7 @@ export async function execCmd(cmd: string): Promise<string[]> {
         windowsHide: true,
         cwd: process.cwd(),
         env: {},
+        //env: process.env,
         //stdio: ["pipe", "pipe", "ignore"],
     });
     return stdout

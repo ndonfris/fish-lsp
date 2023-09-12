@@ -182,6 +182,16 @@ export async function getBuiltinDocString(name: string): Promise<string | undefi
         '```'
     ].join('\n') 
 }
+
+export async function getAliasDocString(label: string, line: string): Promise<string | undefined> {
+    return [
+        `Alias: _${label}_`,
+        '___',
+        '```fish',
+        line.split('\t')[1],
+        '```'
+    ].join('\n')
+}
 /**
  * builds MarkupString for global variable documentation
  */
@@ -205,6 +215,18 @@ export async function getVariableDocString(name: string): Promise<string | undef
         '___',
         last,
     ].join('\n')
+}
+
+export async function getCommandDocString(name: string): Promise<string | undefined> {
+    const cmdDocs: string = await execCommandDocs(name);
+    if (!cmdDocs) return undefined
+    const splitDocs = cmdDocs.split('\n');
+    const startIndex = splitDocs.findIndex((line: string) => line.trim() === 'NAME')
+    return [
+        '```man',
+        splitDocs.slice(startIndex).join('\n'),
+        '```'
+    ].join('\n') 
 }
 
 export function initializeMap(collection: string[], type: SymbolKind, uri?: string): Map<string, CachedGlobalItem> {

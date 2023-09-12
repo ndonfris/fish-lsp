@@ -6,7 +6,7 @@ import { LspDocument } from './document';
 import { initializeParser } from './parser';
 import { getChildNodes, getNamedChildNodes, getLeafs, getLastLeaf, ancestorMatch, firstAncestorMatch } from './utils/tree-sitter';
 import { isCommand, isCommandName, isOption, isConditional, isString, isStringCharacter,  isIfOrElseIfConditional, isUnmatchedStringCharacter, isPartialForLoop, } from './utils/node-types';
-import { CompletionItemsArrayTypes, WordsToNotCompleteAfter } from './utils/completion-types';
+//import { CompletionItemsArrayTypes, WordsToNotCompleteAfter } from './utils/completion-types';
 import { isBuiltin, BuiltInList, isFunction } from "./utils/builtins";
 import { execCompleteLine } from './utils/exec';
 import { exec } from 'child_process';
@@ -127,41 +127,41 @@ export class FishCompletionList {
     *               •                                   •   strings, variables
     * ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
     */
-    getCompletionArrayTypes(line: string) {
-        const {word, command, wordNode, commandNode} = this.getNodeContext(line)
-        const result: CompletionItemsArrayTypes[] = []
-        switch (command) {
-            case 'functions': result.push(CompletionItemsArrayTypes.FUNCTIONS); break
-            case 'end': result.push(CompletionItemsArrayTypes.PIPES); break
-            case 'printf': result.push(CompletionItemsArrayTypes.FORMAT_SPECIFIERS); break
-            case 'set': result.push(CompletionItemsArrayTypes.VARIABLES); break
-            case 'function':
-                //if (isOption(lastNode) && ['-e', '--on-event'].includes(lastNode.text)) result.push(CompletionItemsArrayTypes.FUNCTIONS);
-                //if (isOption(lastNode) && ['-v', '--on-variable'].includes(lastNode.text)) result.push(CompletionItemsArrayTypes.VARIABLES);
-                //if (isOption(lastNode) && ['-V', '--inherit-variable'].includes(lastNode.text)) result.push(CompletionItemsArrayTypes.VARIABLES);
-                result.push(CompletionItemsArrayTypes.AUTOLOAD_FILENAME);
-                break
-            case 'return':
-                result.push(CompletionItemsArrayTypes.STATUS_NUMBERS, CompletionItemsArrayTypes.VARIABLES);
-                break
-            default:       
-                result.push(CompletionItemsArrayTypes.VARIABLES, CompletionItemsArrayTypes.FUNCTIONS, CompletionItemsArrayTypes.PIPES, CompletionItemsArrayTypes.WILDCARDS, CompletionItemsArrayTypes.ESCAPE_CHARS)
-                break
-        }
-        //if (isStringCharacter(lastNode)) result.push(CompletionItemsArrayTypes.VARIABLES, CompletionItemsArrayTypes.ESCAPE_CHARS)
-        return result
-    }
+    //getCompletionArrayTypes(line: string) {
+    //    const {word, command, wordNode, commandNode} = this.getNodeContext(line)
+    //    const result: CompletionItemsArrayTypes[] = []
+    //    switch (command) {
+    //        case 'functions': result.push(CompletionItemsArrayTypes.FUNCTIONS); break
+    //        case 'end': result.push(CompletionItemsArrayTypes.PIPES); break
+    //        case 'printf': result.push(CompletionItemsArrayTypes.FORMAT_SPECIFIERS); break
+    //        case 'set': result.push(CompletionItemsArrayTypes.VARIABLES); break
+    //        case 'function':
+    //            //if (isOption(lastNode) && ['-e', '--on-event'].includes(lastNode.text)) result.push(CompletionItemsArrayTypes.FUNCTIONS);
+    //            //if (isOption(lastNode) && ['-v', '--on-variable'].includes(lastNode.text)) result.push(CompletionItemsArrayTypes.VARIABLES);
+    //            //if (isOption(lastNode) && ['-V', '--inherit-variable'].includes(lastNode.text)) result.push(CompletionItemsArrayTypes.VARIABLES);
+    //            result.push(CompletionItemsArrayTypes.AUTOLOAD_FILENAME);
+    //            break
+    //        case 'return':
+    //            result.push(CompletionItemsArrayTypes.STATUS_NUMBERS, CompletionItemsArrayTypes.VARIABLES);
+    //            break
+    //        default:
+    //            result.push(CompletionItemsArrayTypes.VARIABLES, CompletionItemsArrayTypes.FUNCTIONS, CompletionItemsArrayTypes.PIPES, CompletionItemsArrayTypes.WILDCARDS, CompletionItemsArrayTypes.ESCAPE_CHARS)
+    //            break
+    //    }
+    //    //if (isStringCharacter(lastNode)) result.push(CompletionItemsArrayTypes.VARIABLES, CompletionItemsArrayTypes.ESCAPE_CHARS)
+    //    return result
+    //}
 
     async createCompletionList(line: string): Promise<FishCompletionItem[]> {
         const {word, command, wordNode, commandNode} = this.getNodeContext(line)
         const result: FishCompletionItem[] = []
-        const completionArrayTypes = this.getCompletionArrayTypes(line)
+        //const completionArrayTypes = this.getCompletionArrayTypes(line)
         //const completionData: FishCompletionData = {
         //    word, command, wordNode, commandNode, line
         //}
-        for (const arrayType of completionArrayTypes) {
-            //result.push(...await createCompletionItem(arrayType, completionData))
-        }
+        //for (const arrayType of completionArrayTypes) {
+        //    //result.push(...await createCompletionItem(arrayType, completionData))
+        //}
         return result
     }
 }

@@ -1,48 +1,10 @@
 //import { CompletionItemKind, CompletionItem } from 'vscode-languageserver';
 import { CompletionItem, CompletionItemKind } from 'vscode-languageserver';
 import { enrichToCodeBlockMarkdown } from '../documentation';
-import { FishCompletionItem, toCompletionKind } from './completion-strategy';
+//import { FishCompletionItem, toCompletionKind } from './completion-strategy';
 import { execCmd } from './exec';
-import { CombinerCompletionItems, EscapeCharItems, FishSimpleCompletionItem, FormatSpecifierCompletionItems, PipeItems, StatementCompletionItems, StatusNumbers, StringRegexExpressions, WildcardItems } from './completion-types';
-
-export enum FishCompletionItemKind {
-    ABBR = "abbr",
-    BUILTIN = "builtin",
-    FUNCTION = "function",
-    VARIABLE = "variable",
-    EVENT = "event",
-    PIPE = "pipe",
-    ESC_CHARS = "esc_chars",
-    STATUS = "status",
-    WILDCARD = "wildcard",
-    COMMAND = "command",
-    ALIAS = "alias",
-    REGEX = "regex",
-    COMBINER = "combiner",
-    FORMAT_STR = "format_str",
-    STATEMENT = "statement",
-    ARGUMENT = "argument",
-    EMPTY = "empty",
-}
-export const toCompletionItemKind: Record<FishCompletionItemKind, CompletionItemKind> = {
-    [FishCompletionItemKind.ABBR]: CompletionItemKind.Snippet,
-    [FishCompletionItemKind.BUILTIN]: CompletionItemKind.Keyword,
-    [FishCompletionItemKind.FUNCTION]: CompletionItemKind.Function,
-    [FishCompletionItemKind.VARIABLE]: CompletionItemKind.Variable,
-    [FishCompletionItemKind.EVENT]: CompletionItemKind.Event,
-    [FishCompletionItemKind.PIPE]: CompletionItemKind.Operator,
-    [FishCompletionItemKind.ESC_CHARS]: CompletionItemKind.Operator,
-    [FishCompletionItemKind.STATUS]: CompletionItemKind.EnumMember,
-    [FishCompletionItemKind.WILDCARD]: CompletionItemKind.Operator,
-    [FishCompletionItemKind.COMMAND]: CompletionItemKind.Class,
-    [FishCompletionItemKind.ALIAS]: CompletionItemKind.Constructor,
-    [FishCompletionItemKind.REGEX]: CompletionItemKind.Operator,
-    [FishCompletionItemKind.COMBINER]: CompletionItemKind.Keyword,
-    [FishCompletionItemKind.FORMAT_STR]: CompletionItemKind.Operator,
-    [FishCompletionItemKind.STATEMENT]: CompletionItemKind.Keyword,
-    [FishCompletionItemKind.ARGUMENT]: CompletionItemKind.Property,
-    [FishCompletionItemKind.EMPTY]: CompletionItemKind.Text,
-}
+import { FishCompletionItem, FishStaticCompletionItem, FishCompletionItemKind, toCompletionItemKind, FishCommandCompletionItem, FishStaticResolvedCompletionItem } from './completion-types';
+import { StaticItems } from './static-completions';
 
 
 export class ShellItems {
@@ -54,22 +16,29 @@ export class ShellItems {
     }
      
     private initItems() {
-        this.cache.set(FishCompletionItemKind.ABBR,        IBuilder.createCommand("abbr --show | string split ' -- ' -m1 -f2 | string unescape",     FishCompletionItemKind.ABBR))
-        this.cache.set(FishCompletionItemKind.BUILTIN,     IBuilder.createCommand("builtin --names", FishCompletionItemKind.BUILTIN).setSkipLabels(':', '.'))
-        this.cache.set(FishCompletionItemKind.FUNCTION,    IBuilder.createCommand("functions --all --names | string collect", FishCompletionItemKind.FUNCTION))
-        this.cache.set(FishCompletionItemKind.VARIABLE,    IBuilder.createCommand("set --names", FishCompletionItemKind.VARIABLE))
-        this.cache.set(FishCompletionItemKind.EVENT,       IBuilder.createCommand("functions --handlers | string match -vr '^Event \\w+'", FishCompletionItemKind.EVENT))
-        this.cache.set(FishCompletionItemKind.PIPE,        IBuilder.createSimple(PipeItems, FishCompletionItemKind.PIPE))
-        this.cache.set(FishCompletionItemKind.ESC_CHARS,   IBuilder.createSimple(EscapeCharItems, FishCompletionItemKind.ESC_CHARS))
-        this.cache.set(FishCompletionItemKind.STATUS,      IBuilder.createSimple(StatusNumbers, FishCompletionItemKind.STATUS))
-        this.cache.set(FishCompletionItemKind.COMBINER,    IBuilder.createSimple(CombinerCompletionItems, FishCompletionItemKind.COMBINER))
-        this.cache.set(FishCompletionItemKind.FORMAT_STR,  IBuilder.createSimple(FormatSpecifierCompletionItems, FishCompletionItemKind.FORMAT_STR))
-        this.cache.set(FishCompletionItemKind.STATEMENT,   IBuilder.createSimple(StatementCompletionItems, FishCompletionItemKind.STATEMENT))
-        this.cache.set(FishCompletionItemKind.REGEX,       IBuilder.createSimple(StringRegexExpressions, FishCompletionItemKind.REGEX))
-        //this.cache.set(FishCompletionItemKind.ARGUMENT,    IBuilder.createSimple([], FishCompletionItemKind.ARGUMENT))
-        //this.cache.set(FishCompletionItemKind.WILDCARD,   ShellItemsBuilder.createSimple(WildcardItems, FishCompletionItemKind.WILDCARD))
-        this.cache.set(FishCompletionItemKind.COMMAND,     IBuilder.createAllCommands(`builtin complete --escape -C ''`, FishCompletionItemKind.COMMAND))
+        [
+            IBuilder.createCommand("abbr --show | string split ' -- ' -m1 -f2 | string unescape",     FishCompletionItemKind.ABBR),
+            IBuilder.createCommand("builtin --names", FishCompletionItemKind.BUILTIN).setSkipLabels(':', '.'),
+            IBuilder.createCommand("functions --all --names | string collect", FishCompletionItemKind.FUNCTION),
+            IBuilder.createCommand("set --names", FishCompletionItemKind.VARIABLE),
+            IBuilder.createCommand("functions --handlers | string match -vr '^Event \\w+'", FishCompletionItemKind.EVENT),
+            IBuilder.createStatic(StaticItems.Pipes, FishCompletionItemKind.PIPE),
+            IBuilder.createStatic(StaticItems.EscapedChars, FishCompletionItemKind.ESC_CHARS),
+            IBuilder.createStatic(StaticItems.StatusNumbers, FishCompletionItemKind.STATUS),
+            IBuilder.createStatic(StaticItems.FormatStrings, FishCompletionItemKind.FORMAT_STR),
+            IBuilder.createStatic(StaticItems.StringRegex, FishCompletionItemKind.REGEX),
+            IBuilder.createStaticResolved(StaticItems.Combiners, FishCompletionItemKind.COMBINER),
+            IBuilder.createStaticResolved(StaticItems.Statements, FishCompletionItemKind.STATEMENT),
+            // IBuilder.createSimple([], FishCompletionItemKind.ARGUMENT))
+            //ShellItemsBuilder.createSimple(WildcardItems, FishCompletionItemKind.WILDCARD))
+            IBuilder.createAllCommands(`builtin complete --escape -C ''`, FishCompletionItemKind.COMMAND),
+        ].forEach((builder) => this.setBuilder(builder))
     }
+
+    private setBuilder(builder: CachedItemBuilder) {
+        this.cache.set(builder.fishCompletionKind, builder)
+    }
+
 
     keys() { return Array.from(this.cache.keys()) }
     values() { return Array.from( this.cache.values()) }
@@ -80,14 +49,17 @@ export class ShellItems {
             this.values().map(async (builder) => await builder.build())
         );
         const commandItems = this.getItemsByKind(FishCompletionItemKind.COMMAND) as AllItemBuilder
+
+        const aliasBuilder = IBuilder.createStaticResolved(commandItems.setupAlias(), FishCompletionItemKind.ALIAS)
+        this.setBuilder(aliasBuilder)
+        Promise.resolve(aliasBuilder.build())
+
         const notCommands: string[] = [
             ...this.getLabelsByKind(FishCompletionItemKind.BUILTIN),
             ...this.getLabelsByKind(FishCompletionItemKind.FUNCTION)
         ]
         commandItems.remove(...notCommands)
-        const aliasItems = commandItems.setupAlias()
-
-        this.cache.set(FishCompletionItemKind.ALIAS, IBuilder.createSimple(aliasItems, FishCompletionItemKind.ALIAS))
+        this.getItemsByKind(FishCompletionItemKind.FUNCTION)?.remove(...Array.from(aliasBuilder.labels))
     }
 
     getItemsByKind(kind: FishCompletionItemKind) {
@@ -116,7 +88,7 @@ export class ShellItems {
 
 export class CachedItemBuilder {
     labels: Set<string>
-    items: CompletionItem[]
+    items: FishCompletionItem[]
     completionKind: CompletionItemKind
     fishCompletionKind: FishCompletionItemKind
     command: string | undefined
@@ -145,6 +117,9 @@ export class CachedItemBuilder {
     }
     public async build() {
         this.update()
+        for (const item of this.items) {
+            item.setKinds(this.fishCompletionKind)
+        }
         this.finished = true
         return this
     }
@@ -158,9 +133,17 @@ export class CachedItemBuilder {
 }
 
 function splitLine(line: string): { label: string, value?: string } {
-    const [label, ...rest] = line.split(/\s+/g,2)
+    const [label, ...rest] = line.split(/\s+/)
     const value = rest.length ? rest.join(' ') : undefined;
     return { label, value };
+}
+
+function getCommandsDetail(value: string) {
+    if (value.trim().length === 0) return 'command';
+    if (value.startsWith('alias')) return 'alias';
+    if (value === 'command link') return 'command';
+    if (value === 'command') return 'command';
+    return value
 }
 
 export class CommandItemBuilder extends CachedItemBuilder {
@@ -172,10 +155,12 @@ export class CommandItemBuilder extends CachedItemBuilder {
     public async build() {
         const lines = await execCmd(this.command!)
         for (const line of lines) {
-            const { label, value } = splitLine(line)
+            const { label } = splitLine(line)
             if (this.skipLabels.includes(label)) continue
+            const item = new FishCommandCompletionItem(label, `${this.fishCompletionKind}`, line)
+            item.setKinds(this.fishCompletionKind)
             this.labels.add(label)
-            //this.items.push()
+            this.items.push(item)
         }
         this.update()
         this.finished = true
@@ -196,7 +181,10 @@ export class AllItemBuilder extends CachedItemBuilder {
             const { label, value } = splitLine(line)
             if (this.skipLabels.includes(label)) continue
             this.labels.add(label)
-            //this.items.push()
+            const detail = getCommandsDetail(value || `${this.fishCompletionKind}`)
+            const item = new FishCommandCompletionItem(label, detail, line)
+            item.setKinds(this.fishCompletionKind)
+            this.items.push(item)
         }
         this.update()
         this.isBuilt = true
@@ -204,16 +192,12 @@ export class AllItemBuilder extends CachedItemBuilder {
     }
 
     public setupAlias() {
-        const alias: FishSimpleCompletionItem[] = [];
+        const alias: FishStaticResolvedCompletionItem[] = [];
         this.items.forEach((item, index) => {
-            if (!item.documentation) return;
-            const doc = item.documentation.toString() 
-            if (doc.startsWith('alias')) {
-                alias.push({
-                    label: item.label,
-                    detail: 'alias',
-                    documentation: doc
-                } as FishSimpleCompletionItem)
+            if (item.detail === 'alias') {
+                const newItem = new FishStaticResolvedCompletionItem(item.label, item.detail, item.documentation as string)
+                newItem.setKinds(FishCompletionItemKind.ALIAS)
+                alias.push(newItem)
                 this.items.splice(index, 1)
                 this.labels.delete(item.label)
             }
@@ -223,23 +207,34 @@ export class AllItemBuilder extends CachedItemBuilder {
     }
 }
 
-export class SimpleItemBuilder extends CachedItemBuilder {
-    constructor(items: FishSimpleCompletionItem[], kind: FishCompletionItemKind) {
+export class StaticItemBuilder extends CachedItemBuilder {
+    constructor(items: FishStaticCompletionItem[], kind: FishCompletionItemKind) {
         super(kind)
-        this.items = items as CompletionItem[]
+        this.items = items as FishCompletionItem[]
         this.labels = new Set(items.map(item => item.label))
         return this
     }
 }
+export class StaticResolvedItemBuilder extends CachedItemBuilder {
+    constructor(items: FishStaticResolvedCompletionItem[], kind: FishCompletionItemKind) {
+        super(kind)
+        this.items = items as FishStaticResolvedCompletionItem[];
+        this.labels = new Set(items.map(item => item.label))
+        return this
+    }
+}
+
 export namespace IBuilder {
     export function createCommand(command: string, kind: FishCompletionItemKind) {
         return new CommandItemBuilder(command, kind)
     }
-
-    export function createSimple(items: FishSimpleCompletionItem[], kind: FishCompletionItemKind) {
-        return new SimpleItemBuilder(items, kind)
+    export function createStatic(items: FishStaticCompletionItem[], kind: FishCompletionItemKind) {
+        return new StaticItemBuilder(items, kind)
     }
     export function createAllCommands(command: string, kind: FishCompletionItemKind) {
         return new AllItemBuilder(command, kind)
+    }
+    export function createStaticResolved(items: FishStaticResolvedCompletionItem[], kind: FishCompletionItemKind) {
+        return new StaticResolvedItemBuilder(items, kind)
     }
 }
