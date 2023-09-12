@@ -181,12 +181,19 @@ describe('complete simple tests', () => {
 
 
     it('docs testing', async () => {
+        const start = Date.now();
         const items = new SHELL.ShellItems();
-        const txt: string[] = []
-        for (const i of SHELL.FishCompletionItemKind.enums()) {
-            txt.push(`'${i}'`)
+        await items.initialize()
+        const end = Date.now();
+        console.log(`SHELL.ShellItems().initialize() took ${end - start} ms to initialize`);
+        for (const [k, v] of items.entries()) {
+            console.log(`key: '${k}'`, `values: [${Array.from(v.labels.values()).slice(0, 5).map((v) => `'${v}'`).join(', ')}]`);
         }
-        console.log(txt.join('|'))
+        //const txt: string[] = []
+        //for (const i of SHELL.FishCompletionItemKind.enums()) {
+        //    txt.push(`'${i}'`)
+        //}
+        //console.log(txt.join('|'))
         //FishCompletionItemKind.en
         //items.initForCommands()
         //console.log((await execCmd('functions -D -v lso')));
@@ -194,6 +201,22 @@ describe('complete simple tests', () => {
         //console.log((await getFunctionDocString('lso')));
         //console.log((await getAbbrDocString('gw')));
         //console.log((await  getVariableDocString('PATH')));
+    })
+
+    it('testing execCmd', async () => {
+        const start = Date.now();
+        let out = await execCmd(`builtin complete -C ''`)
+        out = out.slice(0,5)
+        for (const o of out) {
+            let [start, ...end] = o.split(/\s/g,2)
+            let endStr = end.join(' ')
+            console.log({start, endStr});
+        }
+        
+        //console.log(out.slice(0, i));
+        //console.log(out.slice(0, 5));
+        const end = Date.now();
+        console.log(`execCmd took ${end - start} ms to initialize`);
     })
 })
 
@@ -278,4 +301,3 @@ export const testCompletionCaptures = () => {
         console.log(k, JSON.stringify(v, null, 4));
     }
 }
-

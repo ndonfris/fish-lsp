@@ -30,7 +30,15 @@ export async function execEscapedCommand(cmd: string): Promise<string[]> {
 }
 
 export async function execCmd(cmd: string): Promise<string[]> {
-    const { stdout } = await execAsync(cmd, {shell: '/usr/bin/fish'});
+    const { stdout } = await execAsync(cmd, {
+        shell: "/usr/bin/fish",
+        maxBuffer: 1024 * 1024 * 4,
+        encoding: "buffer",
+        windowsHide: true,
+        cwd: process.cwd(),
+        env: {},
+        //stdio: ["pipe", "pipe", "ignore"],
+    });
     return stdout
         .toString()
         .split("\n")
