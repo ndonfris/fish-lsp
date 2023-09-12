@@ -1,109 +1,122 @@
-import { CompletionItemKind, CompletionItem } from 'vscode-languageserver';
+//import { CompletionItemKind, CompletionItem } from 'vscode-languageserver';
+import { CompletionItemKind } from 'vscode-languageserver';
 import { enrichToCodeBlockMarkdown } from '../documentation';
-import { FishCompletionItem, FishCompletionItemKind, toCompletionKind } from './completion-strategy';
+import { FishCompletionItem, toCompletionKind } from './completion-strategy';
 import { execCmd } from './exec';
 
-export enum ShellItemType {
-    abbr = 'abbr',
-    function = 'function',
-    variable = 'variable',
-    eventHandler = 'eventHandler',
-    builtin = 'builtin',
-} 
+const FishCompletionItemConfig = {
+    ABBR: { isCommand: true },
+    BUILTIN: { isCommand: true },
+    FUNCTION: { isCommand: true },
+    VARIABLE: { isCommand: true },
+    EVENT: { isCommand: true },
+    PIPE: { isCommand: false },
+    ESC_CHARS: { isCommand: false },
+    STATUS: { isCommand: false },
+    WILDCARD: { isCommand: false },
+    COMMAND: { isCommand: false },
+    REGEX: { isCommand: false },
+    COMBINER: { isCommand: false },
+    FORMAT_STR: { isCommand: false },
+    STATEMENT: { isCommand: false },
+    ARGUMENT: { isCommand: false },
+    EMPTY: { isCommand: false },
+} as const; // "as const" is to make sure TypeScript treats this as an immutable object
 
-export const ShellItemToCompletionKind: Record<ShellItemType, CompletionItemKind> = {
-    [ShellItemType.abbr]: toCompletionKind[FishCompletionItemKind.ABBR],
-    [ShellItemType.function]: toCompletionKind[FishCompletionItemKind.GLOBAL_FUNCTION],
-    [ShellItemType.variable]: toCompletionKind[FishCompletionItemKind.GLOBAL_VARIABLE],
-    [ShellItemType.eventHandler]: toCompletionKind[FishCompletionItemKind.GLOBAL_VARIABLE],
-    [ShellItemType.builtin]: toCompletionKind[FishCompletionItemKind.BUILTIN],
+export enum FishCompletionItemKind {
+    ABBR = "abbr",
+    BUILTIN = "builtin",
+    FUNCTION = "function",
+    VARIABLE = "variable",
+    EVENT = "event",
+    PIPE = "pipe",
+    ESC_CHARS = "esc_chars",
+    STATUS = "status",
+    WILDCARD = "wildcard",
+    COMMAND = "command",
+    REGEX = "regex",
+    COMBINER = "combiner",
+    FORMAT_STR = "format_str",
+    STATEMENT = "statement",
+    ARGUMENT = "argument",
+    EMPTY = "empty",
+}
+export namespace FishCompletionItemKind {
+    export function enums(): FishCompletionItemKind[] {
+        return Object.values(FishCompletionItemKind)
+            .filter((value): value is FishCompletionItemKind => typeof value === "string");
+    }
 }
 
-export const SetupShellCommands = {
-    [ShellItemType.abbr]: `abbr --list`,
-    [ShellItemType.function]: `functions --names | string collect`,
-    [ShellItemType.variable]: `set -n`,
-    [ShellItemType.eventHandler]: `functions --handlers | string match -vr '^Event \\w+'`,
-    [ShellItemType.builtin]: `builtin -n`,
-}
+// Step 3: Generate the CommandItemKinds type from the entries where isCommand is true
+type CommandItemKinds = keyof typeof FishCompletionItemConfig & (typeof FishCompletionItemConfig[keyof typeof FishCompletionItemConfig]['isCommand'] extends true ? string : never);
+const commandItems: Record<CommandItemKinds, string> = {
+    ABBR: "abbr --list", 
+    BUILTIN: "builtin --names",
+    FUNCTION: "functions --names | string collect",
+    VARIABLE: "set --names",
+    EVENT: "functions --handlers | string match -vr '^Event \\w+' | string split -f1 ' '",
+};
 
-export type ShellItemsKey = keyof typeof ShellItemType
+type CacheMap = Map<FishCompletionItemKind, CachedItem>
+
 export class ShellItems {
-    private _items: { [key in ShellItemType]?: CompletionItem[] } = {}
+    private cache: CacheMap = createCacheMap();
 
+    private async initCommands() {
+        await Promise.all(Object.entries(commandItems).map(async ([kind, cmd]) => {
+            const labels = await execCmd(cmd);
+            const current = this.cache.get(kind as FishCompletionItemKind)!
+            current.setLabels(labels)
+            this.cache.set(kind as FishCompletionItemKind, current)
+        }))
+    }
+    
+    private async initSimpleItems() {
+
+
+    }
+    
+    
     async init() {
-        await Promise.all([
-            execCmd(SetupShellCommands[ShellItemType.abbr]),
-            execCmd(SetupShellCommands[ShellItemType.function]),
-            execCmd(SetupShellCommands[ShellItemType.variable]),
-            execCmd(SetupShellCommands[ShellItemType.eventHandler]),
-            execCmd(SetupShellCommands[ShellItemType.builtin])
-        ]).then(([abbrs, funcs, vars, handlers, builtins]) => {
-            this._items.abbr = createItemArray(abbrs, ShellItemType.abbr)
-            this._items.function = createItemArray(funcs, ShellItemType.function)
-            this._items.variable = createItemArray(vars, ShellItemType.variable)
-            this._items.eventHandler = createItemArray(handlers, ShellItemType.eventHandler)
-            this._items.builtin = createItemArray(builtins, ShellItemType.builtin)
-        })
+        await this.initCommands();
     }
 
-    getAllItemsOfType(type: ShellItemsKey): CompletionItem[] {
-        return this._items[type] || []
-    }
 
-    getItemType(name: string) : ShellItemType | undefined {
-        let fixedName = name.startsWith('$') ? name.slice(1) : name
-        if (name.startsWith('$')) return this._items['variable']?.find((item) => item.label === fixedName) ? ShellItemType.variable : undefined
-        for (let type of this.keys()) {
-            if (this._items[type]?.find((item) => item.label === fixedName)) {
-                return type as ShellItemType
-            }
-        }
-    }
+}
 
-    hasItem(name: string, possibleTypes: ShellItemsKey[] = this.keys()): boolean {
-        if (name.startsWith('$')) {
-            return possibleTypes.includes('variable') ? this.hasItem(name.slice(1), ['variable']) : false
-        }
-        return possibleTypes.some((type) => this._items[type]?.find((item) => item.label === name))
-    }
 
-    keys(): ShellItemsKey[] {
-        let result: ShellItemsKey[] = []
-        for (let type in this._items) {
-            result.push(type as keyof typeof ShellItemType)
-        }
-        return result
+
+export class CachedItem {
+    public labels: string[] = []
+    public items: FishCompletionItem[] = []
+    public completionKind: CompletionItemKind = CompletionItemKind.Text
+    public fishCompletionKind: FishCompletionItemKind = FishCompletionItemKind.EMPTY
+    public finished: boolean = false
+    setLabels(labels: string[]) {
+        this.labels = labels;
+        return this
+    }
+    filterLabels(removeLabels: string[]) {
+        this.labels = this.labels.filter((label) => !removeLabels.includes(label));
+        return this
+    }
+    setFinished() {
+        this.finished = true;
+        return this
     }
 }
 
-function createItemArray(lines: string[], type: ShellItemType): CompletionItem[] {
-    return lines.map((line) => {
-        switch (type) {
-            case ShellItemType.abbr:
-                let [name, ...output] = line.split(' ');
-                let [replacement, comment] = output.join(' ').trim().split('# ');
-                let doc = comment ? [`# ${comment}`, replacement].join('\n') : replacement;
-                return {
-                    label: name,
-                    kind: ShellItemToCompletionKind[type],
-                    documentation: enrichToCodeBlockMarkdown(doc, 'fish'),
-                    insertText: replacement,
-                    commitCharacters: [' ', '\t', '\n']
-                }
-            case ShellItemType.eventHandler:
-                let [event, ...handler] = line.split(' ');
-                let handlerCaller = handler.join(' ');
-                return {
-                    label: event,
-                    kind: ShellItemToCompletionKind[type],
-                    documentation: enrichToCodeBlockMarkdown(handlerCaller, 'fish'),
-                }
-            default:
-                return {
-                    ...CompletionItem.create(line),
-                    kind: ShellItemToCompletionKind[type],
-                }
-        }
-    })
+export namespace CachedItem {
+    export function empty() {
+        return new CachedItem();
+    }
+}
+
+export function createCacheMap() {
+    const cache: CacheMap = new Map();
+    for (const kind of FishCompletionItemKind.enums()) {
+        cache.set(kind, CachedItem.empty());
+    }
+    return cache;
 }

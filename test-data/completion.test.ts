@@ -17,16 +17,16 @@ import { exec } from 'child_process';
 import { initializeDefaultFishWorkspaces, Workspace } from '../src/utils/workspace';
 import { toLspDocument } from '../src/utils/translation';
 import { homedir } from 'os';
-import { FishCompletionItem, FishCompletionItemKind, toCompletionKindString } from '../src/utils/completion-strategy';
+//import { FishCompletionItem, FishCompletionItemKind, toCompletionKindString } from '../src/utils/completion-strategy';
 import { isBeforeCommand, isBlockBreak, isCommand, isCommandName, isPartialForLoop, isScope, isSemicolon } from '../src/utils/node-types';
 import { Node } from './mock-datatypes';
 import { FishCompletionList } from '../src/completion-list';
 import { getChildNodes,  getLeafs } from '../src/utils/tree-sitter';
 import { AbbrList, EventNamesList, FunctionNamesList, GlobalVariableList, isBuiltin, isFunction } from '../src/utils/builtins';
 //import { createShellItems, findShellPath, ShellItems, spawnSyncRawShellOutput } from '../src/utils/startup-shell-items';
-import { ShellItems } from '../src/utils/shell-items';
+import * as SHELL from '../src/utils/shell-items';
 //import { initializeShellCache } from '../src/utils/shell-cache';
-import * as SHELL from '../src/utils/shell-cache';
+import * as CACHE from '../src/utils/shell-cache';
 import { FishSimpleCompletionItem } from '../src/utils/completion-types';
 //import * as ParserTypes from '../node_modules/tree-sitter-fish/src/node-types.json';
 
@@ -34,7 +34,7 @@ let parser: Parser;
 //let workspaces: Workspace[] = []
 //let analyzer: Analyzer;
 let completions: FishCompletionList;
-let items: ShellItems = new ShellItems();
+let items: SHELL.ShellItems = new SHELL.ShellItems();
 
 setLogger(
     async () => {
@@ -169,11 +169,11 @@ describe('complete simple tests', () => {
 
     it('timing SHELL.initFishCompletionItemKinds()', async () => {
         const start = Date.now();
-        const cachedAll = await SHELL.initFishCompletionItemKinds()
+        const cachedAll = await CACHE.initFishCompletionItemKinds()
         const allEntries = Object.entries(cachedAll)
         for (const [k,v] of allEntries) {
-            //console.log(k.toString(), v.labels);
-            console.log(`${k}: ${v.labels.size}`);
+            console.log(k.toString(), v.labels);
+            //console.log(`${k}: ${v.labels.size}`);
         }
         const end = Date.now();
         console.log(`SHELL.initFishCompletionItemKinds() took ${end - start} ms to initialize`);
@@ -181,31 +181,14 @@ describe('complete simple tests', () => {
 
 
     it('docs testing', async () => {
-        const cached = await SHELL.initFishCompletionItemKinds()
-        const values = Object.values(cached)
-        const getOnlyFirst = (value: SHELL.ICached) => {
-            const _i = value.items[0]!
-            return {
-                [value.toFishCompletionItemKind]: {
-                    ...value,
-                    labels: [_i.label || ''],
-                    items:  [_i],
-                }
-            }
+        const items = new SHELL.ShellItems();
+        const txt: string[] = []
+        for (const i of SHELL.FishCompletionItemKind.enums()) {
+            txt.push(`'${i}'`)
         }
-        const firstValues = values
-            .filter((value)=> value.labels.size > 0 && value.items.length > 0)
-            .map((value) => {
-                return getOnlyFirst(value)
-            })
-
-
-        const firstValuesEntries = Object.entries(cached)
-        for (const [k,v] of firstValuesEntries) {
-            if (v.toFishCompletionItemKind === 'function') {
-                console.log(k.toString(), JSON.stringify(v, null, 2));
-            }
-        }
+        console.log(txt.join('|'))
+        //FishCompletionItemKind.en
+        //items.initForCommands()
         //console.log((await execCmd('functions -D -v lso')));
         //console.log((await execCommandDocs('lso')));
         //console.log((await getFunctionDocString('lso')));

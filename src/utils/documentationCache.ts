@@ -199,15 +199,13 @@ export async function getVariableDocString(name: string): Promise<string | undef
         return acc;
     }, { first: '', middle: [] as string[], last: '' });
     return [
-            first, 
-            '___',
-            middle.join('\n'),
-            '___',
-            last,
-        ].join('\n')
-    
+        first, 
+        '___',
+        middle.join('\n'),
+        '___',
+        last,
+    ].join('\n')
 }
-
 
 export function initializeMap(collection: string[], type: SymbolKind, uri?: string): Map<string, CachedGlobalItem> {
     const items: Map<string, CachedGlobalItem> = new Map<string, CachedGlobalItem>();

@@ -137,7 +137,7 @@ export namespace ICached {
             case FishCompletionItemKind.VARIABLE:
                 return getGloablVariable(item.label)
             default:
-                return ''
+                return item.documentation
         }
     }
 
@@ -279,7 +279,7 @@ export async function initFishCompletionItemKinds(){
     })
 
     await Promise.all(executeSetup);
-    const entries = Object.entries(_cached)
+    //const entries = Object.entries(_cached)
 
     return _cached;
 }
