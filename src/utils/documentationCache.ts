@@ -3,6 +3,8 @@ import Parser from 'web-tree-sitter';
 import { documentationHoverProviderForBuiltIns } from '../documentation';
 import { execCmd, execCommandDocs, execEscapedCommand } from './exec';
 import { uriToPath } from './translation';
+import { FishCompletionItem } from './completion-strategy';
+import { FishStaticCompletionItem } from './completion-types';
 
 
 /****************************************************************************************
@@ -125,7 +127,7 @@ export async function getFunctionDocString(name: string): Promise<string | undef
         let [path, autoloaded, line, scope, description] = ensured;
         
         return [
-            `\`${path}\``,
+            `__\`${path}\`__`,
             `- autoloaded: ${autoloaded === 'autoloaded' ? '_true_' : '_false_'}`,
             `- line: _${line}_`,
             `- scope: _${scope}_`,
@@ -145,6 +147,24 @@ export async function getFunctionDocString(name: string): Promise<string | undef
     ].join('\n') || ''
 }
 
+export async function getStaticDocString(item: FishStaticCompletionItem): Promise<string> {
+    let result = [
+        '```text',
+        `${item.label}  -  ${item.documentation}`,
+        '```'
+    ].join('\n')
+    item.examples?.forEach((example) => {
+        result += [
+            "___",
+            "```fish",
+            `# ${example.title}`,
+            example.shellText,
+            "```",
+        ].join("\n");
+    })
+    return result
+}
+
 export async function getAbbrDocString(name: string): Promise<string | undefined> {
     const items: string[] = await execCmd(`abbr --show | string split ' -- ' -m1 -f2`)
     function getAbbr(items: string[]) : [string, string]           {
@@ -158,7 +178,7 @@ export async function getAbbrDocString(name: string): Promise<string | undefined
     }
     const [title, body] = getAbbr(items)
     return [
-        `Abbreviation: _${title}_`,
+        `Abbreviation: \`${title}\``,
         '___',
         '```fish',
         body.trimEnd(),
@@ -192,6 +212,27 @@ export async function getAliasDocString(label: string, line: string): Promise<st
         '```'
     ].join('\n')
 }
+
+/**
+ * builds MarkupString for event handler documentation
+ */
+export async function getEventHandlerDocString(documentation: string): Promise<string> {
+    const [label, command] = documentation.split(' ');
+    const doc = await getFunctionDocString(command.trim())
+    if (!doc) {
+        return [
+            `Event: \`${label}\``,
+            '___',
+            `Event handler for \`${command}\``,
+        ].join('\n')
+    }
+    return [
+        `Event: \`${label}\``,
+        '___',
+        doc,
+    ].join('\n')
+}
+
 /**
  * builds MarkupString for global variable documentation
  */

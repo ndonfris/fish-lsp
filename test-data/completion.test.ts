@@ -27,7 +27,8 @@ import { getChildNodes,  getLeafs } from '../src/utils/tree-sitter';
 import * as SHELL from '../src/utils/shell-items';
 //import { initializeShellCache } from '../src/utils/shell-cache';
 import * as CACHE from '../src/utils/shell-cache';
-import { FishCompletionItem } from '../src/utils/completion-types';
+import { FishCompletionItem, FishCompletionItemKind, getDocumentationResolver } from '../src/utils/completion-types';
+//import { FishCompletionItemKind } from '../src/utils/completion-strategy';
 //import * as ParserTypes from '../node_modules/tree-sitter-fish/src/node-types.json';
 
 let parser: Parser;
@@ -40,6 +41,7 @@ setLogger(
     async () => {
         parser = await initializeParser();
         completions = await FishCompletionList.create()
+        await items.initialize()
     },
     async () => {
     }
@@ -55,18 +57,7 @@ describe('complete simple tests', () => {
     //})
 
     it('testing edits to completionLine, to find commands";`', async () => {
-        const inputs: string[] = [
-            'echo',
-            'ls -',
-            'if',
-            'if t',
-            'if [',
-            'if test',
-            'if (a',
-            'printf "',
-            'for _',
-            'for i in',
-        ];
+        const inputs: string[] = completionStrings.slice(1, 5);
         type tblItem = {input: string, addChar: string, hasCmd: boolean, cmd: string, lineNodes: string} 
         const buildTable = (addChar: string) => {
             console.log("LOGGING WHAT HAPPENS WHEN CHAR ADDED TO LINE IS : ", `'${addChar}'`);
@@ -88,84 +79,13 @@ describe('complete simple tests', () => {
     it('testing contextual analysis ("word" && "command") for completion-list";`', async () => {
         type tblItem = {input: string, cmd: string, word: string} 
         const tbl: tblItem[] = [];
-        [
-            'echo ',
-            'ls',
-            'ls ',
-            'ls -',
-            'if',
-            'if ',
-            'if t',
-            ';',
-            'if [',
-            'if [ ',
-            'if test',
-            'if (a',
-            'printf "',
-            '',
-            'for',
-            'for ',
-            'for i',
-            'for i ',
-            'for i in',
-            'while',
-            'while (',
-            'while ()',
-            'echo "hi" > ',
-            'function',
-            'else if',
-            'else',
-            'case',
-            'case ',
-            "case '*",
-            'end',
-            'ls |',
-            'not',
-            'and',
-            'and test',
-            'and test ',
-            'or ',
-            'if test -f file.txt; and test -f file2.txt; or ',
-            'ls | read',
-            'ls | read ',
-            'ls | read -',
-            'ls | read -L',
-            'ls | read -L ',
-            'ls | read -L -l',
-            'ls | read -L -l v',
-            'continue',
-            'continue ',
-        ].forEach((input: string) => {
+        completionStrings.forEach((input: string) => {
             const {word, command} = completions.getNodeContext(input)
             tbl.push({input: input, cmd: command || '', word: word || ''})
         })
         console.table(tbl);
     }, 1000)
 
-    //it('get subshell completions from stdout', async () => {
-    //    let inputText = 'g';
-    //    const {word,command} = completions.getNodeContext(inputText);
-    //    console.log({word,command});
-    //    const outputArray = await completions.getSubshellStdoutCompletions(inputText);
-    //    for (const [label, desc] of outputArray) {
-    //        if (items.hasItem(label, ['function'])) console.log('FUNCTION', {label, desc});
-    //        if (items.hasItem(label, ['builtin'])) console.log('BUILTIN', {label, desc});
-    //        if (items.hasItem(label, ['abbr'])) console.log('ABBR', {label, desc});
-    //        //if (desc.startsWith('command')) continue
-    //        //if (label === 'ls') console.log('LSLSLSLS', {label, desc});
-    //        //console.log({label, desc});
-    //    }
-    //    //const outputArray = await completions.getSubshellStdoutCompletions('ls -');
-    //    //console.log(outputArray.length, outputArray);
-    //    console.log("");
-    //    console.log("");
-    //    console.log("");
-    //    //await cached.init()
-    //    console.log(cached._cached);
-    //    console.log();
-    //    console.log(cached.getCompletionType('ls'));
-    //    console.log(cached.hasLabel('ls'));
-    //})
 
     /*it('timing ShellItems', async () => {*/
     /*    const start = Date.now();*/
@@ -181,16 +101,56 @@ describe('complete simple tests', () => {
         await items.initialize()
         const end = Date.now();
         console.log(`SHELL.ShellItems().initialize() took ${end - start} ms to initialize`);
-        for (const [k, v] of items.entries()) {
-            console.log(k, JSON.stringify({
-                labels: Array.from(v.labels.keys()).slice(-10),
-                items: v.items.slice(0,5),
-                kind: v.completionKind,
-                fishKind: v.fishCompletionKind,
-            }, null, 2));
-        }
     })
 
+    it('docs resolver', async () => {
+        const items = new SHELL.ShellItems();
+        await items.initialize()
+        const toLog = await Promise.all(items.entries().map(async ([key, value]) => {
+            const _item = value.items[0]!
+            const doc = await getDocumentationResolver(_item)
+            return {key: key, value: doc}
+        }))
+        toLog.forEach(({key, value}) => {
+            console.log(key, value)
+        })
+    }, 5000)
+
+    it('get subshell completions from stdout', async () => {
+        let inputText = 'f';
+        const {word, command} = completions.getNodeContext(inputText);
+        console.log({word , command});
+        const outputArray = await completions.getSubshellStdoutCompletions(inputText);
+        for (const [label, desc] of outputArray) {
+            const _item = items.getItemByLabel(label, [FishCompletionItemKind.FUNCTION, FishCompletionItemKind.BUILTIN, FishCompletionItemKind.ABBR, FishCompletionItemKind.ALIAS, FishCompletionItemKind.COMMAND])
+            const smallerCheck = items.getItemByLabel(label, [FishCompletionItemKind.COMMAND])
+            if (label === 'fortune') {
+                console.log(label, smallerCheck);
+            }
+            continue;
+            //if (!_item) {
+            //    console.log("NO ITEM FOUND: ", `'${label}'`);
+            //    continue;
+            //}
+            //console.log({label: _item.label, kind: _item.fishKind.toString()});
+            //if (items.hasItem(label, [FishCompletionItemKind.FUNCTION])) {
+            //    const funcItems = items.getItems(label, [FishCompletionItemKind.FUNCTION])
+            //    console.log('FUNCTION', funcItems);
+            //}
+            //if (items.hasItem(label, ['builtin'])) console.log('BUILTIN', {label, desc});
+            //if (items.hasItem(label, ['abbr'])) console.log('ABBR', {label, desc});
+        }
+        //const outputArray = await completions.getSubshellStdoutCompletions('ls -');
+        //console.log(outputArray.length, outputArray);
+        console.log("");
+        console.log("");
+        console.log("");
+        //await cached.init()
+        //console.log(cached._cached);
+        //console.log();
+        //console.log(cached.getCompletionType('ls'));
+        //console.log(cached.hasLabel('ls'));
+    })
 })
 
 //    id: number,
@@ -274,3 +234,53 @@ export const testCompletionCaptures = () => {
         console.log(k, JSON.stringify(v, null, 4));
     }
 }
+
+export const completionStrings : string[] = [
+    'echo ',
+    'ls',
+    'ls ',
+    'ls -',
+    'if',
+    'if ',
+    'if t',
+    ';',
+    'if [',
+    'if [ ',
+    'if test',
+    'if (a',
+    'printf "',
+    '',
+    'for',
+    'for ',
+    'for i',
+    'for i ',
+    'for i in',
+    'while',
+    'while (',
+    'while ()',
+    'echo "hi" > ',
+    'function',
+    'else if',
+    'else',
+    'case',
+    'case ',
+    "case '*",
+    'end',
+    'ls |',
+    'not',
+    'and',
+    'and test',
+    'and test ',
+    'or ',
+    'if test -f file.txt; and test -f file2.txt; or ',
+    'ls | read',
+    'ls | read ',
+    'ls | read -',
+    'ls | read -L',
+    'ls | read -L ',
+    'ls | read -L -l',
+    'ls | read -L -l v',
+    'continue',
+    'continue ',
+]
+

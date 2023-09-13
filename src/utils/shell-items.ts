@@ -27,8 +27,8 @@ export class ShellItems {
             IBuilder.createStatic(StaticItems.StatusNumbers, FishCompletionItemKind.STATUS),
             IBuilder.createStatic(StaticItems.FormatStrings, FishCompletionItemKind.FORMAT_STR),
             IBuilder.createStatic(StaticItems.StringRegex, FishCompletionItemKind.REGEX),
-            IBuilder.createStaticResolved(StaticItems.Combiners, FishCompletionItemKind.COMBINER),
-            IBuilder.createStaticResolved(StaticItems.Statements, FishCompletionItemKind.STATEMENT),
+            IBuilder.createStatic(StaticItems.Combiners, FishCompletionItemKind.COMBINER),
+            IBuilder.createStatic(StaticItems.Statements, FishCompletionItemKind.STATEMENT),
             // IBuilder.createSimple([], FishCompletionItemKind.ARGUMENT))
             //ShellItemsBuilder.createSimple(WildcardItems, FishCompletionItemKind.WILDCARD))
             IBuilder.createAllCommands(`builtin complete --escape -C ''`, FishCompletionItemKind.COMMAND),
@@ -48,41 +48,53 @@ export class ShellItems {
         await Promise.all(
             this.values().map(async (builder) => await builder.build())
         );
-        const commandItems = this.getItemsByKind(FishCompletionItemKind.COMMAND) as AllItemBuilder
+        const commandItems = this.getValueByKind(FishCompletionItemKind.COMMAND) as AllItemBuilder
 
-        const aliasBuilder = IBuilder.createStaticResolved(commandItems.setupAlias(), FishCompletionItemKind.ALIAS)
+        const aliasBuilder = IBuilder.createStatic(commandItems.setupAlias(), FishCompletionItemKind.ALIAS)
         this.setBuilder(aliasBuilder)
         Promise.resolve(aliasBuilder.build())
 
         const notCommands: string[] = [
-            ...this.getLabelsByKind(FishCompletionItemKind.BUILTIN),
-            ...this.getLabelsByKind(FishCompletionItemKind.FUNCTION)
+            ...this.getValueByKind(FishCompletionItemKind.BUILTIN)!.getAllLabels(),
+            ...this.getValueByKind(FishCompletionItemKind.FUNCTION)!.getAllLabels(),
         ]
         commandItems.remove(...notCommands)
-        this.getItemsByKind(FishCompletionItemKind.FUNCTION)?.remove(...Array.from(aliasBuilder.labels))
+        this.getValueByKind(FishCompletionItemKind.FUNCTION)?.remove(...aliasBuilder.getAllLabels())
+    }
+
+    getValueByKind(kind: FishCompletionItemKind) {
+        return this.cache.get(kind)
     }
 
     getItemsByKind(kind: FishCompletionItemKind) {
-        return this.cache.get(kind)
+        let result = new Array<FishCompletionItem>()
+        let found = this.getValueByKind(kind)
+        if (found && found.finished) result.push(...found.items)
+        return result
     }
 
     getLabelsByKind(kind: FishCompletionItemKind) {
         let result = new Array<string>()
-        let found = this.getItemsByKind(kind)
-        if (found && found.finished) {
-            result = Array.from(found.labels)
-        }
+        let found = this.getValueByKind(kind)
+        if (found && found.finished) result = Array.from(found.labels)
         return result
     }
 
     hasItem(label: string, kind: FishCompletionItemKind[] = this.keys()) {
         for (const k of kind) {
-            const builder = this.getItemsByKind(k)
-            if (builder?.labels.has(label)) return true
+            const builder = this.getLabelsByKind(k)
+            if (builder.includes(label)) return true
         }
         return false
     }
 
+    getItemByLabel(label: string, kind: FishCompletionItemKind[] = this.keys()) {
+        for (const k of kind) {
+            const res = this.getItemsByKind(k).find((item) => item.label.trim() === label);
+            if (res) return res
+        }
+        return undefined
+    }
 }
 
 
@@ -130,6 +142,20 @@ export class CachedItemBuilder {
         }
         return this
     }
+    protected removeItemAndLabel(label: string, index: number) {
+        this.items.splice(index, 1)
+        this.labels.delete(label)
+    }
+    protected addItem(item: FishCompletionItem) {
+        this.items.push(item)
+        this.labels.add(item.label)
+    }
+    public getAllLabels() {
+        return [
+            ...Array.from(this.labels),
+            ...this.skipLabels
+        ] 
+    }
 }
 
 function splitLine(line: string): { label: string, value?: string } {
@@ -154,87 +180,64 @@ export class CommandItemBuilder extends CachedItemBuilder {
     }
     public async build() {
         const lines = await execCmd(this.command!)
-        for (const line of lines) {
-            const { label } = splitLine(line)
-            if (this.skipLabels.includes(label)) continue
-            const item = new FishCommandCompletionItem(label, `${this.fishCompletionKind}`, line)
-            item.setKinds(this.fishCompletionKind)
-            this.labels.add(label)
-            this.items.push(item)
-        }
+        lines.forEach((line) => {
+            const { label, value } = splitLine(line)
+            if (this.skipLabels.includes(label)) return
+            const detail = getCommandsDetail(value || `${this.fishCompletionKind}`)
+            const item = FishCompletionItem.create(label, detail, line, this.fishCompletionKind)
+            this.addItem(item)
+        })
         this.update()
         this.finished = true
         return this
     }
 }
-
-export class AllItemBuilder extends CachedItemBuilder {
+export class AllItemBuilder extends CommandItemBuilder {
     private isBuilt: boolean = false
     constructor(command: string, kind: FishCompletionItemKind) {
-        super(kind)
-        this.command = command
+        super(command, kind)
         return this
     }
     public async build() {
-        const lines = await execCmd(this.command!)
-        for (const line of lines) {
-            const { label, value } = splitLine(line)
-            if (this.skipLabels.includes(label)) continue
-            this.labels.add(label)
-            const detail = getCommandsDetail(value || `${this.fishCompletionKind}`)
-            const item = new FishCommandCompletionItem(label, detail, line)
-            item.setKinds(this.fishCompletionKind)
-            this.items.push(item)
-        }
-        this.update()
+        await super.build()
         this.isBuilt = true
+        this.finished = false
         return this
     }
-
     public setupAlias() {
         const alias: FishStaticResolvedCompletionItem[] = [];
-        this.items.forEach((item, index) => {
-            if (item.detail === 'alias') {
-                const newItem = new FishStaticResolvedCompletionItem(item.label, item.detail, item.documentation as string)
-                newItem.setKinds(FishCompletionItemKind.ALIAS)
-                alias.push(newItem)
-                this.items.splice(index, 1)
-                this.labels.delete(item.label)
-            }
-        })
-        if (this.isBuilt) this.finished = true
+        this.items
+            .filter((item) => item.detail === "alias")
+            .forEach((item, index) => {
+                const newItem = FishCompletionItem.create(
+                    item.label,
+                    item.detail,
+                    item.documentation,
+                    FishCompletionItemKind.ALIAS
+                );
+                alias.push(newItem as FishStaticResolvedCompletionItem);
+                this.removeItemAndLabel(item.label, index);
+            });
+        if (this.isBuilt) this.finished = true;
         return alias
     }
 }
-
 export class StaticItemBuilder extends CachedItemBuilder {
-    constructor(items: FishStaticCompletionItem[], kind: FishCompletionItemKind) {
+    constructor(items: FishStaticCompletionItem[] | FishStaticResolvedCompletionItem[], kind: FishCompletionItemKind) {
         super(kind)
-        this.items = items as FishCompletionItem[]
+        this.items = items;
         this.labels = new Set(items.map(item => item.label))
         return this
     }
 }
-export class StaticResolvedItemBuilder extends CachedItemBuilder {
-    constructor(items: FishStaticResolvedCompletionItem[], kind: FishCompletionItemKind) {
-        super(kind)
-        this.items = items as FishStaticResolvedCompletionItem[];
-        this.labels = new Set(items.map(item => item.label))
-        return this
-    }
-}
-
 export namespace IBuilder {
     export function createCommand(command: string, kind: FishCompletionItemKind) {
         return new CommandItemBuilder(command, kind)
     }
-    export function createStatic(items: FishStaticCompletionItem[], kind: FishCompletionItemKind) {
+    export function createStatic(items: FishStaticCompletionItem[] | FishStaticResolvedCompletionItem[], kind: FishCompletionItemKind) {
         return new StaticItemBuilder(items, kind)
     }
     export function createAllCommands(command: string, kind: FishCompletionItemKind) {
         return new AllItemBuilder(command, kind)
-    }
-    export function createStaticResolved(items: FishStaticResolvedCompletionItem[], kind: FishCompletionItemKind) {
-        return new StaticResolvedItemBuilder(items, kind)
     }
 }

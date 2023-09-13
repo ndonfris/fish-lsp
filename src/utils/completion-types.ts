@@ -14,7 +14,7 @@ import {
 } from "../documentation";
 //import {  } from "./completion-strategy";
 import { execCommandDocs, execCommandType, getGloablVariable } from "./exec";
-import { getAbbrDocString, getAliasDocString, getBuiltinDocString, getCommandDocString, getFunctionDocString, getVariableDocString } from './documentationCache';
+import { getAbbrDocString, getAliasDocString, getBuiltinDocString, getCommandDocString, getEventHandlerDocString, getFunctionDocString, getStaticDocString, getVariableDocString } from './documentationCache';
 
 export enum FishCompletionItemKind {
     ABBR = "abbr",
@@ -62,12 +62,23 @@ export interface CompletionExample {
 }
 
 export namespace CompletionExample {
+
   export function create(title: string, ...shellText: string[]): CompletionExample {
     let shellTextString: string = shellText.length > 1 ? shellText.join('\n') : shellText.at(0)!
     return {
       title,
       shellText: shellTextString,
     }
+  }
+
+  export function toMarkedString(example: CompletionExample): string {
+    return [
+      "___",
+      "```fish",
+      `# ${example.title}`,
+      example.shellText,
+      "```",
+    ].join("\n");
   }
 }
 
@@ -106,7 +117,7 @@ export interface FishStaticCompletionItem extends FishCompletionItem {
 }
 
 export class FishStaticCompletionItem extends FishCompletionItem implements FishStaticCompletionItem {
-  constructor(label: string, detail: string, documentation: string, examples: CompletionExample[] = []) {
+  constructor(label: string, detail: string, documentation: string, examples?: CompletionExample[]) {
     super(label, detail, documentation);
     this.examples = examples
   }
@@ -117,17 +128,9 @@ export class FishStaticCompletionItem extends FishCompletionItem implements Fish
       `${this.label}  -  ${this.documentation}`,
       '```'
     ].join('\n')
-    if (this.examples) {
-      for (const example of this.examples) {
-        result += [
-          "___",
-          "```fish",
-          `# ${example.title}`,
-          example.shellText,
-          "```",
-        ].join("\n");
-      }
-    }
+    this.examples?.forEach((example) => {
+        result += `\n${CompletionExample.toMarkedString(example)}`
+    })
     return {
       kind: 'markdown',
       value: result
@@ -136,7 +139,7 @@ export class FishStaticCompletionItem extends FishCompletionItem implements Fish
 }
 
 export class FishStaticResolvedCompletionItem extends FishStaticCompletionItem {
-  constructor(label: string, detail: string, documentation: string, examples: CompletionExample[] = []) {
+  constructor(label: string, detail: string, documentation: string, examples?: CompletionExample[]) {
     super(label, detail, documentation, examples)
   }
 
@@ -166,6 +169,40 @@ export class FishCommandCompletionItem extends FishCompletionItem {
     }
 }
 
+export class FishAbbrCompletionItem extends FishCommandCompletionItem {
+    constructor(label: string, detail: string, documentation: string) {
+        super(label, detail, documentation)
+        this.insertText = documentation.slice(label.length + 1, documentation.lastIndexOf('#'))
+        this.commitCharacters = ['\t', ';', ' ']
+    }
+}
+export namespace FishCompletionItem {
+    export function create(label: string, detail: string, documentation: string, kind: FishCompletionItemKind) {
+        let item: FishCompletionItem | FishCommandCompletionItem | FishStaticCompletionItem | FishStaticResolvedCompletionItem; 
+        switch (kind) {
+            case FishCompletionItemKind.ABBR:
+                item = new FishAbbrCompletionItem(label, detail, documentation)
+                break;
+            case FishCompletionItemKind.ALIAS:
+                item = new FishStaticResolvedCompletionItem(label, detail, documentation.slice(label.length+1))
+                break
+            default:
+                item = new FishCommandCompletionItem(label, detail, documentation)
+                break;
+        }
+        item.setKinds(kind)
+        return item
+    }
+
+    export function toStatic(item: FishStaticCompletionItem) {
+        return new FishStaticCompletionItem(item.label, item.detail,item.documentation, item?.examples)
+    }
+
+    export function toStaticResolved(item: FishStaticCompletionItem) {
+        return new FishStaticResolvedCompletionItem(item.label, item.detail,item.documentation, item?.examples)
+    }
+
+}
 
 async function getCommandDocumentation(toFishCompletionItemKind: FishCompletionItemKind, label: string, documentation?: string): Promise<string | undefined> { 
     switch (toFishCompletionItemKind) {                                                                     
@@ -186,6 +223,60 @@ async function getCommandDocumentation(toFishCompletionItemKind: FishCompletionI
     }                                                                                                       
 }                                                                                                           
 
+export async function getDocumentationResolver(item: FishCompletionItem): Promise<MarkupContent> {
+    //if (item instanceof FishStaticCompletionItem) {
+    //    return await item.markupResolver()
+    //}
+    //if (item instanceof FishStaticResolvedCompletionItem) {
+    //    return await item.markupResolver()
+    //}
+    //if (item instanceof FishCommandCompletionItem) {
+    //    return await item.markupResolver()
+    //}
+    let docString: string = '';
+    switch (item.fishKind) {
+        case FishCompletionItemKind.ABBR:
+            docString = await getAbbrDocString(item.label) || item.documentation
+            break;
+        case FishCompletionItemKind.ALIAS:
+            const doc = item.documentation || `alias ${item.label}`
+            docString = await getAliasDocString(item.label, doc) || item.documentation
+            break;
+        case FishCompletionItemKind.COMBINER:
+        case FishCompletionItemKind.STATEMENT:
+        case FishCompletionItemKind.BUILTIN:
+            docString = await getBuiltinDocString(item.label) || item.documentation
+            break;
+        case FishCompletionItemKind.COMMAND:
+            docString = await getCommandDocString(item.label) || item.documentation
+            break;
+        case FishCompletionItemKind.FUNCTION:
+            docString = await getFunctionDocString(item.label) || item.documentation
+            break;
+        case FishCompletionItemKind.VARIABLE:
+            docString = await getVariableDocString(item.label) || item.documentation
+            break;
+        case FishCompletionItemKind.EVENT:
+            docString = await getEventHandlerDocString(item.documentation)
+            break;
+        case FishCompletionItemKind.STATUS:
+        case FishCompletionItemKind.WILDCARD:
+        case FishCompletionItemKind.REGEX:
+        case FishCompletionItemKind.FORMAT_STR: 
+        case FishCompletionItemKind.ESC_CHARS:
+        case FishCompletionItemKind.PIPE:
+            docString = await getStaticDocString(item as FishStaticCompletionItem)
+            break
+        case FishCompletionItemKind.ARGUMENT:
+        case FishCompletionItemKind.EMPTY:
+        default:
+            break;
+    }
+    return {
+        kind: 'markdown',
+        value: docString
+    } as MarkupContent
+}
 
 
 
