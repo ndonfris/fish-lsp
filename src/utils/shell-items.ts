@@ -3,7 +3,7 @@ import { CompletionItem, CompletionItemKind } from 'vscode-languageserver';
 import { enrichToCodeBlockMarkdown } from '../documentation';
 //import { FishCompletionItem, toCompletionKind } from './completion-strategy';
 import { execCmd } from './exec';
-import { FishCompletionItem, FishStaticCompletionItem, FishCompletionItemKind, toCompletionItemKind, FishCommandCompletionItem, FishStaticResolvedCompletionItem } from './completion-types';
+import { FishCompletionItem, FishCompletionItemKind, toCompletionItemKind } from './completion-types';
 import { StaticItems } from './static-completions';
 
 
@@ -160,7 +160,7 @@ export class CachedItemBuilder {
 
 function splitLine(line: string): { label: string, value?: string } {
     const [label, ...rest] = line.split(/\s+/)
-    const value = rest.length ? rest.join(' ') : undefined;
+    const value = rest.length > 0 ? rest.join(' ') : undefined;
     return { label, value };
 }
 
@@ -184,7 +184,7 @@ export class CommandItemBuilder extends CachedItemBuilder {
             const { label, value } = splitLine(line)
             if (this.skipLabels.includes(label)) return
             const detail = getCommandsDetail(value || `${this.fishCompletionKind}`)
-            const item = FishCompletionItem.create(label, detail, line, this.fishCompletionKind)
+            const item = FishCompletionItem.create(label, this.fishCompletionKind, detail, line)
             this.addItem(item)
         })
         this.update()
@@ -211,9 +211,9 @@ export class AllItemBuilder extends CommandItemBuilder {
             .forEach((item, index) => {
                 const newItem = FishCompletionItem.create(
                     item.label,
+                    FishCompletionItemKind.ALIAS,
                     item.detail,
-                    item.documentation,
-                    FishCompletionItemKind.ALIAS
+                    item.documentation
                 );
                 alias.push(newItem as FishStaticResolvedCompletionItem);
                 this.removeItemAndLabel(item.label, index);
@@ -223,9 +223,9 @@ export class AllItemBuilder extends CommandItemBuilder {
     }
 }
 export class StaticItemBuilder extends CachedItemBuilder {
-    constructor(items: FishStaticCompletionItem[] | FishStaticResolvedCompletionItem[], kind: FishCompletionItemKind) {
+    constructor(items: FishCompletionItem[], kind: FishCompletionItemKind) {
         super(kind)
-        this.items = items;
+        this.items = items.map(item => item.setKinds(kind))
         this.labels = new Set(items.map(item => item.label))
         return this
     }
@@ -234,7 +234,7 @@ export namespace IBuilder {
     export function createCommand(command: string, kind: FishCompletionItemKind) {
         return new CommandItemBuilder(command, kind)
     }
-    export function createStatic(items: FishStaticCompletionItem[] | FishStaticResolvedCompletionItem[], kind: FishCompletionItemKind) {
+    export function createStatic(items: FishCompletionItem[] | FishStaticResolvedCompletionItem[], kind: FishCompletionItemKind) {
         return new StaticItemBuilder(items, kind)
     }
     export function createAllCommands(command: string, kind: FishCompletionItemKind) {

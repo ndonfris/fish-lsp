@@ -3,8 +3,9 @@ import Parser from 'web-tree-sitter';
 import { documentationHoverProviderForBuiltIns } from '../documentation';
 import { execCmd, execCommandDocs, execEscapedCommand } from './exec';
 import { uriToPath } from './translation';
-import { FishCompletionItem } from './completion-strategy';
-import { FishStaticCompletionItem } from './completion-types';
+//import { FishCompletionItem } from './completion-strategy';
+import { FishCompletionItem } from './completion-types';
+import { CompletionExample } from './static-completions';
 
 
 /****************************************************************************************
@@ -147,13 +148,13 @@ export async function getFunctionDocString(name: string): Promise<string | undef
     ].join('\n') || ''
 }
 
-export async function getStaticDocString(item: FishStaticCompletionItem): Promise<string> {
+export async function getStaticDocString(item: FishCompletionItem): Promise<string> {
     let result = [
         '```text',
         `${item.label}  -  ${item.documentation}`,
         '```'
     ].join('\n')
-    item.examples?.forEach((example) => {
+    item.examples?.forEach((example: CompletionExample) => {
         result += [
             "___",
             "```fish",
@@ -217,8 +218,9 @@ export async function getAliasDocString(label: string, line: string): Promise<st
  * builds MarkupString for event handler documentation
  */
 export async function getEventHandlerDocString(documentation: string): Promise<string> {
-    const [label, command] = documentation.split(' ');
-    const doc = await getFunctionDocString(command.trim())
+    let [label, ...commandArr] = documentation.split(/\s/, 2);
+    let command = commandArr.join(' ')
+    const doc = await getFunctionDocString(command)
     if (!doc) {
         return [
             `Event: \`${label}\``,

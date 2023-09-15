@@ -24,10 +24,11 @@ import { FishCompletionList } from '../src/completion-list';
 import { getChildNodes,  getLeafs } from '../src/utils/tree-sitter';
 //import { AbbrList, EventNamesList, FunctionNamesList, GlobalVariableList, isBuiltin, isFunction } from '../src/utils/builtins';
 //import { createShellItems, findShellPath, ShellItems, spawnSyncRawShellOutput } from '../src/utils/startup-shell-items';
-import * as SHELL from '../src/utils/shell-items';
+//import * as SHELL from '../src/utils/shell-items';
 //import { initializeShellCache } from '../src/utils/shell-cache';
 import * as CACHE from '../src/utils/shell-cache';
 import { FishCompletionItem, FishCompletionItemKind, getDocumentationResolver } from '../src/utils/completion-types';
+//import { FishCompletionItem, FishCompletionItemKind, getDocumentationResolver } from '../src/utils/completion-types';
 //import { FishCompletionItemKind } from '../src/utils/completion-strategy';
 //import * as ParserTypes from '../node_modules/tree-sitter-fish/src/node-types.json';
 
@@ -35,13 +36,15 @@ let parser: Parser;
 //let workspaces: Workspace[] = []
 //let analyzer: Analyzer;
 let completions: FishCompletionList;
-let items: SHELL.ShellItems = new SHELL.ShellItems();
+//let items: SHELL.ShellItems = new SHELL.ShellItems();
+let items: CACHE.CompletionItemMap
 
 setLogger(
     async () => {
         parser = await initializeParser();
         completions = await FishCompletionList.create()
-        await items.initialize()
+        items = await CACHE.CompletionItemMap.initialize()
+        //items = await CACHE.createSetupItemsFromCommands()
     },
     async () => {
     }
@@ -87,33 +90,25 @@ describe('complete simple tests', () => {
     }, 1000)
 
 
-    /*it('timing ShellItems', async () => {*/
-    /*    const start = Date.now();*/
-    /*    await items.init()*/
-    /*    const end = Date.now();*/
-    /*    console.log(`ShellItems took ${end - start} ms to initialize`);*/
-    /*})*/
-
-
-    it('docs testing', async () => {
+    it('setting up items', async () => {
         const start = Date.now();
-        const items = new SHELL.ShellItems();
-        await items.initialize()
+        const items = await CACHE.CompletionItemMap.initialize()
         const end = Date.now();
-        console.log(`SHELL.ShellItems().initialize() took ${end - start} ms to initialize`);
-    })
-
-    it('docs resolver', async () => {
-        const items = new SHELL.ShellItems();
-        await items.initialize()
-        const toLog = await Promise.all(items.entries().map(async ([key, value]) => {
-            const _item = value.items[0]!
-            const doc = await getDocumentationResolver(_item)
-            return {key: key, value: doc}
-        }))
-        toLog.forEach(({key, value}) => {
-            console.log(key, value)
-        })
+        //items.forEach((kind, items) => {
+        //    //if (kind === 'command') {
+        //    //    console.log(items.filter((item) => item.label.startsWith('fo')).map((item) => item.label).join('\n'))
+        //    //}
+        //    console.log(`kind: ${kind}, length: ${items.length}`);
+        //})
+        console.log(`CACHE.createSetupItemsFromCommands() took ${end - start} ms to initialize`);
+        //const events: FishCompletionItem[] = [...items.get('event'), ...items.get('combiner')]
+        //await Promise.all(events.map(async (item) => {
+        //    const docs = await getDocumentationResolver(item)
+        //    console.log("-".repeat(80));
+        //    console.log('label:', `'${item.label}'`, 'doc:', `'${item.documentation}'`);
+        //    console.log("-".repeat(80));
+        //    console.log(item.label, docs);
+        //}))
     }, 5000)
 
     it('get subshell completions from stdout', async () => {
@@ -122,29 +117,16 @@ describe('complete simple tests', () => {
         console.log({word , command});
         const outputArray = await completions.getSubshellStdoutCompletions(inputText);
         for (const [label, desc] of outputArray) {
-            const _item = items.getItemByLabel(label, [FishCompletionItemKind.FUNCTION, FishCompletionItemKind.BUILTIN, FishCompletionItemKind.ABBR, FishCompletionItemKind.ALIAS, FishCompletionItemKind.COMMAND])
-            const smallerCheck = items.getItemByLabel(label, [FishCompletionItemKind.COMMAND])
+            //const _item = items.findLabel(label, FishCompletionItemKind.FUNCTION, FishCompletionItemKind.BUILTIN, FishCompletionItemKind.ABBR, FishCompletionItemKind.ALIAS, FishCompletionItemKind.COMMAND)
+            // call commandLine to get the documentation
+            const smallerCheck = items.findLabel(label, 'command')
             if (label === 'fortune') {
                 console.log(label, smallerCheck);
+                const docs = await getDocumentationResolver(smallerCheck!)
+                console.log(docs);
             }
             continue;
-            //if (!_item) {
-            //    console.log("NO ITEM FOUND: ", `'${label}'`);
-            //    continue;
-            //}
-            //console.log({label: _item.label, kind: _item.fishKind.toString()});
-            //if (items.hasItem(label, [FishCompletionItemKind.FUNCTION])) {
-            //    const funcItems = items.getItems(label, [FishCompletionItemKind.FUNCTION])
-            //    console.log('FUNCTION', funcItems);
-            //}
-            //if (items.hasItem(label, ['builtin'])) console.log('BUILTIN', {label, desc});
-            //if (items.hasItem(label, ['abbr'])) console.log('ABBR', {label, desc});
         }
-        //const outputArray = await completions.getSubshellStdoutCompletions('ls -');
-        //console.log(outputArray.length, outputArray);
-        console.log("");
-        console.log("");
-        console.log("");
         //await cached.init()
         //console.log(cached._cached);
         //console.log();
@@ -283,4 +265,3 @@ export const completionStrings : string[] = [
     'continue',
     'continue ',
 ]
-

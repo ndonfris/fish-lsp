@@ -113,6 +113,10 @@ export class FishCompletionList {
     }
 
 
+    async typeCompletionsForLine(input: string) {
+        if (input.trim().length === 0) return 
+    }
+
 
    /**
     * here we will specifically populate the completion list with items specific to their
@@ -155,6 +159,7 @@ export class FishCompletionList {
     async createCompletionList(line: string): Promise<FishCompletionItem[]> {
         const {word, command, wordNode, commandNode} = this.getNodeContext(line)
         const result: FishCompletionItem[] = []
+        if (!command) return result
         //const completionArrayTypes = this.getCompletionArrayTypes(line)
         //const completionData: FishCompletionData = {
         //    word, command, wordNode, commandNode, line
