@@ -5,9 +5,9 @@ import {
     SignatureHelpParams,
     Command,
 } from 'vscode-languageserver';
-import { FishCompletionItemKind } from './utils/completion-strategy';
+//import { FishCompletionItemKind } from './utils/completion-strategy';
+//import { stringRegexExpressions} from './utils/completion-types';
 import { isBuiltin, } from './utils/builtins'
-import { stringRegexExpressions} from './utils/completion-types';
 
 
 function regexStringSignature() : SignatureInformation {

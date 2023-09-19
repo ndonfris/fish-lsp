@@ -30,38 +30,37 @@ export async function execEscapedCommand(cmd: string): Promise<string[]> {
 }
 
 export async function execCmd(cmd: string): Promise<string[]> {
-    //const { stdout } = await execAsync(cmd, {
-    //    shell: "/usr/bin/fish",
-    //    maxBuffer: 1024 * 1024 * 8,
-    //    encoding: "buffer",
-    //    windowsHide: true,
-    //    //cwd: process.cwd(),
-    //    //gid: process.getegid(),
-    //    env: {
-    //        PATH: process.env.PATH,
-    //        //USER: process.env.USER,
-    //        //HOME: process.env.HOME,
-    //    }
-    //    //uid: process.getuid(),
-    //    //env: process.env,
-    //    //stdio: ["pipe", "pipe", "ignore"],
-    //});
-    //stdout.
-    const { stdout } = await execFileAsync('fish', ['-P', '--command', cmd], {
-        cwd: process.cwd(),
+    const { stdout } = await execAsync(cmd, {
+        shell: "/usr/bin/fish",
         maxBuffer: 1024 * 1024 * 8,
-        shell: false,
+        encoding: "buffer",
         windowsHide: true,
-        //env: {}
-        //env: {
-        //    PATH: process.env.PATH,
-        //}
+        cwd: process.cwd(),
+        //gid: process.getegid(),
+        env: {
+            PATH: process.env.PATH,
+            //USER: process.env.USER,
+            //HOME: process.env.HOME,
+        }
         //uid: process.getuid(),
-        //shell: "/usr/bin/fish",
-        //env: {
-        //    PATH: process.env.PATH,
-        //},
-    })
+        //env: process.env,
+        //stdio: ["pipe", "pipe", "ignore"],
+    });
+    //stdout.
+    //const { stdout } = await execFileAsync('fish', ['-P', '--command', cmd], {
+    //    maxBuffer: 1024 * 1024 * 8,
+    //    shell: false,
+    //    windowsHide: true,
+    //    //env: {}
+    //    //env: {
+    //    //    PATH: process.env.PATH,
+    //    //}
+    //    //uid: process.getuid(),
+    //    //shell: "/usr/bin/fish",
+    //    //env: {
+    //    //    PATH: process.env.PATH,
+    //    //},
+    //})
     return stdout
         .toString()
         .trim()
@@ -131,10 +130,10 @@ export async function getGloablVariable(...cmd: string[]) : Promise<string[]> {
 
 export async function execCompleteLine(cmd: string): Promise<string[]> {
     const escapedCommand = cmd.replace(/(["'$`\\])/g,'\\$1');
-    const completeString = `fish -c "complete --do-complete='${escapedCommand}'"`;
+    const completeString = `complete --do-complete='${escapedCommand}'`;
 
-    const child = await execAsync(completeString)
-    return child.stdout.trim().split('\n') || []
+    const child = await execCmd(completeString)
+    return child || []
 }
 
  export async function execCompleteSpace(cmd: string): Promise<string[]> {

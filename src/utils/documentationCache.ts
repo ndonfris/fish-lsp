@@ -4,8 +4,8 @@ import { documentationHoverProviderForBuiltIns } from '../documentation';
 import { execCmd, execCommandDocs, execEscapedCommand } from './exec';
 import { uriToPath } from './translation';
 //import { FishCompletionItem } from './completion-strategy';
-import { FishCompletionItem } from './completion-types';
-import { CompletionExample } from './static-completions';
+import { FishCompletionItem, CompletionExample } from './completion/types';
+//import { CompletionExample } from './static-completions';
 
 
 /****************************************************************************************

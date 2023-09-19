@@ -20,14 +20,16 @@ import { homedir } from 'os';
 //import { FishCompletionItem, FishCompletionItemKind, toCompletionKindString } from '../src/utils/completion-strategy';
 import { isBeforeCommand, isBlockBreak, isCommand, isCommandName, isPartialForLoop, isScope, isSemicolon } from '../src/utils/node-types';
 import { Node } from './mock-datatypes';
-import { FishCompletionList } from '../src/completion-list';
+//import { FishCompletionList } from '../src/completion/';
 import { getChildNodes,  getLeafs } from '../src/utils/tree-sitter';
 //import { AbbrList, EventNamesList, FunctionNamesList, GlobalVariableList, isBuiltin, isFunction } from '../src/utils/builtins';
 //import { createShellItems, findShellPath, ShellItems, spawnSyncRawShellOutput } from '../src/utils/startup-shell-items';
 //import * as SHELL from '../src/utils/shell-items';
 //import { initializeShellCache } from '../src/utils/shell-cache';
-import * as CACHE from '../src/utils/shell-cache';
-import { FishCompletionItem, FishCompletionItemKind, getDocumentationResolver } from '../src/utils/completion-types';
+import { InlineParser } from '../src/utils/completion/inline-parser';
+import * as CACHE from '../src/utils/completion/startup-cache';
+import { FishCompletionItem, FishCompletionItemKind } from '../src/utils/completion/types';
+import { CompletionPager, initializeCompletionPager } from '../src/utils/completion/pager'
 //import { FishCompletionItem, FishCompletionItemKind, getDocumentationResolver } from '../src/utils/completion-types';
 //import { FishCompletionItemKind } from '../src/utils/completion-strategy';
 //import * as ParserTypes from '../node_modules/tree-sitter-fish/src/node-types.json';
@@ -35,15 +37,16 @@ import { FishCompletionItem, FishCompletionItemKind, getDocumentationResolver } 
 let parser: Parser;
 //let workspaces: Workspace[] = []
 //let analyzer: Analyzer;
-let completions: FishCompletionList;
+let pager: CompletionPager
 //let items: SHELL.ShellItems = new SHELL.ShellItems();
 let items: CACHE.CompletionItemMap
 
 setLogger(
     async () => {
         parser = await initializeParser();
-        completions = await FishCompletionList.create()
-        items = await CACHE.CompletionItemMap.initialize()
+        pager = await initializeCompletionPager();
+        //completions = await InlineParser.create()
+        //items = await CACHE.CompletionItemMap.initialize()
         //items = await CACHE.createSetupItemsFromCommands()
     },
     async () => {
@@ -59,74 +62,28 @@ describe('complete simple tests', () => {
     //
     //})
 
-    it('testing edits to completionLine, to find commands";`', async () => {
-        const inputs: string[] = completionStrings.slice(1, 5);
-        type tblItem = {input: string, addChar: string, hasCmd: boolean, cmd: string, lineNodes: string} 
-        const buildTable = (addChar: string) => {
-            console.log("LOGGING WHAT HAPPENS WHEN CHAR ADDED TO LINE IS : ", `'${addChar}'`);
-            const tbl: tblItem[] = []
-            inputs.forEach( (input: string) => {
-                const {rootNode} = parser.parse(input + addChar)
-                let cmd = rootNode.descendantsOfType('command')
-                let firstCmd = cmd.at(0)?.text || 'NULL'
-                let hasCmd = cmd.length > 0
-                tbl.push({input, addChar, hasCmd: hasCmd, cmd: firstCmd, lineNodes: rootNode.toString()})
-            })
-            console.table(tbl);
-        }
-        //buildTable('-')
-        buildTable(';')
-        buildTable(';end;')
-    }, 1000)
-
-    it('testing contextual analysis ("word" && "command") for completion-list";`', async () => {
-        type tblItem = {input: string, cmd: string, word: string} 
-        const tbl: tblItem[] = [];
-        completionStrings.forEach((input: string) => {
-            const {word, command} = completions.getNodeContext(input)
-            tbl.push({input: input, cmd: command || '', word: word || ''})
-        })
-        console.table(tbl);
-    }, 1000)
-
-
-    it('setting up items', async () => {
-        const start = Date.now();
-        const items = await CACHE.CompletionItemMap.initialize()
-        const end = Date.now();
-        //items.forEach((kind, items) => {
-        //    //if (kind === 'command') {
-        //    //    console.log(items.filter((item) => item.label.startsWith('fo')).map((item) => item.label).join('\n'))
-        //    //}
-        //    console.log(`kind: ${kind}, length: ${items.length}`);
-        //})
-        console.log(`CACHE.createSetupItemsFromCommands() took ${end - start} ms to initialize`);
-        //const events: FishCompletionItem[] = [...items.get('event'), ...items.get('combiner')]
-        //await Promise.all(events.map(async (item) => {
-        //    const docs = await getDocumentationResolver(item)
-        //    console.log("-".repeat(80));
-        //    console.log('label:', `'${item.label}'`, 'doc:', `'${item.documentation}'`);
-        //    console.log("-".repeat(80));
-        //    console.log(item.label, docs);
-        //}))
-    }, 5000)
-
     it('get subshell completions from stdout', async () => {
-        let inputText = 'f';
-        const {word, command} = completions.getNodeContext(inputText);
-        console.log({word , command});
-        const outputArray = await completions.getSubshellStdoutCompletions(inputText);
-        for (const [label, desc] of outputArray) {
-            //const _item = items.findLabel(label, FishCompletionItemKind.FUNCTION, FishCompletionItemKind.BUILTIN, FishCompletionItemKind.ABBR, FishCompletionItemKind.ALIAS, FishCompletionItemKind.COMMAND)
-            // call commandLine to get the documentation
-            const smallerCheck = items.findLabel(label, 'command')
-            if (label === 'fortune') {
-                console.log(label, smallerCheck);
-                const docs = await getDocumentationResolver(smallerCheck!)
-                console.log(docs);
-            }
-            continue;
+        let inputText = 'function _foo -';
+        const data = {uri: 'file:///test.fish', position: Position.create(0,0), context: {triggerKind: CompletionTriggerKind.Invoked}};
+        const list = await pager.complete(inputText, data, [])
+        for (const item of list) {
+            console.log({label: item.label, detail: item.detail, kind: item.fishKind});
         }
+        //const {label, value} = CACHE.splitLine('fzf_gt  alias fzf_gt=__fzf_open_mine')
+        //console.log({label, value});
+
+        //console.log(context.commandNode?.text, context.commandNode?.parent?.endIndex);
+        //for (const [label, desc] of outputArray) {
+        //    //const _item = items.findLabel(label, FishCompletionItemKind.FUNCTION, FishCompletionItemKind.BUILTIN, FishCompletionItemKind.ABBR, FishCompletionItemKind.ALIAS, FishCompletionItemKind.COMMAND)
+        //    // call commandLine to get the documentation
+        //    const smallerCheck = items.findLabel(label, 'command')
+        //    if (label === 'fortune') {
+        //        console.log(label, smallerCheck);
+        //        const docs = await getDocumentationResolver(smallerCheck!)
+        //        console.log(docs);
+        //    }
+        //    continue;
+        //}
         //await cached.init()
         //console.log(cached._cached);
         //console.log();
@@ -135,87 +92,40 @@ describe('complete simple tests', () => {
     })
 })
 
-//    id: number,
-//        {
-//            "type": "file_redirect",
-//            "named": true,
-//            "fields": {
-//                "destination": {
-//                    "multiple": false,
-//                    "required": true,
-//                    "types": [
-//                        {
-//                            "type": "brace_expansion",
-//                            "named": true
-//                        },
-//                        {
-//                            "type": "command_substitution",
-//                            "named": true
-//                        },
-//                        {
-//                            "type": "concatenation",
-//                            "named": true
-//                        },
-//                        {
-//                            "type": "double_quote_string",
-//                            "named": true
-//                        },
-//                        {
-//                            "type": "escape_sequence",
-//                            "named": true
-//                        },
-//                        {
-//                            "type": "float",
-//                            "named": true
-//                        },
-//                        {
-//                            "type": "glob",
-//                            "named": true
-//                        },
-//                        {
-//                            "type": "home_dir_expansion",
-//                            "named": true
-//                        },
-//                        {
-//                            "type": "integer",
-//                            "named": true
-//                        },
-//                        {
-//                            "type": "single_quote_string",
-//                            "named": true
-//                        },
-//                        {
-//                            "type": "variable_expansion",
-//                            "named": true
-//                        },
-//                        {
-//                            "type": "word",
-//                            "named": true
-//                        }
-//                    ]
-//                },
-//                "operator": {
-//                    "multiple": false,
-//                    "required": true,
-//                    "types": [
-//                        {
-//                            "type": "direction",
-//                            "named": true
-//                        }
-//                    ]
-//                }
-//            }
-//        }
-//]
 
-export const testCompletionCaptures = () => {
-    const definitions = readFileSync(resolve(__dirname, '..', 'node_modules/tree-sitter-fish/src/node-types.json'), 'utf8')
-    const jsonData = JSON.parse(definitions)
-    const entries = Object.entries(jsonData)
-    for (const [k, v] of entries) {
-        console.log(k, JSON.stringify(v, null, 4));
-    }
-}
+//export async function createCompletionList(input: string) {
+//    const result: FishCompletionItem[] = [];
+//    const {word, command, wordNode, commandNode, index} = completions.getNodeContext(input);
+//    if (!command) {
+//        return items.allCompletionsWithoutCommand().filter((item) => item.label.startsWith(input))
+//    }
+//    switch (command) {
+//        //case "functions":
+//        //    return index === 1 ? items.allOfKinds("function", 'alias') : result;
+//        //case "command":
+//        //    return index === 1 ?items.allOfKinds("command") : result;
+//        //case 'builtin':
+//        //    return index === 1 ? items.allOfKinds("builtin") : result;
+//        case "end":
+//            return items.allOfKinds("pipe");
+//        case "printf":
+//            return index === 1 ? items.allOfKinds("format_str", "esc_chars") : items.allOfKinds("variable");
+//        case "set":
+//            return items.allOfKinds("variable");
+//        //case 'function':
+//        //    //if (isOption(lastNode) && ['-e', '--on-event'].includes(lastNode.text)) result.push(CompletionItemsArrayTypes.FUNCTIONS);
+//        //    //if (isOption(lastNode) && ['-v', '--on-variable'].includes(lastNode.text)) result.push(CompletionItemsArrayTypes.VARIABLES);
+//        //    //if (isOption(lastNode) && ['-V', '--inherit-variable'].includes(lastNode.text)) result.push(CompletionItemsArrayTypes.VARIABLES);
+//        //    //result.push(CompletionItemsArrayTypes.AUTOLOAD_FILENAME);
+//        //    break
+//        case "return":
+//            return items.allOfKinds("status", "variable");
+//        default:
+//            return items.allOfKinds("pipe");
+//    }
+//    return result
+//
+//}
 
 export const completionStrings : string[] = [
     'echo ',

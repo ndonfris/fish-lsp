@@ -1,33 +1,6 @@
-import { CompletionItem, MarkupContent } from 'vscode-languageserver-protocol';
-import { getBuiltinDocString } from './documentationCache';
-import { FishCompletionItem, FishCompletionItemKind } from './completion-types';
-//import { FishCompletionItemKind } from './completion-strategy';
-
-export interface CompletionExample {
-  title: string;
-  shellText: string;
-}
-
-export namespace CompletionExample {
-  export function create(title: string, ...shellText: string[]): CompletionExample {
-    let shellTextString: string = shellText.length > 1 ? shellText.join('\n') : shellText.at(0)!
-    return {
-      title,
-      shellText: shellTextString,
-    }
-}
-
-export function toMarkedString(example: CompletionExample): string {
-    return [
-      "___",
-      "```fish",
-      `# ${example.title}`,
-      example.shellText,
-      "```",
-    ].join("\n");
-  }
-}
-
+import { CompletionItem, MarkupContent } from 'vscode-languageserver';
+import { getBuiltinDocString } from './documentation';
+import { FishCompletionItem, FishCompletionItemKind, CompletionExample } from './types';
 
 const EscapedChars: FishCompletionItem[] = [
   {

@@ -1,23 +1,22 @@
 import { Position } from 'vscode-languageserver';
-import { Analyzer } from './analyze'
-import Parser, { SyntaxNode } from 'web-tree-sitter'
-import { createCompletionItem, FishCompletionItem, FishCompletionItemKind, FishCompletionData } from './utils/completion-strategy';
-import { LspDocument } from './document';
-import { initializeParser } from './parser';
-import { getChildNodes, getNamedChildNodes, getLeafs, getLastLeaf, ancestorMatch, firstAncestorMatch } from './utils/tree-sitter';
-import { isCommand, isCommandName, isOption, isConditional, isString, isStringCharacter,  isIfOrElseIfConditional, isUnmatchedStringCharacter, isPartialForLoop, } from './utils/node-types';
-//import { CompletionItemsArrayTypes, WordsToNotCompleteAfter } from './utils/completion-types';
-import { isBuiltin, BuiltInList, isFunction } from "./utils/builtins";
-import { execCompleteLine } from './utils/exec';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import Parser, { SyntaxNode } from 'web-tree-sitter'
+import { LspDocument } from '../../document';
+import { initializeParser } from '../../parser';
+import { getChildNodes, getNamedChildNodes, getLeafs, getLastLeaf, ancestorMatch, firstAncestorMatch } from '../tree-sitter';
+import { isCommand, isCommandName, isOption, isConditional, isString, isStringCharacter,  isIfOrElseIfConditional, isUnmatchedStringCharacter, isPartialForLoop, } from '../node-types';
+import { FishCompletionItem } from './types';
+//import { CompletionItemsArrayTypes, WordsToNotCompleteAfter } from './utils/completion-types';
+//import { isBuiltin, BuiltInList, isFunction } from "./utils/builtins";
+import { execCompleteLine } from '../exec';
 
-export class FishCompletionList {
+export class InlineParser {
     private readonly COMMAND_TYPES = ['command', 'for_statement', 'case', 'function']
 
     static async create() {
         const parser = await initializeParser();
-        return new FishCompletionList(parser);
+        return new InlineParser(parser);
     }
 
     constructor(private parser: Parser) {
@@ -39,7 +38,7 @@ export class FishCompletionList {
         wordNode: SyntaxNode | null;
         word: string | null;
     } {
-        if (line.endsWith(' ')) return { word: null, wordNode: null };
+        if (line.endsWith(' ') || line.endsWith('(') ) return { word: null, wordNode: null };
         const { rootNode } = this.parser.parse(line);
         //let node = rootNode.descendantForPosition({row: 0, column: line.length-1});
         //const node = getLastLeaf(rootNode);
@@ -83,39 +82,61 @@ export class FishCompletionList {
         }
     }
 
+    parse(line: string): SyntaxNode {
+        this.parser.reset();
+        return this.parser.parse(line).rootNode
+    }
+
     getNodeContext(line: string) {
         const {word, wordNode} = this.parseWord(line)
         const {command, commandNode} = this.parseCommand(line)
-        if (word === command) return {word, wordNode, command: null, commandNode: null}
+        let index = this.getIndex(line)
+        if (word === command) return {word, wordNode, command: null, commandNode: null, index: 0}
         return {
             word,
             wordNode,
             command,
             commandNode,
+            //last,
+            //lastNode,
+            index: index,
         }
+    }
+
+    lastItemIsOption(line: string): boolean {
+        const {command} = this.parseCommand(line)
+        if (!command) return false
+
+        const afterCommand = line.lastIndexOf(command) + 1
+        const lastItem = line.slice(afterCommand).trim().split(' ').at(-1)
+        if (lastItem) return lastItem.startsWith('-')
+        return false
+    }
+
+    getLastNode(line: string): SyntaxNode | null {
+        const { wordNode } = this.parseWord(line.trimEnd());
+        //if (wordPrecedesCommand(word)) return {command: null, commandNode: null};
+        let { virtualLine, maxLength } = Line.appendEndSequence(line, wordNode);
+        const rootNode = this.parse(virtualLine);
+        let node = getLastLeaf(rootNode);
+        return node
     }
 
     hasOption(command: SyntaxNode, options: string[]) {
         return getChildNodes(command).some(n => options.includes(n.text))
     }
 
-    async getSubshellStdoutCompletions(line: string): Promise<[string, string][]> {
-        const resultItem = (splitLine: string[]) => {
-            let name = splitLine[0] || ''
-            let description = splitLine.length > 1 ? splitLine.slice(1).join(' ') : ''
-            return [name, description] as [string, string]
+    getIndex(line: string): number {
+        const {commandNode} = this.parseCommand(line)
+        if (!commandNode) return 0
+        if (commandNode) {
+            let node = firstAncestorMatch(commandNode, (n) => this.COMMAND_TYPES.includes(n.type))!; 
+            let allLeafs = getLeafs(node).filter(leaf => leaf.startPosition.column < line.length)
+            return Math.max(allLeafs.length - 1, 1)
         }
-        const outputLines = await execCompleteLine(line)
-        return outputLines
-            .filter(line => line.trim().length !== 0)
-            .map(line => line.split('\t'))
-            .map((splitLine) => resultItem(splitLine))
+        return 0
     }
 
-
-    async typeCompletionsForLine(input: string) {
-        if (input.trim().length === 0) return 
-    }
 
 
    /**
@@ -157,9 +178,11 @@ export class FishCompletionList {
     //}
 
     async createCompletionList(line: string): Promise<FishCompletionItem[]> {
-        const {word, command, wordNode, commandNode} = this.getNodeContext(line)
         const result: FishCompletionItem[] = []
-        if (!command) return result
+        const {word, command, wordNode, commandNode} = this.getNodeContext(line)
+        if (!command) {
+            //result.push(items.allCo)
+        }
         //const completionArrayTypes = this.getCompletionArrayTypes(line)
         //const completionData: FishCompletionData = {
         //    word, command, wordNode, commandNode, line
