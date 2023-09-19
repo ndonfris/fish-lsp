@@ -80,6 +80,15 @@ export class CompletionItemMap {
         }
         return undefined
     }
+
+    get blockedCommands() {
+        return [
+            'end',
+            'else',
+            'continue',
+            'break',
+        ]
+    }
 }
 
 

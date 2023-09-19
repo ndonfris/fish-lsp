@@ -39,10 +39,10 @@ export async function execCmd(cmd: string): Promise<string[]> {
         //gid: process.getegid(),
         env: {
             PATH: process.env.PATH,
-            //USER: process.env.USER,
-            //HOME: process.env.HOME,
-        }
-        //uid: process.getuid(),
+            USER: process.env.USER,
+            HOME: process.env.HOME,
+        },
+        uid: process.getuid(),
         //env: process.env,
         //stdio: ["pipe", "pipe", "ignore"],
     });
@@ -129,7 +129,7 @@ export async function getGloablVariable(...cmd: string[]) : Promise<string[]> {
 }
 
 export async function execCompleteLine(cmd: string): Promise<string[]> {
-    const escapedCommand = cmd.replace(/(["'$`\\])/g,'\\$1');
+    const escapedCommand = cmd.replace(/(["'$`\\/])/g,'\\$1');
     const completeString = `complete --do-complete='${escapedCommand}'`;
 
     const child = await execCmd(completeString)

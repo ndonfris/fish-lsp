@@ -10,7 +10,9 @@ import {
     MarkupContent,
     Position,
     RemoteConsole,
+    Range,
     SymbolKind,
+    TextEdit,
 } from "vscode-languageserver";
 import { FishDocumentSymbol } from '../../document-symbol';
 
@@ -31,6 +33,7 @@ export const FishCompletionItemKind = {
     FORMAT_STR: "format_str",
     STATEMENT: "statement",
     ARGUMENT: "argument",
+    PATH: "path",
     EMPTY: "empty",
 } as const;
 export type FishCompletionItemKind = typeof FishCompletionItemKind[keyof typeof FishCompletionItemKind]
@@ -52,6 +55,7 @@ export const toCompletionItemKind: Record<FishCompletionItemKind, CompletionItem
     [FishCompletionItemKind.FORMAT_STR]: CompletionItemKind.Operator,
     [FishCompletionItemKind.STATEMENT]: CompletionItemKind.Keyword,
     [FishCompletionItemKind.ARGUMENT]: CompletionItemKind.Property,
+    [FishCompletionItemKind.PATH]: CompletionItemKind.File,
     [FishCompletionItemKind.EMPTY]: CompletionItemKind.Text,
 }
 export type FishCompletionData = {
@@ -64,7 +68,7 @@ export type FishCompletionData = {
 
 export interface FishCompletionItem extends CompletionItem {
     detail: string;
-    documentation: string;
+    //documentation: string;
     fishKind: FishCompletionItemKind;
     examples?: CompletionExample[];
     local: boolean;
@@ -79,10 +83,11 @@ export class FishCompletionItem implements FishCompletionItem {
         public label: string,
         public fishKind: FishCompletionItemKind,
         public detail: string,
-        public documentation: string,
+        public documentation: string | MarkupContent,
         public examples?: CompletionExample[]
     ) {
         this.local = false;
+        //this.labelDetails = this.detail;
         this.setKinds(fishKind)
     }
 
@@ -99,6 +104,11 @@ export class FishCompletionItem implements FishCompletionItem {
 
     setData(data: FishCompletionData) {
         this.data = data;
+        const removeLength = data.word ? data.word.length : 1;
+        this.textEdit = TextEdit.replace(
+            Range.create({line: data.position.line, character: data.position.character - removeLength}, data.position),
+            this.insertText || this.label
+        )
         return this
     }
 }
@@ -112,7 +122,8 @@ export class FishCommandCompletionItem extends FishCompletionItem {
 export class FishAbbrCompletionItem extends FishCommandCompletionItem {
     constructor(label: string, detail: string, documentation: string) {
         super(label, FishCompletionItemKind.ABBR, detail, documentation)
-        this.insertText = documentation.slice(label.length + 1, documentation.lastIndexOf('#'))
+        const last = Math.max(documentation.lastIndexOf('#')+1, documentation.length)
+        this.insertText = documentation.slice(label.length + 1, last)
         this.commitCharacters = ['\t', ';', ' ']
     }
 }

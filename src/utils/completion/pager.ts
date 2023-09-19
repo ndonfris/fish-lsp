@@ -2,9 +2,11 @@ import { LspDocument } from '../../document';
 import { FishDocumentSymbol } from '../../document-symbol';
 import { FishCompletionData, FishCompletionItem } from './types';
 import { execCompleteLine } from '../exec';
+import { Logger } from "../../logger";
 import { InlineParser } from './inline-parser';
 import { CompletionItemMap } from './startup-cache';
 import { CompletionContext, CompletionList, CompletionParams, Position, SymbolKind } from 'vscode-languageserver-protocol';
+import { FishCompletionList, FishCompletionListBuilder } from './list';
 
 type SetupData = {
   uri: string;
@@ -14,12 +16,15 @@ type SetupData = {
 
 export class CompletionPager {
 
-  private _items: CachedCompletionList = new CachedCompletionList();
+  private _items: FishCompletionListBuilder;
 
   constructor(
     private inlineParser: InlineParser,
-    private itemsMap: CompletionItemMap
-  ) {}
+    private itemsMap: CompletionItemMap,
+    private logger: Logger,
+  ) {
+        this._items = new FishCompletionListBuilder(this.logger)
+    }
 
   empty(): CompletionList {
     return {
@@ -42,21 +47,36 @@ export class CompletionPager {
     line: string,
     setupData: SetupData,
     symbols: FishDocumentSymbol[]
-  ) : Promise<FishCompletionItem[]>{
+  ) : Promise<FishCompletionList>{
     const { word, command, commandNode, index } = this.inlineParser.getNodeContext(line);
+    this._items.reset();
     const data = FishCompletionItem.createData(
       setupData.uri,
       line,
       word || "",
       setupData.position
     );
-    const stdout = await this.getSubshellStdoutCompletions(line);
-    this._items.reset();
+
+    this.logger.log('Pager.complete.data =', {command, word})
+    let stdout: [string, string][] = [];
+    if (!this.itemsMap.blockedCommands.includes(command || '')) {
+      const toAdd = await this.getSubshellStdoutCompletions(line);
+      stdout.push(...toAdd);
+    } 
+    
+    if (word && word.includes('/')) {
+      this.logger.log('word includes /', word)
+      const toAdd = await this.getSubshellStdoutCompletions(`__fish_complete_path ${word}`)
+      this._items.addItems(toAdd.map((item) => FishCompletionItem.create(item[0], 'path', item[1], item.join(' '))))
+    }
+
+    const { variables, functions } = sortSymbols(symbols);
 
     const isOption = this.inlineParser.lastItemIsOption(line);
     for (const [name, description] of stdout) {
-      if (isOption || name.startsWith("-") || ( command  && word)) {
-        this._items.addItem(FishCompletionItem.create(name, "argument", description, description));
+      //if (this.itemsMap.skippableItem(name, description)) continue;
+      if (isOption || name.startsWith("-") || command) {
+        this._items.addItem(FishCompletionItem.create(name, "argument", description, [line, name, description].join(' ').trim()));
         continue;
       }
       let item = this.itemsMap.findLabel(name);
@@ -64,9 +84,8 @@ export class CompletionPager {
       this._items.addItem(item);
     }
 
-    const { variables, functions } = sortSymbols(symbols);
     if (command) {
-      this._items.addSymbols(variables);
+      this._items.addSymbols(variables)
       if (index === 1) {
         this._items.addItems(addFirstIndexedItems(command, this.itemsMap));
       } else {
@@ -75,13 +94,24 @@ export class CompletionPager {
     } else if (word && !command) {
       this._items.addSymbols(functions);
     }
-
-    if (word?.startsWith("$")) {
-      this._items.addItems(this.itemsMap.allOfKinds("variable"));
-      this._items.addSymbols(variables);
+    switch (wordsFirstChar(word)) {
+      case "$":
+        this._items.addItems(this.itemsMap.allOfKinds("variable"));
+        this._items.addSymbols(variables);
+        break;
+      case '/':
+        this._items.addItems(this.itemsMap.allOfKinds('wildcard'));
+        //let addedStdout = await this.getSubshellStdoutCompletions(word!)
+        //stdout = stdout.concat(addedStdout)
+        break;
+      default:
+        break;
     }
 
-    return this._items.addData(data).build()
+
+    const result = this._items.addData(data).build();
+    this._items.log()
+    return result;
   }
 
   getData(uri: string, position: Position, line: string, word: string) {
@@ -110,19 +140,19 @@ export class CompletionPager {
   }
 }
 
-export async function initializeCompletionPager() {
+export async function initializeCompletionPager(logger: Logger) {
   return await Promise.all([
     InlineParser.create(),
     CompletionItemMap.initialize(),
   ]).then(([inline, items]) => {
-      return new CompletionPager(inline, items);
+      return new CompletionPager(inline, items, logger);
     });
 }
 
 function addFirstIndexedItems(command: string, items: CompletionItemMap) {
   switch (command) {
-    //case "end":
-    //  return items.allOfKinds("pipe");
+    case "end":
+      return items.allOfKinds("pipe");
     case "printf":
       return items.allOfKinds("format_str", "esc_chars");
     case "set":
@@ -172,6 +202,10 @@ function addSpecialItems(
   }
 }
 
+function wordsFirstChar(word: string | null) {
+  return word?.charAt(0) || ' ';
+}
+
 function includesFlag(
   shortFlag: string,
   longFlag: string,
@@ -206,43 +240,3 @@ function sortSymbols(symbols: FishDocumentSymbol[]) {
   return { variables, functions };
 }
 
-export class CachedCompletionList {
-    private items: FishCompletionItem[];
-    constructor() {
-        this.items = [];
-    }
-
-    addItem(item: FishCompletionItem) {
-        this.items.push(item);
-    }
-
-    addItems(items: FishCompletionItem[]) {
-        this.items.push(...items);
-    }
-
-    addSymbols(symbols: FishDocumentSymbol[]) {
-        const symbolItems = symbols.map((symbol) =>
-            FishCompletionItem.fromSymbol(symbol)
-        );
-        this.items.push(...symbolItems);
-    }
-
-    addData(data: FishCompletionData) {
-        this.items = this.items.map((item: FishCompletionItem) => {
-            const newData = {
-                ...data,
-                line: data.line.slice(0, data.line.length - data.word.length) + item.label
-            } as FishCompletionData
-            return item.setData(newData)
-        });
-        return this;
-    }
-
-    reset() {
-        this.items = [];
-    }
-
-    build() {
-        return this.items;
-    }
-}

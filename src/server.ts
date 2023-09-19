@@ -31,6 +31,7 @@ import { getRenameLocations, getRenameWorkspaceEdit, getRefrenceLocations } from
 import { CompletionPager, initializeCompletionPager } from './utils/completion/pager';
 import { FishCompletionItem } from './utils/completion/types';
 import { getDocumentationResolver } from './utils/completion/documentation';
+import { FishCompletionList } from './utils/completion/list';
 
 // @TODO 
 export type SupportedFeatures = {
@@ -50,7 +51,7 @@ export default class FishServer {
             initializeParser(),
             initializeDocumentationCache(),
             initializeDefaultFishWorkspaces(),
-            initializeCompletionPager(),
+            initializeCompletionPager(logger),
         ]).then(([parser, cache, workspaces, completions]) => {
             const analyzer = new Analyzer(parser, workspaces);
             return new FishServer(
@@ -278,7 +279,7 @@ export default class FishServer {
 
         this.logParams("onCompletion", params);
         const uri = uriToPath(params.textDocument.uri);
-        let list: FishCompletionItem[] = []
+        let list: FishCompletionList = FishCompletionList.empty() 
         const doc = this.docs.get(uri);
 
         if (!uri || !doc) {
@@ -296,7 +297,7 @@ export default class FishServer {
             }
         }
 
-        if (line.trim().startsWith("#")) return this.completion.empty();
+        if (line.trim().startsWith("#")) return FishCompletionList.empty();
 
         try {
             const symbols = this.analyzer.getFlatDocumentSymbols(uri)
@@ -310,12 +311,12 @@ export default class FishServer {
             //    "data"
             //);
             this.logger.log(
-                `line: '${line}' got ${list.length} items"`
+                `line: '${line}' got ${list.items.length} items"`
             );
         } catch (error) {
             this.logger.log("ERROR: onComplete " + error);
         }
-        return this.completion.create(true, list)
+        return list
     }
 
     /**
@@ -323,11 +324,11 @@ export default class FishServer {
      * it it also given the method .kind(FishCompletionItemKind) to set the kind of the item.
      * Not seeing a completion result, with typed correctly is likely caused from this.
      */
-    async onCompletionResolve(item: CompletionItem): Promise<CompletionItem> {
-        const fishItem = item as FishCompletionItem;
-        let doc = await getDocumentationResolver(fishItem)
+    async onCompletionResolve(item: FishCompletionItem): Promise<CompletionItem> {
+        //const fishItem = item as FishCompletionItem;
+        let doc = await getDocumentationResolver(item)
         if (doc) {
-            item.documentation = doc;
+            item.documentation = doc
         }
         return item;
     }

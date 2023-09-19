@@ -9,16 +9,32 @@
         "sourceMap": true,
         "target": "ES2022",
         "incremental": true,
-        "module": "commonJS",
+        "module": "NodeNext",
         "moduleResolution": "node",
         "resolveJsonModule": true,
         "esModuleInterop": true,
         "lib": [
+            //"es2022",
             "es2022",
-            "DOM"
+            "WebWorker"
+            //"DOM"
         ],
         //"downlevelIteration": true,
-        "skipLibCheck": true
+        "disableSizeLimit": true,
+        //"fallbackPolling": "",
+        "generateCpuProfile": "profile.cpuprofile",
+        "extendedDiagnostics": true,
+        "skipLibCheck": true,
+        "baseUrl": "./",
+        "paths": {
+            "completion/*": ["./src/utils/completion/*"],
+            "utils/*": ["./src/utils/*"],
+            "tests/*": ["./test-data/*"]
+        }
+        //"rootDirs": [
+        //    "src",
+        //    "test-data"
+        //]
     },
     "include": [
         "src"

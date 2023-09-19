@@ -28,8 +28,11 @@ import { getChildNodes,  getLeafs } from '../src/utils/tree-sitter';
 //import { initializeShellCache } from '../src/utils/shell-cache';
 import { InlineParser } from '../src/utils/completion/inline-parser';
 import * as CACHE from '../src/utils/completion/startup-cache';
-import { FishCompletionItem, FishCompletionItemKind } from '../src/utils/completion/types';
+//import { FishCompletionItem, FishCompletionItemKind } from '../src/utils/completion/types';
+import { FishCompletionItem, FishCompletionItemKind } from '../src/utils/completion/types'
 import { CompletionPager, initializeCompletionPager } from '../src/utils/completion/pager'
+import { Logger } from '../src/logger'
+import { getFlagDocumentationAsMarkup } from '../src/utils/flag-documentation';
 //import { FishCompletionItem, FishCompletionItemKind, getDocumentationResolver } from '../src/utils/completion-types';
 //import { FishCompletionItemKind } from '../src/utils/completion-strategy';
 //import * as ParserTypes from '../node_modules/tree-sitter-fish/src/node-types.json';
@@ -43,8 +46,8 @@ let items: CACHE.CompletionItemMap
 
 setLogger(
     async () => {
-        parser = await initializeParser();
-        pager = await initializeCompletionPager();
+        //parser = await initializeParser();
+        pager = await initializeCompletionPager(new Logger());
         //completions = await InlineParser.create()
         //items = await CACHE.CompletionItemMap.initialize()
         //items = await CACHE.createSetupItemsFromCommands()
@@ -64,32 +67,27 @@ describe('complete simple tests', () => {
 
     it('get subshell completions from stdout', async () => {
         let inputText = 'function _foo -';
-        const data = {uri: 'file:///test.fish', position: Position.create(0,0), context: {triggerKind: CompletionTriggerKind.Invoked}};
-        const list = await pager.complete(inputText, data, [])
+        const data = {uri: 'file:///test.fish', position: Position.create(0, inputText.length), context: {triggerKind: CompletionTriggerKind.Invoked}};
+        const list = (await pager.complete(inputText, data, [])).items as FishCompletionItem[]
         for (const item of list) {
             console.log({label: item.label, detail: item.detail, kind: item.fishKind});
         }
-        //const {label, value} = CACHE.splitLine('fzf_gt  alias fzf_gt=__fzf_open_mine')
-        //console.log({label, value});
-
-        //console.log(context.commandNode?.text, context.commandNode?.parent?.endIndex);
-        //for (const [label, desc] of outputArray) {
-        //    //const _item = items.findLabel(label, FishCompletionItemKind.FUNCTION, FishCompletionItemKind.BUILTIN, FishCompletionItemKind.ABBR, FishCompletionItemKind.ALIAS, FishCompletionItemKind.COMMAND)
-        //    // call commandLine to get the documentation
-        //    const smallerCheck = items.findLabel(label, 'command')
-        //    if (label === 'fortune') {
-        //        console.log(label, smallerCheck);
-        //        const docs = await getDocumentationResolver(smallerCheck!)
-        //        console.log(docs);
-        //    }
-        //    continue;
-        //}
-        //await cached.init()
-        //console.log(cached._cached);
-        //console.log();
-        //console.log(cached.getCompletionType('ls'));
-        //console.log(cached.hasLabel('ls'));
     })
+
+    it('get subshell completions for string-split', async () => {
+      let input: string[] = [
+        "ls -laH",
+        "string split",
+        "string split -f1 \t",
+      ];
+      console.log('testing subshell');
+      for (const inputText of input) {
+        const output = await getFlagDocumentationAsMarkup(inputText)
+        console.log(output)
+      }
+      //const docs = await execCommandDocs('string split')
+      //console.log(docs);
+    }, 10000)
 })
 
 

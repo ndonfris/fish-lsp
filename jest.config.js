@@ -9,6 +9,11 @@ module.exports = {
     moduleFileExtensions: ["ts", "js", "json", "node"],
     modulePathIgnorePatterns: ["<rootDir>/out"],
     bail: 1,
+    moduleNameMapper: {
+    	"^completion/(.*)$": "<rootDir>/src/utils/completion/$1",
+    	"^utils/(.*)$": "<rootDir>/src/utils/$1",
+    	"^test-data/(.*)$": "<rootDir>/test-data/$1"
+    },
     transformIgnorePatterns: [
         "<rootDir>/node_modules/",
     ],
@@ -18,6 +23,8 @@ module.exports = {
     },
     testRegex: "\\.test\\.ts$",
     preset: "ts-jest",
-    testTimeout: 2000,
-    maxWorkers: "50%",
+    testTimeout: 8000,
+    //minWorkers: 5,
+    maxWorkers: "50%/4"
+    //maxWorkers: "20%",
 };

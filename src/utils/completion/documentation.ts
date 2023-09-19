@@ -1,10 +1,10 @@
 import { MarkupContent } from 'vscode-languageserver';
 import { FishCompletionItem, FishCompletionItemKind, CompletionExample } from './types';
 import { execCmd, execCommandDocs, execEscapedCommand } from '../exec';
-import { getFlagDocumentationAsMarkup } from '../flag-documentation';
+import { getFlagDocumentationAsMarkup, getFlagDocumentationString } from '../flag-documentation';
 
 export async function getDocumentationResolver(item: FishCompletionItem): Promise<MarkupContent> {
-    let docString: string = '';
+    let docString: string = ['```fish', item.documentation, '```'].join('\n')
     if (!item.local) {
         switch (item.fishKind) {
             case FishCompletionItemKind.ABBR:
@@ -40,14 +40,14 @@ export async function getDocumentationResolver(item: FishCompletionItem): Promis
                 docString = await getStaticDocString(item as FishCompletionItem)
                 break
             case FishCompletionItemKind.ARGUMENT:
-                if (!item.data) break
-               return await getFlagDocumentationAsMarkup(item.data.line + ' ' + item.label)
+                docString = await getFlagDocumentationString(item.documentation.trimStart())
+                break;
             case FishCompletionItemKind.EMPTY:
             default:
                 break;
         }
     } else {
-        docString = ['```fish', item.documentation, '```'].join('\n')
+        docString = ['```fish', docString, '```'].join('\n')
     }
     return {
         kind: 'markdown',
