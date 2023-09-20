@@ -239,4 +239,3 @@ function sortSymbols(symbols: FishDocumentSymbol[]) {
   });
   return { variables, functions };
 }
-

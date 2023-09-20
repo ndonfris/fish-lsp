@@ -20,7 +20,7 @@ import {FishAutoFixProvider} from './features/fix-all';
 import {FishProtocol} from './utils/fishProtocol';
 import {Commands} from "./commands"
 import {handleConversionToCodeAction} from './diagnostics/handleConversion';
-import {FishShellInlayHintsProvider} from './features/inlay-hints';
+import {FishShellInlayHintsProvider} from './inlay-hints';
 import { DocumentationCache, initializeDocumentationCache } from './utils/documentationCache';
 import { homedir } from 'os';
 import { initializeDefaultFishWorkspaces } from './utils/workspace';
@@ -324,11 +324,11 @@ export default class FishServer {
      * it it also given the method .kind(FishCompletionItemKind) to set the kind of the item.
      * Not seeing a completion result, with typed correctly is likely caused from this.
      */
-    async onCompletionResolve(item: FishCompletionItem): Promise<CompletionItem> {
-        //const fishItem = item as FishCompletionItem;
-        let doc = await getDocumentationResolver(item)
+    async onCompletionResolve(item: CompletionItem): Promise<CompletionItem> {
+        const fishItem = item as FishCompletionItem;
+        let doc = await getDocumentationResolver(fishItem)
         if (doc) {
-            item.documentation = doc
+            item.documentation = doc as MarkupContent
         }
         return item;
     }

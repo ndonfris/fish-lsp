@@ -17,16 +17,17 @@ const execFileAsync = promisify(execFile)
  *                                the fish completion command is implemented
  */
 export async function execEscapedCommand(cmd: string): Promise<string[]> {
-    const escapedCommand = cmd.replace(/(["'$`\\])/g,'\\$1');
-    const completeString = `fish -c "${escapedCommand}"`;
+    const escapedCommand = cmd.replace(/(["'$`\\])/g, '\\$1');
+    //const completeString = escapedCommand;
 
-    const child = await execAsync(completeString)
+    //"fish -P --command='printf \'%s\' a a a | string split \' \''"
+    const { stdout } = await execFileAsync('fish', ['-P', '--command', `'${escapedCommand}'`])
 
-    if (!child) {
+    if (!stdout) {
         return ['']
     }
 
-    return child.stdout.trim().split('\n')
+    return stdout.trim().split('\n')
 }
 
 export async function execCmd(cmd: string): Promise<string[]> {
@@ -36,7 +37,7 @@ export async function execCmd(cmd: string): Promise<string[]> {
         encoding: "buffer",
         windowsHide: true,
         cwd: process.cwd(),
-        //gid: process.getegid(),
+        gid: process.getegid(),
         env: {
             PATH: process.env.PATH,
             USER: process.env.USER,

@@ -40,7 +40,7 @@ export class CompletionItemMap {
                     item.label,
                     kind,
                     item.detail,
-                    item.documentation,
+                    item.documentation.toString(),
                     item.examples
                 ));
             }

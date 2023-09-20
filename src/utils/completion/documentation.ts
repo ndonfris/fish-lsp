@@ -4,32 +4,32 @@ import { execCmd, execCommandDocs, execEscapedCommand } from '../exec';
 import { getFlagDocumentationAsMarkup, getFlagDocumentationString } from '../flag-documentation';
 
 export async function getDocumentationResolver(item: FishCompletionItem): Promise<MarkupContent> {
-    let docString: string = ['```fish', item.documentation, '```'].join('\n')
+    let docString: string = ['```fish', item.documentation.toString(), '```'].join('\n')
     if (!item.local) {
         switch (item.fishKind) {
             case FishCompletionItemKind.ABBR:
-                docString = await getAbbrDocString(item.label) || item.documentation
+                docString = await getAbbrDocString(item.label) ?? docString
                 break;
             case FishCompletionItemKind.ALIAS:
-                const doc = item.documentation || `alias ${item.label}`
-                docString = await getAliasDocString(item.label, doc) || item.documentation
+                const doc = item.documentation.toString() || `alias ${item.label}`
+                docString = await getAliasDocString(item.label, doc) ?? docString
                 break;
             case FishCompletionItemKind.COMBINER:
             case FishCompletionItemKind.STATEMENT:
             case FishCompletionItemKind.BUILTIN:
-                docString = await getBuiltinDocString(item.label) || item.documentation
+                docString = await getBuiltinDocString(item.label) ?? docString
                 break;
             case FishCompletionItemKind.COMMAND:
-                docString = await getCommandDocString(item.label) || item.documentation
+                docString = await getCommandDocString(item.label) ?? docString
                 break;
             case FishCompletionItemKind.FUNCTION:
-                docString = await getFunctionDocString(item.label) || item.documentation
+                docString = await getFunctionDocString(item.label) ?? docString
                 break;
             case FishCompletionItemKind.VARIABLE:
-                docString = await getVariableDocString(item.label) || item.documentation
+                docString = await getVariableDocString(item.label) ?? docString
                 break;
             case FishCompletionItemKind.EVENT:
-                docString = await getEventHandlerDocString(item.documentation)
+                docString = await getEventHandlerDocString(item.documentation as string) ?? docString
                 break;
             case FishCompletionItemKind.STATUS:
             case FishCompletionItemKind.WILDCARD:
@@ -37,17 +37,15 @@ export async function getDocumentationResolver(item: FishCompletionItem): Promis
             case FishCompletionItemKind.FORMAT_STR: 
             case FishCompletionItemKind.ESC_CHARS:
             case FishCompletionItemKind.PIPE:
-                docString = await getStaticDocString(item as FishCompletionItem)
+                docString ??= await getStaticDocString(item as FishCompletionItem)
                 break
             case FishCompletionItemKind.ARGUMENT:
-                docString = await getFlagDocumentationString(item.documentation.trimStart())
+                docString ??= await getFlagDocumentationString(item.documentation.toString().trimStart())
                 break;
             case FishCompletionItemKind.EMPTY:
             default:
                 break;
         }
-    } else {
-        docString = ['```fish', docString, '```'].join('\n')
     }
     return {
         kind: 'markdown',

@@ -212,6 +212,10 @@ export function isOption(node: SyntaxNode): boolean {
     return isShortOption(node) || isLongOption(node);
 }
 
+export function isPipe(node: SyntaxNode): boolean {
+    return node.type === 'pipe';
+}
+
 export function gatherSiblingsTillEol(node: SyntaxNode): SyntaxNode[] {
     const siblings = [];
     let next = node.nextSibling;
