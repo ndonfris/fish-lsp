@@ -21,7 +21,7 @@ import { homedir } from 'os';
 import { isBeforeCommand, isBlockBreak, isCommand, isCommandName, isPartialForLoop, isScope, isSemicolon } from '../src/utils/node-types';
 import { Node } from './mock-datatypes';
 //import { FishCompletionList } from '../src/completion/';
-import { getChildNodes,  getLeafs } from '../src/utils/tree-sitter';
+import { getChildNodes,  getLeafs, getCommandArgumentValue, matchesArgument } from '../src/utils/tree-sitter';
 //import { AbbrList, EventNamesList, FunctionNamesList, GlobalVariableList, isBuiltin, isFunction } from '../src/utils/builtins';
 //import { createShellItems, findShellPath, ShellItems, spawnSyncRawShellOutput } from '../src/utils/startup-shell-items';
 //import * as SHELL from '../src/utils/shell-items';
@@ -65,29 +65,51 @@ describe('complete simple tests', () => {
     //
     //})
 
-    it('get subshell completions from stdout', async () => {
-        let inputText = 'function _foo -';
-        const data = {uri: 'file:///test.fish', position: Position.create(0, inputText.length), context: {triggerKind: CompletionTriggerKind.Invoked}};
-        const list = (await pager.complete(inputText, data, [])).items as FishCompletionItem[]
-        for (const item of list) {
-            console.log({label: item.label, detail: item.detail, kind: item.fishKind});
+    //it('get subshell completions from stdout', async () => {
+    //    let inputText = 'function _foo -';
+    //    const data = {uri: 'file:///test.fish', position: Position.create(0, inputText.length), context: {triggerKind: CompletionTriggerKind.Invoked}};
+    //    const list = (await pager.complete(inputText, data, [])).items as FishCompletionItem[]
+    //    //for (const item of list) {
+    //    //    console.log({label: item.label, detail: item.detail, kind: item.fishKind});
+    //    //}
+    //})
+    //
+    //it('get subshell completions for string-split', async () => {
+    //  let input: string[] = [
+    //    "ls -laH",
+    //    "string split",
+    //    "string split -f1 \t",
+    //  ];
+    //  //console.log('testing subshell');
+    //  for (const inputText of input) {
+    //    const output = await getFlagDocumentationAsMarkup(inputText)
+    //    //console.log(output)
+    //  }
+    //  //const docs = await execCommandDocs('string split')
+    //  //console.log(docs);
+    //}, 10000)
+
+    it('get command argument value', async () => {
+        let inputList: string[] = [
+            "string split --max 1 = 'a=b'"
+        ];
+        const log = (found?: SyntaxNode | null) => {
+            console.log({found: found?.text || '', str: found?.toString() || ''});
+        }
+        const parser = await initializeParser();
+        for (const input of inputList) {
+            const {rootNode} = parser.parse(input)
+            const node = rootNode.descendantForPosition({row: 0, column: 0})
+
+            log(node.parent!)
+            const found = getCommandArgumentValue(node, '--max')
+            log(found)
+            const found2 = getChildNodes(rootNode).find(c => matchesArgument(c, '--max'))
+            //log({found: found?.text || '', str: found?.toString() || ''});
+            log(found2)
+
         }
     })
-
-    it('get subshell completions for string-split', async () => {
-      let input: string[] = [
-        "ls -laH",
-        "string split",
-        "string split -f1 \t",
-      ];
-      console.log('testing subshell');
-      for (const inputText of input) {
-        const output = await getFlagDocumentationAsMarkup(inputText)
-        console.log(output)
-      }
-      //const docs = await execCommandDocs('string split')
-      //console.log(docs);
-    }, 10000)
 })
 
 

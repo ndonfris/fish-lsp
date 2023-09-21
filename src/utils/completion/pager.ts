@@ -1,6 +1,6 @@
 import { LspDocument } from '../../document';
 import { FishDocumentSymbol } from '../../document-symbol';
-import { FishCompletionData, FishCompletionItem } from './types';
+import { FishCompletionData, FishCompletionItem, FishCompletionItemKind } from './types';
 import { execCompleteLine } from '../exec';
 import { Logger } from "../../logger";
 import { InlineParser } from './inline-parser';
@@ -57,7 +57,7 @@ export class CompletionPager {
       setupData.position
     );
 
-    this.logger.log('Pager.complete.data =', {command, word})
+    //this.logger.log('Pager.complete.data =', {command, word})
     let stdout: [string, string][] = [];
     if (!this.itemsMap.blockedCommands.includes(command || '')) {
       const toAdd = await this.getSubshellStdoutCompletions(line);
@@ -238,4 +238,131 @@ function sortSymbols(symbols: FishDocumentSymbol[]) {
     }
   });
   return { variables, functions };
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// Trying functional approach
+/////////////////////////////////////////////////////////////////////////////////////////
+
+function addItemsForWord(word: string): FishCompletionItemKind[] {
+  const firstChar = wordsFirstChar(word);
+  switch (firstChar) {
+    case "'":
+      return ["esc_chars"];
+    case '"':
+      return ["esc_chars", 'variable'];
+    case "$":
+      return ["variable"];
+    case '/':
+      return ['path'];
+    case '%':
+      return ['status'];
+    case '\\':
+      return ['esc_chars'];
+    case ')':
+      return ['combiner', 'pipe'];
+    case ':':
+    case '-':
+    default:
+      return [];
+  }
+}
+
+namespace CommandHas {
+  export function string(command: string, word: string) {
+    if (!command) return false;
+    return word.startsWith('"') || word.startsWith("'");
+  }
+  export function path(command: string, word: string) {
+    if (!command) return false;
+    return word.includes("/") || word.startsWith("~")
+  }
+}
+
+function addItemsForWordAndCommand(command: string,word: string): FishCompletionItemKind[] {
+  switch (true) {
+    case CommandHas.string(command, word):
+      return ['esc_chars'];
+    //case isCommandWithRegex(command, word):
+    //  return ['regex'];
+    //case CommandHas.
+    case CommandHas.path(command, word):
+      return ['path', 'wildcard', 'variable']
+    default:
+      return [];
+  }
+}
+
+function addItemsJustByCommand(command: string): FishCompletionItemKind[] {
+  switch (command) {
+    case 'set':
+      return ['variable'];
+    case 'function':
+      return ['function'];
+    case 'printf':
+      return ['format_str', 'esc_chars'];
+    case 'string':
+      return ['esc_chars', 'regex'];
+    case 'end':
+      return ['pipe'];
+    case 'return':
+      return ['status', 'variable'];
+    default:
+      return [];
+  }
+}
+
+function addItemsForCommandOnly(command: string): FishCompletionItemKind[] {
+  switch (command) {
+    case 'set':
+      return ['variable'];
+    case 'function':
+      return ['function'];
+    case 'printf':
+      return ['format_str', 'esc_chars'];
+    case 'string':
+      return ['esc_chars', 'regex'];
+    case 'end':
+      return ['pipe'];
+    case 'return':
+      return ['status', 'variable'];
+    default:
+      return [];
+  }
+}
+
+function addItemsForCommand(command: string): FishCompletionItemKind[] {
+  switch (command) {
+    case 'set':
+      return ['variable'];
+    case 'function':
+      return ['function'];
+    case 'printf':
+      return ['format_str', 'esc_chars'];
+    case 'string':
+      return ['esc_chars', 'regex'];
+    case 'end':
+      return ['pipe'];
+    case 'return':
+      return ['status', 'variable'];
+    default:
+      return [];
+  }
+}
+
+function addItemTypes(line: string, parser: InlineParser): FishCompletionItemKind[] {
+  const { word, command } = parser.getNodeContext(line);
+  const wordFirstChar = wordsFirstChar(word);
+  switch (wordFirstChar) {
+    case "$": return ["variable"];
+    case "\\":
+    case '/':
+    case '%':
+
+    // goes together
+    case '-':
+    case ':':
+
+  }
+  return []
 }

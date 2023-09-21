@@ -499,6 +499,36 @@ export function getLastLeaf(node: SyntaxNode, maxIndex: number = Infinity): Synt
 }
 
 
+export function matchesArgument(node: SyntaxNode, argName: string) {
+    const splitNode = node.text.slice(0, node.text.lastIndexOf('='))
+    if (argName.startsWith('-') && !argName.startsWith('--')) {
+        return splitNode.startsWith('-') && splitNode.includes(argName.slice(1))
+    }
+    if (argName.startsWith('--')) {
+        return splitNode.startsWith('--') && splitNode.startsWith(argName.slice(2))
+    }
+    return splitNode === argName
+}
+
+/**
+ * @param command - the command node to search it's children, accepts both command and command name nodes
+ * @param argName - the name of the argument to search for
+ * @returns the value of the argument if found, otherwise null
+ */
+export function getCommandArgumentValue(command: SyntaxNode, argName: string): SyntaxNode | null{
+    function getCommand(node: SyntaxNode) {
+        if (node.type === 'name' && node.parent) return node.parent
+        return node
+    }
+    const arg = getCommand(command).children.find(child => matchesArgument(child, argName))
+    if (!arg) return null
+    const value = arg.text.includes('=') 
+        ? arg
+        : arg.nextSibling
+    return value
+}
+
+
 
 // Check out awk-language-server: 
 //     • https://github.com/Beaglefoot/awk-language-server/tree/master/server/src/utils.ts
