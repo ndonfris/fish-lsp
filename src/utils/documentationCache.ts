@@ -306,7 +306,7 @@ export class DocumentationCache {
         this._unknowns = initializeMap([], SymbolKind.Null, uri);
         await Promise.all([
             execEscapedCommand('set -n'),
-            execEscapedCommand(`functions -an`),
+            execEscapedCommand(`functions -an | string collect`),
             execEscapedCommand('builtin -n')
         ]).then(([vars, funcs, builtins]) => {
             this._variables = initializeMap(vars, SymbolKind.Variable, uri);

@@ -21,7 +21,7 @@ export async function execEscapedCommand(cmd: string): Promise<string[]> {
     //const completeString = escapedCommand;
 
     //"fish -P --command='printf \'%s\' a a a | string split \' \''"
-    const { stdout } = await execFileAsync('fish', ['-P', '--command', `'${escapedCommand}'`])
+    const { stdout } = await execFileAsync('fish', ['-P', '--command', escapedCommand])
 
     if (!stdout) {
         return ['']
@@ -67,6 +67,16 @@ export async function execCmd(cmd: string): Promise<string[]> {
         .trim()
         .split("\n")
         //.filter((line) => line.trim().length !== 0);
+}
+
+export async function execPrintLsp(line: string) {
+    const file = resolve(__dirname, '../../fish_files/printflsp.fish')
+    //const escapedCommand = line.replace(/(["'$`\\])/g, '\\$1');
+    const child = await execFileAsync(file, [line])
+    if (child.stderr) {
+        return child.stdout.trim()
+    }
+    return child.stdout.trim()
 }
 //export function execCmd(cmd: string): Promise<string[]> {
 //    return new Promise((resolve, reject) => {
@@ -275,7 +285,6 @@ export async function execComplete(...cmd: string[]): Promise<string[]> {
     }
     return fixedResults || [];
 }
-
 
 // open the uri and read the file
 export async function execOpenFile(uri: string): Promise<string> {

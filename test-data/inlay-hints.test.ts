@@ -5,8 +5,8 @@ import * as NodeTypes from '../src/utils/node-types'
 import { resolveLspDocumentForHelperTestFile, setLogger } from './helpers'
 //import Parser from "web-tree-sitter";
 import {getChildNodes, getRange} from '../src/utils/tree-sitter';
-import { execInlayHintType } from '../src/utils/exec';
-import { FishInlayHint, FishInlayHintsProvider } from '../src/inlay-hints';
+import { execInlayHintType, execPrintLsp } from '../src/utils/exec';
+import { FishInlayHint, inlayHintsProvider } from '../src/inlay-hints';
 import { LspDocument } from '../src/document';
 import { Analyzer } from '../src/analyze';
 
@@ -21,30 +21,43 @@ setLogger(
     }
 )
 
+
 describe('inlay-hints', () => {
-    it('test that we get all command names', async () => {
-        const doc: LspDocument = resolveLspDocumentForHelperTestFile('./fish_files/simple/func_a.fish')
-        const root = parser.parse(doc.getText()).rootNode
-        const range = getRange(root)
-
-        const result = await FishInlayHintsProvider.provideInlayHints(doc, range, analyzer);
-
-        result.forEach((hint: FishInlayHint) => {
-            console.log(JSON.stringify(hint, null, 2));
-        })
-
-        //const root = parser.parse(doc.getText()).rootNode;
-        //const children = getChildNodes(root).filter(node => NodeTypes.isCommandName(node))
-        //const hints : LSP.InlayHint[] = []
-        //for (const child of children) {
-        //    const text = await execInlayHintType(child.text)
-        //    const hint = LSP.InlayHint.create({line: child.startPosition.row, character: child.startPosition.column}, text, LSP.InlayHintKind.Type)
-        //    hint.paddingLeft = true;
-        //    hints.push(hint)
-        //}
-        //hints.forEach(hint => {
-        //    console.log(JSON.stringify({hint: hint}, null, 2));
-        //})
+    it('test if execPrintLsp works', async () => {
+        const out = await execPrintLsp('printf "%s\\n" "hello world" | string split \\n')
+        if (!out) {
+            console.log('execPrintLsp failed');
+        }
+        expect(out).toEqual('hello world')
     })
 
+    it('test that we get all command names', async () => {
+        const document: LspDocument = resolveLspDocumentForHelperTestFile('./fish_files/simple/func_a.fish')
+        const root = parser.parse(document.getText()).rootNode
+        const range = getRange(root)
+
+        //const {document, range, analyzer} = simulateInlayHintsRequest('./fish_files/simple/func_a.fish')
+        const result = await inlayHintsProvider(document, range, analyzer);
+        //logHints(result)
+
+        expect(result.length).toBeGreaterThanOrEqual(1)
+    })
 })
+
+//function simulateInlayHintsRequest(filepath: string) {
+//    const doc: LspDocument = resolveLspDocumentForHelperTestFile(filepath)
+//    const root = parser.parse(doc.getText()).rootNode
+//    const range = getRange(root)
+//
+//    return {
+//        document: doc,
+//        range: range,
+//        analyzer: analyzer,
+//    }
+//}
+
+function logHints(hints: FishInlayHint[]){
+    hints.forEach((hint: FishInlayHint) => {
+        console.log(hint);
+    })
+}

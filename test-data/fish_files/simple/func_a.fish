@@ -1,7 +1,7 @@
 function func_a --description "this is func_a"
     set -l a a a
-    printf %s\n a a a | string join \n
-
+    set -l a (printf "%s\n" a a a | string join '\n')
+    printf "%s" a a a | string unescape
 end
 #switch "$argv"; case "*"; end
 #switch $argv; case *;end

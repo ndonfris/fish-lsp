@@ -5,7 +5,7 @@ import { InlayHint, MarkupContent, Range } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { Analyzer } from './analyze';
 import { LspDocument } from './document';
-import { FishShellInlayHintsProvider } from './features/inlay-hints';
+//import { FishShellInlayHintsProvider } from '/inlay-hints';
 import { containsRange } from './workspace-symbol';
 
 export class InlayHintsProvider {

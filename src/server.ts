@@ -20,7 +20,7 @@ import {FishAutoFixProvider} from './features/fix-all';
 import {FishProtocol} from './utils/fishProtocol';
 import {Commands} from "./commands"
 import {handleConversionToCodeAction} from './diagnostics/handleConversion';
-import {FishShellInlayHintsProvider} from './inlay-hints';
+import { inlayHintsProvider } from './inlay-hints';
 import { DocumentationCache, initializeDocumentationCache } from './utils/documentationCache';
 import { homedir } from 'os';
 import { initializeDefaultFishWorkspaces } from './utils/workspace';
@@ -139,7 +139,7 @@ export default class FishServer {
                     resolveProvider: true,
                 },
                 documentHighlightProvider: false,
-                inlayHintProvider: false,
+                inlayHintProvider: true,
             },
         };
         this.config.mergePreferences(params.initializationOptions);
@@ -185,7 +185,7 @@ export default class FishServer {
         this.connection.onCodeAction(this.onCodeAction.bind(this));
         this.connection.onFoldingRanges(this.onFoldingRanges.bind(this));
         //this.connection.workspace.applyEdit()
-        //this.connection.languages.inlayHint.on(this.onInlayHints.bind(this));
+        this.connection.languages.inlayHint.on(this.onInlayHints.bind(this));
         //this.connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
         this.connection.console.log("FINISHED FishLsp.register()");
     }
@@ -276,7 +276,6 @@ export default class FishServer {
     // • Lastly add parameterInformation items.  [ 1477 : ParameterInformation ]
     // convert to CompletionItem[]
     async onCompletion(params: CompletionParams): Promise<CompletionList> {
-
         this.logParams("onCompletion", params);
         const uri = uriToPath(params.textDocument.uri);
         let list: FishCompletionList = FishCompletionList.empty() 
@@ -605,12 +604,16 @@ export default class FishServer {
 
     // works but is super slow and resource intensive, plus it doesn't really display much
     async onInlayHints(params: InlayHintParams) {
-        return await FishShellInlayHintsProvider.provideInlayHints(
-            params.textDocument.uri,
+        this.logger.log({params})
+        const uri = uriToPath(params.textDocument.uri)
+        const document = this.docs.get(uri);
+        if (!document) return
+        return await inlayHintsProvider(
+            document,
             params.range,
-            this.docs,
+            //this.docs,
             this.analyzer,
-            this.config
+            //this.config
         );
     }
 
@@ -666,4 +669,7 @@ export default class FishServer {
             this.connection.window.showInformationMessage(text);
         return this.analyzer.initiateBackgroundAnalysis(notifyCallback);
     }
+}
+function provideInlayHints(document: LspDocument, range: LSP.Range, analyzer: Analyzer) {
+    throw new Error('Function not implemented.');
 }

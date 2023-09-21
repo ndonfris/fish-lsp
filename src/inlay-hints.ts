@@ -1,79 +1,68 @@
-import { execCmd, execEscapedCommand } from 'utils/exec';
-import { isCommand, isCommandName, isPipe } from 'utils/node-types';
-import { findFirstParent, firstAncestorMatch, getRange } from 'utils/tree-sitter';
+import { execCmd, execEscapedCommand, execPrintLsp } from './utils/exec';
+import { isCommand, isCommandName, isPipe } from './utils/node-types';
+import { findFirstParent, firstAncestorMatch, getRange } from './utils/tree-sitter';
 import { InlayHint, MarkupContent, Range } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { Analyzer } from './analyze';
 import { LspDocument } from './document';
-//import { FishShellInlayHintsProvider } from './features/inlay-hints';
 import { containsRange } from './workspace-symbol';
 
 // https://vscode-api.js.org/interfaces/vscode.InlayHintsProvider.html#onDidChangeInlayHints
 // https://github.com/youngjuning/vscode-api.js.org/blob/9120b31/vscode.d.ts#L5174
-export class FishInlayHintsProvider {
+export async function inlayHintsProvider(
+  document: LspDocument,
+  range: Range,
+  analyzer: Analyzer,
+): Promise<FishInlayHint[]> {
+  const result: FishInlayHint[] = []
+  const nodes = analyzer.getNodes(document)
 
-  public static async provideInlayHints(
-    document: LspDocument,
-    range: Range,
-    analyzer: Analyzer,
-  ): Promise<FishInlayHint[]> {
-    const result: FishInlayHint[] = []
-    const nodes = analyzer.getNodes(document)
-
-    const insideRange = (node: SyntaxNode) => containsRange(range, getRange(node))
-    const isInlayHint = (node: SyntaxNode) => {
-      if (isPipe(node)) {
-        const first = node.firstNamedChild
-        const second = first?.nextNamedSibling
-        if (!first || !second) return false
-        return (
-          isCommand(first) &&
+  const insideRange = (node: SyntaxNode) => containsRange(range, getRange(node))
+  const isPrintableCommand = (node: SyntaxNode) => node.text.startsWith('printf') || node.text.startsWith('echo') /* change to printflsp */
+  const isStringCommand = (node: SyntaxNode) => node.text.startsWith('string')
+  const isInlayHint = (node: SyntaxNode) => {
+    if (isPipe(node)) {
+      const first = node.firstNamedChild
+      const second = first?.nextNamedSibling
+      if (!first || !second) return false
+      return (
+        isCommand(first) &&
           isCommand(second) &&
-          first.firstChild?.text === "printf" &&
+          isPrintableCommand(node) &&
           second.firstChild?.text === "string"
-        );
-      }
+      );
     }
-
-    const hintNodes: SyntaxNode[] = nodes
-        .filter(insideRange)
-        .filter(isInlayHint)
-        //.map((node) => {
-        //    const rootPipe = firstAncestorMatch(node, isPipe) ?? node;
-        //    const rootPipeRange = getRange(rootPipe);
-        //    let pos = rootPipeRange.start;
-        //    return rootPipe;
-        //    //if (!hintNodes.some(hint => hint.startPosition.column === pos.line)) {
-        //    //}
-        //});
-
-    //console.log(hintNodes.map(t => `'${t.text}'`))
-
-    await Promise.all(hintNodes.map(async (node) => {
-      const text = node.text
-      const range = getRange(node).start
-      // try script escape in shell? 
-      // set privs to not have write access
-      // read lines from file to store variables?
-      const out = await execCmd(`fish -i --command "${text.toString().trim()} | string escape --style=script --no-quoted"`)
-      const value = `{${out.join(',')}}`;
-      const toolTip: MarkupContent = {
-        kind: 'markdown',
-        value: [
-          '```fish',
-          text,
-          '```',
-          '___',
-          '```text',
-          out.join('\n'),
-          '```'
-        ].join('\n')
-      }
-      const item = FishInlayHint.create(value, range, toolTip)
-      result.unshift(item);
-    }))
-    return result
   }
+
+  const hintNodes: SyntaxNode[] = nodes
+  .filter(insideRange)
+  .filter(isInlayHint)
+  await Promise.all(hintNodes.map(async (node) => {
+    const text = node.text
+    const range = getRange(node).end
+    // try script escape in shell? 
+    // set privs to not have write access
+    // read lines from file to store variables?
+    //const out = await execCmd(`fish -i --command "${text.toString().trim()} | string escape --style=script --no-quoted"`)
+    const out = await execPrintLsp(text)
+    const value = !out || out.startsWith('Error') ? 'Error' : out
+    //const value = out.join().startsWith('Error') ? `{${out.join()}}`;
+    const toolTip: MarkupContent = {
+      kind: 'markdown',
+      value: [
+        '```fish',
+        text,
+        '```',
+        '___',
+        '```text',
+        out,
+        '```'
+      ].join('\n')
+    }
+    const item = FishInlayHint.create(value, range, toolTip)
+    result.unshift(item);
+  }))
+  return result
 }
 
 export interface FishInlayHint extends InlayHint {
