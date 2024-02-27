@@ -1,17 +1,30 @@
 {
-  "name": "typescript-language-server",
-  "version": "1.1.2",
-  "description": "Language Server Protocol (LSP) implementation for TypeScript using tsserver",
-  "author": "TypeFox and others",
+  "name": "fish-language-server",
+  "version": "1.0.0",
+  "description": "Language Server Protocol (LSP) implementation for fish-shell using typescript, tree-sitter, and node",
+  "author": "ndonfris",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/typescript-language-server/typescript-language-server.git"
+    "url": "https://github.com/ndonfris/fish-lsp.git"
   },
   "engines": {
     "node": ">=14.16"
   },
-  "bin": "./out/cli.js",
+  "pkg": {
+    "entryPoints": [
+      "out/cli.js"
+    ],
+    "targets": [
+      "node14-linux-x64",
+      "node14-macos-x64",
+      "node14-win-x64"
+    ],
+    "outputPath": "build"
+  },
+  "bin": { 
+    "fish-lsp": "./out/cli.js" 
+  },
   "main": "./out/server.js",
   "typings": "./out/server.d.ts",
   "scripts": {

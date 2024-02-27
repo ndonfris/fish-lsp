@@ -28,6 +28,7 @@ export function startServer() {
     //token.begin('Initializing Fish Language Server');
     connection.onInitialize(
         async (params: InitializeParams): Promise<InitializeResult> => {
+            connection.console.log(`Initialized server FISH-LSP`);
             connection.console.log(`Initialized server FISH-LSP with ${JSON.stringify(params)}`);
             const server = await FishServer.create(connection, params);
             server.register();

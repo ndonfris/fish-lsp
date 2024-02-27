@@ -96,6 +96,7 @@ export default class FishServer {
         this.logger.log(
             `Initialized server FISH-LSP with ${params.workspaceFolders || ""}`
         );
+        // console.log(`Initialized server FISH-LSP with ${params.workspaceFolders || ""}`);
         const result: InitializeResult = {
             capabilities: {
                 textDocumentSync: TextDocumentSyncKind.Incremental,

@@ -88,11 +88,11 @@ this endpoint, and provide specific configuration options on startup.
                         "defaults": [
                             "$HOME/.config/fish",
                             "/usr/share/fish"
-                            ],
-                        },
+                            ]
+                        }
                     }
-            },
-        },
+            }
+        }
     }
 }
 ```

@@ -88,6 +88,9 @@ describe('complete simple tests', () => {
     //  //const docs = await execCommandDocs('string split')
     //  //console.log(docs);
     //}, 10000)
+    it('value', async () => {
+        expect(true).toBe(true)
+    })
 
     it('get command argument value', async () => {
         let inputList: string[] = [
@@ -100,15 +103,15 @@ describe('complete simple tests', () => {
         for (const input of inputList) {
             const {rootNode} = parser.parse(input)
             const node = rootNode.descendantForPosition({row: 0, column: 0})
-
+    
             log(node.parent!)
             const found = getCommandArgumentValue(node, '--max')
             log(found)
             const found2 = getChildNodes(rootNode).find(c => matchesArgument(c, '--max'))
             //log({found: found?.text || '', str: found?.toString() || ''});
             log(found2)
-
         }
+        expect(true).toBe(true)
     })
 })
 
