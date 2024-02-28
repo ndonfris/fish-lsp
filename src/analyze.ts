@@ -117,7 +117,7 @@ export class Analyzer {
         position: Position,
     ): FishDocumentSymbol {
         const symbols: FishDocumentSymbol[] = findDefinitionSymbols(this, document, position)
-        return symbols[0];
+        return symbols[0]!;
     }
 
     public getDefinitionLocation(

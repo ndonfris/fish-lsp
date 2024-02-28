@@ -168,7 +168,7 @@ export async function execCompleteCmdArgs(cmd: string): Promise<string[]> {
     let i = 0;
     let fixedResults: string[] = [];
     while ( i < results.length) {
-        const line = results[i]
+        const line = results[i] as string
         if( cmd === 'test') {
             fixedResults.push(line) 
         } else if (!line.startsWith('-', 0)) {
@@ -213,7 +213,7 @@ export async function execCommandDocs(cmd: string): Promise<string> {
  */
 export async function execCommandType(cmd: string): Promise<string> {
     const file = resolve(__dirname, '../../fish_files/get-type.fish')
-    const cmdCheck = cmd.split(' ')[0].trim()
+    const cmdCheck = cmd.split(' ')[0]?.trim() as string
     const docs = await execFileAsync(file, [cmdCheck])
     if (docs.stderr) {
         return '';
@@ -239,7 +239,9 @@ export async function generateCompletionArguments(cmd: string): Promise<Completi
     const cmdArgs = new Map<string, string>()
     for (const line of outCmdArgs) {
         const args = line.split('\t');
-        cmdArgs.set(args[0], args[1])
+        if (typeof args[0] === 'string' && typeof args[1] === 'string') {
+            cmdArgs.set(args[0], args[1])
+        }
     }
     return {
         command: cmdHeader,
@@ -261,7 +263,7 @@ export async function execFindDependency(cmd: string): Promise<string> {
         .split('\n')
         .map(subcmd => subcmd.split('\t', 1))
         .filter(subcmd => subcmd.length == 2)
-        .map(subcmd => subcmd[0].trim())
+        .map(subcmd => subcmd[0]!.trim())
 }
 
 export async function execComplete(...cmd: string[]): Promise<string[]> {
@@ -272,7 +274,7 @@ export async function execComplete(...cmd: string[]): Promise<string[]> {
     let i = 0;
     let fixedResults: string[] = [];
     while ( i < results.length) {
-        const line = results[i]
+        const line: string = results[i]?.toString() || ''
         if( cmd[0] === 'test') {
             fixedResults.push(line) 
         } else if (!line.startsWith('-', 0)) {

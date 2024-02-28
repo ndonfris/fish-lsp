@@ -48,9 +48,12 @@ export function enrichWildcard(label: string, documentation: string, examples: [
 }
 
 export function enrichCommandArg(doc: string): MarkupContent {
-    const docArr = doc.split('\t', 1);
-    const arg = '__' + docArr[0].trim() + '__'
-    const desc = '_' + docArr[1].trim() + '_'
+    let [first, ...after] = doc.split('\t');
+    first = first?.trim() || ''
+    let second = after?.join('\t').trim() || ''
+    
+    const arg = '__' + first + '__'
+    const desc = '_' + second + '_'
     const enrichedDoc = [
         arg,
         desc
@@ -167,8 +170,8 @@ export function forwardArgCommandCollect(rootNode: SyntaxNode) : string[]{
 }
 
 export function collectCompletionOptions(rootNode: SyntaxNode) {
-    var cmdText = [rootNode.children[0].text];
-    if (hasPossibleSubCommand(cmdText[0])) {
+    var cmdText = [rootNode.children[0]!.text];
+    if (hasPossibleSubCommand(cmdText[0]!)) {
         cmdText = forwardSubCommandCollect(rootNode)
     }
     // DIFF FLAG FORMATS 
@@ -213,11 +216,10 @@ export class HoverFromCompletion {
         this.commandNode = commandNode;
         this.commandString = commandNode.child(0)?.text || "";
         this.entireCommandString = commandNode.text || "";
-        this.flagsGiven =
-            this.entireCommandString
-            .split(' ').slice(1)
-            .filter(flag => flag.startsWith('-'))
-            .map(flag => flag.split('=')[0]);
+        this.flagsGiven = this.entireCommandString
+                .split(' ').slice(1)
+                .filter(flag => flag.startsWith('-'))
+                .map(flag => flag.split('=')[0]) as string[] || [];
     }
 
 
@@ -232,7 +234,7 @@ export class HoverFromCompletion {
         const cmdArr = this.commandNode.text.split(' ').slice(1);
         var i = 0;
         while (i < cmdArr.length) {
-            const argStr = cmdArr[i].trim();
+            const argStr = cmdArr[i]!.trim();
             if (!argStr.startsWith('-') && spaceCmps.includes(argStr)) {
                 this.commandString += ' ' + argStr.toString()
             } else if (argStr.includes('-')) {
@@ -271,9 +273,9 @@ export class HoverFromCompletion {
      */
     private hasOldStyleFlags() {
         for (const cmpArr of this.completions) {
-            if (cmpArr[0].startsWith('--')) {
+            if (cmpArr[0]?.startsWith('--')) {
                continue;
-            } else if (cmpArr[0].startsWith('-') && cmpArr[0].length > 2) {
+            } else if (cmpArr[0]?.startsWith('-') && cmpArr[0]?.length > 2) {
                 return true
             }
         }

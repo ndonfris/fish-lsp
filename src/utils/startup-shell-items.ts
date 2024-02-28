@@ -77,7 +77,7 @@ export namespace ShellItems {
             let splitItem = item.split(' ')
             let spaceCount = splitItem.length
             let result = spaceCount > 1 ? [splitItem[0], splitItem.slice(1).join(' ')] : [item, '']
-            output.push(new ShellOutput(result[0], type, result[1], result[1].slice(0, result[1].lastIndexOf('#'))))
+            output.push(new ShellOutput(result[0], type, result[1], result[1]?.slice(0, result[1].lastIndexOf('#'))))
         })
         return output
     }
@@ -126,7 +126,7 @@ export namespace ShellItems {
 
         public getType(name: string) {
             for (const type of this.getTypes()) {
-                let lookup = SHELL_ITEMS_STRING_TYPE_LOOKUP[type]
+                let lookup = SHELL_ITEMS_STRING_TYPE_LOOKUP[type]!
                 if (Cached.typeToNames[lookup].has(name)) {
                     return type
                 }

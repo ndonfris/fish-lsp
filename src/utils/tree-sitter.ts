@@ -196,7 +196,7 @@ export function firstAncestorMatch(
         if (!predicate(p)) continue;
         return p;
     }
-    return predicate(root) ? root : null;
+    return !!root && predicate(root) ? root : null;
 }
 
 /**
@@ -348,9 +348,10 @@ export function getNodeAtRange(root: SyntaxNode, range: Range): SyntaxNode | nul
 
 
 export function getDependencyUrl(node: SyntaxNode, baseUri: string): URL {
-  let filename = node.children[1].text.replaceAll('"', '')
+  let filename = node.children[1]?.text.replaceAll('"', '')!
 
-  if (!filename.endsWith('.fish')) {
+
+  if (!!filename && !filename.endsWith('.fish')) {
     filename += '.fish'
   }
 

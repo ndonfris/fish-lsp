@@ -104,10 +104,10 @@ async function getFunctionUri(name: string): Promise<string | undefined> {
 function escapePathStr(functionTitleLine: string) : string {
     const afterComment =  functionTitleLine.split(' ').slice(1)
     const pathIndex = afterComment.findIndex((str: string) => str.includes('/')) 
-    const path = afterComment[pathIndex]
+    const path: string = afterComment[pathIndex]?.toString() || ''
     return [
     '**'+afterComment.slice(0, pathIndex).join(' ').trim() + '**',
-    `*\`${path.toString()}\`*`,
+    `*\`${path}\`*`,
     '**'+afterComment.slice(pathIndex + 1).join(' ').trim() + '**'
     ].join(' ')
 }

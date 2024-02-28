@@ -234,7 +234,7 @@ export namespace Line {
     }
     export function removeAllButLastSpace(line: string): string {
         if (line.endsWith(' ')) return line
-        return line.split(' ')[-1]
+        return line.split(' ')[-1] || line
     }
     export function appendEndSequence(
         oldLine: string,

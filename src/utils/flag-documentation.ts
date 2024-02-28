@@ -8,7 +8,7 @@ import {getChildNodes, getNodeText} from './tree-sitter';
 
 const findFirstFlagIndex = (cmdline: string[]) => {
     for (let i = 0; i < cmdline.length; i++) {
-        const arg = cmdline[i]
+        const arg = cmdline[i] as string
         if (arg.startsWith('-')) {
             return i
         }
@@ -69,7 +69,8 @@ const longFlag = (flag: string) => {
 
 const hasUnixFlags = (allFlagLines: string[]) => {
     for (let line of allFlagLines) {
-        const [flag, doc] = line.split('\t')
+        const [flag, doc]: string[] = line.split('\t') || []
+        if (!flag) continue;
         if (shortFlag(flag) && flag.length > 2) {
             return true
         }
@@ -81,14 +82,14 @@ const parseInputFlags = (inputArray: string[], seperateShort: boolean) => {
     const result: string[] = []
     for (let i = 0; i < inputArray.length; i++) {
         const arg = inputArray[i]
-        if (shortFlag(arg)) {
+        if (arg && shortFlag(arg)) {
             if (seperateShort) {
                 const shortFlags = arg.slice(1).split('').map(ch => '-'+ch)
                 result.push(...shortFlags)
             } else {
                 result.push(arg)
             }
-        } else if (longFlag(arg)) {
+        } else if (arg && longFlag(arg)) {
             result.push(arg)
         }
     }
@@ -99,7 +100,7 @@ const findMatchingFlags = (inputFlags: string[], allFlagLines: string[]) => {
     const output: string[] = []
     for (let line of allFlagLines) {
         const [flag, doc] = line.split('\t')
-        if (inputFlags.includes(flag)) {
+        if (flag && inputFlags.includes(flag)) {
             output.push(line)
         }
     }

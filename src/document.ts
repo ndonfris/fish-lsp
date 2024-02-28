@@ -195,7 +195,7 @@ export class LspDocument implements TextDocument {
         if (!this.isAutoLoaded()) return '';
         const parts = uriToPath(this.uri)?.split('/') || [];
         const name = parts[parts.length - 1];
-        return name.replace('.fish', '');
+        return name!.replace('.fish', '');
     }
 }
 

@@ -71,7 +71,7 @@ export function isFunctionArgumentDefinitionNode(siblings: SyntaxNode[], match: 
     const args : SyntaxNode[] = [];
     for (let i = 0; i < siblings.length; i++) {
         const child = siblings[i]
-        if (argFlag.isMatch(child)) {
+        if (child && argFlag.isMatch(child)) {
             let varName = child.nextSibling;
             while (varName !== null && varName.type === 'word' && !varName.text.startsWith("-")) {
                 args.push(varName)

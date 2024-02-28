@@ -174,10 +174,10 @@ export function toTextDocumentEdit(change: FishProtocol.FileCodeEdits, documents
 
 
 export function toFoldingRange(node: SyntaxNode, document: LspDocument): FoldingRange {
-    let collapsedText = ''
+    let collapsedText: string = ''
     let kind = FoldingRangeKind.Region;
     if (isFunctionDefinition(node) || isFunctionDefinitionName(node.firstNamedChild!)) {
-        collapsedText = node.firstNamedChild?.text || node.text.split(' ')[0]
+        collapsedText = node.firstNamedChild?.text || node.text.split(' ')[0]?.toString() || ''
     } 
     if (isScope(node)) {
         collapsedText = node.text

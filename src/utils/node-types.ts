@@ -434,7 +434,7 @@ export function findEnclosingVariableScope(currentNode: SyntaxNode): SyntaxNode 
 export function findForLoopVariable(node: SyntaxNode) : SyntaxNode | null{
     for (let i = 0; i < node.children.length; i++) {
         const child = node.children[i]
-        if (child.type === 'variable_name') {
+        if (child?.type === 'variable_name') {
             return child
         }
     }
@@ -499,7 +499,7 @@ function findLastFlag(nodes: SyntaxNode[]) {
     let maxIdx = 0;
     for (let i = 0; i < nodes.length; i++) {
         const child = nodes[i]
-        if (child.text.startsWith('-')) {
+        if (child?.text.startsWith('-')) {
             maxIdx = Math.max(i, maxIdx)
         }
     }
@@ -510,7 +510,7 @@ function findSwitchForVariable(node: SyntaxNode) : VariableScope | "" {
     let current: SyntaxNode | null = node;
     while (current !== null) {
         if (VariableScopeFlags[current.text] !== undefined) {
-            return VariableScopeFlags[current.text]
+            return VariableScopeFlags[current.text] || ''
         } else if (current.text.startsWith("-")) {
             return ""
         }
@@ -526,13 +526,13 @@ export function findReadVariables(node: SyntaxNode) {
     const possibleFlags = node.children.slice(0, lastFlag + 1)
     for (let i = 0; i < possibleFlags.length; i++) {
         const child = possibleFlags[i]
-        if (VariableScopeFlags[child.text] !== undefined) { 
+        if (VariableScopeFlags[child?.text || ''] !== undefined) { 
             i++;
-            while (i < possibleFlags.length && possibleFlags[i].type === 'word') {
-                if (possibleFlags[i].text.startsWith('-')) {
+            while (i < possibleFlags.length && possibleFlags[i]?.type === 'word') {
+                if (possibleFlags[i]?.text.startsWith('-')) {
                     break;
                 } else {
-                    variables.unshift(possibleFlags[i])
+                    variables.unshift(possibleFlags[i]!)
                 }
                 i++;
             }
