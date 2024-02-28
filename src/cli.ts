@@ -2,22 +2,12 @@
 //'use strict'
 import {TextDocument} from 'vscode-languageserver-textdocument';
 import { createConnection, InitializeParams, InitializeResult, ProposedFeatures, StreamMessageReader, StreamMessageWriter, TextDocuments, TextDocumentSyncKind } from "vscode-languageserver/node";
-import {URI} from 'vscode-uri';
-import Parser from 'web-tree-sitter';
-import {initializeParser} from './parser';
+import { Command, Option } from 'commander';
+// import {URI} from 'vscode-uri';
+// import Parser from 'web-tree-sitter';
+// import {initializeParser} from './parser';
 import FishServer from './server';
-//import {getAllFishLocations} from './utils/locations';
-
-import { BuildAsciiLogo, program } from './utils/commander-cli-subcommands'
-import { env } from 'process';
-import { sys } from 'typescript';
-
-
-const logo = BuildAsciiLogo()
-
-
-// program.showHelpAfterError();
-// console.log('opts: ', JSON.stringify( Object.keys( program.opts ) ));
+import { asciiLogoString, program,  BuildCapabilityString, RepoUrl, PathObj, PackageLspVersion, GetEnvVariablesUsed, PackageVersion  } from './utils/commander-cli-subcommands'
 
 
 
@@ -25,69 +15,169 @@ const logo = BuildAsciiLogo()
 export function startServer() {
     // Create a connection for the server.
     // The connection uses stdin/stdout for communication.
-    //const connection = createConnection(
-    //    new StreamMessageReader(process.stdin),
-    //    new StreamMessageWriter(process.stdout)
-    //);
     const connection = createConnection(
         new StreamMessageReader(process.stdin),
         new StreamMessageWriter(process.stdout)
     )
-    //const token = connection.window.attachWorkDoneProgress('Initializing Fish Language Server');
-    //token.begin('Fish Language Server', 0, 'Initializing', true);
-    //token.report(0);
-    //token.begin('Initializing Fish Language Server');
     connection.onInitialize(
         async (params: InitializeParams): Promise<InitializeResult> => {
-            console.log(`Initialized server FISH-LSP`);
             connection.console.log(`Initialized server FISH-LSP with ${JSON.stringify(params)}`);
             const server = await FishServer.create(connection, params);
-            server.register();
+            server.register(connection);
             return server.initialize(params);
         }
     )
     connection.listen()
-    //token.done();
 }
 
 
-if (require.main === module) {
-    startServer();
+const createFishLspBin = () => {
+    const bin = new Command('fish-lsp')
+    return bin;
 }
 
-// program.command('start').description('Start the language server').action(() => {return startServer()})
-//
-// program.parse();
-// const opts = program.opts()
-// // console.log(opts);
-// if (opts['lsp-version']) {
-//     console.log(logo);
-//     process.exit(0);
-// } else if (opts.version) {
-//     console.log(logo);
-//     process.exit(0)
-// } else if (opts.help) {
-//     console.log(logo);
-//     process.exit(1)
-// }
-// const subcmds = program.commands
-// // console.log('subcmds: ', subcmds);
-// for (const cmd of subcmds) {
-//     switch (cmd.name()) {
-//         case 'complete':
-//         case 'capabilites':
-//         case 'report':
-//             process.exit(0);
-//             
-//         case 'show-path':
-//             console.log(
-//                 "\n\n",
-//                 logo,
-//                 "\n\n");
-//             console.log("path: ", __dirname);
-//             process.exit(0);
-//         default:
-//             break;
-//     }
-// }
-// startServer();
+
+const commandBin = createFishLspBin()
+    // .configureHelp({ subcommandTerm: (cmd: Command) => cmd.name() + ' ' + cmd.summary() })
+    .addHelpText('beforeAll', asciiLogoString('large') + '\n')
+    .addHelpText('afterAll', [
+        '________________________________________',
+        'authored by: https://github.com/ndonfris',
+        '     ' + asciiLogoString('single')
+    ].join('\n'))
+    .option('-v, --version', 'output the version number', PackageVersion)
+    .action((args) => {
+        console.log(PackageVersion);
+        process.exit(0);
+    })
+
+// @TODO
+commandBin.command('start')
+    .summary('subcmd to start the lsp using stdin/stdout')
+    .description('start the language server for a connection to a client')
+    .action(() => {
+        // if (require.main === module) {
+        //     startServer();
+        // }
+        startServer();
+    })
+
+
+// @TODO
+commandBin.command('complete')
+    .summary('generate completions file for ~/.config/fish/completions')
+    .description('copy completions output to fish-lsp completions file')
+    .action(() => {
+        commandBin.commands.forEach(cmd => {
+            console.log(`${cmd.name()}\t${cmd.summary}`);
+        })
+        process.exit(0);
+    })
+
+
+commandBin.command('capabilities')
+    .summary('show the capabilities of the language server')
+    .description('current capabilities of fish-lsp')
+    .action(() => {
+        console.log(asciiLogoString('large'));
+        console.log((BuildCapabilityString()));
+        process.exit(0);
+    })
+
+
+commandBin.command('show-path')
+    .summary('show the path of fish-lsp')
+    .option('--bin', 'show the path of the fish-lsp executable')
+    .option('--repo', 'show the path of the entire fish-lsp repo')
+    .action(args => {
+        let logPath = args.bin ? PathObj.bin : PathObj.repo;
+        let wpath = args.bin ? 'BINARY' : 'REPOSITORY';
+        console.log(wpath + ' ' + asciiLogoString('single'));
+        console.log(logPath);
+        process.exit(0);
+    })
+    
+// @TODO
+commandBin.command('show-json-configurations')
+    .usage('[option]')
+    .option('--coc-json', 'show coc-settings.json output')
+    .option('--vscode', 'show vscode-settings.json output')
+    .option('--neovim', 'show neovim *.lua output')
+    .summary('show the json configurations for the language server')
+    .description('show the lua/json configurations for the language server')
+    .action(args => {
+        if (args.cocJson) {
+            console.log('coc-settings.json');
+        } else if (args.vscode) {
+            console.log('vscode-settings.json');
+        } else if (args.neovim) {
+            console.log('neovim *.lua');
+        } else {
+            console.log('no option selected, coc-settings.json is default');
+        }
+        process.exit(0);
+    })
+
+
+// @TODO
+commandBin.command('time')
+    .usage('--root-dir <dir>')
+    .requiredOption('--root-dir <dir>', 'root directory of the fish project')
+    .summary('time the fish-lsp server startup time to index the project files')
+    .action(args => {
+        const startTimer = Date.now();
+        if (args.rootDir) {
+            
+        }
+        console.log(Date.now());
+    })
+
+commandBin.command('contribute')
+    .summary('see the fish-lsp github repo')
+    .action(() => {
+        console.log(asciiLogoString('normal'))
+        console.log(RepoUrl);
+        process.exit(0);
+    })
+
+commandBin.command('report')
+    .summary('report an issue to the fish-lsp github repo')
+    .action(() => {
+        console.log(asciiLogoString('normal'))
+        console.log(RepoUrl + '/issues');
+        process.exit(0);
+    })
+
+commandBin.command('lsp-version')
+    .usage('lsp-version')
+    .summary('show the version of the language server protocol')
+    .description('show the version of the language server protocol')
+    .action(() => {
+        console.log(asciiLogoString('single')+'\n');
+        console.log('LSP version: ', PackageLspVersion);
+        process.exit(0);
+    })
+
+commandBin.command('show-env')
+    .usage('show-env')
+    .summary('show all the environment variables used by the lsp in current shell')
+    .description('show the environment variables of the language server')
+    .action(() => {
+        console.log('Environment Variables: ' + asciiLogoString('single'));
+        console.log(GetEnvVariablesUsed());
+        process.exit(0);
+    })
+
+// @TODO
+commandBin.command('complete')
+    .summary('generate completions file for ~/.config/fish/completions')
+    .description('copy completions output to fish-lsp completions file')
+    .action(() => {
+        commandBin.commands.forEach((cmd: Command) => {
+            console.log(`${cmd.name()}\t${cmd.summary()}`);
+        })                                   
+        process.exit(0);
+
+    })
+
+commandBin.parse();

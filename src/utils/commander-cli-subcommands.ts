@@ -2,6 +2,7 @@ import path from 'path';
 import PackageJSON from '../../package.json';
 // import PackageJSON from '@package';
 import command, { Command, createCommand, createOption, Option } from 'commander';
+import deepmerge from 'deepmerge';
 // const logo = BuildAsciiLogo()
 
 export const program: command.Command = createCommand('fish-language-server')
@@ -201,7 +202,7 @@ export const commandMap: CommandMapType = new Map([
             console.log('-'.repeat(headerString.length));
             console.log(headerString);
             console.log('-'.repeat(headerString.length));
-            console.log(BuilCapabilityString());
+            // console.log(BuilCapabilityString());
         }
     }],
     ['show-startup-options', {
@@ -272,7 +273,7 @@ program.enablePositionalOptions(true)
 
 
 /// HELPERS
-export function BuilCapabilityString() {
+export function BuildCapabilityString() {
     const done: string = '✔️ ';
     const todo: string = '❌';
     const statusString = [
@@ -296,7 +297,7 @@ export function BuilCapabilityString() {
   return statusString;
 }
 
-export function BuildAsciiLogo() {
+export function buildAsciiLogo() {
   return parseInt(process.env['COLUMNS']?.toString() || '100') >= 30 ? asciiLogoString('large') : asciiLogoString('normal');
 }
 
@@ -337,6 +338,44 @@ export function asciiLogoString(size: 'normal' | 'large' | 'single' = 'normal') 
   }
 
 }
+
+export const logoText = buildAsciiLogo();
+export const RepoUrl = PackageJSON.repository?.url.slice(0, -4);
+export const PackageVersion = PackageJSON.version;
+
+
+export const PathObj: {[K in 'bin' | 'root' | 'repo']: string} = {
+    ['bin']: path.resolve('..', __dirname.toString(),  '..','cli.js'),
+    ['root']: path.resolve(__dirname, '..', '..'),
+    ['repo']: path.resolve(__dirname, '..', '..'),
+}
+
+export const PackageLspVersion = PackageJSON.dependencies['vscode-languageserver-protocol']!.toString();
+
+export const GetEnvVariablesUsed = () => {
+    const envVars = process.env;
+    const envKeys = Object.keys(envVars);
+    const envValues = Object.values(envVars);
+    const fish_env_variables_used: string[] = [
+        'FISH_PATH',
+        'FISH_LSP_PATH',
+        'FISH_LSP_VERSION',
+        'FISH_LSP_LOGGING',
+        'FISH_LSP_EXE',
+        'fish_function_dir',
+        'fish_complete_path',
+    ]
+    const resultKeys: string[] = envKeys.filter((key) => fish_env_variables_used.includes(key))
+    const DEEP_COPY_RESULT = deepmerge({}, process.env)
+    for (const [k,v] of Object.entries(DEEP_COPY_RESULT)) {
+        if (!resultKeys.includes(k)) {
+            delete DEEP_COPY_RESULT[k]
+        }
+    }
+    
+    return DEEP_COPY_RESULT;
+}
+
 
 // return [ 
 //   '           L S P L S P L S P L ',

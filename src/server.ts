@@ -148,47 +148,47 @@ export default class FishServer {
         return result;
     }
 
-    register(): void {
+    register(connection: Connection): void {
         //this.connection.window.createWorkDoneProgress();
-        this.connection.onInitialized(this.onInitialized.bind(this));
-        this.connection.onDidOpenTextDocument(
+        connection.onInitialized(this.onInitialized.bind(this));
+        connection.onDidOpenTextDocument(
             this.didOpenTextDocument.bind(this)
         );
-        this.connection.onDidChangeTextDocument(
+        connection.onDidChangeTextDocument(
             this.didChangeTextDocument.bind(this)
         );
-        this.connection.onDidCloseTextDocument(
+        connection.onDidCloseTextDocument(
             this.didCloseTextDocument.bind(this)
         );
-        this.connection.onDidSaveTextDocument(
+        connection.onDidSaveTextDocument(
             this.didSaveTextDocument.bind(this)
         );
         // • for multiple completionProviders -> https://github.com/microsoft/vscode-extension-samples/blob/main/completions-sample/src/extension.ts#L15
         // • https://github.com/Dart-Code/Dart-Code/blob/7df6509870d51cc99a90cf220715f4f97c681bbf/src/providers/dart_completion_item_provider.ts#L197-202
-        this.connection.onCompletion(this.onCompletion.bind(this));
-        this.connection.onCompletionResolve(
+        connection.onCompletion(this.onCompletion.bind(this));
+        connection.onCompletionResolve(
             this.onCompletionResolve.bind(this)
         ),
             //this.on
-            this.connection.onDocumentSymbol(this.onDocumentSymbols.bind(this));
+        connection.onDocumentSymbol(this.onDocumentSymbols.bind(this));
         this.connection.onWorkspaceSymbol(this.onWorkspaceSymbol.bind(this));
         //this.connection.onWorkspaceSymbolResolve(this.onWorkspaceSymbolResolve.bind(this))
-        this.connection.onDefinition(this.onDefinition.bind(this));
-        this.connection.onReferences(this.onReferences.bind(this));
-        this.connection.onHover(this.onHover.bind(this));
-        this.connection.onRenameRequest(this.onRename.bind(this));
-        this.connection.onDocumentFormatting(
+        connection.onDefinition(this.onDefinition.bind(this));
+        connection.onReferences(this.onReferences.bind(this));
+        connection.onHover(this.onHover.bind(this));
+        connection.onRenameRequest(this.onRename.bind(this));
+        connection.onDocumentFormatting(
             this.onDocumentFormatting.bind(this)
         );
-        this.connection.onDocumentRangeFormatting(
+        connection.onDocumentRangeFormatting(
             this.onDocumentRangeFormatting.bind(this)
         );
-        this.connection.onCodeAction(this.onCodeAction.bind(this));
-        this.connection.onFoldingRanges(this.onFoldingRanges.bind(this));
+        connection.onCodeAction(this.onCodeAction.bind(this));
+        connection.onFoldingRanges(this.onFoldingRanges.bind(this));
         //this.connection.workspace.applyEdit()
-        this.connection.languages.inlayHint.on(this.onInlayHints.bind(this));
+        connection.languages.inlayHint.on(this.onInlayHints.bind(this));
         //this.connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
-        this.connection.console.log("FINISHED FishLsp.register()");
+        connection.console.log("FINISHED FishLsp.register()");
     }
 
     didOpenTextDocument(params: DidOpenTextDocumentParams): void {
