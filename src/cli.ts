@@ -30,9 +30,14 @@ export function startServer() {
     connection.listen()
 }
 
-
 const createFishLspBin = () => {
     const bin = new Command('fish-lsp')
+    bin.description([
+        'A language server for the `fish-shell`, written in typescript. Currently supports the following feature set from ' + PackageLspVersion + ' of the language server protocol:',
+        '\n'+BuildCapabilityString()+'\n',
+        'For more information, see the github repository: ' + RepoUrl, 
+        'For help with the command line options, use the --help flag.',
+    ].join('\n'))
     return bin;
 }
 
@@ -62,6 +67,15 @@ commandBin.command('start')
         startServer();
     })
 
+
+commandBin.command('mini')
+    .summary('subcmd to start the lsp using stdin/stdout with minimal indexing')
+    .description('start the language server for a connection to a client with minimal indexing')
+    .action(() => {
+        const startupConfig = 
+        startServer();
+    })
+    
 
 // @TODO
 commandBin.command('complete')
@@ -98,12 +112,12 @@ commandBin.command('show-path')
     })
     
 // @TODO
-commandBin.command('show-json-configurations')
+commandBin.command('startup-configuration')
     .usage('[option]')
     .option('--coc-json', 'show coc-settings.json output')
     .option('--vscode', 'show vscode-settings.json output')
     .option('--neovim', 'show neovim *.lua output')
-    .summary('show the json configurations for the language server')
+    .summary('show the json/lua configurations for the language server')
     .description('show the lua/json configurations for the language server')
     .action(args => {
         if (args.cocJson) {
@@ -179,5 +193,7 @@ commandBin.command('complete')
         process.exit(0);
 
     })
+
+
 
 commandBin.parse();

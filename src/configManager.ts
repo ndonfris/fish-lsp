@@ -3,7 +3,7 @@
 import deepmerge from 'deepmerge';
 import { LspDocuments } from './document';
 import {
-    Connection, FormattingOptions,
+    Connection, FormattingOptions, InitializeParams, LSPAny,
 } from 'vscode-languageserver';
 import { homedir } from 'os';
 
@@ -208,9 +208,9 @@ export class ConfigManager {
     }
 
     public updateOption(key: ConfigKeys, value: ServerPreferences[ConfigKeys]) : void {
-        //if (key in this.preferences) {
-        //    this.preferences[key] = value;
-        //}
+        // if (key in this._preferences) {
+        //     this._preferences[key] = value;
+        // }
     }
 
     public get options() : ServerPreferences {
@@ -219,3 +219,17 @@ export class ConfigManager {
 }
 
 
+/**
+ * Initialize the configuration manager
+ * for the various options specified at
+ * runtime.
+ */
+export function initParamSeter(processId: number, rootUri: string, initializeOptions: LSPAny) {
+    // const results: InitializeParams = {
+    //     processId,
+    //     rootUri,
+    // };
+    // const configManager = new ConfigManager(
+
+    // return configManager;
+}

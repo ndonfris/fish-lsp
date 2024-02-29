@@ -276,23 +276,32 @@ program.enablePositionalOptions(true)
 export function BuildCapabilityString() {
     const done: string = '✔️ ';
     const todo: string = '❌';
+    // const done: string = '✅'
+    // const todo: string = '❌'
     const statusString = [
-        `${done}   complete`,
-        `${done}   hover`,
-        `${done}   rename`,
-        `${done}   definition`,
-        `${done}   references`,
-        `${todo}   diagnostics`,
-        `${todo}   signatureHelp`,
-        `${todo}   codeAction`,
-        `${todo}   codeLens`,
-        `${done}   documentLink`,
-        `${done}   formatting`,
-        `${done}   rangeFormatting`,
-        `${todo}   refactoring`,
-        `${todo}   executeCommand`,
-        `${done}   workspaceSymbol`,
-        `${done}   documentSymbol`,
+        `${done} complete`,
+        `${done} hover`,
+        `${done} rename`,
+        `${done} definition`,
+        `${done} references`,
+        `${todo} diagnostics`,
+        `${todo} signatureHelp`,
+        `${todo} codeAction`,
+        `${todo} codeLens`,
+        `${done} documentLink`,
+        `${done} formatting`,
+        `${done} rangeFormatting`,
+        `${todo} refactoring`,
+        `${todo} executeCommand`,
+        `${done} workspaceSymbol`,
+        `${done} documentSymbol`,
+        `${done} foldingRange`,
+        `${done} fold`,
+        `${done} onType`,
+        `${done} onDocumentSaveFormat`,
+        `${done} onDocumentSave`,
+        `${done} onDocumentOpen`,
+        `${done} onDocumentChange`
     ].join('\n');
   return statusString;
 }
