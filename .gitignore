@@ -6,3 +6,7 @@ removed
 *.tsbuildinfo
 package-lock.json
 logs.txt
+*.lock
+*.wasm
+wikis
+.vim

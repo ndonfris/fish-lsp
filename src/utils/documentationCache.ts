@@ -1,8 +1,11 @@
 import { MarkupKind, SymbolKind, MarkupContent, DocumentSymbol } from 'vscode-languageserver';
 import Parser from 'web-tree-sitter';
 import { documentationHoverProviderForBuiltIns } from '../documentation';
-import { execCommandDocs, execEscapedCommand } from './exec';
+import { execCmd, execCommandDocs, execEscapedCommand } from './exec';
 import { uriToPath } from './translation';
+//import { FishCompletionItem } from './completion-strategy';
+import { FishCompletionItem, CompletionExample } from './completion/types';
+//import { CompletionExample } from './static-completions';
 
 
 /****************************************************************************************
@@ -56,7 +59,7 @@ export function createCachedItem(type: SymbolKind, uri?: string): CachedGlobalIt
 async function getNewDocSring(name: string, item: CachedGlobalItem) : Promise<string | undefined> {
     switch (item.type) {
     case SymbolKind.Variable:
-        return await getVariableDocs(name);
+        return await getVariableDocString(name);
     case SymbolKind.Function:
         return await getFunctionDocString(name)
     case SymbolKind.Class:
@@ -101,31 +104,88 @@ async function getFunctionUri(name: string): Promise<string | undefined> {
 function escapePathStr(functionTitleLine: string) : string {
     const afterComment =  functionTitleLine.split(' ').slice(1)
     const pathIndex = afterComment.findIndex((str: string) => str.includes('/')) 
-    const path = afterComment[pathIndex]
+    const path: string = afterComment[pathIndex]?.toString() || ''
     return [
     '**'+afterComment.slice(0, pathIndex).join(' ').trim() + '**',
-    `*\`${path.toString()}\`*`,
+    `*\`${path}\`*`,
     '**'+afterComment.slice(pathIndex + 1).join(' ').trim() + '**'
     ].join(' ')
+}
+
+function ensureMinLength<T>(arr: T[], minLength: number, fillValue?: T): T[] {
+  while (arr.length < minLength) {
+    arr.push(fillValue as T);
+  }
+  return arr;
 }
 
 /**
  * builds FunctionDocumentaiton string
  */
-async function getFunctionDocString(name: string): Promise<string | undefined> {
-    const docStr = await execCommandDocs(name);
-    if (docStr) {
-        const docTitle = docStr.split('\n')[0]
-        const docBody = docStr.split('\n').slice(1).join('\n');
+export async function getFunctionDocString(name: string): Promise<string | undefined> {
+    function formatTitle(title: string[]) {
+        const ensured = ensureMinLength(title, 5, '')
+        let [path, autoloaded, line, scope, description] = ensured;
+        
         return [
-            `${escapePathStr(docTitle).trim()}`,
-            '___',
-            '```fish',
-            docBody,
-            '```'
-        ].join('\n');
+            `__\`${path}\`__`,
+            `- autoloaded: ${autoloaded === 'autoloaded' ? '_true_' : '_false_'}`,
+            `- line: _${line}_`,
+            `- scope: _${scope}_`,
+            `${description}`,
+        ].map((str) => str.trim()).filter(l => l.trim().length).join('\n')
     }
-    return undefined;
+    const [title, body] = await Promise.all([
+        execCmd(`functions -D -v ${name}`),
+        execCmd(`functions --no-details ${name}`)
+    ])
+    return [
+        formatTitle(title), 
+        '___',
+        '```fish',
+        body.join('\n'),
+        '```'
+    ].join('\n') || ''
+}
+
+export async function getStaticDocString(item: FishCompletionItem): Promise<string> {
+    let result = [
+        '```text',
+        `${item.label}  -  ${item.documentation}`,
+        '```'
+    ].join('\n')
+    item.examples?.forEach((example: CompletionExample) => {
+        result += [
+            "___",
+            "```fish",
+            `# ${example.title}`,
+            example.shellText,
+            "```",
+        ].join("\n");
+    })
+    return result
+}
+
+export async function getAbbrDocString(name: string): Promise<string | undefined> {
+    const items: string[] = await execCmd(`abbr --show | string split ' -- ' -m1 -f2`)
+    function getAbbr(items: string[]) : [string, string]           {
+        const start : string = `${name} `
+        for (const item of items) {
+            if (item.startsWith(start)) {
+                return [start.trimEnd(), item.slice(start.length)]
+            }
+        }
+        return ['', '']
+    }
+    const [title, body] = getAbbr(items)
+    return [
+        `Abbreviation: \`${title}\``,
+        '___',
+        '```fish',
+        body.trimEnd(),
+        '```'
+    ].join('\n') || ''
+
 }
 /** 
  * builds MarkupString for builtin documentation
@@ -143,29 +203,74 @@ export async function getBuiltinDocString(name: string): Promise<string | undefi
         '```'
     ].join('\n') 
 }
-/**
- * builds MarkupString for global variable documentation
- */
-async function getVariableDocs(name: string): Promise<string | undefined> {
-    const docs = await execEscapedCommand(`set --show ${name}`)
-    if (!docs) {
-        return undefined;
-    }
-    const splitDocs = docs.join('\n').split('\n');
-    const splitTitleArray = splitDocs[0].split(':');
-    const splitOther: string[] = splitDocs.slice(1);
-    const formattedOther = splitOther.map((line: string) => {
-        const arr = line.split(': ');
-        const fishScript = ['**|**', arr[1].slice(1,-1), '**|**'].join('`')
-        return `*${arr[0]}*: ${fishScript}`
-    }).join('\n')
+
+export async function getAliasDocString(label: string, line: string): Promise<string | undefined> {
     return [
-        `**${splitTitleArray[0].trim()}** - *${splitTitleArray[1].trim()}*`,
-        //'___',
-        formattedOther
+        `Alias: _${label}_`,
+        '___',
+        '```fish',
+        line.split('\t')[1],
+        '```'
     ].join('\n')
 }
 
+/**
+ * builds MarkupString for event handler documentation
+ */
+export async function getEventHandlerDocString(documentation: string): Promise<string> {
+    let [label, ...commandArr] = documentation.split(/\s/, 2);
+    let command = commandArr.join(' ')
+    const doc = await getFunctionDocString(command)
+    if (!doc) {
+        return [
+            `Event: \`${label}\``,
+            '___',
+            `Event handler for \`${command}\``,
+        ].join('\n')
+    }
+    return [
+        `Event: \`${label}\``,
+        '___',
+        doc,
+    ].join('\n')
+}
+
+/**
+ * builds MarkupString for global variable documentation
+ */
+export async function getVariableDocString(name: string): Promise<string | undefined> {
+    let vName = name.startsWith('$') ? name.slice(name.lastIndexOf('$')) : name
+    const out = await execCmd(`set --show --long ${vName}`)
+    const { first, middle, last } = out.reduce((acc, curr, idx, arr) => {
+        if (idx === 0) {
+            acc.first = curr;
+        } else if (idx === arr.length - 1) {
+            acc.last = curr;
+        } else {
+            acc.middle.push(curr);
+        }
+        return acc;
+    }, { first: '', middle: [] as string[], last: '' });
+    return [
+        first, 
+        '___',
+        middle.join('\n'),
+        '___',
+        last,
+    ].join('\n')
+}
+
+export async function getCommandDocString(name: string): Promise<string | undefined> {
+    const cmdDocs: string = await execCommandDocs(name);
+    if (!cmdDocs) return undefined
+    const splitDocs = cmdDocs.split('\n');
+    const startIndex = splitDocs.findIndex((line: string) => line.trim() === 'NAME')
+    return [
+        '```man',
+        splitDocs.slice(startIndex).join('\n'),
+        '```'
+    ].join('\n') 
+}
 
 export function initializeMap(collection: string[], type: SymbolKind, uri?: string): Map<string, CachedGlobalItem> {
     const items: Map<string, CachedGlobalItem> = new Map<string, CachedGlobalItem>();
@@ -201,7 +306,7 @@ export class DocumentationCache {
         this._unknowns = initializeMap([], SymbolKind.Null, uri);
         await Promise.all([
             execEscapedCommand('set -n'),
-            execEscapedCommand(`functions -an`),
+            execEscapedCommand(`functions -an | string collect`),
             execEscapedCommand('builtin -n')
         ]).then(([vars, funcs, builtins]) => {
             this._variables = initializeMap(vars, SymbolKind.Variable, uri);

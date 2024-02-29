@@ -135,7 +135,11 @@ export class JestLogger extends Logger {
   }
 }
 
-export const ServerLogsPath = resolve('/home/ndonfris/repos/fish-lang-server/logs.txt') 
+export const ServerLogsPath = resolve(
+    __dirname,
+    '..',
+    'logs.txt'
+) 
 
 export function createServerLogger(logFilePath: string = "", clear: boolean = true): Logger {
   return new Logger(logFilePath, clear);

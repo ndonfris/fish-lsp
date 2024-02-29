@@ -10,6 +10,7 @@ export const Commands = {
     CODE_ACTION: 'codeAction',
     FORMAT: 'format',
     FORMAT_RANGE: 'formatRange',
+    INLINE_CODELENS: 'inlineCodelens',
 }
 
 
@@ -23,6 +24,7 @@ export enum CommandTypes {
     CODE_ACTION = 'codeAction',
     FORMAT = 'format',
     FORMAT_RANGE = 'formatRange',
+    INLINE_CODELENS = 'inlineCodelens',
 }
 
 export const commands: Record<CommandTypes, Command> = {
@@ -62,6 +64,10 @@ export const commands: Record<CommandTypes, Command> = {
     [CommandTypes.FORMAT_RANGE]: {
         title: 'formatRange',
         command: 'editor.action.formatRange',
+    },
+    [CommandTypes.INLINE_CODELENS]: {
+        title: 'inlineCodelens',
+        command: 'editor.action.inlineCodelens',
     }
 }
 
@@ -120,6 +126,7 @@ export namespace CommandParams {
         const { textDocument, context, range } = params as  CodeActionParams;
         return TextDocumentIdentifier.is(textDocument.uri) &&  CodeActionContext.is(context) && Range.is(range);
     }
+    //export function is
 
 
 }

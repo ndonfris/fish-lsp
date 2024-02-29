@@ -31,7 +31,7 @@ export function getNamedChildNodes(root: SyntaxNode): SyntaxNode[] {
     while (queue.length) {
         let current : SyntaxNode | undefined = queue.shift()
         if (current && current.isNamed()) result.push(current)
-        if (current && current.namedChildren) queue.unshift(...current.namedChildren)
+        if (current && current.children) queue.unshift(...current.children)
     }
     return result
 }
@@ -56,11 +56,11 @@ export function findChildNodes(root: SyntaxNode, predicate: (node: SyntaxNode) =
  */
 export function getParentNodes(child: SyntaxNode): SyntaxNode[] {
     const result: SyntaxNode[] = []
-    let current: SyntaxNode | null = child.parent;
+    let current: null | SyntaxNode = child
     while (current !== null) {
         // result.unshift(current); // unshift would be used for [root, ..., child]
-        result.push(current);
-        current = current.parent;
+        if (current) result.push(current);
+        current = current?.parent || null;
     }
     return result
 }
@@ -108,7 +108,7 @@ export function getSiblingNodes(
 /**
  * Similiar to getSiblingNodes. Only returns first node matching the predicate
  */
-export function findFirstSibling(
+export function findFirstNamedSibling(
     node: SyntaxNode,
     predicate: (n: SyntaxNode) => boolean,
     direction: 'before' | 'after' = 'before', 
@@ -117,6 +117,22 @@ export function findFirstSibling(
         direction === 'before' ? n.previousNamedSibling : n.nextNamedSibling;
     let current: SyntaxNode | null = node;
     while (current) {
+        current = siblingFunc(current);
+        if (current && predicate(current)) return current;
+    }
+    return null;
+}
+
+export function findFirstSibling(
+    node: SyntaxNode,
+    predicate: (n: SyntaxNode) => boolean,
+    direction: 'before' | 'after' = 'before', 
+): SyntaxNode | null {
+    const siblingFunc = (n: SyntaxNode) =>
+        direction === 'before' ? n.previousSibling : n.nextSibling;
+    let current: SyntaxNode | null = node;
+    while (current) {
+        console.log('curr: ', current.text);
         current = siblingFunc(current);
         if (current && predicate(current)) return current;
     }
@@ -180,7 +196,7 @@ export function firstAncestorMatch(
         if (!predicate(p)) continue;
         return p;
     }
-    return predicate(root) ? root : null;
+    return !!root && predicate(root) ? root : null;
 }
 
 /**
@@ -332,9 +348,10 @@ export function getNodeAtRange(root: SyntaxNode, range: Range): SyntaxNode | nul
 
 
 export function getDependencyUrl(node: SyntaxNode, baseUri: string): URL {
-  let filename = node.children[1].text.replaceAll('"', '')
+  let filename = node.children[1]?.text.replaceAll('"', '')!
 
-  if (!filename.endsWith('.fish')) {
+
+  if (!!filename && !filename.endsWith('.fish')) {
     filename += '.fish'
   }
 
@@ -462,7 +479,55 @@ export function* nodesGen(node: SyntaxNode) {
   }
 }
 
+export function getLeafs(node: SyntaxNode): SyntaxNode[] {
+    function gatherLeafs(node: SyntaxNode, leafs: SyntaxNode[] = []): SyntaxNode[]{
+        if (node.childCount === 0 && node.text !== '') {
+            leafs.push(node)
+            return leafs
+        }
+        for (const child of node.children) {
+            leafs = gatherLeafs(child, leafs)
+        }
+        return leafs
+    }
+    return gatherLeafs(node)
+}
 
+
+export function getLastLeaf(node: SyntaxNode, maxIndex: number = Infinity): SyntaxNode {
+    let allLeafs = getLeafs(node).filter(leaf => leaf.startPosition.column < maxIndex)
+    return allLeafs[allLeafs.length - 1]!
+}
+
+
+export function matchesArgument(node: SyntaxNode, argName: string) {
+    const splitNode = node.text.slice(0, node.text.lastIndexOf('='))
+    if (argName.startsWith('-') && !argName.startsWith('--')) {
+        return splitNode.startsWith('-') && splitNode.includes(argName.slice(1))
+    }
+    if (argName.startsWith('--')) {
+        return splitNode.startsWith('--') && splitNode.startsWith(argName.slice(2))
+    }
+    return splitNode === argName
+}
+
+/**
+ * @param command - the command node to search it's children, accepts both command and command name nodes
+ * @param argName - the name of the argument to search for
+ * @returns the value of the argument if found, otherwise null
+ */
+export function getCommandArgumentValue(command: SyntaxNode, argName: string): SyntaxNode | null{
+    function getCommand(node: SyntaxNode) {
+        if (node.type === 'name' && node.parent) return node.parent
+        return node
+    }
+    const arg = getCommand(command).children.find(child => matchesArgument(child, argName))
+    if (!arg) return null
+    const value = arg.text.includes('=') 
+        ? arg
+        : arg.nextSibling
+    return value
+}
 
 
 

@@ -123,7 +123,7 @@ function findScopeFromFlag(node: SyntaxNode, flag: VariableDefinitionFlag) {
 export function getVariableScope(node: SyntaxNode) {
 
     const definitionNodes: SyntaxNode[] = expandEntireVariableLine(node)
-    const keywordNode = definitionNodes[0];
+    const keywordNode = definitionNodes[0]!
 
     let matchingFlag = null;
 

@@ -1,29 +1,127 @@
 {
-    "compilerOptions": {
-        "outDir": "out",
-        "rootDir": "src",
-        "strict": true,
-        "composite": true,
-        "declarationMap": true,
-        "allowSyntheticDefaultImports": true,
-        "sourceMap": true,
-        "target": "es6",
-        "incremental": true,
-        "module": "commonJS",
-        "moduleResolution": "node",
-        "resolveJsonModule": true,
-        "esModuleInterop": true,
-        "lib": [
-            "es2021",
-            "DOM"
-        ],
-        "skipLibCheck": true
-    },
-    "include": [
-        "src"
-    ],
-    "exclude": [
-        "node_modules",
-        "removed"
-    ]
+  "extends": "@tsconfig/node-lts/tsconfig.json",
+  "compilerOptions": {
+    "outDir": "out",
+    "rootDir": "src",
+    "esModuleInterop": true,
+    "noUncheckedIndexedAccess": true,
+    "resolveJsonModule": true,
+    // "resolvePackageJsonImports": true,
+    "baseUrl": ".",
+    "paths": {
+      "@package": ["./package.json"],
+      "completion/*": ["./src/utils/completion/*"],
+      "utils/*": ["./src/utils/*"],
+      "tests/*": ["./test-data/*"]
+    }
+  },
+  "include": [
+    "src",
+    "src/**/*.ts",
+    "../*.json",
+    "../test-data/",
+    "../snippets/**.{json,ts}"
+  ],
+  "exclude": [
+    "node_modules",
+    "out"
+  ]
+  // "display": "Node LTS",
+  // "_version": "20.1.0",
+  // "compilerOptions": {
+  //   "lib": [
+  //     "es2023"
+  //   ],
+  //   "module": "node16",
+  //   "target": "es2022",
+  //   "strict": true,
+  //   "noUncheckedIndexedAccess": true,
+  //   "esModuleInterop": true,
+  //   "skipLibCheck": true,
+  //   "forceConsistentCasingInFileNames": true,
+  //   "moduleResolution": "node16"
+  // },
 }
+// {
+//   "compilerOptions": {
+//     "target": "ES2022",
+//     "module": "NodeNext",
+//     "moduleResolution": "NodeNext",
+//     "outDir": "./out",
+//     "listFiles": true,
+//     "strict": true,
+//     "composite": true,
+//     "declarationMap": true,
+//     "sourceMap": true,
+//     "incremental": true,
+//     "resolveJsonModule": true,
+//     "esModuleInterop": true,
+//     "lib": ["es2022", "WebWorker"],
+//     "disableSizeLimit": true,
+//     "generateCpuProfile": "profile.cpuprofile",
+//     "extendedDiagnostics": true,
+//     "skipLibCheck": true,
+//     "baseUrl": ".",
+//     "paths": {
+//       "@package": ["./package.json"],
+//       "completion/*": ["./src/utils/completion/*"],
+//       "utils/*": ["./src/utils/*"],
+//       "tests/*": ["./test-data/*"]
+//     },
+//     "verbatimModuleSyntax": true,
+//     "resolvePackageJsonExports": true,
+//     "resolvePackageJsonImports": true
+//   },
+//   "include": ["src/**/*", "./package.json"],
+//   "exclude": ["node_modules", "out"]
+//   
+// }
+// {
+//     "compilerOptions": {
+//         "outDir": "./out",
+//         "rootDir": "./",
+//         "strict": true,
+//         "composite": true,
+//         "declarationMap": true,
+//         "allowSyntheticDefaultImports": true,
+//         "sourceMap": true,
+//         "target": "ES2022",
+//         "incremental": true,
+//         "module": "NodeNext",
+//         "moduleResolution": "NodeNext",
+//         // "resolvePackageJsonImports": true,
+//         "resolveJsonModule": true,
+//         "esModuleInterop": true,
+//         "lib": [
+//             //"es2022",
+//             "es2022",
+//             "WebWorker"
+//             //"DOM"
+//         ],
+//         //"downlevelIteration": true,
+//         "disableSizeLimit": true,
+//         //"fallbackPolling": "",
+//         "generateCpuProfile": "profile.cpuprofile",
+//         "extendedDiagnostics": true,
+//         "skipLibCheck": true,
+//         "baseUrl": ".",
+//         "paths": {
+//             "@package": ["./package.json"],
+//             "completion/*": ["./src/utils/completion/*"],
+//             "utils/*": ["./src/utils/*"],
+//             "tests/*": ["./test-data/*"]
+//         }
+//         //"rootDirs": [
+//         //    "src",
+//         //    "test-data"
+//         //]
+//     },
+//     "include": [
+//       "src/",
+//       "./package.json"
+//     ],
+//     "exclude": [
+//         "node_modules",
+//         "removed"
+//     ]
+// }

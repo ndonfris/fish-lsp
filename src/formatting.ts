@@ -42,18 +42,18 @@ export function applyFormatterSettings(root: SyntaxNode, options: FishFormatting
 export function applyFormattedTextInRange(formattedText: string, range: Range): string {
     const newText = formattedText.split('\n')
 
-    const {start, end} = range
+    const {start, end}: Range= range
 
     if (start.line === end.line) {
-        return newText[start.line].slice(start.character, end.character)
+        return newText[start.line]!.slice(start.character, end.character)
     } 
 
-    let result = newText[start.line].slice(start.character)
+    let result = newText[start.line]!.slice(start.character)
 
     for (let i = start.line + 1; i < end.line - 1; i++) {
         result += '\n' + newText[i]
     }
 
-    result += '\n' + newText[end.line].slice(0, end.character)
+    result += '\n' + newText[end.line]!.slice(0, end.character)
     return result
 }

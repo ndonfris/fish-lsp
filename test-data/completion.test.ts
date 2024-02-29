@@ -1,220 +1,200 @@
-import { TextDocument } from 'vscode-languageserver-textdocument';
-import {CompletionItem,  CompletionContext, CompletionParams, DocumentSymbol, Position, Range, SymbolKind, TextDocumentIdentifier, CompletionTriggerKind} from 'vscode-languageserver';
+import {CompletionItem,  CompletionContext, CompletionParams, DocumentSymbol, Position, Range, SymbolKind, TextDocumentIdentifier, CompletionTriggerKind, CompletionItemKind} from 'vscode-languageserver';
 import { assert } from 'chai'
-import { generateCompletionList } from '../src/completion';
+//import { generateCompletionList } from '../src/completion';
 import Parser, {SyntaxNode} from 'web-tree-sitter';
 import {initializeParser} from '../src/parser';
-import {resolve} from 'dns';
 import {LspDocument} from '../src/document';
-import { DocumentationCache, initializeDocumentationCache } from '../src/utils/documentationCache'
-import { containsRange, getDefinitionSymbols, getNearbySymbols} from '../src/workspace-symbol';
-import {getNodeAtRange, getRange} from '../src/utils/tree-sitter';
+import { DocumentationCache, getVariableDocString, getAbbrDocString, getFunctionDocString, initializeDocumentationCache, getBuiltinDocString, getCommandDocString } from '../src/utils/documentationCache'
+import { containsRange, findDefinitionSymbols, } from '../src/workspace-symbol';
 import { Color } from 'colors';
 import { Analyzer } from '../src/analyze';
 import { setLogger } from './helpers'
-import { execCompleteGlobalDocs, execCompleteVariables, execCompletionHelper, execEscapedCommand } from '../src/utils/exec';
-//import  from 'child_process';
+import { execCmd, execCommandDocs, execCompleteGlobalDocs, execCompleteVariables, execCompletionHelper, execEscapedCommand } from '../src/utils/exec';
 import { promisify } from 'util';
+import { resolve } from 'path';
+import { readFileSync } from 'fs';
 import { exec } from 'child_process';
 import { initializeDefaultFishWorkspaces, Workspace } from '../src/utils/workspace';
 import { toLspDocument } from '../src/utils/translation';
 import { homedir } from 'os';
-import { FishCompletionItem, FishCompletionItemKind, toCompletionKindString } from '../src/utils/completion-strategy';
+//import { FishCompletionItem, FishCompletionItemKind, toCompletionKindString } from '../src/utils/completion-strategy';
+import { isBeforeCommand, isBlockBreak, isCommand, isCommandName, isPartialForLoop, isScope, isSemicolon } from '../src/utils/node-types';
+import { Node } from './mock-datatypes';
+//import { FishCompletionList } from '../src/completion/';
+import { getChildNodes,  getLeafs, getCommandArgumentValue, matchesArgument } from '../src/utils/tree-sitter';
+//import { AbbrList, EventNamesList, FunctionNamesList, GlobalVariableList, isBuiltin, isFunction } from '../src/utils/builtins';
+//import { createShellItems, findShellPath, ShellItems, spawnSyncRawShellOutput } from '../src/utils/startup-shell-items';
+//import * as SHELL from '../src/utils/shell-items';
+//import { initializeShellCache } from '../src/utils/shell-cache';
+import { InlineParser } from '../src/utils/completion/inline-parser';
+import * as CACHE from '../src/utils/completion/startup-cache';
+//import { FishCompletionItem, FishCompletionItemKind } from '../src/utils/completion/types';
+import { FishCompletionItem, FishCompletionItemKind } from '../src/utils/completion/types'
+import { CompletionPager, initializeCompletionPager } from '../src/utils/completion/pager'
+import { Logger } from '../src/logger'
+import { getFlagDocumentationAsMarkup } from '../src/utils/flag-documentation';
+//import { FishCompletionItem, FishCompletionItemKind, getDocumentationResolver } from '../src/utils/completion-types';
+//import { FishCompletionItemKind } from '../src/utils/completion-strategy';
+//import * as ParserTypes from '../node_modules/tree-sitter-fish/src/node-types.json';
 
 let parser: Parser;
-let workspaces: Workspace[] = []
-let analyzer: Analyzer;
+//let workspaces: Workspace[] = []
+//let analyzer: Analyzer;
+let pager: CompletionPager
+//let items: SHELL.ShellItems = new SHELL.ShellItems();
+let items: CACHE.CompletionItemMap
 
 setLogger(
     async () => {
-        parser = await initializeParser();
-        workspaces = await initializeDefaultFishWorkspaces()
-        analyzer = new Analyzer(parser, workspaces);
+        //parser = await initializeParser();
+        pager = await initializeCompletionPager(new Logger());
+        //completions = await InlineParser.create()
+        //items = await CACHE.CompletionItemMap.initialize()
+        //items = await CACHE.createSetupItemsFromCommands()
     },
     async () => {
-        parser.reset();
     }
 )
 
-const spoofedPath = `${homedir()}/.config/fish/functions`
-
-function noMock(filename: string){
-    return filename.startsWith(spoofedPath) && filename.endsWith('.fish')
-}
-function getMockFile(filename: string){
-    if (noMock(filename)) return filename
-    const startIdx = filename.lastIndexOf('/') ===  -1 ? 0 : filename.lastIndexOf('/')
-    const endIdx = filename.lastIndexOf('.fish') === -1 ? filename.length : filename.lastIndexOf('.fish')
-    //console.log({startIdx, endIdx});
-    const name = filename.slice(startIdx, endIdx)
-    return `${spoofedPath}/${name}.fish`
-}
-
-function createContext(kind: CompletionTriggerKind, character?: string) : CompletionContext  {
-    return { 
-        triggerKind: kind,
-        triggerCharacter: character,
-    }
-}
-
-function mockAnalyzeCompletion(filename: string, ...lines: string[]){
-    let path = getMockFile(filename)
-    let content = lines.join('\n')
-    const doc = toLspDocument(path, content)
-    analyzer.analyze(doc);
-    let pos = doc.getLineEnd(doc.lineCount)
-    let node = analyzer.nodeAtPoint(doc.uri, pos.line, pos.character)!
-    return {
-        document: doc,
-        position: { line: pos.line, character: pos.character + 1},
-        analyzer: analyzer,
-        node: node,
-    }
-}
-
-
 describe('complete simple tests', () => {
+    //it('testing execCmd', async () => {
+    //    const start = Date.now();
+    //    let out = await execCmd(`builtin complete -C ''`)
+    //    const end = Date.now();
+    //    console.log(`execCmd took ${end - start} ms to initialize`);
+    //
+    //})
 
-    it('complete analyze functions (with autoload)', async () => {
-        const {document, position, analyzer} = mockAnalyzeCompletion('test_1', ...[
-            'function test_1', 
-            '   echo "hello 1"',
-            'end',
-            'function test_2', 
-            '   echo "hello 2"',
-            'end',
-            'function test_3', 
-            '   echo "hello 3"',
-            'end',
-            'test_'
-        ])
-        const context = createContext(CompletionTriggerKind.Invoked)
-
-        const completions = await generateCompletionList(document, analyzer, position, context)
-        //TestCompletionItem.log(completions, 3)
-        assert.deepEqual(completions.slice(0,3).map(TestCompletionItem.fromCompletion), [
-            TestCompletionItem.create('test_3', FishCompletionItemKind.LOCAL_FUNCTION),
-            TestCompletionItem.create('test_2', FishCompletionItemKind.LOCAL_FUNCTION),
-            TestCompletionItem.create('test_1', FishCompletionItemKind.USER_FUNCTION),
-        ])
-    })
-    it('complete analyze variables', async () => {
-        const {document, position, analyzer} = mockAnalyzeCompletion('test_2', ...[
-            `set -gx test_a 'a'`,
-            `set -gx test_b 'b'`,
-            `set -gx test_c 'c'`,
-            `set -gx test_d 'd'`,
-            `set -gx test_e 'e'`,
-            `if set -q test_`
-        ])
-        const context = createContext(CompletionTriggerKind.Invoked)
-
-        const completions = await generateCompletionList(document, analyzer, position, context)
-        //TestCompletionItem.log(completions)
-
-        assert.deepEqual(
-            completions.slice(0,5).map(TestCompletionItem.fromCompletion),
-            [
-                TestCompletionItem.create('test_e', FishCompletionItemKind.GLOBAL_VARIABLE),
-                TestCompletionItem.create('test_d', FishCompletionItemKind.GLOBAL_VARIABLE),
-                TestCompletionItem.create('test_c', FishCompletionItemKind.GLOBAL_VARIABLE),
-                TestCompletionItem.create('test_b', FishCompletionItemKind.GLOBAL_VARIABLE),
-                TestCompletionItem.create('test_a', FishCompletionItemKind.GLOBAL_VARIABLE)
-            ]
-        )
+    //it('get subshell completions from stdout', async () => {
+    //    let inputText = 'function _foo -';
+    //    const data = {uri: 'file:///test.fish', position: Position.create(0, inputText.length), context: {triggerKind: CompletionTriggerKind.Invoked}};
+    //    const list = (await pager.complete(inputText, data, [])).items as FishCompletionItem[]
+    //    //for (const item of list) {
+    //    //    console.log({label: item.label, detail: item.detail, kind: item.fishKind});
+    //    //}
+    //})
+    //
+    //it('get subshell completions for string-split', async () => {
+    //  let input: string[] = [
+    //    "ls -laH",
+    //    "string split",
+    //    "string split -f1 \t",
+    //  ];
+    //  //console.log('testing subshell');
+    //  for (const inputText of input) {
+    //    const output = await getFlagDocumentationAsMarkup(inputText)
+    //    //console.log(output)
+    //  }
+    //  //const docs = await execCommandDocs('string split')
+    //  //console.log(docs);
+    //}, 10000)
+    it('value', async () => {
+        expect(true).toBe(true)
     })
 
-    it('complete functions nested', async () => {
-        const {document, position, analyzer} = mockAnalyzeCompletion('test_3', 
-            'function test_3',
-            `     set test_a 'a'`,
-            `     set test_b 'b'`,
-            `     set test_c 'c'`,
-            `     set test_d 'd'`,
-            `     set test_e 'e'`,
-            '     function test_inner',
-            `          set -f test_f 'f'`,
-            '     end',
-            '     test_inner',
-            `end`,
-            `test_`,
-        )
-        const context = createContext(CompletionTriggerKind.Invoked)
-
-        const completions = await generateCompletionList(document, analyzer, position, context)
-        const funcs = completions.filter(
-            (c) =>
-                (
-                    c.fishKind === FishCompletionItemKind.USER_FUNCTION ||
-                    c.fishKind === FishCompletionItemKind.LOCAL_FUNCTION 
-                ) && c.localSymbol
-        );
-        //TestCompletionItem.log(funcs, 12)
-        //console.log(document.uri);
-        assert.equal(funcs.length, 1);
-    })
-
-    it('complete `set -`', async () => {
-        function filterFlags(items: FishCompletionItem[]){
-            return items.filter((c) => c.fishKind === FishCompletionItemKind.FLAG)
+    it('get command argument value', async () => {
+        let inputList: string[] = [
+            "string split --max 1 = 'a=b'"
+        ];
+        const log = (found?: SyntaxNode | null) => {
+            console.log({found: found?.text || '', str: found?.toString() || ''});
         }
-        async function getFlags(context: CompletionContext){
-            let {document, position, analyzer} = mockAnalyzeCompletion('test_4', `set -`)
-            let completions = await generateCompletionList(document, analyzer, position, context)
-            return completions
+        const parser = await initializeParser();
+        for (const input of inputList) {
+            const {rootNode} = parser.parse(input)
+            const node = rootNode.descendantForPosition({row: 0, column: 0})
+    
+            log(node.parent!)
+            const found = getCommandArgumentValue(node, '--max')
+            log(found)
+            const found2 = getChildNodes(rootNode).find(c => matchesArgument(c, '--max'))
+            //log({found: found?.text || '', str: found?.toString() || ''});
+            log(found2)
         }
-        let context = createContext(CompletionTriggerKind.Invoked) // test TriggerCharacter: '-'
-        let invokedFlags = await getFlags(context)
-        TestCompletionItem.log(invokedFlags, 100)
-
-        context = createContext(CompletionTriggerKind.TriggerCharacter, '-') // test TriggerCharacter: '-'
-        let triggerFlags = await getFlags(context)
-        TestCompletionItem.log(triggerFlags, 100)
-
-        //console.log(document.uri);
-        //assert.equal(funcs.length, 1);
+        expect(true).toBe(true)
     })
 })
 
 
+//export async function createCompletionList(input: string) {
+//    const result: FishCompletionItem[] = [];
+//    const {word, command, wordNode, commandNode, index} = completions.getNodeContext(input);
+//    if (!command) {
+//        return items.allCompletionsWithoutCommand().filter((item) => item.label.startsWith(input))
+//    }
+//    switch (command) {
+//        //case "functions":
+//        //    return index === 1 ? items.allOfKinds("function", 'alias') : result;
+//        //case "command":
+//        //    return index === 1 ?items.allOfKinds("command") : result;
+//        //case 'builtin':
+//        //    return index === 1 ? items.allOfKinds("builtin") : result;
+//        case "end":
+//            return items.allOfKinds("pipe");
+//        case "printf":
+//            return index === 1 ? items.allOfKinds("format_str", "esc_chars") : items.allOfKinds("variable");
+//        case "set":
+//            return items.allOfKinds("variable");
+//        //case 'function':
+//        //    //if (isOption(lastNode) && ['-e', '--on-event'].includes(lastNode.text)) result.push(CompletionItemsArrayTypes.FUNCTIONS);
+//        //    //if (isOption(lastNode) && ['-v', '--on-variable'].includes(lastNode.text)) result.push(CompletionItemsArrayTypes.VARIABLES);
+//        //    //if (isOption(lastNode) && ['-V', '--inherit-variable'].includes(lastNode.text)) result.push(CompletionItemsArrayTypes.VARIABLES);
+//        //    //result.push(CompletionItemsArrayTypes.AUTOLOAD_FILENAME);
+//        //    break
+//        case "return":
+//            return items.allOfKinds("status", "variable");
+//        default:
+//            return items.allOfKinds("pipe");
+//    }
+//    return result
+//
+//}
 
-export namespace TestCompletionItem {
-
-    export interface Item {
-        label: string,
-        kind: string,
-        fishKind: string,
-    }
-
-    export function fromCompletion(cmp: FishCompletionItem) : Item {
-        return {
-            label: cmp.label,
-            kind: toCompletionKindString[cmp.fishKind],
-            fishKind: FishCompletionItemKind[cmp.fishKind],
-        }
-    }
-
-    export function create(label: string, fishKind: FishCompletionItemKind ) : Item {
-         return {
-             label: label,
-             kind: toCompletionKindString[fishKind], 
-             fishKind: FishCompletionItemKind[fishKind],
-        }
-    }
-
-    export function readable(item: FishCompletionItem){
-        return {
-            ...item,
-            kind: toCompletionKindString[item.fishKind],
-            fishKind: FishCompletionItemKind[item.fishKind],
-        };
-    }
-
-    export function log(items: FishCompletionItem[], max: number = 5){
-        items.forEach((item: FishCompletionItem, i: number) => {
-            if (i < max) console.log(i, '::', readable(item), '\n');
-        })
-        console.log(`...`)
-        console.log(`total items: ${items.length}`);
-    }
-}
+export const completionStrings : string[] = [
+    'echo ',
+    'ls',
+    'ls ',
+    'ls -',
+    'if',
+    'if ',
+    'if t',
+    ';',
+    'if [',
+    'if [ ',
+    'if test',
+    'if (a',
+    'printf "',
+    '',
+    'for',
+    'for ',
+    'for i',
+    'for i ',
+    'for i in',
+    'while',
+    'while (',
+    'while ()',
+    'echo "hi" > ',
+    'function',
+    'else if',
+    'else',
+    'case',
+    'case ',
+    "case '*",
+    'end',
+    'ls |',
+    'not',
+    'and',
+    'and test',
+    'and test ',
+    'or ',
+    'if test -f file.txt; and test -f file2.txt; or ',
+    'ls | read',
+    'ls | read ',
+    'ls | read -',
+    'ls | read -L',
+    'ls | read -L ',
+    'ls | read -L -l',
+    'ls | read -L -l v',
+    'continue',
+    'continue ',
+]

@@ -12,15 +12,16 @@ export async function initializeParser(): Promise<Parser> {
     await Parser.init();
     const parser = new Parser();
 
-    const tsFishPath = resolve(
-        require('tree-sitter-fish'),
+    const fishLangPath = resolve(
+        //require('tree-sitter-fish'),
         //'..',
         __dirname,
         '..',
         'tree-sitter-fish.wasm'
-    )
+    ).toString()
+    // console.log(fishLangPath);
 
-    const lang = await Parser.Language.load(tsFishPath);
+    const lang = await Parser.Language.load(fishLangPath);
     parser.setLanguage(lang);
 
     return parser;

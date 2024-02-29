@@ -8,7 +8,7 @@ import {getChildNodes, getNodeText} from './tree-sitter';
 
 const findFirstFlagIndex = (cmdline: string[]) => {
     for (let i = 0; i < cmdline.length; i++) {
-        const arg = cmdline[i]
+        const arg = cmdline[i] as string
         if (arg.startsWith('-')) {
             return i
         }
@@ -42,7 +42,7 @@ const removeStrings = (input: string) => {
 
 const tokenizeInput = (input: string) => {
     let removed = removeStrings(input)
-    let tokenized = ensureEndOfArgs(removed.split(' '))
+    let tokenized = ensureEndOfArgs(removed.split(/\s/))
     return tokenized.filter(t => t.length > 0)
 }
 
@@ -69,7 +69,8 @@ const longFlag = (flag: string) => {
 
 const hasUnixFlags = (allFlagLines: string[]) => {
     for (let line of allFlagLines) {
-        const [flag, doc] = line.split('\t')
+        const [flag, doc]: string[] = line.split('\t') || []
+        if (!flag) continue;
         if (shortFlag(flag) && flag.length > 2) {
             return true
         }
@@ -81,14 +82,14 @@ const parseInputFlags = (inputArray: string[], seperateShort: boolean) => {
     const result: string[] = []
     for (let i = 0; i < inputArray.length; i++) {
         const arg = inputArray[i]
-        if (shortFlag(arg)) {
+        if (arg && shortFlag(arg)) {
             if (seperateShort) {
                 const shortFlags = arg.slice(1).split('').map(ch => '-'+ch)
                 result.push(...shortFlags)
             } else {
                 result.push(arg)
             }
-        } else if (longFlag(arg)) {
+        } else if (arg && longFlag(arg)) {
             result.push(arg)
         }
     }
@@ -99,7 +100,7 @@ const findMatchingFlags = (inputFlags: string[], allFlagLines: string[]) => {
     const output: string[] = []
     for (let line of allFlagLines) {
         const [flag, doc] = line.split('\t')
-        if (inputFlags.includes(flag)) {
+        if (flag && inputFlags.includes(flag)) {
             output.push(line)
         }
     }
@@ -107,7 +108,7 @@ const findMatchingFlags = (inputFlags: string[], allFlagLines: string[]) => {
 }
 
 
-export async function getFlagDocumentationString(input: string) : Promise<string[]> {
+async function getFlagDocumentationStrings(input: string) : Promise<string[]> {
     let splitInputArray = tokenizeInput(input);
     let outputFlagLines = await outputFlags(splitInputArray)
     let shouldSeperateShortFlags = !hasUnixFlags(outputFlagLines)
@@ -122,21 +123,32 @@ export async function getFlagDocumentationString(input: string) : Promise<string
 export function getFlagCommand(input: string) : string {
     let splitInputArray = tokenizeInput(input);
     const firstFlag = findFirstFlagIndex(splitInputArray)
-    let cmd = splitInputArray.slice(0, firstFlag)
+    let cmd = splitInputArray
+    if (firstFlag !== -1) {
+        cmd = splitInputArray.slice(0, firstFlag)
+    }
     return cmd.join(' ')
 }
 
 
 export async function getFlagDocumentationAsMarkup(input: string) : Promise<MarkupContent> {
-    let cmdName = getFlagCommand(input)
-    let flagLines = await getFlagDocumentationString(input)
-    let flagString = flagLines.join('\n')
+    let docString = await getFlagDocumentationString(input)
     return {
         kind: MarkupKind.Markdown,
-        value: [
-            `***\`${cmdName}\`***`,
-            '___',
-            flagString
-        ].join('\n')
+        value: docString
     }
+}
+
+export async function getFlagDocumentationString(input: string): Promise<string> {
+    let cmdName = getFlagCommand(input)
+    let flagLines = await getFlagDocumentationStrings(input)
+    let flagString = flagLines.join('\n')
+    let manpage = await execCommandDocs(cmdName.replaceAll(' ', '-'))
+    let flagDoc = flagString.trim().length > 0 ? ['___', '  ***Flags***', flagString].join('\n') : ''
+    let manDoc = manpage.trim().length > 0 ? ['___','```man', manpage, '```'].join('\n') : ''
+    let afterString = [flagDoc, manDoc].join('\n').trim();
+    return [
+        `***\`${cmdName}\`***`,
+        afterString,
+    ].join('\n');
 }

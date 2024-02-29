@@ -4,7 +4,7 @@ import {findParentCommand, isVariableDefinition} from '../utils/node-types';
 import {createDiagnostic} from './create';
 import * as errorCodes from './errorCodes';
 import {LspDocument} from '../document';
-import {findFirstSibling} from '../utils/tree-sitter';
+import {findFirstNamedSibling} from '../utils/tree-sitter';
 
 
 function getUniversalOption(node: SyntaxNode): SyntaxNode | null {
@@ -27,10 +27,9 @@ export function getUniversalVariableDiagnostics(node: SyntaxNode, document: LspD
         if (!n.text.startsWith('--') && n.text.startsWith('-')) return n.text.includes('U');
         return false
     }
-    const universalFlag = findFirstSibling(node, isUniveralOption);
+    const universalFlag = findFirstNamedSibling(node, isUniveralOption);
     return universalFlag ? createDiagnostic(universalFlag, errorCodes.universalVariable, document) : null;
 }
-
 
 
 

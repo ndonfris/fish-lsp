@@ -7,7 +7,9 @@ import {getChildNodes, getNodesTextAsSingleLine, getRange, positionToPoint} from
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {SymbolInformation, Location, SymbolKind, Range, DocumentSymbol, TextDocumentItem} from 'vscode-languageserver';
 import {symbolKindToString} from '../src/utils/translation';
-import {bgBlack, bgBlue, black, inverse, white} from 'colors'; import {LspDocument} from '../src/document';
+var colors = require('colors');
+//import {bgBlack, bgBlue, black, inverse, white, Color} from 'colors';
+import {LspDocument} from '../src/document';
 import console from 'console';
 import {homedir} from 'os';
 import { URI } from 'vscode-uri';
@@ -18,22 +20,76 @@ export function buildUri(absolutePath: string) {
     return URI.parse(absolutePath).toString()
 }
 
+
+
+export type LoggerOptions = {
+    LogTestName?: boolean,
+    LogStartEnd?: boolean,
+    LogSep?: boolean,
+    Space?: boolean,
+}
+
+export const LogOpts: Record<'clean' | 'separated' | 'extra', LoggerOptions> = {
+    clean: {LogSep: true, Space: true, LogTestName: true},
+    separated: {LogSep: true, Space: true},
+    extra: {LogSep: true, Space: true, LogStartEnd: true},
+}
+export const CleanLogging : LoggerOptions = {LogSep: true, Space: true, LogTestName: true}
+
 export function setLogger(
     beforeCallback: () => Promise<void> = async () => {},
-    afterCallback: () => Promise<void> = async () => {}
+    afterCallback: () => Promise<void> = async () => {},
+    Opts?: LoggerOptions
 ){
     const jestConsole = console;
     beforeEach(async () => {
         global.console = require("console");
+        LogSpecial("before", Opts);
         await beforeCallback();
     }, 10000);
-
     afterEach(async () => {
         global.console = jestConsole;
+        LogSpecial("after", Opts);
         await afterCallback();
     }, 10000);
 }
 
+function LogSpecial(current: "before" | "after" ,Opts?: LoggerOptions){
+    const name = expect.getState().currentTestName!.toString().toUpperCase()
+    //if (expect.getState().)
+    const len = Opts?.LogTestName || Opts?.LogStartEnd ? name.length + 7 : 80
+    const sep = '━'.repeat(len)
+    colors.setTheme({
+        keyword:  ['bgBlue', 'white', 'bold'],
+        testname: ['blue', 'underline', 'bold'],
+        line:     ['white',  'bold', 'strikethrough']
+    })
+    const testStr = `${colors.keyword('TEST:  ')}${colors.testname(name)}`
+    const startStr = `${colors.keyword('START: ')}${colors.testname(name)}`
+    const endStr =   `${colors.keyword('END:   ')}${colors.testname(name)}`
+
+    const start = [colors.line(sep), startStr, colors.line(sep)].join('\n')
+    const end =  [colors.line(sep), endStr, colors.line(sep)].join('\n')
+
+    switch (current) {
+    case "before":
+        if (Opts?.Space) console.log();
+        if (Opts?.LogSep) console.log(colors.line(sep));
+        if (Opts?.LogTestName) {
+            console.log(testStr);
+            if (Opts?.LogSep) console.log(colors.line(sep));
+            break;
+        } 
+        if (Opts?.LogStartEnd) console.log(start);
+        break;
+    case "after":
+        if (Opts?.LogSep) console.log(colors.line(sep));
+        if (Opts?.LogStartEnd) console.log(end);
+        if (Opts?.LogTestName || Opts?.Space) console.log();
+        break;
+    }
+
+}
 /**
  * @param {string} fname - relative path to file, in test-data folder 
  * @param {boolean} inAutoloadPath - simulate the doc uri being in ~/.config/fish/functions/*.fish

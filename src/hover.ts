@@ -74,7 +74,7 @@ export async function getHoverForFlag(current: Parser.SyntaxNode): Promise<Hover
     const fixedFlags = spiltShortFlags(flags, !shouldSplitShortFlags)
     const found = flagCompletions
         .map(line => line.split('\t'))
-        .filter(line => fixedFlags.includes(line[0]))
+        .filter(line => fixedFlags.includes(line[0] as string))
         .map(line => line.join('\t'))
 
     return {
@@ -84,7 +84,7 @@ export async function getHoverForFlag(current: Parser.SyntaxNode): Promise<Hover
 
 function hasOldUnixStyleFlags(allFlags: string[]) {
     for (const line of allFlags.map(line => line.split('\t'))) {
-        const flag = line[0]
+        const flag = line[0] as string
         if (flag.startsWith('-') && !flag.startsWith('--')) {
             if (flag.length > 2) {
                 return true;
@@ -97,7 +97,7 @@ function hasOldUnixStyleFlags(allFlags: string[]) {
 function spiltShortFlags(flags: string[], shouldSplit: boolean): string[] {
     const newFlags : string[] = []
     for (let flag of flags) {
-        flag = flag.split('=')[0]
+        flag = flag.split('=')[0] as string
         if (flag.startsWith('-') && !flag.startsWith('--')) {
             if (flag.length > 2 && shouldSplit) {
                 newFlags.push(...flag.split('').map(f => '-' + f))

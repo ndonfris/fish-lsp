@@ -1,8 +1,8 @@
 import Parser, {SyntaxNode} from "web-tree-sitter";
 import { initializeParser } from "./parser";
 import { Analyzer } from "./analyze";
-import {  generateCompletionList, } from "./completion";
-import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, ExecuteCommandParams, ServerRequestHandler, FoldingRangeParams, FoldingRange, Position, InlayHintParams, MarkupKind, SymbolInformation, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, RemoteConsole, RenameFilesParams } from "vscode-languageserver";
+//import {  generateCompletionList, } from "./completion";
+import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, ExecuteCommandParams, ServerRequestHandler, FoldingRangeParams, FoldingRange, Position, InlayHintParams, MarkupKind, SymbolInformation, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, RemoteConsole, RenameFilesParams, CompletionTriggerKind } from "vscode-languageserver";
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
 import { enrichToCodeBlockMarkdown } from './documentation';
@@ -20,14 +20,18 @@ import {FishAutoFixProvider} from './features/fix-all';
 import {FishProtocol} from './utils/fishProtocol';
 import {Commands} from "./commands"
 import {handleConversionToCodeAction} from './diagnostics/handleConversion';
-import {FishShellInlayHintsProvider} from './features/inlay-hints';
+import { inlayHintsProvider } from './inlay-hints';
 import { DocumentationCache, initializeDocumentationCache } from './utils/documentationCache';
 import { homedir } from 'os';
 import { initializeDefaultFishWorkspaces } from './utils/workspace';
 import { filterLastPerScopeSymbol, FishDocumentSymbol } from './document-symbol';
-import { FishCompletionItem, FishCompletionData, FishCompletionItemKind } from './utils/completion-strategy';
+//import { FishCompletionItem, FishCompletionData, FishCompletionItemKind } from './utils/completion-strategy';
+//import { getFlagDocumentationAsMarkup } from './utils/flag-documentation';
 import { getRenameLocations, getRenameWorkspaceEdit, getRefrenceLocations } from './workspace-symbol';
-import { getFlagDocumentationAsMarkup } from './utils/flag-documentation';
+import { CompletionPager, initializeCompletionPager } from './utils/completion/pager';
+import { FishCompletionItem } from './utils/completion/types';
+import { getDocumentationResolver } from './utils/completion/documentation';
+import { FishCompletionList } from './utils/completion/list';
 
 // @TODO 
 export type SupportedFeatures = {
@@ -35,12 +39,11 @@ export type SupportedFeatures = {
 }
 
 export default class FishServer {
-
     public static async create(
         connection: Connection,
-        params: InitializeParams,
+        params: InitializeParams
     ): Promise<FishServer> {
-        const documents = new LspDocuments() ;
+        const documents = new LspDocuments();
         const config = new ConfigManager(documents);
         config.mergePreferences(params.initializationOptions);
         const logger = new Logger(ServerLogsPath, true, connection.console);
@@ -48,45 +51,58 @@ export default class FishServer {
             initializeParser(),
             initializeDocumentationCache(),
             initializeDefaultFishWorkspaces(),
-        ]).then(([parser, cache, workspaces]) => {
+            initializeCompletionPager(logger),
+        ]).then(([parser, cache, workspaces, completions]) => {
             const analyzer = new Analyzer(parser, workspaces);
-            return new FishServer(connection, config, parser, analyzer, documents, cache, logger);
-        })
+            return new FishServer(
+                connection,
+                config,
+                parser,
+                analyzer,
+                documents,
+                completions,
+                cache,
+                logger
+            );
+        });
     }
 
     private initializeParams: InitializeParams | undefined;
     // the connection of the FishServer
-    private connection: Connection;
-    private documentationCache: DocumentationCache;
-    private parser: Parser;
-    private analyzer: Analyzer; 
-    // documentManager 
-    private docs: LspDocuments;
-    private config: ConfigManager;
-    protected logger: Logger;
+    //private connection: Connection;
+    //private documentationCache: DocumentationCache;
+    //private parser: Parser;
+    //private analyzer: Analyzer;
+    //// documentManager
+    //private docs: LspDocuments;
+    //private config: ConfigManager;
+    //protected logger: Logger;
     protected features: SupportedFeatures;
 
-    constructor(connection: Connection, config: ConfigManager, parser : Parser, analyzer: Analyzer, docs: LspDocuments, documentationCache: DocumentationCache, logger: Logger) {
-        this.connection = connection;
-        this.parser = parser;
-        this.analyzer = analyzer;
-        this.docs = docs;
-        this.config = config;
-        this.logger = logger;
+    constructor(
+        private connection: Connection,
+        private config: ConfigManager,
+        private parser: Parser,
+        private analyzer: Analyzer,
+        private docs: LspDocuments,
+        private completion: CompletionPager,
+        private documentationCache: DocumentationCache,
+        protected logger: Logger
+    ) {
         this.features = { codeActionDisabledSupport: false };
-        this.documentationCache = documentationCache;
     }
 
     async initialize(params: InitializeParams): Promise<InitializeResult> {
         this.logger.log(
-            `Initialized server FISH-LSP with ${params.workspaceFolders || ''}`
-        )
-        const result : InitializeResult = {
+            `Initialized server FISH-LSP with ${params.workspaceFolders || ""}`
+        );
+        // console.log(`Initialized server FISH-LSP with ${params.workspaceFolders || ""}`);
+        const result: InitializeResult = {
             capabilities: {
                 textDocumentSync: TextDocumentSyncKind.Incremental,
                 completionProvider: {
                     resolveProvider: true,
-                    triggerCharacters: ["-", "\$"],
+                    //triggerCharacters: ["-", "$"],
                     allCommitCharacters: [";", " ", "\t"],
                     workDoneProgress: true,
                 },
@@ -99,10 +115,10 @@ export default class FishServer {
                 foldingRangeProvider: true,
                 codeActionProvider: {
                     codeActionKinds: [
-                        ...FishAutoFixProvider.kinds.map(kind => kind.value),
+                        ...FishAutoFixProvider.kinds.map((kind) => kind.value),
                         CodeActionKind.RefactorToFunction.value,
                         CodeActionKind.RefactorToVariable.value,
-                        CodeActionKind.QuickFix.append('extraEnd').value,
+                        CodeActionKind.QuickFix.append("extraEnd").value,
                     ],
                     resolveProvider: true,
                 },
@@ -113,7 +129,7 @@ export default class FishServer {
                         Commands.APPLY_WORKSPACE_EDIT,
                         Commands.RENAME,
                         "onHover",
-                        'rename'
+                        "rename",
                     ],
                     workDoneProgress: true,
                 },
@@ -124,61 +140,77 @@ export default class FishServer {
                     resolveProvider: true,
                 },
                 documentHighlightProvider: false,
-                inlayHintProvider: false,
+                inlayHintProvider: true,
             },
-        }
+        };
         this.config.mergePreferences(params.initializationOptions);
-        this.logger.log('onInitializedResult', result)
+        this.logger.log("onInitializedResult", result);
         return result;
     }
-    
 
-    register(): void {
+    register(connection: Connection): void {
         //this.connection.window.createWorkDoneProgress();
-        this.connection.onInitialized(this.onInitialized.bind(this));
-        this.connection.onDidOpenTextDocument(this.didOpenTextDocument.bind(this))
-        this.connection.onDidChangeTextDocument(this.didChangeTextDocument.bind(this))
-        this.connection.onDidCloseTextDocument(this.didCloseTextDocument.bind(this))
-        this.connection.onDidSaveTextDocument(this.didSaveTextDocument.bind(this))
+        connection.onInitialized(this.onInitialized.bind(this));
+        connection.onDidOpenTextDocument(
+            this.didOpenTextDocument.bind(this)
+        );
+        connection.onDidChangeTextDocument(
+            this.didChangeTextDocument.bind(this)
+        );
+        connection.onDidCloseTextDocument(
+            this.didCloseTextDocument.bind(this)
+        );
+        connection.onDidSaveTextDocument(
+            this.didSaveTextDocument.bind(this)
+        );
         // • for multiple completionProviders -> https://github.com/microsoft/vscode-extension-samples/blob/main/completions-sample/src/extension.ts#L15
         // • https://github.com/Dart-Code/Dart-Code/blob/7df6509870d51cc99a90cf220715f4f97c681bbf/src/providers/dart_completion_item_provider.ts#L197-202
-        this.connection.onCompletion(this.onCompletion.bind(this))
-        this.connection.onCompletionResolve(this.onCompletionResolve.bind(this)),
-
-        //this.on
-        this.connection.onDocumentSymbol(this.onDocumentSymbols.bind(this));
+        connection.onCompletion(this.onCompletion.bind(this));
+        connection.onCompletionResolve(
+            this.onCompletionResolve.bind(this)
+        ),
+            //this.on
+        connection.onDocumentSymbol(this.onDocumentSymbols.bind(this));
         this.connection.onWorkspaceSymbol(this.onWorkspaceSymbol.bind(this));
         //this.connection.onWorkspaceSymbolResolve(this.onWorkspaceSymbolResolve.bind(this))
-        this.connection.onDefinition(this.onDefinition.bind(this));
-        this.connection.onReferences(this.onReferences.bind(this));
-        this.connection.onHover(this.onHover.bind(this));
-        this.connection.onRenameRequest(this.onRename.bind(this));
-        this.connection.onDocumentFormatting(this.onDocumentFormatting.bind(this));
-        this.connection.onDocumentRangeFormatting(this.onDocumentRangeFormatting.bind(this));
-        this.connection.onCodeAction(this.onCodeAction.bind(this));
-        this.connection.onFoldingRanges(this.onFoldingRanges.bind(this))
+        connection.onDefinition(this.onDefinition.bind(this));
+        connection.onReferences(this.onReferences.bind(this));
+        connection.onHover(this.onHover.bind(this));
+        connection.onRenameRequest(this.onRename.bind(this));
+        connection.onDocumentFormatting(
+            this.onDocumentFormatting.bind(this)
+        );
+        connection.onDocumentRangeFormatting(
+            this.onDocumentRangeFormatting.bind(this)
+        );
+        connection.onCodeAction(this.onCodeAction.bind(this));
+        connection.onFoldingRanges(this.onFoldingRanges.bind(this));
         //this.connection.workspace.applyEdit()
-        //this.connection.languages.inlayHint.on(this.onInlayHints.bind(this));
+        connection.languages.inlayHint.on(this.onInlayHints.bind(this));
         //this.connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
-        this.connection.console.log("FINISHED FishLsp.register()")
+        connection.console.log("FINISHED FishLsp.register()");
     }
 
     didOpenTextDocument(params: DidOpenTextDocumentParams): void {
         this.logParams("didOpenTextDocument", params);
         const uri = uriToPath(params.textDocument.uri);
         if (!uri) {
-            this.logger.log(`DID NOT OPEN ${uri} \n URI is null or undefined`)
+            this.logger.log(`DID NOT OPEN ${uri} \n URI is null or undefined`);
             return;
         }
-        if (this.docs.open(uri, params.textDocument)) { 
+        if (this.docs.open(uri, params.textDocument)) {
             const doc = this.docs.get(uri);
             if (doc) {
-                this.logger.log("opened document: " + params.textDocument.uri)
+                this.logger.log("opened document: " + params.textDocument.uri);
                 this.analyzer.analyze(doc);
-                this.logger.log("analyzed document: " + params.textDocument.uri)
+                this.logger.log(
+                    "analyzed document: " + params.textDocument.uri
+                );
             }
         } else {
-            this.logger.log(`Cannot open already opened doc '${params.textDocument.uri}'.`);
+            this.logger.log(
+                `Cannot open already opened doc '${params.textDocument.uri}'.`
+            );
             this.didChangeTextDocument({
                 textDocument: params.textDocument,
                 contentChanges: [
@@ -195,18 +227,20 @@ export default class FishServer {
         const uri = uriToPath(params.textDocument.uri);
         const doc = this.docs.get(uri);
         if (!uri || !doc) return;
-        doc.applyEdits(doc.version+1, ...params.contentChanges)
+        doc.applyEdits(doc.version + 1, ...params.contentChanges);
         this.analyzer.analyze(doc);
-        this.logger.log(`CHANGED -> ${doc.version}:::${doc.uri}`)
+        this.logger.log(`CHANGED -> ${doc.version}:::${doc.uri}`);
         const root = this.analyzer.getRootNode(doc);
-        if (!root) return 
+        if (!root) return;
     }
 
     didCloseTextDocument(params: DidCloseTextDocumentParams): void {
         this.logParams("didCloseTextDocument", params);
         const uri = uriToPath(params.textDocument.uri);
         if (!uri) return;
-        this.logger.log(`[${this.didCloseTextDocument.name}]: ${params.textDocument.uri}`);
+        this.logger.log(
+            `[${this.didCloseTextDocument.name}]: ${params.textDocument.uri}`
+        );
         this.docs.close(uri);
         this.logger.log(`closed uri: ${uri}`);
     }
@@ -216,14 +250,12 @@ export default class FishServer {
         return;
     }
 
-
-
     // @see:
     //  • @link [bash-lsp](https://github.com/bash-lsp/bash-language-server/blob/3a319865af9bd525d8e08cd0dd94504d5b5b7d66/server/src/server.ts#L236)
     async onInitialized() {
         return {
-            backgroundAnalysisCompleted: this.startBackgroundAnalysis()
-        }
+            backgroundAnalysisCompleted: this.startBackgroundAnalysis(),
+        };
     }
 
     // @TODO: REFACTOR THIS OUT OF SERVER
@@ -231,9 +263,9 @@ export default class FishServer {
     //      fish_indent --dump-parse-tree test-fish-lsp.fish
     // https://github.com/Dart-Code/Dart-Code/blob/7df6509870d51cc99a90cf220715f4f97c681bbf/src/providers/dart_completion_item_provider.ts#L197-202
     // https://github.com/microsoft/vscode-languageserver-node/pull/322
-    // 
+    //
     // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#insertTextModehttps://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#insertTextMode
-    // 
+    //
     // • clean up into completion.ts file & Decompose to state machine, with a function that gets the state machine in this class.
     //         DART is best example i've seen for this.
     //         ~ https://github.com/Dart-Code/Dart-Code/blob/7df6509870d51cc99a90cf220715f4f97c681bbf/src/providers/dart_completion_item_provider.ts#L197-202 ~
@@ -244,34 +276,48 @@ export default class FishServer {
     // • Add local file items.
     // • Lastly add parameterInformation items.  [ 1477 : ParameterInformation ]
     // convert to CompletionItem[]
-    async onCompletion(params: CompletionParams):  Promise<CompletionItem[]>{
-        //const t = params.
-        this.logParams("onCompletion", params)
+    async onCompletion(params: CompletionParams): Promise<CompletionList> {
+        this.logParams("onCompletion", params);
         const uri = uriToPath(params.textDocument.uri);
-        let newCompletionList: CompletionItem[] = [];
+        let list: FishCompletionList = FishCompletionList.empty() 
         const doc = this.docs.get(uri);
 
         if (!uri || !doc) {
-            this.logger.log('onComplete got [NOT FOUND]: ' + uri)
-            return [];
+            this.logger.log("onComplete got [NOT FOUND]: " + uri);
+            return this.completion.empty()
         }
-        const { line } = this.analyzer.parseCurrentLine(doc, params.position)
-        this.logger.log(`currentLine: "${line}"`);
+        const { line } = this.analyzer.parseCurrentLine(doc, params.position);
+        
+        const fishCompletionData = {
+            uri: doc.uri,
+            position: params.position,
+            context: {
+                triggerKind: params.context?.triggerKind || CompletionTriggerKind.Invoked,
+                triggerCharacter: params.context?.triggerCharacter,
+            }
+        }
 
-        if (line.trim().startsWith("#")) return [];
+        if (line.trim().startsWith("#")) return FishCompletionList.empty();
 
         try {
-            newCompletionList = await generateCompletionList(doc, this.analyzer, params.position, params.context);
-            this.logger.logPropertiesForEachObject(newCompletionList, "label", "kind", "insertText", "insertTextFormat", "data")
-            
-            this.logger.log(`line: '${line}' got ${newCompletionList.length} items"`)
+            const symbols = this.analyzer.getFlatDocumentSymbols(uri)
+            list = await this.completion.complete(line, fishCompletionData, symbols);
+            //this.logger.logPropertiesForEachObject(
+            //    list,
+            //    "label",
+            //    "kind",
+            //    "insertText",
+            //    "insertTextFormat",
+            //    "data"
+            //);
+            this.logger.log(
+                `line: '${line}' got ${list.items.length} items"`
+            );
         } catch (error) {
             this.logger.log("ERROR: onComplete " + error);
         }
-        return newCompletionList;
+        return list
     }
-
-
 
     /**
      * until further reworking, onCompletionResolve requires that when a completionBuilderItem() is .build()
@@ -279,44 +325,13 @@ export default class FishServer {
      * Not seeing a completion result, with typed correctly is likely caused from this.
      */
     async onCompletionResolve(item: CompletionItem): Promise<CompletionItem> {
-        let newDoc: string | MarkupContent;
-        const fishItem = item as FishCompletionItem
-        if (fishItem.localSymbol == true) return item;
-        let [typeCmdOutput, typeofDoc] = ['', '']
-        switch (fishItem.fishKind) {
-            case FishCompletionItemKind.GLOBAL_FUNCTION: 
-            case FishCompletionItemKind.LOCAL_FUNCTION: 
-            case FishCompletionItemKind.GLOBAL_VARIABLE:
-            case FishCompletionItemKind.LOCAL_VARIABLE:
-                return item;
-            case FishCompletionItemKind.USER_FUNCTION:
-                newDoc = await execCommandDocs(fishItem.label)
-                item.documentation = enrichToCodeBlockMarkdown(newDoc, 'fish')
-                return item;
-            case FishCompletionItemKind.GLOBAL_FUNCTION:
-            case FishCompletionItemKind.RESOLVE:
-                typeCmdOutput = await execCommandType(fishItem.label)
-                if (typeCmdOutput != '') {
-                    newDoc = await execCommandDocs(fishItem.label)
-                    item.documentation = typeCmdOutput === 'file' 
-                        ? enrichToCodeBlockMarkdown(newDoc, 'fish') : enrichToCodeBlockMarkdown(newDoc, 'man')
-                }
-                return item;
-            case FishCompletionItemKind.FLAG:
-                const line = fishItem.data.line.slice(0, fishItem.data.line.length - fishItem.data.word.length) + item.label
-                this.logger.log('line: ' + line);
-                item.documentation = await getFlagDocumentationAsMarkup(line)
-                return item
-            case FishCompletionItemKind.BUILTIN:
-                newDoc = await execCommandDocs(fishItem.label)
-                item.documentation = enrichToCodeBlockMarkdown(newDoc, 'man')
-                return item;
-            default:
-                return item;
+        const fishItem = item as FishCompletionItem;
+        let doc = await getDocumentationResolver(fishItem)
+        if (doc) {
+            item.documentation = doc as MarkupContent
         }
+        return item;
     }
-
-
 
     // • lsp-spec: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#workspace_symbol
     // • hierachy of symbols support on line 554: https://github.com/typescript-language-server/typescript-language-server/blob/114d4309cb1450585f991604118d3eff3690237c/src/lsp-server.ts#L554
@@ -324,63 +339,81 @@ export default class FishServer {
     // ResolveWorkspaceResult
     // https://github.com/Dart-Code/Dart-Code/blob/master/src/extension/providers/dart_workspace_symbol_provider.ts#L7
     //
-    async onDocumentSymbols(params: DocumentSymbolParams): Promise<DocumentSymbol[]> {
-        this.logParams('onDocumentSymbols', params);
-        const {doc} = this.getDefaultsForPartialParams(params)
+    async onDocumentSymbols(
+        params: DocumentSymbolParams
+    ): Promise<DocumentSymbol[]> {
+        this.logParams("onDocumentSymbols", params);
+        const { doc } = this.getDefaultsForPartialParams(params);
         if (!doc) return [];
-        const symbols = this.analyzer.cache.getDocumentSymbols(doc.uri)
-        return filterLastPerScopeSymbol(symbols)
+        const symbols = this.analyzer.cache.getDocumentSymbols(doc.uri);
+        return filterLastPerScopeSymbol(symbols);
     }
 
     protected get supportHierarchicalDocumentSymbol(): boolean {
         const textDocument = this.initializeParams?.capabilities.textDocument;
         const documentSymbol = textDocument && textDocument.documentSymbol;
-        return !!documentSymbol && !!documentSymbol.hierarchicalDocumentSymbolSupport;
+        return (
+            !!documentSymbol &&
+            !!documentSymbol.hierarchicalDocumentSymbolSupport
+        );
     }
 
-    async onWorkspaceSymbol(params: WorkspaceSymbolParams): Promise<WorkspaceSymbol[]> {
-        this.logParams('onWorkspaceSymbol', params.query);
-        return this.analyzer.getWorkspaceSymbols(params.query) || []
+    async onWorkspaceSymbol(
+        params: WorkspaceSymbolParams
+    ): Promise<WorkspaceSymbol[]> {
+        this.logParams("onWorkspaceSymbol", params.query);
+        return this.analyzer.getWorkspaceSymbols(params.query) || [];
     }
-
 
     // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#showDocumentParams
     async onDefinition(params: DefinitionParams): Promise<Location[]> {
         this.logParams("onDefinition", params);
-        const {doc, uri, root, current} = this.getDefaults(params)
+        const { doc, uri, root, current } = this.getDefaults(params);
         if (!doc) return [];
-        return this.analyzer.getDefinitionLocation(doc, params.position)
+        return this.analyzer.getDefinitionLocation(doc, params.position);
     }
 
     async onReferences(params: ReferenceParams): Promise<Location[]> {
         this.logParams("onReference", params);
-        const {doc, uri, root, current} = this.getDefaults(params)
+        const { doc, uri, root, current } = this.getDefaults(params);
         if (!doc || !uri || !root || !current) return [];
-        return getRefrenceLocations(this.analyzer, doc, params.position)
+        return getRefrenceLocations(this.analyzer, doc, params.position);
     }
 
     // opens package.json on hover of document symbol!
     //
     // NEED TO REMOVE documentationCache. It works but is too expensive memory wise.
     // REFACTOR into a procedure that conditionally determines output type needed.
-    // Also plan to get rid of any other cache's, so that the garbage collector can do its job. 
+    // Also plan to get rid of any other cache's, so that the garbage collector can do its job.
     async onHover(params: HoverParams): Promise<Hover | null> {
         this.logParams("onHover", params);
-        const {doc, uri, root, current} = this.getDefaults(params)
+        const { doc, uri, root, current } = this.getDefaults(params);
         if (!doc || !uri || !root || !current) return null;
-        const symbolItem = this.analyzer.getHover(doc, params.position)
+        const symbolItem = this.analyzer.getHover(doc, params.position);
         if (symbolItem) return symbolItem;
-        const globalItem = await this.documentationCache.resolve(current.text.trim(), uri)
-        this.logger.log('docCache found '+ globalItem?.resolved.toString() || `docCache not found ${current.text}`)
+        const globalItem = await this.documentationCache.resolve(
+            current.text.trim(),
+            uri
+        );
+        this.logger.log(
+            "docCache found " + globalItem?.resolved.toString() ||
+                `docCache not found ${current.text}`
+        );
         if (globalItem && globalItem.docs) {
             return {
                 contents: {
                     kind: MarkupKind.Markdown,
-                    value: globalItem.docs
-                }
-            }
+                    value: globalItem.docs,
+                },
+            };
         }
-        return await handleHover(this.analyzer, doc, params.position, current, this.documentationCache);
+        return await handleHover(
+            this.analyzer,
+            doc,
+            params.position,
+            current,
+            this.documentationCache
+        );
     }
 
     // workspace.fileOperations.didRename
@@ -402,140 +435,193 @@ export default class FishServer {
     //    return;
     //}
 
-    async onRename(params: RenameParams) : Promise<WorkspaceEdit | null> {
-        this.logParams('onRename', params);
-        const {doc} = this.getDefaults(params)
+    async onRename(params: RenameParams): Promise<WorkspaceEdit | null> {
+        this.logParams("onRename", params);
+        const { doc } = this.getDefaults(params);
         if (!doc) return null;
-        return getRenameWorkspaceEdit(this.analyzer, doc, params.position, params.newName)
+        return getRenameWorkspaceEdit(
+            this.analyzer,
+            doc,
+            params.position,
+            params.newName
+        );
     }
 
-    async onDocumentFormatting(params: DocumentFormattingParams): Promise<TextEdit[]> {
+    async onDocumentFormatting(
+        params: DocumentFormattingParams
+    ): Promise<TextEdit[]> {
         this.logParams(`onDocumentFormatting: ${params.textDocument.uri}`);
-        const {doc, uri, root} = this.getDefaultsForPartialParams(params)
+        const { doc, uri, root } = this.getDefaultsForPartialParams(params);
         if (!doc || !uri || !root) return [];
-        let formattedText: string | null = null
+        let formattedText: string | null = null;
         try {
-            formattedText = await execFormatter(uri)
+            formattedText = await execFormatter(uri);
         } catch (err) {
             if (err instanceof Error) {
-                this.connection.window.showErrorMessage(err.message)
+                this.connection.window.showErrorMessage(err.message);
             }
-            if (typeof err === 'string') {
-                this.connection.window.showErrorMessage(err)
+            if (typeof err === "string") {
+                this.connection.window.showErrorMessage(err);
             }
-            return []
+            return [];
         }
-        if (!formattedText) return []
-        formattedText = applyFormatterSettings(this.parser.parse(formattedText).rootNode, this.config.getFormattingOptions())
-        const editedRange = getRange(root)
-        this.connection.window.showInformationMessage(`Formatted: ${uri}`)
-        return [TextEdit.replace(editedRange, formattedText)]
+        if (!formattedText) return [];
+        formattedText = applyFormatterSettings(
+            this.parser.parse(formattedText).rootNode,
+            this.config.getFormattingOptions()
+        );
+        const editedRange = getRange(root);
+        this.connection.window.showInformationMessage(`Formatted: ${uri}`);
+        return [TextEdit.replace(editedRange, formattedText)];
     }
 
-    async onDocumentRangeFormatting(params: DocumentRangeFormattingParams): Promise<TextEdit[]> {
-        this.logParams('onDocumentRangeFormatting', params);
-        const {doc, uri, root} = this.getDefaultsForPartialParams(params)
-        const range = params.range
+    async onDocumentRangeFormatting(
+        params: DocumentRangeFormattingParams
+    ): Promise<TextEdit[]> {
+        this.logParams("onDocumentRangeFormatting", params);
+        const { doc, uri, root } = this.getDefaultsForPartialParams(params);
+        const range = params.range;
         if (!doc || !uri || !root) return [];
-        let formattedText: string | null = null
+        let formattedText: string | null = null;
         try {
-            formattedText = await execFormatter(uri)
+            formattedText = await execFormatter(uri);
         } catch (err) {
             if (err instanceof Error) {
-                this.connection.window.showErrorMessage(err.message)
+                this.connection.window.showErrorMessage(err.message);
             }
-            if (typeof err === 'string') {
-                this.connection.window.showErrorMessage(err)
+            if (typeof err === "string") {
+                this.connection.window.showErrorMessage(err);
             }
-            return []
+            return [];
         }
-        if (!formattedText) return []
-        formattedText = applyFormatterSettings(this.parser.parse(formattedText).rootNode, this.config.getFormattingOptions())
+        if (!formattedText) return [];
+        formattedText = applyFormatterSettings(
+            this.parser.parse(formattedText).rootNode,
+            this.config.getFormattingOptions()
+        );
         //formattedText = formattedText.split('\n').slice(range.start.line, range.end.line).join('\n') + '\n'
-        this.connection.window.showInformationMessage(`Formatted Range: ${uri}`)
-        return [TextEdit.replace(range, applyFormattedTextInRange(formattedText, range))]
+        this.connection.window.showInformationMessage(
+            `Formatted Range: ${uri}`
+        );
+        return [
+            TextEdit.replace(
+                range,
+                applyFormattedTextInRange(formattedText, range)
+            ),
+        ];
     }
 
-    protected async getCodeFixes(fileRangeArgs: FishProtocol.FileRangeRequestArgs, context: LSP.CodeActionContext): Promise<FishProtocol.GetCodeFixesResponse | undefined> {
-        const errorCodes = context.diagnostics.map(diagnostic => Number(diagnostic.code));
+    protected async getCodeFixes(
+        fileRangeArgs: FishProtocol.FileRangeRequestArgs,
+        context: LSP.CodeActionContext
+    ): Promise<FishProtocol.GetCodeFixesResponse | undefined> {
+        const errorCodes = context.diagnostics.map((diagnostic) =>
+            Number(diagnostic.code)
+        );
         const args: FishProtocol.CodeFixRequestArgs = {
             ...fileRangeArgs,
             errorCodes,
         };
         try {
-            return await this.connection.sendRequest(FishProtocol.CommandTypes.GetCodeFixes, args);
+            return await this.connection.sendRequest(
+                FishProtocol.CommandTypes.GetCodeFixes,
+                args
+            );
         } catch (err) {
             return undefined;
         }
     }
-    protected async getRefactors(fileRangeArgs: FishProtocol.FileRangeRequestArgs, context: LSP.CodeActionContext): Promise<FishProtocol.GetApplicableRefactorsResponse | undefined> {
+    protected async getRefactors(
+        fileRangeArgs: FishProtocol.FileRangeRequestArgs,
+        context: LSP.CodeActionContext
+    ): Promise<FishProtocol.GetApplicableRefactorsResponse | undefined> {
         const args: FishProtocol.GetApplicableRefactorsRequestArgs = {
             ...fileRangeArgs,
-            triggerReason: context.triggerKind === LSP.CodeActionTriggerKind.Invoked ? 'invoked' : undefined,
+            triggerReason:
+                context.triggerKind === LSP.CodeActionTriggerKind.Invoked
+                    ? "invoked"
+                    : undefined,
             kind: context.only?.length === 1 ? context.only[0] : undefined,
         };
         try {
-            return await this.connection.sendRequest(FishProtocol.CommandTypes.GetApplicableRefactors, args);
+            return await this.connection.sendRequest(
+                FishProtocol.CommandTypes.GetApplicableRefactors,
+                args
+            );
         } catch (err) {
             return undefined;
         }
     }
 
-    async onFoldingRanges(params: FoldingRangeParams): Promise<FoldingRange[] | undefined> {
-        this.logParams('onFoldingRanges', params);
+    async onFoldingRanges(
+        params: FoldingRangeParams
+    ): Promise<FoldingRange[] | undefined> {
+        this.logParams("onFoldingRanges", params);
 
         const file = uriToPath(params.textDocument.uri);
         const document = this.docs.get(file);
 
         if (!document) {
-            throw new Error(`The document should not be opened in the folding range, file: ${file}`)
+            throw new Error(
+                `The document should not be opened in the folding range, file: ${file}`
+            );
         }
         //this.analyzer.analyze(document)
-        const symbols = this.analyzer.getDocumentSymbols(document.uri)
-        const flatSymbols = FishDocumentSymbol.toTree(symbols).toFlatArray()
-        this.logger.logPropertiesForEachObject(flatSymbols.filter(s => s.kind === SymbolKind.Function), 'name', 'range')
+        const symbols = this.analyzer.getDocumentSymbols(document.uri);
+        const flatSymbols = FishDocumentSymbol.toTree(symbols).toFlatArray();
+        this.logger.logPropertiesForEachObject(
+            flatSymbols.filter((s) => s.kind === SymbolKind.Function),
+            "name",
+            "range"
+        );
         const folds = flatSymbols
-            .filter(symbol => symbol.kind === SymbolKind.Function)
-            .map(symbol => FishDocumentSymbol.toFoldingRange(symbol))
+            .filter((symbol) => symbol.kind === SymbolKind.Function)
+            .map((symbol) => FishDocumentSymbol.toFoldingRange(symbol));
 
-        folds.forEach(fold => {
-            this.logger.log({fold})
-        })
+        folds.forEach((fold) => {
+            this.logger.log({ fold });
+        });
 
-
-        return folds
+        return folds;
     }
 
-    async onCodeAction(params: CodeActionParams) : Promise<CodeAction[]> {
-        const uri = uriToPath(params.textDocument.uri)
+    async onCodeAction(params: CodeActionParams): Promise<CodeAction[]> {
+        const uri = uriToPath(params.textDocument.uri);
         const document = this.docs.get(uri);
         //this.logger.log(JSON.stringify({params}))
-        if (!uri || !document) return []
+        if (!uri || !document) return [];
         const root = this.parser.parse(document.getText()).rootNode;
-        const results: CodeAction[]  = []
+        const results: CodeAction[] = [];
         for (const diagnostic of params.context.diagnostics) {
-            const res = handleConversionToCodeAction(diagnostic, root, document)
-            if (res) results.push(res)
+            const res = handleConversionToCodeAction(
+                diagnostic,
+                root,
+                document
+            );
+            if (res) results.push(res);
         }
-        return results
+        return results;
     }
 
     // works but is super slow and resource intensive, plus it doesn't really display much
     async onInlayHints(params: InlayHintParams) {
-        return await FishShellInlayHintsProvider.provideInlayHints(
-            params.textDocument.uri,
+        this.logger.log({params})
+        const uri = uriToPath(params.textDocument.uri)
+        const document = this.docs.get(uri);
+        if (!document) return
+        return await inlayHintsProvider(
+            document,
             params.range,
-            this.docs,
+            //this.docs,
             this.analyzer,
-            this.config
+            //this.config
         );
-
     }
 
     /////////////////////////////////////////////////////////////////////////////////////
     // HELPERS
     /////////////////////////////////////////////////////////////////////////////////////
-    
+
     /**
      * Logs the params passed into a handler
      *
@@ -543,39 +629,48 @@ export default class FishServer {
      * @param {any[]} params - the params passed into the method
      */
     private logParams(methodName: string, ...params: any[]) {
-        this.logger.log({handler: methodName, params})
+        this.logger.log({ handler: methodName, params });
     }
-
 
     // helper to get all the default objects needed when a TextDocumentPositionParam is passed
     // into a handler
-    private getDefaults(params: TextDocumentPositionParams) : {
-        doc?: LspDocument,
-        uri?: string,
-        root?: SyntaxNode | null,
-        current?: SyntaxNode | null,
+    private getDefaults(params: TextDocumentPositionParams): {
+        doc?: LspDocument;
+        uri?: string;
+        root?: SyntaxNode | null;
+        current?: SyntaxNode | null;
     } {
         const uri = uriToPath(params.textDocument.uri);
         const doc = this.docs.get(uri);
         if (!doc || !uri) return {};
-        const root = this.analyzer.getRootNode(doc)
-        const current = this.analyzer.nodeAtPoint(doc.uri, params.position.line, params.position.character);
-        return {doc, uri, root, current}
+        const root = this.analyzer.getRootNode(doc);
+        const current = this.analyzer.nodeAtPoint(
+            doc.uri,
+            params.position.line,
+            params.position.character
+        );
+        return { doc, uri, root, current };
     }
 
-    private getDefaultsForPartialParams(params: {textDocument: TextDocumentIdentifier}) : {
-        doc?: LspDocument,
-        uri?: string,
-        root?: SyntaxNode | null,
+    private getDefaultsForPartialParams(params: {
+        textDocument: TextDocumentIdentifier;
+    }): {
+        doc?: LspDocument;
+        uri?: string;
+        root?: SyntaxNode | null;
     } {
         const uri = uriToPath(params.textDocument.uri);
         const doc = this.docs.get(uri);
-        const root = doc ? this.analyzer.getRootNode(doc) : undefined
-        return {doc, uri, root}
+        const root = doc ? this.analyzer.getRootNode(doc) : undefined;
+        return { doc, uri, root };
     }
 
     private async startBackgroundAnalysis(): Promise<{ filesParsed: number }> {
-        const notifyCallback = (text: string) => this.connection.window.showInformationMessage(text)
-        return this.analyzer.initiateBackgroundAnalysis(notifyCallback)
+        const notifyCallback = (text: string) =>
+            this.connection.window.showInformationMessage(text);
+        return this.analyzer.initiateBackgroundAnalysis(notifyCallback);
     }
+}
+function provideInlayHints(document: LspDocument, range: LSP.Range, analyzer: Analyzer) {
+    throw new Error('Function not implemented.');
 }

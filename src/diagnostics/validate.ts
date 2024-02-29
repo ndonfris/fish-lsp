@@ -2,7 +2,7 @@ import { Diagnostic } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { LspDocument } from '../document';
 import {findParentCommand, isClause, isCommand, isCommandName, isConditionalCommand, isEnd, isError, isFunctionDefinition, isFunctionDefinitionName, isIfStatement, isNewline, isPossibleUnreachableStatement, isReturn, isScope, isStatement, isVariable, isVariableDefinition} from '../utils/node-types';
-import { findFirstSibling, nodesGen } from '../utils/tree-sitter';
+import { findFirstNamedSibling, nodesGen } from '../utils/tree-sitter';
 import {createDiagnostic} from './create';
 import { createAllFunctionDiagnostics } from './missingFunctionName';
 import { getExtraEndSyntaxError, getMissingEndSyntaxError } from './syntaxError';
@@ -179,7 +179,7 @@ function findVariableFlagsIfSeen(node: SyntaxNode, shortOpts: string[], longOpts
         if (!n.text.startsWith('--') && n.text.startsWith('-')) return shortOpts.some(short => n.text.includes(short));
         return false
     }
-    const universalFlag = findFirstSibling(node, isUniveralOption);
+    const universalFlag = findFirstNamedSibling(node, isUniveralOption);
     return universalFlag;
 }
 
@@ -261,4 +261,3 @@ export function collectAllDiagnostics(root: SyntaxNode, doc: LspDocument, diagno
     }
     return shouldAdd
 }
-

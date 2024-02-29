@@ -1,4 +1,4 @@
-import { exec, execFile, execFileSync } from 'child_process';
+import { exec, execFile, execFileSync, spawn } from 'child_process';
 import {promises, readFile} from 'fs';
 import {resolve} from 'path';
 import { promisify } from 'util';
@@ -17,18 +17,89 @@ const execFileAsync = promisify(execFile)
  *                                the fish completion command is implemented
  */
 export async function execEscapedCommand(cmd: string): Promise<string[]> {
-    const escapedCommand = cmd.replace(/(["'$`\\])/g,'\\$1');
-    const completeString = `fish -c "${escapedCommand}"`;
+    const escapedCommand = cmd.replace(/(["'$`\\])/g, '\\$1');
+    //const completeString = escapedCommand;
 
-    const child = await execAsync(completeString)
+    //"fish -P --command='printf \'%s\' a a a | string split \' \''"
+    const { stdout } = await execFileAsync('fish', ['-P', '--command', escapedCommand])
 
-    if (!child) {
+    if (!stdout) {
         return ['']
     }
 
-    return child.stdout.trim().split('\n')
+    return stdout.trim().split('\n')
 }
 
+export async function execCmd(cmd: string): Promise<string[]> {
+    const { stdout } = await execAsync(cmd, {
+        shell: "/usr/bin/fish",
+        maxBuffer: 1024 * 1024 * 8,
+        encoding: "buffer",
+        windowsHide: true,
+        cwd: process.cwd(),
+        gid: process.getegid(),
+        env: {
+            PATH: process.env.PATH,
+            USER: process.env.USER,
+            HOME: process.env.HOME,
+        },
+        uid: process.getuid(),
+        //env: process.env,
+        //stdio: ["pipe", "pipe", "ignore"],
+    });
+    //stdout.
+    //const { stdout } = await execFileAsync('fish', ['-P', '--command', cmd], {
+    //    maxBuffer: 1024 * 1024 * 8,
+    //    shell: false,
+    //    windowsHide: true,
+    //    //env: {}
+    //    //env: {
+    //    //    PATH: process.env.PATH,
+    //    //}
+    //    //uid: process.getuid(),
+    //    //shell: "/usr/bin/fish",
+    //    //env: {
+    //    //    PATH: process.env.PATH,
+    //    //},
+    //})
+    return stdout
+        .toString()
+        .trim()
+        .split("\n")
+        //.filter((line) => line.trim().length !== 0);
+}
+
+export async function execPrintLsp(line: string) {
+    const file = resolve(__dirname, '../../fish_files/printflsp.fish')
+    //const escapedCommand = line.replace(/(["'$`\\])/g, '\\$1');
+    const child = await execFileAsync(file, [line])
+    if (child.stderr) {
+        return child.stdout.trim()
+    }
+    return child.stdout.trim()
+}
+//export function execCmd(cmd: string): Promise<string[]> {
+//    return new Promise((resolve, reject) => {
+//        exec(cmd, {shell: '/usr/bin/fish'}, (err, stdout, stderr) => {
+//            if (err) {
+//                reject(err)
+//            }
+//            resolve(
+//                stdout
+//                    .toString()
+//                    .split("\n")
+//                    .filter((line) => line.trim().length !== 0)
+//            );
+//        })
+//    })
+//}
+
+//export async function execSubshellCompletions(line: string): Promise<string[]> {
+//    const escapedCommand = line.replace(/(["'$`\\])/g,'\\$1');
+//    const completeString = `fish -c "complete --do-complete='${escapedCommand}'"`;
+//    const child = await execAsync(completeString)
+//    return child
+//}
 
 export async function execFormatter(path: string) {
     const child = await execEscapedCommand(`fish_indent ${path}`);
@@ -69,14 +140,16 @@ export async function getGloablVariable(...cmd: string[]) : Promise<string[]> {
 }
 
 export async function execCompleteLine(cmd: string): Promise<string[]> {
-    const completeString = `complete --do-complete="${cmd}"`;
-    const out = await execEscapedCommand(completeString)
-    return out
+    const escapedCommand = cmd.replace(/(["'$`\\/])/g,'\\$1');
+    const completeString = `complete --do-complete='${escapedCommand}'`;
+
+    const child = await execCmd(completeString)
+    return child || []
 }
 
  export async function execCompleteSpace(cmd: string): Promise<string[]> {
     const escapedCommand = cmd.replace(/(["'$`\\])/g,'\\$1');
-    const completeString = `fish -c 'complete --do-complete="${escapedCommand} "'`;
+    const completeString = `fish -c "complete --do-complete='${escapedCommand} '"`;
 
     const child = await execAsync(completeString)
 
@@ -95,7 +168,7 @@ export async function execCompleteCmdArgs(cmd: string): Promise<string[]> {
     let i = 0;
     let fixedResults: string[] = [];
     while ( i < results.length) {
-        const line = results[i]
+        const line = results[i] as string
         if( cmd === 'test') {
             fixedResults.push(line) 
         } else if (!line.startsWith('-', 0)) {
@@ -140,7 +213,7 @@ export async function execCommandDocs(cmd: string): Promise<string> {
  */
 export async function execCommandType(cmd: string): Promise<string> {
     const file = resolve(__dirname, '../../fish_files/get-type.fish')
-    const cmdCheck = cmd.split(' ')[0].trim()
+    const cmdCheck = cmd.split(' ')[0]?.trim() as string
     const docs = await execFileAsync(file, [cmdCheck])
     if (docs.stderr) {
         return '';
@@ -166,7 +239,9 @@ export async function generateCompletionArguments(cmd: string): Promise<Completi
     const cmdArgs = new Map<string, string>()
     for (const line of outCmdArgs) {
         const args = line.split('\t');
-        cmdArgs.set(args[0], args[1])
+        if (typeof args[0] === 'string' && typeof args[1] === 'string') {
+            cmdArgs.set(args[0], args[1])
+        }
     }
     return {
         command: cmdHeader,
@@ -188,7 +263,7 @@ export async function execFindDependency(cmd: string): Promise<string> {
         .split('\n')
         .map(subcmd => subcmd.split('\t', 1))
         .filter(subcmd => subcmd.length == 2)
-        .map(subcmd => subcmd[0].trim())
+        .map(subcmd => subcmd[0]!.trim())
 }
 
 export async function execComplete(...cmd: string[]): Promise<string[]> {
@@ -199,7 +274,7 @@ export async function execComplete(...cmd: string[]): Promise<string[]> {
     let i = 0;
     let fixedResults: string[] = [];
     while ( i < results.length) {
-        const line = results[i]
+        const line: string = results[i]?.toString() || ''
         if( cmd[0] === 'test') {
             fixedResults.push(line) 
         } else if (!line.startsWith('-', 0)) {
@@ -212,7 +287,6 @@ export async function execComplete(...cmd: string[]): Promise<string[]> {
     }
     return fixedResults || [];
 }
-
 
 // open the uri and read the file
 export async function execOpenFile(uri: string): Promise<string> {

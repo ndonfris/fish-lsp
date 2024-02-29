@@ -11,7 +11,7 @@ import homedir from 'os'
 import { FishWorkspace, Workspace } from './utils/workspace';
 import { filterGlobalSymbols, filterLastPerScopeSymbol, findLastDefinition, findSymbolsForCompletion, FishDocumentSymbol, getFishDocumentSymbols, isGlobalSymbol, isUniversalSymbol, symbolIsImmutable } from './document-symbol';
 import { GenericTree } from './utils/generic-tree';
-import { FishCompletionItem, FishCompletionData } from './utils/completion-strategy';
+//import { FishCompletionItem, FishCompletionData } from './utils/completion-strategy';
 import { findDefinitionSymbols } from './workspace-symbol';
 
 export class Analyzer {
@@ -117,7 +117,7 @@ export class Analyzer {
         position: Position,
     ): FishDocumentSymbol {
         const symbols: FishDocumentSymbol[] = findDefinitionSymbols(this, document, position)
-        return symbols[0];
+        return symbols[0]!;
     }
 
     public getDefinitionLocation(
@@ -155,26 +155,26 @@ export class Analyzer {
         return null;
     }
 
-    public findCompletions(
-        document: LspDocument,
-        position: Position,
-        data: FishCompletionData
-    ): FishCompletionItem[] {
-        const symbols = this.cache.getDocumentSymbols(document.uri);
-        const localSymbols = findSymbolsForCompletion(symbols, position);
-
-        const globalSymbols = this.globalSymbols
-            .uniqueSymbols()
-            .filter((s) => !localSymbols.some((l) => s.name === l.name))
-            .map((s) => FishDocumentSymbol.toGlobalCompletion(s, data));
-
-        return [
-            ...localSymbols.map((s) =>
-                FishDocumentSymbol.toLocalCompletion(s, data)
-            ),
-            ...globalSymbols,
-        ];
-    }
+    //public findCompletions(
+    //    document: LspDocument,
+    //    position: Position,
+    //    data: FishCompletionData
+    //): FishCompletionItem[] {
+    //    const symbols = this.cache.getDocumentSymbols(document.uri);
+    //    const localSymbols = findSymbolsForCompletion(symbols, position);
+    //
+    //    const globalSymbols = this.globalSymbols
+    //        .uniqueSymbols()
+    //        .filter((s) => !localSymbols.some((l) => s.name === l.name))
+    //        .map((s) => FishDocumentSymbol.toGlobalCompletion(s, data));
+    //
+    //    return [
+    //        ...localSymbols.map((s) =>
+    //            FishDocumentSymbol.toLocalCompletion(s, data)
+    //        ),
+    //        ...globalSymbols,
+    //    ];
+    //}
 
     getTree(document: LspDocument) {
         return this.cache.getDocument(document.uri)?.tree;
