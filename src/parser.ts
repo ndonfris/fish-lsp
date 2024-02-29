@@ -18,7 +18,8 @@ export async function initializeParser(): Promise<Parser> {
         __dirname,
         '..',
         'tree-sitter-fish.wasm'
-    )
+    ).toString()
+    // console.log(fishLangPath);
 
     const lang = await Parser.Language.load(fishLangPath);
     parser.setLanguage(lang);

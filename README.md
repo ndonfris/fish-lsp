@@ -7,38 +7,39 @@ Experimental language server for the [fish shell](https://fishshell.com/). Upstr
 
 ## Current Features, and Documentation
 
-- [ ] [server.ts]( ./src/server.ts ) methods are bound as handlers to the client. Unchecked nested bullets are either: handlers which are currently __WIP__ or __features__ to further possibly extend a hanlder's functionality.
-  - [x] onComplete
+[server.ts]( ./src/server.ts ) methods are bound as handlers to the client. Unchecked nested bullets are either: handlers which are currently __WIP__ or __features__ to further possibly extend a hanlder's functionality.
+
+- [x] onComplete
     - [x] documentation to support chained short options (e.g. `ls -la`)
     - [x] get unique local symbols
     - [ ] get fallback to global symbols
     - [ ] implementation does not consider all possible cases. Currently has issues
-        with completions being found on empty word.
-  - [x] onCompleteResolve
-  - [x] onHover
+    with completions being found on empty word.
+- [x] onCompleteResolve
+- [x] onHover
     - [x] support chained short options: `ls -la`
     - [x] support commands with subcommands: `git commit`
     - [x] support local symbols: `~/.config/fish/config.fish`, `~/.config/fish/functions/*.fish`
     - [x] support nearest reference: `set var "1"; set var "2";`
-  - [x] onDefinition
-  - [x] onReferences
+- [x] onDefinition
+- [x] onReferences
     - [x] when searching for global references, remove new locally defined references
-          from matches
-  - [x] onRename, __(does not work for renaming autoloaded files)__
+    from matches
+- [x] onRename, __(does not work for renaming autoloaded files)__
     - [x] when searching for global references, remove new locally defined references
-          from matches
-  - [x] onDocumentSymbol
-  - [x] onWorkspaceSymbol
-  - [x] onFold
-  - [x] onFormat
-  - [x] onFormatRange
-  - [ ] diagnostics
+    from matches
+- [x] onDocumentSymbol
+- [x] onWorkspaceSymbol
+- [x] onFold
+- [x] onFormat
+- [x] onFormatRange
+- [ ] diagnostics
     - [ ] tons of possibility for future ideas here. Diagnostic Provider is implemented upstream.
-  - [ ] onCodeAction
-  - [ ] onOutgoingCallHierarchy
-  - [ ] onIncomingCallHierarchy
-  - [ ] onRefactor
-  - [ ] onInlayHints: _previous implementation too slow_
+- [ ] onCodeAction
+<!-- - [ ] onOutgoingCallHierarchy -->
+<!-- - [ ] onIncomingCallHierarchy -->
+- [ ] onRefactor
+- [ ] onInlayHints: _previous implementation too slow_
 - [x] [documentation.ts]( ./src/documentation.ts )
 - [x] [analyze.ts]( ./src/analyze.ts )
   - [ ] implement diagnostics
