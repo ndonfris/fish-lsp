@@ -180,7 +180,7 @@ export type ConfigKeys = keyof Required<ServerPreferences>;
 
 export class ConfigManager {
 
-    private _preferences: Required<ServerPreferences> = deepmerge({}, DEFAULT_PREFERENCES);
+    private _preferences: Required<ServerPreferences> = deepmerge({}, DEFAULT_PREFERENCES, {});
     //private _preferences: Required<ServerPreferences> = Object.assign({}, DEFAULT_PREFERENCES, {}) as Required<ServerPreferences>
 
     constructor(private readonly documents: LspDocuments) {}

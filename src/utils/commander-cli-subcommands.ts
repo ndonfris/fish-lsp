@@ -3,6 +3,8 @@ import PackageJSON from '../../package.json';
 // import PackageJSON from '@package';
 import command, { Command, createCommand, createOption, Option } from 'commander';
 import deepmerge from 'deepmerge';
+import { ConfigManager } from 'src/configManager';
+import { homedir } from 'os';
 // const logo = BuildAsciiLogo()
 
 export const program: command.Command = createCommand('fish-language-server')
@@ -61,77 +63,260 @@ export function shortHelp(program: Command) {
 // cmdOptions.forEach(opt => {
 //     program.addOption(opt);
 // })
-
-const p = program
-    .option('-o, --startup-options <JSON>', 'provide JSON startup configuration', (json: string) => {
-        console.log('startup options');
-        console.log(JSON.stringify(json), null, 2);
-    })
-    .option('-t, --time <workspace>', 'time workspace index startup', () => {
-        console.log('time taken to index workspace');
-    })
-    .option('-l, --lsp-version', 'show language server protocol version', () => {
-        console.log(asciiLogoString('single')+'\n');
-        console.log('LSP version: ', PackageJSON.dependencies['vscode-languageserver-protocol']!.toString());
-        process.exit(0);
-    })
+// const p = program
+//     .option('-o, --startup-options <JSON>', 'provide JSON startup configuration', (json: string) => {
+//         console.log('startup options');
+//         console.log(JSON.stringify(json), null, 2);
+//     })
+//     .option('-t, --time <workspace>', 'time workspace index startup', () => {
+//         console.log('time taken to index workspace');
+//     })
+//     .option('-l, --lsp-version', 'show language server protocol version', () => {
+//         console.log(asciiLogoString('single')+'\n');
+//         console.log('LSP version: ', PackageJSON.dependencies['vscode-languageserver-protocol']!.toString());
+//         process.exit(0);
+//     })
     // .storeOptionsAsProperties();
+type tToggleOption = {
+    enable: boolean;
+}
 
-function createDisableOption(flag: string, description: string, action: () => void): DisableOption {
+interface iToggleOptions extends tToggleOption {
+    [key: string]: any;
+}
+
+const startupConfig: {
+    [key: string]: iToggleOptions
+} = {
+        completion: {
+            enable: true,
+            triggerCharacters: ['.'],
+            expandAbbreviations: true,
+        },
+        hover: {
+            enable: true,
+        },
+        rename: {
+            enable: true,
+        },
+        formatting: {
+            enable: true,
+            indent: 2,
+            tabSize: 2,
+            addSemis: true,
+        },
+        diagnostics: {
+            enable: true,
+            maxNumberOfProblems: 10,
+        },
+        references: {
+            enable: true,
+        },
+        definition: {
+            enable: true,
+        },
+        workspaces: {
+            enable: true,
+            symbols: {
+                enable: true,
+                max: 5000,
+                prefer: 'functions',
+            },
+            paths: {
+                defaults: [
+                    `${homedir()}/.config/fish`,
+                    '/usr/share/fish',
+                ],
+                allowRename: [
+                    `${homedir()}/.config/fish`,
+                ]
+            },
+
+        },
+        codeActions: {
+            enable: true,
+            // create: {
+            //     completionsFile: false,
+            //     fromArgParse: false,
+            // },
+            // extract: {
+            //     toPrivateFunction: false,
+            //     toLocalVariable: false,
+            // },
+            // quickfix: {
+            //     addMissingEnd: true,
+            //     removeUnnecessaryEnd: true,
+            // },
+        },
+        snippets: {
+            enable: true,
+        },
+        logging: {
+            enable: true,
+        },
+        asciiArt: {
+            enable: true,
+        },
+        signatureHelp: {
+            enable: true,
+        },
+        index: {
+            enable: true,
+        }
+    }
+
+class Config {
+    
+    constructor(
+        public config: typeof startupConfig = deepmerge({}, startupConfig, {})
+    ) {}
+    //     this.config = config;
+    // }
+    
+    public clearConfig() {
+        for (const key of Object.keys(this.config)) {
+            if (this.config[key] && this.config[key]?.enable !== undefined) {
+                this.config[key]!.enable = false;
+            }
+        }
+    }
+
+    public mergePreferences(prefs: typeof startupConfig) {
+        this.config = deepmerge(this.config, prefs);
+    }
+    
+    public getConfig() {
+        return this.config;
+    }
+
+    set enable(option: string) {
+        if (this.config[option]) {
+            this.config[option]!.enable = true;
+        }
+    }
+
+    set disable(option: string) {
+        if (this.config[option]) {
+            this.config[option]!.enable = false;
+        }
+    }
+}
+
+const config = new Config();
+
+function buildBothToggleOptions(flag: string, description: string): toggleOption[] {
+    return [
+        createToggleOption(`--enable-${flag}`, `enables ${description}`, () => {
+            console.log(`${description} enabled`);
+            config.enable = flag;
+
+        }),
+        createToggleOption(`--disable-${flag}`, `disables ${description}`, () => {
+            console.log(`${description} enabled`);
+            config.disable = flag;
+        }),
+    ]
+}
+
+function createToggleOption(flag: string, description: string, action: () => void): toggleOption {
     return {
         flag,
         description,
         action
-    } as DisableOption;
+    } as toggleOption;
 }
 
-export type DisableOption = {
+export type toggleOption = {
     flag: string;
     description: string;
     action: (() => void);
 }
 
-export const disableOptions: DisableOption[]  = [
-    createDisableOption('--disable-ascii-art', 'disable ascii art', () => {
-        console.log('ascii art disabled');
-    }),
-    createDisableOption('--disable-logging', 'disable logging', () => {
-        console.log('logging disabled');
-    }),
-    createDisableOption('--disable-snippets', 'disable snippets support', () => {
-        console.log('snippets support disabled');
-    }),
-    createDisableOption('--disable-formatting', 'disable formatting support', () => {
-        console.log('formatting support disabled');
-    }),
-    createDisableOption('--disable-completion', 'disable completion support', () => {
-        console.log('completion support disabled');
-    }),
-    createDisableOption('--disable-hover', 'disable hover support', () => {
-        console.log('hover support disabled');
-    }),
-    createDisableOption('--disable-rename', 'disable rename support', () => {
-        console.log('rename support disabled');
-    }),
-    createDisableOption('--disable-definition', 'disable definition support', () => {
-        console.log('definition support disabled');
-    }),
-    createDisableOption('--disable-references', 'disable references support', () => {
-        console.log('references support disabled');
-    }),
-    createDisableOption('--disable-diagnostics', 'disable diagnostics support', () => {
-        console.log('diagnostics support disabled');
-    }),
-    createDisableOption('--disable-signatureHelp', 'disable signatureHelp support', () => {
-        console.log('signatureHelp support disabled');
-    }),
-    createDisableOption('--disable-codeAction', 'disable codeAction support', () => {
-        console.log('codeAction support disabled');
-    }),
-    createDisableOption('--no-index', 'disable indexing', () => {
-        console.log('indexing disabled');
-    })
+// export const disableOptions: DisableOption[]  = [
+//     createDisableOption('--disable-asciiArt', 'disable ascii art', () => {
+//         console.log('ascii art disabled');
+//     }),
+//     createDisableOption('--disable-logging', 'disable logging', () => {
+//         console.log('logging disabled');
+//     }),
+//     createDisableOption('--disable-snippets', 'disable snippets support', () => {
+//         console.log('snippets support disabled');
+//     }),
+//     createDisableOption('--disable-formatting', 'disable formatting support', () => {
+//         console.log('formatting support disabled');
+//     }),
+//     createDisableOption('--disable-completion', 'disable completion support', () => {
+//         console.log('completion support disabled');
+//     }),
+//     createDisableOption('--disable-hover', 'disable hover support', () => {
+//         console.log('hover support disabled');
+//     }),
+//     createDisableOption('--disable-rename', 'disable rename support', () => {
+//         console.log('rename support disabled');
+//     }),
+//     createDisableOption('--disable-definition', 'disable definition support', () => {
+//         console.log('definition support disabled');
+//     }),
+//     createDisableOption('--disable-references', 'disable references support', () => {
+//         console.log('references support disabled');
+//     }),
+//     createDisableOption('--disable-diagnostics', 'disable diagnostics support', () => {
+//         console.log('diagnostics support disabled');
+//     }),
+//     createDisableOption('--disable-signatureHelp', 'disable signatureHelp support', () => {
+//         console.log('signatureHelp support disabled');
+//     }),
+//     createDisableOption('--disable-codeAction', 'disable codeAction support', () => {
+//         console.log('codeAction support disabled');
+//     }),
+//     createDisableOption('--disable-index', 'disable indexing', () => {
+//         console.log('indexing disabled');
+//     })
+// ]
+export const toggleOptions: toggleOption[]  = [
+    ...buildBothToggleOptions('ascii-art', 'ascii art'),
+    ...buildBothToggleOptions('logging', 'logging'),
+    ...buildBothToggleOptions('snippets', 'snippets support'),
+    ...buildBothToggleOptions('formatting', 'formatting support'),
+    ...buildBothToggleOptions('completion', 'completion support'),
+    ...buildBothToggleOptions('hover', 'hover support'),
+    ...buildBothToggleOptions('rename', 'rename support'),
+    ...buildBothToggleOptions('definition', 'definition support'),
+    ...buildBothToggleOptions('references', 'references support'),
+    ...buildBothToggleOptions('diagnostics', 'diagnostics support'),
+    ...buildBothToggleOptions('signatureHelp', 'signatureHelp support'),
+    ...buildBothToggleOptions('codeAction', 'codeAction support'),
+    ...buildBothToggleOptions('index', 'indexing')
 ]
+
+export function optionsStringEqualsRaw(optionValue: string, rawValue: string) {
+
+    const removeToggleString = (toggle: string, str: string) => {
+        const removedToggle = str.replace(`--${toggle}-`, '');
+        return removedToggle.at(0)?.toUpperCase() + removedToggle.slice(1);
+    }
+
+    const disableFixed = removeToggleString('disable', rawValue);
+    const enabledFixed = removeToggleString('enable', rawValue);
+    return (
+        disableFixed === optionValue ||
+        enabledFixed === optionValue ||
+        rawValue === optionValue 
+    );
+}
+
+
+export const toggleOptionsMap = (): Map<string, toggleOption> => {
+    const result = new Map<string, toggleOption>()
+    toggleOptions.forEach((opt: toggleOption) => {
+        result.set(opt.flag, opt);
+    })
+    return result;
+}
+
+
+
+
 // p.parse(process.argv);
 
 // program

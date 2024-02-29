@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 //'use strict'
 import { createConnection, InitializeParams, InitializeResult, StreamMessageReader, StreamMessageWriter } from "vscode-languageserver/node";
-import { Command } from 'commander';
+import { Argument, Command, Option } from 'commander';
 import FishServer from './server';
-import { asciiLogoString, BuildCapabilityString, RepoUrl, PathObj, PackageLspVersion, GetEnvVariablesUsed, PackageVersion, disableOptions } from './utils/commander-cli-subcommands';
+import * as luaJson from 'lua-json';
+import { asciiLogoString, BuildCapabilityString, RepoUrl, PathObj, PackageLspVersion, GetEnvVariablesUsed, PackageVersion, toggleOptions, toggleOptionsMap } from './utils/commander-cli-subcommands';
 
 
 export function startServer() {
@@ -37,12 +38,15 @@ const createFishLspBin = (): Command => {
 };
 
 const commandBin = createFishLspBin()
+  .storeOptionsAsProperties()
+  .configureHelp({helpWidth: 100})
   .addHelpText('beforeAll', asciiLogoString('large') + '\n')
   .addHelpText('afterAll', [
       '________________________________________',
       'authored by: https://github.com/ndonfris',
       '     ' + asciiLogoString('single')
   ].join('\n'))
+  .enablePositionalOptions(true)
   .option('-v, --version', 'output the version number', PackageVersion)
   .action(() => {
     console.log(PackageVersion);
@@ -62,10 +66,69 @@ commandBin.command('start')
 
 commandBin.command('mini')
   .summary('subcmd to start the lsp using stdin/stdout with minimal indexing')
-  .description('start the language server for a connection to a client with minimal indexing')
+  .description([
+        'Start the language server for a connection to a client with minimal indexing.',
+        'This is useful for large projects, where indexing can take a long time.',
+        'Also useful for running `edit_command_buffer` (editing prompt in tmp file).',
+    ].join(' '))
   .action(() => {
     // const startupConfig = 
     startServer();
+  });
+
+
+
+commandBin.command('min [TOGGLE...]')
+  .summary('run barebones startup config')
+  .description([
+      'Initialize the fish-lsp with a completely minimal startup configuration.',
+      'This is useful for running the language server with minimal indexing, debugging specific features',
+      'and various other edge cases where the full feature set is not needed.'
+   ].join('\n'))
+  .option('--show', 'stop lsp & show the startup options being read')
+  .option('--enable <string...>', 'enable the startup option')
+  .option('--disable <string...>', 'disable the startup option')
+  .addHelpText('afterAll', [
+    '',
+    `STRINGS FOR '--enable/--disable':`,
+    `(${toggleOptions.map((opt, index) => {
+      return index < toggleOptions.length - 1 && index > 0 && index % 5 == 0 ? `${opt.flag},\n` :
+        index < toggleOptions.length - 1 ? `${opt.flag},` :
+          opt.flag;
+    }).join(' ')})`,
+    '',
+    'Examples:' ,
+    '\tfish-lsp min --enable hover  # only enable the hover feature',
+    `\tfish-lsp min --enable all    # works like the 'start' subcommand`,
+    `\tfish-lsp min --enable all --disable logging completion codeAction`,
+  ].join('\n'))
+  .action(() => {
+    /**
+      * Accumulate the arguments into two arrays, '--enable' and '--disable'
+      * More than one enable/disable flag can be used, but the output will be
+      * the stored across two resulting arrays (if both flags have )
+      */
+    const [enabled, disabled]: [string[], string[]] = [[],[]] 
+    let current: string[];
+    commandBin.args.forEach(arg => {
+      if (['--enable', '--disable'].includes(arg)) {
+        if (arg === '--enable') current = enabled;
+        if (arg === '--disable') current = disabled;
+        return
+      } 
+      if (['-h', '--help', 'help'].includes(arg)) {
+        commandBin.commands.find(command => command.name() === 'min')!.outputHelp();
+        process.exit(0);
+      }
+      if (['-s', '--show'].includes(arg)) {
+        console.log("SEEN SHOW COMMAND! dumping...");
+        console.log({enabled, disabled});
+        process.exit(0);
+      }
+      if (current) current?.push(arg);
+    })
+    console.log({enabled, disabled});
+    process.exit(0);
   });
 
 commandBin.command('capabilities')
@@ -90,35 +153,40 @@ commandBin.command('show-path')
   });
 
 // @TODO
+// .option('--vscode', 'show vscode-settings.json output')
 commandBin.command('startup-configuration')
-  .usage('[option]')
-  .option('--coc-json', 'show coc-settings.json output')
-  .option('--vscode', 'show vscode-settings.json output')
-  .option('--neovim', 'show neovim *.lua output')
+  .usage('[language-option]')
   .summary('show the json/lua configurations for the language server')
   .description('show the lua/json configurations for the language server')
+  .option('--json', 'show coc-settings.json output')
+  .option('--lua', 'show neovim *.lua output')
   .action(args => {
-    if (args.cocJson) {
+    if (args.json) {
       console.log('coc-settings.json');
-    } else if (args.vscode) {
-      console.log('vscode-settings.json');
-    } else if (args.neovim) {
+      console.log(JSON.stringify({'hello': "world"}, null, 2));
+    // } else if (args.vscode) {
+    //   console.log('vscode-settings.json');
+    //   console.log(JSON.stringify({"todo" : [1, 2, 3], 'hello': "world"}, null, 2));
+    } else if (args.lua) {
+      const jsonConf = JSON.parse(JSON.stringify({"todo" : [1, 2, 3], 'hello': "world"}))
       console.log('neovim *.lua');
+      console.log(luaJson.format(jsonConf));
     } else {
       console.log('no option selected, coc-settings.json is default');
     }
     process.exit(0);
-  });
+  })
 
 // @TODO
 commandBin.command('time')
-  .usage('--root-dir <dir>')
-  .requiredOption('--root-dir <dir>', 'root directory of the fish project')
+  .usage('--path [dir]')
   .summary('time the fish-lsp server startup time to index the project files')
+  .requiredOption('--path [dir]', 'root directory of the fish project')
   .action(args => {
     const startTimer = Date.now();
     if (args.rootDir) {
     }
+    const endTimer = Date.now();
     console.log(Date.now());
   });
 
@@ -158,23 +226,16 @@ commandBin.command('show-env')
     process.exit(0);
   });
 
-// @TODO
-commandBin.command('complete')
-  .summary('generate completions file for ~/.config/fish/completions')
-  .description('copy completions output to fish-lsp completions file')
-  .action(() => {
-    commandBin.commands.forEach((cmd: Command) => {
-      console.log(`${cmd.name()}\t${cmd.summary()}`);
-    });
-    process.exit(0);
-
-  });
-
 // add flags to disable options for subcommands
 const connectableSubcommands: string[] = [ 'start', 'mini' ];
+// const toggleOptions: string[] = [ '--disable', '--enable' ];
+const completionString: string[] = []
 commandBin.commands.forEach(subcmd => {
   if (connectableSubcommands.includes(subcmd.name())) {
-    disableOptions.forEach(opt => {
+    // connectableSubcommands.forEach(subcmd => {
+    // subcmd.option('--disable [configKey...]', 'disable the subcommand', )
+    // subcmd.option('--enable', 'enable the subcommand');
+    toggleOptions.forEach((opt) => {
       subcmd.option(opt.flag)
         .description(opt.description)
         .action(opt.action);
@@ -182,4 +243,34 @@ commandBin.commands.forEach(subcmd => {
   }
 });
 
+// @TODO
+commandBin.command('complete')
+  .summary('generate completions file for ~/.config/fish/completions')
+  .description('copy completions output to fish-lsp completions file')
+  .action(() => {
+    commandBin.commands.forEach((cmd: Command) => {
+      console.log(`${cmd.name()}\t${cmd.summary()}`);
+      if (Object.keys(cmd.opts()).length > 0) {
+        Object.keys(cmd.opts()).forEach(opt => {
+          console.log('\t'+opt)
+        })
+      }
+
+      // for (const [k, v] of toggleOptionsMap().entries()) {
+      //   console.log(`\t${k}\t${JSON.stringify(v)}`);
+      // }
+      // console.log(Object.keys(cmd.optsWithGlobals()))
+      // cmd?.options!.forEach((opt: any) => {
+      //   console.log(opts);
+      // })
+      // Object.entries( cmd.opts() ).map((k: string, opt: Option) => {
+      //   console.log(`${opt.flags}\t${opt.description}`);
+      // })
+    })
+    process.exit(0);
+  });
+
+
+
 commandBin.parse();
+console.log(commandBin.opts());
