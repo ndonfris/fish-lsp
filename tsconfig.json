@@ -6,7 +6,7 @@
     "esModuleInterop": true,
     "noUncheckedIndexedAccess": true,
     "resolveJsonModule": true,
-    "resolvePackageJsonImports": true,
+    // "resolvePackageJsonImports": true,
     "baseUrl": ".",
     "paths": {
       "@package": ["./package.json"],
@@ -19,8 +19,8 @@
     "src",
     "src/**/*.ts",
     "../*.json",
-    // "../test-data/",
-    // "../snippets/**.{json,ts}"
+    "../test-data/",
+    "../snippets/**.{json,ts}"
   ],
   "exclude": [
     "node_modules",

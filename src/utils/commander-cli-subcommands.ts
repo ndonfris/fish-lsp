@@ -77,6 +77,61 @@ const p = program
     })
     // .storeOptionsAsProperties();
 
+function createDisableOption(flag: string, description: string, action: () => void): DisableOption {
+    return {
+        flag,
+        description,
+        action
+    } as DisableOption;
+}
+
+export type DisableOption = {
+    flag: string;
+    description: string;
+    action: (() => void);
+}
+
+export const disableOptions: DisableOption[]  = [
+    createDisableOption('--disable-ascii-art', 'disable ascii art', () => {
+        console.log('ascii art disabled');
+    }),
+    createDisableOption('--disable-logging', 'disable logging', () => {
+        console.log('logging disabled');
+    }),
+    createDisableOption('--disable-snippets', 'disable snippets support', () => {
+        console.log('snippets support disabled');
+    }),
+    createDisableOption('--disable-formatting', 'disable formatting support', () => {
+        console.log('formatting support disabled');
+    }),
+    createDisableOption('--disable-completion', 'disable completion support', () => {
+        console.log('completion support disabled');
+    }),
+    createDisableOption('--disable-hover', 'disable hover support', () => {
+        console.log('hover support disabled');
+    }),
+    createDisableOption('--disable-rename', 'disable rename support', () => {
+        console.log('rename support disabled');
+    }),
+    createDisableOption('--disable-definition', 'disable definition support', () => {
+        console.log('definition support disabled');
+    }),
+    createDisableOption('--disable-references', 'disable references support', () => {
+        console.log('references support disabled');
+    }),
+    createDisableOption('--disable-diagnostics', 'disable diagnostics support', () => {
+        console.log('diagnostics support disabled');
+    }),
+    createDisableOption('--disable-signatureHelp', 'disable signatureHelp support', () => {
+        console.log('signatureHelp support disabled');
+    }),
+    createDisableOption('--disable-codeAction', 'disable codeAction support', () => {
+        console.log('codeAction support disabled');
+    }),
+    createDisableOption('--no-index', 'disable indexing', () => {
+        console.log('indexing disabled');
+    })
+]
 // p.parse(process.argv);
 
 // program
