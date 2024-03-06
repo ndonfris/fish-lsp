@@ -3,7 +3,7 @@
 A __feature-rich__, __extensible__, and __blazingly fast__ [language-server](https://github.com/microsoft/vscode-languageserver-node/tree/main/server/src/common) for the [fish-shell](https://fishshell.com/). 
 Uses [tree-sitter](https://tree-sitter.github.io/tree-sitter/), [tree-sitter-fish](https://github.com/ram02z/tree-sitter-fish), [yarn](https://yarnpkg.com/) and [typescript](https://www.typescriptlang.org/). 
 Implements both standard & non-standard features from the [language-server-protocol](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#headerPart), 
-to be connected to a language-client ([neovim](https://neovim.io/),[coc.nvim](https://github.com/neoclide/coc.nvim), [vscode](https://code.visualstudio.com/), and *etc.*). __More
+to be connected to a language-client ([neovim](https://neovim.io/),[coc.nvim](https://github.com/neoclide/coc.nvim), [vscode](https://code.visualstudio.com/), [etc.](https://github.com/ndonfris/fish-lsp-language-clients)). __More
 info on the [wiki](https://github.com/ndonfris/fish-lsp/wiki).__
 
 ![helpmsg](https://i.imgur.com/Xypl9PN.png)
@@ -19,19 +19,19 @@ info on the [wiki](https://github.com/ndonfris/fish-lsp/wiki).__
     yarn; # yarn install; yarn tsc -b;
     ./setup.sh
     ```
-4. alias `fish-language-server` to the `fish-lsp` binary
-    ```fish
-    alias fish-lsp="$PWD/bin/fish-language-server"
-    ```
-5. build and generate completions:
+<!-- 4. alias `fish-language-server` to the `fish-lsp` binary -->
+<!--     ```fish -->
+<!--     alias fish-lsp="$PWD/bin/fish-language-server" -->
+<!-- ``` -->
+4. build and generate completions:
     ```fish
     fish-lsp complete --fish > ~/.config/fish/completions/fish-lsp.fish
     ```
-6. use the `fish-lsp` command to start the language server
+5. use the `fish-lsp` command to start the language server
     ```json
     {
       "languageserver": {
-        "fish": {
+        "fish-lsp": {
           "command": "fish-lsp",
           "args": ["start"],
           "filetypes": ["fish"]
@@ -43,6 +43,7 @@ info on the [wiki](https://github.com/ndonfris/fish-lsp/wiki).__
     > lua and other language-client configuration syntax's 
     > can be built by fish-lsp startup-configuration <filetype>.
     > Gif shows different hover documentation, goto definition, goto references and some other features.
+
     ![usage gif](https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaWkwcDY5aTg1OGltbDV6cGh4cGU4a204cGd1aHd6MmNpMWRrZ2d1biZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/PdSL9U8GXwV8xECE8k/giphy.gif)
 
 ## Features
@@ -70,14 +71,17 @@ info on the [wiki](https://github.com/ndonfris/fish-lsp/wiki).__
 
 ## Viewing the [Wiki](https://github.com/ndonfris/fish-lsp/wiki)
 Contains more information on the project, including the future roadmap, and
-contribution guidelines. Project is still in it's ealry releases, so the wiki
-information is subject to change. Contains client submodule repos, useful 
-snippets, and bleeding edge feature documentation.
+contribution guidelines. Project is still in it's early releases, so the wiki
+information is subject to change. Contains ['minimal' client submodules](https://github.com/ndonfris/fish-lsp-language-clients),
+useful snippets, and bleeding edge feature documentation.
 
 ## Sources
+This project aims to be a more feature rich alternative to some of it's predecessors,
+while maintaining an editor agnostic server implantation. The following sources were
+major influences on the project's overall design and structure.
 
 - [__LSIF__](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#headerPart)
-- [__vscode-extension-sampes__](https://github.com/microsoft/vscode-extension-samples/tree/main)
+- [__vscode-extension-samples__](https://github.com/microsoft/vscode-extension-samples/tree/main)
 
 - __Similiar projects__
   - [coc.fish]( https://github.com/oncomouse/coc-fish )
