@@ -347,24 +347,24 @@ export function getNodeAtRange(root: SyntaxNode, range: Range): SyntaxNode | nul
 
 
 
-export function getDependencyUrl(node: SyntaxNode, baseUri: string): URL {
-  let filename = node.children[1]?.text.replaceAll('"', '')!
-
-
-  if (!!filename && !filename.endsWith('.fish')) {
-    filename += '.fish'
-  }
-
-  const paths = process.env.PATH?.split(':') || []
-
-  for (const p of paths) {
-    const url = pathToFileURL(join(p, filename))
-
-    if (existsSync(url)) return url
-  }
-
-  return new URL(filename, baseUri)
-}
+// export function getDependencyUrl(node: SyntaxNode, baseUri: string): URL {
+//   let filename = node.children[1]?.text.replaceAll('"', '')!
+//
+//
+//   if (!!filename && !filename.endsWith('.fish')) {
+//     filename += '.fish'
+//   }
+//
+//   const paths = process.env.PATH?.split(':') || []
+//
+//   for (const p of paths) {
+//     const url = pathToFileURL(join(p, filename))
+//
+//     // if (existsSync(url)) return new URL(url).toString()
+//   }
+//
+//   return new URL(filename, baseUri)
+// }
 
 export function positionToPoint(pos: Position): Point {
   return {

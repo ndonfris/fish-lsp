@@ -1,338 +1,387 @@
-import path from 'path';
+import { resolve  } from 'path';
 import PackageJSON from '../../package.json';
 // import PackageJSON from '@package';
-import command, { Command, createCommand, createOption, Option } from 'commander';
 import deepmerge from 'deepmerge';
+import { commandBin } from '../cli';
+import { homedir } from 'os';
 // const logo = BuildAsciiLogo()
 
-export const program: command.Command = createCommand('fish-language-server')
-    .version(PackageJSON.version, '-v, --version', 'output the current version')
-    .description(PackageJSON.description)
-    .argument('<subcommand>')
+// Base interface for simple enable/disable features
+interface ConfigToggleOptionValue {
+    enable: boolean;
+}
 
-    // .option('-o, --startup-options <json>', 'show startup options', (json: string) => {
-    //     console.log('startup options');
-    //     console.log(JSON.stringify(json), null, 2);
-    // })
-    // .option('-t, --time <workspace>', 'time workspace index startup', () => {
-    //     console.log('time taken to index workspace');
-    // })
-    // .option('--lsp-version', 'show language server protocol version', () => {
-    //     console.log('LSP version: ', PackageJSON.dependencies['vscode-languageserver-protocol']!.toString());
-    // 
-    // })
-    // .option('--disable-ascii-art', 'disable ascii art', () => {
-    //     console.log('ascii art disabled');
-    // })
-    // .argument('<subcmd>', 'subcommand to run');
+// Extend the base interface for features with additional configuration
+interface CompletionConfigOption extends ConfigToggleOptionValue {
+    triggerCharacters: string[];
+    expandAbbreviations: boolean;
+}
 
+interface FormattingConfigOption extends ConfigToggleOptionValue {
+    indent: number;
+    tabSize: number;
+    addSemis: boolean;
+}
 
-export function shortHelp(program: Command) {
-  return [
-    `${program.name()} <subcommand> [options]`,
-    '',
-    program.description(),
-    '',
-    `run '${program.name()} --help' for more information on a command.`
-  ].join('\n');
+interface DiagnosticsConfigOption extends ConfigToggleOptionValue {
+    maxNumberOfProblems: number;
+}
+
+interface WorkspacesConfigOption extends ConfigToggleOptionValue {
+    symbols: {
+        enable: boolean;
+        max: number;
+        prefer: string;
+    };
+    paths: {
+        defaults: string[];
+        allowRename: string[];
+    };
+}
+
+interface StartupConfig {
+    completion: CompletionConfigOption;
+    hover: ConfigToggleOptionValue;
+    rename: ConfigToggleOptionValue;
+    formatting: FormattingConfigOption;
+    diagnostics: DiagnosticsConfigOption;
+    references: ConfigToggleOptionValue;
+    definition: ConfigToggleOptionValue;
+    workspaces: WorkspacesConfigOption;
+    codeActions: ConfigToggleOptionValue;
+    snippets: ConfigToggleOptionValue;
+    logging: ConfigToggleOptionValue;
+    asciiArt: ConfigToggleOptionValue;
+    signatureHelp: ConfigToggleOptionValue;
+    index: ConfigToggleOptionValue;
+    // Add an index signature for unknown properties
+    [key: string]: ConfigToggleOptionValue | any;
 }
 
 
-// const cmdOptions: Option[] = [ 
-//     new Option('-o, --startup-options <json>', 'show startup options'), 
-//     new Option('-t, --time <workspace>', 'time workspace index startup'),
-//     new Option('--lsp-version', 'show language server protocol version'),
-//     new Option('--disable-ascii-art', 'disable ascii art'),
-//     new Option('--disable-logging', 'disable logging'),
-//     new Option('--disable-snippets', 'disable snippets support'),
-//     new Option('--disable-formatting', 'disable formatting support'),
-//     new Option('--disable-completion', 'disable completion support'),
-//     new Option('--disable-hover', 'disable hover support'),
-//     new Option('--disable-rename', 'disable rename support'),
-//     new Option('--disable-definition', 'disable definition support'),
-//     new Option('--disable-references', 'disable references support'),
-//     new Option('--disable-diagnostics', 'disable diagnostics support'),
-//     new Option('--disable-signatureHelp', 'disable signatureHelp support'),
-//     new Option('--disable-codeAction', 'disable codeAction support'),
-//     new Option('--no-index', 'disable indexing'),
-//     new Option('--build-cache', 'build cache'),
-//     new Option('--use-cache', 'use cache'),
-// ]
-// cmdOptions.forEach(opt => {
-//     program.addOption(opt);
-// })
+// You can add more specific interfaces for other configurations as needed
 
-const p = program
-    .option('-o, --startup-options <JSON>', 'provide JSON startup configuration', (json: string) => {
-        console.log('startup options');
-        console.log(JSON.stringify(json), null, 2);
-    })
-    .option('-t, --time <workspace>', 'time workspace index startup', () => {
-        console.log('time taken to index workspace');
-    })
-    .option('-l, --lsp-version', 'show language server protocol version', () => {
-        console.log(asciiLogoString('single')+'\n');
-        console.log('LSP version: ', PackageJSON.dependencies['vscode-languageserver-protocol']!.toString());
-        process.exit(0);
-    })
-    // .storeOptionsAsProperties();
-
-function createDisableOption(flag: string, description: string, action: () => void): DisableOption {
-    return {
-        flag,
-        description,
-        action
-    } as DisableOption;
-}
-
-export type DisableOption = {
-    flag: string;
-    description: string;
-    action: (() => void);
-}
-
-export const disableOptions: DisableOption[]  = [
-    createDisableOption('--disable-ascii-art', 'disable ascii art', () => {
-        console.log('ascii art disabled');
-    }),
-    createDisableOption('--disable-logging', 'disable logging', () => {
-        console.log('logging disabled');
-    }),
-    createDisableOption('--disable-snippets', 'disable snippets support', () => {
-        console.log('snippets support disabled');
-    }),
-    createDisableOption('--disable-formatting', 'disable formatting support', () => {
-        console.log('formatting support disabled');
-    }),
-    createDisableOption('--disable-completion', 'disable completion support', () => {
-        console.log('completion support disabled');
-    }),
-    createDisableOption('--disable-hover', 'disable hover support', () => {
-        console.log('hover support disabled');
-    }),
-    createDisableOption('--disable-rename', 'disable rename support', () => {
-        console.log('rename support disabled');
-    }),
-    createDisableOption('--disable-definition', 'disable definition support', () => {
-        console.log('definition support disabled');
-    }),
-    createDisableOption('--disable-references', 'disable references support', () => {
-        console.log('references support disabled');
-    }),
-    createDisableOption('--disable-diagnostics', 'disable diagnostics support', () => {
-        console.log('diagnostics support disabled');
-    }),
-    createDisableOption('--disable-signatureHelp', 'disable signatureHelp support', () => {
-        console.log('signatureHelp support disabled');
-    }),
-    createDisableOption('--disable-codeAction', 'disable codeAction support', () => {
-        console.log('codeAction support disabled');
-    }),
-    createDisableOption('--no-index', 'disable indexing', () => {
-        console.log('indexing disabled');
-    })
-]
-// p.parse(process.argv);
-
-// program
-//     .argument('<subcmd>', 'subcommand to run')
-//     .argument('option', 'option to run');
-
-// program.option('-o, --startup-options <json>', 'show startup options', (json: string) => {
-//     console.log(JSON.stringify(json), null, 2);
-// })
-// program.option('-t, --time <workspace>', 'time workspace index startup', (workspace) => {
-//     console.log(`time taken to index ${workspace}`)
-// })
-// program.option('--lsp-version', 'show language server protocol version', () => {
-//     console.log('LSP version: ', PackageJSON.dependencies['vscode-languageserver-protocol']!.toString());
-// })
-// program.option('--disable-ascii-art', 'disable ascii art', () => {
-//     console.log('ascii art disabled');
-// })
-// program.option('--disable-logging', 'disable logging', () => {
-//     console.log('logging disabled');
-// })
-// program.option('--disable-snippets', 'disable snippets support', () => {
-//     console.log('snippets support disabled');
-// })
-// program.option('--disable-formatting', 'disable formatting support', () => {
-//     console.log('formatting support disabled');
-// })
-// program.option('--disable-completion', 'disable completion support', () => {
-//     console.log('completion support disabled');
-// })
-// program.option('--disable-hover', 'disable hover support', () => {
-//     console.log('hover support disabled');
-// })
-// program.option('--disable-rename', 'disable rename support', () => {
-//     console.log('rename support disabled');
-// })
-// program.option('--disable-definition', 'disable definition support', () => {
-//     console.log('definition support disabled');
-// })
-// program.option('--disable-references', 'disable references support', () => {
-//     console.log('references support disabled');
-// })
-// program.option('--disable-diagnostics', 'disable diagnostics support', () => {
-//     console.log('diagnostics support disabled');
-// })
-// program.option('--disable-signatureHelp', 'disable signatureHelp support', () => {
-//     console.log('signatureHelp support disabled');
-// })
-// program.option('--disable-codeAction', 'disable codeAction support', () => {
-//     console.log('codeAction support disabled');
-// })
-// program.option('--no-index', 'disable indexing', () => {
-//     console.log('indexing disabled');
-// })
-// program.option('--build-cache', 'build cache', () => {
-//     console.log('building cache');
-// })
-// program.option('--use-cache', 'use cache', () => {
-//     console.log('using cache');
-// })
-//
-// program.showHelpAfterError(shortHelp(program));
-
-// .option('-h, --help', 'display help for command')
-// program.usage('<subcommand> [options]')
-// console.log(JSON.stringify(program.opts()))
-
-
-    
-
-
-type CommandKey = string;
-type CommandValue = {
-  summary: string;
-  action: (...args: any[]) => void;
-  help?: string;
-  aliases?: string[];
-  opts?: Option[];
-  isDefault?: boolean;
-  completion?: string;
-}
-export type CommandMapType = Map<CommandKey, CommandValue>;
-
-export const commandMap: CommandMapType = new Map([
-  // ['start', {
-  //   summary: 'Start the project',
-  //   action: (opt: string = '--stdio') => {
-  //   }
-  // }],
-  ['complete', {
-    summary: 'build completions',
-    action: () => {
-      console.log(`completion\'s for ${program.name().toString()}`)
-      commandMap.forEach((value, key) => {
-        // console.log(key+'\t'+value.description)
-        console.log(`complete -c fish-language-server -a ${key} '${value.summary}'`);
-            });
-        // console.log(JSON.stringify(program.storeOptionsAsProperties(), null, 2));
-            // program.optsWithGlobals().forEach((opt: Option) => {
-            // program.
-            // .forEach((opt: Option) => {
-            //     console.log(opt);
-            //   })
-            // .forEach((opt: Option) => {
-            //   let {short = '- ', long = '--', description} = opt
-            //   short = short?.slice(1) || '';
-            //   long = long?.slice(2) || '';
-            //   if (!!short && !!long) {
-            //       console.log(`complete -c fish-language-server -s ${short} -l ${long} '${description}'`);
-            //   } else if (short && !long) {
-            //       console.log(`complete -c fish-language-server -s ${short} '${description}'`);
-            //   } else if (!short && long) {
-            //       console.log(`complete -c fish-language-server -l ${long} '${description}'`);
-            //   }
-            // })
-        }
-    }],
-    ['capabilities', {
-        summary: 'list capabilities',
-        action: () => {
-            const headerString: string = `Capabilities for ${PackageJSON.name} version ${PackageJSON.version}`;
-            console.log(asciiLogoString('large'));
-            console.log('-'.repeat(headerString.length));
-            console.log(headerString);
-            console.log('-'.repeat(headerString.length));
-            // console.log(BuilCapabilityString());
-        }
-    }],
-    ['show-startup-options', {
-        summary: 'show startup options',
-        action: () => {
-            const options = JSON.stringify({
-                "filetypes": ["fish"],
-                "startupOptions": ["start"],
-                "completion": {
-                    "enable": "true",
-                    "triggerCharacters": ["."],
-                    "expandAbbreviations": "true",
+const buildBareConfigValue = (key: string) => {
+    switch (key) {
+        case 'completion':
+            return {
+                enable: false,
+                triggerCharacters: [],
+                expandAbbreviations: false,
+            }
+        case 'hover':
+        case 'rename':
+        case 'definition':
+        case 'references':
+        case 'snippets':
+        case 'logging':
+        case 'asciiArt':
+        case 'index':
+        case 'signatureHelp':
+            return {
+                enable: false,
+            }
+        case 'formatting':
+            return {
+                enable: false,
+                indent: 4,
+                tabSize: 4,
+                addSemis: false,
+            }
+        case 'diagnostics':
+            return {
+                enable: false,
+                maxNumberOfProblems: 10,
+            }
+        case 'workspaces':
+            return {
+                enable: false,
+                symbols: {
+                    enable: false,
+                    max: 5000,
+                    prefer: 'functions',
                 },
-                "formatting": {
-                    "enable": "true",
-                    "indent": "2",
-                    "tabSize": "2",
-                    "addSemis": "true",
+                paths: {
+                    defaults: [],
+                    allowRename: [],
                 }
-            })
-            console.log(options);
-        }
-    }],
-    ['report', {
-        summary: 'report an issue',
-        action: () => {
-            console.log(asciiLogoString('normal'), '\n');
-            console.log(PackageJSON.repository?.url.slice(0, -4)+'/issues');
-        }
-    }],
-    ['contribute', {
-        summary: 'contribute to the project',
-        action: () => {
-            console.log(asciiLogoString('normal'), '\n');
-            console.log(PackageJSON.repository?.url.slice(0, -4));
-        }
-    }],
-    ['show-path', {
-        summary: 'path to the language server repo',
-        action: () => {
-            console.log(asciiLogoString('normal'), '\n');
-            console.log(path.resolve('..', __dirname.toString(),  '..','cli.js'));
-        }
-    }]
-]);
-
-function AddCommandsToProgram() {
-    commandMap.forEach((value, key) => {
-        // console.log(`key: ${key}`);
-        // console.log('value', value);
-        // console.log('value', JSON.stringify(value, null, 2));
-        const { opts, isDefault, action } = value;
-    // const extraCmdArgs = !!isDefault ? { isDefault: true } : {};
-    const cmd = createCommand(key)
-      .description(value.summary)
-      .action(action)
-      
-    opts?.forEach(opt => {
-      cmd.addOption(opt)
-    })
-    
-    program.addCommand(cmd)
-  });
+            }
+        default:
+            return {enable: false}
+    }
 }
 
-AddCommandsToProgram();
-program.enablePositionalOptions(true)
+export const startupConfigEnabled: StartupConfig = {
+    completion: {
+        enable: true,
+        triggerCharacters: ['.'],
+        expandAbbreviations: true,
+    },
+    hover: {
+        enable: true,
+    },
+    rename: {
+        enable: true,
+    },
+    formatting: {
+        enable: true,
+        indent: 2,
+        tabSize: 2,
+        addSemis: true,
+    },
+    diagnostics: {
+        enable: true,
+        maxNumberOfProblems: 10,
+    },
+    references: {
+        enable: true,
+    },
+    definition: {
+        enable: true,
+    },
+    workspaces: {
+        enable: true,
+        symbols: {
+            enable: true,
+            max: 5000,
+            prefer: 'functions',
+        },
+        paths: {
+            defaults: [
+                `${homedir()}/.config/fish`,
+                '/usr/share/fish',
+            ],
+            allowRename: [
+                `${homedir()}/.config/fish`,
+            ]
+        },
 
+    },
+    codeActions: {
+        enable: true,
+        // create: {
+        //     completionsFile: false,
+        //     fromArgParse: false,
+        // },
+        // extract: {
+        //     toPrivateFunction: false,
+        //     toLocalVariable: false,
+        // },
+        // quickfix: {
+        //     addMissingEnd: true,
+        //     removeUnnecessaryEnd: true,
+        // },
+    },
+    snippets: {
+        enable: true,
+    },
+    logging: {
+        enable: true,
+    },
+    asciiArt: {
+        enable: true,
+    },
+    signatureHelp: {
+        enable: true,
+    },
+    index: {
+        enable: true,
+    }
+}
+
+
+export const startupConfigDisabled: StartupConfig = {
+    completion: {
+        enable: false,
+        triggerCharacters: [],
+        expandAbbreviations: false,
+    },
+    hover: {
+        enable: false,
+    },
+    rename: {
+        enable: false,
+    },
+    formatting: {
+        enable: true,
+        indent: 4,
+        tabSize: 4,
+        addSemis: false,
+    },
+    diagnostics: {
+        enable: false,
+        maxNumberOfProblems: 10,
+    },
+    references: {
+        enable: false,
+    },
+    definition: {
+        enable: false,
+    },
+    workspaces: {
+        enable: false,
+        symbols: {
+            enable: false,
+            max: 5000,
+            prefer: 'functions',
+        },
+        paths: {
+            defaults: [
+                `${homedir()}/.config/fish`,
+                '/usr/share/fish',
+            ],
+            allowRename: [
+                `${homedir()}/.config/fish`,
+            ]
+        },
+
+    },
+    codeActions: {
+        enable: false,
+        // create: {
+        //     completionsFile: false,
+        //     fromArgParse: false,
+        // },
+        // extract: {
+        //     toPrivateFunction: false,
+        //     toLocalVariable: false,
+        // },
+        // quickfix: {
+        //     addMissingEnd: true,
+        //     removeUnnecessaryEnd: true,
+        // },
+    },
+    snippets: {
+        enable: false,
+    },
+    logging: {
+        enable: false,
+    },
+    asciiArt: {
+        enable: false,
+    },
+    signatureHelp: {
+        enable: false,
+    },
+    index: {
+        enable: false,
+    }
+}
+
+
+export function updateConfiguration<T>(path: string[], newValue: T, config: any): boolean {
+    let current = config;
+
+    // Navigate through the path except the last key
+    for (let i = 0; i < path.length - 1; i++) {
+        const key = path[i];
+
+        if (!key || current[key] === undefined) {
+            // Handle undefined keys if necessary, e.g., by initializing them
+            console.warn(`Key ${key} does not exist.`);
+            return false; // Or handle as needed
+        }
+        current = current[key];
+    }
+
+    const lastKey = path[path.length - 1]!; // Correct way to access the last element
+    // Now, use `lastKey` to access or update the final location in `current`
+    if (Array.isArray(current[lastKey])) {
+        if (!current[lastKey].includes(newValue)) {
+            current[lastKey].push(newValue);
+        } else {
+            console.log(`Value ${newValue} already exists in ${lastKey}, not adding.`);
+            return false;
+        }
+    } else {
+        // Handle non-array `current[lastKey]`, such as setting a new value directly
+        current[lastKey] = newValue;
+    }
+    return true;
+}
+
+
+// export function optionsStringEqualsRaw(optionValue: string, rawValue: string) {
+//
+//     const removeToggleString = (toggle: string, str: string) => {
+//         const removedToggle = str.replace(`--${toggle}-`, '');
+//         return removedToggle.at(0)?.toUpperCase() + removedToggle.slice(1);
+//     }
+//
+//     const disableFixed = removeToggleString('disable', rawValue);
+//     const enabledFixed = removeToggleString('enable', rawValue);
+//     return (
+//         disableFixed === optionValue ||
+//         enabledFixed === optionValue ||
+//         rawValue === optionValue 
+//     );
+// }
+
+/**
+ * Accumulate the arguments into two arrays, '--enable' and '--disable'
+ * More than one enable/disable flag can be used, but the output will be
+ * the stored across two resulting arrays (if both flags have values as input).
+ * Handles some of the default commands, such as '--help', and '-s, --show'
+ * from the command line args.
+ */
+export function accumulateStartupOptions(args: string[]): {enabled: string[], disabled: string[], showCmd: boolean} {
+    const [subcmd, ...options] = args;
+    // console.log('args:', args);
+    // console.log('options:', options);
+    const [enabled, disabled]: [string[], string[]] = [[],[]] 
+    let showCmd: boolean = false;
+    let current: string[];
+    options?.forEach(arg => {
+        if (['--enable', '--disable'].includes(arg)) {
+            if (arg === '--enable') current = enabled;
+            if (arg === '--disable') current = disabled;
+            return;
+        } 
+        if (['-h', '--help', 'help'].includes(arg)) {
+            commandBin.commands.find(command => command.name() === subcmd)!.outputHelp();
+            process.exit(0);
+        }
+        if (['-s', '--show'].includes(arg)) {
+            console.log("SEEN SHOW COMMAND! dumping...");
+            console.log('showCmd will dump user startupConfig after processing...');
+            console.log('\n\n');
+            showCmd = true;
+            return;
+        }
+        if (current) current?.push(arg);
+    })
+    return {enabled, disabled, showCmd};
+}
+
+// export function processStartupArgsInOrder(args: string[], enabled: string[], disabled: string[], showCmd: boolean) {
+//     if (!!enabled && !!disabled) {
+//       let enableIdx = args.findIndex(a => a === '--enable') !== -1 ? args.findIndex(   a => a === '--enable') : args.length;
+//       let disableIdx = args.findIndex(a => a === '--disable') !== -1 ? args.findIndex( a => a === '--disable') : args.length;
+//       if (enableIdx < disableIdx) {
+//         enabled.forEach(opt => Config.enable(opt.toString()))
+//         disabled.forEach(opt => Config.disable(opt.toString()))
+//       }  else {
+//         disabled.forEach(opt => Config.disable(opt.toString()))
+//         enabled.forEach(opt =>  Config.enable(opt.toString()))
+//       }
+//     } else if (!!enabled && !disabled) {
+//       console.log('enabled!');
+//         enabled.forEach((opt) => Config.enable(opt.toString()))
+//     } else if (!!disabled && !enabled) {
+//     console.log('disabled!');
+//         disabled.forEach((opt) => Config.disable(opt.toString()))
+//     }
+//     if (showCmd) {
+//       console.log(Config.toString());
+//       process.exit(0);
+//     }
+//     return Config
+// }
 
 /// HELPERS
 export function BuildCapabilityString() {
-    const done: string = '✔️ ';
-    const todo: string = '❌';
-    // const done: string = '✅'
-    // const todo: string = '❌'
+    const done: string = '✔️ '; // const done: string = '✅' 
+    const todo: string = '❌'; // const todo: string = '❌' 
     const statusString = [
         `${done} complete`,
         `${done} hover`,
@@ -409,9 +458,9 @@ export const PackageVersion = PackageJSON.version;
 
 
 export const PathObj: {[K in 'bin' | 'root' | 'repo']: string} = {
-    ['bin']: path.resolve('..', __dirname.toString(),  '..','cli.js'),
-    ['root']: path.resolve(__dirname, '..', '..'),
-    ['repo']: path.resolve(__dirname, '..', '..'),
+    ['bin']:  resolve('..', __dirname.toString(),  '..','cli.js'),
+    ['root']: resolve(__dirname, '..', '..'),
+    ['repo']: resolve(__dirname, '..', '..'),
 }
 
 export const PackageLspVersion = PackageJSON.dependencies['vscode-languageserver-protocol']!.toString();
@@ -456,3 +505,35 @@ export const GetEnvVariablesUsed = () => {
 //     '       P L S P L S P L S P L            S',
 //     '         L S P L S P L S P' 
 //   ].join('\n');
+// export function generateFishCompletions() {
+//   const script: string = `
+// function _fish_lsp_completions
+//   set cmd (commandline -opc)
+//   if test (count $cmd) -eq 1
+//     fish-lsp completions --names
+//     return
+//   end
+//
+//   switch $cmd[2]
+//     case start
+//       printf "--show\t'dump output and stop server'"
+//       printf "--enable\t'enable feature'"
+//       printf "--disable\t'disable feature'"
+//     case min bare
+//         printf "--show\t'dump output and stop server'"
+//         printf "--enable\t'enable feature'"
+//         printf "--disable\t'disable feature'"
+//     case startup-configuration
+//         printf "--json\t'output as json'"
+//         printf "--lua\t'output as lua'"
+//     case show-path
+//         printf "--json\t'output as json'"
+//         printf "--lua\t'output as lua'"
+//     case '*'
+//       echo ""
+//   end
+// end
+//
+// complete -c fish-lsp -f -a '(_fish_lsp_completions)'`;
+//   console.log(script);
+// }

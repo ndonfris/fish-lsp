@@ -29,8 +29,9 @@
   "typings": "./out/server.d.ts",
   "scripts": {
     "build:wasm:pre": "npm install; pushd node_modules/tree-sitter-fish; npm install",
-    "build:wasm": "npm run build:wasm:pre && tree-sitter build-wasm ./grammar.js && cp tree-sitter-fish.wasm ../../src/tree-sitter-fish.wasm && popd",
+    "build:wasm": "npm run build:wasm:pre && npm exec tree-sitter build-wasm ./grammar.js && cp tree-sitter-fish.wasm ../../src/tree-sitter-fish.wasm && popd",
     "pre:clean": "rimraf lib *.tsbuildinfo out",
+    "rebuild": "npx tree-sitter build-wasm node_modules/tree-sitter-fish/; npx tsc -b",
     "clean": "npm run pre:clean && tsc -b && chmod 755 ./out/cli.js",
     "prepare:tests": "rm -f test_data/fish_files/*.fish && yarn run prepare:install:tests",
     "prepare:install:tests": "cd test_data && ./install_scripts/generate_largest_fish_files.fish && cd ..",
@@ -62,10 +63,12 @@
     "glob": "^8.0.3",
     "global": "^4.4.0",
     "globby": "^13.1.2",
+    "lua-json": "^1.0.1",
     "marked": "^4.2.12",
     "marked-terminal": "^5.1.1",
     "pkg-up": "^4.0.0",
     "semver": "^7.3.7",
+    "tree-sitter": "^0.20.6",
     "tree-sitter-fish": "github:ram02z/tree-sitter-fish",
     "ts-jest": "^29.0.1",
     "vscode-languageserver": "^8.1.0",
@@ -81,6 +84,7 @@
     "@types/fs-extra": "^9.0.13",
     "@types/glob": "^8.0.0",
     "@types/jest": "^29.5.5",
+    "@types/lua-json": "^1.0.3",
     "@types/minimist": "^1.2.2",
     "@types/mocha": "^10.0.1",
     "@types/node": "^16.18.83",
@@ -103,7 +107,8 @@
     "ts-mocha": "^10.0.0",
     "ts-node": "^10.9.1",
     "tsc": "^2.0.4",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "@types/bun": "latest"
   },
   "enabledApiProposals": [
     "inlineCompletions"

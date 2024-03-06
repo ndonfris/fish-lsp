@@ -13,7 +13,6 @@ export async function initializeParser(): Promise<Parser> {
     const parser = new Parser();
 
     const fishLangPath = resolve(
-        //require('tree-sitter-fish'),
         //'..',
         __dirname,
         '..',
