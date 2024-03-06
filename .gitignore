@@ -9,4 +9,5 @@ logs.txt
 *.lock
 *.wasm
 wikis
+out.png
 .vim

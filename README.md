@@ -43,7 +43,6 @@ info on the [wiki](https://github.com/ndonfris/fish-lsp/wiki).__
     > lua and other language-client configuration syntax's 
     > can be built by fish-lsp startup-configuration <filetype>.
     > Gif shows different hover documentation, goto definition, goto references and some other features.
-   
     ![usage gif](https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaWkwcDY5aTg1OGltbDV6cGh4cGU4a204cGd1aHd6MmNpMWRrZ2d1biZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/PdSL9U8GXwV8xECE8k/giphy.gif)
 
 ## Features
