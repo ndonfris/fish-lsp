@@ -1,14 +1,19 @@
 {
-    "extends": "./tsconfig.json",
-    "compiler_options": {
-        "resolveJsonModule": true,
-        "verbose": true,
-        "noEmit": true
-        //"paths": {
-        //    "completion/*": ["./src/utils/completion/*"]
-        //}
-    },
-    "exclude": ["node_modules"],
-    "include": ["./test-data/*.ts", "./src"]
+  "extends": "./tsconfig.json",
+  "compiler_options": {
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "verbose": true,
+    "noEmit": true,
+    "target": "es2022",
+    "paths": {
+      "@src/*": ["./src/*"]
+    }
+    //"paths": {
+    //    "completion/*": ["./src/utils/completion/*"]
+    //}
+  },
+  "exclude": ["node_modules"],
+  "include": ["./test-data/**.ts", "./src"]
 
 }               

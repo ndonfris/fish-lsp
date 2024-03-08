@@ -42,7 +42,9 @@ const createFishLspBin = (): Command => {
         'the following feature set from "' + PackageLspVersion + '" of the language server protocol.',
         'More documentation is available for any command or subcommand via \'-h/--help\'.',
         // BuildCapabilityString() + '\n',
-        '\nFor more information, see the github repository: \n\t' + RepoUrl,
+        '',
+        'For more information, see the github repository:',
+        `  ${RepoUrl}`,
     ].join('\n'))
     .version(PackageVersion, '-v, --version', 'output the version number')
     .enablePositionalOptions(true)
@@ -53,17 +55,15 @@ const createFishLspBin = (): Command => {
     .addHelpText('afterAll', [
         "",
         "Examples:",
-        "  $ fish-lsp start --disable hover",
-        "  # only disable the hover feature",
+        "  # Default setup, with all options enabled",
+        "  > fish-lsp start ",
         "",
-        "  $ fish-lsp bare --enable hover",
-        "  # only enable the hover feature",
+        "  # Enable only the hover provider:",
+        "  > fish-lsp bare --enable hover",
         "",
-        "  $ fish-lsp complete --fish > ~/.config/fish/completions/fish-lsp.fish",
-        "  # generate & store completions file",
-        "",
-        "  $ fish-lsp start ",
-        "  # default setup option"
+        "  # Generate and store completions file:",
+        "  > fish-lsp complete --fish > ~/.config/fish/completions/fish-lsp.fish",
+        ""
     ].join('\n'))
 
     // .configureHelp(help=> {
