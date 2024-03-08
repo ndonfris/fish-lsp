@@ -6,7 +6,8 @@ Implements both standard & non-standard features from the [language-server-proto
 to be connected to a language-client ([neovim](https://neovim.io/),[coc.nvim](https://github.com/neoclide/coc.nvim), [vscode](https://code.visualstudio.com/), [etc.](https://github.com/ndonfris/fish-lsp-language-clients)). __More
 info on the [wiki](https://github.com/ndonfris/fish-lsp/wiki).__
 
-![helpmsg](https://i.imgur.com/Xypl9PN.png)
+![fish-lsp --help](https://imgur.com/VvCVg24.png)
+<!-- ![helpmsg](https://i.imgur.com/Xypl9PN.png) -->
 
 ## Installation
 1. clone the repository
@@ -80,21 +81,26 @@ This project aims to be a more feature rich alternative to some of it's predeces
 while maintaining an editor agnostic server implantation. The following sources were
 major influences on the project's overall design and structure.
 
-- [__LSIF__](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#headerPart)
-- [__vscode-extension-samples__](https://github.com/microsoft/vscode-extension-samples/tree/main)
+- __Official Documentation__
+  - [__LSP__](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#headerPart)
+  - [__LSIF__](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#headerPart)
+  - [__vscode-extension-samples__](https://github.com/microsoft/vscode-extension-samples/tree/main)
+  - [__Tree-Sitter__](https://tree-sitter.github.io/tree-sitter/)
+  - [__Tree-Sitter-Fish__](https://github.com/ram02z/tree-sitter-fish)
 
-- __Similiar projects__
-  - [coc.fish]( https://github.com/oncomouse/coc-fish )
-  - [awk-language-server]( https://github.com/Beaglefoot/awk-language-server/tree/master/server )
-  - [bash-language-server]( https://github.com/bash-lsp/bash-language-server/tree/main/server/src )
+- __Related/Similiar projects__
+  - [vscode-languageserver-node/testbed](https://github.com/microsoft/vscode-languageserver-node/tree/main/testbed)
+  - [awk-language-server](https://github.com/Beaglefoot/awk-language-server/tree/master/server)
+  - [bash-language-server](https://github.com/bash-lsp/bash-language-server/tree/main/server/src)
+  - [coc.fish](https://github.com/oncomouse/coc-fish)
   - [typescript-language-server](https://github.com/typescript-language-server/typescript-language-server#running-the-language-server)
   - [coc-tsserver](https://github.com/neoclide/coc-tsserver)
 
 - __Important Packages__
-  - [vscode-jsonrpc]( https://www.npmjs.com/package/vscode-jsonrpc )
-  - [vscode-languageserver]( https://github.com/Microsoft/vscode-languageserver-node )
-  - [vscode-languageserver-textdocument]( https://github.com/Microsoft/vscode-languageserver-node )
+  - [vscode-jsonrpc](https://www.npmjs.com/package/vscode-jsonrpc)
+  - [vscode-languageserver](https://github.com/Microsoft/vscode-languageserver-node)
+  - [vscode-languageserver-textdocument](https://github.com/Microsoft/vscode-languageserver-node)
 
 - __Default Implementation Git Repos__
-  - [client implementation]( https://github.com/microsoft/vscode-languageserver-node/blob/main/client/src/common )
-  - [server implementation]( https://github.com/microsoft/vscode-languageserver-node/tree/main/server/src/common )  
+  - [client implementation](https://github.com/microsoft/vscode-languageserver-node/blob/main/client/src/common)
+  - [server implementation](https://github.com/microsoft/vscode-languageserver-node/tree/main/server/src/common)  
