@@ -30,7 +30,7 @@ export function getNamedChildNodes(root: SyntaxNode): SyntaxNode[] {
     let result: SyntaxNode[] = []
     while (queue.length) {
         let current : SyntaxNode | undefined = queue.shift()
-        if (current && current.isNamed()) result.push(current)
+        if (current && current.isNamed) result.push(current)
         if (current && current.children) queue.unshift(...current.children)
     }
     return result

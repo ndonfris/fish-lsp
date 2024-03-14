@@ -1,7 +1,7 @@
 {
-  "name": "fish-language-server",
+  "name": "fish-lsp",
   "version": "1.0.0",
-  "description": "Language Server Protocol (LSP) implementation for fish-shell using typescript, tree-sitter, and node",
+  "description": "LSP implementation for fish/fish-shell",
   "author": "ndonfris",
   "license": "Apache-2.0",
   "repository": {
@@ -11,34 +11,22 @@
   "engines": {
     "node": ">=14.16"
   },
-  "pkg": {
-    "entryPoints": [
-      "out/cli.js"
-    ],
-    "targets": [
-      "node14-linux-x64",
-      "node14-macos-x64",
-      "node14-win-x64"
-    ],
-    "outputPath": "build"
-  },
   "bin": {
     "fish-lsp": "./out/cli.js"
   },
   "main": "./out/server.js",
   "typings": "./out/server.d.ts",
   "scripts": {
-    "build:wasm:pre": "npm install; pushd node_modules/tree-sitter-fish; npm install",
-    "build:wasm": "npm run build:wasm:pre && npm exec tree-sitter build-wasm ./grammar.js && cp tree-sitter-fish.wasm ../../src/tree-sitter-fish.wasm && popd",
     "pre:clean": "rimraf lib *.tsbuildinfo out",
-    "rebuild": "npx tree-sitter build-wasm node_modules/tree-sitter-fish/; npx tsc -b",
-    "clean": "npm run pre:clean && tsc -b && chmod 755 ./out/cli.js",
-    "prepare:tests": "rm -f test_data/fish_files/*.fish && yarn run prepare:install:tests",
-    "prepare:install:tests": "cd test_data && ./install_scripts/generate_largest_fish_files.fish && cd ..",
+    "clean": "npm run pre:clean && tsc -b && chmod 755 ./out/cli.js && echo '' > logs.txt",
+    "clean-nodemodules": "rimraf out *.tsbuildinfo node_modules && yarn",
+    "clean:all": "rimraf out *.tsbuildinfo node_modules tree-sitter-fish.wasm",
+    "fresh": "npm run clean:all && yarn && yarn setup",
     "test": "jest --runInBand --watch --verbose true",
-    "compile": "tsc -b",
-    "watch": "npm run clean; tsc --watch",
-    "exec-cli": "rm -rf out && tsc -b && chmod 755 ./out/**/*.js && node ./out/cli.js"
+    "compile": "tsc -b && chmod +x out/cli.js",
+    "watch": "npm run clean; tsc -b -w",
+    "build-wasm": "./scripts/build-fish-wasm.sh",
+    "setup": "./scripts/setup.sh"
   },
   "eslintIgnore": [
     "!.eslintrc.cjs"
@@ -69,13 +57,12 @@
     "pkg-up": "^4.0.0",
     "semver": "^7.3.7",
     "tree-sitter": "^0.20.6",
-    "tree-sitter-fish": "github:ram02z/tree-sitter-fish",
     "ts-jest": "^29.0.1",
     "vscode-languageserver": "^8.1.0",
     "vscode-languageserver-protocol": "^3.17.3",
     "vscode-languageserver-textdocument": "1.0.8",
     "vscode-uri": "^3.0.7",
-    "web-tree-sitter": "^0.20.8"
+    "web-tree-sitter": "^0.22.1"
   },
   "devDependencies": {
     "@tsconfig/node-lts": "^20.1.1",
@@ -110,5 +97,35 @@
   },
   "enabledApiProposals": [
     "inlineCompletions"
-  ]
+  ],
+  "jest": {
+    "preset": "ts-jest",
+    "verbose": true,
+    "clearMocks": true,
+    "moduleFileExtensions": [
+      "ts",
+      "js",
+      "json",
+      "node"
+    ],
+    "modulePathIgnorePatterns": [
+      "<rootDir>/out"
+    ],
+    "bail": 1,
+    "moduleNameMapper": {
+      "^completion/(.*)$": "<rootDir>/src/utils/completion/$1",
+      "^utils/(.*)$": "<rootDir>/src/utils/$1",
+      "^test-data/(.*)$": "<rootDir>/test-data/$1"
+    },
+    "transformIgnorePatterns": [
+      "<rootDir>/node_modules/"
+    ],
+    "transform": {
+      "^.+\\.ts?$": "ts-jest",
+      "^.+\\.js?$": "babel-jest"
+    },
+    "testRegex": "\\.test\\.ts$",
+    "testTimeout": 8000,
+    "maxWorkers": "50%/4"
+  }
 }
