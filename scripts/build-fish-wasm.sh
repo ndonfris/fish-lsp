@@ -1,4 +1,4 @@
-#!/usr/bin/env fish
+#!/usr/bin/env bash
 
 yarn add web-tree-sitter
 yarn add --dev tree-sitter-cli https://github.com/ram02z/tree-sitter-fish
