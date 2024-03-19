@@ -27,7 +27,7 @@ export function getReturnSiblings(node: SyntaxNode) : SyntaxNode[] {
     let current : SyntaxNode | null = node;
     let results: SyntaxNode[] = [];
     while (current) {
-        if (!current.isNamed()) continue;
+        if (!current.isNamed) continue;
         results.unshift(current)
         if (isReturn(current)) {
             current = current.nextNamedSibling;

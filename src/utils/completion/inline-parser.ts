@@ -250,7 +250,7 @@ export namespace Line {
         if (wordNode && isPartialForLoop(wordNode)) {
             const completeForLoop = ["for", "i", "in", "_"];
             const errorNode = firstAncestorMatch(wordNode, (n) =>
-                n.hasError()
+                n.hasError
             )!;
             const leafs = getLeafs(errorNode);
             virtualEOLChars =

@@ -17,13 +17,9 @@ info on the [wiki](https://github.com/ndonfris/fish-lsp/wiki).__
     ```
 3. run install commands:
     ```fish
-    yarn; # yarn install; yarn tsc -b;
-    ./setup.sh
+    yarn # install dependencies
+    yarn setup # build the project using './script/*.sh' 
     ```
-<!-- 4. alias `fish-language-server` to the `fish-lsp` binary -->
-<!--     ```fish -->
-<!--     alias fish-lsp="$PWD/bin/fish-language-server" -->
-<!-- ``` -->
 4. build and generate completions:
     ```fish
     fish-lsp complete --fish > ~/.config/fish/completions/fish-lsp.fish
@@ -43,7 +39,7 @@ info on the [wiki](https://github.com/ndonfris/fish-lsp/wiki).__
     > configuration shown for "coc.nvim"
     > lua and other language-client configuration syntax's 
     > can be built by fish-lsp startup-configuration <filetype>.
-    > Gif shows different hover documentation, goto definition, goto references and some other features.
+    > Demo shows different hover documentation, go-to definition, go-to references and some other features.
 
     ![usage gif](https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaWkwcDY5aTg1OGltbDV6cGh4cGU4a204cGd1aHd6MmNpMWRrZ2d1biZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/PdSL9U8GXwV8xECE8k/giphy.gif)
 
@@ -104,6 +100,3 @@ major influences on the project's overall design and structure.
 - __Default Implementation Git Repos__
   - [client implementation](https://github.com/microsoft/vscode-languageserver-node/blob/main/client/src/common)
   - [server implementation](https://github.com/microsoft/vscode-languageserver-node/tree/main/server/src/common)  
-
-
- <meta name="google-site-verification" content="1f_cBsyKKAA9Ugty-wlNTI1aDAAO-u4CKcAvYtYM_yU" />
