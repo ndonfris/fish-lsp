@@ -1,0 +1,28 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Setup Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '18'
+    - name: Install Dependencies
+      run: yarn install
+    - name: Build Project
+      run: yarn setup
+    - name: Create Executables
+      run: pkg --targets node18-linux,node18-macos,node18-win ./out/cli.js -o build/fish-lsp
+    - name: Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: build/*
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
