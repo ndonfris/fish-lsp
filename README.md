@@ -10,40 +10,80 @@ info on the [wiki](https://github.com/ndonfris/fish-lsp/wiki).__
 <!-- ![helpmsg](https://i.imgur.com/Xypl9PN.png) -->
 
 ## Installation
-1. clone the repository
-2. enter the directory
-    ```fish
-    cd ./fish-lsp
-    ```
-3. run install commands:
-    ```fish
-    yarn # install dependencies
-    yarn setup # build the project using './script/*.sh' 
-    ```
-4. build and generate completions:
+1. Create the `fish-lsp` command via one of the following methods
+    <details>
+    <!-- <summary>Using npm <b><i><ins>(UNTESTED, install from source is recommended)</ins></i></b>&nbsp;&nbsp;&nbsp;&nbsp;<img alt="Static Badge" src="https://img.shields.io/badge/recommended-white?style=plastic&logo=npm&logoColor=%235f5fd7&labelColor=%23000&color=%235f5fd7" wight="50%" /> -->
+
+    <summary>Using npm <b><i><ins>(UNTESTED, install from source)</ins></i></b>&nbsp;&nbsp;&nbsp;&nbsp;<img alt="Static Badge" src="https://img.shields.io/badge/NOT_recommended-white?style=plastic&logo=npm&logoColor=%235f5fd7&labelColor=%23000&color=%235f5fd7" wight="50%" />
+    </summary>
+
+    >    ```fish
+    >    npm i -g fish-lsp
+    >    ```
+    </details>
+    <details>
+    <summary>Build from source&nbsp;&nbsp;&nbsp;&nbsp;<img alt="Static Badge" src="https://img.shields.io/badge/for_contributing-blue?style=plastic&logo=devdotto&labelColor=grey" height="50%">
+    </summary>
+
+    >  * clone the repository
+    >  * enter the directory
+    >    ```fish
+    >    cd ./fish-lsp
+    >    ```
+    >  * run install commands:
+    >    ```fish
+    >    yarn # install dependencies
+    >    yarn setup # build the project using './script/*.sh' 
+    >    ```
+    </details> 
+    <details>
+    <summary>Using release binaries&nbsp;&nbsp;&nbsp;&nbsp;<a href="https://github.com/ndonfris/fish-lsp/releases"><img alt="Static Badge" src="https://img.shields.io/badge/release%20branch-black?style=plastic&logo=powershell&logoColor=%23ce3df3&labelColor=%23000&color=%23ce3df3" height="50%"></a></summary>
+
+    > ***Currently is not recommended for use as the release binaries are error
+    > prone and not fully tested.***
+    >    * navigate to the [releases](https://github.com/ndonfris/fish-lsp/master/releases), and download the file for your OS
+    >    * Rename file to fish-lsp (make sure the binary is executable as well)
+    >        ```fish
+    >        # cd to downloaded location 
+    >        mv fish-lsp-linux fish-lsp 
+    >        chmod +x ./fish-lsp
+    >        ```
+    >    * move the binary to your __\$PATH__: 
+    >        ```fish
+    >        mv ./fish-lsp ~/.local/bin/fish-lsp
+    >        ```
+    </details>
+
+1. Build and store completions:
     ```fish
     fish-lsp complete --fish > ~/.config/fish/completions/fish-lsp.fish
     ```
-5. use the `fish-lsp` command to start the language server
+
+1. Provide the `fish-lsp` command to start the server from a language client 
     ```json
     {
       "languageserver": {
         "fish-lsp": {
-          "command": "fish-lsp",
-          "args": ["start"],
-          "filetypes": ["fish"]
+            "command": "fish-lsp",
+            "args": ["start"],
+            "filetypes": ["fish"]
         }
       }
     }
-    ```
+   ```
     > configuration shown for "coc.nvim"
     > lua and other language-client configuration syntax's 
     > can be built by fish-lsp startup-configuration <filetype>.
-    > Demo shows different hover documentation, go-to definition, go-to references and some other features.
+    > Demo shows different hover documentation, go-to definition, go-to references
+    > and some other features.
+   <center>
 
-    ![usage gif](https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaWkwcDY5aTg1OGltbDV6cGh4cGU4a204cGd1aHd6MmNpMWRrZ2d1biZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/PdSL9U8GXwV8xECE8k/giphy.gif)
+   ![usage gif](https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaWkwcDY5aTg1OGltbDV6cGh4cGU4a204cGd1aHd6MmNpMWRrZ2d1biZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/PdSL9U8GXwV8xECE8k/giphy.gif)
+
+   </center> 
 
 ## Features
+
 | Feature | Description | Status |
 | --- | --- | --- |
 | __Completion__ | Provides completions for commands, variables, and functions | ✅ |

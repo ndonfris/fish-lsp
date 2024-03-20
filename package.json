@@ -1,6 +1,6 @@
 {
   "name": "fish-lsp",
-  "version": "1.0.0",
+  "version": "1.0.01",
   "description": "LSP implementation for fish/fish-shell",
   "author": "ndonfris",
   "license": "Apache-2.0",
