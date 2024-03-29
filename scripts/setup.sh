@@ -1,16 +1,24 @@
 #!/usr/bin/env fish
-yarn install
-yarn build-wasm
-yarn compile
+
+# Future plans to convert the project to pnpm:
+#
+# pnpm install
+# pnpm run-script build-wasm
+# pnpm run-script compile
+#
+
+yarn install               
+yarn run build-wasm 
+yarn run compile    
 
 echo -e "\n\nLINKING fish-lsp"
 if command -vq fish-lsp
     echo -e \
     ' "fish-lsp" is already installed\n' \
     ' UNLINKING and LINKING again'
-    yarn unlink --global-folder "fish-lsp" &> /dev/null
+    yarn unlink --global "fish-lsp" &> /dev/null
 end
-yarn link --global-folder "fish-lsp" &> /dev/null
+yarn link --global "fish-lsp" &> /dev/null
 
 echo -e '\n"fish-lsp" is now installed and linked'
 #         'fish-lsp:'(which fish-lsp)\n\

@@ -18,7 +18,6 @@ const execFileAsync = promisify(execFile)
  */
 export async function execEscapedCommand(cmd: string): Promise<string[]> {
     const escapedCommand = cmd.replace(/(["'$`\\])/g, '\\$1');
-    //const completeString = escapedCommand;
 
     //"fish -P --command='printf \'%s\' a a a | string split \' \''"
     const { stdout } = await execFileAsync('fish', ['-P', '--command', escapedCommand])
@@ -33,40 +32,24 @@ export async function execEscapedCommand(cmd: string): Promise<string[]> {
 export async function execCmd(cmd: string): Promise<string[]> {
     const { stdout } = await execAsync(cmd, {
         shell: "/usr/bin/fish",
-        maxBuffer: 1024 * 1024 * 8,
         encoding: "buffer",
-        windowsHide: true,
-        cwd: process.cwd(),
-        gid: process.getegid(),
+        maxBuffer: 1024 * 1024 * 8,
         env: {
             PATH: process.env.PATH,
             USER: process.env.USER,
             HOME: process.env.HOME,
         },
-        uid: process.getuid(),
-        //env: process.env,
-        //stdio: ["pipe", "pipe", "ignore"],
+        // windowsHide: true,
+        // cwd: process.cwd(),
+        // gid: process.getegid(),
+        // uid: process.getuid(),
+        // env: process.env,
+        // stdio: ["pipe", "pipe", "ignore"],
     });
-    //stdout.
-    //const { stdout } = await execFileAsync('fish', ['-P', '--command', cmd], {
-    //    maxBuffer: 1024 * 1024 * 8,
-    //    shell: false,
-    //    windowsHide: true,
-    //    //env: {}
-    //    //env: {
-    //    //    PATH: process.env.PATH,
-    //    //}
-    //    //uid: process.getuid(),
-    //    //shell: "/usr/bin/fish",
-    //    //env: {
-    //    //    PATH: process.env.PATH,
-    //    //},
-    //})
     return stdout
         .toString()
         .trim()
         .split("\n")
-        //.filter((line) => line.trim().length !== 0);
 }
 
 export async function execPrintLsp(line: string) {

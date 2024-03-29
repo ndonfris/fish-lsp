@@ -13,7 +13,6 @@ info on the [wiki](https://github.com/ndonfris/fish-lsp/wiki).__
 1. Create the `fish-lsp` command via one of the following methods
     <details>
     <!-- <summary>Using npm <b><i><ins>(UNTESTED, install from source is recommended)</ins></i></b>&nbsp;&nbsp;&nbsp;&nbsp;<img alt="Static Badge" src="https://img.shields.io/badge/recommended-white?style=plastic&logo=npm&logoColor=%235f5fd7&labelColor=%23000&color=%235f5fd7" wight="50%" /> -->
-
     <summary>Using npm <b><i><ins>(UNTESTED, install from source)</ins></i></b>&nbsp;&nbsp;&nbsp;&nbsp;<img alt="Static Badge" src="https://img.shields.io/badge/NOT_recommended-white?style=plastic&logo=npm&logoColor=%235f5fd7&labelColor=%23000&color=%235f5fd7" wight="50%" />
     </summary>
 

@@ -1,4 +1,4 @@
-import { resolve  } from 'path';
+import { resolve } from 'path';
 import PackageJSON from '../../package.json';
 // import PackageJSON from '@package';
 import deepmerge from 'deepmerge';
@@ -58,7 +58,6 @@ interface StartupConfig {
     [key: string]: ConfigToggleOptionValue | any;
 }
 
-
 // You can add more specific interfaces for other configurations as needed
 
 const buildBareConfigValue = (key: string) => {
@@ -68,7 +67,7 @@ const buildBareConfigValue = (key: string) => {
                 enable: false,
                 triggerCharacters: [],
                 expandAbbreviations: false,
-            }
+            };
         case 'hover':
         case 'rename':
         case 'definition':
@@ -80,19 +79,19 @@ const buildBareConfigValue = (key: string) => {
         case 'signatureHelp':
             return {
                 enable: false,
-            }
+            };
         case 'formatting':
             return {
                 enable: false,
                 indent: 4,
                 tabSize: 4,
                 addSemis: false,
-            }
+            };
         case 'diagnostics':
             return {
                 enable: false,
                 maxNumberOfProblems: 10,
-            }
+            };
         case 'workspaces':
             return {
                 enable: false,
@@ -104,12 +103,12 @@ const buildBareConfigValue = (key: string) => {
                 paths: {
                     defaults: [],
                     allowRename: [],
-                }
-            }
+                },
+            };
         default:
-            return {enable: false}
+            return { enable: false };
     }
-}
+};
 
 export const startupConfigEnabled: StartupConfig = {
     completion: {
@@ -153,7 +152,7 @@ export const startupConfigEnabled: StartupConfig = {
             ],
             allowRename: [
                 `${homedir()}/.config/fish`,
-            ]
+            ],
         },
 
     },
@@ -186,9 +185,8 @@ export const startupConfigEnabled: StartupConfig = {
     },
     index: {
         enable: true,
-    }
-}
-
+    },
+};
 
 export const startupConfigDisabled: StartupConfig = {
     completion: {
@@ -232,7 +230,7 @@ export const startupConfigDisabled: StartupConfig = {
             ],
             allowRename: [
                 `${homedir()}/.config/fish`,
-            ]
+            ],
         },
 
     },
@@ -265,9 +263,8 @@ export const startupConfigDisabled: StartupConfig = {
     },
     index: {
         enable: false,
-    }
-}
-
+    },
+};
 
 export function updateConfiguration<T>(path: string[], newValue: T, config: any): boolean {
     let current = config;
@@ -300,7 +297,6 @@ export function updateConfiguration<T>(path: string[], newValue: T, config: any)
     return true;
 }
 
-
 // export function optionsStringEqualsRaw(optionValue: string, rawValue: string) {
 //
 //     const removeToggleString = (toggle: string, str: string) => {
@@ -313,7 +309,7 @@ export function updateConfiguration<T>(path: string[], newValue: T, config: any)
 //     return (
 //         disableFixed === optionValue ||
 //         enabledFixed === optionValue ||
-//         rawValue === optionValue 
+//         rawValue === optionValue
 //     );
 // }
 
@@ -324,64 +320,40 @@ export function updateConfiguration<T>(path: string[], newValue: T, config: any)
  * Handles some of the default commands, such as '--help', and '-s, --show'
  * from the command line args.
  */
-export function accumulateStartupOptions(args: string[]): {enabled: string[], disabled: string[], showCmd: boolean} {
+export function accumulateStartupOptions(args: string[]): {
+    enabled: string[];
+    disabled: string[];
+    dumpCmd: boolean;
+} {
     const [subcmd, ...options] = args;
-    // console.log('args:', args);
-    // console.log('options:', options);
-    const [enabled, disabled]: [string[], string[]] = [[],[]] 
-    let showCmd: boolean = false;
+    const [enabled, disabled]: [string[], string[]] = [[], []];
+    let dumpCmd = false;
     let current: string[];
     options?.forEach(arg => {
         if (['--enable', '--disable'].includes(arg)) {
             if (arg === '--enable') current = enabled;
             if (arg === '--disable') current = disabled;
             return;
-        } 
+        }
         if (['-h', '--help', 'help'].includes(arg)) {
             commandBin.commands.find(command => command.name() === subcmd)!.outputHelp();
             process.exit(0);
         }
-        if (['-s', '--show'].includes(arg)) {
-            console.log("SEEN SHOW COMMAND! dumping...");
-            console.log('showCmd will dump user startupConfig after processing...');
-            console.log('\n\n');
-            showCmd = true;
+        if (['--dump'].includes(arg)) {
+            console.log('SEEN SHOW COMMAND! dumping...');
+            dumpCmd = true;
             return;
         }
         if (current) current?.push(arg);
-    })
-    return {enabled, disabled, showCmd};
-}
 
-// export function processStartupArgsInOrder(args: string[], enabled: string[], disabled: string[], showCmd: boolean) {
-//     if (!!enabled && !!disabled) {
-//       let enableIdx = args.findIndex(a => a === '--enable') !== -1 ? args.findIndex(   a => a === '--enable') : args.length;
-//       let disableIdx = args.findIndex(a => a === '--disable') !== -1 ? args.findIndex( a => a === '--disable') : args.length;
-//       if (enableIdx < disableIdx) {
-//         enabled.forEach(opt => Config.enable(opt.toString()))
-//         disabled.forEach(opt => Config.disable(opt.toString()))
-//       }  else {
-//         disabled.forEach(opt => Config.disable(opt.toString()))
-//         enabled.forEach(opt =>  Config.enable(opt.toString()))
-//       }
-//     } else if (!!enabled && !disabled) {
-//       console.log('enabled!');
-//         enabled.forEach((opt) => Config.enable(opt.toString()))
-//     } else if (!!disabled && !enabled) {
-//     console.log('disabled!');
-//         disabled.forEach((opt) => Config.disable(opt.toString()))
-//     }
-//     if (showCmd) {
-//       console.log(Config.toString());
-//       process.exit(0);
-//     }
-//     return Config
-// }
+    });
+    return { enabled, disabled, dumpCmd };
+}
 
 /// HELPERS
 export function BuildCapabilityString() {
-    const done: string = '✔️ '; // const done: string = '✅' 
-    const todo: string = '❌'; // const todo: string = '❌' 
+    const done = '✔️ '; // const done: string = '✅'
+    const todo = '❌'; // const todo: string = '❌'
     const statusString = [
         `${done} complete`,
         `${done} hover`,
@@ -405,63 +377,61 @@ export function BuildCapabilityString() {
         `${done} onDocumentSaveFormat`,
         `${done} onDocumentSave`,
         `${done} onDocumentOpen`,
-        `${done} onDocumentChange`
+        `${done} onDocumentChange`,
     ].join('\n');
-  return statusString;
+    return statusString;
 }
 
 export function buildAsciiLogo() {
-  return parseInt(process.env['COLUMNS']?.toString() || '100') >= 30 ? asciiLogoString('large') : asciiLogoString('normal');
+    return parseInt(process.env.COLUMNS?.toString() || '100') >= 30 ? asciiLogoString('large') : asciiLogoString('normal');
 }
 
 // ASCII ART
 export function asciiLogoString(size: 'normal' | 'large' | 'single' = 'normal') {
-  switch (size) {
-    case 'normal':
-      return [
-        '      LSPLSPLSP        P    ███████╗██╗███████╗██╗  ██╗    ██╗     ███████╗██████╗ ',
-        '    LSPLSPLSPLSP     LSP    ██╔════╝██║██╔════╝██║  ██║    ██║     ██╔════╝██╔══██╗',
-        '  LSP   LSPLSPLSP  LSPLS    █████╗  ██║███████╗███████║    ██║     ███████╗██████╔╝',
-        'LSPLSPLSPLS  SPLSPLSPLSP    ██╔══╝  ██║╚════██║██╔══██║    ██║     ╚════██║██╔═══╝ ',
-        '  LSPLSPLSP  PLSP  LSPLS    ██║     ██║███████║██║  ██║    ███████╗███████║██║     ',
-        '    LSPLSPLSPLSP     LSP    ╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝    ╚══════╝╚══════╝╚═╝     ',
-        '      LSPLSPLSP        P                                                           ' 
-      ].join('\n');
-    case 'large':
-      return  [
-        '                                           LSP LSP LSP LSP                  ',
-        '                                         LSP LSP LSP LSP LSP                ',
-        '  ███████╗██╗███████╗██╗  ██╗          LSP LSP LSP LSP LSP LSP              ', 
-        '  ██╔════╝██║██╔════╝██║  ██║         LSP     LSP LSP LSP LSP LSP           ',
-        '  █████╗  ██║███████╗███████║        LSP       LSP LSP LSP LSP LSP      LSP ',
-        '  ██╔══╝  ██║╚════██║██╔══██║       LSP LSP LSP LSP LSP     LSP LSP LSP LSP ',
-        '  ██║     ██║███████║██║  ██║           LSP LSP LSP         LSP LSP LSP LSP ',
-        '  ╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝               LSP             LSP LSP LSP LSP ',
-        '   ██╗     ███████╗██████╗                  LSP LSP         LSP LSP LSP LSP ',
-        '   ██║     ██╔════╝██╔══██╗                 LSP LSP LSP     LSP LSP LSP LSP ',
-        '   ██║     ███████╗██████╔╝            LSP LSP LSP LSP LSP LSP LSP  LSP LSP ',
-        '   ██║     ╚════██║██╔═══╝          LSP LSP LSP LSP LSP LSP LSP LSP     LSP ',
-        '   ███████╗███████║██║               LSP LSP LSP LSP LSP LSP LSP            ',
-        '   ╚══════╝╚══════╝╚═╝                 LSP LSP LSP LSP LSP LSP              ',
-        '                                         LSP LSP LSP LSP LSP                '
-      ].join('\n')
-    case 'single':
-    default:
-      return '><(((°> FISH LSP'
-  }
-
+    switch (size) {
+        case 'normal':
+            return [
+                '      LSPLSPLSP        P    ███████╗██╗███████╗██╗  ██╗    ██╗     ███████╗██████╗ ',
+                '    LSPLSPLSPLSP     LSP    ██╔════╝██║██╔════╝██║  ██║    ██║     ██╔════╝██╔══██╗',
+                '  LSP   LSPLSPLSP  LSPLS    █████╗  ██║███████╗███████║    ██║     ███████╗██████╔╝',
+                'LSPLSPLSPLS  SPLSPLSPLSP    ██╔══╝  ██║╚════██║██╔══██║    ██║     ╚════██║██╔═══╝ ',
+                '  LSPLSPLSP  PLSP  LSPLS    ██║     ██║███████║██║  ██║    ███████╗███████║██║     ',
+                '    LSPLSPLSPLSP     LSP    ╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝    ╚══════╝╚══════╝╚═╝     ',
+                '      LSPLSPLSP        P                                                           ',
+            ].join('\n');
+        case 'large':
+            return [
+                '                                           LSP LSP LSP LSP                  ',
+                '                                         LSP LSP LSP LSP LSP                ',
+                '  ███████╗██╗███████╗██╗  ██╗          LSP LSP LSP LSP LSP LSP              ',
+                '  ██╔════╝██║██╔════╝██║  ██║         LSP     LSP LSP LSP LSP LSP           ',
+                '  █████╗  ██║███████╗███████║        LSP       LSP LSP LSP LSP LSP      LSP ',
+                '  ██╔══╝  ██║╚════██║██╔══██║       LSP LSP LSP LSP LSP     LSP LSP LSP LSP ',
+                '  ██║     ██║███████║██║  ██║           LSP LSP LSP         LSP LSP LSP LSP ',
+                '  ╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝               LSP             LSP LSP LSP LSP ',
+                '   ██╗     ███████╗██████╗                  LSP LSP         LSP LSP LSP LSP ',
+                '   ██║     ██╔════╝██╔══██╗                 LSP LSP LSP     LSP LSP LSP LSP ',
+                '   ██║     ███████╗██████╔╝            LSP LSP LSP LSP LSP LSP LSP  LSP LSP ',
+                '   ██║     ╚════██║██╔═══╝          LSP LSP LSP LSP LSP LSP LSP LSP     LSP ',
+                '   ███████╗███████║██║               LSP LSP LSP LSP LSP LSP LSP            ',
+                '   ╚══════╝╚══════╝╚═╝                 LSP LSP LSP LSP LSP LSP              ',
+                '                                         LSP LSP LSP LSP LSP                ',
+            ].join('\n');
+        case 'single':
+        default:
+            return '><(((°> FISH LSP';
+    }
 }
 
 export const logoText = buildAsciiLogo();
 export const RepoUrl = PackageJSON.repository?.url.slice(0, -4);
 export const PackageVersion = PackageJSON.version;
 
-
 export const PathObj: {[K in 'bin' | 'root' | 'repo']: string} = {
-    ['bin']:  resolve('..', __dirname.toString(),  '..','cli.js'),
+    ['bin']:  resolve('..', __dirname.toString(), '..', 'cli.js'),
     ['root']: resolve(__dirname, '..', '..'),
     ['repo']: resolve(__dirname, '..', '..'),
-}
+};
 
 export const PackageLspVersion = PackageJSON.dependencies['vscode-languageserver-protocol']!.toString();
 
@@ -477,20 +447,19 @@ export const GetEnvVariablesUsed = () => {
         'FISH_LSP_EXE',
         'fish_function_dir',
         'fish_complete_path',
-    ]
-    const resultKeys: string[] = envKeys.filter((key) => fish_env_variables_used.includes(key))
-    const DEEP_COPY_RESULT = deepmerge({}, process.env)
-    for (const [k,v] of Object.entries(DEEP_COPY_RESULT)) {
+    ];
+    const resultKeys: string[] = envKeys.filter((key) => fish_env_variables_used.includes(key));
+    const DEEP_COPY_RESULT = deepmerge({}, process.env);
+    for (const [k, v] of Object.entries(DEEP_COPY_RESULT)) {
         if (!resultKeys.includes(k)) {
-            delete DEEP_COPY_RESULT[k]
+            delete DEEP_COPY_RESULT[k];
         }
     }
-    
+
     return DEEP_COPY_RESULT;
-}
+};
 
-
-// return [ 
+// return [
 //   '           L S P L S P L S P L ',
 //   '       P L S P L S P L S P L S P        L ',
 //   '    S P   L S P L S P L S P L S P     L S ',
@@ -503,7 +472,7 @@ export const GetEnvVariablesUsed = () => {
 //   '  S P L S P L S P L S P L S P L       S P',
 //   '    S P L S P L S P L S P L S P        L S',
 //     '       P L S P L S P L S P L            S',
-//     '         L S P L S P L S P' 
+//     '         L S P L S P L S P'
 //   ].join('\n');
 // export function generateFishCompletions() {
 //   const script: string = `
