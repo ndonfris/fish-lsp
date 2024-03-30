@@ -1,5 +1,0 @@
-node-linker=true
-shamefully-flatten=false
-dedupe-direct-deps=true
-ignore-compatibilty-db=true
-prefer-symlinked-executables=true
