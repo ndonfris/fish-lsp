@@ -1,3 +1,4 @@
+import { readFileSync } from 'fs'
 import { resolve } from 'path';
 import PackageJSON from '../../package.json';
 // import PackageJSON from '@package';
@@ -458,6 +459,22 @@ export const GetEnvVariablesUsed = () => {
 
     return DEEP_COPY_RESULT;
 };
+
+const getOutTime = () => {
+  // @ts-ignore
+  const buildFile = resolve(__dirname, '..', '..', 'out', 'build-time.txt');
+  let buildTime = 'unknown';
+  try {
+    buildTime = readFileSync(buildFile, 'utf8');
+  } catch (e) {
+    console.log('Error reading ./out/build-time.txt');
+  }
+  return buildTime.trim();
+}
+
+export const getBuildTimeString = () => {
+  return getOutTime();
+}
 
 // return [
 //   '           L S P L S P L S P L ',

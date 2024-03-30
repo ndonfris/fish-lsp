@@ -4,8 +4,9 @@ import { createConnection, InitializeParams, InitializeResult, StreamMessageRead
 import { Argument, Command, Option } from 'commander';
 import FishServer from './server';
 import * as luaJson from 'lua-json';
-import { asciiLogoString, BuildCapabilityString, RepoUrl, PathObj, PackageLspVersion, GetEnvVariablesUsed, PackageVersion, accumulateStartupOptions } from './utils/commander-cli-subcommands';
+import { asciiLogoString, BuildCapabilityString, RepoUrl, PathObj, PackageLspVersion, GetEnvVariablesUsed, PackageVersion, accumulateStartupOptions, getBuildTimeString } from './utils/commander-cli-subcommands';
 import { mainStartupManager, bareStartupManger, ConfigMap } from './utils/configuration-manager';
+import { buildFishLspCompletions } from './utils/get-lsp-completions';
 
 
 export function startServer() {
@@ -87,23 +88,6 @@ const createFishLspBin = (): Command => {
 };
 
 export const commandBin = createFishLspBin()
-    // .storeOptionsAsProperties()
-  // .storeOptionsAsProperties()
-  // .configureHelp({helpWidth: 100})
-  // .addHelpText('beforeAll', asciiLogoString('large') + '\n');
-  // .addHelpText('afterAll', [
-  //     '________________________________________',
-  //     'authored by: https://github.com/ndonfris',
-  //     '     ' + asciiLogoString('single')
-  // ].join('\n'))
-  // .option('-v, --version', 'output the version number', PackageVersion)
-  // .action(args => {
-  //   if (args.version) {
-  //       console.log(PackageVersion);
-  //       process.exit(0);
-  //   }
-
-  // });
 
 // @TODO
 commandBin.command('start [TOGGLE...]')
@@ -201,16 +185,26 @@ commandBin.command('capabilities')
     process.exit(0);
   });
 
-commandBin.command('show-path')
+commandBin.command('info')
   .summary('show the path of fish-lsp')
   .option('--bin', 'show the path of the fish-lsp executable')
   .option('--repo', 'show the path of the entire fish-lsp repo')
+  .option('--more', 'show the build time of the fish-lsp executable')
   .action(args => {
-    let logPath = args.bin ? PathObj.bin : PathObj.repo;
-    let wpath = args.bin ? 'BINARY' : 'REPOSITORY';
-    console.log(wpath + ' ' + asciiLogoString('single'));
-    console.log(logPath);
+    if (args.bin || args.repo) {
+        let logPath = args.bin ? PathObj.bin : PathObj.repo;
+        let wpath = args.bin ? 'BINARY' : 'REPOSITORY';
+        console.log(wpath + ' ' + asciiLogoString('single'));
+        console.log(logPath);
+        process.exit(0);
+    }
+    console.log('Build Time: ', getBuildTimeString());
+    console.log('Version: ', PackageVersion);
+    console.log('Directory: ', PathObj.bin);
+    console.log('Repository: ', PathObj.repo);
     process.exit(0);
+    
+
   });
 
 // @TODO
@@ -312,26 +306,6 @@ commandBin.command('show-env')
     process.exit(0);
   });
 
-// add flags to disable options for subcommands
-// const toggleOptions: string[] = [ '--disable', '--enable' ];
-// connectableSubcommands.forEach(subcmd => {
-// subcmd.option('--disable [configKey...]', 'disable the subcommand', )
-// subcmd.option('--enable', 'enable the subcommand');
-/** **************************************************************** */
-/** **************************************************************** */
-/** **************************************************************** */
-// const connectableSubcommands: string[] = [ 'start', 'mini' ];
-// const completionString: string[] = []
-// commandBin.commands.forEach(subcmd => {
-//   if (connectableSubcommands.includes(subcmd.name())) {
-//     toggleOptionNames.forEach((opt) => {
-//       subcmd.option(opt)
-//         .description(opt.description)
-//         .action(opt.action);
-//     });
-//   }
-// });
-
 // @TODO
 commandBin.command('complete')
   .summary('generate completions file for ~/.config/fish/completions')
@@ -345,67 +319,26 @@ commandBin.command('complete')
       commandBin.commands.forEach(cmd => {
         console.log(cmd.name()+'\t'+cmd.summary());
       })
+      process.exit(0)
     } else if (args.toggles) {
       commandBin.commands.forEach(cmd => {
         console.log(cmd.name()+'\t'+cmd.summary());
         Object.entries(cmd.opts()).forEach(opt => {
           console.log('--'+opt[0])
         })
-
       })
+      process.exit(0)
     } else if (args.fish) {
       // firefox-dev https://github.com/fish-shell/fish-shell/blob/master/share/completions/cjxl.fish
-      const subcmdStrs = commandBin.commands.map(cmd => `${cmd.name()}\\t'${cmd.summary()}'`).join('\n');
-      console.log('# fish-lsp complete --fish > ~/.config/fish/completions/fish-lsp.fish');
-      console.log('complete -c fish-lsp -f', '\n');
-      console.log('complete -c fish-lsp -n "__fish_use_subcommand" -a "\n'+subcmdStrs+'\"');
-      // console.log('complete -c fish-lsp -n "__fish_seen_subcommand_from start" -a "show --enable --disable"');
-      console.log('\nset __fish_lsp_subcommands bare min start\n');
-      console.log('complete -c fish-lsp -n \'__fish_seen_subcommand_from $__fish_lsp_subcommands\' -a \"\n',
-        [
-          `--show\\t'dump output and stop server'`,
-          `--enable\\t'enable feature'`,
-          `--disable\\t'disable feature'\"`, 
-          ''
-        ].join('\n'));
-      console.log('complete -c fish-lsp -n "__fish_seen_subcommand_from startup-configuration" -a \"\n',
-        [
-          `--json\\t'show coc-settings.json output'`,
-          `--lua\\t'show neovim *.lua output'\"`, 
-          ''
-        ].join('\n'));
-      console.log('complete -c fish-lsp -n "__fish_seen_subcommand_from complete" -a \"\n',
-        [
-          `--names\\t'show the feature names of the completions'`,
-          `--toggles\\t'show the feature names of the completions'`,
-          `--fish\\t'show fish script'`,
-          `--features\\t'show features'\"`, 
-          ''
-        ].join('\n'));
-
-      console.log('complete -c fish-lsp -n "__fish_seen_subcommand_from show-path" -a \"\n',
-        [
-          `--bin\\t'show bin'`,
-          `--repo\\t'show repo'\"`, 
-          ''
-        ].join('\n'));
-
-      console.log('function _fish_lsp_get_features')
-      // console.log('    fish-lsp complete --features')
-      console.log('    printf %b\\n ', ConfigMap.configNames.join(' '))
-
-      console.log('end\n')
-
-      console.log('# COMPLETION: fish-lsp subcmd <option> [VALUE] (`fish-lsp start --enable ...`)')
-      console.log('complete -c fish-lsp -n \'__fish_seen_subcommand_from $__fish_lsp_subcommands\' -l enable -xa \'(_fish_lsp_get_features)\'')
-      console.log('complete -c fish-lsp -n \'__fish_seen_subcommand_from $__fish_lsp_subcommands\' -l disable -xa \'(_fish_lsp_get_features)\'')
-      console.log('\n# cp ~/.config/fish/completions/fish-lsp.fish ~/.config/fish/completions/fish-lsp.fish.bak');
-      console.log('# fish-lsp complete --fish > ~/.config/fish/completions/fish-lsp.fish');
+        console.log('fish-lsp completions');
+      
     } else if (args.features) {
       ConfigMap.configNames.forEach(name => {
         console.log(name);
       })
+      process.exit(0)
     }
+    console.log(buildFishLspCompletions(commandBin));
     process.exit(0);
   });
 
