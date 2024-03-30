@@ -7,8 +7,8 @@
 # pnpm run-script compile
 #
 
-yarn install               
-yarn run build-wasm 
+yarn install --no-lockfile
+yarn sh:build-wasm 
 yarn run compile    
 
 echo -e "\n\nLINKING fish-lsp"

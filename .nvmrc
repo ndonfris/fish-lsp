@@ -1,4 +1,3 @@
-#use-node-version=
 node-linker=true
 shamefully-flatten=false
 dedupe-direct-deps=true

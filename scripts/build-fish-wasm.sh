@@ -5,7 +5,7 @@ yarn add web-tree-sitter
 # IMPORTANT: use this fork of tree-sitter-fish until the PR is merged: 
 #      https://github.com/esdmr/tree-sitter-fish
 
-yarn add --save @esdmr/tree-sitter-fish
+yarn add @esdmr/tree-sitter-fish
 
 
 function in_place_echo_tree-sitter-fish_wasm -d 'Check if tree-sitter-fish.wasm is in node_modules/@esdmr/tree-sitter-fish'
@@ -14,7 +14,7 @@ function in_place_echo_tree-sitter-fish_wasm -d 'Check if tree-sitter-fish.wasm 
         begin
             yarn add --dev tree-sitter-cli https://github.com/ram02z/tree-sitter-fish 
             yarn add --save @esdmr/tree-sitter-fish
-        end 1&>> /dev/null
+        end # 1&>> /dev/null
         or return 1
     end
     if test -f ./node_modules/@esdmr/tree-sitter-fish/tree-sitter-fish.wasm
