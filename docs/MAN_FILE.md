@@ -28,17 +28,11 @@ Start the language server.
 `min` or `bare`
 Start the language server without any language-specific features.
 
-`show-path`
-Show the path to the language server binary.
+`info`
+show the build info of fish-lsp
 
-`contribute`
-Show information on how to contribute to the project.
-
-`report`
-Show information on how to report issues.
-
-`lsp-version`
-Show the version of the Language Server Protocol that the language server supports.
+`url`
+show a helpful url related to the fish-lsp
 
 `complete`
 Provide completions for the `fish-lsp`

@@ -21,7 +21,7 @@
   "typings": "./out/server.d.ts",
   "scripts": {
     "setup": "yarn run sh:build-wasm && yarn run sh:build-time",
-    "postinstall": "yarn run sh:build-wasm && yarn run compile && yarn link --force --global 'fish-lsp' && yarn run sh:complete && yarn run sh:build-time",
+    "postinstall": "yarn run sh:build-wasm && yarn run sh:build-time && yarn run compile && yarn run sh:relink && yarn run sh:complete",
     "sh:build-completions": "./scripts/build-completions.sh",
     "sh:build-time": "./scripts/build-time.sh",
     "sh:setup": "./scripts/setup.sh",
@@ -29,7 +29,7 @@
     "sh:relink": "./scripts/relink-locally.sh",
     "sh:complete": "./bin/fish-lsp complete > ~/.config/fish/completions/fish-lsp.fish",
     "pre:clean": "yarn exec rimraf lib *.tsbuildinfo out",
-    "clean": "yarn run pre:clean && tsc -b && echo '' > logs.txt",
+    "clean": "yarn run pre:clean && tsc -b && echo '' > logs.txt && mkdir -p out",
     "clean-nodemodules": "yarn rimraf out *.tsbuildinfo node_modules && yarn install",
     "clean:all": "yarn exec rimraf out *.tsbuildinfo node_modules tree-sitter-fish.wasm",
     "fresh": "yarn run clean:all && yarn install && yarn run setup",
@@ -39,7 +39,7 @@
     "refactor": "yarn knip",
     "build:wasm": "tree-sitter build node_modules/tree-sitter-fish/ -o tree-sitter-fish.wasm",
     "build-binaries": "npx pkg --targets node18-linux,node18-macos,node18-win ./out/cli.js -o build/fish-lsp",
-    "generate-man-page": "mkdir -p man && marked-man HELP.md > man/fish-lsp.1"
+    "generate-man-page": "mkdir -p ./docs/man && cat docs/MAN_FILE.md | npx marked-man --date \"$(date +'%e %B %+4Y')\" --version v1.0.01 --manual fish-lsp --section 1 --name fish-lsp > ./docs/man/fish-lsp.1"
   },
   "man": "./docs/man/fish-lsp.1",
   "enabledApiProposals": [
