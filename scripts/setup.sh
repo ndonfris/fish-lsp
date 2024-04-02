@@ -26,3 +26,7 @@
 #         '> fish-lsp show-path'
 #
 # fish-lsp show-path
+yarn run sh:build-wasm 
+and yarn run sh:build-logs
+and yarn run sh:build-time
+# && yarn run sh:build-completions
