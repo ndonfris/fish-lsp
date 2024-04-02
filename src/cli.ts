@@ -74,7 +74,10 @@ const createFishLspBin = (): Command => {
       '  > fish-lsp bare --enable hover',
       '',
       '  # Generate and store completions file:',
-      '  > fish-lsp complete --fish > ~/.config/fish/completions/fish-lsp.fish',
+      '  > fish-lsp complete > ~/.config/fish/completions/fish-lsp.fish',
+      '',
+      '  # Show debug info from build:',
+      '  > fish-lsp info',
       '',
     ].join('\n'));
 
@@ -315,34 +318,16 @@ commandBin.command('url')
   .option('--sources', 'show a list of helpful sources')
   .action(args => {
     const amount = Object.keys(args).length;
-    if (amount === 0) {
-      console.log('https://fish-lsp.dev');
-    }
 
-    if (args.repo || args.git) {
-      console.log('https://github.com/ndonfris/fish-lsp');
-    }
-    if (args.npm) {
-      console.log('https://npmjs.io/ndonfris/fish-lsp');
-    }
-    if (args.homepage) {
-      console.log('https://fish-lsp.dev');
-    }
-    if (args.contributions) {
-      console.log('https://github.com/ndonfris/fish-lsp/issues?q=');
-    }
-    if (args.wiki) {
-      console.log('https://github.com/ndonfris/fish-lsp/wiki');
-    }
-    if (args.issues || args.report) {
-      console.log('https://github.com/ndonfris/fish-lsp/issues?q=');
-    }
-    if (args.discussions) {
-      console.log('https://github.com/ndonfris/fish-lsp/discussions');
-    }
-    if (args.clientsRepo) {
-      console.log('https://github.com/ndonfris/fish-lsp-language-clients/');
-    }
+    if (amount === 0) console.log('https://fish-lsp.dev');
+    if (args.repo || args.git) console.log('https://github.com/ndonfris/fish-lsp');
+    if (args.npm) console.log('https://npmjs.io/ndonfris/fish-lsp');
+    if (args.homepage) console.log('https://fish-lsp.dev');
+    if (args.contributions) console.log('https://github.com/ndonfris/fish-lsp/issues?q=');
+    if (args.wiki) console.log('https://github.com/ndonfris/fish-lsp/wiki');
+    if (args.issues || args.report) console.log('https://github.com/ndonfris/fish-lsp/issues?q=');
+    if (args.discussions) console.log('https://github.com/ndonfris/fish-lsp/discussions');
+    if (args.clientsRepo) console.log('https://github.com/ndonfris/fish-lsp-language-clients/');
     if (args.sources) {
       console.log('https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#headerPart');
       console.log('https://github.com/microsoft/vscode-extension-samples/tree/main');
@@ -409,27 +394,19 @@ commandBin.command('complete')
   .description('copy completions output to fish-lsp completions file')
   .action(args => {
     if (args.names) {
-      commandBin.commands.forEach(cmd => {
-        console.log(cmd.name() + '\t' + cmd.summary());
-      });
+      commandBin.commands.forEach(cmd => console.log(cmd.name() + '\t' + cmd.summary()));
       process.exit(0);
     } else if (args.toggles) {
       commandBin.commands.forEach(cmd => {
         console.log(cmd.name() + '\t' + cmd.summary());
-        Object.entries(cmd.opts()).forEach(opt => {
-          console.log('--' + opt[0]);
-        });
+        Object.entries(cmd.opts()).forEach(opt => console.log('--' + opt[0]));
       });
       process.exit(0);
     } else if (args.fish) {
-      // firefox-dev https://github.com/fish-shell/fish-shell/blob/master/share/completions/cjxl.fish
-      // console.log('fish-lsp completions');
       console.log(buildFishLspCompletions(commandBin));
       process.exit(0);
     } else if (args.features) {
-      ConfigMap.configNames.forEach(name => {
-        console.log(name);
-      });
+      ConfigMap.configNames.forEach(name => console.log(name));
       process.exit(0);
     }
     console.log(buildFishLspCompletions(commandBin));

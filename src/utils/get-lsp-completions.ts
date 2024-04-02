@@ -2,6 +2,7 @@
 import { Command } from 'commander';
 import { ConfigMap } from './configuration-manager';
 
+// firefox-dev https://github.com/fish-shell/fish-shell/blob/master/share/completions/cjxl.fish
 export function buildFishLspCompletions(commandBin: Command) {
   const subcmdStrs = commandBin.commands.map(cmd => `${cmd.name()}\\t'${cmd.summary()}'`).join('\n');
   const output: string[] = [];
