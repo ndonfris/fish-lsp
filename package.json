@@ -38,6 +38,7 @@
     "compile": "yarn tsc -b",
     "watch": "yarn tsc -b -w",
     "refactor": "yarn knip",
+    "lint:verbose": "yarn run prelint && yarn eslint .",
     "lint": "yarn eslint . --fix && yarn compile",
     "prelint": "yarn clean:all && yarn install --ignore-scripts && yarn run sh:setup",
     "generate-man-page": "mkdir -p ./docs/man && cat docs/MAN_FILE.md | npx marked-man --date \"$(date +'%e %B %+4Y')\" --version v1.0.01 --manual fish-lsp --section 1 --name fish-lsp > ./docs/man/fish-lsp.1"

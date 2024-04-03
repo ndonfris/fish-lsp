@@ -9,9 +9,8 @@ info on the [wiki](https://github.com/ndonfris/fish-lsp/wiki).__
 ![fish-lsp --help](https://i.imgur.com/M6Zm3yW.png)
 <!-- ![helpmsg](https://i.imgur.com/Xypl9PN.png) -->
 
-![alt](https://player.vimeo.com/video/930061064?h=eaf4bb5804)
-
-<iframe src="https://player.vimeo.com/video/930061064?h=eaf4bb5804" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe>
+<!-- ![alt](https://player.vimeo.com/video/930061064?h=eaf4bb5804) -->
+<!-- <iframe src="https://player.vimeo.com/video/930061064?h=eaf4bb5804" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe> -->
 <!-- <iframe src="https://player.vimeo.com/video/930061064?h=eaf4bb5804" width="640" height="360" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe> -->
 <!-- <p><a href="https://vimeo.com/930061064">fish-lsp demo</a> from <a href="https://vimeo.com/user217605615">nick donfris</a> on <a href="https://vimeo.com">Vimeo</a>.</p> -->
 
@@ -37,10 +36,10 @@ info on the [wiki](https://github.com/ndonfris/fish-lsp/wiki).__
     >    ```
     >  * run install commands:
     >    ```fish
-    >    yarn # install dependencies
-    >    yarn setup # build the project using './script/*.sh' 
+    >    yarn install# install dependencies
     >    ```
-    </details> 
+    >
+    </details>
     <details>
     <summary>Using release binaries&nbsp;&nbsp;&nbsp;&nbsp;<a href="https://github.com/ndonfris/fish-lsp/releases"><img alt="Static Badge" src="https://img.shields.io/badge/release%20branch-black?style=plastic&logo=powershell&logoColor=%23ce3df3&labelColor=%23000&color=%23ce3df3" height="50%"></a></summary>
 
@@ -59,12 +58,8 @@ info on the [wiki](https://github.com/ndonfris/fish-lsp/wiki).__
     >        ```
     </details>
 
-1. Build and store completions:
-    ```fish
-    fish-lsp complete --fish > ~/.config/fish/completions/fish-lsp.fish
-    ```
 
-1. Provide the `fish-lsp` command to start the server from a language client 
+1. Provide the `fish-lsp` command to start the server from a language client
     ```json
     {
       "languageserver": {
