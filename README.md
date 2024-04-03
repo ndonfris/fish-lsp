@@ -6,8 +6,14 @@ Implements both standard & non-standard features from the [language-server-proto
 to be connected to a language-client ([neovim](https://neovim.io/),[coc.nvim](https://github.com/neoclide/coc.nvim), [vscode](https://code.visualstudio.com/), [etc.](https://github.com/ndonfris/fish-lsp-language-clients)). __More
 info on the [wiki](https://github.com/ndonfris/fish-lsp/wiki).__
 
-![fish-lsp --help](https://imgur.com/VvCVg24.png)
+![fish-lsp --help](https://i.imgur.com/M6Zm3yW.png)
 <!-- ![helpmsg](https://i.imgur.com/Xypl9PN.png) -->
+
+![alt](https://player.vimeo.com/video/930061064?h=eaf4bb5804)
+
+<iframe src="https://player.vimeo.com/video/930061064?h=eaf4bb5804" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe>
+<!-- <iframe src="https://player.vimeo.com/video/930061064?h=eaf4bb5804" width="640" height="360" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe> -->
+<!-- <p><a href="https://vimeo.com/930061064">fish-lsp demo</a> from <a href="https://vimeo.com/user217605615">nick donfris</a> on <a href="https://vimeo.com">Vimeo</a>.</p> -->
 
 ## Installation
 1. Create the `fish-lsp` command via one of the following methods

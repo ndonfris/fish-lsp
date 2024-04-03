@@ -16,7 +16,7 @@ module.exports = {
         'comma-dangle': ['error', 'always-multiline'],
         'comma-spacing': 'error',
         'computed-property-spacing': 'error',
-        curly: 'error',
+        curly: ['error', "multi-line"],
         'dot-notation': 'error',
         'eol-last': 'error',
         eqeqeq: 'error',
@@ -77,6 +77,7 @@ module.exports = {
                 quotes: 'off',
                 semi: 'off',
                 'no-console': 'off',
+                "curly": ["error", "multi-line"],
                 // TODO: Try to remove existing uses.
                 // https://github.com/typescript-eslint/typescript-eslint/blob/master/packages/eslint-plugin/docs/rules/explicit-function-return-type.md
                 '@typescript-eslint/explicit-function-return-type': [
@@ -130,6 +131,7 @@ module.exports = {
                 '@typescript-eslint/quotes': ['error', 'single', { avoidEscape: true, allowTemplateLiterals: false }],
                 '@typescript-eslint/restrict-plus-operands': 'error',
                 '@typescript-eslint/semi': ['warn', 'always'],
+                'nonblock-statement-body-position': ['warn', 'beside', { 'overrides': { 'while': 'below' } }],
                 '@typescript-eslint/no-unsafe-declaration-merging': 'off'
             },
         },

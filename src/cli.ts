@@ -318,7 +318,6 @@ commandBin.command('url')
   .option('--sources', 'show a list of helpful sources')
   .action(args => {
     const amount = Object.keys(args).length;
-
     if (amount === 0) console.log('https://fish-lsp.dev');
     if (args.repo || args.git) console.log('https://github.com/ndonfris/fish-lsp');
     if (args.npm) console.log('https://npmjs.io/ndonfris/fish-lsp');
