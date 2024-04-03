@@ -4,7 +4,7 @@
 - [INSTALLATION](#installation)
 - [FEATURES](#features)
 - [CONTRIBUTING](./docs/CONTRIBUTING.md)
-- [ROADMAP](./docs/CONTRIBUTING.md)
+- [ROADMAP](./docs/ROADMAP.md)
 - [WIKI](#viewing-the-wiki)
 - [SOURCES](#sources)
 
