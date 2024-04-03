@@ -1,0 +1,69 @@
+# ROADMAP
+
+- [ ] Refactor unused [files/data-structures](https://github.com/ndonfris/fish-lsp/blob/master/src)
+    - [ ] Minimize test suite for master branch's PR compatability
+    - [ ] Add proper linting for PR's
+- [ ] Use [config files](https://fishshell.com/docs/current/language.html#configuration-files) to read in the _users_ config.
+- [ ] Add `Diagnostics`
+- [ ] Add `CodeActions`
+    - [ ] Create `completions` file
+    - [ ] `Quickfix` diagnostic error
+    - [ ] Rename autoloaded _filename_ (for a fish `function`), that doesn't have a matching function name
+    - [ ] Prefer `command` prefix for possible _aliased_ shell commands.
+    - [ ] Move function in `~/.config/fish/config.fish` to it's own file,
+    `~/.config/fish/functions/<file>.fish` and call it inline. 
+    - [ ] `if` statement to `and`/`or` equivalent, [combiner](https://fishshell.com/docs/current/tutorial.html#combiners-and-or-not)
+- [ ] Add new [editor configurations](https://github.com/ndonfris/fish-lsp-language-clients/blob/master):
+    - [ ] [Monaco](https://github.com/TypeFox/monaco-languageclient) support _(Could be used to demo project on [fish-lsp.dev](https://fish-lsp.dev))_
+    - [ ] [helix](https://helix-editor.com/) support
+    - [ ] [vscode](https://code.visualstudio.com/) support
+- [ ] Release binary downloadable files, per machine OS
+- [ ] Fix [install scripts](https://github.com/ndonfris/fish-lsp/tree/master/scripts), to use [node specific commands](https://github.com/ndonfris/fish-lsp/tree/master/package.json) instead of relying on
+      __fish-shell__ commands. 
+- [ ] __(POTENTIALLY)__ Use [pnpm](https://pnpm.io) instead of [yarn](https://yarnpkg.com/)
+- [ ] Add configuration options via user specific _flags/env variables_:
+    - [ ] `env_variables` could be set via [zod](https://github.com/colinhacks/zod)
+    - [ ] `flags` could be set via _CLI args_
+- [ ] Add `CodeLens` support
+- [ ] Add `CommandExecutor` provider
+- [ ] Add linting `gh action` to master branch
+- [ ] Add function `SignatureHelp` provider.
+- [ ] `FormatOnType` provider (useful for small files)
+- [ ] Enable server via shebang's
+- [ ] Add `DocumentHighlight` provider
+- [ ] Extend symbol definitions recognized by the server:
+    - [ ] variables created by `fish_opt` && `argparse` commands 
+    - [ ] `alias` names
+    - [ ] `abbr` names
+    - [ ] include [theme variables](https://fishshell.com/docs/current/interactive.html#envvar-fish_color_normal)
+    - [ ] event handlers for `function _ --on-event `
+    - [ ] universal variables
+- [ ] Descriptions for array indexing: `echo $PATH[-1..2]`
+    - [ ] ensure array indexes are: `1 >= idx <= -1`
+- [ ] Supporting [fish feature flags](https://fishshell.com/docs/current/language.html#future-feature-flags) and handling proper syntax changes
+- [ ] `source` command use cases, for workspaces outside of default
+      configurations. (The `source` command, can be used similar to import in other
+      languages)
+- [ ] [status variable](https://fishshell.com/docs/current/language.html#the-status-variable) documentation 
+- [ ] Options to enable from client configuration
+    - [ ] `if_statement` must be silent: `if command -s` -> `if command -sq`
+    - [ ] prefer `command _` prefix for ambiguous commands
+    - [ ] default case for  `switch_statement`
+    - [ ] `test` _number/string_ flags from condition argument's
+    - [ ] function requires returning a status number
+    - [ ] `fish_add_path` instead of `set -gx PATH _`
+    - [ ] logger location 
+    - [ ] private functions need underscore prefix
+    - [ ] prefer `universal` scope, or prefer `global` scope
+    - [ ] prefer specific `redirect` to `/dev/null`
+    - [ ] hover documentation fallback: [tldr](https://tldr.sh/), [cht.sh](https://cht.sh/), _..._ 
+    - [ ] format specific options
+    - [ ] remove showing `lsp kind` in completions list
+- [ ] Extend documentation provided via [wiki](https://github.com/ndonfris/fish-lsp/wiki)
+- [ ] Add contributors to [README.md](../README.md)
+- [x] Add [fish-lsp.dev](https://fish-lsp.dev) website
+- [ ] Add improved `gif` file, showcasing lsp's capabilities to README.md
+- [ ] include `tree-sitter-fish.wasm` in downloaded project
+    - [x] build from [fork: @esdmr/tree-sitter-fish](https://npmjs.com/@esdmr/tree-sitter-fish)
+    - [ ] universal `*.wasm` file
+- [x] Include _refactoring/tree-shaking_ help to scripts: `yarn refactor`

@@ -1,0 +1,91 @@
+.TH "FISH\-LSP" "1" "April 2024" "v1.0.01" "fish-lsp"
+.SH "NAME"
+\fBfish-lsp\fR
+.TS
+tab(|) nowarn;
+cx.
+T{
+.P
+fish\-lsp \- A language server for the fish shell
+
+T}
+.TE
+.SH SYNOPSIS
+.P
+\fBfish\-lsp\fP [\fISUBCOMMAND\fR|\fIOPTION\fR] [\fIARGUMENT\fR]
+.SH DESCRIPTION
+.P
+\fBfish\-lsp\fP is a language server for the fish shell\. It provides IDE\-like features for fish shell scripts, such as syntax checking, linting, and auto\-completion\.
+.P
+It requires a client that supports the Language Server Protocol (LSP)\. For example, you can use \fBcoc\.nvim\fP or \fBnvim\-lsp\fP\|\.
+.SS OPTIONS
+.P
+\fB\-h\fP or  \fB\-\-help\fP
+.br
+Show help message and exit\.
+.P
+\fB\-v\fP or \fB\-\-version\fP
+.br
+Show version information and exit\.
+.SS SUBCOMMANDS
+.P
+\fBstart\fP
+.br
+Start the language server\.
+.P
+\fBmin\fP or \fBbare\fP
+.br
+Start the language server without any language\-specific features\.
+.P
+\fBinfo\fP
+.br
+show the build info of fish\-lsp
+.P
+\fBurl\fP
+.br
+show a helpful url related to the fish\-lsp
+.P
+\fBcomplete\fP
+.br
+Provide completions for the \fBfish\-lsp\fP
+.P
+\fBhelp\fP
+.br
+Show help message and exit\.
+.SH EXAMPLES
+.P
+Start the \fBfish\-lsp\fP language server, with the default configuration:
+.RS 2
+.nf
+> fish\-lsp start
+.fi
+.RE
+.P
+Start the \fBfish\-lsp\fP language server, with the bare minimum configuration:
+.RS 2
+.nf
+> fish\-lsp bare \-\-enable hover
+.fi
+.RE
+.P
+Show the path to the \fBfish\-lsp\fP language server binary:
+.RS 2
+.nf
+> fish\-lsp complete > ~/\.config/fish/completions/fish\-lsp\.fish
+.fi
+.RE
+.SH SEE ALSO
+.P
+\fBwebsite:\fR \fIhttps://fish-lsp.dev/\fR
+.P
+\fBrepo:\fR \fIhttps://github.com/ndonfris/fish-lsp\fR
+.P
+\fBfish website:\fR \fIhttps://fishshell.com/\fR
+.SH AUTHOR
+
+.RS 1
+.IP \(bu 2
+Nick Donfris
+
+.RE
+

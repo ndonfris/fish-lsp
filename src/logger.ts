@@ -1,14 +1,15 @@
 import {
-    CompletionItem,
-    Connection,
-    DocumentSymbol,
-    Hover,
-    Position,
-    RemoteConsole,
-    SymbolKind,
-    Range,
-    ExecuteCommandParams,
-} from "vscode-languageserver";
+  CompletionItem,
+  Connection,
+  DocumentSymbol,
+  Hover,
+  Position,
+  RemoteConsole,
+  SymbolKind,
+  Range,
+  ExecuteCommandParams,
+} from 'vscode-languageserver';
+import * as console from 'node:console';
 //import {TextDocument} from 'vscode-languageserver-textdocument';
 //import {URI} from 'vscode-uri';
 //import { SyntaxNode } from "web-tree-sitter";
@@ -35,38 +36,37 @@ import {
 //    debugLogger?: boolean;
 //}
 
-
 //export class Logger {
-    //private static instance : Logger;
+//private static instance : Logger;
 
-    //private LOGFILE: string = resolve('/home/ndonfris/repos/fish-lang-server/logs.txt')
+//private LOGFILE: string = resolve('/home/ndonfris/repos/fish-lang-server/logs.txt')
 
-
-
-import fs from "fs";
-import { resolve } from "path";
+import fs from 'fs';
+import { resolve } from 'path';
 
 export interface IConsole {
-    error(...args: any[]): void;
-    warn(...args: any[]): void;
-    info(...args: any[]): void;
-    log(...args: any[]): void;
+  error(...args: any[]): void;
+  warn(...args: any[]): void;
+  info(...args: any[]): void;
+  log(...args: any[]): void;
 }
-type ConsoleMethod = "error" | "warn" | "info" | "log";
-type CConsole = Console
+type ConsoleMethod = 'error' | 'warn' | 'info' | 'log';
+type CConsole = Console;
 
 export class Logger {
   protected _console: IConsole;
   protected logFilePath: string;
 
-  constructor(logFilePath: string = "", clear: boolean = true, _console: IConsole = require('console')) {
+  constructor(logFilePath: string = '', clear: boolean = true, _console: IConsole = console) {
     this.logFilePath = logFilePath;
     this._console = _console;
-    if (clear && this.hasLogFile()) this.clearLogFile();
+    if (clear && this.hasLogFile()) {
+      this.clearLogFile();
+    }
   }
 
   hasLogFile(): boolean {
-    return this.logFilePath !== "";
+    return this.logFilePath !== '';
   }
 
   private clearLogFile(): void {
@@ -78,27 +78,30 @@ export class Logger {
   }
 
   private logToFile(message: string): void {
-    fs.appendFileSync(this.logFilePath, message + "\n", "utf-8");
+    fs.appendFileSync(this.logFilePath, message + '\n', 'utf-8');
   }
 
   log(...args: any[]): void {
     const formattedMessage = args.map((arg) => {
-        if (arg instanceof Error) {
-          return arg.stack || arg.message;
-        }
-        if (typeof arg === "object") {
-          return JSON.stringify(arg, null, 2);
-        }
-        return String(arg);
-      }).join("\n");
+      if (arg instanceof Error) {
+        return arg.stack || arg.message;
+      }
+      if (typeof arg === 'object') {
+        return JSON.stringify(arg, null, 2);
+      }
+      return String(arg);
+    }).join('\n');
 
     this._console.log(formattedMessage);
-    if (this.hasLogFile()) this.logToFile(formattedMessage);
+    if (this.hasLogFile()) {
+      this.logToFile(formattedMessage);
+    }
   }
 
   logPropertiesForEachObject<T extends Record<string, any>>(objs: T[], ...keys: (keyof T)[]): void {
     objs.forEach((obj, i) => {
-      const selectedKeys = keys.filter(key => obj.hasOwnProperty(key));
+      // const selectedKeys = keys.filter(key => obj.hasOwnProperty(key));
+      const selectedKeys = keys.filter(key => Object.prototype.hasOwnProperty.bind(obj, key));
       const selectedObj = selectedKeys.reduce((acc, key) => {
         acc[key] = obj[key];
         return acc;
@@ -112,11 +115,13 @@ export class Logger {
   }
 
   showLogfileText(): void {
-    if (!this.hasLogFile()) this._console.log("No log file specified")
-    this._console.log("--- Log file name ---");
+    if (!this.hasLogFile()) {
+      this._console.log('No log file specified');
+    }
+    this._console.log('--- Log file name ---');
     this._console.log(this.logFilePath);
-    this._console.log("--- Log file text ---");
-    this._console.log(fs.readFileSync(this.logFilePath, "utf-8"));
+    this._console.log('--- Log file text ---');
+    this._console.log(fs.readFileSync(this.logFilePath, 'utf-8'));
   }
 }
 
@@ -125,7 +130,7 @@ export class JestLogger extends Logger {
   private _globalConsole = global.console;
 
   constructor() {
-    super("", false, require('console'));
+    super('', false, console);
   }
   beforeEachTest(): void {
     global.console = this._globalConsole;
@@ -136,12 +141,12 @@ export class JestLogger extends Logger {
 }
 
 export const ServerLogsPath = resolve(
-    __dirname,
-    '..',
-    'logs.txt'
-) 
+  __dirname,
+  '..',
+  'logs.txt',
+);
 
-export function createServerLogger(logFilePath: string = "", clear: boolean = true): Logger {
+export function createServerLogger(logFilePath: string = '', clear: boolean = true): Logger {
   return new Logger(logFilePath, clear);
 }
 

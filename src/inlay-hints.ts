@@ -14,38 +14,40 @@ export async function inlayHintsProvider(
   range: Range,
   analyzer: Analyzer,
 ): Promise<FishInlayHint[]> {
-  const result: FishInlayHint[] = []
-  const nodes = analyzer.getNodes(document)
+  const result: FishInlayHint[] = [];
+  const nodes = analyzer.getNodes(document);
 
-  const insideRange = (node: SyntaxNode) => containsRange(range, getRange(node))
-  const isPrintableCommand = (node: SyntaxNode) => node.text.startsWith('printf') || node.text.startsWith('echo') /* change to printflsp */
-  const isStringCommand = (node: SyntaxNode) => node.text.startsWith('string')
+  const insideRange = (node: SyntaxNode) => containsRange(range, getRange(node));
+  const isPrintableCommand = (node: SyntaxNode) => node.text.startsWith('printf') || node.text.startsWith('echo'); /* change to printflsp */
+  const isStringCommand = (node: SyntaxNode) => node.text.startsWith('string');
   const isInlayHint = (node: SyntaxNode) => {
     if (isPipe(node)) {
-      const first = node.firstNamedChild
-      const second = first?.nextNamedSibling
-      if (!first || !second) return false
+      const first = node.firstNamedChild;
+      const second = first?.nextNamedSibling;
+      if (!first || !second) {
+        return false;
+      }
       return (
         isCommand(first) &&
           isCommand(second) &&
           isPrintableCommand(node) &&
-          second.firstChild?.text === "string"
+          second.firstChild?.text === 'string'
       );
     }
-  }
+  };
 
   const hintNodes: SyntaxNode[] = nodes
-  .filter(insideRange)
-  .filter(isInlayHint)
+    .filter(insideRange)
+    .filter(isInlayHint);
   await Promise.all(hintNodes.map(async (node) => {
-    const text = node.text
-    const range = getRange(node).end
-    // try script escape in shell? 
+    const text = node.text;
+    const range = getRange(node).end;
+    // try script escape in shell?
     // set privs to not have write access
     // read lines from file to store variables?
     //const out = await execCmd(`fish -i --command "${text.toString().trim()} | string escape --style=script --no-quoted"`)
-    const out = await execPrintLsp(text)
-    const value = !out || out.startsWith('Error') ? 'Error' : out
+    const out = await execPrintLsp(text);
+    const value = !out || out.startsWith('Error') ? 'Error' : out;
     //const value = out.join().startsWith('Error') ? `{${out.join()}}`;
     const toolTip: MarkupContent = {
       kind: 'markdown',
@@ -56,27 +58,27 @@ export async function inlayHintsProvider(
         '___',
         '```text',
         out,
-        '```'
-      ].join('\n')
-    }
-    const item = FishInlayHint.create(value, range, toolTip)
+        '```',
+      ].join('\n'),
+    };
+    const item = FishInlayHint.create(value, range, toolTip);
     result.unshift(item);
-  }))
-  return result
+  }));
+  return result;
 }
 
 export interface FishInlayHint extends InlayHint {
-  label: string
-  position: { line: number, character: number }
-  paddingLeft: boolean
-  tooltip: MarkupContent
+  label: string;
+  position: { line: number; character: number; };
+  paddingLeft: boolean;
+  tooltip: MarkupContent;
 }
 
 export namespace FishInlayHint {
 
   export function create(
     label: string,
-    position: { line: number, character: number },
+    position: { line: number; character: number; },
     toolTip: MarkupContent,
   ): FishInlayHint {
     return {
@@ -84,10 +86,10 @@ export namespace FishInlayHint {
       position,
       paddingLeft: true,
       tooltip: toolTip,
-    } as FishInlayHint
+    } as FishInlayHint;
   }
 }
- 
+
 //import { DocumentUri, InlayHint, InlayHintKind, Range, } from 'vscode-languageserver';
 //import { LspDocuments } from '../document';
 //import { ConfigManager } from '../configManager';
