@@ -1,61 +1,89 @@
 # fish-lsp
 
-A __feature-rich__, __extensible__, and __blazingly fast__ [language-server](https://github.com/microsoft/vscode-languageserver-node/tree/main/server/src/common) for the [fish-shell](https://fishshell.com/). 
-Uses [tree-sitter](https://tree-sitter.github.io/tree-sitter/), [tree-sitter-fish](https://github.com/ram02z/tree-sitter-fish), [yarn](https://yarnpkg.com/) and [typescript](https://www.typescriptlang.org/). 
-Implements both standard & non-standard features from the [language-server-protocol](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#headerPart), 
-to be connected to a language-client ([neovim](https://neovim.io/),[coc.nvim](https://github.com/neoclide/coc.nvim), [vscode](https://code.visualstudio.com/), [etc.](https://github.com/ndonfris/fish-lsp-language-clients)). __More
-info on the [wiki](https://github.com/ndonfris/fish-lsp/wiki).__
+- [SUMMARY](#summary)
+- [INSTALLATION](#installation)
+- [FEATURES](#features)
+- [CONTRIBUTING](./docs/CONTRIBUTING.md)
+- [ROADMAP](./docs/CONTRIBUTING.md)
+- [WIKI](#viewing-the-wiki)
+- [SOURCES](#sources)
+
+## Summary
+
+A __feature-rich__, __extensible__, and __blazingly fast__ [language-server](https://github.com/microsoft/vscode-languageserver-node/tree/main/server/src/common) for the [fish-shell](https://fishshell.com/).
+Uses [tree-sitter](https://tree-sitter.github.io/tree-sitter/), [tree-sitter-fish](https://github.com/ram02z/tree-sitter-fish), [yarn](https://yarnpkg.com/) and [typescript](https://www.typescriptlang.org/).
+Implements both standard & non-standard features from the [language-server-protocol](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#headerPart), to be connected to a language-client ([neovim](https://neovim.io/),[coc.nvim](https://github.com/neoclide/coc.nvim), [vscode](https://code.visualstudio.com/), [etc.](https://github.com/ndonfris/fish-lsp-language-clients)).
+__More info on the [wiki](https://github.com/ndonfris/fish-lsp/wiki).__
 
 ![fish-lsp --help](https://i.imgur.com/M6Zm3yW.png)
-<!-- ![helpmsg](https://i.imgur.com/Xypl9PN.png) -->
 
+<!-- ![helpmsg](https://i.imgur.com/Xypl9PN.png) -->
 <!-- ![alt](https://player.vimeo.com/video/930061064?h=eaf4bb5804) -->
 <!-- <iframe src="https://player.vimeo.com/video/930061064?h=eaf4bb5804" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe> -->
 <!-- <iframe src="https://player.vimeo.com/video/930061064?h=eaf4bb5804" width="640" height="360" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe> -->
 <!-- <p><a href="https://vimeo.com/930061064">fish-lsp demo</a> from <a href="https://vimeo.com/user217605615">nick donfris</a> on <a href="https://vimeo.com">Vimeo</a>.</p> -->
 
 ## Installation
-1. Create the `fish-lsp` command via one of the following methods
+
+1. Create the `fish-lsp` command via one of the following methods ___(building
+   from source is recommended)___
+
     <details>
     <!-- <summary>Using npm <b><i><ins>(UNTESTED, install from source is recommended)</ins></i></b>&nbsp;&nbsp;&nbsp;&nbsp;<img alt="Static Badge" src="https://img.shields.io/badge/recommended-white?style=plastic&logo=npm&logoColor=%235f5fd7&labelColor=%23000&color=%235f5fd7" wight="50%" /> -->
-    <summary>Using npm <b><i><ins>(UNTESTED, install from source)</ins></i></b>&nbsp;&nbsp;&nbsp;&nbsp;<img alt="Static Badge" src="https://img.shields.io/badge/NOT_recommended-white?style=plastic&logo=npm&logoColor=%235f5fd7&labelColor=%23000&color=%235f5fd7" wight="50%" />
+    <summary>Using npm <b><i><ins>(UNTESTED)</ins></i></b>&nbsp;&nbsp;&nbsp;&nbsp;<img alt="Static Badge" src="https://img.shields.io/badge/NOT_recommended-white?style=plastic&logo=npm&logoColor=%235f5fd7&labelColor=%23000&color=%235f5fd7" />
     </summary>
 
-    >    ```fish
-    >    npm i -g fish-lsp
-    >    ```
+    ```fish
+    npm i -g fish-lsp
+    ```
+
     </details>
     <details>
-    <summary>Build from source&nbsp;&nbsp;&nbsp;&nbsp;<img alt="Static Badge" src="https://img.shields.io/badge/for_contributing-blue?style=plastic&logo=devdotto&labelColor=grey" height="50%">
+    <summary>Build from source&nbsp;&nbsp;&nbsp;&nbsp;<img alt="Static Badge" src="https://img.shields.io/badge/for_contributing-blue?style=plastic&logo=devdotto&labelColor=grey" >
     </summary>
 
-    >  * clone the repository
-    >  * enter the directory
-    >    ```fish
-    >    cd ./fish-lsp
-    >    ```
-    >  * run install commands:
-    >    ```fish
-    >    yarn install# install dependencies
-    >    ```
-    >
+    - clone the repository
+
+        ```fish
+        git clone https://github.com/ndonfris/fish-lsp.git
+        ```
+
+    - enter the directory
+
+         ```fish
+         cd ./fish-lsp
+         ```
+
+    - run the install commands:
+
+         ```fish
+         yarn install # install dependencies
+         ```
+
     </details>
     <details>
-    <summary>Using release binaries&nbsp;&nbsp;&nbsp;&nbsp;<a href="https://github.com/ndonfris/fish-lsp/releases"><img alt="Static Badge" src="https://img.shields.io/badge/release%20branch-black?style=plastic&logo=powershell&logoColor=%23ce3df3&labelColor=%23000&color=%23ce3df3" height="50%"></a></summary>
+    <summary>Using release binaries <b><i><ins>(UNTESTED)</ins></i></b>&nbsp;&nbsp;&nbsp;&nbsp;<a href="https://github.com/ndonfris/fish-lsp/releases"><img alt="Static Badge" src="https://img.shields.io/badge/release%20branch-black?style=plastic&logo=powershell&logoColor=%23ce3df3&labelColor=%23000&color=%23ce3df3" ></a></summary>
 
-    > ***Currently is not recommended for use as the release binaries are error
-    > prone and not fully tested.***
-    >    * navigate to the [releases](https://github.com/ndonfris/fish-lsp/master/releases), and download the file for your OS
-    >    * Rename file to fish-lsp (make sure the binary is executable as well)
-    >        ```fish
-    >        # cd to downloaded location 
-    >        mv fish-lsp-linux fish-lsp 
-    >        chmod +x ./fish-lsp
-    >        ```
-    >    * move the binary to your __\$PATH__: 
-    >        ```fish
-    >        mv ./fish-lsp ~/.local/bin/fish-lsp
-    >        ```
+    > ___Currently is not recommended for use as the release binaries are error
+    > prone and not fully tested. Future `tsup` builds, should provide stability
+    > across different installation enviornments.___
+
+    - navigate to the [releases](https://github.com/ndonfris/fish-lsp/master/releases), and download the file for your OS
+
+    - Rename file to fish-lsp (make sure the binary is executable as well)
+
+        ```fish
+        # cd to downloaded location 
+        mv fish-lsp-linux fish-lsp 
+        chmod +x ./fish-lsp
+        ```
+
+    - move the binary to your __\$PATH__:
+
+        ```fish
+        mv ./fish-lsp ~/.local/bin/fish-lsp
+        ```
+
     </details>
 
 
@@ -106,9 +134,8 @@ info on the [wiki](https://github.com/ndonfris/fish-lsp/wiki).__
 | __Client Tree__ | Shows the defined scope as a Tree | ✅ |
 | __Indexing__ | Indexes all commands, variables, and functions | ✅ |
 
-## Viewing the [Wiki](https://github.com/ndonfris/fish-lsp/wiki)
-Contains more information on the project, including the future roadmap, and
-contribution guidelines. Project is still in it's early releases, so the wiki
+## Viewing the Wiki
+The [wiki](https://github.com/ndonfris/fish-lsp/wiki)  Contains more information on the project. Project is still in it's early releases, so the wiki
 information is subject to change. Contains ['minimal' client submodules](https://github.com/ndonfris/fish-lsp-language-clients),
 useful snippets, and bleeding edge feature documentation.
 
