@@ -1,5 +1,6 @@
 #!/usr/bin/env fish
 
-
-fish-lsp complete > ~/.config/fish/completions/fish-lsp.fish
-
+if not test -d $HOME/.config/fish/completions
+  mkdir -p $HOME/.config/fish/completions 
+end
+fish-lsp complete > $HOME/.config/fish/completions/fish-lsp.fish
