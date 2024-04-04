@@ -1,5 +1,5 @@
-import { Command, ApplyWorkspaceEditParams, CodeActionParams, DocumentFormattingParams, DocumentRangeFormattingParams, FormattingOptions, HoverParams, Position, RenameParams, RequestType, TextDocumentIdentifier, TextDocumentPositionParams, WorkspaceEdit, Range, CodeActionContext, _Connection, _, ServerCapabilities } from 'vscode-languageserver';
-import { ExecuteCommandParams, ServerRequestHandler } from 'vscode-languageserver';
+import { Command, ApplyWorkspaceEditParams, CodeActionParams, DocumentFormattingParams, DocumentRangeFormattingParams, FormattingOptions, HoverParams, Position, RenameParams, RequestType, TextDocumentIdentifier, TextDocumentPositionParams, WorkspaceEdit, Range, CodeActionContext, _Connection, _ } from 'vscode-languageserver';
+// import { ExecuteCommandParams, ServerRequestHandler } from 'vscode-languageserver';
 
 export const Commands = {
   APPLY_REFACTORING: 'applyRefactoring',
@@ -77,7 +77,7 @@ export namespace FishRenameRequest {
 export namespace CommandParams {
 
   export function isRenameParams(paramArgs: unknown | RenameParams): paramArgs is RenameParams {
-    const { newName, position, textDocument, workDoneToken } = paramArgs as RenameParams;
+    const { newName, position, textDocument } = paramArgs as RenameParams;
     return typeof newName === 'string' && Position.is(position) && TextDocumentIdentifier.is(textDocument.uri);
   }
 

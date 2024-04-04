@@ -7,7 +7,7 @@ function _flsp_get_command_without_manpage -d 'fallback for a command passed in 
     if test -n ($completions_docs)
         echo -e "\t$argv Completions"
         echo $completions_docs
-    else if test -n ( echo ($argv --help 2>> /dev/null ) )
+    else if test -n "$($argv --help 2>> /dev/null )"
         echo "HISTORY FOR $argv"
         history -p $argv -n 10 --show-time
     else

@@ -10,12 +10,8 @@ import { isCommand, isCommandName } from './utils/node-types';
 import { findEnclosingScope, findFirstParent, getNodeAtRange, getRange } from './utils/tree-sitter';
 
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 //  GOAL:
-//       • remove SymbolTree dependency (in './symbolTree')
-//         use FishDocumentSymbol instead
 //       • remove or shrink documentationCache to compute these values on the fly
-// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 export async function handleHover(
@@ -25,40 +21,35 @@ export async function handleHover(
   current: Parser.SyntaxNode,
   cache: DocumentationCache,
 ): Promise<LSP.Hover | null> {
-  if (current.text.startsWith('-')) {
-    return await getHoverForFlag(current);
-  }
+  if (current.text.startsWith('-')) return await getHoverForFlag(current);
+
   const local = analyzer.getDefinition(document, position);
-  if (local) {
-    return {
-      contents: {
-        kind: MarkupKind.Markdown,
-        value: local.detail!,
-      },
-      range: local.selectionRange,
-    };
-  }
+  if (local) return helperHoverBuilder(MarkupKind.Markdown, local.detail!, local.selectionRange)
+
   if (cache.find(current.text) !== undefined) {
     await cache.resolve(current.text);
     const item = cache.getItem(current.text);
     if (item?.docs) {
-      return {
-        contents: {
-          kind: MarkupKind.Markdown,
-          value: item.docs.toString(),
-        },
-      };
+      return helperHoverBuilder(MarkupKind.Markdown, item.docs.toString())
     }
   }
+
   const commandString = await collectCommandString(current);
   return await documentationHoverProvider(commandString);
 }
 
+/**
+ * Here is where we handle edge case hovering on any of the following examples:
+ *
+ *      find -type d -name abc                # old unix style
+ *      ls --long --all                       # long flags
+ *      ls -la                                # short flags (combined) 
+ *
+ */
 export async function getHoverForFlag(current: Parser.SyntaxNode): Promise<Hover | null> {
   const commandNode = findFirstParent(current, n => isCommand(n));
-  if (!commandNode) {
-    return null;
-  }
+  if (!commandNode) return null;
+
   let commandStr = [commandNode.child(0)?.text || ''];
   const flags: string[] = [];
   let hasFlags = false;
@@ -90,6 +81,7 @@ function hasOldUnixStyleFlags(allFlags: string[]) {
       if (flag.length > 2) {
         return true;
       }
+      continue;
     }
   }
   return false;
@@ -122,18 +114,35 @@ async function appendToCommand(commands: string[], subCommand: string): Promise<
 
 export async function collectCommandString(current: Parser.SyntaxNode): Promise<string> {
   const commandNode = findFirstParent(current, n => isCommand(n));
-  if (!commandNode) {
-    return '';
-  }
+
+  if (!commandNode) return '';
+
   const commandNodeText = commandNode.child(0)?.text;
   const subCommandName = commandNode.child(1)?.text;
-  if (subCommandName?.startsWith('-')) {
-    return commandNodeText || '';
-  }
+
+  if (subCommandName?.startsWith('-')) return commandNodeText || '';
+
   const commandText = [commandNodeText, subCommandName].join('-');
   const docs = await execCommandDocs(commandText);
-  if (docs) {
-    return commandText;
-  }
+
+  if (docs) return commandText;
+
   return commandNodeText || '';
 }
+
+/**
+ * @param kind - MarkupKind.Markdown | MarkupKind.plaintext
+ * @param value - the string to display in the hover popup
+ * @param range - An optional range inside the text document that is used to visualize the hover, e.g. by changing the background color.
+ * @returns the LSP.Hover popup to display via the client
+ */
+function helperHoverBuilder(kind: MarkupKind, value: string, range?: LSP.Range): LSP.Hover {
+  return {
+    contents: {
+      kind,
+      value
+    },
+    range
+  };
+}
+

@@ -7,7 +7,6 @@ import { findParentCommand } from './utils/node-types';
 import { getChildNodes, getNodeText } from './utils/tree-sitter';
 
 //////// @TODO: clean up this file
-
 export type markdownFiletypes = 'fish' | 'man';
 
 export function enrichToMarkdown(doc: string): MarkupContent {
@@ -143,12 +142,10 @@ export function documentationHoverCommandArg(root: SyntaxNode, cmp: CompletionAr
 
 export function forwardSubCommandCollect(rootNode: SyntaxNode): string[] {
   const stringToComplete : string[] = [];
+  const nonSubCommandStrings = ['-', '$', '\\', "'"]
   for (const curr of rootNode.children) {
-    if (curr.text.startsWith('-') && curr.text.startsWith('$')) {
-      break;
-    } else {
-      stringToComplete.push(curr.text);
-    }
+    if (nonSubCommandStrings.filter(startChar => curr.text.startsWith(startChar))) break;
+    stringToComplete.push(curr.text);
   }
   return stringToComplete;
 }
@@ -182,16 +179,6 @@ export function collectCompletionOptions(rootNode: SyntaxNode) {
   const flagsToFind = forwardArgCommandCollect(rootNode);
 }
 
-/*export async function hoverForCommandArgument(node: SyntaxNode): Promise<Hover | null> {*/
-/*const text = getNodeText(node) */
-/*if (text.startsWith('-')) {*/
-/*const parent = findParentCommand(node);*/
-/*const hoverCompletion = new HoverFromCompletion(parent)*/
-/*return await hoverCompletion.generate()*/
-/*}*/
-/*return null*/
-/*}*/
-
 function getFlagString(arr: string[]): string {
   return '__' + arr[0] + '__' + ' ' + arr[1] + '\n';
 }
@@ -224,9 +211,7 @@ export class HoverFromCompletion {
      */
   private async checkForSubCommands() {
     const spaceCmps = await execCompleteSpace(this.commandString);
-    if (spaceCmps.length === 0) {
-      return this.commandString;
-    }
+    if (spaceCmps.length === 0) return this.commandString;
     const cmdArr = this.commandNode.text.split(' ').slice(1);
     let i = 0;
     while (i < cmdArr.length) {
@@ -243,14 +228,11 @@ export class HoverFromCompletion {
 
   private isSubCommand() {
     const currentNodeText = this.currentNode.text;
-    if (currentNodeText.startsWith('-') || currentNodeText.startsWith("'") || currentNodeText.startsWith('"')) {
+    if (currentNodeText.startsWith('-') || currentNodeText.startsWith("'") || currentNodeText.startsWith('"') || currentNodeText.startsWith("\\") || currentNodeText.startsWith('$')) {
       return false;
     }
     const cmdArr = this.commandString.split(' ');
-    if (cmdArr.length > 1) {
-      return cmdArr.includes(currentNodeText);
-    }
-    return false;
+    return cmdArr.length > 1 ? cmdArr.includes(currentNodeText):  false;
   }
 
   /**
@@ -307,9 +289,7 @@ export class HoverFromCompletion {
 
   public findCompletion(flag: string) {
     for (const flagArr of this.completions) {
-      if (flagArr[0] === flag) {
-        return flagArr;
-      }
+      if (flagArr[0] === flag) return flagArr;
     }
     return null;
   }
@@ -328,14 +308,10 @@ export class HoverFromCompletion {
     this.completions = await this.buildCompletions();
     this.oldOptions = this.hasOldStyleFlags();
     const cmd = await this.checkForHoverDoc();
-    if (!this.oldOptions) {
-      this.flagsGiven = this.reparseFlags();
-    }
+    if (!this.oldOptions) this.flagsGiven = this.reparseFlags();
     for (const flag of this.flagsGiven) {
       const found = this.findCompletion(flag);
-      if (found) {
-        text += getFlagString(found);
-      }
+      if (found) text += getFlagString(found);
     }
     return {
       contents: enrichToMarkdown([
@@ -354,10 +330,7 @@ export class HoverFromCompletion {
     this.commandString = await this.checkForSubCommands();
     if (this.isSubCommand()) {
       const output = await documentationHoverProvider(this.commandString);
-      //console.log(output)
-      if (output) {
-        return output;
-      }
+      if (output) return output;
     } else {
       return await this.generateForFlags();
     }
