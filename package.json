@@ -52,6 +52,7 @@
   "husky": {
     "hooks": {
       "pre-commit": "yarn run clean",
+      "pre-push": "yarn run lint",
       "post-merge": "yarn"
     }
   },
