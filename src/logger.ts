@@ -71,7 +71,8 @@ export class Logger {
 
   private clearLogFile(): void {
     try {
-      fs.truncateSync(this.logFilePath, 0);
+      // fs.truncateSync(this.logFilePath, 0);
+      fs.writeFileSync(this.logFilePath, '')
     } catch (error) {
       this._console.error(`Error clearing log file: ${error}`);
     }
