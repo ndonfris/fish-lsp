@@ -1,44 +1,15 @@
-import {
-  CompletionItem,
-  Connection,
-  DocumentSymbol,
-  Hover,
-  Position,
-  RemoteConsole,
-  SymbolKind,
-  Range,
-  ExecuteCommandParams,
-} from 'vscode-languageserver';
+// import {
+//   CompletionItem,
+//   Connection,
+//   DocumentSymbol,
+//   Hover,
+//   Position,
+//   RemoteConsole,
+//   SymbolKind,
+//   Range,
+//   ExecuteCommandParams,
+// } from 'vscode-languageserver';
 import * as console from 'node:console';
-//import {TextDocument} from 'vscode-languageserver-textdocument';
-//import {URI} from 'vscode-uri';
-//import { SyntaxNode } from "web-tree-sitter";
-//import {FishCompletionItem, FishCompletionItemKind} from './utils/completion-strategy';
-//import {resolve} from 'path';
-//import { appendFileSync } from 'fs';
-//
-//
-//export interface LogOptions {
-//    caller?: string;
-//    message?: string;
-//    extraInfo?: string | string[];
-//    verticalPad?: boolean;
-//    error?: boolean;
-//    executableFile?: string;
-//    path?: string;
-//    uri?: URI;
-//    rootNode?: SyntaxNode;
-//    nodes?: SyntaxNode[];
-//    position?: Position;
-//    hover?: Hover;
-//    completion?: CompletionItem;
-//    document?: TextDocument;
-//    debugLogger?: boolean;
-//}
-
-//export class Logger {
-//private static instance : Logger;
-
 //private LOGFILE: string = resolve('/home/ndonfris/repos/fish-lang-server/logs.txt')
 
 import fs from 'fs';
@@ -55,6 +26,7 @@ type CConsole = Console;
 
 export class Logger {
   protected _console: IConsole;
+  protected _silence: boolean = true;
   protected logFilePath: string;
 
   constructor(logFilePath: string = '', clear: boolean = true, _console: IConsole = console) {
@@ -65,11 +37,19 @@ export class Logger {
     }
   }
 
+  toggleSilence() {
+    this._silence = !this._silence
+  }
+
+  hasSilence() {
+    return this._silence
+  }
+
   hasLogFile(): boolean {
     return this.logFilePath !== '';
   }
 
-  private clearLogFile(): void {
+  clearLogFile(): void {
     try {
       // fs.truncateSync(this.logFilePath, 0);
       fs.writeFileSync(this.logFilePath, '')
@@ -93,10 +73,9 @@ export class Logger {
       return String(arg);
     }).join('\n');
 
-    this._console.log(formattedMessage);
-    if (this.hasLogFile()) {
-      this.logToFile(formattedMessage);
-    }
+    if (!this.hasSilence()) this._console.log(formattedMessage);
+    if (this.hasLogFile()) this.logToFile(formattedMessage);
+
   }
 
   logPropertiesForEachObject<T extends Record<string, any>>(objs: T[], ...keys: (keyof T)[]): void {
@@ -123,6 +102,13 @@ export class Logger {
     this._console.log(this.logFilePath);
     this._console.log('--- Log file text ---');
     this._console.log(fs.readFileSync(this.logFilePath, 'utf-8'));
+  }
+
+  getLoggingOpts()  {
+    return {
+      'logFile': this.hasLogFile(),
+      'silence': this.hasSilence(),
+    }
   }
 }
 

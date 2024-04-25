@@ -7,6 +7,7 @@ import * as luaJson from 'lua-json';
 import { asciiLogoString, BuildCapabilityString, RepoUrl, PathObj, PackageLspVersion, GetEnvVariablesUsed, PackageVersion, accumulateStartupOptions, getBuildTimeString } from './utils/commander-cli-subcommands';
 import { mainStartupManager, bareStartupManger, ConfigMap } from './utils/configuration-manager';
 import { buildFishLspCompletions } from './utils/get-lsp-completions';
+import { createServerLogger, Logger, ServerLogsPath } from './logger';
 
 export function startServer() {
   // Create a connection for the server.
@@ -47,13 +48,13 @@ export function startWebscoket() {
 const createFishLspBin = (): Command => {
   const bin = new Command('fish-lsp');
   bin.description([
-    'A language server for the `fish-shell`, written in typescript. Currently supports ',
-    'the following feature set from "' + PackageLspVersion + '" of the language server protocol.',
+    `A language server for the \`fish-shell\`, written in typescript. Currently supports`,
+    `the following feature set from "'${PackageLspVersion}'" of the language server protocol.`,
     'More documentation is available for any command or subcommand via \'-h/--help\'.',
     '',
     'The current language server protocol, reserves stdin/stdout for communication between the ',
     'client and server. This means that when the server is started, it will listen for messages on',
-    ' not displaying any output from the command.',
+    'not displaying any output from the command.',
     '',
     'For more information, see the github repository:',
     `  ${RepoUrl}`,
@@ -80,12 +81,6 @@ const createFishLspBin = (): Command => {
       '  > fish-lsp info',
       '',
     ].join('\n'));
-
-  // .configureHelp(help=> {
-  //         help.
-  //     })
-  // .storeOptionsAsProperties();
-
   return bin;
 };
 
@@ -125,17 +120,6 @@ commandBin.command('start [TOGGLE...]')
     // process.exit(0);
   });
 
-// commandBin.command('mini')
-//   .summary('subcmd to start the lsp using stdin/stdout with minimal indexing')
-//   .description([
-//         'Start the language server for a connection to a client with minimal indexing.',
-//         'This is useful for large projects, where indexing can take a long time.',
-//         'Also useful for running `edit_command_buffer` (editing prompt in tmp file).',
-//     ].join(' '))
-//   .action(() => {
-//     // const startupConfig =
-//     startServer();
-//   });
 
 commandBin.command('bare [TOGGLE...]')
   .alias('min')
@@ -176,14 +160,34 @@ commandBin.command('bare [TOGGLE...]')
     // process.exit(0);
   });
 
-// commandBin.command('capabilities')
-//   .summary('show the capabilities of the language server')
-//   .description('current capabilities of fish-lsp')
-//   .action(() => {
-//     console.log(asciiLogoString('large'));
-//     console.log(BuildCapabilityString());
-//     process.exit(0);
-//   });
+
+commandBin.command('logger')
+  .summary('test the logger by displaying it')
+  .option('-s, --show',  'show the logger and don\'t edit it')
+  .option('-c, --clear', 'clear the logger')
+  .option('-d, --date',  'write the date')
+  .option('-q, --quiet', 'silence logging')
+  .option('--config', 'show the logger config')
+  .action(args => {
+    let logger = createServerLogger(ServerLogsPath, false)
+    const objArgs = Object.getOwnPropertyNames(args) 
+    const argsQueue = objArgs
+    let currentArg: string = '';
+    while (argsQueue.length !== 0) {
+      currentArg = argsQueue.shift() || ''
+      if (currentArg === 'clear') logger.clearLogFile();
+      if (currentArg === 'quiet') logger.toggleSilence()
+      if (currentArg === 'date') logger.log(getBuildTimeString())
+      if (currentArg === 'config') console.log(JSON.stringify(logger.getLoggingOpts()))
+      if (currentArg === 'show') break;
+    }
+
+    if (!args.show) return 
+    // if (args.show) logger.showLogfileText()
+    logger.showLogfileText()
+    return
+  })
+
 
 commandBin.command('info')
   .summary('show the build info of fish-lsp')
@@ -241,68 +245,6 @@ commandBin.command('info')
     process.exit(0);
   });
 
-// @TODO
-// .option('--vscode', 'show vscode-settings.json output')
-// commandBin.command('startup-configuration')
-//   .usage('[language-option]')
-//   .summary('show the json/lua configurations for the language server')
-//   .description('show the lua/json configurations for the language server')
-//   .option('--json', 'show coc-settings.json output')
-//   .option('--lua', 'show neovim *.lua output')
-//   .action(args => {
-//     if (args.json) {
-//       console.log('coc-settings.json');
-//       console.log(JSON.stringify({'hello': "world"}, null, 2));
-//     } else if (args.lua) {
-//       const jsonConf = JSON.parse(JSON.stringify({"todo" : [1, 2, 3], 'hello': "world"}))
-//       console.log('neovim *.lua');
-//       console.log(luaJson.format(jsonConf));
-//     } else {
-//       console.log('no option selected, coc-settings.json is default');
-//     }
-//     process.exit(0);
-//   })
-
-// @TODO
-// commandBin.command('time')
-//   .usage('--path [dir]')
-//   .summary('time the fish-lsp server startup time to index the project files')
-//   .requiredOption('--path [dir]', 'root directory of the fish project')
-//   .action(args => {
-//     const startTimer = Date.now();
-//     const config: ConfigMap = mainStartupManager();
-//     if (args.path) {
-//         console.log(args.path)
-//
-//         const files = FastGlob.sync('**.fish', {
-//             cwd: args.path,
-//             absolute: true,
-//             globstar: true,
-//             dot: true,
-//             })
-//         // const parser = initializeParser();
-//
-//         const parser = initializeParser();
-//         const workspace = Workspace.create(args.path);
-//
-//         // Promise.resolve()
-//         files.map(async (file) => {
-//                 console.log(file);
-//                 const data = await readFile(file, 'utf8').then((data) => {
-//                     return data
-//                 })
-//                 console.log(data)
-//                 new Analyzer(await parser,  await workspace)
-//                 // parser.parse(data);
-//
-//         })
-//
-//         // const paths: string[] = args.path || [`~/.config/fish/config.fish`];
-//         // config.setKV('', value)
-//         const endTimer = Date.now();
-//         console.log(endTimer-startTimer, 'ms');
-//     }
-//   });
 
 commandBin.command('url')
   .summary('show a helpful url related to the fish-lsp')
@@ -347,41 +289,6 @@ commandBin.command('url')
     process.exit(0);
   });
 
-// commandBin.command('contribute')
-//   .summary('see the fish-lsp github repo')
-//   .action(() => {
-//     console.log(asciiLogoString('normal'));
-//     console.log(RepoUrl);
-//     process.exit(0);
-//   });
-//
-// commandBin.command('report')
-//   .summary('report an issue to the fish-lsp github repo')
-//   .action(() => {
-//     console.log(asciiLogoString('normal'));
-//     console.log(RepoUrl + '/issues');
-//     process.exit(0);
-//   });
-
-// commandBin.command('lsp-version')
-//   .usage('lsp-version')
-//   .summary('show the version of the language server protocol')
-//   .description('show the version of the language server protocol')
-//   .action(() => {
-//     console.log(asciiLogoString('single') + '\n');
-//     console.log('LSP version: ', PackageLspVersion);
-//     process.exit(0);
-//   });
-
-// commandBin.command('show-env')
-//   .usage('show-env')
-//   .summary('show all the environment variables used by the lsp in current shell')
-//   .description('show the environment variables of the language server')
-//   .action(() => {
-//     console.log('Environment Variables: ' + asciiLogoString('single'));
-//     console.log(GetEnvVariablesUsed());
-//     process.exit(0);
-//   });
 
 // @TODO
 commandBin.command('complete')
