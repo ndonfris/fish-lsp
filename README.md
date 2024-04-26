@@ -99,16 +99,21 @@ __More info on the [wiki](https://github.com/ndonfris/fish-lsp/wiki).__
       }
     }
    ```
-    > configuration shown for "coc.nvim"
-    > lua and other language-client configuration syntax's 
-    > can be built by fish-lsp startup-configuration <filetype>.
-    > Demo shows different hover documentation, go-to definition, go-to references
-    > and some other features.
-   <center>
+---
 
-   ![usage gif](https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaWkwcDY5aTg1OGltbDV6cGh4cGU4a204cGd1aHd6MmNpMWRrZ2d1biZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/PdSL9U8GXwV8xECE8k/giphy.gif)
+## Usage/Demo
 
-   </center> 
+_Please submit other demo's in_ [show & tell](https://github.com/ndonfris/fish-lsp/discussions/categories/show-and-tell) _discussion_
+
+![demo.gif](https://github.com/ndonfris/fish-lsp/blob/fe52c7fb50173be7de80a4fa0db25ddc1e3a7498/fish-lsp-2024-4-25.gif)   
+<!--- ![usage gif](https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaWkwcDY5aTg1OGltbDV6cGh4cGU4a204cGd1aHd6MmNpMWRrZ2d1biZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/PdSL9U8GXwV8xECE8k/giphy.gif)--->
+> lua and other language-client configuration syntax's
+> configuration shown for "coc.nvim"
+> can be built by fish-lsp startup-configuration <filetype>.
+> Demo shows different hover documentation, go-to definition, go-to references
+> and some other features.
+
+
 
 ## Features
 
