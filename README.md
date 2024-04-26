@@ -1,4 +1,10 @@
+
 # fish-lsp
+![GitHub last commit](https://img.shields.io/github/discussions/ndonfris/fish-lsp) 
+![Gitter](https://img.shields.io/gitter/room/ndonfris/fish-lsp)
+![Github Created At](https://img.shields.io/github/created-at/ndonfris/fish-lsp?labelColor=%23000&color=%234e6cfa)
+![GitHub last commit](https://img.shields.io/github/last-commit/ndonfris/fish-lsp)
+![GitHub repo size](https://img.shields.io/github/repo-size/ndonfris/fish-lsp)
 
 - [SUMMARY](#summary)
 - [INSTALLATION](#installation)
@@ -15,7 +21,62 @@ Uses [tree-sitter](https://tree-sitter.github.io/tree-sitter/), [tree-sitter-fis
 Implements both standard & non-standard features from the [language-server-protocol](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#headerPart), to be connected to a language-client ([neovim](https://neovim.io/),[coc.nvim](https://github.com/neoclide/coc.nvim), [vscode](https://code.visualstudio.com/), [etc.](https://github.com/ndonfris/fish-lsp-language-clients)).
 __More info on the [wiki](https://github.com/ndonfris/fish-lsp/wiki).__
 
-![fish-lsp --help](https://i.imgur.com/M6Zm3yW.png)
+The langauge server protocol allows for both a server and client to communicate
+with each other. Text editor's (_or any other equivalent from of_ __langauge client__) are then able to choose which general
+programming features will be implemented. This leaves the possibilities for the
+server to be open ended and general. The general goal of this project will be
+to continue expanding supported features _(within repsective reason)_ that
+fish-shell user's can create.
+
+Producing a comprehensive user interface that aligns with the ideology of the
+__FRIENDLY INTERACTIVE SHELL__ continues to be a difficult task. Supporting this
+project is both requested and encouraged until reaching a more mature code base.
+
+Achieving ideal solution's to each new LSP release is unstable by nature,
+and has been reworked in multiple instances. Please try to consider the time
+and dedication requried to achieve the current project's state. Some features
+have been implemented in earlier LSP verisions, but we're either to buggy
+or we're not yet possiblities for our author(s) at that time.
+
+Lastly, consider checking if there is currently something of interest that you'd be willing to work on.
+The [unsupported features](#features) sections and our [roadmap](./docs/ROADMAP.md), are good places to start getting
+comfortable contributing to this project.
+
+<!-- Please try to be considerate of where you direct questions about questions that are related to -->
+<!-- this project. Especially while the core team is currently undergoing the rust rewrite. It is -->
+<!-- detrimental to  -->
+
+
+<!-- This project aims to streamline to it's new user's will probably require some testing for maturity to continue. -->
+
+
+
+<!-- expect for downloading this project, verified by  sharing specific solutions to the current -->
+<!-- protocal iteration produces a multititude of benefits for  -->
+
+
+<!-- differences will prevent  -->
+
+<!-- improve the overall scope of support from other developers. -->
+<!--  Which  -->
+
+### Example Server Documentation
+
+  ![fish-lsp --help](https://i.imgur.com/M6Zm3yW.png)
+
+  > Output is shown from command: `fish-lsp --help`
+
+#### Example Client Usage
+
+_Please submit other demo's in_ [show & tell](https://github.com/ndonfris/fish-lsp/discussions/categories/show-and-tell) _discussion_
+
+![demo.gif](https://github.com/ndonfris/fish-lsp/blob/fe52c7fb50173be7de80a4fa0db25ddc1e3a7498/fish-lsp-2024-4-25.gif)   
+<!--- ![usage gif](https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaWkwcDY5aTg1OGltbDV6cGh4cGU4a204cGd1aHd6MmNpMWRrZ2d1biZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/PdSL9U8GXwV8xECE8k/giphy.gif)--->
+> lua and other language-client configuration syntax's
+> configuration shown for "coc.nvim"
+> can be built by fish-lsp startup-configuration <filetype>.
+> Demo shows different hover documentation, go-to definition, go-to references
+> and some other features.
 
 <!-- ![helpmsg](https://i.imgur.com/Xypl9PN.png) -->
 <!-- ![alt](https://player.vimeo.com/video/930061064?h=eaf4bb5804) -->
@@ -99,19 +160,6 @@ __More info on the [wiki](https://github.com/ndonfris/fish-lsp/wiki).__
       }
     }
    ```
----
-
-## Usage/Demo
-
-_Please submit other demo's in_ [show & tell](https://github.com/ndonfris/fish-lsp/discussions/categories/show-and-tell) _discussion_
-
-![demo.gif](https://github.com/ndonfris/fish-lsp/blob/fe52c7fb50173be7de80a4fa0db25ddc1e3a7498/fish-lsp-2024-4-25.gif)   
-<!--- ![usage gif](https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaWkwcDY5aTg1OGltbDV6cGh4cGU4a204cGd1aHd6MmNpMWRrZ2d1biZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/PdSL9U8GXwV8xECE8k/giphy.gif)--->
-> lua and other language-client configuration syntax's
-> configuration shown for "coc.nvim"
-> can be built by fish-lsp startup-configuration <filetype>.
-> Demo shows different hover documentation, go-to definition, go-to references
-> and some other features.
 
 
 
