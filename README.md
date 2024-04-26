@@ -1,10 +1,12 @@
-
 # fish-lsp
-![GitHub last commit](https://img.shields.io/github/discussions/ndonfris/fish-lsp) 
-![Gitter](https://img.shields.io/gitter/room/ndonfris/fish-lsp)
+
+<!-- todo -->
+<!-- [![All Contributors](https://img.shields.io/github/all-contributors/projectOwner/projectName?color=ee8449&style=flat-square)](#contributors) -->
 ![Github Created At](https://img.shields.io/github/created-at/ndonfris/fish-lsp?labelColor=%23000&color=%234e6cfa)
-![GitHub last commit](https://img.shields.io/github/last-commit/ndonfris/fish-lsp)
-![GitHub repo size](https://img.shields.io/github/repo-size/ndonfris/fish-lsp)
+![Gitter](https://img.shields.io/gitter/room/ndonfris/fish-lsp)
+<!-- ![GitHub Discussions](https://img.shields.io/github/discussions/ndonfris/fish-lsp)  -->
+<!-- ![GitHub last commit](https://img.shields.io/github/last-commit/ndonfris/fish-lsp) -->
+<!-- ![GitHub repo size](https://img.shields.io/github/repo-size/ndonfris/fish-lsp) -->
 
 - [SUMMARY](#summary)
 - [INSTALLATION](#installation)
@@ -38,6 +40,8 @@ and dedication requried to achieve the current project's state. Some features
 have been implemented in earlier LSP verisions, but we're either to buggy
 or we're not yet possiblities for our author(s) at that time.
 
+<!-- add quote from vscode implemenation here? -->
+
 Lastly, consider checking if there is currently something of interest that you'd be willing to work on.
 The [unsupported features](#features) sections and our [roadmap](./docs/ROADMAP.md), are good places to start getting
 comfortable contributing to this project.
@@ -45,28 +49,20 @@ comfortable contributing to this project.
 <!-- Please try to be considerate of where you direct questions about questions that are related to -->
 <!-- this project. Especially while the core team is currently undergoing the rust rewrite. It is -->
 <!-- detrimental to  -->
-
-
 <!-- This project aims to streamline to it's new user's will probably require some testing for maturity to continue. -->
-
-
-
 <!-- expect for downloading this project, verified by  sharing specific solutions to the current -->
 <!-- protocal iteration produces a multititude of benefits for  -->
-
-
 <!-- differences will prevent  -->
-
 <!-- improve the overall scope of support from other developers. -->
 <!--  Which  -->
 
 ### Example Server Documentation
 
-  ![fish-lsp --help](https://i.imgur.com/M6Zm3yW.png)
+![fish-lsp --help](https://i.imgur.com/M6Zm3yW.png)
 
-  > Output is shown from command: `fish-lsp --help`
+  > _Output built from running command:_ `fish-lsp --help`
 
-#### Example Client Usage
+### Example Client Usage
 
 _Please submit other demo's in_ [show & tell](https://github.com/ndonfris/fish-lsp/discussions/categories/show-and-tell) _discussion_
 
@@ -188,11 +184,13 @@ _Please submit other demo's in_ [show & tell](https://github.com/ndonfris/fish-l
 | __Indexing__ | Indexes all commands, variables, and functions | ✅ |
 
 ## Viewing the Wiki
+
 The [wiki](https://github.com/ndonfris/fish-lsp/wiki)  Contains more information on the project. Project is still in it's early releases, so the wiki
 information is subject to change. Contains ['minimal' client submodules](https://github.com/ndonfris/fish-lsp-language-clients),
 useful snippets, and bleeding edge feature documentation.
 
 ## Sources
+
 This project aims to be a more feature rich alternative to some of it's predecessors,
 while maintaining an editor agnostic server implantation. The following sources were
 major influences on the project's overall design and structure.
@@ -220,3 +218,15 @@ major influences on the project's overall design and structure.
 - __Default Implementation Git Repos__
   - [client implementation](https://github.com/microsoft/vscode-languageserver-node/blob/main/client/src/common)
   - [server implementation](https://github.com/microsoft/vscode-languageserver-node/tree/main/server/src/common)  
+
+<!-- Contributors list @via: https://allcontributors.org/docs/en/bot/installation -->
+## Contributors
+
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+<!-- ALL-CONTRIBUTORS-LIST:END -->
