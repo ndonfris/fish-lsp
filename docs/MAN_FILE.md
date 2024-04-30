@@ -28,6 +28,9 @@ Start the language server.
 `min` or `bare`
 Start the language server without any language-specific features.
 
+`logger`
+Access the logger
+
 `info`
 show the build info of fish-lsp
 
@@ -42,31 +45,29 @@ Show help message and exit.
 
 ## EXAMPLES
 
-Start the `fish-lsp` language server, with the default configuration:
+ • Start the `fish-lsp` language server, with the default configuration:
 
-```sh
-> fish-lsp start
-```
+  ```fish
+  >_ fish-lsp start
+  ```
 
-Start the `fish-lsp` language server, with the bare minimum configuration:
+• Start the `fish-lsp` language server, with the bare minimum configuration:
 
-```sh
-> fish-lsp bare --enable hover
-```
+  ```fish
+  >_ fish-lsp bare --enable hover
+  ```
 
-Show the path to the `fish-lsp` language server binary:
+• Show the path to the `fish-lsp` language server binary:
 
-```sh
-> fish-lsp complete > ~/.config/fish/completions/fish-lsp.fish
-```
+  ```fish
+  >_ fish-lsp complete > ~/.config/fish/completions/fish-lsp.fish
+  ```
 
 ## SEE ALSO
 
-__website:__ _https://fish-lsp.dev/_
-
-__repo:__ _https://github.com/ndonfris/fish-lsp_
-
-__fish website:__ _https://fishshell.com/_
+  • __website:__ _https://fish-lsp.dev/_
+  • __repo:__ _https://github.com/ndonfris/fish-lsp_
+  • __fish website:__ _https://fishshell.com/_
 
 ## AUTHOR
 

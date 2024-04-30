@@ -26,3 +26,13 @@ Once these steps are complete, you can then begin testing locally. __Forking__ _
 project is encouraged._
 
 Upon completing a change, submit a [PR](https://github.com/ndonfris/fish-lsp/pulls).
+
+## Contributors
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+<!-- ALL-CONTRIBUTORS-LIST:END -->
+
