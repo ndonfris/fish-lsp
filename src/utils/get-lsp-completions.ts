@@ -159,7 +159,7 @@ export function buildFishLspCompletions(commandBin: Command) {
 
   output.push('# disable file completions');
   output.push('complete -c fish-lsp -f', '');
-  output.push(`complete -c fish-lsp -n "__fish_use_subcommand" -a "\n'${subcmdStrs}'\"`);
+  output.push(`complete -c fish-lsp -n "__fish_use_subcommand" -a "\n${subcmdStrs}\"`);
 
   output.push([
     '',

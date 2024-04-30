@@ -48,38 +48,32 @@ export function startWebscoket() {
 const createFishLspBin = (): Command => {
   const bin = new Command('fish-lsp');
   bin.description([
-    `A language server for the \`fish-shell\`, written in typescript. Currently supports`,
-    `the following feature set from "'${PackageLspVersion}'" of the language server protocol.`,
-    'More documentation is available for any command or subcommand via \'-h/--help\'.',
+    `  A language server for the \`fish-shell\`, written in typescript. Currently supports`,
+    `  the following feature set from "'${PackageLspVersion}'" of the language server protocol.`,
+    '  More documentation is available for any command or subcommand via \'-h/--help\'.',
     '',
-    'The current language server protocol, reserves stdin/stdout for communication between the ',
-    'client and server. This means that when the server is started, it will listen for messages on',
-    'not displaying any output from the command.',
+    '  The current language server protocol, reserves stdin/stdout for communication between the ',
+    '  client and server. This means that when the server is started, it will listen for messages on',
+    '  not displaying any output from the command.',
     '',
-    'For more information, see the github repository:',
-    `  ${RepoUrl}`,
+    '  For more information, see the github repository:',
+    `     ${RepoUrl}`,
   ].join('\n'))
     .version(PackageVersion, '-v, --version', 'output the version number')
     .enablePositionalOptions(true)
     .configureHelp({ helpWidth: 100 })
     .showSuggestionAfterError()
     .showHelpAfterError()
-    .addHelpText('beforeAll', asciiLogoString('large') + '\n')
+    // .addHelpText('before', asciiLogoString('large') + '\n')
+    // .addHelpText('before', asciiLogoString('large') + '\n')
     .addHelpText('after', [
       '',
       'Examples:',
       '  # Default setup, with all options enabled',
-      '  > fish-lsp start ',
-      '',
-      '  # Enable only the hover provider:',
-      '  > fish-lsp bare --enable hover',
+      '  >_ fish-lsp start ',
       '',
       '  # Generate and store completions file:',
-      '  > fish-lsp complete > ~/.config/fish/completions/fish-lsp.fish',
-      '',
-      '  # Show debug info from build:',
-      '  > fish-lsp info',
-      '',
+      '  >_ fish-lsp complete > ~/.config/fish/completions/fish-lsp.fish',
     ].join('\n'));
   return bin;
 };

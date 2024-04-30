@@ -1,4 +1,15 @@
 {
   "projectName": "fish-lsp",
-  "projectOwner": "ndonfris"
+  "projectOwner": "ndonfris",
+  "repoType": "github",
+  "repoHost": "https://github.com",
+  "files": [
+    "./docs/CONTRIBUTING.md"
+  ],
+  "imageSize": 25,
+  "commit": false,
+  "commitConvention": "eslint",
+  "contributors": [],
+  "contributorsPerLine": 7,
+  "linkToUsage": false
 }

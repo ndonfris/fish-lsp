@@ -114,6 +114,7 @@
     "@types/node": "^20.11.30",
     "@typescript-eslint/eslint-plugin": "^7.0.1",
     "@typescript-eslint/parser": "^7.4.0",
+    "all-contributors-cli": "^6.26.1",
     "chai": "^5.1.0",
     "eslint": "^8.0.1",
     "eslint-config-love": "^44.0.0",
