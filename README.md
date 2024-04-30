@@ -6,17 +6,17 @@
 ![License](https://img.shields.io/github/license/ndonfris/fish-lsp?&labelColor=%23181939&color=b88af3)
 ![Github Created At](https://img.shields.io/github/created-at/ndonfris/fish-lsp?logo=%234e6cfa&label=created&labelColor=%23181939&color=%236198f5)
 
-Language Server Protocol (LSP) implementation specifically tailored for the [fish shell](https://github.com/microsoft/vscode-languageserver-node/tree/main/server/src/common).
+A [Language Server Protocol (LSP)](https://lsif.dev/) tailored for the [fish shell](https://github.com/microsoft/vscode-languageserver-node/tree/main/server/src/common).
 This project aims to enhance the coding experience for fish, by introducing a suite of
-intelligent features like auto-completion, syntax highlighting, and more.
+intelligent features like auto-completion, syntax highlighting, and [many others](#features).
 
-The langauge server protocol describes both a server and client communication. Text editor's (_or any other equivalent form of_ __langauge client__) are then able to choose which general
-programming features will be implemented. This leaves current and future possibilities for the server
-as a generally open ended feature set.
+The LSP describes __both__ a [server](#server-usage) and [client's](#client-usage) communication abilities.
+Text editor's (_or any other equivalent form of_ __langauge client__) are then able to choose which general
+programming features will be implemented. This leaves current and future possibilities
+supported by the server open ended.
 
 In short, the overall project goal is to produce an editor agnostic server implantation
-for the fish shell language, allowing as many features as possible to the user.
-
+for the fish shell language, improving feature support for all compliant developer environment's.
 
 ### Client Usage
 
@@ -24,7 +24,6 @@ for the fish shell language, allowing as many features as possible to the user.
 
  > [!NOTE]
  > _Please submit other demo's in_ [show & tell](https://github.com/ndonfris/fish-lsp/discussions/categories/show-and-tell) _discussion_
-
 
 ### Server Usage
 
@@ -35,7 +34,7 @@ for the fish shell language, allowing as many features as possible to the user.
   <!-- <details> -->
   <!--   <summary> Generated Output </summary> -->
 
-  ![fish-lsp --help](https://github.com/ndonfris/fish-lsp.dev/blob/master/public/help-msg.png)
+  ![fish-lsp --help](https://github.com/ndonfris/fish-lsp.dev/blob/master/public/help-msg-new.png)
 
   <!-- </details> -->
 
@@ -43,9 +42,9 @@ for the fish shell language, allowing as many features as possible to the user.
 
 > __dependencies:__ `yarn@1.22.22`, `node@21.7.1`, `fish@3.7.1`
 
-Building from source is the only currently recommended installation method, as we improve
-the installation process. Other methods like releases and npm downloads are currently unreliable.
-Contributions to help enhance installation options are greatly welcomed!
+Building from source is __the only currently recommended installation method__, as we improve
+other methods of the installation process (Don't use __releases__ or __npm__).
+Contributions to help enhance installation options are greatly appreciated!
 
 1. Clone the repo
 
@@ -90,23 +89,23 @@ Contributions to help enhance installation options are greatly welcomed!
     }
     ```
 
-    > coc.nvim json configuartion, inside coc-settings.json `"languageserver"` key
+    > [coc.nvim](https://github.com/neoclide/coc.nvim) configuartion, inside [coc-settings.json](https://github.com/neoclide/coc.nvim/wiki/Language-servers#register-custom-language-servers) `"languageserver"` key
 
 ## Why?
 
   The creation of this project was driven by a vision to bridge the gap in tooling for the
   fish shell, independently separating the shell's community by text-editor/IDE.
 
-### Pros of fish shell
-
-  Fish stands out among shell environments due to its advanced, user-friendly language
-  design, which is inherently more structured and intuitive than traditional shells. This modern
-  design simplifies script development, enhances readability, and supports robust error handling,
-  making it an ideal candidate for a dedicated LSP. By leveraging Fish’s unique features through an LSP,
-  developers can harness its full potential, benefiting from intelligent autocomplete, syntax highlighting,
-  and real-time feedback that align seamlessly with Fish's syntax. Building an LSP for
-  Fish not only taps into these innate capabilities but also enriches the user experience,
-  making advanced shell scripting more accessible and productive.
+<!-- ### Pros of fish shell -->
+<!---->
+<!--   Fish stands out among shell environments due to its advanced, user-friendly language -->
+<!--   design, which is inherently more structured and intuitive than traditional shells. This modern -->
+<!--   design simplifies script development, enhances readability, and supports robust error handling, -->
+<!--   making it an ideal candidate for a dedicated LSP. By leveraging Fish’s unique features through an LSP, -->
+<!--   developers can harness its full potential, benefiting from intelligent autocomplete, syntax highlighting, -->
+<!--   and real-time feedback that align seamlessly with Fish's syntax. Building an LSP for -->
+<!--   Fish not only taps into these innate capabilities but also enriches the user experience, -->
+<!--   making advanced shell scripting more accessible and productive. -->
 
 ### Simplicity of fish's syntax
 
@@ -175,5 +174,4 @@ Special thanks to everyone who has helped on the project.
 
 ## License
 
-This project is licensed under the MIT License - see the [MIT](https://github.com/ndonfris/fish-lsp/blob/master/LICENSE)  file for details.
-
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/ndonfris/fish-lsp/blob/master/LICENSE) file.
