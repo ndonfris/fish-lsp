@@ -83,7 +83,7 @@ describe("querying examples for future devs", () => {
         `builtin --names`
     ].join('\n');
     const fishbangTwo = [
-        `#!/usr/bin/fish`,
+        `#!/usr/local/bin/fish`,
         `echo "executing some fish commands..."`
     ].join('\n')
     const fishbangFail = [

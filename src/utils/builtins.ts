@@ -3,6 +3,7 @@ import { exec, execSync, spawn, spawnSync, SpawnSyncOptionsWithBufferEncoding, S
 export const BuiltInList = [
   '[',
   '_',
+  'abbr',
   'and',
   'argparse',
   'begin',

@@ -1,4 +1,4 @@
-#!/usr/bin/fish
+#!/usr/local/bin/fish
 
 # file to show how scope works in fish shell
 # notice that the variable i is still available after the for loop

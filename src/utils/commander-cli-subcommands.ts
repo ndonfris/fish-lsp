@@ -483,7 +483,7 @@ const getOutTime = () => {
 export const getBuildTimeString = () => {
   return getOutTime();
 };
- 
+
 export const FishLspHelp = {
   beforeAll: `
        fish-lsp [-h | --help] [-v | --version] [--help-man] [--help-all] [--help-short]
@@ -495,36 +495,36 @@ export const FishLspHelp = {
        fish-lsp complete`,
   usage: `fish-lsp [OPTION]
        fish-lsp [COMMAND [OPTION...]]`,
-   // fish-lsp [start | logger | info | url | complete] [options]
-   // fish-lsp [-h | --help] [-v | --version] [--help-man] [--help-all] [--help-short]
+  // fish-lsp [start | logger | info | url | complete] [options]
+  // fish-lsp [-h | --help] [-v | --version] [--help-man] [--help-all] [--help-short]
   description: [
-    `  A language server for the \`fish-shell\`, written in typescript. Currently supports`,
+    '  A language server for the `fish-shell`, written in typescript. Currently supports',
     `  the following feature set from "'${PackageLspVersion}'" of the language server protocol.`,
     '  More documentation is available for any command or subcommand via \'-h/--help\'.',
     '',
     '  The current language server protocol, reserves stdin/stdout for communication between the ',
     '  client and server. This means that when the server is started, it will listen for messages on',
-    '  not displaying any output from the command.',
+    '  stdin/stdout. Command communitcation will be visible in `logs.txt`.',
     '',
     '  For more information, see the github repository:',
     `     ${RepoUrl}`,
   ].join('\n'),
   after: [
-      '',
-      'Examples:',
-      '  # Default setup, with all options enabled',
-      '  > fish-lsp start ',
-      '',
-      '  # Generate and store completions file:',
-      '  > fish-lsp complete > ~/.config/fish/completions/fish-lsp.fish',
-    ].join('\n')
-}
+    '',
+    'Examples:',
+    '  # Default setup, with all options enabled',
+    '  > fish-lsp start ',
+    '',
+    '  # Generate and store completions file:',
+    '  > fish-lsp complete > ~/.config/fish/completions/fish-lsp.fish',
+  ].join('\n'),
+};
 
 export function FishLspManPage() {
-  const manFile = PathObj.manFile
-  const content = readFileSync(manFile, 'utf8')
+  const manFile = PathObj.manFile;
+  const content = readFileSync(manFile, 'utf8');
   return {
     path: resolve(PathObj.root, PathObj.manFile),
-    content: content.split('\n')
-  } 
+    content: content.split('\n'),
+  };
 }

@@ -55,7 +55,7 @@ describe("node-types tests", () => {
 
     it('isShebang', () => {
         const testString = [
-            "#!/usr/bin/env fish",
+            "#!/usr/local/bin/env fish",
             "# this is a comment",
             "#!/usr/bin/fish",
         ].join("\n");

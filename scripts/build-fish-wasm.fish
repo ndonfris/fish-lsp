@@ -1,6 +1,6 @@
 #!/usr/bin/env fish
 
-set -l wasm_file "$(find node_modules/ -type f -a -name tree-sitter-fish.wasm)" 
+set -l wasm_file "$(find node_modules -type f -a -name tree-sitter-fish.wasm)" 
 
 if test -z "$wasm_file"
     yarn add @esdmr/tree-sitter-fish
@@ -13,10 +13,5 @@ if test -z "$wasm_file"
     exit 1
 end
 
-cp $wasm_file ./tree-sitter-fish.wasm --force
+cp -f "$wasm_file" . 
 and echo "SUCCESS: tree-sitter-fish.wasm copied"
-
-# yarn remove @esdmr/tree-sitter-fish
-# npx tree-sitter build -w ./node_modules/tree-sitter-fish/ -o ./tree-sitter-fish.wasm
-#
-# yarn remove tree-sitter-cli tree-sitter-fish

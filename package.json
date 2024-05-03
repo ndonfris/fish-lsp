@@ -22,12 +22,12 @@
   "scripts": {
     "setup": "yarn run sh:setup",
     "postinstall": "yarn run sh:build-wasm && yarn run sh:build-time && yarn run compile && yarn run sh:relink && yarn run sh:build-completions",
-    "sh:build-completions": "./scripts/build-completions.sh",
-    "sh:build-logs": "./scripts/build-logs.sh",
-    "sh:build-time": "./scripts/build-time.sh",
-    "sh:setup": "./scripts/setup.sh",
-    "sh:build-wasm": "./scripts/build-fish-wasm.sh",
-    "sh:relink": "./scripts/relink-locally.sh",
+    "sh:build-completions": "fish ./scripts/build-completions.fish",
+    "sh:build-logs": "fish ./scripts/build-logs.fish",
+    "sh:build-time": "fish ./scripts/build-time.fish",
+    "sh:setup": "fish ./scripts/setup.fish",
+    "sh:build-wasm": "fish ./scripts/build-fish-wasm.fish",
+    "sh:relink": "fish ./scripts/relink-locally.fish",
     "pre:clean": "yarn exec rimraf lib *.tsbuildinfo out",
     "clean": "yarn run pre:clean && yarn install",
     "clean-nodemodules": "yarn rimraf out *.tsbuildinfo node_modules && yarn install",
@@ -93,6 +93,7 @@
     "husky": "^9.0.11",
     "lua-json": "^1.0.1",
     "marked-man": "^1.3.5",
+    "tree-sitter": "^0.21.0",
     "ts-jest": "^29.1.2",
     "tsc": "^2.0.4",
     "typescript": "*",
@@ -128,5 +129,6 @@
     "rimraf": "^5.0.5",
     "tree-sitter-cli": "^0.22.2",
     "tree-sitter-fish": "https://github.com/ram02z/tree-sitter-fish"
-  }
+  },
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }

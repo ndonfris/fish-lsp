@@ -1,4 +1,4 @@
-#!/usr/bin/fish 
+#!/usr/local/bin/fish 
 
 # locally scope _x
 set -l _x
