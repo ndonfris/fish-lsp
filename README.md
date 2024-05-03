@@ -1,5 +1,5 @@
-<h1 style="text-align: center; display: flex;">
-    <img alt="" src="https://github.com/ndonfris/fish-lsp.dev/blob/ndonfris-patch-1/coloricon.svg" width="25px" height="auto" style="padding-top: auto; padding-bottom: auto;" /> FISH-LSP
+<h1 style="display: flex; align-items: center; justify-items: center; text-align: center;">
+    <img alt="icon.svg" src="https://github.com/ndonfris/fish-lsp.dev/blob/ndonfris-patch-1/coloricon.svg" width="24" height="24"/> FISH-LSP
 </h1>
 
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/ndonfris/fish-lsp/eslint.yml?branch=master&labelColor=%23181939)
