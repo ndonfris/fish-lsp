@@ -95,6 +95,7 @@ export default class FishServer {
   async initialize(params: InitializeParams): Promise<InitializeResult> {
     this.logger.logAsJson(
       `Initialized server FISH-LSP with ${params.workspaceFolders || ''}`,
+
     );
     // console.log(`Initialized server FISH-LSP with ${params.workspaceFolders || ""}`);
     const result: InitializeResult = {

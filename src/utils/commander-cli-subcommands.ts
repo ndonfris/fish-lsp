@@ -298,6 +298,7 @@ export function updateConfiguration<T>(path: string[], newValue: T, config: any)
   return true;
 }
 
+
 // export function optionsStringEqualsRaw(optionValue: string, rawValue: string) {
 //
 //     const removeToggleString = (toggle: string, str: string) => {
@@ -527,3 +528,4 @@ export function FishLspManPage() {
     content: content.split('\n'),
   };
 }
+

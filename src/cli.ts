@@ -50,7 +50,9 @@ export function startWebscoket() {
  */
 const createFishLspBin = (): Command => {
   const bin = new Command('fish-lsp');
+
   bin.description(`Description:\n${FishLspHelp.description}`)
+
     .version(PackageVersion, '-v, --version', 'output the version number')
     .enablePositionalOptions(true)
     .configureHelp({
@@ -60,6 +62,7 @@ const createFishLspBin = (): Command => {
     })
     .showSuggestionAfterError()
     .showHelpAfterError()
+
     .addHelpText('after', FishLspHelp.after);
   return bin;
 };
@@ -68,6 +71,7 @@ const createFishLspBin = (): Command => {
 export const commandBin = createFishLspBin();
 
 // hidden global options
+
 commandBin
   .addOption(new Option('--help-man', 'show special manpage output').hideHelp(true))
   .addOption(new Option('--help-all', 'show all help info').hideHelp(true))
@@ -92,6 +96,7 @@ commandBin
       commandBin.commands.forEach((cmd) => {
         // console.log(`  ${cmd.name().toUpperCase()} - ${cmd.summary()}`);
         console.log(`   ${cmd.name()} ${cmd.usage()}\t${cmd.summary()}`);
+
         console.log(cmd.options.map(o => `    ${o.flags}\t\t${o.description}`).join('\n'));
         console.log();
       });
@@ -104,6 +109,7 @@ commandBin
     }
     process.exit(0);
   });
+
 
 // START
 commandBin.command('start [TOGGLE...]')
@@ -138,6 +144,7 @@ commandBin.command('start [TOGGLE...]')
     startServer();
     // process.exit(0);
   });
+
 
 // BARE | MIN | MINIMAL
 commandBin.command('bare [TOGGLE...]')
@@ -206,6 +213,7 @@ commandBin.command('logger')
     logger.showLogfileText();
     return;
   });
+
 
 // INFO
 commandBin.command('info')

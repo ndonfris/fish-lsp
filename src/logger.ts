@@ -10,8 +10,6 @@
 //   ExecuteCommandParams,
 // } from 'vscode-languageserver';
 import * as console from 'node:console';
-//private LOGFILE: string = resolve('/home/ndonfris/repos/fish-lang-server/logs.txt')
-
 import fs from 'fs';
 import { resolve } from 'path';
 
@@ -89,6 +87,7 @@ export class Logger {
       date: new Date().toLocaleString(),
       message: message,
     }));
+
   }
 
   logPropertiesForEachObject<T extends Record<string, any>>(objs: T[], ...keys: (keyof T)[]): void {
