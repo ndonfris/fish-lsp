@@ -94,7 +94,7 @@ export default class FishServer {
 
   async initialize(params: InitializeParams): Promise<InitializeResult> {
     this.logger.logAsJson(
-      `Initialized server FISH-LSP with ${params.workspaceFolders || ''}`
+      `Initialized server FISH-LSP with ${params.workspaceFolders || ''}`,
     );
     // console.log(`Initialized server FISH-LSP with ${params.workspaceFolders || ""}`);
     const result: InitializeResult = {
@@ -144,7 +144,7 @@ export default class FishServer {
       },
     };
     this.config.mergePreferences(params.initializationOptions);
-    this.logger.logAsJson(JSON.stringify({ 'onInitializedResult': result }));
+    this.logger.logAsJson(JSON.stringify({ onInitializedResult: result }));
     return result;
   }
 

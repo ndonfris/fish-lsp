@@ -298,7 +298,6 @@ export function updateConfiguration<T>(path: string[], newValue: T, config: any)
   return true;
 }
 
-
 // export function optionsStringEqualsRaw(optionValue: string, rawValue: string) {
 //
 //     const removeToggleString = (toggle: string, str: string) => {
@@ -483,7 +482,7 @@ const getOutTime = () => {
 export const getBuildTimeString = () => {
   return getOutTime();
 };
- 
+
 export const FishLspHelp = {
   beforeAll: `
        fish-lsp [-h | --help] [-v | --version] [--help-man] [--help-all] [--help-short]
@@ -495,10 +494,10 @@ export const FishLspHelp = {
        fish-lsp complete`,
   usage: `fish-lsp [OPTION]
        fish-lsp [COMMAND [OPTION...]]`,
-   // fish-lsp [start | logger | info | url | complete] [options]
-   // fish-lsp [-h | --help] [-v | --version] [--help-man] [--help-all] [--help-short]
+  // fish-lsp [start | logger | info | url | complete] [options]
+  // fish-lsp [-h | --help] [-v | --version] [--help-man] [--help-all] [--help-short]
   description: [
-    `  A language server for the \`fish-shell\`, written in typescript. Currently supports`,
+    '  A language server for the `fish-shell`, written in typescript. Currently supports',
     `  the following feature set from "'${PackageLspVersion}'" of the language server protocol.`,
     '  More documentation is available for any command or subcommand via \'-h/--help\'.',
     '',
@@ -510,21 +509,21 @@ export const FishLspHelp = {
     `     ${RepoUrl}`,
   ].join('\n'),
   after: [
-      '',
-      'Examples:',
-      '  # Default setup, with all options enabled',
-      '  > fish-lsp start ',
-      '',
-      '  # Generate and store completions file:',
-      '  > fish-lsp complete > ~/.config/fish/completions/fish-lsp.fish',
-    ].join('\n')
-}
+    '',
+    'Examples:',
+    '  # Default setup, with all options enabled',
+    '  > fish-lsp start ',
+    '',
+    '  # Generate and store completions file:',
+    '  > fish-lsp complete > ~/.config/fish/completions/fish-lsp.fish',
+  ].join('\n'),
+};
 
 export function FishLspManPage() {
-  const manFile = PathObj.manFile
-  const content = readFileSync(manFile, 'utf8')
+  const manFile = PathObj.manFile;
+  const content = readFileSync(manFile, 'utf8');
   return {
     path: resolve(PathObj.root, PathObj.manFile),
-    content: content.split('\n')
-  } 
+    content: content.split('\n'),
+  };
 }

@@ -41,16 +41,15 @@ export class Logger {
   }
 
   toggleSilence() {
-    this._silence = !this._silence
+    this._silence = !this._silence;
   }
 
   toggleJson() {
-    this._onlyJson = !this._onlyJson
+    this._onlyJson = !this._onlyJson;
   }
 
-  
   hasSilence() {
-    return this._silence
+    return this._silence;
   }
 
   hasLogFile(): boolean {
@@ -60,7 +59,7 @@ export class Logger {
   clearLogFile(): void {
     try {
       // fs.truncateSync(this.logFilePath, 0);
-      fs.writeFileSync(this.logFilePath, '')
+      fs.writeFileSync(this.logFilePath, '');
     } catch (error) {
       this._console.error(`Error clearing log file: ${error}`);
     }
@@ -87,9 +86,9 @@ export class Logger {
 
   logAsJson(message: string) {
     this.logToFile(JSON.stringify({
-      "date": new Date().toLocaleString(),
-      "message": message
-    }))
+      date: new Date().toLocaleString(),
+      message: message,
+    }));
   }
 
   logPropertiesForEachObject<T extends Record<string, any>>(objs: T[], ...keys: (keyof T)[]): void {
@@ -118,11 +117,11 @@ export class Logger {
     this._console.log(fs.readFileSync(this.logFilePath, 'utf-8'));
   }
 
-  getLoggingOpts()  {
+  getLoggingOpts() {
     return {
-      'logFile': this.hasLogFile(),
-      'silence': this.hasSilence(),
-    }
+      logFile: this.hasLogFile(),
+      silence: this.hasSilence(),
+    };
   }
 }
 

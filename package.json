@@ -26,7 +26,7 @@
     "sh:build-logs": "./scripts/build-logs.sh",
     "sh:build-time": "./scripts/build-time.sh",
     "sh:setup": "./scripts/setup.sh",
-    "sh:build-wasm": "./scripts/build-fish-wasm.fish",
+    "sh:build-wasm": "fish ./scripts/build-fish-wasm.fish",
     "sh:relink": "./scripts/relink-locally.sh",
     "pre:clean": "yarn exec rimraf lib *.tsbuildinfo out",
     "clean": "yarn run pre:clean && yarn install",

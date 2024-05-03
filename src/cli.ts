@@ -50,7 +50,7 @@ export function startWebscoket() {
  */
 const createFishLspBin = (): Command => {
   const bin = new Command('fish-lsp');
-  bin.description('Description:\n'+ FishLspHelp.description)
+  bin.description(`Description:\n${FishLspHelp.description}`)
     .version(PackageVersion, '-v, --version', 'output the version number')
     .enablePositionalOptions(true)
     .configureHelp({
@@ -60,14 +60,14 @@ const createFishLspBin = (): Command => {
     })
     .showSuggestionAfterError()
     .showHelpAfterError()
-    .addHelpText('after', FishLspHelp.after)
+    .addHelpText('after', FishLspHelp.after);
   return bin;
 };
 
-// start adding options to the command 
+// start adding options to the command
 export const commandBin = createFishLspBin();
 
-// hidden global options 
+// hidden global options
 commandBin
   .addOption(new Option('--help-man', 'show special manpage output').hideHelp(true))
   .addOption(new Option('--help-all', 'show all help info').hideHelp(true))
@@ -76,38 +76,34 @@ commandBin
     if (opt.helpMan) {
       const { path, content } = FishLspManPage();
       console.log(content.join('\n').trim());
-    }
-    else if (opt.helpAll) {
-      console.log("NAME:");
+    } else if (opt.helpAll) {
+      console.log('NAME:');
       console.log('fish-lsp - an lsp for the fish shell language');
-      console.log()
-      console.log('USAGE: ', FishLspHelp.beforeAll)
-      console.log()
-      console.log('DESCRIPTION:\n'+commandBin.description().split('\n').slice(1).join('\n'))
       console.log();
-      console.log('OPTIONS:')
-      const globalOpts = commandBin.options.concat(new Option('-h, --help', 'show help'))
-      console.log(globalOpts.map(o =>'  '+o.flags+'\t'+o.description).join('\n'))
+      console.log('USAGE: ', FishLspHelp.beforeAll);
+      console.log();
+      console.log('DESCRIPTION:\n', commandBin.description().split('\n').slice(1).join('\n'));
+      console.log();
+      console.log('OPTIONS:');
+      const globalOpts = commandBin.options.concat(new Option('-h, --help', 'show help'));
+      console.log(globalOpts.map(o =>'  ' + o.flags + '\t' + o.description).join('\n'));
 
       console.log('\nSUBCOMMANDS:');
       commandBin.commands.forEach((cmd) => {
         // console.log(`  ${cmd.name().toUpperCase()} - ${cmd.summary()}`);
         console.log(`   ${cmd.name()} ${cmd.usage()}\t${cmd.summary()}`);
-        console.log(cmd.options.map(o => `    ${o.flags}\t\t${o.description}`).join('\n'))
+        console.log(cmd.options.map(o => `    ${o.flags}\t\t${o.description}`).join('\n'));
         console.log();
-      })
+      });
       console.log('EXAMPLES:\n');
-      console.log(FishLspHelp.after.split('\n').slice(2).join('\n'))
-
-    }
-    else if (opt.helpShort) {
-      console.log('Usage: fish-lsp ' + commandBin.usage().split('\n').slice(0,1));
+      console.log(FishLspHelp.after.split('\n').slice(2).join('\n'));
+    } else if (opt.helpShort) {
+      console.log('Usage: fish-lsp ', commandBin.usage().split('\n').slice(0, 1));
       console.log();
       console.log(commandBin.description());
     }
-    process.exit(0)
-  })
-
+    process.exit(0);
+  });
 
 // START
 commandBin.command('start [TOGGLE...]')
@@ -142,7 +138,6 @@ commandBin.command('start [TOGGLE...]')
     startServer();
     // process.exit(0);
   });
-
 
 // BARE | MIN | MINIMAL
 commandBin.command('bare [TOGGLE...]')
@@ -187,30 +182,30 @@ commandBin.command('bare [TOGGLE...]')
 // LOGGER
 commandBin.command('logger')
   .summary('test the logger by displaying it')
-  .option('-s, --show',  'show the logger and don\'t edit it')
+  .option('-s, --show', 'show the logger and don\'t edit it')
   .option('-c, --clear', 'clear the logger')
-  .option('-d, --date',  'write the date')
+  .option('-d, --date', 'write the date')
   .option('-q, --quiet', 'silence logging')
   .option('--config', 'show the logger config')
   .action(args => {
-    let logger = createServerLogger(ServerLogsPath, false)
-    const objArgs = Object.getOwnPropertyNames(args) 
-    const argsQueue = objArgs
+    const logger = createServerLogger(ServerLogsPath, false);
+    const objArgs = Object.getOwnPropertyNames(args);
+    const argsQueue = objArgs;
     let currentArg: string = '';
     while (argsQueue.length !== 0) {
-      currentArg = argsQueue.shift() || ''
+      currentArg = argsQueue.shift() || '';
       if (currentArg === 'clear') logger.clearLogFile();
-      if (currentArg === 'quiet') logger.toggleSilence()
-      if (currentArg === 'date') logger.log(getBuildTimeString())
-      if (currentArg === 'config') console.log(JSON.stringify(logger.getLoggingOpts()))
+      if (currentArg === 'quiet') logger.toggleSilence();
+      if (currentArg === 'date') logger.log(getBuildTimeString());
+      if (currentArg === 'config') console.log(JSON.stringify(logger.getLoggingOpts()));
       if (currentArg === 'show') break;
     }
 
-    if (!args.show) return 
+    if (!args.show) return;
     // if (args.show) logger.showLogfileText()
-    logger.showLogfileText()
-    return
-  })
+    logger.showLogfileText();
+    return;
+  });
 
 // INFO
 commandBin.command('info')
@@ -313,7 +308,6 @@ commandBin.command('url')
     process.exit(0);
   });
 
-
 // COMPLETE
 commandBin.command('complete')
   .summary('generate completions file for ~/.config/fish/completions')
@@ -342,7 +336,6 @@ commandBin.command('complete')
     console.log(buildFishLspCompletions(commandBin));
     process.exit(0);
   });
-
 
 /**
  * PARSE THE SUBCOMMAND/OPTION
