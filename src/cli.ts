@@ -91,12 +91,9 @@ commandBin
       console.log('OPTIONS:');
       const globalOpts = commandBin.options.concat(new Option('-h, --help', 'show help'));
       console.log(globalOpts.map(o =>'  ' + o.flags + '\t' + o.description).join('\n'));
-
       console.log('\nSUBCOMMANDS:');
       commandBin.commands.forEach((cmd) => {
-        // console.log(`  ${cmd.name().toUpperCase()} - ${cmd.summary()}`);
         console.log(`   ${cmd.name()} ${cmd.usage()}\t${cmd.summary()}`);
-
         console.log(cmd.options.map(o => `    ${o.flags}\t\t${o.description}`).join('\n'));
         console.log();
       });

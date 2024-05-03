@@ -1,11 +1,11 @@
 import { homedir } from "os";
-import { assert } from "chai";
+// import { assert } from "chai";
 import { printNodes, resolveLspDocumentForHelperTestFile, setLogger } from "./helpers";
 import { DocumentSymbol, Position, SymbolKind, Location, } from "vscode-languageserver";
 import Parser, { SyntaxNode } from "web-tree-sitter";
 import { initializeParser } from "../src/parser";
 import { Analyzer, } from "../src/analyze";
-import {FishWorkspace,initializeDefaultFishWorkspaces,Workspace,} from "../src/utils/workspace";
+import { FishWorkspace,initializeDefaultFishWorkspaces,Workspace, } from "../src/utils/workspace";
 import { getChildNodes, getRange } from '../src/utils/tree-sitter';
 import { containsRange, findDefinitionSymbols } from '../src/workspace-symbol';
 import { FishDocumentSymbol } from '../src/document-symbol';
@@ -53,7 +53,7 @@ describe("analyze tests", () => {
         const pos = Position.create(78, 10)
         const defs = findDefinitionSymbols(analyzer, document, pos)
         console.log(defs);
-        assert.equal(true, true)
+        expect(true).toBe(true)
     })
 })
 

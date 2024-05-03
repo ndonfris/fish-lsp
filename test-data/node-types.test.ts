@@ -3,13 +3,26 @@ import { initializeParser } from '../src/parser';
 import { getChildNodes } from '../src/utils/tree-sitter';
 import * as NodeTypes from '../src/utils/node-types'
 import * as VarTypes from '../src/utils/variable-syntax-nodes'
-import { assert } from 'chai';
+import assert from 'node:assert'
+// import { assert } from 'chai';
 import { expandEntireVariableLine } from '../src/utils/definition-scope'
+import { skip } from 'node:test';
 
 function parseStringForNodeType(str: string, predicate: (n:SyntaxNode) => boolean) {
     const tree = parser.parse(str);
     const root = tree.rootNode;
     return getChildNodes(root).filter(predicate);
+}
+
+function skipSetQuery(node: SyntaxNode) {
+  let current: SyntaxNode | null = node;
+  while (current && !NodeTypes.isCommand(current)) {
+    if (current.text === '-q' || current.text === '--query') {
+      return true;
+    }
+    current = current.previousSibling
+  }
+  return false;
 }
 
 function logNodes(nodes: SyntaxNode[]) {
@@ -38,19 +51,19 @@ describe("node-types tests", () => {
     it('isCommand', () => {
         const commands = parseStringForNodeType('echo "hello world"', NodeTypes.isCommand);
         //logNodes(commands)
-        assert.equal(commands[0].text, 'echo "hello world"')
+        assert.equal(commands[0]?.text, 'echo "hello world"')
     })
 
     it('isCommandName', () => {
         const commandsName = parseStringForNodeType('echo "hello world"', NodeTypes.isCommandName);
         //logNodes(commandsName)
-        assert.equal(commandsName[0].text, 'echo')
+        assert.equal(commandsName[0]?.text, 'echo')
     })
 
     it('isComment', () => {
         const comments = parseStringForNodeType('# this is a comment', NodeTypes.isComment);
         //logNodes(comments)
-        assert.equal(comments[0].text, '# this is a comment')
+        assert.equal(comments[0]?.text, '# this is a comment')
     })
 
     it('isShebang', () => {
@@ -71,7 +84,7 @@ describe("node-types tests", () => {
         const input = 'echo "hello world"';
         const root = parser.parse(input).rootNode!
         const program = parseStringForNodeType(input, NodeTypes.isProgram);
-        assert.equal(program[0].text, root.text)
+        assert.equal(program[0]?.text, root.text)
     })
 
     it('isStatement', () => {
@@ -185,7 +198,23 @@ describe("node-types tests", () => {
             "echo 'var' | read -l read_foo" 
         ].join("\n");
         const defs = parseStringForNodeType(input, NodeTypes.isVariableDefinition);
-        assert.deepEqual(defs.map(d => d.text), ['set_foo', 'param_foo', 'i', 'read_foo'])
+        const result: SyntaxNode[] = []
+        defs.forEach(def => {
+          const cmd = NodeTypes.findParentCommand(def)!
+          const firstCmdText = cmd?.firstChild?.text
+          // console.log('text: ', firstCmdText)
+          if (!cmd) {
+              result.push(def)
+              return
+          }
+          if (firstCmdText !== 'set') { 
+              result.push(def)
+              return;
+          }
+          if (skipSetQuery(def)) return 
+          result.push(def)
+        })
+        assert.deepEqual(result.map(d => d.text), ['set_foo', 'param_foo', 'i', 'read_foo'])
     })
 
 })

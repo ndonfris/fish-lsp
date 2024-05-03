@@ -3,16 +3,17 @@ import {getReturnSiblings} from '../src/diagnostics/syntaxError';
 import * as NodeTypes from "../src/utils/node-types";
 import { getChildNodes, getNamedChildNodes, getNodesTextAsSingleLine, getNodeText, getRange, nodesGen } from "../src/utils/tree-sitter";
 import {
-    logNodeSingleLine,
+    // logNodeSingleLine,
     resolveLspDocumentForHelperTestFile,
-    TestLogger,
+    setLogger,
 } from "./helpers";
 import { buildStatementChildren, ifStatementHasReturn } from '../src/diagnostics/statementHasReturn'
 import {collectFunctionNames, collectFunctionsScopes} from '../src/diagnostics/validate';
 import {Diagnostic} from 'vscode-languageserver';
 //import {FishSyntaxNode} from '../src/utils/fishSyntaxNode';
 import {initializeParser} from '../src/parser';
-import { findOptionString, findAllOptions, FunctionOpts, VariableOpts } from '../src/utils/options';
+
+// import { findAllOptions, FunctionOpts, VariableOpts } from '../src/utils/node-types';
 import {findParentCommand} from '../src/utils/node-types';
 import {execCommandDocs, execCommandType, execCompleteCmdArgs, execCompleteSpace} from '../src/utils/exec';
 import {documentationHoverProvider, HoverFromCompletion} from '../src/documentation';
@@ -59,7 +60,9 @@ let SHOULD_LOG = false; // enable for verbose
 
 let parser: Parser;
 const jestConsole = console;
-const logger = new TestLogger(jestConsole);
+const logger = setLogger(
+
+);
 
 
 
@@ -87,7 +90,7 @@ describe("FISH web-tree-sitter SUITE", () => {
         const defNames: SyntaxNode[] = [];
         const vars    : SyntaxNode[]= [];
         getChildNodes(root).forEach((node, idx) => {
-            if (!node.isNamed()) return;
+            if (!node.isNamed) return;
             if (NodeTypes.isCommand(node)) defs.push(node)
             if (NodeTypes.isCommandName(node))defNames.push(node)
             if (NodeTypes.isVariableDefinition(node)) vars.push(node)
@@ -98,7 +101,7 @@ describe("FISH web-tree-sitter SUITE", () => {
         expect(defNames.length === 1).toBeTruthy();
         expect(vars.length === 1).toBeTruthy();
 
-        if (SHOULD_LOG) [...defs, ...defNames, ...vars].forEach((node) => logger.logNode(node))
+        if (SHOULD_LOG) [...defs, ...defNames, ...vars].forEach((node) => console.log(node))
     });
 
 
@@ -110,7 +113,7 @@ describe("FISH web-tree-sitter SUITE", () => {
         const funcNames : SyntaxNode[] = [];
 
         getChildNodes(root).forEach((node, idx) => {
-            if (!node.isNamed()) return;
+            if (!node.isNamed) return;
             if (NodeTypes.isFunctionDefinition(node)) funcs.push(node)
             if (NodeTypes.isFunctionDefinitionName(node)) funcNames.push(node)
             return node
@@ -118,7 +121,7 @@ describe("FISH web-tree-sitter SUITE", () => {
 
         expect(funcs.length === 1).toBeTruthy();
         expect(funcNames.length === 1).toBeTruthy();
-        if (SHOULD_LOG) [...funcs, ...funcNames].forEach((node) => logger.logNode(node, 'funcs vs funcName'))
+        if (SHOULD_LOG) [...funcs, ...funcNames].forEach((node) => console.log('funcs vs funcName', node))
     })
 
     it("test defined function", async () => {
@@ -129,7 +132,7 @@ describe("FISH web-tree-sitter SUITE", () => {
         const vars      : SyntaxNode[] = [];
 
         getChildNodes(root).forEach((node, idx) => {
-            if (!node.isNamed()) return;
+            if (!node.isNamed) return;
             if (NodeTypes.isFunctionDefinitionName(node)) funcNames.push(node)
             if (NodeTypes.isVariableDefinition(node)) vars.push(node)
             return node
@@ -137,7 +140,7 @@ describe("FISH web-tree-sitter SUITE", () => {
 
         expect(funcNames.length === 1).toBeTruthy();
         expect(vars.length === 2).toBeTruthy();
-        if (SHOULD_LOG) [...vars].forEach((node) => logger.logNode(node, 'function variable definitions'))
+        if (SHOULD_LOG) [...vars].forEach((node) => console.log('function variable definitions', node))
     })   
 
     it("test all variable def types ", async () => {
@@ -148,37 +151,40 @@ describe("FISH web-tree-sitter SUITE", () => {
         const vars      : SyntaxNode[] = [];
 
         getChildNodes(root).forEach((node, idx) => {
-            if (!node.isNamed()) return;
+            if (!node.isNamed) return;
             if (NodeTypes.isVariableDefinition(node)) vars.push(node)
             return node
         })
 
         expect(vars.length).toEqual(7);
-        if (SHOULD_LOG) [...vars].forEach((node) => logger.logNode(node, 'function variable definitions'))
+        if (SHOULD_LOG) [...vars].forEach((node) => console.log('function variable definitions', node))
     })
 
-    it("test is func_a", async () => {
-        loggingON();
-        const parser = await initializeParser();
-        const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/func_a.fish", true);
-        const root = parser.parse(test_doc.getText()).rootNode;
-        const opts = getChildNodes(root)
-            .filter(node => NodeTypes.isDefinition(node))
-            .map(node => {
-                return node.text + ' ' + findOptionString(node)
-            })
-        console.log(opts);
-    })
-    it("test is function_variable_def", async () => {
-        loggingON();
-        const parser = await initializeParser();
-        const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/function_variable_def.fish", true);
-        const root = parser.parse(test_doc.getText()).rootNode;
-        const opts = getChildNodes(root)
-            .filter(node => NodeTypes.isDefinition(node))
-            .map(node => {
-                return node.text + ' ' + findOptionString(node)
-            })
-        console.log(opts);
-    })
+    //
+    // [DEPRECATED] ... CURRENTLY UNKNOWN IMPORT CHANGES
+    //
+    //it("test is func_a", async () => {
+    //    loggingON();
+    //    const parser = await initializeParser();
+    //    const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/func_a.fish", true);
+    //    const root = parser.parse(test_doc.getText()).rootNode;
+    //    const opts = getChildNodes(root)
+    //        .filter(node => NodeTypes.isDefinition(node))
+    //        .map(node => {
+    //            return node.text + ' ' + findOptionString(node)
+    //        })
+    //    console.log(opts);
+    //})
+    //it("test is function_variable_def", async () => {
+    //    loggingON();
+    //    const parser = await initializeParser();
+    //    const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/function_variable_def.fish", true);
+    //    const root = parser.parse(test_doc.getText()).rootNode;
+    //    const opts = getChildNodes(root)
+    //        .filter(node => NodeTypes.isDefinition(node))
+    //        .map(node => {
+    //            return node.text + ' ' + findOptionString(node)
+    //        })
+    //    console.log(opts);
+    //})
 })

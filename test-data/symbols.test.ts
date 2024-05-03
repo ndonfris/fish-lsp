@@ -1,4 +1,4 @@
-import { getRootNodesFromTexts, logCompareNodes, logDocSymbol, logFile, logNode, logSymbolInfo, logVerboseNode, printDebugSeperator, printTestName } from './helpers';
+// import { getRootNodesFromTexts, logCompareNodes, logDocSymbol, logFile, logNode, logSymbolInfo, logVerboseNode, printDebugSeperator, printTestName } from './helpers';
 import { SyntaxNode } from 'web-tree-sitter';
 import { DocumentSymbol, Location, SymbolInformation, WorkspaceSymbol, Range, SymbolKind } from 'vscode-languageserver';
 import { initializeParser } from '../src/parser';
@@ -10,7 +10,7 @@ import {execFindDependency} from '../src/utils/exec';
 import {isBuiltin} from '../src/utils/builtins';
 //import {DocumentManager} from '../src/document';
 import {nodeToDocumentSymbol, nodeToSymbolInformation} from '../src/utils/translation';
-import {symbolKindToString, toSymbolKind} from '../src/symbols';
+import {symbolKindToString, toSymbolKind} from '../src/utils/translation';
 import { containsRange } from '../src/workspace-symbol';
 
 let SHOULD_LOG = false; // toggle to print testcase output
@@ -89,7 +89,7 @@ describe('symbols tests for definitions and renames', () => {
     it('parsing function name syntaxNodes', async () => {
         const testFiles = [testFunctionFile1, testFunctionFile2, testFunctionFile3];
         const rootNodes = await getRootNodesFromTexts(testFunctionFile1, testFunctionFile2, testFunctionFile3)
-        printTestName('PARSING FUNCTION NAMES SYNTAXNODES', SHOULD_LOG)
+        // printTestName('PARSING FUNCTION NAMES SYNTAXNODES', SHOULD_LOG)
         rootNodes.forEach((rootNode, i) => {
             logTestFileInfo(i.toString(), rootNode, SHOULD_LOG)
             let testNode1 : SyntaxNode | null = null;
@@ -353,7 +353,7 @@ set -g x 'outside'`
 })
 
 function logSpan(n: SpanNode) {
-    console.log("span: \n".bgRed, n?.text.toString(), n?.type, n?.startPosition, n?.endPosition)
+    console.log("span: \n", n?.text.toString(), n?.type, n?.startPosition, n?.endPosition)
     n.innerSpans.forEach((child) => {
         logSpan(child)
     })
@@ -368,17 +368,17 @@ function logSymbols(symbols: DocumentSymbol[]) {
         logSymbols(sym.children || [])
     })
 }
-function logSymbol(n: DocumentSymbol, depth: number = 0) {
-    if (n === undefined) return
-    let logStr = "symbol: ".black.bgCyan + n?.name.split('\n').map(t=> t.yellow.bgBlack).join('\n') + "\n" + "kind: ".black.bgCyan + symbolKindToString(n.kind).black.bgRed + '\n'
-    let indentStr = "    ".repeat(depth)
-    console.log(`${indentStr.black.bgCyan}` + logStr.trim().split('\n').join(`\n${indentStr.black.bgCyan}`))
-    printDebugSeperator(true)
-    n.children?.forEach((child) => {
-        logSymbol(child, depth + 1)
-    })
-
-}            
+// function logSymbol(n: DocumentSymbol, depth: number = 0) {
+//     if (n === undefined) return
+//     let logStr = "symbol: ".black.bgCyan + n?.name.split('\n').map(t=> t.yellow.bgBlack).join('\n') + "\n" + "kind: ".black.bgCyan + symbolKindToString(n.kind).black.bgRed + '\n'
+//     let indentStr = "    ".repeat(depth)
+//     console.log(`${indentStr.black.bgCyan}` + logStr.trim().split('\n').join(`\n${indentStr.black.bgCyan}`))
+//     printDebugSeperator(true)
+//     n.children?.forEach((child) => {
+//         logSymbol(child, depth + 1)
+//     })
+//
+// }            
 
 function flattenDocSymbols(parent: DocumentSymbol, symbols: DocumentSymbol[]):boolean {
     let shouldFlatten = parent.kind === SymbolKind.Namespace
@@ -394,7 +394,7 @@ function flattenDocSymbols(parent: DocumentSymbol, symbols: DocumentSymbol[]):bo
                 flattenDocSymbols(child, newChildren)
                 newChildren.push(child)
             } else {
-                console.log("unknown child kind: ".bgRed, child.kind)
+                console.log("unknown child kind: ", child.kind)
             }
         }
     }

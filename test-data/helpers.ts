@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'fs';
 import { resolve } from 'path'
 import { initializeParser } from '../src/parser';
-import { Point, SyntaxNode, Tree, Logger } from 'web-tree-sitter'
+import Parser, { Point, SyntaxNode, Tree, Logger } from 'web-tree-sitter'
 import { Analyzer } from '../src/analyze';
 import {getChildNodes, getNodesTextAsSingleLine, getRange, positionToPoint} from '../src/utils/tree-sitter';
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -177,24 +177,28 @@ export type truncatedNode = {
     type: string,
     startPosition: string,
     endPosition: string,
-    children: truncatedNode[],
-    siblings: truncatedNode[],
+    // children: truncatedNode[],
+    // siblings: truncatedNode[],
 }
-export function truncatedNode(node: SyntaxNode){
+export function getTruncatedNode(node: SyntaxNode){
     return {
         text: node.text,
         type: node.type,
         startPosition: positionStr(node.startPosition),
         endPosition: positionStr(node.endPosition),
-        //children: node.children.map(child => truncatedNode(child)),
-        //siblings: node.parent?.children.map(child => truncatedNode(child)) || [],
+        // children: node.children.map(child => getTruncatedNode(child)),
+        // siblings: node.parent?.children.map(child => getTruncatedNode(child)) || [],
     }
 }
 
+export function printNodeWithTest(n: SyntaxNode, test: string = ""): void {
+  console.log("test: ", test);
+  printNodes(n)
+}
 
-export function printNodes(node: SyntaxNode, depth: number = 0){
+export function printNodes(node: SyntaxNode, depth: number = 0) {
     const indent = ' '.repeat(depth * 4)
-    const logStr = JSON.stringify(truncatedNode(node), null, 2).split('\n').map(l => indent + l).join('\n')
+    const logStr = JSON.stringify(getTruncatedNode(node), null, 2).split('\n').map(l => indent + l).join('\n')
     console.log(logStr)
     node.children.forEach(child => printNodes(child, depth + 1))
 }

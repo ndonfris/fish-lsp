@@ -138,9 +138,7 @@ export function getRenameLocations(analyzer: Analyzer, document: LspDocument, po
 
 export function getRefrenceLocations(analyzer: Analyzer, document: LspDocument, position: Position): Location[] {
   const node = analyzer.nodeAtPoint(document.uri, position.line, position.character);
-  if (!node) {
-    return [];
-  }
+  if (!node) return [];
   const symbol = analyzer.getDefinition(document, position);
   if (symbol) {
     const doc = analyzer.getDocument(symbol.uri)!;

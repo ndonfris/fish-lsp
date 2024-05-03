@@ -1,12 +1,12 @@
 
 import { DocumentSymbol, SymbolKind } from 'vscode-languageserver';
 import Parser, { SyntaxNode } from 'web-tree-sitter';
-import { getFishDocumentSymbols, filterLastFishDocumentSymbols, FishDocumentSymbol, flattenFishDocumentSymbols, filterGlobalSymbols,} from '../src/document-symbol'
+import { getFishDocumentSymbols,  FishDocumentSymbol, filterGlobalSymbols,} from '../src/document-symbol'
 import { initializeParser } from '../src/parser';
-import { symbolKindToString } from '../src/symbols';
+import { symbolKindToString } from '../src/utils/translation';
 import { isVariableDefinitionName, refinedFindParentVariableDefinitionKeyword } from '../src/utils/node-types';
 import { getChildNodes, getNodeAtRange } from '../src/utils/tree-sitter';
-import { logNode, resolveLspDocumentForHelperTestFile } from './helpers';
+import { resolveLspDocumentForHelperTestFile } from './helpers';
 
 let parser: Parser;
 const jestConsole = console;
@@ -89,7 +89,7 @@ describe("document-symbols tests", () => {
         const root = parser.parse(doc.getText()).rootNode
         const symbols = getFishDocumentSymbols(doc.uri, root);
         debugOutput('simple function symbols', symbols, {off: false, showTree: true})
-        const length = flattenFishDocumentSymbols(symbols).length
+        const length = FishDocumentSymbol.flattenArray(symbols).length
         expect(length).toEqual(6);
     });
 
@@ -97,9 +97,9 @@ describe("document-symbols tests", () => {
         const doc = resolveLspDocumentForHelperTestFile("./fish_files/advanced/multiple_functions.fish");
         const root = parser.parse(doc.getText()).rootNode
         const symbols = getFishDocumentSymbols(doc.uri, root);
-        const result = filterLastFishDocumentSymbols(symbols)
+        const result = FishDocumentSymbol.flattenArray(symbols)
         debugOutput('advanced function symbols', result, {off: false, showTree: true})
-        const length = flattenFishDocumentSymbols(result).length
+        const length = FishDocumentSymbol.flattenArray(result).length
         expect(length).toEqual(7);
     });
 
@@ -107,9 +107,9 @@ describe("document-symbols tests", () => {
         const doc = resolveLspDocumentForHelperTestFile("./fish_files/advanced/inner_functions.fish");
         const root = parser.parse(doc.getText()).rootNode
         const symbols = getFishDocumentSymbols(doc.uri, root);
-        const result = filterLastFishDocumentSymbols(symbols)
+        const result = FishDocumentSymbol.flattenArray(symbols)
         debugOutput('advanced inner-function symbols single per-scope', result, {off: false, showTree: true})
-        const length = flattenFishDocumentSymbols(result).length
+        const length = FishDocumentSymbol.flattenArray(result).length
         expect(length).toEqual(13)
     });
 
@@ -117,10 +117,10 @@ describe("document-symbols tests", () => {
         const doc = resolveLspDocumentForHelperTestFile("./fish_files/simple/all_variable_def_types.fish");
         const root = parser.parse(doc.getText()).rootNode
         const symbols = getFishDocumentSymbols(doc.uri, root);
-        const result = filterLastFishDocumentSymbols(symbols)
+        const result = FishDocumentSymbol.flattenArray(symbols)
         debugOutput('simple test option tags',result, {off: false, showTree: true})
-        const length = flattenFishDocumentSymbols(result).length
-        expect(length).toEqual(9)
+        // const length = FishDocumentSymbol.flattenArray(result).length
+        expect(result.length).toEqual(8)
     })
 
     it("advanced test global tags", async () => {

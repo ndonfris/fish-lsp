@@ -3,7 +3,7 @@ import { Position, Range, SymbolKind, URI } from 'vscode-languageserver'
 import { assert } from 'chai';
 import { homedir } from 'os';
 import { createRange } from '../src/utils/translation';
-import { printTestName, resolveLspDocumentForHelperTestFile } from "./helpers";
+import { resolveLspDocumentForHelperTestFile } from "./helpers";
 import { isCommandName, isFunctionDefinitionName } from '../src/utils/node-types';
 import * as NodeTypes from '../src/utils/node-types'
 import { GenericTree, TNode, filterTree } from '../src/utils/generic-tree'
