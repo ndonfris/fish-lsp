@@ -1,79 +1,95 @@
-marked(1)
+.TH "FISH\-LSP" "1" "May 2024" "1.0.3" "fish-lsp"
+.SH "NAME"
+\fBfish-lsp\fR
+.TS
+tab(|) nowarn;
+cx.
+T{
+.P
+fish\-lsp \- A language server for the fish shell
 
-NAME
-       marked - a javascript markdown parser
+T}
+.TE
+.SH SYNOPSIS
+.P
+\fBfish\-lsp\fP [\fISUBCOMMAND\fR|\fIOPTION\fR] [\fIARGUMENT\fR]
+.SH DESCRIPTION
+.P
+\fBfish\-lsp\fP is a language server for the fish shell\. It provides IDE\-like features for fish shell scripts, such as syntax checking, linting, and auto\-completion\.
+.P
+It requires a client that supports the Language Server Protocol (LSP)\. For example, you can use \fBcoc\.nvim\fP or \fBnvim\-lsp\fP\|\.
+.SS OPTIONS
+.P
+\fB\-h\fP or  \fB\-\-help\fP
+.br
+Show help message and exit\.
+.P
+\fB\-v\fP or \fB\-\-version\fP
+.br
+Show version information and exit\.
+.SS SUBCOMMANDS
+.P
+\fBstart\fP
+.br
+Start the language server\.
+.P
+\fBmin\fP or \fBbare\fP
+.br
+Start the language server without any language\-specific features\.
+.P
+\fBlogger\fP
+.br
+Access the logger
+.P
+\fBinfo\fP
+.br
+show the build info of fish\-lsp
+.P
+\fBurl\fP
+.br
+show a helpful url related to the fish\-lsp
+.P
+\fBcomplete\fP
+.br
+Provide completions for the \fBfish\-lsp\fP
+.P
+\fBhelp\fP
+.br
+Show help message and exit\.
+.SH EXAMPLES
+.P
+• Start the \fBfish\-lsp\fP language server, with the default configuration:
+.RS 2
+.nf
+>_ fish\-lsp start
+.fi
+.RE
+.P
+• Start the \fBfish\-lsp\fP language server, with the bare minimum configuration:
+.RS 2
+.nf
+>_ fish\-lsp bare \-\-enable hover
+.fi
+.RE
+.P
+• Show the path to the \fBfish\-lsp\fP language server binary:
+.RS 2
+.nf
+>_ fish\-lsp complete > ~/\.config/fish/completions/fish\-lsp\.fish
+.fi
+.RE
+.SH SEE ALSO
+.P
+• \fBwebsite:\fR \fIhttps://fish-lsp.dev/\fR
+.br
+• \fBrepo:\fR \fIhttps://github.com/ndonfris/fish-lsp\fR
+.br
+• \fBfish website:\fR \fIhttps://fishshell.com/\fR
+.SH AUTHOR
 
-SYNOPSIS
-       marked [-o <output>] [-i <input>] [-s <string>] [--help] [--tokens] [--pedantic] [--gfm] [--breaks] [--sanitize] [--smart-lists] [--lang-prefix <prefix>] [--no-etc...] [--silent] [filename]
+.RS 1
+.IP \(bu 2
+Nick Donfris
 
-DESCRIPTION
-       marked is a full-featured javascript markdown parser, built for speed.  It also includes multiple GFM features.
-
-EXAMPLES
-       cat in.md | marked > out.html
-
-       echo "hello *world*" | marked
-
-       marked -o out.html -i in.md --gfm
-
-       marked --output="hello world.html" -i in.md --no-breaks
-
-OPTIONS
-       -o, --output [output]
-              Specify file output. If none is specified, write to stdout.
-
-       -i, --input [input]
-              Specify file input, otherwise use last argument as input file.  If no input file is specified, read from stdin.
-
-       -s, --string [string]
-              Specify string input instead of a file.
-
-       -t, --tokens
-              Output a token stream instead of html.
-
-       --pedantic
-              Conform to obscure parts of markdown.pl as much as possible.  Don't fix original markdown bugs.
-
-       --gfm  Enable github flavored markdown.
-
-       --breaks
-              Enable GFM line breaks. Only works with the gfm option.
-
-       --sanitize
-              Sanitize output. Ignore any HTML input.
-
-       --smart-lists
-              Use smarter list behavior than the original markdown.
-
-       --lang-prefix [prefix]
-              Set the prefix for code block classes.
-
-       --mangle
-              Mangle email addresses.
-
-       --no-sanitize, -no-etc...
-              The inverse of any of the marked options above.
-
-       --silent
-              Silence error output.
-
-       -h, --help
-              Display help information.
-
-CONFIGURATION
-       For configuring and running programmatically.
-
-       Example
-
-           import { marked } from 'marked';
-           marked('*foo*', { gfm: true });
-
-BUGS
-       Please report any bugs to https://github.com/markedjs/marked.
-
-LICENSE
-       Copyright (c) 2011-2014, Christopher Jeffrey (MIT License).
-
-SEE ALSO
-       markdown(1), node.js(1)
+.RE
 

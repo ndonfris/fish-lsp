@@ -26,7 +26,10 @@ type CConsole = Console;
 
 export class Logger {
   protected _console: IConsole;
+  /** never print to console */
   protected _silence: boolean = true;
+  /** reformat every log message as json */
+  protected _onlyJson: boolean = true;
   protected logFilePath: string;
 
   constructor(logFilePath: string = '', clear: boolean = true, _console: IConsole = console) {
@@ -41,6 +44,11 @@ export class Logger {
     this._silence = !this._silence
   }
 
+  toggleJson() {
+    this._onlyJson = !this._onlyJson
+  }
+
+  
   hasSilence() {
     return this._silence
   }
@@ -75,7 +83,13 @@ export class Logger {
 
     if (!this.hasSilence()) this._console.log(formattedMessage);
     if (this.hasLogFile()) this.logToFile(formattedMessage);
+  }
 
+  logAsJson(message: string) {
+    this.logToFile(JSON.stringify({
+      "date": new Date().toLocaleString(),
+      "message": message
+    }))
   }
 
   logPropertiesForEachObject<T extends Record<string, any>>(objs: T[], ...keys: (keyof T)[]): void {

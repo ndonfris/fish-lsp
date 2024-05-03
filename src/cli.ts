@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 //'use strict'
 import { createConnection, InitializeParams, InitializeResult, StreamMessageReader, StreamMessageWriter } from 'vscode-languageserver/node';
-import { Argument, Command, Option } from 'commander';
+import { Command, Option } from 'commander';
 import FishServer from './server';
-import * as luaJson from 'lua-json';
-import { asciiLogoString, BuildCapabilityString, RepoUrl, PathObj, PackageLspVersion, GetEnvVariablesUsed, PackageVersion, accumulateStartupOptions, getBuildTimeString } from './utils/commander-cli-subcommands';
+// import * as luaJson from 'lua-json';
+import { asciiLogoString, BuildCapabilityString, RepoUrl, PathObj, PackageLspVersion, GetEnvVariablesUsed, PackageVersion, accumulateStartupOptions, getBuildTimeString, FishLspHelp, FishLspManPage } from './utils/commander-cli-subcommands';
 import { mainStartupManager, bareStartupManger, ConfigMap } from './utils/configuration-manager';
 import { buildFishLspCompletions } from './utils/get-lsp-completions';
 import { createServerLogger, Logger, ServerLogsPath } from './logger';
@@ -45,42 +45,71 @@ export function startWebscoket() {
   connection.listen();
 }
 
+/**
+ *  creates local 'commandBin' used for commander.js
+ */
 const createFishLspBin = (): Command => {
   const bin = new Command('fish-lsp');
-  bin.description([
-    `  A language server for the \`fish-shell\`, written in typescript. Currently supports`,
-    `  the following feature set from "'${PackageLspVersion}'" of the language server protocol.`,
-    '  More documentation is available for any command or subcommand via \'-h/--help\'.',
-    '',
-    '  The current language server protocol, reserves stdin/stdout for communication between the ',
-    '  client and server. This means that when the server is started, it will listen for messages on',
-    '  not displaying any output from the command.',
-    '',
-    '  For more information, see the github repository:',
-    `     ${RepoUrl}`,
-  ].join('\n'))
+  bin.description('Description:\n'+ FishLspHelp.description)
     .version(PackageVersion, '-v, --version', 'output the version number')
     .enablePositionalOptions(true)
-    .configureHelp({ helpWidth: 100 })
+    .configureHelp({
+      helpWidth: 100,
+      showGlobalOptions: false,
+      commandUsage: (_) => FishLspHelp.usage,
+    })
     .showSuggestionAfterError()
     .showHelpAfterError()
-    // .addHelpText('before', asciiLogoString('large') + '\n')
-    // .addHelpText('before', asciiLogoString('large') + '\n')
-    .addHelpText('after', [
-      '',
-      'Examples:',
-      '  # Default setup, with all options enabled',
-      '  >_ fish-lsp start ',
-      '',
-      '  # Generate and store completions file:',
-      '  >_ fish-lsp complete > ~/.config/fish/completions/fish-lsp.fish',
-    ].join('\n'));
+    .addHelpText('after', FishLspHelp.after)
   return bin;
 };
 
+// start adding options to the command 
 export const commandBin = createFishLspBin();
 
-// @TODO
+// hidden global options 
+commandBin
+  .addOption(new Option('--help-man', 'show special manpage output').hideHelp(true))
+  .addOption(new Option('--help-all', 'show all help info').hideHelp(true))
+  .addOption(new Option('--help-short', 'show mini help info').hideHelp(true))
+  .action(opt => {
+    if (opt.helpMan) {
+      const { path, content } = FishLspManPage();
+      console.log(content.join('\n').trim());
+    }
+    else if (opt.helpAll) {
+      console.log("NAME:");
+      console.log('fish-lsp - an lsp for the fish shell language');
+      console.log()
+      console.log('USAGE: ', FishLspHelp.beforeAll)
+      console.log()
+      console.log('DESCRIPTION:\n'+commandBin.description().split('\n').slice(1).join('\n'))
+      console.log();
+      console.log('OPTIONS:')
+      const globalOpts = commandBin.options.concat(new Option('-h, --help', 'show help'))
+      console.log(globalOpts.map(o =>'  '+o.flags+'\t'+o.description).join('\n'))
+
+      console.log('\nSUBCOMMANDS:');
+      commandBin.commands.forEach((cmd) => {
+        // console.log(`  ${cmd.name().toUpperCase()} - ${cmd.summary()}`);
+        console.log(`   ${cmd.name()} ${cmd.usage()}\t${cmd.summary()}`);
+        console.log(cmd.options.map(o => `    ${o.flags}\t\t${o.description}`).join('\n'))
+        console.log();
+      })
+      console.log('EXAMPLES:\n');
+      console.log(FishLspHelp.after.split('\n').slice(2).join('\n'))
+
+    }
+    else if (opt.helpShort) {
+      console.log('Usage: fish-lsp ' + commandBin.usage().split('\n').slice(0,1));
+      console.log();
+      console.log(commandBin.description());
+    }
+    process.exit(0)
+  })
+
+
+// START
 commandBin.command('start [TOGGLE...]')
   .summary('subcmd to start the lsp using stdin/stdout')
   .description('start the language server for a connection to a client')
@@ -115,6 +144,7 @@ commandBin.command('start [TOGGLE...]')
   });
 
 
+// BARE | MIN | MINIMAL
 commandBin.command('bare [TOGGLE...]')
   .alias('min')
   .alias('minimal')
@@ -154,7 +184,7 @@ commandBin.command('bare [TOGGLE...]')
     // process.exit(0);
   });
 
-
+// LOGGER
 commandBin.command('logger')
   .summary('test the logger by displaying it')
   .option('-s, --show',  'show the logger and don\'t edit it')
@@ -182,7 +212,7 @@ commandBin.command('logger')
     return
   })
 
-
+// INFO
 commandBin.command('info')
   .summary('show the build info of fish-lsp')
   .option('--bin', 'show the path of the fish-lsp executable')
@@ -239,7 +269,7 @@ commandBin.command('info')
     process.exit(0);
   });
 
-
+// URL
 commandBin.command('url')
   .summary('show a helpful url related to the fish-lsp')
   .description('show the related url to the fish-lsp')
@@ -284,7 +314,7 @@ commandBin.command('url')
   });
 
 
-// @TODO
+// COMPLETE
 commandBin.command('complete')
   .summary('generate completions file for ~/.config/fish/completions')
   .option('--names', 'show the feature names of the completions')
@@ -313,4 +343,8 @@ commandBin.command('complete')
     process.exit(0);
   });
 
+
+/**
+ * PARSE THE SUBCOMMAND/OPTION
+ */
 commandBin.parse();
