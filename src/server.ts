@@ -93,8 +93,8 @@ export default class FishServer {
   }
 
   async initialize(params: InitializeParams): Promise<InitializeResult> {
-    this.logger.log(
-      `Initialized server FISH-LSP with ${params.workspaceFolders || ''}`,
+    this.logger.logAsJson(
+      `Initialized server FISH-LSP with ${params.workspaceFolders || ''}`
     );
     // console.log(`Initialized server FISH-LSP with ${params.workspaceFolders || ""}`);
     const result: InitializeResult = {
@@ -144,7 +144,7 @@ export default class FishServer {
       },
     };
     this.config.mergePreferences(params.initializationOptions);
-    this.logger.log('onInitializedResult', result);
+    this.logger.logAsJson(JSON.stringify({ 'onInitializedResult': result }));
     return result;
   }
 
@@ -201,14 +201,13 @@ export default class FishServer {
     if (this.docs.open(uri, params.textDocument)) {
       const doc = this.docs.get(uri);
       if (doc) {
-        this.logger.log('opened document: ' + params.textDocument.uri);
+        this.logParams('opened document: ', params.textDocument.uri);
         this.analyzer.analyze(doc);
-        this.logger.log(
-          'analyzed document: ' + params.textDocument.uri,
-        );
+        this.logParams('analyzed document: ', params.textDocument.uri);
       }
     } else {
-      this.logger.log(
+      // this.logParams('analyzed document: ', params.textDocument.uri);
+      this.logger.logAsJson(
         `Cannot open already opened doc '${params.textDocument.uri}'.`,
       );
       this.didChangeTextDocument({
@@ -318,7 +317,7 @@ export default class FishServer {
       //    "insertTextFormat",
       //    "data"
       //);
-      this.logger.log(
+      this.logger.logAsJson(
         `line: '${line}' got ${list.items.length} items"`,
       );
     } catch (error) {
@@ -413,7 +412,7 @@ export default class FishServer {
       current.text.trim(),
       uri,
     );
-    this.logger.log(
+    this.logger.logAsJson(
       'docCache found ' + globalItem?.resolved.toString() ||
                 `docCache not found ${current.text}`,
     );

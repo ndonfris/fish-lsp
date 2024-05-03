@@ -1,4 +1,4 @@
-import { readFileSync } from 'fs';
+import { readFile, readFileSync } from 'fs';
 import { resolve } from 'path';
 import PackageJSON from '../../package.json';
 // import PackageJSON from '@package';
@@ -298,6 +298,7 @@ export function updateConfiguration<T>(path: string[], newValue: T, config: any)
   return true;
 }
 
+
 // export function optionsStringEqualsRaw(optionValue: string, rawValue: string) {
 //
 //     const removeToggleString = (toggle: string, str: string) => {
@@ -482,51 +483,48 @@ const getOutTime = () => {
 export const getBuildTimeString = () => {
   return getOutTime();
 };
+ 
+export const FishLspHelp = {
+  beforeAll: `
+       fish-lsp [-h | --help] [-v | --version] [--help-man] [--help-all] [--help-short]
+       fish-lsp [start | bare | min] [--enable | --disable] [--dump]
+       fish-lsp logger [-s | --show] [-d | --date] [-c | --clear] [-q | --quiet] [--config]
+       fish-lsp info [--bare] [--repo] [--time] [--env]
+       fish-lsp url [--repo] [--discussions] [--homepage] [--npm] [--contributions]
+                    [--wiki] [--issues] [--client-repo] [--sources]
+       fish-lsp complete`,
+  usage: `fish-lsp [OPTION]
+       fish-lsp [COMMAND [OPTION...]]`,
+   // fish-lsp [start | logger | info | url | complete] [options]
+   // fish-lsp [-h | --help] [-v | --version] [--help-man] [--help-all] [--help-short]
+  description: [
+    `  A language server for the \`fish-shell\`, written in typescript. Currently supports`,
+    `  the following feature set from "'${PackageLspVersion}'" of the language server protocol.`,
+    '  More documentation is available for any command or subcommand via \'-h/--help\'.',
+    '',
+    '  The current language server protocol, reserves stdin/stdout for communication between the ',
+    '  client and server. This means that when the server is started, it will listen for messages on',
+    '  not displaying any output from the command.',
+    '',
+    '  For more information, see the github repository:',
+    `     ${RepoUrl}`,
+  ].join('\n'),
+  after: [
+      '',
+      'Examples:',
+      '  # Default setup, with all options enabled',
+      '  > fish-lsp start ',
+      '',
+      '  # Generate and store completions file:',
+      '  > fish-lsp complete > ~/.config/fish/completions/fish-lsp.fish',
+    ].join('\n')
+}
 
-// return [
-//   '           L S P L S P L S P L ',
-//   '       P L S P L S P L S P L S P        L ',
-//   '    S P   L S P L S P L S P L S P     L S ',
-//   '  P L S   P L S P L S P L S P L S    P L S',
-//   'S P L S P L S P L S P L S P L S P   L S P ',
-//   '  L S P L S P L S P L S P L S P L  S P L S',
-//   '      P L S P L S P L S P L S P L S P L S P',
-//   '  S P L S P L S P L S P L S P L S  P L S P',
-//   'P L S P L S P L S P L S P L S P L    S P L',
-//   '  S P L S P L S P L S P L S P L       S P',
-//   '    S P L S P L S P L S P L S P        L S',
-//     '       P L S P L S P L S P L            S',
-//     '         L S P L S P L S P'
-//   ].join('\n');
-// export function generateFishCompletions() {
-//   const script: string = `
-// function _fish_lsp_completions
-//   set cmd (commandline -opc)
-//   if test (count $cmd) -eq 1
-//     fish-lsp completions --names
-//     return
-//   end
-//
-//   switch $cmd[2]
-//     case start
-//       printf "--show\t'dump output and stop server'"
-//       printf "--enable\t'enable feature'"
-//       printf "--disable\t'disable feature'"
-//     case min bare
-//         printf "--show\t'dump output and stop server'"
-//         printf "--enable\t'enable feature'"
-//         printf "--disable\t'disable feature'"
-//     case startup-configuration
-//         printf "--json\t'output as json'"
-//         printf "--lua\t'output as lua'"
-//     case show-path
-//         printf "--json\t'output as json'"
-//         printf "--lua\t'output as lua'"
-//     case '*'
-//       echo ""
-//   end
-// end
-//
-// complete -c fish-lsp -f -a '(_fish_lsp_completions)'`;
-//   console.log(script);
-// }
+export function FishLspManPage() {
+  const manFile = PathObj.manFile
+  const content = readFileSync(manFile, 'utf8')
+  return {
+    path: resolve(PathObj.root, PathObj.manFile),
+    content: content.split('\n')
+  } 
+}
