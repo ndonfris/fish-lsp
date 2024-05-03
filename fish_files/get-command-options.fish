@@ -1,4 +1,4 @@
-#!/usr/bin/fish 
+#!/usr/local/bin/fish 
 
 function backup_input 
     set -a -l _fish_lsp_file_cmps (fish -c "complete --do-complete '$argv -' | uniq") (fish -c "complete --do-complete '$argv ' | uniq") 

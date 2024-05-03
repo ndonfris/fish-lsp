@@ -1,4 +1,4 @@
-#!/usr/bin/fish 
+#!/usr/local/bin/fish 
 
 
 for _sub in (fish -c "complete --do-complete='$argv '")

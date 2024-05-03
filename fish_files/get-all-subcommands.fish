@@ -1,4 +1,4 @@
-#!/usr/bin/fish
+#!/usr/local/bin/fish
 
 
 set -l ignore_completions "vared" "funced" "begin" "while" "if" "for" "function" "functions" "funcsave" "help"

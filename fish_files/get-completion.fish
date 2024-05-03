@@ -1,4 +1,4 @@
-#!/usr/bin/fish
+#!/usr/local/bin/fish
 
 ##
 # File takes two arguments:

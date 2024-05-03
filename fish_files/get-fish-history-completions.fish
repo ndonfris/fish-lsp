@@ -1,4 +1,4 @@
-#!/usr/bin/fish 
+#!/usr/local/bin/fish 
 
 # 
 # this file prints the first 3 history commands matching the $argv 
