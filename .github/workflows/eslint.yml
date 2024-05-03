@@ -35,6 +35,10 @@ jobs:
           cmd: install # will run `yarn install` command
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }} # if needed
+          # - name: Run tests
+          #   uses: borales/actions-yarn@v4
+          #   with:
+          #     cmd: test-hook # will run `yarn build:prod` command
       - name: Build production bundle
         uses: borales/actions-yarn@v4
         with:

@@ -174,7 +174,7 @@ For more detailed information about using and contributing to the fish-lsp, plea
 Contributions are included across any project relevant to the project [fish-lsp-language-clients](https://github.com/ndonfris/fish-lsp-language-clients/),
 [fish-lsp.dev](https://https://github.com/ndonfris/fish-lsp.dev), and [this repo](https://github.com/ndonfris/fish-lsp).
 
-View the [CONTRIBUTING.md](./docs/CONTRIBUTING.md) for more info.
+View the [CONTRIBUTING](./docs/CONTRIBUTING.md) file for more info.
 
 Special thanks to everyone who has helped on the project.
 

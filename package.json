@@ -33,6 +33,7 @@
     "clean-nodemodules": "yarn rimraf out *.tsbuildinfo node_modules && yarn install",
     "clean:all": "yarn exec rimraf out *.tsbuildinfo node_modules tree-sitter-fish.wasm",
     "fresh": "yarn run clean:all && yarn install && yarn run setup",
+    "pretest-hook": "yarn clean:all && yarn install --ignore-scripts && yarn run sh:setup",
     "test-hook": "yarn jest document.test.ts node-types.test.ts fish-syntax-node.test.ts exec.test.ts logger.test.ts parser.test.ts",
     "test": "yarn jest --runInBand",
     "compile": "yarn tsc -b",
