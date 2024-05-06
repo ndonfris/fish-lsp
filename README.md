@@ -67,7 +67,8 @@ Contributions to help enhance installation options are greatly appreciated!
     fish-lsp --help
     ```
 
-1. Setup the project in the [client](https://github.com/ndonfris/fish-lsp/wiki/Client-Configurations) of your choice
+1. Setup the project in the [client](https://github.com/ndonfris/fish-lsp/wiki/Client-Configurations) of your choice. _Client's typically only need the keys `command`,
+   `args/arguments`, and `filetypes` to start a language server._
 
     ```json
     {
@@ -90,7 +91,7 @@ Contributions to help enhance installation options are greatly appreciated!
     }
     ```
 
-    > neovim client using [coc.nvim](https://github.com/neoclide/coc.nvim) configuartion. Snippet located inside [coc-settings.json](https://github.com/neoclide/coc.nvim/wiki/Language-servers#register-custom-language-servers) `"languageserver"` key
+    > Neovim client using [coc.nvim](https://github.com/neoclide/coc.nvim) configuartion, located inside [coc-settings.json](https://github.com/neoclide/coc.nvim/wiki/Language-servers#register-custom-language-servers) `"languageserver"` key
 
 ## Why?
 
@@ -154,9 +155,9 @@ Contributions to help enhance installation options are greatly appreciated!
 
 ## Additional Resources
 
-- [Contributing](./docs/CONTRIBUTING.md) - Documentation describing how to contribute to the fish-lsp project.
+- [Contributing](./docs/CONTRIBUTING.md) - documentation describing how to contribute to the fish-lsp project.
 
-- [Roadmap](./docs/ROADMAP.md) - Goals for future project releases.
+- [Roadmap](./docs/ROADMAP.md) - goals for future project releases.
 
 - [Wiki](https://github.com/ndonfris/fish-lsp/wiki) - further documentation and knowledge relevant to the project
 
@@ -165,6 +166,8 @@ Contributions to help enhance installation options are greatly appreciated!
 - [Site](https://fish-lsp.dev/) - website homepage
 
 - [Client Examples](https://github.com/ndonfris/fish-lsp/wiki/Client-Configurations) - testable language client configurations
+
+- [Sources](https://github.com/ndonfris/fish-lsp/wiki/Sources) - major influences for the project
 
 <!-- Contributors list @via: https://allcontributors.org/docs/en/bot/installation -->
 <!-- ## Contributing -->

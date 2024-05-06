@@ -1,7 +1,7 @@
 import { CompletionItem, FormattingOptions } from 'vscode-languageserver';
 import { Hover, MarkupContent, MarkupKind } from 'vscode-languageserver-protocol/node';
 import { SyntaxNode } from 'web-tree-sitter';
-import { hasPossibleSubCommand } from './utils/builtins';
+// import { hasPossibleSubCommand } from './utils/builtins';
 import { execCommandDocs, execCommandType, CompletionArguments, execCompleteSpace, execCompleteCmdArgs, documentCommandDescription } from './utils/exec';
 import { findParentCommand } from './utils/node-types';
 import { getChildNodes, getNodeText } from './utils/tree-sitter';
@@ -166,21 +166,21 @@ export function forwardArgCommandCollect(rootNode: SyntaxNode) : string[] {
   return stringToComplete;
 }
 
-export function collectCompletionOptions(rootNode: SyntaxNode) {
-  let cmdText = [rootNode.children[0]!.text];
-  if (hasPossibleSubCommand(cmdText[0]!)) {
-    cmdText = forwardSubCommandCollect(rootNode);
-  }
-  // DIFF FLAG FORMATS
-  // consider the differnece between, find -name .git
-  // and ls --long -l
-
-  // do complete and check for each flagsToFind
-  //
-  //exec
-
-  const flagsToFind = forwardArgCommandCollect(rootNode);
-}
+// export function collectCompletionOptions(rootNode: SyntaxNode) {
+//   let cmdText = [rootNode.children[0]!.text];
+//   if (hasPossibleSubCommand(cmdText[0]!)) {
+//     cmdText = forwardSubCommandCollect(rootNode);
+//   }
+//   // DIFF FLAG FORMATS
+//   // consider the differnece between, find -name .git
+//   // and ls --long -l
+//
+//   // do complete and check for each flagsToFind
+//   //
+//   //exec
+//
+//   const flagsToFind = forwardArgCommandCollect(rootNode);
+// }
 
 /*export async function hoverForCommandArgument(node: SyntaxNode): Promise<Hover | null> {*/
 /*const text = getNodeText(node) */

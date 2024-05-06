@@ -1,10 +1,5 @@
-import { CompletionItem, FormattingOptions } from 'vscode-languageserver';
-import { Hover, MarkupContent, MarkupKind } from 'vscode-languageserver-protocol/node';
-import { SyntaxNode } from 'web-tree-sitter';
-import { hasPossibleSubCommand } from './builtins';
-import { execCommandDocs, execCommandType, CompletionArguments, execCompleteSpace, execCompleteCmdArgs, documentCommandDescription, execComplete, execFindSubcommand, execSubCommandCompletions, execCompleteLine } from './exec';
-import { findParentCommand } from './node-types';
-import { getChildNodes, getNodeText } from './tree-sitter';
+import { MarkupContent, MarkupKind } from 'vscode-languageserver-protocol/node';
+import { execCommandDocs, execCompleteLine } from './exec';
 
 const findFirstFlagIndex = (cmdline: string[]) => {
   for (let i = 0; i < cmdline.length; i++) {
