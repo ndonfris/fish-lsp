@@ -154,30 +154,29 @@ Contributions to help enhance installation options are greatly appreciated!
 
 ## Additional Resources
 
-For more detailed information about using and contributing to the fish-lsp, please visit the following resources:
-
-- [Contributing](./docs/CONTRIBUTING.md) - Docs describing how to contribute to the fish-lsp project.
+- [Contributing](./docs/CONTRIBUTING.md) - Documentation describing how to contribute to the fish-lsp project.
 
 - [Roadmap](./docs/ROADMAP.md) - Goals for future project releases.
 
 - [Wiki](https://github.com/ndonfris/fish-lsp/wiki) - further documentation and knowledge relevant to the project
 
-- [Discussions](https://github.com/ndonfris/fish-lsp/discussions) - interact with our maintainers
+- [Discussions](https://github.com/ndonfris/fish-lsp/discussions) - interact with maintainers
 
-- [Site](https://fish-lsp.dev/) - Web Homepage
+- [Site](https://fish-lsp.dev/) - website homepage
 
-- [Client Examples](https://github.com/ndonfris/fish-lsp/wiki/Client-Configurations) - Testable language client configuartions
+- [Client Examples](https://github.com/ndonfris/fish-lsp/wiki/Client-Configurations) - testable language client configurations
 
 <!-- Contributors list @via: https://allcontributors.org/docs/en/bot/installation -->
-## Contributing
-
-Contributions are included across any project relevant to the project [fish-lsp-language-clients](https://github.com/ndonfris/fish-lsp-language-clients/),
-[fish-lsp.dev](https://https://github.com/ndonfris/fish-lsp.dev), and [this repo](https://github.com/ndonfris/fish-lsp).
-
-View the [CONTRIBUTING](./docs/CONTRIBUTING.md) file for more info.
-
-Special thanks to everyone who has helped on the project.
-
+<!-- ## Contributing -->
+<!---->
+<!-- Contributions are included across any project relevant to the project [fish-lsp-language-clients](https://github.com/ndonfris/fish-lsp-language-clients/), -->
+<!-- [fish-lsp.dev](https://https://github.com/ndonfris/fish-lsp.dev), and [this repo](https://github.com/ndonfris/fish-lsp). -->
+<!---->
+<!-- View the [CONTRIBUTING](./docs/CONTRIBUTING.md) file for more info. -->
+<!---->
+<!-- Special thanks to everyone who has helped on the project. -->
+<!---->
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](https://github.com/ndonfris/fish-lsp/blob/master/LICENSE) file.
+[MIT](https://github.com/ndonfris/fish-lsp/blob/master/LICENSE)
+
