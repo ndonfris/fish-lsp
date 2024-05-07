@@ -342,8 +342,9 @@ export function accumulateStartupOptions(args: string[]): {
       return;
     }
     if (['-h', '--help', 'help'].includes(arg)) {
-      commandBin.commands.find(command => command.name() === subcmd)!.outputHelp();
-      process.exit(0);
+      // commandBin.commands.find(command => command.name() === subcmd)!.outputHelp();
+      // process.exit(0);
+      return
     }
     if (['--dump'].includes(arg)) {
       console.log('SEEN SHOW COMMAND! dumping...');
@@ -499,7 +500,7 @@ export const FishLspHelp = {
   // fish-lsp [-h | --help] [-v | --version] [--help-man] [--help-all] [--help-short]
   description: [
     '  A language server for the `fish-shell`, written in typescript. Currently supports',
-    `  the following feature set from "'${PackageLspVersion}'" of the language server protocol.`,
+    `  the following feature set from '${PackageLspVersion}' of the language server protocol.`,
     '  More documentation is available for any command or subcommand via \'-h/--help\'.',
     '',
     '  The current language server protocol, reserves stdin/stdout for communication between the ',

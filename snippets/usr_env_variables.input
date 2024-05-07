@@ -1,3 +1,6 @@
+fish_lsp_config_path
+the server's json configuration (default: '~/.config/fish/fish-lsp.config.json')
+
 fish_lsp_enabled_handlers
 enables the fish-lsp handlers 'asciiArt', 'formatting', 'logging', 'snippets', 'completion', 'hover', 'rename', 'definition', 'references', 'diagnostics', 'signatureHelp', 'codeAction', 'index' (default: 'all')
 

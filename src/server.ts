@@ -44,8 +44,8 @@ export default class FishServer {
     params: InitializeParams,
   ): Promise<FishServer> {
     const documents = new LspDocuments();
-    const config = new ConfigManager(documents);
-    config.mergePreferences(params.initializationOptions);
+    // const config = new ConfigManager(documents);
+    // config.mergePreferences(params.initializationOptions);
     const logger = new Logger(ServerLogsPath, true, connection.console);
     return await Promise.all([
       initializeParser(),
@@ -56,7 +56,7 @@ export default class FishServer {
       const analyzer = new Analyzer(parser, workspaces);
       return new FishServer(
         connection,
-        config,
+        // config,
         parser,
         analyzer,
         documents,
@@ -81,7 +81,7 @@ export default class FishServer {
 
   constructor(
     private connection: Connection,
-    private config: ConfigManager,
+    // private config: ConfigManager,
     private parser: Parser,
     private analyzer: Analyzer,
     private docs: LspDocuments,
@@ -144,7 +144,7 @@ export default class FishServer {
         inlayHintProvider: true,
       },
     };
-    this.config.mergePreferences(params.initializationOptions);
+    // this.config.mergePreferences(params.initializationOptions);
     this.logger.logAsJson(JSON.stringify({ onInitializedResult: result }));
     return result;
   }
@@ -492,7 +492,8 @@ export default class FishServer {
     }
     formattedText = applyFormatterSettings(
       this.parser.parse(formattedText).rootNode,
-      this.config.getFormattingOptions(),
+      {insertSpaces: true, tabSize: 4}
+      // this.config.getFormattingOptions(),
     );
     const editedRange = getRange(root);
     this.connection.window.showInformationMessage(`Formatted: ${uri}`);
@@ -525,7 +526,8 @@ export default class FishServer {
     }
     formattedText = applyFormatterSettings(
       this.parser.parse(formattedText).rootNode,
-      this.config.getFormattingOptions(),
+      {insertSpaces: true, tabSize: 4}
+      // this.config.getFormattingOptions(),
     );
     //formattedText = formattedText.split('\n').slice(range.start.line, range.end.line).join('\n') + '\n'
     this.connection.window.showInformationMessage(

@@ -2,7 +2,6 @@
   "extends": "@tsconfig/node-lts/tsconfig.json",
   "compilerOptions": {
     "outDir": "out",
-    "rootDir": "src",
     "esModuleInterop": true,
     "noUncheckedIndexedAccess": true,
     "resolveJsonModule": true,
@@ -21,28 +20,13 @@
     "src",
     "src/**/*.ts",
     "../*.json",
-    "../test-data/",
+    // "test-data/**/*",
     "../snippets/**.{json,ts}"
   ],
   "exclude": [
     "node_modules",
     "out"
   ]
-  // "display": "Node LTS",
-  // "_version": "20.1.0",
-  // "compilerOptions": {
-  //   "lib": [
-  //     "es2023"
-  //   ],
-  //   "module": "node16",
-  //   "target": "es2022",
-  //   "strict": true,
-  //   "noUncheckedIndexedAccess": true,
-  //   "esModuleInterop": true,
-  //   "skipLibCheck": true,
-  //   "forceConsistentCasingInFileNames": true,
-  //   "moduleResolution": "node16"
-  // },
 }
 // {
 //   "compilerOptions": {

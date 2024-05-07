@@ -5,4 +5,4 @@ pager_colors.input
 special_variables.input
 syntax_highlighting_variables.input
 helper_commands.input
-usr_env_variables.input
+fish_lsp_env_variables.input

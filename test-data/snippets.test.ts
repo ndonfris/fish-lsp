@@ -1,9 +1,5 @@
-
-
 import { setLogger } from './helpers'
 import * as JsonObjs from '../src/utils/snippets'
-
-
 
 
 setLogger()

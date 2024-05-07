@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 //'use strict'
+import { asciiLogoString, BuildCapabilityString, RepoUrl, PathObj, PackageLspVersion, GetEnvVariablesUsed, PackageVersion, accumulateStartupOptions, getBuildTimeString, FishLspHelp, FishLspManPage } from './utils/commander-cli-subcommands';
 import { createConnection, InitializeParams, InitializeResult, StreamMessageReader, StreamMessageWriter } from 'vscode-languageserver/node';
 import { Command, Option } from 'commander';
 import FishServer from './server';
 // import * as luaJson from 'lua-json';
-import { asciiLogoString, BuildCapabilityString, RepoUrl, PathObj, PackageLspVersion, GetEnvVariablesUsed, PackageVersion, accumulateStartupOptions, getBuildTimeString, FishLspHelp, FishLspManPage } from './utils/commander-cli-subcommands';
 import { mainStartupManager, bareStartupManger, ConfigMap } from './utils/configuration-manager';
 import { buildFishLspCompletions } from './utils/get-lsp-completions';
 import { createServerLogger, Logger, ServerLogsPath } from './logger';
@@ -49,10 +49,8 @@ export function startWebscoket() {
  *  creates local 'commandBin' used for commander.js
  */
 const createFishLspBin = (): Command => {
-  const bin = new Command('fish-lsp');
-
-  bin.description(`Description:\n${FishLspHelp.description}`)
-
+  const bin = new Command('fish-lsp')
+    .description(`Description:\n${FishLspHelp?.description.toString() || 'fish-lsp command output'}`)
     .version(PackageVersion, '-v, --version', 'output the version number')
     .enablePositionalOptions(true)
     .configureHelp({
@@ -108,7 +106,7 @@ commandBin
 
 
 // START
-commandBin.command('start [TOGGLE...]')
+commandBin.command('start [TOGGLE]')
   .summary('subcmd to start the lsp using stdin/stdout')
   .description('start the language server for a connection to a client')
   .option('--dump', 'stop lsp & show the startup options being read')
@@ -128,14 +126,14 @@ commandBin.command('start [TOGGLE...]')
     '\tfish-lsp start --enable --disable logging completion codeAction',
   ].join('\n'))
   .action(() => {
-    const config: ConfigMap = mainStartupManager();
+    // const config: ConfigMap = mainStartupManager();
     const { enabled, disabled, dumpCmd } = accumulateStartupOptions(commandBin.args);
-    enabled.forEach(opt => config.toggleFeature(opt, true));
-    disabled.forEach(opt => config.toggleFeature(opt, false));
-    if (dumpCmd) {
-      config.log();
-      process.exit(0);
-    }
+    // enabled.forEach(opt => config.toggleFeature(opt, true));
+    // disabled.forEach(opt => config.toggleFeature(opt, false));
+    // if (dumpCmd) {
+    //   config.log();
+    //   process.exit(0);
+    // }
     /* config needs to be used in `startServer()` below */
     startServer();
     // process.exit(0);
@@ -143,44 +141,44 @@ commandBin.command('start [TOGGLE...]')
 
 
 // BARE | MIN | MINIMAL
-commandBin.command('bare [TOGGLE...]')
-  .alias('min')
-  .alias('minimal')
-  .summary('run barebones startup config')
-  .description([
-    'Initialize the fish-lsp with a completely minimal startup configuration.',
-    'This is useful for running the language server with minimal indexing, debugging specific features',
-    'and various other edge cases where the full feature set is not needed.',
-  ].join('\n'))
-  .option('--dump', 'stop lsp & show the startup options being read')
-  .option('--enable <string...>', 'enable the startup option')
-  .option('--disable <string...>', 'disable the startup option')
-  .addHelpText('afterAll', [
-    '',
-    'STRINGS FOR \'--enable/--disable\':',
-    `(${ConfigMap.configNames.map((opt, index) => {
-      return index < ConfigMap.configNames.length - 1 && index > 0 && index % 5 === 0 ? `${opt},\n` :
-        index < ConfigMap.configNames.length - 1 ? `${opt},` : opt;
-    }).join(' ')})`,
-    '',
-    'Examples:',
-    '\tfish-lsp min --enable hover  # only enable the hover feature',
-    '\tfish-lsp bare --enable all    # works like the \'start\' subcommand',
-    '\tfish-lsp min --enable all --disable logging completion codeAction',
-  ].join('\n'))
-  .action(() => {
-    const config: ConfigMap = bareStartupManger();
-    const { enabled, disabled, dumpCmd } = accumulateStartupOptions(commandBin.args);
-    enabled.forEach(opt => config.toggleFeature(opt, true));
-    disabled.forEach(opt => config.toggleFeature(opt, false));
-    if (dumpCmd) {
-      config.log();
-      process.exit(0);
-    }
-    // use config in startServer()
-    startServer();
-    // process.exit(0);
-  });
+// commandBin.command('bare [TOGGLE...]')
+//   .alias('min')
+//   .alias('minimal')
+//   .summary('run barebones startup config')
+//   .description([
+//     'Initialize the fish-lsp with a completely minimal startup configuration.',
+//     'This is useful for running the language server with minimal indexing, debugging specific features',
+//     'and various other edge cases where the full feature set is not needed.',
+//   ].join('\n'))
+//   .option('--dump', 'stop lsp & show the startup options being read')
+//   .option('--enable <string...>', 'enable the startup option')
+//   .option('--disable <string...>', 'disable the startup option')
+//   .addHelpText('afterAll', [
+//     '',
+//     'STRINGS FOR \'--enable/--disable\':',
+//     `(${ConfigMap.configNames.map((opt, index) => {
+//       return index < ConfigMap.configNames.length - 1 && index > 0 && index % 5 === 0 ? `${opt},\n` :
+//         index < ConfigMap.configNames.length - 1 ? `${opt},` : opt;
+//     }).join(' ')})`,
+//     '',
+//     'Examples:',
+//     '\tfish-lsp min --enable hover  # only enable the hover feature',
+//     '\tfish-lsp bare --enable all    # works like the \'start\' subcommand',
+//     '\tfish-lsp min --enable all --disable logging completion codeAction',
+//   ].join('\n'))
+//   .action(() => {
+//     const config: ConfigMap = bareStartupManger();
+//     const { enabled, disabled, dumpCmd } = accumulateStartupOptions(commandBin.args);
+//     enabled.forEach(opt => config.toggleFeature(opt, true));
+//     disabled.forEach(opt => config.toggleFeature(opt, false));
+//     if (dumpCmd) {
+//       config.log();
+//       process.exit(0);
+//     }
+//     // use config in startServer()
+//     startServer();
+//     // process.exit(0);
+//   });
 
 // LOGGER
 commandBin.command('logger')

@@ -1,5 +1,9 @@
 [
 {
+	"name": "fish_lsp_config_path",
+	"description": "the server's json configuration (default: '~/.config/fish/fish-lsp.config.json')"
+},
+{
 	"name": "fish_lsp_enabled_handlers",
 	"description": "enables the fish-lsp handlers 'asciiArt', 'formatting', 'logging', 'snippets', 'completion', 'hover', 'rename', 'definition', 'references', 'diagnostics', 'signatureHelp', 'codeAction', 'index' (default: 'all')"
 },
