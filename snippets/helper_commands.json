@@ -1,0 +1,486 @@
+[
+{
+	"name": "_",
+	"description": "call fish’s translations"
+},
+{
+	"name": "abbr",
+	"description": "manage fish abbreviations"
+},
+{
+	"name": "alias",
+	"description": "create a function"
+},
+{
+	"name": "and",
+	"description": "conditionally execute a command"
+},
+{
+	"name": "argparse",
+	"description": "parse options passed to a fish script or function"
+},
+{
+	"name": "begin",
+	"description": "start a new block of code"
+},
+{
+	"name": "bg",
+	"description": "send jobs to background"
+},
+{
+	"name": "bind",
+	"description": "handle fish key bindings"
+},
+{
+	"name": "block",
+	"description": "temporarily block delivery of events"
+},
+{
+	"name": "break",
+	"description": "stop the current inner loop"
+},
+{
+	"name": "breakpoint",
+	"description": "launch debug mode"
+},
+{
+	"name": "builtin",
+	"description": "run a builtin command"
+},
+{
+	"name": "case",
+	"description": "conditionally execute a block of commands"
+},
+{
+	"name": "cd",
+	"description": "change directory"
+},
+{
+	"name": "cdh",
+	"description": "change to a recently visited directory"
+},
+{
+	"name": "command",
+	"description": "run a program"
+},
+{
+	"name": "commandline",
+	"description": "set or get the current command line buffer"
+},
+{
+	"name": "complete",
+	"description": "edit command-specific tab-completions"
+},
+{
+	"name": "contains",
+	"description": "test if a word is present in a list"
+},
+{
+	"name": "continue",
+	"description": "skip the remainder of the current iteration of the current inner loop"
+},
+{
+	"name": "count",
+	"description": "count the number of elements of a list"
+},
+{
+	"name": "dirh",
+	"description": "print directory history"
+},
+{
+	"name": "dirs",
+	"description": "print directory stack"
+},
+{
+	"name": "disown",
+	"description": "remove a process from the list of jobs"
+},
+{
+	"name": "echo",
+	"description": "display a line of text"
+},
+{
+	"name": "else",
+	"description": "execute command if a condition is not met"
+},
+{
+	"name": "emit",
+	"description": "emit a generic event"
+},
+{
+	"name": "end",
+	"description": "end a block of commands"
+},
+{
+	"name": "eval",
+	"description": "evaluate the specified commands"
+},
+{
+	"name": "exec",
+	"description": "execute command in current process"
+},
+{
+	"name": "exit",
+	"description": "exit the shell"
+},
+{
+	"name": "false",
+	"description": "return an unsuccessful result"
+},
+{
+	"name": "fg",
+	"description": "bring job to foreground"
+},
+{
+	"name": "fish",
+	"description": "the friendly interactive shell"
+},
+{
+	"name": "fish_add_path",
+	"description": "add to the path"
+},
+{
+	"name": "fish_breakpoint_prompt",
+	"description": "define the prompt when stopped at a breakpoint"
+},
+{
+	"name": "fish_clipboard_copy",
+	"description": "copy text to the system’s clipboard"
+},
+{
+	"name": "fish_clipboard_paste",
+	"description": "get text from the system’s clipboard"
+},
+{
+	"name": "fish_command_not_found",
+	"description": "what to do when a command wasn’t found"
+},
+{
+	"name": "fish_config",
+	"description": "start the web-based configuration interface"
+},
+{
+	"name": "fish_default_key_bindings",
+	"description": "set emacs key bindings for fish"
+},
+{
+	"name": "fish_delta",
+	"description": "compare functions and completions to the default"
+},
+{
+	"name": "fish_git_prompt",
+	"description": "output git information for use in a prompt"
+},
+{
+	"name": "fish_greeting",
+	"description": "display a welcome message in interactive shells"
+},
+{
+	"name": "fish_hg_prompt",
+	"description": "output Mercurial information for use in a prompt"
+},
+{
+	"name": "fish_indent",
+	"description": "indenter and prettifier"
+},
+{
+	"name": "fish_is_root_user",
+	"description": "check if the current user is root"
+},
+{
+	"name": "fish_key_reader",
+	"description": "explore what characters keyboard keys send"
+},
+{
+	"name": "fish_mode_prompt",
+	"description": "define the appearance of the mode indicator"
+},
+{
+	"name": "fish_opt",
+	"description": "create an option specification for the argparse command"
+},
+{
+	"name": "fish_prompt",
+	"description": "define the appearance of the command line prompt"
+},
+{
+	"name": "fish_right_prompt",
+	"description": "define the appearance of the right-side command line prompt"
+},
+{
+	"name": "fish_status_to_signal",
+	"description": "convert exit codes to human-friendly signals"
+},
+{
+	"name": "fish_svn_prompt",
+	"description": "output Subversion information for use in a prompt"
+},
+{
+	"name": "fish_title",
+	"description": "define the terminal’s title"
+},
+{
+	"name": "fish_update_completions",
+	"description": "update completions using manual pages"
+},
+{
+	"name": "fish_vcs_prompt",
+	"description": "output version control system information for use in a prompt"
+},
+{
+	"name": "fish_vi_key_bindings",
+	"description": "set vi key bindings for fish"
+},
+{
+	"name": "for",
+	"description": "perform a set of commands multiple times"
+},
+{
+	"name": "funced",
+	"description": "edit a function interactively"
+},
+{
+	"name": "funcsave",
+	"description": "save the definition of a function to the user’s autoload directory"
+},
+{
+	"name": "function",
+	"description": "create a function"
+},
+{
+	"name": "functions",
+	"description": "print or erase functions"
+},
+{
+	"name": "help",
+	"description": "display fish documentation"
+},
+{
+	"name": "history",
+	"description": "show and manipulate command history"
+},
+{
+	"name": "if",
+	"description": "conditionally execute a command"
+},
+{
+	"name": "isatty",
+	"description": "test if a file descriptor is a terminal"
+},
+{
+	"name": "jobs",
+	"description": "print currently running jobs"
+},
+{
+	"name": "math",
+	"description": "perform mathematics calculations"
+},
+{
+	"name": "nextd",
+	"description": "move forward through directory history"
+},
+{
+	"name": "not",
+	"description": "negate the exit status of a job"
+},
+{
+	"name": "open",
+	"description": "open file in its default application"
+},
+{
+	"name": "or",
+	"description": "conditionally execute a command"
+},
+{
+	"name": "path",
+	"description": "manipulate and check paths"
+},
+{
+	"name": "popd",
+	"description": "move through directory stack"
+},
+{
+	"name": "prevd",
+	"description": "move backward through directory history"
+},
+{
+	"name": "printf",
+	"description": "display text according to a format string"
+},
+{
+	"name": "prompt_hostname",
+	"description": "print the hostname, shortened for use in the prompt"
+},
+{
+	"name": "prompt_login",
+	"description": "describe the login suitable for prompt"
+},
+{
+	"name": "prompt_pwd",
+	"description": "print pwd suitable for prompt"
+},
+{
+	"name": "psub",
+	"description": "perform process substitution"
+},
+{
+	"name": "pushd",
+	"description": "push directory to directory stack"
+},
+{
+	"name": "pwd",
+	"description": "output the current working directory"
+},
+{
+	"name": "random",
+	"description": "generate random number"
+},
+{
+	"name": "read",
+	"description": "read line of input into variables"
+},
+{
+	"name": "realpath",
+	"description": "convert a path to an absolute path without symlinks"
+},
+{
+	"name": "return",
+	"description": "stop the current inner function"
+},
+{
+	"name": "set",
+	"description": "display and change shell variables"
+},
+{
+	"name": "set_color",
+	"description": "set the terminal color"
+},
+{
+	"name": "source",
+	"description": "evaluate contents of file"
+},
+{
+	"name": "status",
+	"description": "query fish runtime information"
+},
+{
+	"name": "string",
+	"description": "manipulate strings"
+},
+{
+	"name": "string-collect",
+	"description": "join strings into one"
+},
+{
+	"name": "string-escape",
+	"description": "escape special characters"
+},
+{
+	"name": "string-join",
+	"description": "join strings with delimiter"
+},
+{
+	"name": "string-join0",
+	"description": "join strings with zero bytes"
+},
+{
+	"name": "string-length",
+	"description": "print string lengths"
+},
+{
+	"name": "string-lower",
+	"description": "convert strings to lowercase"
+},
+{
+	"name": "string-match",
+	"description": "match substrings"
+},
+{
+	"name": "string-pad",
+	"description": "pad strings to a fixed width"
+},
+{
+	"name": "string-repeat",
+	"description": "multiply a string"
+},
+{
+	"name": "string-replace",
+	"description": "replace substrings"
+},
+{
+	"name": "string-shorten",
+	"description": "shorten strings to a width, with an ellipsis"
+},
+{
+	"name": "string-split",
+	"description": "split strings by delimiter"
+},
+{
+	"name": "string-split0",
+	"description": "split on zero bytes"
+},
+{
+	"name": "string-sub",
+	"description": "extract substrings"
+},
+{
+	"name": "string-trim",
+	"description": "remove trailing whitespace"
+},
+{
+	"name": "string-unescape",
+	"description": "expand escape sequences"
+},
+{
+	"name": "string-upper",
+	"description": "convert strings to uppercase"
+},
+{
+	"name": "suspend",
+	"description": "suspend the current shell"
+},
+{
+	"name": "switch",
+	"description": "conditionally execute a block of commands"
+},
+{
+	"name": "test",
+	"description": "perform tests on files and text"
+},
+{
+	"name": "time",
+	"description": "measure how long a command or block takes"
+},
+{
+	"name": "trap",
+	"description": "perform an action when the shell receives a signal"
+},
+{
+	"name": "true",
+	"description": "return a successful result"
+},
+{
+	"name": "type",
+	"description": "locate a command and describe its type"
+},
+{
+	"name": "ulimit",
+	"description": "set or get resource usage limits"
+},
+{
+	"name": "umask",
+	"description": "set or get the file creation mode mask"
+},
+{
+	"name": "vared",
+	"description": "interactively edit the value of an environment variable"
+},
+{
+	"name": "wait",
+	"description": "wait for jobs to complete"
+},
+{
+	"name": "while",
+	"description": "perform a set of commands multiple times"
+}
+]

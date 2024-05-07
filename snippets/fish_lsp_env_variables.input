@@ -1,0 +1,19 @@
+fish_lsp_enabled_handlers
+
+enables the fish-lsp handlers 'asciiArt', 'formatting', 'logging', 'snippets', 'completion', 'hover', 'rename', 'definition', 'references', 'diagnostics', 'signatureHelp', 'codeAction', 'index'
+
+fish_lsp_disabled_handlers
+
+disables the fish-lsp handlers 'asciiArt', 'formatting', 'logging', 'snippets', 'completion', 'hover', 'rename', 'definition', 'references', 'diagnostics', 'signatureHelp', 'codeAction', 'index'
+
+fish_lsp_ascii_art  
+
+output help command with ascii art
+
+fish_lsp_diagnostics_comments
+
+include comments in fish-lsp documentation
+
+fish_lsp_enabled_code_actions 
+
+enable the codeActions for fish-lsp (default: "all")

@@ -14,11 +14,20 @@ It requires a client that supports the Language Server Protocol (LSP). For examp
 
 ### OPTIONS
 
+`-v` or `--version`
+Show version information and exit.
+
 `-h` or  `--help`
 Show help message and exit.
 
-`-v` or `--version`
-Show version information and exit.
+`--help-all`
+show all the help information
+
+`--help-short`
+show shortened help message
+
+`--help-man`
+show manpage output
 
 ### SUBCOMMANDS
 
@@ -39,9 +48,6 @@ show a helpful url related to the fish-lsp
 
 `complete`
 Provide completions for the `fish-lsp`
-
-`help`
-Show help message and exit.
 
 ## EXAMPLES
 

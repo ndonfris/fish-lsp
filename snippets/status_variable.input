@@ -1,0 +1,26 @@
+0
+  0 is generally the exit status of commands if they successfully performed the requested operation.
+
+1
+  1 is generally the exit status of commands if they failed to perform the requested operation.
+
+121
+  121 is generally the exit status of commands if they were supplied with invalid arguments.
+
+123
+  123 means that the command was not executed because the command name contained invalid characters.
+
+124
+  124 means that the command was not executed because none of the wildcards in the command produced any matches.
+
+125
+  125 means that while an executable with the specified name was located, the operating system could not actually execute the command.
+
+126
+  126 means that while a file with the specified name was located, it was not executable.
+
+127
+  127 means that no function, builtin or command with the given name could be located.
+
+128
+  128 is used when a process exits a signal, plus the number of the signal

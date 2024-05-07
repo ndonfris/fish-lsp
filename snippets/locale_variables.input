@@ -1,0 +1,30 @@
+LANG
+    This is the typical environment variable for specifying a locale. A user may set this variable to express the language they speak, their region, and a character encoding. The actual values are specific to their platform, except for special values like C or POSIX. The value of LANG is used for each category unless the variable for that category was set or LC_ALL is set. So typically you only need to set LANG.An example value might be en_US.UTF-8 for the american version of english and the UTF-8 encoding, or de_AT.UTF-8 for the austrian version of german and the UTF-8 encoding. Your operating system might have a locale command that you can call as locale -a to see a list of defined locales. A UTF-8 encoding is recommended.
+
+LC_ALL
+
+    Overrides the LANG environment variable and the values of the other LC_* variables. If this is set, none of the other variables are used for anything. Usually the other variables should be used instead. Use LC_ALL only when you need to override something.
+
+LC_COLLATE
+
+    This determines the rules about equivalence of cases and alphabetical ordering: collation.
+
+LC_CTYPE
+
+    This determines classification rules, like if the type of character is an alpha, digit, and so on. Most importantly, it defines the text encoding - which numbers map to which characters. On modern systems, this should typically be something ending in “UTF-8”.
+
+LC_MESSAGES
+
+    LC_MESSAGES determines the language in which messages are diisplayed.
+
+LC_MONETARY
+
+    Determines currency, how it is formated, and the symbols used.
+
+LC_NUMERIC
+
+    Sets the locale for formatting numbers.
+
+LC_TIME
+
+    Sets the locale for formatting dates and times.
