@@ -62,7 +62,6 @@ const createFishLspBin = (): Command => {
     })
     .showSuggestionAfterError()
     .showHelpAfterError()
-
     .addHelpText('after', FishLspHelp.after);
   return bin;
 };
@@ -93,11 +92,11 @@ commandBin
       console.log(globalOpts.map(o =>'  ' + o.flags + '\t' + o.description).join('\n'));
       console.log('\nSUBCOMMANDS:');
       commandBin.commands.forEach((cmd) => {
-        console.log(`   ${cmd.name()} ${cmd.usage()}\t${cmd.summary()}`);
+        console.log(`  ${cmd.name()} ${cmd.usage()}\t${cmd.summary()}`);
         console.log(cmd.options.map(o => `    ${o.flags}\t\t${o.description}`).join('\n'));
         console.log();
       });
-      console.log('EXAMPLES:\n');
+      console.log('EXAMPLES:');
       console.log(FishLspHelp.after.split('\n').slice(2).join('\n'));
     } else if (opt.helpShort) {
       console.log('Usage: fish-lsp ', commandBin.usage().split('\n').slice(0, 1));

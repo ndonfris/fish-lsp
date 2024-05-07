@@ -12,12 +12,12 @@
 	"description": "the runtime of the last command in milliseconds."
 },
 {
-	"name": "LINES",
-	"description": "the current size of the terminal in height. These values are only used by fish if the operating system does not report the size of the terminal. Both variables must be set in that case otherwise a default of 80x24 will be used. They are updated when the window size changes."
-},
-{
 	"name": "COLUMNS",
 	"description": "the current size of the terminal in width. These values are only used by fish if the operating system does not report the size of the terminal. Both variables must be set in that case otherwise a default of 80x24 will be used. They are updated when the window size changes."
+},
+{
+	"name": "LINES",
+	"description": "the current size of the terminal in height. These values are only used by fish if the operating system does not report the size of the terminal. Both variables must be set in that case otherwise a default of 80x24 will be used. They are updated when the window size changes."
 },
 {
 	"name": "fish_kill_signal",

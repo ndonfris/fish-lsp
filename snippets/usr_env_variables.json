@@ -1,0 +1,22 @@
+[
+{
+	"name": "fish_lsp_enabled_handlers",
+	"description": "enables the fish-lsp handlers 'asciiArt', 'formatting', 'logging', 'snippets', 'completion', 'hover', 'rename', 'definition', 'references', 'diagnostics', 'signatureHelp', 'codeAction', 'index' (default: 'all')"
+},
+{
+	"name": "fish_lsp_disabled_handlers",
+	"description": "disables the fish-lsp handlers 'asciiArt', 'formatting', 'logging', 'snippets', 'completion', 'hover', 'rename', 'definition', 'references', 'diagnostics', 'signatureHelp', 'codeAction', 'index' (default: '')"
+},
+{
+	"name": "fish_lsp_log_file_path",
+	"description": "the log file path for the fish-lsp to use (default: '~/path/to/fish-lsp/logs.txt')"
+},
+{
+	"name": "fish_lsp_workspaces",
+	"description": "an array of files to include in the fish-lsp scope (default: '/usr/share/fish/', '$HOME/.config/fish')"
+},
+{
+	"name": "fish_lsp_renamable_workspaces",
+	"description": "an array of workspaces that fish-lsp allows for renaming within (default: '$HOME/.config/fish')"
+}
+]
