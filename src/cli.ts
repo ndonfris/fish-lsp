@@ -8,7 +8,7 @@ import FishServer from './server';
 import { mainStartupManager, bareStartupManger, ConfigMap } from './utils/configuration-manager';
 import { buildFishLspCompletions } from './utils/get-lsp-completions';
 import { createServerLogger, Logger, ServerLogsPath } from './logger';
-import { configHandlers, getConfigFromEnvironmentVariables, updateHandlers, validHandlers } from './config';
+import { configHandlers, generateJsonSchemaShellScript, getConfigFromEnvironmentVariables, showJsonSchemaShellScript, updateHandlers, validHandlers } from './config';
 
 export function startServer() {
   // Create a connection for the server.
@@ -306,6 +306,24 @@ commandBin.command('complete')
     }
     console.log(buildFishLspCompletions(commandBin));
     process.exit(0);
+  });
+
+// ENV
+commandBin.command('env')
+  .summary('generate fish shell env variables to be used by lsp')
+  .description('generate fish-lsp env variables')
+  .option('-c, --create', 'build initial fish-lsp env variables')
+  .option('-s, --show',  'show the current fish-lsp env variables')
+  .action(args => {
+    if (args.show) {
+      showJsonSchemaShellScript()
+      process.exit(0)
+    } else if (args.create) {
+      generateJsonSchemaShellScript()
+      process.exit(0)
+    }
+    generateJsonSchemaShellScript()
+    process.exit(0)
   });
 
 /**

@@ -142,6 +142,13 @@ complete -c fish-lsp -n '__fish_lsp_using_command info; and not __fish_contains_
 complete -c fish-lsp -n '__fish_lsp_using_command info; and not __fish_contains_opt more'          -l more           -d 'show more info'
 `;
 
+// const completeCompletions: string = `# fish-lsp complete <TAB>
+const envCompletions: string = `# fish-lsp env --<TAB>
+complete -c fish-lsp -n __fish_use_subcommand -x -a env -d 'generate fish shell env variables to be used by lsp'
+complete -c fish-lsp -n '__fish_lsp_using_command env; and not __fish_contains_opt -s s show'    -s s -l show   -d 'show the current fish-lsp env variables'
+complete -c fish-lsp -n '__fish_lsp_using_command env; and not __fish_contains_opt -s c create'  -s c -l create -d 'build initial fish-lsp env variables'
+`;
+
 const mapNames = validHandlers.join(' ');
 const featuresCompletions: string = `# print all $fish_lsp_submcommands
 function _fish_lsp_get_features
@@ -179,6 +186,7 @@ export function buildFishLspCompletions(commandBin: Command) {
   output.push(loggerCompletions);
 
   output.push(featuresCompletions);
+  output.push(envCompletions)
   output.push('# COMPLETION: fish-lsp subcmd <option> [VALUE] (`fish-lsp start --enable ...`)');
   output.push('complete -c fish-lsp -n \'__fish_seen_subcommand_from $__fish_lsp_subcommands\' -l enable -xa \'(_fish_lsp_get_features)\'');
   output.push('complete -c fish-lsp -n \'__fish_seen_subcommand_from $__fish_lsp_subcommands\' -l disable -xa \'(_fish_lsp_get_features)\'');
