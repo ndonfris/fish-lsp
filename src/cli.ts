@@ -8,6 +8,7 @@ import FishServer from './server';
 import { mainStartupManager, bareStartupManger, ConfigMap } from './utils/configuration-manager';
 import { buildFishLspCompletions } from './utils/get-lsp-completions';
 import { createServerLogger, Logger, ServerLogsPath } from './logger';
+import { configHandlers, getConfigFromEnvironmentVariables, updateHandlers, validHandlers } from './config';
 
 export function startServer() {
   // Create a connection for the server.
@@ -51,6 +52,7 @@ export function startWebscoket() {
 const createFishLspBin = (): Command => {
   const bin = new Command('fish-lsp')
     .description(`Description:\n${FishLspHelp?.description.toString() || 'fish-lsp command output'}`)
+    .helpOption('-h, --help', 'show the relevant help info. Use `--help-all` for comprehensive documentation of all commands and flags. Other `--help-*` flags are also available.')
     .version(PackageVersion, '-v, --version', 'output the version number')
     .enablePositionalOptions(true)
     .configureHelp({
@@ -115,70 +117,37 @@ commandBin.command('start [TOGGLE]')
   .addHelpText('afterAll', [
     '',
     'STRINGS FOR \'--enable/--disable\':',
-    `(${ConfigMap.configNames.map((opt, index) => {
-      return index < ConfigMap.configNames.length - 1 && index > 0 && index % 5 === 0 ? `${opt},\n` :
-        index < ConfigMap.configNames.length - 1 ? `${opt},` : opt;
+    `(${validHandlers.map((opt, index) => {
+      return index < validHandlers.length - 1 && index > 0 && index % 5 === 0 ? `${opt},\n` :
+        index < validHandlers.length - 1 ? `${opt},` : opt;
     }).join(' ')})`,
     '',
     'Examples:',
     '\tfish-lsp start --disable hover  # only disable the hover feature',
-    '\tfish-lsp start --disable completion logging index hover --show',
-    '\tfish-lsp start --enable --disable logging completion codeAction',
+    '\tfish-lsp start --disable complete logging index hover --show',
+    '\tfish-lsp start --enable --disable logging complete codeAction',
   ].join('\n'))
   .action(() => {
     // const config: ConfigMap = mainStartupManager();
+    const { config, environmentVariablesUsed } = getConfigFromEnvironmentVariables()
+    updateHandlers(config.fish_lsp_enabled_handlers, true)
+    updateHandlers(config.fish_lsp_disabled_handlers, false)
+
     const { enabled, disabled, dumpCmd } = accumulateStartupOptions(commandBin.args);
     // enabled.forEach(opt => config.toggleFeature(opt, true));
     // disabled.forEach(opt => config.toggleFeature(opt, false));
-    // if (dumpCmd) {
-    //   config.log();
-    //   process.exit(0);
-    // }
+    updateHandlers(enabled, true)
+    updateHandlers(disabled, false)
+    if (dumpCmd) {
+      console.log(JSON.stringify(configHandlers, null ,2))
+      process.exit(0);
+    }
     /* config needs to be used in `startServer()` below */
     startServer();
-    // process.exit(0);
+    process.exit(0);
   });
 
 
-// BARE | MIN | MINIMAL
-// commandBin.command('bare [TOGGLE...]')
-//   .alias('min')
-//   .alias('minimal')
-//   .summary('run barebones startup config')
-//   .description([
-//     'Initialize the fish-lsp with a completely minimal startup configuration.',
-//     'This is useful for running the language server with minimal indexing, debugging specific features',
-//     'and various other edge cases where the full feature set is not needed.',
-//   ].join('\n'))
-//   .option('--dump', 'stop lsp & show the startup options being read')
-//   .option('--enable <string...>', 'enable the startup option')
-//   .option('--disable <string...>', 'disable the startup option')
-//   .addHelpText('afterAll', [
-//     '',
-//     'STRINGS FOR \'--enable/--disable\':',
-//     `(${ConfigMap.configNames.map((opt, index) => {
-//       return index < ConfigMap.configNames.length - 1 && index > 0 && index % 5 === 0 ? `${opt},\n` :
-//         index < ConfigMap.configNames.length - 1 ? `${opt},` : opt;
-//     }).join(' ')})`,
-//     '',
-//     'Examples:',
-//     '\tfish-lsp min --enable hover  # only enable the hover feature',
-//     '\tfish-lsp bare --enable all    # works like the \'start\' subcommand',
-//     '\tfish-lsp min --enable all --disable logging completion codeAction',
-//   ].join('\n'))
-//   .action(() => {
-//     const config: ConfigMap = bareStartupManger();
-//     const { enabled, disabled, dumpCmd } = accumulateStartupOptions(commandBin.args);
-//     enabled.forEach(opt => config.toggleFeature(opt, true));
-//     disabled.forEach(opt => config.toggleFeature(opt, false));
-//     if (dumpCmd) {
-//       config.log();
-//       process.exit(0);
-//     }
-//     // use config in startServer()
-//     startServer();
-//     // process.exit(0);
-//   });
 
 // LOGGER
 commandBin.command('logger')

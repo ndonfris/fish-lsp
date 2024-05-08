@@ -49,5 +49,17 @@ describe('test config', () => {
   })
 
 
+  it('update flag from commandline: `fish-lsp start --disable complete`', () => {
+    process.env.fish_lsp_enabled_handlers = 'complete hover diagnostic codeAction codeLens reference definition formatting folding signature executeCommand inlayHint'
+    const cli = `fish-lsp start --disable complete`
+    const {enabled, disabled, dumpCmd} = accumulateStartupOptions(cli.split(' ').slice(1))
+    if (dumpCmd) {
+      console.log();
+    }
+    
+    
+
+  })
+
 
 })

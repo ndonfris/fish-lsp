@@ -3,58 +3,46 @@ import { z } from 'zod';
 import { ServerLogsPath } from './logger';
 import fishLspEnvVariables from '../snippets/fish_lsp_env_variables.json';
 
-export type ConfigHandlerType = {
-  complete: boolean;
-  hover: boolean;
-  rename: boolean;
-  reference: boolean;
-  logger: boolean;
-  formatting: boolean;
-  codeAction: boolean;
-  codeLens: boolean;
-  folding: boolean;
-  signature: boolean;
-  executeCommand: boolean;
-  inlayHint: boolean;
-  highlight: boolean;
-  diagnostic: boolean;
-};
+/********************************************
+ **********  Handlers/Providers   *********** 
+ *******************************************/ 
 
-// Initialize the options dictionary with default false values
-export const configHandlers: ConfigHandlerType = {
-  complete: true,
-  hover: true,
-  rename: true,
-  reference: true,
-  logger: true,
-  formatting: true,
-  codeAction: true,
-  codeLens: true,
-  folding: true,
-  signature: true,
-  executeCommand: true,
-  inlayHint: true,
-  highlight: true,
-  diagnostic: true,
-};
+export const ConfigHandlerSchema = z.object({
+  complete: z.boolean().default(true),
+  hover: z.boolean().default(true),
+  rename: z.boolean().default(true),
+  reference: z.boolean().default(true),
+  logger: z.boolean().default(true),
+  formatting: z.boolean().default(true),
+  codeAction: z.boolean().default(true),
+  codeLens: z.boolean().default(true),
+  folding: z.boolean().default(true),
+  signature: z.boolean().default(true),
+  executeCommand: z.boolean().default(true),
+  inlayHint: z.boolean().default(true),
+  highlight: z.boolean().default(true),
+  diagnostic: z.boolean().default(true),
+})
 
-export const validHanlders: Array<keyof ConfigHandlerType> = ['complete', 'hover', 'rename', 'reference', 'logger', 'formatting', 'codeAction', 'codeLens',  'folding', 'signature', 'executeCommand', 'inlayHint', 'highlight', 'diagnostic' ];
-// Function to safely update options based on an array of keys and a boolean value
-export function updateHanlders(keys: string[], value: boolean): void {
+export const configHandlers = ConfigHandlerSchema.parse({})
+
+export const validHandlers: Array<keyof typeof ConfigHandlerSchema.shape> = [
+  'complete', 'hover', 'rename', 'reference', 'logger', 'formatting',
+  'codeAction', 'codeLens', 'folding', 'signature', 'executeCommand',
+  'inlayHint', 'highlight', 'diagnostic'
+];
+
+export function updateHandlers(keys: string[], value: boolean): void {
     keys.forEach(key => {
-        if (validHanlders.includes(key as keyof ConfigHandlerType)) {
-            configHandlers[key as keyof ConfigHandlerType] = value;
+        if (validHandlers.includes(key as keyof typeof ConfigHandlerSchema.shape)) {
+            configHandlers[key as keyof typeof ConfigHandlerSchema.shape] = value;
         }
     });
 }
 
-// Parse environment variables
-// const envEnable = process.env.CLI_ENABLE ? process.env.CLI_ENABLE.split(' ') : [];
-// const envDisable = process.env.CLI_DISABLE ? process.env.CLI_DISABLE.split(' ') : [];
-
-// Apply environment variables
-// updateOptions(envEnable, true);
-// updateOptions(envDisable, false);
+/********************************************
+ **********      User Env        *********** 
+ *******************************************/ 
 
 export const ConfigSchema = z.object({
   /** Handlers that are enabled in the language server */
@@ -181,7 +169,9 @@ export function showJsonSchemaShellScript() {
   }
 }
 
-/** formatting helpers */
+/*************************************
+ *******  formatting helpers ********
+ ************************************/
 
 // Function to format descriptions into multi-line comments
 function formatDescription(description: string, maxLineLength: number = 80): string {

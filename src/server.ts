@@ -2,16 +2,14 @@ import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from './parser';
 import { Analyzer } from './analyze';
 //import {  generateCompletionList, } from "./completion";
-import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, CompletionItemKind, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, ExecuteCommandParams, ServerRequestHandler, FoldingRangeParams, FoldingRange, Position, InlayHintParams, MarkupKind, SymbolInformation, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, RemoteConsole, RenameFilesParams, CompletionTriggerKind } from 'vscode-languageserver';
+import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind } from 'vscode-languageserver';
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
-import { enrichToCodeBlockMarkdown } from './documentation';
 import { applyFormattedTextInRange, applyFormatterSettings } from './formatting';
-import { execCommandDocs, execCommandType, execFindDependency, execFormatter, execOpenFile } from './utils/exec';
-import { createServerLogger, Logger, ServerLogsPath } from './logger';
-import { toFoldingRange, uriToPath } from './utils/translation';
-import { ConfigManager } from './configManager';
-import { getChildNodes, getRange } from './utils/tree-sitter';
+import { execFormatter } from './utils/exec';
+import { Logger, ServerLogsPath } from './logger';
+import { uriToPath } from './utils/translation';
+import { getRange } from './utils/tree-sitter';
 import { handleHover } from './hover';
 import { /*getDiagnostics*/ } from './diagnostics/validate';
 import { CodeActionKind } from './code-action';
@@ -22,12 +20,11 @@ import { Commands } from './commands';
 import { handleConversionToCodeAction } from './diagnostics/handleConversion';
 import { inlayHintsProvider } from './inlay-hints';
 import { DocumentationCache, initializeDocumentationCache } from './utils/documentationCache';
-import { homedir } from 'os';
 import { initializeDefaultFishWorkspaces } from './utils/workspace';
 import { filterLastPerScopeSymbol, FishDocumentSymbol } from './document-symbol';
 //import { FishCompletionItem, FishCompletionData, FishCompletionItemKind } from './utils/completion-strategy';
 //import { getFlagDocumentationAsMarkup } from './utils/flag-documentation';
-import { getRenameLocations, getRenameWorkspaceEdit, getRefrenceLocations } from './workspace-symbol';
+import { getRenameWorkspaceEdit, getRefrenceLocations } from './workspace-symbol';
 import { CompletionPager, initializeCompletionPager } from './utils/completion/pager';
 import { FishCompletionItem } from './utils/completion/types';
 import { getDocumentationResolver } from './utils/completion/documentation';
@@ -170,7 +167,6 @@ export default class FishServer {
     connection.onCompletionResolve(
       this.onCompletionResolve.bind(this),
     ),
-    //this.on
     connection.onDocumentSymbol(this.onDocumentSymbols.bind(this));
     this.connection.onWorkspaceSymbol(this.onWorkspaceSymbol.bind(this));
     //this.connection.onWorkspaceSymbolResolve(this.onWorkspaceSymbolResolve.bind(this))
@@ -226,9 +222,7 @@ export default class FishServer {
     this.logParams('didChangeTextDocument', params);
     const uri = uriToPath(params.textDocument.uri);
     const doc = this.docs.get(uri);
-    if (!uri || !doc) {
-      return;
-    }
+    if (!uri || !doc) return;
     doc.applyEdits(doc.version + 1, ...params.contentChanges);
     this.analyzer.analyze(doc);
     this.logger.log(`CHANGED -> ${doc.version}:::${doc.uri}`);
@@ -630,9 +624,7 @@ export default class FishServer {
         root,
         document,
       );
-      if (res) {
-        results.push(res);
-      }
+      if (res) results.push(res);
     }
     return results;
   }

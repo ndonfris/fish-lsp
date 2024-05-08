@@ -4,6 +4,17 @@ import { FishFormattingOptions } from './configManager';
 import { isSwitchStatement } from './utils/node-types';
 import { Range } from 'vscode-languageserver';
 
+// TODO
+// DEPRECATED SOON: FishFormattingOptions extends FormattingOptions { 
+//     tabSize: number;
+//     insertSpaces: boolean;
+//     formatOnSave?: boolean;
+//     trimTrailingWhitespace?: boolean;
+//     trimFinalNewlines?: boolean;
+//     removeLeadingSwitchCaseWhitespace?: boolean;
+//     insertFinalNewline?: boolean;
+// }
+//
 export function applyFormatterSettings(root: SyntaxNode, options: FishFormattingOptions) {
   let formattedText = root.text;
   let result = formattedText;

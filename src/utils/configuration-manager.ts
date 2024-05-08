@@ -115,7 +115,7 @@ export class ConfigMap {
     'formatting',
     'logging',
     'snippets',
-    'completion',
+    'complete',
     'hover',
     'rename',
     'definition',

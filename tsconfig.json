@@ -9,6 +9,7 @@
     "resolvePackageJsonExports": true,
     // "resolvePackageJsonImports": true,
     "baseUrl": ".",
+    "rootDir": "src",
     "paths": {
       "@package": ["./package.json"],
       "completion/*": ["./src/utils/completion/*"],
@@ -17,7 +18,6 @@
     }
   },
   "include": [
-    "src",
     "src/**/*.ts",
     "../*.json",
     // "test-data/**/*",
