@@ -144,7 +144,7 @@ commandBin.command('start [TOGGLE]')
     }
     /* config needs to be used in `startServer()` below */
     startServer();
-    process.exit(0);
+    //process.exit(0);
   });
 
 

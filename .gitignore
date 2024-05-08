@@ -13,3 +13,5 @@ out.png
 .vim
 test-data/staging
 build
+!snippets/*.json
+snippets/*
