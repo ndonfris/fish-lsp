@@ -41,7 +41,7 @@ environment for fish.
 
 ## Installation
 
-> __dependencies:__ `yarn@1.22.22`, `node@21.7.1`, `fish@3.7.1`
+> __Recommended Dependencies:__ `yarn@1.22.22`, `node@21.7.1`, `fish@3.7.1`
 
 Building from source is __the only currently recommended installation method__, as we improve
 other methods of the installation process (Don't use __releases__ or __npm package__).

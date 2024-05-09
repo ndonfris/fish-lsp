@@ -28,24 +28,6 @@ export function startServer() {
   connection.listen();
 }
 
-export function startWebscoket() {
-  // Create a connection for the server.
-  // The connection uses stdin/stdout for communication.
-  const connection = createConnection(
-    new StreamMessageReader(process.stdin),
-    new StreamMessageWriter(process.stdout),
-  );
-  connection.onInitialize(
-    async (params: InitializeParams): Promise<InitializeResult> => {
-      console.log(`Initialized server FISH-LSP with ${JSON.stringify(params)}`);
-      const server = await FishServer.create(connection, params);
-      server.register(connection);
-      return server.initialize(params);
-    },
-  );
-  connection.listen();
-}
-
 /**
  *  creates local 'commandBin' used for commander.js
  */
@@ -66,11 +48,13 @@ const createFishLspBin = (): Command => {
   return bin;
 };
 
+// create config to be used globablly
+export const { config, environmentVariablesUsed } = getConfigFromEnvironmentVariables()
+
 // start adding options to the command
 export const commandBin = createFishLspBin();
 
 // hidden global options
-
 commandBin
   .addOption(new Option('--help-man', 'show special manpage output').hideHelp(true))
   .addOption(new Option('--help-all', 'show all help info').hideHelp(true))
@@ -128,14 +112,10 @@ commandBin.command('start [TOGGLE]')
     '\tfish-lsp start --enable --disable logging complete codeAction',
   ].join('\n'))
   .action(() => {
-    // const config: ConfigMap = mainStartupManager();
-    const { config, environmentVariablesUsed } = getConfigFromEnvironmentVariables()
     updateHandlers(config.fish_lsp_enabled_handlers, true)
     updateHandlers(config.fish_lsp_disabled_handlers, false)
 
     const { enabled, disabled, dumpCmd } = accumulateStartupOptions(commandBin.args);
-    // enabled.forEach(opt => config.toggleFeature(opt, true));
-    // disabled.forEach(opt => config.toggleFeature(opt, false));
     updateHandlers(enabled, true)
     updateHandlers(disabled, false)
     if (dumpCmd) {

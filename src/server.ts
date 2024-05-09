@@ -29,6 +29,7 @@ import { CompletionPager, initializeCompletionPager } from './utils/completion/p
 import { FishCompletionItem } from './utils/completion/types';
 import { getDocumentationResolver } from './utils/completion/documentation';
 import { FishCompletionList } from './utils/completion/list';
+import {config} from './cli';
 
 // @TODO
 export type SupportedFeatures = {
@@ -65,20 +66,12 @@ export default class FishServer {
   }
 
   private initializeParams: InitializeParams | undefined;
-  // the connection of the FishServer
-  //private connection: Connection;
-  //private documentationCache: DocumentationCache;
-  //private parser: Parser;
-  //private analyzer: Analyzer;
-  //// documentManager
-  //private docs: LspDocuments;
-  //private config: ConfigManager;
-  //protected logger: Logger;
   protected features: SupportedFeatures;
 
   constructor(
+    // the connection of the FishServer
     private connection: Connection,
-    // private config: ConfigManager,
+    // private config: ConfigManager, // TODO
     private parser: Parser,
     private analyzer: Analyzer,
     private docs: LspDocuments,
@@ -90,10 +83,7 @@ export default class FishServer {
   }
 
   async initialize(params: InitializeParams): Promise<InitializeResult> {
-    this.logger.logAsJson(
-      `Initialized server FISH-LSP with ${params.workspaceFolders || ''}`,
-
-    );
+    this.logger.logAsJson(`Initialized server FISH-LSP with ${params.workspaceFolders || ''}`);
     // console.log(`Initialized server FISH-LSP with ${params.workspaceFolders || ""}`);
     const result: InitializeResult = {
       capabilities: {
@@ -149,24 +139,14 @@ export default class FishServer {
   register(connection: Connection): void {
     //this.connection.window.createWorkDoneProgress();
     connection.onInitialized(this.onInitialized.bind(this));
-    connection.onDidOpenTextDocument(
-      this.didOpenTextDocument.bind(this),
-    );
-    connection.onDidChangeTextDocument(
-      this.didChangeTextDocument.bind(this),
-    );
-    connection.onDidCloseTextDocument(
-      this.didCloseTextDocument.bind(this),
-    );
-    connection.onDidSaveTextDocument(
-      this.didSaveTextDocument.bind(this),
-    );
+    connection.onDidOpenTextDocument(this.didOpenTextDocument.bind(this));
+    connection.onDidChangeTextDocument(this.didChangeTextDocument.bind(this));
+    connection.onDidCloseTextDocument(this.didCloseTextDocument.bind(this));
+    connection.onDidSaveTextDocument(this.didSaveTextDocument.bind(this));
     // • for multiple completionProviders -> https://github.com/microsoft/vscode-extension-samples/blob/main/completions-sample/src/extension.ts#L15
     // • https://github.com/Dart-Code/Dart-Code/blob/7df6509870d51cc99a90cf220715f4f97c681bbf/src/providers/dart_completion_item_provider.ts#L197-202
     connection.onCompletion(this.onCompletion.bind(this));
-    connection.onCompletionResolve(
-      this.onCompletionResolve.bind(this),
-    ),
+    connection.onCompletionResolve(this.onCompletionResolve.bind(this)),
     connection.onDocumentSymbol(this.onDocumentSymbols.bind(this));
     this.connection.onWorkspaceSymbol(this.onWorkspaceSymbol.bind(this));
     //this.connection.onWorkspaceSymbolResolve(this.onWorkspaceSymbolResolve.bind(this))
@@ -174,12 +154,8 @@ export default class FishServer {
     connection.onReferences(this.onReferences.bind(this));
     connection.onHover(this.onHover.bind(this));
     connection.onRenameRequest(this.onRename.bind(this));
-    connection.onDocumentFormatting(
-      this.onDocumentFormatting.bind(this),
-    );
-    connection.onDocumentRangeFormatting(
-      this.onDocumentRangeFormatting.bind(this),
-    );
+    connection.onDocumentFormatting(this.onDocumentFormatting.bind(this));
+    connection.onDocumentRangeFormatting(this.onDocumentRangeFormatting.bind(this));
     connection.onCodeAction(this.onCodeAction.bind(this));
     connection.onFoldingRanges(this.onFoldingRanges.bind(this));
     //this.connection.workspace.applyEdit()
@@ -192,7 +168,7 @@ export default class FishServer {
     this.logParams('didOpenTextDocument', params);
     const uri = uriToPath(params.textDocument.uri);
     if (!uri) {
-      this.logger.log(`DID NOT OPEN ${uri} \n URI is null or undefined`);
+      this.logger.logAsJson(`DID NOT OPEN ${uri} \n URI is null or undefined`);
       return;
     }
     if (this.docs.open(uri, params.textDocument)) {
@@ -225,7 +201,7 @@ export default class FishServer {
     if (!uri || !doc) return;
     doc.applyEdits(doc.version + 1, ...params.contentChanges);
     this.analyzer.analyze(doc);
-    this.logger.log(`CHANGED -> ${doc.version}:::${doc.uri}`);
+    this.logger.logAsJson(`CHANGED -> ${doc.version}:::${doc.uri}`);
     const root = this.analyzer.getRootNode(doc);
     if (!root) {
       return;
@@ -235,14 +211,10 @@ export default class FishServer {
   didCloseTextDocument(params: DidCloseTextDocumentParams): void {
     this.logParams('didCloseTextDocument', params);
     const uri = uriToPath(params.textDocument.uri);
-    if (!uri) {
-      return;
-    }
-    this.logger.log(
-      `[${this.didCloseTextDocument.name}]: ${params.textDocument.uri}`,
-    );
+    if (!uri) return;
+    this.logger.logAsJson(`[${this.didCloseTextDocument.name}]: ${params.textDocument.uri}`);
     this.docs.close(uri);
-    this.logger.log(`closed uri: ${uri}`);
+    this.logger.logAsJson(`closed uri: ${uri}`);
   }
 
   didSaveTextDocument(params: DidSaveTextDocumentParams): void {
@@ -283,7 +255,7 @@ export default class FishServer {
     const doc = this.docs.get(uri);
 
     if (!uri || !doc) {
-      this.logger.log('onComplete got [NOT FOUND]: ' + uri);
+      this.logger.logAsJson('onComplete got [NOT FOUND]: ' + uri);
       return this.completion.empty();
     }
     const { line } = this.analyzer.parseCurrentLine(doc, params.position);
@@ -312,11 +284,9 @@ export default class FishServer {
       //    "insertTextFormat",
       //    "data"
       //);
-      this.logger.logAsJson(
-        `line: '${line}' got ${list.items.length} items"`,
-      );
+      this.logger.logAsJson(`line: '${line}' got ${list.items.length} items"`);
     } catch (error) {
-      this.logger.log('ERROR: onComplete ' + error?.toString() || 'error');
+      this.logger.logAsJson('ERROR: onComplete ' + error?.toString() || 'error');
     }
     return list;
   }
@@ -373,9 +343,7 @@ export default class FishServer {
   async onDefinition(params: DefinitionParams): Promise<Location[]> {
     this.logParams('onDefinition', params);
     const { doc, uri, root, current } = this.getDefaults(params);
-    if (!doc) {
-      return [];
-    }
+    if (!doc) return []
     return this.analyzer.getDefinitionLocation(doc, params.position);
   }
 
@@ -450,9 +418,8 @@ export default class FishServer {
   async onRename(params: RenameParams): Promise<WorkspaceEdit | null> {
     this.logParams('onRename', params);
     const { doc } = this.getDefaults(params);
-    if (!doc) {
-      return null;
-    }
+    if (!doc) return null;
+
     return getRenameWorkspaceEdit(
       this.analyzer,
       doc,
@@ -466,9 +433,7 @@ export default class FishServer {
   ): Promise<TextEdit[]> {
     this.logParams(`onDocumentFormatting: ${params.textDocument.uri}`);
     const { doc, uri, root } = this.getDefaultsForPartialParams(params);
-    if (!doc || !uri || !root) {
-      return [];
-    }
+    if (!doc || !uri || !root) return [];
     let formattedText: string | null = null;
     try {
       formattedText = await execFormatter(uri);
@@ -487,7 +452,6 @@ export default class FishServer {
     formattedText = applyFormatterSettings(
       this.parser.parse(formattedText).rootNode,
       {insertSpaces: true, tabSize: 4}
-      // this.config.getFormattingOptions(),
     );
     const editedRange = getRange(root);
     this.connection.window.showInformationMessage(`Formatted: ${uri}`);
@@ -500,9 +464,7 @@ export default class FishServer {
     this.logParams('onDocumentRangeFormatting', params);
     const { doc, uri, root } = this.getDefaultsForPartialParams(params);
     const range = params.range;
-    if (!doc || !uri || !root) {
-      return [];
-    }
+    if (!doc || !uri || !root) return [];
     let formattedText: string | null = null;
     try {
       formattedText = await execFormatter(uri);
@@ -613,9 +575,7 @@ export default class FishServer {
     const uri = uriToPath(params.textDocument.uri);
     const document = this.docs.get(uri);
     //this.logger.log(JSON.stringify({params}))
-    if (!uri || !document) {
-      return [];
-    }
+    if (!document || !uri) return [];
     const root = this.parser.parse(document.getText()).rootNode;
     const results: CodeAction[] = [];
     for (const diagnostic of params.context.diagnostics) {
@@ -670,9 +630,7 @@ export default class FishServer {
   } {
     const uri = uriToPath(params.textDocument.uri);
     const doc = this.docs.get(uri);
-    if (!doc || !uri) {
-      return {};
-    }
+    if (!doc || !uri) return {};
     const root = this.analyzer.getRootNode(doc);
     const current = this.analyzer.nodeAtPoint(
       doc.uri,
@@ -701,6 +659,4 @@ export default class FishServer {
     return this.analyzer.initiateBackgroundAnalysis(notifyCallback);
   }
 }
-function provideInlayHints(document: LspDocument, range: LSP.Range, analyzer: Analyzer) {
-  throw new Error('Function not implemented.');
-}
+
