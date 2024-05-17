@@ -200,20 +200,25 @@ sequenceDiagram
 
 - [Sources](https://github.com/ndonfris/fish-lsp/wiki/Sources) - major influences for the project
 
-<!-- Contributors list @via: https://allcontributors.org/docs/en/bot/installation -->
-<!-- ## Contributing -->
-<!---->
-<!-- Contributions are included across any project relevant to the project [fish-lsp-language-clients](https://github.com/ndonfris/fish-lsp-language-clients/), -->
-<!-- [fish-lsp.dev](https://https://github.com/ndonfris/fish-lsp.dev), and [this repo](https://github.com/ndonfris/fish-lsp). -->
-<!---->
-<!-- View the [CONTRIBUTING](./docs/CONTRIBUTING.md) file for more info. -->
-<!---->
-<!-- Special thanks to everyone who has helped on the project. -->
-<!---->
-
 ## Contributors
 
 <!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+<table>
+  <tbody>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/ndonfris"><img src="https://avatars.githubusercontent.com/u/49458459?v=4?s=50" width="50px;" alt="nick"/><br /><sub><b>nick</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=ndonfris" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/mimikun"><img src="https://avatars.githubusercontent.com/u/13450321?v=4?s=50" width="50px;" alt="mimikun"/><br /><sub><b>mimikun</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=mimikun" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/jpaju"><img src="https://avatars.githubusercontent.com/u/36770267?v=4?s=50" width="50px;" alt="Jaakko Paju"/><br /><sub><b>Jaakko Paju</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=jpaju" title="Code">💻</a></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+<!-- ALL-CONTRIBUTORS-LIST:END -->
 <!-- prettier-ignore-start -->
 <!-- markdownlint-disable -->
 <!-- markdownlint-restore -->
@@ -221,6 +226,8 @@ sequenceDiagram
 
 <!-- ALL-CONTRIBUTORS-LIST:END -->
 
+This project follows the [all-contributors](https://allcontributors.org) specification.
+Contributions of any kind are welcome!
 
 ## License
 
