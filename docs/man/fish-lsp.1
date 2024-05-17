@@ -45,38 +45,95 @@ show manpage output
 .br
 Start the language server\.
 .P
-\fBmin\fP or \fBbare\fP
+\fB\-\-enable\fP    enable the language server features
 .br
-Start the language server without any language\-specific features\.
+\fB\-\-disable\fP   disable the language server features
+.br
+\fB\-\-dump\fP    dump the json ouput of the language server features enabled after startup
+.P
+\fBenv\fP
+.br
+show the environment variables available to the lsp
+.P
+\fB\-c\fP, \fB\-\-create\fP    create the environment variable
+.br
+\fB\-s\fP, \fB\-\-show\fP      show the environment variables
 .P
 \fBlogger\fP
 .br
 Access the logger
 .P
+\fB\-s\fP, \fB\-\-show\fP    show the logger and don't edit it
+.br
+\fB\-c\fP, \fB\-\-clear\fP   clear the logger
+.br
+\fB\-d\fP, \fB\-\-date\fP    write the date
+.br
+\fB\-q\fP, \fB\-\-quiet\fP   silence logging
+.br
+\fB\-\-config\fP      show the logger config
+.P
 \fBinfo\fP
 .br
 show the build info of fish\-lsp
+.P
+\fB\-\-bin\fP             show the path of the fish\-lsp executable
+.br
+\fB\-\-repo\fP            show the path of the entire fish\-lsp repo
+.br
+\fB\-\-time\fP            show the path of the entire fish\-lsp repo
+.br
+\fB\-\-env\fP             show the env variables used
+.br
+\fB\-\-lsp\-version\fP     show the lsp version
+.br
+\fB\-\-capabilities\fP    show the lsp capabilities
+.br
+\fB\-\-man\-file\fP        show the man file path
+.br
+\fB\-\-logs\-file\fP       show the logs\.txt file path
+.br
+\fB\-\-more\fP            show the build time of the fish\-lsp executable
 .P
 \fBurl\fP
 .br
 show a helpful url related to the fish\-lsp
 .P
+\fB\-\-repo\fP, \fB\-\-git\fP        show the github repo
+.br
+\fB\-\-npm\fP                show the npm package url
+.br
+\fB\-\-homepage\fP           show the homepage
+.br
+\fB\-\-contributions\fP      show the contributions url
+.br
+\fB\-\-wiki\fP               show the github wiki
+.br
+\fB\-\-issues\fP, \fB\-\-report\fP   show the issues page
+.br
+\fB\-\-discussions\fP        show the discussions page
+.br
+\fB\-\-clients\-repo\fP       show the clients configuration repo
+.br
+\fB\-\-sources\fP            show a list of helpful sources
+.P
 \fBcomplete\fP
 .br
 Provide completions for the \fBfish\-lsp\fP
+.P
+\fB\-\-names\fP     show the feature names of the completions
+.br
+\fB\-\-toggles\fP   show the feature names of the completions
+.br
+\fB\-\-fish\fP      show fish script
+.br
+\fB\-\-features\fP  show features
 .SH EXAMPLES
 .P
 • Start the \fBfish\-lsp\fP language server, with the default configuration:
 .RS 2
 .nf
 >_ fish\-lsp start
-.fi
-.RE
-.P
-• Start the \fBfish\-lsp\fP language server, with the bare minimum configuration:
-.RS 2
-.nf
->_ fish\-lsp bare \-\-enable hover
 .fi
 .RE
 .P

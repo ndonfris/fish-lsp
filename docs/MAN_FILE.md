@@ -34,20 +34,58 @@ show manpage output
 `start`
 Start the language server.
 
-`min` or `bare`
-Start the language server without any language-specific features.
+  `--enable`    enable the language server features
+  `--disable`   disable the language server features
+  `--dump`    dump the json ouput of the language server features enabled after startup
+
+`env`
+show the environment variables available to the lsp
+
+  `-c`, `--create`    create the environment variable
+  `-s`, `--show`      show the environment variables
 
 `logger`
 Access the logger
 
+  `-s`, `--show`    show the logger and don't edit it
+  `-c`, `--clear`   clear the logger
+  `-d`, `--date`    write the date
+  `-q`, `--quiet`   silence logging
+  `--config`      show the logger config
+
 `info`
 show the build info of fish-lsp
+
+  `--bin`             show the path of the fish-lsp executable
+  `--repo`            show the path of the entire fish-lsp repo
+  `--time`            show the path of the entire fish-lsp repo
+  `--env`             show the env variables used
+  `--lsp-version`     show the lsp version
+  `--capabilities`    show the lsp capabilities
+  `--man-file`        show the man file path
+  `--logs-file`       show the logs.txt file path
+  `--more`            show the build time of the fish-lsp executable
 
 `url`
 show a helpful url related to the fish-lsp
 
+  `--repo`, `--git`        show the github repo
+  `--npm`                show the npm package url
+  `--homepage`           show the homepage
+  `--contributions`      show the contributions url
+  `--wiki`               show the github wiki
+  `--issues`, `--report`   show the issues page
+  `--discussions`        show the discussions page
+  `--clients-repo`       show the clients configuration repo
+  `--sources`            show a list of helpful sources
+
 `complete`
 Provide completions for the `fish-lsp`
+
+  `--names`     show the feature names of the completions
+  `--toggles`   show the feature names of the completions
+  `--fish`      show fish script
+  `--features`  show features
 
 ## EXAMPLES
 
@@ -55,12 +93,6 @@ Provide completions for the `fish-lsp`
 
   ```fish
   >_ fish-lsp start
-  ```
-
-• Start the `fish-lsp` language server, with the bare minimum configuration:
-
-  ```fish
-  >_ fish-lsp bare --enable hover
   ```
 
 • Show the path to the `fish-lsp` language server binary:
