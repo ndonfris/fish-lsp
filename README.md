@@ -147,7 +147,7 @@ Contributions to help enhance installation options are greatly appreciated!
   Your sponsorship and/or contributions are vital to continuing the development and refinement of __fish-lsp__,
   ensuring it remains a valuable tool for the community.
 
-## How
+## How?
 
 The LSP describes __both__ a [server](#server-usage) and [client's](#client-usage) communication abilities.
 Text editor's (_or any other equivalent form of_ __langauge client__) are then able to choose which general
