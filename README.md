@@ -23,8 +23,8 @@ environment for fish.
 
   ![demo.gif](https://github.com/ndonfris/fish-lsp.dev/blob/ndonfris-patch-1/new_output.gif?raw=true)
 
- > [!NOTE]
- > _Please submit other demo's in_ [show & tell](https://github.com/ndonfris/fish-lsp/discussions/categories/show-and-tell) _discussion_
+ <!-- > [!NOTE] -->
+ <!-- > _Please submit other demo's in_ [show & tell](https://github.com/ndonfris/fish-lsp/discussions/categories/show-and-tell) _discussion_ -->
 
 ### Server Usage
 
