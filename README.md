@@ -11,13 +11,7 @@ This project aims to enhance the coding experience for fish, by introducing a su
 intelligent features like auto-completion, scope aware symbol analysis, per-token hover
 generation, and [many others](#features).
 
-The LSP describes __both__ a [server](#server-usage) and [client's](#client-usage) communication abilities.
-Text editor's (_or any other equivalent form of_ __langauge client__) are then able to choose which general
-programming features will be implemented. This leaves current and future possibilities
-supported by the server open ended.
-
-In short, the overall project goal is to produce an editor agnostic developer
-environment for fish.
+The overall project goal is to produce an editor agnostic developer environment for fish.
 
 ### Client Usage
 
@@ -93,6 +87,30 @@ Contributions to help enhance installation options are greatly appreciated!
 
     > Neovim client using [coc.nvim](https://github.com/neoclide/coc.nvim) configuartion, located inside [coc-settings.json](https://github.com/neoclide/coc.nvim/wiki/Language-servers#register-custom-language-servers) `"languageserver"` key
 
+## Features
+
+| Feature | Description | Status |
+| --- | --- | --- |
+| __Completion__ | Provides completions for commands, variables, and functions | ✅ |
+| __Hover__ | Shows documentation for commands, variables, and functions. Has special handlers for `--flag`, `commands`, `functions`, `variables` | ✅ |
+| __Signature Help__ | Shows the signature of a command or function | ✖  |
+| __Goto Definition__ | Jumps to the definition of a command, variable, or function | ✅ |
+| __Find References__ | Shows all references to a command, variable, or function | ✅ |
+| __Rename__ | Rename within _matching_ __global__ && __local__ scope | ✅ |
+| __Document Symbols__ | Shows all commands, variables, and functions in a document | ✅ |
+| __Workspace Symbols__ | Shows all commands, variables, and functions in a workspace | ✅ |
+| __Document Formatting__ | Formats a document, _full_ & _selection_ | ✅ |
+| __Document Highlight__ / __Semantic Token__ | Highlights all references to a command, variable, or function.  | ✖  |
+| __Command Execution__ | Executes a server command from the client | ✖  |
+| __Code Action__ | Shows all available code actions | ✖  |
+| __Code Lens__ | Shows all available code lenses | ✖  |
+| __Logger__ | Logs all server activity | ✅ |
+| __Diagnostic__ | Shows all diagnostics | ✖  |
+| __Telescope Integration__ | Integrates with the telescope.nvim plugin | ✅ |
+| __CLI Interactivity__ | Provides a CLI for server interaction. Built by `fish-lsp complete <option>` | ✅ |
+| __Client Tree__ | Shows the defined scope as a Tree | ✅ |
+| __Indexing__ | Indexes all commands, variables, and functions | ✅ |
+
 ## Why?
 
   The creation of this project was driven by a vision to bridge the gap in tooling for the
@@ -129,29 +147,42 @@ Contributions to help enhance installation options are greatly appreciated!
   Your sponsorship and/or contributions are vital to continuing the development and refinement of __fish-lsp__,
   ensuring it remains a valuable tool for the community.
 
-## Features
+## How
 
-| Feature | Description | Status |
-| --- | --- | --- |
-| __Completion__ | Provides completions for commands, variables, and functions | ✅ |
-| __Hover__ | Shows documentation for commands, variables, and functions. Has special handlers for `--flag`, `commands`, `functions`, `variables` | ✅ |
-| __Signature Help__ | Shows the signature of a command or function | ✖  |
-| __Goto Definition__ | Jumps to the definition of a command, variable, or function | ✅ |
-| __Find References__ | Shows all references to a command, variable, or function | ✅ |
-| __Rename__ | Rename within _matching_ __global__ && __local__ scope | ✅ |
-| __Document Symbols__ | Shows all commands, variables, and functions in a document | ✅ |
-| __Workspace Symbols__ | Shows all commands, variables, and functions in a workspace | ✅ |
-| __Document Formatting__ | Formats a document, _full_ & _selection_ | ✅ |
-| __Document Highlight__ / __Semantic Token__ | Highlights all references to a command, variable, or function.  | ✖  |
-| __Command Execution__ | Executes a server command from the client | ✖  |
-| __Code Action__ | Shows all available code actions | ✖  |
-| __Code Lens__ | Shows all available code lenses | ✖  |
-| __Logger__ | Logs all server activity | ✅ |
-| __Diagnostic__ | Shows all diagnostics | ✖  |
-| __Telescope Integration__ | Integrates with the telescope.nvim plugin | ✅ |
-| __CLI Interactivity__ | Provides a CLI for server interaction. Built by `fish-lsp complete <option>` | ✅ |
-| __Client Tree__ | Shows the defined scope as a Tree | ✅ |
-| __Indexing__ | Indexes all commands, variables, and functions | ✅ |
+The LSP describes __both__ a [server](#server-usage) and [client's](#client-usage) communication abilities.
+Text editor's (_or any other equivalent form of_ __langauge client__) are then able to choose which general
+programming features will be implemented. This leaves current and future possibilities
+supported by the server open ended.
+
+Here is a diagram to display the langauge server protocol's typical use.
+
+```mermaid
+sequenceDiagram
+  participant Server
+  participant Client
+  actor User
+  
+  User-->>Client: Opens `fish` file 
+  Note over Client: Client recognizes that the `filetype` is `fish`
+  Client-->>+Server: Sends command `fish-lsp start`
+  Note over Server: Reads configuration for this startup
+  Note over Server: Analyzes current workspace
+  Server-->>-Client: Sends analysis success message
+  Note over Client,User: Displays analysis/startup success notification
+  User-->Server: ......
+  User-->>Client: Wants to see Hover Documentation
+  Client-->>+Server: Hover Documentation Request sent
+  Note over Server: Creates/Finds hover documentation
+  Server-->>-Client: Sends documentation
+  Note over Client,User: Hover Documentation
+  User-->Server: ......
+  Note over User: Finished editing
+  User-->>Client: Exit editor command
+  Client-->>Server: Shutdown `fish-lsp` process
+  Note over Server: Kill's process
+  Note over Client: Editor Exits/Closes
+  Note over User: User can do other stuff
+```
 
 ## Additional Resources
 
@@ -179,6 +210,18 @@ Contributions to help enhance installation options are greatly appreciated!
 <!---->
 <!-- Special thanks to everyone who has helped on the project. -->
 <!---->
+
+## Contributors
+
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+<!-- ALL-CONTRIBUTORS-LIST:END -->
+
+
 ## License
 
 [MIT](https://github.com/ndonfris/fish-lsp/blob/master/LICENSE)
