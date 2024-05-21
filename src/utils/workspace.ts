@@ -5,6 +5,7 @@ import { createReadStream, readFileSync } from 'fs';
 import { pathToUri, toLspDocument, uriToPath } from './translation';
 import { LspDocument } from '../document';
 import { FishDocumentSymbol } from '../document-symbol';
+import { config } from '../cli';
 
 async function getFileUriSet(path: string) {
   const stream = fastGlob.stream('**/*.fish', { cwd: path, absolute: true });
@@ -18,11 +19,17 @@ async function getFileUriSet(path: string) {
 }
 
 export async function initializeDefaultFishWorkspaces(): Promise<Workspace[]> {
-  const defaultSpaces = [
-    await Workspace.create('/usr/share/fish'),
-    await Workspace.create(`${homedir()}/.config/fish`),
-  ];
-  return defaultSpaces;
+  const configWorkspaces = config.fish_lsp_all_indexed_paths
+  // Create an array of promises by mapping over workspacePaths
+  const workspacePromises = configWorkspaces.map(path => Workspace.create(path));
+
+  // Wait for all promises to resolve
+  const defaultSpaces = await Promise.all(workspacePromises);
+  // const defaultSpaces = [
+  //   await Workspace.create('/usr/share/fish'),
+  //   await Workspace.create(`${homedir()}/.config/fish`),
+  // ];
+  return defaultSpaces
 }
 
 export interface FishWorkspace {

@@ -250,7 +250,7 @@ export function adjustInitializeResultCapabilitiesFromConfig(configHandlers: z.i
       workspaceSymbolProvider: configHandlers.complete ? {
         resolveProvider: true,
       } : undefined,
-      documentHighlightProvider: configHandlers.highlight,
+      documentHighlightProvider: false,
       inlayHintProvider: configHandlers.inlayHint,
       signatureHelpProvider: configHandlers.signature ? {
           retriggerCharacters: ['.'],
