@@ -91,11 +91,11 @@ export class Workspace implements FishWorkspace {
      * A mutable workspace would be '~/.config/fish'
      */
   isMutable() {
-    return !this.path.startsWith('/usr/share/fish');
+    return config.fish_lsp_modifiable_paths.includes(this.path)
   }
 
   isLoadable() {
-    return ['/usr/share/fish', `${homedir()}/.config/fish`].includes(this.path);
+    return config.fish_lsp_all_indexed_paths.includes(this.path);
   }
 
   async updateFiles() {
