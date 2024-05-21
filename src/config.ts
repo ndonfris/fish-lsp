@@ -2,6 +2,8 @@ import os from 'os';
 import { z } from 'zod';
 import { ServerLogsPath } from './logger';
 import fishLspEnvVariables from '../snippets/fish_lsp_env_variables.json';
+import { InitializeResult, TextDocumentSyncKind } from 'vscode-languageserver';
+import { CodeActionKind } from './code-action';
 
 /********************************************
  **********  Handlers/Providers   *********** 
@@ -206,4 +208,55 @@ function escapeValue(value: string | number | boolean): string {
     // Return non-string types as they are
     return value.toString();
   }
+}
+
+
+/********************************************
+ ***        initializeResult              ***
+ *******************************************/ 
+
+// in server
+export function adjustInitializeResultCapabilitiesFromConfig(configHandlers: z.infer<typeof ConfigHandlerSchema>): InitializeResult {
+  return {
+    capabilities: {
+      textDocumentSync: TextDocumentSyncKind.Incremental,
+      completionProvider: configHandlers.complete ? {
+        resolveProvider: true,
+        allCommitCharacters: [';', ' ', '\t'],
+        workDoneProgress: true,
+      } : undefined,
+      hoverProvider: configHandlers.hover,
+      definitionProvider: configHandlers.reference,
+      referencesProvider: configHandlers.reference,
+      renameProvider: configHandlers.rename,
+      documentFormattingProvider: configHandlers.formatting,
+      documentRangeFormattingProvider: configHandlers.formatting,
+      foldingRangeProvider: configHandlers.folding,
+      codeActionProvider: configHandlers.codeAction ? {
+        codeActionKinds: [
+          CodeActionKind.RefactorToFunction.value,
+          CodeActionKind.RefactorToVariable.value,
+          CodeActionKind.QuickFix.append('extraEnd').value,
+        ],
+        resolveProvider: true,
+      } : undefined,
+      executeCommandProvider: configHandlers.executeCommand ? {
+        commands: ['APPLY_REFACTORING', 'SELECT_REFACTORING', 'APPLY_WORKSPACE_EDIT', 'RENAME', 'onHover', 'rename'],
+        workDoneProgress: true,
+      } : undefined,
+      documentSymbolProvider: {
+        label: 'Fish-LSP',
+      },
+      workspaceSymbolProvider: configHandlers.complete ? {
+        resolveProvider: true,
+      } : undefined,
+      documentHighlightProvider: configHandlers.highlight,
+      inlayHintProvider: configHandlers.inlayHint,
+      signatureHelpProvider: configHandlers.signature ? {
+          retriggerCharacters: ['.'],
+          triggerCharacters: ['.', ' '],
+      } : undefined,
+    },
+
+  };
 }
