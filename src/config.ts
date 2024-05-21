@@ -125,8 +125,8 @@ const toNumber = (s?: string): number | undefined =>
  */
 export function generateJsonSchemaShellScript() {
   Object.values(fishLspEnvVariables).forEach(entry => {
-    const { name, description, type } = entry;
-    console.log(`# ${name} <${type.toUpperCase()}>`);
+    const { name, description, valueType } = entry;
+    console.log(`# ${name} <${valueType.toUpperCase()}>`);
     console.log(formatDescription(description, 80));
     console.log(`set -gx ${name}`);
     console.log();
@@ -149,7 +149,7 @@ export function showJsonSchemaShellScript() {
     const [ key, value ] = item;
     const entry = findValue(key);
     let line = [
-      `# ${entry.name} <${entry.type.toUpperCase()}>`,
+      `# ${entry.name} <${entry.valueType.toUpperCase()}>`,
       formatDescription(entry.description, 80),
       `set -gx ${key} `
     ].join('\n');

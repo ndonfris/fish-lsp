@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 //'use strict'
-import { asciiLogoString, BuildCapabilityString, RepoUrl, PathObj, PackageLspVersion, GetEnvVariablesUsed, PackageVersion, accumulateStartupOptions, getBuildTimeString, FishLspHelp, FishLspManPage } from './utils/commander-cli-subcommands';
+import { asciiLogoString, BuildCapabilityString, RepoUrl, PathObj, PackageLspVersion, GetEnvVariablesUsed, PackageVersion, accumulateStartupOptions, getBuildTimeString, FishLspHelp, FishLspManPage, SourcesExt, SourcesDict } from './utils/commander-cli-subcommands';
 import { createConnection, InitializeParams, InitializeResult, StreamMessageReader, StreamMessageWriter } from 'vscode-languageserver/node';
 import { Command, Option } from 'commander';
 import FishServer from './server';
@@ -87,7 +87,6 @@ commandBin
       console.log();
       console.log(commandBin.description());
     }
-    process.exit(0);
   });
 
 
@@ -231,31 +230,7 @@ commandBin.command('url')
   .action(args => {
     const amount = Object.keys(args).length;
     if (amount === 0) console.log('https://fish-lsp.dev');
-    if (args.repo || args.git) console.log('https://github.com/ndonfris/fish-lsp');
-    if (args.npm) console.log('https://npmjs.io/ndonfris/fish-lsp');
-    if (args.homepage) console.log('https://fish-lsp.dev');
-    if (args.contributions) console.log('https://github.com/ndonfris/fish-lsp/issues?q=');
-    if (args.wiki) console.log('https://github.com/ndonfris/fish-lsp/wiki');
-    if (args.issues || args.report) console.log('https://github.com/ndonfris/fish-lsp/issues?q=');
-    if (args.discussions) console.log('https://github.com/ndonfris/fish-lsp/discussions');
-    if (args.clientsRepo) console.log('https://github.com/ndonfris/fish-lsp-language-clients/');
-    if (args.sources) {
-      console.log('https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#headerPart');
-      console.log('https://github.com/microsoft/vscode-extension-samples/tree/main');
-      console.log('https://tree-sitter.github.io/tree-sitter/');
-      console.log('https://github.com/ram02z/tree-sitter-fish');
-      console.log('https://github.com/microsoft/vscode-languageserver-node/tree/main/testbed');
-      console.log('https://github.com/Beaglefoot/awk-language-server/tree/master/server');
-      console.log('https://github.com/bash-lsp/bash-language-server/tree/main/server/src');
-      console.log('https://github.com/oncomouse/coc-fish');
-      console.log('https://github.com/typescript-language-server/typescript-language-server#running-the-language-server');
-      console.log('https://github.com/neoclide/coc-tsserver');
-      console.log('https://www.npmjs.com/package/vscode-jsonrpc');
-      console.log('https://github.com/Microsoft/vscode-languageserver-node');
-      console.log('https://github.com/Microsoft/vscode-languageserver-node');
-      console.log('https://github.com/microsoft/vscode-languageserver-node/blob/main/client/src/common');
-      console.log('https://github.com/microsoft/vscode-languageserver-node/tree/main/server/src/common');
-    }
+    Object.keys(args).forEach(key => console.log(SourcesDict[key]))
     process.exit(0);
   });
 
@@ -297,9 +272,6 @@ commandBin.command('env')
   .action(args => {
     if (args.show) {
       showJsonSchemaShellScript()
-      process.exit(0)
-    } else if (args.create) {
-      generateJsonSchemaShellScript()
       process.exit(0)
     }
     generateJsonSchemaShellScript()

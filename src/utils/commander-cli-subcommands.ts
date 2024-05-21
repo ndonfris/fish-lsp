@@ -3,9 +3,6 @@ import { resolve } from 'path';
 import PackageJSON from '../../package.json';
 // import PackageJSON from '@package';
 import deepmerge from 'deepmerge';
-import { commandBin } from '../cli';
-import { homedir } from 'os';
-// const logo = BuildAsciiLogo()
 
 // Base interface for simple enable/disable features
 interface ConfigToggleOptionValue {
@@ -57,245 +54,6 @@ interface StartupConfig {
   index: ConfigToggleOptionValue;
   // Add an index signature for unknown properties
   [key: string]: ConfigToggleOptionValue | any;
-}
-
-// You can add more specific interfaces for other configurations as needed
-
-const buildBareConfigValue = (key: string) => {
-  switch (key) {
-    case 'completion':
-      return {
-        enable: false,
-        triggerCharacters: [],
-        expandAbbreviations: false,
-      };
-    case 'hover':
-    case 'rename':
-    case 'definition':
-    case 'references':
-    case 'snippets':
-    case 'logging':
-    case 'asciiArt':
-    case 'index':
-    case 'signatureHelp':
-      return {
-        enable: false,
-      };
-    case 'formatting':
-      return {
-        enable: false,
-        indent: 4,
-        tabSize: 4,
-        addSemis: false,
-      };
-    case 'diagnostics':
-      return {
-        enable: false,
-        maxNumberOfProblems: 10,
-      };
-    case 'workspaces':
-      return {
-        enable: false,
-        symbols: {
-          enable: false,
-          max: 5000,
-          prefer: 'functions',
-        },
-        paths: {
-          defaults: [],
-          allowRename: [],
-        },
-      };
-    default:
-      return { enable: false };
-  }
-};
-
-export const startupConfigEnabled: StartupConfig = {
-  completion: {
-    enable: true,
-    triggerCharacters: ['.'],
-    expandAbbreviations: true,
-  },
-  hover: {
-    enable: true,
-  },
-  rename: {
-    enable: true,
-  },
-  formatting: {
-    enable: true,
-    indent: 2,
-    tabSize: 2,
-    addSemis: true,
-  },
-  diagnostics: {
-    enable: true,
-    maxNumberOfProblems: 10,
-  },
-  references: {
-    enable: true,
-  },
-  definition: {
-    enable: true,
-  },
-  workspaces: {
-    enable: true,
-    symbols: {
-      enable: true,
-      max: 5000,
-      prefer: 'functions',
-    },
-    paths: {
-      defaults: [
-        `${homedir()}/.config/fish`,
-        '/usr/share/fish',
-      ],
-      allowRename: [
-        `${homedir()}/.config/fish`,
-      ],
-    },
-
-  },
-  codeActions: {
-    enable: true,
-    // create: {
-    //     completionsFile: false,
-    //     fromArgParse: false,
-    // },
-    // extract: {
-    //     toPrivateFunction: false,
-    //     toLocalVariable: false,
-    // },
-    // quickfix: {
-    //     addMissingEnd: true,
-    //     removeUnnecessaryEnd: true,
-    // },
-  },
-  snippets: {
-    enable: true,
-  },
-  logging: {
-    enable: true,
-  },
-  asciiArt: {
-    enable: true,
-  },
-  signatureHelp: {
-    enable: true,
-  },
-  index: {
-    enable: true,
-  },
-};
-
-export const startupConfigDisabled: StartupConfig = {
-  completion: {
-    enable: false,
-    triggerCharacters: [],
-    expandAbbreviations: false,
-  },
-  hover: {
-    enable: false,
-  },
-  rename: {
-    enable: false,
-  },
-  formatting: {
-    enable: true,
-    indent: 4,
-    tabSize: 4,
-    addSemis: false,
-  },
-  diagnostics: {
-    enable: false,
-    maxNumberOfProblems: 10,
-  },
-  references: {
-    enable: false,
-  },
-  definition: {
-    enable: false,
-  },
-  workspaces: {
-    enable: false,
-    symbols: {
-      enable: false,
-      max: 5000,
-      prefer: 'functions',
-    },
-    paths: {
-      defaults: [
-        `${homedir()}/.config/fish`,
-        '/usr/share/fish',
-      ],
-      allowRename: [
-        `${homedir()}/.config/fish`,
-      ],
-    },
-
-  },
-  codeActions: {
-    enable: false,
-    // create: {
-    //     completionsFile: false,
-    //     fromArgParse: false,
-    // },
-    // extract: {
-    //     toPrivateFunction: false,
-    //     toLocalVariable: false,
-    // },
-    // quickfix: {
-    //     addMissingEnd: true,
-    //     removeUnnecessaryEnd: true,
-    // },
-  },
-  snippets: {
-    enable: false,
-  },
-  logging: {
-    enable: false,
-  },
-  asciiArt: {
-    enable: false,
-  },
-  signatureHelp: {
-    enable: false,
-  },
-  index: {
-    enable: false,
-  },
-};
-
-export function updateConfiguration<T>(path: string[], newValue: T, config: any): boolean {
-  let current = config;
-
-  // Navigate through the path except the last key
-  for (let i = 0; i < path.length - 1; i++) {
-    const key = path[i];
-
-    if (!key || current[key] === undefined) {
-      // Handle undefined keys if necessary, e.g., by initializing them
-      console.warn(`Key ${key} does not exist.`);
-      return false; // Or handle as needed
-    }
-    current = current[key];
-  }
-
-  const lastKey = path[path.length - 1]!; // Correct way to access the last element
-  // Now, use `lastKey` to access or update the final location in `current`
-  if (Array.isArray(current[lastKey])) {
-    if (!current[lastKey].includes(newValue)) {
-      current[lastKey].push(newValue);
-    } else {
-      console.log(`Value ${newValue} already exists in ${lastKey}, not adding.`);
-      return false;
-    }
-  } else {
-    // Handle non-array `current[lastKey]`, such as setting a new value directly
-    current[lastKey] = newValue;
-  }
-  return true;
 }
 
 
@@ -529,3 +287,52 @@ export function FishLspManPage() {
     content: content.split('\n'),
   };
 }
+
+
+export const SourcesDict: { [key: string]: string } = {
+  repo: "https://github.com/ndonfris/fish-lsp",
+  git: "https://github.com/ndonfris/fish-lsp" ,
+  npm: "https://npmjs.io/ndonfris/fish-lsp",
+  homepage: "https://fish-lsp.dev",
+  contributions: "https://github.com/ndonfris/fish-lsp/issues?q=",
+  issues: "https://github.com/ndonfris/fish-lsp/issues?q=",
+  report: "https://github.com/ndonfris/fish-lsp/issues?q=",
+  wiki: "https://github.com/ndonfris/fish-lsp/wiki",
+  discussions: "https://github.com/ndonfris/fish-lsp/discussions",
+  clientsRepos: "https://github.com/ndonfris/fish-lsp-language-clients/",
+  sources: [
+    'https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#headerPart',
+    'https://github.com/microsoft/vscode-extension-samples/tree/main',
+    'https://tree-sitter.github.io/tree-sitter/',
+    'https://github.com/ram02z/tree-sitter-fish',
+    'https://github.com/microsoft/vscode-languageserver-node/tree/main/testbed',
+    'https://github.com/Beaglefoot/awk-language-server/tree/master/server',
+    'https://github.com/bash-lsp/bash-language-server/tree/main/server/src',
+    'https://github.com/oncomouse/coc-fish',
+    'https://github.com/typescript-language-server/typescript-language-server#running-the-language-server',
+    'https://github.com/neoclide/coc-tsserver',
+    'https://www.npmjs.com/package/vscode-jsonrpc',
+    'https://github.com/Microsoft/vscode-languageserver-node',
+    'https://github.com/Microsoft/vscode-languageserver-node',
+    'https://github.com/microsoft/vscode-languageserver-node/blob/main/client/src/common',
+    'https://github.com/microsoft/vscode-languageserver-node/tree/main/server/src/common',
+  ].join('\n')
+}
+
+export const SourcesExt = [
+  'https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#headerPart',
+  'https://github.com/microsoft/vscode-extension-samples/tree/main',
+  'https://tree-sitter.github.io/tree-sitter/',
+  'https://github.com/ram02z/tree-sitter-fish',
+  'https://github.com/microsoft/vscode-languageserver-node/tree/main/testbed',
+  'https://github.com/Beaglefoot/awk-language-server/tree/master/server',
+  'https://github.com/bash-lsp/bash-language-server/tree/main/server/src',
+  'https://github.com/oncomouse/coc-fish',
+  'https://github.com/typescript-language-server/typescript-language-server#running-the-language-server',
+  'https://github.com/neoclide/coc-tsserver',
+  'https://www.npmjs.com/package/vscode-jsonrpc',
+  'https://github.com/Microsoft/vscode-languageserver-node',
+  'https://github.com/Microsoft/vscode-languageserver-node',
+  'https://github.com/microsoft/vscode-languageserver-node/blob/main/client/src/common',
+  'https://github.com/microsoft/vscode-languageserver-node/tree/main/server/src/common',
+].join('\n')

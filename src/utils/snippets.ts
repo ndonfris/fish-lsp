@@ -1,111 +1,138 @@
-import helperCommands from '../../snippets/helper_commands.json'
-import variableHighlights from '../../snippets/syntax_highlighting_variables.json'
-import statusVariables from '../../snippets/status_variable.json'
-import envVariables from '../../snippets/env_variables.json'
-import localeVariables from '../../snippets/locale_variables.json'
-import specialVariables from '../../snippets/special_variables.json'
-import pagerHighlights from '../../snippets/pager_colors.json'
-import pipeCharacters from '../../snippets/pipe_snippets.json'
-import usrEnvVariables from '../../snippets/usr_env_variables.json'
+import helperCommandsJson from '../../snippets/helper_commands.json';
+import themeVariablesJson from '../../snippets/syntax_highlighting_variables.json';
+// import pagerHighlightVariablesJson from '../../snippets/pager_colors.json'
+import statusNumbersJson from '../../snippets/status_numbers.json';
+import envVariablesJson from '../../snippets/env_variables.json';
+import localeVariablesJson from '../../snippets/locale_variables.json';
+import specialVariablesJson from '../../snippets/special_fish_variables.json';
+import pipeCharactersJson from '../../snippets/pipes_and_redirects.json';
+import fishlspEnvVariablesJson from '../../snippets/fish_lsp_env_variables.json';
 
-export type KeyValuePair = {
-  name: string
-  description: string
+
+interface BaseJson {
+  name: string;
+  description: string;
 }
 
-export type CommandHelper = {
-  name: string
-  description: string
-  url: string
+type JsonType = 'command' | 'pipe' | 'status' | 'variable'
+type SpecialType = 'fishlsp' | 'env' | 'locale' | 'special' | 'theme';
+
+interface ExtendedBaseJson extends BaseJson {
+  type: JsonType;
+  specialType: SpecialType | undefined;
+  // otherTypes: string[]; //TODO
 }
 
-const commands = () => {
-  const map: Map<string, CommandHelper> = new Map<string, CommandHelper>()
-  Object.values(helperCommands).forEach((obj: KeyValuePair) => {
-    map.set(obj.name, {
-      name: obj.name,
-      description: obj.description, 
-      url: `https://fishshell.com/docs/current/cmds/${obj.name}.html`
+namespace ExtendedBaseJson {
+  export function create(o: BaseJson, type: JsonType, specialType?: SpecialType):  ExtendedBaseJson {
+    return {
+      ...o,
+      type,
+      specialType,
+      // otherTypes: [type],
+    }
+  }
+}
+
+class DocumentationMap {
+  private map: Map<string, ExtendedBaseJson[]> = new Map();
+  private typeMap: Map<JsonType, ExtendedBaseJson[]> = new Map();
+
+  constructor(data: ExtendedBaseJson[]) {
+    data.forEach(item => {
+      const curr = this.map.get(item.name) || []
+      // if (this.map.has(item.name)) return
+      curr.push(item)
+      this.map.set(item.name, curr);
+      if (!this.typeMap.has(item.type)) this.typeMap.set(item.type, []);
+      this.typeMap.get(item.type)!.push(item);
+    });
+  }
+
+  getByName(name: string): ExtendedBaseJson[] {
+    return name.startsWith('$')
+      ? this.map.get(name.slice(1)) || []
+      : this.map.get(name) || []
+  }
+
+  getByType(type: JsonType, specialType?: SpecialType): ExtendedBaseJson[] {
+    const allOfType = this.typeMap.get(type) || []; 
+    return specialType !== undefined 
+      ? allOfType.filter(v => v?.specialType === specialType)
+      : allOfType
+  }
+
+  add(item: ExtendedBaseJson): void {
+    const curr = this.map.get(item.name) || []
+    curr?.push(item)
+    this.map.set(item.name, curr);
+    if (!this.typeMap.has(item.type))  this.typeMap.set(item.type, []) 
+    this.typeMap.get(item.type)!.push(item);
+  }
+
+  findMatchingNames(query: string, ...types: (JsonType | SpecialType)[]): ExtendedBaseJson[] {
+    const results: ExtendedBaseJson[] = [];
+    this.map.forEach(items => {
+      if (items.filter(item => item.name.startsWith(query) && (types.length === 0 || types.includes(item.type || item.specialType)))) {
+        results.push(...items);
+      }
     })
-  })
-  return map
+    return results;
+  }
+
+  // Additional helper methods can be added as needed
 }
 
+const allData: ExtendedBaseJson[] = [
+  ...helperCommandsJson.map((item: BaseJson) => ExtendedBaseJson.create(item, 'command')),
+  ...pipeCharactersJson.map((item: BaseJson) => ExtendedBaseJson.create(item, 'pipe')),
+  ...statusNumbersJson.map((item: BaseJson) =>  ExtendedBaseJson.create(item, 'status')),
+  ...themeVariablesJson.map((item: BaseJson) => ExtendedBaseJson.create(item, 'variable', 'theme')),
+  ...fishlspEnvVariablesJson.map((item: BaseJson) => ExtendedBaseJson.create( item, 'variable', 'fishlsp' )),
+  ...envVariablesJson.map((item: BaseJson) => ExtendedBaseJson.create(item, 'variable', 'env')),
+  ...localeVariablesJson.map((item: BaseJson) => ExtendedBaseJson.create( item, 'variable', 'locale' )),
+  ...specialVariablesJson.map((item: BaseJson) => ExtendedBaseJson.create( item, 'variable', 'special' )),
+];
 
-const highlightVariables = () : Map<string, KeyValuePair> => {
-  const map: Map<string, KeyValuePair> = new Map<string, KeyValuePair>()
-  Object.values(pagerHighlights).forEach((obj: KeyValuePair) => {
-    map.set(obj.name, obj)
+export const prebuiltDocumentationMap = new DocumentationMap(allData);
+
+export function getPrebuiltDocUrlByName(name: string): string {
+  const objs = prebuiltDocumentationMap.getByName(name)
+  const res: string[] = []
+  objs.forEach(obj => {
+   res.push(getPrebuiltDocUrl(obj))
   })
-  Object.values(variableHighlights).forEach((obj: KeyValuePair) => {
-    map.set(obj.name, obj)
-  })
-  return map
+  return res.join('\n')
 }
 
+export function getPrebuiltDocUrl(obj: ExtendedBaseJson): string {
+  switch (obj.type) {
+    case 'command':
+      return `https://fishshell.com/docs/current/cmds/${obj.name}.html`
+    case 'pipe':
+      return 'https://fishshell.com/docs/current/language.html#input-output-redirection'
+    case 'status':
+      return 'https://fishshell.com/docs/current/language.html#variables-status'
+    case 'variable':
+    default:
+      break;
+  }
 
-
-const statusNumbers = () : Map<string, KeyValuePair> => {
-  const map: Map<string, KeyValuePair> = new Map<string, KeyValuePair>()
-  Object.values(statusVariables).forEach((obj: KeyValuePair) => {
-    map.set(obj.name, obj)
-  })
-  return map
-} 
-
-
-const userEnvVariables = (): Map<string, KeyValuePair> => {
-  const map: Map<string, KeyValuePair> = new Map<string, KeyValuePair>()
-  Object.values(usrEnvVariables).forEach((obj: KeyValuePair) => {
-    map.set(obj.name, obj)
-  })
-  return map
-} 
-
-
-const specialVars = () : Map<string, KeyValuePair> => {
-  const map: Map<string, KeyValuePair> = new Map<string, KeyValuePair>()
-  Object.values(envVariables).forEach((obj: KeyValuePair) => {
-    map.set(obj.name, obj)
-  })
-  Object.values(localeVariables).forEach((obj: KeyValuePair) => {
-    map.set(obj.name, obj)
-  })                            
-  Object.values(specialVariables).forEach((obj: KeyValuePair) => {
-    map.set(obj.name, obj)
-  })                             
-  Object.values(usrEnvVariables).forEach((obj: KeyValuePair) => {
-    map.set(obj.name, obj)
-  })
-  return map
-}               
-
-
-const pipeVars = (): Map<string, KeyValuePair> => {
-  const map: Map<string, KeyValuePair> = new Map<string, KeyValuePair>()
-  Object.values(pipeCharacters).forEach((obj: KeyValuePair) => {
-    map.set(obj.name, obj)
-  })
-  return map
+  // variable links 
+  switch (obj.specialType) {
+    // case 'fishlsp'
+    case 'env':
+      return `https://fishshell.com/docs/current/language.html#envvar-${obj.name}`
+    case 'locale':
+      return `https://fishshell.com/docs/current/language.html#locale-variables-${obj.name}`
+    case 'theme':
+      // return 'https://fishshell.com/docs/current/interactive.html#variables-color'
+      return `https://fishshell.com/docs/current/language.html#envvar-${obj.name}`
+    case 'special':
+      return `https://fishshell.com/docs/current/language.html#envvar-${obj.name}`
+      // return 'https://fishshell.com/docs/current/language.html#special-variables'
+    default:
+      return ''
+  }
 }
 
-export function printFromSnippetVariables(map: Map<string, KeyValuePair>, flags: string = '-gx') {
-  const result: string[] = [];
-  map.forEach((value, _) => {
-    result.push(
-      `# ${value.description}`,
-      `set ${flags} ${value.name}`,
-      ''
-    );
-  })
-  return result;
-}
-
-export const Snippets = {
-  pipes: pipeVars,
-  status: statusNumbers,
-  specialVars: specialVars,
-  themeVars: highlightVariables,
-  userEnvVariables: userEnvVariables,
-  commands: commands
-}

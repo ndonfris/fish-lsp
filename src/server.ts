@@ -454,7 +454,7 @@ export default class FishServer {
       {insertSpaces: true, tabSize: 4}
     );
     const editedRange = getRange(root);
-    this.connection.window.showInformationMessage(`Formatted: ${uri}`);
+    // this.connection.window.showInformationMessage(`Formatted: ${uri}`);
     return [TextEdit.replace(editedRange, formattedText)];
   }
 
@@ -486,9 +486,9 @@ export default class FishServer {
       // this.config.getFormattingOptions(),
     );
     //formattedText = formattedText.split('\n').slice(range.start.line, range.end.line).join('\n') + '\n'
-    this.connection.window.showInformationMessage(
-      `Formatted Range: ${uri}`,
-    );
+    // this.connection.window.showInformationMessage(
+    //   `Formatted Range: ${uri}`,
+    // );
     return [
       TextEdit.replace(
         range,
@@ -659,4 +659,3 @@ export default class FishServer {
     return this.analyzer.initiateBackgroundAnalysis(notifyCallback);
   }
 }
-

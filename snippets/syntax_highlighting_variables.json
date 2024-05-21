@@ -1,98 +1,150 @@
 [
-{
-	"name": "fish_color_normal",
-	"description": "default color"
-},
-{
-	"name": "fish_color_command",
-	"description": "commands like echo"
-},
-{
-	"name": "fish_color_keyword",
-	"description": "keywords like if - this falls back on the command color if unset"
-},
-{
-	"name": "fish_color_quote",
-	"description": "quoted text like \"abc\""
-},
-{
-	"name": "fish_color_redirection",
-	"description": "IO redirections like >/dev/null"
-},
-{
-	"name": "fish_color_end",
-	"description": "process separators like ; and &"
-},
-{
-	"name": "fish_color_error",
-	"description": "syntax errors"
-},
-{
-	"name": "fish_color_param",
-	"description": "ordinary command parameters"
-},
-{
-	"name": "fish_color_valid_path",
-	"description": "parameters that are filenames (if the file exists)"
-},
-{
-	"name": "fish_color_option",
-	"description": "options starting with “-”, up to the first “--” parameter"
-},
-{
-	"name": "fish_color_comment",
-	"description": "comments like ‘# important’"
-},
-{
-	"name": "fish_color_selection",
-	"description": "selected text in vi visual mode"
-},
-{
-	"name": "fish_color_operator",
-	"description": "parameter expansion operators like * and ~"
-},
-{
-	"name": "fish_color_escape",
-	"description": "character escapes like \\n and \\x70"
-},
-{
-	"name": "fish_color_autosuggestion",
-	"description": "autosuggestions (the proposed rest of a command)"
-},
-{
-	"name": "fish_color_cwd",
-	"description": "the current working directory in the default prompt"
-},
-{
-	"name": "fish_color_cwd_root",
-	"description": "the current working directory in the default prompt for the root user"
-},
-{
-	"name": "fish_color_user",
-	"description": "the username in the default prompt"
-},
-{
-	"name": "fish_color_host",
-	"description": "the hostname in the default prompt"
-},
-{
-	"name": "fish_color_host_remote",
-	"description": "the hostname in the default prompt for remote sessions (like ssh)"
-},
-{
-	"name": "fish_color_status",
-	"description": "the last command’s nonzero exit code in the default prompt"
-},
-{
-	"name": "fish_color_cancel",
-	"description": "the ‘^C’ indicator on a canceled command"
-},
-{
-	"name": "fish_color_search_match",
-	"description": "history search matches and selected pager items (background only)"
-},
-{
-	"name": "fish_color_history_current",
-	"description": "the current position in the history for commands like dirh and cdh"
-}
+  {
+    "name": "fish_color_normal",
+    "description": "default color"
+  },
+  {
+    "name": "fish_color_command",
+    "description": "commands like echo"
+  },
+  {
+    "name": "fish_color_keyword",
+    "description": "keywords like if - this falls back on the command color if unset"
+  },
+  {
+    "name": "fish_color_quote",
+    "description": "quoted text like \"abc\""
+  },
+  {
+    "name": "fish_color_redirection",
+    "description": "IO redirections like >/dev/null"
+  },
+  {
+    "name": "fish_color_end",
+    "description": "process separators like ; and &"
+  },
+  {
+    "name": "fish_color_error",
+    "description": "syntax errors"
+  },
+  {
+    "name": "fish_color_param",
+    "description": "ordinary command parameters"
+  },
+  {
+    "name": "fish_color_valid_path",
+    "description": "parameters that are filenames (if the file exists)"
+  },
+  {
+    "name": "fish_color_option",
+    "description": "options starting with “-”, up to the first “--” parameter"
+  },
+  {
+    "name": "fish_color_comment",
+    "description": "comments like ‘# important’"
+  },
+  {
+    "name": "fish_color_selection",
+    "description": "selected text in vi visual mode"
+  },
+  {
+    "name": "fish_color_operator",
+    "description": "parameter expansion operators like * and ~"
+  },
+  {
+    "name": "fish_color_escape",
+    "description": "character escapes like \\n and \\x70"
+  },
+  {
+    "name": "fish_color_autosuggestion",
+    "description": "autosuggestions (the proposed rest of a command)"
+  },
+  {
+    "name": "fish_color_cwd",
+    "description": "the current working directory in the default prompt"
+  },
+  {
+    "name": "fish_color_cwd_root",
+    "description": "the current working directory in the default prompt for the root user"
+  },
+  {
+    "name": "fish_color_user",
+    "description": "the username in the default prompt"
+  },
+  {
+    "name": "fish_color_host",
+    "description": "the hostname in the default prompt"
+  },
+  {
+    "name": "fish_color_host_remote",
+    "description": "the hostname in the default prompt for remote sessions (like ssh)"
+  },
+  {
+    "name": "fish_color_status",
+    "description": "the last command’s nonzero exit code in the default prompt"
+  },
+  {
+    "name": "fish_color_cancel",
+    "description": "the ‘^C’ indicator on a canceled command"
+  },
+  {
+    "name": "fish_color_search_match",
+    "description": "history search matches and selected pager items (background only)"
+  },
+  {
+    "name": "fish_color_history_current",
+    "description": "the current position in the history for commands like dirh and cdh"
+  },
+  {
+    "name": "fish_pager_color_progress",
+    "description": "the progress bar at the bottom left corner"
+  },
+  {
+    "name": "fish_pager_color_background",
+    "description": "the background color of a line"
+  },
+  {
+    "name": "fish_pager_color_prefix",
+    "description": "the prefix string, i.e. the string that is to be completed"
+  },
+  {
+    "name": "fish_pager_color_completion",
+    "description": "the completion itself, i.e. the proposed rest of the string"
+  },
+  {
+    "name": "fish_pager_color_description",
+    "description": "the completion description"
+  },
+  {
+    "name": "fish_pager_color_selected_background",
+    "description": "background of the selected completion"
+  },
+  {
+    "name": "fish_pager_color_selected_prefix",
+    "description": "prefix of the selected completion"
+  },
+  {
+    "name": "fish_pager_color_selected_completion",
+    "description": "suffix of the selected completion"
+  },
+  {
+    "name": "fish_pager_color_selected_description",
+    "description": "description of the selected completion"
+  },
+  {
+    "name": "fish_pager_color_secondary_background",
+    "description": "background of every second unselected completion"
+  },
+  {
+    "name": "fish_pager_color_secondary_prefix",
+    "description": "prefix of every second unselected completion"
+  },
+  {
+    "name": "fish_pager_color_secondary_completion",
+    "description": "suffix of every second unselected completion"
+  },
+  {
+    "name": "fish_pager_color_secondary_description",
+    "description": "description of every second unselected completion"
+  }
 ]
