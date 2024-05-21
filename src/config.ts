@@ -215,14 +215,14 @@ function escapeValue(value: string | number | boolean): string {
  ***        initializeResult              ***
  *******************************************/ 
 
-// in server
-export function adjustInitializeResultCapabilitiesFromConfig(configHandlers: z.infer<typeof ConfigHandlerSchema>): InitializeResult {
+/* in server onInitialize() */
+export function adjustInitializeResultCapabilitiesFromConfig(configHandlers: z.infer<typeof ConfigHandlerSchema>, userConfig: z.infer<typeof ConfigSchema>): InitializeResult {
   return {
     capabilities: {
       textDocumentSync: TextDocumentSyncKind.Incremental,
       completionProvider: configHandlers.complete ? {
         resolveProvider: true,
-        allCommitCharacters: [';', ' ', '\t'],
+        allCommitCharacters: userConfig.fish_lsp_commit_characters,
         workDoneProgress: true,
       } : undefined,
       hoverProvider: configHandlers.hover,
@@ -247,11 +247,11 @@ export function adjustInitializeResultCapabilitiesFromConfig(configHandlers: z.i
       documentSymbolProvider: {
         label: 'Fish-LSP',
       },
-      workspaceSymbolProvider: configHandlers.complete ? {
+      workspaceSymbolProvider: {
         resolveProvider: true,
-      } : undefined,
+      },
       documentHighlightProvider: false,
-      inlayHintProvider: configHandlers.inlayHint,
+      inlayHintProvider: false, /*configHandlers.inlayHint,*/
       signatureHelpProvider: configHandlers.signature ? {
           retriggerCharacters: ['.'],
           triggerCharacters: ['.', ' '],

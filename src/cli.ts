@@ -9,6 +9,7 @@ import { mainStartupManager, bareStartupManger, ConfigMap } from './utils/config
 import { buildFishLspCompletions } from './utils/get-lsp-completions';
 import { createServerLogger, Logger, ServerLogsPath } from './logger';
 import { configHandlers, generateJsonSchemaShellScript, getConfigFromEnvironmentVariables, showJsonSchemaShellScript, updateHandlers, validHandlers } from './config';
+import { Server } from 'http';
 
 export function startServer() {
   // Create a connection for the server.
@@ -138,7 +139,7 @@ commandBin.command('logger')
   .option('-q, --quiet', 'silence logging')
   .option('--config', 'show the logger config')
   .action(args => {
-    const logger = createServerLogger(ServerLogsPath, false);
+    const logger = createServerLogger(config.fish_lsp_logfile || ServerLogsPath, false);
     const objArgs = Object.getOwnPropertyNames(args);
     const argsQueue = objArgs;
     let currentArg: string = '';
@@ -200,7 +201,7 @@ commandBin.command('info')
       process.exit(0);
     }
     if (args.logsFile) {
-      console.log(PathObj.logsFile);
+      console.log(config.fish_lsp_logfile || PathObj.logsFile);
       process.exit(0);
     }
     console.log('Repository: ', PathObj.repo);

@@ -1,14 +1,13 @@
 import * as LSP from 'vscode-languageserver';
-import { Hover, MarkedString, MarkupKind } from 'vscode-languageserver';
+import { Hover, MarkupKind } from 'vscode-languageserver';
 import * as Parser from 'web-tree-sitter';
 import { Analyzer } from './analyze';
 import { LspDocument } from './document';
-import { documentationHoverProvider, documentationHoverProviderForBuiltIns, enrichCommandWithFlags, enrichToCodeBlockMarkdown } from './documentation';
+import { documentationHoverProvider, enrichCommandWithFlags } from './documentation';
 import { DocumentationCache } from './utils/documentationCache';
-import { execCommandDocs, execComplete, execCompletions, execSubCommandCompletions } from './utils/exec';
-import { isCommand, isCommandName } from './utils/node-types';
-import { findEnclosingScope, findFirstParent, getNodeAtRange, getRange } from './utils/tree-sitter';
-import { PrebuiltDocumentationMap } from './utils/snippets';
+import { execCommandDocs, execCompletions, execSubCommandCompletions } from './utils/exec';
+import { isCommand } from './utils/node-types';
+import { findFirstParent } from './utils/tree-sitter';
 
 export async function handleHover(
   analyzer: Analyzer,
