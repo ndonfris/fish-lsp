@@ -89,13 +89,13 @@ Provide completions for the `fish-lsp`
 
 ## EXAMPLES
 
- • Start the `fish-lsp` language server, with the default configuration:
+- Start the `fish-lsp` language server, with the default configuration:
 
   ```fish
   >_ fish-lsp start
   ```
 
-• Show the path to the `fish-lsp` language server binary:
+- Show the path to the `fish-lsp` language server binary:
 
   ```fish
   >_ fish-lsp complete > ~/.config/fish/completions/fish-lsp.fish
@@ -103,9 +103,9 @@ Provide completions for the `fish-lsp`
 
 ## SEE ALSO
 
-  • __website:__ _https://fish-lsp.dev/_
-  • __repo:__ _https://github.com/ndonfris/fish-lsp_
-  • __fish website:__ _https://fishshell.com/_
+- __website:__ _https://fish-lsp.dev/_
+- __repo:__ _https://github.com/ndonfris/fish-lsp_
+- __fish website:__ _https://fishshell.com/_
 
 ## AUTHOR
 
