@@ -6,21 +6,21 @@
 ![License](https://img.shields.io/github/license/ndonfris/fish-lsp?&labelColor=%23181939&color=b88af3)
 ![Github Created At](https://img.shields.io/github/created-at/ndonfris/fish-lsp?logo=%234e6cfa&label=created&labelColor=%23181939&color=%236198f5)
 
+<!-- ### Client Usage -->
+
+![demo.gif](https://github.com/ndonfris/fish-lsp.dev/blob/ndonfris-patch-1/new_output.gif?raw=true)
+
 A [Language Server Protocol (LSP)](https://lsif.dev/) tailored for the [fish shell](https://github.com/microsoft/vscode-languageserver-node/tree/main/server/src/common).
 This project aims to enhance the coding experience for fish, by introducing a suite of
 intelligent features like auto-completion, scope aware symbol analysis, per-token hover
 generation, and [many others](#features).
 
-The overall project goal is to produce an editor agnostic developer environment for fish.
-
-### Client Usage
-
-  ![demo.gif](https://github.com/ndonfris/fish-lsp.dev/blob/ndonfris-patch-1/new_output.gif?raw=true)
+The overall project goal is to produce [an editor agnostic developer environment](https://en.wikipedia.org/wiki/Language_Server_Protocol) for fish.
 
  <!-- > [!NOTE] -->
  <!-- > _Please submit other demo's in_ [show & tell](https://github.com/ndonfris/fish-lsp/discussions/categories/show-and-tell) _discussion_ -->
 
-### Server Usage
+<!-- ### Server Usage -->
 
   <!-- ```bash -->
   <!--  fish-lsp --help -->
@@ -29,63 +29,7 @@ The overall project goal is to produce an editor agnostic developer environment 
   <!-- <details> -->
   <!--   <summary> Generated Output </summary> -->
 
-  ![fish-lsp --help](https://github.com/ndonfris/fish-lsp.dev/blob/master/public/help-msg-new.png)
-
   <!-- </details> -->
-
-## Installation
-
-> __Recommended Dependencies:__ `yarn@1.22.22`, `node@21.7.1`, `fish@3.7.1`
-
-Building from source is __the only currently recommended installation method__, as we improve
-other methods of the installation process (Don't use __releases__ or __npm package__).
-Contributions to help enhance installation options are greatly appreciated!
-
-1. Clone the repo
-
-    ```bash
-    git clone https://github.com/ndonfris/fish-lsp
-    # cd fish-lsp
-    ```
-
-1. Install the dependencies & run the setup handler scripts
-
-    ```bash
-    yarn install
-    ```
-
-1. __Optional:__ Check that the project successfully compiled & linked
-
-    ```bash
-    # ./bin/fish-lsp --help
-    fish-lsp --help
-    ```
-
-1. Setup the project in the [client](https://github.com/ndonfris/fish-lsp/wiki/Client-Configurations) of your choice. _Client's typically only need the keys `command`,
-   `args/arguments`, and `filetypes` to start a language server._
-
-    ```json
-    {
-      "fish-lsp": {
-        "command": "fish-lsp",
-        "filetypes": ["fish"],
-        "args": ["start"],
-        "revealOutputChannelOn": "info",
-        "initializationOptions": {
-          "workspaces": {
-            "paths": {
-              "defaults": [
-                "$HOME/.config/fish",
-                "/usr/share/fish"
-              ]
-            }
-          }
-        }
-      }
-    }
-    ```
-
-    > Neovim client using [coc.nvim](https://github.com/neoclide/coc.nvim) configuartion, located inside [coc-settings.json](https://github.com/neoclide/coc.nvim/wiki/Language-servers#register-custom-language-servers) `"languageserver"` key
 
 ## Features
 
@@ -106,26 +50,182 @@ Contributions to help enhance installation options are greatly appreciated!
 | __Code Lens__ | Shows all available code lenses | ✖  |
 | __Logger__ | Logs all server activity | ✅ |
 | __Diagnostic__ | Shows all diagnostics | ✖  |
+| __Folding Range__ | Toggle ranges to fold text  | ✅ |
 | __Telescope Integration__ | Integrates with the telescope.nvim plugin | ✅ |
 | __CLI Interactivity__ | Provides a CLI for server interaction. Built by `fish-lsp complete <option>` | ✅ |
 | __Client Tree__ | Shows the defined scope as a Tree | ✅ |
 | __Indexing__ | Indexes all commands, variables, and functions | ✅ |
 
+## Installation
+
+> __Recommended Dependencies:__ `yarn@1.22.22`, `node@21.7.1`, `fish@3.7.1`
+
+Building from source is __the only currently recommended installation method__, as we improve
+other methods of the installation process (Don't use __releases__ or __npm packages__).
+Contributions to help enhance installation options are greatly appreciated!
+
+1. Clone the repo
+
+    ```bash
+    git clone https://github.com/ndonfris/fish-lsp
+    # cd fish-lsp
+    ```
+
+1. Install the dependencies & run the setup handler scripts
+
+    ```bash
+    yarn install
+    ```
+
+1. __Optional:__ Check that the project successfully compiled & linked
+
+    ```bash
+    fish-lsp --help # ./bin/fish-lsp --help
+    ```
+
+    ![fish-lsp --help](https://github.com/ndonfris/fish-lsp.dev/blob/master/public/help-msg-new.png)
+
+<!-- 1. Setup the project in the [client](https://github.com/ndonfris/fish-lsp/wiki/Client-Configurations) of your choice. _Client's typically only need the keys `command`, -->
+<!--    `args/arguments`, and `filetypes` to start a language server._ -->
+<!---->
+<!--     ```json -->
+<!--     { -->
+<!--       "fish-lsp": { -->
+<!--         "command": "fish-lsp", -->
+<!--         "filetypes": ["fish"], -->
+<!--         "args": ["start"], -->
+<!--         "revealOutputChannelOn": "info", -->
+<!--         "initializationOptions": { -->
+<!--           "workspaces": { -->
+<!--             "paths": { -->
+<!--               "defaults": [ -->
+<!--                 "$HOME/.config/fish", -->
+<!--                 "/usr/share/fish" -->
+<!--               ] -->
+<!--             } -->
+<!--           } -->
+<!--         } -->
+<!--       } -->
+<!--     } -->
+<!--     ``` -->
+<!---->
+<!--     > Neovim client using [coc.nvim](https://github.com/neoclide/coc.nvim) configuartion, located inside [coc-settings.json](https://github.com/neoclide/coc.nvim/wiki/Language-servers#register-custom-language-servers) `"languageserver"` key -->
+
+## Setup
+
+To properly configure [fish-lsp](https://fish-lsp.dev), you need to define a client configuration after
+installing the language server. _Client's typically only need the keys `command`,
+`args/arguments`, and `filetypes` to start a language server._
+
+### Client Configuration _(Required)_
+
+Theoretically, the language-server should generally be compatible with almost any text-editor or IDE you enjoy using.
+Feel free to setup the project in any [fish-lsp-client](https://github.com/ndonfris/fish-lsp/wiki/Client-Configurations) of your choice.
+
+```json
+{
+  "fish-lsp": {
+    "command": "fish-lsp",
+    "filetypes": ["fish"],
+    "args": ["start"]
+  }
+}
+```
+
+> Neovim client using [coc.nvim](https://github.com/neoclide/coc.nvim) configuartion, located inside [coc-settings.json](https://github.com/neoclide/coc.nvim/wiki/Language-servers#register-custom-language-servers) `"languageserver"` key
+
+### Server Configuration _(Optional)_
+
+Specific functionality for the server can be set independently from the client. This allows for multiple
+configurations, to be defined and chosen via specific startup requirements  __(i.e.,__ using the `bind` command
+with the _function_ `edit_command_buffer`__).__
+
+#### Environment variables
+
+> Generate by `fish-lsp env --create`
+
+```fish
+# fish_lsp_enabled_handlers <ARRAY>
+# enables the fish-lsp handlers (options: 'asciiArt', 'formatting', 'logging',
+# 'complete', 'hover', 'rename', 'definition', 'references', 'diagnostics',
+# 'signatureHelp', 'codeAction', 'index')
+set -gx fish_lsp_enabled_handlers
+
+# fish_lsp_disabled_handlers <ARRAY>
+# disables the fish-lsp handlers. (options: 'asciiArt', 'formatting', 'logging',
+# 'complete', 'hover', 'rename', 'definition', 'references', 'diagnostics',
+# 'signatureHelp', 'codeAction', 'index')
+set -gx fish_lsp_disabled_handlers
+
+# fish_lsp_commit_characters <ARRAY>
+# array of the completion expansion characters. Single letter values only.
+# Commit characters are used to select completion items, as shortcuts. (default: [])
+set -gx fish_lsp_commit_characters
+
+# fish_lsp_logfile <STRING>
+# path to the logs.txt file (default: '~/path/to/fish-lsp/logs.txt')
+set -gx fish_lsp_logfile
+
+# fish_lsp_format_tabsize <NUMBER>
+# amount of spaces in a tab character for the formatter provider (default: 4)
+set -gx fish_lsp_format_tabsize
+
+# fish_lsp_format_switch_case <BOOLEAN>
+# keep case statements left aligned with switch block. (default: false)
+set -gx fish_lsp_format_switch_case
+
+# fish_lsp_all_indexed_paths <ARRAY>
+# fish file paths/workspaces to include as workspaces (default: ['/usr/share/fish', "$HOME/.config/fish"])
+set -gx fish_lsp_all_indexed_paths
+
+# fish_lsp_modifiable_paths <ARRAY>
+# fish file paths/workspaces that can be renamed by the user. (default: ["$HOME/.config/fish"])
+set -gx fish_lsp_modifiable_paths
+
+# fish_lsp_diagnostic_disable_error_codes <ARRAY>
+# disable diagnostics for matching error codes (default: [])
+set -gx fish_lsp_diagnostic_disable_error_codes
+
+# fish_lsp_max_background_files <NUMBER>
+# maximum number of background files to read into buffer on startup (default: 500)
+set -gx fish_lsp_max_background_files
+```
+
+#### Command Flags
+
+Both the flags `--enable` and `--disable` are provided on the `fish-lsp start`
+subcommand. __By default, all handlers will be enabled__.
+
+```fish
+# displays what handlers are enabled. Removing the dump flag will run the server.
+fish-lsp start --disable complete signature --dump 
+```
+
+#### Further Server Configuration
+
+Any [flags](#command-flags) will overwrite their corresponding [environment variables](#environment-variables), if both are
+seen for the `fish-lsp` process. For this reason, it is encouraged to wrap any
+non-standard behavior of the `fish-lsp` in [functions](https://fishshell.com/docs/current/language.html#functions) or [aliases](https://fishshell.com/docs/current/language.html#defining-aliases). 
+
+Due to the vast possibilities this project aims to support in the fish shell,
+[sharing useful configurations is highly encouraged](https://github.com/ndonfris/fish-lsp/discussions).
+
+<!---
 ## Why?
 
   The creation of this project was driven by a vision to bridge the gap in tooling for the
   fish shell, independently separating the shell's community by text-editor/IDE.
 
-<!-- ### Pros of fish shell -->
-<!---->
-<!--   Fish stands out among shell environments due to its advanced, user-friendly language -->
-<!--   design, which is inherently more structured and intuitive than traditional shells. This modern -->
-<!--   design simplifies script development, enhances readability, and supports robust error handling, -->
-<!--   making it an ideal candidate for a dedicated LSP. By leveraging Fish’s unique features through an LSP, -->
-<!--   developers can harness its full potential, benefiting from intelligent autocomplete, syntax highlighting, -->
-<!--   and real-time feedback that align seamlessly with Fish's syntax. Building an LSP for -->
-<!--   Fish not only taps into these innate capabilities but also enriches the user experience, -->
-<!--   making advanced shell scripting more accessible and productive. -->
+### Pros of fish shell
+
+  Fish stands out among shell environments due to its advanced, user-friendly language
+  design, which is inherently more structured and intuitive than traditional shells. This modern
+  design simplifies script development, enhances readability, and supports robust error handling,
+  making it an ideal candidate for a dedicated LSP. By leveraging Fish’s unique features through an LSP,
+  developers can harness its full potential, benefiting from intelligent autocomplete, syntax highlighting,
+  and real-time feedback that align seamlessly with Fish's syntax. Building an LSP for
+  Fish not only taps into these innate capabilities but also enriches the user experience,
+  making advanced shell scripting more accessible and productive.
 
 ### Simplicity of fish's syntax
 
@@ -146,43 +246,28 @@ Contributions to help enhance installation options are greatly appreciated!
 
   Your sponsorship and/or contributions are vital to continuing the development and refinement of __fish-lsp__,
   ensuring it remains a valuable tool for the community.
+--->
 
-## How?
+## How does it work?
 
-The LSP describes __both__ a [server](#server-usage) and [client's](#client-usage) communication abilities.
-Text editor's (_or any other equivalent form of_ __langauge client__) are then able to choose which general
-programming features will be implemented. This leaves current and future possibilities
-supported by the server open ended.
+If you're new to the concept of the [Language Server Protocol (LSP)](https://lsif.dev), this section should be
+useful to help you grasp its core purpose and benefits.
 
-Here is a diagram to display the langauge server protocol's typical use.
+> 📸 Check out [this insightful video](https://youtu.be/LaS32vctfOY?si=MISP8tL_HU06-_z-) by TJ DeVries for an introduction to the subject. 📸
 
-```mermaid
-sequenceDiagram
-  participant Server
-  participant Client
-  actor User
-  
-  User-->>Client: Opens `fish` file 
-  Note over Client: Client recognizes that the `filetype` is `fish`
-  Client-->>+Server: Sends command `fish-lsp start`
-  Note over Server: Reads configuration for this startup
-  Note over Server: Analyzes current workspace
-  Server-->>-Client: Sends analysis success message
-  Note over Client,User: Displays analysis/startup success notification
-  User-->Server: ......
-  User-->>Client: Wants to see Hover Documentation
-  Client-->>+Server: Hover Documentation Request sent
-  Note over Server: Creates/Finds hover documentation
-  Server-->>-Client: Sends documentation
-  Note over Client,User: Hover Documentation
-  User-->Server: ......
-  Note over User: Finished editing
-  User-->>Client: Exit editor command
-  Client-->>Server: Shutdown `fish-lsp` process
-  Note over Server: Kill's process
-  Note over Client: Editor Exits/Closes
-  Note over User: User can do other stuff
-```
+The LSP is designed to create a uniform approach for supporting a programming language across
+various development tools, moving beyond the confines of specific Text-Editor/IDE ecosystems.
+This standardization enhances a language's appeal by allowing developers to maintain consistent
+tooling support without needing to switch developer environments.
+
+The core of this system is the interaction between a _'language server'_, which provides
+language services, and a _'language client'_, which consumes these services. The protocol
+facilitates this interaction, ensuring that any _language client_ can leverage a
+well-defined set of features provided by the _server_.
+
+Here is a diagram for a potential fish-lsp process:
+ 
+![graph](https://github.com/ndonfris/fish-lsp.dev/blob/master/public/mermaid-diagram.png?raw=true)
 
 ## Additional Resources
 
@@ -201,6 +286,9 @@ sequenceDiagram
 - [Sources](https://github.com/ndonfris/fish-lsp/wiki/Sources) - major influences for the project
 
 ## Contributors
+
+Special thanks to anyone who contributed to the project!
+Contributions of any kind are welcome!
 
 <!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
 <!-- prettier-ignore-start -->
@@ -227,7 +315,6 @@ sequenceDiagram
 <!-- ALL-CONTRIBUTORS-LIST:END -->
 
 This project follows the [all-contributors](https://allcontributors.org) specification.
-Contributions of any kind are welcome!
 
 ## License
 
