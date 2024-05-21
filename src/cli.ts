@@ -87,6 +87,7 @@ commandBin
       console.log();
       console.log(commandBin.description());
     }
+    return; 
   });
 
 

@@ -8,15 +8,7 @@ import { DocumentationCache } from './utils/documentationCache';
 import { execCommandDocs, execComplete, execCompletions, execSubCommandCompletions } from './utils/exec';
 import { isCommand, isCommandName } from './utils/node-types';
 import { findEnclosingScope, findFirstParent, getNodeAtRange, getRange } from './utils/tree-sitter';
-
-// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-//  GOAL:
-//       • remove SymbolTree dependency (in './symbolTree')
-//         use FishDocumentSymbol instead
-//       • remove or shrink documentationCache to compute these values on the fly
-// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+import { PrebuiltDocumentationMap } from './utils/snippets';
 
 export async function handleHover(
   analyzer: Analyzer,

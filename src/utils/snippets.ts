@@ -94,15 +94,16 @@ const allData: ExtendedBaseJson[] = [
   ...specialVariablesJson.map((item: BaseJson) => ExtendedBaseJson.create( item, 'variable', 'special' )),
 ];
 
-export const prebuiltDocumentationMap = new DocumentationMap(allData);
+export const PrebuiltDocumentationMap = new DocumentationMap(allData);
 
 export function getPrebuiltDocUrlByName(name: string): string {
-  const objs = prebuiltDocumentationMap.getByName(name)
+  const objs = PrebuiltDocumentationMap.getByName(name)
   const res: string[] = []
-  objs.forEach(obj => {
-   res.push(getPrebuiltDocUrl(obj))
+  objs.forEach((obj, index) => {
+    // const linkStr = objs.length > 1 ? new String(index + 1) : ''
+   res.push(` - ${getPrebuiltDocUrl(obj)}`)
   })
-  return res.join('\n')
+  return res.join('\n').trim()
 }
 
 export function getPrebuiltDocUrl(obj: ExtendedBaseJson): string {
@@ -135,4 +136,3 @@ export function getPrebuiltDocUrl(obj: ExtendedBaseJson): string {
       return ''
   }
 }
-

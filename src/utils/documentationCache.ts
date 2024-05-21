@@ -29,7 +29,6 @@ import { FishCompletionItem, CompletionExample } from './completion/types';
  * @TODO: support docs & formatted docs. (non-markdown version will be docs)            *
  *                                                                                      *
  * @TODO: Refactor building documentation string! Potentially remove documentation.ts   *
- * and replace it with a lot of the methods seen here.                                  *
  *                                                                                      *
  ****************************************************************************************/
 

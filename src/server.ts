@@ -2,14 +2,14 @@ import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from './parser';
 import { Analyzer } from './analyze';
 //import {  generateCompletionList, } from "./completion";
-import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind } from 'vscode-languageserver';
+import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp } from 'vscode-languageserver';
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
 import { applyFormattedTextInRange, applyFormatterSettings } from './formatting';
 import { execFormatter } from './utils/exec';
 import { Logger, ServerLogsPath } from './logger';
 import { uriToPath } from './utils/translation';
-import { getRange } from './utils/tree-sitter';
+import { findFirstParent, getChildNodes, getRange } from './utils/tree-sitter';
 import { handleHover } from './hover';
 import { /*getDiagnostics*/ } from './diagnostics/validate';
 import { CodeActionKind } from './code-action';
@@ -30,6 +30,8 @@ import { FishCompletionItem } from './utils/completion/types';
 import { getDocumentationResolver } from './utils/completion/documentation';
 import { FishCompletionList } from './utils/completion/list';
 import {config} from './cli';
+import { PrebuiltDocumentationMap, getPrebuiltDocUrlByName } from './utils/snippets';
+import { isCommand, isVariableDefinition, isVariableDefinitionCommand } from './utils/node-types';
 
 // @TODO
 export type SupportedFeatures = {
@@ -129,6 +131,10 @@ export default class FishServer {
         },
         documentHighlightProvider: false,
         inlayHintProvider: true,
+        signatureHelpProvider: {
+          retriggerCharacters: ['.'],
+          triggerCharacters: ['.', ' '],
+        },
       },
     };
     // this.config.mergePreferences(params.initializationOptions);
@@ -160,7 +166,7 @@ export default class FishServer {
     connection.onFoldingRanges(this.onFoldingRanges.bind(this));
     //this.connection.workspace.applyEdit()
     connection.languages.inlayHint.on(this.onInlayHints.bind(this));
-    //this.connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
+    connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
     connection.console.log('FINISHED FishLsp.register()');
   }
 
@@ -367,23 +373,24 @@ export default class FishServer {
     if (!doc || !uri || !root || !current) {
       return null;
     }
+    const prebuiltDoc = PrebuiltDocumentationMap.getByName(current.text)
     const symbolItem = this.analyzer.getHover(doc, params.position);
     if (symbolItem) {
-      return symbolItem;
+      return symbolItem
     }
     const globalItem = await this.documentationCache.resolve(
       current.text.trim(),
       uri,
     );
-    this.logger.logAsJson(
-      'docCache found ' + globalItem?.resolved.toString() ||
-                `docCache not found ${current.text}`,
-    );
+    this.logger.logAsJson('docCache found ' + globalItem?.resolved.toString() || `docCache not found ${current.text}`);
     if (globalItem && globalItem.docs) {
+      const newDocs = prebuiltDoc.length 
+        ? [globalItem.docs, '___', prebuiltDoc[0]?.description, '___', getPrebuiltDocUrlByName(prebuiltDoc[0]!.name)].join('\n')
+        : globalItem.docs
       return {
         contents: {
           kind: MarkupKind.Markdown,
-          value: globalItem.docs,
+          value: newDocs,
         },
       };
     }
@@ -604,6 +611,36 @@ export default class FishServer {
       this.analyzer,
       //this.config
     );
+  }
+
+  public onShowSignatureHelp(params: SignatureHelpParams): SignatureHelp | null {
+    this.logParams('onShowSignatureHelp', params);
+    const { doc, uri } = this.getDefaults(params);
+    if (!doc || !uri) return null
+    const { line, lineRootNode, lineLastNode } = this.analyzer.parseCurrentLine(doc, params.position);
+    const varNode = getChildNodes(lineRootNode).find(c => isVariableDefinition(c))
+    const lastCmd = getChildNodes(lineRootNode).filter(c => isCommand(c)).pop()
+    this.logger.log({line, lastCmds: lastCmd?.text});
+    if (varNode && (line.startsWith('set') || line.startsWith('read')) && lastCmd?.text === lineRootNode.text.trim()) {
+      const varName = varNode.text
+      const varDocs = PrebuiltDocumentationMap.getByName(varNode.text)
+      if (!varDocs.length) return null
+      return {
+        signatures: [
+          {
+            label: varName,
+            documentation: {
+              kind: 'markdown',
+              value: varDocs.map(d => d.description).join('\n')
+            },
+          }
+        ],
+        activeSignature: 0,
+        activeParameter: 0
+      }
+    }
+    return null
+
   }
 
   /////////////////////////////////////////////////////////////////////////////////////

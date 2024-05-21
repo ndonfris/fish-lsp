@@ -1,10 +1,10 @@
 import { setLogger } from './helpers'
 // import * as JsonObjs from '../src/utils/snippets'
-import { getPrebuiltDocUrl, getPrebuiltDocUrlByName, prebuiltDocumentationMap } from '../src/utils/snippets'
-let prebuiltDocs = prebuiltDocumentationMap
+import { getPrebuiltDocUrl, getPrebuiltDocUrlByName, PrebuiltDocumentationMap } from '../src/utils/snippets'
+let prebuiltDocs = PrebuiltDocumentationMap
 
 setLogger(async () => {
-  prebuiltDocs = prebuiltDocumentationMap
+  prebuiltDocs = PrebuiltDocumentationMap
 })
 
 describe('snippets tests', () => {
@@ -140,8 +140,8 @@ describe('snippets tests', () => {
     // expect(getPrebuiltDocUrl(prebuiltDocs.getByName('0'))).toBeTruthy()
     // expect(getPrebuiltDocUrl(prebuiltDocs.getByName('fish_greeting'))).toEqual('https://fishshell.com/docs/current/cmds/fish_greeting.html')
     // console.log(getPrebuiltDocUrl(prebuiltDocs.getByName('abbr')))
-    console.log(prebuiltDocs.getByName('fish_greeting'))
-    console.log(getPrebuiltDocUrlByName('fish_greeting'));
+    // console.log(prebuiltDocs.getByName('fish_greeting'))
+    expect(getPrebuiltDocUrlByName('fish_greeting').split('\n').length).toBeGreaterThan(1);
     // console.log(prebuiltDocs.findMatchingNames('fish_greeting'));
     // prebuiltDocs.getByName('fish_greeting')
 
