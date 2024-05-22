@@ -4,8 +4,6 @@
     "esModuleInterop": true,
     "noUncheckedIndexedAccess": true,
     "resolveJsonModule": true,
-    "resolvePackageJsonImports": true,
-    "resolvePackageJsonExports": true,
     "include": [
       "test-data/**/*"
     ]

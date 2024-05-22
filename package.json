@@ -4,21 +4,14 @@
   "name": "fish-lsp",
   "version": "1.0.3",
   "description": "LSP implementation for fish/fish-shell",
-  "keywords": [
-    "lsp",
-    "fish",
-    "fish-shell",
-    "language-server-protocol",
-    "language-server"
-  ],
+  "keywords": [ "lsp", "fish", "fish-shell", "language-server-protocol", "language-server" ],
   "homepage": "https://fish-lsp.dev",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/ndonfris/fish-lsp.git"
-  },
+  "repository": { "type": "git", "url": "https://github.com/ndonfris/fish-lsp.git" },
   "bin": "./bin/fish-lsp",
   "main": "./out/out.js",
+  "directories": { "man": "./docs/man/fish-lsp.1", "bin": "./bin/fish-lsp" },
   "typings": "./out/server.d.ts",
+  "files": [ "src", "snippets", "package.json"],
   "scripts": {
     "setup": "yarn run sh:setup",
     "postinstall": "yarn run sh:build-wasm && yarn run sh:build-time && yarn run compile && yarn run sh:relink && yarn run sh:build-completions",
@@ -45,12 +38,8 @@
     "generate-man-page": "mkdir -p ./docs/man && cat docs/MAN_FILE.md | npx marked-man --date \"$(date +'%e %B %+4Y')\"  --manual fish-lsp --section 1 --name fish-lsp > ./docs/man/fish-lsp.1"
   },
   "man": "./docs/man/fish-lsp.1",
-  "enabledApiProposals": [
-    "inlineCompletions"
-  ],
-  "eslintIgnore": [
-    "!.eslintrc.cjs"
-  ],
+  "enabledApiProposals": [ "inlineCompletions" ],
+  "eslintIgnore": [ "!.eslintrc.cjs" ],
   "husky": {
     "hooks": {
       "pre-commit": "yarn run clean",
@@ -104,6 +93,5 @@
     "tree-sitter-fish": "https://github.com/ram02z/tree-sitter-fish",
     "ts-jest": "^29.1.2",
     "ts-node": "^10.9.2"
-  },
-  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
+  }
 }

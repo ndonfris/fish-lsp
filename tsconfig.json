@@ -1,111 +1,26 @@
 {
   "extends": "@tsconfig/node-lts/tsconfig.json",
   "compilerOptions": {
-    "outDir": "out",
     "esModuleInterop": true,
     "noUncheckedIndexedAccess": true,
+    "importHelpers": true,
     "resolveJsonModule": true,
-    "resolvePackageJsonImports": true,
-    "resolvePackageJsonExports": true,
-    // "resolvePackageJsonImports": true,
-    "baseUrl": ".",
-    "rootDir": "src",
+    "outDir": "./out",
+    "rootDir": "./",
+    "baseUrl": "./src",
     "paths": {
-      "@package": ["./package.json"]
+      "@package": ["../package.json"],
+      "@snippets/*": ["../snippets/*"],
+      "@src/*": ["./*"],
+      "@utils/*": ["./utils/*"]
     }
   },
   "include": [
     "src/**/*.ts",
-    "../*.json",
-    // "test-data/**/*",
-    "snippets/**.json",
-    "../snippets/**.{json,ts}"
+    "snippets/**/*.json"
   ],
   "exclude": [
     "node_modules",
     "out"
   ]
 }
-// {
-//   "compilerOptions": {
-//     "target": "ES2022",
-//     "module": "NodeNext",
-//     "moduleResolution": "NodeNext",
-//     "outDir": "./out",
-//     "listFiles": true,
-//     "strict": true,
-//     "composite": true,
-//     "declarationMap": true,
-//     "sourceMap": true,
-//     "incremental": true,
-//     "resolveJsonModule": true,
-//     "esModuleInterop": true,
-//     "lib": ["es2022", "WebWorker"],
-//     "disableSizeLimit": true,
-//     "generateCpuProfile": "profile.cpuprofile",
-//     "extendedDiagnostics": true,
-//     "skipLibCheck": true,
-//     "baseUrl": ".",
-//     "paths": {
-//       "@package": ["./package.json"],
-//       "completion/*": ["./src/utils/completion/*"],
-//       "utils/*": ["./src/utils/*"],
-//       "tests/*": ["./test-data/*"]
-//     },
-//     "verbatimModuleSyntax": true,
-//     "resolvePackageJsonExports": true,
-//     "resolvePackageJsonImports": true
-//   },
-//   "include": ["src/**/*", "./package.json"],
-//   "exclude": ["node_modules", "out"]
-//   
-// }
-// {
-//     "compilerOptions": {
-//         "outDir": "./out",
-//         "rootDir": "./",
-//         "strict": true,
-//         "composite": true,
-//         "declarationMap": true,
-//         "allowSyntheticDefaultImports": true,
-//         "sourceMap": true,
-//         "target": "ES2022",
-//         "incremental": true,
-//         "module": "NodeNext",
-//         "moduleResolution": "NodeNext",
-//         // "resolvePackageJsonImports": true,
-//         "resolveJsonModule": true,
-//         "esModuleInterop": true,
-//         "lib": [
-//             //"es2022",
-//             "es2022",
-//             "WebWorker"
-//             //"DOM"
-//         ],
-//         //"downlevelIteration": true,
-//         "disableSizeLimit": true,
-//         //"fallbackPolling": "",
-//         "generateCpuProfile": "profile.cpuprofile",
-//         "extendedDiagnostics": true,
-//         "skipLibCheck": true,
-//         "baseUrl": ".",
-//         "paths": {
-//             "@package": ["./package.json"],
-//             "completion/*": ["./src/utils/completion/*"],
-//             "utils/*": ["./src/utils/*"],
-//             "tests/*": ["./test-data/*"]
-//         }
-//         //"rootDirs": [
-//         //    "src",
-//         //    "test-data"
-//         //]
-//     },
-//     "include": [
-//       "src/",
-//       "./package.json"
-//     ],
-//     "exclude": [
-//         "node_modules",
-//         "removed"
-//     ]
-// }

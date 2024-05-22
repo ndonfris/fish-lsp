@@ -440,10 +440,10 @@ export default class FishServer {
     };
 
     try {
-      return await this.connection.sendRequest(
-        FishProtocol.CommandTypes.GetCodeFixes,
-        args,
-      );
+      // return await this.connection.sendRequest(
+      //   FishProtocol.CommandTypes.GetCodeFixes,
+      //   args,
+      // );
     } catch (err) {
       return undefined;
     }
@@ -462,10 +462,10 @@ export default class FishServer {
     };
 
     try {
-      return await this.connection.sendRequest(
-        FishProtocol.CommandTypes.GetApplicableRefactors,
-        args,
-      );
+      // return await this.connection.sendRequest(
+      //   FishProtocol.CommandTypes.GetApplicableRefactors,
+      //   args,
+      // );
     } catch (err) {
       return undefined;
     }
