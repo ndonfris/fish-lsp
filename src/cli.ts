@@ -50,7 +50,7 @@ const createFishLspBin = (): Command => {
 };
 
 // create config to be used globablly
-export const { config, environmentVariablesUsed } = getConfigFromEnvironmentVariables()
+export const { config, environmentVariablesUsed } = getConfigFromEnvironmentVariables();
 
 // start adding options to the command
 export const commandBin = createFishLspBin();
@@ -88,9 +88,8 @@ commandBin
       console.log();
       console.log(commandBin.description());
     }
-    return; 
+    return;
   });
-
 
 // START
 commandBin.command('start [TOGGLE]')
@@ -113,22 +112,20 @@ commandBin.command('start [TOGGLE]')
     '\tfish-lsp start --enable --disable logging complete codeAction',
   ].join('\n'))
   .action(() => {
-    updateHandlers(config.fish_lsp_enabled_handlers, true)
-    updateHandlers(config.fish_lsp_disabled_handlers, false)
+    updateHandlers(config.fish_lsp_enabled_handlers, true);
+    updateHandlers(config.fish_lsp_disabled_handlers, false);
 
     const { enabled, disabled, dumpCmd } = accumulateStartupOptions(commandBin.args);
-    updateHandlers(enabled, true)
-    updateHandlers(disabled, false)
+    updateHandlers(enabled, true);
+    updateHandlers(disabled, false);
     if (dumpCmd) {
-      console.log(JSON.stringify(configHandlers, null ,2))
+      console.log(JSON.stringify(configHandlers, null, 2));
       process.exit(0);
     }
     /* config needs to be used in `startServer()` below */
     startServer();
     //process.exit(0);
   });
-
-
 
 // LOGGER
 commandBin.command('logger')
@@ -157,7 +154,6 @@ commandBin.command('logger')
     logger.showLogfileText();
     return;
   });
-
 
 // INFO
 commandBin.command('info')
@@ -232,7 +228,7 @@ commandBin.command('url')
   .action(args => {
     const amount = Object.keys(args).length;
     if (amount === 0) console.log('https://fish-lsp.dev');
-    Object.keys(args).forEach(key => console.log(SourcesDict[key]))
+    Object.keys(args).forEach(key => console.log(SourcesDict[key]));
     process.exit(0);
   });
 
@@ -270,14 +266,14 @@ commandBin.command('env')
   .summary('generate fish shell env variables to be used by lsp')
   .description('generate fish-lsp env variables')
   .option('-c, --create', 'build initial fish-lsp env variables')
-  .option('-s, --show',  'show the current fish-lsp env variables')
+  .option('-s, --show', 'show the current fish-lsp env variables')
   .action(args => {
     if (args.show) {
-      showJsonSchemaShellScript()
-      process.exit(0)
+      showJsonSchemaShellScript();
+      process.exit(0);
     }
-    generateJsonSchemaShellScript()
-    process.exit(0)
+    generateJsonSchemaShellScript();
+    process.exit(0);
   });
 
 /**

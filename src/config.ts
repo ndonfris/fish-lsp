@@ -6,8 +6,8 @@ import { InitializeResult, TextDocumentSyncKind } from 'vscode-languageserver';
 import { CodeActionKind } from './code-action';
 
 /********************************************
- **********  Handlers/Providers   *********** 
- *******************************************/ 
+ **********  Handlers/Providers   ***********
+ *******************************************/
 
 export const ConfigHandlerSchema = z.object({
   complete: z.boolean().default(true),
@@ -24,27 +24,27 @@ export const ConfigHandlerSchema = z.object({
   inlayHint: z.boolean().default(true),
   highlight: z.boolean().default(true),
   diagnostic: z.boolean().default(true),
-})
+});
 
-export const configHandlers = ConfigHandlerSchema.parse({})
+export const configHandlers = ConfigHandlerSchema.parse({});
 
 export const validHandlers: Array<keyof typeof ConfigHandlerSchema.shape> = [
   'complete', 'hover', 'rename', 'reference', 'logger', 'formatting',
   'codeAction', 'codeLens', 'folding', 'signature', 'executeCommand',
-  'inlayHint', 'highlight', 'diagnostic'
+  'inlayHint', 'highlight', 'diagnostic',
 ];
 
 export function updateHandlers(keys: string[], value: boolean): void {
-    keys.forEach(key => {
-        if (validHandlers.includes(key as keyof typeof ConfigHandlerSchema.shape)) {
-            configHandlers[key as keyof typeof ConfigHandlerSchema.shape] = value;
-        }
-    });
+  keys.forEach(key => {
+    if (validHandlers.includes(key as keyof typeof ConfigHandlerSchema.shape)) {
+      configHandlers[key as keyof typeof ConfigHandlerSchema.shape] = value;
+    }
+  });
 }
 
 /********************************************
- **********      User Env        *********** 
- *******************************************/ 
+ **********      User Env        ***********
+ *******************************************/
 
 export const ConfigSchema = z.object({
   /** Handlers that are enabled in the language server */
@@ -54,7 +54,7 @@ export const ConfigSchema = z.object({
   fish_lsp_disabled_handlers: z.array(z.string()).default([]),
 
   /** Characters that completion items will be accepted on */
-  fish_lsp_commit_characters: z.array(z.string()).default([ '\t', ';', ' ' ]),
+  fish_lsp_commit_characters: z.array(z.string()).default(['\t', ';', ' ']),
 
   /** Path to the log files */
   fish_lsp_logfile: z.string().default(ServerLogsPath),
@@ -66,16 +66,16 @@ export const ConfigSchema = z.object({
   fish_lsp_format_switch_case: z.boolean().default(true),
 
   /** All workspaces/paths for the language-server to index */
-  fish_lsp_all_indexed_paths: z.array(z.string()).default([ '/usr/share/fish', `${os.homedir()}/.config/fish` ]),
+  fish_lsp_all_indexed_paths: z.array(z.string()).default(['/usr/share/fish', `${os.homedir()}/.config/fish`]),
 
   /** All workspace/paths that the language-server should be able to rename inside*/
-  fish_lsp_modifiable_paths: z.array(z.string()).default([ `${os.homedir()}/.config/fish` ]),
+  fish_lsp_modifiable_paths: z.array(z.string()).default([`${os.homedir()}/.config/fish`]),
 
   /** error code numbers to disable */
   fish_lsp_diagnostic_disable_error_codes: z.array(z.number()).default([]),
 
   /** max background files */
-  fish_lsp_max_background_files: z.number().default(500)
+  fish_lsp_max_background_files: z.number().default(500),
 
 });
 
@@ -84,7 +84,7 @@ export type Config = z.infer<typeof ConfigSchema>;
 export function getConfigFromEnvironmentVariables(): {
   config: Config;
   environmentVariablesUsed: string[];
-} {
+  } {
   const rawConfig = {
     fish_lsp_enabled_handlers: process.env.fish_lsp_enabled_handlers?.split(' '),
     fish_lsp_disabled_handlers: process.env.fish_lsp_disabled_handlers?.split(' '),
@@ -99,7 +99,7 @@ export function getConfigFromEnvironmentVariables(): {
   };
 
   const environmentVariablesUsed = Object.entries(rawConfig)
-    .map(([ key, value ]) => (typeof value !== 'undefined' ? key : null))
+    .map(([key, value]) => typeof value !== 'undefined' ? key : null)
     .filter((key): key is string => key !== null);
 
   const config = ConfigSchema.parse(rawConfig);
@@ -120,9 +120,8 @@ const toBoolean = (s?: string): boolean | undefined =>
 const toNumber = (s?: string): number | undefined =>
   typeof s !== 'undefined' ? parseInt(s, 10) : undefined;
 
-
 /**
- * generateJsonSchemaShellScript - just prints the starter template for the schema 
+ * generateJsonSchemaShellScript - just prints the starter template for the schema
  * in fish-shell
  */
 export function generateJsonSchemaShellScript() {
@@ -136,7 +135,7 @@ export function generateJsonSchemaShellScript() {
 }
 
 /**
- * showJsonSchemaShellScript - prints the current environment schema 
+ * showJsonSchemaShellScript - prints the current environment schema
  * in fish
  */
 export function showJsonSchemaShellScript() {
@@ -148,12 +147,12 @@ export function showJsonSchemaShellScript() {
     })!;
   };
   for (const item of Object.entries(config)) {
-    const [ key, value ] = item;
+    const [key, value] = item;
     const entry = findValue(key);
     let line = [
       `# ${entry.name} <${entry.valueType.toUpperCase()}>`,
       formatDescription(entry.description, 80),
-      `set -gx ${key} `
+      `set -gx ${key} `,
     ].join('\n');
     if (Array.isArray(value)) {
       if (value.length === 0) {
@@ -210,10 +209,9 @@ function escapeValue(value: string | number | boolean): string {
   }
 }
 
-
 /********************************************
  ***        initializeResult              ***
- *******************************************/ 
+ *******************************************/
 
 /* in server onInitialize() */
 export function adjustInitializeResultCapabilitiesFromConfig(configHandlers: z.infer<typeof ConfigHandlerSchema>, userConfig: z.infer<typeof ConfigSchema>): InitializeResult {
@@ -253,8 +251,8 @@ export function adjustInitializeResultCapabilitiesFromConfig(configHandlers: z.i
       documentHighlightProvider: false,
       inlayHintProvider: false, /*configHandlers.inlayHint,*/
       signatureHelpProvider: configHandlers.signature ? {
-          retriggerCharacters: ['.'],
-          triggerCharacters: ['.', ' '],
+        retriggerCharacters: ['.'],
+        triggerCharacters: ['.', ' '],
       } : undefined,
     },
 

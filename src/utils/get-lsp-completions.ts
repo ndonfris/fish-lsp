@@ -186,7 +186,7 @@ export function buildFishLspCompletions(commandBin: Command) {
   output.push(loggerCompletions);
 
   output.push(featuresCompletions);
-  output.push(envCompletions)
+  output.push(envCompletions);
   output.push('# COMPLETION: fish-lsp subcmd <option> [VALUE] (`fish-lsp start --enable ...`)');
   output.push('complete -c fish-lsp -n \'__fish_seen_subcommand_from $__fish_lsp_subcommands\' -l enable -xa \'(_fish_lsp_get_features)\'');
   output.push('complete -c fish-lsp -n \'__fish_seen_subcommand_from $__fish_lsp_subcommands\' -l disable -xa \'(_fish_lsp_get_features)\'');

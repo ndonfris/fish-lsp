@@ -1,6 +1,6 @@
-import { execCmd } from 'utils/exec';
-import { isCommandName, isPipe } from 'utils/node-types';
-import { findFirstParent, getRange } from 'utils/tree-sitter';
+import { execCmd } from './utils/exec';
+import { isCommandName, isPipe } from './utils/node-types';
+import { findFirstParent, getRange } from './utils/tree-sitter';
 import { InlayHint, MarkupContent, Range } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { Analyzer } from './analyze';

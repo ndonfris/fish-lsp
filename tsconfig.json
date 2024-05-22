@@ -11,16 +11,14 @@
     "baseUrl": ".",
     "rootDir": "src",
     "paths": {
-      "@package": ["./package.json"],
-      "completion/*": ["./src/utils/completion/*"],
-      "utils/*": ["./src/utils/*"],
-      "tests/*": ["./test-data/*"]
+      "@package": ["./package.json"]
     }
   },
   "include": [
     "src/**/*.ts",
     "../*.json",
     // "test-data/**/*",
+    "snippets/**.json",
     "../snippets/**.{json,ts}"
   ],
   "exclude": [

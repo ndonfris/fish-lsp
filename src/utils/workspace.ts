@@ -19,7 +19,7 @@ async function getFileUriSet(path: string) {
 }
 
 export async function initializeDefaultFishWorkspaces(): Promise<Workspace[]> {
-  const configWorkspaces = config.fish_lsp_all_indexed_paths
+  const configWorkspaces = config.fish_lsp_all_indexed_paths;
   // Create an array of promises by mapping over workspacePaths
   const workspacePromises = configWorkspaces.map(path => Workspace.create(path));
 
@@ -29,7 +29,7 @@ export async function initializeDefaultFishWorkspaces(): Promise<Workspace[]> {
   //   await Workspace.create('/usr/share/fish'),
   //   await Workspace.create(`${homedir()}/.config/fish`),
   // ];
-  return defaultSpaces
+  return defaultSpaces;
 }
 
 export interface FishWorkspace {
@@ -91,7 +91,7 @@ export class Workspace implements FishWorkspace {
      * A mutable workspace would be '~/.config/fish'
      */
   isMutable() {
-    return config.fish_lsp_modifiable_paths.includes(this.path)
+    return config.fish_lsp_modifiable_paths.includes(this.path);
   }
 
   isLoadable() {

@@ -87,7 +87,6 @@ export class Logger {
       date: new Date().toLocaleString(),
       message: message,
     }));
-
   }
 
   logPropertiesForEachObject<T extends Record<string, any>>(objs: T[], ...keys: (keyof T)[]): void {

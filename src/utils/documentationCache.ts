@@ -124,16 +124,16 @@ function ensureMinLength<T>(arr: T[], minLength: number, fillValue?: T): T[] {
  * builds FunctionDocumentaiton string
  */
 export async function getFunctionDocString(name: string): Promise<string | undefined> {
-  const functionDoc = await execCmd(`functions ${name}`)
-  const title = `___(function)___ - _${name}_`
+  const functionDoc = await execCmd(`functions ${name}`);
+  const title = `___(function)___ - _${name}_`;
   if (!functionDoc) return;
   return [
     title,
     '___',
     '```fish',
     functionDoc.join('\n'),
-    '```'
-  ].join('\n')
+    '```',
+  ].join('\n');
 }
 
 export async function getStaticDocString(item: FishCompletionItem): Promise<string> {

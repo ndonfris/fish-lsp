@@ -56,7 +56,6 @@ interface StartupConfig {
   [key: string]: ConfigToggleOptionValue | any;
 }
 
-
 // export function optionsStringEqualsRaw(optionValue: string, rawValue: string) {
 //
 //     const removeToggleString = (toggle: string, str: string) => {
@@ -102,7 +101,7 @@ export function accumulateStartupOptions(args: string[]): {
     if (['-h', '--help', 'help'].includes(arg)) {
       // commandBin.commands.find(command => command.name() === subcmd)!.outputHelp();
       // process.exit(0);
-      return
+      return;
     }
     if (['--dump'].includes(arg)) {
       console.log('SEEN SHOW COMMAND! dumping...');
@@ -288,18 +287,17 @@ export function FishLspManPage() {
   };
 }
 
-
-export const SourcesDict: { [key: string]: string } = {
-  repo: "https://github.com/ndonfris/fish-lsp",
-  git: "https://github.com/ndonfris/fish-lsp" ,
-  npm: "https://npmjs.io/ndonfris/fish-lsp",
-  homepage: "https://fish-lsp.dev",
-  contributions: "https://github.com/ndonfris/fish-lsp/issues?q=",
-  issues: "https://github.com/ndonfris/fish-lsp/issues?q=",
-  report: "https://github.com/ndonfris/fish-lsp/issues?q=",
-  wiki: "https://github.com/ndonfris/fish-lsp/wiki",
-  discussions: "https://github.com/ndonfris/fish-lsp/discussions",
-  clientsRepos: "https://github.com/ndonfris/fish-lsp-language-clients/",
+export const SourcesDict: { [key: string]: string; } = {
+  repo: 'https://github.com/ndonfris/fish-lsp',
+  git: 'https://github.com/ndonfris/fish-lsp',
+  npm: 'https://npmjs.io/ndonfris/fish-lsp',
+  homepage: 'https://fish-lsp.dev',
+  contributions: 'https://github.com/ndonfris/fish-lsp/issues?q=',
+  issues: 'https://github.com/ndonfris/fish-lsp/issues?q=',
+  report: 'https://github.com/ndonfris/fish-lsp/issues?q=',
+  wiki: 'https://github.com/ndonfris/fish-lsp/wiki',
+  discussions: 'https://github.com/ndonfris/fish-lsp/discussions',
+  clientsRepos: 'https://github.com/ndonfris/fish-lsp-language-clients/',
   sources: [
     'https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#headerPart',
     'https://github.com/microsoft/vscode-extension-samples/tree/main',
@@ -316,8 +314,8 @@ export const SourcesDict: { [key: string]: string } = {
     'https://github.com/Microsoft/vscode-languageserver-node',
     'https://github.com/microsoft/vscode-languageserver-node/blob/main/client/src/common',
     'https://github.com/microsoft/vscode-languageserver-node/tree/main/server/src/common',
-  ].join('\n')
-}
+  ].join('\n'),
+};
 
 export const SourcesExt = [
   'https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#headerPart',
@@ -335,4 +333,4 @@ export const SourcesExt = [
   'https://github.com/Microsoft/vscode-languageserver-node',
   'https://github.com/microsoft/vscode-languageserver-node/blob/main/client/src/common',
   'https://github.com/microsoft/vscode-languageserver-node/tree/main/server/src/common',
-].join('\n')
+].join('\n');

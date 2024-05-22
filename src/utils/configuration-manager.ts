@@ -1,13 +1,13 @@
 import { homedir } from 'os';
 import { ServerLogsPath } from '../logger';
 import { CodeAction } from 'vscode-languageserver-protocol';
-import { z } from 'zod'
+import { z } from 'zod';
 
 // Define a Zod schema for the configuration
 export const ServerPreferencesSchema = z.object({
   hirearchicalDocumentSymbolSupport: z.boolean().default(true),
   asciiArt: z.object({
-    enable: z.boolean().default(true)
+    enable: z.boolean().default(true),
   }),
   completions: z.object({
     enable: z.boolean().default(true),

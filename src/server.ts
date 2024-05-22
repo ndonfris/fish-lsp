@@ -28,7 +28,7 @@ import { CompletionPager, initializeCompletionPager } from './utils/completion/p
 import { FishCompletionItem } from './utils/completion/types';
 import { getDocumentationResolver } from './utils/completion/documentation';
 import { FishCompletionList } from './utils/completion/list';
-import {config} from './cli';
+import { config } from './cli';
 import { PrebuiltDocumentationMap, getPrebuiltDocUrl, getPrebuiltDocUrlByName } from './utils/snippets';
 import { isCommand, isVariableDefinition, isVariableDefinitionCommand } from './utils/node-types';
 import { adjustInitializeResultCapabilitiesFromConfig, configHandlers } from './config';
@@ -52,17 +52,17 @@ export default class FishServer {
       initializeDefaultFishWorkspaces(),
       initializeCompletionPager(logger),
     ]).then(([parser, cache, workspaces, completions]) => {
-        const analyzer = new Analyzer(parser, workspaces);
-        return new FishServer(
-          connection,
-          parser,
-          analyzer,
-          documents,
-          completions,
-          cache,
-          logger,
-        );
-      });
+      const analyzer = new Analyzer(parser, workspaces);
+      return new FishServer(
+        connection,
+        parser,
+        analyzer,
+        documents,
+        completions,
+        cache,
+        logger,
+      );
+    });
   }
 
   private initializeParams: InitializeParams | undefined;
@@ -83,7 +83,7 @@ export default class FishServer {
 
   async initialize(params: InitializeParams): Promise<InitializeResult> {
     this.logger.logAsJson(`Initialized server FISH-LSP with ${params.workspaceFolders || ''}`);
-    const result = adjustInitializeResultCapabilitiesFromConfig( configHandlers, config )
+    const result = adjustInitializeResultCapabilitiesFromConfig(configHandlers, config);
     this.logger.log({ onInitializedResult: result });
     return result;
   }
@@ -153,12 +153,11 @@ export default class FishServer {
     const doc = this.docs.get(uri);
     if (!uri || !doc) return;
 
-
     doc.applyEdits(doc.version + 1, ...params.contentChanges);
     this.analyzer.analyze(doc);
     this.logger.logAsJson(`CHANGED -> ${doc.version}:::${doc.uri}`);
     const root = this.analyzer.getRootNode(doc);
-    if (!root)  return; 
+    if (!root) return;
     // else ?
   }
 
@@ -257,7 +256,7 @@ export default class FishServer {
     this.logParams('onDocumentSymbols', params);
 
     const { doc } = this.getDefaultsForPartialParams(params);
-    if (!doc)  return []; 
+    if (!doc) return [];
 
     const symbols = this.analyzer.cache.getDocumentSymbols(doc.uri);
     return filterLastPerScopeSymbol(symbols);
@@ -274,7 +273,7 @@ export default class FishServer {
 
   async onWorkspaceSymbol(params: WorkspaceSymbolParams): Promise<WorkspaceSymbol[]> {
     this.logParams('onWorkspaceSymbol', params.query);
-    
+
     return this.analyzer.getWorkspaceSymbols(params.query) || [];
   }
 
@@ -283,7 +282,7 @@ export default class FishServer {
     this.logParams('onDefinition', params);
 
     const { doc } = this.getDefaults(params);
-    if (!doc) return []
+    if (!doc) return [];
 
     return this.analyzer.getDefinitionLocation(doc, params.position);
   }
@@ -292,7 +291,7 @@ export default class FishServer {
     this.logParams('onReference', params);
 
     const { doc, uri, root, current } = this.getDefaults(params);
-    if (!doc || !uri || !root || !current)  return []; 
+    if (!doc || !uri || !root || !current) return [];
 
     return getRefrenceLocations(this.analyzer, doc, params.position);
   }
@@ -305,17 +304,19 @@ export default class FishServer {
   async onHover(params: HoverParams): Promise<Hover | null> {
     this.logParams('onHover', params);
     const { doc, uri, root, current } = this.getDefaults(params);
-    if (!doc || !uri || !root || !current) { return null; }
-    this.logger.log({current: current.text})
+    if (!doc || !uri || !root || !current) {
+      return null;
+    }
+    this.logger.log({ current: current.text });
 
     const prebuiltSkipType = [
       ...PrebuiltDocumentationMap.getByType('pipe'),
-      ...PrebuiltDocumentationMap.getByType('status')
-    ].find(obj => obj.name === current.text)
+      ...PrebuiltDocumentationMap.getByType('status'),
+    ].find(obj => obj.name === current.text);
 
-    const prebuiltDoc = PrebuiltDocumentationMap.getByName(current.text)
+    const prebuiltDoc = PrebuiltDocumentationMap.getByName(current.text);
     const symbolItem = this.analyzer.getHover(doc, params.position);
-    if (symbolItem)  return symbolItem; 
+    if (symbolItem) return symbolItem;
     if (prebuiltSkipType) {
       return {
         contents: enrichToMarkdown([
@@ -324,8 +325,8 @@ export default class FishServer {
           `type - __(${prebuiltSkipType.type})__`,
           '___',
           `${prebuiltSkipType.description}`,
-        ].join('\n'))
-      }
+        ].join('\n')),
+      };
     }
     const globalItem = await this.documentationCache.resolve(
       current.text.trim(),
@@ -333,9 +334,9 @@ export default class FishServer {
     );
     this.logger.logAsJson('docCache found ' + globalItem?.resolved.toString() || `docCache not found ${current.text}`);
     if (globalItem && globalItem.docs) {
-      const newDocs = prebuiltDoc.length 
+      const newDocs = prebuiltDoc.length
         ? [globalItem.docs, '___', prebuiltDoc[0]?.description, '___', getPrebuiltDocUrlByName(prebuiltDoc[0]!.name)].join('\n')
-        : globalItem.docs
+        : globalItem.docs;
       return {
         contents: {
           kind: MarkupKind.Markdown,
@@ -349,7 +350,7 @@ export default class FishServer {
       params.position,
       current,
       this.documentationCache,
-    )
+    );
   }
 
   // workspace.fileOperations.didRename
@@ -399,7 +400,7 @@ export default class FishServer {
 
     const fullRange: LSP.Range = {
       start: doc.positionAt(0),
-      end: doc.positionAt(doc.getText().length)
+      end: doc.positionAt(doc.getText().length),
     };
 
     return [TextEdit.replace(fullRange, formattedText)];
@@ -417,9 +418,9 @@ export default class FishServer {
     const originalText = doc.getText().slice(startOffset, endOffset);
 
     const formattedText = await formatDocumentContent(originalText).catch(error => {
-        this.connection.console.error(`Formatting error: ${error}`);
-        this.connection.window.showErrorMessage(`Failed to format range: ${error}`);
-        return originalText; // fallback to original text on error
+      this.connection.console.error(`Formatting error: ${error}`);
+      this.connection.window.showErrorMessage(`Failed to format range: ${error}`);
+      return originalText; // fallback to original text on error
     });
 
     return [TextEdit.replace(range, formattedText)];
@@ -451,7 +452,6 @@ export default class FishServer {
     fileRangeArgs: FishProtocol.FileRangeRequestArgs,
     context: LSP.CodeActionContext,
   ): Promise<FishProtocol.GetApplicableRefactorsResponse | undefined> {
-
     const args: FishProtocol.GetApplicableRefactorsRequestArgs = {
       ...fileRangeArgs,
       triggerReason:
@@ -480,7 +480,7 @@ export default class FishServer {
     if (!document) {
       throw new Error(`The document should not be opened in the folding range, file: ${file}`);
     }
-    
+
     //this.analyzer.analyze(document)
     const symbols = this.analyzer.getDocumentSymbols(document.uri);
     const flatSymbols = FishDocumentSymbol.toTree(symbols).toFlatArray();
@@ -529,7 +529,7 @@ export default class FishServer {
     const uri = uriToPath(params.textDocument.uri);
     const document = this.docs.get(uri);
 
-    if (!document)  return; 
+    if (!document) return;
 
     return await inlayHintsProvider(
       document,
@@ -544,31 +544,30 @@ export default class FishServer {
     this.logParams('onShowSignatureHelp', params);
 
     const { doc, uri } = this.getDefaults(params);
-    if (!doc || !uri) return null
+    if (!doc || !uri) return null;
     const { line, lineRootNode, lineLastNode } = this.analyzer.parseCurrentLine(doc, params.position);
-    const varNode = getChildNodes(lineRootNode).find(c => isVariableDefinition(c))
-    const lastCmd = getChildNodes(lineRootNode).filter(c => isCommand(c)).pop()
-    this.logger.log({line, lastCmds: lastCmd?.text});
+    const varNode = getChildNodes(lineRootNode).find(c => isVariableDefinition(c));
+    const lastCmd = getChildNodes(lineRootNode).filter(c => isCommand(c)).pop();
+    this.logger.log({ line, lastCmds: lastCmd?.text });
     if (varNode && (line.startsWith('set') || line.startsWith('read')) && lastCmd?.text === lineRootNode.text.trim()) {
-      const varName = varNode.text
-      const varDocs = PrebuiltDocumentationMap.getByName(varNode.text)
-      if (!varDocs.length) return null
+      const varName = varNode.text;
+      const varDocs = PrebuiltDocumentationMap.getByName(varNode.text);
+      if (!varDocs.length) return null;
       return {
         signatures: [
           {
             label: varName,
             documentation: {
               kind: 'markdown',
-              value: varDocs.map(d => d.description).join('\n')
+              value: varDocs.map(d => d.description).join('\n'),
             },
-          }
+          },
         ],
         activeSignature: 0,
-        activeParameter: 0
-      }
+        activeParameter: 0,
+      };
     }
-    return null
-
+    return null;
   }
 
   /////////////////////////////////////////////////////////////////////////////////////
