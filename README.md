@@ -303,4 +303,3 @@ This project follows the [all-contributors](https://allcontributors.org) specifi
 ## License
 
 [MIT](https://github.com/ndonfris/fish-lsp/blob/master/LICENSE)
-
