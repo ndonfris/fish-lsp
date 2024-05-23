@@ -19,8 +19,8 @@ jobs:
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     steps:
       - name: fish-actions/install-fish
-          # You may pin to the exact commit or the version.
-          # uses: fish-actions/install-fish@d6d9d26231a15f8d9a6b3e74b3db45512440e3e8
+        # You may pin to the exact commit or the version.
+        # uses: fish-actions/install-fish@d6d9d26231a15f8d9a6b3e74b3db45512440e3e8
         uses: fish-actions/install-fish@v1.1.0      
       - uses: actions/checkout@v3
 
@@ -40,6 +40,7 @@ jobs:
           #   with:
           #     cmd: test-hook # will run `yarn build:prod` command
       - name: Build production bundle
-        uses: borales/actions-yarn@v4
+        uses: borales/actions-yarn@v5
         with:
           cmd: lint # will run `yarn build:prod` command
+      

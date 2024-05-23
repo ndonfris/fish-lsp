@@ -1,0 +1,26 @@
+name: Yarn ESLint
+
+
+on: push
+
+jobs:
+  install-lint:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - name: fish-actions/install-fish
+        # You may pin to the exact commit or the version.
+        # uses: fish-actions/install-fish@d6d9d26231a15f8d9a6b3e74b3db45512440e3e8
+        uses: fish-actions/install-fish@v1.1.0      
+      - uses: actions/checkout@v3
+      # - name: Install fish
+      #   uses: ./.
+      - name: Install
+        uses: CultureHQ/actions-yarn@master
+        with:
+          args: install
+      - name: Lint
+        uses: CultureHQ/actions-yarn@master
+        with:
+          args: lint

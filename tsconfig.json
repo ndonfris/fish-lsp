@@ -3,21 +3,20 @@
   "compilerOptions": {
     "esModuleInterop": true,
     "noUncheckedIndexedAccess": true,
-    "importHelpers": true,
     "resolveJsonModule": true,
     "outDir": "./out",
-    "rootDir": "./",
-    "baseUrl": "./src",
+    "rootDir": "./src",  // Root directory for input files
+    "baseUrl": "./",  // Base URL for module resolution
     "paths": {
-      "@package": ["../package.json"],
-      "@snippets/*": ["../snippets/*"],
-      "@src/*": ["./*"],
-      "@utils/*": ["./utils/*"]
+      "@package": ["./package.json"],
+      "@snippets/*": ["./snippets/*"],
+      "@src/*": ["./src/*"],
+      "@utils/*": ["./src/utils/*"]
     }
   },
   "include": [
-    "src/**/*.ts",
-    "snippets/**/*.json"
+    "src",
+    "snippets"
   ],
   "exclude": [
     "node_modules",
