@@ -2,22 +2,14 @@
   "author": "ndonfris",
   "license": "Apache-2.0",
   "name": "fish-lsp",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "LSP implementation for fish/fish-shell",
-  "keywords": [
-    "lsp",
-    "fish",
-    "fish-shell",
-    "language-server-protocol",
-    "language-server"
-  ],
+  "keywords": [ "lsp", "fish", "fish-shell", "language-server-protocol", "language-server" ],
   "homepage": "https://fish-lsp.dev",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/ndonfris/fish-lsp.git"
-  },
+  "repository": { "type": "git", "url": "https://github.com/ndonfris/fish-lsp.git" },
   "bin": "./bin/fish-lsp",
   "main": "./out/out.js",
+  "directories": { "man": "./docs/man/fish-lsp.1", "bin": "./bin/fish-lsp" },
   "typings": "./out/server.d.ts",
   "scripts": {
     "setup": "yarn run sh:setup",
@@ -30,61 +22,28 @@
     "sh:relink": "fish ./scripts/relink-locally.fish",
     "pre:clean": "yarn exec rimraf lib *.tsbuildinfo out",
     "clean": "yarn run pre:clean && yarn install",
-    "clean-nodemodules": "yarn rimraf out *.tsbuildinfo node_modules && yarn install",
+    "clean-nodemodules": "yarn rimraf out *.tsbuildinfo node_modules",
     "clean:all": "yarn exec rimraf out *.tsbuildinfo node_modules tree-sitter-fish.wasm",
     "fresh": "yarn run clean:all && yarn install && yarn run setup",
     "pretest-hook": "yarn clean:all && yarn install --ignore-scripts && yarn run sh:setup",
     "test-hook": "yarn jest document.test.ts node-types.test.ts fish-syntax-node.test.ts exec.test.ts logger.test.ts parser.test.ts",
-    "test": "yarn jest --runInBand",
+    "test": "jest",
     "compile": "yarn tsc -b",
     "watch": "yarn tsc -b -w",
     "refactor": "yarn knip",
     "lint:verbose": "yarn run prelint && yarn eslint .",
-    "lint": "yarn eslint . --fix && yarn compile",
+    "lint": "yarn eslint . --fix",
     "prelint": "yarn clean:all && yarn install --ignore-scripts && yarn run sh:setup",
     "generate-man-page": "mkdir -p ./docs/man && cat docs/MAN_FILE.md | npx marked-man --date \"$(date +'%e %B %+4Y')\"  --manual fish-lsp --section 1 --name fish-lsp > ./docs/man/fish-lsp.1"
   },
   "man": "./docs/man/fish-lsp.1",
-  "enabledApiProposals": [
-    "inlineCompletions"
-  ],
-  "eslintIgnore": [
-    "!.eslintrc.cjs"
-  ],
+  "enabledApiProposals": [ "inlineCompletions" ],
+  "eslintIgnore": [ "!.eslintrc.cjs" ],
   "husky": {
     "hooks": {
       "pre-commit": "yarn run clean",
       "post-merge": "yarn"
     }
-  },
-  "jest": {
-    "preset": "ts-jest",
-    "verbose": true,
-    "clearMocks": true,
-    "moduleFileExtensions": [
-      "ts",
-      "js",
-      "json",
-      "node"
-    ],
-    "modulePathIgnorePatterns": [
-      "<rootDir>/out"
-    ],
-    "bail": 1,
-    "moduleNameMapper": {
-      "^completion/(.*)$": "<rootDir>/src/utils/completion/$1",
-      "^utils/(.*)$": "<rootDir>/src/utils/$1",
-      "^test-data/(.*)$": "<rootDir>/test-data/$1"
-    },
-    "transformIgnorePatterns": [
-      "<rootDir>/node_modules/"
-    ],
-    "transform": {
-      "^.+\\.ts?$": "ts-jest",
-      "^.+\\.js?$": "babel-jest"
-    },
-    "testRegex": "\\.test\\.ts$",
-    "testTimeout": 8000
   },
   "dependencies": {
     "@esdmr/tree-sitter-fish": "^3.5.1",
@@ -96,18 +55,14 @@
     "lua-json": "^1.0.1",
     "marked-man": "^1.3.5",
     "tree-sitter": "^0.21.0",
-    "ts-jest": "^29.1.2",
     "tsc": "^2.0.4",
-    "typescript": "*",
+    "typescript": "^5.4.3",
     "vscode-languageserver": "^9.0.1",
     "vscode-languageserver-protocol": "3.17.5",
     "vscode-languageserver-textdocument": "1.0.11",
     "vscode-uri": "^3.0.8",
     "web-tree-sitter": "^0.22.2",
-    "zod": "^3.23.5"
-  },
-  "peerDependencies": {
-    "typescript": "^5.4.3"
+    "zod": "^3.23.6"
   },
   "devDependencies": {
     "@tsconfig/node-lts": "^20.1.3",
@@ -131,7 +86,8 @@
     "pkg": "^5.8.1",
     "rimraf": "^5.0.5",
     "tree-sitter-cli": "^0.22.2",
-    "tree-sitter-fish": "https://github.com/ram02z/tree-sitter-fish"
-  },
-  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
+    "tree-sitter-fish": "https://github.com/ram02z/tree-sitter-fish",
+    "ts-jest": "^29.1.2",
+    "ts-node": "^10.9.2"
+  }
 }

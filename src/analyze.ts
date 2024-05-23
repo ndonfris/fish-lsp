@@ -12,6 +12,7 @@ import { FishWorkspace } from './utils/workspace';
 import { filterGlobalSymbols, FishDocumentSymbol, getFishDocumentSymbols } from './document-symbol';
 import { GenericTree } from './utils/generic-tree';
 import { findDefinitionSymbols } from './workspace-symbol';
+import { config } from './cli';
 
 export class Analyzer {
   protected parser: Parser;
@@ -66,19 +67,23 @@ export class Analyzer {
     const getTimePassed = (): string =>
       `${(Date.now() - lookupStartTime) / 1000} seconds`;
 
-    this.workspaces.forEach((workspace) => {
-      workspace
-        .urisToLspDocuments()
-        .filter((doc: LspDocument) => doc.shouldAnalyzeInBackground())
-        .forEach((doc: LspDocument) => {
-          try {
-            this.analyze(doc);
-            amount++;
-          } catch (err) {
-            console.error(err);
-          }
-        });
-    });
+    for (const workspace of this.workspaces) {
+      const docs = workspace.urisToLspDocuments().filter((doc: LspDocument) => doc.shouldAnalyzeInBackground());
+      for (const doc of docs) {
+        if (amount >= config.fish_lsp_max_background_files) {
+          break;
+        }
+        try {
+          this.analyze(doc);
+          amount++;
+        } catch (err) {
+          console.error(err);
+        }
+      }
+      if (amount >= config.fish_lsp_max_background_files) {
+        break;
+      }
+    }
 
     if (notifyCallback) {
       notifyCallback(`analyzed ${amount} files after ${getTimePassed()}`);

@@ -4,12 +4,40 @@
   "repoType": "github",
   "repoHost": "https://github.com",
   "files": [
-    "./docs/CONTRIBUTING.md"
+    "README.md"
   ],
-  "imageSize": 25,
+  "imageSize": 50,
   "commit": false,
   "commitConvention": "eslint",
-  "contributors": [],
+  "contributors": [
+    {
+      "login": "ndonfris",
+      "name": "nick",
+      "avatar_url": "https://avatars.githubusercontent.com/u/49458459?v=4",
+      "profile": "https://github.com/ndonfris",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "mimikun",
+      "name": "mimikun",
+      "avatar_url": "https://avatars.githubusercontent.com/u/13450321?v=4",
+      "profile": "https://github.com/mimikun",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "jpaju",
+      "name": "Jaakko Paju",
+      "avatar_url": "https://avatars.githubusercontent.com/u/36770267?v=4",
+      "profile": "https://github.com/jpaju",
+      "contributions": [
+        "code"
+      ]
+    }
+  ],
   "contributorsPerLine": 7,
   "linkToUsage": false
 }

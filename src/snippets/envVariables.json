@@ -1,0 +1,94 @@
+[
+  {
+    "name": "_",
+    "description": "the name of the currently running command (though this is deprecated, and the use of status current-command is preferred)."
+  },
+  {
+    "name": "argv",
+    "description": "a list of arguments to the shell or function. argv is only defined when inside a function call, or if fish was invoked with a list of arguments, like fish myscript.fish foo bar. This variable can be changed."
+  },
+  {
+    "name": "CMD_DURATION",
+    "description": "the runtime of the last command in milliseconds."
+  },
+  {
+    "name": "COLUMNS",
+    "description": "the current size of the terminal in width. These values are only used by fish if the operating system does not report the size of the terminal. Both variables must be set in that case otherwise a default of 80x24 will be used. They are updated when the window size changes."
+  },
+  {
+    "name": "LINES",
+    "description": "the current size of the terminal in height. These values are only used by fish if the operating system does not report the size of the terminal. Both variables must be set in that case otherwise a default of 80x24 will be used. They are updated when the window size changes."
+  },
+  {
+    "name": "fish_kill_signal",
+    "description": "the signal that terminated the last foreground job, or 0 if the job exited normally."
+  },
+  {
+    "name": "fish_killring",
+    "description": "a list of entries in fish’s kill ring of cut text."
+  },
+  {
+    "name": "fish_read_limit",
+    "description": "how many bytes fish will process with read or in a command substitution."
+  },
+  {
+    "name": "fish_pid",
+    "description": "the process ID (PID) of the shell."
+  },
+  {
+    "name": "history",
+    "description": "a list containing the last commands that were entered."
+  },
+  {
+    "name": "HOME",
+    "description": "the user’s home directory. This variable can be changed."
+  },
+  {
+    "name": "hostname",
+    "description": "the machine’s hostname."
+  },
+  {
+    "name": "IFS",
+    "description": "the internal field separator that is used for word splitting with the read builtin. Setting this to the empty string will also disable line splitting in command substitution. This variable can be changed."
+  },
+  {
+    "name": "last_pid",
+    "description": "the process ID (PID) of the last background process."
+  },
+  {
+    "name": "PWD",
+    "description": "the current working directory."
+  },
+  {
+    "name": "pipestatus",
+    "description": "a list of exit statuses of all processes that made up the last executed pipe. See exit status."
+  },
+  {
+    "name": "SHLVL",
+    "description": "the level of nesting of shells. Fish increments this in interactive shells, otherwise it simply passes it along."
+  },
+  {
+    "name": "status",
+    "description": "the exit status of the last foreground job to exit. If the job was terminated through a signal, the exit status will be 128 plus the signal number."
+  },
+  {
+    "name": "status_generation",
+    "description": "the “generation” count of $status. This will be incremented only when the previous command produced an explicit status. (For example, background jobs will not increment this)."
+  },
+  {
+    "name": "TERM",
+    "description": "the type of the current terminal. When fish tries to determine how the terminal works - how many colors it supports, what sequences it sends for keys and other things - it looks at this variable and the corresponding information in the terminfo database (see man terminfo). Note: Typically this should not be changed as the terminal sets it to the correct value."
+  },
+  {
+    "name": "USER",
+    "description": "the current username. This variable can be changed."
+  },
+  {
+    "name": "EUID",
+    "description": "the current effective user id, set by fish at startup. This variable can be changed."
+  },
+  {
+    "name": "version",
+    "description": "the version of the currently running fish (also available as FISH_VERSION for backward compatibility)."
+  }
+]

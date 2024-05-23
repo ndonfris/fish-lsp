@@ -20,71 +20,144 @@ T}
 It requires a client that supports the Language Server Protocol (LSP)\. For example, you can use \fBcoc\.nvim\fP or \fBnvim\-lsp\fP\|\.
 .SS OPTIONS
 .P
+\fB\-v\fP or \fB\-\-version\fP
+.br
+Show version information and exit\.
+.P
 \fB\-h\fP or  \fB\-\-help\fP
 .br
 Show help message and exit\.
 .P
-\fB\-v\fP or \fB\-\-version\fP
+\fB\-\-help\-all\fP
 .br
-Show version information and exit\.
+show all the help information
+.P
+\fB\-\-help\-short\fP
+.br
+show shortened help message
+.P
+\fB\-\-help\-man\fP
+.br
+show manpage output
 .SS SUBCOMMANDS
 .P
 \fBstart\fP
 .br
 Start the language server\.
 .P
-\fBmin\fP or \fBbare\fP
+\fB\-\-enable\fP    enable the language server features
 .br
-Start the language server without any language\-specific features\.
+\fB\-\-disable\fP   disable the language server features
+.br
+\fB\-\-dump\fP    dump the json ouput of the language server features enabled after startup
+.P
+\fBenv\fP
+.br
+show the environment variables available to the lsp
+.P
+\fB\-c\fP, \fB\-\-create\fP    create the environment variable
+.br
+\fB\-s\fP, \fB\-\-show\fP      show the environment variables
 .P
 \fBlogger\fP
 .br
 Access the logger
 .P
+\fB\-s\fP, \fB\-\-show\fP    show the logger and don't edit it
+.br
+\fB\-c\fP, \fB\-\-clear\fP   clear the logger
+.br
+\fB\-d\fP, \fB\-\-date\fP    write the date
+.br
+\fB\-q\fP, \fB\-\-quiet\fP   silence logging
+.br
+\fB\-\-config\fP      show the logger config
+.P
 \fBinfo\fP
 .br
 show the build info of fish\-lsp
+.P
+\fB\-\-bin\fP             show the path of the fish\-lsp executable
+.br
+\fB\-\-repo\fP            show the path of the entire fish\-lsp repo
+.br
+\fB\-\-time\fP            show the path of the entire fish\-lsp repo
+.br
+\fB\-\-env\fP             show the env variables used
+.br
+\fB\-\-lsp\-version\fP     show the lsp version
+.br
+\fB\-\-capabilities\fP    show the lsp capabilities
+.br
+\fB\-\-man\-file\fP        show the man file path
+.br
+\fB\-\-logs\-file\fP       show the logs\.txt file path
+.br
+\fB\-\-more\fP            show the build time of the fish\-lsp executable
 .P
 \fBurl\fP
 .br
 show a helpful url related to the fish\-lsp
 .P
+\fB\-\-repo\fP, \fB\-\-git\fP        show the github repo
+.br
+\fB\-\-npm\fP                show the npm package url
+.br
+\fB\-\-homepage\fP           show the homepage
+.br
+\fB\-\-contributions\fP      show the contributions url
+.br
+\fB\-\-wiki\fP               show the github wiki
+.br
+\fB\-\-issues\fP, \fB\-\-report\fP   show the issues page
+.br
+\fB\-\-discussions\fP        show the discussions page
+.br
+\fB\-\-clients\-repo\fP       show the clients configuration repo
+.br
+\fB\-\-sources\fP            show a list of helpful sources
+.P
 \fBcomplete\fP
 .br
 Provide completions for the \fBfish\-lsp\fP
 .P
-\fBhelp\fP
+\fB\-\-names\fP     show the feature names of the completions
 .br
-Show help message and exit\.
+\fB\-\-toggles\fP   show the feature names of the completions
+.br
+\fB\-\-fish\fP      show fish script
+.br
+\fB\-\-features\fP  show features
 .SH EXAMPLES
-.P
-• Start the \fBfish\-lsp\fP language server, with the default configuration:
+
+.RS 1
+.IP \(bu 2
+Start the \fBfish\-lsp\fP language server, with the default configuration:
 .RS 2
 .nf
 >_ fish\-lsp start
 .fi
 .RE
-.P
-• Start the \fBfish\-lsp\fP language server, with the bare minimum configuration:
-.RS 2
-.nf
->_ fish\-lsp bare \-\-enable hover
-.fi
-.RE
-.P
-• Show the path to the \fBfish\-lsp\fP language server binary:
+.IP \(bu 2
+Show the path to the \fBfish\-lsp\fP language server binary:
 .RS 2
 .nf
 >_ fish\-lsp complete > ~/\.config/fish/completions/fish\-lsp\.fish
 .fi
 .RE
+
+.RE
 .SH SEE ALSO
-.P
-• \fBwebsite:\fR \fIhttps://fish-lsp.dev/\fR
-.br
-• \fBrepo:\fR \fIhttps://github.com/ndonfris/fish-lsp\fR
-.br
-• \fBfish website:\fR \fIhttps://fishshell.com/\fR
+
+.RS 1
+.IP \(bu 2
+\fBwebsite:\fR \fIhttps://fish-lsp.dev/\fR
+.IP \(bu 2
+\fBrepo:\fR \fIhttps://github.com/ndonfris/fish-lsp\fR
+.IP \(bu 2
+\fBfish website:\fR \fIhttps://fishshell.com/\fR
+
+.RE
 .SH AUTHOR
 
 .RS 1

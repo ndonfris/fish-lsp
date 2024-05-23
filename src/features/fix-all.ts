@@ -1,9 +1,7 @@
-import { Diagnostic, TextDocumentEdit, RemoteClient, Connection, CodeAction } from 'vscode-languageserver';
+import { Diagnostic, TextDocumentEdit, Connection, CodeAction } from 'vscode-languageserver';
 //import { LspClient } from '../client';
 import { CodeActionKind } from '../code-action';
-import { Commands, FishRenameRequest } from '../commands';
 import { LspDocuments } from '../document';
-import FishServer from '../server';
 import * as errorCodes from '../diagnostics/errorCodes';
 import * as fixNames from '../diagnostics/fixNames';
 import { FishProtocol } from '../utils/fishProtocol';
@@ -36,16 +34,16 @@ export async function buildIndividualFixes(
         errorCodes: [+diagnostic.code!],
       };
 
-      const response : FishProtocol.Response = await connection.sendRequest(CommandTypes.GetCodeFixes, args);
-      if (response.type !== 'response') {
-        continue;
-      }
-
-      const fix = response.body?.find((fix: AutoFix) => fix.fixName === fixName);
-      if (fix) {
-        edits.push(...fix.changes.map((change: FishProtocol.FileCodeEdits) => toTextDocumentEdit(change, documents)));
-        break;
-      }
+      // const response : FishProtocol.Response = await connection.sendRequest(CommandTypes.GetCodeFixes, args);
+      // if (response.type !== 'response') {
+      //   continue;
+      // }
+      //
+      // const fix = response.body?.find((fix: AutoFix) => fix.fixName === fixName);
+      // if (fix) {
+      //   edits.push(...fix.changes.map((change: FishProtocol.FileCodeEdits) => toTextDocumentEdit(change, documents)));
+      //   break;
+      // }
     }
   }
   return edits;
@@ -59,47 +57,47 @@ async function buildCombinedFix(
   diagnostics: readonly Diagnostic[],
 ): Promise<TextDocumentEdit[]> {
   const edits: TextDocumentEdit[] = [];
-  for (const diagnostic of diagnostics) {
-    for (const { code, fixName } of fixes) {
-      if (code !== diagnostic.code) {
-        continue;
-      }
-
-      const args: FishProtocol.CodeFixRequestArgs = {
-        ...Range.toFileRangeRequestArgs(file, diagnostic.range),
-        errorCodes: [+diagnostic.code!],
-      };
-
-      const response: FishProtocol.Response = await connection.sendRequest(CommandTypes.GetCodeFixes, args);
-      if (response.type !== 'response' || !response.body?.length) {
-        continue;
-      }
-
-      const fix = response.body?.find((fix: AutoFix) => fix.fixName === fixName);
-      if (!fix) {
-        continue;
-      }
-      if (!fix.fixId) {
-        edits.push(...fix.changes.map((change: FishProtocol.FileCodeEdits) => toTextDocumentEdit(change, documents)));
-        return edits;
-      }
-
-      const combinedArgs: FishProtocol.GetCombinedCodeFixRequestArgs = {
-        scope: {
-          type: 'file',
-          args: { file },
-        },
-        fixId: fix.fixId,
-      };
-      const combinedResponse: FishProtocol.Response = await connection.sendRequest(CommandTypes.GetCombinedCodeFix, combinedArgs);
-      if (combinedResponse.type !== 'response' || !combinedResponse.body) {
-        return edits;
-      }
-
-      edits.push(...combinedResponse.body.changes.map((change: FishProtocol.FileCodeEdits) => toTextDocumentEdit(change, documents)));
-      return edits;
-    }
-  }
+  // for (const diagnostic of diagnostics) {
+  // for (const { code, fixName } of fixes) {
+  //   if (code !== diagnostic.code) {
+  //     continue;
+  //   }
+  //
+  //   const args: FishProtocol.CodeFixRequestArgs = {
+  //     ...Range.toFileRangeRequestArgs(file, diagnostic.range),
+  //     errorCodes: [+diagnostic.code!],
+  //   };
+  //
+  //   const response: FishProtocol.Response = await connection.sendRequest(CommandTypes.GetCodeFixes, args);
+  //   if (response.type !== 'response' || !response.body?.length) {
+  //     continue;
+  //   }
+  //
+  //   const fix = response.body?.find((fix: AutoFix) => fix.fixName === fixName);
+  //   if (!fix) {
+  //     continue;
+  //   }
+  //   if (!fix.fixId) {
+  //     edits.push(...fix.changes.map((change: FishProtocol.FileCodeEdits) => toTextDocumentEdit(change, documents)));
+  //     return edits;
+  //   }
+  //
+  //   const combinedArgs: FishProtocol.GetCombinedCodeFixRequestArgs = {
+  //     scope: {
+  //       type: 'file',
+  //       args: { file },
+  //     },
+  //     fixId: fix.fixId,
+  //   };
+  //   const combinedResponse: FishProtocol.Response = await connection.sendRequest(CommandTypes.GetCombinedCodeFix, combinedArgs);
+  //   if (combinedResponse.type !== 'response' || !combinedResponse.body) {
+  //     return edits;
+  //   }
+  //
+  //   edits.push(...combinedResponse.body.changes.map((change: FishProtocol.FileCodeEdits) => toTextDocumentEdit(change, documents)));
+  //   return edits;
+  // }
+  //}
   return edits;
 }
 

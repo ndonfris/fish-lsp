@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 //'use strict'
+import { asciiLogoString, BuildCapabilityString, RepoUrl, PathObj, PackageLspVersion, GetEnvVariablesUsed, PackageVersion, accumulateStartupOptions, getBuildTimeString, FishLspHelp, FishLspManPage, SourcesExt, SourcesDict } from './utils/commander-cli-subcommands';
 import { createConnection, InitializeParams, InitializeResult, StreamMessageReader, StreamMessageWriter } from 'vscode-languageserver/node';
 import { Command, Option } from 'commander';
 import FishServer from './server';
 // import * as luaJson from 'lua-json';
-import { asciiLogoString, BuildCapabilityString, RepoUrl, PathObj, PackageLspVersion, GetEnvVariablesUsed, PackageVersion, accumulateStartupOptions, getBuildTimeString, FishLspHelp, FishLspManPage } from './utils/commander-cli-subcommands';
 import { mainStartupManager, bareStartupManger, ConfigMap } from './utils/configuration-manager';
 import { buildFishLspCompletions } from './utils/get-lsp-completions';
 import { createServerLogger, Logger, ServerLogsPath } from './logger';
+import { configHandlers, generateJsonSchemaShellScript, getConfigFromEnvironmentVariables, showJsonSchemaShellScript, updateHandlers, validHandlers } from './config';
+import { Server } from 'http';
 
 export function startServer() {
   // Create a connection for the server.
@@ -27,32 +29,13 @@ export function startServer() {
   connection.listen();
 }
 
-export function startWebscoket() {
-  // Create a connection for the server.
-  // The connection uses stdin/stdout for communication.
-  const connection = createConnection(
-    new StreamMessageReader(process.stdin),
-    new StreamMessageWriter(process.stdout),
-  );
-  connection.onInitialize(
-    async (params: InitializeParams): Promise<InitializeResult> => {
-      console.log(`Initialized server FISH-LSP with ${JSON.stringify(params)}`);
-      const server = await FishServer.create(connection, params);
-      server.register(connection);
-      return server.initialize(params);
-    },
-  );
-  connection.listen();
-}
-
 /**
  *  creates local 'commandBin' used for commander.js
  */
 const createFishLspBin = (): Command => {
-  const bin = new Command('fish-lsp');
-
-  bin.description(`Description:\n${FishLspHelp.description}`)
-
+  const bin = new Command('fish-lsp')
+    .description(`Description:\n${FishLspHelp?.description.toString() || 'fish-lsp command output'}`)
+    .helpOption('-h, --help', 'show the relevant help info. Use `--help-all` for comprehensive documentation of all commands and flags. Other `--help-*` flags are also available.')
     .version(PackageVersion, '-v, --version', 'output the version number')
     .enablePositionalOptions(true)
     .configureHelp({
@@ -62,16 +45,17 @@ const createFishLspBin = (): Command => {
     })
     .showSuggestionAfterError()
     .showHelpAfterError()
-
     .addHelpText('after', FishLspHelp.after);
   return bin;
 };
+
+// create config to be used globablly
+export const { config, environmentVariablesUsed } = getConfigFromEnvironmentVariables();
 
 // start adding options to the command
 export const commandBin = createFishLspBin();
 
 // hidden global options
-
 commandBin
   .addOption(new Option('--help-man', 'show special manpage output').hideHelp(true))
   .addOption(new Option('--help-all', 'show all help info').hideHelp(true))
@@ -93,23 +77,22 @@ commandBin
       console.log(globalOpts.map(o =>'  ' + o.flags + '\t' + o.description).join('\n'));
       console.log('\nSUBCOMMANDS:');
       commandBin.commands.forEach((cmd) => {
-        console.log(`   ${cmd.name()} ${cmd.usage()}\t${cmd.summary()}`);
+        console.log(`  ${cmd.name()} ${cmd.usage()}\t${cmd.summary()}`);
         console.log(cmd.options.map(o => `    ${o.flags}\t\t${o.description}`).join('\n'));
         console.log();
       });
-      console.log('EXAMPLES:\n');
+      console.log('EXAMPLES:');
       console.log(FishLspHelp.after.split('\n').slice(2).join('\n'));
     } else if (opt.helpShort) {
       console.log('Usage: fish-lsp ', commandBin.usage().split('\n').slice(0, 1));
       console.log();
       console.log(commandBin.description());
     }
-    process.exit(0);
+    return;
   });
 
-
 // START
-commandBin.command('start [TOGGLE...]')
+commandBin.command('start [TOGGLE]')
   .summary('subcmd to start the lsp using stdin/stdout')
   .description('start the language server for a connection to a client')
   .option('--dump', 'stop lsp & show the startup options being read')
@@ -118,69 +101,30 @@ commandBin.command('start [TOGGLE...]')
   .addHelpText('afterAll', [
     '',
     'STRINGS FOR \'--enable/--disable\':',
-    `(${ConfigMap.configNames.map((opt, index) => {
-      return index < ConfigMap.configNames.length - 1 && index > 0 && index % 5 === 0 ? `${opt},\n` :
-        index < ConfigMap.configNames.length - 1 ? `${opt},` : opt;
+    `(${validHandlers.map((opt, index) => {
+      return index < validHandlers.length - 1 && index > 0 && index % 5 === 0 ? `${opt},\n` :
+        index < validHandlers.length - 1 ? `${opt},` : opt;
     }).join(' ')})`,
     '',
     'Examples:',
     '\tfish-lsp start --disable hover  # only disable the hover feature',
-    '\tfish-lsp start --disable completion logging index hover --show',
-    '\tfish-lsp start --enable --disable logging completion codeAction',
+    '\tfish-lsp start --disable complete logging index hover --show',
+    '\tfish-lsp start --enable --disable logging complete codeAction',
   ].join('\n'))
   .action(() => {
-    const config: ConfigMap = mainStartupManager();
+    updateHandlers(config.fish_lsp_enabled_handlers, true);
+    updateHandlers(config.fish_lsp_disabled_handlers, false);
+
     const { enabled, disabled, dumpCmd } = accumulateStartupOptions(commandBin.args);
-    enabled.forEach(opt => config.toggleFeature(opt, true));
-    disabled.forEach(opt => config.toggleFeature(opt, false));
+    updateHandlers(enabled, true);
+    updateHandlers(disabled, false);
     if (dumpCmd) {
-      config.log();
+      console.log(JSON.stringify(configHandlers, null, 2));
       process.exit(0);
     }
     /* config needs to be used in `startServer()` below */
     startServer();
-    // process.exit(0);
-  });
-
-
-// BARE | MIN | MINIMAL
-commandBin.command('bare [TOGGLE...]')
-  .alias('min')
-  .alias('minimal')
-  .summary('run barebones startup config')
-  .description([
-    'Initialize the fish-lsp with a completely minimal startup configuration.',
-    'This is useful for running the language server with minimal indexing, debugging specific features',
-    'and various other edge cases where the full feature set is not needed.',
-  ].join('\n'))
-  .option('--dump', 'stop lsp & show the startup options being read')
-  .option('--enable <string...>', 'enable the startup option')
-  .option('--disable <string...>', 'disable the startup option')
-  .addHelpText('afterAll', [
-    '',
-    'STRINGS FOR \'--enable/--disable\':',
-    `(${ConfigMap.configNames.map((opt, index) => {
-      return index < ConfigMap.configNames.length - 1 && index > 0 && index % 5 === 0 ? `${opt},\n` :
-        index < ConfigMap.configNames.length - 1 ? `${opt},` : opt;
-    }).join(' ')})`,
-    '',
-    'Examples:',
-    '\tfish-lsp min --enable hover  # only enable the hover feature',
-    '\tfish-lsp bare --enable all    # works like the \'start\' subcommand',
-    '\tfish-lsp min --enable all --disable logging completion codeAction',
-  ].join('\n'))
-  .action(() => {
-    const config: ConfigMap = bareStartupManger();
-    const { enabled, disabled, dumpCmd } = accumulateStartupOptions(commandBin.args);
-    enabled.forEach(opt => config.toggleFeature(opt, true));
-    disabled.forEach(opt => config.toggleFeature(opt, false));
-    if (dumpCmd) {
-      config.log();
-      process.exit(0);
-    }
-    // use config in startServer()
-    startServer();
-    // process.exit(0);
+    //process.exit(0);
   });
 
 // LOGGER
@@ -192,7 +136,7 @@ commandBin.command('logger')
   .option('-q, --quiet', 'silence logging')
   .option('--config', 'show the logger config')
   .action(args => {
-    const logger = createServerLogger(ServerLogsPath, false);
+    const logger = createServerLogger(config.fish_lsp_logfile || ServerLogsPath, false);
     const objArgs = Object.getOwnPropertyNames(args);
     const argsQueue = objArgs;
     let currentArg: string = '';
@@ -210,7 +154,6 @@ commandBin.command('logger')
     logger.showLogfileText();
     return;
   });
-
 
 // INFO
 commandBin.command('info')
@@ -254,7 +197,7 @@ commandBin.command('info')
       process.exit(0);
     }
     if (args.logsFile) {
-      console.log(PathObj.logsFile);
+      console.log(config.fish_lsp_logfile || PathObj.logsFile);
       process.exit(0);
     }
     console.log('Repository: ', PathObj.repo);
@@ -285,31 +228,7 @@ commandBin.command('url')
   .action(args => {
     const amount = Object.keys(args).length;
     if (amount === 0) console.log('https://fish-lsp.dev');
-    if (args.repo || args.git) console.log('https://github.com/ndonfris/fish-lsp');
-    if (args.npm) console.log('https://npmjs.io/ndonfris/fish-lsp');
-    if (args.homepage) console.log('https://fish-lsp.dev');
-    if (args.contributions) console.log('https://github.com/ndonfris/fish-lsp/issues?q=');
-    if (args.wiki) console.log('https://github.com/ndonfris/fish-lsp/wiki');
-    if (args.issues || args.report) console.log('https://github.com/ndonfris/fish-lsp/issues?q=');
-    if (args.discussions) console.log('https://github.com/ndonfris/fish-lsp/discussions');
-    if (args.clientsRepo) console.log('https://github.com/ndonfris/fish-lsp-language-clients/');
-    if (args.sources) {
-      console.log('https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#headerPart');
-      console.log('https://github.com/microsoft/vscode-extension-samples/tree/main');
-      console.log('https://tree-sitter.github.io/tree-sitter/');
-      console.log('https://github.com/ram02z/tree-sitter-fish');
-      console.log('https://github.com/microsoft/vscode-languageserver-node/tree/main/testbed');
-      console.log('https://github.com/Beaglefoot/awk-language-server/tree/master/server');
-      console.log('https://github.com/bash-lsp/bash-language-server/tree/main/server/src');
-      console.log('https://github.com/oncomouse/coc-fish');
-      console.log('https://github.com/typescript-language-server/typescript-language-server#running-the-language-server');
-      console.log('https://github.com/neoclide/coc-tsserver');
-      console.log('https://www.npmjs.com/package/vscode-jsonrpc');
-      console.log('https://github.com/Microsoft/vscode-languageserver-node');
-      console.log('https://github.com/Microsoft/vscode-languageserver-node');
-      console.log('https://github.com/microsoft/vscode-languageserver-node/blob/main/client/src/common');
-      console.log('https://github.com/microsoft/vscode-languageserver-node/tree/main/server/src/common');
-    }
+    Object.keys(args).forEach(key => console.log(SourcesDict[key]));
     process.exit(0);
   });
 
@@ -339,6 +258,21 @@ commandBin.command('complete')
       process.exit(0);
     }
     console.log(buildFishLspCompletions(commandBin));
+    process.exit(0);
+  });
+
+// ENV
+commandBin.command('env')
+  .summary('generate fish shell env variables to be used by lsp')
+  .description('generate fish-lsp env variables')
+  .option('-c, --create', 'build initial fish-lsp env variables')
+  .option('-s, --show', 'show the current fish-lsp env variables')
+  .action(args => {
+    if (args.show) {
+      showJsonSchemaShellScript();
+      process.exit(0);
+    }
+    generateJsonSchemaShellScript();
     process.exit(0);
   });
 

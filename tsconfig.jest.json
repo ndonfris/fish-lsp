@@ -1,19 +1,12 @@
 {
   "extends": "./tsconfig.json",
-  "compiler_options": {
+  "compilerOptions": {
     "esModuleInterop": true,
+    "noUncheckedIndexedAccess": true,
     "resolveJsonModule": true,
-    "verbose": true,
-    "noEmit": true,
-    "target": "es2022",
-    "paths": {
-      "@src/*": ["./src/*"]
-    }
-    //"paths": {
-    //    "completion/*": ["./src/utils/completion/*"]
-    //}
-  },
-  "exclude": ["node_modules"],
-  "include": ["./test-data/**.ts", "./src"]
+    "include": [
+      "test-data/**/*"
+    ]
+  }
+}
 
-}               

@@ -6,6 +6,19 @@ Documenting notable changes across project verisions
 
 ## Current
 
+## \[1.0.4\] - 2024-06-22 ([PR #23](https://github.com/unclechu/node-deep-extend/pull/23))
+
+- added `./src/snippets/*.json`
+- included new [user config](../src/config.ts) options from `.env`
+- removed `fish-lsp bare` support
+- added `fish-lsp env` support
+- major changes to documentation
+  - added [mermaid](https://github.com/ndonfris/fish-lsp/tree/upstream.docs#how-does-it-work) docs to readme
+  - added contributors to [readme](https://github.com/ndonfris/fish-lsp/tree/upstream.docs#contributors)
+  - added new github actions
+- adds __hover__ support for `pipes` & `status numbers`
+- adds __signature__ handler for specific important shell variables
+
 ### [PR #21](https://github.com/unclechu/node-deep-extend/pull/21) -- 2024-05-03
 
 - converted `scripts/*.sh` to `scripts/*.fish`

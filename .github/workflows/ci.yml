@@ -1,0 +1,36 @@
+name: TypeScript Node CI
+
+on:
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  ci:
+    name: Lint Codebase
+    runs-on: ubuntu-latest
+    permissions: 
+      contents: read
+      security-events: write
+      actions: read
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Install Fish Shell
+        uses: fish-actions/install-fish@v1.1.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 21.7.1
+
+      - name: Install Yarn
+        run: npm install -g yarn@1.22.22
+
+      - name: Install Dependencies
+        run: yarn install
+
+      - name: Run Lint
+        run: yarn lint

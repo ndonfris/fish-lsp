@@ -1,3 +1,87 @@
+import { homedir } from 'os';
+import { ServerLogsPath } from '../logger';
+import { CodeAction } from 'vscode-languageserver-protocol';
+import { z } from 'zod';
+
+// Define a Zod schema for the configuration
+export const ServerPreferencesSchema = z.object({
+  hirearchicalDocumentSymbolSupport: z.boolean().default(true),
+  asciiArt: z.object({
+    enable: z.boolean().default(true),
+  }),
+  completions: z.object({
+    enable: z.boolean().default(true),
+    functions: z.boolean().default(true),
+    variables: z.boolean().default(true),
+    extraDetails: z.boolean().default(true),
+    expandAbbreviations: z.object({
+      enabled: z.boolean().default(true),
+      keys: z.array(z.string()).default([';', ' ', '\t']),
+    }),
+  }),
+  documentation: z.object({
+    enable: z.boolean().default(true),
+    fallbackCommands: z.array(z.any()).default([]),
+  }),
+  formatting: z.object({
+    tabSize: z.number().default(4),
+    trimTrailingWhitespace: z.boolean().default(true),
+    trimFinalNewlines: z.boolean().default(true),
+    insertFinalNewline: z.boolean().default(true),
+    removeLeadingSwitchCaseWhitespace: z.boolean().default(true),
+  }),
+  workspaces: z.object({
+    symbols: z.object({
+      enable: z.boolean().default(true),
+      max: z.number().default(5000),
+      prefer: z.string().default('functions'),
+    }),
+    paths: z.object({
+      defaults: z.array(z.string()).default([
+        `${homedir()}/.config/fish`,
+        '/usr/share/fish',
+      ]),
+      allowRename: z.array(z.string()).default([
+        `${homedir()}/.config/fish`,
+      ]),
+    }),
+  }),
+  codeActions: z.object({
+    enable: z.boolean().default(true),
+    //create: z.object({
+    //  completionsFile: z.boolean().default(false),
+    //  fromArgParse: z.boolean().default(false),
+    //}),
+    //extract: z.object({
+    //  toPrivateFunction: z.boolean().default(false),
+    //  toLocalVariable: z.boolean().default(false),
+    //}),
+    //quickfix: z.object({
+    //  addMissingEnd: z.boolean().default(true),
+    //  removeUnnecessaryEnd: z.boolean().default(true),
+    //}),
+  }),
+  // diagnostics: z.object({
+  //   enable: z.boolean().default(true),
+  //   maxNumberOfProblems: z.number().default(10),
+  // }),
+  // logging: z.object({
+  //   enable: z.boolean().default(true),
+  //   file: z.string().default(ServerLogsPath)
+  // }),
+  // renames: z.object({
+  //   enable: z.boolean().default(true)
+  // }),
+  // definitions: z.object({
+  //   enable: z.boolean().default(true)
+  // }),
+  // references: z.object({
+  //   enable: z.boolean().default(true)
+  // }),
+});
+
+export type ServerPreferences = z.infer<typeof ServerPreferencesSchema>;
+
 function parseDotKeys(...keys: string[]): string[] {
   const result : string[] = [];
   for (const key of keys) {
@@ -31,7 +115,7 @@ export class ConfigMap {
     'formatting',
     'logging',
     'snippets',
-    'completion',
+    'complete',
     'hover',
     'rename',
     'definition',

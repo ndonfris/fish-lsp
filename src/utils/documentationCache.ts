@@ -29,7 +29,6 @@ import { FishCompletionItem, CompletionExample } from './completion/types';
  * @TODO: support docs & formatted docs. (non-markdown version will be docs)            *
  *                                                                                      *
  * @TODO: Refactor building documentation string! Potentially remove documentation.ts   *
- * and replace it with a lot of the methods seen here.                                  *
  *                                                                                      *
  ****************************************************************************************/
 
@@ -125,29 +124,16 @@ function ensureMinLength<T>(arr: T[], minLength: number, fillValue?: T): T[] {
  * builds FunctionDocumentaiton string
  */
 export async function getFunctionDocString(name: string): Promise<string | undefined> {
-  function formatTitle(title: string[]) {
-    const ensured = ensureMinLength(title, 5, '');
-    const [path, autoloaded, line, scope, description] = ensured;
-
-    return [
-      `__\`${path}\`__`,
-      `- autoloaded: ${autoloaded === 'autoloaded' ? '_true_' : '_false_'}`,
-      `- line: _${line}_`,
-      `- scope: _${scope}_`,
-      `${description}`,
-    ].map((str) => str.trim()).filter(l => l.trim().length).join('\n');
-  }
-  const [title, body] = await Promise.all([
-    execCmd(`functions -D -v ${name}`),
-    execCmd(`functions --no-details ${name}`),
-  ]);
+  const functionDoc = await execCmd(`functions ${name}`);
+  const title = `___(function)___ - _${name}_`;
+  if (!functionDoc) return;
   return [
-    formatTitle(title),
+    title,
     '___',
     '```fish',
-    body.join('\n'),
+    functionDoc.join('\n'),
     '```',
-  ].join('\n') || '';
+  ].join('\n');
 }
 
 export async function getStaticDocString(item: FishCompletionItem): Promise<string> {

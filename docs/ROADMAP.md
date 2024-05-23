@@ -14,11 +14,10 @@ __Sections:__
 
 ## General Codebase Changes
 
-- [ ] Refactor unused [files & data-structures](https://github.com/ndonfris/fish-lsp/blob/master/src)
-- [ ] Read a user's specific __configuration__ they have set
-  - [ ] `env_variables` could be set via [zod](https://github.com/colinhacks/zod)
-  - [ ] set options via cli flags, `fish-lsp start --enable ... --disable ...`
-  - [ ] read from a global json file
+- [x] Refactor unused [files & data-structures](https://github.com/ndonfris/fish-lsp/blob/master/src)
+- [x] Read a user's specific __configuration__ they have set
+  - [x] `env_variables` could be set via [zod](https://github.com/colinhacks/zod)
+  - [x] set options via cli flags, `fish-lsp start --enable ... --disable ...`
 - [ ] Supporting [fish feature flags](https://fishshell.com/docs/current/language.html#future-feature-flags) and handling proper syntax changes
 
 ## Server Features and Providers
@@ -42,7 +41,8 @@ __Sections:__
 - [ ] Add `CodeLens` support
   - [ ] Decide what would be useful to display
 - [ ] Add `CommandExecutor` provider
-- [ ] Add function `SignatureHelp` provider.
+- [x] Add function `SignatureHelp` provider.
+    - [ ] semi complete, needs more support
 - [ ] `FormatOnType` provider (useful for small files)
 - [ ] Enable server via __shebang's__:
   - [ ] `#!/usr/bin/fish`
@@ -61,7 +61,7 @@ __Sections:__
 - [ ] `source` command use cases, for workspaces outside of default
       configurations. (The `source` command, can be used similar to import in other
       languages)
-- [ ] [status variable](https://fishshell.com/docs/current/language.html#the-status-variable) documentation
+- [x] [status variable](https://fishshell.com/docs/current/language.html#the-status-variable) documentation
      > ```text
      > 0 is generally the exit status of commands if they successfully performed the requested operation.
      > 1 is generally the exit status of commands if they failed to perform the requested operation.
@@ -79,7 +79,7 @@ __Sections:__
   - [ ] `test` _number/string_ flags from condition argument's
   - [ ] function requires returning a status number
   - [ ] `fish_add_path` instead of `set -gx PATH _`
-  - [ ] logger location
+  - [x] logger location
   - [ ] private functions need underscore prefix
   - [ ] prefer `universal` scope, or prefer `global` scope
   - [ ] prefer specific `redirect` to `/dev/null`
@@ -92,7 +92,6 @@ __Sections:__
 - [ ] __(POTENTIALLY)__ Use [pnpm](https://pnpm.io) instead of [yarn](https://yarnpkg.com/)
 - [x] Minimize `test-suite` for master branch's PR compatibility
   - [x] run via: `yarn test-hook`
-  - [ ] could be improved with more tests
 - [x] Include _refactoring/tree-shaking_ help to scripts: `yarn refactor`
 - [ ] Release binary downloadable files, per machine OS
   - [ ] need a build pipeline as well
@@ -112,10 +111,9 @@ __Sections:__
 - [x] include `tree-sitter-fish.wasm` in downloaded project
   - [x] build from [fork: @esdmr/tree-sitter-fish](https://npmjs.com/@esdmr/tree-sitter-fish)
   - [x] universal `*.wasm` file
-- [ ] [README.md](../README.md) changes:
-  - [ ] improve [contributing](https://github.com/ndonfris/fish-lsp#contributing) section (add authors icons)
-  - [ ] [license](https://github.com/ndonfris/fish-lsp#license) include only MIT
-  - [ ] test out `<details><summary/></details>` for [features](https://github.com/ndonfris/fish-lsp#features)
+- [x] [README.md](../README.md) changes:
+  - [x] improve [contributing](https://github.com/ndonfris/fish-lsp#contributing) section (add authors icons)
+  - [x] [license](https://github.com/ndonfris/fish-lsp#license) include only MIT
 - [ ] Extend documentation provided via [wiki](https://github.com/ndonfris/fish-lsp/wiki)
   - [ ] workflows - guide for creating new __workflows__
   - [ ] testing - guide for __writing tests__
