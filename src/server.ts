@@ -2,7 +2,7 @@ import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from './parser';
 import { Analyzer } from './analyze';
 //import {  generateCompletionList, } from "./completion";
-import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp } from 'vscode-languageserver';
+import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, MessageType} from 'vscode-languageserver';
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
 import { formatDocumentContent } from './formatting';
@@ -618,8 +618,20 @@ export default class FishServer {
   }
 
   private async startBackgroundAnalysis(): Promise<{ filesParsed: number; }> {
-    const notifyCallback = (text: string) =>
-      this.connection.window.showInformationMessage(text);
+    const workDoneToken = 'analyzing files'
+    this.connection.sendNotification('create', { token: 'fish-lsp server analysis started' });
+    this.connection.sendNotification('begin', {
+      token: workDoneToken,
+      value: {
+        kind: 'begin',
+        title: 'Analyzing',
+        message: 'Running background analysis...'
+      }
+    });
+    const notifyCallback = (text: string) => this.connection.sendNotification('window/logMessage', {
+      type: MessageType.Info,
+      message: text
+    })
     return this.analyzer.initiateBackgroundAnalysis(notifyCallback);
   }
 }
