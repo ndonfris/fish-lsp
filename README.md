@@ -22,10 +22,15 @@ Introducing the [fish-lsp](https://fish-lsp.dev), a [Language Server Protocol (L
 ## Why? 🐟
 
 - 🦈 __Efficiency__: enhances the shell experience with an extensive suite of intelligent text-editing [features](#features)
+
 - 🐡 __Flexibility__: allows for a highly customizable [configuration](#server-configuration-optional)
+
 - 🐚 __Guidance__: [friendly hints](https://github.com/ndonfris/fish-lsp/?tab=readme-ov-file#) and [documentation](#installation) to comfortably explore command line tooling
+
 - 🐬 __Community__: improved by a [vibrant user base](#contributors), with [supportive and insightful feedback](https://github.com/ndonfris/fish-lsp/discussions)
+
 - 🐙 __Compatibility__: integrates with a wide variety of [tooling and language clients](#client-configuration-required)
+
 - 🌊 __Reliability__: produces an [editor agnostic developer environment](https://en.wikipedia.org/wiki/Language_Server_Protocol),
      ensuring __all__ fish user's have access to a consistent set of features
 
@@ -257,17 +262,11 @@ Here is a diagram to visualize a hypothetical `fish-lsp` process:
 ## Additional Resources
 
 - [Contributing](./docs/CONTRIBUTING.md) - documentation describing how to contribute to the fish-lsp project.
-
 - [Roadmap](./docs/ROADMAP.md) - goals for future project releases.
-
 - [Wiki](https://github.com/ndonfris/fish-lsp/wiki) - further documentation and knowledge relevant to the project
-
 - [Discussions](https://github.com/ndonfris/fish-lsp/discussions) - interact with maintainers
-
 - [Site](https://fish-lsp.dev/) - website homepage
-
 - [Client Examples](https://github.com/ndonfris/fish-lsp/wiki/Client-Configurations) - testable language client configurations
-
 - [Sources](https://github.com/ndonfris/fish-lsp/wiki/Sources) - major influences for the project
 
 ## Contributors

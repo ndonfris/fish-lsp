@@ -1,12 +1,12 @@
 // import pagerHighlightVariablesJson from '../../snippets/pager_colors.json'
-import helperCommandsJson from '../../snippets/helperCommands.json';
-import themeVariablesJson from '../../snippets/syntaxHighlightingVariables.json';
-import statusNumbersJson from '../../snippets/statusNumbers.json';
-import envVariablesJson from '../../snippets/envVariables.json';
-import localeVariablesJson from '../../snippets/localeVariables.json';
-import specialVariablesJson from '../../snippets/specialFishVariables.json';
-import pipeCharactersJson from '../../snippets/pipesAndRedirects.json';
-import fishlspEnvVariablesJson from '../../snippets/fishlspEnvVariables.json';
+import helperCommandsJson from '../snippets/helperCommands.json';
+import themeVariablesJson from '../snippets/syntaxHighlightingVariables.json';
+import statusNumbersJson from '../snippets/statusNumbers.json';
+import envVariablesJson from '../snippets/envVariables.json';
+import localeVariablesJson from '../snippets/localeVariables.json';
+import specialVariablesJson from '../snippets/specialFishVariables.json';
+import pipeCharactersJson from '../snippets/pipesAndRedirects.json';
+import fishlspEnvVariablesJson from '../snippets/fishlspEnvVariables.json';
 
 // import PACKAGE from '@package'
 //

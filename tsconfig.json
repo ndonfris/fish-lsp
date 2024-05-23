@@ -4,19 +4,20 @@
     "esModuleInterop": true,
     "noUncheckedIndexedAccess": true,
     "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
     "outDir": "./out",
-    "rootDir": "./src",  // Root directory for input files
-    "baseUrl": "./",  // Base URL for module resolution
+    "rootDir": "./src",
+    "baseUrl": ".",  // Base URL for module resolution
     "paths": {
       "@package": ["./package.json"],
-      "@snippets/*": ["./snippets/*"],
-      "@src/*": ["./src/*"],
+      // "@snippets/*": ["./snippets/*"],
+      // "@src/*": ["./src/*"],
       "@utils/*": ["./src/utils/*"]
     }
   },
   "include": [
-    "src",
-    "snippets"
+    "package.json",
+    "src"
   ],
   "exclude": [
     "node_modules",

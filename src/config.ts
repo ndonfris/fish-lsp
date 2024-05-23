@@ -1,7 +1,7 @@
 import os from 'os';
 import { z } from 'zod';
 import { ServerLogsPath } from './logger';
-import fishLspEnvVariables from '../snippets/fishlspEnvVariables.json';
+import fishLspEnvVariables from './snippets/fishlspEnvVariables.json';
 import { InitializeResult, TextDocumentSyncKind } from 'vscode-languageserver';
 import { CodeActionKind } from './code-action';
 

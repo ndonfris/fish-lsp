@@ -2,7 +2,7 @@
   "author": "ndonfris",
   "license": "Apache-2.0",
   "name": "fish-lsp",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "LSP implementation for fish/fish-shell",
   "keywords": [ "lsp", "fish", "fish-shell", "language-server-protocol", "language-server" ],
   "homepage": "https://fish-lsp.dev",
@@ -11,7 +11,6 @@
   "main": "./out/out.js",
   "directories": { "man": "./docs/man/fish-lsp.1", "bin": "./bin/fish-lsp" },
   "typings": "./out/server.d.ts",
-  "files": [ "src", "snippets", "package.json"],
   "scripts": {
     "setup": "yarn run sh:setup",
     "postinstall": "yarn run sh:build-wasm && yarn run sh:build-time && yarn run compile && yarn run sh:relink && yarn run sh:build-completions",
