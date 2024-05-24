@@ -307,7 +307,7 @@ export default class FishServer {
     if (!doc || !uri || !root || !current) {
       return null;
     }
-    this.logger.log({ current: current.text });
+    // this.logger.log({ current: current.text });
 
     const prebuiltSkipType = [
       ...PrebuiltDocumentationMap.getByType('pipe'),
