@@ -43,6 +43,7 @@ show the environment variables available to the lsp
 
   `-c`, `--create`    create the environment variable
   `-s`, `--show`      show the environment variables
+  `--no-comments`   skip outputting comments
 
 `logger`
 Access the logger

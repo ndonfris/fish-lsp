@@ -127,26 +127,29 @@ const toNumber = (s?: string): number | undefined =>
  * generateJsonSchemaShellScript - just prints the starter template for the schema
  * in fish-shell
  */
-export function generateJsonSchemaShellScript() {
+export function generateJsonSchemaShellScript(showComments: boolean) {
   const result: string[] = []
   Object.values(fishLspEnvVariables).forEach(entry => {
     const { name, description, valueType } = entry;
-    result.push(...[
-      `# ${name} <${valueType.toUpperCase()}>`,
-      formatDescription(description, 80),
-      `set -gx ${name}`,
-      '',
-    ])
-    console.log(result.join('\n').trimEnd())
+    const line = !showComments 
+      ? `set -gx ${name}\n`
+      : [
+        `# ${name} <${valueType.toUpperCase()}>`,
+        formatDescription(description, 80),
+        `set -gx ${name}`,
+        ''
+      ].join('\n')
+    result.push(line)
   });
-
+  const output = result.join('\n').trimEnd() 
+  console.log(output);
 }
 
 /**
  * showJsonSchemaShellScript - prints the current environment schema
  * in fish
  */
-export function showJsonSchemaShellScript() {
+export function showJsonSchemaShellScript(noComments: boolean) {
   const { config } = getConfigFromEnvironmentVariables();
   const findValue = (keyName: string) => {
     return Object.values(fishLspEnvVariables).find(entry => {
@@ -158,11 +161,13 @@ export function showJsonSchemaShellScript() {
   for (const item of Object.entries(config)) {
     const [key, value] = item;
     const entry = findValue(key);
-    let line = [
-      `# ${entry.name} <${entry.valueType.toUpperCase()}>`,
-      formatDescription(entry.description, 80),
-      `set -gx ${key} `,
-    ].join('\n');
+    let line = !noComments 
+      ? `set -gx ${key} `
+      : [
+        `# ${entry.name} <${entry.valueType.toUpperCase()}>`,
+        formatDescription(entry.description, 80),
+        `set -gx ${key} `,
+      ].join('\n');
     if (Array.isArray(value)) {
       if (value.length === 0) {
         line += "''\n"; // Print two single quotes for empty arrays
@@ -177,7 +182,8 @@ export function showJsonSchemaShellScript() {
     }
     result.push(line)
   }
-  console.log(result.join('\n').trimEnd());
+  const output = result.join('\n').trimEnd()  
+  console.log(output);
 }
 
 /*************************************
