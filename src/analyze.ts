@@ -1,4 +1,4 @@
-import { Hover, MarkupContent, MarkupKind, Position, PublishDiagnosticsParams, SymbolKind, WorkspaceSymbol, URI, Location } from 'vscode-languageserver';
+import { Hover, MarkupContent, MarkupKind, Position, PublishDiagnosticsParams, SymbolKind, WorkspaceSymbol, URI, Location, WorkDoneProgressServerReporter } from 'vscode-languageserver';
 import Parser, { SyntaxNode, Tree } from 'web-tree-sitter';
 import * as LSP from 'vscode-languageserver';
 import { isPositionWithinRange, getChildNodes } from './utils/tree-sitter';
@@ -59,19 +59,19 @@ export class Analyzer {
   }
 
   public async initiateBackgroundAnalysis(
-    notifyCallback?: (text: string) => void,
+    callbackfn: (text: string) => void
   ): Promise<{ filesParsed: number; }> {
     let amount = 0;
-
-    const lookupStartTime = Date.now();
-    const getTimePassed = (): string =>
-      `${(Date.now() - lookupStartTime) / 1000} seconds`;
+    const max_files = config.fish_lsp_max_background_files
 
     for (const workspace of this.workspaces) {
-      const docs = workspace.urisToLspDocuments().filter((doc: LspDocument) => doc.shouldAnalyzeInBackground());
+      const docs = workspace
+        .urisToLspDocuments()
+        .filter((doc: LspDocument) => doc.shouldAnalyzeInBackground());
+
       for (const doc of docs) {
-        if (amount >= config.fish_lsp_max_background_files) {
-          break;
+        if (amount >= max_files)  {
+          break; 
         }
         try {
           this.analyze(doc);
@@ -80,14 +80,11 @@ export class Analyzer {
           console.error(err);
         }
       }
-      if (amount >= config.fish_lsp_max_background_files) {
-        break;
-      }
+      if (amount >= max_files)  {
+        break; 
+      }    
     }
-
-    if (notifyCallback) {
-      notifyCallback(`analyzed ${amount} files after ${getTimePassed()}`);
-    }
+    callbackfn(`[fish-lsp] analyzed ${amount} files`)
     return { filesParsed: amount };
   }
 

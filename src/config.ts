@@ -77,6 +77,8 @@ export const ConfigSchema = z.object({
   /** max background files */
   fish_lsp_max_background_files: z.number().default(500),
 
+  /** show startup analysis notification */
+  fish_lsp_show_client_popups: z.boolean().default(true)
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -96,6 +98,7 @@ export function getConfigFromEnvironmentVariables(): {
     fish_lsp_modifiable_paths: process.env.fish_lsp_modifiable_paths?.split(' '),
     fish_lsp_diagnostic_disable_error_codes: process.env.fish_lsp_diagnostic_disable_error_codes?.split(' ').map(toNumber),
     fish_lsp_max_background_files: toNumber(process.env.fish_lsp_max_background_files),
+    fish_lsp_show_client_popups: toBoolean(process.env.fish_lsp_show_client_popups)
   };
 
   const environmentVariablesUsed = Object.entries(rawConfig)

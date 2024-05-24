@@ -48,5 +48,10 @@
     "name": "fish_lsp_max_background_files",
     "description": "maximum number of background files to read into buffer on startup",
     "valueType": "number"
+  },
+  {
+    "name": "fish_lsp_show_client_popups",
+    "description": "show popup window notification in the connected client",
+    "valueType": "boolean"
   }
 ]
