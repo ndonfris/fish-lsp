@@ -128,13 +128,18 @@ const toNumber = (s?: string): number | undefined =>
  * in fish-shell
  */
 export function generateJsonSchemaShellScript() {
+  const result: string[] = []
   Object.values(fishLspEnvVariables).forEach(entry => {
     const { name, description, valueType } = entry;
-    console.log(`# ${name} <${valueType.toUpperCase()}>`);
-    console.log(formatDescription(description, 80));
-    console.log(`set -gx ${name}`);
-    console.log();
+    result.push(...[
+      `# ${name} <${valueType.toUpperCase()}>`,
+      formatDescription(description, 80),
+      `set -gx ${name}`,
+      '',
+    ])
+    console.log(result.join('\n').trimEnd())
   });
+
 }
 
 /**
@@ -149,6 +154,7 @@ export function showJsonSchemaShellScript() {
       return name === keyName;
     })!;
   };
+  const result: string[] = []
   for (const item of Object.entries(config)) {
     const [key, value] = item;
     const entry = findValue(key);
@@ -169,8 +175,9 @@ export function showJsonSchemaShellScript() {
       // Use a helper function to handle string escaping
       line += escapeValue(value) + '\n';
     }
-    console.log(line);
+    result.push(line)
   }
+  console.log(result.join('\n').trimEnd());
 }
 
 /*************************************
