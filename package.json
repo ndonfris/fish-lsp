@@ -1,10 +1,5 @@
 {
   "author": "ndonfris",
-  "engines": {
-    "npm": "please-use-yarn",
-    "node": ">=18.0.0",
-    "yarn": "^1.22.0"
-  },
   "license": "Apache-2.0",
   "name": "fish-lsp",
   "version": "1.0.4",

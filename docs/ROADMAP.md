@@ -18,6 +18,11 @@ __Sections:__
 - [x] Read a user's specific __configuration__ they have set
   - [x] `env_variables` could be set via [zod](https://github.com/colinhacks/zod)
   - [x] set options via cli flags, `fish-lsp start --enable ... --disable ...`
+  - [ ] use builtin fish variables for generating defaults:
+  `$__fish_config_dir`, `$fish_function_path`, `$__fish_user_data_dir`
+    - [some documentation on the subject](file:///usr/share/doc/fish/language.html#autoloading-functions)
+    - example use for functions: `fish -c 'string split " " -- $fish_function_path'`
+    - `$__fish_user_data_dir` is usually `/usr/share/fish`
 - [ ] Supporting [fish feature flags](https://fishshell.com/docs/current/language.html#future-feature-flags) and handling proper syntax changes
 
 ## Server Features and Providers
@@ -98,6 +103,7 @@ __Sections:__
   - [ ] handle scope specific dependencies
 - [ ] Action for updating [fish-lsp.dev](https://github.com/ndonfris/fish-lsp.dev) documentation on new publishes
   - [x] write script for generating `fish-lsp --help` screenshot
+- [ ] add action testing `fish-lsp --help` is successfully built on __os matrix__ (would be _mac_ and _unix_)
 
 ## Documentation
 
