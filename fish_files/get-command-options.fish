@@ -1,4 +1,4 @@
-#!/usr/local/bin/fish 
+#!/usr/bin/env fish
 
 function backup_input 
     set -a -l _fish_lsp_file_cmps (fish -c "complete --do-complete '$argv -' | uniq") (fish -c "complete --do-complete '$argv ' | uniq") 
@@ -20,5 +20,4 @@ if test (count $argv) -ge 2
 else 
     backup_input $argv
 end
-
 

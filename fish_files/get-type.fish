@@ -1,4 +1,4 @@
-#!/usr/local/bin/fish
+#!/usr/bin/env fish
 
 function get_type --argument-names str
     set -l type_result (type -t "$str" 2> /dev/null)
