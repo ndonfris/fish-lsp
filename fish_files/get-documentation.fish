@@ -1,4 +1,4 @@
-#!/usr/local/bin/fish
+#!/usr/bin/env fish
 
 ## commands like mkdir or touch should reach this point 
 function _flsp_get_command_without_manpage -d 'fallback for a command passed in without a manpage'

@@ -270,10 +270,3 @@ export async function execOpenFile(uri: string): Promise<string> {
   return file.toString();
 }
 
-export async function execCompleteGlobalDocs(cmd: string): Promise<string> {
-  const executable = resolve(__dirname, '../../fish_files/generate-global-completions.fish');
-
-  const exec = execFileSync(executable, [cmd]);
-
-  return exec.toString('utf8').trim();
-}
