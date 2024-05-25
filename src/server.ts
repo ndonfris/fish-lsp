@@ -314,7 +314,7 @@ export default class FishServer {
       ...PrebuiltDocumentationMap.getByType('status'),
     ].find(obj => obj.name === current.text);
 
-    const prebuiltDoc = PrebuiltDocumentationMap.getByName(current.text);
+    // const prebuiltDoc = PrebuiltDocumentationMap.getByName(current.text);
     const symbolItem = this.analyzer.getHover(doc, params.position);
     if (symbolItem) return symbolItem;
     if (prebuiltSkipType) {
@@ -334,13 +334,10 @@ export default class FishServer {
     );
     this.logger.logAsJson('docCache found ' + globalItem?.resolved.toString() || `docCache not found ${current.text}`);
     if (globalItem && globalItem.docs) {
-      const newDocs = prebuiltDoc.length
-        ? [globalItem.docs, '___', prebuiltDoc[0]?.description, '___', getPrebuiltDocUrlByName(prebuiltDoc[0]!.name)].join('\n')
-        : globalItem.docs;
       return {
         contents: {
           kind: MarkupKind.Markdown,
-          value: newDocs,
+          value: globalItem.docs
         },
       };
     }
