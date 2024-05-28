@@ -2,7 +2,7 @@ import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from './parser';
 import { Analyzer } from './analyze';
 //import {  generateCompletionList, } from "./completion";
-import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp } from 'vscode-languageserver';
+import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, MessageType, NotificationType} from 'vscode-languageserver';
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
 import { formatDocumentContent } from './formatting';
@@ -307,14 +307,14 @@ export default class FishServer {
     if (!doc || !uri || !root || !current) {
       return null;
     }
-    this.logger.log({ current: current.text });
+    // this.logger.log({ current: current.text });
 
     const prebuiltSkipType = [
       ...PrebuiltDocumentationMap.getByType('pipe'),
       ...PrebuiltDocumentationMap.getByType('status'),
     ].find(obj => obj.name === current.text);
 
-    const prebuiltDoc = PrebuiltDocumentationMap.getByName(current.text);
+    // const prebuiltDoc = PrebuiltDocumentationMap.getByName(current.text);
     const symbolItem = this.analyzer.getHover(doc, params.position);
     if (symbolItem) return symbolItem;
     if (prebuiltSkipType) {
@@ -334,13 +334,10 @@ export default class FishServer {
     );
     this.logger.logAsJson('docCache found ' + globalItem?.resolved.toString() || `docCache not found ${current.text}`);
     if (globalItem && globalItem.docs) {
-      const newDocs = prebuiltDoc.length
-        ? [globalItem.docs, '___', prebuiltDoc[0]?.description, '___', getPrebuiltDocUrlByName(prebuiltDoc[0]!.name)].join('\n')
-        : globalItem.docs;
       return {
         contents: {
           kind: MarkupKind.Markdown,
-          value: newDocs,
+          value: globalItem.docs
         },
       };
     }
@@ -394,7 +391,9 @@ export default class FishServer {
 
     const formattedText = await formatDocumentContent(doc.getText()).catch(error => {
       this.connection.console.error(`Formatting error: ${error}`);
-      this.connection.window.showErrorMessage(`Failed to format document: ${error}`);
+      if (config.fish_lsp_show_client_popups) {
+        this.connection.window.showErrorMessage(`Failed to format range: ${error}`);
+      }
       return doc.getText(); // fallback to original text on error
     });
 
@@ -419,7 +418,9 @@ export default class FishServer {
 
     const formattedText = await formatDocumentContent(originalText).catch(error => {
       this.connection.console.error(`Formatting error: ${error}`);
-      this.connection.window.showErrorMessage(`Failed to format range: ${error}`);
+      if (config.fish_lsp_show_client_popups) {
+        this.connection.window.showErrorMessage(`Failed to format range: ${error}`);
+      }
       return originalText; // fallback to original text on error
     });
 
@@ -618,8 +619,11 @@ export default class FishServer {
   }
 
   private async startBackgroundAnalysis(): Promise<{ filesParsed: number; }> {
-    const notifyCallback = (text: string) =>
+    // ../node_modules/vscode-languageserver/lib/common/progress.d.ts
+    const notifyCallback = (text: string) => {
+      if (!config.fish_lsp_show_client_popups) return
       this.connection.window.showInformationMessage(text);
+    }
     return this.analyzer.initiateBackgroundAnalysis(notifyCallback);
   }
 }

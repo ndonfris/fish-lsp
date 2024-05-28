@@ -1,15 +1,13 @@
 #!/usr/bin/env node
 //'use strict'
-import { asciiLogoString, BuildCapabilityString, RepoUrl, PathObj, PackageLspVersion, GetEnvVariablesUsed, PackageVersion, accumulateStartupOptions, getBuildTimeString, FishLspHelp, FishLspManPage, SourcesExt, SourcesDict } from './utils/commander-cli-subcommands';
+import { asciiLogoString, BuildCapabilityString, PathObj, PackageLspVersion, PackageVersion, accumulateStartupOptions, getBuildTimeString, FishLspHelp, FishLspManPage, SourcesDict } from './utils/commander-cli-subcommands';
 import { createConnection, InitializeParams, InitializeResult, StreamMessageReader, StreamMessageWriter } from 'vscode-languageserver/node';
 import { Command, Option } from 'commander';
 import FishServer from './server';
-// import * as luaJson from 'lua-json';
-import { mainStartupManager, bareStartupManger, ConfigMap } from './utils/configuration-manager';
+import { ConfigMap } from './utils/configuration-manager';
 import { buildFishLspCompletions } from './utils/get-lsp-completions';
-import { createServerLogger, Logger, ServerLogsPath } from './logger';
+import { createServerLogger, ServerLogsPath } from './logger';
 import { configHandlers, generateJsonSchemaShellScript, getConfigFromEnvironmentVariables, showJsonSchemaShellScript, updateHandlers, validHandlers } from './config';
-import { Server } from 'http';
 
 export function startServer() {
   // Create a connection for the server.
@@ -161,7 +159,6 @@ commandBin.command('info')
   .option('--bin', 'show the path of the fish-lsp executable')
   .option('--repo', 'show the path of the entire fish-lsp repo')
   .option('--time', 'show the path of the entire fish-lsp repo')
-  .option('--env', 'show the env variables used')
   .option('--lsp-version', 'show the lsp version')
   .option('--capabilities', 'show the lsp capabilities')
   .option('--man-file', 'show the man file path')
@@ -185,11 +182,6 @@ commandBin.command('info')
     }
     if (args.lspVersion) {
       console.log('LSP Version: ', PackageLspVersion);
-      process.exit(0);
-    }
-    if (args.env) {
-      console.log('Environment Variables: ' + asciiLogoString('single'));
-      console.log(GetEnvVariablesUsed());
       process.exit(0);
     }
     if (args.manFile) {
@@ -267,13 +259,13 @@ commandBin.command('env')
   .description('generate fish-lsp env variables')
   .option('-c, --create', 'build initial fish-lsp env variables')
   .option('-s, --show', 'show the current fish-lsp env variables')
+  .option('--no-comments', 'skip comments in output')
   .action(args => {
     if (args.show) {
-      showJsonSchemaShellScript();
-      process.exit(0);
+      showJsonSchemaShellScript(args.comments);
+      process.exit(0)
     }
-    generateJsonSchemaShellScript();
-    process.exit(0);
+    generateJsonSchemaShellScript(args.comments);
   });
 
 /**

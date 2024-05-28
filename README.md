@@ -21,7 +21,7 @@ Introducing the [fish-lsp](https://fish-lsp.dev), a [Language Server Protocol (L
 <!---->
 ## Why? 🐟
 
-- 🦈 __Efficiency__: enhances the shell experience with an extensive suite of intelligent text-editing [features](#features)
+- 🦈 __Efficiency__: enhances the shell scripting experience with an extensive suite of intelligent text-editing [features](#features)
 
 - 🐡 __Flexibility__: allows for a highly customizable [configuration](#server-configuration-optional)
 
@@ -204,6 +204,10 @@ set -gx fish_lsp_diagnostic_disable_error_codes
 # fish_lsp_max_background_files <NUMBER>
 # maximum number of background files to read into buffer on startup (default: 500)
 set -gx fish_lsp_max_background_files
+
+# fish_lsp_show_client_popups <BOOLEAN>
+# show popup window notification in the connected client (default: true)
+set -gx fish_lsp_show_client_popups
 ```
 
 #### Command Flags

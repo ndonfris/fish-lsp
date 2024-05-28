@@ -77,6 +77,8 @@ export const ConfigSchema = z.object({
   /** max background files */
   fish_lsp_max_background_files: z.number().default(500),
 
+  /** show startup analysis notification */
+  fish_lsp_show_client_popups: z.boolean().default(true)
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -96,6 +98,7 @@ export function getConfigFromEnvironmentVariables(): {
     fish_lsp_modifiable_paths: process.env.fish_lsp_modifiable_paths?.split(' '),
     fish_lsp_diagnostic_disable_error_codes: process.env.fish_lsp_diagnostic_disable_error_codes?.split(' ').map(toNumber),
     fish_lsp_max_background_files: toNumber(process.env.fish_lsp_max_background_files),
+    fish_lsp_show_client_popups: toBoolean(process.env.fish_lsp_show_client_popups)
   };
 
   const environmentVariablesUsed = Object.entries(rawConfig)
@@ -124,21 +127,29 @@ const toNumber = (s?: string): number | undefined =>
  * generateJsonSchemaShellScript - just prints the starter template for the schema
  * in fish-shell
  */
-export function generateJsonSchemaShellScript() {
+export function generateJsonSchemaShellScript(showComments: boolean) {
+  const result: string[] = []
   Object.values(fishLspEnvVariables).forEach(entry => {
     const { name, description, valueType } = entry;
-    console.log(`# ${name} <${valueType.toUpperCase()}>`);
-    console.log(formatDescription(description, 80));
-    console.log(`set -gx ${name}`);
-    console.log();
+    const line = !showComments 
+      ? `set -gx ${name}\n`
+      : [
+        `# ${name} <${valueType.toUpperCase()}>`,
+        formatDescription(description, 80),
+        `set -gx ${name}`,
+        ''
+      ].join('\n')
+    result.push(line)
   });
+  const output = result.join('\n').trimEnd() 
+  console.log(output);
 }
 
 /**
  * showJsonSchemaShellScript - prints the current environment schema
  * in fish
  */
-export function showJsonSchemaShellScript() {
+export function showJsonSchemaShellScript(noComments: boolean) {
   const { config } = getConfigFromEnvironmentVariables();
   const findValue = (keyName: string) => {
     return Object.values(fishLspEnvVariables).find(entry => {
@@ -146,14 +157,17 @@ export function showJsonSchemaShellScript() {
       return name === keyName;
     })!;
   };
+  const result: string[] = []
   for (const item of Object.entries(config)) {
     const [key, value] = item;
     const entry = findValue(key);
-    let line = [
-      `# ${entry.name} <${entry.valueType.toUpperCase()}>`,
-      formatDescription(entry.description, 80),
-      `set -gx ${key} `,
-    ].join('\n');
+    let line = !noComments 
+      ? `set -gx ${key} `
+      : [
+        `# ${entry.name} <${entry.valueType.toUpperCase()}>`,
+        formatDescription(entry.description, 80),
+        `set -gx ${key} `,
+      ].join('\n');
     if (Array.isArray(value)) {
       if (value.length === 0) {
         line += "''\n"; // Print two single quotes for empty arrays
@@ -166,8 +180,10 @@ export function showJsonSchemaShellScript() {
       // Use a helper function to handle string escaping
       line += escapeValue(value) + '\n';
     }
-    console.log(line);
+    result.push(line)
   }
+  const output = result.join('\n').trimEnd()  
+  console.log(output);
 }
 
 /*************************************

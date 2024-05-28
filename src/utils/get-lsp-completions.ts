@@ -145,8 +145,9 @@ complete -c fish-lsp -n '__fish_lsp_using_command info; and not __fish_contains_
 // const completeCompletions: string = `# fish-lsp complete <TAB>
 const envCompletions: string = `# fish-lsp env --<TAB>
 complete -c fish-lsp -n __fish_use_subcommand -x -a env -d 'generate fish shell env variables to be used by lsp'
-complete -c fish-lsp -n '__fish_lsp_using_command env; and not __fish_contains_opt -s s show'    -s s -l show   -d 'show the current fish-lsp env variables'
-complete -c fish-lsp -n '__fish_lsp_using_command env; and not __fish_contains_opt -s c create'  -s c -l create -d 'build initial fish-lsp env variables'
+complete -c fish-lsp -n '__fish_lsp_using_command env; and not __fish_contains_opt -s s show; and not __fish_contains_opt -s c create' -s s -l show        -d 'show the current fish-lsp env variables'
+complete -c fish-lsp -n '__fish_lsp_using_command env; and not __fish_contains_opt -s c create; and not __fish_contains_opt -s s show' -s c -l create      -d 'build initial fish-lsp env variables'
+complete -c fish-lsp -n '__fish_lsp_using_command env; and not __fish_contains_opt no-comments'                                             -l no-comments -d 'skip outputting comments'
 `;
 
 const mapNames = validHandlers.join(' ');

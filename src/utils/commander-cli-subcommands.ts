@@ -202,30 +202,6 @@ export const PathObj: {[K in 'bin' | 'root' | 'repo' | 'manFile' | 'logsFile']: 
 
 export const PackageLspVersion = PackageJSON.dependencies['vscode-languageserver-protocol']!.toString();
 
-export const GetEnvVariablesUsed = () => {
-  const envVars = process.env;
-  const envKeys = Object.keys(envVars);
-  const envValues = Object.values(envVars);
-  const fish_env_variables_used: string[] = [
-    'FISH_PATH',
-    'FISH_LSP_PATH',
-    'FISH_LSP_VERSION',
-    'FISH_LSP_LOGGING',
-    'FISH_LSP_EXE',
-    'fish_function_dir',
-    'fish_complete_path',
-  ];
-  const resultKeys: string[] = envKeys.filter((key) => fish_env_variables_used.includes(key));
-  const DEEP_COPY_RESULT = deepmerge({}, process.env);
-  for (const [k, v] of Object.entries(DEEP_COPY_RESULT)) {
-    if (!resultKeys.includes(k)) {
-      delete DEEP_COPY_RESULT[k];
-    }
-  }
-
-  return DEEP_COPY_RESULT;
-};
-
 const getOutTime = () => {
   // @ts-ignore
   const buildFile = resolve(__dirname, '..', '..', 'out', 'build-time.txt');
@@ -245,11 +221,12 @@ export const getBuildTimeString = () => {
 export const FishLspHelp = {
   beforeAll: `
        fish-lsp [-h | --help] [-v | --version] [--help-man] [--help-all] [--help-short]
-       fish-lsp [start | bare | min] [--enable | --disable] [--dump]
+       fish-lsp start [--enable | --disable] [--dump]
        fish-lsp logger [-s | --show] [-d | --date] [-c | --clear] [-q | --quiet] [--config]
        fish-lsp info [--bare] [--repo] [--time] [--env]
        fish-lsp url [--repo] [--discussions] [--homepage] [--npm] [--contributions]
                     [--wiki] [--issues] [--client-repo] [--sources]
+       fish-lsp env [-c | --create] [-s | --show] [--no-comments]
        fish-lsp complete`,
   usage: `fish-lsp [OPTION]
        fish-lsp [COMMAND [OPTION...]]`,
