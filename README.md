@@ -21,7 +21,7 @@ Introducing the [fish-lsp](https://fish-lsp.dev), a [Language Server Protocol (L
 <!---->
 ## Why? 🐟
 
-- 🦈 __Efficiency__: enhances the shell experience with an extensive suite of intelligent text-editing [features](#features)
+- 🦈 __Efficiency__: enhances the shell scripting experience with an extensive suite of intelligent text-editing [features](#features)
 
 - 🐡 __Flexibility__: allows for a highly customizable [configuration](#server-configuration-optional)
 
