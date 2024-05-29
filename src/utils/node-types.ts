@@ -221,8 +221,46 @@ export function isLongOption(node: SyntaxNode): boolean {
 export function isShortOption(node: SyntaxNode): boolean {
   return node.text.startsWith('-') && !isLongOption(node);
 }
+
 export function isOption(node: SyntaxNode): boolean {
   return isShortOption(node) || isLongOption(node);
+}
+
+/** careful not to call this on old unix style flags/options */
+export function isJoinedShortOption(node: SyntaxNode) {
+  if (isLongOption(node)) return false
+  return isShortOption(node) && node.text.slice(1).length > 1
+}
+
+/** careful not to call this on old unix style flags/options */
+export function hasShortOptionCharacter(node: SyntaxNode, findChar: string) {
+  if (isLongOption(node)) return false
+  return isShortOption(node) && node.text.slice(1).includes(findChar)
+}
+
+export type NodeOptionQueryText = {
+  shortOption?: `-${string}`
+  oldUnixOption?: `-${string}`,
+  longOption?: `--${string}`
+}
+
+/**
+ * @param node - the node to check
+ * @param optionQuery - object of node strings to match
+ * @returns boolean result corresponding to query 
+ */
+export function isMatchingOption(node: SyntaxNode, optionQuery: NodeOptionQueryText) : boolean {
+  if (!isOption(node)) return false
+
+  const nodeText = node.text.includes('=') ? node.text.slice(0, node.text.indexOf('=')) : node.text
+
+  if (isLongOption(node) && optionQuery?.longOption === nodeText) return true
+
+  if (isShortOption(node) && optionQuery?.oldUnixOption === nodeText) return true
+
+  if (!optionQuery.shortOption) return false
+  return isShortOption(node) && hasShortOptionCharacter(node, optionQuery.shortOption.slice(1))
+
 }
 
 export function isPipe(node: SyntaxNode): boolean {
@@ -686,4 +724,11 @@ export function isPartialForLoop(node: SyntaxNode) {
         errorNode.text.startsWith('for') &&
         !errorNode.text.includes(' in ')
   );
+}
+
+export function isInlineComment(node: SyntaxNode) {
+  if (!isComment(node)) return false;
+  const previousSibling: SyntaxNode | undefined | null = node.previousNamedSibling
+  if (!previousSibling) return false;
+  return previousSibling?.startPosition.row === node.startPosition.row && previousSibling?.type !== 'comment'
 }

@@ -151,7 +151,7 @@ export function findFirstSibling(
     direction === 'before' ? n.previousSibling : n.nextSibling;
   let current: SyntaxNode | null = node;
   while (current) {
-    console.log('curr: ', current.text);
+    // console.log('curr: ', current.text);
     current = siblingFunc(current);
     if (current && predicate(current)) {
       return current;
