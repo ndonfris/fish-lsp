@@ -3,9 +3,9 @@ import { extname, join } from 'path';
 //import { pathToFileURL, URL } from 'url'
 import { Position, Range, URI } from 'vscode-languageserver';
 import { Point, SyntaxNode, Tree } from 'web-tree-sitter';
-import { pathToFileURL } from 'url'; // typescript-langauge-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts
-import vscodeUri from 'vscode-uri'; // typescript-langauge-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts
-import { existsSync } from 'fs-extra';
+// import { pathToFileURL } from 'url'; // typescript-langauge-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts
+// import vscodeUri from 'vscode-uri'; // typescript-langauge-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts
+// import { existsSync } from 'fs-extra';
 import { findSetDefinedVariable, findParentCommand, isFunctionDefinition, isVariableDefinition, isFunctionDefinitionName, isVariable, isScope, isProgram, isCommandName, isForLoop, findForLoopVariable } from './node-types';
 
 /**
@@ -106,7 +106,7 @@ export function findFirstParent(node: SyntaxNode, predicate: (node: SyntaxNode) 
  */
 export function getSiblingNodes(
   node: SyntaxNode,
-  predicate : (n: SyntaxNode) => true,
+  predicate : (n: SyntaxNode) => boolean,
   direction: 'before' | 'after' = 'before',
 ): SyntaxNode[] {
   const siblingFunc = (n: SyntaxNode) =>
