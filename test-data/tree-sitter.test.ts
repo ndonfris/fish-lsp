@@ -245,7 +245,8 @@ describe('tree-sitter.ts functions testing', () => {
     const rootNode = tree!.rootNode
     const range = { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } };
     const result = getNodeAtRange(rootNode, range)!;
-    console.log(result.text);
+    expect(result.text).toBe('set')
+    // console.log(result.text);
   });
 
   test('positionToPoint converts position to point', () => {

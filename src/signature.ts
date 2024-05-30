@@ -9,7 +9,7 @@ import {
 //import { stringRegexExpressions} from './utils/completion-types';
 import { isBuiltin } from './utils/builtins';
 
-function regexStringSignature() : SignatureInformation {
+export function regexStringSignature() : SignatureInformation {
   //const regexItems = stringRegexExpressions;
   //let signatureDoc = ["__String Regex Patterns__", "---"];
   //for (const item of regexItems) {

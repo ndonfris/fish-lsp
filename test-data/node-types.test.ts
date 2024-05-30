@@ -710,17 +710,19 @@ describe("node-types tests", () => {
     expect(parseStringForNodeType(input, NodeTypes.isVariable).length).toBe(6) 
   })
 
-  it('string check variables in quotes', () => {
+  it('[WARN] string check variables in quotes', () => {
     const strNodes = parseStringForNodeType([
       'set -l bad \'$argv\'',
       'set -l good "$argv"',
     ].join('\n'), NodeTypes.isString);
     expect(strNodes.length).toBe(2);
 
-    for (const node of strNodes) {
-      if (node.text.includes('$') && node.text.startsWith("'")) {
-        console.log(node.text);
-      }
-    }
+    const warnNodes: SyntaxNode[] = strNodes.filter(node => node.text.includes('$') && node.text.startsWith("'"))
+    // for (const node of strNodes) {
+    //   if (node.text.includes('$') && node.text.startsWith("'")) {
+    //     console.log(node.text);
+    //   }
+    // }
+    expect(warnNodes.length).toEqual(1)
   });
 })
