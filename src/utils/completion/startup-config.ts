@@ -50,7 +50,7 @@ export const SetupItemsFromCommandConfig: SetupItem[] = [
     topLevel: false,
   },
   {
-    command: "functions --handlers | string match -vr '^Event \\w+'",
+    command: "[ (functions --handlers | count) -eq 0 ] || functions --handlers | string match -vr '^Event \\w+'",
     detail: 'Event Handler',
     fishKind: FishCompletionItemKind.EVENT,
     topLevel: false,
