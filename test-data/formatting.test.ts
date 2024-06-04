@@ -132,4 +132,3 @@ describe('formatting tests', () => {
   })
 
 })
-
