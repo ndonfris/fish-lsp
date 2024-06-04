@@ -5,9 +5,141 @@ import {
   SignatureHelpParams,
   Command,
 } from 'vscode-languageserver';
-//import { FishCompletionItemKind } from './utils/completion-strategy';
-//import { stringRegexExpressions} from './utils/completion-types';
-import { isBuiltin } from './utils/builtins';
+import { SyntaxNode } from 'web-tree-sitter';
+import { ExtendedBaseJson, PrebuiltDocumentationMap } from './utils/snippets';
+import { FishAliasCompletionItem } from './utils/completion/types';
+import * as NodeTypes from './utils/node-types'
+import * as TreeSitter from './utils/tree-sitter'
+import { CompletionItemMap } from './utils/completion/startup-cache';
+ 
+export function buildSignature(label: string, value: string) : SignatureInformation {
+  return {
+    label: label,
+    documentation: {
+      kind: 'markdown',
+      value: value,
+    },
+  }
+}
+
+export function getCurrentNodeType(input: string) {
+  const prebuiltTypes = PrebuiltDocumentationMap.getByName(input)
+  if (!prebuiltTypes || prebuiltTypes.length === 0) {
+    return null
+  }
+  let longestDocs = prebuiltTypes[0]!
+  for (const prebuilt of prebuiltTypes) {
+    if (prebuilt.description.length > longestDocs.description.length) {
+      longestDocs = prebuilt
+    }
+  }
+  return longestDocs
+}
+
+export function lineSignatureBuilder(lineRootNode: SyntaxNode, lineCurrentNode: SyntaxNode, completeMmap: CompletionItemMap): SignatureHelp | null {
+  const currentCmd = NodeTypes.findParentCommand(lineCurrentNode) || lineRootNode;
+  const pipes = getPipes(lineRootNode);
+  const varNode = getVariableNode(lineRootNode);
+  const allCmds = getAllCommands(lineRootNode);
+  const regexOption = getRegexOption(lineRootNode);
+
+  if (pipes.length === 1) return getPipesSignature(pipes);
+
+  switch (true) {
+    case isStringWithRegex(currentCmd.text, regexOption):
+      return getDefaultSignatures();
+
+    case varNode && isSetOrReadWithVarNode(currentCmd?.text || lineRootNode.text, varNode, lineRootNode, allCmds):
+      return getSignatureForVariable(varNode);
+
+    case currentCmd?.text.startsWith('return') || lineRootNode.text.startsWith('return'):
+      return getReturnStatusSignature();
+
+    case allCmds.length === 1:
+      return getCommandSignature(currentCmd);
+
+    default:
+      return null;
+  }
+}
+
+export function getPipes(rootNode: SyntaxNode): ExtendedBaseJson[] {
+  const pipeNames = PrebuiltDocumentationMap.getByType('pipe');
+  return TreeSitter.getChildNodes(rootNode).reduce((acc: ExtendedBaseJson[], node) => {
+    const pipe = pipeNames.find(p => p.name === node.text);
+    if (pipe) acc.push(pipe);
+    return acc;
+  }, []);
+}
+
+function getVariableNode(rootNode: SyntaxNode): SyntaxNode | undefined {
+  return TreeSitter.getChildNodes(rootNode).find(c => NodeTypes.isVariableDefinition(c));
+}
+
+function getAllCommands(rootNode: SyntaxNode): SyntaxNode[] {
+  return TreeSitter.getChildNodes(rootNode).filter(c => NodeTypes.isCommand(c));
+}
+
+function getRegexOption(rootNode: SyntaxNode): SyntaxNode | undefined {
+  return TreeSitter.getChildNodes(rootNode).find(n => NodeTypes.isMatchingOption(n, { shortOption: '-r', longOption: '--regex' }));
+}
+
+function isStringWithRegex(line: string, regexOption: SyntaxNode | undefined): boolean {
+  return line.startsWith('string') && !!regexOption;
+}
+
+function isSetOrReadWithVarNode(line: string, varNode: SyntaxNode | undefined, rootNode: SyntaxNode, allCmds: SyntaxNode[]): boolean {
+  return !!varNode && (line.startsWith('set') || line.startsWith('read')) && allCmds.pop()?.text === rootNode.text.trim();
+}
+
+function getSignatureForVariable(varNode: SyntaxNode): SignatureHelp | null {
+  const output = getCurrentNodeType(varNode.text);
+  if (!output) return null;
+  return {
+    signatures: [buildSignature(output.name, output.description)],
+    activeSignature: 0,
+    activeParameter: 0,
+  };
+}
+
+function getReturnStatusSignature(): SignatureHelp {
+  const output = PrebuiltDocumentationMap.getByType('status').map((o: ExtendedBaseJson) => `___${o.name}___ - _${o.description}_`).join('\n')
+  return {
+    signatures: [buildSignature('$status', output)],
+    activeSignature: 0,
+    activeParameter: 0,
+  };
+}
+
+function getPipesSignature(pipes: ExtendedBaseJson[]): SignatureHelp {
+  return {
+    signatures: pipes.map((o: ExtendedBaseJson) => buildSignature(o.name, `${o.name} - _${o.description}_`)),
+    activeSignature: 0,
+    activeParameter: 0,
+  };
+}
+
+function getCommandSignature(firstCmd: SyntaxNode): SignatureHelp  {
+  const output = PrebuiltDocumentationMap.getByType('command').filter(n => n.name === firstCmd.text);
+  return {
+    signatures: [buildSignature(firstCmd.text, output.map((o: ExtendedBaseJson) => `${o.name} - _${o.description}_`).join('\n'))],
+    activeSignature: 0,
+    activeParameter: 0,
+  };
+}
+
+export function getAliasedCompletionItemSignature(item: FishAliasCompletionItem): SignatureHelp  {
+  // const output = PrebuiltDocumentationMap.getByType('command').filter(n => n.name === firstCmd.text);
+  return {
+    signatures: [buildSignature(item.label, [
+      '```fish',
+      `${item.fishKind} ${item.label} ${item.detail}`,
+      '```'
+    ].join('\n'))],
+    activeSignature: 0,
+    activeParameter: 0,
+  };
+}
 
 export function regexStringSignature() : SignatureInformation {
   //const regexItems = stringRegexExpressions;

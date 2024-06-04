@@ -3,7 +3,7 @@ import { initializeParser } from '../src/parser';
 import { ExtendedBaseJson, PrebuiltDocumentationMap } from '../src/utils/snippets'
 import * as NodeTypes from '../src/utils/node-types'
 import * as TreeSitter from '../src/utils/tree-sitter'
-import { getDefaultSignatures, regexStringSignature } from '../src/signature'
+import { getAliasedCompletionItemSignature, getDefaultSignatures, lineSignatureBuilder, regexStringSignature } from '../src/signature'
 import {setLogger} from './helpers'
 import { MarkupContent, SignatureHelp, SignatureInformation } from 'vscode-languageserver';
 import { CompletionItemMap } from '../src/utils/completion/startup-cache';
@@ -11,6 +11,7 @@ import { FishAliasCompletionItem } from '../src/utils/completion/types';
 import { getDocumentationResolver } from '../src/utils/completion/documentation';
 
 let parser: Parser;
+let completionMap: CompletionItemMap
 // const documentationMap = PrebuiltDocumentationMap;
 
 function analyzerParseCurrentLine(input: string) {
@@ -26,33 +27,12 @@ function analyzerParseCurrentLine(input: string) {
   }
 }
 
-function getCurrentNodeType(input: string) {
-  const prebuiltTypes = PrebuiltDocumentationMap.getByName(input)
-  if (!prebuiltTypes || prebuiltTypes.length === 0) {
-    return null
-  }
-  let longestDocs = prebuiltTypes[0]!
-  for (const prebuilt of prebuiltTypes) {
-    if (prebuilt.description.length > longestDocs.description.length) {
-      longestDocs = prebuilt
-    }
-  }
-  return longestDocs
-}
 
-function buildSignature(label: string, value: string) : SignatureInformation {
-  return {
-    label: label,
-    documentation: {
-      kind: 'markdown',
-      value: value,
-    },
-  }
-}
 
 setLogger(
   async () => {
     parser = await initializeParser();
+    completionMap = await CompletionItemMap.initialize()
   },
   async () => {
     if (parser) parser.delete();
@@ -168,14 +148,14 @@ describe('signature test-suite', () => {
 
   it('`variable` signature from snippets/*.json', () => {
     const { line, lineRootNode, lineCurrentNode } = analyzerParseCurrentLine('set -gx fish_lsp_enabled_handlers')
-    const signature = lineSignatureBuilder(lineRootNode, lineCurrentNode)!
+    const signature = lineSignatureBuilder(lineRootNode, lineCurrentNode, completionMap)!
     // console.log(JSON.stringify(signature, null, 2));
     expect(signature.signatures[0]!.label).toBe('fish_lsp_enabled_handlers')
   })
 
   it('`function` signature from snippets/*.json', () => {
     const { line, lineRootNode, lineCurrentNode } = analyzerParseCurrentLine('fish_prompt ')
-    const signature = lineSignatureBuilder(lineRootNode, lineCurrentNode)!
+    const signature = lineSignatureBuilder(lineRootNode, lineCurrentNode, completionMap)!
 
     // console.log(JSON.stringify(signature, null, 2));
     expect(signature.signatures[0]!.label).toBe('fish_prompt')
@@ -183,7 +163,7 @@ describe('signature test-suite', () => {
 
   it('`pipes` signature from snippets/*.json', () => {
     const { line, lineRootNode, lineCurrentNode } = analyzerParseCurrentLine('alias 2>> ')
-    const signature = lineSignatureBuilder(lineRootNode, lineCurrentNode)!
+    const signature = lineSignatureBuilder(lineRootNode, lineCurrentNode, completionMap)!
 
     // console.log(JSON.stringify(signature, null, 2));
     expect(signature.signatures[0]!.label).toBe('2>>')
@@ -192,7 +172,7 @@ describe('signature test-suite', () => {
 
   it('`return $status` from snippets/*.json', () => {
     const { lineRootNode, lineCurrentNode } = analyzerParseCurrentLine('return ');
-    const signature = lineSignatureBuilder(lineRootNode, lineCurrentNode)!;
+    const signature = lineSignatureBuilder(lineRootNode, lineCurrentNode, completionMap)!;
     console.log(JSON.stringify(signature, null, 2));
     expect(signature.signatures[0]!.label).toEqual('$status');
   })
@@ -202,7 +182,7 @@ describe('signature test-suite', () => {
     const currentCmd = NodeTypes.findParentCommand(lineCurrentNode)!
 
     // console.log(currentCmd.text)
-    const signature = lineSignatureBuilder(currentCmd, lineCurrentNode)!
+    const signature = lineSignatureBuilder(currentCmd, lineCurrentNode, completionMap)!
     // console.log(JSON.stringify(signature, null, 2));
     expect(signature.signatures.length).toBe(2)
   })
@@ -224,7 +204,7 @@ describe('signature test-suite', () => {
 
    it('updates `activeSignature` and `activeParameter`', () => {
     const { lineRootNode, lineCurrentNode } = analyzerParseCurrentLine('set -gx fish_lsp_enabled_handlers value1 value2');
-    const signature = lineSignatureBuilder(lineRootNode, lineCurrentNode)!;
+    const signature = lineSignatureBuilder(lineRootNode, lineCurrentNode, completionMap)!;
     signature.activeSignature = 1; // Focusing on the second signature if multiple
     signature.activeParameter = 2; // Focusing on the third parameter
     expect(signature.activeSignature).toBe(1);
@@ -234,7 +214,7 @@ describe('signature test-suite', () => {
   it('does not show test command if set is the most recent', () => {
     const { lineRootNode, lineCurrentNode } = analyzerParseCurrentLine('if test -n $argv; and set -q CMD_DURATION');
     const currentCmd = NodeTypes.findParentCommand(lineCurrentNode)!
-    const signature = lineSignatureBuilder(currentCmd, lineCurrentNode)!;
+    const signature = lineSignatureBuilder(currentCmd, lineCurrentNode, completionMap)!;
     console.log(JSON.stringify(signature, null, 2));
     expect(signature.signatures[0]!.label).toBe('CMD_DURATION'); // Expecting the `set` command signature
   });

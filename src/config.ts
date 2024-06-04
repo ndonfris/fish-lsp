@@ -266,10 +266,7 @@ export function adjustInitializeResultCapabilitiesFromConfig(configHandlers: z.i
       },
       documentHighlightProvider: false,
       inlayHintProvider: false, /*configHandlers.inlayHint,*/
-      signatureHelpProvider: configHandlers.signature ? {
-        retriggerCharacters: ['.'],
-        triggerCharacters: ['.', ' '],
-      } : undefined,
+      signatureHelpProvider: configHandlers.signature ? {workDoneProgress: false, triggerCharacters: ['.']} : undefined,
     },
 
   };

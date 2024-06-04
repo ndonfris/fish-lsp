@@ -30,9 +30,11 @@ import { getDocumentationResolver } from './utils/completion/documentation';
 import { FishCompletionList } from './utils/completion/list';
 import { config } from './cli';
 import { PrebuiltDocumentationMap, getPrebuiltDocUrl, getPrebuiltDocUrlByName } from './utils/snippets';
-import { isCommand, isVariableDefinition, isVariableDefinitionCommand } from './utils/node-types';
+import { findParentCommand, isCommand, isVariableDefinition, isVariableDefinitionCommand } from './utils/node-types';
 import { adjustInitializeResultCapabilitiesFromConfig, configHandlers } from './config';
 import { enrichToMarkdown } from './documentation';
+import { getAliasedCompletionItemSignature, lineSignatureBuilder } from './signature';
+import { CompletionItemMap } from './utils/completion/startup-cache';
 
 // @TODO
 export type SupportedFeatures = {
@@ -46,11 +48,13 @@ export default class FishServer {
   ): Promise<FishServer> {
     const documents = new LspDocuments();
     const logger = new Logger(config.fish_lsp_logfile || ServerLogsPath, true, connection.console);
+    const completionsMap = await CompletionItemMap.initialize()
+
     return await Promise.all([
       initializeParser(),
       initializeDocumentationCache(),
       initializeDefaultFishWorkspaces(),
-      initializeCompletionPager(logger),
+      initializeCompletionPager(logger, completionsMap),
     ]).then(([parser, cache, workspaces, completions]) => {
       const analyzer = new Analyzer(parser, workspaces);
       return new FishServer(
@@ -59,6 +63,7 @@ export default class FishServer {
         analyzer,
         documents,
         completions,
+        completionsMap,
         cache,
         logger,
       );
@@ -75,6 +80,7 @@ export default class FishServer {
     private analyzer: Analyzer,
     private docs: LspDocuments,
     private completion: CompletionPager,
+    private completionMap: CompletionItemMap,
     private documentationCache: DocumentationCache,
     protected logger: Logger,
   ) {
@@ -546,29 +552,41 @@ export default class FishServer {
 
     const { doc, uri } = this.getDefaults(params);
     if (!doc || !uri) return null;
+
     const { line, lineRootNode, lineLastNode } = this.analyzer.parseCurrentLine(doc, params.position);
-    const varNode = getChildNodes(lineRootNode).find(c => isVariableDefinition(c));
-    const lastCmd = getChildNodes(lineRootNode).filter(c => isCommand(c)).pop();
-    this.logger.log({ line, lastCmds: lastCmd?.text });
-    if (varNode && (line.startsWith('set') || line.startsWith('read')) && lastCmd?.text === lineRootNode.text.trim()) {
-      const varName = varNode.text;
-      const varDocs = PrebuiltDocumentationMap.getByName(varNode.text);
-      if (!varDocs.length) return null;
-      return {
-        signatures: [
-          {
-            label: varName,
-            documentation: {
-              kind: 'markdown',
-              value: varDocs.map(d => d.description).join('\n'),
-            },
-          },
-        ],
-        activeSignature: 0,
-        activeParameter: 0,
-      };
-    }
-    return null;
+    if (line.trim() === '') return null
+    const currentCmd = findParentCommand(lineLastNode)!
+    // const commands = getChildNodes(lineRootNode).filter(isCommand)
+    const aliasSignature = this.completionMap.allOfKinds('alias').find(a => a.label === currentCmd.text)
+    if (aliasSignature) return getAliasedCompletionItemSignature(aliasSignature)
+    return lineSignatureBuilder(currentCmd, lineLastNode, this.completionMap)
+    // if (currentCmd.text.startsWith('string') || commands.length > 1) {
+    // }
+    //
+    // return lineSignatureBuilder(lineRootNode, lineLastNode)
+    //
+    // const varNode = getChildNodes(lineRootNode).find(c => isVariableDefinition(c));
+    // const lastCmd = getChildNodes(lineRootNode).filter(c => isCommand(c)).pop();
+    // this.logger.log({ line, lastCmds: lastCmd?.text });
+    // if (varNode && (line.startsWith('set') || line.startsWith('read')) && lastCmd?.text === lineRootNode.text.trim()) {
+    //   const varName = varNode.text;
+    //   const varDocs = PrebuiltDocumentationMap.getByName(varNode.text);
+    //   if (!varDocs.length) return null;
+    //   return {
+    //     signatures: [
+    //       {
+    //         label: varName,
+    //         documentation: {
+    //           kind: 'markdown',
+    //           value: varDocs.map(d => d.description).join('\n'),
+    //         },
+    //       },
+    //     ],
+    //     activeSignature: 0,
+    //     activeParameter: 0,
+    //   };
+    // }
+    // return null;
   }
 
   /////////////////////////////////////////////////////////////////////////////////////
