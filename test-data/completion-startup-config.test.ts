@@ -91,6 +91,4 @@ describe('utils/completion/startup-config.ts test', () => {
     expect(res.length).toBe(7);
   });
 
-
-
 });
