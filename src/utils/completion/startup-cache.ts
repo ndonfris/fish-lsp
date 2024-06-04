@@ -10,6 +10,7 @@ export class CompletionItemMap {
   constructor(
     private _items: ItemMapRecord = {} as ItemMapRecord,
   ) {}
+
   static async initialize(): Promise<CompletionItemMap> {
     const result: ItemMapRecord = {} as ItemMapRecord;
     const cmdOutputs: Map<FishCompletionItemKind, string[]> = new Map();

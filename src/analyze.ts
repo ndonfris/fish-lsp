@@ -59,10 +59,10 @@ export class Analyzer {
   }
 
   public async initiateBackgroundAnalysis(
-    callbackfn: (text: string) => void
+    callbackfn: (text: string) => void,
   ): Promise<{ filesParsed: number; }> {
     let amount = 0;
-    const max_files = config.fish_lsp_max_background_files
+    const max_files = config.fish_lsp_max_background_files;
 
     for (const workspace of this.workspaces) {
       const docs = workspace
@@ -70,8 +70,8 @@ export class Analyzer {
         .filter((doc: LspDocument) => doc.shouldAnalyzeInBackground());
 
       for (const doc of docs) {
-        if (amount >= max_files)  {
-          break; 
+        if (amount >= max_files) {
+          break;
         }
         try {
           this.analyze(doc);
@@ -80,11 +80,11 @@ export class Analyzer {
           console.error(err);
         }
       }
-      if (amount >= max_files)  {
-        break; 
-      }    
+      if (amount >= max_files) {
+        break;
+      }
     }
-    callbackfn(`[fish-lsp] analyzed ${amount} files`)
+    callbackfn(`[fish-lsp] analyzed ${amount} files`);
     return { filesParsed: amount };
   }
 

@@ -263,7 +263,7 @@ commandBin.command('env')
   .action(args => {
     if (args.show) {
       showJsonSchemaShellScript(args.comments);
-      process.exit(0)
+      process.exit(0);
     }
     generateJsonSchemaShellScript(args.comments);
   });

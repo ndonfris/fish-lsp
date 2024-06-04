@@ -30,16 +30,21 @@ export async function execEscapedCommand(cmd: string): Promise<string[]> {
 }
 
 export async function execCmd(cmd: string): Promise<string[]> {
-  const { stdout } = await execAsync(cmd, {
+  const { stdout, stderr } = await execAsync(cmd, {
+
     shell: 'fish',
-    encoding: 'buffer',
+
     // windowsHide: true,
     // cwd: process.cwd(),
     // gid: process.getegid(),
     // uid: process.getuid(),
     // env: process.env,
-    // stdio: ["pipe", "pipe", "ignore"],
   });
+
+  if (stderr) {
+    return [''];
+  }
+
   return stdout
     .toString()
     .trim()
