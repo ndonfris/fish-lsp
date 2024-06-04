@@ -9,7 +9,7 @@ export type SetupItem = {
 
 export const SetupItemsFromCommandConfig: SetupItem[] = [
   {
-    command: "abbr --show | string split ' -- ' -m1 -f2 | string unescape",
+    command: "[ (abbr --show | count) -eq 0 ] ||  abbr --show | string split ' -- ' -m1 -f2 | string unescape",
     detail: 'Abbreviation',
     fishKind: FishCompletionItemKind.ABBR,
     topLevel: true,
