@@ -1,4 +1,4 @@
-import { FishCompletionItem, FishCompletionItemKind } from './types';
+import { FishCompletionItemKind } from './types';
 
 export type SetupItem = {
   command: string;
@@ -33,11 +33,6 @@ export const SetupItemsFromCommandConfig: SetupItem[] = [
     topLevel: true,
   },
   {
-    //command: "path filter -fx $PATH/* | path basename",
-    //command: "bash -c 'compgen -c | sort -u | uniq'",
-    //command: "path filter -fx $PATH/* | path sort -u | path basename",
-    //command: "path sort --unique --key=basename $PATH/* | path basename",
-    //command: "path filter -fx $PATH/* | path sort -u | path basename",
     command: 'complete -C \'\'',
     detail: 'Command',
     fishKind: FishCompletionItemKind.COMMAND,

@@ -1,69 +1,135 @@
-import {  getRootNodesFromTexts, logCompareNodes, logDocSymbol, logFile, logNode, logSymbolInfo, logVerboseNode, printDebugSeperator, printTestName, resolveRelPath } from './helpers';
-import {Point, SyntaxNode, Tree} from 'web-tree-sitter';
-import {findEnclosingVariableScope, isSwitchStatement, isCaseClause, isCommand, isCommandName, isFunctionDefinition, isFunctionDefinitionName, isScope, isVariable, isVariableDefinition} from '../src/utils/node-types';
-import {findEnclosingScope, findFirstParent, getNodeAtRange, getRange, nodesGen} from '../src/utils/tree-sitter';
-import { Range, DocumentSymbol, Location } from 'vscode-languageserver'
-import {getChildNodes, positionToPoint} from '../src/utils/tree-sitter';
-import {initializeParser} from '../src/parser';
-import * as colors from 'colors'
-import {toSymbolKind} from '../src/symbols';
-import {containsRange, getReferences, getMostRecentReference} from '../src/workspace-symbol';
-import { collectCommandString, getHoverForFlag, } from '../src/hover'
-import { resolve } from 'path'
-import { FishFormattingDefaults } from '../src/configManager';
-import { applyFormatterSettings } from '../src/formatting';
-import {execFormatter} from '../src/utils/exec';
-//import
+import { formatDocumentContent } from '../src/formatting';
+import { setLogger } from './helpers'
 
-let SHOULD_LOG = true
-const jestConsole = console;
-jest.setTimeout(25000)
+setLogger()
 
-beforeEach(() => {
-    global.console = require('console');
-});
-afterEach(() => {
-    global.console = jestConsole;
-});
-
-
-
-const options = FishFormattingDefaults;
+/**
+  *  For logging a formatted output string, and using it as a snapshot later in a test 
+  *
+  *  outputs a string for the:
+  *     `expect(result).toBe([ HERE ].join('\n').trim())`
+  */
+function helperOutputFormattedString(input: string) {
+  const arr = input.split('\n');
+  arr.forEach((line: string, index: number) => {
+    if (index === 0) {
+      console.log(`[\'${line}\',`);
+    } else if (index === arr.length - 1) {
+      console.log(`\'${line}\'].join(\'\\n\')`);
+    } else if (index < arr.length - 1) {
+      console.log(`\'${line}\',`);
+    }
+  });
+}
 
 describe('formatting tests', () => {
-    it('formatting switch case', async () => {
-        const test_input_path = resolve(__dirname, 'fish_files/switch_case_test_1.fish');
-        const test_input = resolveRelPath('test-data', 'fish_files/switch_case_test_1.fish');
-        const parser = await initializeParser();
-        if (SHOULD_LOG) console.log(test_input_path);
-        const rootNodes = await getRootNodesFromTexts(test_input)
-        const rootNode = rootNodes[0]
-        if(SHOULD_LOG) console.log(rootNode.text)
-        let formattedText = await execFormatter(test_input_path)
-        if(SHOULD_LOG) console.log(formattedText)
-        const root = parser.parse(formattedText).rootNode
-        const result = applyFormatterSettings(root, options)
-        //const switches = getChildNodes(root).filter(n => isSwitchStatement(n))
-        //for (const scope of switches) {
-            //const range = getRange(scope)
-            //const startLine = range.start.line + 1
-            //const endLine = range.end.line - 1
-            //const lines = formattedText.split('\n')
-            //formattedText = [
-                //...lines.slice(0, startLine),
-                //...lines.slice(startLine, endLine).map(line => line.replace(/ {4}/, '')),
-                //...lines.slice(endLine)
-            //].join('\n')
-        //}
-        console.log(result)
 
+  it('formatting no change', async () => {
+    const input = 'set -gx PATH ~/.config/fish/';
+    const result = (await formatDocumentContent(input)).trim();
+    expect(result).toBe(input);
+  });
 
-        expect(true).toBe(true);
-    })
+  it('formatting function', async () => {
+    const input: string = [
+      'function a',
+      'if set -q _some_value',
+      'echo "_some_value is set: $_some_value"',
+      'end',
+      'end'
+    ].join('\n');
+    const result = await formatDocumentContent(input);
+    expect(result).toBe([
+      'function a',
+      '    if set -q _some_value',
+      '        echo "_some_value is set: $_some_value"',
+      '    end',
+      'end',
+      ''
+    ].join('\n'));
+  });
+
+  /**
+   * the formatter always formats to spaces of size 4
+   */
+  it('formatting if statement', async () => {
+    const input: string = [
+      'if test $status -eq 0',
+      ' echo yes',
+      'else if test $status -eq 1',
+      'echo no',
+      'else',
+      ' echo maybe',
+      'end'
+    ].join('\n').trim();
+    const result = (await formatDocumentContent(input)).trim();
+    expect(result).toBe([
+      '',
+      'if test $status -eq 0',
+      '    echo yes',
+      'else if test $status -eq 1',
+      '    echo no',
+      'else',
+      '    echo maybe',
+      'end'
+    ].join('\n').trim());
+  });
+
+  it('formatting switch case', async () => {
+    const input: string = [
+      'switch "$argv"',
+      "case 'y' 'Y' ''",
+      '  return 0',
+      "case 'n' 'N'",
+      ' return 1',
+      'case \'*\'',
+      '     return 2',
+      'end'
+    ].join('\n').trim();
+    const result = (await formatDocumentContent(input)).trim();
+    // helperOutputFormattedString(result)
+    expect(result).toBe([
+      'switch "$argv"',
+      '    case y Y \'\'',
+      '        return 0',
+      '    case n N',
+      '        return 1',
+      "    case '*'",
+      '        return 2',
+      'end'
+    ].join('\n').trim());
+  });
+
+  /**
+   * Does not add 'end' tokens
+   *           && 
+   * NO error when unbalanced 'end' tokens
+   */
+  it('for loop single line', async () => {
+    const input = 'for i in (seq 1 10); echo $i; ';
+    const result = (await formatDocumentContent(input)).trim();
+    expect(result).toBe([
+      'for i in (seq 1 10)',
+      'echo $i'
+    ].join('\n').trim());
+  });
+
+  /**
+   * formatter removes ';'
+   */
+   it('for loop multi line', async () => {
+    const input = [
+      'for i in (seq 1 10);',
+      'echo $i; ',
+      'end',
+    ].join('\n').trim();
+    const result = (await formatDocumentContent(input)).trim();
+    expect(result).toBe([
+      'for i in (seq 1 10)',
+      '    echo $i',
+      'end'
+    ].join('\n').trim());
+  })
 
 })
-
-
-
-
 

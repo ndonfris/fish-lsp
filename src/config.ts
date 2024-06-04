@@ -78,7 +78,7 @@ export const ConfigSchema = z.object({
   fish_lsp_max_background_files: z.number().default(500),
 
   /** show startup analysis notification */
-  fish_lsp_show_client_popups: z.boolean().default(true)
+  fish_lsp_show_client_popups: z.boolean().default(true),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -98,7 +98,7 @@ export function getConfigFromEnvironmentVariables(): {
     fish_lsp_modifiable_paths: process.env.fish_lsp_modifiable_paths?.split(' '),
     fish_lsp_diagnostic_disable_error_codes: process.env.fish_lsp_diagnostic_disable_error_codes?.split(' ').map(toNumber),
     fish_lsp_max_background_files: toNumber(process.env.fish_lsp_max_background_files),
-    fish_lsp_show_client_popups: toBoolean(process.env.fish_lsp_show_client_popups)
+    fish_lsp_show_client_popups: toBoolean(process.env.fish_lsp_show_client_popups),
   };
 
   const environmentVariablesUsed = Object.entries(rawConfig)
@@ -128,20 +128,20 @@ const toNumber = (s?: string): number | undefined =>
  * in fish-shell
  */
 export function generateJsonSchemaShellScript(showComments: boolean) {
-  const result: string[] = []
+  const result: string[] = [];
   Object.values(fishLspEnvVariables).forEach(entry => {
     const { name, description, valueType } = entry;
-    const line = !showComments 
+    const line = !showComments
       ? `set -gx ${name}\n`
       : [
         `# ${name} <${valueType.toUpperCase()}>`,
         formatDescription(description, 80),
         `set -gx ${name}`,
-        ''
-      ].join('\n')
-    result.push(line)
+        '',
+      ].join('\n');
+    result.push(line);
   });
-  const output = result.join('\n').trimEnd() 
+  const output = result.join('\n').trimEnd();
   console.log(output);
 }
 
@@ -157,11 +157,11 @@ export function showJsonSchemaShellScript(noComments: boolean) {
       return name === keyName;
     })!;
   };
-  const result: string[] = []
+  const result: string[] = [];
   for (const item of Object.entries(config)) {
     const [key, value] = item;
     const entry = findValue(key);
-    let line = !noComments 
+    let line = !noComments
       ? `set -gx ${key} `
       : [
         `# ${entry.name} <${entry.valueType.toUpperCase()}>`,
@@ -180,9 +180,9 @@ export function showJsonSchemaShellScript(noComments: boolean) {
       // Use a helper function to handle string escaping
       line += escapeValue(value) + '\n';
     }
-    result.push(line)
+    result.push(line);
   }
-  const output = result.join('\n').trimEnd()  
+  const output = result.join('\n').trimEnd();
   console.log(output);
 }
 

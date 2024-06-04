@@ -31,10 +31,8 @@ export async function execEscapedCommand(cmd: string): Promise<string[]> {
 
 export async function execCmd(cmd: string): Promise<string[]> {
   const { stdout, stderr } = await execAsync(cmd, {
-    
-    shell: 'fish',
 
-    
+    shell: 'fish',
 
     // windowsHide: true,
     // cwd: process.cwd(),
@@ -42,7 +40,7 @@ export async function execCmd(cmd: string): Promise<string[]> {
     // uid: process.getuid(),
     // env: process.env,
   });
-  
+
   if (stderr) {
     return [''];
   }

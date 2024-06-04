@@ -26,7 +26,7 @@
     "clean:all": "yarn exec rimraf out *.tsbuildinfo node_modules tree-sitter-fish.wasm",
     "fresh": "yarn run clean:all && yarn install && yarn run setup",
     "pretest-hook": "yarn clean:all && yarn install --ignore-scripts && yarn run sh:setup",
-    "test-hook": "yarn jest document.test.ts node-types.test.ts fish-syntax-node.test.ts exec.test.ts logger.test.ts parser.test.ts",
+    "test-hook": "yarn jest document.test.ts node-types.test.ts fish-syntax-node.test.ts exec.test.ts logger.test.ts parser.test.ts completion-startup-config.test.ts document.test.ts formatting.test.ts",
     "test": "jest",
     "compile": "yarn tsc -b",
     "watch": "yarn tsc -b -w",
@@ -42,6 +42,7 @@
   "husky": {
     "hooks": {
       "pre-commit": "yarn run clean",
+      "pre-push": "yarn lint",
       "post-merge": "yarn"
     }
   },
