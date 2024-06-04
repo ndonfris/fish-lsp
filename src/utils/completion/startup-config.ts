@@ -21,7 +21,7 @@ export const SetupItemsFromCommandConfig: SetupItem[] = [
     topLevel: true,
   },
   {
-    command: "alias | string collect | string unescape | string split ' ' -m1 -f2",
+    command: "[ (alias | count) -eq 0 ] || alias | string collect | string unescape | string split ' ' -m1 -f2",
     detail: 'Alias',
     fishKind: FishCompletionItemKind.ALIAS,
     topLevel: true,
