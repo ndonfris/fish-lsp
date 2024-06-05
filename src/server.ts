@@ -287,22 +287,21 @@ export default class FishServer {
 
     const file = params.arguments![0] as string || ''
     const line = params.arguments![1] as string || ''
+    // console.log({'last accessed: ': this.docs.files})
 
     if (!file || !line)  {
       this.logger.log({gotNull: 'gotNull', file, line})
       return null
     }
+
     const doc = this.docs.get(file)
 
     if (!doc) {
-
       this.logger.log({title: 'docs was null', doc})
-
-
       return []
     }
-    const text = doc.getLine(Number.parseInt(line))
-    this.logParams('onExecutCommand', text)
+    const text = doc.getLine(Number.parseInt(line)-1)
+    this.logParams('onExecuteCommand', text)
     execRequest(this.connection, text)
     return null
   }
