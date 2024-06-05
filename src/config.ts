@@ -264,7 +264,7 @@ export function adjustInitializeResultCapabilitiesFromConfig(configHandlers: z.i
       workspaceSymbolProvider: {
         resolveProvider: true,
       },
-      documentHighlightProvider: false,
+      documentHighlightProvider: configHandlers.highlight,
       inlayHintProvider: false, /*configHandlers.inlayHint,*/
       signatureHelpProvider: configHandlers.signature ? {workDoneProgress: false, triggerCharacters: ['.']} : undefined,
     },

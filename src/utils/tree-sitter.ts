@@ -606,3 +606,6 @@ export function getCommandArgumentValue(command: SyntaxNode, argName: string): S
 //
 //  return result
 //}
+export function getNodeAtPosition(tree: Tree, position: { line: number; character: number }): SyntaxNode | null {
+  return tree.rootNode.descendantForPosition({ row: position.line, column: position.character });
+}

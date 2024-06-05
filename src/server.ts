@@ -2,13 +2,13 @@ import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from './parser';
 import { Analyzer } from './analyze';
 //import {  generateCompletionList, } from "./completion";
-import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, MessageType, NotificationType } from 'vscode-languageserver';
+import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, MessageType, NotificationType, DocumentHighlight, DocumentHighlightParams } from 'vscode-languageserver';
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
 import { formatDocumentContent } from './formatting';
 import { Logger, ServerLogsPath } from './logger';
 import { uriToPath } from './utils/translation';
-import { findFirstParent, getChildNodes, getRange } from './utils/tree-sitter';
+import { findFirstParent, getChildNodes, getNodeAtPosition, getRange } from './utils/tree-sitter';
 import { handleHover } from './hover';
 import { /*getDiagnostics*/ } from './diagnostics/validate';
 import { CodeActionKind } from './code-action';
@@ -35,6 +35,7 @@ import { adjustInitializeResultCapabilitiesFromConfig, configHandlers } from './
 import { enrichToMarkdown } from './documentation';
 import { getAliasedCompletionItemSignature, lineSignatureBuilder } from './signature';
 import { CompletionItemMap } from './utils/completion/startup-cache';
+import { getDocumentHighlights } from './document-highlight';
 
 // @TODO
 export type SupportedFeatures = {
@@ -117,6 +118,7 @@ export default class FishServer {
     connection.onCodeAction(this.onCodeAction.bind(this));
     connection.onFoldingRanges(this.onFoldingRanges.bind(this));
     //this.connection.workspace.applyEdit()
+    connection.onDocumentHighlight(this.onDocumentHighlight.bind(this));
     connection.languages.inlayHint.on(this.onInlayHints.bind(this));
     connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
     connection.console.log('FINISHED FishLsp.register()');
@@ -275,6 +277,24 @@ export default class FishServer {
       !!documentSymbol &&
         !!documentSymbol.hierarchicalDocumentSymbolSupport
     );
+  }
+
+  /**
+   * highlight provider
+   */
+  onDocumentHighlight(params: DocumentHighlightParams):  DocumentHighlight[] {
+    this.logParams('onDocumentHighlight', params)
+    const { doc } = this.getDefaults(params)
+    if (!doc) return []
+
+    const text = doc.getText();
+    const tree = this.parser.parse(text);
+    const node = getNodeAtPosition(tree, params.position);
+    if (!node) return []
+
+    const highlights = getDocumentHighlights(tree, node);
+
+    return highlights
   }
 
   async onWorkspaceSymbol(params: WorkspaceSymbolParams): Promise<WorkspaceSymbol[]> {
