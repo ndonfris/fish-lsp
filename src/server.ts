@@ -2,12 +2,13 @@ import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from './parser';
 import { Analyzer } from './analyze';
 //import {  generateCompletionList, } from "./completion";
-import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, MessageType, NotificationType, DocumentHighlight, DocumentHighlightParams } from 'vscode-languageserver';
+import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, MessageType, NotificationType, DocumentHighlight, DocumentHighlightParams, ExecuteCommandParams } from 'vscode-languageserver';
+import {execRequest} from './executeHandler'
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
 import { formatDocumentContent } from './formatting';
 import { Logger, ServerLogsPath } from './logger';
-import { uriToPath } from './utils/translation';
+import { pathToUri, uriToPath } from './utils/translation';
 import { findFirstParent, getChildNodes, getNodeAtPosition, getRange } from './utils/tree-sitter';
 import { handleHover } from './hover';
 import { /*getDiagnostics*/ } from './diagnostics/validate';
@@ -36,6 +37,7 @@ import { enrichToMarkdown } from './documentation';
 import { getAliasedCompletionItemSignature, lineSignatureBuilder } from './signature';
 import { CompletionItemMap } from './utils/completion/startup-cache';
 import { getDocumentHighlights } from './document-highlight';
+import { pathToFileURL } from 'url';
 
 // @TODO
 export type SupportedFeatures = {
@@ -121,6 +123,7 @@ export default class FishServer {
     connection.onDocumentHighlight(this.onDocumentHighlight.bind(this));
     connection.languages.inlayHint.on(this.onInlayHints.bind(this));
     connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
+    connection.onExecuteCommand(this.onExecuteCommand.bind(this));
     connection.console.log('FINISHED FishLsp.register()');
   }
 
@@ -277,6 +280,31 @@ export default class FishServer {
       !!documentSymbol &&
         !!documentSymbol.hierarchicalDocumentSymbolSupport
     );
+  }
+
+  public onExecuteCommand(params: ExecuteCommandParams) {
+    this.logParams('onExecuteCommand', params);
+
+    const file = params.arguments![0] as string || ''
+    const line = params.arguments![1] as string || ''
+
+    if (!file || !line)  {
+      this.logger.log({gotNull: 'gotNull', file, line})
+      return null
+    }
+    const doc = this.docs.get(file)
+
+    if (!doc) {
+
+      this.logger.log({title: 'docs was null', doc})
+
+
+      return []
+    }
+    const text = doc.getLine(Number.parseInt(line))
+    this.logParams('onExecutCommand', text)
+    execRequest(this.connection, text)
+    return null
   }
 
   /**

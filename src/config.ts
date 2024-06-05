@@ -255,7 +255,7 @@ export function adjustInitializeResultCapabilitiesFromConfig(configHandlers: z.i
         resolveProvider: true,
       } : undefined,
       executeCommandProvider: configHandlers.executeCommand ? {
-        commands: ['APPLY_REFACTORING', 'SELECT_REFACTORING', 'APPLY_WORKSPACE_EDIT', 'RENAME', 'onHover', 'rename'],
+        commands: ['APPLY_REFACTORING', 'SELECT_REFACTORING', 'APPLY_WORKSPACE_EDIT', 'RENAME', 'onHover', 'rename', 'fish-lsp.executeLine'],
         workDoneProgress: true,
       } : undefined,
       documentSymbolProvider: {

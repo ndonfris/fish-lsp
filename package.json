@@ -46,6 +46,14 @@
       "post-merge": "yarn"
     }
   },
+  "contributes": {
+    "commands": [
+      {
+        "command": "fish-lsp.executeLine",
+        "title": "execute the line under the cursor"
+      }
+    ]
+  },
   "dependencies": {
     "@esdmr/tree-sitter-fish": "^3.5.1",
     "colors": "^1.4.0",
