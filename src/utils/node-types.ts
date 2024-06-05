@@ -732,3 +732,22 @@ export function isInlineComment(node: SyntaxNode) {
   if (!previousSibling) return false;
   return previousSibling?.startPosition.row === node.startPosition.row && previousSibling?.type !== 'comment'
 }
+
+// TODO: either move use or remove
+// /**
+//  * checks for SyntaxNode.text === '-f1' | '--fields=1' 
+//  * but not    SyntaxNode.text !== '-1'  | '-m1f1' | '--fields-1'
+//  */
+// export function isOptionWithValue(node: SyntaxNode) {
+//   if (!isOption(node)) return false
+//   // must be option
+//
+//   if (isShortOption(node)) {
+//     const lastChar = node.text.charAt(2) || ''
+//     return Number.isInteger(Number.parseInt(lastChar));
+//   } else if (isLongOption(node)) {
+//     return node.text.includes('=')
+//   }
+//   return false
+// }
+//

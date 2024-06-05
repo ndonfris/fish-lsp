@@ -1,6 +1,6 @@
 import Parser, { Tree, SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from '../src/parser';
-import { findFirstSibling, getChildNodes } from '../src/utils/tree-sitter';
+import { findFirstSibling, getChildNodes, getCommandArgumentValue } from '../src/utils/tree-sitter';
 import * as NodeTypes from '../src/utils/node-types'
 import * as VarTypes from '../src/utils/variable-syntax-nodes'
 // import { assert } from 'chai';
@@ -710,6 +710,9 @@ describe("node-types tests", () => {
     expect(parseStringForNodeType(input, NodeTypes.isVariable).length).toBe(6) 
   })
 
+  /**
+   * Diagnostic for string expansion inside quotes
+   */
   it('[WARN] string check variables in quotes', () => {
     const strNodes = parseStringForNodeType([
       'set -l bad \'$argv\'',
@@ -725,4 +728,45 @@ describe("node-types tests", () => {
     // }
     expect(warnNodes.length).toEqual(1)
   });
+
+
+  it('check if $argv isFlagValue `test -z "$argv"`', () => {
+
+    const optValues = parseStringForNodeType([
+      'test -z "$argv"',
+      // 'string split --field 2 "\\n" "h\\ni"',
+      "abbr -a -g gsc --set-cursor=% 'git stash create \'%\''",
+      `string split -f2 ' ' 'h  i'`,
+    ].join('\n'), NodeTypes.isOption)
+
+    const valueMatch = (parent: SyntaxNode, node: SyntaxNode) => {
+      switch (parent.text) {
+        case 'test':
+          return NodeTypes.isMatchingOption(node, {shortOption: '-z'})
+        case 'string':
+          return NodeTypes.isMatchingOption(node, {shortOption: '-f', longOption: '--field'})
+        case 'abbr':
+          return NodeTypes.isMatchingOption(node, {longOption: '--set-cursor'})
+        default:
+          return null
+      }
+    }
+
+    optValues.forEach(o => {
+      // console.log(o.text);
+      const parentCmd = NodeTypes.findParentCommand(o)?.firstNamedChild
+      if (!parentCmd) {
+         console.log('ERRROR:', o.text)
+         return
+      } 
+      const result = valueMatch(parentCmd, o)!
+      // console.log({result});
+      
+      /** continiue testing getArgumentValue(parent, argName) 
+        *                                             ^- refactor to `shortOption | longOption | oldOption`
+        */
+      console.log(parentCmd.text, o.text, result);
+    })
+
+  })
 })

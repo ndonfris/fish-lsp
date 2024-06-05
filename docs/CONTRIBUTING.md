@@ -8,7 +8,6 @@ _friendly_ as possible.
 
 _Thanks for the interest in contributing to the project_ :pray:
 
-
 ---
 
 __There are many ways to contribute to the project:__
@@ -42,7 +41,7 @@ you can then begin [testing locally](#helpful-workflows) :memo:.
 
 ## Helpful Workflows :hourglass:
 
-### Test Driven Development Workflow :hatched_chick:
+### Test Driven Development Workflow :hatching_chick:
 
 Since __stdin/stdout__ are reserved for the protocol to communicate, a generally
 successful method to achieve quick results, is through [TDD (Test Driven
@@ -84,7 +83,7 @@ other more specific tasks.
     - Once you have a feature's hard coded input & outputs working as
     expected, you can begin trying to impalement it as an actual `server.handler`
     - You can try adding logging to your feature's specific `handlerParams`, to get an exact
-      example of it's shape. (_This is the premise outlined via:_ [integration testing workflow](#integration-testing-workflow))
+      example of it's shape. (_This is the premise outlined via:_ [integration testing workflow](#integration-testing-workflow-explodinghead))
 
       > ```fish
       > # display the logs
@@ -195,7 +194,7 @@ Prefetching relevant information and [caching](https://en.wikipedia.org/wiki/Cac
 ### Other Noteworthy Tooling :hammer_and_wrench:
 
 Becoming familiar with using the `src/utils/{tree-sitter,node-types}.ts` code, is significantly easier while
-using the previously mentioned [TDD Workflow](#test-driven-development-workflow). 
+using the previously mentioned [TDD Workflow](#test-driven-development-workflow-hatchingchick). 
 
 Using an equivalent tree-sitter visualization command to neovim's command, `:InspectEdit` is also 
 highly recommended. If you are unsure what this command does, it essentially allows you to visualize
