@@ -20,7 +20,7 @@ interface BaseJson {
 type JsonType = 'command' | 'pipe' | 'status' | 'variable';
 type SpecialType = 'fishlsp' | 'env' | 'locale' | 'special' | 'theme';
 
-interface ExtendedBaseJson extends BaseJson {
+export interface ExtendedBaseJson extends BaseJson {
   type: JsonType;
   specialType: SpecialType | undefined;
   // otherTypes: string[]; //TODO

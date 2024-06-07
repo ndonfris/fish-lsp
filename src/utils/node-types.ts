@@ -221,8 +221,46 @@ export function isLongOption(node: SyntaxNode): boolean {
 export function isShortOption(node: SyntaxNode): boolean {
   return node.text.startsWith('-') && !isLongOption(node);
 }
+
 export function isOption(node: SyntaxNode): boolean {
   return isShortOption(node) || isLongOption(node);
+}
+
+/** careful not to call this on old unix style flags/options */
+export function isJoinedShortOption(node: SyntaxNode) {
+  if (isLongOption(node)) return false
+  return isShortOption(node) && node.text.slice(1).length > 1
+}
+
+/** careful not to call this on old unix style flags/options */
+export function hasShortOptionCharacter(node: SyntaxNode, findChar: string) {
+  if (isLongOption(node)) return false
+  return isShortOption(node) && node.text.slice(1).includes(findChar)
+}
+
+export type NodeOptionQueryText = {
+  shortOption?: `-${string}`
+  oldUnixOption?: `-${string}`,
+  longOption?: `--${string}`
+}
+
+/**
+ * @param node - the node to check
+ * @param optionQuery - object of node strings to match
+ * @returns boolean result corresponding to query 
+ */
+export function isMatchingOption(node: SyntaxNode, optionQuery: NodeOptionQueryText) : boolean {
+  if (!isOption(node)) return false
+
+  const nodeText = node.text.includes('=') ? node.text.slice(0, node.text.indexOf('=')) : node.text
+
+  if (isLongOption(node) && optionQuery?.longOption === nodeText) return true
+
+  if (isShortOption(node) && optionQuery?.oldUnixOption === nodeText) return true
+
+  if (!optionQuery.shortOption) return false
+  return isShortOption(node) && hasShortOptionCharacter(node, optionQuery.shortOption.slice(1))
+
 }
 
 export function isPipe(node: SyntaxNode): boolean {
@@ -687,3 +725,29 @@ export function isPartialForLoop(node: SyntaxNode) {
         !errorNode.text.includes(' in ')
   );
 }
+
+export function isInlineComment(node: SyntaxNode) {
+  if (!isComment(node)) return false;
+  const previousSibling: SyntaxNode | undefined | null = node.previousNamedSibling
+  if (!previousSibling) return false;
+  return previousSibling?.startPosition.row === node.startPosition.row && previousSibling?.type !== 'comment'
+}
+
+// TODO: either move use or remove
+// /**
+//  * checks for SyntaxNode.text === '-f1' | '--fields=1' 
+//  * but not    SyntaxNode.text !== '-1'  | '-m1f1' | '--fields-1'
+//  */
+// export function isOptionWithValue(node: SyntaxNode) {
+//   if (!isOption(node)) return false
+//   // must be option
+//
+//   if (isShortOption(node)) {
+//     const lastChar = node.text.charAt(2) || ''
+//     return Number.isInteger(Number.parseInt(lastChar));
+//   } else if (isLongOption(node)) {
+//     return node.text.includes('=')
+//   }
+//   return false
+// }
+//

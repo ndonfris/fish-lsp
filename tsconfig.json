@@ -12,7 +12,6 @@
       "@package": ["./package.json"],
       // "@snippets/*": ["./snippets/*"],
       // "@src/*": ["./src/*"],
-      "@utils/*": ["./src/utils/*"]
     }
   },
   "include": [

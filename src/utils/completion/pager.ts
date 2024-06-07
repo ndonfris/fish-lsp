@@ -140,13 +140,9 @@ export class CompletionPager {
   }
 }
 
-export async function initializeCompletionPager(logger: Logger) {
-  return await Promise.all([
-    InlineParser.create(),
-    CompletionItemMap.initialize(),
-  ]).then(([inline, items]) => {
-    return new CompletionPager(inline, items, logger);
-  });
+export async function initializeCompletionPager(logger: Logger, items: CompletionItemMap) {
+  const inline = await InlineParser.create()
+  return new CompletionPager(inline, items, logger);
 }
 
 function addFirstIndexedItems(command: string, items: CompletionItemMap) {

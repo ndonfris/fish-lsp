@@ -3,7 +3,7 @@ import * as LSP from 'vscode-languageserver';
 import * as TreeSitter from 'web-tree-sitter';
 import { SyntaxNode } from 'web-tree-sitter';
 import { URI } from 'vscode-uri';
-import { findParentVariableDefintionKeyword, isCommand, isCommandName, isComment, isFunctionDefinition, isFunctionDefinitionName, isProgram, isScope, isStatement, isString, isVariableDefinition } from './node-types';
+import { findParentVariableDefintionKeyword, isCommand, isCommandName, isComment, isFunctionDefinition, isFunctionDefinitionName, isProgram, isScope, isStatement, isString, isVariable, isVariableDefinition } from './node-types';
 import { LspDocument, LspDocuments } from '../document';
 import { FishProtocol } from './fishProtocol';
 import { getPrecedingComments, getRange, getRangeWithPrecedingComments } from './tree-sitter';
@@ -210,7 +210,7 @@ export function toLspDocument(filename: string, content: string): LspDocument {
 }
 
 export function toSymbolKind(node: SyntaxNode): SymbolKind {
-  if (isVariableDefinition(node)) {
+  if (isVariable(node)) {
     return SymbolKind.Variable;
   } else if (isFunctionDefinitionName(node)) { // change from isFunctionDefinition(node)
     return SymbolKind.Function;
@@ -244,4 +244,23 @@ export function symbolKindToString(kind: SymbolKind) {
     default:
       return 'other';
   }
+}
+
+
+/**
+ * @param node - SyntaxNode toSymbolKind/symbolKindToString wrapper for both 
+ *               `string` and `number` type
+ * @returns { 
+ *    kindType: toSymbolKind(node)  ->  13 | 12 | 15 | 3 | 5 | 21
+ *    kindString: symbolKindToString(kindType) -> number
+ *  }
+ */
+export function symbolKindsFromNode(node: SyntaxNode) {
+  const kindType = toSymbolKind(node);
+  const kindString = symbolKindToString(kindType)
+  return {
+    kindType, 
+    kindString
+  }
+
 }

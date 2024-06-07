@@ -40,14 +40,14 @@ Introducing the [fish-lsp](https://fish-lsp.dev), a [Language Server Protocol (L
 | --- | --- | --- |
 | __Completion__ | Provides completions for commands, variables, and functions | ✅ |
 | __Hover__ | Shows documentation for commands, variables, and functions. Has special handlers for `--flag`, `commands`, `functions`, `variables` | ✅ |
-| __Signature Help__ | Shows the signature of a command or function | ✖  |
+| __Signature Help__ | Shows the signature of a command or function | ✅  |
 | __Goto Definition__ | Jumps to the definition of a command, variable, or function | ✅ |
 | __Find References__ | Shows all references to a command, variable, or function | ✅ |
 | __Rename__ | Rename within _matching_ __global__ && __local__ scope | ✅ |
 | __Document Symbols__ | Shows all commands, variables, and functions in a document | ✅ |
 | __Workspace Symbols__ | Shows all commands, variables, and functions in a workspace | ✅ |
 | __Document Formatting__ | Formats a document, _full_ & _selection_ | ✅ |
-| __Document Highlight__ / __Semantic Token__ | Highlights all references to a command, variable, or function.  | ✖  |
+| __Document Highlight__ / __Semantic Token__ | Highlights all references to a command, variable, or function.  | ✅  |
 | __Command Execution__ | Executes a server command from the client | ✖  |
 | __Code Action__ | Shows all available code actions | ✖  |
 | __Code Lens__ | Shows all available code lenses | ✖  |

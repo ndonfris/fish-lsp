@@ -255,7 +255,7 @@ export function adjustInitializeResultCapabilitiesFromConfig(configHandlers: z.i
         resolveProvider: true,
       } : undefined,
       executeCommandProvider: configHandlers.executeCommand ? {
-        commands: ['APPLY_REFACTORING', 'SELECT_REFACTORING', 'APPLY_WORKSPACE_EDIT', 'RENAME', 'onHover', 'rename'],
+        commands: ['APPLY_REFACTORING', 'SELECT_REFACTORING', 'APPLY_WORKSPACE_EDIT', 'RENAME', 'onHover', 'rename', 'fish-lsp.executeLine'],
         workDoneProgress: true,
       } : undefined,
       documentSymbolProvider: {
@@ -264,12 +264,9 @@ export function adjustInitializeResultCapabilitiesFromConfig(configHandlers: z.i
       workspaceSymbolProvider: {
         resolveProvider: true,
       },
-      documentHighlightProvider: false,
+      documentHighlightProvider: configHandlers.highlight,
       inlayHintProvider: false, /*configHandlers.inlayHint,*/
-      signatureHelpProvider: configHandlers.signature ? {
-        retriggerCharacters: ['.'],
-        triggerCharacters: ['.', ' '],
-      } : undefined,
+      signatureHelpProvider: configHandlers.signature ? {workDoneProgress: false, triggerCharacters: ['.']} : undefined,
     },
 
   };

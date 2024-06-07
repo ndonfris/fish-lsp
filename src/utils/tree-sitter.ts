@@ -3,9 +3,9 @@ import { extname, join } from 'path';
 //import { pathToFileURL, URL } from 'url'
 import { Position, Range, URI } from 'vscode-languageserver';
 import { Point, SyntaxNode, Tree } from 'web-tree-sitter';
-import { pathToFileURL } from 'url'; // typescript-langauge-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts
-import vscodeUri from 'vscode-uri'; // typescript-langauge-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts
-import { existsSync } from 'fs-extra';
+// import { pathToFileURL } from 'url'; // typescript-langauge-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts
+// import vscodeUri from 'vscode-uri'; // typescript-langauge-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts
+// import { existsSync } from 'fs-extra';
 import { findSetDefinedVariable, findParentCommand, isFunctionDefinition, isVariableDefinition, isFunctionDefinitionName, isVariable, isScope, isProgram, isCommandName, isForLoop, findForLoopVariable } from './node-types';
 
 /**
@@ -106,7 +106,7 @@ export function findFirstParent(node: SyntaxNode, predicate: (node: SyntaxNode) 
  */
 export function getSiblingNodes(
   node: SyntaxNode,
-  predicate : (n: SyntaxNode) => true,
+  predicate : (n: SyntaxNode) => boolean,
   direction: 'before' | 'after' = 'before',
 ): SyntaxNode[] {
   const siblingFunc = (n: SyntaxNode) =>
@@ -151,7 +151,7 @@ export function findFirstSibling(
     direction === 'before' ? n.previousSibling : n.nextSibling;
   let current: SyntaxNode | null = node;
   while (current) {
-    console.log('curr: ', current.text);
+    // console.log('curr: ', current.text);
     current = siblingFunc(current);
     if (current && predicate(current)) {
       return current;
@@ -606,3 +606,6 @@ export function getCommandArgumentValue(command: SyntaxNode, argName: string): S
 //
 //  return result
 //}
+export function getNodeAtPosition(tree: Tree, position: { line: number; character: number }): SyntaxNode | null {
+  return tree.rootNode.descendantForPosition({ row: position.line, column: position.character });
+}
