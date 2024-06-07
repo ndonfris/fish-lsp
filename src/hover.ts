@@ -6,8 +6,10 @@ import { LspDocument } from './document';
 import { documentationHoverProvider, enrichCommandWithFlags } from './documentation';
 import { DocumentationCache } from './utils/documentationCache';
 import { execCommandDocs, execCompletions, execSubCommandCompletions } from './utils/exec';
-import { isCommand } from './utils/node-types';
+import { isCommand, isFunctionDefinition, isOption } from './utils/node-types';
 import { findFirstParent } from './utils/tree-sitter';
+import { symbolKindToString, symbolKindsFromNode, toSymbolKind } from './utils/translation';
+import { Logger } from './logger';
 
 export async function handleHover(
   analyzer: Analyzer,
@@ -15,8 +17,9 @@ export async function handleHover(
   position: LSP.Position,
   current: Parser.SyntaxNode,
   cache: DocumentationCache,
+  logger: Logger,
 ): Promise<LSP.Hover | null> {
-  if (current.text.startsWith('-')) {
+  if (isOption(current)) {
     return await getHoverForFlag(current);
   }
   const local = analyzer.getDefinition(document, position);
@@ -29,10 +32,16 @@ export async function handleHover(
       range: local.selectionRange,
     };
   }
+  let { kindType, kindString } = symbolKindsFromNode(current)
+  const symbolType =  ['function', 'class', 'variable'].includes(kindString) ? kindType : undefined
+  logger.log({file: '[./src/hover.ts:37]', currentSymbolKind: kindType})
+
   if (cache.find(current.text) !== undefined) {
-    await cache.resolve(current.text);
-    const item = cache.getItem(current.text);
-    if (item?.docs) {
+    await cache.resolve(current.text, document.uri, symbolType);
+    const item = !!symbolType ? cache.find(current.text, symbolType) : cache.getItem(current.text);
+    logger.logAsJson('[./src/hover.ts:42]')
+    
+    if (item && item?.docs) {
       return {
         contents: {
           kind: MarkupKind.Markdown,
@@ -42,11 +51,14 @@ export async function handleHover(
     }
   }
   const commandString = await collectCommandString(current);
-  return await documentationHoverProvider(commandString);
+
+  const result = await documentationHoverProvider(commandString);
+  logger.log({commandString, result})
+  return result
 }
 
 export async function getHoverForFlag(current: Parser.SyntaxNode): Promise<Hover | null> {
-  const commandNode = findFirstParent(current, n => isCommand(n));
+  const commandNode = findFirstParent(current, n => isCommand(n) || isFunctionDefinition(n));
   if (!commandNode) {
     return null;
   }

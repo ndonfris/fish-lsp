@@ -8,7 +8,7 @@ import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
 import { formatDocumentContent } from './formatting';
 import { Logger, ServerLogsPath } from './logger';
-import { pathToUri, uriToPath } from './utils/translation';
+import { pathToUri, symbolKindToString, toSymbolKind, uriToPath } from './utils/translation';
 import { findFirstParent, getChildNodes, getNodeAtPosition, getRange } from './utils/tree-sitter';
 import { handleHover } from './hover';
 import { /*getDiagnostics*/ } from './diagnostics/validate';
@@ -31,7 +31,7 @@ import { getDocumentationResolver } from './utils/completion/documentation';
 import { FishCompletionList } from './utils/completion/list';
 import { config } from './cli';
 import { PrebuiltDocumentationMap, getPrebuiltDocUrl, getPrebuiltDocUrlByName } from './utils/snippets';
-import { findParentCommand, isCommand, isVariableDefinition, isVariableDefinitionCommand } from './utils/node-types';
+import { findParentCommand, isCommand, isCommandName, isVariableDefinition, isVariableDefinitionCommand } from './utils/node-types';
 import { adjustInitializeResultCapabilitiesFromConfig, configHandlers } from './config';
 import { enrichToMarkdown } from './documentation';
 import { getAliasedCompletionItemSignature, lineSignatureBuilder } from './signature';
@@ -349,9 +349,7 @@ export default class FishServer {
     return getRefrenceLocations(this.analyzer, doc, params.position);
   }
 
-  // opens package.json on hover of document symbol!
-  //
-  // NEED TO REMOVE documentationCache. It works but is too expensive memory wise.
+  // Probably should move away from `documentationCache`. It works but is too expensive memory wise.
   // REFACTOR into a procedure that conditionally determines output type needed.
   // Also plan to get rid of any other cache's, so that the garbage collector can do its job.
   async onHover(params: HoverParams): Promise<Hover | null> {
@@ -360,7 +358,10 @@ export default class FishServer {
     if (!doc || !uri || !root || !current) {
       return null;
     }
-    // this.logger.log({ current: current.text });
+
+
+    let currentSymbolKind: string =  symbolKindToString(toSymbolKind(current))
+    this.logger.log({ currentText: current.text, currentType: current.type, symbolKind: currentSymbolKind });
 
     const prebuiltSkipType = [
       ...PrebuiltDocumentationMap.getByType('pipe'),
@@ -381,12 +382,19 @@ export default class FishServer {
         ].join('\n')),
       };
     }
+    // const symbolKind: string | undefined = ['function', 'builtin', 'variable'].includes(toSymbolKind(current)) ? toSymbolKind(current).toString() : undefined
+    
+    const symbolType =  ['function', 'class', 'variable'].includes(currentSymbolKind) ? toSymbolKind(current) : undefined
+    this.logger.log({current: current.text, symbolType: currentSymbolKind});
+
     const globalItem = await this.documentationCache.resolve(
       current.text.trim(),
       uri,
+      symbolType
     );
-    this.logger.logAsJson('docCache found ' + globalItem?.resolved.toString() || `docCache not found ${current.text}`);
+    this.logger.log({message: '[./src/server.ts:395]'+ 'docCache found ' + globalItem?.resolved.toString() || `docCache not found ${current.text}`, docs: globalItem.docs});
     if (globalItem && globalItem.docs) {
+      this.logger.log(globalItem.docs)
       return {
         contents: {
           kind: MarkupKind.Markdown,
@@ -394,13 +402,16 @@ export default class FishServer {
         },
       };
     }
-    return await handleHover(
+    const fallbackHover = await handleHover(
       this.analyzer,
       doc,
       params.position,
       current,
       this.documentationCache,
+      this.logger,
     );
+    this.logger.log(fallbackHover?.contents);
+    return fallbackHover
   }
 
   // workspace.fileOperations.didRename
