@@ -56,12 +56,27 @@ functions that can determine what __type__ of `SyntaxNode` is passed into it).
 The only requirement is that you will for new additions to these files, is that
 you include proper tests in their corresponding [test-data/{node-types,tree-sitter}.test.ts](https://github.com/ndonfris/fish-lsp/blob/master/test-data/))
 
+
+<details>
+<summary> Sceenshot </summary>
+
+![](https://github.com/ndonfris/fish-lsp/blob/d797189991cb55259d28aa43ff15b547fb454835/unit-testing.png?raw=true)
+
+</details>
+
 ### Integration Testing Workflow :exploding_head:
 
 Test directly in the [client](https://github.com/ndonfris/fish-lsp-language-clients) of your choosing. _This is a more difficult to setup_,
 but could be helpful if you are testing specific behaviors like the interacting
 with [fish-lsp's environment variables](https://github.com/ndonfris/fish-lsp/?tab=readme-ov-file#environment-variables), [configuration options](https://github.com/ndonfris/fish-lsp/?tab=readme-ov-file#command-flags), handler testing or
 other more specific tasks.
+
+<details>
+<summary> Screenshot </summary>
+
+![](https://github.com/ndonfris/fish-lsp/blob/d797189991cb55259d28aa43ff15b547fb454835/integration-testing.png?raw=true)
+
+</details>
 
 ### How to Build using these Workflows :building_construction:
 
@@ -99,6 +114,7 @@ other more specific tasks.
     instead of trying to build entire feature's independently. (_i.e._, if your
     `CodeAction's` only support a singular `CodeActionType`)
     - Submit your [PR](https://github.com/ndonfris/fish-lsp/pulls) :champagne:
+
 
 <!---
 - watch compilation on changes

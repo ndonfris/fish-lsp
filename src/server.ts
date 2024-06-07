@@ -8,7 +8,7 @@ import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
 import { formatDocumentContent } from './formatting';
 import { Logger, ServerLogsPath } from './logger';
-import { pathToUri, symbolKindToString, toSymbolKind, uriToPath } from './utils/translation';
+import { pathToUri, symbolKindToString, symbolKindsFromNode, toSymbolKind, uriToPath } from './utils/translation';
 import { findFirstParent, getChildNodes, getNodeAtPosition, getRange } from './utils/tree-sitter';
 import { handleHover } from './hover';
 import { /*getDiagnostics*/ } from './diagnostics/validate';
@@ -360,8 +360,8 @@ export default class FishServer {
     }
 
 
-    let currentSymbolKind: string =  symbolKindToString(toSymbolKind(current))
-    this.logger.log({ currentText: current.text, currentType: current.type, symbolKind: currentSymbolKind });
+    let { kindType, kindString } =  symbolKindsFromNode(current)
+    this.logger.log({ currentText: current.text, currentType: current.type, symbolKind: kindString });
 
     const prebuiltSkipType = [
       ...PrebuiltDocumentationMap.getByType('pipe'),
@@ -382,17 +382,19 @@ export default class FishServer {
         ].join('\n')),
       };
     }
-    // const symbolKind: string | undefined = ['function', 'builtin', 'variable'].includes(toSymbolKind(current)) ? toSymbolKind(current).toString() : undefined
-    
-    const symbolType =  ['function', 'class', 'variable'].includes(currentSymbolKind) ? toSymbolKind(current) : undefined
-    this.logger.log({current: current.text, symbolType: currentSymbolKind});
+    const symbolType =  [
+      'function',
+      'class',
+      'variable',
+    ].includes(kindString) ? kindType : undefined
 
     const globalItem = await this.documentationCache.resolve(
       current.text.trim(),
       uri,
       symbolType
     );
-    this.logger.log({message: '[./src/server.ts:395]'+ 'docCache found ' + globalItem?.resolved.toString() || `docCache not found ${current.text}`, docs: globalItem.docs});
+
+    this.logger.log({'./src/server.ts:395': `this.documentationCache.resolve() found ${!!globalItem}` , docs: globalItem.docs});
     if (globalItem && globalItem.docs) {
       this.logger.log(globalItem.docs)
       return {
@@ -408,7 +410,7 @@ export default class FishServer {
       params.position,
       current,
       this.documentationCache,
-      this.logger,
+      // this.logger,
     );
     this.logger.log(fallbackHover?.contents);
     return fallbackHover

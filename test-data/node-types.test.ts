@@ -765,7 +765,7 @@ describe("node-types tests", () => {
       /** continiue testing getArgumentValue(parent, argName) 
         *                                             ^- refactor to `shortOption | longOption | oldOption`
         */
-      console.log(parentCmd.text, o.text, result);
+      // console.log(parentCmd.text, o.text, result);
     })
 
   })

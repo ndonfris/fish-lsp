@@ -17,7 +17,7 @@ export async function handleHover(
   position: LSP.Position,
   current: Parser.SyntaxNode,
   cache: DocumentationCache,
-  logger: Logger,
+  logger?: Logger,
 ): Promise<LSP.Hover | null> {
   if (isOption(current)) {
     return await getHoverForFlag(current);
@@ -34,12 +34,12 @@ export async function handleHover(
   }
   let { kindType, kindString } = symbolKindsFromNode(current)
   const symbolType =  ['function', 'class', 'variable'].includes(kindString) ? kindType : undefined
-  logger.log({file: '[./src/hover.ts:37]', currentSymbolKind: kindType})
+  logger?.log({'./src/hover.ts:37': kindType})
 
   if (cache.find(current.text) !== undefined) {
     await cache.resolve(current.text, document.uri, symbolType);
     const item = !!symbolType ? cache.find(current.text, symbolType) : cache.getItem(current.text);
-    logger.logAsJson('[./src/hover.ts:42]')
+    logger?.logAsJson('call: [./src/hover.ts:42]')
     
     if (item && item?.docs) {
       return {
@@ -53,7 +53,7 @@ export async function handleHover(
   const commandString = await collectCommandString(current);
 
   const result = await documentationHoverProvider(commandString);
-  logger.log({commandString, result})
+  logger?.log({commandString, result})
   return result
 }
 
