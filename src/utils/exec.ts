@@ -51,6 +51,18 @@ export async function execCmd(cmd: string): Promise<string[]> {
     .split('\n');
 }
 
+/**
+ * Wrapper for `execAsync()` a.k.a, `promisify(exec)`
+ * Executes the `cmd` in a fish subprocess
+ *
+ * @param cmd - the string to wrap in `fish -c '${cmd}'`
+ *
+ * @returns  Promise<{stdout, stderr}>
+ */
+export async function execAsyncFish(cmd: string) {
+  return await execAsync(`fish -c '${cmd}'`);
+}
+
 export async function execPrintLsp(line: string) {
   const file = resolve(__dirname, '../../fish_files/printflsp.fish');
   //const escapedCommand = line.replace(/(["'$`\\])/g, '\\$1');
@@ -274,4 +286,3 @@ export async function execOpenFile(uri: string): Promise<string> {
   const file = await promises.readFile(fileUri.toString(), 'utf8');
   return file.toString();
 }
-

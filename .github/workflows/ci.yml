@@ -1,4 +1,4 @@
-name: TypeScript Node CI
+name: CI lint & install tool
 
 on:
   pull_request:

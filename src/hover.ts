@@ -32,15 +32,15 @@ export async function handleHover(
       range: local.selectionRange,
     };
   }
-  let { kindType, kindString } = symbolKindsFromNode(current)
-  const symbolType =  ['function', 'class', 'variable'].includes(kindString) ? kindType : undefined
-  logger?.log({'./src/hover.ts:37': kindType})
+  const { kindType, kindString } = symbolKindsFromNode(current);
+  const symbolType = ['function', 'class', 'variable'].includes(kindString) ? kindType : undefined;
+  logger?.log({ './src/hover.ts:37': kindType });
 
   if (cache.find(current.text) !== undefined) {
     await cache.resolve(current.text, document.uri, symbolType);
-    const item = !!symbolType ? cache.find(current.text, symbolType) : cache.getItem(current.text);
-    logger?.logAsJson('call: [./src/hover.ts:42]')
-    
+    const item = symbolType ? cache.find(current.text, symbolType) : cache.getItem(current.text);
+    logger?.logAsJson('call: [./src/hover.ts:42]');
+
     if (item && item?.docs) {
       return {
         contents: {
@@ -53,8 +53,8 @@ export async function handleHover(
   const commandString = await collectCommandString(current);
 
   const result = await documentationHoverProvider(commandString);
-  logger?.log({commandString, result})
-  return result
+  logger?.log({ commandString, result });
+  return result;
 }
 
 export async function getHoverForFlag(current: Parser.SyntaxNode): Promise<Hover | null> {

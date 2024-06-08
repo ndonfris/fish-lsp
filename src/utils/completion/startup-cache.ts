@@ -7,7 +7,6 @@ import { SetupItemsFromCommandConfig } from './startup-config';
 export type ItemMapRecord = Record<FishCompletionItemKind, FishCompletionItem[]>;
 
 export class CompletionItemMap {
-
   constructor(private _items: ItemMapRecord = {} as ItemMapRecord) {}
 
   static async initialize(): Promise<CompletionItemMap> {
@@ -36,13 +35,13 @@ export class CompletionItemMap {
         const detail = getCommandsDetail(value || item.detail);
         items.push(FishCompletionItem.create(label, item.fishKind, detail, line));
       });
-      result[ item.fishKind ] = items;
+      result[item.fishKind] = items;
     });
 
-    Object.entries(StaticItems).forEach(([ key, value ]) => {
+    Object.entries(StaticItems).forEach(([key, value]) => {
       const kind = key as FishCompletionItemKind;
-      if (!result[ kind ]) {
-        result[ kind ] = value.map((item) => FishCompletionItem.create(
+      if (!result[kind]) {
+        result[kind] = value.map((item) => FishCompletionItem.create(
           item.label,
           kind,
           item.detail,
@@ -56,7 +55,7 @@ export class CompletionItemMap {
   }
 
   get(kind: FishCompletionItemKind): FishCompletionItem[] {
-    return this._items[ kind ] || [];
+    return this._items[kind] || [];
   }
 
   get allKinds(): FishCompletionItemKind[] {
@@ -72,7 +71,7 @@ export class CompletionItemMap {
   }
 
   forEach(callbackfn: (key: FishCompletionItemKind, value: FishCompletionItem[]) => void) {
-    this.entries().forEach(([ key, value ]) => callbackfn(key, value));
+    this.entries().forEach(([key, value]) => callbackfn(key, value));
   }
 
   allCompletionsWithoutCommand() {

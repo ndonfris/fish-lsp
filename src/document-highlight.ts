@@ -6,19 +6,18 @@ import Parser, { SyntaxNode, Tree } from 'web-tree-sitter';
 
 /**
  * TODO:
- *    ADD DocumentHighlightKind.Read | DocumentHighlightKind.Write support 
+ *    ADD DocumentHighlightKind.Read | DocumentHighlightKind.Write support
  */
 export function getDocumentHighlights(tree: Tree, node: SyntaxNode): DocumentHighlight[] {
   const highlights: DocumentHighlight[] = [];
 
-  const nodeSymbolKind = toSymbolKind(node)
-
+  const nodeSymbolKind = toSymbolKind(node);
 
   function visitNode(currentNode: SyntaxNode) {
     if (!currentNode) return;
 
-    const currSymbolKind = toSymbolKind(currentNode)
-    const equalKinds = (currSymbolKind === nodeSymbolKind || currentNode.type === node.type)
+    const currSymbolKind = toSymbolKind(currentNode);
+    const equalKinds = currSymbolKind === nodeSymbolKind || currentNode.type === node.type;
     if (equalKinds && currentNode.text === node.text) {
       highlights.push({
         range: {
@@ -32,9 +31,9 @@ export function getDocumentHighlights(tree: Tree, node: SyntaxNode): DocumentHig
           },
         },
         // kind: DocumentHighlightKind.Text,
-        kind: equalRanges(getRange(currentNode), getRange(node)) 
-          ? DocumentHighlightKind.Read 
-          : DocumentHighlightKind.Text
+        kind: equalRanges(getRange(currentNode), getRange(node))
+          ? DocumentHighlightKind.Read
+          : DocumentHighlightKind.Text,
       });
     }
     currentNode.children.forEach(child => visitNode(child));

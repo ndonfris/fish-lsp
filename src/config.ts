@@ -255,7 +255,7 @@ export function adjustInitializeResultCapabilitiesFromConfig(configHandlers: z.i
         resolveProvider: true,
       } : undefined,
       executeCommandProvider: configHandlers.executeCommand ? {
-        commands: ['APPLY_REFACTORING', 'SELECT_REFACTORING', 'APPLY_WORKSPACE_EDIT', 'RENAME', 'onHover', 'rename', 'fish-lsp.executeLine'],
+        commands: ['APPLY_REFACTORING', 'SELECT_REFACTORING', 'APPLY_WORKSPACE_EDIT', 'RENAME', 'onHover', 'rename', 'fish-lsp.executeLine', 'fish-lsp.executeBuffer', 'fish-lsp.createTheme', 'fish-lsp.execute'],
         workDoneProgress: true,
       } : undefined,
       documentSymbolProvider: {
@@ -266,7 +266,7 @@ export function adjustInitializeResultCapabilitiesFromConfig(configHandlers: z.i
       },
       documentHighlightProvider: configHandlers.highlight,
       inlayHintProvider: false, /*configHandlers.inlayHint,*/
-      signatureHelpProvider: configHandlers.signature ? {workDoneProgress: false, triggerCharacters: ['.']} : undefined,
+      signatureHelpProvider: configHandlers.signature ? { workDoneProgress: false, triggerCharacters: ['.'] } : undefined,
     },
 
   };

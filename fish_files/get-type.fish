@@ -33,4 +33,3 @@ else if test -n "$fallback_output"
 else
     echo ''
 end
-

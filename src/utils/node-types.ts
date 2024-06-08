@@ -228,39 +228,38 @@ export function isOption(node: SyntaxNode): boolean {
 
 /** careful not to call this on old unix style flags/options */
 export function isJoinedShortOption(node: SyntaxNode) {
-  if (isLongOption(node)) return false
-  return isShortOption(node) && node.text.slice(1).length > 1
+  if (isLongOption(node)) return false;
+  return isShortOption(node) && node.text.slice(1).length > 1;
 }
 
 /** careful not to call this on old unix style flags/options */
 export function hasShortOptionCharacter(node: SyntaxNode, findChar: string) {
-  if (isLongOption(node)) return false
-  return isShortOption(node) && node.text.slice(1).includes(findChar)
+  if (isLongOption(node)) return false;
+  return isShortOption(node) && node.text.slice(1).includes(findChar);
 }
 
 export type NodeOptionQueryText = {
-  shortOption?: `-${string}`
-  oldUnixOption?: `-${string}`,
-  longOption?: `--${string}`
-}
+  shortOption?: `-${string}`;
+  oldUnixOption?: `-${string}`;
+  longOption?: `--${string}`;
+};
 
 /**
  * @param node - the node to check
  * @param optionQuery - object of node strings to match
- * @returns boolean result corresponding to query 
+ * @returns boolean result corresponding to query
  */
 export function isMatchingOption(node: SyntaxNode, optionQuery: NodeOptionQueryText) : boolean {
-  if (!isOption(node)) return false
+  if (!isOption(node)) return false;
 
-  const nodeText = node.text.includes('=') ? node.text.slice(0, node.text.indexOf('=')) : node.text
+  const nodeText = node.text.includes('=') ? node.text.slice(0, node.text.indexOf('=')) : node.text;
 
-  if (isLongOption(node) && optionQuery?.longOption === nodeText) return true
+  if (isLongOption(node) && optionQuery?.longOption === nodeText) return true;
 
-  if (isShortOption(node) && optionQuery?.oldUnixOption === nodeText) return true
+  if (isShortOption(node) && optionQuery?.oldUnixOption === nodeText) return true;
 
-  if (!optionQuery.shortOption) return false
-  return isShortOption(node) && hasShortOptionCharacter(node, optionQuery.shortOption.slice(1))
-
+  if (!optionQuery.shortOption) return false;
+  return isShortOption(node) && hasShortOptionCharacter(node, optionQuery.shortOption.slice(1));
 }
 
 export function isPipe(node: SyntaxNode): boolean {
@@ -728,14 +727,14 @@ export function isPartialForLoop(node: SyntaxNode) {
 
 export function isInlineComment(node: SyntaxNode) {
   if (!isComment(node)) return false;
-  const previousSibling: SyntaxNode | undefined | null = node.previousNamedSibling
+  const previousSibling: SyntaxNode | undefined | null = node.previousNamedSibling;
   if (!previousSibling) return false;
-  return previousSibling?.startPosition.row === node.startPosition.row && previousSibling?.type !== 'comment'
+  return previousSibling?.startPosition.row === node.startPosition.row && previousSibling?.type !== 'comment';
 }
 
 // TODO: either move use or remove
 // /**
-//  * checks for SyntaxNode.text === '-f1' | '--fields=1' 
+//  * checks for SyntaxNode.text === '-f1' | '--fields=1'
 //  * but not    SyntaxNode.text !== '-1'  | '-m1f1' | '--fields-1'
 //  */
 // export function isOptionWithValue(node: SyntaxNode) {

@@ -2,21 +2,18 @@ import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from './parser';
 import { Analyzer } from './analyze';
 //import {  generateCompletionList, } from "./completion";
-import { InitializeParams, TextDocumentSyncKind, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, MessageType, NotificationType, DocumentHighlight, DocumentHighlightParams, ExecuteCommandParams } from 'vscode-languageserver';
-import {execRequest} from './executeHandler'
+import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, DocumentHighlight, DocumentHighlightParams, ExecuteCommandParams } from 'vscode-languageserver';
+import { ExecResultWrapper, FishThemeDump, execEntireBuffer, execLineInBuffer, executeThemeDump, useMessageKind } from './executeHandler';
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
 import { formatDocumentContent } from './formatting';
 import { Logger, ServerLogsPath } from './logger';
-import { pathToUri, symbolKindToString, symbolKindsFromNode, toSymbolKind, uriToPath } from './utils/translation';
-import { findFirstParent, getChildNodes, getNodeAtPosition, getRange } from './utils/tree-sitter';
+import { symbolKindsFromNode, uriToPath } from './utils/translation';
+import { getChildNodes, getNodeAtPosition } from './utils/tree-sitter';
 import { handleHover } from './hover';
 import { /*getDiagnostics*/ } from './diagnostics/validate';
-import { CodeActionKind } from './code-action';
-import { FishAutoFixProvider } from './features/fix-all';
 /*import * as Locations from './utils/locations';*/
 import { FishProtocol } from './utils/fishProtocol';
-import { Commands } from './commands';
 import { handleConversionToCodeAction } from './diagnostics/handleConversion';
 import { inlayHintsProvider } from './inlay-hints';
 import { DocumentationCache, initializeDocumentationCache } from './utils/documentationCache';
@@ -30,18 +27,19 @@ import { FishCompletionItem } from './utils/completion/types';
 import { getDocumentationResolver } from './utils/completion/documentation';
 import { FishCompletionList } from './utils/completion/list';
 import { config } from './cli';
-import { PrebuiltDocumentationMap, getPrebuiltDocUrl, getPrebuiltDocUrlByName } from './utils/snippets';
-import { findParentCommand, isCommand, isCommandName, isVariableDefinition, isVariableDefinitionCommand } from './utils/node-types';
+import { PrebuiltDocumentationMap, getPrebuiltDocUrl } from './utils/snippets';
+import { findParentCommand, isCommand, isVariableDefinition } from './utils/node-types';
 import { adjustInitializeResultCapabilitiesFromConfig, configHandlers } from './config';
 import { enrichToMarkdown } from './documentation';
-import { getAliasedCompletionItemSignature, lineSignatureBuilder } from './signature';
+import { getAliasedCompletionItemSignature } from './signature';
 import { CompletionItemMap } from './utils/completion/startup-cache';
 import { getDocumentHighlights } from './document-highlight';
-import { pathToFileURL } from 'url';
+import { readFileSync } from 'fs';
+import { SyncFileHelper } from './utils/fileOperations';
 
 // @TODO
 export type SupportedFeatures = {
-  codeActionDisabledSupport : boolean;
+  codeActionDisabledSupport: boolean;
 };
 
 export default class FishServer {
@@ -51,7 +49,7 @@ export default class FishServer {
   ): Promise<FishServer> {
     const documents = new LspDocuments();
     const logger = new Logger(config.fish_lsp_logfile || ServerLogsPath, true, connection.console);
-    const completionsMap = await CompletionItemMap.initialize()
+    const completionsMap = await CompletionItemMap.initialize();
 
     return await Promise.all([
       initializeParser(),
@@ -278,50 +276,84 @@ export default class FishServer {
     const documentSymbol = textDocument && textDocument.documentSymbol;
     return (
       !!documentSymbol &&
-        !!documentSymbol.hierarchicalDocumentSymbolSupport
+      !!documentSymbol.hierarchicalDocumentSymbolSupport
     );
   }
 
-  public onExecuteCommand(params: ExecuteCommandParams) {
+  public async onExecuteCommand(params: ExecuteCommandParams) {
     this.logParams('onExecuteCommand', params);
+    let name = '';
+    let path = '';
+    let file = '';
+    let line = '';
+    let text = '';
+    let doc: LspDocument | undefined;
 
-    const file = params.arguments![0] as string || ''
-    const line = params.arguments![1] as string || ''
-    // console.log({'last accessed: ': this.docs.files})
+    let output: ExecResultWrapper;
+    const commandName = params.command.toString().slice(params.command.toString().indexOf('.') + 1);
+    this.logger.logAsJson(commandName);
+    switch (commandName) {
+      case 'executeLine':
+        file = params.arguments![0] as string || '';
+        line = params.arguments![1] as string || '';
+        // console.log({'last accessed: ': this.docs.files})
 
-    if (!file || !line)  {
-      this.logger.log({gotNull: 'gotNull', file, line})
-      return null
+        if (!file || !line) {
+          this.logger.log({ gotNull: 'gotNull', file, line });
+          return null;
+        }
+
+        doc = this.docs.get(file);
+
+        if (!doc) {
+          this.logger.log({ title: 'docs was null', doc });
+          return [];
+        }
+        text = doc.getLine(Number.parseInt(line) - 1);
+        this.logParams('onExecuteCommand', text);
+        output = await execLineInBuffer(text);
+        useMessageKind(this.connection, output);
+        return;
+      case 'createTheme':
+        if (!params.arguments || !params.arguments[0].toString()) {
+          return;
+        }
+        name = params.arguments[0] as string || '';
+        path = `~/.config/fish/themes/${name}.fish`;
+        SyncFileHelper.create(path);
+        output = await executeThemeDump(name);
+        useMessageKind(this.connection, output);
+        return;
+      case 'execute':
+      case 'executeBuffer':
+        if (!params.arguments || !params.arguments[0]) {
+          return;
+        }
+        name = params.arguments[0] as string || '';
+        output = await execEntireBuffer(name);
+        useMessageKind(this.connection, output);
+        return;
+      default:
+        break;
     }
-
-    const doc = this.docs.get(file)
-
-    if (!doc) {
-      this.logger.log({title: 'docs was null', doc})
-      return []
-    }
-    const text = doc.getLine(Number.parseInt(line)-1)
-    this.logParams('onExecuteCommand', text)
-    execRequest(this.connection, text)
-    return null
   }
 
   /**
    * highlight provider
    */
-  onDocumentHighlight(params: DocumentHighlightParams):  DocumentHighlight[] {
-    this.logParams('onDocumentHighlight', params)
-    const { doc } = this.getDefaults(params)
-    if (!doc) return []
+  onDocumentHighlight(params: DocumentHighlightParams): DocumentHighlight[] {
+    this.logParams('onDocumentHighlight', params);
+    const { doc } = this.getDefaults(params);
+    if (!doc) return [];
 
     const text = doc.getText();
     const tree = this.parser.parse(text);
     const node = getNodeAtPosition(tree, params.position);
-    if (!node) return []
+    if (!node) return [];
 
     const highlights = getDocumentHighlights(tree, node);
 
-    return highlights
+    return highlights;
   }
 
   async onWorkspaceSymbol(params: WorkspaceSymbolParams): Promise<WorkspaceSymbol[]> {
@@ -359,8 +391,7 @@ export default class FishServer {
       return null;
     }
 
-
-    let { kindType, kindString } =  symbolKindsFromNode(current)
+    const { kindType, kindString } = symbolKindsFromNode(current);
     this.logger.log({ currentText: current.text, currentType: current.type, symbolKind: kindString });
 
     const prebuiltSkipType = [
@@ -382,21 +413,21 @@ export default class FishServer {
         ].join('\n')),
       };
     }
-    const symbolType =  [
+    const symbolType = [
       'function',
       'class',
       'variable',
-    ].includes(kindString) ? kindType : undefined
+    ].includes(kindString) ? kindType : undefined;
 
     const globalItem = await this.documentationCache.resolve(
       current.text.trim(),
       uri,
-      symbolType
+      symbolType,
     );
 
-    this.logger.log({'./src/server.ts:395': `this.documentationCache.resolve() found ${!!globalItem}` , docs: globalItem.docs});
+    this.logger.log({ './src/server.ts:395': `this.documentationCache.resolve() found ${!!globalItem}`, docs: globalItem.docs });
     if (globalItem && globalItem.docs) {
-      this.logger.log(globalItem.docs)
+      this.logger.log(globalItem.docs);
       return {
         contents: {
           kind: MarkupKind.Markdown,
@@ -413,7 +444,7 @@ export default class FishServer {
       // this.logger,
     );
     this.logger.log(fallbackHover?.contents);
-    return fallbackHover
+    return fallbackHover;
   }
 
   // workspace.fileOperations.didRename
@@ -522,9 +553,9 @@ export default class FishServer {
     const args: FishProtocol.GetApplicableRefactorsRequestArgs = {
       ...fileRangeArgs,
       triggerReason:
-      context.triggerKind === LSP.CodeActionTriggerKind.Invoked
-        ? 'invoked'
-        : undefined,
+        context.triggerKind === LSP.CodeActionTriggerKind.Invoked
+          ? 'invoked'
+          : undefined,
       kind: context.only?.length === 1 ? context.only[0] : undefined,
     };
 
@@ -614,39 +645,33 @@ export default class FishServer {
     if (!doc || !uri) return null;
 
     const { line, lineRootNode, lineLastNode } = this.analyzer.parseCurrentLine(doc, params.position);
-    if (line.trim() === '') return null
-    const currentCmd = findParentCommand(lineLastNode)!
+    if (line.trim() === '') return null;
+    const currentCmd = findParentCommand(lineLastNode)!;
     // const commands = getChildNodes(lineRootNode).filter(isCommand)
-    const aliasSignature = this.completionMap.allOfKinds('alias').find(a => a.label === currentCmd.text)
-    if (aliasSignature) return getAliasedCompletionItemSignature(aliasSignature)
-    return lineSignatureBuilder(currentCmd, lineLastNode, this.completionMap)
-    // if (currentCmd.text.startsWith('string') || commands.length > 1) {
-    // }
-    //
-    // return lineSignatureBuilder(lineRootNode, lineLastNode)
-    //
-    // const varNode = getChildNodes(lineRootNode).find(c => isVariableDefinition(c));
-    // const lastCmd = getChildNodes(lineRootNode).filter(c => isCommand(c)).pop();
-    // this.logger.log({ line, lastCmds: lastCmd?.text });
-    // if (varNode && (line.startsWith('set') || line.startsWith('read')) && lastCmd?.text === lineRootNode.text.trim()) {
-    //   const varName = varNode.text;
-    //   const varDocs = PrebuiltDocumentationMap.getByName(varNode.text);
-    //   if (!varDocs.length) return null;
-    //   return {
-    //     signatures: [
-    //       {
-    //         label: varName,
-    //         documentation: {
-    //           kind: 'markdown',
-    //           value: varDocs.map(d => d.description).join('\n'),
-    //         },
-    //       },
-    //     ],
-    //     activeSignature: 0,
-    //     activeParameter: 0,
-    //   };
-    // }
-    // return null;
+    const aliasSignature = this.completionMap.allOfKinds('alias').find(a => a.label === currentCmd.text);
+    if (aliasSignature) return getAliasedCompletionItemSignature(aliasSignature);
+    const varNode = getChildNodes(lineRootNode).find(c => isVariableDefinition(c));
+    const lastCmd = getChildNodes(lineRootNode).filter(c => isCommand(c)).pop();
+    this.logger.log({ line, lastCmds: lastCmd?.text });
+    if (varNode && (line.startsWith('set') || line.startsWith('read')) && lastCmd?.text === lineRootNode.text.trim()) {
+      const varName = varNode.text;
+      const varDocs = PrebuiltDocumentationMap.getByName(varNode.text);
+      if (!varDocs.length) return null;
+      return {
+        signatures: [
+          {
+            label: varName,
+            documentation: {
+              kind: 'markdown',
+              value: varDocs.map(d => d.description).join('\n'),
+            },
+          },
+        ],
+        activeSignature: 0,
+        activeParameter: 0,
+      };
+    }
+    return null;
   }
 
   /////////////////////////////////////////////////////////////////////////////////////

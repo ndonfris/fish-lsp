@@ -246,21 +246,19 @@ export function symbolKindToString(kind: SymbolKind) {
   }
 }
 
-
 /**
- * @param node - SyntaxNode toSymbolKind/symbolKindToString wrapper for both 
+ * @param node - SyntaxNode toSymbolKind/symbolKindToString wrapper for both
  *               `string` and `number` type
- * @returns { 
+ * @returns {
  *    kindType: toSymbolKind(node)  ->  13 | 12 | 15 | 3 | 5 | 21
  *    kindString: symbolKindToString(kindType) -> number
  *  }
  */
 export function symbolKindsFromNode(node: SyntaxNode) {
   const kindType = toSymbolKind(node);
-  const kindString = symbolKindToString(kindType)
+  const kindString = symbolKindToString(kindType);
   return {
-    kindType, 
-    kindString
-  }
-
+    kindType,
+    kindString,
+  };
 }

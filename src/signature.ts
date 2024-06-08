@@ -8,10 +8,10 @@ import {
 import { SyntaxNode } from 'web-tree-sitter';
 import { ExtendedBaseJson, PrebuiltDocumentationMap } from './utils/snippets';
 import { FishAliasCompletionItem } from './utils/completion/types';
-import * as NodeTypes from './utils/node-types'
-import * as TreeSitter from './utils/tree-sitter'
+import * as NodeTypes from './utils/node-types';
+import * as TreeSitter from './utils/tree-sitter';
 import { CompletionItemMap } from './utils/completion/startup-cache';
- 
+
 export function buildSignature(label: string, value: string) : SignatureInformation {
   return {
     label: label,
@@ -19,21 +19,21 @@ export function buildSignature(label: string, value: string) : SignatureInformat
       kind: 'markdown',
       value: value,
     },
-  }
+  };
 }
 
 export function getCurrentNodeType(input: string) {
-  const prebuiltTypes = PrebuiltDocumentationMap.getByName(input)
+  const prebuiltTypes = PrebuiltDocumentationMap.getByName(input);
   if (!prebuiltTypes || prebuiltTypes.length === 0) {
-    return null
+    return null;
   }
-  let longestDocs = prebuiltTypes[0]!
+  let longestDocs = prebuiltTypes[0]!;
   for (const prebuilt of prebuiltTypes) {
     if (prebuilt.description.length > longestDocs.description.length) {
-      longestDocs = prebuilt
+      longestDocs = prebuilt;
     }
   }
-  return longestDocs
+  return longestDocs;
 }
 
 export function lineSignatureBuilder(lineRootNode: SyntaxNode, lineCurrentNode: SyntaxNode, completeMmap: CompletionItemMap): SignatureHelp | null {
@@ -103,7 +103,7 @@ function getSignatureForVariable(varNode: SyntaxNode): SignatureHelp | null {
 }
 
 function getReturnStatusSignature(): SignatureHelp {
-  const output = PrebuiltDocumentationMap.getByType('status').map((o: ExtendedBaseJson) => `___${o.name}___ - _${o.description}_`).join('\n')
+  const output = PrebuiltDocumentationMap.getByType('status').map((o: ExtendedBaseJson) => `___${o.name}___ - _${o.description}_`).join('\n');
   return {
     signatures: [buildSignature('$status', output)],
     activeSignature: 0,
@@ -119,7 +119,7 @@ function getPipesSignature(pipes: ExtendedBaseJson[]): SignatureHelp {
   };
 }
 
-function getCommandSignature(firstCmd: SyntaxNode): SignatureHelp  {
+function getCommandSignature(firstCmd: SyntaxNode): SignatureHelp {
   const output = PrebuiltDocumentationMap.getByType('command').filter(n => n.name === firstCmd.text);
   return {
     signatures: [buildSignature(firstCmd.text, output.map((o: ExtendedBaseJson) => `${o.name} - _${o.description}_`).join('\n'))],
@@ -128,13 +128,13 @@ function getCommandSignature(firstCmd: SyntaxNode): SignatureHelp  {
   };
 }
 
-export function getAliasedCompletionItemSignature(item: FishAliasCompletionItem): SignatureHelp  {
+export function getAliasedCompletionItemSignature(item: FishAliasCompletionItem): SignatureHelp {
   // const output = PrebuiltDocumentationMap.getByType('command').filter(n => n.name === firstCmd.text);
   return {
     signatures: [buildSignature(item.label, [
       '```fish',
       `${item.fishKind} ${item.label} ${item.detail}`,
-      '```'
+      '```',
     ].join('\n'))],
     activeSignature: 0,
     activeParameter: 0,

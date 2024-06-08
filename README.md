@@ -48,7 +48,7 @@ Introducing the [fish-lsp](https://fish-lsp.dev), a [Language Server Protocol (L
 | __Workspace Symbols__ | Shows all commands, variables, and functions in a workspace | ✅ |
 | __Document Formatting__ | Formats a document, _full_ & _selection_ | ✅ |
 | __Document Highlight__ / __Semantic Token__ | Highlights all references to a command, variable, or function.  | ✅  |
-| __Command Execution__ | Executes a server command from the client | ✖  |
+| __Command Execution__ | Executes a server command from the client | ✅ |
 | __Code Action__ | Shows all available code actions | ✖  |
 | __Code Lens__ | Shows all available code lenses | ✖  |
 | __Logger__ | Logs all server activity | ✅ |

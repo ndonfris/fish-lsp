@@ -1,14 +1,12 @@
 
 import { setLogger } from './helpers';
 import { initializeParser } from '../src/parser';
-import Parser, { SyntaxNode, TreeCursor } from 'web-tree-sitter';
-import { FishSource, InlineParser } from '../src/utils/completion/inline-parser';
-import { getChildNodes, getLastLeaf, getLeafs } from '../src/utils/tree-sitter';
+import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { ChildProcess, exec, spawn } from 'child_process';
 import { promisify } from 'util';
 import { Writable } from 'stream';
 
-import { CompletionItem, CompletionItemKind, CompletionParams } from 'vscode-languageserver';
+import { CompletionItem } from 'vscode-languageserver';
 
 // jest.setTimeout(5000); // Increase the timeout if necessary
 // import { Writable } from 'stream';
@@ -383,9 +381,9 @@ it('test exec inline-parser normal', async () => {
 });
 
 it('source and `function foo \\ --argument`', async () => {
-  const fishSource = new FishSource();
-  // Does NOT Work!!
-  const result = await fishSource.sendLines(['function foo \\', '--argument']);
+  // const fishSource = new fishSource();
+  // // Does NOT Work!!
+  // const result = await fishSource.sendLines(['function foo \\', '--argument']);
   // expect(result).toContain('--argument-names (Specify named arguments)');
   // expect(result).toContain('--description (Set function description)');
   // expect(result).toContain('--inherit-variable (Snapshot and define local variable)');
@@ -396,7 +394,7 @@ it('source and `function foo \\ --argument`', async () => {
   // expect(result).toContain('--on-signal (Make the function a signal event handler)');
   // expect(result).toContain('--on-variable (Make the function a variable update event handler)');
   // expect(result).toContain('--wraps (Inherit completions from the given command)');
-  console.log(result);
+  // console.log(result);
 });
 
 // input.forEach(async line => {
@@ -455,4 +453,3 @@ it('source and `function foo \\ --argument`', async () => {
 // });
 // const outputLine = inline.parseCommand(line)
 // console.log(outputLine.command);
-
