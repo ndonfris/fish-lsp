@@ -36,6 +36,33 @@
       "contributions": [
         "code"
       ]
+    },
+    {
+      "login": "shaleh",
+      "name": "Sean Perry",
+      "avatar_url": "https://avatars.githubusercontent.com/u/1377996?v=4",
+      "profile": "https://github.com/shaleh",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "cova-fe",
+      "name": "Fabio Coatti",
+      "avatar_url": "https://avatars.githubusercontent.com/u/385249?v=4",
+      "profile": "https://mastodon.online/@cova",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "PeterCardenas",
+      "name": "Peter Cardenas",
+      "avatar_url": "https://avatars.githubusercontent.com/u/16930781?v=4",
+      "profile": "https://github.com/PeterCardenas",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,

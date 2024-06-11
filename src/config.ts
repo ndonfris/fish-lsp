@@ -75,7 +75,7 @@ export const ConfigSchema = z.object({
   fish_lsp_diagnostic_disable_error_codes: z.array(z.number()).default([]),
 
   /** max background files */
-  fish_lsp_max_background_files: z.number().default(500),
+  fish_lsp_max_background_files: z.number().default(1000),
 
   /** show startup analysis notification */
   fish_lsp_show_client_popups: z.boolean().default(true),
