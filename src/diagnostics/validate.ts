@@ -5,11 +5,13 @@ import { findParentCommand, isClause, isCommand, isCommandName, isConditionalCom
 import { findFirstNamedSibling, getChildNodes, getRange, nodesGen } from '../utils/tree-sitter';
 import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter } from './node-types';
 import { ErrorCodes } from './errorCodes';
+import { SyncFileHelper } from '../utils/fileOperations';
+import { config } from '../cli';
 
 
 
 export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
-  const diagnostics: Diagnostic[] = [];
+  let diagnostics: Diagnostic[] = [];
 
   // compute in single pass
   for (const node of getChildNodes(root)) {
@@ -60,7 +62,7 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
       });
     }
 
-    if (isSourceFilename(node)) {
+    if (isSourceFilename(node) && !SyncFileHelper.exists(node.text)) {
       diagnostics.push({
         range: getRange(node),
         ...ErrorCodes.codes[ ErrorCodes.sourceFileDoesNotExist ]
@@ -88,6 +90,12 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
       });
     }
 
+  }
+
+  if (config.fish_lsp_diagnostic_disable_error_codes.length > 0) {
+    for (const errorCode of config.fish_lsp_diagnostic_disable_error_codes) {
+      diagnostics = diagnostics.filter(diagnostic => diagnostic.code !== errorCode)
+    }
   }
 
   return diagnostics;
