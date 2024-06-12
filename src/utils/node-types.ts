@@ -732,6 +732,12 @@ export function isInlineComment(node: SyntaxNode) {
   return previousSibling?.startPosition.row === node.startPosition.row && previousSibling?.type !== 'comment';
 }
 
+export function isCommandWithName(node: SyntaxNode, ...commandNames: string[]) {
+  if (node.type !== 'command') return false
+  // const currentCommandName = node.firstChild?.text
+  return !!node.firstChild && commandNames.includes(node.firstChild.text)
+}
+
 // TODO: either move use or remove
 // /**
 //  * checks for SyntaxNode.text === '-f1' | '--fields=1'

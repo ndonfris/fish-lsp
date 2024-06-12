@@ -61,7 +61,7 @@ export function createDiagnostic(node: SyntaxNode, code: number, document?: LspD
     range: range,
     severity: severity,
     code: code,
-    source: 'fish-lsp',
+    source: source,
     codeDescription: createCodeDescription(code),
   };
 }

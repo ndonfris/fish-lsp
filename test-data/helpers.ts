@@ -113,7 +113,7 @@ export async function resolveAbsPath(fname: string): Promise<string[]> {
 
 
 export function positionStr(pos: Point){
-    return `(${pos.row.toString()}, ${pos.column.toString()})`
+    return `{ row: ${pos.row.toString()}, column: ${pos.column.toString()} }`
 }
 
 export async function readFishDir(dir: string): Promise<string[]> {
@@ -173,5 +173,72 @@ export function getTruncatedNode(node: SyntaxNode){
         // children: node.children.map(child => getTruncatedNode(child)),
         // siblings: node.parent?.children.map(child => getTruncatedNode(child)) || [],
     }
+}
+
+export function logNode(node: Parser.SyntaxNode): void {
+  const truncateText = (text: string, length: number): string => {
+    return text.length > length ? text.substring(0, length) + '...' : text;
+  };
+
+  const cleanNodeInfo = (info: object): object => {
+    return Object.fromEntries(
+      Object.entries(info).filter(([_, value]) => value != null)
+    );
+  };
+
+  const logPos = (node: Parser.SyntaxNode) => {
+    return {
+      startPosition: positionStr(node.startPosition), endPosition: positionStr(node.endPosition),  startIndex: node.startIndex, endIndex: node.endIndex 
+      
+    }
+  }
+
+  const logNodeHelper = (node: Parser.SyntaxNode): void => {
+    const nodeInfo = {
+      type: node.type,
+      text: truncateText(node.text, 20),
+      ...logPos(node),
+      startIndex: node.startIndex,
+      endIndex: node.endIndex,
+      parent: node.parent ? { type: node.parent.type, text: truncateText(node.parent.text, 20) } : null,
+      children: node.children.length ? node.children.map(child => ({ type: child.type, text: truncateText(child.text, 20), ...logPos(child) })) : null,
+      firstChild: node.firstChild ? { type: node.firstChild.type, text: truncateText(node.firstChild.text, 20) } : null,
+      lastChild: node.lastChild ? { type: node.lastChild.type, text: truncateText(node.lastChild.text, 20) } : null,
+      firstNamedChild: node.firstNamedChild ? { type: node.firstNamedChild.type, text: truncateText(node.firstNamedChild.text, 20) } : null,
+      lastNamedChild: node.lastNamedChild ? { type: node.lastNamedChild.type, text: truncateText(node.lastNamedChild.text, 20) } : null,
+      nextSibling: node.nextSibling ? { type: node.nextSibling.type, text: truncateText(node.nextSibling.text, 20) } : null,
+      previousSibling: node.previousSibling ? { type: node.previousSibling.type, text: truncateText(node.previousSibling.text, 20) } : null,
+    };
+
+    console.log(JSON.stringify(cleanNodeInfo(nodeInfo), null, 2));
+
+    // for (const child of node.children) {
+    //   logNodeHelper(child, depth + 1);
+    // }
+  };
+
+  logNodeHelper(node);
+}
+
+/**
+ * Escapes special characters in a given string.
+ * @param str - The string to escape.
+ * @returns The escaped string.
+ */
+export function escapeSpecialCharacter(str: string): string {
+    const specialCharacters: { [key: string]: string } = {
+        '\n': '\\n',
+        '\r': '\\r',
+        '\t': '\\t',
+        '\b': '\\b',
+        '\f': '\\f',
+        '\\': '\\\\',
+        '\"': '\\"',
+        '\'': '\\\''
+    };
+
+    return str.replace(/[\n\r\t\b\f\\\"\'\u0000-\u001f\u007f-\u009f]/g, (match) => {
+        return specialCharacters[match] || `\\u${match.charCodeAt(0).toString(16).padStart(4, '0')}`;
+    });
 }
 
