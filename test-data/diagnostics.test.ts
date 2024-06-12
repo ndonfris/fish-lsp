@@ -1,3 +1,4 @@
+import os from 'os';
 import { homedir } from 'os';
 import Parser, { SyntaxNode, Tree } from 'web-tree-sitter';
 import { findChildNodes, firstAncestorMatch, getChildNodes, getNodeAtRange } from '../src/utils/tree-sitter';
@@ -9,8 +10,9 @@ import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion
 
 
 import { LspDocument } from '../src/document';
-import { setLogger } from './helpers';
+import { createFakeLspDocument, setLogger } from './helpers';
 import { FishDocumentSymbol, filterLastPerScopeSymbol, findSymbolReferences, getFishDocumentSymbols } from '../src/document-symbol';
+import { getDiagnostics } from '../src/diagnostics/validate';
 let parser: Parser;
 let diagnostics: Diagnostic[] = [];
 let output: SyntaxNode[] = [];
@@ -360,6 +362,142 @@ describe('diagnostics test suite', () => {
       'variable_2'
     ]);
   });
+
+  it('VALIDATE: missing end', () => {
+    [
+      'echo "',
+      `echo '`,
+      `echo {a,b,c`,
+      `echo $argv[`,
+      `echo (`,
+      `echo $(`
+    ].forEach((input, idx) => {
+      const { rootNode } = parser.parse(input);
+      const doc = createFakeLspDocument(`file:///tmp/test-${idx}.fish`, input);
+      const result = getDiagnostics(rootNode, doc);
+      expect(result.length).toBe(1);
+    });
+  });
+
+
+  it('VALIDATE: extra end', () => {
+    [
+      'for i in (seq 1 10); end; end',
+      'function foo; echo hi; end; end'
+    ].forEach((input, idx) => {
+      const { rootNode } = parser.parse(input);
+      const doc = createFakeLspDocument(`file:///tmp/test-${idx}.fish`, input);
+      const result = getDiagnostics(rootNode, doc);
+      expect(result.length).toBe(1);
+    });
+  });
+
+  it('VALIDATE: zero index', () => {
+    [
+      'echo $argv[0]',
+    ].forEach((input, idx) => {
+      const { rootNode } = parser.parse(input);
+      const doc = createFakeLspDocument(`file:///tmp/test-${idx}.fish`, input);
+      const result = getDiagnostics(rootNode, doc);
+      expect(result.length).toBe(1);
+    });
+  });
+
+  it('VALIDATE: isSingleQuoteVariableExpansion', () => {
+    [
+      `echo '$argv[1]'; echo '\\$argv[1]'`,
+    ].forEach((input, idx) => {
+      const { rootNode } = parser.parse(input);
+      const doc = createFakeLspDocument(`file:///tmp/test-${idx}.fish`, input);
+      const result = getDiagnostics(rootNode, doc);
+      expect(result.length).toBe(1);
+    });
+  });
+
+  it('VALIDATE: isAlias', () => {
+    [
+      `alias fo='fish_opt'`,
+    ].forEach((input, idx) => {
+      const { rootNode } = parser.parse(input);
+      const doc = createFakeLspDocument(`file:///tmp/test-${idx}.fish`, input);
+      const result = getDiagnostics(rootNode, doc);
+      expect(result.length).toBe(1);
+    });
+  });
+
+  it('VALIDATE: isUniversal', () => {
+    [
+      `set -U _foo abcdef`,
+      `set -U _foo abcdef`,
+    ].forEach((input, idx) => {
+      const { rootNode } = parser.parse(input);
+      const uri = idx === 1 ? `file://${os.homedir()}/.config/fish/conf.d/test-1.fish` : `file:///tmp/test-${idx}.fish`;
+      const doc = createFakeLspDocument(uri, input);
+      const result = getDiagnostics(rootNode, doc);
+      if (idx === 0) {
+        expect(result.length).toBe(1);
+      } else if (idx === 1) {
+        expect(result.length).toBe(0);
+      }
+    });
+  });
+
+  it('VALIDATE: sourceFilename', () => {
+    [
+      `source ~/.config/fish/__cconfig.fish`,
+      `source (get-fish-config-file)`,
+    ].forEach((input, idx) => {
+      const { rootNode } = parser.parse(input);
+      const uri = idx === 1 ? `file://${os.homedir()}/.config/fish/conf.d/test-1.fish` : `file:///tmp/test-${idx}.fish`;
+      const doc = createFakeLspDocument(uri, input);
+      const result = getDiagnostics(rootNode, doc);
+      if (idx === 0) {
+        expect(result.length).toBe(1);
+      } else if (idx === 1) {
+        expect(result.length).toBe(0);
+      }
+    });
+  });
+
+  it('VALIDATE: isTestCommandVariableExpansionWithoutString', () => {
+    [
+      `test -n $argv`,
+      `[ -n $argv ]`,
+      `[ -z $argv[1] ]`
+    ].forEach((input, idx) => {
+      const { rootNode } = parser.parse(input);
+      const uri = idx === 1 ? `file://${os.homedir()}/.config/fish/conf.d/test-1.fish` : `file:///tmp/test-${idx}.fish`;
+      const doc = createFakeLspDocument(uri, input);
+      const result = getDiagnostics(rootNode, doc);
+      expect(result.length).toBe(1);
+    });
+  });
+
+  it('VALIDATE: isConditionalWithoutQuietCommand', () => {
+    [
+      `if string match -r 'a' "$argv";end;`,
+      `if set var;end;`,
+    ].forEach((input, idx) => {
+      const { rootNode } = parser.parse(input);
+      const uri = idx === 1 ? `file://${os.homedir()}/.config/fish/conf.d/test-1.fish` : `file:///tmp/test-${idx}.fish`;
+      const doc = createFakeLspDocument(uri, input);
+      const result = getDiagnostics(rootNode, doc);
+      expect(result.length).toBe(1);
+    });
+  })
+
+  it('VALIDATE: isVariableDefinitionWithExpansionCharacter', () => {
+    [
+      `set $argv a b c`,
+      `set $argv[1] a b c`
+    ].forEach((input, idx) => {
+      const { rootNode } = parser.parse(input);
+      const uri = idx === 1 ? `file://${os.homedir()}/.config/fish/conf.d/test-1.fish` : `file:///tmp/test-${idx}.fish`;
+      const doc = createFakeLspDocument(uri, input);
+      const result = getDiagnostics(rootNode, doc);
+      expect(result.length).toBe(1);
+    });
+  })
 
   // expect(definitions.map(d => d.text)).toEqual([
   //   'foo',

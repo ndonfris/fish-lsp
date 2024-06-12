@@ -1,5 +1,5 @@
 import Parser, { SyntaxNode, Tree } from "web-tree-sitter";
-import {getReturnSiblings} from '../src/diagnostics/syntaxError';
+// import {getReturnSiblings} from '../src/diagnostics/syntaxError';
 import * as NodeTypes from "../src/utils/node-types";
 import { getChildNodes, getNamedChildNodes, getNodesTextAsSingleLine, getNodeText, getRange, nodesGen } from "../src/utils/tree-sitter";
 import {
@@ -7,19 +7,8 @@ import {
     resolveLspDocumentForHelperTestFile,
     setLogger,
 } from "./helpers";
-import { buildStatementChildren, ifStatementHasReturn } from '../src/diagnostics/statementHasReturn'
-import {collectFunctionNames, collectFunctionsScopes} from '../src/diagnostics/validate';
-import {Diagnostic} from 'vscode-languageserver';
-//import {FishSyntaxNode} from '../src/utils/fishSyntaxNode';
 import {initializeParser} from '../src/parser';
 
-// import { findAllOptions, FunctionOpts, VariableOpts } from '../src/utils/node-types';
-import {findParentCommand} from '../src/utils/node-types';
-import {execCommandDocs, execCommandType, execCompleteCmdArgs, execCompleteSpace} from '../src/utils/exec';
-import {documentationHoverProvider, HoverFromCompletion} from '../src/documentation';
-import {createDiagnostic} from '../src/diagnostics/create';
-import * as errorCodes from '../src/diagnostics/errorCodes'
-import {precedesRange} from '../src/workspace-symbol';
 
 
 // This file will be used to display what the expected output should be for the

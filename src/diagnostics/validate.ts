@@ -55,14 +55,14 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
       });
     }
 
-    if (isUniversalDefinition(node)) {
+    if (isUniversalDefinition(node) && !doc.uri.split('/').includes('conf.d')) {
       diagnostics.push({
         range: getRange(node),
         ...ErrorCodes.codes[ ErrorCodes.usedUnviersalDefinition ]
       });
     }
 
-    if (isSourceFilename(node) && !SyncFileHelper.exists(node.text)) {
+    if (isSourceFilename(node) && node.type !== 'subshell' && node.text.includes('/') && !SyncFileHelper.exists(node.text)) {
       diagnostics.push({
         range: getRange(node),
         ...ErrorCodes.codes[ ErrorCodes.sourceFileDoesNotExist ]
