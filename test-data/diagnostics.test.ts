@@ -1,14 +1,16 @@
 import { homedir } from 'os';
 import Parser, { SyntaxNode, Tree } from 'web-tree-sitter';
 import { findChildNodes, firstAncestorMatch, getChildNodes, getNodeAtRange } from '../src/utils/tree-sitter';
-import { Diagnostic, DiagnosticSeverity, TextDocumentItem } from 'vscode-languageserver';
+import { Diagnostic, DiagnosticSeverity, SymbolKind, TextDocumentItem } from 'vscode-languageserver';
 import { initializeParser } from '../src/parser';
-import { findSetDefinedVariable, isCommand, isCommandName, isCommandWithName, isDefinition, isIfOrElseIfConditional, isMatchingOption, isOption, isStatement, isString, isVariable, isVariableDefinitionName } from '../src/utils/node-types';
+import { findSetDefinedVariable, isBlock, isCommand, isCommandName, isCommandWithName, isDefinition, isEnd, isFunctionDefinitionName, isIfOrElseIfConditional, isMatchingOption, isOption, isProgram, isScope, isStatement, isString, isVariable, isVariableDefinitionName } from '../src/utils/node-types';
+import { ScopeStack, isReference } from '../src/diagnostics/scope';
 import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter } from '../src/diagnostics/node-types';
 
 
 import { LspDocument } from '../src/document';
 import { setLogger } from './helpers';
+import { FishDocumentSymbol, filterLastPerScopeSymbol, findSymbolReferences, getFishDocumentSymbols } from '../src/document-symbol';
 let parser: Parser;
 let diagnostics: Diagnostic[] = [];
 let output: SyntaxNode[] = [];
@@ -358,6 +360,88 @@ describe('diagnostics test suite', () => {
       'variable_2'
     ]);
   });
+
+  it(`NODE_TEST: scopeStack`, () => {
+    const inputs = [
+      `
+      set a hello
+      function foo --argument-names a
+         echo $a
+         for i in (seq 1 (string split '' -- "$a" | count))
+           echo "$i:$a[$i]"
+         end
+      end
+      if test -n "$argv"
+        # foo abc
+      end
+    `,
+      `
+      function bar --argument-names a b c
+          echo $a
+          echo $b
+          echo $c
+      end
+
+      bar 1 2 3
+
+      function baz
+          bar $argv[1] $argv[2] $argv[3]
+      end
+
+      baz 4 5 6`
+    ].forEach((input, i) => {
+
+      const tree = parser.parse(input);
+      const root = tree.rootNode;
+      const allNodes = getFishDocumentSymbols(`file://test${i}.fish`, root)
+      const nodes = filterLastPerScopeSymbol(getFishDocumentSymbols(`file://test${i}.fish`, root));
+      let nCount: Map<string, number> = new Map<string, number>
+      for (const n of allNodes) {
+        const refs = findSymbolReferences(allNodes, n)
+        nCount.set(n.name, refs.length)
+      }
+
+      const functions = filterSymbols(nodes, (s) => s.kind === SymbolKind.Function);
+      // for (const node of getChildNodes(root)) {
+      //   if (isCommandName(node) && functions.find(f => f.name === node.text)) {
+      //     nCount.set(node.text, nCount.get(node.text)! + 1 ?? 1)
+      //   }
+      //   i
+      // }
+      console.log(nCount);
+      function filterSymbols(symbols: FishDocumentSymbol[], predicate: (s: FishDocumentSymbol) => boolean): FishDocumentSymbol[] {
+        const result: FishDocumentSymbol[] = [];
+
+        for (const symbol of symbols) {
+          if (predicate(symbol)) {
+            result.push(symbol);
+          }
+
+          const matchingChildren = filterSymbols(symbol.children, predicate);
+          result.push(...matchingChildren);
+        }
+
+        return result;
+      }
+
+      const traverseNodes = (indent: string, ...n: FishDocumentSymbol[]) => {
+        for (const node of n) {
+          console.log(indent, node.kind, node.name, node.text);
+          traverseNodes(indent + '    ', ...node.children);
+        }
+      };
+
+      traverseNodes('', ...nodes);
+
+    });
+    // console.log(scopeStack.);
+  });
+  // expect(definitions.map(d => d.text)).toEqual([
+  //   'foo',
+  //   'variable_1',
+  //   'variable_2'
+  // ]);
+
 
   /**
    * TODO:
