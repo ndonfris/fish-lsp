@@ -16,11 +16,6 @@ import { URI } from 'vscode-uri';
 
 const util = require('util')
 
-export function buildUri(absolutePath: string) {
-    return URI.parse(absolutePath).toString()
-}
-
-
 
 export type LoggerOptions = {
     LogTestName?: boolean,
@@ -28,6 +23,7 @@ export type LoggerOptions = {
     LogSep?: boolean,
     Space?: boolean,
 }
+
 
 export const LogOpts: Record<'clean' | 'separated' | 'extra', LoggerOptions> = {
     clean: {LogSep: true, Space: true, LogTestName: true},
@@ -90,6 +86,7 @@ function LogSpecial(current: "before" | "after" ,Opts?: LoggerOptions){
     }
 
 }
+
 /**
  * @param {string} fname - relative path to file, in test-data folder 
  * @param {boolean} inAutoloadPath - simulate the doc uri being in ~/.config/fish/functions/*.fish
@@ -157,20 +154,6 @@ export function createFakeLspDocument(name: string, text: string): LspDocument {
     return new LspDocument(doc)
 }
 
-export type FakeDocumentInput = {
-    name: string,
-    text: string[],
-}
-
-export function createTestWorkspaceDocuments(inputs: {[uri: string]: string[]}, analyzer?: Analyzer): LspDocument[] {
-    const documents: LspDocument[] = Object.entries(inputs).map(([uri, text]) => {
-        return createFakeLspDocument(uri, text.join('\n'))
-    })
-    if (analyzer) {
-        documents.forEach(document => analyzer.analyze(document))
-    }
-    return documents
-}
 
 export type truncatedNode = {
     text: string,
@@ -180,6 +163,7 @@ export type truncatedNode = {
     // children: truncatedNode[],
     // siblings: truncatedNode[],
 }
+
 export function getTruncatedNode(node: SyntaxNode){
     return {
         text: node.text,
@@ -191,14 +175,3 @@ export function getTruncatedNode(node: SyntaxNode){
     }
 }
 
-export function printNodeWithTest(n: SyntaxNode, test: string = ""): void {
-  console.log("test: ", test);
-  printNodes(n)
-}
-
-export function printNodes(node: SyntaxNode, depth: number = 0) {
-    const indent = ' '.repeat(depth * 4)
-    const logStr = JSON.stringify(getTruncatedNode(node), null, 2).split('\n').map(l => indent + l).join('\n')
-    console.log(logStr)
-    node.children.forEach(child => printNodes(child, depth + 1))
-}

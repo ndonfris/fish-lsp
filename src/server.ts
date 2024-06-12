@@ -282,11 +282,9 @@ export default class FishServer {
 
   public async onExecuteCommand(params: ExecuteCommandParams) {
     this.logParams('onExecuteCommand', params);
-    let name = '';
-    let path = '';
-    let file = '';
-    let line = '';
-    let text = '';
+
+    /** define inner switch block variables */
+    let [name, path, file, line, text] = ['', '', '', '', '']
     let doc: LspDocument | undefined;
 
     let output: ExecResultWrapper;
