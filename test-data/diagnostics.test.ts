@@ -1,9 +1,9 @@
 import { homedir } from 'os';
 import Parser, { SyntaxNode, Tree } from 'web-tree-sitter';
-import { getChildNodes, getNodeAtRange } from '../src/utils/tree-sitter';
+import { findChildNodes, firstAncestorMatch, getChildNodes, getNodeAtRange } from '../src/utils/tree-sitter';
 import { Diagnostic, DiagnosticSeverity, TextDocumentItem } from 'vscode-languageserver';
 import { initializeParser } from '../src/parser';
-import { isCommandWithName, isMatchingOption, isString } from '../src/utils/node-types';
+import { findSetDefinedVariable, isCommand, isCommandName, isCommandWithName, isDefinition, isIfOrElseIfConditional, isMatchingOption, isOption, isStatement, isString, isVariable, isVariableDefinitionName } from '../src/utils/node-types';
 import { LspDocument } from '../src/document';
 import { setLogger } from './helpers';
 let parser: Parser;
@@ -152,10 +152,6 @@ function isTestCommandVariableExpansionWithoutString(node: SyntaxNode): boolean 
 
   if (!isCommandWithName(parent, 'test', '[')) return false;
 
-  // console.log(parent.childCount, parent.text);
-  // console.log({lastChildText: parent.child(2)?.text || 'unknown'});
-  // console.log({text: node.text, type: node.type});
-  // console.log('previousSibling', {text: previousSibling.text, type: previousSibling.type});
   if (isMatchingOption(previousSibling, { shortOption: '-n' }) || isMatchingOption(previousSibling, { shortOption: '-z' })) {
     return !isString(node) && !!parent.child(2) && parent.child(2)!.equals(node);
   }
@@ -163,9 +159,33 @@ function isTestCommandVariableExpansionWithoutString(node: SyntaxNode): boolean 
   return false;
 }
 
+
+function isConditionalWithoutQuietCommand(node: SyntaxNode) {
+  if (!isCommandWithName(node, 'command', 'set', 'string', 'builtin', 'functions')) return false;
+
+  if (node.parent && isIfOrElseIfConditional(node.parent)) {
+    const flags = findChildNodes(node, (n) => {
+      return isMatchingOption(n, { shortOption: '-q', longOption: '--quiet' })
+        || isMatchingOption(n, { shortOption: '-q', longOption: '--query' });
+    });
+    return flags.length === 0;
+  }
+  return false;
+}
+
+function isVariableDefinitionWithExpansionCharacter(node: SyntaxNode) {
+  if (node.parent && isCommandWithName(node.parent, 'set', 'read')) {
+    const definition = getChildNodes(node.parent).filter(n => !isCommand(n) && !isCommandName(n) && !isOption(n)).shift();
+    return (node.type === 'variable_expansion' || node.text.startsWith('$')) && definition?.equals(node);
+  }
+
+  return false;
+}
+
+
 describe('diagnostics test suite', () => {
 
-  it('test finding error nodes', async () => {
+  it('NODE_TEST: test finding specific error nodes', async () => {
     let inputs: string[] = [
       [
         'echo "function error"',
@@ -210,7 +230,7 @@ describe('diagnostics test suite', () => {
     );
   });
 
-  it('check for extra end', async () => {
+  it('NODE_TEST: check for extra end', async () => {
     input = [
       'function foo',
       '    echo "hi" ',
@@ -227,7 +247,7 @@ describe('diagnostics test suite', () => {
     expect(output.length).toBe(1);
   });
 
-  it('0 indexed array', async () => {
+  it('NODE_TEST: 0 indexed array', async () => {
     input = 'echo $argv[0]';
     const { rootNode } = parser.parse(input);
     for (const node of getChildNodes(rootNode)) {
@@ -239,7 +259,7 @@ describe('diagnostics test suite', () => {
     expect(output.length).toBe(1);
   });
 
-  it('single quote includes variable expansion', async () => {
+  it('NODE_TEST: single quote includes variable expansion', async () => {
     input = `echo ' $argv'`;
     const { rootNode } = parser.parse(input);
     for (const node of getChildNodes(rootNode)) {
@@ -252,7 +272,7 @@ describe('diagnostics test suite', () => {
     expect(output.length).toBe(1);
   });
 
-  it('isAlias definition', async () => {
+  it('NODE_TEST: isAlias definition', async () => {
     [
       `alias lst='ls --tree'`,
       `alias lst 'ls --tree'`,
@@ -271,7 +291,7 @@ describe('diagnostics test suite', () => {
   });
 
 
-  it('universal definition in script', async () => {
+  it('NODE_TEST: universal definition in script', async () => {
     [
       `set -Ux uvar 'SOME VAR'`,
       `set --universal uvar 'SOME VAR'`,
@@ -290,7 +310,7 @@ describe('diagnostics test suite', () => {
     ]);
   });
 
-  it('find source file', () => {
+  it('NODE_TEST: find source file', () => {
     [
       `source file_does_not_exist.fish`,
       `source`,
@@ -313,7 +333,7 @@ describe('diagnostics test suite', () => {
     expect(output.map(o => o.text)).toEqual([ 'file_does_not_exist.fish' ]);
   });
 
-  it(`isTestCommandVariableExpansionWithoutString 'test -n/-z "$var"'`, () => {
+  it(`NODE_TEST: isTestCommandVariableExpansionWithoutString 'test -n/-z "$var"'`, () => {
     [
       'if test -n $arg0',
       'if test -z "$arg1"',
@@ -334,7 +354,123 @@ describe('diagnostics test suite', () => {
     ]);
   });
 
-  // it('')
+  it('NODE_TEST: silent flag', () => {
+    const outputWithFlag: SyntaxNode[] = [];
+    const outputWithoutFlag: SyntaxNode[] = [];
+    [
+      'if command -q ls;end',
+      'if set -q argv; end',
+      'if true; echo hi; else if string match -q; echo p; end',
+      'if builtin -q set; end',
+      'if functions -aq ls; end',
+    ].forEach((input, index) => {
+      const { rootNode } = parser.parse(input);
+      for (const node of getChildNodes(rootNode)) {
+        if (isConditionalWithoutQuietCommand(node)) {
+          outputWithFlag.push(node);
+        }
+      }
+    });
 
+    [
+      'if command ls;end',
+      'if set argv; end',
+      'if true; echo hi; else if string match; echo p; end',
+      'if builtin set; end',
+      'if functions ls; end',
+    ].forEach((input, index) => {
+      const { rootNode } = parser.parse(input);
+      for (const node of getChildNodes(rootNode)) {
+        if (isConditionalWithoutQuietCommand(node)) {
+          outputWithoutFlag.push(node);
+        }
+      }
+    });
+    expect(outputWithFlag.length).toBe(0);
+    expect(outputWithoutFlag.length).toBe(5);
+  });
+
+
+  it('NODE_TEST: `if set -q var_name` vs `if set -q $var_name`', () => {
+    [
+      'if set -q $variable_1; echo bad; end',
+      'if set -q variable_2; echo good; end',
+      'set $variable_3 (echo "a b c d e f $argv[2]") ',
+      'set $variable_4 $PATH'
+    ].forEach(input => {
+      const { rootNode } = parser.parse(input);
+      for (const node of getChildNodes(rootNode)) {
+        if (isVariableDefinitionWithExpansionCharacter(node)) {
+          // console.log({ type: node.type, text: node.text, p: node.parent?.text || 'null' });
+          output.push(node);
+        }
+      }
+    });
+
+    expect(output.map(o => o.text)).toEqual([
+      '$variable_1',
+      '$variable_3',
+      '$variable_4'
+    ]);
+  });
+
+
+  /**
+   * TODO:
+   *     Improve references usage for autoloaded functions, and other scopes
+   */
+  it('NODE_TEST: unused local definition', () => {
+    const definitions: SyntaxNode[] = [];
+    [
+      [
+        '# input 1',
+        'function foo',
+        '    echo "inside foo" ',
+        'end'
+      ],
+      [
+        '# input 2',
+        'set --local variable_1 a',
+        'set --local variable_2 b',
+        'set --global variable_3 c',
+      ],
+    ].map(innerArr => innerArr.join('\n')).forEach(input => {
+      const tree = parser.parse(input);
+      const root = tree.rootNode;
+      for (const node of getChildNodes(root)) {
+        if (isDefinition(node)) {
+          if (isVariableDefinitionName(node)) {
+            const parent = node.parent!;
+            const isGlobal = findChildNodes(parent, n => {
+              return isMatchingOption(n, { shortOption: '-U', longOption: '--universal' })
+                || isMatchingOption(n, { shortOption: '-g', longOption: '--global' });
+            });
+            if (isGlobal.length === 0) {
+              definitions.push(node);
+              // console.log({ text: node.text, type: node.type });
+            }
+          } else {
+            // console.log({ text: node.text, type: node.type });
+            definitions.push(node);
+          }
+        }
+      }
+    });
+    expect(definitions.map(d => d.text)).toEqual([
+      'foo',
+      'variable_1',
+      'variable_2'
+    ]);
+  });
+
+  /**
+   * TODO:
+   *      write argparse handler
+   */
+  // it('NODE_TEST: argparse', () => {
+  //
+  //
+  //
+  // })
 });
 

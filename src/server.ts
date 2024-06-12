@@ -286,8 +286,8 @@ export default class FishServer {
     /** define inner switch block variables */
     let [name, path, file, line, text] = ['', '', '', '', '']
     let doc: LspDocument | undefined;
-
     let output: ExecResultWrapper;
+
     const commandName = params.command.toString().slice(params.command.toString().indexOf('.') + 1);
     this.logger.logAsJson(commandName);
     switch (commandName) {
@@ -313,9 +313,8 @@ export default class FishServer {
         useMessageKind(this.connection, output);
         return;
       case 'createTheme':
-        if (!params.arguments || !params.arguments[0].toString()) {
-          return;
-        }
+        if (!params.arguments || !params.arguments[0].toString()) return;
+
         name = params.arguments[0] as string || '';
         path = `~/.config/fish/themes/${name}.fish`;
         SyncFileHelper.create(path);
