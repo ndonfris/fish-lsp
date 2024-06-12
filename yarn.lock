@@ -360,10 +360,10 @@
     to-pascal-case "^1.0.0"
     unescape-js "^1.0.5"
 
-"@esdmr/tree-sitter-fish@^3.5.1":
-  version "3.5.1"
-  resolved "https://registry.yarnpkg.com/@esdmr/tree-sitter-fish/-/tree-sitter-fish-3.5.1.tgz#dfdc84a7c49dca1b267754364d1d9f0db7b73c88"
-  integrity sha512-AZEImtveh36AD2DX1zFRfGvrRlx3+3XG8UTrvXfEn9xYMzdFDXlrnCgkzt8GSgy1rYRSTsNdHmMEj9WCsBu0/Q==
+"@esdmr/tree-sitter-fish@^3.5.2-0":
+  version "3.5.2-0"
+  resolved "https://registry.yarnpkg.com/@esdmr/tree-sitter-fish/-/tree-sitter-fish-3.5.2-0.tgz#2df41e0b2ccdad0d8bbb8a9e2aae953441d60c7f"
+  integrity sha512-fK/t2mAIN67j+wJv2iPPglOM15QwvTUSzNIU+hsHWHrwNJtvr1SGqTmXdKa+sRpa7U6ShWRNe3G3n9q/SDLIhQ==
 
 "@eslint-community/eslint-utils@^4.2.0", "@eslint-community/eslint-utils@^4.4.0":
   version "4.4.0"

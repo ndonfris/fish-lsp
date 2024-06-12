@@ -2,7 +2,7 @@ import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from './parser';
 import { Analyzer } from './analyze';
 //import {  generateCompletionList, } from "./completion";
-import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, DocumentHighlight, DocumentHighlightParams, ExecuteCommandParams } from 'vscode-languageserver';
+import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, DocumentHighlight, DocumentHighlightParams, ExecuteCommandParams, PublishDiagnosticsParams } from 'vscode-languageserver';
 import { ExecResultWrapper, FishThemeDump, execEntireBuffer, execLineInBuffer, executeThemeDump, useMessageKind } from './executeHandler';
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
@@ -11,10 +11,10 @@ import { Logger, ServerLogsPath } from './logger';
 import { symbolKindsFromNode, uriToPath } from './utils/translation';
 import { getChildNodes, getNodeAtPosition } from './utils/tree-sitter';
 import { handleHover } from './hover';
-import { /*getDiagnostics*/ } from './diagnostics/validate';
+import { getDiagnostics } from './diagnostics/validate';
 /*import * as Locations from './utils/locations';*/
 import { FishProtocol } from './utils/fishProtocol';
-import { handleConversionToCodeAction } from './diagnostics/handleConversion';
+// import { handleConversionToCodeAction } from './diagnostics/handleConversion';
 import { inlayHintsProvider } from './inlay-hints';
 import { DocumentationCache, initializeDocumentationCache } from './utils/documentationCache';
 import { initializeDefaultFishWorkspaces } from './utils/workspace';
@@ -138,6 +138,7 @@ export default class FishServer {
         this.logParams('opened document: ', params.textDocument.uri);
         this.analyzer.analyze(doc);
         this.logParams('analyzed document: ', params.textDocument.uri);
+        this.connection.sendDiagnostics(this.sendDiagnostics({uri: doc.uri, diagnostics: []}))
       }
     } else {
       // this.logParams('analyzed document: ', params.textDocument.uri);
@@ -167,6 +168,7 @@ export default class FishServer {
     this.logger.logAsJson(`CHANGED -> ${doc.version}:::${doc.uri}`);
     const root = this.analyzer.getRootNode(doc);
     if (!root) return;
+    this.connection.sendDiagnostics(this.sendDiagnostics({uri: doc.uri, diagnostics: []}))
     // else ?
   }
 
@@ -605,14 +607,14 @@ export default class FishServer {
     const root = this.parser.parse(document.getText()).rootNode;
     const results: CodeAction[] = [];
 
-    for (const diagnostic of params.context.diagnostics) {
-      const res = handleConversionToCodeAction(
-        diagnostic,
-        root,
-        document,
-      );
-      if (res) results.push(res);
-    }
+    // for (const diagnostic of params.context.diagnostics) {
+    //   const res = handleConversionToCodeAction(
+    //     diagnostic,
+    //     root,
+    //     document,
+    //   );
+    //   if (res) results.push(res);
+    // }
 
     return results;
   }
@@ -669,6 +671,20 @@ export default class FishServer {
       };
     }
     return null;
+  }
+
+  public sendDiagnostics(params: PublishDiagnosticsParams) {
+    this.logParams('sendDiagnostics', params)
+
+    let {diagnostics} = params
+    const uri = uriToPath(params.uri);
+    const doc = this.docs.get(uri);
+    if (!doc) return {uri: params.uri, diagnostics: params.diagnostics}
+
+    const {rootNode} = this.parser.parse(doc.getText())
+
+    return {uri: params.uri, diagnostics: getDiagnostics(rootNode, doc)}
+
   }
 
   /////////////////////////////////////////////////////////////////////////////////////

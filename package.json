@@ -84,7 +84,7 @@
     ]
   },
   "dependencies": {
-    "@esdmr/tree-sitter-fish": "^3.5.1",
+    "@esdmr/tree-sitter-fish": "^3.5.2-0",
     "colors": "^1.4.0",
     "commander": "^12.0.0",
     "deepmerge": "^4.3.1",

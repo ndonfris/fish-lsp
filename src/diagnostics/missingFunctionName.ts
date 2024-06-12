@@ -3,8 +3,8 @@ import { SyntaxNode } from 'web-tree-sitter';
 import { isFunctionDefinitionName } from '../utils/node-types';
 import { getChildNodes, getRange, nodesGen } from '../utils/tree-sitter';
 import { pathToRelativeFunctionName, uriInUserFunctions, uriToPath } from '../utils/translation';
-import * as errorCodes from './errorCodes';
-import { createDiagnostic } from './create';
+import {ErrorCodes} from './errorCodes';
+// import { createDiagnostic } from './create';
 import { LspDocument } from '../document';
 
 /**
@@ -52,16 +52,15 @@ const duplicateNodeNames = (nodes: SyntaxNode[]): SyntaxNode[] => {
  * @param {TextDocumentItem} doc - the document of for the same tree
  * @returns {Diapgnostic[]} - a list of diagnostics for all functions that do not have a matching name
  */
-export function createAllFunctionDiagnostics(root: SyntaxNode, doc: LspDocument): Diagnostic[] {
-  const funcs = getChildNodes(root).filter(isFunctionDefinitionName);
-  let possibleFuncsToFilenames : SyntaxNode[] = [];
-  if (doc.isAutoLoaded() && !hasOnlyOneDefinition(funcs, doc.getAutoLoadName())) {
-    possibleFuncsToFilenames = funcs.filter(n => n.text !== doc.getAutoLoadName());
-  }
-  const duplicateFuncNames : SyntaxNode[] = duplicateNodeNames(funcs);
-  return [
-    ...possibleFuncsToFilenames.map(n => createDiagnostic(n, errorCodes.missingAutoloadedFunctionName, doc)),
-    ...duplicateFuncNames.map(n => createDiagnostic(n, errorCodes.duplicateFunctionName, doc)),
-  ];
-}
-
+// export function createAllFunctionDiagnostics(root: SyntaxNode, doc: LspDocument): Diagnostic[] {
+//   const funcs = getChildNodes(root).filter(isFunctionDefinitionName);
+//   let possibleFuncsToFilenames : SyntaxNode[] = [];
+//   if (doc.isAutoLoaded() && !hasOnlyOneDefinition(funcs, doc.getAutoLoadName())) {
+//     possibleFuncsToFilenames = funcs.filter(n => n.text !== doc.getAutoLoadName());
+//   }
+//   const duplicateFuncNames : SyntaxNode[] = duplicateNodeNames(funcs);
+//   return [
+//     ...possibleFuncsToFilenames.map(n => createDiagnostic(n, ErrorCodes.missingAutoloadedFunctionName, doc)),
+//     ...duplicateFuncNames.map(n => createDiagnostic(n, ErrorCodes.duplicateFunctionName, doc)),
+//   ];
+// }

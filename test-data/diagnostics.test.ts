@@ -4,6 +4,9 @@ import { findChildNodes, firstAncestorMatch, getChildNodes, getNodeAtRange } fro
 import { Diagnostic, DiagnosticSeverity, TextDocumentItem } from 'vscode-languageserver';
 import { initializeParser } from '../src/parser';
 import { findSetDefinedVariable, isCommand, isCommandName, isCommandWithName, isDefinition, isIfOrElseIfConditional, isMatchingOption, isOption, isStatement, isString, isVariable, isVariableDefinitionName } from '../src/utils/node-types';
+import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter } from '../src/diagnostics/node-types';
+
+
 import { LspDocument } from '../src/document';
 import { setLogger } from './helpers';
 let parser: Parser;
@@ -60,128 +63,6 @@ function extractDiagnostics(tree: Tree) {
   return results;
 
 }
-type startTokenType = "function" | "while" | "if" | "for" | "begin" | "[" | "{" | "(" | "'" | '"';
-type endTokenType = 'end' | "'" | '"' | ']' | '}' | ')';
-
-const errorNodeTypes: { [ start in startTokenType ]: endTokenType } = {
-  [ 'function' ]: 'end',
-  [ 'while' ]: 'end',
-  [ 'begin' ]: 'end',
-  [ 'for' ]: 'end',
-  [ 'if' ]: 'end',
-  [ '"' ]: '"',
-  [ "'" ]: "'",
-  [ "{" ]: '}',
-  [ "[" ]: ']',
-  [ "(" ]: ')'
-} as const;
-
-
-function isStartTokenType(str: string): str is startTokenType {
-  return [ 'function', 'while', 'if', 'for', 'begin', '[', '{', '(', "'", '"' ].includes(str);
-}
-
-
-function findErrorCause(children: Parser.SyntaxNode[]): Parser.SyntaxNode | null {
-  const stack: Array<{ node: Parser.SyntaxNode, type: endTokenType; }> = [];
-
-  for (const node of children) {
-    if (isStartTokenType(node.type)) {
-      const expectedEndToken = errorNodeTypes[ node.type ];
-      const matchIndex = stack.findIndex(item => item.type === expectedEndToken);
-
-      if (matchIndex !== -1) {
-        stack.splice(matchIndex, 1); // Remove the matched end token
-      } else {
-        stack.push({ node, type: expectedEndToken }); // Push the current node and expected end token to the stack
-      }
-    } else if (Object.values(errorNodeTypes).includes(node.type as endTokenType)) {
-      stack.push({ node, type: node.type as endTokenType }); // Track all end tokens
-    }
-  }
-
-  // Return the first unmatched start token from the stack, if any
-  return stack.length > 0 ? stack[ 0 ]?.node || null : null;
-}
-
-
-function isExtraEnd(node: SyntaxNode) {
-  return node.type === 'command' && node.text === 'end';
-}
-
-function isZeroIndex(node: SyntaxNode) {
-  return node.type === 'index' && node.text === '0';
-}
-
-function isSingleQuoteVariableExpansion(node: Parser.SyntaxNode): boolean {
-  if (node.type !== 'single_quote_string') {
-    return false;
-  }
-
-  const variableRegex = /(?<!\\)\$\w+/; // Matches $variable, not preceded by a backslash
-  return variableRegex.test(node.text);
-}
-
-function isAlias(node: SyntaxNode): boolean {
-  return isCommandWithName(node, 'alias');
-}
-
-function isUniversalDefinition(node: SyntaxNode): boolean {
-  const parent = node.parent;
-  if (!parent) return false;
-
-  if (isCommandWithName(parent, 'read') || isCommandWithName(parent, 'set')) {
-    return isMatchingOption(node, { shortOption: '-U', longOption: '--universal' });
-  }
-  return false;
-}
-
-function isSourceFilename(node: SyntaxNode): boolean {
-  const parent = node.parent;
-  if (!parent) return false;
-  if (isCommandWithName(parent, 'source') && parent.childCount === 2) {
-    return parent.child(1)?.equals(node) || false;
-  }
-  return false;
-}
-
-function isTestCommandVariableExpansionWithoutString(node: SyntaxNode): boolean {
-  const parent = node.parent;
-  const previousSibling = node.previousSibling;
-  if (!parent || !previousSibling) return false;
-
-  if (!isCommandWithName(parent, 'test', '[')) return false;
-
-  if (isMatchingOption(previousSibling, { shortOption: '-n' }) || isMatchingOption(previousSibling, { shortOption: '-z' })) {
-    return !isString(node) && !!parent.child(2) && parent.child(2)!.equals(node);
-  }
-
-  return false;
-}
-
-
-function isConditionalWithoutQuietCommand(node: SyntaxNode) {
-  if (!isCommandWithName(node, 'command', 'set', 'string', 'builtin', 'functions')) return false;
-
-  if (node.parent && isIfOrElseIfConditional(node.parent)) {
-    const flags = findChildNodes(node, (n) => {
-      return isMatchingOption(n, { shortOption: '-q', longOption: '--quiet' })
-        || isMatchingOption(n, { shortOption: '-q', longOption: '--query' });
-    });
-    return flags.length === 0;
-  }
-  return false;
-}
-
-function isVariableDefinitionWithExpansionCharacter(node: SyntaxNode) {
-  if (node.parent && isCommandWithName(node.parent, 'set', 'read')) {
-    const definition = getChildNodes(node.parent).filter(n => !isCommand(n) && !isCommandName(n) && !isOption(n)).shift();
-    return (node.type === 'variable_expansion' || node.text.startsWith('$')) && definition?.equals(node);
-  }
-
-  return false;
-}
-
 
 describe('diagnostics test suite', () => {
 
@@ -378,9 +259,24 @@ describe('diagnostics test suite', () => {
       'if true; echo hi; else if string match; echo p; end',
       'if builtin set; end',
       'if functions ls; end',
+      [ 'if test -n "$argv"',
+        '   echo yes',
+        'else if test -z "$argv"',
+        '     set -Ux variable a',
+        'end'
+      ].join('\n')
     ].forEach((input, index) => {
       const { rootNode } = parser.parse(input);
       for (const node of getChildNodes(rootNode)) {
+        // if (index === 5 && node.type === 'if_statement') {
+        // console.log({node: node.toString()});
+        // const condition = node.namedChildren.find(child => child.type === 'condition')
+        // console.log('condi', node.childrenForFieldName('condition').map(c => c.text));
+        // console.log(node.namedChildren.map(c => c.type + ':' + c.text ));
+        // console.log({ text: condition?.text, type: condition?.type, gType: condition?.grammarType });
+        // }
+        // if (node.type === 'condition') {
+        // }
         if (isConditionalWithoutQuietCommand(node)) {
           outputWithoutFlag.push(node);
         }
@@ -473,4 +369,3 @@ describe('diagnostics test suite', () => {
   //
   // })
 });
-
