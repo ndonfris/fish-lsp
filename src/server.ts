@@ -18,10 +18,10 @@ import { FishProtocol } from './utils/fishProtocol';
 import { inlayHintsProvider } from './inlay-hints';
 import { DocumentationCache, initializeDocumentationCache } from './utils/documentationCache';
 import { initializeDefaultFishWorkspaces } from './utils/workspace';
-import { filterLastPerScopeSymbol, FishDocumentSymbol } from './document-symbol';
+import { filterLastPerScopeSymbol, findSymbolsForCompletion, FishDocumentSymbol, getFishDocumentSymbols } from './document-symbol';
 //import { FishCompletionItem, FishCompletionData, FishCompletionItemKind } from './utils/completion-strategy';
 //import { getFlagDocumentationAsMarkup } from './utils/flag-documentation';
-import { getRenameWorkspaceEdit, getRefrenceLocations } from './workspace-symbol';
+import { getRenameWorkspaceEdit, getRefrenceLocations, findDefinitionSymbols } from './workspace-symbol';
 import { CompletionPager, initializeCompletionPager } from './utils/completion/pager';
 import { FishCompletionItem } from './utils/completion/types';
 import { getDocumentationResolver } from './utils/completion/documentation';
@@ -231,10 +231,15 @@ export default class FishServer {
       return FishCompletionList.empty();
     }
 
+    const { rootNode } = this.parser.parse(doc.getText())
+
     try {
-      const symbols = this.analyzer.getFlatDocumentSymbols(uri);
+      const symbols = findSymbolsForCompletion(getFishDocumentSymbols(uri, ...rootNode.children), params.position)
+      symbols.forEach(s => this.logger.log({name: s.name, detail: s.detail}))
+      // console.log();
+      // return []
       list = await this.completion.complete(line, fishCompletionData, symbols);
-      this.logger.logAsJson(`line: '${line}' got ${list.items.length} items"`);
+      // this.logger.logAsJson(`line: '${line}' got ${list.items.length} items"`);
     } catch (error) {
       this.logger.logAsJson('ERROR: onComplete ' + error?.toString() || 'error');
     }

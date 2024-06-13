@@ -5,7 +5,7 @@ import { execCompleteLine } from '../exec';
 import { Logger } from '../../logger';
 import { InlineParser } from './inline-parser';
 import { CompletionItemMap } from './startup-cache';
-import { CompletionContext, CompletionList, CompletionParams, Position, SymbolKind } from 'vscode-languageserver-protocol';
+import { CompletionContext, CompletionItem, CompletionList, CompletionParams, Position, SymbolKind } from 'vscode-languageserver';
 import { FishCompletionList, FishCompletionListBuilder } from './list';
 
 type SetupData = {
@@ -110,7 +110,8 @@ export class CompletionPager {
     }
 
     const result = this._items.addData(data).build();
-    this._items.log();
+    result.items = getUniqueCompletionItems(result.items)
+    // this._items.log();
     return result;
   }
 
@@ -238,6 +239,18 @@ function sortSymbols(symbols: FishDocumentSymbol[]) {
     }
   });
   return { variables, functions };
+}
+
+function getUniqueCompletionItems(items: CompletionItem[]): CompletionItem[] {
+  const uniqueItemsMap = new Map<string, CompletionItem>();
+
+  items.forEach(item => {
+    if (!uniqueItemsMap.has(item.label)) {
+      uniqueItemsMap.set(item.label, item);
+    }
+  });
+
+  return Array.from(uniqueItemsMap.values());
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////

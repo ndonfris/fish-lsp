@@ -4,8 +4,9 @@ import { execCmd, execCommandDocs } from '../exec';
 import { getFlagDocumentationString } from '../flag-documentation';
 
 export async function getDocumentationResolver(item: FishCompletionItem): Promise<MarkupContent> {
-  let docString: string = ['```fish', item.documentation.toString(), '```'].join('\n');
+  let docString: string = item.documentation.toString()
   if (!item.local) {
+    docString = ['```fish', item.documentation.toString(), '```'].join('\n');
     switch (item.fishKind) {
       case FishCompletionItemKind.ABBR:
         docString = await getAbbrDocString(item.label) ?? docString;
