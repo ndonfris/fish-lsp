@@ -41,7 +41,7 @@
   },
   {
     "name": "fish_lsp_diagnostic_disable_error_codes",
-    "description": "disable diagnostics for matching error codes (default: [])",
+    "description": "disable diagnostics for matching error codes (options: 1001, 1002, 1003, 1004, 2001, 2002, 2003, 3001, 3002, 3003) (default: [])",
     "valueType": "array"
   },
   {
