@@ -6,7 +6,15 @@ Documenting notable changes across project verisions
 
 ## Current
 
-## \[1.0.4\] - 2024-06-22 ([PR #23](https://github.com/unclechu/node-deep-extend/pull/23))
+## \[1.0.5\] - 2024-06-7 ([PR #33](https://github.com/ndonfris/fish-lsp/pull/33))
+
+- added new contributors
+- added `DocumentHighlight` handler
+- added `SignatureHelp` handler (_minimal_)
+- updated README.md
+- fixed issues: #32, #33, #34
+
+## \[1.0.4\] - 2024-05-22 ([PR #23](https://github.com/unclechu/node-deep-extend/pull/23))
 
 - added `./src/snippets/*.json`
 - included new [user config](../src/config.ts) options from `.env`
