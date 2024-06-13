@@ -2,36 +2,32 @@ import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { isCommand, isCommandName, isCommandWithName, isIfOrElseIfConditional, isMatchingOption, isOption, isString } from '../utils/node-types';
 import { findChildNodes, getChildNodes } from '../utils/tree-sitter';
 
-
-
-type startTokenType = "function" | "while" | "if" | "for" | "begin" | "[" | "{" | "(" | "'" | '"';
+type startTokenType = 'function' | 'while' | 'if' | 'for' | 'begin' | '[' | '{' | '(' | "'" | '"';
 type endTokenType = 'end' | "'" | '"' | ']' | '}' | ')';
 
 const errorNodeTypes: { [ start in startTokenType ]: endTokenType } = {
-  [ 'function' ]: 'end',
-  [ 'while' ]: 'end',
-  [ 'begin' ]: 'end',
-  [ 'for' ]: 'end',
-  [ 'if' ]: 'end',
-  [ '"' ]: '"',
-  [ "'" ]: "'",
-  [ "{" ]: '}',
-  [ "[" ]: ']',
-  [ "(" ]: ')'
+  ['function']: 'end',
+  ['while']: 'end',
+  ['begin']: 'end',
+  ['for']: 'end',
+  ['if']: 'end',
+  ['"']: '"',
+  ["'"]: "'",
+  ['{']: '}',
+  ['[']: ']',
+  ['(']: ')',
 } as const;
 
-
 function isStartTokenType(str: string): str is startTokenType {
-  return [ 'function', 'while', 'if', 'for', 'begin', '[', '{', '(', "'", '"' ].includes(str);
+  return ['function', 'while', 'if', 'for', 'begin', '[', '{', '(', "'", '"'].includes(str);
 }
 
-
 export function findErrorCause(children: Parser.SyntaxNode[]): Parser.SyntaxNode | null {
-  const stack: Array<{ node: Parser.SyntaxNode, type: endTokenType; }> = [];
+  const stack: Array<{ node: Parser.SyntaxNode; type: endTokenType; }> = [];
 
   for (const node of children) {
     if (isStartTokenType(node.type)) {
-      const expectedEndToken = errorNodeTypes[ node.type ];
+      const expectedEndToken = errorNodeTypes[node.type];
       const matchIndex = stack.findIndex(item => item.type === expectedEndToken);
 
       if (matchIndex !== -1) {
@@ -45,9 +41,8 @@ export function findErrorCause(children: Parser.SyntaxNode[]): Parser.SyntaxNode
   }
 
   // Return the first unmatched start token from the stack, if any
-  return stack.length > 0 ? stack[ 0 ]?.node || null : null;
+  return stack.length > 0 ? stack[0]?.node || null : null;
 }
-
 
 export function isExtraEnd(node: SyntaxNode) {
   return node.type === 'command' && node.text === 'end';
@@ -103,12 +98,11 @@ export function isTestCommandVariableExpansionWithoutString(node: SyntaxNode): b
   return false;
 }
 
-
 export function isConditionalWithoutQuietCommand(node: SyntaxNode) {
   if (!isCommandWithName(node, 'command', 'set', 'string', 'builtin', 'functions')) return false;
 
   if (node.parent && isIfOrElseIfConditional(node.parent)) {
-    const conditions = node.parent.childrenForFieldName('condition')
+    const conditions = node.parent.childrenForFieldName('condition');
     const flags = findChildNodes(node, (n) => {
       return isMatchingOption(n, { shortOption: '-q', longOption: '--quiet' })
         || isMatchingOption(n, { shortOption: '-q', longOption: '--query' });

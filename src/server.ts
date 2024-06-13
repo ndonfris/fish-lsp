@@ -138,7 +138,7 @@ export default class FishServer {
         this.logParams('opened document: ', params.textDocument.uri);
         this.analyzer.analyze(doc);
         this.logParams('analyzed document: ', params.textDocument.uri);
-        this.connection.sendDiagnostics(this.sendDiagnostics({uri: doc.uri, diagnostics: []}))
+        this.connection.sendDiagnostics(this.sendDiagnostics({ uri: doc.uri, diagnostics: [] }));
       }
     } else {
       // this.logParams('analyzed document: ', params.textDocument.uri);
@@ -168,7 +168,7 @@ export default class FishServer {
     this.logger.logAsJson(`CHANGED -> ${doc.version}:::${doc.uri}`);
     const root = this.analyzer.getRootNode(doc);
     if (!root) return;
-    this.connection.sendDiagnostics(this.sendDiagnostics({uri: doc.uri, diagnostics: []}))
+    this.connection.sendDiagnostics(this.sendDiagnostics({ uri: doc.uri, diagnostics: [] }));
     // else ?
   }
 
@@ -286,7 +286,7 @@ export default class FishServer {
     this.logParams('onExecuteCommand', params);
 
     /** define inner switch block variables */
-    let [name, path, file, line, text] = ['', '', '', '', '']
+    let [name, path, file, line, text] = ['', '', '', '', ''];
     let doc: LspDocument | undefined;
     let output: ExecResultWrapper;
 
@@ -674,17 +674,16 @@ export default class FishServer {
   }
 
   public sendDiagnostics(params: PublishDiagnosticsParams) {
-    this.logParams('sendDiagnostics', params)
+    this.logParams('sendDiagnostics', params);
 
-    let {diagnostics} = params
+    const { diagnostics } = params;
     const uri = uriToPath(params.uri);
     const doc = this.docs.get(uri);
-    if (!doc) return {uri: params.uri, diagnostics: params.diagnostics}
+    if (!doc) return { uri: params.uri, diagnostics: params.diagnostics };
 
-    const {rootNode} = this.parser.parse(doc.getText())
+    const { rootNode } = this.parser.parse(doc.getText());
 
-    return {uri: params.uri, diagnostics: getDiagnostics(rootNode, doc)}
-
+    return { uri: params.uri, diagnostics: getDiagnostics(rootNode, doc) };
   }
 
   /////////////////////////////////////////////////////////////////////////////////////

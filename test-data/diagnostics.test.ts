@@ -5,7 +5,7 @@ import { findChildNodes, firstAncestorMatch, getChildNodes, getNodeAtRange } fro
 import { Diagnostic, DiagnosticSeverity, SymbolKind, TextDocumentItem } from 'vscode-languageserver';
 import { initializeParser } from '../src/parser';
 import { findSetDefinedVariable, isBlock, isCommand, isCommandName, isCommandWithName, isDefinition, isEnd, isFunctionDefinitionName, isIfOrElseIfConditional, isMatchingOption, isOption, isProgram, isScope, isStatement, isString, isVariable, isVariableDefinitionName } from '../src/utils/node-types';
-import { ScopeStack, isReference } from '../src/diagnostics/scope';
+// import { ScopeStack, isReference } from '../src/diagnostics/scope';
 import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter } from '../src/diagnostics/node-types';
 
 
