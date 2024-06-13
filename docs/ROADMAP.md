@@ -29,13 +29,15 @@ __Sections:__
 
 - [ ] Add `Diagnostics`
   - [x] add a `diagnostic queue` to store diagnostics
-  - [ ] enable/disable specific features:
-    - [ ] __Error__ - missing `end` to block
+  - [x] enable/disable specific features [(more info available here)](https://github.com/ndonfris/fish-lsp/discussions/37):
+    - [x] __Error__ - missing `end` to block
     - [ ] __Error__ - missing `switch/case` fall through check `case '*'` or `case \*`
     - [ ] __Warning__ - prefer `command`/`builtin` prefix for commands or builtins
     - [ ] __Warning__ - missing completions file from a `functions/<file>.fish`
+    - [ ] Test different message formats
+    - [x] __disable/enable__ via env variables
     - [ ] _...add more features..._
-  - [ ] write verbose tests for each new diagnostic
+  - [x] write verbose tests for each new diagnostic
 - [ ] Add `CodeActions`
   - [ ] Create `completions` file
   - [ ] `Quickfix` diagnostic error
@@ -45,15 +47,23 @@ __Sections:__
   - [ ] `if` statement to `and`/`or` equivalent, [combiner](https://fishshell.com/docs/current/tutorial.html#combiners-and-or-not)
 - [ ] Add `CodeLens` support
   - [ ] Decide what would be useful to display
-- [ ] Add `CommandExecutor` provider
+    - [ ] Local reference count
+    - [ ] `return $status` values for functions
+    - [ ] `type -t`
+- [x] Add `CommandExecutor` provider
 - [x] Add function `SignatureHelp` provider.
-    - [ ] semi complete, needs more support
+    - [ ] semi complete, needs more support. (Specifically struggles with
+          determining what the current token type is)
+    - [ ] add support to enable via `CompletionItem`
+    - [ ] add `function _ -a first second third -d 'a function description'`
+          support for parsing the values out of the options, to then be used as a more
+          traditional signature handler
 - [ ] `FormatOnType` provider (useful for small files)
 - [ ] Enable server via __shebang's__:
   - [ ] `#!/usr/bin/fish`
   - [ ] `#!/usr/local/bin/fish`
   - [ ] `#!/usr/bin/env fish`
-- [ ] Add `DocumentHighlight` provider
+- [x] Add `DocumentHighlight` provider
 - [ ] Extend symbol definitions recognized by the server:
   - [ ] variables created by `fish_opt` && `argparse` commands
   - [ ] `alias` names
@@ -62,7 +72,7 @@ __Sections:__
   - [ ] event handlers for `function _ --on-event event`
   - [ ] universal variables
 - [ ] Descriptions for array indexing: `echo $PATH[-1..2]`
-  - [ ] ensure array indexes are: `1 >= idx <= -1`
+  - [x] ensure array indexes are: `1 >= idx <= -1`
 - [ ] `source` command use cases, for workspaces outside of default
       configurations. (The `source` command, can be used similar to import in other
       languages)
@@ -91,6 +101,21 @@ __Sections:__
   - [ ] hover documentation fallback: [tldr](https://tldr.sh/), [cht.sh](https://cht.sh/), _..._
   - [ ] format specific options
   - [ ] remove showing `lsp kind` in completions list
+- [ ] Add __fallback support__ for _small_ workspaces, (i.e., use shell to get
+      function path, and then open/edit/etc. through client)
+- [ ] `argparse` support
+  - [ ] if autoloaded function has `argparse` then use values to create
+        completions
+  - [ ] check if all __args__ from `argparse` are included in completion
+  - [ ] check if all __args__ from `argparse` have been used `_flag_arg`
+  - [ ] use `argparse` values as definition
+- [ ] __disable/enable__ server features through `fish-lsp.command` options
+- [ ] __virtual text__ - `fish_prompt` in `edit_command_buffer`
+- [ ] inlay hints - add references or some other feature
+- [ ] `breakpoint` support
+- [ ] improve  _conf.d/*.fish_ support
+- [ ] add `completion` snippets for [builtins](https://fishshell.com/docs/current/commands.html)
+- [ ] `onSemanticToken` support
 
 ## Automation and pipelines
 
@@ -121,6 +146,6 @@ __Sections:__
   - [x] improve [contributing](https://github.com/ndonfris/fish-lsp#contributing) section (add authors icons)
   - [x] [license](https://github.com/ndonfris/fish-lsp#license) include only MIT
 - [ ] Extend documentation provided via [wiki](https://github.com/ndonfris/fish-lsp/wiki)
-  - [ ] workflows - guide for creating new __workflows__
+  - [x] workflows - guide for creating new __workflows__
   - [ ] testing - guide for __writing tests__
-  - [ ] layout - guide for __project layout__ & __design patterns__ via mermaid charts
+  - [x] layout - guide for __project layout__ & __design patterns__ via mermaid charts
