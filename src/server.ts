@@ -138,10 +138,14 @@ export default class FishServer {
         this.logParams('opened document: ', params.textDocument.uri);
         this.analyzer.analyze(doc);
         this.logParams('analyzed document: ', params.textDocument.uri);
-        this.connection.sendDiagnostics(this.sendDiagnostics({ uri: doc.uri, diagnostics: [] }));
+        if (!config.fish_lsp_disabled_handlers.includes('diagnostic')) {
+          this.connection.sendDiagnostics(this.sendDiagnostics({
+            uri: doc.uri,
+            diagnostics: [],
+          }));
+        }
       }
     } else {
-      // this.logParams('analyzed document: ', params.textDocument.uri);
       this.logger.logAsJson(
         `Cannot open already opened doc '${params.textDocument.uri}'.`,
       );
@@ -168,8 +172,8 @@ export default class FishServer {
     this.logger.logAsJson(`CHANGED -> ${doc.version}:::${doc.uri}`);
     const root = this.analyzer.getRootNode(doc);
     if (!root) return;
+    if (config.fish_lsp_disabled_handlers.includes('diagnostic')) return;
     this.connection.sendDiagnostics(this.sendDiagnostics({ uri: doc.uri, diagnostics: [] }));
-    // else ?
   }
 
   didCloseTextDocument(params: DidCloseTextDocumentParams): void {
@@ -228,16 +232,16 @@ export default class FishServer {
     };
 
     if (line.trim().startsWith('#')) {
+      this.logger.logAsJson('onComplete on comment')
       return FishCompletionList.empty();
     }
 
     const { rootNode } = this.parser.parse(doc.getText())
 
+    const symbols = findSymbolsForCompletion(getFishDocumentSymbols(uri, ...rootNode.children), params.position)
+    symbols.forEach(s => this.logger.log({name: s.name, detail: s.detail}))
+
     try {
-      const symbols = findSymbolsForCompletion(getFishDocumentSymbols(uri, ...rootNode.children), params.position)
-      symbols.forEach(s => this.logger.log({name: s.name, detail: s.detail}))
-      // console.log();
-      // return []
       list = await this.completion.complete(line, fishCompletionData, symbols);
       // this.logger.logAsJson(`line: '${line}' got ${list.items.length} items"`);
     } catch (error) {
@@ -295,10 +299,10 @@ export default class FishServer {
     let doc: LspDocument | undefined;
     let output: ExecResultWrapper;
 
-    const commandName = params.command.toString().slice(params.command.toString().indexOf('.') + 1);
-    this.logger.logAsJson(commandName);
-    switch (commandName) {
-      case 'executeLine':
+    // const commandName = params.command.toString().slice(params.command.toString().indexOf('.') + 1);
+    this.logger.log({commandName: params.command});
+    switch (params.command) {
+      case 'fish-lsp.executeLine':
         file = params.arguments![0] as string || '';
         line = params.arguments![1] as string || '';
         // console.log({'last accessed: ': this.docs.files})
@@ -319,7 +323,7 @@ export default class FishServer {
         output = await execLineInBuffer(text);
         useMessageKind(this.connection, output);
         return;
-      case 'createTheme':
+      case 'fish-lsp.createTheme':
         if (!params.arguments || !params.arguments[0].toString()) return;
 
         name = params.arguments[0] as string || '';
@@ -328,8 +332,8 @@ export default class FishServer {
         output = await executeThemeDump(name);
         useMessageKind(this.connection, output);
         return;
-      case 'execute':
-      case 'executeBuffer':
+      case 'fish-lsp.execute':
+      case 'fish-lsp.executeBuffer':
         if (!params.arguments || !params.arguments[0]) {
           return;
         }

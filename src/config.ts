@@ -226,6 +226,14 @@ function escapeValue(value: string | number | boolean): string {
 }
 
 /********************************************
+ ***        check for diagnostics         ***
+ *******************************************/
+// export function configHasDiagnostics() {
+//   return configHandlers.diagnostic
+// }
+
+
+/********************************************
  ***        initializeResult              ***
  *******************************************/
 
