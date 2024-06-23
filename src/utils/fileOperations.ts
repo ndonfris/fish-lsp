@@ -1,15 +1,15 @@
 import { PathLike, appendFileSync, closeSync, existsSync, openSync, readFileSync, unlinkSync, writeFileSync } from 'fs';
-import { TextDocument, TextDocumentItem } from 'vscode-languageserver';
+import { TextDocumentItem } from 'vscode-languageserver';
 import { LspDocument } from '../document';
 import { pathToUri } from './translation';
-import { basename, dirname, extname, format } from 'path';
+import { basename, dirname, extname } from 'path';
 
 /**
  * Synchronous file operations.
  */
 export class SyncFileHelper {
   static open(filePath: PathLike, flags: string): number {
-    const expandedFilePath = this.expandTilde(filePath);
+    const expandedFilePath = this.expandEnvVars(filePath);
     return openSync(expandedFilePath, flags);
   }
 
@@ -18,30 +18,33 @@ export class SyncFileHelper {
   }
 
   static read(filePath: PathLike, encoding: BufferEncoding = 'utf8'): string {
-    const expandedFilePath = this.expandTilde(filePath);
+    const expandedFilePath = this.expandEnvVars(filePath);
     return readFileSync(expandedFilePath, { encoding });
   }
 
   static write(filePath: PathLike, data: string, encoding: BufferEncoding = 'utf8'): void {
-    const expandedFilePath = this.expandTilde(filePath);
+    const expandedFilePath = this.expandEnvVars(filePath);
     writeFileSync(expandedFilePath, data, { encoding });
   }
 
   static append(filePath: PathLike, data: string, encoding: BufferEncoding = 'utf8'): void {
-    const expandedFilePath = this.expandTilde(filePath);
+    const expandedFilePath = this.expandEnvVars(filePath);
     appendFileSync(expandedFilePath, data, { encoding });
   }
 
-  static expandTilde(filePath: PathLike): string {
-    const filePathString = filePath.toString();
-    if (filePathString.startsWith('~')) {
-      return filePathString.replace('~', process.env.HOME!);
-    }
+  static expandEnvVars(filePath: PathLike): string {
+    let filePathString = filePath.toString();
+    // Expand ~ to home directory
+    filePathString = filePathString.replace(/^~/, process.env.HOME!);
+    // Expand environment variables
+    filePathString = filePathString.replace(/\$([a-zA-Z0-9_]+)/g, (_, envVarName) => {
+      return process.env[envVarName] || '';
+    });
     return filePathString;
   }
 
   static exists(filePath: PathLike): boolean {
-    const expandedFilePath = this.expandTilde(filePath);
+    const expandedFilePath = this.expandEnvVars(filePath);
     return existsSync(expandedFilePath);
   }
 
@@ -50,7 +53,7 @@ export class SyncFileHelper {
   }
 
   static create(filePath: PathLike) {
-    const expandedFilePath = this.expandTilde(filePath);
+    const expandedFilePath = this.expandEnvVars(filePath);
     if (!this.exists(expandedFilePath)) {
       this.write(expandedFilePath, '');
     }
@@ -58,7 +61,7 @@ export class SyncFileHelper {
   }
 
   static getPathTokens(filePath: PathLike) {
-    const expandedFilePath = this.expandTilde(filePath);
+    const expandedFilePath = this.expandEnvVars(filePath);
     return {
       path: expandedFilePath,
       filename: basename(expandedFilePath, extname(expandedFilePath)),
@@ -70,7 +73,7 @@ export class SyncFileHelper {
   }
 
   static convertTextToFishFunction(filePath: PathLike, data: string, encoding: BufferEncoding = 'utf8') {
-    const expandedFilePath = this.expandTilde(filePath);
+    const expandedFilePath = this.expandEnvVars(filePath);
     const { filename, path, extension, exists } = this.getPathTokens(expandedFilePath);
     const content = [
       '',
@@ -88,14 +91,14 @@ export class SyncFileHelper {
   }
 
   static toTextDocumentItem(filePath: PathLike, languageId: string, version: number): TextDocumentItem {
-    const expandedFilePath = this.expandTilde(filePath);
+    const expandedFilePath = this.expandEnvVars(filePath);
     const content = this.read(expandedFilePath);
     const uri = pathToUri(expandedFilePath.toString());
     return TextDocumentItem.create(uri, languageId, version, content);
   }
 
   static toLspDocument(filePath: PathLike, languageId: string, version: number): LspDocument {
-    const expandedFilePath = this.expandTilde(filePath);
+    const expandedFilePath = this.expandEnvVars(filePath);
     let content = this.read(expandedFilePath);
 
     if (!content) {
