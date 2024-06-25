@@ -1,4 +1,5 @@
 import { SyncFileHelper } from '../src/utils/fileOperations';
+import { homedir } from 'os';
 import { join } from 'path';
 import { existsSync, unlinkSync } from 'fs';
 import * as fsPromises from 'fs/promises';
@@ -10,7 +11,7 @@ const testDir = join(__dirname, 'test_files');
 const testFilePath = join(testDir, 'test_file.txt');
 const testFilePathWithTilde = '~/repos/fish-lsp/test-data/test_files/test_file_tilde.txt';
 setLogger()
-console.log(testDir);
+// console.log(testDir);
 
 // Helper function to clean up test files
 const cleanUpTestFile = (filePath: string) => {
@@ -62,21 +63,42 @@ describe('SyncFileHelper', () => {
 
   it('should expand tilde to home directory and create a file', () => {
     const expandedFilePath = testFilePathWithTilde.replace('~', process.env.HOME!);
-    console.log({testFilePathWithTilde, expandedFilePath});
+    // console.log({testFilePathWithTilde, expandedFilePath});
     const { path, filename, extension, directory, uri,  exists} = SyncFileHelper.create(testFilePathWithTilde);
-    console.log({path, filename, extension, directory, uri, exists});
+    // console.log({path, filename, extension, directory, uri, exists});
     expect(exists).toBe(true);
     expect(path).toBe(expandedFilePath);
     expect(filename).toBe('test_file_tilde');
     expect(extension).toBe('txt');
   });
 
+  it('should expand env variables', () => {
+    const pathWithEnvVariable = `$HOME/.config/fish/config.fish`
+    const newPath = SyncFileHelper.expandEnvVars(pathWithEnvVariable)
+    const expectedPath = `${homedir()}/.config/fish/config.fish`
+    expect(expectedPath).toBe(newPath)
+  })
+
+  /* 
+   * it('test $fish_function_path works?', () => {
+   *  // `echo $fish_function_path`
+   *  //  • Some documentation is available:
+   *  //        >_ man -a fish-interactive # then scroll down to section: TAB COMPLETION
+   *  //        # https://fishshell.com/docs/current/language.html#autoloading-functions
+   *  const pathWithEnvVariable = `$fish_function_path` 
+   *  const newPath = SyncFileHelper.expandEnvVars(pathWithEnvVariable)
+   *  const expectedPath = `${homedir()}/.config/fish/functions/`
+   *  console.log(newPath);
+   *  // expect(expectedPath).toBe(newPath)
+   * })
+   */
+
   it('should convert file content to Fish function', () => {
     const data = 'echo "This is a test function."';
     SyncFileHelper.convertTextToFishFunction(testFilePath, data);
     const expectedContent = `\nfunction test_file\n\techo "This is a test function."\nend`;
     const readData = SyncFileHelper.read(testFilePath);
-    console.log({readData, expectedContent});
+    // console.log({readData, expectedContent});
     expect(readData).toBe(expectedContent);
   });
 
