@@ -45,7 +45,7 @@ export type SupportedFeatures = {
 export default class FishServer {
   public static async create(
     connection: Connection,
-    params: InitializeParams,
+    _params: InitializeParams,
   ): Promise<FishServer> {
     const documents = new LspDocuments();
     const logger = new Logger(config.fish_lsp_logfile || ServerLogsPath, true, connection.console);
@@ -531,7 +531,7 @@ export default class FishServer {
       Number(diagnostic.code),
     );
 
-    const args: FishProtocol.CodeFixRequestArgs = {
+    const _args: FishProtocol.CodeFixRequestArgs = {
       ...fileRangeArgs,
       errorCodes,
     };
@@ -549,7 +549,7 @@ export default class FishServer {
     fileRangeArgs: FishProtocol.FileRangeRequestArgs,
     context: LSP.CodeActionContext,
   ): Promise<FishProtocol.GetApplicableRefactorsResponse | undefined> {
-    const args: FishProtocol.GetApplicableRefactorsRequestArgs = {
+    const _args: FishProtocol.GetApplicableRefactorsRequestArgs = {
       ...fileRangeArgs,
       triggerReason:
         context.triggerKind === LSP.CodeActionTriggerKind.Invoked
@@ -604,7 +604,7 @@ export default class FishServer {
 
     if (!document || !uri) return [];
 
-    const root = this.parser.parse(document.getText()).rootNode;
+    const _root = this.parser.parse(document.getText()).rootNode;
     const results: CodeAction[] = [];
 
     // for (const diagnostic of params.context.diagnostics) {
@@ -679,7 +679,7 @@ export default class FishServer {
     const { diagnostics } = params;
     const uri = uriToPath(params.uri);
     const doc = this.docs.get(uri);
-    if (!doc) return { uri: params.uri, diagnostics: params.diagnostics };
+    if (!doc) return { uri: params.uri, diagnostics };
 
     const { rootNode } = this.parser.parse(doc.getText());
 

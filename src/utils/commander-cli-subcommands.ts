@@ -37,7 +37,7 @@ interface WorkspacesConfigOption extends ConfigToggleOptionValue {
   };
 }
 
-interface StartupConfig {
+interface _StartupConfig {
   completion: CompletionConfigOption;
   hover: ConfigToggleOptionValue;
   rename: ConfigToggleOptionValue;
@@ -84,7 +84,7 @@ export function accumulateStartupOptions(args: string[]): {
   disabled: string[];
   dumpCmd: boolean;
 } {
-  const [subcmd, ...options] = args;
+  const [_subcmd, ...options] = args;
   const [enabled, disabled]: [string[], string[]] = [[], []];
   let dumpCmd = false;
   let current: string[];

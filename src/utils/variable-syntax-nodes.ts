@@ -6,7 +6,7 @@ function filterWordNodes(nodes: SyntaxNode[]): SyntaxNode[] {
   return nodes.filter(n => n.type === 'word');
 }
 
-function setHasQuery(nodes: SyntaxNode[]): boolean {
+function _setHasQuery(nodes: SyntaxNode[]): boolean {
   const options = filterWordNodes(nodes).filter(NodeTypes.isOption);
   const queryFlag = new VariableDefinitionFlag('q', 'query');
   for (const option of options) {

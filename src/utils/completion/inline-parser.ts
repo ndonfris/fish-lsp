@@ -129,7 +129,7 @@ export class InlineParser {
   getLastNode(line: string): SyntaxNode | null {
     const { wordNode } = this.parseWord(line.trimEnd());
     //if (wordPrecedesCommand(word)) return {command: null, commandNode: null};
-    const { virtualLine, maxLength } = Line.appendEndSequence(line, wordNode);
+    const { virtualLine, maxLength: _maxLength } = Line.appendEndSequence(line, wordNode);
     const rootNode = this.parse(virtualLine);
     const node = getLastLeaf(rootNode);
     return node;
@@ -192,7 +192,7 @@ export class InlineParser {
 
   async createCompletionList(line: string): Promise<FishCompletionItem[]> {
     const result: FishCompletionItem[] = [];
-    const { word, command, wordNode, commandNode } = this.getNodeContext(line);
+    const { word: _word, command, wordNode: _wordNode, commandNode: _commandNode } = this.getNodeContext(line);
     if (!command) {
       //result.push(items.allCo)
     }

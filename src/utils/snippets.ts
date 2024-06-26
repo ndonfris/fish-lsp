@@ -102,7 +102,7 @@ export const PrebuiltDocumentationMap = new DocumentationMap(allData);
 export function getPrebuiltDocUrlByName(name: string): string {
   const objs = PrebuiltDocumentationMap.getByName(name);
   const res: string[] = [];
-  objs.forEach((obj, index) => {
+  objs.forEach((obj, _index) => {
     // const linkStr = objs.length > 1 ? new String(index + 1) : ''
     res.push(` - ${getPrebuiltDocUrl(obj)}`);
   });

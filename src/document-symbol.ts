@@ -327,7 +327,7 @@ export function findLastDefinition(symbols: FishDocumentSymbol[], matchNode: Syn
   const symbolTree = new GenericTree<FishDocumentSymbol>(symbols);
   const symbolFunctionCompare = (symbol: FishDocumentSymbol, matchNode: SyntaxNode) => {
     const matchPosition = pointToPosition(matchNode.startPosition);
-    const { name, kind, scope } = symbol;
+    const { name, kind: _kind, scope: _scope } = symbol;
     return name === matchNode.text
                 && compareSymbolToPosition(symbol, matchPosition);
   };

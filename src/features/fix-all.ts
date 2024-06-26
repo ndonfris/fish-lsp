@@ -8,9 +8,9 @@ import { FishProtocol } from '../utils/fishProtocol';
 import { Range } from '../utils/locations';
 import { pathToRelativeFunctionName, toTextDocumentEdit } from '../utils/translation';
 
-import CommandTypes = FishProtocol.CommandTypes;
+import _CommandTypes = FishProtocol.CommandTypes;
 
-interface AutoFix {
+interface _AutoFix {
   readonly code: number;
   readonly fixName: string;
 }

@@ -102,7 +102,7 @@ async function getFunctionUri(name: string): Promise<string | undefined> {
  * is naming convention with leading '__', this function ensures that our MarkupStrings
  * will be able to display the FunctionName (instead of interpreting it as '__' bold text)
  */
-function escapePathStr(functionTitleLine: string) : string {
+function _escapePathStr(functionTitleLine: string) : string {
   const afterComment = functionTitleLine.split(' ').slice(1);
   const pathIndex = afterComment.findIndex((str: string) => str.includes('/'));
   const path: string = afterComment[pathIndex]?.toString() || '';
@@ -113,7 +113,7 @@ function escapePathStr(functionTitleLine: string) : string {
   ].join(' ');
 }
 
-function ensureMinLength<T>(arr: T[], minLength: number, fillValue?: T): T[] {
+function _ensureMinLength<T>(arr: T[], minLength: number, fillValue?: T): T[] {
   while (arr.length < minLength) {
     arr.push(fillValue as T);
   }
@@ -263,7 +263,7 @@ export async function getCommandDocString(name: string): Promise<string | undefi
   ].join('\n');
 }
 
-export function initializeMap(collection: string[], type: SymbolKind, uri?: string): Map<string, CachedGlobalItem> {
+export function initializeMap(collection: string[], type: SymbolKind, _uri?: string): Map<string, CachedGlobalItem> {
   const items: Map<string, CachedGlobalItem> = new Map<string, CachedGlobalItem>();
   collection.forEach((item) => {
     items.set(item, createCachedItem(type));

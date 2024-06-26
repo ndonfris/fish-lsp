@@ -60,7 +60,7 @@ commandBin
   .addOption(new Option('--help-short', 'show mini help info').hideHelp(true))
   .action(opt => {
     if (opt.helpMan) {
-      const { path, content } = FishLspManPage();
+      const { path: _path, content } = FishLspManPage();
       console.log(content.join('\n').trim());
     } else if (opt.helpAll) {
       console.log('NAME:');

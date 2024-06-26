@@ -72,7 +72,7 @@ export class SyncFileHelper {
     };
   }
 
-  static convertTextToFishFunction(filePath: PathLike, data: string, encoding: BufferEncoding = 'utf8') {
+  static convertTextToFishFunction(filePath: PathLike, data: string, _encoding: BufferEncoding = 'utf8') {
     const expandedFilePath = this.expandEnvVars(filePath);
     const { filename, path, extension, exists } = this.getPathTokens(expandedFilePath);
     const content = [

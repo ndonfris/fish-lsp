@@ -97,7 +97,7 @@ export class DocumentationStringBuilder {
 }
 
 export namespace DocumentSymbolDetail {
-  export function create(name: string, uri: string, kind: SymbolKind, inner: SyntaxNode, outer: SyntaxNode | null = inner.parent || inner.previousSibling || null): string {
+  export function create(name: string, uri: string, kind: SymbolKind, inner: SyntaxNode, _outer: SyntaxNode | null = inner.parent || inner.previousSibling || null): string {
     return new DocumentationStringBuilder(name, uri, kind, inner).toString();
   }
 }

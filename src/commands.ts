@@ -77,7 +77,7 @@ export namespace FishRenameRequest {
 export namespace CommandParams {
 
   export function isRenameParams(paramArgs: unknown | RenameParams): paramArgs is RenameParams {
-    const { newName, position, textDocument, workDoneToken } = paramArgs as RenameParams;
+    const { newName, position, textDocument, workDoneToken: _workDoneToken } = paramArgs as RenameParams;
     return typeof newName === 'string' && Position.is(position) && TextDocumentIdentifier.is(textDocument.uri);
   }
 
@@ -159,4 +159,3 @@ export namespace CommandParams {
 //
 //    console.log("Execute Command: ", params);
 //};
-

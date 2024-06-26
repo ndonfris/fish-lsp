@@ -19,7 +19,7 @@ export async function inlayHintsProvider(
 
   const insideRange = (node: SyntaxNode) => containsRange(range, getRange(node));
   const isPrintableCommand = (node: SyntaxNode) => node.text.startsWith('printf') || node.text.startsWith('echo'); /* change to printflsp */
-  const isStringCommand = (node: SyntaxNode) => node.text.startsWith('string');
+  const _isStringCommand = (node: SyntaxNode) => node.text.startsWith('string');
   const isInlayHint = (node: SyntaxNode) => {
     if (isPipe(node)) {
       const first = node.firstNamedChild;

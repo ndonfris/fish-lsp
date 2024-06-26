@@ -155,7 +155,7 @@ export function forwardSubCommandCollect(rootNode: SyntaxNode): string[] {
 
 export function forwardArgCommandCollect(rootNode: SyntaxNode) : string[] {
   const stringToComplete : string[] = [];
-  const currentNode = rootNode.children;
+  const _currentNode = rootNode.children;
   for (const curr of rootNode.children) {
     if (curr.text.startsWith('-') && curr.text.startsWith('$')) {
       stringToComplete.push(curr.text);

@@ -174,7 +174,7 @@ export function toTextDocumentEdit(change: FishProtocol.FileCodeEdits, documents
 
 export function toFoldingRange(node: SyntaxNode, document: LspDocument): FoldingRange {
   let collapsedText: string = '';
-  let kind = FoldingRangeKind.Region;
+  let _kind = FoldingRangeKind.Region;
   if (isFunctionDefinition(node) || isFunctionDefinitionName(node.firstNamedChild!)) {
     collapsedText = node.firstNamedChild?.text || node.text.split(' ')[0]?.toString() || '';
   }
@@ -189,7 +189,7 @@ export function toFoldingRange(node: SyntaxNode, document: LspDocument): Folding
     if (node.text.length >= 10) {
       collapsedText += '...';
     }
-    kind = FoldingRangeKind.Comment;
+    _kind = FoldingRangeKind.Comment;
   }
   const range = getRangeWithPrecedingComments(node);
   const startLine = range.start.line;
@@ -254,7 +254,7 @@ export function symbolKindToString(kind: SymbolKind) {
  *    kindString: symbolKindToString(kindType) -> number
  *  }
  */
-export function symbolKindsFromNode(node: SyntaxNode) {
+export function symbolKindsFromNode(node: SyntaxNode): { kindType: SymbolKind; kindString: string; } {
   const kindType = toSymbolKind(node);
   const kindString = symbolKindToString(kindType);
   return {

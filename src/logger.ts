@@ -19,8 +19,8 @@ export interface IConsole {
   info(...args: any[]): void;
   log(...args: any[]): void;
 }
-type ConsoleMethod = 'error' | 'warn' | 'info' | 'log';
-type CConsole = Console;
+type _ConsoleMethod = 'error' | 'warn' | 'info' | 'log';
+type _CConsole = Console;
 
 export class Logger {
   protected _console: IConsole;
