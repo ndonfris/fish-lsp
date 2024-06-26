@@ -1,16 +1,15 @@
 import os from 'os';
 import { homedir } from 'os';
 import Parser, { SyntaxNode, Tree } from 'web-tree-sitter';
-import { findChildNodes, firstAncestorMatch, getChildNodes, getNodeAtRange } from '../src/utils/tree-sitter';
-import { Diagnostic, DiagnosticSeverity, SymbolKind, TextDocumentItem } from 'vscode-languageserver';
+import { findChildNodes, getChildNodes, getNodeAtRange } from '../src/utils/tree-sitter';
+import { Diagnostic, DiagnosticSeverity, TextDocumentItem } from 'vscode-languageserver';
 import { initializeParser } from '../src/parser';
-import { findSetDefinedVariable, isBlock, isCommand, isCommandName, isCommandWithName, isDefinition, isEnd, isFunctionDefinitionName, isIfOrElseIfConditional, isMatchingOption, isOption, isProgram, isScope, isStatement, isString, isVariable, isVariableDefinitionName } from '../src/utils/node-types';
+import { isDefinition, isMatchingOption, isVariableDefinitionName } from '../src/utils/node-types';
 // import { ScopeStack, isReference } from '../src/diagnostics/scope';
 import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter } from '../src/diagnostics/node-types';
 
 import { LspDocument } from '../src/document';
 import { createFakeLspDocument, setLogger } from './helpers';
-import { FishDocumentSymbol, filterLastPerScopeSymbol, findSymbolReferences, getFishDocumentSymbols } from '../src/document-symbol';
 import { getDiagnostics } from '../src/diagnostics/validate';
 let parser: Parser;
 let diagnostics: Diagnostic[] = [];

@@ -1,14 +1,13 @@
-import Parser, { SyntaxNode, Tree, Point } from 'web-tree-sitter';
+import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from '../src/parser';
 import { ExtendedBaseJson, PrebuiltDocumentationMap } from '../src/utils/snippets';
 import * as NodeTypes from '../src/utils/node-types';
 import * as TreeSitter from '../src/utils/tree-sitter';
-import { getAliasedCompletionItemSignature, getDefaultSignatures, lineSignatureBuilder, regexStringSignature } from '../src/signature';
+import { buildSignature, getCurrentNodeType, getDefaultSignatures, } from '../src/signature';
 import { setLogger } from './helpers';
-import { MarkupContent, SignatureHelp, SignatureInformation } from 'vscode-languageserver';
+import { SignatureHelp } from 'vscode-languageserver';
 import { CompletionItemMap } from '../src/utils/completion/startup-cache';
 import { FishAliasCompletionItem } from '../src/utils/completion/types';
-import { getDocumentationResolver } from '../src/utils/completion/documentation';
 
 let parser: Parser;
 let completionMap: CompletionItemMap;
@@ -214,4 +213,3 @@ describe('signature test-suite', () => {
     expect(signature.signatures[0]!.label).toBe('CMD_DURATION'); // Expecting the `set` command signature
   });
 });
-

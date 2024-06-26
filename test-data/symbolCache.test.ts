@@ -1,12 +1,11 @@
 import { resolveLspDocumentForHelperTestFile } from './helpers';
-import { DocumentSymbol, BaseSymbolInformation, Range, Position, SymbolKind, MarkupContent, WorkspaceSymbol, DocumentUri } from 'vscode-languageserver';
+import { DocumentSymbol, BaseSymbolInformation, SymbolKind, MarkupContent, WorkspaceSymbol, DocumentUri } from 'vscode-languageserver';
 import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from '../src/parser';
 import { LspDocument } from '../src/document';
-import { findFirstParent, getChildNodes } from '../src/utils/tree-sitter';
+import { getChildNodes } from '../src/utils/tree-sitter';
 import { Analyzer } from '../src/analyze';
-import { isFunctionDefinition, isDefinition, isVariableDefinition, isScope, findParentCommand, isForLoop, isCommandName } from '../src/utils/node-types';
-import { CommentRange, symbolKindToString } from '../src/symbols';
+import { isCommandName } from '../src/utils/node-types';
 import { DocumentationCache, initializeDocumentationCache } from '../src/utils/documentationCache';
 import { DocumentSymbolTree } from '../src/symbolTree';
 import { homedir } from 'os';
@@ -145,4 +144,3 @@ export class WorkspaceCache {
     }
   }
 }
-

@@ -1,6 +1,5 @@
 import * as LSP from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
-import { FishCompletionItem, FishCompletionItemKind, toCompletionKindString } from '../src/utils/completion-strategy';
 import { FishDocumentSymbol } from '../src/document-symbol';
 import { pathToUri, symbolKindToString, toLspDocument, uriToPath } from '../src/utils/translation';
 import { LspDocument } from '../src/document';

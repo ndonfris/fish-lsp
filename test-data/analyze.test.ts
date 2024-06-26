@@ -1,14 +1,12 @@
 import { homedir } from 'os';
 // import { assert } from "chai";
-import { printNodes, resolveLspDocumentForHelperTestFile, setLogger } from './helpers';
-import { DocumentSymbol, Position, SymbolKind, Location } from 'vscode-languageserver';
-import Parser, { SyntaxNode } from 'web-tree-sitter';
+import { resolveLspDocumentForHelperTestFile, setLogger } from './helpers';
+import { DocumentSymbol, Position } from 'vscode-languageserver';
+import Parser from 'web-tree-sitter';
 import { initializeParser } from '../src/parser';
 import { Analyzer } from '../src/analyze';
-import { FishWorkspace, initializeDefaultFishWorkspaces, Workspace } from '../src/utils/workspace';
-import { getChildNodes, getRange } from '../src/utils/tree-sitter';
-import { containsRange, findDefinitionSymbols } from '../src/workspace-symbol';
-import { FishDocumentSymbol } from '../src/document-symbol';
+import { FishWorkspace } from '../src/utils/workspace';
+import { findDefinitionSymbols } from '../src/workspace-symbol';
 
 let parser: Parser;
 let analyzer: Analyzer;

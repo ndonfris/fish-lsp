@@ -4,10 +4,9 @@ import { LspDocument } from '../src/document';
 import { homedir } from 'os';
 import { resolve } from 'path';
 import * as fastGlob from 'fast-glob';
-import Parser from 'web-tree-sitter';
 import { TextDocumentItem } from 'vscode-languageserver';
 import { pathToUri, uriToPath } from '../src/utils/translation';
-import { FishWorkspace, Workspace } from '../src/utils/workspace';
+import { FishWorkspace } from '../src/utils/workspace';
 
 export type WorkspaceName = 'workspace_1' | 'workspace_2' | 'workspace_3'
 

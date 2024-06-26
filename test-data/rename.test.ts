@@ -1,17 +1,10 @@
-import { homedir } from 'os';
 import { assert } from 'chai';
-import { setLogger, createTestWorkspaceDocuments, createFakeUriPath, truncatedNode, printNodes } from './helpers';
-import { DocumentSymbol, Position, SymbolKind, Location, TextDocumentItem } from 'vscode-languageserver';
-import Parser, { SyntaxNode } from 'web-tree-sitter';
+import { setLogger, createFakeUriPath } from './helpers';
+import { Position, Location } from 'vscode-languageserver';
+import Parser from 'web-tree-sitter';
 import { initializeParser } from '../src/parser';
 import { Analyzer } from '../src/analyze';
-import { filterLastPerScopeSymbol, FishDocumentSymbol } from '../src/document-symbol';
-import { FishWorkspace, initializeDefaultFishWorkspaces, Workspace } from '../src/utils/workspace';
-import { WorkspaceSpoofer } from './workspace-builder';
-import { findEnclosingScope, getChildNodes, getRange, positionToPoint } from '../src/utils/tree-sitter';
-import { isCommand, isCommandName, isFunctionDefinitionName, isVariable } from '../src/utils/node-types';
 import { LspDocument } from '../src/document';
-import { containsRange } from '../src/workspace-symbol';
 import { canRenamePosition, getRenameLocations, getRenameSymbolType } from '../src/workspace-symbol';
 
 let parser: Parser;

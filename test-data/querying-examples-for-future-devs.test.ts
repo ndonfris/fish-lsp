@@ -1,15 +1,11 @@
-import { BaseSymbolInformation, DocumentSymbol } from 'vscode-languageserver';
-import Parser, { Tree, QueryMatch, Query, Language, SyntaxNode } from 'web-tree-sitter';
+import Parser, { Query, Language, SyntaxNode } from 'web-tree-sitter';
 import { assert } from 'chai';
-import { homedir } from 'os';
-import { printTestName, resolveLspDocumentForHelperTestFile } from './helpers';
+import { resolveLspDocumentForHelperTestFile } from './helpers';
 import { isCommandName, isFunctionDefinitionName } from '../src/utils/node-types';
 import * as NodeTypes from '../src/utils/node-types';
 import { getChildNodes } from '../src/utils/tree-sitter';
 import { initializeParser } from '../src/parser';
-import { Analyzer, findParentScopes, findDefs, findLocalDefinitionSymbol } from '../src/analyze';
-import { LspDocument } from '../src/document';
-import { FishDocumentSymbol } from '../src/document-symbol';
+import { Analyzer } from '../src/analyze';
 
 let parser: Parser;
 let analyzer: Analyzer;

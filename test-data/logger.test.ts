@@ -1,5 +1,4 @@
-import { assert } from 'chai';
-import { createJestLogger, createServerLogger, Logger, ServerLogsPath } from '../src/logger';
+import { createJestLogger, createServerLogger, ServerLogsPath } from '../src/logger';
 import { setLogger } from './helpers';
 import { readFileSync } from 'node:fs';
 

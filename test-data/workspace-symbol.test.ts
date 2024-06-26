@@ -1,21 +1,12 @@
-import fs from 'fs';
-import os from 'os';
 import { resolveLspDocumentForHelperTestFile } from './helpers';
-import { DocumentSymbol, Position, SymbolKind } from 'vscode-languageserver';
+import { DocumentSymbol, SymbolKind } from 'vscode-languageserver';
 import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from '../src/parser';
-import { LspDocument } from '../src/document';
-import { findFirstParent, getChildNodes } from '../src/utils/tree-sitter';
 import { Analyzer /*getAllPaths*/ } from '../src/analyze';
-import { isFunctionDefinition, isDefinition, isVariableDefinition, isScope, findParentCommand, isForLoop, isVariable, isCommand, isCommandName } from '../src/utils/node-types';
-import { CommentRange, DocumentDefSymbol, symbolKindToString } from '../src/symbols';
 import { DocumentationCache, initializeDocumentationCache } from '../src/utils/documentationCache';
 //import { DocumentSymbolTree } from "../src/symbolTree";
 import { homedir } from 'os';
 import { collectFishWorkspaceSymbols, FishWorkspaceSymbol } from '../src/utils/fishWorkspaceSymbol';
-import { pathToRelativeFunctionName, toLspDocument, uriToPath } from '../src/utils/translation';
-import * as fastGlob from 'fast-glob';
-import { execEscapedCommand } from '../src/utils/exec';
 
 let parser: Parser;
 let documentationCache: DocumentationCache;
@@ -158,4 +149,3 @@ function logSyntaxNodeArray(nodes: SyntaxNode[]) {
   });
   console.log('-----------------------------------');
 }
-

@@ -1,16 +1,12 @@
 // import { getRootNodesFromTexts, logCompareNodes, logDocSymbol, logFile, logNode, logSymbolInfo, logVerboseNode, printDebugSeperator, printTestName } from './helpers';
 import { SyntaxNode } from 'web-tree-sitter';
-import { DocumentSymbol, Location, SymbolInformation, WorkspaceSymbol, Range, SymbolKind } from 'vscode-languageserver';
-import { initializeParser } from '../src/parser';
-import { getChildNodes, getNodeAtRange, getRange, isNodeWithinRange, nodesGen } from '../src/utils/tree-sitter';
-import { isFunctionDefinition, isFunctionDefinitionName, isVariableDefinition, isCommand, isCommandName, findEnclosingVariableScope, isScope } from '../src/utils/node-types';
+import { DocumentSymbol, Range, SymbolKind } from 'vscode-languageserver';
+import { getChildNodes, getRange } from '../src/utils/tree-sitter';
+import { isFunctionDefinition, isFunctionDefinitionName, isVariableDefinition, findEnclosingVariableScope, isScope } from '../src/utils/node-types';
 //import { collectSymbolInformation, FishSymbolMap } from '../src/workspace-symbol'
 //import { getDefinitionSymbols } from '../src/symbols'
-import { execFindDependency } from '../src/utils/exec';
-import { isBuiltin } from '../src/utils/builtins';
 //import {DocumentManager} from '../src/document';
-import { nodeToDocumentSymbol, nodeToSymbolInformation } from '../src/utils/translation';
-import { symbolKindToString, toSymbolKind } from '../src/utils/translation';
+import { toSymbolKind } from '../src/utils/translation';
 import { containsRange } from '../src/workspace-symbol';
 
 let SHOULD_LOG = false; // toggle to print testcase output
@@ -460,4 +456,3 @@ function logTestFileInfo(filename = '-1', rootNode: SyntaxNode, shouldLog = fals
   console.log(`TREE:\n${rootNode.toString()}\n`);
   console.log(`TEXT:\n${rootNode.text.toString()}\n`);
 }
-

@@ -1,11 +1,10 @@
 
-import Parser, { QueryMatch, Query, Language } from 'web-tree-sitter';
+import Parser, { Query, Language } from 'web-tree-sitter';
 import { SymbolTable } from '../src/utils/symbolTable';
-import { Analyzer, findParentScopes, findDefs, findLocalDefinitionSymbol } from '../src/analyze';
+import { Analyzer } from '../src/analyze';
 import { initializeParser } from '../src/parser';
 import { initializeFishWorkspaces, Workspace } from '../src/utils/workspace';
-import { printTestName, resolveLspDocumentForHelperTestFile } from './helpers';
-import { homedir } from 'os';
+import { resolveLspDocumentForHelperTestFile } from './helpers';
 import { flattenFishDocumentSymbols } from '../src/document-symbol';
 import { getChildNodes } from '../src/utils/tree-sitter';
 import { isProgram, isScope } from '../src/utils/node-types';

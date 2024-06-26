@@ -1,14 +1,10 @@
-import { getRootNodesFromTexts, logCompareNodes, logDocSymbol, logFile, logNode, logSymbolInfo, logVerboseNode, printDebugSeperator, printTestName } from './helpers';
-import { Point, SyntaxNode, Tree } from 'web-tree-sitter';
-import { findEnclosingVariableScope, isCommand, isCommandName, isFunctionDefinition, isFunctionDefinitionName, isScope, isVariable, isVariableDefinition } from '../src/utils/node-types';
-import { findEnclosingScope, findFirstParent, getNodeAtRange, getRange, nodesGen } from '../src/utils/tree-sitter';
-import { Range, DocumentSymbol, Location } from 'vscode-languageserver';
-import { getChildNodes, positionToPoint } from '../src/utils/tree-sitter';
-import { initializeParser } from '../src/parser';
-import * as colors from 'colors';
-import { toSymbolKind } from '../src/symbols';
-import { containsRange, getReferences, getMostRecentReference } from '../src/workspace-symbol';
+import { SyntaxNode } from 'web-tree-sitter';
+import { isFunctionDefinitionName, isVariableDefinition } from '../src/utils/node-types';
+import { findEnclosingScope, getNodeAtRange, getRange } from '../src/utils/tree-sitter';
+import { DocumentSymbol } from 'vscode-languageserver';
 import { collectCommandString, getHoverForFlag } from '../src/hover';
+import { toSymbolKind } from '../src/utils/translation';
+import { containsRange } from '../src/workspace-symbol';
 //import
 
 let SHOULD_LOG = true;

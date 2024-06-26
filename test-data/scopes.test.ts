@@ -1,18 +1,11 @@
-import Parser, { Tree, QueryMatch, Query, Language, SyntaxNode } from 'web-tree-sitter';
-import { Position, Range, SymbolKind, URI } from 'vscode-languageserver';
+import Parser, { Query, Language } from 'web-tree-sitter';
+import { Position, SymbolKind } from 'vscode-languageserver';
 import { assert } from 'chai';
-import { homedir } from 'os';
 import { createRange } from '../src/utils/translation';
 import { resolveLspDocumentForHelperTestFile } from './helpers';
-import { isCommandName, isFunctionDefinitionName } from '../src/utils/node-types';
-import * as NodeTypes from '../src/utils/node-types';
-import { GenericTree, TNode, filterTree } from '../src/utils/generic-tree';
-import { firstAncestorMatch, getChildNodes, getRange, isPositionWithinRange, pointToPosition, positionToPoint } from '../src/utils/tree-sitter';
+import { GenericTree } from '../src/utils/generic-tree';
 import { initializeParser } from '../src/parser';
-import { Analyzer, findParentScopes, findDefs, findLocalDefinitionSymbol } from '../src/analyze';
-import { LspDocument } from '../src/document';
 import { findSymbolsForCompletion, FishDocumentSymbol, filterLastPerScopeSymbol, getFishDocumentSymbols, findSymbolReferences, findLastDefinition } from '../src/document-symbol';
-import { ScopeTag, expandEntireVariableLine, getScope, getVariableScope } from '../src/utils/definition-scope';
 
 let parser: Parser;
 let lang: Language;

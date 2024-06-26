@@ -1,4 +1,3 @@
-import { assert } from 'chai';
 import { setLogger } from './helpers';
 import { getFlagCommand, getFlagDocumentationString } from '../src/utils/flag-documentation';
 

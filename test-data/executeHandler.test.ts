@@ -1,10 +1,9 @@
 
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { buildOutput, execLineInBuffer, execEntireBuffer, sourceFishBuffer, executeThemeDump, FishThemeDump, showCurrentTheme } from '../src/executeHandler';
-import { initializeParser } from '../src/parser';
+import { buildOutput, execEntireBuffer, sourceFishBuffer, FishThemeDump, showCurrentTheme } from '../src/executeHandler';
 import { setLogger } from './helpers';
-import { execAsyncFish, execCmd } from '../src/utils/exec';
+import { execCmd } from '../src/utils/exec';
 import { join } from 'path';
 import { writeFileSync } from 'fs';
 import { SyncFileHelper } from '../src/utils/fileOperations';
@@ -110,4 +109,3 @@ describe('executeHandler tests', () => {
     });
   }, 10000);
 });
-

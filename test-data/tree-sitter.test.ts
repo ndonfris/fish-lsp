@@ -1,4 +1,4 @@
-import Parser, { SyntaxNode, Tree, Point } from 'web-tree-sitter';
+import Parser, { SyntaxNode } from 'web-tree-sitter';
 import {
   getChildNodes,
   getNamedChildNodes,
@@ -9,9 +9,7 @@ import {
   findFirstNamedSibling,
   findFirstSibling,
   findEnclosingScope,
-  getNodeText,
-  getNodesTextAsSingleLine,
-  firstAncestorMatch,
+  getNodeText, firstAncestorMatch,
   ancestorMatch,
   descendantMatch,
   hasNode,
@@ -23,17 +21,12 @@ import {
   getNodeAtRange,
   positionToPoint,
   pointToPosition,
-  rangeToPoint,
-  getRangeWithPrecedingComments,
-  getPrecedingComments,
-  isFishExtension,
+  rangeToPoint, isFishExtension,
   isPositionWithinRange,
   isPositionAfter,
   isNodeWithinRange,
   getLeafs,
-  getLastLeaf,
-  matchesArgument,
-  getCommandArgumentValue,
+  getLastLeaf
 } from '../src/utils/tree-sitter';
 import { initializeParser } from '../src/parser';
 import * as NodeTypes from '../src/utils/node-types';

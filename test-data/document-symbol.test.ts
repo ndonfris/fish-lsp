@@ -1,11 +1,9 @@
 
 import { DocumentSymbol, SymbolKind } from 'vscode-languageserver';
-import Parser, { SyntaxNode } from 'web-tree-sitter';
+import Parser from 'web-tree-sitter';
 import { getFishDocumentSymbols, FishDocumentSymbol, filterGlobalSymbols } from '../src/document-symbol';
 import { initializeParser } from '../src/parser';
 import { symbolKindToString } from '../src/utils/translation';
-import { isVariableDefinitionName, refinedFindParentVariableDefinitionKeyword } from '../src/utils/node-types';
-import { getChildNodes, getNodeAtRange } from '../src/utils/tree-sitter';
 import { resolveLspDocumentForHelperTestFile } from './helpers';
 
 let parser: Parser;

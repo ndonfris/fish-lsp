@@ -1,6 +1,5 @@
 import { spawnSyncRawShellOutput } from '../src/utils/startup-shell-items';
 import { assert } from 'chai';
-import { execCmd } from '../src/utils/exec';
 import { setLogger, LogOpts } from './helpers';
 import { ShellItems } from '../src/utils/shell-items';
 

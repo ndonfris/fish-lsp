@@ -1,11 +1,8 @@
-import Parser, { Tree, SyntaxNode } from 'web-tree-sitter';
+import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from '../src/parser';
-import { findFirstSibling, getChildNodes, getCommandArgumentValue } from '../src/utils/tree-sitter';
+import { findFirstSibling, getChildNodes } from '../src/utils/tree-sitter';
 import * as NodeTypes from '../src/utils/node-types';
-import * as VarTypes from '../src/utils/variable-syntax-nodes';
 // import { assert } from 'chai';
-import { expandEntireVariableLine } from '../src/utils/definition-scope';
-import { skip } from 'node:test';
 
 function parseStringForNodeType(str: string, predicate: (n:SyntaxNode) => boolean) {
   const tree = parser.parse(str);

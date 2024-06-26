@@ -1,18 +1,13 @@
 import { readdirSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 import { initializeParser } from '../src/parser';
-import Parser, { Point, SyntaxNode, Tree, Logger } from 'web-tree-sitter';
-import { Analyzer } from '../src/analyze';
-import { getChildNodes, getNodesTextAsSingleLine, getRange, positionToPoint } from '../src/utils/tree-sitter';
-import { TextDocument } from 'vscode-languageserver-textdocument';
-import { SymbolInformation, Location, SymbolKind, Range, DocumentSymbol, TextDocumentItem } from 'vscode-languageserver';
-import { symbolKindToString } from '../src/utils/translation';
+import Parser, { Point, SyntaxNode, Tree } from 'web-tree-sitter';
+import { TextDocumentItem } from 'vscode-languageserver';
 const colors = require('colors');
 //import {bgBlack, bgBlue, black, inverse, white, Color} from 'colors';
 import { LspDocument } from '../src/document';
 import console from 'console';
 import { homedir } from 'os';
-import { URI } from 'vscode-uri';
 
 const util = require('util');
 
@@ -235,4 +230,3 @@ export function escapeSpecialCharacter(str: string): string {
     return specialCharacters[match] || `\\u${match.charCodeAt(0).toString(16).padStart(4, '0')}`;
   });
 }
-

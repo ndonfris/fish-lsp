@@ -1,4 +1,3 @@
-import Parser, { Language } from 'web-tree-sitter';
 // import {initializeParser} from '../src/parser'
 //import fish from 'tree-sitter-fish'
 import { setLogger } from './helpers';

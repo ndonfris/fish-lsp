@@ -1,6 +1,6 @@
 import { setLogger } from './helpers';
 // import * as JsonObjs from '../src/utils/snippets'
-import { getPrebuiltDocUrl, getPrebuiltDocUrlByName, PrebuiltDocumentationMap } from '../src/utils/snippets';
+import { getPrebuiltDocUrlByName, PrebuiltDocumentationMap } from '../src/utils/snippets';
 let prebuiltDocs = PrebuiltDocumentationMap;
 
 setLogger(async () => {

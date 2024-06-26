@@ -1,12 +1,7 @@
 import { assert } from 'chai';
 import { homedir } from 'os';
-import * as fastGlob from 'fast-glob';
-import { getAllFiles, WorkspaceSpoofer } from './workspace-builder';
-import { normalizePath, pathToUri, toLspDocument, uriToPath } from '../src/utils/translation';
 import { buildUri, setLogger } from './helpers';
-import { URI } from 'vscode-uri';
 import { Workspace } from '../src/utils/workspace';
-import { readFileSync } from 'fs';
 import { LspDocument } from '../src/document';
 
 setLogger();

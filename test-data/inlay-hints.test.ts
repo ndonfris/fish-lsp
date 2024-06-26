@@ -1,11 +1,9 @@
 import { initializeParser } from '../src/parser';
-import * as LSP from 'vscode-languageserver';
-import Parser, { SyntaxNode } from 'web-tree-sitter';
-import * as NodeTypes from '../src/utils/node-types';
+import Parser from 'web-tree-sitter';
 import { resolveLspDocumentForHelperTestFile, setLogger } from './helpers';
 //import Parser from "web-tree-sitter";
-import { getChildNodes, getRange } from '../src/utils/tree-sitter';
-import { execInlayHintType, execPrintLsp } from '../src/utils/exec';
+import { getRange } from '../src/utils/tree-sitter';
+import { execPrintLsp } from '../src/utils/exec';
 import { FishInlayHint, inlayHintsProvider } from '../src/inlay-hints';
 import { LspDocument } from '../src/document';
 import { Analyzer } from '../src/analyze';

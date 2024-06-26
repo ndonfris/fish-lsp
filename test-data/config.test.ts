@@ -1,13 +1,7 @@
-import { SignatureHelpRequest } from 'vscode-languageserver-protocol';
-import { Snippets } from '../src/utils/snippets';
 import { setLogger } from './helpers';
 
-import { homedir } from 'os';
 
-import { undefined, z } from 'zod';
-import { Config, generateJsonSchemaShellScript, getConfigFromEnvironmentVariables, getDefaultConfiguration, showJsonSchemaShellScript } from '../src/config';
-import { disable } from 'colors';
-import { readFileSync } from 'fs';
+import { getConfigFromEnvironmentVariables, getDefaultConfiguration } from '../src/config';
 import { accumulateStartupOptions } from '../src/utils/commander-cli-subcommands';
 
 setLogger();
