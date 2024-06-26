@@ -33,7 +33,7 @@ function documentSymbolString(symbol: FishDocumentSymbol, indent: number = 0): s
   }, null, 2).split('\n').map(line => indentStr + line).join('\n');
 }
 
-function debugOutput(title: string, symbols: FishDocumentSymbol[], options?: {off?: boolean, showTree?: boolean, showAllSymbols?: boolean, showNamesAndDescriptions?: boolean, showArray?: boolean}) {
+function debugOutput(title: string, symbols: FishDocumentSymbol[], options?: {off?: boolean; showTree?: boolean; showAllSymbols?: boolean; showNamesAndDescriptions?: boolean; showArray?: boolean;}) {
   if (options?.off) {
     return;
   } else {

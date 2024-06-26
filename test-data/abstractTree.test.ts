@@ -12,7 +12,7 @@ type GenericTestSymbol = Partial<FishDocumentSymbol> & {
     name: string;
     kind: number;
     children: GenericTestSymbol[];
-}
+};
 
 describe('AbstractTree', () => {
   // Helper function to create a simple SyntaxNode for testing

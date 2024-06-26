@@ -641,7 +641,7 @@ describe('node-types tests', () => {
       'set --local a_2 "2"',
     ].join('\n'), (n: SyntaxNode) => n.text === 'a_2').pop()!;
     let commandNode = NodeTypes.findParentCommand(node)!;
-    let currentNode: SyntaxNode | null = commandNode?.previousNamedSibling!;
+    let currentNode: SyntaxNode | null = commandNode!.previousNamedSibling!;
     expect(
       walkUpAndGather(
         currentNode,
@@ -658,7 +658,7 @@ describe('node-types tests', () => {
     ].join('\n'), (n: SyntaxNode) => n.text === 'a_1').pop()!;
 
     commandNode = NodeTypes.findParentCommand(node)!;
-    currentNode = commandNode?.previousNamedSibling!;
+    currentNode = commandNode!.previousNamedSibling!;
 
     expect(
       walkUpAndGather(

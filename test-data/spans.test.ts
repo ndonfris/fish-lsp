@@ -66,7 +66,7 @@ function getSymbols(root: SyntaxNode) {
       symbols.push(parentSymbol);
       parentSymbol = null;
     }
-    queue.unshift(...node?.children);
+    queue.unshift(...node!.children);
   }
   return symbols;
 }

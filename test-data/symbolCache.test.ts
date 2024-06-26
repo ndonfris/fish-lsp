@@ -63,7 +63,7 @@ describe('symbolsCache tests', () => {
 
 // builtins
 export interface IndistinctSymbol extends BaseSymbolInformation {
-    documentation: MarkupContent,
+    documentation: MarkupContent;
     unqiue: false;
     resolved: boolean;
     //resolveDocumentation:
@@ -105,8 +105,6 @@ export interface ExportedSymbol extends WorkspaceSymbol {
 
 export class WorkspaceCache {
   public cache: Map<string, IndistinctSymbol|ExportedSymbol> = new Map();
-
-  constructor() {}
 
   async initialize() {
     const builtinNames = await execEscapedCommand('builtin -n');

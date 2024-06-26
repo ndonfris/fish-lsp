@@ -3,7 +3,7 @@ import { initializeParser } from '../src/parser';
 import { ExtendedBaseJson, PrebuiltDocumentationMap } from '../src/utils/snippets';
 import * as NodeTypes from '../src/utils/node-types';
 import * as TreeSitter from '../src/utils/tree-sitter';
-import { buildSignature, getCurrentNodeType, getDefaultSignatures, } from '../src/signature';
+import { buildSignature, getCurrentNodeType, getDefaultSignatures } from '../src/signature';
 import { setLogger } from './helpers';
 import { SignatureHelp } from 'vscode-languageserver';
 import { CompletionItemMap } from '../src/utils/completion/startup-cache';

@@ -10,9 +10,9 @@ import { getRange } from '../src/utils/tree-sitter';
 // CompletionItem -> mocking for CompletionItem
 //
 export interface CompletionItem {
-    label: string,
-    kind: string,
-    fishKind: string,
+    label: string;
+    kind: string;
+    fishKind: string;
 }
 
 export namespace CompletionItem {
@@ -51,8 +51,8 @@ export type PositionArray = [number, number];
 // Position -> mocking for Position (LSP)
 //
 export interface Position {
-    line: number,
-    character: number,
+    line: number;
+    character: number;
 }
 export namespace Position {
     export function create(line: number, character: number) : Position {
@@ -79,8 +79,8 @@ export namespace Position {
 // Range -> mocking for Range (LSP)
 //
 export interface Range {
-    start: Position,
-    end: Position,
+    start: Position;
+    end: Position;
 }
 export namespace Range {
     export function create(start: Position, end: Position) : Range {
@@ -112,11 +112,11 @@ export namespace Range {
 // Symbol -> mocking for Symbol (DocumentSymbol)
 //
 export interface Symbol {
-    name: string,
-    kind: string,
-    range: Range,
-    selectionRange: Range,
-    children: symbol[],
+    name: string;
+    kind: string;
+    range: Range;
+    selectionRange: Range;
+    children: symbol[];
 }
 export namespace Symbol {
     export function create(name: string, kind: string, range: Range, selectionRange: Range, children: symbol[]) : symbol {
@@ -166,10 +166,10 @@ export namespace Document {
 // FoldingRange -> mocking for FoldingRange (LSP)
 //
 export interface FoldingRange {
-    start: Position,
-    end: Position,
-    kind: string,
-    collapsedText: string,
+    start: Position;
+    end: Position;
+    kind: string;
+    collapsedText: string;
 }
 export namespace FoldingRange {
     export function create(start: Position, end: Position, kind: string, collapsedText: string) : FoldingRange {
@@ -207,11 +207,11 @@ export namespace FoldingRange {
 //
 export namespace URI {
     export type Opts = {
-        function?: boolean,
-        completion?: boolean,
-        share?: boolean,
-        config?: boolean,
-    }
+        function?: boolean;
+        completion?: boolean;
+        share?: boolean;
+        config?: boolean;
+    };
     const DefaultOpts = {
       config: true,
     };
@@ -277,11 +277,11 @@ export namespace URI {
 // NODE -> mocking for SyntaxNode
 //
 export interface Node {
-    text: string,
-    type: string,
-    startRange: [number, number],
-    endRange: [number, number],
-    children: Node[],
+    text: string;
+    type: string;
+    startRange: [number, number];
+    endRange: [number, number];
+    children: Node[];
 }
 export namespace Node {
     export function fromSyntaxNode(node: SyntaxNode) : Node {

@@ -61,9 +61,9 @@ setLogger(
 );
 
 function createTestData(uriName: string, line: number, column: number):{
-    uri: string,
-    document: LspDocument,
-    position: Position,
+    uri: string;
+    document: LspDocument;
+    position: Position;
 } {
   const uri = createFakeUriPath(uriName);
   const document = analyzer.getDocument(uri)!;

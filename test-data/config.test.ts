@@ -1,6 +1,5 @@
 import { setLogger } from './helpers';
 
-
 import { getConfigFromEnvironmentVariables, getDefaultConfiguration } from '../src/config';
 import { accumulateStartupOptions } from '../src/utils/commander-cli-subcommands';
 

@@ -73,19 +73,19 @@ describe('SyncFileHelper', () => {
   });
 
   it('should expand env variables', () => {
-    const pathWithEnvVariable = `$HOME/.config/fish/config.fish`
-    const newPath = SyncFileHelper.expandEnvVars(pathWithEnvVariable)
-    const expectedPath = `${homedir()}/.config/fish/config.fish`
-    expect(expectedPath).toBe(newPath)
-  })
+    const pathWithEnvVariable = '$HOME/.config/fish/config.fish';
+    const newPath = SyncFileHelper.expandEnvVars(pathWithEnvVariable);
+    const expectedPath = `${homedir()}/.config/fish/config.fish`;
+    expect(expectedPath).toBe(newPath);
+  });
 
-  /* 
+  /*
    * it('test $fish_function_path works?', () => {
    *  // `echo $fish_function_path`
    *  //  • Some documentation is available:
    *  //        >_ man -a fish-interactive # then scroll down to section: TAB COMPLETION
    *  //        # https://fishshell.com/docs/current/language.html#autoloading-functions
-   *  const pathWithEnvVariable = `$fish_function_path` 
+   *  const pathWithEnvVariable = `$fish_function_path`
    *  const newPath = SyncFileHelper.expandEnvVars(pathWithEnvVariable)
    *  const expectedPath = `${homedir()}/.config/fish/functions/`
    *  console.log(newPath);

@@ -12,11 +12,11 @@ import { homedir } from 'os';
 const util = require('util');
 
 export type LoggerOptions = {
-    LogTestName?: boolean,
-    LogStartEnd?: boolean,
-    LogSep?: boolean,
-    Space?: boolean,
-}
+    LogTestName?: boolean;
+    LogStartEnd?: boolean;
+    LogSep?: boolean;
+    Space?: boolean;
+};
 
 export const LogOpts: Record<'clean' | 'separated' | 'extra', LoggerOptions> = {
   clean: { LogSep: true, Space: true, LogTestName: true },
@@ -145,13 +145,13 @@ export function createFakeLspDocument(name: string, text: string): LspDocument {
 }
 
 export type truncatedNode = {
-    text: string,
-    type: string,
-    startPosition: string,
-    endPosition: string,
+    text: string;
+    type: string;
+    startPosition: string;
+    endPosition: string;
     // children: truncatedNode[],
     // siblings: truncatedNode[],
-}
+};
 
 export function getTruncatedNode(node: SyntaxNode) {
   return {
@@ -171,7 +171,7 @@ export function logNode(node: Parser.SyntaxNode): void {
 
   const cleanNodeInfo = (info: object): object => {
     return Object.fromEntries(
-      Object.entries(info).filter(([_, value]) => value != null),
+      Object.entries(info).filter(([_, value]) => value !== null),
     );
   };
 
@@ -215,7 +215,7 @@ export function logNode(node: Parser.SyntaxNode): void {
  * @returns The escaped string.
  */
 export function escapeSpecialCharacter(str: string): string {
-  const specialCharacters: { [key: string]: string } = {
+  const specialCharacters: { [key: string]: string; } = {
     '\n': '\\n',
     '\r': '\\r',
     '\t': '\\t',

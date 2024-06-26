@@ -138,7 +138,7 @@ describe('symbols tests for definitions and renames', () => {
         if (!isVariableDefinition(child)) continue;
         vars.push(child);
       }
-      expect(vars.length == testIndex + 1).toBe(true);
+      expect(vars.length === testIndex + 1).toBe(true);
     });
   });
 
@@ -154,7 +154,7 @@ describe('symbols tests for definitions and renames', () => {
         if (!isVariableDefinition(child)) continue;
         vars.push(child);
       }
-      expect(vars.length == 1).toBe(true);
+      expect(vars.length === 1).toBe(true);
     });
   });
 
@@ -171,7 +171,7 @@ describe('symbols tests for definitions and renames', () => {
         vars.push(child);
       }
       logNode(SHOULD_LOG, vars[0]);
-      expect(vars.length == 1).toBe(true);
+      expect(vars.length === 1).toBe(true);
     });
   });
 
@@ -191,7 +191,7 @@ describe('symbols tests for definitions and renames', () => {
         }
         vars.push(child);
       }
-      expect(vars.length == 4).toBe(true);
+      expect(vars.length === 4).toBe(true);
     });
   });
 });
@@ -392,8 +392,8 @@ function flattenDocSymbols(parent: DocumentSymbol, symbols: DocumentSymbol[]):bo
 }
 
 interface SpanNode extends SyntaxNode {
-    span: Range
-    innerSpans: SpanNode[]
+    span: Range;
+    innerSpans: SpanNode[];
 }
 
 function buildSpans(root: SyntaxNode, spans: SpanNode[] = []): boolean {

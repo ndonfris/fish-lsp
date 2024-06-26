@@ -8,7 +8,7 @@ import { TextDocumentItem } from 'vscode-languageserver';
 import { pathToUri, uriToPath } from '../src/utils/translation';
 import { FishWorkspace } from '../src/utils/workspace';
 
-export type WorkspaceName = 'workspace_1' | 'workspace_2' | 'workspace_3'
+export type WorkspaceName = 'workspace_1' | 'workspace_2' | 'workspace_3';
 
 export class WorkspaceSpoofer implements FishWorkspace {
   public name: WorkspaceName;

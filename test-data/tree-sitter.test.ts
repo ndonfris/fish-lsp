@@ -26,7 +26,7 @@ import {
   isPositionAfter,
   isNodeWithinRange,
   getLeafs,
-  getLastLeaf
+  getLastLeaf,
 } from '../src/utils/tree-sitter';
 import { initializeParser } from '../src/parser';
 import * as NodeTypes from '../src/utils/node-types';

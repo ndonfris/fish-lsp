@@ -48,7 +48,7 @@ describe('scopes tests', () => {
     const doc = resolveLspDocumentForHelperTestFile('fish_files/simple/inner_function.fish');
     const root = parser.parse(doc.getText()).rootNode!;
 
-    let [cursor, symbols] = [Position.create(5, 34), getFishDocumentSymbols(doc.uri, root)];
+    const [cursor, symbols] = [Position.create(5, 34), getFishDocumentSymbols(doc.uri, root)];
     let newSymbols = findSymbolsForCompletion(symbols, cursor);
 
     // should have 4 symbols (theres only 4 unique in the file)
