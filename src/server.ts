@@ -3,7 +3,7 @@ import { initializeParser } from './parser';
 import { Analyzer } from './analyze';
 //import {  generateCompletionList, } from "./completion";
 import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, DocumentHighlight, DocumentHighlightParams, ExecuteCommandParams, PublishDiagnosticsParams } from 'vscode-languageserver';
-import { ExecResultWrapper, FishThemeDump, execEntireBuffer, execLineInBuffer, executeThemeDump, useMessageKind } from './executeHandler';
+import { ExecResultWrapper, execEntireBuffer, execLineInBuffer, executeThemeDump, useMessageKind } from './executeHandler';
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
 import { formatDocumentContent } from './formatting';
@@ -34,7 +34,6 @@ import { enrichToMarkdown } from './documentation';
 import { getAliasedCompletionItemSignature } from './signature';
 import { CompletionItemMap } from './utils/completion/startup-cache';
 import { getDocumentHighlights } from './document-highlight';
-import { readFileSync } from 'fs';
 import { SyncFileHelper } from './utils/fileOperations';
 
 // @TODO

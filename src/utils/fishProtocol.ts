@@ -1,7 +1,5 @@
 // @see $HOME/repos/typescript-language-server/src/utils/typeConverters.ts
 
-import { CodeAction } from 'vscode-languageserver';
-
 // @see $HOME/repos/typescript-language-server/node_modules/typescript/lib/protocol.d.ts
 
 /**

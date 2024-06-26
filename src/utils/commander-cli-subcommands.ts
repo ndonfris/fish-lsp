@@ -1,8 +1,7 @@
-import { readFile, readFileSync } from 'fs';
+import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import PackageJSON from '../../package.json';
 // import PackageJSON from '@package';
-import deepmerge from 'deepmerge';
 
 // Base interface for simple enable/disable features
 interface ConfigToggleOptionValue {

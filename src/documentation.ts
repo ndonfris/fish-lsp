@@ -1,9 +1,7 @@
-import { CompletionItem, FormattingOptions } from 'vscode-languageserver';
 import { Hover, MarkupContent, MarkupKind } from 'vscode-languageserver-protocol/node';
 import { SyntaxNode } from 'web-tree-sitter';
 // import { hasPossibleSubCommand } from './utils/builtins';
 import { execCommandDocs, execCommandType, CompletionArguments, execCompleteSpace, execCompleteCmdArgs, documentCommandDescription } from './utils/exec';
-import { findParentCommand } from './utils/node-types';
 import { getChildNodes, getNodeText } from './utils/tree-sitter';
 
 //////// @TODO: clean up this file

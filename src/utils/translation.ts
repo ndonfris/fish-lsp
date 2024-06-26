@@ -1,6 +1,5 @@
-import { Diagnostic, DocumentSymbol, FoldingRange, FoldingRangeKind, SelectionRange, SymbolInformation, SymbolKind, TextDocumentEdit, TextDocumentItem, TextEdit } from 'vscode-languageserver';
+import { DocumentSymbol, FoldingRange, FoldingRangeKind, SelectionRange, SymbolInformation, SymbolKind, TextDocumentEdit, TextDocumentItem, TextEdit } from 'vscode-languageserver';
 import * as LSP from 'vscode-languageserver';
-import * as TreeSitter from 'web-tree-sitter';
 import { SyntaxNode } from 'web-tree-sitter';
 import { URI } from 'vscode-uri';
 import { findParentVariableDefintionKeyword, isCommand, isCommandName, isComment, isFunctionDefinition, isFunctionDefinitionName, isProgram, isScope, isStatement, isString, isVariable, isVariableDefinition } from './node-types';

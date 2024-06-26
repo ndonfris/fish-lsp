@@ -1,8 +1,7 @@
 import { Diagnostic } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { LspDocument } from '../document';
-import { findParentCommand, isClause, isCommand, isCommandName, isConditionalCommand, isEnd, isError, isFunctionDefinition, isFunctionDefinitionName, isIfStatement, isNewline, isPossibleUnreachableStatement, isReturn, isScope, isStatement, isVariable, isVariableDefinition } from '../utils/node-types';
-import { findFirstNamedSibling, getChildNodes, getRange, nodesGen } from '../utils/tree-sitter';
+import { getChildNodes, getRange } from '../utils/tree-sitter';
 import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter } from './node-types';
 import { ErrorCodes } from './errorCodes';
 import { SyncFileHelper } from '../utils/fileOperations';

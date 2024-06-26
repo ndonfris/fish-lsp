@@ -1,8 +1,5 @@
-import { MarkupKind, SymbolKind, MarkupContent, DocumentSymbol } from 'vscode-languageserver';
-import Parser from 'web-tree-sitter';
-import { documentationHoverProviderForBuiltIns } from '../documentation';
+import { SymbolKind, MarkupContent } from 'vscode-languageserver';
 import { execCmd, execCommandDocs, execEscapedCommand } from './exec';
-import { uriToPath } from './translation';
 //import { FishCompletionItem } from './completion-strategy';
 import { FishCompletionItem, CompletionExample } from './completion/types';
 //import { CompletionExample } from './static-completions';

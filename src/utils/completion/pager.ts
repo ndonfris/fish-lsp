@@ -1,11 +1,10 @@
-import { LspDocument } from '../../document';
 import { FishDocumentSymbol } from '../../document-symbol';
-import { FishCompletionData, FishCompletionItem, FishCompletionItemKind } from './types';
+import { FishCompletionItem, FishCompletionItemKind } from './types';
 import { execCompleteLine } from '../exec';
 import { Logger } from '../../logger';
 import { InlineParser } from './inline-parser';
 import { CompletionItemMap } from './startup-cache';
-import { CompletionContext, CompletionList, CompletionParams, Position, SymbolKind } from 'vscode-languageserver-protocol';
+import { CompletionContext, CompletionList, Position, SymbolKind } from 'vscode-languageserver-protocol';
 import { FishCompletionList, FishCompletionListBuilder } from './list';
 
 type SetupData = {

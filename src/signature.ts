@@ -2,8 +2,6 @@ import {
   MarkupContent,
   SignatureHelp,
   SignatureInformation,
-  SignatureHelpParams,
-  Command,
 } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { ExtendedBaseJson, PrebuiltDocumentationMap } from './utils/snippets';

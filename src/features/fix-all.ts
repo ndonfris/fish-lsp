@@ -1,12 +1,7 @@
-import { Diagnostic, TextDocumentEdit, Connection, CodeAction } from 'vscode-languageserver';
 //import { LspClient } from '../client';
-import { CodeActionKind } from '../code-action';
-import { LspDocuments } from '../document';
 // import * as errorCodes from '../diagnostics/errorCodes';
 // import * as fixNames from '../diagnostics/fixNames';
 import { FishProtocol } from '../utils/fishProtocol';
-import { Range } from '../utils/locations';
-import { pathToRelativeFunctionName, toTextDocumentEdit } from '../utils/translation';
 
 import _CommandTypes = FishProtocol.CommandTypes;
 

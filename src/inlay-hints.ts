@@ -1,6 +1,6 @@
-import { execCmd, execEscapedCommand, execPrintLsp } from './utils/exec';
-import { isCommand, isCommandName, isPipe } from './utils/node-types';
-import { findFirstParent, firstAncestorMatch, getRange } from './utils/tree-sitter';
+import { execPrintLsp } from './utils/exec';
+import { isCommand, isPipe } from './utils/node-types';
+import { getRange } from './utils/tree-sitter';
 import { InlayHint, MarkupContent, Range } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { Analyzer } from './analyze';

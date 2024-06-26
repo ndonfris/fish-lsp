@@ -1,9 +1,8 @@
-import Parser, { Tree, SyntaxNode } from 'web-tree-sitter';
+import { SyntaxNode } from 'web-tree-sitter';
 import * as NodeTypes from './node-types';
-import { gatherSiblingsTillEol } from './node-types';
-import { pathToRelativeFunctionName, uriInUserFunctions } from './translation';
-import { ancestorMatch, firstAncestorMatch, getRange, isPositionWithinRange, getParentNodes, findFirstParent } from './tree-sitter';
-import { Position, Range } from 'vscode-languageserver';
+import { pathToRelativeFunctionName } from './translation';
+import { firstAncestorMatch, getRange, isPositionWithinRange, getParentNodes } from './tree-sitter';
+import { Position } from 'vscode-languageserver';
 
 export type ScopeTag = 'global' | 'universal' | 'local' | 'function' | 'inherit';
 export interface DefinitionScope {

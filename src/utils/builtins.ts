@@ -1,4 +1,4 @@
-import { exec, execSync, spawn, spawnSync, SpawnSyncOptionsWithBufferEncoding, SpawnSyncOptionsWithStringEncoding } from 'child_process';
+import { spawnSync, SpawnSyncOptionsWithStringEncoding } from 'child_process';
 
 export const BuiltInList = [
   '[',

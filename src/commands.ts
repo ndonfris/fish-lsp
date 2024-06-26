@@ -1,5 +1,4 @@
-import { Command, ApplyWorkspaceEditParams, CodeActionParams, DocumentFormattingParams, DocumentRangeFormattingParams, FormattingOptions, HoverParams, Position, RenameParams, RequestType, TextDocumentIdentifier, TextDocumentPositionParams, WorkspaceEdit, Range, CodeActionContext, _Connection, _, ServerCapabilities } from 'vscode-languageserver';
-import { ExecuteCommandParams, ServerRequestHandler } from 'vscode-languageserver';
+import { Command, ApplyWorkspaceEditParams, CodeActionParams, DocumentFormattingParams, DocumentRangeFormattingParams, FormattingOptions, HoverParams, Position, RenameParams, RequestType, TextDocumentIdentifier, TextDocumentPositionParams, WorkspaceEdit, Range, CodeActionContext } from 'vscode-languageserver';
 
 export const Commands = {
   APPLY_REFACTORING: 'applyRefactoring',

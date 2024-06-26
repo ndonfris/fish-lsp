@@ -1,12 +1,12 @@
 //import { existsSync } from 'fs'
-import { extname, join } from 'path';
+import { extname } from 'path';
 //import { pathToFileURL, URL } from 'url'
 import { Position, Range, URI } from 'vscode-languageserver';
 import { Point, SyntaxNode, Tree } from 'web-tree-sitter';
 // import { pathToFileURL } from 'url'; // typescript-langauge-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts
 // import vscodeUri from 'vscode-uri'; // typescript-langauge-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts
 // import { existsSync } from 'fs-extra';
-import { findSetDefinedVariable, findParentCommand, isFunctionDefinition, isVariableDefinition, isFunctionDefinitionName, isVariable, isScope, isProgram, isCommandName, isForLoop, findForLoopVariable } from './node-types';
+import { findSetDefinedVariable, isFunctionDefinition, isVariableDefinition, isFunctionDefinitionName, isVariable, isScope, isProgram, isCommandName, isForLoop, findForLoopVariable } from './node-types';
 
 /**
  * Returns an array for all the nodes in the tree (@see also nodesGen)

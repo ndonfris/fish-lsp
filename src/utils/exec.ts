@@ -1,5 +1,5 @@
-import { exec, execFile, execFileSync, spawn } from 'child_process';
-import { promises, readFile } from 'fs';
+import { exec, execFile, execFileSync } from 'child_process';
+import { promises } from 'fs';
 import { resolve } from 'path';
 import { promisify } from 'util';
 import { URI } from 'vscode-uri';

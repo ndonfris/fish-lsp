@@ -1,9 +1,9 @@
 import os from 'os';
 import { SymbolKind } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
-import { isFunctionDefinitionName, isDefinition, isVariableDefinition, isFunctionDefinition, isProgram, isVariableDefinitionName } from './node-types';
+import { isFunctionDefinitionName, isVariableDefinition, isProgram, isVariableDefinitionName } from './node-types';
 //import { FishFlagOption, optionTagProvider } from './options';
-import { symbolKindToString, pathToRelativeFunctionName, uriToPath } from './translation';
+import { symbolKindToString, uriToPath } from './translation';
 
 /**
  * Current CHANGELOG for documentation:

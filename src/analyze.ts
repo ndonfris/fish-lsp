@@ -1,4 +1,4 @@
-import { Hover, MarkupContent, MarkupKind, Position, PublishDiagnosticsParams, SymbolKind, WorkspaceSymbol, URI, Location, WorkDoneProgressServerReporter } from 'vscode-languageserver';
+import { Hover, MarkupContent, MarkupKind, Position, PublishDiagnosticsParams, SymbolKind, WorkspaceSymbol, URI, Location } from 'vscode-languageserver';
 import Parser, { SyntaxNode, Tree } from 'web-tree-sitter';
 import * as LSP from 'vscode-languageserver';
 import { isPositionWithinRange, getChildNodes } from './utils/tree-sitter';

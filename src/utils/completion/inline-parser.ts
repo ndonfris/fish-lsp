@@ -1,15 +1,10 @@
-import { Position } from 'vscode-languageserver';
-import { exec } from 'child_process';
-import { promisify } from 'util';
 import Parser, { SyntaxNode } from 'web-tree-sitter';
-import { LspDocument } from '../../document';
 import { initializeParser } from '../../parser';
-import { getChildNodes, getNamedChildNodes, getLeafs, getLastLeaf, ancestorMatch, firstAncestorMatch } from '../tree-sitter';
-import { isCommand, isCommandName, isOption, isConditional, isString, isStringCharacter, isIfOrElseIfConditional, isUnmatchedStringCharacter, isPartialForLoop } from '../node-types';
+import { getChildNodes, getLeafs, getLastLeaf, firstAncestorMatch } from '../tree-sitter';
+import { isUnmatchedStringCharacter, isPartialForLoop } from '../node-types';
 import { FishCompletionItem } from './types';
 //import { CompletionItemsArrayTypes, WordsToNotCompleteAfter } from './utils/completion-types';
 //import { isBuiltin, BuiltInList, isFunction } from "./utils/builtins";
-import { execCompleteLine } from '../exec';
 
 export class InlineParser {
   private readonly COMMAND_TYPES = ['command', 'for_statement', 'case', 'function'];

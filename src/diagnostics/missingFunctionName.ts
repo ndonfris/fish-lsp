@@ -1,9 +1,5 @@
-import { Diagnostic, DiagnosticSeverity } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
-import { isFunctionDefinitionName } from '../utils/node-types';
-import { getChildNodes, getRange, nodesGen } from '../utils/tree-sitter';
 import { pathToRelativeFunctionName, uriInUserFunctions, uriToPath } from '../utils/translation';
-import { ErrorCodes } from './errorCodes';
 // import { createDiagnostic } from './create';
 import { LspDocument } from '../document';
 

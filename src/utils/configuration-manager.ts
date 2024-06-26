@@ -1,6 +1,4 @@
 import { homedir } from 'os';
-import { ServerLogsPath } from '../logger';
-import { CodeAction } from 'vscode-languageserver-protocol';
 import { z } from 'zod';
 
 // Define a Zod schema for the configuration

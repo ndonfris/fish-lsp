@@ -1,5 +1,5 @@
 import { SyntaxNode } from 'web-tree-sitter';
-import { ancestorMatch, findChildNodes, findFirstParent, findFirstNamedSibling, firstAncestorMatch, getChildNodes, getParentNodes, getSiblingNodes, getLeafs } from './tree-sitter';
+import { firstAncestorMatch, getParentNodes, getLeafs } from './tree-sitter';
 import * as VariableTypes from './variable-syntax-nodes';
 
 /**

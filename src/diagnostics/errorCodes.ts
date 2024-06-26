@@ -1,4 +1,4 @@
-import { CodeDescription, Diagnostic, DiagnosticSeverity } from 'vscode-languageserver';
+import { CodeDescription, DiagnosticSeverity } from 'vscode-languageserver';
 
 export namespace ErrorCodes {
 

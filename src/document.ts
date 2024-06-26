@@ -4,15 +4,12 @@
 //import { createTextDocumentFromFilePath } from './utils/io';
 //import { getAllFishLocations, getFishTextDocumentsFromStandardLocations } from './utils/locations';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { RemoteConsole, Position, Range, TextDocumentItem, TextDocumentPositionParams, TextDocuments, TextDocumentContentChangeEvent } from 'vscode-languageserver';
-import { URI, Utils } from 'vscode-uri';
-import FastGlob from 'fast-glob';
+import { Position, Range, TextDocumentItem, TextDocumentContentChangeEvent } from 'vscode-languageserver';
+import { URI } from 'vscode-uri';
 import { homedir } from 'os';
-import { promises, readFileSync } from 'fs';
 //import {logger} from './logger';
 //import {FilepathResolver} from './utils/filepathResolver';
 import { uriToPath } from './utils/translation';
-import { sep } from 'path';
 
 // removed the need for utils/{io,locations}.ts with funcitons at the top of this file.
 // Add back later
