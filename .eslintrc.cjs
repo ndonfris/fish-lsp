@@ -5,10 +5,18 @@ module.exports = {
     es2022: true,
     node: true,
   },
-  extends: 'eslint:recommended',
+  plugins: ['@typescript-eslint'],
+  extends: [
+    'eslint:recommended',
+    'plugin:@typescript-eslint/recommended',
+  ],
+  parser: '@typescript-eslint/parser',
+  ignorePatterns: [
+    'test-data',
+  ],
   parserOptions: {
     sourceType: 'module',
-    project: './tsconfig.json',
+    project: './tsconfig.eslint.json',
     tsconfigRootDir: __dirname,
   },
   rules: {
