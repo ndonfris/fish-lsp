@@ -118,7 +118,7 @@ module.exports = {
         '@typescript-eslint/no-require-imports': 'error',
         '@typescript-eslint/no-unnecessary-qualifier': 'error',
         '@typescript-eslint/no-unused-vars': [
-          'off', {
+          'error', {
             argsIgnorePattern: '^_',
             varsIgnorePattern: '^_',
           },
