@@ -10,7 +10,7 @@ import { setLogger } from './helpers';
 const testDir = join(__dirname, 'test_files');
 const testFilePath = join(testDir, 'test_file.txt');
 const testFilePathWithTilde = '~/repos/fish-lsp/test-data/test_files/test_file_tilde.txt';
-setLogger()
+setLogger();
 // console.log(testDir);
 
 // Helper function to clean up test files
@@ -63,9 +63,9 @@ describe('SyncFileHelper', () => {
 
   it('should expand tilde to home directory and create a file', () => {
     const expandedFilePath = testFilePathWithTilde.replace('~', process.env.HOME!);
-    // console.log({testFilePathWithTilde, expandedFilePath});
-    const { path, filename, extension, directory, uri,  exists} = SyncFileHelper.create(testFilePathWithTilde);
-    // console.log({path, filename, extension, directory, uri, exists});
+    // console.log({ testFilePathWithTilde, expandedFilePath });
+    const { path, filename, extension, /**directory, uri,**/ exists } = SyncFileHelper.create(testFilePathWithTilde);
+    // console.log({ path, filename, extension, directory, uri, exists });
     expect(exists).toBe(true);
     expect(path).toBe(expandedFilePath);
     expect(filename).toBe('test_file_tilde');
@@ -96,9 +96,9 @@ describe('SyncFileHelper', () => {
   it('should convert file content to Fish function', () => {
     const data = 'echo "This is a test function."';
     SyncFileHelper.convertTextToFishFunction(testFilePath, data);
-    const expectedContent = `\nfunction test_file\n\techo "This is a test function."\nend`;
+    const expectedContent = '\nfunction test_file\n\techo "This is a test function."\nend';
     const readData = SyncFileHelper.read(testFilePath);
-    // console.log({readData, expectedContent});
+    // console.log({ readData, expectedContent });
     expect(readData).toBe(expectedContent);
   });
 

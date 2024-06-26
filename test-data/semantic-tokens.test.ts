@@ -1,6 +1,5 @@
 import { SemanticTokenTypes } from 'vscode-languageserver';
 
-
 const tokenTypes: string[] = [
   SemanticTokenTypes.namespace,
   SemanticTokenTypes.class,

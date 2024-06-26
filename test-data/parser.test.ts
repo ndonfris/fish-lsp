@@ -1,9 +1,8 @@
-import Parser, { Language } from "web-tree-sitter";
+import Parser, { Language } from 'web-tree-sitter';
 // import {initializeParser} from '../src/parser'
 //import fish from 'tree-sitter-fish'
 import { setLogger } from './helpers';
 import { initializeParser } from '../src/parser';
-
 
 export const nodeNamedTypes: string[] = [
   'word',
@@ -52,9 +51,8 @@ export const nodeFieldTypes: string[] = [
   'condition', 'destination',
   'name', 'operator',
   'option', 'redirect',
-  'value', 'variable'
+  'value', 'variable',
 ];
-
 
 setLogger();
 
@@ -73,7 +71,6 @@ describe('parser test-suite', () => {
     expect(parser).toBeDefined();
     expect(t.children.length).toBeGreaterThanOrEqual(1);
   });
-
 
   it('filedCounts', async () => {
     const parser = await initializeParser();
@@ -96,7 +93,7 @@ describe('parser test-suite', () => {
     for (let i = 0; i < lang.nodeTypeCount; ++i) {
       if (lang.nodeTypeIsNamed(i)) {
         const typeName = lang.nodeTypeForId(i);
-        expect(typeName).toBeTruthy()
+        expect(typeName).toBeTruthy();
         // console.log(typeName);
       }
     }

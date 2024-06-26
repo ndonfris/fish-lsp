@@ -8,7 +8,6 @@ import { findSetDefinedVariable, isBlock, isCommand, isCommandName, isCommandWit
 // import { ScopeStack, isReference } from '../src/diagnostics/scope';
 import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter } from '../src/diagnostics/node-types';
 
-
 import { LspDocument } from '../src/document';
 import { createFakeLspDocument, setLogger } from './helpers';
 import { FishDocumentSymbol, filterLastPerScopeSymbol, findSymbolReferences, getFishDocumentSymbols } from '../src/document-symbol';
@@ -19,8 +18,12 @@ let output: SyntaxNode[] = [];
 let input: string = '';
 
 setLogger(
-  async () => { parser = await initializeParser(); diagnostics = []; input = ''; output = []; },
-  async () => { parser.reset(); }
+  async () => {
+    parser = await initializeParser(); diagnostics = []; input = ''; output = [];
+  },
+  async () => {
+    parser.reset();
+  },
 );
 
 function fishTextDocumentItem(uri: string, text: string): LspDocument {
@@ -28,7 +31,7 @@ function fishTextDocumentItem(uri: string, text: string): LspDocument {
     uri: `file://${homedir()}/.config/fish/${uri}`,
     languageId: 'fish',
     version: 1,
-    text
+    text,
   } as TextDocumentItem);
 }
 
@@ -65,37 +68,35 @@ function extractDiagnostics(tree: Tree) {
   };
   visitNode(tree.rootNode);
   return results;
-
 }
 
 describe('diagnostics test suite', () => {
-
   it('NODE_TEST: test finding specific error nodes', async () => {
-    let inputs: string[] = [
+    const inputs: string[] = [
       [
         'echo "function error"',
         'function foo',
         '    if test -n $argv',
         '        echo "empty"',
         '     ',
-        'end'
+        'end',
       ].join('\n'),
       [
         'echo "while error"',
         'while true',
         '     echo "is true"',
-        ''
+        '',
       ].join('\n'),
-      [ `echo '\' error'`, `string match '` ].join('\n'),
-      [ `echo '\" error'`, `string match -r "` ].join('\n'),
-      [ 'echo "\(" error', 'echo (' ].join('\n'),
-      [ `echo '\$\( error'`, `echo $(` ].join('\n'),
-      [ `echo '\{ error'`, 'echo {a,b' ].join('\n'),
-      [ `echo '\[ error'`, `echo $argv[` ].join('\n'),
-      [ `echo '\[ error'`, `echo "$argv["` ].join('\n'),
-      [ `echo '\$\( error'`, `echo "$("` ].join('\n')
+      ['echo \'\' error\'', 'string match \''].join('\n'),
+      ['echo \'\" error\'', 'string match -r "'].join('\n'),
+      ['echo "\(" error', 'echo ('].join('\n'),
+      ['echo \'\$\( error\'', 'echo $('].join('\n'),
+      ['echo \'\{ error\'', 'echo {a,b'].join('\n'),
+      ['echo \'\[ error\'', 'echo $argv['].join('\n'),
+      ['echo \'\[ error\'', 'echo "$argv["'].join('\n'),
+      ['echo \'\$\( error\'', 'echo "$("'].join('\n'),
     ];
-    let output: SyntaxNode[] = [];
+    const output: SyntaxNode[] = [];
     inputs.forEach((input, index) => {
       const tree = parser.parse(input);
       const result = extractDiagnostics(tree).pop()!;
@@ -109,9 +110,9 @@ describe('diagnostics test suite', () => {
       }
     });
     expect(
-      output.map(n => n.text)
+      output.map(n => n.text),
     ).toEqual(
-      [ 'function', 'while', '"', '(', '(', '{', '[', '[', '(' ]
+      ['function', 'while', '"', '(', '(', '{', '[', '[', '('],
     );
   });
 
@@ -120,7 +121,7 @@ describe('diagnostics test suite', () => {
       'function foo',
       '    echo "hi" ',
       'end',
-      'end'
+      'end',
     ].join('\n');
     const tree = parser.parse(input);
     for (const node of getChildNodes(tree.rootNode)) {
@@ -145,7 +146,7 @@ describe('diagnostics test suite', () => {
   });
 
   it('NODE_TEST: single quote includes variable expansion', async () => {
-    input = `echo ' $argv'`;
+    input = 'echo \' $argv\'';
     const { rootNode } = parser.parse(input);
     for (const node of getChildNodes(rootNode)) {
       if (isSingleQuoteVariableExpansion(node)) {
@@ -159,9 +160,9 @@ describe('diagnostics test suite', () => {
 
   it('NODE_TEST: isAlias definition', async () => {
     [
-      `alias lst='ls --tree'`,
-      `alias lst 'ls --tree'`,
-      `alias lst "ls --tree"`,
+      'alias lst=\'ls --tree\'',
+      'alias lst \'ls --tree\'',
+      'alias lst "ls --tree"',
     ].forEach(input => {
       output = [];
       const { rootNode } = parser.parse(input);
@@ -175,11 +176,10 @@ describe('diagnostics test suite', () => {
     });
   });
 
-
   it('NODE_TEST: universal definition in script', async () => {
     [
-      `set -Ux uvar 'SOME VAR'`,
-      `set --universal uvar 'SOME VAR'`,
+      'set -Ux uvar \'SOME VAR\'',
+      'set --universal uvar \'SOME VAR\'',
     ].forEach(input => {
       const { rootNode } = parser.parse(input);
       for (const node of getChildNodes(rootNode)) {
@@ -191,17 +191,16 @@ describe('diagnostics test suite', () => {
     });
     expect(output.map(o => o.text)).toEqual([
       '-Ux',
-      '--universal'
+      '--universal',
     ]);
   });
 
   it('NODE_TEST: find source file', () => {
     [
-      `source file_does_not_exist.fish`,
-      `source`,
-      `command cat file_does_not_exist.fish | source`
+      'source file_does_not_exist.fish',
+      'source',
+      'command cat file_does_not_exist.fish | source',
     ].forEach(input => {
-
       const { rootNode } = parser.parse(input);
       for (const node of getChildNodes(rootNode)) {
         if (isSourceFilename(node)) {
@@ -215,15 +214,15 @@ describe('diagnostics test suite', () => {
         // }
       }
     });
-    expect(output.map(o => o.text)).toEqual([ 'file_does_not_exist.fish' ]);
+    expect(output.map(o => o.text)).toEqual(['file_does_not_exist.fish']);
   });
 
-  it(`NODE_TEST: isTestCommandVariableExpansionWithoutString 'test -n/-z "$var"'`, () => {
+  it('NODE_TEST: isTestCommandVariableExpansionWithoutString \'test -n/-z "$var"\'', () => {
     [
       'if test -n $arg0',
       'if test -z "$arg1"',
       '[ -n $argv[2] ]',
-      '[ -z "$arg3" ]'
+      '[ -z "$arg3" ]',
     ].forEach(input => {
       const { rootNode } = parser.parse(input);
       for (const node of getChildNodes(rootNode)) {
@@ -235,7 +234,7 @@ describe('diagnostics test suite', () => {
     });
     expect(output.map(o => o.text)).toEqual([
       '$arg0',
-      '$argv[2]'
+      '$argv[2]',
     ]);
   });
 
@@ -263,12 +262,12 @@ describe('diagnostics test suite', () => {
       'if true; echo hi; else if string match; echo p; end',
       'if builtin set; end',
       'if functions ls; end',
-      [ 'if test -n "$argv"',
+      ['if test -n "$argv"',
         '   echo yes',
         'else if test -z "$argv"',
         '     set -Ux variable a',
-        'end'
-      ].join('\n')
+        'end',
+      ].join('\n'),
     ].forEach((input, index) => {
       const { rootNode } = parser.parse(input);
       for (const node of getChildNodes(rootNode)) {
@@ -290,13 +289,12 @@ describe('diagnostics test suite', () => {
     expect(outputWithoutFlag.length).toBe(5);
   });
 
-
   it('NODE_TEST: `if set -q var_name` vs `if set -q $var_name`', () => {
     [
       'if set -q $variable_1; echo bad; end',
       'if set -q variable_2; echo good; end',
       'set $variable_3 (echo "a b c d e f $argv[2]") ',
-      'set $variable_4 $PATH'
+      'set $variable_4 $PATH',
     ].forEach(input => {
       const { rootNode } = parser.parse(input);
       for (const node of getChildNodes(rootNode)) {
@@ -310,10 +308,9 @@ describe('diagnostics test suite', () => {
     expect(output.map(o => o.text)).toEqual([
       '$variable_1',
       '$variable_3',
-      '$variable_4'
+      '$variable_4',
     ]);
   });
-
 
   /**
    * TODO:
@@ -326,7 +323,7 @@ describe('diagnostics test suite', () => {
         '# input 1',
         'function foo',
         '    echo "inside foo" ',
-        'end'
+        'end',
       ],
       [
         '# input 2',
@@ -359,18 +356,18 @@ describe('diagnostics test suite', () => {
     expect(definitions.map(d => d.text)).toEqual([
       'foo',
       'variable_1',
-      'variable_2'
+      'variable_2',
     ]);
   });
 
   it('VALIDATE: missing end', () => {
     [
       'echo "',
-      `echo '`,
-      `echo {a,b,c`,
-      `echo $argv[`,
-      `echo (`,
-      `echo $(`
+      'echo \'',
+      'echo {a,b,c',
+      'echo $argv[',
+      'echo (',
+      'echo $(',
     ].forEach((input, idx) => {
       const { rootNode } = parser.parse(input);
       const doc = createFakeLspDocument(`file:///tmp/test-${idx}.fish`, input);
@@ -379,11 +376,10 @@ describe('diagnostics test suite', () => {
     });
   });
 
-
   it('VALIDATE: extra end', () => {
     [
       'for i in (seq 1 10); end; end',
-      'function foo; echo hi; end; end'
+      'function foo; echo hi; end; end',
     ].forEach((input, idx) => {
       const { rootNode } = parser.parse(input);
       const doc = createFakeLspDocument(`file:///tmp/test-${idx}.fish`, input);
@@ -405,7 +401,7 @@ describe('diagnostics test suite', () => {
 
   it('VALIDATE: isSingleQuoteVariableExpansion', () => {
     [
-      `echo '$argv[1]'; echo '\\$argv[1]'`,
+      'echo \'$argv[1]\'; echo \'\\$argv[1]\'',
     ].forEach((input, idx) => {
       const { rootNode } = parser.parse(input);
       const doc = createFakeLspDocument(`file:///tmp/test-${idx}.fish`, input);
@@ -416,7 +412,7 @@ describe('diagnostics test suite', () => {
 
   it('VALIDATE: isAlias', () => {
     [
-      `alias fo='fish_opt'`,
+      'alias fo=\'fish_opt\'',
     ].forEach((input, idx) => {
       const { rootNode } = parser.parse(input);
       const doc = createFakeLspDocument(`file:///tmp/test-${idx}.fish`, input);
@@ -427,8 +423,8 @@ describe('diagnostics test suite', () => {
 
   it('VALIDATE: isUniversal', () => {
     [
-      `set -U _foo abcdef`,
-      `set -U _foo abcdef`,
+      'set -U _foo abcdef',
+      'set -U _foo abcdef',
     ].forEach((input, idx) => {
       const { rootNode } = parser.parse(input);
       const uri = idx === 1 ? `file://${os.homedir()}/.config/fish/conf.d/test-1.fish` : `file:///tmp/test-${idx}.fish`;
@@ -444,8 +440,8 @@ describe('diagnostics test suite', () => {
 
   it('VALIDATE: sourceFilename', () => {
     [
-      `source ~/.config/fish/__cconfig.fish`,
-      `source (get-fish-config-file)`,
+      'source ~/.config/fish/__cconfig.fish',
+      'source (get-fish-config-file)',
     ].forEach((input, idx) => {
       const { rootNode } = parser.parse(input);
       const uri = idx === 1 ? `file://${os.homedir()}/.config/fish/conf.d/test-1.fish` : `file:///tmp/test-${idx}.fish`;
@@ -461,9 +457,9 @@ describe('diagnostics test suite', () => {
 
   it('VALIDATE: isTestCommandVariableExpansionWithoutString', () => {
     [
-      `test -n $argv`,
-      `[ -n $argv ]`,
-      `[ -z $argv[1] ]`
+      'test -n $argv',
+      '[ -n $argv ]',
+      '[ -z $argv[1] ]',
     ].forEach((input, idx) => {
       const { rootNode } = parser.parse(input);
       const uri = idx === 1 ? `file://${os.homedir()}/.config/fish/conf.d/test-1.fish` : `file:///tmp/test-${idx}.fish`;
@@ -475,8 +471,8 @@ describe('diagnostics test suite', () => {
 
   it('VALIDATE: isConditionalWithoutQuietCommand', () => {
     [
-      `if string match -r 'a' "$argv";end;`,
-      `if set var;end;`,
+      'if string match -r \'a\' "$argv";end;',
+      'if set var;end;',
     ].forEach((input, idx) => {
       const { rootNode } = parser.parse(input);
       const uri = idx === 1 ? `file://${os.homedir()}/.config/fish/conf.d/test-1.fish` : `file:///tmp/test-${idx}.fish`;
@@ -484,12 +480,12 @@ describe('diagnostics test suite', () => {
       const result = getDiagnostics(rootNode, doc);
       expect(result.length).toBe(1);
     });
-  })
+  });
 
   it('VALIDATE: isVariableDefinitionWithExpansionCharacter', () => {
     [
-      `set $argv a b c`,
-      `set $argv[1] a b c`
+      'set $argv a b c',
+      'set $argv[1] a b c',
     ].forEach((input, idx) => {
       const { rootNode } = parser.parse(input);
       const uri = idx === 1 ? `file://${os.homedir()}/.config/fish/conf.d/test-1.fish` : `file:///tmp/test-${idx}.fish`;
@@ -497,14 +493,13 @@ describe('diagnostics test suite', () => {
       const result = getDiagnostics(rootNode, doc);
       expect(result.length).toBe(1);
     });
-  })
+  });
 
   // expect(definitions.map(d => d.text)).toEqual([
   //   'foo',
   //   'variable_1',
   //   'variable_2'
   // ]);
-
 
   /**
    * TODO:

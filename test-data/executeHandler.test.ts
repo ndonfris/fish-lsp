@@ -1,5 +1,4 @@
 
-
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { buildOutput, execLineInBuffer, execEntireBuffer, sourceFishBuffer, executeThemeDump, FishThemeDump, showCurrentTheme } from '../src/executeHandler';
@@ -10,7 +9,6 @@ import { join } from 'path';
 import { writeFileSync } from 'fs';
 import { SyncFileHelper } from '../src/utils/fileOperations';
 
-
 const execAsync = promisify(exec);
 
 let content = [
@@ -20,39 +18,36 @@ let content = [
   '      echo "\\$b:$b"',
   '      echo "\\$c:$c"',
   'end',
-  'foo 1 2 3'
+  'foo 1 2 3',
 ].join('\n');
 
 // Define the file path
 let tmpBuff: string = join('/tmp', 'foo.fish');
 
-
 setLogger(
   async () => {
     tmpBuff = join('/tmp', 'foo.fish');
-  }
+  },
 );
 
 describe('executeHandler tests', () => {
-    
   //  it('should find the longest line in a given set of strings', () => {
   //   const longestLine = findLongestLine('short line', 'this is the longest line', 'medium line');
   //   expect(longestLine).toBe('this is the longest line');
   // });
 
   it('format message', async () => {
-    const line = "echo a b c d | string match -e \'b\'";
+    const line = 'echo a b c d | string match -e \'b\'';
     const inputLine = `fish -c '${line}'`;
     const output = (await execCmd(inputLine)).join('\n');
 
-    const result = buildOutput(line, "stdout:", output);
+    const result = buildOutput(line, 'stdout:', output);
 
     // console.log({ formatOutput: output });
     expect(output).toBe('a b c d');
   }, 10000);
 
   it('format tmp buffer message', async () => {
-
     // Write the longest line to the file
     SyncFileHelper.write(tmpBuff, content, 'utf8');
     const output = await execEntireBuffer(tmpBuff);
@@ -66,10 +61,9 @@ describe('executeHandler tests', () => {
         '$c:3\n' +
         '--------------------------------------------------\n' +
         '$status: 0\n',
-      kind: 'info'
+      kind: 'info',
     });
   }, 10000);
-
 
   it('source file execution', async () => {
     // const parser = await initializeParser();
@@ -80,16 +74,14 @@ describe('executeHandler tests', () => {
 
     writeFileSync(tmpBuff, content, 'utf8');
 
-
     const result = await sourceFishBuffer(tmpBuff);
     // console.log({ srcBuff: result });
     expect(result).toBe(
       '><(((°> sourcing file:\n' +
     '        /tmp/foo.fish\n' +
     '--------------------------------------------------\n' +
-    '$status: 0\n' )
+    '$status: 0\n');
   }, 10000);
-
 
   it('dump theme variables', async () => {
     content = '# I want to make a theme\n';
@@ -101,8 +93,8 @@ describe('executeHandler tests', () => {
     const functionTheme = SyncFileHelper.convertTextToFishFunction(tmpBuff, nonStandardThemeContent.join('\n'));
 
     // console.log(functionTheme);
-    expect(functionTheme.uri).toBe('file:///tmp/foo.fish')
-    expect(functionTheme.getText()).toBeTruthy()
+    expect(functionTheme.uri).toBe('file:///tmp/foo.fish');
+    expect(functionTheme.getText()).toBeTruthy();
   }, 10000);
 
   it('should source a Fish buffer and return the output message', async () => {
@@ -113,9 +105,9 @@ describe('executeHandler tests', () => {
   it('should show the current theme and append it to the buffer file', async () => {
     const result = await showCurrentTheme(tmpBuff);
     expect(result).toEqual({
-      message:  `><(((°> appended theme variables to end of file` ,
-      kind: 'info'
+      message:  '><(((°> appended theme variables to end of file',
+      kind: 'info',
     });
   }, 10000);
-})
+});
 

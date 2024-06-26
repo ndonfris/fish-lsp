@@ -1,10 +1,10 @@
 import { formatDocumentContent } from '../src/formatting';
-import { setLogger } from './helpers'
+import { setLogger } from './helpers';
 
-setLogger()
+setLogger();
 
 /**
-  *  For logging a formatted output string, and using it as a snapshot later in a test 
+  *  For logging a formatted output string, and using it as a snapshot later in a test
   *
   *  outputs a string for the:
   *     `expect(result).toBe([ HERE ].join('\n').trim())`
@@ -23,7 +23,6 @@ function helperOutputFormattedString(input: string) {
 }
 
 describe('formatting tests', () => {
-
   it('formatting no change', async () => {
     const input = 'set -gx PATH ~/.config/fish/';
     const result = (await formatDocumentContent(input)).trim();
@@ -36,7 +35,7 @@ describe('formatting tests', () => {
       'if set -q _some_value',
       'echo "_some_value is set: $_some_value"',
       'end',
-      'end'
+      'end',
     ].join('\n');
     const result = await formatDocumentContent(input);
     expect(result).toBe([
@@ -45,7 +44,7 @@ describe('formatting tests', () => {
       '        echo "_some_value is set: $_some_value"',
       '    end',
       'end',
-      ''
+      '',
     ].join('\n'));
   });
 
@@ -60,7 +59,7 @@ describe('formatting tests', () => {
       'echo no',
       'else',
       ' echo maybe',
-      'end'
+      'end',
     ].join('\n').trim();
     const result = (await formatDocumentContent(input)).trim();
     expect(result).toBe([
@@ -71,20 +70,20 @@ describe('formatting tests', () => {
       '    echo no',
       'else',
       '    echo maybe',
-      'end'
+      'end',
     ].join('\n').trim());
   });
 
   it('formatting switch case', async () => {
     const input: string = [
       'switch "$argv"',
-      "case 'y' 'Y' ''",
+      'case \'y\' \'Y\' \'\'',
       '  return 0',
-      "case 'n' 'N'",
+      'case \'n\' \'N\'',
       ' return 1',
       'case \'*\'',
       '     return 2',
-      'end'
+      'end',
     ].join('\n').trim();
     const result = (await formatDocumentContent(input)).trim();
     // helperOutputFormattedString(result)
@@ -94,15 +93,15 @@ describe('formatting tests', () => {
       '        return 0',
       '    case n N',
       '        return 1',
-      "    case '*'",
+      '    case \'*\'',
       '        return 2',
-      'end'
+      'end',
     ].join('\n').trim());
   });
 
   /**
    * Does not add 'end' tokens
-   *           && 
+   *           &&
    * NO error when unbalanced 'end' tokens
    */
   it('for loop single line', async () => {
@@ -110,14 +109,14 @@ describe('formatting tests', () => {
     const result = (await formatDocumentContent(input)).trim();
     expect(result).toBe([
       'for i in (seq 1 10)',
-      'echo $i'
+      'echo $i',
     ].join('\n').trim());
   });
 
   /**
    * formatter removes ';'
    */
-   it('for loop multi line', async () => {
+  it('for loop multi line', async () => {
     const input = [
       'for i in (seq 1 10);',
       'echo $i; ',
@@ -127,8 +126,7 @@ describe('formatting tests', () => {
     expect(result).toBe([
       'for i in (seq 1 10)',
       '    echo $i',
-      'end'
+      'end',
     ].join('\n').trim());
-  })
-
-})
+  });
+});

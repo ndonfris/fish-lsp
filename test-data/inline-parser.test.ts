@@ -15,8 +15,8 @@ import { CompletionItem } from 'vscode-languageserver';
 const execAsync = promisify(exec);
 
 function createJob(): ChildProcess {
-  const fishJob = spawn('fish', [ '-ic', 'while read val -P ""; complete -C "$val"; echo FISH_COMPLETION_END; end' ], {
-    stdio: [ 'pipe', 'pipe', 'ignore' ]
+  const fishJob = spawn('fish', ['-ic', 'while read val -P ""; complete -C "$val"; echo FISH_COMPLETION_END; end'], {
+    stdio: ['pipe', 'pipe', 'ignore'],
   });
 
   return fishJob;
@@ -25,7 +25,7 @@ function createJob(): ChildProcess {
 function handleStream(
   stream: NodeJS.ReadableStream | null,
   callback: (data: string) => void,
-  endCallback: () => void
+  endCallback: () => void,
 ): void {
   if (stream) {
     stream.on('data', (data) => {
@@ -65,7 +65,6 @@ function processOutput(outputBuffer: string[]): string[] {
     return item;
   });
 }
-
 
 export async function testCompletion(input: string): Promise<string[]> {
   const fishJob = createJob();
@@ -111,7 +110,7 @@ function processExecOutput(output: string): string[] {
 
 export async function testExecCompletion(input: string): Promise<string[]> {
   try {
-    const { stdout, stderr } = await execAsync(`echo '${input.replace(/'/g, "'\\''")}' | fish -ic 'while read val -P ""; complete -C "$val"; end'`);
+    const { stdout, stderr } = await execAsync(`echo '${input.replace(/'/g, '\'\\\'\'')}' | fish -ic 'while read val -P ""; complete -C "$val"; end'`);
     if (stderr) {
       console.error(`stderr: ${stderr}`);
     }
@@ -182,7 +181,6 @@ export async function testExecCompletion(input: string): Promise<string[]> {
 //   console.log(JSON.stringify({"Line": input, 'Completion Targets': targets}, null, 2));
 // }
 
-
 // async function parseCommandLine(input: string) {
 //   const cparser = await initializeParser();
 //   const tree = cparser.parse(input);
@@ -201,7 +199,6 @@ export async function testExecCompletion(input: string): Promise<string[]> {
 //     console.log('Previous Function Keyword Node:', functionNode?.text);
 //   }
 // }
-
 
 function findPreviousProcess(node: Parser.SyntaxNode): Parser.SyntaxNode | null {
   let current: SyntaxNode | null = node;
@@ -233,10 +230,9 @@ function getPreviousNode(node: Parser.SyntaxNode): Parser.SyntaxNode | null {
 }
 
 function isProcess(node: Parser.SyntaxNode): boolean {
-  const processTypes = [ 'pipe', 'redirect_statement', 'subshell', '&&', '||', ';', 'function', 'command', 'for', 'while', 'if', 'switch', 'case' ];
+  const processTypes = ['pipe', 'redirect_statement', 'subshell', '&&', '||', ';', 'function', 'command', 'for', 'while', 'if', 'switch', 'case'];
   return processTypes.includes(node.type) || node.type.endsWith('statement');
 }
-
 
 async function parseCommandLine(input: string) {
   const parser = await initializeParser();
@@ -267,14 +263,14 @@ function getLineAtPosition(input: string, position: number): string {
   let charCount = 0;
 
   for (let i = 0; i < lines.length; i++) {
-    charCount += lines[ i ]!.length + 1; // +1 for newline character
+    charCount += lines[i]!.length + 1; // +1 for newline character
     if (charCount > position) {
       lineIndex = i;
       break;
     }
   }
 
-  return lines[ lineIndex ] || '';
+  return lines[lineIndex] || '';
 }
 
 function getCombinedLines(input: string, position: number): string {
@@ -284,7 +280,7 @@ function getCombinedLines(input: string, position: number): string {
   let combinedLines = '';
 
   for (let i = 0; i < lines.length; i++) {
-    charCount += lines[ i ]!.length + 1; // +1 for newline character
+    charCount += lines[i]!.length + 1; // +1 for newline character
     if (charCount > position) {
       lineIndex = i;
       break;
@@ -293,22 +289,21 @@ function getCombinedLines(input: string, position: number): string {
 
   // Combine lines upwards until no trailing backslash
   for (let i = lineIndex - 1; i >= 0; i--) {
-    if (lines[ i ]!.endsWith('\\')) {
-      combinedLines = lines[ i ]!.slice(0, -1) + combinedLines;
+    if (lines[i]!.endsWith('\\')) {
+      combinedLines = lines[i]!.slice(0, -1) + combinedLines;
     } else {
       break;
     }
   }
 
-  combinedLines += lines[ lineIndex ]; // Add the current line
+  combinedLines += lines[lineIndex]; // Add the current line
   return combinedLines;
-
 }
 //
 // Function to get Fish shell completion
 async function getFishCompletion(scriptContent: string): Promise<string> {
   // const command = `echo '${scriptContent.replace(/'/g, "'\\''")}' | fish -c 'source (string trim --right \\n); complete -C ""'`;
-  const command = `fish -c "string escape \'${scriptContent.replace(/'/g, "'\\''")}\' | read -t -a cmd; complete -C "$cmd"'`;
+  const command = `fish -c "string escape \'${scriptContent.replace(/'/g, '\'\\\'\'')}\' | read -t -a cmd; complete -C "$cmd"'`;
   try {
     const { stdout, stderr } = await execAsync(command);
     if (stderr) {
@@ -342,7 +337,6 @@ setLogger();
 // const commandLine = 'echo "hello" && l';
 // parseForCompletion(commandLine);
 describe('inline-parser test suite', () => {
-
   it('test inline-parser normal', async () => {
     const input = 'function \\\\n --';
     const result = await testCompletion(input);
@@ -359,7 +353,6 @@ describe('inline-parser test suite', () => {
     expect(result).toContain('--wraps (Inherit completions from the given command)');
     // expect(true).toBeTruthy()
   });
-
 });
 
 it('test exec inline-parser normal', async () => {
@@ -422,8 +415,6 @@ it('source and `function foo \\ --argument`', async () => {
 // const res = await traverseCustom(line)
 // console.log(res);
 // console.log(parser.getLanguage());
-
-
 
 // await parseCommandLine(line)
 // console.log();

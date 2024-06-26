@@ -33,7 +33,7 @@ import {
   getLeafs,
   getLastLeaf,
   matchesArgument,
-  getCommandArgumentValue
+  getCommandArgumentValue,
 } from '../src/utils/tree-sitter';
 import { initializeParser } from '../src/parser';
 import * as NodeTypes from '../src/utils/node-types';
@@ -54,7 +54,7 @@ const jestConsole = console;
 
 beforeEach(async () => {
   parser = await initializeParser();
-  global.console = require("console");
+  global.console = require('console');
 });
 
 afterEach(() => {
@@ -83,23 +83,23 @@ describe('tree-sitter.ts functions testing', () => {
       'word',
       'double_quote_string',
       'double_quote_string',
-      'double_quote_string'
+      'double_quote_string',
     ]);
   });
   test('findChildNodes returns nodes matching predicate', () => {
     // const predicate = (node: SyntaxNode) => node.type === 'targetType';
     mockRootNode = parseString('set -gx a "1" "2" "3"').rootNode;
     const result = findChildNodes(mockRootNode, NodeTypes.isCommand);
-    expect(result.map(f => f.text)).toEqual([ 'set -gx a "1" "2" "3"' ]);
+    expect(result.map(f => f.text)).toEqual(['set -gx a "1" "2" "3"']);
     const resultName = findChildNodes(mockRootNode, NodeTypes.isCommandName);
-    expect(resultName.map(f => f.text)).toEqual([ 'set' ]);
+    expect(resultName.map(f => f.text)).toEqual(['set']);
   });
 
   test('getParentNodes returns all parent nodes', () => {
     const node = parseStringForNode('set -gx a "1" "2" "3"', (n: SyntaxNode) => n.text === '"3"').pop()!;
     const results = getParentNodes(node);
-    expect(results.map(n => n.text)).toEqual([ '"3"', 'set -gx a "1" "2" "3"', 'set -gx a "1" "2" "3"' ]);
-    expect(results.map(n => n.type)).toEqual([ 'double_quote_string', 'command', 'program' ]);
+    expect(results.map(n => n.text)).toEqual(['"3"', 'set -gx a "1" "2" "3"', 'set -gx a "1" "2" "3"']);
+    expect(results.map(n => n.type)).toEqual(['double_quote_string', 'command', 'program']);
   });
 
   test('findFirstParent returns first parent node matching predicate', () => {
@@ -111,7 +111,7 @@ describe('tree-sitter.ts functions testing', () => {
   test('getSiblingNodes returns sibling nodes', () => {
     const node = parseStringForNode('set -gx a "1" "2" "3"', (n: SyntaxNode) => n.text === '"3"').pop()!;
     const result = getSiblingNodes(node, NodeTypes.isString, 'before');
-    expect(result.map(t => t.text)).toEqual([ '"2"', '"1"' ]);
+    expect(result.map(t => t.text)).toEqual(['"2"', '"1"']);
   });
 
   test('findFirstNamedSibling returns first named sibling node', () => {
@@ -159,7 +159,6 @@ describe('tree-sitter.ts functions testing', () => {
     result = getNodeText(node);
     // console.log(result);
     expect(result).toEqual('__func_1');
-
   });
 
   // test('getNodesTextAsSingleLine returns concatenated text of nodes', () => {
@@ -176,24 +175,24 @@ describe('tree-sitter.ts functions testing', () => {
       '    set -gx a "1" "2" "3"',
       'end',
     ].join('\n');
-    let node = parseStringForNode(input, (n: SyntaxNode) => n.text === '"3"').pop()!;
+    const node = parseStringForNode(input, (n: SyntaxNode) => n.text === '"3"').pop()!;
     const result = firstAncestorMatch(node, NodeTypes.isCommand)!;
     expect(result.text).toEqual('set -gx a "1" "2" "3"');
   });
 
   test('ancestorMatch returns all matching ancestor nodes', () => {
-    let node = parseStringForNode('set -gx a "1" "2" "3"', (n: SyntaxNode) => n.text === '"3"').pop()!;
-    let result = ancestorMatch(node, NodeTypes.isOption, false);
+    const node = parseStringForNode('set -gx a "1" "2" "3"', (n: SyntaxNode) => n.text === '"3"').pop()!;
+    const result = ancestorMatch(node, NodeTypes.isOption, false);
     expect(result.map(n => n.text)).toEqual([
       '-gx',
-      '-gx'
+      '-gx',
     ]);
   });
 
   test('descendantMatch returns all matching descendant nodes', () => {
     const node = parseStringForNode('set -gx a "1" "2" "3"', NodeTypes.isCommand).pop()!;
     const result = descendantMatch(node, NodeTypes.isVariableDefinitionName);
-    expect(result.map(n => n.text)).toEqual([ 'a' ]);
+    expect(result.map(n => n.text)).toEqual(['a']);
   });
 
   test('hasNode checks if array has the node', () => {
@@ -208,7 +207,7 @@ describe('tree-sitter.ts functions testing', () => {
     const root = parseString('set -gx a "1" "2" "3"').rootNode;
     const node = getChildNodes(root).find(n => NodeTypes.isOption(n))!;
     const result = getNamedNeighbors(node);
-    expect(result.map(n => n.text)).toEqual([ 'set', '-gx', 'a', '"1"', '"2"', '"3"' ]);
+    expect(result.map(n => n.text)).toEqual(['set', '-gx', 'a', '"1"', '"2"', '"3"']);
   });
 
   test('getRange returns range of the node', () => {
@@ -255,7 +254,7 @@ describe('tree-sitter.ts functions testing', () => {
     const end = positionToPoint(position);
     expect(positionToPoint(position)).toEqual({
       row: 0,
-      column: 5
+      column: 5,
     });
   });
 
@@ -264,7 +263,7 @@ describe('tree-sitter.ts functions testing', () => {
     const result = pointToPosition(point);
     expect(result).toEqual({
       line: 0,
-      character: 1
+      character: 1,
     });
   });
 
@@ -273,7 +272,7 @@ describe('tree-sitter.ts functions testing', () => {
     const result = rangeToPoint(range);
     expect(result).toEqual({
       row: 0,
-      column: 0
+      column: 0,
     });
   });
 
@@ -293,7 +292,6 @@ describe('tree-sitter.ts functions testing', () => {
   });
 
   test('isPositionWithinRange checks if position is within range', () => {
-
     const tree = parseString('set -gx a "1" "2" "3"');
     const rootNode = tree!.rootNode;
     const position = { line: 0, character: 0 };
@@ -325,7 +323,7 @@ describe('tree-sitter.ts functions testing', () => {
     expect(result.map(m => m.text)).toEqual([
       'set', '-gx', 'a',
       '"', '"', '"',
-      '"', '"', '"'
+      '"', '"', '"',
     ]);
   });
 
