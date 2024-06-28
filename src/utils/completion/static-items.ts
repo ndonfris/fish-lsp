@@ -1,5 +1,3 @@
-import { CompletionItem, MarkupContent } from 'vscode-languageserver';
-import { getBuiltinDocString } from './documentation';
 import { FishCompletionItem, FishCompletionItemKind, CompletionExample } from './types';
 
 const EscapedChars: FishCompletionItem[] = [

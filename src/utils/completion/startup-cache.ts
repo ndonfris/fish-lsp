@@ -1,4 +1,3 @@
-import { CompletionItem, CompletionItemKind } from 'vscode-languageserver';
 import { FishCompletionItem, FishCompletionItemKind } from './types';
 import { execCmd } from '../exec';
 import { StaticItems } from './static-items';

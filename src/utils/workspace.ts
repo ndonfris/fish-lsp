@@ -1,7 +1,5 @@
-import { homedir } from 'os';
 import * as fastGlob from 'fast-glob';
-import { Analyzer } from '../analyze';
-import { createReadStream, readFileSync } from 'fs';
+import { readFileSync } from 'fs';
 import { pathToUri, toLspDocument, uriToPath } from './translation';
 import { LspDocument } from '../document';
 import { FishDocumentSymbol } from '../document-symbol';

@@ -12,71 +12,70 @@ type GenericTestSymbol = Partial<FishDocumentSymbol> & {
     name: string;
     kind: number;
     children: GenericTestSymbol[];
-}
+};
 
 describe('AbstractTree', () => {
+  // Helper function to create a simple SyntaxNode for testing
+  function createTestNode(
+    text: string,
+    type: string,
+    startLine: number,
+    startCharacter: number,
+    endLine: number,
+    endCharacter: number,
+    children: GenericTestNode[] = [],
+  ): GenericTestNode {
+    return {
+      text,
+      type,
+      startPosition: {
+        row: startLine,
+        column: startCharacter,
+      },
+      endPosition: {
+        row: endLine,
+        column: endCharacter,
+      },
+      children,
+    };
+  }
 
-    // Helper function to create a simple SyntaxNode for testing
-    function createTestNode(
-        text: string,
-        type: string,
-        startLine: number,
-        startCharacter: number,
-        endLine: number,
-        endCharacter: number,
-        children: GenericTestNode[] = []
-    ): GenericTestNode {
-      return {
-        text,
-        type,
-        startPosition: {
-          row: startLine,
-          column: startCharacter,
+  // Helper function to create a simple DocumentSymbol for testing
+  function createDocumentSymbol(
+    name: string,
+    kind: number,
+    startLine: number,
+    startCharacter: number,
+    endLine: number,
+    endCharacter: number,
+    children: GenericTestSymbol[] = [],
+  ): GenericTestSymbol {
+    return {
+      name,
+      kind,
+      range: {
+        start: {
+          line: startLine,
+          character: startCharacter,
         },
-        endPosition: {
-          row: endLine,
-          column: endCharacter,
+        end: {
+          line: endLine,
+          character: endCharacter,
         },
-        children,
-      };
-    }
-
-    // Helper function to create a simple DocumentSymbol for testing
-    function createDocumentSymbol(
-      name: string,
-      kind: number,
-      startLine: number,
-      startCharacter: number,
-      endLine: number,
-      endCharacter: number,
-      children: GenericTestSymbol[] = []
-    ): GenericTestSymbol {
-      return {
-        name,
-        kind,
-        range: {
-          start: {
-            line: startLine,
-            character: startCharacter,
-          },
-          end: {
-            line: endLine,
-            character: endCharacter,
-          },
+      },
+      selectionRange: {
+        start: {
+          line: startLine,
+          character: startCharacter,
         },
-        selectionRange: {
-          start: {
-            line: startLine,
-            character: startCharacter,
-          },
-          end: {
-            line: endLine,
-            character: endCharacter,
-          },
+        end: {
+          line: endLine,
+          character: endCharacter,
         },
-        children,
-      };
-    }
+      },
+      children,
+    };
+  }
 
   it('should flatten all children correctly', () => {
     // Test with SyntaxNode

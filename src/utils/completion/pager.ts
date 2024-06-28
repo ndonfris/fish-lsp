@@ -1,11 +1,10 @@
-import { LspDocument } from '../../document';
 import { FishDocumentSymbol } from '../../document-symbol';
-import { FishCompletionData, FishCompletionItem, FishCompletionItemKind } from './types';
+import { FishCompletionItem, FishCompletionItemKind } from './types';
 import { execCompleteLine } from '../exec';
 import { Logger } from '../../logger';
 import { InlineParser } from './inline-parser';
 import { CompletionItemMap } from './startup-cache';
-import { CompletionContext, CompletionList, CompletionParams, Position, SymbolKind } from 'vscode-languageserver-protocol';
+import { CompletionContext, CompletionList, Position, SymbolKind } from 'vscode-languageserver-protocol';
 import { FishCompletionList, FishCompletionListBuilder } from './list';
 
 type SetupData = {
@@ -47,7 +46,7 @@ export class CompletionPager {
     setupData: SetupData,
     symbols: FishDocumentSymbol[],
   ) : Promise<FishCompletionList> {
-    const { word, command, commandNode, index } = this.inlineParser.getNodeContext(line);
+    const { word, command, commandNode: _commandNode, index } = this.inlineParser.getNodeContext(line);
     this._items.reset();
     const data = FishCompletionItem.createData(
       setupData.uri,
@@ -244,7 +243,7 @@ function sortSymbols(symbols: FishDocumentSymbol[]) {
 // Trying functional approach
 /////////////////////////////////////////////////////////////////////////////////////////
 
-function addItemsForWord(word: string): FishCompletionItemKind[] {
+function _addItemsForWord(word: string): FishCompletionItemKind[] {
   const firstChar = wordsFirstChar(word);
   switch (firstChar) {
     case "'":
@@ -283,7 +282,7 @@ namespace CommandHas {
   }
 }
 
-function addItemsForWordAndCommand(command: string, word: string): FishCompletionItemKind[] {
+function _addItemsForWordAndCommand(command: string, word: string): FishCompletionItemKind[] {
   switch (true) {
     case CommandHas.string(command, word):
       return ['esc_chars'];
@@ -297,7 +296,7 @@ function addItemsForWordAndCommand(command: string, word: string): FishCompletio
   }
 }
 
-function addItemsJustByCommand(command: string): FishCompletionItemKind[] {
+function _addItemsJustByCommand(command: string): FishCompletionItemKind[] {
   switch (command) {
     case 'set':
       return ['variable'];
@@ -316,7 +315,7 @@ function addItemsJustByCommand(command: string): FishCompletionItemKind[] {
   }
 }
 
-function addItemsForCommandOnly(command: string): FishCompletionItemKind[] {
+function _addItemsForCommandOnly(command: string): FishCompletionItemKind[] {
   switch (command) {
     case 'set':
       return ['variable'];
@@ -335,7 +334,7 @@ function addItemsForCommandOnly(command: string): FishCompletionItemKind[] {
   }
 }
 
-function addItemsForCommand(command: string): FishCompletionItemKind[] {
+function _addItemsForCommand(command: string): FishCompletionItemKind[] {
   switch (command) {
     case 'set':
       return ['variable'];
@@ -354,8 +353,8 @@ function addItemsForCommand(command: string): FishCompletionItemKind[] {
   }
 }
 
-function addItemTypes(line: string, parser: InlineParser): FishCompletionItemKind[] {
-  const { word, command } = parser.getNodeContext(line);
+function _addItemTypes(line: string, parser: InlineParser): FishCompletionItemKind[] {
+  const { word, command: _command } = parser.getNodeContext(line);
   const wordFirstChar = wordsFirstChar(word);
   switch (wordFirstChar) {
     case '$': return ['variable'];

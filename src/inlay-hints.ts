@@ -1,6 +1,6 @@
-import { execCmd, execEscapedCommand, execPrintLsp } from './utils/exec';
-import { isCommand, isCommandName, isPipe } from './utils/node-types';
-import { findFirstParent, firstAncestorMatch, getRange } from './utils/tree-sitter';
+import { execPrintLsp } from './utils/exec';
+import { isCommand, isPipe } from './utils/node-types';
+import { getRange } from './utils/tree-sitter';
 import { InlayHint, MarkupContent, Range } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { Analyzer } from './analyze';
@@ -19,7 +19,7 @@ export async function inlayHintsProvider(
 
   const insideRange = (node: SyntaxNode) => containsRange(range, getRange(node));
   const isPrintableCommand = (node: SyntaxNode) => node.text.startsWith('printf') || node.text.startsWith('echo'); /* change to printflsp */
-  const isStringCommand = (node: SyntaxNode) => node.text.startsWith('string');
+  const _isStringCommand = (node: SyntaxNode) => node.text.startsWith('string');
   const isInlayHint = (node: SyntaxNode) => {
     if (isPipe(node)) {
       const first = node.firstNamedChild;

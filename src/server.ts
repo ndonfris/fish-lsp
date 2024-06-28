@@ -3,7 +3,7 @@ import { initializeParser } from './parser';
 import { Analyzer } from './analyze';
 //import {  generateCompletionList, } from "./completion";
 import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, DocumentHighlight, DocumentHighlightParams, ExecuteCommandParams, PublishDiagnosticsParams } from 'vscode-languageserver';
-import { ExecResultWrapper, FishThemeDump, execEntireBuffer, execLineInBuffer, executeThemeDump, useMessageKind } from './executeHandler';
+import { ExecResultWrapper, execEntireBuffer, execLineInBuffer, executeThemeDump, useMessageKind } from './executeHandler';
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
 import { formatDocumentContent } from './formatting';
@@ -34,7 +34,6 @@ import { enrichToMarkdown } from './documentation';
 import { getAliasedCompletionItemSignature } from './signature';
 import { CompletionItemMap } from './utils/completion/startup-cache';
 import { getDocumentHighlights } from './document-highlight';
-import { readFileSync } from 'fs';
 import { SyncFileHelper } from './utils/fileOperations';
 
 // @TODO
@@ -45,7 +44,7 @@ export type SupportedFeatures = {
 export default class FishServer {
   public static async create(
     connection: Connection,
-    params: InitializeParams,
+    _params: InitializeParams,
   ): Promise<FishServer> {
     const documents = new LspDocuments();
     const logger = new Logger(config.fish_lsp_logfile || ServerLogsPath, true, connection.console);
@@ -531,7 +530,7 @@ export default class FishServer {
       Number(diagnostic.code),
     );
 
-    const args: FishProtocol.CodeFixRequestArgs = {
+    const _args: FishProtocol.CodeFixRequestArgs = {
       ...fileRangeArgs,
       errorCodes,
     };
@@ -549,7 +548,7 @@ export default class FishServer {
     fileRangeArgs: FishProtocol.FileRangeRequestArgs,
     context: LSP.CodeActionContext,
   ): Promise<FishProtocol.GetApplicableRefactorsResponse | undefined> {
-    const args: FishProtocol.GetApplicableRefactorsRequestArgs = {
+    const _args: FishProtocol.GetApplicableRefactorsRequestArgs = {
       ...fileRangeArgs,
       triggerReason:
         context.triggerKind === LSP.CodeActionTriggerKind.Invoked
@@ -604,7 +603,7 @@ export default class FishServer {
 
     if (!document || !uri) return [];
 
-    const root = this.parser.parse(document.getText()).rootNode;
+    const _root = this.parser.parse(document.getText()).rootNode;
     const results: CodeAction[] = [];
 
     // for (const diagnostic of params.context.diagnostics) {
@@ -679,7 +678,7 @@ export default class FishServer {
     const { diagnostics } = params;
     const uri = uriToPath(params.uri);
     const doc = this.docs.get(uri);
-    if (!doc) return { uri: params.uri, diagnostics: params.diagnostics };
+    if (!doc) return { uri: params.uri, diagnostics };
 
     const { rootNode } = this.parser.parse(doc.getText());
 

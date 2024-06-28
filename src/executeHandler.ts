@@ -1,6 +1,6 @@
-import { TextDocumentPositionParams, Connection } from 'vscode-languageserver';
+import { Connection } from 'vscode-languageserver';
 import { exec } from 'child_process';
-import { execAsyncFish, execCmd } from './utils/exec';
+import { execAsyncFish } from './utils/exec';
 import { promisify } from 'util';
 import { appendFileSync } from 'fs';
 export const execAsync = promisify(exec);
@@ -45,12 +45,11 @@ export async function execLineInBuffer(line: string): Promise<ExecResultWrapper>
   };
 }
 
-const fishLspPromptIcon = '><(((°>';
+export const fishLspPromptIcon = '><(((°>';
 
 export function buildOutput(line: string, outputMessage: 'error:' | 'stderr:' | 'stdout:', output: string) {
   const tokens = line.trim().split(' ');
   let promptLine = `${fishLspPromptIcon} `;
-  const cmdline = [];
   let currentLen = promptLine.length;
   for (const token of tokens) {
     if (1 + token.length + currentLen > 49) {

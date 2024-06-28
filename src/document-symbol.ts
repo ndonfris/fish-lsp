@@ -1,15 +1,12 @@
 
-import { DocumentSymbol, SymbolKind, Range, WorkspaceSymbol, Position, Location, MarkupContent, FoldingRange, FoldingRangeKind, CallHierarchyOutgoingCall } from 'vscode-languageserver';
+import { DocumentSymbol, SymbolKind, Range, WorkspaceSymbol, Position, Location, FoldingRange } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
-import { isFunctionDefinitionName, isDefinition, isVariableDefinition, isFunctionDefinition, isVariableDefinitionName, refinedFindParentVariableDefinitionKeyword } from './utils/node-types';
+import { isFunctionDefinitionName, isVariableDefinitionName, refinedFindParentVariableDefinitionKeyword } from './utils/node-types';
 //import { findVariableDefinitionOptions } from './utils/options';
 import { DocumentSymbolDetail } from './utils/symbol-documentation-builder';
-import { pathToRelativeFunctionName } from './utils/translation';
-import { getNodeAtRange, getRange, isPositionAfter, isPositionWithinRange, pointToPosition, positionToPoint } from './utils/tree-sitter';
+import { getNodeAtRange, getRange, isPositionAfter, pointToPosition } from './utils/tree-sitter';
 import { ScopeTag, DefinitionScope, getScope } from './utils/definition-scope';
 import { GenericTree } from './utils/generic-tree';
-import { FishCompletionItem } from './utils/completion/types';
-import { enrichToCodeBlockMarkdown } from './documentation';
 
 // add some form of tags to the symbol so that we can extend the symbol with more information
 // current implementation is WIP inside file : ./utils/options.ts
@@ -327,7 +324,7 @@ export function findLastDefinition(symbols: FishDocumentSymbol[], matchNode: Syn
   const symbolTree = new GenericTree<FishDocumentSymbol>(symbols);
   const symbolFunctionCompare = (symbol: FishDocumentSymbol, matchNode: SyntaxNode) => {
     const matchPosition = pointToPosition(matchNode.startPosition);
-    const { name, kind, scope } = symbol;
+    const { name, kind: _kind, scope: _scope } = symbol;
     return name === matchNode.text
                 && compareSymbolToPosition(symbol, matchPosition);
   };

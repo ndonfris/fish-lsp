@@ -1,9 +1,9 @@
 import os from 'os';
 import { SymbolKind } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
-import { isFunctionDefinitionName, isDefinition, isVariableDefinition, isFunctionDefinition, isProgram, isVariableDefinitionName } from './node-types';
+import { isFunctionDefinitionName, isVariableDefinition, isProgram, isVariableDefinitionName } from './node-types';
 //import { FishFlagOption, optionTagProvider } from './options';
-import { symbolKindToString, pathToRelativeFunctionName, uriToPath } from './translation';
+import { symbolKindToString, uriToPath } from './translation';
 
 /**
  * Current CHANGELOG for documentation:
@@ -97,7 +97,7 @@ export class DocumentationStringBuilder {
 }
 
 export namespace DocumentSymbolDetail {
-  export function create(name: string, uri: string, kind: SymbolKind, inner: SyntaxNode, outer: SyntaxNode | null = inner.parent || inner.previousSibling || null): string {
+  export function create(name: string, uri: string, kind: SymbolKind, inner: SyntaxNode, _outer: SyntaxNode | null = inner.parent || inner.previousSibling || null): string {
     return new DocumentationStringBuilder(name, uri, kind, inner).toString();
   }
 }

@@ -1,15 +1,13 @@
-import Parser, { SyntaxNode, Tree } from "web-tree-sitter";
+import Parser, { SyntaxNode } from 'web-tree-sitter';
 // import {getReturnSiblings} from '../src/diagnostics/syntaxError';
-import * as NodeTypes from "../src/utils/node-types";
-import { getChildNodes, getNamedChildNodes, getNodesTextAsSingleLine, getNodeText, getRange, nodesGen } from "../src/utils/tree-sitter";
+import * as NodeTypes from '../src/utils/node-types';
+import { getChildNodes } from '../src/utils/tree-sitter';
 import {
-    // logNodeSingleLine,
-    resolveLspDocumentForHelperTestFile,
-    setLogger,
-} from "./helpers";
-import {initializeParser} from '../src/parser';
-
-
+  // logNodeSingleLine,
+  resolveLspDocumentForHelperTestFile,
+  setLogger,
+} from './helpers';
+import { initializeParser } from '../src/parser';
 
 // This file will be used to display what the expected output should be for the
 // tree-sitter parses. While the AST defined for fish shell is very helpful, the token
@@ -53,127 +51,123 @@ const logger = setLogger(
 
 );
 
-
-
-
-const loggingON = () => { SHOULD_LOG = true; }
-
-
+const loggingON = () => {
+  SHOULD_LOG = true;
+};
 
 // BEGIN TESTS
-describe("FISH web-tree-sitter SUITE", () => {
-    beforeEach(async () => {
-        parser = await initializeParser();
-        global.console = require("console");
-    });
-    afterEach(() => {
-        global.console = jestConsole;
-        SHOULD_LOG = false;
-    });
+describe('FISH web-tree-sitter SUITE', () => {
+  beforeEach(async () => {
+    parser = await initializeParser();
+    global.console = require('console');
+  });
+  afterEach(() => {
+    global.console = jestConsole;
+    SHOULD_LOG = false;
+  });
 
-    it("test simple variable definitions", async () => {
-        const test_variable_definitions = resolveLspDocumentForHelperTestFile("fish_files/simple/set_var.fish");
-        const root = parser.parse(test_variable_definitions.getText()).rootNode;
+  it('test simple variable definitions', async () => {
+    const test_variable_definitions = resolveLspDocumentForHelperTestFile('fish_files/simple/set_var.fish');
+    const root = parser.parse(test_variable_definitions.getText()).rootNode;
 
-        const defs    : SyntaxNode[] = [];
-        const defNames: SyntaxNode[] = [];
-        const vars    : SyntaxNode[]= [];
-        getChildNodes(root).forEach((node, idx) => {
-            if (!node.isNamed) return;
-            if (NodeTypes.isCommand(node)) defs.push(node)
-            if (NodeTypes.isCommandName(node))defNames.push(node)
-            if (NodeTypes.isVariableDefinition(node)) vars.push(node)
-            return node
-        });
-
-        expect(defs.length === 1).toBeTruthy();
-        expect(defNames.length === 1).toBeTruthy();
-        expect(vars.length === 1).toBeTruthy();
-
-        if (SHOULD_LOG) [...defs, ...defNames, ...vars].forEach((node) => console.log(node))
+    const defs : SyntaxNode[] = [];
+    const defNames: SyntaxNode[] = [];
+    const vars : SyntaxNode[] = [];
+    getChildNodes(root).forEach((node, idx) => {
+      if (!node.isNamed) return;
+      if (NodeTypes.isCommand(node)) defs.push(node);
+      if (NodeTypes.isCommandName(node))defNames.push(node);
+      if (NodeTypes.isVariableDefinition(node)) vars.push(node);
+      return node;
     });
 
+    expect(defs.length === 1).toBeTruthy();
+    expect(defNames.length === 1).toBeTruthy();
+    expect(vars.length === 1).toBeTruthy();
 
-    it("test defined function", async () => {
-        const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/simple_function.fish");
-        const root = parser.parse(test_doc.getText()).rootNode;
+    if (SHOULD_LOG) [...defs, ...defNames, ...vars].forEach((node) => console.log(node));
+  });
 
-        const funcs    : SyntaxNode[] = [];
-        const funcNames : SyntaxNode[] = [];
+  it('test defined function', async () => {
+    const test_doc = resolveLspDocumentForHelperTestFile('fish_files/simple/simple_function.fish');
+    const root = parser.parse(test_doc.getText()).rootNode;
 
-        getChildNodes(root).forEach((node, idx) => {
-            if (!node.isNamed) return;
-            if (NodeTypes.isFunctionDefinition(node)) funcs.push(node)
-            if (NodeTypes.isFunctionDefinitionName(node)) funcNames.push(node)
-            return node
-        })
+    const funcs : SyntaxNode[] = [];
+    const funcNames : SyntaxNode[] = [];
 
-        expect(funcs.length === 1).toBeTruthy();
-        expect(funcNames.length === 1).toBeTruthy();
-        if (SHOULD_LOG) [...funcs, ...funcNames].forEach((node) => console.log('funcs vs funcName', node))
-    })
+    getChildNodes(root).forEach((node, idx) => {
+      if (!node.isNamed) return;
+      if (NodeTypes.isFunctionDefinition(node)) funcs.push(node);
+      if (NodeTypes.isFunctionDefinitionName(node)) funcNames.push(node);
+      return node;
+    });
 
-    it("test defined function", async () => {
-        const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/function_variable_def.fish");
-        const root = parser.parse(test_doc.getText()).rootNode;
+    expect(funcs.length === 1).toBeTruthy();
+    expect(funcNames.length === 1).toBeTruthy();
+    if (SHOULD_LOG) [...funcs, ...funcNames].forEach((node) => console.log('funcs vs funcName', node));
+  });
 
-        const funcNames : SyntaxNode[] = [];
-        const vars      : SyntaxNode[] = [];
+  it('test defined function', async () => {
+    const test_doc = resolveLspDocumentForHelperTestFile('fish_files/simple/function_variable_def.fish');
+    const root = parser.parse(test_doc.getText()).rootNode;
 
-        getChildNodes(root).forEach((node, idx) => {
-            if (!node.isNamed) return;
-            if (NodeTypes.isFunctionDefinitionName(node)) funcNames.push(node)
-            if (NodeTypes.isVariableDefinition(node)) vars.push(node)
-            return node
-        })
+    const funcNames : SyntaxNode[] = [];
+    const vars : SyntaxNode[] = [];
 
-        expect(funcNames.length === 1).toBeTruthy();
-        expect(vars.length === 2).toBeTruthy();
-        if (SHOULD_LOG) [...vars].forEach((node) => console.log('function variable definitions', node))
-    })   
+    getChildNodes(root).forEach((node, idx) => {
+      if (!node.isNamed) return;
+      if (NodeTypes.isFunctionDefinitionName(node)) funcNames.push(node);
+      if (NodeTypes.isVariableDefinition(node)) vars.push(node);
+      return node;
+    });
 
-    it("test all variable def types ", async () => {
-        const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/all_variable_def_types.fish");
-        const parser = await initializeParser();
-        const root = parser.parse(test_doc.getText()).rootNode;
+    expect(funcNames.length === 1).toBeTruthy();
+    expect(vars.length === 2).toBeTruthy();
+    if (SHOULD_LOG) [...vars].forEach((node) => console.log('function variable definitions', node));
+  });
 
-        const vars      : SyntaxNode[] = [];
+  it('test all variable def types ', async () => {
+    const test_doc = resolveLspDocumentForHelperTestFile('fish_files/simple/all_variable_def_types.fish');
+    const parser = await initializeParser();
+    const root = parser.parse(test_doc.getText()).rootNode;
 
-        getChildNodes(root).forEach((node, idx) => {
-            if (!node.isNamed) return;
-            if (NodeTypes.isVariableDefinition(node)) vars.push(node)
-            return node
-        })
+    const vars : SyntaxNode[] = [];
 
-        expect(vars.length).toEqual(7);
-        if (SHOULD_LOG) [...vars].forEach((node) => console.log('function variable definitions', node))
-    })
+    getChildNodes(root).forEach((node, idx) => {
+      if (!node.isNamed) return;
+      if (NodeTypes.isVariableDefinition(node)) vars.push(node);
+      return node;
+    });
 
-    //
-    // [DEPRECATED] ... CURRENTLY UNKNOWN IMPORT CHANGES
-    //
-    //it("test is func_a", async () => {
-    //    loggingON();
-    //    const parser = await initializeParser();
-    //    const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/func_a.fish", true);
-    //    const root = parser.parse(test_doc.getText()).rootNode;
-    //    const opts = getChildNodes(root)
-    //        .filter(node => NodeTypes.isDefinition(node))
-    //        .map(node => {
-    //            return node.text + ' ' + findOptionString(node)
-    //        })
-    //    console.log(opts);
-    //})
-    //it("test is function_variable_def", async () => {
-    //    loggingON();
-    //    const parser = await initializeParser();
-    //    const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/function_variable_def.fish", true);
-    //    const root = parser.parse(test_doc.getText()).rootNode;
-    //    const opts = getChildNodes(root)
-    //        .filter(node => NodeTypes.isDefinition(node))
-    //        .map(node => {
-    //            return node.text + ' ' + findOptionString(node)
-    //        })
-    //    console.log(opts);
-    //})
-})
+    expect(vars.length).toEqual(7);
+    if (SHOULD_LOG) [...vars].forEach((node) => console.log('function variable definitions', node));
+  });
+
+  //
+  // [DEPRECATED] ... CURRENTLY UNKNOWN IMPORT CHANGES
+  //
+  //it("test is func_a", async () => {
+  //    loggingON();
+  //    const parser = await initializeParser();
+  //    const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/func_a.fish", true);
+  //    const root = parser.parse(test_doc.getText()).rootNode;
+  //    const opts = getChildNodes(root)
+  //        .filter(node => NodeTypes.isDefinition(node))
+  //        .map(node => {
+  //            return node.text + ' ' + findOptionString(node)
+  //        })
+  //    console.log(opts);
+  //})
+  //it("test is function_variable_def", async () => {
+  //    loggingON();
+  //    const parser = await initializeParser();
+  //    const test_doc = resolveLspDocumentForHelperTestFile("fish_files/simple/function_variable_def.fish", true);
+  //    const root = parser.parse(test_doc.getText()).rootNode;
+  //    const opts = getChildNodes(root)
+  //        .filter(node => NodeTypes.isDefinition(node))
+  //        .map(node => {
+  //            return node.text + ' ' + findOptionString(node)
+  //        })
+  //    console.log(opts);
+  //})
+});

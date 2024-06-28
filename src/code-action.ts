@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as LSP from 'vscode-languageserver';
-import { CodeActionTriggerKind } from 'vscode-languageserver';
 import { LspDocument } from './document';
 
 export class CodeActionKind {

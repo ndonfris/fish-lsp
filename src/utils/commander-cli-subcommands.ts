@@ -1,76 +1,6 @@
-import { readFile, readFileSync } from 'fs';
+import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import PackageJSON from '../../package.json';
-// import PackageJSON from '@package';
-import deepmerge from 'deepmerge';
-
-// Base interface for simple enable/disable features
-interface ConfigToggleOptionValue {
-  enable: boolean;
-}
-
-// Extend the base interface for features with additional configuration
-interface CompletionConfigOption extends ConfigToggleOptionValue {
-  triggerCharacters: string[];
-  expandAbbreviations: boolean;
-}
-
-interface FormattingConfigOption extends ConfigToggleOptionValue {
-  indent: number;
-  tabSize: number;
-  addSemis: boolean;
-}
-
-interface DiagnosticsConfigOption extends ConfigToggleOptionValue {
-  maxNumberOfProblems: number;
-}
-
-interface WorkspacesConfigOption extends ConfigToggleOptionValue {
-  symbols: {
-    enable: boolean;
-    max: number;
-    prefer: string;
-  };
-  paths: {
-    defaults: string[];
-    allowRename: string[];
-  };
-}
-
-interface StartupConfig {
-  completion: CompletionConfigOption;
-  hover: ConfigToggleOptionValue;
-  rename: ConfigToggleOptionValue;
-  formatting: FormattingConfigOption;
-  diagnostics: DiagnosticsConfigOption;
-  references: ConfigToggleOptionValue;
-  definition: ConfigToggleOptionValue;
-  workspaces: WorkspacesConfigOption;
-  codeActions: ConfigToggleOptionValue;
-  snippets: ConfigToggleOptionValue;
-  logging: ConfigToggleOptionValue;
-  asciiArt: ConfigToggleOptionValue;
-  signatureHelp: ConfigToggleOptionValue;
-  index: ConfigToggleOptionValue;
-  // Add an index signature for unknown properties
-  [key: string]: ConfigToggleOptionValue | any;
-}
-
-// export function optionsStringEqualsRaw(optionValue: string, rawValue: string) {
-//
-//     const removeToggleString = (toggle: string, str: string) => {
-//         const removedToggle = str.replace(`--${toggle}-`, '');
-//         return removedToggle.at(0)?.toUpperCase() + removedToggle.slice(1);
-//     }
-//
-//     const disableFixed = removeToggleString('disable', rawValue);
-//     const enabledFixed = removeToggleString('enable', rawValue);
-//     return (
-//         disableFixed === optionValue ||
-//         enabledFixed === optionValue ||
-//         rawValue === optionValue
-//     );
-// }
 
 /**
  * Accumulate the arguments into two arrays, '--enable' and '--disable'
@@ -84,8 +14,8 @@ export function accumulateStartupOptions(args: string[]): {
   disabled: string[];
   dumpCmd: boolean;
 } {
-  const [subcmd, ...options] = args;
-  const [enabled, disabled]: [string[], string[]] = [[], []];
+  const [_subcmd, ...options] = args;
+  const [enabled, disabled]: [ string[], string[] ] = [[], []];
   let dumpCmd = false;
   let current: string[];
   options?.forEach(arg => {
@@ -116,84 +46,12 @@ export function accumulateStartupOptions(args: string[]): {
 }
 
 /// HELPERS
-export function BuildCapabilityString() {
-  const done = '✔️ '; // const done: string = '✅'
-  const todo = '❌'; // const todo: string = '❌'
-  const statusString = [
-    `${done} complete`,
-    `${done} hover`,
-    `${done} rename`,
-    `${done} definition`,
-    `${done} references`,
-    `${todo} diagnostics`,
-    `${todo} signatureHelp`,
-    `${todo} codeAction`,
-    `${todo} codeLens`,
-    `${done} documentLink`,
-    `${done} formatting`,
-    `${done} rangeFormatting`,
-    `${todo} refactoring`,
-    `${todo} executeCommand`,
-    `${done} workspaceSymbol`,
-    `${done} documentSymbol`,
-    `${done} foldingRange`,
-    `${done} fold`,
-    `${done} onType`,
-    `${done} onDocumentSaveFormat`,
-    `${done} onDocumentSave`,
-    `${done} onDocumentOpen`,
-    `${done} onDocumentChange`,
-  ].join('\n');
-  return statusString;
-}
-
-export function buildAsciiLogo() {
-  return parseInt(process.env.COLUMNS?.toString() || '100') >= 30 ? asciiLogoString('large') : asciiLogoString('normal');
-}
-
-// ASCII ART
-export function asciiLogoString(size: 'normal' | 'large' | 'single' = 'normal') {
-  switch (size) {
-    case 'normal':
-      return [
-        '      LSPLSPLSP        P    ███████╗██╗███████╗██╗  ██╗    ██╗     ███████╗██████╗ ',
-        '    LSPLSPLSPLSP     LSP    ██╔════╝██║██╔════╝██║  ██║    ██║     ██╔════╝██╔══██╗',
-        '  LSP   LSPLSPLSP  LSPLS    █████╗  ██║███████╗███████║    ██║     ███████╗██████╔╝',
-        'LSPLSPLSPLS  SPLSPLSPLSP    ██╔══╝  ██║╚════██║██╔══██║    ██║     ╚════██║██╔═══╝ ',
-        '  LSPLSPLSP  PLSP  LSPLS    ██║     ██║███████║██║  ██║    ███████╗███████║██║     ',
-        '    LSPLSPLSPLSP     LSP    ╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝    ╚══════╝╚══════╝╚═╝     ',
-        '      LSPLSPLSP        P                                                           ',
-      ].join('\n');
-    case 'large':
-      return [
-        '                                           LSP LSP LSP LSP                  ',
-        '                                         LSP LSP LSP LSP LSP                ',
-        '  ███████╗██╗███████╗██╗  ██╗          LSP LSP LSP LSP LSP LSP              ',
-        '  ██╔════╝██║██╔════╝██║  ██║         LSP     LSP LSP LSP LSP LSP           ',
-        '  █████╗  ██║███████╗███████║        LSP       LSP LSP LSP LSP LSP      LSP ',
-        '  ██╔══╝  ██║╚════██║██╔══██║       LSP LSP LSP LSP LSP     LSP LSP LSP LSP ',
-        '  ██║     ██║███████║██║  ██║           LSP LSP LSP         LSP LSP LSP LSP ',
-        '  ╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝               LSP             LSP LSP LSP LSP ',
-        '   ██╗     ███████╗██████╗                  LSP LSP         LSP LSP LSP LSP ',
-        '   ██║     ██╔════╝██╔══██╗                 LSP LSP LSP     LSP LSP LSP LSP ',
-        '   ██║     ███████╗██████╔╝            LSP LSP LSP LSP LSP LSP LSP  LSP LSP ',
-        '   ██║     ╚════██║██╔═══╝          LSP LSP LSP LSP LSP LSP LSP LSP     LSP ',
-        '   ███████╗███████║██║               LSP LSP LSP LSP LSP LSP LSP            ',
-        '   ╚══════╝╚══════╝╚═╝                 LSP LSP LSP LSP LSP LSP              ',
-        '                                         LSP LSP LSP LSP LSP                ',
-      ].join('\n');
-    case 'single':
-    default:
-      return '><(((°> FISH LSP';
-  }
-}
-
-export const logoText = buildAsciiLogo();
+export const smallFishLogo = () => '><(((°> FISH LSP';
 export const RepoUrl = PackageJSON.repository?.url.slice(0, -4);
 export const PackageVersion = PackageJSON.version;
 
-export const PathObj: {[K in 'bin' | 'root' | 'repo' | 'manFile' | 'logsFile']: string} = {
-  ['bin']:  resolve(__dirname.toString(), '..', '..', 'bin', 'fish-lsp'),
+export const PathObj: { [ K in 'bin' | 'root' | 'repo' | 'manFile' | 'logsFile' ]: string } = {
+  ['bin']: resolve(__dirname.toString(), '..', '..', 'bin', 'fish-lsp'),
   ['root']: resolve(__dirname, '..', '..'),
   ['repo']: resolve(__dirname, '..', '..'),
   ['manFile']: resolve(__dirname, '..', '..', 'docs', 'man', 'fish-lsp.1'),
@@ -202,6 +60,9 @@ export const PathObj: {[K in 'bin' | 'root' | 'repo' | 'manFile' | 'logsFile']: 
 
 export const PackageLspVersion = PackageJSON.dependencies['vscode-languageserver-protocol']!.toString();
 
+/**
+ * shows last compile bundle time in server cli executable
+ */
 const getOutTime = () => {
   // @ts-ignore
   const buildFile = resolve(__dirname, '..', '..', 'out', 'build-time.txt');
@@ -264,7 +125,7 @@ export function FishLspManPage() {
   };
 }
 
-export const SourcesDict: { [key: string]: string; } = {
+export const SourcesDict: { [ key: string ]: string; } = {
   repo: 'https://github.com/ndonfris/fish-lsp',
   git: 'https://github.com/ndonfris/fish-lsp',
   npm: 'https://npmjs.io/ndonfris/fish-lsp',
@@ -294,20 +155,33 @@ export const SourcesDict: { [key: string]: string; } = {
   ].join('\n'),
 };
 
-export const SourcesExt = [
-  'https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#headerPart',
-  'https://github.com/microsoft/vscode-extension-samples/tree/main',
-  'https://tree-sitter.github.io/tree-sitter/',
-  'https://github.com/ram02z/tree-sitter-fish',
-  'https://github.com/microsoft/vscode-languageserver-node/tree/main/testbed',
-  'https://github.com/Beaglefoot/awk-language-server/tree/master/server',
-  'https://github.com/bash-lsp/bash-language-server/tree/main/server/src',
-  'https://github.com/oncomouse/coc-fish',
-  'https://github.com/typescript-language-server/typescript-language-server#running-the-language-server',
-  'https://github.com/neoclide/coc-tsserver',
-  'https://www.npmjs.com/package/vscode-jsonrpc',
-  'https://github.com/Microsoft/vscode-languageserver-node',
-  'https://github.com/Microsoft/vscode-languageserver-node',
-  'https://github.com/microsoft/vscode-languageserver-node/blob/main/client/src/common',
-  'https://github.com/microsoft/vscode-languageserver-node/tree/main/server/src/common',
-].join('\n');
+export function BuildCapabilityString() {
+  const done = '✔️ '; // const done: string = '✅'
+  const todo = '❌'; // const todo: string = '❌'
+  const statusString = [
+    `${done} complete`,
+    `${done} hover`,
+    `${done} rename`,
+    `${done} definition`,
+    `${done} references`,
+    `${todo} diagnostics`,
+    `${todo} signatureHelp`,
+    `${todo} codeAction`,
+    `${todo} codeLens`,
+    `${done} documentLink`,
+    `${done} formatting`,
+    `${done} rangeFormatting`,
+    `${todo} refactoring`,
+    `${done} executeCommand`,
+    `${done} workspaceSymbol`,
+    `${done} documentSymbol`,
+    `${done} foldingRange`,
+    `${done} fold`,
+    `${done} onType`,
+    `${done} onDocumentSaveFormat`,
+    `${done} onDocumentSave`,
+    `${done} onDocumentOpen`,
+    `${done} onDocumentChange`,
+  ].join('\n');
+  return statusString;
+}

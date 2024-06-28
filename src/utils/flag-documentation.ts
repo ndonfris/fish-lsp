@@ -63,7 +63,7 @@ const longFlag = (flag: string) => {
 
 const hasUnixFlags = (allFlagLines: string[]) => {
   for (const line of allFlagLines) {
-    const [flag, doc]: string[] = line.split('\t') || [];
+    const [flag, _doc]: string[] = line.split('\t') || [];
     if (!flag) {
       continue;
     }
@@ -95,7 +95,7 @@ const parseInputFlags = (inputArray: string[], seperateShort: boolean) => {
 const findMatchingFlags = (inputFlags: string[], allFlagLines: string[]) => {
   const output: string[] = [];
   for (const line of allFlagLines) {
-    const [flag, doc] = line.split('\t');
+    const [flag, _doc] = line.split('\t');
     if (flag && inputFlags.includes(flag)) {
       output.push(line);
     }

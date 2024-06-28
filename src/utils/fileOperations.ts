@@ -1,4 +1,4 @@
-import { PathLike, appendFileSync, closeSync, existsSync, openSync, readFileSync, unlinkSync, writeFileSync } from 'fs';
+import { PathLike, appendFileSync, closeSync, existsSync, openSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'fs';
 import { TextDocumentItem } from 'vscode-languageserver';
 import { LspDocument } from '../document';
 import { pathToUri } from './translation';
@@ -54,7 +54,9 @@ export class SyncFileHelper {
 
   static create(filePath: PathLike) {
     const expandedFilePath = this.expandEnvVars(filePath);
-    if (!this.exists(expandedFilePath)) {
+    if (this.isDirectory(expandedFilePath)) {
+      return this.getPathTokens(filePath);
+    } else if (!this.exists(expandedFilePath)) {
       this.write(expandedFilePath, '');
     }
     return this.getPathTokens(expandedFilePath);
@@ -72,7 +74,7 @@ export class SyncFileHelper {
     };
   }
 
-  static convertTextToFishFunction(filePath: PathLike, data: string, encoding: BufferEncoding = 'utf8') {
+  static convertTextToFishFunction(filePath: PathLike, data: string, _encoding: BufferEncoding = 'utf8') {
     const expandedFilePath = this.expandEnvVars(filePath);
     const { filename, path, extension, exists } = this.getPathTokens(expandedFilePath);
     const content = [
@@ -106,5 +108,15 @@ export class SyncFileHelper {
     }
     const doc = this.toTextDocumentItem(expandedFilePath, languageId, version);
     return new LspDocument(doc);
+  }
+
+  static isDirectory(filePath: PathLike): boolean {
+    const expandedFilePath = this.expandEnvVars(filePath);
+    try {
+      const fileStat = statSync(expandedFilePath);
+      return fileStat.isDirectory();
+    } catch (_) {
+      return false;
+    }
   }
 }

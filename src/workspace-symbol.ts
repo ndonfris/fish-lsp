@@ -1,4 +1,4 @@
-import { filterGlobalSymbols, filterLastPerScopeSymbol, filterLocalSymbols, findLastDefinition, findSymbolsForCompletion, FishDocumentSymbol, getFishDocumentSymbols, isGlobalSymbol, isUniversalSymbol, symbolIsImmutable } from './document-symbol';
+import { filterLocalSymbols, FishDocumentSymbol, isGlobalSymbol, isUniversalSymbol, symbolIsImmutable } from './document-symbol';
 import { Analyzer } from './analyze';
 import { LspDocument } from './document';
 import { Position, Location, Range, SymbolKind, TextEdit, DocumentUri, WorkspaceEdit, RenameFile } from 'vscode-languageserver';

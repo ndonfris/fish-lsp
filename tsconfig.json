@@ -9,9 +9,7 @@
     "rootDir": "./src",
     "baseUrl": ".",  // Base URL for module resolution
     "paths": {
-      "@package": ["./package.json"],
-      // "@snippets/*": ["./snippets/*"],
-      // "@src/*": ["./src/*"],
+      "@package": ["./package.json"]
     }
   },
   "include": [

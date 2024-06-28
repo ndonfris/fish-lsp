@@ -1,9 +1,5 @@
-import { Diagnostic, DiagnosticSeverity } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
-import { isFunctionDefinitionName } from '../utils/node-types';
-import { getChildNodes, getRange, nodesGen } from '../utils/tree-sitter';
 import { pathToRelativeFunctionName, uriInUserFunctions, uriToPath } from '../utils/translation';
-import { ErrorCodes } from './errorCodes';
 // import { createDiagnostic } from './create';
 import { LspDocument } from '../document';
 
@@ -12,7 +8,7 @@ import { LspDocument } from '../document';
  * value of it.
  *     ~/.config/fish/functions/lsd.fish -> lsd
  */
-function isAutoLoadedFunction(doc: LspDocument): string | null {
+function _isAutoLoadedFunction(doc: LspDocument): string | null {
   const uri = uriToPath(doc.uri);
   if (!uri || !uriInUserFunctions(uri)) {
     return null;
@@ -23,14 +19,14 @@ function isAutoLoadedFunction(doc: LspDocument): string | null {
 /**
  * used to check if isAutoLoadedFunction is only seen one time
  */
-const hasOnlyOneDefinition = (nodes: SyntaxNode[], name: string): boolean => {
+const _hasOnlyOneDefinition = (nodes: SyntaxNode[], name: string): boolean => {
   return nodes.filter(n => n.text === name).length === 1;
 };
 
 /**
  * collect duplicate nodes, in the list of function names of a document
  */
-const duplicateNodeNames = (nodes: SyntaxNode[]): SyntaxNode[] => {
+const _duplicateNodeNames = (nodes: SyntaxNode[]): SyntaxNode[] => {
   const [dupes, seen] = [[], []] as [SyntaxNode[], SyntaxNode[]];
   for (const node of nodes) {
     if (seen.some(s => s.text === node.text)) {

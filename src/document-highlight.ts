@@ -1,8 +1,8 @@
 
 import { toSymbolKind } from './utils/translation';
-import { equalRanges, getNodeAtPosition, getRange } from './utils/tree-sitter';
+import { equalRanges, getRange } from './utils/tree-sitter';
 import { DocumentHighlight, DocumentHighlightKind } from 'vscode-languageserver';
-import Parser, { SyntaxNode, Tree } from 'web-tree-sitter';
+import { SyntaxNode, Tree } from 'web-tree-sitter';
 
 /**
  * TODO:

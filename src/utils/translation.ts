@@ -1,6 +1,5 @@
-import { Diagnostic, DocumentSymbol, FoldingRange, FoldingRangeKind, SelectionRange, SymbolInformation, SymbolKind, TextDocumentEdit, TextDocumentItem, TextEdit } from 'vscode-languageserver';
+import { DocumentSymbol, FoldingRange, FoldingRangeKind, SelectionRange, SymbolInformation, SymbolKind, TextDocumentEdit, TextDocumentItem, TextEdit } from 'vscode-languageserver';
 import * as LSP from 'vscode-languageserver';
-import * as TreeSitter from 'web-tree-sitter';
 import { SyntaxNode } from 'web-tree-sitter';
 import { URI } from 'vscode-uri';
 import { findParentVariableDefintionKeyword, isCommand, isCommandName, isComment, isFunctionDefinition, isFunctionDefinitionName, isProgram, isScope, isStatement, isString, isVariable, isVariableDefinition } from './node-types';
@@ -13,18 +12,6 @@ import { isBuiltin } from './builtins';
 
 const RE_PATHSEP_WINDOWS = /\\/g;
 
-//export function uriToPath(stringUri: string): string | undefined {
-//    // Vim may send `zipfile:` URIs which tsserver with Yarn v2+ hook can handle. Keep as-is.
-//    // Example: zipfile:///foo/bar/baz.zip::path/to/module
-//    if (stringUri.startsWith('zipfile:')) {
-//        return stringUri;
-//    }
-//    const uri = URI.parse(stringUri);
-//    if (uri.scheme !== 'file') {
-//        return undefined;
-//    }
-//    return normalizeFsPath(uri.fsPath);
-//}
 export function isUri(stringUri: string): boolean {
   const uri = URI.parse(stringUri);
   return URI.isUri(uri);
@@ -174,7 +161,7 @@ export function toTextDocumentEdit(change: FishProtocol.FileCodeEdits, documents
 
 export function toFoldingRange(node: SyntaxNode, document: LspDocument): FoldingRange {
   let collapsedText: string = '';
-  let kind = FoldingRangeKind.Region;
+  let _kind = FoldingRangeKind.Region;
   if (isFunctionDefinition(node) || isFunctionDefinitionName(node.firstNamedChild!)) {
     collapsedText = node.firstNamedChild?.text || node.text.split(' ')[0]?.toString() || '';
   }
@@ -189,7 +176,7 @@ export function toFoldingRange(node: SyntaxNode, document: LspDocument): Folding
     if (node.text.length >= 10) {
       collapsedText += '...';
     }
-    kind = FoldingRangeKind.Comment;
+    _kind = FoldingRangeKind.Comment;
   }
   const range = getRangeWithPrecedingComments(node);
   const startLine = range.start.line;
@@ -254,7 +241,7 @@ export function symbolKindToString(kind: SymbolKind) {
  *    kindString: symbolKindToString(kindType) -> number
  *  }
  */
-export function symbolKindsFromNode(node: SyntaxNode) {
+export function symbolKindsFromNode(node: SyntaxNode): { kindType: SymbolKind; kindString: string; } {
   const kindType = toSymbolKind(node);
   const kindString = symbolKindToString(kindType);
   return {

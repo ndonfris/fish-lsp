@@ -1,16 +1,8 @@
 import {
-  Command,
   CompletionContext,
   CompletionItem,
-  CompletionItemKind,
-  CompletionItemLabelDetails,
-  InsertReplaceEdit,
-  InsertTextFormat,
-  InsertTextMode,
-  MarkupContent,
-  Position,
-  RemoteConsole,
-  Range,
+  CompletionItemKind, MarkupContent,
+  Position, Range,
   SymbolKind,
   TextEdit,
 } from 'vscode-languageserver';

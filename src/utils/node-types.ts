@@ -1,5 +1,5 @@
 import { SyntaxNode } from 'web-tree-sitter';
-import { ancestorMatch, findChildNodes, findFirstParent, findFirstNamedSibling, firstAncestorMatch, getChildNodes, getParentNodes, getSiblingNodes, getLeafs } from './tree-sitter';
+import { firstAncestorMatch, getParentNodes, getLeafs } from './tree-sitter';
 import * as VariableTypes from './variable-syntax-nodes';
 
 /**
@@ -534,7 +534,7 @@ export function findSetDefinedVariable(node: SyntaxNode): SyntaxNode | null {
 
 //// for function variables
 
-function isArgFlags(node: SyntaxNode) {
+function _isArgFlags(node: SyntaxNode) {
   return node.type === 'word'
     ? node.text === '--argument-names' || node.text === '-a'
     : false;
@@ -637,7 +637,7 @@ export function scopeCheck(node1: SyntaxNode, node2: SyntaxNode) : boolean {
 }
 
 export function isLocalVariable(node: SyntaxNode) {
-  const parents = getParentNodes(node);
+  const _parents = getParentNodes(node);
   //if (pCmd.child(0)?.text === 'read' || pCmd.child(0)?.text === 'set') {
   //    console.log(pCmd.text)
   //}

@@ -1,11 +1,4 @@
 
-import * as LSP from 'vscode-languageserver';
-import { Commands } from '../commands';
-import { toTextDocumentEdit } from '../utils/translation';
-import { FishProtocol } from '../utils/fishProtocol';
-import { LspDocuments } from '../document';
-import { CodeAction } from 'vscode-languageserver';
-
 //export function provideRename(response: FishProtocol.GetCodeFixesResponse | undefined, documents: LspDocuments | undefined): Array<LSP.CodeAction> {
 //    if (!response?.body) {
 //        return [];

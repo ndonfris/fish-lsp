@@ -8,7 +8,7 @@ import { DocumentationCache } from './utils/documentationCache';
 import { execCommandDocs, execCompletions, execSubCommandCompletions } from './utils/exec';
 import { isCommand, isFunctionDefinition, isOption } from './utils/node-types';
 import { findFirstParent } from './utils/tree-sitter';
-import { symbolKindToString, symbolKindsFromNode, toSymbolKind } from './utils/translation';
+import { symbolKindsFromNode } from './utils/translation';
 import { Logger } from './logger';
 
 export async function handleHover(

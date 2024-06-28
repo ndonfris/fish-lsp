@@ -1,10 +1,9 @@
-import { Hover, MarkupContent, MarkupKind, Position, PublishDiagnosticsParams, SymbolKind, WorkspaceSymbol, URI, Location, WorkDoneProgressServerReporter } from 'vscode-languageserver';
+import { Hover, MarkupContent, MarkupKind, Position, SymbolKind, WorkspaceSymbol, URI, Location } from 'vscode-languageserver';
 import Parser, { SyntaxNode, Tree } from 'web-tree-sitter';
 import * as LSP from 'vscode-languageserver';
 import { isPositionWithinRange, getChildNodes } from './utils/tree-sitter';
 import { LspDocument } from './document';
 import { isCommand, isCommandName } from './utils/node-types';
-import { DiagnosticQueue } from './diagnostics/queue';
 import { pathToUri } from './utils/translation';
 import { existsSync } from 'fs';
 import homedir from 'os';
@@ -19,7 +18,6 @@ export class Analyzer {
   public workspaces: FishWorkspace[];
   public cache: AnalyzedDocumentCache = new AnalyzedDocumentCache();
   public globalSymbols: GlobalDefinitionCache = new GlobalDefinitionCache();
-  private diagnosticQueue: DiagnosticQueue = new DiagnosticQueue();
 
   constructor(parser: Parser, workspaces: FishWorkspace[] = []) {
     this.parser = parser;
@@ -324,17 +322,6 @@ export class Analyzer {
       .map((node) => node.text);
     const result = new Set(allCommands);
     return Array.from(result);
-  }
-
-  public clearDiagnostics(doc: LspDocument): void {
-    this.diagnosticQueue.clear(doc.uri);
-  }
-
-  public getDiagnostics(doc: LspDocument): PublishDiagnosticsParams {
-    return {
-      uri: doc.uri,
-      diagnostics: this.diagnosticQueue.get(doc.uri) || [],
-    };
   }
 
   public getExistingAutoloadedFiles(name: string): string[] {

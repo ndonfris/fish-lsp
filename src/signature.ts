@@ -2,8 +2,6 @@ import {
   MarkupContent,
   SignatureHelp,
   SignatureInformation,
-  SignatureHelpParams,
-  Command,
 } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { ExtendedBaseJson, PrebuiltDocumentationMap } from './utils/snippets';
@@ -36,7 +34,7 @@ export function getCurrentNodeType(input: string) {
   return longestDocs;
 }
 
-export function lineSignatureBuilder(lineRootNode: SyntaxNode, lineCurrentNode: SyntaxNode, completeMmap: CompletionItemMap): SignatureHelp | null {
+export function lineSignatureBuilder(lineRootNode: SyntaxNode, lineCurrentNode: SyntaxNode, _completeMmap: CompletionItemMap): SignatureHelp | null {
   const currentCmd = NodeTypes.findParentCommand(lineCurrentNode) || lineRootNode;
   const pipes = getPipes(lineRootNode);
   const varNode = getVariableNode(lineRootNode);

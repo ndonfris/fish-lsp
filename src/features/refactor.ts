@@ -4,7 +4,6 @@ import { Commands } from '../commands';
 import { toTextDocumentEdit } from '../utils/translation';
 import { FishProtocol } from '../utils/fishProtocol';
 import { LspDocuments } from '../document';
-import { CodeAction } from 'vscode-languageserver';
 import { SupportedFeatures } from '../server';
 
 export function provideRefactor(response: FishProtocol.GetCodeFixesResponse | undefined, documents: LspDocuments | undefined): Array<LSP.CodeAction> {
