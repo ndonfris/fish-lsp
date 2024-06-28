@@ -7,11 +7,14 @@ import { pathToUri } from '../src/utils/translation';
 import { setLogger } from './helpers';
 
 // Define a test directory and file paths
-const testDir = join(__dirname, 'test_files');
+const testDir = join(__dirname, 'fish_files');
+const tildeTestDir = testDir.replace(process.env.HOME!, '~')!;
 const testFilePath = join(testDir, 'test_file.txt');
-const testFilePathWithTilde = '~/repos/fish-lsp/test-data/test_files/test_file_tilde.txt';
+const testFilePathWithTilde = `${tildeTestDir}/test_file_tilde.txt`;
+
 setLogger();
-// console.log(testDir);
+
+// console.log({testDir, testFilePath, testFilePathWithTilde, tildeTestDir});
 
 // Helper function to clean up test files
 const cleanUpTestFile = (filePath: string) => {
@@ -62,14 +65,21 @@ describe('SyncFileHelper', () => {
   });
 
   it('should expand tilde to home directory and create a file', () => {
-    const expandedFilePath = testFilePathWithTilde.replace('~', process.env.HOME!);
-    // console.log({ testFilePathWithTilde, expandedFilePath });
-    const { path, filename, extension, /**directory, uri,**/ exists } = SyncFileHelper.create(testFilePathWithTilde);
-    // console.log({ path, filename, extension, directory, uri, exists });
+    let expandedFilePath = testFilePathWithTilde.replace(/^~/, process.env.HOME!);
+    const expandedDirFilePath = expandedFilePath.slice(0, expandedFilePath.lastIndexOf('/'));
+    const { exists, extension, path, filename, directory } = SyncFileHelper.create(testFilePathWithTilde);
     expect(exists).toBe(true);
     expect(path).toBe(expandedFilePath);
+    expect(directory).toBe(expandedDirFilePath);
     expect(filename).toBe('test_file_tilde');
     expect(extension).toBe('txt');
+  });
+
+  it('test isDirectory working', () => {
+    expect(SyncFileHelper.isDirectory(tildeTestDir)).toBe(true)
+    expect(SyncFileHelper.isDirectory(testFilePathWithTilde)).toBe(false)
+    expect(SyncFileHelper.isDirectory(testDir)).toBe(true)
+    expect(SyncFileHelper.isDirectory(testFilePath)).toBe(false)
   });
 
   it('should expand env variables', () => {
