@@ -4,7 +4,7 @@ import { asciiLogoString, BuildCapabilityString, PathObj, PackageLspVersion, Pac
 import { createConnection, InitializeParams, InitializeResult, StreamMessageReader, StreamMessageWriter } from 'vscode-languageserver/node';
 import { Command, Option } from 'commander';
 import FishServer from './server';
-import { ConfigMap } from './utils/configuration-manager';
+// import { ConfigMap } from './utils/configuration-manager';
 import { buildFishLspCompletions } from './utils/get-lsp-completions';
 import { createServerLogger, ServerLogsPath } from './logger';
 import { configHandlers, generateJsonSchemaShellScript, getConfigFromEnvironmentVariables, showJsonSchemaShellScript, updateHandlers, validHandlers } from './config';
@@ -246,7 +246,7 @@ commandBin.command('complete')
       console.log(buildFishLspCompletions(commandBin));
       process.exit(0);
     } else if (args.features) {
-      ConfigMap.configNames.forEach(name => console.log(name));
+      Object.entries(configHandlers).forEach((name) => console.log(name));
       process.exit(0);
     }
     console.log(buildFishLspCompletions(commandBin));

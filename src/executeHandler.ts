@@ -45,12 +45,11 @@ export async function execLineInBuffer(line: string): Promise<ExecResultWrapper>
   };
 }
 
-const fishLspPromptIcon = '><(((°>';
+export const fishLspPromptIcon = '><(((°>';
 
 export function buildOutput(line: string, outputMessage: 'error:' | 'stderr:' | 'stdout:', output: string) {
   const tokens = line.trim().split(' ');
   let promptLine = `${fishLspPromptIcon} `;
-  const _cmdline = [];
   let currentLen = promptLine.length;
   for (const token of tokens) {
     if (1 + token.length + currentLen > 49) {

@@ -27,28 +27,6 @@ const AUTO_GENERATED_HEADER_STRING = `#
 #
 `;
 
-const __fish_lsp_needs_command = `
-# Returns exit code of 0 if lsp hasn't received a command yet, e.g. \`start\`
-function __fish_lsp_needs_command
-    set -l cmd (commandline -opc)
-    if test (count $cmd) -eq 1
-        return 0
-    else if test (count $cmd) -gt 1
-        for c in $cmd[2..-1]
-            switch $c
-                # Exclude options that are allowed to appear before command
-                case -v --version help
-                    continue
-                case '*'
-                    return 1
-            end
-        end
-        return 0
-    end
-    return 1
-end
-`;
-
 const __fish_lsp_using_command = `
 # Returns exit code of 0 if any command (argv[1..-1]) appears once, ignores flags.
 function __fish_lsp_using_command
@@ -81,18 +59,6 @@ function __fish_lsp_using_command
 end
 `;
 
-const __fish_lsp_includes_subcommand = `
-# Check if \`commandline\` contains a set of subcommands
-function __fish_lsp_includes_subcommand
-    set -l cmd (commandline -opc)
-    for subcommand in $argv
-        if contains $subcommand $cmd
-            return 0
-        end
-    end
-    return 1
-end
-`;
 
 /**
  * Syntax for urlCompletions does not match other completions because it is not influenced
@@ -191,7 +157,7 @@ export function buildFishLspCompletions(commandBin: Command) {
   output.push('# COMPLETION: fish-lsp subcmd <option> [VALUE] (`fish-lsp start --enable ...`)');
   output.push('complete -c fish-lsp -n \'__fish_seen_subcommand_from $__fish_lsp_subcommands\' -l enable -xa \'(_fish_lsp_get_features)\'');
   output.push('complete -c fish-lsp -n \'__fish_seen_subcommand_from $__fish_lsp_subcommands\' -l disable -xa \'(_fish_lsp_get_features)\'');
-  // output.push('\n# cp ~/.config/fish/completions/fish-lsp.fish ~/.config/fish/completions/fish-lsp.fish.bak');
+
   output.push('');
   output.push('# built by the command: ');
   output.push('# fish-lsp complete ~/.config/fish/completions/fish-lsp.fish');
