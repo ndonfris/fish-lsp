@@ -16,9 +16,9 @@ const execFileAsync = promisify(execFile);
  */
 export async function execEscapedCommand(cmd: string): Promise<string[]> {
   const escapedCommand = cmd.replace(/(["'$`\\])/g, '\\$1');
-  const { stdout } = await execFileAsync('fish', [ '-P', '--command', escapedCommand ]);
+  const { stdout } = await execFileAsync('fish', ['-P', '--command', escapedCommand]);
 
-  if (!stdout) return [ '' ];
+  if (!stdout) return [''];
 
   return stdout.trim().split('\n');
 }
@@ -26,7 +26,7 @@ export async function execEscapedCommand(cmd: string): Promise<string[]> {
 export async function execCmd(cmd: string): Promise<string[]> {
   const { stdout, stderr } = await execAsync(cmd, { shell: 'fish' });
 
-  if (stderr) return [ '' ];
+  if (stderr) return [''];
 
   return stdout
     .toString()
@@ -52,7 +52,7 @@ export async function execAsyncFish(cmd: string) {
  */
 export async function execPrintLsp(line: string) {
   const file = resolve(__dirname, '../../fish_files/printflsp.fish');
-  const child = await execFileAsync(file, [ line ]);
+  const child = await execFileAsync(file, [line]);
   if (child.stderr) {
     return child.stdout.trim();
   }
@@ -67,14 +67,14 @@ export async function execPrintLsp(line: string) {
 
 export async function execCompletions(...cmd: string[]): Promise<string[]> {
   const file = resolve(__dirname, '../../fish_files/get-completion.fish');
-  const cmpArgs = [ '1', `${cmd.join(' ').trim()}` ];
+  const cmpArgs = ['1', `${cmd.join(' ').trim()}`];
   const cmps = await execFileAsync(file, cmpArgs);
   return cmps.stdout.trim().split('\n');
 }
 
 export async function execSubCommandCompletions(...cmd: string[]): Promise<string[]> {
   const file = resolve(__dirname, '../../fish_files/get-completion.fish');
-  const cmpArgs = [ '2', cmd.join(' ') ];
+  const cmpArgs = ['2', cmd.join(' ')];
   const cmps = await execFileAsync(file, cmpArgs);
   return cmps.stdout.trim().split('\n');
 }
@@ -94,7 +94,7 @@ export async function execCompleteSpace(cmd: string): Promise<string[]> {
   const child = await execAsync(completeString);
 
   if (child.stderr) {
-    return [ '' ];
+    return [''];
   }
 
   return child.stdout.trim().split('\n');
@@ -102,13 +102,13 @@ export async function execCompleteSpace(cmd: string): Promise<string[]> {
 
 export async function execCompleteCmdArgs(cmd: string): Promise<string[]> {
   const exec = resolve(__dirname, '../../fish_files/get-command-options.fish');
-  const args = execFile(exec, [ cmd ]);
+  const args = execFile(exec, [cmd]);
   const results = args.toString().trim().split('\n');
 
   let i = 0;
   const fixedResults: string[] = [];
   while (i < results.length) {
-    const line = results[ i ] as string;
+    const line = results[i] as string;
     if (cmd === 'test') {
       fixedResults.push(line);
     } else if (!line.startsWith('-', 0)) {
@@ -124,7 +124,7 @@ export async function execCompleteCmdArgs(cmd: string): Promise<string[]> {
 
 export async function execCommandDocs(cmd: string): Promise<string> {
   const file = resolve(__dirname, '../../fish_files/get-documentation.fish');
-  const docs = await execFileAsync(file, [ cmd ]);
+  const docs = await execFileAsync(file, [cmd]);
   const out = docs.stdout;
   return out.toString().trim();
 }
@@ -140,8 +140,8 @@ export async function execCommandDocs(cmd: string): Promise<string> {
  */
 export async function execCommandType(cmd: string): Promise<string> {
   const file = resolve(__dirname, '../../fish_files/get-type.fish');
-  const cmdCheck = cmd.split(' ')[ 0 ]?.trim() as string;
-  const docs = await execFileAsync(file, [ cmdCheck ]);
+  const cmdCheck = cmd.split(' ')[0]?.trim() as string;
+  const docs = await execFileAsync(file, [cmdCheck]);
   if (docs.stderr) {
     return '';
   }
@@ -158,14 +158,11 @@ export async function documentCommandDescription(cmd: string): Promise<string> {
   return cmdDescription.stdout.trim() || cmd;
 }
 
-
 export async function execFindDependency(cmd: string): Promise<string> {
   const file = resolve(__dirname, '../../fish_files/get-dependency.fish');
-  const docs = execFileSync(file, [ cmd ]);
+  const docs = execFileSync(file, [cmd]);
   return docs.toString().trim();
 }
-
-
 
 // open the uri and read the file
 // export async function execOpenFile(uri: string): Promise<string> {

@@ -2,72 +2,24 @@
 import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from '../src/parser';
 import { setLogger } from './helpers';
-//import { FishCompletionItem, FishCompletionItemKind, toCompletionKindString } from '../src/utils/completion-strategy';
-//import { FishCompletionList } from '../src/completion/';
 import { getChildNodes, getCommandArgumentValue, matchesArgument } from '../src/utils/tree-sitter';
-//import { AbbrList, EventNamesList, FunctionNamesList, GlobalVariableList, isBuiltin, isFunction } from '../src/utils/builtins';
-//import { createShellItems, findShellPath, ShellItems, spawnSyncRawShellOutput } from '../src/utils/startup-shell-items';
-//import * as SHELL from '../src/utils/shell-items';
-//import { initializeShellCache } from '../src/utils/shell-cache';
 import * as CACHE from '../src/utils/completion/startup-cache';
-//import { FishCompletionItem, FishCompletionItemKind } from '../src/utils/completion/types';
 import { CompletionPager, initializeCompletionPager } from '../src/utils/completion/pager';
 import { Logger } from '../src/logger';
-//import { FishCompletionItem, FishCompletionItemKind, getDocumentationResolver } from '../src/utils/completion-types';
-//import { FishCompletionItemKind } from '../src/utils/completion-strategy';
-//import * as ParserTypes from '../node_modules/tree-sitter-fish/src/node-types.json';
 
 let parser: Parser;
-//let workspaces: Workspace[] = []
-//let analyzer: Analyzer;
 let pager: CompletionPager;
-//let items: SHELL.ShellItems = new SHELL.ShellItems();
 let items: CACHE.CompletionItemMap;
 
 setLogger(
   async () => {
-    //parser = await initializeParser();
-    pager = await initializeCompletionPager(new Logger());
-    //completions = await InlineParser.create()
-    //items = await CACHE.CompletionItemMap.initialize()
-    //items = await CACHE.createSetupItemsFromCommands()
+    pager = await initializeCompletionPager(new Logger(), items);
   },
   async () => {
   },
 );
 
 describe('complete simple tests', () => {
-  //it('testing execCmd', async () => {
-  //    const start = Date.now();
-  //    let out = await execCmd(`builtin complete -C ''`)
-  //    const end = Date.now();
-  //    console.log(`execCmd took ${end - start} ms to initialize`);
-  //
-  //})
-
-  //it('get subshell completions from stdout', async () => {
-  //    let inputText = 'function _foo -';
-  //    const data = {uri: 'file:///test.fish', position: Position.create(0, inputText.length), context: {triggerKind: CompletionTriggerKind.Invoked}};
-  //    const list = (await pager.complete(inputText, data, [])).items as FishCompletionItem[]
-  //    //for (const item of list) {
-  //    //    console.log({label: item.label, detail: item.detail, kind: item.fishKind});
-  //    //}
-  //})
-  //
-  //it('get subshell completions for string-split', async () => {
-  //  let input: string[] = [
-  //    "ls -laH",
-  //    "string split",
-  //    "string split -f1 \t",
-  //  ];
-  //  //console.log('testing subshell');
-  //  for (const inputText of input) {
-  //    const output = await getFlagDocumentationAsMarkup(inputText)
-  //    //console.log(output)
-  //  }
-  //  //const docs = await execCommandDocs('string split')
-  //  //console.log(docs);
-  //}, 10000)
   it('value', async () => {
     expect(true).toBe(true);
   });

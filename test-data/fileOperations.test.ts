@@ -65,7 +65,7 @@ describe('SyncFileHelper', () => {
   });
 
   it('should expand tilde to home directory and create a file', () => {
-    let expandedFilePath = testFilePathWithTilde.replace(/^~/, process.env.HOME!);
+    const expandedFilePath = testFilePathWithTilde.replace(/^~/, process.env.HOME!);
     const expandedDirFilePath = expandedFilePath.slice(0, expandedFilePath.lastIndexOf('/'));
     const { exists, extension, path, filename, directory } = SyncFileHelper.create(testFilePathWithTilde);
     expect(exists).toBe(true);
@@ -76,10 +76,10 @@ describe('SyncFileHelper', () => {
   });
 
   it('test isDirectory working', () => {
-    expect(SyncFileHelper.isDirectory(tildeTestDir)).toBe(true)
-    expect(SyncFileHelper.isDirectory(testFilePathWithTilde)).toBe(false)
-    expect(SyncFileHelper.isDirectory(testDir)).toBe(true)
-    expect(SyncFileHelper.isDirectory(testFilePath)).toBe(false)
+    expect(SyncFileHelper.isDirectory(tildeTestDir)).toBe(true);
+    expect(SyncFileHelper.isDirectory(testFilePathWithTilde)).toBe(false);
+    expect(SyncFileHelper.isDirectory(testDir)).toBe(true);
+    expect(SyncFileHelper.isDirectory(testFilePath)).toBe(false);
   });
 
   it('should expand env variables', () => {

@@ -1,5 +1,11 @@
 import { Command, ApplyWorkspaceEditParams, CodeActionParams, DocumentFormattingParams, DocumentRangeFormattingParams, FormattingOptions, HoverParams, Position, RenameParams, RequestType, TextDocumentIdentifier, TextDocumentPositionParams, WorkspaceEdit, Range, CodeActionContext } from 'vscode-languageserver';
 
+/**
+ * ┌────────────────────────────────────────────────────────────────────────┐
+ * │ @TODO: Update this to reflect the servers currently supported commands │
+ * └────────────────────────────────────────────────────────────────────────┘
+ */
+
 export const Commands = {
   APPLY_REFACTORING: 'applyRefactoring',
   SELECT_REFACTORING: 'selectRefactoring',

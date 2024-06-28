@@ -1,5 +1,4 @@
 import { spawnSync, SpawnSyncOptionsWithStringEncoding } from 'child_process';
-//import { FishCompletionItem } from './completion-strategy';
 
 export function findShellPath() {
   const result = spawnSync('which fish', { shell: true, stdio: ['ignore', 'pipe', 'inherit'], encoding: 'utf-8' });

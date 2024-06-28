@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 //'use strict'
-import { asciiLogoString, BuildCapabilityString, PathObj, PackageLspVersion, PackageVersion, accumulateStartupOptions, getBuildTimeString, FishLspHelp, FishLspManPage, SourcesDict } from './utils/commander-cli-subcommands';
+import { BuildCapabilityString, PathObj, PackageLspVersion, PackageVersion, accumulateStartupOptions, getBuildTimeString, FishLspHelp, FishLspManPage, SourcesDict, smallFishLogo } from './utils/commander-cli-subcommands';
 import { createConnection, InitializeParams, InitializeResult, StreamMessageReader, StreamMessageWriter } from 'vscode-languageserver/node';
 import { Command, Option } from 'commander';
 import FishServer from './server';
@@ -72,7 +72,7 @@ commandBin
       console.log();
       console.log('OPTIONS:');
       const globalOpts = commandBin.options.concat(new Option('-h, --help', 'show help'));
-      console.log(globalOpts.map(o =>'  ' + o.flags + '\t' + o.description).join('\n'));
+      console.log(globalOpts.map(o => '  ' + o.flags + '\t' + o.description).join('\n'));
       console.log('\nSUBCOMMANDS:');
       commandBin.commands.forEach((cmd) => {
         console.log(`  ${cmd.name()} ${cmd.usage()}\t${cmd.summary()}`);
@@ -148,7 +148,6 @@ commandBin.command('logger')
     }
 
     if (!args.show) return;
-    // if (args.show) logger.showLogfileText()
     logger.showLogfileText();
     return;
   });
@@ -168,7 +167,7 @@ commandBin.command('info')
     if (args.bin || args.repo) {
       const logPath = args.bin ? PathObj.bin : PathObj.repo;
       const wpath = args.bin ? 'BINARY' : 'REPOSITORY';
-      console.log(wpath + ' ' + asciiLogoString('single'));
+      console.log(wpath + ' ' + smallFishLogo());
       console.log(logPath);
       process.exit(0);
     }

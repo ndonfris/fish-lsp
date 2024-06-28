@@ -4,7 +4,9 @@ import Parser from 'web-tree-sitter';
 const _global: any = global;
 
 export async function initializeParser(): Promise<Parser> {
-  if (_global.fetch) { delete _global.fetch; }
+  if (_global.fetch) {
+    delete _global.fetch;
+  }
 
   await Parser.init();
   const parser = new Parser();

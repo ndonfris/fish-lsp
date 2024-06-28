@@ -1,70 +1,8 @@
-//import * as LSP from 'vscode-languageserver/node';
-//import { FISH_LOCATIONS, getAllFishLocations } from './utils/locations';
-//import {basename, resolve, sep} from 'path';
-//import { createTextDocumentFromFilePath } from './utils/io';
-//import { getAllFishLocations, getFishTextDocumentsFromStandardLocations } from './utils/locations';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { Position, Range, TextDocumentItem, TextDocumentContentChangeEvent } from 'vscode-languageserver';
 import { URI } from 'vscode-uri';
 import { homedir } from 'os';
-//import {logger} from './logger';
-//import {FilepathResolver} from './utils/filepathResolver';
 import { uriToPath } from './utils/translation';
-
-// removed the need for utils/{io,locations}.ts with funcitons at the top of this file.
-// Add back later
-
-/**
- * @async getFishDocumentsFromFileSystem() - Function to retrieve
- *                                           Fish default locations for documents are:
- *                                           $HOME/.config/fish, and /usr/share/fish
- *
- * @returns {Promise<TextDocument[]>} - Get all fish files in a directory path and return
- *                                      them as TextDocuments.
- */
-// export async function getWorkspacePaths(documents: LspDocuments, paths: string[]): Promise<LspDocuments> {
-//
-//     const allFiles: string[] = [];
-//
-//     paths.forEach((path) => {
-//         const files = FastGlob.sync("**.fish", {
-//             absolute: true,
-//             dot: true,
-//             globstar: true,
-//             cwd: path,
-//         });
-//         allFiles.push(...files);
-//     });
-//
-//     // now allFiles contains every fish file that could be used in the workspace
-//     await Promise.allSettled(allFiles.map(async file => {
-//         const doc = documents.get(file.toString());
-//         if (!doc) {
-//             return false;
-//         }
-//         return true
-//     }))
-//
-//     return documents
-//
-// }
-
-/**
- * TODO: handle uri: URI | string differently
- *       @see https://stackoverflow.com/questions/39065077/typescript-multiple-type-parameter
- *
- * @async createTextDocumentFromURI() - creates a text document from a vscode-uri
- *
- * @param {URI} uri - vscode uri object
- * @returns {Promise<TextDocument>} - a textdocument, if the document contents of
- *                                    the document cannont be resovled then we will just
- *                                    create a text document with empty contents
- */
-//async function createTextDocumentFromURI(uri: URI): Promise<TextDocument> {
-//    const file = Utils.resolvePath(uri).fsPath
-//    const contents = await promises.readFile(file, 'utf8')
-//    return TextDocument.create(uri.toString(), 'fish', 0, contents || "")
-//}
 
 export class LspDocument implements TextDocument {
   protected document: TextDocument;
@@ -102,9 +40,9 @@ export class LspDocument implements TextDocument {
     return this.document.lineCount;
   }
 
-  /*
-     * @see getLineBeforeCursor()
-     */
+  /**
+   * @see getLineBeforeCursor()
+   */
   getLine(line: number): string {
     const lineRange = this.getLineRange(line);
     return this.getText(lineRange);

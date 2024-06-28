@@ -59,7 +59,6 @@ function __fish_lsp_using_command
 end
 `;
 
-
 /**
  * Syntax for urlCompletions does not match other completions because it is not influenced
  * by recieving multiple duplicated arguments

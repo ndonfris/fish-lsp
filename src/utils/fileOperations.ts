@@ -1,4 +1,4 @@
-import { PathLike, accessSync, appendFileSync, closeSync, constants, existsSync, openSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'fs';
+import { PathLike, appendFileSync, closeSync, existsSync, openSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'fs';
 import { TextDocumentItem } from 'vscode-languageserver';
 import { LspDocument } from '../document';
 import { pathToUri } from './translation';
@@ -55,7 +55,7 @@ export class SyncFileHelper {
   static create(filePath: PathLike) {
     const expandedFilePath = this.expandEnvVars(filePath);
     if (this.isDirectory(expandedFilePath)) {
-      return this.getPathTokens(filePath)
+      return this.getPathTokens(filePath);
     } else if (!this.exists(expandedFilePath)) {
       this.write(expandedFilePath, '');
     }
@@ -115,7 +115,7 @@ export class SyncFileHelper {
     try {
       const fileStat = statSync(expandedFilePath);
       return fileStat.isDirectory();
-    } catch (error) {
+    } catch (_) {
       return false;
     }
   }
