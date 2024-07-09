@@ -231,7 +231,7 @@ Due to the vast possibilities this project aims to support in the fish shell,
 If you're new to the concept of the [Language Server Protocol (LSP)](https://lsif.dev), this section should be
 useful to help you grasp its core purpose and benefits.
 
-> 📸 Check out [this insightful video](https://youtu.be/LaS32vctfOY?si=MISP8tL_HU06-_z-) by TJ DeVries for an introduction to the subject. 📸
+> 📸 Check out [this insightful video](https://youtu.be/LaS32vctfOY?si=MISP8tL_HU06-_z-) by TJ DeVries for an introduction to the subject.
 
 The LSP is designed to create a uniform approach for supporting a programming language across
 various development tools, moving beyond the confines of specific Text-Editor/IDE ecosystems.
