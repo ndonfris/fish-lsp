@@ -1,12 +1,12 @@
 [
   {
     "name": "fish_lsp_enabled_handlers",
-    "description": "enables the fish-lsp handlers 'asciiArt', 'formatting', 'logging', 'complete', 'hover', 'rename', 'definition', 'references', 'diagnostics', 'signatureHelp', 'codeAction', 'index'",
+    "description": "enables the fish-lsp handlers (options: 'formatting', 'logging', 'complete', 'hover', 'rename', 'definition', 'references', 'diagnostics', 'signatureHelp', 'codeAction', 'index')",
     "valueType": "array"
   },
   {
     "name": "fish_lsp_disabled_handlers",
-    "description": "disables the fish-lsp handlers 'asciiArt', 'formatting', 'logging', 'complete', 'hover', 'rename', 'definition', 'references', 'diagnostics', 'signatureHelp', 'codeAction', 'index'",
+    "description": "disables the fish-lsp handlers(options: 'formatting', 'logging', 'complete', 'hover', 'rename', 'definition', 'references', 'diagnostics', 'signatureHelp', 'codeAction', 'index')",
     "valueType": "array"
   },
   {
