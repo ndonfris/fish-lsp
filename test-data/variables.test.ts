@@ -1,4 +1,0 @@
-
-describe('variable syntax nodes', () => {
-
-});
