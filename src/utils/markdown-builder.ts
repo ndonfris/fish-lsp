@@ -3,6 +3,7 @@ import { MarkupContent, MarkupKind } from 'vscode-languageserver';
 /**
  * Utility function namespace
  */
+
 export namespace md {
 
   export function h(text: string, value: number = 1) {

@@ -19,7 +19,7 @@ describe('markdown-builder test suite', () => {
     expect(value).toBe('***bold and italic***');
   });
 
-  it('simple test seperator', () => {
+  it('simple test separator', () => {
     const value = md.separator();
     expect(value).toBe('___\n');
   });
