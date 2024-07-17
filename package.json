@@ -17,17 +17,16 @@
     "url": "https://github.com/ndonfris/fish-lsp.git"
   },
   "bin": "./bin/fish-lsp",
-  "main": "./out/out.js",
+  "man": "./docs/man/fish-lsp.1",
   "directories": {
     "man": "./docs/man/fish-lsp.1",
     "bin": "./bin/fish-lsp"
   },
-  "typings": "./out/server.d.ts",
   "scripts": {
+    "prepare": "husky",
     "setup": "run-s sh:build-time sh:build-logs sh:build-wasm",
     "preinstall": "yarn install --ignore-scripts --no-progress",
     "postinstall": "run-s setup compile sh:relink sh:build-completions",
-    "build": "yarn run rimraf out && yarn run preinstall && yarn run postinstall",
     "compile": "tsc -b",
     "watch": "tsc -b -w",
     "sh:build-completions": "fish ./scripts/build-completions.fish",
@@ -36,9 +35,8 @@
     "sh:setup": "fish ./scripts/setup.fish",
     "sh:build-wasm": "fish ./scripts/build-fish-wasm.fish",
     "sh:relink": "fish ./scripts/relink-locally.fish",
-    "clean:all": "rimraf out *.tsbuildinfo node_modules tree-sitter-fish.wasm",
+    "clean:all": "rimraf out *.tsbuildinfo node_modules tree-sitter-fish.wasm logs.txt",
     "clean": "rimraf out node_modules",
-    "preclean": "yarn run prepare",
     "test-hook": "env -i HOME=$HOME PATH=$PATH NODE_ENV=test jest document.test.ts tree-sitter.test.ts node-types.test.ts fish-syntax-node.test.ts exec.test.ts logger.test.ts test-data/parser.test.ts snippets.test.ts completion-startup-config.test.ts formatting.test.ts executeHandler.test.ts fileOperations.test.ts diagnostics.test.ts",
     "test": "env -i HOME=$HOME PATH=$PATH NODE_ENV=test jest",
     "refactor": "knip",
@@ -47,7 +45,6 @@
     "lint:check-fix": "eslint . --ext .ts --fix-dry-run",
     "generate-man-page": "mkdir -p ./docs/man && cat docs/MAN_FILE.md | npx marked-man --date \"$(date +'%e %B %+4Y')\"  --manual fish-lsp --section 1 --name fish-lsp > ./docs/man/fish-lsp.1"
   },
-  "man": "./docs/man/fish-lsp.1",
   "enabledApiProposals": [
     "inlineCompletions"
   ],
