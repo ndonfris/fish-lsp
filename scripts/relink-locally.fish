@@ -8,16 +8,68 @@
 
 # Usage: ./relink-locally.sh
 
+argparse --max-args 1 h/help q/quiet v/verbose no-stderr -- $argv
+or return
 
-# yarn install 
-
-echo -e "\nRelinking 'fish-lsp' globally..."
-if command -vq fish-lsp
-    echo -e \
-    ' "fish-lsp" is already installed\n' \
-    ' UNLINKING and LINKING again'
-    yarn unlink --global 'fish-lsp' 2>> /dev/null
-    yarn global remove 'fish-lsp' 2>> /dev/null
+if set -q _flag_help
+    echo 'NAME:'
+    echo '   relink-locally.fish'
+    echo ''
+    echo 'DESCRIPTION:'
+    echo '   Hanlde relinking pkg. Default usage silences any subshell relinking output.'
+    echo '   Option \'-q,--quiet\' (silence all subsubshell output), is assumed for'
+    echo '   usage without an option.'
+    echo ''
+    echo 'OPTIONS:'
+    echo -e '   -q,--quiet\tsilence all [DEFAULT]'
+    echo -e '   -v,--verbose\tno silencing subshells'
+    echo -e '   --no-stderr\tsilence stderr in subshells'
+    echo -e '   -h,--help\tshow this message'
+    return 0
 end
-yarn link --global "fish-lsp" --force
-echo -e '\n"fish-lsp" is now installed and linked'
+
+if set -q _flag_no_stderr
+    # show all sub shells w/ only stdout
+    if command -vq fish-lsp
+        echo '    "fish-lsp" is already installed'
+        echo '    UNLINKING and LINKING again'
+        yarn unlink --global fish-lsp 2>/dev/null
+        yarn global remove fish-lsp 2>/dev/null
+    end
+    yarn link --global fish-lsp --force 2>/dev/null
+    echo 'SUCCESS! "fish-lsp" is now installed and linked'
+    return 0
+
+else if set -q _flag_verbose
+
+    # show all sub shells w/ stdout stderr
+    if command -vq fish-lsp
+        echo '    "fish-lsp" is already installed'
+        echo '    UNLINKING and LINKING again'
+        yarn unlink --global fish-lsp
+        or return 1
+        yarn global remove fish-lsp
+        or return 1
+    end
+    yarn link --global fish-lsp --force
+    and echo 'SUCCESS! "fish-lsp" is now installed and linked'
+
+
+    return $status
+
+else
+    # silence all sub shells (don't include stdout & stderr) 
+    # occurs when: ZERO flags given or $_flag_quiet
+    echo "RELINKING 'fish-lsp' GLOBALLY..."
+    if command -vq fish-lsp
+        echo '    "fish-lsp" is already installed'
+        echo '    UNLINKING and LINKING again'
+        yarn unlink --global fish-lsp &>/dev/null
+        yarn global remove fish-lsp &>/dev/null
+    end
+    yarn link --global fish-lsp --force &>/dev/null
+
+    echo -e 'SUCCESS! "fish-lsp" is now installed and linked'
+    return 0
+
+end

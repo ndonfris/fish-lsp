@@ -24,30 +24,43 @@
   },
   "typings": "./out/server.d.ts",
   "scripts": {
-    "setup": "run-s sh:setup",
-    "preinstall": "yarn install --ignore-scripts",
-    "postinstall": "run-s sh:build-wasm sh:build-time compile sh:relink sh:build-completions",
+
+    "postinstall": "run-s sh:build-time sh:build-logs sh:build-wasm compile sh:relink sh:build-completions",
+
+    "presetup": "yarn install --ignore-scripts --no-progress 2>/dev/null",
+    "setup": "run-s sh:build-time sh:build-logs sh:build-wasm",
+
     "sh:build-completions": "fish ./scripts/build-completions.fish",
     "sh:build-logs": "fish ./scripts/build-logs.fish",
     "sh:build-time": "fish ./scripts/build-time.fish",
     "sh:setup": "fish ./scripts/setup.fish",
     "sh:build-wasm": "fish ./scripts/build-fish-wasm.fish",
     "sh:relink": "fish ./scripts/relink-locally.fish",
-    "pre:clean": "rimraf lib *.tsbuildinfo out",
-    "clean": "rimraf out",
+
+    "clean": "rimraf out node_modules",
+    "postclean": "yarnpkg run setup",
     "clean-nodemodules": "rimraf out *.tsbuildinfo node_modules",
     "clean:all": "rimraf out *.tsbuildinfo node_modules tree-sitter-fish.wasm",
-    "fresh": "run-s clean:all install setup",
-    "pretest-hook": "run-s clean:all preinstall sh:setup",
+    "fresh": "run-s clean:all install sh:setup",
+    
+    "pretest-hook": "run-s clean:all presetup",
     "test-hook": "env -i HOME=$HOME PATH=$PATH NODE_ENV=test jest document.test.ts tree-sitter.test.ts node-types.test.ts fish-syntax-node.test.ts exec.test.ts logger.test.ts test-data/parser.test.ts snippets.test.ts completion-startup-config.test.ts formatting.test.ts executeHandler.test.ts fileOperations.test.ts diagnostics.test.ts",
     "test": "env -i HOME=$HOME PATH=$PATH NODE_ENV=test jest",
+    
+    "build": "yarn run-s presetup postinstall",
+    
+    "no-compile": "rimraf out",
     "compile": "tsc -b",
     "watch": "tsc -b -w",
+
     "refactor": "knip",
-    "lint:mini": "eslint .",
-    "lint:verbose": "run-s prelint lint:mini",
-    "lint": "eslint . --fix",
-    "prelint": "run-s clean:all preinstall sh:setup",
+
+    "lint:check": "yarn run eslint .",
+    "lint:fix": "eslint . --fix",
+    "prelint:fix": "rimraf out",
+    "postlint:fix": "run-s compile sh:relink sh:build-completions",
+    "postlint:check": "run-s postinstall",
+
     "generate-man-page": "mkdir -p ./docs/man && cat docs/MAN_FILE.md | npx marked-man --date \"$(date +'%e %B %+4Y')\"  --manual fish-lsp --section 1 --name fish-lsp > ./docs/man/fish-lsp.1"
   },
   "man": "./docs/man/fish-lsp.1",
@@ -60,7 +73,7 @@
   "husky": {
     "hooks": {
       "pre-commit": "yarn run clean",
-      "pre-push": "yarn lint",
+      "pre-push": "yarn lint:fix",
       "post-merge": "yarn"
     }
   },
