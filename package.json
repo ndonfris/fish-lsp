@@ -32,7 +32,6 @@
     "sh:build-completions": "fish ./scripts/build-completions.fish",
     "sh:build-logs": "fish ./scripts/build-logs.fish",
     "sh:build-time": "fish ./scripts/build-time.fish",
-    "sh:setup": "fish ./scripts/setup.fish",
     "sh:build-wasm": "fish ./scripts/build-fish-wasm.fish",
     "sh:relink": "fish ./scripts/relink-locally.fish",
     "clean:all": "rimraf out *.tsbuildinfo node_modules tree-sitter-fish.wasm logs.txt",
