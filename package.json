@@ -34,7 +34,7 @@
     "sh:build-wasm": "fish ./scripts/build-fish-wasm.fish",
     "sh:relink": "fish ./scripts/relink-locally.fish",
     "pre:clean": "rimraf lib *.tsbuildinfo out",
-    "clean": "run-s pre:clean install",
+    "clean": "rimraf out",
     "clean-nodemodules": "rimraf out *.tsbuildinfo node_modules",
     "clean:all": "rimraf out *.tsbuildinfo node_modules tree-sitter-fish.wasm",
     "fresh": "run-s clean:all install setup",
