@@ -48,12 +48,8 @@
     "inlineCompletions"
   ],
   "lint-staged": {
-    "**/*.{js,jsx,ts,tsx}": [
-      "eslint --max-warnings=0",
-      "prettier --write"
-    ],
-    "**/*.{html,json,css,scss,md,mdx}": [
-      "prettier -w"
+    "**/*.ts": [
+      "eslint --fix"
     ]
   },
   "eslintIgnore": [
@@ -115,6 +111,7 @@
     "husky": "^9.0.11",
     "jest": "^29.7.0",
     "knip": "^5.7.0",
+    "lint-staged": "^15.2.7",
     "npm-run-all": "^4.1.5",
     "pinst": "^3.0.0",
     "rimraf": "^5.0.5",
