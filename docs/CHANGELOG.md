@@ -1,6 +1,6 @@
 # CHANGELOG
 
-Documenting notable changes across project verisions
+Documenting notable changes across project revisions
 
 ===
 

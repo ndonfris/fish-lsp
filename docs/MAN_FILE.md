@@ -36,7 +36,7 @@ Start the language server.
 
   `--enable`    enable the language server features
   `--disable`   disable the language server features
-  `--dump`    dump the json ouput of the language server features enabled after startup
+  `--dump`    dump the json output of the language server features enabled after startup
 
 `env`
 show the environment variables available to the lsp

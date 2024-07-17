@@ -75,7 +75,7 @@ function __fish_complete_gpg -d "Internal function for gpg completion code dedup
         complete -c $__fish_complete_gpg_command -l disable-signer-uid -d "Don't embed the uid of the signing key in the data signature"
         complete -c $__fish_complete_gpg_command -l disable-dirmngr -d "Entirely disable the use of the Dirmngr"
         complete -c $__fish_complete_gpg_command -l dirmngr-program -r -d "Specify a dirmngr program to be used for keyserver access"
-        complete -c $__fish_complete_gpg_command -l default-new-key-algo -x -d "Change the default algorothms for key generation"
+        complete -c $__fish_complete_gpg_command -l default-new-key-algo -x -d "Change the default algorithms for key generation"
         complete -c $__fish_complete_gpg_command -l compliance -xa "gnupg openpgp rfc4880 rfc4880bis rfc2440 pgp6 pgp7 pgp8" -d "Set a compliance standard for GnuPG"
         complete -c $__fish_complete_gpg_command -l change-passphrase -xa "(__fish_complete_gpg_user_id $__fish_complete_gpg_command)" -d "Change the passphrase of the secret key belonging to the given user id"
         complete -c $__fish_complete_gpg_command -l agent-program -d "Specify an agent program to be used for secret key operations"
@@ -122,7 +122,7 @@ function __fish_complete_gpg -d "Internal function for gpg completion code dedup
     complete -c $__fish_complete_gpg_command -l delete-secret-and-public-key -xa "(__fish_complete_gpg_user_id $__fish_complete_gpg_command)" -d "Same as --delete-key, but if a secret key exists, it will be removed first"
 
     complete -c $__fish_complete_gpg_command -l gen-revoke -xa "(__fish_complete_gpg_user_id $__fish_complete_gpg_command)" -d "Generate a revocation certificate for the complete key"
-    complete -c $__fish_complete_gpg_command -l desig-revoke -xa "(__fish_complete_gpg_user_id $__fish_complete_gpg_command)" -d "Generate a designated revocation certificate for a key"
+    complete -c $__fish_complete_gpg_command -l design-revoke -xa "(__fish_complete_gpg_user_id $__fish_complete_gpg_command)" -d "Generate a designated revocation certificate for a key"
 
     complete -c $__fish_complete_gpg_command -l export -xa "(__fish_complete_gpg_user_id $__fish_complete_gpg_command)" -d 'Export all or the given keys from all keyrings'
     complete -c $__fish_complete_gpg_command -l export-ssh-key -xa "(__fish_complete_gpg_user_id $__fish_complete_gpg_command)" -d 'Export all or the given keys in OpenSSH format'

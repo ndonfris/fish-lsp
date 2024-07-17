@@ -39,7 +39,7 @@ afterEach(() => {
  * being generated correctly.
  */
 describe('symbolsCache tests', () => {
-  it('getRefrences for config.fish', async () => {
+  it('getReferences for config.fish', async () => {
     const doc = resolveLspDocumentForHelperTestFile(`${homedir}/.config/fish/config.fish`);
     const cache = new WorkspaceCache();
     await cache.initialize();
@@ -56,7 +56,7 @@ describe('symbolsCache tests', () => {
 
 // export interface IndistinctSymbol extends BaseSymbolInformation {
 //     documentation: MarkupContent;
-//     unqiue: boolean;
+//     unique: boolean;
 //     uri?: DocumentUri;
 //     range?: Range;
 // }
@@ -64,7 +64,7 @@ describe('symbolsCache tests', () => {
 // builtins
 export interface IndistinctSymbol extends BaseSymbolInformation {
     documentation: MarkupContent;
-    unqiue: false;
+    unique: false;
     resolved: boolean;
     //resolveDocumentation:
 }
@@ -77,7 +77,7 @@ const createBuiltinSymbol = async (name: string) => {
       kind: 'markdown',
       value: (await getBuiltinDocString(name))?.toString() || '',
     },
-    unqiue: false,
+    unique: false,
   } as IndistinctSymbol;
 };
 /**

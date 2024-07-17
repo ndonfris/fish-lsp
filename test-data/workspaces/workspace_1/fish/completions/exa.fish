@@ -77,7 +77,7 @@ complete -c exa -s 'U' -l 'created'       -d "Use the created timestamp field"
 complete -c exa        -l 'time-style' -x -d "How to format timestamps" -a "
     default\t'Use the default time style'
     iso\t'Display brief ISO timestamps'
-    long-iso\t'Display longer ISO timestaps, up to the minute'
+    long-iso\t'Display longer ISO timestamps, up to the minute'
     full-iso\t'Display full ISO timestamps, up to the nanosecond'
 "
 complete -c exa        -l 'no-permissions' -d "Suppress the permissions field"

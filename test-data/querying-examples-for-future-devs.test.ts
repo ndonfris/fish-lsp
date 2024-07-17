@@ -55,7 +55,7 @@ describe('querying examples for future devs', () => {
   /**
      * Common practice among LSPs using tree-sitter for parsing does not typically use the
      * query method defined above. Currently it appears the api's node-tree-sitter vs web-tree-sitter,
-     * are not 1 to 1. When writting this LSP, it appeared simplier to use SyntaxNode methods
+     * are not 1 to 1. When writing this LSP, it appeared simpler to use SyntaxNode methods
      * provided, to determine how trees are queried.
      */
   it('fish-lsp method to get [function_definition nodes]', async () => {

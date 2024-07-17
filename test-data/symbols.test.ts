@@ -1,4 +1,4 @@
-// import { getRootNodesFromTexts, logCompareNodes, logDocSymbol, logFile, logNode, logSymbolInfo, logVerboseNode, printDebugSeperator, printTestName } from './helpers';
+// import { getRootNodesFromTexts, logCompareNodes, logDocSymbol, logFile, logNode, logSymbolInfo, logVerboseNode, printDebugSeparator, printTestName } from './helpers';
 import { SyntaxNode } from 'web-tree-sitter';
 import { DocumentSymbol, Range, SymbolKind } from 'vscode-languageserver';
 import { getChildNodes, getRange } from '../src/utils/tree-sitter';
@@ -69,12 +69,12 @@ const testSetFile4 = 'set -a var1 (echo $argv)';
 
 describe('symbols tests for definitions and renames', () => {
   /**
-     * tests for function definition names. See next test for the other type of defenition
+     * tests for function definition names. See next test for the other type of definition
      * in these inputs. each input only has one function. Test also checks that parser is working
      * for isFunctionDefinition()
      *
      * fish text: `function test_f1`
-     * defenition: `test_f1`
+     * definition: `test_f1`
      */
   it('parsing function name syntaxNodes', async () => {
     const testFiles = [testFunctionFile1, testFunctionFile2, testFunctionFile3];
@@ -185,7 +185,7 @@ describe('symbols tests for definitions and renames', () => {
         if (!isVariableDefinition(child)) continue;
         const parentScope = findEnclosingVariableScope(child);
         if (SHOULD_LOG) {
-          printDebugSeperator();
+          printDebugSeparator();
           console.log(`node: ${child.text}`);
           console.log(`parent type: ${parentScope?.type}\nparentScope:\n${parentScope?.text}`);
         }
@@ -234,7 +234,7 @@ set gvar 1
 const testCompleteFile2 = `
 function test-fish-lsp --argument-names file --description "Check a file for syntax errors"
     echo "$file"
-    lso
+    command ls
     fzf-local-node_modules
     __test_small
 end
@@ -247,7 +247,7 @@ function __test_small
     end
     string match --regex '[[:alnum:]]' "$argv"
 
-    # padding a stirng
+    # padding a string
     string pad --char " " $argv 
 
     set_color --background black white 
@@ -288,7 +288,7 @@ describe('symbol map tests', () => {
   //    rootNodes.forEach((root, i) => {
   //        const uri = `file://symbol_map_test_${i}.fish`
   //        printTestName(uri, SHOULD_LOG)
-  //        const symbols: DocumentSymbol[] = collectDocumentSymbols(SpanTree.defintionNodes(root));
+  //        const symbols: DocumentSymbol[] = collectDocumentSymbols(SpanTree.definitionNodes(root));
   //        logFile(SHOULD_LOG, uri, root.text)
   //        //symbols.forEach(sym =>  logDocSymbol(SHOULD_LOG, sym) )
   //        expect(symbols.length > 0).toBe(true);
@@ -346,10 +346,10 @@ function logSpan(n: SpanNode) {
 
 function logSymbols(symbols: DocumentSymbol[]) {
   symbols.forEach((sym) => {
-    printDebugSeperator(true);
+    printDebugSeparator(true);
     console.log(sym);
     //logSymbol(sym)
-    printDebugSeperator(true);
+    printDebugSeparator(true);
     logSymbols(sym.children || []);
   });
 }
@@ -358,7 +358,7 @@ function logSymbols(symbols: DocumentSymbol[]) {
 //     let logStr = "symbol: ".black.bgCyan + n?.name.split('\n').map(t=> t.yellow.bgBlack).join('\n') + "\n" + "kind: ".black.bgCyan + symbolKindToString(n.kind).black.bgRed + '\n'
 //     let indentStr = "    ".repeat(depth)
 //     console.log(`${indentStr.black.bgCyan}` + logStr.trim().split('\n').join(`\n${indentStr.black.bgCyan}`))
-//     printDebugSeperator(true)
+//     printDebugSeparator(true)
 //     n.children?.forEach((child) => {
 //         logSymbol(child, depth + 1)
 //     })

@@ -50,7 +50,7 @@ export const ConfigSchema = z.object({
   /** Handlers that are enabled in the language server */
   fish_lsp_enabled_handlers: z.array(z.string()).default([]),
 
-  /** Handlers that are disabled in the langauge server */
+  /** Handlers that are disabled in the language server */
   fish_lsp_disabled_handlers: z.array(z.string()).default([]),
 
   /** Characters that completion items will be accepted on */

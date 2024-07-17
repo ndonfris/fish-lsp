@@ -53,7 +53,7 @@ export async function getDocumentationResolver(item: FishCompletionItem): Promis
 }
 
 /**
- * builds FunctionDocumentaiton string
+ * builds FunctionDocumentation string
  */
 export async function getFunctionDocString(name: string): Promise<string | undefined> {
   function formatTitle(title: string[]) {

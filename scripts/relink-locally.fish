@@ -16,7 +16,7 @@ if set -q _flag_help
     echo '   relink-locally.fish'
     echo ''
     echo 'DESCRIPTION:'
-    echo '   Hanlde relinking pkg. Default usage silences any subshell relinking output.'
+    echo '   Handle relinking pkg. Default usage silences any subshell relinking output.'
     echo '   Option \'-q,--quiet\' (silence all subsubshell output), is assumed for'
     echo '   usage without an option.'
     echo ''

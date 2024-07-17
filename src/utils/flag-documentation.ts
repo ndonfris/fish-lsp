@@ -74,12 +74,12 @@ const hasUnixFlags = (allFlagLines: string[]) => {
   return false;
 };
 
-const parseInputFlags = (inputArray: string[], seperateShort: boolean) => {
+const parseInputFlags = (inputArray: string[], separateShort: boolean) => {
   const result: string[] = [];
   for (let i = 0; i < inputArray.length; i++) {
     const arg = inputArray[i];
     if (arg && shortFlag(arg)) {
-      if (seperateShort) {
+      if (separateShort) {
         const shortFlags = arg.slice(1).split('').map(ch => '-' + ch);
         result.push(...shortFlags);
       } else {
@@ -106,8 +106,8 @@ const findMatchingFlags = (inputFlags: string[], allFlagLines: string[]) => {
 async function getFlagDocumentationStrings(input: string) : Promise<string[]> {
   const splitInputArray = tokenizeInput(input);
   const outputFlagLines = await outputFlags(splitInputArray);
-  const shouldSeperateShortFlags = !hasUnixFlags(outputFlagLines);
-  const parsedInputFlags = parseInputFlags(splitInputArray, shouldSeperateShortFlags);
+  const shouldSeparateShortFlags = !hasUnixFlags(outputFlagLines);
+  const parsedInputFlags = parseInputFlags(splitInputArray, shouldSeparateShortFlags);
   const matchingFlags = findMatchingFlags(parsedInputFlags, outputFlagLines);
   return matchingFlags
     .map(line => line.split('\t'))

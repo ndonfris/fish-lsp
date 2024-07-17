@@ -101,7 +101,7 @@ export const FishLspHelp = {
     '',
     '  The current language server protocol, reserves stdin/stdout for communication between the ',
     '  client and server. This means that when the server is started, it will listen for messages on',
-    '  stdin/stdout. Command communitcation will be visible in `logs.txt`.',
+    '  stdin/stdout. Command communication will be visible in `logs.txt`.',
     '',
     '  For more information, see the github repository:',
     `     ${RepoUrl}`,

@@ -18,7 +18,7 @@ describe('src/utils/exec.ts tests', () => {
     const output = await execEscapedCommand('pwd');
     const check = path.resolve(__dirname, '..');
     // const result = path.resolve(output.toString())
-    // console.log("esccaped:", output[0], '---', check);
+    // console.log("escaped:", output[0], '---', check);
     expect(output[0]).toEqual(check);
   });
 

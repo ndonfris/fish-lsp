@@ -170,7 +170,7 @@ export function forwardArgCommandCollect(rootNode: SyntaxNode) : string[] {
 //     cmdText = forwardSubCommandCollect(rootNode);
 //   }
 //   // DIFF FLAG FORMATS
-//   // consider the differnece between, find -name .git
+//   // consider the difference between, find -name .git
 //   // and ls --long -l
 //
 //   // do complete and check for each flagsToFind

@@ -108,7 +108,7 @@ export namespace FishInlayHint {
 //        range: Range,
 //        documents: LspDocuments,
 //        analyzer: Analyzer,
-//        configurationMangaer: ConfigManager,
+//        configurationManager: ConfigManager,
 //    )   : Promise<InlayHint[]> {
 //        const hints: InlayHint[] = [];
 //
@@ -135,7 +135,7 @@ export namespace FishInlayHint {
 //
 //        const nodes = analyzer.getNodes(document).filter(isInlayHintNode)
 //        console.log(nodes.map(t => t.text))
-//        //const config = configurationMangaer.getInlayHintsEnabled();
+//        //const config = configurationManager.getInlayHintsEnabled();
 //        //for (const node of nodes) {
 //        //    let text = ''
 //        //    text = await execInlayHintType(`type -t ${node.text} | cut -d ' ' -f1 2>/dev/null`)

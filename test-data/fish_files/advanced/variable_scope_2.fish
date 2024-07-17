@@ -30,7 +30,7 @@
 function test-scopes
     begin
         # This is a nice local scope where all variables will die
-        set -l pirate 'There be treasure in them thar hills'
+        set -l pirate 'There be treasure in them hills'
         set -f captain Space, the final frontier
         # If no variable of that name was defined, it is function-local.
         set gnu "In the beginning there was nothing, which exploded"

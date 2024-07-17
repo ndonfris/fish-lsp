@@ -230,7 +230,7 @@ export function wordPrecedesCommand(word: string | null) {
 }
 
 /**
- * Helper functions to edit lines in the ComletionList methods.
+ * Helper functions to edit lines in the CompletionList methods.
  */
 export namespace Line {
   export function isEmpty(line: string): boolean {

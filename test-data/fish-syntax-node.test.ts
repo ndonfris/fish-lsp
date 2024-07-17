@@ -33,7 +33,7 @@ import { initializeParser } from '../src/parser';
 //         that we are currently checking.
 //
 // 2. get the option(s) seen.
-//      - here similiarly we check that it is a command node,
+//      - here similarly we check that it is a command node,
 //      - then we can also check that the node.text starts with '-' char, and is not an
 //        actual '--' which would escape the command. (Example: string match -ra '\-.*' -- '-l')
 //

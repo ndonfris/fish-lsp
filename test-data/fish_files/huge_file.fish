@@ -292,10 +292,10 @@ end
 function __help_message
     echo ""
     set_random_color --bright --bold --background --underline --italic --reset --command="echo ' set_random_color '";
-    spaced_print_seperator;
+    spaced_print_separator;
     set_random_color --bright;
     set_random_color --italic --command='echo -e "\tfunction to set the terminal color to a random color"';
-    spaced_print_seperator;
+    spaced_print_separator;
     set_random_color --bold --background -r --command='echo " USAGE: "';
     set_random_color --light  -r --command='echo -ne "set_random_color\ "';
     set_random_color --bright -r --command='echo "[bold] [italic] [underline] [reset]"';
@@ -309,7 +309,7 @@ function __help_message
     echo "set_random_color bold        -->   set terminal text color to bold";
     echo "set_random_color -r          -->   equivalent to set_color_normal"
     echo "set_random_color -0          -->   set terminal text background color"; 
-    spaced_print_seperator;
+    spaced_print_separator;
     set_random_color --bold --background -r --command='echo " ARGUMENTS: "'
     set_random_color --italic;
     echo -e "\tbackground                - random color will be shown behind the text"               
@@ -321,7 +321,7 @@ function __help_message
     echo -e "\tdebug                     - random color picked will be displayed" 
     echo -e "\t                            after the function finishes" 
     echo -e "\thelp                      - displays this help message"
-    spaced_print_seperator;
+    spaced_print_separator;
     set_random_color --bold --background -r --command='echo " FLAGS: "'
     set_random_color --italic;
     echo -e "\t -0 -B --background       - random color will be on background"                                                                           
@@ -331,13 +331,13 @@ function __help_message
     echo -e "\t -4 -r                    - random color will be reset"                                                            
     echo -e "\t --reset --normal           (no random color)"                                                            
     echo -e "\t -5 -e --echo=\"[STR]\"     - echo the string in a random color "
-    echo -e "\t -6 -c --command=\"[CMD]\"  - run command with ouput colored. Run"
+    echo -e "\t -6 -c --command=\"[CMD]\"  - run command with output colored. Run"
     echo -e "\t                            with -r flag to reset after"                                                 
     echo -e "\t -7 -d --dump --debug     - random color picked will be displayed"                                             
     echo -e "\t                            after function finishes"                                             
     echo -e "\t -8 -D --debug-all        - will display all local variable " 
     echo -e "\t --debug-all              - values set in this function." 
-    spaced_print_seperator;
+    spaced_print_separator;
     set_random_color --bold --background -r --command='echo " COLOR PREFERENCES: "'
     set_random_color --italic;
     echo -e "\t --light              - possible random colors will be lighter"
@@ -346,13 +346,13 @@ function __help_message
     echo -e "\t --dark               - possible random colors will be darker"
     echo -e "\t --colors             - display all possible colors available"
     echo -e "\t --show-colors          in fish shell"
-    spaced_print_seperator;
+    spaced_print_separator;
     set_random_color --background --reset --command="echo ' SEE ALSO: '";
     set_random_color --italic;
     echo -e "\t• set_color_normal.fish"
     echo -e "\t• ~/.config/fish/completions/"
     echo -e "\t• ~/.config/fish/functions/"
-    spaced_print_seperator;
+    spaced_print_separator;
     set_random_color --bold --background --reset --bright --command='echo " set_random_color.fish is located at: "';
     echo ""
     set_random_color --bold --light --italic --command='echo -e "\t ~/.config/fish/functions/set_random_color.fish"'
@@ -412,10 +412,10 @@ end
 
 function __print_colors 
     set -l change_color_cmd (echo "set_color --print-colors");
-    spaced_print_seperator;
+    spaced_print_separator;
     #set_random_color -B -u -b -r --echo="ALL:"
     set_color --print-colors;
-    spaced_print_seperator;
+    spaced_print_separator;
     set -l colors_arr (string split " " -- $random_color_array_normal)
     set -l colors_string (echo "normal")
     if test $argv -eq 1
@@ -452,7 +452,7 @@ function __print_colors
         end
         set curr_num (math $curr_num + 1)
     end
-    spaced_print_seperator;
+    spaced_print_separator;
 end
 
 function __get_16_color_index
@@ -470,11 +470,11 @@ function __get_16_color_index
 end
 
 function __debug_dump_all -S
-    print_spaced_seperator;
+    print_spaced_separator;
 
     echo " ALL_DEBUG_INFO " | print_chars_rainbow;
 
-    print_spaced_seperator;
+    print_spaced_separator;
 
     set_random_color --reset --echo="cmd looks like: set_color $set_color $__random_color $special_flag"
     echo ""
@@ -489,7 +489,7 @@ function __debug_dump_all -S
     echo ""
     set_random_color --reset --echo="__random_color: "$__random_color
     echo ""
-    print_spaced_seperator;
+    print_spaced_separator;
     set_random_color --reset --echo="function at: ~/.config/fish/functions/set_random_color.fish"
     echo "";
     set_random_color --reset --echo="completions at: ~/.config/fish/completions/set_random_color.fish"
@@ -498,12 +498,12 @@ function __debug_dump_all -S
     echo "";
     set_random_color --reset --echo="flags: [0-8], [b,B,i,u,n,h,c,d], [background, bold, italic, reset, normal, debug]"
 
-    print_spaced_seperator;
+    print_spaced_separator;
 
     echo "notes" | print_chars_rainbow; echo "";
     echo "• tab completions are enabled";
     echo "• use help flag";
-    print_spaced_seperator;
+    print_spaced_separator;
 end
 
 for i in $random_color_array_normal
@@ -513,14 +513,14 @@ for i in $random_color_array_normal
             echo "$i"
             set_random_color --reset --echo="flags: [0-8], [b,B,i,u,n,h,c,d], [background, bold, italic, reset, normal, debug]"
             echo "• use help flag";
-            print_spaced_seperator;
+            print_spaced_separator;
         end
     else if test "$i" = '2'
         while test $i -lt 20
             echo "$i"
             set_color_normal
             echo "• use help flag";
-            print_spaced_seperator;
+            print_spaced_separator;
         end
     else 
         set_random_color

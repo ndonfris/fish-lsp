@@ -2,7 +2,7 @@ import { DocumentSymbol, FoldingRange, FoldingRangeKind, SelectionRange, SymbolI
 import * as LSP from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { URI } from 'vscode-uri';
-import { findParentVariableDefintionKeyword, isCommand, isCommandName, isComment, isFunctionDefinition, isFunctionDefinitionName, isProgram, isScope, isStatement, isString, isVariable, isVariableDefinition } from './node-types';
+import { findParentVariableDefinitionKeyword, isCommand, isCommandName, isComment, isFunctionDefinition, isFunctionDefinitionName, isProgram, isScope, isStatement, isString, isVariable, isVariableDefinition } from './node-types';
 import { LspDocument, LspDocuments } from '../document';
 import { FishProtocol } from './fishProtocol';
 import { getPrecedingComments, getRange, getRangeWithPrecedingComments } from './tree-sitter';
@@ -100,7 +100,7 @@ export function nodeToDocumentSymbol(node: SyntaxNode) : DocumentSymbol {
   let parent = node.parent || node;
   switch (kind) {
     case SymbolKind.Variable:
-      parent = findParentVariableDefintionKeyword(node) || node;
+      parent = findParentVariableDefinitionKeyword(node) || node;
       detail = getPrecedingComments(parent);
       range = getRange(parent);
       break;

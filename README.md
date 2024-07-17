@@ -124,7 +124,7 @@ Contributions to help enhance installation options are greatly appreciated!
 <!--     } -->
 <!--     ``` -->
 <!---->
-<!--     > Neovim client using [coc.nvim](https://github.com/neoclide/coc.nvim) configuartion, located inside [coc-settings.json](https://github.com/neoclide/coc.nvim/wiki/Language-servers#register-custom-language-servers) `"languageserver"` key -->
+<!--     > Neovim client using [coc.nvim](https://github.com/neoclide/coc.nvim) configuration, located inside [coc-settings.json](https://github.com/neoclide/coc.nvim/wiki/Language-servers#register-custom-language-servers) `"languageserver"` key -->
 
 ## Setup
 
@@ -147,7 +147,7 @@ Feel free to setup the project in any [fish-lsp-client](https://github.com/ndonf
 }
 ```
 
-> [Neovim](https://neovim.io) client using [coc.nvim](https://github.com/neoclide/coc.nvim) configuartion, located inside [coc-settings.json](https://github.com/neoclide/coc.nvim/wiki/Language-servers#register-custom-language-servers) `"languageserver"` key
+> [Neovim](https://neovim.io) client using [coc.nvim](https://github.com/neoclide/coc.nvim) configuration, located inside [coc-settings.json](https://github.com/neoclide/coc.nvim/wiki/Language-servers#register-custom-language-servers) `"languageserver"` key
 
 ### Server Configuration _(Optional)_
 

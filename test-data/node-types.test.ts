@@ -747,7 +747,7 @@ describe('node-types tests', () => {
       // console.log(o.text);
       const parentCmd = NodeTypes.findParentCommand(o)?.firstNamedChild;
       if (!parentCmd) {
-        console.log('ERRROR:', o.text);
+        console.log('ERROR:', o.text);
         return;
       }
       const result = valueMatch(parentCmd, o)!;
