@@ -1,6 +1,6 @@
 import os from 'os';
 import { z } from 'zod';
-import { ServerLogsPath } from './logger';
+import { ServerLogsPath, logToStdout } from './logger';
 import fishLspEnvVariables from './snippets/fishlspEnvVariables.json';
 import { InitializeResult, TextDocumentSyncKind } from 'vscode-languageserver';
 import { CodeActionKind } from './code-action';
@@ -50,7 +50,7 @@ export const ConfigSchema = z.object({
   /** Handlers that are enabled in the language server */
   fish_lsp_enabled_handlers: z.array(z.string()).default([]),
 
-  /** Handlers that are disabled in the langauge server */
+  /** Handlers that are disabled in the language server */
   fish_lsp_disabled_handlers: z.array(z.string()).default([]),
 
   /** Characters that completion items will be accepted on */
@@ -142,7 +142,7 @@ export function generateJsonSchemaShellScript(showComments: boolean) {
     result.push(line);
   });
   const output = result.join('\n').trimEnd();
-  console.log(output);
+  logToStdout(output);
 }
 
 /**
@@ -183,7 +183,7 @@ export function showJsonSchemaShellScript(noComments: boolean) {
     result.push(line);
   }
   const output = result.join('\n').trimEnd();
-  console.log(output);
+  logToStdout(output);
 }
 
 /*************************************

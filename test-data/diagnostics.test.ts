@@ -411,7 +411,7 @@ describe('diagnostics test suite', () => {
 
   it('VALIDATE: isAlias', () => {
     [
-      'alias fo=\'fish_opt\'',
+      'alias foo=\'fish_opt\'',
     ].forEach((input, idx) => {
       const { rootNode } = parser.parse(input);
       const doc = createFakeLspDocument(`file:///tmp/test-${idx}.fish`, input);

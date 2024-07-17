@@ -3,8 +3,8 @@ import { extname } from 'path';
 //import { pathToFileURL, URL } from 'url'
 import { Position, Range, URI } from 'vscode-languageserver';
 import { Point, SyntaxNode, Tree } from 'web-tree-sitter';
-// import { pathToFileURL } from 'url'; // typescript-langauge-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts
-// import vscodeUri from 'vscode-uri'; // typescript-langauge-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts
+// import { pathToFileURL } from 'url'; // typescript-language-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts
+// import vscodeUri from 'vscode-uri'; // typescript-language-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts
 // import { existsSync } from 'fs-extra';
 import { findSetDefinedVariable, isFunctionDefinition, isVariableDefinition, isFunctionDefinitionName, isVariable, isScope, isProgram, isCommandName, isForLoop, findForLoopVariable } from './node-types';
 
@@ -12,7 +12,7 @@ import { findSetDefinedVariable, isFunctionDefinition, isVariableDefinition, isF
  * Returns an array for all the nodes in the tree (@see also nodesGen)
  *
  * @param {SyntaxNode} root - the root node to search from
- * @returns {SyntaxNode[]} all children of the root node (flattend)
+ * @returns {SyntaxNode[]} all children of the root node (flattened)
  */
 export function getChildNodes(root: SyntaxNode): SyntaxNode[] {
   const queue: SyntaxNode[] = [root];
@@ -123,7 +123,7 @@ export function getSiblingNodes(
 }
 
 /**
- * Similiar to getSiblingNodes. Only returns first node matching the predicate
+ * Similar to getSiblingNodes. Only returns first node matching the predicate
  */
 export function findFirstNamedSibling(
   node: SyntaxNode,

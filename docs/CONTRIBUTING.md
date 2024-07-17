@@ -50,7 +50,7 @@ aid in providing useful functionality for generic support of any possible
 combination need for future types.
 
 Having said that, if you a need for a new definition in [tree-sitter.ts](../src/utils/tree-sitter.ts) or [node-types.ts](../src/utils/node-types.ts) comes up,
-adding it to the proper file is fine (`tree-sitter.ts` genrally deals with movement or interacting with
+adding it to the proper file is fine (`tree-sitter.ts` generally deals with movement or interacting with
 a `SyntaxNode[] | Tree`, where as `node-types.ts` generally deals with filter
 functions that can determine what __type__ of `SyntaxNode` is passed into it).
 The only requirement is that you will for new additions to these files, is that
@@ -80,7 +80,7 @@ other more specific tasks.
 
 ### How to Build using these Workflows :building_construction:
 
-1. __Pull up__ some Documentaion :microscope:
+1. __Pull up__ some Documentation :microscope:
    - [lsif](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#languageFeatures) - The official Language Server Protocol specification
    - [wiki/sources](https://github.com/ndonfris/fish-lsp/wiki/sources) - Sources that are similar to this project
    - [roadmap](./ROADMAP.md) - Ideas/Documentation for future plans 
@@ -91,7 +91,7 @@ other more specific tasks.
     - Test your `FILE.test.ts` with command: `yarn test FILE --watchAll`
     - Feel free to overwrite _any existing test-file_ that is not in the
     [package.json](../package.json) key `test-hook`
-    - Use `import { initalizeParser } from '../src/parser` for building
+    - Use `import { initializeParser } from '../src/parser` for building
     `SyntaxNode[]` [composite object](https://en.wikipedia.org/wiki/Composite_pattern) arrays (aka [trees](https://en.wikipedia.org/wiki/Tree_traversal)).
 
 1. __Iteratively__ continue improving your feature :infinity:
@@ -110,36 +110,11 @@ other more specific tasks.
 
 1. __Add__ your feature to a [server.ts](../src/server.ts) `handler` :handshake:
     - Document your handler, if necessary. 
-    - Feel free to submit your [server handler](../src/server.ts) in __seperate__ working release stages, 
+    - Feel free to submit your [server handler](../src/server.ts) in __separate__ working release stages, 
     instead of trying to build entire feature's independently. (_i.e._, if your
     `CodeAction's` only support a singular `CodeActionType`)
     - Submit your [PR](https://github.com/ndonfris/fish-lsp/pulls) :champagne:
 
-
-<!---
-- watch compilation on changes
- 
-  ```fish
-  cd $(fish-lsp info --repo | tail -n1)
-  yarn watch
-  ```
-
-- abbr helpful for continuosly running editor for testing
-
-    ```fish
-    abbr -a wht     --set-cursor --position command "$(string join \n -- 'while true;' '%' 'end;')"
-    # while true
-    #     $EDITOR ~/.config/fish/config.fish
-    #     sleep 1s
-    #     source ~/.config/fish/config.fish # don't forget to source any 'fish_lsp_*' variables you are testing
-    #end
-    ```
-
-- display logs
-    ```fish
-    tail -f $(fish-lsp info --logs-file)
-    ```
---->
 
 ## Helpful Topics and Concepts :books:
 
@@ -178,7 +153,7 @@ Prefetching relevant information and [caching](https://en.wikipedia.org/wiki/Cac
     -  `yarn lint` - lint and fix the current project (`husky pre-push` hook)
     -  `yarn lint:verbose` - lint, and display output 
 
-- [knip](https://github.com/webpro/knip) - used for tree-shaking and checking unused dependcies
+- [knip](https://github.com/webpro/knip) - used for tree-shaking and checking unused dependencies
     -  `yarn refactacor` - package.json script to run knip
     - You can _refactor_ major sections of __unused code__ of out the project easily
     with this command

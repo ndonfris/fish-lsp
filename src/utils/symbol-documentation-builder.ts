@@ -76,7 +76,7 @@ export class DocumentationStringBuilder {
     return text;
   }
 
-  get shortenendUri(): string {
+  get shortenedUri(): string {
     const uriPath = uriToPath(this.uri)!;
     return uriPath.replace(os.homedir(), '~');
   }
@@ -87,7 +87,7 @@ export class DocumentationStringBuilder {
     //const tagsText = optionTags.map((tag) => tag.toString()).join("\n");
     return [
       `\*(${symbolKindToString(this.kind)})* \**${this.name}**`,
-      `defined in file: '${this.shortenendUri}'`,
+      `defined in file: '${this.shortenedUri}'`,
       '___',
       '```fish',
       this.text,

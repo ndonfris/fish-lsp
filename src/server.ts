@@ -21,7 +21,7 @@ import { initializeDefaultFishWorkspaces } from './utils/workspace';
 import { filterLastPerScopeSymbol, FishDocumentSymbol } from './document-symbol';
 //import { FishCompletionItem, FishCompletionData, FishCompletionItemKind } from './utils/completion-strategy';
 //import { getFlagDocumentationAsMarkup } from './utils/flag-documentation';
-import { getRenameWorkspaceEdit, getRefrenceLocations } from './workspace-symbol';
+import { getRenameWorkspaceEdit, getReferenceLocations } from './workspace-symbol';
 import { CompletionPager, initializeCompletionPager } from './utils/completion/pager';
 import { FishCompletionItem } from './utils/completion/types';
 import { getDocumentationResolver } from './utils/completion/documentation';
@@ -200,7 +200,7 @@ export default class FishServer {
   // • clean up into completion.ts file & Decompose to state machine, with a function that gets the state machine in this class.
   //         DART is best example i've seen for this.
   //         ~ https://github.com/Dart-Code/Dart-Code/blob/7df6509870d51cc99a90cf220715f4f97c681bbf/src/providers/dart_completion_item_provider.ts#L197-202 ~
-  // • Implement both escapedCompletion script and dump synatx tree script
+  // • Implement both escapedCompletion script and dump syntax tree script
   // • Add default CompletionLists to complete.ts
   // • Add local file items.
   // • Lastly add parameterInformation items.  [ 1477 : ParameterInformation ]
@@ -255,7 +255,7 @@ export default class FishServer {
   }
 
   // • lsp-spec: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#workspace_symbol
-  // • hierachy of symbols support on line 554: https://github.com/typescript-language-server/typescript-language-server/blob/114d4309cb1450585f991604118d3eff3690237c/src/lsp-server.ts#L554
+  // • hierarchy of symbols support on line 554: https://github.com/typescript-language-server/typescript-language-server/blob/114d4309cb1450585f991604118d3eff3690237c/src/lsp-server.ts#L554
   //
   // ResolveWorkspaceResult
   // https://github.com/Dart-Code/Dart-Code/blob/master/src/extension/providers/dart_workspace_symbol_provider.ts#L7
@@ -376,7 +376,7 @@ export default class FishServer {
     const { doc, uri, root, current } = this.getDefaults(params);
     if (!doc || !uri || !root || !current) return [];
 
-    return getRefrenceLocations(this.analyzer, doc, params.position);
+    return getReferenceLocations(this.analyzer, doc, params.position);
   }
 
   // Probably should move away from `documentationCache`. It works but is too expensive memory wise.

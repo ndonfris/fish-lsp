@@ -50,7 +50,7 @@ export function isCommand(node: SyntaxNode): boolean {
 }
 
 /**
- * essentailly avoids having to null check functionDefinition nodes for having a function
+ * essentially avoids having to null check functionDefinition nodes for having a function
  * name, since
  *
  * @param {SyntaxNode} node - the node to check
@@ -358,7 +358,7 @@ export function findParentFunction(node?: SyntaxNode): SyntaxNode | null {
   return null;
 }
 
-const defintionKeywords = ['set', 'read', 'function', 'for'];
+const definitionKeywords = ['set', 'read', 'function', 'for'];
 
 // TODO: check if theres a child node that is a variable definition -> return full command
 export function isVariableDefinitionCommand(node: SyntaxNode): boolean {
@@ -366,10 +366,10 @@ export function isVariableDefinitionCommand(node: SyntaxNode): boolean {
     return false;
   }
   const command = node.firstChild?.text.trim() || '';
-  if (defintionKeywords.includes(command)) {
+  if (definitionKeywords.includes(command)) {
     return true;
   }
-  // if (isCommand(node) && defintionKeywords.includes(node.firstChild?.text || '')) {
+  // if (isCommand(node) && definitionKeywords.includes(node.firstChild?.text || '')) {
   //     const variableDef = findChildNodes(node, isVariableDefinition)
   //     if (variableDef.length > 0) {
   //         return true;
@@ -378,7 +378,7 @@ export function isVariableDefinitionCommand(node: SyntaxNode): boolean {
   return false;
 }
 
-export function findParentVariableDefintionKeyword(node?: SyntaxNode): SyntaxNode | null {
+export function findParentVariableDefinitionKeyword(node?: SyntaxNode): SyntaxNode | null {
   const currentNode: SyntaxNode | null | undefined = node;
   const parent = currentNode?.parent;
   if (!currentNode || !parent) {
@@ -388,7 +388,7 @@ export function findParentVariableDefintionKeyword(node?: SyntaxNode): SyntaxNod
   if (!varKeyword) {
     return null;
   }
-  if (defintionKeywords.includes(varKeyword)) {
+  if (definitionKeywords.includes(varKeyword)) {
     return parent;
   }
   return null;
@@ -404,7 +404,7 @@ export function refinedFindParentVariableDefinitionKeyword(node?: SyntaxNode): S
   if (!varKeyword) {
     return null;
   }
-  if (defintionKeywords.includes(varKeyword)) {
+  if (definitionKeywords.includes(varKeyword)) {
     return parent.firstChild!;
   }
   return null;
@@ -415,7 +415,7 @@ export function isVariableDefinitionName(node: SyntaxNode): boolean {
   if (isFunctionDefinition(node) ||
         isCommand(node) ||
         isCommandName(node) ||
-        defintionKeywords.includes(node.firstChild?.text || '') ||
+        definitionKeywords.includes(node.firstChild?.text || '') ||
         !VariableTypes.isPossible(node)
   ) {
     return false;
@@ -440,12 +440,12 @@ export function isVariableDefinitionName(node: SyntaxNode): boolean {
 }
 
 /**
- * checks if a node is a variable defintion. Current syntax tree from tree-sitter-fish will
+ * checks if a node is a variable definition. Current syntax tree from tree-sitter-fish will
  * only tokenize variable names if they are defined in a for loop. Otherwise, they are tokenized
  * with the node type of 'name'. Currently does not support argparse.
  *
- * @param {SyntaxNode} node - the node to check if it is a variable defintion
- * @returns {boolean} true if the node is a variable defintion, false otherwise
+ * @param {SyntaxNode} node - the node to check if it is a variable definition
+ * @returns {boolean} true if the node is a variable definition, false otherwise
  */
 export function isVariableDefinition(node: SyntaxNode): boolean {
   return isVariableDefinitionName(node);
@@ -472,7 +472,7 @@ export function findEnclosingVariableScope(currentNode: SyntaxNode): SyntaxNode 
   if (!isVariableDefinition(currentNode)) {
     return null;
   }
-  const parent = findParentVariableDefintionKeyword(currentNode);
+  const parent = findParentVariableDefinitionKeyword(currentNode);
   const switchFound = findSwitchForVariable(currentNode);
   //console.log(`switchFound: ${switchFound}`)
   if (!parent) {
@@ -504,7 +504,7 @@ export function findForLoopVariable(node: SyntaxNode) : SyntaxNode | null {
 
 /**
  * @param {SyntaxNode} node - finds the node in a fish command that will
- *                            contain the variable defintion
+ *                            contain the variable definition
  *
  * @return {SyntaxNode | null} variable node that was found
  **/

@@ -271,7 +271,7 @@ function __fish_config_interactive -d "Initializations that should be performed 
         __update_cwd_osc # Run once because we might have already inherited a PWD from an old tab
     end
 
-    # Create empty configuration directores if they do not already exist
+    # Create empty configuration of directories if they do not already exist
     test -e $__fish_config_dir/completions/ -a -e $__fish_config_dir/conf.d/ -a -e $__fish_config_dir/functions/ ||
         mkdir -p $__fish_config_dir/{completions, conf.d, functions}
 

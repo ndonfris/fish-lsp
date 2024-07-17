@@ -124,7 +124,7 @@ Contributions to help enhance installation options are greatly appreciated!
 <!--     } -->
 <!--     ``` -->
 <!---->
-<!--     > Neovim client using [coc.nvim](https://github.com/neoclide/coc.nvim) configuartion, located inside [coc-settings.json](https://github.com/neoclide/coc.nvim/wiki/Language-servers#register-custom-language-servers) `"languageserver"` key -->
+<!--     > Neovim client using [coc.nvim](https://github.com/neoclide/coc.nvim) configuration, located inside [coc-settings.json](https://github.com/neoclide/coc.nvim/wiki/Language-servers#register-custom-language-servers) `"languageserver"` key -->
 
 ## Setup
 
@@ -147,7 +147,7 @@ Feel free to setup the project in any [fish-lsp-client](https://github.com/ndonf
 }
 ```
 
-> [Neovim](https://neovim.io) client using [coc.nvim](https://github.com/neoclide/coc.nvim) configuartion, located inside [coc-settings.json](https://github.com/neoclide/coc.nvim/wiki/Language-servers#register-custom-language-servers) `"languageserver"` key
+> [Neovim](https://neovim.io) client using [coc.nvim](https://github.com/neoclide/coc.nvim) configuration, located inside [coc-settings.json](https://github.com/neoclide/coc.nvim/wiki/Language-servers#register-custom-language-servers) `"languageserver"` key
 
 ### Server Configuration _(Optional)_
 
@@ -231,7 +231,7 @@ Due to the vast possibilities this project aims to support in the fish shell,
 If you're new to the concept of the [Language Server Protocol (LSP)](https://lsif.dev), this section should be
 useful to help you grasp its core purpose and benefits.
 
-> 📸 Check out [this insightful video](https://youtu.be/LaS32vctfOY?si=MISP8tL_HU06-_z-) by TJ DeVries for an introduction to the subject. 📸
+> 📸 Check out [this insightful video](https://youtu.be/LaS32vctfOY?si=MISP8tL_HU06-_z-) by TJ DeVries for an introduction to the subject.
 
 The LSP is designed to create a uniform approach for supporting a programming language across
 various development tools, moving beyond the confines of specific Text-Editor/IDE ecosystems.

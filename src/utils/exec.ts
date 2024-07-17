@@ -59,7 +59,7 @@ export async function execPrintLsp(line: string) {
   return child.stdout.trim();
 }
 //
-// Similiar to the above execPrintLsp
+// Similar to the above execPrintLsp
 // export async function execInlayHintType(...cmd: string[]): Promise<string> {
 //   const child = await execEscapedCommand(`type -t ${cmd.join(' ')} 2>/dev/null`);
 //   return child.join(' ');

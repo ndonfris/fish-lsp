@@ -33,7 +33,7 @@ export interface CachedGlobalItem {
   docs?: string;
   formattedDocs?: MarkupContent;
   uri?: string;
-  refrenceUris: Set<string>;
+  referenceUris: Set<string>;
   type: SymbolKind;
   resolved: boolean;
 }
@@ -43,14 +43,14 @@ export function createCachedItem(type: SymbolKind, uri?: string): CachedGlobalIt
     type: type,
     resolved: false,
     uri: uri,
-    refrenceUris: uri ? new Set([...uri]) : new Set<string>(),
+    referenceUris: uri ? new Set([...uri]) : new Set<string>(),
   } as CachedGlobalItem;
 }
 
 /**
- * Currrently spoofs docs as FormattedDocs, likely to change in future versions.
+ * Currently spoofs docs as FormattedDocs, likely to change in future versions.
  */
-async function getNewDocSring(name: string, item: CachedGlobalItem) : Promise<string | undefined> {
+async function getNewDocString(name: string, item: CachedGlobalItem) : Promise<string | undefined> {
   switch (item.type) {
     case SymbolKind.Variable:
       return await getVariableDocString(name);
@@ -65,7 +65,7 @@ async function getNewDocSring(name: string, item: CachedGlobalItem) : Promise<st
 
 export async function resolveItem(name: string, item: CachedGlobalItem, uri?: string) {
   if (uri !== undefined) {
-    item.refrenceUris.add(uri);
+    item.referenceUris.add(uri);
   }
   if (item.resolved) {
     return item;
@@ -73,7 +73,7 @@ export async function resolveItem(name: string, item: CachedGlobalItem, uri?: st
   if (item.type === SymbolKind.Function) {
     item.uri = await getFunctionUri(name);
   }
-  const newDocStr: string | undefined = await getNewDocSring(name, item);
+  const newDocStr: string | undefined = await getNewDocString(name, item);
   item.resolved = true;
   if (!newDocStr) {
     return item;
@@ -118,7 +118,7 @@ function _ensureMinLength<T>(arr: T[], minLength: number, fillValue?: T): T[] {
 }
 
 /**
- * builds FunctionDocumentaiton string
+ * builds FunctionDocumentation string
  */
 export async function getFunctionDocString(name: string): Promise<string | undefined> {
   const functionDoc = await execCmd(`functions ${name}`);

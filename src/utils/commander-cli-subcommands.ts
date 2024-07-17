@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import PackageJSON from '../../package.json';
+import { logToStdout } from '../logger';
 
 /**
  * Accumulate the arguments into two arrays, '--enable' and '--disable'
@@ -34,7 +35,7 @@ export function accumulateStartupOptions(args: string[]): {
       return;
     }
     if (['--dump'].includes(arg)) {
-      console.log('SEEN SHOW COMMAND! dumping...');
+      logToStdout('SEEN SHOW COMMAND! dumping...');
       dumpCmd = true;
       return;
     }
@@ -70,7 +71,7 @@ const getOutTime = () => {
   try {
     buildTime = readFileSync(buildFile, 'utf8');
   } catch (e) {
-    console.log('Error reading ./out/build-time.txt');
+    logToStdout('Error reading ./out/build-time.txt');
   }
   return buildTime.trim();
 };
@@ -100,7 +101,7 @@ export const FishLspHelp = {
     '',
     '  The current language server protocol, reserves stdin/stdout for communication between the ',
     '  client and server. This means that when the server is started, it will listen for messages on',
-    '  stdin/stdout. Command communitcation will be visible in `logs.txt`.',
+    '  stdin/stdout. Command communication will be visible in `logs.txt`.',
     '',
     '  For more information, see the github repository:',
     `     ${RepoUrl}`,

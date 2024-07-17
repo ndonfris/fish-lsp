@@ -136,7 +136,7 @@ export function getRenameLocations(analyzer: Analyzer, document: LspDocument, po
   }
 }
 
-export function getRefrenceLocations(analyzer: Analyzer, document: LspDocument, position: Position): Location[] {
+export function getReferenceLocations(analyzer: Analyzer, document: LspDocument, position: Position): Location[] {
   const node = analyzer.nodeAtPoint(document.uri, position.line, position.character);
   if (!node) return [];
   const symbol = analyzer.getDefinition(document, position);

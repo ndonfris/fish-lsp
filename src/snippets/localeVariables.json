@@ -21,7 +21,7 @@
 },
 {
 	"name": "LC_MONETARY",
-	"description": "Determines currency, how it is formated, and the symbols used."
+	"description": "Determines currency, how it is formatted, and the symbols used."
 },
 {
 	"name": "LC_NUMERIC",

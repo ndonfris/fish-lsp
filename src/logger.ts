@@ -151,3 +151,8 @@ export function createServerLogger(logFilePath: string = '', clear: boolean = tr
 export function createJestLogger(): JestLogger {
   return new JestLogger();
 }
+
+export function logToStdout(message: string, newline = true): void {
+  const output: string = `${message}${!!newline && '\n'}`;
+  process.stdout.write(output);
+}
