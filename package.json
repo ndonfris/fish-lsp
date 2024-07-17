@@ -37,7 +37,6 @@
     "sh:relink": "fish ./scripts/relink-locally.fish",
     "clean:all": "rimraf out *.tsbuildinfo node_modules tree-sitter-fish.wasm logs.txt",
     "clean": "rimraf out node_modules",
-    "test-hook": "env -i HOME=$HOME PATH=$PATH NODE_ENV=test jest document.test.ts tree-sitter.test.ts node-types.test.ts fish-syntax-node.test.ts exec.test.ts logger.test.ts test-data/parser.test.ts snippets.test.ts completion-startup-config.test.ts formatting.test.ts executeHandler.test.ts fileOperations.test.ts diagnostics.test.ts",
     "test": "env -i HOME=$HOME PATH=$PATH NODE_ENV=test jest",
     "refactor": "knip",
     "lint:check": "eslint . --ext .ts",
