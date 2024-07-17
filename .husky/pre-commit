@@ -1,1 +1,3 @@
-yarn lint:fix
+#.husky/pre-commit
+yarn run lint:fix
+# exit 1
