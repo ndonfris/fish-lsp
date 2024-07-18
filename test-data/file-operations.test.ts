@@ -1,4 +1,4 @@
-import { SyncFileHelper } from '../src/utils/fileOperations';
+import { SyncFileHelper } from '../src/utils/file-operations';
 import { homedir } from 'os';
 import { join } from 'path';
 import { existsSync, unlinkSync } from 'fs';

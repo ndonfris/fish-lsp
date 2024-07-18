@@ -1,10 +1,11 @@
+
 import { Diagnostic } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { LspDocument } from '../document';
 import { getChildNodes, getRange } from '../utils/tree-sitter';
 import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter } from './node-types';
 import { ErrorCodes } from './errorCodes';
-import { SyncFileHelper } from '../utils/fileOperations';
+import { SyncFileHelper } from '../utils/file-operations';
 import { config } from '../cli';
 
 export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {

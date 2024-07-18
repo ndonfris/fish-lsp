@@ -34,7 +34,7 @@ import { enrichToMarkdown } from './documentation';
 import { getAliasedCompletionItemSignature } from './signature';
 import { CompletionItemMap } from './utils/completion/startup-cache';
 import { getDocumentHighlights } from './document-highlight';
-import { SyncFileHelper } from './utils/fileOperations';
+import { SyncFileHelper } from './utils/file-operations';
 
 // @TODO
 export type SupportedFeatures = {
