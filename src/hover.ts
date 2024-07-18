@@ -4,7 +4,7 @@ import * as Parser from 'web-tree-sitter';
 import { Analyzer } from './analyze';
 import { LspDocument } from './document';
 import { documentationHoverProvider, enrichCommandWithFlags } from './documentation';
-import { DocumentationCache } from './utils/documentationCache';
+import { DocumentationCache } from './utils/documentation-cache';
 import { execCommandDocs, execCompletions, execSubCommandCompletions } from './utils/exec';
 import { isCommand, isFunctionDefinition, isOption } from './utils/node-types';
 import { findFirstParent } from './utils/tree-sitter';

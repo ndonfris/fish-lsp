@@ -16,7 +16,7 @@ import { getDiagnostics } from './diagnostics/validate';
 import { FishProtocol } from './utils/fishProtocol';
 // import { handleConversionToCodeAction } from './diagnostics/handleConversion';
 import { inlayHintsProvider } from './inlay-hints';
-import { DocumentationCache, initializeDocumentationCache } from './utils/documentationCache';
+import { DocumentationCache, initializeDocumentationCache } from './utils/documentation-cache';
 import { initializeDefaultFishWorkspaces } from './utils/workspace';
 import { filterLastPerScopeSymbol, FishDocumentSymbol } from './document-symbol';
 //import { FishCompletionItem, FishCompletionData, FishCompletionItemKind } from './utils/completion-strategy';
