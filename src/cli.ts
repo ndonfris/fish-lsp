@@ -4,7 +4,6 @@ import { BuildCapabilityString, PathObj, PackageLspVersion, PackageVersion, accu
 import { createConnection, InitializeParams, InitializeResult, StreamMessageReader, StreamMessageWriter } from 'vscode-languageserver/node';
 import { Command, Option } from 'commander';
 import FishServer from './server';
-// import { ConfigMap } from './utils/configuration-manager';
 import { buildFishLspCompletions } from './utils/get-lsp-completions';
 import { createServerLogger, ServerLogsPath, logToStdout } from './logger';
 import { configHandlers, generateJsonSchemaShellScript, getConfigFromEnvironmentVariables, showJsonSchemaShellScript, updateHandlers, validHandlers } from './config';
@@ -37,12 +36,11 @@ const createFishLspBin = (): Command => {
     .version(PackageVersion, '-v, --version', 'output the version number')
     .enablePositionalOptions(true)
     .configureHelp({
-      helpWidth: 100,
       showGlobalOptions: false,
       commandUsage: (_) => FishLspHelp.usage,
     })
-    .showSuggestionAfterError()
-    .showHelpAfterError()
+    .showSuggestionAfterError(true)
+    .showHelpAfterError(true)
     .addHelpText('after', FishLspHelp.after);
   return bin;
 };
@@ -70,7 +68,6 @@ commandBin
           cmd.options.map(o => `    ${o.flags}\t\t${o.description}`).join('\n'),
           ''].join('\n');
       });
-
       logToStdout(['NAME:',
         'fish-lsp - an lsp for the fish shell language',
         '',
@@ -279,6 +276,13 @@ commandBin.command('env')
     }
     generateJsonSchemaShellScript(args.comments);
   });
+
+/**
+ * ADD HELP MESSAGE WHEN NO SUBCOMMAND IS GIVEN
+ */
+// if (process.argv.length <= 2 && process.env['NODE_TEST'] !== 'test') {
+//   process.argv.push('--help')
+// }
 
 /**
  * PARSE THE SUBCOMMAND/OPTION

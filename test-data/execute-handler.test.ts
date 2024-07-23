@@ -1,12 +1,12 @@
 
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { buildOutput, execEntireBuffer, sourceFishBuffer, FishThemeDump, showCurrentTheme } from '../src/executeHandler';
+import { buildOutput, execEntireBuffer, sourceFishBuffer, FishThemeDump, showCurrentTheme } from '../src/execute-handler';
 import { setLogger } from './helpers';
 import { execCmd } from '../src/utils/exec';
 import { join } from 'path';
 import { writeFileSync } from 'fs';
-import { SyncFileHelper } from '../src/utils/fileOperations';
+import { SyncFileHelper } from '../src/utils/file-operations';
 
 const execAsync = promisify(exec);
 
