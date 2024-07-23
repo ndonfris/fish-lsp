@@ -275,7 +275,6 @@ commandBin.command('env')
       process.exit(0);
     }
     generateJsonSchemaShellScript(args.comments);
-    process.exit(0);
   });
 
 /**

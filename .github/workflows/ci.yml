@@ -32,5 +32,8 @@ jobs:
       - name: Install Dependencies
         run: yarn install
 
+      - name: Check Binary
+        run: fish-lsp --help
+
       - name: Run Lint
         run: yarn lint:fix
