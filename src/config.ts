@@ -4,6 +4,7 @@ import { ServerLogsPath, logToStdout } from './logger';
 import fishLspEnvVariables from './snippets/fishlspEnvVariables.json';
 import { InitializeResult, TextDocumentSyncKind } from 'vscode-languageserver';
 import { CodeActionKind } from './code-action';
+import { SyncFileHelper } from './utils/file-operations';
 
 /********************************************
  **********  Handlers/Providers   ***********
@@ -94,8 +95,8 @@ export function getConfigFromEnvironmentVariables(): {
     fish_lsp_logfile: process.env.fish_lsp_logfile,
     fish_lsp_format_tabsize: toNumber(process.env.fish_lsp_format_tabsize),
     fish_lsp_format_switch_case: toBoolean(process.env.fish_lsp_format_switch_case),
-    fish_lsp_all_indexed_paths: process.env.fish_lsp_all_indexed_paths?.split(' '),
-    fish_lsp_modifiable_paths: process.env.fish_lsp_modifiable_paths?.split(' '),
+    fish_lsp_all_indexed_paths: process.env.fish_lsp_all_indexed_paths?.split(' ').map(path => SyncFileHelper.expandEnvVars(path)),
+    fish_lsp_modifiable_paths: process.env.fish_lsp_modifiable_paths?.split(' ').map(path => SyncFileHelper.expandEnvVars(path)),
     fish_lsp_diagnostic_disable_error_codes: process.env.fish_lsp_diagnostic_disable_error_codes?.split(' ').map(toNumber),
     fish_lsp_max_background_files: toNumber(process.env.fish_lsp_max_background_files),
     fish_lsp_show_client_popups: toBoolean(process.env.fish_lsp_show_client_popups),

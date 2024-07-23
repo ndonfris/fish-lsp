@@ -17,7 +17,6 @@ import { FishProtocol } from './utils/fishProtocol';
 // import { handleConversionToCodeAction } from './diagnostics/handleConversion';
 import { inlayHintsProvider } from './inlay-hints';
 import { DocumentationCache, initializeDocumentationCache } from './utils/documentation-cache';
-import { initializeDefaultFishWorkspaces } from './utils/workspace';
 import { filterLastPerScopeSymbol, FishDocumentSymbol } from './document-symbol';
 //import { FishCompletionItem, FishCompletionData, FishCompletionItemKind } from './utils/completion-strategy';
 //import { getFlagDocumentationAsMarkup } from './utils/flag-documentation';
@@ -53,10 +52,9 @@ export default class FishServer {
     return await Promise.all([
       initializeParser(),
       initializeDocumentationCache(),
-      initializeDefaultFishWorkspaces(),
       initializeCompletionPager(logger, completionsMap),
-    ]).then(([parser, cache, workspaces, completions]) => {
-      const analyzer = new Analyzer(parser, workspaces);
+    ]).then(([parser, cache, completions]) => {
+      const analyzer = new Analyzer(parser);
       return new FishServer(
         connection,
         parser,

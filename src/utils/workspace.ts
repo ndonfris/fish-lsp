@@ -1,58 +1,11 @@
 import * as fastGlob from 'fast-glob';
-import { readFileSync } from 'fs';
-import { pathToUri, toLspDocument, uriToPath } from './translation';
-import { LspDocument } from '../document';
-import { FishDocumentSymbol } from '../document-symbol';
+import { basename } from 'path';
+import { uriToPath } from './translation';
 import { config } from '../cli';
+import { SyncFileHelper } from './file-operations';
 
-async function getFileUriSet(path: string) {
-  const stream = fastGlob.stream('**/*.fish', { cwd: path, absolute: true });
-  const result: Set<string> = new Set();
-  for await (const entry of stream) {
-    const absPath = entry.toString();
-    const uri = pathToUri(absPath);
-    result.add(uri);
-  }
-  return result;
-}
-
-export async function initializeDefaultFishWorkspaces(): Promise<Workspace[]> {
-  const configWorkspaces = config.fish_lsp_all_indexed_paths;
-  // Create an array of promises by mapping over workspacePaths
-  const workspacePromises = configWorkspaces.map(path => Workspace.create(path));
-
-  // Wait for all promises to resolve
-  const defaultSpaces = await Promise.all(workspacePromises);
-  // const defaultSpaces = [
-  //   await Workspace.create('/usr/share/fish'),
-  //   await Workspace.create(`${homedir()}/.config/fish`),
-  // ];
-  return defaultSpaces;
-}
-
-export interface FishWorkspace {
-  path: string;
-  uris: Set<string>;
-  contains(...checkUris: string[]): boolean;
-  urisToLspDocuments(): LspDocument[];
-  filter(callbackfn: (lspDocument: LspDocument) => boolean): LspDocument[];
-  forEach(callbackfn: (lspDocument: LspDocument) => void): void;
-}
-
-export class Workspace implements FishWorkspace {
-  public path: string;
-  public uris: Set<string>;
-  public symbols: Map<string, FishDocumentSymbol[]> = new Map();
-
-  public static async create(path: string) {
-    const foundUris = await getFileUriSet(path);
-    return new Workspace(path, foundUris);
-  }
-
-  public constructor(path: string, fileUris: Set<string>) {
-    this.path = path;
-    this.uris = fileUris;
-  }
+export class Workspace {
+  constructor(public readonly path: string) { }
 
   contains(...checkUris: string[]) {
     for (const uri of checkUris) {
@@ -60,27 +13,46 @@ export class Workspace implements FishWorkspace {
       if (!uriAsPath.startsWith(this.path)) {
         return false;
       }
-      //if (!this.uris.has(uri)) return false
     }
     return true;
   }
 
-  add(...newUris: string[]) {
-    for (const newUri of newUris) {
-      this.uris.add(newUri);
-    }
+  getAllFiles(): string[] {
+    return fastGlob.sync(`${this.path}/**/*.fish`, {
+      absolute: true,
+      globstar: true,
+      onlyFiles: true,
+      followSymbolicLinks: false,
+      stats: false,
+      dot: false,
+    });
+    // return fastGlob.sync(`${this.path}/**/*.fish`, {
+    //   cwd: this.path,
+    //   extglob: true,
+    //   globstar: true,
+    //   suppressErrors: true,
+    //   absolute: true,
+    //   onlyFiles: true,
+    //   followSymbolicLinks: false,
+    //   deep: Infinity,
+    //   stats: false,
+    //   dot: false
+    // });
   }
 
-  findMatchingFishIdentifiers(fishIdentifier: string) {
-    const matches: string[] = [];
-    const toMatch = `/${fishIdentifier}.fish`;
-    for (const uri of this.uris) {
-      if (uri.endsWith(toMatch)) {
-        matches.push(uri);
-      }
-    }
-    return matches;
+  async getFilesWithName(...names: string[]): Promise<string[]> {
+    const matchNames = names.map(name => name.endsWith('.fish') ? name.slice(0, -5) : name);
+    const allFiles = await this.getAllFiles();
+    return allFiles.filter(file => {
+      const fileName = basename(uriToPath(file));
+      return matchNames.some(n => fileName.startsWith(n));
+    });
   }
+  // async getFilesWithName(...names: string[]): Promise<string[]> {
+  //   const matchNames = names.map(name => name.endsWith('.fish') ? name.slice(0, -5) : name)
+  //   const allFiles = await this.getAllFiles();
+  //   return allFiles.filter(file => matchNames.some(n => uriToPath(file).split('/')[-1]?.toString().startsWith(n)))
+  // }
 
   /**
      * An immutable workspace would be '/usr/share/fish', since we don't want to
@@ -95,55 +67,11 @@ export class Workspace implements FishWorkspace {
   isLoadable() {
     return config.fish_lsp_all_indexed_paths.includes(this.path);
   }
+}
 
-  async updateFiles() {
-    const newUris = await getFileUriSet(this.path);
-    const diff = new Set([...this.uris].filter(x => !this.uris.has(x)));
-    if (diff.size === 0) {
-      return false;
-    }
-    newUris.forEach(uri => this.uris.add(uri));
-    return true;
-  }
+export const workspaces: Workspace[] = config.fish_lsp_all_indexed_paths.map(w => new Workspace(w));
 
-  hasCompletionUri(fishIdentifier: string) {
-    const matchingUris = this.findMatchingFishIdentifiers(fishIdentifier);
-    return matchingUris.some(uri => uri.endsWith(`/completions/${fishIdentifier}.fish`));
-  }
-
-  hasFunctionUri(fishIdentifier: string) {
-    const matchingUris = this.findMatchingFishIdentifiers(fishIdentifier);
-    return matchingUris.some(uri => uri.endsWith(`/functions/${fishIdentifier}.fish`));
-  }
-
-  hasCompletionAndFunction(fishIdentifier: string) {
-    return this.hasFunctionUri(fishIdentifier) && this.hasCompletionUri(fishIdentifier);
-  }
-
-  urisToLspDocuments(): LspDocument[] {
-    const docs: LspDocument[] = [];
-    for (const uri of this.uris) {
-      const path = uriToPath(uri);
-      const content = readFileSync(path);
-      const doc = toLspDocument(path, content.toString());
-      docs.push(doc);
-    }
-    return docs;
-  }
-
-  forEach(callback: (lspDocument: LspDocument) => void) {
-    for (const doc of this.urisToLspDocuments()) {
-      callback(doc);
-    }
-  }
-
-  filter(callbackfn: (lspDocument: LspDocument) => boolean): LspDocument[] {
-    const result: LspDocument[] = [];
-    for (const doc of this.urisToLspDocuments()) {
-      if (callbackfn(doc)) {
-        result.push(doc);
-      }
-    }
-    return result;
-  }
+export function findCurrentWorkspace(uri: string) {
+  const path = uriToPath(SyncFileHelper.expandEnvVars(uri));
+  return workspaces.find(ws => ws.contains(path));
 }

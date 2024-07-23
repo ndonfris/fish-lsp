@@ -7,21 +7,20 @@ import { isCommand, isCommandName } from './utils/node-types';
 import { pathToUri } from './utils/translation';
 import { existsSync } from 'fs';
 import homedir from 'os';
-import { FishWorkspace } from './utils/workspace';
+import { workspaces } from './utils/workspace';
 import { filterGlobalSymbols, FishDocumentSymbol, getFishDocumentSymbols } from './document-symbol';
 import { GenericTree } from './utils/generic-tree';
 import { findDefinitionSymbols } from './workspace-symbol';
 import { config } from './cli';
+import { SyncFileHelper } from './utils/file-operations';
 
 export class Analyzer {
   protected parser: Parser;
-  public workspaces: FishWorkspace[];
   public cache: AnalyzedDocumentCache = new AnalyzedDocumentCache();
   public globalSymbols: GlobalDefinitionCache = new GlobalDefinitionCache();
 
-  constructor(parser: Parser, workspaces: FishWorkspace[] = []) {
+  constructor(parser: Parser) {
     this.parser = parser;
-    this.workspaces = workspaces;
   }
 
   public analyze(document: LspDocument): FishDocumentSymbol[] {
@@ -62,24 +61,13 @@ export class Analyzer {
     let amount = 0;
     const max_files = config.fish_lsp_max_background_files;
 
-    for (const workspace of this.workspaces) {
-      const docs = workspace
-        .urisToLspDocuments()
-        .filter((doc: LspDocument) => doc.shouldAnalyzeInBackground());
-
-      for (const doc of docs) {
-        if (amount >= max_files) {
-          break;
-        }
-        try {
-          this.analyze(doc);
-          amount++;
-        } catch (err) {
-          console.error(err);
-        }
-      }
-      if (amount >= max_files) {
-        break;
+    for (const workspace of workspaces) {
+      if (amount >= max_files) break;
+      for (const file of workspace.getAllFiles()) {
+        if (amount >= max_files) break;
+        // NEED TO ANALYZE
+        SyncFileHelper.toLspDocument(file, 'fish', 1);
+        amount++;
       }
     }
     callbackfn(`[fish-lsp] analyzed ${amount} files`);
@@ -143,8 +131,8 @@ export class Analyzer {
       return null;
     }
     const symbol =
-            this.getDefinition(document, position) as FishDocumentSymbol ||
-            this.globalSymbols.findFirst(node.text);
+      this.getDefinition(document, position) as FishDocumentSymbol ||
+      this.globalSymbols.findFirst(node.text);
     if (symbol) {
       return {
         contents: {
@@ -177,7 +165,7 @@ export class Analyzer {
   //    ];
   //}
 
-  getTree(document: LspDocument) : Tree | undefined {
+  getTree(document: LspDocument): Tree | undefined {
     return this.cache.getDocument(document.uri)?.tree;
   }
 
@@ -208,10 +196,10 @@ export class Analyzer {
     return {
       root: root,
       currentNode:
-                root?.descendantForPosition({
-                  row: position.line,
-                  column: Math.max(0, position.character - 1),
-                }) || null,
+        root?.descendantForPosition({
+          row: position.line,
+          column: Math.max(0, position.character - 1),
+        }) || null,
     };
   }
 
@@ -233,22 +221,22 @@ export class Analyzer {
     document: LspDocument,
     position: Position,
   ): {
-      line: string;
-      word: string;
-      lineRootNode: SyntaxNode;
-      lineLastNode: SyntaxNode;
-    } {
+    line: string;
+    word: string;
+    lineRootNode: SyntaxNode;
+    lineLastNode: SyntaxNode;
+  } {
     //const linePreTrim: string = document.getLineBeforeCursor(position);
     //const line = linePreTrim.slice(0,linePreTrim.lastIndexOf('\n'));
     const line = document
       .getLineBeforeCursor(position)
       .replace(/^(.*)\n$/, '$1');
     const word =
-            this.wordAtPoint(
-              document.uri,
-              position.line,
-              Math.max(position.character - 1, 0),
-            ) || '';
+      this.wordAtPoint(
+        document.uri,
+        position.line,
+        Math.max(position.character - 1, 0),
+      ) || '';
     const lineRootNode = this.parser.parse(line).rootNode;
     const lineLastNode = lineRootNode.descendantForPosition({
       row: 0,
@@ -335,7 +323,7 @@ export class Analyzer {
   }
 }
 export class GlobalDefinitionCache {
-  constructor(private _definitions: Map<string, FishDocumentSymbol[]> = new Map()) {}
+  constructor(private _definitions: Map<string, FishDocumentSymbol[]> = new Map()) { }
   add(symbol: FishDocumentSymbol): void {
     const current = this._definitions.get(symbol.name) || [];
     if (!current.some(s => FishDocumentSymbol.equal(s, symbol))) {
@@ -400,7 +388,7 @@ export namespace AnalyzedDocument {
 }
 
 export class AnalyzedDocumentCache {
-  constructor(private _documents: Map<URI, AnalyzedDocument> = new Map()) {}
+  constructor(private _documents: Map<URI, AnalyzedDocument> = new Map()) { }
   uris(): string[] {
     return [...this._documents.keys()];
   }
@@ -491,7 +479,7 @@ export class SymbolCache {
     private _names: Set<string> = new Set(),
     private _variables: Map<string, FishDocumentSymbol[]> = new Map(),
     private _functions: Map<string, FishDocumentSymbol[]> = new Map(),
-  ) {}
+  ) { }
 
   add(symbol: FishDocumentSymbol): void {
     const oldVars = this._variables.get(symbol.name) || [];

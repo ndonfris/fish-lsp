@@ -2,6 +2,7 @@
 //import fish from 'tree-sitter-fish'
 import { setLogger } from './helpers';
 import { initializeParser } from '../src/parser';
+import * as Parser from 'web-tree-sitter';
 
 export const nodeNamedTypes: string[] = [
   'word',

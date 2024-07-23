@@ -2,11 +2,12 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "noUncheckedIndexedAccess": true,
-    "resolveJsonModule": true,
-    "include": [
-      "test-data/**/*"
-    ]
-  }
+    "resolveJsonModule": true
+  },
+  "include": [
+    "src/**/*.ts",
+    "test-data/**/*.ts"
+  ]
 }
-
