@@ -4,6 +4,7 @@ import { SyntaxNode } from 'web-tree-sitter';
 import { isFunctionDefinitionName, isVariableDefinition, isProgram, isVariableDefinitionName } from './node-types';
 //import { FishFlagOption, optionTagProvider } from './options';
 import { symbolKindToString, uriToPath } from './translation';
+import { MarkdownBuilder, md } from './markdown-builder';
 
 /**
  * Current CHANGELOG for documentation:
@@ -11,14 +12,6 @@ import { symbolKindToString, uriToPath } from './translation';
  *        the comments and the function definition
  *     • @see zoom_out.fish and yarn_reset.fish
  *            -    ~/.config/fish/functions/yarn_reset.fish (shows whole program)
- *
- *                  ** SHOULD NOW BE WORKING AS OF 3/15/2023 **
- *                     consider moving this to a singular function call or something?
- *                     It's over complicated, a single function would have an easier
- *                     control flow to follow instead of the setters seen below and the
- *                     toString() function that builds the entire object.
- *
- *            -    ~/.config/fish/functions/zoom_out.fish (shows whitespace mentioned in previous bullet point)
  */
 
 export class DocumentationStringBuilder {
@@ -28,7 +21,6 @@ export class DocumentationStringBuilder {
     private kind: SymbolKind = kind,
     private inner: SyntaxNode = inner,
     //private outer = inner.parent || inner.previousSibling || null,
-    // removed
   ) {}
 
   private get outer() {
@@ -46,10 +38,11 @@ export class DocumentationStringBuilder {
   //        .join("\n");
   //}
 
-  /** ~/.config/fish/functions/yarn_reset.fish
-     *  causes error, shows entire file instead of just function
-     *  meaning that the outer node is being used when it shouldn't be
-     */
+  /**
+   * ~/.config/fish/functions/yarn_reset.fish
+   *  causes error, shows entire file instead of just function
+   *  meaning that the outer node is being used when it shouldn't be
+   */
   private get precedingComments(): string {
     if (this.outer && isProgram(this.outer)) {
       return getPrecedingCommentString(this.inner);
@@ -85,14 +78,15 @@ export class DocumentationStringBuilder {
   toString() {
     //const optionTags = optionTagProvider(this.inner, this.outer);
     //const tagsText = optionTags.map((tag) => tag.toString()).join("\n");
-    return [
-      `\*(${symbolKindToString(this.kind)})* \**${this.name}**`,
-      `defined in file: '${this.shortenedUri}'`,
-      '___',
-      '```fish',
-      this.text,
-      '```',
-    ].join('\n');
+    const symbolString = symbolKindToString(this.kind);
+    return new MarkdownBuilder()
+      .fromMarkdown(
+        [`(${md.italic(symbolString)})`, md.bold(this.name)],
+        `defined in file: ${this.shortenedUri}`,
+        md.separator(),
+        md.codeBlock('fish', this.text),
+      )
+      .toString();
   }
 }
 

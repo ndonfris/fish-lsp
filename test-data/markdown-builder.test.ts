@@ -21,7 +21,7 @@ describe('markdown-builder test suite', () => {
 
   it('simple test separator', () => {
     const value = md.separator();
-    expect(value).toBe('___\n');
+    expect(value).toBe('___');
   });
 
   it('simple test newline', () => {
@@ -44,6 +44,7 @@ describe('markdown-builder test suite', () => {
       .appendMarkdown(md.bold('hello') + ' - ' + md.italic('world'))
       .appendNewline()
       .appendMarkdown(md.separator())
+      .appendNewline()
       .appendMarkdown('here is a message to the world!')
       .toString();
 

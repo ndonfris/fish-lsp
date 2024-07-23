@@ -11,19 +11,19 @@ export namespace md {
   }
 
   export function italic(value: string) {
-    return '*' + value + '*';
+    return `\*${value}*`;
   }
 
   export function bold(value: string) {
-    return '**' + value + '**';
+    return `\**${value}**`;
   }
 
   export function boldItalic(value: string) {
-    return '***' + value + '***';
+    return `\***${value}***`;
   }
 
   export function separator() {
-    return '___' + newline();
+    return '___';
   }
 
   export function space() {
@@ -96,6 +96,11 @@ export class MarkdownBuilder {
     return this;
   }
 
+  /**
+   * arguments are either a markdown string, or an array of markdown strings:
+   *     - if argument is a string, consider the argument it's own line of the output
+   *     - if argument is an array, join it's items as space separated items
+   */
   fromMarkdown(...values: (string | string[])[]): MarkdownBuilder {
     this.value += values.map(item =>
       Array.isArray(item) ? item.map(i => i.trim()).join(' ') : item.trim(),
