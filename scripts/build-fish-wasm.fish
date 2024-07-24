@@ -1,6 +1,6 @@
 #!/usr/bin/env fish
 
-set -l wasm_file "$(find node_modules -type f -a -name tree-sitter-fish.wasm)" 
+not set -q wasm_file; and set -l wasm_file "$(find node_modules -type f -a -name tree-sitter-fish.wasm)"
 
 if test -z "$wasm_file"
     yarn add @esdmr/tree-sitter-fish
