@@ -3,11 +3,12 @@ import * as fastGlob from 'fast-glob';
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
-import { Workspace, findCurrentWorkspace, workspaces } from '../src/utils/workspace';
+import { Workspace, findCurrentWorkspace } from '../src/utils/workspace';
 import { pathToUri } from '../src/utils/translation';
-import { config } from '../src/cli';
+import { config, workspaces } from '../src/cli';
 import { setLogger } from './helpers';
 import { execAsyncFish } from '../src/utils/exec';
+import { SyncFileHelper } from '../src/utils/file-operations';
 
 setLogger();
 
@@ -176,6 +177,24 @@ describe('Fish Actual Workspace Tests', () => {
   it('should find known fish files in actual workspaces', async () => {
     for (const ws of mockWorkspaces) {
       expect(ws.isLoadable()).toBe(true);
+    }
+  });
+
+  it('test workspace background', async () => {
+    const max_files = 1000;
+    const amount = 0;
+    for (const workspace of mockWorkspaces) {
+      if (amount >= max_files) {
+        break;
+      }
+      for (const file of workspace.getAllFiles()) {
+        if (amount >= max_files) {
+          break;
+        }
+        // NEED TO ANALYZE
+        const document = SyncFileHelper.toLspDocument(file, 'fish', 1);
+        console.log(document);
+      }
     }
   });
 });

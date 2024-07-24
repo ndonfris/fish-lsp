@@ -7,12 +7,12 @@ import { isCommand, isCommandName } from './utils/node-types';
 import { pathToUri } from './utils/translation';
 import { existsSync } from 'fs';
 import homedir from 'os';
-import { workspaces } from './utils/workspace';
+import { workspaces } from './cli';
 import { filterGlobalSymbols, FishDocumentSymbol, getFishDocumentSymbols } from './document-symbol';
 import { GenericTree } from './utils/generic-tree';
 import { findDefinitionSymbols } from './workspace-symbol';
 import { config } from './cli';
-import { SyncFileHelper } from './utils/file-operations';
+/* import { SyncFileHelper } from './utils/file-operations';*/
 
 export class Analyzer {
   protected parser: Parser;
@@ -62,11 +62,14 @@ export class Analyzer {
     const max_files = config.fish_lsp_max_background_files;
 
     for (const workspace of workspaces) {
-      if (amount >= max_files) break;
-      for (const file of workspace.getAllFiles()) {
-        if (amount >= max_files) break;
-        // NEED TO ANALYZE
-        SyncFileHelper.toLspDocument(file, 'fish', 1);
+      if (amount >= max_files) {
+        break;
+      }
+      for (const doc of workspace.urisToLspDocuments()) {
+        if (amount >= max_files) {
+          break;
+        }
+        this.analyze(doc);
         amount++;
       }
     }

@@ -1,8 +1,9 @@
 import * as fastGlob from 'fast-glob';
 import { basename } from 'path';
-import { uriToPath } from './translation';
-import { config } from '../cli';
+import { toLspDocument, uriToPath } from './translation';
+import { config, workspaces } from '../cli';
 import { SyncFileHelper } from './file-operations';
+import { LspDocument } from 'src/document';
 
 export class Workspace {
   constructor(public readonly path: string) { }
@@ -67,9 +68,17 @@ export class Workspace {
   isLoadable() {
     return config.fish_lsp_all_indexed_paths.includes(this.path);
   }
-}
 
-export const workspaces: Workspace[] = config.fish_lsp_all_indexed_paths.map(w => new Workspace(w));
+  urisToLspDocuments() {
+    const docs: LspDocument[] = [];
+    for (const file of this.getAllFiles()) {
+      const content = SyncFileHelper.read(file);
+      const doc = toLspDocument(file, content);
+      docs.push(doc);
+    }
+    return docs;
+  }
+}
 
 export function findCurrentWorkspace(uri: string) {
   const path = uriToPath(SyncFileHelper.expandEnvVars(uri));
