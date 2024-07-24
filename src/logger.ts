@@ -1,17 +1,7 @@
-// import {
-//   CompletionItem,
-//   Connection,
-//   DocumentSymbol,
-//   Hover,
-//   Position,
-//   RemoteConsole,
-//   SymbolKind,
-//   Range,
-//   ExecuteCommandParams,
-// } from 'vscode-languageserver';
 import * as console from 'node:console';
 import fs from 'fs';
 import { resolve } from 'path';
+import { config } from './cli';
 
 export interface IConsole {
   error(...args: any[]): void;
@@ -38,6 +28,16 @@ export class Logger {
     }
   }
 
+  /**
+   * check for user configuration to completely disable logging?
+   */
+  disabled(): boolean {
+    return !!config.fish_lsp_disabled_handlers.includes('logging');
+  }
+
+  /**
+   * enable/disable logging to stdout (when enabled, provides output to `logs.txt` file)
+   */
   toggleSilence() {
     this._silence = !this._silence;
   }
@@ -55,19 +55,24 @@ export class Logger {
   }
 
   clearLogFile(): void {
+    if (this.disabled()) return;
     try {
       // fs.truncateSync(this.logFilePath, 0);
       fs.writeFileSync(this.logFilePath, '');
     } catch (error) {
-      this._console.error(`Error clearing log file: ${error}`);
+      if (!this._silence) {
+        this._console.error(`Error clearing log file: ${error}`);
+      }
     }
   }
 
   private logToFile(message: string): void {
+    if (this.disabled()) return;
     fs.appendFileSync(this.logFilePath, message + '\n', 'utf-8');
   }
 
   log(...args: any[]): void {
+    if (this.disabled()) return;
     const formattedMessage = args.map((arg) => {
       if (arg instanceof Error) {
         return arg.stack || arg.message;
@@ -83,6 +88,7 @@ export class Logger {
   }
 
   logAsJson(message: string) {
+    if (this.disabled()) return;
     this.logToFile(JSON.stringify({
       date: new Date().toLocaleString(),
       message: message,
@@ -90,6 +96,7 @@ export class Logger {
   }
 
   logPropertiesForEachObject<T extends Record<string, any>>(objs: T[], ...keys: (keyof T)[]): void {
+    if (this.disabled()) return;
     objs.forEach((obj, i) => {
       // const selectedKeys = keys.filter(key => obj.hasOwnProperty(key));
       const selectedKeys = keys.filter(key => Object.prototype.hasOwnProperty.bind(obj, key));
@@ -106,6 +113,7 @@ export class Logger {
   }
 
   showLogfileText(): void {
+    if (this.disabled()) return;
     if (!this.hasLogFile()) {
       this._console.log('No log file specified');
     }
