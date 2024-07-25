@@ -1,8 +1,9 @@
 #!/usr/bin/env fish
 
-not set -q wasm_file; and set -l wasm_file "$(find node_modules -type f -a -name tree-sitter-fish.wasm)"
+# fish_wasm_file is only used in the nixos build step, and should otherwise be ignored 
+not set -q fish_wasm_file; and set -l fish_wasm_file "$(find node_modules -type f -a -name tree-sitter-fish.wasm)"
 
-if test -z "$wasm_file"
+if test -z "$fish_wasm_file"
     yarn add @esdmr/tree-sitter-fish
     echo "ERROR: 'tree-sitter-fish.wasm' not found"
     echo -e "try installing:\t@esdmr/tree-sitter-fish"
@@ -13,5 +14,5 @@ if test -z "$wasm_file"
     exit 1
 end
 
-cp -f "$wasm_file" . 
-and echo "SUCCESS: tree-sitter-fish.wasm copied"
+cp -f "$fish_wasm_file" . 
+and echo "SUCCESS: tree-sitter-fish.wasm copied from location '$fish_wasm_file'"
