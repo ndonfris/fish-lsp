@@ -16,7 +16,7 @@
   },
   {
     "name": "fish_lsp_logfile",
-    "description": "path to the logs.txt file (default: '~/path/to/fish-lsp/logs.txt')",
+    "description": "path to the logging file. An example location could be '/tmp/fish_lsp_logs.txt' (default: '')",
     "valueType": "string"
   },
   {
