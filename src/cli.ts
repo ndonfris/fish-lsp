@@ -5,7 +5,7 @@ import { createConnection, InitializeParams, InitializeResult, StreamMessageRead
 import { Command, Option } from 'commander';
 import FishServer from './server';
 import { buildFishLspCompletions } from './utils/get-lsp-completions';
-import { createServerLogger, ServerLogsPath, logToStdout } from './logger';
+import { createServerLogger, logToStdout } from './logger';
 import { configHandlers, generateJsonSchemaShellScript, getConfigFromEnvironmentVariables, showJsonSchemaShellScript, updateHandlers, validHandlers } from './config';
 
 export function startServer() {
@@ -141,7 +141,7 @@ commandBin.command('logger')
   .option('-q, --quiet', 'silence logging')
   .option('--config', 'show the logger config')
   .action(args => {
-    const logger = createServerLogger(config.fish_lsp_logfile || ServerLogsPath, false);
+    const logger = createServerLogger(config.fish_lsp_logfile, false);
     const objArgs = Object.getOwnPropertyNames(args);
     const argsQueue = objArgs;
     let currentArg: string = '';

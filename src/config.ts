@@ -1,6 +1,6 @@
 import os from 'os';
 import { z } from 'zod';
-import { ServerLogsPath, logToStdout } from './logger';
+import { logToStdout } from './logger';
 import fishLspEnvVariables from './snippets/fishlspEnvVariables.json';
 import { InitializeResult, TextDocumentSyncKind } from 'vscode-languageserver';
 import { CodeActionKind } from './code-action';
@@ -57,7 +57,7 @@ export const ConfigSchema = z.object({
   fish_lsp_commit_characters: z.array(z.string()).default(['\t', ';', ' ']),
 
   /** Path to the log files */
-  fish_lsp_logfile: z.string().default(ServerLogsPath),
+  fish_lsp_logfile: z.string().default(''),
 
   /** Tab size for formatting */
   fish_lsp_format_tabsize: z.number().default(4),
