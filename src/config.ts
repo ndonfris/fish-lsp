@@ -29,7 +29,7 @@ export const ConfigHandlerSchema = z.object({
 export const configHandlers = ConfigHandlerSchema.parse({});
 
 export const validHandlers: Array<keyof typeof ConfigHandlerSchema.shape> = [
-  'complete', 'hover', 'rename', 'reference', 'logger', 'formatting',
+  'complete', 'hover', 'rename', 'reference', 'logger', 
   'codeAction', 'codeLens', 'folding', 'signature', 'executeCommand',
   'inlayHint', 'highlight', 'diagnostic',
 ];
