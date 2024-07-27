@@ -1,17 +1,5 @@
-// import {
-//   CompletionItem,
-//   Connection,
-//   DocumentSymbol,
-//   Hover,
-//   Position,
-//   RemoteConsole,
-//   SymbolKind,
-//   Range,
-//   ExecuteCommandParams,
-// } from 'vscode-languageserver';
 import * as console from 'node:console';
 import fs from 'fs';
-import { resolve } from 'path';
 
 export interface IConsole {
   error(...args: any[]): void;
@@ -55,16 +43,20 @@ export class Logger {
   }
 
   clearLogFile(): void {
-    try {
-      // fs.truncateSync(this.logFilePath, 0);
-      fs.writeFileSync(this.logFilePath, '');
-    } catch (error) {
-      this._console.error(`Error clearing log file: ${error}`);
+    if (this.hasLogFile()) {
+      try {
+        // fs.truncateSync(this.logFilePath, 0);
+        fs.writeFileSync(this.logFilePath, '');
+      } catch (error) {
+        this._console.error(`Error clearing log file: ${error}`);
+      }
     }
   }
 
   private logToFile(message: string): void {
-    fs.appendFileSync(this.logFilePath, message + '\n', 'utf-8');
+    if (this.hasLogFile()) {
+      fs.appendFileSync(this.logFilePath, message + '\n', 'utf-8');
+    }
   }
 
   log(...args: any[]): void {
@@ -138,13 +130,7 @@ export class JestLogger extends Logger {
   }
 }
 
-export const ServerLogsPath = resolve(
-  __dirname,
-  '..',
-  'logs.txt',
-);
-
-export function createServerLogger(logFilePath: string = '', clear: boolean = true): Logger {
+export function createServerLogger(logFilePath: string, clear: boolean = true): Logger {
   return new Logger(logFilePath, clear);
 }
 

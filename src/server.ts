@@ -7,7 +7,7 @@ import { ExecResultWrapper, execEntireBuffer, execLineInBuffer, executeThemeDump
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
 import { formatDocumentContent } from './formatting';
-import { Logger, ServerLogsPath } from './logger';
+import { Logger } from './logger';
 import { symbolKindsFromNode, uriToPath } from './utils/translation';
 import { getChildNodes, getNodeAtPosition } from './utils/tree-sitter';
 import { handleHover } from './hover';
@@ -47,7 +47,7 @@ export default class FishServer {
     _params: InitializeParams,
   ): Promise<FishServer> {
     const documents = new LspDocuments();
-    const logger = new Logger(config.fish_lsp_logfile || ServerLogsPath, true, connection.console);
+    const logger = new Logger(config.fish_lsp_logfile, true, connection.console);
     const completionsMap = await CompletionItemMap.initialize();
 
     return await Promise.all([

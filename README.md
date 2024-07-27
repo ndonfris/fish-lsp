@@ -161,11 +161,11 @@ with the _function_ `edit_command_buffer`__).__
 
 ```fish
 # fish_lsp_enabled_handlers <ARRAY>
-# enables the fish-lsp handlers (options: 'formatting', 'logging', 'complete', 'hover', 'rename', 'definition', 'references', 'diagnostics', 'signatureHelp', 'codeAction', 'index')
+# enables the fish-lsp handlers (options: 'formatting', 'complete', 'hover', 'rename', 'definition', 'references', 'diagnostics', 'signatureHelp', 'codeAction', 'index')
 set -gx fish_lsp_enabled_handlers
 
 # fish_lsp_disabled_handlers <ARRAY>
-# disables the fish-lsp handlers (options: 'formatting', 'logging', 'complete', 'hover', 'rename', 'definition', 'references', 'diagnostics', 'signatureHelp', 'codeAction', 'index')
+# disables the fish-lsp handlers (options: 'formatting', 'complete', 'hover', 'rename', 'definition', 'references', 'diagnostics', 'signatureHelp', 'codeAction', 'index')
 set -gx fish_lsp_disabled_handlers
 
 # fish_lsp_commit_characters <ARRAY>
@@ -174,7 +174,8 @@ set -gx fish_lsp_disabled_handlers
 set -gx fish_lsp_commit_characters
 
 # fish_lsp_logfile <STRING>
-# path to the logs.txt file (default: '~/path/to/fish-lsp/logs.txt')
+# path to the logs.txt file (default: '')
+# example locations could be: '~/path/to/fish-lsp/logs.txt' or '/tmp/fish_lsp_logs.txt'
 set -gx fish_lsp_logfile
 
 # fish_lsp_format_tabsize <NUMBER>

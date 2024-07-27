@@ -1,12 +1,12 @@
 [
   {
     "name": "fish_lsp_enabled_handlers",
-    "description": "enables the fish-lsp handlers (options: 'formatting', 'logging', 'complete', 'hover', 'rename', 'definition', 'references', 'diagnostics', 'signatureHelp', 'codeAction', 'index')",
+    "description": "enables the fish-lsp handlers (options: 'formatting', 'complete', 'hover', 'rename', 'definition', 'references', 'diagnostics', 'signatureHelp', 'codeAction', 'index')",
     "valueType": "array"
   },
   {
     "name": "fish_lsp_disabled_handlers",
-    "description": "disables the fish-lsp handlers(options: 'formatting', 'logging', 'complete', 'hover', 'rename', 'definition', 'references', 'diagnostics', 'signatureHelp', 'codeAction', 'index')",
+    "description": "disables the fish-lsp handlers(options: 'formatting', 'complete', 'hover', 'rename', 'definition', 'references', 'diagnostics', 'signatureHelp', 'codeAction', 'index')",
     "valueType": "array"
   },
   {
@@ -16,7 +16,7 @@
   },
   {
     "name": "fish_lsp_logfile",
-    "description": "path to the logs.txt file (default: '~/path/to/fish-lsp/logs.txt')",
+    "description": "path to the logging file. An example location could be '/tmp/fish_lsp_logs.txt' (default: '')",
     "valueType": "string"
   },
   {
