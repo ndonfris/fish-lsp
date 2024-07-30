@@ -57,6 +57,7 @@ export function isCommand(node: SyntaxNode): boolean {
  * @returns {boolean} true if the node is the firstNamedChild of a function_definition
  */
 export function isFunctionDefinitionName(node: SyntaxNode): boolean {
+  if (!!node && !node?.parent) return false;
   const parent = node.parent;
   const funcName = parent?.firstNamedChild;
   if (!parent || !funcName) {

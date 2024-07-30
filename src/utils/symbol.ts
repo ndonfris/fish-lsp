@@ -1,119 +1,93 @@
-
-import { SyntaxNode } from 'web-tree-sitter';
 import {
-  SymbolKind,
-  Range,
   DocumentSymbol,
-  WorkspaceSymbol,
-  Location,
+  SymbolKind,
+  // Range,
+  DocumentUri,
 } from 'vscode-languageserver';
-import * as NodeTypes from './node-types';
-import { getRange, getNodeText } from './tree-sitter';
-import { toSymbolKind } from './translation';
+import { BFSNodesIter, getRange } from './tree-sitter';
+import { isVariableDefinitionName, isFunctionDefinitionName, refinedFindParentVariableDefinitionKeyword } from './node-types';
+import { SyntaxNode } from 'web-tree-sitter';
+import { DefinitionScope, getScope } from './definition-scope';
+import { MarkdownBuilder, md } from './markdown-builder';
+import { symbolKindToString } from './translation';
+import { PrebuiltDocumentationMap } from './snippets';
 
-export type SymbolItemType = 'Definition' | 'Scope' | 'Unknown';
+export interface FishDocumentSymbol extends DocumentSymbol {
+  uri: string;
+  children: FishDocumentSymbol[];
+  scope: DefinitionScope;
+  node: SyntaxNode;
+  mdCallback: () => string;
+  get detail(): string;
+}
 
-export interface SymbolItem {
-  name: string;
-  type: SymbolItemType;
+function mdCallback(this: FishDocumentSymbol): string {
+  const found = PrebuiltDocumentationMap.findMatchingNames(this.name, 'variable', 'command')?.find(name => name.name === this.name);
+  // const moreInfo = !!found ? found.description + md.newline() + md.separator() : md.separator();
+  const kindStr = `(${symbolKindToString(this.kind)})`;
+  return new MarkdownBuilder().fromMarkdown(
+    [
+      md.bold(kindStr), '-', md.italic(this.name),
+    ],
+    md.separator(),
+    md.codeBlock('fish', this.node.text),
+    found
+      ? md.newline() + md.separator() + md.newline() + found.description
+      : '',
+  ).toString();
+}
+
+function extractSymbolInfo(node: SyntaxNode): {
+  shouldCreate: boolean;
   kind: SymbolKind;
-  range: Range;
-  selectionRange: Range;
-  children?: SymbolItem[];
-  location?: Location;
+  child: SyntaxNode;
+  parent: SyntaxNode;
+
+} {
+  let shouldCreate = false;
+  let kind: SymbolKind = SymbolKind.Null;
+  let parent: SyntaxNode = node;
+  let child: SyntaxNode = node;
+  if (isVariableDefinitionName(child)) {
+    parent = refinedFindParentVariableDefinitionKeyword(child)!.parent!;
+    child = node;
+    kind = SymbolKind.Variable;
+    shouldCreate = !child.text.startsWith('$');
+  } else if (child.firstNamedChild && isFunctionDefinitionName(child.firstNamedChild)) {
+    parent = node;
+    child = child.firstNamedChild!;
+    kind = SymbolKind.Function;
+    shouldCreate = true;
+  }
+  return { shouldCreate, kind, parent, child };
 }
 
-export function getSymbolType(node: SyntaxNode): SymbolItemType {
-  if (NodeTypes.isFunctionDefinitionName(node) || NodeTypes.isVariableDefinitionName(node)) {
-    return 'Definition';
-  }
-  if (NodeTypes.isScope(node) || NodeTypes.IsCommandSubstitution(node)) {
-    return 'Scope';
-  }
-  return 'Unknown';
-}
+export function getFishDocumentSymbolItems(uri: DocumentUri, rootNode: SyntaxNode): FishDocumentSymbol[] {
+  function getSymbols(...currentNodes: SyntaxNode[]): FishDocumentSymbol[] {
+    const symbols: FishDocumentSymbol[] = [];
 
-export function findAllSymbolItems(
-  node: SyntaxNode,
-  uri: string,
-): SymbolItem[] {
-  const symbols: SymbolItem[] = [];
-
-  function traverse(currentNode: SyntaxNode, parent: SymbolItem | null = null): SymbolItem[] {
-    const symbolType = getSymbolType(currentNode);
-    const filters = symbolType.includes(symbolType);
-    const range = getRange(currentNode);
-
-    const symbol: SymbolItem = {
-      name: getNodeText(currentNode),
-      type: symbolType,
-      kind: toSymbolKind(currentNode),
-      range: range,
-      selectionRange: range || null,
-      children: [],
-      location: {
-        uri: uri,
-        range: range,
-      },
-    };
-
-    const childSymbols: SymbolItem[] = [];
-
-    for (const child of currentNode.children) {
-      childSymbols.push(...traverse(child, filters ? symbol : parent));
-    }
-
-    if (filters) {
-      symbol.children = childSymbols;
-      if (parent) {
-        parent.children?.push(symbol);
-      } else {
-        symbols.push(symbol);
+    for (const current of Array.from(BFSNodesIter(...currentNodes))) {
+      const childrenSymbols = getSymbols(...current.children);
+      const { shouldCreate, kind, parent, child } = extractSymbolInfo(current);
+      if (shouldCreate) {
+        symbols.push({
+          name: child.text,
+          kind,
+          uri,
+          node: current,
+          range: getRange(parent),
+          selectionRange: getRange(child),
+          scope: getScope(uri, child),
+          children: childrenSymbols ?? [] as FishDocumentSymbol[],
+          mdCallback,
+          get detail() {
+            return this.mdCallback();
+          },
+        });
       }
-      return [symbol];
-    } else {
-      return childSymbols;
     }
+    return symbols;
   }
 
-  traverse(node);
-  return symbols;
-}
-
-export function symbolItemToDocumentSymbol(item: SymbolItem): DocumentSymbol {
-  return {
-    name: item.name,
-    kind: item.kind,
-    range: item.range,
-    selectionRange: item.selectionRange,
-    children: item.children?.map(symbolItemToDocumentSymbol),
-  };
-}
-
-export function symbolItemToWorkspaceSymbol(item: SymbolItem): WorkspaceSymbol {
-  return {
-    name: item.name,
-    kind: item.kind,
-    location: item.location!,
-  };
-}
-
-export function findDocumentSymbols(node: SyntaxNode, uri: string): DocumentSymbol[] {
-  const symbolItems = findAllSymbolItems(node, uri);
-  return symbolItems.map(symbolItemToDocumentSymbol);
-}
-
-export function findWorkspaceSymbols(node: SyntaxNode, uri: string): WorkspaceSymbol[] {
-  const symbolItems = findAllSymbolItems(node, uri);
-  return symbolItems.flatMap(item => flattenSymbolItemToWorkspaceSymbols(item, uri));
-}
-
-function flattenSymbolItemToWorkspaceSymbols(item: SymbolItem, uri: string): WorkspaceSymbol[] {
-  const result: WorkspaceSymbol[] = [symbolItemToWorkspaceSymbol(item)];
-  if (item.children) {
-    for (const child of item.children) {
-      result.push(...flattenSymbolItemToWorkspaceSymbols(child, uri));
-    }
-  }
-  return result;
+  return getSymbols(rootNode);
 }
