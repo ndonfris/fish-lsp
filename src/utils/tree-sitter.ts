@@ -6,7 +6,7 @@ import { Point, SyntaxNode, Tree } from 'web-tree-sitter';
 // import { pathToFileURL } from 'url'; // typescript-language-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts
 // import vscodeUri from 'vscode-uri'; // typescript-language-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts
 // import { existsSync } from 'fs-extra';
-import { findSetDefinedVariable, isFunctionDefinition, isVariableDefinition, isFunctionDefinitionName, isVariable, isScope, isProgram, isCommandName, isForLoop, findForLoopVariable } from './node-types';
+import { findSetDefinedVariable, isFunctionDefinition, isVariableDefinition, isFunctionDefinitionName, isVariable, isScope, isProgram, isCommandName, isForLoop, findForLoopVariable, isDefinition, isVariableDefinitionName } from './node-types';
 
 /**
  * Returns an array for all the nodes in the tree (@see also nodesGen)
@@ -18,7 +18,7 @@ export function getChildNodes(root: SyntaxNode): SyntaxNode[] {
   const queue: SyntaxNode[] = [root];
   const result: SyntaxNode[] = [];
   while (queue.length) {
-    const current : SyntaxNode | undefined = queue.shift();
+    const current: SyntaxNode | undefined = queue.shift();
     if (current) {
       result.push(current);
     }
@@ -33,7 +33,7 @@ export function getNamedChildNodes(root: SyntaxNode): SyntaxNode[] {
   const queue: SyntaxNode[] = [root];
   const result: SyntaxNode[] = [];
   while (queue.length) {
-    const current : SyntaxNode | undefined = queue.shift();
+    const current: SyntaxNode | undefined = queue.shift();
     if (current && current.isNamed) {
       result.push(current);
     }
@@ -48,7 +48,7 @@ export function findChildNodes(root: SyntaxNode, predicate: (node: SyntaxNode) =
   const queue: SyntaxNode[] = [root];
   const result: SyntaxNode[] = [];
   while (queue.length) {
-    const current : SyntaxNode | undefined = queue.shift();
+    const current: SyntaxNode | undefined = queue.shift();
     if (current && predicate(current)) {
       result.push(current);
     }
@@ -79,7 +79,7 @@ export function getParentNodes(child: SyntaxNode): SyntaxNode[] {
   return result;
 }
 
-export function findFirstParent(node: SyntaxNode, predicate: (node: SyntaxNode) => boolean) : SyntaxNode | null {
+export function findFirstParent(node: SyntaxNode, predicate: (node: SyntaxNode) => boolean): SyntaxNode | null {
   let current: SyntaxNode | null = node.parent;
   while (current !== null) {
     if (predicate(current)) {
@@ -106,7 +106,7 @@ export function findFirstParent(node: SyntaxNode, predicate: (node: SyntaxNode) 
  */
 export function getSiblingNodes(
   node: SyntaxNode,
-  predicate : (n: SyntaxNode) => boolean,
+  predicate: (n: SyntaxNode) => boolean,
   direction: 'before' | 'after' = 'before',
 ): SyntaxNode[] {
   const siblingFunc = (n: SyntaxNode) =>
@@ -160,7 +160,7 @@ export function findFirstSibling(
   return null;
 }
 
-export function findEnclosingScope(node: SyntaxNode) : SyntaxNode {
+export function findEnclosingScope(node: SyntaxNode): SyntaxNode {
   let parent = node.parent || node;
   if (isFunctionDefinitionName(node)) {
     return findFirstParent(parent, n => isFunctionDefinition(n) || isProgram(n)) || parent;
@@ -172,7 +172,7 @@ export function findEnclosingScope(node: SyntaxNode) : SyntaxNode {
     return isForLoop(parent) && findForLoopVariable(parent)?.text === node.text
       ? parent
       : findFirstParent(node, n => isProgram(n) || isFunctionDefinitionName(n))
-                || parent;
+      || parent;
   } else if (isCommandName(node)) {
     return findFirstParent(node, n => isProgram(n)) || parent;
   } else {
@@ -238,7 +238,7 @@ export function ancestorMatch(
   inclusive: boolean = true,
 ): SyntaxNode[] {
   const ancestors = getParentNodes(start) || [];
-  const searchNodes : SyntaxNode[] = [];
+  const searchNodes: SyntaxNode[] = [];
   for (const p of ancestors) {
     searchNodes.push(...getChildNodes(p));
   }
@@ -259,7 +259,7 @@ export function descendantMatch(
   start: SyntaxNode,
   predicate: (n: SyntaxNode) => boolean,
   inclusive = true,
-) : SyntaxNode[] {
+): SyntaxNode[] {
   const descendants: SyntaxNode[] = [];
   descendants.push(...getChildNodes(start));
   const results = descendants.filter(descendant => predicate(descendant));
@@ -442,7 +442,7 @@ export function getPrecedingComments(node: SyntaxNode | null): string {
   ].join('\n');
 }
 
-function commentsHelper(node: SyntaxNode | null) : string {
+function commentsHelper(node: SyntaxNode | null): string {
   if (!node) {
     return '';
   }
@@ -479,19 +479,19 @@ export function isPositionWithinRange(position: Position, range: Range): boolean
 export function isPositionAfter(first: Position, second: Position): boolean {
   return (
     first.line < second.line ||
-        first.line === second.line && first.character < second.character
+    first.line === second.line && first.character < second.character
   );
 }
 export function isNodeWithinRange(node: SyntaxNode, range: Range): boolean {
   const doesStartInside =
     node.startPosition.row > range.start.line ||
     node.startPosition.row === range.start.line &&
-      node.startPosition.column >= range.start.character;
+    node.startPosition.column >= range.start.character;
 
   const doesEndInside =
     node.endPosition.row < range.end.line ||
     node.endPosition.row === range.end.line &&
-      node.endPosition.column <= range.end.character;
+    node.endPosition.column <= range.end.character;
 
   return doesStartInside && doesEndInside;
 }
@@ -511,6 +511,87 @@ export function* nodesGen(node: SyntaxNode) {
     }
 
     yield n;
+  }
+}
+
+export function* BFSNodesIter(...roots: SyntaxNode[]): Generator<SyntaxNode> {
+  const queue = roots;
+  while (queue.length > 0) {
+    const node = queue.shift()!;
+    yield node;
+    queue.push(...node.children);
+  }
+}
+
+// Implement the reverse BFS iterator function
+export function* reverseBFSNodesIter(...startNode: SyntaxNode[]): Generator<SyntaxNode> {
+  const queue: SyntaxNode[] = startNode;
+  const visited: Set<SyntaxNode> = new Set();
+
+  while (queue.length > 0) {
+    const currentNode = queue.shift();
+    if (!currentNode) continue;
+
+    // Check if the current node is a definition
+    if (isDefinition(currentNode)) {
+      yield currentNode;
+    }
+
+    // Mark the current node as visited
+    visited.add(currentNode);
+
+    // Enqueue the parent nodes if they haven't been visited
+    const parentNode = currentNode.parent;
+    if (parentNode && !visited.has(parentNode)) {
+      queue.push(parentNode);
+    }
+  }
+}
+
+// Implement the reverse BFS iterator function within the same scope
+export function* reverseBFSInScope(startNode: SyntaxNode): Generator<SyntaxNode> {
+  const queue: SyntaxNode[] = [startNode];
+  const visited: Set<SyntaxNode> = new Set();
+
+  while (queue.length > 0) {
+    const currentNode = queue.shift();
+    if (!currentNode) continue;
+
+    // Check if the current node is a variable definition before the startNode
+    if (isVariableDefinitionName(currentNode) && currentNode.startIndex < startNode.startIndex) {
+      yield currentNode;
+    }
+
+    // Check if the current node is a function definition anywhere in the same scope
+    if (isFunctionDefinitionName(currentNode)) {
+      yield currentNode;
+    }
+
+    // Mark the current node as visited
+    visited.add(currentNode);
+
+    // Enqueue the parent nodes if they haven't been visited
+    const parentNode = currentNode.parent;
+    if (parentNode && !visited.has(parentNode)) {
+      queue.push(parentNode);
+    }
+
+    // Enqueue sibling nodes if they haven't been visited
+    const siblings = parentNode ? parentNode.children : [];
+    for (const sibling of siblings) {
+      if (sibling !== currentNode && !visited.has(sibling)) {
+        queue.push(sibling);
+      }
+    }
+  }
+}
+
+export function* DFSNodesIter(...roots: SyntaxNode[]): IterableIterator<SyntaxNode> {
+  const stack: SyntaxNode[] = roots ;
+  while (stack.length > 0) {
+    const node = stack.shift()!;
+    yield node;
+    stack.unshift(...node.children);
   }
 }
 

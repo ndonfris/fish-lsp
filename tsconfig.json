@@ -1,6 +1,8 @@
 {
-  "extends": "@tsconfig/node-lts/tsconfig.json",
+ "extends": "@tsconfig/node21/tsconfig.json",
+  // "extends": "@tsconfig/node-lts/tsconfig.json",
   "compilerOptions": {
+    // "target": "ES2023",
     "esModuleInterop": true,
     "noUncheckedIndexedAccess": true,
     "resolveJsonModule": true,

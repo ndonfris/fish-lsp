@@ -1,12 +1,16 @@
 {
-  "extends": "./tsconfig.json",
+  "extends": ["@tsconfig/node21/tsconfig.json"],
   "compilerOptions": {
+    "allowUmdGlobalAccess": true,
     "esModuleInterop": true,
+    "moduleDetection": "force",
+    "downlevelIteration": true,
     "noUncheckedIndexedAccess": true,
     "resolveJsonModule": true,
-    "include": [
-      "test-data/**/*"
-    ]
-  }
+  },
+  "include": [
+    "test-data/*.test.ts",
+    "tsconfig.jest.json",
+    "tsconfig.json",
+  ],
 }
-
