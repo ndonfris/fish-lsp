@@ -116,6 +116,7 @@
     "tree-sitter-cli": "^0.22.2",
     "tree-sitter-fish": "https://github.com/ram02z/tree-sitter-fish",
     "ts-jest": "^29.1.2",
+    "ts-jest-mocker": "^1.0.0",
     "ts-node": "^10.9.2"
   }
 }

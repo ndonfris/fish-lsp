@@ -756,3 +756,7 @@ export function isCommandWithName(node: SyntaxNode, ...commandNames: string[]) {
 //   return false
 // }
 //
+
+export function IsCommandSubstitution(node: SyntaxNode) {
+  return node.type === 'command_substitution';
+}
