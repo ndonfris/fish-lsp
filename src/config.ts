@@ -14,7 +14,6 @@ export const ConfigHandlerSchema = z.object({
   hover: z.boolean().default(true),
   rename: z.boolean().default(true),
   reference: z.boolean().default(true),
-  logger: z.boolean().default(true),
   formatting: z.boolean().default(true),
   codeAction: z.boolean().default(true),
   codeLens: z.boolean().default(true),
