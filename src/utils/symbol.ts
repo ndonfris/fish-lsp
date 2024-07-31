@@ -3,6 +3,7 @@ import {
   SymbolKind,
   // Range,
   DocumentUri,
+  WorkspaceSymbol,
 } from 'vscode-languageserver';
 import { BFSNodesIter, getRange } from './tree-sitter';
 import { isVariableDefinitionName, isFunctionDefinitionName, refinedFindParentVariableDefinitionKeyword } from './node-types';
@@ -92,7 +93,22 @@ export function getFishDocumentSymbolItems(uri: DocumentUri, rootNode: SyntaxNod
   return getSymbols(rootNode);
 }
 
+export type Symbol = WorkspaceSymbol | DocumentSymbol;
+export function flattenSymbols(...symbols: (symbol | symbol[])[]): symbol[] {
+  const flatten = (arr: (symbol | symbol[])[]): symbol[] => {
+    return arr.reduce((acc: symbol[], item) => {
+      if (Array.isArray(item)) {
+        return acc.concat(flatten(item));
+      } else {
+        return acc.concat(item);
+      }
+    }, []);
+  };
+  return flatten(symbols);
+}
+
 import { z } from 'zod';
+// import { InternalSymbolName } from 'typescript';
 
 const FishFunctionOptionSchema = z.object({
   argumentNames: z.array(z.string()).optional(),
