@@ -2,6 +2,7 @@ import Parser, { SyntaxNode, Range, TreeCursor, Point } from 'web-tree-sitter';
 // import { createMockedSyntaxNode } from './mock-syntax-node';
 import { createFakeLspDocument, setLogger } from './helpers';
 import {
+  flattenSymbols,
   // DocumentationBuilder,
   // findAllSymbolItems,
   // SymbolItem,
@@ -63,70 +64,70 @@ function collectTillOption(opt: SyntaxNode) {
   return result;
 }
 
-type FishFunction = z.infer<typeof FishFunctionSchema>;
-
-function parseFishFunction(node: SyntaxNode): FishFunction {
-  const functionNameNode = node.parent!;
-  const functionName = node.text;
-  console.log({ functionNameNode: functionNameNode.text, children: functionNameNode.childrenForFieldName('option').filter(opt => opt.parent?.equals(functionNameNode)) });
-  const options: FishFunctionOption = {};
-
-  const parameterNodes = functionNameNode.childrenForFieldName('option').filter(opt => opt.parent?.equals(functionNameNode) && isOption(opt));
-  console.log({ params: parameterNodes.map(c => c.text + ':::' + c.type) });
-  for (const paramNode of parameterNodes) {
-    const optionName = paramNode!.text!;
-    const optionValue = collectTillOption(paramNode).map(o => o.text).join(' ');
-    switch (paramNode.type) {
-      case 'word':
-        console.log({ optionName, optionValue, type: paramNode.type });
-        switch (optionName) {
-          case '-a':
-          case '--argument-names':
-            options.argumentNames = optionValue ? optionValue.split(' ') : [];
-            break;
-          case '-d':
-          case '--description':
-            options.description = optionValue;
-            break;
-          case '-w':
-          case '--wraps':
-            options.wraps = optionValue;
-            break;
-          case '-e':
-          case '--on-event':
-            options.onEvent = optionValue;
-            break;
-          case '-v':
-          case '--on-variable':
-            options.onVariable = optionValue;
-            break;
-          case '-j':
-          case '--on-job-exit':
-            options.onJobExit = optionValue;
-            break;
-          case '-p':
-          case '--on-process-exit':
-            options.onProcessExit = optionValue;
-            break;
-          case '-s':
-          case '--on-signal':
-            options.onSignal = optionValue;
-            break;
-          case '-S':
-          case '--no-scope-shadowing':
-            options.noScopeShadowing = true;
-            break;
-          case '-V':
-          case '--inherit-variable':
-            options.inheritVariable = optionValue;
-            break;
-        }
-        break;
-    }
-  }
-
-  return FishFunctionSchema.parse({ functionName, options });
-}
+// type FishFunction = z.infer<typeof FishFunctionSchema>;
+//
+// function parseFishFunction(node: SyntaxNode): FishFunction {
+//   const functionNameNode = node.parent!;
+//   const functionName = node.text;
+//   console.log({ functionNameNode: functionNameNode.text, children: functionNameNode.childrenForFieldName('option').filter(opt => opt.parent?.equals(functionNameNode)) });
+//   const options: FishFunctionOption = {};
+//
+//   const parameterNodes = functionNameNode.childrenForFieldName('option').filter(opt => opt.parent?.equals(functionNameNode) && isOption(opt));
+//   console.log({ params: parameterNodes.map(c => c.text + ':::' + c.type) });
+//   for (const paramNode of parameterNodes) {
+//     const optionName = paramNode!.text!;
+//     const optionValue = collectTillOption(paramNode).map(o => o.text).join(' ');
+//     switch (paramNode.type) {
+//       case 'word':
+//         console.log({ optionName, optionValue, type: paramNode.type });
+//         switch (optionName) {
+//           case '-a':
+//           case '--argument-names':
+//             options.argumentNames = optionValue ? optionValue.split(' ') : [];
+//             break;
+//           case '-d':
+//           case '--description':
+//             options.description = optionValue;
+//             break;
+//           case '-w':
+//           case '--wraps':
+//             options.wraps = optionValue;
+//             break;
+//           case '-e':
+//           case '--on-event':
+//             options.onEvent = optionValue;
+//             break;
+//           case '-v':
+//           case '--on-variable':
+//             options.onVariable = optionValue;
+//             break;
+//           case '-j':
+//           case '--on-job-exit':
+//             options.onJobExit = optionValue;
+//             break;
+//           case '-p':
+//           case '--on-process-exit':
+//             options.onProcessExit = optionValue;
+//             break;
+//           case '-s':
+//           case '--on-signal':
+//             options.onSignal = optionValue;
+//             break;
+//           case '-S':
+//           case '--no-scope-shadowing':
+//             options.noScopeShadowing = true;
+//             break;
+//           case '-V':
+//           case '--inherit-variable':
+//             options.inheritVariable = optionValue;
+//             break;
+//         }
+//         break;
+//     }
+//   }
+//
+//   return FishFunctionSchema.parse({ functionName, options });
+// }
 
 describe('BFS (Breadth First Search) vs DFS (Depth First Search) Iterators', () => {
   // Helper function to create mock SyntaxNodes
@@ -192,17 +193,26 @@ describe('BFS build getDocumentSymbol', () => {
     ].join('\n'));
     const { rootNode } = parser.parse(doc.getText());
     const symbols = getFishDocumentSymbolItems(doc.uri, rootNode);
-    const foo = getChildNodes(rootNode).find(n => NodeTypes.isFunctionDefinitionName(n))!.parent!;
 
-    const functionNodes = getChildNodes(rootNode).filter(n => NodeTypes.isFunctionDefinitionName(n));
-
-    functionNodes.forEach(functionNode => {
-      const parsedFunction = parseFishFunction(functionNode);
-      console.log(JSON.stringify(parsedFunction, null, 2));
-    });
+    // const foo = getChildNodes(rootNode).find(n => NodeTypes.isFunctionDefinitionName(n))!.parent!;
+    // const functionNodes = getChildNodes(rootNode).filter(n => NodeTypes.isFunctionDefinitionName(n));
+    // functionNodes.forEach(functionNode => {
+    //   // const parsedFunction = parseFishFunction(functionNode);
+    //   // console.log(JSON.stringify(parsedFunction, null, 2));
+    // });
 
     // console.log(parseFishFunction(foo));
     // console.log(symbols.map(s => s.name + '\n' + s.detail + '\n' + md.separator()));
+    const first = symbols[0];
+    if (!first || !first.children) fail('No Symbol Children in \'Test 1\'');
+
+    /** logging */
+    // console.log('root', first.name);
+    // for (const symbol of first.children) {
+    //   console.log('\t' + symbol.name);
+    // }
+
+    expect(symbols[0]?.children.length).toBe(3);
   });
 
   it('test 2: `function path; path resolve $argv; end;`', async () => {
@@ -213,7 +223,8 @@ describe('BFS build getDocumentSymbol', () => {
     ].join('\n'));
     const { rootNode } = parser.parse(doc.getText());
     const symbols = getFishDocumentSymbolItems(doc.uri, rootNode);
-    console.log(symbols.map(s => s.name + '\n' + s.detail + '\n' + md.separator()));
+    expect(symbols.length).toBe(1);
+    // console.log(symbols.map(s => s.name + '\n' + s.detail + '\n' + md.separator()));
   });
 
   it('test 3: scripts/run.sh', () => {
@@ -224,7 +235,41 @@ describe('BFS build getDocumentSymbol', () => {
     ].join('\n'));
     const { rootNode } = parser.parse(doc.getText());
     const symbols = getFishDocumentSymbolItems(doc.uri, rootNode);
-    console.log(symbols.map(s => s.name + '\n' + s.detail + '\n' + md.separator()));
+    expect(symbols.length).toBe(1);
+    // console.log(symbols.map(s => s.name + '\n' + s.detail + '\n' + md.separator()));
+  });
+
+  it('test 4: flattenSymbols(foo, bar, baz)', () => {
+    const doc = createFakeLspDocument('functions/foo_bar.fish', [
+      'function foo --argument-names a b c d',
+      '    set depth 1',
+      '    echo "$a $b $c $d"',
+      '    set e "$a $b $c $d"',
+      '    echo "depth: $depth"',
+      '    function bar --argument-names f',
+      '       set depth 2',
+      '       echo $f',
+      '       echo "depth: $depth"',
+      '       function baz',
+      '           set depth 3',
+      '           echo "inside baz: $a"',
+      '           echo "depth: $depth"',
+      '       end',
+      '    end',
+      'end',
+    ].join('\n'));
+
+    const { rootNode } = parser.parse(doc.getText());
+    const symbols = getFishDocumentSymbolItems(doc.uri, rootNode);
+
+    const flatSymbols = flattenSymbols(symbols);
+
+    /** logging */
+    // for (const symbol of flatSymbols) {
+    //   console.log(symbol.name);
+    // }
+
+    expect(flatSymbols.length).toBe(12);
   });
 });
 
