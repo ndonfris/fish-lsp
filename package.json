@@ -25,7 +25,6 @@
   "scripts": {
     "prepare": "husky",
     "setup": "run-s sh:build-time sh:build-wasm",
-    "preinstall": "yarn install --ignore-scripts --no-progress",
     "postinstall": "run-s setup compile sh:relink sh:build-completions",
     "compile": "tsc -b",
     "watch": "tsc -b -w",
@@ -74,6 +73,7 @@
     ]
   },
   "dependencies": {
+    "@dotenvx/dotenvx": "^1.6.4",
     "@esdmr/tree-sitter-fish": "^3.5.2-0",
     "colors": "^1.4.0",
     "commander": "^12.0.0",

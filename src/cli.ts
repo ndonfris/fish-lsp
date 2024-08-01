@@ -7,6 +7,7 @@ import FishServer from './server';
 import { buildFishLspCompletions } from './utils/get-lsp-completions';
 import { createServerLogger, logToStdout } from './logger';
 import { configHandlers, generateJsonSchemaShellScript, getConfigFromEnvironmentVariables, showJsonSchemaShellScript, updateHandlers, validHandlers } from './config';
+import { setupProcessEnvExecFile } from './utils/process-env';
 
 export function startServer() {
   // Create a connection for the server.
@@ -47,6 +48,7 @@ const createFishLspBin = (): Command => {
 
 // create config to be used globally
 export const { config, environmentVariablesUsed } = getConfigFromEnvironmentVariables();
+setupProcessEnvExecFile()
 
 // start adding options to the command
 export const commandBin = createFishLspBin();
