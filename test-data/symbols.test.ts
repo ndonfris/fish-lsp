@@ -249,7 +249,10 @@ describe('[FishDocumentSymbol OPERATIONS]', () => {
     // })
   });
 
-  describe('[SPECIAL VARIABLES] `argparse`, `$status`, `$pipestatus`, `$argv`', () => {
+  /**
+    * UNTESTED
+    */
+  describe('**UNTESTED** [SPECIAL VARIABLES] `argparse`, `$status`, `$pipestatus`, `$argv`', () => {
     function testSpecialVariables(filename: string, code: string, targetText: string) {
       const tree = parser.parse(code);
       const { rootNode } = tree;
