@@ -1,7 +1,8 @@
 #!/usr/bin/env fish
 
-if not test -d $HOME/.config/fish/completions
-  mkdir -p $HOME/.config/fish/completions 
+# https://github.com/alacritty/alacritty/blob/master/INSTALL.md#fish 
+set -l complete_dir "$fish_complete_path[1]"
+if not test -d "$complete_dir"
+  mkdir -p $complete_dir
 end
-
-fish-lsp complete > $HOME/.config/fish/completions/fish-lsp.fish
+fish-lsp complete > $complete_dir/fish-lsp.fish
