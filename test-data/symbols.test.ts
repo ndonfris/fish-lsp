@@ -4,12 +4,13 @@ import {
   FishDocumentSymbol,
   flattenSymbols,
   getFishDocumentSymbolItems,
-
 } from '../src/utils/symbol';
 import * as TreeSitterUtils from '../src/utils/tree-sitter';
-// import * as NodeTypes from '../src/utils/node-types';
 import { initializeParser } from '../src/parser';
-import { WorkspaceSymbol } from 'vscode-languageserver';
+import { Position, WorkspaceSymbol } from 'vscode-languageserver';
+import { isCommandName, isFunctionDefinitionName, isVariableDefinitionName } from '../src/utils/node-types';
+import { getRange } from '../src/utils/tree-sitter';
+import { LspDocument } from '../src/document';
 
 describe('BFS (Breadth First Search) vs DFS (Depth First Search) Iterators', () => {
   // Helper function to create mock SyntaxNodes
@@ -51,150 +52,286 @@ describe('BFS (Breadth First Search) vs DFS (Depth First Search) Iterators', () 
   });
 });
 
-describe('BFS build getDocumentSymbol', () => {
-  let parser: Parser;
+let parser: Parser;
 
-  setLogger(async () => {
-    parser = await initializeParser();
-  }, async () => {
-    parser?.reset();
-  });
+setLogger(async () => {
+  parser = await initializeParser();
+}, async () => {
+  parser?.reset();
+});
 
-  it('test 1: `foo -a a b c; echo $a; echo $b; echo $c; end;`', async () => {
-    const doc = createFakeLspDocument('functions/foo.fish', [
-      'function foo \\',
-      '    -a a b c',
-      '    echo $a',
-      '    echo $b',
-      '    echo $c',
-      'end',
-      'function bar',
-      '    set -l a 11',
-      'end',
-      'foo 1 2 3',
-    ].join('\n'));
+describe('[FishDocumentSymbol OPERATIONS]', () => {
+  function testSymbolExtraction(filename: string, code: string) {
+    const doc = createFakeLspDocument(filename, code);
     const { rootNode } = parser.parse(doc.getText());
-    const symbols = getFishDocumentSymbolItems(doc.uri, rootNode);
+    return getFishDocumentSymbolItems(doc.uri, rootNode);
+  }
 
-    // const foo = getChildNodes(rootNode).find(n => NodeTypes.isFunctionDefinitionName(n))!.parent!;
-    // const functionNodes = getChildNodes(rootNode).filter(n => NodeTypes.isFunctionDefinitionName(n));
-    // functionNodes.forEach(functionNode => {
-    //   // const parsedFunction = parseFishFunction(functionNode);
-    //   // console.log(JSON.stringify(parsedFunction, null, 2));
-    // });
-
-    // console.log(parseFishFunction(foo));
-    // console.log(symbols.map(s => s.name + '\n' + s.detail + '\n' + md.separator()));
-    const first = symbols[0];
-    if (!first || !first.children) fail('No Symbol Children in \'Test 1\'');
-
-    /** logging */
-    // console.log('root', first.name);
-    // for (const symbol of first.children) {
-    //   console.log('\t' + symbol.name);
-    // }
-
+  it('`foo -a a b c; echo $a; echo $b; echo $c; end;`', () => {
+    const symbols = testSymbolExtraction('functions/foo.fish', `
+      function foo \\
+          -a a b c
+          echo $a
+          echo $b
+          echo $c
+      end
+      function bar
+          set -l a 11
+      end
+      foo 1 2 3
+    `);
     expect(symbols[0]?.children.length).toBe(3);
   });
 
-  it('test 2: `function path; path resolve $argv; end;`', async () => {
-    const doc = createFakeLspDocument('functions/path.fish', [
-      'function path',
-      '    path resolve $argv',
-      'end',
-    ].join('\n'));
-    const { rootNode } = parser.parse(doc.getText());
-    const symbols = getFishDocumentSymbolItems(doc.uri, rootNode);
+  it('`function path; path resolve $argv; end;`', () => {
+    const symbols = testSymbolExtraction('functions/path.fish', `
+      function path
+          path resolve $argv
+      end
+    `);
     expect(symbols.length).toBe(1);
-    // console.log(symbols.map(s => s.name + '\n' + s.detail + '\n' + md.separator()));
   });
 
-  it('test 3: scripts/run.sh', () => {
-    const doc = createFakeLspDocument('scripts/run.fish', [
-      '#!/usr/bin/env fish',
-      'set cmd $argv',
-      'eval $cmd',
-    ].join('\n'));
-    const { rootNode } = parser.parse(doc.getText());
-    const symbols = getFishDocumentSymbolItems(doc.uri, rootNode);
+  it('scripts/run.sh', () => {
+    const symbols = testSymbolExtraction('scripts/run.fish', `
+      #!/usr/bin/env fish
+      set cmd $argv
+      eval $cmd
+    `);
     expect(symbols.length).toBe(1);
-    // console.log(symbols.map(s => s.name + '\n' + s.detail + '\n' + md.separator()));
   });
 
-  it('test 4: flattenSymbols(foo, bar, baz)', () => {
-    const doc = createFakeLspDocument('functions/foo_bar.fish', [
-      'function foo --argument-names a b c d',
-      '    set depth 1',
-      '    echo "$a $b $c $d"',
-      '    set e "$a $b $c $d"',
-      '    echo "depth: $depth"',
-      '    function bar --argument-names f',
-      '       set depth 2',
-      '       echo $f',
-      '       echo "depth: $depth"',
-      '       function baz',
-      '           set depth 3',
-      '           echo "inside baz: $a"',
-      '           echo "depth: $depth"',
-      '       end',
-      '    end',
-      'end',
-    ].join('\n'));
-
-    const { rootNode } = parser.parse(doc.getText());
-    const symbols: FishDocumentSymbol[] = getFishDocumentSymbolItems(doc.uri, rootNode);
-
+  it('flattenSymbols(foo, bar, baz)', () => {
+    const symbols = testSymbolExtraction('functions/foo_bar.fish', `
+      function foo --argument-names a b c d
+          set depth 1
+          echo "$a $b $c $d"
+          set e "$a $b $c $d"
+          echo "depth: $depth"
+          function bar --argument-names f
+             set depth 2
+             echo $f
+             echo "depth: $depth"
+             function baz
+                 set depth 3
+                 echo "inside baz: $a"
+                 echo "depth: $depth"
+             end
+          end
+      end
+    `);
     const flatSymbols = flattenSymbols(...symbols);
-
-    /** logging */
-    // for (const symbol of flatSymbols) {
-    //   console.log(symbol.name);
-    // }
-
     expect(flatSymbols.length).toBe(12);
   });
 
-  it('test 5: Translate/Filter WorkspaceSymbols(foo, bar, baz)', () => {
-    const doc = createFakeLspDocument('functions/foo_bar.fish', [
-      'function foo_bar --argument-names a b c d',
-      '    set depth 1',
-      '    echo "$a $b $c $d"',
-      '    set -gx e "$a $b $c $d"',
-      '    echo "depth: $depth"',
-      '    function bar --argument-names f',
-      '       set depth 2',
-      '       echo $f',
-      '       echo "depth: $depth"',
-      '    end',
-      'end',
-    ].join('\n'));
-
-    const { rootNode } = parser.parse(doc.getText());
-    const symbols: FishDocumentSymbol[] = getFishDocumentSymbolItems(doc.uri, rootNode);
-
-    /** WorkspaceSymbols found filtering a LspDocument's FishDocumentSymbol[] items for ScopeTag */
-    const result: FishDocumentSymbol[] = [];
-    for (const symbol of flattenSymbols(...symbols)) {
-      if (['global', 'universal'].includes(symbol.scope.scopeTag)) {
-        result.push(symbol);
-      }
+  describe('[FILTER] FishDocumentSymbols', () => {
+    function testSymbolFiltering(filename: string, code: string) {
+      const doc = createFakeLspDocument(filename, code);
+      const { rootNode } = parser.parse(doc.getText());
+      const symbols: FishDocumentSymbol[] = getFishDocumentSymbolItems(doc.uri, rootNode);
+      const flatSymbols = flattenSymbols(...symbols);
+      return {
+        flatSymbols,
+        rootNode,
+        doc,
+        tree: parser.parse(code),
+      };
     }
 
-    /** convert results to WorkspaceSymbols */
-    const workspaceSymbols = result.map(symbol => {
-      return {
+    it('( `global` || `universal` ) WorkspaceSymbols from (foo, bar, baz)', () => {
+      const { flatSymbols } = testSymbolFiltering('functions/foo_bar.fish', `
+        function foo_bar --argument-names a b c d
+            set depth 1
+            echo "$a $b $c $d"
+            set -gx e "$a $b $c $d"
+            echo "depth: $depth"
+            function bar --argument-names f
+               set depth 2
+               echo $f
+               echo "depth: $depth"
+            end
+        end
+      `);
+
+      const result = flatSymbols.filter(symbol => ['global', 'universal'].includes(symbol.scope.scopeTag));
+      const workspaceSymbols = result.map(symbol => ({
         name: symbol.name,
         kind: symbol.kind,
         location: { uri: symbol.uri, range: symbol.range },
-      } as WorkspaceSymbol;
+      } as WorkspaceSymbol));
+
+      expect(workspaceSymbols.length).toBe(2);
     });
 
-    // console.log(workspaceSymbols);
-    expect(workspaceSymbols.length).toBe(2);
+    it('filter up-to-node `foo_bar` `a` `b` `c` `d` `depth` [`e`]', () => {
+      const { flatSymbols, rootNode } = testSymbolFiltering('functions/foo_bar.fish', [
+        'function foo_bar --argument-names a b c d',
+        '    set depth 1',
+        '    echo "$a $b $c $d"',
+        '    set -gx e "$a $b $c $d"',
+        '    echo "depth: $depth"',
+        '    function bar --argument-names f',
+        '       set depth 2',
+        '       echo $f',
+        '       echo "depth: $depth"',
+        '    end',
+        'end',
+      ].join('\n'));
+      const cursor: Position = getRange(
+        TreeSitterUtils
+          .getChildNodes(rootNode)
+          .find(n => isVariableDefinitionName(n) && n.text === 'e')!,
+      ).end;
 
-    /** logging */
-    // for (const symbol of flatSymbols) {
-    //   console.log(symbol.name);
-    // }
+      const result = flatSymbols
+        .filter(s => s.name !== 'e')
+        .filter(s => s.scope.containsPosition(cursor));
+
+      // console.log(result.map(s => s.name));
+      expect(result.map(s => s.name)).toEqual([
+        'foo_bar',
+        'a',
+        'b',
+        'c',
+        'd',
+        'depth',
+      ]);
+    });
+
+    // it('[nested function] filter up-to-node (BAD SYNTAX: `foo_baz`, `_baz`)', () => {
+    //
+    //   const result = testSymbolFiltering('functions/foo_baz.fish', [
+    //     `function foo_baz`,
+    //     `     _baz`,
+    //     `    `,
+    //     `    function _baz`,
+    //     `        echo 'cant read _baz'`,
+    //     `    end`,
+    //     `end`,
+    //   ].join('\n'))
+    //   const {tree, rootNode, flatSymbols} = result
+    //   const cursor: Position = getRange(
+    //       TreeSitterUtils.getChildNodes(tree.rootNode)
+    //       .find((n: SyntaxNode) => n.text === '_baz' && isFunctionDefinitionName(n))!
+    //   ).end
+    //
+    //   const cursorNode: SyntaxNode = tree.rootNode.namedDescendantForPosition(
+    //     TreeSitterUtils.positionToPoint({ line: cursor.line, character: cursor.character - 1 })
+    //   )!;
+    //
+    //   const symbols = flatSymbols.filter(s => s.scope.containsPosition(cursor))
+    //   console.log(symbols.map(s => s.name));
+    // });
+
+    // it('[private function] filter up-to-node (GOOD SYNTAX: `foo_bar`, `_bar`)', () => {
+    //
+    //   const result = testSymbolFiltering('functions/foo_bar.fish', [
+    //     `function foo_bar`,
+    //     `     _bar`,
+    //     `    `,
+    //     `end`,
+    //     `function _bar`,
+    //     `    echo 'CAN READ _bar'`,
+    //     `end`,
+    //   ].join('\n'))
+    //   const {tree, rootNode, flatSymbols} = result
+    //   const cursor: Position = getRange(
+    //       TreeSitterUtils.getChildNodes(tree.rootNode)
+    //       .find((n: SyntaxNode) => n.text === '_baz' && isFunctionDefinitionName(n))!
+    //   ).end
+    //
+    //   const cursorNode: SyntaxNode = tree.rootNode.namedDescendantForPosition(
+    //     TreeSitterUtils.positionToPoint({ line: cursor.line, character: cursor.character - 1 })
+    //   )!;
+    //
+    //   const symbols = flatSymbols.filter(s => s.scope.containsPosition(cursor))
+    //   console.log(symbols.map(s => s.name));
+    // })
+  });
+
+  describe('[SPECIAL VARIABLES] `argparse`, `$status`, `$pipestatus`, `$argv`', () => {
+    function testSpecialVariables(filename: string, code: string, targetText: string) {
+      const tree = parser.parse(code);
+      const { rootNode } = tree;
+      const symbols: FishDocumentSymbol[] = getFishDocumentSymbolItems(filename, rootNode);
+      const cursor: Position = getRange(
+        TreeSitterUtils
+          .getChildNodes(rootNode)
+          .find(n => (isCommandName(n) || n.text === targetText) && n.text === targetText)!,
+      ).end;
+
+      const cursorNode: SyntaxNode = tree.rootNode.namedDescendantForPosition(
+        TreeSitterUtils.positionToPoint({
+          line: cursor.line,
+          character: cursor.character - 1,
+        }),
+      )!;
+
+      // console.log(targetText, { cursorNode: cursorNode.text });
+      return cursorNode;
+    }
+
+    it('argparse h/help', () => {
+      const cursorNode = testSpecialVariables('functions/foo.fish', `
+        function foo
+            argparse h/help n/name q/query -- $argv
+            or return
+            
+            set -gx e "$a $b $c $d"
+            set depth 1
+        end
+      `, 'argparse');
+      expect(cursorNode.text).toBe('argparse');
+    });
+
+    it('`_flag_help` from `argparse h/help -- $argv; or return`', () => {
+      const cursorNode = testSpecialVariables('functions/foo.fish', `
+        function foo --argument-names a b c d
+            argparse h/help n/name q/query -- $argv
+            or return
+            
+            if set -q _flag_help
+                echo "help message"
+            end
+            set depth 1
+        end
+      `, '_flag_help');
+      expect(cursorNode.text).toBe('_flag_help');
+    });
+
+    it('`$argv` from `argparse h/help -- $argv; or return`', () => {
+      const cursorNode = testSpecialVariables('functions/foo.fish', `
+        function foo
+            argparse h/help n/name q/query -- $argv
+            or return
+            
+            set depth 1
+        end
+      `, '$argv');
+      expect(cursorNode.text).toBe('argv');
+    });
+
+    it('`$status` from `argparse h/help -- $argv; or return`', () => {
+      const cursorNode = testSpecialVariables('functions/foo.fish', `
+        function foo
+            argparse h/help n/name q/query -- $argv
+            or return
+            
+            return $status
+        end
+      `, '$status');
+      expect(cursorNode.text).toBe('status');
+    });
+
+    it('`$pipe_status` from `echo \'hello world\' | string split \' \'`', () => {
+      const cursorNode = testSpecialVariables('functions/foo.fish', `
+        function foo
+            echo 'hello world' | string split ' '
+            
+            return $pipestatus
+        end
+      `, '$pipestatus');
+      expect(cursorNode.text).toBe('pipestatus');
+    });
   });
 });

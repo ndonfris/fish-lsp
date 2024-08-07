@@ -17,11 +17,11 @@ export interface FishDocumentSymbol extends DocumentSymbol {
   children: FishDocumentSymbol[];
   scope: DefinitionScope;
   node: SyntaxNode;
-  mdCallback: () => string;
+  mdCallback: (parent: SyntaxNode) => string;
   get detail(): string;
 }
 
-function mdCallback(this: FishDocumentSymbol): string {
+function mdCallback(this: FishDocumentSymbol, parent: SyntaxNode): string {
   const found = PrebuiltDocumentationMap.findMatchingNames(this.name, 'variable', 'command')?.find(name => name.name === this.name);
   // const moreInfo = !!found ? found.description + md.newline() + md.separator() : md.separator();
   const kindStr = `(${symbolKindToString(this.kind)})`;
@@ -30,7 +30,7 @@ function mdCallback(this: FishDocumentSymbol): string {
       md.bold(kindStr), '-', md.italic(this.name),
     ],
     md.separator(),
-    md.codeBlock('fish', this.node.text),
+    md.codeBlock('fish', parent.text),
     found
       ? md.newline() + md.separator() + md.newline() + found.description
       : '',
@@ -81,7 +81,7 @@ export function getFishDocumentSymbolItems(uri: DocumentUri, rootNode: SyntaxNod
           children: childrenSymbols ?? [] as FishDocumentSymbol[],
           mdCallback,
           get detail() {
-            return this.mdCallback();
+            return this.mdCallback(parent);
           },
         });
       }
