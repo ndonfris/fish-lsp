@@ -48,7 +48,7 @@ const createFishLspBin = (): Command => {
 
 // create config to be used globally
 export const { config, environmentVariablesUsed } = getConfigFromEnvironmentVariables();
-setupProcessEnvExecFile()
+setupProcessEnvExecFile();
 
 // start adding options to the command
 export const commandBin = createFishLspBin();

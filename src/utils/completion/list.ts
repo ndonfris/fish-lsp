@@ -1,5 +1,5 @@
 import { FishCompletionData, FishCompletionItem, toCompletionItemKind } from './types';
-import { FishDocumentSymbol } from '../../document-symbol';
+import { FishDocumentSymbol } from '../symbol';
 import { Logger } from '../../logger';
 import { CompletionList } from 'vscode-languageserver-protocol';
 

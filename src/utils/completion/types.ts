@@ -6,7 +6,7 @@ import {
   SymbolKind,
   TextEdit,
 } from 'vscode-languageserver';
-import { FishDocumentSymbol } from '../../document-symbol';
+import { FishDocumentSymbol } from '../symbol';
 
 export const FishCompletionItemKind = {
   ABBR: 'abbr',

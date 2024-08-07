@@ -5,7 +5,7 @@ import { InlayHint, MarkupContent, Range } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { Analyzer } from './analyze';
 import { LspDocument } from './document';
-import { containsRange } from './workspace-symbol';
+// import { containsRange } from './workspace-symbol';
 
 // https://vscode-api.js.org/interfaces/vscode.InlayHintsProvider.html#onDidChangeInlayHints
 // https://github.com/youngjuning/vscode-api.js.org/blob/9120b31/vscode.d.ts#L5174
@@ -17,7 +17,7 @@ export async function inlayHintsProvider(
   const result: FishInlayHint[] = [];
   const nodes = analyzer.getNodes(document);
 
-  const insideRange = (node: SyntaxNode) => containsRange(range, getRange(node));
+  // const insideRange = (node: SyntaxNode) => containsRange(range, getRange(node));
   const isPrintableCommand = (node: SyntaxNode) => node.text.startsWith('printf') || node.text.startsWith('echo'); /* change to printflsp */
   const _isStringCommand = (node: SyntaxNode) => node.text.startsWith('string');
   const isInlayHint = (node: SyntaxNode) => {
@@ -37,7 +37,7 @@ export async function inlayHintsProvider(
   };
 
   const hintNodes: SyntaxNode[] = nodes
-    .filter(insideRange)
+    // .filter(insideRange)
     .filter(isInlayHint);
   await Promise.all(hintNodes.map(async (node) => {
     const text = node.text;
