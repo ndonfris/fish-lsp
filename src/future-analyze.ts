@@ -26,6 +26,7 @@ type AnalyzedDocument = {
  */
 export class Analysis { // @TODO rename to Analyzer
   public cachedDocuments: { [ uri: string ]: AnalyzedDocument; } = {};
+  public workspaceSymbols: { [symbolName: string]: FishDocumentSymbol[]; } = {};
 
   constructor(protected parser: Parser) {}
 

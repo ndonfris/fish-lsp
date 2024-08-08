@@ -6,7 +6,7 @@ import { Point, SyntaxNode, Tree } from 'web-tree-sitter';
 // import { pathToFileURL } from 'url'; // typescript-language-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts
 // import vscodeUri from 'vscode-uri'; // typescript-language-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts
 // import { existsSync } from 'fs-extra';
-import { findSetDefinedVariable, isFunctionDefinition, isVariableDefinition, isFunctionDefinitionName, isVariable, isScope, isProgram, isCommandName, isForLoop, findForLoopVariable, isDefinition, isVariableDefinitionName } from './node-types';
+import { findSetDefinedVariable, isFunctionDefinition, isVariableDefinition, isFunctionDefinitionName, isVariable, isScope, isProgram, isCommandName, isForLoop, findForLoopVariable, isDefinition, isVariableDefinitionName, isCommand } from './node-types';
 
 /**
  * Returns an array for all the nodes in the tree (@see also nodesGen)
@@ -687,6 +687,47 @@ export function getCommandArgumentValue(command: SyntaxNode, argName: string): S
 //
 //  return result
 //}
+
+/**
+ * BE CAREFUL INDEXING AT POSITION BASED OFF OF CURSOR LOCATION!
+ *  - cursor location might expect `{line, character - 1}`
+ */
 export function getNodeAtPosition(tree: Tree, position: { line: number; character: number; }): SyntaxNode | null {
   return tree.rootNode.descendantForPosition({ row: position.line, column: position.character });
+}
+
+/**
+ * BE CAREFUL INDEXING AT POSITION BASED OFF OF CURSOR LOCATION!
+ *  - cursor location might expect `{line, column - 1}`
+ */
+export function getNodeAtPoint(tree: Tree, point: {line: number; column: number;}): SyntaxNode | null {
+  return tree.rootNode.descendantForPosition({ row: point.line, column: point.column });
+}
+
+export function getCommandNameAtPoint(tree: Tree, point: {line: number; column: number;}): string | null {
+  let node = getNodeAtPoint(tree, point);
+
+  while (node && !isCommand(node)) {
+    node = node.parent;
+  }
+
+  if (!node) return null;
+
+  const firstChild = node.firstNamedChild;
+  if (!firstChild || !isCommandName(firstChild)) {
+    return null;
+  }
+  return firstChild.text.trim();
+}
+
+/**
+ * OLD
+ * https://github.com/ndonfris/fish-lsp/blob/76e31bd6d585f4648dc7fedde942bfbfb679cc23/src/analyze.ts#L259C10-L271C4
+ */
+export function getWordAtPoint(tree: Tree, point: {line: number; column: number;}): string | null {
+  const node = getNodeAtPoint(tree, point);
+  if (!node || node.childCount > 0 || node.text.trim() === '') {
+    return null;
+  }
+  return node.text;
 }
