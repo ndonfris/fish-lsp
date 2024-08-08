@@ -8,7 +8,7 @@ import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
 import { formatDocumentContent } from './formatting';
 import { Logger } from './logger';
-import { symbolKindsFromNode, uriToPath } from './utils/translation';
+import { symbolKindToString, symbolKindsFromNode, uriToPath } from './utils/translation';
 import { getChildNodes, getNodeAtPosition } from './utils/tree-sitter';
 import { handleHover } from './hover';
 import { getDiagnostics } from './diagnostics/validate';
@@ -18,10 +18,10 @@ import { FishProtocol } from './utils/fishProtocol';
 import { inlayHintsProvider } from './inlay-hints';
 import { DocumentationCache, initializeDocumentationCache } from './utils/documentation-cache';
 import { initializeDefaultFishWorkspaces } from './utils/workspace';
-import { filterLastPerScopeSymbol, FishDocumentSymbol } from './document-symbol';
+// import { filterLastPerScopeSymbol, FishDocumentSymbol } from './document-symbol';
 //import { FishCompletionItem, FishCompletionData, FishCompletionItemKind } from './utils/completion-strategy';
 //import { getFlagDocumentationAsMarkup } from './utils/flag-documentation';
-import { getRenameWorkspaceEdit, getReferenceLocations } from './workspace-symbol';
+// import { getRenameWorkspaceEdit, getReferenceLocations } from './workspace-symbol';
 import { CompletionPager, initializeCompletionPager } from './utils/completion/pager';
 import { FishCompletionItem } from './utils/completion/types';
 import { getDocumentationResolver } from './utils/completion/documentation';
@@ -35,6 +35,7 @@ import { getAliasedCompletionItemSignature } from './signature';
 import { CompletionItemMap } from './utils/completion/startup-cache';
 import { getDocumentHighlights } from './document-highlight';
 import { SyncFileHelper } from './utils/file-operations';
+import { flattenSymbols } from './utils/symbol';
 
 // @TODO
 export type SupportedFeatures = {
@@ -165,7 +166,7 @@ export default class FishServer {
     doc.applyEdits(doc.version + 1, ...params.contentChanges);
     this.analyzer.analyze(doc);
     this.logger.logAsJson(`CHANGED -> ${doc.version}:::${doc.uri}`);
-    const root = this.analyzer.getRootNode(doc);
+    const root = this.analyzer.getRootNode(doc.uri);
     if (!root) return;
     this.connection.sendDiagnostics(this.sendDiagnostics({ uri: doc.uri, diagnostics: [] }));
     // else ?
@@ -268,8 +269,9 @@ export default class FishServer {
     const { doc } = this.getDefaultsForPartialParams(params);
     if (!doc) return [];
 
-    const symbols = this.analyzer.cache.getDocumentSymbols(doc.uri);
-    return filterLastPerScopeSymbol(symbols);
+    const symbols = this.analyzer.getDocumentSymbols(doc.uri);
+    // return filterLastPerScopeSymbol(symbols);
+    return symbols;
   }
 
   protected get supportHierarchicalDocumentSymbol(): boolean {
@@ -376,7 +378,8 @@ export default class FishServer {
     const { doc, uri, root, current } = this.getDefaults(params);
     if (!doc || !uri || !root || !current) return [];
 
-    return getReferenceLocations(this.analyzer, doc, params.position);
+    // return getReferenceLocations(this.analyzer, doc, params.position);
+    return [];
   }
 
   // Probably should move away from `documentationCache`. It works but is too expensive memory wise.
@@ -470,12 +473,13 @@ export default class FishServer {
     const { doc } = this.getDefaults(params);
     if (!doc) return null;
 
-    return getRenameWorkspaceEdit(
-      this.analyzer,
-      doc,
-      params.position,
-      params.newName,
-    );
+    // return getRenameWorkspaceEdit(
+    //   this.analyzer,
+    //   doc,
+    //   params.position,
+    //   params.newName,
+    // );
+    return null;
   }
 
   async onDocumentFormatting(params: DocumentFormattingParams): Promise<TextEdit[]> {
@@ -578,8 +582,11 @@ export default class FishServer {
     }
 
     //this.analyzer.analyze(document)
+
+    // const rootNode = this.analyzer.getRootNode(document)
+    // if (!rootNode) return undefined
     const symbols = this.analyzer.getDocumentSymbols(document.uri);
-    const flatSymbols = FishDocumentSymbol.toTree(symbols).toFlatArray();
+    const flatSymbols = flattenSymbols(...symbols);
     this.logger.logPropertiesForEachObject(
       flatSymbols.filter((s) => s.kind === SymbolKind.Function),
       'name',
@@ -588,7 +595,7 @@ export default class FishServer {
 
     const folds = flatSymbols
       .filter((symbol) => symbol.kind === SymbolKind.Function)
-      .map((symbol) => FishDocumentSymbol.toFoldingRange(symbol));
+      .map((symbol) => FoldingRange.create(symbol.range.start.line, symbol.range.end.line, symbol.range.start.character, symbol.range.end.character, symbolKindToString(symbol.kind), symbol.name));
 
     folds.forEach((fold) => this.logger.log({ fold }));
 
@@ -710,7 +717,7 @@ export default class FishServer {
     const uri = uriToPath(params.textDocument.uri);
     const doc = this.docs.get(uri);
     if (!doc || !uri) return {};
-    const root = this.analyzer.getRootNode(doc);
+    const root = this.analyzer.getRootNode(doc.uri);
     const current = this.analyzer.nodeAtPoint(
       doc.uri,
       params.position.line,
@@ -728,7 +735,7 @@ export default class FishServer {
   } {
     const uri = uriToPath(params.textDocument.uri);
     const doc = this.docs.get(uri);
-    const root = doc ? this.analyzer.getRootNode(doc) : undefined;
+    const root = doc ? this.analyzer.getRootNode(doc.uri) : undefined;
     return { doc, uri, root };
   }
 
