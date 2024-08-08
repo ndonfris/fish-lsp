@@ -1,3 +1,4 @@
+import os from 'os';
 import Parser, { SyntaxNode, Range, TreeCursor, Point } from 'web-tree-sitter';
 import { createFakeLspDocument, setLogger } from './helpers';
 import {
@@ -11,6 +12,7 @@ import { Position, WorkspaceSymbol } from 'vscode-languageserver';
 import { isCommandName, isFunctionDefinitionName, isVariableDefinitionName } from '../src/utils/node-types';
 import { getRange } from '../src/utils/tree-sitter';
 import { LspDocument } from '../src/document';
+import { SyncFileHelper } from '../src/utils/file-operations';
 
 describe('BFS (Breadth First Search) vs DFS (Depth First Search) Iterators', () => {
   // Helper function to create mock SyntaxNodes
@@ -335,6 +337,40 @@ describe('[FishDocumentSymbol OPERATIONS]', () => {
         end
       `, '$pipestatus');
       expect(cursorNode.text).toBe('pipestatus');
+    });
+  });
+
+  /**
+   * https://github.com/ndonfris/fish-lsp/blob/76e31bd6d585f4648dc7fedde942bfbfb679cc23/src/workspace-symbol.ts
+   */
+  describe('src/workspace-symbol.ts refactors', () => {
+    it('source filenames (`test-source`)', () => {
+      const doc = createFakeLspDocument('functions/test-source.fish', [
+        'function test-source',
+        '    source ~/.config/fish/config.fish',
+        '    source $var',
+        'end',
+      ].join('\n'));
+      const tree = parser.parse(doc.getText());
+      const { rootNode } = tree;
+      const focusedNodes: SyntaxNode[] = TreeSitterUtils
+        .getChildNodes(rootNode)
+        .filter(n => isCommandName(n) && n.text === 'source' && !!n.nextSibling)
+        .map(n => n.nextSibling) as SyntaxNode[];
+
+      // const sourceFilename: SyntaxNode = focusedNodes.shift()
+      // const sourceVariable: SyntaxNode = focusedNodes.shift()
+      const [sourceFilename, sourceVariable]: [ SyntaxNode, SyntaxNode ] =
+        [focusedNodes.at(0), focusedNodes.at(1)] as [ SyntaxNode, SyntaxNode ];
+
+      // console.log(sourceFilename.text);
+      // console.log(sourceVariable.text);
+      // console.log(SyncFileHelper.expandEnvVars(sourceFilename.text));
+
+      const result = `${os.homedir()}/.config/fish/config.fish`;
+      expect(SyncFileHelper.expandEnvVars(sourceFilename.text)).toBe(result);
+
+      // do something with $var
     });
   });
 });
