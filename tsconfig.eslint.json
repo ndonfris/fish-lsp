@@ -6,5 +6,8 @@
     ".eslintrc.cjs",
     "jest.config.js",
     "test-data"
+  ],
+  "exclude": [
+    "docs/generate-import-diagram.ts"
   ]
 }

@@ -15,6 +15,7 @@ module.exports = {
     project: './tsconfig.eslint.json',
     tsconfigRootDir: __dirname,
   },
+  ignorePatterns: ['docs/**/*.ts'],
   rules: {
     'array-bracket-spacing':  'error',
     'brace-style': 'error',
