@@ -587,7 +587,7 @@ export function* reverseBFSInScope(startNode: SyntaxNode): Generator<SyntaxNode>
 }
 
 export function* DFSNodesIter(...roots: SyntaxNode[]): IterableIterator<SyntaxNode> {
-  const stack: SyntaxNode[] = roots ;
+  const stack: SyntaxNode[] = roots;
   while (stack.length > 0) {
     const node = stack.shift()!;
     yield node;
@@ -700,11 +700,11 @@ export function getNodeAtPosition(tree: Tree, position: { line: number; characte
  * BE CAREFUL INDEXING AT POSITION BASED OFF OF CURSOR LOCATION!
  *  - cursor location might expect `{line, column - 1}`
  */
-export function getNodeAtPoint(tree: Tree, point: {line: number; column: number;}): SyntaxNode | null {
+export function getNodeAtPoint(tree: Tree, point: { line: number; column: number; }): SyntaxNode | null {
   return tree.rootNode.descendantForPosition({ row: point.line, column: point.column });
 }
 
-export function getCommandNameAtPoint(tree: Tree, point: {line: number; column: number;}): string | null {
+export function getCommandNameAtPoint(tree: Tree, point: { line: number; column: number; }): string | null {
   let node = getNodeAtPoint(tree, point);
 
   while (node && !isCommand(node)) {
@@ -724,10 +724,48 @@ export function getCommandNameAtPoint(tree: Tree, point: {line: number; column: 
  * OLD
  * https://github.com/ndonfris/fish-lsp/blob/76e31bd6d585f4648dc7fedde942bfbfb679cc23/src/analyze.ts#L259C10-L271C4
  */
-export function getWordAtPoint(tree: Tree, point: {line: number; column: number;}): string | null {
+export function getWordAtPoint(tree: Tree, point: { line: number; column: number; }): string | null {
   const node = getNodeAtPoint(tree, point);
   if (!node || node.childCount > 0 || node.text.trim() === '') {
     return null;
   }
   return node.text;
+}
+
+/**
+ * https://github.com/ndonfris/fish-lsp/blob/76e31bd6d585f4648dc7fedde942bfbfb679cc23/src/workspace-symbol.ts#L10C1-L34C2
+ */
+export function containsRange(range: Range, otherRange: Range): boolean {
+  if (otherRange.start.line < range.start.line || otherRange.end.line < range.start.line) {
+    return false;
+  }
+  if (otherRange.start.line > range.end.line || otherRange.end.line > range.end.line) {
+    return false;
+  }
+  if (otherRange.start.line === range.start.line && otherRange.start.character < range.start.character) {
+    return false;
+  }
+  if (otherRange.end.line === range.end.line && otherRange.end.character > range.end.character) {
+    return false;
+  }
+  return true;
+}
+
+export function precedesRange(before: Range, after: Range): boolean {
+  if (before.start.line < after.start.line) {
+    return true;
+  }
+  if (before.start.line === after.start.line && before.start.character < after.start.character) {
+    return true;
+  }
+  return false;
+}
+
+export function equalsRanges(a: Range, b: Range): boolean {
+  return (
+    a.start.line === b.start.line &&
+    a.start.character === b.start.character &&
+    a.end.line === b.end.line &&
+    a.end.character === b.end.character
+  );
 }
