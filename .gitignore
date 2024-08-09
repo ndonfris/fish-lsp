@@ -11,3 +11,4 @@ test-data/staging
 !snippets/*.json
 snippets/*
 docs/import-diagram/*
+docs/graphs/*
