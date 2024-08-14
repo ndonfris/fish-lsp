@@ -3,8 +3,9 @@ import {
   SymbolKind,
   // Range,
   DocumentUri,
+  Position,
 } from 'vscode-languageserver';
-import { BFSNodesIter, getRange } from './tree-sitter';
+import { getRange, isPositionAfter } from './tree-sitter';
 import { isVariableDefinitionName, isFunctionDefinitionName, refinedFindParentVariableDefinitionKeyword } from './node-types';
 import { SyntaxNode } from 'web-tree-sitter';
 import { DefinitionScope, getScope } from './definition-scope';
@@ -62,46 +63,51 @@ function extractSymbolInfo(node: SyntaxNode): {
   return { shouldCreate, kind, parent, child };
 }
 
-export function getFishDocumentSymbolItems(uri: DocumentUri, rootNode: SyntaxNode): FishDocumentSymbol[] {
-  function getSymbols(...currentNodes: SyntaxNode[]): FishDocumentSymbol[] {
-    const symbols: FishDocumentSymbol[] = [];
+// export type Symbol = WorkspaceSymbol | DocumentSymbol;
 
-    for (const current of Array.from(BFSNodesIter(...currentNodes))) {
-      const childrenSymbols = getSymbols(...current.children);
-      const { shouldCreate, kind, parent, child } = extractSymbolInfo(current);
-      if (shouldCreate) {
-        symbols.push({
-          name: child.text,
-          kind,
-          uri,
-          node: current,
-          range: getRange(parent),
-          selectionRange: getRange(child),
-          scope: getScope(uri, child),
-          children: childrenSymbols ?? [] as FishDocumentSymbol[],
-          mdCallback,
-          get detail() {
-            return this.mdCallback(parent);
-          },
-        });
-      }
-    }
-    return symbols;
-  }
-
-  return getSymbols(rootNode);
+export function flattenNested<T extends { children: T[]; }>(...items: T[]): T[] {
+  return items.flatMap(item => [item, ...flattenNested(...item.children)]);
 }
 
-// export type Symbol = WorkspaceSymbol | DocumentSymbol;
-export function flattenSymbols(...symbols: FishDocumentSymbol[]): FishDocumentSymbol[] {
-  const flatten = (...arr: FishDocumentSymbol[]): FishDocumentSymbol[] => {
-    return arr.reduce((acc: FishDocumentSymbol[], item) => {
-      if (Array.isArray(item)) {
-        return acc.concat(flatten(item));
-      } else {
-        return acc.concat(item);
+export function getFishDocumentSymbolItems(uri: DocumentUri, ...currentNodes: SyntaxNode[]): FishDocumentSymbol[] {
+  const symbols: FishDocumentSymbol[] = [];
+  for (const current of currentNodes) {
+    const childrenSymbols = getFishDocumentSymbolItems(uri, ...current.children);
+    const { shouldCreate, kind, parent, child } = extractSymbolInfo(current);
+    if (shouldCreate) {
+      symbols.push({
+        name: child.text,
+        kind,
+        uri,
+        node: current,
+        range: getRange(parent),
+        selectionRange: getRange(child),
+        scope: getScope(uri, child),
+        children: childrenSymbols ?? [] as FishDocumentSymbol[],
+        mdCallback,
+        get detail() {
+          return this.mdCallback(parent);
+        },
+      });
+      continue;
+    }
+    symbols.push(...childrenSymbols);
+  }
+  return symbols;
+}
+
+/**
+ * flat list of symbols, up to the position given (including symbols at the position)
+ */
+export function getFishDocumentSymbolScoped(uri: DocumentUri, rootNode: SyntaxNode, position: Position) {
+  const allSymbols = getFishDocumentSymbolItems(uri, rootNode);
+  const flatSymbols = flattenNested(...allSymbols);
+  return flatSymbols
+    // .filter(symbol => symbol.scope.containsPosition(position))
+    .filter(symbol => {
+      if (symbol.scope.scopeNode.equals(rootNode) && symbol.kind === SymbolKind.Function) {
+        return true;
       }
-    }, []);
-  };
-  return flatten(...symbols);
+      return isPositionAfter(symbol.selectionRange.end, position);
+    });
 }

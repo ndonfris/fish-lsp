@@ -476,12 +476,27 @@ export function isPositionWithinRange(position: Position, range: Range): boolean
   return doesStartInside && doesEndInside;
 }
 
+/**
+ * checks if a position is less than or equal to the current position
+ * useful for checking if nodes have a definition in the current scope
+ */
+export function isPositionBefore(before: Position, after: Position): boolean {
+  return (
+    before.line < after.line ||
+    before.line === after.line && before.character <= after.character
+  );
+}
+
+/**
+ * use `isPositionBefore(before, after)` instead
+ */
 export function isPositionAfter(first: Position, second: Position): boolean {
   return (
     first.line < second.line ||
     first.line === second.line && first.character < second.character
   );
 }
+
 export function isNodeWithinRange(node: SyntaxNode, range: Range): boolean {
   const doesStartInside =
     node.startPosition.row > range.start.line ||

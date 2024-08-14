@@ -1,6 +1,7 @@
 import { SyntaxNode } from 'web-tree-sitter';
 import { firstAncestorMatch, getParentNodes, getLeafs } from './tree-sitter';
 import * as VariableTypes from './variable-syntax-nodes';
+import { SyncFileHelper } from './file-operations';
 
 /**
  * fish shell comment: '# ...'
@@ -23,8 +24,8 @@ export function isShebang(node: SyntaxNode) {
   }
   return (
     firstLine.type === 'comment' &&
-        firstLine.text.startsWith('#!') &&
-        firstLine.text.includes('fish')
+    firstLine.text.startsWith('#!') &&
+    firstLine.text.includes('fish')
   );
 }
 
@@ -79,7 +80,7 @@ export function isDefinition(node: SyntaxNode): boolean {
 /**
  * checks if a node is the firstNamedChild of a command
  */
-export function isCommandName(node: SyntaxNode) : boolean {
+export function isCommandName(node: SyntaxNode): boolean {
   const parent = node.parent || node;
   const cmdName = parent?.firstNamedChild || node?.firstNamedChild;
   if (!parent || !cmdName) {
@@ -118,15 +119,15 @@ export function isElseStatement(node: SyntaxNode): boolean {
 }
 
 // strict check for if statement or else clauses
-export function isConditional(node: SyntaxNode) : boolean {
+export function isConditional(node: SyntaxNode): boolean {
   return ['if_statement', 'else_if_clause', 'else_clause'].includes(node.type);
 }
 
-export function isIfOrElseIfConditional(node: SyntaxNode) : boolean {
+export function isIfOrElseIfConditional(node: SyntaxNode): boolean {
   return ['if_statement', 'else_if_clause'].includes(node.type);
 }
 
-export function isPossibleUnreachableStatement(node: SyntaxNode) : boolean {
+export function isPossibleUnreachableStatement(node: SyntaxNode): boolean {
   if (isIfStatement(node)) {
     return node.lastNamedChild?.type === 'else_clause';
   } else if (node.type === 'for_statement') {
@@ -250,7 +251,7 @@ export type NodeOptionQueryText = {
  * @param optionQuery - object of node strings to match
  * @returns boolean result corresponding to query
  */
-export function isMatchingOption(node: SyntaxNode, optionQuery: NodeOptionQueryText) : boolean {
+export function isMatchingOption(node: SyntaxNode, optionQuery: NodeOptionQueryText): boolean {
   if (!isOption(node)) return false;
 
   const nodeText = node.text.includes('=') ? node.text.slice(0, node.text.indexOf('=')) : node.text;
@@ -414,10 +415,10 @@ export function refinedFindParentVariableDefinitionKeyword(node?: SyntaxNode): S
 // @TODO: replace isVariableDefinition with this
 export function isVariableDefinitionName(node: SyntaxNode): boolean {
   if (isFunctionDefinition(node) ||
-        isCommand(node) ||
-        isCommandName(node) ||
-        definitionKeywords.includes(node.firstChild?.text || '') ||
-        !VariableTypes.isPossible(node)
+    isCommand(node) ||
+    isCommandName(node) ||
+    definitionKeywords.includes(node.firstChild?.text || '') ||
+    !VariableTypes.isPossible(node)
   ) {
     return false;
   }
@@ -452,7 +453,7 @@ export function isVariableDefinition(node: SyntaxNode): boolean {
   return isVariableDefinitionName(node);
 }
 
-function findParentForScope(currentNode: SyntaxNode, switchFound: VariableScope | '') : SyntaxNode | null {
+function findParentForScope(currentNode: SyntaxNode, switchFound: VariableScope | ''): SyntaxNode | null {
   switch (switchFound) {
     case 'local':
       return firstAncestorMatch(currentNode, (n) => isStatement(n) || isFunctionDefinition(n) || isProgram(n));
@@ -493,7 +494,7 @@ export function findEnclosingVariableScope(currentNode: SyntaxNode): SyntaxNode 
   }
 }
 
-export function findForLoopVariable(node: SyntaxNode) : SyntaxNode | null {
+export function findForLoopVariable(node: SyntaxNode): SyntaxNode | null {
   for (let i = 0; i < node.children.length; i++) {
     const child = node.children[i];
     if (child?.type === 'variable_name') {
@@ -518,7 +519,7 @@ export function findSetDefinedVariable(node: SyntaxNode): SyntaxNode | null {
   const children: SyntaxNode[] = parent.children;
 
   let i = 1;
-  let child : SyntaxNode = children[i]!;
+  let child: SyntaxNode = children[i]!;
 
   while (child !== undefined) {
     if (!child.text.startsWith('-')) {
@@ -542,7 +543,7 @@ function _isArgFlags(node: SyntaxNode) {
 }
 
 export type VariableScope = 'global' | 'local' | 'universal' | 'export' | 'unexport' | 'function';
-export const VariableScopeFlags: {[flag: string]: VariableScope;} = {
+export const VariableScopeFlags: { [ flag: string ]: VariableScope; } = {
   '-g': 'global',
   '--global': 'global',
   '-l': 'local',
@@ -568,7 +569,7 @@ function findLastFlag(nodes: SyntaxNode[]) {
   return maxIdx;
 }
 
-function findSwitchForVariable(node: SyntaxNode) : VariableScope | '' {
+function findSwitchForVariable(node: SyntaxNode): VariableScope | '' {
   let current: SyntaxNode | null = node;
   while (current !== null) {
     if (VariableScopeFlags[current.text] !== undefined) {
@@ -582,7 +583,7 @@ function findSwitchForVariable(node: SyntaxNode) : VariableScope | '' {
 }
 
 export function findReadVariables(node: SyntaxNode) {
-  const variables : SyntaxNode[] = [];
+  const variables: SyntaxNode[] = [];
   const lastFlag = findLastFlag(node.children);
   variables.push(...node.children.slice(lastFlag + 1).filter(n => n.type === 'word'));
   const possibleFlags = node.children.slice(0, lastFlag + 1);
@@ -628,7 +629,7 @@ export function findFunctionScope(node: SyntaxNode) {
 }
 
 // node1 encloses node2
-export function scopeCheck(node1: SyntaxNode, node2: SyntaxNode) : boolean {
+export function scopeCheck(node1: SyntaxNode, node2: SyntaxNode): boolean {
   const scope1 = findFunctionScope(node1);
   const scope2 = findFunctionScope(node2);
   if (isProgram(scope1)) {
@@ -670,7 +671,7 @@ export function isConditionalCommand(node: SyntaxNode) {
 
 // @TODO: see ./tree-sitter.ts -> getRangeWithPrecedingComments(),
 //        for implementation of chained returns of conditional_executions
-export function chainedCommandGroup() : SyntaxNode[] {
+export function chainedCommandGroup(): SyntaxNode[] {
   return [];
 }
 
@@ -721,8 +722,8 @@ export function isPartialForLoop(node: SyntaxNode) {
   }
   return (
     errorNode.hasError &&
-        errorNode.text.startsWith('for') &&
-        !errorNode.text.includes(' in ')
+    errorNode.text.startsWith('for') &&
+    !errorNode.text.includes(' in ')
   );
 }
 
@@ -758,6 +759,24 @@ export function isCommandWithName(node: SyntaxNode, ...commandNames: string[]) {
 // }
 //
 
-export function IsCommandSubstitution(node: SyntaxNode) {
+export function isCommandSubstitution(node: SyntaxNode) {
   return node.type === 'command_substitution';
+}
+
+export function isSourceFilename(node: SyntaxNode) {
+  if (!node.parent) return false;
+
+  const parent = node.parent;
+  const commandNode = parent.firstChild;
+
+  if (!commandNode || commandNode.equals(node)) return false;
+
+  if (isCommandName(commandNode) && commandNode.text === 'source') {
+    const filename = commandNode.nextSibling;
+    if (!filename) return false;
+
+    const filepath = SyncFileHelper.expandEnvVars(filename.text);
+    if (SyncFileHelper.exists(filepath)) return true;
+  }
+  return false;
 }

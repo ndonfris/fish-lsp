@@ -1,15 +1,16 @@
 import os from 'os';
-import Parser, { SyntaxNode, Range, TreeCursor, Point } from 'web-tree-sitter';
+import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { createFakeLspDocument, setLogger } from './helpers';
 import {
   FishDocumentSymbol,
-  flattenSymbols,
+  flattenNested,
   getFishDocumentSymbolItems,
+  getFishDocumentSymbolScoped,
 } from '../src/utils/symbol';
 import * as TreeSitterUtils from '../src/utils/tree-sitter';
 import { initializeParser } from '../src/parser';
-import { Position, WorkspaceSymbol } from 'vscode-languageserver';
-import { isCommandName, isFunctionDefinitionName, isVariableDefinitionName } from '../src/utils/node-types';
+import { Position, SymbolKind, WorkspaceSymbol } from 'vscode-languageserver';
+import { isCommandName, isProgram, isSourceFilename, isVariableDefinitionName } from '../src/utils/node-types';
 import { getRange } from '../src/utils/tree-sitter';
 import { LspDocument } from '../src/document';
 import { SyncFileHelper } from '../src/utils/file-operations';
@@ -122,7 +123,9 @@ describe('[FishDocumentSymbol OPERATIONS]', () => {
           end
       end
     `);
-    const flatSymbols = flattenSymbols(...symbols);
+
+    const flatSymbols = flattenNested(...symbols);
+    // console.log('flattenSymbols', flatSymbols.map(s => s.name));
     expect(flatSymbols.length).toBe(12);
   });
 
@@ -131,7 +134,8 @@ describe('[FishDocumentSymbol OPERATIONS]', () => {
       const doc = createFakeLspDocument(filename, code);
       const { rootNode } = parser.parse(doc.getText());
       const symbols: FishDocumentSymbol[] = getFishDocumentSymbolItems(doc.uri, rootNode);
-      const flatSymbols = flattenSymbols(...symbols);
+      const flatSymbols = flattenNested(...symbols);
+      // console.log({ flatSymbolsNames: flatSymbols.map(s => s.name) });
       return {
         flatSymbols,
         rootNode,
@@ -162,6 +166,7 @@ describe('[FishDocumentSymbol OPERATIONS]', () => {
         location: { uri: symbol.uri, range: symbol.range },
       } as WorkspaceSymbol));
 
+      // FAILING
       expect(workspaceSymbols.length).toBe(2);
     });
 
@@ -344,33 +349,185 @@ describe('[FishDocumentSymbol OPERATIONS]', () => {
    * https://github.com/ndonfris/fish-lsp/blob/76e31bd6d585f4648dc7fedde942bfbfb679cc23/src/workspace-symbol.ts
    */
   describe('src/workspace-symbol.ts refactors', () => {
+    function setupTest(relPath: string, content: string) {
+      const doc: LspDocument = createFakeLspDocument(relPath, content);
+      const tree: Parser.Tree = parser.parse(doc.getText());
+      const root: SyntaxNode = tree.rootNode;
+      const nodes: SyntaxNode[] = TreeSitterUtils.getChildNodes(root);
+      const symbols: FishDocumentSymbol[] = getFishDocumentSymbolItems(doc.uri, tree.rootNode);
+      return { doc, tree, root, nodes, symbols };
+    }
+
     it('source filenames (`test-source`)', () => {
-      const doc = createFakeLspDocument('functions/test-source.fish', [
+      // const doc = createFakeLspDocument('functions/test-source.fish', [
+      //   'function test-source',
+      //   '    source ~/.config/fish/config.fish',
+      //   '    source $var',
+      //   'end',
+      // ].join('\n'));
+      // const tree = parser.parse(doc.getText());
+      // const { rootNode } = tree;
+
+      const { nodes } = setupTest('functions/test-source.fish', [
         'function test-source',
         '    source ~/.config/fish/config.fish',
         '    source $var',
         'end',
       ].join('\n'));
-      const tree = parser.parse(doc.getText());
-      const { rootNode } = tree;
-      const focusedNodes: SyntaxNode[] = TreeSitterUtils
-        .getChildNodes(rootNode)
-        .filter(n => isCommandName(n) && n.text === 'source' && !!n.nextSibling)
-        .map(n => n.nextSibling) as SyntaxNode[];
 
-      // const sourceFilename: SyntaxNode = focusedNodes.shift()
-      // const sourceVariable: SyntaxNode = focusedNodes.shift()
-      const [sourceFilename, sourceVariable]: [ SyntaxNode, SyntaxNode ] =
-        [focusedNodes.at(0), focusedNodes.at(1)] as [ SyntaxNode, SyntaxNode ];
+      const focusedNodes: SyntaxNode[] =
+        nodes
+          .filter(n => isCommandName(n) && n.text === 'source' && !!n.nextSibling)
+          .map(n => n.nextSibling) as SyntaxNode[];
 
-      // console.log(sourceFilename.text);
-      // console.log(sourceVariable.text);
-      // console.log(SyncFileHelper.expandEnvVars(sourceFilename.text));
+      /** get the first and second occurrences in the input */
+      const sourceFilename = focusedNodes.at(0) as SyntaxNode;
+      const sourceVariable = focusedNodes.at(1) as SyntaxNode;
 
-      const result = `${os.homedir()}/.config/fish/config.fish`;
-      expect(SyncFileHelper.expandEnvVars(sourceFilename.text)).toBe(result);
+      /** make sure filename expands */
+      const expectedFilename = `${os.homedir()}/.config/fish/config.fish`;
+      expect(SyncFileHelper.expandEnvVars(sourceFilename.text)).toBe(expectedFilename);
 
-      // do something with $var
+      /** make sure variable is found */
+      const expectedSourceVariable = '$var';
+      expect(sourceVariable.text).toBe(expectedSourceVariable);
+
+      /** test our isSourceFilename implementation */
+
+      // console.log([
+      //   `isSourceFilename(sourceFilename) === ${isSourceFilename(sourceFilename)}`,
+      //   `isSourceFilename(sourceVariable) === ${isSourceFilename(sourceVariable)}`
+      // ]);
+
+      expect([
+        isSourceFilename(sourceFilename),
+        isSourceFilename(sourceVariable),
+      ]).toEqual([true, false]);
+    });
+
+    // it('findDefintionSymbol', () => {
+    //   const doc = createFakeLspDocument('functions/test-source.fish', [
+    //     'function test-source',
+    //     '    source ~/.config/fish/config.fish',
+    //     '    source $var',
+    //     'end',
+    //   ].join('\n'));
+    //   const tree = parser.parse(doc.getText());
+    //   const symbols = flattenSymbols(...getFishDocumentSymbolItems(doc.uri, tree.rootNode))
+    //
+    //   console.log(symbols.map(s => s.name));
+    // })
+
+    it('findWorkspaceSymbols', () => {
+      const { doc, symbols, root, nodes } = setupTest('functions/foo_bar.fish', [
+        'function foo_bar --argument-names a b c d',
+        '    set depth 1',
+        '    echo "$a $b $c $d"',
+        '    set -gx e "$a $b $c $d"',
+        '    echo "depth: $depth"',
+        '    function bar --argument-names f',
+        '       set depth 2',
+        '       echo $f',
+        '       echo "depth: $depth"',
+        '    end',
+        '    baz',
+        'end',
+        'function baz',
+        '    echo "inside baz $argv"',
+        'end',
+      ].join('\n'));
+
+      const cursorNode = nodes.find(n => isVariableDefinitionName(n) && n.text === 'e')!;
+      const cursorPosition = getRange(cursorNode).end;
+      const scopedSymbols = getFishDocumentSymbolScoped(doc.uri, root, cursorPosition);
+
+      function* BFSNodesIter<T extends { children: T[]; }>(...roots: T[]): Generator<T> {
+        const queue = roots;
+        while (queue.length > 0) {
+          const node = queue.shift()!;
+          yield node;
+          if (node?.children) queue.push(...node.children);
+        }
+      }
+
+      function flattenNestedBFS<T extends { children: T[]; }>(...roots: T[]): T[] {
+        return Array.from(BFSNodesIter(...roots));
+      }
+
+      const allSymbols = flattenNested(...symbols);
+      /**
+       * GETS THE `WorkspaceSymbol[]`
+       */
+      const bfsWorkspaceSymbols = flattenNestedBFS(...symbols)
+        .filter((s: FishDocumentSymbol) => {
+          const { scopeTag, scopeNode } = s.scope;
+          if (s.kind === SymbolKind.Function) {
+            if ('global' === scopeTag) {
+              return true;
+            }
+            if ('local' === scopeTag && scopeNode?.parent && isProgram(scopeNode.parent)) {
+              return true;
+            }
+          } else if (s.kind === SymbolKind.Variable) {
+            if (scopeTag === 'global' || scopeTag === 'universal') {
+              return true;
+            }
+          }
+          return false;
+        });
+      expect(bfsWorkspaceSymbols.map(s => s.name)).toEqual([
+        'foo_bar',
+        'baz',
+        'e',
+      ]);
+      // console.log({
+      //   symbols: symbols.map(s => s.name),
+      //   bfsWorkspaceSymbols: bfsWorkspaceSymbols.map(s => s.name),
+      //   scopedSymbols: scopedSymbols.map(s => s.name),
+      // });
     });
   });
 });
+
+// function flattenBFSWithFlatMap<T extends { children: T[] }>(...roots: T[]): T[] {
+//   let currentLevel: T[] = roots;
+//   const result: T[] = [];
+//
+//   while (currentLevel.length > 0) {
+//     result.push(...currentLevel);
+//     currentLevel = currentLevel.flatMap(node => node.children);
+//   }
+//
+//   return result;
+// }
+// function flattenNestedBFS<T extends { children: T[]; }>(...roots: T[]): T[] {
+//   return roots.length ? [
+//     ...roots,
+//     ...flattenNestedBFS(...roots.flatMap(root => root.children))
+//   ] : [];
+// }
+
+// function* flattenNestedBFSGenerator<T extends { children: T[]; }>(...roots: T[]): Generator<T, void, unknown> {
+//   const queue: T[] = [ ...roots ];
+//   let index = 0;
+//
+//   while (index < queue.length) {
+//     const current = queue[ index++ ];
+//     yield current;
+//     queue.push(...current.children);
+//   }
+// }
+
+// function flattenNestedBFS<T extends { children?: T[] }>(...roots: T[]): T[] {
+//   const result: T[] = [];
+//   let index = 0;
+//
+//   result.push(...roots);
+//
+//   while (index < result.length) {
+//     const current = result[index++];
+//     if (current?.children) result.push(...current?.children);
+//   }
+//
+//   return result;
+// }
