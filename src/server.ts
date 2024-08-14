@@ -35,7 +35,7 @@ import { getAliasedCompletionItemSignature } from './signature';
 import { CompletionItemMap } from './utils/completion/startup-cache';
 import { getDocumentHighlights } from './document-highlight';
 import { SyncFileHelper } from './utils/file-operations';
-import { flattenSymbols } from './utils/symbol';
+import { flattenNested } from './utils/symbol';
 
 // @TODO
 export type SupportedFeatures = {
@@ -586,7 +586,7 @@ export default class FishServer {
     // const rootNode = this.analyzer.getRootNode(document)
     // if (!rootNode) return undefined
     const symbols = this.analyzer.getDocumentSymbols(document.uri);
-    const flatSymbols = flattenSymbols(...symbols);
+    const flatSymbols = flattenNested(...symbols);
     this.logger.logPropertiesForEachObject(
       flatSymbols.filter((s) => s.kind === SymbolKind.Function),
       'name',
