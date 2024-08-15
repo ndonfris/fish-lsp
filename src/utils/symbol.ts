@@ -5,8 +5,8 @@ import {
   DocumentUri,
   Position,
 } from 'vscode-languageserver';
-import { getRange, isPositionAfter } from './tree-sitter';
-import { isVariableDefinitionName, isFunctionDefinitionName, refinedFindParentVariableDefinitionKeyword } from './node-types';
+import { getRange, isPositionBefore } from './tree-sitter';
+import { isVariableDefinitionName, isFunctionDefinitionName, refinedFindParentVariableDefinitionKeyword, isProgram } from './node-types';
 import { SyntaxNode } from 'web-tree-sitter';
 import { DefinitionScope, getScope } from './definition-scope';
 import { MarkdownBuilder, md } from './markdown-builder';
@@ -99,15 +99,45 @@ export function getFishDocumentSymbolItems(uri: DocumentUri, ...currentNodes: Sy
 /**
  * flat list of symbols, up to the position given (including symbols at the position)
  */
-export function getFishDocumentSymbolScoped(uri: DocumentUri, rootNode: SyntaxNode, position: Position) {
-  const allSymbols = getFishDocumentSymbolItems(uri, rootNode);
-  const flatSymbols = flattenNested(...allSymbols);
-  return flatSymbols
-    // .filter(symbol => symbol.scope.containsPosition(position))
+export function filterDocumentSymbolInScope(symbols: FishDocumentSymbol[], position: Position) {
+  return flattenNested(...symbols)
     .filter(symbol => {
-      if (symbol.scope.scopeNode.equals(rootNode) && symbol.kind === SymbolKind.Function) {
+      if (
+        symbol.kind === SymbolKind.Function
+          && symbol.node.parent
+          && isProgram(symbol.node.parent)
+      ) {
+        return true;
+      } else if (
+        symbol.scope.containsPosition(position)
+          && isPositionBefore(symbol.selectionRange.start, position)
+      ) {
         return true;
       }
-      return isPositionAfter(symbol.selectionRange.end, position);
+      return false;
     });
+}
+
+/**
+ * unflattened workspace symbol finder
+ */
+export function filterWorkspaceSymbol(symbols: FishDocumentSymbol[]) {
+  function filter(symbol: FishDocumentSymbol) {
+    const { scopeTag } = symbol.scope;
+    if (symbol.kind === SymbolKind.Function) {
+      if ('global' === scopeTag) {
+        return true;
+      }
+      // if ('local' === scopeTag && scopeNode?.parent && isProgram(scopeNode.parent)) {
+      //   return true;
+      // }
+    } else if (symbol.kind === SymbolKind.Variable) {
+      if (scopeTag === 'global' || scopeTag === 'universal') {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  return flattenNested(...symbols).filter(filter);
 }
