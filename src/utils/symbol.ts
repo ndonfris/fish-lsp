@@ -182,10 +182,10 @@ export function filterWorkspaceSymbol(symbols: FishDocumentSymbol[]) {
 }
 
 // @TODO
-function filterLocalSymbols(symbols: FishDocumentSymbol[]) {                        
-  return flattenNested(...symbols)                                                  
-    .filter(s => s.scope.scopeTag !== 'global' && s.scope.scopeTag !== 'universal') 
-}                                                                                   
+function filterLocalSymbols(symbols: FishDocumentSymbol[]) {
+  return flattenNested(...symbols)
+    .filter(s => s.scope.scopeTag !== 'global' && s.scope.scopeTag !== 'universal');
+}
 
 
 //
@@ -211,9 +211,9 @@ function findLocations(uri: string, nodes: SyntaxNode[], matchName: string): Loc
   const equalRanges = (a: Range, b: Range) => {
     return (
       a.start.line === b.start.line &&
-            a.start.character === b.start.character &&
-            a.end.line === b.end.line &&
-            a.end.character === b.end.character
+      a.start.character === b.start.character &&
+      a.end.line === b.end.line &&
+      a.end.character === b.end.character
     );
   };
   const matchingNames = nodes.filter(node => node.text === matchName);
@@ -377,3 +377,14 @@ function findLocations(uri: string, nodes: SyntaxNode[], matchName: string): Loc
 // // }
 // //
 // //
+
+
+export function getGlobalSyntaxNodesInDocument(nodes: SyntaxNode[], symbols: FishDocumentSymbol[]) {
+
+  // const flatSymbols = flattenNested(...symbols)
+  //   .filter(s => s.scope.scopeTag !== 'global')
+  //
+  // return nodes.filter(n => !flatSymbols.some(range => containsRange(range, getRange(n))));
+  return nodes.filter(n => !symbols.some(symbol => containsRange(getRange(symbol.scope.scopeNode), getRange(n)) && symbol.name === n.text));
+
+}

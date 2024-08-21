@@ -1,6 +1,6 @@
 import Parser, { SyntaxNode, Tree } from 'web-tree-sitter';
 import { LspDocument } from './document';
-import { /*filterGlobalSymbols,*/ FishDocumentSymbol, filterDocumentSymbolInScope, filterWorkspaceSymbol, flattenNested, getFishDocumentSymbolItems } from './utils/symbol';
+import { /*filterGlobalSymbols,*/ FishDocumentSymbol, filterDocumentSymbolInScope, filterWorkspaceSymbol, flattenNested, getFishDocumentSymbolItems, getGlobalSyntaxNodesInDocument } from './utils/symbol';
 import * as LSP from 'vscode-languageserver';
 import { containsRange, getChildNodes, getNodeAtPosition, getRange, isPositionWithinRange, precedesRange } from './utils/tree-sitter';
 import { isSourceFilename } from './diagnostics/node-types';
@@ -86,6 +86,10 @@ export class Analyzer { // @TODO rename to Analyzer
     return flattenNested(...symbols);
   }
 
+  get uris() {
+    return [ ...new Set(Array.from(this.cached.keys())) ];
+  }
+
 
   /**
    * getDefinitionSymbol - get definition symbol in a LspDocument
@@ -104,6 +108,34 @@ export class Analyzer { // @TODO rename to Analyzer
     if (result.length === 0) {
       const workspaceSymbols = this.workspaceSymbols.get(currentNode.text) || [];
       result.push(...workspaceSymbols);
+    }
+    return result;
+  }
+
+  getReferenceSymbols(document: LspDocument, position: Position) {
+    const result: SyntaxNode[] = [];
+    if (!this.cached.has(document.uri)) return [];
+    const { tree, symbols } = this.cached.get(document.uri)!;
+    const currentNode = this.getDefinitionSymbol(document, position).pop();
+    if (!currentNode) return [];
+
+    // const result = flattenNested(...symbols).filter(s => s.name === currentNode.text)
+    result.push(...getChildNodes(currentNode.scope.scopeNode).filter(n => n.text === currentNode.name));
+
+    if (result.length === 0) {
+      for (const uri of this.uris) {
+        const _cached = this.cached.get(uri);
+        if (!_cached) continue;
+
+        const gSymbols = flattenNested(..._cached.symbols)
+          .filter(s => s.scope.scopeTag !== 'global');
+
+        const matches = getGlobalSyntaxNodesInDocument(_cached.nodes, gSymbols)
+          .filter(s => s.text === currentNode.name);
+        //   .filter(s => s.scope.scopeTag !== 'global') ))
+
+        result.push(...matches);
+      }
     }
     return result;
   }
@@ -134,9 +166,34 @@ export class Analyzer { // @TODO rename to Analyzer
     });
   }
 
-  private getGlobalSymbols(symbols: FishDocumentSymbol[]) {
-    // return flattenNested(...symbols)
-    //   .filter(s => s.scope.scopeTag === 'global' || s.scope.scopeTag === 'universal');
+
+  getLocalLocations(document: LspDocument, position: Position) {
+    const symbol = this.getDefinitionSymbol(document, position).pop();
+    if (!symbol) return [];
+
+    const nodeToSearch = getChildNodes(symbol.scope.scopeNode);
+    return findLocations(document.uri, nodeToSearch, symbol.name);
+  }
+
+  getGlobalLocations(document: LspDocument, position: Position) {
+    const locations: LSP.Location[] = [];
+
+    const symbol = this.getDefinitionSymbol(document, position);
+    if (symbol.length === 0) return locations;
+
+    for (const uri of this.uris) {
+      const _cached = this.cached.get(uri);
+      if (!_cached?.document.isAutoLoaded()) continue;
+
+      const rootNode = _cached.tree.rootNode;
+      const toSearchNodes = getGlobalSyntaxNodesInDocument(
+        getChildNodes(rootNode),
+        flattenNested(..._cached.symbols).filter(s => s.scope.scopeTag !== 'global')
+      );
+      const newLocations = findLocations(uri, toSearchNodes, symbol.at(0)!.name);
+      locations.push(...newLocations);
+    }
+    return locations
   }
 
   public getValidNodes(document: LspDocument, symbol: FishDocumentSymbol): Location[] {
