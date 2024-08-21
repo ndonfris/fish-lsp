@@ -64,12 +64,11 @@ else
     if command -vq fish-lsp
         echo '    "fish-lsp" is already installed'
         echo '    UNLINKING and LINKING again'
-        yarn unlink --global fish-lsp &>/dev/null
+        yarn unlink --global-folder fish-lsp &>/dev/null
         yarn global remove fish-lsp &>/dev/null
     end
-    yarn link --global fish-lsp --force &>/dev/null
-
+    yarn link --global-folder fish-lsp --force &>/dev/null
     echo -e 'SUCCESS! "fish-lsp" is now installed and linked'
-    return 0
+    return $status
 
 end
