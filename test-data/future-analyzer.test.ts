@@ -1,25 +1,20 @@
 
-import os from 'os';
 import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { createFakeLspDocument, setLogger } from './helpers';
 import {
   FishDocumentSymbol,
   filterDocumentSymbolInScope,
-  filterWorkspaceSymbol,
   flattenNested,
   getFishDocumentSymbolItems,
 } from '../src/utils/symbol';
 import * as TreeSitterUtils from '../src/utils/tree-sitter';
 import { initializeParser } from '../src/parser';
-import { Position, SymbolKind } from 'vscode-languageserver';
-import * as LSP from 'vscode-languageserver';
-import { isCommandName, isFunctionDefinitionName, isSourceFilename } from '../src/utils/node-types';
+import { isCommandName } from '../src/utils/node-types';
 import { LspDocument } from '../src/document';
-import { SyncFileHelper } from '../src/utils/file-operations';
-import { Range } from '../src/utils/locations';
-import { containsRange, getNodeAtPosition, getRange } from '../src/utils/tree-sitter';
+import { getRange } from '../src/utils/tree-sitter';
 
 import { Analyzer } from '../src/future-analyze';
+import { TestWorkspace } from './workspace-utils';
 
 setLogger();
 
@@ -32,59 +27,18 @@ describe('analyzer test suite', () => {
     analyzer = new Analyzer(parser);
   });
 
-  function setupTest(filename: string, content: string) {
-    const doc = createFakeLspDocument(filename, content);
-    const { rootNode } = parser.parse(doc.getText());
-    const symbols: FishDocumentSymbol[] = getFishDocumentSymbolItems(doc.uri, rootNode);
-    const flatSymbols = flattenNested(...symbols);
-    analyzer.analyze(doc);
-
-    return {
-      symbols,
-      flatSymbols,
-      rootNode,
-      doc,
-      tree: parser.parse(content),
-    };
-
-  }
-
-  function buildWorkspaceOne() {
-    const docTest = setupTest('functions/test.fish', [
-      'function test',
-      '    echo hi',
-      'end'
-    ].join('\n'));
-    const docFoo = setupTest('functions/foo.fish', [
-      'function foo',
-      '   test',
-      'end'
-    ].join('\n'));
-    const docNested = setupTest('functions/nested.fish', [
-      'function nested',
-      '   function test',
-      '       echo "inside test"',
-      '   end',
-      '   test',
-      'end'
-    ].join('\n'));
-
-    const docPrivate = setupTest('functions/private.fish', [
-      'function private',
-      '   test',
-      'end',
-      'function test',
-      '    echo "inside test"',
-      'end',
-    ].join('\n'));
-
-
-    return { docTest, docFoo, docNested, docPrivate };
+  function setupAndFind(documents: LspDocument[], findUri: string = '') {
+    documents.forEach(doc => {
+      analyzer.analyze(doc);
+    });
+    const document = documents.find(doc => doc.uri.endsWith(findUri)) || null;
+    return { documents, document };
   }
 
   describe('workspace symbols', () => {
     it('has workspaceSymbols', () => {
-      buildWorkspaceOne();
+
+      setupAndFind(TestWorkspace.functionsOnly.documents, 'functions/inner.fish');
       const keys = Array.from(analyzer.workspaceSymbols.keys());
       expect(keys).toBeInstanceOf(Array);
       expect(keys).toEqual([
@@ -96,8 +50,11 @@ describe('analyzer test suite', () => {
     });
 
     it('global workspaceSymbols `test` def', () => {
-      const { docFoo } = buildWorkspaceOne();
-      const { doc, rootNode } = docFoo;
+      const { document } = setupAndFind(TestWorkspace.functionsOnly.documents, 'functions/foo.fish');
+
+      if (!document) fail();
+      const _cached = analyzer.cached.get(document.uri);
+      const { root: rootNode, document: doc } = _cached!;
       const focus = TreeSitterUtils.getChildNodes(rootNode).find(node => isCommandName(node) && node.text === 'test')!;
       const pos = getRange(focus).start;
       const defSymbol = analyzer.getDefinitionSymbol(doc, pos);
@@ -108,9 +65,13 @@ describe('analyzer test suite', () => {
     });
 
     it('local NESTED workspace def `test`', () => {
-      const { docNested } = buildWorkspaceOne();
-      const { tree, doc, rootNode, flatSymbols, symbols } = docNested;
-      const focus = TreeSitterUtils.getChildNodes(rootNode).find(node => isCommandName(node) && node.text === 'test')!;
+      const _setup = setupAndFind(TestWorkspace.functionsOnly.documents, 'functions/nested.fish');
+      if (!_setup.document) fail();
+      const _cached = analyzer.cached.get(_setup.document.uri!);
+      // const { root: rootNode, document: doc } = _cached!;
+      if (!_cached) fail();
+      const { document, root, symbols } = _cached;
+      const focus = TreeSitterUtils.getChildNodes(root).find(node => isCommandName(node) && node.text === 'test')!;
       const pos = getRange(focus).start;
 
       // const currentNode = getNodeAtPosition(tree, pos)!;
@@ -120,16 +81,20 @@ describe('analyzer test suite', () => {
       );
 
       // console.log(localSymbols.map(s => s.name));
-      const defSymbol = analyzer.getDefinitionSymbol(doc, pos);
+      const defSymbol = analyzer.getDefinitionSymbol(document, pos);
       expect(defSymbol?.map(s => s.uri)).toEqual([
-        `${doc.uri}`
+        `${document.uri}`
       ]);
     });
 
     it('local PRIVATE workspace def `test`', () => {
-      const { docPrivate } = buildWorkspaceOne();
-      const { tree, doc, rootNode, flatSymbols, symbols } = docPrivate;
-      const focus = TreeSitterUtils.getChildNodes(rootNode).find(node => isCommandName(node) && node.text === 'test')!;
+      const _setup = setupAndFind(TestWorkspace.functionsOnly.documents, 'functions/private.fish');
+      if (!_setup.document) fail();
+      const _cached = analyzer.cached.get(_setup.document.uri!);
+      if (!_cached) fail();
+      const { document, root, symbols } = _cached;
+
+      const focus = TreeSitterUtils.getChildNodes(root).find(node => isCommandName(node) && node.text === 'test')!;
       const pos = getRange(focus).start;
 
       // const currentNode = getNodeAtPosition(tree, pos)!;
@@ -139,11 +104,11 @@ describe('analyzer test suite', () => {
       );
 
       // console.log(localSymbols.map(s => s.name));
-      const defSymbol = analyzer.getDefinitionSymbol(doc, pos);
+      const defSymbol = analyzer.getDefinitionSymbol(document, pos);
       // console.log(defSymbol.map(s => s.uri));
-      expect(defSymbol?.map(s => s.uri)).toEqual([doc.uri]);
-      const symbolUri = defSymbol.map(s => s.uri).pop()!
-      expect(symbolUri.endsWith('private.fish')).toBeTruthy()
+      expect(defSymbol?.map(s => s.uri)).toEqual([ document.uri ]);
+      const symbolUri = defSymbol.map(s => s.uri).pop()!;
+      expect(symbolUri.endsWith('private.fish')).toBeTruthy();
     });
 
     it('reference symbols', () => {
@@ -151,7 +116,7 @@ describe('analyzer test suite', () => {
       const thisTest = createFakeLspDocument('functions/this_test.fish', [
         'function this_test',
         '   function test',
-        '       echo \'test\'',
+        '       echo "test"',
         '   end',
         '   test', // should be local test
         'end',
@@ -159,7 +124,9 @@ describe('analyzer test suite', () => {
       ].join('\n'));
 
       const { symbols } = analyzer.analyze(thisTest);
-      console.log(flattenNested(...symbols).map(n => n.name + ' ' +n.scope.scopeTag + '::' + n.scope.scopeNode!.text.split(' ').slice(0,2).join(' ')+'...'));
+      // console.log(flattenNested(...symbols).map(n => n.name + ' ' + n.scope.scopeTag + '::' + n.scope.scopeNode!.text.split(' ').slice(0, 2).join(' ') + '...'));
+
+
       // const { tree, doc, rootNode, flatSymbols, symbols } = docPrivate;
       // const focus = TreeSitterUtils.getChildNodes(rootNode).find(node => isFunctionDefinitionName(node) && node.text === 'test')!;
       // const pos = getRange(focus).start;
@@ -187,7 +154,7 @@ describe('analyzer test suite', () => {
       //     break;
       // }
 
-      
+
       // if (symbol) {
       // const doc = analyzer.getDocument(symbol.uri)!;
       //   /** refactor inside analyzer */
@@ -216,9 +183,28 @@ describe('analyzer test suite', () => {
 
       // console.log(defSymbol.map(s => s.name + s.scope.scopeTag));
 
-    })
+    });
+
+    it('query: ""', () => {
+      setupAndFind(TestWorkspace.functionsOnly.documents);
+      const query = '';
+      const result = analyzer.getWorkspaceSymbols(query);
+      expect(result.map(s => s.name)).toEqual([
+        'test',
+        'foo',
+        'nested',
+        'private'
+      ]);
+    });
+
+    it('query: "t"', () => {
+      setupAndFind(TestWorkspace.functionsOnly.documents);
+      const query = 't';
+      const result = analyzer.getWorkspaceSymbols(query);
+      expect(result.map(s => s.name)).toEqual([
+        'test'
+      ]);
+    });
+
   });
-
-})
-
-
+});

@@ -1,13 +1,7 @@
 import os from 'os';
 import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { createFakeLspDocument, setLogger } from './helpers';
-import {
-  FishDocumentSymbol,
-  filterDocumentSymbolInScope,
-  filterWorkspaceSymbol,
-  flattenNested,
-  getFishDocumentSymbolItems,
-} from '../src/utils/symbol';
+import { FishDocumentSymbol, filterDocumentSymbolInScope, filterWorkspaceSymbol, flattenNested, getFishDocumentSymbolItems } from '../src/utils/symbol';
 import * as TreeSitterUtils from '../src/utils/tree-sitter';
 import { initializeParser } from '../src/parser';
 import { Position, SymbolKind } from 'vscode-languageserver';
@@ -261,10 +255,10 @@ describe('FishDocumentSymbol OPERATIONS', () => {
             cursor = TreeSitterUtils.pointToPosition(nodes.find(n => n.text === 'test')!.startPosition);
             documentTree = tree;
           }
-        })
-        
+        });
+
         const globals = analyzer.getGlobalLocations(currentDocument!, cursor!);
-        
+
         // for (const g of globals) {
         //   const { root } = analyzer.cached.get(g.uri)!;
         //   const n = TreeSitterUtils.getNodeAtRange(root, g.range);
@@ -272,22 +266,8 @@ describe('FishDocumentSymbol OPERATIONS', () => {
         // }
 
         expect(globals.length).toBe(2);
-      })
+      });
     });
-
-    // console.log(result.map(s => s.text));
-
-
-    // const cursor = Position.create(4, 3);
-    // 
-    //
-    // if (!currentNode) return [];
-    // const result: FishDocumentSymbol[] = [];
-    // const localSymbols: FishDocumentSymbol[] = filterDocumentSymbolInScope(
-    //   this.analyze(document).symbols,
-    //   position
-    // ).filter(s => s.name === currentNode.text);
-    // });
 
   });
 
@@ -484,115 +464,6 @@ describe('src/workspace-symbol.ts refactors', () => {
   });
 });
 
-// function flattenBFSWithFlatMap<T extends { children: T[] }>(...roots: T[]): T[] {
-//   let currentLevel: T[] = roots;
-//   const result: T[] = [];
-//
-//   while (currentLevel.length > 0) {
-//     result.push(...currentLevel);
-//     currentLevel = currentLevel.flatMap(node => node.children);
-//   }
-//
-//   return result;
-// }
-// function flattenNestedBFS<T extends { children: T[]; }>(...roots: T[]): T[] {
-//   return roots.length ? [
-//     ...roots,
-//     ...flattenNestedBFS(...roots.flatMap(root => root.children))
-//   ] : [];
-// }
-
-// function* flattenNestedBFSGenerator<T extends { children: T[]; }>(...roots: T[]): Generator<T, void, unknown> {
-//   const queue: T[] = [ ...roots ];
-//   let index = 0;
-//
-//   while (index < queue.length) {
-//     const current = queue[ index++ ];
-//     yield current;
-//     queue.push(...current.children);
-//   }
-// }
-
-// function flattenNestedBFS<T extends { children?: T[] }>(...roots: T[]): T[] {
-//   const result: T[] = [];
-//   let index = 0;
-//
-//   result.push(...roots);
-//
-//   while (index < result.length) {
-//     const current = result[index++];
-//     if (current?.children) result.push(...current?.children);
-//   }
-//
-//   return result;
-// }
-
-// describe('Symbols Scope', () => {
-
-// it('test autoloaded function foo', () => {
-//   const document = createFakeLspDocument('function/foo.fish', [
-//     'function foo',
-//     '    set a $argv[1]',
-//     '    set b $argv[2]',
-//     'end',
-//     'function bar',
-//     '    echo in bar $argv',
-//     '    set -l __bar_v $argv[2]',
-//     'end',
-//     'set -l shouldnt_include "another variable"'
-//   ].join('\n'))
-//   const tree = parser.parse(document.getText())
-//   const root = tree.rootNode
-//   const symbols = flattenNested(...getFishDocumentSymbolItems(document.uri, root))
-//   const current = TreeSitterUtils.getChildNodes(root).filter(c => c.text === 'b').pop()!
-//   const currentPos = TreeSitterUtils.pointToPosition(current.startPosition)
-//   console.log(current.text);
-//   let i = 0
-//   for (const symbol of symbols) {
-//     if (symbol.kind === SymbolKind.Function && symbol.node.parent && isProgram(symbol.node.parent)) {
-//       console.log('symbol kind is working: ' + symbol.name);
-//     } else if (symbol.scope.containsPosition(currentPos) && TreeSitterUtils.isPositionBefore(symbol.selectionRange.start, currentPos)) {
-//       console.log('other check: '+ symbol.name);
-//     }
-//     // console.log(i, {
-//     //
-//     //   name: symbol.name,
-//     //   kind: symbolKindToString(symbol.kind),
-//     //   scope: {
-//     //     tag: symbol.scope.scopeTag,
-//     //     node: symbol.scope.scopeNode.text
-//     //   }
-//     // });
-//     i++;
-//   }
-// })
-
-// it('test autoloaded function foo2', () => {
-//   const document = createFakeLspDocument('function/foo.fish', [
-//     'function foo',
-//     '    set a $argv[1]',
-//     '    set b $argv[2]',
-//     'end',
-//     'function bar',
-//     '    echo in bar $argv',
-//     '    set -l __bar_v $argv[2]',
-//     'end',
-//     'set -l shouldnt_include "another variable"'
-//   ].join('\n'))
-//   const tree = parser.parse(document.getText())
-//   const root = tree.rootNode
-//   const current = TreeSitterUtils.getChildNodes(root).filter(c => c.text === 'b').pop()!
-//   const currentPos = TreeSitterUtils.pointToPosition(current.startPosition)
-//   const symbols = getFishDocumentSymbolScoped(document.uri, root, currentPos)
-//   console.log(symbols.map(s => s.name));
-//
-// })
-
-//
-// })
-//
-//
-//
 // const result: SyntaxNode[] = [];
 // const flat = flattenNested(...symbols);
 // const localSymbols = filterDocumentSymbolInScope(symbols, searchPosition)
