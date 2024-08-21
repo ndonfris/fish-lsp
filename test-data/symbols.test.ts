@@ -10,10 +10,12 @@ import {
 } from '../src/utils/symbol';
 import * as TreeSitterUtils from '../src/utils/tree-sitter';
 import { initializeParser } from '../src/parser';
-import { Position } from 'vscode-languageserver';
+import { Position, SymbolKind } from 'vscode-languageserver';
 import { isCommandName, isSourceFilename } from '../src/utils/node-types';
 import { LspDocument } from '../src/document';
 import { SyncFileHelper } from '../src/utils/file-operations';
+import { Range } from '../src/utils/locations';
+import { containsRange, getNodeAtPosition, getRange } from '../src/utils/tree-sitter';
 
 describe('BFS (Breadth First Search) vs DFS (Depth First Search) Iterators', () => {
   // Helper function to create mock SyntaxNodes
@@ -36,8 +38,8 @@ describe('BFS (Breadth First Search) vs DFS (Depth First Search) Iterators', () 
     ]),
   ]);
 
-  const BFS_ExpectedOrder = ['root', 'child1', 'child2', 'grandchild1', 'grandchild2', 'grandchild3'];
-  const DFS_ExpectedOrder = ['root', 'child1', 'grandchild1', 'grandchild2', 'child2', 'grandchild3'];
+  const BFS_ExpectedOrder = [ 'root', 'child1', 'child2', 'grandchild1', 'grandchild2', 'grandchild3' ];
+  const DFS_ExpectedOrder = [ 'root', 'child1', 'grandchild1', 'grandchild2', 'child2', 'grandchild3' ];
 
   it('nodesGen function === DFS', () => {
     const result = Array.from(TreeSitterUtils.nodesGen(mockTree)).map(node => node.type);
@@ -83,7 +85,7 @@ describe('FishDocumentSymbol OPERATIONS', () => {
       end
       foo 1 2 3
     `);
-    expect(symbols[0]?.children.length).toBe(3);
+    expect(symbols[ 0 ]?.children.length).toBe(3);
   });
 
   it('`function path; path resolve $argv; end;`', () => {
@@ -190,7 +192,89 @@ describe('FishDocumentSymbol OPERATIONS', () => {
         'e',
       ]);
     });
+    it('get last FishDocumentSymbol before point', () => {
+      const { doc, symbols } = testSymbolFiltering('functions/foo_bar.fish', [
+        'function foo_bar',
+        '    set -l arg_1 $argv[1]',
+        '    set -l arg_2 $argv[1]',
+        '    set arg_1 "hi"',
+        '    ',
+        'end'
+      ].join('\n'));
+      let flat = flattenNested(...symbols);
+      const map = new Map<string, FishDocumentSymbol[]>();
+      for (const symbol of flat) {
+        const curr: FishDocumentSymbol[] = map.get(symbol.name)! ?? [];
+        curr.push(symbol);
+        map.set(symbol.name, curr);
+      }
+      const cursor = Position.create(4, 3);
+      const value = filterDocumentSymbolInScope(symbols, cursor).filter(s => s.name === 'arg_1');
+      expect(value.pop()?.detail).toEqual([
+        '**(variable)** - *arg_1*',
+        '___',
+        '```fish',
+        'set arg_1 "hi"',
+        '```',
+        ''
+      ].join('\n'));
+    });
+    it('analyzer', () => {
+      const { rootNode, doc, symbols } = testSymbolFiltering('functions/foo.fish', [
+        'function foo',
+        '    set -l arg_1 $argv[1]',
+        '    set -l arg_2 $argv[1]',
+        '    set arg_1 "hi"',
+        '    echo $arg_1',
+        'end'
+      ].join('\n'));
+      const searchNode = TreeSitterUtils
+        .getChildNodes(rootNode)
+        .find(n => n.type === 'variable_name' && n.text === 'arg_1')!
+
+      // console.log(searchNode?.startPosition);
+      const searchPosition = Position.create(4, 10)
+      //
+      // analyzer.findDefintionSymbols
+      
+      const result: FishDocumentSymbol[] = [];
+      // const flat = flattenNested(...symbols);
+      const localSymbols = filterDocumentSymbolInScope(symbols, searchPosition)
+        .filter(
+        s => {
+          const isBefore = s.kind === SymbolKind.Variable ? TreeSitterUtils.precedesRange(s.selectionRange, getRange(searchNode)) : true
+          return (s.name === searchNode?.text
+            && ( s.scope.containsPosition(searchPosition) &&
+              containsRange(getRange(s.scope.scopeNode), getRange(searchNode))
+            && isBefore
+            ))
+          }
+        )
+
+      if (localSymbols) {
+        result.push(...localSymbols)
+      }
+
+      if (!localSymbols) {
+        // localSymbols.push(...)
+      }
+
+      console.log(localSymbols.map(s => s.name));
+
+
+      // const cursor = Position.create(4, 3);
+      // 
+      //
+      // if (!currentNode) return [];
+      // const result: FishDocumentSymbol[] = [];
+      // const localSymbols: FishDocumentSymbol[] = filterDocumentSymbolInScope(
+      //   this.analyze(document).symbols,
+      //   position
+      // ).filter(s => s.name === currentNode.text);
+    });
+
   });
+
 
   // it('[nested function] filter up-to-node (BAD SYNTAX: `foo_baz`, `_baz`)', () => {
   //
@@ -380,7 +464,7 @@ describe('src/workspace-symbol.ts refactors', () => {
     expect([
       isSourceFilename(sourceFilename),
       isSourceFilename(sourceVariable),
-    ]).toEqual([true, false]);
+    ]).toEqual([ true, false ]);
   });
 });
 

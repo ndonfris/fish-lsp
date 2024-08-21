@@ -1,6 +1,6 @@
 import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from './parser';
-import { Analyzer } from './analyze';
+import { Analyzer } from './future-analyze';
 //import {  generateCompletionList, } from "./completion";
 import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, DocumentHighlight, DocumentHighlightParams, ExecuteCommandParams, PublishDiagnosticsParams } from 'vscode-languageserver';
 import { ExecResultWrapper, execEntireBuffer, execLineInBuffer, executeThemeDump, useMessageKind } from './execute-handler';
@@ -9,7 +9,7 @@ import { LspDocument, LspDocuments } from './document';
 import { formatDocumentContent } from './formatting';
 import { Logger } from './logger';
 import { symbolKindToString, symbolKindsFromNode, uriToPath } from './utils/translation';
-import { getChildNodes, getNodeAtPosition } from './utils/tree-sitter';
+import { getChildNodes, getNodeAtPoint, getNodeAtPosition } from './utils/tree-sitter';
 import { handleHover } from './hover';
 import { getDiagnostics } from './diagnostics/validate';
 /*import * as Locations from './utils/locations';*/
@@ -36,6 +36,7 @@ import { CompletionItemMap } from './utils/completion/startup-cache';
 import { getDocumentHighlights } from './document-highlight';
 import { SyncFileHelper } from './utils/file-operations';
 import { flattenNested } from './utils/symbol';
+import { FishDocumentSymbol } from './utils/symbol'
 
 // @TODO
 export type SupportedFeatures = {
@@ -269,7 +270,7 @@ export default class FishServer {
     const { doc } = this.getDefaultsForPartialParams(params);
     if (!doc) return [];
 
-    const symbols = this.analyzer.getDocumentSymbols(doc.uri);
+    const { symbols } = this.analyzer.analyze(doc)
     // return filterLastPerScopeSymbol(symbols);
     return symbols;
   }
@@ -359,7 +360,13 @@ export default class FishServer {
   async onWorkspaceSymbol(params: WorkspaceSymbolParams): Promise<WorkspaceSymbol[]> {
     this.logParams('onWorkspaceSymbol', params.query);
 
-    return this.analyzer.getWorkspaceSymbols(params.query) || [];
+    const flatList: WorkspaceSymbol[] = Object.values(this.analyzer.workspaceSymbols).flat().map(s => WorkspaceSymbol.create(s.name, s.kind, s.uri))
+
+    if (params.query === '') {
+      return flatList
+    }
+
+    return flatList.filter(sym => sym.name.startsWith(params.query)) || [];
   }
 
   // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#showDocumentParams
@@ -368,8 +375,13 @@ export default class FishServer {
 
     const { doc } = this.getDefaults(params);
     if (!doc) return [];
+    const analyzed = this.analyzer.analyze(doc)
+    const node = getNodeAtPosition(analyzed.tree, params.position)
+    
+    // const node = getNodeAtPosition(this.analyzer.analyze(doc)!.tree, params.position)
 
-    return this.analyzer.getDefinitionLocation(doc, params.position);
+    // return this.analyzer.getDefinitionLocation(doc, params.position);
+    return []
   }
 
   async onReferences(params: ReferenceParams): Promise<Location[]> {

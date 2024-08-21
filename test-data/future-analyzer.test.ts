@@ -12,6 +12,7 @@ import {
 import * as TreeSitterUtils from '../src/utils/tree-sitter';
 import { initializeParser } from '../src/parser';
 import { Position, SymbolKind } from 'vscode-languageserver';
+import * as LSP from 'vscode-languageserver';
 import { isCommandName, isFunctionDefinitionName, isSourceFilename } from '../src/utils/node-types';
 import { LspDocument } from '../src/document';
 import { SyncFileHelper } from '../src/utils/file-operations';
@@ -94,7 +95,7 @@ describe('analyzer test suite', () => {
       ]);
     });
 
-    it('workspaceSymbols `test` def', () => {
+    it('global workspaceSymbols `test` def', () => {
       const { docFoo } = buildWorkspaceOne();
       const { doc, rootNode } = docFoo;
       const focus = TreeSitterUtils.getChildNodes(rootNode).find(node => isCommandName(node) && node.text === 'test')!;
@@ -146,37 +147,78 @@ describe('analyzer test suite', () => {
     });
 
     it('reference symbols', () => {
-      const { docPrivate } = buildWorkspaceOne();
-      const { tree, doc, rootNode, flatSymbols, symbols } = docPrivate;
-      const focus = TreeSitterUtils.getChildNodes(rootNode).find(node => isFunctionDefinitionName(node) && node.text === 'test')!;
-      const pos = getRange(focus).start;
-      const defSymbol = analyzer.getDefinitionSymbol(doc, pos)
-       if (symbol) {
-    const doc = analyzer.getDocument(symbol.uri)!;
-  //   const { scopeTag } = symbol.scope;
-  //       switch (scopeTag) {
-  //         case 'global':
-  //         case 'universal':
-  //           return findGlobalLocations(analyzer, doc, symbol.selectionRange.start);
-  //         case 'local':
-  //         default:
-  //           return findLocalLocations(analyzer, document, symbol.selectionRange.start);
-  //       }
-  // }
-  //         position
-  //     for (const sym of defSymbol) {
-  //       if (sym.scope.scopeTag === 'local') {
-  //
-  //       }
-  //     }
-      console.log(defSymbol.map(s => s.name + s.scope.scopeTag));
+      // const { docPrivate } = buildWorkspaceOne();
+      const thisTest = createFakeLspDocument('functions/this_test.fish', [
+        'function this_test',
+        '   function test',
+        '       echo \'test\'',
+        '   end',
+        '   test', // should be local test
+        'end',
+        'test' // should be global test
+      ].join('\n'));
+
+      const { symbols } = analyzer.analyze(thisTest);
+      console.log(flattenNested(...symbols).map(n => n.name + ' ' +n.scope.scopeTag + '::' + n.scope.scopeNode!.text.split(' ').slice(0,2).join(' ')+'...'));
+      // const { tree, doc, rootNode, flatSymbols, symbols } = docPrivate;
+      // const focus = TreeSitterUtils.getChildNodes(rootNode).find(node => isFunctionDefinitionName(node) && node.text === 'test')!;
+      // const pos = getRange(focus).start;
+      // const defSymbol = analyzer.getDefinitionSymbol(doc, pos)
+      // 
+      //
+      //
+      // /* is defSymbol `local` or `global` scope*/
+      // /** if `global` get all references of a symbol in workspace */
+      // const location = analyzer.getValidNodes(doc, defSymbol[0]!)
+      // for (const l of location) {
+      //   const n = getNodeAtPosition(tree, l.range.start);
+      //   console.log(n?.text);
+      // }
+
+
+      // switch (defSymbol[0].scope.scopeTag) {
+      //   case 'universal':
+      //   case 'global':
+      //     /* handle global symbols */
+      //     break;
+      //   case 'local':
+      //   default:
+      //     /* handle local symbols */
+      //     break;
+      // }
+
+      
+      // if (symbol) {
+      // const doc = analyzer.getDocument(symbol.uri)!;
+      //   /** refactor inside analyzer */
+      //   const { scopeTag } = symbol.scope;
+      //       switch (scopeTag) {
+      //         case 'global':
+      //         case 'universal':
+      //           return findGlobalLocations(analyzer, doc, symbol.selectionRange.start);
+      //         case 'local':
+      //         default:
+      //           return findLocalLocations(analyzer, document, symbol.selectionRange.start);
+      //       }
+      // }
+      //         position
+      //     for (const sym of defSymbol) {
+      //       if (sym.scope.scopeTag === 'local') {
+      //
+      //       }
+      //     }
+
+
+      /* if no local Symbols */
+      /** get all references of a symbol in workspace */
+
+      // workspaceSymbols.get(currentNode.text) || [];
+
+      // console.log(defSymbol.map(s => s.name + s.scope.scopeTag));
 
     })
   });
 
 })
-
-
-
 
 
