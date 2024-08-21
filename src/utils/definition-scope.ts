@@ -3,9 +3,8 @@ import * as NodeTypes from './node-types';
 import { pathToRelativeFunctionName } from './translation';
 import { firstAncestorMatch, getRange, isPositionWithinRange, getParentNodes, positionToPoint, pointToPosition, isNodeWithinRange } from './tree-sitter';
 import { Position } from 'vscode-languageserver';
-import { FishDocumentSymbol } from './symbol';
 
-export type ScopeTag = 'global' | 'universal' | 'local' | 'function' | 'inherit';
+export type ScopeTag = 'global'  | 'local' | 'function' | 'inherit';
 export interface DefinitionScope {
   scopeNode: SyntaxNode;
   scopeTag: ScopeTag;
@@ -14,7 +13,7 @@ export interface DefinitionScope {
 }
 
 export namespace DefinitionScope {
-  export function create(scopeNode: SyntaxNode, scopeTag: 'global' | 'universal' | 'local' | 'function' | 'inherit'): DefinitionScope {
+  export function create(scopeNode: SyntaxNode, scopeTag: ScopeTag): DefinitionScope {
     return {
       scopeNode,
       scopeTag,
@@ -24,6 +23,8 @@ export namespace DefinitionScope {
   }
 }
 
+// @TODO: 
+//    use NodeTypes.isMatchingOption(node, {...}) instead of this class
 export class VariableDefinitionFlag {
   public short: string;
   public long: string;
@@ -74,10 +75,6 @@ function getMatchingFlags(focusedNode: SyntaxNode, nodes: SyntaxNode[]) {
   return hasParentFunction(focusedNode)
     ? new VariableDefinitionFlag('f', 'function')
     : new VariableDefinitionFlag('', 'inherit');
-}
-
-export function nodeIsInSymbolScope(node: SyntaxNode, symbols: FishDocumentSymbol[]) {
-    return symbols.some(symbol => symbol.scope.containsPosition(pointToPosition(node.startPosition)))
 }
 
 function findScopeFromFlag(node: SyntaxNode, flag: VariableDefinitionFlag) {
@@ -278,6 +275,8 @@ export function expandEntireVariableLine(node: SyntaxNode): SyntaxNode[] {
   return results;
 }
 
+// @TODO 
+//      skip queries and use NodeTypes.isMatchingOption(node, {...}) instead
 export function setQuery(searchNodes: SyntaxNode[]) {
   const queryFlag = new VariableDefinitionFlag('q', 'query');
   for (const flag of searchNodes) {

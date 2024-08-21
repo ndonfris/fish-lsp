@@ -81,6 +81,11 @@ export class Analyzer { // @TODO rename to Analyzer
    * call at startup to analyze in background
    */
   // async initalizeBackgroundAnalysis() {}
+
+  /**
+   * getFlatSymbols - flattened document symbol array. Helper function to be used
+   * throughout this class.
+   */
   getFlatSymbols(document: LspDocument): FishDocumentSymbol[] {
     const symbols: FishDocumentSymbol[] = this.analyze(document).symbols;
     return flattenNested(...symbols);
@@ -112,6 +117,11 @@ export class Analyzer { // @TODO rename to Analyzer
     return result;
   }
 
+  // @TODO - use locations
+  // https://github.com/ndonfris/fish-lsp/blob/782e14a2d8875aeeddc0096bf85ca1bc0d7acc77/src/workspace-symbol.ts#L139
+  /**
+   * getReferenceSymbols - gets all references of a symbol in a LspDocument
+   */
   getReferenceSymbols(document: LspDocument, position: Position) {
     const result: SyntaxNode[] = [];
     if (!this.cached.has(document.uri)) return [];
@@ -140,33 +150,6 @@ export class Analyzer { // @TODO rename to Analyzer
     return result;
   }
 
-  /** https://github.com/ndonfris/fish-lsp/blob/782e14a2d8875aeeddc0096bf85ca1bc0d7acc77/src/workspace-symbol.ts#L58 */
-  private getLocalSymbols(symbols: FishDocumentSymbol[]) {
-    return flattenNested(...symbols)
-      .filter(s => s.scope.scopeTag !== 'global' && s.scope.scopeTag !== 'universal');
-  }
-
-  private removeLocalSymbols(matchSymbol: FishDocumentSymbol, nodes: SyntaxNode[], symbols: FishDocumentSymbol[]) {
-    const name = matchSymbol.name;
-    const matchingSymbols = this
-      .getLocalSymbols(symbols.filter(symbol => symbol.name === name))
-      .map((symbol: FishDocumentSymbol) => symbol.scope.scopeNode);
-
-    const matchingNodes = nodes.filter(node => node.text === name);
-
-    if (matchingSymbols.length === 0 || matchSymbol.kind === SymbolKind.Function) {
-      return matchingNodes;
-    }
-
-    return matchingNodes.filter((node) => {
-      if (matchingSymbols.some(scopeNode => containsRange(getRange(scopeNode), getRange(node)))) {
-        return false;
-      }
-      return true;
-    });
-  }
-
-
   getLocalLocations(document: LspDocument, position: Position) {
     const symbol = this.getDefinitionSymbol(document, position).pop();
     if (!symbol) return [];
@@ -193,39 +176,8 @@ export class Analyzer { // @TODO rename to Analyzer
       const newLocations = findLocations(uri, toSearchNodes, symbol.at(0)!.name);
       locations.push(...newLocations);
     }
-    return locations
+    return locations;
   }
-
-  public getValidNodes(document: LspDocument, symbol: FishDocumentSymbol): Location[] {
-    const rootNode = symbol.scope.scopeNode;
-    const nodesToSearch = getChildNodes(rootNode);
-    return findLocations(document.uri, nodesToSearch, symbol.name);
-  }
-
-  // private getLocalDocumentSymbols(document: LspDocument): FishDocumentSymbol[] {
-  //   const symbols = this.cached.get(document.uri)?.symbols || [];
-  //   return flattenNested(...symbols)
-  //     .filter(s => s.scope.scopeTag !== 'global' && s.scope.scopeTag !== 'universal');
-  // }
-  //
-  // private removeChildNodes(node: Parser.SyntaxNode, validNodes: Set<Parser.SyntaxNode>): void {
-  //   const stack: Parser.SyntaxNode[] = [node];
-  //
-  //   while (stack.length > 0) {
-  //     const currentNode = stack.pop()!;
-  //     validNodes.delete(currentNode);
-  //
-  //     for (let i = 0; i < currentNode.namedChildCount; i++) {
-  //       const child = currentNode.namedChild(i);
-  //       if (child) stack.push(child);
-  //     }
-  //   }
-  // }
-
-  /**
-   * getReferenceSymbols - gets all references of a symbol in a LspDocument
-   */
-  // getReferenceSymbols() {}
 
   /**
    * getHover - gets the hover documentation of a symbol in a LspDocument
@@ -249,116 +201,20 @@ export class Analyzer { // @TODO rename to Analyzer
    * getWorkspaceSymbols - looks up a query symbol in the entire cachedDocuments object.
    * An empty query will return all symbols in the current workspace.
    */
-  // getWorkspaceSymbols(query: string = '') {}
+  getWorkspaceSymbols(query: string = ''): LSP.WorkspaceSymbol[] {
+    const allSymbols = Array.from(this.workspaceSymbols.values()).flat().map(s => LSP.WorkspaceSymbol.create(s.name, s.kind, s.uri, s.range))
+    if (query === '') {
+      return allSymbols;
+    }
 
-  /**
-   * getFlatSymbols - flattened document symbol array. Helper function to be used
-   * throughout this class.
-   */
-  // private getFlatSymbols() {}
+    return allSymbols.filter(s => s.name.startsWith(query));
+  }
 
   /**
    * updateUri - deletes an old Uri Entry, and updates
    */
 }
 
-// analyze(document: LspDocument) {
-//   this.parser.reset();
-//   const cached = this.createAnalyzedDocument(document);
-//   this.cachedDocuments[ document.uri ] = cached;
-//   return cached;
-// }
-//
-// /**
-//  * A wrapper for this.analyze(). Creates an LspDocument from a filepath and analyzes it.
-//  * @returns LspDocument - the document analyzed
-//  */
-// analyzeFilepath(filepath: string) {
-//   const document = SyncFileHelper.toLspDocument(filepath, 'fish', 1);
-//   this.analyze(document);
-// }
-//
-// /**
-//  * call at startup to analyze in background
-//  */
-// // async initalizeBackgroundAnalysis() {}
-// getFlatSymbols(document: LspDocument): FishDocumentSymbol[] {
-//   const symbols: FishDocumentSymbol[] = this.analyze(document).symbols;
-//   return flattenNested(...symbols);
-// }
-//
-//
-// /**
-//  * getDefinitionSymbol - get definition symbol in a LspDocument
-//  */
-// getDefinitionSymbol(document: LspDocument, position: Position) {
-//   const { tree } = this.cachedDocuments[ document.uri ]!;
-//   const currentNode = getNodeAtPosition(tree, position);
-//   if (!currentNode) return [];
-//   const result: FishDocumentSymbol[] = [];
-//   const localSymbols: FishDocumentSymbol[] = filterDocumentSymbolInScope(
-//     this.analyze(document).symbols,
-//     position
-//   ).filter(s => s.name === currentNode.text)
-//   if (localSymbols.length) {
-//     result.push(localSymbols.pop()!);
-//   } else {
-//     const toAdd: FishDocumentSymbol[] = localSymbols.filter((s) => {
-//       const varBefore = s.kind === SymbolKind.Variable ? precedesRange(s.selectionRange, getRange(currentNode)) : true;
-//       return (s.name === currentNode.text &&
-//         containsRange(
-//           getRange(s.scope.scopeNode),
-//           getRange(currentNode),
-//         ) && varBefore);
-//     });
-//     result.push(...toAdd);
-//   }
-//   if (!result.length) {
-//     const workspaceSymbols = this.workspaceSymbols[ currentNode.text ] || [];
-//     result.push(...workspaceSymbols);
-//   }
-//   return result;
-// }
-
-/**
- * getReferenceSymbols - gets all references of a symbol in a LspDocument
- */
-// getReferenceSymbols() {}
-
-/**
- * getHover - gets the hover documentation of a symbol in a LspDocument
- */
-// getHover() {}
-
-/**
- * getCompletionSymbols - local symbols to send to a onCompletion request in server
- * @returns FishDocumentSymbol[]
- */
-// getCompletionSymbols() {}
-
-/**
- * getSignatureInformation - looks through the symbols for functions that can be used
- * to create SignatureInfo objects to be used in the server. Only function SymbolKind's
- * will be used.
- */
-// getSignatureInformation() {}
-
-/**
- * getWorkspaceSymbols - looks up a query symbol in the entire cachedDocuments object.
- * An empty query will return all symbols in the current workspace.
- */
-// getWorkspaceSymbols(query: string = '') {}
-
-/**
- * getFlatSymbols - flattened document symbol array. Helper function to be used
- * throughout this class.
- */
-// private getFlatSymbols() {}
-
-/**
- * updateUri - deletes an old Uri Entry, and updates
- */
-// }
 function findLocations(uri: string, nodes: SyntaxNode[], matchName: string): Location[] {
   const equalRanges = (a: LSP.Range, b: LSP.Range) => {
     return (
