@@ -5,6 +5,7 @@ import Parser, { Point, SyntaxNode, Tree } from 'web-tree-sitter';
 import { TextDocumentItem } from 'vscode-languageserver';
 import { LspDocument } from '../src/document';
 import { homedir } from 'os';
+import { FishDocumentSymbol } from '../src/utils/symbol';
 
 export function setLogger(
   beforeCallback: () => Promise<void> = async () => { },
@@ -59,4 +60,18 @@ export function createFakeLspDocument(name: string, text: string): LspDocument {
   const uri = createFakeUriPath(name);
   const doc = TextDocumentItem.create(uri, 'fish', 0, text);
   return new LspDocument(doc);
+}
+
+/**
+ * @param {FishDocumentSymbol} symbols - nested array of FishDocumentSymbol for a document
+ */
+export function logFishDocumentSymbolTree(symbols: FishDocumentSymbol[], indentString: string = ''): string {
+  let str = '';
+  for (const symbol of symbols) {
+    str += symbol.scope.scopeTag.padEnd(10) + '::::' + indentString  + symbol.logString() + '\n';
+    if (symbol.children) {
+      str += logFishDocumentSymbolTree(symbol.children, indentString + '    ');
+    }
+  }
+  return str.trim();
 }

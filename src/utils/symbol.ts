@@ -4,6 +4,10 @@ import {
   // Range,
   DocumentUri,
   Position,
+  WorkspaceSymbol,
+  Location,
+  Range,
+  FoldingRange,
 } from 'vscode-languageserver';
 import { containsRange, getRange, isPositionBefore, isPositionWithinRange } from './tree-sitter';
 import { isVariableDefinitionName, isFunctionDefinitionName, refinedFindParentVariableDefinitionKeyword } from './node-types';
@@ -13,29 +17,181 @@ import { MarkdownBuilder, md } from './markdown-builder';
 import { symbolKindToString } from './translation';
 import { PrebuiltDocumentationMap } from './snippets';
 
-export interface FishDocumentSymbol extends DocumentSymbol {
-  uri: string;
-  children: FishDocumentSymbol[];
-  scope: DefinitionScope;
-  node: SyntaxNode;
-  mdCallback: (parent: SyntaxNode) => string;
-  get detail(): string;
+export class FishDocumentSymbol implements DocumentSymbol {
+
+  constructor(
+    public name: string,
+    public kind: SymbolKind,
+    public uri: string,
+    public range: Range,
+    public selectionRange: Range,
+    public scope: DefinitionScope,
+    public node: SyntaxNode,
+    public parent: SyntaxNode,
+    public children: FishDocumentSymbol[],
+  ) { }
+
+  get detail() {
+    const found = PrebuiltDocumentationMap.findMatchingNames(this.name, 'variable', 'command')?.find(name => name.name === this.name);
+    const kindStr = `(${symbolKindToString(this.kind)})`;
+    return new MarkdownBuilder().fromMarkdown(
+      [
+        md.bold(kindStr), '-', md.italic(this.name),
+      ],
+      md.separator(),
+      md.codeBlock('fish', this.parent.text),
+      found
+        ? md.newline() + md.separator() + md.newline() + found.description
+        : '',
+    ).toString();
+  }
+
+  equals(other: FishDocumentSymbol): boolean {
+    return (
+      this.name === other.name &&
+      this.uri === other.uri &&
+      this.range.start.character === other.range.start.character &&
+      this.range.start.line === other.range.start.line &&
+      this.range.end.character === other.range.end.character &&
+      this.range.end.line === other.range.end.line &&
+      this.selectionRange.start.character === other.selectionRange.start.character &&
+      this.selectionRange.start.line === other.selectionRange.start.line &&
+      this.selectionRange.end.line === other.selectionRange.end.line &&
+      this.selectionRange.end.character === other.selectionRange.end.character
+    );
+  }
+
+  toWorkspaceSymbol(): WorkspaceSymbol {
+    return {
+      name: this.name,
+      kind: this.kind,
+      location: this.toLocation(),
+    };
+  }
+  toLocation(): Location {
+    return {
+      uri: this.uri,
+      range: this.range,
+    };
+  }
+
+  toFoldingRange(): FoldingRange {
+    return {
+      startLine: this.range.start.line,
+      endLine: this.range.end.line,
+      collapsedText: this.name,
+    };
+  }
+
+  isBefore(other: FishDocumentSymbol): boolean {
+    return this.range.start.line < other.range.start.line;
+  }
+
+  isAfter(other: FishDocumentSymbol): boolean {
+    return this.range.start.line > other.range.start.line;
+  }
+
+  equalScopes(other: FishDocumentSymbol): boolean {
+    if (this.scope.scopeNode && other.scope.scopeNode) {
+      if ([ this.scope.scopeTag, other.scope.scopeTag ].includes('inherit')) {
+        return this.scope.scopeNode.equals(other.scope.scopeNode);
+      } else if (
+        [ 'global' ].includes(this.scope.scopeTag) &&
+        [ 'global' ].includes(other.scope.scopeTag)
+      ) {
+        return true;
+      }
+      // return this.scope.scopeTag === other.scope.scopeTag &&
+      return this.scope.scopeNode.equals(other.scope.scopeNode);
+    }
+    return false;
+  }
+
+  logString(): string {
+    const symbolIcon = this.kind === SymbolKind.Function ? ' ƒ ' : '  ';
+    return `${symbolIcon}${this.name}`;
+  }
+
+  // @TODO: remove after testing
+  debugString({
+    includeDetail = true,
+    skipProperties = [],
+  }: {
+    includeDetail?: boolean;
+    skipProperties?: string[];
+  }): string {
+
+    const positionString = (pos: Position) => `(line: ${pos.line}, character: ${pos.character})`;
+
+    const rangeString = (range: Range) => {
+      return `${positionString(range.start)} --- ${positionString(range.end)}`;
+    };
+
+    const syntaxNodeShrotener = (node: SyntaxNode) => {
+      const text = node.text
+        .replace(/\n/g, '\\n')
+        .replace(/    /g, '\t')
+        .replace(/\t/g, '\\t');
+      return text.length > 20 ? node.text.slice(0, 20) + '...' : text;
+    };
+
+    const logObj = {
+      name: this.name,
+      kind: symbolKindToString(this.kind),
+      uri: this.uri,
+      range: rangeString(this.range),
+      selectionRange: rangeString(this.selectionRange),
+      scope: {
+        scopeTag: this.scope.scopeTag,
+        scopeNode: syntaxNodeShrotener(this.scope.scopeNode),
+      },
+      node: syntaxNodeShrotener(this.node),
+      parent: syntaxNodeShrotener(this.parent),
+      children: flattenNested(...this.children).map(c => c.name),
+    } as any;
+
+    if (includeDetail) {
+      logObj[ 'detail' ] = this.detail;
+    }
+
+    // Remove properties that should be skipped
+    for (const prop of skipProperties) {
+      delete logObj[ prop ];
+    }
+
+    return JSON.stringify(logObj, null, 2);
+  }
 }
 
-function mdCallback(this: FishDocumentSymbol, parent: SyntaxNode): string {
-  const found = PrebuiltDocumentationMap.findMatchingNames(this.name, 'variable', 'command')?.find(name => name.name === this.name);
-  // const moreInfo = !!found ? found.description + md.newline() + md.separator() : md.separator();
-  const kindStr = `(${symbolKindToString(this.kind)})`;
-  return new MarkdownBuilder().fromMarkdown(
-    [
-      md.bold(kindStr), '-', md.italic(this.name),
-    ],
-    md.separator(),
-    md.codeBlock('fish', parent.text),
-    found
-      ? md.newline() + md.separator() + md.newline() + found.description
-      : '',
-  ).toString();
+export namespace FishDocumentSymbol {
+
+  type CreateParams = {
+    name: string;
+    kind: SymbolKind;
+    uri: string;
+    range: Range;
+    selectionRange: Range;
+    scope: DefinitionScope;
+    node: SyntaxNode;
+    parent: SyntaxNode;
+    children: FishDocumentSymbol[];
+  };
+
+  export function create({
+    name,
+    kind,
+    uri,
+    range,
+    selectionRange,
+    scope,
+    node,
+    parent,
+    children,
+  }: CreateParams): FishDocumentSymbol {
+    return new FishDocumentSymbol(name, kind, uri, range, selectionRange, scope, node, parent, children);
+  }
+
+
 }
 
 function extractSymbolInfo(node: SyntaxNode): {
@@ -89,26 +245,27 @@ export function getFishDocumentSymbolItems(uri: DocumentUri, ...currentNodes: Sy
     const childrenSymbols = getFishDocumentSymbolItems(uri, ...current.children);
     const { shouldCreate, kind, parent, child } = extractSymbolInfo(current);
     if (shouldCreate) {
-      symbols.push({
-        name: child.text,
-        kind,
-        uri,
-        node: current,
-        range: getRange(parent),
-        selectionRange: getRange(child),
-        scope: getScope(uri, child),
-        children: childrenSymbols ?? [] as FishDocumentSymbol[],
-        mdCallback,
-        get detail() {
-          return this.mdCallback(parent);
-        },
-      });
+      symbols.push(
+        FishDocumentSymbol.create({
+          name: child.text,
+          kind,
+          uri,
+          range: getRange(parent),
+          selectionRange: getRange(child),
+          scope: getScope(uri, child),
+          node: current,
+          parent: parent,
+          children: childrenSymbols ?? [] as FishDocumentSymbol[],
+        })
+      );
       continue;
     }
     symbols.push(...childrenSymbols);
   }
   return symbols;
 }
+
+
 
 /**
  * flat list of symbols, up to the position given (including symbols at the position)
@@ -177,23 +334,24 @@ export function filterWorkspaceSymbol(symbols: FishDocumentSymbol[]) {
   return flattenNested(...symbols).filter(filter);
 }
 
-//
-//
-//
-// export function filterLastPerScopeSymbol(symbolArray: FishDocumentSymbol[]) {
-//   const symbolTree = flattenNested(symbolArray);
-//   return symbolTree
-//     .filter((symbol: FishDocumentSymbol) => !symbolTree.some((s) => {
-//       return (
-//         s.name === symbol.name &&
-//           !FishDocumentSymbol.equal(symbol, s) &&
-//           FishDocumentSymbol.equalScopes(symbol, s) &&
-//           FishDocumentSymbol.isBefore(symbol, s)
-//       );
-//     }))
-//     .toArray();
-// }
-//
+/**
+ * filter out duplicate symbol definitions per scope
+ * @param symbolArray - non flattened symbol array
+ * @returns - flat symbol array
+ */
+export function filterLastPerScopeSymbol(symbolArray: FishDocumentSymbol[]) {
+  const symbolTree = flattenNested(...symbolArray);
+  const flatSymbols = [ ...symbolTree ];
+  return symbolTree
+    .filter((symbol: FishDocumentSymbol) => !flatSymbols.some((s) => {
+      return (
+        s.name === symbol.name &&
+        !symbol.equals(s) &&
+        symbol.equalScopes(s) &&
+        symbol.isBefore(s)
+      );
+    }));
+}
 
 
 
@@ -204,5 +362,4 @@ export function getGlobalSyntaxNodesInDocument(nodes: SyntaxNode[], symbols: Fis
   //
   // return nodes.filter(n => !flatSymbols.some(range => containsRange(range, getRange(n))));
   return nodes.filter(n => !symbols.some(symbol => containsRange(getRange(symbol.scope.scopeNode), getRange(n)) && symbol.name === n.text));
-
 }

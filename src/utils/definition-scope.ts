@@ -4,7 +4,7 @@ import { pathToRelativeFunctionName } from './translation';
 import { firstAncestorMatch, getRange, isPositionWithinRange, getParentNodes, positionToPoint, pointToPosition, isNodeWithinRange } from './tree-sitter';
 import { Position } from 'vscode-languageserver';
 
-export type ScopeTag = 'global'  | 'local' | 'function' | 'inherit';
+export type ScopeTag = 'global' | 'local' | 'function' | 'inherit';
 export interface DefinitionScope {
   scopeNode: SyntaxNode;
   scopeTag: ScopeTag;
@@ -129,7 +129,7 @@ function findScopeFromFlag(node: SyntaxNode, flag: VariableDefinitionFlag) {
 
 export function getVariableScope(node: SyntaxNode) {
   const definitionNodes: SyntaxNode[] = expandEntireVariableLine(node);
-  const keywordNode = definitionNodes[0]!;
+  const keywordNode = definitionNodes[ 0 ]!;
 
   let matchingFlag = null;
 
@@ -149,7 +149,7 @@ export function getVariableScope(node: SyntaxNode) {
   return scope;
 }
 
-function  getUriScopeType(uri: string) {
+function getUriScopeType(uri: string) {
   const uriParts = uri.split('/');
   if (uriParts.at(-2)?.includes('functions')) {
     return 'function';
@@ -174,7 +174,7 @@ function getFunctionScope(node: SyntaxNode) {
   let current = node;
   while (current !== null) {
     if (NodeTypes.isFunctionDefinition(current) || NodeTypes.isProgram(current)) {
-      return current
+      return current;
     }
     current = current.parent!;
   }
@@ -187,7 +187,7 @@ export function getScope(uri: string, node: SyntaxNode) {
   if (nodeType === 'function') {
     const parent = node.parent!.parent!;
     const scopeNode = getFunctionScope(parent!);
-    if (!scopeNode) return DefinitionScope.create(parent, 'local'); 
+    if (!scopeNode) return DefinitionScope.create(parent, 'local');
 
     /**
      * creates a global/function scopeTag for functions in config.fish or conf.d/*.fish
@@ -200,9 +200,9 @@ export function getScope(uri: string, node: SyntaxNode) {
       const scopeTag = NodeTypes.isProgram(scopeNode) ? 'global' : 'function';
       return DefinitionScope.create(scopeNode, scopeTag);
 
-    /**
-     * creates a global/function/local scopeTag for functions in functions/*.fish
-     */
+      /**
+       * creates a global/function/local scopeTag for functions in functions/*.fish
+       */
     } else if (uriType === 'function') {
       const functionName = pathToRelativeFunctionName(uri);
       /**
@@ -210,9 +210,9 @@ export function getScope(uri: string, node: SyntaxNode) {
        * scopeTag is 'function' if the function nested in another function
        * scopeTag is 'local' if the function is in the same file but not nested
        */
-      const scopeTag = 
-        NodeTypes.isProgram(scopeNode) && functionName === node.text ? 'global' : 
-        NodeTypes.isFunctionDefinition(scopeNode) ? 'function' : 'local';
+      const scopeTag =
+        NodeTypes.isProgram(scopeNode) && functionName === node.text ? 'global' :
+          NodeTypes.isFunctionDefinition(scopeNode) ? 'function' : 'local';
 
       return DefinitionScope.create(scopeNode, scopeTag);
     } else {
@@ -252,7 +252,7 @@ export function getScope(uri: string, node: SyntaxNode) {
 }
 
 export function expandEntireVariableLine(node: SyntaxNode): SyntaxNode[] {
-  const results: SyntaxNode[] = [node];
+  const results: SyntaxNode[] = [ node ];
 
   let current = node.previousSibling;
   while (current !== null) {
