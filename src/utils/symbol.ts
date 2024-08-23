@@ -335,6 +335,11 @@ export function filterWorkspaceSymbol(symbols: FishDocumentSymbol[]) {
 }
 
 /**
+ * @TODO - change to use a flat symbol array, so that it can be used with 
+ *         filterSymbolsOutsideOfCursor(), which then can give us our completion
+ *         symbols
+ *
+ *
  * filter out duplicate symbol definitions per scope
  * @param symbolArray - non flattened symbol array
  * @returns - flat symbol array
@@ -353,7 +358,26 @@ export function filterLastPerScopeSymbol(symbolArray: FishDocumentSymbol[]) {
     }));
 }
 
+/**
+ * filter out duplicate symbol definitions per scope
+ * @param symbolArray - non flattened symbol array
+ * @returns - flat symbol array
+ */
+export function filterSymbolsOutsideOfCursor(symbolArray: FishDocumentSymbol[], position: Position) {
+  const symbolTree = flattenNested(...symbolArray);
+  return symbolTree
+    .filter((symbol: FishDocumentSymbol) => {
+      if (!symbol.scope.containsPosition(position)) return false;
 
+      if (symbol.kind === SymbolKind.Variable && isPositionBefore(symbol.selectionRange.start, position)) {
+        return true;
+      }
+      if (symbol.kind === SymbolKind.Function) {
+        return true;
+      }
+      return false;
+    });
+}
 
 export function getGlobalSyntaxNodesInDocument(nodes: SyntaxNode[], symbols: FishDocumentSymbol[]) {
 
