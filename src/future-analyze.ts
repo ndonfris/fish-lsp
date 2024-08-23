@@ -2,10 +2,11 @@ import Parser, { SyntaxNode, Tree } from 'web-tree-sitter';
 import { LspDocument } from './document';
 import { /*filterGlobalSymbols,*/ FishDocumentSymbol, filterDocumentSymbolInScope, filterWorkspaceSymbol, flattenNested, getFishDocumentSymbolItems, getGlobalSyntaxNodesInDocument } from './utils/symbol';
 import * as LSP from 'vscode-languageserver';
-import { containsRange, getChildNodes, getNodeAtPosition, getRange, isPositionWithinRange, precedesRange } from './utils/tree-sitter';
+import { ancestorMatch, containsRange, equalsRanges, getChildNodes, getNodeAtPosition, getRange, isPositionBefore, isPositionWithinRange, precedesRange } from './utils/tree-sitter';
 import { isSourceFilename } from './diagnostics/node-types';
 import { SyncFileHelper } from './utils/file-operations';
 import { Location, Position, SymbolKind } from 'vscode-languageserver';
+import { findAncestor } from 'typescript';
 // import { Location } from './utils/locations';
 
 type AnalyzedDocument = {
@@ -185,10 +186,38 @@ export class Analyzer { // @TODO rename to Analyzer
   // getHover() {}
 
   /**
+   * @TODO
+   *
    * getCompletionSymbols - local symbols to send to a onCompletion request in server
    * @returns FishDocumentSymbol[]
    */
-  // getCompletionSymbols() {}
+  getCompletionSymbols(document: LspDocument, position: Position): FishDocumentSymbol[] {
+    const _cached = this.cached.get(document.uri);
+    if (!_cached) return [];
+    const { symbols, tree } = _cached;
+    const currentNode = getNodeAtPosition(tree, position);
+    if (!currentNode) return [];
+
+    const parentFunctions = ancestorMatch(currentNode, n => n.type === 'function_definition')
+      .map(n => n.child(1)!);
+
+    const result: FishDocumentSymbol[] = [];
+    const _symbols = flattenNested(...symbols).filter(s => {
+      return !parentFunctions.some(p => s.node.equals(p))
+    })
+    for (const s of _symbols) {
+      if (!s.scope.containsPosition(position)) {
+        // && !(s.kind === SymbolKind.Function && containsRange(s.range, getRange(currentNode)))) {
+        continue;
+      }
+      if (s.kind === SymbolKind.Function && isPositionBefore(position, s.range.start)) {
+        continue;
+      }
+      result.push(s);
+    }
+    return result;
+    // return flattenNested(...symbols).filter(s => precedesRange(getRange(s.node), getRange(currentNode)));
+  }
 
   /**
    * getSignatureInformation - looks through the symbols for functions that can be used
@@ -202,7 +231,7 @@ export class Analyzer { // @TODO rename to Analyzer
    * An empty query will return all symbols in the current workspace.
    */
   getWorkspaceSymbols(query: string = ''): LSP.WorkspaceSymbol[] {
-    const allSymbols = Array.from(this.workspaceSymbols.values()).flat().map(s => LSP.WorkspaceSymbol.create(s.name, s.kind, s.uri, s.range))
+    const allSymbols = Array.from(this.workspaceSymbols.values()).flat().map(s => LSP.WorkspaceSymbol.create(s.name, s.kind, s.uri, s.range));
     if (query === '') {
       return allSymbols;
     }

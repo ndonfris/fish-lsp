@@ -76,7 +76,8 @@ export namespace TestWorkspace {
       '       echo "inside test"',
       '   end',
       '   test',
-      'end'
+      'end',
+      ''
     ].join('\n')),
     createFakeLspDocument('functions/private.fish', [
       'function private',
@@ -85,6 +86,7 @@ export namespace TestWorkspace {
       'function test',
       '    echo "inside test"',
       'end',
+      ''
     ].join('\n')),
   ]);
 

@@ -1,77 +1,14 @@
-import Parser, { SyntaxNode } from 'web-tree-sitter';
-import { createFakeLspDocument, setLogger } from './helpers';
+import Parser from 'web-tree-sitter';
+import { setLogger } from './helpers';
 import { TestWorkspace } from './workspace-utils';
 import {
-  FishDocumentSymbol,
   flattenNested,
-  getGlobalSymbolsInDocument,
-  getFishDocumentSymbolItems,
 } from '../src/utils/symbol';
 import { initializeParser } from '../src/parser';
 import { LspDocument } from '../src/document';
 
 import { Analyzer } from '../src/future-analyze';
-import { isFunctionDefinitionName, isVariableDefinitionName, isProgram } from '../src/utils/node-types';
-import { nodeIsInSymbolScope } from '../src/utils/definition-scope';
-import { containsRange, getChildNodes, getRange, pointToPosition } from '../src/utils/tree-sitter';
 
-
-
-function filterNodes(originalNodes: SyntaxNode[], symbols: FishDocumentSymbol[]): SyntaxNode[] {
-  // // First, filter out non-global symbols
-  // const globalSymbols = symbols.filter(symbol => symbol.scope.scopeTag === 'global');
-  //
-  // // Then, filter the nodes
-  // return originalNodes.filter(node => {
-  //   // Check if the node is not contained by any global symbol
-  //   const isNotContained = globalSymbols.every(symbol => !symbol.scope.containsNode(node));
-  //   
-  //   // Check if the node itself is not a non-global symbol
-  //   const isNotNonGlobalSymbol = symbols.every(symbol => 
-  //     symbol.scope.scopeTag === 'global' || !symbol.scope.scopeNode.equals(node)
-  //   );
-  //
-  //   return isNotContained && isNotNonGlobalSymbol;
-  // });
-  return symbols.reduce((acc: SyntaxNode[], symbol: FishDocumentSymbol) => {
-    // Only filter if the symbol's scope is not global
-    if (symbol.scope.scopeTag === 'global') {
-      return acc.filter(node => !symbol.scope.containsNode(node));
-    }
-    return acc;
-  }, originalNodes);
-}
-
-
-function filterAndCollectNodes(originalNodes: SyntaxNode[], symbols: FishDocumentSymbol[]): SyntaxNode[] {
-  const globalScopeNodes: SyntaxNode[] = [];
-  const uniqueNodesSet = new Set<SyntaxNode>();
-
-  // First, collect all global scope nodes
-  symbols.forEach(symbol => {
-    if (symbol.scope.scopeTag === 'global') {
-      globalScopeNodes.push(symbol.scope.scopeNode);
-    }
-  });
-
-  // Then, filter out nodes contained in non-global scopes and collect unique nodes
-  const filteredNodes = originalNodes.filter(node => {
-    const isContainedInNonGlobalScope = symbols.some(symbol =>
-      symbol.scope.scopeTag !== 'global' && symbol.scope.containsNode(node)
-    );
-
-    if (!isContainedInNonGlobalScope) {
-      uniqueNodesSet.add(node);
-      return true;
-    }
-    return false;
-  });
-
-  // Combine global scope nodes with unique filtered nodes
-  globalScopeNodes.forEach(node => uniqueNodesSet.add(node));
-
-  return Array.from(uniqueNodesSet);
-}
 
 setLogger();
 
@@ -124,13 +61,12 @@ describe('analyzer test suite', () => {
             // const res = filterAndCollectNodes(nodes, flatSymbols);
             // console.log(res.map(n => n.text));
 
-            const globalNodes = nodes.filter(n => !flatSymbols.some(scopeSymbol => containsRange(getRange(scopeSymbol.scope.scopeNode), getRange(n)) && scopeSymbol.name === n.text));
 
 
-            const skipped = getGlobalSymbolsInDocument(nodes, symbols);
-            console.log('SKIPPED', skipped.map(n => n.text));
-            console.log('SKIPPED_two', globalNodes.filter(n => n.text === 'private').map(n => n.text));
-            console.log();
+            // const skipped = getGlobalSymbolsInDocument(nodes, symbols);
+            // console.log('SKIPPED', skipped.map(n => n.text));
+            // console.log('SKIPPED_two', globalNodes.filter(n => n.text === 'private').map(n => n.text));
+            // console.log();
 
             // for (const range of flatSymbols) {
             //

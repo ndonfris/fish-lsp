@@ -15,6 +15,8 @@ import { getRange } from '../src/utils/tree-sitter';
 
 import { Analyzer } from '../src/future-analyze';
 import { TestWorkspace } from './workspace-utils';
+import { SymbolKind } from 'vscode-languageserver';
+import { symbolKindToString } from '../src/utils/translation';
 
 setLogger();
 
@@ -206,5 +208,83 @@ describe('analyzer test suite', () => {
       ]);
     });
 
+    it('completions NESTED "test"', () => {
+      const { document } = setupAndFind(TestWorkspace.functionsOnly.documents, 'functions/nested.fish');
+      if (!document) fail();
+
+      /** after `test` commandName inside `nested` */
+      let pos = { line: 4, character: 7 };
+      expect(analyzer.getCompletionSymbols(document, pos).map(s => s.name)).toEqual([
+        'nested',
+        'test',
+      ]);
+
+      /** after final `end` outside of `nested` */
+      pos = { line: 5, character: 4 };
+      expect(analyzer.getCompletionSymbols(document, pos).map(s => s.name)).toEqual([
+        'nested'
+      ]);
+    });
+
+    it('completions PRIVATE "test"', () => {
+      const { document } = setupAndFind(TestWorkspace.functionsOnly.documents, 'functions/private.fish');
+      if (!document) fail();
+
+      // let pos = getRange(analyzer.cached.get(document.uri)?.nodes.find(s => isCommandName(s) && s.text === 'test')!)!.end;
+      // console.log(pos);
+
+      // /** after `test` commandName inside `nested` */
+      //   let pos = {line: 1, character: 8};
+      //   // console.log(analyzer.getCompletionSymbols(document, pos).map(s => s.name));
+      //   expect(analyzer.getCompletionSymbols(document, pos).map(s => s.name)).toEqual([
+      //     'private',
+      //   ])
+      //
+      //   /** after final `end` outside of `nested` */
+      //   pos = { line: 5, character: 4 };
+      //   // console.log(analyzer.getCompletionSymbols(document, pos).map(s => s.name));
+      //   expect(analyzer.getCompletionSymbols(document, pos).map(s => s.name)).toEqual([
+      //     'private',
+      //     'test'
+      //   ]);
+      // });
+    });
+
+    /**
+     * WRONG!!!
+     */
+    it('completions VARIABLES "test"', () => {
+
+      setupAndFind(TestWorkspace.functionsOnly.documents);
+
+      const { document } = analyzer.analyze(createFakeLspDocument('functions/var.fish', [
+        'function var',
+        '   set -l test 1',
+        '   ',
+        'end',
+        '',
+        ''
+      ].join('\n')));
+
+      if (!document) fail();
+
+      // let pos = getRange(analyzer.cached.get(document.uri)?.nodes.find(s => isCommandName(s) && s.text === 'test')!)!.end;
+      // console.log(pos);
+
+      // /** after `test` commandName inside `nested` */
+      let pos = { line: 2, character: 3 };
+      // console.log(analyzer.getCompletionSymbols(document, pos).map(s => s.name));
+      expect(analyzer.getCompletionSymbols(document, pos).map(s => s.name)).toEqual([
+        'var',
+        'test',
+      ])
+
+      /** after final `end` outside of `nested` */
+      pos = { line: 4, character: 0 };
+      // console.log(analyzer.getCompletionSymbols(document, pos).map(s => s.name));
+      expect(analyzer.getCompletionSymbols(document, pos).map(s => s.name)).toEqual([
+        'var',
+      ]);
+    });
   });
 });

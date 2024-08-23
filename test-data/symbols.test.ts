@@ -1,17 +1,17 @@
 import os from 'os';
-import Parser, { SyntaxNode } from 'web-tree-sitter';
-import { createFakeLspDocument, setLogger } from './helpers';
-import { FishDocumentSymbol, filterDocumentSymbolInScope, filterWorkspaceSymbol, flattenNested, getFishDocumentSymbolItems } from '../src/utils/symbol';
+import Parser, {SyntaxNode} from 'web-tree-sitter';
+import {createFakeLspDocument, setLogger, logFishDocumentSymbolTree} from './helpers';
+import {FishDocumentSymbol, filterDocumentSymbolInScope, filterLastPerScopeSymbol, filterWorkspaceSymbol, flattenNested, getFishDocumentSymbolItems} from '../src/utils/symbol';
 import * as TreeSitterUtils from '../src/utils/tree-sitter';
-import { initializeParser } from '../src/parser';
-import { Position, SymbolKind } from 'vscode-languageserver';
-import { isCommandName, isSourceFilename } from '../src/utils/node-types';
-import { LspDocument } from '../src/document';
-import { SyncFileHelper } from '../src/utils/file-operations';
-import { Range } from '../src/utils/locations';
-import { containsRange, getNodeAtPosition, getRange } from '../src/utils/tree-sitter';
-import { Analyzer } from '../src/future-analyze';
-import { TestWorkspace } from './workspace-utils';
+import {initializeParser} from '../src/parser';
+import {Position, SymbolKind} from 'vscode-languageserver';
+import {isCommandName, isSourceFilename} from '../src/utils/node-types';
+import {LspDocument} from '../src/document';
+import {SyncFileHelper} from '../src/utils/file-operations';
+import {Range} from '../src/utils/locations';
+import {containsRange, getNodeAtPosition, getRange} from '../src/utils/tree-sitter';
+import {Analyzer} from '../src/future-analyze';
+import {TestWorkspace} from './workspace-utils';
 
 describe('BFS (Breadth First Search) vs DFS (Depth First Search) Iterators', () => {
   // Helper function to create mock SyntaxNodes
@@ -34,8 +34,8 @@ describe('BFS (Breadth First Search) vs DFS (Depth First Search) Iterators', () 
     ]),
   ]);
 
-  const BFS_ExpectedOrder = [ 'root', 'child1', 'child2', 'grandchild1', 'grandchild2', 'grandchild3' ];
-  const DFS_ExpectedOrder = [ 'root', 'child1', 'grandchild1', 'grandchild2', 'child2', 'grandchild3' ];
+  const BFS_ExpectedOrder = ['root', 'child1', 'child2', 'grandchild1', 'grandchild2', 'grandchild3'];
+  const DFS_ExpectedOrder = ['root', 'child1', 'grandchild1', 'grandchild2', 'child2', 'grandchild3'];
 
   it('nodesGen function === DFS', () => {
     const result = Array.from(TreeSitterUtils.nodesGen(mockTree)).map(node => node.type);
@@ -64,7 +64,7 @@ setLogger(async () => {
 describe('FishDocumentSymbol OPERATIONS', () => {
   function testSymbolExtraction(filename: string, code: string) {
     const doc = createFakeLspDocument(filename, code);
-    const { rootNode } = parser.parse(doc.getText());
+    const {rootNode} = parser.parse(doc.getText());
     return getFishDocumentSymbolItems(doc.uri, rootNode);
   }
 
@@ -81,7 +81,7 @@ describe('FishDocumentSymbol OPERATIONS', () => {
       end
       foo 1 2 3
     `);
-    expect(symbols[ 0 ]?.children.length).toBe(3);
+    expect(symbols[0]?.children.length).toBe(3);
   });
 
   it('`function path; path resolve $argv; end;`', () => {
@@ -138,7 +138,7 @@ describe('FishDocumentSymbol OPERATIONS', () => {
 
     function testSymbolFiltering(filename: string, code: string) {
       const doc = createFakeLspDocument(filename, code);
-      const { rootNode } = parser.parse(doc.getText());
+      const {rootNode} = parser.parse(doc.getText());
       const symbols: FishDocumentSymbol[] = getFishDocumentSymbolItems(doc.uri, rootNode);
       const flatSymbols = flattenNested(...symbols);
       // console.log({ flatSymbolsNames: flatSymbols.map(s => s.name) });
@@ -152,8 +152,28 @@ describe('FishDocumentSymbol OPERATIONS', () => {
       };
     }
 
+    it('FishDocumentSymbols log symbols tree', () => {
+      const {symbols} = testSymbolFiltering('function/test-source.fish', [
+        'function test-source',
+        '    source ~/.config/fish/config.fish',
+        '    source $var',
+        '    echo ', // cursor is here @ EOL
+        'end',
+        'function __helper --argument-names a',
+        '    echo inside helper $a',
+        'end',
+      ].join('\n'));
+
+      expect(logFishDocumentSymbolTree(symbols)).toBe([
+        'local     :::: ƒ test-source',
+        'local     :::: ƒ __helper',
+        'function  ::::      a',
+      ].join('\n'));
+    });
+
+
     it('FishDocumentSymbols upto cursor', () => {
-      const { symbols } = testSymbolFiltering('function/test-source.fish', [
+      const {symbols} = testSymbolFiltering('function/test-source.fish', [
         'function test-source',
         '    source ~/.config/fish/config.fish',
         '    source $var',
@@ -173,7 +193,7 @@ describe('FishDocumentSymbol OPERATIONS', () => {
     });
 
     it('WorkspaceSymbols for FishDocumentSymbols', () => {
-      const { symbols } = testSymbolFiltering('functions/foo_bar.fish', [
+      const {symbols} = testSymbolFiltering('functions/foo_bar.fish', [
         'function foo_bar --argument-names a b c d',
         '    set depth 1',
         '    echo "$a $b $c $d"',
@@ -198,7 +218,7 @@ describe('FishDocumentSymbol OPERATIONS', () => {
       ]);
     });
     it('get last FishDocumentSymbol before point', () => {
-      const { doc, symbols } = testSymbolFiltering('functions/foo_bar.fish', [
+      const {doc, symbols} = testSymbolFiltering('functions/foo_bar.fish', [
         'function foo_bar',
         '    set -l arg_1 $argv[1]',
         '    set -l arg_2 $argv[1]',
@@ -225,9 +245,52 @@ describe('FishDocumentSymbol OPERATIONS', () => {
       ].join('\n'));
     });
 
+    it('filter last unique symbols', () => {
+      const {doc, symbols} = testSymbolFiltering('functions/foo_bar.fish', [
+        'function foo_bar',
+        '    set -l arg_1 $argv[1]',
+        '    set -l arg_2 $argv[1]',
+        '    set arg_1 "hi"',
+        '    ',
+        'end'
+      ].join('\n'));
+      const flat = flattenNested(...symbols).filter(s => s.name === 'arg_1');
+      let a = flat.at(0)!
+      let b = flat.at(1)!
+      console.log(a.scope.scopeTag, b.scope.scopeTag);
+      console.log({a: a.scope.scopeNode.text, b: b.scope.scopeNode.text});
+      console.log(a.scope.scopeNode.equals(b.scope.scopeNode), a.equalScopes(b));
+      console.log(a.equalScopes(b));
+      // flat.filter(s => s.name === 'arg_1').forEach(s => {
+      //   console.log(s.debugString({skipProperties: ['uri', 'node', 'children', 'detail']}));
+      // })
+      console.log('new');
+      filterLastPerScopeSymbol(symbols).forEach(s => {
+        console.log(s.debugString({skipProperties: ['uri', 'node', 'children', 'detail']}));
+      })
+
+      // let flat = flattenNested(...symbols);
+      // const map = new Map<string, FishDocumentSymbol[]>();
+      // for (const symbol of flat) {
+      //   const curr: FishDocumentSymbol[] = map.get(symbol.name)! ?? [];
+      //   curr.push(symbol);
+      //   map.set(symbol.name, curr);
+      // }
+      // const cursor = Position.create(4, 3);
+      // const value = filterDocumentSymbolInScope(symbols, cursor).filter(s => s.name === 'arg_1');
+      // expect(value.pop()?.detail).toEqual([
+      //   '**(variable)** - *arg_1*',
+      //   '___',
+      //   '```fish',
+      //   'set arg_1 "hi"',
+      //   '```',
+      //   ''
+      // ].join('\n'));
+    })
+
     describe('analyzer', () => {
       it('local variables: getGlobalLocations(),getLocalLocations() ', () => {
-        const { doc } = testSymbolFiltering('functions/foo.fish', [
+        const {doc} = testSymbolFiltering('functions/foo.fish', [
           'function foo',
           '    set -l arg_1 $argv[1]',
           '    set -l arg_2 $argv[1]',
@@ -249,7 +312,7 @@ describe('FishDocumentSymbol OPERATIONS', () => {
         let documentTree: Parser.Tree;
         TestWorkspace.functionsOnly.documents.forEach(doc => {
           const currentCached = analyzer.analyze(doc);
-          const { tree, nodes } = currentCached;
+          const {tree, nodes} = currentCached;
           if (doc.uri.endsWith('foo.fish')) {
             currentDocument = doc;
             cursor = TreeSitterUtils.pointToPosition(nodes.find(n => n.text === 'test')!.startPosition);
@@ -422,11 +485,11 @@ describe('src/workspace-symbol.ts refactors', () => {
     const root: SyntaxNode = tree.rootNode;
     const nodes: SyntaxNode[] = TreeSitterUtils.getChildNodes(root);
     const symbols: FishDocumentSymbol[] = getFishDocumentSymbolItems(doc.uri, tree.rootNode);
-    return { doc, tree, root, nodes, symbols };
+    return {doc, tree, root, nodes, symbols};
   }
 
   it('source filenames (`test-source`)', () => {
-    const { nodes } = setupTest('functions/test-source.fish', [
+    const {nodes} = setupTest('functions/test-source.fish', [
       'function test-source',
       '    source ~/.config/fish/config.fish',
       '    source $var',
@@ -444,7 +507,7 @@ describe('src/workspace-symbol.ts refactors', () => {
 
     /** make sure filename expands */
     const expectedFilename = `${os.homedir()}/.config/fish/config.fish`;
-    expect(SyncFileHelper.expandEnvVars(sourceFilename.text)).toBe(expectedFilename);
+      expect(SyncFileHelper.expandEnvVars(sourceFilename.text)).toBe(expectedFilename);
 
     /** make sure variable is found */
     const expectedSourceVariable = '$var';
