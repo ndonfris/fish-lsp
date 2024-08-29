@@ -29,7 +29,7 @@ export class FishDocumentSymbol implements DocumentSymbol {
     public node: SyntaxNode,
     public parent: SyntaxNode,
     public children: FishDocumentSymbol[],
-  ) { }
+  ) {}
 
   get detail() {
     const found = PrebuiltDocumentationMap.findMatchingNames(this.name, 'variable', 'command')?.find(name => name.name === this.name);
@@ -89,6 +89,20 @@ export class FishDocumentSymbol implements DocumentSymbol {
 
   isAfter(other: FishDocumentSymbol): boolean {
     return this.range.start.line > other.range.start.line;
+  }
+
+  scopeSmallerThan(other: FishDocumentSymbol): boolean {
+    const getScopeNumber = (scope: DefinitionScope) => {
+      return [
+        'local',
+        'inherit',
+        'function',
+        'global',
+      ].indexOf(scope.scopeTag);
+    }
+    const currentLocale = getScopeNumber(this.scope);
+    const otherLocale = getScopeNumber(other.scope);
+    return currentLocale <= otherLocale;
   }
 
   equalScopes(other: FishDocumentSymbol): boolean {

@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 import { initializeParser } from '../src/parser';
 import Parser, { Point, SyntaxNode, Tree } from 'web-tree-sitter';
+import * as LSP from 'vscode-languageserver';
 import { TextDocumentItem } from 'vscode-languageserver';
 import { LspDocument } from '../src/document';
 import { homedir } from 'os';
@@ -54,6 +55,46 @@ export async function parseFile(fname: string): Promise<Tree> {
 
 export function createFakeUriPath(path: string): string {
   return `file://${homedir()}/.config/fish/${path}`;
+}
+
+
+export function containsCursor(code: string): boolean {
+  return code.includes('█');
+}
+
+export function removeCursorFromCode(code: string): {
+  cursorPosition: LSP.Position,
+  input: string
+} {
+  let lineNumber = 0
+  let columnNumber = 0
+  let notSet = true
+  const lines = code.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const currLine = lines.at(i)!
+    if (currLine.includes('█')) {
+      notSet = false
+      lineNumber = i
+      columnNumber = currLine.trimStart().indexOf('█') 
+      lines[i] = lines[i]!.replace('█', ' ')
+    }
+    if (notSet) {
+      lineNumber++
+      columnNumber++
+    }
+  }
+  const cursorPosition: LSP.Position = LSP.Position.create(lineNumber, columnNumber)
+  return {
+    cursorPosition,
+    input: lines.join('\n'),
+  }
+}
+
+export function createFakeCursorLspDocument(name: string, text: string): {document: LspDocument, cursorPosition: LSP.Position, input: string} {
+  const { cursorPosition, input } = removeCursorFromCode(text)
+  const uri = createFakeUriPath(name);
+  const doc = TextDocumentItem.create(uri, 'fish', 0, input);
+  return { document: new LspDocument(doc), cursorPosition, input }
 }
 
 export function createFakeLspDocument(name: string, text: string): LspDocument {
