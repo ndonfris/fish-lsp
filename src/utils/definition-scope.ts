@@ -151,10 +151,10 @@ export function getVariableScope(node: SyntaxNode) {
 
 function getUriScopeType(uri: string) {
   const uriParts = uri.split('/');
-  if (uriParts.at(-2)?.includes('functions')) {
+  if (uriParts?.at(-2) && uriParts.at(-2)?.includes('functions')) {
     return 'function';
   }
-  if (uriParts.at(-1) === 'config.fish' || uriParts.at(-2) === '.conf.d') {
+  if (uriParts.at(-1) === 'config.fish' || uriParts.at(-2) === 'conf.d') {
     return 'config';
   }
   return 'local';
