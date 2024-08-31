@@ -410,38 +410,66 @@ describe('FishDocumentSymbol OPERATIONS', () => {
           'dupes█'
         ].join('\n'));
 
-        const defS  = filterSymbolsInScope(symbols, cursorPosition)
-        console.log('def: ',defS.pop()?.debugString());
-
-        const refS = analyzer.getReferences(doc, cursorPosition)
-        refS.forEach(s => {
-          console.log('ref:', s);
-        })
-
-        // const locations: LSP.Location[] = []
-        // analyzer.uris.forEach(uri => {
-        //   const {nodes, document, symbols} = analyzer.cached.get(uri)!;
-        //   const localRefs = flattenNested(...symbols)
-        //     .filter(s => s.name === defS.name)
-        //     .filter(s => s.scopeSmallerThan(defS) && s.scope.scopeTag !== defS.scope.scopeTag)
+        const defS  = filterSymbolsInScope(symbols, cursorPosition).pop()!
+        // console.log('def: ',defS.pop()?.debugString());
         //
-        //   for (const node of nodes) {
-        //     if (!node.isNamed || node.type !== 'word') {
-        //       continue
-        //     }
-        //     if (localRefs.some(s => s.scope.containsNode(node))) {
-        //       continue;
-        //     }
-        //     if (node.text === defS?.name) {
-        //       locations.push(LSP.Location.create(uri, getRange(node)))
-        //     }
-        //   }
+        // const refS = analyzer.getReferences(doc, cursorPosition)
+        // refS.forEach(s => {
+        //   console.log('ref:', s);
         // })
-        // locations.forEach(s => {
-        //   console.log(s.uri, s.range);
-        // })
+
+        const locations: Set<LSP.Location> = new Set();
+        analyzer.uris.forEach(uri => {
+          const {nodes, symbols} = analyzer.cached.get(uri)!;
+          const localRefs = flattenNested(...symbols)
+            .filter(s => s.name === defS.name)
+            .filter(s => s.scopeSmallerThan(defS) && s.scope.scopeTag !== defS.scope.scopeTag)
+
+          for (const node of nodes) {
+            // if (!node.isNamed || node.type !== 'word') {
+            //   continue
+            // }
+            if (localRefs.some(s => s.scope.containsNode(node))) {
+              continue;
+            }
+            if (node.text === defS?.name) {
+              locations.add(LSP.Location.create(uri, getRange(node)))
+            }
+          }
+        })
+        console.log('refs');
+        locations.forEach(s => {
+          console.log(s.uri, s.range);
+        })
       })
 
+      it('local refs: functions/dupes.fish', () => {
+        testSymbolFiltering('functions/dupe2.fish', [
+          'function dupes2',
+          '    dupes',
+          'end',
+        ].join('\n'));                   
+        const { doc, cursorPosition } = testSymbolFiltering('functions/dupes.fish', [
+          'function dupes',
+          '    foo_bar',
+          'end',
+          'function foo_bar -a a',
+          '    echo "$a"',
+          'end',
+          'dupes'
+        ].join('\n'));
+
+        const defS  = analyzer.getDefinitionSymbol(doc, cursorPosition).pop()
+        console.log('def: ', defS?.debugString());
+        //
+        const refS = analyzer.getReferences(doc, cursorPosition)
+        let i = 0
+        console.log('refs');
+        for (const s of refS) {
+          console.log(i, s.uri, s.range);
+          i++;
+        }
+      })
       // it('local refs: {completions,functions}/dupes.fish', () => {
       //   testSymbolFiltering('completions/dupes.fish', [
       //     'function foo_bar',

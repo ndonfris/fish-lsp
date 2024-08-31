@@ -2,7 +2,7 @@ import Parser, { SyntaxNode, Tree } from 'web-tree-sitter';
 import { LspDocument } from './document';
 import { /*filterGlobalSymbols,*/ FishDocumentSymbol, filterDocumentSymbolInScope, filterSymbolsInScope, filterWorkspaceSymbol, flattenNested, getFishDocumentSymbolItems, getGlobalSyntaxNodesInDocument } from './utils/symbol';
 import * as LSP from 'vscode-languageserver';
-import { ancestorMatch, containsRange, equalsRanges, getChildNodes, getNodeAtPosition, getRange, isPositionBefore, isPositionWithinRange, pointToPosition, precedesRange } from './utils/tree-sitter';
+import { ancestorMatch, containsRange, equalsRanges, getChildNodes, getNodeAtPosition, getRange, isPositionBefore, isPositionWithinRange, pointToPosition, positionToPoint, precedesRange } from './utils/tree-sitter';
 import { isSourceFilename } from './diagnostics/node-types';
 import { SyncFileHelper } from './utils/file-operations';
 import { Location, Position, SymbolKind } from 'vscode-languageserver';
@@ -99,17 +99,20 @@ export class Analyzer { // @TODO rename to Analyzer
 
 
   /**
+   * @TODO: FIX
    * getDefinitionSymbol - get definition symbol in a LspDocument
    */
-  getDefinitionSymbol(document: LspDocument, position: Position): FishDocumentSymbol[] {
+  getDefinitionSymbol(document: LspDocument, position: Position) {
     if (!this.cached.has(document.uri)) return [];
     const { tree, symbols } = this.cached.get(document.uri)!;
     const currentNode = getNodeAtPosition(tree, position);
     if (!currentNode) return [];
 
-    const localSymbols = filterSymbolsInScope(symbols, position)
-    if (localSymbols.length > 0) {
-      return localSymbols.filter(s => s.name === currentNode.text);
+    const localSymbol = filterSymbolsInScope(symbols, position)
+      .filter(s => s.name === currentNode.text);
+
+    if (localSymbol.length > 0) {
+      return localSymbol;
     }
       
     const result: FishDocumentSymbol[] = [];
@@ -119,17 +122,13 @@ export class Analyzer { // @TODO rename to Analyzer
       if (!_cached) continue;
 
       const locSymbols = flattenNested(..._cached.symbols)
-        .filter(s => s.scope.scopeTag === 'global' && s.name === currentNode.text);
+        .filter(s => s.scope.scopeTag === 'global' && s.name === currentNode.text)
+        // .map(s => Location.create(uri, s.range))
+
       if (locSymbols.length > 0) {
         result.push(...locSymbols);
       }
 
-        // if (currentNode.text) {
-        //   result.push(...locSymbols);
-        // }
-      // }
-
-      // result.push(...gSymbols);
     }
 
     return result;
@@ -159,9 +158,9 @@ export class Analyzer { // @TODO rename to Analyzer
         ))
 
       for (const node of nodes) {
-        if (!node.isNamed || node.type !== 'word') {
-          continue
-        }
+        // if (!node.isNamed || node.type !== 'word') {
+        //   continue
+        // }
         if (localRefs.some(s => s.scope.containsNode(node))) {
           continue;
         }
@@ -240,6 +239,13 @@ export class Analyzer { // @TODO rename to Analyzer
     return result;
     // return flattenNested(...symbols).filter(s => precedesRange(getRange(s.node), getRange(currentNode)));
   }
+
+  getNodeAtRange(uri: string, range: LSP.Range): SyntaxNode | undefined {
+    const cached = this.cached.get(uri);
+    if (!cached) return;
+    return cached.tree.rootNode.descendantForPosition(positionToPoint(range.start));
+  }
+
 
   /**
    * getSignatureInformation - looks through the symbols for functions that can be used
