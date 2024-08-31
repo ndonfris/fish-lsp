@@ -356,7 +356,7 @@ describe('FishDocumentSymbol OPERATIONS', () => {
 
         });
 
-        it('conf.d/foo.fish', () => {
+        it('check: conf.d/foo.fish', () => {
           const {  tree, symbols, cursorPosition } = testSymbolFiltering('conf.d/foo.fish', [
             'function foo_bar',
             '    set -l arg_1 $argv[1]',
@@ -380,6 +380,7 @@ describe('FishDocumentSymbol OPERATIONS', () => {
           // )
         })
 
+      // TODO: test further  & implement `analyzer.getReferences()`
       it('functions/dupes.fish', () => {
         testSymbolFiltering('conf.d/foo.fish', [
           'function foo_bar',
@@ -403,111 +404,91 @@ describe('FishDocumentSymbol OPERATIONS', () => {
           `foo_bar`,
           `complete -f -c dupes -a 'foo_bar'`,
         ].join('\n'))
-        const { doc, cursorPosition, cursorNode, symbols } = testSymbolFiltering('functions/dupes.fish', [
-          'function dupes',
-          '    foo_bar',
+
+        testSymbolFiltering('functions/dupes2.fish', [
+          'function dupes2',
+          '    dupes',
           'end',
-          'dupes█'
+          'dupes'
+        ].join('\n'));
+        const { doc, cursorPosition, symbols } = testSymbolFiltering('functions/dupes3.fish', [
+          'function dupes3',
+          '    function dupes',
+          '         echo "inside dupes"',
+          '    end',
+          '    dupes█',
+          'end',
+          'dupes3'
         ].join('\n'));
 
         const defS  = filterSymbolsInScope(symbols, cursorPosition).pop()!
-        // console.log('def: ',defS.pop()?.debugString());
+        console.log('def: ',defS.debugString());
         //
         // const refS = analyzer.getReferences(doc, cursorPosition)
         // refS.forEach(s => {
         //   console.log('ref:', s);
         // })
-
-        const locations: Set<LSP.Location> = new Set();
-        analyzer.uris.forEach(uri => {
-          const {nodes, symbols} = analyzer.cached.get(uri)!;
-          const localRefs = flattenNested(...symbols)
+        const locations: LSP.Location[] = [];
+        const uniqueLocations = new UniqueLocations();
+        /**
+         * local references
+         */
+        if (defS.scope.scopeTag !== 'global') {
+          const localRefs = filterSymbolsInScope(symbols, cursorPosition)
             .filter(s => s.name === defS.name)
             .filter(s => s.scopeSmallerThan(defS) && s.scope.scopeTag !== defS.scope.scopeTag)
+            .filter(s => s.scope.scopeNode.equals(defS.scope.scopeNode))
 
-          for (const node of nodes) {
-            // if (!node.isNamed || node.type !== 'word') {
-            //   continue
-            // }
+          for (const node of getChildNodes(defS.scope.scopeNode)) {
             if (localRefs.some(s => s.scope.containsNode(node))) {
               continue;
             }
             if (node.text === defS?.name) {
-              locations.add(LSP.Location.create(uri, getRange(node)))
+              uniqueLocations.add(LSP.Location.create(defS.uri, getRange(node)))
             }
           }
-        })
+          uniqueLocations.locations.forEach(l => locations.push(l));
+        }
+        /**
+         * global/all references
+         */
+        if (defS.scope.scopeTag === 'global') {
+          analyzer.uris.forEach(uri => {
+            const _cached = analyzer.cached.get(uri);
+            if (!_cached) return;
+            const localRefs = flattenNested(..._cached.symbols)
+              .filter(s => s.name === defS.name)
+              .filter(s => s.scopeSmallerThan(defS) && s.scope.scopeTag !== defS.scope.scopeTag)
+
+            for (const node of _cached.nodes) {
+              if (!node.isNamed || node.type !== 'word') {
+                continue
+              }
+              if (localRefs.some(s => s.scope.containsNode(node))) {
+                continue;
+              }
+              if (node.text === defS?.name) {
+                uniqueLocations.add(LSP.Location.create(uri, getRange(node)))
+              }
+            }
+          })
+          uniqueLocations.locations.forEach(l => locations.push(l));
+        }
         console.log('refs');
+        expect(locations.length).toBe(2)
+        expect(locations.every(l => l.uri === doc.uri)).toBeTruthy()
         locations.forEach(s => {
           console.log(s.uri, s.range);
         })
       })
 
-      it('local refs: functions/dupes.fish', () => {
-        testSymbolFiltering('functions/dupe2.fish', [
-          'function dupes2',
-          '    dupes',
-          'end',
-        ].join('\n'));                   
-        const { doc, cursorPosition } = testSymbolFiltering('functions/dupes.fish', [
-          'function dupes',
-          '    foo_bar',
-          'end',
-          'function foo_bar -a a',
-          '    echo "$a"',
-          'end',
-          'dupes'
-        ].join('\n'));
-
-        const defS  = analyzer.getDefinitionSymbol(doc, cursorPosition).pop()
-        console.log('def: ', defS?.debugString());
-        //
-        const refS = analyzer.getReferences(doc, cursorPosition)
-        let i = 0
-        console.log('refs');
-        for (const s of refS) {
-          console.log(i, s.uri, s.range);
-          i++;
-        }
-      })
-      // it('local refs: {completions,functions}/dupes.fish', () => {
-      //   testSymbolFiltering('completions/dupes.fish', [
-      //     'function foo_bar',
-      //     `    echo -e 'a\tdescription a'`,
-      //     `    echo -e 'b\tdescription b'`,
-      //     `    echo -e 'c\tdescription c'`,
-      //     `end`,
-      //     `foo_bar`,
-      //     `complete -f -c dupes -a 'foo_bar'`,
-      //   ].join('\n'))
-      //
-      //   const { doc, cursorPosition } = testSymbolFiltering('functions/dupes.fish', [
-      //     'function dupes',
-      //     '    foo_bar█',
+      // it('local refs: functions/dupes.fish', () => {
+      //   testSymbolFiltering('functions/dupe2.fish', [
+      //     'function dupes2',
+      //     '    dupes',
       //     'end',
-      //     'function foo_bar -a a',
-      //     '    echo "$a"',
-      //     'end'
-      //   ].join('\n'));
-      //
-      //   const defS  = analyzer.getDefinitionSymbol(doc, cursorPosition).pop()!
-      //   // console.log('def: ', defS.debugString());
-      //   //
-      //   const refS = analyzer.getReferences(doc, cursorPosition)
-      //   // let i = 0
-      //   // console.log('refs');
-      //   // for (const s of refS) {
-      //   //   console.log(i, s.uri, s.range);
-      //   //   i++;
-      //   // }
-      // })
-
-      // it('global refs: {completions,functions}/dupes.fish', () => {
-      //   testSymbolFiltering('completions/dupes.fish', [
-      //     `complete -c dupes -s h -l help -d 'show help'`,
-      //   ].join('\n')) 
-      //
-      //   const { flatSymbols, symbols, rootNode, doc, cursorPosition } = testSymbolFiltering('functions/dupes.fish', [
+      //   ].join('\n'));                   
+      //   const { doc, cursorPosition } = testSymbolFiltering('functions/dupes.fish', [
       //     'function dupes',
       //     '    foo_bar',
       //     'end',
@@ -515,47 +496,18 @@ describe('FishDocumentSymbol OPERATIONS', () => {
       //     '    echo "$a"',
       //     'end',
       //     'dupes█'
-      //   ].join('\n'))
+      //   ].join('\n'));
       //
-      //
-      //
-      //   // const node: SyntaxNode = getChildNodes(rootNode).find((n: SyntaxNode) => n.text === 'dupes')!
-      //   // const cursor = pointToPosition(node.endPosition)
-      //
-      //   filterSymbolsInScope(symbols, cursorPosition).forEach(s => {
-      //     console.log(s.debugString());
-      //   })
-      //   // flatSymbols.forEach(s => {
-      //   //   console.log(s.debugString());
-      //   // })
-      //   const defS  = analyzer.getDefinitionSymbol(doc, cursorPosition).pop()!
-      //   // console.log('def: ', defS.debugString());
+      //   const defS  = analyzer.getDefinitionSymbol(doc, cursorPosition).pop()
+      //   console.log('def: ', defS?.debugString());
       //   //
-      //   // const refS = analyzer.getReferences(doc, cursorPosition)
+      //   const refS = analyzer.getReferences(doc, cursorPosition)
       //   let i = 0
-      //   console.log('dupes refs');
-      //   const locations: LSP.Location[] = []
-      //   analyzer.uris.forEach(uri => {
-      //     const doc = analyzer.cached.get(uri)!;
-      //     const localRefs = flattenNested(...doc.symbols)
-      //     .filter(s => s.name === defS.name)
-      //     .filter(s => s.scopeSmallerThan(defS) && s.scope.scopeTag !== defS.scope.scopeTag)
-      //
-      //     for (const node of doc.nodes) {
-      //       if (!node.isNamed || node.type !== 'word') {
-      //         continue
-      //       }
-      //       if (localRefs.some(s => s.scope.containsNode(node))) {
-      //         continue;
-      //       }
-      //       if (node.text === defS?.name) {
-      //         locations.push(LSP.Location.create(uri, getRange(node)))
-      //       }
-      //     }
-      //   })
-      //   locations.forEach(s => {
-      //     console.log(s.uri, s.range);
-      //   })
+      //   console.log('refs');
+      //   for (const s of refS) {
+      //     console.log(i, s.uri, s.range);
+      //     i++;
+      //   }
       // })
     });
   })
@@ -659,94 +611,6 @@ describe('FishDocumentSymbol OPERATIONS', () => {
   //   console.log(symbols.map(s => s.name));
   // })
 
-/**
-  * UNTESTED
-  */
-// describe('**UNTESTED** [SPECIAL VARIABLES] `argparse`,`$status`,`$pipestatus`,`$argv`', () => {
-//   function testSpecialVariables(filename: string, code: string, targetText: string) {
-//     const tree = parser.parse(code);
-//     const { rootNode } = tree;
-//     const symbols: FishDocumentSymbol[] = getFishDocumentSymbolItems(filename, rootNode);
-//     const cursor: Position = getRange(
-//       TreeSitterUtils
-//         .getChildNodes(rootNode)
-//         .find(n => (isCommandName(n) || n.text === targetText) && n.text === targetText)!,
-//     ).end;
-//
-//     const cursorNode: SyntaxNode = tree.rootNode.namedDescendantForPosition(
-//       TreeSitterUtils.positionToPoint({
-//         line: cursor.line,
-//         character: cursor.character - 1,
-//       }),
-//     )!;
-//
-//     // console.log(targetText, { cursorNode: cursorNode.text });
-//     return cursorNode;
-//   }
-//
-//   it('argparse h/help', () => {
-//     const cursorNode = testSpecialVariables('functions/foo.fish', `
-//       function foo
-//           argparse h/help n/name q/query -- $argv
-//           or return
-//
-//           set -gx e "$a $b $c $d"
-//           set depth 1
-//       end
-//     `, 'argparse');
-//     expect(cursorNode.text).toBe('argparse');
-//   });
-//
-//   it('`_flag_help` from `argparse h/help -- $argv; or return`', () => {
-//     const cursorNode = testSpecialVariables('functions/foo.fish', `
-//       function foo --argument-names a b c d
-//           argparse h/help n/name q/query -- $argv
-//           or return
-//
-//           if set -q _flag_help
-//               echo "help message"
-//           end
-//           set depth 1
-//       end
-//     `, '_flag_help');
-//     expect(cursorNode.text).toBe('_flag_help');
-//   });
-//
-//   it('`$argv` from `argparse h/help -- $argv; or return`', () => {
-//     const cursorNode = testSpecialVariables('functions/foo.fish', `
-//       function foo
-//           argparse h/help n/name q/query -- $argv
-//           or return
-//
-//           set depth 1
-//       end
-//     `, '$argv');
-//     expect(cursorNode.text).toBe('argv');
-//   });
-//
-//   it('`$status` from `argparse h/help -- $argv; or return`', () => {
-//     const cursorNode = testSpecialVariables('functions/foo.fish', `
-//       function foo
-//           argparse h/help n/name q/query -- $argv
-//           or return
-//
-//           return $status
-//       end
-//     `, '$status');
-//     expect(cursorNode.text).toBe('status');
-//   });
-//
-//   it('`$pipe_status` from `echo \'hello world\' | string split \' \'`', () => {
-//     const cursorNode = testSpecialVariables('functions/foo.fish', `
-//       function foo
-//           echo 'hello world' | string split ' '
-//
-//           return $pipestatus
-//       end
-//     `, '$pipestatus');
-//     expect(cursorNode.text).toBe('pipestatus');
-//   });
-// });
 
 /**
  * https://github.com/ndonfris/fish-lsp/blob/76e31bd6d585f4648dc7fedde942bfbfb679cc23/src/workspace-symbol.ts
@@ -836,3 +700,206 @@ describe('src/workspace-symbol.ts refactors', () => {
 //
 //   });
 //   // localSymbols.push(...)
+
+
+
+/**
+  * UNTESTED
+  */
+// describe('**UNTESTED** [SPECIAL VARIABLES] `argparse`,`$status`,`$pipestatus`,`$argv`', () => {
+//   function testSpecialVariables(filename: string, code: string, targetText: string) {
+//     const tree = parser.parse(code);
+//     const { rootNode } = tree;
+//     const symbols: FishDocumentSymbol[] = getFishDocumentSymbolItems(filename, rootNode);
+//     const cursor: Position = getRange(
+//       TreeSitterUtils
+//         .getChildNodes(rootNode)
+//         .find(n => (isCommandName(n) || n.text === targetText) && n.text === targetText)!,
+//     ).end;
+//
+//     const cursorNode: SyntaxNode = tree.rootNode.namedDescendantForPosition(
+//       TreeSitterUtils.positionToPoint({
+//         line: cursor.line,
+//         character: cursor.character - 1,
+//       }),
+//     )!;
+//
+//     // console.log(targetText, { cursorNode: cursorNode.text });
+//     return cursorNode;
+//   }
+//
+//   it('argparse h/help', () => {
+//     const cursorNode = testSpecialVariables('functions/foo.fish', `
+//       function foo
+//           argparse h/help n/name q/query -- $argv
+//           or return
+//
+//           set -gx e "$a $b $c $d"
+//           set depth 1
+//       end
+//     `, 'argparse');
+//     expect(cursorNode.text).toBe('argparse');
+//   });
+//
+//   it('`_flag_help` from `argparse h/help -- $argv; or return`', () => {
+//     const cursorNode = testSpecialVariables('functions/foo.fish', `
+//       function foo --argument-names a b c d
+//           argparse h/help n/name q/query -- $argv
+//           or return
+//
+//           if set -q _flag_help
+//               echo "help message"
+//           end
+//           set depth 1
+//       end
+//     `, '_flag_help');
+//     expect(cursorNode.text).toBe('_flag_help');
+//   });
+//
+//   it('`$argv` from `argparse h/help -- $argv; or return`', () => {
+//     const cursorNode = testSpecialVariables('functions/foo.fish', `
+//       function foo
+//           argparse h/help n/name q/query -- $argv
+//           or return
+//
+//           set depth 1
+//       end
+//     `, '$argv');
+//     expect(cursorNode.text).toBe('argv');
+//   });
+//
+//   it('`$status` from `argparse h/help -- $argv; or return`', () => {
+//     const cursorNode = testSpecialVariables('functions/foo.fish', `
+//       function foo
+//           argparse h/help n/name q/query -- $argv
+//           or return
+//
+//           return $status
+//       end
+//     `, '$status');
+//     expect(cursorNode.text).toBe('status');
+//   });
+//
+//   it('`$pipe_status` from `echo \'hello world\' | string split \' \'`', () => {
+//     const cursorNode = testSpecialVariables('functions/foo.fish', `
+//       function foo
+//           echo 'hello world' | string split ' '
+//
+//           return $pipestatus
+//       end
+//     `, '$pipestatus');
+//     expect(cursorNode.text).toBe('pipestatus');
+//   });
+// });
+
+
+// it('local refs: {completions,functions}/dupes.fish', () => {
+//   testSymbolFiltering('completions/dupes.fish', [
+//     'function foo_bar',
+//     `    echo -e 'a\tdescription a'`,
+//     `    echo -e 'b\tdescription b'`,
+//     `    echo -e 'c\tdescription c'`,
+//     `end`,
+//     `foo_bar`,
+//     `complete -f -c dupes -a 'foo_bar'`,
+//   ].join('\n'))
+//
+//   const { doc, cursorPosition } = testSymbolFiltering('functions/dupes.fish', [
+//     'function dupes',
+//     '    foo_bar█',
+//     'end',
+//     'function foo_bar -a a',
+//     '    echo "$a"',
+//     'end'
+//   ].join('\n'));
+//
+//   const defS  = analyzer.getDefinitionSymbol(doc, cursorPosition).pop()!
+//   // console.log('def: ', defS.debugString());
+//   //
+//   const refS = analyzer.getReferences(doc, cursorPosition)
+//   // let i = 0
+//   // console.log('refs');
+//   // for (const s of refS) {
+//   //   console.log(i, s.uri, s.range);
+//   //   i++;
+//   // }
+// })
+
+// it('global refs: {completions,functions}/dupes.fish', () => {
+//   testSymbolFiltering('completions/dupes.fish', [
+//     `complete -c dupes -s h -l help -d 'show help'`,
+//   ].join('\n')) 
+//
+//   const { flatSymbols, symbols, rootNode, doc, cursorPosition } = testSymbolFiltering('functions/dupes.fish', [
+//     'function dupes',
+//     '    foo_bar',
+//     'end',
+//     'function foo_bar -a a',
+//     '    echo "$a"',
+//     'end',
+//     'dupes█'
+//   ].join('\n'))
+//
+//
+//
+//   // const node: SyntaxNode = getChildNodes(rootNode).find((n: SyntaxNode) => n.text === 'dupes')!
+//   // const cursor = pointToPosition(node.endPosition)
+//
+//   filterSymbolsInScope(symbols, cursorPosition).forEach(s => {
+//     console.log(s.debugString());
+//   })
+//   // flatSymbols.forEach(s => {
+//   //   console.log(s.debugString());
+//   // })
+//   const defS  = analyzer.getDefinitionSymbol(doc, cursorPosition).pop()!
+//   // console.log('def: ', defS.debugString());
+//   //
+//   // const refS = analyzer.getReferences(doc, cursorPosition)
+//   let i = 0
+//   console.log('dupes refs');
+//   const locations: LSP.Location[] = []
+//   analyzer.uris.forEach(uri => {
+//     const doc = analyzer.cached.get(uri)!;
+//     const localRefs = flattenNested(...doc.symbols)
+//     .filter(s => s.name === defS.name)
+//     .filter(s => s.scopeSmallerThan(defS) && s.scope.scopeTag !== defS.scope.scopeTag)
+//
+//     for (const node of doc.nodes) {
+//       if (!node.isNamed || node.type !== 'word') {
+//         continue
+//       }
+//       if (localRefs.some(s => s.scope.containsNode(node))) {
+//         continue;
+//       }
+//       if (node.text === defS?.name) {
+//         locations.push(LSP.Location.create(uri, getRange(node)))
+//       }
+//     }
+//   })
+//   locations.forEach(s => {
+//     console.log(s.uri, s.range);
+//   })
+// })
+
+class UniqueLocations {
+  private map = new Map<string, LSP.Location>();
+  private arr: LSP.Location[] = [];
+
+  private key(loc: LSP.Location): string {
+    const { uri, range } = loc;
+    const { start, end } = range;
+    return `${uri}:${start.line}:${start.character}-${end.line}:${end.character}`;
+  }
+
+  add(loc: LSP.Location): void {
+    const key = this.key(loc);
+    if (!this.map.has(key)) {
+      this.map.set(key, loc);
+      this.arr.push(loc);
+    }
+  }
+
+  get locations(): LSP.Location[] {
+    return this.arr;
+  }
+}
