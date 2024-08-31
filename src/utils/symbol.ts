@@ -16,6 +16,7 @@ import { DefinitionScope, getScope } from './definition-scope';
 import { MarkdownBuilder, md } from './markdown-builder';
 import { symbolKindToString } from './translation';
 import { PrebuiltDocumentationMap } from './snippets';
+import * as Locations from './locations'
 
 export class FishDocumentSymbol implements DocumentSymbol {
 
@@ -84,10 +85,16 @@ export class FishDocumentSymbol implements DocumentSymbol {
   }
 
   isBefore(other: FishDocumentSymbol): boolean {
+    if (this.range.start.line === other.range.start.line) {
+      return this.range.start.character < other.range.start.character;
+    }
     return this.range.start.line < other.range.start.line;
   }
 
   isAfter(other: FishDocumentSymbol): boolean {
+    if (this.range.start.line === other.range.start.line) {
+      return this.range.start.character > other.range.start.character;
+    }
     return this.range.start.line > other.range.start.line;
   }
 
@@ -129,11 +136,13 @@ export class FishDocumentSymbol implements DocumentSymbol {
   // @TODO: remove after testing
   debugString({
     includeDetail = true,
+    showVerboseNode = false,
     skipProperties = [],
   }: {
     includeDetail?: boolean;
+    showVerboseNode?: boolean;
     skipProperties?: string[];
-  }): string {
+  } = {}): string {
 
     const positionString = (pos: Position) => `(line: ${pos.line}, character: ${pos.character})`;
 
@@ -149,6 +158,14 @@ export class FishDocumentSymbol implements DocumentSymbol {
       return text.length > 20 ? node.text.slice(0, 20) + '...' : text;
     };
 
+    const debugNode = (node: SyntaxNode) => {
+      if (!showVerboseNode) return syntaxNodeShrotener(node);
+      return {
+        type: node.type,
+        text: syntaxNodeShrotener(node),
+      };
+    }
+
     const logObj = {
       name: this.name,
       kind: symbolKindToString(this.kind),
@@ -157,10 +174,10 @@ export class FishDocumentSymbol implements DocumentSymbol {
       selectionRange: rangeString(this.selectionRange),
       scope: {
         scopeTag: this.scope.scopeTag,
-        scopeNode: syntaxNodeShrotener(this.scope.scopeNode),
+        scopeNode: debugNode(this.scope.scopeNode),
       },
-      node: syntaxNodeShrotener(this.node),
-      parent: syntaxNodeShrotener(this.parent),
+      node: debugNode(this.node),
+      parent: debugNode(this.parent),
       children: flattenNested(...this.children).map(c => c.name),
     } as any;
 
@@ -267,7 +284,7 @@ export function getFishDocumentSymbolItems(uri: DocumentUri, ...currentNodes: Sy
           range: getRange(parent),
           selectionRange: getRange(child),
           scope: getScope(uri, child),
-          node: current,
+          node: child,
           parent: parent,
           children: childrenSymbols ?? [] as FishDocumentSymbol[],
         })
@@ -400,4 +417,31 @@ export function getGlobalSyntaxNodesInDocument(nodes: SyntaxNode[], symbols: Fis
   //
   // return nodes.filter(n => !flatSymbols.some(range => containsRange(range, getRange(n))));
   return nodes.filter(n => !symbols.some(symbol => containsRange(getRange(symbol.scope.scopeNode), getRange(n)) && symbol.name === n.text));
+}
+
+
+
+/**
+ * take a list of non flattened symbols and return a list of symbols that are in scope
+ */
+export function filterSymbolsInScope(symbols: FishDocumentSymbol[], cursorPosition: Position) {
+  /**
+   * 1. flatten the nested symbols
+   * 2. filter out symbols that are not in scope
+   * 3. filter out recursive function definitions (functions that the cursor is inside of)
+   * 4. filter out duplicate symbols that are both in the same scope
+   */
+  return flattenNested(...symbols)
+    .filter(s => !(
+      s.kind === SymbolKind.Function 
+      && (Locations.Range.containsPosition(s.range, cursorPosition))
+    ))
+    .filter(s => s.scope.containsPosition(cursorPosition))
+    .filter((current, _, results) =>
+      !results.some(other => 
+        current.name === other.name &&
+        !other.scopeSmallerThan(current) &&
+        current.scope.scopeNode.equals(other.scope.scopeNode)
+      )
+    );
 }

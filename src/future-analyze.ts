@@ -1,12 +1,13 @@
 import Parser, { SyntaxNode, Tree } from 'web-tree-sitter';
 import { LspDocument } from './document';
-import { /*filterGlobalSymbols,*/ FishDocumentSymbol, filterDocumentSymbolInScope, filterWorkspaceSymbol, flattenNested, getFishDocumentSymbolItems, getGlobalSyntaxNodesInDocument } from './utils/symbol';
+import { /*filterGlobalSymbols,*/ FishDocumentSymbol, filterDocumentSymbolInScope, filterSymbolsInScope, filterWorkspaceSymbol, flattenNested, getFishDocumentSymbolItems, getGlobalSyntaxNodesInDocument } from './utils/symbol';
 import * as LSP from 'vscode-languageserver';
-import { ancestorMatch, containsRange, equalsRanges, getChildNodes, getNodeAtPosition, getRange, isPositionBefore, isPositionWithinRange, precedesRange } from './utils/tree-sitter';
+import { ancestorMatch, containsRange, equalsRanges, getChildNodes, getNodeAtPosition, getRange, isPositionBefore, isPositionWithinRange, pointToPosition, precedesRange } from './utils/tree-sitter';
 import { isSourceFilename } from './diagnostics/node-types';
 import { SyncFileHelper } from './utils/file-operations';
 import { Location, Position, SymbolKind } from 'vscode-languageserver';
 import { findAncestor } from 'typescript';
+import { Range } from './utils/locations';
 // import { Location } from './utils/locations';
 
 type AnalyzedDocument = {
@@ -100,21 +101,37 @@ export class Analyzer { // @TODO rename to Analyzer
   /**
    * getDefinitionSymbol - get definition symbol in a LspDocument
    */
-  getDefinitionSymbol(document: LspDocument, position: Position) {
+  getDefinitionSymbol(document: LspDocument, position: Position): FishDocumentSymbol[] {
     if (!this.cached.has(document.uri)) return [];
-    const { tree } = this.cached.get(document.uri)!;
+    const { tree, symbols } = this.cached.get(document.uri)!;
     const currentNode = getNodeAtPosition(tree, position);
     if (!currentNode) return [];
-    const result: FishDocumentSymbol[] = [];
-    const localSymbols: FishDocumentSymbol[] = filterDocumentSymbolInScope(
-      this.analyze(document).symbols,
-      position
-    ).filter(s => s.name === currentNode.text);
-    result.push(...localSymbols);
-    if (result.length === 0) {
-      const workspaceSymbols = this.workspaceSymbols.get(currentNode.text) || [];
-      result.push(...workspaceSymbols);
+
+    const localSymbols = filterSymbolsInScope(symbols, position)
+    if (localSymbols.length > 0) {
+      return localSymbols.filter(s => s.name === currentNode.text);
     }
+      
+    const result: FishDocumentSymbol[] = [];
+
+    for (const uri of this.uris) {
+      const _cached = this.cached.get(uri);
+      if (!_cached) continue;
+
+      const locSymbols = flattenNested(..._cached.symbols)
+        .filter(s => s.scope.scopeTag === 'global' && s.name === currentNode.text);
+      if (locSymbols.length > 0) {
+        result.push(...locSymbols);
+      }
+
+        // if (currentNode.text) {
+        //   result.push(...locSymbols);
+        // }
+      // }
+
+      // result.push(...gSymbols);
+    }
+
     return result;
   }
 
@@ -123,32 +140,37 @@ export class Analyzer { // @TODO rename to Analyzer
   /**
    * getReferenceSymbols - gets all references of a symbol in a LspDocument
    */
-  getReferenceSymbols(document: LspDocument, position: Position) {
-    const result: SyntaxNode[] = [];
-    if (!this.cached.has(document.uri)) return [];
-    const { tree, symbols } = this.cached.get(document.uri)!;
-    const currentNode = this.getDefinitionSymbol(document, position).pop();
-    if (!currentNode) return [];
+  getReferences(document: LspDocument, position: Position): LSP.Location[] {
+    const result: LSP.Location[] = [];
+    if (!this.cached.has(document.uri)) return result;
+    const current = this.cached.get(document.uri);
+    if (!current || current?.symbols.length === 0) return result;
+    const defSymbol  = filterSymbolsInScope(current.symbols, position).pop()!
+    if (!defSymbol) return result;
 
-    // const result = flattenNested(...symbols).filter(s => s.name === currentNode.text)
-    result.push(...getChildNodes(currentNode.scope.scopeNode).filter(n => n.text === currentNode.name));
+    const locations: LSP.Location[] = []
+    this.uris.forEach(uri => {
+      const {nodes, symbols} = this.cached.get(uri)!;
+      const localRefs = flattenNested(...symbols)
+        .filter(s => s.name === defSymbol.name)
+        .filter(s => (
+          s.scopeSmallerThan(defSymbol) 
+          && s.scope.scopeTag !== defSymbol.scope.scopeTag
+        ))
 
-    if (result.length === 0) {
-      for (const uri of this.uris) {
-        const _cached = this.cached.get(uri);
-        if (!_cached) continue;
-
-        const gSymbols = flattenNested(..._cached.symbols)
-          .filter(s => s.scope.scopeTag !== 'global');
-
-        const matches = getGlobalSyntaxNodesInDocument(_cached.nodes, gSymbols)
-          .filter(s => s.text === currentNode.name);
-        //   .filter(s => s.scope.scopeTag !== 'global') ))
-
-        result.push(...matches);
+      for (const node of nodes) {
+        if (!node.isNamed || node.type !== 'word') {
+          continue
+        }
+        if (localRefs.some(s => s.scope.containsNode(node))) {
+          continue;
+        }
+        if (node.text === defSymbol?.name) {
+          locations.push(LSP.Location.create(uri, getRange(node)))
+        }
       }
-    }
-    return result;
+    })
+    return locations
   }
 
   getLocalLocations(document: LspDocument, position: Position) {

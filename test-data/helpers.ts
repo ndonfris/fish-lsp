@@ -7,6 +7,7 @@ import { TextDocumentItem } from 'vscode-languageserver';
 import { LspDocument } from '../src/document';
 import { homedir } from 'os';
 import { FishDocumentSymbol } from '../src/utils/symbol';
+import { getRange } from '../src/utils/tree-sitter';
 
 export function setLogger(
   beforeCallback: () => Promise<void> = async () => { },
@@ -115,4 +116,26 @@ export function logFishDocumentSymbolTree(symbols: FishDocumentSymbol[], indentS
     }
   }
   return str.trim();
+}
+
+
+/**
+ * build a string of text before the cursor, this is useful for debugging
+ */
+export function getCursorText(cursorNode: SyntaxNode, cursorPosition: LSP.Position): string {
+  function buildCurrent() {
+    let current: SyntaxNode | null = cursorNode;
+    let result: string = '';
+    while (current) {
+      if (current.parent && getRange(current.parent).start.line !== cursorPosition.line) {
+        const range = getRange(current).start;
+        if (range.line === cursorPosition.line) {
+          return String.raw`${current.text.slice(0, cursorPosition.character)}`
+        } 
+      }
+      current = current.parent;
+    }
+    return result
+  }
+  return "`" + buildCurrent() + "█`"
 }
