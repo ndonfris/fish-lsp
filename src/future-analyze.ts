@@ -2,12 +2,14 @@ import Parser, { SyntaxNode, Tree } from 'web-tree-sitter';
 import { LspDocument } from './document';
 import { /*filterGlobalSymbols,*/ FishDocumentSymbol, filterDocumentSymbolInScope, filterSymbolsInScope, filterWorkspaceSymbol, flattenNested, getFishDocumentSymbolItems, getGlobalSyntaxNodesInDocument } from './utils/symbol';
 import * as LSP from 'vscode-languageserver';
-import { ancestorMatch, containsRange, equalsRanges, getChildNodes, getNodeAtPosition, getRange, isPositionBefore, isPositionWithinRange, pointToPosition, positionToPoint, precedesRange } from './utils/tree-sitter';
+import { ancestorMatch, containsRange, equalsRanges, getChildNodes, getNodeAtPosition, getRange, isPositionBefore, isPositionWithinRange, pointToPosition, positionToPoint, precedesRange, findFirstParent } from './utils/tree-sitter';
 import { isSourceFilename } from './diagnostics/node-types';
 import { SyncFileHelper } from './utils/file-operations';
 import { Location, Position, SymbolKind } from 'vscode-languageserver';
-import { findAncestor } from 'typescript';
+// import { findAncestor } from 'typescript';
 import { Range } from './utils/locations';
+import { isFunctionDefinition } from './utils/node-types';
+// import { isFunction } from './utils/builtins';
 
 type SymbolArrayObject = {
   nested: () => FishDocumentSymbol[],
@@ -432,27 +434,37 @@ function symbolsScopeContainsPosition(symbols: FishDocumentSymbol[], position: P
   return result;
 }
 
+/**
+ * getAccessibleNodes - gets all nodes that are accessible to a symbol
+ */
 export function getAccessibleNodes(root: SyntaxNode, symbols: FishDocumentSymbol[], matchSymbol: FishDocumentSymbol) {
-  const result: SyntaxNode[] = [];
-
-  const matches: FishDocumentSymbol[] = symbols
+  // const result: SyntaxNode[] = [];
+  const isMatchUri = symbols.some(s => s.uri === matchSymbol.uri);
+  let matches: FishDocumentSymbol[] = symbols
     .filter(s => s.name === matchSymbol.name)
-    .filter(s => {
-      if (s.uri === matchSymbol.uri) {
-        if (s.scope.scopeTag !== matchSymbol.scope.scopeTag) return true;
-        return !s.scope.scopeNode.equals(matchSymbol.scope.scopeNode);
-      }
+
+  if (isMatchUri) {
+    matches = matches.filter(s => !s.equalScopes(matchSymbol))
+    return getChildNodes(matchSymbol.scope.scopeNode)
+      .filter(n => matches.some(s => s.scope.containsNode(n)))
+  } else {
+     matches = matches.filter(s => {
       if (s.scope.scopeTag !== 'global') return true;
       return false;
     })
-
-  if (matches.length === 0) return getChildNodes(root);
-
-  for (const node of getChildNodes(root)) {
-    if (matches.some(s => s.scope.containsNode(node))) continue;
-    result.push(node);
+    return getChildNodes(root)
+      .filter(n => !matches.some(s => s.scope.containsNode(n)))
   }
-  return result;
+
+  // if (matches.length === 0) return getChildNodes(root);
+
+  // for (const node of getChildNodes(root)) {
+  //   const hasParent = !!ancestorMatch(node, isFunctionDefinition)
+  //   if (isMatchUri && hasParent) continue;
+  //   if (matches.some(s => s.scope.containsNode(node))) continue;
+  //   result.push(node);
+  // }
+  // return result;
 
 }
 

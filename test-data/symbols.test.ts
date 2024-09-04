@@ -15,6 +15,20 @@ import { containsRange, getChildNodes, getNodeAtPosition, getRange, pointToPosit
 import { Analyzer, getAccessibleNodes } from '../src/future-analyze';
 import { TestWorkspace } from './workspace-utils';
 
+function locationToArray(location: LSP.Location, relativeUri: boolean = true): [string, number, number, number, number] {
+  let uri = location.uri;
+  if (relativeUri) {
+    uri = location.uri.split('/').slice(-2).join('/');
+  }
+  return [
+    uri,
+    location.range.start.line,
+    location.range.start.character,
+    location.range.end.line,
+    location.range.end.character,
+  ];
+}
+
 describe('BFS (Breadth First Search) vs DFS (Depth First Search) Iterators', () => {
   // Helper function to create mock SyntaxNodes
   function createMockNode(type: string, children: SyntaxNode[] = []): SyntaxNode {
@@ -284,101 +298,101 @@ describe('FishDocumentSymbol OPERATIONS', () => {
       */
     });
 
-      describe('filter last unique symbols', () => {
-        // @TODO: refactor symbols to be chained
-        it('functions/foo_bar.fish', () => {
-          const { flatSymbols, tree, symbols, cursorPosition } = testSymbolFiltering('functions/foo_bar.fish', [
-            'function foo_bar',
-            '    set -l arg_1 $argv[1]',
-            '    set -l arg_2 $argv[1]',
-            '    set arg_1 "hi"█',
-            '    ',
-            'end',
-            'function baz',
-            '    echo "inside baz $argv"',
-            'end',
-          ].join('\n'));
+    describe('filter last unique symbols', () => {
+      // @TODO: refactor symbols to be chained
+      it('functions/foo_bar.fish', () => {
+        const { flatSymbols, tree, symbols, cursorPosition } = testSymbolFiltering('functions/foo_bar.fish', [
+          'function foo_bar',
+          '    set -l arg_1 $argv[1]',
+          '    set -l arg_2 $argv[1]',
+          '    set arg_1 "hi"█',
+          '    ',
+          'end',
+          'function baz',
+          '    echo "inside baz $argv"',
+          'end',
+        ].join('\n'));
 
 
-          const cursorNode = getNodeAtPosition(tree, {line: cursorPosition.line, character: cursorPosition.character})!;
-          // let a = flat.at(0)!;
-          // let cursorNode = flat.filter(s => s.name === 'arg_1').at(1)!.node;
+        const cursorNode = getNodeAtPosition(tree, { line: cursorPosition.line, character: cursorPosition.character })!;
+        // let a = flat.at(0)!;
+        // let cursorNode = flat.filter(s => s.name === 'arg_1').at(1)!.node;
 
-          let cursorParentFunction: SyntaxNode | null = null;
+        let cursorParentFunction: SyntaxNode | null = null;
 
-          const getParentFunction = (): SyntaxNode | null => {
-            let parent: SyntaxNode | null = cursorNode;
-            while (parent && !isFunctionDefinition(parent)) {
-              parent = parent.parent;
-            }
-            return parent;
-          };
-          cursorParentFunction = getParentFunction()!;
-
-
-          /**
-         * here we filter out any symbols that are non-unique in the current scope
-         */
-          let results: FishDocumentSymbol[] = [];
-
-          /**
-         * here we filter out any symbols that would be a recursive definition of the
-         * current function we are in. Which is not valid syntax fish.
-         *
-         * Then we filter out any symbols that are not in the current scope of the cursor
-         */
-          results = flatSymbols.filter(s => !(
-            s.kind === SymbolKind.Function 
-              && Range.containsPosition(s.range, cursorPosition)
-          )).filter(s => s.scope.containsPosition(cursorPosition));
-
-          /**
-         * now we need to get the symbols only in the current scope of the cursor
-         */
-          // results = results.filter(s => s.scope.containsPosition(cursorPosition));
-
-          console.log('cursor', cursorPosition, getCursorText(cursorNode, cursorPosition));
+        const getParentFunction = (): SyntaxNode | null => {
+          let parent: SyntaxNode | null = cursorNode;
+          while (parent && !isFunctionDefinition(parent)) {
+            parent = parent.parent;
+          }
+          return parent;
+        };
+        cursorParentFunction = getParentFunction()!;
 
 
-          results = results.filter(current => !results.some(other => (
-            current.name === other.name &&
-              !other.scopeSmallerThan(current) &&
-              current.scope.scopeNode.equals(other.scope.scopeNode)
-          )))
+        /**
+       * here we filter out any symbols that are non-unique in the current scope
+       */
+        let results: FishDocumentSymbol[] = [];
 
-          // console.log('filtered');
-          // results.forEach(s => {
-          //   console.log(s.debugString({ skipProperties: [ 'uri', 'children', 'detail' ] }));
-          // })
-          // results.forEach(s => {
-          //   console.log(s.debugString());
-          // })
+        /**
+       * here we filter out any symbols that would be a recursive definition of the
+       * current function we are in. Which is not valid syntax fish.
+       *
+       * Then we filter out any symbols that are not in the current scope of the cursor
+       */
+        results = flatSymbols.filter(s => !(
+          s.kind === SymbolKind.Function
+          && Range.containsPosition(s.range, cursorPosition)
+        )).filter(s => s.scope.containsPosition(cursorPosition));
 
-        });
+        /**
+       * now we need to get the symbols only in the current scope of the cursor
+       */
+        // results = results.filter(s => s.scope.containsPosition(cursorPosition));
 
-        it('check: conf.d/foo.fish', () => {
-          const {  tree, symbols, cursorPosition } = testSymbolFiltering('conf.d/foo.fish', [
-            'function foo_bar',
-            '    set -l arg_1 $argv[1]',
-            '    set -l arg_2 $argv[1]',
-            '    set arg_1 "hi"',
-            '    ',
-            'end',
-            'function foo_baz',
-            '    echo "inside baz $argv"',
-            'end',
-            'set var 1',
-            '█'
-          ].join('\n'));
+        console.log('cursor', cursorPosition, getCursorText(cursorNode, cursorPosition));
 
 
-          const flatSymbols = filterSymbolsInScope(symbols, cursorPosition)
-          const cursorNode = getNodeAtPosition(tree, {line: cursorPosition.line, character: cursorPosition.character})!;
-          // console.log('cursor', cursorNode.text);
-          // flatSymbols.forEach(s => 
-          //   console.log(s.debugString())
-          // )
-        })
+        results = results.filter(current => !results.some(other => (
+          current.name === other.name &&
+          !other.scopeSmallerThan(current) &&
+          current.scope.scopeNode.equals(other.scope.scopeNode)
+        )));
+
+        // console.log('filtered');
+        // results.forEach(s => {
+        //   console.log(s.debugString({ skipProperties: [ 'uri', 'children', 'detail' ] }));
+        // })
+        // results.forEach(s => {
+        //   console.log(s.debugString());
+        // })
+
+      });
+
+      it('check: conf.d/foo.fish', () => {
+        const { tree, symbols, cursorPosition } = testSymbolFiltering('conf.d/foo.fish', [
+          'function foo_bar',
+          '    set -l arg_1 $argv[1]',
+          '    set -l arg_2 $argv[1]',
+          '    set arg_1 "hi"',
+          '    ',
+          'end',
+          'function foo_baz',
+          '    echo "inside baz $argv"',
+          'end',
+          'set var 1',
+          '█'
+        ].join('\n'));
+
+
+        const flatSymbols = filterSymbolsInScope(symbols, cursorPosition);
+        const cursorNode = getNodeAtPosition(tree, { line: cursorPosition.line, character: cursorPosition.character })!;
+        // console.log('cursor', cursorNode.text);
+        // flatSymbols.forEach(s => 
+        //   console.log(s.debugString())
+        // )
+      });
 
       // TODO: test further  & implement `analyzer.getReferences()`
       it('functions/dupes.fish', () => {
@@ -393,7 +407,7 @@ describe('FishDocumentSymbol OPERATIONS', () => {
           '    echo "inside baz $argv"',
           'end',
           'set var 1',
-        ].join('\n'))
+        ].join('\n'));
 
         testSymbolFiltering('completions/dupes.fish', [
           'function foo_bar',
@@ -403,7 +417,7 @@ describe('FishDocumentSymbol OPERATIONS', () => {
           `end`,
           `foo_bar`,
           `complete -f -c dupes -a 'foo_bar'`,
-        ].join('\n'))
+        ].join('\n'));
 
         testSymbolFiltering('functions/dupes2.fish', [
           'function dupes2',
@@ -421,7 +435,7 @@ describe('FishDocumentSymbol OPERATIONS', () => {
           'dupes3'
         ].join('\n'));
 
-        const defS  = filterSymbolsInScope(symbols, cursorPosition).pop()!
+        const defS = filterSymbolsInScope(symbols, cursorPosition).pop()!;
         // console.log('def: ', defS.debugString());
 
         const locations: LSP.Location[] = [];
@@ -476,15 +490,15 @@ describe('FishDocumentSymbol OPERATIONS', () => {
         // // locations.forEach(s => {
         // //   console.log(s.uri, s.range);
         // // })
-      })
+      });
 
       it('local refs: functions/dupes.fish', () => {
         testSymbolFiltering('functions/dupes2.fish', [
           'function dupes2',
           '    dupes',
           'end',
-        ].join('\n'));                   
-        const { doc, tree, cursorPosition } = testSymbolFiltering('functions/dupes.fish', [
+        ].join('\n'));
+        const { doc, tree } = testSymbolFiltering('functions/dupes.fish', [
           'function dupes -a first',
           '    foo_bar $first',
           'end',
@@ -495,10 +509,11 @@ describe('FishDocumentSymbol OPERATIONS', () => {
           'dupes $a█'
         ].join('\n'));
 
-        const defS  = analyzer.getDefinitionSymbol(doc, {line: 7, character: 7}).pop()
-        console.log('def: ', defS?.debugString());
-        
-        // const refS = analyzer.getReferences(doc, {line: 7, character: 7})
+        // console.log({cursorPosition});
+        const defS = analyzer.getDefinitionSymbol(doc, { line: 7, character: 7 }).pop();
+        // console.log('def: ', defS?.debugString());
+
+        const refS = analyzer.getReferences(doc, {line: 7, character: 7})
         // let i = 0
         // console.log('refs');
         // for (const s of refS) {
@@ -506,10 +521,10 @@ describe('FishDocumentSymbol OPERATIONS', () => {
         //   console.log(i, node.text, {uri: s.uri, range: s.range});
         //   i++;
         // }
-      })
+      });
 
       it('global refs: functions/dupes.fish', () => {
-        const { doc } = testSymbolFiltering('functions/dupes.fish', [
+        const { doc, cursorPosition } = testSymbolFiltering('functions/dupes.fish', [
           'function dupes -a first',
           '    foo_bar $first',
           'end',
@@ -524,47 +539,48 @@ describe('FishDocumentSymbol OPERATIONS', () => {
           'function dupes2',
           '    dupes $a',
           'end',
-        ].join('\n'));                   
+        ].join('\n'));
 
         testSymbolFiltering('functions/dupes3.fish', [
           'function dupes3',
           '    set -l a howdy',
           '    dupes $a',
           'end',
-        ].join('\n'));                   
+        ].join('\n'));
 
         testSymbolFiltering('functions/dupes4.fish', [
           'function dupes4',
           '    set -f a hola',
           '    dupes $a',
           'end',
-        ].join('\n'));                   
+        ].join('\n'));
 
         testSymbolFiltering('functions/dupes5.fish', [
           'function dupes5',
           '    set a hai',
           '    dupes $a',
           'end',
-        ].join('\n'));                   
+        ].join('\n'));
 
         testSymbolFiltering('functions/dupes6.fish', [
           'function dupes6',
           '    set -g a Oi ',
           '    dupes $a',
           'end',
-        ].join('\n'));                   
+        ].join('\n'));
 
         testSymbolFiltering('functions/dupes7.fish', [
           'function dupes7',
           '    set -U a hello',
           '    dupes $a',
           'end',
-        ].join('\n'))
+        ].join('\n'));
 
+        expect(cursorPosition).toEqual({ line: 7, character: 7 })
 
-        const defS  = analyzer.getDefinitionSymbol(doc, {line: 7, character: 7}).pop()
-        console.log('def: ', defS?.debugString());
-        const refS = analyzer.getReferences(doc, {line: 7, character: 7})
+        // const defS = analyzer.getDefinitionSymbol(doc, cursorPosition).pop();
+        // console.log('def: ', defS?.debugString());
+        const refS = analyzer.getReferences(doc, cursorPosition);
         // let i = 0
         // console.log('refs');
         // for (const s of refS) {
@@ -572,8 +588,8 @@ describe('FishDocumentSymbol OPERATIONS', () => {
         //   i++;
         // }
         expect(refS.map(s => {
-          const uriBlocks = s.uri.split('/')
-          return uriBlocks.slice(-2).join('/')
+          const uriBlocks = s.uri.split('/');
+          return uriBlocks.slice(-2).join('/');
         })).toEqual([
           'functions/dupes.fish',
           'functions/dupes.fish',
@@ -582,109 +598,168 @@ describe('FishDocumentSymbol OPERATIONS', () => {
           'functions/dupes6.fish',
           'functions/dupes7.fish',
           'functions/dupes7.fish',
+        ]);
+      });
+
+      it('local variable dupes: functions/dupes.fish', () => {
+        const { doc, cursorPosition } = testSymbolFiltering('functions/dupes.fish', [
+          'function dupes -a first',
+          '    if set -z first',
+          '        echo "first is empty"',
+          '        set first "hola"',
+          '    end',
+          '    foo_bar $first█',
+          'end',
+          'function foo_bar -a a',
+          '    echo "$a"',
+          'end',
+          'set -l first hi',
+          'dupes $first'
+        ].join('\n'));
+
+        // const defS = analyzer.getDefinitionSymbol(doc, cursorPosition).pop()!;
+        // console.log('local_def: ', defS?.debugString());
+
+        // console.log({cursorPosition});
+        const refS = analyzer
+          .getReferences(doc, cursorPosition)
+          .map(s => locationToArray(s))
+
+        
+        // const cached = analyzer.analyze(doc);
+        // const nodes = getAccessibleNodes(cached.root, cached.symbols.flat(), defS)
+        //
+        // for (const s of cached.symbols.flat().filter(s => s.name === 'first')) {
+        //   console.log('__flat:', s.debugString());
+        // }
+          // 
+        // for (const s of nodes) {
+        //   console.log('__includes:', s.text, s.type);
+        // }
+        // // console.log(refS.map(s => locationToArray(s)));
+        // let i = 0
+        // console.log('local refs');
+        // for (const s of refS) {
+        //   console.log(i, s);
+        //   i++;
+        // }
+        expect(refS).toEqual([
+          ['functions/dupes.fish', 0, 18, 0, 23],
+          ['functions/dupes.fish', 1, 14, 1, 19],
+          ['functions/dupes.fish', 3, 12, 3, 17],
+          ['functions/dupes.fish', 5, 13, 5, 18],
         ])
+        
+        // expect(refS.map(s => {
+        //   const uriBlocks = s.uri.split('/');
+        //   return uriBlocks.slice(-2).join('/');
+        // })).toEqual([
+        //   'functions/dupes.fish',
+        //   'functions/dupes.fish',
+        // ]);
+        //
       })
     });
-  })
-})
+  });
+});
 
 
-    // });
-    //
-    // describe('analyzer', () => {
-    //   it('local variables: getGlobalLocations(),getLocalLocations() ', () => {
-    //     const { doc } = testSymbolFiltering('functions/foo.fish', [
-    //       'function foo',
-    //       '    set -l arg_1 $argv[1]',
-    //       '    set -l arg_2 $argv[1]',
-    //       '    set arg_1 "hi"',
-    //       '    echo $arg_1',
-    //       'end'
-    //     ].join('\n'));
-    //
-    //     const searchPosition = Position.create(4, 10);
-    //     const locals = analyzer.getLocalLocations(doc, searchPosition);
-    //     const globals = analyzer.getGlobalLocations(doc, searchPosition);
-    //     expect(locals.length).toBe(3);
-    //     expect(globals.length).toBe(0);
-    //   });
-    //
-    //   it('global variables: getGlobalLocations()', () => {
-    //     let currentDocument: LspDocument;
-    //     let cursor: Position;
-    //     let documentTree: Parser.Tree;
-    //     TestWorkspace.functionsOnly.documents.forEach(doc => {
-    //       const currentCached = analyzer.analyze(doc);
-    //       const { tree, nodes } = currentCached;
-    //       if (doc.uri.endsWith('foo.fish')) {
-    //         currentDocument = doc;
-    //         cursor = TreeSitterUtils.pointToPosition(nodes.find(n => n.text === 'test')!.startPosition);
-    //         documentTree = tree;
-    //       }
-    //     });
-    //
-    //     const globals = analyzer.getGlobalLocations(currentDocument!, cursor!);
-    //
-    //     // for (const g of globals) {
-    //     //   const { root } = analyzer.cached.get(g.uri)!;
-    //     //   const n = TreeSitterUtils.getNodeAtRange(root, g.range);
-    //     //   console.log(n?.text);
-    //     // }
-    //
-    //     expect(globals.length).toBe(2);
-    //   });
-    // });
+// });
+//
+// describe('analyzer', () => {
+//   it('local variables: getGlobalLocations(),getLocalLocations() ', () => {
+//     const { doc } = testSymbolFiltering('functions/foo.fish', [
+//       'function foo',
+//       '    set -l arg_1 $argv[1]',
+//       '    set -l arg_2 $argv[1]',
+//       '    set arg_1 "hi"',
+//       '    echo $arg_1',
+//       'end'
+//     ].join('\n'));
+//
+//     const searchPosition = Position.create(4, 10);
+//     const locals = analyzer.getLocalLocations(doc, searchPosition);
+//     const globals = analyzer.getGlobalLocations(doc, searchPosition);
+//     expect(locals.length).toBe(3);
+//     expect(globals.length).toBe(0);
+//   });
+//
+//   it('global variables: getGlobalLocations()', () => {
+//     let currentDocument: LspDocument;
+//     let cursor: Position;
+//     let documentTree: Parser.Tree;
+//     TestWorkspace.functionsOnly.documents.forEach(doc => {
+//       const currentCached = analyzer.analyze(doc);
+//       const { tree, nodes } = currentCached;
+//       if (doc.uri.endsWith('foo.fish')) {
+//         currentDocument = doc;
+//         cursor = TreeSitterUtils.pointToPosition(nodes.find(n => n.text === 'test')!.startPosition);
+//         documentTree = tree;
+//       }
+//     });
+//
+//     const globals = analyzer.getGlobalLocations(currentDocument!, cursor!);
+//
+//     // for (const g of globals) {
+//     //   const { root } = analyzer.cached.get(g.uri)!;
+//     //   const n = TreeSitterUtils.getNodeAtRange(root, g.range);
+//     //   console.log(n?.text);
+//     // }
+//
+//     expect(globals.length).toBe(2);
+//   });
+// });
 
 
-  // it('[nested function] filter up-to-node (BAD SYNTAX: `foo_baz`, `_baz`)', () => {
-  //
-  //   const result = testSymbolFiltering('functions/foo_baz.fish', [
-  //     `function foo_baz`,
-  //     `     _baz`,
-  //     `    `,
-  //     `    function _baz`,
-  //     `        echo 'cant read _baz'`,
-  //     `    end`,
-  //     `end`,
-  //   ].join('\n'))
-  //   const {tree, rootNode, flatSymbols} = result
-  //   const cursor: Position = getRange(
-  //       TreeSitterUtils.getChildNodes(tree.rootNode)
-  //       .find((n: SyntaxNode) => n.text === '_baz' && isFunctionDefinitionName(n))!
-  //   ).end
-  //
-  //   const cursorNode: SyntaxNode = tree.rootNode.namedDescendantForPosition(
-  //     TreeSitterUtils.positionToPoint({ line: cursor.line, character: cursor.character - 1 })
-  //   )!;
-  //
-  //   const symbols = flatSymbols.filter(s => s.scope.containsPosition(cursor))
-  //   console.log(symbols.map(s => s.name));
-  // });
+// it('[nested function] filter up-to-node (BAD SYNTAX: `foo_baz`, `_baz`)', () => {
+//
+//   const result = testSymbolFiltering('functions/foo_baz.fish', [
+//     `function foo_baz`,
+//     `     _baz`,
+//     `    `,
+//     `    function _baz`,
+//     `        echo 'cant read _baz'`,
+//     `    end`,
+//     `end`,
+//   ].join('\n'))
+//   const {tree, rootNode, flatSymbols} = result
+//   const cursor: Position = getRange(
+//       TreeSitterUtils.getChildNodes(tree.rootNode)
+//       .find((n: SyntaxNode) => n.text === '_baz' && isFunctionDefinitionName(n))!
+//   ).end
+//
+//   const cursorNode: SyntaxNode = tree.rootNode.namedDescendantForPosition(
+//     TreeSitterUtils.positionToPoint({ line: cursor.line, character: cursor.character - 1 })
+//   )!;
+//
+//   const symbols = flatSymbols.filter(s => s.scope.containsPosition(cursor))
+//   console.log(symbols.map(s => s.name));
+// });
 
-  // it('[private function] filter up-to-node (GOOD SYNTAX: `foo_bar`, `_bar`)', () => {
-  //
-  //   const result = testSymbolFiltering('functions/foo_bar.fish', [
-  //     `function foo_bar`,
-  //     `     _bar`,
-  //     `    `,
-  //     `end`,
-  //     `function _bar`,
-  //     `    echo 'CAN READ _bar'`,
-  //     `end`,
-  //   ].join('\n'))
-  //   const {tree, rootNode, flatSymbols} = result
-  //   const cursor: Position = getRange(
-  //       TreeSitterUtils.getChildNodes(tree.rootNode)
-  //       .find((n: SyntaxNode) => n.text === '_baz' && isFunctionDefinitionName(n))!
-  //   ).end
-  //
-  //   const cursorNode: SyntaxNode = tree.rootNode.namedDescendantForPosition(
-  //     TreeSitterUtils.positionToPoint({ line: cursor.line, character: cursor.character - 1 })
-  //   )!;
-  //
-  //   const symbols = flatSymbols.filter(s => s.scope.containsPosition(cursor))
-  //   console.log(symbols.map(s => s.name));
-  // })
+// it('[private function] filter up-to-node (GOOD SYNTAX: `foo_bar`, `_bar`)', () => {
+//
+//   const result = testSymbolFiltering('functions/foo_bar.fish', [
+//     `function foo_bar`,
+//     `     _bar`,
+//     `    `,
+//     `end`,
+//     `function _bar`,
+//     `    echo 'CAN READ _bar'`,
+//     `end`,
+//   ].join('\n'))
+//   const {tree, rootNode, flatSymbols} = result
+//   const cursor: Position = getRange(
+//       TreeSitterUtils.getChildNodes(tree.rootNode)
+//       .find((n: SyntaxNode) => n.text === '_baz' && isFunctionDefinitionName(n))!
+//   ).end
+//
+//   const cursorNode: SyntaxNode = tree.rootNode.namedDescendantForPosition(
+//     TreeSitterUtils.positionToPoint({ line: cursor.line, character: cursor.character - 1 })
+//   )!;
+//
+//   const symbols = flatSymbols.filter(s => s.scope.containsPosition(cursor))
+//   console.log(symbols.map(s => s.name));
+// })
 
 
 /**
