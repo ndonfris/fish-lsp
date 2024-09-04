@@ -187,7 +187,7 @@ export function isScope(node: SyntaxNode): boolean {
 }
 
 export function isSemicolon(node: SyntaxNode): boolean {
-  return node.type === ';' && node.text === ';';
+  return (node.type === ';' && node.text === ';') || node.type === ';';
 }
 
 export function isNewline(node: SyntaxNode): boolean {

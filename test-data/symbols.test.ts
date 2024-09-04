@@ -193,6 +193,7 @@ describe('FishDocumentSymbol OPERATIONS', () => {
     });
 
 
+    // @TODO: fix expected results
     it('FishDocumentSymbols upto cursor', () => {
       const { symbols } = testSymbolFiltering('function/test-source.fish', [
         'function test-source',
@@ -207,7 +208,9 @@ describe('FishDocumentSymbol OPERATIONS', () => {
 
       const pos = Position.create(3, 9);
       const scoped = filterDocumentSymbolInScope(symbols, pos);
-      console.log('upto cursor', scoped.map(s => s.name));
+
+      // console.log('upto cursor', scoped.map(s => s.name));
+
       // expect(scoped.map(s => s.name)).toEqual([
       //   'test-source',
       //   '__helper',
@@ -351,7 +354,8 @@ describe('FishDocumentSymbol OPERATIONS', () => {
        */
         // results = results.filter(s => s.scope.containsPosition(cursorPosition));
 
-        console.log('cursor', cursorPosition, getCursorText(cursorNode, cursorPosition));
+        // console.log('cursor', cursorPosition, getCursorText(cursorNode, cursorPosition));
+        expect(cursorPosition).toEqual({line: 3, character: 13})
 
 
         results = results.filter(current => !results.some(other => (
@@ -370,6 +374,7 @@ describe('FishDocumentSymbol OPERATIONS', () => {
 
       });
 
+      // TODO: write expected results
       it('check: conf.d/foo.fish', () => {
         const { tree, symbols, cursorPosition } = testSymbolFiltering('conf.d/foo.fish', [
           'function foo_bar',
@@ -437,8 +442,9 @@ describe('FishDocumentSymbol OPERATIONS', () => {
 
         const defS = filterSymbolsInScope(symbols, cursorPosition).pop()!;
         // console.log('def: ', defS.debugString());
+        expect(defS.name).toBe('dupes')
 
-        const locations: LSP.Location[] = [];
+        // const locations: LSP.Location[] = [];
         // const uniqueLocations = new UniqueLocations();
         // /**
         //  * local references
@@ -492,13 +498,14 @@ describe('FishDocumentSymbol OPERATIONS', () => {
         // // })
       });
 
+      // @TODO: fails to get local references
       it('local refs: functions/dupes.fish', () => {
         testSymbolFiltering('functions/dupes2.fish', [
           'function dupes2',
           '    dupes',
           'end',
         ].join('\n'));
-        const { doc, tree } = testSymbolFiltering('functions/dupes.fish', [
+        const { doc, tree, cursorPosition } = testSymbolFiltering('functions/dupes.fish', [
           'function dupes -a first',
           '    foo_bar $first',
           'end',
@@ -510,17 +517,31 @@ describe('FishDocumentSymbol OPERATIONS', () => {
         ].join('\n'));
 
         // console.log({cursorPosition});
-        const defS = analyzer.getDefinitionSymbol(doc, { line: 7, character: 7 }).pop();
-        // console.log('def: ', defS?.debugString());
+        const defS = analyzer.getDefinitionSymbol(doc, cursorPosition)
+          .map(s => s.toLocation())
+          .map(s => locationToArray(s))
+          .pop()
 
-        const refS = analyzer.getReferences(doc, {line: 7, character: 7})
+
+
+        // console.log('def: ', defS)
+        expect(defS).toEqual([ 'functions/dupes.fish', 6, 7, 6, 8 ])
+
+        const refS = analyzer.getReferences(doc, cursorPosition)
+          .map(s => locationToArray(s));
+
         // let i = 0
         // console.log('refs');
         // for (const s of refS) {
-        //   const node = TreeSitterUtils.getNodeAtRange(tree.rootNode, s.range)!.parent!
-        //   console.log(i, node.text, {uri: s.uri, range: s.range});
+        //   console.log(i, s);
         //   i++;
         // }
+        expect(refS).toEqual([
+          [ 'functions/dupes.fish', 3, 20, 3, 21 ],
+          [ 'functions/dupes.fish', 4, 11, 4, 12 ],
+          [ 'functions/dupes.fish', 6, 7, 6, 8 ],
+          [ 'functions/dupes.fish', 7, 7, 7, 8 ],
+        ])
       });
 
       it('global refs: functions/dupes.fish', () => {
@@ -617,47 +638,47 @@ describe('FishDocumentSymbol OPERATIONS', () => {
           'dupes $first'
         ].join('\n'));
 
-        // const defS = analyzer.getDefinitionSymbol(doc, cursorPosition).pop()!;
-        // console.log('local_def: ', defS?.debugString());
-
-        // console.log({cursorPosition});
-        const refS = analyzer
-          .getReferences(doc, cursorPosition)
-          .map(s => locationToArray(s))
-
-        
-        // const cached = analyzer.analyze(doc);
-        // const nodes = getAccessibleNodes(cached.root, cached.symbols.flat(), defS)
-        //
-        // for (const s of cached.symbols.flat().filter(s => s.name === 'first')) {
-        //   console.log('__flat:', s.debugString());
-        // }
-          // 
-        // for (const s of nodes) {
-        //   console.log('__includes:', s.text, s.type);
-        // }
-        // // console.log(refS.map(s => locationToArray(s)));
-        // let i = 0
-        // console.log('local refs');
-        // for (const s of refS) {
-        //   console.log(i, s);
-        //   i++;
-        // }
-        expect(refS).toEqual([
+        expect(
+          analyzer.getReferences(doc, cursorPosition).map(s => locationToArray(s))
+        ).toEqual([
           ['functions/dupes.fish', 0, 18, 0, 23],
           ['functions/dupes.fish', 1, 14, 1, 19],
           ['functions/dupes.fish', 3, 12, 3, 17],
           ['functions/dupes.fish', 5, 13, 5, 18],
         ])
         
-        // expect(refS.map(s => {
-        //   const uriBlocks = s.uri.split('/');
-        //   return uriBlocks.slice(-2).join('/');
-        // })).toEqual([
-        //   'functions/dupes.fish',
-        //   'functions/dupes.fish',
-        // ]);
-        //
+      })
+      it('global variable dupes 2: functions/dupes.fish', () => {
+        const { doc, cursorPosition } = testSymbolFiltering('functions/dupes.fish', [
+          'function dupes -a first',
+          '    if set -q first',
+          '        echo "first is empty"',
+          '        set first "hola"',
+          '    end',
+          '    foo_bar $first',
+          'end',
+          'function foo_bar -a a',
+          '    echo "$a"',
+          'end',
+          'set -g first hi',
+          'dupes $first█'
+        ].join('\n'));
+
+        const defS = analyzer.getDefinitionSymbol(doc, cursorPosition).pop()!;
+        // console.log('def:', locationToArray(defS.toLocation()));
+        expect([
+          locationToArray(defS.toLocation())
+        ]).toEqual([
+          [ 'functions/dupes.fish', 10, 7, 10, 12 ]
+        ])
+
+        expect(analyzer
+          .getReferences(doc, cursorPosition)
+          .map(s => locationToArray(s))
+        ).toEqual([
+          [ 'functions/dupes.fish', 10, 7, 10, 12 ],
+          [ 'functions/dupes.fish', 11, 7, 11, 12 ]
+        ])
       })
     });
   });
@@ -813,43 +834,6 @@ describe('src/workspace-symbol.ts refactors', () => {
     ]).toEqual([ true, false ]);
   });
 });
-
-// const result: SyntaxNode[] = [];
-// const flat = flattenNested(...symbols);
-// const localSymbols = filterDocumentSymbolInScope(symbols, searchPosition)
-//   .filter(
-//     s => {
-//       const isBefore = s.kind === SymbolKind.Variable ? TreeSitterUtils.precedesRange(s.selectionRange, getRange(searchNode)) : true;
-//       return (s.name === searchNode?.text
-//         && (s.scope.containsPosition(searchPosition) &&
-//           containsRange(getRange(s.scope.scopeNode), getRange(searchNode))
-//           && isBefore
-//         ));
-//     }
-//   )
-//   .map(s => s.scope.scopeNode);
-// localSymbols.forEach(s => {
-//   result.push(...TreeSitterUtils.getChildNodes(s).filter(n => n.text === searchNode.text));
-// });
-
-// /**
-//  * workspace symbols
-//  */
-// if (localSymbols.length === 0) {
-//   analyzer.uris.forEach(uri => {
-//     const _cached = analyzer.cached.get(uri);
-//     if (!_cached) return;
-//     const _symbols = flattenNested(..._cached.symbols)
-//       .filter(s => s.scope.scopeTag !== 'global');
-//
-//     const gSymbols = getGlobalSymbolsInDocument(_cached.nodes, _symbols)
-//       .filter(s => s.text === searchNode.text);
-//
-//
-//     result.push(...gSymbols);
-//
-//   });
-//   // localSymbols.push(...)
 
 
 

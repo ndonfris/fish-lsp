@@ -12,11 +12,20 @@ import {
 import { containsRange, getRange, isPositionBefore, isPositionWithinRange } from './tree-sitter';
 import { isVariableDefinitionName, isFunctionDefinitionName, refinedFindParentVariableDefinitionKeyword } from './node-types';
 import { SyntaxNode } from 'web-tree-sitter';
-import { DefinitionScope, getScope } from './definition-scope';
+import { DefinitionScope, getScope, ScopeTag } from './definition-scope';
 import { MarkdownBuilder, md } from './markdown-builder';
 import { symbolKindToString } from './translation';
 import { PrebuiltDocumentationMap } from './snippets';
 import * as Locations from './locations'
+
+const getScopeValue = (tag: keyof typeof ScopeTag) => {
+  return [
+    'local',
+    'inherit',
+    'function',
+    'global',
+  ].indexOf(tag);
+}
 
 export class FishDocumentSymbol implements DocumentSymbol {
 
@@ -70,7 +79,7 @@ export class FishDocumentSymbol implements DocumentSymbol {
   toLocation(): Location {
     return {
       uri: this.uri,
-      range: this.range,
+      range: this.selectionRange,
     };
   }
 
@@ -96,18 +105,44 @@ export class FishDocumentSymbol implements DocumentSymbol {
     return this.range.start.line > other.range.start.line;
   }
 
+  scopeLessThan(other: FishDocumentSymbol): boolean {
+    const currentLocale = this.scope.tagValue();
+    const otherLocale = other.scope.tagValue();
+    return currentLocale  < otherLocale;
+  }
+
+  scopeGreaterThan(other: FishDocumentSymbol): boolean {
+    const currentLocale = this.scope.tagValue();
+    const otherLocale = other.scope.tagValue();
+    return currentLocale > otherLocale;
+  }
+
   scopeSmallerThan(other: FishDocumentSymbol): boolean {
-    const getScopeNumber = (scope: DefinitionScope) => {
-      return [
-        'local',
-        'inherit',
-        'function',
-        'global',
-      ].indexOf(scope.scopeTag);
-    }
-    const currentLocale = getScopeNumber(this.scope);
-    const otherLocale = getScopeNumber(other.scope);
+    const currentLocale = this.scope.tagValue();
+    const otherLocale = other.scope.tagValue();
     return currentLocale <= otherLocale;
+  }
+
+  scopeEquivalent(other: FishDocumentSymbol): boolean {
+    if (this.equals(other)) {
+      return false;
+    }
+    if (this.name !== other.name) {
+      return false;
+    }
+    if (this.kind !== other.kind) {
+      return false;
+    }
+    if (this.scope.scopeNode.equals(other.scope.scopeNode)) {
+      return true
+    }
+    const currentLocale = this.scope.tagValue();
+    const otherLocale = other.scope.tagValue();
+    return currentLocale >= otherLocale
+  }
+
+  scopeValue(): number {
+    return getScopeValue(this.scope.scopeTag);
   }
 
   equalScopes(other: FishDocumentSymbol): boolean {
