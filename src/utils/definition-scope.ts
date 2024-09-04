@@ -4,10 +4,28 @@ import { pathToRelativeFunctionName } from './translation';
 import { firstAncestorMatch, getRange, isPositionWithinRange, getParentNodes, positionToPoint, pointToPosition, isNodeWithinRange } from './tree-sitter';
 import { Position } from 'vscode-languageserver';
 
-export type ScopeTag = 'global' | 'local' | 'function' | 'inherit';
+export const ScopeTag = {
+  local: 0,
+  inherit: 1,
+  function: 2,
+  global: 3
+} as const;
+
+// Create a type from the object keys
+type ScopeTag = keyof typeof ScopeTag;
+
+// Utility type to get the numeric value of a ScopeTag
+type ScopeTagValue = typeof ScopeTag[ScopeTag];
+
+export function getScopeTagValue(tag: ScopeTag): ScopeTagValue {
+  return ScopeTag[tag];
+}
+
+// export type ScopeTag = 'global' | 'local' | 'function' | 'inherit';
 export interface DefinitionScope {
   scopeNode: SyntaxNode;
   scopeTag: ScopeTag;
+  tagValue: () => 0 | 1 | 2 | 3 ;
   containsPosition: (position: Position) => boolean;
   containsNode: (node: SyntaxNode) => boolean;
   equals: (scope: DefinitionScope) => boolean;
@@ -22,6 +40,7 @@ export namespace DefinitionScope {
       containsPosition: (position: Position) => isPositionWithinRange(position, getRange(scopeNode)),
       containsNode: (node: SyntaxNode) => isNodeWithinRange(node, getRange(scopeNode)),
       equals: (other: DefinitionScope) => scopeNode.equals(other.scopeNode) && scopeTag === other.scopeTag,
+      tagValue: () => getScopeTagValue(scopeTag),
       equalTags: (other: DefinitionScope) => scopeTag === other.scopeTag || scopeTag === 'inherit' || other.scopeTag === 'inherit',
     };
   }
@@ -83,7 +102,7 @@ function getMatchingFlags(focusedNode: SyntaxNode, nodes: SyntaxNode[]) {
 
 function findScopeFromFlag(node: SyntaxNode, flag: VariableDefinitionFlag) {
   let scopeNode: SyntaxNode | null = node.parent!;
-  let scopeFlag = flag.kind;
+  let scopeFlag = 'local';
   switch (flag.kind) {
     case 'global':
       scopeNode = firstAncestorMatch(node, NodeTypes.isProgram);

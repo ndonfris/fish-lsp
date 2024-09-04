@@ -2,13 +2,14 @@ import Parser, { SyntaxNode, Tree } from 'web-tree-sitter';
 import { LspDocument } from './document';
 import { /*filterGlobalSymbols,*/ FishDocumentSymbol, filterDocumentSymbolInScope, filterSymbolsInScope, filterWorkspaceSymbol, flattenNested, getFishDocumentSymbolItems, getGlobalSyntaxNodesInDocument } from './utils/symbol';
 import * as LSP from 'vscode-languageserver';
-import { ancestorMatch, containsRange, equalsRanges, getChildNodes, getNodeAtPosition, getRange, isPositionBefore, isPositionWithinRange, pointToPosition, positionToPoint, precedesRange, findFirstParent } from './utils/tree-sitter';
+import { ancestorMatch, containsRange, equalsRanges, getChildNodes, getNodeAtPosition, getRange, isPositionBefore, isPositionWithinRange, pointToPosition, positionToPoint, precedesRange, findFirstParent, getNodeAtPoint } from './utils/tree-sitter';
 import { isSourceFilename } from './diagnostics/node-types';
 import { SyncFileHelper } from './utils/file-operations';
 import { Location, Position, SymbolKind } from 'vscode-languageserver';
 // import { findAncestor } from 'typescript';
 import { Range } from './utils/locations';
-import { isFunctionDefinition } from './utils/node-types';
+import { isCommandName, isFunctionDefinition, isNewline, isProgram, isSemicolon } from './utils/node-types';
+import { getScopeTagValue } from './utils/definition-scope';
 // import { isFunction } from './utils/builtins';
 
 type SymbolArrayObject = {
@@ -93,16 +94,6 @@ export class Analyzer { // @TODO rename to Analyzer
   //   return this.cached.has(uri);
   // }
 
-
-
-  /**
-   * getFlatSymbols - flattened document symbol array. Helper function to be used
-   * throughout this class.
-   */
-  getFlatSymbols(document: LspDocument): FishDocumentSymbol[] {
-    return this.analyze(document).symbols.flat(); 
-  }
-
   /**
    * getDocumentSymbols - gets all uris analyzed
    */
@@ -110,23 +101,9 @@ export class Analyzer { // @TODO rename to Analyzer
     return Array.from(this.cached.keys());
   }
 
-  // private getDefinitionNodeInDocument(document: LspDocument, position: Position): SyntaxNode | null {
-  //   const _cached = this.cached.get(document.uri);
-  //   if (!_cached) return null;
-  //   const node = getNodeAtPosition(_cached.tree, position);
-  //   if (!node) return null;
-  //   return node
-  // }
-
-  getNodeFromLocation({ uri, range }: Location): SyntaxNode | undefined {
-    const _cached = this.cached.get(uri);
-    if (!_cached?.tree) return;
-    return _cached.tree.rootNode.descendantForPosition({
-      row: range.start.line,
-      column: range.start.character
-    });
+  get cachedEntries() {
+    return Array.from(this.cached.entries());
   }
-
 
   /**
    * @TODO: FIX
@@ -160,164 +137,145 @@ export class Analyzer { // @TODO rename to Analyzer
      * // return cachedDef.symbols.flat().filter(s => s.name === text);
      */
     return [];
-
-
-    // const { symbols } = cached
-    // const node = this.getDefinitionNodeInDocument(document, position);
-    // if (!node) return [];
-    // return filterDocumentSymbolInScope(symbols, pointToPosition(node.startPosition));
   }
 
-  getReferencesFromLocation(document: LspDocument, position: Position): LSP.Location[] {
-    const cached = this.cached.get(document.uri);
-    if (!cached) return [];
+  private removeLocalSymbols(
+    matchSymbol: FishDocumentSymbol,
+    nodes: SyntaxNode[],
+    symbols: FishDocumentSymbol[]
+  ) {
+    // const name = matchSymbol.name;
+    const matchingSymbols = symbols
+    .filter(s => s.name === matchSymbol.name)
+    .filter(s => s.scope.tagValue() < getScopeTagValue('global'))
+    .map(s => s.scope.scopeNode)
 
-    const node = getNodeAtPosition(cached.tree, position);
-    if (!node) return [];
+    const matchingNodes = nodes.filter(node => node.text === matchSymbol.name);
 
-    const text = node.text;
-    if (!text) return [];
-
-    const defSymbol = this.getDefinitionSymbol(document, position).pop();
-    if (!defSymbol) return [];
-
-    if (defSymbol.scope.scopeTag !== 'global') {
-      return getChildNodes(defSymbol.scope.scopeNode)
-        .filter(n => n.text === text)
-        .map(n => Location.create(document.uri, getRange(n)))
+    if (matchingSymbols.length === 0 || matchSymbol.kind === SymbolKind.Function) {
+      return matchingNodes;
     }
 
-    const locations: LSP.Location[] = [];
-    for (const [uri, analyzed] of this.cached.entries()) {
-
-      const { symbols, nodes } = analyzed;
-      const localRefs = flattenNested(...symbols.nested())
-        .filter(s => s.name === text)
-        .filter(s => !defSymbol.scope.equals(s.scope))
-
-      for (const node of nodes) {
-        if (localRefs.some(s => s.scope.containsNode(node))) {
-          continue;
-        }
-        if (node.text === text) {
-          if (locations.some(l => equalsRanges(l.range, getRange(node)))) {
-            continue;
-          }
-          locations.push(LSP.Location.create(uri, getRange(node)))
-        }
+    return matchingNodes.filter((node) => {
+      if (matchingSymbols.some(scopeNode => containsRange(getRange(scopeNode), getRange(node)))) {
+        return false;
       }
+      return true;
+    });
+  }
+
+  private findLocalLocations(document: LspDocument, position: Position) {
+    const symbol = this.getDefinitionSymbol(document, position).pop();
+    if (!symbol) return [];
+
+    const nodes = getChildNodes(symbol.scope.scopeNode)
+    return findLocations(document.uri, nodes, symbol.name);
+  }
+
+  private  findGlobalLocations(document: LspDocument, position: Position) {
+    const locations: LSP.Location[] = [];
+    const symbol = this.getDefinitionSymbol(document, position).pop();
+    if (!symbol) return locations;
+
+    for (const uri of this.uris) {
+      const cached = this.cached.get(uri);
+      if (!cached) continue;
+
+      const rootNode = cached.tree.rootNode;
+      const toSearchNodes = this.removeLocalSymbols(
+        symbol,
+        getChildNodes(rootNode),
+        cached.symbols.flat()
+      );
+      const newLocations = findLocations(uri, toSearchNodes, symbol.name);
+      locations.push(...newLocations);
     }
     return locations;
   }
 
-  //   if (!this.hasAnalyzedDocument(document.uri)) return [];
-  //
-  //   if (!this.cached.has(document.uri)) return [];
-  //   const { symbols } = this.cached.get(document.uri)!;
-  //
-  //   const toNode = this.getDefinitionNodeInDocument(document, position);
-  //   if (!toNode) return [];
-  //
-  //   const localSymbol = filterSymbolsInScope(symbols, position)
-  //     .filter(s => s.name === toNode.text);
-  //
-  //   if (localSymbol.length > 0) {
-  //     return localSymbol;
-  //   }
-  //     
-  //   const result: FishDocumentSymbol[] = [];
-  //
-  //   for (const uri of this.uris) {
-  //     const _cached = this.cached.get(uri);
-  //     if (!_cached) continue;
-  //
-  //     const locSymbols = flattenNested(..._cached.symbols)
-  //       .filter(s => s.scope.scopeTag === 'global' && s.name === toNode.text)
-  //       // .map(s => Location.create(uri, s.range))
-  //
-  //     if (locSymbols.length > 0) {
-  //       result.push(...locSymbols);
-  //     }
-  //
-  //   }
-  //
-  //   return result;
-  // }
+  getReferences(document: LspDocument, position: Position): LSP.Location[] {
+    const tree = this.cached.get(document.uri)?.tree
+    if (!tree) return []
 
-  getCached(documentUri: LspDocument | string) {
-    if (typeof documentUri === 'string') {
-      if (!this.cached.has(documentUri)) return;
-      return this.cached.get(documentUri)
+    const node = getNodeAtPoint(tree, {line: position.line, column: position.character});
+    if (!node) return [];
+
+    const symbol = this.getDefinitionSymbol(document, position).pop();
+    if (symbol) {
+      switch (symbol.scope.scopeTag) {
+        case 'global':
+          return this.findGlobalLocations(document, position);
+        case 'function':
+        case 'inherit':
+        case 'local':
+        default:
+          return this.findLocalLocations(document, position);
+      }
     }
-    return this.cached.get(documentUri.uri)
+
+    if (isCommandName(node)) {
+      const locations: Location[] = [];
+      for (const [uri, cached] of this.cachedEntries) {
+        const rootNode = cached.root;
+        const nodes = getChildNodes(rootNode).filter(n => isCommandName(n));
+        const newLocations = findLocations(uri, nodes, node.text);
+        locations.push(...newLocations);
+      }
+      return locations;
+    }
+
+    return [];
   }
+
   //
   // @TODO - use locations
   // https://github.com/ndonfris/fish-lsp/blob/782e14a2d8875aeeddc0096bf85ca1bc0d7acc77/src/workspace-symbol.ts#L139
   /**
    * getReferenceSymbols - gets all references of a symbol in a LspDocument
    */
-  getReferences(document: LspDocument, position: Position): LSP.Location[] {
-    const cached = this.cached.get(document.uri)
-    if (!cached) return []
-
-    const toFind = getNodeAtPosition(cached.tree, position);
-    if (!toFind) return [];
-
-    const result: LSP.Location[] = [];
-    if (!cached) return result;
-    // const current = this.cached.get(document.uri).symbols;
-    if (cached.symbols.flat().length === 0) return result;
-    const defSymbol  = filterSymbolsInScope(cached.symbols.nested(), position).pop()
-    if (!defSymbol) return result;
-
-    const uniqueLocations = new UniqueLocations();
-    for (const [uri, cached] of Array.from(this.cached.entries())) {
-      const possibleNodes = getAccessibleNodes(
-        cached.root,
-        cached.symbols.flat(),
-        defSymbol
-      )
-      for (const node of possibleNodes) {
-        if (node.text !== defSymbol.name) continue;
-        const range = getRange(node);
-        if (node.text === defSymbol.name) {
-          uniqueLocations.add(LSP.Location.create(uri, range))
-        }
-      }
-    }
-    return uniqueLocations.locations;
-  }
-  
-
-  getLocalLocations(document: LspDocument, position: Position) {
-    const symbol = this.getDefinitionSymbol(document, position).pop();
-    if (!symbol) return [];
-
-    const nodeToSearch = getChildNodes(symbol.scope.scopeNode);
-    return findLocations(document.uri, nodeToSearch, symbol.name);
-  }
-
-  getGlobalLocations(document: LspDocument, position: Position) {
-    const locations: LSP.Location[] = [];
-
-    const symbol = this.getDefinitionSymbol(document, position);
-    if (symbol.length === 0) return locations;
-
-    for (const uri of this.uris) {
-      const _cached = this.cached.get(uri);
-      if (!_cached?.document.isAutoLoaded()) continue;
-
-      const rootNode = _cached.tree.rootNode;
-      const toSearchNodes = getGlobalSyntaxNodesInDocument(
-        getChildNodes(rootNode),
-        _cached.symbols.flat().filter(s => s.scope.scopeTag !== 'global')
-      );
-      const newLocations = findLocations(uri, toSearchNodes, symbol.at(0)!.name);
-      locations.push(...newLocations);
-    }
-    return locations;
-  }
+  // getReferences(document: LspDocument, position: Position): LSP.Location[] {
+  //   const cached = this.cached.get(document.uri)
+  //   if (!cached) return []
+  //
+  //   const toFind = getNodeAtPosition(cached.tree, position);
+  //   if (!toFind) return [];
+  //
+  //   const result: LSP.Location[] = [];
+  //   // const current = this.cached.get(document.uri).symbols;
+  //
+  //   const defSymbol = this.getDefinitionSymbol(document, position).pop()
+  //   // if ()
+  //   
+  //   if (cached.symbols.flat().length === 0) return result;
+  //   // const defSymbol  = filterSymbolsInScope(cached.symbols.nested(), position).pop()
+  //   if (!defSymbol) return result;
+  //
+  //   if (defSymbol.scope.scopeTag !== 'global') {
+  //     return this.getLocalLocations(document, position);
+  //   }
+  //
+  //   return this.getGlobalLocations(document, position);
+  //   // const uniqueLocations = new UniqueLocations();
+  //   // for (const [uri, cached] of Array.from(this.cached.entries())) {
+  //   //   this.getLocalLocations(cached.document, position)
+  //   //   const getIncludedNodes = (  ) => {
+  //   //     if (defSymbol.scope.scopeTag !== 'global') {
+  //   //       return getChildNodes(defSymbol.scope.scopeNode)
+  //   //     }
+  //   //     return cached.nodes
+  //   //   }
+  //   //
+  //   //
+  //   //   // for (const node of possibleNodes) {
+  //   //   //   if (node.text !== defSymbol.name) continue;
+  //   //   //   const range = getRange(node);
+  //   //   //   if (node.text === defSymbol.name) {
+  //   //   //     uniqueLocations.add(LSP.Location.create(uri, range))
+  //   //   //   }
+  //   //   // }
+  //   // }
+  //   // return uniqueLocations.locations;
+  // }
 
   /**
    * getHover - gets the hover documentation of a symbol in a LspDocument
@@ -437,35 +395,46 @@ function symbolsScopeContainsPosition(symbols: FishDocumentSymbol[], position: P
 /**
  * getAccessibleNodes - gets all nodes that are accessible to a symbol
  */
-export function getAccessibleNodes(root: SyntaxNode, symbols: FishDocumentSymbol[], matchSymbol: FishDocumentSymbol) {
-  // const result: SyntaxNode[] = [];
+// export function getAccessibleNodes(root: SyntaxNode, symbols: FishDocumentSymbol[], matchSymbol: FishDocumentSymbol) {
+//   // const result: SyntaxNode[] = [];
+//   // const isMatchUri = symbols.some(s => s.uri === matchSymbol.uri);
+//   // let matches: FishDocumentSymbol[] = symbols
+//   //   .filter(s => s.name === matchSymbol.name)
+//   //
+//   // if (isMatchUri) {
+//   //   matches = matches.filter(s => !s.equalScopes(matchSymbol))
+//   //   return getChildNodes(matchSymbol.scope.scopeNode)
+//   //     .filter(n => matches.some(s => s.scope.containsNode(n)))
+//   // } else {
+//   //    matches = matches.filter(s => {
+//   //     if (s.scope.scopeTag !== 'global') return true;
+//   //     return false;
+//   //   })
+//   //   return getChildNodes(root)
+//   //     .filter(n => !matches.some(s => s.scope.containsNode(n)))
+//   // }
+// }
+
+export function getAccessibleNodes(
+  root: SyntaxNode, 
+  symbols: FishDocumentSymbol[], 
+  matchSymbol: FishDocumentSymbol
+): SyntaxNode[] {
+
   const isMatchUri = symbols.some(s => s.uri === matchSymbol.uri);
-  let matches: FishDocumentSymbol[] = symbols
-    .filter(s => s.name === matchSymbol.name)
+  const matchingSymbols = symbols.filter(s => s.name === matchSymbol.name);
 
   if (isMatchUri) {
-    matches = matches.filter(s => !s.equalScopes(matchSymbol))
+    // Local scope: Filter nodes that are in different scopes
+    const differentScopeSymbols = matchingSymbols.filter(s => !s.scopeEquivalent(matchSymbol))
     return getChildNodes(matchSymbol.scope.scopeNode)
-      .filter(n => matches.some(s => s.scope.containsNode(n)))
+      .filter(node => differentScopeSymbols.some(s => s.scope.containsNode(node)));
   } else {
-     matches = matches.filter(s => {
-      if (s.scope.scopeTag !== 'global') return true;
-      return false;
-    })
+    // Global scope: Filter out nodes that are not in the global scope
+    const nonGlobalSymbols = matchingSymbols.filter(s => s.scope.scopeTag !== 'global');
     return getChildNodes(root)
-      .filter(n => !matches.some(s => s.scope.containsNode(n)))
+      .filter(node => !nonGlobalSymbols.some(s => s.scope.containsNode(node)));
   }
-
-  // if (matches.length === 0) return getChildNodes(root);
-
-  // for (const node of getChildNodes(root)) {
-  //   const hasParent = !!ancestorMatch(node, isFunctionDefinition)
-  //   if (isMatchUri && hasParent) continue;
-  //   if (matches.some(s => s.scope.containsNode(node))) continue;
-  //   result.push(node);
-  // }
-  // return result;
-
 }
 
 class UniqueLocations {
@@ -490,4 +459,3 @@ class UniqueLocations {
     return this.arr;
   }
 }
-
