@@ -37,8 +37,214 @@ describe('analyzer test suite', () => {
     return { documents, document };
   }
 
-  describe('workspace symbols', () => {
-    it('has workspaceSymbols', () => {
+  // @TODO
+  // function setupAndFindWithCursor(documents: LspDocument[], findUri: string = '') {
+  // }
+
+  describe(`filterDocumentSymbolInScope()`, () => {
+    it('local NESTED workspace def `test`', () => {
+      const _setup = setupAndFind(TestWorkspace.functionsOnly.documents, 'functions/nested.fish');
+      if (!_setup.document) fail();
+      const _cached = analyzer.cached.get(_setup.document.uri!);
+      // const { root: rootNode, document: doc } = _cached!;
+      if (!_cached) fail();
+      const { document, root, symbols } = _cached;
+      const focus = TreeSitterUtils.getChildNodes(root).find(node => isCommandName(node) && node.text === 'test')!;
+      const pos = getRange(focus).start;
+
+      // const currentNode = getNodeAtPosition(tree, pos)!;
+      const localSymbols: FishDocumentSymbol[] = filterDocumentSymbolInScope(
+        symbols.nested(),
+        pos
+      );
+
+      // console.log(localSymbols.map(s => s.name));
+      const defSymbol = analyzer.getDefinitionSymbol(document, pos);
+      expect(defSymbol?.map(s => s.uri)).toEqual([
+        `${document.uri}`
+      ]);
+    });
+
+    it('local PRIVATE workspace def `test`', () => {
+      const _setup = setupAndFind(TestWorkspace.functionsOnly.documents, 'functions/private.fish');
+      if (!_setup.document) fail();
+      const _cached = analyzer.cached.get(_setup.document.uri!);
+      if (!_cached) fail();
+      const { document, root, symbols } = _cached;
+
+      const focus = TreeSitterUtils.getChildNodes(root).find(node => isCommandName(node) && node.text === 'test')!;
+      const pos = getRange(focus).start;
+
+      // const currentNode = getNodeAtPosition(tree, pos)!;
+      const localSymbols: FishDocumentSymbol[] = filterDocumentSymbolInScope(
+        symbols.nested(),
+        pos
+      );
+
+      // console.log(localSymbols.map(s => s.name));
+      const defSymbol = analyzer.getDefinitionSymbol(document, pos);
+      // console.log(defSymbol.map(s => s.uri));
+      expect(defSymbol?.map(s => s.uri)).toEqual([ document.uri ]);
+      const symbolUri = defSymbol.map(s => s.uri).pop()!;
+      expect(symbolUri.endsWith('private.fish')).toBeTruthy();
+    });
+  })
+
+  // @TODO: implement tests
+  // describe('getDefinitionSymbols()', () => {
+  //
+  //   it('global function', () => {
+  //
+  //   })
+  //
+  //   it('local function', () => {
+  //
+  //   })
+  //
+  //   it('private function', () => {
+  //
+  //   })
+  //
+  //   it('global var', () => {
+  //
+  //   })
+  //
+  //   it('local var', () => {
+  //
+  //   })
+  //
+  //   it('private var', () => {
+  //   })
+  //
+  //   it('nested var', () => {
+  //
+  //   })
+  //
+  //   it('function argument var', () => {
+  //
+  //   })
+  //   
+  //   describe('fallback', () => {
+  //
+  //     it('fallback: global', () => {
+  //         
+  //     })
+  //
+  //     it('fallback: local', () => {
+  //
+  //     })
+  //
+  //     it('fallback: invalid', () => {
+  //          
+  //     })
+  //
+  //     it('analyzer.getDefinitionSymbol() use fallback', () => {
+  //          
+  //     })
+  //   })
+  //   
+  //   describe('special cases', () => {
+  //      it('$argv: function', () => {
+  //         
+  //      })
+  //      it('$argv: script', () => {
+  //         
+  //      })
+  //      it('$status', () => {
+  //         
+  //      })
+  //      it('$pipestatus', () => {
+  //
+  //      })
+  //      it(`\`argparse 'h/help' -- $argv; or return\``, () => {
+  //         
+  //      })
+  //      
+  //   })
+  //
+  //
+  // })
+
+  // @TODO
+  describe('getReferences()', () => {
+    it('reference symbols', () => {
+      // const { docPrivate } = buildWorkspaceOne();
+      const thisTest = createFakeLspDocument('functions/this_test.fish', [
+        'function this_test',
+        '   function test',
+        '       echo "test"',
+        '   end',
+        '   test', // should be local test
+        'end',
+        'test' // should be global test
+      ].join('\n'));
+
+      const { symbols } = analyzer.analyze(thisTest);
+      // console.log(flattenNested(...symbols).map(n => n.name + ' ' + n.scope.scopeTag + '::' + n.scope.scopeNode!.text.split(' ').slice(0, 2).join(' ') + '...'));
+
+
+      // const { tree, doc, rootNode, flatSymbols, symbols } = docPrivate;
+      // const focus = TreeSitterUtils.getChildNodes(rootNode).find(node => isFunctionDefinitionName(node) && node.text === 'test')!;
+      // const pos = getRange(focus).start;
+      // const defSymbol = analyzer.getDefinitionSymbol(doc, pos)
+      // 
+      //
+      //
+      // /* is defSymbol `local` or `global` scope*/
+      // /** if `global` get all references of a symbol in workspace */
+      // const location = analyzer.getValidNodes(doc, defSymbol[0]!)
+      // for (const l of location) {
+      //   const n = getNodeAtPosition(tree, l.range.start);
+      //   console.log(n?.text);
+      // }
+
+
+      // switch (defSymbol[0].scope.scopeTag) {
+      //   case 'universal':
+      //   case 'global':
+      //     /* handle global symbols */
+      //     break;
+      //   case 'local':
+      //   default:
+      //     /* handle local symbols */
+      //     break;
+      // }
+
+
+      // if (symbol) {
+      // const doc = analyzer.getDocument(symbol.uri)!;
+      //   /** refactor inside analyzer */
+      //   const { scopeTag } = symbol.scope;
+      //       switch (scopeTag) {
+      //         case 'global':
+      //         case 'universal':
+      //           return findGlobalLocations(analyzer, doc, symbol.selectionRange.start);
+      //         case 'local':
+      //         default:
+      //           return findLocalLocations(analyzer, document, symbol.selectionRange.start);
+      //       }
+      // }
+      //         position
+      //     for (const sym of defSymbol) {
+      //       if (sym.scope.scopeTag === 'local') {
+      //
+      //       }
+      //     }
+
+
+      /* if no local Symbols */
+      /** get all references of a symbol in workspace */
+
+      // workspaceSymbols.get(currentNode.text) || [];
+
+      // console.log(defSymbol.map(s => s.name + s.scope.scopeTag));
+
+    });
+  })
+
+  // @TODO: implement WorkspaceSymbol
+  describe('WorkspaceSymbol', () => {
+    it('simple `.hasWorkspaceSymbols`', () => {
 
       setupAndFind(TestWorkspace.functionsOnly.documents, 'functions/inner.fish');
       const keys = Array.from(analyzer.workspaceSymbols.keys());
@@ -66,153 +272,31 @@ describe('analyzer test suite', () => {
       ]);
     });
 
-    it('local NESTED workspace def `test`', () => {
-      const _setup = setupAndFind(TestWorkspace.functionsOnly.documents, 'functions/nested.fish');
-      if (!_setup.document) fail();
-      const _cached = analyzer.cached.get(_setup.document.uri!);
-      // const { root: rootNode, document: doc } = _cached!;
-      if (!_cached) fail();
-      const { document, root, symbols } = _cached;
-      const focus = TreeSitterUtils.getChildNodes(root).find(node => isCommandName(node) && node.text === 'test')!;
-      const pos = getRange(focus).start;
-
-      // const currentNode = getNodeAtPosition(tree, pos)!;
-      const localSymbols: FishDocumentSymbol[] = filterDocumentSymbolInScope(
-        symbols,
-        pos
-      );
-
-      // console.log(localSymbols.map(s => s.name));
-      const defSymbol = analyzer.getDefinitionSymbol(document, pos);
-      expect(defSymbol?.map(s => s.uri)).toEqual([
-        `${document.uri}`
+    it('query: ""', () => {
+      setupAndFind(TestWorkspace.functionsOnly.documents);
+      const query = '';
+      const result = analyzer.getWorkspaceSymbols(query);
+      expect(result.map(s => s.name)).toEqual([
+        'test',
+        'foo',
+        'nested',
+        'private'
       ]);
     });
 
-    it('local PRIVATE workspace def `test`', () => {
-      const _setup = setupAndFind(TestWorkspace.functionsOnly.documents, 'functions/private.fish');
-      if (!_setup.document) fail();
-      const _cached = analyzer.cached.get(_setup.document.uri!);
-      if (!_cached) fail();
-      const { document, root, symbols } = _cached;
-
-      const focus = TreeSitterUtils.getChildNodes(root).find(node => isCommandName(node) && node.text === 'test')!;
-      const pos = getRange(focus).start;
-
-      // const currentNode = getNodeAtPosition(tree, pos)!;
-      const localSymbols: FishDocumentSymbol[] = filterDocumentSymbolInScope(
-        symbols,
-        pos
-      );
-
-      // console.log(localSymbols.map(s => s.name));
-      const defSymbol = analyzer.getDefinitionSymbol(document, pos);
-      // console.log(defSymbol.map(s => s.uri));
-      expect(defSymbol?.map(s => s.uri)).toEqual([ document.uri ]);
-      const symbolUri = defSymbol.map(s => s.uri).pop()!;
-      expect(symbolUri.endsWith('private.fish')).toBeTruthy();
+    it('query: "t"', () => {
+      setupAndFind(TestWorkspace.functionsOnly.documents);
+      const query = 't';
+      const result = analyzer.getWorkspaceSymbols(query);
+      expect(result.map(s => s.name)).toEqual([
+        'test'
+      ]);
     });
+  })
 
-    describe('getReferences()', () => {
-      it('reference symbols', () => {
-        // const { docPrivate } = buildWorkspaceOne();
-        const thisTest = createFakeLspDocument('functions/this_test.fish', [
-          'function this_test',
-          '   function test',
-          '       echo "test"',
-          '   end',
-          '   test', // should be local test
-          'end',
-          'test' // should be global test
-        ].join('\n'));
-
-        const { symbols } = analyzer.analyze(thisTest);
-        // console.log(flattenNested(...symbols).map(n => n.name + ' ' + n.scope.scopeTag + '::' + n.scope.scopeNode!.text.split(' ').slice(0, 2).join(' ') + '...'));
-
-
-        // const { tree, doc, rootNode, flatSymbols, symbols } = docPrivate;
-        // const focus = TreeSitterUtils.getChildNodes(rootNode).find(node => isFunctionDefinitionName(node) && node.text === 'test')!;
-        // const pos = getRange(focus).start;
-        // const defSymbol = analyzer.getDefinitionSymbol(doc, pos)
-        // 
-        //
-        //
-        // /* is defSymbol `local` or `global` scope*/
-        // /** if `global` get all references of a symbol in workspace */
-        // const location = analyzer.getValidNodes(doc, defSymbol[0]!)
-        // for (const l of location) {
-        //   const n = getNodeAtPosition(tree, l.range.start);
-        //   console.log(n?.text);
-        // }
-
-
-        // switch (defSymbol[0].scope.scopeTag) {
-        //   case 'universal':
-        //   case 'global':
-        //     /* handle global symbols */
-        //     break;
-        //   case 'local':
-        //   default:
-        //     /* handle local symbols */
-        //     break;
-        // }
-
-
-        // if (symbol) {
-        // const doc = analyzer.getDocument(symbol.uri)!;
-        //   /** refactor inside analyzer */
-        //   const { scopeTag } = symbol.scope;
-        //       switch (scopeTag) {
-        //         case 'global':
-        //         case 'universal':
-        //           return findGlobalLocations(analyzer, doc, symbol.selectionRange.start);
-        //         case 'local':
-        //         default:
-        //           return findLocalLocations(analyzer, document, symbol.selectionRange.start);
-        //       }
-        // }
-        //         position
-        //     for (const sym of defSymbol) {
-        //       if (sym.scope.scopeTag === 'local') {
-        //
-        //       }
-        //     }
-
-
-        /* if no local Symbols */
-        /** get all references of a symbol in workspace */
-
-        // workspaceSymbols.get(currentNode.text) || [];
-
-        // console.log(defSymbol.map(s => s.name + s.scope.scopeTag));
-
-      });
-    })
-
-    describe('WorkspaceSymbol', () => {
-      it('query: ""', () => {
-        setupAndFind(TestWorkspace.functionsOnly.documents);
-        const query = '';
-        const result = analyzer.getWorkspaceSymbols(query);
-        expect(result.map(s => s.name)).toEqual([
-          'test',
-          'foo',
-          'nested',
-          'private'
-        ]);
-      });
-
-      it('query: "t"', () => {
-        setupAndFind(TestWorkspace.functionsOnly.documents);
-        const query = 't';
-        const result = analyzer.getWorkspaceSymbols(query);
-        expect(result.map(s => s.name)).toEqual([
-          'test'
-        ]);
-      });
-    })
-
-    describe('completions', () => {
+  // @TODO: implement completions tests
+  describe('completions', () => {
+    describe('completions from FishDocumentSymbol', () => {
       it('completions NESTED "test"', () => {
         const { document } = setupAndFind(TestWorkspace.functionsOnly.documents, 'functions/nested.fish');
         if (!document) fail();
@@ -255,9 +339,9 @@ describe('analyzer test suite', () => {
         // });
       });
 
-      /**
-     * WRONG!!!
-     */
+     /**
+      * WRONG!!!
+      */
       it('completions VARIABLES "test"', () => {
 
         setupAndFind(TestWorkspace.functionsOnly.documents);
@@ -292,5 +376,253 @@ describe('analyzer test suite', () => {
         ]);
       });
     })
-  });
+
+    //
+    // @TODO: implement tests
+    // describe('completion for index', () => {
+    //
+    //    it('command completion `t`',  () => {
+    //
+    //    })
+    //
+    //    it('variable completion `test $t`',  () => {
+    //
+    //    })
+    //
+    //    it('command multiline: `cmd \\\n--flag`', () => {
+    //
+    //    })
+    //
+    //    it('argument index/distance from command', () => {
+    //
+    //    })
+    //    it('command matches string', () => {
+    //
+    //    })
+    //    it('command w/ flag', () => {
+    //
+    //    })
+    // })
+    //
+    // @TODO: implement tests
+    // describe('special coses', () => {
+    //   it('`$argv`', () => {
+    //
+    //   })
+    //   it('`$status`', () => {
+    //
+    //   })
+    //   it('`$pipestatus`', () => {
+    //
+    //   })
+    //   it('`argparse` inside function', () => {
+    //
+    //   })
+    //   it('`argparse` autoloaded completion from uri', () => {
+    //
+    //   })
+    //   it('`complete -c ${_}` autoloaded uri name', () => {
+    //
+    //   })
+    //   it('sort locality', () => {
+    //
+    //   })
+    // })
+    //
+  })
+
+  // @TODO
+  // describe('getHover()', () => {
+  //   it('builtin echo', () =. {
+  //
+  //   })
+  //   it('command ls', () =. {
+  //
+  //   })
+  //   it('pipe |', () =. {
+  //
+  //   })
+  //   it('redirect &>', () =. {
+  //
+  //   })
+  //   it('return 1', () =. {
+  //
+  //   })
+  //
+  //   it('variable $argv', () => {
+  //
+  //   })
+  //   it('variable $status', () => {
+  //
+  //   })
+  //   it('variable $pipestatus', () => {
+  //
+  //   })
+  //
+  //   it('cmd --flag', () => {
+  //
+  //   })
+  //
+  //   it('cmd -f', () => {
+  //
+  //   })
+  //
+  //   it('cmd subcmd', () => {
+  //
+  //   })
+  //   
+  //   it('special function: `fish_greeting`', () => {
+  //
+  //   })
+  //   
+  //   it(`special string: \`status\` doesn't overwrite $status`, () => {
+  //
+  //   })
+  //   
+  //   it(`special sequence: \`cmd \\\n --flag\``, () => {
+  //
+  //   })
+  //
+  //   it(`special sequence: \`#comment\``, () => {
+  //     // skip comments
+  //   })
+  //
+  //   describe('fish-lsp env variables', () => {
+  //       it('$fish_lsp_logsfile', () => {
+  //
+  //       })
+  //
+  //       it('$fish_lsp_all_indexed_paths', () => {
+  //
+  //       })
+  //       it('$fish_lsp_show_client_popups', () => {
+  //
+  //       })
+  //       
+  //       it('$fish_lsp_diagnostic_disable_error_codes', () => {
+  //
+  //       })
+  //       it('$fish_lsp_diagnostic_disable_error_codes 2001', () => {
+  //
+  //       })
+  //   })
+  // })
+
+  // @TODO
+  // describe('getSignatureHelp()', () => {
+  // })
+
+  // @TODO
+  // describe('public properties', () => {
+  //     it('cached', () => {
+  //     
+  //     })
+  //     it('cachedEntries', () => {
+  //     
+  //     })
+  //     it('workspaceSymbols', () => {
+  //
+  //     })
+  //     it('documents', () => {
+  //
+  //     })
+  //     it('uris', () => {
+  //
+  //     })
+  //     it('symbols', () => {
+  //
+  //     })
+  //     it('sourcedFiles', () => {
+  //
+  //     })
+  //     
+  // })
+
+  // @TODO
+  // describe('analyzeFilepath(filepath: string)', () => {
+  //
+  //     it('analyzeFilepath: normal', () => {
+  //
+  //     })
+  //     it('analyzeFilepath: `config.fish` function', () => {
+  //
+  //     })
+  //     it('analyzeFilepath: `config.fish` variable', () => {
+  //
+  //     })
+  //     it('analyzeFilepath: invalid', () => {
+  //
+  //     })
+  //     it('analyzeFilepath: empty', () => {
+  //
+  //     })
+  //     it('analyzeFilepath: non-existent', () => {
+  //
+  //     })
+  //
+  //     it('analyzeFilepath + findDefinition()', () => {
+  //
+  //     })
+  // })
+
+  // @TODO
+  // describe('initializeBackgroundAnalysis()', () => {
+  //     it('small', () => {
+  //
+  //     })
+  //     it('medium', () => {
+  //
+  //     })
+  //     it('large', () => {
+  //
+  //     })
+  // })
+
+  // @TODO
+  // describe(`config change`, () => {
+  //    it('source: `fish_lsp_diagnostic_disable_error_codes`', () => {
+  //
+  //    })
+  //
+  //    it('source: `fish_lsp_show_client_popups`', () => {
+  //
+  //    })
+  //    
+  //    it('client: fish-lsp.diagnostic.disableErrorCodes', () => {
+  //
+  //    })
+  //    
+  //    it('client: fish-lsp.showClientPopups', () => {
+  //
+  //    })
+  // })
+
+  // @TODO
+  // describe('rename/textEdit', () => {
+  // })
+  //
+  // @TODO
+  // describe('FishDocumentSymbol[]', () => {
+  //    it('document: `functions/inner.fish`', () => {
+  //
+  //    })
+  //    it('document: `functions/nested.fish`', () => {
+  //
+  //    })
+  //    it('document: `functions/private.fish`', () => {
+  //
+  //    })
+  //    it('onFoldingRange()', () => {
+  //
+  //    })
+  //
+  //    it('onDocumentSymbol()', () => {
+  //
+  //    })
+  // })
+
+  // @TODO 
+  // describe('inlayHint', () => {
+  // })
+
 });
