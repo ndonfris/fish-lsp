@@ -1,10 +1,22 @@
-import { exec, execFile, execFileSync } from 'child_process';
+import { exec, execFile, execFileSync, execSync } from 'child_process';
 import { resolve } from 'path';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
 
 const execFileAsync = promisify(execFile);
+
+export function execEscapedSync(cmd: string): string {
+  try {
+    const result = execSync(`fish --private --command '${cmd}'`, { encoding: 'utf8' });
+    return result.toString().trim();
+  } catch (error) {
+    // If there's an error or stderr, return an empty string
+    return '';
+  }
+}
+
+
 
 /**
  * @async execEscapedComplete() - executes the fish command with
