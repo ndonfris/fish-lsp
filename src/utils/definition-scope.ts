@@ -10,6 +10,8 @@ export interface DefinitionScope {
   scopeTag: ScopeTag;
   containsPosition: (position: Position) => boolean;
   containsNode: (node: SyntaxNode) => boolean;
+  equals: (scope: DefinitionScope) => boolean;
+  equalTags: (scope: DefinitionScope) => boolean;
 }
 
 export namespace DefinitionScope {
@@ -18,7 +20,9 @@ export namespace DefinitionScope {
       scopeNode,
       scopeTag,
       containsPosition: (position: Position) => isPositionWithinRange(position, getRange(scopeNode)),
-      containsNode: (node: SyntaxNode) => isNodeWithinRange(node, getRange(scopeNode))
+      containsNode: (node: SyntaxNode) => isNodeWithinRange(node, getRange(scopeNode)),
+      equals: (other: DefinitionScope) => scopeNode.equals(other.scopeNode) && scopeTag === other.scopeTag,
+      equalTags: (other: DefinitionScope) => scopeTag === other.scopeTag || scopeTag === 'inherit' || other.scopeTag === 'inherit',
     };
   }
 }
@@ -87,7 +91,7 @@ function findScopeFromFlag(node: SyntaxNode, flag: VariableDefinitionFlag) {
       break;
     case 'universal':
       scopeNode = firstAncestorMatch(node, NodeTypes.isProgram);
-      scopeFlag = 'universal';
+      scopeFlag = 'global';
       break;
     case 'local':
       scopeNode = firstAncestorMatch(node, NodeTypes.isScope);
