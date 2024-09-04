@@ -50,15 +50,13 @@ export class FishDocumentSymbol implements DocumentSymbol {
   equals(other: FishDocumentSymbol): boolean {
     return (
       this.name === other.name &&
+      this.kind === other.kind &&
       this.uri === other.uri &&
-      this.range.start.character === other.range.start.character &&
-      this.range.start.line === other.range.start.line &&
-      this.range.end.character === other.range.end.character &&
-      this.range.end.line === other.range.end.line &&
-      this.selectionRange.start.character === other.selectionRange.start.character &&
-      this.selectionRange.start.line === other.selectionRange.start.line &&
-      this.selectionRange.end.line === other.selectionRange.end.line &&
-      this.selectionRange.end.character === other.selectionRange.end.character
+      equalRanges(this.range, other.range) &&
+      equalRanges(this.selectionRange, other.selectionRange) &&
+      this.scope.equals(other.scope) &&
+      this.node.equals(other.node) &&
+      this.parent.equals(other.parent)
     );
   }
 
@@ -175,6 +173,7 @@ export class FishDocumentSymbol implements DocumentSymbol {
       scope: {
         scopeTag: this.scope.scopeTag,
         scopeNode: debugNode(this.scope.scopeNode),
+        scopeNodeIsProgram: this.scope.scopeNode.type === 'program',
       },
       node: debugNode(this.node),
       parent: debugNode(this.parent),
@@ -444,4 +443,11 @@ export function filterSymbolsInScope(symbols: FishDocumentSymbol[], cursorPositi
         current.scope.scopeNode.equals(other.scope.scopeNode)
       )
     );
+}
+
+function equalRanges(range1: Range, range2: Range): boolean {
+  return range1.start.line === range2.start.line &&
+    range1.start.character === range2.start.character &&
+    range1.end.line === range2.end.line &&
+    range1.end.character === range2.end.character;
 }

@@ -12,7 +12,7 @@ import { SyncFileHelper } from '../src/utils/file-operations';
 import { Range } from '../src/utils/locations';
 // import * as Locations from '../src/utils/locations';
 import { containsRange, getChildNodes, getNodeAtPosition, getRange, pointToPosition } from '../src/utils/tree-sitter';
-import { Analyzer } from '../src/future-analyze';
+import { Analyzer, getAccessibleNodes } from '../src/future-analyze';
 import { TestWorkspace } from './workspace-utils';
 
 describe('BFS (Breadth First Search) vs DFS (Depth First Search) Iterators', () => {
@@ -422,93 +422,168 @@ describe('FishDocumentSymbol OPERATIONS', () => {
         ].join('\n'));
 
         const defS  = filterSymbolsInScope(symbols, cursorPosition).pop()!
-        console.log('def: ',defS.debugString());
-        //
-        // const refS = analyzer.getReferences(doc, cursorPosition)
-        // refS.forEach(s => {
-        //   console.log('ref:', s);
-        // })
+        // console.log('def: ', defS.debugString());
+
         const locations: LSP.Location[] = [];
-        const uniqueLocations = new UniqueLocations();
-        /**
-         * local references
-         */
-        if (defS.scope.scopeTag !== 'global') {
-          const localRefs = filterSymbolsInScope(symbols, cursorPosition)
-            .filter(s => s.name === defS.name)
-            .filter(s => s.scopeSmallerThan(defS) && s.scope.scopeTag !== defS.scope.scopeTag)
-            .filter(s => s.scope.scopeNode.equals(defS.scope.scopeNode))
-
-          for (const node of getChildNodes(defS.scope.scopeNode)) {
-            if (localRefs.some(s => s.scope.containsNode(node))) {
-              continue;
-            }
-            if (node.text === defS?.name) {
-              uniqueLocations.add(LSP.Location.create(defS.uri, getRange(node)))
-            }
-          }
-          uniqueLocations.locations.forEach(l => locations.push(l));
-        }
-        /**
-         * global/all references
-         */
-        if (defS.scope.scopeTag === 'global') {
-          analyzer.uris.forEach(uri => {
-            const _cached = analyzer.cached.get(uri);
-            if (!_cached) return;
-            const localRefs = flattenNested(..._cached.symbols)
-              .filter(s => s.name === defS.name)
-              .filter(s => s.scopeSmallerThan(defS) && s.scope.scopeTag !== defS.scope.scopeTag)
-
-            for (const node of _cached.nodes) {
-              if (!node.isNamed || node.type !== 'word') {
-                continue
-              }
-              if (localRefs.some(s => s.scope.containsNode(node))) {
-                continue;
-              }
-              if (node.text === defS?.name) {
-                uniqueLocations.add(LSP.Location.create(uri, getRange(node)))
-              }
-            }
-          })
-          uniqueLocations.locations.forEach(l => locations.push(l));
-        }
-        console.log('refs');
-        expect(locations.length).toBe(2)
-        expect(locations.every(l => l.uri === doc.uri)).toBeTruthy()
-        locations.forEach(s => {
-          console.log(s.uri, s.range);
-        })
+        // const uniqueLocations = new UniqueLocations();
+        // /**
+        //  * local references
+        //  */
+        // if (defS.scope.scopeTag !== 'global') {
+        //   const localRefs = filterSymbolsInScope(symbols, cursorPosition)
+        //     .filter(s => s.name === defS.name)
+        //     .filter(s => s.scopeSmallerThan(defS) && s.scope.scopeTag !== defS.scope.scopeTag)
+        //     .filter(s => s.scope.scopeNode.equals(defS.scope.scopeNode))
+        //
+        //   for (const node of getChildNodes(defS.scope.scopeNode)) {
+        //     if (localRefs.some(s => s.scope.containsNode(node))) {
+        //       continue;
+        //     }
+        //     if (node.text === defS?.name) {
+        //       uniqueLocations.add(LSP.Location.create(defS.uri, getRange(node)))
+        //     }
+        //   }
+        //   uniqueLocations.locations.forEach(l => locations.push(l));
+        // }
+        // /**
+        //  * global/all references
+        //  */
+        // if (defS.scope.scopeTag === 'global') {
+        //   analyzer.uris.forEach(uri => {
+        //     const _cached = analyzer.cached.get(uri);
+        //     if (!_cached) return;
+        //     const localRefs = flattenNested(..._cached.symbols.nested())
+        //       .filter(s => s.name === defS.name)
+        //       .filter(s => s.scopeSmallerThan(defS) && s.scope.scopeTag !== defS.scope.scopeTag)
+        //
+        //     for (const node of _cached.nodes) {
+        //       if (!node.isNamed || node.type !== 'word') {
+        //         continue
+        //       }
+        //       if (localRefs.some(s => s.scope.containsNode(node))) {
+        //         continue;
+        //       }
+        //       if (node.text === defS?.name) {
+        //         uniqueLocations.add(LSP.Location.create(uri, getRange(node)))
+        //       }
+        //     }
+        //   })
+        //   uniqueLocations.locations.forEach(l => locations.push(l));
+        // }
+        // // console.log('refs');
+        // expect(locations.length).toBe(2)
+        // expect(locations.every(l => l.uri === doc.uri)).toBeTruthy()
+        // // locations.forEach(s => {
+        // //   console.log(s.uri, s.range);
+        // // })
       })
 
-      // it('local refs: functions/dupes.fish', () => {
-      //   testSymbolFiltering('functions/dupe2.fish', [
-      //     'function dupes2',
-      //     '    dupes',
-      //     'end',
-      //   ].join('\n'));                   
-      //   const { doc, cursorPosition } = testSymbolFiltering('functions/dupes.fish', [
-      //     'function dupes',
-      //     '    foo_bar',
-      //     'end',
-      //     'function foo_bar -a a',
-      //     '    echo "$a"',
-      //     'end',
-      //     'dupes█'
-      //   ].join('\n'));
-      //
-      //   const defS  = analyzer.getDefinitionSymbol(doc, cursorPosition).pop()
-      //   console.log('def: ', defS?.debugString());
-      //   //
-      //   const refS = analyzer.getReferences(doc, cursorPosition)
-      //   let i = 0
-      //   console.log('refs');
-      //   for (const s of refS) {
-      //     console.log(i, s.uri, s.range);
-      //     i++;
-      //   }
-      // })
+      it('local refs: functions/dupes.fish', () => {
+        testSymbolFiltering('functions/dupes2.fish', [
+          'function dupes2',
+          '    dupes',
+          'end',
+        ].join('\n'));                   
+        const { doc, tree, cursorPosition } = testSymbolFiltering('functions/dupes.fish', [
+          'function dupes -a first',
+          '    foo_bar $first',
+          'end',
+          'function foo_bar -a a',
+          '    echo "$a"',
+          'end',
+          'set -l a hi',
+          'dupes $a█'
+        ].join('\n'));
+
+        const defS  = analyzer.getDefinitionSymbol(doc, {line: 7, character: 7}).pop()
+        console.log('def: ', defS?.debugString());
+        
+        // const refS = analyzer.getReferences(doc, {line: 7, character: 7})
+        // let i = 0
+        // console.log('refs');
+        // for (const s of refS) {
+        //   const node = TreeSitterUtils.getNodeAtRange(tree.rootNode, s.range)!.parent!
+        //   console.log(i, node.text, {uri: s.uri, range: s.range});
+        //   i++;
+        // }
+      })
+
+      it('global refs: functions/dupes.fish', () => {
+        const { doc } = testSymbolFiltering('functions/dupes.fish', [
+          'function dupes -a first',
+          '    foo_bar $first',
+          'end',
+          'function foo_bar -a a',
+          '    echo "$a"',
+          'end',
+          'set -g a hi',
+          'dupes $a█'
+        ].join('\n'));
+
+        testSymbolFiltering('functions/dupes2.fish', [
+          'function dupes2',
+          '    dupes $a',
+          'end',
+        ].join('\n'));                   
+
+        testSymbolFiltering('functions/dupes3.fish', [
+          'function dupes3',
+          '    set -l a howdy',
+          '    dupes $a',
+          'end',
+        ].join('\n'));                   
+
+        testSymbolFiltering('functions/dupes4.fish', [
+          'function dupes4',
+          '    set -f a hola',
+          '    dupes $a',
+          'end',
+        ].join('\n'));                   
+
+        testSymbolFiltering('functions/dupes5.fish', [
+          'function dupes5',
+          '    set a hai',
+          '    dupes $a',
+          'end',
+        ].join('\n'));                   
+
+        testSymbolFiltering('functions/dupes6.fish', [
+          'function dupes6',
+          '    set -g a Oi ',
+          '    dupes $a',
+          'end',
+        ].join('\n'));                   
+
+        testSymbolFiltering('functions/dupes7.fish', [
+          'function dupes7',
+          '    set -U a hello',
+          '    dupes $a',
+          'end',
+        ].join('\n'))
+
+
+        const defS  = analyzer.getDefinitionSymbol(doc, {line: 7, character: 7}).pop()
+        console.log('def: ', defS?.debugString());
+        const refS = analyzer.getReferences(doc, {line: 7, character: 7})
+        // let i = 0
+        // console.log('refs');
+        // for (const s of refS) {
+        //   console.log(i, {uri: s.uri, range: s.range});
+        //   i++;
+        // }
+        expect(refS.map(s => {
+          const uriBlocks = s.uri.split('/')
+          return uriBlocks.slice(-2).join('/')
+        })).toEqual([
+          'functions/dupes.fish',
+          'functions/dupes.fish',
+          'functions/dupes2.fish',
+          'functions/dupes6.fish',
+          'functions/dupes6.fish',
+          'functions/dupes7.fish',
+          'functions/dupes7.fish',
+        ])
+      })
     });
   })
 })
@@ -880,26 +955,3 @@ describe('src/workspace-symbol.ts refactors', () => {
 //     console.log(s.uri, s.range);
 //   })
 // })
-
-class UniqueLocations {
-  private map = new Map<string, LSP.Location>();
-  private arr: LSP.Location[] = [];
-
-  private key(loc: LSP.Location): string {
-    const { uri, range } = loc;
-    const { start, end } = range;
-    return `${uri}:${start.line}:${start.character}-${end.line}:${end.character}`;
-  }
-
-  add(loc: LSP.Location): void {
-    const key = this.key(loc);
-    if (!this.map.has(key)) {
-      this.map.set(key, loc);
-      this.arr.push(loc);
-    }
-  }
-
-  get locations(): LSP.Location[] {
-    return this.arr;
-  }
-}
