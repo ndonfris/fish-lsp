@@ -76,7 +76,7 @@ export function removeCursorFromCode(code: string): {
     if (currLine.includes('█')) {
       notSet = false
       lineNumber = i
-      columnNumber = currLine.trimStart().indexOf('█') 
+      columnNumber = currLine.trimStart().indexOf('█') - 1
       lines[i] = lines[i]!.replace('█', ' ')
     }
     if (notSet) {
