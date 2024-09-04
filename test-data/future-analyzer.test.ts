@@ -113,178 +113,184 @@ describe('analyzer test suite', () => {
       expect(symbolUri.endsWith('private.fish')).toBeTruthy();
     });
 
-    it('reference symbols', () => {
-      // const { docPrivate } = buildWorkspaceOne();
-      const thisTest = createFakeLspDocument('functions/this_test.fish', [
-        'function this_test',
-        '   function test',
-        '       echo "test"',
-        '   end',
-        '   test', // should be local test
-        'end',
-        'test' // should be global test
-      ].join('\n'));
+    describe('getReferences()', () => {
+      it('reference symbols', () => {
+        // const { docPrivate } = buildWorkspaceOne();
+        const thisTest = createFakeLspDocument('functions/this_test.fish', [
+          'function this_test',
+          '   function test',
+          '       echo "test"',
+          '   end',
+          '   test', // should be local test
+          'end',
+          'test' // should be global test
+        ].join('\n'));
 
-      const { symbols } = analyzer.analyze(thisTest);
-      // console.log(flattenNested(...symbols).map(n => n.name + ' ' + n.scope.scopeTag + '::' + n.scope.scopeNode!.text.split(' ').slice(0, 2).join(' ') + '...'));
-
-
-      // const { tree, doc, rootNode, flatSymbols, symbols } = docPrivate;
-      // const focus = TreeSitterUtils.getChildNodes(rootNode).find(node => isFunctionDefinitionName(node) && node.text === 'test')!;
-      // const pos = getRange(focus).start;
-      // const defSymbol = analyzer.getDefinitionSymbol(doc, pos)
-      // 
-      //
-      //
-      // /* is defSymbol `local` or `global` scope*/
-      // /** if `global` get all references of a symbol in workspace */
-      // const location = analyzer.getValidNodes(doc, defSymbol[0]!)
-      // for (const l of location) {
-      //   const n = getNodeAtPosition(tree, l.range.start);
-      //   console.log(n?.text);
-      // }
+        const { symbols } = analyzer.analyze(thisTest);
+        // console.log(flattenNested(...symbols).map(n => n.name + ' ' + n.scope.scopeTag + '::' + n.scope.scopeNode!.text.split(' ').slice(0, 2).join(' ') + '...'));
 
 
-      // switch (defSymbol[0].scope.scopeTag) {
-      //   case 'universal':
-      //   case 'global':
-      //     /* handle global symbols */
-      //     break;
-      //   case 'local':
-      //   default:
-      //     /* handle local symbols */
-      //     break;
-      // }
+        // const { tree, doc, rootNode, flatSymbols, symbols } = docPrivate;
+        // const focus = TreeSitterUtils.getChildNodes(rootNode).find(node => isFunctionDefinitionName(node) && node.text === 'test')!;
+        // const pos = getRange(focus).start;
+        // const defSymbol = analyzer.getDefinitionSymbol(doc, pos)
+        // 
+        //
+        //
+        // /* is defSymbol `local` or `global` scope*/
+        // /** if `global` get all references of a symbol in workspace */
+        // const location = analyzer.getValidNodes(doc, defSymbol[0]!)
+        // for (const l of location) {
+        //   const n = getNodeAtPosition(tree, l.range.start);
+        //   console.log(n?.text);
+        // }
 
 
-      // if (symbol) {
-      // const doc = analyzer.getDocument(symbol.uri)!;
-      //   /** refactor inside analyzer */
-      //   const { scopeTag } = symbol.scope;
-      //       switch (scopeTag) {
-      //         case 'global':
-      //         case 'universal':
-      //           return findGlobalLocations(analyzer, doc, symbol.selectionRange.start);
-      //         case 'local':
-      //         default:
-      //           return findLocalLocations(analyzer, document, symbol.selectionRange.start);
-      //       }
-      // }
-      //         position
-      //     for (const sym of defSymbol) {
-      //       if (sym.scope.scopeTag === 'local') {
-      //
-      //       }
-      //     }
+        // switch (defSymbol[0].scope.scopeTag) {
+        //   case 'universal':
+        //   case 'global':
+        //     /* handle global symbols */
+        //     break;
+        //   case 'local':
+        //   default:
+        //     /* handle local symbols */
+        //     break;
+        // }
 
 
-      /* if no local Symbols */
-      /** get all references of a symbol in workspace */
+        // if (symbol) {
+        // const doc = analyzer.getDocument(symbol.uri)!;
+        //   /** refactor inside analyzer */
+        //   const { scopeTag } = symbol.scope;
+        //       switch (scopeTag) {
+        //         case 'global':
+        //         case 'universal':
+        //           return findGlobalLocations(analyzer, doc, symbol.selectionRange.start);
+        //         case 'local':
+        //         default:
+        //           return findLocalLocations(analyzer, document, symbol.selectionRange.start);
+        //       }
+        // }
+        //         position
+        //     for (const sym of defSymbol) {
+        //       if (sym.scope.scopeTag === 'local') {
+        //
+        //       }
+        //     }
 
-      // workspaceSymbols.get(currentNode.text) || [];
 
-      // console.log(defSymbol.map(s => s.name + s.scope.scopeTag));
+        /* if no local Symbols */
+        /** get all references of a symbol in workspace */
 
-    });
+        // workspaceSymbols.get(currentNode.text) || [];
 
-    it('query: ""', () => {
-      setupAndFind(TestWorkspace.functionsOnly.documents);
-      const query = '';
-      const result = analyzer.getWorkspaceSymbols(query);
-      expect(result.map(s => s.name)).toEqual([
-        'test',
-        'foo',
-        'nested',
-        'private'
-      ]);
-    });
+        // console.log(defSymbol.map(s => s.name + s.scope.scopeTag));
 
-    it('query: "t"', () => {
-      setupAndFind(TestWorkspace.functionsOnly.documents);
-      const query = 't';
-      const result = analyzer.getWorkspaceSymbols(query);
-      expect(result.map(s => s.name)).toEqual([
-        'test'
-      ]);
-    });
+      });
+    })
 
-    it('completions NESTED "test"', () => {
-      const { document } = setupAndFind(TestWorkspace.functionsOnly.documents, 'functions/nested.fish');
-      if (!document) fail();
+    describe('WorkspaceSymbol', () => {
+      it('query: ""', () => {
+        setupAndFind(TestWorkspace.functionsOnly.documents);
+        const query = '';
+        const result = analyzer.getWorkspaceSymbols(query);
+        expect(result.map(s => s.name)).toEqual([
+          'test',
+          'foo',
+          'nested',
+          'private'
+        ]);
+      });
 
-      /** after `test` commandName inside `nested` */
-      let pos = { line: 4, character: 7 };
-      expect(analyzer.getCompletionSymbols(document, pos).map(s => s.name)).toEqual([
-        'nested',
-        'test',
-      ]);
+      it('query: "t"', () => {
+        setupAndFind(TestWorkspace.functionsOnly.documents);
+        const query = 't';
+        const result = analyzer.getWorkspaceSymbols(query);
+        expect(result.map(s => s.name)).toEqual([
+          'test'
+        ]);
+      });
+    })
 
-      /** after final `end` outside of `nested` */
-      pos = { line: 5, character: 4 };
-      expect(analyzer.getCompletionSymbols(document, pos).map(s => s.name)).toEqual([
-        'nested'
-      ]);
-    });
+    describe('completions', () => {
+      it('completions NESTED "test"', () => {
+        const { document } = setupAndFind(TestWorkspace.functionsOnly.documents, 'functions/nested.fish');
+        if (!document) fail();
 
-    it('completions PRIVATE "test"', () => {
-      const { document } = setupAndFind(TestWorkspace.functionsOnly.documents, 'functions/private.fish');
-      if (!document) fail();
+        /** after `test` commandName inside `nested` */
+        let pos = { line: 4, character: 7 };
+        expect(analyzer.getCompletionSymbols(document, pos).map(s => s.name)).toEqual([
+          'nested',
+          'test',
+        ]);
 
-      // let pos = getRange(analyzer.cached.get(document.uri)?.nodes.find(s => isCommandName(s) && s.text === 'test')!)!.end;
-      // console.log(pos);
+        /** after final `end` outside of `nested` */
+        pos = { line: 5, character: 4 };
+        expect(analyzer.getCompletionSymbols(document, pos).map(s => s.name)).toEqual([
+          'nested'
+        ]);
+      });
 
-      // /** after `test` commandName inside `nested` */
-      //   let pos = {line: 1, character: 8};
-      //   // console.log(analyzer.getCompletionSymbols(document, pos).map(s => s.name));
-      //   expect(analyzer.getCompletionSymbols(document, pos).map(s => s.name)).toEqual([
-      //     'private',
-      //   ])
-      //
-      //   /** after final `end` outside of `nested` */
-      //   pos = { line: 5, character: 4 };
-      //   // console.log(analyzer.getCompletionSymbols(document, pos).map(s => s.name));
-      //   expect(analyzer.getCompletionSymbols(document, pos).map(s => s.name)).toEqual([
-      //     'private',
-      //     'test'
-      //   ]);
-      // });
-    });
+      it('completions PRIVATE "test"', () => {
+        const { document } = setupAndFind(TestWorkspace.functionsOnly.documents, 'functions/private.fish');
+        if (!document) fail();
 
-    /**
+        // let pos = getRange(analyzer.cached.get(document.uri)?.nodes.find(s => isCommandName(s) && s.text === 'test')!)!.end;
+        // console.log(pos);
+
+        // /** after `test` commandName inside `nested` */
+        //   let pos = {line: 1, character: 8};
+        //   // console.log(analyzer.getCompletionSymbols(document, pos).map(s => s.name));
+        //   expect(analyzer.getCompletionSymbols(document, pos).map(s => s.name)).toEqual([
+        //     'private',
+        //   ])
+        //
+        //   /** after final `end` outside of `nested` */
+        //   pos = { line: 5, character: 4 };
+        //   // console.log(analyzer.getCompletionSymbols(document, pos).map(s => s.name));
+        //   expect(analyzer.getCompletionSymbols(document, pos).map(s => s.name)).toEqual([
+        //     'private',
+        //     'test'
+        //   ]);
+        // });
+      });
+
+      /**
      * WRONG!!!
      */
-    it('completions VARIABLES "test"', () => {
+      it('completions VARIABLES "test"', () => {
 
-      setupAndFind(TestWorkspace.functionsOnly.documents);
+        setupAndFind(TestWorkspace.functionsOnly.documents);
 
-      const { document } = analyzer.analyze(createFakeLspDocument('functions/var.fish', [
-        'function var',
-        '   set -l test 1',
-        '   ',
-        'end',
-        '',
-        ''
-      ].join('\n')));
+        const { document } = analyzer.analyze(createFakeLspDocument('functions/var.fish', [
+          'function var',
+          '   set -l test 1',
+          '   ',
+          'end',
+          '',
+          ''
+        ].join('\n')));
 
-      if (!document) fail();
+        if (!document) fail();
 
-      // let pos = getRange(analyzer.cached.get(document.uri)?.nodes.find(s => isCommandName(s) && s.text === 'test')!)!.end;
-      // console.log(pos);
+        // let pos = getRange(analyzer.cached.get(document.uri)?.nodes.find(s => isCommandName(s) && s.text === 'test')!)!.end;
+        // console.log(pos);
 
-      // /** after `test` commandName inside `nested` */
-      let pos = { line: 2, character: 3 };
-      // console.log(analyzer.getCompletionSymbols(document, pos).map(s => s.name));
-      expect(analyzer.getCompletionSymbols(document, pos).map(s => s.name)).toEqual([
-        'var',
-        'test',
-      ])
+        // /** after `test` commandName inside `nested` */
+        let pos = { line: 2, character: 3 };
+        // console.log(analyzer.getCompletionSymbols(document, pos).map(s => s.name));
+        expect(analyzer.getCompletionSymbols(document, pos).map(s => s.name)).toEqual([
+          'var',
+          'test',
+        ])
 
-      /** after final `end` outside of `nested` */
-      pos = { line: 4, character: 0 };
-      // console.log(analyzer.getCompletionSymbols(document, pos).map(s => s.name));
-      expect(analyzer.getCompletionSymbols(document, pos).map(s => s.name)).toEqual([
-        'var',
-      ]);
-    });
+        /** after final `end` outside of `nested` */
+        pos = { line: 4, character: 0 };
+        // console.log(analyzer.getCompletionSymbols(document, pos).map(s => s.name));
+        expect(analyzer.getCompletionSymbols(document, pos).map(s => s.name)).toEqual([
+          'var',
+        ]);
+      });
+    })
   });
 });
