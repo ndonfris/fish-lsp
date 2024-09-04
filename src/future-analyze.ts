@@ -10,6 +10,7 @@ import { Location, Position, SymbolKind } from 'vscode-languageserver';
 import { Range } from './utils/locations';
 import { isCommandName, isFunctionDefinition, isNewline, isProgram, isSemicolon } from './utils/node-types';
 import { getScopeTagValue } from './utils/definition-scope';
+import { execEscapedSync } from './utils/exec';
 // import { isFunction } from './utils/builtins';
 
 type SymbolArrayObject = {
@@ -50,10 +51,12 @@ export class Analyzer { // @TODO rename to Analyzer
     const sourcedFiles = nodes
       .filter(isSourceFilename)
       .map(n => n.text);
-    const workspaceSymbols = filterWorkspaceSymbol(symbols.nested());
+    const workspaceSymbols = symbols.flat().filter(s => s.scope.scopeTag === 'global')
+
+    // console.log({workspaceSymbols});
 
     for (const symbol of workspaceSymbols) {
-      const currentSymbols = this.workspaceSymbols.get(symbol.name) ?? [];
+      const currentSymbols = this.workspaceSymbols.get(symbol.name) || [];
       currentSymbols.push(symbol);
       this.workspaceSymbols.set(symbol.name, currentSymbols);
     }
@@ -82,8 +85,7 @@ export class Analyzer { // @TODO rename to Analyzer
    */
   analyzeFilepath(filepath: string) {
     const document = SyncFileHelper.toLspDocument(filepath, 'fish', 1);
-    this.analyze(document);
-    return document;
+    return this.analyze(document);
   }
 
   /**
@@ -125,7 +127,7 @@ export class Analyzer { // @TODO rename to Analyzer
       return localSymbol;
     }
 
-    const globalSymbols = this.workspaceSymbols.get(text) ?? [];
+    const globalSymbols = this.workspaceSymbols.get(text) || [];
     if (globalSymbols.length > 0) {
       return globalSymbols;
     }
@@ -136,6 +138,17 @@ export class Analyzer { // @TODO rename to Analyzer
      * // const cachedDef = this.analyzeFilepath(definitionFilepath);
      * // return cachedDef.symbols.flat().filter(s => s.name === text);
      */
+    if (!text.startsWith('$')) {
+      const commandOutput = execEscapedSync(`type -a -p ${text}`)
+
+      if (commandOutput.startsWith('/') &&  commandOutput.endsWith('.fish')) {
+        const cachedDef = this.analyzeFilepath(commandOutput);
+        return [
+          ...cachedDef.symbols.flat().filter(s => s.name === text)
+        ];
+      }
+    }
+
     return [];
   }
 
