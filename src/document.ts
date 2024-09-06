@@ -115,8 +115,17 @@ export class LspDocument implements TextDocument {
      * checks if the document is in fish/functions directory
      */
   isAutoLoaded(): boolean {
-    const path = uriToPath(this.uri);
-    return path?.includes(`${homedir()}/.config/fish`) || false;
+    const path = uriToPath(this.uri); 
+    const splitPath: string[] = path?.split('/');
+    const filename = splitPath.at(-1) || ''; 
+    const dirname = splitPath.at(-2) || '';
+    if (['functions', 'completions', 'conf.d'].includes(dirname) && filename.endsWith('.fish')) {
+      return true
+    }
+    if (dirname === 'fish' && filename === 'config.fish') {
+      return true
+    }
+    return false
   }
 
   /**

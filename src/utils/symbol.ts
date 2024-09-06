@@ -16,7 +16,9 @@ import { DefinitionScope, getScope, ScopeTag } from './definition-scope';
 import { MarkdownBuilder, md } from './markdown-builder';
 import { symbolKindToString } from './translation';
 import { PrebuiltDocumentationMap } from './snippets';
-import * as Locations from './locations'
+import * as Locations from './locations';
+import { getArgparseDefinitions, isArgparseCommandName } from '../features/argparseDefinitions';
+import { createArgvScriptDefinition, isScriptNeededArgv } from '../features/definitions/argv';
 
 const getScopeValue = (tag: keyof typeof ScopeTag) => {
   return [
@@ -25,7 +27,7 @@ const getScopeValue = (tag: keyof typeof ScopeTag) => {
     'function',
     'global',
   ].indexOf(tag);
-}
+};
 
 export class FishDocumentSymbol implements DocumentSymbol {
 
@@ -38,8 +40,10 @@ export class FishDocumentSymbol implements DocumentSymbol {
     public scope: DefinitionScope,
     public node: SyntaxNode,
     public parent: SyntaxNode,
-    public children: FishDocumentSymbol[],
-  ) {}
+    public children: FishDocumentSymbol[] = [],
+  ) {
+    this.insertArgvOnFunction();
+  }
 
   get detail() {
     const found = PrebuiltDocumentationMap.findMatchingNames(this.name, 'variable', 'command')?.find(name => name.name === this.name);
@@ -56,9 +60,38 @@ export class FishDocumentSymbol implements DocumentSymbol {
     ).toString();
   }
 
-  equals(other: FishDocumentSymbol): boolean {
+  isFlagSymbol(): boolean {
     return (
-      this.name === other.name &&
+      this.name.startsWith('_flag_') &&
+      this.kind === SymbolKind.Variable &&
+      this.parent.firstChild?.text === 'argparse'
+    );
+  }
+
+  equivalentFlags(other: FishDocumentSymbol): boolean {
+    return (
+      this.isFlagSymbol() &&
+      other.isFlagSymbol() &&
+      equalRanges(this.selectionRange, other.selectionRange)
+    );
+  }
+
+
+  equals(other: FishDocumentSymbol): boolean {
+    const equalNames = () => {
+      if (this.isFlagSymbol() && other.isFlagSymbol()) {
+        return (
+          this.selectionRange.start.line === other.selectionRange.start.line &&
+          this.selectionRange.start.character === other.selectionRange.start.character &&
+          this.selectionRange.end.line === other.selectionRange.end.line &&
+          this.selectionRange.end.character === other.selectionRange.end.character
+        );
+      }
+      return this.name === other.name;
+    };
+
+    return (
+      equalNames() &&
       this.kind === other.kind &&
       this.uri === other.uri &&
       equalRanges(this.range, other.range) &&
@@ -108,7 +141,7 @@ export class FishDocumentSymbol implements DocumentSymbol {
   scopeLessThan(other: FishDocumentSymbol): boolean {
     const currentLocale = this.scope.tagValue();
     const otherLocale = other.scope.tagValue();
-    return currentLocale  < otherLocale;
+    return currentLocale < otherLocale;
   }
 
   scopeGreaterThan(other: FishDocumentSymbol): boolean {
@@ -134,15 +167,34 @@ export class FishDocumentSymbol implements DocumentSymbol {
       return false;
     }
     if (this.scope.scopeNode.equals(other.scope.scopeNode)) {
-      return true
+      return true;
     }
     const currentLocale = this.scope.tagValue();
     const otherLocale = other.scope.tagValue();
-    return currentLocale >= otherLocale
+    return currentLocale >= otherLocale;
   }
 
   scopeValue(): number {
     return getScopeValue(this.scope.scopeTag);
+  }
+
+  private insertArgvOnFunction() {
+    if (this.kind === SymbolKind.Function) {
+      this.children.unshift(FishDocumentSymbol.create({
+        name: 'argv',
+        kind: SymbolKind.Variable,
+        uri: this.uri,
+        scope: DefinitionScope.create(
+          this.node,
+          'function'
+        ),
+        range: this.range,
+        selectionRange: this.selectionRange,
+        node: this.node,
+        parent: this.parent,
+        children: []
+      }));
+    }
   }
 
   equalScopes(other: FishDocumentSymbol): boolean {
@@ -197,7 +249,7 @@ export class FishDocumentSymbol implements DocumentSymbol {
         type: node.type,
         text: syntaxNodeShrotener(node),
       };
-    }
+    };
 
     const logObj = {
       name: this.name,
@@ -309,6 +361,20 @@ export function getFishDocumentSymbolItems(uri: DocumentUri, ...currentNodes: Sy
   for (const current of currentNodes) {
     const childrenSymbols = getFishDocumentSymbolItems(uri, ...current.children);
     const { shouldCreate, kind, parent, child } = extractSymbolInfo(current);
+
+    // adds initial argv for a fish shell script/executable
+    // if the current node is a program node
+    if (isScriptNeededArgv(uri, current)) {
+      symbols.push(...createArgvScriptDefinition(uri, current));
+    }
+
+    // adds argparse definitions
+    if (current.parent && isArgparseCommandName(current)) {
+      symbols.push(...getArgparseDefinitions(uri, current));
+      continue;
+    }
+
+    // adds symbols if the current node is a variable or function definition
     if (shouldCreate) {
       symbols.push(
         FishDocumentSymbol.create({
@@ -320,7 +386,7 @@ export function getFishDocumentSymbolItems(uri: DocumentUri, ...currentNodes: Sy
           scope: getScope(uri, child),
           node: child,
           parent: parent,
-          children: childrenSymbols ?? [] as FishDocumentSymbol[],
+          children: childrenSymbols || []
         })
       );
       continue;
@@ -467,12 +533,12 @@ export function filterSymbolsInScope(symbols: FishDocumentSymbol[], cursorPositi
    */
   return flattenNested(...symbols)
     .filter(s => !(
-      s.kind === SymbolKind.Function 
+      s.kind === SymbolKind.Function
       && (Locations.Range.containsPosition(s.range, cursorPosition))
     ))
     .filter(s => s.scope.containsPosition(cursorPosition))
     .filter((current, _, results) =>
-      !results.some(other => 
+      !results.some(other =>
         current.name === other.name &&
         !other.scopeSmallerThan(current) &&
         current.scope.scopeNode.equals(other.scope.scopeNode)

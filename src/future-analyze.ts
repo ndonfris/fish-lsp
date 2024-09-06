@@ -8,8 +8,8 @@ import { SyncFileHelper } from './utils/file-operations';
 import { Location, Position, SymbolKind } from 'vscode-languageserver';
 // import { findAncestor } from 'typescript';
 import { Range } from './utils/locations';
-import { isCommandName, isFunctionDefinition, isNewline, isProgram, isSemicolon } from './utils/node-types';
-import { getScopeTagValue } from './utils/definition-scope';
+import { findPreviousSibling, isCommand, isCommandName, isFunctionDefinition, isNewline, isProgram, isSemicolon, isString, isVariable } from './utils/node-types';
+import { DefinitionScope, getScopeTagValue } from './utils/definition-scope';
 import { execEscapedSync } from './utils/exec';
 // import { isFunction } from './utils/builtins';
 
@@ -89,7 +89,7 @@ export class Analyzer { // @TODO rename to Analyzer
   }
 
   /**
-   * call at startup to analyze in background
+   * call at startup to analyze in gackground
    */
   // async initalizeBackgroundAnalysis() {}
   // private hasAnalyzedDocument(uri: string): uri is string & keyof Map<string, AnalyzedDocument> {
@@ -121,7 +121,91 @@ export class Analyzer { // @TODO rename to Analyzer
     const text = node.text;
     const symbols = symbolsScopeContainsPosition(cached.symbols.flat(), position);
 
-    // console.log({text});
+    //
+    // @TODO: 
+    // refactor switch statement to a function, and properly implement special cases
+    //
+    // special cases include: argv, status, pipestatus, argparse
+    //
+    if (node.parent && isVariable(node.parent)) {
+      const firstScope = findFirstParent(node, n => n.type === 'function_definition' || n.type === 'program');
+      const firstFunction = findFirstParent(node, isFunctionDefinition);
+      switch(node.text) {
+        case 'argv':
+          return symbols
+            .filter(s => s.kind === SymbolKind.Function)
+            .filter(s => s.scope.containsNode(node))
+            .map(s => FishDocumentSymbol.create({
+              ...s,
+              name: 'argv',
+              kind: SymbolKind.Variable,
+              scope: DefinitionScope.create(
+                  s.scope.scopeNode,
+                  s.scope.scopeNode.type === 'function_definition' ? 'function' : 'local'
+              ),
+            }))
+        case 'status':
+          const previousCommand = findPreviousSibling(node)
+          if (!previousCommand) return []
+          return [
+            FishDocumentSymbol.create({
+              name: 'status',
+              kind: SymbolKind.Variable,
+              uri: document.uri,
+              selectionRange: getRange(node),
+              range: getRange(previousCommand),
+              scope: DefinitionScope.create(firstScope || firstFunction || previousCommand.parent || node.parent, 'local'),
+              node: node,
+              parent: previousCommand,
+              children: [],
+            })
+          ]
+
+        case 'pipestatus':
+          return [
+            FishDocumentSymbol.create({
+              name: 'pipestatus',
+              kind: SymbolKind.Variable,
+              uri: document.uri,
+              selectionRange: getRange(node),
+              range: getRange(node),
+              scope: DefinitionScope.create(firstScope || firstFunction || node.parent, 'local'),
+              node: node,
+              parent: node.parent,
+              children: [],
+            }),
+          ]
+        default:
+          break;
+      }
+    }
+    const command = findFirstParent(node, isCommand)
+    const commandName = command?.child(0)?.text
+    if (!!command && commandName === 'argparse') {
+      return [
+        ...command.children.slice(1)
+        .filter(s => isString(s))
+        .map(s => {
+          let fixed = node.text.split('/').at(-1) || node.text
+          fixed = fixed?.split('=').at(0) || fixed
+          fixed = fixed.replace(/-/g, '_')
+          return FishDocumentSymbol.create({
+            name: `_flag_${fixed}`, 
+            kind: SymbolKind.Variable,
+            uri: document.uri,
+            selectionRange: getRange(node),
+            range: getRange(command),
+            scope: DefinitionScope.create(command.parent!, 'local'),
+            node: s,
+            parent: command,
+            children: [],
+          })
+        })
+      ].filter(n => n.node.equals(node))
+    }
+
+
+
     const localSymbol = symbols.filter(s => s.name === text);
     if (localSymbol.length > 0) {
       return localSymbol;
@@ -405,28 +489,6 @@ function symbolsScopeContainsPosition(symbols: FishDocumentSymbol[], position: P
   return result;
 }
 
-/**
- * getAccessibleNodes - gets all nodes that are accessible to a symbol
- */
-// export function getAccessibleNodes(root: SyntaxNode, symbols: FishDocumentSymbol[], matchSymbol: FishDocumentSymbol) {
-//   // const result: SyntaxNode[] = [];
-//   // const isMatchUri = symbols.some(s => s.uri === matchSymbol.uri);
-//   // let matches: FishDocumentSymbol[] = symbols
-//   //   .filter(s => s.name === matchSymbol.name)
-//   //
-//   // if (isMatchUri) {
-//   //   matches = matches.filter(s => !s.equalScopes(matchSymbol))
-//   //   return getChildNodes(matchSymbol.scope.scopeNode)
-//   //     .filter(n => matches.some(s => s.scope.containsNode(n)))
-//   // } else {
-//   //    matches = matches.filter(s => {
-//   //     if (s.scope.scopeTag !== 'global') return true;
-//   //     return false;
-//   //   })
-//   //   return getChildNodes(root)
-//   //     .filter(n => !matches.some(s => s.scope.containsNode(n)))
-//   // }
-// }
 
 export function getAccessibleNodes(
   root: SyntaxNode, 
@@ -447,28 +509,5 @@ export function getAccessibleNodes(
     const nonGlobalSymbols = matchingSymbols.filter(s => s.scope.scopeTag !== 'global');
     return getChildNodes(root)
       .filter(node => !nonGlobalSymbols.some(s => s.scope.containsNode(node)));
-  }
-}
-
-class UniqueLocations {
-  private map = new Map<string, LSP.Location>();
-  private arr: LSP.Location[] = [];
-
-  private key(loc: LSP.Location): string {
-    const { uri, range } = loc;
-    const { start, end } = range;
-    return `${uri}:${start.line}:${start.character}-${end.line}:${end.character}`;
-  }
-
-  add(loc: LSP.Location): void {
-    const key = this.key(loc);
-    if (!this.map.has(key)) {
-      this.map.set(key, loc);
-      this.arr.push(loc);
-    }
-  }
-
-  get locations(): LSP.Location[] {
-    return this.arr;
   }
 }
