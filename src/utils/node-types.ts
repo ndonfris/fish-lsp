@@ -3,6 +3,24 @@ import { firstAncestorMatch, getParentNodes, getLeafs } from './tree-sitter';
 import * as VariableTypes from './variable-syntax-nodes';
 import { SyncFileHelper } from './file-operations';
 
+// Helper type to make certain properties required
+type RequiredProperties<T, K extends keyof T> = Required<Pick<T, K>> & Omit<T, K>;
+
+// Define a type that extends SyntaxNode with required properties
+type ExtendedSyntaxNode = SyntaxNode & {
+  parent: SyntaxNode;
+  firstChild: SyntaxNode;
+  lastChild: SyntaxNode;
+  firstNamedChild: SyntaxNode;
+  lastNamedChild: SyntaxNode;
+};
+
+// Use intersection to combine the required properties with SyntaxNode
+export type NodeWithParentAndChildren = SyntaxNode & RequiredProperties<ExtendedSyntaxNode, 'parent' | 'firstChild' | 'lastChild' | 'firstNamedChild' | 'lastNamedChild'>;
+export type NamedNode = SyntaxNode & { parent: NodeWithParentAndChildren };
+export type ArgNode = SyntaxNode & { parent: NodeWithParentAndChildren };
+
+
 /**
  * fish shell comment: '# ...'
  */
@@ -29,20 +47,21 @@ export function isShebang(node: SyntaxNode) {
   );
 }
 
+
 /**
  * function some_fish_func
  *     ...
  * end
  * @see isFunctionDefinitionName()
  */
-export function isFunctionDefinition(node: SyntaxNode): boolean {
-  return node.type === 'function_definition';
+export function isFunctionDefinition(node: SyntaxNode): node is NodeWithParentAndChildren {
+  return node.type === 'function_definition' && !!node.firstChild && !!node.parent;
 }
 
 /**
  * checks for all fish types of SyntaxNodes that are commands.
  */
-export function isCommand(node: SyntaxNode): boolean {
+export function isCommand(node: SyntaxNode): node is NodeWithParentAndChildren {
   return [
     'command',
     'test_command',
@@ -57,7 +76,7 @@ export function isCommand(node: SyntaxNode): boolean {
  * @param {SyntaxNode} node - the node to check
  * @returns {boolean} true if the node is the firstNamedChild of a function_definition
  */
-export function isFunctionDefinitionName(node: SyntaxNode): boolean {
+export function isFunctionDefinitionName(node: SyntaxNode): node is NamedNode {
   if (!!node && !node?.parent) return false;
   const parent = node.parent;
   const funcName = parent?.firstNamedChild;
@@ -80,7 +99,7 @@ export function isDefinition(node: SyntaxNode): boolean {
 /**
  * checks if a node is the firstNamedChild of a command
  */
-export function isCommandName(node: SyntaxNode): boolean {
+export function isCommandName(node: SyntaxNode): node is NamedNode {
   const parent = node.parent || node;
   const cmdName = parent?.firstNamedChild || node?.firstNamedChild;
   if (!parent || !cmdName) {
@@ -212,24 +231,24 @@ export function isStringCharacter(node: SyntaxNode) {
   ].includes(node.type);
 }
 
-export function isEndStdinCharacter(node: SyntaxNode) {
+export function isEndStdinCharacter(node: SyntaxNode): node is ArgNode {
   return '--' === node.text && node.type === 'word';
 }
 
-export function isLongOption(node: SyntaxNode): boolean {
+export function isLongOption(node: SyntaxNode): node is ArgNode {
   return node.text.startsWith('--') && !isEndStdinCharacter(node);
 }
 
-export function isShortOption(node: SyntaxNode): boolean {
+export function isShortOption(node: SyntaxNode): node is ArgNode {
   return node.text.startsWith('-') && !isLongOption(node);
 }
 
-export function isOption(node: SyntaxNode): boolean {
+export function isOption(node: SyntaxNode): node is ArgNode {
   return isShortOption(node) || isLongOption(node);
 }
 
 /** careful not to call this on old unix style flags/options */
-export function isJoinedShortOption(node: SyntaxNode) {
+export function isJoinedShortOption(node: SyntaxNode): node is ArgNode {
   if (isLongOption(node)) return false;
   return isShortOption(node) && node.text.slice(1).length > 1;
 }
@@ -251,7 +270,7 @@ export type NodeOptionQueryText = {
  * @param optionQuery - object of node strings to match
  * @returns boolean result corresponding to query
  */
-export function isMatchingOption(node: SyntaxNode, optionQuery: NodeOptionQueryText): boolean {
+export function isMatchingOption(node: SyntaxNode, optionQuery: NodeOptionQueryText): node is ArgNode {
   if (!isOption(node)) return false;
 
   const nodeText = node.text.includes('=') ? node.text.slice(0, node.text.indexOf('=')) : node.text;
@@ -302,37 +321,54 @@ export function isVariable(node: SyntaxNode) {
 }
 
 /**
+ * backtracks to the previous sibling or parent node on the same line/row
+ */
+function previousSiblingOrParentNode(node: SyntaxNode) {
+  
+  // handles SyntaxNode.kind === 'escape'
+  if (node.previousSibling) {
+    return node.previousSibling;
+  }
+
+  // handles deeply nested SyntaxNodes with no siblings
+  return (node.parent && node.parent.startPosition.column === node.startPosition.column) 
+    ? node.parent 
+    : null;
+}
+
+/**
  * finds the parent command of the current node
  *
  * @param {SyntaxNode} node - the node to check for its parent
- * @returns {SyntaxNode | null} command node or null
+ * @returns {SyntaxNode | null} previous node or null
  */
 export function findPreviousSibling(node?: SyntaxNode): SyntaxNode | null {
   let currentNode: SyntaxNode | null | undefined = node;
-  if (!currentNode) {
-    return null;
-  }
+  if (!currentNode) return null;
   while (currentNode !== null) {
-    if (isCommand(currentNode)) {
+    if (currentNode && isCommand(currentNode)) {
       return currentNode;
     }
-    currentNode = currentNode.parent;
+    currentNode = previousSiblingOrParentNode(currentNode);
   }
   return null;
 }
+
 /**
  * finds the parent command of the current node
  *
  * @param {SyntaxNode} node - the node to check for its parent
  * @returns {SyntaxNode | null} command node or null
  */
-export function findParentCommand(node?: SyntaxNode): SyntaxNode | null {
-  let currentNode: SyntaxNode | null | undefined = node;
-  if (!currentNode) {
-    return null;
-  }
-  while (currentNode !== null) {
-    if (isCommand(currentNode)) {
+export function findParentCommand(node?: SyntaxNode) {
+
+
+  if (!node) return null; 
+
+  let currentNode: SyntaxNode | null = node;
+
+  while (currentNode) {
+    if (isCommandName(currentNode)) {
       return currentNode;
     }
     currentNode = currentNode.parent;
@@ -346,14 +382,11 @@ export function findParentCommand(node?: SyntaxNode): SyntaxNode | null {
  * @param {SyntaxNode} node - the node to check for its parent
  * @returns {SyntaxNode | null} command node or null
  */
-export function findParentFunction(node?: SyntaxNode): SyntaxNode | null {
+export function findParentFunction(node?: SyntaxNode): NodeWithParentAndChildren | null {
   let currentNode: SyntaxNode | null | undefined = node;
-  if (!currentNode) {
-    return null;
-  }
-  while (currentNode !== null) {
+  while (currentNode) {
     if (isFunctionDefinition(currentNode)) {
-      return currentNode;
+      return currentNode 
     }
     currentNode = currentNode.parent;
   }
