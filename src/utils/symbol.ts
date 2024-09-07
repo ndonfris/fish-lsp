@@ -10,15 +10,16 @@ import {
   FoldingRange,
 } from 'vscode-languageserver';
 import { containsRange, getRange, isPositionBefore, isPositionWithinRange } from './tree-sitter';
-import { isVariableDefinitionName, isFunctionDefinitionName, refinedFindParentVariableDefinitionKeyword } from './node-types';
+import { isVariableDefinitionName, isFunctionDefinitionName, refinedFindParentVariableDefinitionKeyword, isCommand } from './node-types';
 import { SyntaxNode } from 'web-tree-sitter';
 import { DefinitionScope, getScope, ScopeTag } from './definition-scope';
 import { MarkdownBuilder, md } from './markdown-builder';
 import { symbolKindToString } from './translation';
 import { PrebuiltDocumentationMap } from './snippets';
 import * as Locations from './locations';
-import { getArgparseDefinitions, isArgparseCommandName } from '../features/argparseDefinitions';
+import { getArgparseDefinitions, isArgparseCommandName } from '../features/definitions/argparse';
 import { createArgvScriptDefinition, isScriptNeededArgv } from '../features/definitions/argv';
+import { createStatusDocumentSymbol } from '../features/definitions/status';
 
 const getScopeValue = (tag: keyof typeof ScopeTag) => {
   return [
@@ -373,6 +374,10 @@ export function getFishDocumentSymbolItems(uri: DocumentUri, ...currentNodes: Sy
       symbols.push(...getArgparseDefinitions(uri, current));
       continue;
     }
+
+    // if (isCommand(current)) {
+    //   symbols.push(createStatusDocumentSymbol(uri, current));
+    // }
 
     // adds symbols if the current node is a variable or function definition
     if (shouldCreate) {

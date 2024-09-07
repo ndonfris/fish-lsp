@@ -1,5 +1,6 @@
 
 import Parser, { SyntaxNode } from 'web-tree-sitter';
+import * as LSP from 'vscode-languageserver';
 import { createFakeCursorLspDocument, createFakeLspDocument, setLogger } from './helpers';
 import { Simple } from './simple';
 import {
@@ -10,9 +11,9 @@ import {
 import { execEscapedSync } from '../src/utils/exec';
 import * as TreeSitterUtils from '../src/utils/tree-sitter';
 import { initializeParser } from '../src/parser';
-import { isCommandName, isEndStdinCharacter, isFunctionDefinition, isOption, isProgram, isString } from '../src/utils/node-types';
+import { isCommandName, isEndStdinCharacter, isFunctionDefinition, isOption, isProgram, isString, isVariable } from '../src/utils/node-types';
 import { LspDocument } from '../src/document';
-import { findFirstParent, getChildNodes, getNodeAtPosition, getRange } from '../src/utils/tree-sitter';
+import { findFirstParent, getChildNodes, getNodeAtPosition, getRange, pointToPosition, positionToPoint } from '../src/utils/tree-sitter';
 
 import { Analyzer } from '../src/future-analyze';
 import { TestWorkspace } from './workspace-utils';
@@ -22,7 +23,7 @@ import { DefinitionScope } from '../src/utils/definition-scope';
 
 
 
-describe.skip('analyzer test suite', () => {
+describe('analyzer test suite', () => {
 
   setLogger();
 
@@ -71,61 +72,6 @@ describe.skip('analyzer test suite', () => {
     return { documents, document };
   }
 
-
-  // @TODO
-  // function setupAndFindWithCursor(documents: LspDocument[], findUri: string = '') {
-  // }
-
-  // describe(`filterDocumentSymbolInScope()`, () => {
-  //   it('local NESTED workspace def `test`', () => {
-  //     const _setup = setupAndFind(TestWorkspace.functionsOnly.documents, 'functions/nested.fish');
-  //     if (!_setup.document) fail();
-  //     const _cached = analyzer.cached.get(_setup.document.uri!);
-  //     // const { root: rootNode, document: doc } = _cached!;
-  //     if (!_cached) fail();
-  //     const { document, root, symbols } = _cached;
-  //     const focus = TreeSitterUtils.getChildNodes(root).find(node => isCommandName(node) && node.text === 'test')!;
-  //     const pos = getRange(focus).start;
-  //
-  //     // const currentNode = getNodeAtPosition(tree, pos)!;
-  //     const localSymbols: FishDocumentSymbol[] = filterDocumentSymbolInScope(
-  //       symbols.nested(),
-  //       pos
-  //     );
-  //
-  //     // console.log(localSymbols.map(s => s.name));
-  //     const defSymbol = analyzer.getDefinitionSymbol(document, pos);
-  //     expect(defSymbol?.map(s => s.uri)).toEqual([
-  //       `${document.uri}`
-  //     ]);
-  //   });
-  //
-  //   it('local PRIVATE workspace def `test`', () => {
-  //     const _setup = setupAndFind(TestWorkspace.functionsOnly.documents, 'functions/private.fish');
-  //     if (!_setup.document) fail();
-  //     const _cached = analyzer.cached.get(_setup.document.uri!);
-  //     if (!_cached) fail();
-  //     const { document, root, symbols } = _cached;
-  //
-  //     const focus = TreeSitterUtils.getChildNodes(root).find(node => isCommandName(node) && node.text === 'test')!;
-  //     const pos = getRange(focus).start;
-  //
-  //     // const currentNode = getNodeAtPosition(tree, pos)!;
-  //     const localSymbols: FishDocumentSymbol[] = filterDocumentSymbolInScope(
-  //       symbols.nested(),
-  //       pos
-  //     );
-  //
-  //     // console.log(localSymbols.map(s => s.name));
-  //     const defSymbol = analyzer.getDefinitionSymbol(document, pos);
-  //     // console.log(defSymbol.map(s => s.uri));
-  //     expect(defSymbol?.map(s => s.uri)).toEqual([ document.uri ]);
-  //     const symbolUri = defSymbol.map(s => s.uri).pop()!;
-  //     expect(symbolUri.endsWith('private.fish')).toBeTruthy();
-  //   });
-  // })
-
-  // @TODO: implement tests
   describe('getDefinitionSymbols()', () => {
     function logDefSymbols(defSymbol: FishDocumentSymbol[]) {
       defSymbol.forEach(({ name, uri, scope: _scope, kind: _kind }, idx) => {
@@ -223,7 +169,9 @@ describe.skip('analyzer test suite', () => {
           name: 'test',
           uri: 'config.fish',
           kind: 'variable',
-          scope: 'global'
+          scope: 'global',
+          range: [ 0, 0, 0, 14 ],
+          selectionRange: [ 0, 8, 0, 12 ],
         }
       ]);
     });
@@ -385,9 +333,10 @@ describe.skip('analyzer test suite', () => {
 
     });
 
-    describe.only('special cases', () => {
-      test('$argv: script & function', () => {
-        const { flatSymbols, doc, rootNode } = testSymbolFiltering('farg-f.fish', [
+    describe('special cases', () => {
+
+      it('$argv: script & function', () => {
+        const { flatSymbols, doc } = testSymbolFiltering('farg-f.fish', [
           'function arg-f',
           '    echo $argv█',
           'end',
@@ -399,97 +348,33 @@ describe.skip('analyzer test suite', () => {
           'argv',
           'arg-f',
           'argv'
-        ])
+        ]);
         const item = analyzer.cached.get(doc.uri);
         if (!item) fail();
-        
+
         expect(item.symbols.flat().map(s => s.name)).toEqual([
           'argv',
           'arg-f',
           'argv'
         ]);
 
-        // const result: FishDocumentSymbol[] = []
-        // if (!doc.isAutoLoaded()) {
-        //   flatSymbols.unshift(FishDocumentSymbol.create({
-        //     name: 'argv',
-        //     kind: SymbolKind.Variable,
-        //     uri: doc.uri,
-        //     range: getRange(rootNode),
-        //     selectionRange: { start: {line: 0, character: 0}, end: {line: 0, character: 0} },
-        //     scope: DefinitionScope.create(
-        //       rootNode,
-        //       'local'
-        //     ),
-        //     node: rootNode,
-        //     parent: null,
-        //     children: []
-        //   }))
-        // }
-
-        // flatSymbols.forEach(symbol => {
-        //   if (symbol.kind === SymbolKind.Function) {
-        //     result.push(FishDocumentSymbol.create({
-        //       ...symbol,
-        //       name: 'argv',
-        //       kind: SymbolKind.Variable,
-        //       scope: DefinitionScope.create(
-        //         symbol.node,
-        //         'function'
-        //       )
-        //     }));
-        //   }
-        // })
-        // flatSymbols.forEach(symbol => {
-        //   console.log('function', Simple.symbol(symbol));
-        // })
-        // const defSymbol = analyzer.getDefinitionSymbol(doc, cursorPosition);
-        // expect(defSymbol.length).toEqual(1);
-        // expect(Simple.symbol(defSymbol[ 0 ])).toMatchObject({
-        //   name: 'argv',
-        //   uri: 'functions/arg-f.fish',
-        //   kind: 'variable',
-        //   scope: 'local',
-        //   range: [ 0, 0, 2, 3 ]
-        // });
       });
 
-      // test('$argv: script', () => {
-      //
-      //   const { tree, doc, cursorPosition, cursorNode } = testSymbolFiltering('scripts/arg-s.fish', [
-      //     '#!/usr/bin/env fish',
-      //     'echo $argv█',
-      //     'printf',
-      //     'for i in (seq 1 10)',
-      //     '    echo $i',
-      //     'end'
-      //   ].join('\n'))
-      //
-      //   TreeSitterUtils.getChildNodes(tree.rootNode)
-      //     .filter(isCommandName)
-      //     .forEach(node => {
-      //       console.log('command', Simple.nodeVerbose(node));
-      //       c
-      //       console.log('firstChild', node.parent.firstChild.text);
-      //       console.log('lastChild', node.parent.lastChild.text);
-      //     })
-      //   // console.log(Simple.node(rootNode));
-      //   // console.log(Simple.node(cursorNode));
-      //   // if (isNodeWithParent(cursorNode)) {
-      //     // console.log('with parent: ', Simple.nodeVerbose(cursorNode.parent));
-      //   }
-      //   const defSymbol = analyzer.getDefinitionSymbol(doc, cursorPosition);
-      //   // console.log(defSymbol.map(s => Simple.symbol(s)));
-      // })
-      // it('$argv: script', () => {
-      //   
-      // })
-      // it('$status', () => {
-      //
-      // })
-      // it('$pipestatus', () => {
-      //
-      // })
+      it('$argv: script', () => {
+
+        const { doc } = testSymbolFiltering('scripts/arg-s.fish', [
+          '#!/usr/bin/env fish',
+          'echo $argv█',
+          'printf',
+          'for i in (seq 1 10)',
+          '    echo $i',
+          'end'
+        ].join('\n'));
+        const cache = analyzer.cached.get(doc.uri);
+        if (!cache) fail();
+        expect(cache.symbols.flat().map(s => s.name)).toEqual([ 'argv', 'i' ]);
+      });
+
       it(`\`argparse 'h/help' -- $argv; or return\``, () => {
         const { flatSymbols, doc } = testSymbolFiltering('functions/argparse-test.fish', [
           'function argparse-test',
@@ -510,152 +395,220 @@ describe.skip('analyzer test suite', () => {
           '_flag_path',
           '_flag_s',
           '_flag_long',
-        ])
+        ]);
 
         const item = analyzer.cached.get(doc.uri);
         if (!item) fail();
-        
+
         expect(item.symbols.flat().map(s => s.name)).toEqual(flatSymbols.map(s => s.name));
-
-        // flatSymbols.forEach((s, i) => {
-        //   console.log(i, Simple.symbol(s));
-        // })
-        // store the results
-        // const result: FishDocumentSymbol[] = [];
-        //
-        // // commandName is `argparse`
-        // const cmd = nodes
-        //   .find(node => isCommandName(node) && node.text === 'argparse')
-        //   .parent;
-        //
-        // // find the `--` end token
-        // const endChar = cmd?.children.find(node => isEndStdinCharacter(node));
-        // if (!endChar) fail();
-        //
-        // // split the `h/help` into `h` and `help`
-        // function splitSlash(str: string): string[] {
-        //   const results = str.replace(/-/g, '_').split('/').filter(s => !!s.trim());
-        //   const maxResults = results.length < 2 ? results.length : 2;
-        //   return results.slice(0, maxResults);
-        // }
-        //
-        // // find the parent function or program
-        // const argParseScope = findFirstParent(
-        //   cmd,
-        //   (node) => isFunctionDefinition(node) || isProgram(node)
-        // );
-        //
-        // // find all flags before the `--` end token
-        // const isBefore = (a: SyntaxNode, b: SyntaxNode) => a.startIndex < b.startIndex;
-        //
-        // cmd.children
-        //   .filter(node => !isOption(node) && !isCommandName(node) && isBefore(node, endChar))
-        //   .forEach(node => {
-        //     let flagNames = node.text;
-        //     if (isString(node)) {
-        //       flagNames = node.text.slice(1, -1).split('=').shift();
-        //     }
-        //     const seenFlags = splitSlash(flagNames);
-        //     // add all seenFlags to the `result: FishDocumentSymbol[]` array
-        //     seenFlags.map(flagName => {
-        //       result.push(FishDocumentSymbol.create({
-        //         name: `_flag_${flagName}`,
-        //         kind: SymbolKind.Variable,
-        //         uri: doc.uri,
-        //         range: getRange(cmd),
-        //         selectionRange: getRange(node),
-        //         scope: DefinitionScope.create(argParseScope, "local"),
-        //         node: node,
-        //         parent: cmd,
-        //         children: [],
-        //       }));
-        //     });
-        //   });
-
-        // log results
-        // result.forEach((s, idx) => {
-        //   const matches = result
-        //     .filter(o => o.equivalentFlags(s))
-        //     .map(o => Simple.symbol(o))
-        //   console.log({idx, length: matches.length, matches: matches})
-        // });
       });
+
+
+      /** 
+       * the next two variables we don't include in the Symbols Array
+       *  because they duplicate input list
+       */
+      //   it('$status', () => {
+      //     const { flatSymbols, doc } = testSymbolFiltering('functions/_status.fish', [
+      //       'function _status',
+      //       '    set -q unknown_variable',
+      //       '    echo "status: $status█"',
+      //       'end',
+      //     ].join('\n'));
+      //     expect(flatSymbols.length).toEqual(1);
+      //     expect(flatSymbols.map(s => s.name)).toEqual(['status']);
+      //     const item = analyzer.cached.get(doc.uri);
+      //     if (!item) fail();
+      //     expect(item.symbols.flat().map(s => s.name)).toEqual(['status']);
+      //   })
+      //
+      //   it('$pipestatus', () => {
+      //   })
     });
   });
 
   // @TODO
-  describe('getReferences()', () => {
-    it('reference symbols', () => {
-      // const { docPrivate } = buildWorkspaceOne();
-      const thisTest = createFakeLspDocument('functions/this_test.fish', [
+  describe.only('getReferences()', () => {
+    it('reference symbols: nested function call', () => {
+      const { rootNode, doc, cursorPosition } = testSymbolFiltering('functions/this_test.fish', [
         'function this_test',
         '   function test',
         '       echo "test"',
         '   end',
-        '   test', // should be local test
+        '   test█', // should be local test
         'end',
         'test' // should be global test
       ].join('\n'));
+      const refSymbols = analyzer.getReferences(doc, cursorPosition);
+      expect(refSymbols.length).toEqual(2);
+      expect(refSymbols.map(s => Simple.location(s))).toEqual([
+        {
+          uri: 'functions/this_test.fish',
+          range: [ 1, 12, 1, 16 ]
+        },
+        {
+          uri: 'functions/this_test.fish',
+          range: [ 4, 3, 4, 7 ]
+        }
+      ]);
+    });
 
-      const { symbols } = analyzer.analyze(thisTest);
-      // console.log(flattenNested(...symbols).map(n => n.name + ' ' + n.scope.scopeTag + '::' + n.scope.scopeNode!.text.split(' ').slice(0, 2).join(' ') + '...'));
+    it('reference symbols: nested clobbering global', () => {
+      const cached_1 = testSymbolFiltering('conf.d/nested.fish', [
+        'function nested',
+        '   function test',
+        '       echo "test"',
+        '   end',
+        '   test',
+        'end',
+        'set -gx global_arg 1'
+      ].join('\n'));
+      analyzer.analyze(cached_1.doc);
+      const { flatSymbols, doc, cursorPosition } = testSymbolFiltering('farg-f.fish', [
+        'function farg-f',
+        '    echo $global_arg█',
+        'end',
+        ''
+      ].join('\n'));
+
+      // expect(flatSymbols.length).toEqual(3);
+      const refSymbols = analyzer.getReferences(doc, { line: 1, character: 10 });
+      expect(refSymbols.map(s => Simple.location(s))).toEqual([
+        { uri: 'conf.d/nested.fish', range: [ 6, 8, 6, 18 ] },
+        { uri: 'fish/farg-f.fish', range: [ 1, 10, 1, 20 ] }
+      ]);
+    });
+
+    it('reference symbols: private clobbering variable', () => {
+
+      analyzer.analyze(createFakeLspDocument('conf.d/public.fish', [
+        'set -gx test 1'
+      ].join('\n')));
+
+      const { doc, cursorPosition } = testSymbolFiltering('functions/private.fish', [
+        'function private',
+        '    set -l test 1',
+        '    echo $test█',
+        'end'
+      ].join('\n'));
+      const refSymbols = analyzer.getReferences(doc, cursorPosition);
+      // refSymbols.forEach(s => console.log(Simple.location(s)));
+      expect(refSymbols.map(s => Simple.location(s))).toEqual([
+        { uri: 'functions/private.fish', range: [ 1, 11, 1, 15 ] },
+        { uri: 'functions/private.fish', range: [ 2, 10, 2, 14 ] }
+      ]);
+    });
+
+    it('reference symbols: private helper function', () => {
+      const { doc, cursorPosition } = testSymbolFiltering('functions/public.fish', [
+        'function public',
+        '    private█',
+        'end',
+        'function private',
+        '    set -l test 1',
+        '    echo $test',
+        'end'
+      ].join('\n'));
+
+      const refSymbols = analyzer.getReferences(doc, cursorPosition);
+      // refSymbols.forEach(s => console.log(Simple.location(s)));
+      expect(refSymbols.map(s => Simple.location(s))).toEqual([
+        { uri: 'functions/public.fish', range: [ 1, 4, 1, 11 ] },
+        { uri: 'functions/public.fish', range: [ 3, 9, 3, 16 ] }
+      ]);
+    });
+
+    it('reference symbols: conf.d function arguments + variable definition', () => {
+      const { doc, cursorPosition } = testSymbolFiltering('conf.d/public.fish', [
+        'function public -a test',
+        '    $test█',
+        'end',
+        '',
+        'set -l test 1',
+        'public $test',
+        ''
+      ].join('\n'));
+
+      const refSymbols = analyzer.getReferences(doc, cursorPosition);
+      // refSymbols.forEach(s => console.log(Simple.location(s)));
+      expect(refSymbols.map(s => Simple.location(s))).toEqual([
+        { uri: 'conf.d/public.fish', range: [ 0, 19, 0, 23 ] },
+        { uri: 'conf.d/public.fish', range: [ 1, 5, 1, 9 ] }
+      ]);
+    });
+
+    // TODO: error in getReferences
+    it('reference symbols: conf.d variable definition - function arguments', () => {
+      const { rootNode, doc, cursorPosition } = testSymbolFiltering('conf.d/public.fish', [
+        'function public -a test',
+        '    $test',
+        'end',
+        '',
+        'set -l test 1',
+        'public $test█',
+        ''
+      ].join('\n'));
+
+      const defSymbol = analyzer.getDefinitionSymbol(doc, cursorPosition);
+
+      expect(defSymbol.map(s => Simple.symbol(s))).toEqual([ {
+        name: 'test',
+        uri: 'conf.d/public.fish',
+        kind: 'variable',
+        scope: 'local',
+        range: [ 4, 0, 4, 13 ],
+        selectionRange: [ 4, 7, 4, 11 ]
+      } ]);
 
 
-      // const { tree, doc, rootNode, flatSymbols, symbols } = docPrivate;
-      // const focus = TreeSitterUtils.getChildNodes(rootNode).find(node => isFunctionDefinitionName(node) && node.text === 'test')!;
-      // const pos = getRange(focus).start;
-      // const defSymbol = analyzer.getDefinitionSymbol(doc, pos)
-      // 
-      //
-      //
-      // /* is defSymbol `local` or `global` scope*/
-      // /** if `global` get all references of a symbol in workspace */
-      // const location = analyzer.getValidNodes(doc, defSymbol[0]!)
-      // for (const l of location) {
-      //   const n = getNodeAtPosition(tree, l.range.start);
-      //   console.log(n?.text);
-      // }
+      const refSymbols = analyzer.getReferences(doc, cursorPosition);
 
+      // refSymbols.forEach((s: LSP.Location) => {
+      //   const node = rootNode.descendantForPosition(TreeSitterUtils.rangeToPoint(s.range))
+      //   if (isVariable(node)) {
+      //     console.log(Simple.location(s));
+      //   }
+      // })
 
-      // switch (defSymbol[0].scope.scopeTag) {
-      //   case 'universal':
-      //   case 'global':
-      //     /* handle global symbols */
-      //     break;
-      //   case 'local':
-      //   default:
-      //     /* handle local symbols */
-      //     break;
-      // }
+      expect(refSymbols.map(s => Simple.location(s))).toEqual([
+        { uri: 'conf.d/public.fish', range: [ 4, 7, 4, 11 ] },
+        { uri: 'conf.d/public.fish', range: [ 5, 8, 5, 12 ] }
+      ]);
+    });
 
+    it('reference symbols: conf.d emit variable function name', () => {
+      const { rootNode, doc /*, cursorPosition, cursorNode*/ } = testSymbolFiltering('conf.d/beep.fish', [
+        'function notify',
+        '    set -l job (jobs -l -g)',
+        '    or begin; echo "There are no jobs" >&2; return 1; end',
+        '    ',
+        '    function _notify_job_$job --on-job-exit $job --inherit-variable job',
+        '        echo -n \\a # beep',
+        '        functions -e _notify_job_$job',
+        '    end',
+        'end',
+        ''
+      ].join('\n'));
 
-      // if (symbol) {
-      // const doc = analyzer.getDocument(symbol.uri)!;
-      //   /** refactor inside analyzer */
-      //   const { scopeTag } = symbol.scope;
-      //       switch (scopeTag) {
-      //         case 'global':
-      //         case 'universal':
-      //           return findGlobalLocations(analyzer, doc, symbol.selectionRange.start);
-      //         case 'local':
-      //         default:
-      //           return findLocalLocations(analyzer, document, symbol.selectionRange.start);
-      //       }
-      // }
-      //         position
-      //     for (const sym of defSymbol) {
-      //       if (sym.scope.scopeTag === 'local') {
-      //
-      //       }
-      //     }
+      analyzer.analyze(doc);
 
+      let lastPosition: LSP.Position
+      getChildNodes(rootNode).forEach(node => {
+        if (node.text === 'job') {
+          lastPosition = pointToPosition(node.startPosition);
+          // console.log(Simple.node(node));
+        }
+      });
 
-      /* if no local Symbols */
-      /** get all references of a symbol in workspace */
+      console.log({ lastPosition });
+      const defSymbol = analyzer.getDefinitionSymbol(doc, lastPosition);
+      // const curr = rootNode.descendantForPosition(lastPosition);
+      defSymbol.forEach((s, i) => console.log(i, Simple.symbol(s)));
+      // console.log({node: Simple.symbol(defSymbol)});
 
-      // workspaceSymbols.get(currentNode.text) || [];
-
-      // console.log(defSymbol.map(s => s.name + s.scope.scopeTag));
+      const refSymbols = analyzer.getReferences(doc, lastPosition);
+      refSymbols.forEach(s => console.log(Simple.location(s)));
+      // console.log();
 
     });
   });
@@ -710,6 +663,7 @@ describe.skip('analyzer test suite', () => {
         'test'
       ]);
     });
+
   });
 
   // @TODO: implement completions tests
