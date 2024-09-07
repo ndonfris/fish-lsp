@@ -54,4 +54,5 @@
     "description": "show popup window notification in the connected client (default: true)",
     "valueType": "boolean"
   }
+  
 ]

@@ -8,7 +8,7 @@ import { SyncFileHelper } from './utils/file-operations';
 import { Location, Position, SymbolKind } from 'vscode-languageserver';
 // import { findAncestor } from 'typescript';
 import { Range } from './utils/locations';
-import { findPreviousSibling, isCommand, isCommandName, isFunctionDefinition, isNewline, isProgram, isSemicolon, isString, isVariable } from './utils/node-types';
+import { findPreviousSibling, isCommand, isCommandName, isFunctionDefinition, isMatchingOption, isNewline, isOption, isProgram, isSemicolon, isString, isVariable } from './utils/node-types';
 import { DefinitionScope, getScopeTagValue } from './utils/definition-scope';
 import { execEscapedSync } from './utils/exec';
 // import { isFunction } from './utils/builtins';
@@ -121,91 +121,6 @@ export class Analyzer { // @TODO rename to Analyzer
     const text = node.text;
     const symbols = symbolsScopeContainsPosition(cached.symbols.flat(), position);
 
-    //
-    // @TODO: 
-    // refactor switch statement to a function, and properly implement special cases
-    //
-    // special cases include: argv, status, pipestatus, argparse
-    //
-    if (node.parent && isVariable(node.parent)) {
-      const firstScope = findFirstParent(node, n => n.type === 'function_definition' || n.type === 'program');
-      const firstFunction = findFirstParent(node, isFunctionDefinition);
-      switch(node.text) {
-        case 'argv':
-          return symbols
-            .filter(s => s.kind === SymbolKind.Function)
-            .filter(s => s.scope.containsNode(node))
-            .map(s => FishDocumentSymbol.create({
-              ...s,
-              name: 'argv',
-              kind: SymbolKind.Variable,
-              scope: DefinitionScope.create(
-                  s.scope.scopeNode,
-                  s.scope.scopeNode.type === 'function_definition' ? 'function' : 'local'
-              ),
-            }))
-        case 'status':
-          const previousCommand = findPreviousSibling(node)
-          if (!previousCommand) return []
-          return [
-            FishDocumentSymbol.create({
-              name: 'status',
-              kind: SymbolKind.Variable,
-              uri: document.uri,
-              selectionRange: getRange(node),
-              range: getRange(previousCommand),
-              scope: DefinitionScope.create(firstScope || firstFunction || previousCommand.parent || node.parent, 'local'),
-              node: node,
-              parent: previousCommand,
-              children: [],
-            })
-          ]
-
-        case 'pipestatus':
-          return [
-            FishDocumentSymbol.create({
-              name: 'pipestatus',
-              kind: SymbolKind.Variable,
-              uri: document.uri,
-              selectionRange: getRange(node),
-              range: getRange(node),
-              scope: DefinitionScope.create(firstScope || firstFunction || node.parent, 'local'),
-              node: node,
-              parent: node.parent,
-              children: [],
-            }),
-          ]
-        default:
-          break;
-      }
-    }
-    const command = findFirstParent(node, isCommand)
-    const commandName = command?.child(0)?.text
-    if (!!command && commandName === 'argparse') {
-      return [
-        ...command.children.slice(1)
-        .filter(s => isString(s))
-        .map(s => {
-          let fixed = node.text.split('/').at(-1) || node.text
-          fixed = fixed?.split('=').at(0) || fixed
-          fixed = fixed.replace(/-/g, '_')
-          return FishDocumentSymbol.create({
-            name: `_flag_${fixed}`, 
-            kind: SymbolKind.Variable,
-            uri: document.uri,
-            selectionRange: getRange(node),
-            range: getRange(command),
-            scope: DefinitionScope.create(command.parent!, 'local'),
-            node: s,
-            parent: command,
-            children: [],
-          })
-        })
-      ].filter(n => n.node.equals(node))
-    }
-
-
-
     const localSymbol = symbols.filter(s => s.name === text);
     if (localSymbol.length > 0) {
       return localSymbol;
@@ -265,7 +180,36 @@ export class Analyzer { // @TODO rename to Analyzer
     const symbol = this.getDefinitionSymbol(document, position).pop();
     if (!symbol) return [];
 
-    const nodes = getChildNodes(symbol.scope.scopeNode)
+    // check that a function definition has no arguments that would inherit the variable
+    const noOptModifier = (opt: SyntaxNode) => {
+      return !(
+        isMatchingOption(opt, {shortOption: '-S', longOption: '----no-scope-shadowing'}) ||
+        (isMatchingOption(opt, {shortOption: '-V', longOption: '--inherit-variable'}) && opt?.nextSibling?.text === symbol.name) ||
+        (isMatchingOption(opt, {shortOption: '-v', longOption: '--on-variable'}) && opt?.nextSibling?.text === symbol.name)
+      )
+    }
+
+    // check if a function definition has arguments w/o the options defined above
+    const hasArguments = (node: SyntaxNode) => {
+      let current: SyntaxNode | null = node;
+      while (current) {
+        if (noOptModifier(current)) return true;
+        current = current.nextSibling;
+      }
+      return false;
+    }
+
+    let nodes = getChildNodes(symbol.scope.scopeNode)
+    if (symbol.kind === SymbolKind.Variable) {
+      const skipNodes = nodes.filter(n => {
+        // don't skip root node
+        if (symbol.scope.scopeNode.equals(n)) return false;
+        // skip function definitions with arguments
+        return isFunctionDefinition(n) && hasArguments(n.firstChild!.nextSibling!)
+      })
+      nodes = nodes.filter(n => !skipNodes.some(s => containsRange(getRange(s), getRange(n))));
+    }
+
     return findLocations(document.uri, nodes, symbol.name);
   }
 
