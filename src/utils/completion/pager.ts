@@ -1,4 +1,4 @@
-import { FishDocumentSymbol } from '../../document-symbol';
+import { FishDocumentSymbol } from '../symbol';
 import { FishCompletionItem, FishCompletionItemKind } from './types';
 import { execCompleteLine } from '../exec';
 import { Logger } from '../../logger';

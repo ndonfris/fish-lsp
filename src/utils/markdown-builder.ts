@@ -103,7 +103,7 @@ export class MarkdownBuilder {
    */
   fromMarkdown(...values: (string | string[])[]): MarkdownBuilder {
     this.value += values.map(item =>
-      Array.isArray(item) ? item.map(i => i.trim()).join(' ') : item.trim(),
+      Array.isArray(item) ? item.filter(i => i.trim() !== '').map(i => i.trim()).join(' ') : item.trim(),
     ).join('\n');
     return this;
   }

@@ -2,9 +2,12 @@ import { readdirSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 import { initializeParser } from '../src/parser';
 import Parser, { Point, SyntaxNode, Tree } from 'web-tree-sitter';
+import * as LSP from 'vscode-languageserver';
 import { TextDocumentItem } from 'vscode-languageserver';
 import { LspDocument } from '../src/document';
 import { homedir } from 'os';
+import { FishDocumentSymbol } from '../src/utils/symbol';
+import { getRange } from '../src/utils/tree-sitter';
 
 export function setLogger(
   beforeCallback: () => Promise<void> = async () => { },
@@ -55,8 +58,84 @@ export function createFakeUriPath(path: string): string {
   return `file://${homedir()}/.config/fish/${path}`;
 }
 
+
+export function containsCursor(code: string): boolean {
+  return code.includes('█');
+}
+
+export function removeCursorFromCode(code: string): {
+  cursorPosition: LSP.Position,
+  input: string
+} {
+  let lineNumber = 0
+  let columnNumber = 0
+  let notSet = true
+  const lines = code.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const currLine = lines.at(i)!
+    if (currLine.includes('█')) {
+      notSet = false
+      lineNumber = i
+      columnNumber = currLine.trimStart().indexOf('█') 
+      lines[i] = lines[i]!.replace('█', ' ')
+    }
+    if (notSet) {
+      lineNumber++
+      columnNumber++
+    }
+  }
+  const cursorPosition: LSP.Position = LSP.Position.create(lineNumber, columnNumber)
+  return {
+    cursorPosition,
+    input: lines.join('\n'),
+  }
+}
+
+export function createFakeCursorLspDocument(name: string, text: string): {document: LspDocument, cursorPosition: LSP.Position, input: string} {
+  const { cursorPosition, input } = removeCursorFromCode(text)
+  const uri = createFakeUriPath(name);
+  const doc = TextDocumentItem.create(uri, 'fish', 0, input);
+  return { document: new LspDocument(doc), cursorPosition, input }
+}
+
 export function createFakeLspDocument(name: string, text: string): LspDocument {
   const uri = createFakeUriPath(name);
   const doc = TextDocumentItem.create(uri, 'fish', 0, text);
   return new LspDocument(doc);
+}
+
+/**
+ * @param {FishDocumentSymbol} symbols - nested array of FishDocumentSymbol for a document
+ */
+export function logFishDocumentSymbolTree(symbols: FishDocumentSymbol[], indentString: string = ''): string {
+  let str = '';
+  for (const symbol of symbols) {
+    str += symbol.scope.scopeTag.padEnd(10) + '::::' + indentString  + symbol.logString() + '\n';
+    if (symbol.children) {
+      str += logFishDocumentSymbolTree(symbol.children, indentString + '    ');
+    }
+  }
+  return str.trim();
+}
+
+
+/**
+ * build a string of text before the cursor, this is useful for debugging
+ */
+export function getCursorText(cursorNode: SyntaxNode, cursorPosition: LSP.Position): string {
+  function buildCurrent() {
+    let current: SyntaxNode | null = cursorNode;
+    let result: string = '';
+    while (current) {
+      if (current.parent && getRange(current.parent).start.line !== cursorPosition.line) {
+        const range = getRange(current).start;
+        if (range.line === cursorPosition.line) {
+          return String.raw`${current.text.slice(0, cursorPosition.character)}`
+        } 
+      }
+      current = current.parent;
+    }
+    return result
+  }
+  return "`" + buildCurrent() + "█`"
 }

@@ -2,7 +2,7 @@ import * as fastGlob from 'fast-glob';
 import { readFileSync } from 'fs';
 import { pathToUri, toLspDocument, uriToPath } from './translation';
 import { LspDocument } from '../document';
-import { FishDocumentSymbol } from '../document-symbol';
+import { FishDocumentSymbol } from './symbol';
 import { config } from '../cli';
 
 async function getFileUriSet(path: string) {
