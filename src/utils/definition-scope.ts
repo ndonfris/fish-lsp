@@ -194,12 +194,22 @@ function getNodeScopeType(node: SyntaxNode) {
 }
 
 function getFunctionScope(node: SyntaxNode) {
-  let current = node;
-  while (current !== null) {
+  // let isFuncNode = (n: SyntaxNode) => {
+
+  //   if (isFunctionDefinition(n)) {
+  //     return !getChildrenArguments(n).some((opt: SyntaxNode) => (
+  //       isMatchingOption(opt, { shortOption: '-S', longOption: '----no-scope-shadowing' }) ||
+  //         (isMatchingOption(opt, { shortOption: '-V', longOption: '--inherit-variable' }) && opt?.nextNamedSibling?.text === symbol.name) ||
+  //         (isMatchingOption(opt, { shortOption: '-v', longOption: '--on-variable' }) && opt?.nextNamedSibling?.text === symbol.name)
+  //     ));
+  // }
+
+  let current: SyntaxNode | null = node;
+  while (current) {
     if (NodeTypes.isFunctionDefinition(current) || NodeTypes.isProgram(current)) {
       return current;
     }
-    current = current.parent!;
+    current = current?.parent;
   }
   return null;
 }
@@ -209,7 +219,7 @@ export function getScope(uri: string, node: SyntaxNode) {
   const uriType = getUriScopeType(uri);
   if (nodeType === 'function') {
     const parent = node.parent!.parent!;
-    const scopeNode = getFunctionScope(parent!);
+    const scopeNode = getFunctionScope(parent);
     if (!scopeNode) return DefinitionScope.create(parent, 'local');
 
     /**

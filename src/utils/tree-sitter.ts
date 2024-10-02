@@ -784,3 +784,12 @@ export function equalsRanges(a: Range, b: Range): boolean {
     a.end.character === b.end.character
   );
 }
+
+/**
+ * gets all flags/options/arguments for a command
+ *
+ * `function foo -a --bar baz` => `['-a', '--bar', 'baz']`
+ */
+export function getChildrenArguments(node: SyntaxNode): Array<SyntaxNode> {
+  return node.childrenForFieldName('option')
+}

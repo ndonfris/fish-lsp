@@ -2,7 +2,7 @@ import Parser, { SyntaxNode, Tree } from 'web-tree-sitter';
 import { LspDocument } from './document';
 import { /*filterGlobalSymbols,*/ FishDocumentSymbol, filterDocumentSymbolInScope, filterSymbolsInScope, filterWorkspaceSymbol, flattenNested, getFishDocumentSymbolItems, getGlobalSyntaxNodesInDocument } from './utils/symbol';
 import * as LSP from 'vscode-languageserver';
-import { ancestorMatch, containsRange, equalsRanges, getChildNodes, getNodeAtPosition, getRange, isPositionBefore, isPositionWithinRange, pointToPosition, positionToPoint, precedesRange, findFirstParent, getNodeAtPoint } from './utils/tree-sitter';
+import { ancestorMatch, containsRange, equalsRanges, getChildNodes, getNodeAtPosition, getRange, isPositionBefore, isPositionWithinRange, pointToPosition, positionToPoint, precedesRange, findFirstParent, getNodeAtPoint, getChildrenArguments } from './utils/tree-sitter';
 import { isSourceFilename } from './diagnostics/node-types';
 import { SyncFileHelper } from './utils/file-operations';
 import { Location, Position, SymbolKind } from 'vscode-languageserver';
@@ -176,39 +176,21 @@ export class Analyzer { // @TODO rename to Analyzer
     });
   }
 
-  private findLocalLocations(document: LspDocument, position: Position) {
+  // @Todo
+  public findLocalLocations(document: LspDocument, position: Position) {
     const symbol = this.getDefinitionSymbol(document, position).pop();
     if (!symbol) return [];
 
-    // check that a function definition has no arguments that would inherit the variable
-    const noOptModifier = (opt: SyntaxNode) => {
-      return !(
-        isMatchingOption(opt, {shortOption: '-S', longOption: '----no-scope-shadowing'}) ||
-        (isMatchingOption(opt, {shortOption: '-V', longOption: '--inherit-variable'}) && opt?.nextSibling?.text === symbol.name) ||
-        (isMatchingOption(opt, {shortOption: '-v', longOption: '--on-variable'}) && opt?.nextSibling?.text === symbol.name)
-      )
-    }
-
-    // check if a function definition has arguments w/o the options defined above
-    const hasArguments = (node: SyntaxNode) => {
-      let current: SyntaxNode | null = node;
-      while (current) {
-        if (noOptModifier(current)) return true;
-        current = current.nextSibling;
+    const nodes = getChildNodes(symbol.scope.scopeNode).filter(n => {
+      if (isFunctionDefinition(n)) {
+        return !getChildrenArguments(n).some((opt: SyntaxNode) => (
+          isMatchingOption(opt, { shortOption: '-S', longOption: '----no-scope-shadowing' }) ||
+            (isMatchingOption(opt, { shortOption: '-V', longOption: '--inherit-variable' }) && opt?.nextNamedSibling?.text === symbol.name) ||
+            (isMatchingOption(opt, { shortOption: '-v', longOption: '--on-variable' }) && opt?.nextNamedSibling?.text === symbol.name)
+        ));
       }
-      return false;
-    }
-
-    let nodes = getChildNodes(symbol.scope.scopeNode)
-    if (symbol.kind === SymbolKind.Variable) {
-      const skipNodes = nodes.filter(n => {
-        // don't skip root node
-        if (symbol.scope.scopeNode.equals(n)) return false;
-        // skip function definitions with arguments
-        return isFunctionDefinition(n) && hasArguments(n.firstChild!.nextSibling!)
-      })
-      nodes = nodes.filter(n => !skipNodes.some(s => containsRange(getRange(s), getRange(n))));
-    }
+      return true
+    })
 
     return findLocations(document.uri, nodes, symbol.name);
   }

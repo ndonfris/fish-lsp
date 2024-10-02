@@ -3,22 +3,22 @@ import { firstAncestorMatch, getParentNodes, getLeafs } from './tree-sitter';
 import * as VariableTypes from './variable-syntax-nodes';
 import { SyncFileHelper } from './file-operations';
 
-// Helper type to make certain properties required
-type RequiredProperties<T, K extends keyof T> = Required<Pick<T, K>> & Omit<T, K>;
-
-// Define a type that extends SyntaxNode with required properties
-type ExtendedSyntaxNode = SyntaxNode & {
+// Use intersection to combine the required properties with SyntaxNode
+export interface NodeWithParentAndChildren extends SyntaxNode {
   parent: SyntaxNode;
   firstChild: SyntaxNode;
   lastChild: SyntaxNode;
   firstNamedChild: SyntaxNode;
   lastNamedChild: SyntaxNode;
-};
+}
 
-// Use intersection to combine the required properties with SyntaxNode
-export type NodeWithParentAndChildren = SyntaxNode & RequiredProperties<ExtendedSyntaxNode, 'parent' | 'firstChild' | 'lastChild' | 'firstNamedChild' | 'lastNamedChild'>;
-export type NamedNode = SyntaxNode & { parent: NodeWithParentAndChildren };
-export type ArgNode = SyntaxNode & { parent: NodeWithParentAndChildren };
+export interface NamedNode extends SyntaxNode  {
+  parent: SyntaxNode;
+}
+export interface ArgNode extends SyntaxNode {
+  parent: SyntaxNode;
+}
+
 
 
 /**

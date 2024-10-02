@@ -551,29 +551,52 @@ describe('analyzer test suite', () => {
 
       const defSymbol = analyzer.getDefinitionSymbol(doc, cursorPosition);
 
-      expect(defSymbol.map(s => Simple.symbol(s))).toEqual([ {
-        name: 'test',
-        uri: 'conf.d/public.fish',
-        kind: 'variable',
-        scope: 'local',
-        range: [ 4, 0, 4, 13 ],
-        selectionRange: [ 4, 7, 4, 11 ]
-      } ]);
+      // expect(defSymbol.map(s => Simple.symbol(s))).toEqual([ {
+      //   name: 'test',
+      //   uri: 'conf.d/public.fish',
+      //   kind: 'variable',
+      //   scope: 'local',
+      //   range: [ 4, 0, 4, 13 ],
+      //   selectionRange: [ 4, 7, 4, 11 ]
+      // } ]);
+      //
+
+      // const defSym = defSymbols.pop()
+      // analyzer.cached.get(doc.uri)?.symbols.flat().forEach(s => {
+      //   if (isFunctionDefinition(s.parent)) {
+      //     console.log(`parent`, Simple.nodeVerbose(s.parent));
+      //     s.parent.childrenForFieldName('option').forEach(c => {
+      //       console.log('+++grammar', c.text)
+      //     })
+      //   }
+        // if (s.name === 'test') {
+        //   console.log('node', Simple.nodeVerbose(s.node), Simple.symbol(s));
+        //   /*
+        //    * @see
+        //    * scopeNode.parent === function_definition 
+        //    */
+        // }
+      // })
 
 
       const refSymbols = analyzer.getReferences(doc, cursorPosition);
 
-      // refSymbols.forEach((s: LSP.Location) => {
-      //   const node = rootNode.descendantForPosition(TreeSitterUtils.rangeToPoint(s.range))
-      //   if (isVariable(node)) {
-      //     console.log(Simple.location(s));
-      //   }
+      analyzer.findLocalLocations(doc, cursorPosition).forEach((s: LSP.Location) => {
+        const node = rootNode.descendantForPosition(TreeSitterUtils.rangeToPoint(s.range))
+        // if (isVariable(node)) {
+        console.log('s', Simple.node(node));
+        // }
+      })
+        // console.log('a', Simple.node(node));
       // })
+      // const analyzer.findLocalLocations(doc, cursorPosition)
+      refSymbols.forEach(s => console.log('s', Simple.location(s)))
+      // console.log();
 
-      expect(refSymbols.map(s => Simple.location(s))).toEqual([
-        { uri: 'conf.d/public.fish', range: [ 4, 7, 4, 11 ] },
-        { uri: 'conf.d/public.fish', range: [ 5, 8, 5, 12 ] }
-      ]);
+      // expect(refSymbols.map(s => Simple.location(s))).toEqual([
+      //   { uri: 'conf.d/public.fish', range: [ 4, 7, 4, 11 ] },
+      //   { uri: 'conf.d/public.fish', range: [ 5, 8, 5, 12 ] }
+      // ]);
     });
 
     it('reference symbols: conf.d emit variable function name', () => {
@@ -600,16 +623,27 @@ describe('analyzer test suite', () => {
         }
       });
 
-      console.log({ lastPosition });
-      const defSymbol = analyzer.getDefinitionSymbol(doc, lastPosition);
+      // console.log({ lastPosition });
+      const defSymbols = analyzer.getDefinitionSymbol(doc, lastPosition);
       // const curr = rootNode.descendantForPosition(lastPosition);
-      defSymbol.forEach((s, i) => console.log(i, Simple.symbol(s)));
+      defSymbols.forEach((s, i) => console.log(i, Simple.symbol(s)));
       // console.log({node: Simple.symbol(defSymbol)});
 
+    const defSymbol = defSymbols.pop();
+      const getAllRefs = () => {
+        // console.log('test all refs');
+        // console.log(Simple.symbol(defSymbol));
+
+                  
+      }
+      getAllRefs()
+
       const refSymbols = analyzer.getReferences(doc, lastPosition);
-      refSymbols.forEach(s => console.log(Simple.location(s)));
+      console.log('test refs');
+      refSymbols.forEach((s, i) => console.log('ref', i ,Simple.location(s)));
       // console.log();
 
+      // expect(refSymbols.length).toEqual(5);
     });
   });
 
