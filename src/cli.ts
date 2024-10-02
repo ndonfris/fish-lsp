@@ -80,7 +80,7 @@ commandBin
         commandBin.description().split('\n').slice(1).join('\n').trim(),
         '',
         'OPTIONS:',
-        globalOpts.map(o => '  ' + o.flags + '\t' + o.description).join('\n').trim(),
+        globalOpts.map(o => '  ' + o.flags + '\t' + o.description).join('\n').trimEnd(),
         '',
         'SUBCOMMANDS:',
         subCommands.join('\n'),
