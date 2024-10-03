@@ -114,7 +114,7 @@ module.exports = {
     // TODO: Try to remove existing uses.
     // https://github.com/typescript-eslint/typescript-eslint/blob/master/packages/eslint-plugin/docs/rules/no-non-null-assertion.md
     '@typescript-eslint/no-non-null-assertion': 'off',
-    '@typescript-eslint/quotes': ['error', 'single', { avoidEscape: true, allowTemplateLiterals: false }],
+    '@typescript-eslint/quotes': ['warn', 'single', { avoidEscape: true, allowTemplateLiterals: false }],
     '@typescript-eslint/restrict-plus-operands': 'error',
     '@typescript-eslint/semi': ['warn', 'always'],
     'nonblock-statement-body-position': ['warn', 'beside', { overrides: { while: 'below' } }],

@@ -44,7 +44,7 @@ describe('executeHandler tests', () => {
 
     // console.log({ formatOutput: output });
     expect(output).toBe('a b c d');
-  }, 10000);
+  });
 
   it('format tmp buffer message', async () => {
     // Write the longest line to the file
@@ -62,7 +62,7 @@ describe('executeHandler tests', () => {
         '$status: 0\n',
       kind: 'info',
     });
-  }, 10000);
+  });
 
   it('source file execution', async () => {
     // const parser = await initializeParser();
@@ -80,7 +80,7 @@ describe('executeHandler tests', () => {
     '        /tmp/foo.fish\n' +
     '--------------------------------------------------\n' +
     '$status: 0\n');
-  }, 10000);
+  });
 
   it('dump theme variables', async () => {
     content = '# I want to make a theme\n';
@@ -94,12 +94,12 @@ describe('executeHandler tests', () => {
     // console.log(functionTheme);
     expect(functionTheme.uri).toBe('file:///tmp/foo.fish');
     expect(functionTheme.getText()).toBeTruthy();
-  }, 10000);
+  });
 
   it('should source a Fish buffer and return the output message', async () => {
     const result = await sourceFishBuffer(tmpBuff);
     expect(result).toEqual(expect.any(String));
-  }, 10000);
+  });
 
   it('should show the current theme and append it to the buffer file', async () => {
     const result = await showCurrentTheme(tmpBuff);
@@ -107,5 +107,5 @@ describe('executeHandler tests', () => {
       message:  '><(((°> appended theme variables to end of file',
       kind: 'info',
     });
-  }, 10000);
+  });
 });

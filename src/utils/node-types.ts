@@ -12,14 +12,13 @@ export interface NodeWithParentAndChildren extends SyntaxNode {
   lastNamedChild: SyntaxNode;
 }
 
-export interface NamedNode extends SyntaxNode  {
+export interface NamedNode extends SyntaxNode {
   parent: SyntaxNode;
 }
+
 export interface ArgNode extends SyntaxNode {
   parent: SyntaxNode;
 }
-
-
 
 /**
  * fish shell comment: '# ...'
@@ -46,7 +45,6 @@ export function isShebang(node: SyntaxNode) {
     firstLine.text.includes('fish')
   );
 }
-
 
 /**
  * function some_fish_func
@@ -206,7 +204,10 @@ export function isScope(node: SyntaxNode): boolean {
 }
 
 export function isSemicolon(node: SyntaxNode): boolean {
-  return (node.type === ';' && node.text === ';') || node.type === ';';
+  if (node.type === ';' && node.text === ';') {
+    return true;
+  }
+  return node.type === ';';
 }
 
 export function isNewline(node: SyntaxNode): boolean {
@@ -245,6 +246,13 @@ export function isShortOption(node: SyntaxNode): node is ArgNode {
 
 export function isOption(node: SyntaxNode): node is ArgNode {
   return isShortOption(node) || isLongOption(node);
+}
+
+export function isArgument(node: SyntaxNode): node is ArgNode {
+  if (!node.parent) return false;
+  if (isOption(node)) return true;
+  if (!isCommandName(node)) return false;
+  return node.parent.childrenForFieldName('argument').some(n => n.equals(node));
 }
 
 /** careful not to call this on old unix style flags/options */
@@ -324,15 +332,15 @@ export function isVariable(node: SyntaxNode) {
  * backtracks to the previous sibling or parent node on the same line/row
  */
 function previousSiblingOrParentNode(node: SyntaxNode) {
-  
+
   // handles SyntaxNode.kind === 'escape'
   if (node.previousSibling) {
     return node.previousSibling;
   }
 
   // handles deeply nested SyntaxNodes with no siblings
-  return (node.parent && node.parent.startPosition.column === node.startPosition.column) 
-    ? node.parent 
+  return (node.parent && node.parent.startPosition.column === node.startPosition.column)
+    ? node.parent
     : null;
 }
 
@@ -363,7 +371,7 @@ export function findPreviousSibling(node?: SyntaxNode): SyntaxNode | null {
 export function findParentCommand(node?: SyntaxNode) {
 
 
-  if (!node) return null; 
+  if (!node) return null;
 
   let currentNode: SyntaxNode | null = node;
 
@@ -386,7 +394,7 @@ export function findParentFunction(node?: SyntaxNode): NodeWithParentAndChildren
   let currentNode: SyntaxNode | null | undefined = node;
   while (currentNode) {
     if (isFunctionDefinition(currentNode)) {
-      return currentNode 
+      return currentNode;
     }
     currentNode = currentNode.parent;
   }
@@ -576,7 +584,7 @@ function _isArgFlags(node: SyntaxNode) {
 }
 
 export type VariableScope = 'global' | 'local' | 'universal' | 'export' | 'unexport' | 'function';
-export const VariableScopeFlags: { [ flag: string ]: VariableScope; } = {
+export const VariableScopeFlags: { [flag: string]: VariableScope; } = {
   '-g': 'global',
   '--global': 'global',
   '-l': 'local',
@@ -771,6 +779,17 @@ export function isCommandWithName(node: SyntaxNode, ...commandNames: string[]) {
   if (node.type !== 'command') return false;
   // const currentCommandName = node.firstChild?.text
   return !!node.firstChild && commandNames.includes(node.firstChild.text);
+}
+
+export function isNonFlagArgument(node: SyntaxNode) {
+  if (!node.parent) return false;
+  if (isOption(node)) return false;
+  if (node.type !== 'word') return false;
+
+  return (
+    isCommand(node.parent) &&
+    node.parent.childrenForFieldName('argument').some(n => n.equals(node))
+  );
 }
 
 // TODO: either move use or remove

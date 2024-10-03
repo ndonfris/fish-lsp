@@ -1,16 +1,32 @@
 {
-  "extends": ["@tsconfig/node21/tsconfig.json"],
+  "extends": ["./tsconfig.json"],
   "compilerOptions": {
-    "allowUmdGlobalAccess": true,
+    "emitDeclarationOnly": true,
+    "removeComments": true,
+    "composite": true,
+    "incremental": true,
+    "isolatedModules": true,
+    "allowArbitraryExtensions": true,
+    "skipDefaultLibCheck": true,
+    "noLib": true,
+    "skipLibCheck": true,
+    "disableSizeLimit": true,
+    "disableSolutionSearching": true,
+    "noCheck": true,
+    "allowJS": true,
+    "stripInternal": false,
+    "disableReferencedProjectLoad": true,
+    "checkJs": false,
+    "assumeChangesOnlyAffectDirectDependencies": true,
     "esModuleInterop": true,
-    "moduleDetection": "force",
     "downlevelIteration": true,
+    "preserveWatchOutput": true,
     "noUncheckedIndexedAccess": true,
-    "resolveJsonModule": true,
+    "resolveJsonModule": true
   },
   "include": [
-    "test-data/*.test.ts",
+    "test-data",
     "tsconfig.jest.json",
-    "tsconfig.json",
+    "tsconfig.json"
   ],
 }
