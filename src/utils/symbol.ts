@@ -10,7 +10,7 @@ import {
   FoldingRange,
 } from 'vscode-languageserver';
 import { containsRange, getRange, isPositionBefore, isPositionWithinRange } from './tree-sitter';
-import { isVariableDefinitionName, isFunctionDefinitionName, refinedFindParentVariableDefinitionKeyword, isCommand } from './node-types';
+import { isVariableDefinitionName, isFunctionDefinitionName, refinedFindParentVariableDefinitionKeyword } from './node-types';
 import { SyntaxNode } from 'web-tree-sitter';
 import { DefinitionScope, getScope, ScopeTag } from './definition-scope';
 import { MarkdownBuilder, md } from './markdown-builder';
@@ -19,7 +19,7 @@ import { PrebuiltDocumentationMap } from './snippets';
 import * as Locations from './locations';
 import { getArgparseDefinitions, isArgparseCommandName } from '../features/definitions/argparse';
 import { createArgvScriptDefinition, isScriptNeededArgv } from '../features/definitions/argv';
-import { createStatusDocumentSymbol } from '../features/definitions/status';
+// import { createStatusDocumentSymbol } from '../features/definitions/status';
 
 const getScopeValue = (tag: keyof typeof ScopeTag) => {
   return [
@@ -31,7 +31,6 @@ const getScopeValue = (tag: keyof typeof ScopeTag) => {
 };
 
 export class FishDocumentSymbol implements DocumentSymbol {
-
   constructor(
     public name: string,
     public kind: SymbolKind,
@@ -76,7 +75,6 @@ export class FishDocumentSymbol implements DocumentSymbol {
       equalRanges(this.selectionRange, other.selectionRange)
     );
   }
-
 
   equals(other: FishDocumentSymbol): boolean {
     const equalNames = () => {
@@ -187,24 +185,24 @@ export class FishDocumentSymbol implements DocumentSymbol {
         uri: this.uri,
         scope: DefinitionScope.create(
           this.node,
-          'function'
+          'function',
         ),
         range: this.range,
         selectionRange: this.selectionRange,
         node: this.node,
         parent: this.parent,
-        children: []
+        children: [],
       }));
     }
   }
 
   equalScopes(other: FishDocumentSymbol): boolean {
     if (this.scope.scopeNode && other.scope.scopeNode) {
-      if ([ this.scope.scopeTag, other.scope.scopeTag ].includes('inherit')) {
+      if ([this.scope.scopeTag, other.scope.scopeTag].includes('inherit')) {
         return this.scope.scopeNode.equals(other.scope.scopeNode);
       } else if (
-        [ 'global' ].includes(this.scope.scopeTag) &&
-        [ 'global' ].includes(other.scope.scopeTag)
+        ['global'].includes(this.scope.scopeTag) &&
+        ['global'].includes(other.scope.scopeTag)
       ) {
         return true;
       }
@@ -229,7 +227,6 @@ export class FishDocumentSymbol implements DocumentSymbol {
     showVerboseNode?: boolean;
     skipProperties?: string[];
   } = {}): string {
-
     const positionString = (pos: Position) => `(line: ${pos.line}, character: ${pos.character})`;
 
     const rangeString = (range: Range) => {
@@ -239,7 +236,7 @@ export class FishDocumentSymbol implements DocumentSymbol {
     const syntaxNodeShrotener = (node: SyntaxNode) => {
       const text = node.text
         .replace(/\n/g, '\\n')
-        .replace(/    /g, '\t')
+        .replace(/ {4}/g, '\t')
         .replace(/\t/g, '\\t');
       return text.length > 20 ? node.text.slice(0, 20) + '...' : text;
     };
@@ -269,12 +266,12 @@ export class FishDocumentSymbol implements DocumentSymbol {
     } as any;
 
     if (includeDetail) {
-      logObj[ 'detail' ] = this.detail;
+      logObj.detail = this.detail;
     }
 
     // Remove properties that should be skipped
     for (const prop of skipProperties) {
-      delete logObj[ prop ];
+      delete logObj[prop];
     }
 
     return JSON.stringify(logObj, null, 2);
@@ -308,7 +305,6 @@ export namespace FishDocumentSymbol {
   }: CreateParams): FishDocumentSymbol {
     return new FishDocumentSymbol(name, kind, uri, range, selectionRange, scope, node, parent, children);
   }
-
 
 }
 
@@ -350,8 +346,8 @@ export function flattenNested<T extends { children?: T[]; }>(...roots: T[]): T[]
   result.push(...roots);
 
   while (index < result.length) {
-    const current = result[ index++ ];
-    if (current?.children) result.push(...current?.children);
+    const current = result[index++];
+    if (current?.children) result.push(...current.children);
   }
 
   return result;
@@ -391,8 +387,8 @@ export function getFishDocumentSymbolItems(uri: DocumentUri, ...currentNodes: Sy
           scope: getScope(uri, child),
           node: child,
           parent: parent,
-          children: childrenSymbols || []
-        })
+          children: childrenSymbols || [],
+        }),
       );
       continue;
     }
@@ -400,8 +396,6 @@ export function getFishDocumentSymbolItems(uri: DocumentUri, ...currentNodes: Sy
   }
   return symbols;
 }
-
-
 
 /**
  * flat list of symbols, up to the position given (including symbols at the position)
@@ -438,7 +432,7 @@ export function filterDocumentSymbolInScope(symbols: FishDocumentSymbol[], posit
   function filterSymbolsRecursively(symbolsToFilter: FishDocumentSymbol[]): FishDocumentSymbol[] {
     return symbolsToFilter.flatMap(symbol => {
       const validChildren = symbol.children ? filterSymbolsRecursively(symbol.children) : [];
-      return isValidSymbol(symbol) ? [ symbol, ...validChildren ] : validChildren;
+      return isValidSymbol(symbol) ? [symbol, ...validChildren] : validChildren;
     });
   }
 
@@ -471,7 +465,7 @@ export function filterWorkspaceSymbol(symbols: FishDocumentSymbol[]) {
 }
 
 /**
- * @TODO - change to use a flat symbol array, so that it can be used with 
+ * @TODO - change to use a flat symbol array, so that it can be used with
  *         filterSymbolsOutsideOfCursor(), which then can give us our completion
  *         symbols
  *
@@ -482,7 +476,7 @@ export function filterWorkspaceSymbol(symbols: FishDocumentSymbol[]) {
  */
 export function filterLastPerScopeSymbol(symbolArray: FishDocumentSymbol[]) {
   const symbolTree = flattenNested(...symbolArray);
-  const flatSymbols = [ ...symbolTree ];
+  const flatSymbols = [...symbolTree];
   return symbolTree
     .filter((symbol: FishDocumentSymbol) => !flatSymbols.some((s) => {
       return (
@@ -516,15 +510,12 @@ export function filterSymbolsOutsideOfCursor(symbolArray: FishDocumentSymbol[], 
 }
 
 export function getGlobalSyntaxNodesInDocument(nodes: SyntaxNode[], symbols: FishDocumentSymbol[]) {
-
   // const flatSymbols = flattenNested(...symbols)
   //   .filter(s => s.scope.scopeTag !== 'global')
   //
   // return nodes.filter(n => !flatSymbols.some(range => containsRange(range, getRange(n))));
   return nodes.filter(n => !symbols.some(symbol => containsRange(getRange(symbol.scope.scopeNode), getRange(n)) && symbol.name === n.text));
 }
-
-
 
 /**
  * take a list of non flattened symbols and return a list of symbols that are in scope
@@ -539,15 +530,15 @@ export function filterSymbolsInScope(symbols: FishDocumentSymbol[], cursorPositi
   return flattenNested(...symbols)
     .filter(s => !(
       s.kind === SymbolKind.Function
-      && (Locations.Range.containsPosition(s.range, cursorPosition))
+      && Locations.Range.containsPosition(s.range, cursorPosition)
     ))
     .filter(s => s.scope.containsPosition(cursorPosition))
     .filter((current, _, results) =>
       !results.some(other =>
         current.name === other.name &&
         !other.scopeSmallerThan(current) &&
-        current.scope.scopeNode.equals(other.scope.scopeNode)
-      )
+        current.scope.scopeNode.equals(other.scope.scopeNode),
+      ),
     );
 }
 
