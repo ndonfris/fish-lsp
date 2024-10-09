@@ -236,23 +236,23 @@ export function isEndStdinCharacter(node: SyntaxNode): node is ArgNode {
   return '--' === node.text && node.type === 'word';
 }
 
-export function isLongOption(node: SyntaxNode): node is ArgNode {
-  return node.text.startsWith('--') && !isEndStdinCharacter(node);
+export function isLongOption(node: SyntaxNode) {
+  return node?.text.startsWith('--') && !isEndStdinCharacter(node);
 }
 
-export function isShortOption(node: SyntaxNode): node is ArgNode {
-  return node.text.startsWith('-') && !isLongOption(node);
+export function isShortOption(node: SyntaxNode) {
+  return node?.text.startsWith('-') && !isLongOption(node);
 }
 
-export function isOption(node: SyntaxNode): node is ArgNode {
+export function isOption(node: SyntaxNode | ArgNode): node is ArgNode {
   return isShortOption(node) || isLongOption(node);
 }
 
-export function isArgument(node: SyntaxNode): node is ArgNode {
+export function isArgument(node: SyntaxNode) {
   if (!node.parent) return false;
   if (isOption(node)) return true;
   if (!isCommandName(node)) return false;
-  return node.parent.childrenForFieldName('argument').some(n => n.equals(node));
+  return node.parent.childrenForFieldName('argument').some((n) => n.equals(node));
 }
 
 /** careful not to call this on old unix style flags/options */
@@ -474,7 +474,7 @@ export function isVariableDefinitionName(node: SyntaxNode): boolean {
     case 'read':
       return VariableTypes.isReadDefinitionNode(siblings, node);
     case 'function':
-      return VariableTypes.isFunctionArgumentDefinitionNode(siblings, node);
+      return VariableTypes.isFunctionArgumentDefinitionNode(keyword.parent!, node);
     case 'for':
       return VariableTypes.isForLoopDefinitionNode(siblings, node);
     default:

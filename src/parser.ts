@@ -26,3 +26,10 @@ export function getLanguageWasmPath(): string {
   );
   return fishLangPath.toString();
 }
+
+// import tsWasm from 'web-tree-sitter/tree-sitter.wasm?url';
+// import tsLang from 'web-tree-sitter/tree-sitter-fish.wasm?url';
+// async function loadWasm() {
+//   await WebAssembly.compileStreaming(fetch(tsWasm));
+//   await WebAssembly.compileStreaming(fetch(tsLang));
+// }

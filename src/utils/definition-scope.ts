@@ -1,14 +1,14 @@
 import { SyntaxNode } from 'web-tree-sitter';
 import * as NodeTypes from './node-types';
 import { pathToRelativeFunctionName } from './translation';
-import { firstAncestorMatch, getRange, isPositionWithinRange, getParentNodes, positionToPoint, pointToPosition, isNodeWithinRange } from './tree-sitter';
+import { firstAncestorMatch, getRange, isPositionWithinRange, isNodeWithinRange } from './tree-sitter';
 import { Position } from 'vscode-languageserver';
 
 export const ScopeTag = {
   local: 0,
   inherit: 1,
   function: 2,
-  global: 3
+  global: 3,
 } as const;
 
 // Create a type from the object keys

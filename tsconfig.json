@@ -7,11 +7,16 @@
     "noUncheckedIndexedAccess": true,
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
+    // "moduleDetection": "auto",
+    // "types": ["src/utils/array.ts", "./node_modules/@types"],
+    // "lib": ["DOM", "ES2023"],
+    // "typeRoots": ["./src/utils"],
     "outDir": "./out",
     "rootDir": "./src",
     "baseUrl": ".",  // Base URL for module resolution
     "paths": {
-      "@package": ["./package.json"]
+      "@package": ["./package.json"],
+      "tree-sitter-fish": ["./tree-sitter-fish.wasm"]
     }
   },
   "include": [
