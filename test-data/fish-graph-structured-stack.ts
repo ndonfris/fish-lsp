@@ -1,4 +1,6 @@
 import { Range, Location, Position, SymbolKind } from 'vscode-languageserver';
+import Parser from 'web-tree-sitter';
+import { initializeParser } from '../src/parser';
 
 interface TextSpan {
   ranges: Range[];
@@ -48,22 +50,25 @@ const userConfigRoot = new SymbolNode({ text: '_@@root@@_', type: SymbolKind.Nam
 // const userConfigFile = new SymbolNode({ text: '_@@config@@_', type: SymbolKind.File, children: [], location: Location.create('user-config.fish', Range.create(0, 0, 0, 0)), scope: { ranges: [] } });
 
 class FishSymbolGraph {
-  private root: SymbolNode;
-  private fileNodes: Map<string, SymbolNode>;
   private globalSymbols: Map<string, SymbolNode>;
   private universalSymbols: Map<string, SymbolNode>;
+  private fileNodes = new Map<string, SymbolNode>();
+  private parser: Parser | null = null;
+  public trees = new Map<string, Parser.Tree>();
 
   constructor() {
-    this.root = userConfigRoot;
-    this.fileNodes = new Map();
     this.globalSymbols = new Map();
     this.universalSymbols = new Map();
+  }
+
+  async initializeParser(): Promise<FishSymbolGraph> {
+    this.parser = await initializeParser();
+    return this;
   }
 
   addFile(filePath: string, symbols: FishDocumentSymbol[]): void {
     const fileNode = new SymbolNode({ text: filePath, type: SymbolKind.File, children: [], location: Location.create(filePath, Range.create(0, 0, 0, 0)), scope: { ranges: [] } });
     this.fileNodes.set(filePath, fileNode);
-    this.root.addChild(fileNode);
     this.addSymbols(symbols, fileNode);
   }
 
@@ -197,9 +202,9 @@ class FishSymbolGraph {
     // Check if this node represents the word we're looking for
     if (node.symbol.text === word && this.isSameLocation(node.symbol.location, definition.location)) {
       if (!references.some(r => node.symbol.location.range.start.line === r.range.start.line &&
-          node.symbol.location.range.start.character === r.range.start.character &&
-          node.symbol.location.range.end.line === r.range.end.line &&
-          node.symbol.location.range.end.character === r.range.end.character,
+        node.symbol.location.range.start.character === r.range.start.character &&
+        node.symbol.location.range.end.line === r.range.end.line &&
+        node.symbol.location.range.end.character === r.range.end.character,
       )) {
         references.push(node.symbol.location);
       }
@@ -248,6 +253,7 @@ class FishSymbolGraph {
 
 // Usage example
 const graph = new FishSymbolGraph();
+graph.initializeParser();
 
 // Add a file to the graph
 graph.addFile('/home/user/example.fish', [

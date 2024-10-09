@@ -5,6 +5,7 @@
     "removeComments": true,
     "composite": true,
     "incremental": true,
+    "allowSyntheticDefaultImports": true,
     "isolatedModules": true,
     "allowArbitraryExtensions": true,
     "skipDefaultLibCheck": true,
@@ -22,7 +23,8 @@
     "downlevelIteration": true,
     "preserveWatchOutput": true,
     "noUncheckedIndexedAccess": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "types": ["src/utils/array"]
   },
   "include": [
     "test-data",

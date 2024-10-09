@@ -20,16 +20,16 @@ function _setHasQuery(nodes: SyntaxNode[]): boolean {
 const shouldStop = (node: SyntaxNode): boolean => {
   return (
     NodeTypes.isCommand(node) ||
-        NodeTypes.isComment(node) ||
-        NodeTypes.isShebang(node) ||
-        NodeTypes.isSemicolon(node) ||
-        NodeTypes.isNewline(node)
+    NodeTypes.isComment(node) ||
+    NodeTypes.isShebang(node) ||
+    NodeTypes.isSemicolon(node) ||
+    NodeTypes.isNewline(node)
   );
 };
 export function isPossible(node: SyntaxNode): boolean {
   return (
     node.type === 'variable_name' ||
-        node.type === 'word'
+    node.type === 'word'
   );
 }
 
@@ -73,23 +73,52 @@ export function isReadDefinitionNode(siblings: SyntaxNode[], match: SyntaxNode):
   return readVariables.some(n => n.equals(match));
 }
 
-export function isFunctionArgumentDefinitionNode(siblings: SyntaxNode[], match: SyntaxNode): boolean {
-  const argFlag = new VariableDefinitionFlag('a', 'argument-names');
-  const args : SyntaxNode[] = [];
-  for (let i = 0; i < siblings.length; i++) {
-    const child = siblings[i];
-    if (child && argFlag.isMatch(child)) {
-      let varName = child.nextSibling;
-      while (varName !== null && varName.type === 'word' && !varName.text.startsWith('-')) {
-        args.push(varName);
-        varName = varName.nextSibling;
-      }
+export function isFunctionArgumentDefinitionNode(parent: SyntaxNode, match: SyntaxNode): boolean {
+  let lastFlag: SyntaxNode | null = null;
+  for (const node of parent.childrenForFieldName('option')) {
+    if (NodeTypes.isOption(node)) {
+      lastFlag = node;
+      continue;
+    }
+    if (match.equals(node)) break;
+  }
+
+  const afterLastFlag = parent.children
+    .slice(parent.children.findLastIndex((l) => lastFlag?.equals(l)) + 1)
+    .collectWhile((n) => !NodeTypes.isOption(n));
+
+  const args: SyntaxNode[] = [];
+
+  for (const node of afterLastFlag) {
+    if (NodeTypes.isMatchingOption(lastFlag!, { shortOption: '-a', longOption: '--argument-names' })) {
+      args.push(node);
+    }
+    if (NodeTypes.isMatchingOption(lastFlag!, { shortOption: '-V', longOption: '--inherit-variable' })) {
+      args.push(node);
+    }
+    if (NodeTypes.isMatchingOption(lastFlag!, { shortOption: '-v', longOption: '--on-variable' })) {
+      args.push(node);
     }
   }
   return args.some(n => n.equals(match));
 }
 
-export function isForLoopDefinitionNode(siblings: SyntaxNode[], match: SyntaxNode) : boolean {
+// const argFlag = new VariableDefinitionFlag('a', 'argument-names');
+// const args : SyntaxNode[] = [];
+// for (let i = 0; i < siblings.length; i++) {
+//   const child = siblings[i];
+//   if (child && argFlag.isMatch(child)) {
+//     let varName = child.nextSibling;
+//     while (varName !== null && varName.type === 'word' && !varName.text.startsWith('-')) {
+//       args.push(varName);
+//       varName = varName.nextSibling;
+//     }
+//   }
+// }
+// return args.some(n => n.equals(match));
+// }
+
+export function isForLoopDefinitionNode(siblings: SyntaxNode[], match: SyntaxNode): boolean {
   const first = siblings[0];
   if (!first) {
     return false;

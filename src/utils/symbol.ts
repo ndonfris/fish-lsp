@@ -367,7 +367,7 @@ export function getFishDocumentSymbolItems(uri: DocumentUri, ...currentNodes: Sy
 
     // adds argparse definitions
     if (current.parent && isArgparseCommandName(current)) {
-      symbols.push(...getArgparseDefinitions(uri, current));
+      // symbols.push(...getArgparseDefinitions(uri, current));
       continue;
     }
 
