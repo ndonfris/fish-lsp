@@ -3,6 +3,31 @@ import { SyntaxNode } from 'web-tree-sitter';
 import * as NodeTypes from './node-types';
 import { FishDocumentSymbol, SymbolName } from './new-symbol';
 import { flattenNested } from './flatten';
+import { getChildNodes, getRange } from './tree-sitter';
+
+/**
+ * TODO:
+ *   • DEPRECATED in favor of new-scope.ts
+ *   • Similar feature set, with different design choices
+ *   • Overall, the new-scope.ts is more robust and simpler to use.
+ *
+ *       ------------------------------------------------------------------
+ *          [ FUTURE ] new-scope.ts       VS.       scope.ts [ OLD ]
+ *       ------------------------------------------------------------------
+ *       - removes the need for introducing a new text-span `Range[]`
+ *         object to represent each scope, our new-scope will be able to
+ *         directly provide the nodes included in the Range[] object
+ *         for any given scope.
+ *       - implements get/set methods for using the scope object in a
+ *         more friendly manor.
+ *       - directly has access to the important information that causes
+ *         Scope's to vary in the first place.
+ *       - removes edge cases which scope.ts required back patching (via
+ *         methods like `fixSpan`), to semi-correctly handle different
+ *         scopes
+ *       - exports less identifiers, which negates minute details which
+ *         cause confusion among potential maintainers.
+ */
 
 /* type mapping for ScopeTags */
 export const ScopeTag = {
@@ -18,6 +43,10 @@ export type ScopeTag = keyof typeof ScopeTag;
 
 /* Utility type to get the numeric value of a ScopeTag */
 export type ScopeTagValue = typeof ScopeTag[ScopeTag];
+
+export function getScopeTagValue(tag: ScopeTag): ScopeTagValue {
+  return ScopeTag[tag];
+}
 
 export class Scope {
   /**
@@ -39,12 +68,20 @@ export class Scope {
     return this.getTextSpanRanges(this.node);
   }
 
+  get tagValue(): ScopeTagValue {
+    return ScopeTag[this.tag];
+  }
+
   /**
    * Get the _\`scope.tag\`_ numeric value for comparing
    * @returns The numeric value of the _\`scope.tag\`_
    */
   getTagValue(): ScopeTagValue {
     return ScopeTag[this.tag];
+  }
+
+  static tagValue(tag: ScopeTag): ScopeTagValue {
+    return ScopeTag[tag];
   }
 
   /**
@@ -178,6 +215,107 @@ export class Scope {
       a.end.line === b.start.line && a.end.character <= b.start.character ||
       b.end.line < a.start.line ||
       b.end.line === a.start.line && b.end.character <= a.start.character);
+  }
+
+  // private fixGlobalRanges(...s: FishDocumentSymbol[]) {
+  //   const global = flattenNested(...s).find((sym) => sym.scope.tag === 'global');
+  //   s.forEach((sym) => {
+  //     if (sym.scope.tag !== 'global') {
+  //       global.scope.removeSpan(sym.range);
+  //     }
+  //   });
+  //   }
+  // }
+
+  fixSpan(...symbols: FishDocumentSymbol[]): void {
+    const globalSymbols = symbols.filter(symbol => symbol.scope.tag === 'global');
+
+    for (const symbol of globalSymbols) {
+      const symbolRange = symbol.range;
+
+      // Check if the symbol's range overlaps with any existing spans
+      const overlappingSpans = this.spans.filter(span => this.rangeOverlaps(span, symbolRange));
+
+      if (overlappingSpans.length === 0) {
+        // If there's no overlap, simply add the new range
+        this.spans.push(symbolRange);
+      } else {
+        // If there's overlap, we need to merge the ranges
+        const newSpans: Range[] = [];
+
+        for (const span of this.spans) {
+          if (this.rangeOverlaps(span, symbolRange)) {
+            // Merge the overlapping spans
+            newSpans.push(this.mergeRanges(span, symbolRange));
+          } else {
+            newSpans.push(span);
+          }
+        }
+
+        this.spans = newSpans;
+      }
+    }
+
+    // Sort the spans to ensure they're in order
+    this.spans.sort((a, b) => {
+      if (a.start.line !== b.start.line) {
+        return a.start.line - b.start.line;
+      }
+      return a.start.character - b.start.character;
+    });
+
+    // Merge any adjacent or overlapping spans
+    this.spans = this.mergeAdjacentSpans(this.spans);
+  }
+
+  private mergeRanges(range1: Range, range2: Range): Range {
+    return {
+      start: {
+        line: Math.min(range1.start.line, range2.start.line),
+        character: range1.start.line < range2.start.line ? range1.start.character :
+          range1.start.line > range2.start.line ? range2.start.character :
+            Math.min(range1.start.character, range2.start.character),
+      },
+      end: {
+        line: Math.max(range1.end.line, range2.end.line),
+        character: range1.end.line > range2.end.line ? range1.end.character :
+          range1.end.line < range2.end.line ? range2.end.character :
+            Math.max(range1.end.character, range2.end.character),
+      },
+    };
+  }
+
+  private mergeAdjacentSpans(spans: ReadonlyArray<Range>): Range[] {
+    if (spans.length <= 1) return [...spans];
+
+    const mergedSpans: Range[] = [];
+    let currentSpan: Range | undefined = spans[0];
+
+    for (let i = 1; i < spans.length; i++) {
+      const nextSpan = spans[i];
+
+      if (currentSpan && nextSpan) {
+        if (this.rangeOverlaps(currentSpan, nextSpan) || this.rangesAdjacent(currentSpan, nextSpan)) {
+          currentSpan = this.mergeRanges(currentSpan, nextSpan);
+        } else {
+          mergedSpans.push(currentSpan);
+          currentSpan = nextSpan;
+        }
+      } else if (nextSpan) {
+        currentSpan = nextSpan;
+      }
+    }
+
+    if (currentSpan) {
+      mergedSpans.push(currentSpan);
+    }
+
+    return mergedSpans;
+  }
+
+  private rangesAdjacent(range1: Range, range2: Range): boolean {
+    return range1.end.line === range2.start.line && range1.end.character === range2.start.character ||
+      range2.end.line === range1.start.line && range2.end.character === range1.start.character;
   }
 
   toString() {
@@ -388,7 +526,7 @@ export namespace ScopeModifier {
       return { tag, node: scopeNode };
     }
     if (tag === 'local' && node.parent) {
-      const scopeNode = findParent(node, (n) => {
+      const scopeNode = findParent(node.parent, (n) => {
         return n.type === 'function_definition' || n.type === 'program';
       })!;
       // if (scopeNode.type === 'function_definition') {
@@ -413,7 +551,10 @@ export function getScope(documentUri: DocumentUri, node: SyntaxNode, text: Symbo
   }
 
   if (nodeType === 'function') {
-    scopeTag = getFunctionScopeType(documentUri, node);
+    scopeTag = getFunctionScopeType(documentUri, node.parent!);
+    scopeNode = findParent(node as SyntaxNode, (n) => {
+      return n.type === 'program';
+    }) as SyntaxNode;
   } else if (nodeType === 'variable') {
     if (node.parent) {
       if (node.parent.type === 'function_definition') {
@@ -433,7 +574,12 @@ export function getScope(documentUri: DocumentUri, node: SyntaxNode, text: Symbo
     }
   }
 
-  return Scope.create(scopeTag, scopeNode);
+  /* remove the span if we're inside a function, so that there is no recursive collisions */
+  const result = Scope.create(scopeTag, scopeNode);
+  if (nodeType === 'function' && node.parent!.type === 'program') {
+    result.removeSpan(getRange(node.parent!));
+  }
+  return result;
 }
 
 // export function getTextSpanRanges(node: SyntaxNode): Range[] {
@@ -495,7 +641,7 @@ export function getGlobalDocumentScope(root: SyntaxNode, symbols: FishDocumentSy
   const rootScope = Scope.create('global', root);
 
   const matches: FishDocumentSymbol[] = flattenNested(...symbols)
-    .filter((s: FishDocumentSymbol) => s.name === matchString && s.scope.getTagValue() < ScopeTag.global);
+    .filter((s: FishDocumentSymbol) => s.name === matchString && s.scope.getTagValue() <= 2);
 
   matches.forEach(s => {
     rootScope.removeSpan(s.range);
@@ -513,3 +659,200 @@ export function checkSymbolScopeContainsRange(s1: string, s2: string, symbol1: F
     innerScope: symbol2.scope.toString(),
   };
 }
+
+export function getNodesInScope(scope: Scope) {
+  const result: SyntaxNode[] = [];
+  for (const child of getChildNodes(scope.node)) {
+    if (scope.containsInTextSpan(getRange(child))) {
+      result.push(child);
+    }
+  }
+  return result;
+}
+
+//
+// import { Range } from 'vscode-languageserver';
+// import { SyntaxNode } from 'web-tree-sitter';
+//
+// export const ScopeTag = {
+//   local: 0,
+//   inherit: 1,
+//   function: 2,
+//   global: 3,
+//   universal: 4,
+// } as const;
+//
+// export type ScopeTag = keyof typeof ScopeTag;
+// export type ScopeTagValue = typeof ScopeTag[ScopeTag];
+//
+// export class Scope {
+//   public spans: Range[];
+//
+//   constructor(
+//     public tag: ScopeTag,
+//     public node: SyntaxNode,
+//     private options: {
+//       getTextSpanRanges?: (node: SyntaxNode) => Range[];
+//       isExcludedFunction?: (node: SyntaxNode) => boolean;
+//     } = {}
+//   ) {
+//     this.spans = this.initializeSpans();
+//   }
+//
+//   private initializeSpans(): Range[] {
+//     return this.options.getTextSpanRanges
+//       ? this.options.getTextSpanRanges(this.node)
+//       : this.defaultGetTextSpanRanges(this.node);
+//   }
+//
+//   getTagValue(): ScopeTagValue {
+//     return ScopeTag[this.tag];
+//   }
+//
+//   static create(tag: ScopeTag, node: SyntaxNode, options?: Scope['options']): Scope {
+//     return new Scope(tag, node, options);
+//   }
+//
+//   removeSpan(rangeToRemove: Range): void {
+//     this.spans = this.spans.flatMap(range => 
+//       this.splitRange(range, rangeToRemove)
+//     ).filter(range => !this.isEmptyRange(range));
+//   }
+//
+//   private splitRange(range: Range, rangeToRemove: Range): Range[] {
+//     if (!this.rangeOverlaps(range, rangeToRemove)) {
+//       return [range];
+//     }
+//
+//     const result: Range[] = [];
+//
+//     if (this.isBeforeRange(range.start, rangeToRemove.start)) {
+//       result.push({
+//         start: range.start,
+//         end: { ...rangeToRemove.start }
+//       });
+//     }
+//
+//     if (this.isBeforeRange(rangeToRemove.end, range.end)) {
+//       result.push({
+//         start: { ...rangeToRemove.end },
+//         end: range.end
+//       });
+//     }
+//
+//     return result;
+//   }
+//
+//   fixSpan(...symbols: { scope: Scope, range: Range }[]): void {
+//     const globalSymbols = symbols.filter(symbol => symbol.scope.tag === 'global');
+//
+//     this.spans = this.mergeRanges([
+//       ...this.spans,
+//       ...globalSymbols.map(symbol => symbol.range)
+//     ]);
+//   }
+//
+//   private mergeRanges(ranges: Range[]): Range[] {
+//     const sortedRanges = ranges.sort((a, b) => 
+//       a.start.line - b.start.line || a.start.character - b.start.character
+//     );
+//
+//     const mergedRanges: Range[] = [];
+//     let currentRange = sortedRanges[0];
+//
+//     for (const range of sortedRanges.slice(1)) {
+//       if (this.rangeOverlaps(currentRange, range) || this.rangesAdjacent(currentRange, range)) {
+//         currentRange = this.mergeRange(currentRange, range);
+//       } else {
+//         mergedRanges.push(currentRange);
+//         currentRange = range;
+//       }
+//     }
+//
+//     mergedRanges.push(currentRange);
+//     return mergedRanges;
+//   }
+//
+//   containsInTextSpan(currentRange: Range): boolean {
+//     return this.spans.some(range => 
+//       this.rangeContains(range, currentRange) && !this.rangesEqual(range, currentRange)
+//     );
+//   }
+//
+//   toString(): string {
+//     return `${this.tag}: ${this.spans.map((range, index) =>
+//       `{${index}, ${range.start.line}:${range.start.character}-${range.end.line}:${range.end.character}}`
+//     ).join(',')}`;
+//   }
+//
+//   private defaultGetTextSpanRanges(node: SyntaxNode): Range[] {
+//     const ranges: Range[] = [];
+//     let currentStart = node.startPosition;
+//
+//     const collectRanges = (child: SyntaxNode) => {
+//       if (
+//         child.type === 'function_definition' &&
+//         this.options.isExcludedFunction &&
+//         this.options.isExcludedFunction(child)
+//       ) {
+//         if (this.isBeforeRange(currentStart, child.startPosition)) {
+//           ranges.push(this.createRange(currentStart, child.startPosition));
+//         }
+//         currentStart = child.endPosition;
+//       } else {
+//         child.children.forEach(collectRanges);
+//       }
+//     };
+//
+//     node.children.forEach(collectRanges);
+//
+//     if (this.isBeforeRange(currentStart, node.endPosition)) {
+//       ranges.push(this.createRange(currentStart, node.endPosition));
+//     }
+//
+//     return ranges;
+//   }
+//
+//   // Helper methods for range operations
+//   private rangeContains(outer: Range, inner: Range): boolean {
+//     return !this.isBeforeRange(inner.start, outer.start) && !this.isBeforeRange(outer.end, inner.end);
+//   }
+//
+//   private rangesEqual(a: Range, b: Range): boolean {
+//     return this.positionsEqual(a.start, b.start) && this.positionsEqual(a.end, b.end);
+//   }
+//
+//   private rangeOverlaps(a: Range, b: Range): boolean {
+//     return !this.isBeforeRange(a.end, b.start) && !this.isBeforeRange(b.end, a.start);
+//   }
+//
+//   private rangesAdjacent(a: Range, b: Range): boolean {
+//     return this.positionsEqual(a.end, b.start) || this.positionsEqual(b.end, a.start);
+//   }
+//
+//   private mergeRange(a: Range, b: Range): Range {
+//     return {
+//       start: this.isBeforeRange(a.start, b.start) ? a.start : b.start,
+//       end: this.isBeforeRange(a.end, b.end) ? b.end : a.end
+//     };
+//   }
+//
+//   private isBeforeRange(a: { line: number, character: number }, b: { line: number, character: number }): boolean {
+//     return a.line < b.line || (a.line === b.line && a.character < b.character);
+//   }
+//
+//   private positionsEqual(a: { line: number, character: number }, b: { line: number, character: number }): boolean {
+//     return a.line === b.line && a.character === b.character;
+//   }
+//
+//   private createRange(start: { row: number, column: number }, end: { row: number, column: number }): Range {
+//     return {
+//       start: { line: start.row, character: start.column },
+//       end: { line: end.row, character: end.column }
+//     };
+//   }
+//
+//   private isEmptyRange(range: Range): boolean {
+//     return this.positionsEqual(range.start, range.end);
+//   }
+// }
