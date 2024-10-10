@@ -1,0 +1,418 @@
+import { DocumentUri } from 'vscode-languageserver';
+import { FishDocumentSymbol } from './new-symbol';
+import * as NodeTypes from './node-types';
+import { SyntaxNode } from 'web-tree-sitter';
+import { containsRange, getChildNodes, getRange, pointToPosition } from './tree-sitter';
+import { symbolKindToString } from './translation';
+
+/**
+ * ------------------------------------------------------------------------------
+ * TODO: 10/10/2024
+ * ------------------------------------------------------------------------------
+ *   • current testing is done in:  `test-data/new-analyzer.ts`
+ *   • improve the children encapsulation method & logic
+ *   • tag for function scope is not working correctly
+ *   • redo the `toString()` method
+ *   • use get/set methods for properties that make sense syntactically
+ *   • add more tests for the `ScopeModifier` namespace
+ *   • add more tests for `getEncapsulatedNodes()` results
+ *   • PLEASE, drop some comments once `getEncapsulatedNodes()` is
+ *     working correctly so that edge cases are not forgotten!
+ *   • new-analyzer.ts will implement a simplified version of the
+ *     current DefinitionNode builder to extend the diagnostics
+ *     that can be found from the info
+ *
+ *
+ *                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ *                  ~ new-analyzer.ts changes HERE ~
+ *                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ *
+ *        - symbol-table will store references and definitions in O(n) time
+ *        - control flow graph will be able to track code paths in O(n) time
+ *        - other related new diagnostics are now possible by using the
+ *          decoupled symbol-table and control-flow-graph
+ *
+ * ------------------------------------------------------------------------------
+ * Once completed, remove the ./src/utils/new-symbol.ts, test-data/new-analyzer.ts,
+ * and the ./src/utils/new-scope.ts files. Replace their original files with the new
+ * implementations.
+ * ------------------------------------------------------------------------------
+ * Testing is done with the snippet below:
+ * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ *   ```sh
+ *    >_  nodemon --exec 'ts-node ./test-data/new-analyzer.ts' --ext ts --watch .
+ *   ```
+ * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ */
+
+/**
+ * type mapping for ScopeTag values, with a numeric value to represent scope hierarchy
+ */
+export const ScopeTag = {
+  local: 0,
+  inherit: 1,
+  function: 2,
+  global: 3,
+  universal: 4,
+} as const;
+/* Create a type from the object keys */
+export type ScopeTag = keyof typeof ScopeTag;
+/* Utility type to get the numeric value of a ScopeTag */
+export type ScopeTagValue = typeof ScopeTag[ScopeTag];
+const getScopeTagValue = (tag: ScopeTag): ScopeTagValue => ScopeTag[tag];
+
+export class Scope {
+  constructor(
+    public uri: DocumentUri,
+    public node: SyntaxNode,
+    public parent: SyntaxNode,
+    public symbol: FishDocumentSymbol,
+  ) { }
+
+  public static create(
+    uri: DocumentUri,
+    node: SyntaxNode,
+    parent: SyntaxNode,
+    symbol: FishDocumentSymbol,
+  ): Scope {
+    return new Scope(uri, node, parent, symbol);
+  }
+
+  /**
+   * TODO: finish
+   */
+  get tag(): 'local' | 'inherit' | 'function' | 'global' | 'universal' {
+    const kindModifier = this.getKindModifier();
+    const scopeType = this.getScopeTypeFromUri();
+    switch (this.kind) {
+      case 'variable':
+        switch (kindModifier) {
+          case 'local':
+            return 'local';
+          case 'function':
+            return 'function';
+          default:
+            return scopeType;
+        }
+      case 'function':
+        return scopeType;
+    }
+  }
+
+  get tagValue(): ScopeTagValue {
+    return getScopeTagValue(this.tag);
+  }
+
+  static getTagValue(tag: ScopeTag): ScopeTagValue {
+    return getScopeTagValue(tag);
+  }
+
+  private get kind(): 'variable' | 'function' {
+    return symbolKindToString(this.symbol.kind) as 'variable' | 'function';
+  }
+
+  public getKindModifier(): ScopeTag {
+    const kind = this.kind;
+    switch (kind) {
+      case 'variable':
+        return ScopeModifier.variableCommand(this.node);
+      case 'function':
+        return ScopeModifier.functionCommand(this.node);
+    }
+  }
+
+  private getScopeTypeFromUri(): ScopeTag {
+    const uri: DocumentUri = this.symbol.uri;
+    const uriParts = uri.split('/');
+    const functionUriName = uriParts.at(-1)?.split('.')?.at(0) || uriParts.at(-1);
+    const parentFunction = findParent(this.parent, (n) => n.type === 'function_definition');
+
+    if (uriParts?.at(-2) && uriParts.at(-2)?.includes('functions')) {
+      if (functionUriName === this.node.text) {
+        return 'global';
+      }
+      if (parentFunction) {
+        return 'function';
+      }
+      return 'local';
+    } else if (uriParts?.at(-1) === 'config.fish' || uriParts.at(-2) === 'conf.d') {
+      if (this.parent && findParent(this.parent, (n) => n.type === 'function_definition')) {
+        return 'function';
+      }
+      return 'global';
+    }
+    if (parentFunction) {
+      return 'function';
+    }
+    return 'local';
+  }
+
+  /** TODO: test working state */
+  public contains(node: SyntaxNode): boolean {
+    for (const child of this.getEncapsulatedNodes()) {
+      if (containsRange(getRange(child), getRange(node))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private outerScope(): SyntaxNode[] {
+    return [findParent(this.parent, (n) => n.type === 'function_declaration' || n.type === 'program')!];
+  }
+
+  private innerScope(): SyntaxNode[] {
+    const skipNodes: SyntaxNode[] = [
+      this.node,
+      ...this.symbol.children
+        .filter((n) => n.name === this.symbol.name && n.scope.tagValue < Scope.getTagValue('global'))
+        .map((n) => n.parent!),
+    ];
+    const result: SyntaxNode[] = [];
+    for (const n of getChildNodes(this.node)) {
+      if (skipNodes.includes(n)) continue;
+      result.push(n);
+    }
+
+    return result;
+  }
+
+  getEncapsulatedNodes(): SyntaxNode[] {
+    const result: SyntaxNode[] = [];
+    const innerScopeSet = new Set(this.innerScope());
+
+    for (const outerNode of this.outerScope()) {
+      if (!this.isNodeOrChildInInnerScope(outerNode, innerScopeSet)) {
+        result.push(this.getCondensedNode(outerNode, innerScopeSet));
+      }
+    }
+
+    return result;
+  }
+
+  private isNodeOrChildInInnerScope(node: SyntaxNode, innerScopeSet: Set<SyntaxNode>): boolean {
+    if (innerScopeSet.has(node)) {
+      return true;
+    }
+
+    for (const child of node.children) {
+      if (this.isNodeOrChildInInnerScope(child, innerScopeSet)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  // TODO: fix the children from the encapsulation method
+  private getCondensedNode(node: SyntaxNode, innerScopeSet: Set<SyntaxNode>): SyntaxNode {
+    const condensedChildren: SyntaxNode[] = [];
+
+    for (const child of node.children) {
+      if (!this.isNodeOrChildInInnerScope(child, innerScopeSet)) {
+        condensedChildren.push(this.getCondensedNode(child, innerScopeSet));
+      }
+    }
+
+    // Create a new node with the same properties as the original, but with condensed children
+    return {
+      ...node,
+      children: condensedChildren, // TODO: causes error when trying to access children
+    };
+  }
+
+  /**
+   * TODO: ___test parent resolution is correct___
+   *
+   * @see deprecated method in ./scope.ts file, for OLD implementation/behavior
+   *
+   * ---
+   * _note:_ end is not logged because of the condensing we do above
+   */
+  public toString(): string {
+    return Array.from(Object.values({
+      tag: this.tag,
+      // uri: this.uri,
+      // node: `${this.node.type} - ${this.node.text.slice(0, 10)} - ${this.node.toString().slice(0, 15)}`,
+      // parent: `${this.parent.type} - ${this.parent.text.slice(0, 10)} - ${this.parent.toString().slice(0, 15)}`,
+      // symbol: `${this.symbol.name} - ${symbolKindToString(this.symbol.kind)}`,
+      encapsulatedNodes: this.getEncapsulatedNodes().map((n: SyntaxNode) => {
+        const start = n.startPosition;
+        // const end = n.endPosition;
+        const { line, character } = pointToPosition(start);
+        // const { line: endLine = -1, character: endCharacter = -1 } = pointToPosition(end);
+
+        return '(' + Object.values({ line, character }).join(',') + ')';
+      }).join(' - '),
+    })).join(' | ').toString();
+  }
+}
+
+function findParent(n: SyntaxNode, fn: (n: SyntaxNode) => boolean): SyntaxNode | null {
+  let current = n.parent;
+  while (current) {
+    if (fn(current)) {
+      return current;
+    }
+    current = current.parent;
+  }
+  return null;
+}
+
+/**
+* Get the scope modifier for a variable when various shell options could edit the scope
+*
+* ---
+*
+* Use one of the following functions to determine the scope of a variable:
+*
+* ```typescript
+*
+* ScopeModifier.variableCommand(node); // 'local' | 'function' | 'global' | 'universal'
+*
+* ScopeModifier.functionCommand(node); // 'local' | 'function' | 'global' | 'universal'
+* ```
+*
+* ---
+*
+*  Both functions return a _\`scope.tag\`_ for the variable node.
+*
+*/
+namespace ScopeModifier {
+
+  /**
+   * ```typescript
+   * // EXAMPLE USAGE //
+   * // Assume the current node in both examples is 'foo' //
+   *
+   * // GLOBAL SCOPE //
+   * // node.parent.text === 'set -gx foo bar' //
+   * ScopeModifier.variableCommand(node);      // 'global'
+   *
+   * // LOCAL SCOPE //
+   * // node.parent.text === 'read --local foo' //
+   * ScopeModifier.variableCommand(node);       // 'local'
+   * ```
+   * ___
+   *
+   * Deterimines the scope of a variable command.
+   *
+   * Notice that the _\`node.parent.children\`_ are fieldNames of  _\`argument\`_.
+   *
+   * @param node - A _leaf_ node, with a _parent_ command name of _\`set\`_ or _\`read\`_
+   *
+   * @returns The _\`scope.tag\`_ of the variable node
+   */
+  export function variableCommand(node: SyntaxNode): ScopeTag {
+    const args: SyntaxNode[] = node.parent?.childrenForFieldName('argument') || [];
+    for (const n of args) {
+      switch (true) {
+        case NodeTypes.isMatchingOption(n, { shortOption: '-l', longOption: '--local' }):
+          return 'local';
+        case NodeTypes.isMatchingOption(n, { shortOption: '-f', longOption: '--function' }):
+          return 'function';
+        case NodeTypes.isMatchingOption(n, { shortOption: '-g', longOption: '--global' }):
+          return 'global';
+        case NodeTypes.isMatchingOption(n, { shortOption: '-U', longOption: '--universal' }):
+          return 'universal';
+      }
+    }
+    return 'local';
+  }
+
+  /**
+   * ```typescript
+   * // EXAMPLE USAGE //
+   * // Assume the current node in both examples is 'foo' //
+   *
+   * // GLOBAL SCOPE //
+   * // node.parent.text === 'function bar --inherit-variable foo' //
+   * ScopeModifier.functionCommand(node);      // 'global'
+   *
+   * // LOCAL SCOPE //
+   * // node.parent.text === 'function bar --argument-names foo' //
+   * ScopeModifier.functionCommand(node);       // 'local'
+   * ```
+   * ___
+   *
+   * Deterimines the scope of a variable symbol.
+   *
+   * Notice that the _\`node.parent.children\`_ are fieldNames of  _\`option\`_.
+   *
+   * @param node - A _leaf_ node, with a _parent_ command name of _\`function _ --flag leaf\`_
+   *
+   * @returns The _\`scope.tag\`_ of the variable node
+   */
+  export function functionCommand(node: SyntaxNode): ScopeTag {
+    const args: SyntaxNode[] = node.parent?.childrenForFieldName('option') || [] as SyntaxNode[];
+    let lastArg: SyntaxNode | null = null;
+
+    for (const arg of args) {
+      if (NodeTypes.isOption(arg)) {
+        lastArg = arg;
+        continue;
+      }
+      if (arg.equals(node)) break;
+    }
+
+    if (lastArg) {
+      switch (true) {
+        case NodeTypes.isMatchingOption(lastArg, { shortOption: '-V', longOption: '--inherit-variable' }):
+          return 'inherit';
+        case NodeTypes.isMatchingOption(lastArg, { shortOption: '-a', longOption: '--argument-names' }):
+          return 'local';
+        case NodeTypes.isMatchingOption(lastArg, { shortOption: '-v', longOption: '--on-variable' }):
+          return 'global';
+        case NodeTypes.isMatchingOption(lastArg, { shortOption: '-S', longOption: '--no-scope-shadowing' }):
+          return 'inherit';
+        default:
+          return 'local';
+      }
+    }
+
+    return 'local';
+  }
+
+  /**
+   *
+   * for inheriting the parent scope of a variable on a function flag modifier
+   *
+   * ---
+   *
+   * ```fish
+   * function func --inherit-variable foo
+   * ```
+   *
+   * ---
+   *
+   * @param node - A _leaf_ node, with a _parent_ command name of _\`function _ --flag leaf\`_
+   *
+   * @param tag - The _\`scope.tag\`_ of the variable node
+   *
+   * @returns The _\`scope.tag\`_ of the variable node
+   */
+  export function findVariableFunctionFlagInheritParent(node: SyntaxNode, tag: ScopeTag): {
+    tag: ScopeTag;
+    node: SyntaxNode;
+  } {
+    if (tag === 'inherit' && node.parent) {
+      const scopeNode = findParent(node.parent, (n) => {
+        return n.type === 'function_definition' || n.type === 'program';
+      })!;
+      if (scopeNode.type === 'function_definition') {
+        tag = 'function';
+      }
+      return { tag, node: scopeNode };
+    }
+    if (tag === 'local' && node.parent) {
+      const scopeNode = findParent(node.parent, (n) => {
+        return n.type === 'function_definition' || n.type === 'program';
+      })!;
+      // if (scopeNode.type === 'function_definition') {
+      //   tag = 'function';
+      // }
+      return { tag, node: scopeNode };
+    }
+    return { tag, node };
+  }
+}

@@ -1,13 +1,11 @@
 import { SymbolKind, Location, Range, /* Position, */ DocumentSymbol, WorkspaceSymbol, FoldingRange, DocumentUri } from 'vscode-languageserver';
-import { /*getChildNodes, */ getRange } from './tree-sitter';
+import { /*getChildNodes, */ getChildNodes, getRange } from './tree-sitter';
 import * as NodeTypes from './node-types';
 import { SyntaxNode } from 'web-tree-sitter';
 import { isScriptNeededArgv } from '../features/definitions/argv';
 import { getArgparseDefinitions, isArgparseCommandName } from '../features/definitions/argparse';
 import { symbolKindToString } from './translation';
-import { getNodeScopeType, getScope, Scope, ScopeTag } from './scope';
-import { flattenNested } from './flatten';
-import { getScopeTagValue } from './definition-scope';
+import { Scope } from './new-scope';
 
 export type SymbolName = string;
 
@@ -23,6 +21,8 @@ export interface FishDocumentSymbol extends DocumentSymbol {
 }
 
 export class FishDocumentSymbol implements FishDocumentSymbol {
+  public scope: Scope;
+
   constructor(
     public name: SymbolName,
     public kind: SymbolKind,
@@ -31,9 +31,9 @@ export class FishDocumentSymbol implements FishDocumentSymbol {
     public selectionRange: Range,
     public node: SyntaxNode,
     public parent: SyntaxNode | null = this.node.parent,
-    public scope: Scope = getScope(this.uri, this.node, this.name),
     public children: FishDocumentSymbol[] = [],
   ) {
+    this.scope = Scope.create(this.uri, this.node, this.parent || this.node, this),
     this.addArgvToFunction();
   }
 
@@ -55,13 +55,12 @@ export class FishDocumentSymbol implements FishDocumentSymbol {
       selectionRange,
       node,
       parent,
-      getScope(uri, node, name),
       children,
     );
   }
 
-  toLocation(): Location {
-    return Location.create(this.uri, this.range);
+  public toLocation(): Location {
+    return Location.create(this.uri, this.selectionRange);
   }
 
   toWorkspaceSymbol(): WorkspaceSymbol {
@@ -114,6 +113,16 @@ export class FishDocumentSymbol implements FishDocumentSymbol {
       && this.children.length === other.children.length;
   }
 
+  getNodesInScope(): SyntaxNode[] {
+    const result: SyntaxNode[] = [];
+    for (const child of getChildNodes(this.node)) {
+      if (this.scope.contains(child)) {
+        result.push(child);
+      }
+    }
+    return result;
+  }
+
   static fromNode(
     uri: DocumentUri,
     node: SyntaxNode,
@@ -121,7 +130,7 @@ export class FishDocumentSymbol implements FishDocumentSymbol {
     children: FishDocumentSymbol[] = [],
   ): FishDocumentSymbol {
     // const scope = getScope(uri, node);
-    const symbolKind = getNodeScopeType(node) === 'function'
+    const symbolKind = NodeTypes.isFunctionDefinitionName(node)
       ? SymbolKind.Function
       : SymbolKind.Variable;
     return FishDocumentSymbol.create(
@@ -135,6 +144,10 @@ export class FishDocumentSymbol implements FishDocumentSymbol {
       children,
     );
   }
+
+  // setReferences(references: SyntaxNode[]) {
+  //   this.references = [...references];
+  // }
 
   addArgvToFunction(): FishDocumentSymbol {
     if (this.kind === SymbolKind.Function) {
