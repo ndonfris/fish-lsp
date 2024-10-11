@@ -1,9 +1,10 @@
-import { DocumentUri } from 'vscode-languageserver';
+import { DocumentUri, SymbolKind } from 'vscode-languageserver';
 import { FishDocumentSymbol } from './new-symbol';
 import * as NodeTypes from './node-types';
 import { SyntaxNode } from 'web-tree-sitter';
 import { containsRange, getChildNodes, getRange, pointToPosition } from './tree-sitter';
 import { symbolKindToString } from './translation';
+import { flattenNested } from './flatten';
 
 /**
  * ------------------------------------------------------------------------------
@@ -62,20 +63,46 @@ export type ScopeTagValue = typeof ScopeTag[ScopeTag];
 const getScopeTagValue = (tag: ScopeTag): ScopeTagValue => ScopeTag[tag];
 
 export class Scope {
+  private excludedNodes: SyntaxNode[] = [];
+
   constructor(
     public uri: DocumentUri,
-    public node: SyntaxNode,
-    public parent: SyntaxNode,
+    public currentNode: SyntaxNode,
+    public parentNode: SyntaxNode,
     public symbol: FishDocumentSymbol,
   ) { }
 
   public static create(
     uri: DocumentUri,
-    node: SyntaxNode,
-    parent: SyntaxNode,
+    currentNode: SyntaxNode,
+    parentNode: SyntaxNode,
     symbol: FishDocumentSymbol,
   ): Scope {
-    return new Scope(uri, node, parent, symbol);
+    return new Scope(uri, currentNode, parentNode, symbol);
+  }
+
+  public static fromSymbol(symbol: FishDocumentSymbol): Scope {
+    const grandParent = findParent(symbol.parentNode, (n) => {
+      return n.type === 'function_definition' || n.type === 'program';
+    }) || symbol.parentNode;
+    switch (symbol.kind) {
+      case SymbolKind.Variable:
+        /**
+         * keep the scope at the same level, since the parent of a variable name is the
+         *
+         */
+        return new Scope(symbol.uri, symbol.currentNode, symbol.parentNode, symbol);
+      case SymbolKind.Function:
+        /**
+         * shift the scope up one level, since the parent of a function name is the
+         * node's direct `function_definition`.
+         *
+         * Now its grandparent is the actual scope node which is either a `function_definition`
+         * of a `program` node.
+         */
+        return new Scope(symbol.uri, symbol.parentNode, grandParent, symbol);
+    }
+    return new Scope(symbol.uri, symbol.currentNode, symbol.parentNode, symbol);
   }
 
   /**
@@ -115,28 +142,28 @@ export class Scope {
     const kind = this.kind;
     switch (kind) {
       case 'variable':
-        return ScopeModifier.variableCommand(this.node);
+        return ScopeModifier.variableCommand(this.currentNode);
       case 'function':
-        return ScopeModifier.functionCommand(this.node);
+        return ScopeModifier.functionCommand(this.currentNode, this.symbol);
     }
   }
 
   private getScopeTypeFromUri(): ScopeTag {
-    const uri: DocumentUri = this.symbol.uri;
-    const uriParts = uri.split('/');
+    // const uri: DocumentUri = this.symbol.uri;
+    const uriParts = this.symbol.uri.split('/');
     const functionUriName = uriParts.at(-1)?.split('.')?.at(0) || uriParts.at(-1);
-    const parentFunction = findParent(this.parent, (n) => n.type === 'function_definition');
+    const parentFunction = findParent(this.parentNode, (n) => n.type === 'function_definition');
 
     if (uriParts?.at(-2) && uriParts.at(-2)?.includes('functions')) {
-      if (functionUriName === this.node.text) {
+      if (functionUriName === this.symbol.name) {
         return 'global';
       }
-      if (parentFunction) {
+      if (this.parentNode.type === 'function_definition') {
         return 'function';
       }
       return 'local';
     } else if (uriParts?.at(-1) === 'config.fish' || uriParts.at(-2) === 'conf.d') {
-      if (this.parent && findParent(this.parent, (n) => n.type === 'function_definition')) {
+      if (this.parentNode.type === 'function_definition') {
         return 'function';
       }
       return 'global';
@@ -149,7 +176,7 @@ export class Scope {
 
   /** TODO: test working state */
   public contains(node: SyntaxNode): boolean {
-    for (const child of this.getEncapsulatedNodes()) {
+    for (const child of this.getNodes()) {
       if (containsRange(getRange(child), getRange(node))) {
         return true;
       }
@@ -157,69 +184,92 @@ export class Scope {
     return false;
   }
 
-  private outerScope(): SyntaxNode[] {
-    return [findParent(this.parent, (n) => n.type === 'function_declaration' || n.type === 'program')!];
+  get isCallable(): boolean {
+    return this.symbol.kind === SymbolKind.Function;
   }
 
-  private innerScope(): SyntaxNode[] {
-    const skipNodes: SyntaxNode[] = [
-      this.node,
-      ...this.symbol.children
-        .filter((n) => n.name === this.symbol.name && n.scope.tagValue < Scope.getTagValue('global'))
-        .map((n) => n.parent!),
-    ];
-    const result: SyntaxNode[] = [];
-    for (const n of getChildNodes(this.node)) {
-      if (skipNodes.includes(n)) continue;
-      result.push(n);
+  public getNodes(): SyntaxNode[] {
+    const parentSymbol = this.symbol.parent;
+    switch (this.kind) {
+      case 'variable':
+        this.excludedNodes.push(this.currentNode);
+        if (parentSymbol && this.symbol.parent && this.symbol.parent.getAllChildren()) {
+          this.excludedNodes.push(
+            ...parentSymbol.getAllChildren()
+              .filter((s: FishDocumentSymbol) => s.name === this.symbol.name && s.scope.tagValue !== this.tagValue)
+              .map((s: FishDocumentSymbol) => s.parentNode));
+        }
+        break;
+      case 'function':
+        this.excludedNodes.push(this.currentNode);
+        break;
     }
-
-    return result;
+    return this.excludedNodes;
   }
+  // while(queue.length) {
+  //   const current: SyntaxNode | undefined = queue.shift();
+  //   if (!current) {
+  //     continue;
+  //   }
+  //   if (current.type === 'function_definition' && !ScopeModifier.functionWithFlag(current)) {
+  //     continue;
+  //   }
+  //   if (current.equals(this.node)) continue;
+  //   if (current && current.children) {
+  //     queue.unshift(...current.children);
+  //   }
+  // }
+  // return result;
+  // }
 
-  getEncapsulatedNodes(): SyntaxNode[] {
-    const result: SyntaxNode[] = [];
-    const innerScopeSet = new Set(this.innerScope());
-
-    for (const outerNode of this.outerScope()) {
-      if (!this.isNodeOrChildInInnerScope(outerNode, innerScopeSet)) {
-        result.push(this.getCondensedNode(outerNode, innerScopeSet));
-      }
-    }
-
-    return result;
-  }
-
-  private isNodeOrChildInInnerScope(node: SyntaxNode, innerScopeSet: Set<SyntaxNode>): boolean {
-    if (innerScopeSet.has(node)) {
-      return true;
-    }
-
-    for (const child of node.children) {
-      if (this.isNodeOrChildInInnerScope(child, innerScopeSet)) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  // TODO: fix the children from the encapsulation method
-  private getCondensedNode(node: SyntaxNode, innerScopeSet: Set<SyntaxNode>): SyntaxNode {
-    const condensedChildren: SyntaxNode[] = [];
-
-    for (const child of node.children) {
-      if (!this.isNodeOrChildInInnerScope(child, innerScopeSet)) {
-        condensedChildren.push(this.getCondensedNode(child, innerScopeSet));
-      }
-    }
-
-    // Create a new node with the same properties as the original, but with condensed children
-    return {
-      ...node,
-      children: condensedChildren, // TODO: causes error when trying to access children
-    };
-  }
+  // getEncapsulatedNodes(): SyntaxNode[] {
+  //   const result: SyntaxNode[] = [];
+  //   const innerScopeSet = new Set(this.innerScope());
+  //
+  //   for (const outerNode of this.outerScope()) {
+  //     if (!this.isNodeOrChildInInnerScope(outerNode, innerScopeSet)) {
+  //       result.push(this.getCondensedNode(outerNode, innerScopeSet));
+  //     }
+  //   }
+  //
+  //   return result;
+  // }
+  //
+  // private isNodeOrChildInInnerScope(node: SyntaxNode, innerScopeSet: Set<SyntaxNode>): boolean {
+  //   if (innerScopeSet.has(node)) {
+  //     return true;
+  //   }
+  //
+  //   if (!node) return false;
+  //   if (!node?.children || node.children.length === 0) {
+  //     return false;
+  //   }
+  //
+  //   for (const child of node.children as SyntaxNode[]) {
+  //     if (this.isNodeOrChildInInnerScope(child, innerScopeSet)) {
+  //       return true;
+  //     }
+  //   }
+  //
+  //   return false;
+  // }
+  //
+  // // TODO: fix the children from the encapsulation method
+  // private getCondensedNode(node: SyntaxNode, innerScopeSet: Set<SyntaxNode>): SyntaxNode {
+  //   const condensedChildren: SyntaxNode[] = [];
+  //
+  //   for (const child of node.children) {
+  //     if (!this.isNodeOrChildInInnerScope(child, innerScopeSet)) {
+  //       condensedChildren.push(this.getCondensedNode(child, innerScopeSet));
+  //     }
+  //   }
+  //
+  //   // Create a new node with the same properties as the original, but with condensed children
+  //   return {
+  //     ...node,
+  //     children: condensedChildren, // TODO: causes error when trying to access children
+  //   };
+  // }
 
   /**
    * TODO: ___test parent resolution is correct___
@@ -229,23 +279,52 @@ export class Scope {
    * ---
    * _note:_ end is not logged because of the condensing we do above
    */
-  public toString(): string {
-    return Array.from(Object.values({
-      tag: this.tag,
-      // uri: this.uri,
-      // node: `${this.node.type} - ${this.node.text.slice(0, 10)} - ${this.node.toString().slice(0, 15)}`,
-      // parent: `${this.parent.type} - ${this.parent.text.slice(0, 10)} - ${this.parent.toString().slice(0, 15)}`,
-      // symbol: `${this.symbol.name} - ${symbolKindToString(this.symbol.kind)}`,
-      encapsulatedNodes: this.getEncapsulatedNodes().map((n: SyntaxNode) => {
-        const start = n.startPosition;
-        // const end = n.endPosition;
-        const { line, character } = pointToPosition(start);
-        // const { line: endLine = -1, character: endCharacter = -1 } = pointToPosition(end);
+  // public toString(): string {
+  //   return Array.from(Object.values({
+  //     tag: this.tag,
+  //     // uri: this.uri,
+  //     // node: `${this.node.type} - ${this.node.text.slice(0, 10)} - ${this.node.toString().slice(0, 15)}`,
+  //     // parent: `${this.parent.type} - ${this.parent.text.slice(0, 10)} - ${this.parent.toString().slice(0, 15)}`,
+  //     // symbol: `${this.symbol.name} - ${symbolKindToString(this.symbol.kind)}`,
+  //     encapsulatedNodes: this.getEncapsulatedNodes().map((n: SyntaxNode) => {
+  //       const start = n.startPosition;
+  //       // const end = n.endPosition;
+  //       const { line, character } = pointToPosition(start);
+  //       // const { line: endLine = -1, character: endCharacter = -1 } = pointToPosition(end);
+  //
+  //       return '(' + Object.values({ line, character }).join(',') + ')';
+  //     }).join(' - '),
+  //   })).join(' | ').toString();
+  // }
 
-        return '(' + Object.values({ line, character }).join(',') + ')';
-      }).join(' - '),
-    })).join(' | ').toString();
+  public toObject() {
+    return {
+      tag: this.tag,
+      name: this.symbol.name,
+      parentNode: getRangeString(getRange(this.parentNode)),
+      currentNode: getRangeString(getRange(this.currentNode)),
+    };
   }
+
+  public toString(): string {
+    const nodeStr = getRangeString(getRange(this.currentNode));
+    const parentStr = getRangeString(getRange(this.parentNode));
+    const tagStr = String("'" + this.tag + "'").padEnd(10);
+    const nameStr = String("'" + this.symbol.name + "'").padEnd(9);
+    return `{ tag: ${tagStr}, name: ${nameStr}, ranges: {${nodeStr}, ${parentStr}}, }`;
+  }
+}
+
+function getRangeString(
+  range: {
+    start: { line: number; character: number; };
+    end: { line: number; character: number; };
+  },
+): string {
+  const getPaddedRange = (r: { line: number; character: number; }) => {
+    return `(${r.line.toString()},${r.character.toString()})`;
+  };
+  return `[${getPaddedRange(range.start).padStart(7)}, ${getPaddedRange(range.end).padEnd(7)}]`;
 }
 
 function findParent(n: SyntaxNode, fn: (n: SyntaxNode) => boolean): SyntaxNode | null {
@@ -343,7 +422,7 @@ namespace ScopeModifier {
    *
    * @returns The _\`scope.tag\`_ of the variable node
    */
-  export function functionCommand(node: SyntaxNode): ScopeTag {
+  export function functionCommand(node: SyntaxNode, symbol: FishDocumentSymbol): ScopeTag {
     const args: SyntaxNode[] = node.parent?.childrenForFieldName('option') || [] as SyntaxNode[];
     let lastArg: SyntaxNode | null = null;
 
@@ -358,19 +437,43 @@ namespace ScopeModifier {
     if (lastArg) {
       switch (true) {
         case NodeTypes.isMatchingOption(lastArg, { shortOption: '-V', longOption: '--inherit-variable' }):
-          return 'inherit';
+          return symbol.parentNode.type === 'function_definition' ? 'function' : 'global';
         case NodeTypes.isMatchingOption(lastArg, { shortOption: '-a', longOption: '--argument-names' }):
           return 'local';
         case NodeTypes.isMatchingOption(lastArg, { shortOption: '-v', longOption: '--on-variable' }):
           return 'global';
         case NodeTypes.isMatchingOption(lastArg, { shortOption: '-S', longOption: '--no-scope-shadowing' }):
-          return 'inherit';
+          // return 'inherit';
+          return symbol.parentNode.type === 'function_definition' ? 'function' : 'global';
         default:
           return 'local';
       }
     }
 
     return 'local';
+  }
+
+  export function functionWithFlag(node: SyntaxNode) {
+    const args: SyntaxNode[] = node.childrenForFieldName('option') || [] as SyntaxNode[];
+    let lastArg: SyntaxNode | null = null;
+
+    for (const arg of args) {
+      if (NodeTypes.isOption(arg)) {
+        lastArg = arg;
+        continue;
+      }
+      if (arg.equals(node)) break;
+    }
+
+    if (lastArg) {
+      switch (true) {
+        case NodeTypes.isMatchingOption(lastArg, { shortOption: '-V', longOption: '--inherit-variable' }):
+        case NodeTypes.isMatchingOption(lastArg, { shortOption: '-S', longOption: '--no-scope-shadowing' }):
+          return true;
+        default:
+          return false;
+      }
+    }
   }
 
   /**

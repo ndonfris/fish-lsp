@@ -220,8 +220,8 @@ foo_f
   foo_v.forEach(s => {
     console.log('----');
     console.log(s.toString());
-    const scope = new Scope('file:///home/user/.config/fish/config.fish', s.node, s.parent!, s);
-    s.node.parent?.childrenForFieldName('argument').forEach((arg, i) => {
+    const scope = new Scope('file:///home/user/.config/fish/config.fish', s.currentNode, s.parentNode!, s);
+    s.currentNode.parent?.childrenForFieldName('argument').forEach((arg, i) => {
       console.log({ arg: i, node: arg.text });
     });
     console.log({ tag: scope.tag });
