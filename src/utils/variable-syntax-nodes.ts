@@ -7,11 +7,10 @@ function filterWordNodes(nodes: SyntaxNode[]): SyntaxNode[] {
   return nodes.filter(n => n.type === 'word');
 }
 
-function _setHasQuery(nodes: SyntaxNode[]): boolean {
-  const options = filterWordNodes(nodes).filter(NodeTypes.isOption);
-  const queryFlag = new VariableDefinitionFlag('q', 'query');
-  for (const option of options) {
-    if (queryFlag.isMatch(option)) {
+export function setHasQuery(parentCommand?: SyntaxNode | null): boolean {
+  if (!parentCommand) return false;
+  for (const node of parentCommand.childrenForFieldName('argument')) {
+    if (NodeTypes.isMatchingOption(node, { shortOption: '-q', longOption: '--query' })) {
       return true;
     }
   }

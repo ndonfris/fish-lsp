@@ -467,10 +467,11 @@ export function isVariableDefinitionName(node: SyntaxNode): boolean {
   if (!keyword) {
     return false;
   }
+
   const siblings = VariableTypes.gatherVariableSiblings(keyword);
   switch (keyword.text) {
     case 'set':
-      return VariableTypes.isSetDefinitionNode(siblings, node);
+      return VariableTypes.isSetDefinitionNode(siblings, node) && !VariableTypes.setHasQuery(keyword.parent);
     case 'read':
       return VariableTypes.isReadDefinitionNode(siblings, node);
     case 'function':

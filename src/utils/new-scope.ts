@@ -2,7 +2,7 @@ import { DocumentUri, SymbolKind } from 'vscode-languageserver';
 import { FishDocumentSymbol } from './new-symbol';
 import * as NodeTypes from './node-types';
 import { SyntaxNode } from 'web-tree-sitter';
-import { containsRange, getChildNodes, getRange, pointToPosition } from './tree-sitter';
+import { containsRange, findChildNodes, getChildNodes, getRange, pointToPosition } from './tree-sitter';
 import { symbolKindToString } from './translation';
 import { flattenNested } from './flatten';
 
@@ -63,14 +63,16 @@ export type ScopeTagValue = typeof ScopeTag[ScopeTag];
 const getScopeTagValue = (tag: ScopeTag): ScopeTagValue => ScopeTag[tag];
 
 export class Scope {
-  private excludedNodes: SyntaxNode[] = [];
+  public excludedNodes: SyntaxNode[] = [];
 
   constructor(
     public uri: DocumentUri,
     public currentNode: SyntaxNode,
     public parentNode: SyntaxNode,
     public symbol: FishDocumentSymbol,
-  ) { }
+  ) {
+    this.setExcluded();
+  }
 
   public static create(
     uri: DocumentUri,
@@ -188,6 +190,37 @@ export class Scope {
     return this.symbol.kind === SymbolKind.Function;
   }
 
+  get isGlobal(): boolean {
+    return this.tag === 'global' || this.tag === 'universal';
+  }
+
+  private setExcluded() {
+    const parentSymbol = this.symbol.parent;
+    switch (this.kind) {
+      case 'variable':
+        this.excludedNodes.push(this.currentNode);
+        // if (parentSymbol && this.symbol.parent && this.symbol.parent.getAllChildren()) {
+        //   this.excludedNodes.push(
+        //     ...parentSymbol.getAllChildren()
+        //       .filter((s: FishDocumentSymbol) => s.name === this.symbol.name && s.scope.tagValue !== this.tagValue)
+        //       .map((s: FishDocumentSymbol) => s.parentNode));
+        // }
+        break;
+      case 'function':
+        this.excludedNodes.push(this.currentNode);
+        break;
+    }
+    /** todo: add all children functions that need to be excluded */
+    // parentSymbol?.getAllChildren().forEach((s: FishDocumentSymbol) => {
+    //   if (s.kind === SymbolKind.Function) {
+    //
+    //   }
+    //   if (s.name === this.symbol.name && s.scope.tagValue !== this.tagValue) {
+    //     this.excludedNodes.push(s.parentNode);
+    //   }
+    // })
+  }
+
   public getNodes(): SyntaxNode[] {
     const parentSymbol = this.symbol.parent;
     switch (this.kind) {
@@ -204,7 +237,9 @@ export class Scope {
         this.excludedNodes.push(this.currentNode);
         break;
     }
-    return this.excludedNodes;
+
+    return getChildNodes(this.parentNode)
+      .filter(n => !this.excludedNodes.some(s => containsRange(getRange(s), getRange(n))));
   }
   // while(queue.length) {
   //   const current: SyntaxNode | undefined = queue.shift();
