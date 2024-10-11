@@ -641,7 +641,7 @@ export function getGlobalDocumentScope(root: SyntaxNode, symbols: FishDocumentSy
   const rootScope = Scope.create('global', root);
 
   const matches: FishDocumentSymbol[] = flattenNested(...symbols)
-    .filter((s: FishDocumentSymbol) => s.name === matchString && s.scope.getTagValue() <= 2);
+    .filter((s: FishDocumentSymbol) => s.name === matchString && s.scope.tagValue <= 2);
 
   matches.forEach(s => {
     rootScope.removeSpan(s.range);

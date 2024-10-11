@@ -18,9 +18,9 @@ type SymbolArrayObject = {
   flat: () => FishDocumentSymbol[]
 };
 
-type AnalyzedDocument = {
+export type AnalyzedDocument = {
   document: LspDocument;
-  symbols: SymbolArrayObject,
+  symbols: SymbolArrayObject;
   tree: Tree;
   root: SyntaxNode;
   nodes: SyntaxNode[];

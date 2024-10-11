@@ -16,7 +16,7 @@ export function isArgparseCommandName(node: SyntaxNode): node is NamedNode {
  * @param node The command node.
  * @returns An array of argparse definitions.
  */
-export function getArgparseDefinitions(uri: string, node: SyntaxNode): FishDocumentSymbol[] {
+export function getArgparseDefinitions(uri: string, node: SyntaxNode, parentSymbol: FishDocumentSymbol): FishDocumentSymbol[] {
   // split the `h/help` into `h` and `help`
   function splitSlash(str: string): string[] {
     const results = str.replace(/-/g, '_').split('/').filter(s => !!s.trim());
@@ -59,6 +59,7 @@ export function getArgparseDefinitions(uri: string, node: SyntaxNode): FishDocum
             getRange(node),
             node,
             cmd,
+            parentSymbol,
             [],
           ));
         });

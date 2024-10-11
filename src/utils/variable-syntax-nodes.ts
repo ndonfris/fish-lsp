@@ -1,5 +1,6 @@
 import { SyntaxNode } from 'web-tree-sitter';
 import { VariableDefinitionFlag } from './definition-scope';
+import './array';
 import * as NodeTypes from './node-types';
 
 function filterWordNodes(nodes: SyntaxNode[]): SyntaxNode[] {
