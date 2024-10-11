@@ -8,8 +8,19 @@ import { Analyzer } from '../src/future-analyze';
 import { FishDocumentSymbol, getFishDocumentSymbols, getFishDocumentSymbolsIterative } from '../src/utils/new-symbol';
 import { symbolKindToString } from '../src/utils/translation';
 import { Range, SymbolKind } from 'vscode-languageserver';
-import { getRange } from '../src/utils/tree-sitter';
+import { getRange, pointToPosition } from '../src/utils/tree-sitter';
 import { Scope } from '../src/utils/new-scope';
+
+function findSymbolInSymbolsAndLogReferences(symbols: FishDocumentSymbol[], name: string) {
+  const symbol = flattenNested(...symbols).find(s => s.name === name);
+  console.log({ symbol, excludedNodes: symbol!.scope!.excludedNodes.map(n => n.text).join('\n') });
+  if (!symbol) return;
+  symbol.scope.getNodes()
+    .filter(n => n.text === name)
+    .forEach(node => {
+      console.log(node.text, '====', node.type, '====', node.parent?.type);
+    });
+}
 
 setLogger();
 
@@ -107,7 +118,8 @@ describe('analyzer test suite', () => {
 
         /**
          * TODO:
-         *   - [ ] fix `set -q _` variable case creating definition
+         *   - [x] fix `set -q _` variable case creating definition
+         *   - [ ] fix itaration for retrieving all children Symbols or Nodes
          */
         for (const symbol of symbols) {
           let symbolStr = ['______', symbol.kindToString(), symbol.name].join(' ').padEnd(55, ' ');
@@ -124,6 +136,26 @@ describe('analyzer test suite', () => {
             console.log(symbolStr, '---', child.scope.tag.padEnd(10), '---', child.parent.name, child.parent.kindToString());
           });
         }
+        const rootSym = symbols
+          .find(s => s.parent.kind === SymbolKind.Null).parent;
+
+        console.log(rootSym.toString());
+
+        console.log('\n\nfish_user_key_bindings');
+        const fishKeyBindings = symbols.find(s => s.name === 'fish_user_key_bindings')!;
+        const fishKeyBindingsPos = fishKeyBindings.selectionRange.start;
+        flatSymbols.forEach((s) => {
+          if (s.isBeforePosition(fishKeyBindingsPos)) {
+            console.log(s.name, '=====', s.kindToString());
+          }
+        });
+        fishKeyBindings?.scope.getNodes().forEach(node => {
+          if (node.isNamed) {
+            console.log(node.type.trim(), '::::::', node.text.trim().split('\n').at(0).trim());
+          }
+        });
+
+        findSymbolInSymbolsAndLogReferences(symbols, '_flag_help');
 
         // console.log(oScope.toString());
         // console.log(outer_function.toString());

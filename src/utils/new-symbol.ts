@@ -1,4 +1,4 @@
-import { SymbolKind, Location, Range, /* Position, */ DocumentSymbol, WorkspaceSymbol, FoldingRange, DocumentUri } from 'vscode-languageserver';
+import { SymbolKind, Location, Range, /* Position, */ DocumentSymbol, WorkspaceSymbol, FoldingRange, DocumentUri, Position } from 'vscode-languageserver';
 import { /*getChildNodes, */ containsRange, getChildNodes, getRange } from './tree-sitter';
 import * as NodeTypes from './node-types';
 import { SyntaxNode } from 'web-tree-sitter';
@@ -184,6 +184,25 @@ export class FishDocumentSymbol implements FishDocumentSymbol {
     return symbolKindToString(this.kind);
   }
 
+  isBeforePosition(position: Position): boolean {
+    return this.isRangeBeforePosition(this.range, position);
+  }
+
+  private isRangeBeforePosition(range: Range, pos: Position): boolean {
+    // If the range's end line is before the position's line, it's definitely before
+    if (range.end.line < pos.line) {
+      return true;
+    }
+
+    // If the range's end line is the same as the position's line,
+    // check if the range's end character is before the position's character
+    if (range.end.line === pos.line && range.end.character <= pos.character) {
+      return true;
+    }
+
+    // In all other cases, the range is not entirely before the position
+    return false;
+  }
   set parentSymbol(parent: FishDocumentSymbol) {
     this.parent = parent;
   }
@@ -232,7 +251,8 @@ function extractSymbolInfo(node: SyntaxNode): {
 }
 
 export function getFishDocumentSymbols(uri: DocumentUri, rootNode: SyntaxNode, ...currentNodes: SyntaxNode[]): FishDocumentSymbol[] {
-  let parentSymbol = FishDocumentSymbol.createRoot(uri, rootNode);
+  const rootSymbol = FishDocumentSymbol.createRoot(uri, rootNode);
+  let parentSymbol = rootSymbol;
   function innerFishDocumentSymbols(uri: DocumentUri, ...currentNodes: SyntaxNode[]): FishDocumentSymbol[] {
     const symbols: FishDocumentSymbol[] = [];
     for (const current of currentNodes) {
@@ -291,7 +311,11 @@ export function getFishDocumentSymbols(uri: DocumentUri, rootNode: SyntaxNode, .
     return symbols;
   }
 
-  return innerFishDocumentSymbols(uri, ...currentNodes);
+  /** add the result symbols to the rootSymbol.children */
+  const symbols = innerFishDocumentSymbols(uri, ...currentNodes);
+  rootSymbol.children.push(...symbols);
+
+  return symbols;
 }
 
 // export function getFishDocumentSymbols(
