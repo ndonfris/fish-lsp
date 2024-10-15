@@ -13,13 +13,37 @@ import { Scope } from '../src/utils/new-scope';
 
 function findSymbolInSymbolsAndLogReferences(symbols: FishDocumentSymbol[], name: string) {
   const symbol = flattenNested(...symbols).find(s => s.name === name);
-  console.log({ symbol, excludedNodes: symbol!.scope!.excludedNodes.map(n => n.text).join('\n') });
+  console.log({ symbol: symbol?.toString(), excludedNodes: symbol!.scope!.excludedNodes.map(n => n.text).join('\n') });
   if (!symbol) return;
+  console.log('-'.repeat(80));
+  console.log('References: ', name);
+  console.log('-'.repeat(80));
+  if (name.startsWith('_flag_')) {
+    const flagType = name.slice(6).length === 1 ? 'short' : 'long';
+    const flagText = symbol.currentNode.text.split('/');
+    const flagRange = getRange(symbol.currentNode);
+
+    switch (flagType) {
+      case 'short':
+        console.log('Short Flag:', flagText[0], '====', `${flagRange.start.line}:${flagRange.start.character}`, '====', `${flagRange.end.line}:${flagRange.start.character + 1}`);
+        break;
+      case 'long':
+        // `argparse help -- $argv` -> help flag doesn't have a short flag
+        if (flagText.length === 1) {
+          console.log('Long Flag:', flagText[0], '====', `${flagRange.start.line}:${flagRange.start.character}`, '====', `${flagRange.end.line}:${flagRange.end.character}`);
+          break;
+        }
+        // `argparse h/help -- $argv` -> help flag has a short flag
+        console.log('Long Flag:', flagText[1], '====', `${flagRange.start.line}:${flagRange.start.character + 2}`, '====', `${flagRange.end.line}:${flagRange.end.character}`);
+        break;
+    }
+  }
   symbol.scope.getNodes()
     .filter(n => n.text === name)
     .forEach(node => {
-      console.log(node.text, '====', node.type, '====', node.parent?.type);
+      console.log(node.text, '====', node.type, '====', `${node.startPosition.row}:${node.startPosition.column}`, '====', node.parent?.type);
     });
+  console.log('-'.repeat(80));
 }
 
 setLogger();
@@ -136,10 +160,10 @@ describe('analyzer test suite', () => {
             console.log(symbolStr, '---', child.scope.tag.padEnd(10), '---', child.parent.name, child.parent.kindToString());
           });
         }
-        const rootSym = symbols
-          .find(s => s.parent.kind === SymbolKind.Null).parent;
-
-        console.log(rootSym.toString());
+        // const rootSym = symbols
+        //   .find(s => s.parent.kind === SymbolKind.Null).parent;
+        //
+        // console.log(rootSym.toString());
 
         console.log('\n\nfish_user_key_bindings');
         const fishKeyBindings = symbols.find(s => s.name === 'fish_user_key_bindings')!;
@@ -149,11 +173,11 @@ describe('analyzer test suite', () => {
             console.log(s.name, '=====', s.kindToString());
           }
         });
-        fishKeyBindings?.scope.getNodes().forEach(node => {
-          if (node.isNamed) {
-            console.log(node.type.trim(), '::::::', node.text.trim().split('\n').at(0).trim());
-          }
-        });
+        // fishKeyBindings?.scope.getNodes().forEach(node => {
+        //   if (node.isNamed) {
+        //     console.log(node.type.trim(), '::::::', node.text.trim().split('\n').at(0).trim());
+        //   }
+        // });
 
         findSymbolInSymbolsAndLogReferences(symbols, '_flag_help');
 
