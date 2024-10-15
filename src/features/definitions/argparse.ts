@@ -32,6 +32,7 @@ export function getArgparseDefinitions(uri: string, node: SyntaxNode, parentSymb
   if (isCommandName(node) && node.text === 'argparse') {
     // commandName is `argparse`
     const cmd = node.parent;
+    const cmdParent = findFirstParent(node, isFunctionDefinition) || findFirstParent(node, isProgram) as SyntaxNode;
 
     // find the `--` end token
     const endChar = cmd?.children.find(node => isEndStdinCharacter(node));
@@ -44,7 +45,7 @@ export function getArgparseDefinitions(uri: string, node: SyntaxNode, parentSymb
     cmd.children
       .filter(node => !isOption(node) && !isCommandName(node) && isBefore(node, endChar))
       .forEach((node) => {
-        let flagNames = node.text;
+        let flagNames = node?.text;
         if (isString(node)) {
           flagNames = node.text.slice(1, -1).split('=').shift() || '';
         }
@@ -55,10 +56,10 @@ export function getArgparseDefinitions(uri: string, node: SyntaxNode, parentSymb
             `_flag_${flagName}`,
             SymbolKind.Variable,
             uri,
-            getRange(cmd),
+            getRange(cmdParent),
             getRange(node),
             node,
-            cmd,
+            cmdParent,
             parentSymbol,
             [],
           ));
