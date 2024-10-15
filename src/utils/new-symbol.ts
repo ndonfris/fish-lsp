@@ -26,7 +26,6 @@ export interface FishDocumentSymbol extends DocumentSymbol {
 
 export class FishDocumentSymbol implements FishDocumentSymbol {
   public scope: Scope;
-  private static _rootNode: SyntaxNode | undefined;
 
   constructor(
     public name: SymbolName,
@@ -45,10 +44,6 @@ export class FishDocumentSymbol implements FishDocumentSymbol {
       child.parentNode = this.currentNode;
       child.parent = this;
     });
-  }
-
-  public static setRootNode(node: SyntaxNode): void {
-    this._rootNode = node;
   }
 
   public static createRoot(uri: DocumentUri, rootNode: SyntaxNode): FishDocumentSymbol {
