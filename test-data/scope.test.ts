@@ -181,6 +181,9 @@ describe('analyzer test suite', () => {
 
         findSymbolInSymbolsAndLogReferences(symbols, '_flag_help');
 
+        console.log('\n\nset_theme_variables');
+        findSymbolInSymbolsAndLogReferences(symbols, 'set_theme_variables');
+
         // console.log(oScope.toString());
         // console.log(outer_function.toString());
 

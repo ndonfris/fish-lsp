@@ -115,14 +115,7 @@ export class Scope {
     const scopeType = this.getScopeTypeFromUri();
     switch (this.kind) {
       case 'variable':
-        switch (kindModifier) {
-          case 'local':
-            return 'local';
-          case 'function':
-            return 'function';
-          default:
-            return scopeType;
-        }
+        return kindModifier;
       case 'function':
         return scopeType;
     }
@@ -166,7 +159,10 @@ export class Scope {
       return 'local';
     } else if (uriParts?.at(-1) === 'config.fish' || uriParts.at(-2) === 'conf.d') {
       if (this.parentNode.type === 'function_definition') {
-        return 'function';
+        if (ScopeModifier.functionWithFlag(this.parentNode)) {
+          return 'function';
+        }
+        return 'local';
       }
       return 'global';
     }
@@ -195,21 +191,31 @@ export class Scope {
   }
 
   private setExcluded() {
-    const parentSymbol = this.symbol.parent;
-    switch (this.kind) {
-      case 'variable':
-        this.excludedNodes.push(this.currentNode);
-        // if (parentSymbol && this.symbol.parent && this.symbol.parent.getAllChildren()) {
-        //   this.excludedNodes.push(
-        //     ...parentSymbol.getAllChildren()
-        //       .filter((s: FishDocumentSymbol) => s.name === this.symbol.name && s.scope.tagValue !== this.tagValue)
-        //       .map((s: FishDocumentSymbol) => s.parentNode));
-        // }
-        break;
-      case 'function':
-        this.excludedNodes.push(this.currentNode);
-        break;
+    const parentFunctions = this.symbol.parentNode.descendantsOfType('function_definition');
+    for (const parentFunction of parentFunctions) {
+      if (parentFunction.equals(this.parentNode)) {
+        continue;
+      }
+      if (ScopeModifier.functionWithFlag(parentFunction, this.symbol)) {
+        continue;
+      }
+      this.excludedNodes.push(parentFunction);
     }
+
+    // switch (this.kind) {
+    //   case 'variable':
+    //     this.excludedNodes.push(this.currentNode);
+    //     // if (parentSymbol && this.symbol.parent && this.symbol.parent.getAllChildren()) {
+    //     //   this.excludedNodes.push(
+    //     //     ...parentSymbol.getAllChildren()
+    //     //       .filter((s: FishDocumentSymbol) => s.name === this.symbol.name && s.scope.tagValue !== this.tagValue)
+    //     //       .map((s: FishDocumentSymbol) => s.parentNode));
+    //     // }
+    //     break;
+    //   case 'function':
+    //     this.excludedNodes.push(this.currentNode);
+    //     break;
+    // }
     /** todo: add all children functions that need to be excluded */
     // parentSymbol?.getAllChildren().forEach((s: FishDocumentSymbol) => {
     //   if (s.kind === SymbolKind.Function) {
@@ -488,7 +494,7 @@ namespace ScopeModifier {
     return 'local';
   }
 
-  export function functionWithFlag(node: SyntaxNode) {
+  export function functionWithFlag(node: SyntaxNode, symbol?: FishDocumentSymbol): boolean {
     const args: SyntaxNode[] = node.childrenForFieldName('option') || [] as SyntaxNode[];
     let lastArg: SyntaxNode | null = null;
 
@@ -503,6 +509,7 @@ namespace ScopeModifier {
     if (lastArg) {
       switch (true) {
         case NodeTypes.isMatchingOption(lastArg, { shortOption: '-V', longOption: '--inherit-variable' }):
+          return lastArg.nextSibling ?.text === symbol?.name;
         case NodeTypes.isMatchingOption(lastArg, { shortOption: '-S', longOption: '--no-scope-shadowing' }):
           return true;
         default:
