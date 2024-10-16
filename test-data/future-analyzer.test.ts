@@ -19,9 +19,9 @@ import { SymbolKind } from 'vscode-languageserver';
 import { symbolKindToString } from '../src/utils/translation';
 import { flattenNested } from '../src/utils/flatten';
 
-describe('analyzer test suite', () => {
-  setLogger();
+setLogger();
 
+describe('analyzer test suite', () => {
   let parser: Parser;
   let analyzer: Analyzer;
 
@@ -30,11 +30,24 @@ describe('analyzer test suite', () => {
     analyzer = new Analyzer(parser);
   });
 
+  function setupSymbols(documents: LspDocument[], findUri: string = '') {
+    for (const doc of documents) {
+      if (doc.uri.endsWith(findUri)) {
+        const tree = parser.parse(doc.getText()) as Parser.Tree;
+        const symbols = getFishDocumentSymbols(doc.uri, tree.rootNode, tree.rootNode);
+        analyzer.analyze(doc);
+        return { uri: doc.uri, symbols, flatSymbols: flattenNested(...symbols), tree, doc };
+      }
+    }
+    return { uri: '', symbols: [], flatSymbols: [], tree: null, doc: null };
+  }
+
   function testSymbolFiltering(filename: string, _input: string) {
-    const { document, cursorPosition, input } = createFakeCursorLspDocument(filename, _input);
-    const tree = parser.parse(document.getText());
+    const { doc, cursorPosition, input } = createFakeCursorLspDocument(filename, _input);
+    const tree = parser.parse(doc.getText());
     const { rootNode } = tree;
-    const symbols: FishDocumentSymbol[] = getFishDocumentSymbols(document.uri, rootNode);
+    const symbols: FishDocumentSymbol[] = getFishDocumentSymbols(doc.uri, rootNode);
+    // console.log({ symbols: symbols.map(s => s.name) });
     const flatSymbols = flattenNested(...symbols);
     const nodes = getChildNodes(rootNode);
     let cursorNode = getNodeAtPosition(tree, cursorPosition)!;
@@ -44,14 +57,14 @@ describe('analyzer test suite', () => {
       cursorNode = getNodeAtPosition(tree, fixedCursorPos)!;
     }
     // console.log({ flatSymbolsNames: flatSymbols.map(s => s.name) });
-    analyzer.analyze(document);
+    analyzer.analyze(doc);
     return {
       symbols,
       flatSymbols,
       tree: tree,
       rootNode,
       nodes,
-      doc: document,
+      doc,
       cursorPosition: fixedCursorPos,
       cursorNode,
       input,
@@ -412,20 +425,55 @@ describe('analyzer test suite', () => {
   });
 
   // @TODO
-  describe.only('getReferences()', () => {
+  describe('getReferences()', () => {
     it.only('reference symbols: nested function call', () => {
-      const { rootNode, doc, cursorPosition } = testSymbolFiltering('functions/this_test.fish', [
-        'function this_test',
-        '   function test',
-        '       echo "test"',
-        '   end',
-        '   test█', // should be local test
-        'end',
-        'test', // should be global test
-      ].join('\n'));
-      const refSymbols = analyzer.getReferences(doc, cursorPosition);
-      expect(refSymbols.length).toEqual(2);
-      refSymbols.forEach(s => console.log(Simple.location(s)));
+      // const { rootNode, doc, cursorPosition } = testSymbolFiltering('functions/this_test.fish', [
+      //   'function this_test',
+      //   '     function inner_test',
+      //   '         echo "test"',
+      //   '     end',
+      //   '     inner_test', // should be local test
+      //   'end',
+      //   '', // should be global test
+      // ].join('\n'));
+
+      const { doc, symbols, tree, uri, flatSymbols } = setupSymbols(TestWorkspace.functionsOnly.documents, 'nested.fish');
+      if (!uri || !symbols || !flatSymbols || !tree || !doc) fail();
+
+      // console.log(symbols.map(s => s.name));
+
+      // const { root, nodes } = analyzer.analyze(doc);
+      // for (const node of nodes) {
+      //   console.log(Simple.node(node));
+      // }
+
+      const cursorNode = getChildNodes(tree.rootNode).filter((n) => n.text === 'test' && n.type === 'word').at(1) as Parser.SyntaxNode;
+      // for (const node of ) {
+      //   console.log(Simple.node(node));
+      // }
+      const result = analyzer.analyze(doc);
+      // console.log(result.symbols.map(s => s.name));
+      // const { symbols } = analyzer.cached.get(doc.uri)!;
+      for (const s of flattenNested(...result.symbols)) {
+        if (s.containsPosition(pointToPosition(cursorNode.startPosition)) && s.name === cursorNode.text) {
+          console.log(s.toString(), s.getLocalReferences());
+          for (const node of s.getDefinitionAndReferences()) {
+            console.log(Simple.node(node));
+          }
+        }
+        // console.log(s.toString());
+      }
+
+      const def = analyzer.getDefinitionSymbol(doc, pointToPosition(cursorNode.startPosition)).pop();
+      console.log({ def: def?.toString() });
+      console.log('defAndRef', def?.getDefinitionAndReferences().map(s => Simple.node(s)));
+
+      // TODO: fix
+      const refSymbols = analyzer.getReferences(doc, pointToPosition(cursorNode.startPosition));
+      console.log('refSymbols', refSymbols.map(s => Simple.location(s)));
+
+      // expect(refSymbols.length).toEqual(2);
+      // refSymbols.forEach(s => console.log(Simple.location(s)));
       // expect(refSymbols.map(s => Simple.location(s))).toEqual([
       //   {
       //     uri: 'functions/this_test.fish',

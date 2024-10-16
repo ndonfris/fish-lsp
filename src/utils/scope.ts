@@ -67,21 +67,15 @@ export class Scope {
   public excludedRanges: Range[] = [];
 
   constructor(
-    public uri: DocumentUri,
-    public currentNode: SyntaxNode,
-    public parentNode: SyntaxNode,
-    public symbol: FishDocumentSymbol,
+   public symbol: FishDocumentSymbol,
   ) {
     this.setExcluded();
   }
 
   public static create(
-    uri: DocumentUri,
-    currentNode: SyntaxNode,
-    parentNode: SyntaxNode,
     symbol: FishDocumentSymbol,
   ): Scope {
-    return new Scope(uri, currentNode, parentNode, symbol);
+    return new Scope(symbol);
   }
 
   public static fromSymbol(symbol: FishDocumentSymbol): Scope {
@@ -105,7 +99,7 @@ export class Scope {
     //      */
     //     return new Scope(symbol.uri, symbol.parentNode, grandParent, symbol);
     // }
-    return new Scope(symbol.uri, symbol.currentNode, symbol.parentNode, symbol);
+    return new Scope(symbol);
   }
 
   /**
@@ -138,9 +132,9 @@ export class Scope {
     const kind = this.kind;
     switch (kind) {
       case 'variable':
-        return ScopeModifier.variableCommand(this.currentNode);
+        return ScopeModifier.variableCommand(this.symbol.currentNode);
       case 'function':
-        return ScopeModifier.functionCommand(this.currentNode, this.symbol);
+        return ScopeModifier.functionCommand(this.symbol.currentNode, this.symbol);
     }
   }
 
@@ -148,13 +142,13 @@ export class Scope {
     // const uri: DocumentUri = this.symbol.uri;
     const uriParts = this.symbol.uri.split('/');
     const functionUriName = uriParts.at(-1)?.split('.')?.at(0) || uriParts.at(-1);
-    const parentFunction = findParent(this.parentNode, (n) => n.type === 'function_definition');
+    const parentFunction = findParent(this.symbol.parentNode, (n) => n.type === 'function_definition');
 
     if (uriParts?.at(-2) && uriParts.at(-2)?.includes('functions')) {
       if (functionUriName === this.symbol.name) {
         return 'global';
       }
-      if (this.parentNode.type === 'function_definition') {
+      if (this.symbol.parentNode.type === 'function_definition') {
         return 'function';
       }
       return 'local';
@@ -168,7 +162,7 @@ export class Scope {
           return 'function';
         }
       }
-      if (this.parentNode.type === 'function_definition') {
+      if (this.symbol.parentNode.type === 'function_definition') {
         return 'local';
       }
       return 'global';
@@ -182,9 +176,9 @@ export class Scope {
   private callableScope() {
     switch (this.kind) {
       case 'variable':
-        return this.parentNode;
+        return this.symbol.parentNode;
       case 'function':
-        return this.parentNode.parent as SyntaxNode;
+        return this.symbol.parentNode.parent as SyntaxNode;
     }
   }
 
@@ -218,21 +212,21 @@ export class Scope {
     //   this.excludedNodes.push(parentFunction);
     // }
 
-    const parent = findParent(this.parentNode, (n) => n.type === 'function_definition' || n.type === 'program') as SyntaxNode;
+    const parent = findParent(this.symbol.parentNode, (n) => n.type === 'function_definition' || n.type === 'program') as SyntaxNode;
 
     switch (this.kind) {
       case 'variable':
         this.excludedRanges.push(Range.create(
           getRange(parent).start,
-          getRange(this.parentNode).end,
+          getRange(this.symbol.parentNode).end,
         ));
         this.excludedRanges.push(
           ...parent.childrenForFieldName('function_definition')
-            .filter((n: SyntaxNode) => ScopeModifier.functionWithFlag(n, this.symbol) && !n.equals(this.parentNode))
+            .filter((n: SyntaxNode) => ScopeModifier.functionWithFlag(n, this.symbol) && !n.equals(this.symbol.parentNode))
             .map(n => getRange(n)),
         );
       case 'function':
-        this.excludedNodes.push(this.currentNode);
+        this.excludedNodes.push(this.symbol.currentNode);
         break;
     }
 
@@ -262,9 +256,13 @@ export class Scope {
   }
 
   private callableParent(): SyntaxNode {
-    return findParent(this.parentNode,
+    return findParent(this.symbol.parentNode,
       (n) => n.type === 'function_definition' || n.type === 'program',
     ) as SyntaxNode;
+  }
+
+  equals(other: Scope): boolean {
+    return this.tag === other.tag && this.symbol.equals(other.symbol);
   }
 
   public callableNodes(): SyntaxNode[] {
@@ -279,7 +277,7 @@ export class Scope {
             continue;
           }
           if (
-            rangeIsAfter(getRange(this.parentNode), getRange(child))
+            rangeIsAfter(getRange(this.symbol.parentNode), getRange(child))
             && !skipRanges.some((r) => containsRange(r, getRange(child)))
           ) {
             result.push(child);
@@ -287,7 +285,7 @@ export class Scope {
         }
         break;
       case 'function':
-        skipRanges.push(getRange(this.parentNode));
+        skipRanges.push(getRange(this.symbol.parentNode));
         if (parent.type === 'program') {
           for (const child of getChildNodes(parent)) {
             if (NodeTypes.isFunctionDefinition(child) && !child.parent.equals(parent)) {
@@ -304,7 +302,7 @@ export class Scope {
               continue;
             }
             if (
-              rangeIsAfter(getRange(this.parentNode), getRange(child))
+              rangeIsAfter(getRange(this.symbol.parentNode), getRange(child))
               && !skipRanges.some((r) => containsRange(r, getRange(child)))
             ) {
               result.push(child);
@@ -320,7 +318,7 @@ export class Scope {
     const parentSymbol = this.symbol.parent;
     switch (this.kind) {
       case 'variable':
-        this.excludedNodes.push(this.currentNode);
+        this.excludedNodes.push(this.symbol.currentNode);
         if (parentSymbol && this.symbol.parent && this.symbol.parent.allChildren()) {
           this.excludedNodes.push(
             ...parentSymbol.allChildren()
@@ -329,11 +327,11 @@ export class Scope {
         }
         break;
       case 'function':
-        this.excludedNodes.push(this.currentNode);
+        this.excludedNodes.push(this.symbol.currentNode);
         break;
     }
 
-    return getChildNodes(this.parentNode)
+    return getChildNodes(this.symbol.parentNode)
       .filter(n => !this.excludedNodes.some(s => containsRange(getRange(s), getRange(n))));
   }
   // while(queue.length) {
@@ -431,14 +429,14 @@ export class Scope {
     return {
       tag: this.tag,
       name: this.symbol.name,
-      parentNode: getRangeString(getRange(this.parentNode)),
-      currentNode: getRangeString(getRange(this.currentNode)),
+      parentNode: getRangeString(getRange(this.symbol.parentNode)),
+      currentNode: getRangeString(getRange(this.symbol.currentNode)),
     };
   }
 
   public toString(): string {
-    const nodeStr = getRangeString(getRange(this.currentNode));
-    const parentStr = getRangeString(getRange(this.parentNode));
+    const nodeStr = getRangeString(getRange(this.symbol.currentNode));
+    const parentStr = getRangeString(getRange(this.symbol.parentNode));
     const tagStr = String("'" + this.tag + "'").padEnd(10);
     const nameStr = String("'" + this.symbol.name + "'").padEnd(9);
     return `{ tag: ${tagStr}, name: ${nameStr}, ranges: {${nodeStr}, ${parentStr}}, }`;

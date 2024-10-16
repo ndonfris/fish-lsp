@@ -1,16 +1,17 @@
 import Parser, { SyntaxNode, Tree } from 'web-tree-sitter';
 import { LspDocument } from './document';
-import { /*filterGlobalSymbols,*/ getFishDocumentSymbols, FishDocumentSymbol } from './utils/symbol';
+import { getFishDocumentSymbols, FishDocumentSymbol } from './utils/symbol';
 import * as LSP from 'vscode-languageserver';
-import { ancestorMatch, /*containsRange,*/ getChildNodes, getNodeAtPosition, getRange, isPositionBefore, positionToPoint, getNodeAtPoint, getChildrenArguments } from './utils/tree-sitter';
+import { ancestorMatch, /*containsRange,*/ getChildNodes, getNodeAtPosition, getRange, isPositionBefore, positionToPoint, getNodeAtPoint } from './utils/tree-sitter';
 import { isSourceFilename } from './diagnostics/node-types';
 import { SyncFileHelper } from './utils/file-operations';
 import { Location, Position, SymbolKind } from 'vscode-languageserver';
 // import { findAncestor } from 'typescript';
-import { isCommandName, isFunctionDefinition, isMatchingOption } from './utils/node-types';
+import { isCommandName } from './utils/node-types';
 import { execEscapedSync } from './utils/exec';
 import { flattenNested } from './utils/flatten';
 import { ScopeTag } from './utils/scope';
+import { Range } from './utils/locations';
 // import { isFunction } from './utils/builtins';
 
 export type AnalyzedDocument = {
@@ -36,21 +37,22 @@ export class Analyzer { // @TODO rename to Analyzer
   public cached: Map<string, AnalyzedDocument> = new Map();
   public workspaceSymbols: Map<string, FishDocumentSymbol[]> = new Map();
 
-  constructor(protected parser: Parser) { }
+  constructor(private parser: Parser) { }
 
   private createAnalyzedDocument(document: LspDocument): AnalyzedDocument {
+    // this.parser.reset();
     const tree = this.parser.parse(document.getText());
     const root = tree.rootNode;
     const nodes = getChildNodes(root);
-    const symbols = getFishDocumentSymbols(document.uri, root);
+    const symbols = getFishDocumentSymbols(document.uri, tree.rootNode);
     const sourcedFiles = nodes
       .filter(isSourceFilename)
       .map(n => n.text);
     const workspaceSymbols = flattenNested(...symbols)
       .filter(s => s.scope.tagValue >= ScopeTag.global);
+      // .map(s => s.toWorkspaceSymbol());
 
-    // console.log({workspaceSymbols});
-
+    // console.log({ workspaceSymbols: workspaceSymbols.map(s => s.name) });
     for (const symbol of workspaceSymbols) {
       const currentSymbols = this.workspaceSymbols.get(symbol.name) || [];
       currentSymbols.push(symbol);
@@ -68,7 +70,6 @@ export class Analyzer { // @TODO rename to Analyzer
   }
 
   analyze(document: LspDocument): AnalyzedDocument {
-    this.parser.reset();
     const analyzed = this.createAnalyzedDocument(document);
     this.cached.set(document.uri, analyzed);
     return analyzed;
@@ -115,8 +116,9 @@ export class Analyzer { // @TODO rename to Analyzer
 
     const text = node.text;
     const symbols = symbolsScopeContainsPosition(flattenNested(...cached.symbols), position);
+    // console.log({ containsSymbols: symbols.map(s => s.name), node: node.text });
 
-    const localSymbol = symbols.filter(s => s.name === text);
+    const localSymbol = symbols.filter(s => s.scope.tagValue < ScopeTag.global).filter(s => s.name === text);
     if (localSymbol.length > 0) {
       return localSymbol;
     }
@@ -172,23 +174,12 @@ export class Analyzer { // @TODO rename to Analyzer
     return matchingNodes;
   }
 
-  // @Todo
+  // TODO
   public findLocalLocations(document: LspDocument, position: Position) {
     const symbol = this.getDefinitionSymbol(document, position).pop();
     if (!symbol) return [];
 
-    const nodes = getChildNodes(symbol.scope.parentNode).filter(n => {
-      if (isFunctionDefinition(n)) {
-        return !getChildrenArguments(n).some((opt: SyntaxNode) =>
-          isMatchingOption(opt, { shortOption: '-S', longOption: '----no-scope-shadowing' }) ||
-          isMatchingOption(opt, { shortOption: '-V', longOption: '--inherit-variable' }) && opt?.nextNamedSibling?.text === symbol.name ||
-          isMatchingOption(opt, { shortOption: '-v', longOption: '--on-variable' }) && opt?.nextNamedSibling?.text === symbol.name,
-        );
-      }
-      return true;
-    });
-
-    return findLocations(document.uri, nodes, symbol.name);
+    return symbol.getLocalReferences().map(r => Location.create(document.uri, r));
   }
 
   private findGlobalLocations(document: LspDocument, position: Position) {
@@ -395,7 +386,9 @@ function findLocations(uri: string, nodes: SyntaxNode[], matchName: string): Loc
 function symbolsScopeContainsPosition(symbols: FishDocumentSymbol[], position: Position) {
   const result: FishDocumentSymbol[] = [];
   for (const symbol of symbols) {
-    if (symbol.containsPosition(position)) {
+    if (symbol.containsPosition(position)
+    ) {
+      /*|| Range.containsPosition(symbol.range, position)) {*/
       result.push(symbol);
     }
   }
