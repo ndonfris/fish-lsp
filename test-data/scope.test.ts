@@ -9,7 +9,8 @@ import { FishDocumentSymbol, getFishDocumentSymbols, getFishDocumentSymbolsItera
 import { symbolKindToString } from '../src/utils/translation';
 import { Range, SymbolKind } from 'vscode-languageserver';
 import { getRange, pointToPosition } from '../src/utils/tree-sitter';
-import { Scope } from '../src/utils/new-scope';
+import { Scope, ScopeTag } from '../src/utils/new-scope';
+import { isVariableDefinitionCommand } from '../src/utils/node-types';
 
 function findSymbolInSymbolsAndLogReferences(symbols: FishDocumentSymbol[], name: string) {
   const symbol = flattenNested(...symbols).find(s => s.name === name);
@@ -44,6 +45,7 @@ function findSymbolInSymbolsAndLogReferences(symbols: FishDocumentSymbol[], name
       console.log(node.text, '====', node.type, '====', `${node.startPosition.row}:${node.startPosition.column}`, '====', node.parent?.type);
     });
   console.log('-'.repeat(80));
+  return symbol;
 }
 
 setLogger();
@@ -149,7 +151,7 @@ describe('analyzer test suite', () => {
           let symbolStr = ['______', symbol.kindToString(), symbol.name].join(' ').padEnd(55, ' ');
 
           console.log(symbolStr, '---', symbol.scope.tag.padEnd(10), '---', symbol.parent.name, symbol.parent.kindToString());
-          symbol.getAllChildren().forEach((child: FishDocumentSymbol) => {
+          symbol.allChildren().forEach((child: FishDocumentSymbol) => {
             let padding = '     |';
             let cscope: FishDocumentSymbol = child.parent;
             while (cscope && cscope?.parent.kind !== SymbolKind.Null) {
@@ -181,8 +183,8 @@ describe('analyzer test suite', () => {
 
         findSymbolInSymbolsAndLogReferences(symbols, '_flag_help');
 
-        console.log('\n\nset_theme_variables');
-        findSymbolInSymbolsAndLogReferences(symbols, 'set_theme_variables');
+        console.log('\n\nshow_help_msg');
+        findSymbolInSymbolsAndLogReferences(symbols, 'show_help_msg');
 
         // console.log(oScope.toString());
         // console.log(outer_function.toString());
@@ -190,6 +192,53 @@ describe('analyzer test suite', () => {
         // for (const symbol of flatSymbols) {
         //   console.log(symbol.scope.toString());
         // }
+        flattenNested(...symbols).find(s => s.name === 'set_theme_variables')!.scope.callableNodes().forEach(node => {
+          if (node.type.trim() && node.text.trim() && !['(', "'", '"', '$'].includes(node.type) && node.type !== 'word') {
+            console.log('set_theme_variables callable:', node.type, node.text);
+          }
+        });
+
+        const fukb = findSymbolInSymbolsAndLogReferences(symbols, 'fish_user_key_bindings');
+        const foo = fukb.allChildren().find(s => s.name === 'FOO')! as FishDocumentSymbol;
+        console.log('FOO:', foo.toString());
+        // console.log(foo.getNodesInScope().map(n => n.text).join('\n'));
+        expect(foo.getLocalReferences().length).toEqual(2);
+        const fooRef = flattenNested(...symbols).find(s => s.name === 'FOO' && s.scope.isGlobal)!;
+        console.log('GLOBAL FOO:', fooRef.toString());
+
+        // fukb?.getNodesInScope().filter(n => n.isNamed && n.text.trim() && n.type.trim() && !['(', '"', "'", '$', 'end'].includes(n.type)).forEach((node, index) => {
+        //   const splitNode = node.text.split('\n');
+        //   let text = splitNode.at(0);
+        //   if (splitNode.length > 1) {
+        //     text += ';...';
+        //   }
+        //   console.log('fukb', index, '====', node.type, '====', `${node.startPosition.row}:${node.startPosition.column}`, '====', node.parent?.type, '====', text);
+        // });
+        // console.log('llll');
+        // fukb!.getNodesInScope().filter(n => n.type === 'function_definition' || isVariableDefinitionCommand(n) && n.parent.type === 'program').forEach((node, index) => {
+        //   console.log('fukb', index, '====', node.type, '====', `${node.startPosition.row}:${node.startPosition.column}`, '====', node.parent?.type, '====', node.text);
+        // });
+
+        // const hhh = findSymbolInSymbolsAndLogReferences(symbols, '_flag_help');
+        // hhh?.getNodesInScope().filter(n => n.isNamed && n.text.trim() && n.type.trim() && !['(', '"', "'", '$', 'end'].includes(n.type)).forEach((node, index) => {
+        //   const splitNode = node.text.split('\n');
+        //   let text = splitNode.at(0);
+        //   if (splitNode.length > 1) {
+        //     text += ';...';
+        //   }
+        //   console.log('hhh', index, '====', node.type, '====', `${node.startPosition.row}:${node.startPosition.column}`, '====', node.parent?.type, '====', text);
+        // });
+
+        const t: { name: string; kind: string; refs: string; scope: ScopeTag; }[] = [];
+        fukb?.parent.allChildren().forEach((child) => {
+          t.push({
+            name: child.name,
+            kind: child.kindToString(),
+            refs: child.getLocalReferences().length.toString(),
+            scope: child.scope.tag,
+          });
+        });
+        console.table(t, ['name', 'kind', 'refs', 'scope']);
 
         expect(doc).toBeDefined();
       });

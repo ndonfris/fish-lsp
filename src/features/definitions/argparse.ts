@@ -44,15 +44,15 @@ export function getArgparseDefinitions(uri: string, node: SyntaxNode, parentSymb
 
     cmd.children
       .filter(node => !isOption(node) && !isCommandName(node) && isBefore(node, endChar))
-      .forEach((node) => {
+      .forEach((node: SyntaxNode) => {
         let flagNames = node?.text;
         if (isString(node)) {
-          flagNames = node.text.slice(1, -1).split('=').shift() || '';
+          flagNames = node?.text.slice(1, -1).split('=').shift() || '';
         }
         const seenFlags = splitSlash(flagNames);
         // add all seenFlags to the `result: FishDocumentSymbol[]` array
-        seenFlags.forEach(flagName => {
-          result.push(FishDocumentSymbol.create(
+        const flags = seenFlags.map(flagName => {
+          return FishDocumentSymbol.create(
             `_flag_${flagName}`,
             SymbolKind.Variable,
             uri,
@@ -62,8 +62,14 @@ export function getArgparseDefinitions(uri: string, node: SyntaxNode, parentSymb
             cmdParent,
             parentSymbol,
             [],
-          ));
+          );
         });
+        const aliases = flags.map(flag => flag.name);
+        flags.forEach(flag => {
+          flag.aliases.push(...aliases);
+          flag.argparsed = true;
+        });
+        result.push(...flags);
       });
   }
   return result;
