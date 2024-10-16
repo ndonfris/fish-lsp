@@ -1,35 +1,53 @@
-import { DocumentUri, Range } from 'vscode-languageserver';
-import { SyntaxNode } from 'web-tree-sitter';
+import { DocumentUri, Range, SymbolKind } from 'vscode-languageserver';
+import { FishDocumentSymbol } from './symbol';
 import * as NodeTypes from './node-types';
-import { FishDocumentSymbol, SymbolName } from './new-symbol';
-import { flattenNested } from './flatten';
-import { getChildNodes, getRange } from './tree-sitter';
+import { SyntaxNode } from 'web-tree-sitter';
+import { containsRange, getChildNodes, getRange } from './tree-sitter';
+import { symbolKindToString } from './translation';
 
 /**
- * TODO:
- *   • DEPRECATED in favor of new-scope.ts
- *   • Similar feature set, with different design choices
- *   • Overall, the new-scope.ts is more robust and simpler to use.
+ * ------------------------------------------------------------------------------
+ * TODO: 10/10/2024
+ * ------------------------------------------------------------------------------
+ *   • current testing is done in:  `test-data/new-analyzer.ts`
+ *   • improve the children encapsulation method & logic
+ *   • tag for function scope is not working correctly
+ *   • redo the `toString()` method
+ *   • use get/set methods for properties that make sense syntactically
+ *   • add more tests for the `ScopeModifier` namespace
+ *   • add more tests for `getEncapsulatedNodes()` results
+ *   • PLEASE, drop some comments once `getEncapsulatedNodes()` is
+ *     working correctly so that edge cases are not forgotten!
+ *   • new-analyzer.ts will implement a simplified version of the
+ *     current DefinitionNode builder to extend the diagnostics
+ *     that can be found from the info
  *
- *       ------------------------------------------------------------------
- *          [ FUTURE ] new-scope.ts       VS.       scope.ts [ OLD ]
- *       ------------------------------------------------------------------
- *       - removes the need for introducing a new text-span `Range[]`
- *         object to represent each scope, our new-scope will be able to
- *         directly provide the nodes included in the Range[] object
- *         for any given scope.
- *       - implements get/set methods for using the scope object in a
- *         more friendly manor.
- *       - directly has access to the important information that causes
- *         Scope's to vary in the first place.
- *       - removes edge cases which scope.ts required back patching (via
- *         methods like `fixSpan`), to semi-correctly handle different
- *         scopes
- *       - exports less identifiers, which negates minute details which
- *         cause confusion among potential maintainers.
+ *
+ *                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ *                  ~ new-analyzer.ts changes HERE ~
+ *                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ *
+ *        - symbol-table will store references and definitions in O(n) time
+ *        - control flow graph will be able to track code paths in O(n) time
+ *        - other related new diagnostics are now possible by using the
+ *          decoupled symbol-table and control-flow-graph
+ *
+ * ------------------------------------------------------------------------------
+ * Once completed, remove the ./src/utils/new-symbol.ts, test-data/new-analyzer.ts,
+ * and the ./src/utils/new-scope.ts files. Replace their original files with the new
+ * implementations.
+ * ------------------------------------------------------------------------------
+ * Testing is done with the snippet below:
+ * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ *   ```sh
+ *    >_  nodemon --exec 'ts-node ./test-data/new-analyzer.ts' --ext ts --watch .
+ *   ```
+ * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
 
-/* type mapping for ScopeTags */
+/**
+ * type mapping for ScopeTag values, with a numeric value to represent scope hierarchy
+ */
 export const ScopeTag = {
   local: 0,
   inherit: 1,
@@ -40,303 +58,403 @@ export const ScopeTag = {
 
 /* Create a type from the object keys */
 export type ScopeTag = keyof typeof ScopeTag;
-
 /* Utility type to get the numeric value of a ScopeTag */
 export type ScopeTagValue = typeof ScopeTag[ScopeTag];
-
-export function getScopeTagValue(tag: ScopeTag): ScopeTagValue {
-  return ScopeTag[tag];
-}
+const getScopeTagValue = (tag: ScopeTag): ScopeTagValue => ScopeTag[tag];
 
 export class Scope {
-  /**
-   * the ranges that are valid in the scope
-   */
-  public spans: Range[];
-  constructor(
-    public tag: ScopeTag,
-    public node: SyntaxNode,
+  public excludedNodes: SyntaxNode[] = [];
+  public excludedRanges: Range[] = [];
 
+  constructor(
+    public uri: DocumentUri,
+    public currentNode: SyntaxNode,
+    public parentNode: SyntaxNode,
+    public symbol: FishDocumentSymbol,
   ) {
-    this.spans = this.initializeSpans();
+    this.setExcluded();
+  }
+
+  public static create(
+    uri: DocumentUri,
+    currentNode: SyntaxNode,
+    parentNode: SyntaxNode,
+    symbol: FishDocumentSymbol,
+  ): Scope {
+    return new Scope(uri, currentNode, parentNode, symbol);
+  }
+
+  public static fromSymbol(symbol: FishDocumentSymbol): Scope {
+    // const grandParent = findParent(symbol.parentNode, (n) => {
+    //   return n.type === 'function_definition' || n.type === 'program';
+    // }) || symbol.parentNode;
+    // switch (symbol.kind) {
+    //   case SymbolKind.Variable:
+    //     /**
+    //      * keep the scope at the same level, since the parent of a variable name is the
+    //      *
+    //      */
+    //     return new Scope(symbol.uri, symbol.currentNode, symbol.parentNode, symbol);
+    //   case SymbolKind.Function:
+    //     /**
+    //      * shift the scope up one level, since the parent of a function name is the
+    //      * node's direct `function_definition`.
+    //      *
+    //      * Now its grandparent is the actual scope node which is either a `function_definition`
+    //      * of a `program` node.
+    //      */
+    //     return new Scope(symbol.uri, symbol.parentNode, grandParent, symbol);
+    // }
+    return new Scope(symbol.uri, symbol.currentNode, symbol.parentNode, symbol);
   }
 
   /**
-   * Initialize the _\`TextSpan\`_ object with the ranges from the _\`SyntaxNode\`_
+   * TODO: finish
    */
-  private initializeSpans(): Range[] {
-    return this.getTextSpanRanges(this.node);
+  get tag(): 'local' | 'inherit' | 'function' | 'global' | 'universal' {
+    const kindModifier = this.getKindModifier();
+    const scopeType = this.getScopeTypeFromUri();
+    switch (this.kind) {
+      case 'variable':
+        return kindModifier;
+      case 'function':
+        return scopeType;
+    }
   }
 
   get tagValue(): ScopeTagValue {
-    return ScopeTag[this.tag];
+    return getScopeTagValue(this.tag);
   }
 
-  /**
-   * Get the _\`scope.tag\`_ numeric value for comparing
-   * @returns The numeric value of the _\`scope.tag\`_
-   */
-  getTagValue(): ScopeTagValue {
-    return ScopeTag[this.tag];
+  static getTagValue(tag: ScopeTag): ScopeTagValue {
+    return getScopeTagValue(tag);
   }
 
-  static tagValue(tag: ScopeTag): ScopeTagValue {
-    return ScopeTag[tag];
+  private get kind(): 'variable' | 'function' {
+    return symbolKindToString(this.symbol.kind) as 'variable' | 'function';
   }
 
-  /**
-   * @param tag - The _\`scope.tag\`_ for the new scope
-   * @param node - The _\`SyntaxNode\`_ for the new scope
-   * @returns A new _\`Scope\`_ object
-   */
-  static create(tag: ScopeTag, node: SyntaxNode): Scope {
-    return new Scope(tag, node);
-  }
-
-  /**
-   * Incrementally remove a range from the span
-   * @param rangeToRemove - The range to remove from the span
-   */
-  removeSpan(rangeToRemove: Range): void {
-    const updatedRanges: Range[] = [];
-
-    for (const range of this.spans) {
-      if (this.rangeOverlaps(range, rangeToRemove)) {
-        // Split the range if necessary
-        if (range.start.line < rangeToRemove.start.line ||
-          range.start.line === rangeToRemove.start.line && range.start.character < rangeToRemove.start.character) {
-          updatedRanges.push({
-            start: range.start,
-            end: {
-              line: rangeToRemove.start.line,
-              character: rangeToRemove.start.character,
-            },
-          });
-        }
-
-        if (range.end.line > rangeToRemove.end.line ||
-          range.end.line === rangeToRemove.end.line && range.end.character > rangeToRemove.end.character) {
-          updatedRanges.push({
-            start: {
-              line: rangeToRemove.end.line,
-              character: rangeToRemove.end.character,
-            },
-            end: range.end,
-          });
-        }
-      } else {
-        updatedRanges.push(range);
-      }
+  public getKindModifier(): ScopeTag {
+    const kind = this.kind;
+    switch (kind) {
+      case 'variable':
+        return ScopeModifier.variableCommand(this.currentNode);
+      case 'function':
+        return ScopeModifier.functionCommand(this.currentNode, this.symbol);
     }
-    this.spans = updatedRanges;
   }
 
-  /**
-   * Build a _\`TextSpan\`_ object from the _\`Scope\`_ object
-   * @param node - The _\`SyntaxNode\`_ for the new scope
-   * @returns A new _\`TextSpan\`_ object
-   */
-  private getTextSpanRanges(node: SyntaxNode): Range[] {
-    const ranges: Range[] = [];
-    let currentStart = node.startPosition;
+  private getScopeTypeFromUri(): ScopeTag {
+    // const uri: DocumentUri = this.symbol.uri;
+    const uriParts = this.symbol.uri.split('/');
+    const functionUriName = uriParts.at(-1)?.split('.')?.at(0) || uriParts.at(-1);
+    const parentFunction = findParent(this.parentNode, (n) => n.type === 'function_definition');
 
-    const collectRanges = (child: SyntaxNode) => {
-      if (
-        child.type === 'function_definition' &&
-        child.childrenForFieldName('option')
-          .none((n) => {
-            return NodeTypes.isMatchingOption(n, { shortOption: '-S', longOption: '--no-scope-shadowing' }) ||
-              NodeTypes.isMatchingOption(n, { shortOption: '-V', longOption: '--inherit-variable' });
-          })
-      ) {
-        if (child.startPosition.row > currentStart.row ||
-          child.startPosition.row === currentStart.row && child.startPosition.column > currentStart.column) {
-          ranges.push({
-            start: { line: currentStart.row, character: currentStart.column },
-            end: { line: child.startPosition.row, character: child.startPosition.column },
-          });
-        }
-        currentStart = child.endPosition;
-      } else {
-        for (let i = 0; i < child.childCount; i++) {
-          collectRanges(child.child(i)!);
+    if (uriParts?.at(-2) && uriParts.at(-2)?.includes('functions')) {
+      if (functionUriName === this.symbol.name) {
+        return 'global';
+      }
+      if (this.parentNode.type === 'function_definition') {
+        return 'function';
+      }
+      return 'local';
+    } else if (uriParts?.at(-1) === 'config.fish' || uriParts.at(-2) === 'conf.d') {
+      const callableScope = this.callableScope();
+      if (callableScope.type === 'program') {
+        return 'global';
+      }
+      if (callableScope.type === 'function_definition') {
+        if (ScopeModifier.noScopeShadowingFunction(this.symbol.parentNode)) {
+          return 'function';
         }
       }
-    };
-
-    for (let i = 0; i < node.childCount; i++) {
-      collectRanges(node.child(i)!);
+      if (this.parentNode.type === 'function_definition') {
+        return 'local';
+      }
+      return 'global';
     }
-
-    if (currentStart.row < node.endPosition.row ||
-      currentStart.row === node.endPosition.row && currentStart.column < node.endPosition.column) {
-      ranges.push({
-        start: { line: currentStart.row, character: currentStart.column },
-        end: { line: node.endPosition.row, character: node.endPosition.column },
-      });
+    if (parentFunction) {
+      return 'function';
     }
-
-    return ranges;
+    return 'local';
   }
 
-  containsInTextSpan(currentRange: Range): boolean {
-    for (const range of this.spans) {
-      if (this.rangeContains(range, currentRange) && !this.rangesEqual(range, currentRange)) {
+  private callableScope() {
+    switch (this.kind) {
+      case 'variable':
+        return this.parentNode;
+      case 'function':
+        return this.parentNode.parent as SyntaxNode;
+    }
+  }
+
+  /** TODO: test working state */
+  public contains(node: SyntaxNode): boolean {
+    for (const child of this.getNodes()) {
+      if (containsRange(getRange(child), getRange(node))) {
         return true;
       }
     }
     return false;
   }
 
-  private rangeContains(outer: Range, inner: Range): boolean {
-    if (outer.start.line > inner.start.line || outer.end.line < inner.end.line) {
-      return false;
-    }
-    if (outer.start.line === inner.start.line && outer.start.character > inner.start.character) {
-      return false;
-    }
-    if (outer.end.line === inner.end.line && outer.end.character < inner.end.character) {
-      return false;
-    }
-    return true;
+  get isCallable(): boolean {
+    return this.symbol.kind === SymbolKind.Function;
   }
 
-  private rangesEqual(a: Range, b: Range): boolean {
-    return (
-      a.start.line === b.start.line &&
-      a.start.character === b.start.character &&
-      a.end.line === b.end.line &&
-      a.end.character === b.end.character
-    );
+  get isGlobal(): boolean {
+    return this.tag === 'global' || this.tag === 'universal';
   }
 
-  private rangeOverlaps(a: Range, b: Range): boolean {
-    return !(a.end.line < b.start.line ||
-      a.end.line === b.start.line && a.end.character <= b.start.character ||
-      b.end.line < a.start.line ||
-      b.end.line === a.start.line && b.end.character <= a.start.character);
+  private setExcluded() {
+    // const parentFunctions = this.symbol.parentNode.descendantsOfType('function_definition');
+    // for (const parentFunction of parentFunctions) {
+    //   if (parentFunction.equals(this.parentNode)) {
+    //     continue;
+    //   }
+    //   if (ScopeModifier.functionWithFlag(parentFunction, this.symbol)) {
+    //     continue;
+    //   }
+    //   this.excludedNodes.push(parentFunction);
+    // }
+
+    const parent = findParent(this.parentNode, (n) => n.type === 'function_definition' || n.type === 'program') as SyntaxNode;
+
+    switch (this.kind) {
+      case 'variable':
+        this.excludedRanges.push(Range.create(
+          getRange(parent).start,
+          getRange(this.parentNode).end,
+        ));
+        this.excludedRanges.push(
+          ...parent.childrenForFieldName('function_definition')
+            .filter((n: SyntaxNode) => ScopeModifier.functionWithFlag(n, this.symbol) && !n.equals(this.parentNode))
+            .map(n => getRange(n)),
+        );
+      case 'function':
+        this.excludedNodes.push(this.currentNode);
+        break;
+    }
+
+    // switch (this.kind) {
+    //   case 'variable':
+    //     this.excludedNodes.push(this.currentNode);
+    //     // if (parentSymbol && this.symbol.parent && this.symbol.parent.getAllChildren()) {
+    //     //   this.excludedNodes.push(
+    //     //     ...parentSymbol.getAllChildren()
+    //     //       .filter((s: FishDocumentSymbol) => s.name === this.symbol.name && s.scope.tagValue !== this.tagValue)
+    //     //       .map((s: FishDocumentSymbol) => s.parentNode));
+    //     // }
+    //     break;
+    //   case 'function':
+    //     this.excludedNodes.push(this.currentNode);
+    //     break;
+    // }
+    /** todo: add all children functions that need to be excluded */
+    // parentSymbol?.getAllChildren().forEach((s: FishDocumentSymbol) => {
+    //   if (s.kind === SymbolKind.Function) {
+    //
+    //   }
+    //   if (s.name === this.symbol.name && s.scope.tagValue !== this.tagValue) {
+    //     this.excludedNodes.push(s.parentNode);
+    //   }
+    // })
   }
 
-  // private fixGlobalRanges(...s: FishDocumentSymbol[]) {
-  //   const global = flattenNested(...s).find((sym) => sym.scope.tag === 'global');
-  //   s.forEach((sym) => {
-  //     if (sym.scope.tag !== 'global') {
-  //       global.scope.removeSpan(sym.range);
-  //     }
-  //   });
-  //   }
-  // }
+  private callableParent(): SyntaxNode {
+    return findParent(this.parentNode,
+      (n) => n.type === 'function_definition' || n.type === 'program',
+    ) as SyntaxNode;
+  }
 
-  fixSpan(...symbols: FishDocumentSymbol[]): void {
-    const globalSymbols = symbols.filter(symbol => symbol.scope.tag === 'global');
-
-    for (const symbol of globalSymbols) {
-      const symbolRange = symbol.range;
-
-      // Check if the symbol's range overlaps with any existing spans
-      const overlappingSpans = this.spans.filter(span => this.rangeOverlaps(span, symbolRange));
-
-      if (overlappingSpans.length === 0) {
-        // If there's no overlap, simply add the new range
-        this.spans.push(symbolRange);
-      } else {
-        // If there's overlap, we need to merge the ranges
-        const newSpans: Range[] = [];
-
-        for (const span of this.spans) {
-          if (this.rangeOverlaps(span, symbolRange)) {
-            // Merge the overlapping spans
-            newSpans.push(this.mergeRanges(span, symbolRange));
-          } else {
-            newSpans.push(span);
+  public callableNodes(): SyntaxNode[] {
+    const parent = this.callableParent();
+    const skipRanges: Range[] = [];
+    const result: SyntaxNode[] = [];
+    switch (this.kind) {
+      case 'variable':
+        for (const child of getChildNodes(parent)) {
+          if (NodeTypes.isFunctionDefinition(child) && !ScopeModifier.functionWithFlag(child, this.symbol)) {
+            skipRanges.push(getRange(child));
+            continue;
+          }
+          if (
+            rangeIsAfter(getRange(this.parentNode), getRange(child))
+            && !skipRanges.some((r) => containsRange(r, getRange(child)))
+          ) {
+            result.push(child);
           }
         }
-
-        this.spans = newSpans;
-      }
+        break;
+      case 'function':
+        skipRanges.push(getRange(this.parentNode));
+        if (parent.type === 'program') {
+          for (const child of getChildNodes(parent)) {
+            if (NodeTypes.isFunctionDefinition(child) && !child.parent.equals(parent)) {
+              skipRanges.push(getRange(child));
+              continue;
+            } else if (!skipRanges.some((r) => containsRange(r, getRange(child)))) {
+              result.push(child);
+            }
+          }
+        } else {
+          for (const child of getChildNodes(parent)) {
+            if (NodeTypes.isFunctionDefinition(child) && !child.parent.equals(parent)) {
+              skipRanges.push(getRange(child));
+              continue;
+            }
+            if (
+              rangeIsAfter(getRange(this.parentNode), getRange(child))
+              && !skipRanges.some((r) => containsRange(r, getRange(child)))
+            ) {
+              result.push(child);
+            }
+          }
+        }
+        break;
     }
-
-    // Sort the spans to ensure they're in order
-    this.spans.sort((a, b) => {
-      if (a.start.line !== b.start.line) {
-        return a.start.line - b.start.line;
-      }
-      return a.start.character - b.start.character;
-    });
-
-    // Merge any adjacent or overlapping spans
-    this.spans = this.mergeAdjacentSpans(this.spans);
+    return result;
   }
 
-  private mergeRanges(range1: Range, range2: Range): Range {
+  public getNodes(): SyntaxNode[] {
+    const parentSymbol = this.symbol.parent;
+    switch (this.kind) {
+      case 'variable':
+        this.excludedNodes.push(this.currentNode);
+        if (parentSymbol && this.symbol.parent && this.symbol.parent.allChildren()) {
+          this.excludedNodes.push(
+            ...parentSymbol.allChildren()
+              .filter((s: FishDocumentSymbol) => s.name === this.symbol.name && s.scope.tagValue !== this.tagValue)
+              .map((s: FishDocumentSymbol) => s.parentNode));
+        }
+        break;
+      case 'function':
+        this.excludedNodes.push(this.currentNode);
+        break;
+    }
+
+    return getChildNodes(this.parentNode)
+      .filter(n => !this.excludedNodes.some(s => containsRange(getRange(s), getRange(n))));
+  }
+  // while(queue.length) {
+  //   const current: SyntaxNode | undefined = queue.shift();
+  //   if (!current) {
+  //     continue;
+  //   }
+  //   if (current.type === 'function_definition' && !ScopeModifier.functionWithFlag(current)) {
+  //     continue;
+  //   }
+  //   if (current.equals(this.node)) continue;
+  //   if (current && current.children) {
+  //     queue.unshift(...current.children);
+  //   }
+  // }
+  // return result;
+  // }
+
+  // getEncapsulatedNodes(): SyntaxNode[] {
+  //   const result: SyntaxNode[] = [];
+  //   const innerScopeSet = new Set(this.innerScope());
+  //
+  //   for (const outerNode of this.outerScope()) {
+  //     if (!this.isNodeOrChildInInnerScope(outerNode, innerScopeSet)) {
+  //       result.push(this.getCondensedNode(outerNode, innerScopeSet));
+  //     }
+  //   }
+  //
+  //   return result;
+  // }
+  //
+  // private isNodeOrChildInInnerScope(node: SyntaxNode, innerScopeSet: Set<SyntaxNode>): boolean {
+  //   if (innerScopeSet.has(node)) {
+  //     return true;
+  //   }
+  //
+  //   if (!node) return false;
+  //   if (!node?.children || node.children.length === 0) {
+  //     return false;
+  //   }
+  //
+  //   for (const child of node.children as SyntaxNode[]) {
+  //     if (this.isNodeOrChildInInnerScope(child, innerScopeSet)) {
+  //       return true;
+  //     }
+  //   }
+  //
+  //   return false;
+  // }
+  //
+  // // TODO: fix the children from the encapsulation method
+  // private getCondensedNode(node: SyntaxNode, innerScopeSet: Set<SyntaxNode>): SyntaxNode {
+  //   const condensedChildren: SyntaxNode[] = [];
+  //
+  //   for (const child of node.children) {
+  //     if (!this.isNodeOrChildInInnerScope(child, innerScopeSet)) {
+  //       condensedChildren.push(this.getCondensedNode(child, innerScopeSet));
+  //     }
+  //   }
+  //
+  //   // Create a new node with the same properties as the original, but with condensed children
+  //   return {
+  //     ...node,
+  //     children: condensedChildren, // TODO: causes error when trying to access children
+  //   };
+  // }
+
+  /**
+   * TODO: ___test parent resolution is correct___
+   *
+   * @see deprecated method in ./scope.ts file, for OLD implementation/behavior
+   *
+   * ---
+   * _note:_ end is not logged because of the condensing we do above
+   */
+  // public toString(): string {
+  //   return Array.from(Object.values({
+  //     tag: this.tag,
+  //     // uri: this.uri,
+  //     // node: `${this.node.type} - ${this.node.text.slice(0, 10)} - ${this.node.toString().slice(0, 15)}`,
+  //     // parent: `${this.parent.type} - ${this.parent.text.slice(0, 10)} - ${this.parent.toString().slice(0, 15)}`,
+  //     // symbol: `${this.symbol.name} - ${symbolKindToString(this.symbol.kind)}`,
+  //     encapsulatedNodes: this.getEncapsulatedNodes().map((n: SyntaxNode) => {
+  //       const start = n.startPosition;
+  //       // const end = n.endPosition;
+  //       const { line, character } = pointToPosition(start);
+  //       // const { line: endLine = -1, character: endCharacter = -1 } = pointToPosition(end);
+  //
+  //       return '(' + Object.values({ line, character }).join(',') + ')';
+  //     }).join(' - '),
+  //   })).join(' | ').toString();
+  // }
+
+  public toObject() {
     return {
-      start: {
-        line: Math.min(range1.start.line, range2.start.line),
-        character: range1.start.line < range2.start.line ? range1.start.character :
-          range1.start.line > range2.start.line ? range2.start.character :
-            Math.min(range1.start.character, range2.start.character),
-      },
-      end: {
-        line: Math.max(range1.end.line, range2.end.line),
-        character: range1.end.line > range2.end.line ? range1.end.character :
-          range1.end.line < range2.end.line ? range2.end.character :
-            Math.max(range1.end.character, range2.end.character),
-      },
+      tag: this.tag,
+      name: this.symbol.name,
+      parentNode: getRangeString(getRange(this.parentNode)),
+      currentNode: getRangeString(getRange(this.currentNode)),
     };
   }
 
-  private mergeAdjacentSpans(spans: ReadonlyArray<Range>): Range[] {
-    if (spans.length <= 1) return [...spans];
-
-    const mergedSpans: Range[] = [];
-    let currentSpan: Range | undefined = spans[0];
-
-    for (let i = 1; i < spans.length; i++) {
-      const nextSpan = spans[i];
-
-      if (currentSpan && nextSpan) {
-        if (this.rangeOverlaps(currentSpan, nextSpan) || this.rangesAdjacent(currentSpan, nextSpan)) {
-          currentSpan = this.mergeRanges(currentSpan, nextSpan);
-        } else {
-          mergedSpans.push(currentSpan);
-          currentSpan = nextSpan;
-        }
-      } else if (nextSpan) {
-        currentSpan = nextSpan;
-      }
-    }
-
-    if (currentSpan) {
-      mergedSpans.push(currentSpan);
-    }
-
-    return mergedSpans;
-  }
-
-  private rangesAdjacent(range1: Range, range2: Range): boolean {
-    return range1.end.line === range2.start.line && range1.end.character === range2.start.character ||
-      range2.end.line === range1.start.line && range2.end.character === range1.start.character;
-  }
-
-  toString() {
-    const ranges: string[] = [];
-    let index = 0;
-    for (const range of this.spans) {
-      ranges.push('{' + `${index}, ${range.start.line}:${range.start.character}-${range.end.line}:${range.end.character}` + '}');
-      index++;
-    }
-    return `${this.tag}: ${ranges.join(',')}`;
+  public toString(): string {
+    const nodeStr = getRangeString(getRange(this.currentNode));
+    const parentStr = getRangeString(getRange(this.parentNode));
+    const tagStr = String("'" + this.tag + "'").padEnd(10);
+    const nameStr = String("'" + this.symbol.name + "'").padEnd(9);
+    return `{ tag: ${tagStr}, name: ${nameStr}, ranges: {${nodeStr}, ${parentStr}}, }`;
   }
 }
 
-export function getNodeScopeType(node: SyntaxNode) {
-  if (NodeTypes.isFunctionDefinitionName(node)) {
-    return 'function';
-  }
-  if (NodeTypes.isVariableDefinitionName(node)) {
-    return 'variable';
-  }
-  return 'unknown';
+function getRangeString(
+  range: {
+    start: { line: number; character: number; };
+    end: { line: number; character: number; };
+  },
+): string {
+  const getPaddedRange = (r: { line: number; character: number; }) => {
+    return `(${r.line.toString()},${r.character.toString()})`;
+  };
+  return `[${getPaddedRange(range.start).padStart(7)}, ${getPaddedRange(range.end).padEnd(7)}]`;
 }
 
 function findParent(n: SyntaxNode, fn: (n: SyntaxNode) => boolean): SyntaxNode | null {
@@ -350,55 +468,29 @@ function findParent(n: SyntaxNode, fn: (n: SyntaxNode) => boolean): SyntaxNode |
   return null;
 }
 
-/**
- * @param uri - The _\`DocumentUri\`_ of the current document
- * @param node - The _\`SyntaxNode\`_ of the current node
- * @returns The _\`scope.tag\`_ of the current node for a _\'function_definition\'_
- */
-function getFunctionScopeType(uri: DocumentUri, node: SyntaxNode) {
-  const uriParts = uri.split('/');
-  const functionUriName = uriParts.at(-1)?.split('.')?.at(0) || uriParts.at(-1);
-  const pFunction = findParent(node, (n) => n.type === 'function_definition');
-
-  if (uriParts?.at(-2) && uriParts.at(-2)?.includes('functions')) {
-    if (functionUriName === node.text) {
-      return 'global';
-    }
-    if (pFunction) {
-      return 'function';
-    }
-    return 'local';
-  } else if (uriParts?.at(-1) === 'config.fish' || uriParts.at(-2) === 'conf.d') {
-    if (node.parent && findParent(node.parent, (n) => n.type === 'function_definition')) {
-      return 'function';
-    }
-    return 'global';
-  }
-  if (pFunction) {
-    return 'function';
-  }
-  return 'local';
+function rangeIsAfter(before: Range, after: Range) {
+  return before.end.line < after.start.line || before.end.line === after.start.line && before.end.character <= after.start.character;
 }
 
 /**
- * Get the scope modifier for a variable when various shell options could edit the scope
- *
- * ---
- *
- * Use one of the following functions to determine the scope of a variable:
- *
- * ```typescript
- *
- * ScopeModifier.variableCommand(node); // 'local' | 'function' | 'global' | 'universal'
- *
- * ScopeModifier.functionCommand(node); // 'local' | 'function' | 'global' | 'universal'
- * ```
- *
- * ---
- *
- *  Both functions return a _\`scope.tag\`_ for the variable node.
- *
- */
+* Get the scope modifier for a variable when various shell options could edit the scope
+*
+* ---
+*
+* Use one of the following functions to determine the scope of a variable:
+*
+* ```typescript
+*
+* ScopeModifier.variableCommand(node); // 'local' | 'function' | 'global' | 'universal'
+*
+* ScopeModifier.functionCommand(node); // 'local' | 'function' | 'global' | 'universal'
+* ```
+*
+* ---
+*
+*  Both functions return a _\`scope.tag\`_ for the variable node.
+*
+*/
 export namespace ScopeModifier {
 
   /**
@@ -464,7 +556,7 @@ export namespace ScopeModifier {
    *
    * @returns The _\`scope.tag\`_ of the variable node
    */
-  export function functionCommand(node: SyntaxNode): ScopeTag {
+  export function functionCommand(node: SyntaxNode, symbol: FishDocumentSymbol): ScopeTag {
     const args: SyntaxNode[] = node.parent?.childrenForFieldName('option') || [] as SyntaxNode[];
     let lastArg: SyntaxNode | null = null;
 
@@ -479,19 +571,55 @@ export namespace ScopeModifier {
     if (lastArg) {
       switch (true) {
         case NodeTypes.isMatchingOption(lastArg, { shortOption: '-V', longOption: '--inherit-variable' }):
-          return 'inherit';
+          return symbol.parentNode.type === 'function_definition' ? 'function' : 'global';
         case NodeTypes.isMatchingOption(lastArg, { shortOption: '-a', longOption: '--argument-names' }):
           return 'local';
         case NodeTypes.isMatchingOption(lastArg, { shortOption: '-v', longOption: '--on-variable' }):
           return 'global';
         case NodeTypes.isMatchingOption(lastArg, { shortOption: '-S', longOption: '--no-scope-shadowing' }):
-          return 'inherit';
+          // return 'inherit';
+          return symbol.parentNode.type === 'function_definition' ? 'function' : 'global';
         default:
           return 'local';
       }
     }
 
     return 'local';
+  }
+
+  export function functionWithFlag(node: SyntaxNode, symbol?: FishDocumentSymbol): boolean {
+    const args: SyntaxNode[] = node.childrenForFieldName('option') || [] as SyntaxNode[];
+    let lastArg: SyntaxNode | null = null;
+
+    for (const arg of args) {
+      if (NodeTypes.isOption(arg)) {
+        lastArg = arg;
+        continue;
+      }
+      if (arg.equals(node)) break;
+    }
+
+    if (lastArg) {
+      switch (true) {
+        case NodeTypes.isMatchingOption(lastArg, { shortOption: '-V', longOption: '--inherit-variable' }):
+          return lastArg?.nextSibling?.text === symbol?.name;
+        case NodeTypes.isMatchingOption(lastArg, { shortOption: '-S', longOption: '--no-scope-shadowing' }):
+          return true;
+        default:
+          return false;
+      }
+    }
+    return false;
+  }
+
+  export function noScopeShadowingFunction(node: SyntaxNode): boolean {
+    const args: SyntaxNode[] = node.childrenForFieldName('option') || [] as SyntaxNode[];
+    for (const arg of args) {
+      if (NodeTypes.isMatchingOption(arg, { shortOption: '-S', longOption: '--no-scope-shadowing' })) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -537,322 +665,3 @@ export namespace ScopeModifier {
     return { tag, node };
   }
 }
-
-export function getScope(documentUri: DocumentUri, node: SyntaxNode, text: SymbolName): Scope {
-  const nodeType = getNodeScopeType(node);
-  let scopeTag: ScopeTag = 'local';
-
-  let scopeNode = findParent(node, (n) => {
-    return n.type === 'function_definition' || n.type === 'program';
-  }) || node.parent || node;
-
-  if (text === 'argv') {
-    return Scope.create('local', scopeNode);
-  }
-
-  if (nodeType === 'function') {
-    scopeTag = getFunctionScopeType(documentUri, node.parent!);
-    scopeNode = findParent(node as SyntaxNode, (n) => {
-      return n.type === 'program';
-    }) as SyntaxNode;
-  } else if (nodeType === 'variable') {
-    if (node.parent) {
-      if (node.parent.type === 'function_definition') {
-        scopeTag = ScopeModifier.functionCommand(node);
-        const result = ScopeModifier.findVariableFunctionFlagInheritParent(node, scopeTag);
-        scopeTag = result.tag;
-        scopeNode = result.node;
-      } else if (node.parent.type === 'for_statement') {
-        scopeTag = 'local';
-      } else if (NodeTypes.isCommandWithName(node.parent, 'argparse')) {
-        scopeTag = 'local';
-      } else if (NodeTypes.isCommandWithName(node.parent, 'read')) {
-        scopeTag = ScopeModifier.variableCommand(node);
-      } else if (NodeTypes.isCommandWithName(node.parent, 'set')) {
-        scopeTag = ScopeModifier.variableCommand(node);
-      }
-    }
-  }
-
-  /* remove the span if we're inside a function, so that there is no recursive collisions */
-  const result = Scope.create(scopeTag, scopeNode);
-  if (nodeType === 'function' && node.parent!.type === 'program') {
-    result.removeSpan(getRange(node.parent!));
-  }
-  return result;
-}
-
-// export function getTextSpanRanges(node: SyntaxNode): Range[] {
-//   const ranges: Range[] = [];
-//   let currentStart = node.startPosition;
-//
-//   function collectRanges(child: SyntaxNode) {
-//     if (
-//       child.type === 'function_definition' &&
-//       child.childrenForFieldName('option')
-//         .none((n) => {
-//           return NodeTypes.isMatchingOption(n, { shortOption: '-S', longOption: '--no-scope-shadowing' })
-//             || NodeTypes.isMatchingOption(n, { shortOption: '-V', longOption: '--inherit-variable' });
-//         })
-//     ) {
-//       // If we encounter a function_definition, add the range up to this point
-//       if (child.startPosition.row > currentStart.row ||
-//         child.startPosition.row === currentStart.row && child.startPosition.column > currentStart.column) {
-//         ranges.push({
-//           start: { line: currentStart.row, character: currentStart.column },
-//           end: { line: child.startPosition.row, character: child.startPosition.column },
-//         });
-//       }
-//       // Update the currentStart to be after this function_definition
-//       currentStart = child.endPosition;
-//     } else {
-//       // Recursively collect ranges for non-function_definition nodes
-//       for (let i = 0; i < child.childCount; i++) {
-//         collectRanges(child.child(i)!);
-//       }
-//     }
-//   }
-//
-//   // Start the recursive collection
-//   for (let i = 0; i < node.childCount; i++) {
-//     collectRanges(node.child(i)!);
-//   }
-//
-//   // Add the final range if there's any remaining
-//   if (currentStart.row < node.endPosition.row ||
-//     currentStart.row === node.endPosition.row && currentStart.column < node.endPosition.column) {
-//     ranges.push({
-//       start: { line: currentStart.row, character: currentStart.column },
-//       end: { line: node.endPosition.row, character: node.endPosition.column },
-//     });
-//   }
-//
-//   return ranges;
-// }
-
-/**
- * Get the global scope of a document with a specific match string to remove smaller scopes
- *  @param root - The _root_ node of the document
- *  @param symbols - An array of _\`FishDocumentSymbol\`_ objects, _non-flattened_
- *  @param matchString - The string to match and remove from the global scope (symbols with this name)
- *  @returns global scope from rootNode with all smaller scoped matchString removed
- */
-export function getGlobalDocumentScope(root: SyntaxNode, symbols: FishDocumentSymbol[], matchString: string): Scope {
-  const rootScope = Scope.create('global', root);
-
-  const matches: FishDocumentSymbol[] = flattenNested(...symbols)
-    .filter((s: FishDocumentSymbol) => s.name === matchString && s.scope.tagValue <= 2);
-
-  matches.forEach(s => {
-    rootScope.removeSpan(s.range);
-  });
-
-  return rootScope;
-}
-
-export function checkSymbolScopeContainsRange(s1: string, s2: string, symbol1: FishDocumentSymbol, symbol2: FishDocumentSymbol) {
-  return {
-    outer: s1,
-    inner: s2,
-    contains: symbol1.scope.containsInTextSpan(symbol2.selectionRange) ? '✅' : '❌',
-    outerScope: symbol1.scope.toString(),
-    innerScope: symbol2.scope.toString(),
-  };
-}
-
-export function getNodesInScope(scope: Scope) {
-  const result: SyntaxNode[] = [];
-  for (const child of getChildNodes(scope.node)) {
-    if (scope.containsInTextSpan(getRange(child))) {
-      result.push(child);
-    }
-  }
-  return result;
-}
-
-//
-// import { Range } from 'vscode-languageserver';
-// import { SyntaxNode } from 'web-tree-sitter';
-//
-// export const ScopeTag = {
-//   local: 0,
-//   inherit: 1,
-//   function: 2,
-//   global: 3,
-//   universal: 4,
-// } as const;
-//
-// export type ScopeTag = keyof typeof ScopeTag;
-// export type ScopeTagValue = typeof ScopeTag[ScopeTag];
-//
-// export class Scope {
-//   public spans: Range[];
-//
-//   constructor(
-//     public tag: ScopeTag,
-//     public node: SyntaxNode,
-//     private options: {
-//       getTextSpanRanges?: (node: SyntaxNode) => Range[];
-//       isExcludedFunction?: (node: SyntaxNode) => boolean;
-//     } = {}
-//   ) {
-//     this.spans = this.initializeSpans();
-//   }
-//
-//   private initializeSpans(): Range[] {
-//     return this.options.getTextSpanRanges
-//       ? this.options.getTextSpanRanges(this.node)
-//       : this.defaultGetTextSpanRanges(this.node);
-//   }
-//
-//   getTagValue(): ScopeTagValue {
-//     return ScopeTag[this.tag];
-//   }
-//
-//   static create(tag: ScopeTag, node: SyntaxNode, options?: Scope['options']): Scope {
-//     return new Scope(tag, node, options);
-//   }
-//
-//   removeSpan(rangeToRemove: Range): void {
-//     this.spans = this.spans.flatMap(range => 
-//       this.splitRange(range, rangeToRemove)
-//     ).filter(range => !this.isEmptyRange(range));
-//   }
-//
-//   private splitRange(range: Range, rangeToRemove: Range): Range[] {
-//     if (!this.rangeOverlaps(range, rangeToRemove)) {
-//       return [range];
-//     }
-//
-//     const result: Range[] = [];
-//
-//     if (this.isBeforeRange(range.start, rangeToRemove.start)) {
-//       result.push({
-//         start: range.start,
-//         end: { ...rangeToRemove.start }
-//       });
-//     }
-//
-//     if (this.isBeforeRange(rangeToRemove.end, range.end)) {
-//       result.push({
-//         start: { ...rangeToRemove.end },
-//         end: range.end
-//       });
-//     }
-//
-//     return result;
-//   }
-//
-//   fixSpan(...symbols: { scope: Scope, range: Range }[]): void {
-//     const globalSymbols = symbols.filter(symbol => symbol.scope.tag === 'global');
-//
-//     this.spans = this.mergeRanges([
-//       ...this.spans,
-//       ...globalSymbols.map(symbol => symbol.range)
-//     ]);
-//   }
-//
-//   private mergeRanges(ranges: Range[]): Range[] {
-//     const sortedRanges = ranges.sort((a, b) => 
-//       a.start.line - b.start.line || a.start.character - b.start.character
-//     );
-//
-//     const mergedRanges: Range[] = [];
-//     let currentRange = sortedRanges[0];
-//
-//     for (const range of sortedRanges.slice(1)) {
-//       if (this.rangeOverlaps(currentRange, range) || this.rangesAdjacent(currentRange, range)) {
-//         currentRange = this.mergeRange(currentRange, range);
-//       } else {
-//         mergedRanges.push(currentRange);
-//         currentRange = range;
-//       }
-//     }
-//
-//     mergedRanges.push(currentRange);
-//     return mergedRanges;
-//   }
-//
-//   containsInTextSpan(currentRange: Range): boolean {
-//     return this.spans.some(range => 
-//       this.rangeContains(range, currentRange) && !this.rangesEqual(range, currentRange)
-//     );
-//   }
-//
-//   toString(): string {
-//     return `${this.tag}: ${this.spans.map((range, index) =>
-//       `{${index}, ${range.start.line}:${range.start.character}-${range.end.line}:${range.end.character}}`
-//     ).join(',')}`;
-//   }
-//
-//   private defaultGetTextSpanRanges(node: SyntaxNode): Range[] {
-//     const ranges: Range[] = [];
-//     let currentStart = node.startPosition;
-//
-//     const collectRanges = (child: SyntaxNode) => {
-//       if (
-//         child.type === 'function_definition' &&
-//         this.options.isExcludedFunction &&
-//         this.options.isExcludedFunction(child)
-//       ) {
-//         if (this.isBeforeRange(currentStart, child.startPosition)) {
-//           ranges.push(this.createRange(currentStart, child.startPosition));
-//         }
-//         currentStart = child.endPosition;
-//       } else {
-//         child.children.forEach(collectRanges);
-//       }
-//     };
-//
-//     node.children.forEach(collectRanges);
-//
-//     if (this.isBeforeRange(currentStart, node.endPosition)) {
-//       ranges.push(this.createRange(currentStart, node.endPosition));
-//     }
-//
-//     return ranges;
-//   }
-//
-//   // Helper methods for range operations
-//   private rangeContains(outer: Range, inner: Range): boolean {
-//     return !this.isBeforeRange(inner.start, outer.start) && !this.isBeforeRange(outer.end, inner.end);
-//   }
-//
-//   private rangesEqual(a: Range, b: Range): boolean {
-//     return this.positionsEqual(a.start, b.start) && this.positionsEqual(a.end, b.end);
-//   }
-//
-//   private rangeOverlaps(a: Range, b: Range): boolean {
-//     return !this.isBeforeRange(a.end, b.start) && !this.isBeforeRange(b.end, a.start);
-//   }
-//
-//   private rangesAdjacent(a: Range, b: Range): boolean {
-//     return this.positionsEqual(a.end, b.start) || this.positionsEqual(b.end, a.start);
-//   }
-//
-//   private mergeRange(a: Range, b: Range): Range {
-//     return {
-//       start: this.isBeforeRange(a.start, b.start) ? a.start : b.start,
-//       end: this.isBeforeRange(a.end, b.end) ? b.end : a.end
-//     };
-//   }
-//
-//   private isBeforeRange(a: { line: number, character: number }, b: { line: number, character: number }): boolean {
-//     return a.line < b.line || (a.line === b.line && a.character < b.character);
-//   }
-//
-//   private positionsEqual(a: { line: number, character: number }, b: { line: number, character: number }): boolean {
-//     return a.line === b.line && a.character === b.character;
-//   }
-//
-//   private createRange(start: { row: number, column: number }, end: { row: number, column: number }): Range {
-//     return {
-//       start: { line: start.row, character: start.column },
-//       end: { line: end.row, character: end.column }
-//     };
-//   }
-//
-//   private isEmptyRange(range: Range): boolean {
-//     return this.positionsEqual(range.start, range.end);
-//   }
-// }
