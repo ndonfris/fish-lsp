@@ -136,7 +136,7 @@ export class FishDocumentSymbol implements FishDocumentSymbol {
       && this.currentNode.equals(other.currentNode)
       && (!!this.parentNode && !!other.parentNode && this.parentNode.equals(other.parentNode))
       && this.scope.tag === other.scope.tag
-      && this.scope.currentNode.equals(other.scope.currentNode)
+      && this.scope.equals(other.scope)
       && this.children.length === other.children.length;
   }
 
@@ -220,13 +220,20 @@ export class FishDocumentSymbol implements FishDocumentSymbol {
     return getChildNodes(this.parent.parentNode);
   }
 
-  getLocalReferences(): Range[] {
-    const result: Range[] = this.getNodesInScope().filter(s => this.aliases.includes(s.text)).map(s => getRange(s));
+  getLocalReferences(): Location[] {
+    const result: Location[] = this.getNodesInScope().filter(s => this.aliases.includes(s.text)).map(s => Location.create(this.uri, getRange(s)));
 
     if (this.scope.tagValue >= ScopeTag.global && this.kind === SymbolKind.Function) {
-      result.unshift(this.selectionRange);
+      result.unshift(Location.create(this.uri, this.selectionRange));
     }
     return result;
+  }
+
+  getDefinitionAndReferences(): SyntaxNode[] {
+    return [
+      this.currentNode,
+      ...this.getNodesInScope().filter(s => this.aliases.includes(s.text)),
+    ].filter(n => n.type === 'word');
   }
 
   static fromNode(
@@ -332,7 +339,8 @@ function extractSymbolInfo(node: SyntaxNode): {
   return { shouldCreate, kind, parent, child };
 }
 
-export function getFishDocumentSymbols(uri: DocumentUri, rootNode: SyntaxNode, ...currentNodes: SyntaxNode[]): FishDocumentSymbol[] {
+// export function getFishDocumentSymbols(uri: string, rootNode: SyntaxNode, ...currentNodes: SyntaxNode[]): FishDocumentSymbol[] {
+export function getFishDocumentSymbols(uri: string, rootNode: SyntaxNode): FishDocumentSymbol[] {
   const rootSymbol = FishDocumentSymbol.createRoot(uri, rootNode);
   let parentSymbol = rootSymbol;
   function innerFishDocumentSymbols(uri: DocumentUri, ...currentNodes: SyntaxNode[]): FishDocumentSymbol[] {
@@ -394,7 +402,7 @@ export function getFishDocumentSymbols(uri: DocumentUri, rootNode: SyntaxNode, .
   }
 
   /** add the result symbols to the rootSymbol.children */
-  const symbols = innerFishDocumentSymbols(uri, ...currentNodes);
+  const symbols = innerFishDocumentSymbols(uri, rootNode);
   rootSymbol.children.push(...symbols);
 
   return symbols;

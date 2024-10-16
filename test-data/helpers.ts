@@ -1,14 +1,14 @@
-import { readdirSync, readFileSync } from 'fs';
+import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { initializeParser } from '../src/parser';
-import Parser, { Point, SyntaxNode, Tree } from 'web-tree-sitter';
+import { Point, SyntaxNode, Tree } from 'web-tree-sitter';
 import * as LSP from 'vscode-languageserver';
 import { TextDocumentItem } from 'vscode-languageserver';
 import { LspDocument } from '../src/document';
 import { homedir } from 'os';
 import { FishDocumentSymbol } from '../src/utils/symbol';
-import { getRange, pointToPosition } from '../src/utils/tree-sitter';
-import { symbolKindToString } from '../src/utils/translation';
+import { getRange } from '../src/utils/tree-sitter';
+// import { symbolKindToString } from '../src/utils/translation';
 
 export function setLogger(
   beforeCallback: () => Promise<void> = async () => { },
@@ -59,13 +59,12 @@ export function createFakeUriPath(path: string): string {
   return `file://${homedir()}/.config/fish/${path}`;
 }
 
-
 export function containsCursor(code: string): boolean {
   return code.includes('█');
 }
 
 export function removeCursorFromCode(code: string): {
-  cursorPosition: LSP.Position,
+  cursorPosition: LSP.Position;
   input: string;
 } {
   let lineNumber = 0;
@@ -78,7 +77,7 @@ export function removeCursorFromCode(code: string): {
       notSet = false;
       lineNumber = i;
       columnNumber = currLine.trimStart().indexOf('█') - 1;
-      lines[ i ] = lines[ i ]!.replace('█', ' ');
+      lines[i] = lines[i]!.replace('█', ' ');
     }
     if (notSet) {
       lineNumber++;
@@ -92,11 +91,11 @@ export function removeCursorFromCode(code: string): {
   };
 }
 
-export function createFakeCursorLspDocument(name: string, text: string): { document: LspDocument, cursorPosition: LSP.Position, input: string; } {
+export function createFakeCursorLspDocument(name: string, text: string): { doc: LspDocument; cursorPosition: LSP.Position; input: string; } {
   const { cursorPosition, input } = removeCursorFromCode(text);
   const uri = createFakeUriPath(name);
   const doc = TextDocumentItem.create(uri, 'fish', 0, input);
-  return { document: new LspDocument(doc), cursorPosition, input };
+  return { doc: new LspDocument(doc), cursorPosition, input };
 }
 
 export function createFakeLspDocument(name: string, text: string): LspDocument {
@@ -111,7 +110,7 @@ export function createFakeLspDocument(name: string, text: string): LspDocument {
 export function logFishDocumentSymbolTree(symbols: FishDocumentSymbol[], indentString: string = ''): string {
   let str = '';
   for (const symbol of symbols) {
-    str += symbol.scope.scopeTag.padEnd(10) + '::::' + indentString + symbol.logString() + '\n';
+    str += symbol.scope.tag.padEnd(10) + '::::' + indentString + symbol.toString() + '\n';
     if (symbol.children) {
       str += logFishDocumentSymbolTree(symbol.children, indentString + '    ');
     }
@@ -119,14 +118,13 @@ export function logFishDocumentSymbolTree(symbols: FishDocumentSymbol[], indentS
   return str.trim();
 }
 
-
 /**
  * build a string of text before the cursor, this is useful for debugging
  */
 export function getCursorText(cursorNode: SyntaxNode, cursorPosition: LSP.Position): string {
   function buildCurrent() {
     let current: SyntaxNode | null = cursorNode;
-    let result: string = '';
+    const result: string = '';
     while (current) {
       if (current.parent && getRange(current.parent).start.line !== cursorPosition.line) {
         const range = getRange(current).start;
@@ -138,5 +136,5 @@ export function getCursorText(cursorNode: SyntaxNode, cursorPosition: LSP.Positi
     }
     return result;
   }
-  return "`" + buildCurrent() + "█`";
+  return '`' + buildCurrent() + '█`';
 }

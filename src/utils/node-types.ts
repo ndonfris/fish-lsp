@@ -278,7 +278,7 @@ export type NodeOptionQueryText = {
  * @param optionQuery - object of node strings to match
  * @returns boolean result corresponding to query
  */
-export function isMatchingOption(node: SyntaxNode, optionQuery: NodeOptionQueryText): node is ArgNode {
+export function isMatchingOption(node: SyntaxNode, optionQuery: NodeOptionQueryText): boolean {
   if (!isOption(node)) return false;
 
   const nodeText = node.text.includes('=') ? node.text.slice(0, node.text.indexOf('=')) : node.text;
