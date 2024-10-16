@@ -147,8 +147,18 @@ export class FishDocumentSymbol implements FishDocumentSymbol {
     const result: SyntaxNode[] = [];
     const exclude: Range[] = [];
     const childExclusions = this.kind === SymbolKind.Function
-      ? this.parent.allChildren().filter(child => child.kind === SymbolKind.Function && !child.isShadowingRoot()).map(child => child.range)
-      : this.parent.allChildren().filter(child => child.kind === SymbolKind.Function && child.hasName(this.name) && child.allChildren().some(s => s.name === this.name && !s.scope.parentNode.equals(this.scope.parentNode))).map(s => s.range);
+      ? this.parent.allChildren()
+        .filter(child => child.kind === SymbolKind.Function && !child.isShadowingRoot())
+        .map(child => child.range)
+      : this.parent.allChildren()
+        .filter(child => child.kind === SymbolKind.Function
+          && child.hasName(this.name)
+          && child.allChildren()
+            .some(s => {
+              return s.name === this.name
+                && !s.scope.parentNode.equals(this.scope.parentNode);
+            }),
+        ).map(s => s.range);
 
     if (this.kind === SymbolKind.Function && this.parent.kind !== SymbolKind.Null && this.scope.tagValue < Scope.getTagValue('function')) {
       exclude.push(this.parentToCurrentRange());
@@ -390,194 +400,3 @@ export const nonRequiredSymbolsWithReferences: readonly string[] = [
   'status',
   'argv',
 ] as const;
-
-// export function getFishDocumentSymbols(
-//   uri: DocumentUri,
-//   ...rootNode: SyntaxNode[]
-// ): FishDocumentSymbol[] {
-//   const rootSymbol = FishDocumentSymbol.createRoot(uri);
-//
-//   function processNode(currentNode: SyntaxNode, parentSymbol: FishDocumentSymbol): void {
-//     const { shouldCreate, kind, parent, child } = extractSymbolInfo(currentNode);
-//
-//     if (isScriptNeededArgv(uri, currentNode)) {
-//       const argvSymbol = new FishDocumentSymbol(
-//         'argv',
-//         SymbolKind.Variable,
-//         uri,
-//         getRange(parent),
-//         getRange(currentNode),
-//         currentNode,
-//         parent,
-//         parentSymbol,
-//       );
-//       parentSymbol.children.push(argvSymbol);
-//     }
-//
-//     if (currentNode && isArgparseCommandName(currentNode)) {
-//       const argparseSymbols = getArgparseDefinitions(uri, currentNode);
-//       argparseSymbols.forEach(symbol => {
-//         symbol.parent = parentSymbol;
-//         parentSymbol.children.push(symbol);
-//       });
-//     }
-//
-//     if (shouldCreate) {
-//       const newSymbol = new FishDocumentSymbol(
-//         child.text,
-//         kind,
-//         uri,
-//         getRange(parent),
-//         getRange(child),
-//         child,
-//         parent,
-//         parentSymbol,
-//       );
-//       parentSymbol.children.push(newSymbol);
-//       parentSymbol = newSymbol;
-//     }
-//
-//     currentNode.children.forEach(childNode => {
-//       processNode(childNode, parentSymbol);
-//     });
-//   }
-//
-//   for (const node of rootNode) {
-//     processNode(node, rootSymbol);
-//   }
-//   return [rootSymbol];
-// }
-
-// export function getFishDocumentSymbolsIterative(
-//   uri: DocumentUri,
-//   rootNode: SyntaxNode,
-// ): FishDocumentSymbol[] {
-//   const symbols: FishDocumentSymbol[] = [];
-//   const nodeStack: SyntaxNode[] = [rootNode];
-//   const rootSymbol = FishDocumentSymbol.createRoot(uri);
-//   const symbolStack: FishDocumentSymbol[] = [];
-//
-//   while (nodeStack.length > 0 && symbolStack.length > 0) {
-//     const currentNode = nodeStack.pop();
-//     let parentSymbol = symbolStack.pop();
-//
-//     if (!parentSymbol) {
-//       parentSymbol = rootSymbol;
-//     }
-//
-//     if (!currentNode) {
-//       continue;
-//     }
-//
-//     const { shouldCreate, kind, parent, child } = extractSymbolInfo(currentNode);
-//
-//     if (isScriptNeededArgv(uri, currentNode)) {
-//       const argvSymbol = new FishDocumentSymbol(
-//         'argv',
-//         SymbolKind.Variable,
-//         uri,
-//         getRange(parent),
-//         getRange(currentNode),
-//         currentNode,
-//         parent,
-//         parentSymbol || rootSymbol,
-//       );
-//       symbols.push(argvSymbol);
-//     }
-//
-//     if (currentNode && isArgparseCommandName(currentNode)) {
-//       const argparseSymbols = getArgparseDefinitions(uri, currentNode, parentSymbol);
-//       // argparseSymbols.forEach(symbol => symbol.parentSymbol = parentSymbol);
-//       symbols.push(...argparseSymbols);
-//     }
-//
-//     if (shouldCreate) {
-//       const newSymbol = new FishDocumentSymbol(
-//         child.text,
-//         kind,
-//         uri,
-//         getRange(parent),
-//         getRange(child),
-//         child,
-//         parent,
-//         parentSymbol,
-//       );
-//       symbols.push(newSymbol);
-//       parentSymbol = newSymbol;
-//       // parentSymbol = newSymbol;
-//     }
-//
-//     currentNode.children.slice().reverse().forEach(childNode => {
-//       nodeStack.push(childNode);
-//       symbolStack.push(parentSymbol);
-//     });
-//   }
-//
-//   return symbols;
-// }
-// export function getFishDocumentSymbols(uri: DocumentUri, ...currentNodes: SyntaxNode[]): FishDocumentSymbol[] {
-//   const symbols: FishDocumentSymbol[] = [];
-//   const stack: FishDocumentSymbol[] = [];
-//
-//   function processNode(...currentNodes: SyntaxNode[]): FishDocumentSymbol[] {
-//     for (const current of currentNodes) {
-//       const childrenSymbols = processNode(...current.children);
-//       const { shouldCreate, kind, parent, child } = extractSymbolInfo(current);
-//
-//       if (isScriptNeededArgv(uri, current)) {
-//         const argvSymbol = FishDocumentSymbol.create(
-//           'argv',
-//           SymbolKind.Variable,
-//           uri,
-//           getRange(parent),
-//           getRange(current),
-//           current,
-//           parent,
-//           stack[stack.length - 1] || FishDocumentSymbol.createRoot(uri),
-//           [],
-//         );
-//         symbols.push(argvSymbol);
-//         if (stack.length > 0) {
-//           stack.at(-1)?.children.push(argvSymbol);
-//         }
-//       }
-//
-//       if (current && isArgparseCommandName(current)) {
-//         const argparseSymbols = getArgparseDefinitions(uri, current, stack.at(-1) || FishDocumentSymbol.createRoot(uri));
-//         symbols.push(...argparseSymbols);
-//         if (stack.length > 0) {
-//           stack.at(-1)?.children.push(...argparseSymbols);
-//         }
-//         return childrenSymbols;
-//       }
-//
-//       if (shouldCreate) {
-//         const newSymbol = FishDocumentSymbol.create(
-//           child.text,
-//           kind,
-//           uri,
-//           getRange(parent),
-//           getRange(child),
-//           child,
-//           parent,
-//           stack[stack.length - 1] || FishDocumentSymbol.createRoot(uri),
-//           childrenSymbols,
-//         );
-//         symbols.push(newSymbol);
-//         if (stack.length > 0) {
-//           stack[stack.length - 1]?.children.push(newSymbol);
-//         }
-//         stack.push(newSymbol);
-//         const result = [newSymbol, ...childrenSymbols];
-//         stack.pop();
-//         return result;
-//       }
-//
-//       return childrenSymbols;
-//     }
-//     currentNodes.forEach(node => processNode(node));
-//     return symbols;
-//   }
-//
-//   return processNode(...currentNodes);
-// }
