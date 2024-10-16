@@ -123,82 +123,68 @@ describe('analyzer test suite', () => {
 
         if (!uri || !symbols || !flatSymbols || !tree || !doc) fail();
 
-        console.log([
-          'test_1:::rootNode',
-          tree.rootNode.text,
-          '-'.repeat(80),
-        ].join('\n'));
-        console.log('');
-        console.log('');
-        console.log('-'.repeat(80));
-        console.log('');
-        console.log('');
-
-        // symbolArrayLogger(flatSymbols);
-
-        // const outer_function = flatSymbols.find(s => s.name === 'FOO') as FishDocumentSymbol;
-        // const inner_function = flatSymbols.find(s => s.name === '') as FishDocumentSymbol;
-
-        // const oScope = outer_function.scope;
-        // const iScope = inner_function.scope;
+        // console.log([
+        //   'test_1:::rootNode',
+        //   tree.rootNode.text,
+        //   '-'.repeat(80),
+        // ].join('\n'));
+        // console.log('');
+        // console.log('');
+        // console.log('-'.repeat(80));
+        // console.log('');
+        // console.log('');
 
         /**
          * TODO:
          *   - [x] fix `set -q _` variable case creating definition
-         *   - [ ] fix itaration for retrieving all children Symbols or Nodes
+         *   - [x] fix itaration for retrieving all children Symbols or Nodes
          */
-        for (const symbol of symbols) {
-          let symbolStr = ['______', symbol.kindToString(), symbol.name].join(' ').padEnd(55, ' ');
-
-          console.log(symbolStr, '---', symbol.scope.tag.padEnd(10), '---', symbol.parent.name, symbol.parent.kindToString());
-          symbol.allChildren().forEach((child: FishDocumentSymbol) => {
-            let padding = '     |';
-            let cscope: FishDocumentSymbol = child.parent;
-            while (cscope && cscope?.parent.kind !== SymbolKind.Null) {
-              cscope = cscope.parent;
-              padding += '     |';
-            }
-            symbolStr = [padding, child.kindToString(), child.name].join(' ').padEnd(55, ' ');
-            console.log(symbolStr, '---', child.scope.tag.padEnd(10), '---', child.parent.name, child.parent.kindToString());
-          });
-        }
+        // for (const symbol of symbols) {
+        //   let symbolStr = ['______', symbol.kindToString(), symbol.name].join(' ').padEnd(55, ' ');
+        //
+        //   console.log(symbolStr, '---', symbol.scope.tag.padEnd(10), '---', symbol.parent.name, symbol.parent.kindToString());
+        //   symbol.allChildren().forEach((child: FishDocumentSymbol) => {
+        //     let padding = '     |';
+        //     let cscope: FishDocumentSymbol = child.parent;
+        //     while (cscope && cscope?.parent.kind !== SymbolKind.Null) {
+        //       cscope = cscope.parent;
+        //       padding += '     |';
+        //     }
+        //     symbolStr = [padding, child.kindToString(), child.name].join(' ').padEnd(55, ' ');
+        //     console.log(symbolStr, '---', child.scope.tag.padEnd(10), '---', child.parent.name, child.parent.kindToString());
+        //   });
+        // }
         // const rootSym = symbols
         //   .find(s => s.parent.kind === SymbolKind.Null).parent;
         //
         // console.log(rootSym.toString());
 
-        console.log('\n\nfish_user_key_bindings');
-        const fishKeyBindings = symbols.find(s => s.name === 'fish_user_key_bindings')!;
-        const fishKeyBindingsPos = fishKeyBindings.selectionRange.start;
-        flatSymbols.forEach((s) => {
-          if (s.isBeforePosition(fishKeyBindingsPos)) {
-            console.log(s.name, '=====', s.kindToString());
-          }
-        });
+        // console.log('\n\nfish_user_key_bindings');
+        // const fishKeyBindings = symbols.find(s => s.name === 'fish_user_key_bindings')!;
+        // const fishKeyBindingsPos = fishKeyBindings.selectionRange.start;
+        // flatSymbols.forEach((s) => {
+        //   if (s.isBeforePosition(fishKeyBindingsPos)) {
+        //     console.log(s.name, '=====', s.kindToString());
+        //   }
+        // });
         // fishKeyBindings?.scope.getNodes().forEach(node => {
         //   if (node.isNamed) {
         //     console.log(node.type.trim(), '::::::', node.text.trim().split('\n').at(0).trim());
         //   }
         // });
 
-        findSymbolInSymbolsAndLogReferences(symbols, '_flag_help');
+        // findSymbolInSymbolsAndLogReferences(symbols, '_flag_help');
 
-        console.log('\n\nshow_help_msg');
-        findSymbolInSymbolsAndLogReferences(symbols, 'show_help_msg');
+        // console.log('\n\nshow_help_msg');
+        // findSymbolInSymbolsAndLogReferences(symbols, 'show_help_msg');
 
-        // console.log(oScope.toString());
-        // console.log(outer_function.toString());
+        // flattenNested(...symbols).find(s => s.name === 'set_theme_variables')!.scope.callableNodes().forEach(node => {
+        //   if (node.type.trim() && node.text.trim() && !['(', "'", '"', '$'].includes(node.type) && node.type !== 'word') {
+        //     console.log('set_theme_variables callable:', node.type, node.text);
+        //   }
+        // });
 
-        // for (const symbol of flatSymbols) {
-        //   console.log(symbol.scope.toString());
-        // }
-        flattenNested(...symbols).find(s => s.name === 'set_theme_variables')!.scope.callableNodes().forEach(node => {
-          if (node.type.trim() && node.text.trim() && !['(', "'", '"', '$'].includes(node.type) && node.type !== 'word') {
-            console.log('set_theme_variables callable:', node.type, node.text);
-          }
-        });
-
-        const fukb = findSymbolInSymbolsAndLogReferences(symbols, 'fish_user_key_bindings');
+        const fukb = flatSymbols.find(s => s.name === 'fish_user_key_bindings')!;
         const foo = fukb.allChildren().find(s => s.name === 'FOO')! as FishDocumentSymbol;
         console.log('FOO:', foo.toString());
         // console.log(foo.getNodesInScope().map(n => n.text).join('\n'));
@@ -206,29 +192,7 @@ describe('analyzer test suite', () => {
         const fooRef = flattenNested(...symbols).find(s => s.name === 'FOO' && s.scope.isGlobal)!;
         console.log('GLOBAL FOO:', fooRef.toString());
 
-        // fukb?.getNodesInScope().filter(n => n.isNamed && n.text.trim() && n.type.trim() && !['(', '"', "'", '$', 'end'].includes(n.type)).forEach((node, index) => {
-        //   const splitNode = node.text.split('\n');
-        //   let text = splitNode.at(0);
-        //   if (splitNode.length > 1) {
-        //     text += ';...';
-        //   }
-        //   console.log('fukb', index, '====', node.type, '====', `${node.startPosition.row}:${node.startPosition.column}`, '====', node.parent?.type, '====', text);
-        // });
-        // console.log('llll');
-        // fukb!.getNodesInScope().filter(n => n.type === 'function_definition' || isVariableDefinitionCommand(n) && n.parent.type === 'program').forEach((node, index) => {
-        //   console.log('fukb', index, '====', node.type, '====', `${node.startPosition.row}:${node.startPosition.column}`, '====', node.parent?.type, '====', node.text);
-        // });
-
-        // const hhh = findSymbolInSymbolsAndLogReferences(symbols, '_flag_help');
-        // hhh?.getNodesInScope().filter(n => n.isNamed && n.text.trim() && n.type.trim() && !['(', '"', "'", '$', 'end'].includes(n.type)).forEach((node, index) => {
-        //   const splitNode = node.text.split('\n');
-        //   let text = splitNode.at(0);
-        //   if (splitNode.length > 1) {
-        //     text += ';...';
-        //   }
-        //   console.log('hhh', index, '====', node.type, '====', `${node.startPosition.row}:${node.startPosition.column}`, '====', node.parent?.type, '====', text);
-        // });
-
+        // show reference ktable
         const t: { name: string; kind: string; refs: string; scope: ScopeTag; }[] = [];
         fukb?.parent.allChildren().forEach((child) => {
           t.push({
