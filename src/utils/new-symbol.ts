@@ -1,11 +1,11 @@
-import { SymbolKind, Location, Range, /* Position, */ DocumentSymbol, WorkspaceSymbol, FoldingRange, DocumentUri, Position } from 'vscode-languageserver';
+import { SymbolKind, Location, Range, /* Position, */ DocumentSymbol, WorkspaceSymbol, FoldingRange, DocumentUri, Position, SymbolInformation } from 'vscode-languageserver';
 import { /*getChildNodes, */ containsRange, getChildNodes, getRange } from './tree-sitter';
 import * as NodeTypes from './node-types';
 import { SyntaxNode } from 'web-tree-sitter';
 import { isScriptNeededArgv } from '../features/definitions/argv';
 import { getArgparseDefinitions, isArgparseCommandName } from '../features/definitions/argparse';
 import { symbolKindToString } from './translation';
-import { Scope } from './new-scope';
+import { Scope, ScopeModifier } from './new-scope';
 import { flattenNested } from './flatten';
 
 export type SymbolName = string;
@@ -16,7 +16,6 @@ export interface FishDocumentSymbol extends DocumentSymbol {
   uri: DocumentUri;
   range: Range;
   selectionRange: Range;
-
   currentNode: SyntaxNode;
   parentNode: SyntaxNode;
   parent: FishDocumentSymbol;
@@ -26,6 +25,8 @@ export interface FishDocumentSymbol extends DocumentSymbol {
 
 export class FishDocumentSymbol implements FishDocumentSymbol {
   public scope: Scope;
+  public aliases: string[] = [];
+  public argparsed = false;
 
   constructor(
     public name: SymbolName,
@@ -34,16 +35,17 @@ export class FishDocumentSymbol implements FishDocumentSymbol {
     public range: Range,
     public selectionRange: Range,
     public currentNode: SyntaxNode,
-    public parentNode: SyntaxNode = this.currentNode.parent || this.currentNode,
+    public parentNode: SyntaxNode,
     public parent: FishDocumentSymbol,
     public children: FishDocumentSymbol[] = [],
   ) {
     this.scope = Scope.fromSymbol(this);
     this.addArgvToFunction();
     this.children.forEach(child => {
-      child.parentNode = this.currentNode;
+      // child.parentNode = this.currentNode;
       child.parent = this;
     });
+    this.aliases.push(this.name);
   }
 
   public static createRoot(uri: DocumentUri, rootNode: SyntaxNode): FishDocumentSymbol {
@@ -66,7 +68,7 @@ export class FishDocumentSymbol implements FishDocumentSymbol {
     range: Range,
     selectionRange: Range,
     currentNode: SyntaxNode,
-    parentNode: SyntaxNode = currentNode.parent || currentNode,
+    parentNode: SyntaxNode,
     parent: FishDocumentSymbol,
     children: FishDocumentSymbol[] = [],
   ): FishDocumentSymbol {
@@ -137,12 +139,81 @@ export class FishDocumentSymbol implements FishDocumentSymbol {
       && this.children.length === other.children.length;
   }
 
+  hasName(name: string): boolean {
+    return this.name === name || this.children.some(child => child.hasName(name));
+  }
+
   getNodesInScope(): SyntaxNode[] {
     const result: SyntaxNode[] = [];
-    for (const child of getChildNodes(this.currentNode)) {
-      if (this.scope.contains(child)) {
+    const exclude: Range[] = [];
+    const childExclusions = this.kind === SymbolKind.Function
+      ? this.parent.allChildren().filter(child => child.kind === SymbolKind.Function && !child.isShadowingRoot()).map(child => child.range)
+      : this.parent.allChildren().filter(child => child.kind === SymbolKind.Function && child.hasName(this.name) && child.allChildren().some(s => s.name === this.name && !s.scope.parentNode.equals(this.scope.parentNode))).map(s => s.range);
+
+    if (this.kind === SymbolKind.Function && this.parent.kind !== SymbolKind.Null && this.scope.tagValue < Scope.getTagValue('function')) {
+      exclude.push(this.parentToCurrentRange());
+    }
+    exclude.push(...childExclusions);
+    for (const child of this.parentChildren) {
+      if (child.type === 'program') {
+        continue;
+      }
+      if (this.kind === SymbolKind.Function && this.parentNode.equals(child)) {
+        exclude.push(getRange(child));
+        continue;
+      }
+      if (
+        this.kind === SymbolKind.Function &&
+        !this.parentNode.equals(child) &&
+        child.type === 'function_definition' &&
+        !ScopeModifier.functionWithFlag(child, this) &&
+        this.scope.tagValue < Scope.getTagValue('function')
+      ) {
+        exclude.push(getRange(child));
+        continue;
+      }
+      if (exclude.some(range => containsRange(range, getRange(child)))) {
+        continue;
+      }
+      if (this.kind === SymbolKind.Function) {
+        result.push(child);
+      } else if (this.equalsName(child.text)) {
+        result.push(child);
+      } else if (this.isRangeBeforePosition(this.selectionRange, getRange(child).end)) {
         result.push(child);
       }
+    }
+    return result;
+  }
+
+  equalsName(name: string): boolean {
+    return this.aliases.includes(name);
+  }
+
+  isShadowingRoot(): boolean {
+    return this.parent.kind === SymbolKind.Null && this.kind === SymbolKind.Function;
+  }
+
+  isShadowingFunction(): boolean {
+    return this.parent.kind === SymbolKind.Function && this.kind === SymbolKind.Function;
+  }
+
+  parentToCurrentRange(): Range {
+    return Range.create(this.parent.range.start, this.range.end);
+  }
+
+  get parentChildren(): SyntaxNode[] {
+    if (this.kind === SymbolKind.Variable) {
+      return getChildNodes(this.parent.parentNode);
+    }
+    return getChildNodes(this.parent.parentNode);
+  }
+
+  getLocalReferences(): Range[] {
+    const result: Range[] = this.getNodesInScope().filter(s => this.aliases.includes(s.text)).map(s => getRange(s));
+
+    if (this.scope.tagValue >= Scope.getTagValue('global') && this.kind === SymbolKind.Function) {
+      result.unshift(this.selectionRange);
     }
     return result;
   }
@@ -171,7 +242,7 @@ export class FishDocumentSymbol implements FishDocumentSymbol {
     );
   }
 
-  getAllChildren(): FishDocumentSymbol[] {
+  allChildren(): FishDocumentSymbol[] {
     return flattenNested(...this.children);
   }
 
@@ -181,6 +252,10 @@ export class FishDocumentSymbol implements FishDocumentSymbol {
 
   isBeforePosition(position: Position): boolean {
     return this.isRangeBeforePosition(this.range, position);
+  }
+
+  public isArgparsed(): boolean {
+    return this.argparsed;
   }
 
   private isRangeBeforePosition(range: Range, pos: Position): boolean {
@@ -197,9 +272,6 @@ export class FishDocumentSymbol implements FishDocumentSymbol {
 
     // In all other cases, the range is not entirely before the position
     return false;
-  }
-  set parentSymbol(parent: FishDocumentSymbol) {
-    this.parent = parent;
   }
 
   addArgvToFunction(): FishDocumentSymbol {
@@ -236,9 +308,9 @@ function extractSymbolInfo(node: SyntaxNode): {
     child = node;
     kind = SymbolKind.Variable;
     shouldCreate = !child.text.startsWith('$');
-  } else if (child.firstNamedChild && NodeTypes.isFunctionDefinitionName(child.firstNamedChild)) {
+  } else if (node.type === 'function_definition') {
     parent = node;
-    child = child.firstNamedChild!;
+    child = parent.childForFieldName('name') as SyntaxNode;
     kind = SymbolKind.Function;
     shouldCreate = true;
   }
@@ -296,7 +368,7 @@ export function getFishDocumentSymbols(uri: DocumentUri, rootNode: SyntaxNode, .
         }
         if (kind === SymbolKind.Function) {
           parentSymbol = newSymbol;
-          childrenSymbols.forEach(symbol => symbol.parentSymbol = parentSymbol);
+          childrenSymbols.forEach(symbol => symbol.parent = parentSymbol);
         }
         symbols.push(newSymbol);
         continue;
@@ -312,6 +384,12 @@ export function getFishDocumentSymbols(uri: DocumentUri, rootNode: SyntaxNode, .
 
   return symbols;
 }
+
+export const nonRequiredSymbolsWithReferences: readonly string[] = [
+  'pipestatus',
+  'status',
+  'argv',
+] as const;
 
 // export function getFishDocumentSymbols(
 //   uri: DocumentUri,

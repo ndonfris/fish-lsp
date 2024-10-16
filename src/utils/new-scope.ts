@@ -1,4 +1,4 @@
-import { DocumentUri, SymbolKind } from 'vscode-languageserver';
+import { DocumentUri, Range, SymbolKind } from 'vscode-languageserver';
 import { FishDocumentSymbol } from './new-symbol';
 import * as NodeTypes from './node-types';
 import { SyntaxNode } from 'web-tree-sitter';
@@ -64,6 +64,7 @@ const getScopeTagValue = (tag: ScopeTag): ScopeTagValue => ScopeTag[tag];
 
 export class Scope {
   public excludedNodes: SyntaxNode[] = [];
+  public excludedRanges: Range[] = [];
 
   constructor(
     public uri: DocumentUri,
@@ -84,26 +85,26 @@ export class Scope {
   }
 
   public static fromSymbol(symbol: FishDocumentSymbol): Scope {
-    const grandParent = findParent(symbol.parentNode, (n) => {
-      return n.type === 'function_definition' || n.type === 'program';
-    }) || symbol.parentNode;
-    switch (symbol.kind) {
-      case SymbolKind.Variable:
-        /**
-         * keep the scope at the same level, since the parent of a variable name is the
-         *
-         */
-        return new Scope(symbol.uri, symbol.currentNode, symbol.parentNode, symbol);
-      case SymbolKind.Function:
-        /**
-         * shift the scope up one level, since the parent of a function name is the
-         * node's direct `function_definition`.
-         *
-         * Now its grandparent is the actual scope node which is either a `function_definition`
-         * of a `program` node.
-         */
-        return new Scope(symbol.uri, symbol.parentNode, grandParent, symbol);
-    }
+    // const grandParent = findParent(symbol.parentNode, (n) => {
+    //   return n.type === 'function_definition' || n.type === 'program';
+    // }) || symbol.parentNode;
+    // switch (symbol.kind) {
+    //   case SymbolKind.Variable:
+    //     /**
+    //      * keep the scope at the same level, since the parent of a variable name is the
+    //      *
+    //      */
+    //     return new Scope(symbol.uri, symbol.currentNode, symbol.parentNode, symbol);
+    //   case SymbolKind.Function:
+    //     /**
+    //      * shift the scope up one level, since the parent of a function name is the
+    //      * node's direct `function_definition`.
+    //      *
+    //      * Now its grandparent is the actual scope node which is either a `function_definition`
+    //      * of a `program` node.
+    //      */
+    //     return new Scope(symbol.uri, symbol.parentNode, grandParent, symbol);
+    // }
     return new Scope(symbol.uri, symbol.currentNode, symbol.parentNode, symbol);
   }
 
@@ -158,10 +159,16 @@ export class Scope {
       }
       return 'local';
     } else if (uriParts?.at(-1) === 'config.fish' || uriParts.at(-2) === 'conf.d') {
-      if (this.parentNode.type === 'function_definition') {
-        if (ScopeModifier.functionWithFlag(this.parentNode)) {
+      const callableScope = this.callableScope();
+      if (callableScope.type === 'program') {
+        return 'global';
+      }
+      if (callableScope.type === 'function_definition') {
+        if (ScopeModifier.noScopeShadowingFunction(this.symbol.parentNode)) {
           return 'function';
         }
+      }
+      if (this.parentNode.type === 'function_definition') {
         return 'local';
       }
       return 'global';
@@ -170,6 +177,15 @@ export class Scope {
       return 'function';
     }
     return 'local';
+  }
+
+  private callableScope() {
+    switch (this.kind) {
+      case 'variable':
+        return this.parentNode;
+      case 'function':
+        return this.parentNode.parent as SyntaxNode;
+    }
   }
 
   /** TODO: test working state */
@@ -191,15 +207,33 @@ export class Scope {
   }
 
   private setExcluded() {
-    const parentFunctions = this.symbol.parentNode.descendantsOfType('function_definition');
-    for (const parentFunction of parentFunctions) {
-      if (parentFunction.equals(this.parentNode)) {
-        continue;
-      }
-      if (ScopeModifier.functionWithFlag(parentFunction, this.symbol)) {
-        continue;
-      }
-      this.excludedNodes.push(parentFunction);
+    // const parentFunctions = this.symbol.parentNode.descendantsOfType('function_definition');
+    // for (const parentFunction of parentFunctions) {
+    //   if (parentFunction.equals(this.parentNode)) {
+    //     continue;
+    //   }
+    //   if (ScopeModifier.functionWithFlag(parentFunction, this.symbol)) {
+    //     continue;
+    //   }
+    //   this.excludedNodes.push(parentFunction);
+    // }
+
+    const parent = findParent(this.parentNode, (n) => n.type === 'function_definition' || n.type === 'program') as SyntaxNode;
+
+    switch (this.kind) {
+      case 'variable':
+        this.excludedRanges.push(Range.create(
+          getRange(parent).start,
+          getRange(this.parentNode).end,
+        ));
+        this.excludedRanges.push(
+          ...parent.childrenForFieldName('function_definition')
+            .filter((n: SyntaxNode) => ScopeModifier.functionWithFlag(n, this.symbol) && !n.equals(this.parentNode))
+            .map(n => getRange(n)),
+        );
+      case 'function':
+        this.excludedNodes.push(this.currentNode);
+        break;
     }
 
     // switch (this.kind) {
@@ -227,14 +261,69 @@ export class Scope {
     // })
   }
 
+  private callableParent(): SyntaxNode {
+    return findParent(this.parentNode,
+      (n) => n.type === 'function_definition' || n.type === 'program',
+    ) as SyntaxNode;
+  }
+
+  public callableNodes(): SyntaxNode[] {
+    const parent = this.callableParent();
+    const skipRanges: Range[] = [];
+    const result: SyntaxNode[] = [];
+    switch (this.kind) {
+      case 'variable':
+        for (const child of getChildNodes(parent)) {
+          if (NodeTypes.isFunctionDefinition(child) && !ScopeModifier.functionWithFlag(child, this.symbol)) {
+            skipRanges.push(getRange(child));
+            continue;
+          }
+          if (
+            rangeIsAfter(getRange(this.parentNode), getRange(child))
+            && !skipRanges.some((r) => containsRange(r, getRange(child)))
+          ) {
+            result.push(child);
+          }
+        }
+        break;
+      case 'function':
+        skipRanges.push(getRange(this.parentNode));
+        if (parent.type === 'program') {
+          for (const child of getChildNodes(parent)) {
+            if (NodeTypes.isFunctionDefinition(child) && !child.parent.equals(parent)) {
+              skipRanges.push(getRange(child));
+              continue;
+            } else if (!skipRanges.some((r) => containsRange(r, getRange(child)))) {
+              result.push(child);
+            }
+          }
+        } else {
+          for (const child of getChildNodes(parent)) {
+            if (NodeTypes.isFunctionDefinition(child) && !child.parent.equals(parent)) {
+              skipRanges.push(getRange(child));
+              continue;
+            }
+            if (
+              rangeIsAfter(getRange(this.parentNode), getRange(child))
+              && !skipRanges.some((r) => containsRange(r, getRange(child)))
+            ) {
+              result.push(child);
+            }
+          }
+        }
+        break;
+    }
+    return result;
+  }
+
   public getNodes(): SyntaxNode[] {
     const parentSymbol = this.symbol.parent;
     switch (this.kind) {
       case 'variable':
         this.excludedNodes.push(this.currentNode);
-        if (parentSymbol && this.symbol.parent && this.symbol.parent.getAllChildren()) {
+        if (parentSymbol && this.symbol.parent && this.symbol.parent.allChildren()) {
           this.excludedNodes.push(
-            ...parentSymbol.getAllChildren()
+            ...parentSymbol.allChildren()
               .filter((s: FishDocumentSymbol) => s.name === this.symbol.name && s.scope.tagValue !== this.tagValue)
               .map((s: FishDocumentSymbol) => s.parentNode));
         }
@@ -379,6 +468,10 @@ function findParent(n: SyntaxNode, fn: (n: SyntaxNode) => boolean): SyntaxNode |
   return null;
 }
 
+function rangeIsAfter(before: Range, after: Range) {
+  return before.end.line < after.start.line || before.end.line === after.start.line && before.end.character <= after.start.character;
+}
+
 /**
 * Get the scope modifier for a variable when various shell options could edit the scope
 *
@@ -398,7 +491,7 @@ function findParent(n: SyntaxNode, fn: (n: SyntaxNode) => boolean): SyntaxNode |
 *  Both functions return a _\`scope.tag\`_ for the variable node.
 *
 */
-namespace ScopeModifier {
+export namespace ScopeModifier {
 
   /**
    * ```typescript
@@ -509,13 +602,23 @@ namespace ScopeModifier {
     if (lastArg) {
       switch (true) {
         case NodeTypes.isMatchingOption(lastArg, { shortOption: '-V', longOption: '--inherit-variable' }):
-          return lastArg.nextSibling ?.text === symbol?.name;
+          return lastArg?.nextSibling?.text === symbol?.name;
         case NodeTypes.isMatchingOption(lastArg, { shortOption: '-S', longOption: '--no-scope-shadowing' }):
           return true;
         default:
           return false;
       }
     }
+  }
+
+  export function noScopeShadowingFunction(node: SyntaxNode): boolean {
+    const args: SyntaxNode[] = node.childrenForFieldName('option') || [] as SyntaxNode[];
+    for (const arg of args) {
+      if (NodeTypes.isMatchingOption(arg, { shortOption: '-S', longOption: '--no-scope-shadowing' })) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

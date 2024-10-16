@@ -244,7 +244,7 @@ export function isShortOption(node: SyntaxNode) {
   return node?.text.startsWith('-') && !isLongOption(node);
 }
 
-export function isOption(node: SyntaxNode | ArgNode): node is ArgNode {
+export function isOption(node: SyntaxNode | ArgNode): node is SyntaxNode {
   return isShortOption(node) || isLongOption(node);
 }
 
@@ -332,14 +332,13 @@ export function isVariable(node: SyntaxNode) {
  * backtracks to the previous sibling or parent node on the same line/row
  */
 function previousSiblingOrParentNode(node: SyntaxNode) {
-
   // handles SyntaxNode.kind === 'escape'
   if (node.previousSibling) {
     return node.previousSibling;
   }
 
   // handles deeply nested SyntaxNodes with no siblings
-  return (node.parent && node.parent.startPosition.column === node.startPosition.column)
+  return node.parent && node.parent.startPosition.column === node.startPosition.column
     ? node.parent
     : null;
 }
@@ -369,8 +368,6 @@ export function findPreviousSibling(node?: SyntaxNode): SyntaxNode | null {
  * @returns {SyntaxNode | null} command node or null
  */
 export function findParentCommand(node?: SyntaxNode) {
-
-
   if (!node) return null;
 
   let currentNode: SyntaxNode | null = node;
