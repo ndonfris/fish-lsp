@@ -25,7 +25,7 @@ export namespace Simple {
     const filename = parts.at(-1) || '';
     const dirname = parts.at(-2) || '';
     if (filename === 'config.fish') return filename;
-    return !!dirname ? [ dirname, filename ].join('/') : filename;
+    return dirname ? [dirname, filename].join('/') : filename;
   }
 
   /**
@@ -41,7 +41,7 @@ export namespace Simple {
    * @returns array of range values [startLine, startCharacter, endLine, endCharacter]
    */
   export function range(range: LSP.Range): RangeArr {
-    return [ range.start.line, range.start.character, range.end.line, range.end.character ];
+    return [range.start.line, range.start.character, range.end.line, range.end.character];
   }
 
   /**
@@ -49,7 +49,7 @@ export namespace Simple {
    * @returns array of position values [line, character]
    */
   export function position(position: LSP.Position): PositionArr {
-    return [ position.line, position.character ];
+    return [position.line, position.character];
   }
 
   /**
@@ -57,7 +57,7 @@ export namespace Simple {
    * @returns LSP.Position object
    */
   export function toPosition(position: PositionArr): LSP.Position {
-    return { line: position[ 0 ], character: position[ 1 ] };
+    return { line: position[0], character: position[1] };
   }
 
   /**
@@ -66,8 +66,8 @@ export namespace Simple {
    */
   export function toRange(range: RangeArr): LSP.Range {
     return {
-      start: { line: range[ 0 ], character: range[ 1 ] },
-      end: { line: range[ 2 ], character: range[ 3 ] },
+      start: { line: range[0], character: range[1] },
+      end: { line: range[2], character: range[3] },
     };
   }
 
@@ -77,8 +77,8 @@ export namespace Simple {
    */
   export function location(location: LSP.Location) {
     return {
-      uri: Simple.relPath(location.uri),
-      range: Simple.range(location.range),
+      uri: relPath(location.uri),
+      range: range(location.range),
     };
   }
 
@@ -87,13 +87,13 @@ export namespace Simple {
    * @returns object with node properties
    */
   export function node(node: SyntaxNode) {
-    const shortText = node.text.split('\n').join(';').replace(/    /g, '\\t');
-    let text = shortText.length > 20 ? shortText.slice(0, 20) + '...' : shortText;
+    const shortText = node.text.split('\n').join(';').replace(/ {4}/g, '\\t');
+    const text = shortText.length > 20 ? shortText.slice(0, 20) + '...' : shortText;
     return {
       type: node.type,
       text,
-      start: Simple.position(pointToPosition(node.startPosition)),
-      end: Simple.position(pointToPosition(node.endPosition)),
+      start: position(pointToPosition(node.startPosition)),
+      end: position(pointToPosition(node.endPosition)),
     };
   }
 
@@ -102,38 +102,37 @@ export namespace Simple {
    *
    * show node properties, in a readable format
    *
-   * @param {SyntaxNode} node - syntax node object
+   * @param {SyntaxNode} _node - syntax node object
    * @returns object with node properties
    */
-  export function nodeVerbose(node: SyntaxNode) {
-
+  export function nodeVerbose(_node: SyntaxNode) {
     const childFixed = (_child: SyntaxNode) => {
-      const child = Simple.node(_child);
+      const child = node(_child);
       return {
         type: child.type,
         text: child.text,
         start: '[' + child.start[0] + ', ' + child.start[1] + ']',
-        end: '[' + child.end[0] + ', ' + child.end[1] + ']'
-      }
-    }
+        end: '[' + child.end[0] + ', ' + child.end[1] + ']',
+      };
+    };
 
     return {
-      id: node.id,
-      ...Simple.node(node),
-      parent: Simple.node(node.parent),
-      firstChild: node.firstChild ? Simple.node(node.firstChild) : null,
-      lastChild: node.lastChild ? Simple.node(node.lastChild) : null,
-      firstNamedChild: node.firstNamedChild ? Simple.node(node.firstNamedChild) : null,
-      lastNamedChild: node.lastNamedChild ? Simple.node(node.lastNamedChild) : null,
-      nextSibling: node.nextSibling ? Simple.node(node.nextSibling) : null,
-      nextNamedSibling: node.nextNamedSibling ? Simple.node(node.nextNamedSibling) : null,
-      previousSibling: node.previousSibling ? Simple.node(node.previousSibling) : null,
-      previousNamedSibling: node.previousNamedSibling ? Simple.node(node.previousNamedSibling) : null,
-      childCount: node.childCount,
-      children: node.children.map(c => childFixed(c)),
-      namedChildCount: node.namedChildCount,
-      namedChildren: node.namedChildren.map(c => childFixed(c)),
-      typeId: node.typeId,
+      id: _node.id,
+      ...node(_node),
+      parent: _node?.parent ? node(_node.parent) : null,
+      firstChild: _node.firstChild ? node(_node?.firstChild) : null,
+      lastChild: _node.lastChild ? node(_node.lastChild) : null,
+      firstNamedChild: _node.firstNamedChild ? node(_node.firstNamedChild) : null,
+      lastNamedChild: _node.lastNamedChild ? node(_node.lastNamedChild) : null,
+      nextSibling: _node.nextSibling ? node(_node.nextSibling) : null,
+      nextNamedSibling: _node.nextNamedSibling ? node(_node.nextNamedSibling) : null,
+      previousSibling: _node.previousSibling ? node(_node.previousSibling) : null,
+      previousNamedSibling: _node.previousNamedSibling ? node(_node.previousNamedSibling) : null,
+      childCount: _node.childCount,
+      children: _node.children.map(c => childFixed(c)),
+      namedChildCount: _node.namedChildCount,
+      namedChildren: _node.namedChildren.map(c => childFixed(c)),
+      typeId: _node.typeId,
     };
   }
 
@@ -144,11 +143,11 @@ export namespace Simple {
   export function symbol(symbol: FishDocumentSymbol) {
     return {
       name: symbol.name,
-      uri: Simple.relPath(symbol.uri),
+      uri: relPath(symbol.uri),
       kind: symbolKindToString(symbol.kind) as ReturnType<typeof symbolKindToString>,
-      scope: symbol.scope.scopeTag,
-      range: Simple.range(symbol.range),
-      selectionRange: Simple.range(symbol.selectionRange)
+      scope: symbol.scope.tag,
+      range: range(symbol.range),
+      selectionRange: range(symbol.selectionRange),
     };
   }
 }

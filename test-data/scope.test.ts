@@ -5,11 +5,11 @@ import { flattenNested } from '../src/utils/flatten';
 import { initializeParser } from '../src/parser';
 import { LspDocument } from '../src/document';
 import { Analyzer } from '../src/future-analyze';
-import { FishDocumentSymbol, getFishDocumentSymbols, getFishDocumentSymbolsIterative } from '../src/utils/new-symbol';
+import { FishDocumentSymbol, getFishDocumentSymbols } from '../src/utils/symbol';
 import { symbolKindToString } from '../src/utils/translation';
 import { Range, SymbolKind } from 'vscode-languageserver';
 import { getRange, pointToPosition } from '../src/utils/tree-sitter';
-import { Scope, ScopeTag } from '../src/utils/new-scope';
+import { Scope, ScopeTag } from '../src/utils/scope';
 import { isVariableDefinitionCommand } from '../src/utils/node-types';
 
 function findSymbolInSymbolsAndLogReferences(symbols: FishDocumentSymbol[], name: string) {
@@ -193,16 +193,16 @@ describe('analyzer test suite', () => {
         console.log('GLOBAL FOO:', fooRef.toString());
 
         // show reference ktable
-        const t: { name: string; kind: string; refs: string; scope: ScopeTag; }[] = [];
-        fukb?.parent.allChildren().forEach((child) => {
-          t.push({
-            name: child.name,
-            kind: child.kindToString(),
-            refs: child.getLocalReferences().length.toString(),
-            scope: child.scope.tag,
-          });
-        });
-        console.table(t, ['name', 'kind', 'refs', 'scope']);
+        // const t: { name: string; kind: string; refs: string; scope: ScopeTag; }[] = [];
+        // fukb?.parent.allChildren().forEach((child) => {
+        //   t.push({
+        //     name: child.name,
+        //     kind: child.kindToString(),
+        //     refs: child.getLocalReferences().length.toString(),
+        //     scope: child.scope.tag,
+        //   });
+        // });
+        // console.table(t, ['name', 'kind', 'refs', 'scope']);
 
         expect(doc).toBeDefined();
       });

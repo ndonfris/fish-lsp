@@ -244,7 +244,7 @@ export function isShortOption(node: SyntaxNode) {
   return node?.text.startsWith('-') && !isLongOption(node);
 }
 
-export function isOption(node: SyntaxNode | ArgNode): node is SyntaxNode {
+export function isOption(node: SyntaxNode | ArgNode): boolean {
   return isShortOption(node) || isLongOption(node);
 }
 

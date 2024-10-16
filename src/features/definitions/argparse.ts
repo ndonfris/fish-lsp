@@ -1,6 +1,6 @@
 // import { DefinitionScope } from '../../utils/definition-scope';
 import { NamedNode, isCommandName, isEndStdinCharacter, isFunctionDefinition, isOption, isProgram, isString } from '../../utils/node-types';
-import { FishDocumentSymbol } from '../../utils/new-symbol';
+import { FishDocumentSymbol } from '../../utils/symbol';
 import { findFirstParent, getRange } from '../../utils/tree-sitter';
 import { SymbolKind } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
