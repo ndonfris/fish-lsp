@@ -157,7 +157,7 @@ export class FishDocumentSymbol implements FishDocumentSymbol {
           && child.allChildren()
             .some(s => {
               return s.name === this.name
-                && !s.scope.parentNode.equals(this.scope.parentNode);
+                && !s.scope.symbol.parentNode.equals(this.scope.symbol.parentNode);
             }),
         ).map(s => s.range);
 

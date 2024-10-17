@@ -63,7 +63,7 @@ describe('analyzer test suite', () => {
     for (const doc of documents) {
       if (doc.uri.endsWith(findUri)) {
         const tree = parser.parse(doc.getText()) as Parser.Tree;
-        const symbols = getFishDocumentSymbols(doc.uri, tree.rootNode, tree.rootNode);
+        const symbols = getFishDocumentSymbols(doc.uri, tree.rootNode);
         return { uri: doc.uri, symbols, flatSymbols: flattenNested(...symbols), tree, doc };
       }
     }
@@ -103,14 +103,14 @@ describe('analyzer test suite', () => {
         { symbol: symbol.scope.toObject() },
         {
           node: symbol.currentNode.toString().slice(0, 80),
-          text: logNode(symbol.scope.currentNode),
-          type: symbol.scope.currentNode.type,
+          text: logNode(symbol.scope.symbol.currentNode),
+          type: symbol.scope.symbol.currentNode.type,
 
         },
         {
-          node: symbol.scope.parentNode.toString().slice(0, 80),
-          text: logNode(symbol.scope.parentNode),
-          type: symbol.scope.parentNode.type,
+          node: symbol.scope.symbol.parentNode.toString().slice(0, 80),
+          text: logNode(symbol.scope.symbol.parentNode),
+          type: symbol.scope.symbol.parentNode.type,
         },
       ], `\n${'-'.repeat(80)}`);
     }
