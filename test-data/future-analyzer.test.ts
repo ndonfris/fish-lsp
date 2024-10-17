@@ -570,7 +570,7 @@ describe('analyzer test suite', () => {
     });
 
     // TODO: error in getReferences
-    it('reference symbols: conf.d variable definition - function arguments', () => {
+    it.only('reference symbols: conf.d variable definition - function arguments', () => {
       const { rootNode, doc, cursorPosition } = testSymbolFiltering('conf.d/public.fish', [
         'function public -a test',
         '    $test',
@@ -593,35 +593,38 @@ describe('analyzer test suite', () => {
       // } ]);
       //
 
-      // const defSym = defSymbols.pop()
-      // analyzer.cached.get(doc.uri)?.symbols.flat().forEach(s => {
-      //   if (isFunctionDefinition(s.parent)) {
-      //     console.log(`parent`, Simple.nodeVerbose(s.parent));
-      //     s.parent.childrenForFieldName('option').forEach(c => {
-      //       console.log('+++grammar', c.text)
-      //     })
-      //   }
-      // if (s.name === 'test') {
-      //   console.log('node', Simple.nodeVerbose(s.node), Simple.symbol(s));
-      //   /*
-      //    * @see
-      //    * scopeNode.parent === function_definition
-      //    */
-      // }
-      // })
-
-      const refSymbols = analyzer.getReferences(doc, cursorPosition);
-
-      analyzer.findLocalLocations(doc, cursorPosition).forEach((s: LSP.Location) => {
-        const node = rootNode.descendantForPosition(TreeSitterUtils.rangeToPoint(s.range));
-        // if (isVariable(node)) {
-        console.log('s', Simple.node(node));
-        // }
+      const defSym = defSymbol.pop();
+      // console.log('deffff', Simple.symbol(defSym));
+      flattenNested(...analyzer.cached.get(doc.uri).symbols).forEach(s => {
+        //   if (isFunctionDefinition(s.parent)) {
+        //     console.log(`parent`, Simple.nodeVerbose(s.parent));
+        //     s.parent.childrenForFieldName('option').forEach(c => {
+        //       console.log('+++grammar', c.text)
+        //     })
+        //   }
+        if (s.name === 'test') {
+          console.log('node', Simple.nodeVerbose(s.currentNode), Simple.symbol(s), s.getLocalReferences().map(s => Simple.location(s)));
+          //   /*
+          //    * @see
+          //    * scopeNode.parent === function_definition
+          //    */
+        }
       });
+
+      // const refSymbols = analyzer.getReferences(doc, cursorPosition);
+      //
+      // analyzer.findLocalLocations(doc, cursorPosition).forEach((s: LSP.Location) => {
+      //   const node = rootNode.descendantForPosition(TreeSitterUtils.rangeToPoint(s.range));
+      //   // if (isVariable(node)) {
+      //   // console.log('s', Simple.node(node));
+      //   // }
+      // });
       // console.log('a', Simple.node(node));
       // })
       // const analyzer.findLocalLocations(doc, cursorPosition)
-      refSymbols.forEach(s => console.log('s', Simple.location(s)));
+
+      // CAUSES ERROR:
+      // refSymbols.forEach(s => console.log('s', Simple.location(s)));
       // console.log();
 
       // expect(refSymbols.map(s => Simple.location(s))).toEqual([

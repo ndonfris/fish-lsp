@@ -11,7 +11,7 @@ import { isCommandName } from './utils/node-types';
 import { execEscapedSync } from './utils/exec';
 import { flattenNested } from './utils/flatten';
 import { ScopeTag } from './utils/scope';
-import { Range } from './utils/locations';
+import * as Locations from './utils/locations';
 // import { isFunction } from './utils/builtins';
 
 export type AnalyzedDocument = {

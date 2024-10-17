@@ -37,11 +37,11 @@ export namespace Simple {
   }
 
   /**
-   * @param {LSP.Range} range - range object
+   * @param {LSP.Range} _range - range object
    * @returns array of range values [startLine, startCharacter, endLine, endCharacter]
    */
-  export function range(range: LSP.Range): RangeArr {
-    return [range.start.line, range.start.character, range.end.line, range.end.character];
+  export function range(_range: LSP.Range): RangeArr {
+    return [_range.start?.line, _range.start?.character, _range.end?.line, _range.end?.character];
   }
 
   /**
@@ -61,13 +61,13 @@ export namespace Simple {
   }
 
   /**
-   * @param {RangeArr} range - range array
+   * @param {RangeArr} _range - range array
    * @returns LSP.Range object
    */
-  export function toRange(range: RangeArr): LSP.Range {
+  export function toRange(_range: RangeArr): LSP.Range {
     return {
-      start: { line: range[0], character: range[1] },
-      end: { line: range[2], character: range[3] },
+      start: { line: _range[0], character: _range[1] },
+      end: { line: _range[2], character: _range[3] },
     };
   }
 
@@ -117,7 +117,7 @@ export namespace Simple {
     };
 
     return {
-      id: _node.id,
+      id: _node?.id,
       ...node(_node),
       parent: _node?.parent ? node(_node.parent) : null,
       firstChild: _node.firstChild ? node(_node?.firstChild) : null,
