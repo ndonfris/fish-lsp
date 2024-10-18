@@ -1,10 +1,8 @@
 import { createJestLogger, createServerLogger } from '../src/logger';
-import { setLogger } from './helpers';
-import { readFileSync } from 'node:fs';
+// import { setLogger } from './helpers';
+import { setLogger } from './logger-setup';
 
 // needs updating!!!
-
-setLogger();
 
 // const ServerLogsPath = require()
 //
@@ -13,9 +11,15 @@ setLogger();
 // }
 
 describe('Logger', () => {
+  setLogger();
+
   it('jest logging', () => {
     const logger = createJestLogger();
     logger.log('hello world');
+  });
+
+  it('jest logger logging', () => {
+    console.log('logger');
   });
 
   // it('show that `logfile === "./fish-lsp/logs.txt"`', () => {

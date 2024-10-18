@@ -10,21 +10,6 @@ import { FishDocumentSymbol } from '../src/utils/symbol';
 import { getRange } from '../src/utils/tree-sitter';
 // import { symbolKindToString } from '../src/utils/translation';
 
-export function setLogger(
-  beforeCallback: () => Promise<void> = async () => { },
-  afterCallback: () => Promise<void> = async () => { },
-) {
-  const jestConsole = console;
-  beforeEach(async () => {
-    global.console = require('console');
-    await beforeCallback();
-  });
-  afterEach(async () => {
-    global.console = jestConsole;
-    await afterCallback();
-  });
-}
-
 /**
  * @param {string} fname - relative path to file, in test-data folder
  * @param {boolean} inAutoloadPath - simulate the doc uri being in ~/.config/fish/functions/*.fish

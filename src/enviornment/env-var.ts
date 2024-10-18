@@ -4,7 +4,23 @@ import { SyntaxNode } from 'web-tree-sitter';
 // import { EnvModeModifier } from '../utils/env';
 
 /**
- * NOTES
+ * NOTES:
+ * ~~~~~~
+ *  • scope descriptions:
+ *     > 1. Universal
+ *     > 2. Global
+ *     > 3. Local (which should really be "block-scoped")
+ *     > 4. Function-local (which is the same as block-scoped outside of a block!)
+ *     > 5. Undefined scope (which is function-local inside of functions, global outside)
+ *     > @faho, https://github.com/fish-shell/fish-shell/pull/8145#issuecomment-885767724
+ *
+ *  • variable scopes use smallest scope that contains the variable
+ *     > Conceptually we should not think of "function-local" but just "function variables" to avoid confusion.
+ *     > A local variable is local to the innermost block;
+ *     > if that block is a function it is a function variable.
+ *     > Local variables become the "advanced" case.
+ *     > @ridiculousfish https://github.com/fish-shell/fish-shell/pull/8145#pullrequestreview-715292911
+ *
  *  • variable scope - https://fishshell.com/docs/current/language.html#variable-scope
  *  • function heavy lifting - https://github.com/fish-shell/fish-shell/blob/81ff6db62dbcb17749491b783f030e4277577bec/src/builtins/function.rs#L251
  *  • function properties - https://github.com/fish-shell/fish-shell/blob/81ff6db62dbcb17749491b783f030e4277577bec/src/function.rs#L23
@@ -26,7 +42,6 @@ const Modifier = {
 
 export type ModifierKeys = keyof typeof Modifier;
 export type ModifierValues = typeof Modifier[ModifierKeys];
-
 export type ModifierCreateResult = { [key in Lowercase<ModifierKeys>]: () => EnvModifier; };
 
 const reverseModifier: { [key: ModifierValues]: ModifierKeys; } =
@@ -104,6 +119,20 @@ export class EnvModifier {
       user: () => new EnvModifier(Modifier.USER),
     };
   }
+}
+
+
+export class Symbol {
+  references
+
+  constructor(
+    public name: string,
+    public kind: 'variable' | 'function' | 'alias' | 'block',
+    public modifier: EnvModifier,
+    public node: SyntaxNode | null = null,
+  ) { }
+
+
 }
 
 export class EnvVar {

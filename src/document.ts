@@ -1,11 +1,14 @@
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { Position, Range, TextDocumentItem, TextDocumentContentChangeEvent } from 'vscode-languageserver';
 import { URI } from 'vscode-uri';
-import { homedir } from 'os';
+// import { homedir } from 'os';
 import { uriToPath } from './utils/translation';
 
+// Create a manager for open text documents
+// const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
+
 export class LspDocument implements TextDocument {
-  protected document: TextDocument;
+  private document: TextDocument;
 
   constructor(doc: TextDocumentItem) {
     const { uri, languageId, version, text } = doc;
@@ -115,17 +118,17 @@ export class LspDocument implements TextDocument {
      * checks if the document is in fish/functions directory
      */
   isAutoLoaded(): boolean {
-    const path = uriToPath(this.uri); 
+    const path = uriToPath(this.uri);
     const splitPath: string[] = path?.split('/');
-    const filename = splitPath.at(-1) || ''; 
+    const filename = splitPath.at(-1) || '';
     const dirname = splitPath.at(-2) || '';
     if (['functions', 'completions', 'conf.d'].includes(dirname) && filename.endsWith('.fish')) {
-      return true
+      return true;
     }
     if (dirname === 'fish' && filename === 'config.fish') {
-      return true
+      return true;
     }
-    return false
+    return false;
   }
 
   /**

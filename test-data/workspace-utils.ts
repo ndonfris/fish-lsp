@@ -466,6 +466,14 @@ export namespace TestWorkspace {
       '    fish_user_key_bindings',
       'end',
     ].join('\n')),
+    // https://github.com/fish-shell/fish-shell/pull/8145#issuecomment-885852172
+    createFakeLspDocument('functions/not-visible-variable.fish', [
+      'function not-visible-variable',
+      '    echo "not visible inside function:" $foo',
+      'end',
+      'set --function --export foo bar # same with set --local',
+      'not-visible-variable foo',
+    ].join('\n')),
   ]);
 
   export const simple = new FishLspTestWorkspace([
