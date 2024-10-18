@@ -785,6 +785,16 @@ export function equalsRanges(a: Range, b: Range): boolean {
   );
 }
 
+export function getDepth(node: SyntaxNode): number {
+  let depth = 0;
+  let current = node;
+  while (current.parent && current.parent.type !== 'program') {
+    current = current.parent;
+    depth++;
+  }
+  return depth;
+}
+
 /**
  * gets all flags/options/arguments for a command
  *

@@ -184,7 +184,15 @@ export function isStatement(node: SyntaxNode): boolean {
  * end;
  */
 export function isBlock(node: SyntaxNode): boolean {
-  return isClause(node) || isStatement(node);
+  return [
+    'if_statement',
+    'switch_statement',
+    'for_statement',
+    'while_statement',
+    'begin_statement',
+    'function_definition',
+    'program',
+  ].includes(node.type);
 }
 
 export function isEnd(node: SyntaxNode): boolean {

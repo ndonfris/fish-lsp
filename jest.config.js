@@ -22,6 +22,7 @@ module.exports = {
   // clearMocks: true,
   // skipNodeResolution: true,
 
+  moduleDirectories: ['node_modules', 'src'],
   watchPlugins: [
     'jest-watch-typeahead/filename',
     'jest-watch-typeahead/testname',

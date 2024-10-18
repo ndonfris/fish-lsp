@@ -1,19 +1,17 @@
-import Parser, { SyntaxNode } from 'web-tree-sitter';
+import * as Parser from 'web-tree-sitter';
+import { SyntaxNode } from 'web-tree-sitter';
 import * as NodeTypes from '../src/utils/node-types';
-import { pathToRelativeFunctionName } from '../src/utils/translation';
-import { firstAncestorMatch, getRange, isPositionWithinRange, getParentNodes, positionToPoint, pointToPosition, isNodeWithinRange, getChildNodes, getChildrenArguments } from '../src/utils/tree-sitter';
-import { Position } from 'vscode-languageserver';
-import { createFakeCursorLspDocument, setLogger } from './helpers';
-import { Analyzer } from '../src/future-analyze';
+// import
 import { initializeParser } from '../src/parser';
-import { isCommandWithName } from '../src/utils/node-types';
+import { getChildNodes, getChildrenArguments } from '../src/utils/tree-sitter';
+import { createFakeDocument, setLogger } from './logger-setup';
 
-export const ScopeTag = {
-  local: 0,
-  inherit: 1,
-  function: 2,
-  global: 3,
-} as const;
+export const ScopeTag: Record<'LOCAL' | 'FUNCTION' | 'GLOBAL' | 'UNIVERSAL', number> = {
+  ['LOCAL']: 1,
+  ['FUNCTION']: 2,
+  ['GLOBAL']: 3,
+  ['UNIVERSAL']: 4,
+};
 
 export type ScopeTag = typeof ScopeTag[keyof typeof ScopeTag];
 
@@ -25,12 +23,12 @@ export interface Scope {
 function getUriScopeType(uri: string) {
   const uriParts = uri.split('/');
   if (uriParts?.at(-2) && uriParts.at(-2)?.includes('functions')) {
-    return 'function';
+    return 'FUNCTION';
   }
   if (uriParts.at(-1) === 'config.fish' || uriParts.at(-2) === 'conf.d') {
-    return 'config';
+    return 'CONFIG';
   }
-  return 'script';
+  return 'SCRIPT';
 }
 
 export function getScope(uri: string, node: SyntaxNode) {
@@ -52,10 +50,10 @@ export function getScope(uri: string, node: SyntaxNode) {
 }
 
 export namespace Scope {
-  export function create(scopeNode: SyntaxNode, scopeTag: ScopeTag): Scope {
+  export function create(scopeTag: ScopeTag, scopeNode: SyntaxNode): Scope {
     return {
-      node: scopeNode,
       tag: scopeTag,
+      node: scopeNode,
     };
   }
 }
@@ -101,16 +99,16 @@ class ReadScope {
   public setModifier(node: SyntaxNode) {
     switch (true) {
       case NodeTypes.isMatchingOption(node, { shortOption: '-l', longOption: '--local' }):
-        this.currentModifier = 'local';
+        this.currentModifier = 'LOCAL';
         break;
       case NodeTypes.isMatchingOption(node, { shortOption: '-f', longOption: '--function' }):
-        this.currentModifier = 'function';
+        this.currentModifier = 'FUNCTION';
         break;
       case NodeTypes.isMatchingOption(node, { shortOption: '-g', longOption: '--global' }):
-        this.currentModifier = 'global';
+        this.currentModifier = 'GLOBAL';
         break;
       case NodeTypes.isMatchingOption(node, { shortOption: '-U', longOption: '--universal' }):
-        this.currentModifier = 'universal';
+        this.currentModifier = 'UNIVERSAL';
         break;
       default:
         break;
@@ -296,16 +294,22 @@ function getFunctionDescription(node: SyntaxNode) {
 }
 
 describe('new scope', () => {
-  setLogger();
+  let parser: Parser | null = null;
 
-  let parser: Parser;
-
-  beforeEach(async () => {
+  beforeAll(async () => {
     parser = await initializeParser();
   });
 
-  function testSymbolFiltering(filename: string, _input: string) {
-    const { document, cursorPosition, input } = createFakeCursorLspDocument(filename, _input);
+  setLogger(
+    async () => {
+      if (parser) {
+        parser.reset();
+      }
+    },
+  );
+
+  function testSymbolFiltering(filename: string, input: string) {
+    const document = createFakeDocument(filename, input);
     const tree = parser.parse(document.getText());
     const { rootNode } = tree;
     const nodes = getChildNodes(rootNode);
@@ -314,7 +318,6 @@ describe('new scope', () => {
       rootNode,
       nodes,
       document,
-      cursorPosition,
       input,
     };
   }
@@ -551,7 +554,6 @@ describe('new scope', () => {
   });
 
   describe.only('function definition scope', () => {
-
     it('function definition scope', () => {
       const { nodes, document } = testSymbolFiltering('functions/foo.fish', [
         'function foo -a _a _b _c _d _e _f -v _g -V _h -S --description "foo function"',
@@ -565,12 +567,15 @@ describe('new scope', () => {
       if (!focusedNode) fail();
 
       // console.log({ uriScope, focusedNode: focusedNode?.text });
-      expect(uriScope).toBe('function');
+      expect(uriScope).toBe('FUNCTION');
       expect(focusedNode).toBeTruthy();
       expect(focusedNode.text).toBe('foo');
 
       const scope = getScope(document.uri, focusedNode);
-      console.log({ modifier: scope.tag, node: focusedNode.text });
+      console.log({
+        modifier: scope.tag,
+        node: focusedNode.text,
+      });
     });
   });
 });

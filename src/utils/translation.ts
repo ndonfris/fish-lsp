@@ -7,7 +7,6 @@ import { LspDocument, LspDocuments } from '../document';
 import { FishProtocol } from './fishProtocol';
 import { getPrecedingComments, getRange, getRangeWithPrecedingComments } from './tree-sitter';
 import * as LocationNamespace from './locations';
-import os from 'os';
 import { isBuiltin } from './builtins';
 
 const RE_PATHSEP_WINDOWS = /\\/g;
@@ -64,11 +63,6 @@ function currentVersion(filepath: string, documents: LspDocuments | undefined): 
 export function pathToRelativeFunctionName(uriPath: string) : string {
   const relativeName = uriPath.split('/').at(-1) || uriPath;
   return relativeName.replace('.fish', '');
-}
-
-export function uriInUserFunctions(uri: string) {
-  const path = uriToPath(uri);
-  return path?.startsWith(`${os.homedir}/.config/fish`) || false;
 }
 
 export function nodeToSymbolInformation(node: SyntaxNode, uri: string) : SymbolInformation {
