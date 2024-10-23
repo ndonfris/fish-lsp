@@ -12,6 +12,8 @@ export namespace Range {
 
   export const fromTextSpan = (span: FishProtocol.TextSpan): LSP.Range => fromLocations(span.start, span.end);
 
+  export const toString = (range: LSP.Range): string => `${range.start.line}:${range.start.character} - ${range.end.line}:${range.end.character}`;
+
   export const toTextSpan = (range: LSP.Range): FishProtocol.TextSpan => ({
     start: Position.toLocation(range.start),
     end: Position.toLocation(range.end),
@@ -185,6 +187,15 @@ export namespace Range {
 
     mergedRanges.push(currentRange);
     return mergedRanges;
+  }
+
+  export function fromNode(SyntaxNode: SyntaxNode): LSP.Range {
+    return LSP.Range.create(
+      SyntaxNode.startPosition.row,
+      SyntaxNode.startPosition.column,
+      SyntaxNode.endPosition.row,
+      SyntaxNode.endPosition.column,
+    );
   }
 
   /**

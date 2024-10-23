@@ -281,6 +281,12 @@ export type NodeOptionQueryText = {
   longOption?: `--${string}`;
 };
 
+export namespace Option {
+  export function create(shortOption: `-${string}`, longOption: `--${string}`): NodeOptionQueryText {
+    return { shortOption, longOption };
+  }
+}
+
 /**
  * @param node - the node to check
  * @param optionQuery - object of node strings to match

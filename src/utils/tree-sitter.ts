@@ -795,6 +795,20 @@ export function getDepth(node: SyntaxNode): number {
   return depth;
 }
 
+export function findParentFunction(node: SyntaxNode): SyntaxNode | null {
+  let current: SyntaxNode | null = node.parent;
+  if (current?.type === 'function_definition' && current?.firstNamedChild?.equals(node)) {
+    current = current.parent;
+  }
+  while (current) {
+    if (current.type === 'function_definition' || current.type === 'program') {
+      return current;
+    }
+    current = current.parent || null;
+  }
+  return current;
+}
+
 /**
  * gets all flags/options/arguments for a command
  *
