@@ -3,8 +3,11 @@ import { SyntaxNode } from 'web-tree-sitter';
 import * as NodeTypes from '../src/utils/node-types';
 // import
 import { initializeParser } from '../src/parser';
-import { getChildNodes, getChildrenArguments } from '../src/utils/tree-sitter';
+import { getChildNodes, getChildrenArguments, getDepth } from '../src/utils/tree-sitter';
+import { Mods, removeLocalInnerSymbols, scopeCallback } from '../src/enviornment/scope-callback';
 import { createFakeDocument, setLogger } from './logger-setup';
+import { URI } from 'vscode-uri';
+import path from 'path';
 
 export const ScopeTag: Record<'LOCAL' | 'FUNCTION' | 'GLOBAL' | 'UNIVERSAL', number> = {
   ['LOCAL']: 1,
@@ -16,7 +19,7 @@ export const ScopeTag: Record<'LOCAL' | 'FUNCTION' | 'GLOBAL' | 'UNIVERSAL', num
 export type ScopeTag = typeof ScopeTag[keyof typeof ScopeTag];
 
 export interface Scope {
-  tag: ScopeTag;
+  tag: keyof typeof ScopeTag;
   node: SyntaxNode;
 }
 
@@ -32,10 +35,26 @@ function getUriScopeType(uri: string) {
 }
 
 export function getScope(uri: string, node: SyntaxNode) {
+  const uriName = URI.parse(uri).fsPath.split(path.sep).at(-1)?.split('.')?.at(0);
+  console.log({ uriName });
   const uriType = getUriScopeType(uri);
   const nodeType = node.type;
-  // switch (uriType) {
-  //   case 'function':
+  if (node.parent && node.parent.type === 'function_definition' && node.parent.firstNamedChild?.equals(node)) {
+    switch (uriType) {
+      case 'FUNCTION':
+        return node.text === uriName
+          ? Scope.create('GLOBAL', node)
+          : Scope.create('LOCAL', node);
+      case 'CONFIG':
+        return getDepth(node) > 1
+          ? Scope.create('LOCAL', node)
+          : Scope.create('GLOBAL', node);
+      case 'SCRIPT':
+        return Scope.create('LOCAL', node);
+    }
+  } else {
+    return Scope.create('FUNCTION', node);
+  }
   //     return getFunctionScope(node);
   //   case 'config':
   //     return getConfigScope(node);
@@ -46,11 +65,11 @@ export function getScope(uri: string, node: SyntaxNode) {
   // }
   //
   // return Scope.create(node, ScopeTag.local);
-  return { tag: uriType, node: nodeType };
+  // return { tag: uriType, node: nodeType };
 }
 
 export namespace Scope {
-  export function create(scopeTag: ScopeTag, scopeNode: SyntaxNode): Scope {
+  export function create(scopeTag: keyof typeof ScopeTag, scopeNode: SyntaxNode): Scope {
     return {
       tag: scopeTag,
       node: scopeNode,
@@ -77,20 +96,20 @@ class ReadScope {
   public functionVariables: SyntaxNode[] = [];
   public globalVariables: SyntaxNode[] = [];
   public universalVariables: SyntaxNode[] = [];
-  public currentModifier: 'local' | 'function' | 'global' | 'universal' = 'local';
+  public currentModifier: 'LOCAL' | 'FUNCTION' | 'GLOBAL' | 'UNIVERSAL' = 'LOCAL';
 
   public addVariable(node: SyntaxNode) {
     switch (this.currentModifier) {
-      case 'local':
+      case 'LOCAL':
         this.localVariables.push(node);
         break;
-      case 'function':
+      case 'FUNCTION':
         this.functionVariables.push(node);
         break;
-      case 'global':
+      case 'GLOBAL':
         this.globalVariables.push(node);
         break;
-      case 'universal':
+      case 'UNIVERSAL':
         this.universalVariables.push(node);
         break;
     }
@@ -127,16 +146,16 @@ class ReadScope {
 
   public log() {
     this.localVariables.forEach((n, i) => {
-      console.log(`local:${i}:${n.text}`);
+      console.log(`LOCAL:${i}:${n.text}`);
     });
     this.functionVariables.forEach((n, i) => {
-      console.log(`function:${i}:${n.text}`);
+      console.log(`FUNCTION:${i}:${n.text}`);
     });
     this.globalVariables.forEach((n, i) => {
-      console.log(`global:${i}:${n.text}`);
+      console.log(`GLOBAL:${i}:${n.text}`);
     });
     this.universalVariables.forEach((n, i) => {
-      console.log(`universal:${i}:${n.text}`);
+      console.log(`UNIVERSAL:${i}:${n.text}`);
     });
   }
 }
@@ -557,8 +576,15 @@ describe('new scope', () => {
     it('function definition scope', () => {
       const { nodes, document } = testSymbolFiltering('functions/foo.fish', [
         'function foo -a _a _b _c _d _e _f -v _g -V _h -S --description "foo function"',
+        '    function baz',
+        '        echo "inside baz: $argv"',
+        '    end',
         '    echo $argv',
         'end',
+        'function baz',
+        '    echo "outside foo, inside baz: $argv"',
+        'end',
+        'foo',
       ].join('\n'));
 
       const focusedNode = nodes.find((n) => n.isNamed && n.text === 'foo' && n.parent.type === 'function_definition');
@@ -572,10 +598,29 @@ describe('new scope', () => {
       expect(focusedNode.text).toBe('foo');
 
       const scope = getScope(document.uri, focusedNode);
-      console.log({
+      const scopeNode = scopeCallback(scope.tag as Mods, focusedNode)();
+      const localVariables = removeLocalInnerSymbols(scope.tag, focusedNode);
+      console.log('scope1', {
         modifier: scope.tag,
         node: focusedNode.text,
+        scopeNode: scopeNode ? `type: ${scopeNode.type}, text: ${scopeNode?.text}` : '',
+        localVariables: localVariables.map((n) => n.text),
       });
+
+      const focusedNode2 = nodes.find((n) => n.isNamed && n.text === '_a' && n.parent.type === 'function_definition');
+
+      if (!focusedNode2) fail();
+      const scope2 = getScope(document.uri, focusedNode2);
+      const scopeNode2 = scopeCallback(scope2.tag as Mods, focusedNode2);
+      const localVariables2 = removeLocalInnerSymbols(scope2.tag, focusedNode2);
+      console.log('scope2', {
+        modifier: scope2.tag,
+        node: focusedNode2.text,
+        scopeNode: scopeNode2() ? `type: ${scopeNode2().type}, text: ${scopeNode2().text}` : '',
+        localVariables: localVariables2.map((n) => n.text),
+      });
+
+      expect(focusedNode2.text).toBe('_a');
     });
   });
 });

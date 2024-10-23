@@ -121,18 +121,13 @@ export class EnvModifier {
   }
 }
 
-
 export class Symbol {
-  references
-
   constructor(
     public name: string,
-    public kind: 'variable' | 'function' | 'alias' | 'block',
+    public kind: 'VARIABLE' | 'FUNCTION' | 'ALIAS' | 'BLOCK',
     public modifier: EnvModifier,
     public node: SyntaxNode | null = null,
   ) { }
-
-
 }
 
 export class EnvVar {
