@@ -6,7 +6,7 @@ import { Point, SyntaxNode, Tree } from 'web-tree-sitter';
 // import { pathToFileURL } from 'url'; // typescript-language-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts
 // import vscodeUri from 'vscode-uri'; // typescript-language-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts
 // import { existsSync } from 'fs-extra';
-import { findSetDefinedVariable, isFunctionDefinition, isVariableDefinition, isFunctionDefinitionName, isVariable, isScope, isProgram, isCommandName, isForLoop, findForLoopVariable, isDefinition, isVariableDefinitionName, isCommand } from './node-types';
+import { findSetDefinedVariable, isFunctionDefinition, isVariableDefinition, isFunctionDefinitionName, isVariable, isScope, isProgram, isCommandName, isForLoop, findForLoopVariable, isDefinition, isVariableDefinitionName, isCommand, isBlock } from './node-types';
 
 /**
  * Returns an array for all the nodes in the tree (@see also nodesGen)
@@ -791,6 +791,18 @@ export function getDepth(node: SyntaxNode): number {
   while (current.parent && current.parent.type !== 'program') {
     current = current.parent;
     depth++;
+  }
+  return depth;
+}
+
+export function getBlockDepth(node: SyntaxNode): number {
+  let depth = 0;
+  let current = node.parent;
+  while (current && current.type !== 'program') {
+    if (isBlock(current)) {
+      depth++;
+    }
+    current = current.parent;
   }
   return depth;
 }

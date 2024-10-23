@@ -312,6 +312,12 @@ export class FishDocumentSymbol implements FishDocumentSymbol {
     }
     return this;
   }
+
+  toFunctionNode() {
+    const definition = this.parentNode;
+    const focused = definition.descendantsOfType('argument_name');
+    
+  }
 }
 
 function extractSymbolInfo(node: SyntaxNode): {

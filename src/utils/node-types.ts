@@ -287,6 +287,10 @@ export namespace Option {
   }
 }
 
+export function isEscapeSequence(node: SyntaxNode) {
+  return node.type === 'escape_sequence';
+}
+
 /**
  * @param node - the node to check
  * @param optionQuery - object of node strings to match

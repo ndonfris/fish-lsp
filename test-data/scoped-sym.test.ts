@@ -21,7 +21,7 @@ function foo
 
     echo inside foo: $argv
     echo inside foo: $x
-    read --delimiter '=' --function a b c d e
+    read --delimiter '=' --function read_a read_b read_c read_d read_e
     function inside_foo -a inside_foo_a inside_foo_b inside_foo_c inside_foo_d
         echo inside inside_foo: $argv
         echo inside_foo_a: $inside_foo_a
