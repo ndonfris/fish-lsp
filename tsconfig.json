@@ -2,8 +2,9 @@
  "extends": "@tsconfig/node21/tsconfig.json",
   // "extends": "@tsconfig/node-lts/tsconfig.json",
   "compilerOptions": {
-    // "target": "ES2023",
+    "target": "ES2023",
     "esModuleInterop": true,
+    "preserveSymlinks": true,
     "noUncheckedIndexedAccess": true,
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,

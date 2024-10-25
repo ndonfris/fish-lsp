@@ -4,12 +4,25 @@ import * as Parser from 'web-tree-sitter';
 import { SyntaxNode } from 'web-tree-sitter';
 import { setLogger } from './logger-setup';
 import { initializeParser } from '../src/parser';
-import { isEndStdinCharacter, isEscapeSequence, isMatchingOption, isOption, isString, NodeOptionQueryText, Option } from '../src/utils/node-types';
+import { isBlock, isEndStdinCharacter, isEscapeSequence, isMatchingOption, isOption, isString, isType, NodeOptionQueryText, Option } from '../src/utils/node-types';
 import * as Locations from '../src/utils/locations';
-import { getBlockDepth } from '../src/utils/tree-sitter';
+import { findParent, getBlockDepth, uniqueNodes } from '../src/utils/tree-sitter';
 import { flattenNested } from '../src/utils/flatten';
+import { getCallableRanges, getCallableRanges2, rangesToNodes, removeRange } from './scope';
+// import { Hash } from 'crypto';
 
+type HashSyntaxNodeKey = `${LSP.DocumentUri} ${SyntaxNode['id']} ${string}`;
+const HashSyntaxNode = (uri: LSP.DocumentUri, parentNode: SyntaxNode, node: SyntaxNode): HashSyntaxNodeKey => `${uri} ${parentNode.id} ${node.text}`;
 export type ModifierType = 'LOCAL' | 'FUNCTION' | 'GLOBAL' | 'UNIVERSAL';
+
+type ModifierCallbackFn = (symbol: FishSymbol) => SyntaxNode;
+
+const ModifierParentNode: Record<ModifierType, ModifierCallbackFn> = {
+  ['LOCAL']: (symbol: FishSymbol) => findParent(symbol.node, isBlock),
+  ['FUNCTION']: (symbol: FishSymbol) => findParent(symbol.parentNode, (n) => isType(n, 'function_definition', 'program')),
+  ['GLOBAL']: (symbol: FishSymbol) => findParent(symbol.parentNode, (n) => isType(n, 'program')),
+  ['UNIVERSAL']: (symbol: FishSymbol) => findParent(symbol.parentNode, (n) => isType(n, 'program')),
+} as const;
 
 export type FunctionInfo = {
   name: string;
@@ -112,6 +125,31 @@ export class FishSymbol {
 
   isVariable() {
     return this.kind === SymbolKind.Variable;
+  }
+
+  getParentScope() {
+    return ModifierParentNode[this.modifier](this);
+  }
+
+  get allChildren() {
+    return flattenNested(...this.children);
+  }
+
+  getCallableRange() {
+    // const ranges: Range[] = [];
+    // if (this.isFunction()) {
+    //   const parent = this.getParentScope();
+    // }
+    // const scopeNode = this.getParentScope();
+    // const parent = this.parent;
+    //
+    // if (parent)
+    //
+    //   if (this.isVariable() && scopeNode) {
+    //   } else if (this.isFunction() && scopeNode) {
+    //
+    //   }
+    return;
   }
 
   get functionInfo() {
@@ -438,7 +476,7 @@ function processFunction(node: SyntaxNode, children: FishSymbol[], uri: string, 
   const firstNamedChild = node.firstNamedChild as SyntaxNode;
   const modifier = toModifier(node, uri, SymbolKind.Function);
 
-  const funcSymbol = FishSymbol.create(firstNamedChild.text, SymbolKind.Function, uri, modifier, firstNamedChild, node, parentSymbol, []);
+  const funcSymbol = FishSymbol.create(firstNamedChild.text, SymbolKind.Function, uri, modifier, firstNamedChild, node, parentSymbol);
   funcSymbol.children.push(...processFunctionArgumentVariables(node, uri, funcSymbol), ...children);
   funcSymbol.children.forEach(child => child.parent = funcSymbol);
   return [funcSymbol];
@@ -531,13 +569,24 @@ export function logFishsymbols(syms: FishSymbol[], indent: string = '') {
     const strParent = getNameKindStr(s.parent).padEnd(15);
     const modifier = s.modifier.padEnd(10);
     const strRange = Locations.Range.toString(s.range).padEnd(15, ' ') + Locations.Range.toString(s.selectionRange).padEnd(15);
-    const strNode = getNodeStr(s.node).padEnd(40, '.');
-    const strParentNode = getNodeStr(s.parentNode).padEnd(15);
+    // const strNode = getNodeStr(s.node).padEnd(40, '.');
+    // const strParentNode = getNodeStr(s.parentNode).padEnd(15);
     // eslint-disable-next-line no-console
-    console.log(strMain + strParent + modifier + strRange + strNode + strParentNode);
+    console.log(strMain + strParent + modifier + strRange);
+    // console.log(strMain + strParent + modifier + strRange + strNode + strParentNode);
     // console.log(strMain + modifier + strRange + strNode + strParentNode);
     logFishsymbols(s.children, indent + ' '.repeat(4));
   }
+}
+
+function buildUniqueMapOfSymbols(symbols: FishSymbol[]): Map<string, FishSymbol[]> {
+  const resultMap: Map<string, FishSymbol[]> = new Map<string, FishSymbol[]>();
+  for (const symbol of symbols) {
+    const key = HashSyntaxNode(symbol.uri, symbol.getParentScope(), symbol.node);
+    if (!resultMap.has(key)) resultMap.set(key, []);
+    resultMap.get(key)?.push(symbol);
+  }
+  return resultMap;
 }
 
 describe('symbol test suite', () => {
@@ -584,6 +633,22 @@ function bar -a bar_a bar_b bar_c bar_d
     echo bar_b: $bar_b
     echo bar_c: $bar_c
     echo bar_d: $bar_d
+    set --local bool_1 'neither 1'
+    if true 
+        set --local bool_1 'true 1'
+    else
+        set --local bool_1 'false 1'
+    end
+    echo bool_1: $bool_1
+    function inside_bar_with_bool_1 --inherit-variable bool_1
+        echo inside_bar_with_bool_1: $bool_1
+    end
+    inside_bar_with_bool_1
+
+    function inside_bar_without_bool_1
+        echo inside_bar_without_bool_1: $bool_1
+    end
+    inside_bar_without_bool_1
 end
 
 set --global --export global_y_var 'y'
@@ -601,7 +666,9 @@ set i (math $i + 1);
 foo
 `);
     expect(tree.rootNode).not.toBeNull();
-    const symbols = buildScopedSymbol(tree.rootNode, 'file:///home/user/.config/fish/config.fish');
+    const root = tree.rootNode;
+    const uri = 'file:///home/user/.config/fish/config.fish';
+    const symbols = buildScopedSymbol(tree.rootNode, uri);
     logFishsymbols(symbols);
 
     // for (const symbol of flattenNested(...symbols)) {
@@ -624,6 +691,43 @@ foo
     // if (bar) {
     //   console.log(bar.functionInfo);
     // }
+    // const all_bools = flattenNested(...symbols).filter(s => s.name === 'bool_1');
+    // const resultMap = buildUniqueMapOfSymbols(flattenNested(...symbols));
+    // resultMap.forEach((value, _) => {
+    //   console.log(value.at(0).name);
+    // });
+    // const scopes = uniqueNodes(all_bools.map(bool => bool.getParentScope()));
+    const foo = flattenNested(...symbols).find(s => s.name === 'foo')!;
+    // console.log('foo', foo, foo.functionInfo, { start: foo.parent.range.start, end: foo.parent.range.end });
+    let i = 0;
+    // get Ranges with the foo range removed
+    const ranges = removeRange([foo.parent.range], foo.range);
+    console.log();
+    for (const r of ranges) {
+      console.log(
+        '"foo"',
+        `range ${i}: `,
+        r.start.line,
+        r.start.character,
+        r.end.line,
+        r.end.character,
+      );
+      i++;
+    }
+    console.log();
+    // loop over the ranges for Nodes
+    for (const n of rangesToNodes(ranges, root)) {
+      if (!n.isNamed || !n.type.trim() || !n.text.trim()) continue;
+      console.log(n.type, n.text.trim());
+    }
+    //
+    const bool = flattenNested(...symbols).find(s => s.name === 'bool_1')!;
+    console.log('bool', bool.name);
+    const bool_ranges = getCallableRanges2(bool);
+    for (const range of bool_ranges) {
+      console.log('bool_range', range.start.line, range.start.character, range.end.line, range.end.character);
+    }
+    // console.log('bool_ranges', bool_ranges.length);
   });
 
   it('process for loop', () => {
