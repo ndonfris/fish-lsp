@@ -808,6 +808,10 @@ export function isNonFlagArgument(node: SyntaxNode) {
   );
 }
 
+export function isType(node: SyntaxNode, ...types: string[]) {
+  return types.includes(node.type);
+}
+
 // TODO: either move use or remove
 // /**
 //  * checks for SyntaxNode.text === '-f1' | '--fields=1'

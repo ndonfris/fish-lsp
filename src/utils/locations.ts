@@ -332,6 +332,10 @@ export namespace Range {
         throw new Error(`Unknown distance calculation method: ${method}`);
     }
   }
+
+  export function equals(symbolRange: LSP.Range, selectionRange: LSP.Range) {
+    return Position.isEqual(symbolRange.start, selectionRange.start) && Position.isEqual(symbolRange.end, selectionRange.end);
+  }
 }
 
 export namespace Position {

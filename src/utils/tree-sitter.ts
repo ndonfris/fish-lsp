@@ -821,11 +821,28 @@ export function findParentFunction(node: SyntaxNode): SyntaxNode | null {
   return current;
 }
 
+export function findParent(n: SyntaxNode, fn: (n: SyntaxNode) => boolean): SyntaxNode | null {
+  let current = n.parent;
+  while (current) {
+    if (fn(current)) {
+      return current;
+    }
+    current = current.parent;
+  }
+  return null;
+}
+
+export function uniqueNodes(nodes: SyntaxNode[]): SyntaxNode[] {
+  return nodes.filter((value, index, self) => {
+    return self.findIndex(v => v.id === value.id) === index;
+  });
+}
+
 /**
  * gets all flags/options/arguments for a command
  *
  * `function foo -a --bar baz` => `['-a', '--bar', 'baz']`
  */
 export function getChildrenArguments(node: SyntaxNode): Array<SyntaxNode> {
-  return node.childrenForFieldName('option')
+  return node.childrenForFieldName('option');
 }
