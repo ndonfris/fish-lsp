@@ -9,7 +9,6 @@ import * as Locations from '../src/utils/locations';
 import { findParent, getBlockDepth, uniqueNodes } from '../src/utils/tree-sitter';
 import { flattenNested } from '../src/utils/flatten';
 import { getCallableRanges, getCallableRanges2, rangesToNodes, removeRange } from './scope';
-// import { Hash } from 'crypto';
 
 type HashSyntaxNodeKey = `${LSP.DocumentUri} ${SyntaxNode['id']} ${string}`;
 const HashSyntaxNode = (uri: LSP.DocumentUri, parentNode: SyntaxNode, node: SyntaxNode): HashSyntaxNodeKey => `${uri} ${parentNode.id} ${node.text}`;
@@ -669,7 +668,7 @@ foo
     const root = tree.rootNode;
     const uri = 'file:///home/user/.config/fish/config.fish';
     const symbols = buildScopedSymbol(tree.rootNode, uri);
-    logFishsymbols(symbols);
+    // logFishsymbols(symbols);
 
     // for (const symbol of flattenNested(...symbols)) {
     //   console.log(symbol.name);
@@ -716,10 +715,10 @@ foo
     }
     console.log();
     // loop over the ranges for Nodes
-    for (const n of rangesToNodes(ranges, root)) {
-      if (!n.isNamed || !n.type.trim() || !n.text.trim()) continue;
-      console.log(n.type, n.text.trim());
-    }
+    // for (const n of rangesToNodes(ranges, root)) {
+    //   if (!n.isNamed || !n.type.trim() || !n.text.trim()) continue;
+    //   console.log(n.type, n.text.trim());
+    // }
     //
     const bool = flattenNested(...symbols).find(s => s.name === 'bool_1')!;
     console.log('bool', bool.name);

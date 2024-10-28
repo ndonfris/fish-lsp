@@ -154,12 +154,62 @@ function getRemovableLocalVariableRanges(matchSymbol: FishSymbol, possibleRemove
   return result;
 }
 
+function getRemovableRanges(matchSymbol: FishSymbol, possibleRemove: FishSymbol): Range[] {
+  const result: Range[] = [];
+  for (const child of possibleRemove.allChildren) {
+    // function
+    if (
+      child.isFunction()
+      && !(
+        child.functionInfo?.noScopeShadowing ||
+        child.functionInfo?.inheritVariable.some(v => v.name === matchSymbol.name)
+      )
+      && !result.some(s => Locations.Range.equals(s, child.range))
+    ) {
+      result.push(child.range);
+      continue;
+    }
+    // variable
+    if (child.name === matchSymbol.name) {
+      const parentScopeNode = child.getParentScope();
+      const scopeRange = Locations.Range.fromNode(parentScopeNode);
+      if (
+        !parentScopeNode.equals(matchSymbol.getParentScope()) &&
+        !result.some(r => Locations.Range.equals(r, scopeRange))
+      ) {
+        result.push(scopeRange);
+        continue;
+      }
+    }
+  }
+  return result;
+}
+
+function createParentRangeForLocalVariable(symbol: FishSymbol): Range {
+  if (symbol.isVariable() && symbol.modifier === 'LOCAL' || symbol.modifier === 'FUNCTION') {
+    const parentScopeNode = symbol.getParentScope();
+    const parentScopeRange = Locations.Range.fromNode(parentScopeNode);
+    return {
+      start: {
+        line: symbol.range.start.line,
+        character: symbol.range.start.character,
+      },
+      end: {
+        line: parentScopeRange.end.line,
+        character: parentScopeRange.end.character,
+      },
+    };
+  }
+  return symbol.parent?.range;
+}
+
 /**
  * TODO:
- *   - DO WE NEED TO REMOVE SYMBOLS WITH DIFFERENT MODIFIERS
- *   - DO WE NEED TO CONSIDER GLOBAL && UNIVERSAL MODIFIERS
- *   - DECIDE IF THIS IS LOCAL ONLY OR INCLUDES GLOBAL RANGES
- *   - REMOVE `console.log()` STATEMENTS
+ *   - [ ] DO WE NEED TO REMOVE SYMBOLS WITH DIFFERENT MODIFIERS
+ *   - [ ] DO WE NEED TO CONSIDER GLOBAL && UNIVERSAL MODIFIERS
+ *   - [ ] DECIDE IF THIS IS LOCAL ONLY OR INCLUDES GLOBAL RANGES
+ *   - [x] REMOVE VARIABLES REFERENCED BEFORE DEFINITION
+ *   - [ ] REMOVE `console.log()` STATEMENTS
  * ---
  * @param symbol the symbol to search in
  * @returns the ranges that the symbol is referring to
@@ -200,7 +250,7 @@ export function getCallableRanges2(symbol: FishSymbol): Range[] {
   ];
 
   let ranges: Range[] = [];
-  ranges.push(symbol.parent.range);
+  ranges.push(createParentRangeForLocalVariable(symbol));
   for (const excludeRange of excludeChildren) {
     ranges = removeRange(ranges, excludeRange);
   }
@@ -344,11 +394,8 @@ export function getCallableRanges(symbol: FishSymbol): Range[] {
 // };
 
 /**
-   * Get all nodes within a given range
-   */
-/**
-   * Get all nodes within a given range using proper TreeCursor traversal
-   */
+  * Get all nodes within a given range using proper TreeCursor traversal
+  */
 function getNodesInRange(root: SyntaxNode, range: Range): SyntaxNode[] {
   const nodes: SyntaxNode[] = [];
   const cursor = root.walk();
