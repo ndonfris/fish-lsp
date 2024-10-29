@@ -209,7 +209,7 @@ describe('FishDocumentSymbol OPERATIONS', () => {
       const pos = Position.create(3, 9);
       const scoped = filterDocumentSymbolInScope(symbols, pos);
 
-      // console.log('upto cursor', scoped.map(s => s.name));
+      console.log('upto cursor', scoped.map(s => s.name));
 
       // expect(scoped.map(s => s.name)).toEqual([
       //   'test-source',

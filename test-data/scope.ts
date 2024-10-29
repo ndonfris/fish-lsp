@@ -131,7 +131,7 @@ function getRemovableFunctionRanges(matchSymbol: FishSymbol, possibleRemove: Fis
         child.functionInfo?.inheritVariable.some(v => v.name === matchSymbol.name)
       )
     ) {
-      result.push(Locations.Range.fromNode(child.node));
+      result.push(child.range);
     }
   }
   return result;
@@ -185,8 +185,17 @@ function getRemovableRanges(matchSymbol: FishSymbol, possibleRemove: FishSymbol)
   return result;
 }
 
-function createParentRangeForLocalVariable(symbol: FishSymbol): Range {
-  if (symbol.isVariable() && symbol.modifier === 'LOCAL' || symbol.modifier === 'FUNCTION') {
+/**
+ * handles creating parent range for callable ranges, handling special cases
+ * including:
+ *    1. variable in local scope - removes the parent scope before the definition
+ *    2. function in function - removes any call to a function before the definition
+ *    3. handles the default case of just using the parent range
+ * @param symbol the symbol to create the parent range for
+ * @returns the range for the local references of a symbol
+ */
+function createParentRange(symbol: FishSymbol): Range {
+  if (symbol.isVariable() && symbol.isLocalScope()) {
     const parentScopeNode = symbol.getParentScope();
     const parentScopeRange = Locations.Range.fromNode(parentScopeNode);
     return {
@@ -197,6 +206,18 @@ function createParentRangeForLocalVariable(symbol: FishSymbol): Range {
       end: {
         line: parentScopeRange.end.line,
         character: parentScopeRange.end.character,
+      },
+    };
+  }
+  if (symbol.isFunction() && symbol.parent?.isFunction()) {
+    return {
+      start: {
+        line: symbol.range.end.line,
+        character: symbol.range.end.character,
+      },
+      end: {
+        line: symbol.parent.range.end.line,
+        character: symbol.parent.range.end.character,
       },
     };
   }
@@ -250,7 +271,7 @@ export function getCallableRanges2(symbol: FishSymbol): Range[] {
   ];
 
   let ranges: Range[] = [];
-  ranges.push(createParentRangeForLocalVariable(symbol));
+  ranges.push(createParentRange(symbol));
   for (const excludeRange of excludeChildren) {
     ranges = removeRange(ranges, excludeRange);
   }
@@ -302,49 +323,13 @@ export function getCallableRanges2(symbol: FishSymbol): Range[] {
 }
 
 export function getCallableRanges(symbol: FishSymbol): Range[] {
-  // Skip if missing required nodes
-  if (!symbol.node || !symbol.parentNode) return [];
-  // Get parent scope and define ranges
-  const parentScope = symbol.getParentScope();
-  if (!parentScope) return [];
-
-  // const scopeRange = Locations.Range.fromNode(parentScope);
-  const defRange = Locations.Range.fromNode(symbol.node);
-  const ranges: Range[] = [];
-
-  // Handle function case - use full scope except current function range
-  if (symbol.isFunction()) {
-    ranges.push(symbol.parent.range);
-    return removeRange(ranges, symbol.range);
+  let ranges: Range[] = [];
+  const excludedRanges: Range[] = getRemovableRanges(symbol, symbol.parent);
+  ranges.push(createParentRange(symbol)); // TODO: try just passing the symbol, to the removeRange function
+  // ranges = removeRange(ranges, symbol.range);
+  for (const excludeRange of excludedRanges) {
+    ranges = removeRange(ranges, excludeRange);
   }
-
-  // Handle variable case
-  if (symbol.isVariable()) {
-    // Get all symbols in parent scope
-    const siblings = symbol.parent?.children || [];
-    //                                                                        // TODO:
-    // Filter symbols that match name and are valid based on scope rules      // don't we want to remove the symbol.isFunctions() here? then search those ranges?
-    siblings                                                                  // does it make sense to make this generalization for both symbol.isFunction() and symbol.isVariable()?
-      .filter(sibling =>                                                      // think this over before making changes
-        sibling.name === symbol.name &&
-        !sibling.equals(symbol) &&
-        (
-          !sibling.isFunction() ||
-          (sibling.functionInfo?.noScopeShadowing ||
-            sibling.functionInfo?.inheritVariable.some(v => v.name === symbol.name))
-        ),
-      )
-      .forEach(sibling => {
-        const range = Locations.Range.fromNode(sibling.node);
-        // Only include ranges after variable definition
-        if (range.start.line > defRange.start.line ||
-          range.start.line === defRange.start.line &&
-          range.start.character >= defRange.start.character) {
-          ranges.push(range);
-        }
-      });
-  }
-
   return ranges;
 }
 
@@ -394,18 +379,16 @@ export function getCallableRanges(symbol: FishSymbol): Range[] {
 // };
 
 /**
-  * Get all nodes within a given range using proper TreeCursor traversal
-  */
+ * Get all nodes within a given range using proper TreeCursor traversal
+ */
 function getNodesInRange(root: SyntaxNode, range: Range): SyntaxNode[] {
   const nodes: SyntaxNode[] = [];
   const cursor = root.walk();
 
   function visitNode() {
     const node = cursor.currentNode;
-    const nodeStart = { line: cursor.startPosition.row, character: cursor.startPosition.column };
-    const nodeEnd = { line: cursor.endPosition.row, character: cursor.endPosition.column };
 
-    if (nodeStart.line >= range.start.line && nodeEnd.line <= range.end.line) {
+    if (Locations.Range.containsRange(range, Locations.Range.fromNode(node))) {
       nodes.push(node);
     }
 
@@ -439,8 +422,8 @@ function getNodesInRange(root: SyntaxNode, range: Range): SyntaxNode[] {
 // }
 
 /**
-   * Convert a list of ranges to a list of nodes that fall within those ranges
-   */
+  * Convert a list of ranges to a list of nodes that fall within those ranges
+  */
 export function rangesToNodes(ranges: Range[], root: SyntaxNode): SyntaxNode[] {
   const nodes: SyntaxNode[] = [];
   ranges.forEach(range => {
@@ -450,13 +433,13 @@ export function rangesToNodes(ranges: Range[], root: SyntaxNode): SyntaxNode[] {
 }
 
 /**
-   * Creates a new Array of Ranges that excludes a specific range
-   * If the excluded range is fully contained within a range, it splits that range into two
-   *
-   * @param ranges The input array of Ranges
-   * @param excludeRange The Range to exclude
-   * @returns Array of Ranges with the excluded range removed
-   */
+  * Creates a new Array of Ranges that excludes a specific range
+  * If the excluded range is fully contained within a range, it splits that range into two
+  *
+  * @param ranges The input array of Ranges
+  * @param excludeRange The Range to exclude
+  * @returns Array of Ranges with the excluded range removed
+  */
 export function removeRange(ranges: Range[], excludeRange: Range): Range[] {
   const result: Range[] = [];
 

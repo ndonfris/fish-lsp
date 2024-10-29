@@ -1,104 +1,78 @@
-import { SymbolKind, Location, Range, /* Position, */ DocumentSymbol, WorkspaceSymbol, FoldingRange, DocumentUri, Position } from 'vscode-languageserver';
-import { /*getChildNodes, */ containsRange, getChildNodes, getRange } from './tree-sitter';
-import * as NodeTypes from './node-types';
+import * as LSP from 'vscode-languageserver';
+import { SymbolKind, Range, Location } from 'vscode-languageserver';
+// import Parser from 'web-tree-sitter';
 import { SyntaxNode } from 'web-tree-sitter';
-import { isScriptNeededArgv } from '../features/definitions/argv';
-import { getArgparseDefinitions, isArgparseCommandName } from '../features/definitions/argparse';
-import { symbolKindToString } from './translation';
-import { Scope, ScopeModifier, ScopeTag } from './scope';
+import { isBlock, isEndStdinCharacter, isEscapeSequence, isMatchingOption, isOption, isString, isType, NodeOptionQueryText, Option } from './node-types';
 import * as Locations from './locations';
+import { findParent, getBlockDepth } from './tree-sitter';
 import { flattenNested } from './flatten';
+import { getCallableRanges } from './scope';
+// import { getCallableRanges, getCallableRanges2, rangesToNodes, removeRange } from './scope';
+export type ModifierType = 'LOCAL' | 'FUNCTION' | 'GLOBAL' | 'UNIVERSAL';
 
-export type SymbolName = string;
+type ModifierCallbackFn = (symbol: FishSymbol) => SyntaxNode;
 
-export interface FishDocumentSymbol extends DocumentSymbol {
-  name: SymbolName;
-  kind: SymbolKind;
-  uri: DocumentUri;
-  range: Range;
-  selectionRange: Range;
-  currentNode: SyntaxNode;
-  parentNode: SyntaxNode;
-  parent: FishDocumentSymbol;
-  scope: Scope;
-  children: FishDocumentSymbol[];
-}
+const ModifierParentNode: Record<ModifierType, ModifierCallbackFn> = {
+  ['LOCAL']: (symbol: FishSymbol) => findParent(symbol.node, isBlock)!,
+  ['FUNCTION']: (symbol: FishSymbol) => findParent(symbol.parentNode, (n) => isType(n, 'function_definition', 'program'))!,
+  ['GLOBAL']: (symbol: FishSymbol) => findParent(symbol.parentNode, (n) => isType(n, 'program'))!,
+  ['UNIVERSAL']: (symbol: FishSymbol) => findParent(symbol.parentNode, (n) => isType(n, 'program'))!,
+} as const;
 
-export class FishDocumentSymbol implements FishDocumentSymbol {
-  public scope: Scope;
-  public aliases: string[] = [];
-  public argparsed = false;
+export type FunctionInfo = {
+  name: string;
+  uri: string;
+  description: string;
+  isAutoLoad: boolean;
+  noScopeShadowing: boolean;
+  argumentNames: FishSymbol[];
+  inheritVariable: FishSymbol[];
+  onVariable: FishSymbol[];
+};
 
+export class FishSymbol {
   constructor(
-    public name: SymbolName,
+    public name: string,
     public kind: SymbolKind,
-    public uri: DocumentUri,
-    public range: Range,
+    public uri: string,
     public selectionRange: Range,
-    public currentNode: SyntaxNode,
+    public range: Range,
+    public modifier: ModifierType,
+    public node: SyntaxNode,
     public parentNode: SyntaxNode,
-    public parent: FishDocumentSymbol,
-    public children: FishDocumentSymbol[] = [],
-  ) {
-    this.scope = Scope.fromSymbol(this);
-    this.addArgvToFunction();
-    this.children.forEach(child => {
-      // child.parentNode = this.currentNode;
-      child.parent = this;
-    });
-    this.aliases.push(this.name);
-  }
-
-  public static createRoot(uri: DocumentUri, rootNode: SyntaxNode): FishDocumentSymbol {
-    return new FishDocumentSymbol(
-      'ROOT',
-      SymbolKind.Null,
-      uri,
-      getRange(rootNode),
-      Range.create(0, 0, 0, 0),
-      rootNode, // Empty object as SyntaxNode for root
-      rootNode,
-      {} as FishDocumentSymbol, // Empty object as parent for root
-    );
-  }
+    public parent: FishSymbol | null = null,
+    public children: FishSymbol[] = [],
+  ) { }
 
   public static create(
-    name: SymbolName,
+    name: string,
     kind: SymbolKind,
-    uri: DocumentUri,
-    range: Range,
-    selectionRange: Range,
-    currentNode: SyntaxNode,
+    uri: string,
+    modifier: ModifierType,
+    node: SyntaxNode,
     parentNode: SyntaxNode,
-    parent: FishDocumentSymbol,
-    children: FishDocumentSymbol[] = [],
-  ): FishDocumentSymbol {
-    return new FishDocumentSymbol(
+    parent: FishSymbol | null = null,
+    children: FishSymbol[] = [],
+  ) {
+    return new FishSymbol(
       name,
       kind,
       uri,
-      range,
-      selectionRange,
-      currentNode,
+      Locations.Range.fromNode(node),
+      Locations.Range.fromNode(parentNode),
+      modifier,
+      node,
       parentNode,
       parent,
       children,
     );
   }
 
-  public toLocation(): Location {
+  toLocation(): LSP.Location {
     return Location.create(this.uri, this.selectionRange);
   }
 
-  toWorkspaceSymbol(): WorkspaceSymbol {
-    return {
-      name: this.name,
-      kind: this.kind,
-      location: this.toLocation(),
-    };
-  }
-
-  toFoldingRange(): FoldingRange {
+  toFoldingRange(): LSP.FoldingRange {
     return {
       startLine: this.range.start.line,
       endLine: this.range.end.line,
@@ -106,22 +80,15 @@ export class FishDocumentSymbol implements FishDocumentSymbol {
     };
   }
 
-  toString(): string {
-    const rangeStr = (r: Range) => `${r.start.line}:${r.start.character}-${r.end.line}:${r.end.character}`;
-    return JSON.stringify({
+  toWorkspaceSymbol(): LSP.WorkspaceSymbol {
+    return {
       name: this.name,
-      kind: symbolKindToString(this.kind),
-      uri: this.uri,
-      range: rangeStr(this.range),
-      selectionRange: rangeStr(this.selectionRange),
-      node: this.currentNode.toString(),
-      parent: this.parentNode?.toString(),
-      scope: this.scope.toString(),
-      children: this.children.map(c => c.name + ' ' + symbolKindToString(c.kind)),
-    }, null, 2);
+      kind: this.kind,
+      location: this.toLocation(),
+    };
   }
 
-  equals(other: FishDocumentSymbol): boolean {
+  equals(other: FishSymbol): boolean {
     return this.name === other.name
       && this.kind === other.kind
       && this.uri === other.uri
@@ -133,284 +100,456 @@ export class FishDocumentSymbol implements FishDocumentSymbol {
       && this.selectionRange.start.character === other.selectionRange.start.character
       && this.selectionRange.end.line === other.selectionRange.end.line
       && this.selectionRange.end.character === other.selectionRange.end.character
-      && this.currentNode.equals(other.currentNode)
+      && this.node.equals(other.node)
       && (!!this.parentNode && !!other.parentNode && this.parentNode.equals(other.parentNode))
-      && this.scope.tag === other.scope.tag
-      && this.scope.equals(other.scope)
+      && this.modifier === other.modifier
       && this.children.length === other.children.length;
   }
 
-  hasName(name: string): boolean {
-    return this.name === name || this.children.some(child => child.hasName(name));
+  symbolIsNode(node: SyntaxNode) {
+    return this.node.equals(node);
   }
 
-  getNodesInScope(): SyntaxNode[] {
-    const result: SyntaxNode[] = [];
-    const exclude: Range[] = [];
-    const childExclusions = this.kind === SymbolKind.Function
-      ? this.parent.allChildren()
-        .filter(child => child.kind === SymbolKind.Function && !child.isShadowingRoot())
-        .map(child => child.range)
-      : this.parent.allChildren()
-        .filter(child => child.kind === SymbolKind.Function
-          && child.hasName(this.name)
-          && child.allChildren()
-            .some(s => {
-              return s.name === this.name
-                && !s.scope.symbol.parentNode.equals(this.scope.symbol.parentNode);
-            }),
-        ).map(s => s.range);
-
-    if (this.kind === SymbolKind.Function && this.parent.kind !== SymbolKind.Null && this.scope.tagValue < ScopeTag.function) {
-      exclude.push(this.parentToCurrentRange());
-    }
-    exclude.push(...childExclusions);
-    for (const child of this.parentChildren) {
-      if (child.type === 'program') {
-        continue;
-      }
-      if (this.kind === SymbolKind.Function && this.parentNode.equals(child)) {
-        exclude.push(getRange(child));
-        continue;
-      }
-      if (
-        this.kind === SymbolKind.Function &&
-        !this.parentNode.equals(child) &&
-        child.type === 'function_definition' &&
-        !ScopeModifier.functionWithFlag(child, this) &&
-        this.scope.tagValue < Scope.getTagValue('function')
-      ) {
-        exclude.push(getRange(child));
-        continue;
-      }
-      if (exclude.some(range => containsRange(range, getRange(child)))) {
-        continue;
-      }
-      if (this.kind === SymbolKind.Function) {
-        result.push(child);
-      } else if (this.equalsName(child.text)) {
-        result.push(child);
-      } else if (this.isRangeBeforePosition(this.selectionRange, getRange(child).end)) {
-        result.push(child);
-      }
-    }
-    return result;
+  findChildSymbolFromNode(node: SyntaxNode): FishSymbol | null {
+    return this.children.find(child => child.symbolIsNode(node)) || null;
   }
 
-  equalsName(name: string): boolean {
-    return this.aliases.includes(name);
+  isFunction() {
+    return this.kind === SymbolKind.Function;
   }
 
-  isShadowingRoot(): boolean {
-    return this.parent.kind === SymbolKind.Null && this.kind === SymbolKind.Function;
+  isVariable() {
+    return this.kind === SymbolKind.Variable;
   }
 
-  isShadowingFunction(): boolean {
-    return this.parent.kind === SymbolKind.Function && this.kind === SymbolKind.Function;
+  isGlobalScope() {
+    return this.modifier === 'GLOBAL'
+      || this.modifier === 'UNIVERSAL';
   }
 
-  parentToCurrentRange(): Range {
-    return Range.create(this.parent.range.start, this.range.end);
+  isLocalScope() {
+    return this.modifier === 'LOCAL'
+      || this.modifier === 'FUNCTION';
   }
 
-  get parentChildren(): SyntaxNode[] {
-    if (this.kind === SymbolKind.Variable) {
-      return getChildNodes(this.parent.parentNode);
-    }
-    return getChildNodes(this.parent.parentNode);
+  getParentScope() {
+    return ModifierParentNode[this.modifier](this);
   }
 
-  getLocalReferences(): Location[] {
-    const result: Location[] = this.getNodesInScope().filter(s => this.aliases.includes(s.text)).map(s => Location.create(this.uri, getRange(s)));
-
-    if (this.scope.tagValue >= ScopeTag.global && this.kind === SymbolKind.Function) {
-      result.unshift(Location.create(this.uri, this.selectionRange));
-    }
-    return result;
-  }
-
-  getDefinitionAndReferences(): SyntaxNode[] {
-    return [
-      this.currentNode,
-      ...this.getNodesInScope().filter(s => this.aliases.includes(s.text)),
-    ].filter(n => n.type === 'word');
-  }
-
-  static fromNode(
-    uri: DocumentUri,
-    node: SyntaxNode,
-    parent: SyntaxNode,
-    parentSymbol: FishDocumentSymbol,
-    children: FishDocumentSymbol[] = [],
-  ): FishDocumentSymbol {
-    // const scope = getScope(uri, node);
-    const symbolKind = NodeTypes.isFunctionDefinitionName(node)
-      ? SymbolKind.Function
-      : SymbolKind.Variable;
-    return FishDocumentSymbol.create(
-      node.text,
-      symbolKind,
-      uri,
-      getRange(parent),
-      getRange(node),
-      node,
-      parent,
-      parentSymbol,
-      children,
-    );
-  }
-
-  allChildren(): FishDocumentSymbol[] {
+  get allChildren() {
     return flattenNested(...this.children);
   }
 
-  kindToString(): string {
-    return symbolKindToString(this.kind);
+  getLocalCallableRanges() {
+    return getCallableRanges(this);
   }
 
-  isBeforePosition(position: Position): boolean {
-    return this.isRangeBeforePosition(this.range, position);
-  }
+  get functionInfo() {
+    if (!this.isFunction()) return null;
 
-  public containsPosition(position: Position): boolean {
-    return this.getNodesInScope().some(node => Locations.Range.containsPosition(getRange(node), position));
-  }
+    const functionInfo = FunctionInfo.create(this);
+    const args = this.parentNode?.childrenForFieldName('option');
+    let mostRecentFlag: SyntaxNode | null = null;
+    for (const arg of args) {
+      if (isEscapeSequence(arg)) continue;
 
-  public isArgparsed(): boolean {
-    return this.argparsed;
-  }
+      /* handle special option -S/--no-scope-shadowing */
+      if (isMatchingOption(arg, Option.create('-S', '--no-scope-shadowing'))) {
+        functionInfo.noScopeShadowing = true;
+        continue;
+      }
 
-  private isRangeBeforePosition(range: Range, pos: Position): boolean {
-    // If the range's end line is before the position's line, it's definitely before
-    if (range.end.line < pos.line) {
-      return true;
+      /* set the mostRecentFlag and skip to next loop */
+      if (isOption(arg)) {
+        mostRecentFlag = arg;
+        continue;
+      }
+
+      /* check if the previous mostRecentFlag is a functionInfo modifier */
+      if (mostRecentFlag && !isOption(arg)) {
+        switch (true) {
+          case isMatchingOption(mostRecentFlag, { shortOption: '-a', longOption: '--argument-names' }):
+            functionInfo.argumentNames.push(this.findChildSymbolFromNode(arg)!);
+            break;
+          case isMatchingOption(mostRecentFlag, { shortOption: '-V', longOption: '--inherit-variable' }):
+            functionInfo.inheritVariable.push(this.findChildSymbolFromNode(arg)!);
+            break;
+          case isMatchingOption(mostRecentFlag, { shortOption: '-v', longOption: '--on-variable' }):
+            functionInfo.inheritVariable.push(this.findChildSymbolFromNode(arg)!);
+            break;
+          case isMatchingOption(mostRecentFlag, { shortOption: '-d', longOption: '--description' }):
+            functionInfo.description = arg.text;
+            break;
+          default:
+            break;
+        }
+        continue;
+      }
     }
+    /* add autoloaded from the modifier */
+    functionInfo.isAutoLoad = this.modifier === 'GLOBAL';
+    return functionInfo;
+  }
+}
 
-    // If the range's end line is the same as the position's line,
-    // check if the range's end character is before the position's character
-    if (range.end.line === pos.line && range.end.character <= pos.character) {
+export namespace FunctionInfo {
+  export function create(symbol: FishSymbol): FunctionInfo {
+    return {
+      name: symbol.name,
+      uri: symbol.uri,
+      description: '',
+      isAutoLoad: false,
+      noScopeShadowing: false,
+      argumentNames: [],
+      inheritVariable: [],
+      onVariable: [],
+    };
+  }
+}
+
+function isModifier(node: SyntaxNode): boolean {
+  switch (true) {
+    case isMatchingOption(node, Option.create('-l', '--local')):
+    case isMatchingOption(node, Option.create('-f', '--function')):
+    case isMatchingOption(node, Option.create('-g', '--global')):
+    case isMatchingOption(node, Option.create('-U', '--universal')):
       return true;
-    }
+    default:
+      return false;
+  }
+}
 
-    // In all other cases, the range is not entirely before the position
+type SymbolType = typeof SymbolKind.Function | typeof SymbolKind.Variable;
+
+function toModifier(node: SyntaxNode, uri: string, kind: SymbolType): ModifierType {
+  const uriModifier = uri.split('/');
+  const [pathname, filename]: [string, string] = [
+    uriModifier.at(-2) || '',
+    uriModifier.at(-1)?.split('.').shift() || '',
+  ];
+  const depth = getBlockDepth(node);
+  if (kind === SymbolKind.Function) {
+    const firstNamed = node.firstNamedChild;
+    if (!firstNamed) return 'FUNCTION';
+    switch (true) {
+      case pathname === 'functions' && firstNamed.text === filename && depth < 1:
+        return 'GLOBAL';
+      case pathname === 'conf.d' && depth < 1:
+      case pathname === 'fish' && filename === 'config' && depth < 1:
+        return 'GLOBAL';
+      default:
+        return 'FUNCTION';
+    }
+  }
+  if (kind === SymbolKind.Variable) {
+    if (node.type === 'for_statement') {
+      return node.parent?.type === 'function_definition' ? 'FUNCTION' : 'LOCAL';
+    }
+    const focused = node.childrenForFieldName('argument')
+      .find((n) => isModifier(n));
+    switch (true) {
+      case isMatchingOption(focused, Option.create('-l', '--local')):
+        return 'LOCAL';
+      case isMatchingOption(focused, Option.create('-f', '--function')):
+        return 'FUNCTION';
+      case isMatchingOption(focused, Option.create('-g', '--global')):
+        return 'GLOBAL';
+      case isMatchingOption(focused, Option.create('-U', '--universal')):
+        return 'UNIVERSAL';
+      case pathname === 'conf.d' && depth < 1:
+      case pathname === 'fish' && filename === 'config' && depth < 1:
+        return 'GLOBAL';
+      default:
+        return depth < 1 ? 'LOCAL' : 'FUNCTION';
+    }
+  }
+  return 'LOCAL';
+}
+
+function isMatchingOptionOrOptionValue(node: SyntaxNode, option: NodeOptionQueryText): boolean {
+  if (isMatchingOption(node, option)) {
+    return true;
+  }
+  const prevNode = node.previousNamedSibling;
+  if (prevNode?.text.includes('=')) {
     return false;
   }
-
-  addArgvToFunction(): FishDocumentSymbol {
-    if (this.kind === SymbolKind.Function) {
-      this.children.unshift(FishDocumentSymbol.create(
-        'argv',
-        SymbolKind.Variable,
-        this.uri,
-        this.range,
-        this.selectionRange,
-        this.currentNode,
-        this.parentNode,
-        this,
-        [],
-      ));
-    }
-    return this;
+  if (isMatchingOption(prevNode, option) && !isOption(node)) {
+    return true;
   }
-
-  toFunctionNode() {
-    const definition = this.parentNode;
-    const focused = definition.descendantsOfType('argument_name');
-    
-  }
+  return false;
 }
 
-function extractSymbolInfo(node: SyntaxNode): {
-  shouldCreate: boolean;
-  kind: SymbolKind;
-  child: SyntaxNode;
-  parent: SyntaxNode;
+function processReadCommand(node: SyntaxNode, uri: string, parentSymbol: FishSymbol): FishSymbol[] {
+  let modifier: ModifierType = toModifier(node, uri, SymbolKind.Variable);
+  const allFocused: SyntaxNode[] = node.childrenForFieldName('argument')
+    .filter((n) => {
+      switch (true) {
+        case isEscapeSequence(n):
+          return false;
+        case isMatchingOption(n, Option.create('-l', '--local')):
+          modifier = 'LOCAL';
+          return false;
+        case isMatchingOption(n, Option.create('-f', '--function')):
+          modifier = 'FUNCTION';
+          return false;
+        case isMatchingOption(n, Option.create('-g', '--global')):
+          modifier = 'GLOBAL';
+          return false;
+        case isMatchingOption(n, Option.create('-U', '--universal')):
+          modifier = 'UNIVERSAL';
+          return false;
+        case isMatchingOptionOrOptionValue(n, Option.create('-c', '--command')):
+        case isMatchingOptionOrOptionValue(n, Option.create('-d', '--delimiter')):
+        case isMatchingOptionOrOptionValue(n, Option.create('-n', '--nchars')):
+        case isMatchingOptionOrOptionValue(n, Option.create('-p', '--prompt')):
+        case isMatchingOptionOrOptionValue(n, Option.create('-P', '--prompt-str')):
+        case isMatchingOptionOrOptionValue(n, Option.create('-R', '--right-prompt')):
+        case isMatchingOption(n, Option.create('-s', '--silent')):
+        case isMatchingOption(n, Option.create('-S', '--shell')):
+        case isMatchingOption(n, Option.create('-t', '--tokenize')):
+        case isMatchingOption(n, Option.create('-u', '--unexport')):
+        case isMatchingOption(n, Option.create('-x', '--export')):
+        case isMatchingOption(n, Option.create('-a', '--list')):
+        case isMatchingOption(n, Option.create('-z', '--null')):
+        case isMatchingOption(n, Option.create('-L', '--line')):
+          return false;
+        default:
+          return true;
+      }
+    });
 
-} {
-  let shouldCreate = false;
-  let kind: SymbolKind = SymbolKind.Null;
-  let parent: SyntaxNode = node;
-  let child: SyntaxNode = node;
-  if (NodeTypes.isVariableDefinitionName(child)) {
-    parent = NodeTypes.refinedFindParentVariableDefinitionKeyword(child)!.parent!;
-    child = node;
-    kind = SymbolKind.Variable;
-    shouldCreate = !child.text.startsWith('$');
-  } else if (node.type === 'function_definition') {
-    parent = node;
-    child = parent.childForFieldName('name') as SyntaxNode;
-    kind = SymbolKind.Function;
-    shouldCreate = true;
-  }
-  return { shouldCreate, kind, parent, child };
+  const results: FishSymbol[] = [];
+
+  allFocused.forEach((arg) => {
+    if (isEscapeSequence(arg)) return;
+    if (isOption(arg)) return;
+    if (isString(arg)) return;
+
+    results.push(
+      FishSymbol.create(arg.text, SymbolKind.Variable, uri, modifier, arg, node, parentSymbol),
+    );
+  });
+
+  return results;
 }
 
-// export function getFishDocumentSymbols(uri: string, rootNode: SyntaxNode, ...currentNodes: SyntaxNode[]): FishDocumentSymbol[] {
-export function getFishDocumentSymbols(uri: string, rootNode: SyntaxNode): FishDocumentSymbol[] {
-  const rootSymbol = FishDocumentSymbol.createRoot(uri, rootNode);
-  let parentSymbol = rootSymbol;
-  function innerFishDocumentSymbols(uri: DocumentUri, ...currentNodes: SyntaxNode[]): FishDocumentSymbol[] {
-    const symbols: FishDocumentSymbol[] = [];
-    for (const current of currentNodes) {
-      const childrenSymbols = innerFishDocumentSymbols(uri, ...current.children);
-      const { shouldCreate, kind, parent, child } = extractSymbolInfo(current);
+function processSetCommand(node: SyntaxNode, uri: string, parentSymbol: FishSymbol): FishSymbol[] {
+  const focused = node.childrenForFieldName('argument').find(n => !isOption(n));
+  const skip = node.childrenForFieldName('argument')
+    .find(n => isMatchingOption(n, Option.create('-q', '--query')));
 
-      // adds initial argv for a fish shell script/executable
-      // if the current node is a program node
-      if (isScriptNeededArgv(uri, current)) {
-        symbols.push(FishDocumentSymbol.create(
-          'argv',
+  if (!focused || skip) return [];
+
+  const modifier = toModifier(node, uri, SymbolKind.Variable);
+
+  return [
+    FishSymbol.create(focused.text, SymbolKind.Variable, uri, modifier, focused, node, parentSymbol),
+  ];
+}
+
+function processForCommand(node: SyntaxNode, uri: string, parentSymbol: FishSymbol): FishSymbol[] {
+  const focused = node.firstNamedChild;
+  if (!focused) return [];
+
+  const modifier = toModifier(node, uri, SymbolKind.Variable);
+  // const modifier = toModifier(focused, uri, SymbolKind.Variable);
+  return [
+    FishSymbol.create(focused.text, SymbolKind.Variable, uri, modifier, focused, node, parentSymbol),
+  ];
+}
+
+function processArgparseCommand(node: SyntaxNode, uri: string, parentSymbol: FishSymbol): FishSymbol[] {
+  const modifier = toModifier(node, uri, SymbolKind.Variable);
+
+  // split the `h/help` into `h` and `help`
+  function splitSlash(str: string): string[] {
+    const results = str.split('/')
+      .map(s => s.trim().replace(/-/g, '_'));
+
+    const maxResults = results.length < 2 ? results.length : 2;
+    return results.slice(0, maxResults);
+  }
+
+  // store the results
+  const result: FishSymbol[] = [];
+
+  // find the `--` end token
+  const endChar = node.children.find(node => isEndStdinCharacter(node));
+  if (!endChar) return [];
+
+  // find the parent function or program
+  // find all flags before the `--` end token
+  const isBefore = (a: SyntaxNode, b: SyntaxNode) => a.startIndex < b.startIndex;
+
+  node.childrenForFieldName('argument')
+    .filter(n => !isEscapeSequence(n) && !isOption(n) && isBefore(n, endChar))
+    .forEach((n: SyntaxNode) => {
+      let flagNames = n?.text;
+      if (isString(n)) {
+        flagNames = n?.text.slice(1, -1).split('=').shift() || '';
+      }
+      const seenFlags = splitSlash(flagNames);
+
+      // add all seenFlags to the `result: Symb[]` array
+      const flags = seenFlags.map(flagName => {
+        return FishSymbol.create(
+          `_flag_${flagName}`,
           SymbolKind.Variable,
           uri,
-          getRange(parent),
-          getRange(current),
-          current,
-          parent,
+          //'FUNCTION', // TODO: this should be 'LOCAL' or 'FUNCTION' based on the parent function
+          modifier,
+          n,
+          node,
           parentSymbol,
-          childrenSymbols,
-
-        ));
-        // symbols.push(...createArgvScriptDefinition(uri, current));
-      }
-
-      // adds argparse definitions
-      if (current && isArgparseCommandName(current)) {
-        symbols.push(...getArgparseDefinitions(uri, current, parentSymbol));
-        continue;
-      }
-
-      // adds symbols if the current node is a variable or function definition
-      if (shouldCreate) {
-        const newSymbol = FishDocumentSymbol.create(
-          child.text,
-          kind,
-          uri,
-          getRange(parent),
-          getRange(child),
-          child,
-          parent,
-          parentSymbol,
-          childrenSymbols,
         );
-        if (kind === SymbolKind.Variable && !containsRange(parentSymbol.range, newSymbol.range)) {
-          parentSymbol = parentSymbol.parent;
-        }
-        if (kind === SymbolKind.Function) {
-          parentSymbol = newSymbol;
-          childrenSymbols.forEach(symbol => symbol.parent = parentSymbol);
-        }
-        symbols.push(newSymbol);
+      });
+      result.push(...flags);
+    });
+
+  return result;
+}
+
+/**
+ * process a function definition node and return all the variables that are defined in
+ * the function header's arguments
+ *
+ * ---
+ *
+ * INPUT:
+ * ```fish
+ * function foo -a a b c d e; end;
+ * ```
+ *
+ * OUTPUT: (array of Sym objects, Sym.name is used to truncate the output below)
+ * ```typescript
+ * ['argv', 'a', 'b', 'c', 'd', 'e']
+ * ```
+ *
+ * ---
+ *
+ * @param node the function definition node
+ * @returns an array of Sym objects
+ */
+function processFunctionArgumentVariables(node: SyntaxNode, uri: string, parentSymbol: FishSymbol): FishSymbol[] {
+  const focused = node.childrenForFieldName('option');
+  // const firstNamed = node.firstNamedChild as SyntaxNode;
+  const result: FishSymbol[] = [
+    FishSymbol.create('argv', SymbolKind.Variable, uri, 'FUNCTION', node, node, parentSymbol),
+  ];
+
+  if (!focused) return result;
+
+  let mostRecentFlag: SyntaxNode | null = null;
+  for (const arg of focused) {
+    if (isEscapeSequence(arg)) continue;
+    if (isOption(arg)) {
+      mostRecentFlag = arg;
+      continue;
+    }
+    if (mostRecentFlag && !isOption(arg)) {
+      switch (true) {
+        case isMatchingOption(mostRecentFlag, { shortOption: '-a', longOption: '--argument-names' }):
+        case isMatchingOption(mostRecentFlag, { shortOption: '-V', longOption: '--inherit-variable' }):
+        case isMatchingOption(mostRecentFlag, { shortOption: '-v', longOption: '--on-variable' }):
+          result.push(
+            FishSymbol.create(arg.text, SymbolKind.Variable, uri, 'FUNCTION', arg, node, parentSymbol),
+          );
+          break;
+        default:
+          break;
+      }
+      continue;
+    }
+  }
+  return result;
+}
+
+function processFunction(node: SyntaxNode, children: FishSymbol[], uri: string, parentSymbol: FishSymbol): FishSymbol[] {
+  const firstNamedChild = node.firstNamedChild as SyntaxNode;
+  const modifier = toModifier(node, uri, SymbolKind.Function);
+
+  const funcSymbol = FishSymbol.create(firstNamedChild.text, SymbolKind.Function, uri, modifier, firstNamedChild, node, parentSymbol);
+  funcSymbol.children.push(...processFunctionArgumentVariables(node, uri, funcSymbol), ...children);
+  funcSymbol.children.forEach(child => child.parent = funcSymbol);
+  return [funcSymbol];
+}
+
+function createRootSymbol(node: SyntaxNode, uri: string): FishSymbol {
+  return FishSymbol.create('root', SymbolKind.Null, uri, 'LOCAL', node, node, null);
+}
+
+function shouldCreateSym(current: SyntaxNode): boolean {
+  const firstNamedChild = current.firstNamedChild;
+  if (!firstNamedChild) return false;
+  switch (current.type) {
+    case 'for_statement':
+      return true;
+    case 'command':
+      switch (firstNamedChild.text) {
+        case 'set':
+        case 'read':
+        case 'argparse':
+          return true;
+        default:
+          return false;
+      }
+    case 'function_definition':
+      return true;
+    default:
+      return false;
+  }
+}
+
+function createSymbol(current: SyntaxNode, childrenSymbols: FishSymbol[], uri: string, parentSymbol: FishSymbol): FishSymbol[] {
+  const firstNamedChild = current.firstNamedChild;
+  switch (current.type) {
+    case 'for_statement':
+      return processForCommand(current, uri, parentSymbol);
+    case 'command':
+      switch (firstNamedChild?.text) {
+        case 'set':
+          return processSetCommand(current, uri, parentSymbol);
+        case 'read':
+          return processReadCommand(current, uri, parentSymbol);
+        case 'argparse':
+          return processArgparseCommand(current, uri, parentSymbol);
+        default:
+          return [];
+      }
+    case 'function_definition':
+      return processFunction(current, childrenSymbols, uri, parentSymbol);
+    default:
+      return [];
+  }
+}
+
+// ../../test-data/scoped-sym.test.ts
+// ../utils/symbol.ts<-option -sa terminal-overrides ',alacritty:RGB'>
+// scope description: https://github.com/fish-shell/fish-shell/pull/8145#pullrequestreview-715292911
+export function buildScopedSymbol(root: SyntaxNode, uri: string) {
+  /* create the root symbol */
+  const rootSym = createRootSymbol(root, uri);
+
+  /* create nested symbols */
+  function buildSyms(...nodes: SyntaxNode[]): FishSymbol[] {
+    const symbols: FishSymbol[] = [];
+    for (const current of nodes) {
+      const children = buildSyms(...current.children);
+      const shouldCreate = shouldCreateSym(current);
+      if (shouldCreate) {
+        const newSyms = createSymbol(current, children, uri, rootSym);
+        symbols.push(...newSyms);
         continue;
       }
-      symbols.push(...childrenSymbols);
+      symbols.push(...children);
     }
     return symbols;
   }
 
-  /** add the result symbols to the rootSymbol.children */
-  const symbols = innerFishDocumentSymbols(uri, rootNode);
-  rootSymbol.children.push(...symbols);
-
+  /* fix-up the root symbol w/o editing the symbols result */
+  const symbols = buildSyms(root);
+  rootSym.children.push(...symbols);
   return symbols;
 }
 

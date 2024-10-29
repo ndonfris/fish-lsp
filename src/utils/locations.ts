@@ -10,9 +10,15 @@ export namespace Range {
   export const create = (start: LSP.Position, end: LSP.Position): LSP.Range => LSP.Range.create(start, end);
   export const is = (value: any): value is LSP.Range => LSP.Range.is(value);
 
-  export const fromTextSpan = (span: FishProtocol.TextSpan): LSP.Range => fromLocations(span.start, span.end);
+  export function toString(range: LSP.Range): string {
+    return `[${range.start.line}, ${range.start.character}] - [${range.end.line}, ${range.end.character}]`;
+  }
 
-  export const toString = (range: LSP.Range): string => `${range.start.line}:${range.start.character} - ${range.end.line}:${range.end.character}`;
+  export function fromNodeToString(node: SyntaxNode): string {
+    return toString(fromNode(node));
+  }
+
+  export const fromTextSpan = (span: FishProtocol.TextSpan): LSP.Range => fromLocations(span.start, span.end);
 
   export const toTextSpan = (range: LSP.Range): FishProtocol.TextSpan => ({
     start: Position.toLocation(range.start),
@@ -336,6 +342,7 @@ export namespace Range {
   export function equals(symbolRange: LSP.Range, selectionRange: LSP.Range) {
     return Position.isEqual(symbolRange.start, selectionRange.start) && Position.isEqual(symbolRange.end, selectionRange.end);
   }
+
 }
 
 export namespace Position {
