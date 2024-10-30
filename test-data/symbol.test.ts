@@ -573,7 +573,8 @@ function isInLocalScope(symbol: FishSymbol, other: FishSymbol): boolean {
 function findReferenceNodes(root: SyntaxNode, symbols: FishSymbol[]) {
   const map: Map<FishSymbol, SyntaxNode[]> = new Map();
   for (const symbol of symbols) {
-    const searchableRanges = findSearchableRanges(symbol);
+    const searchableRanges = createParentRange(symbol);
+    // const searchableRanges = findSearchableRanges(symbol);
     // const references: SyntaxNode[] = rangesToNodes(searchableRanges, root)
     const references: SyntaxNode[] = findNodesInRanges(searchableRanges, root)
       .filter(n => {
@@ -747,7 +748,7 @@ foo
           name: s.name,
           kind: s.kindString,
           range: Locations.Range.toString(s.range),
-          callable: getCallableRanges(s).map(c => Locations.Range.toString(c)).join(),
+          callable: createParentRange(s).map(c => Locations.Range.toString(c)).join(),
         });
         console.log('='.repeat(40));
         const parentScope = s.getParentScope();

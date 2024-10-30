@@ -8,6 +8,7 @@ import { FishProtocol } from './fishProtocol';
 import { getPrecedingComments, getRange, getRangeWithPrecedingComments } from './tree-sitter';
 import * as LocationNamespace from './locations';
 import { isBuiltin } from './builtins';
+import path from 'path';
 
 const RE_PATHSEP_WINDOWS = /\\/g;
 
@@ -60,12 +61,97 @@ function currentVersion(filepath: string, documents: LspDocuments | undefined): 
   return document ? document.version : null;
 }
 
-export function pathToRelativeFunctionName(uriPath: string) : string {
+export function pathToRelativeFunctionName(uriPath: string): string {
   const relativeName = uriPath.split('/').at(-1) || uriPath;
   return relativeName.replace('.fish', '');
 }
 
-export function nodeToSymbolInformation(node: SyntaxNode, uri: string) : SymbolInformation {
+/**
+ * Gets important path properties that might affect fish shell behavior
+ * @param pathOrUri - File path or URI to analyze
+ * @returns Object containing path properties
+ */
+export function getPathProperties(pathOrUri: string | URI): {
+  /** Original path or URI */
+  rawPath: string;
+  /** Base file name | `~/.config/fish/config.fish` -> `config.fish` */
+  basename: string;
+  /** Last directory name | `~/.config/fish/config.fish` -> `fish` */
+  lastDir: string;
+  /** Directory name | `~/.config/fish/config.fish` -> `~/.config/fish` */
+  dirname: string;
+  /** Base file name without extension | `~/.config/fish/config.fish` -> `config`*/
+  nameOnly: string;
+  /** File extension (most commonly will be `.fish`) */
+  extname: string;
+  /** The resolved full path */
+  resolvedPath: string;
+  /** Is a `fish/config.fish` file */
+  isConfigFile: boolean;
+  /** Is a `~/.config/fish/` | `/usr/share/fish/` | etc... path */
+  isConfigPath: boolean;
+  /** Is a `fish/functions/` path */
+  isFunctionPath: boolean;
+  /** Is a `fish/completions/` path */
+  isCompletionPath: boolean;
+  /** Is a `fish/conf.d/` path */
+  isConfdPath: boolean;
+  /** Normalized path with consistent path separators */
+  normalizedPath: string;
+  /** URI object */
+  uri: URI;
+} {
+  // Convert URI to string path if needed
+  const rawPath = pathOrUri instanceof URI ? pathOrUri.fsPath : pathOrUri;
+  const uri = URI.parse(rawPath);
+
+  // Normalize path separators
+  const normalizedPath = path.normalize(rawPath);
+  const basename = path.basename(normalizedPath);
+
+  // Get base path components
+  const extname = path.extname(normalizedPath);
+  const nameOnly = path.basename(basename, extname);
+  const dirname = path.dirname(normalizedPath);
+  // Get the last directory name
+  const lastDir = path.basename(dirname);
+  // Resolve the full path
+  const resolvedPath = path.resolve(normalizedPath);
+
+  const isDirectoryType = (dirpath: string, _lastDir: string) => {
+    return resolvedPath.includes(dirpath) && lastDir === _lastDir && extname === '.fish';
+  };
+
+  const isConfigFile = resolvedPath.endsWith('/fish/config.fish');
+  const isConfigPath = resolvedPath.includes('/.config/fish/');
+  const isFunctionPath = isDirectoryType('/fish/functions/', 'functions');
+  const isCompletionPath = isDirectoryType('/fish/completions/', 'completions');
+  const isConfdPath = isDirectoryType('/fish/conf.d/', 'conf.d');
+
+  return {
+    rawPath,
+    basename,
+    lastDir,
+    dirname,
+    nameOnly,
+    extname,
+    resolvedPath,
+    isConfigFile,
+    isConfigPath,
+    isFunctionPath,
+    isCompletionPath,
+    isConfdPath,
+    normalizedPath,
+    uri,
+  };
+}
+
+export function isAutoloadedFunctionPath(pathOrUri: string | URI): boolean {
+  const { isFunctionPath, basename } = getPathProperties(pathOrUri);
+  return isFunctionPath && basename.endsWith('.fish');
+}
+
+export function nodeToSymbolInformation(node: SyntaxNode, uri: string): SymbolInformation {
   let name = node.text;
   const kind = toSymbolKind(node);
   const range = getRange(node);
@@ -84,13 +170,13 @@ export function nodeToSymbolInformation(node: SyntaxNode, uri: string) : SymbolI
   return SymbolInformation.create(name, kind, range, uri);
 }
 
-export function nodeToDocumentSymbol(node: SyntaxNode) : DocumentSymbol {
+export function nodeToDocumentSymbol(node: SyntaxNode): DocumentSymbol {
   const name = node.text;
   let detail = node.text;
   const kind = toSymbolKind(node);
   let range = getRange(node);
   const selectionRange = getRange(node);
-  const children : DocumentSymbol[] = [];
+  const children: DocumentSymbol[] = [];
   let parent = node.parent || node;
   switch (kind) {
     case SymbolKind.Variable:

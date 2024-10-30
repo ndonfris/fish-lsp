@@ -122,6 +122,10 @@ export class FishSymbol {
     return this.kind === SymbolKind.Variable;
   }
 
+  isRoot() {
+    return this.kind === SymbolKind.Null;
+  }
+
   isArgparseFlag() {
     if (!this.name.startsWith('_flag_')) return false;
     if (this.parentNode.type === 'command' && this.parentNode.firstNamedChild?.text === 'argparse') {
@@ -499,7 +503,7 @@ function processFunction(node: SyntaxNode, children: FishSymbol[], uri: string, 
 }
 
 function createRootSymbol(node: SyntaxNode, uri: string): FishSymbol {
-  return FishSymbol.create('root', SymbolKind.Null, uri, 'LOCAL', node, node, null);
+  return FishSymbol.create('', SymbolKind.Null, uri, 'LOCAL', node, node, null);
 }
 
 function shouldCreateSym(current: SyntaxNode): boolean {
