@@ -1,4 +1,4 @@
-/** @type {import('eslint').Linter.Config} */
+// /** @type {import('eslint').Linter.Config} */
 module.exports = {
   root: true,
   env: {
@@ -24,7 +24,7 @@ module.exports = {
     'computed-property-spacing': 'error',
     curly: ['error', 'multi-line'],
     'dot-notation': 'error',
-    'eol-last': 'error',
+    'eol-last': ['off', 'always'],
     eqeqeq: 'error',
     'func-call-spacing': 'error',
     indent: [

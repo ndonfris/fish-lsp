@@ -13,10 +13,10 @@ export type ModifierType = 'LOCAL' | 'FUNCTION' | 'GLOBAL' | 'UNIVERSAL';
 type ModifierCallbackFn = (symbol: FishSymbol) => SyntaxNode;
 
 const ModifierParentNode: Record<ModifierType, ModifierCallbackFn> = {
-  ['LOCAL']: (symbol: FishSymbol) => findParent(symbol.node, isBlock)!,
-  ['FUNCTION']: (symbol: FishSymbol) => findParent(symbol.parentNode, (n) => isType(n, 'function_definition', 'program'))!,
-  ['GLOBAL']: (symbol: FishSymbol) => findParent(symbol.parentNode, (n) => isType(n, 'program'))!,
-  ['UNIVERSAL']: (symbol: FishSymbol) => findParent(symbol.parentNode, (n) => isType(n, 'program'))!,
+  ['LOCAL']: (symbol: FishSymbol) => findParent(symbol.node, isBlock),
+  ['FUNCTION']: (symbol: FishSymbol) => findParent(symbol.parentNode, (n) => isType(n, 'function_definition', 'program')),
+  ['GLOBAL']: (symbol: FishSymbol) => findParent(symbol.parentNode, (n) => isType(n, 'program')),
+  ['UNIVERSAL']: (symbol: FishSymbol) => findParent(symbol.parentNode, (n) => isType(n, 'program')),
 } as const;
 
 export type FunctionInfo = {
@@ -122,6 +122,25 @@ export class FishSymbol {
     return this.kind === SymbolKind.Variable;
   }
 
+  isArgparseFlag() {
+    if (!this.name.startsWith('_flag_')) return false;
+    if (this.parentNode.type === 'command' && this.parentNode.firstNamedChild?.text === 'argparse') {
+      return true;
+    }
+    return false;
+  }
+
+  get kindString() {
+    switch (this.kind) {
+      case SymbolKind.Function:
+        return 'function';
+      case SymbolKind.Variable:
+        return 'variable';
+      default:
+        return '' as never;
+    }
+  }
+
   isGlobalScope() {
     return this.modifier === 'GLOBAL'
       || this.modifier === 'UNIVERSAL';
@@ -134,6 +153,10 @@ export class FishSymbol {
 
   getParentScope() {
     return ModifierParentNode[this.modifier](this);
+  }
+
+  getParentScopeRange() {
+    return Locations.Range.fromNode(ModifierParentNode[this.modifier](this));
   }
 
   get allChildren() {
@@ -168,16 +191,16 @@ export class FishSymbol {
       /* check if the previous mostRecentFlag is a functionInfo modifier */
       if (mostRecentFlag && !isOption(arg)) {
         switch (true) {
-          case isMatchingOption(mostRecentFlag, { shortOption: '-a', longOption: '--argument-names' }):
+          case isMatchingOption(mostRecentFlag, Option.create('-a', '--argument-names')):
             functionInfo.argumentNames.push(this.findChildSymbolFromNode(arg)!);
             break;
-          case isMatchingOption(mostRecentFlag, { shortOption: '-V', longOption: '--inherit-variable' }):
+          case isMatchingOption(mostRecentFlag, Option.create('-V', '--inherit-variable')):
             functionInfo.inheritVariable.push(this.findChildSymbolFromNode(arg)!);
             break;
-          case isMatchingOption(mostRecentFlag, { shortOption: '-v', longOption: '--on-variable' }):
+          case isMatchingOption(mostRecentFlag, Option.create('-v', '--on-variable')):
             functionInfo.inheritVariable.push(this.findChildSymbolFromNode(arg)!);
             break;
-          case isMatchingOption(mostRecentFlag, { shortOption: '-d', longOption: '--description' }):
+          case isMatchingOption(mostRecentFlag, Option.create('-d', '--description')):
             functionInfo.description = arg.text;
             break;
           default:
@@ -449,9 +472,9 @@ function processFunctionArgumentVariables(node: SyntaxNode, uri: string, parentS
     }
     if (mostRecentFlag && !isOption(arg)) {
       switch (true) {
-        case isMatchingOption(mostRecentFlag, { shortOption: '-a', longOption: '--argument-names' }):
-        case isMatchingOption(mostRecentFlag, { shortOption: '-V', longOption: '--inherit-variable' }):
-        case isMatchingOption(mostRecentFlag, { shortOption: '-v', longOption: '--on-variable' }):
+        case isMatchingOption(mostRecentFlag, Option.create('-a', '--argument-names')):
+        case isMatchingOption(mostRecentFlag, Option.create('-V', '--inherit-variable')):
+        case isMatchingOption(mostRecentFlag, Option.create('-v', '--on-variable')):
           result.push(
             FishSymbol.create(arg.text, SymbolKind.Variable, uri, 'FUNCTION', arg, node, parentSymbol),
           );
@@ -466,7 +489,7 @@ function processFunctionArgumentVariables(node: SyntaxNode, uri: string, parentS
 }
 
 function processFunction(node: SyntaxNode, children: FishSymbol[], uri: string, parentSymbol: FishSymbol): FishSymbol[] {
-  const firstNamedChild = node.firstNamedChild as SyntaxNode;
+  const firstNamedChild = node.firstNamedChild!;
   const modifier = toModifier(node, uri, SymbolKind.Function);
 
   const funcSymbol = FishSymbol.create(firstNamedChild.text, SymbolKind.Function, uri, modifier, firstNamedChild, node, parentSymbol);

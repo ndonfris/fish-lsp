@@ -821,26 +821,11 @@ export function findParentFunction(node: SyntaxNode): SyntaxNode | null {
   return current;
 }
 
-export function findParent(n: SyntaxNode | null, fn: (n: SyntaxNode) => boolean): SyntaxNode | null {
-  let current = n?.parent;
+export function findParent(n: SyntaxNode, fn: (n: SyntaxNode) => boolean): SyntaxNode {
+  let current = n;
   while (current) {
-    if (fn(current)) {
-      return current;
-    }
-    current = current.parent;
-  }
-  return null;
-}
-
-export function findParentNonNull(n: SyntaxNode, fn: (n: SyntaxNode) => boolean): SyntaxNode {
-  let current = n.parent;
-  while (current) {
-    if (current.type === 'program') {
-      return current;
-    }
-    if (fn(current)) {
-      return current;
-    }
+    if (fn(current)) return current;
+    if (!current.parent) return current;
     current = current.parent;
   }
   return null as never;
