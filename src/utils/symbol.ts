@@ -171,6 +171,11 @@ export class FishSymbol {
     return getCallableRanges(this);
   }
 
+  isCallableAtPosition(position: LSP.Position) {
+    return this.getLocalCallableRanges()
+      .some(range => Locations.Range.containsPosition(range, position));
+  }
+
   get functionInfo() {
     if (!this.isFunction()) return null;
 
@@ -554,7 +559,7 @@ function createSymbol(current: SyntaxNode, childrenSymbols: FishSymbol[], uri: s
 // ../../test-data/scoped-sym.test.ts
 // ../utils/symbol.ts<-option -sa terminal-overrides ',alacritty:RGB'>
 // scope description: https://github.com/fish-shell/fish-shell/pull/8145#pullrequestreview-715292911
-export function buildScopedSymbol(root: SyntaxNode, uri: string) {
+export function getScopedFishSymbols(root: SyntaxNode, uri: string) {
   /* create the root symbol */
   const rootSym = createRootSymbol(root, uri);
 
