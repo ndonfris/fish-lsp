@@ -100,7 +100,7 @@ export function createParentRange(symbol: FishSymbol): Range[] {
       list.removeRange({
         start: symbol.parent.range.start,
         end: symbol.range.end,
-      })
+      });
       list.addRange(symbol.selectionRange);
       symbol.parent?.allChildren
         .filter(c => {
@@ -130,10 +130,11 @@ export function createParentRange(symbol: FishSymbol): Range[] {
       list.addRange(symbol.selectionRange);
     }
 
-    const parentChildrenAfter = symbol.parent!.allChildren.filter(c => {
-      return Locations.Range.containsRange(symbol.getParentScopeRange(), c.range)
-        && Locations.Range.isAfter(c.range, symbol.selectionRange);
-    });
+    const parentChildrenAfter = symbol.parent!.allChildren
+      .filter(c =>
+        Locations.Range.containsRange(parentScopeRange, c.range)
+        && Locations.Range.isAfter(c.range, symbol.selectionRange),
+      );
 
     const overrideSkip: Range[] = [];
     for (const child of parentChildrenAfter) {
@@ -145,21 +146,26 @@ export function createParentRange(symbol: FishSymbol): Range[] {
           list.addRange(child.range);
           overrideSkip.push(
             ...child.allChildren
-              .filter(c => {
-                return c.isVariable() && c.name === symbol.name && c.modifier === 'FUNCTION';
-              }).map(c => c.range),
+              .filter(c => c.isVariable()
+                && c.name === symbol.name
+                && c.modifier === 'FUNCTION'
+              ).map(c => c.range)
           );
           continue;
         }
+
         list.removeRange(child.range);
         continue;
       }
 
       const childScope = child.getParentScopeRange();
-      if (child.isVariable() && child.name === symbol.name && !Locations.Range.equals(childScope, symbol.getParentScopeRange())) {
-        if (!overrideSkip.some(r => Locations.Range.equals(r, child.range))) {
-          list.removeRange(child.range);
-        }
+      if (
+        child.isVariable()
+        && child.name === symbol.name
+        && !Locations.Range.equals(childScope, parentScopeRange)
+        && !overrideSkip.some(r => Locations.Range.equals(r, child.range))
+      ) {
+        list.removeRange(childScope);
       }
     }
     return list.getRanges();
