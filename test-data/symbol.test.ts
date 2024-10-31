@@ -6,10 +6,45 @@ import { setLogger } from './logger-setup';
 import { initializeParser } from '../src/parser';
 import * as Locations from '../src/utils/locations';
 import { flattenNested } from '../src/utils/flatten';
-import { buildScopedSymbol, FishSymbol } from '../src/utils/symbol';
-import { getCallableRanges, getCallableRanges2, rangesToNodes, removeRange } from './scope';
-import { createParentRange, RangeList } from '../src/utils/scope';
+import { getScopedFishSymbols, FishSymbol } from '../src/utils/symbol';
+// import { getCallableRanges, getCallableRanges2, rangesToNodes, removeRange } from './scope';
+import { getCallableRanges, RangesList } from '../src/utils/scope';
 import { getChildNodes } from '../src/utils/tree-sitter';
+import { URI } from 'vscode-uri';
+import { getPathProperties } from '../src/utils/translation';
+import { setupProcessEnvExecFile } from '../src/utils/process-env';
+
+function rangesToNodes(ranges: Range[], root: SyntaxNode): SyntaxNode[] {
+  const nodes: SyntaxNode[] = [];
+  ranges.forEach(range => {
+    nodes.push(...getNodesInRange(root, range));
+  });
+  return nodes;
+}
+
+function getNodesInRange(root: SyntaxNode, range: Range): SyntaxNode[] {
+  const nodes: SyntaxNode[] = [];
+  const cursor = root.walk();
+
+  function visitNode() {
+    const node = cursor.currentNode;
+
+    if (Locations.Range.containsRange(range, Locations.Range.fromNode(node))) {
+      nodes.push(node);
+    }
+
+    // Traverse children
+    if (cursor.gotoFirstChild()) {
+      do {
+        visitNode();
+      } while (cursor.gotoNextSibling());
+      cursor.gotoParent();
+    }
+  }
+
+  visitNode();
+  return nodes;
+}
 
 type HashSyntaxNodeKey = `${LSP.DocumentUri} ${SyntaxNode['id']} ${string}`;
 const HashSyntaxNode = (uri: LSP.DocumentUri, parentNode: SyntaxNode, node: SyntaxNode): HashSyntaxNodeKey => `${uri} ${parentNode.id} ${node.text}`;
@@ -58,18 +93,18 @@ function logNode(node: SyntaxNode) {
 
 function findSearchableRanges(symbol: FishSymbol): Range[] {
   const ranges: Range[] = [];
-  const rangeList = new RangeList(createParentRange(symbol));
+  const rangeList = new RangesList();
   for (const child of symbol.parent.allChildren) {
     if (child.name === symbol.name) {
       const parentScopeNode = child.getParentScope();
       const scopeRange = Locations.Range.fromNode(parentScopeNode);
       if (!parentScopeNode.equals(symbol.getParentScope())) {
-        rangeList.remove(scopeRange);
+        rangeList.removeRange(scopeRange);
       }
     }
   }
-  rangeList.add(symbol.selectionRange);
-  return rangeList.toArray();
+  rangeList.addRange(symbol.selectionRange);
+  return rangeList.getRanges();
 }
 
 // function findSearchableRanges(symbol: FishSymbol): Range[] {
@@ -222,130 +257,130 @@ function findInheritingFunctions(symbol: FishSymbol): FishSymbol[] {
 /**
  * Gets all ranges where a symbol can be called/referenced
  */
-export function getCallableRanges(symbol: FishSymbol): Range[] {
-  const ranges: Range[] = [symbol.selectionRange];
-
-  if (!symbol.parentNode || !symbol) {
-    return ranges;
-  }
-
-  // Get base ranges based on normal scoping rules
-  const baseRanges = getBaseCallableRanges(symbol);
-  ranges.push(...baseRanges);
-
-  // Handle variable inheritance
-  if (symbol.isVariable()) {
-    const inheritingFunctions = findInheritingFunctions(symbol);
-
-    for (const func of inheritingFunctions) {
-      // Only include function's range if it's defined after the variable
-      if (symbol.selectionRange.end.line < func.selectionRange.start.line) {
-        ranges.push(func.range);
-      }
-    }
-  }
-
-  return ranges;
-}
-
-/**
- * Gets the base callable ranges without considering inheritance
- */
-function getBaseCallableRanges(symbol: FishSymbol): Range[] {
-  const ranges: Range[] = [];
-
-  function collectChildRanges(currentSymbol: FishSymbol): void {
-    if (!currentSymbol.isFunction() || currentSymbol !== symbol) {
-      ranges.push(currentSymbol.range);
-    }
-
-    for (const child of currentSymbol.children) {
-      if (shouldSkipChild(symbol, child)) {
-        continue;
-      }
-
-      if (symbol.isLocalScope() && !isInLocalScope(symbol, child)) {
-        continue;
-      }
-
-      collectChildRanges(child);
-    }
-  }
-
-  if (symbol.isFunction()) {
-    // Handle nested function definitions
-    if (symbol.parent?.isFunction()) {
-      const parentFunctionRange = symbol.parent.range;
-      ranges.push({
-        start: {
-          line: symbol.range.end.line,
-          character: 0,
-        },
-        end: parentFunctionRange.end,
-      });
-      return ranges;
-    }
-
-    // Handle top-level functions
-    if (isInAutoloadedFile(symbol)) {
-      const fileScope = symbol.getParentScopeRange();
-      if (fileScope) {
-        ranges.push(
-          {
-            start: fileScope.start,
-            end: symbol.range.start,
-          },
-          {
-            start: symbol.range.end,
-            end: fileScope.end,
-          },
-        );
-      }
-    } else if (symbol.functionInfo?.isAutoLoad) {
-      const programScope = symbol.getParentScopeRange();
-      if (programScope) {
-        ranges.push(
-          {
-            start: programScope.start,
-            end: symbol.range.start,
-          },
-          {
-            start: symbol.range.end,
-            end: programScope.end,
-          },
-        );
-      }
-    } else {
-      const programScope = symbol.getParentScopeRange();
-      if (programScope) {
-        ranges.push({
-          start: {
-            line: symbol.range.end.line,
-            character: symbol.range.end.character,
-          },
-          end: programScope.end,
-        });
-      }
-    }
-  } else {
-    switch (symbol.modifier) {
-      case 'UNIVERSAL':
-        ranges.push(symbol.getParentScopeRange());
-        break;
-
-      case 'GLOBAL':
-        collectChildRanges(symbol);
-        break;
-
-      case 'FUNCTION':
-      case 'LOCAL':
-        ranges.push(symbol.getParentScopeRange());
-        break;
-    }
-  }
-
-  return ranges;
-}
+// export function getCallableRanges(symbol: FishSymbol): Range[] {
+//   const ranges: Range[] = [symbol.selectionRange];
+//
+//   if (!symbol.parentNode || !symbol) {
+//     return ranges;
+//   }
+//
+//   // Get base ranges based on normal scoping rules
+//   const baseRanges = getBaseCallableRanges(symbol);
+//   ranges.push(...baseRanges);
+//
+//   // Handle variable inheritance
+//   if (symbol.isVariable()) {
+//     const inheritingFunctions = findInheritingFunctions(symbol);
+//
+//     for (const func of inheritingFunctions) {
+//       // Only include function's range if it's defined after the variable
+//       if (symbol.selectionRange.end.line < func.selectionRange.start.line) {
+//         ranges.push(func.range);
+//       }
+//     }
+//   }
+//
+//   return ranges;
+// }
+//
+// /**
+//  * Gets the base callable ranges without considering inheritance
+//  */
+// function getBaseCallableRanges(symbol: FishSymbol): Range[] {
+//   const ranges: Range[] = [];
+//
+//   function collectChildRanges(currentSymbol: FishSymbol): void {
+//     if (!currentSymbol.isFunction() || currentSymbol !== symbol) {
+//       ranges.push(currentSymbol.range);
+//     }
+//
+//     for (const child of currentSymbol.children) {
+//       if (shouldSkipChild(symbol, child)) {
+//         continue;
+//       }
+//
+//       if (symbol.isLocalScope() && !isInLocalScope(symbol, child)) {
+//         continue;
+//       }
+//
+//       collectChildRanges(child);
+//     }
+//   }
+//
+//   if (symbol.isFunction()) {
+//     // Handle nested function definitions
+//     if (symbol.parent?.isFunction()) {
+//       const parentFunctionRange = symbol.parent.range;
+//       ranges.push({
+//         start: {
+//           line: symbol.range.end.line,
+//           character: 0,
+//         },
+//         end: parentFunctionRange.end,
+//       });
+//       return ranges;
+//     }
+//
+//     // Handle top-level functions
+//     if (isInAutoloadedFile(symbol)) {
+//       const fileScope = symbol.getParentScopeRange();
+//       if (fileScope) {
+//         ranges.push(
+//           {
+//             start: fileScope.start,
+//             end: symbol.range.start,
+//           },
+//           {
+//             start: symbol.range.end,
+//             end: fileScope.end,
+//           },
+//         );
+//       }
+//     } else if (symbol.functionInfo?.isAutoLoad) {
+//       const programScope = symbol.getParentScopeRange();
+//       if (programScope) {
+//         ranges.push(
+//           {
+//             start: programScope.start,
+//             end: symbol.range.start,
+//           },
+//           {
+//             start: symbol.range.end,
+//             end: programScope.end,
+//           },
+//         );
+//       }
+//     } else {
+//       const programScope = symbol.getParentScopeRange();
+//       if (programScope) {
+//         ranges.push({
+//           start: {
+//             line: symbol.range.end.line,
+//             character: symbol.range.end.character,
+//           },
+//           end: programScope.end,
+//         });
+//       }
+//     }
+//   } else {
+//     switch (symbol.modifier) {
+//       case 'UNIVERSAL':
+//         ranges.push(symbol.getParentScopeRange());
+//         break;
+//
+//       case 'GLOBAL':
+//         collectChildRanges(symbol);
+//         break;
+//
+//       case 'FUNCTION':
+//       case 'LOCAL':
+//         ranges.push(symbol.getParentScopeRange());
+//         break;
+//     }
+//   }
+//
+//   return ranges;
+// }
 
 /**
  * Determines if a child symbol should be skipped when collecting ranges
@@ -573,7 +608,7 @@ function isInLocalScope(symbol: FishSymbol, other: FishSymbol): boolean {
 function findReferenceNodes(root: SyntaxNode, symbols: FishSymbol[]) {
   const map: Map<FishSymbol, SyntaxNode[]> = new Map();
   for (const symbol of symbols) {
-    const searchableRanges = createParentRange(symbol);
+    const searchableRanges = getCallableRanges(symbol);
     // const searchableRanges = findSearchableRanges(symbol);
     // const references: SyntaxNode[] = rangesToNodes(searchableRanges, root)
     const references: SyntaxNode[] = findNodesInRanges(searchableRanges, root)
@@ -593,6 +628,7 @@ describe('symbol test suite', () => {
 
   beforeEach(async () => {
     parser = await initializeParser();
+    await setupProcessEnvExecFile();
   });
 
   it('test_1', () => {
@@ -664,8 +700,13 @@ foo
 `);
     expect(tree.rootNode).not.toBeNull();
     const root = tree.rootNode;
-    const uri = 'file:///home/user/.config/fish/config.fish';
-    const symbols = buildScopedSymbol(tree.rootNode, uri);
+    const uri = URI.parse('file:///home/ndonfris/.config/fish/config.fish').fsPath;
+    if (getPathProperties(uri).isScript) {
+      const { normalizedPath, isCompletionPath, isConfdPath, isConfigFile, isScript, isFunctionPath } = getPathProperties(uri);
+      console.log({ normalizedPath, isCompletionPath, isConfdPath, isConfigFile, isScript, isFunctionPath });
+      console.log('isScript was TRUE'); return;
+    }
+    const symbols = getScopedFishSymbols(tree.rootNode, uri);
     // for (const symbol of flattenNested(...symbols)) {
     //   console.log(symbol.kindString, '|', symbol.name);
     //   console.log('    ', Locations.Range.toString(symbol.selectionRange));
@@ -748,7 +789,7 @@ foo
           name: s.name,
           kind: s.kindString,
           range: Locations.Range.toString(s.range),
-          callable: createParentRange(s).map(c => Locations.Range.toString(c)).join(),
+          callable: getCallableRanges(s).map(c => Locations.Range.toString(c)).join(),
         });
         console.log('='.repeat(40));
         const parentScope = s.getParentScope();
@@ -768,7 +809,7 @@ foo
       // if (n.text === 'inside_foo') logNode(n);
       if (n.text === 'inside_foo') inside_foo_refs.push(n);
     }
-    expect(inside_foo_refs.length).toBe(1);
+    expect(inside_foo_refs.length).toBe(2);
     const refs = findReferenceNodes(root, flattenNested(...symbols));
     refs.forEach((v, k) => {
       if (k.name === 'bool_1') {
@@ -802,5 +843,27 @@ end`,
     expect(for_loop.firstNamedChild.text).toBe('i');
     expect(for_loop.firstNamedChild.type).toBe('variable_name');
     // console.log('fnc', for_loop?.firstNamedChild?.text, for_loop?.firstNamedChild?.type);
+  });
+
+  it.only('test uri isScript', () => {
+    const uris: string[] = [
+      'file:///home/user/.config/fish/config.fish',
+      'file:///home/user/.config/fish/functions/foo.fish',
+      'file:///home/user/.config/fish/completions/foo.fish',
+      'file:///home/user/.config/fish/completions/fisher/foo.fish',
+      'file:///tmp/foo.fish',
+      'file:///usr/share/fish/config.fish',
+      '/usr/share/fish/functions/foo.fish',
+      '/usr/share/fish/completions/foo.fish',
+      '/usr/share/fish/other/foo.fish',
+      '/home/user/.config/fish/other/foo_script.fish',
+      '/home/user/foo_script.fish',
+    ];
+    uris.forEach((_uri, i) => {
+      const { normalizedPath, uri, rawPath, isCompletionPath, isConfdPath, isConfigFile, isScript, isFunctionPath } = getPathProperties(_uri);
+      console.log(i, _uri.toString(), { uri: uri.toString(), rawPath, normalizedPath, isCompletionPath, isConfdPath, isConfigFile, isScript, isFunctionPath });
+    });
+    // eslint-disable-next-line dot-notation
+    console.log(process.env['fish_function_path']?.split(':'));
   });
 });

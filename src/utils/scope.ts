@@ -23,9 +23,10 @@ export function getCallableRanges(symbol: FishSymbol): Range[] {
   const parentScopeRange = symbol.getParentScopeRange();
   if (symbol.isFunction()) {
     // autoloaded function or autoloaded private function which are callable throughout
-    // entire file
+    // entire file. `symbol.range` is removed to prevent recursion in the case of
+    // using these ranges for completion
     if (symbol.parent?.isRoot() && isAutoloadedFunctionPath(symbol.uri)) {
-      list.addRange(parentScopeRange);
+      list.addRange(symbol.parent.range);
       list.removeRange(symbol.range);
       list.addRange(symbol.selectionRange);
       return list.getRanges();
@@ -221,12 +222,12 @@ export class RangesList {
     if (overlappingRanges.length > 0) {
       // Merge overlapping ranges
       const mergedRange: Range = {
-        start: overlappingRanges.reduce((min, r) =>
-          this.comparePositions(min, r.start) <= 0 ? min : r.start,
+        start: overlappingRanges.reduce(
+          (min, r) => this.comparePositions(min, r.start) <= 0 ? min : r.start,
           range.start,
         ),
-        end: overlappingRanges.reduce((max, r) =>
-          this.comparePositions(max, r.end) >= 0 ? max : r.end,
+        end: overlappingRanges.reduce(
+          (max, r) => this.comparePositions(max, r.end) >= 0 ? max : r.end,
           range.end,
         ),
       };

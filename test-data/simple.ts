@@ -1,6 +1,6 @@
 import { SyntaxNode } from 'web-tree-sitter';
 import { pointToPosition } from '../src/utils/tree-sitter';
-import { FishDocumentSymbol } from '../src/utils/symbol';
+import { FishSymbol } from '../src/utils/symbol';
 import { symbolKindToString } from '../src/utils/translation';
 import * as LSP from 'vscode-languageserver';
 
@@ -140,12 +140,12 @@ export namespace Simple {
    * @param {FishDocumentSymbol} symbol - fish document symbol object
    * @returns object with symbol properties
    */
-  export function symbol(symbol: FishDocumentSymbol) {
+  export function symbol(symbol: FishSymbol) {
     return {
       name: symbol.name,
       uri: relPath(symbol.uri),
-      kind: symbolKindToString(symbol.kind) as ReturnType<typeof symbolKindToString>,
-      scope: symbol.scope.tag,
+      kind: symbol.kindString,
+      modifier: symbol.modifier,
       range: range(symbol.range),
       selectionRange: range(symbol.selectionRange),
     };

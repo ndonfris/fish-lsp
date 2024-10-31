@@ -9,6 +9,7 @@ import { getPrecedingComments, getRange, getRangeWithPrecedingComments } from '.
 import * as LocationNamespace from './locations';
 import { isBuiltin } from './builtins';
 import path from 'path';
+import micromatch from 'micromatch';
 
 const RE_PATHSEP_WINDOWS = /\\/g;
 
@@ -67,6 +68,19 @@ export function pathToRelativeFunctionName(uriPath: string): string {
 }
 
 /**
+ * Standard fish configuration patterns
+ */
+/**
+ * Path patterns for different fish file types
+ */
+export const FISH_PATTERNS = {
+  CONFIG: '**/fish/config.fish',
+  FUNCTIONS: '**/fish/functions/**/*.fish',
+  COMPLETIONS: '**/fish/completions/**/*.fish',
+  CONF_D: '**/fish/conf.d/**/*.fish',
+} as const;
+
+/**
  * Gets important path properties that might affect fish shell behavior
  * @param pathOrUri - File path or URI to analyze
  * @returns Object containing path properties
@@ -88,21 +102,21 @@ export function getPathProperties(pathOrUri: string | URI): {
   resolvedPath: string;
   /** Is a `fish/config.fish` file */
   isConfigFile: boolean;
-  /** Is a `~/.config/fish/` | `/usr/share/fish/` | etc... path */
-  isConfigPath: boolean;
   /** Is a `fish/functions/` path */
   isFunctionPath: boolean;
   /** Is a `fish/completions/` path */
   isCompletionPath: boolean;
   /** Is a `fish/conf.d/` path */
   isConfdPath: boolean;
+  /** Is a script file (not a config, function, completion, or conf.d file) */
+  isScript: boolean;
   /** Normalized path with consistent path separators */
   normalizedPath: string;
   /** URI object */
   uri: URI;
 } {
   // Convert URI to string path if needed
-  const rawPath = pathOrUri instanceof URI ? pathOrUri.fsPath : pathOrUri;
+  const rawPath = uriToPath(pathOrUri.toString());
   const uri = URI.parse(rawPath);
 
   // Normalize path separators
@@ -118,15 +132,22 @@ export function getPathProperties(pathOrUri: string | URI): {
   // Resolve the full path
   const resolvedPath = path.resolve(normalizedPath);
 
-  const isDirectoryType = (dirpath: string, _lastDir: string) => {
-    return resolvedPath.includes(dirpath) && lastDir === _lastDir && extname === '.fish';
+  const match = (pattern: typeof FISH_PATTERNS[keyof typeof FISH_PATTERNS]) => {
+    return micromatch.isMatch(normalizedPath, pattern, {
+      posix: true,
+      dot: true,
+      strictSlashes: true,
+    });
   };
 
-  const isConfigFile = resolvedPath.endsWith('/fish/config.fish');
-  const isConfigPath = resolvedPath.includes('/.config/fish/');
-  const isFunctionPath = isDirectoryType('/fish/functions/', 'functions');
-  const isCompletionPath = isDirectoryType('/fish/completions/', 'completions');
-  const isConfdPath = isDirectoryType('/fish/conf.d/', 'conf.d');
+  // Check common fish paths using glob patterns
+  const isConfigFile = match(FISH_PATTERNS.CONFIG);
+  const isFunctionPath = match(FISH_PATTERNS.FUNCTIONS);
+  const isCompletionPath = match(FISH_PATTERNS.COMPLETIONS);
+  const isConfdPath = match(FISH_PATTERNS.CONF_D);
+
+  // A file is a script if it doesn't match any config patterns
+  const isScript = !(isConfigFile || isFunctionPath || isCompletionPath || isConfdPath);
 
   return {
     rawPath,
@@ -137,10 +158,10 @@ export function getPathProperties(pathOrUri: string | URI): {
     extname,
     resolvedPath,
     isConfigFile,
-    isConfigPath,
     isFunctionPath,
     isCompletionPath,
     isConfdPath,
+    isScript,
     normalizedPath,
     uri,
   };

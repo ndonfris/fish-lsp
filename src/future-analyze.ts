@@ -44,9 +44,11 @@ export class Analyzer { // @TODO rename to Analyzer
     const root = tree.rootNode;
     const nodes = getChildNodes(root);
     const symbols = getScopedFishSymbols(root, document.uri);
+
     const sourcedFiles = nodes
       .filter(isSourceFilename)
       .map(n => n.text);
+
     const workspaceSymbols = flattenNested(...symbols)
       .filter(s => s.isGlobalScope());
 
@@ -151,37 +153,53 @@ export class Analyzer { // @TODO rename to Analyzer
     return [];
   }
 
+  findNodesInRanges(ranges: LSP.Range[], root: SyntaxNode): SyntaxNode[] {
+    const result: SyntaxNode[] = [];
+    for (const child of getChildNodes(root)) {
+      if (ranges.some(r => Locations.Range.containsRange(r, Locations.Range.fromNode(child)))) {
+        result.push(child);
+      }
+    }
+    return result;
+  }
+
   private removeLocalSymbols(
     matchSymbol: FishSymbol,
-    nodes: SyntaxNode[],
+    tree: Tree,
     symbols: FishSymbol[],
   ) {
     // const name = matchSymbol.name;
     const matchingSymbols = flattenNested(...symbols)
       .filter(s => s.name === matchSymbol.name && s.isLocalScope());
+      // .map(s => s.getLocalCallableRanges());
 
-    const matchingNodes = nodes.filter(node => node.text === matchSymbol.name);
-
-    if (matchingSymbols.length === 0 || matchSymbol.kind === SymbolKind.Function) {
-      return matchingNodes;
+    const result: SyntaxNode[] = [];
+    for (const node of getChildNodes(tree.rootNode)) {
+      // const nodeRange = getRange(node);
+      const nodeLocation = Locations.Position.fromSyntaxNode(node);
+      if (!matchingSymbols.some(s => s.isCallableAtPosition(nodeLocation))) {
+        result.push(node);
+      }
     }
 
-    // TODO
-    // return matchingNodes.filter((node) => {
-    //   if (matchingSymbols.some(scopeNode => containsRange(getRange(scopeNode), getRange(node)))) {
-    //     return false;
-    //   }
-    // return true;
-    // });
-    return matchingNodes;
+    return result;
   }
 
   // TODO
   public findLocalLocations(document: LspDocument, position: Position) {
+    const tree = this.cached.get(document.uri)?.tree;
+    if (!tree) return [];
+
     const symbol = this.getDefinitionSymbol(document, position).pop();
     if (!symbol) return [];
 
-    return symbol.getLocalCallableRanges().map(r => Location.create(document.uri, r));
+    const result: LSP.Location[] = [];
+    for (const child of this.findNodesInRanges(symbol.getLocalCallableRanges(), tree.rootNode)) {
+      if (child.text === symbol.name && ['word', 'variable_name'].includes(child.type)) {
+        result.push(Location.create(document.uri, getRange(child)));
+      }
+    }
+    return result;
   }
 
   private findGlobalLocations(document: LspDocument, position: Position) {
@@ -193,10 +211,10 @@ export class Analyzer { // @TODO rename to Analyzer
       const cached = this.cached.get(uri);
       if (!cached) continue;
 
-      const rootNode = cached.tree.rootNode;
+      // const rootNode = cached.tree.rootNode;
       const toSearchNodes = this.removeLocalSymbols(
         symbol,
-        getChildNodes(rootNode),
+        cached.tree,
         cached.symbols.flat(),
       );
       const newLocations = findLocations(uri, toSearchNodes, symbol.name);
@@ -219,7 +237,6 @@ export class Analyzer { // @TODO rename to Analyzer
         case 'GLOBAL':
           return this.findGlobalLocations(document, position);
         case 'FUNCTION':
-        // case 'INHERIT':
         case 'LOCAL':
         default:
           return this.findLocalLocations(document, position);
@@ -389,7 +406,8 @@ function findLocations(uri: string, nodes: SyntaxNode[], matchName: string): Loc
 function symbolsScopeContainsPosition(symbols: FishSymbol[], name: string, position: Position) {
   const result: FishSymbol[] = [];
   for (const symbol of symbols) {
-    if (symbol.name === name && Locations.Range.containsPosition(symbol.range, position)) {
+    if (symbol.name === name && symbol.isCallableAtPosition(position)) {
+      // if (symbol.name === name && Locations.Range.containsPosition(symbol.range, position)) {
       result.push(symbol);
     }
   }

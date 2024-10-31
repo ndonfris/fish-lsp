@@ -7,6 +7,8 @@ import * as Locations from './locations';
 import { findParent, getBlockDepth } from './tree-sitter';
 import { flattenNested } from './flatten';
 import { getCallableRanges } from './scope';
+import { getPathProperties } from './translation';
+import { md } from './markdown-builder';
 // import { getCallableRanges, getCallableRanges2, rangesToNodes, removeRange } from './scope';
 export type ModifierType = 'LOCAL' | 'FUNCTION' | 'GLOBAL' | 'UNIVERSAL';
 
@@ -236,6 +238,22 @@ export namespace FunctionInfo {
       inheritVariable: [],
       onVariable: [],
     };
+  }
+
+  export function toMarkdown(symbol: FishSymbol): string {
+    const info = symbol.functionInfo!;
+    return [
+      md.inlineCode(symbol.name),
+      `**Description**: ${info.description}`,
+      `**Autoloaded**: ${info.isAutoLoad}`,
+      `**Path**: ${getPathProperties(info.uri).normalizedPath}`,
+      `**Argument Names**: ${info.argumentNames.map(arg => arg.name).join(', ')}`,
+      `**Inherit Variable**: ${info.inheritVariable.map(arg => arg.name).join(', ')}`,
+      `**On Variable**: ${info.onVariable.map(arg => arg.name).join(', ')}`,
+      `**No Scope Shadowing**: ${info.noScopeShadowing}`,
+      md.separator(),
+      md.codeBlock('fish', symbol.parentNode.text),
+    ].join('\n');
   }
 }
 
@@ -507,6 +525,12 @@ function processFunction(node: SyntaxNode, children: FishSymbol[], uri: string, 
   return [funcSymbol];
 }
 
+function processProgram(node: SyntaxNode, uri: string, parentSymbol: FishSymbol): FishSymbol[] {
+  const { isScript } = getPathProperties(uri);
+  if (isScript) [FishSymbol.create('argv', SymbolKind.Variable, uri, 'LOCAL', node, node, parentSymbol)];
+  return [];
+}
+
 function createRootSymbol(node: SyntaxNode, uri: string): FishSymbol {
   return FishSymbol.create('', SymbolKind.Null, uri, 'LOCAL', node, node, null);
 }
@@ -581,6 +605,10 @@ export function getScopedFishSymbols(root: SyntaxNode, uri: string) {
 
   /* fix-up the root symbol w/o editing the symbols result */
   const symbols = buildSyms(root);
+  /* add argv to script uri's */
+  if (getPathProperties(uri).isScript) {
+    symbols.unshift(FishSymbol.create('argv', SymbolKind.Variable, uri, 'LOCAL', root, root, rootSym));
+  }
   rootSym.children.push(...symbols);
   return symbols;
 }
