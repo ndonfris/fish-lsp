@@ -35,8 +35,9 @@ import { getAliasedCompletionItemSignature } from './signature';
 import { CompletionItemMap } from './utils/completion/startup-cache';
 import { getDocumentHighlights } from './document-highlight';
 import { SyncFileHelper } from './utils/file-operations';
-import { flattenNested } from './utils/symbol';
-import { FishDocumentSymbol } from './utils/symbol'
+import { FishSymbol } from './utils/symbol';
+import { flattenNested } from './utils/flatten';
+// import { FishSymbol } from './utils/symbol';
 
 // @TODO
 export type SupportedFeatures = {
@@ -167,7 +168,7 @@ export default class FishServer {
     doc.applyEdits(doc.version + 1, ...params.contentChanges);
     this.analyzer.analyze(doc);
     this.logger.logAsJson(`CHANGED -> ${doc.version}:::${doc.uri}`);
-    const root = this.analyzer.getRootNode(doc.uri);
+    const root = this.analyzer.cached.get(doc.uri)?.root;
     if (!root) return;
     this.connection.sendDiagnostics(this.sendDiagnostics({ uri: doc.uri, diagnostics: [] }));
     // else ?
@@ -270,7 +271,7 @@ export default class FishServer {
     const { doc } = this.getDefaultsForPartialParams(params);
     if (!doc) return [];
 
-    const { symbols } = this.analyzer.analyze(doc)
+    const { symbols } = this.analyzer.analyze(doc);
     // return filterLastPerScopeSymbol(symbols);
     return symbols;
   }
@@ -360,10 +361,10 @@ export default class FishServer {
   async onWorkspaceSymbol(params: WorkspaceSymbolParams): Promise<WorkspaceSymbol[]> {
     this.logParams('onWorkspaceSymbol', params.query);
 
-    const flatList: WorkspaceSymbol[] = Object.values(this.analyzer.workspaceSymbols).flat().map(s => WorkspaceSymbol.create(s.name, s.kind, s.uri))
+    const flatList: WorkspaceSymbol[] = Object.values(this.analyzer.workspaceSymbols).flat().map(s => WorkspaceSymbol.create(s.name, s.kind, s.uri));
 
     if (params.query === '') {
-      return flatList
+      return flatList;
     }
 
     return flatList.filter(sym => sym.name.startsWith(params.query)) || [];
@@ -375,13 +376,8 @@ export default class FishServer {
 
     const { doc } = this.getDefaults(params);
     if (!doc) return [];
-    const analyzed = this.analyzer.analyze(doc)
-    const node = getNodeAtPosition(analyzed.tree, params.position)
-    
-    // const node = getNodeAtPosition(this.analyzer.analyze(doc)!.tree, params.position)
 
-    // return this.analyzer.getDefinitionLocation(doc, params.position);
-    return []
+    return this.analyzer.getDefinitionSymbol(doc, params.position);
   }
 
   async onReferences(params: ReferenceParams): Promise<Location[]> {
@@ -390,8 +386,7 @@ export default class FishServer {
     const { doc, uri, root, current } = this.getDefaults(params);
     if (!doc || !uri || !root || !current) return [];
 
-    // return getReferenceLocations(this.analyzer, doc, params.position);
-    return [];
+    return this.analyzer.getReferences(doc, params.position);
   }
 
   // Probably should move away from `documentationCache`. It works but is too expensive memory wise.
@@ -597,10 +592,11 @@ export default class FishServer {
 
     // const rootNode = this.analyzer.getRootNode(document)
     // if (!rootNode) return undefined
-    const symbols = this.analyzer.getDocumentSymbols(document.uri);
-    const flatSymbols = flattenNested(...symbols);
+    const cached = this.analyzer.cached.get(document.uri);
+    if (!cached) return undefined;
+    const flatSymbols: FishSymbol[] = flattenNested(...cached.symbols);
     this.logger.logPropertiesForEachObject(
-      flatSymbols.filter((s) => s.kind === SymbolKind.Function),
+      flatSymbols.filter((s: FishSymbol) => s.kind === SymbolKind.Function),
       'name',
       'range',
     );
@@ -729,7 +725,7 @@ export default class FishServer {
     const uri = uriToPath(params.textDocument.uri);
     const doc = this.docs.get(uri);
     if (!doc || !uri) return {};
-    const root = this.analyzer.getRootNode(doc.uri);
+    const root = this.analyzer.cached.get(doc.uri)?.root;
     const current = this.analyzer.nodeAtPoint(
       doc.uri,
       params.position.line,
@@ -747,7 +743,7 @@ export default class FishServer {
   } {
     const uri = uriToPath(params.textDocument.uri);
     const doc = this.docs.get(uri);
-    const root = doc ? this.analyzer.getRootNode(doc.uri) : undefined;
+    const root = doc ? this.analyzer.cached.get(doc.uri)?.root : undefined;
     return { doc, uri, root };
   }
 

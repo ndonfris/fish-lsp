@@ -17,8 +17,9 @@ import { getChildNodes, getNodeAtPosition, getRange, pointToPosition } from '../
 import { Analyzer } from '../src/future-analyze';
 import { TestWorkspace } from './workspace-utils';
 import { SymbolKind } from 'vscode-languageserver';
-import { symbolKindToString } from '../src/utils/translation';
 import { flattenNested } from '../src/utils/flatten';
+import * as Locations from '../src/utils/locations';
+import { SyntaxNode } from 'web-tree-sitter';
 
 describe('analyzer test suite', () => {
   setLogger();
@@ -866,63 +867,153 @@ describe('analyzer test suite', () => {
 
     //
     // @TODO: implement tests
-    // describe('completion for index', () => {
-    //
-    //    it('command completion `t`',  () => {
-    //
-    //    })
-    //
-    //    it('variable completion `test $t`',  () => {
-    //
-    //    })
-    //
-    //    it('variable completion `$`',  () => {
-    //
-    //    })
-    //
-    //    it('command multiline: `cmd \\\n--flag`', () => {
-    //
-    //    })
-    //
-    //    it('argument index/distance from command', () => {
-    //
-    //    })
-    //
-    //    it('command matches string', () => {
-    //
-    //    })
-    //
-    //    it('command w/ flag', () => {
-    //
-    //    })
-    // })
-    //
-    // @TODO: implement tests
-    // describe('special coses', () => {
-    //   it('`$argv`', () => {
-    //
-    //   })
-    //   it('`$status`', () => {
-    //
-    //   })
-    //   it('`$pipestatus`', () => {
-    //
-    //   })
-    //   it('`argparse` inside function', () => {
-    //
-    //   })
-    //   it('`argparse` autoloaded completion from uri', () => {
-    //
-    //   })
-    //   it('`complete -c ${_}` autoloaded uri name', () => {
-    //
-    //   })
-    //   it('sort locality', () => {
-    //
-    //   })
-    // })
-    //
+    describe('completion for index', () => {
+      it.only('command completion `t`', () => {
+        const { document } = setupAndFind(TestWorkspace.functionsOnly.documents, 'functions/foo.fish');
+        if (!document) fail();
+        const { doc, cursorPosition } = testSymbolFiltering('functions/testvar.fish', [
+          'function testvar',
+          '    set test 1',
+          '    echo $test█',
+          'end',
+        ].join('\n'));
+
+        const cmd = analyzer.commandNodeAtPoint(doc.uri, cursorPosition.line, cursorPosition.character);
+        // console.log(cmd.text);
+        const argumentIdx = analyzer.commandArgumentIndexAtPoint(doc.uri, cursorPosition.line, cursorPosition.character);
+        // console.log({ argumentIdx });
+        const cmdName = analyzer.commandNameAtPoint(doc.uri, cursorPosition.line, cursorPosition.character);
+        // console.log({ cmdName });
+        expect(cmdName).toEqual('echo');
+        expect(argumentIdx).toEqual(1);
+        expect(cmd.text).toEqual('echo $test');
+      });
+
+      it('variable completion `test $t`', () => {
+        let input = 'echo a';
+
+        const { doc, cursorPosition } = testSymbolFiltering('config.fish', input);
+        const pos = Locations.Position.create(0, 5);
+        analyzer.analyze(doc);
+
+        const cmd = analyzer.commandNodeAtPoint(doc.uri, pos.line, pos.character);
+        const cmdName = analyzer.commandNameAtPoint(doc.uri, pos.line, pos.character);
+        const argumentIdx = analyzer.commandArgumentIndexAtPoint(doc.uri, pos.line, pos.character);
+        console.log({
+          text: cmd?.text ?? '',
+          cmdName,
+          argumentIdx,
+          pos: pos,
+          input: input.length,
+        });
+        input += ' b';
+        testSymbolFiltering('config.fish', input);
+        let newPos = Locations.Position.create(0, input.length - 1);
+        let argIdx = analyzer.commandArgumentIndexAtPoint(doc.uri, newPos.line, newPos.character);
+        console.log({ argIdx, newPos });
+        input += ' ';
+        const { doc: document } = testSymbolFiltering('config.fish', input);
+        newPos = Locations.Position.create(0, input.length - 2);
+        const line = document.getLineBeforeCursor(newPos);
+        console.log({ line });
+        const cmdNode = analyzer.commandNodeAtPoint(doc.uri, newPos.line, newPos.character);
+        argIdx = analyzer.commandArgumentIndexAtPoint(doc.uri, newPos.line, newPos.character);
+        console.log({ text: cmdNode.text, argIdx, newPos });
+      });
+
+      it.only('variable completion `$`', () => {
+        const wrapInput = (input: string) => {
+          const { doc, rootNode } = testSymbolFiltering('config.fish', input);
+          const cursorPosition = Locations.Position.create(0, input.length - 1);
+          return { doc, rootNode, cursorPosition };
+        };
+        const res: SyntaxNode[] = [];
+        [
+          'echo a',
+          'echo a ',
+          'echo a b',
+          'echo a b c',
+          'echo a b c;',
+          'echo a b c;\\nfunction f',
+          'echo a b c;\\nfunction f ',
+        ].forEach((input, i) => {
+          const { doc, rootNode, cursorPosition } = wrapInput(input);
+          analyzer.analyze(doc);
+          const { /* argumentIndex, commandName, isLastNode, lastCommand, */ lastNode } =
+            analyzer.analyzeCursorPosition(doc.uri, cursorPosition.line, cursorPosition.character);
+          res.push(lastNode);
+          // console.log({
+          //   i,
+          //   text: doc.getText(),
+          //   doc: { uri: doc.uri, version: doc.version },
+          //   pos: cursorPosition,
+          //   argumentIndex,
+          //   commandName,
+          //   // isLastAfterNode: isAfterLastNode.toString(),
+          //   isLastNode: isLastNode?.toString(),
+          //   lastCommand: lastCommand?.text.toString(),
+          //   lastNode: lastNode?.text.toString(),
+          //   lastNodePos: {
+          //     start: lastNode.startPosition,
+          //     end: lastNode.endPosition,
+          //   },
+          // });
+        });
+        expect(res.map(n => n.text)).toEqual([
+          'a',
+          'a',
+          'b',
+          'c',
+          'c',
+          'f',
+          'f',
+        ]);
+      });
+    });
+
+    it('command multiline: `cmd \\\n--flag`', () => {
+
+    });
+
+    it('argument index/distance from command', () => {
+
+    });
+
+    it('command matches string', () => {
+
+    });
+
+    it('command w/ flag', () => {
+
+    });
   });
+  //
+  // @TODO: implement tests
+  // describe('special coses', () => {
+  //   it('`$argv`', () => {
+  //
+  //   })
+  //   it('`$status`', () => {
+  //
+  //   })
+  //   it('`$pipestatus`', () => {
+  //
+  //   })
+  //   it('`argparse` inside function', () => {
+  //
+  //   })
+  //   it('`argparse` autoloaded completion from uri', () => {
+  //
+  //   })
+  //   it('`complete -c ${_}` autoloaded uri name', () => {
+  //
+  //   })
+  //   it('sort locality', () => {
+  //
+  //   })
+  // })
+  //
+  // });
 
   // @TODO
   // describe('getHover()', () => {

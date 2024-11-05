@@ -52,14 +52,14 @@ export function isShebang(node: SyntaxNode) {
  * end
  * @see isFunctionDefinitionName()
  */
-export function isFunctionDefinition(node: SyntaxNode): node is NodeWithParentAndChildren {
+export function isFunctionDefinition(node: SyntaxNode) {
   return node.type === 'function_definition' && !!node.firstChild && !!node.parent;
 }
 
 /**
  * checks for all fish types of SyntaxNodes that are commands.
  */
-export function isCommand(node: SyntaxNode): node is NodeWithParentAndChildren {
+export function isCommand(node: SyntaxNode) {
   return [
     'command',
     'test_command',

@@ -1,7 +1,7 @@
 import * as LSP from 'vscode-languageserver';
 import { Hover, MarkupKind } from 'vscode-languageserver';
 import * as Parser from 'web-tree-sitter';
-import { Analyzer } from './analyze';
+import { Analyzer } from './future-analyze';
 import { LspDocument } from './document';
 import { documentationHoverProvider, enrichCommandWithFlags } from './documentation';
 import { DocumentationCache } from './utils/documentation-cache';
@@ -22,7 +22,7 @@ export async function handleHover(
   if (isOption(current)) {
     return await getHoverForFlag(current);
   }
-  const local = analyzer.getDefinition(document, position);
+  const local = analyzer.getDefinitionSymbol(document, position).pop();
   if (local) {
     return {
       contents: {

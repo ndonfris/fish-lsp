@@ -368,6 +368,10 @@ export namespace Position {
     offset: position.character + 1,
   });
 
+  export function fromPoint(point: Point): LSP.Position {
+    return LSP.Position.create(point.row, point.column);
+  }
+
   export const toFileLocationRequestArgs = (file: string, position: LSP.Position): FishProtocol.FileLocationRequestArgs => ({
     file,
     line: position.line + 1,

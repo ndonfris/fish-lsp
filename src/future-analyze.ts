@@ -1,4 +1,5 @@
-import Parser, { SyntaxNode, Tree } from 'web-tree-sitter';
+import Parser
+, { SyntaxNode, Tree } from 'web-tree-sitter';
 import { LspDocument } from './document';
 import { FishSymbol, getScopedFishSymbols } from './utils/symbol';
 import * as LSP from 'vscode-languageserver';
@@ -7,10 +8,12 @@ import { isSourceFilename } from './diagnostics/node-types';
 import { SyncFileHelper } from './utils/file-operations';
 import { Location, Position, SymbolKind } from 'vscode-languageserver';
 // import { findAncestor } from 'typescript';
-import { isCommandName } from './utils/node-types';
+import { isCommand, isCommandName, isType } from './utils/node-types';
 import { execEscapedSync } from './utils/exec';
 import { flattenNested } from './utils/flatten';
 import * as Locations from './utils/locations';
+import { isBuiltin } from './utils/builtins';
+import { Point } from 'tree-sitter';
 // import { isFunction } from './utils/builtins';
 
 export type AnalyzedDocument = {
@@ -21,6 +24,14 @@ export type AnalyzedDocument = {
   nodes: SyntaxNode[];
   sourcedFiles: string[];
 };
+
+interface CursorAnalysis {
+  lastNode: Parser.SyntaxNode | null;
+  lastCommand: Parser.SyntaxNode | null;
+  isLastNode: boolean;
+  commandName: string | null;
+  argumentIndex: number | null;
+}
 
 /**
  * REFACTORING ./analyze.ts
@@ -171,7 +182,7 @@ export class Analyzer { // @TODO rename to Analyzer
     // const name = matchSymbol.name;
     const matchingSymbols = flattenNested(...symbols)
       .filter(s => s.name === matchSymbol.name && s.isLocalScope());
-      // .map(s => s.getLocalCallableRanges());
+    // .map(s => s.getLocalCallableRanges());
 
     const result: SyntaxNode[] = [];
     for (const node of getChildNodes(tree.rootNode)) {
@@ -310,7 +321,22 @@ export class Analyzer { // @TODO rename to Analyzer
   /**
    * getHover - gets the hover documentation of a symbol in a LspDocument
    */
-  // getHover() {}
+  getHover(document: LspDocument, position: Position): LSP.Hover | undefined {
+    const cached = this.cached.get(document.uri);
+    if (!cached) return undefined;
+
+    const node = getNodeAtPosition(cached.tree, position);
+    if (!node) return undefined;
+
+    const symbol = this.getDefinitionSymbol(document, position).pop();
+    if (symbol) {
+      return {
+        contents: symbol.detail,
+        range: symbol.range,
+      };
+    }
+    return undefined;
+  }
 
   /**
    * @TODO
@@ -355,6 +381,204 @@ export class Analyzer { // @TODO rename to Analyzer
 
   getNodeAtLocation(location: LSP.Location): SyntaxNode | undefined {
     return this.getNodeAtRange(location.uri, location.range);
+  }
+
+  /**
+   * Find the node at the given point.
+   */
+  public nodeAtPoint(
+    uri: string,
+    line: number,
+    column: number,
+  ): Parser.SyntaxNode | null {
+    const tree = this.cached.get(uri)?.tree;
+    if (!tree?.rootNode) {
+      // Check for lacking rootNode (due to failed parse?)
+      return null;
+    }
+    return tree.rootNode.descendantForPosition({ row: line, column });
+  }
+
+  /**
+   * Finds the last valid node at a given point in the document.
+   * Handles cases where nodes may be null, missing, or have errors.
+   */
+  public lastNodeAtPoint(
+    tree: Tree,
+    line: number,
+    column: number,
+  ): Parser.SyntaxNode | null {
+    if (!tree?.rootNode) {
+      return null;
+    }
+
+    for (const node of tree.rootNode.descendantsOfType('command')) {
+      if (Locations.Range.containsPosition(
+        Locations.Range.fromNode(node),
+        Locations.Position.create(line, column),
+      )) {
+        return node.lastNamedChild;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+    * Find the name of the command at the given point.
+    */
+  public commandNameAtPoint(
+    uri: string,
+    line: number,
+    column: number,
+  ): string | null {
+    let node = this.nodeAtPoint(uri, line, column);
+
+    while (node && !isCommand(node)) {
+      node = node.parent;
+    }
+
+    if (!node) {
+      return null;
+    }
+
+    const firstChild = node.firstNamedChild;
+
+    if (!firstChild || !isCommandName(firstChild)) {
+      return null;
+    }
+
+    return firstChild.text.trim();
+  }
+
+  public commandNodeAtPoint(
+    uri: string,
+    line: number,
+    column: number,
+  ): SyntaxNode | null {
+    let node = this.nodeAtPoint(uri, line, column);
+
+    while (node && !isCommand(node)) {
+      node = node.parent;
+    }
+
+    return node;
+  }
+
+  public commandArgumentIndexAtPoint(
+    uri: string,
+    line: number,
+    column: number,
+  ): number | null {
+    const commandNode = this.commandNodeAtPoint(uri, line, column);
+
+    if (!commandNode) {
+      return null;
+    }
+
+    const commandArguments = commandNode.children.filter(arg => {
+      return Locations.Position.isBeforeOrEqual(
+        Locations.Position.fromSyntaxNode(arg),
+        Locations.Position.create(line, column),
+      );
+    });
+
+    return commandArguments.length - 1;
+  }
+
+  public analyzeCursorPosition(
+    uri: string,
+    line: number,
+    column: number,
+  ): CursorAnalysis {
+    const cached = this.cached.get(uri);
+
+    if (!cached?.document || !cached?.tree) {
+      return {
+        lastNode: null,
+        lastCommand: null,
+        isLastNode: false,
+        commandName: null,
+        argumentIndex: null,
+      };
+    }
+
+    const point = { row: line, column };
+    const lastNode = this.lastNodeAtPoint(cached.tree, line, column);
+    if (!lastNode) return { lastNode: null, lastCommand: null, isLastNode: true, commandName: null, argumentIndex: null };
+
+    // Find command by traversing up
+    let lastCommand: SyntaxNode | null = lastNode;
+    while (lastCommand && !isCommand(lastCommand)) {
+      if (lastCommand.isMissing && lastCommand.previousSibling) {
+        lastCommand = lastCommand.previousSibling;
+        continue;
+      }
+      lastCommand = lastCommand?.parent;
+    }
+
+    const commandNode = lastCommand;
+
+    // Handle multi-line arguments
+    const argumentIndex = commandNode ?
+      this.getArgumentIndexWithEscapes(cached.document, commandNode, point) : null;
+
+    // Check for trailing spaces or if cursor is after content
+    const isLast = cached.document.getLine(line).slice(0, column + 1).match(/\s+$/) !== null
+      || (lastNode.endPosition.row === line && lastNode.endPosition.column <= column - 1 ||
+        line < lastNode.endPosition.row);
+
+    return {
+      lastNode: lastNode,
+      lastCommand: commandNode,
+      isLastNode: isLast,
+      commandName: commandNode?.firstNamedChild?.text || '',
+      argumentIndex,
+    };
+  }
+
+  /**
+   * Get argument index considering escaped newlines
+   */
+  private getArgumentIndexWithEscapes(
+    doc: LspDocument,
+    command: Parser.SyntaxNode,
+    point: Point,
+  ): number {
+    // If cursor is before command name, return -1
+    if (point.row < command.startPosition.row ||
+      point.row === command.startPosition.row &&
+      point.column < command.startPosition.column) {
+      return -1;
+    }
+
+    // If cursor is within or right after command name, return 0
+    const commandName = command.firstNamedChild;
+    if (!commandName ||
+      point.row < commandName.endPosition.row ||
+      point.row === commandName.endPosition.row &&
+      point.column <= commandName.endPosition.column) {
+      return 0;
+    }
+
+    // Start counting from 1 (after command name)
+    let index = 1;
+
+    // Examine each child after command name
+    for (let i = 1; i < command.children.length; i++) {
+      const child = command.children[i];
+      if (!child) continue;
+
+      // If cursor is before this child's end, we found our position
+      if (point.row < child.endPosition.row ||
+        point.row === child.endPosition.row &&
+        point.column <= child.endPosition.column) {
+        break;
+      }
+      index++;
+    }
+
+    return index;
   }
 
   /**
