@@ -11,7 +11,7 @@ import {
 import { execEscapedSync } from '../src/utils/exec';
 import * as TreeSitterUtils from '../src/utils/tree-sitter';
 import { initializeParser } from '../src/parser';
-import { isCommandName } from '../src/utils/node-types';
+import { isCommandName, isCommandWithName, isOption } from '../src/utils/node-types';
 import { LspDocument } from '../src/document';
 import { getChildNodes, getNodeAtPosition, getRange, pointToPosition } from '../src/utils/tree-sitter';
 import { Analyzer } from '../src/future-analyze';
@@ -20,6 +20,9 @@ import { SymbolKind } from 'vscode-languageserver';
 import { flattenNested } from '../src/utils/flatten';
 import * as Locations from '../src/utils/locations';
 import { SyntaxNode } from 'web-tree-sitter';
+import { PrebuiltDocumentationMap } from '../src/utils/snippets';
+import { getPrebuiltSymbol, getPrebuiltSymbolInfo, hasPrebuiltSymbolInfo } from '../src/features/prebuilt-symbol-info';
+import { FishCompletionItem } from '../src/utils/completion/types';
 
 describe('analyzer test suite', () => {
   setLogger();
@@ -785,47 +788,52 @@ describe('analyzer test suite', () => {
   // @TODO: implement completions tests
   describe('completions', () => {
     describe('completions from FishDocumentSymbol', () => {
-      // it('completions NESTED "test"', () => {
-      //   const { document } = setupAndFind(TestWorkspace.functionsOnly.documents, 'functions/nested.fish');
-      //   if (!document) fail();
-      //
-      //   /** after `test` commandName inside `nested` */
-      //   let pos = { line: 4, character: 7 };
-      //   expect(analyzer.getCompletionSymbols(document, pos).map(s => s.name)).toEqual([
-      //     'nested',
-      //     'test',
-      //   ]);
-      //
-      //   /** after final `end` outside of `nested` */
-      //   pos = { line: 5, character: 4 };
-      //   expect(analyzer.getCompletionSymbols(document, pos).map(s => s.name)).toEqual([
-      //     'nested'
-      //   ]);
-      // });
+      it('completions NESTED "test"', () => {
+        const { document } = setupAndFind(TestWorkspace.functionsOnly.documents, 'functions/nested.fish');
+        if (!document) fail();
 
-      // it('completions PRIVATE "test"', () => {
-      //   const { document } = setupAndFind(TestWorkspace.functionsOnly.documents, 'functions/private.fish');
-      //   if (!document) fail();
-      //
-      //   // let pos = getRange(analyzer.cached.get(document.uri)?.nodes.find(s => isCommandName(s) && s.text === 'test')!)!.end;
-      //   // console.log(pos);
-      //
-      //   // /** after `test` commandName inside `nested` */
-      //   //   let pos = {line: 1, character: 8};
-      //   //   // console.log(analyzer.getCompletionSymbols(document, pos).map(s => s.name));
-      //   //   expect(analyzer.getCompletionSymbols(document, pos).map(s => s.name)).toEqual([
-      //   //     'private',
-      //   //   ])
-      //   //
-      //   //   /** after final `end` outside of `nested` */
-      //   //   pos = { line: 5, character: 4 };
-      //   //   // console.log(analyzer.getCompletionSymbols(document, pos).map(s => s.name));
-      //   //   expect(analyzer.getCompletionSymbols(document, pos).map(s => s.name)).toEqual([
-      //   //     'private',
-      //   //     'test'
-      //   //   ]);
-      //   // });
-      // });
+        /** after `test` commandName inside `nested` */
+        let pos = { line: 4, character: 7 };
+        expect(analyzer.getCompletionSymbols(document, pos).map(s => s.label)).toEqual([
+          'nested',
+          'test',
+        ]);
+
+        /** after final `end` outside of `nested` */
+        pos = { line: 5, character: 4 };
+        expect(analyzer.getCompletionSymbols(document, pos).map(s => s.label)).toEqual([
+          'nested',
+        ]);
+      });
+
+      it.only('completions PRIVATE "test"', () => {
+        const { document } = setupAndFind(TestWorkspace.functionsOnly.documents, 'functions/private.fish');
+        if (!document) fail();
+        const nodes = analyzer.cached.get(document.uri)?.nodes || [];
+
+        let pos = Locations.Position.fromSyntaxNode(nodes.find(s => isCommandName(s) && s.text === 'test'));
+        const result: FishCompletionItem[] = analyzer.getCompletionSymbols(document, pos);
+        console.log(result.length);
+
+        // let pos = getRange(analyzer.cached.get(document.uri)?.nodes.find(s => isCommandName(s) && s.text === 'test')!)!.end;
+        // console.log(pos);
+
+        // /** after `test` commandName inside `nested` */
+        pos = { line: 1, character: 8 };
+        console.log(analyzer.getCompletionSymbols(document, pos).map(s => s.label));
+        //   expect(analyzer.getCompletionSymbols(document, pos).map(s => s.name)).toEqual([
+        //     'private',
+        //   ])
+        //
+        //   /** after final `end` outside of `nested` */
+        //   pos = { line: 5, character: 4 };
+        //   // console.log(analyzer.getCompletionSymbols(document, pos).map(s => s.name));
+        //   expect(analyzer.getCompletionSymbols(document, pos).map(s => s.name)).toEqual([
+        //     'private',
+        //     'test'
+        //   ]);
+        // });
+      });
 
       /**
        * WRONG!!!
@@ -1091,26 +1099,117 @@ describe('analyzer test suite', () => {
   //     // skip comments
   //   })
   //
-  //   describe('fish-lsp env variables', () => {
-  //       it('$fish_lsp_logsfile', () => {
-  //
-  //       })
-  //
-  //       it('$fish_lsp_all_indexed_paths', () => {
-  //
-  //       })
-  //       it('$fish_lsp_show_client_popups', () => {
-  //
-  //       })
-  //
-  //       it('$fish_lsp_diagnostic_disable_error_codes', () => {
-  //
-  //       })
-  //       it('$fish_lsp_diagnostic_disable_error_codes 2001', () => {
-  //
-  //       })
-  //   })
-  // })
+  describe('fish-lsp env variables', () => {
+    it('$fish_lsp_enabled_handlers', () => {
+      const { doc, rootNode, symbols } = testSymbolFiltering('config.fish', ` 
+  set -x fish_lsp_enabled_handlers 'formatting' 'complete' 'hover' # 'rename' 'definition' 'references' 'diagnostics' 'signatureHelp' 'codeAction' 'index'
+       `);
+
+      const focusedItem = getChildNodes(rootNode).find((n) => {
+        return n.text === '\'hover\'';
+      });
+
+      // console.log(focusedItem?.text, focusedItem?.startPosition, focusedItem?.endPosition);
+      const loc = Locations.Position.fromPoint(focusedItem!.startPosition);
+      const cmd = analyzer.commandNodeAtPoint(doc.uri, loc.line, loc.character)!;
+      console.log(cmd.text, '|', cmd.type);
+      if (isCommandWithName(cmd, 'set', 'read')) {
+        const v = cmd.childrenForFieldName('argument').find(n => !isOption(n));
+        console.log('v', v?.text);
+        cmd?.descendantsOfType('argument').forEach(a => {
+          console.log(a.text, '|', a.type);
+        });
+        console.log();
+      }
+
+      const fishLspEnvVariable = flattenNested(...symbols).find((sym) => {
+        if (sym.isFunction()) return false;
+        return sym.isVariable() && ['set', 'read'].includes(sym.getParentKeyword())
+          && Locations.Range.containsRange(
+            Locations.Range.fromNode(sym.parentNode),
+            Locations.Range.fromNode(focusedItem),
+          ) && PrebuiltDocumentationMap.getByName(sym.name);
+      });
+
+      console.log(getPrebuiltSymbolInfo(fishLspEnvVariable));
+      // const hover = analyzer.getHover(doc);
+      // console.log(hover);
+    });
+
+    it.only('$fish_lsp_all_indexed_paths', () => {
+      const { doc, rootNode, symbols } = testSymbolFiltering('config.fish', ` 
+set -x fish_lsp_all_indexed_paths $HOME/.config/fish/ /usr/share/fish $HOME/.local/share/fish
+       `);
+
+      const focusedItem = getChildNodes(rootNode).find((n) => {
+        return n.text === '$HOME/.local/share/fish';
+      });
+      const isPrebuiltSymbol = hasPrebuiltSymbolInfo(focusedItem, flattenNested(...symbols));
+      const symbol = getPrebuiltSymbol(focusedItem, flattenNested(...symbols));
+      if (isPrebuiltSymbol) {
+        // console.log(getPrebuiltSymbolInfo(symbol));
+        expect(getPrebuiltSymbolInfo(symbol))
+          .toMatch(`\`\`\`fish
+$fish_lsp_all_indexed_paths
+\`\`\`
+___
+fishlsp variable
+
+fish file paths to include as workspaces (default: ['/usr/share/fish', '$HOME/.config/fish'])
+___
+**Path:** *~/.config/fish/config.fish*
+**Scope:** GLOBAL
+**Exported:** true
+___
+\`\`\`fish
+set -x fish_lsp_all_indexed_paths $HOME/.config/fish/ /usr/share/fish $HOME/.local/share/fish
+\`\`\``,
+          );
+      }
+    });
+
+    it.only('$fish_lsp_show_client_popups', () => {
+      const { doc, rootNode, symbols } = testSymbolFiltering('config.fish', ` 
+set -x fish_lsp_show_client_popups true
+       `);
+      const focusedItem = getChildNodes(rootNode).find((n) => {
+        return n.text === 'true';
+      });
+      const isPrebuiltSymbol = hasPrebuiltSymbolInfo(focusedItem, flattenNested(...symbols));
+      const symbol = getPrebuiltSymbol(focusedItem, flattenNested(...symbols));
+      expect(isPrebuiltSymbol).toBeTruthy();
+      if (isPrebuiltSymbol) {
+        // console.log(getPrebuiltSymbolInfo(symbol));
+        expect(getPrebuiltSymbolInfo(symbol)).toBeTruthy();
+      }
+    });
+
+    it.only('fish_add_path', () => {
+      const { doc, rootNode, symbols } = testSymbolFiltering('config.fish', ` 
+fish_add_path --append $HOME/.local/bin
+fish_add_path --append /usr/local/bin
+       `);
+
+      const focusedItem = getChildNodes(rootNode).find((n) => {
+        return n.text === '/usr/local/bin';
+      });
+      // const isPrebuiltSymbol = hasPrebuiltSymbolInfo(focusedItem, flattenNested(...symbols));
+      const symbol = analyzer.getPrebuiltSymbol(doc, Locations.Position.fromPoint(focusedItem?.endPosition));
+      // console.log(symbol);
+      expect(symbol).toBeTruthy();
+      if (symbol) {
+        // console.log(getPrebuiltSymbolInfo(symbol));
+        expect(getPrebuiltSymbolInfo(symbol)).toBeTruthy();
+      }
+    });
+
+    // it('$fish_lsp_diagnostic_disable_error_codes', () => {
+    //
+    // });
+    // it('$fish_lsp_diagnostic_disable_error_codes 2001', () => {
+    //
+    // });
+  });
 
   // @TODO
   // describe('getSignatureHelp()', () => {

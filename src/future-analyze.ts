@@ -3,18 +3,19 @@ import Parser
 import { LspDocument } from './document';
 import { FishSymbol, getScopedFishSymbols } from './utils/symbol';
 import * as LSP from 'vscode-languageserver';
-import { ancestorMatch, /*containsRange,*/ getChildNodes, getNodeAtPosition, getRange, isPositionBefore, positionToPoint, getNodeAtPoint } from './utils/tree-sitter';
+import { /* ancestorMatch, containsRange, isPositionBefore, */ getChildNodes, getNodeAtPosition, getRange, positionToPoint, getNodeAtPoint } from './utils/tree-sitter';
 import { isSourceFilename } from './diagnostics/node-types';
 import { SyncFileHelper } from './utils/file-operations';
-import { Location, Position, SymbolKind } from 'vscode-languageserver';
-// import { findAncestor } from 'typescript';
-import { isCommand, isCommandName, isType } from './utils/node-types';
+import { Location, Position /*, SymbolKind */ } from 'vscode-languageserver';
+import { isCommand, isCommandName /*, isType */ } from './utils/node-types';
 import { execEscapedSync } from './utils/exec';
 import { flattenNested } from './utils/flatten';
 import * as Locations from './utils/locations';
-import { isBuiltin } from './utils/builtins';
+// import { isBuiltin } from './utils/builtins';
 import { Point } from 'tree-sitter';
-// import { isFunction } from './utils/builtins';
+import { PrebuiltDocumentationMap } from './utils/snippets';
+import { getPrebuiltSymbolInfo } from './features/prebuilt-symbol-info';
+import { FishCompletionItem } from './utils/completion/types';
 
 export type AnalyzedDocument = {
   document: LspDocument;
@@ -338,39 +339,74 @@ export class Analyzer { // @TODO rename to Analyzer
     return undefined;
   }
 
+  getPrebuiltSymbol(document: LspDocument, position: Position): FishSymbol | null {
+    const tree = this.cached.get(document.uri)?.tree;
+    const doc = this.cached.get(document.uri)?.document;
+    if (!tree || !doc) return null;
+
+    const cursor = this.analyzeCursorPosition(doc.uri, position.line, position.character);
+    const commandName = cursor.commandName || '';
+    const lastNode = cursor.lastNode;
+    const commandNode = cursor.lastCommand;
+
+    let focusedSymbol: FishSymbol | undefined = undefined;
+
+    if (['set', 'read'].includes(commandName)) {
+      focusedSymbol = flattenNested(...this.cached.get(doc.uri)?.symbols || [])
+        .find(sym => {
+          if (sym.isVariable() &&
+            ['set', 'read'].includes(sym.getParentKeyword()) &&
+            PrebuiltDocumentationMap.getByName(sym.name) &&
+            Locations.Range.containsRange(
+              Locations.Range.fromNode(sym.parentNode),
+              Locations.Range.fromNode(cursor.lastNode!))
+          ) {
+            return true;
+          }
+          return false;
+        });
+    }
+    if (
+      focusedSymbol === undefined
+      && PrebuiltDocumentationMap.getByName(commandName)
+      && commandNode && lastNode
+    ) {
+      const cmdPos = Locations.Position.fromSyntaxNode(commandNode);
+      focusedSymbol = this.getDefinitionSymbol(document, cmdPos).pop()!;
+    }
+    return focusedSymbol || null;
+  }
+
+  getPrebuiltSymbolInfo(document: LspDocument, position: Position): string | null {
+    const symbol = this.getPrebuiltSymbol(document, position);
+    if (symbol) return getPrebuiltSymbolInfo(symbol);
+    return null;
+  }
+
   /**
-   * @TODO
-   *
-   * getCompletionSymbols - local symbols to send to a onCompletion request in server
-   * @returns FishDocumentSymbol[]
-   */
-  getCompletionSymbols(document: LspDocument, position: Position): FishSymbol[] {
-    const _cached = this.cached.get(document.uri);
-    if (!_cached) return [];
-    const { symbols, tree } = _cached;
-    const currentNode = getNodeAtPosition(tree, position);
+ * getCompletionSymbols - local symbols to send to a onCompletion request in server
+ * @returns FishDocumentSymbol[]
+ */
+  getCompletionSymbols(document: LspDocument, position: Position): FishCompletionItem[] {
+    const cached = this.cached.get(document.uri);
+    if (!cached?.symbols || !cached.tree) return [];
+    const symbols = cached.symbols;
+
+    const currentNode = getNodeAtPosition(cached.tree, position);
     if (!currentNode) return [];
 
-    const parentFunctions = ancestorMatch(currentNode, n => n.type === 'function_definition')
-      .map(n => n.child(1)!);
+    const flatSymbols = flattenNested(...symbols)
+      .filter((symbol) => symbol.isCallableAtPosition(position));
 
-    const result: FishSymbol[] = [];
-    const _symbols = flattenNested(...symbols)
-      .filter(s => {
-        return !parentFunctions.some(p => s.node.equals(p));
-      });
-    for (const s of _symbols) {
-      if (!s.isCallableAtPosition(position)) {
-        // && !(s.kind === SymbolKind.Function && containsRange(s.range, getRange(currentNode)))) {
-        continue;
-      }
-      if (s.kind === SymbolKind.Function && isPositionBefore(position, s.range.start)) {
-        continue;
-      }
-      result.push(s);
-    }
-    return result;
-    // return flattenNested(...symbols).filter(s => precedesRange(getRange(s.node), getRange(currentNode)));
+    /** returns the unique CompletionItem array, removing items after their first occurrence */
+    return [
+      ...flatSymbols.map(s => s.toCompletionItem()),
+      ...Array.from(this.workspaceSymbols.values())
+        .filter(val => val.at(0)!.uri !== document.uri) /* remove functions that aren't callable at our document's position */
+        .map(val => val.at(0)!.toCompletionItem()),
+    ].filter((item, index, array) =>
+      array.findIndex(other => other.label === item.label) === index,
+    );
   }
 
   getNodeAtRange(uri: string, range: LSP.Range): SyntaxNode | undefined {
@@ -582,16 +618,16 @@ export class Analyzer { // @TODO rename to Analyzer
   }
 
   /**
-   * getSignatureInformation - looks through the symbols for functions that can be used
-   * to create SignatureInfo objects to be used in the server. Only function SymbolKind's
-   * will be used.
-   */
+ * getSignatureInformation - looks through the symbols for functions that can be used
+ * to create SignatureInfo objects to be used in the server. Only function SymbolKind's
+ * will be used.
+ */
   // getSignatureInformation() {}
 
   /**
-   * getWorkspaceSymbols - looks up a query symbol in the entire cachedDocuments object.
-   * An empty query will return all symbols in the current workspace.
-   */
+ * getWorkspaceSymbols - looks up a query symbol in the entire cachedDocuments object.
+ * An empty query will return all symbols in the current workspace.
+ */
   getWorkspaceSymbols(query: string = ''): LSP.WorkspaceSymbol[] {
     const allSymbols = Array.from(this.workspaceSymbols.values()).flat().map(s => LSP.WorkspaceSymbol.create(s.name, s.kind, s.uri, s.range));
     if (query === '') {

@@ -42,6 +42,13 @@ export class MarkdownDetail {
     return this;
   }
 
+  addFromDetail(detailText: string) {
+    for (const line of detailText.split('\n')) {
+      this.addText(line);
+    }
+    return this;
+  }
+
   build() {
     return this._string.trimEnd();
   }

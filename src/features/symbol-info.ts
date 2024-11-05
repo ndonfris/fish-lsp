@@ -4,8 +4,8 @@ import { getPathProperties } from '../utils/translation';
 import { isComment, isEmptyLine, isEscapeSequence, isFunctionDefinition, isInlineComment, isMatchingOption, isNewline, isOption, Option } from '../utils/node-types';
 import { MarkdownDetail } from '../utils/detail-builder';
 import { md } from '../utils/markdown-builder';
-import { getPrecedingComments } from '../utils/tree-sitter';
 import { SymbolKind } from 'vscode-languageserver';
+import * as LSP from 'vscode-languageserver';
 
 export class SymbolInfoBuilder {
   constructor(public _symbol: FishSymbol) { }
@@ -109,6 +109,34 @@ export class FunctionSymbolInfo extends SymbolInfoBuilder {
     return argumentNames;
   }
 
+  public get argparseGroups(): FishSymbol[][] {
+    const rangeMap = new Map<string, FishSymbol[]>();
+
+    for (const symbol of this.argparseOpts) {
+      const range = getArgparseRangeKey(symbol.selectionRange);
+      if (!rangeMap.has(range)) {
+        rangeMap.set(range, []);
+      }
+      rangeMap.get(range)!.push(symbol);
+    }
+
+    return Array.from(rangeMap.values());
+  }
+
+  private get groupFlags() {
+    const rangeMap = new Map<string, string[]>();
+
+    for (const symbol of this.argparseOpts) {
+      const flag = getArgparseFlagString(symbol);
+      const range = getArgparseRangeKey(symbol.selectionRange);
+      if (!rangeMap.has(range)) {
+        rangeMap.set(range, []);
+      }
+      rangeMap.get(range)!.push(flag);
+    }
+    return Array.from(rangeMap.values());
+  }
+
   toMarkdown(): string {
     const result = MarkdownDetail.create();
     result.addText(md.codeBlock('fish', `${this._symbol.name} ${this.argString}`.trimEnd()));
@@ -120,14 +148,25 @@ export class FunctionSymbolInfo extends SymbolInfoBuilder {
     result.addSection('Inherit Variable', ...this.inheritVariable.map(s => s.name) ?? []);
     result.addSection('On Variable', ...this.onVariable.map(s => s.name) ?? []);
     result.addSection('No Scope Shadowing', boolOrEmpty(this.noScopeShadowing) ?? []);
-    result.addSection('Flags', ...this.argparseOpts.map(s => s.name) ?? []);
+    result.addSection('Flags', ...this.groupFlags.map(flagArr => `[ ${flagArr.join(' | ')} ]`));
     result.addText(md.separator());
     result.addText(md.codeBlock('fish', groupCommentsWithProperFormatting(this._symbol.parentNode, this._symbol.kind)));
     return result.build();
   }
 
   toDetail(): string {
-    return this.toMarkdown();
+    const result = MarkdownDetail.create();
+    result.addSection('Description', this.description.slice(1, this.description.length - 1));
+    result.addSection('Autoloaded', boolOrEmpty(this.isAutoLoad));
+    result.addSection('Path', getPathProperties(this.path).shortenedPath);
+    result.addSection('Argument Names', ...this.argumentNames.map(s => s.name) ?? []);
+    result.addSection('Inherit Variable', ...this.inheritVariable.map(s => s.name) ?? []);
+    result.addSection('On Variable', ...this.onVariable.map(s => s.name) ?? []);
+    result.addSection('No Scope Shadowing', boolOrEmpty(this.noScopeShadowing) ?? []);
+    result.addSection('Flags', ...this.groupFlags.map(flagArr => `[ ${flagArr.join(' | ')} ]`));
+    result.addText(md.separator());
+    result.addText(md.codeBlock('fish', groupCommentsWithProperFormatting(this._symbol.parentNode, this._symbol.kind)));
+    return result.build();
   }
 
   toString(): string {
@@ -182,7 +221,13 @@ export class VariableSymbolInfo extends SymbolInfoBuilder {
   }
 
   toDetail() {
-    return this.toMarkdown();
+    const result = MarkdownDetail.create();
+    result.addSection('Path', md.italic(getPathProperties(this._symbol.uri).shortenedPath));
+    result.addSection('Scope', this._symbol.modifier);
+    result.addSection('Exported', boolOrEmpty(this._symbol.isGlobalScope()));
+    result.addText(md.separator());
+    result.addText(md.codeBlock('fish', groupCommentsWithProperFormatting(this._symbol.parentNode, this._symbol.kind)));
+    return result.build();
   }
 
   toString(): string {
@@ -198,11 +243,11 @@ export class VariableSymbolInfo extends SymbolInfoBuilder {
 
 export type SymbolInfo = FunctionSymbolInfo | VariableSymbolInfo;
 
-function boolOrEmpty(value: boolean): string {
+export function boolOrEmpty(value: boolean): string {
   return value ? 'true' : '';
 }
 
-function removePrecedingBlockWhitespace(node: SyntaxNode): string {
+export function removePrecedingBlockWhitespace(node: SyntaxNode): string {
   const lines = node.text.split('\n');
   const lastLine = node.lastChild?.startPosition.column || 0;
   return lines.map((line, index) => {
@@ -213,7 +258,7 @@ function removePrecedingBlockWhitespace(node: SyntaxNode): string {
 
 function getPrecedingCommentString(node: SyntaxNode): string {
   const comments: string[] = [];
-  let curr : SyntaxNode | null = node.previousNamedSibling;
+  let curr: SyntaxNode | null = node.previousNamedSibling;
   while (curr && !isEmptyLine(curr) && !isInlineComment(curr) && (isComment(curr) || isNewline(curr))) {
     comments.unshift(curr.text);
     curr = curr.previousSibling;
@@ -292,3 +337,12 @@ export const OptionDesc = (node: SyntaxNode): VarOpt => {
       return {} as never;
   }
 };
+
+export function getArgparseRangeKey(selectionRange: LSP.Range) {
+  return `${selectionRange.start.line}-${selectionRange.start.character},${selectionRange.end.line}-${selectionRange.end.character}`;
+}
+
+export function getArgparseFlagString(symbol: FishSymbol) {
+  const flagName = symbol.name.replace('_flag_', '');
+  return flagName.length === 1 ? `-${flagName}` : `--${flagName}`;
+}

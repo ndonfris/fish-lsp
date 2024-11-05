@@ -9,6 +9,7 @@ import { flattenNested } from './flatten';
 import { getCallableRanges } from './scope';
 import { getPathProperties } from './translation';
 import { FunctionSymbolInfo, SymbolInfoBuilder, VariableSymbolInfo } from '../features/symbol-info';
+import { FishCompletionItem } from './completion/types';
 // import { getCallableRanges, getCallableRanges2, rangesToNodes, removeRange } from './scope';
 export type ModifierType = 'LOCAL' | 'FUNCTION' | 'GLOBAL' | 'UNIVERSAL';
 
@@ -33,7 +34,7 @@ export class FishSymbol {
     public parentNode: SyntaxNode,
     public parent: FishSymbol | null = null,
     public children: FishSymbol[] = [],
-  ) {}
+  ) { }
 
   public static create(
     name: string,
@@ -136,6 +137,17 @@ export class FishSymbol {
     }
   }
 
+  public getParentKeyword(): string {
+    if (this.isFunction()) {
+      return 'function';
+    }
+    if (this.isVariable()) {
+      const parent = this.parentNode;
+      return parent.text.split(' ').at(0)!;
+    }
+    return '';
+  }
+
   /**
    * Get all the nodes that are within the callable ranges of the symbol, as a flat array.
    */
@@ -203,6 +215,10 @@ export class FishSymbol {
       default:
         return new SymbolInfoBuilder(this).toMarkdown();
     }
+  }
+
+  toCompletionItem(): FishCompletionItem {
+    return FishCompletionItem.fromSymbol(this);
   }
 }
 
@@ -414,7 +430,21 @@ function processArgparseCommand(node: SyntaxNode, uri: string, parentSymbol: Fis
   const isBefore = (a: SyntaxNode, b: SyntaxNode) => a.startIndex < b.startIndex;
 
   node.childrenForFieldName('argument')
-    .filter(n => !isEscapeSequence(n) && !isOption(n) && isBefore(n, endChar))
+    .filter(n => {
+      switch (true) {
+        case isMatchingOptionOrOptionValue(n, Option.create('-X', '--max-args')):
+        case isMatchingOptionOrOptionValue(n, Option.create('-N', '--min-args')):
+        case isMatchingOptionOrOptionValue(n, Option.create('-x', '--exclusive')):
+        case isMatchingOptionOrOptionValue(n, Option.create('-n', '--name')):
+        case isMatchingOption(n, Option.create('-h', '--help')):
+        case isMatchingOption(n, Option.create('-s', '--stop-nonopt')):
+        case isMatchingOption(n, Option.create('-i', '--ignore')):
+          return false;
+        default:
+          return true;
+      }
+    })
+    .filter(n => !isEscapeSequence(n) && isBefore(n, endChar))
     .forEach((n: SyntaxNode) => {
       let flagNames = n?.text;
       if (isString(n)) {
