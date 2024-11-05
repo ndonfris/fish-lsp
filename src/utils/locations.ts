@@ -18,6 +18,10 @@ export namespace Range {
     return toString(fromNode(node));
   }
 
+  export function fromNumbers(startLine: number, startCharacter: number, endLine: number, endCharacter: number): LSP.Range {
+    return LSP.Range.create(startLine, startCharacter, endLine, endCharacter);
+  }
+
   export const fromTextSpan = (span: FishProtocol.TextSpan): LSP.Range => fromLocations(span.start, span.end);
 
   export const toTextSpan = (range: LSP.Range): FishProtocol.TextSpan => ({

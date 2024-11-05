@@ -1,18 +1,20 @@
 import * as LSP from 'vscode-languageserver';
 import { SymbolKind, Range, Location } from 'vscode-languageserver';
+import { Simple } from './simple';
 import * as Parser from 'web-tree-sitter';
 import { SyntaxNode } from 'web-tree-sitter';
 import { setLogger } from './logger-setup';
 import { initializeParser } from '../src/parser';
 import * as Locations from '../src/utils/locations';
 import { flattenNested } from '../src/utils/flatten';
-import { getScopedFishSymbols, FishSymbol } from '../src/utils/symbol';
+import { getScopedFishSymbols, FishSymbol, FunctionInfo } from '../src/utils/symbol';
 // import { getCallableRanges, getCallableRanges2, rangesToNodes, removeRange } from './scope';
 import { getCallableRanges, RangesList } from '../src/utils/scope';
 import { getChildNodes } from '../src/utils/tree-sitter';
 import { URI } from 'vscode-uri';
 import { getPathProperties } from '../src/utils/translation';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
+import { isComment, isEmptyLine, isInlineComment } from '../src/utils/node-types';
 
 function rangesToNodes(ranges: Range[], root: SyntaxNode): SyntaxNode[] {
   const nodes: SyntaxNode[] = [];
@@ -238,7 +240,7 @@ function findInheritingFunctions(symbol: FishSymbol): FishSymbol[] {
   // Recursively search through symbol tree
   function searchForInheritingFunctions(currentSymbol: FishSymbol) {
     if (currentSymbol.isFunction() &&
-      currentSymbol.functionInfo?.inheritVariable.some(v => v.name === symbol.name)) {
+      currentSymbol.functionInfo.inheritVariable?.some(v => v.name === symbol.name)) {
       inheritingFunctions.push(currentSymbol);
     }
 
@@ -845,7 +847,7 @@ end`,
     // console.log('fnc', for_loop?.firstNamedChild?.text, for_loop?.firstNamedChild?.type);
   });
 
-  it.only('test uri isScript', () => {
+  it('test uri isScript', () => {
     const uris: string[] = [
       'file:///home/user/.config/fish/config.fish',
       'file:///home/user/.config/fish/functions/foo.fish',
@@ -865,5 +867,81 @@ end`,
     });
     // eslint-disable-next-line dot-notation
     console.log(process.env['fish_function_path']?.split(':'));
+  });
+
+  it.only('test function detail', () => {
+    const uri = 'file:///home/user/.config/fish/functions/foo.fish';
+    const tree = parser.parse(`
+# variable
+function foo --description 'this is foo' --argument-names a b c d --inherit-variable x y z
+    echo "inside foo: $argv"
+end
+
+function bar
+    function baz --inherit-variable x y z --description 'this is baz'
+        echo "inside baz: $argv"
+    end
+    echo "inside bar"
+end
+
+#
+
+# theeee
+# the alphabet
+set -lx alphabet a b c d e f g h i j k l m n o p q r s t u v w x y z
+`);
+    const symbols = getScopedFishSymbols(tree.rootNode, uri);
+    flattenNested(...symbols).forEach((sym) => {
+      // if (sym.name !== 'alphabet') return;
+      // let curr : SyntaxNode | null = sym.parentNode.previousNamedSibling!;
+      // while (curr && !isEmptyLine(curr) && !isInlineComment(curr)) {
+      //   // console.log(curr.text.split('\n')[0]!, Locations.Range.fromNodeToString(curr));
+      //   console.log(Simple.node(curr));
+      //   curr = curr.previousSibling;
+      // }
+      if (sym.isFunction()) {
+        console.log('='.repeat(40));
+        console.log(sym.functionInfo.toMarkdown());
+        console.log('='.repeat(40));
+      } else if (sym.isVariable()) {
+        console.log('='.repeat(40));
+        console.log(sym.variableInfo.toMarkdown());
+        console.log('='.repeat(40));
+      }
+    });
+    expect(true).toBeTruthy();
+  });
+
+  it('has argv', () => {
+    const uri = 'file:///home/user/.config/fish/functions/foo.fish';
+    const tree = parser.parse(`
+function foo 
+    function bar 
+        echo bar: $argv
+    end
+end
+`);
+    const symbols = getScopedFishSymbols(tree.rootNode, uri);
+    flattenNested(...symbols).forEach((sym) => {
+      if (sym.isFunction()) {
+        console.log('='.repeat(40));
+        let hasArgv = false;
+        console.log(sym.name);
+        const childArgv = sym.children.find(c => c.name === 'argv');
+        if (!childArgv) return;
+        childArgv.getNodesInCallableRanges().forEach(n => {
+          if (n.text === 'argv' && ['name', 'variable_name'].includes(n.type)) {
+            hasArgv = true;
+          }
+        });
+        console.log(childArgv?.name, childArgv?.kindString, childArgv?.range, childArgv?.selectionRange, childArgv?.getLocalCallableRanges(), { hasArgv });
+        console.log('='.repeat(40));
+      } else if (sym.isVariable()) {
+        console.log('='.repeat(40));
+        console.log(sym.variableInfo.toString());
+        console.log('='.repeat(40));
+      }
+    });
+    expect(true).toBeTruthy();
   });
 });

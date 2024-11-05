@@ -1,3 +1,4 @@
+import os from 'os'
 import { DocumentSymbol, FoldingRange, FoldingRangeKind, SelectionRange, SymbolInformation, SymbolKind, TextDocumentEdit, TextDocumentItem, TextEdit } from 'vscode-languageserver';
 import * as LSP from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
@@ -114,6 +115,8 @@ export function getPathProperties(pathOrUri: string | URI): {
   normalizedPath: string;
   /** URI object */
   uri: URI;
+  /* normalizedPath with replaced os.homedir() with '~' */
+  shortenedPath: string;
 } {
   // Convert URI to string path if needed
   const rawPath = uriToPath(pathOrUri.toString());
@@ -149,6 +152,8 @@ export function getPathProperties(pathOrUri: string | URI): {
   // A file is a script if it doesn't match any config patterns
   const isScript = !(isConfigFile || isFunctionPath || isCompletionPath || isConfdPath);
 
+  const shortenedPath = normalizedPath.replace(os.homedir(), '~') || normalizedPath;
+
   return {
     rawPath,
     basename,
@@ -164,6 +169,7 @@ export function getPathProperties(pathOrUri: string | URI): {
     isScript,
     normalizedPath,
     uri,
+    shortenedPath,
   };
 }
 

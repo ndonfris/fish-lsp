@@ -438,7 +438,6 @@ export function getPrecedingComments(node: SyntaxNode | null): string {
   }
   return [
     commentsHelper(node),
-    node.text,
   ].join('\n');
 }
 

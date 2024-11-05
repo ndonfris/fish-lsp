@@ -218,6 +218,10 @@ export function isSemicolon(node: SyntaxNode): boolean {
   return node.type === ';';
 }
 
+export function isEmptyLine(node: SyntaxNode): boolean {
+  return node.text === '\n\n';
+}
+
 export function isNewline(node: SyntaxNode): boolean {
   return node.type === '\n';
 }

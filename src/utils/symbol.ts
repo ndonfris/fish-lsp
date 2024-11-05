@@ -8,7 +8,7 @@ import { findParent, getBlockDepth } from './tree-sitter';
 import { flattenNested } from './flatten';
 import { getCallableRanges } from './scope';
 import { getPathProperties } from './translation';
-import { md } from './markdown-builder';
+import { FunctionSymbolInfo, SymbolInfoBuilder, VariableSymbolInfo } from '../features/symbol-info';
 // import { getCallableRanges, getCallableRanges2, rangesToNodes, removeRange } from './scope';
 export type ModifierType = 'LOCAL' | 'FUNCTION' | 'GLOBAL' | 'UNIVERSAL';
 
@@ -20,17 +20,6 @@ const ModifierParentNode: Record<ModifierType, ModifierCallbackFn> = {
   ['GLOBAL']: (symbol: FishSymbol) => findParent(symbol.parentNode, (n) => isType(n, 'program')),
   ['UNIVERSAL']: (symbol: FishSymbol) => findParent(symbol.parentNode, (n) => isType(n, 'program')),
 } as const;
-
-export type FunctionInfo = {
-  name: string;
-  uri: string;
-  description: string;
-  isAutoLoad: boolean;
-  noScopeShadowing: boolean;
-  argumentNames: FishSymbol[];
-  inheritVariable: FishSymbol[];
-  onVariable: FishSymbol[];
-};
 
 export class FishSymbol {
   constructor(
@@ -44,7 +33,7 @@ export class FishSymbol {
     public parentNode: SyntaxNode,
     public parent: FishSymbol | null = null,
     public children: FishSymbol[] = [],
-  ) { }
+  ) {}
 
   public static create(
     name: string,
@@ -147,6 +136,23 @@ export class FishSymbol {
     }
   }
 
+  /**
+   * Get all the nodes that are within the callable ranges of the symbol, as a flat array.
+   */
+  getNodesInCallableRanges(): SyntaxNode[] {
+    return rangesToNodes(this.getLocalCallableRanges(), this.getParentScope());
+  }
+
+  /**
+   * may or may not include definition symbol
+   */
+  getLocalReferenceNodes(): SyntaxNode[] {
+    return this.getNodesInCallableRanges().filter(node => {
+      if (!['name', 'variable_name'].includes(node.type)) return false;
+      if (this.name === node.text) return true;
+    }) || [];
+  }
+
   isGlobalScope() {
     return this.modifier === 'GLOBAL'
       || this.modifier === 'UNIVERSAL';
@@ -178,82 +184,25 @@ export class FishSymbol {
       .some(range => Locations.Range.containsPosition(range, position));
   }
 
-  get functionInfo() {
-    if (!this.isFunction()) return null;
+  get functionInfo(): FunctionSymbolInfo {
+    if (!this.isFunction()) throw new Error('SymbolInfo is not a Function! Wrong symbolInfo type!');
+    return FunctionSymbolInfo.create(this);
+  }
 
-    const functionInfo = FunctionInfo.create(this);
-    const args = this.parentNode?.childrenForFieldName('option');
-    let mostRecentFlag: SyntaxNode | null = null;
-    for (const arg of args) {
-      if (isEscapeSequence(arg)) continue;
+  get variableInfo(): VariableSymbolInfo {
+    if (!this.isVariable()) throw new Error('SymbolInfo is not a Variable! Wrong symbolInfo type!');
+    return VariableSymbolInfo.create(this);
+  }
 
-      /* handle special option -S/--no-scope-shadowing */
-      if (isMatchingOption(arg, Option.create('-S', '--no-scope-shadowing'))) {
-        functionInfo.noScopeShadowing = true;
-        continue;
-      }
-
-      /* set the mostRecentFlag and skip to next loop */
-      if (isOption(arg)) {
-        mostRecentFlag = arg;
-        continue;
-      }
-
-      /* check if the previous mostRecentFlag is a functionInfo modifier */
-      if (mostRecentFlag && !isOption(arg)) {
-        switch (true) {
-          case isMatchingOption(mostRecentFlag, Option.create('-a', '--argument-names')):
-            functionInfo.argumentNames.push(this.findChildSymbolFromNode(arg)!);
-            break;
-          case isMatchingOption(mostRecentFlag, Option.create('-V', '--inherit-variable')):
-            functionInfo.inheritVariable.push(this.findChildSymbolFromNode(arg)!);
-            break;
-          case isMatchingOption(mostRecentFlag, Option.create('-v', '--on-variable')):
-            functionInfo.inheritVariable.push(this.findChildSymbolFromNode(arg)!);
-            break;
-          case isMatchingOption(mostRecentFlag, Option.create('-d', '--description')):
-            functionInfo.description = arg.text;
-            break;
-          default:
-            break;
-        }
-        continue;
-      }
+  get detail() {
+    switch (true) {
+      case this.isFunction():
+        return this.functionInfo.toMarkdown();
+      case this.isVariable():
+        return this.variableInfo.toMarkdown();
+      default:
+        return new SymbolInfoBuilder(this).toMarkdown();
     }
-    /* add autoloaded from the modifier */
-    functionInfo.isAutoLoad = this.modifier === 'GLOBAL';
-    return functionInfo;
-  }
-}
-
-export namespace FunctionInfo {
-  export function create(symbol: FishSymbol): FunctionInfo {
-    return {
-      name: symbol.name,
-      uri: symbol.uri,
-      description: '',
-      isAutoLoad: false,
-      noScopeShadowing: false,
-      argumentNames: [],
-      inheritVariable: [],
-      onVariable: [],
-    };
-  }
-
-  export function toMarkdown(symbol: FishSymbol): string {
-    const info = symbol.functionInfo!;
-    return [
-      md.inlineCode(symbol.name),
-      `**Description**: ${info.description}`,
-      `**Autoloaded**: ${info.isAutoLoad}`,
-      `**Path**: ${getPathProperties(info.uri).normalizedPath}`,
-      `**Argument Names**: ${info.argumentNames.map(arg => arg.name).join(', ')}`,
-      `**Inherit Variable**: ${info.inheritVariable.map(arg => arg.name).join(', ')}`,
-      `**On Variable**: ${info.onVariable.map(arg => arg.name).join(', ')}`,
-      `**No Scope Shadowing**: ${info.noScopeShadowing}`,
-      md.separator(),
-      md.codeBlock('fish', symbol.parentNode.text),
-    ].join('\n');
   }
 }
 
@@ -267,6 +216,38 @@ function isModifier(node: SyntaxNode): boolean {
     default:
       return false;
   }
+}
+
+function rangesToNodes(ranges: Range[], root: SyntaxNode): SyntaxNode[] {
+  const nodes: SyntaxNode[] = [];
+  ranges.forEach(range => {
+    nodes.push(...getNodesInRange(root, range));
+  });
+  return nodes;
+}
+
+function getNodesInRange(root: SyntaxNode, range: Range): SyntaxNode[] {
+  const nodes: SyntaxNode[] = [];
+  const cursor = root.walk();
+
+  function visitNode() {
+    const node = cursor.currentNode;
+
+    if (Locations.Range.containsRange(range, Locations.Range.fromNode(node))) {
+      nodes.push(node);
+    }
+
+    // Traverse children
+    if (cursor.gotoFirstChild()) {
+      do {
+        visitNode();
+      } while (cursor.gotoNextSibling());
+      cursor.gotoParent();
+    }
+  }
+
+  visitNode();
+  return nodes;
 }
 
 type SymbolType = typeof SymbolKind.Function | typeof SymbolKind.Variable;
@@ -483,9 +464,9 @@ function processArgparseCommand(node: SyntaxNode, uri: string, parentSymbol: Fis
  */
 function processFunctionArgumentVariables(node: SyntaxNode, uri: string, parentSymbol: FishSymbol): FishSymbol[] {
   const focused = node.childrenForFieldName('option');
-  // const firstNamed = node.firstNamedChild as SyntaxNode;
+  const firstNamed = node.firstNamedChild as SyntaxNode;
   const result: FishSymbol[] = [
-    FishSymbol.create('argv', SymbolKind.Variable, uri, 'FUNCTION', node, node, parentSymbol),
+    FishSymbol.create('argv', SymbolKind.Variable, uri, 'LOCAL', firstNamed, node, parentSymbol),
   ];
 
   if (!focused) return result;
@@ -607,7 +588,18 @@ export function getScopedFishSymbols(root: SyntaxNode, uri: string) {
   const symbols = buildSyms(root);
   /* add argv to script uri's */
   if (getPathProperties(uri).isScript) {
-    symbols.unshift(FishSymbol.create('argv', SymbolKind.Variable, uri, 'LOCAL', root, root, rootSym));
+    symbols.unshift(new FishSymbol(
+      'argv',
+      SymbolKind.Variable,
+      uri,
+      Locations.Range.fromNumbers(0, 0, 0, 0),
+      Locations.Range.fromNode(root),
+      'LOCAL',
+      root,
+      root,
+      rootSym,
+      [],
+    ));
   }
   rootSym.children.push(...symbols);
   return symbols;
