@@ -22,6 +22,8 @@ const ModifierParentNode: Record<ModifierType, ModifierCallbackFn> = {
   ['UNIVERSAL']: (symbol: FishSymbol) => findParent(symbol.parentNode, (n) => isType(n, 'program')),
 } as const;
 
+export type FishSymbolHash = `${string} ${number},${number}-${number},${number} ${string}`;
+
 export class FishSymbol {
   constructor(
     public name: string,
@@ -96,6 +98,13 @@ export class FishSymbol {
       && (!!this.parentNode && !!other.parentNode && this.parentNode.equals(other.parentNode))
       && this.modifier === other.modifier
       && this.children.length === other.children.length;
+  }
+
+  hash(): FishSymbolHash {
+    const uri = this.uri;
+    const { start, end } = this.getParentScopeRange();
+    const name = this.name;
+    return `${uri} ${start.line},${start.character}-${end.line},${end.character} ${name}`;
   }
 
   symbolIsNode(node: SyntaxNode) {

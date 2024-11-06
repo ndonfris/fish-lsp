@@ -9,7 +9,7 @@ import { LspDocument, LspDocuments } from './document';
 import { formatDocumentContent } from './formatting';
 import { Logger } from './logger';
 import { symbolKindToString, symbolKindsFromNode, uriToPath } from './utils/translation';
-import { getChildNodes, getNodeAtPoint, getNodeAtPosition } from './utils/tree-sitter';
+import { /* getChildNodes, getNodeAtPoint,*/ getNodeAtPosition } from './utils/tree-sitter';
 import { handleHover } from './hover';
 import { getDiagnostics } from './diagnostics/validate';
 /*import * as Locations from './utils/locations';*/
@@ -28,15 +28,17 @@ import { getDocumentationResolver } from './utils/completion/documentation';
 import { FishCompletionList } from './utils/completion/list';
 import { config } from './cli';
 import { PrebuiltDocumentationMap, getPrebuiltDocUrl } from './utils/snippets';
-import { findParentCommand, isCommand, isVariableDefinition } from './utils/node-types';
+// import { findParentCommand, isCommand, isVariableDefinition } from './utils/node-types';
 import { adjustInitializeResultCapabilitiesFromConfig, configHandlers } from './config';
 import { enrichToMarkdown } from './documentation';
-import { getAliasedCompletionItemSignature } from './signature';
+// import { getAliasedCompletionItemSignature } from './signature';
 import { CompletionItemMap } from './utils/completion/startup-cache';
 import { getDocumentHighlights } from './document-highlight';
 import { SyncFileHelper } from './utils/file-operations';
 import { FishSymbol } from './utils/symbol';
 import { flattenNested } from './utils/flatten';
+import { createShellSignature } from './signature-provider';
+import * as Locations from './utils/locations';
 // import { FishSymbol } from './utils/symbol';
 
 // @TODO
@@ -218,7 +220,7 @@ export default class FishServer {
       this.logger.logAsJson('onComplete got [NOT FOUND]: ' + uri);
       return this.completion.empty();
     }
-    const { line } = this.analyzer.parseCurrentLine(doc, params.position);
+    const { lastCommand } = this.analyzer.analyzeCursorPosition(doc.uri, params.position.line, params.position.character);
 
     const fishCompletionData = {
       uri: doc.uri,
@@ -229,14 +231,16 @@ export default class FishServer {
       },
     };
 
-    if (line.trim().startsWith('#')) {
+    if (doc.getLine(params.position.line).trim().startsWith('#')) {
       return FishCompletionList.empty();
     }
 
     try {
-      const symbols = this.analyzer.getFlatDocumentSymbols(uri);
-      list = await this.completion.complete(line, fishCompletionData, symbols);
-      this.logger.logAsJson(`line: '${line}' got ${list.items.length} items"`);
+      const symbols = flattenNested(...this.analyzer.cached.get(uri)?.symbols || []);
+      if (lastCommand) {
+        list = await this.completion.complete(lastCommand.text, fishCompletionData, symbols);
+      }
+      this.logger.logAsJson(`line: '${lastCommand?.text || 'null'}' got ${list.items.length} items"`);
     } catch (error) {
       this.logger.logAsJson('ERROR: onComplete ' + error?.toString() || 'error');
     }
@@ -657,33 +661,47 @@ export default class FishServer {
     const { doc, uri } = this.getDefaults(params);
     if (!doc || !uri) return null;
 
-    const { line, lineRootNode, lineLastNode } = this.analyzer.parseCurrentLine(doc, params.position);
-    if (line.trim() === '') return null;
-    const currentCmd = findParentCommand(lineLastNode)!;
-    // const commands = getChildNodes(lineRootNode).filter(isCommand)
-    const aliasSignature = this.completionMap.allOfKinds('alias').find(a => a.label === currentCmd.text);
-    if (aliasSignature) return getAliasedCompletionItemSignature(aliasSignature);
-    const varNode = getChildNodes(lineRootNode).find(c => isVariableDefinition(c));
-    const lastCmd = getChildNodes(lineRootNode).filter(c => isCommand(c)).pop();
-    this.logger.log({ line, lastCmds: lastCmd?.text });
-    if (varNode && (line.startsWith('set') || line.startsWith('read')) && lastCmd?.text === lineRootNode.text.trim()) {
-      const varName = varNode.text;
-      const varDocs = PrebuiltDocumentationMap.getByName(varNode.text);
-      if (!varDocs.length) return null;
-      return {
-        signatures: [
-          {
-            label: varName,
-            documentation: {
-              kind: 'markdown',
-              value: varDocs.map(d => d.description).join('\n'),
-            },
-          },
-        ],
-        activeSignature: 0,
-        activeParameter: 0,
-      };
-    }
+    // const { line, lineRootNode, lineLastNode } = this.analyzer.parseCurrentLine(doc, params.position);
+    // if (line.trim() === '') return null;
+    // const currentCmd = findParentCommand(lineLastNode)!;
+    // // const commands = getChildNodes(lineRootNode).filter(isCommand)
+    // const aliasSignature = this.completionMap.allOfKinds('alias').find(a => a.label === currentCmd.text);
+    // if (aliasSignature) return getAliasedCompletionItemSignature(aliasSignature);
+    // const varNode = getChildNodes(lineRootNode).find(c => isVariableDefinition(c));
+    // const lastCmd = getChildNodes(lineRootNode).filter(c => isCommand(c)).pop();
+    // this.logger.log({ line, lastCmds: lastCmd?.text });
+    // if (varNode && (line.startsWith('set') || line.startsWith('read')) && lastCmd?.text === lineRootNode.text.trim()) {
+    //   const varName = varNode.text;
+    //   const varDocs = PrebuiltDocumentationMap.getByName(varNode.text);
+    //   if (!varDocs.length) return null;
+    //   return {
+    //     signatures: [
+    //       {
+    //         label: varName,
+    //         documentation: {
+    //           kind: 'markdown',
+    //           value: varDocs.map(d => d.description).join('\n'),
+    //         },
+    //       },
+    //     ],
+    //     activeSignature: 0,
+    //     activeParameter: 0,
+    //   };
+    // }
+    // return null;
+    const {
+      argumentIndex,
+      // commandName,
+      lastCommand,
+      lastNode,
+    } = this.analyzer.analyzeCursorPosition(
+      uri,
+      params.position.line,
+      params.position.character,
+    );
+    const symbol = this.analyzer.getPrebuiltSymbol(doc, Locations.Position.fromPoint(lastNode?.startPosition || lastCommand!.endPosition));
+    if (symbol) return createShellSignature(symbol, argumentIndex);
+    // if (commandName === symbol.name)
     return null;
   }
 
@@ -753,6 +771,6 @@ export default class FishServer {
       if (!config.fish_lsp_show_client_popups) return;
       this.connection.window.showInformationMessage(text);
     };
-    return this.analyzer.initiateBackgroundAnalysis(notifyCallback);
+    return this.analyzer.initializeBackgroundAnalysis(notifyCallback);
   }
 }

@@ -1,7 +1,6 @@
-import Parser
-, { SyntaxNode, Tree } from 'web-tree-sitter';
+import Parser, { SyntaxNode, Tree } from 'web-tree-sitter';
 import { LspDocument } from './document';
-import { FishSymbol, getScopedFishSymbols } from './utils/symbol';
+import { FishSymbol, FishSymbolHash, getScopedFishSymbols } from './utils/symbol';
 import * as LSP from 'vscode-languageserver';
 import { /* ancestorMatch, containsRange, isPositionBefore, */ getChildNodes, getNodeAtPosition, getRange, positionToPoint, getNodeAtPoint } from './utils/tree-sitter';
 import { isSourceFilename } from './diagnostics/node-types';
@@ -16,6 +15,8 @@ import { Point } from 'tree-sitter';
 import { PrebuiltDocumentationMap } from './utils/snippets';
 import { getPrebuiltSymbolInfo } from './features/prebuilt-symbol-info';
 import { FishCompletionItem } from './utils/completion/types';
+import { FishWorkspace } from './utils/workspace';
+import { config } from './cli';
 
 export type AnalyzedDocument = {
   document: LspDocument;
@@ -30,25 +31,24 @@ interface CursorAnalysis {
   lastNode: Parser.SyntaxNode | null;
   lastCommand: Parser.SyntaxNode | null;
   isLastNode: boolean;
-  commandName: string | null;
-  argumentIndex: number | null;
+  commandName: string;
+  argumentIndex: number;
 }
 
 /**
- * REFACTORING ./analyze.ts
- * ONCE ./utils/workspace.ts IS COMPLETED!
+ * A PAST-DUE, PROJECT-WIDE REFACTORING OF `./analyze.ts`
  *
  * What is the goal here?
- *   - [ ] ./src/analyze.ts easier to test,
- *   - [ ] ./src/analyze.ts is clearer in scope && usage
- *   - [ ] ./src/analyze.ts is smaller and better structured
- *   - [ ] ./src/analyze.ts is extendable & maintainable
+ *   - [ ] ./src/analyze.ts but easier to test
+ *   - [ ] ./src/analyze.ts but clearer in scope && usage
+ *   - [ ] ./src/analyze.ts but smaller and better structured
+ *   - [ ] ./src/analyze.ts but extendable & maintainable
  */
 export class Analyzer { // @TODO rename to Analyzer
   public cached: Map<string, AnalyzedDocument> = new Map();
   public workspaceSymbols: Map<string, FishSymbol[]> = new Map();
 
-  constructor(private parser: Parser) { }
+  constructor(private parser: Parser, private workspaces: FishWorkspace[] = []) { }
 
   private createAnalyzedDocument(document: LspDocument): AnalyzedDocument {
     // this.parser.reset();
@@ -64,7 +64,6 @@ export class Analyzer { // @TODO rename to Analyzer
     const workspaceSymbols = flattenNested(...symbols)
       .filter(s => s.isGlobalScope());
 
-    // console.log({ workspaceSymbols: workspaceSymbols.map(s => s.name) });
     for (const symbol of workspaceSymbols) {
       const currentSymbols = this.workspaceSymbols.get(symbol.name) || [];
       currentSymbols.push(symbol);
@@ -99,10 +98,24 @@ export class Analyzer { // @TODO rename to Analyzer
   /**
    * call at startup to analyze in gackground
    */
-  // async initializeBackgroundAnalysis() {}
-  // private hasAnalyzedDocument(uri: string): uri is string & keyof Map<string, AnalyzedDocument> {
-  //   return this.cached.has(uri);
-  // }
+  async initializeBackgroundAnalysis(callbackfn: (text: string) => void) {
+    let currentIdx = 0;
+    while (currentIdx < config.fish_lsp_max_background_files) {
+      this.workspaces.forEach(async (workspace) => {
+        if (currentIdx >= config.fish_lsp_max_background_files) return;
+        return workspace.urisToLspDocuments().map(doc => {
+          this.analyze(doc);
+          currentIdx++;
+        });
+      });
+    }
+    if (config.fish_lsp_show_client_popups) {
+      callbackfn(`[fish-lsp] analyzed ${currentIdx} files`);
+    }
+    return {
+      filesParsed: currentIdx,
+    };
+  }
 
   /**
    * getDocumentSymbols - gets all uris analyzed
@@ -197,7 +210,6 @@ export class Analyzer { // @TODO rename to Analyzer
     return result;
   }
 
-  // TODO
   public findLocalLocations(document: LspDocument, position: Position) {
     const tree = this.cached.get(document.uri)?.tree;
     if (!tree) return [];
@@ -223,7 +235,6 @@ export class Analyzer { // @TODO rename to Analyzer
       const cached = this.cached.get(uri);
       if (!cached) continue;
 
-      // const rootNode = cached.tree.rootNode;
       const toSearchNodes = this.removeLocalSymbols(
         symbol,
         cached.tree,
@@ -384,9 +395,9 @@ export class Analyzer { // @TODO rename to Analyzer
   }
 
   /**
- * getCompletionSymbols - local symbols to send to a onCompletion request in server
- * @returns FishDocumentSymbol[]
- */
+  * getCompletionSymbols - local symbols to send to a onCompletion request in server
+  * @returns FishDocumentSymbol[]
+  */
   getCompletionSymbols(document: LspDocument, position: Position): FishCompletionItem[] {
     const cached = this.cached.get(document.uri);
     if (!cached?.symbols || !cached.tree) return [];
@@ -534,14 +545,14 @@ export class Analyzer { // @TODO rename to Analyzer
         lastNode: null,
         lastCommand: null,
         isLastNode: false,
-        commandName: null,
-        argumentIndex: null,
+        commandName: '',
+        argumentIndex: 0,
       };
     }
 
     const point = { row: line, column };
     const lastNode = this.lastNodeAtPoint(cached.tree, line, column);
-    if (!lastNode) return { lastNode: null, lastCommand: null, isLastNode: true, commandName: null, argumentIndex: null };
+    if (!lastNode) return { lastNode: null, lastCommand: null, isLastNode: true, commandName: '', argumentIndex: 0 };
 
     // Find command by traversing up
     let lastCommand: SyntaxNode | null = lastNode;
@@ -557,7 +568,7 @@ export class Analyzer { // @TODO rename to Analyzer
 
     // Handle multi-line arguments
     const argumentIndex = commandNode ?
-      this.getArgumentIndexWithEscapes(cached.document, commandNode, point) : null;
+      this.getArgumentIndexWithEscapes(cached.document, commandNode, point) : 0;
 
     // Check for trailing spaces or if cursor is after content
     const isLast = cached.document.getLine(line).slice(0, column + 1).match(/\s+$/) !== null
@@ -618,16 +629,16 @@ export class Analyzer { // @TODO rename to Analyzer
   }
 
   /**
- * getSignatureInformation - looks through the symbols for functions that can be used
- * to create SignatureInfo objects to be used in the server. Only function SymbolKind's
- * will be used.
- */
+  * getSignatureInformation - looks through the symbols for functions that can be used
+  * to create SignatureInfo objects to be used in the server. Only function SymbolKind's
+  * will be used.
+  */
   // getSignatureInformation() {}
 
   /**
- * getWorkspaceSymbols - looks up a query symbol in the entire cachedDocuments object.
- * An empty query will return all symbols in the current workspace.
- */
+  * getWorkspaceSymbols - looks up a query symbol in the entire cachedDocuments object.
+  * An empty query will return all symbols in the current workspace.
+  */
   getWorkspaceSymbols(query: string = ''): LSP.WorkspaceSymbol[] {
     const allSymbols = Array.from(this.workspaceSymbols.values()).flat().map(s => LSP.WorkspaceSymbol.create(s.name, s.kind, s.uri, s.range));
     if (query === '') {
@@ -640,6 +651,26 @@ export class Analyzer { // @TODO rename to Analyzer
   /**
    * updateUri - deletes an old Uri Entry, and updates
    */
+}
+
+/** gets any possible reference for the entire document */
+export function getReferencesForEntireWorkspaceSymbols(
+  document: LspDocument,
+  analyzer: Analyzer,
+): Map<FishSymbolHash, LSP.Location[]> {
+  const results: Map<FishSymbolHash, LSP.Location[]> = new Map();
+
+  const symbols = analyzer.analyze(document)?.symbols;
+
+  flattenNested(...symbols).forEach((sym) => {
+    const refLocations = analyzer.getReferences(document, sym.selectionRange.start);
+    const key = sym.hash();
+    if (!results.has(key)) results.set(key, []);
+    const values = [...results.get(key)!, ...refLocations];
+    results.set(key, values);
+  });
+
+  return results;
 }
 
 function findLocations(uri: string, nodes: SyntaxNode[], matchName: string): Location[] {
@@ -673,25 +704,3 @@ function symbolsScopeContainsPosition(symbols: FishSymbol[], name: string, posit
   }
   return result;
 }
-
-// export function getAccessibleNodes(
-//   root: SyntaxNode,
-//   symbols: FishDocumentSymbol[],
-//   matchSymbol: FishDocumentSymbol,
-// ): SyntaxNode[] {
-//   const isMatchUri = symbols.some(s => s.uri === matchSymbol.uri);
-//   const matchingSymbols = symbols.filter(s => s.name === matchSymbol.name);
-//
-//   if (isMatchUri) {
-//     // Local scope: Filter nodes that are in different scopes
-//     const differentScopeSymbols = matchingSymbols.filter(s => !s.scopeEquivalent(matchSymbol));
-//     return getChildNodes(matchSymbol.scope.scopeNode)
-//       .filter(node => differentScopeSymbols.some(s => s.scope.containsNode(node)));
-//   } else {
-//     // Global scope: Filter out nodes that are not in the global scope
-//     const nonGlobalSymbols = matchingSymbols.filter(s => s.scope.scopeTag !== 'global');
-//     return getChildNodes(root)
-//       .filter(node => !nonGlobalSymbols.some(s => s.scope.containsNode(node)));
-//   }
-// }
-//

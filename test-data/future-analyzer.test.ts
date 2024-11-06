@@ -4,10 +4,7 @@ import * as LSP from 'vscode-languageserver';
 import { createFakeCursorLspDocument, createFakeLspDocument } from './helpers';
 import { setLogger } from './logger-setup';
 import { Simple } from './simple';
-import {
-  FishSymbol,
-  getScopedFishSymbols,
-} from '../src/utils/symbol';
+import { FishSymbol, getScopedFishSymbols } from '../src/utils/symbol';
 import { execEscapedSync } from '../src/utils/exec';
 import * as TreeSitterUtils from '../src/utils/tree-sitter';
 import { initializeParser } from '../src/parser';
@@ -979,7 +976,7 @@ describe('analyzer test suite', () => {
       });
     });
 
-    it('command multiline: `cmd \\\n--flag`', () => {
+    it('command multiline: `cmd \\n--flag`', () => {
 
     });
 
@@ -1212,8 +1209,9 @@ fish_add_path --append /usr/local/bin
   });
 
   // @TODO
-  // describe('getSignatureHelp()', () => {
-  // })
+  describe('getSignatureHelp()', () => {
+
+  })
 
   // @TODO
   // describe('public properties', () => {

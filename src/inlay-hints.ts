@@ -3,7 +3,7 @@ import { isCommand, isPipe } from './utils/node-types';
 import { getRange } from './utils/tree-sitter';
 import { InlayHint, MarkupContent, Range } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
-import { Analyzer } from './analyze';
+import { Analyzer } from './future-analyze';
 import { LspDocument } from './document';
 // import { containsRange } from './workspace-symbol';
 
@@ -15,7 +15,7 @@ export async function inlayHintsProvider(
   analyzer: Analyzer,
 ): Promise<FishInlayHint[]> {
   const result: FishInlayHint[] = [];
-  const nodes = analyzer.getNodes(document);
+  const nodes = analyzer.cached.get(document.uri)?.nodes || [];
 
   // const insideRange = (node: SyntaxNode) => containsRange(range, getRange(node));
   const isPrintableCommand = (node: SyntaxNode) => node.text.startsWith('printf') || node.text.startsWith('echo'); /* change to printflsp */
