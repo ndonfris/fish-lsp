@@ -1,5 +1,5 @@
 import { SyntaxNode } from 'web-tree-sitter';
-import { firstAncestorMatch, getParentNodes, getLeafs } from './tree-sitter';
+import { firstAncestorMatch, getParentNodes, getLeafNodes } from './tree-sitter';
 import * as VariableTypes from './variable-syntax-nodes';
 import { SyncFileHelper } from './file-operations';
 
@@ -410,7 +410,7 @@ export function findParentCommand(node?: SyntaxNode) {
  * @param {SyntaxNode} node - the node to check for its parent
  * @returns {SyntaxNode | null} command node or null
  */
-export function findParentFunction(node?: SyntaxNode): NodeWithParentAndChildren | null {
+export function findParentFunction(node?: SyntaxNode): SyntaxNode | null {
   let currentNode: SyntaxNode | null | undefined = node;
   while (currentNode) {
     if (isFunctionDefinition(currentNode)) {
@@ -774,7 +774,7 @@ export function isPartialForLoop(node: SyntaxNode) {
     if (!errorNode) {
       return true;
     }
-    if (getLeafs(errorNode).length < semiCompleteForLoop.length) {
+    if (getLeafNodes(errorNode).length < semiCompleteForLoop.length) {
       return true;
     }
     return false;

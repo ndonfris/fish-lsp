@@ -1,6 +1,6 @@
 import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from '../../parser';
-import { getChildNodes, getLeafs, getLastLeaf, firstAncestorMatch } from '../tree-sitter';
+import { getChildNodes, getLeafNodes, getLastLeaf, firstAncestorMatch } from '../tree-sitter';
 import { isUnmatchedStringCharacter, isPartialForLoop } from '../node-types';
 import { FishCompletionItem } from './types';
 //import { CompletionItemsArrayTypes, WordsToNotCompleteAfter } from './utils/completion-types';
@@ -62,7 +62,7 @@ export class InlineParser {
      *    'for ...', 'case ...', 'function ...', 'end ',  ⟶   returns 'command' node shown
      *  ───────────────────────────────────────────────────────────────────────────────
      */
-  parseCommand(line: string) : {
+  parseCommand(line: string): {
     command: string | null;
     commandNode: SyntaxNode | null;
   } {
@@ -141,8 +141,8 @@ export class InlineParser {
     }
     if (commandNode) {
       const node = firstAncestorMatch(commandNode, (n) => this.COMMAND_TYPES.includes(n.type))!;
-      const allLeafs = getLeafs(node).filter(leaf => leaf.startPosition.column < line.length);
-      return Math.max(allLeafs.length - 1, 1);
+      const allLeafNodes = getLeafNodes(node).filter(leaf => leaf.startPosition.column < line.length);
+      return Math.max(allLeafNodes.length - 1, 1);
     }
     return 0;
   }
@@ -223,9 +223,9 @@ export function wordPrecedesCommand(word: string | null) {
 
   return (
     chars.includes(word) ||
-        combiners.includes(word) ||
-        conditional.includes(word) ||
-        pipes.includes(word)
+    combiners.includes(word) ||
+    conditional.includes(word) ||
+    pipes.includes(word)
   );
 }
 
@@ -264,11 +264,11 @@ export namespace Line {
       const errorNode = firstAncestorMatch(wordNode, (n) =>
         n.hasError,
       )!;
-      const leafs = getLeafs(errorNode);
+      const leafNodes = getLeafNodes(errorNode);
       virtualEOLChars =
-                ' ' +
-                completeForLoop.slice(leafs.length).join(' ') +
-                endSequence;
+        ' ' +
+        completeForLoop.slice(leafNodes.length).join(' ') +
+        endSequence;
     }
     return {
       virtualLine: [oldLine, virtualEOLChars].join(''),

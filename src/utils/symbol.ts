@@ -152,7 +152,7 @@ export class FishSymbol {
     }
     if (this.isVariable()) {
       const parent = this.parentNode;
-      return parent.text.split(' ').at(0)!;
+      return parent.text.split(' ').at(0) || 'set';
     }
     return '';
   }

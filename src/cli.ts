@@ -32,7 +32,7 @@ export function startServer() {
  */
 const createFishLspBin = (): Command => {
   const bin = new Command('fish-lsp')
-    .description(`Description:\n${FishLspHelp?.description.toString() || 'fish-lsp command output'}`)
+    .description(`Description:\n${FishLspHelp.description.toString() || 'fish-lsp command output'}`)
     .helpOption('-h, --help', 'show the relevant help info. Use `--help-all` for comprehensive documentation of all commands and flags. Other `--help-*` flags are also available.')
     .version(PackageVersion, '-v, --version', 'output the version number')
     .enablePositionalOptions(true)

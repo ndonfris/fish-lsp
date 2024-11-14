@@ -275,38 +275,38 @@ export class VarTable {
 export const UniversalEnv = new VarTable();
 
 // Example usage:
-function demonstrateUsage() {
-  const varTable = new VarTable();
-
-  // Creating a mock SyntaxNode (you'd replace this with your actual SyntaxNode implementation)
-  class MockSyntaxNode implements SyntaxNode {
-    constructor(public id: number) { }
-    // ... other required methods
-  }
-
-  // Setting a variable with a definition
-  const defNode = new MockSyntaxNode(1);
-  varTable.setWithNode('PATH', ['usr/local/bin', '/usr/bin'], EnvMode.EXPORT | EnvMode.PATHVAR, defNode);
-
-  // Adding references
-  const refNode1 = new MockSyntaxNode(2);
-  const refNode2 = new MockSyntaxNode(3);
-  varTable.addReference('PATH', refNode1);
-  varTable.addReference('PATH', refNode2);
-
-  // Retrieving variable information
-  const pathVar = varTable.get('PATH');
-  if (pathVar) {
-    console.log('PATH value:', pathVar.getValue());
-    console.log('PATH is exported:', pathVar.isExported());
-    console.log('PATH is path variable:', pathVar.isPathVar());
-    console.log('PATH definition node:', pathVar.getDefinition());
-    console.log('PATH reference nodes:', pathVar.getReferences());
-  }
-
-  // Getting all definitions and references
-  console.log('All definitions:', varTable.getAllDefinitions());
-  console.log('All references:', varTable.getAllReferences());
-}
-
-demonstrateUsage();
+// function demonstrateUsage() {
+//   const varTable = new VarTable();
+//
+//   // Creating a mock SyntaxNode (you'd replace this with your actual SyntaxNode implementation)
+//   class MockSyntaxNode implements SyntaxNode {
+//     constructor(public id: number) { }
+//     // ... other required methods
+//   }
+//
+//   // Setting a variable with a definition
+//   const defNode = new MockSyntaxNode(1);
+//   varTable.setWithNode('PATH', ['usr/local/bin', '/usr/bin'], EnvMode.EXPORT | EnvMode.PATHVAR, defNode);
+//
+//   // Adding references
+//   const refNode1 = new MockSyntaxNode(2);
+//   const refNode2 = new MockSyntaxNode(3);
+//   varTable.addReference('PATH', refNode1);
+//   varTable.addReference('PATH', refNode2);
+//
+//   // Retrieving variable information
+//   const pathVar = varTable.get('PATH');
+//   if (pathVar) {
+//     console.log('PATH value:', pathVar.getValue());
+//     console.log('PATH is exported:', pathVar.isExported());
+//     console.log('PATH is path variable:', pathVar.isPathVar());
+//     console.log('PATH definition node:', pathVar.getDefinition());
+//     console.log('PATH reference nodes:', pathVar.getReferences());
+//   }
+//
+//   // Getting all definitions and references
+//   console.log('All definitions:', varTable.getAllDefinitions());
+//   console.log('All references:', varTable.getAllReferences());
+// }
+//
+// demonstrateUsage();

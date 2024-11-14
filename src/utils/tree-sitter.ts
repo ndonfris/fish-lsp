@@ -1,11 +1,6 @@
-//import { existsSync } from 'fs'
 import { extname } from 'path';
-//import { pathToFileURL, URL } from 'url'
 import { Position, Range, URI } from 'vscode-languageserver';
 import { Point, SyntaxNode, Tree } from 'web-tree-sitter';
-// import { pathToFileURL } from 'url'; // typescript-language-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts
-// import vscodeUri from 'vscode-uri'; // typescript-language-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts
-// import { existsSync } from 'fs-extra';
 import { findSetDefinedVariable, isFunctionDefinition, isVariableDefinition, isFunctionDefinitionName, isVariable, isScope, isProgram, isCommandName, isForLoop, findForLoopVariable, isDefinition, isVariableDefinitionName, isCommand, isBlock } from './node-types';
 
 /**
@@ -609,23 +604,23 @@ export function* DFSNodesIter(...roots: SyntaxNode[]): IterableIterator<SyntaxNo
   }
 }
 
-export function getLeafs(node: SyntaxNode): SyntaxNode[] {
-  function gatherLeafs(node: SyntaxNode, leafs: SyntaxNode[] = []): SyntaxNode[] {
+export function getLeafNodes(node: SyntaxNode): SyntaxNode[] {
+  function gatherLeaves(node: SyntaxNode, leafNodes: SyntaxNode[] = []): SyntaxNode[] {
     if (node.childCount === 0 && node.text !== '') {
-      leafs.push(node);
-      return leafs;
+      leafNodes.push(node);
+      return leafNodes;
     }
     for (const child of node.children) {
-      leafs = gatherLeafs(child, leafs);
+      leafNodes = gatherLeaves(child, leafNodes);
     }
-    return leafs;
+    return leafNodes;
   }
-  return gatherLeafs(node);
+  return gatherLeaves(node);
 }
 
 export function getLastLeaf(node: SyntaxNode, maxIndex: number = Infinity): SyntaxNode {
-  const allLeafs = getLeafs(node).filter(leaf => leaf.startPosition.column < maxIndex);
-  return allLeafs[allLeafs.length - 1]!;
+  const allLeaves = getLeafNodes(node).filter(leaf => leaf.startPosition.column < maxIndex);
+  return allLeaves[allLeaves.length - 1]!;
 }
 
 export function matchesArgument(node: SyntaxNode, argName: string) {

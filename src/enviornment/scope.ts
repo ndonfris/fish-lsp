@@ -13,7 +13,7 @@ export class Scope {
     public node: SyntaxNode,
     public kind: 'function' | 'program',
     public parent: Scope | null = null,
-    public children: Scope[] = [],
+    public children: Scope[] = [] as Scope[],
   ) {}
 
   contains(node: SyntaxNode) {
@@ -24,6 +24,17 @@ export class Scope {
   }
 }
 
+interface RequiredScope extends Scope {
+  node: SyntaxNode;
+  kind: 'function' | 'program';
+  parent: Scope | null;
+  children: Scope[];
+}
+
+function isScope(scope: Scope | null): scope is RequiredScope {
+  if (!scope) return false;
+  return !!scope.parent;
+}
 
 
 export class ScopeStack {
@@ -58,9 +69,10 @@ export class ScopeStack {
         }
       });
 
-      if (bestParent) {
+      if (!!bestParent) {
         scope.parent = bestParent;
-        bestParent.children.push(scope);
+        /* @ts-ignore */
+        bestParent.children?.push(scope);
       } else if (!this.root) {
         this.root = scope;
       }

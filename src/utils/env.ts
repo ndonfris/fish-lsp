@@ -94,11 +94,11 @@ export class EnvNode {
 }
 
 export class EnvStack {
-  inner: EnvStackImpl;
+  inner: EnvStack;
   canPushPop: boolean;
   dispatchesVarChanges: boolean;
   constructor() {
-    this.inner = new EnvStackImpl();
+    this.inner = new EnvStack();
     this.canPushPop = true;
     this.dispatchesVarChanges = false;
   }
@@ -108,7 +108,7 @@ export class EnvStack {
   }
 }
 
-export const uEnv = new EnvMode(EnvModeModifier.UNIVERSAL);
+export const uEnv = new EnvNode(EnvModeModifier.UNIVERSAL);
 
 function functionEnvType(uri: DocumentUri, node: SyntaxNode) {
   if (node.type === 'function_declaration') {
@@ -123,7 +123,7 @@ function functionEnvType(uri: DocumentUri, node: SyntaxNode) {
 
 export function createFunctionEnv(uri: DocumentUri, node: SyntaxNode) {
   const args = getChildrenArguments(node);
-  const env = new EnvMode(functionEnvType(uri, node));
+  const env = new EnvNode(functionEnvType(uri, node));
   args.forEach((arg) => {
     switch (true) {
       case isMatchingOption(arg, { shortOption: '-V', longOption: '--inherit-variable' }):
