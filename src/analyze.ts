@@ -8,10 +8,11 @@ import { pathToUri } from './utils/translation';
 import { existsSync } from 'fs';
 import homedir from 'os';
 import { FishWorkspace } from './utils/workspace';
-import { /*flattenSymbols, */getFishDocumentSymbolItems, FishDocumentSymbol } from './utils/symbol';
+// import { /*flattenSymbols, */getFishDocumentSymbolItems, FishDocumentSymbol } from './utils/symbol';
 // import { GenericTree } from './utils/generic-tree';
 // import { findDefinitionSymbols } from './workspace-symbol';
 import { config } from './cli';
+import { FishSymbol, getScopedFishSymbols } from './utils/symbol';
 
 export class Analyzer {
   protected parser: Parser;
@@ -22,7 +23,7 @@ export class Analyzer {
     this.workspaces = workspaces;
   }
 
-  public analyze(document: LspDocument): FishDocumentSymbol[] {
+  public analyze(document: LspDocument): FishSymbol[] {
     this.parser.reset();
     const analyzedDocument = this.getAnalyzedDocument(
       this.parser,
@@ -34,7 +35,8 @@ export class Analyzer {
     //   this.globalSymbols.add(symbol);
     // });
     // return this.cache.getDocumentSymbols(document.uri);
-    return getFishDocumentSymbolItems(document.uri, analyzedDocument.tree.rootNode);
+    const tree = this.parser.parse(document.getText());
+    return getScopedFishSymbols(analyzedDocument.tree.rootNode, document.uri);
   }
 
   private getAnalyzedDocument(
@@ -42,9 +44,9 @@ export class Analyzer {
     document: LspDocument,
   ): AnalyzedDocument {
     const tree = parser.parse(document.getText());
-    const documentSymbols = getFishDocumentSymbolItems(
-      document.uri,
+    const documentSymbols = getScopedFishSymbols(
       tree.rootNode,
+      document.uri,
     );
     const commands = this.getCommandNames(document);
     return AnalyzedDocument.create(
@@ -88,7 +90,7 @@ export class Analyzer {
   public findDocumentSymbol(
     document: LspDocument,
     position: Position,
-  ): FishDocumentSymbol | undefined {
+  ): FishSymbol | undefined {
     if (!document || !position) return undefined;
     // this.cache[document.uri].
     //
@@ -109,9 +111,9 @@ export class Analyzer {
   public getDefinition(
     document: LspDocument,
     position: Position,
-  ): FishDocumentSymbol | null {
+  ): FishSymbol | null {
     if (!document || !position) return null;
-    const symbols: FishDocumentSymbol[] = getFishDocumentSymbolItems(document.uri, this.parser.parse(document.getText()).rootNode);
+    const symbols: FishSymbol[] = getScopedFishSymbols(this.parser.parse(document.getText()).rootNode, document.uri);
     if (symbols.length) {
       return symbols.pop() || null;
     }
@@ -122,7 +124,7 @@ export class Analyzer {
     document: LspDocument,
     position: Position,
   ): LSP.Location[] {
-    const symbol = this.getDefinition(document, position) as FishDocumentSymbol;
+    const symbol = this.getDefinition(document, position) as FishSymbol;
     if (symbol) {
       return [
         Location.create(symbol.uri, symbol.selectionRange),
@@ -196,12 +198,12 @@ export class Analyzer {
     return undefined;
   }
 
-  getDocumentSymbols(documentUri: string): FishDocumentSymbol[] {
+  getDocumentSymbols(documentUri: string): FishSymbol[] {
     if (!documentUri) return [];
     return [];
   }
 
-  getFlatDocumentSymbols(documentUri: string): FishDocumentSymbol[] {
+  getFlatDocumentSymbols(documentUri: string): FishSymbol[] {
     if (!documentUri) return [];
     return [];
   }
@@ -391,13 +393,13 @@ export class Analyzer {
 
 type AnalyzedDocument = {
   document: LspDocument;
-  documentSymbols: FishDocumentSymbol[];
+  documentSymbols: FishSymbol[];
   commands: string[];
   tree: Parser.Tree;
 };
 
 export namespace AnalyzedDocument {
-  export function create(document: LspDocument, documentSymbols: FishDocumentSymbol[], commands: string[], tree: Parser.Tree): AnalyzedDocument {
+  export function create(document: LspDocument, documentSymbols: FishSymbol[], commands: string[], tree: Parser.Tree): AnalyzedDocument {
     return {
       document,
       documentSymbols,

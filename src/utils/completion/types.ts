@@ -6,7 +6,7 @@ import {
   SymbolKind,
   TextEdit,
 } from 'vscode-languageserver';
-import { FishDocumentSymbol } from '../symbol';
+import { FishSymbol } from '../symbol';
 
 export const FishCompletionItemKind = {
   ABBR: 'abbr',
@@ -144,7 +144,7 @@ export namespace FishCompletionItem {
         return new FishCompletionItem(label, kind, detail, documentation, examples);
     }
   }
-  export function fromSymbol(symbol: FishDocumentSymbol) {
+  export function fromSymbol(symbol: FishSymbol) {
     switch (symbol.kind) {
       case SymbolKind.Function:
         return create(symbol.name, FishCompletionItemKind.FUNCTION, 'Function', symbol.detail).setLocal();

@@ -1,5 +1,5 @@
 import { FishCompletionData, FishCompletionItem, toCompletionItemKind } from './types';
-import { FishDocumentSymbol } from '../symbol';
+import { FishSymbol } from '../symbol';
 import { Logger } from '../../logger';
 import { CompletionList } from 'vscode-languageserver-protocol';
 
@@ -20,7 +20,7 @@ export class FishCompletionListBuilder {
     this.items.push(...items);
   }
 
-  addSymbols(symbols: FishDocumentSymbol[]) {
+  addSymbols(symbols: FishSymbol[]) {
     const symbolItems = symbols.map((symbol) =>
       FishCompletionItem.fromSymbol(symbol),
     );

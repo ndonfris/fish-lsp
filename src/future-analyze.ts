@@ -210,7 +210,7 @@ export class Analyzer { // @TODO rename to Analyzer
     return result;
   }
 
-  public findLocalLocations(document: LspDocument, position: Position) {
+  private findLocalLocations(document: LspDocument, position: Position) {
     const tree = this.cached.get(document.uri)?.tree;
     if (!tree) return [];
 
@@ -279,6 +279,7 @@ export class Analyzer { // @TODO rename to Analyzer
 
     return [];
   }
+
 
   //
   // @TODO - use locations
