@@ -51,6 +51,39 @@ export class LspDocument implements TextDocument {
     return this.getText(lineRange);
   }
 
+  /** Get the text from the start of a document till the cursor */
+  getTextBeforeCursor(position: Position): string {
+    const lineStart = Position.create(0, 0);
+    const lineEnd = Position.create(position.line, position.character);
+    const lineRange = Range.create(lineStart, lineEnd);
+    return this.getText(lineRange);
+  }
+
+  getBlockBeforeCursor(position: Position): string {
+    const lines = this.getTextBeforeCursor(position).split('\n');
+
+    const lastLine = lines.at(-1) || '';
+    // if (lastLine.indexOf(';') < position.character) {
+    //   return lastLine.slice(lastLine.indexOf(';') + 1);
+    // }
+    const getLine = (idx: number) => lines.at(idx) || '';
+
+    let idx: number = -2;
+    let currentLine = lines.at(idx);
+
+    const result: string[] = [lastLine]
+
+    while (currentLine?.trimEnd().endsWith('\\')) {
+      result.unshift(currentLine);
+      idx--;
+      currentLine = getLine(idx);
+    }
+    
+    return result.join('\n');
+  }
+
+
+  /** Gets the text at the line before the cursor */
   getLineBeforeCursor(position: Position): string {
     const lineStart = Position.create(position.line, 0);
     const lineEnd = Position.create(position.line, position.character);

@@ -30,7 +30,12 @@ export type AnalyzedDocument = {
 interface CursorAnalysis {
   lastNode: Parser.SyntaxNode | null;
   lastCommand: Parser.SyntaxNode | null;
+  docTextBeforeCursor: string;
+  line: string;
   isLastNode: boolean;
+  endswithSpace: boolean;
+  trailingSemi: boolean;
+  word: string;
   commandName: string;
   argumentIndex: number;
 }
@@ -534,6 +539,74 @@ export class Analyzer { // @TODO rename to Analyzer
     return commandArguments.length - 1;
   }
 
+  /**
+   * Finds the last valid syntax node before or at the given cursor position.
+   * This method traverses the syntax tree to find nodes that end before or at the cursor,
+   * handling both single-line and multi-line cases.
+   * 
+   * @param uri - The document URI to search in
+   * @param line - The cursor's line number (0-based)
+   * @param column - The cursor's column number (0-based)
+   * @returns The last syntax node before the cursor, or null if none found
+   */
+  findLastNodeBeforeCursor(
+    uri: string,
+    line: number,
+    column: number
+  ): Parser.SyntaxNode | null {
+    const cached = this.cached.get(uri);
+    if (!cached?.tree?.rootNode) {
+      return null;
+    }
+
+    const cursorPoint = { row: line, column };
+    let lastValidNode: Parser.SyntaxNode | null = null;
+    let maxEndPosition = { row: -1, column: -1 };
+
+    // Helper to check if a position is before or at cursor
+    const isBeforeOrAtCursor = (pos: Parser.Point) => {
+      return pos.row < cursorPoint.row ||
+        (pos.row === cursorPoint.row && pos.column <= cursorPoint.column);
+    };
+
+    // Traverse all named nodes in the document
+    const cursor = cached.tree.rootNode.walk();
+    let shouldDescend = true;
+
+    while (true) {
+      if (shouldDescend && cursor.gotoFirstChild()) {
+        continue;
+      }
+
+      // Check current node
+      const currentNode = cursor.currentNode;
+      if (currentNode.isNamed &&
+        isBeforeOrAtCursor(currentNode.endPosition) &&
+        (currentNode.endPosition.row > maxEndPosition.row ||
+          (currentNode.endPosition.row === maxEndPosition.row &&
+            currentNode.endPosition.column > maxEndPosition.column))) {
+        lastValidNode = currentNode;
+        maxEndPosition = currentNode.endPosition;
+      }
+
+      if (cursor.gotoNextSibling()) {
+        shouldDescend = true;
+      } else {
+        if (!cursor.gotoParent()) {
+          break;
+        }
+        shouldDescend = false;
+      }
+    }
+
+    // Handle special cases where we're at a missing node or error node
+    if (lastValidNode?.isMissing && lastValidNode.previousSibling) {
+      return lastValidNode.previousSibling;
+    }
+
+    return lastValidNode;
+  }
+
   public analyzeCursorPosition(
     uri: string,
     line: number,
@@ -541,19 +614,17 @@ export class Analyzer { // @TODO rename to Analyzer
   ): CursorAnalysis {
     const cached = this.cached.get(uri);
 
-    if (!cached?.document || !cached?.tree) {
-      return {
-        lastNode: null,
-        lastCommand: null,
-        isLastNode: false,
-        commandName: '',
-        argumentIndex: 0,
-      };
-    }
+    if (!cached?.document || !cached?.tree) return CursorAnalysis.createEmpty();
 
     const point = { row: line, column };
-    const lastNode = this.lastNodeAtPoint(cached.tree, line, column);
-    if (!lastNode) return { lastNode: null, lastCommand: null, isLastNode: true, commandName: '', argumentIndex: 0 };
+
+    // const lastNode = this.lastNodeAtPoint(cached.tree, line, column);
+    const lastNode = this.findLastNodeBeforeCursor(uri, line, column);
+    if (!lastNode) return CursorAnalysis.createWithDoc(
+      cached.document.getLineBeforeCursor({ line, character: column }),
+      cached.document.getTextBeforeCursor({ line, character: column })
+
+    );
 
     // Find command by traversing up
     let lastCommand: SyntaxNode | null = lastNode;
@@ -576,11 +647,33 @@ export class Analyzer { // @TODO rename to Analyzer
       || (lastNode.endPosition.row === line && lastNode.endPosition.column <= column - 1 ||
         line < lastNode.endPosition.row);
 
+    const lineStr = cached.document.getLineBeforeCursor(
+      Position.create(line, column)
+    );
+
+    const docTextBeforeCursor = cached.document.getTextBeforeCursor(
+      Position.create(line, column)
+    )
+
+    const endsWithSpace = lineStr.endsWith(' ');
+    const textBeforeCursorForNode = (node: SyntaxNode | null | undefined) => {
+      if (!node) return '';
+      if (node.endPosition.column < column) {
+        return node.text.slice(0, column - node.endPosition.column);
+      }
+      return node.text
+
+    }
     return {
       lastNode: lastNode,
       lastCommand: commandNode,
       isLastNode: isLast,
-      commandName: commandNode?.firstNamedChild?.text || '',
+      word: this.cached.get(uri)?.root.descendantForPosition({ row: line, column })?.text || '',
+      line: lineStr,
+      docTextBeforeCursor: docTextBeforeCursor,
+      endswithSpace: endsWithSpace,
+      trailingSemi: docTextBeforeCursor.trimEnd().endsWith(';'),
+      commandName: textBeforeCursorForNode(commandNode?.firstNamedChild) || '',
       argumentIndex,
     };
   }
@@ -672,6 +765,62 @@ export function getReferencesForEntireWorkspaceSymbols(
   });
 
   return results;
+}
+
+export namespace CursorAnalysis {
+  export function create(
+    lastNode: SyntaxNode | null,
+    lastCommand: SyntaxNode | null,
+    isLastNode: boolean,
+    line: string,
+    endswithSpace: boolean,
+    commandName: string,
+    word: string,
+    argumentIndex: number,
+  ): CursorAnalysis {
+    return {
+      line,
+      lastNode,
+      lastCommand,
+      isLastNode,
+      docTextBeforeCursor: '',
+      endswithSpace,
+      trailingSemi: false,
+      word,
+      commandName,
+      argumentIndex,
+    };
+  }
+
+  export function createEmpty(): CursorAnalysis {
+    return {
+      line: '',
+      lastNode: null,
+      lastCommand: null,
+      isLastNode: false,
+      docTextBeforeCursor: '',
+      endswithSpace: false,
+      trailingSemi: false,
+      word: '',
+      commandName: '',
+      argumentIndex: 0,
+    };
+  }
+
+  export function createWithDoc(line: string, docText: string): CursorAnalysis {
+    return {
+      line: line,
+      lastNode: null,
+      lastCommand: null,
+      isLastNode: false,
+      docTextBeforeCursor: docText,
+      trailingSemi: docText.trimEnd().endsWith(';'),
+      endswithSpace: line.endsWith(' '),
+      word: '',
+      commandName: '',
+      argumentIndex: 0,
+    };
+  }
 }
 
 function findLocations(uri: string, nodes: SyntaxNode[], matchName: string): Location[] {

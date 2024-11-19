@@ -390,7 +390,7 @@ export function findPreviousSibling(node?: SyntaxNode): SyntaxNode | null {
  * @param {SyntaxNode} node - the node to check for its parent
  * @returns {SyntaxNode | null} command node or null
  */
-export function findParentCommand(node?: SyntaxNode) {
+export function findParentCommand(node?: SyntaxNode): SyntaxNode | null {
   if (!node) return null;
 
   let currentNode: SyntaxNode | null = node;

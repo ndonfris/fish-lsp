@@ -809,27 +809,31 @@ describe('analyzer test suite', () => {
         const nodes = analyzer.cached.get(document.uri)?.nodes || [];
 
         let pos = Locations.Position.fromSyntaxNode(nodes.find(s => isCommandName(s) && s.text === 'test'));
-        const result: FishCompletionItem[] = analyzer.getCompletionSymbols(document, pos);
-        console.log(result.length);
-
-        // let pos = getRange(analyzer.cached.get(document.uri)?.nodes.find(s => isCommandName(s) && s.text === 'test')!)!.end;
-        // console.log(pos);
+        let result: FishCompletionItem[] = [];
 
         // /** after `test` commandName inside `nested` */
         pos = { line: 1, character: 8 };
-        console.log(analyzer.getCompletionSymbols(document, pos).map(s => s.label));
-        //   expect(analyzer.getCompletionSymbols(document, pos).map(s => s.name)).toEqual([
-        //     'private',
-        //   ])
+        result = analyzer.getCompletionSymbols(document, pos);
+
+        /** doesnt include `private` */
+        expect(result.map(s => s.label)).toEqual([
+          'test',
+          'argv',
+          'foo',
+          'nested',
+        ]);
         //
         //   /** after final `end` outside of `nested` */
-        //   pos = { line: 5, character: 4 };
-        //   // console.log(analyzer.getCompletionSymbols(document, pos).map(s => s.name));
-        //   expect(analyzer.getCompletionSymbols(document, pos).map(s => s.name)).toEqual([
-        //     'private',
-        //     'test'
-        //   ]);
-        // });
+        pos = { line: 5, character: 4 };
+        result = analyzer.getCompletionSymbols(document, pos);
+
+        /** no argv */
+        expect(result.map(s => s.label)).toEqual([
+          'private', /** should be local to document */
+          'test', /** should be local to document */
+          'foo',
+          'nested',
+        ]);
       });
 
       /**
@@ -926,7 +930,9 @@ describe('analyzer test suite', () => {
         console.log({ text: cmdNode.text, argIdx, newPos });
       });
 
-      it.only('variable completion `$`', () => {
+      /* TODO: not working */
+      it('variable completion `$`', () => {
+        
         const wrapInput = (input: string) => {
           const { doc, rootNode } = testSymbolFiltering('config.fish', input);
           const cursorPosition = Locations.Position.create(0, input.length - 1);
@@ -976,8 +982,36 @@ describe('analyzer test suite', () => {
       });
     });
 
-    it('command multiline: `cmd \\n--flag`', () => {
+    it.only('command multiline: `cmd \\n--flag`', () => {
+      const { doc, cursorPosition } = testSymbolFiltering('functions/testvar.fish', [
+        'function testvar',
+        '    set test 1',
+        '    echo \\',
+        '    $test; ls█',
+        'end',
+      ].join('\n'));
 
+      const cursor = analyzer.analyzeCursorPosition(doc.uri, 3, 12);
+      const last = analyzer.findLastNodeBeforeCursor(doc.uri, 3, 14);
+      console.log({
+        text: doc.getText(),
+        textBeforeCursor: cursor.docTextBeforeCursor,
+        cursorPosition,
+        cursor: cursor.line,
+        isLast: cursor.isLastNode,
+        endswithSpace: cursor.endswithSpace,
+        trailingSemi: cursor.trailingSemi,
+        lastNode: cursor.lastNode?.text,
+        lastCommand: cursor.lastCommand?.text,
+        lastCommandStr: cursor.commandName,
+        word: cursor.word,
+        argIdx: cursor.argumentIndex,
+      });
+
+      console.log({
+        last: last?.text,
+        blocks: doc.getBlockBeforeCursor({line: 3, character: 12}),
+      })
     });
 
     it('argument index/distance from command', () => {
@@ -1211,7 +1245,7 @@ fish_add_path --append /usr/local/bin
   // @TODO
   describe('getSignatureHelp()', () => {
 
-  })
+  });
 
   // @TODO
   // describe('public properties', () => {
