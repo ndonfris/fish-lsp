@@ -130,8 +130,13 @@ export class JestLogger extends Logger {
   }
 }
 
-export function createServerLogger(logFilePath: string, clear: boolean = true): Logger {
-  return new Logger(logFilePath, clear);
+export let logger: Logger;
+
+export function createServerLogger(logFilePath: string, clear: boolean = true, connectionConsole?: IConsole): Logger {
+  if (!logger) {
+    logger = new Logger(logFilePath, clear, connectionConsole);
+  }
+  return logger;
 }
 
 export function createJestLogger(): JestLogger {

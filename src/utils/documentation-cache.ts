@@ -2,6 +2,7 @@ import { SymbolKind, MarkupContent } from 'vscode-languageserver';
 import { execCmd, execCommandDocs, execEscapedCommand } from './exec';
 //import { FishCompletionItem } from './completion-strategy';
 import { FishCompletionItem, CompletionExample } from './completion/types';
+import { isBuiltin } from './builtins';
 //import { CompletionExample } from './static-completions';
 
 /****************************************************************************************
@@ -175,6 +176,7 @@ export async function getAbbrDocString(name: string): Promise<string | undefined
  * builds MarkupString for builtin documentation
  */
 export async function getBuiltinDocString(name: string): Promise<string | undefined> {
+  if (!isBuiltin(name)) return undefined;
   const cmdDocs: string = await execCommandDocs(name);
   if (!cmdDocs) {
     return undefined;
