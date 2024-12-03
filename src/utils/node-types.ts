@@ -602,6 +602,28 @@ export function findReadVariables(node: SyntaxNode) {
   return variables;
 }
 
+export function hasParent(node: SyntaxNode, callbackfn: (n: SyntaxNode) => boolean) {
+  let currentNode: SyntaxNode = node;
+  while (currentNode !== null) {
+    if (callbackfn(currentNode)) {
+      return true;
+    }
+    currentNode = currentNode.parent!;
+  }
+  return false;
+}
+
+export function findParent(node: SyntaxNode, callbackfn: (n: SyntaxNode) => boolean) {
+  let currentNode: SyntaxNode = node;
+  while (currentNode !== null) {
+    if (callbackfn(currentNode)) {
+      return currentNode;
+    }
+    currentNode = currentNode.parent!;
+  }
+  return null;
+}
+
 export function hasParentFunction(node: SyntaxNode) {
   let currentNode: SyntaxNode = node;
   while (currentNode !== null) {
@@ -738,6 +760,7 @@ export function isCommandWithName(node: SyntaxNode, ...commandNames: string[]) {
   return !!node.firstChild && commandNames.includes(node.firstChild.text);
 }
 
+//
 // TODO: either move use or remove
 // /**
 //  * checks for SyntaxNode.text === '-f1' | '--fields=1'

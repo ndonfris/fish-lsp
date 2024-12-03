@@ -4,6 +4,7 @@
     "package.json",
     "src",
     ".eslintrc.cjs",
+    "commitlint.config.ts",
     "jest.config.js",
     "test-data"
   ]

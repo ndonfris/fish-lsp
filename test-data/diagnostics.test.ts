@@ -4,7 +4,7 @@ import Parser, { SyntaxNode, Tree } from 'web-tree-sitter';
 import { findChildNodes, getChildNodes, getNodeAtRange } from '../src/utils/tree-sitter';
 import { Diagnostic, DiagnosticSeverity, TextDocumentItem } from 'vscode-languageserver';
 import { initializeParser } from '../src/parser';
-import { isDefinition, isMatchingOption, isVariableDefinitionName } from '../src/utils/node-types';
+import { findParent, hasParentFunction, isCommand, isCommandWithName, isDefinition, isIfOrElseIfConditional, isMatchingOption, isVariableDefinitionName } from '../src/utils/node-types';
 // import { ScopeStack, isReference } from '../src/diagnostics/scope';
 import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter } from '../src/diagnostics/node-types';
 
@@ -308,6 +308,79 @@ describe('diagnostics test suite', () => {
       '$variable_1',
       '$variable_3',
       '$variable_4',
+    ]);
+  });
+
+  it('NODE_TEST: conditional', () => {
+    type ConditionalOutput = {
+      idx: number;
+      node: string;
+    };
+    const output: ConditionalOutput[] = [];
+    [
+      'if set -q var || set -l bad_1; echo "var is set"; end;',
+      'if set -q var; or set -l bad_2; echo "var is set"; end;',
+      'if set fishpath (which fish); echo "fishpath is set"; end;',
+      'if not string match -q -- $PNPM_HOME $PATH; set -gx PATH "$PNPM_HOME" $PATH; end;',
+      `
+if string match -q -- $PNPM_HOME $PATH \\
+    or set -q _flag_a 
+  set -gx PATH "$PNPM_HOME" $PATH
+end`,
+      `
+if set -xq __flag || set fishdir (command -v fish)
+    echo fishdir: $fishdir
+end
+
+if set -qx __flag || set fishdir (command -v fish)
+    echo fishdir: $fishdir
+else if set -q __flag \\
+    || set -q fishdir (command -v fish)
+    echo fishdir: $fishdir
+end
+
+if set fishdir (status fish-path | string match -vr /bin/)
+    echo fishdir: $fishdir
+end
+
+if functions -q fish_prompt
+    echo fish_prompt
+end
+
+if command -q fish (status fish-path)
+    echo fish: $fish
+end
+
+if builtin --query echo
+    echo 'echo'
+end
+
+if type --all --query ls || functions -q ls || command -aq ls
+    echo 'ls'
+end
+
+awk
+      `].forEach((input, idx) => {
+      const { rootNode } = parser.parse(input);
+      for (const node of getChildNodes(rootNode)) {
+        if (isConditionalWithoutQuietCommand(node)) {
+          output.push({
+            idx,
+            node: node.text,
+          });
+        }
+      }
+    });
+    // console.log(output)
+    expect(output).toEqual([
+      {
+        idx: 0,
+        node: 'set -l bad_1',
+      },
+      {
+        idx: 1,
+        node: 'set -l bad_2',
+      },
     ]);
   });
 

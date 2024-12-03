@@ -1,11 +1,11 @@
 import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { isCommand, isCommandName, isCommandWithName, isIfOrElseIfConditional, isMatchingOption, isOption, isString } from '../utils/node-types';
-import { findChildNodes, getChildNodes } from '../utils/tree-sitter';
+import { getChildNodes } from '../utils/tree-sitter';
 
 type startTokenType = 'function' | 'while' | 'if' | 'for' | 'begin' | '[' | '{' | '(' | "'" | '"';
 type endTokenType = 'end' | "'" | '"' | ']' | '}' | ')';
 
-const errorNodeTypes: { [ start in startTokenType ]: endTokenType } = {
+const errorNodeTypes: { [start in startTokenType]: endTokenType } = {
   ['function']: 'end',
   ['while']: 'end',
   ['begin']: 'end',
@@ -98,18 +98,65 @@ export function isTestCommandVariableExpansionWithoutString(node: SyntaxNode): b
   return false;
 }
 
-export function isConditionalWithoutQuietCommand(node: SyntaxNode) {
-  if (!isCommandWithName(node, 'command', 'set', 'string', 'builtin', 'functions')) return false;
-
-  if (node.parent && isIfOrElseIfConditional(node.parent)) {
-    const conditions = node.parent.childrenForFieldName('condition');
-    const flags = findChildNodes(node, (n) => {
-      return isMatchingOption(n, { shortOption: '-q', longOption: '--quiet' })
-        || isMatchingOption(n, { shortOption: '-q', longOption: '--query' });
-    });
-    return !!conditions.find(n => n.equals(node)) && flags.length === 0;
+/**
+ * util for collecting if conditional_statement commands
+ * Necessary because there is two types of conditional statements:
+ *    1.) if cmd_1 || cmd_2; ...; end;
+ *    2.) if cmd_1; or cmd_2; ...; end;
+ * Case two is handled by the if statement, checking for the parent type of conditional_execution
+ * @param node - the current node to check (should be a command)
+ * @returns true if the node is a conditional statement, otherwise false
+ */
+function isConditionalStatement(node: SyntaxNode) {
+  if (['\n', ';'].includes(node?.previousSibling?.type || '')) return false;
+  let curr: SyntaxNode | null = node.parent;
+  while (curr) {
+    if (curr.type === 'conditional_execution') {
+      curr = curr?.parent;
+    } else if (isIfOrElseIfConditional(curr)) {
+      return true;
+    } else {
+      break;
+    }
   }
   return false;
+}
+
+/**
+ * Checks if a command has a command substitution. For example,
+ *
+ *   ```fish
+ *   if set -l fishdir (status fish-path | string match -vr /bin/)
+ *       echo $fishdir
+ *   end
+ *   ```
+ *
+ * @param node - the current node to check (should be a `set` command)
+ * @returns true if the command has a command substitution, otherwise false
+ */
+function hasCommandSubstitution(node: SyntaxNode) {
+  return node.childrenForFieldName('argument').filter(c => c.type === 'command_substitution').length > 0;
+}
+
+/**
+ * Check if -q,--quiet/--query flags are present for commands which follow an `if/else if` conditional statement
+ * @param node - the current node to check (should be a command)
+ * @returns true if the command is a conditional statement without -q,--quiet/--query flags, otherwise false
+ */
+export function isConditionalWithoutQuietCommand(node: SyntaxNode) {
+  if (!isCommandWithName(node, 'command', 'type', 'read', 'set', 'string', 'abbr', 'builtin', 'functions', 'jobs')) return false;
+  if (!isConditionalStatement(node)) return false;
+
+  // skip `set` commands with command substitution
+  if (isCommandWithName(node, 'set') && hasCommandSubstitution(node)) {
+    return false;
+  }
+
+  const flags = node?.childrenForFieldName('argument')
+    .filter(n => isMatchingOption(n, { shortOption: '-q', longOption: '--quiet' })
+      || isMatchingOption(n, { shortOption: '-q', longOption: '--query' })) || [];
+
+  return flags.length === 0;
 }
 
 export function isVariableDefinitionWithExpansionCharacter(node: SyntaxNode) {
