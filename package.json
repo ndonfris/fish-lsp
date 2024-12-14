@@ -2,7 +2,7 @@
   "author": "ndonfris",
   "license": "MIT",
   "name": "fish-lsp",
-  "version": "1.0.8",
+  "version": "1.0.8-2",
   "description": "LSP implementation for fish/fish-shell",
   "keywords": [
     "lsp",
@@ -25,7 +25,6 @@
   "scripts": {
     "prepare": "husky",
     "setup": "run-s sh:build-time sh:build-wasm",
-    "preinstall": "yarn install --ignore-scripts --no-progress",
     "postinstall": "run-s setup compile sh:relink sh:build-completions",
     "compile": "tsc -b",
     "watch": "tsc -b -w",
@@ -33,7 +32,9 @@
     "sh:build-time": "fish ./scripts/build-time.fish",
     "sh:build-wasm": "fish ./scripts/build-fish-wasm.fish",
     "sh:relink": "fish ./scripts/relink-locally.fish",
-    "clean:all": "rimraf out *.tsbuildinfo node_modules tree-sitter-fish.wasm logs.txt",
+    "sh:build-release": "fish ./scripts/build-release.fish",
+    "clean:all": "rimraf out *.tsbuildinfo node_modules tree-sitter-fish.wasm logs.txt build",
+    "clean:build": "rimraf build",
     "clean": "rimraf out node_modules",
     "test": "env -i HOME=$HOME PATH=$PATH NODE_ENV=test jest",
     "refactor": "knip",
@@ -117,6 +118,32 @@
     "tree-sitter-fish": "https://github.com/ram02z/tree-sitter-fish",
     "ts-jest": "^29.1.2",
     "ts-node": "^10.9.2"
+  },
+  "pkg": {
+    "scripts": "out/**/*.js",
+    "assets": [
+      "fish_files/**/*",
+      "tree-sitter-fish.wasm",
+      "out/**/*",
+      "docs/man/fish-lsp.1",
+      "package.json"
+    ],
+    "ignore": [
+      "node_modules/@types/**",
+      "**/*.d.ts",
+      "**/*.map",
+      "**/*.test.js",
+      "**/*.spec.js",
+      ".git/**"
+    ],
+    "targets": [
+      "linux-x64",
+      "linux-arm64",
+      "macos-x64",
+      "macos-arm64"
+    ],
+    "outputPath": "build",
+    "compression": "GZIP"
   },
   "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }

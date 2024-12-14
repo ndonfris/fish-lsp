@@ -55,7 +55,7 @@ Introducing the [fish-lsp](https://fish-lsp.dev), a [Language Server Protocol (L
 | __Diagnostic__ | Shows all diagnostics | ✅ |
 | __Folding Range__ | Toggle ranges to fold text  | ✅ |
 | __Telescope Integration__ | Integrates with the telescope.nvim plugin | ✅ |
-| __CLI Interactivity__ | Provides a CLI for server interaction. Built by `fish-lsp complete <option>` | ✅ |
+| __CLI Interactivity__ | Provides a CLI for server interaction. <br/>Built by `fish-lsp complete <option>` | ✅ |
 | __Client Tree__ | Shows the defined scope as a Tree | ✅ |
 | __Indexing__ | Indexes all commands, variables, and functions | ✅ |
 
@@ -73,87 +73,284 @@ Introducing the [fish-lsp](https://fish-lsp.dev), a [Language Server Protocol (L
 
 ## Installation
 
-> __Recommended Dependencies:__ `yarn@1.22.22`, `node@21.7.1`, `fish@3.7.1`
+Some language clients might support downloading the fish-lsp directly from within the client, but for the most part, you'll typically be required to install the language server manually.
 
-Building from source is __the only currently recommended installation method__, as we improve
-other methods of the installation process (Don't use __releases__ or __npm packages__).
-Contributions to help enhance installation options are greatly appreciated!
+Below are some common methods to install the language server
 
-1. Clone the repo
+#### Build from Source (Recommended)
 
-    ```bash
-    git clone https://github.com/ndonfris/fish-lsp
-    # cd fish-lsp
-    ```
+> Recommended Dependencies: `yarn@1.22.22` `node@22.12.0` `fish@3.7.1`
 
-1. Install the dependencies & run the setup handler scripts
+```bash
+# Clone the repository
+git clone https://github.com/ndonfris/fish-lsp
+cd fish-lsp
 
-    ```bash
-    yarn install
-    ```
+# Install dependencies and build
+yarn install
 
-1. __Optional:__ Check that the project successfully compiled & linked
+# verify the installation succeeded
+fish-lsp info  # ./bin/fish-lsp info
+```
 
-    ```bash
-    fish-lsp --help # ./bin/fish-lsp --help
-    ```
+#### Download a Standalone Executable
 
-    ![fish-lsp --help](https://github.com/ndonfris/fish-lsp.dev/blob/master/public/help-msg-new.png)
+Available on the [releases page](https://github.com/ndonfris/fish-lsp/releases) or using the installation script below:
 
-<!-- 1. Setup the project in the [client](https://github.com/ndonfris/fish-lsp/wiki/Client-Configurations) of your choice. _Client's typically only need the keys `command`, -->
-<!--    `args/arguments`, and `filetypes` to start a language server._ -->
-<!---->
-<!--     ```json -->
-<!--     { -->
-<!--       "fish-lsp": { -->
-<!--         "command": "fish-lsp", -->
-<!--         "filetypes": ["fish"], -->
-<!--         "args": ["start"], -->
-<!--         "revealOutputChannelOn": "info", -->
-<!--         "initializationOptions": { -->
-<!--           "workspaces": { -->
-<!--             "paths": { -->
-<!--               "defaults": [ -->
-<!--                 "$HOME/.config/fish", -->
-<!--                 "/usr/share/fish" -->
-<!--               ] -->
-<!--             } -->
-<!--           } -->
-<!--         } -->
-<!--       } -->
-<!--     } -->
-<!--     ``` -->
-<!---->
-<!--     > Neovim client using [coc.nvim](https://github.com/neoclide/coc.nvim) configuration, located inside [coc-settings.json](https://github.com/neoclide/coc.nvim/wiki/Language-servers#register-custom-language-servers) `"languageserver"` key -->
+```bash
+curl -sL https://raw.githubusercontent.com/ndonfris/fish-lsp/master/scripts/install.fish | fish
+```
+
+The standalone executables are built using [pkg](https://www.npmjs.com/package/@yao-pkg/pkg), and don't require `node` or `yarn` to be installed.
+
+#### Using a Package Managers
+
+Currently, it is __not recommended__ to use package managers for installation.
+
+However, the following package managers are supported:
+
+```bash
+# Using npm
+npm install -g fish-lsp
+
+# Using yarn
+yarn global add fish-lsp
+
+# Using pnpm
+pnpm install -g fish-lsp
+
+# Using nix
+nix-shell -p fish-lsp
+```
+
+### Verifying Installation
+
+After installation, verify that `fish-lsp` is working correctly:
+
+```bash
+fish-lsp --help
+```
+
+![fish-lsp --help](https://github.com/ndonfris/fish-lsp.dev/blob/master/public/help-msg-new.png)
 
 ## Setup
 
-To properly configure [fish-lsp](https://fish-lsp.dev), you need to define a client configuration after
-installing the language server. _Client's typically only need the keys `command`,
-`args/arguments`, and `filetypes` to start a language server._
+To properly configure [fish-lsp](https://fish-lsp.dev), you need to define a client configuration after installing the language server.
+
+> To start a language server, _client's typically only need to configure the keys `command`, `arguments`, and `filetypes`_
+>
+> This should be straightforward to translate from the shell command `fish-lsp start` for `fish` files
 
 ### Client Configuration _(Required)_
 
 Theoretically, the language-server should generally be compatible with almost any text-editor or IDE you prefer using.
-Feel free to setup the project in any [fish-lsp-client](https://github.com/ndonfris/fish-lsp/wiki/Client-Configurations) of your choice, or [submit a PR](https://github.com/ndonfris/fish-lsp-language-clients/pulls) for new configurations.
 
-```json
-{
-  "fish-lsp": {
-    "command": "fish-lsp",
-    "filetypes": ["fish"],
-    "args": ["start"]
-  }
+Below are some examples of how to configure the language server in various clients:
+
+<details>
+  <summary><b>neovim (v0.8)</b></summary>
+
+  Full table of options available in the [neovim documentation](https://neovim.io/doc/user/lsp.html)
+
+  ```lua
+  vim.api.nvim_create_autocmd('FileType', {
+    pattern = 'fish',
+    callback = function()
+      vim.lsp.start({
+        name = 'fish-lsp',
+        cmd = { 'fish-lsp', 'start' },
+        cmd_env = { fish_lsp_show_client_popups = false },
+      })
+    end,
+  })
+  ```
+
+</details>
+<details>
+  <summary><b>nvim-lspconfig</b><a name="nvim-lspconfig"></a></summary>
+
+  Configuration provided by [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig/blob/master/doc/configs.md#fish_lsp)
+
+```lua
+local util = require 'lspconfig.util'
+
+return {
+  default_config = {
+    cmd = { 'fish-lsp', 'start' },
+    cmd_env = { fish_lsp_show_client_popups = false },
+    filetypes = { 'fish' },
+    root_dir = util.find_git_ancestor,
+    single_file_support = true,
+  },
 }
 ```
 
-> [Neovim](https://neovim.io) client using [coc.nvim](https://github.com/neoclide/coc.nvim) configuration, located inside [coc-settings.json](https://github.com/neoclide/coc.nvim/wiki/Language-servers#register-custom-language-servers) `"languageserver"` key
+</details>
+<details>
+  <summary><b>coc.nvim</b></summary>
+
+  [Neovim](https://neovim.io) client using [coc.nvim](https://github.com/neoclide/coc.nvim) configuration, located inside [coc-settings.json](https://github.com/neoclide/coc.nvim/wiki/Language-servers#register-custom-language-servers) `"languageserver"` key
+
+  ```json
+  {
+    "fish-lsp": {
+      "command": "fish-lsp",
+      "filetypes": ["fish"],
+      "args": ["start"]
+    }
+  }
+  ```
+
+</details>
+<details>
+  <summary><b>mason.nvim</b></summary>
+
+  ```lua
+  require('mason').setup {
+    registries = {
+      "github:bnwa/mason-registry",
+      "github:mason-org/mason-registry",
+    }
+  }
+  -- `:MasonUpdate`
+  ```
+
+  Once installed, you can configure the language server directly similar to the [nvim-lspconfig](#nvim-lspconfig) example
+
+  ```lua
+  -- once installed
+  vim.lsp.start {
+    cmd = { 'fish-language-server', 'start' }
+    name = 'fish-language-server',
+    root_dir = vim.fs.root(0, { 'config.fish' })
+  }
+  ```
+
+  > for more info, please see [@bnwa/mason-registry](https://github.com/bnwa/mason-registry)
+</details>
+<details>
+  <summary><b>YouCompleteMe</b></summary>
+
+  YouCompleteMe configuration for vimscript lsp client
+
+  ```vim
+  let g:ycm_language_server =
+            \ [
+            \   {
+            \       'name': 'fish',
+            \       'cmdline': [ 'fish-lsp', 'start' ],
+            \       'filetypes': [ 'fish' ],
+            \   }
+            \ ]
+  ```
+
+</details>
+<details>
+  <summary><b>helix</b></summary>
+
+  In config file `~/.config/helix/languages.toml`
+
+  ```toml
+[[language]]
+name = "fish"
+language-servers = [ "fish-lsp" ]
+
+[language-server.fish-lsp]
+command = "fish-lsp"
+args= ["start"]
+  ```
+
+</details>
+<details>
+  <summary><b>kakoune-lsp</b></summary>
+
+  ```kak
+  hook global BufSetOption filetype=(?:fish) %{
+    set-option buffer lsp_servers %{
+      [fish-lsp]
+      args = ["start"]
+    }
+  }
+ 
+  ```
+
+</details>
+<details>
+  <summary><b>emacs (using eglot)</b></summary>
+<!---->
+<!--   ```elisp -->
+<!-- (unless (package-installed-p 'fish-mode) -->
+<!-- (package-install 'fish-mode)) -->
+<!---->
+<!-- ;; Load eglot (built into Emacs 29+) -->
+<!-- (require 'eglot) -->
+<!---->
+<!-- ;; Register fish-lsp with eglot -->
+<!-- (add-to-list 'eglot-server-programs -->
+<!--              '(fish-mode . ("fish-lsp" "start"))) -->
+<!---->
+<!-- ;; Automatically start eglot when opening fish files -->
+<!-- (add-hook 'fish-mode-hook 'eglot-ensure) -->
+<!--   ``` -->
+
+  ```elisp
+  ;; Configure Eglot for fish files
+  (use-package eglot
+    :ensure t
+    :config
+    ;; Register fish-lsp with eglot
+    (add-to-list 'eglot-server-programs
+                 '(fish-mode . ("fish-lsp" "start")))
+    
+    ;; Automatically start eglot when opening fish files
+    (add-hook 'fish-mode-hook 'eglot-ensure))
+  ```
+
+<!--   ```elisp -->
+<!-- ;; Ensure necessary packages are installed -->
+<!-- (require 'lsp-mode) -->
+<!-- (require 'fish-mode) -->
+<!---->
+<!-- ;; Register fish-lsp with lsp-mode -->
+<!-- (add-to-list 'lsp-language-id-configuration '(fish-mode . "fish")) -->
+<!---->
+<!-- (lsp-register-client -->
+<!--  (make-lsp-client -->
+<!--   :new-connection (lsp-stdio-connection '("fish-lsp" "start")) -->
+<!--   :activation-fn (lsp-activate-on "fish") -->
+<!--   :server-id 'fish-lsp -->
+<!--   :major-modes '(fish-mode))) -->
+<!---->
+<!-- ;; Automatically start LSP when opening fish files -->
+<!-- (add-hook 'fish-mode-hook #'lsp) -->
+<!---->
+<!-- ;; Optional: Configure some LSP mode settings -->
+<!-- (setq lsp-enable-snippet t -->
+<!--       lsp-enable-completion-at-point t) -->
+<!--   ``` -->
+</details>
+
+Feel free to setup the project in any [fish-lsp-client](https://github.com/ndonfris/fish-lsp/wiki/Client-Configurations) of your choice, or [submit a PR](https://github.com/ndonfris/fish-lsp-language-clients/pulls) for new configurations.
 
 ### Server Configuration _(Optional)_
 
 Specific functionality for the server can be set independently from the client. This allows for multiple
 configurations, to be defined and chosen via specific startup requirements  __(i.e.,__ using the `bind` command
 with the _function_ `edit_command_buffer`__).__
+
+<!-- <details> -->
+<!--   <summary>edit_command_buffer wrapper</summary> -->
+<!---->
+<!--   ```fish -->
+<!--   function edit_command_buffer_wrapper -->
+<!--     set -lx  fish_lsp_diagnostic_disable_error_codes 1001 1002 1003 1004 2001 2002 2003 3001 3002 3003  -->
+<!--     set -lx fish_lsp_show_client_popups false -->
+<!--     edit_command_buffer -->
+<!--   end -->
+<!--   bind \ee edit_command_buffer_wrapper -->
+<!--   ``` -->
+<!---->
+<!-- </details> -->
 
 #### Environment variables
 
@@ -175,7 +372,7 @@ set -gx fish_lsp_commit_characters
 
 # fish_lsp_logfile <STRING>
 # path to the logs.txt file (default: '')
-# example locations could be: '~/path/to/fish-lsp/logs.txt' or '/tmp/fish_lsp_logs.txt'
+# example locations could be: '~/path/to/fish-lsp/logs.txt' or '/tmp/fish_lsp.logs'
 set -gx fish_lsp_logfile
 
 # fish_lsp_format_tabsize <NUMBER>
@@ -205,6 +402,7 @@ set -gx fish_lsp_max_background_files
 
 # fish_lsp_show_client_popups <BOOLEAN>
 # show popup window notification in the connected client (default: true)
+# DISABLING THIS MIGHT BE REQUIRED FOR SOME CLIENTS THAT DO NOT SUPPORT POPUPS
 set -gx fish_lsp_show_client_popups
 ```
 
