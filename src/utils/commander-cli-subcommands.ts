@@ -165,7 +165,7 @@ export function BuildCapabilityString() {
     `${done} rename`,
     `${done} definition`,
     `${done} references`,
-    `${todo} diagnostics`,
+    `${done} diagnostics`,
     `${todo} signatureHelp`,
     `${todo} codeAction`,
     `${todo} codeLens`,

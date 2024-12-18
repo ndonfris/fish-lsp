@@ -71,13 +71,19 @@ Introducing the [fish-lsp](https://fish-lsp.dev), a [Language Server Protocol (L
 <!---->
 <!-- If you'd like to contribute, please check out the [contributing guidelines](./docs/CONTRIBUTING.md). Every bit helps, whether it's code, documentation, or just spreading the word! -->
 
+## Quick Start
+
+Please choose a [method to install](#installation) the language server and [configure a client](#client-configuration-required) to use `fish-lsp` in your editor.
+
+A detailed explanation of how a language server connection works is described in the [how it works](#how-does-it-work) section.
+
 ## Installation
 
 Some language clients might support downloading the fish-lsp directly from within the client, but for the most part, you'll typically be required to install the language server manually.
 
 Below are some common methods to install the language server
 
-#### Build from Source (Recommended)
+#### Build from Source <ins><i>(Recommended)</i></ins> <a href="build-from-source" />
 
 > Recommended Dependencies: `yarn@1.22.22` `node@22.12.0` `fish@3.7.1`
 
@@ -93,7 +99,7 @@ yarn install
 fish-lsp info  # ./bin/fish-lsp info
 ```
 
-#### Download a Standalone Executable
+#### Download a Standalone Executable <a href="build-a-standalone-executable" />
 
 Available on the [releases page](https://github.com/ndonfris/fish-lsp/releases) or using the installation script below:
 
@@ -103,11 +109,9 @@ curl -sL https://raw.githubusercontent.com/ndonfris/fish-lsp/master/scripts/inst
 
 The standalone executables are built using [pkg](https://www.npmjs.com/package/@yao-pkg/pkg), and don't require `node` or `yarn` to be installed.
 
-#### Using a Package Managers
+#### Using a Package Manager  <a href="using-a-package-manager" />
 
-Currently, it is __not recommended__ to use package managers for installation.
-
-However, the following package managers are supported:
+Stability across package managers can vary. Consider using another installation method if issues arise. 
 
 ```bash
 # Using npm
@@ -131,7 +135,7 @@ After installation, verify that `fish-lsp` is working correctly:
 fish-lsp --help
 ```
 
-![fish-lsp --help](https://github.com/ndonfris/fish-lsp.dev/blob/master/public/help-msg-new.png)
+![fish-lsp --help](https://github.com/ndonfris/fish-lsp.dev/blob/master/public/help-msg-new.png?raw=true)
 
 ## Setup
 
@@ -141,7 +145,7 @@ To properly configure [fish-lsp](https://fish-lsp.dev), you need to define a cli
 >
 > This should be straightforward to translate from the shell command `fish-lsp start` for `fish` files
 
-### Client Configuration _(Required)_
+### Client Configuration <ins><i>(Required)</i></ins><a href="client-configuration" />
 
 Theoretically, the language-server should generally be compatible with almost any text-editor or IDE you prefer using.
 
@@ -167,7 +171,7 @@ Below are some examples of how to configure the language server in various clien
 
 </details>
 <details>
-  <summary><b>nvim-lspconfig</b><a name="nvim-lspconfig"></a></summary>
+  <summary><b>nvim-lspconfig</b><a name="nvim-lspconfig" /></summary>
 
   Configuration provided by [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig/blob/master/doc/configs.md#fish_lsp)
 
@@ -202,36 +206,36 @@ return {
   ```
 
 </details>
-<details>
-  <summary><b>mason.nvim</b></summary>
-
-  ```lua
-  require('mason').setup {
-    registries = {
-      "github:bnwa/mason-registry",
-      "github:mason-org/mason-registry",
-    }
-  }
-  -- `:MasonUpdate`
-  ```
-
-  Once installed, you can configure the language server directly similar to the [nvim-lspconfig](#nvim-lspconfig) example
-
-  ```lua
-  -- once installed
-  vim.lsp.start {
-    cmd = { 'fish-language-server', 'start' }
-    name = 'fish-language-server',
-    root_dir = vim.fs.root(0, { 'config.fish' })
-  }
-  ```
-
-  > for more info, please see [@bnwa/mason-registry](https://github.com/bnwa/mason-registry)
-</details>
+<!-- <details> -->
+<!--   <summary><b>mason.nvim</b></summary> -->
+<!---->
+<!--   ```lua -->
+<!--   require('mason').setup { -->
+<!--     registries = { -->
+<!--       "github:bnwa/mason-registry", -->
+<!--       "github:mason-org/mason-registry", -->
+<!--     } -->
+<!--   } -->
+<!--   -- `:MasonUpdate` -->
+<!--   ``` -->
+<!---->
+<!--   Once installed, you can configure the language server directly similar to the [nvim-lspconfig](#nvim-lspconfig) example -->
+<!---->
+<!--   ```lua -->
+<!--   -- once installed -->
+<!--   vim.lsp.start { -->
+<!--     cmd = { 'fish-language-server', 'start' } -->
+<!--     name = 'fish-language-server', -->
+<!--     root_dir = vim.fs.root(0, { 'config.fish' }) -->
+<!--   } -->
+<!--   ``` -->
+<!---->
+<!--   > for more info, please see [@bnwa/mason-registry](https://github.com/bnwa/mason-registry) -->
+<!-- </details> -->
 <details>
   <summary><b>YouCompleteMe</b></summary>
 
-  YouCompleteMe configuration for vimscript lsp client
+  [YouCompleteMe](https://github.com/ycm-core/YouCompleteMe) configuration for vim/neovim
 
   ```vim
   let g:ycm_language_server =
@@ -246,97 +250,114 @@ return {
 
 </details>
 <details>
+  <summary><b>vim-lsp</b></summary>
+
+  Configuration of [prabirshrestha/vim-lsp](https://github.com/prabirshrestha/vim-lsp) in your `init.vim` or `init.lua` file
+
+  ```vim
+  if executable('fish-lsp')
+    au User lsp_setup call lsp#register_server({
+        \ 'name': 'fish-lsp',
+        \ 'cmd': {server_info->['fish-lsp', 'start']},
+        \ 'allowlist': ['fish'],
+        \ })
+  endif
+  ```
+
+</details>
+<!-- <details> -->
+<!--   <summary><b>vim-lsc</b></summary> -->
+<!---->
+<!--   Configuration of [natebosch/vim-lsc](https://github.com/natebosch/vim-lsc) in your `init.vim` or `init.lua` file -->
+<!---->
+<!--   ```vim -->
+<!--   let g:lsc_server_commands = { -->
+<!--     \ 'fish': { -->
+<!--     \    'command': 'fish-lsp start', -->
+<!--     \    'log_level': -1, -->
+<!--     \    'suppress_stderr': v:true, -->
+<!--     \ } -->
+<!--     \} -->
+<!--   ``` -->
+<!---->
+<!-- </details> -->
+<details>
   <summary><b>helix</b></summary>
 
   In config file `~/.config/helix/languages.toml`
 
   ```toml
-[[language]]
-name = "fish"
-language-servers = [ "fish-lsp" ]
-
-[language-server.fish-lsp]
-command = "fish-lsp"
-args= ["start"]
+  [[language]]
+  name = "fish"
+  language-servers = [ "fish-lsp" ]
+  
+  [language-server.fish-lsp]
+  command = "fish-lsp"
+  args= ["start"]
   ```
 
 </details>
 <details>
-  <summary><b>kakoune-lsp</b></summary>
+  <summary><b>kakoune</b></summary>
 
-  ```kak
-  hook global BufSetOption filetype=(?:fish) %{
-    set-option buffer lsp_servers %{
-      [fish-lsp]
-      args = ["start"]
-    }
-  }
- 
+  Configuration for [kakoune-lsp](https://github.com/kakoune-lsp/kakoune-lsp), located in `~/.config/kak-lsp/kak-lsp.toml`
+
+  ```toml
+  [language.fish]
+  filetypes = ["fish"]
+  command = "fish-lsp"
+  args = ["start"]
+
   ```
 
+  <!-- ```kak -->
+  <!-- hook global BufSetOption filetype=(?:fish) %{ -->
+  <!--   set-option buffer lsp_servers %{ -->
+  <!--     [fish-lsp] -->
+  <!--     args = ["start"] -->
+  <!--   } -->
+  <!-- } -->
+  <!-- ``` -->
 </details>
 <details>
-  <summary><b>emacs (using eglot)</b></summary>
-<!---->
-<!--   ```elisp -->
-<!-- (unless (package-installed-p 'fish-mode) -->
-<!-- (package-install 'fish-mode)) -->
-<!---->
-<!-- ;; Load eglot (built into Emacs 29+) -->
-<!-- (require 'eglot) -->
-<!---->
-<!-- ;; Register fish-lsp with eglot -->
-<!-- (add-to-list 'eglot-server-programs -->
-<!--              '(fish-mode . ("fish-lsp" "start"))) -->
-<!---->
-<!-- ;; Automatically start eglot when opening fish files -->
-<!-- (add-hook 'fish-mode-hook 'eglot-ensure) -->
-<!--   ``` -->
+  <summary><b>emacs</b></summary>
+
+  Configuration using [eglot](https://github.com/joaotavora/eglot) (Built into Emacs 29+)
 
   ```elisp
-  ;; Configure Eglot for fish files
-  (use-package eglot
-    :ensure t
-    :config
-    ;; Register fish-lsp with eglot
-    (add-to-list 'eglot-server-programs
-                 '(fish-mode . ("fish-lsp" "start")))
-    
-    ;; Automatically start eglot when opening fish files
-    (add-hook 'fish-mode-hook 'eglot-ensure))
+  ;; Add to your init.el or .emacs
+  (require 'eglot)
+
+  (add-to-list 'eglot-server-programs
+    '(fish-mode . ("fish-lsp" "start")))
+
+  ;; Optional: auto-start eglot for fish files
+  (add-hook 'fish-mode-hook 'eglot-ensure)
   ```
 
-<!--   ```elisp -->
-<!-- ;; Ensure necessary packages are installed -->
-<!-- (require 'lsp-mode) -->
-<!-- (require 'fish-mode) -->
-<!---->
-<!-- ;; Register fish-lsp with lsp-mode -->
-<!-- (add-to-list 'lsp-language-id-configuration '(fish-mode . "fish")) -->
-<!---->
-<!-- (lsp-register-client -->
-<!--  (make-lsp-client -->
-<!--   :new-connection (lsp-stdio-connection '("fish-lsp" "start")) -->
-<!--   :activation-fn (lsp-activate-on "fish") -->
-<!--   :server-id 'fish-lsp -->
-<!--   :major-modes '(fish-mode))) -->
-<!---->
-<!-- ;; Automatically start LSP when opening fish files -->
-<!-- (add-hook 'fish-mode-hook #'lsp) -->
-<!---->
-<!-- ;; Optional: Configure some LSP mode settings -->
-<!-- (setq lsp-enable-snippet t -->
-<!--       lsp-enable-completion-at-point t) -->
-<!--   ``` -->
+  Configuration using [lsp-mode](https://github.com/emacs-lsp/lsp-mode)
+
+  ```elisp
+  ;; Add to your init.el or .emacs
+  (require 'lsp-mode)
+
+  (lsp-register-client
+   (make-lsp-client
+    :new-connection (lsp-stdio-connection '("fish-lsp" "start"))
+    :activation-fn (lsp-activate-on "fish")
+    :server-id 'fish-lsp))
+
+  ;; Optional: auto-start lsp for fish files
+  (add-hook 'fish-mode-hook #'lsp)
+  ```
+
 </details>
 
 Feel free to setup the project in any [fish-lsp-client](https://github.com/ndonfris/fish-lsp/wiki/Client-Configurations) of your choice, or [submit a PR](https://github.com/ndonfris/fish-lsp-language-clients/pulls) for new configurations.
 
-### Server Configuration _(Optional)_
+### Server Configuration <ins><i>(Optional)</i></ins> <a href="server-configuration" />
 
-Specific functionality for the server can be set independently from the client. This allows for multiple
-configurations, to be defined and chosen via specific startup requirements  __(i.e.,__ using the `bind` command
-with the _function_ `edit_command_buffer`__).__
+Specific functionality for the server can be set independently from the client. This allows for multiple configurations, to be defined and chosen via specific startup requirements  __(i.e.,__ using the `bind` command with the _function_ `edit_command_buffer`__).__
 
 <!-- <details> -->
 <!--   <summary>edit_command_buffer wrapper</summary> -->
@@ -408,8 +429,7 @@ set -gx fish_lsp_show_client_popups
 
 #### Command Flags
 
-Both the flags `--enable` and `--disable` are provided on the `fish-lsp start`
-subcommand. __By default, all handlers will be enabled__.
+Both the flags `--enable` and `--disable` are provided on the `fish-lsp start` subcommand. __By default, all handlers will be enabled__.
 
 ```fish
 # displays what handlers are enabled. Removing the dump flag will run the server.
@@ -418,29 +438,19 @@ fish-lsp start --disable complete signature --dump
 
 #### Further Server Configuration
 
-Any [flags](#command-flags) will overwrite their corresponding [environment variables](#environment-variables), if both are
-seen for the `fish-lsp` process. For this reason, it is encouraged to wrap any
-non-standard behavior of the `fish-lsp` in [functions](https://fishshell.com/docs/current/language.html#functions) or [aliases](https://fishshell.com/docs/current/language.html#defining-aliases).
+Any [flags](#command-flags) will overwrite their corresponding [environment variables](#environment-variables), if both are seen for the `fish-lsp` process. For this reason, it is encouraged to wrap any non-standard behavior of the `fish-lsp` in [functions](https://fishshell.com/docs/current/language.html#functions) or [aliases](https://fishshell.com/docs/current/language.html#defining-aliases).
 
-Due to the vast possibilities this project aims to support in the fish shell,
-[sharing useful configurations is highly encouraged](https://github.com/ndonfris/fish-lsp/discussions).
+Due to the vast possibilities this project aims to support in the fish shell, [sharing useful configurations is highly encouraged](https://github.com/ndonfris/fish-lsp/discussions).
 
 ## How does it work?
 
-If you're new to the concept of the [Language Server Protocol (LSP)](https://lsif.dev), this section should be
-useful to help you grasp its core purpose and benefits.
+If you're new to the concept of the [Language Server Protocol (LSP)](https://lsif.dev), this section should be useful to help you grasp its core purpose and benefits.
 
 > 📸 Check out [this insightful video](https://youtu.be/LaS32vctfOY?si=MISP8tL_HU06-_z-) by TJ DeVries for an introduction to the subject.
 
-The LSP is designed to create a uniform approach for supporting a programming language across
-various development tools, moving beyond the confines of specific Text-Editor/IDE ecosystems.
-This standardization enhances a language's appeal by allowing developers to maintain consistent
-tooling support without needing to switch developer environments.
+The LSP is designed to create a uniform approach for supporting a programming language across various development tools, moving beyond the confines of specific Text-Editor/IDE ecosystems. This standardization enhances a language's appeal by allowing developers to maintain consistent tooling support without needing to switch developer environments.
 
-The core of this system is the interaction between a _'language server'_, which provides
-language services, and a _'language client'_, which consumes these services. The protocol
-facilitates this interaction, ensuring that any _language client_ can leverage a
-well-defined set of features provided by the _server_.
+The core of this system is the interaction between a _'language server'_, which provides language services, and a _'language client'_, which consumes these services. The protocol facilitates this interaction, ensuring that any _language client_ can leverage a well-defined set of features provided by the _server_.
 
 <details>
 
