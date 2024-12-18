@@ -81,9 +81,9 @@ A detailed explanation of how a language server connection works is described in
 
 Some language clients might support downloading the fish-lsp directly from within the client, but for the most part, you'll typically be required to install the language server manually.
 
-Below are some common methods to install the language server
+Below are a few methods to install the language server, and how to verify that it's working.
 
-#### Build from Source <ins><i>(Recommended)</i></ins> <a href="build-from-source" />
+### Build from Source <ins><i>(Recommended)</i></ins> <a href="build-from-source" />
 
 > Recommended Dependencies: `yarn@1.22.22` `node@22.12.0` `fish@3.7.1`
 
@@ -99,7 +99,7 @@ yarn install
 fish-lsp info  # ./bin/fish-lsp info
 ```
 
-#### Download a Standalone Executable <a href="build-a-standalone-executable" />
+### Download a Standalone Executable <a href="build-a-standalone-executable" />
 
 Available on the [releases page](https://github.com/ndonfris/fish-lsp/releases) or using the installation script below:
 
@@ -109,7 +109,7 @@ curl -sL https://raw.githubusercontent.com/ndonfris/fish-lsp/master/scripts/inst
 
 The standalone executables are built using [pkg](https://www.npmjs.com/package/@yao-pkg/pkg), and don't require `node` or `yarn` to be installed.
 
-#### Using a Package Manager  <a href="using-a-package-manager" />
+### Use a Package Manager  <a href="using-a-package-manager" />
 
 Stability across package managers can vary. Consider using another installation method if issues arise. 
 
@@ -357,21 +357,8 @@ Feel free to setup the project in any [fish-lsp-client](https://github.com/ndonf
 
 ### Server Configuration <ins><i>(Optional)</i></ins> <a href="server-configuration" />
 
-Specific functionality for the server can be set independently from the client. This allows for multiple configurations, to be defined and chosen via specific startup requirements  __(i.e.,__ using the `bind` command with the _function_ `edit_command_buffer`__).__
-
-<!-- <details> -->
-<!--   <summary>edit_command_buffer wrapper</summary> -->
-<!---->
-<!--   ```fish -->
-<!--   function edit_command_buffer_wrapper -->
-<!--     set -lx  fish_lsp_diagnostic_disable_error_codes 1001 1002 1003 1004 2001 2002 2003 3001 3002 3003  -->
-<!--     set -lx fish_lsp_show_client_popups false -->
-<!--     edit_command_buffer -->
-<!--   end -->
-<!--   bind \ee edit_command_buffer_wrapper -->
-<!--   ``` -->
-<!---->
-<!-- </details> -->
+Specific functionality for the server can be set independently from the client. The server allows for both [environment variables](#environment-variables) and [command flags](#command-flags) to customize how specific server processes are started.
+<!-- This allows for multiple configurations, to be defined and chosen via specific startup requirements  __(i.e.,__ using the `bind` command with the _function_ `edit_command_buffer`__).__ -->
 
 #### Environment variables
 
@@ -439,6 +426,22 @@ fish-lsp start --disable complete signature --dump
 #### Further Server Configuration
 
 Any [flags](#command-flags) will overwrite their corresponding [environment variables](#environment-variables), if both are seen for the `fish-lsp` process. For this reason, it is encouraged to wrap any non-standard behavior of the `fish-lsp` in [functions](https://fishshell.com/docs/current/language.html#functions) or [aliases](https://fishshell.com/docs/current/language.html#defining-aliases).
+
+<details>
+  <summary><b>Example</b> disabling specific <code>fish-lsp</code> features, <ins><i>wrapping</i></ins> the <code>edit_command_buffer</code> function.</summary>
+
+  > ```fish
+  > function edit_command_buffer_wrapper
+  >   set -lx fish_lsp_diagnostic_disable_error_codes 1001 1002 1003 1004 2001 2002 2003 3001 3002 3003 
+  >   set -lx fish_lsp_show_client_popups false
+  >   edit_command_buffer
+  > end
+  > bind \ee edit_command_buffer_wrapper
+  > ```
+  >
+  > This allows normal editing of fish files to keep their default behaviour, while disabling unwanted server features for _"interactive"_ buffers.
+
+</details>
 
 Due to the vast possibilities this project aims to support in the fish shell, [sharing useful configurations is highly encouraged](https://github.com/ndonfris/fish-lsp/discussions).
 
