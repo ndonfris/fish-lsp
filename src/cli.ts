@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 //'use strict'
-import { BuildCapabilityString, PathObj, PackageLspVersion, PackageVersion, accumulateStartupOptions, getBuildTimeString, FishLspHelp, FishLspManPage, SourcesDict, smallFishLogo } from './utils/commander-cli-subcommands';
+import { BuildCapabilityString, PathObj, PackageLspVersion, PackageVersion, accumulateStartupOptions, getBuildTimeString, FishLspHelp, FishLspManPage, SourcesDict, smallFishLogo, isPkgBinary } from './utils/commander-cli-subcommands';
 import { createConnection, InitializeParams, InitializeResult, StreamMessageReader, StreamMessageWriter } from 'vscode-languageserver/node';
 import { Command, Option } from 'commander';
 import FishServer from './server';
@@ -197,16 +197,17 @@ commandBin.command('info')
       process.exit(0);
     }
     if (args.logsFile) {
-      logToStdout(config.fish_lsp_logfile || PathObj.logsFile);
+      logToStdout(config.fish_lsp_logfile);
       process.exit(0);
     }
     logToStdout(`Repository: ${PathObj.repo}`);
-    logToStdout(`Build Time: ${getBuildTimeString()}`);
     logToStdout(`Version: ${PackageVersion}`);
+    logToStdout(`Build Time: ${getBuildTimeString()}`);
+    logToStdout(`Install Type: ${isPkgBinary() ? 'standalone executable' : 'local build'}`);
     logToStdout(`LSP Version: ${PackageLspVersion}`);
     logToStdout(`Binary File: ${PathObj.bin}`);
-    logToStdout(`man file: ${PathObj.manFile}`);
-    logToStdout(`log file: ${PathObj.logsFile}`);
+    logToStdout(`Man File: ${PathObj.manFile}`);
+    logToStdout(`Log File: ${config.fish_lsp_logfile}`);
     logToStdout('CAPABILITIES:');
     logToStdout(capabilities);
     process.exit(0);

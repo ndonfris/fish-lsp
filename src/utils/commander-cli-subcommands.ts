@@ -51,12 +51,11 @@ export const smallFishLogo = () => '><(((°> FISH LSP';
 export const RepoUrl = PackageJSON.repository?.url.slice(0, -4);
 export const PackageVersion = PackageJSON.version;
 
-export const PathObj: { [ K in 'bin' | 'root' | 'repo' | 'manFile' | 'logsFile' ]: string } = {
+export const PathObj: { [ K in 'bin' | 'root' | 'repo' | 'manFile' ]: string } = {
   ['bin']: resolve(__dirname.toString(), '..', '..', 'bin', 'fish-lsp'),
   ['root']: resolve(__dirname, '..', '..'),
   ['repo']: resolve(__dirname, '..', '..'),
   ['manFile']: resolve(__dirname, '..', '..', 'docs', 'man', 'fish-lsp.1'),
-  ['logsFile']: resolve(__dirname, '..', '..', 'logs.txt'),
 };
 
 export const PackageLspVersion = PackageJSON.dependencies['vscode-languageserver-protocol']!.toString();
@@ -78,6 +77,10 @@ const getOutTime = () => {
 
 export const getBuildTimeString = () => {
   return getOutTime();
+};
+
+export const isPkgBinary = () => {
+  return resolve(__dirname).startsWith('/snapshot/');
 };
 
 export const FishLspHelp = {

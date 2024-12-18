@@ -169,27 +169,29 @@ Below are some examples of how to configure the language server in various clien
   })
   ```
 
-</details>
-<details>
-  <summary><b>nvim-lspconfig</b><a name="nvim-lspconfig" /></summary>
-
-  Configuration provided by [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig/blob/master/doc/configs.md#fish_lsp)
-
-```lua
-local util = require 'lspconfig.util'
-
-return {
-  default_config = {
-    cmd = { 'fish-lsp', 'start' },
-    cmd_env = { fish_lsp_show_client_popups = false },
-    filetypes = { 'fish' },
-    root_dir = util.find_git_ancestor,
-    single_file_support = true,
-  },
-}
-```
+  Alternatively, you can also see official documentation for [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig/blob/master/doc/configs.md#fish_lsp), or use your client of choice below.
 
 </details>
+<!-- <details> -->
+<!--   <summary><b>nvim-lspconfig</b><a name="nvim-lspconfig" /></summary> -->
+<!---->
+<!--   Configuration provided by [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig/blob/master/doc/configs.md#fish_lsp) -->
+<!---->
+<!-- ```lua -->
+<!-- local util = require 'lspconfig.util' -->
+<!---->
+<!-- return { -->
+<!--   default_config = { -->
+<!--     cmd = { 'fish-lsp', 'start' }, -->
+<!--     cmd_env = { fish_lsp_show_client_popups = false }, -->
+<!--     filetypes = { 'fish' }, -->
+<!--     root_dir = util.find_git_ancestor, -->
+<!--     single_file_support = true, -->
+<!--   }, -->
+<!-- } -->
+<!-- ``` -->
+<!---->
+<!-- </details> -->
 <details>
   <summary><b>coc.nvim</b></summary>
 
