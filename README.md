@@ -83,23 +83,7 @@ Some language clients might support downloading the fish-lsp directly from withi
 
 Below are a few methods to install the language server, and how to verify that it's working.
 
-### Build from Source <ins><i>(Recommended)</i></ins> <a href="build-from-source" />
-
-> Recommended Dependencies: `yarn@1.22.22` `node@22.12.0` `fish@3.7.1`
-
-```bash
-# Clone the repository
-git clone https://github.com/ndonfris/fish-lsp
-cd fish-lsp
-
-# Install dependencies and build
-yarn install
-
-# verify the installation succeeded
-fish-lsp info  # ./bin/fish-lsp info
-```
-
-### Download a Standalone Executable <a href="build-a-standalone-executable" />
+### Download a Standalone Executable
 
 Available on the [releases page](https://github.com/ndonfris/fish-lsp/releases) or using the installation script below:
 
@@ -109,9 +93,9 @@ curl -sL https://raw.githubusercontent.com/ndonfris/fish-lsp/master/scripts/inst
 
 The standalone executables are built using [pkg](https://www.npmjs.com/package/@yao-pkg/pkg), and don't require `node` or `yarn` to be installed.
 
-### Use a Package Manager  <a href="using-a-package-manager" />
+### Use a Package Manager
 
-Stability across package managers can vary. Consider using another installation method if issues arise. 
+Stability across package managers can vary. Consider using another installation method if issues arise.
 
 ```bash
 # Using npm
@@ -125,6 +109,16 @@ pnpm install -g fish-lsp
 
 # Using nix
 nix-shell -p fish-lsp
+```
+
+### Build from Source
+
+Recommended Dependencies: `yarn@1.22.22` `node@22.12.0` `fish@3.7.1`
+
+```bash
+git clone https://github.com/ndonfris/fish-lsp 
+cd fish-lsp
+yarn install && yarn link
 ```
 
 ### Verifying Installation
@@ -141,15 +135,18 @@ fish-lsp --help
 
 To properly configure [fish-lsp](https://fish-lsp.dev), you need to define a client configuration after installing the language server.
 
-> To start a language server, _client's typically only need to configure the keys `command`, `arguments`, and `filetypes`_
->
-> This should be straightforward to translate from the shell command `fish-lsp start` for `fish` files
+Configuring a client should be relatively straightforward. Typically, you're only required to translate the shell command `fish-lsp start` for `fish` files, in the [client's configuration](#client-configuration-required). However, further configuration can be specified as a [server configuration](#server-configuration-optional).
+
+Some clients may also allow specifying the server configuration directly in the client configuration.
+
+<!-- > To start a language server, _client's typically only need to configure the keys `command`, `arguments`, and `filetypes`_ -->
+<!-- > -->
+<!-- > This should be straightforward to translate from the shell command `fish-lsp start` for `fish` files -->
 
 ### Client Configuration <ins><i>(Required)</i></ins><a href="client-configuration" />
 
-Theoretically, the language-server should generally be compatible with almost any text-editor or IDE you prefer using.
+Theoretically, the language-server should generally be compatible with almost any text-editor or IDE you prefer using.  Feel free to setup the project in any [fish-lsp-client](https://github.com/ndonfris/fish-lsp/wiki/Client-Configurations) of your choice, or [submit a PR](https://github.com/ndonfris/fish-lsp-language-clients/pulls) for new configurations.
 
-Below are some examples of how to configure the language server in various clients:
 
 <details>
   <summary><b>neovim (v0.8)</b></summary>
@@ -355,8 +352,6 @@ Below are some examples of how to configure the language server in various clien
 
 </details>
 
-Feel free to setup the project in any [fish-lsp-client](https://github.com/ndonfris/fish-lsp/wiki/Client-Configurations) of your choice, or [submit a PR](https://github.com/ndonfris/fish-lsp-language-clients/pulls) for new configurations.
-
 ### Server Configuration <ins><i>(Optional)</i></ins> <a href="server-configuration" />
 
 Specific functionality for the server can be set independently from the client. The server allows for both [environment variables](#environment-variables) and [command flags](#command-flags) to customize how specific server processes are started.
@@ -433,12 +428,18 @@ Any [flags](#command-flags) will overwrite their corresponding [environment vari
   <summary><b>Example</b> disabling specific <code>fish-lsp</code> features, <ins><i>wrapping</i></ins> the <code>edit_command_buffer</code> function.</summary>
 
   > ```fish
-  > function edit_command_buffer_wrapper
+  > function edit_command_buffer_wrapper --description 'edit command buffer with custom server configurations'
+  >   # place any CUSTOM server configurations here
   >   set -lx fish_lsp_diagnostic_disable_error_codes 1001 1002 1003 1004 2001 2002 2003 3001 3002 3003 
   >   set -lx fish_lsp_show_client_popups false
+  > 
+  >   # open the command buffer with the custom server configuration, without
+  >   # overwriting the default server settings
   >   edit_command_buffer
   > end
   > bind \ee edit_command_buffer_wrapper
+  > # now pressing alt+e in an interactive command prompt will open fish-lsp with the
+  > # options set above, but opening the `$EDITOR` normally will still behave as expected
   > ```
   >
   > This allows normal editing of fish files to keep their default behaviour, while disabling unwanted server features for _"interactive"_ buffers.

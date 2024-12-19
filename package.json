@@ -25,7 +25,7 @@
   "scripts": {
     "prepare": "husky",
     "setup": "run-s sh:build-time sh:build-wasm",
-    "postinstall": "run-s setup compile sh:relink sh:build-completions",
+    "postinstall": "run-s setup compile sh:build-completions",
     "compile": "tsc -b",
     "watch": "tsc -b -w",
     "sh:build-completions": "fish ./scripts/build-completions.fish",
