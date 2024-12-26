@@ -59,6 +59,15 @@ function __fish_lsp_using_command
 end
 `;
 
+const noFishLspSubcommands: string = `
+# fish-lsp --<TAB>
+complete -c fish-lsp -n 'not __fish_lsp_using_command start logger info url complete env' -s v -l version      -d 'Show lsp version'
+complete -c fish-lsp -n 'not __fish_lsp_using_command start logger info url complete env' -s h -l help         -d 'Show help information'
+complete -c fish-lsp -n 'not __fish_lsp_using_command start logger info url complete env'      -l help-all     -d 'Show all help information'
+complete -c fish-lsp -n 'not __fish_lsp_using_command start logger info url complete env'      -l help-short   -d 'Show short help information'
+complete -c fish-lsp -n 'not __fish_lsp_using_command start logger info url complete env'      -l help-man     -d 'Show raw manpage'
+`;
+
 /**
  * Syntax for urlCompletions does not match other completions because it is not influenced
  * by receiving multiple duplicated arguments
@@ -133,11 +142,14 @@ export function buildFishLspCompletions(commandBin: Command) {
   output.push('complete -c fish-lsp -f', '');
   output.push(`complete -c fish-lsp -n "__fish_use_subcommand" -a "\n${subcmdStrs}\"`);
 
+  output.push(noFishLspSubcommands);
+
+  // flags for `fish-lsp start`
   output.push([
     '',
     'set __fish_lsp_subcommands start',
     '',
-    '# fish_lsp [start] --<TAB> ',
+    '# fish_lsp start --<TAB> ',
     'complete -c fish-lsp -n \'__fish_seen_subcommand_from $__fish_lsp_subcommands\' -a \"',
     '--dump\\t\'dump output and stop server\'',
     '--enable\\t\'enable feature\'',
@@ -158,7 +170,9 @@ export function buildFishLspCompletions(commandBin: Command) {
   output.push('complete -c fish-lsp -n \'__fish_seen_subcommand_from $__fish_lsp_subcommands\' -l disable -xa \'(_fish_lsp_get_features)\'');
 
   output.push('');
-  output.push('# built by the command: ');
-  output.push('# fish-lsp complete ~/.config/fish/completions/fish-lsp.fish');
+  output.push('# built by any of the commands: ');
+  output.push('# fish-lsp complete > ~/.config/fish/completions/fish-lsp.fish');
+  output.push('# fish-lsp complete > $fish_complete_path[1]/fish-lsp.fish');
+  output.push('# fish-lsp complete > $__fish_user_data_dir[1]/fish-lsp.fish');
   return output.join('\n');
 }

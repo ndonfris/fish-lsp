@@ -59,12 +59,6 @@ export const ConfigSchema = z.object({
   /** Path to the log files */
   fish_lsp_logfile: z.string().default(''),
 
-  /** Tab size for formatting */
-  fish_lsp_format_tabsize: z.number().default(4),
-
-  /** Whether case statements should be indented */
-  fish_lsp_format_switch_case: z.boolean().default(true),
-
   /** All workspaces/paths for the language-server to index */
   fish_lsp_all_indexed_paths: z.array(z.string()).default(['/usr/share/fish', `${os.homedir()}/.config/fish`]),
 
@@ -92,8 +86,6 @@ export function getConfigFromEnvironmentVariables(): {
     fish_lsp_disabled_handlers: process.env.fish_lsp_disabled_handlers?.split(' '),
     fish_lsp_commit_characters: process.env.fish_lsp_commit_characters?.split(' '),
     fish_lsp_logfile: process.env.fish_lsp_logfile,
-    fish_lsp_format_tabsize: toNumber(process.env.fish_lsp_format_tabsize),
-    fish_lsp_format_switch_case: toBoolean(process.env.fish_lsp_format_switch_case),
     fish_lsp_all_indexed_paths: process.env.fish_lsp_all_indexed_paths?.split(' '),
     fish_lsp_modifiable_paths: process.env.fish_lsp_modifiable_paths?.split(' '),
     fish_lsp_diagnostic_disable_error_codes: process.env.fish_lsp_diagnostic_disable_error_codes?.split(' ').map(toNumber),

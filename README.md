@@ -83,16 +83,6 @@ Some language clients might support downloading the fish-lsp directly from withi
 
 Below are a few methods to install the language server, and how to verify that it's working.
 
-### Download a Standalone Executable
-
-Available on the [releases page](https://github.com/ndonfris/fish-lsp/releases) or using the installation script below:
-
-```bash
-curl -sL https://raw.githubusercontent.com/ndonfris/fish-lsp/master/scripts/install.fish | fish
-```
-
-The standalone executables are built using [pkg](https://www.npmjs.com/package/@yao-pkg/pkg), and don't require `node` or `yarn` to be installed.
-
 ### Use a Package Manager
 
 Stability across package managers can vary. Consider using another installation method if issues arise.
@@ -121,6 +111,16 @@ cd fish-lsp
 yarn install && yarn link
 ```
 
+### Download a Standalone Executable
+
+Available on the [releases page](https://github.com/ndonfris/fish-lsp/releases) or using the installation script below:
+
+```bash
+curl -sL https://raw.githubusercontent.com/ndonfris/fish-lsp/master/scripts/install.fish | fish
+```
+
+The standalone executables are built using [pkg](https://www.npmjs.com/package/@yao-pkg/pkg), and don't require `node` or `yarn` to be installed.
+
 ### Verifying Installation
 
 After installation, verify that `fish-lsp` is working correctly:
@@ -146,7 +146,6 @@ Some clients may also allow specifying the server configuration directly in the 
 ### Client Configuration <ins><i>(Required)</i></ins><a href="client-configuration" />
 
 Theoretically, the language-server should generally be compatible with almost any text-editor or IDE you prefer using.  Feel free to setup the project in any [fish-lsp-client](https://github.com/ndonfris/fish-lsp/wiki/Client-Configurations) of your choice, or [submit a PR](https://github.com/ndonfris/fish-lsp-language-clients/pulls) for new configurations.
-
 
 <details>
   <summary><b>neovim (v0.8)</b></summary>
@@ -350,6 +349,8 @@ Theoretically, the language-server should generally be compatible with almost an
   (add-hook 'fish-mode-hook #'lsp)
   ```
 
+  Full example configuration using [doom-emacs](https://github.com/doomemacs/doomemacs/tree/master) can be found in the [fish-lsp language clients repo](https://github.com/ndonfris/fish-lsp-language-clients/).
+
 </details>
 
 ### Server Configuration <ins><i>(Optional)</i></ins> <a href="server-configuration" />
@@ -379,14 +380,6 @@ set -gx fish_lsp_commit_characters
 # path to the logs.txt file (default: '')
 # example locations could be: '~/path/to/fish-lsp/logs.txt' or '/tmp/fish_lsp.logs'
 set -gx fish_lsp_logfile
-
-# fish_lsp_format_tabsize <NUMBER>
-# amount of spaces in a tab character for the formatter provider (default: 4)
-set -gx fish_lsp_format_tabsize
-
-# fish_lsp_format_switch_case <BOOLEAN>
-# keep case statements left aligned with switch block. (default: false)
-set -gx fish_lsp_format_switch_case
 
 # fish_lsp_all_indexed_paths <ARRAY>
 # fish file paths/workspaces to include as workspaces (default: ['/usr/share/fish', "$HOME/.config/fish"])
@@ -425,7 +418,7 @@ fish-lsp start --disable complete signature --dump
 Any [flags](#command-flags) will overwrite their corresponding [environment variables](#environment-variables), if both are seen for the `fish-lsp` process. For this reason, it is encouraged to wrap any non-standard behavior of the `fish-lsp` in [functions](https://fishshell.com/docs/current/language.html#functions) or [aliases](https://fishshell.com/docs/current/language.html#defining-aliases).
 
 <details>
-  <summary><b>Example</b> disabling specific <code>fish-lsp</code> features, <ins><i>wrapping</i></ins> the <code>edit_command_buffer</code> function.</summary>
+  <summary><b>Example</b> <code>edit_command_buffer</code> wrapper to conditionally disable specific <code>fish-lsp</code> features</summary>
 
   > ```fish
   > function edit_command_buffer_wrapper --description 'edit command buffer with custom server configurations'

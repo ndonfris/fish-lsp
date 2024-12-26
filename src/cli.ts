@@ -75,10 +75,10 @@ commandBin
         FishLspHelp.beforeAll,
         '',
         'DESCRIPTION:',
-        commandBin.description().split('\n').slice(1).join('\n').trim(),
+        '  ' + commandBin.description().split('\n').slice(1).join('\n').trim(),
         '',
         'OPTIONS:',
-        globalOpts.map(o => '  ' + o.flags + '\t' + o.description).join('\n').trim(),
+        '  ' + globalOpts.map(o => '  ' + o.flags + '\t' + o.description).join('\n').trim(),
         '',
         'SUBCOMMANDS:',
         subCommands.join('\n'),
@@ -204,6 +204,7 @@ commandBin.command('info')
     logToStdout(`Version: ${PackageVersion}`);
     logToStdout(`Build Time: ${getBuildTimeString()}`);
     logToStdout(`Install Type: ${isPkgBinary() ? 'standalone executable' : 'local build'}`);
+    logToStdout(`Node Version: ${process.version}`);
     logToStdout(`LSP Version: ${PackageLspVersion}`);
     logToStdout(`Binary File: ${PathObj.bin}`);
     logToStdout(`Man File: ${PathObj.manFile}`);
