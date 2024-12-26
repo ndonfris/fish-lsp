@@ -16,6 +16,12 @@
 <!-- A [Language Server Protocol (LSP)](https://lsif.dev/) tailored for the [fish shell](https://github.com/microsoft/vscode-languageserver-node/tree/main/server/src/common). -->
 Introducing the [fish-lsp](https://fish-lsp.dev), a [Language Server Protocol (LSP)](https://lsif.dev/) implementation for the [fish shell language](https://fishshell.com).
 
+## Quick Start
+
+Please choose a [method to install](#installation) the language server and [configure a client](#client-configuration-required) to use `fish-lsp` in your editor.
+
+A detailed explanation of how a language server connection works is described in the [how it works](#how-does-it-work) section.
+
 <!-- The overall project goal is to produce [an editor agnostic developer environment](https://en.wikipedia.org/wiki/Language_Server_Protocol), while simultaneously -->
 <!-- introducing an extensive suite of intelligent text editing [features](#features). -->
 <!---->
@@ -70,12 +76,6 @@ Introducing the [fish-lsp](https://fish-lsp.dev), a [Language Server Protocol (L
 <!-- improves the possibilities capable from future complex __fish-lsp__ features. -->
 <!---->
 <!-- If you'd like to contribute, please check out the [contributing guidelines](./docs/CONTRIBUTING.md). Every bit helps, whether it's code, documentation, or just spreading the word! -->
-
-## Quick Start
-
-Please choose a [method to install](#installation) the language server and [configure a client](#client-configuration-required) to use `fish-lsp` in your editor.
-
-A detailed explanation of how a language server connection works is described in the [how it works](#how-does-it-work) section.
 
 ## Installation
 
