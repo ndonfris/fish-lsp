@@ -88,16 +88,12 @@ Below are a few methods to install the language server, and how to verify that i
 Stability across package managers can vary. Consider using another installation method if issues arise.
 
 ```bash
-# Using npm
-npm install -g fish-lsp
-
-# Using yarn
 yarn global add fish-lsp
+```
 
-# Using pnpm
-pnpm install -g fish-lsp
+Or use nix-shell to install the language server:
 
-# Using nix
+```bash
 nix-shell -p fish-lsp
 ```
 
@@ -353,7 +349,7 @@ Theoretically, the language-server should generally be compatible with almost an
 
 </details>
 
-### Server Configuration <ins><i>(Optional)</i></ins> <a href="server-configuration" />
+### Server Configuration <ins><i>(Optional)</i></ins>
 
 Specific functionality for the server can be set independently from the client. The server allows for both [environment variables](#environment-variables) and [command flags](#command-flags) to customize how specific server processes are started.
 <!-- This allows for multiple configurations, to be defined and chosen via specific startup requirements  __(i.e.,__ using the `bind` command with the _function_ `edit_command_buffer`__).__ -->

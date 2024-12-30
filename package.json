@@ -22,10 +22,24 @@
     "man": "./docs/man/fish-lsp.1",
     "bin": "./bin/fish-lsp"
   },
+  "files": [
+    "tree-sitter-fish.wasm",
+    "package.json",
+    "out",
+    "src",
+    "docs",
+    "bin",
+    "scripts",
+    "fish_files",
+    "tsconfig.json",
+    "README.md",
+    "LICENSE.md"
+  ],
   "scripts": {
     "prepare": "husky",
-    "setup": "run-s sh:build-time sh:build-wasm",
-    "postinstall": "run-s setup compile sh:build-completions",
+    "setup": "run-s sh:build-wasm",
+    "postinstall": "run-s sh:build-time sh:build-completions",
+    "prepack": "run-s setup compile",
     "compile": "tsc -b",
     "watch": "tsc -b -w",
     "sh:build-completions": "fish ./scripts/build-completions.fish",
@@ -75,14 +89,10 @@
     ]
   },
   "dependencies": {
-    "@esdmr/tree-sitter-fish": "^3.5.2-0",
-    "colors": "^1.4.0",
     "commander": "^12.0.0",
     "deepmerge": "^4.3.1",
     "marked-man": "^1.3.5",
     "tree-sitter": "^0.21.0",
-    "tsc": "^2.0.4",
-    "typescript": "^5.4.3",
     "vscode-languageserver": "^9.0.1",
     "vscode-languageserver-protocol": "3.17.5",
     "vscode-languageserver-textdocument": "1.0.11",
@@ -91,6 +101,7 @@
     "zod": "^3.23.6"
   },
   "devDependencies": {
+    "@esdmr/tree-sitter-fish": "3.5.2-0",
     "@commitlint/cli": "^19.6.0",
     "@commitlint/config-conventional": "^19.6.0",
     "@tsconfig/node-lts": "^20.1.3",
@@ -100,6 +111,8 @@
     "@typescript-eslint/eslint-plugin": "^7.0.1",
     "@typescript-eslint/parser": "^7.4.0",
     "all-contributors-cli": "^6.26.1",
+    "tsc": "^2.0.4",
+    "typescript": "^5.4.3",
     "chai": "^5.1.0",
     "eslint": "^8.0.1",
     "eslint-config-love": "^44.0.0",
