@@ -38,7 +38,8 @@
   "scripts": {
     "prepare": "husky",
     "setup": "run-s sh:build-wasm",
-    "postinstall": "run-s sh:build-time sh:build-completions",
+    "dev": "run-s setup sh:compile sh:relink watch",
+    "postinstall": "run-s sh:build-time",
     "prepack": "run-s setup compile",
     "compile": "tsc -b",
     "watch": "tsc -b -w",
@@ -101,9 +102,9 @@
     "zod": "^3.23.6"
   },
   "devDependencies": {
-    "@esdmr/tree-sitter-fish": "3.5.2-0",
     "@commitlint/cli": "^19.6.0",
     "@commitlint/config-conventional": "^19.6.0",
+    "@esdmr/tree-sitter-fish": "3.5.2-0",
     "@tsconfig/node-lts": "^20.1.3",
     "@types/chai": "^4.3.14",
     "@types/jest": "^29.5.12",
@@ -111,8 +112,6 @@
     "@typescript-eslint/eslint-plugin": "^7.0.1",
     "@typescript-eslint/parser": "^7.4.0",
     "all-contributors-cli": "^6.26.1",
-    "tsc": "^2.0.4",
-    "typescript": "^5.4.3",
     "chai": "^5.1.0",
     "eslint": "^8.0.1",
     "eslint-config-love": "^44.0.0",
@@ -130,7 +129,9 @@
     "tree-sitter-cli": "^0.22.2",
     "tree-sitter-fish": "https://github.com/ram02z/tree-sitter-fish",
     "ts-jest": "^29.1.2",
-    "ts-node": "^10.9.2"
+    "ts-node": "^10.9.2",
+    "tsc": "^2.0.4",
+    "typescript": "^5.4.3"
   },
   "pkg": {
     "scripts": [
@@ -159,6 +160,5 @@
       "macos-arm64"
     ],
     "outputPath": "build"
-  },
-  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
+  }
 }

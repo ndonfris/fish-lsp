@@ -91,7 +91,7 @@ export namespace ErrorCodes {
     },
     [expansionInDefinition]: {
       severity: DiagnosticSeverity.Warning,
-      code: missingQuietOption,
+      code: expansionInDefinition,
       codeDescription: { href: 'https://fishshell.com/docs/current/cmds/set.html' },
       source: 'fish-lsp',
       message: 'Variable definition should not include expansion character',

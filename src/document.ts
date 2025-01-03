@@ -108,7 +108,7 @@ export class LspDocument implements TextDocument {
     const pathArray = this.uri.split('/');
     const fileName = pathArray.pop();
     const parentDir = pathArray.pop();
-    return parentDir === 'functions' || fileName === 'config.fish';
+    return parentDir && ['functions', 'conf.d'].includes(parentDir?.toString()) || fileName === 'config.fish';
   }
 
   /**
