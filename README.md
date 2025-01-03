@@ -88,12 +88,12 @@ Below are a few methods to install the language server, and how to verify that i
 Stability across package managers can vary. Consider using another installation method if issues arise.
 
 ```bash
+npm install -g fish-lsp
+
 yarn global add fish-lsp
-```
 
-Or use nix-shell to install the language server:
+pip install -g fish-lsp
 
-```bash
 nix-shell -p fish-lsp
 ```
 
