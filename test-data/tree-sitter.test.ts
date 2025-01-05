@@ -1,4 +1,4 @@
-import Parser, { SyntaxNode } from 'web-tree-sitter';
+import Parser, { SyntaxNode } from 'tree-sitter';
 import {
   getChildNodes,
   getNamedChildNodes,
@@ -52,7 +52,6 @@ beforeEach(async () => {
 
 afterEach(() => {
   global.console = jestConsole;
-  if (parser) parser.delete();
 });
 
 describe('tree-sitter.ts functions testing', () => {

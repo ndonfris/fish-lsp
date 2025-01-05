@@ -1,6 +1,6 @@
 
 import { DocumentSymbol, SymbolKind, Range, WorkspaceSymbol, Position, Location, FoldingRange } from 'vscode-languageserver';
-import { SyntaxNode } from 'web-tree-sitter';
+import { SyntaxNode } from 'tree-sitter';
 import { isFunctionDefinitionName, isVariableDefinitionName, refinedFindParentVariableDefinitionKeyword } from './utils/node-types';
 //import { findVariableDefinitionOptions } from './utils/options';
 import { DocumentSymbolDetail } from './utils/symbol-documentation-builder';
@@ -112,7 +112,7 @@ export namespace FishDocumentSymbol {
   export function equalScopes(a: FishDocumentSymbol, b: FishDocumentSymbol): boolean {
     if (a.scope.scopeNode && b.scope.scopeNode) {
       if ([a.scope.scopeTag, b.scope.scopeTag].includes('inherit')) {
-        return a.scope.scopeNode.equals(b.scope.scopeNode);
+        return a.scope.scopeNode.id === b.scope.scopeNode.id;
       } else if (
         ['global', 'universal'].includes(a.scope.scopeTag) &&
                 ['global', 'universal'].includes(b.scope.scopeTag)
@@ -120,7 +120,7 @@ export namespace FishDocumentSymbol {
         return true;
       }
       return a.scope.scopeTag === b.scope.scopeTag &&
-                a.scope.scopeNode.equals(b.scope.scopeNode);
+                a.scope.scopeNode.id === b.scope.scopeNode.id;
     }
     return false;
   }

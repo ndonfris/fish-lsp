@@ -2,7 +2,7 @@ import { execPrintLsp } from './utils/exec';
 import { isCommand, isPipe } from './utils/node-types';
 import { getRange } from './utils/tree-sitter';
 import { InlayHint, MarkupContent, Range } from 'vscode-languageserver';
-import { SyntaxNode } from 'web-tree-sitter';
+import { SyntaxNode } from 'tree-sitter';
 import { Analyzer } from './analyze';
 import { LspDocument } from './document';
 import { containsRange } from './workspace-symbol';
@@ -99,7 +99,7 @@ export namespace FishInlayHint {
 //import * as Locations from '../utils/locations'
 //import {isCommandName, isPipe} from '../utils/node-types';
 //import {execInlayHintType} from '../utils/exec';
-//import { SyntaxNode } from 'web-tree-sitter';
+//import { SyntaxNode } from 'tree-sitter';
 //
 //export class FishInlayHintsProvider {
 //

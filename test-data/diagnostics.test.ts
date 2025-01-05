@@ -1,6 +1,6 @@
 import os from 'os';
 import { homedir } from 'os';
-import Parser, { SyntaxNode, Tree } from 'web-tree-sitter';
+import Parser, { SyntaxNode, Tree } from 'tree-sitter';
 import { findChildNodes, getChildNodes, getNodeAtRange } from '../src/utils/tree-sitter';
 import { Diagnostic, DiagnosticSeverity, TextDocumentItem } from 'vscode-languageserver';
 import { initializeParser } from '../src/parser';

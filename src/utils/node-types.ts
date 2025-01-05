@@ -1,4 +1,4 @@
-import { SyntaxNode } from 'web-tree-sitter';
+import { SyntaxNode } from 'tree-sitter';
 import { firstAncestorMatch, getParentNodes, getLeafs } from './tree-sitter';
 import * as VariableTypes from './variable-syntax-nodes';
 
@@ -18,7 +18,7 @@ export function isShebang(node: SyntaxNode) {
   if (!firstLine) {
     return false;
   }
-  if (!node.equals(firstLine)) {
+  if (node.id !== firstLine.id) {
     return false;
   }
   return (
@@ -65,7 +65,7 @@ export function isFunctionDefinitionName(node: SyntaxNode): boolean {
   if (!isFunctionDefinition(parent)) {
     return false;
   }
-  return node.type === 'word' && node.equals(funcName);
+  return node.type === 'word' && node.id === funcName.id;
 }
 
 /**
@@ -87,7 +87,7 @@ export function isCommandName(node: SyntaxNode) : boolean {
   if (!isCommand(parent)) {
     return false;
   }
-  return node.type === 'word' && node.equals(cmdName);
+  return node.type === 'word' && node.id === cmdName.id;
 }
 
 /**

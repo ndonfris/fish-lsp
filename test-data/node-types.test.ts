@@ -1,4 +1,4 @@
-import Parser, { SyntaxNode } from 'web-tree-sitter';
+import Parser, { SyntaxNode } from 'tree-sitter';
 import { initializeParser } from '../src/parser';
 import { findFirstSibling, getChildNodes } from '../src/utils/tree-sitter';
 import * as NodeTypes from '../src/utils/node-types';
@@ -61,7 +61,6 @@ beforeEach(async () => {
 
 afterEach(() => {
   global.console = jestConsole;
-  if (parser) parser.delete();
 });
 
 describe('node-types tests', () => {

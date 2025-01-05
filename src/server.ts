@@ -1,4 +1,4 @@
-import Parser, { SyntaxNode } from 'web-tree-sitter';
+import Parser, { SyntaxNode } from 'tree-sitter';
 import { initializeParser } from './parser';
 import { Analyzer } from './analyze';
 //import {  generateCompletionList, } from "./completion";

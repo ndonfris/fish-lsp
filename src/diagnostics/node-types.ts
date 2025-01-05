@@ -1,4 +1,4 @@
-import Parser, { SyntaxNode } from 'web-tree-sitter';
+import Parser, { SyntaxNode } from 'tree-sitter';
 import { isCommand, isCommandName, isCommandWithName, isIfOrElseIfConditional, isMatchingOption, isOption, isString } from '../utils/node-types';
 import { getChildNodes } from '../utils/tree-sitter';
 
@@ -79,7 +79,7 @@ export function isSourceFilename(node: SyntaxNode): boolean {
   const parent = node.parent;
   if (!parent) return false;
   if (isCommandWithName(parent, 'source') && parent.childCount === 2) {
-    return parent.child(1)?.equals(node) || false;
+    return parent.child(1)?.id === node.id || false;
   }
   return false;
 }
@@ -92,7 +92,7 @@ export function isTestCommandVariableExpansionWithoutString(node: SyntaxNode): b
   if (!isCommandWithName(parent, 'test', '[')) return false;
 
   if (isMatchingOption(previousSibling, { shortOption: '-n' }) || isMatchingOption(previousSibling, { shortOption: '-z' })) {
-    return !isString(node) && !!parent.child(2) && parent.child(2)!.equals(node);
+    return !isString(node) && !!parent.child(2) && parent.child(2)!.id === node.id;
   }
 
   return false;
@@ -162,7 +162,7 @@ export function isConditionalWithoutQuietCommand(node: SyntaxNode) {
 export function isVariableDefinitionWithExpansionCharacter(node: SyntaxNode) {
   if (node.parent && isCommandWithName(node.parent, 'set', 'read')) {
     const definition = getChildNodes(node.parent).filter(n => !isCommand(n) && !isCommandName(n) && !isOption(n)).shift();
-    return (node.type === 'variable_expansion' || node.text.startsWith('$')) && definition?.equals(node);
+    return (node.type === 'variable_expansion' || node.text.startsWith('$')) && definition?.id === node.id;
   }
 
   return false;
