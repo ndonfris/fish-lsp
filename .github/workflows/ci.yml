@@ -9,25 +9,26 @@ jobs:
   ci:
     name: Lint Codebase
     runs-on: ubuntu-latest
-    permissions: 
+    permissions:
       contents: read
       security-events: write
       actions: read
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install Fish Shell
         uses: fish-actions/install-fish@v1.1.0
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 21.7.1
+      - name: Enable corepack
+        run: corepack enable
 
-      - name: Install Yarn
-        run: npm install -g yarn@1.22.22
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: yarn
 
       - name: Install Dependencies
         run: yarn install
@@ -37,3 +38,6 @@ jobs:
 
       - name: Run Lint
         run: yarn lint:fix
+
+      - name: Run tests
+        run: yarn test
