@@ -1,4 +1,4 @@
-import Parser, { SyntaxNode } from 'web-tree-sitter';
+import Parser, { SyntaxNode } from 'tree-sitter';
 // import {getReturnSiblings} from '../src/diagnostics/syntaxError';
 import * as NodeTypes from '../src/utils/node-types';
 import { getChildNodes } from '../src/utils/tree-sitter';

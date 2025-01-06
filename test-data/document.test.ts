@@ -2,7 +2,7 @@
 import { LspDocument } from '../src/document';
 import { resolveLspDocumentForHelperTestFile } from './helpers';
 import { initializeParser } from '../src/parser';
-import { SyntaxNode } from 'web-tree-sitter';
+import { SyntaxNode } from 'tree-sitter';
 
 describe('LspDocument tests', () => {
   it('test an document is created not in ~/.config/fish/functions/ directory', () => {

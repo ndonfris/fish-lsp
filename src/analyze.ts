@@ -1,5 +1,5 @@
 import { Hover, MarkupContent, MarkupKind, Position, SymbolKind, WorkspaceSymbol, URI, Location } from 'vscode-languageserver';
-import Parser, { SyntaxNode, Tree } from 'web-tree-sitter';
+import Parser, { SyntaxNode, Tree } from 'tree-sitter';
 import * as LSP from 'vscode-languageserver';
 import { isPositionWithinRange, getChildNodes } from './utils/tree-sitter';
 import { LspDocument } from './document';

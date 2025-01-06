@@ -3,7 +3,7 @@ import {
   SignatureHelp,
   SignatureInformation,
 } from 'vscode-languageserver';
-import { SyntaxNode } from 'web-tree-sitter';
+import { SyntaxNode } from 'tree-sitter';
 import { ExtendedBaseJson, PrebuiltDocumentationMap } from './utils/snippets';
 import { FishAliasCompletionItem } from './utils/completion/types';
 import * as NodeTypes from './utils/node-types';

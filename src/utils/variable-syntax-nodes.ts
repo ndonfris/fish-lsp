@@ -1,4 +1,4 @@
-import { SyntaxNode } from 'web-tree-sitter';
+import { SyntaxNode } from 'tree-sitter';
 import { VariableDefinitionFlag } from './definition-scope';
 import * as NodeTypes from './node-types';
 
@@ -49,7 +49,7 @@ export function isSetDefinitionNode(nodes: SyntaxNode[], match: SyntaxNode): boo
     if (NodeTypes.isOption(node)) {
       continue;
     }
-    if (node.equals(match)) {
+    if (node.id === match.id) {
       return true;
     } else {
       return false;
@@ -70,7 +70,7 @@ export function isReadDefinitionNode(siblings: SyntaxNode[], match: SyntaxNode):
     }
     readVariables.push(current);
   }
-  return readVariables.some(n => n.equals(match));
+  return readVariables.some(n => n.id === match.id);
 }
 
 export function isFunctionArgumentDefinitionNode(siblings: SyntaxNode[], match: SyntaxNode): boolean {
@@ -86,7 +86,7 @@ export function isFunctionArgumentDefinitionNode(siblings: SyntaxNode[], match: 
       }
     }
   }
-  return args.some(n => n.equals(match));
+  return args.some(n => n.id === match.id);
 }
 
 export function isForLoopDefinitionNode(siblings: SyntaxNode[], match: SyntaxNode) : boolean {
@@ -94,5 +94,5 @@ export function isForLoopDefinitionNode(siblings: SyntaxNode[], match: SyntaxNod
   if (!first) {
     return false;
   }
-  return first.type === 'variable_name' && first.equals(match) || false;
+  return first.type === 'variable_name' && first.id === match.id || false;
 }

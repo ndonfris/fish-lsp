@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 import { initializeParser } from '../src/parser';
-import Parser, { Point, SyntaxNode, Tree } from 'web-tree-sitter';
+import Parser, { Point, SyntaxNode, Tree } from 'tree-sitter';
 import { TextDocumentItem } from 'vscode-languageserver';
 import { LspDocument } from '../src/document';
 import { homedir } from 'os';

@@ -1,4 +1,4 @@
-import Parser, { SyntaxNode } from 'web-tree-sitter';
+import Parser, { SyntaxNode } from 'tree-sitter';
 import { initializeParser } from '../../parser';
 import { getChildNodes, getLeafs, getLastLeaf, firstAncestorMatch } from '../tree-sitter';
 import { isUnmatchedStringCharacter, isPartialForLoop } from '../node-types';

@@ -2,7 +2,7 @@
 import { extname } from 'path';
 //import { pathToFileURL, URL } from 'url'
 import { Position, Range, URI } from 'vscode-languageserver';
-import { Point, SyntaxNode, Tree } from 'web-tree-sitter';
+import { Point, SyntaxNode, Tree } from 'tree-sitter';
 // import { pathToFileURL } from 'url'; // typescript-language-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts
 // import vscodeUri from 'vscode-uri'; // typescript-language-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts
 // import { existsSync } from 'fs-extra';
@@ -268,7 +268,7 @@ export function descendantMatch(
 
 export function hasNode(allNodes: SyntaxNode[], matchNode: SyntaxNode) {
   for (const node of allNodes) {
-    if (node.equals(matchNode)) {
+    if (node.id === matchNode.id) {
       return true;
     }
   }

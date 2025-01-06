@@ -2,7 +2,7 @@
 import { toSymbolKind } from './utils/translation';
 import { equalRanges, getRange } from './utils/tree-sitter';
 import { DocumentHighlight, DocumentHighlightKind } from 'vscode-languageserver';
-import { SyntaxNode, Tree } from 'web-tree-sitter';
+import { SyntaxNode, Tree } from 'tree-sitter';
 
 /**
  * TODO:

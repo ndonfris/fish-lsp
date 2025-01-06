@@ -1,6 +1,6 @@
 import * as LSP from 'vscode-languageserver';
 import { Hover, MarkupKind } from 'vscode-languageserver';
-import * as Parser from 'web-tree-sitter';
+import * as Parser from 'tree-sitter';
 import { Analyzer } from './analyze';
 import { LspDocument } from './document';
 import { documentationHoverProvider, enrichCommandWithFlags } from './documentation';

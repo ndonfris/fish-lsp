@@ -1,6 +1,6 @@
 import os from 'os';
 import { SymbolKind } from 'vscode-languageserver';
-import { SyntaxNode } from 'web-tree-sitter';
+import { SyntaxNode } from 'tree-sitter';
 import { isFunctionDefinitionName, isVariableDefinition, isProgram, isVariableDefinitionName } from './node-types';
 //import { FishFlagOption, optionTagProvider } from './options';
 import { symbolKindToString, uriToPath } from './translation';
