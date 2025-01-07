@@ -13,7 +13,6 @@
 
 ![demo.gif](https://github.com/ndonfris/fish-lsp.dev/blob/ndonfris-patch-1/new_output.gif?raw=true)
 
-<!-- A [Language Server Protocol (LSP)](https://lsif.dev/) tailored for the [fish shell](https://github.com/microsoft/vscode-languageserver-node/tree/main/server/src/common). -->
 Introducing the [fish-lsp](https://fish-lsp.dev), a [Language Server Protocol (LSP)](https://lsif.dev/) implementation for the [fish shell language](https://fishshell.com).
 
 ## Quick Start
@@ -22,9 +21,6 @@ Please choose a [method to install](#installation) the language server and [conf
 
 A detailed explanation of how a language server connection works is described in the [how it works](#how-does-it-work) section.
 
-<!-- The overall project goal is to produce [an editor agnostic developer environment](https://en.wikipedia.org/wiki/Language_Server_Protocol), while simultaneously -->
-<!-- introducing an extensive suite of intelligent text editing [features](#features). -->
-<!---->
 ## Why? 🐟
 
 - 🦈 __Efficiency__: enhances the shell scripting experience with an extensive suite of intelligent text-editing [features](#features)
@@ -65,18 +61,6 @@ A detailed explanation of how a language server connection works is described in
 | __Client Tree__ | Shows the defined scope as a Tree | ✅ |
 | __Indexing__ | Indexes all commands, variables, and functions | ✅ |
 
-<!-- ## Challenges -->
-<!---->
-<!-- Since its inception, __fish-lsp__ has undergone substantial changes to maintain compatibility -->
-<!-- and performance with the continuously evolving [LSP standards](https://github.com/Microsoft/vscode-languageserver-node). As a result, some features are still being -->
-<!-- refined or have been temporarily excluded while their internal data-structures are being reworked. -->
-<!---->
-<!-- __Please__ consider [sponsoring](https://github.com/sponsors/ndonfris) and/or [contributing](./docs/ROADMAP.md) to the project. Supporting -->
-<!-- the project immensely speeds up the release schedule, and significantly -->
-<!-- improves the possibilities capable from future complex __fish-lsp__ features. -->
-<!---->
-<!-- If you'd like to contribute, please check out the [contributing guidelines](./docs/CONTRIBUTING.md). Every bit helps, whether it's code, documentation, or just spreading the word! -->
-
 ## Installation
 
 Some language clients might support downloading the fish-lsp directly from within the client, but for the most part, you'll typically be required to install the language server manually.
@@ -92,7 +76,7 @@ npm install -g fish-lsp
 
 yarn global add fish-lsp
 
-pip install -g fish-lsp
+pnpm install -g fish-lsp
 
 nix-shell -p fish-lsp
 ```
@@ -102,9 +86,9 @@ nix-shell -p fish-lsp
 Recommended Dependencies: `yarn@1.22.22` `node@22.12.0` `fish@3.7.1`
 
 ```bash
-git clone https://github.com/ndonfris/fish-lsp 
-cd fish-lsp
-yarn install && yarn link
+git clone https://github.com/ndonfris/fish-lsp && cd fish-lsp
+yarn install 
+yarn dev # to watch for changes use `yarn dev:watch` 
 ```
 
 ### Download a Standalone Executable
@@ -135,10 +119,6 @@ Configuring a client should be relatively straightforward. Typically, you're onl
 
 Some clients may also allow specifying the server configuration directly in the client configuration.
 
-<!-- > To start a language server, _client's typically only need to configure the keys `command`, `arguments`, and `filetypes`_ -->
-<!-- > -->
-<!-- > This should be straightforward to translate from the shell command `fish-lsp start` for `fish` files -->
-
 ### Client Configuration <ins><i>(Required)</i></ins><a href="client-configuration" />
 
 Theoretically, the language-server should generally be compatible with almost any text-editor or IDE you prefer using.  Feel free to setup the project in any [fish-lsp-client](https://github.com/ndonfris/fish-lsp/wiki/Client-Configurations) of your choice, or [submit a PR](https://github.com/ndonfris/fish-lsp-language-clients/pulls) for new configurations.
@@ -164,26 +144,6 @@ Theoretically, the language-server should generally be compatible with almost an
   Alternatively, you can also see official documentation for [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig/blob/master/doc/configs.md#fish_lsp), or use your client of choice below.
 
 </details>
-<!-- <details> -->
-<!--   <summary><b>nvim-lspconfig</b><a name="nvim-lspconfig" /></summary> -->
-<!---->
-<!--   Configuration provided by [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig/blob/master/doc/configs.md#fish_lsp) -->
-<!---->
-<!-- ```lua -->
-<!-- local util = require 'lspconfig.util' -->
-<!---->
-<!-- return { -->
-<!--   default_config = { -->
-<!--     cmd = { 'fish-lsp', 'start' }, -->
-<!--     cmd_env = { fish_lsp_show_client_popups = false }, -->
-<!--     filetypes = { 'fish' }, -->
-<!--     root_dir = util.find_git_ancestor, -->
-<!--     single_file_support = true, -->
-<!--   }, -->
-<!-- } -->
-<!-- ``` -->
-<!---->
-<!-- </details> -->
 <details>
   <summary><b>coc.nvim</b></summary>
 
@@ -200,32 +160,6 @@ Theoretically, the language-server should generally be compatible with almost an
   ```
 
 </details>
-<!-- <details> -->
-<!--   <summary><b>mason.nvim</b></summary> -->
-<!---->
-<!--   ```lua -->
-<!--   require('mason').setup { -->
-<!--     registries = { -->
-<!--       "github:bnwa/mason-registry", -->
-<!--       "github:mason-org/mason-registry", -->
-<!--     } -->
-<!--   } -->
-<!--   -- `:MasonUpdate` -->
-<!--   ``` -->
-<!---->
-<!--   Once installed, you can configure the language server directly similar to the [nvim-lspconfig](#nvim-lspconfig) example -->
-<!---->
-<!--   ```lua -->
-<!--   -- once installed -->
-<!--   vim.lsp.start { -->
-<!--     cmd = { 'fish-language-server', 'start' } -->
-<!--     name = 'fish-language-server', -->
-<!--     root_dir = vim.fs.root(0, { 'config.fish' }) -->
-<!--   } -->
-<!--   ``` -->
-<!---->
-<!--   > for more info, please see [@bnwa/mason-registry](https://github.com/bnwa/mason-registry) -->
-<!-- </details> -->
 <details>
   <summary><b>YouCompleteMe</b></summary>
 
@@ -259,22 +193,6 @@ Theoretically, the language-server should generally be compatible with almost an
   ```
 
 </details>
-<!-- <details> -->
-<!--   <summary><b>vim-lsc</b></summary> -->
-<!---->
-<!--   Configuration of [natebosch/vim-lsc](https://github.com/natebosch/vim-lsc) in your `init.vim` or `init.lua` file -->
-<!---->
-<!--   ```vim -->
-<!--   let g:lsc_server_commands = { -->
-<!--     \ 'fish': { -->
-<!--     \    'command': 'fish-lsp start', -->
-<!--     \    'log_level': -1, -->
-<!--     \    'suppress_stderr': v:true, -->
-<!--     \ } -->
-<!--     \} -->
-<!--   ``` -->
-<!---->
-<!-- </details> -->
 <details>
   <summary><b>helix</b></summary>
 
@@ -304,14 +222,6 @@ Theoretically, the language-server should generally be compatible with almost an
 
   ```
 
-  <!-- ```kak -->
-  <!-- hook global BufSetOption filetype=(?:fish) %{ -->
-  <!--   set-option buffer lsp_servers %{ -->
-  <!--     [fish-lsp] -->
-  <!--     args = ["start"] -->
-  <!--   } -->
-  <!-- } -->
-  <!-- ``` -->
 </details>
 <details>
   <summary><b>emacs</b></summary>
@@ -352,7 +262,6 @@ Theoretically, the language-server should generally be compatible with almost an
 ### Server Configuration <ins><i>(Optional)</i></ins>
 
 Specific functionality for the server can be set independently from the client. The server allows for both [environment variables](#environment-variables) and [command flags](#command-flags) to customize how specific server processes are started.
-<!-- This allows for multiple configurations, to be defined and chosen via specific startup requirements  __(i.e.,__ using the `bind` command with the _function_ `edit_command_buffer`__).__ -->
 
 #### Environment variables
 

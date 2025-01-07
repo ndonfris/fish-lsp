@@ -38,7 +38,8 @@
   "scripts": {
     "prepare": "husky",
     "setup": "run-s sh:build-wasm",
-    "dev": "run-s setup sh:compile sh:relink watch",
+    "dev": "run-s setup sh:build-time sh:relink compile",
+    "dev:watch": "run-s setup sh:build-time sh:relink watch",
     "postinstall": "run-s sh:build-time",
     "prepack": "run-s setup compile",
     "compile": "tsc -b",
@@ -50,7 +51,7 @@
     "sh:build-release": "fish ./scripts/build-release.fish",
     "clean:all": "rimraf out *.tsbuildinfo node_modules tree-sitter-fish.wasm logs.txt build",
     "clean:build": "rimraf build",
-    "clean": "rimraf out node_modules",
+    "clean": "rimraf out node_modules *.tsbuildinfo",
     "test": "env -i HOME=$HOME PATH=$PATH NODE_ENV=test jest",
     "refactor": "knip",
     "lint:check": "eslint . --ext .ts",
