@@ -76,8 +76,8 @@ export class LspDocument implements TextDocument {
   }
 
   applyEdits(version: number, ...changes: TextDocumentContentChangeEvent[]): void {
-    const content = this.getText();
     for (const change of changes) {
+      const content = this.getText();
       let newContent = change.text;
 
       if (TextDocumentContentChangeEvent.isIncremental(change)) {
