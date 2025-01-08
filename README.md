@@ -239,6 +239,8 @@ Theoretically, the language-server should generally be compatible with almost an
   (add-hook 'fish-mode-hook 'eglot-ensure)
   ```
 
+  <!-- https://github.com/girlkissers/gkmacs/blob/main/lisp/languages/fish.el -->
+
   Configuration using [lsp-mode](https://github.com/emacs-lsp/lsp-mode)
 
   ```elisp

@@ -19,7 +19,6 @@
   "bin": "./bin/fish-lsp",
   "man": "./docs/man/fish-lsp.1",
   "directories": {
-    "man": "./docs/man/fish-lsp.1",
     "bin": "./bin/fish-lsp"
   },
   "files": [
@@ -49,9 +48,9 @@
     "sh:build-wasm": "fish ./scripts/build-fish-wasm.fish",
     "sh:relink": "fish ./scripts/relink-locally.fish",
     "sh:build-release": "fish ./scripts/build-release.fish",
-    "clean:all": "rimraf out *.tsbuildinfo node_modules tree-sitter-fish.wasm logs.txt build",
+    "clean:all": "rimraf out .tsbuildinfo node_modules tree-sitter-fish.wasm logs.txt build",
     "clean:build": "rimraf build",
-    "clean": "rimraf out node_modules *.tsbuildinfo",
+    "clean": "rimraf out node_modules .tsbuildinfo",
     "test": "env -i HOME=$HOME PATH=$PATH NODE_ENV=test jest",
     "refactor": "knip",
     "lint:check": "eslint . --ext .ts",
@@ -93,8 +92,8 @@
   "dependencies": {
     "commander": "^12.0.0",
     "deepmerge": "^4.3.1",
-    "tree-sitter": "^0.21.0",
     "fast-glob": "^3.3.2",
+    "tree-sitter": "^0.21.0",
     "vscode-languageserver": "^9.0.1",
     "vscode-languageserver-protocol": "3.17.5",
     "vscode-languageserver-textdocument": "1.0.11",
