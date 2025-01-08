@@ -40,3 +40,6 @@ jobs:
 
       - name: Run Lint
         run: yarn lint:fix
+      
+      - name: Run Test
+        run: yarn test
