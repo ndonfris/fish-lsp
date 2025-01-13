@@ -222,6 +222,18 @@ Theoretically, the language-server should generally be compatible with almost an
 
   ```
 
+  Or in your `~/.config/kak/lsp.kak` file
+
+  ```kak
+  hook -group lsp-filetype-fish global BufSetOption filetype=fish %{
+      set-option buffer lsp_servers %{
+          [fish-lsp]
+          root_globs = [ "*.fish", "config.fish", ".git", ".hg" ]
+          args = [ "start" ]
+      }
+  }
+  ```
+
 </details>
 <details>
   <summary><b>emacs</b></summary>
@@ -237,6 +249,16 @@ Theoretically, the language-server should generally be compatible with almost an
 
   ;; Optional: auto-start eglot for fish files
   (add-hook 'fish-mode-hook 'eglot-ensure)
+  ```
+
+  or place in your `languages/fish.el` file
+
+  ```elisp
+  (use-package fish-mode)
+
+  (with-eval-after-load 'eglot
+    (add-to-list 'eglot-server-programs
+                 '(fish-mode . ("fish-lsp" "start"))))
   ```
 
   <!-- https://github.com/girlkissers/gkmacs/blob/main/lisp/languages/fish.el -->
