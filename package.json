@@ -43,8 +43,8 @@
   ],
   "scripts": {
     "prepare": "husky",
-    "setup": "run-s sh:build-time compile sh:relink sh:build-completions",
-    "dev": "run-s setup compile",
+    "setup": "run-s sh:build-time sh:build-wasm compile sh:relink sh:build-completions",
+    "dev": "run-s setup compile",                                
     "dev:watch": "run-s setup watch",
     "postinstall": "run-s sh:build-time",
     "prepack": "run-s lint:check generate-man-page sh:build-wasm compile",
@@ -132,7 +132,6 @@
     "pinst": "^3.0.0",
     "rimraf": "^5.0.5",
     "tree-sitter-cli": "^0.22.2",
-    "tree-sitter-fish": "git+https://github.com/ram02z/tree-sitter-fish.git",
     "ts-jest": "^29.1.2",
     "ts-node": "^10.9.2",
     "tsc": "^2.0.4",
