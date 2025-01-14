@@ -147,3 +147,9 @@ export function logToStdout(message: string, newline = true): void {
   const output: string = `${message}${!!newline && '\n'}`;
   process.stdout.write(output);
 }
+
+/** util for joining multiple strings and logging to stdout with trailing `\n` */
+export function logToStdoutJoined(...message: string[]) {
+  const output: string = `${message.join('')}\n`;
+  process.stdout.write(output);
+}

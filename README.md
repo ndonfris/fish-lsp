@@ -91,15 +91,15 @@ yarn install
 yarn dev # to watch for changes use `yarn dev:watch` 
 ```
 
-### Download a Standalone Executable
-
-Available on the [releases page](https://github.com/ndonfris/fish-lsp/releases) or using the installation script below:
-
-```bash
-curl -sL https://raw.githubusercontent.com/ndonfris/fish-lsp/master/scripts/install.fish | fish
-```
-
-The standalone executables are built using [pkg](https://www.npmjs.com/package/@yao-pkg/pkg), and don't require `node` or `yarn` to be installed.
+<!-- ### Download a Standalone Executable -->
+<!---->
+<!-- Available on the [releases page](https://github.com/ndonfris/fish-lsp/releases) or using the installation script below: -->
+<!---->
+<!-- ```bash -->
+<!-- curl -sL https://raw.githubusercontent.com/ndonfris/fish-lsp/master/scripts/install.fish | fish -->
+<!-- ``` -->
+<!---->
+<!-- The standalone executables are built using [pkg](https://www.npmjs.com/package/@yao-pkg/pkg), and don't require `node` or `yarn` to be installed. -->
 
 ### Verifying Installation
 
@@ -452,4 +452,4 @@ This project follows the [all-contributors](https://allcontributors.org) specifi
 
 ## License
 
-[MIT](https://github.com/ndonfris/fish-lsp/blob/master/LICENSE)
+[MIT](https://github.com/ndonfris/fish-lsp/blob/master/LICENSE.md)

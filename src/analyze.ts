@@ -20,6 +20,8 @@ export class Analyzer {
   public cache: AnalyzedDocumentCache = new AnalyzedDocumentCache();
   public globalSymbols: GlobalDefinitionCache = new GlobalDefinitionCache();
 
+  public amountIndexed: number = 0;
+
   constructor(parser: Parser, workspaces: FishWorkspace[] = []) {
     this.parser = parser;
     this.workspaces = workspaces;
@@ -92,6 +94,8 @@ export class Analyzer {
 
     // Wait for all analysis tasks to complete
     await Promise.all(analysisPromises);
+
+    this.amountIndexed = amount;
 
     const endTime = performance.now();
     const duration = ((endTime - startTime) / 1000).toFixed(2); // Convert to seconds with 2 decimal places

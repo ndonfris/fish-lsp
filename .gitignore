@@ -8,5 +8,5 @@ logs.txt
 wikis
 build
 test-data/staging
-!snippets/*.json
-snippets/*
+*.tgz
+*.tsbuildinfo
