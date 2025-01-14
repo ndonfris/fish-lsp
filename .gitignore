@@ -5,8 +5,8 @@ node_modules
 *.log
 *.tsbuildinfo
 logs.txt
-*.wasm
 wikis
+build
 test-data/staging
-!snippets/*.json
-snippets/*
+*.tgz
+*.tsbuildinfo

@@ -12,12 +12,15 @@ import { filterGlobalSymbols, FishDocumentSymbol, getFishDocumentSymbols } from 
 import { GenericTree } from './utils/generic-tree';
 import { findDefinitionSymbols } from './workspace-symbol';
 import { config } from './cli';
+import { logger } from './logger';
 
 export class Analyzer {
   protected parser: Parser;
   public workspaces: FishWorkspace[];
   public cache: AnalyzedDocumentCache = new AnalyzedDocumentCache();
   public globalSymbols: GlobalDefinitionCache = new GlobalDefinitionCache();
+
+  public amountIndexed: number = 0;
 
   constructor(parser: Parser, workspaces: FishWorkspace[] = []) {
     this.parser = parser;
@@ -59,30 +62,45 @@ export class Analyzer {
   public async initiateBackgroundAnalysis(
     callbackfn: (text: string) => void,
   ): Promise<{ filesParsed: number; }> {
-    let amount = 0;
+    const startTime = performance.now();
     const max_files = config.fish_lsp_max_background_files;
+
+    let amount = 0;
+
+    const analysisPromises: Promise<void>[] = [];
 
     for (const workspace of this.workspaces) {
       const docs = workspace
         .urisToLspDocuments()
-        .filter((doc: LspDocument) => doc.shouldAnalyzeInBackground());
+        .filter((doc: LspDocument) => doc.shouldAnalyzeInBackground())
+        .slice(0, max_files - amount); // Only take what we need up to max_files
 
-      for (const doc of docs) {
-        if (amount >= max_files) {
-          break;
-        }
+      // Create promises for each document analysis
+      const workspacePromises = docs.map(async (doc) => {
         try {
           this.analyze(doc);
           amount++;
         } catch (err) {
           console.error(err);
         }
-      }
+      });
+
+      analysisPromises.push(...workspacePromises);
+
       if (amount >= max_files) {
         break;
       }
     }
-    callbackfn(`[fish-lsp] analyzed ${amount} files`);
+
+    // Wait for all analysis tasks to complete
+    await Promise.all(analysisPromises);
+
+    this.amountIndexed = amount;
+
+    const endTime = performance.now();
+    const duration = ((endTime - startTime) / 1000).toFixed(2); // Convert to seconds with 2 decimal places
+    callbackfn(`[fish-lsp] analyzed ${amount} files in ${duration}s`);
+    logger.log(`[fish-lsp] analyzed ${amount} files in ${duration}s`);
     return { filesParsed: amount };
   }
 

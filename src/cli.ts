@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 //'use strict'
-import { BuildCapabilityString, PathObj, PackageLspVersion, PackageVersion, accumulateStartupOptions, getBuildTimeString, FishLspHelp, FishLspManPage, SourcesDict, smallFishLogo } from './utils/commander-cli-subcommands';
+import { BuildCapabilityString, PathObj, PackageLspVersion, PackageVersion, accumulateStartupOptions, getBuildTimeString, FishLspHelp, FishLspManPage, SourcesDict, smallFishLogo, isPkgBinary } from './utils/commander-cli-subcommands';
 import { createConnection, InitializeParams, InitializeResult, StreamMessageReader, StreamMessageWriter } from 'vscode-languageserver/node';
 import { Command, Option } from 'commander';
 import FishServer from './server';
 import { buildFishLspCompletions } from './utils/get-lsp-completions';
-import { createServerLogger, logToStdout } from './logger';
+import { createServerLogger, logToStdout, logToStdoutJoined } from './logger';
 import { configHandlers, generateJsonSchemaShellScript, getConfigFromEnvironmentVariables, showJsonSchemaShellScript, updateHandlers, validHandlers } from './config';
 
 export function startServer() {
@@ -24,6 +24,75 @@ export function startServer() {
     },
   );
   connection.listen();
+}
+
+async function timeOperation<T>(
+  operation: () => Promise<T>,
+  label: string,
+): Promise<T> {
+  const start = performance.now();
+  try {
+    const result = await operation();
+    const end = performance.now();
+    const duration = end - start;
+    logToStdoutJoined(
+      `${label}:`.padEnd(55),
+      `${duration.toFixed(2)}ms`.padStart(10),
+    );
+    return result;
+  } catch (error) {
+    const end = performance.now();
+    const duration = end - start;
+    logToStdout(`${label} failed after ${duration.toFixed(2)}ms`);
+    throw error;
+  }
+}
+
+async function timeServerStartup() {
+  // define a local server instance
+  let server: FishServer | undefined;
+
+  // 1. Time server creation and startup
+  await timeOperation(async () => {
+    const connection = createConnection(
+      new StreamMessageReader(process.stdin),
+      new StreamMessageWriter(process.stdout),
+    );
+    // connection.console.log('Starting FISH-LSP server');
+    const startupParams: InitializeParams = {
+      processId: process.pid,
+      rootUri: process.cwd(),
+      capabilities: {},
+    };
+    server = await FishServer.create(connection, startupParams);
+    server.register(connection);
+    server.initialize(startupParams);
+    return server;
+  }, 'Server Start Time');
+
+  // 2. Time server initialization and background analysis
+  await timeOperation(async () => {
+    await server!.analyzer.initiateBackgroundAnalysis((_: string) => { });
+  }, 'Background Analysis Time');
+
+  // 3. Log the number of files indexed
+  logToStdoutJoined(
+    'Total Files Indexed: '.padEnd(55),
+    `${server?.analyzer.amountIndexed} files`.padStart(10),
+  );
+
+  // 4. Log the directories indexed
+  const all_indexed = config.fish_lsp_all_indexed_paths;
+  logToStdoutJoined(
+    "Indexed Files in '$fish_lsp_all_indexed_paths':".padEnd(55),
+    `${all_indexed.length} paths`.padStart(10),
+  );
+  const maxItemLen = all_indexed.reduce((max, item) => Math.max(max, item.length), 0);
+  const startStr = ' '.repeat(3);
+  config.fish_lsp_all_indexed_paths.forEach((item, idx) => logToStdoutJoined(
+    `${startStr}$fish_lsp_all_indexed_paths[${idx + 1}]  `.padEnd(64 - maxItemLen),
+    `|${item}|`.padStart(maxItemLen + 2),
+  ));
 }
 
 /**
@@ -75,10 +144,10 @@ commandBin
         FishLspHelp.beforeAll,
         '',
         'DESCRIPTION:',
-        commandBin.description().split('\n').slice(1).join('\n').trim(),
+        '  ' + commandBin.description().split('\n').slice(1).join('\n').trim(),
         '',
         'OPTIONS:',
-        globalOpts.map(o => '  ' + o.flags + '\t' + o.description).join('\n').trim(),
+        '  ' + globalOpts.map(o => '  ' + o.flags + '\t' + o.description).join('\n').trim(),
         '',
         'SUBCOMMANDS:',
         subCommands.join('\n'),
@@ -169,10 +238,15 @@ commandBin.command('info')
   .option('--man-file', 'show the man file path')
   .option('--logs-file', 'show the logs.txt file path')
   .option('--more', 'show the build time of the fish-lsp executable')
-  .action(args => {
+  .option('--time-startup', 'time the startup of the fish-lsp executable')
+  .action(async args => {
     const capabilities = BuildCapabilityString()
       .split('\n')
       .map(line => `  ${line}`).join('\n');
+    if (args.timeStartup) {
+      await timeServerStartup();
+      process.exit(0);
+    }
     if (args.bin || args.repo) {
       const logPath = args.bin ? PathObj.bin : PathObj.repo;
       const wpath = args.bin ? 'BINARY' : 'REPOSITORY';
@@ -197,16 +271,18 @@ commandBin.command('info')
       process.exit(0);
     }
     if (args.logsFile) {
-      logToStdout(config.fish_lsp_logfile || PathObj.logsFile);
+      logToStdout(config.fish_lsp_logfile);
       process.exit(0);
     }
     logToStdout(`Repository: ${PathObj.repo}`);
-    logToStdout(`Build Time: ${getBuildTimeString()}`);
     logToStdout(`Version: ${PackageVersion}`);
+    logToStdout(`Build Time: ${getBuildTimeString()}`);
+    logToStdout(`Install Type: ${isPkgBinary() ? 'standalone executable' : 'local build'}`);
+    logToStdout(`Node Version: ${process.version}`);
     logToStdout(`LSP Version: ${PackageLspVersion}`);
     logToStdout(`Binary File: ${PathObj.bin}`);
-    logToStdout(`man file: ${PathObj.manFile}`);
-    logToStdout(`log file: ${PathObj.logsFile}`);
+    logToStdout(`Man File: ${PathObj.manFile}`);
+    logToStdout(`Log File: ${config.fish_lsp_logfile}`);
     logToStdout('CAPABILITIES:');
     logToStdout(capabilities);
     process.exit(0);
@@ -268,12 +344,15 @@ commandBin.command('env')
   .option('-c, --create', 'build initial fish-lsp env variables')
   .option('-s, --show', 'show the current fish-lsp env variables')
   .option('--no-comments', 'skip comments in output')
+  .option('--no-global', 'use local env variables')
+  .option('--no-local', 'do not use local scope for variables')
+  .option('--no-export', 'don\'t export the variables')
   .action(args => {
     if (args.show) {
-      showJsonSchemaShellScript(args.comments);
+      showJsonSchemaShellScript(args.comments, args.global, args.local, args.export);
       process.exit(0);
     }
-    generateJsonSchemaShellScript(args.comments);
+    generateJsonSchemaShellScript(args.comments, args.global, args.local, args.export);
   });
 
 /**

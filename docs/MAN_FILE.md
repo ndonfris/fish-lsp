@@ -12,40 +12,41 @@
 
 It requires a client that supports the Language Server Protocol (LSP). For example, you can use `coc.nvim` or `nvim-lsp`.
 
-### OPTIONS
+## OPTIONS
 
-`-v` or `--version`
-Show version information and exit.
+`-v` or `--version`  Show version information and exit.
 
-`-h` or  `--help`
-Show help message and exit.
+`-h` or  `--help`    Show help message and exit.
 
-`--help-all`
-show all the help information
+`--help-all`         Show all the help information
 
-`--help-short`
-show shortened help message
+`--help-short`       Show shortened help message
 
-`--help-man`
-show manpage output
+`--help-man`         Show manpage output
 
-### SUBCOMMANDS
+## SUBCOMMANDS
 
-`start`
+### `start`
+
 Start the language server.
 
   `--enable`    enable the language server features
   `--disable`   disable the language server features
   `--dump`    dump the json output of the language server features enabled after startup
 
-`env`
+### `env`
+
 show the environment variables available to the lsp
 
   `-c`, `--create`    create the environment variable
   `-s`, `--show`      show the environment variables
+  `--no-global`     don't use global scope when generating environment variables
+  `--no-local`      don't use local scope when generating environment variables (pair with `--no-global`)
+  `--no-export`     don't use export flag when generating environment variables
   `--no-comments`   skip outputting comments
 
-`logger`
+### `logger`
+
 Access the logger
 
   `-s`, `--show`    show the logger and don't edit it
@@ -54,7 +55,8 @@ Access the logger
   `-q`, `--quiet`   silence logging
   `--config`      show the logger config
 
-`info`
+### `info`
+
 show the build info of fish-lsp
 
   `--bin`             show the path of the fish-lsp executable
@@ -66,8 +68,10 @@ show the build info of fish-lsp
   `--man-file`        show the man file path
   `--logs-file`       show the logs.txt file path
   `--more`            show the build time of the fish-lsp executable
+  `--startup-time`    time the startup of the fish-lsp executable
 
-`url`
+### `url`
+
 show a helpful url related to the fish-lsp
 
   `--repo`, `--git`        show the github repo
@@ -80,7 +84,8 @@ show a helpful url related to the fish-lsp
   `--clients-repo`       show the clients configuration repo
   `--sources`            show a list of helpful sources
 
-`complete`
+### `complete`
+
 Provide completions for the `fish-lsp`
 
   `--names`     show the feature names of the completions
@@ -100,6 +105,36 @@ Provide completions for the `fish-lsp`
 
   ```fish
   >_ fish-lsp complete > ~/.config/fish/completions/fish-lsp.fish
+  ```
+
+- Debug the `fish-lsp` language server:
+
+  ```fish
+  >_ fish-lsp start --dump
+  ```
+
+- Show information about the `fish-lsp` language server:
+
+  ```fish
+  >_ fish-lsp info 
+  ```
+
+- Show startup timing information for the `fish-lsp` language server:
+
+  ```fish
+  >_ fish-lsp info --startup-time
+  ```
+
+- Show the environment variables available to the `fish-lsp` language server:
+
+  ```fish
+  >_ fish-lsp env --show
+  ```
+
+- Get sources related to the `fish-lsp` language server's development:
+
+  ```fish
+  >_ fish-lsp url --sources
   ```
 
 ## SEE ALSO

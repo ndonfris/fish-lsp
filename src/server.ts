@@ -76,7 +76,7 @@ export default class FishServer {
     // the connection of the FishServer
     private connection: Connection,
     private parser: Parser,
-    private analyzer: Analyzer,
+    public analyzer: Analyzer,
     private docs: LspDocuments,
     private completion: CompletionPager,
     private completionMap: CompletionItemMap,
@@ -87,7 +87,9 @@ export default class FishServer {
   }
 
   async initialize(params: InitializeParams): Promise<InitializeResult> {
-    this.logger.logAsJson(`Initialized server FISH-LSP with ${params.workspaceFolders || ''}`);
+    if (params.workspaceFolders) {
+      this.logger.logAsJson(`Initialized server FISH-LSP with ${params.workspaceFolders || ''}`);
+    }
     const result = adjustInitializeResultCapabilitiesFromConfig(configHandlers, config);
     this.logger.log({ onInitializedResult: result });
     return result;
@@ -731,7 +733,7 @@ export default class FishServer {
     return { doc, uri, root };
   }
 
-  private async startBackgroundAnalysis(): Promise<{ filesParsed: number; }> {
+  public async startBackgroundAnalysis(): Promise<{ filesParsed: number; }> {
     // ../node_modules/vscode-languageserver/lib/common/progress.d.ts
     const notifyCallback = (text: string) => {
       if (!config.fish_lsp_show_client_popups) return;

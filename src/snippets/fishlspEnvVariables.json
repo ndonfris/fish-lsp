@@ -20,16 +20,6 @@
     "valueType": "string"
   },
   {
-    "name": "fish_lsp_format_tabsize",
-    "description": "amount of spaces in a tab character for the formatter provider (default: 4)",
-    "valueType": "number"
-  },
-  {
-    "name": "fish_lsp_format_switch_case",
-    "description": "keep case statements left aligned with switch block. (default: false)",
-    "valueType": "boolean"
-  },
-  {
     "name": "fish_lsp_all_indexed_paths",
     "description": "fish file paths to include as workspaces (default: ['/usr/share/fish', '$HOME/.config/fish'])",
     "valueType": "array"

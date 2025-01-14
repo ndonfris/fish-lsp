@@ -59,12 +59,6 @@ export const ConfigSchema = z.object({
   /** Path to the log files */
   fish_lsp_logfile: z.string().default(''),
 
-  /** Tab size for formatting */
-  fish_lsp_format_tabsize: z.number().default(4),
-
-  /** Whether case statements should be indented */
-  fish_lsp_format_switch_case: z.boolean().default(true),
-
   /** All workspaces/paths for the language-server to index */
   fish_lsp_all_indexed_paths: z.array(z.string()).default(['/usr/share/fish', `${os.homedir()}/.config/fish`]),
 
@@ -92,8 +86,6 @@ export function getConfigFromEnvironmentVariables(): {
     fish_lsp_disabled_handlers: process.env.fish_lsp_disabled_handlers?.split(' '),
     fish_lsp_commit_characters: process.env.fish_lsp_commit_characters?.split(' '),
     fish_lsp_logfile: process.env.fish_lsp_logfile,
-    fish_lsp_format_tabsize: toNumber(process.env.fish_lsp_format_tabsize),
-    fish_lsp_format_switch_case: toBoolean(process.env.fish_lsp_format_switch_case),
     fish_lsp_all_indexed_paths: process.env.fish_lsp_all_indexed_paths?.split(' '),
     fish_lsp_modifiable_paths: process.env.fish_lsp_modifiable_paths?.split(' '),
     fish_lsp_diagnostic_disable_error_codes: process.env.fish_lsp_diagnostic_disable_error_codes?.split(' ').map(toNumber),
@@ -127,16 +119,17 @@ const toNumber = (s?: string): number | undefined =>
  * generateJsonSchemaShellScript - just prints the starter template for the schema
  * in fish-shell
  */
-export function generateJsonSchemaShellScript(showComments: boolean) {
+export function generateJsonSchemaShellScript(showComments: boolean, useGlobal: boolean, useLocal: boolean, useExport: boolean) {
   const result: string[] = [];
+  const command = getEnvVariableCommand(useGlobal, useLocal, useExport);
   Object.values(fishLspEnvVariables).forEach(entry => {
     const { name, description, valueType } = entry;
     const line = !showComments
-      ? `set -gx ${name}\n`
+      ? `${command} ${name}\n`
       : [
         `# ${name} <${valueType.toUpperCase()}>`,
         formatDescription(description, 80),
-        `set -gx ${name}`,
+        `${command} ${name}`,
         '',
       ].join('\n');
     result.push(line);
@@ -149,8 +142,9 @@ export function generateJsonSchemaShellScript(showComments: boolean) {
  * showJsonSchemaShellScript - prints the current environment schema
  * in fish
  */
-export function showJsonSchemaShellScript(noComments: boolean) {
+export function showJsonSchemaShellScript(showComments: boolean, useGlobal: boolean, useLocal: boolean, useExport: boolean) {
   const { config } = getConfigFromEnvironmentVariables();
+  const command = getEnvVariableCommand(useGlobal, useLocal, useExport);
   const findValue = (keyName: string) => {
     return Object.values(fishLspEnvVariables).find(entry => {
       const { name } = entry;
@@ -161,12 +155,12 @@ export function showJsonSchemaShellScript(noComments: boolean) {
   for (const item of Object.entries(config)) {
     const [key, value] = item;
     const entry = findValue(key);
-    let line = !noComments
-      ? `set -gx ${key} `
+    let line = !showComments
+      ? `${command} ${key} `
       : [
         `# ${entry.name} <${entry.valueType.toUpperCase()}>`,
         formatDescription(entry.description, 80),
-        `set -gx ${key} `,
+        `${command} ${key} `,
       ].join('\n');
     if (Array.isArray(value)) {
       if (value.length === 0) {
@@ -223,6 +217,28 @@ function escapeValue(value: string | number | boolean): string {
     // Return non-string types as they are
     return value.toString();
   }
+}
+
+/**
+ * getEnvVariableCommand - returns the correct command for setting environment variables
+ * in fish-shell. Used for generating `fish-lsp env` output. Result string will be
+ * either `set -g`, `set -l`, `set -gx`, or `set -lx`, depending on the flags passed.
+ * ___
+ * ```fish
+ * >_ fish-lsp env --no-global --no-export --no-comments | head -n 1
+ * set -l fish_lsp_enabled_handlers
+ * ```
+ * ___
+ * @param {boolean} useGlobal - whether to use the global flag
+ * @param {boolean} useLocal - allows for skipping the local flag
+ * @param {boolean} useExport - whether to use the export flag
+ * @returns {string} - the correct command for setting environment variables
+ */
+function getEnvVariableCommand(useGlobal: boolean, useLocal: boolean, useExport: boolean): 'set -g' | 'set -l' | 'set -gx' | 'set -lx' | 'set' | 'set -x' {
+  let command = 'set';
+  command = useGlobal ? `${command} -g` : useLocal ? `${command} -l` : command;
+  command = useExport ? command.endsWith('-g') || command.endsWith('-l') ? `${command}x` : `${command} -x` : command;
+  return command as 'set -g' | 'set -l' | 'set -gx' | 'set -lx' | 'set' | 'set -x';
 }
 
 /********************************************

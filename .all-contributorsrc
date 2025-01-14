@@ -83,6 +83,15 @@
         "content",
         "doc"
       ]
+    },
+    {
+      "login": "branchvincent",
+      "name": "Branch Vincent",
+      "avatar_url": "https://avatars.githubusercontent.com/u/19800529?v=4",
+      "profile": "https://github.com/branchvincent",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,

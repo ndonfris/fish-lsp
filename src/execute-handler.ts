@@ -123,11 +123,11 @@ export async function sourceFishBuffer(bufferName: string) {
 }
 
 export async function FishThemeDump() {
-  return (await execAsyncFish('fish_config theme dump')).stdout.split('\n');
+  return (await execAsyncFish('fish_config theme dump; or true')).stdout.split('\n');
 }
 
 export async function showCurrentTheme(buffName: string) {
-  const output = (await execAsyncFish('fish_config theme demo')).stdout.split('\n');
+  const output = (await execAsyncFish('fish_config theme demo; or true')).stdout.split('\n');
   // Append the longest line to the file
   for (const line of output) {
     appendFileSync(buffName, `${line}\n`, 'utf8');
@@ -147,7 +147,7 @@ const defaultThemeOptions: ThemeOptions = {
 };
 
 export async function executeThemeDump(buffName: string, options: ThemeOptions = defaultThemeOptions): Promise<ExecResultWrapper> {
-  const output = (await execAsyncFish('fish_config theme dump')).stdout.split('\n');
+  const output = (await execAsyncFish('fish_config theme dump; or true')).stdout.split('\n');
   // Append the longest line to the file
   if (options.asVariables) {
     appendFileSync(buffName, '# created by fish-lsp');

@@ -1,4 +1,4 @@
-.TH "FISH\-LSP" "1" "May 2024" "1.0.4" "fish-lsp"
+.TH "FISH\-LSP" "1" "January 2025" "1.0.8-2.beta" "fish-lsp"
 .SH "NAME"
 \fBfish-lsp\fR
 .TS
@@ -18,31 +18,20 @@ T}
 \fBfish\-lsp\fP is a language server for the fish shell\. It provides IDE\-like features for fish shell scripts, such as syntax checking, linting, and auto\-completion\.
 .P
 It requires a client that supports the Language Server Protocol (LSP)\. For example, you can use \fBcoc\.nvim\fP or \fBnvim\-lsp\fP\|\.
-.SS OPTIONS
+.SH OPTIONS
 .P
-\fB\-v\fP or \fB\-\-version\fP
-.br
-Show version information and exit\.
+\fB\-v\fP or \fB\-\-version\fP  Show version information and exit\.
 .P
-\fB\-h\fP or  \fB\-\-help\fP
-.br
-Show help message and exit\.
+\fB\-h\fP or  \fB\-\-help\fP    Show help message and exit\.
 .P
-\fB\-\-help\-all\fP
-.br
-show all the help information
+\fB\-\-help\-all\fP         Show all the help information
 .P
-\fB\-\-help\-short\fP
-.br
-show shortened help message
+\fB\-\-help\-short\fP       Show shortened help message
 .P
-\fB\-\-help\-man\fP
-.br
-show manpage output
-.SS SUBCOMMANDS
+\fB\-\-help\-man\fP         Show manpage output
+.SH SUBCOMMANDS
+.SS \fBstart\fP
 .P
-\fBstart\fP
-.br
 Start the language server\.
 .P
 \fB\-\-enable\fP    enable the language server features
@@ -50,19 +39,23 @@ Start the language server\.
 \fB\-\-disable\fP   disable the language server features
 .br
 \fB\-\-dump\fP    dump the json output of the language server features enabled after startup
+.SS \fBenv\fP
 .P
-\fBenv\fP
-.br
 show the environment variables available to the lsp
 .P
 \fB\-c\fP, \fB\-\-create\fP    create the environment variable
 .br
 \fB\-s\fP, \fB\-\-show\fP      show the environment variables
 .br
-\fB\-\-no\-comments\fP   skip outputting comments
-.P
-\fBlogger\fP
+\fB\-\-no\-global\fP     don't use global scope when generating environment variables
 .br
+\fB\-\-no\-local\fP      don't use local scope when generating environment variables (pair with \fB\-\-no\-global\fP)
+.br
+\fB\-\-no\-export\fP     don't use export flag when generating environment variables
+.br
+\fB\-\-no\-comments\fP   skip outputting comments
+.SS \fBlogger\fP
+.P
 Access the logger
 .P
 \fB\-s\fP, \fB\-\-show\fP    show the logger and don't edit it
@@ -74,9 +67,8 @@ Access the logger
 \fB\-q\fP, \fB\-\-quiet\fP   silence logging
 .br
 \fB\-\-config\fP      show the logger config
+.SS \fBinfo\fP
 .P
-\fBinfo\fP
-.br
 show the build info of fish\-lsp
 .P
 \fB\-\-bin\fP             show the path of the fish\-lsp executable
@@ -96,9 +88,10 @@ show the build info of fish\-lsp
 \fB\-\-logs\-file\fP       show the logs\.txt file path
 .br
 \fB\-\-more\fP            show the build time of the fish\-lsp executable
-.P
-\fBurl\fP
 .br
+\fB\-\-startup\-time\fP    time the startup of the fish\-lsp executable
+.SS \fBurl\fP
+.P
 show a helpful url related to the fish\-lsp
 .P
 \fB\-\-repo\fP, \fB\-\-git\fP        show the github repo
@@ -118,9 +111,8 @@ show a helpful url related to the fish\-lsp
 \fB\-\-clients\-repo\fP       show the clients configuration repo
 .br
 \fB\-\-sources\fP            show a list of helpful sources
+.SS \fBcomplete\fP
 .P
-\fBcomplete\fP
-.br
 Provide completions for the \fBfish\-lsp\fP
 .P
 \fB\-\-names\fP     show the feature names of the completions
@@ -145,6 +137,41 @@ Show the path to the \fBfish\-lsp\fP language server binary:
 .RS 2
 .nf
 >_ fish\-lsp complete > ~/\.config/fish/completions/fish\-lsp\.fish
+.fi
+.RE
+.IP \(bu 2
+Debug the \fBfish\-lsp\fP language server:
+.RS 2
+.nf
+>_ fish\-lsp start \-\-dump
+.fi
+.RE
+.IP \(bu 2
+Show information about the \fBfish\-lsp\fP language server:
+.RS 2
+.nf
+>_ fish\-lsp info 
+.fi
+.RE
+.IP \(bu 2
+Show startup timing information for the \fBfish\-lsp\fP language server:
+.RS 2
+.nf
+>_ fish\-lsp info \-\-startup\-time
+.fi
+.RE
+.IP \(bu 2
+Show the environment variables available to the \fBfish\-lsp\fP language server:
+.RS 2
+.nf
+>_ fish\-lsp env \-\-show
+.fi
+.RE
+.IP \(bu 2
+Get sources related to the \fBfish\-lsp\fP language server's development:
+.RS 2
+.nf
+>_ fish\-lsp url \-\-sources
 .fi
 .RE
 
