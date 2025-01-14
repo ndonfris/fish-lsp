@@ -81,6 +81,12 @@ pnpm install -g fish-lsp
 nix-shell -p fish-lsp
 ```
 
+If you installed the language server using a __node__ based package manager (__i.e. npm/yarn/pnpm__), you can install the completions by running the following command:
+
+```fish
+fish-lsp complete > ~/.config/fish/completions/fish-lsp.fish
+```
+
 ### Build from Source
 
 Recommended Dependencies: `yarn@1.22.22` `node@22.12.0` `fish@3.7.1`
@@ -90,6 +96,10 @@ git clone https://github.com/ndonfris/fish-lsp && cd fish-lsp
 yarn install 
 yarn dev # to watch for changes use `yarn dev:watch` 
 ```
+
+Using the `yarn dev:watch` command will automatically rebuild the project when changes are detected. This allows easy testing of new features or bug fixes, if you're interested in contributing.
+
+Building the project from source is the most portable method for installing the language server.
 
 <!-- ### Download a Standalone Executable -->
 <!---->
@@ -333,6 +343,8 @@ set -gx fish_lsp_max_background_files
 set -gx fish_lsp_show_client_popups
 ```
 
+If you're interested in disabling specific diagnostic messages, the [wiki](https://github.com/ndonfris/fish-lsp/wiki) includes a table of [error codes](https://github.com/ndonfris/fish-lsp/wiki/Diagnostic-Error-Codes) that should be helpful. Diagnostics are a newer feature so [PRs](https://github.com/ndonfris/fish-lsp/blob/master/docs/CONTRIBUTING.md#getting-started-rocket) are welcome to improve their support.
+
 #### Command Flags
 
 Both the flags `--enable` and `--disable` are provided on the `fish-lsp start` subcommand. __By default, all handlers will be enabled__.
@@ -431,7 +443,7 @@ Contributions of any kind are welcome!
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/petertriho"><img src="https://avatars.githubusercontent.com/u/7420227?v=4?s=50" width="50px;" alt="Peter Tri Ho"/><br /><sub><b>Peter Tri Ho</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=petertriho" title="Code">💻</a></td>
     </tr>
     <tr>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/bnwa"><img src="https://avatars.githubusercontent.com/u/74591246?v=4?s=50" width="50px;" alt="bnwa"/><br /><sub><b>bnwa</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=bnwa" title="Code">💻</a> <a href="#content-bnwa" title="Content">🖋</a> <a href="https://github.com/ndonfris/fish-lsp/commits?author=bnwa" title="Documentation">📖</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/bnwa"><img src="https://avatars.githubusercontent.com/u/74591246?v=4?s=50" width="50px;" alt="bnwa"/><br /><sub><b>bnwa</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=bnwa" title="Code">💻</a> </td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/branchvincent"><img src="https://avatars.githubusercontent.com/u/19800529?v=4?s=50" width="50px;" alt="Branch Vincent"/><br /><sub><b>Branch Vincent</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=branchvincent" title="Code">💻</a></td>
     </tr>
   </tbody>

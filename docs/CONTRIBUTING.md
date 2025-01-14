@@ -44,17 +44,9 @@ you can then begin [testing locally](#helpful-workflows) :memo:.
 ### Test Driven Development Workflow :hatching_chick:
 
 Since __stdin/stdout__ are reserved for the protocol to communicate, a generally
-successful method to achieve quick results, is through [TDD (Test Driven
-Development)](https://en.wikipedia.org/wiki/Test-driven_development). Many tree-sitter helper functions ([tree-sitter.ts](../src/utils/tree-sitter.ts), and [node-types.ts](../src/utils/node-types.ts)) have already been written, to
-aid in providing useful functionality for generic support of any possible
-combination need for future types.
+successful method to achieve quick results, is through [TDD (Test Driven Development)](https://en.wikipedia.org/wiki/Test-driven_development). Many tree-sitter helper functions ([tree-sitter.ts](../src/utils/tree-sitter.ts), and [node-types.ts](../src/utils/node-types.ts)) have already been written, to aid in providing useful functionality for generic support of any possible combination need for future types.
 
-Having said that, if you a need for a new definition in [tree-sitter.ts](../src/utils/tree-sitter.ts) or [node-types.ts](../src/utils/node-types.ts) comes up,
-adding it to the proper file is fine (`tree-sitter.ts` generally deals with movement or interacting with
-a `SyntaxNode[] | Tree`, where as `node-types.ts` generally deals with filter
-functions that can determine what __type__ of `SyntaxNode` is passed into it).
-The only requirement is that you will for new additions to these files, is that
-you include proper tests in their corresponding [test-data/{node-types,tree-sitter}.test.ts](https://github.com/ndonfris/fish-lsp/blob/master/test-data/))
+Having said that, if you a need for a new definition in [tree-sitter.ts](../src/utils/tree-sitter.ts) or [node-types.ts](../src/utils/node-types.ts) comes up, adding it to the proper file is fine (`tree-sitter.ts` generally deals with movement or interacting with a `SyntaxNode[] | Tree`, where as `node-types.ts` generally deals with filter functions that can determine what __type__ of `SyntaxNode` is passed into it). The only requirement is that you will for new additions to these files, is that you include proper tests in their corresponding [test-data/{node-types,tree-sitter}.test.ts](https://github.com/ndonfris/fish-lsp/blob/master/test-data/))
 
 
 <details>
@@ -66,10 +58,7 @@ you include proper tests in their corresponding [test-data/{node-types,tree-sitt
 
 ### Integration Testing Workflow :exploding_head:
 
-Test directly in the [client](https://github.com/ndonfris/fish-lsp-language-clients) of your choosing. _This is a more difficult to setup_,
-but could be helpful if you are testing specific behaviors like the interacting
-with [fish-lsp's environment variables](https://github.com/ndonfris/fish-lsp/?tab=readme-ov-file#environment-variables), [configuration options](https://github.com/ndonfris/fish-lsp/?tab=readme-ov-file#command-flags), handler testing or
-other more specific tasks.
+Test directly in the [client](https://github.com/ndonfris/fish-lsp-language-clients) of your choosing. _This is a more difficult to setup_, but could be helpful if you are testing specific behaviors like the interacting with [fish-lsp's environment variables](https://github.com/ndonfris/fish-lsp/?tab=readme-ov-file#environment-variables), [configuration options](https://github.com/ndonfris/fish-lsp/?tab=readme-ov-file#command-flags), handler testing or other more specific tasks.
 
 <details>
 <summary> Screenshot </summary>
@@ -89,37 +78,29 @@ other more specific tasks.
     - __START WITH VERY BASIC EXAMPLES!!!__  [Pure functions](https://en.wikipedia.org/wiki/Pure_function) are your friend
     - Checkout [./test-data/helpers.ts](../test-data/helpers.ts), `setLogger()` which is provided for `logging` tests
     - Test your `FILE.test.ts` with command: `yarn test FILE --watchAll`
-    - Feel free to overwrite _any existing test-file_ that is not in the
-    [package.json](../package.json) key `test-hook`
-    - Use `import { initializeParser } from '../src/parser` for building
-    `SyntaxNode[]` [composite object](https://en.wikipedia.org/wiki/Composite_pattern) arrays (aka [trees](https://en.wikipedia.org/wiki/Tree_traversal)).
+    - Feel free to overwrite _any existing test-file_ that is not in the [package.json](../package.json) key `test-hook`
+    - Use `import { initializeParser } from '../src/parser` for building `SyntaxNode[]` [composite object](https://en.wikipedia.org/wiki/Composite_pattern) arrays (aka [trees](https://en.wikipedia.org/wiki/Tree_traversal)).
 
 1. __Iteratively__ continue improving your feature :infinity:
-    - Once you have a feature's hard coded input & outputs working as
-    expected, you can begin trying to impalement it as an actual `server.handler`
-    - You can try adding logging to your feature's specific `handlerParams`, to get an exact
-      example of it's shape. (_This is the premise outlined via:_ [integration testing workflow](#integration-testing-workflow-explodinghead))
+    - Once you have a feature's hard coded input & outputs working as expected, you can begin trying to impalement it as an actual `server.handler`
+    - You can try adding logging to your feature's specific `handlerParams`, to get an exact example of it's shape. (_This is the premise outlined via:_ [integration testing workflow](#integration-testing-workflow-explodinghead))
 
       > ```fish
       > # display the logs
       > tail -f $(fish-lsp info --logs-file)
       > ```
 
-    - Alternatively, you can mock the data-type from the `vscode-languageserver`
-    or refer to the [same documentation on lsif](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#definitionParams)
+    - Alternatively, you can mock the data-type from the `vscode-languageserver` or refer to the [same documentation on lsif](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#definitionParams)
 
 1. __Add__ your feature to a [server.ts](../src/server.ts) `handler` :handshake:
     - Document your handler, if necessary. 
-    - Feel free to submit your [server handler](../src/server.ts) in __separate__ working release stages, 
-    instead of trying to build entire feature's independently. (_i.e._, if your
-    `CodeAction's` only support a singular `CodeActionType`)
+    - Feel free to submit your [server handler](../src/server.ts) in __separate__ working release stages, instead of trying to build entire feature's independently. (_i.e._, if your `CodeAction's` only support a singular `CodeActionType`)
     - Submit your [PR](https://github.com/ndonfris/fish-lsp/pulls) :champagne:
 
 
 ## Helpful Topics and Concepts :books:
 
-[Currying](https://en.wikipedia.org/wiki/Currying) is a useful design pattern, that makes iterating through the
-[Abstract Syntax Trees (ASTs)](https://en.wikipedia.org/wiki/Abstract_syntax_tree) significantly less error prone. 
+[Currying](https://en.wikipedia.org/wiki/Currying) is a useful design pattern, that makes iterating through the [Abstract Syntax Trees (ASTs)](https://en.wikipedia.org/wiki/Abstract_syntax_tree) significantly less error prone. 
 
 > [!NOTE]
 > While it is still not entirely perfect, errors that appear to be caused by inconsistencies
@@ -184,34 +165,23 @@ Prefetching relevant information and [caching](https://en.wikipedia.org/wiki/Cac
 
 ### Other Noteworthy Tooling :hammer_and_wrench:
 
-Becoming familiar with using the `src/utils/{tree-sitter,node-types}.ts` code, is significantly easier while
-using the previously mentioned [TDD Workflow](#test-driven-development-workflow-hatchingchick). 
+Becoming familiar with using the `src/utils/{tree-sitter,node-types}.ts` code, is significantly easier while using the previously mentioned [TDD Workflow](#test-driven-development-workflow-hatchingchick). 
 
-Using an equivalent tree-sitter visualization command to neovim's command, `:InspectEdit` is also 
-highly recommended. If you are unsure what this command does, it essentially allows you to visualize
-the AST that tree-sitter parsed from fish input. Using this while writing test
-files, significantly improves the overall testing experience.
+Using an equivalent tree-sitter visualization command to neovim's command, `:InspectEdit` is also highly recommended. If you are unsure what this command does, it essentially allows you to visualize the AST that tree-sitter parsed from fish input. Using this while writing test files, significantly improves the overall testing experience.
 
-Also don't forget to make use of the [fish-lsp --flags](https://github.com/ndonfris/fish-lsp/blob/master/README.md#command-flags)! There is plenty of use cases the binary supports,
-like: <br>`fish-lsp env --create`, `fish-lsp complete`,
-`fish-lsp info --logs-file`, <br> `fish-lsp info --time`, `fish-lsp url
---sources`, `fish-lsp logger --show`, ___+ more...___
+Also don't forget to make use of the [fish-lsp --flags](https://github.com/ndonfris/fish-lsp/blob/master/README.md#command-flags)! There is plenty of use cases the binary supports, like: <br>`fish-lsp env --create`, `fish-lsp complete`, `fish-lsp info --logs-file`, <br> `fish-lsp info --time`, `fish-lsp url --sources`, `fish-lsp logger --show`, ___+ more...___
 
 ## Adding New Language Clients :chart_with_upwards_trend:
 
-Generally, all that is required is using the `fish-lsp start` command, and
-specifying fish for attaching the server to a filetype. Any other fluff in this
-settings, as seen in the [JSON](../README.md#client-usage) example, is only for ease of use.
+Generally, all that is required is using the `fish-lsp start` command, and specifying fish for attaching the server to a filetype. Any other fluff in this settings, as seen in the [JSON](../README.md#client-usage) example, is only for ease of use.
 
 Adding new client configurations, to the [fish-lsp-client's](https://github.com/ndonfris/fish-lsp-language-clients/) repo, is greatly appreciated!
 
 ## Contributing Github Actions :recycle:
 
-If you're trying to add a new github action to the project, please take a close
-look at the [scripts/*](https://github.com/ndonfris/fish-lsp/tree/master/scripts) directory, along with [package.json](https://github.com/ndonfris/fish-lsp/blob/master/package.json).
+If you're trying to add a new github action to the project, please take a close look at the [scripts/*](https://github.com/ndonfris/fish-lsp/tree/master/scripts) directory, along with [package.json](https://github.com/ndonfris/fish-lsp/blob/master/package.json).
 
-A github __action__ that uses that compiles the project, requires `fish` to be
-installed and setup, before `yarn` in the __action__.
+A github __action__ that uses that compiles the project, requires `fish` to be installed and setup, before `yarn` in the __action__.
 
 The current [workflow actions](https://github.com/ndonfris/fish-lsp/tree/master/.github/workflows), are the best place to see how this is achieved.
 
