@@ -6,6 +6,14 @@ Documenting notable changes across project revisions
 
 ## Current
 
+## \[1.0.8-3\] - 2024-07-24 ([PR #62](https://github.com/ndonfris/fish-lsp/pull/62) & [PR #63](https://github.com/ndonfris/fish-lsp/pull/63/files))
+
+- __updated__ docs to reflect changes in `1.0.8-2`
+- __updated__ `src/document.ts` to update `textDocument/didChange` correctly
+- __updated__ `package.json` to include `version: 1.0.8-3`
+- __closed issues:__ [#57](https://github.com/ndonfris/fish-lsp/issues/57), [#50](https://github.com/ndonfris/fish-lsp/issues/50), [#48](https://github.com/ndonfris/fish-lsp/issues/48)
+- __tested__ `fish-lsp` installation across different node package managers.
+
 ## \[1.0.8-2\] - 2024-06-12 ([PR #62](https://github.com/ndonfris/fish-lsp/pull/62))
 
 - __fixed__ `npm/yarn/pnpm` installation issues
@@ -28,7 +36,6 @@ Documenting notable changes across project revisions
 - __added__ `fish-lsp info --time-startup` to show startup time
 - __included__ minor changes to `test-data/**.test.ts` files. Particularly, added the `src/execute-handler.ts` file
 - __updated__ `.github/workflows/ci.yaml` to include `yarn dev` command, for proper testing
-
 
 ## \[1.0.8\] - 2024-07-24 (PR [#49](https://github.com/ndonfris/fish-lsp/pull/49) & [#47](https://github.com/ndonfris/fish-lsp/pull/47))
 
