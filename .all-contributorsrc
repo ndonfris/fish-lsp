@@ -79,9 +79,7 @@
       "avatar_url": "https://avatars.githubusercontent.com/u/74591246?v=4",
       "profile": "https://github.com/bnwa",
       "contributions": [
-        "code",
-        "content",
-        "doc"
+        "code"
       ]
     },
     {
@@ -89,6 +87,15 @@
       "name": "Branch Vincent",
       "avatar_url": "https://avatars.githubusercontent.com/u/19800529?v=4",
       "profile": "https://github.com/branchvincent",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "devsunb",
+      "name": "Jaeseok Lee",
+      "avatar_url": "https://avatars.githubusercontent.com/u/23169202?v=4",
+      "profile": "https://github.com/devsunb",
       "contributions": [
         "code"
       ]

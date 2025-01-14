@@ -445,6 +445,7 @@ Contributions of any kind are welcome!
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/bnwa"><img src="https://avatars.githubusercontent.com/u/74591246?v=4?s=50" width="50px;" alt="bnwa"/><br /><sub><b>bnwa</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=bnwa" title="Code">💻</a> </td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/branchvincent"><img src="https://avatars.githubusercontent.com/u/19800529?v=4?s=50" width="50px;" alt="Branch Vincent"/><br /><sub><b>Branch Vincent</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=branchvincent" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/devsunb"><img src="https://avatars.githubusercontent.com/u/23169202?v=4?s=50" width="50px;" alt="Jaeseok Lee"/><br /><sub><b>Jaeseok Lee</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=devsunb" title="Code">💻</a></td>
     </tr>
   </tbody>
 </table>
