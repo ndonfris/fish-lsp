@@ -1,9 +1,7 @@
 import { SymbolKind, MarkupContent } from 'vscode-languageserver';
 import { execCmd, execCommandDocs, execEscapedCommand } from './exec';
-//import { FishCompletionItem } from './completion-strategy';
 import { FishCompletionItem, CompletionExample } from './completion/types';
 import { isBuiltin } from './builtins';
-//import { CompletionExample } from './static-completions';
 
 /****************************************************************************************
  *                                                                                      *
@@ -332,10 +330,10 @@ export class DocumentationCache {
   }
 
   /**
-     * @async
-     * Resolves a symbol's documentation. Store's resolved items in the Cache, otherwise
-     * returns the already cached item.
-     */
+   * @async
+   * Resolves a symbol's documentation. Store's resolved items in the Cache, otherwise
+   * returns the already cached item.
+   */
   async resolve(name: string, uri?:string, type?: SymbolKind) {
     const itemType = type || this.findType(name);
     let item : CachedGlobalItem | undefined = this.find(name, itemType);

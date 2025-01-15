@@ -1,9 +1,10 @@
 import * as fastGlob from 'fast-glob';
-import { readFileSync } from 'fs';
+import { readFileSync, promises } from 'fs';
 import { pathToUri, toLspDocument, uriToPath } from './translation';
 import { LspDocument } from '../document';
 import { FishDocumentSymbol } from '../document-symbol';
 import { config } from '../cli';
+import { logger } from '../logger';
 
 async function getFileUriSet(path: string) {
   const stream = fastGlob.stream('**/*.fish', { cwd: path, absolute: true });
@@ -23,11 +24,16 @@ export async function initializeDefaultFishWorkspaces(): Promise<Workspace[]> {
 
   // Wait for all promises to resolve
   const defaultSpaces = await Promise.all(workspacePromises);
-  // const defaultSpaces = [
-  //   await Workspace.create('/usr/share/fish'),
-  //   await Workspace.create(`${homedir()}/.config/fish`),
-  // ];
   return defaultSpaces;
+}
+
+export async function getRelevantDocs(workspaces: Workspace[]): Promise<LspDocument[]> {
+  const docs: LspDocument[] = [];
+  for await (const ws of workspaces) {
+    const workspaceDocs = await ws.asyncFilter((doc: LspDocument) => doc.shouldAnalyzeInBackground());
+    docs.push(...workspaceDocs);
+  }
+  return docs;
 }
 
 export interface FishWorkspace {
@@ -118,6 +124,32 @@ export class Workspace implements FishWorkspace {
 
   hasCompletionAndFunction(fishIdentifier: string) {
     return this.hasFunctionUri(fishIdentifier) && this.hasCompletionUri(fishIdentifier);
+  }
+
+  async asyncUrisToLspDocuments(): Promise<LspDocument[]> {
+    const readPromises = Array.from(this.uris).map(async uri => {
+      try {
+        const path = uriToPath(uri);
+        const content = await promises.readFile(path, 'utf8');
+        return toLspDocument(path, content);
+      } catch (err) {
+        logger.log(`Error reading file ${uri}: ${err}`);
+        return null;
+      }
+    });
+
+    const docs = await Promise.all(readPromises);
+    return docs.filter((doc): doc is LspDocument => doc !== null);
+  }
+
+  async asyncForEach(callback: (doc: LspDocument) => void): Promise<void> {
+    const docs = await this.asyncUrisToLspDocuments();
+    docs.forEach(callback);
+  }
+
+  async asyncFilter(callbackfn: (doc: LspDocument) => boolean): Promise<LspDocument[]> {
+    const docs = await this.asyncUrisToLspDocuments();
+    return docs.filter(callbackfn);
   }
 
   urisToLspDocuments(): LspDocument[] {

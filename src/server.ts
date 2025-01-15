@@ -1,26 +1,21 @@
 import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from './parser';
 import { Analyzer } from './analyze';
-//import {  generateCompletionList, } from "./completion";
 import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, DocumentHighlight, DocumentHighlightParams, ExecuteCommandParams, PublishDiagnosticsParams } from 'vscode-languageserver';
 import { ExecResultWrapper, execEntireBuffer, execLineInBuffer, executeThemeDump, useMessageKind } from './execute-handler';
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
 import { formatDocumentContent } from './formatting';
-import { Logger, logger, createServerLogger } from './logger';
+import { Logger, createServerLogger } from './logger';
 import { symbolKindsFromNode, uriToPath } from './utils/translation';
 import { getChildNodes, getNodeAtPosition } from './utils/tree-sitter';
 import { handleHover } from './hover';
 import { getDiagnostics } from './diagnostics/validate';
-/*import * as Locations from './utils/locations';*/
 import { FishProtocol } from './utils/fishProtocol';
-// import { handleConversionToCodeAction } from './diagnostics/handleConversion';
 import { inlayHintsProvider } from './inlay-hints';
 import { DocumentationCache, initializeDocumentationCache } from './utils/documentation-cache';
 import { initializeDefaultFishWorkspaces } from './utils/workspace';
 import { filterLastPerScopeSymbol, FishDocumentSymbol } from './document-symbol';
-//import { FishCompletionItem, FishCompletionData, FishCompletionItemKind } from './utils/completion-strategy';
-//import { getFlagDocumentationAsMarkup } from './utils/flag-documentation';
 import { getRenameWorkspaceEdit, getReferenceLocations } from './workspace-symbol';
 import { CompletionPager, initializeCompletionPager } from './utils/completion/pager';
 import { FishCompletionItem } from './utils/completion/types';
@@ -47,26 +42,35 @@ export default class FishServer {
     _params: InitializeParams,
   ): Promise<FishServer> {
     const documents = new LspDocuments();
-    const completionsMap = await CompletionItemMap.initialize();
-    createServerLogger(config.fish_lsp_logfile, true, connection.console);
-    return await Promise.all([
+
+    // Run these operations in parallel rather than sequentially
+    const [
+      parser,
+      cache,
+      workspaces,
+      completionsMap,
+      logger,
+    ] = await Promise.all([
       initializeParser(),
       initializeDocumentationCache(),
       initializeDefaultFishWorkspaces(),
-      initializeCompletionPager(logger, completionsMap),
-    ]).then(([parser, cache, workspaces, completions]) => {
-      const analyzer = new Analyzer(parser, workspaces);
-      return new FishServer(
-        connection,
-        parser,
-        analyzer,
-        documents,
-        completions,
-        completionsMap,
-        cache,
-        logger,
-      );
-    });
+      CompletionItemMap.initialize(),
+      Promise.resolve(createServerLogger(config.fish_lsp_logfile, true, connection.console)),
+    ]);
+
+    const analyzer = new Analyzer(parser, workspaces);
+    const completions = await initializeCompletionPager(logger, completionsMap);
+
+    return new FishServer(
+      connection,
+      parser,
+      analyzer,
+      documents,
+      completions,
+      completionsMap,
+      cache,
+      logger,
+    );
   }
 
   private initializeParams: InitializeParams | undefined;
@@ -91,7 +95,7 @@ export default class FishServer {
       this.logger.logAsJson(`Initialized server FISH-LSP with ${params.workspaceFolders || ''}`);
     }
     const result = adjustInitializeResultCapabilitiesFromConfig(configHandlers, config);
-    this.logger.log({ onInitializedResult: result });
+    // this.logger.log({ onInitializedResult: result });
     return result;
   }
 
@@ -141,10 +145,7 @@ export default class FishServer {
         this.connection.sendDiagnostics(this.sendDiagnostics({ uri: doc.uri, diagnostics: [] }));
       }
     } else {
-      // this.logParams('analyzed document: ', params.textDocument.uri);
-      this.logger.logAsJson(
-        `Cannot open already opened doc '${params.textDocument.uri}'.`,
-      );
+      this.logger.logAsJson(`Cannot open already opened doc '${params.textDocument.uri}'.`);
       this.didChangeTextDocument({
         textDocument: params.textDocument,
         contentChanges: [
@@ -242,10 +243,10 @@ export default class FishServer {
   }
 
   /**
-     * until further reworking, onCompletionResolve requires that when a completionBuilderItem() is .build()
-     * it it also given the method .kind(FishCompletionItemKind) to set the kind of the item.
-     * Not seeing a completion result, with typed correctly is likely caused from this.
-     */
+   * until further reworking, onCompletionResolve requires that when a completionBuilderItem() is .build()
+   * it it also given the method .kind(FishCompletionItemKind) to set the kind of the item.
+   * Not seeing a completion result, with typed correctly is likely caused from this.
+   */
   async onCompletionResolve(item: CompletionItem): Promise<CompletionItem> {
     const fishItem = item as FishCompletionItem;
     const doc = await getDocumentationResolver(fishItem);
