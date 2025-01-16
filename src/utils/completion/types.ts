@@ -27,6 +27,9 @@ export const FishCompletionItemKind = {
   ARGUMENT: 'argument',
   PATH: 'path',
   EMPTY: 'empty',
+  SHEBANG: 'shebang',
+  COMMENT: 'comment',
+  DIAGNOSTIC: 'diagnostic',
 } as const;
 export type FishCompletionItemKind = typeof FishCompletionItemKind[keyof typeof FishCompletionItemKind];
 
@@ -49,6 +52,9 @@ export const toCompletionItemKind: Record<FishCompletionItemKind, CompletionItem
   [FishCompletionItemKind.ARGUMENT]: CompletionItemKind.Property,
   [FishCompletionItemKind.PATH]: CompletionItemKind.File,
   [FishCompletionItemKind.EMPTY]: CompletionItemKind.Text,
+  [FishCompletionItemKind.SHEBANG]: CompletionItemKind.File,
+  [FishCompletionItemKind.COMMENT]: CompletionItemKind.Text,
+  [FishCompletionItemKind.DIAGNOSTIC]: CompletionItemKind.Text,
 };
 export type FishCompletionData = {
   uri: string;

@@ -22,7 +22,7 @@ import { filterLastPerScopeSymbol, FishDocumentSymbol } from './document-symbol'
 //import { FishCompletionItem, FishCompletionData, FishCompletionItemKind } from './utils/completion-strategy';
 //import { getFlagDocumentationAsMarkup } from './utils/flag-documentation';
 import { getRenameWorkspaceEdit, getReferenceLocations } from './workspace-symbol';
-import { CompletionPager, initializeCompletionPager } from './utils/completion/pager';
+import { CompletionPager, initializeCompletionPager, SetupData } from './utils/completion/pager';
 import { FishCompletionItem } from './utils/completion/types';
 import { getDocumentationResolver } from './utils/completion/documentation';
 import { FishCompletionList } from './utils/completion/list';
@@ -35,6 +35,7 @@ import { getAliasedCompletionItemSignature } from './signature';
 import { CompletionItemMap } from './utils/completion/startup-cache';
 import { getDocumentHighlights } from './document-highlight';
 import { SyncFileHelper } from './utils/file-operations';
+import { buildCommentCompletions } from './utils/completion/comment-completions';
 
 // @TODO
 export type SupportedFeatures = {
@@ -208,15 +209,14 @@ export default class FishServer {
   // convert to CompletionItem[]
   async onCompletion(params: CompletionParams): Promise<CompletionList> {
     this.logParams('onCompletion', params);
-    const uri = uriToPath(params.textDocument.uri);
+    const { doc, uri, current } = this.getDefaults(params);
     let list: FishCompletionList = FishCompletionList.empty();
-    const doc = this.docs.get(uri);
 
     if (!uri || !doc) {
       this.logger.logAsJson('onComplete got [NOT FOUND]: ' + uri);
       return this.completion.empty();
     }
-    const { line } = this.analyzer.parseCurrentLine(doc, params.position);
+    const { line, word, lineRootNode, lineLastNode } = this.analyzer.parseCurrentLine(doc, params.position);
 
     const fishCompletionData = {
       uri: doc.uri,
@@ -225,18 +225,19 @@ export default class FishServer {
         triggerKind: params.context?.triggerKind || CompletionTriggerKind.Invoked,
         triggerCharacter: params.context?.triggerCharacter,
       },
-    };
+    } as SetupData;
 
     if (line.trim().startsWith('#')) {
-      return FishCompletionList.empty();
+      return buildCommentCompletions(line, params.position, current || lineLastNode || lineRootNode, fishCompletionData, word);
     }
 
     try {
       const symbols = this.analyzer.getFlatDocumentSymbols(uri);
+      logger.log({ symbols: symbols.map(s => s.name) });
       list = await this.completion.complete(line, fishCompletionData, symbols);
-      this.logger.logAsJson(`line: '${line}' got ${list.items.length} items"`);
+      // this.logger.logAsJson(`line: '${line}' got ${list.items.length} items"`);
     } catch (error) {
-      this.logger.logAsJson('ERROR: onComplete ' + error?.toString() || 'error');
+      // this.logger.logAsJson('ERROR: onComplete ' + error?.toString() || 'error');
     }
     return list;
   }

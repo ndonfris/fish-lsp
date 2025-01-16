@@ -7,7 +7,7 @@ import { CompletionItemMap } from './startup-cache';
 import { CompletionContext, CompletionList, Position, SymbolKind } from 'vscode-languageserver-protocol';
 import { FishCompletionList, FishCompletionListBuilder } from './list';
 
-type SetupData = {
+export type SetupData = {
   uri: string;
   position: Position;
   context: CompletionContext;

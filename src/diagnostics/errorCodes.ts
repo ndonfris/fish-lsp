@@ -15,7 +15,7 @@ export namespace ErrorCodes {
   export const missingQuietOption = 3002;
   export const expansionInDefinition = 3003;
 
-  type codeTypes = 1001 | 1002 | 1003 | 1004 | 2001 | 2002 | 2003 | 3001 | 3002 | 3003;
+  export type codeTypes = 1001 | 1002 | 1003 | 1004 | 2001 | 2002 | 2003 | 3001 | 3002 | 3003;
 
   type CodeValueType = {
     severity: DiagnosticSeverity;
@@ -97,4 +97,7 @@ export namespace ErrorCodes {
       message: 'Variable definition should not include expansion character',
     },
   };
+
+  /** All error codes */
+  export const allErrorCodes = Object.values(codes).map((diagnostic) => diagnostic.code) as codeTypes[];
 }

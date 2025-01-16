@@ -1,3 +1,6 @@
+import { CompletionItemKind } from 'vscode-languageserver';
+import { ErrorCodes } from '../../diagnostics/errorCodes';
+import { md } from '../markdown-builder';
 import { FishCompletionItem, FishCompletionItemKind, CompletionExample } from './types';
 
 const EscapedChars: FishCompletionItem[] = [
@@ -453,7 +456,7 @@ const StringRegex: FishCompletionItem[] = [
     label: '[...] a character set',
     detail: 'Character Set',
     documentation:
-    '[...] - (where “…” is some characters) is a character set ',
+      '[...] - (where “…” is some characters) is a character set ',
     insertText: '[...]',
   },
   {
@@ -602,7 +605,7 @@ const StringRegex: FishCompletionItem[] = [
     label: '$n',
     detail: 'Reference',
     documentation:
-    '$n is a reference from the replacement expression to a group in the match expression.',
+      '$n is a reference from the replacement expression to a group in the match expression.',
     insertText: '$',
   },
   {
@@ -743,6 +746,134 @@ const Statements: FishCompletionItem[] = [
   },
 ] as FishCompletionItem[];
 
+const shebangs = [
+  {
+    label: '#!/usr/bin/env fish',
+    fishKind: 'shebang',
+    detail: 'execute script using fish env',
+    documentation: 'execute script using fish env',
+  },
+  {
+    label: '#!/usr/local/bin/fish',
+    fishKind: 'shebang',
+    detail: '#!/usr/local/bin/fish',
+    documentation: 'Check this path exists. Could be /usr/bin/fish, /usr/local/bin/fish, or /bin/fish',
+  },
+  {
+    label: '#!/usr/bin/fish',
+    fishKind: 'shebang',
+    detail: '#!/usr/bin/fish',
+    documentation: 'Check this path exists. Could be /usr/bin/fish, /usr/local/bin/fish, or /bin/fish',
+  },
+  {
+    label: '#!/bin/fish',
+    fishKind: 'shebang',
+    detail: '#!/bin/fish',
+    documentation: 'Check this path exists. Could be /usr/bin/fish, /usr/local/bin/fish, or /bin/fish',
+  },
+] as FishCompletionItem[];
+
+const disableDiagnostics = Object.values(ErrorCodes.codes).map((diagnostic) => {
+  return {
+    label: `${diagnostic.code}`,
+    detail: diagnostic.message,
+    documentation: [
+      `# Error code: ${diagnostic.code}`,
+      '___',
+      `${diagnostic.message}`,
+      '___',
+      `WARNING LEVEL: ${diagnostic.severity}`,
+    ].join('\n'),
+    insertText: `${diagnostic.code}`,
+  };
+}) as FishCompletionItem[];
+
+const comments = [
+  {
+    label: '# @fish-lsp-disable',
+    detail: 'Disable all LSP diagnostics for this file',
+    fishKind: FishCompletionItemKind.COMMENT,
+    documentation: [
+      '# Disable all LSP diagnostics for this file',
+      md.separator(),
+      'This directive will disable all diagnostics for this file. This is useful when you want to ignore all diagnostics for a file.',
+      '___',
+      '```fish',
+      '# @fish-lsp-disable',
+      'alias ls "ls -l" # no more warnings',
+      '```',
+      '```fish',
+      '# @fish-lsp-disable 2002',
+      'alias ls="ls -l" # no more warnings',
+      '# @fish-lsp-enable',
+      'alias ls="ls -l" # warnings enabled again',
+      '```',
+    ].join('\n'),
+  },
+  {
+    label: '# @fish-lsp-enable',
+    detail: 'Enable all LSP diagnostics for this file',
+    kind: CompletionItemKind.Enum,
+    fishKind: FishCompletionItemKind.COMMENT,
+    documentation: [
+      '# Enables all LSP diagnostics for this file',
+      md.separator(),
+      'This directive will enable all diagnostics for this file. This is useful when you want to turn diagnostics on & off in sections.',
+      '___',
+      '```fish',
+      '# @fish-lsp-disable',
+      'alias ls "ls -l" # no more warnings',
+      '```',
+      '```fish',
+      '# @fish-lsp-disable 2002',
+      'alias ls="ls -l" # no more warnings',
+      '# @fish-lsp-enable',
+      'alias ls="ls -l" # warnings enabled again',
+      '```',
+    ].join('\n'),
+  },
+  {
+    label: '# @fish-lsp-disable-next-line',
+    detail: 'Disables all LSP diagnostics for the next line',
+    fishKind: FishCompletionItemKind.COMMENT,
+    documentation: [
+      '# Disables LSP diagnostics for the next line.',
+      md.separator(),
+      ' Any enabled diagnostics inside the file, before this comment will be enabled again after this line.',
+      '___',
+      '```fish',
+      '# @fish-lsp-disable-next-line',
+      'alias ls "ls -a" # no more warnings',
+      '```',
+      '```fish',
+      '# @fish-lsp-disable-next-line 2002',
+      'alias ls="ls -1" # no more warnings',
+      'alias lsl="ls -l" # warnings enabled again',
+      '```',
+    ].join('\n'),
+  },
+  {
+    label: '# @fish-lsp-enable-next-line',
+    detail: 'Enable LSP diagnostics for next line',
+    fishKind: FishCompletionItemKind.COMMENT,
+    documentation: [
+      '# Enables LSP diagnostics for next line',
+      md.separator(),
+      'This directive will enable all diagnostics for the next line.',
+      '___',
+      '```fish',
+      '# @fish-lsp-disable',
+      'alias ls "ls -a" # warnings are disabled in this file',
+
+      '# @fish-lsp-enable-next-line',
+      'alias lsl="ls -l" # warnings temporarily enabled again',
+
+      'alias lss "ls -s" # no more warnings again',
+      '```',
+    ].join('\n'),
+  },
+] as FishCompletionItem[];
+
 export const StaticItems = {
   [FishCompletionItemKind.ESC_CHARS]: EscapedChars,
   [FishCompletionItemKind.PIPE]: Pipes,
@@ -751,4 +882,7 @@ export const StaticItems = {
   [FishCompletionItemKind.FORMAT_STR]: FormatStrings,
   [FishCompletionItemKind.COMBINER]: Combiners,
   [FishCompletionItemKind.STATEMENT]: Statements,
+  [FishCompletionItemKind.SHEBANG]: shebangs,
+  [FishCompletionItemKind.COMMENT]: comments,
+  [FishCompletionItemKind.DIAGNOSTIC]: disableDiagnostics,
 };

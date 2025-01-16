@@ -92,4 +92,5 @@ export namespace FishCompletionList {
       },
     } as FishCompletionList;
   }
+
 }
