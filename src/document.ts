@@ -1,3 +1,4 @@
+import { promises as fs } from 'fs';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { Position, Range, TextDocumentItem, TextDocumentContentChangeEvent } from 'vscode-languageserver';
 import { URI } from 'vscode-uri';
@@ -136,10 +137,12 @@ export class LspDocument implements TextDocument {
 export class LspDocuments {
   private readonly _files: string[] = [];
   private readonly documents = new Map<string, LspDocument>();
+  private loadingQueue: Set<string> = new Set();
+  private loadedFiles: Map<string, number> = new Map(); // uri -> timestamp
 
   /**
-     * Sorted by last access.
-     */
+   * Sorted by last access.
+   */
   get files(): string[] {
     return this._files;
   }
@@ -157,6 +160,32 @@ export class LspDocuments {
       this._files.unshift(file);
     }
     return document;
+  }
+
+  // Enhanced get method that supports async loading
+  async getAsync(uri?: string): Promise<LspDocument | undefined> {
+    if (!uri) return undefined;
+    return this.getDocument(uri);
+  }
+
+  async getDocument(uri: string): Promise<LspDocument | undefined> {
+    if (!this.loadingQueue.has(uri) && !this.loadedFiles.has(uri)) {
+      this.loadingQueue.add(uri);
+      try {
+        const content = await fs.readFile(uriToPath(uri), 'utf8');
+        const doc = new LspDocument({
+          uri,
+          languageId: 'fish',
+          version: 1,
+          text: content,
+        });
+        this.documents.set(uri, doc);
+        this.loadedFiles.set(uri, Date.now());
+      } finally {
+        this.loadingQueue.delete(uri);
+      }
+    }
+    return this.documents.get(uri);
   }
 
   open(file: string, doc: TextDocumentItem): boolean {

@@ -7,7 +7,7 @@ import { isCommand, isCommandName } from './utils/node-types';
 import { pathToUri } from './utils/translation';
 import { existsSync } from 'fs';
 import homedir from 'os';
-import { FishWorkspace } from './utils/workspace';
+import { Workspace } from './utils/workspace';
 import { filterGlobalSymbols, FishDocumentSymbol, getFishDocumentSymbols } from './document-symbol';
 import { GenericTree } from './utils/generic-tree';
 import { findDefinitionSymbols } from './workspace-symbol';
@@ -16,13 +16,13 @@ import { logger } from './logger';
 
 export class Analyzer {
   protected parser: Parser;
-  public workspaces: FishWorkspace[];
+  public workspaces: Workspace[];
   public cache: AnalyzedDocumentCache = new AnalyzedDocumentCache();
   public globalSymbols: GlobalDefinitionCache = new GlobalDefinitionCache();
 
   public amountIndexed: number = 0;
 
-  constructor(parser: Parser, workspaces: FishWorkspace[] = []) {
+  constructor(parser: Parser, workspaces: Workspace[] = []) {
     this.parser = parser;
     this.workspaces = workspaces;
   }

@@ -67,12 +67,13 @@ async function timeServerStartup() {
     server = await FishServer.create(connection, startupParams);
     server.register(connection);
     server.initialize(startupParams);
+    connection.listen();
     return server;
   }, 'Server Start Time');
 
   // 2. Time server initialization and background analysis
   await timeOperation(async () => {
-    await server!.analyzer.initiateBackgroundAnalysis((_: string) => { });
+    await server?.startBackgroundAnalysis();
   }, 'Background Analysis Time');
 
   // 3. Log the number of files indexed
