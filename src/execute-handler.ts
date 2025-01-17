@@ -13,21 +13,7 @@ export type ExecResultWrapper = {
 };
 
 export async function execLineInBuffer(line: string): Promise<ExecResultWrapper> {
-  // Here you would execute the current line in the parent shell environment
-  // For example, you could use Node.js's child_process to execute the command
-  // exec(line, (error: any, stdout: any, stderr: any) => {
-  //   if (error) {
-  //     connection.window.showErrorMessage(buildOutput(line, "error:", error));
-  //     return;
-  //   }
-  //   if (stderr) {
-  //     connection.window.showErrorMessage(line, 'stderr:', stderr);
-  //     return;
-  //   }
-  //   connection.window.showInformationMessage(line, "stdout:", stdout);
-  // });
-
-  const { stderr, stdout } = await execAsync(`fish -c '${line}'`);
+  const { stderr, stdout } = await execAsync(`fish -c '${line}'; or true`);
   if (stderr) {
     return { message: buildOutput(line, 'stderr:', stderr), kind: 'error' };
   }

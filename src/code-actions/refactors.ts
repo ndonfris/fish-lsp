@@ -5,6 +5,15 @@ import { getRange, getChildNodes } from '../utils/tree-sitter';
 import { findParentCommand, isCommand, isIfStatement } from '../utils/node-types';
 import { SupportedCodeActionKinds } from './action-kinds';
 
+/**
+ * Notice how this file compared to the other code-actions, uses a node as it's parameter
+ * This is because the reafactors are not based on diagnostics. However, if we need to use
+ * a diagnostic for some reason, we can always pass its `Document.data.node` property.
+ *
+ * This section is very much still a WIP, so there are definitely some improvements
+ * to be made.
+ */
+
 export function createRefactorAction(
   title: string,
   kind: CodeActionKind,
@@ -103,9 +112,7 @@ export function extractToVariable(
   selectedNode: SyntaxNode,
 ): CodeAction | undefined {
   // Only allow extracting commands or expressions
-  if (!isCommand(selectedNode)) {
-    return undefined;
-  }
+  if (!isCommand(selectedNode)) return undefined;
 
   const selectedText = document.getText(range);
   const varName = `extracted_var_${Math.floor(Math.random() * 1000)}`;
@@ -132,24 +139,20 @@ export function extractToVariable(
 }
 
 /**
- * TODO
+ * TODO - this is not ready yet. It has potential though.
  */
 export function convertIfToCombiners(
   document: LspDocument,
   node: SyntaxNode,
 ): CodeAction | undefined {
-  if (!isIfStatement(node)) {
-    return undefined;
-  }
+  if (!isIfStatement(node)) return undefined;
 
   // Get the if condition and body
   const children = getChildNodes(node);
   const condition = children[1]; // First child after 'if'
   const body = children.slice(2, -1); // Everything between condition and 'end'
 
-  if (!condition || body.length === 0) {
-    return undefined;
-  }
+  if (!condition || body.length === 0) return undefined;
 
   // Convert to and/or format
   const conditionText = document.getText(getRange(condition));
@@ -162,9 +165,7 @@ export function convertIfToCombiners(
     'Convert if to combiners',
     SupportedCodeActionKinds.RefactorRewrite,
     {
-      [document.uri]: [
-        TextEdit.replace(getRange(node), andVersion),
-      ],
+      [document.uri]: [TextEdit.replace(getRange(node), andVersion)],
     },
     true, // Mark as preferred action
   );

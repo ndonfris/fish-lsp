@@ -7,10 +7,13 @@ import { ErrorNodeTypes } from '../diagnostics/node-types';
 import { SupportedCodeActionKinds } from './action-kinds';
 
 /**
- * These quick fixes are separated from the other diagnostic quickfixes because
+ * These quick-fixes are separated from the other diagnostic quick-fixes because
  * future work will involve adding significantly more complex
- * solutions here. The quick-fixes located at disable-actions.ts
- * are mainly for simple disabling of diagnostic messages.
+ * solutions here (atleast I hope. I definitely think fish uniquely has a lot
+ * of potential for how advancded quickfixes could become eventually).
+ *
+ * The quick-fixes located at disable-actions.ts are mainly for simple disabling
+ * of diagnostic messages.
  */
 
 // Helper to create a QuickFix code action
@@ -49,9 +52,8 @@ function getErrorNodeToken(node: SyntaxNode): string | undefined {
 export function handleMissingEndFix(
   document: LspDocument,
   diagnostic: Diagnostic,
-  node: SyntaxNode,
 ): CodeAction | undefined {
-  const rawErrorNodeToken = getErrorNodeToken(node);
+  const rawErrorNodeToken = getErrorNodeToken(diagnostic.data.node);
 
   if (!rawErrorNodeToken) return undefined;
 
@@ -82,8 +84,8 @@ export function handleExtraEndFix(
 export function handleQuietOptionFix(
   document: LspDocument,
   diagnostic: Diagnostic,
-  node: SyntaxNode,
 ): CodeAction {
+  const node = diagnostic.data.node;
   // Add -q flag after the command name
   let nodeRange = getRange(node);
   if (node.firstChild && node.firstChild?.text === 'string') {
@@ -105,8 +107,8 @@ export function handleQuietOptionFix(
 export function handleSingleQuoteVarFix(
   document: LspDocument,
   diagnostic: Diagnostic,
-  node: SyntaxNode,
 ): CodeAction {
+  const node = diagnostic.data.node;
   // Replace single quotes with double quotes
   const text = node.text;
   const newText = text.replace(/'/g, '"');
@@ -127,57 +129,37 @@ export function handleSingleQuoteVarFix(
 export function handleTestCommandVariableExpansionWithoutString(
   document: LspDocument,
   diagnostic: Diagnostic,
-  _node: SyntaxNode,
 ): CodeAction {
-  // Replace single quotes with double quotes
-  // const text = node.text;
-  //
-  // // logger.log({text: node.text, type: node.type})
-  // // if (node.text.startsWith('$')) {
-  // //   text += node.descendantsOfType('variable_name').map((n) => n.text).join('')
-  // // }
-  //
-  // const newText = `"${diagnostic.data.node!.text}"`;
-
-  const edit = [
-    TextEdit.insert(
-      diagnostic.range.start,
-      '"',
-    ),
-    TextEdit.insert(
-      diagnostic.range.end,
-      '"',
-    ),
-  ];
-
   return createQuickFix(
     'Surround test string comparison with double quotes',
     document,
     diagnostic,
-    edit,
+    [
+      TextEdit.insert(diagnostic.range.start, '"'),
+      TextEdit.insert(diagnostic.range.end, '"'),
+    ],
   );
 }
 
 export function getQuickFixes(
   document: LspDocument,
   diagnostic: Diagnostic,
-  node: SyntaxNode,
 ): CodeAction | undefined {
   switch (diagnostic.code) {
     case ErrorCodes.missingEnd:
-      return handleMissingEndFix(document, diagnostic, node);
+      return handleMissingEndFix(document, diagnostic);
 
     case ErrorCodes.extraEnd:
       return handleExtraEndFix(document, diagnostic);
 
     case ErrorCodes.missingQuietOption:
-      return handleQuietOptionFix(document, diagnostic, node);
+      return handleQuietOptionFix(document, diagnostic);
 
     case ErrorCodes.singleQuoteVariableExpansion:
-      return handleSingleQuoteVarFix(document, diagnostic, node);
+      return handleSingleQuoteVarFix(document, diagnostic);
 
     case ErrorCodes.testCommandMissingStringCharacters:
-      return handleTestCommandVariableExpansionWithoutString(document, diagnostic, node);
+      return handleTestCommandVariableExpansionWithoutString(document, diagnostic);
 
     default:
       return undefined;

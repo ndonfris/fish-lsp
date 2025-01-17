@@ -1,4 +1,3 @@
-// In server.ts
 import { CodeAction, CodeActionParams, Diagnostic, Range } from 'vscode-languageserver';
 import { getDisableDiagnosticActions } from './disable-actions';
 import { getQuickFixes } from './quick-fixes';
@@ -9,45 +8,6 @@ import { Analyzer } from '../analyze';
 import { getNodeAtRange } from '../utils/tree-sitter';
 import { convertIfToCombiners, extractCommandToFunction, extractToFunction, extractToVariable } from './refactors';
 
-// export async function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) {
-//
-//   return async  function handleCodeAction(params: CodeActionParams) : Promise<CodeAction[]> {
-//     logger.log('onCodeAction', params);
-//
-//     const uri = uriToPath(params.textDocument.uri);
-//     const document = docs.get(uri);
-//     if (!document || !uri) return [];
-//
-//     const results: CodeAction[] = [];
-//
-//     // Add quick fixes
-//     for (const diagnostic of params.context.diagnostics) {
-//       const node = analyzer.nodeAtPoint(
-//         document.uri,
-//         diagnostic.range.start.line,
-//         diagnostic.range.start.character
-//       );
-//
-//       if (!node) continue;
-//
-//       const quickFix = getQuickFixes(document, diagnostic, node);
-//       if (quickFix) {
-//         results.push(quickFix);
-//       }
-//     }
-//
-//     // Add disable actions
-//     if (params.context.diagnostics.length > 0) {
-//       results.push(...getDisableDiagnosticActions(
-//         document,
-//         params.context.diagnostics
-//       ));
-//     }
-//
-//     return results;
-//   };
-// }
-// src/handlers/code-action.ts
 export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) {
   // Helper functions that have access to docs/analyzer through closure
   function getNodeAtDiagnostic(diagnostic: Diagnostic, uri: string) {
@@ -62,7 +22,7 @@ export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) 
       const node = getNodeAtDiagnostic(diagnostic, document.uri);
       if (!node) continue;
 
-      const quickFix = getQuickFixes(document, diagnostic, node);
+      const quickFix = getQuickFixes(document, diagnostic);
       if (quickFix) results.push(quickFix);
     }
     return results;
@@ -91,27 +51,6 @@ export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) 
     return results;
   }
 
-  // // The actual handler using the helper functions
-  // return async function handleCodeAction(params: CodeActionParams): Promise<CodeAction[]> {
-  //   logger.log('onCodeAction', params);
-  //
-  //   const uri = uriToPath(params.textDocument.uri);
-  //   const document = docs.get(uri);
-  //   if (!document || !uri) return [];
-  //
-  //   const results: CodeAction[] = [];
-  //
-  //   // Use helper functions
-  //   results.push(...await processQuickFixes(document, params.context.diagnostics));
-  //
-  //   //
-  //
-  //   if (params.context.diagnostics.length > 0) {
-  //     results.push(...getDisableDiagnosticActions(document, params.context.diagnostics));
-  //   }
-  //
-  //   return results;
-  // };
   return async function handleCodeAction(params: CodeActionParams): Promise<CodeAction[]> {
     logger.log('onCodeAction', params);
 
