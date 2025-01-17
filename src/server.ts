@@ -6,7 +6,7 @@ import { ExecResultWrapper, execEntireBuffer, execLineInBuffer, executeThemeDump
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
 import { formatDocumentContent } from './formatting';
-import { Logger, createServerLogger } from './logger';
+import { Logger, createServerLogger, logger } from './logger';
 import { symbolKindsFromNode, uriToPath } from './utils/translation';
 import { getChildNodes, getNodeAtPosition } from './utils/tree-sitter';
 import { handleHover } from './hover';
@@ -31,6 +31,7 @@ import { CompletionItemMap } from './utils/completion/startup-cache';
 import { getDocumentHighlights } from './document-highlight';
 import { SyncFileHelper } from './utils/file-operations';
 import { buildCommentCompletions } from './utils/completion/comment-completions';
+import { createCodeActionHandler } from './code-actions/code-action-handler';
 
 // @TODO
 export type SupportedFeatures = {
@@ -101,6 +102,7 @@ export default class FishServer {
   }
 
   register(connection: Connection): void {
+    const codeActionHandler = createCodeActionHandler(this.docs, this.analyzer);
     //this.connection.window.createWorkDoneProgress();
     connection.onInitialized(this.onInitialized.bind(this));
     connection.onDidOpenTextDocument(this.didOpenTextDocument.bind(this));
@@ -120,7 +122,7 @@ export default class FishServer {
     connection.onRenameRequest(this.onRename.bind(this));
     connection.onDocumentFormatting(this.onDocumentFormatting.bind(this));
     connection.onDocumentRangeFormatting(this.onDocumentRangeFormatting.bind(this));
-    connection.onCodeAction(this.onCodeAction.bind(this));
+    connection.onCodeAction(codeActionHandler);
     connection.onFoldingRanges(this.onFoldingRanges.bind(this));
     //this.connection.workspace.applyEdit()
     connection.onDocumentHighlight(this.onDocumentHighlight.bind(this));

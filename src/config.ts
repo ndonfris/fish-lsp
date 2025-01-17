@@ -3,7 +3,8 @@ import { z } from 'zod';
 import { logToStdout } from './logger';
 import fishLspEnvVariables from './snippets/fishlspEnvVariables.json';
 import { InitializeResult, TextDocumentSyncKind } from 'vscode-languageserver';
-import { CodeActionKind } from './code-action';
+import { SupportedCodeActionKinds } from './code-actions/action-kinds';
+// import { CodeActionKind } from './code-action';
 
 /********************************************
  **********  Handlers/Providers   ***********
@@ -264,9 +265,10 @@ export function adjustInitializeResultCapabilitiesFromConfig(configHandlers: z.i
       foldingRangeProvider: configHandlers.folding,
       codeActionProvider: configHandlers.codeAction ? {
         codeActionKinds: [
-          CodeActionKind.RefactorToFunction.value,
-          CodeActionKind.RefactorToVariable.value,
-          CodeActionKind.QuickFix.append('extraEnd').value,
+          SupportedCodeActionKinds.QuickFix,
+          SupportedCodeActionKinds.RefactorExtract,
+          SupportedCodeActionKinds.RefactorRewrite,
+          SupportedCodeActionKinds.Disable,
         ],
         resolveProvider: true,
       } : undefined,

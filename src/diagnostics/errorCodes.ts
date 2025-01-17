@@ -17,7 +17,7 @@ export namespace ErrorCodes {
 
   export type codeTypes = 1001 | 1002 | 1003 | 1004 | 2001 | 2002 | 2003 | 3001 | 3002 | 3003;
 
-  type CodeValueType = {
+  export type CodeValueType = {
     severity: DiagnosticSeverity;
     code: codeTypes;
     codeDescription: CodeDescription;

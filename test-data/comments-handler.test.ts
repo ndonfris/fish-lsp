@@ -1,10 +1,7 @@
 import { DiagnosticCommentsHandler, isDiagnosticComment, parseDiagnosticComment } from '../src/diagnostics/comments-handler';
 import { initializeParser } from '../src/parser';
 import * as Parser from 'web-tree-sitter';
-import { SyntaxNode } from 'web-tree-sitter';
 import { getChildNodes } from '../src/utils/tree-sitter';
-import { createFakeLspDocument } from './helpers';
-import { ErrorCodes } from '../src/diagnostics/errorCodes';
 import { setLogger } from './helpers';
 import { config } from '../src/cli';
 
