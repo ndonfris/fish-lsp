@@ -94,7 +94,7 @@ export default class FishServer {
 
   async initialize(params: InitializeParams): Promise<InitializeResult> {
     if (params.workspaceFolders) {
-      this.logger.logAsJson(`Initialized server FISH-LSP with ${params.workspaceFolders || ''}`);
+      logger.logAsJson(`Initialized server FISH-LSP with ${params.workspaceFolders || ''}`);
     }
     const result = adjustInitializeResultCapabilitiesFromConfig(configHandlers, config);
     // this.logger.log({ onInitializedResult: result });
@@ -136,7 +136,7 @@ export default class FishServer {
     this.logParams('didOpenTextDocument', params);
     const uri = uriToPath(params.textDocument.uri);
     if (!uri) {
-      this.logger.logAsJson(`DID NOT OPEN ${uri} \n URI is null or undefined`);
+      logger.logAsJson(`DID NOT OPEN ${uri} \n URI is null or undefined`);
       return;
     }
     if (this.docs.open(uri, params.textDocument)) {
@@ -148,7 +148,7 @@ export default class FishServer {
         this.connection.sendDiagnostics(this.sendDiagnostics({ uri: doc.uri, diagnostics: [] }));
       }
     } else {
-      this.logger.logAsJson(`Cannot open already opened doc '${params.textDocument.uri}'.`);
+      logger.logAsJson(`Cannot open already opened doc '${params.textDocument.uri}'.`);
       this.didChangeTextDocument({
         textDocument: params.textDocument,
         contentChanges: [
@@ -169,7 +169,7 @@ export default class FishServer {
 
     doc.applyEdits(doc.version + 1, ...params.contentChanges);
     this.analyzer.analyze(doc);
-    this.logger.logAsJson(`CHANGED -> ${doc.version}:::${doc.uri}`);
+    logger.logAsJson(`CHANGED -> ${doc.version}:::${doc.uri}`);
     const root = this.analyzer.getRootNode(doc);
     if (!root) return;
     this.connection.sendDiagnostics(this.sendDiagnostics({ uri: doc.uri, diagnostics: [] }));
@@ -180,9 +180,9 @@ export default class FishServer {
     this.logParams('didCloseTextDocument', params);
     const uri = uriToPath(params.textDocument.uri);
     if (!uri) return;
-    this.logger.logAsJson(`[${this.didCloseTextDocument.name}]: ${params.textDocument.uri}`);
+    logger.logAsJson(`[${this.didCloseTextDocument.name}]: ${params.textDocument.uri}`);
     this.docs.close(uri);
-    this.logger.logAsJson(`closed uri: ${uri}`);
+    logger.logAsJson(`closed uri: ${uri}`);
   }
 
   didSaveTextDocument(params: DidSaveTextDocumentParams): void {
@@ -216,7 +216,7 @@ export default class FishServer {
     let list: FishCompletionList = FishCompletionList.empty();
 
     if (!uri || !doc) {
-      this.logger.logAsJson('onComplete got [NOT FOUND]: ' + uri);
+      logger.logAsJson('onComplete got [NOT FOUND]: ' + uri);
       return this.completion.empty();
     }
     const { line, word, lineRootNode, lineLastNode } = this.analyzer.parseCurrentLine(doc, params.position);
@@ -295,7 +295,7 @@ export default class FishServer {
     let output: ExecResultWrapper;
 
     const commandName = params.command.toString().slice(params.command.toString().indexOf('.') + 1);
-    this.logger.logAsJson(commandName);
+    logger.logAsJson(commandName);
     switch (commandName) {
       case 'executeLine':
         file = params.arguments![0] as string || '';
@@ -303,14 +303,14 @@ export default class FishServer {
         // console.log({'last accessed: ': this.docs.files})
 
         if (!file || !line) {
-          this.logger.log({ gotNull: 'gotNull', file, line });
+          logger.log({ gotNull: 'gotNull', file, line });
           return null;
         }
 
         doc = this.docs.get(file);
 
         if (!doc) {
-          this.logger.log({ title: 'docs was null', doc });
+          logger.log({ title: 'docs was null', doc });
           return [];
         }
         text = doc.getLine(Number.parseInt(line) - 1);
@@ -395,7 +395,7 @@ export default class FishServer {
     }
 
     const { kindType, kindString } = symbolKindsFromNode(current);
-    this.logger.log({ currentText: current.text, currentType: current.type, symbolKind: kindString });
+    logger.log({ currentText: current.text, currentType: current.type, symbolKind: kindString });
 
     const prebuiltSkipType = [
       ...PrebuiltDocumentationMap.getByType('pipe'),
@@ -428,9 +428,9 @@ export default class FishServer {
       symbolType,
     );
 
-    this.logger.log({ './src/server.ts:395': `this.documentationCache.resolve() found ${!!globalItem}`, docs: globalItem.docs });
+    logger.log({ './src/server.ts:395': `this.documentationCache.resolve() found ${!!globalItem}`, docs: globalItem.docs });
     if (globalItem && globalItem.docs) {
-      this.logger.log(globalItem.docs);
+      logger.log(globalItem.docs);
       return {
         contents: {
           kind: MarkupKind.Markdown,
@@ -444,9 +444,8 @@ export default class FishServer {
       params.position,
       current,
       this.documentationCache,
-      // this.logger,
     );
-    this.logger.log(fallbackHover?.contents);
+    logger.log(fallbackHover?.contents);
     return fallbackHover;
   }
 
@@ -585,7 +584,7 @@ export default class FishServer {
     //this.analyzer.analyze(document)
     const symbols = this.analyzer.getDocumentSymbols(document.uri);
     const flatSymbols = FishDocumentSymbol.toTree(symbols).toFlatArray();
-    this.logger.logPropertiesForEachObject(
+    logger.logPropertiesForEachObject(
       flatSymbols.filter((s) => s.kind === SymbolKind.Function),
       'name',
       'range',
@@ -595,7 +594,7 @@ export default class FishServer {
       .filter((symbol) => symbol.kind === SymbolKind.Function)
       .map((symbol) => FishDocumentSymbol.toFoldingRange(symbol));
 
-    folds.forEach((fold) => this.logger.log({ fold }));
+    folds.forEach((fold) => logger.log({ fold }));
 
     return folds;
   }
@@ -625,7 +624,7 @@ export default class FishServer {
 
   // works but is super slow and resource intensive, plus it doesn't really display much
   async onInlayHints(params: InlayHintParams) {
-    this.logger.log({ params });
+    logger.log({ params });
 
     const uri = uriToPath(params.textDocument.uri);
     const document = this.docs.get(uri);
@@ -655,7 +654,7 @@ export default class FishServer {
     if (aliasSignature) return getAliasedCompletionItemSignature(aliasSignature);
     const varNode = getChildNodes(lineRootNode).find(c => isVariableDefinition(c));
     const lastCmd = getChildNodes(lineRootNode).filter(c => isCommand(c)).pop();
-    this.logger.log({ line, lastCmds: lastCmd?.text });
+    logger.log({ line, lastCmds: lastCmd?.text });
     if (varNode && (line.startsWith('set') || line.startsWith('read')) && lastCmd?.text === lineRootNode.text.trim()) {
       const varName = varNode.text;
       const varDocs = PrebuiltDocumentationMap.getByName(varNode.text);
@@ -701,7 +700,7 @@ export default class FishServer {
      * @param {any[]} params - the params passed into the method
      */
   private logParams(methodName: string, ...params: any[]) {
-    this.logger.log({ handler: methodName, params });
+    logger.log({ handler: methodName, params });
   }
 
   // helper to get all the default objects needed when a TextDocumentPositionParam is passed
