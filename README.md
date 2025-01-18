@@ -216,6 +216,7 @@ Theoretically, the language-server should generally be compatible with almost an
   [language-server.fish-lsp]
   command = "fish-lsp"
   args= ["start"]
+  environment = { "fish_lsp_show_client_popups" = "false" }
   ```
 
 </details>
