@@ -1,4 +1,4 @@
-Copyright (c) 2022-2024 Nick Donfris and others
+Copyright (c) 2022-2025 Nick Donfris and others
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
