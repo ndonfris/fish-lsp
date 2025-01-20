@@ -51,8 +51,8 @@ A detailed explanation of how a language server connection works is described in
 | __Document Formatting__ | Formats a document, _full_ & _selection_ | ✅ |
 | __Document Highlight__ / __Semantic Token__ | Highlights all references to a command, variable, or function.  | ✅  |
 | __Command Execution__ | Executes a server command from the client | ✅ |
-| __Code Action__ | Shows all available code actions | ✖  |
-| __Code Lens__ | Shows all available code lenses | ✖  |
+| __Code Action__ | Shows all available code actions | ✅  |
+| __Code Lens__ | Shows all available code lenses | ✖ |
 | __Logger__ | Logs all server activity | ✅ |
 | __Diagnostic__ | Shows all diagnostics | ✅ |
 | __Folding Range__ | Toggle ranges to fold text  | ✅ |
@@ -345,6 +345,21 @@ set -gx fish_lsp_show_client_popups
 ```
 
 If you're interested in disabling specific diagnostic messages, the [wiki](https://github.com/ndonfris/fish-lsp/wiki) includes a table of [error codes](https://github.com/ndonfris/fish-lsp/wiki/Diagnostic-Error-Codes) that should be helpful. Diagnostics are a newer feature so [PRs](https://github.com/ndonfris/fish-lsp/blob/master/docs/CONTRIBUTING.md#getting-started-rocket) are welcome to improve their support.
+
+Alternatively, you can now __use comments__ to disable diagnostics.
+
+```fish
+# @fish-lsp-disable-next-line 
+alias ls='ls -G' # all diagnostics have been disabled for this line
+
+# @fish-lsp-disable 2001
+alias ll='ls -l' # only the diagnostic 2001 has been disabled for this line
+# @fish-lsp-enable
+
+# @fish-lsp-disable 2001 2002
+## now both diagnostics 2001 and 2002 have been disabled for the rest of this file
+alias la='ls -la'
+```
 
 #### Command Flags
 
