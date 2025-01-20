@@ -11,7 +11,7 @@ import { Workspace } from './utils/workspace';
 import { filterGlobalSymbols, FishDocumentSymbol, getFishDocumentSymbols } from './document-symbol';
 import { GenericTree } from './utils/generic-tree';
 import { findDefinitionSymbols } from './workspace-symbol';
-import { config } from './cli';
+import { config } from './config';
 import { logger } from './logger';
 
 export class Analyzer {

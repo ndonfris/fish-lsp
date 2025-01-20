@@ -1,7 +1,7 @@
 import { SyntaxNode } from 'web-tree-sitter';
 import { isComment } from '../utils/node-types';
 import { ErrorCodes } from './errorCodes';
-import { config } from '../cli';
+import { config } from '../config';
 
 export type DiagnosticAction = 'enable' | 'disable';
 export type DiagnosticTarget = 'line' | 'next-line';

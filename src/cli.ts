@@ -5,8 +5,8 @@ import { createConnection, InitializeParams, InitializeResult, StreamMessageRead
 import { Command, Option } from 'commander';
 import FishServer from './server';
 import { buildFishLspCompletions } from './utils/get-lsp-completions';
-import { createServerLogger, logToStdout, logToStdoutJoined } from './logger';
-import { configHandlers, generateJsonSchemaShellScript, getConfigFromEnvironmentVariables, showJsonSchemaShellScript, updateHandlers, validHandlers } from './config';
+import { createServerLogger, log, logger, logToStdout, logToStdoutJoined } from './logger';
+import { configHandlers, generateJsonSchemaShellScript, config, showJsonSchemaShellScript, updateHandlers, validHandlers, Config } from './config';
 
 export function startServer() {
   // Create a connection for the server.
@@ -17,13 +17,17 @@ export function startServer() {
   );
   connection.onInitialize(
     async (params: InitializeParams): Promise<InitializeResult> => {
-      connection.console.log(`Initialized server FISH-LSP with ${JSON.stringify(params)}`);
+      // connection.console.log(`Initialized server FISH-LSP with ${JSON.stringify(params, null, 2)}`);
       const server = await FishServer.create(connection, params);
       server.register(connection);
       return server.initialize(params);
     },
   );
   connection.listen();
+  createServerLogger(config.fish_lsp_logfile, true, connection.console);
+  logger.log('Starting FISH-LSP server');
+  logger.log('Server started with the following handlers:', configHandlers);
+  logger.log('Server started with the following config:', config);
 }
 
 async function timeOperation<T>(
@@ -115,9 +119,6 @@ const createFishLspBin = (): Command => {
   return bin;
 };
 
-// create config to be used globally
-export const { config, environmentVariablesUsed } = getConfigFromEnvironmentVariables();
-
 // start adding options to the command
 export const commandBin = createFishLspBin();
 
@@ -187,16 +188,27 @@ commandBin.command('start [TOGGLE]')
     '\tfish-lsp start --enable --disable logging complete codeAction',
   ].join('\n'))
   .action(() => {
+    // NOTE: `config` is a global object, already initialized. Here, we are updating its
+    // values passed from the shell environment, and then possibly overriding them with
+    // the command line args.
+
+    // use the `config` object's shell environment values to update the handlers
     updateHandlers(config.fish_lsp_enabled_handlers, true);
     updateHandlers(config.fish_lsp_disabled_handlers, false);
 
+    // override `configHandlers` with command line args
     const { enabled, disabled, dumpCmd } = accumulateStartupOptions(commandBin.args);
     updateHandlers(enabled, true);
     updateHandlers(disabled, false);
+    Config.fixPopups(enabled, disabled);
+
+    // Dump the configHandlers, if requested from the command line. This stops the server.
     if (dumpCmd) {
-      logToStdout(JSON.stringify(configHandlers, null, 2));
+      log(JSON.stringify({ handlers: configHandlers }, null, 2));
+      log(JSON.stringify({ config: config }, null, 2));
       process.exit(0);
     }
+
     /* config needs to be used in `startServer()` below */
     startServer();
   });

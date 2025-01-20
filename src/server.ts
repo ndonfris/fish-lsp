@@ -6,7 +6,7 @@ import { ExecResultWrapper, execEntireBuffer, execLineInBuffer, executeThemeDump
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
 import { formatDocumentContent } from './formatting';
-import { Logger, createServerLogger, logger } from './logger';
+import { Logger, logger } from './logger';
 import { symbolKindsFromNode, uriToPath } from './utils/translation';
 import { getChildNodes, getNodeAtPosition } from './utils/tree-sitter';
 import { handleHover } from './hover';
@@ -21,10 +21,9 @@ import { CompletionPager, initializeCompletionPager, SetupData } from './utils/c
 import { FishCompletionItem } from './utils/completion/types';
 import { getDocumentationResolver } from './utils/completion/documentation';
 import { FishCompletionList } from './utils/completion/list';
-import { config } from './cli';
 import { PrebuiltDocumentationMap, getPrebuiltDocUrl } from './utils/snippets';
 import { findParentCommand, isCommand, isVariableDefinition } from './utils/node-types';
-import { adjustInitializeResultCapabilitiesFromConfig, configHandlers } from './config';
+import { adjustInitializeResultCapabilitiesFromConfig, configHandlers, config } from './config';
 import { enrichToMarkdown } from './documentation';
 import { getAliasedCompletionItemSignature } from './signature';
 import { CompletionItemMap } from './utils/completion/startup-cache';
@@ -51,13 +50,11 @@ export default class FishServer {
       cache,
       workspaces,
       completionsMap,
-      logger,
     ] = await Promise.all([
       initializeParser(),
       initializeDocumentationCache(),
       initializeDefaultFishWorkspaces(),
       CompletionItemMap.initialize(),
-      Promise.resolve(createServerLogger(config.fish_lsp_logfile, true, connection.console)),
     ]);
 
     const analyzer = new Analyzer(parser, workspaces);
@@ -93,11 +90,14 @@ export default class FishServer {
   }
 
   async initialize(params: InitializeParams): Promise<InitializeResult> {
-    if (params.workspaceFolders) {
-      logger.logAsJson(`Initialized server FISH-LSP with ${params.workspaceFolders || ''}`);
+    logger.logAsJson('async server.initialize(params)');
+    if (params) {
+      logger.log();
+      logger.log({ 'server.initialize.params': params });
+      logger.log();
     }
     const result = adjustInitializeResultCapabilitiesFromConfig(configHandlers, config);
-    // this.logger.log({ onInitializedResult: result });
+    logger.log({ onInitializedResult: result });
     return result;
   }
 
@@ -129,11 +129,23 @@ export default class FishServer {
     connection.languages.inlayHint.on(this.onInlayHints.bind(this));
     connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
     connection.onExecuteCommand(this.onExecuteCommand.bind(this));
-    connection.console.log('FINISHED FishLsp.register()');
+    logger.log({ 'server.register': 'registered' });
   }
 
   didOpenTextDocument(params: DidOpenTextDocumentParams): void {
-    this.logParams('didOpenTextDocument', params);
+    const textDoc = params.textDocument;
+    const textDocText = textDoc.text.length > 300
+      ? textDoc.text.slice(0, 300) + `\n...[${textDoc.text.length - 300} chars]`
+      : textDoc.text;
+
+    this.logParams('didOpenTextDocument', {
+      textDocument: {
+        version: textDoc.version,
+        uri: textDoc.uri,
+        text: textDocText,
+        languageID: textDoc.languageId,
+      },
+    });
     const uri = uriToPath(params.textDocument.uri);
     if (!uri) {
       logger.logAsJson(`DID NOT OPEN ${uri} \n URI is null or undefined`);

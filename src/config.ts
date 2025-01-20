@@ -4,7 +4,6 @@ import { logToStdout } from './logger';
 import fishLspEnvVariables from './snippets/fishlspEnvVariables.json';
 import { InitializeResult, TextDocumentSyncKind } from 'vscode-languageserver';
 import { SupportedCodeActionKinds } from './code-actions/action-kinds';
-// import { CodeActionKind } from './code-action';
 
 /********************************************
  **********  Handlers/Providers   ***********
@@ -25,14 +24,29 @@ export const ConfigHandlerSchema = z.object({
   inlayHint: z.boolean().default(true),
   highlight: z.boolean().default(true),
   diagnostic: z.boolean().default(true),
+  popups: z.boolean().default(true),
 });
 
+/**
+ * The configHandlers object stores the enabled/disabled state of the cli flags
+ * for the language server handlers.
+ *
+ * USAGE:
+ *  1.) This object first uses the parsed shell env values found in the variables:
+ *      - `fish_lsp_enabled_handlers`
+ *      - `fish_lsp_disabled_handlers`
+ *
+ *  2.) Next, it uses the cli flags parsed from the `--enable` and `--disable` flags:
+ *      - keys are from the validHandlers array.
+ *
+ *  3.) Finally, its values can be used to determine if a handler is enabled or disabled.
+ */
 export const configHandlers = ConfigHandlerSchema.parse({});
 
 export const validHandlers: Array<keyof typeof ConfigHandlerSchema.shape> = [
   'complete', 'hover', 'rename', 'reference', 'formatting',
   'codeAction', 'codeLens', 'folding', 'signature', 'executeCommand',
-  'inlayHint', 'highlight', 'diagnostic',
+  'inlayHint', 'highlight', 'diagnostic', 'popups',
 ];
 
 export function updateHandlers(keys: string[], value: boolean): void {
@@ -289,3 +303,123 @@ export function adjustInitializeResultCapabilitiesFromConfig(configHandlers: z.i
 
   };
 }
+
+/********************************************
+ ***               Config                 ***
+ *******************************************/
+
+export namespace Config {
+
+  export function isPopupsEnabled() {
+    // logger.log('configHandlers.popups', configHandlers.popups);
+    // logger.log('config.fish_lsp_show_client_popups', config.fish_lsp_show_client_popups);
+    // if (!configHandlers.popups) {
+    //   // logger.log('\`configHandlers.popups\` is false, \`Config.isPopupsEnabled()\` returning false');
+    //   return false;
+    // }
+    // // if (config.fish_lsp_disabled_handlers.includes('popups')) {
+    // //   logger.log(`configHandlers.popups is true, 'Config.isPopupsEnabled()' returning false, 'popups' is in 'config.fish_lsp_disabled_handlers'`);
+    // //   return false;
+    // // }
+    // // logger.log(`configHandlers.popups is true, 'Config.isPopupsEnabled()' returning value \`config.fish_lsp_show_client_popups()\` -> ${config.fish_lsp_show_client_popups}`);
+    return config.fish_lsp_show_client_popups;
+  }
+
+  /**
+   *  fixPopups - updates the `config.fish_lsp_show_client_popups` value based on the 3 cases:
+   *   - cli flags include 'popups' -> directly sets `fish_lsp_show_client_popups`
+   *   - `config.fish_lsp_enabled_handlers`/`config.fish_lsp_disabled_handlers` includes 'popups'
+   *     - if both set && env doesn't set popups -> disable popups
+   *     - if enabled && env doesn't set popups-> enable popups
+   *     - if disabled && env doesn't set popups -> disable popups
+   *     - if env sets popups -> use env for popups && don't override with handler
+   *   - `config.fish_lsp_show_client_popups` is set in the environment variables
+   *  @param {string[]} enabled - the cli flags that are enabled
+   *  @param {string[]} disabled - the cli flags that are disabled
+   *  @returns {void}
+   */
+  export function fixPopups(enabled: string[], disabled: string[]): void {
+    /*
+     * `enabled/disabled` cli flag arrays are used instead of `configHandlers`
+     * because `configHandlers` always sets `popups` to true
+     */
+    if (enabled.includes('popups') || disabled.includes('popups')) {
+      // log(`INFO: 'popups' has been set by the cli flags, flags will update 'config.fish_lsp_show_client_popups'`);
+      /** configHandlers are the cli --enable/--disable flags */
+      if (enabled.includes('popups')) config.fish_lsp_show_client_popups = true;
+      if (disabled.includes('popups')) config.fish_lsp_show_client_popups = false;
+      return;
+    }
+
+    /**
+     * `configHandlers.popups` is set to false, so popups are disabled
+     */
+    if (configHandlers.popups === false) {
+      // log(`INFO: 'popups' is disabled in 'configHandlers.popups'`);
+      // log(`      'config.fish_lsp_show_client_popups' will be set to \`false\``);
+      config.fish_lsp_show_client_popups = false;
+      return;
+    }
+
+    // envValue is the value of `process.env.fish_lsp_show_client_popups`
+    const envValue = toBoolean(process.env.fish_lsp_show_client_popups);
+
+    // check error case where both are set
+    if (
+      config.fish_lsp_enabled_handlers.includes('popups')
+      && config.fish_lsp_disabled_handlers.includes('popups')
+    ) {
+      // log(`ERROR: \`config.fish_lsp_enabled_handlers\` and \`config.fish_lsp_disabled_handlers\` both include 'popups'`);
+      if (envValue) {
+        // log(`       \`config.fish_lsp_show_client_popups\` is also in the environment variables as \`${envValue}\``);
+        // log(`       \`config.fish_lsp_show_client_popups\` will be set to \`${envValue}\``);
+        config.fish_lsp_show_client_popups = envValue;
+        return;
+      } else {
+        // log(`       \`config.fish_lsp_show_client_popups\` is not set in the environment variables`);
+        // log(`       \`config.fish_lsp_show_client_popups\` will be set to \`false\``);
+        config.fish_lsp_show_client_popups = false;
+        return;
+      }
+    }
+
+    /**
+     * `process.env.fish_lsp_show_client_popups` is not set, and
+     * `fish_lsp_enabled_handlers/fish_lsp_disabled_handlers` includes 'popups'
+     */
+    if (typeof envValue === 'undefined') {
+      if (config.fish_lsp_enabled_handlers.includes('popups')) {
+        // log(`INFO: \`config.fish_lsp_enabled_handlers\` includes 'popups' && \`config.fish_lsp_show_client_popups\` is not set`);
+        // log(`      \`config.fish_lsp_show_client_popups\` will be set to \`true\``);
+        config.fish_lsp_show_client_popups = true;
+        return;
+      }
+      /** config.fish_lsp_disabled_handlers is from the fish env */
+      if (config.fish_lsp_disabled_handlers.includes('popups')) {
+        // log(`INFO:  \`config.fish_lsp_disabled_handlers\` has 'popups' && \`config.fish_lsp_show_client_popups\` is not set`);
+        // log(`       \`config.fish_lsp_show_client_popups\` will be set to \`false\``);
+        config.fish_lsp_show_client_popups = false;
+        return;
+      }
+    }
+
+    /**
+     * `process.env.fish_lsp_show_client_popups` is set and 'popups' is enabled/disabled in the handlers
+     */
+    // if (config.fish_lsp_enabled_handlers.includes('popups')) {
+    //   // log(`WARNING: \`config.fish_lsp_enabled_handlers\` includes 'popups' && \`config.fish_lsp_show_client_popups\` is set\n`);
+    //   // log(`         \`config.fish_lsp_show_client_popups\` is not overridden by \`config.fish_lsp_enabled_handlers\``);
+    //   return;
+    // } else if (config.fish_lsp_disabled_handlers.includes('popups')) {
+    //   // log(`WARNING: \`config.fish_lsp_disabled_handlers\` includes 'popups' && \`config.fish_lsp_show_client_popups\` is set`);
+    //   // log(`         \`config.fish_lsp_show_client_popups\` is not overridden by \`config.fish_lsp_disabled_handlers\``);
+    //   return;
+    // }
+
+    // if none of the above cases are met, then the value is set in the environment variables
+    // log(`INFO: \`config.fish_lsp_show_client_popups\` is set in the environment variables as \`${envValue}\``);
+  }
+}
+
+// create config to be used globally
+export const { config, environmentVariablesUsed } = getConfigFromEnvironmentVariables();

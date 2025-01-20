@@ -6,7 +6,7 @@ import { getChildNodes, getRange } from '../utils/tree-sitter';
 import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter } from './node-types';
 import { ErrorCodes } from './errorCodes';
 import { SyncFileHelper } from '../utils/file-operations';
-import { config } from '../cli';
+import { config } from '../config';
 import { DiagnosticCommentsHandler } from './comments-handler';
 
 export interface FishDiagnostic extends Diagnostic {

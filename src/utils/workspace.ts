@@ -3,7 +3,7 @@ import { readFileSync, promises } from 'fs';
 import { pathToUri, toLspDocument, uriToPath } from './translation';
 import { LspDocument } from '../document';
 import { FishDocumentSymbol } from '../document-symbol';
-import { config } from '../cli';
+import { config } from '../config';
 import { logger } from '../logger';
 
 async function getFileUriSet(path: string) {

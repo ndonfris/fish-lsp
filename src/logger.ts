@@ -17,6 +17,7 @@ export class Logger {
   /** reformat every log message as json */
   protected _onlyJson: boolean = true;
   protected logFilePath: string;
+  private started = false;
 
   constructor(logFilePath: string = '', clear: boolean = true, _console: IConsole = console) {
     this.logFilePath = logFilePath;
@@ -24,6 +25,14 @@ export class Logger {
     if (clear && this.hasLogFile()) {
       this.clearLogFile();
     }
+  }
+
+  isStarted(): boolean {
+    return this.started;
+  }
+
+  start(): void {
+    this.started = true;
   }
 
   toggleSilence() {
@@ -130,11 +139,12 @@ export class JestLogger extends Logger {
   }
 }
 
-export let logger: Logger;
+export let logger: Logger = new Logger();
 
 export function createServerLogger(logFilePath: string, clear: boolean = true, connectionConsole?: IConsole): Logger {
-  if (!logger) {
+  if (!logger.isStarted()) {
     logger = new Logger(logFilePath, clear, connectionConsole);
+    logger.start();
   }
   return logger;
 }
@@ -152,4 +162,20 @@ export function logToStdout(message: string, newline = true): void {
 export function logToStdoutJoined(...message: string[]) {
   const output: string = `${message.join('')}\n`;
   process.stdout.write(output);
+}
+
+/**
+ * A helper function to wrap default logging behavior for the logger, if it is started.
+ *   - If logger is started, log to logger     `logger.log()`
+ *   - If logger is not started, log to stdout `logToStdout()`
+ *
+ * @param args - any number of arguments to log
+ * @returns void
+ */
+export function log(...args: any[]): void {
+  if (logger.isStarted()) {
+    logger.log(...args);
+  } else {
+    logToStdout(args.join(''), true);
+  }
 }
