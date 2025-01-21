@@ -10,25 +10,25 @@ import { convertIfToCombiners, extractCommandToFunction, extractToFunction, extr
 
 export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) {
   // Helper functions that have access to docs/analyzer through closure
-  function getNodeAtDiagnostic(diagnostic: Diagnostic, uri: string) {
-    return analyzer.nodeAtPoint(
-      uri, diagnostic.range.start.line, diagnostic.range.start.character,
-    );
-  }
+  // function getNodeAtDiagnostic(diagnostic: Diagnostic, uri: string) {
+  //   return analyzer.nodeAtPoint(
+  //     uri, diagnostic.range.start.line, diagnostic.range.start.character,
+  //   );
+  // }
 
-  function processQuickFixes(document: LspDocument, diagnostics: Diagnostic[]) {
+  function processQuickFixes(document: LspDocument, diagnostics: Diagnostic[], analyzer: Analyzer) {
     const results: CodeAction[] = [];
     for (const diagnostic of diagnostics) {
-      const node = getNodeAtDiagnostic(diagnostic, document.uri);
-      if (!node) continue;
+      logger.log('Processing diagnostic', diagnostic.code, diagnostic.message);
+      const quickFix = getQuickFixes(document, diagnostic, analyzer);
+      logger.log('QuickFix', quickFix?.title);
 
-      const quickFix = getQuickFixes(document, diagnostic);
       if (quickFix) results.push(quickFix);
     }
     return results;
   }
 
-  async function processRefactors(document: LspDocument, range: Range) {
+  function processRefactors(document: LspDocument, range: Range) {
     const results: CodeAction[] = [];
 
     // Get node at the selected range
@@ -61,28 +61,28 @@ export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) 
     const results: CodeAction[] = [];
 
     // Check what kinds of actions are requested
-    const onlyRefactoring = params.context.only?.some(kind =>
-      kind.startsWith('refactor'),
-    );
-    const onlyQuickFix = params.context.only?.some(kind =>
-      kind.startsWith('quickfix'),
-    );
+    // const onlyRefactoring = params.context.only?.some(kind =>
+    //   kind.startsWith('refactor'),
+    // );
+    // const onlyQuickFix = params.context.only?.some(kind =>
+    //   kind.startsWith('quickfix'),
+    // );
+
+    // if (params.context.diagnostics.length > 0) {
+    //   // Add regular quick fixes
+    //   results.push(...processQuickFixes(document, params.context.diagnostics));
+    // }
 
     // Add quick fixes if requested
-    if (!params.context.only || onlyQuickFix) {
-      if (params.context.diagnostics.length > 0) {
-        // Add regular quick fixes
-        results.push(...processQuickFixes(document, params.context.diagnostics));
-
-        // Add disable actions
-        results.push(...getDisableDiagnosticActions(document, params.context.diagnostics));
-      }
-    }
+    results.push(...processQuickFixes(document, params.context.diagnostics, analyzer));
+    // Add disable actions
+    results.push(...getDisableDiagnosticActions(document, params.context.diagnostics));
+    results.push(...processRefactors(document, params.range));
 
     // Add refactors if requested
-    if (!params.context.only || onlyRefactoring) {
-      results.push(...await processRefactors(document, params.range));
-    }
+    // if (!!onlyRefactoring) {
+    //   // results.push(...await processRefactors(document, params.range));
+    // }
 
     return results;
   };

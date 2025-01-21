@@ -10,7 +10,7 @@ interface DiagnosticGroup {
   diagnostics: Diagnostic[];
 }
 
-export function createDisableAction(
+function createDisableAction(
   title: string,
   document: LspDocument,
   edits: TextEdit[],
@@ -25,6 +25,10 @@ export function createDisableAction(
       },
     },
     diagnostics,
+    command: {
+      command: 'editor.action.formatDocument',
+      title: 'Format Document',
+    },
   };
 }
 
@@ -50,25 +54,29 @@ export function handleDisableBlock(
   document: LspDocument,
   group: DiagnosticGroup,
 ): CodeAction {
+  const numbers = Array.from(new Set(group.diagnostics.map(diagnostic => diagnostic.code)).values()).join(' ');
   const edits = [
     // Insert disable comment at start of block
     TextEdit.insert(
       { line: group.startLine, character: 0 },
-      '# @fish-lsp-disable\n',
+      `# @fish-lsp-disable ${numbers}\n`,
     ),
     // Insert enable comment after end of block
     TextEdit.insert(
       { line: group.endLine + 1, character: 0 },
-      '# @fish-lsp-enable\n',
+      `# @fish-lsp-enable ${numbers}\n`,
     ),
   ];
 
-  return createDisableAction(
-    `Disable ${group.diagnostics.length} diagnostics in block (lines ${group.startLine + 1}-${group.endLine + 1})`,
-    document,
-    edits,
-    group.diagnostics,
-  );
+  return {
+    ...createDisableAction(
+      `Disable ${numbers} diagnostics in block (lines ${group.startLine + 1}-${group.endLine + 1})`,
+      document,
+      edits,
+      group.diagnostics,
+    ),
+    isPreferred: true,
+  };
 }
 
 // Group diagnostics that are adjacent or within N lines of each other

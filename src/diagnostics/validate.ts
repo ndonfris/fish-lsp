@@ -1,13 +1,13 @@
-
-import { Diagnostic } from 'vscode-languageserver';
+import { Diagnostic, Range } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { LspDocument } from '../document';
-import { getChildNodes, getRange } from '../utils/tree-sitter';
+import { getChildNodes } from '../utils/tree-sitter';
 import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter } from './node-types';
 import { ErrorCodes } from './errorCodes';
 import { SyncFileHelper } from '../utils/file-operations';
 import { config } from '../config';
 import { DiagnosticCommentsHandler } from './comments-handler';
+import { logger } from '../logger';
 
 export interface FishDiagnostic extends Diagnostic {
   data: {
@@ -21,11 +21,14 @@ export namespace FishDiagnostic {
     node: SyntaxNode,
   ): FishDiagnostic {
     return {
-      range: getRange(node),
+      ...ErrorCodes.codes[code],
+      range: {
+        start: { line: node.startPosition.row, character: node.startPosition.column },
+        end: { line: node.endPosition.row, character: node.endPosition.column },
+      },
       data: {
         node,
       },
-      ...ErrorCodes.codes[code],
     };
   }
 }
@@ -51,7 +54,7 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
     }
 
     if (isZeroIndex(node) && handler.isCodeEnabled(ErrorCodes.missingEnd)) {
-      diagnostics.push(FishDiagnostic.create(ErrorCodes.missingEnd, node));
+      diagnostics.push(FishDiagnostic.create(ErrorCodes.zeroIndexedArray, node));
     }
 
     if (isSingleQuoteVariableExpansion(node) && handler.isCodeEnabled(ErrorCodes.singleQuoteVariableExpansion)) {
@@ -75,7 +78,21 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
     }
 
     if (isConditionalWithoutQuietCommand(node) && handler.isCodeEnabled(ErrorCodes.missingQuietOption)) {
-      diagnostics.push(FishDiagnostic.create(ErrorCodes.missingQuietOption, node));
+      logger.log('isSingleQuoteDiagnostic', { type: node.type, text: node.text });
+      const command = node.firstNamedChild || node;
+      let subCommand = command;
+      if (command.text.includes('string')) {
+        subCommand = command.nextSibling || node.nextSibling!;
+      }
+      const range: Range = {
+        start: { line: command.startPosition.row, character: command.startPosition.column },
+        end: { line: subCommand.endPosition.row, character: subCommand.endPosition.column },
+      };
+
+      diagnostics.push({
+        ...FishDiagnostic.create(ErrorCodes.missingQuietOption, node),
+        range,
+      });
     }
 
     if (isVariableDefinitionWithExpansionCharacter(node) && handler.isCodeEnabled(ErrorCodes.expansionInDefinition)) {

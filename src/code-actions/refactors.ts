@@ -31,7 +31,7 @@ export function createRefactorAction(
 export function extractToFunction(
   document: LspDocument,
   range: Range,
-  selectedNode: SyntaxNode,
+  _selectedNode: SyntaxNode,
 ): CodeAction | undefined {
   // Generate a unique function name
   const functionName = `extracted_function_${Math.floor(Math.random() * 1000)}`;
@@ -47,10 +47,10 @@ export function extractToFunction(
   ].join('\n');
 
   // Insert the new function before the current scope
-  const insertPosition = getRange(selectedNode).start;
+  // const insertPosition = getRange(selectedNode).start;
   const insertEdit = TextEdit.insert(
-    { line: insertPosition.line, character: 0 },
-    `${functionText}\n`,
+    { line: document.getLines(), character: 0 },
+    `\n${functionText}\n`,
   );
 
   // Replace the selected text with a call to the new function
@@ -60,7 +60,7 @@ export function extractToFunction(
     `Extract to function '${functionName}'`,
     SupportedCodeActionKinds.RefactorExtract,
     {
-      [document.uri]: [insertEdit, replaceEdit],
+      [document.uri]: [replaceEdit, insertEdit],
     },
   );
 }
@@ -91,10 +91,10 @@ export function extractCommandToFunction(
   const replaceEdit = TextEdit.replace(getRange(cmd), `${functionName}`);
 
   // Insert the new function before the current scope
-  const insertPosition = getRange(selectedNode).start;
+  // const insertPosition = getRange(selectedNode).start;
   const insertEdit = TextEdit.insert(
-    { line: insertPosition.line, character: 0 },
-    `${functionText}\n`,
+    { line: document.getLines(), character: 0 },
+    `\n${functionText}\n`,
   );
 
   return createRefactorAction(
@@ -103,6 +103,7 @@ export function extractCommandToFunction(
     {
       [document.uri]: [replaceEdit, insertEdit],
     },
+
   );
 }
 
@@ -118,22 +119,16 @@ export function extractToVariable(
   const varName = `extracted_var_${Math.floor(Math.random() * 1000)}`;
 
   // Create variable declaration
-  const declaration = `set -l ${varName} ${selectedText}\n`;
+  const declaration = `set -l ${varName} (${selectedText})\n`;
 
   // Replace original text with variable
-  const replaceEdit = TextEdit.replace(range, varName);
-
-  // Insert variable declaration before usage
-  const insertEdit = TextEdit.insert(
-    { line: range.start.line, character: 0 },
-    declaration,
-  );
+  const replaceEdit = TextEdit.replace(range, declaration);
 
   return createRefactorAction(
     `Extract to variable '${varName}'`,
     SupportedCodeActionKinds.RefactorExtract,
     {
-      [document.uri]: [insertEdit, replaceEdit],
+      [document.uri]: [replaceEdit],
     },
   );
 }
@@ -170,4 +165,3 @@ export function convertIfToCombiners(
     true, // Mark as preferred action
   );
 }
-

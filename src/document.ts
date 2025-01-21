@@ -132,6 +132,11 @@ export class LspDocument implements TextDocument {
     const name = parts[parts.length - 1];
     return name!.replace('.fish', '');
   }
+
+  getLines(): number {
+    const lines = this.getText().split('\n');
+    return lines.length;
+  }
 }
 
 export class LspDocuments {

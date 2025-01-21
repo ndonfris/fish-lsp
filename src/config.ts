@@ -285,10 +285,11 @@ export function adjustInitializeResultCapabilitiesFromConfig(configHandlers: z.i
           SupportedCodeActionKinds.RefactorRewrite,
           SupportedCodeActionKinds.Disable,
         ],
+        workDoneProgress: true,
         resolveProvider: true,
       } : undefined,
       executeCommandProvider: configHandlers.executeCommand ? {
-        commands: ['APPLY_REFACTORING', 'SELECT_REFACTORING', 'APPLY_WORKSPACE_EDIT', 'RENAME', 'onHover', 'rename', 'fish-lsp.executeLine', 'fish-lsp.executeBuffer', 'fish-lsp.createTheme', 'fish-lsp.execute'],
+        commands: [SupportedCodeActionKinds.QuickFix, SupportedCodeActionKinds.RefactorExtract, SupportedCodeActionKinds.RefactorRewrite, SupportedCodeActionKinds.Disable, 'onHover', 'rename', 'fish-lsp.executeLine', 'fish-lsp.executeBuffer', 'fish-lsp.createTheme', 'fish-lsp.execute'],
         workDoneProgress: true,
       } : undefined,
       documentSymbolProvider: {
