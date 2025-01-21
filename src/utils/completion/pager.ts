@@ -6,6 +6,7 @@ import { InlineParser } from './inline-parser';
 import { CompletionItemMap } from './startup-cache';
 import { CompletionContext, CompletionList, Position, SymbolKind } from 'vscode-languageserver-protocol';
 import { FishCompletionList, FishCompletionListBuilder } from './list';
+// import { StaticItems } from './static-items';
 
 export type SetupData = {
   uri: string;
@@ -39,6 +40,36 @@ export class CompletionPager {
       isIncomplete,
       items,
     } as CompletionList;
+  }
+
+  async completeVariables(
+    line: string,
+    word: string,
+    setupData: SetupData,
+    symbols: FishDocumentSymbol[],
+  ): Promise<FishCompletionList> {
+    this._items.reset();
+    const data = FishCompletionItem.createData(
+      setupData.uri,
+      line,
+      word || '',
+      setupData.position,
+    );
+
+    const { variables } = sortSymbols(symbols);
+    for (const variable of variables) {
+      const variableItem = FishCompletionItem.fromSymbol(variable);
+      variableItem.insertText = '$' + variable.name;
+      this._items.addItem(variableItem);
+    }
+    for (const item of this.itemsMap.allOfKinds('variable')) {
+      item.insertText = '$' + item.label;
+      this._items.addItem(item);
+    }
+
+    const result = this._items.addData(data).build();
+    result.isIncomplete = false;
+    return result;
   }
 
   async complete(
@@ -109,7 +140,7 @@ export class CompletionPager {
     }
 
     const result = this._items.addData(data).build();
-    this._items.log();
+    // this._items.log();
     return result;
   }
 
@@ -146,6 +177,9 @@ export async function initializeCompletionPager(logger: Logger, items: Completio
 
 function addFirstIndexedItems(command: string, items: CompletionItemMap) {
   switch (command) {
+    case 'functions':
+    case 'function':
+      return items.allOfKinds('event', 'variable');
     case 'end':
       return items.allOfKinds('pipe');
     case 'printf':
@@ -170,6 +204,8 @@ function addSpecialItems(
   switch (command) {
     //case "end":
     //  return items.allOfKinds("pipe");
+    case 'return':
+      return items.allOfKinds('status', 'variable');
     case 'printf':
     case 'set':
       return items.allOfKinds('variable');

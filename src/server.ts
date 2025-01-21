@@ -224,6 +224,7 @@ export default class FishServer {
   // convert to CompletionItem[]
   async onCompletion(params: CompletionParams): Promise<CompletionList> {
     this.logParams('onCompletion', params);
+
     const { doc, uri, current } = this.getDefaults(params);
     let list: FishCompletionList = FishCompletionList.empty();
 
@@ -243,16 +244,22 @@ export default class FishServer {
     } as SetupData;
 
     if (line.trim().startsWith('#')) {
+      logger.log('completeComment');
       return buildCommentCompletions(line, params.position, current || lineLastNode || lineRootNode, fishCompletionData, word);
     }
 
+    const symbols = this.analyzer.cache.getFlatDocumentSymbols(doc.uri);
+    if (word.trim().endsWith('$') || line.trim().endsWith('$') || word.trim() === '$') {
+      logger.log('completeVariables');
+      return this.completion.completeVariables(line, word, fishCompletionData, symbols);
+    }
+
     try {
-      const symbols = this.analyzer.getFlatDocumentSymbols(uri);
-      logger.log({ symbols: symbols.map(s => s.name) });
+      logger.log('complete');
+      logger.log({ uri: uri, symbols: symbols.map(s => s.name) });
       list = await this.completion.complete(line, fishCompletionData, symbols);
-      // this.logger.logAsJson(`line: '${line}' got ${list.items.length} items"`);
     } catch (error) {
-      // this.logger.logAsJson('ERROR: onComplete ' + error?.toString() || 'error');
+      this.logger.logAsJson('ERROR: onComplete ' + error?.toString() || 'error');
     }
     return list;
   }
@@ -264,6 +271,13 @@ export default class FishServer {
    */
   async onCompletionResolve(item: CompletionItem): Promise<CompletionItem> {
     const fishItem = item as FishCompletionItem;
+    if (fishItem.useDocAsDetail) {
+      item.documentation = {
+        kind: MarkupKind.Markdown,
+        value: fishItem.documentation.toString(),
+      };
+      return item;
+    }
     const doc = await getDocumentationResolver(fishItem);
     if (doc) {
       item.documentation = doc as MarkupContent;

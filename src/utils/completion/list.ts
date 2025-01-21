@@ -43,7 +43,10 @@ export class FishCompletionListBuilder {
   }
 
   build(): FishCompletionList {
-    return FishCompletionList.create(false, this.data, this.items);
+    const uniqueItems = this.items.filter((item, index, self) =>
+      index === self.findIndex((t) => t.label === item.label),
+    );
+    return FishCompletionList.create(false, this.data, uniqueItems);
   }
 
   log() {
@@ -68,7 +71,7 @@ function itemLoggingInfo(item: FishCompletionItem, index: number) {
   };
 }
 
-export interface FishCompletionList extends CompletionList{
+export interface FishCompletionList extends CompletionList {
 }
 
 export namespace FishCompletionList {

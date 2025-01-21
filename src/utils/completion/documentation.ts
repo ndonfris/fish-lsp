@@ -51,6 +51,12 @@ export async function getDocumentationResolver(item: FishCompletionItem): Promis
         break;
     }
   }
+  if (item.local) {
+    return {
+      kind: 'markdown',
+      value: item.documentation.toString(),
+    } as MarkupContent;
+  }
   return {
     kind: 'markdown',
     value: docString,

@@ -70,6 +70,7 @@ export interface FishCompletionItem extends CompletionItem {
   fishKind: FishCompletionItemKind;
   examples?: CompletionExample[];
   local: boolean;
+  useDocAsDetail: boolean;
   data?: FishCompletionData;
   setKinds(kind: FishCompletionItemKind): FishCompletionItem;
   setLocal(): FishCompletionItem;
@@ -85,6 +86,7 @@ export class FishCompletionItem implements FishCompletionItem {
     public examples?: CompletionExample[],
   ) {
     this.local = false;
+    this.useDocAsDetail = false;
     //this.labelDetails = this.detail;
     this.setKinds(fishKind);
   }
@@ -97,6 +99,11 @@ export class FishCompletionItem implements FishCompletionItem {
 
   setLocal() {
     this.local = true;
+    return this;
+  }
+
+  setUseDocAsDetail() {
+    this.useDocAsDetail = true;
     return this;
   }
 

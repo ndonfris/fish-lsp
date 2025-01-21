@@ -269,6 +269,7 @@ export function adjustInitializeResultCapabilitiesFromConfig(configHandlers: z.i
         resolveProvider: true,
         allCommitCharacters: userConfig.fish_lsp_commit_characters,
         workDoneProgress: true,
+        triggerCharacters: ['$'],
       } : undefined,
       hoverProvider: configHandlers.hover,
       definitionProvider: configHandlers.reference,
