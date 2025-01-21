@@ -6,6 +6,14 @@ Documenting notable changes across project revisions
 
 ## Current
 
+## \[1.0.8-4.beta\] - 2025-01-20 ([PR #64](https://github.com/ndonfris/fish-lsp/pull/64))
+
+- added code actions
+- added diagnostic comment string
+- added `$` completion trigger
+- fixed README.md docs
+- added local `CompletionItem` symbol support
+
 ## \[1.0.8-3\] - 2024-07-24 ([PR #62](https://github.com/ndonfris/fish-lsp/pull/62) & [PR #63](https://github.com/ndonfris/fish-lsp/pull/63/files))
 
 - __updated__ docs to reflect changes in `1.0.8-2`
