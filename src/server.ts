@@ -323,6 +323,15 @@ export default class FishServer {
     const commandName = params.command.toString().slice(params.command.toString().indexOf('.') + 1);
     logger.logAsJson(commandName);
     switch (commandName) {
+      case 'openSavedFunction':
+        file = params.arguments![0] as string || '';
+        if (!file) return;
+        await this.connection.sendRequest('window/showDocument', {
+          uri: `file://${file}`,
+          takeFocus: true,
+        });
+        break;
+
       case 'executeLine':
         file = params.arguments![0] as string || '';
         line = params.arguments![1] as string || '';

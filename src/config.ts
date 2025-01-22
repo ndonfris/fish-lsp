@@ -289,7 +289,7 @@ export function adjustInitializeResultCapabilitiesFromConfig(configHandlers: z.i
         resolveProvider: true,
       } : undefined,
       executeCommandProvider: configHandlers.executeCommand ? {
-        commands: [SupportedCodeActionKinds.QuickFix, SupportedCodeActionKinds.RefactorExtract, SupportedCodeActionKinds.RefactorRewrite, SupportedCodeActionKinds.Disable, 'onHover', 'rename', 'fish-lsp.executeLine', 'fish-lsp.executeBuffer', 'fish-lsp.createTheme', 'fish-lsp.execute'],
+        commands: [SupportedCodeActionKinds.QuickFix, SupportedCodeActionKinds.RefactorExtract, SupportedCodeActionKinds.RefactorRewrite, SupportedCodeActionKinds.Disable, 'onHover', 'rename', 'fish-lsp.executeLine', 'fish-lsp.executeBuffer', 'fish-lsp.createTheme', 'fish-lsp.execute', 'fish-lsp.openSavedFunction'],
         workDoneProgress: true,
       } : undefined,
       documentSymbolProvider: {

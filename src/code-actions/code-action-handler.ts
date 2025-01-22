@@ -7,6 +7,7 @@ import { LspDocument, LspDocuments } from '../document';
 import { Analyzer } from '../analyze';
 import { getNodeAtRange } from '../utils/tree-sitter';
 import { convertIfToCombiners, extractCommandToFunction, extractToFunction, extractToVariable } from './refactors';
+// import { createAliasSaveAction, createAliasSaveActionNewFile } from './alias-wrapper';
 
 export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) {
   // Helper functions that have access to docs/analyzer through closure
@@ -16,19 +17,20 @@ export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) 
   //   );
   // }
 
-  function processQuickFixes(document: LspDocument, diagnostics: Diagnostic[], analyzer: Analyzer) {
+  async function processQuickFixes(document: LspDocument, diagnostics: Diagnostic[], analyzer: Analyzer) {
     const results: CodeAction[] = [];
     for (const diagnostic of diagnostics) {
       logger.log('Processing diagnostic', diagnostic.code, diagnostic.message);
-      const quickFix = getQuickFixes(document, diagnostic, analyzer);
-      logger.log('QuickFix', quickFix?.title);
-
-      if (quickFix) results.push(quickFix);
+      const quickFixs = await getQuickFixes(document, diagnostic, analyzer);
+      for (const fix of quickFixs) {
+        logger.log('QuickFix', fix?.title);
+      }
+      if (quickFixs) results.push(...quickFixs);
     }
     return results;
   }
 
-  function processRefactors(document: LspDocument, range: Range) {
+  async function processRefactors(document: LspDocument, range: Range) {
     const results: CodeAction[] = [];
 
     // Get node at the selected range
@@ -74,10 +76,13 @@ export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) 
     // }
 
     // Add quick fixes if requested
-    results.push(...processQuickFixes(document, params.context.diagnostics, analyzer));
+    const quickFixes = await processQuickFixes(document, params.context.diagnostics, analyzer);
+    results.push(...quickFixes);
     // Add disable actions
     results.push(...getDisableDiagnosticActions(document, params.context.diagnostics));
-    results.push(...processRefactors(document, params.range));
+
+    const refactors = await processRefactors(document, params.range);
+    results.push(...refactors);
 
     // Add refactors if requested
     // if (!!onlyRefactoring) {

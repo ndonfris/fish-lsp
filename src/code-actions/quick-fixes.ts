@@ -7,6 +7,7 @@ import { ErrorNodeTypes } from '../diagnostics/node-types';
 import { SupportedCodeActionKinds } from './action-kinds';
 import { logger } from '../logger';
 import { Analyzer } from '../analyze';
+import { createAliasInlineAction, createAliasSaveActionNewFile } from './alias-wrapper';
 
 /**
  * These quick-fixes are separated from the other diagnostic quick-fixes because
@@ -172,6 +173,32 @@ function handleZeroIndexedArray(
   };
 }
 
+// function handleAliasFix(
+//   document: LspDocument,
+//   diagnostic: Diagnostic,
+// ): CodeAction {
+//   // Replace alias with function
+//   const text = document.getText(diagnostic.range);
+//   const newText = text.replace(/alias/g, 'function');
+//
+//   const edit = TextEdit.replace(
+//     diagnostic.range,
+//     newText,
+//   );
+//
+//   return {
+//     title: 'Convert alias to function',
+//     kind: SupportedCodeActionKinds.QuickFix,
+//     diagnostics: [diagnostic],
+//     edit: {
+//       changes: {
+//         [document.uri]: [edit],
+//       },
+//     },
+//
+//   };
+// }
+
 // fix cases like: -xU
 function handleUniversalVariable(
   document: LspDocument,
@@ -245,36 +272,78 @@ export function handleTestCommandVariableExpansionWithoutString(
   );
 }
 
-export function getQuickFixes(
+export async function getQuickFixes(
   document: LspDocument,
   diagnostic: Diagnostic,
   analyzer: Analyzer,
-): CodeAction | undefined {
-  if (!diagnostic.code) return undefined;
-  logger.log({ code: diagnostic.code, message: diagnostic.message, severity: diagnostic.severity, node: diagnostic.data.node.text, range: diagnostic.range });
+): Promise<CodeAction[]> {
+  if (!diagnostic.code) return [];
+
+  logger.log({
+    code: diagnostic.code,
+    message: diagnostic.message,
+    severity: diagnostic.severity,
+    node: diagnostic.data.node.text,
+    range: diagnostic.range,
+  });
+
+  let action: CodeAction | undefined;
+  const actions: CodeAction[] = [];
+
+  const root = analyzer.getRootNode(document);
+  let node = root;
+  if (root) {
+    node = getChildNodes(root).find(n =>
+      n.startPosition.row === diagnostic.range.start.line &&
+      n.startPosition.column === diagnostic.range.start.character,
+    );
+  }
+
   switch (diagnostic.code) {
     case ErrorCodes.missingEnd:
-      return handleMissingEndFix(document, diagnostic, analyzer);
+      action = handleMissingEndFix(document, diagnostic, analyzer);
+      if (action) actions.push(action);
+      return actions;
 
     case ErrorCodes.extraEnd:
-      return handleExtraEndFix(document, diagnostic);
+      action = handleExtraEndFix(document, diagnostic);
+      if (action) actions.push(action);
+      return actions;
 
     case ErrorCodes.missingQuietOption:
-      return handleMissingQuietError(document, diagnostic);
+      action = handleMissingQuietError(document, diagnostic);
+      if (action) actions.push(action);
+      return actions;
 
     case ErrorCodes.usedUnviersalDefinition:
-      return handleUniversalVariable(document, diagnostic);
+      action = handleUniversalVariable(document, diagnostic);
+      if (action) actions.push(action);
+      return actions;
 
     case ErrorCodes.zeroIndexedArray:
-      return handleZeroIndexedArray(document, diagnostic);
+      action = handleZeroIndexedArray(document, diagnostic);
+      if (action) actions.push(action);
+      return actions;
 
     case ErrorCodes.singleQuoteVariableExpansion:
-      return handleSingleQuoteVarFix(document, diagnostic);
+      action = handleSingleQuoteVarFix(document, diagnostic);
+      if (action) actions.push(action);
+      return actions;
 
     case ErrorCodes.testCommandMissingStringCharacters:
-      return handleTestCommandVariableExpansionWithoutString(document, diagnostic);
+      action = handleTestCommandVariableExpansionWithoutString(document, diagnostic);
+      if (action) actions.push(action);
+      return actions;
+
+    case ErrorCodes.usedAlias:
+      if (!node) return [];
+      actions.push(
+        await createAliasInlineAction(node, document),
+        await createAliasSaveActionNewFile(node, document),
+      );
+      return actions;
 
     default:
-      return undefined;
+      return actions;
   }
 }
