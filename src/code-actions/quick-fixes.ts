@@ -54,15 +54,11 @@ export function handleMissingEndFix(
   analyzer: Analyzer,
 ): CodeAction | undefined {
   const root = analyzer.getTree(document)!.rootNode;
-  logger.log('endDiag', diagnostic.range);
-  // if (!root) return undefined;
 
   const errNode = root.descendantForPosition({ row: diagnostic.range.start.line, column: diagnostic.range.start.character })!;
 
-  const err = root!.childForFieldName('ERROR')!;
-  const toSearch = getChildNodes(err).find(node => node.isError)!;
-  logger.log('toSearch', toSearch.text);
-  logger.log('errorNodeToken', err.text);
+  // const err = root!.childForFieldName('ERROR')!;
+  // const toSearch = getChildNodes(err).find(node => node.isError)!;
 
   const rawErrorNodeToken = getErrorNodeToken(errNode);
 
@@ -102,40 +98,13 @@ export function handleExtraEndFix(
   );
 }
 
-// export function handleQuietOptionFix(
-//   document: LspDocument,
-//   diagnostic: Diagnostic,
-// ): CodeAction {
-//   const node: SyntaxNode = diagnostic.data.node;
-//   // // Add -q flag after the command name
-//   // let nodeRange = getRange(node);
-//   // if (node.firstChild && node.firstChild?.text === 'string') {
-//   //   nodeRange = getRange(node.firstChild.nextSibling!);
-//   // }
-//   const edit = TextEdit.insert(
-//     diagnostic.range.end,
-//     ' -q',
-//   );
-//
-//   return createQuickFix(
-//     'Add quiet flag (-q)',
-//     diagnostic,
-//     {
-//       [document.uri]: [edit]
-//     }
-//   );
-// }
-
 // Handle missing quiet option error
 function handleMissingQuietError(
   document: LspDocument,
   diagnostic: Diagnostic,
 ): CodeAction | undefined {
   // Add -q flag
-  const edit = TextEdit.insert(
-    diagnostic.range.end,
-    ' -q ',
-  );
+  const edit = TextEdit.insert(diagnostic.range.end, ' -q ');
 
   return {
     title: 'Add quiet (-q) flag',
@@ -172,32 +141,6 @@ function handleZeroIndexedArray(
     },
   };
 }
-
-// function handleAliasFix(
-//   document: LspDocument,
-//   diagnostic: Diagnostic,
-// ): CodeAction {
-//   // Replace alias with function
-//   const text = document.getText(diagnostic.range);
-//   const newText = text.replace(/alias/g, 'function');
-//
-//   const edit = TextEdit.replace(
-//     diagnostic.range,
-//     newText,
-//   );
-//
-//   return {
-//     title: 'Convert alias to function',
-//     kind: SupportedCodeActionKinds.QuickFix,
-//     diagnostics: [diagnostic],
-//     edit: {
-//       changes: {
-//         [document.uri]: [edit],
-//       },
-//     },
-//
-//   };
-// }
 
 // fix cases like: -xU
 function handleUniversalVariable(
@@ -338,8 +281,10 @@ export async function getQuickFixes(
     case ErrorCodes.usedAlias:
       if (!node) return [];
       actions.push(
-        await createAliasInlineAction(node, document),
-        await createAliasSaveActionNewFile(node, document),
+        ...await Promise.all([
+          createAliasInlineAction(node, document),
+          createAliasSaveActionNewFile(node, document),
+        ]),
       );
       return actions;
 

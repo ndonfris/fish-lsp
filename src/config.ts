@@ -4,6 +4,7 @@ import { logToStdout } from './logger';
 import fishLspEnvVariables from './snippets/fishlspEnvVariables.json';
 import { InitializeResult, TextDocumentSyncKind } from 'vscode-languageserver';
 import { SupportedCodeActionKinds } from './code-actions/action-kinds';
+import { LspCommands } from './command';
 
 /********************************************
  **********  Handlers/Providers   ***********
@@ -289,7 +290,7 @@ export function adjustInitializeResultCapabilitiesFromConfig(configHandlers: z.i
         resolveProvider: true,
       } : undefined,
       executeCommandProvider: configHandlers.executeCommand ? {
-        commands: [SupportedCodeActionKinds.QuickFix, SupportedCodeActionKinds.RefactorExtract, SupportedCodeActionKinds.RefactorRewrite, SupportedCodeActionKinds.Disable, 'onHover', 'rename', 'fish-lsp.executeLine', 'fish-lsp.executeBuffer', 'fish-lsp.createTheme', 'fish-lsp.execute', 'fish-lsp.openSavedFunction'],
+        commands: [SupportedCodeActionKinds.QuickFix, SupportedCodeActionKinds.RefactorExtract, SupportedCodeActionKinds.RefactorRewrite, SupportedCodeActionKinds.Disable, ...LspCommands],
         workDoneProgress: true,
       } : undefined,
       documentSymbolProvider: {
@@ -299,7 +300,7 @@ export function adjustInitializeResultCapabilitiesFromConfig(configHandlers: z.i
         resolveProvider: true,
       },
       documentHighlightProvider: configHandlers.highlight,
-      inlayHintProvider: false, /*configHandlers.inlayHint,*/
+      inlayHintProvider: configHandlers.inlayHint,
       signatureHelpProvider: configHandlers.signature ? { workDoneProgress: false, triggerCharacters: ['.'] } : undefined,
     },
 

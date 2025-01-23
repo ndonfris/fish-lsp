@@ -25,7 +25,11 @@ export namespace ErrorCodes {
     message: string;
   };
 
-  export const codes: {[k in codeTypes]: CodeValueType} = {
+  export type DiagnosticCode = {
+    [k in codeTypes]: CodeValueType;
+  };
+
+  export const codes: { [k in codeTypes]: CodeValueType } = {
     [missingEnd]: {
       severity: DiagnosticSeverity.Error,
       code: missingEnd,
@@ -100,4 +104,25 @@ export namespace ErrorCodes {
 
   /** All error codes */
   export const allErrorCodes = Object.values(codes).map((diagnostic) => diagnostic.code) as codeTypes[];
+
+  export function getSeverityString(severity: DiagnosticSeverity | undefined): string {
+    if (!severity) return '';
+    switch (severity) {
+      case DiagnosticSeverity.Error:
+        return 'Error';
+      case DiagnosticSeverity.Warning:
+        return 'Warning';
+      case DiagnosticSeverity.Information:
+        return 'Information';
+      case DiagnosticSeverity.Hint:
+        return 'Hint';
+      default:
+        return '';
+    }
+  }
+
+  export function getDiagnostic(code: codeTypes | number): CodeValueType {
+    if (typeof code === 'number') return codes[code as codeTypes];
+    return codes[code];
+  }
 }

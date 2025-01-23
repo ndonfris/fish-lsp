@@ -39,11 +39,13 @@ export function handleDisableSingleLine(
   // Insert disable comment above the diagnostic line
   const edit = TextEdit.insert(
     { line: diagnostic.range.start.line, character: 0 },
-    '# @fish-lsp-disable-next-line\n',
+    `# @fish-lsp-disable-next-line ${diagnostic.code}\n`,
   );
 
+  const severity = ErrorCodes.getSeverityString(diagnostic.severity);
+
   return createDisableAction(
-    `Disable diagnostic for line ${diagnostic.range.start.line + 1}`,
+    `Disable ${severity} diagnostic ${diagnostic.code} for line ${diagnostic.range.start.line + 1}`,
     document,
     [edit],
     [diagnostic],
@@ -70,7 +72,7 @@ export function handleDisableBlock(
 
   return {
     ...createDisableAction(
-      `Disable ${numbers} diagnostics in block (lines ${group.startLine + 1}-${group.endLine + 1})`,
+      `Disable diagnostics ${numbers} in block (lines ${group.startLine + 1}-${group.endLine + 1})`,
       document,
       edits,
       group.diagnostics,
@@ -131,10 +133,10 @@ export function handleDisableEntireFile(
     diagnosticsCounts.set(code, (diagnosticsCounts.get(code) || 0) + 1);
   });
 
-  const matchingDiagnostics: Array<keyof typeof ErrorCodes.allErrorCodes> = [];
+  const matchingDiagnostics: Array<ErrorCodes.codeTypes> = [];
   diagnosticsCounts.forEach((count, code) => {
     if (count >= 5) {
-      matchingDiagnostics.push(code);
+      matchingDiagnostics.push(code as ErrorCodes.codeTypes);
     }
   });
 
@@ -146,7 +148,7 @@ export function handleDisableEntireFile(
     tokenLine++;
   }
   firstLine = document.getLine(tokenLine);
-  const allNumbersStr = matchingDiagnostics.join(' ');
+  const allNumbersStr = matchingDiagnostics.join(' ').trim();
   if (!firstLine.startsWith('# @fish-lsp-disable')) {
     const edits = [
       TextEdit.insert(
@@ -157,16 +159,17 @@ export function handleDisableEntireFile(
 
     results.push(
       createDisableAction(
-        `Disable ${matchingDiagnostics.length} diagnostics in file`,
+        `Disable all diagnostics in file (${allNumbersStr.split(' ').join(', ')})`,
         document,
         edits,
         diagnostics),
     );
 
     matchingDiagnostics.forEach(match => {
+      const severity = ErrorCodes.getSeverityString(ErrorCodes.getDiagnostic(match).severity);
       results.push(
         createDisableAction(
-          `Disable ${match.toString()} diagnostics for entire file`,
+          `Disable ${severity} ${match.toString()} diagnostics for entire file`,
           document,
           [
             TextEdit.insert({ line: tokenLine, character: 0 },

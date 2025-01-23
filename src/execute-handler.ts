@@ -56,6 +56,19 @@ export function buildOutput(line: string, outputMessage: 'error:' | 'stderr:' | 
   ].join('\n');
 }
 
+export function buildExecuteNotificationResponse(
+  input: string,
+  output: { stdout: string; stderr: string; },
+) {
+  const outputType = output.stdout ? output.stdout : output.stderr;
+  const outputMessagePrefix = output.stdout ? 'stdout:' : 'stderr:';
+  const kind: ExecResultKind = output.stdout ? 'info' : 'error';
+  return {
+    message: buildOutput(input, outputMessagePrefix, outputType),
+    kind,
+  };
+}
+
 export async function execEntireBuffer(bufferName: string): Promise<ExecResultWrapper> {
   const { stdout, stderr } = await execAsync(`fish ${bufferName}`);
   const statusOutput = (await execAsync(`fish -c 'fish ${bufferName} 1> /dev/null; echo "\\$status: $status"'`)).stdout;

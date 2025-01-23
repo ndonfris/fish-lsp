@@ -10,13 +10,6 @@ import { convertIfToCombiners, extractCommandToFunction, extractToFunction, extr
 // import { createAliasSaveAction, createAliasSaveActionNewFile } from './alias-wrapper';
 
 export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) {
-  // Helper functions that have access to docs/analyzer through closure
-  // function getNodeAtDiagnostic(diagnostic: Diagnostic, uri: string) {
-  //   return analyzer.nodeAtPoint(
-  //     uri, diagnostic.range.start.line, diagnostic.range.start.character,
-  //   );
-  // }
-
   async function processQuickFixes(document: LspDocument, diagnostics: Diagnostic[], analyzer: Analyzer) {
     const results: CodeAction[] = [];
     for (const diagnostic of diagnostics) {
@@ -33,12 +26,15 @@ export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) 
   async function processRefactors(document: LspDocument, range: Range) {
     const results: CodeAction[] = [];
 
+    const rootNode = analyzer.getRootNode(document);
+    if (!rootNode) return results;
+
     // Get node at the selected range
-    const selectedNode = getNodeAtRange(analyzer.getRootNode(document)!, range);
+    const selectedNode = getNodeAtRange(rootNode, range);
     if (!selectedNode) return results;
 
     // Try each refactoring action
-    const extractFunction = extractToFunction(document, range, selectedNode);
+    const extractFunction = extractToFunction(document, range);
     if (extractFunction) results.push(extractFunction);
 
     const extractCommandFunction = extractCommandToFunction(document, selectedNode);
@@ -63,32 +59,26 @@ export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) 
     const results: CodeAction[] = [];
 
     // Check what kinds of actions are requested
-    // const onlyRefactoring = params.context.only?.some(kind =>
-    //   kind.startsWith('refactor'),
-    // );
-    // const onlyQuickFix = params.context.only?.some(kind =>
-    //   kind.startsWith('quickfix'),
-    // );
+    const onlyRefactoring = params.context.only?.some(kind => kind.startsWith('refactor'));
+    const onlyQuickFix = params.context.only?.some(kind => kind.startsWith('quickfix'));
 
-    // if (params.context.diagnostics.length > 0) {
-    //   // Add regular quick fixes
-    //   results.push(...processQuickFixes(document, params.context.diagnostics));
-    // }
+    logger.log('Requested actions', { onlyRefactoring, onlyQuickFix });
 
-    // Add quick fixes if requested
-    const quickFixes = await processQuickFixes(document, params.context.diagnostics, analyzer);
-    results.push(...quickFixes);
     // Add disable actions
-    results.push(...getDisableDiagnosticActions(document, params.context.diagnostics));
+    if (params.context.diagnostics.length > 0) {
+      results.push(...getDisableDiagnosticActions(document, params.context.diagnostics));
+    }
+    // Add quick fixes if requested
+    if (onlyQuickFix) {
+      results.push(...await processQuickFixes(document, params.context.diagnostics, analyzer));
+    }
 
-    const refactors = await processRefactors(document, params.range);
-    results.push(...refactors);
+    // add the refactors
+    if (onlyRefactoring) {
+      results.push(...await processRefactors(document, params.range));
+    }
 
-    // Add refactors if requested
-    // if (!!onlyRefactoring) {
-    //   // results.push(...await processRefactors(document, params.range));
-    // }
-
+    logger.log('CodeAction results', results.map(r => r.title));
     return results;
   };
 }

@@ -52,6 +52,7 @@ A detailed explanation of how a language server connection works is described in
 | __Document Highlight__ / __Semantic Token__ | Highlights all references to a command, variable, or function.  | ✅  |
 | __Command Execution__ | Executes a server command from the client | ✅ |
 | __Code Action__ | Shows all available code actions | ✅  |
+| __Inlay Hint__ | Shows Virtual Text/Inlay Hints | ✅  |
 | __Code Lens__ | Shows all available code lenses | ✖ |
 | __Logger__ | Logs all server activity | ✅ |
 | __Diagnostic__ | Shows all diagnostics | ✅ |
@@ -79,6 +80,8 @@ yarn global add fish-lsp
 pnpm install -g fish-lsp
 
 nix-shell -p fish-lsp
+
+brew install fish-lsp
 ```
 
 If you installed the language server using a __node__ based package manager (__i.e. npm/yarn/pnpm__), you can install the completions by running the following command:
@@ -294,6 +297,17 @@ Theoretically, the language-server should generally be compatible with almost an
 
 </details>
 
+<details>
+  <summary><b>vscode</b></summary>
+
+  > To download the extension, visit the [fish-lsp extension on the VSCode Marketplace](https://marketplace.visualstudio.com/items?itemName=ndonfris.fish-lsp).
+  >
+  > VSCode configuration does not require a client configuration. The server will automatically start when a `.fish` file is opened.
+  >
+  > A server configuration can still be specified to control the server's behavior. ([see below](#server-configuration-optional))
+
+</details>
+
 ### Server Configuration <ins><i>(Optional)</i></ins>
 
 Specific functionality for the server can be set independently from the client. The server allows for both [environment variables](#environment-variables) and [command flags](#command-flags) to customize how specific server processes are started.
@@ -304,11 +318,11 @@ Specific functionality for the server can be set independently from the client. 
 
 ```fish
 # fish_lsp_enabled_handlers <ARRAY>
-# enables the fish-lsp handlers (options: 'popups', 'formatting', 'complete', 'hover', 'rename', 'definition', 'references', 'diagnostics', 'signatureHelp', 'codeAction')
+# enables the fish-lsp handlers (options: 'popups', 'formatting', 'complete', 'hover', 'rename', 'definition', 'references', 'diagnostics', 'signatureHelp', 'codeAction', 'inlayHint')
 set -gx fish_lsp_enabled_handlers
 
 # fish_lsp_disabled_handlers <ARRAY>
-# disables the fish-lsp handlers (options: 'popups', 'formatting', 'complete', 'hover', 'rename', 'definition', 'references', 'diagnostics', 'signatureHelp', 'codeAction')
+# disables the fish-lsp handlers (options: 'popups', 'formatting', 'complete', 'hover', 'rename', 'definition', 'references', 'diagnostics', 'signatureHelp', 'codeAction', 'inlayHint')
 set -gx fish_lsp_disabled_handlers
 
 # fish_lsp_commit_characters <ARRAY>
@@ -354,7 +368,9 @@ alias ls='ls -G' # all diagnostics have been disabled for this line
 
 # @fish-lsp-disable 2001
 alias ll='ls -l' # only the diagnostic 2001 has been disabled for this line
+
 # @fish-lsp-enable
+## all diagnostics are re-enabled till the next @fish-lsp-disable for this file
 
 # @fish-lsp-disable 2001 2002
 ## now both diagnostics 2001 and 2002 have been disabled for the rest of this file

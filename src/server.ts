@@ -1,8 +1,7 @@
 import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from './parser';
 import { Analyzer } from './analyze';
-import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, DocumentHighlight, DocumentHighlightParams, ExecuteCommandParams, PublishDiagnosticsParams } from 'vscode-languageserver';
-import { ExecResultWrapper, execEntireBuffer, execLineInBuffer, executeThemeDump, useMessageKind } from './execute-handler';
+import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, DocumentHighlight, DocumentHighlightParams, PublishDiagnosticsParams } from 'vscode-languageserver';
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
 import { formatDocumentContent } from './formatting';
@@ -11,8 +10,6 @@ import { symbolKindsFromNode, uriToPath } from './utils/translation';
 import { getChildNodes, getNodeAtPosition } from './utils/tree-sitter';
 import { handleHover } from './hover';
 import { getDiagnostics } from './diagnostics/validate';
-import { FishProtocol } from './utils/fishProtocol';
-import { inlayHintsProvider } from './inlay-hints';
 import { DocumentationCache, initializeDocumentationCache } from './utils/documentation-cache';
 import { initializeDefaultFishWorkspaces } from './utils/workspace';
 import { filterLastPerScopeSymbol, FishDocumentSymbol } from './document-symbol';
@@ -28,9 +25,10 @@ import { enrichToMarkdown } from './documentation';
 import { getAliasedCompletionItemSignature } from './signature';
 import { CompletionItemMap } from './utils/completion/startup-cache';
 import { getDocumentHighlights } from './document-highlight';
-import { SyncFileHelper } from './utils/file-operations';
 import { buildCommentCompletions } from './utils/completion/comment-completions';
 import { createCodeActionHandler } from './code-actions/code-action-handler';
+import { createExecuteCommandHandler } from './command';
+import { getStatusInlayHints } from './code-lens';
 
 // @TODO
 export type SupportedFeatures = {
@@ -103,6 +101,7 @@ export default class FishServer {
 
   register(connection: Connection): void {
     const codeActionHandler = createCodeActionHandler(this.docs, this.analyzer);
+    const executeHandler = createExecuteCommandHandler(this.connection, this.docs, this.logger);
     //this.connection.window.createWorkDoneProgress();
     connection.onInitialized(this.onInitialized.bind(this));
     connection.onDidOpenTextDocument(this.didOpenTextDocument.bind(this));
@@ -128,7 +127,7 @@ export default class FishServer {
     connection.onDocumentHighlight(this.onDocumentHighlight.bind(this));
     connection.languages.inlayHint.on(this.onInlayHints.bind(this));
     connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
-    connection.onExecuteCommand(this.onExecuteCommand.bind(this));
+    connection.onExecuteCommand(executeHandler);
     logger.log({ 'server.register': 'registered' });
   }
 
@@ -310,70 +309,6 @@ export default class FishServer {
       !!documentSymbol &&
       !!documentSymbol.hierarchicalDocumentSymbolSupport
     );
-  }
-
-  public async onExecuteCommand(params: ExecuteCommandParams) {
-    this.logParams('onExecuteCommand', params);
-
-    /** define inner switch block variables */
-    let [name, path, file, line, text] = ['', '', '', '', ''];
-    let doc: LspDocument | undefined;
-    let output: ExecResultWrapper;
-
-    const commandName = params.command.toString().slice(params.command.toString().indexOf('.') + 1);
-    logger.logAsJson(commandName);
-    switch (commandName) {
-      case 'openSavedFunction':
-        file = params.arguments![0] as string || '';
-        if (!file) return;
-        await this.connection.sendRequest('window/showDocument', {
-          uri: `file://${file}`,
-          takeFocus: true,
-        });
-        break;
-
-      case 'executeLine':
-        file = params.arguments![0] as string || '';
-        line = params.arguments![1] as string || '';
-        // console.log({'last accessed: ': this.docs.files})
-
-        if (!file || !line) {
-          logger.log({ gotNull: 'gotNull', file, line });
-          return null;
-        }
-
-        doc = this.docs.get(file);
-
-        if (!doc) {
-          logger.log({ title: 'docs was null', doc });
-          return [];
-        }
-        text = doc.getLine(Number.parseInt(line) - 1);
-        this.logParams('onExecuteCommand', text);
-        output = await execLineInBuffer(text);
-        useMessageKind(this.connection, output);
-        return;
-      case 'createTheme':
-        if (!params.arguments || !params.arguments[0].toString()) return;
-
-        name = params.arguments[0] as string || '';
-        path = `~/.config/fish/themes/${name}.fish`;
-        SyncFileHelper.create(path);
-        output = await executeThemeDump(name);
-        useMessageKind(this.connection, output);
-        return;
-      case 'execute':
-      case 'executeBuffer':
-        if (!params.arguments || !params.arguments[0]) {
-          return;
-        }
-        name = params.arguments[0] as string || '';
-        output = await execEntireBuffer(name);
-        useMessageKind(this.connection, output);
-        return;
-      default:
-        break;
-    }
   }
 
   /**
@@ -561,51 +496,6 @@ export default class FishServer {
     return [TextEdit.replace(range, formattedText)];
   }
 
-  protected async getCodeFixes(
-    fileRangeArgs: FishProtocol.FileRangeRequestArgs,
-    context: LSP.CodeActionContext,
-  ): Promise<FishProtocol.GetCodeFixesResponse | undefined> {
-    const errorCodes = context.diagnostics.map((diagnostic) =>
-      Number(diagnostic.code),
-    );
-
-    const _args: FishProtocol.CodeFixRequestArgs = {
-      ...fileRangeArgs,
-      errorCodes,
-    };
-
-    try {
-      // return await this.connection.sendRequest(
-      //   FishProtocol.CommandTypes.GetCodeFixes,
-      //   args,
-      // );
-    } catch (err) {
-      return undefined;
-    }
-  }
-  protected async getRefactors(
-    fileRangeArgs: FishProtocol.FileRangeRequestArgs,
-    context: LSP.CodeActionContext,
-  ): Promise<FishProtocol.GetApplicableRefactorsResponse | undefined> {
-    const _args: FishProtocol.GetApplicableRefactorsRequestArgs = {
-      ...fileRangeArgs,
-      triggerReason:
-        context.triggerKind === LSP.CodeActionTriggerKind.Invoked
-          ? 'invoked'
-          : undefined,
-      kind: context.only?.length === 1 ? context.only[0] : undefined,
-    };
-
-    try {
-      // return await this.connection.sendRequest(
-      //   FishProtocol.CommandTypes.GetApplicableRefactors,
-      //   args,
-      // );
-    } catch (err) {
-      return undefined;
-    }
-  }
-
   async onFoldingRanges(params: FoldingRangeParams): Promise<FoldingRange[] | undefined> {
     this.logParams('onFoldingRanges', params);
 
@@ -642,7 +532,6 @@ export default class FishServer {
 
     if (!document || !uri) return [];
 
-    const _root = this.parser.parse(document.getText()).rootNode;
     const results: CodeAction[] = [];
 
     // for (const diagnostic of params.context.diagnostics) {
@@ -663,16 +552,12 @@ export default class FishServer {
 
     const uri = uriToPath(params.textDocument.uri);
     const document = this.docs.get(uri);
+    if (!document) return [];
 
-    if (!document) return;
+    const root = this.analyzer.getRootNode(document);
+    if (!root) return [];
 
-    return await inlayHintsProvider(
-      document,
-      params.range,
-      //this.docs,
-      this.analyzer,
-      //this.config
-    );
+    return getStatusInlayHints(root);
   }
 
   public onShowSignatureHelp(params: SignatureHelpParams): SignatureHelp | null {

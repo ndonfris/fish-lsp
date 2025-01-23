@@ -1,9 +1,10 @@
 import { CodeAction, CodeActionKind, Range, TextEdit } from 'vscode-languageserver';
 import { LspDocument } from '../document';
 import { SyntaxNode } from 'web-tree-sitter';
-import { getRange, getChildNodes } from '../utils/tree-sitter';
+import { getRange } from '../utils/tree-sitter';
 import { findParentCommand, isCommand, isIfStatement } from '../utils/node-types';
 import { SupportedCodeActionKinds } from './action-kinds';
+import { convertIfToCombinersString } from './combiner';
 
 /**
  * Notice how this file compared to the other code-actions, uses a node as it's parameter
@@ -31,7 +32,6 @@ export function createRefactorAction(
 export function extractToFunction(
   document: LspDocument,
   range: Range,
-  _selectedNode: SyntaxNode,
 ): CodeAction | undefined {
   // Generate a unique function name
   const functionName = `extracted_function_${Math.floor(Math.random() * 1000)}`;
@@ -47,7 +47,6 @@ export function extractToFunction(
   ].join('\n');
 
   // Insert the new function before the current scope
-  // const insertPosition = getRange(selectedNode).start;
   const insertEdit = TextEdit.insert(
     { line: document.getLines(), character: 0 },
     `\n${functionText}\n`,
@@ -57,7 +56,7 @@ export function extractToFunction(
   const replaceEdit = TextEdit.replace(range, `${functionName}`);
 
   return createRefactorAction(
-    `Extract to function '${functionName}'`,
+    `Extract to local function '${functionName}'`,
     SupportedCodeActionKinds.RefactorExtract,
     {
       [document.uri]: [replaceEdit, insertEdit],
@@ -98,7 +97,7 @@ export function extractCommandToFunction(
   );
 
   return createRefactorAction(
-    `Extract command to function '${functionName}'`,
+    `Extract command to local function '${functionName}'`,
     SupportedCodeActionKinds.RefactorExtract,
     {
       [document.uri]: [replaceEdit, insertEdit],
@@ -125,7 +124,7 @@ export function extractToVariable(
   const replaceEdit = TextEdit.replace(range, declaration);
 
   return createRefactorAction(
-    `Extract to variable '${varName}'`,
+    `Extract selected '${selectedNode.firstNamedChild!.text}' command to local variable '${varName}'`,
     SupportedCodeActionKinds.RefactorExtract,
     {
       [document.uri]: [replaceEdit],
@@ -133,34 +132,21 @@ export function extractToVariable(
   );
 }
 
-/**
- * TODO - this is not ready yet. It has potential though.
- */
 export function convertIfToCombiners(
   document: LspDocument,
-  node: SyntaxNode,
+  selectedNode: SyntaxNode,
 ): CodeAction | undefined {
+  let node = selectedNode;
+  if (node.type === 'if' && !isIfStatement(node)) {
+    node = node.parent!;
+  }
   if (!isIfStatement(node)) return undefined;
-
-  // Get the if condition and body
-  const children = getChildNodes(node);
-  const condition = children[1]; // First child after 'if'
-  const body = children.slice(2, -1); // Everything between condition and 'end'
-
-  if (!condition || body.length === 0) return undefined;
-
-  // Convert to and/or format
-  const conditionText = document.getText(getRange(condition));
-  const bodyText = body.map(n => document.getText(getRange(n))).join('\n');
-
-  // Create both versions (and/or) so user can choose
-  const andVersion = `${conditionText} && begin\n${bodyText}\nend`;
-
+  const combinerString = convertIfToCombinersString(node);
   return createRefactorAction(
-    'Convert if to combiners',
+    `Convert selected if statement to conditionally executed statement (line: ${node.startPosition.row + 1})`,
     SupportedCodeActionKinds.RefactorRewrite,
     {
-      [document.uri]: [TextEdit.replace(getRange(node), andVersion)],
+      [document.uri]: [TextEdit.replace(getRange(node), combinerString)],
     },
     true, // Mark as preferred action
   );
