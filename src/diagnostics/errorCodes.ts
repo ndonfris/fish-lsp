@@ -15,7 +15,16 @@ export namespace ErrorCodes {
   export const missingQuietOption = 3002;
   export const expansionInDefinition = 3003;
 
-  export type codeTypes = 1001 | 1002 | 1003 | 1004 | 2001 | 2002 | 2003 | 3001 | 3002 | 3003;
+  export const autoloadedFunctionMissingDefinition = 4001;
+  export const autoloadedFunctionFilenameMismatch = 4002;
+  export const functionNameUsingReservedKeyword = 4003;
+  export const unusedLocalFunction = 4004;
+
+  export type codeTypes =
+    1001 | 1002 | 1003 | 1004 |
+    2001 | 2002 | 2003 |
+    3001 | 3002 | 3003 |
+    4001 | 4002 | 4003 | 4004;
 
   export type CodeValueType = {
     severity: DiagnosticSeverity;
@@ -99,6 +108,34 @@ export namespace ErrorCodes {
       codeDescription: { href: 'https://fishshell.com/docs/current/cmds/set.html' },
       source: 'fish-lsp',
       message: 'Variable definition should not include expansion character',
+    },
+    [autoloadedFunctionMissingDefinition]: {
+      severity: DiagnosticSeverity.Warning,
+      code: autoloadedFunctionMissingDefinition,
+      codeDescription: { href: 'https://fishshell.com/docs/current/cmds/functions.html' },
+      source: 'fish-lsp',
+      message: 'Autoloaded function missing definition',
+    },
+    [autoloadedFunctionFilenameMismatch]: {
+      severity: DiagnosticSeverity.Error,
+      code: autoloadedFunctionFilenameMismatch,
+      codeDescription: { href: 'https://fishshell.com/docs/current/cmds/functions.html' },
+      source: 'fish-lsp',
+      message: 'Autoloaded filename does not match function name',
+    },
+    [functionNameUsingReservedKeyword]: {
+      severity: DiagnosticSeverity.Error,
+      code: functionNameUsingReservedKeyword,
+      codeDescription: { href: 'https://fishshell.com/docs/current/cmds/functions.html' },
+      source: 'fish-lsp',
+      message: 'Function name uses reserved keyword',
+    },
+    [unusedLocalFunction]: {
+      severity: DiagnosticSeverity.Warning,
+      code: unusedLocalFunction,
+      codeDescription: { href: 'https://fishshell.com/docs/current/cmds/functions.html' },
+      source: 'fish-lsp',
+      message: 'Unused local function',
     },
   };
 

@@ -167,3 +167,14 @@ export function isVariableDefinitionWithExpansionCharacter(node: SyntaxNode) {
 
   return false;
 }
+
+export type LocalFunctionCallType = {
+  node: SyntaxNode;
+  text: string;
+};
+
+export function isMatchingCompleteOptionIsCommand(node: SyntaxNode) {
+  return isMatchingOption(node, { shortOption: '-n', longOption: '--condition' })
+    || isMatchingOption(node, { shortOption: '-a', longOption: '--arguments' })
+    || isMatchingOption(node, { shortOption: '-c', longOption: '--command' });
+}

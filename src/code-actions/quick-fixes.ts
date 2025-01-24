@@ -1,4 +1,4 @@
-import { CodeAction, Diagnostic, TextEdit } from 'vscode-languageserver';
+import { ChangeAnnotation, CodeAction, Diagnostic, RenameFile, TextEdit, WorkspaceEdit } from 'vscode-languageserver';
 import { LspDocument } from '../document';
 import { ErrorCodes } from '../diagnostics/errorCodes';
 import { getChildNodes } from '../utils/tree-sitter';
@@ -8,6 +8,9 @@ import { SupportedCodeActionKinds } from './action-kinds';
 import { logger } from '../logger';
 import { Analyzer } from '../analyze';
 import { createAliasInlineAction, createAliasSaveActionNewFile } from './alias-wrapper';
+import { getRange } from '../utils/tree-sitter';
+import { pathToRelativeFunctionName, uriToPath } from '../utils/translation';
+import { isFunctionDefinition } from '../utils/node-types';
 
 /**
  * These quick-fixes are separated from the other diagnostic quick-fixes because
@@ -215,6 +218,123 @@ export function handleTestCommandVariableExpansionWithoutString(
   );
 }
 
+function handleMissingDefinition(diagnostic: Diagnostic, node: SyntaxNode, document: LspDocument): CodeAction {
+  // Create function definition with filename
+  const functionName = pathToRelativeFunctionName(document.uri);
+  const edit: TextEdit = {
+    range: {
+      start: { line: 0, character: 0 },
+      end: { line: 0, character: 0 },
+    },
+    newText: `function ${functionName}\n    # TODO: Implement function\nend\n`,
+  };
+
+  return {
+    title: `Create function '${functionName}'`,
+    kind: SupportedCodeActionKinds.QuickFix,
+    diagnostics: [diagnostic],
+    edit: {
+      changes: {
+        [document.uri]: [edit],
+      },
+    },
+  };
+}
+
+function handleFilenameMismatch(diagnostic: Diagnostic, node: SyntaxNode, document: LspDocument): CodeAction | undefined {
+  const functionName = node.text;
+  const newUri = document.uri.replace(/[^/]+\.fish$/, `${functionName}.fish`);
+  if (document.getAutoloadType() !== 'functions') {
+    return;
+  }
+  const oldName = document.getAutoLoadName();
+  const oldFilePath = document.getFilePath();
+  const oldFilename = document.getFilename();
+  const newFilePath = uriToPath(newUri);
+
+  const annotation = ChangeAnnotation.create(
+    `rename ${oldFilename} to ${newUri.split('/').pop()}`,
+    true,
+    `Rename '${oldFilePath}' to '${newFilePath}'`,
+  );
+
+  const workspaceEdit: WorkspaceEdit = {
+    documentChanges: [
+      RenameFile.create(document.uri, newUri, { ignoreIfExists: false, overwrite: true }),
+    ],
+    changeAnnotations: {
+      [annotation.label]: annotation,
+    },
+  };
+
+  return {
+    title: `RENAME: '${oldFilename}' to '${functionName}.fish' (File missing function '${oldName}')`,
+    kind: SupportedCodeActionKinds.RefactorRewrite,
+    diagnostics: [diagnostic],
+    edit: workspaceEdit,
+  };
+}
+
+function handleReservedKeyword(diagnostic: Diagnostic, node: SyntaxNode, document: LspDocument): CodeAction {
+  const replaceText = `__${node.text}`;
+
+  const changeAnnotation = ChangeAnnotation.create(
+    `rename ${node.text} to ${replaceText}`,
+    true,
+    `Rename reserved keyword function definition '${node.text}' to '${replaceText}' (line: ${node.startPosition.row + 1})`,
+  );
+
+  const workspaceEdit: WorkspaceEdit = {
+    changes: {
+      [document.uri]: [
+        TextEdit.replace(getRange(node), replaceText),
+      ],
+    },
+    changeAnnotations: {
+      [changeAnnotation.label]: changeAnnotation,
+    },
+  };
+  return {
+    title: `Rename reserved keyword '${node.text}' to '${replaceText}' (line: ${node.startPosition.row + 1})`,
+    kind: SupportedCodeActionKinds.QuickFix,
+    diagnostics: [diagnostic],
+    isPreferred: true,
+    edit: workspaceEdit,
+  };
+}
+
+function handleUnusedFunction(diagnostic: Diagnostic, node: SyntaxNode, document: LspDocument): CodeAction {
+  // Find the entire function definition to remove
+  let scopeNode = node;
+  while (scopeNode && !isFunctionDefinition(scopeNode)) {
+    scopeNode = scopeNode.parent!;
+  }
+
+  const changeAnnotation = ChangeAnnotation.create(
+    `Removed unused function ${node.text}`,
+    true,
+    `Removed unused function '${node.text}', in file '${document.getFilePath()}'  (line: ${node.startPosition.row + 1} - ${node.endPosition.row + 1})`,
+  );
+
+  const workspaceEdit: WorkspaceEdit = {
+    changes: {
+      [document.uri]: [
+        TextEdit.del(getRange(scopeNode)),
+      ],
+    },
+    changeAnnotations: {
+      [changeAnnotation.label]: changeAnnotation,
+    },
+  };
+
+  return {
+    title: `Remove unused function ${node.text} (line: ${node.startPosition.row + 1})`,
+    kind: SupportedCodeActionKinds.QuickFix,
+    diagnostics: [diagnostic],
+    edit: workspaceEdit,
+  };
+}
+
 export async function getQuickFixes(
   document: LspDocument,
   diagnostic: Diagnostic,
@@ -238,8 +358,7 @@ export async function getQuickFixes(
   if (root) {
     node = getChildNodes(root).find(n =>
       n.startPosition.row === diagnostic.range.start.line &&
-      n.startPosition.column === diagnostic.range.start.character,
-    );
+      n.startPosition.column === diagnostic.range.start.character);
   }
 
   switch (diagnostic.code) {
@@ -287,6 +406,21 @@ export async function getQuickFixes(
         ]),
       );
       return actions;
+
+    case ErrorCodes.autoloadedFunctionMissingDefinition:
+      if (!node) return [];
+      return [handleMissingDefinition(diagnostic, node, document)];
+    case ErrorCodes.autoloadedFunctionFilenameMismatch:
+      if (!node) return [];
+      action = handleFilenameMismatch(diagnostic, node, document);
+      if (action) actions.push(action);
+      return actions;
+    case ErrorCodes.functionNameUsingReservedKeyword:
+      if (!node) return [];
+      return [handleReservedKeyword(diagnostic, node, document)];
+    case ErrorCodes.unusedLocalFunction:
+      if (!node) return [];
+      return [handleUnusedFunction(diagnostic, node, document)];
 
     default:
       return actions;

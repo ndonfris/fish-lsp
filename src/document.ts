@@ -3,7 +3,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { Position, Range, TextDocumentItem, TextDocumentContentChangeEvent } from 'vscode-languageserver';
 import { URI } from 'vscode-uri';
 import { homedir } from 'os';
-import { uriToPath } from './utils/translation';
+import { AutoloadType, uriToPath } from './utils/translation';
 
 export class LspDocument implements TextDocument {
   protected document: TextDocument;
@@ -98,11 +98,36 @@ export class LspDocument implements TextDocument {
     return uriToPath(this.uri);
   }
 
+  getFilename(): string {
+    return this.uri.split('/').pop() as string;
+  }
+
+  getRelativeFilenameToWorkspace(): string {
+    const home = homedir();
+    const path = this.uri.replace(home, '~');
+    const dirs = path.split('/');
+    const workspaceRootIndex = dirs.find(dir => dir === 'fish')
+      ? dirs.indexOf('fish')
+      : dirs.find(dir => ['conf.d', 'functions', 'completions', 'config.fish'].includes(dir))
+        ? dirs.findLastIndex(dir => ['conf.d', 'functions', 'completions', 'config.fish'].includes(dir))
+        : dirs.length - 1;
+
+    return dirs.slice(workspaceRootIndex).join('/');
+  }
+
+  /**
+   * checks if the functions are defined in a functions directory
+   */
   isFunction(): boolean {
     const pathArray = this.uri.split('/');
     const fileName = pathArray.pop();
     const parentDir = pathArray.pop();
-    return parentDir === 'functions' || fileName === 'config.fish';
+    /** paths that autoload all top level functions to the shell env */
+    if (parentDir === 'conf.d' || fileName === 'config.fish') {
+      return true;
+    }
+    /** path that autoload matching filename functions to the shell env */
+    return parentDir === 'functions';
   }
 
   shouldAnalyzeInBackground(): boolean {
@@ -113,11 +138,63 @@ export class LspDocument implements TextDocument {
   }
 
   /**
-     * checks if the document is in fish/functions directory
-     */
-  isAutoLoaded(): boolean {
+   * checks if the document is in a location where the functions
+   * that it defines are autoloaded by fish.
+   *
+   * Use isAutoloadedUri() if you want to check for completions
+   * files as well. This function does not check for completion
+   * files.
+   */
+  isAutoloaded(): boolean {
     const path = uriToPath(this.uri);
-    return path?.includes(`${homedir()}/.config/fish`) || false;
+    if (path?.includes('fish/functions')) {
+      return true;
+    } else if (path?.includes('fish/conf.d')) {
+      return true;
+    } else if (path?.includes('fish/config.fish')) {
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * checks if the document is in a location:
+   *  - `fish/{conf.d,functions,completions}/file.fish`
+   *  - `fish/config.fish`
+   *
+   *  Key difference from isAutoLoaded is that this function checks for
+   *  completions files as well. isAutoloaded() does not check for
+   *  completion files.
+   */
+  isAutoloadedUri(): boolean {
+    const path = uriToPath(this.uri);
+    if (path?.includes('fish/functions')) {
+      return true;
+    } else if (path?.includes('fish/conf.d')) {
+      return true;
+    } else if (path?.includes('fish/config.fish')) {
+      return true;
+    } else if (path?.includes('fish/completions')) {
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * helper that gets the document URI if it is fish/functions directory
+   */
+  getAutoloadType(): AutoloadType {
+    const path = uriToPath(this.uri);
+    if (path?.includes('fish/functions')) {
+      return 'functions';
+    } else if (path?.includes('fish/conf.d')) {
+      return 'conf.d';
+    } else if (path?.includes('fish/config.fish')) {
+      return 'config';
+    } else if (path?.includes('fish/completions')) {
+      return 'completions';
+    }
+    return '';
   }
 
   /**
@@ -125,7 +202,7 @@ export class LspDocument implements TextDocument {
      * @returns {string} - what the function name should be, or '' if it is not autoloaded
      */
   getAutoLoadName(): string {
-    if (!this.isAutoLoaded()) {
+    if (!this.isAutoloaded()) {
       return '';
     }
     const parts = uriToPath(this.uri)?.split('/') || [];

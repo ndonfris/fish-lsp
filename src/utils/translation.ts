@@ -2,7 +2,7 @@ import { DocumentSymbol, FoldingRange, FoldingRangeKind, SelectionRange, SymbolI
 import * as LSP from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { URI } from 'vscode-uri';
-import { findParentVariableDefinitionKeyword, isCommand, isCommandName, isComment, isFunctionDefinition, isFunctionDefinitionName, isProgram, isScope, isStatement, isString, isVariable, isVariableDefinition } from './node-types';
+import { findParentVariableDefinitionKeyword, isCommand, isCommandName, isComment, isFunctionDefinition, isFunctionDefinitionName, isProgram, isScope, isStatement, isString, isTopLevelFunctionDefinition, isVariable, isVariableDefinition } from './node-types';
 import { LspDocument, LspDocuments } from '../document';
 import { FishProtocol } from './fishProtocol';
 import { getPrecedingComments, getRange, getRangeWithPrecedingComments } from './tree-sitter';
@@ -61,7 +61,7 @@ function currentVersion(filepath: string, documents: LspDocuments | undefined): 
   return document ? document.version : null;
 }
 
-export function pathToRelativeFunctionName(uriPath: string) : string {
+export function pathToRelativeFunctionName(uriPath: string): string {
   const relativeName = uriPath.split('/').at(-1) || uriPath;
   return relativeName.replace('.fish', '');
 }
@@ -71,7 +71,7 @@ export function uriInUserFunctions(uri: string) {
   return path?.startsWith(`${os.homedir}/.config/fish`) || false;
 }
 
-export function nodeToSymbolInformation(node: SyntaxNode, uri: string) : SymbolInformation {
+export function nodeToSymbolInformation(node: SyntaxNode, uri: string): SymbolInformation {
   let name = node.text;
   const kind = toSymbolKind(node);
   const range = getRange(node);
@@ -90,13 +90,13 @@ export function nodeToSymbolInformation(node: SyntaxNode, uri: string) : SymbolI
   return SymbolInformation.create(name, kind, range, uri);
 }
 
-export function nodeToDocumentSymbol(node: SyntaxNode) : DocumentSymbol {
+export function nodeToDocumentSymbol(node: SyntaxNode): DocumentSymbol {
   const name = node.text;
   let detail = node.text;
   const kind = toSymbolKind(node);
   let range = getRange(node);
   const selectionRange = getRange(node);
-  const children : DocumentSymbol[] = [];
+  const children: DocumentSymbol[] = [];
   let parent = node.parent || node;
   switch (kind) {
     case SymbolKind.Variable:
@@ -249,3 +249,61 @@ export function symbolKindsFromNode(node: SyntaxNode): { kindType: SymbolKind; k
     kindString,
   };
 }
+
+export type AutoloadType = 'conf.d' | 'functions' | 'completions' | 'config' | '';
+export type AutoloadFunctionCallback = (n: SyntaxNode) => boolean;
+/**
+ * Closure for checking if a documents `node.type === function_definition` is
+ * autoloaded. Callback checks the `document.uri` for determining which
+ * autoloaded type to check for.
+ * ___
+ * @param document - LspDocument to check if it is autoloaded
+ * @returns (n: SyntaxNode) => boolean - true if the document is autoloaded
+ */
+export function isAutoloadedUriLoadsFunction(document: LspDocument): (n: SyntaxNode) => boolean {
+  const callbackmap: Record<AutoloadType, (n: SyntaxNode) => boolean> = {
+    'conf.d': (node: SyntaxNode) => isTopLevelFunctionDefinition(node) && isFunctionDefinition(node),
+    config: (node: SyntaxNode) => isTopLevelFunctionDefinition(node) && isFunctionDefinition(node),
+    functions: (node: SyntaxNode) => {
+      if (isTopLevelFunctionDefinition(node) && isFunctionDefinition(node)) {
+        return node.firstChild?.text === document.getAutoLoadName();
+      }
+      return false;
+    },
+    completions: (_: SyntaxNode) => false,
+    '': (_: SyntaxNode) => false,
+  };
+
+  return callbackmap[document.getAutoloadType()];
+}
+/**
+ * The nodes that are considered autoloaded functions are the firstNamedChild of
+ * a `function_definition` node. This is because the firstNamedChild is the
+ * function's name (skipping the `function` keyword).
+ * ___
+ * Closure for checking if a documents `node.parent.type === function_definition`
+ * is autoloaded. Callback checks the `document.uri` for determining which
+ * autoloaded type to check for.
+ * ___
+ * @param document - LspDocument to check if it is autoloaded
+ * @returns (n: SyntaxNode) => boolean - true if function name is autoloaded in the document
+ */
+export function isAutoloadedUriLoadsFunctionName(document: LspDocument): (n: SyntaxNode) => boolean {
+  const callbackmap: Record<AutoloadType, (n: SyntaxNode) => boolean> = {
+    'conf.d': (node: SyntaxNode) => isTopLevelFunctionDefinition(node) && isFunctionDefinitionName(node),
+    config: (node: SyntaxNode) => isTopLevelFunctionDefinition(node) && isFunctionDefinitionName(node),
+    functions: (node: SyntaxNode) => {
+      if (isTopLevelFunctionDefinition(node) && isFunctionDefinitionName(node)) {
+        return node?.text === document.getAutoLoadName();
+      }
+      return false;
+    },
+    completions: (_: SyntaxNode) => false,
+    '': (_: SyntaxNode) => false,
+  };
+  return callbackmap[document.getAutoloadType()];
+}
+export function shouldHaveAutoloadedFunction(document: LspDocument): boolean {
+  return 'functions' === document.getAutoloadType();
+}
+

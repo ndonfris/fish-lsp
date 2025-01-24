@@ -77,7 +77,6 @@ export function handleDisableBlock(
       edits,
       group.diagnostics,
     ),
-    isPreferred: true,
   };
 }
 

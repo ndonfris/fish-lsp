@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { logToStdout } from './logger';
 import fishLspEnvVariables from './snippets/fishlspEnvVariables.json';
 import { InitializeResult, TextDocumentSyncKind } from 'vscode-languageserver';
-import { SupportedCodeActionKinds } from './code-actions/action-kinds';
+import { AllSupportedActions } from './code-actions/action-kinds';
 import { LspCommands } from './command';
 
 /********************************************
@@ -280,17 +280,12 @@ export function adjustInitializeResultCapabilitiesFromConfig(configHandlers: z.i
       documentRangeFormattingProvider: configHandlers.formatting,
       foldingRangeProvider: configHandlers.folding,
       codeActionProvider: configHandlers.codeAction ? {
-        codeActionKinds: [
-          SupportedCodeActionKinds.QuickFix,
-          SupportedCodeActionKinds.RefactorExtract,
-          SupportedCodeActionKinds.RefactorRewrite,
-          SupportedCodeActionKinds.Disable,
-        ],
+        codeActionKinds: [...AllSupportedActions],
         workDoneProgress: true,
         resolveProvider: true,
       } : undefined,
       executeCommandProvider: configHandlers.executeCommand ? {
-        commands: [SupportedCodeActionKinds.QuickFix, SupportedCodeActionKinds.RefactorExtract, SupportedCodeActionKinds.RefactorRewrite, SupportedCodeActionKinds.Disable, ...LspCommands],
+        commands: [...AllSupportedActions, ...LspCommands],
         workDoneProgress: true,
       } : undefined,
       documentSymbolProvider: {

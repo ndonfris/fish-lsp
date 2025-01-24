@@ -6,7 +6,7 @@ import { logger } from '../logger';
 import { LspDocument, LspDocuments } from '../document';
 import { Analyzer } from '../analyze';
 import { getNodeAtRange } from '../utils/tree-sitter';
-import { convertIfToCombiners, extractCommandToFunction, extractToFunction, extractToVariable } from './refactors';
+import { convertIfToCombiners, extractCommandToFunction, extractFunctionToFile, extractFunctionWithArgparseToCompletionsFile, extractToFunction, extractToVariable } from './refactors';
 // import { createAliasSaveAction, createAliasSaveActionNewFile } from './alias-wrapper';
 
 export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) {
@@ -43,6 +43,12 @@ export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) 
     const extractVar = extractToVariable(document, range, selectedNode);
     if (extractVar) results.push(extractVar);
 
+    const extractFuncToFile = extractFunctionToFile(document, range, selectedNode);
+    if (extractFuncToFile) results.push(extractFuncToFile);
+
+    const extractCompletionToFile = extractFunctionWithArgparseToCompletionsFile(document, range, selectedNode);
+    if (extractCompletionToFile) results.push(extractCompletionToFile);
+
     const convertIf = convertIfToCombiners(document, selectedNode);
     if (convertIf) results.push(convertIf);
 
@@ -71,12 +77,15 @@ export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) 
     // Add quick fixes if requested
     if (onlyQuickFix) {
       results.push(...await processQuickFixes(document, params.context.diagnostics, analyzer));
+      return results;
     }
 
     // add the refactors
     if (onlyRefactoring) {
       results.push(...await processRefactors(document, params.range));
+      return results;
     }
+    results.push(...await processQuickFixes(document, params.context.diagnostics, analyzer));
 
     logger.log('CodeAction results', results.map(r => r.title));
     return results;

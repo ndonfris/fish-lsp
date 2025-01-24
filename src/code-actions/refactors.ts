@@ -1,10 +1,14 @@
-import { CodeAction, CodeActionKind, Range, TextEdit } from 'vscode-languageserver';
+import os from 'os';
+import { ChangeAnnotation, CodeAction, CodeActionKind, CreateFile, Range, TextDocumentEdit, TextEdit, VersionedTextDocumentIdentifier, WorkspaceEdit } from 'vscode-languageserver';
 import { LspDocument } from '../document';
 import { SyntaxNode } from 'web-tree-sitter';
-import { getRange } from '../utils/tree-sitter';
-import { findParentCommand, isCommand, isIfStatement } from '../utils/node-types';
+import { getChildNodes, getRange } from '../utils/tree-sitter';
+import { findParentCommand, isCommand, isCommandWithName, isFunctionDefinitionName, isIfStatement } from '../utils/node-types';
 import { SupportedCodeActionKinds } from './action-kinds';
 import { convertIfToCombinersString } from './combiner';
+import path from 'path';
+import { pathToUri } from '../utils/translation';
+import { logger } from '../logger';
 
 /**
  * Notice how this file compared to the other code-actions, uses a node as it's parameter
@@ -29,10 +33,114 @@ export function createRefactorAction(
   };
 }
 
+export function extractFunctionWithArgparseToCompletionsFile(
+  document: LspDocument,
+  range: Range,
+  node: SyntaxNode,
+) {
+  logger.log('extractFunctionWithArgparseToCompletionsFile', document, range, { node: { text: node.text, type: node.type } });
+
+  let selectedNode = node;
+  if (isFunctionDefinitionName(node)) {
+    selectedNode = node.parent!;
+  }
+  if (selectedNode.type !== 'function_definition') return;
+  const hasArgparse = getChildNodes(selectedNode).some(n => isCommandWithName(n, 'argparse'));
+  if (!hasArgparse) return;
+
+  const functionName = getChildNodes(selectedNode).find(n => isFunctionDefinitionName(n))!.text;
+  const autoloadType = document.getAutoloadType();
+  /** cancel if we're not in an autoloaded file */
+  if (functionName !== document.getAutoLoadName() || !['functions', 'config.fish'].includes(autoloadType)) return;
+
+  const completionPath = path.join(os.homedir(), '.config', 'fish', 'completions', `${functionName}.fish`);
+  const completionUri = pathToUri(completionPath);
+
+  const changeAnnotation: ChangeAnnotation = {
+    label: `Create completions for '${functionName}' in file: ${completionPath}`,
+    description: `Create completions for '${functionName}' to file: ${completionPath}`,
+  };
+
+  const createFileAction = CreateFile.create(completionUri, { ignoreIfExists: true, overwrite: false });
+
+  // Get the selected text
+  const selectedText = `complete -c ${functionName}`;
+  const createFileEdit = TextDocumentEdit.create(
+    VersionedTextDocumentIdentifier.create(completionUri, 0),
+    [TextEdit.insert({ line: 0, character: 0 }, selectedText)]);
+
+  const workspaceEdit: WorkspaceEdit = {
+    documentChanges: [
+      createFileAction,
+      createFileEdit,
+    ],
+    changeAnnotations: { [changeAnnotation.label]: changeAnnotation },
+  };
+
+  return {
+    title: `Create completions for '${functionName}' in file: ${completionPath}`,
+    kind: SupportedCodeActionKinds.RefactorExtract,
+    edit: workspaceEdit,
+  } as CodeAction;
+}
+
+export function extractFunctionToFile(
+  document: LspDocument,
+  range: Range,
+  node: SyntaxNode,
+) {
+  logger.log('extractFunctionToFile', document, range, { node: { text: node.text, type: node.type } });
+
+  let selectedNode = node;
+  if (isFunctionDefinitionName(node)) {
+    selectedNode = node.parent!;
+  }
+  if (selectedNode.type !== 'function_definition') return;
+
+  const functionName = getChildNodes(selectedNode).find(n => isFunctionDefinitionName(n))!.text;
+  // cancel if we're already in the file
+  if (functionName === document.getAutoLoadName()) return;
+  const functionPath = path.join(os.homedir(), '.config', 'fish', 'functions', `${functionName}.fish`);
+  const functionUri = pathToUri(functionPath);
+
+  const changeAnnotation: ChangeAnnotation = {
+    label: `Extract function '${functionName}' to file: ${functionPath}`,
+    description: `Extract function '${functionName}' to file: ${functionPath}`,
+  };
+
+  const createFileAction = CreateFile.create(functionUri, { ignoreIfExists: false, overwrite: true });
+
+  // Get the selected text
+  const selectedText = document.getText(getRange(selectedNode));
+  const createFileEdit = TextDocumentEdit.create(
+    VersionedTextDocumentIdentifier.create(functionUri, 0),
+    [TextEdit.insert({ line: 0, character: 0 }, selectedText)]);
+
+  const removeOldFunction = TextDocumentEdit.create(
+    VersionedTextDocumentIdentifier.create(document.uri, document.version),
+    [TextEdit.del(getRange(selectedNode))]);
+
+  const workspaceEdit: WorkspaceEdit = {
+    documentChanges: [
+      createFileAction,
+      createFileEdit,
+      removeOldFunction,
+    ],
+    changeAnnotations: { [changeAnnotation.label]: changeAnnotation },
+  };
+
+  return {
+    title: `Extract function '${functionName}' to file: ${functionPath}`,
+    kind: SupportedCodeActionKinds.RefactorExtract,
+    edit: workspaceEdit,
+  } as CodeAction;
+}
+
 export function extractToFunction(
   document: LspDocument,
   range: Range,
 ): CodeAction | undefined {
+  logger.log('extractToFunction', document, range);
   // Generate a unique function name
   const functionName = `extracted_function_${Math.floor(Math.random() * 1000)}`;
 
@@ -48,7 +156,7 @@ export function extractToFunction(
 
   // Insert the new function before the current scope
   const insertEdit = TextEdit.insert(
-    { line: document.getLines(), character: 0 },
+    { line: range.start.line, character: 0 },
     `\n${functionText}\n`,
   );
 
@@ -68,6 +176,7 @@ export function extractCommandToFunction(
   document: LspDocument,
   selectedNode: SyntaxNode,
 ) {
+  logger.log('extractCommandToFunction', document, { selectedNode: { text: selectedNode.text, type: selectedNode.type } });
   // Generate a unique function name
   const functionName = `extracted_function_${Math.floor(Math.random() * 1000)}`;
 
@@ -111,6 +220,7 @@ export function extractToVariable(
   range: Range,
   selectedNode: SyntaxNode,
 ): CodeAction | undefined {
+  logger.log('extractToVariable', document, { selectedNode: { text: selectedNode.text, type: selectedNode.type } });
   // Only allow extracting commands or expressions
   if (!isCommand(selectedNode)) return undefined;
 
@@ -136,6 +246,7 @@ export function convertIfToCombiners(
   document: LspDocument,
   selectedNode: SyntaxNode,
 ): CodeAction | undefined {
+  logger.log('convertIfToCombiners', document, { selectedNode: { text: selectedNode.text, type: selectedNode.type } });
   let node = selectedNode;
   if (node.type === 'if' && !isIfStatement(node)) {
     node = node.parent!;
