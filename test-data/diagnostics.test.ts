@@ -8,7 +8,7 @@ import { initializeParser } from '../src/parser';
 import { ErrorCodes } from '../src/diagnostics/errorCodes';
 import { findParent, hasParentFunction, isCommand, isCommandWithName, isComment, isDefinition, isIfOrElseIfConditional, isMatchingOption, isVariableDefinitionName } from '../src/utils/node-types';
 // import { ScopeStack, isReference } from '../src/diagnostics/scope';
-import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter } from '../src/diagnostics/node-types';
+import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter, isArgparseWithoutEndStdin } from '../src/diagnostics/node-types';
 import { LspDocument } from '../src/document';
 import { createFakeLspDocument, setLogger } from './helpers';
 import { getDiagnostics } from '../src/diagnostics/validate';
@@ -663,6 +663,24 @@ echo '10 3003 3002 3001 are still disabled'`;
           expect(handler.isCodeEnabled(3003)).toBe(false);
         }
       }
+    });
+  });
+  describe.only('NODE_TEST: find argparse', () => {
+    it('find argparse', () => {
+      const input = `
+function foo
+    argparse l/long s/short -- $argv
+    or return
+end`;
+
+      const tree = parser.parse(input);
+      const rootNode = tree.rootNode;
+      for (const node of getChildNodes(rootNode)) {
+        if (isArgparseWithoutEndStdin(node)) {
+          console.log(node.text);
+        }
+      }
+      expect(true).toBe(true);
     });
   });
 });

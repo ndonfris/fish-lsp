@@ -76,6 +76,12 @@ export class LspDocument implements TextDocument {
     return Position.create(line, 0);
   }
 
+  getIndentAtLine(line: number): string {
+    const lineText = this.getLine(line);
+    const indent = lineText.match(/^\s+/);
+    return indent ? indent[0] : '';
+  }
+
   applyEdits(version: number, ...changes: TextDocumentContentChangeEvent[]): void {
     for (const change of changes) {
       const content = this.getText();

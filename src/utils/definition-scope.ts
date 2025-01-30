@@ -1,8 +1,9 @@
 import { SyntaxNode } from 'web-tree-sitter';
 import * as NodeTypes from './node-types';
-import { pathToRelativeFunctionName } from './translation';
+import { isAutoloadedUriLoadsFunctionName } from './translation';
 import { firstAncestorMatch, getRange, isPositionWithinRange, getParentNodes } from './tree-sitter';
 import { Position } from 'vscode-languageserver';
+import { LspDocument } from '../document';
 
 export type ScopeTag = 'global' | 'universal' | 'local' | 'function' | 'inherit';
 export interface DefinitionScope {
@@ -145,20 +146,22 @@ export function getVariableScope(node: SyntaxNode) {
   return scope;
 }
 
-export function getScope(uri: string, node: SyntaxNode) {
+export function getScope(document: LspDocument, node: SyntaxNode) {
   if (NodeTypes.isFunctionDefinitionName(node)) {
+    const isAutoloadedName = isAutoloadedUriLoadsFunctionName(document);
     // gets <HERE> from ~/.config/fish/functions/<HERE>.fish
-    const loadedName = pathToRelativeFunctionName(uri);
+    // const loadedName = pathToRelativeFunctionName(uri);
 
     // we know node.parent must exist because a isFunctionDefinitionName() must have
     // a isFunctionDefinition() parent node. We know there must be atleast one parent
     // because isProgram()  is a valid parent node.
-    const firstParent = getParentNodes(node.parent!)
+    const parents = getParentNodes(node.parent!.parent!) || getParentNodes(node.parent!);
+    const firstParent = parents
       .filter(n => NodeTypes.isProgram(n) || NodeTypes.isFunctionDefinition(n))
       .at(0)!;
 
     // if the function name is autoloaded or in config.fish
-    if (loadedName === node.text || loadedName === 'config') {
+    if (isAutoloadedName(node)) {
       const program = firstAncestorMatch(node, NodeTypes.isProgram)!;
       return DefinitionScope.create(program, 'global')!;
     }

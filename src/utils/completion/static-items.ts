@@ -804,10 +804,10 @@ const disableDiagnostics = Object.values(ErrorCodes.codes).map((diagnostic) => {
     detail: diagnostic.message,
     documentation: [
       `# Error code: ${diagnostic.code}`,
-      '___',
+      md.separator(),
       `${diagnostic.message}`,
-      '___',
-      `WARNING LEVEL: ${diagnostic.severity}`,
+      md.separator(),
+      `DIAGNOSTIC LEVEL: ${ErrorCodes.getSeverityString(diagnostic.severity)}`,
     ].join('\n'),
     insertText: `${diagnostic.code}`,
   };

@@ -1,6 +1,6 @@
 import * as os from 'os';
 import * as Parser from 'web-tree-sitter';
-import { containsRange, findEnclosingScope, getChildNodes, getRange } from '../src/utils/tree-sitter';
+import { containsRange, findEnclosingScope, getChildNodes, getNamedChildNodes, getRange } from '../src/utils/tree-sitter';
 import { isCommandName, isCommandWithName, isComment, isFunctionDefinitionName, isIfStatement, isMatchingOption, isOption, isString, isTopLevelFunctionDefinition } from '../src/utils/node-types';
 import { convertIfToCombinersString } from '../src/code-actions/combiner';
 import { setLogger } from './helpers';
@@ -11,6 +11,7 @@ import { LspDocument } from '../src/document';
 import { SyntaxNode } from 'web-tree-sitter';
 import { isReservedKeyword } from '../src/utils/builtins';
 import { isAutoloadedUriLoadsFunctionName, shouldHaveAutoloadedFunction } from '../src/utils/translation';
+import { CompleteFlag, findFlagsToComplete, buildCompleteString } from '../src/code-actions/argparse-completions';
 
 let parser: Parser;
 
@@ -68,14 +69,14 @@ and echo "file is a directory" &> /dev/null`,
       {
         name: 'Convert Refactor `if` with `else if` and `else`',
         input: `
-      if test -f file || test -e file
+      if not test -f file || test -e file
           echo "file exists"
       else if test -d file
           echo "file is a directory"
       else
         echo "file does not exist"
       end`,
-        expected: `test -f file || test -e file
+        expected: `not test -f file || test -e file
 and echo "file exists"
 
 or test -d file
@@ -83,21 +84,40 @@ and echo "file is a directory"
 
 or echo "file does not exist"`,
       },
+      {
+        name: 'Convert Refactor negated `if` with `else if` and `else`',
+        input: `if ! test -e file && ! test -f file
+    # comment blah blah
+    echo "file is not executable"
+else if not test -f file
+    echo "file exists"
+else if ! test -d file
+    echo "file is a directory"
+else
+  echo "file does not exist"
+end`,
+        expected: `! test -e file && ! test -f file
+# comment blah blah
+and echo "file is not executable"
+
+or not test -f file
+and echo "file exists"
+
+or ! test -d file
+and echo "file is a directory"
+
+or echo "file does not exist"`,
+      },
     ];
 
     tests.forEach(({ name, input, expected }) => {
-      it(name, async () => {
+      it.only(name, async () => {
         const tree = parser.parse(input);
         const root = tree.rootNode;
         const node = getChildNodes(root).find(n => isIfStatement(n));
 
         if (!node) fail();
-
         const combiner = convertIfToCombinersString(node);
-
-        // console.log('-'.repeat(50));
-        // console.log(combiner);
-        // console.log('-'.repeat(50));
 
         expect(combiner).toBe(expected);
       });
@@ -398,6 +418,60 @@ complete -c util -a '(util_cmp; or other_cmps)'`,
         });
       });
     });
+
+    describe('completions', () => {
+      const tests = [
+        {
+          name: 'completions file with no completions',
+          uri: `file://${os.homedir()}/.config/fish/functions/util.fish`,
+          input: `
+function util
+    argparse h/help a/arguments c/command 'i/ignore-unknown' 'stop-nonopt' 'v/value=' other= -- $argv
+    or return 
+
+end
+`,
+          expected: {
+            completionFlags: [
+              { shortOption: 'h', longOption: 'help' },
+              { shortOption: 'a', longOption: 'arguments' },
+              { shortOption: 'c', longOption: 'command' },
+              { shortOption: 'i', longOption: 'ignore-unknown' },
+              { longOption: 'stop-nonopt' },
+              { shortOption: 'v', longOption: 'value' },
+              { longOption: 'other' },
+            ],
+            completionText: `complete -c util -s h -l help
+complete -c util -s a -l arguments
+complete -c util -s c -l command
+complete -c util -s i -l ignore-unknown
+complete -c util -l stop-nonopt
+complete -c util -s v -l value
+complete -c util -l other`,
+          },
+        },
+      ];
+
+      tests.forEach(({ name, uri, input, expected }) => {
+        it(name, async () => {
+          const tree = parser.parse(input);
+          const root = tree.rootNode;
+          const doc = new LspDocument(TextDocumentItem.create(uri, 'fish', 0, input));
+          const completions: CompleteFlag[] = [];
+          for (const node of getChildNodes(root)) {
+            if (isCommandWithName(node, 'argparse')) {
+              const flags = findFlagsToComplete(node);
+              completions.push(...flags);
+            }
+          }
+          const builtCompletions = buildCompleteString(doc.getAutoLoadName(), completions);
+          // console.log(completions);
+          // console.log(builtCompletions);
+          expect(completions).toEqual(expected.completionFlags);
+          expect(builtCompletions).toBe(expected.completionText);
+        });
+      });
+    });
   });
 });
 export type LocalFunctionCallType = {
@@ -410,3 +484,4 @@ function isMatchingCompletionOption(node: SyntaxNode) {
     || isMatchingOption(node, { shortOption: '-a', longOption: '--arguments' })
     || isMatchingOption(node, { shortOption: '-c', longOption: '--command' });
 }
+

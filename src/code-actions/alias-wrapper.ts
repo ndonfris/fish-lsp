@@ -39,8 +39,8 @@ function extractFunctionName(node: SyntaxNode): string {
  * This action will replace the alias line with the function content.
  */
 export async function createAliasInlineAction(
-  node: SyntaxNode,
   doc: LspDocument,
+  node: SyntaxNode,
 ): Promise<CodeAction> {
   const aliasCommand = node.text;
   const funcName = extractFunctionName(node);
@@ -53,7 +53,7 @@ export async function createAliasInlineAction(
 
   return {
     title: `Convert alias '${funcName}' to inline function`,
-    kind: SupportedCodeActionKinds.QuickFix,
+    kind: SupportedCodeActionKinds.RefactorExtract,
     edit: {
       changes: {
         [doc.uri]: [edit],
@@ -85,8 +85,8 @@ function createRemoveAliasEdit(document: LspDocument, node: SyntaxNode) {
  * Creates a quick-fix code action to convert an alias to a function file.
  */
 export async function createAliasSaveActionNewFile(
-  node: SyntaxNode,
   doc: LspDocument,
+  node: SyntaxNode,
 ): Promise<CodeAction> {
   const aliasCommand = node.text;
   const funcName = extractFunctionName(node);
@@ -113,53 +113,9 @@ export async function createAliasSaveActionNewFile(
     ],
   };
 
-  // // Create workspace edit
-  // const workspaceEdit: WorkspaceEdit = {
-  //   documentChanges: [
-  //     // Create the new function file
-  //     {
-  //       kind: 'create',
-  //       uri: functionUri,
-  //       options: {
-  //         overwrite: true,
-  //         ignoreIfExists: false,
-  //       },
-  //     } as CreateFile,
-  //     // Add content to the new file
-  //     {
-  //       textDocument: {
-  //         uri: functionUri,
-  //         version: 1,
-  //       },
-  //       edits: [
-  //         {
-  //           range: {
-  //             start: { line: 0, character: 0 },
-  //             end: { line: 0, character: 0 },
-  //           },
-  //           newText: functionContent,
-  //         },
-  //       ],
-  //     },
-  //     // Remove the alias line from the current document
-  //     {
-  //       textDocument: {
-  //         uri: doc.uri,
-  //         version: doc.version + 1,
-  //       },
-  //       edits: [
-  //         {
-  //           range: getRange(node),
-  //           newText: '',  // Replace the alias line with empty string
-  //         },
-  //       ],
-  //     },
-  //   ],
-  // };
-
   return {
     title: `Convert alias '${funcName}' to function in file: ~/.config/fish/functions/${funcName}.fish`,
-    kind: SupportedCodeActionKinds.QuickFix,
+    kind: SupportedCodeActionKinds.RefactorExtract,
     edit: workspaceEdit,
     isPreferred: false,
   };

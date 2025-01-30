@@ -4,7 +4,6 @@ import { LspDocument } from './document';
 import { Position, Location, Range, SymbolKind, TextEdit, DocumentUri, WorkspaceEdit, RenameFile } from 'vscode-languageserver';
 import { getChildNodes, getRange } from './utils/tree-sitter';
 import { SyntaxNode } from 'web-tree-sitter';
-//import { containsRange } from './workspace-symbol';
 import { isCommandName } from './utils/node-types';
 
 export function containsRange(range: Range, otherRange: Range): boolean {

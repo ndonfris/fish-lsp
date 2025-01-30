@@ -307,3 +307,10 @@ export function shouldHaveAutoloadedFunction(document: LspDocument): boolean {
   return 'functions' === document.getAutoloadType();
 }
 
+export function formatTextWithIndents(doc: LspDocument, line: number, text: string) {
+  const indent = doc.getIndentAtLine(line);
+  return text
+    .split('\n')
+    .map(line => indent + line)
+    .join('\n');
+}

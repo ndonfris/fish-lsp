@@ -1,5 +1,5 @@
 import Parser, { SyntaxNode } from 'web-tree-sitter';
-import { isCommand, isCommandName, isCommandWithName, isIfOrElseIfConditional, isMatchingOption, isOption, isString } from '../utils/node-types';
+import { isCommand, isCommandName, isCommandWithName, isEndStdinCharacter, isIfOrElseIfConditional, isMatchingOption, isOption, isString } from '../utils/node-types';
 import { getChildNodes } from '../utils/tree-sitter';
 
 type startTokenType = 'function' | 'while' | 'if' | 'for' | 'begin' | '[' | '{' | '(' | "'" | '"';
@@ -177,4 +177,11 @@ export function isMatchingCompleteOptionIsCommand(node: SyntaxNode) {
   return isMatchingOption(node, { shortOption: '-n', longOption: '--condition' })
     || isMatchingOption(node, { shortOption: '-a', longOption: '--arguments' })
     || isMatchingOption(node, { shortOption: '-c', longOption: '--command' });
+}
+
+export function isArgparseWithoutEndStdin(node: SyntaxNode) {
+  if (!isCommandWithName(node, 'argparse')) return false;
+  const endStdin = getChildNodes(node).find(n => isEndStdinCharacter(n));
+  if (!endStdin) return true;
+  return false;
 }

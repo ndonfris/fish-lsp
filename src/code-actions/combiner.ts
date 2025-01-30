@@ -35,6 +35,7 @@ export function convertIfToCombinersString(node: SyntaxNode) {
       case isConditional(n):
         combiner.newBlock(n.type as BlockKeywordType);
         break;
+      case n.type === 'negated_statement':
       case n.type === 'conditional_execution':
         combiner.appendCommand(n);
         skipChildren(n, queue);

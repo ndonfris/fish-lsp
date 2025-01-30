@@ -3,6 +3,7 @@ import { CodeAction, Diagnostic, DiagnosticSeverity, TextEdit } from 'vscode-lan
 import { LspDocument } from '../document';
 import { ErrorCodes } from '../diagnostics/errorCodes';
 import { SupportedCodeActionKinds } from './action-kinds';
+import { logger } from '../logger';
 
 interface DiagnosticGroup {
   startLine: number;
@@ -15,6 +16,7 @@ function createDisableAction(
   document: LspDocument,
   edits: TextEdit[],
   diagnostics: Diagnostic[],
+  isPreferred: boolean = false,
 ): CodeAction {
   return {
     title,
@@ -25,10 +27,7 @@ function createDisableAction(
       },
     },
     diagnostics,
-    command: {
-      command: 'editor.action.formatDocument',
-      title: 'Format Document',
-    },
+    isPreferred,
   };
 }
 
@@ -36,10 +35,11 @@ export function handleDisableSingleLine(
   document: LspDocument,
   diagnostic: Diagnostic,
 ): CodeAction {
+  const indent = document.getIndentAtLine(diagnostic.range.start.line);
   // Insert disable comment above the diagnostic line
   const edit = TextEdit.insert(
     { line: diagnostic.range.start.line, character: 0 },
-    `# @fish-lsp-disable-next-line ${diagnostic.code}\n`,
+    `${indent}# @fish-lsp-disable-next-line ${diagnostic.code}\n`,
   );
 
   const severity = ErrorCodes.getSeverityString(diagnostic.severity);
@@ -57,16 +57,18 @@ export function handleDisableBlock(
   group: DiagnosticGroup,
 ): CodeAction {
   const numbers = Array.from(new Set(group.diagnostics.map(diagnostic => diagnostic.code)).values()).join(' ');
+  const startIndent = document.getIndentAtLine(group.startLine);
+  const endIndent = document.getIndentAtLine(group.endLine);
   const edits = [
     // Insert disable comment at start of block
     TextEdit.insert(
       { line: group.startLine, character: 0 },
-      `# @fish-lsp-disable ${numbers}\n`,
+      `${startIndent}# @fish-lsp-disable ${numbers}\n`,
     ),
     // Insert enable comment after end of block
     TextEdit.insert(
       { line: group.endLine + 1, character: 0 },
-      `# @fish-lsp-enable ${numbers}\n`,
+      `${endIndent}# @fish-lsp-enable ${numbers}\n`,
     ),
   ];
 
@@ -135,8 +137,9 @@ export function handleDisableEntireFile(
   const matchingDiagnostics: Array<ErrorCodes.codeTypes> = [];
   diagnosticsCounts.forEach((count, code) => {
     if (count >= 5) {
-      matchingDiagnostics.push(code as ErrorCodes.codeTypes);
+      logger.log(`CODEACTION: Disabling ${count} ${code.toString()} diagnostics in file`);
     }
+    matchingDiagnostics.push(code as ErrorCodes.codeTypes);
   });
 
   if (matchingDiagnostics.length === 0) return results;
@@ -161,7 +164,8 @@ export function handleDisableEntireFile(
         `Disable all diagnostics in file (${allNumbersStr.split(' ').join(', ')})`,
         document,
         edits,
-        diagnostics),
+        diagnostics,
+      ),
     );
 
     matchingDiagnostics.forEach(match => {

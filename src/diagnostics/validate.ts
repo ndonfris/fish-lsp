@@ -2,7 +2,7 @@ import { Diagnostic, Range } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { LspDocument } from '../document';
 import { containsRange, findEnclosingScope, getChildNodes, getRange } from '../utils/tree-sitter';
-import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter, isMatchingCompleteOptionIsCommand, LocalFunctionCallType } from './node-types';
+import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter, isMatchingCompleteOptionIsCommand, LocalFunctionCallType, isArgparseWithoutEndStdin } from './node-types';
 import { ErrorCodes } from './errorCodes';
 import { SyncFileHelper } from '../utils/file-operations';
 import { config } from '../config';
@@ -107,6 +107,10 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
         ...FishDiagnostic.create(ErrorCodes.missingQuietOption, node),
         range,
       });
+    }
+
+    if (isArgparseWithoutEndStdin(node) && handler.isCodeEnabled(ErrorCodes.argparseMissingEndStdin)) {
+      diagnostics.push(FishDiagnostic.create(ErrorCodes.argparseMissingEndStdin, node));
     }
 
     if (isVariableDefinitionWithExpansionCharacter(node) && handler.isCodeEnabled(ErrorCodes.expansionInDefinition)) {

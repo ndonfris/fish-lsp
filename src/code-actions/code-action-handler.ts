@@ -7,9 +7,56 @@ import { LspDocument, LspDocuments } from '../document';
 import { Analyzer } from '../analyze';
 import { getNodeAtRange } from '../utils/tree-sitter';
 import { convertIfToCombiners, extractCommandToFunction, extractFunctionToFile, extractFunctionWithArgparseToCompletionsFile, extractToFunction, extractToVariable } from './refactors';
-// import { createAliasSaveAction, createAliasSaveActionNewFile } from './alias-wrapper';
+import { createArgparseCompletionsCodeAction } from './argparse-completions';
+import { isCommandWithName, isIfStatement, isProgram } from '../utils/node-types';
+import { createAliasInlineAction, createAliasSaveActionNewFile } from './alias-wrapper';
 
 export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) {
+  /**
+   * small helper for now, used to add code actions that are not `preferred`
+   * quickfixes to the list of results, when a quickfix is requested.
+   */
+  async function getSelectionCodeActions(document: LspDocument, range: Range) {
+    const rootNode = analyzer.getRootNode(document);
+    if (!rootNode) return [];
+
+    const selectedNode = getNodeAtRange(rootNode, range);
+    if (!selectedNode) return [];
+
+    const results: CodeAction[] = [];
+    if (isProgram(selectedNode)) {
+      analyzer.getNodes(document).forEach(n => {
+        if (isCommandWithName(n, 'argparse')) {
+          const argparseAction = createArgparseCompletionsCodeAction(n, document);
+          if (argparseAction) results.push(argparseAction);
+        }
+        if (isIfStatement(n)) {
+          const convertIfAction = convertIfToCombiners(document, n, false);
+          if (convertIfAction) results.push(convertIfAction);
+        }
+      });
+    }
+
+    if (!isProgram(selectedNode)) {
+      const commandToFunctionAction = extractCommandToFunction(document, selectedNode);
+      if (commandToFunctionAction) results.push(commandToFunctionAction);
+    }
+
+    if (isCommandWithName(selectedNode, 'alias')) {
+      const aliasInlineFunction = await createAliasInlineAction(document, selectedNode);
+      const aliasNewFile = await createAliasSaveActionNewFile(document, selectedNode);
+      if (aliasInlineFunction) results.push(aliasInlineFunction);
+      if (aliasNewFile) results.push(aliasNewFile);
+    }
+
+    return results;
+  }
+
+  /**
+   * Helper to add quick fixes to the list that are mostly of the type `preferred`
+   *
+   * These quick fixes include things like `disable` actions, and general fixes to silence diagnostics
+   */
   async function processQuickFixes(document: LspDocument, diagnostics: Diagnostic[], analyzer: Analyzer) {
     const results: CodeAction[] = [];
     for (const diagnostic of diagnostics) {
@@ -23,6 +70,9 @@ export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) 
     return results;
   }
 
+  /**
+   * Process refactors for the given document and range
+   */
   async function processRefactors(document: LspDocument, range: Range) {
     const results: CodeAction[] = [];
 
@@ -32,6 +82,18 @@ export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) 
     // Get node at the selected range
     const selectedNode = getNodeAtRange(rootNode, range);
     if (!selectedNode) return results;
+
+    // try refactoring aliases first
+    let aliasCommand = selectedNode;
+    if (selectedNode.text === 'alias') aliasCommand = selectedNode.parent!;
+    if (aliasCommand && isCommandWithName(aliasCommand, 'alias')) {
+      logger.log('isCommandWithName(alias)', aliasCommand.text);
+      const aliasInlineFunction = await createAliasInlineAction(document, aliasCommand);
+      const aliasNewFile = await createAliasSaveActionNewFile(document, aliasCommand);
+      if (aliasInlineFunction) results.push(aliasInlineFunction);
+      if (aliasNewFile) results.push(aliasNewFile);
+      return results;
+    }
 
     // Try each refactoring action
     const extractFunction = extractToFunction(document, range);
@@ -69,24 +131,32 @@ export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) 
     const onlyQuickFix = params.context.only?.some(kind => kind.startsWith('quickfix'));
 
     logger.log('Requested actions', { onlyRefactoring, onlyQuickFix });
+    logger.log('Diagnostics', params.context.diagnostics.map(d => d.message));
 
     // Add disable actions
-    if (params.context.diagnostics.length > 0) {
+    if (params.context.diagnostics.length > 0 && !onlyRefactoring) {
       results.push(...getDisableDiagnosticActions(document, params.context.diagnostics));
     }
     // Add quick fixes if requested
     if (onlyQuickFix) {
+      logger.log('Processing onlyQuickFixes');
       results.push(...await processQuickFixes(document, params.context.diagnostics, analyzer));
+      results.push(...await getSelectionCodeActions(document, params.range));
+      logger.log('CodeAction results', results.map(r => r.title));
       return results;
     }
 
     // add the refactors
     if (onlyRefactoring) {
+      logger.log('Processing onlyRefactors');
       results.push(...await processRefactors(document, params.range));
+      logger.log('CodeAction results', results.map(r => r.title));
       return results;
     }
-    results.push(...await processQuickFixes(document, params.context.diagnostics, analyzer));
 
+    logger.log('Processing all actions');
+    results.push(...await processQuickFixes(document, params.context.diagnostics, analyzer));
+    results.push(...await getSelectionCodeActions(document, params.range));
     logger.log('CodeAction results', results.map(r => r.title));
     return results;
   };

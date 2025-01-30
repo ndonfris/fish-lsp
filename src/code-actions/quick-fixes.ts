@@ -7,7 +7,7 @@ import { ErrorNodeTypes } from '../diagnostics/node-types';
 import { SupportedCodeActionKinds } from './action-kinds';
 import { logger } from '../logger';
 import { Analyzer } from '../analyze';
-import { createAliasInlineAction, createAliasSaveActionNewFile } from './alias-wrapper';
+// import { createAliasInlineAction, createAliasSaveActionNewFile } from './alias-wrapper';
 import { getRange } from '../utils/tree-sitter';
 import { pathToRelativeFunctionName, uriToPath } from '../utils/translation';
 import { isFunctionDefinition } from '../utils/node-types';
@@ -122,7 +122,7 @@ function handleMissingQuietError(
       command: 'editor.action.formatDocument',
       title: 'Format Document',
     },
-
+    isPreferred: true,
   };
 }
 
@@ -142,6 +142,7 @@ function handleZeroIndexedArray(
         ],
       },
     },
+    isPreferred: true,
   };
 }
 
@@ -172,7 +173,7 @@ function handleUniversalVariable(
         [document.uri]: [edit],
       },
     },
-
+    isPreferred: true,
   };
 }
 
@@ -198,7 +199,7 @@ export function handleSingleQuoteVarFix(
         [document.uri]: [edit],
       },
     },
-
+    isPreferred: true,
   };
 }
 
@@ -238,6 +239,7 @@ function handleMissingDefinition(diagnostic: Diagnostic, node: SyntaxNode, docum
         [document.uri]: [edit],
       },
     },
+    isPreferred: true,
   };
 }
 
@@ -335,6 +337,22 @@ function handleUnusedFunction(diagnostic: Diagnostic, node: SyntaxNode, document
   };
 }
 
+function handleAddEndStdinToArgparse(diagnostic: Diagnostic, document: LspDocument): CodeAction {
+  const edit = TextEdit.insert(diagnostic.range.end, ' -- $argv');
+
+  return {
+    title: 'Add end stdin ` -- $argv` to argparse',
+    kind: SupportedCodeActionKinds.QuickFix,
+    diagnostics: [diagnostic],
+    edit: {
+      changes: {
+        [document.uri]: [edit],
+      },
+    },
+    isPreferred: true,
+  };
+}
+
 export async function getQuickFixes(
   document: LspDocument,
   diagnostic: Diagnostic,
@@ -397,15 +415,15 @@ export async function getQuickFixes(
       if (action) actions.push(action);
       return actions;
 
-    case ErrorCodes.usedAlias:
-      if (!node) return [];
-      actions.push(
-        ...await Promise.all([
-          createAliasInlineAction(node, document),
-          createAliasSaveActionNewFile(node, document),
-        ]),
-      );
-      return actions;
+      // case ErrorCodes.usedAlias:
+      //   if (!node) return [];
+      //   actions.push(
+      //     ...await Promise.all([
+      //       createAliasInlineAction(node, document),
+      //       createAliasSaveActionNewFile(node, document),
+      //     ]),
+      //   );
+      //   return actions;
 
     case ErrorCodes.autoloadedFunctionMissingDefinition:
       if (!node) return [];
@@ -421,6 +439,11 @@ export async function getQuickFixes(
     case ErrorCodes.unusedLocalFunction:
       if (!node) return [];
       return [handleUnusedFunction(diagnostic, node, document)];
+
+    case ErrorCodes.argparseMissingEndStdin:
+      action = handleAddEndStdinToArgparse(diagnostic, document);
+      if (action) actions.push(action);
+      return actions;
 
     default:
       return actions;
