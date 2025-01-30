@@ -1,13 +1,14 @@
 import { FishDocumentSymbol } from '../../document-symbol';
 import { FishCompletionItem, FishCompletionItemKind } from './types';
 import { execCompleteLine } from '../exec';
-import { Logger } from '../../logger';
+import { logger, Logger } from '../../logger';
 import { InlineParser } from './inline-parser';
 import { CompletionItemMap } from './startup-cache';
 import { CompletionContext, CompletionList, Position, SymbolKind } from 'vscode-languageserver-protocol';
 import { FishCompletionList, FishCompletionListBuilder } from './list';
+// import { StaticItems } from './static-items';
 
-type SetupData = {
+export type SetupData = {
   uri: string;
   position: Position;
   context: CompletionContext;
@@ -41,12 +42,29 @@ export class CompletionPager {
     } as CompletionList;
   }
 
-  async complete(
+  async completeEmpty(
+    symbols: FishDocumentSymbol[],
+  ): Promise<FishCompletionList> {
+    this._items.reset();
+    this._items.addSymbols(symbols, true);
+    this._items.addItems(this.itemsMap.allOfKinds('builtin'));
+    const stdout: [string, string][] = [];
+    const toAdd = await this.getSubshellStdoutCompletions(' ');
+    stdout.push(...toAdd);
+    for (const [name, description] of stdout) {
+      this._items.addItem(FishCompletionItem.create(name, 'command', description, name));
+    }
+    this._items.addItems(this.itemsMap.allOfKinds('function'));
+    this._items.addItems(this.itemsMap.allOfKinds('comment'));
+    return this._items.build(false);
+  }
+
+  async completeVariables(
     line: string,
+    word: string,
     setupData: SetupData,
     symbols: FishDocumentSymbol[],
-  ) : Promise<FishCompletionList> {
-    const { word, command, commandNode: _commandNode, index } = this.inlineParser.getNodeContext(line);
+  ): Promise<FishCompletionList> {
     this._items.reset();
     const data = FishCompletionItem.createData(
       setupData.uri,
@@ -55,7 +73,47 @@ export class CompletionPager {
       setupData.position,
     );
 
-    //this.logger.log('Pager.complete.data =', {command, word})
+    const { variables } = sortSymbols(symbols);
+    for (const variable of variables) {
+      const variableItem = FishCompletionItem.fromSymbol(variable);
+      variableItem.insertText = '$' + variable.name;
+      this._items.addItem(variableItem);
+    }
+    for (const item of this.itemsMap.allOfKinds('variable')) {
+      item.insertText = '$' + item.label;
+      this._items.addItem(item);
+    }
+
+    const result = this._items.addData(data).build();
+    result.isIncomplete = false;
+    return result;
+  }
+
+  async complete(
+    line: string,
+    setupData: SetupData,
+    symbols: FishDocumentSymbol[],
+  ): Promise<FishCompletionList> {
+    const { word, command, commandNode: _commandNode, index } = this.inlineParser.getNodeContext(line || '');
+    logger.log({
+      word: word,
+      command: command,
+      index: index,
+    });
+    this._items.reset();
+    const data = FishCompletionItem.createData(
+      setupData.uri,
+      line || '',
+      word || '',
+      setupData.position,
+      setupData.context,
+    );
+
+    const { variables, functions } = sortSymbols(symbols);
+    if (!word && !command) {
+      return this.completeEmpty(symbols);
+    }
+    this.logger.log('Pager.complete.data =', { command, word });
     const stdout: [string, string][] = [];
     if (!this.itemsMap.blockedCommands.includes(command || '')) {
       const toAdd = await this.getSubshellStdoutCompletions(line);
@@ -67,9 +125,6 @@ export class CompletionPager {
       const toAdd = await this.getSubshellStdoutCompletions(`__fish_complete_path ${word}`);
       this._items.addItems(toAdd.map((item) => FishCompletionItem.create(item[0], 'path', item[1], item.join(' '))));
     }
-
-    const { variables, functions } = sortSymbols(symbols);
-
     const isOption = this.inlineParser.lastItemIsOption(line);
     for (const [name, description] of stdout) {
       //if (this.itemsMap.skippableItem(name, description)) continue;
@@ -146,6 +201,9 @@ export async function initializeCompletionPager(logger: Logger, items: Completio
 
 function addFirstIndexedItems(command: string, items: CompletionItemMap) {
   switch (command) {
+    case 'functions':
+    case 'function':
+      return items.allOfKinds('event', 'variable');
     case 'end':
       return items.allOfKinds('pipe');
     case 'printf':
@@ -170,6 +228,8 @@ function addSpecialItems(
   switch (command) {
     //case "end":
     //  return items.allOfKinds("pipe");
+    case 'return':
+      return items.allOfKinds('status', 'variable');
     case 'printf':
     case 'set':
       return items.allOfKinds('variable');

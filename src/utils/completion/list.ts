@@ -1,7 +1,7 @@
 import { FishCompletionData, FishCompletionItem, toCompletionItemKind } from './types';
 import { FishDocumentSymbol } from '../../document-symbol';
 import { Logger } from '../../logger';
-import { CompletionList } from 'vscode-languageserver-protocol';
+import { CompletionList, SymbolKind } from 'vscode-languageserver';
 
 export class FishCompletionListBuilder {
   private items: FishCompletionItem[];
@@ -20,10 +20,16 @@ export class FishCompletionListBuilder {
     this.items.push(...items);
   }
 
-  addSymbols(symbols: FishDocumentSymbol[]) {
-    const symbolItems = symbols.map((symbol) =>
-      FishCompletionItem.fromSymbol(symbol),
-    );
+  addSymbols(symbols: FishDocumentSymbol[], insertDollarSign: boolean = false) {
+    const symbolItems = symbols.map((symbol) => {
+      if (insertDollarSign && symbol.kind === SymbolKind.Variable) {
+        return {
+          ...FishCompletionItem.fromSymbol(symbol),
+          label: '$' + symbol.name,
+        } as FishCompletionItem;
+      }
+      return FishCompletionItem.fromSymbol(symbol);
+    });
     this.items.push(...symbolItems);
   }
 
@@ -42,8 +48,11 @@ export class FishCompletionListBuilder {
     this.items = [];
   }
 
-  build(): FishCompletionList {
-    return FishCompletionList.create(false, this.data, this.items);
+  build(isIncomplete: boolean = false): FishCompletionList {
+    const uniqueItems = this.items.filter((item, index, self) =>
+      index === self.findIndex((t) => t.label === item.label),
+    );
+    return FishCompletionList.create(isIncomplete, this.data, uniqueItems);
   }
 
   log() {
@@ -68,7 +77,7 @@ function itemLoggingInfo(item: FishCompletionItem, index: number) {
   };
 }
 
-export interface FishCompletionList extends CompletionList{
+export interface FishCompletionList extends CompletionList {
 }
 
 export namespace FishCompletionList {
@@ -92,4 +101,5 @@ export namespace FishCompletionList {
       },
     } as FishCompletionList;
   }
+
 }

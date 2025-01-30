@@ -1,7 +1,8 @@
 import { SetupItemsFromCommandConfig } from '../src/utils/completion/startup-config';
-// import { CompletionItemMap } from "../src/utils/completion/startup-cache";
+import { CompletionItemMap } from '../src/utils/completion/startup-cache';
 import { setLogger } from './helpers';
 import { spawn } from 'child_process';
+import { StaticItems } from '../src/utils/completion/static-items';
 
 /**
  * Executes a command in a Fish subshell without inheriting autoloaded behaviors.
@@ -49,13 +50,16 @@ async function execPrivateFishCommand(command: string): Promise<string> {
 }
 
 let setupItemsArr: typeof SetupItemsFromCommandConfig;
+let completionItemMap: CompletionItemMap;
 
 setLogger(
   async () => {
     setupItemsArr = SetupItemsFromCommandConfig;
+    completionItemMap = await CompletionItemMap.initialize();
   },
   async () => {
     setupItemsArr = [];
+    completionItemMap = new CompletionItemMap();
   },
 );
 
@@ -78,7 +82,7 @@ describe('utils/completion/startup-config.ts test', () => {
       const cmds = (await cb.func).split('\n').filter(f => f.trim() !== '');
       return {
         name: cb.item.fishKind,
-        cmds:  cmds,
+        cmds: cmds,
         cmdsLen: cmds.length,
       };
     }));
@@ -105,4 +109,21 @@ describe('utils/completion/startup-config.ts test', () => {
    * They will need to be config agnostic though!
    * (i.e., passes on every machine `fish --no-config`)
    */
+
+  describe('static items', () => {
+    it.only('should have static items', async () => {
+      completionItemMap.allOfKinds('function').forEach(item => {
+        console.log(item.label, item.kind);
+      });
+      completionItemMap.allOfKinds('variable').forEach(item => {
+        // StaticItems.variable.forEach(item => {
+        if (item.label.startsWith('fish_lsp')) {
+          console.log(item);
+        }
+      });
+      completionItemMap.allOfKinds('status').forEach(item => {
+        console.log(item.label, item.kind);
+      });
+    });
+  });
 });

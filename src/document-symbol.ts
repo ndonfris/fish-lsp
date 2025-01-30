@@ -7,6 +7,7 @@ import { DocumentSymbolDetail } from './utils/symbol-documentation-builder';
 import { getNodeAtRange, getRange, isPositionAfter, pointToPosition } from './utils/tree-sitter';
 import { ScopeTag, DefinitionScope, getScope } from './utils/definition-scope';
 import { GenericTree } from './utils/generic-tree';
+import { LspDocument } from './document';
 
 // add some form of tags to the symbol so that we can extend the symbol with more information
 // current implementation is WIP inside file : ./utils/options.ts
@@ -383,22 +384,22 @@ export function definitionSymbolHandler(node: SyntaxNode): {
  * @param {SyntaxNode[]} currentNodes - root node(s) to traverse for definitions
  * @returns {FishDocumentSymbol[]} - all defined FishDocumentSymbol's in file
  */
-export function getFishDocumentSymbols(uri: string, ...currentNodes: SyntaxNode[]): FishDocumentSymbol[] {
+export function getFishDocumentSymbols(document: LspDocument, ...currentNodes: SyntaxNode[]): FishDocumentSymbol[] {
   const symbols: FishDocumentSymbol[] = [];
   for (const node of currentNodes) {
-    const childrenSymbols = getFishDocumentSymbols(uri, ...node.children);
+    const childrenSymbols = getFishDocumentSymbols(document, ...node.children);
     const { shouldCreate, kind, child, parent } = definitionSymbolHandler(node);
     if (shouldCreate) {
       symbols.push(
         FishDocumentSymbol.create(
           child.text,
-          uri,
+          document.uri,
           parent.text,
-          DocumentSymbolDetail.create(child.text, uri, kind, child),
+          DocumentSymbolDetail.create(child.text, document.uri, kind, child),
           kind,
           getRange(parent),
           getRange(child),
-          getScope(uri, child),
+          getScope(document, child),
           childrenSymbols,
         ),
       );

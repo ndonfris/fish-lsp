@@ -2,6 +2,7 @@
 
 import * as LSP from 'vscode-languageserver';
 import { FishProtocol } from './fishProtocol';
+import * as TS from 'web-tree-sitter';
 
 export namespace Range {
 
@@ -122,6 +123,13 @@ export namespace Position {
       return false;
     }
     return one.character <= other.character;
+  }
+
+  export function fromSyntaxNode(node: TS.SyntaxNode): {start: LSP.Position; end: LSP.Position;} {
+    return {
+      start: create(node.startPosition.row, node.endPosition.column),
+      end: create(node.endPosition.row, node.endPosition.column),
+    };
   }
 }
 

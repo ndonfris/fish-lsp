@@ -72,6 +72,44 @@ export function isBuiltin(word: string): boolean {
   return BuiltInSET.has(word);
 }
 
+const reservedKeywords = [
+  '[',
+  '_',
+  'and',
+  'argparse',
+  'begin',
+  'break',
+  'builtin',
+  'case',
+  'command',
+  'continue',
+  'else',
+  'end',
+  'eval',
+  'exec',
+  'for',
+  'function',
+  'if',
+  'not',
+  'or',
+  'read',
+  'return',
+  'set',
+  'status',
+  'string',
+  'switch',
+  'test',
+  'time',
+  'and',
+  'while',
+];
+const ReservedKeywordSet = new Set(reservedKeywords);
+// Reserved keywords are not allowed as function names.
+// Found on the `function` manpage.
+export function isReservedKeyword(word: string): boolean {
+  return ReservedKeywordSet.has(word);
+}
+
 export function findShell() {
   const result = spawnSync('which fish', { shell: true, stdio: ['ignore', 'pipe', 'inherit'], encoding: 'utf-8' });
   return result.stdout.toString().trim();

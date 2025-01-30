@@ -7,22 +7,22 @@ import { isCommand, isCommandName } from './utils/node-types';
 import { pathToUri } from './utils/translation';
 import { existsSync } from 'fs';
 import homedir from 'os';
-import { FishWorkspace } from './utils/workspace';
+import { Workspace } from './utils/workspace';
 import { filterGlobalSymbols, FishDocumentSymbol, getFishDocumentSymbols } from './document-symbol';
 import { GenericTree } from './utils/generic-tree';
 import { findDefinitionSymbols } from './workspace-symbol';
-import { config } from './cli';
+import { config } from './config';
 import { logger } from './logger';
 
 export class Analyzer {
   protected parser: Parser;
-  public workspaces: FishWorkspace[];
+  public workspaces: Workspace[];
   public cache: AnalyzedDocumentCache = new AnalyzedDocumentCache();
   public globalSymbols: GlobalDefinitionCache = new GlobalDefinitionCache();
 
   public amountIndexed: number = 0;
 
-  constructor(parser: Parser, workspaces: FishWorkspace[] = []) {
+  constructor(parser: Parser, workspaces: Workspace[] = []) {
     this.parser = parser;
     this.workspaces = workspaces;
   }
@@ -47,7 +47,7 @@ export class Analyzer {
   ): AnalyzedDocument {
     const tree = parser.parse(document.getText());
     const documentSymbols = getFishDocumentSymbols(
-      document.uri,
+      document,
       tree.rootNode,
     );
     const commands = this.getCommandNames(document);
@@ -81,7 +81,7 @@ export class Analyzer {
           this.analyze(doc);
           amount++;
         } catch (err) {
-          console.error(err);
+          logger.log(err);
         }
       });
 
@@ -111,9 +111,13 @@ export class Analyzer {
     const symbols = FishDocumentSymbol.flattenArray(
       this.cache.getDocumentSymbols(document.uri),
     );
-    return symbols.find((symbol) =>
-      isPositionWithinRange(position, symbol.selectionRange),
-    );
+    const wordAtPoint = this.wordAtPoint(document.uri, position.line, position.character);
+    return symbols.find((symbol) => {
+      if (symbol.kind === SymbolKind.Function && wordAtPoint === symbol.name) {
+        return symbol.scope.containsPosition(position);
+      }
+      return isPositionWithinRange(position, symbol.selectionRange);
+    });
   }
 
   /**
@@ -161,8 +165,8 @@ export class Analyzer {
       return null;
     }
     const symbol =
-            this.getDefinition(document, position) as FishDocumentSymbol ||
-            this.globalSymbols.findFirst(node.text);
+      this.getDefinition(document, position) as FishDocumentSymbol ||
+      this.globalSymbols.findFirst(node.text);
     if (symbol) {
       return {
         contents: {
@@ -195,7 +199,7 @@ export class Analyzer {
   //    ];
   //}
 
-  getTree(document: LspDocument) : Tree | undefined {
+  getTree(document: LspDocument): Tree | undefined {
     return this.cache.getDocument(document.uri)?.tree;
   }
 
@@ -226,10 +230,10 @@ export class Analyzer {
     return {
       root: root,
       currentNode:
-                root?.descendantForPosition({
-                  row: position.line,
-                  column: Math.max(0, position.character - 1),
-                }) || null,
+        root?.descendantForPosition({
+          row: position.line,
+          column: Math.max(0, position.character - 1),
+        }) || null,
     };
   }
 
@@ -251,22 +255,22 @@ export class Analyzer {
     document: LspDocument,
     position: Position,
   ): {
-      line: string;
-      word: string;
-      lineRootNode: SyntaxNode;
-      lineLastNode: SyntaxNode;
-    } {
+    line: string;
+    word: string;
+    lineRootNode: SyntaxNode;
+    lineLastNode: SyntaxNode;
+  } {
     //const linePreTrim: string = document.getLineBeforeCursor(position);
     //const line = linePreTrim.slice(0,linePreTrim.lastIndexOf('\n'));
     const line = document
       .getLineBeforeCursor(position)
-      .replace(/^(.*)\n$/, '$1');
+      .replace(/^(.*)\n$/, '$1') || '';
     const word =
-            this.wordAtPoint(
-              document.uri,
-              position.line,
-              Math.max(position.character - 1, 0),
-            ) || '';
+      this.wordAtPoint(
+        document.uri,
+        position.line,
+        Math.max(position.character - 1, 0),
+      ) || '';
     const lineRootNode = this.parser.parse(line).rootNode;
     const lineLastNode = lineRootNode.descendantForPosition({
       row: 0,
@@ -353,7 +357,7 @@ export class Analyzer {
   }
 }
 export class GlobalDefinitionCache {
-  constructor(private _definitions: Map<string, FishDocumentSymbol[]> = new Map()) {}
+  constructor(private _definitions: Map<string, FishDocumentSymbol[]> = new Map()) { }
   add(symbol: FishDocumentSymbol): void {
     const current = this._definitions.get(symbol.name) || [];
     if (!current.some(s => FishDocumentSymbol.equal(s, symbol))) {
@@ -418,7 +422,7 @@ export namespace AnalyzedDocument {
 }
 
 export class AnalyzedDocumentCache {
-  constructor(private _documents: Map<URI, AnalyzedDocument> = new Map()) {}
+  constructor(private _documents: Map<URI, AnalyzedDocument> = new Map()) { }
   uris(): string[] {
     return [...this._documents.keys()];
   }
@@ -509,7 +513,7 @@ export class SymbolCache {
     private _names: Set<string> = new Set(),
     private _variables: Map<string, FishDocumentSymbol[]> = new Map(),
     private _functions: Map<string, FishDocumentSymbol[]> = new Map(),
-  ) {}
+  ) { }
 
   add(symbol: FishDocumentSymbol): void {
     const oldVars = this._variables.get(symbol.name) || [];

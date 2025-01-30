@@ -1,11 +1,11 @@
 import Parser, { SyntaxNode } from 'web-tree-sitter';
-import { isCommand, isCommandName, isCommandWithName, isIfOrElseIfConditional, isMatchingOption, isOption, isString } from '../utils/node-types';
+import { isCommand, isCommandName, isCommandWithName, isEndStdinCharacter, isIfOrElseIfConditional, isMatchingOption, isOption, isString } from '../utils/node-types';
 import { getChildNodes } from '../utils/tree-sitter';
 
 type startTokenType = 'function' | 'while' | 'if' | 'for' | 'begin' | '[' | '{' | '(' | "'" | '"';
 type endTokenType = 'end' | "'" | '"' | ']' | '}' | ')';
 
-const errorNodeTypes: { [start in startTokenType]: endTokenType } = {
+export const ErrorNodeTypes: { [start in startTokenType]: endTokenType } = {
   ['function']: 'end',
   ['while']: 'end',
   ['begin']: 'end',
@@ -27,7 +27,7 @@ export function findErrorCause(children: Parser.SyntaxNode[]): Parser.SyntaxNode
 
   for (const node of children) {
     if (isStartTokenType(node.type)) {
-      const expectedEndToken = errorNodeTypes[node.type];
+      const expectedEndToken = ErrorNodeTypes[node.type];
       const matchIndex = stack.findIndex(item => item.type === expectedEndToken);
 
       if (matchIndex !== -1) {
@@ -35,7 +35,7 @@ export function findErrorCause(children: Parser.SyntaxNode[]): Parser.SyntaxNode
       } else {
         stack.push({ node, type: expectedEndToken }); // Push the current node and expected end token to the stack
       }
-    } else if (Object.values(errorNodeTypes).includes(node.type as endTokenType)) {
+    } else if (Object.values(ErrorNodeTypes).includes(node.type as endTokenType)) {
       stack.push({ node, type: node.type as endTokenType }); // Track all end tokens
     }
   }
@@ -165,5 +165,23 @@ export function isVariableDefinitionWithExpansionCharacter(node: SyntaxNode) {
     return (node.type === 'variable_expansion' || node.text.startsWith('$')) && definition?.equals(node);
   }
 
+  return false;
+}
+
+export type LocalFunctionCallType = {
+  node: SyntaxNode;
+  text: string;
+};
+
+export function isMatchingCompleteOptionIsCommand(node: SyntaxNode) {
+  return isMatchingOption(node, { shortOption: '-n', longOption: '--condition' })
+    || isMatchingOption(node, { shortOption: '-a', longOption: '--arguments' })
+    || isMatchingOption(node, { shortOption: '-c', longOption: '--command' });
+}
+
+export function isArgparseWithoutEndStdin(node: SyntaxNode) {
+  if (!isCommandWithName(node, 'argparse')) return false;
+  const endStdin = getChildNodes(node).find(n => isEndStdinCharacter(n));
+  if (!endStdin) return true;
   return false;
 }

@@ -2,11 +2,12 @@ import { FishCompletionItem, FishCompletionItemKind } from './types';
 import { execCmd } from '../exec';
 import { StaticItems } from './static-items';
 import { SetupItemsFromCommandConfig } from './startup-config';
+import { md } from '../markdown-builder';
 
 export type ItemMapRecord = Record<FishCompletionItemKind, FishCompletionItem[]>;
 
 export class CompletionItemMap {
-  constructor(private _items: ItemMapRecord = {} as ItemMapRecord) {}
+  constructor(private _items: ItemMapRecord = {} as ItemMapRecord) { }
 
   static async initialize(): Promise<CompletionItemMap> {
     const result: ItemMapRecord = {} as ItemMapRecord;
@@ -48,6 +49,22 @@ export class CompletionItemMap {
           item.examples,
         ));
       }
+      if (kind === FishCompletionItemKind.FUNCTION || kind === FishCompletionItemKind.VARIABLE) {
+        const toAdd = value
+          .filter((item) => !result[kind].find((i) => i.label === item.label))
+          .map((item) => FishCompletionItem.create(
+            item.label,
+            kind,
+            item.detail,
+            [
+              `(${md.italic(kind)}) ${md.bold(item.label)}`,
+              md.separator(),
+              item.documentation.toString(),
+            ].join('\n'),
+            item.examples,
+          ).setUseDocAsDetail());
+        result[kind].push(...toAdd);
+      }
     });
 
     return new CompletionItemMap(result);
@@ -65,8 +82,8 @@ export class CompletionItemMap {
     return kinds.reduce((acc, kind) => acc.concat(this.get(kind)), [] as FishCompletionItem[]);
   }
 
-  entries(): [ FishCompletionItemKind, FishCompletionItem[] ][] {
-    return Object.entries(this._items) as [ FishCompletionItemKind, FishCompletionItem[] ][];
+  entries(): [FishCompletionItemKind, FishCompletionItem[]][] {
+    return Object.entries(this._items) as [FishCompletionItemKind, FishCompletionItem[]][];
   }
 
   forEach(callbackfn: (key: FishCompletionItemKind, value: FishCompletionItem[]) => void) {
@@ -80,7 +97,7 @@ export class CompletionItemMap {
       FishCompletionItemKind.BUILTIN,
       FishCompletionItemKind.FUNCTION,
       FishCompletionItemKind.COMMAND,
-      //FishCompletionItemKind.VARIABLE,
+      // FishCompletionItemKind.VARIABLE,
     );
   }
 

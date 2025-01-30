@@ -34,6 +34,12 @@ export async function execCmd(cmd: string): Promise<string[]> {
     .split('\n');
 }
 
+export async function execAsyncF(cmd: string) {
+  const file = resolve(__dirname, '../../fish_files/exec.fish');
+  const child = await execFileAsync(file, [cmd]);
+  return child.stdout.toString().trim();
+}
+
 /**
  * Wrapper for `execAsync()` a.k.a, `promisify(exec)`
  * Executes the `cmd` in a fish subprocess

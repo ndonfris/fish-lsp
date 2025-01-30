@@ -1,16 +1,18 @@
-import os from 'os';
+import * as os from 'os';
 import { homedir } from 'os';
-import Parser, { SyntaxNode, Tree } from 'web-tree-sitter';
+import * as Parser from 'web-tree-sitter';
+import { SyntaxNode, Tree } from 'web-tree-sitter';
 import { findChildNodes, getChildNodes, getNodeAtRange } from '../src/utils/tree-sitter';
 import { Diagnostic, DiagnosticSeverity, TextDocumentItem } from 'vscode-languageserver';
 import { initializeParser } from '../src/parser';
-import { findParent, hasParentFunction, isCommand, isCommandWithName, isDefinition, isIfOrElseIfConditional, isMatchingOption, isVariableDefinitionName } from '../src/utils/node-types';
+import { ErrorCodes } from '../src/diagnostics/errorCodes';
+import { findParent, hasParentFunction, isCommand, isCommandWithName, isComment, isDefinition, isIfOrElseIfConditional, isMatchingOption, isVariableDefinitionName } from '../src/utils/node-types';
 // import { ScopeStack, isReference } from '../src/diagnostics/scope';
-import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter } from '../src/diagnostics/node-types';
-
+import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter, isArgparseWithoutEndStdin } from '../src/diagnostics/node-types';
 import { LspDocument } from '../src/document';
 import { createFakeLspDocument, setLogger } from './helpers';
 import { getDiagnostics } from '../src/diagnostics/validate';
+import { DiagnosticComment, DiagnosticCommentsHandler, isDiagnosticComment, parseDiagnosticComment } from '../src/diagnostics/comments-handler';
 let parser: Parser;
 let diagnostics: Diagnostic[] = [];
 let output: SyntaxNode[] = [];
@@ -567,19 +569,133 @@ awk
     });
   });
 
-  // expect(definitions.map(d => d.text)).toEqual([
-  //   'foo',
-  //   'variable_1',
-  //   'variable_2'
-  // ]);
+  it.only('VALIDATE: isDiagnosticComment', () => {
+    const input = `echo 'now diagnostics are enabled'
+# @fish-lsp-disable 
+echo '1 all diagnostics are disabled'
+# @fish-lsp-enable
+echo '2 now diagnostics are enabled again'
 
-  /**
-   * TODO:
-   *      write argparse handler
-   */
-  // it('NODE_TEST: argparse', () => {
-  //
-  //
-  //
-  // })
+# @fish-lsp-disable 2001
+echo '3 only diagnostic error code 2001 is disabled'
+# @fish-lsp-enable 2001
+echo '4 diagnostic 2001 is enabled again'
+
+# @fish-lsp-disable 1001 1002 1003
+echo '5 only diagnostic error codes 1001 1002 1003 are disabled'
+# @fish-lsp-enable
+echo '6 enabled all diagnostics again'
+
+# @fish-lsp-disable 3003 3002 3001
+echo '7 disabled 3003 3002 3001'
+
+# @fish-lsp-disable-next-line 2001 2002
+echo '8 disable next line diagnostics for 2001 2002'
+echo '9 2001 and 2002 are enabled again'
+echo '10 3003 3002 3001 are still disabled'`;
+    const { rootNode } = parser.parse(input);
+    const doc = createFakeLspDocument('file:///tmp/test-1.fish', input);
+    const lspDiagnosticComments: DiagnosticComment[] =
+      findChildNodes(rootNode, n => isDiagnosticComment(n))
+        .map(parseDiagnosticComment)
+        .filter(c => c !== null);
+
+    const enabledDiagnostics = ErrorCodes.allErrorCodes; // need to disable config.fish_lsp_disabled_error_codes
+
+    const handler = new DiagnosticCommentsHandler();
+    getChildNodes(rootNode).forEach(node => {
+      handler.handleNode(node);
+      if (!isComment(node) && node.isNamed && isCommand(node)) {
+        if (node.text.includes('1 all diagnostics are disabled')) {
+          expect(handler.isCodeEnabled(1001)).toBe(false);
+          expect(handler.isCodeEnabled(2001)).toBe(false);
+          expect(handler.isCodeEnabled(3001)).toBe(false);
+        } else if (node.text.includes('2 now diagnostics are enabled again')) {
+          expect(handler.isCodeEnabled(1001)).toBe(true);
+        } else if (node.text.includes('3 only diagnostic error code 2001 is disabled')) {
+          expect(handler.isCodeEnabled(1001)).toBe(true);
+          expect(handler.isCodeEnabled(2001)).toBe(false);
+          expect(handler.isCodeEnabled(3001)).toBe(true);
+        } else if (node.text.includes('4 diagnostic 2001 is enabled again')) {
+          expect(handler.isCodeEnabled(2001)).toBe(true);
+          expect(handler.isCodeEnabled(3001)).toBe(true);
+        } else if (node.text.includes('5 only diagnostic error codes 1001 1002 1003 are disabled')) {
+          expect(handler.isCodeEnabled(1001)).toBe(false);
+          expect(handler.isCodeEnabled(1002)).toBe(false);
+          expect(handler.isCodeEnabled(1003)).toBe(false);
+          expect(handler.isCodeEnabled(2001)).toBe(true);
+          expect(handler.isCodeEnabled(3001)).toBe(true);
+        } else if (node.text.includes('6 enabled all diagnostics again')) {
+          expect(handler.isCodeEnabled(1001)).toBe(true);
+          expect(handler.isCodeEnabled(1002)).toBe(true);
+          expect(handler.isCodeEnabled(1003)).toBe(true);
+          expect(handler.isCodeEnabled(2001)).toBe(true);
+          expect(handler.isCodeEnabled(3001)).toBe(true);
+        } else if (node.text.includes('7 disabled 3003 3002 3001')) {
+          expect(handler.isCodeEnabled(1001)).toBe(true);
+          expect(handler.isCodeEnabled(1002)).toBe(true);
+          expect(handler.isCodeEnabled(3001)).toBe(false);
+          expect(handler.isCodeEnabled(3002)).toBe(false);
+          expect(handler.isCodeEnabled(3003)).toBe(false);
+        } else if (node.text.includes('8 disable next line diagnostics for 2001 2002')) {
+          expect(handler.isCodeEnabled(1003)).toBe(true);
+          expect(handler.isCodeEnabled(2001)).toBe(false);
+          expect(handler.isCodeEnabled(2002)).toBe(false);
+          expect(handler.isCodeEnabled(3001)).toBe(false);
+          expect(handler.isCodeEnabled(3002)).toBe(false);
+          expect(handler.isCodeEnabled(3003)).toBe(false);
+        } else if (node.text.includes('9 2001 and 2002 are enabled again')) {
+          expect(handler.isCodeEnabled(2001)).toBe(true);
+          expect(handler.isCodeEnabled(2002)).toBe(true);
+          expect(handler.isCodeEnabled(3001)).toBe(false);
+          expect(handler.isCodeEnabled(3002)).toBe(false);
+          expect(handler.isCodeEnabled(3003)).toBe(false);
+        } else if (node.text.includes('10 3003 3002 3001 are still disabled')) {
+          expect(handler.isCodeEnabled(1001)).toBe(true);
+          expect(handler.isCodeEnabled(1002)).toBe(true);
+          expect(handler.isCodeEnabled(1003)).toBe(true);
+          expect(handler.isCodeEnabled(1004)).toBe(true);
+          expect(handler.isCodeEnabled(2001)).toBe(true);
+          expect(handler.isCodeEnabled(2002)).toBe(true);
+          expect(handler.isCodeEnabled(2003)).toBe(true);
+          expect(handler.isCodeEnabled(3001)).toBe(false);
+          expect(handler.isCodeEnabled(3002)).toBe(false);
+          expect(handler.isCodeEnabled(3003)).toBe(false);
+        }
+      }
+    });
+  });
+  describe.only('NODE_TEST: find argparse', () => {
+    it('find argparse', () => {
+      const input = `
+function foo
+    argparse l/long s/short -- $argv
+    or return
+end`;
+
+      const tree = parser.parse(input);
+      const rootNode = tree.rootNode;
+      for (const node of getChildNodes(rootNode)) {
+        if (isArgparseWithoutEndStdin(node)) {
+          console.log(node.text);
+        }
+      }
+      expect(true).toBe(true);
+    });
+  });
 });
+// expect(definitions.map(d => d.text)).toEqual([
+//   'foo',
+//   'variable_1',
+//   'variable_2'
+// ]);
+
+/**
+ * TODO:
+ *      write argparse handler
+ */
+// it('NODE_TEST: argparse', () => {
+//
+//
+//
+// })

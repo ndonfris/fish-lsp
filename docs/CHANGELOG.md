@@ -6,6 +6,33 @@ Documenting notable changes across project revisions
 
 ## Current
 
+## \[1.0.8-4.beta\] - 2025-01-20 ([PR #64](https://github.com/ndonfris/fish-lsp/pull/64))
+
+- added code actions
+
+  - added comment string to disable diagnostics
+  - added create completions file diagnostic for function with argparse
+  - added convert alias to function code action
+  - added convert alias to function code action in new function file
+  - added convert if statement to combiner code action
+  - added refactor code actions for functions/variables
+  - added action to delete unused functions
+  - added argparse end stdin code action
+
+- added diagnostics
+
+  - warning, autoloaded function does not have a function definition `4001`
+  - warning, autoloaded function name does not match file name `4002`
+  - error, function uses keyword as name `4003`
+  - warning, unused function `4004`
+
+- added diagnostic comment string
+- added `$` completion trigger
+- fixed `README.md` docs
+- added local `CompletionItem` symbol support
+- added vscode to `README.md` client installation instructions
+- updated documentation for `fish-lsp` features (in output: `fish-lsp info`, `fish-lsp env`)
+
 ## \[1.0.8-3\] - 2024-07-24 ([PR #62](https://github.com/ndonfris/fish-lsp/pull/62) & [PR #63](https://github.com/ndonfris/fish-lsp/pull/63/files))
 
 - __updated__ docs to reflect changes in `1.0.8-2`

@@ -4,7 +4,7 @@ import { findFirstSibling, getChildNodes } from '../src/utils/tree-sitter';
 import * as NodeTypes from '../src/utils/node-types';
 // import { assert } from 'chai';
 
-function parseStringForNodeType(str: string, predicate: (n:SyntaxNode) => boolean) {
+function parseStringForNodeType(str: string, predicate: (n: SyntaxNode) => boolean) {
   const tree = parser.parse(str);
   const root = tree.rootNode;
   return getChildNodes(root).filter(predicate);

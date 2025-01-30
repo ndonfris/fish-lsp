@@ -30,6 +30,11 @@ export async function getDocumentationResolver(item: FishCompletionItem): Promis
       case FishCompletionItemKind.EVENT:
         docString = await getEventHandlerDocString(item.documentation as string) ?? docString;
         break;
+      case FishCompletionItemKind.COMMENT:
+      case FishCompletionItemKind.SHEBANG:
+      case FishCompletionItemKind.DIAGNOSTIC:
+        docString = item.documentation.toString();
+        break;
       case FishCompletionItemKind.STATUS:
       case FishCompletionItemKind.WILDCARD:
       case FishCompletionItemKind.REGEX:
@@ -45,6 +50,12 @@ export async function getDocumentationResolver(item: FishCompletionItem): Promis
       default:
         break;
     }
+  }
+  if (item.local) {
+    return {
+      kind: 'markdown',
+      value: item.documentation.toString(),
+    } as MarkupContent;
   }
   return {
     kind: 'markdown',

@@ -15,9 +15,22 @@ export namespace ErrorCodes {
   export const missingQuietOption = 3002;
   export const expansionInDefinition = 3003;
 
-  type codeTypes = 1001 | 1002 | 1003 | 1004 | 2001 | 2002 | 2003 | 3001 | 3002 | 3003;
+  export const autoloadedFunctionMissingDefinition = 4001;
+  export const autoloadedFunctionFilenameMismatch = 4002;
+  export const functionNameUsingReservedKeyword = 4003;
+  export const unusedLocalFunction = 4004;
+  // export const preferAutloadedFunctionHasDescription = 4005;
 
-  type CodeValueType = {
+  export const argparseMissingEndStdin = 5001;
+
+  export type codeTypes =
+    1001 | 1002 | 1003 | 1004 |
+    2001 | 2002 | 2003 |
+    3001 | 3002 | 3003 |
+    4001 | 4002 | 4003 | 4004 |
+    5001;
+
+  export type CodeValueType = {
     severity: DiagnosticSeverity;
     code: codeTypes;
     codeDescription: CodeDescription;
@@ -25,7 +38,11 @@ export namespace ErrorCodes {
     message: string;
   };
 
-  export const codes: {[k in codeTypes]: CodeValueType} = {
+  export type DiagnosticCode = {
+    [k in codeTypes]: CodeValueType;
+  };
+
+  export const codes: { [k in codeTypes]: CodeValueType } = {
     [missingEnd]: {
       severity: DiagnosticSeverity.Error,
       code: missingEnd,
@@ -96,5 +113,64 @@ export namespace ErrorCodes {
       source: 'fish-lsp',
       message: 'Variable definition should not include expansion character',
     },
+    [autoloadedFunctionMissingDefinition]: {
+      severity: DiagnosticSeverity.Warning,
+      code: autoloadedFunctionMissingDefinition,
+      codeDescription: { href: 'https://fishshell.com/docs/current/cmds/functions.html' },
+      source: 'fish-lsp',
+      message: 'Autoloaded function missing definition',
+    },
+    [autoloadedFunctionFilenameMismatch]: {
+      severity: DiagnosticSeverity.Error,
+      code: autoloadedFunctionFilenameMismatch,
+      codeDescription: { href: 'https://fishshell.com/docs/current/cmds/functions.html' },
+      source: 'fish-lsp',
+      message: 'Autoloaded filename does not match function name',
+    },
+    [functionNameUsingReservedKeyword]: {
+      severity: DiagnosticSeverity.Error,
+      code: functionNameUsingReservedKeyword,
+      codeDescription: { href: 'https://fishshell.com/docs/current/cmds/functions.html' },
+      source: 'fish-lsp',
+      message: 'Function name uses reserved keyword',
+    },
+    [unusedLocalFunction]: {
+      severity: DiagnosticSeverity.Warning,
+      code: unusedLocalFunction,
+      codeDescription: { href: 'https://fishshell.com/docs/current/cmds/functions.html' },
+      source: 'fish-lsp',
+      message: 'Unused local function',
+    },
+    [argparseMissingEndStdin]: {
+      severity: DiagnosticSeverity.Error,
+      code: argparseMissingEndStdin,
+      codeDescription: { href: 'https://fishshell.com/docs/current/cmds/argparse.html' },
+      source: 'fish-lsp',
+      message: 'argparse missing end of stdin',
+    },
   };
+
+  /** All error codes */
+  export const allErrorCodes = Object.values(codes).map((diagnostic) => diagnostic.code) as codeTypes[];
+
+  export function getSeverityString(severity: DiagnosticSeverity | undefined): string {
+    if (!severity) return '';
+    switch (severity) {
+      case DiagnosticSeverity.Error:
+        return 'Error';
+      case DiagnosticSeverity.Warning:
+        return 'Warning';
+      case DiagnosticSeverity.Information:
+        return 'Information';
+      case DiagnosticSeverity.Hint:
+        return 'Hint';
+      default:
+        return '';
+    }
+  }
+
+  export function getDiagnostic(code: codeTypes | number): CodeValueType {
+    if (typeof code === 'number') return codes[code as codeTypes];
+    return codes[code];
+  }
 }

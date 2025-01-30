@@ -51,8 +51,9 @@ A detailed explanation of how a language server connection works is described in
 | __Document Formatting__ | Formats a document, _full_ & _selection_ | ✅ |
 | __Document Highlight__ / __Semantic Token__ | Highlights all references to a command, variable, or function.  | ✅  |
 | __Command Execution__ | Executes a server command from the client | ✅ |
-| __Code Action__ | Shows all available code actions | ✖  |
-| __Code Lens__ | Shows all available code lenses | ✖  |
+| __Code Action__ | Shows all available code actions | ✅  |
+| __Inlay Hint__ | Shows Virtual Text/Inlay Hints | ✅  |
+| __Code Lens__ | Shows all available code lenses | ✖ |
 | __Logger__ | Logs all server activity | ✅ |
 | __Diagnostic__ | Shows all diagnostics | ✅ |
 | __Folding Range__ | Toggle ranges to fold text  | ✅ |
@@ -79,6 +80,8 @@ yarn global add fish-lsp
 pnpm install -g fish-lsp
 
 nix-shell -p fish-lsp
+
+brew install fish-lsp
 ```
 
 If you installed the language server using a __node__ based package manager (__i.e. npm/yarn/pnpm__), you can install the completions by running the following command:
@@ -216,6 +219,7 @@ Theoretically, the language-server should generally be compatible with almost an
   [language-server.fish-lsp]
   command = "fish-lsp"
   args= ["start"]
+  environment = { "fish_lsp_show_client_popups" = "false" }
   ```
 
 </details>
@@ -293,6 +297,17 @@ Theoretically, the language-server should generally be compatible with almost an
 
 </details>
 
+<details>
+  <summary><b>vscode</b></summary>
+
+  > To download the extension, visit the [fish-lsp extension on the VSCode Marketplace](https://marketplace.visualstudio.com/items?itemName=ndonfris.fish-lsp).
+  >
+  > VSCode configuration does not require a client configuration. The server will automatically start when a `.fish` file is opened.
+  >
+  > A server configuration can still be specified to control the server's behavior. ([see below](#server-configuration-optional))
+
+</details>
+
 ### Server Configuration <ins><i>(Optional)</i></ins>
 
 Specific functionality for the server can be set independently from the client. The server allows for both [environment variables](#environment-variables) and [command flags](#command-flags) to customize how specific server processes are started.
@@ -303,11 +318,11 @@ Specific functionality for the server can be set independently from the client. 
 
 ```fish
 # fish_lsp_enabled_handlers <ARRAY>
-# enables the fish-lsp handlers (options: 'formatting', 'complete', 'hover', 'rename', 'definition', 'references', 'diagnostics', 'signatureHelp', 'codeAction', 'index')
+# enables the fish-lsp handlers (options: 'popups', 'formatting', 'complete', 'hover', 'rename', 'definition', 'references', 'diagnostics', 'signatureHelp', 'codeAction', 'inlayHint')
 set -gx fish_lsp_enabled_handlers
 
 # fish_lsp_disabled_handlers <ARRAY>
-# disables the fish-lsp handlers (options: 'formatting', 'complete', 'hover', 'rename', 'definition', 'references', 'diagnostics', 'signatureHelp', 'codeAction', 'index')
+# disables the fish-lsp handlers (options: 'popups', 'formatting', 'complete', 'hover', 'rename', 'definition', 'references', 'diagnostics', 'signatureHelp', 'codeAction', 'inlayHint')
 set -gx fish_lsp_disabled_handlers
 
 # fish_lsp_commit_characters <ARRAY>
@@ -330,7 +345,7 @@ set -gx fish_lsp_modifiable_paths
 
 # fish_lsp_diagnostic_disable_error_codes <ARRAY>
 # disable diagnostics for matching error codes (default: [])
-# (options: 1001, 1002, 1003, 1004, 2001, 2002, 2003, 3001, 3002, 3003)
+# (options: 1001, 1002, 1003, 1004, 2001, 2002, 2003, 3001, 3002, 3003, 4001, 4002, 4003, 4004, 5001)
 set -gx fish_lsp_diagnostic_disable_error_codes
 
 # fish_lsp_max_background_files <NUMBER>
@@ -344,6 +359,23 @@ set -gx fish_lsp_show_client_popups
 ```
 
 If you're interested in disabling specific diagnostic messages, the [wiki](https://github.com/ndonfris/fish-lsp/wiki) includes a table of [error codes](https://github.com/ndonfris/fish-lsp/wiki/Diagnostic-Error-Codes) that should be helpful. Diagnostics are a newer feature so [PRs](https://github.com/ndonfris/fish-lsp/blob/master/docs/CONTRIBUTING.md#getting-started-rocket) are welcome to improve their support.
+
+Alternatively, you can now __use comments__ to disable diagnostics.
+
+```fish
+# @fish-lsp-disable-next-line 
+alias ls='ls -G' # all diagnostics have been disabled for this line
+
+# @fish-lsp-disable 2001
+alias ll='ls -l' # only the diagnostic 2001 has been disabled for this line
+
+# @fish-lsp-enable
+## all diagnostics are re-enabled till the next @fish-lsp-disable for this file
+
+# @fish-lsp-disable 2001 2002
+## now both diagnostics 2001 and 2002 have been disabled for the rest of this file
+alias la='ls -la'
+```
 
 #### Command Flags
 
