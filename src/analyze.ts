@@ -264,7 +264,7 @@ export class Analyzer {
     //const line = linePreTrim.slice(0,linePreTrim.lastIndexOf('\n'));
     const line = document
       .getLineBeforeCursor(position)
-      .replace(/^(.*)\n$/, '$1');
+      .replace(/^(.*)\n$/, '$1') || '';
     const word =
       this.wordAtPoint(
         document.uri,

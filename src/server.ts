@@ -231,7 +231,9 @@ export default class FishServer {
       logger.logAsJson('onComplete got [NOT FOUND]: ' + uri);
       return this.completion.empty();
     }
-    const { line, word, lineRootNode, lineLastNode } = this.analyzer.parseCurrentLine(doc, params.position);
+    const symbols = this.analyzer.cache.getFlatDocumentSymbols(doc.uri);
+    const { line, word } = this.analyzer.parseCurrentLine(doc, params.position);
+    if (!line) return await this.completion.completeEmpty(symbols);
 
     const fishCompletionData = {
       uri: doc.uri,
@@ -242,12 +244,11 @@ export default class FishServer {
       },
     } as SetupData;
 
-    if (line.trim().startsWith('#')) {
+    if (line.trim().startsWith('#') && current) {
       logger.log('completeComment');
-      return buildCommentCompletions(line, params.position, current || lineLastNode || lineRootNode, fishCompletionData, word);
+      return buildCommentCompletions(line, params.position, current, fishCompletionData, word);
     }
 
-    const symbols = this.analyzer.cache.getFlatDocumentSymbols(doc.uri);
     if (word.trim().endsWith('$') || line.trim().endsWith('$') || word.trim() === '$') {
       logger.log('completeVariables');
       return this.completion.completeVariables(line, word, fishCompletionData, symbols);
@@ -255,7 +256,7 @@ export default class FishServer {
 
     try {
       logger.log('complete');
-      logger.log({ uri: uri, symbols: symbols.map(s => s.name) });
+      // logger.log({ uri: uri, symbols: symbols.map(s => s.name) });
       list = await this.completion.complete(line, fishCompletionData, symbols);
     } catch (error) {
       this.logger.logAsJson('ERROR: onComplete ' + error?.toString() || 'error');
