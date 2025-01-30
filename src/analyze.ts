@@ -111,8 +111,9 @@ export class Analyzer {
     const symbols = FishDocumentSymbol.flattenArray(
       this.cache.getDocumentSymbols(document.uri),
     );
+    const wordAtPoint = this.wordAtPoint(document.uri, position.line, position.character);
     return symbols.find((symbol) => {
-      if (symbol.kind === SymbolKind.Function) {
+      if (symbol.kind === SymbolKind.Function && wordAtPoint === symbol.name) {
         return symbol.scope.containsPosition(position);
       }
       return isPositionWithinRange(position, symbol.selectionRange);
