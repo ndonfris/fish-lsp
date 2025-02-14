@@ -314,3 +314,4 @@ export function formatTextWithIndents(doc: LspDocument, line: number, text: stri
     .map(line => indent + line)
     .join('\n');
 }
+
