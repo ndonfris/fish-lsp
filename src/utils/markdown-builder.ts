@@ -11,15 +11,15 @@ export namespace md {
   }
 
   export function italic(value: string) {
-    return `\*${value}*`;
+    return `\*${value}\*`;
   }
 
   export function bold(value: string) {
-    return `\**${value}**`;
+    return `\*\*${value}\*\*`;
   }
 
   export function boldItalic(value: string) {
-    return `\***${value}***`;
+    return `\*\*\*${value}\*\*\*`;
   }
 
   export function separator() {

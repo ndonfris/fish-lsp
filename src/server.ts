@@ -29,6 +29,8 @@ import { buildCommentCompletions } from './utils/completion/comment-completions'
 import { createCodeActionHandler } from './code-actions/code-action-handler';
 import { createExecuteCommandHandler } from './command';
 import { getStatusInlayHints } from './code-lens';
+import { autoloadedFishVariableNames, setupProcessEnvExecFile } from './utils/process-env';
+import { md } from './utils/markdown-builder';
 
 // @TODO
 export type SupportedFeatures = {
@@ -38,24 +40,28 @@ export type SupportedFeatures = {
 export default class FishServer {
   public static async create(
     connection: Connection,
-    _params: InitializeParams,
+    params: InitializeParams,
   ): Promise<FishServer> {
     const documents = new LspDocuments();
+    const initUri = params.rootUri || params.rootPath || params.workspaceFolders?.at(0)?.uri;
+    logger.log({ initUri });
 
     // Run these operations in parallel rather than sequentially
     const [
       parser,
       cache,
-      workspaces,
+      _workspaces,
       completionsMap,
+      _setupProcessEnvExecFile,
     ] = await Promise.all([
       initializeParser(),
       initializeDocumentationCache(),
-      initializeDefaultFishWorkspaces(),
+      initializeDefaultFishWorkspaces(initUri || ''),
       CompletionItemMap.initialize(),
+      setupProcessEnvExecFile(),
     ]);
 
-    const analyzer = new Analyzer(parser, workspaces);
+    const analyzer = new Analyzer(parser);
     const completions = await initializeCompletionPager(logger, completionsMap);
 
     return new FishServer(
@@ -89,6 +95,7 @@ export default class FishServer {
 
   async initialize(params: InitializeParams): Promise<InitializeResult> {
     logger.logAsJson('async server.initialize(params)');
+    // logger.log({workspaceFolder: __dirname, rootPath: params.rootPath, workspaceFolders: params.workspaceFolders});
     if (params) {
       logger.log();
       logger.log({ 'server.initialize.params': params });
@@ -96,6 +103,7 @@ export default class FishServer {
     }
     const result = adjustInitializeResultCapabilitiesFromConfig(configHandlers, config);
     logger.log({ onInitializedResult: result });
+    // check for conf.d, functions, completions at the end of params.workspaceFolders[0].uri
     return result;
   }
 
@@ -373,7 +381,20 @@ export default class FishServer {
       ...PrebuiltDocumentationMap.getByType('status'),
     ].find(obj => obj.name === current.text);
 
-    // const prebuiltDoc = PrebuiltDocumentationMap.getByName(current.text);
+    const autoloadedName = autoloadedFishVariableNames.find(name => name === current.text);
+    if (autoloadedName) {
+      const value = process.env[autoloadedName]!;
+      return {
+        contents: enrichToMarkdown([
+          `(${md.italic('variable')}) ${md.bold(autoloadedName)}`,
+          md.separator(),
+          'autoloaded fish variable',
+          md.separator(),
+          `${value}`,
+        ].join('\n')),
+      };
+    }
+
     const symbolItem = this.analyzer.getHover(doc, params.position);
     if (symbolItem) return symbolItem;
     if (prebuiltSkipType) {
