@@ -1,9 +1,11 @@
 import { promises as fs } from 'fs';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { Position, Range, TextDocumentItem, TextDocumentContentChangeEvent } from 'vscode-languageserver';
+import * as path from 'path';
 import { URI } from 'vscode-uri';
 import { homedir } from 'os';
 import { AutoloadType, uriToPath } from './utils/translation';
+import { Workspace, workspaces } from './utils/workspace';
 
 export class LspDocument implements TextDocument {
   protected document: TextDocument;
@@ -143,6 +145,27 @@ export class LspDocument implements TextDocument {
     return parentDir && ['functions', 'conf.d'].includes(parentDir?.toString()) || fileName === 'config.fish';
   }
 
+  public getWorkspace(): Workspace | undefined {
+    return workspaces.find(workspace => workspace.contains(this.uri));
+  }
+
+  private getFolderType(): AutoloadType | null {
+    if (!this.getWorkspace()) return null;
+
+    const docPath = uriToPath(this.uri);
+    if (!docPath) return null;
+
+    const dirName = path.basename(path.dirname(docPath));
+    const fileName = path.basename(docPath);
+
+    if (dirName === 'functions') return 'functions';
+    if (dirName === 'conf.d') return 'conf.d';
+    if (dirName === 'completions') return 'completions';
+    if (fileName === 'config.fish') return 'config';
+
+    return '';
+  }
+
   /**
    * checks if the document is in a location where the functions
    * that it defines are autoloaded by fish.
@@ -152,15 +175,9 @@ export class LspDocument implements TextDocument {
    * files.
    */
   isAutoloaded(): boolean {
-    const path = uriToPath(this.uri);
-    if (path?.includes('fish/functions')) {
-      return true;
-    } else if (path?.includes('fish/conf.d')) {
-      return true;
-    } else if (path?.includes('fish/config.fish')) {
-      return true;
-    }
-    return false;
+    const folderType = this.getFolderType();
+    if (!folderType) return false;
+    return ['functions', 'conf.d', 'config'].includes(folderType);
   }
 
   /**
@@ -173,34 +190,16 @@ export class LspDocument implements TextDocument {
    *  completion files.
    */
   isAutoloadedUri(): boolean {
-    const path = uriToPath(this.uri);
-    if (path?.includes('fish/functions')) {
-      return true;
-    } else if (path?.includes('fish/conf.d')) {
-      return true;
-    } else if (path?.includes('fish/config.fish')) {
-      return true;
-    } else if (path?.includes('fish/completions')) {
-      return true;
-    }
-    return false;
+    const folderType = this.getFolderType();
+    if (!folderType) return false;
+    return ['functions', 'conf.d', 'config', 'completions'].includes(folderType);
   }
 
   /**
    * helper that gets the document URI if it is fish/functions directory
    */
   getAutoloadType(): AutoloadType {
-    const path = uriToPath(this.uri);
-    if (path?.includes('fish/functions')) {
-      return 'functions';
-    } else if (path?.includes('fish/conf.d')) {
-      return 'conf.d';
-    } else if (path?.includes('fish/config.fish')) {
-      return 'config';
-    } else if (path?.includes('fish/completions')) {
-      return 'completions';
-    }
-    return '';
+    return this.getFolderType() || '';
   }
 
   /**
