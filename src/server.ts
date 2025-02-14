@@ -19,7 +19,7 @@ import { FishCompletionItem } from './utils/completion/types';
 import { getDocumentationResolver } from './utils/completion/documentation';
 import { FishCompletionList } from './utils/completion/list';
 import { PrebuiltDocumentationMap, getPrebuiltDocUrl } from './utils/snippets';
-import { findParentCommand, isCommand, isVariableDefinition } from './utils/node-types';
+import { findParent, findParentCommand, isCommand, isFunctionDefinition, isProgram, isVariableDefinition } from './utils/node-types';
 import { adjustInitializeResultCapabilitiesFromConfig, configHandlers, config } from './config';
 import { enrichToMarkdown } from './documentation';
 import { getAliasedCompletionItemSignature } from './signature';
@@ -393,6 +393,30 @@ export default class FishServer {
           `${value}`,
         ].join('\n')),
       };
+    }
+
+    if (current.text === 'argv') {
+      const parentNode = findParent(current, (n) => isProgram(n) || isFunctionDefinition(n)) as SyntaxNode;
+      if (isFunctionDefinition(parentNode)) {
+        const functionName = parentNode.firstNamedChild!;
+        return {
+          contents: enrichToMarkdown([
+            `(${md.italic('variable')}) ${md.bold('$argv')}`,
+            `argument of function ${md.bold(functionName.text)}`,
+            md.separator(),
+            md.codeBlock('fish', parentNode.text),
+          ].join('\n')),
+        };
+      } else if (isProgram(parentNode)) {
+        return {
+          contents: enrichToMarkdown([
+            `(${md.italic('variable')}) ${md.bold('$argv')}`,
+            `arguments of script ${md.bold(uri)}`,
+            md.separator(),
+            md.codeBlock('fish', parentNode.text),
+          ].join('\n')),
+        };
+      }
     }
 
     const symbolItem = this.analyzer.getHover(doc, params.position);
