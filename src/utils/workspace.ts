@@ -5,6 +5,9 @@ import { LspDocument } from '../document';
 import { FishDocumentSymbol } from '../document-symbol';
 import { config } from '../config';
 import { logger } from '../logger';
+import { basename, dirname, join } from 'path';
+import { autoloadedFishVariableNames } from './process-env';
+import * as LSP from 'vscode-languageserver';
 
 async function getFileUriSet(path: string) {
   const stream = fastGlob.stream('**/*.fish', { cwd: path, absolute: true });
@@ -17,14 +20,33 @@ async function getFileUriSet(path: string) {
   return result;
 }
 
-export async function initializeDefaultFishWorkspaces(): Promise<Workspace[]> {
-  const configWorkspaces = config.fish_lsp_all_indexed_paths;
+/**
+ * global array of workspaces used for analyzing and grouping symbols
+ * ___
+ * You can add workspaces to this array by directly pushing into it.
+ * ___
+ * ```typescript
+ * const newWorkspace = await Workspace.create('name', 'uri', 'path');
+ * workspaces.push(newWorkspace);
+ * ```
+ * ___
+ * `initializeDefaultFishWorkspaces()` will store all new workspaces into this array
+ */
+export const workspaces: Workspace[] = [];
+
+export async function initializeDefaultFishWorkspaces(...uris: string[]): Promise<Workspace[]> {
+  const configWorkspaces = FishUriWorkspace.initializeEnvWorkspaces();
   // Create an array of promises by mapping over workspacePaths
-  const workspacePromises = configWorkspaces.map(path => Workspace.create(path));
+  const workspacePromises = [
+    ...configWorkspaces.map(({ name, uri, path }) => Workspace.create(name, uri, path)),
+    ...uris.filter(u => u.trim() !== '').map(u => Workspace.createFromUri(u)),
+  ];
 
   // Wait for all promises to resolve
   const defaultSpaces = await Promise.all(workspacePromises);
-  return defaultSpaces;
+  const results = defaultSpaces.filter((ws): ws is Workspace => ws !== null);
+  workspaces.push(...results);
+  return results;
 }
 
 export async function getRelevantDocs(workspaces: Workspace[]): Promise<LspDocument[]> {
@@ -36,7 +58,9 @@ export async function getRelevantDocs(workspaces: Workspace[]): Promise<LspDocum
   return docs;
 }
 
-export interface FishWorkspace {
+export interface FishWorkspace extends LSP.WorkspaceFolder {
+  name: string;
+  uri: string;
   path: string;
   uris: Set<string>;
   contains(...checkUris: string[]): boolean;
@@ -46,16 +70,27 @@ export interface FishWorkspace {
 }
 
 export class Workspace implements FishWorkspace {
+  public name: string;
+  public uri: string;
   public path: string;
   public uris: Set<string>;
   public symbols: Map<string, FishDocumentSymbol[]> = new Map();
 
-  public static async create(path: string) {
+  public static async create(name: string, uri: string, path: string) {
     const foundUris = await getFileUriSet(path);
-    return new Workspace(path, foundUris);
+    return new Workspace(name, uri, path, foundUris);
   }
 
-  public constructor(path: string, fileUris: Set<string>) {
+  public static async createFromUri(uri: string) {
+    const workspace = FishUriWorkspace.create(uri);
+    if (!workspace) return null;
+    const foundUris = await getFileUriSet(workspace.path);
+    return new Workspace(workspace.name, workspace.uri, workspace.path, foundUris);
+  }
+
+  public constructor(name: string, uri: string, path: string, fileUris: Set<string>) {
+    this.name = name;
+    this.uri = uri;
     this.path = path;
     this.uris = fileUris;
   }
@@ -177,5 +212,127 @@ export class Workspace implements FishWorkspace {
       }
     }
     return result;
+  }
+}
+
+export interface FishUriWorkspace {
+  name: string;
+  uri: string;
+  path: string;
+}
+
+export namespace FishUriWorkspace {
+
+  /** special location names */
+  const FISH_DIRS = ['functions', 'completions', 'conf.d'];
+  const CONFIG_FILE = 'config.fish';
+
+  /**
+   * Removes file path component from a fish file URI unless it's config.fish
+   */
+  export function trimFishFilePath(uri: string): string | undefined {
+    const path = uriToPath(uri);
+    if (!path) return undefined;
+
+    const base = basename(path);
+    if (base === CONFIG_FILE) return path;
+    return base.endsWith('.fish') ? dirname(path) : path;
+  }
+
+  /**
+   * Gets the workspace root directory from a URI
+   */
+  export function getWorkspaceRootFromUri(uri: string): string | undefined {
+    const path = uriToPath(uri);
+    if (!path) return undefined;
+
+    let current = path;
+    const base = basename(current);
+
+    // If path is a fish directory or config.fish, return parent
+    if (FISH_DIRS.includes(base) || base === CONFIG_FILE) {
+      return dirname(current);
+    }
+
+    // Walk up looking for fish workspace indicators
+    while (current !== dirname(current)) {
+      // Check for fish dirs in current directory
+      for (const dir of FISH_DIRS) {
+        if (basename(current) === dir) {
+          return dirname(current);
+        }
+      }
+
+      // Check for config.fish or fish dirs as children
+      if (FISH_DIRS.some(dir => isFishWorkspacePath(join(current, dir))) ||
+        isFishWorkspacePath(join(current, CONFIG_FILE))) {
+        return current;
+      }
+
+      current = dirname(current);
+    }
+
+    // Check if we're in a configured path
+    return config.fish_lsp_all_indexed_paths.find(p => path.startsWith(p));
+  }
+
+  /**
+   * Gets a human-readable name for the workspace root
+   */
+  export function getWorkspaceName(uri: string): string {
+    const root = getWorkspaceRootFromUri(uri);
+    if (!root) return '';
+
+    // Special cases for system directories
+    if (root.endsWith('/.config/fish')) return '__fish_config_dir';
+    const specialName = autoloadedFishVariableNames.find(loadedName => process.env[loadedName] === root);
+    if (specialName) return specialName;
+    // if (root === '/usr/share/fish') return '__fish_data_dir';
+
+    // For other paths, return the workspace root's basename
+    return basename(root);
+  }
+
+  /**
+   * Checks if a path indicates a fish workspace
+   */
+  export function isFishWorkspacePath(path: string): boolean {
+    return config.fish_lsp_all_indexed_paths.includes(path) ||
+      FISH_DIRS.includes(basename(path)) || basename(path) === CONFIG_FILE;
+  }
+
+  /**
+   * Determines if a URI is within a fish workspace
+   */
+  export function isInFishWorkspace(uri: string): boolean {
+    return getWorkspaceRootFromUri(uri) !== undefined;
+  }
+
+  export function initializeEnvWorkspaces(): FishUriWorkspace[] {
+    return config.fish_lsp_all_indexed_paths
+      .map(path => create(path))
+      .filter((ws): ws is FishUriWorkspace => ws !== null);
+  }
+
+  /**
+   * Creates a FishUriWorkspace from a URI
+   * @returns null if the URI is not in a fish workspace, otherwise the workspace
+   */
+  export function create(uri: string): FishUriWorkspace | null {
+    if (!isInFishWorkspace(uri)) return null;
+
+    const trimmedUri = trimFishFilePath(uri);
+    if (!trimmedUri) return null;
+
+    const rootPath = getWorkspaceRootFromUri(trimmedUri);
+    const workspaceName = getWorkspaceName(trimmedUri);
+
+    if (!rootPath || !workspaceName) return null;
+
+    return {
+      name: workspaceName,
+      uri: pathToUri(rootPath),
+      path: rootPath,
+    };
   }
 }

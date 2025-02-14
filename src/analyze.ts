@@ -7,7 +7,7 @@ import { isCommand, isCommandName } from './utils/node-types';
 import { pathToUri } from './utils/translation';
 import { existsSync } from 'fs';
 import homedir from 'os';
-import { Workspace } from './utils/workspace';
+import { workspaces } from './utils/workspace';
 import { filterGlobalSymbols, FishDocumentSymbol, getFishDocumentSymbols } from './document-symbol';
 import { GenericTree } from './utils/generic-tree';
 import { findDefinitionSymbols } from './workspace-symbol';
@@ -16,15 +16,13 @@ import { logger } from './logger';
 
 export class Analyzer {
   protected parser: Parser;
-  public workspaces: Workspace[];
   public cache: AnalyzedDocumentCache = new AnalyzedDocumentCache();
   public globalSymbols: GlobalDefinitionCache = new GlobalDefinitionCache();
 
   public amountIndexed: number = 0;
 
-  constructor(parser: Parser, workspaces: Workspace[] = []) {
+  constructor(parser: Parser) {
     this.parser = parser;
-    this.workspaces = workspaces;
   }
 
   public analyze(document: LspDocument): FishDocumentSymbol[] {
@@ -69,7 +67,7 @@ export class Analyzer {
 
     const analysisPromises: Promise<void>[] = [];
 
-    for (const workspace of this.workspaces) {
+    for (const workspace of workspaces) {
       const docs = workspace
         .urisToLspDocuments()
         .filter((doc: LspDocument) => doc.shouldAnalyzeInBackground())
