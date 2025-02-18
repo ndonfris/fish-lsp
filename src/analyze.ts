@@ -4,7 +4,7 @@ import * as LSP from 'vscode-languageserver';
 import { isPositionWithinRange, getChildNodes } from './utils/tree-sitter';
 import { LspDocument } from './document';
 import { isCommand, isCommandName } from './utils/node-types';
-import { pathToUri } from './utils/translation';
+import { pathToUri, symbolKindToString } from './utils/translation';
 import { existsSync } from 'fs';
 import homedir from 'os';
 import { workspaces } from './utils/workspace';
@@ -166,6 +166,13 @@ export class Analyzer {
       this.getDefinition(document, position) as FishDocumentSymbol ||
       this.globalSymbols.findFirst(node.text);
     if (symbol) {
+      logger.log(`analyzer.getHover: ${symbol.name}`, {
+        name: symbol.name,
+        uri: symbol.uri,
+        detail: symbol.detail,
+        text: symbol.text,
+        kind: symbolKindToString(symbol.kind),
+      });
       return {
         contents: {
           kind: MarkupKind.Markdown,

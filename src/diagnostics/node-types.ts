@@ -99,6 +99,7 @@ export function isTestCommandVariableExpansionWithoutString(node: SyntaxNode): b
 }
 
 /**
+ * TODO: fix this
  * util for collecting if conditional_statement commands
  * Necessary because there is two types of conditional statements:
  *    1.) if cmd_1 || cmd_2; ...; end;
@@ -107,7 +108,7 @@ export function isTestCommandVariableExpansionWithoutString(node: SyntaxNode): b
  * @param node - the current node to check (should be a command)
  * @returns true if the node is a conditional statement, otherwise false
  */
-function isConditionalStatement(node: SyntaxNode) {
+export function isConditionalStatement(node: SyntaxNode) {
   if (['\n', ';'].includes(node?.previousSibling?.type || '')) return false;
   let curr: SyntaxNode | null = node.parent;
   while (curr) {
@@ -138,15 +139,39 @@ function hasCommandSubstitution(node: SyntaxNode) {
   return node.childrenForFieldName('argument').filter(c => c.type === 'command_substitution').length > 0;
 }
 
+// export function isSetInFirstCommandOfConditionalChain(node: SyntaxNode) {
+//   const parent = node.parent;
+//   if (parent && isConditionalStatement(parent)) return true;
+//
+//   let rootConditional: SyntaxNode | null = node.parent;
+//   while (rootConditional && isConditionalStatement(rootConditional)) {
+//     rootConditional = rootConditional.parent;
+//   }
+//
+//   if (!rootConditional) return false;
+//   if (!isConditionalStatement(rootConditional)) return false;
+//   if (rootConditional?.parent && !isIfOrElseIfConditional(rootConditional?.parent)) {
+//     return false;
+//   }
+//
+//   const firstCommand = rootConditional.firstChild;
+//   if (!firstCommand) return false;
+//   if (firstCommand.equals(node) && isCommandWithName(node, 'set')) return true;
+//   return false;
+//
+// }
+
 /**
  * Check if -q,--quiet/--query flags are present for commands which follow an `if/else if` conditional statement
  * @param node - the current node to check (should be a command)
  * @returns true if the command is a conditional statement without -q,--quiet/--query flags, otherwise false
  */
 export function isConditionalWithoutQuietCommand(node: SyntaxNode) {
+  // if (!isCommand(node)) return false;
   if (!isCommandWithName(node, 'command', 'type', 'read', 'set', 'string', 'abbr', 'builtin', 'functions', 'jobs')) return false;
   if (!isConditionalStatement(node)) return false;
 
+  // if (node.parent && !isIfOrElseIfConditional(node.parent)) return false; // only kinda works, parents might be `conditional_execution`
   // skip `set` commands with command substitution
   if (isCommandWithName(node, 'set') && hasCommandSubstitution(node)) {
     return false;
