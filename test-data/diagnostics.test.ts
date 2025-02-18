@@ -6,9 +6,9 @@ import { findChildNodes, getChildNodes, getNodeAtRange } from '../src/utils/tree
 import { Diagnostic, DiagnosticSeverity, TextDocumentItem } from 'vscode-languageserver';
 import { initializeParser } from '../src/parser';
 import { ErrorCodes } from '../src/diagnostics/errorCodes';
-import { isCommand, isComment, isDefinition, isMatchingOption, isVariableDefinitionName } from '../src/utils/node-types';
+import { isCommand, isComment, isDefinition, isIfOrElseIfConditional, isMatchingOption, isVariableDefinitionName } from '../src/utils/node-types';
 // import { ScopeStack, isReference } from '../src/diagnostics/scope';
-import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter, isArgparseWithoutEndStdin, isConditionalStatement, isSetInFirstCommandOfConditionalChain } from '../src/diagnostics/node-types';
+import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter, isArgparseWithoutEndStdin, isConditionalStatement, isFirstNodeInConditionalExecution } from '../src/diagnostics/node-types';
 import { LspDocument } from '../src/document';
 import { createFakeLspDocument, setLogger } from './helpers';
 import { getDiagnostics } from '../src/diagnostics/validate';
@@ -706,7 +706,10 @@ set uvar
 and set uvar 'new_value'
 `,
         expected: [
-          'var_with_default_value',
+          'set var_with_default_value',
+          'set var_with_default_value \'new_value\'',
+          'set ovar',
+          'set uvar',
         ],
       },
       {
@@ -759,29 +762,19 @@ end
     testcases.forEach(({ title, input, expected, shouldRun }) => {
       if (shouldRun) {
         it.only(title, () => {
-          console.log(title);
+          // console.log(title);
+          // console.log('-'.repeat(70));
           const { rootNode } = parser.parse(input);
-
-          console.log(rootNode.text);
+          // console.log(rootNode.text);
+          // console.log('-'.repeat(70));
+          const result: SyntaxNode[] = [];
           for (const child of getChildNodes(rootNode)) {
             if (isConditionalWithoutQuietCommand(child)) {
-              console.log({
-                type: 'isConditionalWithoutQuietCommand(child)',
-                text: child.text,
-                nodeType: child.type,
-                isSetInFirstCommandOfConditionalChain: isSetInFirstCommandOfConditionalChain(child), // this function could use a rewrite
-                isConditional: isConditionalWithoutQuietCommand(child.parent!),
-                isConditionalStatement: isConditionalStatement(child), // fix this specifically !!!!!
-              });
+              // console.log('conditional', {text: child.text});
+              result.push(child);
             }
-            // if (isCommandWithName(child, 'set')) {
-            //   console.log({
-            //     type: 'isCommandWithName(child, "set")',
-            //     text: child.text,
-            //     isConditional: isConditionalWithoutQuietCommand(child)
-            //   })
-            // }
           }
+          expect(result.map(r => r.text)).toEqual(expected);
         });
       }
     });
@@ -801,4 +794,3 @@ end
 //
 //
 //
-
