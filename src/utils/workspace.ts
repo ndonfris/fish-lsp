@@ -81,6 +81,12 @@ export class Workspace implements FishWorkspace {
     return new Workspace(name, uri, path, foundUris);
   }
 
+  public static createTestWorkspaceFromUri(uri: string) {
+    const workspace = FishUriWorkspace.create(uri);
+    if (!workspace) return null;
+    return new Workspace(workspace.name, workspace.uri, workspace.path, new Set(uri));
+  }
+
   public static async createFromUri(uri: string) {
     const workspace = FishUriWorkspace.create(uri);
     if (!workspace) return null;

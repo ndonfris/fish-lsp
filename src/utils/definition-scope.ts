@@ -1,6 +1,6 @@
 import { SyntaxNode } from 'web-tree-sitter';
 import * as NodeTypes from './node-types';
-import { isAutoloadedUriLoadsFunctionName } from './translation';
+import { isAutoloadedUriLoadsAliasName, isAutoloadedUriLoadsFunctionName } from './translation';
 import { firstAncestorMatch, getRange, isPositionWithinRange, getParentNodes } from './tree-sitter';
 import { Position } from 'vscode-languageserver';
 import { LspDocument } from '../document';
@@ -147,7 +147,18 @@ export function getVariableScope(node: SyntaxNode) {
 }
 
 export function getScope(document: LspDocument, node: SyntaxNode) {
-  if (NodeTypes.isFunctionDefinitionName(node)) {
+  if (NodeTypes.isAliasName(node)) {
+    const isAutoloadedName = isAutoloadedUriLoadsAliasName(document);
+    if (isAutoloadedName(node)) {
+      return DefinitionScope.create(node, 'global')!;
+    }
+    const parents = getParentNodes(node.parent!.parent!) || getParentNodes(node.parent!);
+    const firstParent = parents
+      .filter(n => NodeTypes.isProgram(n) || NodeTypes.isFunctionDefinition(n))
+      .at(0)!;
+
+    return DefinitionScope.create(firstParent, 'local')!;
+  } else if (NodeTypes.isFunctionDefinitionName(node)) {
     const isAutoloadedName = isAutoloadedUriLoadsFunctionName(document);
     // gets <HERE> from ~/.config/fish/functions/<HERE>.fish
     // const loadedName = pathToRelativeFunctionName(uri);

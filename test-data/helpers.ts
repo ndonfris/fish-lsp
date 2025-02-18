@@ -5,6 +5,7 @@ import Parser, { Point, SyntaxNode, Tree } from 'web-tree-sitter';
 import { TextDocumentItem } from 'vscode-languageserver';
 import { LspDocument } from '../src/document';
 import { homedir } from 'os';
+import { Workspace, workspaces } from '../src/utils/workspace';
 
 export function setLogger(
   beforeCallback: () => Promise<void> = async () => { },
@@ -58,5 +59,11 @@ export function createFakeUriPath(path: string): string {
 export function createFakeLspDocument(name: string, text: string): LspDocument {
   const uri = createFakeUriPath(name);
   const doc = TextDocumentItem.create(uri, 'fish', 0, text);
+  const workspace = workspaces.find((ws) => ws.contains(uri));
+  if (!workspace) {
+    workspaces.push(Workspace.createTestWorkspaceFromUri(uri)!);
+  } else {
+    workspace.add(uri);
+  }
   return new LspDocument(doc);
 }
