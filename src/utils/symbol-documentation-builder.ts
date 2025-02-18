@@ -5,6 +5,7 @@ import { isFunctionDefinitionName, isVariableDefinition, isProgram, isVariableDe
 //import { FishFlagOption, optionTagProvider } from './options';
 import { symbolKindToString, uriToPath } from './translation';
 import { MarkdownBuilder, md } from './markdown-builder';
+import { PrebuiltDocumentationMap } from './snippets';
 
 /**
  * Current CHANGELOG for documentation:
@@ -79,10 +80,22 @@ export class DocumentationStringBuilder {
     //const optionTags = optionTagProvider(this.inner, this.outer);
     //const tagsText = optionTags.map((tag) => tag.toString()).join("\n");
     const symbolString = symbolKindToString(this.kind);
+    const prebuiltType = symbolString === 'function' ? 'command' : 'variable';
+    const prebuiltMatch = PrebuiltDocumentationMap.getByType(prebuiltType)
+      .find(({ name }) => name === this.name);
+    const info = prebuiltMatch?.description ?
+      [
+        `defined in file: ${this.shortenedUri}`,
+        md.separator(),
+        prebuiltMatch.description,
+      ].join('\n')
+      : `defined in file: ${this.shortenedUri}`;
+
     return new MarkdownBuilder()
       .fromMarkdown(
-        [`(${md.italic(symbolString)})`, md.bold(this.name)],
-        `defined in file: ${this.shortenedUri}`,
+        [
+          `(${md.italic(symbolString)})`, md.bold(this.name)],
+        info,
         md.separator(),
         md.codeBlock('fish', this.text),
       )
