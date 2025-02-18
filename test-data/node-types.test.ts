@@ -5,6 +5,12 @@ import * as NodeTypes from '../src/utils/node-types';
 import { PrebuiltDocumentationMap } from '../src/utils/snippets';
 import { getPrebuiltVariableExpansionDocs, isPrebuiltVariableExpansion } from '../src/hover';
 import { autoloadedFishVariableNames, AutoloadedPathVariables, setupProcessEnvExecFile } from '../src/utils/process-env';
+import { FishAlias, FishAliasInfoType } from '../src/utils/alias-helpers';
+import { createFakeLspDocument } from './helpers';
+import { SymbolKind } from 'vscode-languageserver';
+import { FishDocumentSymbol } from '../src/document-symbol';
+import { getScope } from '../src/utils/definition-scope';
+import { isAutoloadedUriLoadsAliasName } from '../src/utils/translation';
 // import { assert } from 'chai';
 
 function parseTreeForRoot(str: string) {
@@ -772,41 +778,224 @@ describe('node-types tests', () => {
     });
   });
 
-  it('check for alias definition', () => {
-    const { rootNode } = parser.parse([
-      'alias gsc="git stash create"',
-      'alias g="git"',
-      'alias ls \'exa --group-directories-first --icons --color=always -1 -a\'',
-      'alias lsd \'exa --group-directories-first --icons --color=always -a\'',
-    ].join('\n'));
+  describe('alias symbols', () => {
+    it('isAliasName(node: SyntaxNode)', () => {
+      const aliasNames = parseStringForNodeType([
+        'alias gsc="git stash create"',
+        'alias g="git"',
+        'alias ls "ls -1"',
+        'alias lsd "ls -1"',
+        'alias funky="echo $PATH && ls"',
+        'alias echo-quote="echo \\"hello world\\""',
+      ].join('\n'), NodeTypes.isAliasName);
+      // console.log(aliasNames.map(n => n.text));
+      expect(aliasNames.map(n => n.text.split('=').at(0))).toEqual(['gsc', 'g', 'ls', 'lsd', 'funky', 'echo-quote']);
+    });
 
-    /**
-     * TODO check old alias code action work, to build DocumentSymbols for `alias` commands
-     * Will eventually need to add to `FishDocumentSymbol` in ../src/document-symbols.ts
-     */
-    const results: SyntaxNode[] = [];
-    for (const child of getChildNodes(rootNode)) {
-      if (NodeTypes.isCommandWithName(child, 'alias')) {
-        results.push(child);
-        console.log(child.text);
-        const value = child.firstChild!;
-        let nameStr = '';
-        let valueStr = '';
-        valueStr = child.lastChild?.text?.replace('=', '').slice(1, -1) || '';
-        if (value.text.includes('=')) {
-          nameStr = value.text.split('=')[0];
-          valueStr = value.text.split('=')[1]!.slice(1, -1);
-        } else {
-          nameStr = value.text;
+    it('check for alias definition', () => {
+      const testInfo = [
+        {
+          input: 'alias g="git"',
+          output: {
+            name: 'g',
+            value: 'git',
+            prefix: '',
+            wraps: 'git',
+            hasEquals: true,
+          },
+        },
+        {
+          input: 'alias ls "ls -1"',
+          output: {
+            name: 'ls',
+            value: 'ls -1',
+            prefix: 'command',
+            wraps: null,
+            hasEquals: false,
+          },
+        },
+        {
+          input: "alias fdf 'fd --hidden | fzf'",
+          output: {
+            name: 'fdf',
+            value: 'fd --hidden | fzf',
+            prefix: '',
+            wraps: 'fd --hidden | fzf',
+            hasEquals: false,
+          },
+        },
+        {
+          input: "alias fzf='fzf --height 40%'",
+          output: {
+            name: 'fzf',
+            value: 'fzf --height 40%',
+            prefix: 'command',
+            wraps: null,
+            hasEquals: true,
+          },
+        },
+        {
+          input: "alias grep='grep --color=auto'",
+          output: {
+            name: 'grep',
+            value: 'grep --color=auto',
+            prefix: 'command',
+            wraps: null,
+            hasEquals: true,
+          },
+        },
+        {
+          input: "alias rm='rm -i'",
+          output: {
+            name: 'rm',
+            value: 'rm -i',
+            prefix: 'command',
+            wraps: null,
+            hasEquals: true,
+          },
+        },
+      ];
+
+      const results: FishAliasInfoType[] = [];
+      testInfo.forEach(({ input, output }) => {
+        const { rootNode } = parser.parse(input);
+        for (const child of getChildNodes(rootNode)) {
+          if (NodeTypes.isCommandWithName(child, 'alias')) {
+            const info = FishAlias.getInfo(child);
+            if (!info) fail();
+            results.push(info);
+            expect(info).toEqual(output);
+          }
         }
-        console.log({
-          name: nameStr,
-          value: valueStr.trim().toString()!,
+      });
+      expect(results.length).toBe(6);
+    });
 
-        });
+    it('alias function outputs', () => {
+      const testInfo = [
+        {
+          input: 'alias gsc="git stash create"',
+          output: "function gsc --wraps='git stash create' --description 'alias gsc=git stash create'\n" +
+            '    git stash create $argv\n' +
+            'end',
+        },
+        {
+          input: 'alias g="git"',
+          output: "function g --wraps='git' --description 'alias g=git'\n    git $argv\nend",
+        },
+        {
+          input: "alias ls 'exa --group-directories-first --icons --color=always -1 -a'",
+          output: "function ls --wraps='exa --group-directories-first --icons --color=always -1 -a' --description 'alias ls exa --group-directories-first --icons --color=always -1 -a'\n" +
+            '    exa --group-directories-first --icons --color=always -1 -a $argv\n' +
+            'end',
+        },
+        {
+          input: "alias lsd 'exa --group-directories-first --icons --color=always -a'",
+          output: "function lsd --wraps='exa --group-directories-first --icons --color=always -a' --description 'alias lsd exa --group-directories-first --icons --color=always -a'\n" +
+            '    exa --group-directories-first --icons --color=always -a $argv\n' +
+            'end',
+        },
+        {
+          input: "alias exa 'exa --group-directories-first --icons --color=always -1 -a'",
+          output: "function exa --description 'alias exa exa --group-directories-first --icons --color=always -1 -a'\n" +
+            '    command exa --group-directories-first --icons --color=always -1 -a $argv\n' +
+            'end',
+        },
+        {
+          input: "alias funky='echo $PATH && ls'",
+          output: "function funky --wraps='echo $PATH && ls' --description 'alias funky=echo $PATH && ls'\n" +
+            '    echo $PATH && ls $argv\n' +
+            'end',
+        },
+        {
+          input: "alias echo-quote='echo \"hello world\"'",
+          output: "function echo-quote --wraps='echo \"hello world\"' --description 'alias echo-quote=echo \"hello world\"'\n" +
+            '    echo "hello world" $argv\n' +
+            'end',
+        },
+      ];
+
+      testInfo.forEach(({ input, output }) => {
+        const { rootNode } = parser.parse(input);
+        const aliasNode = getChildNodes(rootNode).find(child => NodeTypes.isCommandWithName(child, 'alias'))!;
+        if (!aliasNode) {
+          fail();
+        }
+        const result = FishAlias.toFunction(aliasNode);
+        // console.log(result);
+        expect(result).toEqual(output);
+      });
+    });
+
+    it('alias SymbolDefinition', () => {
+      const testInfo = [
+        {
+          filename: 'conf.d/aliases.fish',
+          input: 'alias gsc="git stash create"',
+          expected: {
+            name: 'gsc',
+            kind: SymbolKind.Function,
+            text: 'alias gsc="git stash create"',
+            selectionRange: {
+              start: { line: 0, character: 6 },
+              end: { line: 0, character: 9 },
+            },
+            scope: 'global',
+          },
+        },
+        {
+          filename: 'functions/foo.fish',
+          input: `function foo
+    alias foo_alias="echo 'foo alias'"
+end
+
+function bar
+    alias bar_alias "echo 'bar alias'"
+end
+`,
+          expected: {
+            name: 'foo_alias',
+            kind: SymbolKind.Function,
+            text: 'alias foo_alias="echo \'foo alias\'"',
+            selectionRange: {
+              start: { line: 1, character: 10 },
+              end: { line: 1, character: 19 },
+            },
+            scope: 'local',
+          },
+        },
+      ];
+
+      function resultToExpected(result: FishDocumentSymbol): any {
+        return {
+          name: result.name,
+          kind: result.kind,
+          text: result.text,
+          selectionRange: result.selectionRange,
+          scope: result.scope.scopeTag.toString(),
+        };
       }
-    }
-    expect(results.length).toBe(4);
+
+      testInfo.forEach(({ filename, input, expected }) => {
+        const doc = createFakeLspDocument(filename, input);
+        const { rootNode } = parser.parse(doc.getText());
+        const aliasNode = getChildNodes(rootNode).find(child => NodeTypes.isAliasName(child))!;
+        if (!aliasNode) {
+          fail();
+        }
+        // console.log(getScope(doc, aliasNode), doc.uri);
+        const result = FishAlias.toFishDocumentSymbol(
+          aliasNode,
+          aliasNode.parent!,
+          SymbolKind.Function,
+          doc,
+        );
+        // console.log(result);
+        if (!result) fail();
+        console.log(result.scope.scopeNode.text);
+        expect(resultToExpected(result)).toEqual(expected);
+      });
+    });
   });
 
   it('find $status hover', () => {
@@ -871,7 +1060,7 @@ end
       expect(process.env.__fish_config_dir).toBeTruthy();
     });
 
-    it.only('all autoloaded variables', () => {
+    it('all autoloaded variables', () => {
       AutoloadedPathVariables.all().forEach(path => {
         console.log(
           AutoloadedPathVariables.getHoverDocumentation(path),

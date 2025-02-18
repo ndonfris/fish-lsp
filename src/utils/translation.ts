@@ -2,7 +2,7 @@ import { DocumentSymbol, FoldingRange, FoldingRangeKind, SelectionRange, SymbolI
 import * as LSP from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { URI } from 'vscode-uri';
-import { findParentVariableDefinitionKeyword, isCommand, isCommandName, isComment, isFunctionDefinition, isFunctionDefinitionName, isProgram, isScope, isStatement, isString, isTopLevelFunctionDefinition, isVariable, isVariableDefinition } from './node-types';
+import { findParentVariableDefinitionKeyword, isCommand, isCommandName, isComment, isFunctionDefinition, isFunctionDefinitionName, isProgram, isScope, isStatement, isString, isTopLevelDefinition, isTopLevelFunctionDefinition, isVariable, isVariableDefinition } from './node-types';
 import { LspDocument, LspDocuments } from '../document';
 import { FishProtocol } from './fishProtocol';
 import { getPrecedingComments, getRange, getRangeWithPrecedingComments } from './tree-sitter';
@@ -303,6 +303,18 @@ export function isAutoloadedUriLoadsFunctionName(document: LspDocument): (n: Syn
   };
   return callbackmap[document.getAutoloadType()];
 }
+
+export function isAutoloadedUriLoadsAliasName(document: LspDocument): (n: SyntaxNode) => boolean {
+  const callbackmap: Record<AutoloadType, (n: SyntaxNode) => boolean> = {
+    'conf.d': (node: SyntaxNode) => isTopLevelDefinition(node),
+    config: (node: SyntaxNode) => isTopLevelDefinition(node),
+    functions: (_: SyntaxNode) => false,
+    completions: (_: SyntaxNode) => false,
+    '': (_: SyntaxNode) => false,
+  };
+  return callbackmap[document.getAutoloadType()];
+}
+
 export function shouldHaveAutoloadedFunction(document: LspDocument): boolean {
   return 'functions' === document.getAutoloadType();
 }
@@ -314,4 +326,3 @@ export function formatTextWithIndents(doc: LspDocument, line: number, text: stri
     .map(line => indent + line)
     .join('\n');
 }
-

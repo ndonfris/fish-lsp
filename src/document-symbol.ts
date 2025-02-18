@@ -1,13 +1,14 @@
 
 import { DocumentSymbol, SymbolKind, Range, WorkspaceSymbol, Position, Location, FoldingRange } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
-import { isFunctionDefinitionName, isVariableDefinitionName, refinedFindParentVariableDefinitionKeyword } from './utils/node-types';
+import { isAliasName, isFunctionDefinitionName, isVariableDefinitionName, refinedFindParentVariableDefinitionKeyword } from './utils/node-types';
 //import { findVariableDefinitionOptions } from './utils/options';
 import { DocumentSymbolDetail } from './utils/symbol-documentation-builder';
 import { getNodeAtRange, getRange, isPositionAfter, pointToPosition } from './utils/tree-sitter';
 import { ScopeTag, DefinitionScope, getScope } from './utils/definition-scope';
 import { GenericTree } from './utils/generic-tree';
 import { LspDocument } from './document';
+import { FishAlias } from './utils/alias-helpers';
 
 // add some form of tags to the symbol so that we can extend the symbol with more information
 // current implementation is WIP inside file : ./utils/options.ts
@@ -67,15 +68,15 @@ export namespace FishDocumentSymbol {
   export function equal(a: FishDocumentSymbol, b: FishDocumentSymbol): boolean {
     return (
       a.name === b.name &&
-            a.uri === b.uri &&
-            a.range.start.character === b.range.start.character &&
-            a.range.start.line === b.range.start.line &&
-            a.range.end.character === b.range.end.character &&
-            a.range.end.line === b.range.end.line &&
-            a.selectionRange.start.character === b.selectionRange.start.character &&
-            a.selectionRange.start.line === b.selectionRange.start.line &&
-            a.selectionRange.end.line === b.selectionRange.end.line &&
-            a.selectionRange.end.character === b.selectionRange.end.character
+      a.uri === b.uri &&
+      a.range.start.character === b.range.start.character &&
+      a.range.start.line === b.range.start.line &&
+      a.range.end.character === b.range.end.character &&
+      a.range.end.line === b.range.end.line &&
+      a.selectionRange.start.character === b.selectionRange.start.character &&
+      a.selectionRange.start.line === b.selectionRange.start.line &&
+      a.selectionRange.end.line === b.selectionRange.end.line &&
+      a.selectionRange.end.character === b.selectionRange.end.character
     );
   }
 
@@ -100,7 +101,7 @@ export namespace FishDocumentSymbol {
     return `${symbolIcon}${symbol.name}   ::::  ${symbol.scope.scopeTag}`;
   }
 
-  export function flattenArray(symbols: FishDocumentSymbol[]) : FishDocumentSymbol[] {
+  export function flattenArray(symbols: FishDocumentSymbol[]): FishDocumentSymbol[] {
     function* flattenGenerator(symbols: FishDocumentSymbol[]): Generator<FishDocumentSymbol> {
       for (const symbol of symbols) {
         yield symbol;
@@ -116,12 +117,12 @@ export namespace FishDocumentSymbol {
         return a.scope.scopeNode.equals(b.scope.scopeNode);
       } else if (
         ['global', 'universal'].includes(a.scope.scopeTag) &&
-                ['global', 'universal'].includes(b.scope.scopeTag)
+        ['global', 'universal'].includes(b.scope.scopeTag)
       ) {
         return true;
       }
       return a.scope.scopeTag === b.scope.scopeTag &&
-                a.scope.scopeNode.equals(b.scope.scopeNode);
+        a.scope.scopeNode.equals(b.scope.scopeNode);
     }
     return false;
   }
@@ -146,6 +147,10 @@ export namespace FishDocumentSymbol {
 
   export function toTree(symbols: FishDocumentSymbol[]) {
     return new GenericTree<FishDocumentSymbol>(symbols);
+  }
+
+  export function isAlias(symbol: FishDocumentSymbol): boolean {
+    return symbol.kind === SymbolKind.Function && symbol.text.startsWith('alias');
   }
 
   export function debug(symbol: FishDocumentSymbol) {
@@ -237,6 +242,8 @@ export namespace FishDocumentSymbol {
  */
 export function symbolIsImmutable(symbol: FishDocumentSymbol): boolean {
   const { uri, scope } = symbol;
+  // const containingWorkspace = workspaces.find(ws => ws.contains(uri)
+  // if (containingWorkspace) {
   return uri.startsWith('/usr/share/fish/') || scope.scopeTag === 'universal';
 }
 
@@ -269,9 +276,9 @@ export function filterLastPerScopeSymbol(symbolArray: FishDocumentSymbol[]) {
     .filterToTree((symbol: FishDocumentSymbol) => !flatArray.some((s) => {
       return (
         s.name === symbol.name &&
-                !FishDocumentSymbol.equal(symbol, s) &&
-                FishDocumentSymbol.equalScopes(symbol, s) &&
-                FishDocumentSymbol.isBefore(symbol, s)
+        !FishDocumentSymbol.equal(symbol, s) &&
+        FishDocumentSymbol.equalScopes(symbol, s) &&
+        FishDocumentSymbol.isBefore(symbol, s)
       );
     }))
     .toArray();
@@ -289,7 +296,7 @@ const compareSymbolToPosition = (symbol: FishDocumentSymbol, position: Position)
   return symbol.kind === SymbolKind.Function
     ? compareHelper(symbol, position)
     : symbol.scope.containsPosition(position)
-           && isPositionAfter(symbol.selectionRange.end, position);
+    && isPositionAfter(symbol.selectionRange.end, position);
 };
 
 export function findSymbolsForCompletion(symbols: FishDocumentSymbol[], position: Position): FishDocumentSymbol[] {
@@ -316,7 +323,7 @@ export function findSymbolReferences(symbols: FishDocumentSymbol[], matchSymbol:
     .filterToTree((symbol: FishDocumentSymbol) => {
       //if (symbol.scope.scopeTag === 'global' ) return true;
       return matchSymbol.name === symbol.name
-                && FishDocumentSymbol.equalScopes(matchSymbol, symbol);
+        && FishDocumentSymbol.equalScopes(matchSymbol, symbol);
     })
     .toFlatArray();
 }
@@ -327,7 +334,7 @@ export function findLastDefinition(symbols: FishDocumentSymbol[], matchNode: Syn
     const matchPosition = pointToPosition(matchNode.startPosition);
     const { name, kind: _kind, scope: _scope } = symbol;
     return name === matchNode.text
-                && compareSymbolToPosition(symbol, matchPosition);
+      && compareSymbolToPosition(symbol, matchPosition);
   };
   return symbolTree
     .filterToTree((symbol: FishDocumentSymbol) => symbolFunctionCompare(symbol, matchNode))
@@ -349,11 +356,13 @@ export function findLastDefinition(symbols: FishDocumentSymbol[], matchNode: Syn
  * Parent is the entire string `set -gx FOO BAR;` for the command
  */
 export function definitionSymbolHandler(node: SyntaxNode): {
+  isAlias: boolean;
   shouldCreate: boolean;
   kind: SymbolKind;
   child: SyntaxNode;
   parent: SyntaxNode;
 } {
+  let isAlias = false;
   let shouldCreate = false;
   let [child, parent] = [node, node.parent || node];
   let kind: SymbolKind = SymbolKind.Null;
@@ -369,8 +378,14 @@ export function definitionSymbolHandler(node: SyntaxNode): {
     child = node.firstNamedChild!;
     kind = SymbolKind.Function;
     shouldCreate = true;
+  } else if (isAliasName(node)) {
+    child = node;
+    kind = SymbolKind.Function;
+    shouldCreate = true;
+    isAlias = true;
   }
   return {
+    isAlias,
     shouldCreate,
     kind,
     child,
@@ -388,21 +403,32 @@ export function getFishDocumentSymbols(document: LspDocument, ...currentNodes: S
   const symbols: FishDocumentSymbol[] = [];
   for (const node of currentNodes) {
     const childrenSymbols = getFishDocumentSymbols(document, ...node.children);
-    const { shouldCreate, kind, child, parent } = definitionSymbolHandler(node);
+    const { isAlias, shouldCreate, kind, child, parent } = definitionSymbolHandler(node);
     if (shouldCreate) {
-      symbols.push(
-        FishDocumentSymbol.create(
-          child.text,
-          document.uri,
-          parent.text,
-          DocumentSymbolDetail.create(child.text, document.uri, kind, child),
+      if (isAlias) {
+        const newSymbol = FishAlias.toFishDocumentSymbol(
+          child,
+          parent,
           kind,
-          getRange(parent),
-          getRange(child),
-          getScope(document, child),
+          document,
           childrenSymbols,
-        ),
-      );
+        );
+        if (newSymbol) symbols.push(newSymbol);
+      } else {
+        symbols.push(
+          FishDocumentSymbol.create(
+            child.text,
+            document.uri,
+            parent.text,
+            DocumentSymbolDetail.create(child.text, document.uri, kind, child),
+            kind,
+            getRange(parent),
+            getRange(child),
+            getScope(document, child),
+            childrenSymbols,
+          ),
+        );
+      }
       continue;
     }
     symbols.push(...childrenSymbols);
