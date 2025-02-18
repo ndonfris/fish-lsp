@@ -505,6 +505,10 @@ export function isNodeWithinRange(node: SyntaxNode, range: Range): boolean {
   return doesStartInside && doesEndInside;
 }
 
+export function isNodeWithinOtherNode(node: SyntaxNode, otherNode: SyntaxNode): boolean {
+  return isNodeWithinRange(node, getRange(otherNode));
+}
+
 export function* nodesGen(node: SyntaxNode) {
   const queue: SyntaxNode[] = [node];
 

@@ -6,6 +6,9 @@ import { equalRanges, getChildNodes, getRange } from './utils/tree-sitter';
 import { SyntaxNode } from 'web-tree-sitter';
 import { isAliasName, isCommandName, isFunctionDefinitionName, isVariable, isVariableDefinitionName } from './utils/node-types';
 
+/**
+ * Check if a range contains otherRange.
+ */
 export function containsRange(range: Range, otherRange: Range): boolean {
   if (otherRange.start.line < range.start.line || otherRange.end.line < range.start.line) {
     return false;

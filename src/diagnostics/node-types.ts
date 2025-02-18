@@ -1,6 +1,6 @@
 import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { isCommand, isCommandName, isCommandWithName, isEndStdinCharacter, isIfOrElseIfConditional, isMatchingOption, isOption, isString } from '../utils/node-types';
-import { getChildNodes } from '../utils/tree-sitter';
+import { getChildNodes, isNodeWithinOtherNode } from '../utils/tree-sitter';
 
 type startTokenType = 'function' | 'while' | 'if' | 'for' | 'begin' | '[' | '{' | '(' | "'" | '"';
 type endTokenType = 'end' | "'" | '"' | ']' | '}' | ')';
@@ -98,8 +98,13 @@ export function isTestCommandVariableExpansionWithoutString(node: SyntaxNode): b
   return false;
 }
 
+function isInsideStatementCondition(statement: SyntaxNode, node: SyntaxNode): boolean {
+  const conditionNode = statement.childForFieldName('condition');
+  if (!conditionNode) return false;
+  return isNodeWithinOtherNode(node, conditionNode);
+}
+
 /**
- * TODO: fix this
  * util for collecting if conditional_statement commands
  * Necessary because there is two types of conditional statements:
  *    1.) if cmd_1 || cmd_2; ...; end;
@@ -109,18 +114,51 @@ export function isTestCommandVariableExpansionWithoutString(node: SyntaxNode): b
  * @returns true if the node is a conditional statement, otherwise false
  */
 export function isConditionalStatement(node: SyntaxNode) {
+  if (!node.isNamed) return false;
   if (['\n', ';'].includes(node?.previousSibling?.type || '')) return false;
   let curr: SyntaxNode | null = node.parent;
   while (curr) {
     if (curr.type === 'conditional_execution') {
       curr = curr?.parent;
     } else if (isIfOrElseIfConditional(curr)) {
-      return true;
+      return isInsideStatementCondition(curr, node);
     } else {
       break;
     }
   }
   return false;
+}
+
+/**
+ * Check if a conditional_execution node starts with a conditional operator
+ */
+function checkConditionalStartsWith(node: SyntaxNode) {
+  if (node.type === 'conditional_execution') {
+    return node.text.startsWith('&&') || node.text.startsWith('||')
+      || node.text.startsWith('and') || node.text.startsWith('or');
+  }
+  return false;
+}
+
+/**
+ * Check if a command node is the first node in a conditional_execution
+ */
+export function isFirstNodeInConditionalExecution(node: SyntaxNode) {
+  if (!node.isNamed) return false;
+  if (['\n', ';'].includes(node?.type || '')) return false;
+  if (isConditionalStatement(node)) return false;
+
+  if (
+    node.parent &&
+    node.parent.type === 'conditional_execution' &&
+    !checkConditionalStartsWith(node.parent)
+  ) {
+    return node.parent.firstNamedChild?.equals(node) || false;
+  }
+
+  const next = node.nextNamedSibling;
+  if (!next) return false;
+  return next.type === 'conditional_execution' && checkConditionalStartsWith(next);
 }
 
 /**
@@ -139,28 +177,6 @@ function hasCommandSubstitution(node: SyntaxNode) {
   return node.childrenForFieldName('argument').filter(c => c.type === 'command_substitution').length > 0;
 }
 
-// export function isSetInFirstCommandOfConditionalChain(node: SyntaxNode) {
-//   const parent = node.parent;
-//   if (parent && isConditionalStatement(parent)) return true;
-//
-//   let rootConditional: SyntaxNode | null = node.parent;
-//   while (rootConditional && isConditionalStatement(rootConditional)) {
-//     rootConditional = rootConditional.parent;
-//   }
-//
-//   if (!rootConditional) return false;
-//   if (!isConditionalStatement(rootConditional)) return false;
-//   if (rootConditional?.parent && !isIfOrElseIfConditional(rootConditional?.parent)) {
-//     return false;
-//   }
-//
-//   const firstCommand = rootConditional.firstChild;
-//   if (!firstCommand) return false;
-//   if (firstCommand.equals(node) && isCommandWithName(node, 'set')) return true;
-//   return false;
-//
-// }
-
 /**
  * Check if -q,--quiet/--query flags are present for commands which follow an `if/else if` conditional statement
  * @param node - the current node to check (should be a command)
@@ -169,9 +185,8 @@ function hasCommandSubstitution(node: SyntaxNode) {
 export function isConditionalWithoutQuietCommand(node: SyntaxNode) {
   // if (!isCommand(node)) return false;
   if (!isCommandWithName(node, 'command', 'type', 'read', 'set', 'string', 'abbr', 'builtin', 'functions', 'jobs')) return false;
-  if (!isConditionalStatement(node)) return false;
+  if (!isConditionalStatement(node) && !isFirstNodeInConditionalExecution(node)) return false;
 
-  // if (node.parent && !isIfOrElseIfConditional(node.parent)) return false; // only kinda works, parents might be `conditional_execution`
   // skip `set` commands with command substitution
   if (isCommandWithName(node, 'set') && hasCommandSubstitution(node)) {
     return false;
