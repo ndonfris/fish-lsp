@@ -301,6 +301,19 @@ export function isBeforeCommand(node: SyntaxNode) {
   ].includes(node.type) || isFunctionDefinition(node) || isStatement(node) || isSemicolon(node) || isNewline(node) || isEnd(node);
 }
 
+export function isVariableExpansion(node: SyntaxNode) {
+  return node.type === 'variable_expansion';
+}
+/**
+ * Checks for variable expansions that match the variable name, DONT PASS `variableName` with leading `$`
+ * @param {SyntaxNode} node - the node to check
+ * @param {string} variableName - the name of the variable to check for (`pipestatus`, `status`, `argv`, ...)
+ * @returns {boolean} true if the node is a variable expansion matching the name
+ */
+export function isVariableExpansionWithName(node: SyntaxNode, variableName: string): boolean {
+  return node.type === 'variable_expansion' && node.text === `$${variableName}`;
+}
+
 export function isVariable(node: SyntaxNode) {
   if (isVariableDefinition(node)) {
     return true;
@@ -789,3 +802,9 @@ export function isCommandWithName(node: SyntaxNode, ...commandNames: string[]) {
 //   return false
 // }
 //
+export function isReturnStatusNumber(node: SyntaxNode) {
+  if (node.type !== 'integer') return false;
+  const parent = node.parent;
+  if (!parent) return false;
+  return parent.type === 'return';
+}

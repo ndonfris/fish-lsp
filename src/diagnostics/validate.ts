@@ -92,7 +92,7 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
     }
 
     if (isConditionalWithoutQuietCommand(node) && handler.isCodeEnabled(ErrorCodes.missingQuietOption)) {
-      logger.log('isSingleQuoteDiagnostic', { type: node.type, text: node.text });
+      logger.log('isConditionalWithoutQuietCommand', { type: node.type, text: node.text });
       const command = node.firstNamedChild || node;
       let subCommand = command;
       if (command.text.includes('string')) {

@@ -8,7 +8,7 @@ import { formatDocumentContent } from './formatting';
 import { Logger, logger } from './logger';
 import { symbolKindsFromNode, uriToPath } from './utils/translation';
 import { getChildNodes, getNodeAtPosition } from './utils/tree-sitter';
-import { handleHover } from './hover';
+import { getVariableExpansionDocs, handleHover } from './hover';
 import { getDiagnostics } from './diagnostics/validate';
 import { DocumentationCache, initializeDocumentationCache } from './utils/documentation-cache';
 import { initializeDefaultFishWorkspaces } from './utils/workspace';
@@ -19,7 +19,7 @@ import { FishCompletionItem } from './utils/completion/types';
 import { getDocumentationResolver } from './utils/completion/documentation';
 import { FishCompletionList } from './utils/completion/list';
 import { PrebuiltDocumentationMap, getPrebuiltDocUrl } from './utils/snippets';
-import { findParent, findParentCommand, isCommand, isFunctionDefinition, isProgram, isVariableDefinition } from './utils/node-types';
+import { findParentCommand, isCommand, isReturnStatusNumber, isVariableDefinition } from './utils/node-types';
 import { adjustInitializeResultCapabilitiesFromConfig, configHandlers, config } from './config';
 import { enrichToMarkdown } from './documentation';
 import { getAliasedCompletionItemSignature } from './signature';
@@ -29,8 +29,7 @@ import { buildCommentCompletions } from './utils/completion/comment-completions'
 import { createCodeActionHandler } from './code-actions/code-action-handler';
 import { createExecuteCommandHandler } from './command';
 import { getStatusInlayHints } from './code-lens';
-import { autoloadedFishVariableNames, setupProcessEnvExecFile } from './utils/process-env';
-import { md } from './utils/markdown-builder';
+import { setupProcessEnvExecFile } from './utils/process-env';
 
 // @TODO
 export type SupportedFeatures = {
@@ -378,46 +377,16 @@ export default class FishServer {
 
     const prebuiltSkipType = [
       ...PrebuiltDocumentationMap.getByType('pipe'),
-      ...PrebuiltDocumentationMap.getByType('status'),
+      ...isReturnStatusNumber(current) ? PrebuiltDocumentationMap.getByType('status') : [],
     ].find(obj => obj.name === current.text);
 
-    const autoloadedName = autoloadedFishVariableNames.find(name => name === current.text);
-    if (autoloadedName) {
-      const value = process.env[autoloadedName]!;
-      return {
-        contents: enrichToMarkdown([
-          `(${md.italic('variable')}) ${md.bold(autoloadedName)}`,
-          md.separator(),
-          'autoloaded fish variable',
-          md.separator(),
-          `${value}`,
-        ].join('\n')),
-      };
-    }
-
-    if (current.text === 'argv') {
-      const parentNode = findParent(current, (n) => isProgram(n) || isFunctionDefinition(n)) as SyntaxNode;
-      if (isFunctionDefinition(parentNode)) {
-        const functionName = parentNode.firstNamedChild!;
-        return {
-          contents: enrichToMarkdown([
-            `(${md.italic('variable')}) ${md.bold('$argv')}`,
-            `argument of function ${md.bold(functionName.text)}`,
-            md.separator(),
-            md.codeBlock('fish', parentNode.text),
-          ].join('\n')),
-        };
-      } else if (isProgram(parentNode)) {
-        return {
-          contents: enrichToMarkdown([
-            `(${md.italic('variable')}) ${md.bold('$argv')}`,
-            `arguments of script ${md.bold(uri)}`,
-            md.separator(),
-            md.codeBlock('fish', parentNode.text),
-          ].join('\n')),
-        };
-      }
-    }
+    // documentation for prebuilt variables without definition's
+    // including $status, $pipestatus, $fish_pid, etc.
+    // See: PrebuiltDocumentationMap.getByType('variable') for entire list
+    // Also includes autoloaded variables: $fish_complete_path, $__fish_data_dir, etc...
+    const isPrebuiltVariableWithoutDefinition = getVariableExpansionDocs(this.analyzer, doc, params.position);
+    const prebuiltHover = isPrebuiltVariableWithoutDefinition(current);
+    if (prebuiltHover) return prebuiltHover;
 
     const symbolItem = this.analyzer.getHover(doc, params.position);
     if (symbolItem) return symbolItem;
