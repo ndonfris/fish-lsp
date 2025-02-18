@@ -239,6 +239,10 @@ export function isEndStdinCharacter(node: SyntaxNode) {
   return '--' === node.text && node.type === 'word';
 }
 
+export function isEscapeSequence(node: SyntaxNode) {
+  return node.type === 'escape_sequence';
+}
+
 export function isLongOption(node: SyntaxNode): boolean {
   return node.text.startsWith('--') && !isEndStdinCharacter(node);
 }
@@ -268,6 +272,12 @@ export type NodeOptionQueryText = {
   oldUnixOption?: `-${string}`;
   longOption?: `--${string}`;
 };
+
+export namespace Option {
+  export function create(shortOption: `-${string}`, longOption: `--${string}`): NodeOptionQueryText {
+    return { shortOption, longOption };
+  }
+}
 
 /**
  * @param node - the node to check
