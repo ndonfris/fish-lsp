@@ -2,7 +2,15 @@ import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from '../src/parser';
 import { findFirstSibling, getChildNodes } from '../src/utils/tree-sitter';
 import * as NodeTypes from '../src/utils/node-types';
+import { PrebuiltDocumentationMap } from '../src/utils/snippets';
+import { getPrebuiltVariableExpansionDocs, isPrebuiltVariableExpansion } from '../src/hover';
+import { autoloadedFishVariableNames, AutoloadedPathVariables, setupProcessEnvExecFile } from '../src/utils/process-env';
 // import { assert } from 'chai';
+
+function parseTreeForRoot(str: string) {
+  const tree = parser.parse(str);
+  return tree.rootNode;
+}
 
 function parseStringForNodeType(str: string, predicate: (n: SyntaxNode) => boolean) {
   const tree = parser.parse(str);
@@ -53,6 +61,10 @@ function logNodes(nodes: SyntaxNode[]) {
 
 let parser: Parser;
 const jestConsole = console;
+
+beforeAll(async () => {
+  await setupProcessEnvExecFile();
+});
 
 beforeEach(async () => {
   parser = await initializeParser();
@@ -757,6 +769,131 @@ describe('node-types tests', () => {
         *                                             ^- refactor to `shortOption | longOption | oldOption`
         */
       // console.log(parentCmd.text, o.text, result);
+    });
+  });
+
+  it('check for alias definition', () => {
+    const { rootNode } = parser.parse([
+      'alias gsc="git stash create"',
+      'alias g="git"',
+      'alias ls \'exa --group-directories-first --icons --color=always -1 -a\'',
+      'alias lsd \'exa --group-directories-first --icons --color=always -a\'',
+    ].join('\n'));
+
+    /**
+     * TODO check old alias code action work, to build DocumentSymbols for `alias` commands
+     * Will eventually need to add to `FishDocumentSymbol` in ../src/document-symbols.ts
+     */
+    const results: SyntaxNode[] = [];
+    for (const child of getChildNodes(rootNode)) {
+      if (NodeTypes.isCommandWithName(child, 'alias')) {
+        results.push(child);
+        console.log(child.text);
+        const value = child.firstChild!;
+        let nameStr = '';
+        let valueStr = '';
+        valueStr = child.lastChild?.text?.replace('=', '').slice(1, -1) || '';
+        if (value.text.includes('=')) {
+          nameStr = value.text.split('=')[0];
+          valueStr = value.text.split('=')[1]!.slice(1, -1);
+        } else {
+          nameStr = value.text;
+        }
+        console.log({
+          name: nameStr,
+          value: valueStr.trim().toString()!,
+
+        });
+      }
+    }
+    expect(results.length).toBe(4);
+  });
+
+  it('find $status hover', () => {
+    const { rootNode } = parser.parse(`
+function foo
+    echo a
+    echo b
+    echo c
+    echo d
+    echo $status
+
+    if test -n "$argv"
+        echo $status
+    end
+
+    if test "$argv" = "test"
+        pritnf %s "$status"
+    end
+    echo $status
+end
+`);
+
+    const results: SyntaxNode[] = [];
+    console.log(PrebuiltDocumentationMap.getByType('variable').map(v => v.name));
+    let idx = 0;
+    for (const child of getChildNodes(rootNode)) {
+      if (isPrebuiltVariableExpansion(child)) {
+        if (PrebuiltDocumentationMap.getByName(child.text)) {
+          const docs = getPrebuiltVariableExpansionDocs(child);
+          // const docs = PrebuiltDocumentationMap.getByType('variable').find(v => v.name === child.text.slice(1));
+          console.log(docs);
+        }
+        console.log({
+          idx,
+          text: child.text,
+          type: child.type,
+          id: child.id,
+          prevCommand: NodeTypes.findPreviousSibling(child.parent!)!.text,
+        });
+      }
+      idx++;
+    }
+  });
+
+  it('is return number', () => {
+    const { rootNode } = parser.parse('return 1; echo 125');
+    const results: SyntaxNode[] = [];
+    for (const child of getChildNodes(rootNode)) {
+      if (NodeTypes.isReturn(child)) {
+        // console.log(child.text);
+        results.push(child);
+      }
+    }
+    expect(results.length).toBe(1);
+  });
+
+  describe('autoloaded path variables', () => {
+    it('is autoloaded variable', () => {
+      expect(process.env.fish_complete_path).toBeTruthy();
+      expect(process.env.fish_function_path).toBeTruthy();
+      expect(process.env.__fish_data_dir).toBeTruthy();
+      expect(process.env.__fish_config_dir).toBeTruthy();
+    });
+
+    it.only('all autoloaded variables', () => {
+      AutoloadedPathVariables.all().forEach(path => {
+        console.log(
+          AutoloadedPathVariables.getHoverDocumentation(path),
+        );
+        console.log('-'.repeat(80));
+      });
+    });
+
+    it('AutoloadedPathVariables', () => {
+      const { rootNode } = parser.parse('set -agx fish_complete_path $HOME/.config/fish/completions');
+      const results: SyntaxNode[] = [];
+      for (const child of getChildNodes(rootNode)) {
+        if (NodeTypes.isVariableDefinitionName(child) && AutoloadedPathVariables.includes(child.text)) {
+          console.log({
+            text: child.text,
+            value: AutoloadedPathVariables.get(child.text),
+            read: AutoloadedPathVariables.read(child.text),
+          });
+          console.log(AutoloadedPathVariables.getHoverDocumentation(child.text));
+          results.push(child);
+        }
+      }
     });
   });
 });

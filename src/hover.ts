@@ -1,15 +1,19 @@
 import * as LSP from 'vscode-languageserver';
-import { Hover, MarkupKind } from 'vscode-languageserver';
+import { Hover, MarkupKind } from 'vscode-languageserver-protocol/node';
+// import { Hover, MarkupKind } from 'vscode-languageserver';
 import * as Parser from 'web-tree-sitter';
 import { Analyzer } from './analyze';
 import { LspDocument } from './document';
-import { documentationHoverProvider, enrichCommandWithFlags } from './documentation';
+import { documentationHoverProvider, enrichCommandWithFlags, enrichToMarkdown } from './documentation';
 import { DocumentationCache } from './utils/documentation-cache';
 import { execCommandDocs, execCompletions, execSubCommandCompletions } from './utils/exec';
-import { isCommand, isFunctionDefinition, isOption } from './utils/node-types';
+import { findParent, findParentCommand, isCommand, isFunctionDefinition, isOption, isProgram, isVariableDefinitionName, isVariableExpansion, isVariableExpansionWithName } from './utils/node-types';
 import { findFirstParent } from './utils/tree-sitter';
-import { symbolKindsFromNode } from './utils/translation';
+import { symbolKindsFromNode, uriToPath } from './utils/translation';
 import { Logger } from './logger';
+import { PrebuiltDocumentationMap } from './utils/snippets';
+import { md } from './utils/markdown-builder';
+import { AutoloadedPathVariables } from './utils/process-env';
 
 export async function handleHover(
   analyzer: Analyzer,
@@ -99,7 +103,7 @@ function hasOldUnixStyleFlags(allFlags: string[]) {
 }
 
 function spiltShortFlags(flags: string[], shouldSplit: boolean): string[] {
-  const newFlags : string[] = [];
+  const newFlags: string[] = [];
   for (let flag of flags) {
     flag = flag.split('=')[0] as string;
     if (flag.startsWith('-') && !flag.startsWith('--')) {
@@ -139,4 +143,139 @@ export async function collectCommandString(current: Parser.SyntaxNode): Promise<
     return commandText;
   }
   return commandNodeText || '';
+}
+
+const allVariables = PrebuiltDocumentationMap.getByType('variable');
+export function isPrebuiltVariableExpansion(node: Parser.SyntaxNode): boolean {
+  if (isVariableExpansion(node)) {
+    const variableName = node.text.slice(1);
+    return allVariables.some(variable => variable.name === variableName);
+  }
+  return false;
+}
+
+export function getPrebuiltVariableExpansionDocs(node: Parser.SyntaxNode): LSP.MarkupContent | null {
+  if (isVariableExpansion(node)) {
+    const variableName = node.text.slice(1);
+    const variable = allVariables.find(variable => variable.name === variableName);
+    if (variable) {
+      return enrichToMarkdown([
+        `(${md.italic('variable')}) - ${md.inlineCode('$' + variableName)}`,
+        md.separator(),
+        variable.description,
+      ].join('\n'));
+    }
+  }
+  return null;
+}
+
+export const variablesWithoutLocalDocumentation = [
+  '$status',
+  '$pipestatus',
+];
+
+export function getVariableExpansionDocs(analyzer: Analyzer, doc: LspDocument, position: LSP.Position) {
+  function isVariablesWithoutLocalDocumentation(current: Parser.SyntaxNode) {
+    return variablesWithoutLocalDocumentation.includes('$' + current.text);
+  }
+
+  /**
+   * Use this to append prebuilt documentation to variables with local documentation
+   */
+  function getPrebuiltVariableHoverContent(current: Parser.SyntaxNode): string | null {
+    const docObject = allVariables.find(variable => variable.name === current.text);
+    if (!docObject) return null;
+    return [
+      `(${md.italic('variable')}) ${md.bold(current.text)}`,
+      md.separator(),
+      docObject.description,
+    ].join('\n');
+  }
+
+  return function isPrebuiltExpansionDocsForVariable(current: Parser.SyntaxNode) {
+    if (isVariableDefinitionName(current)) {
+      const variableName = current.text;
+      const parent = findParentCommand(current);
+      if (AutoloadedPathVariables.has(variableName)) {
+        return {
+          contents: enrichToMarkdown(
+            [
+              AutoloadedPathVariables.getHoverDocumentation(variableName),
+              md.separator(),
+              md.codeBlock('fish', parent?.text || ''),
+            ].join('\n'),
+          ),
+        };
+      }
+      if (isVariablesWithoutLocalDocumentation(current)) {
+        return {
+          contents: enrichToMarkdown([
+            getPrebuiltVariableHoverContent(current),
+            md.separator(),
+            md.codeBlock('fish', parent?.text || ''),
+          ].join('\n')),
+        };
+      }
+      if (allVariables.find(variable => variable.name === current.text)) {
+        return {
+          contents: enrichToMarkdown([
+            getPrebuiltVariableHoverContent(current),
+            md.separator(),
+            md.codeBlock('fish', parent?.text || ''),
+          ].join('\n')),
+        };
+      }
+      return null;
+    }
+    if (current.type === 'variable_name' && current.parent && isVariableExpansion(current.parent)) {
+      const variableName = current.text;
+      if (AutoloadedPathVariables.has(variableName)) {
+        return {
+          contents: enrichToMarkdown(
+            AutoloadedPathVariables.getHoverDocumentation(variableName),
+          ),
+        };
+      }
+      // argv
+      const node = current.parent;
+      if (isVariableExpansionWithName(node, 'argv')) {
+        const parentNode = findParent(node, (n) => isProgram(n) || isFunctionDefinition(n)) as Parser.SyntaxNode;
+        const variableName = node.text.slice(1);
+        const variableDocObj = allVariables.find(variable => variable.name === variableName);
+        if (isFunctionDefinition(parentNode)) {
+          const functionName = parentNode.firstNamedChild!;
+          return {
+            contents: enrichToMarkdown([
+              `(${md.italic('variable')}) ${md.bold('$argv')}`,
+              `argument of function ${md.bold(functionName.text)}`,
+              md.separator(),
+              variableDocObj?.description,
+              md.separator(),
+              md.codeBlock('fish', parentNode.text),
+            ].join('\n')),
+          };
+        } else if (isProgram(parentNode)) {
+          return {
+            contents: enrichToMarkdown([
+              `(${md.italic('variable')}) ${md.bold('$argv')}`,
+              `arguments of script ${md.bold(uriToPath(doc.uri))}`,
+              md.separator(),
+              variableDocObj?.description,
+              md.separator(),
+              md.codeBlock('fish', parentNode.text),
+            ].join('\n')),
+          };
+        }
+      } else if (variablesWithoutLocalDocumentation.includes(node.text)) {
+        // status && pipestatus
+        return { contents: getPrebuiltVariableExpansionDocs(node)! };
+      } else if (!analyzer.getDefinition(doc, position) && isPrebuiltVariableExpansion(node)) {
+        // variables which aren't defined in lsp's scope, but are documented
+        const contents = getPrebuiltVariableExpansionDocs(node);
+        if (contents) return { contents };
+      }
+      // consider enhancing variables with local documentation's, with their prebuilt documentation
+    }
+    return null;
+  };
 }

@@ -6,9 +6,9 @@ import { findChildNodes, getChildNodes, getNodeAtRange } from '../src/utils/tree
 import { Diagnostic, DiagnosticSeverity, TextDocumentItem } from 'vscode-languageserver';
 import { initializeParser } from '../src/parser';
 import { ErrorCodes } from '../src/diagnostics/errorCodes';
-import { findParent, hasParentFunction, isCommand, isCommandWithName, isComment, isDefinition, isIfOrElseIfConditional, isMatchingOption, isVariableDefinitionName } from '../src/utils/node-types';
+import { isCommand, isComment, isDefinition, isMatchingOption, isVariableDefinitionName } from '../src/utils/node-types';
 // import { ScopeStack, isReference } from '../src/diagnostics/scope';
-import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter, isArgparseWithoutEndStdin } from '../src/diagnostics/node-types';
+import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter, isArgparseWithoutEndStdin, isConditionalStatement, isSetInFirstCommandOfConditionalChain } from '../src/diagnostics/node-types';
 import { LspDocument } from '../src/document';
 import { createFakeLspDocument, setLogger } from './helpers';
 import { getDiagnostics } from '../src/diagnostics/validate';
@@ -569,7 +569,7 @@ awk
     });
   });
 
-  it.only('VALIDATE: isDiagnosticComment', () => {
+  it('VALIDATE: isDiagnosticComment', () => {
     const input = `echo 'now diagnostics are enabled'
 # @fish-lsp-disable 
 echo '1 all diagnostics are disabled'
@@ -665,7 +665,7 @@ echo '10 3003 3002 3001 are still disabled'`;
       }
     });
   });
-  describe.only('NODE_TEST: find argparse', () => {
+  describe('NODE_TEST: find argparse', () => {
     it('find argparse', () => {
       const input = `
 function foo
@@ -683,6 +683,109 @@ end`;
       expect(true).toBe(true);
     });
   });
+
+  describe.only('CONDITIONAL EDGE CASES', () => {
+    const testcases = [
+      // {
+      //   title: 'normal case, where both variables are in a if statement, so both should be silenced',
+      //   input: `if set -q var1 && set -q var2; echo 'var1 and var2 are set'; end`,
+      //   expected: [
+      //
+      //   ],
+      // },
+      {
+        shouldRun: true,
+        title: '[CHAINED] updating a variable only when it exists 1',
+        input: `
+echo 'hello world'
+if set var_with_default_value && set var_with_default_value 'new_value'
+    echo hi
+end
+set ovar && set ovar 'new_value'
+set uvar
+and set uvar 'new_value'
+`,
+        expected: [
+          'var_with_default_value',
+        ],
+      },
+      {
+        shouldRun: false,
+        title: '[CHAINED] defining a variable only when it is not set',
+        input: 'not set -q var_with_default_value && set var_with_default_value \'default_value\'',
+        expected: [
+          'var_with_default_value',
+        ],
+      },
+      {
+        title: '[CHAINED], updating a variable or defining it w/ default value',
+        input: 'set -q var_with_default_value && set var_with_default_value \'new_value\' || set var_with_default_value \'default_value\'',
+        expected: [
+          'var_with_default_value',
+        ],
+      },
+      {
+        title: '[IF + CHAINED] if statement [expect silenced], inner blocks [only need first cmd silence]',
+        input: `
+# checks all edge cases for if statements
+if set -q var1 && set -q var2
+    set -q var3 && set var1 'new_value' && set var2 'new_value'
+end
+`,
+        expected: [
+
+        ],
+      },
+      {
+        title: '[IF] normal if statement to silence a variable',
+        input: 'if set -q var1; echo \'var1 is set\'; end',
+        expected: [
+
+        ],
+      },
+    ];
+
+    // fix this usecase for when first `set` with child `nextSibling.type ==== conditional_execution`
+    // does not have any value after `set`
+    // ```
+    // set uvar
+    // and set uvar 'new_value'
+    // ```
+    // This should have a diagnostic but does not currently,
+    // checkout files:
+    //   - ../src/diagnostics/node-types.ts
+    //   - ../src/diagnostics/validate.ts
+    //  FIX SPECIFIC function `isConditionalStatement()`
+    testcases.forEach(({ title, input, expected, shouldRun }) => {
+      if (shouldRun) {
+        it.only(title, () => {
+          console.log(title);
+          const { rootNode } = parser.parse(input);
+
+          console.log(rootNode.text);
+          for (const child of getChildNodes(rootNode)) {
+            if (isConditionalWithoutQuietCommand(child)) {
+              console.log({
+                type: 'isConditionalWithoutQuietCommand(child)',
+                text: child.text,
+                nodeType: child.type,
+                isSetInFirstCommandOfConditionalChain: isSetInFirstCommandOfConditionalChain(child), // this function could use a rewrite
+                isConditional: isConditionalWithoutQuietCommand(child.parent!),
+                isConditionalStatement: isConditionalStatement(child), // fix this specifically !!!!!
+              });
+            }
+            // if (isCommandWithName(child, 'set')) {
+            //   console.log({
+            //     type: 'isCommandWithName(child, "set")',
+            //     text: child.text,
+            //     isConditional: isConditionalWithoutQuietCommand(child)
+            //   })
+            // }
+          }
+        });
+      }
+    });
+  });
 });
 // expect(definitions.map(d => d.text)).toEqual([
 //   'foo',
@@ -698,4 +801,4 @@ end`;
 //
 //
 //
-// })
+

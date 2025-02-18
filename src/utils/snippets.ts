@@ -7,6 +7,7 @@ import localeVariablesJson from '../snippets/localeVariables.json';
 import specialVariablesJson from '../snippets/specialFishVariables.json';
 import pipeCharactersJson from '../snippets/pipesAndRedirects.json';
 import fishlspEnvVariablesJson from '../snippets/fishlspEnvVariables.json';
+import { md } from './markdown-builder';
 
 // import PACKAGE from '@package'
 //
@@ -54,7 +55,7 @@ class DocumentationMap {
 
   getByName(name: string): ExtendedBaseJson[] {
     return name.startsWith('$')
-      ? this.map.get(name.slice(1)) || []
+      ? this.map.get(name.slice(1))?.filter(item => item.type === 'variable') || []
       : this.map.get(name) || [];
   }
 
@@ -81,6 +82,18 @@ class DocumentationMap {
       }
     });
     return results;
+  }
+
+  getSpecialVariableAsHoverDoc(name: `$${string}` | string): string {
+    const variables = this.getByType('variable');
+    const searchStr = name.startsWith('$') ? name.slice(1) : name;
+    const result = variables.find(item => item.name === searchStr);
+    if (!result) return '';
+    return [
+      `(${md.italic('variable')}) - ${md.inlineCode('$' + searchStr)}`,
+      md.separator(),
+      result.description,
+    ].join('\n');
   }
 
   // Additional helper methods can be added as needed
