@@ -78,6 +78,21 @@ export function isTopLevelFunctionDefinition(node: SyntaxNode): boolean {
   return false;
 }
 
+export function isTopLevelDefinition(node: SyntaxNode): boolean {
+  let currentNode: SyntaxNode | null = node;
+  while (currentNode) {
+    if (!currentNode) break;
+    if (isProgram(currentNode)) {
+      return true;
+    }
+    if (isFunctionDefinition(currentNode)) {
+      return false;
+    }
+    currentNode = currentNode.parent;
+  }
+  return true;
+}
+
 /**
  * isVariableDefinitionName() || isFunctionDefinitionName()
  */
@@ -359,6 +374,22 @@ export function findParentCommand(node?: SyntaxNode): SyntaxNode | null {
     currentNode = currentNode.parent;
   }
   return null;
+}
+
+/**
+ * checks if a node is the firstNamedChild of an alias command
+ * alias ls='ls -G'
+ *        ^-- cursor is here
+ */
+export function isAliasName(node: SyntaxNode) {
+  if (!node.parent) return false;
+  if (!isCommandWithName(node.parent, 'alias')) return false;
+  const parentFirstChild = node.parent.firstNamedChild;
+  if (!parentFirstChild) return false;
+  if (parentFirstChild.nextNamedSibling && parentFirstChild.nextNamedSibling.equals(node)) {
+    return true;
+  }
+  return false;
 }
 
 /**
