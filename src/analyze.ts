@@ -162,6 +162,7 @@ export class Analyzer {
     if (!tree || !node) {
       return null;
     }
+
     const symbol =
       this.getDefinition(document, position) as FishDocumentSymbol ||
       this.globalSymbols.findFirst(node.text);
