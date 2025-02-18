@@ -9,8 +9,10 @@ import { FishAlias, FishAliasInfoType } from '../src/utils/alias-helpers';
 import { createFakeLspDocument } from './helpers';
 import { SymbolKind } from 'vscode-languageserver';
 import { FishDocumentSymbol } from '../src/document-symbol';
+import { processArgparseCommand } from '../src/utils/argparse-helpers';
 import { getScope } from '../src/utils/definition-scope';
 import { isAutoloadedUriLoadsAliasName } from '../src/utils/translation';
+import { isEndStdinCharacter, isEscapeSequence, isMatchingOption, isOption, isString, NodeOptionQueryText, Option } from '../src/utils/node-types';
 // import { assert } from 'chai';
 
 function parseTreeForRoot(str: string) {
@@ -1038,6 +1040,37 @@ end
       }
       idx++;
     }
+  });
+
+  describe.only('argparse variables', () => {
+    it.only('find argparse tokens', () => {
+      const testInfo = [
+        {
+          filename: 'functions/foo.fish',
+          input: `function foo
+    argparse --ignore-unknown "h/help" "v/value" new-flag= -- $argv
+    or return
+
+end`,
+          expected: {
+            name: 'h/help',
+            value: 'help',
+            hasEquals: false,
+          },
+        },
+      ];
+
+      testInfo.forEach(({ filename, input, expected }) => {
+        const doc = createFakeLspDocument(filename, input);
+        const { rootNode } = parser.parse(doc.getText());
+        for (const child of getChildNodes(rootNode)) {
+          if (NodeTypes.isCommandWithName(child, 'argparse')) {
+            const tokens = processArgparseCommand(child, doc);
+            console.log(tokens);
+          }
+        }
+      });
+    });
   });
 
   it('is return number', () => {

@@ -1,7 +1,7 @@
 
 import { DocumentSymbol, SymbolKind, Range, WorkspaceSymbol, Position, Location, FoldingRange } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
-import { isAliasName, isFunctionDefinitionName, isVariableDefinitionName, refinedFindParentVariableDefinitionKeyword } from './utils/node-types';
+import { isAliasName, isCommandWithName, isFunctionDefinitionName, isVariableDefinitionName, refinedFindParentVariableDefinitionKeyword } from './utils/node-types';
 //import { findVariableDefinitionOptions } from './utils/options';
 import { DocumentSymbolDetail } from './utils/symbol-documentation-builder';
 import { getNodeAtRange, getRange, isPositionAfter, pointToPosition } from './utils/tree-sitter';
@@ -9,6 +9,7 @@ import { ScopeTag, DefinitionScope, getScope } from './utils/definition-scope';
 import { GenericTree } from './utils/generic-tree';
 import { LspDocument } from './document';
 import { FishAlias } from './utils/alias-helpers';
+import { processArgparseCommand } from './utils/argparse-helpers';
 
 // add some form of tags to the symbol so that we can extend the symbol with more information
 // current implementation is WIP inside file : ./utils/options.ts
@@ -151,6 +152,10 @@ export namespace FishDocumentSymbol {
 
   export function isAlias(symbol: FishDocumentSymbol): boolean {
     return symbol.kind === SymbolKind.Function && symbol.text.startsWith('alias');
+  }
+
+  export function isArgparseVariable(symbol: FishDocumentSymbol): boolean {
+    return symbol.kind === SymbolKind.Variable && symbol.text.startsWith('argparse');
   }
 
   export function debug(symbol: FishDocumentSymbol) {
@@ -364,6 +369,15 @@ export function definitionSymbolHandler(node: SyntaxNode): {
 } {
   let isAlias = false;
   let shouldCreate = false;
+  if (isCommandWithName(node, 'argparse')) {
+    return {
+      isAlias,
+      shouldCreate: true,
+      kind: SymbolKind.Variable,
+      child: node,
+      parent: node,
+    };
+  }
   let [child, parent] = [node, node.parent || node];
   let kind: SymbolKind = SymbolKind.Null;
   if (isVariableDefinitionName(node)) {
@@ -414,6 +428,8 @@ export function getFishDocumentSymbols(document: LspDocument, ...currentNodes: S
           childrenSymbols,
         );
         if (newSymbol) symbols.push(newSymbol);
+      } else if (isCommandWithName(parent, 'argparse')) {
+        symbols.push(...processArgparseCommand(parent, document));
       } else {
         symbols.push(
           FishDocumentSymbol.create(
