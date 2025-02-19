@@ -6,13 +6,18 @@ import { findChildNodes, getChildNodes, getNodeAtRange } from '../src/utils/tree
 import { Diagnostic, DiagnosticSeverity, TextDocumentItem } from 'vscode-languageserver';
 import { initializeParser } from '../src/parser';
 import { ErrorCodes } from '../src/diagnostics/errorCodes';
-import { isCommand, isComment, isDefinition, isIfOrElseIfConditional, isMatchingOption, isVariableDefinitionName } from '../src/utils/node-types';
+import { fishNoExecuteDiagnostic } from '../src/diagnostics/no-execute-diagnostic';
+import { isCommand, isComment, isDefinition, isMatchingOption, isVariableDefinitionName } from '../src/utils/node-types';
 // import { ScopeStack, isReference } from '../src/diagnostics/scope';
-import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter, isArgparseWithoutEndStdin, isConditionalStatement, isFirstNodeInConditionalExecution } from '../src/diagnostics/node-types';
+import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter, isArgparseWithoutEndStdin } from '../src/diagnostics/node-types';
 import { LspDocument } from '../src/document';
 import { createFakeLspDocument, setLogger } from './helpers';
 import { getDiagnostics } from '../src/diagnostics/validate';
 import { DiagnosticComment, DiagnosticCommentsHandler, isDiagnosticComment, parseDiagnosticComment } from '../src/diagnostics/comments-handler';
+import { withTempFishFile } from './temp';
+import { workspaces } from '../src/utils/workspace';
+import { getFishNoExecDiagnostics } from '../src/diagnostics/no-execute-diagnostic';
+
 let parser: Parser;
 let diagnostics: Diagnostic[] = [];
 let output: SyntaxNode[] = [];
@@ -779,7 +784,41 @@ end
       }
     });
   });
+
+  describe.only('fish --no-execute diagnostics', () => {
+    afterEach(async () => {
+      while (workspaces.length > 0) {
+        workspaces.pop();
+      }
+    });
+
+    it.only('NODE_TEST: fish --no-execute diagnostic 1', async () => {
+      const input = `
+function foo
+    echo "hi"`;
+      await withTempFishFile(input, async ({ document, path }) => {
+        console.log({ document, path });
+        const result = fishNoExecuteDiagnostic(document);
+        console.log({ result });
+        expect(result.length).toBeGreaterThan(1);
+      });
+    });
+
+    it.only('VALIDATE: fish --no-execute diagnostic 2', async () => {
+      const input = `
+function foo
+    echo "hi"`;
+      await withTempFishFile(input, async ({ document, path }) => {
+        console.log({ document, path });
+        const result = fishNoExecuteDiagnostic(document);
+        const finalRes = getFishNoExecDiagnostics(document);
+        console.log({ finalRes });
+        // console.log(result)
+      });
+    });
+  });
 });
+
 // expect(definitions.map(d => d.text)).toEqual([
 //   'foo',
 //   'variable_1',
