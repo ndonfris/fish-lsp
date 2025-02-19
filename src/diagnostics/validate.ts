@@ -11,6 +11,7 @@ import { logger } from '../logger';
 import { isAutoloadedUriLoadsFunctionName } from '../utils/translation';
 import { isCommandName, isCommandWithName, isComment, isFunctionDefinitionName, isOption, isString, isTopLevelFunctionDefinition } from '../utils/node-types';
 import { isReservedKeyword } from '../utils/builtins';
+import { getFishNoExecDiagnostics } from './no-execute-diagnostic';
 
 export interface FishDiagnostic extends Diagnostic {
   data: {
@@ -31,6 +32,15 @@ export namespace FishDiagnostic {
       },
       data: {
         node,
+      },
+    };
+  }
+
+  export function fromDiagnostic(diagnostic: Diagnostic): FishDiagnostic {
+    return {
+      ...diagnostic,
+      data: {
+        node: undefined as any,
       },
     };
   }
@@ -207,6 +217,8 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
       diagnostics = diagnostics.filter(diagnostic => diagnostic.code !== errorCode);
     }
   }
+
+  getFishNoExecDiagnostics(doc, diagnostics);
 
   return diagnostics;
 }

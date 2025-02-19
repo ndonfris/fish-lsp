@@ -345,7 +345,7 @@ set -gx fish_lsp_modifiable_paths
 
 # fish_lsp_diagnostic_disable_error_codes <ARRAY>
 # disable diagnostics for matching error codes (default: [])
-# (options: 1001, 1002, 1003, 1004, 2001, 2002, 2003, 3001, 3002, 3003, 4001, 4002, 4003, 4004, 5001)
+# (options: 1001, 1002, 1003, 1004, 2001, 2002, 2003, 3001, 3002, 3003, 4001, 4002, 4003, 4004, 5001, 9999)
 set -gx fish_lsp_diagnostic_disable_error_codes
 
 # fish_lsp_max_background_files <NUMBER>

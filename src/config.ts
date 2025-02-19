@@ -2,7 +2,7 @@ import os from 'os';
 import { z } from 'zod';
 import { logToStdout } from './logger';
 import fishLspEnvVariables from './snippets/fishlspEnvVariables.json';
-import { InitializeResult, TextDocumentSyncKind } from 'vscode-languageserver';
+import { InitializeResult, TextDocumentSyncKind } from 'vscode-languageserver/node';
 import { AllSupportedActions } from './code-actions/action-kinds';
 import { LspCommands } from './command';
 
@@ -11,6 +11,8 @@ import { LspCommands } from './command';
  *******************************************/
 
 export const ConfigHandlerSchema = z.object({
+  // inlineValue: z.boolean().default(true),
+  // inlineCompletion: z.boolean().default(true),
   complete: z.boolean().default(true),
   hover: z.boolean().default(true),
   rename: z.boolean().default(true),
@@ -295,6 +297,8 @@ export function adjustInitializeResultCapabilitiesFromConfig(configHandlers: z.i
         resolveProvider: true,
       },
       documentHighlightProvider: configHandlers.highlight,
+      // inlineValueProvider: configHandlers.inlineValue ? true : undefined,
+      // inlineCompletionProvider: configHandlers.inlineCompletion ? true : undefined,
       inlayHintProvider: configHandlers.inlayHint,
       signatureHelpProvider: configHandlers.signature ? { workDoneProgress: false, triggerCharacters: ['.'] } : undefined,
     },
