@@ -64,6 +64,23 @@ export async function execPrintLsp(line: string) {
   }
   return child.stdout.trim();
 }
+
+export function execFishNoExecute(filepath: string) {
+  try {
+    // execFileSync will throw on non-zero exit codes
+    return execFileSync('fish', ['--no-execute', filepath], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'ignore', 'pipe'], // Only capture stderr
+    }).toString();
+  } catch (err: any) {
+    // When fish finds syntax errors, it exits non-zero but still gives useful output in stderr
+    if (err.stderr) {
+      return err.stderr.toString();
+    }
+    // If something else went wrong, throw the error
+    throw err;
+  }
+}
 //
 // Similar to the above execPrintLsp
 // export async function execInlayHintType(...cmd: string[]): Promise<string> {
