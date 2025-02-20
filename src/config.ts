@@ -301,6 +301,9 @@ export function adjustInitializeResultCapabilitiesFromConfig(configHandlers: z.i
       // inlineCompletionProvider: configHandlers.inlineCompletion ? true : undefined,
       inlayHintProvider: configHandlers.inlayHint,
       signatureHelpProvider: configHandlers.signature ? { workDoneProgress: false, triggerCharacters: ['.'] } : undefined,
+      // codeLensProvider: {
+      //   resolveProvider: true,
+      // }
     },
 
   };
