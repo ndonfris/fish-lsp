@@ -1,7 +1,6 @@
 import { MarkupContent } from 'vscode-languageserver';
 import { FishCompletionItem, FishCompletionItemKind, CompletionExample } from './types';
 import { execCmd, execCommandDocs } from '../exec';
-// import { getFlagDocumentationString } from '../flag-documentation';
 import { md } from '../markdown-builder';
 
 export async function getDocumentationResolver(item: FishCompletionItem): Promise<MarkupContent> {

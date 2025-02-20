@@ -28,7 +28,7 @@ import { getDocumentHighlights } from './document-highlight';
 import { buildCommentCompletions } from './utils/completion/comment-completions';
 import { createCodeActionHandler } from './code-actions/code-action-handler';
 import { createExecuteCommandHandler } from './command';
-import { getStatusInlayHints } from './code-lens';
+import { getAllInlayHints, invalidateInlayHintsCache } from './code-lens';
 import { setupProcessEnvExecFile } from './utils/process-env';
 
 // @TODO
@@ -144,6 +144,8 @@ export default class FishServer {
     connection.languages.inlayHint.on(this.onInlayHints.bind(this));
     connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
     connection.onExecuteCommand(executeHandler);
+
+    connection.onCodeAction(this.onCodeAction.bind(this));
     logger.log({ 'server.register': 'registered' });
   }
 
@@ -197,8 +199,13 @@ export default class FishServer {
     doc.applyEdits(doc.version + 1, ...params.contentChanges);
     this.analyzer.analyze(doc);
     logger.logAsJson(`CHANGED -> ${doc.version}:::${doc.uri}`);
+
+    // code-lens
+    invalidateInlayHintsCache(doc.uri);
+
     const root = this.analyzer.getRootNode(doc);
     if (!root) return;
+
     this.connection.sendDiagnostics(this.sendDiagnostics({ uri: doc.uri, diagnostics: [] }));
     // else ?
   }
@@ -552,6 +559,16 @@ export default class FishServer {
     return results;
   }
 
+  // public async onCodeLens(params: CodeLensParams): Promise<CodeLens[]> {
+  //   this.logParams('onCodeLens', params);
+  //   const uri = uriToPath(params.textDocument.uri);
+  //   const document = this.docs.get(uri);
+  //
+  //   if (!document) return [];
+  //
+  //   return getGlobalReferencesCodeLens(this.analyzer, document);
+  // }
+
   // works but is super slow and resource intensive, plus it doesn't really display much
   async onInlayHints(params: InlayHintParams) {
     logger.log({ params });
@@ -560,10 +577,10 @@ export default class FishServer {
     const document = this.docs.get(uri);
     if (!document) return [];
 
-    const root = this.analyzer.getRootNode(document);
-    if (!root) return [];
+    // const root = this.analyzer.getRootNode(document);
+    // if (!root) return [];
 
-    return getStatusInlayHints(root);
+    return getAllInlayHints(this.analyzer, document);
   }
 
   public onShowSignatureHelp(params: SignatureHelpParams): SignatureHelp | null {
