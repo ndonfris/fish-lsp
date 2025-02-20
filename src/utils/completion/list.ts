@@ -35,11 +35,14 @@ export class FishCompletionListBuilder {
 
   addData(data: FishCompletionData) {
     this.items = this.items.map((item: FishCompletionItem) => {
-      const newData = {
-        ...data,
-        line: data.line.slice(0, data.line.length - data.word.length) + item.label,
-      } as FishCompletionData;
-      return item.setData(newData);
+      if (!data.line.endsWith(' ')) {
+        const newData = {
+          ...data,
+          line: data.line.slice(0, data.line.length - data.word.length) + item.label,
+        } as FishCompletionData;
+        return item.setData(newData);
+      }
+      return item;
     });
     return this;
   }
