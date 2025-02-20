@@ -1,5 +1,5 @@
 import { FishDocumentSymbol } from '../../document-symbol';
-import { FishCompletionItem, FishCompletionItemKind } from './types';
+import { FishCompletionItem } from './types';
 import { execCompleteLine } from '../exec';
 import { logger, Logger } from '../../logger';
 import { InlineParser } from './inline-parser';
@@ -96,6 +96,7 @@ export class CompletionPager {
   ): Promise<FishCompletionList> {
     const { word, command, commandNode: _commandNode, index } = this.inlineParser.getNodeContext(line || '');
     logger.log({
+      line,
       word: word,
       command: command,
       index: index,
@@ -106,14 +107,27 @@ export class CompletionPager {
       line || '',
       word || '',
       setupData.position,
+      command || '',
       setupData.context,
     );
 
     const { variables, functions } = sortSymbols(symbols);
-    if (!word && !command) {
+    if (!line) {
       return this.completeEmpty(symbols);
     }
-    this.logger.log('Pager.complete.data =', { command, word });
+
+    if (command && line.includes(' ')) {
+      this._items.addSymbols(variables);
+      if (index === 1) {
+        this._items.addItems(addFirstIndexedItems(command, this.itemsMap));
+      } else {
+        this._items.addItems(addSpecialItems(command, line, this.itemsMap));
+      }
+    } else if (word && !command) {
+      this._items.addSymbols(functions);
+    }
+
+    this.logger.log('Pager.complete.data =', { command, word, line });
     const stdout: [string, string][] = [];
     if (!this.itemsMap.blockedCommands.includes(command || '')) {
       const toAdd = await this.getSubshellStdoutCompletions(line);
@@ -129,7 +143,10 @@ export class CompletionPager {
     for (const [name, description] of stdout) {
       //if (this.itemsMap.skippableItem(name, description)) continue;
       if (isOption || name.startsWith('-') || command) {
-        this._items.addItem(FishCompletionItem.create(name, 'argument', description, [line, name, description].join(' ').trim()));
+        this._items.addItem(FishCompletionItem.create(name, 'argument', description, [
+          line.slice(0, line.lastIndexOf(' ')),
+          name,
+        ].join(' ').trim()));
         continue;
       }
       const item = this.itemsMap.findLabel(name);
@@ -139,16 +156,6 @@ export class CompletionPager {
       this._items.addItem(item);
     }
 
-    if (command) {
-      this._items.addSymbols(variables);
-      if (index === 1) {
-        this._items.addItems(addFirstIndexedItems(command, this.itemsMap));
-      } else {
-        this._items.addItems(addSpecialItems(command, line, this.itemsMap));
-      }
-    } else if (word && !command) {
-      this._items.addSymbols(functions);
-    }
     switch (wordsFirstChar(word)) {
       case '$':
         this._items.addItems(this.itemsMap.allOfKinds('variable'));
@@ -164,7 +171,7 @@ export class CompletionPager {
     }
 
     const result = this._items.addData(data).build();
-    this._items.log();
+    // this._items.log();
     return result;
   }
 
@@ -303,131 +310,18 @@ function sortSymbols(symbols: FishDocumentSymbol[]) {
 // Trying functional approach
 /////////////////////////////////////////////////////////////////////////////////////////
 
-function _addItemsForWord(word: string): FishCompletionItemKind[] {
-  const firstChar = wordsFirstChar(word);
-  switch (firstChar) {
-    case "'":
-      return ['esc_chars'];
-    case '"':
-      return ['esc_chars', 'variable'];
-    case '$':
-      return ['variable'];
-    case '/':
-      return ['path'];
-    case '%':
-      return ['status'];
-    case '\\':
-      return ['esc_chars'];
-    case ')':
-      return ['combiner', 'pipe'];
-    case ':':
-    case '-':
-    default:
-      return [];
-  }
-}
-
-namespace CommandHas {
-  export function string(command: string, word: string) {
-    if (!command) {
-      return false;
-    }
-    return word.startsWith('"') || word.startsWith("'");
-  }
-  export function path(command: string, word: string) {
-    if (!command) {
-      return false;
-    }
-    return word.includes('/') || word.startsWith('~');
-  }
-}
-
-function _addItemsForWordAndCommand(command: string, word: string): FishCompletionItemKind[] {
-  switch (true) {
-    case CommandHas.string(command, word):
-      return ['esc_chars'];
-    //case isCommandWithRegex(command, word):
-    //  return ['regex'];
-    //case CommandHas.
-    case CommandHas.path(command, word):
-      return ['path', 'wildcard', 'variable'];
-    default:
-      return [];
-  }
-}
-
-function _addItemsJustByCommand(command: string): FishCompletionItemKind[] {
-  switch (command) {
-    case 'set':
-      return ['variable'];
-    case 'function':
-      return ['function'];
-    case 'printf':
-      return ['format_str', 'esc_chars'];
-    case 'string':
-      return ['esc_chars', 'regex'];
-    case 'end':
-      return ['pipe'];
-    case 'return':
-      return ['status', 'variable'];
-    default:
-      return [];
-  }
-}
-
-function _addItemsForCommandOnly(command: string): FishCompletionItemKind[] {
-  switch (command) {
-    case 'set':
-      return ['variable'];
-    case 'function':
-      return ['function'];
-    case 'printf':
-      return ['format_str', 'esc_chars'];
-    case 'string':
-      return ['esc_chars', 'regex'];
-    case 'end':
-      return ['pipe'];
-    case 'return':
-      return ['status', 'variable'];
-    default:
-      return [];
-  }
-}
-
-function _addItemsForCommand(command: string): FishCompletionItemKind[] {
-  switch (command) {
-    case 'set':
-      return ['variable'];
-    case 'function':
-      return ['function'];
-    case 'printf':
-      return ['format_str', 'esc_chars'];
-    case 'string':
-      return ['esc_chars', 'regex'];
-    case 'end':
-      return ['pipe'];
-    case 'return':
-      return ['status', 'variable'];
-    default:
-      return [];
-  }
-}
-
-function _addItemTypes(line: string, parser: InlineParser): FishCompletionItemKind[] {
-  const { word, command: _command } = parser.getNodeContext(line);
-  const wordFirstChar = wordsFirstChar(word);
-  switch (wordFirstChar) {
-    case '$': return ['variable'];
-    case '\\':
-    case '/':
-    case '%':
-
-    // goes together
-    case '-':
-    case ':':
-      break;
-    default:
-      break;
-  }
-  return [];
-}
+// namespace CommandHas {
+//   export function string(command: string, word: string) {
+//     if (!command) {
+//       return false;
+//     }
+//     return word.startsWith('"') || word.startsWith("'");
+//   }
+//   export function path(command: string, word: string) {
+//     if (!command) {
+//       return false;
+//     }
+//     return word.includes('/') || word.startsWith('~');
+//   }
+// }
+//

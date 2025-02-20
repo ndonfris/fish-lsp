@@ -4,7 +4,7 @@ import { LspDocument } from './document';
 import { Position, Location, Range, SymbolKind, TextEdit, DocumentUri, WorkspaceEdit, RenameFile } from 'vscode-languageserver';
 import { equalRanges, getChildNodes, getRange } from './utils/tree-sitter';
 import { SyntaxNode } from 'web-tree-sitter';
-import { isAliasName, isCommandName, isFunctionDefinitionName, isVariable, isVariableDefinitionName } from './utils/node-types';
+import { isCommandName } from './utils/node-types';
 
 /**
  * Check if a range contains otherRange.
@@ -83,23 +83,24 @@ function findLocalLocations(analyzer: Analyzer, document: LspDocument, position:
   if (!symbol) {
     return [];
   }
-  const nodesToSearch = getChildNodes(symbol.scope.scopeNode).filter(node => {
-    if (symbol.kind === SymbolKind.Function) {
-      if (FishDocumentSymbol.isAlias(symbol) && !precedesRange(symbol.selectionRange, getRange(node))) {
-        return false;
-      }
-      return isCommandName(node) || isFunctionDefinitionName(node) || isAliasName(node);
-    }
-    if (symbol.kind === SymbolKind.Variable) {
-      return isVariable(node) || isVariableDefinitionName(node);
-    }
-    return false;
-  }).filter(node => {
-    if (FishDocumentSymbol.isAlias(symbol)) {
-      return precedesRange(symbol.selectionRange, getRange(node));
-    }
-    return true;
-  });
+  const nodesToSearch = getChildNodes(symbol.scope.scopeNode);
+  // .filter(node => {
+  //   if (symbol.kind === SymbolKind.Function) {
+  //     if (FishDocumentSymbol.isAlias(symbol) && !precedesRange(symbol.selectionRange, getRange(node))) {
+  //       return false;
+  //     }
+  //     return isCommandName(node) || isFunctionDefinitionName(node) || isAliasName(node);
+  //   }
+  //   if (symbol.kind === SymbolKind.Variable) {
+  //     return isVariable(node) || isVariableDefinitionName(node) || isCompleteFlagCommandName(node);
+  //   }
+  //   return false;
+  // }).filter(node => {
+  //   if (FishDocumentSymbol.isAlias(symbol)) {
+  //     return precedesRange(symbol.selectionRange, getRange(node));
+  //   }
+  //   return true;
+  // });
   const result = findLocations(document.uri, nodesToSearch, symbol.name);
   const hasDefinition = result.some(l => l.uri === symbol.uri && equalRanges(symbol.selectionRange, l.range));
   if (FishDocumentSymbol.isAlias(symbol) && !hasDefinition) {
@@ -137,15 +138,16 @@ function findGlobalLocations(analyzer: Analyzer, document: LspDocument, position
       continue;
     }
     const rootNode = analyzer.getRootNode(doc)!;
-    const searchNodes = getChildNodes(rootNode).filter(node => {
-      if (symbol.kind === SymbolKind.Function) {
-        return isCommandName(node) || isFunctionDefinitionName(node) || isAliasName(node);
-      }
-      if (symbol.kind === SymbolKind.Variable) {
-        return isVariable(node) || isVariableDefinitionName(node);
-      }
-      return false;
-    });
+    const searchNodes = getChildNodes(rootNode);
+    //   .filter(node => {
+    //   if (symbol.kind === SymbolKind.Function) {
+    //     return isCommandName(node) || isFunctionDefinitionName(node) || isAliasName(node);
+    //   }
+    //   if (symbol.kind === SymbolKind.Variable) {
+    //     return isVariable(node) || isVariableDefinitionName(node);
+    //   }
+    //   return false;
+    // });
     const toSearchNodes = removeLocalSymbols(symbol, searchNodes, analyzer.cache.getFlatDocumentSymbols(uri));
     const newLocations = findLocations(uri, toSearchNodes, symbol.name);
     locations.push(...newLocations);
