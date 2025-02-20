@@ -118,11 +118,44 @@ export class Analyzer {
     });
   }
 
+  public findDocumentSymbols(
+    document: LspDocument,
+    position: Position,
+  ): FishDocumentSymbol[] {
+    const symbols = FishDocumentSymbol.flattenArray(
+      this.cache.getDocumentSymbols(document.uri),
+    );
+    return symbols.filter((symbol) => {
+      return isPositionWithinRange(position, symbol.selectionRange);
+    });
+  }
+
+  public allSymbolsAccessibleAtPosition(
+    document: LspDocument,
+    position: Position,
+  ): FishDocumentSymbol[] {
+    const symbols = FishDocumentSymbol
+      .flattenArray(this.cache.getDocumentSymbols(document.uri))
+      .filter((symbol) => symbol.scope.containsPosition(position));
+    const globalSymbols = this.globalSymbols.allSymbols.filter((symbol) => {
+      if (symbol.uri !== document.uri) {
+        return !symbols.some((s) => s.name === symbol.name);
+      }
+      return true;
+    });
+
+    return [
+      ...symbols,
+      ...globalSymbols,
+
+    ];
+  }
+
   /**
-     * method that returns all the workspaceSymbols that are in the same scope as the given
-     * shell
-     * @returns {WorkspaceSymbol[]} array of all symbols
-     */
+    * method that returns all the workspaceSymbols that are in the same scope as the given
+    * shell
+    * @returns {WorkspaceSymbol[]} array of all symbols
+    */
   public getWorkspaceSymbols(query: string = ''): WorkspaceSymbol[] {
     return this.globalSymbols.allSymbols
       .map((s) => FishDocumentSymbol.toWorkspaceSymbol(s))

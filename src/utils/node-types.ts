@@ -347,6 +347,16 @@ export function isVariable(node: SyntaxNode) {
   }
 }
 
+export function isCompleteFlagCommandName(node: SyntaxNode) {
+  if (node.parent && isCommandWithName(node, 'set')) {
+    const children = node.parent.childrenForFieldName('arguments').filter(n => !isOption(n));
+    if (children && children.at(0)?.equals(node)) {
+      return node.text.startsWith('_flag_');
+    }
+  }
+  return false;
+}
+
 /**
  * finds the parent command of the current node
  *
