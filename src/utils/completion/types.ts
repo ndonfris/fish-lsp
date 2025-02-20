@@ -61,6 +61,7 @@ export type FishCompletionData = {
   line: string;
   word: string;
   position: Position;
+  command?: string;
   context?: CompletionContext;
 };
 
@@ -173,9 +174,10 @@ export namespace FishCompletionItem {
     line: string,
     word: string,
     position: Position,
+    command?: string,
     context?: CompletionContext,
   ): FishCompletionData {
-    return { uri, line, word, position, context };
+    return { uri, line, word, position, command, context };
   }
 }
 

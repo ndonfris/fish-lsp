@@ -1,8 +1,8 @@
 import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from './parser';
 import { Analyzer } from './analyze';
-import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, DocumentHighlight, DocumentHighlightParams, PublishDiagnosticsParams } from 'vscode-languageserver/node';
-import * as LSP from 'vscode-languageserver/node';
+import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, DocumentHighlight, DocumentHighlightParams, PublishDiagnosticsParams } from 'vscode-languageserver';
+import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
 import { formatDocumentContent } from './formatting';
 import { createServerLogger, Logger, logger } from './logger';
@@ -247,7 +247,7 @@ export default class FishServer {
       logger.logAsJson('onComplete got [NOT FOUND]: ' + uri);
       return this.completion.empty();
     }
-    const symbols = this.analyzer.cache.getFlatDocumentSymbols(doc.uri);
+    const symbols = this.analyzer.allSymbolsAccessibleAtPosition(doc, params.position);
     const { line, word } = this.analyzer.parseCurrentLine(doc, params.position);
     if (!line) return await this.completion.completeEmpty(symbols);
 
@@ -272,7 +272,6 @@ export default class FishServer {
 
     try {
       logger.log('complete');
-      // logger.log({ uri: uri, symbols: symbols.map(s => s.name) });
       list = await this.completion.complete(line, fishCompletionData, symbols);
     } catch (error) {
       this.logger.logAsJson('ERROR: onComplete ' + error?.toString() || 'error');
@@ -287,7 +286,8 @@ export default class FishServer {
    */
   async onCompletionResolve(item: CompletionItem): Promise<CompletionItem> {
     const fishItem = item as FishCompletionItem;
-    if (fishItem.useDocAsDetail) {
+    logger.log({ onCompletionResolve: fishItem });
+    if (fishItem.useDocAsDetail || fishItem.local) {
       item.documentation = {
         kind: MarkupKind.Markdown,
         value: fishItem.documentation.toString(),

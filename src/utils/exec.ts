@@ -104,10 +104,10 @@ export async function execSubCommandCompletions(...cmd: string[]): Promise<strin
 
 export async function execCompleteLine(cmd: string): Promise<string[]> {
   const escapedCommand = cmd.replace(/(["'$`\\/])/g, '\\$1');
-  const completeString = `complete --do-complete='${escapedCommand}'`;
+  const completeString = `complete --do-complete --escape '${escapedCommand}'`;
 
-  const child = await execCmd(completeString);
-  return child || [];
+  const child = await execAsyncF(completeString);
+  return child.toString().split('\n') || [];
 }
 
 export async function execCompleteSpace(cmd: string): Promise<string[]> {

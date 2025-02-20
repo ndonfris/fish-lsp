@@ -1,7 +1,8 @@
 import { MarkupContent } from 'vscode-languageserver';
 import { FishCompletionItem, FishCompletionItemKind, CompletionExample } from './types';
 import { execCmd, execCommandDocs } from '../exec';
-import { getFlagDocumentationString } from '../flag-documentation';
+// import { getFlagDocumentationString } from '../flag-documentation';
+import { md } from '../markdown-builder';
 
 export async function getDocumentationResolver(item: FishCompletionItem): Promise<MarkupContent> {
   let docString: string = ['```fish', item.documentation.toString(), '```'].join('\n');
@@ -22,7 +23,7 @@ export async function getDocumentationResolver(item: FishCompletionItem): Promis
         docString = await getCommandDocString(item.label) ?? docString;
         break;
       case FishCompletionItemKind.FUNCTION:
-        docString = await getFunctionDocString(item.label) ?? docString;
+        docString = await getFunctionDocString(item.label) ?? `(${md.bold('function')}) ${item.label}`;
         break;
       case FishCompletionItemKind.VARIABLE:
         docString = await getVariableDocString(item.label) ?? docString;
@@ -44,7 +45,7 @@ export async function getDocumentationResolver(item: FishCompletionItem): Promis
         docString ??= await getStaticDocString(item as FishCompletionItem);
         break;
       case FishCompletionItemKind.ARGUMENT:
-        docString ??= await getFlagDocumentationString(item.documentation.toString().trimStart());
+        docString = await buildArgumentDocString(item);
         break;
       case FishCompletionItemKind.EMPTY:
       default:
@@ -108,6 +109,17 @@ export async function getStaticDocString(item: FishCompletionItem): Promise<stri
     ].join('\n');
   });
   return result;
+}
+
+async function buildArgumentDocString(item: FishCompletionItem): Promise<string> {
+  if (!item.detail) {
+    return md.codeBlock('fish', item.documentation.toString());
+  }
+  return [
+    md.codeBlock('fish', item.documentation.toString()),
+    md.separator(),
+    item.detail,
+  ].join('\n');
 }
 
 export async function getAbbrDocString(name: string): Promise<string | undefined> {
