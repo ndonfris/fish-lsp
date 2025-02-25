@@ -134,7 +134,7 @@ function findGlobalLocations(analyzer: Analyzer, document: LspDocument, position
   const uris = analyzer.cache.uris();
   for (const uri of uris) {
     const doc = analyzer.getDocument(uri)!;
-    if (!doc.isAutoloaded()) {
+    if (!doc.isAutoloadedUri()) {
       continue;
     }
     const rootNode = analyzer.getRootNode(doc)!;

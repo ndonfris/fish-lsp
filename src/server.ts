@@ -30,7 +30,6 @@ import { createCodeActionHandler } from './code-actions/code-action-handler';
 import { createExecuteCommandHandler } from './command';
 import { getAllInlayHints, invalidateInlayHintsCache } from './code-lens';
 import { setupProcessEnvExecFile } from './utils/process-env';
-import { shellComplete } from './utils/completion/shell';
 
 // @TODO
 export type SupportedFeatures = {
@@ -250,11 +249,11 @@ export default class FishServer {
     const symbols = this.analyzer.allSymbolsAccessibleAtPosition(doc, params.position);
     const { line, word } = this.analyzer.parseCurrentLine(doc, params.position);
 
-    const items = await shellComplete(line.toString());
-    logger.log({
-      location: 'server.onComplete',
-      items: items.slice(0, 5),
-    });
+    // const items = await shellComplete(line.toString());
+    // logger.log({
+    //   location: 'server.onComplete',
+    //   items: items.slice(0, 5),
+    // });
 
     if (!line) return await this.completion.completeEmpty(symbols);
 
@@ -323,6 +322,26 @@ export default class FishServer {
     if (!doc) return [];
 
     const symbols = this.analyzer.cache.getDocumentSymbols(doc.uri);
+    const globals = symbols.filter(s => s.kind === SymbolKind.Function && s.scope.scopeTag === 'global');
+    const toSearchUris: string[] = [];
+    for (const sym of globals) {
+      logger.log({ globalSym: sym });
+      toSearchUris.push(...this.analyzer.getMissingAutoloadedFiles(sym.uri, sym.name));
+    }
+    for (const uri of toSearchUris) {
+      const file = this.docs.get(uri);
+      logger.log({ onDocumentSymbols: `file to analyze ${file}` });
+      if (file) {
+        this.analyzer.analyze(file);
+      } else {
+        logger.log({ onDocumentSymbols: `file not found ${uri}` });
+        const toAnalyzeDoc = await this.docs.getDocument(uri);
+        logger.log({ onDocumentSymbols: `file to analyze ${toAnalyzeDoc?.uri}` });
+        if (!toAnalyzeDoc) continue;
+        this.analyzer.analyze(toAnalyzeDoc);
+      }
+    }
+
     return filterLastPerScopeSymbol(symbols);
   }
 
