@@ -122,7 +122,7 @@ type InlayHintsCache = {
 };
 
 const inlayHintsCache = new Map<string, InlayHintsCache>();
-const INLAY_HINTS_TTL = 15000; // 15 seconds TTL for full hints refresh
+const INLAY_HINTS_TTL = 1500; // 1.5 seconds TTL for full hints refresh
 
 function getCachedInlayHints(
   uri: string,

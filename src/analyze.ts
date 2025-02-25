@@ -97,7 +97,7 @@ export class Analyzer {
 
     const endTime = performance.now();
     const duration = ((endTime - startTime) / 1000).toFixed(2); // Convert to seconds with 2 decimal places
-    callbackfn(`[fish-lsp] analyzed ${amount} files in ${duration}s`);
+    callbackfn(`[fish-lsp] analyzed ${this.amountIndexed} files in ${duration}s`);
     logger.log(`[fish-lsp] analyzed ${amount} files in ${duration}s`);
     return { filesParsed: amount };
   }
