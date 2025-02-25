@@ -195,21 +195,28 @@ export function invalidateInlayHintsCache(uri: string) {
 }
 
 export function getAllInlayHints(analyzer: Analyzer, document: LspDocument): InlayHint[] {
-  const cachedHints = getCachedInlayHints(document.uri, document.version);
-  if (cachedHints) {
-    return cachedHints;
-  }
-
   const results: InlayHint[] = [];
   const root = analyzer.getRootNode(document);
-
   if (root) {
     results.push(...getStatusInlayHints(root));
-    results.push(...getGlobalReferencesInlayHints(analyzer, document));
+    // results.push(...getGlobalReferencesInlayHints(analyzer, document));
   }
-
-  // Cache all hints together
-  setCachedInlayHints(document.uri, results, document.version);
-
   return results;
+  // const cachedHints = getCachedInlayHints(document.uri, document.version);
+  // if (cachedHints) {
+  //   return cachedHints;
+  // }
+  //
+  // const results: InlayHint[] = [];
+  // const root = analyzer.getRootNode(document);
+  //
+  // if (root) {
+  //   results.push(...getStatusInlayHints(root));
+  //   results.push(...getGlobalReferencesInlayHints(analyzer, document));
+  // }
+  //
+  // // Cache all hints together
+  // setCachedInlayHints(document.uri, results, document.version);
+  //
+  // return results;
 }

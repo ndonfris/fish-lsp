@@ -75,12 +75,15 @@ export class Analyzer {
 
       // Create promises for each document analysis
       const workspacePromises = docs.map(async (doc) => {
+        if (amount >= max_files) {
+          return;
+        }
         try {
           this.analyze(doc);
-          amount++;
         } catch (err) {
           logger.log(err);
         }
+        amount++;
       });
 
       analysisPromises.push(...workspacePromises);
@@ -97,7 +100,7 @@ export class Analyzer {
 
     const endTime = performance.now();
     const duration = ((endTime - startTime) / 1000).toFixed(2); // Convert to seconds with 2 decimal places
-    callbackfn(`[fish-lsp] analyzed ${this.amountIndexed} files in ${duration}s`);
+    callbackfn(`[fish-lsp] analyzed ${amount} files in ${duration}s`);
     logger.log(`[fish-lsp] analyzed ${amount} files in ${duration}s`);
     return { filesParsed: amount };
   }
@@ -393,6 +396,17 @@ export class Analyzer {
     return searchNames
       .filter((path) => existsSync(path))
       .map((path) => pathToUri(path));
+  }
+
+  public getMissingAutoloadedFiles(uri: string, name: string): string[] {
+    const searchWorkspace = workspaces.find(ws => ws.contains(uri));
+    if (!searchWorkspace) {
+      return [];
+    }
+    const uris = searchWorkspace.findMatchingFishIdentifiers(name);
+    return uris.filter(uri => {
+      return !this.cache.uris().includes(uri);
+    });
   }
 }
 export class GlobalDefinitionCache {
