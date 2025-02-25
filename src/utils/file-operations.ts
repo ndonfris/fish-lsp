@@ -3,6 +3,7 @@ import { TextDocumentItem } from 'vscode-languageserver';
 import { LspDocument } from '../document';
 import { pathToUri } from './translation';
 import { basename, dirname, extname } from 'path';
+import { env } from './env-manager';
 
 /**
  * Synchronous file operations.
@@ -38,7 +39,7 @@ export class SyncFileHelper {
     filePathString = filePathString.replace(/^~/, process.env.HOME!);
     // Expand environment variables
     filePathString = filePathString.replace(/\$([a-zA-Z0-9_]+)/g, (_, envVarName) => {
-      return process.env[envVarName] || '';
+      return env.get(envVarName) || '';
     });
     return filePathString;
   }

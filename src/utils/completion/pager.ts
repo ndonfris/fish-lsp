@@ -128,13 +128,15 @@ export class CompletionPager {
       return this.completeEmpty(symbols);
     }
 
-    this.logger.log('Pager.complete.data =', { command, word, line });
     const stdout: [string, string][] = [];
-    if (command && !this.itemsMap.blockedCommands.includes(command) || !command) {
-      const toAdd = await shellComplete(line);
-      logger.log('toAdd =', toAdd.slice(0, 5));
-      stdout.push(...toAdd);
+    if (command && this.itemsMap.blockedCommands.includes(command)) {
+      this._items.addItems(this.itemsMap.allOfKinds('pipe'));
+      return this._items.build(false);
     }
+
+    const toAdd = await shellComplete(line);
+    stdout.push(...toAdd);
+    logger.log('toAdd =', toAdd.slice(0, 5));
 
     if (word && word.includes('/')) {
       this.logger.log('word includes /', word);

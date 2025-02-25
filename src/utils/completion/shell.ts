@@ -1,5 +1,4 @@
 import { execAsync } from '../exec';
-import { _processEnv } from '../process-env';
 
 export function escapeCmd(cmd: string): string {
   return cmd
@@ -22,7 +21,7 @@ export async function shellComplete(cmd: string): Promise<[string, string][]> {
   // for example, 'echo "$' -> ['\"$PATH', '\"$PWD', ...]
   // const completeString = `fish -c "complete --escape --do-complete='${escapedCmd}'"`;
 
-  const child = await execAsync(completeString, { env: _processEnv });
+  const child = await execAsync(completeString);
 
   if (child.stderr) {
     return [];
