@@ -3,8 +3,7 @@ import { resolve } from 'path';
 import { promisify } from 'util';
 import { PrebuiltDocumentationMap } from './snippets';
 import { md } from './markdown-builder';
-
-export const _processEnv = { ...process.env };
+import { env } from './env-manager';
 
 const execFileAsync = promisify(execFile);
 
@@ -34,8 +33,9 @@ export async function setupProcessEnvExecFile() {
 
     stdout.split('\n').forEach(line => {
       const [variable, value]: [AutoloadedFishVariableName, string] = line.split('\t') as [AutoloadedFishVariableName, string];
-      if (value && value.trim()) {
-        process.env[variable] = value.trim();
+      if (variable) {
+        const storeValue = value ? value.trim() : undefined;
+        env.set(variable, storeValue);
       }
     });
   } catch (error) {
@@ -57,11 +57,7 @@ export namespace AutoloadedPathVariables {
    * are separated by `:`, or empty array if variable is not set
    */
   export function get(variable: AutoloadedFishVariableName): string[] {
-    const value = process.env[variable];
-    if (value && value.trim()) {
-      return value.split(':');
-    }
-    return [];
+    return env.getAsArray(variable);
   }
 
   /*
@@ -87,7 +83,7 @@ export namespace AutoloadedPathVariables {
   export function update(variable: AutoloadedFishVariableName, ...newValues: string[]): string {
     const values = get(variable);
     const updatedValues = [...values, ...newValues].join(':');
-    process.env[variable] = updatedValues;
+    env.set(variable, updatedValues);
     return updatedValues;
   }
 
@@ -95,7 +91,7 @@ export namespace AutoloadedPathVariables {
    * for debugging purposes, returns un-split value of autoloaded fish variable
    */
   export function read(variable: AutoloadedFishVariableName): string {
-    return process.env[variable] || '';
+    return env.get(variable) || '';
   }
 
   /**
@@ -140,13 +136,3 @@ export namespace AutoloadedPathVariables {
     return '';
   }
 }
-
-// export namespace processEnv {
-//   export function get(str: string): string[] | string | undefined {
-//     if (AutoloadedPathVariables.includes(str)) {
-//       return AutoloadedPathVariables.get(str);
-//     }
-//     return process.env[str];
-//
-//   }
-// }

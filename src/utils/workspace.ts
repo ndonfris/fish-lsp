@@ -6,8 +6,8 @@ import { FishDocumentSymbol } from '../document-symbol';
 import { config } from '../config';
 import { logger } from '../logger';
 import { basename, dirname, join } from 'path';
-import { autoloadedFishVariableNames } from './process-env';
 import * as LSP from 'vscode-languageserver';
+import { env } from './env-manager';
 
 async function getFileUriSet(path: string) {
   const stream = fastGlob.stream('**/*.fish', { cwd: path, absolute: true });
@@ -167,6 +167,11 @@ export class Workspace implements FishWorkspace {
     return this.hasFunctionUri(fishIdentifier) && this.hasCompletionUri(fishIdentifier);
   }
 
+  getCompletionUri(fishIdentifier: string) {
+    const matchingUris = this.findMatchingFishIdentifiers(fishIdentifier);
+    return matchingUris.find(uri => uri.endsWith(`/completions/${fishIdentifier}.fish`));
+  }
+
   async asyncUrisToLspDocuments(): Promise<LspDocument[]> {
     const readPromises = Array.from(this.uris).map(async uri => {
       try {
@@ -291,7 +296,10 @@ export namespace FishUriWorkspace {
 
     // Special cases for system directories
     if (root.endsWith('/.config/fish')) return '__fish_config_dir';
-    const specialName = autoloadedFishVariableNames.find(loadedName => process.env[loadedName] === root);
+    // const specialName = autoloadedFishVariableNames.find(loadedName => process.env[loadedName] === root);
+    const specialName = env.getAutoloadedKeys()
+      .find(k => env.getAsArray(k).includes(root));
+
     if (specialName) return specialName;
     // if (root === '/usr/share/fish') return '__fish_data_dir';
 
