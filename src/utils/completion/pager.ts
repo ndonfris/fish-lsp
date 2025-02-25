@@ -6,7 +6,7 @@ import { InlineParser } from './inline-parser';
 import { CompletionItemMap } from './startup-cache';
 import { CompletionContext, CompletionList, Position, SymbolKind } from 'vscode-languageserver-protocol';
 import { FishCompletionList, FishCompletionListBuilder } from './list';
-// import { StaticItems } from './static-items';
+import { shellComplete } from './shell';
 
 export type SetupData = {
   uri: string;
@@ -111,26 +111,28 @@ export class CompletionPager {
       setupData.context,
     );
 
-    const { variables, functions } = sortSymbols(symbols);
-    if (!line) {
-      return this.completeEmpty(symbols);
-    }
+    // const shellOutput = await shellComplete(line.toString());
+    // const subshellOutput = await this.getSubshellStdoutCompletions(line);
+    // const lineOutput = await execCompleteLine(line);
+    // logger.log({
+    //   location: 'CompletionPager.complete',
+    //   build: getBuildTimeString(),
+    //   line: line,
+    //   shellOutput: shellOutput.slice(0, 5),
+    //   subshellOutput: subshellOutput.slice(0, 5),
+    //   lineOutput: lineOutput.slice(0, 5),
+    // });
 
-    if (command && line.includes(' ')) {
-      this._items.addSymbols(variables);
-      if (index === 1) {
-        this._items.addItems(addFirstIndexedItems(command, this.itemsMap));
-      } else {
-        this._items.addItems(addSpecialItems(command, line, this.itemsMap));
-      }
-    } else if (word && !command) {
-      this._items.addSymbols(functions);
+    const { variables, functions } = sortSymbols(symbols);
+    if (!word && !command) {
+      return this.completeEmpty(symbols);
     }
 
     this.logger.log('Pager.complete.data =', { command, word, line });
     const stdout: [string, string][] = [];
-    if (!this.itemsMap.blockedCommands.includes(command || '')) {
-      const toAdd = await this.getSubshellStdoutCompletions(line);
+    if (command && !this.itemsMap.blockedCommands.includes(command) || !command) {
+      const toAdd = await shellComplete(line);
+      logger.log('toAdd =', toAdd.slice(0, 5));
       stdout.push(...toAdd);
     }
 
@@ -154,6 +156,17 @@ export class CompletionPager {
         continue;
       }
       this._items.addItem(item);
+    }
+
+    if (command && line.includes(' ')) {
+      this._items.addSymbols(variables);
+      if (index === 1) {
+        this._items.addItems(addFirstIndexedItems(command, this.itemsMap));
+      } else {
+        this._items.addItems(addSpecialItems(command, line, this.itemsMap));
+      }
+    } else if (word && !command) {
+      this._items.addSymbols(functions);
     }
 
     switch (wordsFirstChar(word)) {

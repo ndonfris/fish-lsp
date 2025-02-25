@@ -4,6 +4,8 @@ import { promisify } from 'util';
 import { PrebuiltDocumentationMap } from './snippets';
 import { md } from './markdown-builder';
 
+export const _processEnv = { ...process.env };
+
 const execFileAsync = promisify(execFile);
 
 export const autoloadedFishVariableNames = [

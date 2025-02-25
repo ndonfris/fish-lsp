@@ -30,6 +30,7 @@ import { createCodeActionHandler } from './code-actions/code-action-handler';
 import { createExecuteCommandHandler } from './command';
 import { getAllInlayHints, invalidateInlayHintsCache } from './code-lens';
 import { setupProcessEnvExecFile } from './utils/process-env';
+import { shellComplete } from './utils/completion/shell';
 
 // @TODO
 export type SupportedFeatures = {
@@ -256,6 +257,13 @@ export default class FishServer {
     }
     const symbols = this.analyzer.allSymbolsAccessibleAtPosition(doc, params.position);
     const { line, word } = this.analyzer.parseCurrentLine(doc, params.position);
+
+    const items = await shellComplete(line.toString());
+    logger.log({
+      location: 'server.onComplete',
+      items: items.slice(0, 5),
+    });
+
     if (!line) return await this.completion.completeEmpty(symbols);
 
     const fishCompletionData = {

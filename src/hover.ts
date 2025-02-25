@@ -10,7 +10,7 @@ import { execCommandDocs, execCompletions, execSubCommandCompletions } from './u
 import { findParent, findParentCommand, isCommand, isFunctionDefinition, isOption, isProgram, isVariableDefinitionName, isVariableExpansion, isVariableExpansionWithName } from './utils/node-types';
 import { findFirstParent } from './utils/tree-sitter';
 import { symbolKindsFromNode, uriToPath } from './utils/translation';
-import { Logger } from './logger';
+import { logger } from './logger';
 import { PrebuiltDocumentationMap } from './utils/snippets';
 import { md } from './utils/markdown-builder';
 import { AutoloadedPathVariables } from './utils/process-env';
@@ -21,7 +21,6 @@ export async function handleHover(
   position: LSP.Position,
   current: Parser.SyntaxNode,
   cache: DocumentationCache,
-  logger?: Logger,
 ): Promise<LSP.Hover | null> {
   if (isOption(current)) {
     return await getHoverForFlag(current);
@@ -57,7 +56,7 @@ export async function handleHover(
   const commandString = await collectCommandString(current);
 
   const result = await documentationHoverProvider(commandString);
-  logger?.log({ commandString, result });
+  logger.log({ commandString, result });
   return result;
 }
 
@@ -85,8 +84,11 @@ export async function getHoverForFlag(current: Parser.SyntaxNode): Promise<Hover
     .filter(line => fixedFlags.includes(line[0] as string))
     .map(line => line.join('\t'));
 
+  const prebuiltDocs = PrebuiltDocumentationMap.getByName(commandStr.join('-'));
+  const description = prebuiltDocs?.length === 0 ? '' : prebuiltDocs?.pop()?.description || '';
+  logger.log(description);
   return {
-    contents: enrichCommandWithFlags(commandStr.join('-'), found),
+    contents: enrichCommandWithFlags(commandStr.join('-'), description, found),
   };
 }
 
