@@ -4,7 +4,8 @@ import { LspDocument } from './document';
 import { Position, Location, Range, SymbolKind, TextEdit, DocumentUri, WorkspaceEdit, RenameFile } from 'vscode-languageserver';
 import { equalRanges, getChildNodes, getRange } from './utils/tree-sitter';
 import { SyntaxNode } from 'web-tree-sitter';
-import { isCommandName } from './utils/node-types';
+import { isCommandName, isCommandWithName } from './utils/node-types';
+import { logger } from './logger';
 
 /**
  * Check if a range contains otherRange.
@@ -66,7 +67,16 @@ function findLocations(uri: string, nodes: SyntaxNode[], matchName: string): Loc
       a.end.character === b.end.character
     );
   };
-  const matchingNames = nodes.filter(node => node.text === matchName);
+  let flagName = '';
+  if (matchName.startsWith('_flag_')) {
+    flagName = matchName.slice(6);
+  }
+  const matchingNames = nodes.filter(node => {
+    if (matchName.startsWith('_flag_')) {
+      return node.parent && isCommandWithName(node.parent, 'argparse') && node.text.split('/').find(t => t === flagName.slice(6));
+    }
+    return node.text === matchName;
+  });
   const uniqueRanges: Range[] = [];
   matchingNames.forEach(node => {
     const range = getRange(node);
@@ -83,6 +93,35 @@ function findLocalLocations(analyzer: Analyzer, document: LspDocument, position:
   if (!symbol) {
     return [];
   }
+  logger.log({
+    symbol: symbol.name,
+    kind: symbol.kind,
+    symbols: analyzer.getFlatDocumentSymbols(document.uri).filter(s => equalRanges(symbol.selectionRange, s.selectionRange)).map(r => r.name),
+    isArgparse: FishDocumentSymbol.isArgparseVariable(symbol),
+    isArgparseFlag: symbol.name.startsWith('_flag_') && symbol.kind === SymbolKind.Variable,
+  });
+  if (FishDocumentSymbol.isArgparseVariable(symbol) || symbol.name.startsWith('_flag_') && symbol.kind === SymbolKind.Variable) {
+    const symbols = getSymbols(analyzer, document, position);
+    const symbolNames = symbols.map(r => r.name);
+    const nodesToSearch = getChildNodes(symbol.scope.scopeNode).filter(node => {
+      if (symbolNames.some(s => s === node.text)) {
+        return true;
+      }
+      if (isCommandWithName(node, 'argparse') && node.text.split('/').find(t => t === symbol.name.slice(6))) {
+        return true;
+      }
+      return false;
+    });
+    const locations: Location[] = [];
+    logger.log({
+      nodesToSearch: nodesToSearch.map(n => n.text),
+      nodes: getChildNodes(symbol.scope.scopeNode).map(n => n.text),
+    });
+    locations.push(...nodesToSearch.map(node => Location.create(document.uri, getRange(node))));
+    locations.push(...symbols.map(s => Location.create(s.uri, s.selectionRange)));
+    return locations;
+  }
+  /** TODO _flag support */
   const nodesToSearch = getChildNodes(symbol.scope.scopeNode);
   // .filter(node => {
   //   if (symbol.kind === SymbolKind.Function) {
@@ -160,18 +199,30 @@ function findGlobalLocations(analyzer: Analyzer, document: LspDocument, position
   return locations;
 }
 
+function getSymbols(analyzer: Analyzer, document: LspDocument, position: Position): FishDocumentSymbol[] {
+  const symbol = findDefinitionSymbols(analyzer, document, position).pop();
+  if (!symbol) {
+    return [];
+  }
+  return analyzer.getFlatDocumentSymbols(document.uri).filter(s => equalRanges(symbol.selectionRange, s.selectionRange));
+}
+
 export function getRenameLocations(analyzer: Analyzer, document: LspDocument, position: Position): Location[] {
   if (!canRenamePosition(analyzer, document, position)) {
     return [];
   }
   const renameScope = getRenameSymbolType(analyzer, document, position);
-  switch (renameScope) {
-    case 'local':
-      return findLocalLocations(analyzer, document, position);
-    case 'global':
-      return findGlobalLocations(analyzer, document, position);
-    default:
-      return [];
+  // TODO _flag_ support
+  if (renameScope === 'local') {
+    // const localLocations = findLocalLocations(analyzer, document, position);
+    // const symbols = getSymbols(analyzer, document, position);
+    // const symbolInRange = symbols.find(s => FishDocumentSymbol.));
+
+    return findLocalLocations(analyzer, document, position);
+  } else if (renameScope === 'global') {
+    return findGlobalLocations(analyzer, document, position);
+  } else {
+    return [];
   }
 }
 
@@ -179,6 +230,7 @@ export function getReferenceLocations(analyzer: Analyzer, document: LspDocument,
   const node = analyzer.nodeAtPoint(document.uri, position.line, position.character);
   if (!node) return [];
   const symbol = analyzer.getDefinition(document, position);
+  // TODO _flag_ support
   if (symbol) {
     const doc = analyzer.getDocument(symbol.uri)!;
     const { scopeTag } = symbol.scope;
