@@ -3,6 +3,7 @@ import { SyntaxNode } from 'web-tree-sitter';
 // import { hasPossibleSubCommand } from './utils/builtins';
 import { execCommandDocs, execCommandType, CompletionArguments, execCompleteSpace, execCompleteCmdArgs, documentCommandDescription } from './utils/exec';
 import { getChildNodes, getNodeText } from './utils/tree-sitter';
+import { md } from './utils/markdown-builder';
 
 //////// @TODO: clean up this file
 
@@ -57,10 +58,10 @@ export function enrichCommandArg(doc: string): MarkupContent {
   return enrichToMarkdown(enrichedDoc);
 }
 
-export function enrichCommandWithFlags(command: string, flags: string[]): MarkupContent {
+export function enrichCommandWithFlags(command: string, description: string, flags: string[]): MarkupContent {
   const retString = [
-    `___${command}___`,
-    '___',
+    description ? `(${md.bold(command)}) ${description}` : md.bold(command),
+    md.separator(),
     flags.map(line => line.split('\t'))
       .map(line => `__${line[0]}__ _${line.slice(1).join(' ')}_`)
       .join('\n'),
