@@ -28,7 +28,7 @@ import { getDocumentHighlights } from './document-highlight';
 import { buildCommentCompletions } from './utils/completion/comment-completions';
 import { createCodeActionHandler } from './code-actions/code-action-handler';
 import { createExecuteCommandHandler } from './command';
-import { getAllInlayHints, invalidateInlayHintsCache } from './code-lens';
+import { getAllInlayHints } from './code-lens';
 import { setupProcessEnvExecFile } from './utils/process-env';
 
 // @TODO
@@ -110,7 +110,7 @@ export default class FishServer {
     private documentationCache: DocumentationCache,
     protected logger: Logger,
   ) {
-    this.features = { codeActionDisabledSupport: false };
+    this.features = { codeActionDisabledSupport: true };
   }
 
   register(connection: Connection): void {
@@ -123,6 +123,7 @@ export default class FishServer {
     connection.onDidChangeTextDocument(this.didChangeTextDocument.bind(this));
     connection.onDidCloseTextDocument(this.didCloseTextDocument.bind(this));
     connection.onDidSaveTextDocument(this.didSaveTextDocument.bind(this));
+    // connection.sendDiagnostics(this.sendDiagnostics.bind(this));
     // • for multiple completionProviders -> https://github.com/microsoft/vscode-extension-samples/blob/main/completions-sample/src/extension.ts#L15
     // • https://github.com/Dart-Code/Dart-Code/blob/7df6509870d51cc99a90cf220715f4f97c681bbf/src/providers/dart_completion_item_provider.ts#L197-202
     connection.onCompletion(this.onCompletion.bind(this));
@@ -199,7 +200,7 @@ export default class FishServer {
     logger.logAsJson(`CHANGED -> ${doc.version}:::${doc.uri}`);
 
     // code-lens
-    invalidateInlayHintsCache(doc.uri);
+    // invalidateInlayHintsCache(doc.uri);
 
     const root = this.analyzer.getRootNode(doc);
     if (!root) return;
@@ -653,7 +654,15 @@ export default class FishServer {
     if (!doc) return { uri: params.uri, diagnostics };
 
     const { rootNode } = this.parser.parse(doc.getText());
+    // const t = getDiagnostics(rootNode, doc)
+    // logger.log({
+    //   diagnostics: t.map(d => d.code),
+    // })
 
+    // this.connection.sendDiagnostics({ uri: doc.uri, diagnostics: [
+    //   ...diagnostics,
+    //   ...getDiagnostics(rootNode, doc),
+    // ]});
     return { uri: params.uri, diagnostics: getDiagnostics(rootNode, doc) };
   }
 

@@ -80,7 +80,7 @@ export function execFishNoExecute(filepath: string) {
       return err.stderr.toString();
     }
     // If something else went wrong, throw the error
-    throw err;
+    // throw err;
   }
 }
 //
