@@ -442,7 +442,7 @@
   dependencies:
     "@jridgewell/trace-mapping" "0.3.9"
 
-"@esdmr/tree-sitter-fish@3.5.2-0":
+"@esdmr/tree-sitter-fish@^3.5.2-0":
   version "3.5.2-0"
   resolved "https://registry.yarnpkg.com/@esdmr/tree-sitter-fish/-/tree-sitter-fish-3.5.2-0.tgz#2df41e0b2ccdad0d8bbb8a9e2aae953441d60c7f"
   integrity sha512-fK/t2mAIN67j+wJv2iPPglOM15QwvTUSzNIU+hsHWHrwNJtvr1SGqTmXdKa+sRpa7U6ShWRNe3G3n9q/SDLIhQ==

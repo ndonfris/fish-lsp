@@ -75,7 +75,10 @@ export const ConfigSchema = z.object({
   fish_lsp_commit_characters: z.array(z.string()).default(['\t', ';', ' ']),
 
   /** Path to the log files */
-  fish_lsp_logfile: z.string().default(''),
+  fish_lsp_log_file: z.string().default(''),
+
+  /** show startup analysis notification */
+  fish_lsp_log_level: z.string().default(''),
 
   /** All workspaces/paths for the language-server to index */
   fish_lsp_all_indexed_paths: z.array(z.string()).default(['/usr/share/fish', `${os.homedir()}/.config/fish`]),
@@ -103,7 +106,8 @@ export function getConfigFromEnvironmentVariables(): {
     fish_lsp_enabled_handlers: process.env.fish_lsp_enabled_handlers?.split(' '),
     fish_lsp_disabled_handlers: process.env.fish_lsp_disabled_handlers?.split(' '),
     fish_lsp_commit_characters: process.env.fish_lsp_commit_characters?.split(' '),
-    fish_lsp_logfile: process.env.fish_lsp_logfile,
+    fish_lsp_log_file: process.env.fish_lsp_log_file || process.env.fish_lsp_logfile,
+    fish_lsp_log_level: process.env.fish_lsp_log_level,
     fish_lsp_all_indexed_paths: process.env.fish_lsp_all_indexed_paths?.split(' '),
     fish_lsp_modifiable_paths: process.env.fish_lsp_modifiable_paths?.split(' '),
     fish_lsp_diagnostic_disable_error_codes: process.env.fish_lsp_diagnostic_disable_error_codes?.split(' ').map(toNumber),

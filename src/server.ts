@@ -136,8 +136,6 @@ export default class FishServer {
     connection.languages.inlayHint.on(this.onInlayHints.bind(this));
     connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
     connection.onExecuteCommand(executeHandler);
-
-    connection.onCodeAction(this.onCodeAction.bind(this));
     logger.log({ 'server.register': 'registered' });
   }
 
@@ -322,26 +320,26 @@ export default class FishServer {
     if (!doc) return [];
 
     const symbols = this.analyzer.cache.getDocumentSymbols(doc.uri);
-    const globals = symbols.filter(s => s.kind === SymbolKind.Function && s.scope.scopeTag === 'global');
-    const toSearchUris: string[] = [];
-    for (const sym of globals) {
-      logger.log({ globalSym: sym });
-      toSearchUris.push(...this.analyzer.getMissingAutoloadedFiles(sym.uri, sym.name));
-    }
-    for (const uri of toSearchUris) {
-      const file = this.docs.get(uri);
-      logger.log({ onDocumentSymbols: `file to analyze ${file}` });
-      if (file) {
-        this.analyzer.analyze(file);
-      } else {
-        logger.log({ onDocumentSymbols: `file not found ${uri}` });
-        const toAnalyzeDoc = await this.docs.getDocument(uri);
-        logger.log({ onDocumentSymbols: `file to analyze ${toAnalyzeDoc?.uri}` });
-        if (!toAnalyzeDoc) continue;
-        this.analyzer.analyze(toAnalyzeDoc);
-      }
-    }
-
+    // const globals = symbols.filter(s => s.kind === SymbolKind.Function && s.scope.scopeTag === 'global');
+    // const toSearchUris: string[] = [];
+    // for (const sym of globals) {
+    //   logger.log({ globalSym: sym });
+    //   toSearchUris.push(...this.analyzer.getMissingAutoloadedFiles(sym.uri, sym.name));
+    // }
+    // for (const uri of toSearchUris) {
+    //   const file = this.docs.get(uri);
+    //   logger.log({ onDocumentSymbols: `file to analyze ${file}` });
+    //   if (file) {
+    //     this.analyzer.analyze(file);
+    //   } else {
+    //     logger.log({ onDocumentSymbols: `file not found ${uri}` });
+    //     const toAnalyzeDoc = await this.docs.getDocument(uri);
+    //     logger.log({ onDocumentSymbols: `file to analyze ${toAnalyzeDoc?.uri}` });
+    //     if (!toAnalyzeDoc) continue;
+    //     this.analyzer.analyze(toAnalyzeDoc);
+    //   }
+    // }
+    //
     return filterLastPerScopeSymbol(symbols);
   }
 
