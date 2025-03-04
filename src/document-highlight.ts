@@ -1,44 +1,66 @@
 
-import { toSymbolKind } from './utils/translation';
-import { equalRanges, getRange } from './utils/tree-sitter';
-import { DocumentHighlight, DocumentHighlightKind } from 'vscode-languageserver';
-import { SyntaxNode, Tree } from 'web-tree-sitter';
+import { Analyzer } from './analyze';
+import { getRange } from './utils/tree-sitter';
+import { DocumentHighlight, DocumentHighlightKind, DocumentHighlightParams, Location } from 'vscode-languageserver';
+import { SyntaxNode } from 'web-tree-sitter';
+import { getReferenceLocations } from './workspace-symbol';
+import { isCommandName, isFunctionDefinitionName, isVariableDefinitionName } from './utils/node-types';
+import { LspDocument } from './document';
 
 /**
  * TODO:
  *    ADD DocumentHighlightKind.Read | DocumentHighlightKind.Write support
  */
-export function getDocumentHighlights(tree: Tree, node: SyntaxNode): DocumentHighlight[] {
-  const highlights: DocumentHighlight[] = [];
-
-  const nodeSymbolKind = toSymbolKind(node);
-
-  function visitNode(currentNode: SyntaxNode) {
-    if (!currentNode) return;
-
-    const currSymbolKind = toSymbolKind(currentNode);
-    const equalKinds = currSymbolKind === nodeSymbolKind || currentNode.type === node.type;
-    if (equalKinds && currentNode.text === node.text) {
-      highlights.push({
-        range: {
-          start: {
-            line: currentNode.startPosition.row,
-            character: currentNode.startPosition.column,
-          },
-          end: {
-            line: currentNode.endPosition.row,
-            character: currentNode.endPosition.column,
-          },
-        },
-        // kind: DocumentHighlightKind.Text,
-        kind: equalRanges(getRange(currentNode), getRange(node))
-          ? DocumentHighlightKind.Read
-          : DocumentHighlightKind.Text,
-      });
-    }
-    currentNode.children.forEach(child => visitNode(child));
+export function getDocumentHighlights(analyzer: Analyzer) {
+  function isSymbolReference(node: SyntaxNode): boolean {
+    return node.type === 'variable_name' || isVariableDefinitionName(node) || isFunctionDefinitionName(node);
   }
 
-  visitNode(tree.rootNode);
-  return highlights;
+  function convertSymbolLocationsToHighlights(doc: LspDocument, locations: Location[]): DocumentHighlight[] {
+    return locations
+      .filter(loc => loc.uri === doc.uri)
+      .map(loc => {
+        return {
+          range: loc.range,
+          kind: DocumentHighlightKind.Text,
+        };
+      });
+  }
+
+  return function(params: DocumentHighlightParams): DocumentHighlight[] {
+    const { uri } = params.textDocument;
+    const { line, character } = params.position;
+    const doc = analyzer.getDocument(uri);
+    if (!doc) return [];
+
+    const word = analyzer.wordAtPoint(uri, line, character);
+    if (!word || word.trim() === '') return [];
+    const node = analyzer.nodeAtPoint(uri, line, character);
+    if (!node || !node.isNamed) return [];
+    const symbols = analyzer.getFlatDocumentSymbols(uri);
+
+    if (isSymbolReference(node)) {
+      const refLocations = getReferenceLocations(analyzer, doc, params.position);
+      if (!refLocations) return [];
+      return convertSymbolLocationsToHighlights(doc, refLocations);
+    } else if (isCommandName(node)) {
+      const defLocation = symbols.find(symbol => symbol.name === node.text);
+      if (defLocation) {
+        const refLocations = getReferenceLocations(analyzer, doc, defLocation.selectionRange.start);
+        return convertSymbolLocationsToHighlights(doc, refLocations);
+      }
+      // not a symbol reference, just a command name
+      const matchingCommandNodes =
+        analyzer.getNodes(doc)
+          .filter(node => isCommandName(node) && node.text === node.text);
+
+      return matchingCommandNodes.map(node => {
+        return {
+          range: getRange(node),
+          kind: DocumentHighlightKind.Text,
+        };
+      });
+    }
+    return [];
+  };
 }
