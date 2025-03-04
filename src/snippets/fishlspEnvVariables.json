@@ -6,7 +6,7 @@
   },
   {
     "name": "fish_lsp_disabled_handlers",
-    "description": "disables the fish-lsp handlers(options: 'popups', 'formatting', 'complete', 'hover', 'rename', 'definition', 'references', 'diagnostics', 'signatureHelp', 'codeAction', 'inlayHint')",
+    "description": "disables the fish-lsp handlers (options: 'popups', 'formatting', 'complete', 'hover', 'rename', 'definition', 'references', 'diagnostics', 'signatureHelp', 'codeAction', 'inlayHint')",
     "valueType": "array"
   },
   {
@@ -15,8 +15,18 @@
     "valueType": "array"
   },
   {
+    "name": "fish_lsp_log_file",
+    "description": "path to the logging file.\n\nAn example location could be '/tmp/fish_lsp_logs.txt'\n\n(default: '')",
+    "valueType": "string"
+  },
+  {
     "name": "fish_lsp_logfile",
-    "description": "path to the logging file. An example location could be '/tmp/fish_lsp_logs.txt' (default: '')",
+    "description": "DEPRECATED. USE `fish_lsp_log_file` instead.\n\npath to the logging file.\n\nAn example location could be '/tmp/fish_lsp_logs.txt'\n\n(default: '')",
+    "valueType": "string"
+  },
+  {
+    "name": "fish_lsp_log_level",
+    "description": "log messages with severity (options: 'debug', 'info', 'warning', 'error')\n\n(default: '')",
     "valueType": "string"
   },
   {
@@ -31,7 +41,7 @@
   },
   {
     "name": "fish_lsp_diagnostic_disable_error_codes",
-    "description": "disable diagnostics for matching error codes (options: 1001, 1002, 1003, 1004, 2001, 2002, 2003, 3001, 3002, 3003, 4001, 4002, 4003, 4004, 5001, 9999) (default: [])",
+    "description": "disable diagnostics for matching error codes (options: 1001, 1002, 1003, 1004, 2001, 2002, 2003, 3001, 3002, 3003, 4001, 4002, 4003, 4004, 5001, 6001, 9999) (default: [])",
     "valueType": "array"
   },
   {

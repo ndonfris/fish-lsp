@@ -258,14 +258,6 @@ export function getReferenceLocations(analyzer: Analyzer, document: LspDocument,
   return [];
 }
 
-const createRenameFile = (oldUri: DocumentUri, newUri: DocumentUri): RenameFile => {
-  return {
-    kind: 'rename',
-    oldUri,
-    newUri,
-  };
-};
-
 export function getRenameFiles(analyzer: Analyzer, document: LspDocument, position: Position, newName: string): RenameFile[] | null {
   const renameFiles: RenameFile[] = [];
   const symbol = analyzer.findDocumentSymbol(document, position);
@@ -279,25 +271,155 @@ export function getRenameFiles(analyzer: Analyzer, document: LspDocument, positi
     return null;
   }
   if (symbol.scope.scopeTag === 'global') {
-    analyzer.getExistingAutoloadedFiles(symbol.name).forEach(uri => {
+    analyzer.getExistingAutoloadedFiles(symbol).forEach(uri => {
       const newUri = uri.replace(symbol.name, newName);
-      renameFiles.push(createRenameFile(uri, newUri));
+      renameFiles.push(RenameFile.create(uri, newUri));
     });
   }
   return renameFiles;
 }
+// export function getRenameWorkspaceEdit(analyzer: Analyzer, document: LspDocument, position: Position, newName: string): WorkspaceEdit | null {
+//   const locations = getRenameLocations(analyzer, document, position);
+//   if (!locations || locations.length === 0) {
+//     return null;
+//   }
+//   const changes: {[uri: string]: TextEdit[]} = {};
+//   const symbol = analyzer.getDefinition(document, position);
+//   if (FishDocumentSymbol.isAlias(symbol)) {
+//     const edits = changes[symbol.uri] || [];
+//     edits.push(TextEdit.replace(symbol.selectionRange, newName));
+//   }
+//
+//   // convert locations to changes TextDocumentEdit
+//   for (const location of locations) {
+//     const uri = location.uri;
+//     const edits = changes[uri] || [];
+//     edits.push(TextEdit.replace(location.range, newName));
+//     changes[uri] = edits;
+//   }
+//
+//   // add rename files
+//   const renameFiles: RenameFile[] | null = getRenameFiles(analyzer, document, position, newName);
+//   // if (documentChanges && documentChanges.length > 0) {
+//   //   const docChanges = changes[document.uri] || [];
+//   //   const identifier = OptionalVersionedTextDocumentIdentifier.create(document.uri, document.version);
+//   //   return { documentChanges: [
+//   //     TextDocumentEdit.create(identifier, docChanges),
+//   //     ...documentChanges
+//   //   ]}
+//   //   // return { changes, documentChanges };
+//   // }
+//     // If we have any changes, convert them to TextDocumentEdit objects
+//   if (Object.keys(changes).length > 0 || (renameFiles && renameFiles.length > 0)) {
+//     // Create array for all document changes (both text edits and file renames)
+//     const documentChanges: (TextDocumentEdit | RenameFile)[] = [];
+//
+//     // Add all text edits across different files
+//     for (const [uri, localEdits] of Object.entries(changes)) {
+//       // For each file URI, create a TextDocumentEdit
+//       // Get the document for version info if available, otherwise use null version
+//       const doc = analyzer.getDocument(uri);
+//       const identifier = OptionalVersionedTextDocumentIdentifier.create(
+//         uri,
+//         doc?.version ?? 0,
+//       );
+//
+//       documentChanges.push(TextDocumentEdit.create(identifier, localEdits));
+//     }
+//
+//     // Add rename files if they exist
+//     if (renameFiles && renameFiles.length > 0) {
+//       documentChanges.push(...renameFiles);
+//     }
+//
+//     return { documentChanges };
+//   }
+//
+//   return { changes };
+// }
+// export function getRenameWorkspaceEdit(analyzer: Analyzer, document: LspDocument, position: Position, newName: string): WorkspaceEdit | null {
+//   const locations = getRenameLocations(analyzer, document, position);
+//   if (!locations || locations.length === 0) {
+//     return null;
+//   }
+//
+//   // Group edits by URI
+//   const changesByUri: Map<string, TextEdit[]> = new Map();
+//
+//   // Process the alias symbol if applicable
+//   const symbol = analyzer.getDefinition(document, position);
+//   if (FishDocumentSymbol.isAlias(symbol)) {
+//     const edits = changesByUri.get(symbol.uri) || [];
+//     edits.push(TextEdit.replace(symbol.selectionRange, newName));
+//     changesByUri.set(symbol.uri, edits);
+//   }
+//
+//   // Convert locations to changes
+//   for (const location of locations) {
+//     const uri = location.uri;
+//     const edits = changesByUri.get(uri) || [];
+//     edits.push(TextEdit.replace(location.range, newName));
+//     changesByUri.set(uri, edits);
+//   }
+//
+//   // Get document renames if they exist
+//   const renameFiles = getRenameFiles(analyzer, document, position, newName);
+//
+//   // Create array for all document changes with specific ordering
+//   const documentChanges: (TextDocumentEdit | RenameFile)[] = [];
+//
+//   // ORDERING STRATEGY:
+//   // 1. First apply edits to the current document
+//   if (changesByUri.has(document.uri)) {
+//     const edits = changesByUri.get(document.uri)!;
+//     const identifier = OptionalVersionedTextDocumentIdentifier.create(
+//       document.uri,
+//       null
+//     );
+//     documentChanges.push(TextDocumentEdit.create(identifier, Array.from(edits)));
+//
+//     // Remove the current document from the map as we've handled it
+//     changesByUri.delete(document.uri);
+//   }
+//
+//   // 2. Then apply edits to all other documents
+//   for (const [uri, edits] of changesByUri.entries()) {
+//     const identifier = OptionalVersionedTextDocumentIdentifier.create(
+//       uri,
+//       null
+//     );
+//     documentChanges.push(TextDocumentEdit.create(identifier, edits));
+//   }
+//
+//   // 3. Finally apply file renames (these should come after text edits)
+//   if (renameFiles && renameFiles.length > 0) {
+//     documentChanges.push(...renameFiles);
+//   }
+//
+//   if (documentChanges.length > 0) {
+//     return { documentChanges };
+//   }
+//
+//   // Fallback to the old format if needed
+//   const changes: {[uri: string]: TextEdit[]} = {};
+//   for (const [uri, edits] of changesByUri.entries()) {
+//     changes[uri] = edits;
+//   }
+//   return { changes };
+// }
 export function getRenameWorkspaceEdit(analyzer: Analyzer, document: LspDocument, position: Position, newName: string): WorkspaceEdit | null {
-  const locations = getRenameLocations(analyzer, document, position);
+  // const locations = getRenameLocations(analyzer, document, position);
+  const locations = getReferenceLocations(analyzer, document, position);
   if (!locations || locations.length === 0) {
     return null;
   }
-  const changes: RenameChanges = {};
+  const changes: {[uri: string]: TextEdit[];} = {};
   const symbol = analyzer.getDefinition(document, position);
   if (FishDocumentSymbol.isAlias(symbol)) {
     const edits = changes[symbol.uri] || [];
     edits.push(TextEdit.replace(symbol.selectionRange, newName));
   }
-
+  // convert locations to changes TextDocumentEdit
   for (const location of locations) {
     const uri = location.uri;
     const edits = changes[uri] || [];
@@ -305,10 +427,17 @@ export function getRenameWorkspaceEdit(analyzer: Analyzer, document: LspDocument
     changes[uri] = edits;
   }
 
-  const documentChanges: RenameFile[] | null = getRenameFiles(analyzer, document, position, newName);
-  if (documentChanges && documentChanges.length > 0) {
-    return { changes, documentChanges };
-  }
+  // add rename files
+  // const documentChanges: RenameFile[] | null = getRenameFiles(analyzer, document, position, newName);
+  // if (documentChanges && documentChanges.length > 0) {
+  //   // const docChanges = changes[document.uri] || [];
+  //   // const identifier = OptionalVersionedTextDocumentIdentifier.create(document.uri, document.version);
+  //   // return { documentChanges: [
+  //   //   TextDocumentEdit.create(identifier, docChanges),
+  //   //   ...documentChanges
+  //   // ]}
+  //   return { changes, documentChanges };
+  // }
 
   return { changes };
 }

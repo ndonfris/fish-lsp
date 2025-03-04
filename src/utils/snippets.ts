@@ -87,7 +87,8 @@ class DocumentationMap {
   getSpecialVariableAsHoverDoc(name: `$${string}` | string): string {
     const variables = this.getByType('variable');
     const searchStr = name.startsWith('$') ? name.slice(1) : name;
-    const result = variables.find(item => item.name === searchStr);
+    const needle = searchStr === 'fish_lsp_logfile' ? 'fish_lsp_log_file' : searchStr;
+    const result = variables.find(item => item.name === needle);
     if (!result) return '';
     return [
       `(${md.italic('variable')}) - ${md.inlineCode('$' + searchStr)}`,
