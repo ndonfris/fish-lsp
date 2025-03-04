@@ -31,7 +31,7 @@ export namespace ErrorCodes {
     3001 | 3002 | 3003 |
     4001 | 4002 | 4003 | 4004 |
     5001 |
-    6001;
+    6001 ;
 
   export type CodeValueType = {
     severity: DiagnosticSeverity;

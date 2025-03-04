@@ -57,9 +57,10 @@ function hasDiagnosticAtLine(existingDiagnostics: Diagnostic[], lineNumber: numb
  */
 export function getFishNoExecDiagnostics(
   document: LspDocument,
-  existingDiagnostics: Diagnostic[] = [],
-) {
-  if (config.fish_lsp_diagnostic_disable_error_codes.includes(9999)) return;
+  existingDiagnostics: Diagnostic[],
+) : Diagnostic[] {
+  const newDiagnostics: Diagnostic[] = [];
+  if (config.fish_lsp_diagnostic_disable_error_codes.includes(9999)) return [];
   const output = fishNoExecuteDiagnostic(document);
   const errors = parseFishErrors(output);
 
@@ -74,14 +75,15 @@ export function getFishNoExecDiagnostics(
     // Create range for the full line
     const range = document.getLineRange(lineNumber);
 
-    const diagnostic: Diagnostic = {
-      severity: DiagnosticSeverity.Error,
+    const diagnostic: Diagnostic = Diagnostic.create(
       range,
-      message: error.message,
-      source: 'fish-lsp',
-      code: 9999,
-    };
+      error.message,
+      DiagnosticSeverity.Error,
+      9999,
+      'fish-lsp',
+    );
 
-    existingDiagnostics.push(FishDiagnostic.fromDiagnostic(diagnostic) as Diagnostic);
+    newDiagnostics.push(FishDiagnostic.fromDiagnostic(diagnostic) as Diagnostic);
   }
+  return newDiagnostics;
 }
