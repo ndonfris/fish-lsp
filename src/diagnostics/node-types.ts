@@ -1,5 +1,5 @@
 import Parser, { SyntaxNode } from 'web-tree-sitter';
-import { isCommand, isCommandName, isCommandWithName, isEndStdinCharacter, isIfOrElseIfConditional, isMatchingOption, isOption, isString } from '../utils/node-types';
+import { isCommand, isCommandName, isCommandWithName, isEndStdinCharacter, isIfOrElseIfConditional, isMatchingOption, isOption, isString, isVariableDefinitionName } from '../utils/node-types';
 import { getChildNodes, isNodeWithinOtherNode } from '../utils/tree-sitter';
 
 type startTokenType = 'function' | 'while' | 'if' | 'for' | 'begin' | '[' | '{' | '(' | "'" | '"';
@@ -224,4 +224,22 @@ export function isArgparseWithoutEndStdin(node: SyntaxNode) {
   const endStdin = getChildNodes(node).find(n => isEndStdinCharacter(n));
   if (!endStdin) return true;
   return false;
+}
+
+export function isFishLspDeprecatedVariableName(node: SyntaxNode): boolean {
+  if (isVariableDefinitionName(node)) {
+    return node.text === 'fish_lsp_logfile';
+  }
+  if (node.type === 'variable_name') {
+    return node.text === 'fish_lsp_logfile';
+  }
+  return node.text === 'fish_lsp_logfile';
+}
+export function getDeprecatedFishLspMessage(node: SyntaxNode): string {
+  switch (node.text) {
+    case 'fish_lsp_logfile':
+      return `REPLACE \`${node.text}\` with \`fish_lsp_log_file\``;
+    default:
+      return '';
+  }
 }

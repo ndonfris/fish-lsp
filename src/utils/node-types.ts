@@ -859,3 +859,14 @@ export function isReturnStatusNumber(node: SyntaxNode) {
   if (!parent) return false;
   return parent.type === 'return';
 }
+
+export function isCompleteCommandName(node: SyntaxNode) {
+  if (!node.parent || !isCommand(node.parent)) return false;
+  if (!isCommandWithName(node.parent, 'complete')) return false;
+  const previousSibling = node.previousNamedSibling;
+  if (!previousSibling) return false;
+  if (isMatchingOption(previousSibling, Option.create('-c', '--command'))) {
+    return !isOption(node);
+  }
+  return false;
+}

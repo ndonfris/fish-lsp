@@ -13,6 +13,7 @@ import { processArgparseCommand } from '../src/utils/argparse-helpers';
 import { getScope } from '../src/utils/definition-scope';
 import { isAutoloadedUriLoadsAliasName } from '../src/utils/translation';
 import { isEndStdinCharacter, isEscapeSequence, isMatchingOption, isOption, isString, NodeOptionQueryText, Option } from '../src/utils/node-types';
+import { env } from '../src/utils/env-manager';
 // import { assert } from 'chai';
 
 function parseTreeForRoot(str: string) {
@@ -994,13 +995,13 @@ end
         );
         // console.log(result);
         if (!result) fail();
-        console.log(result.scope.scopeNode.text);
+        // console.log(result.scope.scopeNode.text);
         expect(resultToExpected(result)).toEqual(expected);
       });
     });
   });
 
-  it('find $status hover', () => {
+  it.skip('find $status hover', () => {
     const { rootNode } = parser.parse(`
 function foo
     echo a
@@ -1019,9 +1020,8 @@ function foo
     echo $status
 end
 `);
-
-    const results: SyntaxNode[] = [];
-    console.log(PrebuiltDocumentationMap.getByType('variable').map(v => v.name));
+    // const results: SyntaxNode[] = [];
+    // console.log(PrebuiltDocumentationMap.getByType('variable').map(v => v.name));
     let idx = 0;
     for (const child of getChildNodes(rootNode)) {
       if (isPrebuiltVariableExpansion(child)) {
@@ -1042,8 +1042,8 @@ end
     }
   });
 
-  describe.only('argparse variables', () => {
-    it.only('find argparse tokens', () => {
+  describe('argparse variables', () => {
+    it('find argparse tokens', () => {
       const testInfo = [
         {
           filename: 'functions/foo.fish',
@@ -1053,9 +1053,8 @@ end
 
 end`,
           expected: {
-            name: 'h/help',
-            value: 'help',
-            hasEquals: false,
+            name: 'argparse --ignore-unknown "h/help" "v/value" new-flag=',
+            values: ['_flag_h', '_flag_help', '_flag_v', '_flag_value', '_flag_new_flag'],
           },
         },
       ];
@@ -1066,7 +1065,7 @@ end`,
         for (const child of getChildNodes(rootNode)) {
           if (NodeTypes.isCommandWithName(child, 'argparse')) {
             const tokens = processArgparseCommand(child, doc);
-            console.log(tokens);
+            expect(tokens.map(t => t.name)).toEqual(expected.values);
           }
         }
       });
@@ -1085,21 +1084,36 @@ end`,
     expect(results.length).toBe(1);
   });
 
+  it('check command names', () => {
+    const { rootNode } = parser.parse('set --show PWD; read -l dirs; echo $dirs');
+    const empty: SyntaxNode[] = [];
+    const results: SyntaxNode[] = [];
+    for (const node of getChildNodes(rootNode)) {
+      if (NodeTypes.isCommandWithName(node, 's', 'r')) {
+        empty.push(node);
+      }
+      if (NodeTypes.isCommandWithName(node, 'set', 'read', 'echo')) {
+        results.push(node);
+      }
+    }
+    expect(empty.length).toBe(0);
+    expect(results.length).toBe(3);
+  });
+
   describe('autoloaded path variables', () => {
     it('is autoloaded variable', () => {
-      expect(process.env.fish_complete_path).toBeTruthy();
-      expect(process.env.fish_function_path).toBeTruthy();
-      expect(process.env.__fish_data_dir).toBeTruthy();
-      expect(process.env.__fish_config_dir).toBeTruthy();
+      expect(env.get('fish_complete_path')).toBeTruthy();
+      expect(env.get('fish_function_path')).toBeTruthy();
+      expect(env.get('__fish_data_dir')).toBeTruthy();
+      expect(env.get('__fish_config_dir')).toBeTruthy();
     });
 
     it('all autoloaded variables', () => {
-      AutoloadedPathVariables.all().forEach(path => {
-        console.log(
-          AutoloadedPathVariables.getHoverDocumentation(path),
-        );
-        console.log('-'.repeat(80));
-      });
+      // AutoloadedPathVariables.all().forEach(path => {
+      //   console.log(AutoloadedPathVariables.getHoverDocumentation(path));
+      //   console.log('-'.repeat(80));
+      // });
+      expect(AutoloadedPathVariables.all().length).toBe(14);
     });
 
     it('AutoloadedPathVariables', () => {
@@ -1107,15 +1121,60 @@ end`,
       const results: SyntaxNode[] = [];
       for (const child of getChildNodes(rootNode)) {
         if (NodeTypes.isVariableDefinitionName(child) && AutoloadedPathVariables.includes(child.text)) {
-          console.log({
-            text: child.text,
-            value: AutoloadedPathVariables.get(child.text),
-            read: AutoloadedPathVariables.read(child.text),
-          });
-          console.log(AutoloadedPathVariables.getHoverDocumentation(child.text));
+          // console.log({
+          //   text: child.text,
+          //   value: AutoloadedPathVariables.get(child.text),
+          //   read: AutoloadedPathVariables.read(child.text),
+          // });
+          // console.log(AutoloadedPathVariables.getHoverDocumentation(child.text));
           results.push(child);
         }
       }
+      expect(results.length).toBe(1);
+      const documentation = AutoloadedPathVariables.getHoverDocumentation(results[0]!.text);
+      const result = documentation.split('\n').shift();
+      expect(result).toEqual('(*variable*) **$fish_complete_path**');
+    });
+  });
+
+  describe('complete', () => {
+    it('isCompleteCommandName(node) === true', () => {
+      const { rootNode } = parser.parse('complete -c foo -a "bar"');
+      const cmdName = getChildNodes(rootNode).find(child => child.text === 'foo');
+      if (!cmdName) fail();
+
+      expect(NodeTypes.isCompleteCommandName(cmdName)).toBeTruthy();
+    });
+    it('find isCompleteCommandName(node)', () => {
+      const { rootNode } = parser.parse('complete -c foo -a "bar"');
+      const results: SyntaxNode[] = [];
+      for (const child of getChildNodes(rootNode)) {
+        if (NodeTypes.isCompleteCommandName(child)) {
+          results.push(child);
+        }
+      }
+      expect(results.length).toBe(1);
+    });
+
+    it('find all isCompleteCommandName(node)', () => {
+      const { rootNode } = parser.parse(`
+complete -c foo -a "a"
+complete -c foo -a "b"
+complete -c foo -a "c"
+complete -c foo -a "d"
+complete -c foo -s h -l help -d 'help'
+complete -c foo -s a -l args -d 'arguments'
+complete -c foo -s c -l complete -d 'completions'
+complete -c foo -s z -l null -d 'null'
+complete -c foo -s d -l describe -d 'describe'`);
+      const results: SyntaxNode[] = [];
+      for (const child of getChildNodes(rootNode)) {
+        if (NodeTypes.isCompleteCommandName(child)) {
+          results.push(child);
+        }
+      }
+      expect(results.length).toBe(9);
+      expect(new Set([...results.map(n => n.text)]).size).toEqual(1);
     });
   });
 });

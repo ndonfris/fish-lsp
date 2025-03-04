@@ -24,7 +24,7 @@ export function startServer() {
     },
   );
   connection.listen();
-  createServerLogger(config.fish_lsp_logfile, true, connection.console);
+  createServerLogger(config.fish_lsp_log_file, true, connection.console);
   logger.log('Starting FISH-LSP server');
   logger.log('Server started with the following handlers:', configHandlers);
   logger.log('Server started with the following config:', config);
@@ -222,7 +222,7 @@ commandBin.command('logger')
   .option('-q, --quiet', 'silence logging')
   .option('--config', 'show the logger config')
   .action(args => {
-    const logger = createServerLogger(config.fish_lsp_logfile, false);
+    const logger = createServerLogger(config.fish_lsp_log_file, false);
     const objArgs = Object.getOwnPropertyNames(args);
     const argsQueue = objArgs;
     let currentArg: string = '';
@@ -284,7 +284,7 @@ commandBin.command('info')
       process.exit(0);
     }
     if (args.logsFile) {
-      logToStdout(config.fish_lsp_logfile);
+      logToStdout(config.fish_lsp_log_file);
       process.exit(0);
     }
     logToStdout(`Repository: ${PathObj.repo}`);
@@ -295,7 +295,7 @@ commandBin.command('info')
     logToStdout(`LSP Version: ${PackageLspVersion}`);
     logToStdout(`Binary File: ${PathObj.bin}`);
     logToStdout(`Man File: ${PathObj.manFile}`);
-    logToStdout(`Log File: ${config.fish_lsp_logfile}`);
+    logToStdout(`Log File: ${config.fish_lsp_log_file}`);
     logToStdout('CAPABILITIES:');
     logToStdout(capabilities);
     process.exit(0);

@@ -23,6 +23,8 @@ export namespace ErrorCodes {
 
   export const argparseMissingEndStdin = 5001;
 
+  export const fishLspDeprecatedEnvName = 6001;
+
   export const invalidDiagnosticCode = 8001;
 
   export type CodeTypes =
@@ -31,6 +33,7 @@ export namespace ErrorCodes {
     3001 | 3002 | 3003 |
     4001 | 4002 | 4003 | 4004 |
     5001 |
+    6001 |
     8001;
 
   export type CodeValueType = {
@@ -157,6 +160,13 @@ export namespace ErrorCodes {
       codeDescription: { href: 'https://github.com/ndonfris/fish-lsp/wiki/Diagnostic-Error-Codes' },
       source: 'fish-lsp',
       message: 'Invalid diagnostic control code',
+    },
+    [fishLspDeprecatedEnvName]: {
+      severity: DiagnosticSeverity.Warning,
+      code: fishLspDeprecatedEnvName,
+      codeDescription: { href: 'https://github.com/ndonfris/fish-lsp#environment-variables' },
+      source: 'fish-lsp',
+      message: 'Deprecated fish-lsp environment variable name',
     },
   };
 

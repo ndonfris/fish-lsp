@@ -123,6 +123,7 @@ export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) 
     const uri = uriToPath(params.textDocument.uri);
     const document = docs.get(uri);
     if (!document || !uri) return [];
+    logger.log('onCodeAction', { uri });
 
     const results: CodeAction[] = [];
 
