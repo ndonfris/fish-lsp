@@ -1,13 +1,82 @@
 import { setLogger } from './helpers';
 // import * as JsonObjs from '../src/utils/snippets'
-import { getPrebuiltDocUrlByName, PrebuiltDocumentationMap } from '../src/utils/snippets';
+import { EnvVariableJson, ExtendedJson, fishLspObjs, fromCliOutputToString, fromCliToMarkdownString, getPrebuiltDocUrlByName, PrebuiltDocumentationMap } from '../src/utils/snippets';
+import { generateJsonSchemaShellScript, showJsonSchemaShellScript } from '../src/config';
 let prebuiltDocs = PrebuiltDocumentationMap;
 
-setLogger(async () => {
-  prebuiltDocs = PrebuiltDocumentationMap;
-});
-
+prebuiltDocs = PrebuiltDocumentationMap;
 describe('snippets tests', () => {
+  setLogger();
+
+  describe('fish_lsp_* env variables', () => {
+    it('should have fish_lsp_logfile', () => {
+      const misses: ExtendedJson[] = [];
+      for (const obj of fishLspObjs) {
+        if (EnvVariableJson.is(obj)) {
+          expect(EnvVariableJson.is(obj)).toBeTruthy();
+        } else {
+          misses.push(obj);
+        }
+      }
+      expect(misses).toHaveLength(0);
+    });
+
+    it('print cli comment string', () => {
+      for (const obj of fishLspObjs) {
+        const cli = EnvVariableJson.asCliObject(obj);
+        const output = fromCliOutputToString(cli);
+        if (obj.name === 'fish_lsp_enabled_handlers') {
+          expect(output.split('\n').at(0)!).toEqual('# $fish_lsp_enabled_handlers <ARRAY>');
+        } else if (obj.name === 'fish_lsp_logfile') {
+          expect(output.split('\n').at(0)!).toEqual('# $fish_lsp_logfile <STRING>');
+        } else if (obj.name === 'fish_lsp_log_file') {
+          expect(output.split('\n').at(0)!).toEqual('# $fish_lsp_log_file <STRING>');
+        }
+      }
+    });
+
+    it('get all env variables', () => {
+      prebuiltDocs.getByType('variable', 'fishlsp').forEach((v) => {
+        expect(EnvVariableJson.is(v)).toBeTruthy();
+      });
+    });
+
+    it('get all cli output for `env`', () => {
+      prebuiltDocs.getByType('variable', 'fishlsp').forEach((v) => {
+        if (EnvVariableJson.is(v)) {
+          const cli = EnvVariableJson.asCliObject(v);
+          const output = fromCliOutputToString(cli);
+          expect(output.split('\n').length).toBeGreaterThanOrEqual(4);
+        }
+      });
+    });
+
+    it('wrapped `env`', () => {
+      for (const obj of fishLspObjs) {
+        const cli = EnvVariableJson.asCliObject(obj);
+        const output = fromCliOutputToString(cli, { includeDefaultValue: true, includeType: true, includeOptions: true, wrap: true });
+        console.log(output);
+        console.log();
+      }
+    });
+
+    it('env documentation', () => {
+      for (const obj of fishLspObjs) {
+        const cli = EnvVariableJson.asCliObject(obj);
+        console.log(fromCliToMarkdownString(cli));
+        console.log();
+      }
+    });
+
+    it('build in cli', () => {
+      generateJsonSchemaShellScript(true, true, false, true);
+    });
+
+    it('cli show', () => {
+      showJsonSchemaShellScript(true, true, false, true);
+    });
+  });
+
   //  it('test 1: commands', async () => {
   //    const out = JsonObjs.Snippets.commands()
   //    const keys: string[] = []
