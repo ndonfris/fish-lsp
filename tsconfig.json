@@ -6,6 +6,7 @@
     "noUncheckedIndexedAccess": true,
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
+    "moduleResolution": "nodenext",
     "outDir": "./out",
     "rootDir": "./src",
     "baseUrl": ".",  // Base URL for module resolution

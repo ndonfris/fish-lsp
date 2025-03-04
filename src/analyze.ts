@@ -6,7 +6,6 @@ import { LspDocument } from './document';
 import { isCommand, isCommandName } from './utils/node-types';
 import { pathToUri, symbolKindToString } from './utils/translation';
 import { existsSync } from 'fs';
-import homedir from 'os';
 import { workspaces } from './utils/workspace';
 import { filterGlobalSymbols, FishDocumentSymbol, getFishDocumentSymbols } from './document-symbol';
 import { GenericTree } from './utils/generic-tree';
@@ -388,10 +387,17 @@ export class Analyzer {
     return Array.from(result);
   }
 
-  public getExistingAutoloadedFiles(name: string): string[] {
+  public getExistingAutoloadedFiles(symbol: FishDocumentSymbol): string[] {
+    if (!symbol.uri.includes(`functions/${symbol.name}.fish`)) {
+      return [];
+    }
+    const workspace = workspaces.find(ws => ws.contains(symbol.uri));
+    if (!workspace) {
+      return [];
+    }
     const searchNames = [
-      `${homedir}/.config/functions/${name}.fish`,
-      `${homedir}/.config/completions/${name}.fish`,
+      `${workspace.path}/functions/${symbol.name}.fish`,
+      `${workspace.path}/completions/${symbol.name}.fish`,
     ];
     return searchNames
       .filter((path) => existsSync(path))

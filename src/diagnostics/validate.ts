@@ -2,7 +2,7 @@ import { Diagnostic, Range } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { LspDocument } from '../document';
 import { containsRange, findEnclosingScope, getChildNodes, getRange } from '../utils/tree-sitter';
-import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter, isMatchingCompleteOptionIsCommand, LocalFunctionCallType, isArgparseWithoutEndStdin } from './node-types';
+import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter, isMatchingCompleteOptionIsCommand, LocalFunctionCallType, isArgparseWithoutEndStdin, isFishLspDeprecatedVariableName, getDeprecatedFishLspMessage } from './node-types';
 import { ErrorCodes } from './errorCodes';
 import { SyncFileHelper } from '../utils/file-operations';
 import { config } from '../config';
@@ -23,13 +23,18 @@ export namespace FishDiagnostic {
   export function create(
     code: ErrorCodes.CodeTypes,
     node: SyntaxNode,
+    message: string = '',
   ): FishDiagnostic {
+    const errorMessage = message && message.length > 0
+      ? ErrorCodes.codes[code].message + ' | ' + message
+      : ErrorCodes.codes[code].message;
     return {
       ...ErrorCodes.codes[code],
       range: {
         start: { line: node.startPosition.row, character: node.startPosition.column },
         end: { line: node.endPosition.row, character: node.endPosition.column },
       },
+      message: errorMessage,
       data: {
         node,
       },
@@ -133,6 +138,11 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
 
     if (isVariableDefinitionWithExpansionCharacter(node) && handler.isCodeEnabled(ErrorCodes.expansionInDefinition)) {
       diagnostics.push(FishDiagnostic.create(ErrorCodes.expansionInDefinition, node));
+    }
+
+    if (isFishLspDeprecatedVariableName(node) && handler.isCodeEnabled(ErrorCodes.fishLspDeprecatedEnvName)) {
+      logger.log('isFishLspDeprecatedVariableName', doc.getText(getRange(node)));
+      diagnostics.push(FishDiagnostic.create(ErrorCodes.fishLspDeprecatedEnvName, node, getDeprecatedFishLspMessage(node)));
     }
 
     /** store any functions we see, to reuse later */

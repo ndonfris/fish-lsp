@@ -1,14 +1,28 @@
 import * as console from 'node:console';
 import fs from 'fs';
+import { config } from './config';
 
 export interface IConsole {
   error(...args: any[]): void;
   warn(...args: any[]): void;
   info(...args: any[]): void;
   log(...args: any[]): void;
+  debug(...args: any[]): void;
 }
-type _ConsoleMethod = 'error' | 'warn' | 'info' | 'log';
-type _CConsole = Console;
+
+export const LOG_LEVELS = ['debug', 'info', 'warning', 'error'] as const;
+export const DEFAULT_LOG_LEVEL: LogLevel = 'info';
+
+export type LogLevel = typeof LOG_LEVELS[number];
+
+const _logLevel: LogLevel = DEFAULT_LOG_LEVEL;
+
+function getLogLevel(level: string): LogLevel {
+  if (LOG_LEVELS.includes(level as LogLevel)) {
+    return level as LogLevel;
+  }
+  return DEFAULT_LOG_LEVEL;
+}
 
 export class Logger {
   protected _console: IConsole;
@@ -69,6 +83,23 @@ export class Logger {
   }
 
   log(...args: any[]): void {
+    const formattedMessage = this.convertArgsToString(...args);
+    if (config.fish_lsp_log_level === '') {
+      this._log(formattedMessage);
+      return;
+    }
+    const level = getLogLevel(config.fish_lsp_log_level);
+    this._logWithSeverity(level, formattedMessage);
+  }
+
+  private _logWithSeverity(severity: LogLevel, ...args: string[]): void {
+    if (_logLevel < severity) return;
+    const formattedMessage = this.convertArgsToString(...args);
+    if (!this.hasSilence()) this._console.log(severity, formattedMessage);
+    if (this.hasLogFile()) this.logToFile([severity, formattedMessage].join(' '));
+  }
+
+  private convertArgsToString(...args: any[]): string {
     const formattedMessage = args.map((arg) => {
       if (arg instanceof Error) {
         return arg.stack || arg.message;
@@ -78,9 +109,12 @@ export class Logger {
       }
       return String(arg);
     }).join('\n');
+    return formattedMessage;
+  }
 
-    if (!this.hasSilence()) this._console.log(formattedMessage);
-    if (this.hasLogFile()) this.logToFile(formattedMessage);
+  private _log(...args: string[]): void {
+    if (!this.hasSilence()) this._console.log(...args);
+    if (this.hasLogFile()) this.logToFile(args.join(' '));
   }
 
   logAsJson(message: string) {
@@ -121,6 +155,22 @@ export class Logger {
       logFile: this.hasLogFile(),
       silence: this.hasSilence(),
     };
+  }
+
+  public debug(...args: any[]): void {
+    this._logWithSeverity('debug', ...args);
+  }
+
+  public info(...args: any[]): void {
+    this._logWithSeverity('info', ...args);
+  }
+
+  public warning(...args: any[]): void {
+    this._logWithSeverity('warning', ...args);
+  }
+
+  public error(...args: any[]): void {
+    this._logWithSeverity('error', ...args);
   }
 }
 
