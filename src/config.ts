@@ -1,7 +1,7 @@
 import os from 'os';
 import { z } from 'zod';
 import { logToStdout } from './logger';
-import fishLspEnvVariables from './snippets/fishlspEnvVariables.json';
+import { PrebuiltDocumentationMap, EnvVariableJson } from './utils/snippets';
 import { InitializeResult, TextDocumentSyncKind } from 'vscode-languageserver/node';
 import { AllSupportedActions } from './code-actions/action-kinds';
 import { LspCommands } from './command';
@@ -144,13 +144,18 @@ const toNumber = (s?: string): number | undefined =>
 export function generateJsonSchemaShellScript(showComments: boolean, useGlobal: boolean, useLocal: boolean, useExport: boolean) {
   const result: string[] = [];
   const command = getEnvVariableCommand(useGlobal, useLocal, useExport);
-  Object.values(fishLspEnvVariables).forEach(entry => {
-    const { name, description, valueType } = entry;
+
+  const variables = PrebuiltDocumentationMap
+    .getByType('variable', 'fishlsp')
+    .filter((v) => EnvVariableJson.is(v))
+    .filter((v) => !v.isDeprecated);
+
+  variables.forEach(entry => {
+    const { name } = entry;
     const line = !showComments
       ? `${command} ${name}\n`
       : [
-        `# ${name} <${valueType.toUpperCase()}>`,
-        formatDescription(description, 80),
+        EnvVariableJson.toCliOutput(entry, { includeDefaultValue: true, includeType: true, includeOptions: true, wrap: true }),
         `${command} ${name}`,
         '',
       ].join('\n');
@@ -167,23 +172,27 @@ export function generateJsonSchemaShellScript(showComments: boolean, useGlobal: 
 export function showJsonSchemaShellScript(showComments: boolean, useGlobal: boolean, useLocal: boolean, useExport: boolean) {
   const { config } = getConfigFromEnvironmentVariables();
   const command = getEnvVariableCommand(useGlobal, useLocal, useExport);
+  const variables = PrebuiltDocumentationMap
+    .getByType('variable', 'fishlsp')
+    .filter((v) => EnvVariableJson.is(v))
+    .filter((v) => !v.isDeprecated);
+
   const findValue = (keyName: string) => {
-    return Object.values(fishLspEnvVariables).find(entry => {
-      const { name } = entry;
-      return name === keyName;
-    })!;
+    return variables.find(entry => entry.name === keyName)!;
   };
+
   const result: string[] = [];
   for (const item of Object.entries(config)) {
     const [key, value] = item;
     const entry = findValue(key);
+
     let line = !showComments
       ? `${command} ${key} `
       : [
-        `# ${entry.name} <${entry.valueType.toUpperCase()}>`,
-        formatDescription(entry.description, 80),
+        EnvVariableJson.toCliOutput(entry, { includeDefaultValue: true, includeType: true, includeOptions: true, wrap: true }),
         `${command} ${key} `,
       ].join('\n');
+
     if (Array.isArray(value)) {
       if (value.length === 0) {
         line += "''\n"; // Print two single quotes for empty arrays
@@ -205,31 +214,6 @@ export function showJsonSchemaShellScript(showComments: boolean, useGlobal: bool
 /*************************************
  *******  formatting helpers ********
  ************************************/
-
-// Function to format descriptions into multi-line comments
-function formatDescription(description: string, maxLineLength: number = 80): string {
-  const words = description.split(' ');
-  let currentLine = '#';
-  let formattedDescription = '';
-
-  for (const word of words) {
-    // Check if adding the next word would exceed the line length
-    if (currentLine.length + word.length + 1 > maxLineLength) {
-      formattedDescription += currentLine + '\n';
-      currentLine = '# ' + word; // Start a new line with the word
-    } else {
-      // Append word to the current line
-      currentLine += (currentLine.length > 1 ? ' ' : ' ') + word;
-    }
-  }
-
-  // Append any remaining text in the current line
-  if (currentLine.length > 1) {
-    formattedDescription += currentLine;
-  }
-
-  return formattedDescription;
-}
 
 function escapeValue(value: string | number | boolean): string {
   if (typeof value === 'string') {
