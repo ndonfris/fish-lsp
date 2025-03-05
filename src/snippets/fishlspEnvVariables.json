@@ -176,6 +176,17 @@
     "valueType": "array"
   },
   {
+    "name": "fish_lsp_enable_experimental_diagnostics",
+    "description": "Enables the experimental diagnostics feature.\n\nThis feature will enable the diagnostic error code 9999.\n\nUses `fish --no-execute`\n\nDiagnostic error code 9999 will be disabled by default.",
+    "exactMatchOptions": true,
+    "options": [
+      true,
+      false
+    ],
+    "defaultValue": false,
+    "valueType": "boolean"
+  },
+  {
     "name": "fish_lsp_max_background_files",
     "description": "The maximum number of background files to read into buffer on startup.",
     "exactMatchOptions": false,
@@ -198,6 +209,17 @@
       false
     ],
     "defaultValue": true,
+    "valueType": "boolean"
+  },
+  {
+    "name": "fish_lsp_single_workspace_support",
+    "description": "Try to limit the fish-lsp's workspace searching to only the current workspace open. ",
+    "exactMatchOptions": true,
+    "options": [
+      true,
+      false
+    ],
+    "defaultValue": false,
     "valueType": "boolean"
   }
 ]

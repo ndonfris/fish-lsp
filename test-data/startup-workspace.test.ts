@@ -1,12 +1,10 @@
+import * as os from 'os';
 import { setLogger } from './helpers';
-import { LspDocument } from '../src/document';
-import { FishUriWorkspace, Workspace } from '../src/utils/workspace';
+import { FishUriWorkspace, Workspace, workspaces } from '../src/utils/workspace';
 import { config } from '../src/config';
-import { uriToPath, pathToUri } from '../src/utils/translation';
+import { uriToPath } from '../src/utils/translation';
 import * as LSP from 'vscode-languageserver';
-import { basename, dirname, join } from 'path';
-import { autoloadedFishVariableNames, setupProcessEnvExecFile } from '../src/utils/process-env';
-
+import { setupProcessEnvExecFile } from '../src/utils/process-env';
 describe('setup workspace', () => {
   setLogger();
   beforeAll(async () => {
@@ -51,6 +49,29 @@ describe('setup workspace', () => {
         if (!fishWorkspace) fail();
         const { name, uri, path } = fishWorkspace;
         console.log({ inputUri, name, uri, path });
+      }
+    });
+  });
+
+  describe('fisher workspace w/ $fish_lsp_single_workspace_support \'true\'', () => {
+    it('conf.d/fisher-template', async () => {
+      config.fish_lsp_single_workspace_support = true;
+      const uris = [
+        'file:///home/user/repos/fisher-template/conf.d',
+        'file:///home/user/repos/fisher-template',
+        'file:///home/user/repos/fzf.fish/functions',
+        `file://${os.homedir()}/repos/bends.fish`, /** assuming this exists */
+      ];
+      for (const inputUri of uris) {
+        // if (!inputUri.endsWith('bends.fish')) continue
+        const fishWorkspace = FishUriWorkspace.create(inputUri);
+        if (!fishWorkspace) fail();
+        const workspace = await Workspace.createFromUri(inputUri);
+        if (!workspace) fail();
+        console.log({ inputUri, name: workspace.name, path: workspace.path });
+        console.log(workspaces.map(w => w.uri));
+        const root = FishUriWorkspace.getWorkspaceRootFromUri(inputUri);
+        console.log({ root });
       }
     });
   });

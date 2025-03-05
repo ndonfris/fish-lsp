@@ -25,13 +25,16 @@ export namespace ErrorCodes {
 
   export const fishLspDeprecatedEnvName = 6001;
 
+  export const syntaxError = 9999;
+
   export type codeTypes =
     1001 | 1002 | 1003 | 1004 |
     2001 | 2002 | 2003 |
     3001 | 3002 | 3003 |
     4001 | 4002 | 4003 | 4004 |
     5001 |
-    6001 ;
+    6001 |
+    9999 ;
 
   export type CodeValueType = {
     severity: DiagnosticSeverity;
@@ -157,6 +160,13 @@ export namespace ErrorCodes {
       codeDescription: { href: 'https://github.com/ndonfris/fish-lsp#environment-variables' },
       source: 'fish-lsp',
       message: 'Deprecated fish-lsp environment variable name',
+    },
+    [syntaxError]: {
+      severity: DiagnosticSeverity.Error,
+      code: syntaxError,
+      codeDescription: { href: 'https://fishshell.com/docs/current/fish_for_bash_users.html#syntax-overview' },
+      source: 'fish-lsp',
+      message: 'fish syntax error',
     },
   };
 

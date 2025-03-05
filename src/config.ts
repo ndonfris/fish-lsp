@@ -2,7 +2,7 @@ import os from 'os';
 import { z } from 'zod';
 import { logToStdout } from './logger';
 import { PrebuiltDocumentationMap, EnvVariableJson } from './utils/snippets';
-import { InitializeResult, TextDocumentSyncKind } from 'vscode-languageserver/node';
+import { InitializeResult, TextDocumentSyncKind } from 'vscode-languageserver';
 import { AllSupportedActions } from './code-actions/action-kinds';
 import { LspCommands } from './command';
 
@@ -89,11 +89,17 @@ export const ConfigSchema = z.object({
   /** error code numbers to disable */
   fish_lsp_diagnostic_disable_error_codes: z.array(z.number()).default([]),
 
+  /** fish lsp experimental diagnostics */
+  fish_lsp_enable_experimental_diagnostics: z.boolean().default(false),
+
   /** max background files */
   fish_lsp_max_background_files: z.number().default(1000),
 
   /** show startup analysis notification */
   fish_lsp_show_client_popups: z.boolean().default(true),
+
+  /** single workspace support */
+  fish_lsp_single_workspace_support: z.boolean().default(false),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -111,8 +117,10 @@ export function getConfigFromEnvironmentVariables(): {
     fish_lsp_all_indexed_paths: process.env.fish_lsp_all_indexed_paths?.split(' '),
     fish_lsp_modifiable_paths: process.env.fish_lsp_modifiable_paths?.split(' '),
     fish_lsp_diagnostic_disable_error_codes: process.env.fish_lsp_diagnostic_disable_error_codes?.split(' ').map(toNumber),
+    fish_lsp_enable_experimental_diagnostics: toBoolean(process.env.fish_lsp_enable_experimental_diagnostics),
     fish_lsp_max_background_files: toNumber(process.env.fish_lsp_max_background_files),
     fish_lsp_show_client_popups: toBoolean(process.env.fish_lsp_show_client_popups),
+    fish_lsp_single_workspace_support: toBoolean(process.env.fish_lsp_single_workspace_support),
   };
 
   const environmentVariablesUsed = Object.entries(rawConfig)
@@ -256,6 +264,7 @@ export function adjustInitializeResultCapabilitiesFromConfig(configHandlers: z.i
   return {
     capabilities: {
       textDocumentSync: TextDocumentSyncKind.Incremental,
+      // textDocumentSync: TextDocumentSyncKind.Full,
       completionProvider: configHandlers.complete ? {
         resolveProvider: true,
         allCommitCharacters: userConfig.fish_lsp_commit_characters,

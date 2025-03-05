@@ -6,12 +6,15 @@ import { LspDocument } from './document';
 import { isCommand, isCommandName } from './utils/node-types';
 import { pathToUri, symbolKindToString } from './utils/translation';
 import { existsSync } from 'fs';
-import { workspaces } from './utils/workspace';
+import { currentWorkspace, workspaces } from './utils/workspace';
 import { filterGlobalSymbols, FishDocumentSymbol, getFishDocumentSymbols } from './document-symbol';
 import { GenericTree } from './utils/generic-tree';
 import { findDefinitionSymbols } from './workspace-symbol';
 import { config } from './config';
 import { logger } from './logger';
+import { execFileSync } from 'child_process';
+import { documents } from './server';
+import { SyncFileHelper } from './utils/file-operations';
 
 export class Analyzer {
   protected parser: Parser;
@@ -69,7 +72,8 @@ export class Analyzer {
     for (const workspace of workspaces) {
       const docs = workspace
         .urisToLspDocuments()
-        .filter((doc: LspDocument) => doc.shouldAnalyzeInBackground())
+        // .filter((doc: LspDocument) => doc.shouldAnalyzeInBackground())
+        .filter((doc: LspDocument) => doc.isAutoloadedUri())
         .slice(0, max_files - amount); // Only take what we need up to max_files
 
       // Create promises for each document analysis
@@ -159,6 +163,16 @@ export class Analyzer {
     * @returns {WorkspaceSymbol[]} array of all symbols
     */
   public getWorkspaceSymbols(query: string = ''): WorkspaceSymbol[] {
+    if (config.fish_lsp_single_workspace_support && currentWorkspace.current) {
+      const workspace = currentWorkspace.current;
+      logger.log({ searching: workspace.path, query });
+      return this.globalSymbols.allSymbols
+        .filter(symbol => workspace.contains(symbol.uri))
+        .map((s) => FishDocumentSymbol.toWorkspaceSymbol(s))
+        .filter((symbol: WorkspaceSymbol) => {
+          return symbol.name.startsWith(query);
+        });
+    }
     return this.globalSymbols.allSymbols
       .map((s) => FishDocumentSymbol.toWorkspaceSymbol(s))
       .filter((symbol: WorkspaceSymbol) => {
@@ -183,6 +197,31 @@ export class Analyzer {
       return [
         Location.create(symbol.uri, symbol.selectionRange),
       ];
+    }
+    if (config.fish_lsp_single_workspace_support && currentWorkspace.current) {
+      const node = this.nodeAtPoint(document.uri, position.line, position.character);
+      if (node && isCommandName(node)) {
+        const text = node.text.toString();
+        logger.log('isCommandName', text);
+        const location = execFileSync('fish', ['--command', `type -ap ${text}`], {
+          stdio: ['pipe', 'pipe', 'ignore'],
+        });
+        logger.log({ location: location.toString() });
+        for (const path of location.toString().trim().split('\n')) {
+          const uri = pathToUri(path);
+          const content = SyncFileHelper.read(path, 'utf8');
+          const doc = LspDocument.create(uri, content);
+          documents.open(path, doc.asTextDocumentItem());
+          currentWorkspace.updateCurrent(doc);
+        }
+
+        return location.toString().trim().split('\n').map((path: string) => {
+          return Location.create(pathToUri(path), {
+            start: { line: 0, character: 0 },
+            end: { line: 0, character: 0 },
+          });
+        });
+      }
     }
     return [];
   }
