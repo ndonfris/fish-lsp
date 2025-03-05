@@ -14,6 +14,23 @@ export class LspDocument implements TextDocument {
     const { uri, languageId, version, text } = doc;
     this.document = TextDocument.create(uri, languageId, version, text);
   }
+  static create(uri: string, text: string): LspDocument {
+    return new LspDocument({
+      uri,
+      languageId: 'fish',
+      version: 1,
+      text,
+    });
+  }
+
+  asTextDocumentItem(): TextDocumentItem {
+    return {
+      uri: this.document.uri,
+      languageId: this.document.languageId,
+      version: this.document.version,
+      text: this.document.getText(),
+    };
+  }
 
   get uri(): string {
     return this.document.uri;
@@ -117,7 +134,8 @@ export class LspDocument implements TextDocument {
     const workspaceRootIndex = dirs.find(dir => dir === 'fish')
       ? dirs.indexOf('fish')
       : dirs.find(dir => ['conf.d', 'functions', 'completions', 'config.fish'].includes(dir))
-        ? dirs.findLastIndex(dir => ['conf.d', 'functions', 'completions', 'config.fish'].includes(dir))
+        // ? dirs.findLastIndex(dir => ['conf.d', 'functions', 'completions', 'config.fish'].includes(dir))
+        ? dirs.findIndex(dir => ['conf.d', 'functions', 'completions', 'config.fish'].includes(dir))
         : dirs.length - 1;
 
     return dirs.slice(workspaceRootIndex).join('/');

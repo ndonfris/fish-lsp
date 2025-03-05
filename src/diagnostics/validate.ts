@@ -11,7 +11,7 @@ import { logger } from '../logger';
 import { isAutoloadedUriLoadsFunctionName } from '../utils/translation';
 import { isCommandName, isCommandWithName, isComment, isFunctionDefinitionName, isOption, isString, isTopLevelFunctionDefinition } from '../utils/node-types';
 import { isReservedKeyword } from '../utils/builtins';
-// import { getFishNoExecDiagnostics } from './no-execute-diagnostic';
+import { getNoExecuteDiagnostics } from './no-execute-diagnostic';
 
 export interface FishDiagnostic extends Diagnostic {
   data: {
@@ -82,7 +82,7 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
     if (node.isError) {
       const found: SyntaxNode | null = findErrorCause(node.children);
       if (found && handler.isCodeEnabled(ErrorCodes.missingEnd)) {
-        diagnostics.push(FishDiagnostic.create(ErrorCodes.missingEnd, found));
+        diagnostics.push(FishDiagnostic.create(ErrorCodes.missingEnd, node));
       }
     }
 
@@ -247,8 +247,9 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
     }
   }
 
-  // need to fix getFishNoExecDiagnostics()
-  // diagnostics.push(...getFishNoExecDiagnostics(doc, diagnostics));
+  if (config.fish_lsp_enable_experimental_diagnostics && handler.isCodeEnabled(ErrorCodes.syntaxError)) {
+    diagnostics.push(...getNoExecuteDiagnostics(doc));
+  }
 
   return diagnostics;
 }
