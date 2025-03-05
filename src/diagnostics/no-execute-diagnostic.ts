@@ -1,89 +1,110 @@
-
+// import { spawnSync } from 'child_process';
 import { LspDocument } from '../document';
-import { execFishNoExecute } from '../utils/exec';
-import { uriToPath } from '../utils/translation';
 import { Diagnostic, DiagnosticSeverity } from 'vscode-languageserver';
-import { FishDiagnostic } from './validate';
-import { config } from '../config';
+import { logger } from '../logger';
+import { execFishNoExecute } from '../utils/exec';
+import { ErrorCodes } from './errorCodes';
 
 /**
- * only exported for testing purposes,
- * use getFishNoExecDiagnostics()
+ * A unique diagnostic code to identify issues found by the no-execute diagnostic
  */
-export function fishNoExecuteDiagnostic(doc: LspDocument) {
-  const path = uriToPath(doc.uri);
-  const result = execFishNoExecute(path);
-  return result;
-}
-
-// Regex pattern for fish errors: filename (line N): message
-const FISH_ERROR_PATTERN = /^(?:.*?fish: )?(.+) \(line (\d+)\): (.+)$/gm;
-
-interface FishError {
-  fileName: string;
-  lineNumber: number;
-  message: string;
-}
+const NoExecuteErrorCode = ErrorCodes.syntaxError;
 
 /**
- * Parse fish shell error output into structured FishError objects
+ * Parse the output from `fish --no-execute` on a script to identify syntax errors
+ * @param document The document to run the no-execute check on
+ * @param testMode If true, returns detailed output for testing purposes
+ * @returns Array of diagnostics or detailed output if in test mode
  */
-function parseFishErrors(output: string): FishError[] {
-  const errors: FishError[] = [];
-  let match: RegExpExecArray | null;
+export function runNoExecuteDiagnostic(document: LspDocument): Diagnostic[] {
+  try {
+    // Get document content
+    const scriptContent = document.getText();
 
-  while ((match = FISH_ERROR_PATTERN.exec(output)) !== null) {
-    errors.push({
-      fileName: match[1] as string,
-      lineNumber: parseInt(match[2] as string, 10),
-      message: match[3] as string,
-    });
-  }
-
-  return errors;
-}
-
-/**
- * Check if a diagnostic already exists at the given line
- */
-function hasDiagnosticAtLine(existingDiagnostics: Diagnostic[], lineNumber: number): boolean {
-  return existingDiagnostics.some(diagnostic =>
-    diagnostic.range.start.line === lineNumber && diagnostic.range.end.line === lineNumber,
-  );
-}
-
-/**
- * Convert fish --no-execute output into LSP Diagnostics
- */
-export function getFishNoExecDiagnostics(
-  document: LspDocument,
-  existingDiagnostics: Diagnostic[],
-) : Diagnostic[] {
-  const newDiagnostics: Diagnostic[] = [];
-  if (config.fish_lsp_diagnostic_disable_error_codes.includes(9999)) return [];
-  const output = fishNoExecuteDiagnostic(document);
-  const errors = parseFishErrors(output);
-
-  for (const error of errors) {
-    const lineNumber = error.lineNumber - 1;
-
-    // Skip if we already have a diagnostic on this line
-    if (hasDiagnosticAtLine(existingDiagnostics, lineNumber)) {
-      continue;
+    // Skip empty documents
+    if (!scriptContent.trim()) {
+      return [];
     }
 
-    // Create range for the full line
-    const range = document.getLineRange(lineNumber);
+    const result = execFishNoExecute(document.getFilePath()!);
 
-    const diagnostic: Diagnostic = Diagnostic.create(
-      range,
-      error.message,
-      DiagnosticSeverity.Error,
-      9999,
-      'fish-lsp',
-    );
+    // Process the output and error
+    if (result) {
+      logger.log(`Fish --no-execute found output: ${result}`);
+      return fishOutputToDiagnostics(result, document);
+      // return parseNoExecuteOutput(result, document);
+    }
 
-    newDiagnostics.push(FishDiagnostic.fromDiagnostic(diagnostic) as Diagnostic);
+    return [];
+  } catch (error) {
+    // Log the error but don't throw it
+    logger.log(`Error in no-execute diagnostic: ${error}`);
+    return [];
   }
-  return newDiagnostics;
 }
+
+/**
+ * The main function to be called from validate.ts
+ */
+export function getNoExecuteDiagnostics(document: LspDocument): Diagnostic[] {
+  // Only run on .fish files
+  if (!document.uri.endsWith('.fish')) {
+    return [];
+  }
+
+  const diagnostics = runNoExecuteDiagnostic(document);
+  logger.log(`No-execute diagnostics for ${document.uri}: ${diagnostics.length} issues found`);
+  return diagnostics;
+}
+
+/**
+ * Parse fish errors from Fish output for a given document.
+ *
+ * @param document The document to whose contents errors refer
+ * @param output The error output from Fish.
+ * @return An array of all diagnostics
+ */
+const fishOutputToDiagnostics = (
+  output: string,
+  document: LspDocument,
+): Diagnostic[] => {
+  const diagnostics: Array<Diagnostic> = [];
+  const matches = getMatches(/^(.+) \(line (\d+)\): (.+)$/gm, output);
+  for (const match of matches) {
+    const lineNumber = Number.parseInt(match[2]!);
+    const message = match[3];
+
+    const range = document.getLineRange(lineNumber - 1);
+    const diagnostic = {
+      severity: DiagnosticSeverity.Error,
+      range,
+      message: `Fish syntax error: ${message}`,
+      source: 'fish-lsp',
+      code: NoExecuteErrorCode,
+      data: { isNoExecute: true, output },
+    };
+    diagnostics.push(diagnostic);
+  }
+  return diagnostics;
+};
+
+/**
+ * Exec pattern against the given text and return an array of all matches.
+ *
+ * @param pattern The pattern to match against
+ * @param text The text to match the pattern against
+ * @return All matches of pattern in text.
+ */
+const getMatches = (
+  pattern: RegExp,
+  text: string,
+): ReadonlyArray<RegExpExecArray> => {
+  const results = [];
+  // We need to loop through the regexp here, so a let is required
+  let match = pattern.exec(text);
+  while (match !== null) {
+    results.push(match);
+    match = pattern.exec(text);
+  }
+  return results;
+};
