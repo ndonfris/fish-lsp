@@ -79,7 +79,7 @@
       "~",
       "\\t"
     ],
-    "defaultValue": [],
+    "defaultValue": ["\\t", ";", " "],
     "valueType": "array"
   },
   {

@@ -357,12 +357,13 @@ commandBin.command('env')
   .option('--no-global', 'use local env variables')
   .option('--no-local', 'do not use local scope for variables')
   .option('--no-export', 'don\'t export the variables')
+  .option('--confd', 'output for piping to conf.d')
   .action(args => {
     if (args.show) {
-      showJsonSchemaShellScript(args.comments, args.global, args.local, args.export);
+      showJsonSchemaShellScript(args.confd || false, args.comments, args.global, args.local, args.export);
       process.exit(0);
     }
-    generateJsonSchemaShellScript(args.comments, args.global, args.local, args.export);
+    generateJsonSchemaShellScript(args.confd || false, args.comments, args.global, args.local, args.export);
   });
 
 /**
