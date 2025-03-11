@@ -162,11 +162,23 @@ const toBoolean = (s?: string): boolean | undefined =>
 const toNumber = (s?: string): number | undefined =>
   typeof s !== 'undefined' ? parseInt(s, 10) : undefined;
 
+function buildOutput(confd: boolean, result: string[]) {
+  return confd
+    ? [
+      'if status is-interactive',
+      result.map(line =>
+        line.split('\n').map(innerLine => '    ' + innerLine).join('\n').trimEnd(),
+      ).join('\n\n').trimEnd(),
+      'end',
+    ].join('\n')
+    : result.join('\n').trimEnd();
+}
+
 /**
  * generateJsonSchemaShellScript - just prints the starter template for the schema
  * in fish-shell
  */
-export function generateJsonSchemaShellScript(showComments: boolean, useGlobal: boolean, useLocal: boolean, useExport: boolean) {
+export function generateJsonSchemaShellScript(confd: boolean, showComments: boolean, useGlobal: boolean, useLocal: boolean, useExport: boolean) {
   const result: string[] = [];
   const command = getEnvVariableCommand(useGlobal, useLocal, useExport);
 
@@ -186,7 +198,7 @@ export function generateJsonSchemaShellScript(showComments: boolean, useGlobal: 
       ].join('\n');
     result.push(line);
   });
-  const output = result.join('\n').trimEnd();
+  const output = buildOutput(confd, result);
   logToStdout(output);
 }
 
@@ -194,7 +206,7 @@ export function generateJsonSchemaShellScript(showComments: boolean, useGlobal: 
  * showJsonSchemaShellScript - prints the current environment schema
  * in fish
  */
-export function showJsonSchemaShellScript(showComments: boolean, useGlobal: boolean, useLocal: boolean, useExport: boolean) {
+export function showJsonSchemaShellScript(confd: boolean, showComments: boolean, useGlobal: boolean, useLocal: boolean, useExport: boolean) {
   const { config } = getConfigFromEnvironmentVariables();
   const command = getEnvVariableCommand(useGlobal, useLocal, useExport);
   const variables = PrebuiltDocumentationMap
@@ -232,7 +244,7 @@ export function showJsonSchemaShellScript(showComments: boolean, useGlobal: bool
     }
     result.push(line);
   }
-  const output = result.join('\n').trimEnd();
+  const output = buildOutput(confd, result);
   logToStdout(output);
 }
 
