@@ -63,7 +63,7 @@
     "lint:check": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix ",
     "lint:check-fix": "eslint . --ext .ts --fix-dry-run",
-    "generate-man-page": "mkdir -p ./docs/man && cat docs/MAN_FILE.md | npx marked-man --date \"$(date +'%e %B %+4Y')\"  --manual fish-lsp --section 1 --name fish-lsp > ./docs/man/fish-lsp.1"
+    "generate-man-page": "mkdir -p ./docs/man && cat docs/MAN_FILE.md | npx marked-man --date \"$(date)\"  --manual fish-lsp --section 1 --name fish-lsp > ./docs/man/fish-lsp.1"
   },
   "enabledApiProposals": [
     "inlineCompletions"
