@@ -362,10 +362,19 @@ set -gx fish_lsp_all_indexed_paths
 # fish file paths/workspaces that can be renamed by the user. (default: ["$HOME/.config/fish"])
 set -gx fish_lsp_modifiable_paths
 
+# fish_lsp_single_workspace_support <BOOLEAN>
+# limit the fish-lsp's workspace searching to only the current workspace open (default: false)
+set -gx fish_lsp_single_workspace_support
+
 # fish_lsp_diagnostic_disable_error_codes <ARRAY>
 # disable diagnostics for matching error codes (default: [])
 # (options: 1001, 1002, 1003, 1004, 2001, 2002, 2003, 3001, 3002, 3003, 4001, 4002, 4003, 4004, 5001, 8001, 9999)
 set -gx fish_lsp_diagnostic_disable_error_codes
+
+# fish_lsp_enable_experimental_diagnostics <BOOLEAN>
+# should the fish-lsp use `fish --no-execute` to provide diagnostics to the open file. (default: false)
+# NOTE: this will also enable diagnostic code 9999
+set -gx fish_lsp_enable_experimental_diagnostics 
 
 # fish_lsp_max_background_files <NUMBER>
 # maximum number of background files to read into buffer on startup (default: 1000)

@@ -126,6 +126,7 @@ complete -c fish-lsp -n '__fish_lsp_using_command env; and not __fish_contains_o
 complete -c fish-lsp -n '__fish_lsp_using_command env; and not __fish_contains_opt no-global'                                               -l no-global   -d 'use local exports'
 complete -c fish-lsp -n '__fish_lsp_using_command env; and not __fish_contains_opt no-local'                                                -l no-local    -d 'do not use local scope (pair with --no-global)'
 complete -c fish-lsp -n '__fish_lsp_using_command env; and not __fish_contains_opt no-export'                                               -l no-export   -d 'do not export variables'
+complete -c fish-lsp -n '__fish_lsp_using_command env; and not __fish_contains_opt confd'                                                   -l confd       -d 'output for redirect to \'conf.d/fish-lsp.fish\''
 `;
 
 const mapNames = validHandlers.join(' ');
