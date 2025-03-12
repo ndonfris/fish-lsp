@@ -211,7 +211,7 @@ export class Analyzer {
           const uri = pathToUri(path);
           const content = SyncFileHelper.read(path, 'utf8');
           const doc = LspDocument.create(uri, content);
-          documents.open(path, doc.asTextDocumentItem());
+          documents!.open(path, doc.asTextDocumentItem());
           currentWorkspace.updateCurrent(doc);
         }
 

@@ -19,8 +19,8 @@ import { FishCompletionItem } from './utils/completion/types';
 import { getDocumentationResolver } from './utils/completion/documentation';
 import { FishCompletionList } from './utils/completion/list';
 import { PrebuiltDocumentationMap, getPrebuiltDocUrl } from './utils/snippets';
-import { findParentCommand, isCommand, isReturnStatusNumber, isVariableDefinition } from './utils/node-types';
-import { adjustInitializeResultCapabilitiesFromConfig, configHandlers, config, updateConfigFromInitializationOptions } from './config';
+import { findParentCommand, isCommand, isOption, isReturnStatusNumber, isVariableDefinition } from './utils/node-types';
+import { adjustInitializeResultCapabilitiesFromConfig, configHandlers, config } from './config';
 import { enrichToMarkdown } from './documentation';
 import { getAliasedCompletionItemSignature } from './signature';
 import { CompletionItemMap } from './utils/completion/startup-cache';
@@ -37,7 +37,7 @@ export type SupportedFeatures = {
   codeActionDisabledSupport: boolean;
 };
 
-export const documents = new LspDocuments();
+export let documents: LspDocuments | null = null;
 
 export default class FishServer {
   public static async create(
@@ -46,6 +46,8 @@ export default class FishServer {
   ): Promise<FishServer> {
     const initUri = params.rootUri || params.rootPath || params.workspaceFolders?.at(0)?.uri;
     logger.log({ initUri, rootUri: params.rootUri, rootPath: params.rootPath, workspaceFolders: params.workspaceFolders });
+    documents = new LspDocuments();
+
     // Run these operations in parallel rather than sequentially
     const [
       parser,
@@ -240,7 +242,7 @@ export default class FishServer {
     const path = pathToUri(uri);
     const content = SyncFileHelper.read(path, 'utf8');
     const doc = LspDocument.create(uri, content);
-    documents.open(path, doc.asTextDocumentItem());
+    documents!.open(path, doc.asTextDocumentItem());
     currentWorkspace.updateCurrent(doc);
     const promise = await this.openFileInClient(uri, takeFocus);
     return Promise.resolve({ success: promise });
@@ -457,6 +459,15 @@ export default class FishServer {
     const { doc, uri, root, current } = this.getDefaults(params);
     if (!doc || !uri || !root || !current) {
       return null;
+    }
+    if (isOption(current)) {
+      return await handleHover(
+        this.analyzer,
+        doc,
+        params.position,
+        current,
+        this.documentationCache,
+      );
     }
 
     const { kindType, kindString } = symbolKindsFromNode(current);
