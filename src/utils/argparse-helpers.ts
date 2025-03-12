@@ -71,10 +71,6 @@ export function buildArpgparseDetail(variableName: string, commandNode: SyntaxNo
 
 export function processArgparseCommand(node: SyntaxNode, document: LspDocument): FishDocumentSymbol[] {
   const modifier = getArgparseScope(node, document);
-  // console.log({
-  //   text: modifier.scopeNode.text,
-  //   tag: modifier.scopeTag.toString()
-  // });
 
   // split the `h/help` into `h` and `help`
   function splitSlash(str: string): string[] {
