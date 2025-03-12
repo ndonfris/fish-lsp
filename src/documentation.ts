@@ -353,7 +353,6 @@ export class HoverFromCompletion {
     this.commandString = await this.checkForSubCommands();
     if (this.isSubCommand()) {
       const output = await documentationHoverProvider(this.commandString);
-      //console.log(output)
       if (output) {
         return output;
       }

@@ -37,16 +37,43 @@ async function getFileUriSet(path: string) {
 export const workspaces: Workspace[] = [];
 export let currentWorkspace: CurrentWorkspace;
 
+/**
+ * Initializes the default fish workspaces. Does not control the currentWorkspace, only sets it up.
+ *
+ * UPDATES the `config.fish_lsp_single_workspace_support` if user sets it to true, and no workspaces are found (`/tmp` workspace will cause this).
+ *
+ * @param uris - The uris to initialize the workspaces with, if any
+ * @returns The workspaces that were initialized, or an empty array if none were found (unlikely)
+ */
 export async function initializeDefaultFishWorkspaces(...uris: string[]): Promise<Workspace[]> {
+  /** Compute the newWorkaces from the uris, before building if the configWorkspaces */
+  const newWorkspaces = uris.map(uri => {
+    return FishUriWorkspace.create(uri);
+  }).filter((ws): ws is FishUriWorkspace => ws !== null);
+
+  /** fix single workspace support if no workspaces were found */
+  if (newWorkspaces.length === 0 && config.fish_lsp_single_workspace_support) {
+    logger.log('No new workspaces found');
+    config.fish_lsp_single_workspace_support = false;
+  }
+
   const configWorkspaces = FishUriWorkspace.initializeEnvWorkspaces();
-  // Create an array of promises by mapping over workspacePaths
-  const workspacePromises = [
-    ...configWorkspaces.map(({ name, uri, path }) => Workspace.create(name, uri, path)),
-    ...uris.filter(u => u.trim() !== '').map(u => Workspace.createFromUri(u)),
-  ];
+
+  /** don't add duplicates to the workspaces */
+  const toAddWorkspaces = newWorkspaces.filter(ws =>
+    !configWorkspaces.some(configWs => configWs.uri === ws.uri),
+  );
+
+  logger.log('toAddWorkspaces', toAddWorkspaces.map(ws => ws.uri));
+  logger.log('configWorkspaces', configWorkspaces.map(ws => ws.uri));
+
+  const allWorkspaces = [
+    ...configWorkspaces,
+    ...toAddWorkspaces,
+  ].map(({ name, uri, path }) => Workspace.create(name, uri, path));
 
   // Wait for all promises to resolve
-  const defaultSpaces = await Promise.all(workspacePromises);
+  const defaultSpaces = await Promise.all(allWorkspaces);
   const results = defaultSpaces.filter((ws): ws is Workspace => ws !== null);
   results.forEach(ws => {
     logger.log(`Initialized workspace ${ws.name} at ${ws.path}`);
@@ -246,7 +273,7 @@ export class Workspace implements FishWorkspace {
         const path = uriToPath(uri);
         const content = await promises.readFile(path, 'utf8');
         const doc = LspDocument.create(uri, content);
-        documents.open(path, doc.asTextDocumentItem());
+        documents!.open(path, doc.asTextDocumentItem());
         return doc;
       } catch (err) {
         logger.log(`Error reading file ${uri}: ${err}`);
@@ -307,6 +334,11 @@ export namespace FishUriWorkspace {
   /** special location names */
   const FISH_DIRS = ['functions', 'completions', 'conf.d'];
   const CONFIG_FILE = 'config.fish';
+
+  export function isTmpWorkspace(uri: string) {
+    const path = uriToPath(uri);
+    return path.startsWith('/tmp');
+  }
 
   /**
    * Removes file path component from a fish file URI unless it's config.fish
@@ -416,6 +448,13 @@ export namespace FishUriWorkspace {
    * @returns null if the URI is not in a fish workspace, otherwise the workspace
    */
   export function create(uri: string): FishUriWorkspace | null {
+    // skip workspaces for tmp
+    if (isTmpWorkspace(uri)) {
+      // workaround -- disable single workspace support if there is no workspace
+      config.fish_lsp_single_workspace_support = false;
+      return null;
+    }
+
     if (!isInFishWorkspace(uri)) return null;
 
     const trimmedUri = trimFishFilePath(uri);

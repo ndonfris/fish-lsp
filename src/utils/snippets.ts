@@ -9,10 +9,6 @@ import pipeCharactersJson from '../snippets/pipesAndRedirects.json';
 import fishlspEnvVariablesJson from '../snippets/fishlspEnvVariables.json';
 import { md } from './markdown-builder';
 
-// import PACKAGE from '@package'
-//
-// console.log(PACKAGE)
-
 interface BaseJson {
   name: string;
   description: string;
@@ -24,7 +20,6 @@ type SpecialType = 'fishlsp' | 'env' | 'locale' | 'special' | 'theme';
 export interface ExtendedBaseJson extends BaseJson {
   type: JsonType;
   specialType: SpecialType | undefined;
-  // otherTypes: string[]; //TODO
 }
 
 export namespace ExtendedBaseJson {

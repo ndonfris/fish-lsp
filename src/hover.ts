@@ -84,9 +84,12 @@ export async function getHoverForFlag(current: Parser.SyntaxNode): Promise<Hover
     .filter(line => fixedFlags.includes(line[0] as string))
     .map(line => line.join('\t'));
 
-  const prebuiltDocs = PrebuiltDocumentationMap.getByName(commandStr.join('-'));
-  const description = prebuiltDocs?.length === 0 ? '' : prebuiltDocs?.pop()?.description || '';
-  logger.log(description);
+  /** find exact match for command */
+  const prebuiltDocs = PrebuiltDocumentationMap.findMatchingNames(
+    commandStr.join('-'),
+    'command',
+  ).find(doc => doc.name === commandStr.join('-'));
+  const description = !prebuiltDocs ? '' : prebuiltDocs?.description || '';
   return {
     contents: enrichCommandWithFlags(commandStr.join('-'), description, found),
   };

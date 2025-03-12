@@ -61,7 +61,6 @@ async function timeServerStartup() {
       new StreamMessageReader(process.stdin),
       new StreamMessageWriter(process.stdout),
     );
-    // connection.console.log('Starting FISH-LSP server');
     const startupParams: InitializeParams = {
       processId: process.pid,
       rootUri: process.cwd(),
