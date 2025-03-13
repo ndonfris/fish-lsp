@@ -39,11 +39,14 @@ export function getDocumentHighlights(analyzer: Analyzer) {
     if (!node || !node.isNamed) return [];
     const symbols = analyzer.getFlatDocumentSymbols(uri);
 
+    // check if the node is a reference to a symbol
     if (isSymbolReference(node)) {
       const refLocations = getReferenceLocations(analyzer, doc, params.position);
       if (!refLocations) return [];
       return convertSymbolLocationsToHighlights(doc, refLocations);
+    // check if the node is a command name (node with node.parent.type === 'command')
     } else if (isCommandName(node)) {
+      // check if the command name is a symbol reference
       const defLocation = symbols.find(symbol => symbol.name === node.text);
       if (defLocation) {
         const refLocations = getReferenceLocations(analyzer, doc, defLocation.selectionRange.start);
@@ -52,11 +55,11 @@ export function getDocumentHighlights(analyzer: Analyzer) {
       // not a symbol reference, just a command name
       const matchingCommandNodes =
         analyzer.getNodes(doc)
-          .filter(node => isCommandName(node) && node.text === node.text);
+          .filter(n => isCommandName(n) && n.text === node.text);
 
-      return matchingCommandNodes.map(node => {
+      return matchingCommandNodes.map(n => {
         return {
-          range: getRange(node),
+          range: getRange(n),
           kind: DocumentHighlightKind.Text,
         };
       });
