@@ -20,7 +20,9 @@ import { getDocumentationResolver } from './utils/completion/documentation';
 import { FishCompletionList } from './utils/completion/list';
 import { PrebuiltDocumentationMap, getPrebuiltDocUrl } from './utils/snippets';
 import { findParentCommand, isCommand, isVariableDefinition } from './utils/node-types';
-import { adjustInitializeResultCapabilitiesFromConfig, configHandlers, config } from './config';
+import {
+  adjustInitializeResultCapabilitiesFromConfig, configHandlers, config, updateConfigFromInitializationOptions,
+} from './config';
 import { enrichToMarkdown } from './documentation';
 import { getAliasedCompletionItemSignature } from './signature';
 import { CompletionItemMap } from './utils/completion/startup-cache';
@@ -94,6 +96,7 @@ export default class FishServer {
       logger.log({ 'server.initialize.params': params });
       logger.log();
     }
+    updateConfigFromInitializationOptions(params.initializationOptions);
     const result = adjustInitializeResultCapabilitiesFromConfig(configHandlers, config);
     logger.log({ onInitializedResult: result });
     return result;
