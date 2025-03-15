@@ -118,6 +118,23 @@ export function getConfigFromEnvironmentVariables(): {
   return { config, environmentVariablesUsed };
 }
 
+export function updateConfigFromInitializationOptions(initializationOptions: Config | null): void {
+  if (initializationOptions === null) return;
+  ConfigSchema.parse(initializationOptions);
+  Object.keys(initializationOptions).forEach((key) => {
+    const configKey = key as keyof Config;
+    if (configKey in config) {
+      (config[configKey] as any) = initializationOptions[configKey];
+    }
+  });
+  if (initializationOptions.fish_lsp_enabled_handlers) {
+    updateHandlers(initializationOptions.fish_lsp_enabled_handlers, true);
+  }
+  if (initializationOptions.fish_lsp_disabled_handlers) {
+    updateHandlers(initializationOptions.fish_lsp_disabled_handlers, false);
+  }
+}
+
 export function getDefaultConfiguration(): Config {
   return ConfigSchema.parse({});
 }
