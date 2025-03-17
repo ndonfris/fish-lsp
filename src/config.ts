@@ -165,6 +165,8 @@ const toNumber = (s?: string): number | undefined =>
 function buildOutput(confd: boolean, result: string[]) {
   return confd
     ? [
+      '# built by `fish-lsp env --confd`',
+      'type -aq fish-lsp || exit',
       'if status is-interactive',
       result.map(line =>
         line.split('\n').map(innerLine => '    ' + innerLine).join('\n').trimEnd(),
