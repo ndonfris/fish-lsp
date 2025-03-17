@@ -318,11 +318,11 @@ Specific functionality for the server can be set independently from the client. 
 
 ```fish
 # fish_lsp_enabled_handlers <ARRAY>
-# enables the fish-lsp handlers (options: 'popups', 'formatting', 'complete', 'hover', 'rename', 'definition', 'references', 'diagnostics', 'signatureHelp', 'codeAction', 'inlayHint')
+# enables the fish-lsp handlers (options: 'popups', 'formatting', 'complete', 'hover', 'rename', 'definition', 'references', 'diagnostics', 'signatureHelp', 'codeAction', 'inlayHint', 'highlight')
 set -gx fish_lsp_enabled_handlers
 
 # fish_lsp_disabled_handlers <ARRAY>
-# disables the fish-lsp handlers (options: 'popups', 'formatting', 'complete', 'hover', 'rename', 'definition', 'references', 'diagnostics', 'signatureHelp', 'codeAction', 'inlayHint')
+# disables the fish-lsp handlers (options: 'popups', 'formatting', 'complete', 'hover', 'rename', 'definition', 'references', 'diagnostics', 'signatureHelp', 'codeAction', 'inlayHint', 'highlight')
 set -gx fish_lsp_disabled_handlers
 
 # fish_lsp_commit_characters <ARRAY>

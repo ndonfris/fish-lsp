@@ -1,13 +1,13 @@
 import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from './parser';
 import { Analyzer } from './analyze';
-import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, DocumentHighlight, DocumentHighlightParams, PublishDiagnosticsParams } from 'vscode-languageserver';
+import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, PublishDiagnosticsParams } from 'vscode-languageserver';
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
 import { formatDocumentContent } from './formatting';
 import { createServerLogger, Logger, logger } from './logger';
 import { symbolKindsFromNode, uriToPath } from './utils/translation';
-import { getChildNodes, getNodeAtPosition } from './utils/tree-sitter';
+import { getChildNodes } from './utils/tree-sitter';
 import { handleHover } from './hover';
 import { getDiagnostics } from './diagnostics/validate';
 import { DocumentationCache, initializeDocumentationCache } from './utils/documentation-cache';
@@ -110,6 +110,7 @@ export default class FishServer {
   register(connection: Connection): void {
     const codeActionHandler = createCodeActionHandler(this.docs, this.analyzer);
     const executeHandler = createExecuteCommandHandler(this.connection, this.docs, this.logger);
+    const documentHighlightHandler = getDocumentHighlights(this.analyzer);
     //this.connection.window.createWorkDoneProgress();
     connection.onInitialized(this.onInitialized.bind(this));
     connection.onDidOpenTextDocument(this.didOpenTextDocument.bind(this));
@@ -132,7 +133,7 @@ export default class FishServer {
     connection.onCodeAction(codeActionHandler);
     connection.onFoldingRanges(this.onFoldingRanges.bind(this));
     //this.connection.workspace.applyEdit()
-    connection.onDocumentHighlight(this.onDocumentHighlight.bind(this));
+    connection.onDocumentHighlight(documentHighlightHandler);
     connection.languages.inlayHint.on(this.onInlayHints.bind(this));
     connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
     connection.onExecuteCommand(executeHandler);
@@ -318,24 +319,6 @@ export default class FishServer {
       !!documentSymbol &&
       !!documentSymbol.hierarchicalDocumentSymbolSupport
     );
-  }
-
-  /**
-   * highlight provider
-   */
-  onDocumentHighlight(params: DocumentHighlightParams): DocumentHighlight[] {
-    this.logParams('onDocumentHighlight', params);
-    const { doc } = this.getDefaults(params);
-    if (!doc) return [];
-
-    const text = doc.getText();
-    const tree = this.parser.parse(text);
-    const node = getNodeAtPosition(tree, params.position);
-    if (!node) return [];
-
-    const highlights = getDocumentHighlights(tree, node);
-
-    return highlights;
   }
 
   async onWorkspaceSymbol(params: WorkspaceSymbolParams): Promise<WorkspaceSymbol[]> {
