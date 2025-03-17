@@ -1,0 +1,44 @@
+#!/usr/bin/env node
+
+const fs = require('fs');
+const path = require('path');
+
+// Get the current date and time in YYYY-MM-DD HH:MM:SS format
+function getCurrentDateTime() {
+  const now = new Date();
+  
+  // Format date as YYYY-MM-DD
+  const date = now.toISOString().split('T')[0];
+  
+  // Format time as HH:MM:SS
+  const time = now.toTimeString().split(' ')[0];
+  
+  return `${date} ${time}`;
+}
+
+// Ensure the output directory exists
+function ensureOutDirExists() {
+  const outDir = path.resolve(__dirname, '../out');
+  if (!fs.existsSync(outDir)) {
+    fs.mkdirSync(outDir, { recursive: true });
+  }
+  return outDir;
+}
+
+// Write the build time to a file
+function writeBuildTime() {
+  const outDir = ensureOutDirExists();
+  const buildTimeFile = path.join(outDir, 'build-time.txt');
+  const buildTime = getCurrentDateTime();
+  
+  try {
+    fs.writeFileSync(buildTimeFile, `${buildTime}\n`);
+    console.log(`Build time recorded: ${buildTime}`);
+  } catch (error) {
+    console.error(`Error writing build time: ${error.message}`);
+    process.exit(1);
+  }
+}
+
+// Execute the script
+writeBuildTime();
