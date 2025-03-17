@@ -5,7 +5,7 @@ import { InitializeParams, CompletionParams, Connection, CompletionList, Complet
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
 import { formatDocumentContent } from './formatting';
-import { Logger, logger } from './logger';
+import { createServerLogger, Logger, logger } from './logger';
 import { symbolKindsFromNode, uriToPath } from './utils/translation';
 import { getChildNodes, getNodeAtPosition } from './utils/tree-sitter';
 import { handleHover } from './hover';
@@ -96,7 +96,12 @@ export default class FishServer {
       logger.log({ 'server.initialize.params': params });
       logger.log();
     }
+    const previousLogFile = config.fish_lsp_logfile;
     updateConfigFromInitializationOptions(params.initializationOptions);
+    if (previousLogFile !== config.fish_lsp_logfile) {
+      createServerLogger(config.fish_lsp_logfile, true, this.connection.console, true);
+    }
+    logger.log({ disable_error_codes: `${config.fish_lsp_diagnostic_disable_error_codes[0]}`, type: typeof config.fish_lsp_diagnostic_disable_error_codes[0] });
     const result = adjustInitializeResultCapabilitiesFromConfig(configHandlers, config);
     logger.log({ onInitializedResult: result });
     return result;
