@@ -44,14 +44,14 @@
   "scripts": {
     "prepare": "husky",
     "setup": "run-s sh:build-time sh:build-wasm compile sh:relink sh:build-completions",
-    "dev": "run-s setup compile",                                
+    "dev": "run-s setup compile",
     "dev:watch": "run-s setup watch",
     "postinstall": "run-s sh:build-time",
     "prepack": "run-s lint:check generate-man-page sh:build-wasm compile",
     "compile": "tsc -b",
     "watch": "tsc -b -w",
     "sh:build-completions": "fish ./scripts/build-completions.fish",
-    "sh:build-time": "fish ./scripts/build-time.fish",
+    "sh:build-time": "node ./scripts/build-time",
     "sh:build-wasm": "fish ./scripts/build-fish-wasm.fish",
     "sh:relink": "fish ./scripts/relink-locally.fish",
     "sh:build-release": "fish ./scripts/build-release.fish",
@@ -63,7 +63,7 @@
     "lint:check": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix ",
     "lint:check-fix": "eslint . --ext .ts --fix-dry-run",
-    "generate-man-page": "mkdir -p ./docs/man && cat docs/MAN_FILE.md | npx marked-man --date \"$(date +'%e %B %+4Y')\"  --manual fish-lsp --section 1 --name fish-lsp > ./docs/man/fish-lsp.1"
+    "generate-man-page": "mkdir -p ./docs/man && cat docs/MAN_FILE.md | npx marked-man --date \"$(date)\"  --manual fish-lsp --section 1 --name fish-lsp > ./docs/man/fish-lsp.1"
   },
   "enabledApiProposals": [
     "inlineCompletions"
@@ -113,7 +113,7 @@
   "devDependencies": {
     "@commitlint/cli": "^19.6.0",
     "@commitlint/config-conventional": "^19.6.0",
-    "@esdmr/tree-sitter-fish": "3.5.2-0",
+    "@esdmr/tree-sitter-fish": "^3.5.2-0",
     "@tsconfig/node-lts": "^20.1.3",
     "@types/jest": "^29.5.12",
     "@types/node": "^20.11.30",
