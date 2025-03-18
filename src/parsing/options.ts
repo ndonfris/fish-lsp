@@ -10,9 +10,9 @@ type DigitChar = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9';
 type ExtraChar = '?' | '!' | '@' | '$' | '%' | '^' | '&' | '*' | '(' | ')' | '-' | '_' | '+' | '=' | '{' | '}' | '[' | ']' | '|' | ';' | ':' | '"' | "'" | '<' | '>' | ',' | '.' | '/' | '\\' | '~' | '`';
 type Character = AlphaChar | DigitChar | ExtraChar;
 
-type ShortFlag = `-${Character}`;
-type UnixFlag = `-${string}`;
-type LongFlag = `--${string}`;
+export type ShortFlag = `-${Character}`;
+export type UnixFlag = `-${string}`;
+export type LongFlag = `--${string}`;
 
 const stringIsShortFlag = (str: string): str is ShortFlag => str.startsWith('-') && str.length === 2;
 const stringIsLongFlag = (str: string): str is LongFlag => str.startsWith('--');
@@ -130,7 +130,6 @@ export class Option {
     if (this.isSwitch()) {
       return false;
     }
-    if (!this.requiresArgument && !this.optionalArgument) return false;
 
     // Handle direct values (--option=value)
     if (isOption(node) && node.text.includes('=')) {
@@ -144,7 +143,7 @@ export class Option {
     if (this.acceptsMultipleArguments) {
       while (prev) {
         if (isOption(prev) && !prev.text.includes('=')) {
-          break;
+          return this.matches(prev);
         }
         if (isOption(prev)) return false;
         prev = prev.previousSibling;
@@ -211,6 +210,29 @@ export class Option {
     return false;
   }
 
+  /**
+   * Warning, does not search oldUnixFlag
+   */
+  equalsRawOption(...rawOption: (ShortFlag | LongFlag)[]): boolean {
+    for (const option of rawOption) {
+      if (stringIsLongFlag(option) && this.longOptions.includes(option)) {
+        return true;
+      }
+      if (stringIsShortFlag(option) && this.shortOptions.includes(option)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  equalsRawShortOption(...rawOption: ShortFlag[]): boolean {
+    return rawOption.some(option => this.shortOptions.includes(option));
+  }
+
+  equalsRawLongOption(...rawOption: LongFlag[]): boolean {
+    return rawOption.some(option => this.longOptions.includes(option));
+  }
+
   findValueRangeAfterEquals(node: SyntaxNode): LSP.Range | null {
     if (!isOption(node)) return null;
     if (!node.text.includes('=')) return null;
@@ -275,6 +297,27 @@ export function findOptionsSet(nodes: SyntaxNode[], options: Option[]): OptionVa
   return result;
 }
 
+export function findOptions(nodes: SyntaxNode[], options: Option[]): { remaining: SyntaxNode[]; found: OptionValueMatch[]; unused: Option[]; } {
+  const result: {
+    remaining: SyntaxNode[];
+    found: OptionValueMatch[];
+    unused: Option[];
+  } = { remaining: [], found: [], unused: [] };
+  result.unused = Array.from(options);
+  for (const node of nodes) {
+    const values = options.filter(o => o.isSet(node));
+    if (values.length === 0 && !isOption(node)) {
+      result.remaining.push(node);
+      continue;
+    }
+    values.forEach(option => {
+      result.unused.splice(result.unused.indexOf(option), 1);
+      result.found.push({ option, value: node });
+    });
+  }
+  return result;
+}
+
 export function isMatchingOption(node: SyntaxNode, ...option: Option[]): boolean {
   for (const opt of option) {
     if (opt.matches(node)) {
@@ -286,4 +329,18 @@ export function isMatchingOption(node: SyntaxNode, ...option: Option[]): boolean
 
 export function findMatchingOptions(node: SyntaxNode, ...options: Option[]): Option | undefined {
   return options.find((opt: Option) => opt.matches(node));
+}
+
+export function isMatchingOptionOrOptionValue(node: SyntaxNode, option: Option): boolean {
+  if (isMatchingOption(node, option)) {
+    return true;
+  }
+  const prevNode = node.previousNamedSibling;
+  if (prevNode?.text.includes('=')) {
+    return false;
+  }
+  if (prevNode && isMatchingOption(prevNode, option) && !isOption(node)) {
+    return true;
+  }
+  return false;
 }

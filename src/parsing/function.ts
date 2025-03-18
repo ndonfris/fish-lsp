@@ -24,6 +24,10 @@ function isFunctionDefinition(node: SyntaxNode) {
   return node.type === 'function_definition';
 }
 
+export function findFunctionDefinitionChildren(node: SyntaxNode) {
+  return node.childrenForFieldName('option').filter(n => !isEscapeSequence(n) && !isNewline(n));
+}
+
 export function processFunctionDefinition(document: LspDocument, node: SyntaxNode, children: FishSymbol[] = []) {
   if (!isFunctionDefinition(node)) return [];
 
