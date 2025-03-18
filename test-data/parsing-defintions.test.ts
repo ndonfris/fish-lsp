@@ -10,13 +10,18 @@ import { getChildNodes, getNamedChildNodes } from '../src/utils/tree-sitter';
 import { FishSymbol, processNestedTree } from '../src/parsing/symbol';
 import { processAliasCommand } from '../src/parsing/alias';
 import { flattenNested } from '../src/utils/flatten';
-import { isCommandWithName, isFunctionDefinition } from '../src/utils/node-types';
+import { isCommandWithName, isEndStdinCharacter, isFunctionDefinition } from '../src/utils/node-types';
+import { findOptionsSet, LongFlag, ShortFlag } from '../src/parsing/options';
+import { setupProcessEnvExecFile } from '../src/utils/process-env';
+import { SymbolKind } from 'vscode-languageserver';
+import { md } from '../src/utils/markdown-builder';
 
 let parser: Parser;
 
 describe('parsing symbols', () => {
   setLogger();
   beforeEach(async () => {
+    setupProcessEnvExecFile();
     parser = await initializeParser();
   });
 
@@ -382,6 +387,220 @@ describe('parsing symbols', () => {
       it('function', async () => {
 
       });
+    });
+
+    describe('skip processing', () => {
+      it('set -q', async () => {
+        const source = 'set -lq foo bar baz';
+        const { rootNode } = parser.parse(source);
+        const document = createFakeLspDocument('config.fish', source);
+        const setNode = processNestedTree(document, rootNode);
+        expect(setNode.length).toBe(0);
+      });
+
+      it('set --query', async () => {
+        const source = 'set --query foo bar baz';
+        const { rootNode } = parser.parse(source);
+        const document = createFakeLspDocument('config.fish', source);
+        const setNode = processNestedTree(document, rootNode);
+        expect(setNode.length).toBe(0);
+      });
+    });
+  });
+
+  describe('test options file', () => {
+    const logResult = (
+      results: {
+        found: { option: Option; value: SyntaxNode; }[];
+        remaining: SyntaxNode[];
+        unused: Option[];
+      }) => {
+      results.found.forEach(({ option, value }) => {
+        console.log('found', option.getAllFlags(), value.text);
+      });
+      results.remaining.forEach(opt => {
+        console.log('remaining', opt.text);
+      });
+      results.unused.forEach(opt => {
+        console.log('unused', opt.getAllFlags().join(', '));
+      });
+    };
+
+    describe('findOptions', () => {
+      it('Argparse findOptions()', async () => {
+        const source = 'argparse --name foo h/help -- $argv; or return';
+        const { rootNode } = parser.parse(source);
+        const argparseOptions = Parsers.argparse.ArparseOptions;
+        const focusedNode = getChildNodes(rootNode).find(n => isCommandWithName(n, 'argparse'))!;
+        // const isBefore = (a: SyntaxNode, b: SyntaxNode) => a.startIndex < b.startIndex;
+        // const children = focusedNode.childrenForFieldName('argument')!
+        //
+        // const endSearch = children.find(n => isEndStdinCharacter(n));
+        // const toSearch = children.filter(n => isBefore(n, endSearch!));
+        const search = Parsers.argparse.findArgparseChildren(focusedNode);
+        const results = Parsers.options.findOptions(search, argparseOptions);
+        // logResult(results);
+        expect(results.found.length).toBe(1);
+        expect(results.remaining.length).toBe(1);
+        expect(results.unused.length).toBe(6);
+      });
+
+      it('Set findOptions()', async () => {
+        const source = 'set -U foo (echo \'universal var\')';
+        const { rootNode } = parser.parse(source);
+        const focusedNode = getChildNodes(rootNode).find(n => isCommandWithName(n, 'set'))!;
+
+        const search = Parsers.set.findSetChildren(focusedNode);
+        const setOptions = Parsers.set.SetOptions;
+        const results = Parsers.options.findOptions(search, setOptions);
+        // logResult(results);
+        expect(results.found.length).toBe(1);
+        expect(results.remaining.length).toBe(1);
+        expect(results.unused.length).toBe(16);
+      });
+
+      it('Read findOptions()', async () => {
+        const source = 'read -l foo bar baz';
+        const { rootNode } = parser.parse(source);
+        const focusedNode = getChildNodes(rootNode).find(n => isCommandWithName(n, 'read'))!;
+
+        const search = focusedNode.childrenForFieldName('argument')!;
+        const readOptions = Parsers.read.ReadOptions;
+        const results = Parsers.options.findOptions(search, readOptions);
+        // logResult(results);
+        expect(results.found.length).toBe(1);
+        expect(results.remaining.length).toBe(3);
+        expect(results.unused.length).toBe(18);
+      });
+
+      it('Function findOptions()', async () => {
+        const source = 'function foo --argument-names a b c d e; echo $a; end';
+        const { rootNode } = parser.parse(source);
+        const focusedNode = getChildNodes(rootNode).find(n => n.type === 'function_definition')!;
+        const search = focusedNode.childrenForFieldName('option')!;
+        const functionOptions = Parsers.function.FunctionOptions;
+        const results = Parsers.options.findOptions(search, functionOptions);
+        // const opts = findOptionsSet(focusedNode.childrenForFieldName('option')!, functionOptions);
+        // for (const n of focusedNode.childrenForFieldName('option')!) {
+        //   const opt = Option.create('-a', '--argument-names').withMultipleValues()
+        //   console.log({
+        //     matchesValue: opt.matchesValue(n),
+        //     isSet: opt.isSet(n),
+        //     text: n.text
+        //   });
+        //   console.log(Option.create('-a', '--argument-names').withMultipleValues().matchesValue(n), n.text);
+        // }
+        // logResult(results);
+        expect(results.found.length).toBe(5);
+        expect(results.remaining.length).toBe(0);
+        expect(results.unused.length).toBe(5);
+      });
+    });
+
+    describe('test raw equals', () => {
+      it('equals raw long option', () => {
+        const options = Parsers.function.FunctionOptions;
+        const searchLongOptions: LongFlag[] = ['--argument-names', '--description', '--wraps', '--on-event', '--on-variable'];
+        const found = options.filter(o => o.equalsRawLongOption(...searchLongOptions));
+        expect(searchLongOptions.length).toBe(found.length);
+      });
+
+      it('equals raw short option', () => {
+        const options = Parsers.function.FunctionOptions;
+        const searchShortOptions: ShortFlag[] = ['-a', '-d', '-w', '-e', '-v'];
+        const found = options.filter(o => o.equalsRawShortOption(...searchShortOptions));
+        expect(searchShortOptions.length).toBe(found.length);
+      });
+
+      it('equals raw option', () => {
+        const options = Parsers.function.FunctionOptions;
+        const searchOptions: (ShortFlag | LongFlag)[] = [
+          '-a', '--argument-names',
+          '-d', '--description',
+          '-w', '--wraps',
+          '-e', '--on-event',
+          '-v', '--on-variable',
+        ];
+        const found = options.filter(o => o.equalsRawOption(...searchOptions));
+        expect(found.length).toBe(5);
+      });
+    });
+
+    describe('test equivalent options', () => {
+      it('isOption()', () => {
+        const options = Parsers.function.FunctionOptions;
+        const searchOptions: [ShortFlag, LongFlag][] = [
+          ['-a', '--argument-names'],
+          ['-d', '--description'],
+          ['-w', '--wraps'],
+          ['-e', '--on-event'],
+          ['-v', '--on-variable'],
+        ];
+        searchOptions.forEach(([short, long]) => {
+          expect(options.find(o => o.isOption(short, long))).toBeDefined();
+        });
+      });
+    });
+  });
+
+  describe('show symbol details', () => {
+    it('function foo', async () => {
+      const source = [
+        'function foo --argument-names a b c d e \\',
+        '          --description \'this is a description\' \\',
+        '          --wraps \'echo\' \\',
+        '          --inherit-variable v1 \\',
+        '          --no-scope-shadowing',
+        '     alias ls=\'exa -1 -a --color=always\'',
+        '     set -gx abcde 1',
+        '     set -gx __two 2',
+        '     set -gx __three 3',
+        '     set -gx fish_lsp_enabled_handlers complete',
+        '     function bar',
+        '         argparse h/help "n/name" -- $argv',
+        '         or return',
+        '         set -gx __four 4',
+        '     end',
+        'end',
+      ].join('\n');
+      const { rootNode } = parser.parse(source);
+      const document = createFakeLspDocument('functions/foo.fish', source);
+      const funcNode = processNestedTree(document, rootNode);
+      const flat = flattenNested<FishSymbol>(...funcNode);
+      const funcs = flat.filter(n => n.fishKind === 'FUNCTION');
+      expect(funcs.length).toBe(2);
+      expect(funcs.at(0)!.detail.split('\n').at(-2)!).toBe('foo a b c d e'); // -2 to skip ```
+      expect(funcs.at(1)!.detail.split('\n').at(-2)!).toBe('end'); // check that end is properly formatted
+      // console.log('-'.repeat(80));
+      // for (const func of funcs) {
+      //   console.log(func.detail.toString());
+      //   console.log('-'.repeat(80));
+      // }
+      const aliases = flat.filter(n => n.fishKind === 'ALIAS');
+      // console.log('-'.repeat(80));
+      // for (const func of aliases) {
+      //   console.log(func.detail.toString());
+      //   console.log('-'.repeat(80));
+      // }
+      expect(aliases.at(0)!.detail.split('\n').filter(line => line === md.separator()).length).toBe(2);
+
+      // console.log('-'.repeat(80));
+      const variables = flat.filter(n => n.kind === SymbolKind.Variable);
+      expect(variables.length).toBe(17);
+      // for (const variable of variables) {
+      //   console.log(variable.detail.toString());
+      //   console.log('-'.repeat(80));
+      // }
+      // const argparse = flat.filter(n => n.fishKind === 'ARGPARSE');
+      // for (const arg of argparse) {
+      //   console.log(arg.name, { aliases: arg.aliasedNames });
+      //   console.log('-'.repeat(80));
+      //   const argumentNamesOption = arg.aliasedNames
+      //     .map(n => n.slice(`_flag_`.length).replace(/_/g, '-'))
+      //     .map(n => n.length === 1 ? `${'cmd'} -${n.toString()}` : `cmd --${n.toString()}`)
+      //     .join('\n');
+      //   console.log(argumentNamesOption);
+      // }
     });
   });
 });
