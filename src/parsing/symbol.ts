@@ -11,6 +11,8 @@ import { processArgparseCommand } from './argparse';
 import { Option } from './options';
 import { processAliasCommand } from './alias';
 import { createDetail } from './symbol-detail';
+import { config } from '../config';
+import { flattenNested } from '../utils/flatten';
 // import { isCommand, isCommandWithName } from '../utils/node-types';
 
 export type FishSymbolKind = 'ARGPARSE' | 'FUNCTION' | 'ALIAS' | 'COMPLETE' | 'SET' | 'READ' | 'FOR' | 'VARIABLE';
@@ -227,6 +229,22 @@ export class FishSymbol {
     };
   }
 
+  equalScopes(other: FishSymbol) {
+    if (this.scope.scopeNode === other.scope.scopeNode) {
+      if ([this.scope.scopeTag, other.scope.scopeTag].includes('inherit')) {
+        return this.scope.scopeNode.equals(other.scope.scopeNode);
+      } else if (
+        ['global', 'universal'].includes(this.scope.scopeTag) &&
+        ['global', 'universal'].includes(other.scope.scopeTag)
+      ) {
+        return true;
+      }
+      return this.scope.scopeTag === other.scope.scopeTag &&
+        this.scope.scopeNode.equals(other.scope.scopeNode);
+    }
+    return false;
+  }
+
   isLocal() {
     return !this.isGlobal();
   }
@@ -234,8 +252,44 @@ export class FishSymbol {
   isGlobal() {
     return this.scope.scopeTag === 'global' || this.scope.scopeTag === 'universal';
   }
+
+  isSymbolImmutable() {
+    if (
+      config.fish_lsp_all_indexed_paths.length > 0 &&
+      !config.fish_lsp_modifiable_paths.some(path => this.uri.includes(path))
+    ) {
+      return false;
+    }
+    return true;
+  }
 }
 
+export function getLocalSymbols(symbols: FishSymbol[]): FishSymbol[] {
+  return symbols.filter(symbol => symbol.isLocal());
+}
+
+export function getGlobalSymbols(symbols: FishSymbol[]): FishSymbol[] {
+  return symbols.filter(symbol => symbol.isGlobal());
+}
+
+export function isSymbol(symbols: FishSymbol[], kind: FishSymbolKind): FishSymbol[] {
+  return symbols.filter(symbol => symbol.fishKind === kind);
+}
+
+export function filterLastPerScopeSymbol(symbols: FishSymbol[]) {
+  // const symbolTree: GenericTree<FishDocumentSymbol> = new GenericTree(symbolArray);
+  const array: FishSymbol[] = flattenNested(...symbols);
+  const flatArray: FishSymbol[] = flattenNested(...symbols);
+  return array
+    .filter((symbol) => !flatArray.some((s) => {
+      return (
+        s.name === symbol.name &&
+        !s.equal(symbol) &&
+        symbol.equalScopes(s) &&
+        symbol.isBefore(s)
+      );
+    }));
+}
 // TODO: to refactor `../utils/node-types.ts` functions related to `isVariableDefinitionName`
 // export function isVariableDefinitionName(node: SyntaxNode) {
 //   const parent = node.parent;

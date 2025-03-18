@@ -7,14 +7,16 @@ import { isCommand, isCommandName } from './utils/node-types';
 import { pathToUri, symbolKindToString } from './utils/translation';
 import { existsSync } from 'fs';
 import { currentWorkspace, workspaces } from './utils/workspace';
-import { filterGlobalSymbols, FishDocumentSymbol, getFishDocumentSymbols } from './document-symbol';
-import { GenericTree } from './utils/generic-tree';
+// import { filterGlobalSymbols, } from './document-symbol';
+// import { GenericTree } from './utils/generic-tree';
 import { findDefinitionSymbols } from './workspace-symbol';
 import { config } from './config';
 import { logger } from './logger';
 import { execFileSync } from 'child_process';
 import { documents } from './server';
 import { SyncFileHelper } from './utils/file-operations';
+import { FishSymbol, processNestedTree } from './parsing/symbol';
+import { flattenNested } from './utils/flatten';
 
 export class Analyzer {
   protected parser: Parser;
@@ -27,7 +29,7 @@ export class Analyzer {
     this.parser = parser;
   }
 
-  public analyze(document: LspDocument): FishDocumentSymbol[] {
+  public analyze(document: LspDocument): FishSymbol[] {
     this.parser.reset();
     const analyzedDocument = this.getAnalyzedDocument(
       this.parser,
@@ -35,7 +37,7 @@ export class Analyzer {
     );
     this.cache.setDocument(document.uri, analyzedDocument);
     const symbols = this.cache.getDocumentSymbols(document.uri);
-    filterGlobalSymbols(symbols).forEach((symbol: FishDocumentSymbol) => {
+    flattenNested(...symbols).filter(s => s.isGlobal()).forEach((symbol: FishSymbol) => {
       this.globalSymbols.add(symbol);
     });
     return this.cache.getDocumentSymbols(document.uri);
@@ -46,7 +48,7 @@ export class Analyzer {
     document: LspDocument,
   ): AnalyzedDocument {
     const tree = parser.parse(document.getText());
-    const documentSymbols = getFishDocumentSymbols(
+    const documentSymbols = processNestedTree(
       document,
       tree.rootNode,
     );
@@ -111,10 +113,8 @@ export class Analyzer {
   public findDocumentSymbol(
     document: LspDocument,
     position: Position,
-  ): FishDocumentSymbol | undefined {
-    const symbols = FishDocumentSymbol.flattenArray(
-      this.cache.getDocumentSymbols(document.uri),
-    );
+  ): FishSymbol | undefined {
+    const symbols = flattenNested(...this.cache.getDocumentSymbols(document.uri));
     const wordAtPoint = this.wordAtPoint(document.uri, position.line, position.character);
     return symbols.find((symbol) => {
       if (symbol.kind === SymbolKind.Function && wordAtPoint === symbol.name) {
@@ -127,10 +127,8 @@ export class Analyzer {
   public findDocumentSymbols(
     document: LspDocument,
     position: Position,
-  ): FishDocumentSymbol[] {
-    const symbols = FishDocumentSymbol.flattenArray(
-      this.cache.getDocumentSymbols(document.uri),
-    );
+  ): FishSymbol[] {
+    const symbols = flattenNested(...this.cache.getDocumentSymbols(document.uri));
     return symbols.filter((symbol) => {
       return isPositionWithinRange(position, symbol.selectionRange);
     });
@@ -139,9 +137,8 @@ export class Analyzer {
   public allSymbolsAccessibleAtPosition(
     document: LspDocument,
     position: Position,
-  ): FishDocumentSymbol[] {
-    const symbols = FishDocumentSymbol
-      .flattenArray(this.cache.getDocumentSymbols(document.uri))
+  ): FishSymbol[] {
+    const symbols = flattenNested(...this.cache.getDocumentSymbols(document.uri))
       .filter((symbol) => symbol.scope.containsPosition(position));
     const globalSymbols = this.globalSymbols.allSymbols.filter((symbol) => {
       if (symbol.uri !== document.uri) {
@@ -168,13 +165,13 @@ export class Analyzer {
       logger.log({ searching: workspace.path, query });
       return this.globalSymbols.allSymbols
         .filter(symbol => workspace.contains(symbol.uri))
-        .map((s) => FishDocumentSymbol.toWorkspaceSymbol(s))
+        .map((s) => s.toWorkspaceSymbol())
         .filter((symbol: WorkspaceSymbol) => {
           return symbol.name.startsWith(query);
         });
     }
     return this.globalSymbols.allSymbols
-      .map((s) => FishDocumentSymbol.toWorkspaceSymbol(s))
+      .map((s) => s.toWorkspaceSymbol())
       .filter((symbol: WorkspaceSymbol) => {
         return symbol.name.startsWith(query);
       });
@@ -183,8 +180,8 @@ export class Analyzer {
   public getDefinition(
     document: LspDocument,
     position: Position,
-  ): FishDocumentSymbol {
-    const symbols: FishDocumentSymbol[] = findDefinitionSymbols(this, document, position);
+  ): FishSymbol {
+    const symbols: FishSymbol[] = findDefinitionSymbols(this, document, position);
     return symbols[0]!;
   }
 
@@ -192,7 +189,7 @@ export class Analyzer {
     document: LspDocument,
     position: Position,
   ): LSP.Location[] {
-    const symbol = this.getDefinition(document, position) as FishDocumentSymbol;
+    const symbol = this.getDefinition(document, position) as FishSymbol;
     if (symbol) {
       return [
         Location.create(symbol.uri, symbol.selectionRange),
@@ -238,14 +235,14 @@ export class Analyzer {
     }
 
     const symbol =
-      this.getDefinition(document, position) as FishDocumentSymbol ||
+      this.getDefinition(document, position) as FishSymbol ||
       this.globalSymbols.findFirst(node.text);
     if (symbol) {
       logger.log(`analyzer.getHover: ${symbol.name}`, {
         name: symbol.name,
         uri: symbol.uri,
         detail: symbol.detail,
-        text: symbol.text,
+        text: symbol.node.text,
         kind: symbolKindToString(symbol.kind),
       });
       return {
@@ -295,11 +292,11 @@ export class Analyzer {
     return this.cache.getDocument(documentUri)?.document;
   }
 
-  getDocumentSymbols(documentUri: string): FishDocumentSymbol[] {
+  getDocumentSymbols(documentUri: string): FishSymbol[] {
     return this.cache.getDocumentSymbols(documentUri);
   }
 
-  getFlatDocumentSymbols(documentUri: string): FishDocumentSymbol[] {
+  getFlatDocumentSymbols(documentUri: string): FishSymbol[] {
     return this.cache.getFlatDocumentSymbols(documentUri);
   }
   public parsePosition(
@@ -426,7 +423,7 @@ export class Analyzer {
     return Array.from(result);
   }
 
-  public getExistingAutoloadedFiles(symbol: FishDocumentSymbol): string[] {
+  public getExistingAutoloadedFiles(symbol: FishSymbol): string[] {
     if (!symbol.uri.includes(`functions/${symbol.name}.fish`)) {
       return [];
     }
@@ -455,18 +452,18 @@ export class Analyzer {
   }
 }
 export class GlobalDefinitionCache {
-  constructor(private _definitions: Map<string, FishDocumentSymbol[]> = new Map()) { }
-  add(symbol: FishDocumentSymbol): void {
+  constructor(private _definitions: Map<string, FishSymbol[]> = new Map()) { }
+  add(symbol: FishSymbol): void {
     const current = this._definitions.get(symbol.name) || [];
-    if (!current.some(s => FishDocumentSymbol.equal(s, symbol))) {
+    if (!current.some(s => s.equal(symbol))) {
       current.push(symbol);
     }
     this._definitions.set(symbol.name, current);
   }
-  find(name: string): FishDocumentSymbol[] {
+  find(name: string): FishSymbol[] {
     return this._definitions.get(name) || [];
   }
-  findFirst(name: string): FishDocumentSymbol | undefined {
+  findFirst(name: string): FishSymbol | undefined {
     const symbols = this.find(name);
     if (symbols.length === 0) {
       return undefined;
@@ -476,8 +473,8 @@ export class GlobalDefinitionCache {
   has(name: string): boolean {
     return this._definitions.has(name);
   }
-  uniqueSymbols(): FishDocumentSymbol[] {
-    const unique: FishDocumentSymbol[] = [];
+  uniqueSymbols(): FishSymbol[] {
+    const unique: FishSymbol[] = [];
     this.allNames.forEach(name => {
       const u = this.findFirst(name);
       if (u) {
@@ -486,8 +483,8 @@ export class GlobalDefinitionCache {
     });
     return unique;
   }
-  get allSymbols(): FishDocumentSymbol[] {
-    const all: FishDocumentSymbol[] = [];
+  get allSymbols(): FishSymbol[] {
+    const all: FishSymbol[] = [];
     for (const [_, symbols] of this._definitions.entries()) {
       all.push(...symbols);
     }
@@ -496,20 +493,20 @@ export class GlobalDefinitionCache {
   get allNames(): string[] {
     return [...this._definitions.keys()];
   }
-  get map(): Map<string, FishDocumentSymbol[]> {
+  get map(): Map<string, FishSymbol[]> {
     return this._definitions;
   }
 }
 
 type AnalyzedDocument = {
   document: LspDocument;
-  documentSymbols: FishDocumentSymbol[];
+  documentSymbols: FishSymbol[];
   commands: string[];
   tree: Parser.Tree;
 };
 
 export namespace AnalyzedDocument {
-  export function create(document: LspDocument, documentSymbols: FishDocumentSymbol[], commands: string[], tree: Parser.Tree): AnalyzedDocument {
+  export function create(document: LspDocument, documentSymbols: FishSymbol[], commands: string[], tree: Parser.Tree): AnalyzedDocument {
     return {
       document,
       documentSymbols,
@@ -540,11 +537,11 @@ export class AnalyzedDocumentCache {
       this._documents.set(newUri, oldValue);
     }
   }
-  getDocumentSymbols(uri: URI): FishDocumentSymbol[] {
+  getDocumentSymbols(uri: URI): FishSymbol[] {
     return this._documents.get(uri)?.documentSymbols || [];
   }
-  getFlatDocumentSymbols(uri: URI): FishDocumentSymbol[] {
-    return FishDocumentSymbol.flattenArray(this.getDocumentSymbols(uri));
+  getFlatDocumentSymbols(uri: URI): FishSymbol[] {
+    return flattenNested<FishSymbol>(...this.getDocumentSymbols(uri));
   }
   getCommands(uri: URI): string[] {
     return this._documents.get(uri)?.commands || [];
@@ -555,12 +552,12 @@ export class AnalyzedDocumentCache {
   getParsedTree(uri: URI): Parser.Tree | undefined {
     return this._documents.get(uri)?.tree;
   }
-  getSymbolTree(uri: URI): GenericTree<FishDocumentSymbol> {
+  getSymbolTree(uri: URI): FishSymbol[] {
     const document = this.getDocument(uri);
     if (!document) {
-      return new GenericTree<FishDocumentSymbol>([]);
+      return [];
     }
-    return new GenericTree<FishDocumentSymbol>(document.documentSymbols);
+    return document.documentSymbols;
   }
   /**
      * Name is a string that will be searched across all symbols in cache. tree-sitter-fish
@@ -609,11 +606,11 @@ export class AnalyzedDocumentCache {
 export class SymbolCache {
   constructor(
     private _names: Set<string> = new Set(),
-    private _variables: Map<string, FishDocumentSymbol[]> = new Map(),
-    private _functions: Map<string, FishDocumentSymbol[]> = new Map(),
+    private _variables: Map<string, FishSymbol[]> = new Map(),
+    private _functions: Map<string, FishSymbol[]> = new Map(),
   ) { }
 
-  add(symbol: FishDocumentSymbol): void {
+  add(symbol: FishSymbol): void {
     const oldVars = this._variables.get(symbol.name) || [];
     switch (symbol.kind) {
       case SymbolKind.Variable:
