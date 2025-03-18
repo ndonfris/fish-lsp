@@ -171,7 +171,7 @@ export class LspDocument implements TextDocument {
   }
 
   private getFolderType(): AutoloadType | null {
-    if (!this.getWorkspace()) return null;
+    // if (!this.getWorkspace()) return null;
 
     const docPath = uriToPath(this.uri);
     if (!docPath) return null;
