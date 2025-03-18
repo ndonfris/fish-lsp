@@ -1,4 +1,4 @@
-import { FishDocumentSymbol } from '../../document-symbol';
+import { FishSymbol } from '../../parsing/symbol';
 import { FishCompletionItem } from './types';
 import { execCompleteLine } from '../exec';
 import { logger, Logger } from '../../logger';
@@ -43,7 +43,7 @@ export class CompletionPager {
   }
 
   async completeEmpty(
-    symbols: FishDocumentSymbol[],
+    symbols: FishSymbol[],
   ): Promise<FishCompletionList> {
     this._items.reset();
     this._items.addSymbols(symbols, true);
@@ -63,7 +63,7 @@ export class CompletionPager {
     line: string,
     word: string,
     setupData: SetupData,
-    symbols: FishDocumentSymbol[],
+    symbols: FishSymbol[],
   ): Promise<FishCompletionList> {
     this._items.reset();
     const data = FishCompletionItem.createData(
@@ -92,7 +92,7 @@ export class CompletionPager {
   async complete(
     line: string,
     setupData: SetupData,
-    symbols: FishDocumentSymbol[],
+    symbols: FishSymbol[],
   ): Promise<FishCompletionList> {
     const { word, command, commandNode: _commandNode, index } = this.inlineParser.getNodeContext(line || '');
     logger.log({
@@ -307,9 +307,9 @@ function includesFlag(
   return false;
 }
 
-function sortSymbols(symbols: FishDocumentSymbol[]) {
-  const variables: FishDocumentSymbol[] = [];
-  const functions: FishDocumentSymbol[] = [];
+function sortSymbols(symbols: FishSymbol[]) {
+  const variables: FishSymbol[] = [];
+  const functions: FishSymbol[] = [];
   symbols.forEach((symbol) => {
     if (symbol.kind === SymbolKind.Variable) {
       variables.push(symbol);

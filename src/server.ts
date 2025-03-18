@@ -12,7 +12,7 @@ import { getVariableExpansionDocs, handleHover } from './hover';
 import { getDiagnostics } from './diagnostics/validate';
 import { DocumentationCache, initializeDocumentationCache } from './utils/documentation-cache';
 import { currentWorkspace, initializeDefaultFishWorkspaces } from './utils/workspace';
-import { filterLastPerScopeSymbol, FishDocumentSymbol } from './document-symbol';
+import { filterLastPerScopeSymbol } from './parsing/symbol';
 import { getRenameWorkspaceEdit, getReferenceLocations } from './workspace-symbol';
 import { CompletionPager, initializeCompletionPager, SetupData } from './utils/completion/pager';
 import { FishCompletionItem } from './utils/completion/types';
@@ -31,6 +31,7 @@ import { createExecuteCommandHandler } from './command';
 import { getAllInlayHints } from './code-lens';
 import { setupProcessEnvExecFile } from './utils/process-env';
 import { SyncFileHelper } from './utils/file-operations';
+import { flattenNested } from './utils/flatten';
 
 // @TODO
 export type SupportedFeatures = {
@@ -618,7 +619,7 @@ export default class FishServer {
 
     //this.analyzer.analyze(document)
     const symbols = this.analyzer.getDocumentSymbols(document.uri);
-    const flatSymbols = FishDocumentSymbol.toTree(symbols).toFlatArray();
+    const flatSymbols = flattenNested(...symbols);
     logger.logPropertiesForEachObject(
       flatSymbols.filter((s) => s.kind === SymbolKind.Function),
       'name',
@@ -627,7 +628,7 @@ export default class FishServer {
 
     const folds = flatSymbols
       .filter((symbol) => symbol.kind === SymbolKind.Function)
-      .map((symbol) => FishDocumentSymbol.toFoldingRange(symbol));
+      .map((symbol) => symbol.toFoldingRange());
 
     folds.forEach((fold) => logger.log({ fold }));
 

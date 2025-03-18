@@ -1,11 +1,9 @@
-
 import { SyntaxNode } from 'web-tree-sitter';
 import { isOption, isCommandWithName, isTopLevelDefinition } from '../utils/node-types';
 import { Option, findOptions, findOptionsSet, isMatchingOption } from './options';
 import { LspDocument } from '../document';
 import { FishSymbol, SetModifierToScopeTag } from './symbol';
 import { DefinitionScope, ScopeTag } from '../utils/definition-scope';
-import { md } from '../utils/markdown-builder';
 
 export const SetOptions = [
   Option.create('-U', '--universal'),
@@ -58,23 +56,26 @@ export function findSetChildren(node: SyntaxNode) {
 }
 
 export function setModifierDetailDescriptor(nodee: SyntaxNode) {
-  const options = findOptions(nodee.childrenForFieldName('argument'), SetModifiers);
+  const setModifiers = SetOptions.filter(option => option.equalsRawLongOption('--universal', '--global', '--function', '--local', '--export', '--unexport'));
+  const options = findOptions(nodee.childrenForFieldName('argument'), setModifiers);
+  const exportedOption = options.found.find(o => o.option.equalsRawOption('-x', '--export') || o.option.equalsRawOption('-u', '--unexport'));
+  const exportedStr = exportedOption ? exportedOption.option.isOption('-x', '--export') ? 'exported' : 'unexported' : '';
   const modifier = options.found.find(o => o.option.equalsRawOption('-U', '-g', '-f', '-l'));
   if (modifier) {
     switch (true) {
       case modifier.option.isOption('-U', '--universal'):
-        return `${md.italic('scope')}: ${md.bold('universal')}`;
+        return ['universally scoped', exportedStr].filter(Boolean).join('; ');
       case modifier.option.isOption('-g', '--global'):
-        return `${md.italic('scope')}: ${md.bold('global')}`;
+        return ['globally scoped', exportedStr].filter(Boolean).join('; ');
       case modifier.option.isOption('-f', '--function'):
-        return `${md.italic('scope')}: ${md.bold('function')}`;
+        return ['function scoped', exportedStr].filter(Boolean).join('; ');
       case modifier.option.isOption('-l', '--local'):
-        return `${md.italic('scope')}: ${md.bold('local')}`;
+        return ['locally scoped', exportedStr].filter(Boolean).join('; ');
       default:
-        return '';
+        return ['', exportedStr].filter(Boolean).join('; ');
     }
   }
-  return '';
+  return ['', exportedStr].filter(Boolean).join('; ');
 }
 
 export function processSetCommand(document: LspDocument, node: SyntaxNode, children: FishSymbol[] = []) {
