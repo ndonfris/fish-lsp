@@ -626,12 +626,6 @@ export function findSetDefinedVariable(node: SyntaxNode): SyntaxNode | null {
 
 //// for function variables
 
-function _isArgFlags(node: SyntaxNode) {
-  return node.type === 'word'
-    ? node.text === '--argument-names' || node.text === '-a'
-    : false;
-}
-
 export type VariableScope = 'global' | 'local' | 'universal' | 'export' | 'unexport' | 'function';
 export const VariableScopeFlags: { [flag: string]: VariableScope; } = {
   '-g': 'global',

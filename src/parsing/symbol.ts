@@ -1,4 +1,4 @@
-import { DocumentSymbol, SymbolKind, Range } from 'vscode-languageserver';
+import { DocumentSymbol, SymbolKind, Range, WorkspaceSymbol, Location, FoldingRange } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { DefinitionScope } from '../utils/definition-scope';
 import { LspDocument } from '../document';
@@ -10,6 +10,8 @@ import { processForDefinition } from './for';
 import { processArgparseCommand } from './argparse';
 import { Option } from './options';
 import { processAliasCommand } from './alias';
+import { createDetail } from './symbol-detail';
+// import { isCommand, isCommandWithName } from '../utils/node-types';
 
 export type FishSymbolKind = 'ARGPARSE' | 'FUNCTION' | 'ALIAS' | 'COMPLETE' | 'SET' | 'READ' | 'FOR' | 'VARIABLE';
 
@@ -59,9 +61,10 @@ export interface FishSymbol extends DocumentSymbol {
   focusedNode: SyntaxNode;
   scope: DefinitionScope;
   children: FishSymbol[];
+  detail: string;
 }
 
-type MinimumFishSymbolInput = {
+type OptionalFishSymbolPrototype = {
   name?: string;
   node: SyntaxNode;
   focusedNode: SyntaxNode;
@@ -78,29 +81,23 @@ export class FishSymbol {
   public children: FishSymbol[] = [];
   public aliasedNames: string[] = [];
 
-  constructor({
-    name,
-    node,
-    focusedNode,
-    uri,
-    detail,
-    fishKind,
-    scope,
-    range,
-    selectionRange,
-    children,
-  }: MinimumFishSymbolInput) {
-    this.name = name || focusedNode.text;
-    this.kind = fromFishSymbolKindToSymbolKind(fishKind);
-    this.fishKind = fishKind;
-    this.uri = uri;
-    this.detail = detail;
-    this.range = range || getRange(node);
-    this.selectionRange = selectionRange || getRange(focusedNode);
-    this.node = node;
-    this.focusedNode = focusedNode;
-    this.scope = scope;
-    this.children = children;
+  constructor(obj: OptionalFishSymbolPrototype) {
+    this.name = obj.name || obj.focusedNode.text;
+    this.kind = fromFishSymbolKindToSymbolKind(obj.fishKind);
+    this.fishKind = obj.fishKind;
+    this.uri = obj.uri;
+    this.range = obj.range || getRange(obj.node);
+    this.selectionRange = obj.selectionRange || getRange(obj.focusedNode);
+    this.node = obj.node;
+    this.focusedNode = obj.focusedNode;
+    this.scope = obj.scope;
+    this.children = obj.children;
+    this.detail = obj.detail;
+    this.setupDetail();
+  }
+
+  setupDetail() {
+    this.detail = createDetail(this);
   }
 
   static create(
@@ -119,33 +116,14 @@ export class FishSymbol {
       uri,
       detail,
       node,
-      focusedNode: focusedNode,
+      focusedNode,
       scope,
       children,
     });
   }
 
-  static fromObject({
-    name,
-    node,
-    focusedNode,
-    range,
-    selectionRange,
-    uri,
-    detail,
-    fishKind,
-    scope,
-    children,
-  }: MinimumFishSymbolInput) {
-    const symbolName = name || focusedNode.text;
-    const symbol = FishSymbol.create(symbolName, node, focusedNode, fishKind, uri, detail, scope, children);
-    if (range) {
-      symbol.range = range;
-    }
-    if (selectionRange) {
-      symbol.selectionRange = selectionRange;
-    }
-    return symbol;
+  static fromObject(obj: OptionalFishSymbolPrototype) {
+    return new this(obj);
   }
 
   addChildren(...children: FishSymbol[]) {
@@ -156,6 +134,27 @@ export class FishSymbol {
   addAliasedNames(...names: string[]) {
     this.aliasedNames.push(...names);
     return this;
+  }
+
+  createDetail() {
+    switch (this.fishKind) {
+      case 'ARGPARSE':
+
+      case 'FUNCTION':
+
+      case 'ALIAS':
+
+      // case 'COMPLETE':
+      //   return 'COMPLETE';
+      case 'SET':
+        return 'SET';
+      case 'READ':
+        return 'READ';
+      case 'FOR':
+        return 'FOR';
+      case 'VARIABLE':
+        return 'VARIABLE';
+    }
   }
 
   toString() {
@@ -171,7 +170,93 @@ export class FishSymbol {
       children: this.children.map(child => child.name),
     }, null, 2);
   }
+
+  equal(other: FishSymbol) {
+    if (this.fishKind === 'ARGPARSE' && other.fishKind === 'ARGPARSE') {
+      const equalNames = this.name === other.name || this.aliasedNames.includes(other.name) || other.aliasedNames.includes(this.name);
+      return equalNames &&
+        this.uri === other.uri &&
+        this.node.equals(other.node);
+    }
+    const equalNames = this.name === other.name
+      ? true
+      : this.aliasedNames.includes(other.name) || other.aliasedNames.includes(this.name);
+    return equalNames &&
+      this.kind === other.kind &&
+      this.uri === other.uri &&
+      this.range.start.line === other.range.start.line &&
+      this.range.start.character === other.range.start.character &&
+      this.range.end.line === other.range.end.line &&
+      this.range.end.character === other.range.end.character &&
+      this.selectionRange.start.line === other.selectionRange.start.line &&
+      this.selectionRange.start.character === other.selectionRange.start.character &&
+      this.selectionRange.end.line === other.selectionRange.end.line &&
+      this.selectionRange.end.character === other.selectionRange.end.character &&
+      this.fishKind === other.fishKind;
+  }
+
+  toWorkspaceSymbol(): WorkspaceSymbol {
+    return WorkspaceSymbol.create(
+      this.name,
+      this.kind,
+      this.uri,
+      this.range,
+    );
+  }
+
+  toLspDocumentSymbol(): Location {
+    return Location.create(
+      this.uri,
+      this.range,
+    );
+  }
+
+  isBefore(other: FishSymbol) {
+    return this.range.start.line < other.range.start.line;
+  }
+
+  isAfter(other: FishSymbol) {
+    return this.range.start.line > other.range.start.line;
+  }
+
+  toFoldingRange(): FoldingRange {
+    return {
+      startLine: this.range.start.line,
+      endLine: this.range.end.line,
+      collapsedText: this.name,
+    };
+  }
+
+  isLocal() {
+    return !this.isGlobal();
+  }
+
+  isGlobal() {
+    return this.scope.scopeTag === 'global' || this.scope.scopeTag === 'universal';
+  }
 }
+
+// TODO: to refactor `../utils/node-types.ts` functions related to `isVariableDefinitionName`
+// export function isVariableDefinitionName(node: SyntaxNode) {
+//   const parent = node.parent;
+//   if (parent && isCommand(parent)) {
+//     if (isCommandWithName(parent, 'set')) {
+//       return parent.firstNamedChild?.equals(node);
+//     }
+//     if (isCommandWithName(parent, 'read')) {
+//       return parent.firstNamedChild?.equals(node)
+//     }
+//     if (isCommandWithName(parent, 'argparse')) {
+//       return parent.firstNamedChild?.equals(node)
+//     }
+//
+//
+//   } else if (parent && parent.type === 'for_statement') {
+//     return parent.firstNamedChild?.equals(node);
+//   } else {
+//     return false;
+//   }
+// }
 
 function buildNested(document: LspDocument, node: SyntaxNode, ...children: FishSymbol[]): FishSymbol[] {
   const firstNamedChild = node.firstNamedChild as SyntaxNode;
@@ -185,9 +270,7 @@ function buildNested(document: LspDocument, node: SyntaxNode, ...children: FishS
       newSymbols.push(...processForDefinition(document, node, children));
       break;
     case 'command':
-      if (!firstNamedChild) break;
-
-      switch (firstNamedChild.text) {
+      switch (firstNamedChild?.text) {
         case 'set':
           newSymbols.push(...processSetCommand(document, node, children));
           break;

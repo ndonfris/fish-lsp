@@ -7,8 +7,9 @@ import { LspDocument, LspDocuments } from '../document';
 import { FishProtocol } from './fishProtocol';
 import { getPrecedingComments, getRange, getRangeWithPrecedingComments } from './tree-sitter';
 import * as LocationNamespace from './locations';
-import os from 'os';
+import * as os from 'os';
 import { isBuiltin } from './builtins';
+import { env } from './env-manager';
 
 const RE_PATHSEP_WINDOWS = /\\/g;
 
@@ -231,6 +232,39 @@ export function symbolKindToString(kind: SymbolKind) {
     default:
       return 'other';
   }
+}
+
+/**
+ * Converts a URI to a more readable path by replacing known prefixes with fish variables
+ * or ~ for home directory.
+ *
+ * @param uri The URI to convert to a readable path
+ * @returns A more readable path using fish variables or tilde when possible
+ */
+export function uriToReadablePath(uri: string): string {
+  // First convert URI to filesystem path
+  const path = uriToPath(uri);
+
+  // Try to replace with fish variables first
+  const autoloadedKeys = env.getAutoloadedKeys();
+  for (const key of autoloadedKeys) {
+    const values = env.getAsArray(key);
+
+    for (const value of values) {
+      if (path.startsWith(value)) {
+        return path.replace(value, `$${key}`);
+      }
+    }
+  }
+
+  // If no fish variables match, try to replace home directory with tilde
+  const homeDir = os.homedir();
+  if (path.startsWith(homeDir)) {
+    return path.replace(homeDir, '~');
+  }
+
+  // Return the original path if no substitutions were made
+  return path;
 }
 
 /**
