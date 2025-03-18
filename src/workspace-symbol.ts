@@ -1,4 +1,3 @@
-import { filterLocalSymbols, FishDocumentSymbol, isGlobalSymbol, isUniversalSymbol, symbolIsImmutable } from './document-symbol';
 import { Analyzer } from './analyze';
 import { LspDocument } from './document';
 import { Position, Location, Range, SymbolKind, TextEdit, DocumentUri, WorkspaceEdit, RenameFile } from 'vscode-languageserver';
@@ -6,6 +5,7 @@ import { equalRanges, getChildNodes, getRange } from './utils/tree-sitter';
 import { SyntaxNode } from 'web-tree-sitter';
 import { isCommandName, isCommandWithName } from './utils/node-types';
 import { logger } from './logger';
+import { FishSymbol, getLocalSymbols } from './parsing/symbol';
 
 /**
  * Check if a range contains otherRange.
@@ -48,7 +48,7 @@ export function getRenameSymbolType(analyzer: Analyzer, document: LspDocument, p
     return 'local';
   }
 
-  if (isGlobalSymbol(symbol) || isUniversalSymbol(symbol)) {
+  if (symbol.scope.scopeTag === 'global' || symbol.scope.scopeTag === 'universal') {
     return 'global';
   }
   return 'local';
@@ -97,10 +97,10 @@ function findLocalLocations(analyzer: Analyzer, document: LspDocument, position:
     symbol: symbol.name,
     kind: symbol.kind,
     symbols: analyzer.getFlatDocumentSymbols(document.uri).filter(s => equalRanges(symbol.selectionRange, s.selectionRange)).map(r => r.name),
-    isArgparse: FishDocumentSymbol.isArgparseVariable(symbol),
+    isArgparse: symbol.fishKind === 'ARGPARSE',
     isArgparseFlag: symbol.name.startsWith('_flag_') && symbol.kind === SymbolKind.Variable,
   });
-  if (FishDocumentSymbol.isArgparseVariable(symbol) || symbol.name.startsWith('_flag_') && symbol.kind === SymbolKind.Variable) {
+  if (symbol.fishKind === 'ARGPARSE' || symbol.name.startsWith('_flag_') && symbol.kind === SymbolKind.Variable) {
     const symbols = getSymbols(analyzer, document, position);
     const symbolNames = symbols.map(r => r.name);
     const nodesToSearch = getChildNodes(symbol.scope.scopeNode).filter(node => {
@@ -142,15 +142,15 @@ function findLocalLocations(analyzer: Analyzer, document: LspDocument, position:
   // });
   const result = findLocations(document.uri, nodesToSearch, symbol.name);
   const hasDefinition = result.some(l => l.uri === symbol.uri && equalRanges(symbol.selectionRange, l.range));
-  if (FishDocumentSymbol.isAlias(symbol) && !hasDefinition) {
+  if (symbol.fishKind === 'ALIAS' && !hasDefinition) {
     result.push(Location.create(symbol.uri, symbol.selectionRange));
   }
   return result;
 }
 
-function removeLocalSymbols(matchSymbol: FishDocumentSymbol, nodes: SyntaxNode[], symbols: FishDocumentSymbol[]) {
+function removeLocalSymbols(matchSymbol: FishSymbol, nodes: SyntaxNode[], symbols: FishSymbol[]) {
   const name = matchSymbol.name;
-  const matchingSymbols = filterLocalSymbols(symbols.filter(symbol => symbol.name === name)).map(symbol => symbol.scope.scopeNode);
+  const matchingSymbols = getLocalSymbols(symbols.filter(symbol => symbol.name === name)).map(symbol => symbol.scope.scopeNode);
   const matchingNodes = nodes.filter(node => node.text === name);
 
   if (matchingSymbols.length === 0 || matchSymbol.kind === SymbolKind.Function) {
@@ -193,13 +193,13 @@ function findGlobalLocations(analyzer: Analyzer, document: LspDocument, position
   }
   // handle alias
   const hasDefinition = locations.some(l => l.uri === symbol.uri && equalRanges(symbol.selectionRange, l.range));
-  if (FishDocumentSymbol.isAlias(symbol) && !hasDefinition) {
+  if (symbol.fishKind === 'ALIAS' && !hasDefinition) {
     locations.push(Location.create(symbol.uri, symbol.selectionRange));
   }
   return locations;
 }
 
-function getSymbols(analyzer: Analyzer, document: LspDocument, position: Position): FishDocumentSymbol[] {
+function getSymbols(analyzer: Analyzer, document: LspDocument, position: Position): FishSymbol[] {
   const symbol = findDefinitionSymbols(analyzer, document, position).pop();
   if (!symbol) {
     return [];
@@ -267,7 +267,7 @@ export function getRenameFiles(analyzer: Analyzer, document: LspDocument, positi
   if (symbol.kind !== SymbolKind.Function) {
     return null;
   }
-  if (symbolIsImmutable(symbol)) {
+  if (symbol.isSymbolImmutable()) {
     return null;
   }
   if (symbol.scope.scopeTag === 'global') {
@@ -415,7 +415,7 @@ export function getRenameWorkspaceEdit(analyzer: Analyzer, document: LspDocument
   }
   const changes: {[uri: string]: TextEdit[];} = {};
   const symbol = analyzer.getDefinition(document, position);
-  if (FishDocumentSymbol.isAlias(symbol)) {
+  if (symbol.fishKind === 'ALIAS') {
     const edits = changes[symbol.uri] || [];
     edits.push(TextEdit.replace(symbol.selectionRange, newName));
   }
@@ -442,8 +442,8 @@ export function getRenameWorkspaceEdit(analyzer: Analyzer, document: LspDocument
   return { changes };
 }
 
-export function findDefinitionSymbols(analyzer: Analyzer, document: LspDocument, position: Position): FishDocumentSymbol[] {
-  const symbols: FishDocumentSymbol[] = [];
+export function findDefinitionSymbols(analyzer: Analyzer, document: LspDocument, position: Position): FishSymbol[] {
+  const symbols: FishSymbol[] = [];
   const localSymbols = analyzer.getFlatDocumentSymbols(document.uri);
   const toFind = analyzer.nodeAtPoint(document.uri, position.line, position.character);
   if (!toFind) {
@@ -453,7 +453,7 @@ export function findDefinitionSymbols(analyzer: Analyzer, document: LspDocument,
   if (localSymbol) {
     symbols.push(localSymbol);
   } else {
-    const toAdd: FishDocumentSymbol[] = localSymbols.filter((s) => {
+    const toAdd: FishSymbol[] = localSymbols.filter((s) => {
       const variableBefore = s.kind === SymbolKind.Variable ? precedesRange(s.selectionRange, getRange(toFind)) : true;
       return (
         s.name === toFind.text

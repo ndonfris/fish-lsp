@@ -4,11 +4,12 @@ import { md } from '../utils/markdown-builder';
 import { findOptions } from './options';
 import { findFunctionDefinitionChildren, FunctionOptions } from './function';
 import { isString } from '../utils/node-types';
-import { uriToReadablePath } from '../utils/translation';
+import { uriToReadablePath, uriToPath } from '../utils/translation';
 import { PrebuiltDocumentationMap } from '../utils/snippets';
 import { setModifierDetailDescriptor, SetModifiers } from './set';
 import { SyntaxNode } from 'web-tree-sitter';
 import { FishAlias } from '../utils/alias-helpers';
+import { env } from '../utils/env-manager';
 
 export function unindentNestedSyntaxNode(node: SyntaxNode) {
   const lines = node.text.split('\n');
@@ -34,6 +35,71 @@ function getSymbolKind(symbol: FishSymbol) {
   }
 }
 
+/**
+ * Checks if a file path is within any autoloaded fish directories
+ *
+ * @param uriOrPath The URI or filesystem path to check
+ * @param type Optional specific autoload type to check for (e.g., 'functions', 'completions')
+ * @returns True if the path is within an autoloaded directory, false otherwise
+ */
+export function isAutoloadedPath(uriOrPath: string, type?: string): boolean {
+  // Convert URI to path if necessary
+  const path = uriOrPath.startsWith('file://') ? uriToPath(uriOrPath) : uriOrPath;
+
+  // Get all autoloaded variables from the environment
+  const autoloadedKeys = env.getAutoloadedKeys();
+
+  for (const key of autoloadedKeys) {
+    // Skip if we're looking for a specific type and this key doesn't match
+    if (type && !key.toLowerCase().includes(type.toLowerCase())) {
+      continue;
+    }
+
+    const values = env.getAsArray(key);
+
+    for (const value of values) {
+      if (path.startsWith(value)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Gets the autoload type of a path if it is autoloaded
+ *
+ * @param uriOrPath The URI or filesystem path to check
+ * @returns The identified autoload type ('functions', 'completions', 'conf.d', etc.) or empty string if not autoloaded
+ */
+export function getAutoloadType(uriOrPath: string): string {
+  // Convert URI to path if necessary
+  const path = uriOrPath.startsWith('file://') ? uriToPath(uriOrPath) : uriOrPath;
+
+  // Common autoload types to check for
+  const autoloadTypes = ['functions', 'completions', 'conf.d', 'config'];
+
+  // Check path for these common types
+  for (const type of autoloadTypes) {
+    if (path.includes(`/fish/${type}`)) {
+      return type;
+    }
+
+    // Special case for config.fish
+    if (type === 'config' && path.endsWith('config.fish')) {
+      return 'config';
+    }
+  }
+
+  // If no specific type was found but the path is autoloaded, return a generic indicator
+  if (isAutoloadedPath(path)) {
+    return 'autoloaded';
+  }
+
+  return '';
+}
+
 function buildFunctionDetail(symbol: FishSymbol) {
   const { name, node, fishKind } = symbol;
   if (fishKind === 'ALIAS') {
@@ -51,8 +117,16 @@ function buildFunctionDetail(symbol: FishSymbol) {
     );
   }
 
+  description.push(md.separator());
+  const scope: string[] = [];
+  if (isAutoloadedPath(symbol.uri)) {
+    scope.push('autoloaded');
+  }
   if (symbol.isGlobal()) {
-    description.push(`${md.italic('scope')}: ${md.bold('global')}`);
+    scope.push('globally scoped');
+  }
+  if (scope.length > 0) {
+    description.push(scope.join(', '));
   }
 
   description.push(`located in file: ${md.inlineCode(uriToReadablePath(symbol.uri))}`);
@@ -108,14 +182,16 @@ function buildVariableDetail(symbol: FishSymbol) {
   const { name, node, uri, fishKind } = symbol;
   const description = [`(${md.bold('variable')}) ${md.inlineCode(name)}`];
 
+  description.push(md.separator());
   if (fishKind === 'SET' || fishKind === 'READ') {
-    const options = findOptions(node.childrenForFieldName('argument'), SetModifiers);
-    const modifier = options.found.find(o => o.option.equalsRawOption('-U', '-g', '-f', '-l'));
+    const setModifiers = SetModifiers.filter(option => option.equalsRawLongOption('--universal', '--global', '--function', '--local', '--export', '--unexport'));
+    const options = findOptions(node.childrenForFieldName('argument'), setModifiers);
+    const modifier = options.found.find(o => o.option.equalsRawOption('-U', '-g', '-f', '-l', '-x', '-u'));
     if (modifier) {
       description.push(setModifierDetailDescriptor(node));
     }
   } else if (fishKind === 'ARGPARSE') {
-    description.push(`${md.italic('scope')}: ${md.bold('local')}`);
+    description.push('locally scoped');
   } else if (isVariableArgumentNamed(node, name)) {
     description.push(getArgumentNamesIndexString(node, name));
   }

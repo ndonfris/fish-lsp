@@ -1,5 +1,5 @@
 import { FishCompletionData, FishCompletionItem, toCompletionItemKind } from './types';
-import { FishDocumentSymbol } from '../../document-symbol';
+import { FishSymbol } from '../../parsing/symbol';
 import { Logger } from '../../logger';
 import { CompletionList, SymbolKind } from 'vscode-languageserver';
 
@@ -20,7 +20,7 @@ export class FishCompletionListBuilder {
     this.items.push(...items);
   }
 
-  addSymbols(symbols: FishDocumentSymbol[], insertDollarSign: boolean = false) {
+  addSymbols(symbols: FishSymbol[], insertDollarSign: boolean = false) {
     const symbolItems = symbols.map((symbol) => {
       if (insertDollarSign && symbol.kind === SymbolKind.Variable) {
         return {
