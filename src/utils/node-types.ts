@@ -247,8 +247,14 @@ export function isLongOption(node: SyntaxNode): boolean {
   return node.text.startsWith('--') && !isEndStdinCharacter(node);
 }
 
+/**
+ * node.text !== '-' because `-` this would not be an option... Consider the case:
+ * ```
+ * cat some_file | nvim -
+ * ```
+ */
 export function isShortOption(node: SyntaxNode): boolean {
-  return node.text.startsWith('-') && !isLongOption(node);
+  return node.text.startsWith('-') && !isLongOption(node) && node.text !== '-';
 }
 
 export function isOption(node: SyntaxNode): boolean {
@@ -277,6 +283,14 @@ export namespace Option {
   export function create(shortOption: `-${string}`, longOption: `--${string}`): NodeOptionQueryText {
     return { shortOption, longOption };
   }
+
+  export function createShortOnly(shortOption: `-${string}`): NodeOptionQueryText {
+    return { shortOption };
+  }
+
+  export function createLongOnly(longOption: `--${string}`): NodeOptionQueryText {
+    return { longOption };
+  }
 }
 
 /**
@@ -295,6 +309,10 @@ export function isMatchingOption(node: SyntaxNode, optionQuery: NodeOptionQueryT
 
   if (!optionQuery.shortOption) return false;
   return isShortOption(node) && hasShortOptionCharacter(node, optionQuery.shortOption.slice(1));
+}
+
+export function isOneOfMatchingOptions(node: SyntaxNode, ...optionQueries: NodeOptionQueryText[]): boolean {
+  return optionQueries.some(query => isMatchingOption(node, query));
 }
 
 export function isPipe(node: SyntaxNode): boolean {
