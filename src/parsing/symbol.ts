@@ -324,7 +324,8 @@ function buildNested(document: LspDocument, node: SyntaxNode, ...children: FishS
       newSymbols.push(...processForDefinition(document, node, children));
       break;
     case 'command':
-      switch (firstNamedChild?.text) {
+      if (!firstNamedChild?.text) break;
+      switch (firstNamedChild.text) {
         case 'set':
           newSymbols.push(...processSetCommand(document, node, children));
           break;
