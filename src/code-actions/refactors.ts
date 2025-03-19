@@ -7,7 +7,7 @@ import { findParentCommand, isCommand, isCommandWithName, isFunctionDefinitionNa
 import { SupportedCodeActionKinds } from './action-kinds';
 import { convertIfToCombinersString } from './combiner';
 import path from 'path';
-import { formatTextWithIndents, pathToUri } from '../utils/translation';
+import { formatTextWithIndents, pathToUri, uriToReadablePath } from '../utils/translation';
 import { logger } from '../logger';
 import { buildCompleteString, findFlagsToComplete } from './argparse-completions';
 
@@ -62,10 +62,11 @@ export function extractFunctionWithArgparseToCompletionsFile(
   const completionUri = pathToUri(completionPath);
   const completionFlags = findFlagsToComplete(argparseNode);
   const completionText = buildCompleteString(functionName, completionFlags);
+  const shortPath = uriToReadablePath(completionPath);
 
   const changeAnnotation: ChangeAnnotation = {
-    label: `Create completions for '${functionName}' in file: ${completionPath}`,
-    description: `Create completions for '${functionName}' to file: ${completionPath}`,
+    label: `Create completions for '${functionName}' in file: ${shortPath}`,
+    description: `Create completions for '${functionName}' to file: ${shortPath}`,
   };
 
   const createFileAction = CreateFile.create(completionUri, { ignoreIfExists: true, overwrite: false });
@@ -85,7 +86,7 @@ export function extractFunctionWithArgparseToCompletionsFile(
   };
 
   return {
-    title: `Create completions for '${functionName}' in file: ${completionPath}`,
+    title: `Create completions for '${functionName}' in file: ${shortPath}`,
     kind: SupportedCodeActionKinds.RefactorExtract,
     edit: workspaceEdit,
   } as CodeAction;
@@ -109,10 +110,11 @@ export function extractFunctionToFile(
   if (functionName === document.getAutoLoadName()) return;
   const functionPath = path.join(os.homedir(), '.config', 'fish', 'functions', `${functionName}.fish`);
   const functionUri = pathToUri(functionPath);
+  const shortPath = uriToReadablePath(functionPath);
 
   const changeAnnotation: ChangeAnnotation = {
-    label: `Extract function '${functionName}' to file: ${functionPath}`,
-    description: `Extract function '${functionName}' to file: ${functionPath}`,
+    label: `Extract function '${functionName}' to file: ${shortPath}`,
+    description: `Extract function '${functionName}' to file: ${shortPath}`,
   };
 
   const createFileAction = CreateFile.create(functionUri, { ignoreIfExists: false, overwrite: true });
@@ -137,7 +139,7 @@ export function extractFunctionToFile(
   };
 
   return {
-    title: `Extract function '${functionName}' to file: ${functionPath}`,
+    title: `Extract function '${functionName}' to file: ${shortPath}`,
     kind: SupportedCodeActionKinds.RefactorExtract,
     edit: workspaceEdit,
   } as CodeAction;
