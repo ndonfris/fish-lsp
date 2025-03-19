@@ -31,7 +31,10 @@ export namespace md {
   }
 
   export function newline() {
-    return '\n';
+    // this is for vscode and zed, which both require newlines to be `\n\n` string
+    // temporary fix till client markdown parser can handle single newlines
+    // return '\n\n';
+    return '  \n';
   }
 
   export function blockQuote(value: string) {
@@ -80,7 +83,7 @@ export const enum MarkdownStringTextNewlineStyle {
 }
 
 export class MarkdownBuilder {
-  constructor(public value = '') {}
+  constructor(public value = '') { }
 
   appendText(value: string, newlineStyle: MarkdownStringTextNewlineStyle = MarkdownStringTextNewlineStyle.Paragraph): MarkdownBuilder {
     this.value += escapeMarkdownSyntaxTokens(value)

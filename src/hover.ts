@@ -1,6 +1,5 @@
 import * as LSP from 'vscode-languageserver';
 import { Hover, MarkupKind } from 'vscode-languageserver-protocol/node';
-// import { Hover, MarkupKind } from 'vscode-languageserver';
 import * as Parser from 'web-tree-sitter';
 import { Analyzer } from './analyze';
 import { LspDocument } from './document';
@@ -26,6 +25,7 @@ export async function handleHover(
     return await getHoverForFlag(current);
   }
   const local = analyzer.getDefinition(document, position);
+  logger.log({ handleHover: handleHover.name, local, position, current });
   if (local) {
     return {
       contents: {
@@ -37,13 +37,10 @@ export async function handleHover(
   }
   const { kindType, kindString } = symbolKindsFromNode(current);
   const symbolType = ['function', 'class', 'variable'].includes(kindString) ? kindType : undefined;
-  logger?.log({ './src/hover.ts:37': kindType });
 
   if (cache.find(current.text) !== undefined) {
     await cache.resolve(current.text, document.uri, symbolType);
     const item = symbolType ? cache.find(current.text, symbolType) : cache.getItem(current.text);
-    logger?.logAsJson('call: [./src/hover.ts:42]');
-
     if (item && item?.docs) {
       return {
         contents: {
