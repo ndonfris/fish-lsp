@@ -84,7 +84,8 @@ export function processSetCommand(document: LspDocument, node: SyntaxNode, child
   // create the searchNodes, which are the nodes after the command name, but before the variable name
   const searchNodes = findSetChildren(node);
   // find the definition node, which should be the last node of the searchNodes
-  const definitionNode = searchNodes.find(n => !isOption(n))!;
+  const definitionNode = searchNodes.find(n => !isOption(n));
+  if (!definitionNode) return [];
   const modifierOption = findOptionsSet(node.childrenForFieldName('argument'), SetModifiers).pop();
   let modifier = 'local' as ScopeTag;
   if (modifierOption) {
@@ -94,12 +95,12 @@ export function processSetCommand(document: LspDocument, node: SyntaxNode, child
   }
   return [
     FishSymbol.create(
-      definitionNode.text,
+      definitionNode.text.toString(),
       node,
       definitionNode,
       'SET',
       document.uri,
-      node.text,
+      node.text.toString(),
       DefinitionScope.create(node.parent!, modifier),
       children,
     ),
