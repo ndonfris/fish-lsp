@@ -266,6 +266,32 @@ describe('parsing symbols', () => {
         expect(argparseSymbols.length).toBe(4);
       });
 
+      it('argparse script', async () => {
+        const input = ['function _test',
+          '    argparse h/help a/args -- $argv',
+
+          '    or return',
+
+          '    if set -lq _flag_help',
+          '        echo "Usage: _test [-h|--help] [-a|--args]"',
+          '        return',
+          '    end',
+          '',
+          '    if set -lq _flag_args',
+          '',
+          '    end',
+          'end',
+        ].join('\n');
+        const { rootNode } = parser.parse(input);
+        const document = createFakeLspDocument('/tmp/foo.fish', input);
+        const argparseNode = processNestedTree(document, rootNode);
+        const flat = flattenNested<FishSymbol>(...argparseNode)
+          .filter(n => n.fishKind === 'ARGPARSE');
+        for (const node of flat) {
+          console.log({ node: node?.toString() });
+        }
+      });
+
       it('for', async () => {
         const source = [
           'function foo --argument-names a b c d e ',

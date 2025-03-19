@@ -36,6 +36,7 @@ function getArgparseScopeModifier(document: LspDocument, node: SyntaxNode) {
 function createSelectionRange(node: SyntaxNode, flags: string[], flag: string, idx: number) {
   const range = getRange(node);
   const text = node.text;
+  const shortenedFlag = flag.replace(/^_flag_/, '');
   if (flags.length === 2 && idx === 0) {
     if (isString(node)) {
       range.start = {
@@ -51,7 +52,7 @@ function createSelectionRange(node: SyntaxNode, flags: string[], flag: string, i
       start: range.start,
       end: {
         line: range.start.line,
-        character: range.start.character + flag.length,
+        character: range.start.character + shortenedFlag.length,
       },
     };
   } else if (flags.length === 2 && idx === 1) {
@@ -62,7 +63,7 @@ function createSelectionRange(node: SyntaxNode, flags: string[], flag: string, i
       },
       end: {
         line: range.end.line,
-        character: range.start.character + text.indexOf('/') + 1 + flag.length,
+        character: range.start.character + text.indexOf('/') + 1 + shortenedFlag.length,
       },
     };
   } else if (flags.length === 1) {
@@ -73,8 +74,8 @@ function createSelectionRange(node: SyntaxNode, flags: string[], flag: string, i
           character: range.start.character + 1,
         },
         end: {
-          line: range.end.line,
-          character: range.start.character + 1 + flag.length,
+          line: range.start.line,
+          character: range.start.character + 1 + shortenedFlag.length,
         },
       };
     } else {

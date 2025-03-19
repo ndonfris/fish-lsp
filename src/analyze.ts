@@ -116,9 +116,13 @@ export class Analyzer {
   ): FishSymbol | undefined {
     const symbols = flattenNested(...this.cache.getDocumentSymbols(document.uri));
     const wordAtPoint = this.wordAtPoint(document.uri, position.line, position.character);
+    // const nodeAtPoint = this.nodeAtPoint(document.uri, position.line, position.character);
     return symbols.find((symbol) => {
       if (symbol.kind === SymbolKind.Function && wordAtPoint === symbol.name) {
         return symbol.scope.containsPosition(position);
+      }
+      if (symbol.fishKind === 'ARGPARSE' && wordAtPoint === symbol.name.replace(/^_flag_/, '')) {
+        return true;
       }
       return isPositionWithinRange(position, symbol.selectionRange);
     });
@@ -182,7 +186,8 @@ export class Analyzer {
     position: Position,
   ): FishSymbol {
     const symbols: FishSymbol[] = findDefinitionSymbols(this, document, position);
-    return symbols[0]!;
+    const wordAtPoint = this.wordAtPoint(document.uri, position.line, position.character);
+    return symbols.find(s => s.name === wordAtPoint)!;
   }
 
   public getDefinitionLocation(
