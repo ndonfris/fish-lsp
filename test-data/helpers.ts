@@ -53,6 +53,9 @@ export async function parseFile(fname: string): Promise<Tree> {
 }
 
 export function createFakeUriPath(path: string): string {
+  if (path.startsWith('/')) {
+    return `file://${path}`;
+  }
   return `file://${homedir()}/.config/fish/${path}`;
 }
 
@@ -61,7 +64,7 @@ export function createFakeLspDocument(name: string, text: string): LspDocument {
   const doc = TextDocumentItem.create(uri, 'fish', 0, text);
   const workspace = workspaces.find((ws) => ws.contains(uri));
   if (!workspace) {
-    workspaces.push(Workspace.createTestWorkspaceFromUri(uri)!);
+    // workspaces.push(Workspace.createTestWorkspaceFromUri(uri)!);
   } else {
     workspace.add(uri);
   }

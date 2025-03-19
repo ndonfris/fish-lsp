@@ -63,9 +63,9 @@ export function enrichCommandWithFlags(command: string, description: string, fla
     description ? `(${md.bold(command)}) ${description}` : md.bold(command),
     md.separator(),
     flags.map(line => line.split('\t'))
-      .map(line => `__${line[0]}__ _${line.slice(1).join(' ')}_`)
-      .join('\n'),
-  ].join('\n');
+      .map(line => `${md.bold(line.at(0)!)} ${md.italic(line.slice(1).join(' '))}`)
+      .join(md.newline()),
+  ].join(md.newline());
   return enrichToMarkdown(retString);
 }
 

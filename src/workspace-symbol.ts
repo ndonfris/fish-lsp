@@ -101,24 +101,30 @@ function findLocalLocations(analyzer: Analyzer, document: LspDocument, position:
     isArgparseFlag: symbol.name.startsWith('_flag_') && symbol.kind === SymbolKind.Variable,
   });
   if (symbol.fishKind === 'ARGPARSE' || symbol.name.startsWith('_flag_') && symbol.kind === SymbolKind.Variable) {
-    const symbols = getSymbols(analyzer, document, position);
-    const symbolNames = symbols.map(r => r.name);
     const nodesToSearch = getChildNodes(symbol.scope.scopeNode).filter(node => {
-      if (symbolNames.some(s => s === node.text)) {
+      if (symbol.name === node.text) {
         return true;
       }
-      if (isCommandWithName(node, 'argparse') && node.text.split('/').find(t => t === symbol.name.slice(6))) {
-        return true;
-      }
+      // if (isCommandWithName(node, 'argparse') && node.text.split('/').find(t => t === symbol.name.slice(6))) {
+      //   return true;
+      // }
       return false;
     });
     const locations: Location[] = [];
     logger.log({
       nodesToSearch: nodesToSearch.map(n => n.text),
       nodes: getChildNodes(symbol.scope.scopeNode).map(n => n.text),
+      selectionRange: symbol.selectionRange,
     });
-    locations.push(...nodesToSearch.map(node => Location.create(document.uri, getRange(node))));
-    locations.push(...symbols.map(s => Location.create(s.uri, s.selectionRange)));
+    locations.push(Location.create(symbol.uri, symbol.selectionRange));
+    locations.push(...nodesToSearch.map(node => {
+      const newRange = getRange(node);
+      const perfectedRange = {
+        start: { line: newRange.start.line, character: newRange.start.character + '_flag_'.length },
+        end: { line: newRange.end.line, character: newRange.end.character },
+      };
+      return Location.create(document.uri, perfectedRange);
+    }));
     return locations;
   }
   /** TODO _flag support */
@@ -199,13 +205,13 @@ function findGlobalLocations(analyzer: Analyzer, document: LspDocument, position
   return locations;
 }
 
-function getSymbols(analyzer: Analyzer, document: LspDocument, position: Position): FishSymbol[] {
-  const symbol = findDefinitionSymbols(analyzer, document, position).pop();
-  if (!symbol) {
-    return [];
-  }
-  return analyzer.getFlatDocumentSymbols(document.uri).filter(s => equalRanges(symbol.selectionRange, s.selectionRange));
-}
+// function _getSymbols(analyzer: Analyzer, document: LspDocument, position: Position): FishSymbol[] {
+//   const symbol = findDefinitionSymbols(analyzer, document, position).pop();
+//   if (!symbol) {
+//     return [];
+//   }
+//   return analyzer.getFlatDocumentSymbols(document.uri).filter(s => equalRanges(symbol.selectionRange, s.selectionRange));
+// }
 
 export function getRenameLocations(analyzer: Analyzer, document: LspDocument, position: Position): Location[] {
   if (!canRenamePosition(analyzer, document, position)) {

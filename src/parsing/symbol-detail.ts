@@ -181,7 +181,7 @@ function getArgumentNamesIndexString(node: SyntaxNode, name: string) {
 function buildVariableDetail(symbol: FishSymbol) {
   const { name, node, uri, fishKind } = symbol;
   const description = [`(${md.bold('variable')}) ${md.inlineCode(name)}`];
-
+  // add short info about variable
   description.push(md.separator());
   if (fishKind === 'SET' || fishKind === 'READ') {
     const setModifiers = SetModifiers.filter(option => option.equalsRawLongOption('--universal', '--global', '--function', '--local', '--export', '--unexport'));
@@ -195,17 +195,18 @@ function buildVariableDetail(symbol: FishSymbol) {
   } else if (isVariableArgumentNamed(node, name)) {
     description.push(getArgumentNamesIndexString(node, name));
   }
-
+  // add location
   description.push(`located in file: ${md.inlineCode(uriToReadablePath(uri))}`);
-
+  // add prebuilt documentation if available
   const prebuilt = PrebuiltDocumentationMap.getByType('variable').find(c => c.name === name);
   if (prebuilt) {
     description.push(md.separator());
     description.push(prebuilt.description);
   }
   description.push(md.separator());
-
+  // add code block of entire region
   description.push(md.codeBlock('fish', unindentNestedSyntaxNode(node)));
+  // add trailing `cmd --arg`, `cmd $argv`, `func $argv` examples
   const scopeCommand = symbol.scope.scopeNode.type === 'program'
     ? `${uriToReadablePath(uri)}`
     : `${symbol.scope.scopeNode.firstNamedChild!.text}`;
