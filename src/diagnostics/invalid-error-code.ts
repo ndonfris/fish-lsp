@@ -5,15 +5,6 @@ import { isComment } from '../utils/node-types';
 import { logger } from '../logger';
 
 // More precise regex to capture exact positions of code numbers
-// const DIAGNOSTIC_CODES_REGEX = /^#\s*@fish-lsp-(enable|disable)(?:-(next-line))?\s*((?:\d+\s*)*)$/;
-
-// interface InvalidCode {
-//   code: string;
-//   startIndex: number;
-//   endIndex: number;
-// }
-
-// For initial screening of the comment
 const DIAGNOSTIC_COMMENT_REGEX = /^#\s*@fish-lsp-(disable|enable)(?:-(next-line))?\s/;
 
 export function isPossibleDiagnosticComment(node: SyntaxNode): boolean {
@@ -21,13 +12,10 @@ export function isPossibleDiagnosticComment(node: SyntaxNode): boolean {
   return DIAGNOSTIC_COMMENT_REGEX.test(node.text.trim());
 }
 
-// For initial screening of the comment
-// const DIAGNOSTIC_COMMENT_REGEX = /^#\s*@fish-lsp-(disable|enable)(?:-(next-line))?\s/;
-
 // Function to find codes with their positions
 function findCodes(text: string): {code: string; startIndex: number;}[] {
   // Find where the codes section starts (after the directive)
-  const directiveMatch = text.match(/@fish-lsp-(?:disable|enable)(?:-next-line)?/);
+  const directiveMatch = text.match(/@fish-lsp-(?:disable|enable)(?:-next-line)?/); // remove leading comment
   if (!directiveMatch) return [];
 
   const codesStart = directiveMatch.index! + directiveMatch[0].length;
