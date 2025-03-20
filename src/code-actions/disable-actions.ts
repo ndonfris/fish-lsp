@@ -134,12 +134,12 @@ export function handleDisableEntireFile(
     diagnosticsCounts.set(code, (diagnosticsCounts.get(code) || 0) + 1);
   });
 
-  const matchingDiagnostics: Array<ErrorCodes.codeTypes> = [];
+  const matchingDiagnostics: Array<ErrorCodes.CodeTypes> = [];
   diagnosticsCounts.forEach((count, code) => {
     if (count >= 5) {
       logger.log(`CODEACTION: Disabling ${count} ${code.toString()} diagnostics in file`);
     }
-    matchingDiagnostics.push(code as ErrorCodes.codeTypes);
+    matchingDiagnostics.push(code as ErrorCodes.CodeTypes);
   });
 
   if (matchingDiagnostics.length === 0) return results;

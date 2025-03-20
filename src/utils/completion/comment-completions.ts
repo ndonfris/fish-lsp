@@ -95,13 +95,13 @@ function getCommentDiagnostics(line: string, lineNumber: number) {
     .map(codeStr => parseInt(codeStr, 10))
     .filter(code => !isNaN(code));
 
-  const validCodes: ErrorCodes.codeTypes[] = [];
+  const validCodes: ErrorCodes.CodeTypes[] = [];
   const invalidCodes: string[] = [];
 
   codeStrings.forEach((codeStr, idx) => {
     const code = parsedCodes[idx];
     if (code && !isNaN(code) && isValidErrorCode(code)) {
-      validCodes.push(code as ErrorCodes.codeTypes);
+      validCodes.push(code as ErrorCodes.CodeTypes);
     } else {
       invalidCodes.push(codeStr);
     }

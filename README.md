@@ -250,6 +250,24 @@ Theoretically, the language-server should generally be compatible with almost an
 
 </details>
 <details>
+  <summary><b>kate</b></summary>
+
+  Configuration for [kate](https://kate-editor.org/)
+
+  ```json
+  {
+    "servers": {
+      "fish": {
+        "command": ["fish-lsp", "start"],
+        "url": "https://github.com/ndonfris/fish-lsp",
+        "highlightingModeRegex": "^fish$"
+      }
+    }
+  }
+  ```
+
+</details>
+<details>
   <summary><b>emacs</b></summary>
 
   Configuration using [eglot](https://github.com/joaotavora/eglot) (Built into Emacs 29+)
@@ -336,7 +354,7 @@ set -gx fish_lsp_commit_characters
 set -gx fish_lsp_logfile
 
 # fish_lsp_all_indexed_paths <ARRAY>
-# fish file paths/workspaces to include as workspaces (default: ['/usr/share/fish', "$HOME/.config/fish"])
+# fish file paths/workspaces to include as workspaces (default: ["$HOME/.config/fish", '/usr/share/fish'])
 set -gx fish_lsp_all_indexed_paths
 
 # fish_lsp_modifiable_paths <ARRAY>
@@ -345,7 +363,7 @@ set -gx fish_lsp_modifiable_paths
 
 # fish_lsp_diagnostic_disable_error_codes <ARRAY>
 # disable diagnostics for matching error codes (default: [])
-# (options: 1001, 1002, 1003, 1004, 2001, 2002, 2003, 3001, 3002, 3003, 4001, 4002, 4003, 4004, 5001)
+# (options: 1001, 1002, 1003, 1004, 2001, 2002, 2003, 3001, 3002, 3003, 4001, 4002, 4003, 4004, 5001, 8001)
 set -gx fish_lsp_diagnostic_disable_error_codes
 
 # fish_lsp_max_background_files <NUMBER>

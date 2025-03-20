@@ -76,7 +76,7 @@ export const ConfigSchema = z.object({
   fish_lsp_logfile: z.string().default(''),
 
   /** All workspaces/paths for the language-server to index */
-  fish_lsp_all_indexed_paths: z.array(z.string()).default(['/usr/share/fish', `${os.homedir()}/.config/fish`]),
+  fish_lsp_all_indexed_paths: z.array(z.string()).default([`${os.homedir()}/.config/fish`, '/usr/share/fish']),
 
   /** All workspace/paths that the language-server should be able to rename inside*/
   fish_lsp_modifiable_paths: z.array(z.string()).default([`${os.homedir()}/.config/fish`]),
