@@ -7,7 +7,7 @@ on:
 
 jobs:
   ci:
-    name: Lint Codebase
+    name: Lint Codebase & Ensure installation Success
     runs-on: ubuntu-latest
     permissions: 
       contents: read
@@ -24,7 +24,8 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22.12.0
+          node-version: 22.14.0
+          node-version-file: .nvmrc
 
       - name: Install Yarn
         run: npm install -g yarn@1.22.22

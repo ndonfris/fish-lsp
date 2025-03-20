@@ -1,3 +1,2 @@
-#.husky/pre-commit
+##.husky/pre-commit
 yarn run lint-staged
-# exit 1

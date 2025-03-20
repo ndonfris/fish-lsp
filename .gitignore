@@ -10,3 +10,5 @@ build
 test-data/staging
 *.tgz
 *.tsbuildinfo
+.editorconfig
+.gitattributes
