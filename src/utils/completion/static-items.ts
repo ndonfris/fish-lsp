@@ -802,6 +802,7 @@ const disableDiagnostics = Object.values(ErrorCodes.codes).map((diagnostic) => {
   return {
     label: `${diagnostic.code}`,
     detail: diagnostic.message,
+    useDocAsDetail: true,
     documentation: [
       `# Error code: ${diagnostic.code}`,
       md.separator(),

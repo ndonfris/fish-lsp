@@ -1,11 +1,28 @@
 import { DiagnosticCommentsHandler, isDiagnosticComment, parseDiagnosticComment } from '../src/diagnostics/comments-handler';
 import { initializeParser } from '../src/parser';
 import * as Parser from 'web-tree-sitter';
-import { getChildNodes } from '../src/utils/tree-sitter';
+import { getChildNodes, pointToPosition } from '../src/utils/tree-sitter';
 import { setLogger } from './helpers';
-import { config } from '../src/cli';
+import { config } from '../src/config';
+import { checkForInvalidDiagnosticCodes, isPossibleDiagnosticComment } from '../src/diagnostics/invalid-error-code';
+import { isComment } from '../src/utils/node-types';
+import { ErrorCodes } from '../src/diagnostics/errorCodes';
+import { SyntaxNode } from 'web-tree-sitter';
 
 let parser: Parser;
+
+function logInputDiagnosticStateMap(rootNode: SyntaxNode, handler: DiagnosticCommentsHandler) {
+  const lineNumbers = rootNode.text.split('\n').map((_, idx) => idx);
+  console.log('-'.repeat(20));
+  for (const lineNumber of lineNumbers) {
+    const enabledCodes = Array.from(ErrorCodes.allErrorCodes.filter(code => handler.isCodeEnabledAtPosition(code, { line: lineNumber, character: 0 })));
+    let enabledMessage = enabledCodes.join(', ');
+    if (enabledCodes.length === ErrorCodes.allErrorCodes.length) {
+      enabledMessage = 'all disabled';
+    }
+    console.log(`enabled on ${lineNumber}:`, enabledMessage);
+  }
+}
 
 describe('DiagnosticCommentsHandler', () => {
   setLogger(
@@ -42,6 +59,11 @@ describe('DiagnosticCommentsHandler', () => {
       '# @fish-lsp-disable-all', // Invalid command
     ];
 
+    const invalidCodes = [
+      '# @fish-lsp-disable 0000',
+      '# @fish-lsp-disable 1001 0000 1002',
+    ];
+
     test.each(validComments)('should identify valid diagnostic comment: %s', (comment) => {
       const { rootNode } = parser.parse(comment);
       const commentNode = rootNode.firstChild;
@@ -54,6 +76,19 @@ describe('DiagnosticCommentsHandler', () => {
       const commentNode = rootNode.firstChild;
       expect(commentNode).toBeTruthy();
       expect(isDiagnosticComment(commentNode!)).toBe(false);
+    });
+
+    invalidCodes.forEach((comment) => {
+      it(`should detect invalid diagnostic codes in comment: ${comment}`, () => {
+        const { rootNode } = parser.parse(comment);
+        const commentNode = getChildNodes(rootNode).find(isComment)!;
+        const isDiagnostic = isDiagnosticComment(commentNode);
+        const diagnostics = checkForInvalidDiagnosticCodes(commentNode);
+        const range = diagnostics[0]!.range;
+        expect(isDiagnostic).toBe(true);
+        expect(diagnostics).toHaveLength(1);
+        expect(range.end.character - range.start.character).toBe(4);
+      });
     });
   });
 
@@ -106,7 +141,6 @@ describe('DiagnosticCommentsHandler', () => {
         action: 'disable',
         target: 'line',
         codes: [1001, 1002],
-        invalidCodes: ['0000'],
         lineNumber: 0,
       });
     });
@@ -182,15 +216,54 @@ echo "back to normal"`;
       const { rootNode } = parser.parse(input);
       getChildNodes(rootNode).forEach(node => {
         handler.handleNode(node);
-
         if (node.type === 'command') {
-          if (node.text.includes('normal')) {
+          if (node.text === 'echo "normal"') {
             expect(handler.isCodeEnabled(1001)).toBe(true);
-          } else if (node.text.includes('disabled')) {
+          } else if (node.text === 'echo "back to normal"') {
+            expect(handler.isCodeEnabled(1001)).toBe(true);
+          } else if (node.text === 'echo "disabled"') {
             expect(handler.isCodeEnabled(1001)).toBe(false);
           }
         }
       });
+    });
+
+    it('should provide line-by-line state information', () => {
+      const input = `
+# Normal line
+# @fish-lsp-disable 1001
+# @fish-lsp-disable-next-line 1002
+# This line has 1002 disabled
+aaa
+# This line should only have 1001 disabled
+# @fish-lsp-disable-next-line 1003
+echo 'This line should have 1001 and 1003 disabled'
+# @fish-lsp-enable
+# @fish-lsp-disable-next-line
+echo 'all disabled'
+echo 'all enabled'
+
+# @fish-lsp-disable`;
+
+      const { rootNode } = parser.parse(input);
+      const handler = new DiagnosticCommentsHandler();
+      getChildNodes(rootNode).forEach(node => handler.handleNode(node));
+      handler.finalizeStateMap(rootNode.text.split('\n').length + 1);
+
+      // Finalize the state map
+      // handler.finalizeStateMapFromRootNode(rootNode);
+
+      // Get line-by-line state dump
+
+      // logInputDiagnosticStateMap(rootNode, handler);
+      const children = getChildNodes(rootNode);
+      const checkNextLine = children.find(n => n.text === '# This line has 1002 disabled')!;
+      const checkAfterNextLine = children.find(n => n.text === 'aaa')!;
+      // console.log(`line 4, has 1002 ${handler.isCodeEnabledAtNode(1002, checkNextLine) ? 'enabled' : 'disabled'} | ${checkNextLine.text}`);
+      // console.log(`line 5, has 1002 ${handler.isCodeEnabledAtNode(1002, checkAfterNextLine) ? 'enabled' : 'disabled'} | ${checkAfterNextLine.text}`);
+      expect(handler.isCodeEnabledAtNode(1002, checkNextLine)).toBe(false);
+      expect(handler.isCodeEnabledAtNode(1002, checkAfterNextLine)).toBe(true);
+      //
     });
   });
 });

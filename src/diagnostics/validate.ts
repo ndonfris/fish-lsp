@@ -11,6 +11,7 @@ import { logger } from '../logger';
 import { isAutoloadedUriLoadsFunctionName } from '../utils/translation';
 import { isCommandName, isCommandWithName, isComment, isFunctionDefinitionName, isOption, isString, isTopLevelFunctionDefinition } from '../utils/node-types';
 import { isReservedKeyword } from '../utils/builtins';
+import { checkForInvalidDiagnosticCodes } from './invalid-error-code';
 
 export interface FishDiagnostic extends Diagnostic {
   data: {
@@ -20,7 +21,7 @@ export interface FishDiagnostic extends Diagnostic {
 
 export namespace FishDiagnostic {
   export function create(
-    code: ErrorCodes.codeTypes,
+    code: ErrorCodes.CodeTypes,
     node: SyntaxNode,
   ): FishDiagnostic {
     return {
@@ -55,6 +56,14 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
   // compute in single pass
   for (const node of getChildNodes(root)) {
     handler.handleNode(node);
+
+    // Check for invalid diagnostic codes first
+    const invalidDiagnosticCodes = checkForInvalidDiagnosticCodes(node);
+    if (invalidDiagnosticCodes.length > 0) {
+      // notice, this is the only case where we don't check if the user has disabled the error code
+      // because `# @fish-lsp-disable` will always be recognized as a disabled error code
+      diagnostics.push(...invalidDiagnosticCodes);
+    }
 
     if (node.isError) {
       const found: SyntaxNode | null = findErrorCause(node.children);
@@ -154,6 +163,7 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
       }
     }
   }
+  handler.finalizeStateMap(root.text.split('\n').length + 1);
 
   const isMissingAutoloadedFunction = docType === 'functions'
     ? autoloadedFunctions.length === 0
@@ -163,18 +173,22 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
     isMissingAutoloadedFunction && topLevelFunctions.length > 0;
 
   // no function definition for autoloaded function file
-  if (isMissingAutoloadedFunction && topLevelFunctions.length === 0) {
+  if (isMissingAutoloadedFunction && topLevelFunctions.length === 0 && handler.isCodeEnabledAtNode(ErrorCodes.autoloadedFunctionMissingDefinition, root)) {
     diagnostics.push(FishDiagnostic.create(ErrorCodes.autoloadedFunctionMissingDefinition, root));
   }
   // has functions/file.fish has top level functions, but none match the filename
   if (isMissingAutoloadedFunctionButContainsOtherFunctions) {
     topLevelFunctions.forEach(node => {
-      diagnostics.push(FishDiagnostic.create(ErrorCodes.autoloadedFunctionFilenameMismatch, node));
+      if (handler.isCodeEnabledAtNode(ErrorCodes.autoloadedFunctionFilenameMismatch, node)) {
+        diagnostics.push(FishDiagnostic.create(ErrorCodes.autoloadedFunctionFilenameMismatch, node));
+      }
     });
   }
   // has functions with invalid names -- (reserved keywords)
   functionsWithReservedKeyword.forEach(node => {
-    diagnostics.push(FishDiagnostic.create(ErrorCodes.functionNameUsingReservedKeyword, node));
+    if (handler.isCodeEnabledAtNode(ErrorCodes.functionNameUsingReservedKeyword, node)) {
+      diagnostics.push(FishDiagnostic.create(ErrorCodes.functionNameUsingReservedKeyword, node));
+    }
   });
 
   localFunctions.forEach(node => {
@@ -196,9 +210,11 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
     });
   });
 
-  if (unusedLocalFunction.length > 1) {
+  if (unusedLocalFunction.length >= 1) {
     unusedLocalFunction.forEach(node => {
-      diagnostics.push(FishDiagnostic.create(ErrorCodes.unusedLocalFunction, node));
+      if (handler.isCodeEnabledAtNode(ErrorCodes.unusedLocalFunction, node)) {
+        diagnostics.push(FishDiagnostic.create(ErrorCodes.unusedLocalFunction, node));
+      }
     });
   }
 

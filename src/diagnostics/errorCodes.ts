@@ -23,26 +23,29 @@ export namespace ErrorCodes {
 
   export const argparseMissingEndStdin = 5001;
 
-  export type codeTypes =
+  export const invalidDiagnosticCode = 8001;
+
+  export type CodeTypes =
     1001 | 1002 | 1003 | 1004 |
     2001 | 2002 | 2003 |
     3001 | 3002 | 3003 |
     4001 | 4002 | 4003 | 4004 |
-    5001;
+    5001 |
+    8001;
 
   export type CodeValueType = {
     severity: DiagnosticSeverity;
-    code: codeTypes;
+    code: CodeTypes;
     codeDescription: CodeDescription;
     source: 'fish-lsp';
     message: string;
   };
 
   export type DiagnosticCode = {
-    [k in codeTypes]: CodeValueType;
+    [k in CodeTypes]: CodeValueType;
   };
 
-  export const codes: { [k in codeTypes]: CodeValueType } = {
+  export const codes: { [k in CodeTypes]: CodeValueType } = {
     [missingEnd]: {
       severity: DiagnosticSeverity.Error,
       code: missingEnd,
@@ -148,10 +151,17 @@ export namespace ErrorCodes {
       source: 'fish-lsp',
       message: 'argparse missing end of stdin',
     },
+    [invalidDiagnosticCode]: {
+      severity: DiagnosticSeverity.Warning,
+      code: invalidDiagnosticCode,
+      codeDescription: { href: 'https://github.com/ndonfris/fish-lsp/wiki/Diagnostic-Error-Codes' },
+      source: 'fish-lsp',
+      message: 'Invalid diagnostic control code',
+    },
   };
 
   /** All error codes */
-  export const allErrorCodes = Object.values(codes).map((diagnostic) => diagnostic.code) as codeTypes[];
+  export const allErrorCodes = Object.values(codes).map((diagnostic) => diagnostic.code) as CodeTypes[];
 
   export function getSeverityString(severity: DiagnosticSeverity | undefined): string {
     if (!severity) return '';
@@ -169,8 +179,8 @@ export namespace ErrorCodes {
     }
   }
 
-  export function getDiagnostic(code: codeTypes | number): CodeValueType {
-    if (typeof code === 'number') return codes[code as codeTypes];
+  export function getDiagnostic(code: CodeTypes | number): CodeValueType {
+    if (typeof code === 'number') return codes[code as CodeTypes];
     return codes[code];
   }
 }
