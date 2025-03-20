@@ -250,6 +250,24 @@ Theoretically, the language-server should generally be compatible with almost an
 
 </details>
 <details>
+  <summary><b>kate</b></summary>
+
+  Configuration for [kate](https://kate-editor.org/)
+
+  ```json
+  {
+    "servers": {
+      "fish": {
+        "command": ["fish-lsp", "start"],
+        "url": "https://github.com/ndonfris/fish-lsp",
+        "highlightingModeRegex": "^fish$"
+      }
+    }
+  }
+  ```
+
+</details>
+<details>
   <summary><b>emacs</b></summary>
 
   Configuration using [eglot](https://github.com/joaotavora/eglot) (Built into Emacs 29+)
