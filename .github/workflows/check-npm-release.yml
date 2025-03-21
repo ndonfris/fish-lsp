@@ -1,0 +1,58 @@
+# Daily check that fish-lsp NPM package installation
+# and basic commands are working
+name: Check NPM Release
+
+on:
+  schedule:
+    - cron: '20 2 * * *'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  verify-npm-package:
+    name: Verify fish-lsp NPM Package
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    permissions: 
+      contents: read
+      security-events: write
+      actions: read
+
+    steps:
+      - name: Install Fish Shell
+        uses: fish-actions/install-fish@v1.2.0
+
+      - name: Check which fish version
+        run: fish --version
+        # shell: fish {0}
+        # to use fish shell for a step 
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.14.0
+
+      - name: Install npm package
+        run: npm install -g fish-lsp@latest
+
+      - name: Check fish-lsp exists `which fish-lsp`
+        run: which fish-lsp
+
+      - name: Check binary `fish-lsp --help`
+        run: fish-lsp --help
+
+      - name: Check version `fish-lsp --version`
+        run: fish-lsp --version
+
+      - name: Check completions `fish-lsp complete`
+        run: fish-lsp complete
+
+      - name: Check info `fish-lsp info`
+        run: fish-lsp info
+
+      - name: Check env `fish-lsp env --show`
+        run: fish-lsp env --show
+
+      - name: Check startup time `fish-lsp info --time-startup`
+        run: fish-lsp info --time-startup

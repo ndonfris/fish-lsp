@@ -4,7 +4,7 @@
             <image src="https://raw.githubusercontent.com/ndonfris/fish-lsp.dev/31d3d587ebd00f76ababcc98ed21b5109637e318/public/favicon-centered-bluee.svg" alt="fish-lsp" style="position: flex; text-align: center;" height="23rem"> fish-lsp
         </a>
         <div align="center">
-            <img src="https://img.shields.io/github/actions/workflow/status/ndonfris/fish-lsp/eslint.yml?branch=master&labelColor=%23181939" alt="GitHub Actions Workflow Status">
+            <img src="https://img.shields.io/github/actions/workflow/status/ndonfris/fish-lsp/ci.yml?branch=master&labelColor=%23181939" alt="GitHub Actions Workflow Status">
             <img src="https://img.shields.io/github/license/ndonfris/fish-lsp?&labelColor=%23181939&color=b88af3" alt="License">
             <img src="https://img.shields.io/github/created-at/ndonfris/fish-lsp?logo=%234e6cfa&label=created&labelColor=%23181939&color=%236198f5" alt="Github Created At">
         </div>
@@ -92,7 +92,7 @@ fish-lsp complete > ~/.config/fish/completions/fish-lsp.fish
 
 ### Build from Source
 
-Recommended Dependencies: `yarn@1.22.22` `node@22.12.0` `fish@3.7.1`
+Recommended Dependencies: `yarn@1.22.22` `node@22.14.0` `fish@4.0.1`
 
 ```bash
 git clone https://github.com/ndonfris/fish-lsp && cd fish-lsp
