@@ -120,7 +120,7 @@
   },
   {
     "name": "fish_lsp_all_indexed_paths",
-    "description": "The fish file paths to include in the fish-lsp's startup indexing, as workspaces. Order matters (usually place `$__fish_config_dir` before `$__fish_data_dir`).",
+    "description": "The fish file paths to include in the fish-lsp's startup indexing, as workspaces.\n\nOrder matters (usually place `$__fish_config_dir` before `$__fish_data_dir`).",
     "exactMatchOptions": false,
     "options": [
       "$HOME/.config/fish",
