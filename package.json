@@ -136,50 +136,5 @@
     "ts-node": "^10.9.2",
     "tsc": "^2.0.4",
     "typescript": "5.5.4"
-  },
-  "pkg": {
-    "scripts": [
-      "bin/fish-lsp",
-      "out/**/*"
-    ],
-    "assets": [
-      "tree-sitter-fish.wasm",
-      "fish_files/**/*",
-      "out/build-time.txt",
-      "scripts/**/*",
-      "docs/man/fish-lsp.1",
-      "package.json"
-    ],
-    "ignore": [
-      "**/*.d.ts",
-      "**/*.map",
-      "**/*.test.js",
-      "**/*.spec.js",
-      "**/fish-lsp*.tgz",
-      "**/*.tsbuildinfo",
-      "**/*.npmignore",
-      "renovate.json",
-      "tsconfig*.json",
-      "src/**/*",
-      ".all-contributorsrc",
-      ".eslintrc.cjs",
-      ".gitattributes",
-      ".editorconfig",
-      ".github/**",
-      ".gitignore",
-      "LICENSE.md",
-      "README.md",
-      "jest-config.js",
-      "yarn.lock",
-      ".nvmrc",
-      ".git/**"
-    ],
-    "targets": [
-      "linux-x64",
-      "linux-arm64",
-      "macos-x64",
-      "macos-arm64"
-    ],
-    "outputPath": "build"
   }
 }
