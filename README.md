@@ -4,9 +4,10 @@
             <image src="https://raw.githubusercontent.com/ndonfris/fish-lsp.dev/31d3d587ebd00f76ababcc98ed21b5109637e318/public/favicon-centered-bluee.svg" alt="fish-lsp" style="position: flex; text-align: center;" height="23rem"> fish-lsp
         </a>
         <div align="center">
-            <img src="https://img.shields.io/github/actions/workflow/status/ndonfris/fish-lsp/ci.yml?branch=master&labelColor=%23181939" alt="GitHub Actions Workflow Status">
-            <img src="https://img.shields.io/github/license/ndonfris/fish-lsp?&labelColor=%23181939&color=b88af3" alt="License">
-            <img src="https://img.shields.io/github/created-at/ndonfris/fish-lsp?logo=%234e6cfa&label=created&labelColor=%23181939&color=%236198f5" alt="Github Created At">
+            <a href="https://github.com/ndonfris/fish-lsp"><img alt="GitHub Actions Workflow Status" src="https://img.shields.io/github/actions/workflow/status/ndonfris/fish-lsp/ci.yml?branch=master&labelColor=%23181939"></a>
+            <a href="https://github.com/ndonfris/fish-lsp/blob/master/LICENSE.md"><img alt="License" src="https://img.shields.io/github/license/ndonfris/fish-lsp?&labelColor=%23181939&color=b88af3"></a>
+            <a href="https://github.com/ndonfris/fish-lsp/commits/master/"><img alt="Github Created At" src="https://img.shields.io/github/created-at/ndonfris/fish-lsp?logo=%234e6cfa&label=created&labelColor=%23181939&color=%236198f5"></a>
+            <a href="https://npmjs.org/fish-lsp"><img alt="NPM Downloads" src="https://img.shields.io/npm/dw/fish-lsp?logoColor=%235f5fd7&labelColor=%23181939&color=%235f5fd7"></a>
         </div>
     </div>
 </h1>
