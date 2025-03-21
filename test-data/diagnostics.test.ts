@@ -5,8 +5,8 @@ import { SyntaxNode, Tree } from 'web-tree-sitter';
 import { findChildNodes, getChildNodes, getNodeAtRange } from '../src/utils/tree-sitter';
 import { Diagnostic, DiagnosticSeverity, TextDocumentItem } from 'vscode-languageserver';
 import { initializeParser } from '../src/parser';
-import { ErrorCodes } from '../src/diagnostics/errorCodes';
-import { fishNoExecuteDiagnostic } from '../src/diagnostics/no-execute-diagnostic';
+import { ErrorCodes } from '../src/diagnostics/error-codes';
+// import { fishNoExecuteDiagnostic } from '../src/diagnostics/no-execute-diagnostic';
 import { isCommand, isComment, isDefinition, isMatchingOption, isVariableDefinitionName } from '../src/utils/node-types';
 // import { ScopeStack, isReference } from '../src/diagnostics/scope';
 import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter, isArgparseWithoutEndStdin } from '../src/diagnostics/node-types';
@@ -16,7 +16,7 @@ import { getDiagnostics } from '../src/diagnostics/validate';
 import { DiagnosticComment, DiagnosticCommentsHandler, isDiagnosticComment, parseDiagnosticComment } from '../src/diagnostics/comments-handler';
 import { withTempFishFile } from './temp';
 import { workspaces } from '../src/utils/workspace';
-import { getFishNoExecDiagnostics } from '../src/diagnostics/no-execute-diagnostic';
+import { getNoExecuteDiagnostics } from '../src/diagnostics/no-execute-diagnostic';
 
 let parser: Parser;
 let diagnostics: Diagnostic[] = [];
@@ -798,9 +798,9 @@ function foo
     echo "hi"`;
       await withTempFishFile(input, async ({ document, path }) => {
         console.log({ document, path });
-        const result = fishNoExecuteDiagnostic(document);
+        const result = getNoExecuteDiagnostics(document);
         console.log({ result });
-        expect(result.length).toBeGreaterThan(1);
+        expect(result.length).toBe(1);
       });
     });
 
@@ -810,8 +810,8 @@ function foo
     echo "hi"`;
       await withTempFishFile(input, async ({ document, path }) => {
         console.log({ document, path });
-        const result = fishNoExecuteDiagnostic(document);
-        const finalRes = getFishNoExecDiagnostics(document);
+        const result = getNoExecuteDiagnostics(document);
+        const finalRes = getNoExecuteDiagnostics(document);
         console.log({ finalRes });
         // console.log(result)
       });

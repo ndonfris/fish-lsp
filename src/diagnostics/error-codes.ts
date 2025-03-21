@@ -157,19 +157,19 @@ export namespace ErrorCodes {
       source: 'fish-lsp',
       message: 'argparse missing end of stdin',
     },
-    [invalidDiagnosticCode]: {
-      severity: DiagnosticSeverity.Warning,
-      code: invalidDiagnosticCode,
-      codeDescription: { href: 'https://github.com/ndonfris/fish-lsp/wiki/Diagnostic-Error-Codes' },
-      source: 'fish-lsp',
-      message: 'Invalid diagnostic control code',
-    },
     [fishLspDeprecatedEnvName]: {
       severity: DiagnosticSeverity.Warning,
       code: fishLspDeprecatedEnvName,
       codeDescription: { href: 'https://github.com/ndonfris/fish-lsp#environment-variables' },
       source: 'fish-lsp',
       message: 'Deprecated fish-lsp environment variable name',
+    },
+    [invalidDiagnosticCode]: {
+      severity: DiagnosticSeverity.Warning,
+      code: invalidDiagnosticCode,
+      codeDescription: { href: 'https://github.com/ndonfris/fish-lsp/wiki/Diagnostic-Error-Codes' },
+      source: 'fish-lsp',
+      message: 'Invalid diagnostic control code',
     },
     [syntaxError]: {
       severity: DiagnosticSeverity.Error,

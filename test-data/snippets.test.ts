@@ -69,11 +69,11 @@ describe('snippets tests', () => {
     });
 
     it('build in cli', () => {
-      generateJsonSchemaShellScript(true, true, false, true);
+      generateJsonSchemaShellScript(false, true, true, false, true);
     });
 
     it('cli show', () => {
-      showJsonSchemaShellScript(true, true, false, true);
+      showJsonSchemaShellScript(false, true, true, false, true);
     });
   });
 

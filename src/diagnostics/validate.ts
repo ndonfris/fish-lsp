@@ -3,7 +3,7 @@ import { SyntaxNode } from 'web-tree-sitter';
 import { LspDocument } from '../document';
 import { containsRange, findEnclosingScope, getChildNodes, getRange } from '../utils/tree-sitter';
 import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter, isMatchingCompleteOptionIsCommand, LocalFunctionCallType, isArgparseWithoutEndStdin, isFishLspDeprecatedVariableName, getDeprecatedFishLspMessage } from './node-types';
-import { ErrorCodes } from './errorCodes';
+import { ErrorCodes } from './error-codes';
 import { SyncFileHelper } from '../utils/file-operations';
 import { config } from '../config';
 import { DiagnosticCommentsHandler } from './comments-handler';
@@ -12,6 +12,7 @@ import { isAutoloadedUriLoadsFunctionName } from '../utils/translation';
 import { isCommandName, isCommandWithName, isComment, isFunctionDefinitionName, isOption, isString, isTopLevelFunctionDefinition } from '../utils/node-types';
 import { isReservedKeyword } from '../utils/builtins';
 import { getNoExecuteDiagnostics } from './no-execute-diagnostic';
+import { checkForInvalidDiagnosticCodes } from './invalid-error-code';
 
 export interface FishDiagnostic extends Diagnostic {
   data: {
@@ -247,8 +248,13 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
     }
   }
 
-  if (config.fish_lsp_enable_experimental_diagnostics && handler.isCodeEnabled(ErrorCodes.syntaxError)) {
-    diagnostics.push(...getNoExecuteDiagnostics(doc));
+  if (config.fish_lsp_enable_experimental_diagnostics) {
+    const noExecuteDiagnostics = getNoExecuteDiagnostics(doc);
+    for (const diagnostic of noExecuteDiagnostics) {
+      if (handler.isCodeEnabledAtNode(ErrorCodes.syntaxError, diagnostic.data.node)) {
+        diagnostics.push(diagnostic);
+      }
+    }
   }
 
   return diagnostics;

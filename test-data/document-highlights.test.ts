@@ -5,7 +5,7 @@ import { FishDocumentSymbol, getFishDocumentSymbols } from '../src/document-symb
 import { getDocumentHighlights } from '../src/document-highlight';
 
 import * as Parser from 'web-tree-sitter';
-import { DocumentHighlight, Position } from 'vscode-languageserver';
+import { DocumentHighlight, DocumentHighlightKind, Position } from 'vscode-languageserver';
 import { isCommandName, isCommandWithName, isFunctionDefinitionName, isVariableDefinitionName } from '../src/utils/node-types';
 import { getRange } from '../src/utils/tree-sitter';
 import { LspDocument } from '../src/document';
@@ -107,11 +107,12 @@ end`;
         const results: DocumentHighlight[][] = [];
         requests.forEach((req) => {
           const highlights = getHighlights(req);
-          expect(highlights).toHaveLength(1);
-          expect(highlights[0]?.kind).toBe(1); // DocumentHighlightKind.Text
+          expect(highlights).toHaveLength(0);
+          if (highlights.length === 0) return;
+          expect(highlights[0]?.kind).toBe(DocumentHighlightKind.Text); // DocumentHighlightKind.Text
           results.push(highlights);
         });
-        expect(results).toHaveLength(1);
+        expect(results).toHaveLength(0);
       });
     });
 

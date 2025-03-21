@@ -1,6 +1,6 @@
 import { SyntaxNode } from 'web-tree-sitter';
 import { isComment } from '../utils/node-types';
-import { ErrorCodes } from './errorCodes';
+import { ErrorCodes } from './error-codes';
 import { config } from '../config';
 import { Position } from 'vscode-languageserver';
 
