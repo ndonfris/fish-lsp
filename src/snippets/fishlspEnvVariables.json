@@ -120,17 +120,17 @@
   },
   {
     "name": "fish_lsp_all_indexed_paths",
-    "description": "The fish file paths to include in the fish-lsp's startup indexing, as workspaces.",
+    "description": "The fish file paths to include in the fish-lsp's startup indexing, as workspaces. Order matters (usually place `$__fish_config_dir` before `$__fish_data_dir`).",
     "exactMatchOptions": false,
     "options": [
-      "/usr/share/fish",
       "$HOME/.config/fish",
-      "$__fish_data_dir",
-      "$__fish_config_dir"
+      "/usr/share/fish",
+      "$__fish_config_dir",
+      "$__fish_data_dir"
     ],
     "defaultValue": [
-      "/usr/share/fish",
-      "$HOME/.config/fish"
+      "$HOME/.config/fish",
+      "/usr/share/fish"
     ],
     "valueType": "array"
   },
@@ -170,6 +170,7 @@
       4004,
       5001,
       6001,
+      8001,
       9999
     ],
     "defaultValue": [],

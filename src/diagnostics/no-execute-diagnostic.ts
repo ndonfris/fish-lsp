@@ -3,7 +3,7 @@ import { LspDocument } from '../document';
 import { Diagnostic, DiagnosticSeverity } from 'vscode-languageserver';
 import { logger } from '../logger';
 import { execFishNoExecute } from '../utils/exec';
-import { ErrorCodes } from './errorCodes';
+import { ErrorCodes } from './error-codes';
 
 /**
  * A unique diagnostic code to identify issues found by the no-execute diagnostic
