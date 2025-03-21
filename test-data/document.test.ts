@@ -1,4 +1,3 @@
-
 import { LspDocument } from '../src/document';
 import { resolveLspDocumentForHelperTestFile } from './helpers';
 import { initializeParser } from '../src/parser';
@@ -8,13 +7,13 @@ describe('LspDocument tests', () => {
   it('test an document is created not in ~/.config/fish/functions/ directory', () => {
     const doc: LspDocument = resolveLspDocumentForHelperTestFile('./fish_files/simple/set_var.fish', false);
     expect(doc).not.toBeNull();
-    expect(doc.isAutoLoaded()).toBeFalsy();
+    expect(doc.isAutoloaded()).toBeFalsy();
   });
 
   it('test an document is created in ~/.config/fish/functions/ directory', () => {
     const doc: LspDocument = resolveLspDocumentForHelperTestFile('./fish_files/simple/set_var.fish');
     expect(doc).not.toBeNull();
-    expect(doc.isAutoLoaded()).toBeTruthy();
+    expect(doc.isAutoloaded()).toBeTruthy();
     expect(doc.uri.endsWith('functions/set_var.fish')).toBeTruthy();
   });
 

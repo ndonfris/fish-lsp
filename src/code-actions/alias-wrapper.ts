@@ -1,4 +1,4 @@
-import os from 'os';
+import * as os from 'os';
 import { CodeAction, CreateFile, TextDocumentEdit, TextEdit, VersionedTextDocumentIdentifier, WorkspaceEdit } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { getRange } from '../utils/tree-sitter';
@@ -41,9 +41,13 @@ function extractFunctionName(node: SyntaxNode): string {
 export async function createAliasInlineAction(
   doc: LspDocument,
   node: SyntaxNode,
-): Promise<CodeAction> {
+): Promise<CodeAction | undefined> {
   const aliasCommand = node.text;
   const funcName = extractFunctionName(node);
+
+  if (!funcName) {
+    return undefined;
+  }
 
   const stdout = await execAsyncF(`${aliasCommand} && functions ${funcName} | tail +2 | fish_indent`);
   const edit = TextEdit.replace(
@@ -120,3 +124,12 @@ export async function createAliasSaveActionNewFile(
     isPreferred: false,
   };
 }
+
+/**
+ * Extra exports for testing purposes
+ */
+export const AliasHelper = [
+  extractFunctionName,
+  createAliasInlineAction,
+  createAliasSaveActionNewFile,
+] as const;

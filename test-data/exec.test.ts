@@ -1,7 +1,7 @@
 
 import { setLogger } from './helpers';
 
-import path from 'path';
+import * as path from 'path';
 import {
   execEscapedCommand,
   execCmd,
@@ -19,14 +19,14 @@ describe('src/utils/exec.ts tests', () => {
     const check = path.resolve(__dirname, '..');
     // const result = path.resolve(output.toString())
     // console.log("escaped:", output[0], '---', check);
-    expect(output[0]).toEqual(check);
+    expect(output[0]!).toEqual(check);
   });
 
   it('execCmd', async () => {
     const output = await execCmd('pwd');
     const check = path.resolve(__dirname, '..');
     // console.log('execCmd: ', output[0], '---', check);
-    expect(output[0]).toEqual(check);
+    expect(output[0]!).toEqual(check);
   });
 
   it('execCompleteLine', async () => {

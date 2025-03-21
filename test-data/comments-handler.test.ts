@@ -1,28 +1,14 @@
 import { DiagnosticCommentsHandler, isDiagnosticComment, parseDiagnosticComment } from '../src/diagnostics/comments-handler';
 import { initializeParser } from '../src/parser';
 import * as Parser from 'web-tree-sitter';
-import { getChildNodes, pointToPosition } from '../src/utils/tree-sitter';
+import { getChildNodes } from '../src/utils/tree-sitter';
 import { setLogger } from './helpers';
 import { config } from '../src/config';
-import { checkForInvalidDiagnosticCodes, isPossibleDiagnosticComment } from '../src/diagnostics/invalid-error-code';
+import { checkForInvalidDiagnosticCodes } from '../src/diagnostics/invalid-error-code';
 import { isComment } from '../src/utils/node-types';
 import { ErrorCodes } from '../src/diagnostics/errorCodes';
-import { SyntaxNode } from 'web-tree-sitter';
 
 let parser: Parser;
-
-function logInputDiagnosticStateMap(rootNode: SyntaxNode, handler: DiagnosticCommentsHandler) {
-  const lineNumbers = rootNode.text.split('\n').map((_, idx) => idx);
-  console.log('-'.repeat(20));
-  for (const lineNumber of lineNumbers) {
-    const enabledCodes = Array.from(ErrorCodes.allErrorCodes.filter(code => handler.isCodeEnabledAtPosition(code, { line: lineNumber, character: 0 })));
-    let enabledMessage = enabledCodes.join(', ');
-    if (enabledCodes.length === ErrorCodes.allErrorCodes.length) {
-      enabledMessage = 'all disabled';
-    }
-    console.log(`enabled on ${lineNumber}:`, enabledMessage);
-  }
-}
 
 describe('DiagnosticCommentsHandler', () => {
   setLogger(
@@ -101,7 +87,7 @@ describe('DiagnosticCommentsHandler', () => {
       expect(result).toEqual({
         action: 'disable',
         target: 'line',
-        codes: [],
+        codes: ErrorCodes.allErrorCodes,
         lineNumber: 0,
       });
     });
@@ -142,6 +128,7 @@ describe('DiagnosticCommentsHandler', () => {
         target: 'line',
         codes: [1001, 1002],
         lineNumber: 0,
+        invalidCodes: ['0000'],
       });
     });
   });

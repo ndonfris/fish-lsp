@@ -122,11 +122,25 @@ describe('formatting tests', () => {
       'echo $i; ',
       'end',
     ].join('\n').trim();
+    console.log();
+    // fish_indent now breaks lines with ';' into '\n\n'
     const result = (await formatDocumentContent(input)).trim();
+    console.log({
+      'for loop multi line': '`' + result + '`',
+      input: '`' + input + '`',
+    });
+    expect(result).toBeTruthy();
     expect(result).toBe([
       'for i in (seq 1 10)',
+      '',
       '    echo $i',
+      '',
       'end',
     ].join('\n').trim());
+    // expect(result).toBe([
+    //   'for i in (seq 1 10)',
+    //   '    echo $i',
+    //   'end',
+    // ].join('\n').trim());
   });
 });
