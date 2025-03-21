@@ -1,19 +1,18 @@
-import Parser, { SyntaxNode } from 'web-tree-sitter';
+import * as Parser from 'web-tree-sitter';
+import { SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from '../src/parser';
 import { findFirstSibling, getChildNodes } from '../src/utils/tree-sitter';
 import * as NodeTypes from '../src/utils/node-types';
 import { PrebuiltDocumentationMap } from '../src/utils/snippets';
 import { getPrebuiltVariableExpansionDocs, isPrebuiltVariableExpansion } from '../src/hover';
-import { autoloadedFishVariableNames, AutoloadedPathVariables, setupProcessEnvExecFile } from '../src/utils/process-env';
+import { AutoloadedPathVariables, setupProcessEnvExecFile } from '../src/utils/process-env';
 import { FishAlias, FishAliasInfoType } from '../src/utils/alias-helpers';
 import { createFakeLspDocument } from './helpers';
 import { SymbolKind } from 'vscode-languageserver';
-import { FishDocumentSymbol } from '../src/document-symbol';
+import { FishSymbol } from '../src/parsing/symbol';
 import { processArgparseCommand } from '../src/utils/argparse-helpers';
-import { getScope } from '../src/utils/definition-scope';
-import { isAutoloadedUriLoadsAliasName } from '../src/utils/translation';
-import { isEndStdinCharacter, isEscapeSequence, isMatchingOption, isOption, isString, NodeOptionQueryText, Option } from '../src/utils/node-types';
 import { env } from '../src/utils/env-manager';
+import { md } from '../src/utils/markdown-builder';
 // import { assert } from 'chai';
 
 function parseTreeForRoot(str: string) {
@@ -938,7 +937,14 @@ describe('node-types tests', () => {
           expected: {
             name: 'gsc',
             kind: SymbolKind.Function,
-            text: 'alias gsc="git stash create"',
+            text: [
+
+              `(${md.italic('alias')}) ${'gsc'}`,
+              md.separator(),
+              md.codeBlock('fish', 'alias gsc="git stash create"'),
+              md.separator(),
+              md.codeBlock('fish', 'function gsc --wraps=\'git stash create\' --description \'alias gsc=git stash create\'\n    git stash create $argv\nend'),
+            ].join('\n'),
             selectionRange: {
               start: { line: 0, character: 6 },
               end: { line: 0, character: 9 },
@@ -959,7 +965,14 @@ end
           expected: {
             name: 'foo_alias',
             kind: SymbolKind.Function,
-            text: 'alias foo_alias="echo \'foo alias\'"',
+            text: [
+
+              `(${md.italic('alias')}) ${'foo_alias'}`,
+              md.separator(),
+              md.codeBlock('fish', 'alias foo_alias="echo \'foo alias\'"'),
+              md.separator(),
+              md.codeBlock('fish', 'function foo_alias --wraps=\'echo \\\'foo alias\\\'\' --description \'alias foo_alias=echo \\\'foo alias\\\'\'\n    echo \'foo alias\' $argv\nend'),
+            ].join('\n'),
             selectionRange: {
               start: { line: 1, character: 10 },
               end: { line: 1, character: 19 },
@@ -969,11 +982,11 @@ end
         },
       ];
 
-      function resultToExpected(result: FishDocumentSymbol): any {
+      function resultToExpected(result: FishSymbol): any {
         return {
           name: result.name,
           kind: result.kind,
-          text: result.text,
+          text: result.detail,
           selectionRange: result.selectionRange,
           scope: result.scope.scopeTag.toString(),
         };
@@ -990,7 +1003,6 @@ end
         const result = FishAlias.toFishDocumentSymbol(
           aliasNode,
           aliasNode.parent!,
-          SymbolKind.Function,
           doc,
         );
         // console.log(result);
