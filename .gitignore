@@ -12,3 +12,4 @@ test-data/staging
 *.tsbuildinfo
 .editorconfig
 .gitattributes
+coverage
