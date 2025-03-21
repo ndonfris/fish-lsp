@@ -69,7 +69,7 @@ show the build info of fish-lsp
   `--man-file`        show the man file path  
   `--logs-file`       show the logs.txt file path  
   `--more`            show the build time of the fish-lsp executable  
-  `--startup-time`    time the startup of the fish-lsp executable  
+  `--time-startup`    time the startup of the fish-lsp executable  
 
 ### `url`
 
@@ -123,7 +123,7 @@ Provide completions for the `fish-lsp`
 - Show startup timing information for the `fish-lsp` language server:
 
   ```fish
-  >_ fish-lsp info --startup-time
+  >_ fish-lsp info --time-startup
   ```
 
 - Show the environment variables available to the `fish-lsp` language server:
