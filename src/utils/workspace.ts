@@ -2,7 +2,7 @@ import * as fastGlob from 'fast-glob';
 import { readFileSync, promises } from 'fs';
 import { pathToUri, toLspDocument, uriToPath } from './translation';
 import { LspDocument } from '../document';
-import { FishDocumentSymbol } from '../document-symbol';
+import { FishSymbol } from '../parsing/symbol';
 import { config } from '../config';
 import { logger } from '../logger';
 import { basename, dirname, join } from 'path';
@@ -167,7 +167,7 @@ export class Workspace implements FishWorkspace {
   public uri: string;
   public path: string;
   public uris: Set<string>;
-  public symbols: Map<string, FishDocumentSymbol[]> = new Map();
+  public symbols: Map<string, FishSymbol[]> = new Map();
 
   public static async create(name: string, uri: string, path: string) {
     const foundUris = await getFileUriSet(path);

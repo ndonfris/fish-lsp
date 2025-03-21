@@ -1,8 +1,7 @@
 import { SyntaxNode } from 'web-tree-sitter';
 import { isBuiltin } from 'module';
 import { isCommandWithName } from './node-types';
-import { FishDocumentSymbol } from '../document-symbol';
-import { SymbolKind } from 'vscode-languageserver';
+import { FishSymbol } from '../parsing/symbol';
 import { getRange } from './tree-sitter';
 import { getScope } from './definition-scope';
 import { LspDocument } from '../document';
@@ -176,10 +175,9 @@ export namespace FishAlias {
   export function toFishDocumentSymbol(
     child: SyntaxNode,
     parent: SyntaxNode,
-    kind: SymbolKind,
     document: LspDocument,
-    children: FishDocumentSymbol[] = [],
-  ): FishDocumentSymbol | null {
+    children: FishSymbol[] = [],
+  ): FishSymbol | null {
     const aliasInfo = getInfo(parent);
     if (!aliasInfo) return null;
 
@@ -193,16 +191,17 @@ export namespace FishAlias {
     const detailText = buildDetail(parent);
     if (!detailText) return null;
 
-    return FishDocumentSymbol.create(
+    return FishSymbol.fromObject({
       name,
-      document.uri,
-      parent.text,
-      detailText,
-      kind,
-      getRange(parent),
+      uri: document.uri,
+      node: parent,
+      focusedNode: child,
+      detail: detailText,
+      fishKind: 'ALIAS',
+      range: getRange(parent),
       selectionRange,
-      getScope(document, child),
+      scope: getScope(document, child),
       children,
-    );
+    });
   }
 }

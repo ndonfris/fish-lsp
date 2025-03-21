@@ -2,10 +2,10 @@ import { SyntaxNode } from 'web-tree-sitter';
 import { findParent, isEndStdinCharacter, isEscapeSequence, isFunctionDefinition, isMatchingOption, isOption, isProgram, isString, NodeOptionQueryText, Option } from './node-types';
 import { LspDocument } from '../document';
 import { DefinitionScope } from './definition-scope';
-import { FishDocumentSymbol } from '../document-symbol';
+import { FishSymbol } from '../parsing/symbol';
 import { SymbolKind } from 'vscode-languageserver';
 import { md } from './markdown-builder';
-import { equalRanges, getRange } from './tree-sitter';
+import { equalRanges } from './tree-sitter';
 
 function isMatchingOptionOrOptionValue(node: SyntaxNode, option: NodeOptionQueryText): boolean {
   if (isMatchingOption(node, option)) {
@@ -21,7 +21,7 @@ function isMatchingOptionOrOptionValue(node: SyntaxNode, option: NodeOptionQuery
   return false;
 }
 
-function getArgparseScope(node: SyntaxNode, doc: LspDocument): DefinitionScope {
+export function getArgparseScope(node: SyntaxNode, doc: LspDocument): DefinitionScope {
   const docType = doc.getAutoloadType();
 
   function findParentFunction(n: SyntaxNode): DefinitionScope | null {
@@ -69,9 +69,7 @@ export function buildArpgparseDetail(variableName: string, commandNode: SyntaxNo
   ].join('\n');
 }
 
-export function processArgparseCommand(node: SyntaxNode, document: LspDocument): FishDocumentSymbol[] {
-  const modifier = getArgparseScope(node, document);
-
+export function processArgparseCommand(node: SyntaxNode, document: LspDocument): FishSymbol[] {
   // split the `h/help` into `h` and `help`
   function splitSlash(str: string): string[] {
     const results = str.split('/')
@@ -82,7 +80,7 @@ export function processArgparseCommand(node: SyntaxNode, document: LspDocument):
   }
 
   // store the results
-  const result: FishDocumentSymbol[] = [];
+  const result: FishSymbol[] = [];
   // const result: string[] = [];
 
   // find the `--` end token
@@ -120,18 +118,16 @@ export function processArgparseCommand(node: SyntaxNode, document: LspDocument):
 
       // add all seenFlags to the `result: Symb[]` array
       const flags = seenFlags.map(flagName => {
-        return FishDocumentSymbol.create(
-          `_flag_${flagName}`,
-          document.uri,
-          node.text,
-          buildArpgparseDetail(`_flag_${flagName}`, node),
-          SymbolKind.Variable,
-          getRange(node),
-          getRange(n),
-          //'FUNCTION', // TODO: this should be 'LOCAL' or 'FUNCTION' based on the parent function
-          modifier,
-          [],
-        );
+        return FishSymbol.fromObject({
+          name: `_flag_${flagName}`,
+          uri: document.uri,
+          detail: buildArpgparseDetail(`_flag_${flagName}`, node),
+          node,
+          focusedNode: n,
+          fishKind: 'ARGPARSE',
+          scope: DefinitionScope.create(node, 'local'),
+          children: [],
+        });
       });
       result.push(...flags);
       // result.push(...seenFlags);
@@ -140,16 +136,16 @@ export function processArgparseCommand(node: SyntaxNode, document: LspDocument):
   return result;
 }
 
-function isArparseFishDocumentSymbol(sym: FishDocumentSymbol) {
-  return sym.name.startsWith('_flag_') && sym.kind === SymbolKind.Variable && sym.text.startsWith('argparse');
+function isArparseFishDocumentSymbol(sym: FishSymbol) {
+  return sym.name.startsWith('_flag_') && sym.kind === SymbolKind.Variable && sym.node.text.startsWith('argparse');
 }
 
-export function _correspondingFlagSymbols(a: FishDocumentSymbol, b: FishDocumentSymbol) {
+export function _correspondingFlagSymbols(a: FishSymbol, b: FishSymbol) {
   if (!isArparseFishDocumentSymbol(a) || !isArparseFishDocumentSymbol(b)) return false;
   return equalRanges(a.selectionRange, b.selectionRange);
 }
 
-export function _getNameLocation(sym: FishDocumentSymbol) {
+export function _getNameLocation(sym: FishSymbol) {
   const shortName = sym.name.replace(/^_flag/, '').replace(/_/g, '-');
   if (shortName.includes('/')) {
     if (shortName.length === 1) {

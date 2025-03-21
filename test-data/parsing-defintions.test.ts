@@ -17,6 +17,27 @@ import { SymbolKind } from 'vscode-languageserver';
 import { md } from '../src/utils/markdown-builder';
 
 let parser: Parser;
+type PrintClientTreeOpts = { log: boolean; };
+function printClientTree(
+  opts: PrintClientTreeOpts = { log: true },
+  ...symbols: FishSymbol[]
+): string[] {
+  const result: string[] = [];
+
+  function logAtLevel(indent = '', ...remainingSymbols: FishSymbol[]) {
+    const newResult: string[] = [];
+    remainingSymbols.forEach(n => {
+      if (opts.log) {
+        console.log(`${indent}${n.name} --- ${n.fishKind} --- ${n.scope.scopeTag} --- ${n.scope.scopeNode.firstNamedChild?.text}`);
+      }
+      newResult.push(`${indent}${n.name}`);
+      newResult.push(...logAtLevel(indent + '    ', ...n.children));
+    });
+    return newResult;
+  }
+  result.push(...logAtLevel('', ...symbols));
+  return result;
+}
 
 describe('parsing symbols', () => {
   setLogger();
@@ -627,6 +648,37 @@ describe('parsing symbols', () => {
       //     .join('\n');
       //   console.log(argumentNamesOption);
       // }
+    });
+  });
+
+  describe('client trees', () => {
+    it.only('show simple autoloaded DocumentSymbol client tree', () => {
+      const source = [
+        'function foo --argument-names a b c d e',
+        '    echo $a',
+        '    echo $b',
+        '    echo $c',
+        '    echo $d',
+        '    echo $e',
+        'end',
+      ].join('\n');
+      const document = createFakeLspDocument('functions/foo.fish', source);
+      const { rootNode } = parser.parse(source);
+      const symbolsTree = processNestedTree(document, rootNode);
+      const flatSymbols = flattenNested(...symbolsTree);
+      expect(symbolsTree.length).not.toBe(flatSymbols.length);
+      // printClientTree({log: true},...symbolsTree);
+      const tree = printClientTree({ log: false }, ...symbolsTree);
+      // console.log(tree.join('\n'));
+      expect(tree.join('\n')).toBe([
+        'foo',
+        '    argv',
+        '    a',
+        '    b',
+        '    c',
+        '    d',
+        '    e'].join('\n'),
+      );
     });
   });
 });

@@ -1,7 +1,7 @@
 import { createFakeLspDocument, setLogger } from './helpers';
 import { Analyzer } from '../src/analyze';
 import { initializeParser } from '../src/parser';
-import { FishDocumentSymbol, getFishDocumentSymbols } from '../src/document-symbol';
+import { FishSymbol } from '../src/parsing/symbol';
 import { getDocumentHighlights } from '../src/document-highlight';
 
 import * as Parser from 'web-tree-sitter';
