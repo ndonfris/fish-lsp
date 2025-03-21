@@ -1,6 +1,6 @@
 import { ChangeAnnotation, CodeAction, Diagnostic, RenameFile, TextEdit, WorkspaceEdit } from 'vscode-languageserver';
 import { LspDocument } from '../document';
-import { ErrorCodes } from '../diagnostics/errorCodes';
+import { ErrorCodes } from '../diagnostics/error-codes';
 import { getChildNodes } from '../utils/tree-sitter';
 import { SyntaxNode } from 'web-tree-sitter';
 import { ErrorNodeTypes } from '../diagnostics/node-types';

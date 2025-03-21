@@ -349,10 +349,10 @@ set -gx fish_lsp_disabled_handlers
 # Commit characters are used to select completion items, as shortcuts. (default: [])
 set -gx fish_lsp_commit_characters
 
-# fish_lsp_logfile <STRING>
+# fish_lsp_log_file <STRING>
 # path to the logs.txt file (default: '')
 # example locations could be: '~/path/to/fish-lsp/logs.txt' or '/tmp/fish_lsp.logs'
-set -gx fish_lsp_logfile
+set -gx fish_lsp_log_file
 
 # fish_lsp_all_indexed_paths <ARRAY>
 # fish file paths/workspaces to include as workspaces (default: ["$HOME/.config/fish", '/usr/share/fish'])
@@ -368,7 +368,7 @@ set -gx fish_lsp_single_workspace_support
 
 # fish_lsp_diagnostic_disable_error_codes <ARRAY>
 # disable diagnostics for matching error codes (default: [])
-# (options: 1001, 1002, 1003, 1004, 2001, 2002, 2003, 3001, 3002, 3003, 4001, 4002, 4003, 4004, 5001, 8001, 9999)
+# (options: 1001, 1002, 1003, 1004, 2001, 2002, 2003, 3001, 3002, 3003, 4001, 4002, 4003, 4004, 5001, 6001, 8001, 9999)
 set -gx fish_lsp_diagnostic_disable_error_codes
 
 # fish_lsp_enable_experimental_diagnostics <BOOLEAN>

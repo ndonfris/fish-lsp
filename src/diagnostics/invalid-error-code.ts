@@ -1,6 +1,6 @@
 import { Diagnostic, DiagnosticSeverity } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
-import { ErrorCodes } from './errorCodes';
+import { ErrorCodes } from './error-codes';
 import { isComment } from '../utils/node-types';
 import { logger } from '../logger';
 
