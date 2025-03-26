@@ -278,8 +278,15 @@ export function isSymbol(symbols: FishSymbol[], kind: FishSymbolKind): FishSymbo
 
 export function filterLastPerScopeSymbol(symbols: FishSymbol[]) {
   // const symbolTree: GenericTree<FishDocumentSymbol> = new GenericTree(symbolArray);
-  const array: FishSymbol[] = flattenNested(...symbols);
+
   const flatArray: FishSymbol[] = flattenNested(...symbols);
+  const array: FishSymbol[] = [];
+  for (const symbol of symbols) {
+    if (flatArray.findLast((_s: FishSymbol) => {
+    })) {
+      array.push(symbol);
+    }
+  }
   return array
     .filter((symbol) => !flatArray.some((s) => {
       return (
