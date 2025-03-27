@@ -93,7 +93,7 @@ export function processFunctionDefinition(document: LspDocument, node: SyntaxNod
     switch (true) {
       case option.isOption('-a', '--argument-names'):
       case option.isOption('-V', '--inherit-variable'):
-      case option.isOption('-v', '--on-variable'):
+      // case option.isOption('-v', '--on-variable'):
         functionSymbol.addChildren(
           FishSymbol.create(
             focused.text,

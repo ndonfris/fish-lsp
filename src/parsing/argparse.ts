@@ -1,5 +1,5 @@
 import { SyntaxNode } from 'web-tree-sitter';
-import { isCommandWithName, isEndStdinCharacter, isString, isTopLevelDefinition, isEscapeSequence } from '../utils/node-types';
+import { isCommandWithName, isEndStdinCharacter, isString, isTopLevelDefinition, isEscapeSequence, isVariableExpansion } from '../utils/node-types';
 
 import { isMatchingOption, isMatchingOptionOrOptionValue, Option } from './options';
 import { FishSymbol } from './symbol';
@@ -17,8 +17,42 @@ export const ArparseOptions = [
   Option.create('-h', '--help'),
 ];
 
+const isBefore = (a: SyntaxNode, b: SyntaxNode) => a.startIndex < b.startIndex;
 export function isArgparseDefinition(node: SyntaxNode) {
-  return isCommandWithName(node, 'argparse');
+  if (!node.parent || !isCommandWithName(node.parent, 'argparse')) {
+    return false;
+  }
+  const endChar = node.parent.children.find(node => isEndStdinCharacter(node));
+  if (!endChar) return false;
+  const children = findArgparseChildren(node.parent)
+    .filter(n => {
+      switch (true) {
+        case isMatchingOptionOrOptionValue(n, Option.create('-X', '--max-args')):
+        case isMatchingOptionOrOptionValue(n, Option.create('-N', '--min-args')):
+        case isMatchingOptionOrOptionValue(n, Option.create('-x', '--exclusive')):
+        case isMatchingOptionOrOptionValue(n, Option.create('-n', '--name')):
+        case isMatchingOption(n, Option.create('-h', '--help')):
+        case isMatchingOption(n, Option.create('-s', '--stop-nonopt')):
+        case isMatchingOption(n, Option.create('-i', '--ignore-unknown')):
+          return false;
+        default:
+          return true;
+      }
+    })
+    .filter(n => !isEscapeSequence(n) && isBefore(n, endChar))
+    .filter(n => !isVariableExpansion(n) || n.type !== 'variable_name');
+  return children.some(n => n.equals(node));
+}
+
+export function convertNodeRangeWithPrecedingFlag(node: SyntaxNode) {
+  const range = getRange(node);
+  if (node.text.startsWith('_flag_')) {
+    range.start = {
+      line: range.start.line,
+      character: range.start.character + 6,
+    };
+  }
+  return range;
 }
 
 function getArgparseScopeModifier(document: LspDocument, node: SyntaxNode) {
@@ -134,7 +168,7 @@ export function processArgparseCommand(document: LspDocument, node: SyntaxNode, 
       }
     })
     .filter(n => !isEscapeSequence(n) && isBefore(n, endChar))
-    ;
+    .filter(n => !isVariableExpansion(n) || n.type !== 'variable_name');
 
   const result: FishSymbol[] = [];
   for (const n of focuesedNodes) {

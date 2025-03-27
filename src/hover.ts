@@ -28,10 +28,7 @@ export async function handleHover(
   logger.log({ handleHover: handleHover.name, local, position, current });
   if (local) {
     return {
-      contents: {
-        kind: MarkupKind.Markdown,
-        value: local.detail!,
-      },
+      contents: local.toMarkupContent(),
       range: local.selectionRange,
     };
   }
