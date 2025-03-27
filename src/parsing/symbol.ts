@@ -1,4 +1,4 @@
-import { DocumentSymbol, SymbolKind, Range, WorkspaceSymbol, Location, FoldingRange, FoldingRangeKind } from 'vscode-languageserver';
+import { DocumentSymbol, SymbolKind, Range, WorkspaceSymbol, Location, FoldingRange, FoldingRangeKind, MarkupContent, MarkupKind, Hover } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { DefinitionScope } from '../utils/definition-scope';
 import { LspDocument } from '../document';
@@ -7,7 +7,7 @@ import { processSetCommand } from './set';
 import { processReadCommand } from './read';
 import { processArgvDefinition, processFunctionDefinition } from './function';
 import { processForDefinition } from './for';
-import { processArgparseCommand } from './argparse';
+import { convertNodeRangeWithPrecedingFlag, processArgparseCommand } from './argparse';
 import { Option } from './options';
 import { processAliasCommand } from './alias';
 import { createDetail } from './symbol-detail';
@@ -345,6 +345,20 @@ export class FishSymbol {
     return false;
   }
 
+  toMarkupContent(): MarkupContent {
+    return {
+      kind: MarkupKind.Markdown,
+      value: this.detail,
+    };
+  }
+
+  toHover(): Hover {
+    return {
+      contents: this.toMarkupContent(),
+      range: this.selectionRange,
+    };
+  }
+
   scopeContainsNode(node: SyntaxNode) {
     return this.scope.containsPosition(getRange(node).start);
   }
@@ -352,6 +366,12 @@ export class FishSymbol {
   containsNode(node: SyntaxNode) {
     return this.range.start.line <= node.startPosition.row
       && this.range.end.line >= node.endPosition.row;
+  }
+
+  containsPosition(position: { line: number; character: number; }) {
+    return this.selectionRange.start.line === position.line
+      && this.selectionRange.start.character <= position.character
+      && this.selectionRange.end.character >= position.character;
   }
 }
 
@@ -408,8 +428,11 @@ export function findLocalLocations(symbol: FishSymbol, allSymbols: FishSymbol[],
     if (symbol.isEqualLocation(node)) result.push(node);
   }
   return [
-    includeSelf ? symbol.toLocation() : undefined,
-    ...result.map(node => Location.create(symbol.uri, getRange(node))),
+    includeSelf && symbol.name !== 'argv' ? symbol.toLocation() : undefined,
+    ...result.map(node => symbol.fishKind === 'ARGPARSE'
+      ? Location.create(symbol.uri, convertNodeRangeWithPrecedingFlag(node))
+      : Location.create(symbol.uri, getRange(node)),
+    ),
   ].filter(Boolean) as Location[];
 }
 
@@ -424,11 +447,14 @@ export function findMatchingLocations(symbol: FishSymbol, allSymbols: FishSymbol
       result.push(node);
     }
   }
-  return result.map(node => Location.create(document.uri, getRange(node)));
+  return result.map(node => symbol.fishKind === 'ARGPARSE'
+    ? Location.create(document.uri, convertNodeRangeWithPrecedingFlag(node))
+    : Location.create(document.uri, getRange(node)),
+  );
 }
 
 export function removeLocalSymbols(symbol: FishSymbol, symbols: FlatFishSymbolTree) {
-  return symbols.filter(s => s.name === symbol.name && !symbol.equalScopes(s));
+  return symbols.filter(s => s.name === symbol.name && !symbol.equalScopes(s) && !s.equals(symbol));
 }
 
 // TODO: to refactor `../utils/node-types.ts` functions related to `isVariableDefinitionName`

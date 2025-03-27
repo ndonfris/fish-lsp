@@ -1,9 +1,9 @@
-import { Hover, MarkupContent, MarkupKind, Position, SymbolKind, WorkspaceSymbol, URI, Location } from 'vscode-languageserver';
+import { Hover, Position, SymbolKind, WorkspaceSymbol, URI, Location } from 'vscode-languageserver';
 import Parser, { SyntaxNode, Tree } from 'web-tree-sitter';
 import * as LSP from 'vscode-languageserver';
 import { isPositionWithinRange, getChildNodes } from './utils/tree-sitter';
 import { LspDocument } from './document';
-import { isAliasName, isCommand, isCommandName, isCommandWithName } from './utils/node-types';
+import { isAliasName, isCommand, isCommandName } from './utils/node-types';
 import { pathToUri, symbolKindToString } from './utils/translation';
 import { existsSync } from 'fs';
 import { currentWorkspace, workspaces } from './utils/workspace';
@@ -15,6 +15,7 @@ import { documents } from './server';
 import { SyncFileHelper } from './utils/file-operations';
 import { FishSymbol, processNestedTree } from './parsing/symbol';
 import { flattenNested } from './utils/flatten';
+import { isArgparseDefinition } from './parsing/argparse';
 
 export class Analyzer {
   protected parser: Parser;
@@ -189,19 +190,11 @@ export class Analyzer {
     const symbols: FishSymbol[] = findDefinitionSymbols(this, document, position);
     const wordAtPoint = this.wordAtPoint(document.uri, position.line, position.character);
     const nodeAtPoint = this.nodeAtPoint(document.uri, position.line, position.character);
-    logger.log({
-      method: 'analyzer.getDefinition()',
-      wordAtPoint,
-      node: nodeAtPoint?.text,
-      'isAliasName(nodeAtPoint)': nodeAtPoint && isAliasName(nodeAtPoint),
-      'isAliasName2(nodeAtPoint)': nodeAtPoint?.parent && isCommandWithName(nodeAtPoint?.parent, 'alias'),
-      parentType: nodeAtPoint?.parent && nodeAtPoint?.parent.type,
-      parentParentType: nodeAtPoint?.parent?.parent && nodeAtPoint?.parent?.parent?.type,
-      symbols: symbols.map(s => s.name),
-      document: document.uri,
-    });
     if (nodeAtPoint && isAliasName(nodeAtPoint)) {
-      return symbols.find(s => s.name === wordAtPoint?.split('=').at(0)) || symbols.pop()!;
+      return symbols.find(s => s.name === wordAtPoint) || symbols.pop()!;
+    }
+    if (nodeAtPoint && isArgparseDefinition(nodeAtPoint)) {
+      return this.getFlatDocumentSymbols(document.uri).findLast(s => s.containsPosition(position)) || symbols.pop()!;
     }
     return symbols.pop()!;
   }
@@ -266,12 +259,7 @@ export class Analyzer {
         text: symbol.node.text,
         kind: symbolKindToString(symbol.kind),
       });
-      return {
-        contents: {
-          kind: MarkupKind.Markdown,
-          value: symbol.detail,
-        } as MarkupContent,
-      };
+      return symbol.toHover();
     }
     return null;
   }
