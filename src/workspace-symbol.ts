@@ -26,6 +26,10 @@ export function containsRange(range: Range, otherRange: Range): boolean {
   return true;
 }
 
+export function containsNode(node: SyntaxNode, otherNode: SyntaxNode): boolean {
+  return containsRange(getRange(node), getRange(otherNode));
+}
+
 export function precedesRange(before: Range, after: Range): boolean {
   if (before.start.line < after.start.line) {
     return true;

@@ -151,7 +151,7 @@ export function processArgparseCommand(document: LspDocument, node: SyntaxNode, 
     const names = getNames(seenFlags);
     // add all seenFlags to the `result: Symb[]` array
     const flags = names.map((flagName, idx) => {
-      const selectedRange = createSelectionRange(node, seenFlags, flagName, idx);
+      const selectedRange = createSelectionRange(n, seenFlags, flagName, idx);
       return FishSymbol.fromObject({
         name: flagName,
         node: node,
@@ -159,6 +159,7 @@ export function processArgparseCommand(document: LspDocument, node: SyntaxNode, 
         fishKind: 'ARGPARSE',
         uri: document.uri,
         detail: n.text,
+        range: getRange(n),
         selectionRange: selectedRange,
         scope: DefinitionScope.create(node.parent!, modifier),
         children,

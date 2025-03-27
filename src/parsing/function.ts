@@ -6,6 +6,7 @@ import { isEscapeSequence, isNewline } from '../utils/node-types';
 import { PrebuiltDocumentationMap } from '../utils/snippets';
 import { DefinitionScope } from '../utils/definition-scope';
 import { isAutoloadedUriLoadsFunctionName } from '../utils/translation';
+import { getRange } from '../utils/tree-sitter';
 
 export const FunctionOptions = [
   Option.create('-a', '--argument-names').withMultipleValues(),
@@ -26,6 +27,29 @@ function isFunctionDefinition(node: SyntaxNode) {
 
 export function findFunctionDefinitionChildren(node: SyntaxNode) {
   return node.childrenForFieldName('option').filter(n => !isEscapeSequence(n) && !isNewline(n));
+}
+
+export function processArgvDefinition(document: LspDocument, node: SyntaxNode) {
+  if (!document.isAutoloaded() && node.type === 'program') {
+    return [
+      FishSymbol.fromObject({
+        name: 'argv',
+        node: node,
+        focusedNode: node.firstChild!,
+        fishKind: FishSymbolKindMap.variable,
+        uri: document.uri,
+        detail: PrebuiltDocumentationMap.getByName('argv').pop()?.description || 'the list of arguments passed to the function',
+        scope: DefinitionScope.create(node, 'local'),
+        selectionRange: {
+          start: { line: 0, character: 0 },
+          end: { line: 0, character: 0 },
+        },
+        range: getRange(node),
+        children: [],
+      }),
+    ];
+  }
+  return [];
 }
 
 export function processFunctionDefinition(document: LspDocument, node: SyntaxNode, children: FishSymbol[] = []) {
