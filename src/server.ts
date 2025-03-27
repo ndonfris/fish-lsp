@@ -19,7 +19,7 @@ import { FishCompletionItem } from './utils/completion/types';
 import { getDocumentationResolver } from './utils/completion/documentation';
 import { FishCompletionList } from './utils/completion/list';
 import { PrebuiltDocumentationMap, getPrebuiltDocUrl } from './utils/snippets';
-import { findParentCommand, isCommand, isOption, isReturnStatusNumber, isVariableDefinition } from './utils/node-types';
+import { findParentCommand, isAliasName, isCommand, isOption, isReturnStatusNumber, isVariableDefinition } from './utils/node-types';
 import { adjustInitializeResultCapabilitiesFromConfig, configHandlers, config, updateConfigFromInitializationOptions } from './config';
 import { enrichToMarkdown } from './documentation';
 import { getAliasedCompletionItemSignature } from './signature';
@@ -458,6 +458,17 @@ export default class FishServer {
     if (!doc || !uri || !root || !current) {
       return null;
     }
+
+    if (isAliasName(current)) {
+      return {
+        contents: {
+          kind: MarkupKind.Markdown,
+          value:
+            this.analyzer.getDefinition(doc, params.position).detail,
+        },
+      };
+    }
+
     if (isOption(current)) {
       return await handleHover(
         this.analyzer,

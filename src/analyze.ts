@@ -3,7 +3,7 @@ import Parser, { SyntaxNode, Tree } from 'web-tree-sitter';
 import * as LSP from 'vscode-languageserver';
 import { isPositionWithinRange, getChildNodes } from './utils/tree-sitter';
 import { LspDocument } from './document';
-import { isCommand, isCommandName } from './utils/node-types';
+import { isAliasName, isCommand, isCommandName, isCommandWithName } from './utils/node-types';
 import { pathToUri, symbolKindToString } from './utils/translation';
 import { existsSync } from 'fs';
 import { currentWorkspace, workspaces } from './utils/workspace';
@@ -113,15 +113,18 @@ export class Analyzer {
     position: Position,
   ): FishSymbol | undefined {
     const symbols = flattenNested(...this.cache.getDocumentSymbols(document.uri));
-    const wordAtPoint = this.wordAtPoint(document.uri, position.line, position.character);
+    // const wordAtPoint = this.wordAtPoint(document.uri, position.line, position.character);
     // const nodeAtPoint = this.nodeAtPoint(document.uri, position.line, position.character);
+    // return symbols.find((symbol) => {
+    //   if (symbol.kind === SymbolKind.Function && wordAtPoint === symbol.name) {
+    //     return symbol.scope.containsPosition(position);
+    //   }
+    //   if (symbol.fishKind === 'ARGPARSE' && wordAtPoint === symbol.name.replace(/^_flag_/, '')) {
+    //     return true;
+    //   }
+    //   return isPositionWithinRange(position, symbol.selectionRange);
+    // });
     return symbols.find((symbol) => {
-      if (symbol.kind === SymbolKind.Function && wordAtPoint === symbol.name) {
-        return symbol.scope.containsPosition(position);
-      }
-      if (symbol.fishKind === 'ARGPARSE' && wordAtPoint === symbol.name.replace(/^_flag_/, '')) {
-        return true;
-      }
       return isPositionWithinRange(position, symbol.selectionRange);
     });
   }
@@ -185,7 +188,22 @@ export class Analyzer {
   ): FishSymbol {
     const symbols: FishSymbol[] = findDefinitionSymbols(this, document, position);
     const wordAtPoint = this.wordAtPoint(document.uri, position.line, position.character);
-    return symbols.find(s => s.name === wordAtPoint)!;
+    const nodeAtPoint = this.nodeAtPoint(document.uri, position.line, position.character);
+    logger.log({
+      method: 'analyzer.getDefinition()',
+      wordAtPoint,
+      node: nodeAtPoint?.text,
+      'isAliasName(nodeAtPoint)': nodeAtPoint && isAliasName(nodeAtPoint),
+      'isAliasName2(nodeAtPoint)': nodeAtPoint?.parent && isCommandWithName(nodeAtPoint?.parent, 'alias'),
+      parentType: nodeAtPoint?.parent && nodeAtPoint?.parent.type,
+      parentParentType: nodeAtPoint?.parent?.parent && nodeAtPoint?.parent?.parent?.type,
+      symbols: symbols.map(s => s.name),
+      document: document.uri,
+    });
+    if (nodeAtPoint && isAliasName(nodeAtPoint)) {
+      return symbols.find(s => s.name === wordAtPoint?.split('=').at(0)) || symbols.pop()!;
+    }
+    return symbols.pop()!;
   }
 
   public getDefinitionLocation(
@@ -367,6 +385,10 @@ export class Analyzer {
 
     if (!node || node.childCount > 0 || node.text.trim() === '') {
       return null;
+    }
+
+    if (isAliasName(node)) {
+      return node.text.split('=')[0]!.trim();
     }
 
     return node.text.trim();
