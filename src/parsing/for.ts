@@ -24,6 +24,9 @@ function getForScopeModifier(document: LspDocument, node: SyntaxNode) {
 export function processForDefinition(document: LspDocument, node: SyntaxNode, children: FishSymbol[] = []) {
   const modifier = getForScopeModifier(document, node);
   const definitionNode = node.firstNamedChild!;
+  const definitionScope = modifier === 'global'
+    ? DefinitionScope.create(node.parent!, modifier)
+    : DefinitionScope.create(node, modifier);
   return [
     FishSymbol.create(
       definitionNode.text,
@@ -32,7 +35,7 @@ export function processForDefinition(document: LspDocument, node: SyntaxNode, ch
       'FOR',
       document.uri,
       node.text,
-      DefinitionScope.create(node.parent!, modifier),
+      definitionScope,
       children,
     ),
   ];

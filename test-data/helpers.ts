@@ -6,6 +6,9 @@ import { TextDocumentItem } from 'vscode-languageserver';
 import { LspDocument } from '../src/document';
 import { homedir } from 'os';
 import { Workspace, workspaces } from '../src/utils/workspace';
+import { flattenNested } from '../src/utils/flatten';
+import { getChildNodes, getNamedChildNodes } from '../src/utils/tree-sitter';
+import { FishSymbol, processNestedTree } from '../src/parsing/symbol';
 
 export function setLogger(
   beforeCallback: () => Promise<void> = async () => { },
@@ -62,11 +65,47 @@ export function createFakeUriPath(path: string): string {
 export function createFakeLspDocument(name: string, text: string): LspDocument {
   const uri = createFakeUriPath(name);
   const doc = TextDocumentItem.create(uri, 'fish', 0, text);
-  const workspace = workspaces.find((ws) => ws.contains(uri));
-  if (!workspace) {
-    // workspaces.push(Workspace.createTestWorkspaceFromUri(uri)!);
-  } else {
-    workspace.add(uri);
+  let workspace: Workspace | undefined = undefined;
+  if (workspaces.length !== 0) {
+    workspace = workspaces.find((ws) => ws.contains(uri));
+    if (!workspace) {
+      // workspaces.push(Workspace.createTestWorkspaceFromUri(uri)!);
+    } else {
+      workspace.add(uri);
+    }
   }
   return new LspDocument(doc);
+}
+
+export function setupTestCallback(parser: Parser) {
+  return function setupTestDocument(name: string, ...text: string[]): {
+    doc: LspDocument;
+    input: string;
+    tree: Tree;
+    root: SyntaxNode;
+  } {
+    const input = text.join('\n');
+    const doc = createFakeLspDocument(name, input);
+    const tree = parser.parse(input);
+    const root = tree.rootNode;
+    return { doc, tree, root, input };
+  };
+}
+
+export function getAllTypesOfNestedArrays(doc: LspDocument, root: SyntaxNode) {
+  const allNodes: SyntaxNode[] = getChildNodes(root);
+  const allNamedNodes: SyntaxNode[] = getNamedChildNodes(root);
+  const nodes: SyntaxNode[] = flattenNested(root);
+  const flatNodes: SyntaxNode[] = flattenNested(root);
+  const symbols: FishSymbol[] = processNestedTree(doc, root);
+  const flatSymbols: FishSymbol[] = flattenNested(...symbols);
+
+  return {
+    allNodes,
+    allNamedNodes,
+    nodes,
+    flatNodes,
+    symbols,
+    flatSymbols,
+  };
 }

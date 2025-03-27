@@ -1,11 +1,11 @@
-import { DocumentSymbol, SymbolKind, Range, WorkspaceSymbol, Location, FoldingRange } from 'vscode-languageserver';
+import { DocumentSymbol, SymbolKind, Range, WorkspaceSymbol, Location, FoldingRange, FoldingRangeKind } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { DefinitionScope } from '../utils/definition-scope';
 import { LspDocument } from '../document';
-import { getRange } from '../utils/tree-sitter';
+import { getChildNodes, getRange } from '../utils/tree-sitter';
 import { processSetCommand } from './set';
 import { processReadCommand } from './read';
-import { processFunctionDefinition } from './function';
+import { processArgvDefinition, processFunctionDefinition } from './function';
 import { processForDefinition } from './for';
 import { processArgparseCommand } from './argparse';
 import { Option } from './options';
@@ -13,7 +13,9 @@ import { processAliasCommand } from './alias';
 import { createDetail } from './symbol-detail';
 import { config } from '../config';
 import { flattenNested } from '../utils/flatten';
-// import { isCommand, isCommandWithName } from '../utils/node-types';
+import { uriToPath } from '../utils/translation';
+import { isCommand, isCommandWithName, isFunctionDefinitionName, isVariableDefinitionName } from '../utils/node-types';
+import { containsNode } from '../workspace-symbol';
 
 export type FishSymbolKind = 'ARGPARSE' | 'FUNCTION' | 'ALIAS' | 'COMPLETE' | 'SET' | 'READ' | 'FOR' | 'VARIABLE';
 
@@ -138,25 +140,70 @@ export class FishSymbol {
     return this;
   }
 
-  createDetail() {
-    switch (this.fishKind) {
-      case 'ARGPARSE':
+  private nameEqualsNodeText(node: SyntaxNode) {
+    return this.name === node.text;
+  }
 
-      case 'FUNCTION':
+  public get argparseFlagName() {
+    return this.name.replace(/^_flag_/, '').replace(/_/g, '-');
+  }
 
-      case 'ALIAS':
-
-      // case 'COMPLETE':
-      //   return 'COMPLETE';
-      case 'SET':
-        return 'SET';
-      case 'READ':
-        return 'READ';
-      case 'FOR':
-        return 'FOR';
-      case 'VARIABLE':
-        return 'VARIABLE';
+  private isArgparseCompletionFlag(node: SyntaxNode) {
+    if (this.fishKind === 'ARGPARSE') return false;
+    if (node.parent && isCommandWithName(node, 'complete')) {
+      const flagName = this.argparseFlagName;
+      if (node.previousSibling) {
+        return flagName.length === 1
+          ? Option.create('-s', '--short').matches(node.previousSibling)
+          : Option.create('-l', '--long').matches(node.previousSibling);
+      }
     }
+    return false;
+  }
+
+  isEqualLocation(node: SyntaxNode) {
+    if (!node.isNamed || this.focusedNode.equals(node) || !this.nameEqualsNodeText(node)) {
+      return false;
+    }
+    switch (this.fishKind) {
+      case 'FUNCTION':
+      case 'ALIAS':
+        return !isVariableDefinitionName(node) && !isCommand(node);
+      case 'ARGPARSE':
+        // return !isFunctionDefinitionName(node) && isMatchingCompleteOptionIsCommand(node);
+        return !isFunctionDefinitionName(node) || this.isArgparseCompletionFlag(node);
+      case 'SET':
+      case 'READ':
+      case 'FOR':
+      case 'VARIABLE':
+        return !isFunctionDefinitionName(node);
+    }
+  }
+
+  get path() {
+    return uriToPath(this.uri);
+  }
+
+  get workspacePath() {
+    const path = this.path;
+    const pathItems = path.split('/');
+    let lastItem = pathItems.at(-1)!;
+    if (lastItem === 'config.fish') {
+      return pathItems.slice(0, -1).join('/');
+    }
+    lastItem = pathItems.at(-2)!;
+    if (['functions', 'completions', 'conf.d'].includes(lastItem)) {
+      return pathItems.slice(0, -2).join('/');
+    }
+    return pathItems.slice(0, -1).join('/');
+  }
+
+  get scopeTag() {
+    return this.scope.scopeTag;
+  }
+
+  get scopeNode() {
+    return this.scope.scopeNode;
   }
 
   toString() {
@@ -173,7 +220,7 @@ export class FishSymbol {
     }, null, 2);
   }
 
-  equal(other: FishSymbol) {
+  equals(other: FishSymbol) {
     if (this.fishKind === 'ARGPARSE' && other.fishKind === 'ARGPARSE') {
       const equalNames = this.name === other.name || this.aliasedNames.includes(other.name) || other.aliasedNames.includes(this.name);
       return equalNames &&
@@ -202,45 +249,65 @@ export class FishSymbol {
       this.name,
       this.kind,
       this.uri,
-      this.range,
+      this.selectionRange,
     );
   }
 
-  toLspDocumentSymbol(): Location {
+  toLocation(): Location {
     return Location.create(
       this.uri,
-      this.range,
+      this.selectionRange,
     );
   }
 
   isBefore(other: FishSymbol) {
-    return this.range.start.line < other.range.start.line;
+    if (this.fishKind === 'FUNCTION' && other.name === 'argv') {
+      return this.range.start.line === other.range.start.line
+        && this.range.start.character === other.range.start.character;
+    }
+    if (this.selectionRange.start.line < other.selectionRange.start.line) {
+      return true;
+    }
+    if (this.selectionRange.start.line === other.selectionRange.start.line) {
+      return this.selectionRange.start.character < other.selectionRange.start.character
+        && this.selectionRange.end.character < other.selectionRange.end.character;
+    }
+    return false;
   }
 
   isAfter(other: FishSymbol) {
-    return this.range.start.line > other.range.start.line;
+    if (this.name === 'argv' && other.fishKind === 'FUNCTION') {
+      return this.selectionRange.start.line === other.selectionRange.start.line
+        && this.selectionRange.start.character === other.selectionRange.start.character;
+    }
+    if (this.selectionRange.start.line > other.selectionRange.start.line) {
+      return true;
+    }
+    if (this.selectionRange.start.line === other.selectionRange.start.line) {
+      return this.selectionRange.start.character > other.selectionRange.start.character;
+    }
+    return false;
   }
 
   toFoldingRange(): FoldingRange {
     return {
       startLine: this.range.start.line,
       endLine: this.range.end.line,
+      startCharacter: this.range.start.character,
+      endCharacter: this.range.end.character,
       collapsedText: this.name,
+      kind: FoldingRangeKind.Region,
     };
   }
 
   equalScopes(other: FishSymbol) {
-    if (this.scope.scopeNode === other.scope.scopeNode) {
+    if (this.scope.scopeNode.equals(other.scope.scopeNode) && this.fishKind === other.fishKind) {
       if ([this.scope.scopeTag, other.scope.scopeTag].includes('inherit')) {
         return this.scope.scopeNode.equals(other.scope.scopeNode);
-      } else if (
-        ['global', 'universal'].includes(this.scope.scopeTag) &&
-        ['global', 'universal'].includes(other.scope.scopeTag)
-      ) {
+      } else if (this.isGlobal() && other.isGlobal()) {
         return true;
       }
-      return this.scope.scopeTag === other.scope.scopeTag &&
-        this.scope.scopeNode.equals(other.scope.scopeNode);
+      return this.scope.scopeTag === other.scope.scopeTag;
     }
     return false;
   }
@@ -254,13 +321,25 @@ export class FishSymbol {
   }
 
   isSymbolImmutable() {
-    if (
-      config.fish_lsp_all_indexed_paths.length > 0 &&
-      !config.fish_lsp_modifiable_paths.some(path => this.uri.includes(path))
-    ) {
-      return false;
+    if (!config.fish_lsp_modifiable_paths.some(path => this.path.startsWith(path))) {
+      return true;
     }
-    return true;
+    // if (
+    //   config.fish_lsp_all_indexed_paths.length > 0 &&
+    //   !config.fish_lsp_modifiable_paths.some(path => this.uri.includes(path))
+    // ) {
+    //   return false;
+    // }
+    return false;
+  }
+
+  scopeContainsNode(node: SyntaxNode) {
+    return this.scope.containsPosition(getRange(node).start);
+  }
+
+  containsNode(node: SyntaxNode) {
+    return this.range.start.line <= node.startPosition.row
+      && this.range.end.line >= node.endPosition.row;
   }
 }
 
@@ -282,21 +361,46 @@ export function filterLastPerScopeSymbol(symbols: FishSymbol[]) {
   const flatArray: FishSymbol[] = flattenNested(...symbols);
   const array: FishSymbol[] = [];
   for (const symbol of symbols) {
-    if (flatArray.findLast((_s: FishSymbol) => {
-    })) {
+    const lastSymbol = flatArray.findLast((s: FishSymbol) => {
+      return s.name === symbol.name && s.kind === symbol.kind && s.uri === symbol.uri
+        && s.equalScopes(symbol);
+    });
+    if (lastSymbol && lastSymbol.equals(symbol)) {
       array.push(symbol);
     }
   }
-  return array
-    .filter((symbol) => !flatArray.some((s) => {
-      return (
-        s.name === symbol.name &&
-        !s.equal(symbol) &&
-        symbol.equalScopes(s) &&
-        symbol.isBefore(s)
-      );
-    }));
+  return array;
+  // return array
+  //   .filter((symbol) => !flatArray.some((s) => {
+  //     return (
+  //       s.name === symbol.name &&
+  //       !s.equals(symbol) &&
+  //       symbol.equalScopes(s) &&
+  //       symbol.isBefore(s)
+  //     );
+  //   }));
 }
+
+export function findLocalLocations(symbol: FishSymbol, allSymbols: FishSymbol[], includeSelf = true): Location[] {
+  const result: SyntaxNode[] = [];
+  /*
+   * Here we need to handle aliases where there exists a function with the same name
+   * (A very weird edge case)
+   */
+  const matchingNodes = allSymbols.filter(s => s.name === symbol.name && !symbol.equalScopes(s))
+    .map(s => symbol.fishKind === 'ALIAS' ? s.node : s.scopeNode);
+
+  for (const node of getChildNodes(symbol.scopeNode)) {
+    /** skip nodes that would be considered a match for another symbol */
+    if (matchingNodes.some(n => containsNode(n, node))) continue;
+    if (symbol.isEqualLocation(node)) result.push(node);
+  }
+  return [
+    includeSelf ? symbol.toLocation() : undefined,
+    ...result.map(node => Location.create(symbol.uri, getRange(node))),
+  ].filter(Boolean) as Location[];
+}
+
 // TODO: to refactor `../utils/node-types.ts` functions related to `isVariableDefinitionName`
 // export function isVariableDefinitionName(node: SyntaxNode) {
 //   const parent = node.parent;
@@ -353,7 +457,10 @@ function buildNested(document: LspDocument, node: SyntaxNode, ...children: FishS
   return newSymbols;
 }
 
-export function processNestedTree(document: LspDocument, ...nodes: SyntaxNode[]): FishSymbol[] {
+export type NestedFishSymbolTree = FishSymbol[];
+export type FlatFishSymbolTree = FishSymbol[];
+
+export function processNestedTree(document: LspDocument, ...nodes: SyntaxNode[]): NestedFishSymbolTree {
   const symbols: FishSymbol[] = [];
 
   for (const node of nodes) {
@@ -371,6 +478,12 @@ export function processNestedTree(document: LspDocument, ...nodes: SyntaxNode[])
       symbols.push(...childSymbols);
     }
     // If neither condition is met, we add nothing
+  }
+
+  /** add argv to script files */
+  if (!document.isAutoloaded()) {
+    const programNode = nodes.find(node => node.type === 'program');
+    if (programNode) symbols.unshift(...processArgvDefinition(document, programNode));
   }
 
   return symbols;

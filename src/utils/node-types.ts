@@ -430,6 +430,13 @@ export function isAliasName(node: SyntaxNode) {
   return false;
 }
 
+export function isAliasWithName(node: SyntaxNode, aliasName: string) {
+  if (isAliasName(node)) {
+    return node.text.split('=').at(0) === aliasName;
+  }
+  return false;
+}
+
 /**
  * finds the parent function of the current node
  *

@@ -7,8 +7,6 @@ import { isCommand, isCommandName } from './utils/node-types';
 import { pathToUri, symbolKindToString } from './utils/translation';
 import { existsSync } from 'fs';
 import { currentWorkspace, workspaces } from './utils/workspace';
-// import { filterGlobalSymbols, } from './document-symbol';
-// import { GenericTree } from './utils/generic-tree';
 import { findDefinitionSymbols } from './workspace-symbol';
 import { config } from './config';
 import { logger } from './logger';
@@ -460,7 +458,7 @@ export class GlobalDefinitionCache {
   constructor(private _definitions: Map<string, FishSymbol[]> = new Map()) { }
   add(symbol: FishSymbol): void {
     const current = this._definitions.get(symbol.name) || [];
-    if (!current.some(s => s.equal(symbol))) {
+    if (!current.some(s => s.equals(symbol))) {
       current.push(symbol);
     }
     this._definitions.set(symbol.name, current);
