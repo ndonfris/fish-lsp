@@ -1,6 +1,8 @@
 import { SyntaxNode } from 'web-tree-sitter';
 import { firstAncestorMatch, getParentNodes, getLeafs } from './tree-sitter';
 import * as VariableTypes from './variable-syntax-nodes';
+import { logger } from '../logger';
+import { containsNode } from '../workspace-symbol';
 
 /**
  * fish shell comment: '# ...'
@@ -421,10 +423,26 @@ export function findParentCommand(node?: SyntaxNode): SyntaxNode | null {
  */
 export function isAliasName(node: SyntaxNode) {
   if (!node.parent) return false;
-  if (!isCommandWithName(node.parent, 'alias')) return false;
-  const parentFirstChild = node.parent.firstNamedChild;
+  let parentNode: SyntaxNode | null = node.parent;
+  if (parentNode && parentNode.type === 'concatenation') {
+    parentNode = parentNode.parent;
+  }
+  if (!parentNode) return false;
+  if (!isCommandWithName(parentNode, 'alias')) return false;
+  const parentFirstChild = parentNode.firstNamedChild;
+  logger.log(
+    'isAliasName', {
+      node: node.text,
+      parentFirstChild: parentFirstChild?.text,
+      nextSibling: parentFirstChild?.nextSibling?.text,
+      containsNode: parentFirstChild?.nextSibling && containsNode(parentFirstChild.nextSibling, node),
+    },
+  );
   if (!parentFirstChild) return false;
-  if (parentFirstChild.nextNamedSibling && parentFirstChild.nextNamedSibling.equals(node)) {
+  if (parentFirstChild.nextSibling && parentFirstChild.nextSibling.equals(node)) {
+    return true;
+  }
+  if (parentFirstChild.nextSibling && containsNode(parentFirstChild.nextSibling, node)) {
     return true;
   }
   return false;

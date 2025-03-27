@@ -161,6 +161,16 @@ export class FishSymbol {
     return false;
   }
 
+  private isCommandCompletionFlag(node: SyntaxNode) {
+    if (this.fishKind === 'COMPLETE') return false;
+    if (node.parent && isCommandWithName(node.parent, 'complete')) {
+      if (node.previousSibling) {
+        return Option.create('-c', '--command').matches(node.previousSibling);
+      }
+    }
+    return false;
+  }
+
   isEqualLocation(node: SyntaxNode) {
     if (!node.isNamed || this.focusedNode.equals(node) || !this.nameEqualsNodeText(node)) {
       return false;
@@ -168,7 +178,9 @@ export class FishSymbol {
     switch (this.fishKind) {
       case 'FUNCTION':
       case 'ALIAS':
-        return !isVariableDefinitionName(node) && !isCommand(node);
+        return node.parent && isCommandWithName(node.parent, 'complete')
+          ? !isVariableDefinitionName(node) && !isCommand(node) && this.isCommandCompletionFlag(node)
+          : !isVariableDefinitionName(node) && !isCommand(node);
       case 'ARGPARSE':
         // return !isFunctionDefinitionName(node) && isMatchingCompleteOptionIsCommand(node);
         return !isFunctionDefinitionName(node) || this.isArgparseCompletionFlag(node);
@@ -399,6 +411,24 @@ export function findLocalLocations(symbol: FishSymbol, allSymbols: FishSymbol[],
     includeSelf ? symbol.toLocation() : undefined,
     ...result.map(node => Location.create(symbol.uri, getRange(node))),
   ].filter(Boolean) as Location[];
+}
+
+export function findMatchingLocations(symbol: FishSymbol, allSymbols: FishSymbol[], document: LspDocument, rootNode: SyntaxNode): Location[] {
+  const result: SyntaxNode[] = [];
+  const matchingNodes = allSymbols.filter(s => s.name === symbol.name && !symbol.equalScopes(s))
+    .map(s => symbol.fishKind === 'ALIAS' ? s.node : s.scopeNode);
+
+  for (const node of getChildNodes(rootNode)) {
+    if (matchingNodes.some(n => containsNode(n, node))) continue;
+    if (symbol.isEqualLocation(node)) {
+      result.push(node);
+    }
+  }
+  return result.map(node => Location.create(document.uri, getRange(node)));
+}
+
+export function removeLocalSymbols(symbol: FishSymbol, symbols: FlatFishSymbolTree) {
+  return symbols.filter(s => s.name === symbol.name && !symbol.equalScopes(s));
 }
 
 // TODO: to refactor `../utils/node-types.ts` functions related to `isVariableDefinitionName`
