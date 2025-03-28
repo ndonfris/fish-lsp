@@ -1,12 +1,4 @@
-# CHANGELOG
-
-Documenting notable changes across project revisions
-
-===
-
-## Current
-
-## \[1.0.8-4.beta\] - 2025-01-20 ([PR #64](https://github.com/ndonfris/fish-lsp/pull/64))
+## \[1.0.8-4\] - 2025-01-20 ([PR #64](https://github.com/ndonfris/fish-lsp/pull/64))
 
 - added code actions
 

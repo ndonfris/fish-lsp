@@ -47,7 +47,7 @@
     "dev": "run-s setup compile",
     "dev:watch": "run-s setup watch",
     "postinstall": "run-s sh:build-time",
-    "prepack": "run-s lint:check generate-man-page sh:build-wasm compile",
+    "prepack": "run-s update-changelog lint:check generate-man-page sh:build-wasm compile",
     "compile": "tsc -b",
     "watch": "tsc -b -w",
     "sh:build-completions": "fish ./scripts/build-completions.fish",
@@ -63,6 +63,7 @@
     "lint:check": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix ",
     "lint:check-fix": "eslint . --ext .ts --fix-dry-run",
+    "update-changelog": "conventional-changelog -i docs/CHANGELOG.md --same-file",
     "generate-man-page": "mkdir -p ./docs/man && cat docs/MAN_FILE.md | npx marked-man --date \"$(date)\"  --manual fish-lsp --section 1 --name fish-lsp > ./docs/man/fish-lsp.1"
   },
   "enabledApiProposals": [
