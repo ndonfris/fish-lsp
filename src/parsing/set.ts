@@ -37,6 +37,18 @@ export function isSetDefinition(node: SyntaxNode) {
   return isCommandWithName(node, 'set') && !node.children.some(child => isMatchingOption(child, Option.create('-q', '--query')));
 }
 
+/**
+ * checks if a node is the variable name of a set command
+ * set -g -x foo '...'
+ *           ^-- cursor is here
+ */
+export function isSetVariableDefinitionName(node: SyntaxNode) {
+  if (!node.parent || !isSetDefinition(node.parent)) return false;
+  const searchNodes = findSetChildren(node.parent);
+  const definitionNode = searchNodes.find(n => !isOption(n));
+  return !!definitionNode && definitionNode.equals(node);
+}
+
 function getFallbackModifierScope(document: LspDocument, node: SyntaxNode) {
   const autoloadType = document.getAutoloadType();
   switch (autoloadType) {
@@ -56,8 +68,7 @@ export function findSetChildren(node: SyntaxNode) {
 }
 
 export function setModifierDetailDescriptor(nodee: SyntaxNode) {
-  const setModifiers = SetOptions.filter(option => option.equalsRawLongOption('--universal', '--global', '--function', '--local', '--export', '--unexport'));
-  const options = findOptions(nodee.childrenForFieldName('argument'), setModifiers);
+  const options = findOptions(nodee.childrenForFieldName('argument'), SetModifiers);
   const exportedOption = options.found.find(o => o.option.equalsRawOption('-x', '--export') || o.option.equalsRawOption('-u', '--unexport'));
   const exportedStr = exportedOption ? exportedOption.option.isOption('-x', '--export') ? 'exported' : 'unexported' : '';
   const modifier = options.found.find(o => o.option.equalsRawOption('-U', '-g', '-f', '-l'));

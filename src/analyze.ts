@@ -15,7 +15,7 @@ import { documents } from './server';
 import { SyncFileHelper } from './utils/file-operations';
 import { FishSymbol, processNestedTree } from './parsing/symbol';
 import { flattenNested } from './utils/flatten';
-import { isArgparseDefinition } from './parsing/argparse';
+import { isArgparseVariableDefinitionName } from './parsing/argparse';
 
 export class Analyzer {
   protected parser: Parser;
@@ -193,7 +193,7 @@ export class Analyzer {
     if (nodeAtPoint && isAliasName(nodeAtPoint)) {
       return symbols.find(s => s.name === wordAtPoint) || symbols.pop()!;
     }
-    if (nodeAtPoint && isArgparseDefinition(nodeAtPoint)) {
+    if (nodeAtPoint && isArgparseVariableDefinitionName(nodeAtPoint)) {
       return this.getFlatDocumentSymbols(document.uri).findLast(s => s.containsPosition(position)) || symbols.pop()!;
     }
     return symbols.pop()!;

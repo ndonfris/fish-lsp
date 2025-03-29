@@ -34,6 +34,19 @@ export const ReadModifiers = [
   Option.create('-g', '--global'),
 ];
 
+/**
+ * checks if a node is the variable name of a read command
+ * read -g -x -p 'stuff' foo bar baz
+ *                        ^   ^   ^
+ *                        |   |   |
+ *                     cursor could be here
+ */
+export function isReadVariableDefinitionName(node: SyntaxNode) {
+  if (!node.parent || !isReadDefinition(node.parent)) return false;
+  const { definitionNodes } = findReadChildren(node.parent);
+  return !!definitionNodes.find(n => n.equals(node));
+}
+
 export function isReadDefinition(node: SyntaxNode) {
   return isCommandWithName(node, 'read') && !node.children.some(child => isMatchingOption(child, Option.create('-q', '--query')));
 }
@@ -50,7 +63,12 @@ function getFallbackModifierScope(document: LspDocument, node: SyntaxNode) {
   }
 }
 
-export function processReadCommand(document: LspDocument, node: SyntaxNode, children: FishSymbol[] = []) {
+/**
+ * Find all the read command's children that are variable names
+ * @param node The node to check isCommandWithName(node, 'read')
+ * @returns nodes that are variable names and the modifier if seen
+ */
+function findReadChildren(node: SyntaxNode): { definitionNodes: SyntaxNode[]; modifier: Option | undefined; } {
   let modifier: Option | undefined = undefined;
   const definitionNodes: SyntaxNode[] = [];
   const allFocused: SyntaxNode[] = node.childrenForFieldName('argument')
@@ -98,8 +116,18 @@ export function processReadCommand(document: LspDocument, node: SyntaxNode, chil
     if (isString(arg)) return;
     definitionNodes.push(arg);
   });
+  return {
+    definitionNodes,
+    modifier,
+  };
+}
 
+/**
+ * Get all read command variable names as `FishSymbol[]`
+ */
+export function processReadCommand(document: LspDocument, node: SyntaxNode, children: FishSymbol[] = []) {
   const result: FishSymbol[] = [];
+  const { definitionNodes, modifier } = findReadChildren(node);
   const scopeModifier = modifier ? SetModifierToScopeTag(modifier) : getFallbackModifierScope(document, node);
   const definitionScope = scopeModifier === 'global'
     ? DefinitionScope.create(findParent(node, isProgram)!, scopeModifier)

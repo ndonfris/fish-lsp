@@ -1,4 +1,4 @@
-import { Parsers, Option } from '../src/parsing/barrel';
+import { Parsers, Option, ParsingDefinitionNames, DefinitionNodeNames } from '../src/parsing/barrel';
 import { execAsyncF } from '../src/utils/exec';
 
 import { initializeParser } from '../src/parser';
@@ -15,6 +15,7 @@ import { findOptionsSet, LongFlag, ShortFlag } from '../src/parsing/options';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import { SymbolKind } from 'vscode-languageserver';
 import { md } from '../src/utils/markdown-builder';
+import { isFunctionDefinitionName } from '../src/parsing/function';
 
 let parser: Parser;
 type PrintClientTreeOpts = { log: boolean; };
@@ -82,7 +83,7 @@ describe('parsing symbols', () => {
       const flags = getFlagsFromCompletion(completions);
       for (const flag of flags) {
         if (!getAllOptionFlags(Parsers.set.SetOptions).includes(flag)) {
-          console.log('missing:', flag);
+          // console.log('missing:', flag);
         }
       }
       // console.log(flags, getAllOptionFlags(Set.SetOptions))
@@ -154,7 +155,7 @@ describe('parsing symbols', () => {
     it('argparse', async () => {
       const source = 'argparse --name foo h/help -- $argv; or return';
       const { rootNode } = parser.parse(source);
-      const foundNode = getChildNodes(rootNode).find(Parsers.argparse.isArgparseDefinition);
+      const foundNode = getChildNodes(rootNode).find(Parsers.argparse.isArgparseVariableDefinitionName);
       expect(foundNode).toBeDefined();
     });
 
@@ -308,9 +309,7 @@ describe('parsing symbols', () => {
         const argparseNode = processNestedTree(document, rootNode);
         const flat = flattenNested<FishSymbol>(...argparseNode)
           .filter(n => n.fishKind === 'ARGPARSE');
-        for (const node of flat) {
-          console.log({ node: node?.toString() });
-        }
+        expect(flat.length).toBe(4);
       });
 
       it('for', async () => {
@@ -477,14 +476,11 @@ describe('parsing symbols', () => {
       it('Argparse findOptions()', async () => {
         const source = 'argparse --name foo h/help -- $argv; or return';
         const { rootNode } = parser.parse(source);
-        const argparseOptions = Parsers.argparse.ArparseOptions;
+        const argparseOptions = Array.from(Parsers.argparse.ArparseOptions);
         const focusedNode = getChildNodes(rootNode).find(n => isCommandWithName(n, 'argparse'))!;
-        // const isBefore = (a: SyntaxNode, b: SyntaxNode) => a.startIndex < b.startIndex;
-        // const children = focusedNode.childrenForFieldName('argument')!
-        //
-        // const endSearch = children.find(n => isEndStdinCharacter(n));
-        // const toSearch = children.filter(n => isBefore(n, endSearch!));
-        const search = Parsers.argparse.findArgparseChildren(focusedNode);
+        const isBefore = (a: SyntaxNode, b: SyntaxNode) => a.startIndex < b.startIndex;
+        const endStdin = focusedNode.children.find(n => isEndStdinCharacter(n))!;
+        const search = focusedNode.childrenForFieldName('argument')!.filter(n => isBefore(n, endStdin));
         const results = Parsers.options.findOptions(search, argparseOptions);
         // logResult(results);
         expect(results.found.length).toBe(1);
@@ -652,7 +648,7 @@ describe('parsing symbols', () => {
   });
 
   describe('client trees', () => {
-    it.only('show simple autoloaded DocumentSymbol client tree', () => {
+    it('show simple autoloaded DocumentSymbol client tree', () => {
       const source = [
         'function foo --argument-names a b c d e',
         '    echo $a',
@@ -679,6 +675,130 @@ describe('parsing symbols', () => {
         '    d',
         '    e'].join('\n'),
       );
+    });
+  });
+
+  describe('test SyntaxNode checking', () => {
+    describe('function names', () => {
+      it('function_definition', () => {
+        const source = 'function foo; echo \'inside foo\'; end';
+        const { rootNode } = parser.parse(source);
+        const foundNode = getChildNodes(rootNode).find(ParsingDefinitionNames.isFunctionDefinitionName)!;
+        expect(foundNode).toBeDefined();
+        expect(foundNode.text).toBe('foo');
+      });
+
+      it('alias', () => {
+        const source = 'alias foo \'echo hi\'';
+        const { rootNode } = parser.parse(source);
+        const foundNode = getChildNodes(rootNode).find(ParsingDefinitionNames.isAliasDefinitionName)!;
+        expect(foundNode).toBeDefined();
+        expect(foundNode.text).toBe('foo');
+      });
+
+      it('alias concatenation', () => {
+        const source = 'alias foo=\'echo hi\'';
+        const { rootNode } = parser.parse(source);
+        const foundNode = getChildNodes(rootNode).find(ParsingDefinitionNames.isAliasDefinitionName)!;
+        getNamedChildNodes(foundNode).forEach(n => {
+          if (n.type === 'concatenation') {
+            console.log({
+              text: n.text,
+              firstChild: n.firstChild?.text,
+            });
+          }
+        });
+        expect(foundNode).toBeDefined();
+        expect(foundNode.text.split('=').at(0)!).toBe('foo');
+      });
+    });
+
+    describe('variable names', () => {
+      it('set', () => {
+        const source = 'set -U foo (echo \'universal var\')';
+        const { rootNode } = parser.parse(source);
+        const foundNode = getChildNodes(rootNode).find(ParsingDefinitionNames.isSetVariableDefinitionName)!;
+        expect(foundNode).toBeDefined();
+        expect(foundNode.text).toBe('foo');
+      });
+      it('set -q', () => {
+        const source = 'set -ql foo (echo \'universal var\')';
+        const { rootNode } = parser.parse(source);
+        const foundNode = getChildNodes(rootNode).find(ParsingDefinitionNames.isSetVariableDefinitionName);
+        expect(foundNode).toBeUndefined();
+      });
+      it('read', () => {
+        const source = 'read -l foo bar baz';
+        const { rootNode } = parser.parse(source);
+        const foundNodes = getChildNodes(rootNode).filter(ParsingDefinitionNames.isReadVariableDefinitionName)!;
+        expect(foundNodes.length).toBe(3);
+        expect(foundNodes.map(n => n.text)).toEqual(['foo', 'bar', 'baz']);
+      });
+      it('argparse', () => {
+        const source = 'argparse --name foo h/help -- $argv';
+        const { rootNode } = parser.parse(source);
+        const foundNode = getChildNodes(rootNode).find(ParsingDefinitionNames.isArgparseVariableDefinitionName)!;
+        expect(foundNode).toBeDefined();
+        expect(foundNode.text).toBe('h/help');
+      });
+      it('for', () => {
+        const source = 'for foo in $argv; echo $foo; end';
+        const { rootNode } = parser.parse(source);
+        const foundNode = getChildNodes(rootNode).find(ParsingDefinitionNames.isForVariableDefinitionName)!;
+        expect(foundNode).toBeDefined();
+        expect(foundNode.text).toBe('foo');
+      });
+      it('function --flags', () => {
+        const source = 'function foo --argument-names a b c d e --description \'this is a description\' --wraps \'echo\' --inherit-variable v1 --no-scope-shadowing; end;';
+        const { rootNode } = parser.parse(source);
+        const foundNodes = getChildNodes(rootNode).filter(ParsingDefinitionNames.isFunctionVariableDefinitionName)!;
+        expect(foundNodes.map(n => n.text)).toEqual(['a', 'b', 'c', 'd', 'e', 'v1']);
+      });
+    });
+
+    describe('isDefinitionName', () => {
+      const tests = [
+        {
+          input: 'function foo; echo \'inside foo\'; end',
+          expected: ['foo'],
+        },
+        {
+          input: 'alias foo \'echo hi\'',
+          expected: ['foo'],
+        },
+        {
+          input: 'alias foo=\'echo hi\'',
+          expected: ['foo='],
+        },
+        {
+          input: 'set -g foo (echo \'global var\')',
+          expected: ['foo'],
+        },
+        {
+          input: 'read -l foo bar baz',
+          expected: ['foo', 'bar', 'baz'],
+        },
+        {
+          input: 'argparse --name foo h/help -- $argv',
+          expected: ['h/help'],
+        },
+        {
+          input: 'for foo in $argv; echo $foo; end',
+          expected: ['foo'],
+        },
+        {
+          input: 'function foo --argument-names a b c d e --description \'this is a description\' --wraps \'echo\' --inherit-variable v1 --no-scope-shadowing; end;',
+          expected: ['foo', 'a', 'b', 'c', 'd', 'e', 'v1'],
+        },
+      ];
+
+      tests.forEach(({ input, expected }) => {
+        it(input, () => {
+          const { rootNode } = parser.parse(input);
+          const foundNodes = getChildNodes(rootNode).filter(DefinitionNodeNames.isDefinitionName)!;
+          expect(foundNodes.map(n => n.text)).toEqual(expected);
+        });
+      });
     });
   });
 });

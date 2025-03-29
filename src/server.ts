@@ -32,7 +32,7 @@ import { getAllInlayHints } from './code-lens';
 import { setupProcessEnvExecFile } from './utils/process-env';
 import { SyncFileHelper } from './utils/file-operations';
 import { flattenNested } from './utils/flatten';
-import { isArgparseDefinition } from './parsing/argparse';
+import { isArgparseVariableDefinitionName } from './parsing/argparse';
 
 // @TODO
 export type SupportedFeatures = {
@@ -464,7 +464,7 @@ export default class FishServer {
       return this.analyzer.getDefinition(doc, params.position).toHover();
     }
 
-    if (isArgparseDefinition(current)) {
+    if (isArgparseVariableDefinitionName(current)) {
       logger.log('isArgparseDefinition');
       return this.analyzer.getDefinition(doc, params.position).toHover();
     }

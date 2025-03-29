@@ -1,8 +1,9 @@
 import { SyntaxNode } from 'web-tree-sitter';
 import { firstAncestorMatch, getParentNodes, getLeafs } from './tree-sitter';
-import * as VariableTypes from './variable-syntax-nodes';
+// import * as VariableTypes from './variable-syntax-nodes';
 import { logger } from '../logger';
 import { containsNode } from '../workspace-symbol';
+import { DefinitionNodeNames } from '../parsing/barrel';
 
 /**
  * fish shell comment: '# ...'
@@ -58,16 +59,19 @@ export function isCommand(node: SyntaxNode): boolean {
  * @param {SyntaxNode} node - the node to check
  * @returns {boolean} true if the node is the firstNamedChild of a function_definition
  */
+// export function isFunctionDefinitionName(node: SyntaxNode): boolean {
+//   // function name must have parent which would be `function_definition`
+//   if (!node.parent) return false;
+//   // function name must be a child of `function_definition`
+//   if (!isFunctionDefinition(node.parent)) return false;
+//   // `function_definition` must have a firstNamedChild
+//   if (!node.parent.firstNamedChild) return false;
+//   // function name must be the firstNamedChild of `function_definition`
+//   // and must be a `SyntaxNode.type === 'word'`
+//   return node.parent.firstNamedChild.equals(node) && node.type === 'word';
+// }
 export function isFunctionDefinitionName(node: SyntaxNode): boolean {
-  // function name must have parent which would be `function_definition`
-  if (!node.parent) return false;
-  // function name must be a child of `function_definition`
-  if (!isFunctionDefinition(node.parent)) return false;
-  // `function_definition` must have a firstNamedChild
-  if (!node.parent.firstNamedChild) return false;
-  // function name must be the firstNamedChild of `function_definition`
-  // and must be a `SyntaxNode.type === 'word'`
-  return node.parent.firstNamedChild.equals(node) && node.type === 'word';
+  return DefinitionNodeNames.isFunctionDefinitionName(node);
 }
 
 export function isTopLevelFunctionDefinition(node: SyntaxNode): boolean {
@@ -416,6 +420,10 @@ export function findParentCommand(node?: SyntaxNode): SyntaxNode | null {
   return null;
 }
 
+export function isConcatenation(node: SyntaxNode) {
+  return node.type === 'concatenation';
+}
+
 /**
  * checks if a node is the firstNamedChild of an alias command
  * alias ls='ls -G'
@@ -528,32 +536,36 @@ export function refinedFindParentVariableDefinitionKeyword(node?: SyntaxNode): S
 }
 
 // @TODO: replace isVariableDefinition with this
+// export function isVariableDefinitionName(node: SyntaxNode): boolean {
+//   if (isFunctionDefinition(node) ||
+//     isCommand(node) ||
+//     isCommandName(node) ||
+//     definitionKeywords.includes(node.firstChild?.text || '') ||
+//     !VariableTypes.isPossible(node)
+//   ) {
+//     return false;
+//   }
+//   const keyword = refinedFindParentVariableDefinitionKeyword(node);
+//   if (!keyword) {
+//     return false;
+//   }
+//   const siblings = VariableTypes.gatherVariableSiblings(keyword);
+//   switch (keyword.text) {
+//     case 'set':
+//       return VariableTypes.isSetDefinitionNode(siblings, node);
+//     case 'read':
+//       return VariableTypes.isReadDefinitionNode(siblings, node);
+//     case 'function':
+//       return VariableTypes.isFunctionArgumentDefinitionNode(siblings, node);
+//     case 'for':
+//       return VariableTypes.isForLoopDefinitionNode(siblings, node);
+//     default:
+//       return false;
+//   }
+// }
+
 export function isVariableDefinitionName(node: SyntaxNode): boolean {
-  if (isFunctionDefinition(node) ||
-    isCommand(node) ||
-    isCommandName(node) ||
-    definitionKeywords.includes(node.firstChild?.text || '') ||
-    !VariableTypes.isPossible(node)
-  ) {
-    return false;
-  }
-  const keyword = refinedFindParentVariableDefinitionKeyword(node);
-  if (!keyword) {
-    return false;
-  }
-  const siblings = VariableTypes.gatherVariableSiblings(keyword);
-  switch (keyword.text) {
-    case 'set':
-      return VariableTypes.isSetDefinitionNode(siblings, node);
-    case 'read':
-      return VariableTypes.isReadDefinitionNode(siblings, node);
-    case 'function':
-      return VariableTypes.isFunctionArgumentDefinitionNode(siblings, node);
-    case 'for':
-      return VariableTypes.isForLoopDefinitionNode(siblings, node);
-    default:
-      return false;
-  }
+  return DefinitionNodeNames.isVariableDefinitionName(node);
 }
 
 /**

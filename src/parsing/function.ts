@@ -1,5 +1,5 @@
 import { SyntaxNode } from 'web-tree-sitter';
-import { findOptionsSet, Option } from './options';
+import { findOptionsSet, Option, OptionValueMatch } from './options';
 import { FishSymbol, FishSymbolKindMap } from './symbol';
 import { LspDocument } from '../document';
 import { isEscapeSequence, isNewline } from '../utils/node-types';
@@ -25,10 +25,22 @@ function isFunctionDefinition(node: SyntaxNode) {
   return node.type === 'function_definition';
 }
 
+/**
+ * Util to find all the arguments of a function_definition node
+ *
+ * function foo -a bar baz -V foobar -d '...' -w '...' --on-event '...'
+ *               ^  ^   ^   ^  ^      ^  ^    ^   ^     ^         ^
+ *               all of these nodes would be returned in the SyntaxNode[] array
+ * @param node the function_definition node
+ * @returns SyntaxNode[] of all the arguments to the function_definition
+ */
 export function findFunctionDefinitionChildren(node: SyntaxNode) {
   return node.childrenForFieldName('option').filter(n => !isEscapeSequence(n) && !isNewline(n));
 }
 
+/**
+ * Get argv definition for fish shell script files (non auto-loaded files)
+ */
 export function processArgvDefinition(document: LspDocument, node: SyntaxNode) {
   if (!document.isAutoloaded() && node.type === 'program') {
     return [
@@ -52,6 +64,67 @@ export function processArgvDefinition(document: LspDocument, node: SyntaxNode) {
   return [];
 }
 
+/**
+ * checks if a node is the function name of a function definition
+ * function foo
+ *          ^--- here
+ */
+export function isFunctionDefinitionName(node: SyntaxNode) {
+  if (!node.parent || !isFunctionDefinition(node.parent)) return false;
+  return !!node.parent.firstNamedChild && node.parent.firstNamedChild.equals(node);
+}
+
+/**
+ * checks if a node is the variable name of a function definition
+ * function foo --argument-names bar baz --inherit-variable foobar
+ *                               ^   ^                       ^
+ *                               |   |                       |
+ *                               Could be any of these nodes above
+ * Currently doesn't check for `--on-variable`, because it should be inherited
+ */
+export function isFunctionVariableDefinitionName(node: SyntaxNode) {
+  if (!node.parent || !isFunctionDefinition(node.parent)) return false;
+  const { variableNodes } = findFunctionVariableArguments(node.parent);
+  const definitionNode = variableNodes.find(n => n.equals(node));
+  return !!definitionNode && definitionNode.equals(node);
+}
+
+/**
+ * Find all the function_definition variables that are defined in the function header
+ *
+ * The `flagsSet` property contains all the nodes that were found to be variable names,
+ * with the flag that was used to define them.
+ *
+ * @param node the function_definition node
+ * @returns Object containing the defined SyntaxNode[] and OptionValueMatch[] flags set
+ */
+function findFunctionVariableArguments(node: SyntaxNode): { variableNodes: SyntaxNode[]; flagsSet: OptionValueMatch[]; } {
+  const variableNodes: SyntaxNode[] = [];
+  const focused = node.childrenForFieldName('option').filter(n => !isEscapeSequence(n) && !isNewline(n));
+  const flagsSet = findOptionsSet(focused, FunctionOptions);
+  for (const flag of flagsSet) {
+    const { option, value: focused } = flag;
+    switch (true) {
+      case option.isOption('-a', '--argument-names'):
+      case option.isOption('-V', '--inherit-variable'):
+        // case option.isOption('-v', '--on-variable'):
+        variableNodes.push(focused);
+        break;
+      default:
+        break;
+    }
+  }
+  return {
+    variableNodes,
+    flagsSet,
+  };
+}
+
+/**
+ * Process a function definition node and return the corresponding FishSymbol[]
+ * for the function and its arguments. Includes argv as a child, along with any
+ * flags that create function scoped variables + any children nodes are stored as well.
+ */
 export function processFunctionDefinition(document: LspDocument, node: SyntaxNode, children: FishSymbol[] = []) {
   if (!isFunctionDefinition(node)) return [];
 
@@ -87,13 +160,13 @@ export function processFunctionDefinition(document: LspDocument, node: SyntaxNod
 
   if (!focused) return [functionSymbol];
 
-  const flagsSet = findOptionsSet(focused, FunctionOptions);
+  const { flagsSet } = findFunctionVariableArguments(node);
   for (const flag of flagsSet) {
     const { option, value: focused } = flag;
     switch (true) {
       case option.isOption('-a', '--argument-names'):
       case option.isOption('-V', '--inherit-variable'):
-      // case option.isOption('-v', '--on-variable'):
+        // case option.isOption('-v', '--on-variable'):
         functionSymbol.addChildren(
           FishSymbol.create(
             focused.text,
