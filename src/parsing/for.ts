@@ -4,8 +4,13 @@ import { DefinitionScope } from '../utils/definition-scope';
 import { LspDocument } from '../document';
 import { isTopLevelDefinition } from '../utils/node-types';
 
-export function isForDefinition(node: SyntaxNode) {
-  return node.type === 'for_statement' && node.firstNamedChild && node.firstNamedChild.type === 'variable_name';
+export function isForVariableDefinitionName(node: SyntaxNode): boolean {
+  if (node.parent && node.parent.type === 'for_statement') {
+    return !!node.parent.firstNamedChild &&
+      node.parent.firstNamedChild.type === 'variable_name' &&
+      node.parent.firstNamedChild.equals(node);
+  }
+  return false;
 }
 
 function getForScopeModifier(document: LspDocument, node: SyntaxNode) {

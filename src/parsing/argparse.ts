@@ -1,10 +1,10 @@
 import { SyntaxNode } from 'web-tree-sitter';
-import { isCommandWithName, isEndStdinCharacter, isString, isTopLevelDefinition, isEscapeSequence, isVariableExpansion } from '../utils/node-types';
+import { isCommandWithName, isEndStdinCharacter, isString, isEscapeSequence, isVariableExpansion } from '../utils/node-types';
 
 import { isMatchingOption, isMatchingOptionOrOptionValue, Option } from './options';
 import { FishSymbol } from './symbol';
 import { LspDocument } from '../document';
-import { DefinitionScope } from '../utils/definition-scope';
+import { DefinitionScope, ScopeTag } from '../utils/definition-scope';
 import { getRange } from '../utils/tree-sitter';
 
 export const ArparseOptions = [
@@ -18,13 +18,15 @@ export const ArparseOptions = [
 ];
 
 const isBefore = (a: SyntaxNode, b: SyntaxNode) => a.startIndex < b.startIndex;
-export function isArgparseDefinition(node: SyntaxNode) {
-  if (!node.parent || !isCommandWithName(node.parent, 'argparse')) {
-    return false;
-  }
-  const endChar = node.parent.children.find(node => isEndStdinCharacter(node));
-  if (!endChar) return false;
-  const children = findArgparseChildren(node.parent)
+
+export function findArgparseDefinitionNames(node: SyntaxNode): SyntaxNode[] {
+  // check if the node is a 'argparse' command
+  if (!node || !isCommandWithName(node, 'argparse')) return [];
+  // check if the node has a '--' token
+  const endChar = node.children.find(node => isEndStdinCharacter(node));
+  if (!endChar) return [];
+  // get the children of the node that are not options and before the endChar (currently skips variables)
+  const names = node.childrenForFieldName('argument')
     .filter(n => {
       switch (true) {
         case isMatchingOptionOrOptionValue(n, Option.create('-X', '--max-args')):
@@ -41,7 +43,27 @@ export function isArgparseDefinition(node: SyntaxNode) {
     })
     .filter(n => !isEscapeSequence(n) && isBefore(n, endChar))
     .filter(n => !isVariableExpansion(n) || n.type !== 'variable_name');
-  return children.some(n => n.equals(node));
+
+  return names;
+}
+
+/**
+ * Checks if a node is an `argparse` definition variable
+ * NOTE: if the node in question is a variable expansion, it will be skipped.
+ * ```fish
+ * argparse --max-args=2 --ignore-unknown --stop-nonopt h/help 'n/name=?' 'x/exclusive' -- $argv
+ * ```
+ * Would return true for the following SyntaxNodes passed in:
+ * - `h/help`
+ * - `n/name=?`
+ * - `x/exclusive`
+ * @param node The node to check, where it's parent isCommandWithName(parent, 'argparse'), and it's not a switch
+ * @returns true if the node is an argparse definition variable (flags for the `argparse` command with be skipped)
+ */
+export function isArgparseVariableDefinitionName(node: SyntaxNode) {
+  if (!node.parent || !isCommandWithName(node.parent, 'argparse')) return false;
+  const children = findArgparseDefinitionNames(node.parent);
+  return !!children.some(n => n.equals(node));
 }
 
 export function convertNodeRangeWithPrecedingFlag(node: SyntaxNode) {
@@ -55,7 +77,7 @@ export function convertNodeRangeWithPrecedingFlag(node: SyntaxNode) {
   return range;
 }
 
-function getArgparseScopeModifier(document: LspDocument, node: SyntaxNode) {
+function getArgparseScopeModifier(document: LspDocument, _node: SyntaxNode): ScopeTag {
   const autoloadType = document.getAutoloadType();
   switch (autoloadType) {
     case 'conf.d':
@@ -63,7 +85,8 @@ function getArgparseScopeModifier(document: LspDocument, node: SyntaxNode) {
     case 'functions':
       return 'local';
     default:
-      return isTopLevelDefinition(node) ? 'global' : 'local';
+      // return isTopLevelDefinition(node) ? 'global' : 'local';
+      return 'local';
   }
 }
 
@@ -119,71 +142,46 @@ function createSelectionRange(node: SyntaxNode, flags: string[], flag: string, i
   return range;
 }
 
-export function findArgparseChildren(node: SyntaxNode): SyntaxNode[] {
-  const isBefore = (a: SyntaxNode, b: SyntaxNode) => a.startIndex < b.startIndex;
-  const children = node.childrenForFieldName('argument');
-  const endToken = children.find(n => isEndStdinCharacter(n));
-  if (!endToken) return children;
-  return children.filter(n => isBefore(n, endToken));
+// split the `h/help` into `h` and `help`
+function splitSlash(str: string): string[] {
+  const results = str.split('/')
+    .map(s => s.trim().replace(/-/g, '_'));
+
+  const maxResults = results.length < 2 ? results.length : 2;
+  return results.slice(0, maxResults);
 }
 
+// get the flag variable names from the argparse commands
+function getNames(flags: string[]) {
+  return flags.map(flag => {
+    return `_flag_${flag}`;
+  });
+}
+
+/**
+ * Process an argparse command and return all of the flag definitions as a `FishSymbol[]`
+ * @param document The LspDocument we are processing
+ * @param node The node we are processing, should be isCommandWithName(node, 'argparse')
+ * @param children The children symbols of the current FishSymbol's we are processing (likely empty)
+ * @returns An array of FishSymbol's that represent the flags defined in the argparse command
+ */
 export function processArgparseCommand(document: LspDocument, node: SyntaxNode, children: FishSymbol[] = []) {
-  const modifier = getArgparseScopeModifier(document, node);
-
-  // find the `--` end token
-  const endChar = node.children.find(node => isEndStdinCharacter(node));
-  if (!endChar) return [];
-
-  // split the `h/help` into `h` and `help`
-  function splitSlash(str: string): string[] {
-    const results = str.split('/')
-      .map(s => s.trim().replace(/-/g, '_'));
-
-    const maxResults = results.length < 2 ? results.length : 2;
-    return results.slice(0, maxResults);
-  }
-
-  function getNames(flags: string[]) {
-    return flags.map(flag => {
-      return `_flag_${flag}`;
-    });
-  }
-
-  // find the parent function or program
-  // find all flags before the `--` end token
-  const isBefore = (a: SyntaxNode, b: SyntaxNode) => a.startIndex < b.startIndex;
-  const focuesedNodes = node.childrenForFieldName('argument')
-    .filter(n => {
-      switch (true) {
-        case isMatchingOptionOrOptionValue(n, Option.create('-X', '--max-args')):
-        case isMatchingOptionOrOptionValue(n, Option.create('-N', '--min-args')):
-        case isMatchingOptionOrOptionValue(n, Option.create('-x', '--exclusive')):
-        case isMatchingOptionOrOptionValue(n, Option.create('-n', '--name')):
-        case isMatchingOption(n, Option.create('-h', '--help')):
-        case isMatchingOption(n, Option.create('-s', '--stop-nonopt')):
-        case isMatchingOption(n, Option.create('-i', '--ignore-unknown')):
-          return false;
-        default:
-          return true;
-      }
-    })
-    .filter(n => !isEscapeSequence(n) && isBefore(n, endChar))
-    .filter(n => !isVariableExpansion(n) || n.type !== 'variable_name');
-
   const result: FishSymbol[] = [];
+  // get the scope modifier
+  const modifier = getArgparseScopeModifier(document, node);
+  // array of nodes that are `argparse` flags
+  const focuesedNodes = findArgparseDefinitionNames(node);
+  // build the flags, and store them in the result array
   for (const n of focuesedNodes) {
-    let flagNames = n?.text;
+    let flagNames = n.text;
     if (!flagNames) continue;
-    if (isString(n)) {
-      flagNames = flagNames.slice(1, -1);
-    }
-    if (flagNames.includes('=')) {
-      flagNames = flagNames.slice(0, flagNames.indexOf('='));
-    }
-
+    // fixup the flag names for strings and concatenated flags
+    if (isString(n)) flagNames = flagNames.slice(1, -1);
+    if (flagNames.includes('=')) flagNames = flagNames.slice(0, flagNames.indexOf('='));
+    // split the text into corresponding flags and convert them to `_flag_` format
     const seenFlags = splitSlash(flagNames);
     const names = getNames(seenFlags);
-    // add all seenFlags to the `result: Symb[]` array
+    // add all seenFlags to the `result: FishSymbol[]` array
     const flags = names.map((flagName, idx) => {
       const selectedRange = createSelectionRange(n, seenFlags, flagName, idx);
       return FishSymbol.fromObject({

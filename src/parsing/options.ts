@@ -298,24 +298,25 @@ export function findOptionsSet(nodes: SyntaxNode[], options: Option[]): OptionVa
 }
 
 export function findOptions(nodes: SyntaxNode[], options: Option[]): { remaining: SyntaxNode[]; found: OptionValueMatch[]; unused: Option[]; } {
-  const result: {
-    remaining: SyntaxNode[];
-    found: OptionValueMatch[];
-    unused: Option[];
-  } = { remaining: [], found: [], unused: [] };
-  result.unused = Array.from(options);
+  const remaining: SyntaxNode[] = [];
+  const found: OptionValueMatch[] = [];
+  const unused = Array.from(options);
   for (const node of nodes) {
     const values = options.filter(o => o.isSet(node));
     if (values.length === 0 && !isOption(node)) {
-      result.remaining.push(node);
+      remaining.push(node);
       continue;
     }
     values.forEach(option => {
-      result.unused.splice(result.unused.indexOf(option), 1);
-      result.found.push({ option, value: node });
+      unused.splice(unused.indexOf(option), 1);
+      found.push({ option, value: node });
     });
   }
-  return result;
+  return {
+    remaining,
+    found,
+    unused,
+  };
 }
 
 export function isMatchingOption(node: SyntaxNode, ...option: Option[]): boolean {
