@@ -11,6 +11,20 @@ import { SyntaxNode } from 'web-tree-sitter';
 import { FishAlias } from './alias';
 import { env } from '../utils/env-manager';
 
+// IF YOU ARE READING THIS FILE, PLEASE FEEL FREE TO REFACTOR IT (sorry my brain is fried)
+
+/**
+ * Since a SyntaxNode's text could equal something like:
+ * ```fish
+ * # assume we are indented one level, (if_statement wont have leading spaces)
+ * if true
+ *         echo "Hello, world!"
+ *     end
+ * ```
+ * We want to remove a single indentation level from the text, after the first line.
+ * @param node The SyntaxNode to unindent
+ * @returns The unindented text of the SyntaxNode (the last line's indentation amount will be how much is removed from the rest of the lines)
+ */
 export function unindentNestedSyntaxNode(node: SyntaxNode) {
   const lines = node.text.split('\n');
   if (lines.length > 1) {

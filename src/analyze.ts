@@ -123,17 +123,6 @@ export class Analyzer {
     position: Position,
   ): FishSymbol | undefined {
     const symbols = flattenNested(...this.cache.getDocumentSymbols(document.uri));
-    // const wordAtPoint = this.wordAtPoint(document.uri, position.line, position.character);
-    // const nodeAtPoint = this.nodeAtPoint(document.uri, position.line, position.character);
-    // return symbols.find((symbol) => {
-    //   if (symbol.kind === SymbolKind.Function && wordAtPoint === symbol.name) {
-    //     return symbol.scope.containsPosition(position);
-    //   }
-    //   if (symbol.fishKind === 'ARGPARSE' && wordAtPoint === symbol.name.replace(/^_flag_/, '')) {
-    //     return true;
-    //   }
-    //   return isPositionWithinRange(position, symbol.selectionRange);
-    // });
     return symbols.find((symbol) => {
       return isPositionWithinRange(position, symbol.selectionRange);
     });
@@ -170,10 +159,10 @@ export class Analyzer {
   }
 
   /**
-    * method that returns all the workspaceSymbols that are in the same scope as the given
-    * shell
-    * @returns {WorkspaceSymbol[]} array of all symbols
-    */
+   * method that returns all the workspaceSymbols that are in the same scope as the given
+   * shell
+   * @returns {WorkspaceSymbol[]} array of all symbols
+   */
   public getWorkspaceSymbols(query: string = ''): WorkspaceSymbol[] {
     if (config.fish_lsp_single_workspace_support && currentWorkspace.current) {
       const workspace = currentWorkspace.current;
@@ -304,35 +293,14 @@ export class Analyzer {
     return null;
   }
 
-  //public findCompletions(
-  //    document: LspDocument,
-  //    position: Position,
-  //    data: FishCompletionData
-  //): FishCompletionItem[] {
-  //    const symbols = this.cache.getDocumentSymbols(document.uri);
-  //    const localSymbols = findSymbolsForCompletion(symbols, position);
-  //
-  //    const globalSymbols = this.globalSymbols
-  //        .uniqueSymbols()
-  //        .filter((s) => !localSymbols.some((l) => s.name === l.name))
-  //        .map((s) => FishDocumentSymbol.toGlobalCompletion(s, data));
-  //
-  //    return [
-  //        ...localSymbols.map((s) =>
-  //            FishDocumentSymbol.toLocalCompletion(s, data)
-  //        ),
-  //        ...globalSymbols,
-  //    ];
-  //}
-
   getTree(document: LspDocument): Tree | undefined {
     return this.cache.getDocument(document.uri)?.tree;
   }
 
   /**
-     * Finds the rootnode given a LspDocument. If useCache is set to false, it will
-     * use the parser to parse the document passed in, and then return the rootNode.
-     */
+   * Finds the rootnode given a LspDocument. If useCache is set to false, it will
+   * use the parser to parse the document passed in, and then return the rootNode.
+   */
   getRootNode(document: LspDocument): SyntaxNode | undefined {
     return this.cache.getParsedTree(document.uri)?.rootNode;
   }
@@ -408,19 +376,19 @@ export class Analyzer {
   }
 
   /**
-     * Returns an object to be deconstructed, for the onComplete function in the server.
-     * This function is necessary because the normal onComplete parse of the LspDocument
-     * will commonly throw errors (user is incomplete typing a command, etc.). To avoid
-     * inaccurate parses for the entire document, we instead parse just the current line
-     * that the user is on, and send it to the shell script to complete.
-     *
-     * @Note: the position should not edited (pass in the direct position from the CompletionParams)
-     *
-     * @returns
-     *        line - the string output of the line the cursor is on
-     *        lineRootNode - the rootNode for the line that the cursor is on
-     *        lineCurrentNode - the last node in the line
-     */
+   * Returns an object to be deconstructed, for the onComplete function in the server.
+   * This function is necessary because the normal onComplete parse of the LspDocument
+   * will commonly throw errors (user is incomplete typing a command, etc.). To avoid
+   * inaccurate parses for the entire document, we instead parse just the current line
+   * that the user is on, and send it to the shell script to complete.
+   *
+   * @Note: the position should not edited (pass in the direct position from the CompletionParams)
+   *
+   * @returns
+   *        line - the string output of the line the cursor is on
+   *        lineRootNode - the rootNode for the line that the cursor is on
+   *        lineCurrentNode - the last node in the line
+   */
   public parseCurrentLine(
     document: LspDocument,
     position: Position,
@@ -466,8 +434,8 @@ export class Analyzer {
     return node.text.trim();
   }
   /**
-     * Find the node at the given point.
-     */
+   * Find the node at the given point.
+   */
   public nodeAtPoint(
     uri: string,
     line: number,
@@ -482,8 +450,8 @@ export class Analyzer {
   }
 
   /**
-     * Find the name of the command at the given point.
-     */
+   * Find the name of the command at the given point.
+   */
   public commandNameAtPoint(
     uri: string,
     line: number,

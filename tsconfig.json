@@ -1,5 +1,4 @@
 {
-  //"extends": "@tsconfig/node-lts/tsconfig.json",
   "extends": "@tsconfig/node22/tsconfig.json",
   "compilerOptions": {
     "incremental": true,
@@ -7,7 +6,6 @@
     "noUncheckedIndexedAccess": true,
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
-    "moduleResolution": "nodenext",
     "outDir": "./out",
     "rootDir": "./src",
     "baseUrl": ".",  // Base URL for module resolution

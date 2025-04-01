@@ -117,6 +117,7 @@
     "@commitlint/config-conventional": "^19.6.0",
     "@esdmr/tree-sitter-fish": "^3.5.2-0",
     "@tsconfig/node22": "^22.0.1",
+    "@types/eslint": "^9.6.1",
     "@types/jest": "^29.5.12",
     "@types/node": "^22.13.14",
     "@typescript-eslint/eslint-plugin": "^7.0.1",

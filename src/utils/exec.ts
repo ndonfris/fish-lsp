@@ -54,19 +54,6 @@ export async function execAsyncFish(cmd: string) {
   return await execAsync(`fish -c '${cmd}'`);
 }
 
-/**
- * Subshell print alias for inlay hints -- too slow for running on large documents
- * and/or workspaces
- */
-export async function execPrintLsp(line: string) {
-  const file = resolve(__dirname, '../../fish_files/printflsp.fish');
-  const child = await execFileAsync(file, [line]);
-  if (child.stderr) {
-    return child.stdout.trim();
-  }
-  return child.stdout.trim();
-}
-
 export function execFishNoExecute(filepath: string) {
   try {
     // execFileSync will throw on non-zero exit codes

@@ -1,17 +1,17 @@
 import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from './parser';
 import { Analyzer } from './analyze';
-import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, PublishDiagnosticsParams, DidChangeWorkspaceFoldersParams, ShowDocumentParams, ShowDocumentResult } from 'vscode-languageserver';
+import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, PublishDiagnosticsParams } from 'vscode-languageserver';
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
 import { formatDocumentContent } from './formatting';
 import { createServerLogger, Logger, logger } from './logger';
-import { symbolKindsFromNode, uriToPath, pathToUri } from './utils/translation';
+import { symbolKindsFromNode, uriToPath } from './utils/translation';
 import { getChildNodes } from './utils/tree-sitter';
 import { getVariableExpansionDocs, handleHover } from './hover';
 import { getDiagnostics } from './diagnostics/validate';
 import { DocumentationCache, initializeDocumentationCache } from './utils/documentation-cache';
-import { currentWorkspace, initializeDefaultFishWorkspaces } from './utils/workspace';
+import { initializeDefaultFishWorkspaces } from './utils/workspace';
 import { filterLastPerScopeSymbol } from './parsing/symbol';
 import { getRenameWorkspaceEdit, getReferenceLocations } from './workspace-symbol';
 import { CompletionPager, initializeCompletionPager, SetupData } from './utils/completion/pager';
@@ -30,7 +30,6 @@ import { createCodeActionHandler } from './code-actions/code-action-handler';
 import { createExecuteCommandHandler } from './command';
 import { getAllInlayHints } from './code-lens';
 import { setupProcessEnvExecFile } from './utils/process-env';
-import { SyncFileHelper } from './utils/file-operations';
 import { flattenNested } from './utils/flatten';
 import { isArgparseVariableDefinitionName } from './parsing/argparse';
 import { isSourceCommandArgumentName } from './parsing/source';
@@ -47,10 +46,10 @@ function initializeConfigFromInitializationOptions(params: InitializeParams, con
     logger.log({ 'server.initialize.params': params });
     logger.log();
   }
-  const previousLogFile = config.fish_lsp_logfile;
+  const previousLogFile = config.fish_lsp_log_file;
   updateConfigFromInitializationOptions(params.initializationOptions);
-  if (previousLogFile !== config.fish_lsp_logfile) {
-    createServerLogger(config.fish_lsp_logfile, true, connection.console, true);
+  if (previousLogFile !== config.fish_lsp_log_file) {
+    createServerLogger(config.fish_lsp_log_file, true, connection.console, true);
   }
   logger.log({ disable_error_codes: `${config.fish_lsp_diagnostic_disable_error_codes[0]}`, type: typeof config.fish_lsp_diagnostic_disable_error_codes[0] });
   const result = adjustInitializeResultCapabilitiesFromConfig(configHandlers, config);
@@ -58,17 +57,17 @@ function initializeConfigFromInitializationOptions(params: InitializeParams, con
   return result;
 }
 
+export let documents: LspDocuments | null = null;
+
 export default class FishServer {
   public static async create(
     connection: Connection,
     params: InitializeParams,
   ): Promise<{ server: FishServer; initializeResult: InitializeResult;}> {
     const initializeResult = initializeConfigFromInitializationOptions(params, connection);
-    const documents = new LspDocuments();
+    documents = new LspDocuments();
     const initUri = params.rootUri || params.rootPath || params.workspaceFolders?.at(0)?.uri;
     logger.log({ initUri, rootUri: params.rootUri, rootPath: params.rootPath, workspaceFolders: params.workspaceFolders });
-    documents = new LspDocuments();
-
     // Run these operations in parallel rather than sequentially
     const [
       parser,
@@ -153,7 +152,7 @@ export default class FishServer {
     connection.languages.inlayHint.on(this.onInlayHints.bind(this));
     connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
     connection.onExecuteCommand(executeHandler);
-    connection.window.showDocument = this.showDocument.bind(this);
+    // connection.window.showDocument = this.showDocument.bind(this);
 
     logger.log({ 'server.register': 'registered' });
   }
@@ -181,7 +180,7 @@ export default class FishServer {
     if (this.docs.open(uri, params.textDocument)) {
       const doc = this.docs.get(uri);
       if (doc) {
-        currentWorkspace.updateCurrent(doc);
+        // currentWorkspace.updateCurrent(doc);
         this.logParams('opened document: ', params.textDocument.uri);
         this.analyzer.analyze(doc);
         this.logParams('analyzed document: ', params.textDocument.uri);
@@ -206,7 +205,7 @@ export default class FishServer {
     const uri = uriToPath(params.textDocument.uri);
     const doc = this.docs.get(uri);
     if (!uri || !doc) return;
-    currentWorkspace.updateCurrent(doc);
+    // currentWorkspace.updateCurrent(doc);
 
     doc.applyEdits(doc.version + 1, ...params.contentChanges);
     this.analyzer.analyze(doc);
@@ -234,58 +233,6 @@ export default class FishServer {
   didSaveTextDocument(params: DidSaveTextDocumentParams): void {
     this.logParams('didSaveTextDocument', params);
     return;
-  }
-
-  private async showDocument(params: ShowDocumentParams): Promise<ShowDocumentResult> {
-    const { uri, takeFocus } = params;
-    this.logParams('showDocument', params);
-    const path = pathToUri(uri);
-    const content = SyncFileHelper.read(path, 'utf8');
-    const doc = LspDocument.create(uri, content);
-    documents!.open(path, doc.asTextDocumentItem());
-    currentWorkspace.updateCurrent(doc);
-    const promise = await this.openFileInClient(uri, takeFocus);
-    return Promise.resolve({ success: promise });
-  }
-
-  async openFileInClient(uri: string, takeFocus: boolean = true) {
-    if (!this.clientSupportsShowDocument) {
-      logger.log('Client does not support showing documents');
-      this.connection.window.showWarningMessage(`Cannot open file: ${uri} (client doesn't support this feature)`);
-      return false;
-    }
-
-    try {
-      const result = await this.connection.sendRequest<LSP.ShowDocumentResult>('window/showDocument', {
-        uri,
-        takeFocus,
-      });
-      return result.success;
-    } catch (error) {
-      logger.log(`Error opening file: ${error}`);
-      return false;
-    }
-  }
-
-  didChangeWorkspace(e: DidChangeWorkspaceFoldersParams) {
-    this.logParams('didChangeWorkspaceFolders', e);
-    e.event.added.forEach(async folder => {
-      if (currentWorkspace.workspaceExists(folder.uri)) {
-        logger.log('current workspace already exists');
-        return;
-      }
-      currentWorkspace.updateCurrentWorkspace(folder.uri);
-    });
-    e.event.removed.forEach(async folder => {
-      if (currentWorkspace.workspaceExists(folder.uri)) {
-        logger.log('current workspace already exists');
-        return;
-      }
-      currentWorkspace.removeWorkspace(folder.uri);
-    });
-    return {
-      event: this.startBackgroundAnalysis(),
-    };
   }
 
   // @see:
@@ -318,14 +265,8 @@ export default class FishServer {
       logger.logAsJson('onComplete got [NOT FOUND]: ' + uri);
       return this.completion.empty();
     }
-    const symbols = this.analyzer.getAllSymbolsBeforePosition(doc, params.position);
+    const symbols = this.analyzer.allSymbolsAccessibleAtPosition(doc, params.position);
     const { line, word } = this.analyzer.parseCurrentLine(doc, params.position);
-
-    // const items = await shellComplete(line.toString());
-    // logger.log({
-    //   location: 'server.onComplete',
-    //   items: items.slice(0, 5),
-    // });
 
     if (!line) return await this.completion.completeEmpty(symbols);
 
@@ -394,26 +335,6 @@ export default class FishServer {
     if (!doc) return [];
 
     const symbols = this.analyzer.cache.getDocumentSymbols(doc.uri);
-    // const globals = symbols.filter(s => s.kind === SymbolKind.Function && s.scope.scopeTag === 'global');
-    // const toSearchUris: string[] = [];
-    // for (const sym of globals) {
-    //   logger.log({ globalSym: sym });
-    //   toSearchUris.push(...this.analyzer.getMissingAutoloadedFiles(sym.uri, sym.name));
-    // }
-    // for (const uri of toSearchUris) {
-    //   const file = this.docs.get(uri);
-    //   logger.log({ onDocumentSymbols: `file to analyze ${file}` });
-    //   if (file) {
-    //     this.analyzer.analyze(file);
-    //   } else {
-    //     logger.log({ onDocumentSymbols: `file not found ${uri}` });
-    //     const toAnalyzeDoc = await this.docs.getDocument(uri);
-    //     logger.log({ onDocumentSymbols: `file to analyze ${toAnalyzeDoc?.uri}` });
-    //     if (!toAnalyzeDoc) continue;
-    //     this.analyzer.analyze(toAnalyzeDoc);
-    //   }
-    // }
-    //
     return filterLastPerScopeSymbol(symbols);
   }
 
@@ -461,6 +382,14 @@ export default class FishServer {
       return null;
     }
 
+    if (isSourceCommandArgumentName(current)) {
+      return handleSourceArgumentHover(this.analyzer, current);
+    }
+
+    if (current.parent && isSourceCommandArgumentName(current.parent)) {
+      return handleSourceArgumentHover(this.analyzer, current.parent);
+    }
+
     if (isAliasDefinitionName(current)) {
       return this.analyzer.getDefinition(doc, params.position).toHover();
     }
@@ -478,14 +407,6 @@ export default class FishServer {
         current,
         this.documentationCache,
       );
-    }
-
-    if (isSourceCommandArgumentName(current)) {
-      return handleSourceArgumentHover(this.analyzer, current);
-    }
-
-    if (current.parent && isSourceCommandArgumentName(current.parent)) {
-      return handleSourceArgumentHover(this.analyzer, current.parent);
     }
 
     const { kindType, kindString } = symbolKindsFromNode(current);
@@ -746,19 +667,6 @@ export default class FishServer {
     if (!doc) return { uri: params.uri, diagnostics };
 
     const { rootNode } = this.parser.parse(doc.getText());
-    // const t = getDiagnostics(rootNode, doc)
-    // logger.log({
-    //   diagnostics: t.map(d => d.code),
-    // })
-
-    // this.connection.sendDiagnostics({ uri: doc.uri, diagnostics: [
-    //   ...diagnostics,
-    //   ...getDiagnostics(rootNode, doc),
-    // ]});
-    // const defaultDiagnostics = getDiagnostics(rootNode, doc);
-    // const noExecuteDiagnostics = execFishNoExecute(doc.getFilePath()!);
-    // const noExecuteDiagnostics = runNoExecuteDiagnostic(doc);
-    // const allDiagnostics = [...defaultDiagnostics, ...noExecuteDiagnostics];
     // logger.log({ allDiagnostics: allDiagnostics.map(d => d.code + ':' + d.message + ':' + d.source) });
     return { uri: params.uri, diagnostics: getDiagnostics(rootNode, doc) };
   }
@@ -820,31 +728,3 @@ export default class FishServer {
   }
 }
 
-/**
- * ERROR:
- * /home/user/repos/fish-lsp.git/feat.seperating-workspaces-and-other-env-stuff/node_modules/vscode-languageserver/lib/common/workspaceFolder.js:35
- *              throw new Error('Client doesn\'t support sending workspace folder change events.');
- */
-export function onDidChangeWorkspaceFolders(_connection: Connection, server: FishServer) {
-  return async function(event: LSP.WorkspaceFoldersChangeEvent) {
-    // Handle added workspaces
-    logger.log('didChangeWorkspaceFolders', event);
-    event.added.forEach(async folder => {
-      if (currentWorkspace.workspaceExists(folder.uri)) {
-        logger.log('current workspace already exists');
-        return;
-      }
-      currentWorkspace.updateCurrentWorkspace(folder.uri);
-    });
-    event.removed.forEach(async folder => {
-      if (currentWorkspace.workspaceExists(folder.uri)) {
-        logger.log('current workspace already exists');
-        return;
-      }
-      currentWorkspace.removeWorkspace(folder.uri);
-    });
-
-    // Re-index workspaces
-    await server.startBackgroundAnalysis();
-  };
-}
