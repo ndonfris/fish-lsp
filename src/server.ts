@@ -21,7 +21,7 @@ import { FishCompletionList } from './utils/completion/list';
 import { PrebuiltDocumentationMap, getPrebuiltDocUrl } from './utils/snippets';
 import { findParentCommand, isAliasDefinitionName, isCommand, isOption, isReturnStatusNumber, isVariableDefinition } from './utils/node-types';
 import { adjustInitializeResultCapabilitiesFromConfig, configHandlers, config, updateConfigFromInitializationOptions } from './config';
-import { enrichToMarkdown } from './documentation';
+import { enrichToMarkdown, handleSourceArgumentHover } from './documentation';
 import { getAliasedCompletionItemSignature } from './signature';
 import { CompletionItemMap } from './utils/completion/startup-cache';
 import { getDocumentHighlights } from './document-highlight';
@@ -33,6 +33,7 @@ import { setupProcessEnvExecFile } from './utils/process-env';
 import { SyncFileHelper } from './utils/file-operations';
 import { flattenNested } from './utils/flatten';
 import { isArgparseVariableDefinitionName } from './parsing/argparse';
+import { isSourceCommandArgumentName } from './parsing/source';
 
 // @TODO
 export type SupportedFeatures = {
@@ -317,7 +318,7 @@ export default class FishServer {
       logger.logAsJson('onComplete got [NOT FOUND]: ' + uri);
       return this.completion.empty();
     }
-    const symbols = this.analyzer.allSymbolsAccessibleAtPosition(doc, params.position);
+    const symbols = this.analyzer.getAllSymbolsBeforePosition(doc, params.position);
     const { line, word } = this.analyzer.parseCurrentLine(doc, params.position);
 
     // const items = await shellComplete(line.toString());
@@ -477,6 +478,14 @@ export default class FishServer {
         current,
         this.documentationCache,
       );
+    }
+
+    if (isSourceCommandArgumentName(current)) {
+      return handleSourceArgumentHover(this.analyzer, current);
+    }
+
+    if (current.parent && isSourceCommandArgumentName(current.parent)) {
+      return handleSourceArgumentHover(this.analyzer, current.parent);
     }
 
     const { kindType, kindString } = symbolKindsFromNode(current);

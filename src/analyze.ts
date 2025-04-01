@@ -4,7 +4,7 @@ import * as LSP from 'vscode-languageserver';
 import { isPositionWithinRange, getChildNodes } from './utils/tree-sitter';
 import { LspDocument } from './document';
 import { isAliasDefinitionName, isCommand, isCommandName } from './utils/node-types';
-import { pathToUri, symbolKindToString } from './utils/translation';
+import { pathToUri, symbolKindToString, uriToPath } from './utils/translation';
 import { existsSync } from 'fs';
 import { currentWorkspace, workspaces } from './utils/workspace';
 import { findDefinitionSymbols } from './workspace-symbol';
@@ -16,7 +16,7 @@ import { SyncFileHelper } from './utils/file-operations';
 import { filterLastPerScopeSymbol, FishSymbol, processNestedTree } from './parsing/symbol';
 import { flattenNested } from './utils/flatten';
 import { isArgparseVariableDefinitionName } from './parsing/argparse';
-import { createSourceResources, reachableSources, SourceResource, symbolsFromResource } from './parsing/source';
+import { getExpandedSourcedFilenameNode, isSourceCommandArgumentName, reachableSources, SourceResource, symbolsFromResource } from './parsing/source';
 
 export class Analyzer {
   protected parser: Parser;
@@ -53,18 +53,17 @@ export class Analyzer {
       tree.rootNode,
     );
     const commands = this.getCommandNames(document);
-    const sourced = createSourceResources(this, document);
 
     return AnalyzedDocument.create(
       document,
       documentSymbols,
       commands,
       tree,
-      sourced,
     );
   }
 
-  public async analyzePath(path: string): Promise<FishSymbol[]> {
+  public analyzePath(rawFilePath: string): FishSymbol[] {
+    const path = uriToPath(rawFilePath);
     const content = SyncFileHelper.read(path, 'utf8');
     const document = LspDocument.create(pathToUri(path), content);
     return this.analyze(document);
@@ -213,6 +212,15 @@ export class Analyzer {
     document: LspDocument,
     position: Position,
   ): LSP.Location[] {
+    // handle source argument definition location
+    const node = this.nodeAtPoint(document.uri, position.line, position.character);
+    if (node && isSourceCommandArgumentName(node)) {
+      return this.getSourceDefinitionLocation(node);
+    }
+    if (node && node.parent && isSourceCommandArgumentName(node.parent)) {
+      return this.getSourceDefinitionLocation(node.parent);
+    }
+
     const symbol = this.getDefinition(document, position) as FishSymbol;
     if (symbol) {
       return [
@@ -242,6 +250,28 @@ export class Analyzer {
             end: { line: 0, character: 0 },
           });
         });
+      }
+    }
+    return [];
+  }
+
+  /**
+   * Gets the location of the sourced file for the given source command argument name node.
+   */
+  private getSourceDefinitionLocation(
+    node: SyntaxNode,
+  ): LSP.Location[] {
+    if (node && isSourceCommandArgumentName(node)) {
+      const expanded = getExpandedSourcedFilenameNode(node) as string;
+      let sourceDoc = this.getDocumentFromPath(expanded);
+      if (!sourceDoc) {
+        this.analyzePath(expanded); // find the filepath & analyze it
+        sourceDoc = this.getDocumentFromPath(expanded); // reset the sourceDoc to new value
+      }
+      if (sourceDoc) {
+        return [
+          Location.create(sourceDoc!.uri, LSP.Range.create(0, 0, 0, 0)),
+        ];
       }
     }
     return [];

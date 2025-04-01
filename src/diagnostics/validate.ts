@@ -5,7 +5,6 @@ import { findEnclosingScope, getChildNodes, getRange } from '../utils/tree-sitte
 import { containsRange } from '../utils/tree-sitter';
 import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter, isMatchingCompleteOptionIsCommand, LocalFunctionCallType, isArgparseWithoutEndStdin, isFishLspDeprecatedVariableName, getDeprecatedFishLspMessage } from './node-types';
 import { ErrorCodes } from './error-codes';
-import { SyncFileHelper } from '../utils/file-operations';
 import { config } from '../config';
 import { DiagnosticCommentsHandler } from './comments-handler';
 import { logger } from '../logger';
@@ -108,7 +107,7 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
       diagnostics.push(FishDiagnostic.create(ErrorCodes.usedUnviersalDefinition, node));
     }
 
-    if (isSourceFilename(node) && node.type !== 'subshell' && node.text.includes('/') && !SyncFileHelper.exists(node.text) && handler.isCodeEnabled(ErrorCodes.sourceFileDoesNotExist)) {
+    if (isSourceFilename(node) && handler.isCodeEnabled(ErrorCodes.sourceFileDoesNotExist)) {
       diagnostics.push(FishDiagnostic.create(ErrorCodes.sourceFileDoesNotExist, node));
     }
 

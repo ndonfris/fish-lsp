@@ -2,6 +2,7 @@ import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { isCommand, isCommandName, isCommandWithName, isEndStdinCharacter, isIfOrElseIfConditional, isMatchingOption, isOption, isString, isVariableDefinitionName } from '../utils/node-types';
 import { getChildNodes, isNodeWithinOtherNode } from '../utils/tree-sitter';
 import { Option } from '../parsing/options';
+import { isExistingSourceFilenameNode, isSourceCommandArgumentName } from '../parsing/source';
 
 type startTokenType = 'function' | 'while' | 'if' | 'for' | 'begin' | '[' | '{' | '(' | "'" | '"';
 type endTokenType = 'end' | "'" | '"' | ']' | '}' | ')';
@@ -79,8 +80,8 @@ export function isUniversalDefinition(node: SyntaxNode): boolean {
 export function isSourceFilename(node: SyntaxNode): boolean {
   const parent = node.parent;
   if (!parent) return false;
-  if (isCommandWithName(parent, 'source') && parent.childCount === 2) {
-    return parent.child(1)?.equals(node) || false;
+  if (isSourceCommandArgumentName(node)) {
+    return !isExistingSourceFilenameNode(node);
   }
   return false;
 }

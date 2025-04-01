@@ -17,19 +17,19 @@ export function isSourceCommandName(node: SyntaxNode) {
 }
 
 export function isSourceCommandWithArgument(node: SyntaxNode) {
-  return isSourceCommandName(node) && node.childCount > 1;
+  return isSourceCommandName(node) && node.childCount > 1 && node.child(1)?.text !== '-';
 }
 
 export function isSourceCommandArgumentName(node: SyntaxNode) {
   if (node.parent && isSourceCommandWithArgument(node.parent)) {
-    return node.parent?.child(1)?.equals(node) && node.isNamed;
+    return node.parent?.child(1)?.equals(node) && node.isNamed && node.text !== '-';
   }
   return false;
 }
 
 export function isSourcedFilename(node: SyntaxNode) {
   if (node.parent && isSourceCommandName(node.parent)) {
-    return node.parent?.child(1)?.equals(node) && node.isNamed;
+    return node.parent?.child(1)?.equals(node) && node.isNamed && node.text !== '-';
   }
   return false;
 }
