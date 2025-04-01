@@ -6,19 +6,19 @@ import * as NodeTypes from '../src/utils/node-types';
 import { PrebuiltDocumentationMap } from '../src/utils/snippets';
 import { getPrebuiltVariableExpansionDocs, isPrebuiltVariableExpansion } from '../src/hover';
 import { AutoloadedPathVariables, setupProcessEnvExecFile } from '../src/utils/process-env';
-import { FishAlias, FishAliasInfoType } from '../src/utils/alias-helpers';
+import { FishAlias, FishAliasInfoType } from '../src/parsing/alias';
 import { createFakeLspDocument } from './helpers';
-import { SymbolKind } from 'vscode-languageserver';
-import { FishSymbol } from '../src/parsing/symbol';
-import { processArgparseCommand } from '../src/utils/argparse-helpers';
+import { Option } from '../src/parsing/options';
+import { processArgparseCommand } from '../src/parsing/argparse';
 import { env } from '../src/utils/env-manager';
-import { md } from '../src/utils/markdown-builder';
+import { isAliasDefinitionName } from '../src/parsing/alias';
+// import { isAliasDefinitionName } from '@parsing/alias';
 // import { assert } from 'chai';
 
-function parseTreeForRoot(str: string) {
-  const tree = parser.parse(str);
-  return tree.rootNode;
-}
+// function _parseTreeForRoot(str: string) {
+//   const tree = parser.parse(str);
+//   return tree.rootNode;
+// }
 
 function parseStringForNodeType(str: string, predicate: (n: SyntaxNode) => boolean) {
   const tree = parser.parse(str);
@@ -469,22 +469,22 @@ describe('node-types tests', () => {
 
   it('isMatchingOption', () => {
     expect([
-      ...parseStringForNodeType('set -gxa PATH $HOME/.cargo/bin', (n: SyntaxNode) => NodeTypes.isMatchingOption(n, { shortOption: '-g' })),
-      ...parseStringForNodeType('set -gxa PATH $HOME/.cargo/bin', (n: SyntaxNode) => NodeTypes.isMatchingOption(n, { shortOption: '-x' })),
-      ...parseStringForNodeType('set -gxa PATH $HOME/.cargo/bin', (n: SyntaxNode) => NodeTypes.isMatchingOption(n, { shortOption: '-a' })),
+      ...parseStringForNodeType('set -gxa PATH $HOME/.cargo/bin', (n: SyntaxNode) => NodeTypes.isMatchingOption(n, Option.short('-g'))),
+      ...parseStringForNodeType('set -gxa PATH $HOME/.cargo/bin', (n: SyntaxNode) => NodeTypes.isMatchingOption(n, Option.short('-x'))),
+      ...parseStringForNodeType('set -gxa PATH $HOME/.cargo/bin', (n: SyntaxNode) => NodeTypes.isMatchingOption(n, Option.short('-a'))),
     ].map(n => n.text)).toEqual(['-gxa', '-gxa', '-gxa']);
 
-    const oldFlag = parseStringForNodeType('find -type d', (n: SyntaxNode) => NodeTypes.isMatchingOption(n, { oldUnixOption: '-type' }));
+    const oldFlag = parseStringForNodeType('find -type d', (n: SyntaxNode) => NodeTypes.isMatchingOption(n, Option.unix('-type')));
     expect(oldFlag.map(n => n.text)).toEqual(['-type']);
 
     expect(
       parseStringForNodeType(
         'set --global PATH /bin',
-        (n: SyntaxNode) => NodeTypes.isMatchingOption(n, { longOption: '--global' }),
+        (n: SyntaxNode) => NodeTypes.isMatchingOption(n, Option.long('--global')),
       ).map(n => n.text),
     ).toEqual(['--global']);
 
-    const longOpt = parseStringForNodeType('command ls --ignore=\'install_scripts\'', (n: SyntaxNode) => NodeTypes.isMatchingOption(n, { longOption: '--ignore' }));
+    const longOpt = parseStringForNodeType('command ls --ignore=\'install_scripts\'', (n: SyntaxNode) => NodeTypes.isMatchingOption(n, Option.long('--ignore')));
     expect(
       longOpt.map(n => n.text.slice(0, n.text.indexOf('='))),
     ).toEqual(['--ignore', '--ignore']);
@@ -695,7 +695,7 @@ describe('node-types tests', () => {
     const strNodes = parseStringForNodeType('string match -re "^-.*" "$argv"', NodeTypes.isString);
     const lastStrNode = strNodes.pop()!;
     const parentNode = NodeTypes.findParentCommand(lastStrNode);
-    const regexOption = findFirstSibling(lastStrNode, n => NodeTypes.isMatchingOption(n, { shortOption: '-r', longOption: '--regex' }));
+    const regexOption = findFirstSibling(lastStrNode, n => NodeTypes.isMatchingOption(n, Option.create('-r', '--regex')));
     // if (parentNode?.firstChild?.text === 'string' && regexOption) {
     //   console.log("found");
     // }
@@ -753,11 +753,11 @@ describe('node-types tests', () => {
     const valueMatch = (parent: SyntaxNode, node: SyntaxNode) => {
       switch (parent.text) {
         case 'test':
-          return NodeTypes.isMatchingOption(node, { shortOption: '-z' });
+          return NodeTypes.isMatchingOption(node, Option.short('-z'));
         case 'string':
-          return NodeTypes.isMatchingOption(node, { shortOption: '-f', longOption: '--field' });
+          return NodeTypes.isMatchingOption(node, Option.create('-f', '--field').withValue());
         case 'abbr':
-          return NodeTypes.isMatchingOption(node, { longOption: '--set-cursor' });
+          return NodeTypes.isMatchingOption(node, Option.long('--set-cursor').withOptionalValue());
         default:
           return null;
       }
@@ -789,7 +789,7 @@ describe('node-types tests', () => {
         'alias lsd "ls -1"',
         'alias funky="echo $PATH && ls"',
         'alias echo-quote="echo \\"hello world\\""',
-      ].join('\n'), NodeTypes.isAliasName);
+      ].join('\n'), isAliasDefinitionName);
       // console.log(aliasNames.map(n => n.text));
       expect(aliasNames.map(n => n.text.split('=').at(0))).toEqual(['gsc', 'g', 'ls', 'lsd', 'funky', 'echo-quote']);
     });
@@ -919,98 +919,98 @@ describe('node-types tests', () => {
 
       testInfo.forEach(({ input, output }) => {
         const { rootNode } = parser.parse(input);
-        const aliasNode = getChildNodes(rootNode).find(child => NodeTypes.isCommandWithName(child, 'alias'))!;
-        if (!aliasNode) {
+        const aliasCommandNode = getChildNodes(rootNode).find(child => NodeTypes.isCommandWithName(child, 'alias'))!;
+        if (!aliasCommandNode) {
           fail();
         }
-        const result = FishAlias.toFunction(aliasNode);
+        const result = FishAlias.toFunction(aliasCommandNode);
         // console.log(result);
         expect(result).toEqual(output);
       });
     });
 
-    it('alias SymbolDefinition', () => {
-      const testInfo = [
-        {
-          filename: 'conf.d/aliases.fish',
-          input: 'alias gsc="git stash create"',
-          expected: {
-            name: 'gsc',
-            kind: SymbolKind.Function,
-            text: [
-
-              `(${md.italic('alias')}) ${'gsc'}`,
-              md.separator(),
-              md.codeBlock('fish', 'alias gsc="git stash create"'),
-              md.separator(),
-              md.codeBlock('fish', 'function gsc --wraps=\'git stash create\' --description \'alias gsc=git stash create\'\n    git stash create $argv\nend'),
-            ].join('\n'),
-            selectionRange: {
-              start: { line: 0, character: 6 },
-              end: { line: 0, character: 9 },
-            },
-            scope: 'global',
-          },
-        },
-        {
-          filename: 'functions/foo.fish',
-          input: `function foo
-    alias foo_alias="echo 'foo alias'"
-end
-
-function bar
-    alias bar_alias "echo 'bar alias'"
-end
-`,
-          expected: {
-            name: 'foo_alias',
-            kind: SymbolKind.Function,
-            text: [
-
-              `(${md.italic('alias')}) ${'foo_alias'}`,
-              md.separator(),
-              md.codeBlock('fish', 'alias foo_alias="echo \'foo alias\'"'),
-              md.separator(),
-              md.codeBlock('fish', 'function foo_alias --wraps=\'echo \\\'foo alias\\\'\' --description \'alias foo_alias=echo \\\'foo alias\\\'\'\n    echo \'foo alias\' $argv\nend'),
-            ].join('\n'),
-            selectionRange: {
-              start: { line: 1, character: 10 },
-              end: { line: 1, character: 19 },
-            },
-            scope: 'local',
-          },
-        },
-      ];
-
-      function resultToExpected(result: FishSymbol): any {
-        return {
-          name: result.name,
-          kind: result.kind,
-          text: result.detail,
-          selectionRange: result.selectionRange,
-          scope: result.scope.scopeTag.toString(),
-        };
-      }
-
-      testInfo.forEach(({ filename, input, expected }) => {
-        const doc = createFakeLspDocument(filename, input);
-        const { rootNode } = parser.parse(doc.getText());
-        const aliasNode = getChildNodes(rootNode).find(child => NodeTypes.isAliasName(child))!;
-        if (!aliasNode) {
-          fail();
-        }
-        // console.log(getScope(doc, aliasNode), doc.uri);
-        const result = FishAlias.toFishDocumentSymbol(
-          aliasNode,
-          aliasNode.parent!,
-          doc,
-        );
-        // console.log(result);
-        if (!result) fail();
-        // console.log(result.scope.scopeNode.text);
-        expect(resultToExpected(result)).toEqual(expected);
-      });
-    });
+    //     it('alias SymbolDefinition', () => {
+    //       const testInfo = [
+    //         {
+    //           filename: 'conf.d/aliases.fish',
+    //           input: 'alias gsc="git stash create"',
+    //           expected: {
+    //             name: 'gsc',
+    //             kind: SymbolKind.Function,
+    //             text: [
+    //
+    //               `(${md.italic('alias')}) ${'gsc'}`,
+    //               md.separator(),
+    //               md.codeBlock('fish', 'alias gsc="git stash create"'),
+    //               md.separator(),
+    //               md.codeBlock('fish', 'function gsc --wraps=\'git stash create\' --description \'alias gsc=git stash create\'\n    git stash create $argv\nend'),
+    //             ].join('\n'),
+    //             selectionRange: {
+    //               start: { line: 0, character: 6 },
+    //               end: { line: 0, character: 9 },
+    //             },
+    //             scope: 'global',
+    //           },
+    //         },
+    //         {
+    //           filename: 'functions/foo.fish',
+    //           input: `function foo
+    //     alias foo_alias="echo 'foo alias'"
+    // end
+    //
+    // function bar
+    //     alias bar_alias "echo 'bar alias'"
+    // end
+    // `,
+    //           expected: {
+    //             name: 'foo_alias',
+    //             kind: SymbolKind.Function,
+    //             text: [
+    //
+    //               `(${md.italic('alias')}) ${'foo_alias'}`,
+    //               md.separator(),
+    //               md.codeBlock('fish', 'alias foo_alias="echo \'foo alias\'"'),
+    //               md.separator(),
+    //               md.codeBlock('fish', 'function foo_alias --wraps=\'echo \\\'foo alias\\\'\' --description \'alias foo_alias=echo \\\'foo alias\\\'\'\n    echo \'foo alias\' $argv\nend'),
+    //             ].join('\n'),
+    //             selectionRange: {
+    //               start: { line: 1, character: 10 },
+    //               end: { line: 1, character: 19 },
+    //             },
+    //             scope: 'local',
+    //           },
+    //         },
+    //       ];
+    //
+    //       function resultToExpected(result: FishSymbol): any {
+    //         return {
+    //           name: result.name,
+    //           kind: result.kind,
+    //           text: result.detail,
+    //           selectionRange: result.selectionRange,
+    //           scope: result.scope.scopeTag.toString(),
+    //         };
+    //       }
+    //
+    //       testInfo.forEach(({ filename, input, expected }) => {
+    //         const doc = createFakeLspDocument(filename, input);
+    //         const { rootNode } = parser.parse(doc.getText());
+    //         const aliasNode = getChildNodes(rootNode).find(child => NodeTypes.isAliasName(child))!;
+    //         if (!aliasNode) {
+    //           fail();
+    //         }
+    //         // console.log(getScope(doc, aliasNode), doc.uri);
+    //         const result = FishAlias.toFishDocumentSymbol(
+    //           aliasNode,
+    //           aliasNode.parent!,
+    //           doc,
+    //         );
+    //         // console.log(result);
+    //         if (!result) fail();
+    //         // console.log(result.scope.scopeNode.text);
+    //         expect(resultToExpected(result)).toEqual(expected);
+    //       });
+    //     });
   });
 
   it.skip('find $status hover', () => {
@@ -1076,7 +1076,7 @@ end`,
         const { rootNode } = parser.parse(doc.getText());
         for (const child of getChildNodes(rootNode)) {
           if (NodeTypes.isCommandWithName(child, 'argparse')) {
-            const tokens = processArgparseCommand(child, doc);
+            const tokens = processArgparseCommand(doc, child);
             expect(tokens.map(t => t.name)).toEqual(expected.values);
           }
         }

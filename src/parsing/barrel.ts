@@ -1,4 +1,3 @@
-
 import * as SetParser from './set';
 import * as ReadParser from './read';
 import * as ForParser from './for';
@@ -21,6 +20,14 @@ export const Parsers = {
   symbol: SymbolParser,
 };
 
+export const VariableDefinitionKeywords = [
+  'set',
+  'read',
+  'argparse',
+  'for',
+  'function',
+];
+
 /**
  * Checks if a node is a variable definition name.
  * Examples of variable names include:
@@ -40,13 +47,19 @@ export function isVariableDefinitionName(node: SyntaxNode) {
 /**
  * Checks if a node is a function definition name.
  * Examples of function names include:
- * - `alias foo bar # foo`
- * - `alias foo='bar' # foo`
- * - `function foo # foo`
+ * - `function baz; end;`       -> baz
  */
 export function isFunctionDefinitionName(node: SyntaxNode) {
-  return FunctionParser.isFunctionDefinitionName(node)
-    || AliasParser.isAliasDefinitionName(node);
+  return FunctionParser.isFunctionDefinitionName(node);
+}
+
+/**
+ * Checks if a node is a alias definition name.
+ * - `alias foo '__foo'`        -> foo
+ * - `alias bar='__bar'`        -> bar
+ */
+export function isAliasDefinitionName(node: SyntaxNode) {
+  return AliasParser.isAliasDefinitionName(node);
 }
 
 /**
@@ -54,8 +67,22 @@ export function isFunctionDefinitionName(node: SyntaxNode) {
  * Definition names are variable names (read/set/argparse/function flags), function names (alias/function),
  */
 export function isDefinitionName(node: SyntaxNode) {
-  return isVariableDefinitionName(node) || isFunctionDefinitionName(node);
+  return isVariableDefinitionName(node) || isFunctionDefinitionName(node) || isAliasDefinitionName(node);
 }
+
+export const NodeTypes = {
+  isVariableDefinitionName: isVariableDefinitionName,
+  isFunctionDefinitionName: isFunctionDefinitionName,
+  isAliasDefinitionName: isAliasDefinitionName,
+  isDefinitionName: isDefinitionName,
+  isSetVariableDefinitionName: SetParser.isSetVariableDefinitionName,
+  isReadVariableDefinitionName: ReadParser.isReadVariableDefinitionName,
+  isForVariableDefinitionName: ForParser.isForVariableDefinitionName,
+  isArgparseVariableDefinitionName: ArgparseParser.isArgparseVariableDefinitionName,
+  isFunctionVariableDefinitionName: FunctionParser.isFunctionVariableDefinitionName,
+  isMatchingOption: OptionsParser.isMatchingOption,
+};
+
 export const ParsingDefinitionNames = {
   isSetVariableDefinitionName: SetParser.isSetVariableDefinitionName,
   isReadVariableDefinitionName: ReadParser.isReadVariableDefinitionName,
@@ -66,14 +93,27 @@ export const ParsingDefinitionNames = {
   isAliasDefinitionName: AliasParser.isAliasDefinitionName,
 } as const;
 
-type DefinitionNodeNameTypes = 'isDefinitionName' | 'isVariableDefinitionName' | 'isFunctionDefinitionName';
+type DefinitionNodeNameTypes = 'isDefinitionName' | 'isVariableDefinitionName' | 'isFunctionDefinitionName' | 'isAliasDefinitionName';
 type DefinitionNodeChecker = (n: SyntaxNode) => boolean;
 export const DefinitionNodeNames: Record<DefinitionNodeNameTypes, DefinitionNodeChecker> = {
   isDefinitionName: isDefinitionName,
   isVariableDefinitionName: isVariableDefinitionName,
   isFunctionDefinitionName: isFunctionDefinitionName,
+  isAliasDefinitionName: isAliasDefinitionName,
 };
 
-export { Option } from './options';
+export * from './options';
 
 export const parsers = Object.keys(Parsers).map(key => Parsers[key as keyof typeof Parsers]);
+
+export {
+  SetParser,
+  ReadParser,
+  ForParser,
+  ArgparseParser,
+  AliasParser,
+  FunctionParser,
+  CompleteParser,
+  OptionsParser,
+  SymbolParser,
+};

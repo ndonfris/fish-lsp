@@ -1,5 +1,5 @@
 import { SyntaxNode } from 'web-tree-sitter';
-import { isLongOption, isOption, isShortOption, NodeOptionQueryText } from '../utils/node-types';
+import { isLongOption, isOption, isShortOption } from '../utils/node-types';
 import { getRange } from '../utils/tree-sitter';
 import * as LSP from 'vscode-languageserver';
 
@@ -7,12 +7,13 @@ type AlphaLowercaseChar = 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g' | 'h' | 'i' | 
 type AlphaUppercaseChar = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J' | 'K' | 'L' | 'M' | 'N' | 'O' | 'P' | 'Q' | 'R' | 'S' | 'T' | 'U' | 'V' | 'W' | 'X' | 'Y' | 'Z';
 type AlphaChar = AlphaLowercaseChar | AlphaUppercaseChar;
 type DigitChar = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9';
-type ExtraChar = '?' | '!' | '@' | '$' | '%' | '^' | '&' | '*' | '(' | ')' | '-' | '_' | '+' | '=' | '{' | '}' | '[' | ']' | '|' | ';' | ':' | '"' | "'" | '<' | '>' | ',' | '.' | '/' | '\\' | '~' | '`';
+type ExtraChar = '?' | '!' | '@' | '$' | '%' | '^' | '&' | '*' | '(' | ')' | '+' | '=' | '{' | '}' | '[' | ']' | '|' | ';' | ':' | '"' | "'" | '<' | '>' | ',' | '.' | '/' | '\\' | '~' | '`';
 type Character = AlphaChar | DigitChar | ExtraChar;
 
 export type ShortFlag = `-${Character}`;
 export type UnixFlag = `-${string}`;
 export type LongFlag = `--${string}`;
+export type Flag = ShortFlag | UnixFlag | LongFlag;
 
 const stringIsShortFlag = (str: string): str is ShortFlag => str.startsWith('-') && str.length === 2;
 const stringIsLongFlag = (str: string): str is LongFlag => str.startsWith('--');
@@ -46,6 +47,12 @@ export class Option {
   static short(shortOption: ShortFlag): Option {
     const option = new Option();
     option.shortOptions.push(shortOption);
+    return option;
+  }
+
+  static unix(unixOption: UnixFlag): Option {
+    const option = new Option();
+    option.unixOptions.push(unixOption);
     return option;
   }
 
@@ -213,7 +220,7 @@ export class Option {
   /**
    * Warning, does not search oldUnixFlag
    */
-  equalsRawOption(...rawOption: (ShortFlag | LongFlag)[]): boolean {
+  equalsRawOption(...rawOption: Flag[]): boolean {
     for (const option of rawOption) {
       if (stringIsLongFlag(option) && this.longOptions.includes(option)) {
         return true;
@@ -270,14 +277,6 @@ export class Option {
   toString(): string {
     return this.getAllFlags().join(', ');
   }
-
-  asNodeQueryOption(): NodeOptionQueryText {
-    return {
-      shortOption: this.shortOptions.at(0),
-      oldUnixOption: this.unixOptions.at(0),
-      longOption: this.longOptions.at(0),
-    };
-  }
 }
 
 export type OptionValueMatch = {
@@ -319,16 +318,25 @@ export function findOptions(nodes: SyntaxNode[], options: Option[]): { remaining
   };
 }
 
+/**
+ * Check if the node is a flag that is a part of the given option(s)
+ * @param node The node to check
+ * @param option The option(s) to check against
+ * @returns true if the node is a flag that is a part of the given option(s)
+ */
 export function isMatchingOption(node: SyntaxNode, ...option: Option[]): boolean {
+  if (!isOption(node)) return false;
   for (const opt of option) {
-    if (opt.matches(node)) {
-      return true;
-    }
+    if (opt.matches(node)) return true;
   }
   return false;
 }
 
+/**
+ * Check if the node is a flag that is a part of the given option(s)
+ */
 export function findMatchingOptions(node: SyntaxNode, ...options: Option[]): Option | undefined {
+  if (!isOption(node)) return;
   return options.find((opt: Option) => opt.matches(node));
 }
 

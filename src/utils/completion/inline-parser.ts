@@ -1,6 +1,6 @@
 import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from '../../parser';
-import { getChildNodes, getLeafs, getLastLeaf, firstAncestorMatch } from '../tree-sitter';
+import { getChildNodes, getLeafNodes, getLastLeafNode, firstAncestorMatch } from '../tree-sitter';
 import { isUnmatchedStringCharacter, isPartialForLoop } from '../node-types';
 import { FishCompletionItem } from './types';
 //import { CompletionItemsArrayTypes, WordsToNotCompleteAfter } from './utils/completion-types';
@@ -39,7 +39,7 @@ export class InlineParser {
     const { rootNode } = this.parser.parse(line);
     //let node = rootNode.descendantForPosition({row: 0, column: line.length-1});
     //const node = getLastLeaf(rootNode);
-    const node = getLastLeaf(rootNode);
+    const node = getLastLeafNode(rootNode);
     if (!node || node.text.trim() === '') {
       return { word: null, wordNode: null };
     }
@@ -72,7 +72,7 @@ export class InlineParser {
     }
     const { virtualLine, maxLength } = Line.appendEndSequence(line, wordNode);
     const { rootNode } = this.parser.parse(virtualLine);
-    const node = getLastLeaf(rootNode, maxLength);
+    const node = getLastLeafNode(rootNode, maxLength);
     if (!node) {
       return { command: null, commandNode: null };
     }
@@ -126,7 +126,7 @@ export class InlineParser {
     //if (wordPrecedesCommand(word)) return {command: null, commandNode: null};
     const { virtualLine, maxLength: _maxLength } = Line.appendEndSequence(line, wordNode);
     const rootNode = this.parse(virtualLine);
-    const node = getLastLeaf(rootNode);
+    const node = getLastLeafNode(rootNode);
     return node;
   }
 
@@ -141,8 +141,8 @@ export class InlineParser {
     }
     if (commandNode) {
       const node = firstAncestorMatch(commandNode, (n) => this.COMMAND_TYPES.includes(n.type))!;
-      const allLeafs = getLeafs(node).filter(leaf => leaf.startPosition.column < line.length);
-      return Math.max(allLeafs.length - 1, 1);
+      const allLeafNodes = getLeafNodes(node).filter(leaf => leaf.startPosition.column < line.length);
+      return Math.max(allLeafNodes.length - 1, 1);
     }
     return 0;
   }
@@ -264,10 +264,10 @@ export namespace Line {
       const errorNode = firstAncestorMatch(wordNode, (n) =>
         n.hasError,
       )!;
-      const leafs = getLeafs(errorNode);
+      const leafNodes = getLeafNodes(errorNode);
       virtualEOLChars =
                 ' ' +
-                completeForLoop.slice(leafs.length).join(' ') +
+                completeForLoop.slice(leafNodes.length).join(' ') +
                 endSequence;
     }
     return {

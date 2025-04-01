@@ -1,7 +1,6 @@
 import { SyntaxNode } from 'web-tree-sitter';
 import { isCommandWithName, isEndStdinCharacter, isString, isEscapeSequence, isVariableExpansion } from '../utils/node-types';
-
-import { isMatchingOption, isMatchingOptionOrOptionValue, Option } from './options';
+import { findOptions, Option } from './options';
 import { FishSymbol } from './symbol';
 import { LspDocument } from '../document';
 import { DefinitionScope, ScopeTag } from '../utils/definition-scope';
@@ -19,6 +18,16 @@ export const ArparseOptions = [
 
 const isBefore = (a: SyntaxNode, b: SyntaxNode) => a.startIndex < b.startIndex;
 
+export function findArgparseOptions(node: SyntaxNode) {
+  if (isCommandWithName(node, 'argparse')) return undefined;
+  const endChar = node.children.find(node => isEndStdinCharacter(node));
+  if (!endChar) return undefined;
+  const nodes = node.childrenForFieldName('argument')
+    .filter(n => !isEscapeSequence(n) && isBefore(n, endChar))
+    .filter(n => !isVariableExpansion(n) || n.type !== 'variable_name');
+  return findOptions(nodes, ArparseOptions);
+}
+
 export function findArgparseDefinitionNames(node: SyntaxNode): SyntaxNode[] {
   // check if the node is a 'argparse' command
   if (!node || !isCommandWithName(node, 'argparse')) return [];
@@ -26,25 +35,12 @@ export function findArgparseDefinitionNames(node: SyntaxNode): SyntaxNode[] {
   const endChar = node.children.find(node => isEndStdinCharacter(node));
   if (!endChar) return [];
   // get the children of the node that are not options and before the endChar (currently skips variables)
-  const names = node.childrenForFieldName('argument')
-    .filter(n => {
-      switch (true) {
-        case isMatchingOptionOrOptionValue(n, Option.create('-X', '--max-args')):
-        case isMatchingOptionOrOptionValue(n, Option.create('-N', '--min-args')):
-        case isMatchingOptionOrOptionValue(n, Option.create('-x', '--exclusive')):
-        case isMatchingOptionOrOptionValue(n, Option.create('-n', '--name')):
-        case isMatchingOption(n, Option.create('-h', '--help')):
-        case isMatchingOption(n, Option.create('-s', '--stop-nonopt')):
-        case isMatchingOption(n, Option.create('-i', '--ignore-unknown')):
-          return false;
-        default:
-          return true;
-      }
-    })
+  const nodes = node.childrenForFieldName('argument')
     .filter(n => !isEscapeSequence(n) && isBefore(n, endChar))
     .filter(n => !isVariableExpansion(n) || n.type !== 'variable_name');
 
-  return names;
+  const { remaining } = findOptions(nodes, ArparseOptions);
+  return remaining;
 }
 
 /**

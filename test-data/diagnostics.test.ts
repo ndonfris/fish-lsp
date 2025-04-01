@@ -16,6 +16,7 @@ import { getDiagnostics } from '../src/diagnostics/validate';
 import { DiagnosticComment, DiagnosticCommentsHandler, isDiagnosticComment, parseDiagnosticComment } from '../src/diagnostics/comments-handler';
 import { withTempFishFile } from './temp';
 import { workspaces } from '../src/utils/workspace';
+import { Option } from '../src/parsing/options';
 import { getNoExecuteDiagnostics } from '../src/diagnostics/no-execute-diagnostic';
 
 let parser: Parser;
@@ -418,8 +419,8 @@ awk
           if (isVariableDefinitionName(node)) {
             const parent = node.parent!;
             const isGlobal = findChildNodes(parent, n => {
-              return isMatchingOption(n, { shortOption: '-U', longOption: '--universal' })
-                || isMatchingOption(n, { shortOption: '-g', longOption: '--global' });
+              return isMatchingOption(n, Option.create('-U', '--universal'))
+                || isMatchingOption(n, Option.create('-g', '--global'));
             });
             if (isGlobal.length === 0) {
               definitions.push(node);

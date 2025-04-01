@@ -9,7 +9,7 @@ import * as Parser from 'web-tree-sitter';
 import { SyntaxNode } from 'web-tree-sitter';
 import { getChildNodes, getRange } from '../src/utils/tree-sitter';
 import { config } from '../src/config';
-import { isAliasName, isAliasWithName, isCommand, isVariableDefinitionName } from '../src/utils/node-types';
+import { isAliasDefinitionName, isAliasWithName, isCommand, isVariableDefinitionName } from '../src/utils/node-types';
 
 let parser: Parser;
 let testBuilder: ReturnType<typeof setupTestCallback>;

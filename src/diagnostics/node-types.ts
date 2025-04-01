@@ -1,6 +1,7 @@
 import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { isCommand, isCommandName, isCommandWithName, isEndStdinCharacter, isIfOrElseIfConditional, isMatchingOption, isOption, isString, isVariableDefinitionName } from '../utils/node-types';
 import { getChildNodes, isNodeWithinOtherNode } from '../utils/tree-sitter';
+import { Option } from '../parsing/options';
 
 type startTokenType = 'function' | 'while' | 'if' | 'for' | 'begin' | '[' | '{' | '(' | "'" | '"';
 type endTokenType = 'end' | "'" | '"' | ']' | '}' | ')';
@@ -70,7 +71,7 @@ export function isUniversalDefinition(node: SyntaxNode): boolean {
   if (!parent) return false;
 
   if (isCommandWithName(parent, 'read') || isCommandWithName(parent, 'set')) {
-    return isMatchingOption(node, { shortOption: '-U', longOption: '--universal' });
+    return isMatchingOption(node, Option.create('-U', '--universal'));
   }
   return false;
 }
@@ -91,7 +92,7 @@ export function isTestCommandVariableExpansionWithoutString(node: SyntaxNode): b
 
   if (!isCommandWithName(parent, 'test', '[')) return false;
 
-  if (isMatchingOption(previousSibling, { shortOption: '-n' }) || isMatchingOption(previousSibling, { shortOption: '-z' })) {
+  if (isMatchingOption(previousSibling, Option.short('-n'), Option.short('-z'))) {
     return !isString(node) && !!parent.child(2) && parent.child(2)!.equals(node);
   }
 
@@ -193,8 +194,8 @@ export function isConditionalWithoutQuietCommand(node: SyntaxNode) {
   }
 
   const flags = node?.childrenForFieldName('argument')
-    .filter(n => isMatchingOption(n, { shortOption: '-q', longOption: '--quiet' })
-      || isMatchingOption(n, { shortOption: '-q', longOption: '--query' })) || [];
+    .filter(n => isMatchingOption(n, Option.create('-q', '--quiet'))
+      || isMatchingOption(n, Option.create('-q', '--query'))) || [];
 
   return flags.length === 0;
 }
@@ -214,9 +215,12 @@ export type LocalFunctionCallType = {
 };
 
 export function isMatchingCompleteOptionIsCommand(node: SyntaxNode) {
-  return isMatchingOption(node, { shortOption: '-n', longOption: '--condition' })
-    || isMatchingOption(node, { shortOption: '-a', longOption: '--arguments' })
-    || isMatchingOption(node, { shortOption: '-c', longOption: '--command' });
+  // return isMatchingOption(node, { shortOption: '-n', longOption: '--condition' })
+  //   || isMatchingOption(node, { shortOption: '-a', longOption: '--arguments' })
+  //   || isMatchingOption(node, { shortOption: '-c', longOption: '--command' });
+  return isMatchingOption(node, Option.create('-n', '--condition').withValue())
+    || isMatchingOption(node, Option.create('-a', '--arguments').withValue())
+    || isMatchingOption(node, Option.create('-c', '--command').withValue());
 }
 
 export function isArgparseWithoutEndStdin(node: SyntaxNode) {

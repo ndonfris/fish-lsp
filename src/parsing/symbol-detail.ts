@@ -8,7 +8,7 @@ import { uriToReadablePath, uriToPath } from '../utils/translation';
 import { PrebuiltDocumentationMap } from '../utils/snippets';
 import { setModifierDetailDescriptor, SetModifiers } from './set';
 import { SyntaxNode } from 'web-tree-sitter';
-import { FishAlias } from '../utils/alias-helpers';
+import { FishAlias } from './alias';
 import { env } from '../utils/env-manager';
 
 export function unindentNestedSyntaxNode(node: SyntaxNode) {

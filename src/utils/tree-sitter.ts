@@ -1,11 +1,6 @@
-//import { existsSync } from 'fs'
 import { extname } from 'path';
-//import { pathToFileURL, URL } from 'url'
 import { Position, Range, URI } from 'vscode-languageserver';
 import { Point, SyntaxNode, Tree } from 'web-tree-sitter';
-// import { pathToFileURL } from 'url'; // typescript-language-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts
-// import vscodeUri from 'vscode-uri'; // typescript-language-server -> https://github.com/typescript-language-server/typescript-language-server/blob/master/src/document.ts
-// import { existsSync } from 'fs-extra';
 import { findSetDefinedVariable, isFunctionDefinition, isVariableDefinition, isFunctionDefinitionName, isVariable, isScope, isProgram, isCommandName, isForLoop, findForLoopVariable } from './node-types';
 
 /**
@@ -77,6 +72,42 @@ export function getParentNodes(child: SyntaxNode): SyntaxNode[] {
     current = current?.parent || null;
   }
   return result;
+}
+
+/**
+ * Generator function for finding parent nodes. Default behavior is to exclude the child node passed in.
+ * If you want to include the child node, pass in true as the second argument.
+ * @param {SyntaxNode} child - the child node to start from
+ * @param {boolean} [includeSelf] - if true, the child node is included in the results
+ * @returns {Generator<SyntaxNode>} - a generator that yields parent nodes
+ */
+export function* getParentNodesGen(child: SyntaxNode, includeSelf: boolean = false): Generator<SyntaxNode> {
+  let current: null | SyntaxNode = includeSelf ? child : child.parent;
+  while (current !== null) {
+    yield current;
+    current = current.parent;
+  }
+}
+
+/**
+ * Generator function for finding child nodes. Default behavior is to exclude the parent node passed in.
+ */
+export function* nodesGen(node: SyntaxNode) {
+  const queue: SyntaxNode[] = [node];
+
+  while (queue.length) {
+    const n = queue.shift();
+
+    if (!n) {
+      return;
+    }
+
+    if (n.children.length) {
+      queue.unshift(...n.children);
+    }
+
+    yield n;
+  }
 }
 
 export function findFirstParent(node: SyntaxNode, predicate: (node: SyntaxNode) => boolean) : SyntaxNode | null {
@@ -159,12 +190,20 @@ export function findFirstSibling(
   return null;
 }
 
+const findFirstParentFunctionOrProgram = (parent: SyntaxNode) => {
+  const result = findFirstParent(parent, n => isFunctionDefinition(n) || isProgram(n));
+  if (result) {
+    return result;
+  }
+  return parent;
+};
+
 export function findEnclosingScope(node: SyntaxNode) : SyntaxNode {
   let parent = node.parent || node;
   if (isFunctionDefinitionName(node)) {
-    return findFirstParent(parent, n => isFunctionDefinition(n) || isProgram(n)) || parent;
+    return findFirstParentFunctionOrProgram(parent);
   } else if (node.text === 'argv') {
-    parent = findFirstParent(node, n => isFunctionDefinition(n) || isProgram(n)) || parent;
+    parent = findFirstParentFunctionOrProgram(parent);
     return isFunctionDefinition(parent) ? parent.firstNamedChild || parent : parent;
   } else if (isVariable(node)) {
     parent = findFirstParent(node, n => isScope(n)) || parent;
@@ -508,74 +547,23 @@ export function isNodeWithinOtherNode(node: SyntaxNode, otherNode: SyntaxNode): 
   return isNodeWithinRange(node, getRange(otherNode));
 }
 
-export function* nodesGen(node: SyntaxNode) {
-  const queue: SyntaxNode[] = [node];
-
-  while (queue.length) {
-    const n = queue.shift();
-
-    if (!n) {
-      return;
-    }
-
-    if (n.children.length) {
-      queue.unshift(...n.children);
-    }
-
-    yield n;
-  }
-}
-
-export function getLeafs(node: SyntaxNode): SyntaxNode[] {
-  function gatherLeafs(node: SyntaxNode, leafs: SyntaxNode[] = []): SyntaxNode[] {
+export function getLeafNodes(node: SyntaxNode): SyntaxNode[] {
+  function gatherLeafNodes(node: SyntaxNode, leafNodes: SyntaxNode[] = []): SyntaxNode[] {
     if (node.childCount === 0 && node.text !== '') {
-      leafs.push(node);
-      return leafs;
+      leafNodes.push(node);
+      return leafNodes;
     }
     for (const child of node.children) {
-      leafs = gatherLeafs(child, leafs);
+      leafNodes = gatherLeafNodes(child, leafNodes);
     }
-    return leafs;
+    return leafNodes;
   }
-  return gatherLeafs(node);
+  return gatherLeafNodes(node);
 }
 
-export function getLastLeaf(node: SyntaxNode, maxIndex: number = Infinity): SyntaxNode {
-  const allLeafs = getLeafs(node).filter(leaf => leaf.startPosition.column < maxIndex);
-  return allLeafs[allLeafs.length - 1]!;
-}
-
-export function matchesArgument(node: SyntaxNode, argName: string) {
-  const splitNode = node.text.slice(0, node.text.lastIndexOf('='));
-  if (argName.startsWith('-') && !argName.startsWith('--')) {
-    return splitNode.startsWith('-') && splitNode.includes(argName.slice(1));
-  }
-  if (argName.startsWith('--')) {
-    return splitNode.startsWith('--') && splitNode.startsWith(argName.slice(2));
-  }
-  return splitNode === argName;
-}
-
-/**
- * @param command - the command node to search it's children, accepts both command and command name nodes
- * @param argName - the name of the argument to search for
- * @returns the value of the argument if found, otherwise null
- */
-export function getCommandArgumentValue(command: SyntaxNode, argName: string): SyntaxNode | null {
-  function getCommand(node: SyntaxNode) {
-    if (node.type === 'name' && node.parent) {
-      return node.parent;
-    }
-    return node;
-  }
-  const arg = getCommand(command).children.find(child => matchesArgument(child, argName));
-  if (!arg) {
-    return null;
-  }
-  const value = arg.text.includes('=')
-    ? arg
-    : arg.nextSibling;
-  return value;
+export function getLastLeafNode(node: SyntaxNode, maxIndex: number = Infinity): SyntaxNode {
+  const allLeafNodes = getLeafNodes(node).filter(leaf => leaf.startPosition.column < maxIndex);
+  return allLeafNodes[allLeafNodes.length - 1]!;
 }
 
 // Check out awk-language-server:

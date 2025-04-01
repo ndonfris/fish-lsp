@@ -3,7 +3,7 @@ import Parser, { SyntaxNode, Tree } from 'web-tree-sitter';
 import * as LSP from 'vscode-languageserver';
 import { isPositionWithinRange, getChildNodes } from './utils/tree-sitter';
 import { LspDocument } from './document';
-import { isAliasName, isCommand, isCommandName } from './utils/node-types';
+import { isAliasDefinitionName, isCommand, isCommandName } from './utils/node-types';
 import { pathToUri, symbolKindToString } from './utils/translation';
 import { existsSync } from 'fs';
 import { currentWorkspace, workspaces } from './utils/workspace';
@@ -190,7 +190,7 @@ export class Analyzer {
     const symbols: FishSymbol[] = findDefinitionSymbols(this, document, position);
     const wordAtPoint = this.wordAtPoint(document.uri, position.line, position.character);
     const nodeAtPoint = this.nodeAtPoint(document.uri, position.line, position.character);
-    if (nodeAtPoint && isAliasName(nodeAtPoint)) {
+    if (nodeAtPoint && isAliasDefinitionName(nodeAtPoint)) {
       return symbols.find(s => s.name === wordAtPoint) || symbols.pop()!;
     }
     if (nodeAtPoint && isArgparseVariableDefinitionName(nodeAtPoint)) {
@@ -375,7 +375,7 @@ export class Analyzer {
       return null;
     }
 
-    if (isAliasName(node)) {
+    if (isAliasDefinitionName(node)) {
       return node.text.split('=')[0]!.trim();
     }
 

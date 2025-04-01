@@ -9,6 +9,7 @@ import { FishAliasCompletionItem } from './utils/completion/types';
 import * as NodeTypes from './utils/node-types';
 import * as TreeSitter from './utils/tree-sitter';
 import { CompletionItemMap } from './utils/completion/startup-cache';
+import { Option } from './parsing/options';
 
 export function buildSignature(label: string, value: string) : SignatureInformation {
   return {
@@ -79,7 +80,7 @@ function getAllCommands(rootNode: SyntaxNode): SyntaxNode[] {
 }
 
 function getRegexOption(rootNode: SyntaxNode): SyntaxNode | undefined {
-  return TreeSitter.getChildNodes(rootNode).find(n => NodeTypes.isMatchingOption(n, { shortOption: '-r', longOption: '--regex' }));
+  return TreeSitter.getChildNodes(rootNode).find(n => NodeTypes.isMatchingOption(n, Option.create('-r', '--regex')));
 }
 
 function isStringWithRegex(line: string, regexOption: SyntaxNode | undefined): boolean {

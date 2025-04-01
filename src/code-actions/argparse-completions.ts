@@ -6,6 +6,7 @@ import { ChangeAnnotation, CodeAction, CodeActionKind, TextDocumentEdit, TextEdi
 import { extractFunctionWithArgparseToCompletionsFile } from './refactors';
 import { uriToReadablePath } from '../utils/translation';
 import { logger } from '../logger';
+import { Option } from '../parsing/options';
 
 export type CompleteFlag = {
   shortOption?: string;
@@ -37,10 +38,10 @@ function isSkipablePreviousOption(node: SyntaxNode): boolean {
   // argparse -N=1 --max-args=2
   // ```
   if (node.text.includes('=')) return false;
-  return isMatchingOption(node, { shortOption: '-N', longOption: '--min-args' }) ||
-    isMatchingOption(node, { shortOption: '-n', longOption: '--name' }) ||
-    isMatchingOption(node, { shortOption: '-x', longOption: '--exclusive' }) ||
-    isMatchingOption(node, { shortOption: '-X', longOption: '--max-args' });
+  return isMatchingOption(node, Option.create('-N', '--min-args')) ||
+    isMatchingOption(node, Option.create('-n', '--name')) ||
+    isMatchingOption(node, Option.create('-x', '--exclusive')) ||
+    isMatchingOption(node, Option.create('-X', '--max-args'));
 }
 
 export function findFlagsToComplete(node: SyntaxNode): CompleteFlag[] {
