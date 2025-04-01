@@ -15,7 +15,9 @@ import { findOptionsSet, LongFlag, ShortFlag } from '../src/parsing/options';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import { SymbolKind } from 'vscode-languageserver';
 import { md } from '../src/utils/markdown-builder';
-import { isFunctionDefinitionName } from '../src/parsing/function';
+// import { isFunctionDefinitionName } from '../src/parsing/function';
+import { getExpandedSourcedFilenameNode, isExistingSourceFilenameNode, isSourcedFilename, isSourceCommandName, isSourceCommandWithArgument } from '../src/parsing/source';
+import { SyncFileHelper } from '../src/utils/file-operations';
 
 let parser: Parser;
 type PrintClientTreeOpts = { log: boolean; };
@@ -45,6 +47,7 @@ describe('parsing symbols', () => {
   beforeEach(async () => {
     setupProcessEnvExecFile();
     parser = await initializeParser();
+    await setupProcessEnvExecFile();
   });
 
   describe('test options/flags vs shell completions', () => {
@@ -801,8 +804,161 @@ describe('parsing symbols', () => {
       });
     });
   });
+
+  describe('source', () => {
+    describe('isSourceCommandName()', () => {
+      it('input with 4 sources', () => {
+        const input = [
+          'source $__fish_data_dir/config.fish --help',
+          '. $__fish_data_dir/config.fish --help',
+          'source $__fish_data_dir/config.fish > /dev/null',
+          'thefuck --alias | source',
+        ].join('\n');
+        const { rootNode } = parser.parse(input);
+        const foundNodes = getChildNodes(rootNode).filter(isSourceCommandName);
+        expect(foundNodes).toHaveLength(4);
+      });
+    });
+
+    describe('isSourceCommandWithArgument()', () => {
+      it('source $__fish_data_dir/config.fish --help', () => {
+        const source = 'source $__fish_data_dir/config.fish --help';
+        const { rootNode } = parser.parse(source);
+        const foundNode = getChildNodes(rootNode).find(isSourceCommandWithArgument);
+        expect(foundNode).toBeDefined();
+      });
+
+      it('echo "complete -c foo -e" | source', () => {
+        const source = 'echo "complete -c foo -e" | source';
+        const { rootNode } = parser.parse(source);
+        const foundNode = getChildNodes(rootNode).find(isSourceCommandWithArgument);
+        expect(foundNode).toBeUndefined();
+      });
+    });
+
+    describe('isSourcedFilename() && isExistingSourcedFilenameNode())', () => {
+      describe('command syntax using source command: `source some_file`', () => {
+        it('Does not exist', () => {
+          const source = 'source __file_does_not_exist.fish';
+          const { rootNode } = parser.parse(source);
+          const foundNode = getChildNodes(rootNode).find(n => isSourcedFilename(n))!;
+          expect(foundNode).toBeDefined();
+          expect(foundNode.text).toBe('__file_does_not_exist.fish');
+          expect(isExistingSourceFilenameNode(foundNode)).toBeFalsy();
+        });
+
+        it('Does exist', () => {
+          const source = 'source $__fish_data_dir/config.fish';
+          const { rootNode } = parser.parse(source);
+          const foundNode = getChildNodes(rootNode).find(n => isSourcedFilename(n))!;
+          expect(foundNode).toBeDefined();
+          // console.log(foundNode.text);
+          const expanded = SyncFileHelper.expandEnvVars(foundNode.text);
+          console.log({
+            text: foundNode.text,
+            expanded,
+          });
+          expect(expanded.startsWith('$')).toBeFalsy();
+          expect(isExistingSourceFilenameNode(foundNode)).toBeTruthy();
+        });
+
+        it('Multiple arguments to source file', () => {
+          const source = [
+            'source $__fish_data_dir/config.fish --help',
+          ].join('\n');
+          const { rootNode } = parser.parse(source);
+          const foundNodes = getChildNodes(rootNode).filter(n => isSourcedFilename(n));
+          expect(foundNodes.length).toBe(1);
+          foundNodes.forEach(n => {
+            expect(isExistingSourceFilenameNode(n)).toBeTruthy();
+          });
+        });
+      });
+
+      describe('command syntax using dot: `. some_file`', () => {
+        it('Does not exist', () => {
+          const source = '. __file_does_not_exist.fish';
+          const { rootNode } = parser.parse(source);
+          const foundNode = getChildNodes(rootNode).find(n => isSourcedFilename(n))!;
+          expect(foundNode).toBeDefined();
+          expect(foundNode.text).toBe('__file_does_not_exist.fish');
+          expect(isExistingSourceFilenameNode(foundNode)).toBeFalsy();
+        });
+
+        it('Does exist', () => {
+          const source = '. $__fish_data_dir/config.fish';
+          const { rootNode } = parser.parse(source);
+          const foundNode = getChildNodes(rootNode).find(n => isSourcedFilename(n))!;
+          expect(foundNode).toBeDefined();
+          expect(SyncFileHelper.expandEnvVars(foundNode.text).startsWith('$')).toBeFalsy();
+          expect(isExistingSourceFilenameNode(foundNode)).toBeTruthy();
+        });
+
+        it('Multiple arguments to source file', () => {
+          const source = [
+            '. $__fish_data_dir/config.fish --help',
+          ].join('\n');
+          const { rootNode } = parser.parse(source);
+          const foundNodes = getChildNodes(rootNode).filter(n => isSourcedFilename(n));
+          expect(foundNodes.length).toBe(1);
+          foundNodes.forEach(n => {
+            expect(isExistingSourceFilenameNode(n)).toBeTruthy();
+          });
+        });
+      });
+
+      describe('pipe to source', () => {
+        it("echo 'complete -c foo -e' | source", () => {
+          const source = 'echo \'complete -c foo -e\' | source';
+          const { rootNode } = parser.parse(source);
+          const foundNode = getChildNodes(rootNode).find(n => isSourcedFilename(n));
+          expect(foundNode).toBeUndefined();
+        });
+      });
+
+      describe('source with redirection', () => {
+        it('source foo.fish > /dev/null', () => {
+          const source = 'source foo.fish > /dev/null';
+          const { rootNode } = parser.parse(source);
+          const foundNode = getChildNodes(rootNode).find(n => isSourcedFilename(n));
+          expect(foundNode).toBeDefined();
+          expect(foundNode!.text).toBe('foo.fish');
+        });
+      });
+
+      describe('find all sourced filepaths', () => {
+        it('5 source commands, 3 filepaths', () => {
+          const source = [
+            'source $__fish_data_dir/config.fish --help',
+            '. $__fish_data_dir/config.fish --help',
+            'source $__fish_data_dir/config.fish > /dev/null',
+            'thefuck --alias | source',
+            'echo "complete -c foo -e" | source',
+          ].join('\n');
+          const { rootNode } = parser.parse(source);
+          const sourceCommands = getChildNodes(rootNode).filter(n => isSourceCommandName(n));
+          expect(sourceCommands.length).toBe(5);
+          const sourcedFilenames = getChildNodes(rootNode).filter(n => isSourcedFilename(n));
+          expect(sourcedFilenames).toHaveLength(3);
+        });
+      });
+    });
+
+    describe('getExpandedSourcedFilenameNode()', () => {
+      it('source $__fish_data_dir/config.fish', () => {
+        const source = 'source $__fish_data_dir/config.fish';
+        const { rootNode } = parser.parse(source);
+        const foundNode = getChildNodes(rootNode).find(n => isSourcedFilename(n))!;
+        const expanded = getExpandedSourcedFilenameNode(foundNode);
+        expect(expanded).toBeDefined();
+      });
+    });
+  });
 });
 
+/////////////////////////////////////////////////////////////////////////
+// mini testing Option arrays
+/////////////////////////////////////////////////////////////////////////
 const _cmp_options = [
   Option.create('-c', '--command').withValue(),
   Option.create('-f', '--no-files'),

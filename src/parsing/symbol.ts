@@ -512,7 +512,7 @@ export function processNestedTree(document: LspDocument, ...nodes: SyntaxNode[])
   }
 
   /** add argv to script files */
-  if (!document.isAutoloaded()) {
+  if (!document.isAutoloadedUri()) {
     const programNode = nodes.find(node => node.type === 'program');
     if (programNode) symbols.unshift(...processArgvDefinition(document, programNode));
   }
