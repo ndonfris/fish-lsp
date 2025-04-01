@@ -13,9 +13,10 @@ import { logger } from './logger';
 import { execFileSync } from 'child_process';
 import { documents } from './server';
 import { SyncFileHelper } from './utils/file-operations';
-import { FishSymbol, processNestedTree } from './parsing/symbol';
+import { filterLastPerScopeSymbol, FishSymbol, processNestedTree } from './parsing/symbol';
 import { flattenNested } from './utils/flatten';
 import { isArgparseVariableDefinitionName } from './parsing/argparse';
+import { createSourceResources, reachableSources, SourceResource, symbolsFromResource } from './parsing/source';
 
 export class Analyzer {
   protected parser: Parser;
@@ -52,12 +53,21 @@ export class Analyzer {
       tree.rootNode,
     );
     const commands = this.getCommandNames(document);
+    const sourced = createSourceResources(this, document);
+
     return AnalyzedDocument.create(
       document,
       documentSymbols,
       commands,
       tree,
+      sourced,
     );
+  }
+
+  public async analyzePath(path: string): Promise<FishSymbol[]> {
+    const content = SyncFileHelper.read(path, 'utf8');
+    const document = LspDocument.create(pathToUri(path), content);
+    return this.analyze(document);
   }
 
   public async initiateBackgroundAnalysis(
@@ -301,6 +311,11 @@ export class Analyzer {
     return this.cache.getDocument(documentUri)?.document;
   }
 
+  getDocumentFromPath(path: string): LspDocument | undefined {
+    const uri = pathToUri(path);
+    return this.getDocument(uri);
+  }
+
   getDocumentSymbols(documentUri: string): FishSymbol[] {
     return this.cache.getDocumentSymbols(documentUri);
   }
@@ -308,6 +323,45 @@ export class Analyzer {
   getFlatDocumentSymbols(documentUri: string): FishSymbol[] {
     return this.cache.getFlatDocumentSymbols(documentUri);
   }
+
+  getSourced(document: LspDocument): SourceResource[] {
+    return this.cache.getDocument(document.uri)?.sourced || [];
+  }
+
+  getSourcedReachableAtNode(document: LspDocument, node: SyntaxNode): SourceResource[] {
+    const sourced = this.getSourced(document).filter((source) => source.scopeReachableFromNode(node));
+    if (sourced.length === 0) {
+      return [];
+    }
+    return reachableSources(sourced);
+  }
+
+  getAllSymbolsBeforePosition(
+    document: LspDocument,
+    position: Position,
+  ): FishSymbol[] {
+    const nodeAtPosition = this.nodeAtPoint(document.uri, position.line, position.character);
+    if (!nodeAtPosition) return [];
+
+    const reachableSymbols: FishSymbol[] = [
+      ...filterLastPerScopeSymbol(this.allSymbolsAccessibleAtPosition(document, position)),
+    ].reduce<FishSymbol[]>((acc, symbol) => {
+      const filtered = acc.filter(s => s.name !== symbol.name);
+      return [...filtered, symbol];
+    }, []);
+
+    const reachableNames: Set<string> = new Set(reachableSymbols.map(s => s.name));
+    const reachableSources = this.getSourcedReachableAtNode(document, nodeAtPosition);
+    for (const r of reachableSources) {
+      const symbols =
+        symbolsFromResource(this, r).filter(s => !reachableNames.has(s.name));
+      symbols.forEach(s => reachableNames.add(s.name));
+      reachableSymbols.push(...symbols);
+    }
+
+    return reachableSymbols;
+  }
+
   public parsePosition(
     document: LspDocument,
     position: Position,
@@ -516,15 +570,23 @@ type AnalyzedDocument = {
   documentSymbols: FishSymbol[];
   commands: string[];
   tree: Parser.Tree;
+  sourced: SourceResource[];
 };
 
 export namespace AnalyzedDocument {
-  export function create(document: LspDocument, documentSymbols: FishSymbol[], commands: string[], tree: Parser.Tree): AnalyzedDocument {
+  export function create(
+    document: LspDocument,
+    documentSymbols: FishSymbol[],
+    commands: string[],
+    tree: Parser.Tree,
+    sourced: SourceResource[] = [],
+  ): AnalyzedDocument {
     return {
       document,
       documentSymbols,
       commands,
       tree,
+      sourced,
     };
   }
 }
@@ -573,11 +635,11 @@ export class AnalyzedDocumentCache {
     return document.documentSymbols;
   }
   /**
-     * Name is a string that will be searched across all symbols in cache. tree-sitter-fish
-     * type of symbols that will be searched is 'word' (i.e. variables, functions, commands)
-     * @param {string} name - string SyntaxNode.name to search in cache
-     * @returns {map<URI, SyntaxNode[]>} - map of URIs to SyntaxNodes that match the name
-     */
+   * Name is a string that will be searched across all symbols in cache. tree-sitter-fish
+   * type of symbols that will be searched is 'word' (i.e. variables, functions, commands)
+   * @param {string} name - string SyntaxNode.name to search in cache
+   * @returns {map<URI, SyntaxNode[]>} - map of URIs to SyntaxNodes that match the name
+   */
   findMatchingNames(name: string): Map<URI, SyntaxNode[]> {
     const matches = new Map<URI, SyntaxNode[]>();
     this.forEach((uri, doc) => {

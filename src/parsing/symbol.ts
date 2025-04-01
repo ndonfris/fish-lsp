@@ -14,7 +14,7 @@ import { createDetail } from './symbol-detail';
 import { config } from '../config';
 import { flattenNested } from '../utils/flatten';
 import { uriToPath } from '../utils/translation';
-import { isCommand, isCommandWithName, isFunctionDefinitionName, isVariableDefinitionName } from '../utils/node-types';
+import { isCommand, isCommandWithName, isFunctionDefinitionName, isTopLevelDefinition, isVariableDefinitionName } from '../utils/node-types';
 
 export type FishSymbolKind = 'ARGPARSE' | 'FUNCTION' | 'ALIAS' | 'COMPLETE' | 'SET' | 'READ' | 'FOR' | 'VARIABLE';
 
@@ -300,6 +300,21 @@ export class FishSymbol {
     return false;
   }
 
+  isAfterRange(range: Range) {
+    if (this.selectionRange.start.line > range.start.line) {
+      return true;
+    }
+    if (this.selectionRange.start.line === range.start.line) {
+      if (this.selectionRange.end.line === range.end.line) {
+        return this.selectionRange.start.character > range.start.character
+          && this.selectionRange.end.character <= range.end.character;
+      }
+      return this.selectionRange.start.character > range.start.character
+        && this.selectionRange.end.line <= range.end.line;
+    }
+    return false;
+  }
+
   toFoldingRange(): FoldingRange {
     return {
       startLine: this.range.start.line,
@@ -329,6 +344,10 @@ export class FishSymbol {
 
   isGlobal() {
     return this.scope.scopeTag === 'global' || this.scope.scopeTag === 'universal';
+  }
+
+  isRootLevel() {
+    return isTopLevelDefinition(this.node);
   }
 
   isSymbolImmutable() {

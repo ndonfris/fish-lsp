@@ -87,10 +87,10 @@ export class SyncFileHelper {
 
     if (exists) {
       this.append(path, content, 'utf8');
-      return this.toLspDocument(path, extension, 1);
+      return this.toLspDocument(path, extension);
     }
     this.write(path, content);
-    return this.toLspDocument(path, extension, 1);
+    return this.toLspDocument(path, extension);
   }
 
   static toTextDocumentItem(filePath: PathLike, languageId: string, version: number): TextDocumentItem {
@@ -100,7 +100,7 @@ export class SyncFileHelper {
     return TextDocumentItem.create(uri, languageId, version, content);
   }
 
-  static toLspDocument(filePath: PathLike, languageId: string, version: number): LspDocument {
+  static toLspDocument(filePath: PathLike, languageId: string = 'fish', version: number = 1): LspDocument {
     const expandedFilePath = this.expandEnvVars(filePath);
     let content = this.read(expandedFilePath);
 
