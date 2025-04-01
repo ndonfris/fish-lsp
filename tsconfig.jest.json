@@ -1,12 +1,7 @@
 {
   "extends": "./tsconfig.json",
-  "compilerOptions": {
-    "esModuleInterop": true,
-    "noUncheckedIndexedAccess": true,
-    "resolveJsonModule": true,
-    "include": [
-      "test-data/**/*"
-    ]
-  }
+  "include": [
+    "src/**/*",
+    "test-data/**/*"
+  ]
 }
-
