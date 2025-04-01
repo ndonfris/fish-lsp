@@ -245,7 +245,8 @@ commandBin.command('info')
   .option('--lsp-version', 'show the lsp version')
   .option('--capabilities', 'show the lsp capabilities')
   .option('--man-file', 'show the man file path')
-  .option('--logs-file', 'show the logs.txt file path')
+  .option('--logs-file', 'show the logs file path')
+  .option('--log-file', 'show the log file path')
   .option('--more', 'show the build time of the fish-lsp executable')
   .option('--time-startup', 'time the startup of the fish-lsp executable')
   .action(async args => {
@@ -279,7 +280,7 @@ commandBin.command('info')
       logToStdout(PathObj.manFile);
       process.exit(0);
     }
-    if (args.logsFile) {
+    if (args.logsFile || args.logFile) {
       logToStdout(config.fish_lsp_log_file);
       process.exit(0);
     }

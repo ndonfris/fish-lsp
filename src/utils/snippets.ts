@@ -28,7 +28,6 @@ export namespace ExtendedBaseJson {
       ...o,
       type,
       specialType,
-      // otherTypes: [type],
     };
   }
 
@@ -131,7 +130,7 @@ export namespace EnvVariableJson {
     includeType: true,
     includeOptions: true,
     includeDefaultValue: true,
-    wrap: false,
+    wrap: true,
   }): string {
     const cli = asCliObject(o);
     return fromCliOutputToString(cli, opts);
@@ -196,7 +195,7 @@ export function fromCliOutputToString(cli: CliObject, opts: CliToStringOpts = {
   includeType: true,
   includeOptions: true,
   includeDefaultValue: true,
-  wrap: false,
+  wrap: true,
 }): string {
   const title = opts?.includeType ? `$${cli.name} <${cli.valueType.toString().toUpperCase()}>` : cli.name;
   const body: string[] = [];
@@ -309,7 +308,6 @@ const allData: ExtendedBaseJson[] = [
   ...pipeCharactersJson.map((item: BaseJson) => ExtendedBaseJson.create(item, 'pipe')),
   ...statusNumbersJson.map((item: BaseJson) => ExtendedBaseJson.create(item, 'status')),
   ...themeVariablesJson.map((item: BaseJson) => ExtendedBaseJson.create(item, 'variable', 'theme')),
-  // ...fishlspEnvVariablesJson.map((item: BaseJson) => ExtendedBaseJson.create(item, 'variable', 'fishlsp')),
   ...fishlspEnvVariablesJson.map((item: any | BaseJson | Partial<EnvVariableJson>) => EnvVariableJson.create(item, item?.exactMatchOptions, item?.options)),
   ...envVariablesJson.map((item: BaseJson) => ExtendedBaseJson.create(item, 'variable', 'env')),
   ...localeVariablesJson.map((item: BaseJson) => ExtendedBaseJson.create(item, 'variable', 'locale')),

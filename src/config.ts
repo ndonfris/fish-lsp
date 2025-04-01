@@ -11,8 +11,6 @@ import { LspCommands } from './command';
  *******************************************/
 
 export const ConfigHandlerSchema = z.object({
-  // inlineValue: z.boolean().default(true),
-  // inlineCompletion: z.boolean().default(true),
   complete: z.boolean().default(true),
   hover: z.boolean().default(true),
   rename: z.boolean().default(true),
@@ -194,7 +192,7 @@ export function generateJsonSchemaShellScript(confd: boolean, showComments: bool
     const line = !showComments
       ? `${command} ${name}\n`
       : [
-        EnvVariableJson.toCliOutput(entry, { includeDefaultValue: true, includeType: true, includeOptions: true, wrap: true }),
+        EnvVariableJson.toCliOutput(entry),
         `${command} ${name}`,
         '',
       ].join('\n');
@@ -228,7 +226,7 @@ export function showJsonSchemaShellScript(confd: boolean, showComments: boolean,
     let line = !showComments
       ? `${command} ${key} `
       : [
-        EnvVariableJson.toCliOutput(entry, { includeDefaultValue: true, includeType: true, includeOptions: true, wrap: true }),
+        EnvVariableJson.toCliOutput(entry),
         `${command} ${key} `,
       ].join('\n');
 
@@ -325,13 +323,8 @@ export function adjustInitializeResultCapabilitiesFromConfig(configHandlers: z.i
         resolveProvider: true,
       },
       documentHighlightProvider: configHandlers.highlight,
-      // inlineValueProvider: configHandlers.inlineValue ? true : undefined,
-      // inlineCompletionProvider: configHandlers.inlineCompletion ? true : undefined,
       inlayHintProvider: configHandlers.inlayHint,
       signatureHelpProvider: configHandlers.signature ? { workDoneProgress: false, triggerCharacters: ['.'] } : undefined,
-      // codeLensProvider: {
-      //   resolveProvider: true,
-      // }
     },
 
   };
