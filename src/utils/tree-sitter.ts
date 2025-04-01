@@ -395,13 +395,41 @@ export function equalRanges(a: Range, b: Range): boolean {
   );
 }
 
-export function containsRange(a: Range, b: Range): boolean {
-  return (
-    a.start.line <= b.start.line &&
-    a.start.character <= b.start.character &&
-    a.end.line >= b.end.line &&
-    a.end.character >= b.end.character
-  );
+/**
+ * Check if a range contains otherRange.
+ * @param outer - The range that should contain the other range.
+ * @param inner - The range that should be contained by the other range.
+ * @returns `true` if `range` contains `otherRange`.
+ */
+export function containsRange(outer: Range, inner: Range): boolean {
+  if (inner.start.line < outer.start.line || inner.end.line < outer.start.line) {
+    return false;
+  }
+  if (inner.start.line > outer.end.line || inner.end.line > outer.end.line) {
+    return false;
+  }
+  if (inner.start.line === outer.start.line && inner.start.character < outer.start.character) {
+    return false;
+  }
+  if (inner.end.line === outer.end.line && inner.end.character > outer.end.character) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * @param before - The range that should precede the other range.
+ * @param after - The range that should follow the other range.
+ * @returns `true` if `before` precedes `after`.
+ */
+export function precedesRange(before: Range, after: Range): boolean {
+  if (before.start.line < after.start.line) {
+    return true;
+  }
+  if (before.start.line === after.start.line && before.start.character < after.start.character) {
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -413,6 +441,16 @@ export function getNodeAt(tree: Tree, line: number, column: number): SyntaxNode 
   }
 
   return tree.rootNode.descendantForPosition({ row: line, column });
+}
+
+/**
+ * Check if a node contains otherNode.
+ * @param outer - The outer node that should contain the other node.
+ * @param inner - The inner node that should be contained by the outer node.
+ * @returns `true` if `node` contains `otherNode`.
+ */
+export function containsNode(outer: SyntaxNode, inner: SyntaxNode): boolean {
+  return containsRange(getRange(outer), getRange(inner));
 }
 
 export function getNodeAtRange(root: SyntaxNode, range: Range): SyntaxNode | null {

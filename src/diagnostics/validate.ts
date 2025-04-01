@@ -1,7 +1,8 @@
 import { Diagnostic, Range } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { LspDocument } from '../document';
-import { containsRange, findEnclosingScope, getChildNodes, getRange } from '../utils/tree-sitter';
+import { findEnclosingScope, getChildNodes, getRange } from '../utils/tree-sitter';
+import { containsRange } from '../utils/tree-sitter';
 import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter, isMatchingCompleteOptionIsCommand, LocalFunctionCallType, isArgparseWithoutEndStdin, isFishLspDeprecatedVariableName, getDeprecatedFishLspMessage } from './node-types';
 import { ErrorCodes } from './error-codes';
 import { SyncFileHelper } from '../utils/file-operations';

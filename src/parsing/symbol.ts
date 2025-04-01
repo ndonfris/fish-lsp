@@ -2,7 +2,7 @@ import { DocumentSymbol, SymbolKind, Range, WorkspaceSymbol, Location, FoldingRa
 import { SyntaxNode } from 'web-tree-sitter';
 import { DefinitionScope } from '../utils/definition-scope';
 import { LspDocument } from '../document';
-import { getChildNodes, getRange } from '../utils/tree-sitter';
+import { containsNode, getChildNodes, getRange } from '../utils/tree-sitter';
 import { processSetCommand } from './set';
 import { processReadCommand } from './read';
 import { processArgvDefinition, processFunctionDefinition } from './function';
@@ -15,7 +15,6 @@ import { config } from '../config';
 import { flattenNested } from '../utils/flatten';
 import { uriToPath } from '../utils/translation';
 import { isCommand, isCommandWithName, isFunctionDefinitionName, isVariableDefinitionName } from '../utils/node-types';
-import { containsNode } from '../workspace-symbol';
 
 export type FishSymbolKind = 'ARGPARSE' | 'FUNCTION' | 'ALIAS' | 'COMPLETE' | 'SET' | 'READ' | 'FOR' | 'VARIABLE';
 
@@ -388,8 +387,6 @@ export function isSymbol(symbols: FishSymbol[], kind: FishSymbolKind): FishSymbo
 }
 
 export function filterLastPerScopeSymbol(symbols: FishSymbol[]) {
-  // const symbolTree: GenericTree<FishDocumentSymbol> = new GenericTree(symbolArray);
-
   const flatArray: FishSymbol[] = flattenNested(...symbols);
   const array: FishSymbol[] = [];
   for (const symbol of symbols) {
@@ -456,28 +453,6 @@ export function findMatchingLocations(symbol: FishSymbol, allSymbols: FishSymbol
 export function removeLocalSymbols(symbol: FishSymbol, symbols: FlatFishSymbolTree) {
   return symbols.filter(s => s.name === symbol.name && !symbol.equalScopes(s) && !s.equals(symbol));
 }
-
-// TODO: to refactor `../utils/node-types.ts` functions related to `isVariableDefinitionName`
-// export function isVariableDefinitionName(node: SyntaxNode) {
-//   const parent = node.parent;
-//   if (parent && isCommand(parent)) {
-//     if (isCommandWithName(parent, 'set')) {
-//       return parent.firstNamedChild?.equals(node);
-//     }
-//     if (isCommandWithName(parent, 'read')) {
-//       return parent.firstNamedChild?.equals(node)
-//     }
-//     if (isCommandWithName(parent, 'argparse')) {
-//       return parent.firstNamedChild?.equals(node)
-//     }
-//
-//
-//   } else if (parent && parent.type === 'for_statement') {
-//     return parent.firstNamedChild?.equals(node);
-//   } else {
-//     return false;
-//   }
-// }
 
 function buildNested(document: LspDocument, node: SyntaxNode, ...children: FishSymbol[]): FishSymbol[] {
   const firstNamedChild = node.firstNamedChild as SyntaxNode;
