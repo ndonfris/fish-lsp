@@ -18,9 +18,8 @@ export function startServer() {
   connection.onInitialize(
     async (params: InitializeParams): Promise<InitializeResult> => {
       // connection.console.log(`Initialized server FISH-LSP with ${JSON.stringify(params, null, 2)}`);
-      const server = await FishServer.create(connection, params);
-      server.register(connection);
-      return server.initialize(params);
+      const { initializeResult } = await FishServer.create(connection, params);
+      return initializeResult;
     },
   );
   connection.listen();
@@ -68,9 +67,7 @@ async function timeServerStartup() {
       rootUri: process.cwd(),
       capabilities: {},
     };
-    server = await FishServer.create(connection, startupParams);
-    server.register(connection);
-    server.initialize(startupParams);
+    ({ server } = await FishServer.create(connection, startupParams));
     connection.listen();
     return server;
   }, 'Server Start Time');

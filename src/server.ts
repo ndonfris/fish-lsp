@@ -35,11 +35,30 @@ export type SupportedFeatures = {
   codeActionDisabledSupport: boolean;
 };
 
+function initializeConfigFromInitializationOptions(params: InitializeParams, connection: Connection): InitializeResult {
+  logger.logAsJson('async server.initialize(params)');
+  if (params) {
+    logger.log();
+    logger.log({ 'server.initialize.params': params });
+    logger.log();
+  }
+  const previousLogFile = config.fish_lsp_logfile;
+  updateConfigFromInitializationOptions(params.initializationOptions);
+  if (previousLogFile !== config.fish_lsp_logfile) {
+    createServerLogger(config.fish_lsp_logfile, true, connection.console, true);
+  }
+  logger.log({ disable_error_codes: `${config.fish_lsp_diagnostic_disable_error_codes[0]}`, type: typeof config.fish_lsp_diagnostic_disable_error_codes[0] });
+  const result = adjustInitializeResultCapabilitiesFromConfig(configHandlers, config);
+  logger.log({ onInitializedResult: result });
+  return result;
+}
+
 export default class FishServer {
   public static async create(
     connection: Connection,
-    _params: InitializeParams,
-  ): Promise<FishServer> {
+    params: InitializeParams,
+  ): Promise<{ server: FishServer; initializeResult: InitializeResult;}> {
+    const initializeResult = initializeConfigFromInitializationOptions(params, connection);
     const documents = new LspDocuments();
 
     // Run these operations in parallel rather than sequentially
@@ -58,7 +77,7 @@ export default class FishServer {
     const analyzer = new Analyzer(parser, workspaces);
     const completions = await initializeCompletionPager(logger, completionsMap);
 
-    return new FishServer(
+    const server = new FishServer(
       connection,
       parser,
       analyzer,
@@ -68,6 +87,8 @@ export default class FishServer {
       cache,
       logger,
     );
+    server.register(connection);
+    return { server, initializeResult };
   }
 
   private initializeParams: InitializeParams | undefined;
@@ -85,24 +106,6 @@ export default class FishServer {
     protected logger: Logger,
   ) {
     this.features = { codeActionDisabledSupport: false };
-  }
-
-  async initialize(params: InitializeParams): Promise<InitializeResult> {
-    logger.logAsJson('async server.initialize(params)');
-    if (params) {
-      logger.log();
-      logger.log({ 'server.initialize.params': params });
-      logger.log();
-    }
-    const previousLogFile = config.fish_lsp_logfile;
-    updateConfigFromInitializationOptions(params.initializationOptions);
-    if (previousLogFile !== config.fish_lsp_logfile) {
-      createServerLogger(config.fish_lsp_logfile, true, this.connection.console, true);
-    }
-    logger.log({ disable_error_codes: `${config.fish_lsp_diagnostic_disable_error_codes[0]}`, type: typeof config.fish_lsp_diagnostic_disable_error_codes[0] });
-    const result = adjustInitializeResultCapabilitiesFromConfig(configHandlers, config);
-    logger.log({ onInitializedResult: result });
-    return result;
   }
 
   register(connection: Connection): void {
