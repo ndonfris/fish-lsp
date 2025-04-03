@@ -11,6 +11,35 @@ import { env } from './env-manager';
 import { SyncFileHelper } from './file-operations';
 import { documents } from '../server';
 
+/** small type utility to remove the deprecated fields from the `InitializeParams` */
+type WorkspaceParamsWithoutDeprecatedFields = { rootUri: string; rootPath: string | null; workspaceFolders: LSP.WorkspaceFolder[] | null; };
+
+/**
+ * Extracts the unique workspace paths from the initialization parameters.
+ * @param params - The initialization parameters
+ * @returns The unique workspace paths given in the initialization parameters
+ */
+export function getWorkspacePathsFromInitializationParams(params: Partial<LSP.InitializeParams>): string[] {
+  const result: string[] = [];
+
+  const { rootUri, rootPath, workspaceFolders } = params as WorkspaceParamsWithoutDeprecatedFields;
+  logger.log('getWorkspacePathsFromInitializationParams(params)', { rootUri, rootPath, workspaceFolders });
+
+  // consider removing rootUri and rootPath since they are deprecated
+
+  if (rootUri) {
+    result.push(uriToPath(rootUri));
+  }
+  if (rootPath) {
+    result.push(rootPath);
+  }
+  if (workspaceFolders) {
+    result.push(...workspaceFolders.map(folder => uriToPath(folder.uri)));
+  }
+
+  return Array.from(new Set(result));
+}
+
 async function getFileUriSet(path: string) {
   const stream = fastGlob.stream('**/*.fish', { cwd: path, absolute: true });
   const result: Set<string> = new Set();
@@ -272,8 +301,8 @@ export class Workspace implements FishWorkspace {
       try {
         const path = uriToPath(uri);
         const content = await promises.readFile(path, 'utf8');
-        const doc = LspDocument.create(uri, content);
-        documents!.open(path, doc.asTextDocumentItem());
+        const doc = LspDocument.createTextDocumentItem(uri, content);
+        documents.open(doc);
         return doc;
       } catch (err) {
         logger.log(`Error reading file ${uri}: ${err}`);

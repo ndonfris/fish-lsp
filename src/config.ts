@@ -2,7 +2,7 @@ import os from 'os';
 import { z } from 'zod';
 import { logToStdout } from './logger';
 import { PrebuiltDocumentationMap, EnvVariableJson } from './utils/snippets';
-import { InitializeResult, TextDocumentSyncKind } from 'vscode-languageserver';
+import { FormattingOptions, InitializeResult, TextDocumentSyncKind } from 'vscode-languageserver';
 import { AllSupportedActions } from './code-actions/action-kinds';
 import { LspCommands } from './command';
 
@@ -294,7 +294,7 @@ function getEnvVariableCommand(useGlobal: boolean, useLocal: boolean, useExport:
 export function adjustInitializeResultCapabilitiesFromConfig(configHandlers: z.infer<typeof ConfigHandlerSchema>, userConfig: z.infer<typeof ConfigSchema>): InitializeResult {
   return {
     capabilities: {
-      textDocumentSync: TextDocumentSyncKind.Incremental,
+      textDocumentSync: TextDocumentSyncKind.Full,
       // textDocumentSync: TextDocumentSyncKind.Full,
       completionProvider: configHandlers.complete ? {
         resolveProvider: true,
@@ -332,6 +332,10 @@ export function adjustInitializeResultCapabilitiesFromConfig(configHandlers: z.i
 
   };
 }
+export const FormatOptions: FormattingOptions = {
+  insertSpaces: true,
+  tabSize: 4,
+};
 
 /********************************************
  ***               Config                 ***

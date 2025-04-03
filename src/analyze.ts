@@ -3,7 +3,7 @@ import Parser, { SyntaxNode, Tree } from 'web-tree-sitter';
 import * as LSP from 'vscode-languageserver';
 import { isPositionWithinRange, getChildNodes } from './utils/tree-sitter';
 import { LspDocument } from './document';
-import { isAliasDefinitionName, isCommand, isCommandName, isCompleteCommandName } from './utils/node-types';
+import { isAliasDefinitionName, isCommand, isCommandName } from './utils/node-types';
 import { pathToUri, symbolKindToString, uriToPath } from './utils/translation';
 import { existsSync } from 'fs';
 import { currentWorkspace, workspaces } from './utils/workspace';
@@ -65,7 +65,7 @@ export class Analyzer {
   public analyzePath(rawFilePath: string): FishSymbol[] {
     const path = uriToPath(rawFilePath);
     const content = SyncFileHelper.read(path, 'utf8');
-    const document = LspDocument.create(pathToUri(path), content);
+    const document = LspDocument.createTextDocumentItem(pathToUri(path), content);
     return this.analyze(document);
   }
 
@@ -228,8 +228,8 @@ export class Analyzer {
         for (const path of location.toString().trim().split('\n')) {
           const uri = pathToUri(path);
           const content = SyncFileHelper.read(path, 'utf8');
-          const doc = LspDocument.create(uri, content);
-          documents!.open(path, doc.asTextDocumentItem());
+          const doc = LspDocument.createTextDocumentItem(uri, content);
+          documents.open(doc);
           currentWorkspace.updateCurrent(doc);
         }
 
@@ -252,7 +252,7 @@ export class Analyzer {
     position: Position,
   ): Location[] {
     const definition = this.getDefinition(document, position);
-    if (!definition) return []; 
+    if (!definition) return [];
     const references = getReferenceLocations(this, document, position);
     return references.filter((ref) => {
       let refDoc = this.getDocument(ref.uri);

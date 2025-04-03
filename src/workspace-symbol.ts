@@ -70,17 +70,6 @@ function findGlobalLocations(analyzer: Analyzer, document: LspDocument, position
       continue;
     }
     const rootNode = analyzer.getRootNode(doc)!;
-    // const searchNodes = getChildNodes(rootNode);
-    //   .filter(node => {
-    //   if (symbol.kind === SymbolKind.Function) {
-    //     return isCommandName(node) || isFunctionDefinitionName(node) || isAliasName(node);
-    //   }
-    //   if (symbol.kind === SymbolKind.Variable) {
-    //     return isVariable(node) || isVariableDefinitionName(node);
-    //   }
-    //   return false;
-    // });
-    // const toSearchNodes = removeLocalSymbols(symbol, searchNodes, analyzer.cache.getFlatDocumentSymbols(uri));
     const newSymbols = analyzer.getFlatDocumentSymbols(doc.uri);
     if (document.uri === doc.uri) {
       const newLocations = findLocalLocations(symbol, newSymbols);

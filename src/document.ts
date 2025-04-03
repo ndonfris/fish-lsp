@@ -1,5 +1,5 @@
 import { promises as fs } from 'fs';
-import { TextDocument } from 'vscode-languageserver-textdocument';
+import { DocumentUri, TextDocument } from 'vscode-languageserver-textdocument';
 import { Position, Range, TextDocumentItem, TextDocumentContentChangeEvent } from 'vscode-languageserver';
 import * as path from 'path';
 import { URI } from 'vscode-uri';
@@ -14,13 +14,18 @@ export class LspDocument implements TextDocument {
     const { uri, languageId, version, text } = doc;
     this.document = TextDocument.create(uri, languageId, version, text);
   }
-  static create(uri: string, text: string): LspDocument {
+  static createTextDocumentItem(uri: string, text: string): LspDocument {
     return new LspDocument({
       uri,
       languageId: 'fish',
       version: 1,
       text,
     });
+  }
+
+  static fromTextDocument(doc: TextDocument): LspDocument {
+    const item = TextDocumentItem.create(doc.uri, doc.languageId, doc.version, doc.getText());
+    return new LspDocument(item);
   }
 
   asTextDocumentItem(): TextDocumentItem {
@@ -32,7 +37,7 @@ export class LspDocument implements TextDocument {
     };
   }
 
-  get uri(): string {
+  get uri(): DocumentUri {
     return this.document.uri;
   }
 
@@ -58,6 +63,19 @@ export class LspDocument implements TextDocument {
 
   get lineCount(): number {
     return this.document.lineCount;
+  }
+
+  create(uri: string, languageId: string, version: number, text: string): LspDocument {
+    return new LspDocument({
+      uri,
+      languageId: languageId || 'fish',
+      version: version || 1,
+      text,
+    });
+  }
+
+  update(changes: TextDocumentContentChangeEvent[]): void {
+    this.document = TextDocument.update(this.document, changes, this.version);
   }
 
   /**
@@ -105,7 +123,6 @@ export class LspDocument implements TextDocument {
     for (const change of changes) {
       const content = this.getText();
       let newContent = change.text;
-
       if (TextDocumentContentChangeEvent.isIncremental(change)) {
         const start = this.offsetAt(change.range.start);
         const end = this.offsetAt(change.range.end);
@@ -296,13 +313,30 @@ export class LspDocuments {
     return this.documents.get(uri);
   }
 
-  open(file: string, doc: TextDocumentItem): boolean {
+  open(doc: LspDocument): boolean {
+    const file = uriToPath(doc.uri);
     if (this.documents.has(file)) {
       return false;
     }
-    this.documents.set(file, new LspDocument(doc));
+    this.documents.set(file, doc);
     this._files.unshift(file);
     return true;
+  }
+
+  openTextDocument(document: TextDocument): LspDocument {
+    const path = uriToPath(document.uri);
+    if (this.documents.has(path)) {
+      return this.documents.get(path)!;
+    }
+    const lspDocument = LspDocument.fromTextDocument(document);
+    this.documents.set(path, lspDocument);
+    this._files.unshift(path);
+    return lspDocument;
+  }
+
+  closeTextDocument(document: TextDocument): LspDocument | undefined {
+    const path = uriToPath(document.uri);
+    return this.close(path);
   }
 
   close(file: string): LspDocument | undefined {
@@ -325,6 +359,11 @@ export class LspDocuments {
     this.documents.set(newFile, document);
     this._files[this._files.indexOf(oldFile)] = newFile;
     return true;
+  }
+
+  update(newDocument: TextDocument): void {
+    const path = uriToPath(newDocument.uri);
+    this.documents.set(path, LspDocument.fromTextDocument(newDocument));
   }
 
   public toResource(filepath: string): URI {
