@@ -255,6 +255,14 @@ export class FishSymbol {
       this.fishKind === other.fishKind;
   }
 
+  equalLocations(other: Location) {
+    return this.uri === other.uri
+      && this.selectionRange.start.line === other.range.start.line
+      && this.selectionRange.start.character === other.range.start.character
+      && this.selectionRange.end.line === other.range.end.line
+      && this.selectionRange.end.character === other.range.end.character;
+  }
+
   toWorkspaceSymbol(): WorkspaceSymbol {
     return WorkspaceSymbol.create(
       this.name,

@@ -14,6 +14,8 @@ export const ConfigHandlerSchema = z.object({
   complete: z.boolean().default(true),
   hover: z.boolean().default(true),
   rename: z.boolean().default(true),
+  definition: z.boolean().default(true),
+  implementation: z.boolean().default(true),
   reference: z.boolean().default(true),
   logger: z.boolean().default(true),
   formatting: z.boolean().default(true),
@@ -45,7 +47,7 @@ export const ConfigHandlerSchema = z.object({
 export const configHandlers = ConfigHandlerSchema.parse({});
 
 export const validHandlers: Array<keyof typeof ConfigHandlerSchema.shape> = [
-  'complete', 'hover', 'rename', 'reference', 'formatting',
+  'complete', 'hover', 'rename', 'definition', 'implementation', 'reference', 'formatting',
   'codeAction', 'codeLens', 'folding', 'signature', 'executeCommand',
   'inlayHint', 'highlight', 'diagnostic', 'popups',
 ];
@@ -301,7 +303,8 @@ export function adjustInitializeResultCapabilitiesFromConfig(configHandlers: z.i
         triggerCharacters: ['$'],
       } : undefined,
       hoverProvider: configHandlers.hover,
-      definitionProvider: configHandlers.reference,
+      definitionProvider: configHandlers.definition,
+      implementationProvider: configHandlers.implementation,
       referencesProvider: configHandlers.reference,
       renameProvider: configHandlers.rename,
       documentFormattingProvider: configHandlers.formatting,

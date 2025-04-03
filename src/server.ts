@@ -1,7 +1,7 @@
 import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from './parser';
 import { Analyzer } from './analyze';
-import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, PublishDiagnosticsParams } from 'vscode-languageserver';
+import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidSaveTextDocumentParams, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, CodeActionParams, CodeAction, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, PublishDiagnosticsParams, ImplementationParams } from 'vscode-languageserver';
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
 import { formatDocumentContent } from './formatting';
@@ -63,7 +63,7 @@ export default class FishServer {
   public static async create(
     connection: Connection,
     params: InitializeParams,
-  ): Promise<{ server: FishServer; initializeResult: InitializeResult;}> {
+  ): Promise<{ server: FishServer; initializeResult: InitializeResult; }> {
     const initializeResult = initializeConfigFromInitializationOptions(params, connection);
     documents = new LspDocuments();
     const initUri = params.rootUri || params.rootPath || params.workspaceFolders?.at(0)?.uri;
@@ -135,10 +135,11 @@ export default class FishServer {
     // • https://github.com/Dart-Code/Dart-Code/blob/7df6509870d51cc99a90cf220715f4f97c681bbf/src/providers/dart_completion_item_provider.ts#L197-202
     connection.onCompletion(this.onCompletion.bind(this));
     connection.onCompletionResolve(this.onCompletionResolve.bind(this)),
-    connection.onDocumentSymbol(this.onDocumentSymbols.bind(this));
+      connection.onDocumentSymbol(this.onDocumentSymbols.bind(this));
     connection.onWorkspaceSymbol(this.onWorkspaceSymbol.bind(this));
     // this.connection.onWorkspaceSymbolResolve(this.onWorkspaceSymbolResolve.bind(this))
     connection.onDefinition(this.onDefinition.bind(this));
+    connection.onImplementation(this.onImplementation.bind(this));
     connection.onReferences(this.onReferences.bind(this));
     connection.onHover(this.onHover.bind(this));
     // connection.languages.inlineValue({})
@@ -370,6 +371,15 @@ export default class FishServer {
     if (!doc || !uri || !root || !current) return [];
 
     return getReferenceLocations(this.analyzer, doc, params.position);
+  }
+
+  async onImplementation(params: ImplementationParams): Promise<Location[]> {
+    this.logParams('onImplementation', params);
+    const { doc } = this.getDefaults(params);
+    if (!doc) return [];
+    const result = this.analyzer.getImplementation(doc, params.position);
+    logger.log('implementationResult', { result });
+    return result;
   }
 
   // Probably should move away from `documentationCache`. It works but is too expensive memory wise.

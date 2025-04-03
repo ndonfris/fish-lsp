@@ -3,11 +3,11 @@ import Parser, { SyntaxNode, Tree } from 'web-tree-sitter';
 import * as LSP from 'vscode-languageserver';
 import { isPositionWithinRange, getChildNodes } from './utils/tree-sitter';
 import { LspDocument } from './document';
-import { isAliasDefinitionName, isCommand, isCommandName } from './utils/node-types';
+import { isAliasDefinitionName, isCommand, isCommandName, isCompleteCommandName } from './utils/node-types';
 import { pathToUri, symbolKindToString, uriToPath } from './utils/translation';
 import { existsSync } from 'fs';
 import { currentWorkspace, workspaces } from './utils/workspace';
-import { findDefinitionSymbols } from './workspace-symbol';
+import { findDefinitionSymbols, getReferenceLocations } from './workspace-symbol';
 import { config } from './config';
 import { logger } from './logger';
 import { execFileSync } from 'child_process';
@@ -242,6 +242,29 @@ export class Analyzer {
       }
     }
     return [];
+  }
+
+  /**
+   * Here we can allow the user to use completion locations for the implementation
+   */
+  public getImplementation(
+    document: LspDocument,
+    position: Position,
+  ): Location[] {
+    const definition = this.getDefinition(document, position);
+    if (!definition) return []; 
+    const references = getReferenceLocations(this, document, position);
+    return references.filter((ref) => {
+      let refDoc = this.getDocument(ref.uri);
+      if (!refDoc) {
+        this.analyzePath(ref.uri);
+        refDoc = this.getDocument(ref.uri) as LspDocument;
+      }
+      if (!definition.equalLocations(ref) && ['config', 'conf.d', 'completions'].includes(refDoc.getAutoloadType())) {
+        return true;
+      }
+      return false;
+    });
   }
 
   /**
