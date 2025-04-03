@@ -132,11 +132,23 @@ export function getConfigFromEnvironmentVariables(): {
   return { config, environmentVariablesUsed };
 }
 
+// use for backwards compatibility when we rename an env variables
+export const deprecatedEnvVariables: { [deprecated_key: string]: keyof Config; } = {
+  ['fish_lsp_logfile']: 'fish_lsp_log_file',
+};
+
+// we only need to call this for the `initializationOptions`
+function getEnvVariableKeyWithDeprecatedSupport(s: string) {
+  return Object.keys(deprecatedEnvVariables).includes(s)
+    ? deprecatedEnvVariables[s] as keyof Config
+    : s as keyof Config;
+}
+
 export function updateConfigFromInitializationOptions(initializationOptions: Config | null): void {
   if (initializationOptions === null) return;
   ConfigSchema.parse(initializationOptions);
   Object.keys(initializationOptions).forEach((key) => {
-    const configKey = key as keyof Config;
+    const configKey = getEnvVariableKeyWithDeprecatedSupport(key);
     if (configKey in config) {
       (config[configKey] as any) = initializationOptions[configKey];
     }
