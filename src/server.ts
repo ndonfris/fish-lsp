@@ -7,7 +7,7 @@ import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments } from './document';
 import { formatDocumentContent } from './formatting';
 import { createServerLogger, Logger, logger } from './logger';
-import { symbolKindsFromNode, uriToPath } from './utils/translation';
+import { formatTextWithIndents, symbolKindsFromNode, uriToPath } from './utils/translation';
 import { getChildNodes } from './utils/tree-sitter';
 import { getVariableExpansionDocs, handleHover } from './hover';
 import { getDiagnostics } from './diagnostics/validate';
@@ -125,6 +125,7 @@ export default class FishServer {
     this.documents.listen(connection);
     this.documents.onDidChangeContent(event => {
       this.logParams('onDidChangeContent', event);
+      this.connection.sendDiagnostics({ uri: event.document.uri, diagnostics: [] });
       this.analyzeDocument(event.document);
       this.docs.update(event.document);
     });
@@ -453,6 +454,10 @@ export default class FishServer {
     return [TextEdit.replace(fullRange, formattedText)];
   }
 
+  /**
+   * Currently only works for whole line selections, in the future we should try to make every
+   * selection a whole line selection.
+   */
   async onDocumentRangeFormatting(params: DocumentRangeFormattingParams): Promise<TextEdit[]> {
     this.logParams('onDocumentRangeFormatting', params);
     const { doc } = this.getDefaultsForPartialParams(params);
@@ -462,17 +467,43 @@ export default class FishServer {
     const startOffset = doc.offsetAt(range.start);
     const endOffset = doc.offsetAt(range.end);
 
-    const originalText = doc.getText().slice(startOffset, endOffset);
+    // get the text
+    const originalText = doc.getText();
+    const selectedText = doc.getText().slice(startOffset, endOffset).trimStart();
 
-    const formattedText = await formatDocumentContent(originalText).catch(error => {
-      this.connection.console.error(`Formatting error: ${error}`);
-      if (config.fish_lsp_show_client_popups) {
-        this.connection.window.showErrorMessage(`Failed to format range: ${error}`);
-      }
-      return originalText; // fallback to original text on error
+    // Call the formatter 2 differently times, once for the whole document (to get the indentation level)
+    // and a second time to get the specific range formatted
+    const allText = await formatDocumentContent(originalText).catch((error) => {
+      logger.error(`FormattingRange error: ${error}`);
+      return selectedText; // fallback to original text on error
     });
 
-    return [TextEdit.replace(range, formattedText)];
+    const formattedText = await formatDocumentContent(selectedText).catch(error => {
+      logger.error(`FormattingRange error: ${error}`, {
+        input: selectedText,
+        range: range,
+      });
+      if (config.fish_lsp_show_client_popups) {
+        this.connection.window.showErrorMessage(`Failed to format range: ${params.textDocument.uri}`);
+      }
+      return selectedText;
+    });
+
+    // Create a temporary TextDocumentItem with the formatted text, for passing to formatTextWithIndents()
+    const newDoc = LspDocument.createTextDocumentItem(doc.uri, allText);
+
+    // fixup formatting, so that we end with a single newline character (important for inserting `TextEdit`)
+    const output = formatTextWithIndents(
+      newDoc,
+      range.start.line,
+      formattedText.trim(),
+    ) + '\n';
+    return [
+      TextEdit.replace(
+        params.range,
+        output,
+      ),
+    ];
   }
 
   async onFoldingRanges(params: FoldingRangeParams): Promise<FoldingRange[] | undefined> {

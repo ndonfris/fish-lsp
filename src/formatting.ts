@@ -17,3 +17,21 @@ export async function formatDocumentContent(content: string): Promise<string> {
     }
   });
 }
+
+export async function formatDocumentRangeContent(content: string): Promise<string> {
+  return new Promise((resolve, _reject) => {
+    const process = exec('fish_indent --only-indent --only-unindent', (error, stdout, stderr) => {
+      if (error) {
+        // reject(stderr);
+        logger.log('Formatting Error:', stderr);
+      } else {
+        resolve(stdout);
+      }
+    });
+    if (process.stdin) {
+      process.stdin.write(content);
+      process.stdin.end();
+    }
+  });
+}
+
