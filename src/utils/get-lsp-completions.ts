@@ -94,15 +94,6 @@ complete -c fish-lsp -n '__fish_lsp_using_command complete; and not __fish_conta
 complete -c fish-lsp -n '__fish_lsp_using_command complete; and not __fish_contains_opt toggles'  -l toggles   -d 'show feature names of completions'
 `;
 
-const loggerCompletions: string = `# fish-lsp logger --<TAB>
-complete -c fish-lsp -n __fish_use_subcommand -x -a logger -d 'logger utilities'
-complete -c fish-lsp -n '__fish_lsp_using_command logger; and not __fish_contains_opt -s s show'  -s s -l show   -d 'show the "logs.txt" file'
-complete -c fish-lsp -n '__fish_lsp_using_command logger; and not __fish_contains_opt -s c clear' -s c -l clear  -d 'clear the "logs.txt" file'
-complete -c fish-lsp -n '__fish_lsp_using_command logger; and not __fish_contains_opt -s q quiet' -s q -l quiet  -d 'only write to "logs.txt" file'
-complete -c fish-lsp -n '__fish_lsp_using_command logger; and not __fish_contains_opt -s d date'  -s d -l date   -d 'write date to "logs.txt" file'
-complete -c fish-lsp -n '__fish_lsp_using_command logger; and not __fish_contains_opt config'          -l config -d 'show the logger config'
-`;
-
 const infoCompletions: string = `# fish-lsp info --<TAB>
 complete -c fish-lsp -n '__fish_lsp_using_command info; and not __fish_contains_opt bin'           -l bin            -d 'show the binary path'
 complete -c fish-lsp -n '__fish_lsp_using_command info; and not __fish_contains_opt repo'          -l repo           -d 'show the repo path'
@@ -165,7 +156,7 @@ export function buildFishLspCompletions(commandBin: Command) {
 
   output.push(completeCompletions);
   output.push(infoCompletions);
-  output.push(loggerCompletions);
+  // output.push(loggerCompletions);
 
   output.push(featuresCompletions);
   output.push(envCompletions);

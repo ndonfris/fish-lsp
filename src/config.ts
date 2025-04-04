@@ -145,22 +145,6 @@ export function getConfigFromEnvironmentVariables(): {
   return { config, environmentVariablesUsed };
 }
 
-export function updateConfigFromInitializationOptions(initializationOptions: Config | null): void {
-  if (initializationOptions === null) return;
-  ConfigSchema.parse(initializationOptions);
-  Object.keys(initializationOptions).forEach((key) => {
-    const configKey = Config.getEnvVariableKey(key);
-    if (!configKey) return;
-    (config[configKey] as any) = initializationOptions[configKey];
-  });
-  if (initializationOptions.fish_lsp_enabled_handlers) {
-    updateHandlers(initializationOptions.fish_lsp_enabled_handlers, true);
-  }
-  if (initializationOptions.fish_lsp_disabled_handlers) {
-    updateHandlers(initializationOptions.fish_lsp_disabled_handlers, false);
-  }
-}
-
 export function getDefaultConfiguration(): Config {
   return ConfigSchema.parse({});
 }
@@ -298,52 +282,6 @@ function getEnvVariableCommand(useGlobal: boolean, useLocal: boolean, useExport:
   return command as 'set -g' | 'set -l' | 'set -gx' | 'set -lx' | 'set' | 'set -x';
 }
 
-/********************************************
- ***        initializeResult              ***
- *******************************************/
-
-/* in server onInitialize() */
-export function adjustInitializeResultCapabilitiesFromConfig(configHandlers: z.infer<typeof ConfigHandlerSchema>, userConfig: z.infer<typeof ConfigSchema>): InitializeResult {
-  return {
-    capabilities: {
-      textDocumentSync: TextDocumentSyncKind.Full,
-      // textDocumentSync: TextDocumentSyncKind.Full,
-      completionProvider: configHandlers.complete ? {
-        resolveProvider: true,
-        allCommitCharacters: userConfig.fish_lsp_commit_characters,
-        workDoneProgress: true,
-        triggerCharacters: ['$'],
-      } : undefined,
-      hoverProvider: configHandlers.hover,
-      definitionProvider: configHandlers.definition,
-      implementationProvider: configHandlers.implementation,
-      referencesProvider: configHandlers.reference,
-      renameProvider: configHandlers.rename,
-      documentFormattingProvider: configHandlers.formatting,
-      documentRangeFormattingProvider: configHandlers.formatting,
-      foldingRangeProvider: configHandlers.folding,
-      codeActionProvider: configHandlers.codeAction ? {
-        codeActionKinds: [...AllSupportedActions],
-        workDoneProgress: true,
-        resolveProvider: true,
-      } : undefined,
-      executeCommandProvider: configHandlers.executeCommand ? {
-        commands: [...AllSupportedActions, ...LspCommands],
-        workDoneProgress: true,
-      } : undefined,
-      documentSymbolProvider: {
-        label: 'Fish-LSP',
-      },
-      workspaceSymbolProvider: {
-        resolveProvider: true,
-      },
-      documentHighlightProvider: configHandlers.highlight,
-      inlayHintProvider: configHandlers.inlayHint,
-      signatureHelpProvider: configHandlers.signature ? { workDoneProgress: false, triggerCharacters: ['.'] } : undefined,
-    },
-
-  };
-}
 export const FormatOptions: FormattingOptions = {
   insertSpaces: true,
   tabSize: 4,
@@ -352,7 +290,6 @@ export const FormatOptions: FormattingOptions = {
 /********************************************
  ***               Config                 ***
  *******************************************/
-
 export namespace Config {
 
   /**
@@ -531,7 +468,12 @@ export namespace Config {
       },
     };
   }
-
+  /**
+   * *******************************************
+   * ***        initializeResult             ***
+   * *******************************************
+   * * The `initializeResult` is the result of the `initialize` method
+   */
   export function initialize(params: InitializeParams, connection: Connection) {
     logger.logAsJson('async server.initialize(params)');
     if (params) {

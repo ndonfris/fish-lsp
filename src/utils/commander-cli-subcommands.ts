@@ -87,7 +87,6 @@ export const FishLspHelp = {
   beforeAll: `
        fish-lsp [-h | --help] [-v | --version] [--help-man] [--help-all] [--help-short]
        fish-lsp start [--enable | --disable] [--dump]
-       fish-lsp logger [-s | --show] [-d | --date] [-c | --clear] [-q | --quiet] [--config]
        fish-lsp info [--bare] [--repo] [--time] [--env]
        fish-lsp url [--repo] [--discussions] [--homepage] [--npm] [--contributions]
                     [--wiki] [--issues] [--client-repo] [--sources]
