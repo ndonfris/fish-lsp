@@ -172,7 +172,7 @@ export function getRenameWorkspaceEdit(analyzer: Analyzer, document: LspDocument
   }
   const changes: {[uri: string]: TextEdit[];} = {};
   const symbol = analyzer.getDefinition(document, position);
-  if (symbol.fishKind === 'ALIAS') {
+  if (symbol?.fishKind === 'ALIAS') {
     const edits = changes[symbol.uri] || [];
     edits.push(TextEdit.replace(symbol.selectionRange, newName));
   }

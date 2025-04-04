@@ -112,6 +112,37 @@ export async function initializeDefaultFishWorkspaces(...uris: string[]): Promis
   return results;
 }
 
+export function findCurrentWorkspace(uri: string): Workspace | null {
+  for (const ws of workspaces) {
+    if (ws.uri === uri || ws.contains(uri)) {
+      currentWorkspace.current = ws;
+      return ws;
+    }
+  }
+  return null;
+}
+
+export async function updateWorkspaces(event: LSP.WorkspaceFoldersChangeEvent) {
+  const { added, removed } = event;
+  for (const folder of added) {
+    const workspace = await Workspace.createFromUri(folder.uri);
+    if (workspace) {
+      if (currentWorkspace.workspaceExists(workspace.uri)) {
+        currentWorkspace.current = workspace;
+        return;
+      }
+      currentWorkspace.current = workspace;
+      workspaces.push(workspace);
+    }
+  }
+  for (const folder of removed) {
+    const workspace = workspaces.find(ws => ws.uri === folder.uri);
+    if (workspace) {
+      workspaces.splice(workspaces.indexOf(workspace), 1);
+    }
+  }
+}
+
 export async function getRelevantDocs(workspaces: Workspace[]): Promise<LspDocument[]> {
   const docs: LspDocument[] = [];
   for await (const ws of workspaces) {
@@ -125,7 +156,7 @@ export class CurrentWorkspace {
   private _current: Workspace | null = null;
   constructor(private all: Workspace[]) { }
 
-  set current(ws: Workspace) {
+  set current(ws: Workspace | null) {
     this._current = ws;
   }
 

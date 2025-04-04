@@ -5,6 +5,7 @@ import { PrebuiltDocumentationMap, EnvVariableJson } from './utils/snippets';
 import { Connection, FormattingOptions, InitializeParams, InitializeResult, TextDocumentSyncKind } from 'vscode-languageserver';
 import { AllSupportedActions } from './code-actions/action-kinds';
 import { LspCommands } from './command';
+import { PackageVersion } from './utils/commander-cli-subcommands';
 
 /********************************************
  **********  Handlers/Providers   ***********
@@ -432,7 +433,11 @@ export namespace Config {
   export function getResultCapabilities(): InitializeResult {
     return {
       capabilities: {
-        textDocumentSync: TextDocumentSyncKind.Full,
+        // textDocumentSync: TextDocumentSyncKind.Full,
+        textDocumentSync: {
+          openClose: true,
+          change: TextDocumentSyncKind.Incremental,
+        },
         completionProvider: configHandlers.complete ? {
           resolveProvider: true,
           allCommitCharacters: config.fish_lsp_commit_characters,
@@ -465,6 +470,16 @@ export namespace Config {
         documentHighlightProvider: configHandlers.highlight,
         inlayHintProvider: configHandlers.inlayHint,
         signatureHelpProvider: configHandlers.signature ? { workDoneProgress: false, triggerCharacters: ['.'] } : undefined,
+        workspace: {
+          workspaceFolders:  {
+            supported: true,
+            changeNotifications: true,
+          },
+        },
+      },
+      serverInfo: {
+        name: 'fish-lsp',
+        version: PackageVersion,
       },
     };
   }

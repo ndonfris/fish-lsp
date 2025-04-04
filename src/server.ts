@@ -12,7 +12,7 @@ import { getChildNodes } from './utils/tree-sitter';
 import { getVariableExpansionDocs, handleHover } from './hover';
 import { getDiagnostics } from './diagnostics/validate';
 import { DocumentationCache, initializeDocumentationCache } from './utils/documentation-cache';
-import { getWorkspacePathsFromInitializationParams, initializeDefaultFishWorkspaces } from './utils/workspace';
+import { currentWorkspace, findCurrentWorkspace, getWorkspacePathsFromInitializationParams, initializeDefaultFishWorkspaces, updateWorkspaces } from './utils/workspace';
 import { filterLastPerScopeSymbol } from './parsing/symbol';
 import { getRenameWorkspaceEdit, getReferenceLocations } from './workspace-symbol';
 import { CompletionPager, initializeCompletionPager, SetupData } from './utils/completion/pager';
@@ -39,6 +39,8 @@ import { isSourceCommandArgumentName } from './parsing/source';
 export type SupportedFeatures = {
   codeActionDisabledSupport: boolean;
 };
+
+export let CurrentDocument: LspDocument | undefined;
 
 export default class FishServer {
   public static async create(
@@ -106,19 +108,22 @@ export default class FishServer {
 
     this.documents.onDidChangeContent(event => {
       this.logParams('onDidChangeContent', event);
-      this.clearDiagnostics(event.document);
+      findCurrentWorkspace(event.document.uri);
+      CurrentDocument = this.docs.updateTextDocument(event.document);
       this.analyzeDocument(event.document);
-      this.docs.updateTextDocument(event.document);
     });
 
     this.documents.onDidOpen(event => {
       this.logParams('onDidOpen', event);
-      this.docs.openTextDocument(event.document);
+      CurrentDocument = this.docs.openTextDocument(event.document);
+      findCurrentWorkspace(event.document.uri);
       this.analyzeDocument(event.document);
     });
 
     this.documents.onDidClose(event => {
       this.logParams('onDidClose', event);
+      currentWorkspace.current = null;
+      CurrentDocument = undefined;
       this.clearDiagnostics(event.document);
       this.docs.closeTextDocument(event.document);
     });
@@ -153,12 +158,33 @@ export default class FishServer {
     connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
     connection.onExecuteCommand(executeHandler);
 
+    connection.onDidChangeWatchedFiles(e => {
+      this.logParams('onDidChangeWatchedFiles', e);
+      // this.analyzeDocument(e)
+    });
+
+    // connection.workspace.onDidChangeWorkspaceFolders(e => {
+    //   logger.log('onDidChangeWorkspaceFolders', e);
+    // });
+    // connection.workspace.onDidChangeWorkspaceFolders(e => {
+    //   logger.log('**********************', 'onDidChangeWorkspaceFolders', e);
+    // })
+    // connection.onDidChangeWatchedFiles(e => {
+    //   logger.log('**********************','onDidChangeWatchedFiles', e);
+    // })
+    // logger.log(connection.workspace.getWorkspaceFolders())
     logger.log({ 'server.register': 'registered' });
   }
 
   // @see:
   //  • @link [bash-lsp](https://github.com/bash-lsp/bash-language-server/blob/3a319865af9bd525d8e08cd0dd94504d5b5b7d66/server/src/server.ts#L236)
   async onInitialized() {
+    logger.log('onInitialized', this.initializeParams);
+    this.connection.workspace.onDidChangeWorkspaceFolders(e => {
+      logger.info('onDidChangeWorkspaceFolders', e);
+      updateWorkspaces(e);
+      this.startBackgroundAnalysis();
+    });
     return {
       backgroundAnalysisCompleted: this.startBackgroundAnalysis(),
     };
@@ -312,31 +338,37 @@ export default class FishServer {
       return null;
     }
 
+    let result: Hover | null = null;
     if (isSourceCommandArgumentName(current)) {
-      return handleSourceArgumentHover(this.analyzer, current);
+      result = handleSourceArgumentHover(this.analyzer, current);
+      if (result) return result;
     }
 
     if (current.parent && isSourceCommandArgumentName(current.parent)) {
-      return handleSourceArgumentHover(this.analyzer, current.parent);
+      result = handleSourceArgumentHover(this.analyzer, current.parent);
+      if (result) return result;
     }
 
     if (isAliasDefinitionName(current)) {
-      return this.analyzer.getDefinition(doc, params.position).toHover();
+      result = this.analyzer.getDefinition(doc, params.position)?.toHover() || null;
+      if (result) return result;
     }
 
     if (isArgparseVariableDefinitionName(current)) {
       logger.log('isArgparseDefinition');
-      return this.analyzer.getDefinition(doc, params.position).toHover();
+      result = this.analyzer.getDefinition(doc, params.position)?.toHover() || null;
+      return result;
     }
 
     if (isOption(current)) {
-      return await handleHover(
+      result = await handleHover(
         this.analyzer,
         doc,
         params.position,
         current,
         this.documentationCache,
       );
+      if (result) return result;
     }
 
     const { kindType, kindString } = symbolKindsFromNode(current);
@@ -368,6 +400,9 @@ export default class FishServer {
         ].join('\n')),
       };
     }
+
+    const definition = this.analyzer.getDefinition(doc, params.position);
+    const allowsGlobalDocs = !definition || definition?.isGlobal();
     const symbolType = [
       'function',
       'class',
@@ -381,7 +416,7 @@ export default class FishServer {
     );
 
     logger.log({ './src/server.ts:395': `this.documentationCache.resolve() found ${!!globalItem}`, docs: globalItem.docs });
-    if (globalItem && globalItem.docs) {
+    if (globalItem && globalItem.docs && allowsGlobalDocs) {
       logger.log(globalItem.docs);
       return {
         contents: {

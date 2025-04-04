@@ -237,13 +237,13 @@ export async function getVariableDocString(name: string): Promise<string | undef
     }
     return acc;
   }, { first: '', middle: [] as string[], last: '' });
-  return [
+  return first ? [
     first,
     '___',
     middle.join('\n'),
     '___',
     last,
-  ].join('\n');
+  ].join('\n') : undefined;
 }
 
 export async function getCommandDocString(name: string): Promise<string | undefined> {

@@ -338,9 +338,10 @@ export class LspDocuments {
     return lspDocument;
   }
 
-  updateTextDocument(textDocument: TextDocument): void {
+  updateTextDocument(textDocument: TextDocument): LspDocument {
     const path = uriToPath(textDocument.uri);
     this.documents.set(path, LspDocument.fromTextDocument(textDocument));
+    return this.documents.get(path) as LspDocument;
   }
 
   closeTextDocument(document: TextDocument): LspDocument | undefined {

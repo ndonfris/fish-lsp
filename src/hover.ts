@@ -25,7 +25,7 @@ export async function handleHover(
     return await getHoverForFlag(current);
   }
   const local = analyzer.getDefinition(document, position);
-  logger.log({ handleHover: handleHover.name, local, position, current });
+  logger.log({ handleHover: handleHover.name, symbol: local?.name, position, current });
   if (local) {
     return {
       contents: local.toMarkupContent(),

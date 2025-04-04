@@ -76,39 +76,22 @@ export class Analyzer {
 
     let amount = 0;
 
-    const analysisPromises: Promise<void>[] = [];
+    const workspace = currentWorkspace.current;
+    if (!workspace) {
+      return { filesParsed: 0 };
+    }
 
-    for (const workspace of workspaces) {
-      const docs = workspace
-        .urisToLspDocuments()
-        // .filter((doc: LspDocument) => doc.shouldAnalyzeInBackground())
-        .filter((doc: LspDocument) => doc.isAutoloadedUri())
-        .slice(0, max_files - amount); // Only take what we need up to max_files
-
-      // Create promises for each document analysis
-      const workspacePromises = docs.map(async (doc) => {
-        if (amount >= max_files) {
-          return;
-        }
-        try {
-          this.analyze(doc);
-        } catch (err) {
-          logger.log(err);
-        }
-        amount++;
-      });
-
-      analysisPromises.push(...workspacePromises);
-
+    for (const document of workspace.urisToLspDocuments()) {
       if (amount >= max_files) {
         break;
       }
+      try {
+        this.analyze(document);
+      } catch (err) {
+        logger.log(err);
+      }
+      amount++;
     }
-
-    // Wait for all analysis tasks to complete
-    await Promise.all(analysisPromises);
-
-    this.amountIndexed = amount;
 
     const endTime = performance.now();
     const duration = ((endTime - startTime) / 1000).toFixed(2); // Convert to seconds with 2 decimal places
@@ -163,27 +146,27 @@ export class Analyzer {
    * @returns {WorkspaceSymbol[]} array of all symbols
    */
   public getWorkspaceSymbols(query: string = ''): WorkspaceSymbol[] {
-    if (config.fish_lsp_single_workspace_support && currentWorkspace.current) {
-      const workspace = currentWorkspace.current;
-      logger.log({ searching: workspace.path, query });
-      return this.globalSymbols.allSymbols
-        .filter(symbol => workspace.contains(symbol.uri))
-        .map((s) => s.toWorkspaceSymbol())
-        .filter((symbol: WorkspaceSymbol) => {
-          return symbol.name.startsWith(query);
-        });
-    }
+    // if (config.fish_lsp_single_workspace_support && currentWorkspace.current) {
+    // }
+    const workspace = currentWorkspace.current;
+    logger.log({ searching: workspace?.path, query });
     return this.globalSymbols.allSymbols
+      .filter(symbol => workspace?.contains(symbol.uri))
       .map((s) => s.toWorkspaceSymbol())
       .filter((symbol: WorkspaceSymbol) => {
         return symbol.name.startsWith(query);
       });
+    // return this.globalSymbols.allSymbols
+    //   .map((s) => s.toWorkspaceSymbol())
+    //   .filter((symbol: WorkspaceSymbol) => {
+    //     return symbol.name.startsWith(query);
+    //   });
   }
 
   public getDefinition(
     document: LspDocument,
     position: Position,
-  ): FishSymbol {
+  ): FishSymbol | null {
     const symbols: FishSymbol[] = findDefinitionSymbols(this, document, position);
     const wordAtPoint = this.wordAtPoint(document.uri, position.line, position.character);
     const nodeAtPoint = this.nodeAtPoint(document.uri, position.line, position.character);
@@ -193,7 +176,7 @@ export class Analyzer {
     if (nodeAtPoint && isArgparseVariableDefinitionName(nodeAtPoint)) {
       return this.getFlatDocumentSymbols(document.uri).findLast(s => s.containsPosition(position)) || symbols.pop()!;
     }
-    return symbols.pop()!;
+    return symbols.pop() || null;
   }
 
   public getDefinitionLocation(
