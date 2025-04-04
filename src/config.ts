@@ -2,7 +2,7 @@ import os from 'os';
 import { z } from 'zod';
 import { createServerLogger, logger } from './logger';
 import { PrebuiltDocumentationMap, EnvVariableJson } from './utils/snippets';
-import { Connection, FormattingOptions, InitializeParams, InitializeResult, TextDocumentSyncKind } from 'vscode-languageserver';
+import { Connection, FileOperationRegistrationOptions, FormattingOptions, InitializeParams, InitializeResult, TextDocumentSyncKind } from 'vscode-languageserver';
 import { AllSupportedActions } from './code-actions/action-kinds';
 import { LspCommands } from './command';
 import { PackageVersion } from './utils/commander-cli-subcommands';
@@ -107,7 +107,7 @@ export const ConfigSchema = z.object({
   fish_lsp_enable_experimental_diagnostics: z.boolean().default(false),
 
   /** max background files */
-  fish_lsp_max_background_files: z.number().default(1000),
+  fish_lsp_max_background_files: z.number().default(Number.MAX_VALUE),
 
   /** show startup analysis notification */
   fish_lsp_show_client_popups: z.boolean().default(true),
@@ -470,8 +470,14 @@ export namespace Config {
         documentHighlightProvider: configHandlers.highlight,
         inlayHintProvider: configHandlers.inlayHint,
         signatureHelpProvider: configHandlers.signature ? { workDoneProgress: false, triggerCharacters: ['.'] } : undefined,
+        documentLinkProvider: {
+          resolveProvider: true,
+        },
         workspace: {
-          workspaceFolders:  {
+          // fileOperations: {
+          //   didRename: FileListenerFilter,
+          // },
+          workspaceFolders: {
             supported: true,
             changeNotifications: true,
           },
@@ -483,6 +489,21 @@ export namespace Config {
       },
     };
   }
+
+  export const FileListenerFilter: FileOperationRegistrationOptions = {
+    filters: [
+      {
+        pattern: {
+          glob: '**/*.fish',
+          matches: 'file',
+          options: {
+            ignoreCase: true,
+          },
+        },
+      },
+    ],
+  };
+
   /**
    * *******************************************
    * ***        initializeResult             ***

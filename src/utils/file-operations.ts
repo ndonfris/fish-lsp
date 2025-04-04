@@ -120,4 +120,14 @@ export class SyncFileHelper {
       return false;
     }
   }
+
+  static isFile(filePath: PathLike): boolean {
+    const expandedFilePath = this.expandEnvVars(filePath);
+    try {
+      const fileStat = statSync(expandedFilePath);
+      return fileStat.isFile();
+    } catch (_) {
+      return false;
+    }
+  }
 }

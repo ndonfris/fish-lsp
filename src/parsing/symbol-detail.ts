@@ -10,6 +10,7 @@ import { setModifierDetailDescriptor, SetModifiers } from './set';
 import { SyntaxNode } from 'web-tree-sitter';
 import { FishAlias } from './alias';
 import { env } from '../utils/env-manager';
+import { logger } from '../logger';
 
 // IF YOU ARE READING THIS FILE, PLEASE FEEL FREE TO REFACTOR IT (sorry my brain is fried)
 
@@ -177,7 +178,7 @@ function isVariableArgumentNamed(node: SyntaxNode, name: string) {
 }
 
 function getArgumentNamesIndexString(node: SyntaxNode, name: string) {
-  if (node.type !== 'function_definition') return '';
+  if (node?.type && node?.type !== 'function_definition') return '';
   const children = findFunctionDefinitionChildren(node);
   // const resultFlags: string[] = [];
   const index = findOptions(children, FunctionOptions).found
@@ -194,6 +195,7 @@ function getArgumentNamesIndexString(node: SyntaxNode, name: string) {
 
 function buildVariableDetail(symbol: FishSymbol) {
   const { name, node, uri, fishKind } = symbol;
+  if (!node) return '';
   const description = [`(${md.bold('variable')}) ${md.inlineCode(name)}`];
   // add short info about variable
   description.push(md.separator());
@@ -206,8 +208,13 @@ function buildVariableDetail(symbol: FishSymbol) {
     }
   } else if (fishKind === 'ARGPARSE') {
     description.push('locally scoped');
-  } else if (isVariableArgumentNamed(node, name)) {
-    description.push(getArgumentNamesIndexString(node, name));
+  } else if (node && isVariableArgumentNamed(node, name)) {
+    try {
+      const result = getArgumentNamesIndexString(node, name);
+      description.push(result);
+    } catch (e) {
+      logger.error('ERROR: building variable detail', e);
+    }
   }
   // add location
   description.push(`located in file: ${md.inlineCode(uriToReadablePath(uri))}`);
@@ -221,9 +228,9 @@ function buildVariableDetail(symbol: FishSymbol) {
   // add code block of entire region
   description.push(md.codeBlock('fish', unindentNestedSyntaxNode(node)));
   // add trailing `cmd --arg`, `cmd $argv`, `func $argv` examples
-  const scopeCommand = symbol.scope.scopeNode.type === 'program'
+  const scopeCommand = symbol.scope.scopeNode?.type === 'program'
     ? `${uriToReadablePath(uri)}`
-    : `${symbol.scope.scopeNode.firstNamedChild!.text}`;
+    : `${symbol.scope.scopeNode?.firstNamedChild?.text}` || `${symbol.node}`;
   if (fishKind === 'ARGPARSE') {
     const argumentNamesOption = symbol.name.slice('_flag_'.length).replace(/_/g, '-');
     if (argumentNamesOption.length > 1) {

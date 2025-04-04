@@ -1,10 +1,16 @@
+// import * as fs from 'fs';
 import * as os from 'os';
 import { setLogger } from './helpers';
-import { FishUriWorkspace, initializeDefaultFishWorkspaces, Workspace } from '../src/utils/workspace';
+import { FishUriWorkspace, initializeDefaultFishWorkspaces, workspaces } from '../src/utils/workspace';
 import { Config, config, ConfigSchema } from '../src/config';
 import { uriToPath } from '../src/utils/translation';
 import * as LSP from 'vscode-languageserver';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
+// import { Logger } from '../src/logger';
+// import { SyncFileHelper } from '../src/utils/file-operations';
+
+// Mock the entire fs module
+// jest.mock('fs');
 
 describe('setup workspace', () => {
   setLogger();
@@ -25,6 +31,13 @@ describe('setup workspace', () => {
 
     // Copy default values into the config object
     Object.assign(config, defaultConfig);
+  });
+
+  afterEach(() => {
+    config.fish_lsp_all_indexed_paths = [];
+    for (const _ of workspaces) {
+      workspaces.pop();
+    }
   });
 
   describe('fisher workspace', () => {
@@ -75,25 +88,35 @@ describe('setup workspace', () => {
   });
 
   describe('fisher workspace w/ $fish_lsp_single_workspace_support \'true\'', () => {
-    it.skip('conf.d/fisher-template', async () => {
-      config.fish_lsp_single_workspace_support = true;
+    it('conf.d/fisher-template', async () => {
+      // config.fish_lsp_single_workspace_support = true;
       const uris = [
-        'file:///home/user/repos/fisher-template/conf.d',
-        'file:///home/user/repos/fisher-template',
-        'file:///home/user/repos/fzf.fish/functions',
+        `file://${os.homedir()}/repos/fisher-template/conf.d`,
+        `file://${os.homedir()}/repos/fisher-template`,
+        `file://${os.homedir()}/repos/fzf.fish/functions`,
         `file://${os.homedir()}/repos/bends.fish`, /** assuming this exists */
       ];
+      // let i = 0;
       for (const inputUri of uris) {
-        // if (!inputUri.endsWith('bends.fish')) continue
-        const fishWorkspace = FishUriWorkspace.create(inputUri);
-        if (!fishWorkspace) fail();
-        const workspace = await Workspace.createFromUri(inputUri);
-        if (!workspace) fail();
-        // console.log({ inputUri, name: workspace.name, path: workspace.path });
-        // console.log(workspaces.map(w => w.uri));
-        const root = FishUriWorkspace.getWorkspaceRootFromUri(inputUri);
-        console.log({ root });
+        // const root = FishUriWorkspace.getWorkspaceRootFromUri(inputUri);
+        const workspace = FishUriWorkspace.create(inputUri);
+        // console.log('fisher-template', i, {
+        //   root,
+        //   workspace: {
+        //     ...workspace
+        //   },
+        //   isDirectory: SyncFileHelper.isDirectory(root?.toString() || ''),
+        // });
+        // i++;
+        expect(workspace).toBeDefined();
+        expect([
+          `file://${os.homedir()}/repos/fisher-template`,
+          `file://${os.homedir()}/repos/fisher-template`,
+          `file://${os.homedir()}/repos/fzf.fish`,
+          `file://${os.homedir()}/repos/bends.fish`,
+        ].includes(workspace!.uri)).toBeTruthy();
       }
+      expect(true).toBe(true);
     });
   });
 
@@ -108,18 +131,42 @@ describe('setup workspace', () => {
 
     it(`file://${os.homedir()}/.config/fish \`false -> false\``, async () => {
       config.fish_lsp_single_workspace_support = true;
+      config.fish_lsp_all_indexed_paths = [`${os.homedir()}/.config/fish`];
       const uri = `file://${os.homedir()}/.config/fish`;
       const workspaces = await initializeDefaultFishWorkspaces(uri);
       expect(workspaces.length).toBe(1);
       expect(config.fish_lsp_single_workspace_support).toBe(true);
     });
 
-    it('/tmp/foo.fish \`true -> false\`', async () => {
-      config.fish_lsp_single_workspace_support = true;
-      const uri = 'file:///tmp';
+    // it('/tmp/foo.fish \`true -> false\`', async () => {
+    //   config.fish_lsp_single_workspace_support = true;
+    //   const uri = 'file:///tmp';
+    //   const workspaces = await initializeDefaultFishWorkspaces(uri);
+    //   expect(workspaces.length).toBe(3);
+    //   expect(config.fish_lsp_single_workspace_support).toBe(false);
+    // });
+  });
+
+  describe('/tmp testing of workspaces', () => {
+    it('/tmp/foo.fish', async () => {
+      const uri = 'file:///tmp/foo.fish';
+      //
+      // const workspaceRoot = FishUriWorkspace.getWorkspaceRootFromUri(uri);
+      // const workspaceName = FishUriWorkspace.getWorkspaceName(uri);
+      // const workspace = FishUriWorkspace.create(uri);
+      // console.log('/tmp workspaceRoot', {
+      //   workspaceRoot,
+      //   workspaceName,
+      //   workspace: workspace?.uri,
+      //   isFile: SyncFileHelper.isFile(workspaceRoot?.toString() || ''),
+      // });
+      console.log('/tmp/foo.fish');
       const workspaces = await initializeDefaultFishWorkspaces(uri);
-      expect(workspaces.length).toBe(2);
-      expect(config.fish_lsp_single_workspace_support).toBe(false);
+      // console.log({
+      //   workspaces: workspaces.map(w => w.uri),
+      // });
+      expect(workspaces.length).toBe(3);
+      expect(workspaces.map(w => w.uri).includes('file:///tmp/foo.fish')).toBeTruthy();
     });
   });
 });

@@ -481,6 +481,30 @@ export function removeLocalSymbols(symbol: FishSymbol, symbols: FlatFishSymbolTr
   return symbols.filter(s => s.name === symbol.name && !symbol.equalScopes(s) && !s.equals(symbol));
 }
 
+/**
+ * Formats a tree of FishSymbols into a string with proper indentation
+ * @param symbols Array of FishSymbol objects to format
+ * @param indentLevel Initial indentation level (optional, defaults to 0)
+ * @returns A string representing the formatted tree
+ */
+export function formatFishSymbolTree(symbols: FishSymbol[], indentLevel: number = 0): string {
+  let result = '';
+  const indentString = '  '; // 2 spaces per indent level
+
+  for (const symbol of symbols) {
+    const indent = indentString.repeat(indentLevel);
+    const scopeTag = symbol.scope?.scopeTag || 'unknown';
+    result += `${indent}${symbol.name} (${symbol.fishKind}) (${scopeTag})\n`;
+
+    // Recursively format children with increased indent
+    if (symbol.children && symbol.children.length > 0) {
+      result += formatFishSymbolTree(symbol.children, indentLevel + 1);
+    }
+  }
+
+  return result;
+}
+
 function buildNested(document: LspDocument, node: SyntaxNode, ...children: FishSymbol[]): FishSymbol[] {
   const firstNamedChild = node.firstNamedChild as SyntaxNode;
   const newSymbols: FishSymbol[] = [];

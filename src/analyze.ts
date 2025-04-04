@@ -3,10 +3,10 @@ import Parser, { SyntaxNode, Tree } from 'web-tree-sitter';
 import * as LSP from 'vscode-languageserver';
 import { isPositionWithinRange, getChildNodes } from './utils/tree-sitter';
 import { LspDocument, documents } from './document';
-import { isAliasDefinitionName, isCommand, isCommandName } from './utils/node-types';
+import { isAliasDefinitionName, isCommand, isCommandName, isTopLevelDefinition } from './utils/node-types';
 import { pathToUri, symbolKindToString, uriToPath } from './utils/translation';
 import { existsSync } from 'fs';
-import { currentWorkspace, workspaces } from './utils/workspace';
+import { currentWorkspace, Workspace, workspaces } from './utils/workspace';
 import { findDefinitionSymbols, getReferenceLocations } from './workspace-symbol';
 import { config } from './config';
 import { logger } from './logger';
@@ -21,6 +21,7 @@ export class Analyzer {
   protected parser: Parser;
   public cache: AnalyzedDocumentCache = new AnalyzedDocumentCache();
   public globalSymbols: GlobalDefinitionCache = new GlobalDefinitionCache();
+  // public workspaceAnalyzed: Workspace | null = null;
 
   public amountIndexed: number = 0;
 
@@ -28,7 +29,7 @@ export class Analyzer {
     this.parser = parser;
   }
 
-  public analyze(document: LspDocument): FishSymbol[] {
+  public analyze(document: LspDocument): AnalyzedDocument {
     this.parser.reset();
     const analyzedDocument = this.getAnalyzedDocument(
       this.parser,
@@ -39,7 +40,7 @@ export class Analyzer {
     flattenNested(...symbols).filter(s => s.isGlobal()).forEach((symbol: FishSymbol) => {
       this.globalSymbols.add(symbol);
     });
-    return this.cache.getDocumentSymbols(document.uri);
+    return analyzedDocument;
   }
 
   private getAnalyzedDocument(
@@ -61,9 +62,9 @@ export class Analyzer {
     );
   }
 
-  public analyzePath(rawFilePath: string): FishSymbol[] {
+  public analyzePath(rawFilePath: string): AnalyzedDocument {
     const path = uriToPath(rawFilePath);
-    const content = SyncFileHelper.read(path, 'utf8');
+    const content = SyncFileHelper.read(path, 'utf-8');
     const document = LspDocument.createTextDocumentItem(pathToUri(path), content);
     return this.analyze(document);
   }
@@ -73,13 +74,26 @@ export class Analyzer {
   ): Promise<{ filesParsed: number; }> {
     const startTime = performance.now();
     const max_files = config.fish_lsp_max_background_files;
-
-    let amount = 0;
-
     const workspace = currentWorkspace.current;
+    logger.log('workspace analyzer.initiateBackgroundAnalysis', {
+      workspace: {
+        name: workspace?.name,
+        path: workspace?.path,
+        uri: workspace?.uri,
+        isAnalyzed: workspace?.isAnalyzed(),
+        size: workspace?.uris.size,
+      },
+      max_files,
+    });
     if (!workspace) {
       return { filesParsed: 0 };
     }
+    const workspaceUri = currentWorkspace.current?.uri || '';
+    if (!!workspaceUri && workspace.isAnalyzed()) {
+      return { filesParsed: 0 };
+    }
+    workspace.setAnalyzed();
+    let amount = 0;
 
     for (const document of workspace.urisToLspDocuments()) {
       if (amount >= max_files) {
@@ -98,6 +112,78 @@ export class Analyzer {
     callbackfn(`[fish-lsp] analyzed ${amount} files in ${duration}s`);
     logger.log(`[fish-lsp] analyzed ${amount} files in ${duration}s`);
     return { filesParsed: amount };
+  }
+
+  public clearWorkspace(workspace: Workspace, currentUri: string, ...openUris: string[]): void {
+    const remainingUrisInWorkspace = openUris.filter(uri => {
+      return workspace.contains(uri) && uri !== currentUri;
+    });
+    const removedUris: string[] = [];
+
+    if (remainingUrisInWorkspace.length === 0) {
+      workspace.removeAnalyzed();
+      this.cache.uris().forEach(uri => {
+        if (workspace.contains(uri)) {
+          removedUris.push(uri);
+          this.cache.clear(uri);
+        }
+      });
+      this.globalSymbols.allNames.forEach(name => {
+        const symbols = this.globalSymbols.find(name)
+          .filter(s => !workspace.contains(s.uri));
+        if (symbols.length === 0) {
+          this.globalSymbols.map.delete(name);
+          return;
+        }
+        this.globalSymbols.map.set(name, symbols);
+      });
+    }
+    this.amountIndexed = 0;
+    logger.log(`Cleared workspace ${workspace.path}`);
+    logger.log({
+      removedUris: removedUris.length,
+      remainingUris: this.cache.uris().length,
+    });
+  }
+
+  public ensureSourcedFilesToWorkspace(
+    uri: string,
+    sourceFiles: Set<string> = new Set(),
+  ) {
+    const workspace = currentWorkspace.current;
+    if (!workspace) {
+      return;
+    }
+    const path = uriToPath(uri);
+    const cached = this.analyzePath(path);
+    const { document } = cached;
+    const nodes = this.getNodes(document);
+
+    for (const node of nodes) {
+      if (isSourceCommandArgumentName(node) && isTopLevelDefinition(node)) {
+        const sourced = getExpandedSourcedFilenameNode(node);
+        if (!sourced) continue;
+        const sourcedUri = pathToUri(sourced);
+        if (!sourceFiles.has(sourcedUri)) {
+          currentWorkspace.current?.add(cached.document.uri);
+          sourceFiles.add(sourcedUri);
+          this.ensureSourcedFilesToWorkspace(sourcedUri, sourceFiles);
+        }
+        logger.info('ensureSourcedFilesToWorkspace', {
+          node: node.text,
+          currentWorkspace: {
+            path: currentWorkspace.current?.path,
+            uri: currentWorkspace.current?.uri,
+            name: currentWorkspace.current?.name,
+            uris: Array.from(currentWorkspace.current?.uris || []).join(':'),
+          },
+          cached: {
+            uri: cached.document.uri,
+            sourcedUri,
+          },
+        });
+      }
+    }
   }
 
   public findDocumentSymbol(
@@ -146,21 +232,14 @@ export class Analyzer {
    * @returns {WorkspaceSymbol[]} array of all symbols
    */
   public getWorkspaceSymbols(query: string = ''): WorkspaceSymbol[] {
-    // if (config.fish_lsp_single_workspace_support && currentWorkspace.current) {
-    // }
     const workspace = currentWorkspace.current;
     logger.log({ searching: workspace?.path, query });
     return this.globalSymbols.allSymbols
-      .filter(symbol => workspace?.contains(symbol.uri))
+      .filter(symbol => workspace?.contains(symbol.uri) || symbol.uri === workspace?.uri)
       .map((s) => s.toWorkspaceSymbol())
       .filter((symbol: WorkspaceSymbol) => {
         return symbol.name.startsWith(query);
       });
-    // return this.globalSymbols.allSymbols
-    //   .map((s) => s.toWorkspaceSymbol())
-    //   .filter((symbol: WorkspaceSymbol) => {
-    //     return symbol.name.startsWith(query);
-    //   });
   }
 
   public getDefinition(
@@ -678,6 +757,9 @@ export class AnalyzedDocumentCache {
       result.push(callbackfn(doc));
     }
     return result;
+  }
+  clear(uri: URI) {
+    this._documents.delete(uri);
   }
 }
 

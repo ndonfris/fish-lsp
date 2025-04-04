@@ -12,8 +12,8 @@ import { getChildNodes } from './utils/tree-sitter';
 import { getVariableExpansionDocs, handleHover } from './hover';
 import { getDiagnostics } from './diagnostics/validate';
 import { DocumentationCache, initializeDocumentationCache } from './utils/documentation-cache';
-import { currentWorkspace, findCurrentWorkspace, getWorkspacePathsFromInitializationParams, initializeDefaultFishWorkspaces, updateWorkspaces } from './utils/workspace';
-import { filterLastPerScopeSymbol } from './parsing/symbol';
+import { currentWorkspace, findCurrentWorkspace, getWorkspacePathsFromInitializationParams, initializeDefaultFishWorkspaces, updateWorkspaces, Workspace } from './utils/workspace';
+import { formatFishSymbolTree, filterLastPerScopeSymbol } from './parsing/symbol';
 import { getRenameWorkspaceEdit, getReferenceLocations } from './workspace-symbol';
 import { CompletionPager, initializeCompletionPager, SetupData } from './utils/completion/pager';
 import { FishCompletionItem } from './utils/completion/types';
@@ -48,7 +48,15 @@ export default class FishServer {
     params: InitializeParams,
   ): Promise<{ server: FishServer; initializeResult: InitializeResult; }> {
     const initializeResult = Config.initialize(params, connection);
+    logger.log({
+      server: 'FishServer',
+      initializeResult,
+      rootUri: params.rootUri,
+      rootPath: params.rootPath,
+      workspaceFolders: params.workspaceFolders,
+    });
     const initializeUris = getWorkspacePathsFromInitializationParams(params);
+    logger.warning('initializeUris', initializeUris);
 
     // Run these operations in parallel rather than sequentially
     const [
@@ -106,25 +114,48 @@ export default class FishServer {
     // handle the documents using the documents dependency
     this.documents.listen(connection);
 
-    this.documents.onDidChangeContent(event => {
+    this.documents.onDidChangeContent(async (event) => {
+      const oldWorkspace = currentWorkspace.current;
       this.logParams('onDidChangeContent', event);
-      findCurrentWorkspace(event.document.uri);
-      CurrentDocument = this.docs.updateTextDocument(event.document);
+      this.docs.updateTextDocument(event.document);
       this.analyzeDocument(event.document);
+      const newWorkspace = await findCurrentWorkspace(event.document.uri);
+      await this.handleWorkspaceChange(oldWorkspace, newWorkspace);
+      this.analyzer.ensureSourcedFilesToWorkspace(event.document.uri);
+
+      logger.log('newWorkspace', newWorkspace?.name);
     });
 
-    this.documents.onDidOpen(event => {
+    this.documents.onDidOpen(async event => {
       this.logParams('onDidOpen', event);
+      const oldWorkspace = currentWorkspace.current;
+      const newWorkspace = await findCurrentWorkspace(event.document.uri);
       CurrentDocument = this.docs.openTextDocument(event.document);
-      findCurrentWorkspace(event.document.uri);
+      currentWorkspace.current = null;
+      await currentWorkspace.updateCurrentWorkspace(event.document.uri);
       this.analyzeDocument(event.document);
+      if (!event.document.uri.startsWith('file:///tmp')) {
+        await this.handleWorkspaceChange(oldWorkspace, newWorkspace);
+      }
+      logger.log('newWorkspace', newWorkspace?.name);
     });
 
     this.documents.onDidClose(event => {
       this.logParams('onDidClose', event);
-      currentWorkspace.current = null;
-      CurrentDocument = undefined;
+      const perviousWorkspace = currentWorkspace.current;
       this.clearDiagnostics(event.document);
+      const remainingDocumentsInWorkspace = this.documents.all()
+        .filter((item) => {
+          if (!perviousWorkspace) return true;
+          return perviousWorkspace.contains(item.uri);
+        });
+      if (remainingDocumentsInWorkspace.length === 0) {
+        currentWorkspace.current = null;
+        CurrentDocument = undefined;
+      }
+      if (perviousWorkspace) {
+        this.analyzer.clearWorkspace(perviousWorkspace, event.document.uri, ...this.documents.all().map(doc => doc.uri));
+      }
       this.docs.closeTextDocument(event.document);
     });
 
@@ -160,19 +191,15 @@ export default class FishServer {
 
     connection.onDidChangeWatchedFiles(e => {
       this.logParams('onDidChangeWatchedFiles', e);
-      // this.analyzeDocument(e)
+      // for (const doc of e.changes) {
+      //   const path = uriToPath(doc.uri);
+      //   const document = this.docs.get(path);
+      //   if (!document) continue;
+      //   this.docs.updateTextDocument(document);
+      //   this.analyzeDocument(document);
+      // }
     });
 
-    // connection.workspace.onDidChangeWorkspaceFolders(e => {
-    //   logger.log('onDidChangeWorkspaceFolders', e);
-    // });
-    // connection.workspace.onDidChangeWorkspaceFolders(e => {
-    //   logger.log('**********************', 'onDidChangeWorkspaceFolders', e);
-    // })
-    // connection.onDidChangeWatchedFiles(e => {
-    //   logger.log('**********************','onDidChangeWatchedFiles', e);
-    // })
-    // logger.log(connection.workspace.getWorkspaceFolders())
     logger.log({ 'server.register': 'registered' });
   }
 
@@ -180,10 +207,23 @@ export default class FishServer {
   //  • @link [bash-lsp](https://github.com/bash-lsp/bash-language-server/blob/3a319865af9bd525d8e08cd0dd94504d5b5b7d66/server/src/server.ts#L236)
   async onInitialized() {
     logger.log('onInitialized', this.initializeParams);
-    this.connection.workspace.onDidChangeWorkspaceFolders(e => {
-      logger.info('onDidChangeWorkspaceFolders', e);
-      updateWorkspaces(e);
-      this.startBackgroundAnalysis();
+    this.connection.workspace.onDidChangeWorkspaceFolders(async e => {
+      const oldWorkspace = currentWorkspace.current;
+      logger.log('onDidChangeWorkspaceFolders', e);
+      await updateWorkspaces(e);
+      // logger.info('NewWorkspace', {
+      //   currentWorkspace: currentWorkspace.current ? {
+      //     name: currentWorkspace.current?.name,
+      //     uri: currentWorkspace.current?.uri,
+      //     path: currentWorkspace.current?.path,
+      //   } : 'undefined',
+      //   oldWorkspace: oldWorkspace ? {
+      //     name: oldWorkspace?.name,
+      //     uri: oldWorkspace?.uri,
+      //     path: oldWorkspace?.path,
+      //   } : 'undefined',
+      // });
+      await this.handleWorkspaceChange(oldWorkspace, currentWorkspace.current);
     });
     return {
       backgroundAnalysisCompleted: this.startBackgroundAnalysis(),
@@ -323,6 +363,9 @@ export default class FishServer {
     this.logParams('onImplementation', params);
     const { doc } = this.getDefaults(params);
     if (!doc) return [];
+    const symbols = this.analyzer.cache.getDocumentSymbols(doc.uri);
+    const lastSymbols = filterLastPerScopeSymbol(symbols);
+    logger.log('symbols', formatFishSymbolTree(lastSymbols));
     const result = this.analyzer.getImplementation(doc, params.position);
     logger.log('implementationResult', { result });
     return result;
@@ -617,11 +660,13 @@ export default class FishServer {
   }
 
   public analyzeDocument(document: TextDocumentIdentifier) {
-    const { doc, path } = this.getDefaultsForPartialParams({ textDocument: document });
+    const result = this.getDefaultsForPartialParams({ textDocument: document });
+    const { path } = result;
+    let { doc } = result;
     if (!doc) {
-      this.analyzer.analyzePath(path);
+      doc = this.analyzer.analyzePath(path).document;
     } else {
-      this.analyzer.analyze(doc);
+      doc = this.analyzer.analyze(doc).document;
     }
     const resultDoc = this.docs.get(path);
     if (!resultDoc) {
@@ -644,12 +689,35 @@ export default class FishServer {
       diagnostics: diagnostics.map(d => d.code),
     });
     this.connection.sendDiagnostics({ uri: resultDoc.uri, diagnostics });
+    this.analyzer.ensureSourcedFilesToWorkspace(doc.uri);
 
     return {
       uri: document.uri,
       path: path,
       doc: doc,
     };
+  }
+
+  // Add this method to your Server class
+  private async handleWorkspaceChange(oldWorkspace: Workspace | null, newWorkspace: Workspace | null): Promise<void> {
+    // Skip if both are null or the same workspace
+    if (!oldWorkspace && !newWorkspace ||
+      oldWorkspace && newWorkspace && oldWorkspace.equals(newWorkspace) ||
+      newWorkspace?.isAnalyzed() ||
+      newWorkspace?.path.startsWith('/tmp')
+    ) {
+      return;
+    }
+
+    logger.info('Workspace changed', {
+      from: oldWorkspace?.name || 'none',
+      to: newWorkspace?.name || 'none',
+    });
+
+    // Analyze the new workspace
+    if (newWorkspace && !newWorkspace.isAnalyzed()) {
+      await this.startBackgroundAnalysis();
+    }
   }
 
   /////////////////////////////////////////////////////////////////////////////////////
