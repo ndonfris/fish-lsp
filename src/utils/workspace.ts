@@ -1,7 +1,7 @@
 import * as fastGlob from 'fast-glob';
 import { readFileSync, promises } from 'fs';
 import { pathToUri, toLspDocument, uriToPath } from './translation';
-import { LspDocument } from '../document';
+import { LspDocument, documents } from '../document';
 import { FishSymbol } from '../parsing/symbol';
 import { config } from '../config';
 import { logger } from '../logger';
@@ -9,7 +9,6 @@ import { basename, dirname, join } from 'path';
 import * as LSP from 'vscode-languageserver';
 import { env } from './env-manager';
 import { SyncFileHelper } from './file-operations';
-import { documents } from '../server';
 
 /** small type utility to remove the deprecated fields from the `InitializeParams` */
 type WorkspaceParamsWithoutDeprecatedFields = { rootUri: string; rootPath: string | null; workspaceFolders: LSP.WorkspaceFolder[] | null; };

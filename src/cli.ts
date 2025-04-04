@@ -5,7 +5,7 @@ import { createConnection, InitializeParams, InitializeResult, StreamMessageRead
 import { Command, Option } from 'commander';
 import FishServer from './server';
 import { buildFishLspCompletions } from './utils/get-lsp-completions';
-import { createServerLogger, log, logger, logToStdout, logToStdoutJoined } from './logger';
+import { createServerLogger, logger } from './logger';
 import { configHandlers, generateJsonSchemaShellScript, config, showJsonSchemaShellScript, updateHandlers, validHandlers, Config } from './config';
 
 export function startServer() {
@@ -23,7 +23,7 @@ export function startServer() {
     },
   );
   connection.listen();
-  createServerLogger(config.fish_lsp_log_file, true, connection.console);
+  createServerLogger(config.fish_lsp_log_file, connection.console);
   logger.log('Starting FISH-LSP server');
   logger.log('Server started with the following handlers:', configHandlers);
   logger.log('Server started with the following config:', config);
@@ -38,7 +38,7 @@ async function timeOperation<T>(
     const result = await operation();
     const end = performance.now();
     const duration = end - start;
-    logToStdoutJoined(
+    logger.logToStdoutJoined(
       `${label}:`.padEnd(55),
       `${duration.toFixed(2)}ms`.padStart(10),
     );
@@ -46,7 +46,7 @@ async function timeOperation<T>(
   } catch (error) {
     const end = performance.now();
     const duration = end - start;
-    logToStdout(`${label} failed after ${duration.toFixed(2)}ms`);
+    logger.logToStdout(`${label} failed after ${duration.toFixed(2)}ms`);
     throw error;
   }
 }
@@ -77,20 +77,20 @@ async function timeServerStartup() {
   }, 'Background Analysis Time');
 
   // 3. Log the number of files indexed
-  logToStdoutJoined(
+  logger.logToStdoutJoined(
     'Total Files Indexed: '.padEnd(55),
     `${server?.analyzer.amountIndexed} files`.padStart(10),
   );
 
   // 4. Log the directories indexed
   const all_indexed = config.fish_lsp_all_indexed_paths;
-  logToStdoutJoined(
+  logger.logToStdoutJoined(
     "Indexed Files in '$fish_lsp_all_indexed_paths':".padEnd(55),
     `${all_indexed.length} paths`.padStart(10),
   );
   const maxItemLen = all_indexed.reduce((max, item) => Math.max(max, item.length), 0);
   const startStr = ' '.repeat(3);
-  config.fish_lsp_all_indexed_paths.forEach((item, idx) => logToStdoutJoined(
+  config.fish_lsp_all_indexed_paths.forEach((item, idx) => logger.logToStdoutJoined(
     `${startStr}$fish_lsp_all_indexed_paths[${idx + 1}]  `.padEnd(64 - maxItemLen),
     `|${item}|`.padStart(maxItemLen + 2),
   ));
@@ -126,7 +126,7 @@ commandBin
   .action(opt => {
     if (opt.helpMan) {
       const { path: _path, content } = FishLspManPage();
-      logToStdout(content.join('\n').trim());
+      logger.logToStdout(content.join('\n').trim());
     } else if (opt.helpAll) {
       const globalOpts = commandBin.options.concat(new Option('-h, --help', 'show help'));
       const subCommands = commandBin.commands.map((cmd) => {
@@ -135,7 +135,7 @@ commandBin
           cmd.options.map(o => `    ${o.flags}\t\t${o.description}`).join('\n'),
           ''].join('\n');
       });
-      logToStdout(['NAME:',
+      logger.logToStdout(['NAME:',
         'fish-lsp - an lsp for the fish shell language',
         '',
         'USAGE: ',
@@ -154,7 +154,7 @@ commandBin
         FishLspHelp.after.split('\n').slice(2).join('\n'),
       ].join('\n').trim());
     } else if (opt.helpShort) {
-      logToStdout([
+      logger.logToStdout([
         'Usage: fish-lsp ', commandBin.usage().split('\n').slice(0, 1),
         '',
         commandBin.description(),
@@ -200,8 +200,8 @@ commandBin.command('start [TOGGLE]')
 
     // Dump the configHandlers, if requested from the command line. This stops the server.
     if (dumpCmd) {
-      log(JSON.stringify({ handlers: configHandlers }, null, 2));
-      log(JSON.stringify({ config: config }, null, 2));
+      logger.logFallbackToStdout({ handlers: configHandlers });
+      logger.logFallbackToStdout({ config: config });
       process.exit(0);
     }
 
@@ -210,31 +210,26 @@ commandBin.command('start [TOGGLE]')
   });
 
 // LOGGER
-commandBin.command('logger')
-  .summary('test the logger by displaying it')
-  .option('-s, --show', 'show the logger and don\'t edit it')
-  .option('-c, --clear', 'clear the logger')
-  .option('-d, --date', 'write the date')
-  .option('-q, --quiet', 'silence logging')
-  .option('--config', 'show the logger config')
-  .action(args => {
-    const logger = createServerLogger(config.fish_lsp_log_file, false);
-    const objArgs = Object.getOwnPropertyNames(args);
-    const argsQueue = objArgs;
-    let currentArg: string = '';
-    while (argsQueue.length !== 0) {
-      currentArg = argsQueue.shift() || '';
-      if (currentArg === 'clear') logger.clearLogFile();
-      if (currentArg === 'quiet') logger.toggleSilence();
-      if (currentArg === 'date') logger.log(getBuildTimeString());
-      if (currentArg === 'config') logToStdout(JSON.stringify(logger.getLoggingOpts()));
-      if (currentArg === 'show') break;
-    }
-
-    if (!args.show) return;
-    logger.showLogfileText();
-    return;
-  });
+// commandBin.command('logger')
+//   .summary('test the logger by displaying it')
+//   .option('-s, --show', 'show the logger and don\'t edit it')
+//   .option('-c, --clear', 'clear the logger')
+//   .option('-d, --date', 'write the date')
+//   .option('-q, --quiet', 'silence logging')
+//   .option('--config', 'show the logger config')
+//   .action(args => {
+//     createServerLogger(config.fish_lsp_log_file);
+//     const objArgs = Object.getOwnPropertyNames(args);
+//     const argsQueue = objArgs;
+//     let currentArg: string = '';
+//     while (argsQueue.length !== 0) {
+//       currentArg = argsQueue.shift() || '';
+//     }
+//
+//     if (!args.show) return;
+//     logger.showLogfileText();
+//     return;
+//   });
 
 // INFO
 commandBin.command('info')
@@ -260,41 +255,41 @@ commandBin.command('info')
     if (args.bin || args.repo) {
       const logPath = args.bin ? PathObj.bin : PathObj.repo;
       const wpath = args.bin ? 'BINARY' : 'REPOSITORY';
-      logToStdout(wpath + ' ' + smallFishLogo());
-      logToStdout(logPath);
+      logger.logToStdout(wpath + ' ' + smallFishLogo());
+      logger.logToStdout(logPath);
       process.exit(0);
     }
     if (args.time) {
-      logToStdout(`Build Time: ${getBuildTimeString()}`);
+      logger.logToStdout(`Build Time: ${getBuildTimeString()}`);
       process.exit(0);
     }
     if (args.capabilities) {
-      logToStdout(`Capabilities:\n${capabilities}`);
+      logger.logToStdout(`Capabilities:\n${capabilities}`);
       process.exit(0);
     }
     if (args.lspVersion) {
-      logToStdout(`LSP Version: ${PackageLspVersion}`);
+      logger.logToStdout(`LSP Version: ${PackageLspVersion}`);
       process.exit(0);
     }
     if (args.manFile) {
-      logToStdout(PathObj.manFile);
+      logger.logToStdout(PathObj.manFile);
       process.exit(0);
     }
     if (args.logsFile || args.logFile) {
-      logToStdout(config.fish_lsp_log_file);
+      logger.logToStdout(config.fish_lsp_log_file);
       process.exit(0);
     }
-    logToStdout(`Repository: ${PathObj.repo}`);
-    logToStdout(`Version: ${PackageVersion}`);
-    logToStdout(`Build Time: ${getBuildTimeString()}`);
-    logToStdout(`Install Type: ${isPkgBinary() ? 'standalone executable' : 'local build'}`);
-    logToStdout(`Node Version: ${process.version}`);
-    logToStdout(`LSP Version: ${PackageLspVersion}`);
-    logToStdout(`Binary File: ${PathObj.bin}`);
-    logToStdout(`Man File: ${PathObj.manFile}`);
-    logToStdout(`Log File: ${config.fish_lsp_log_file}`);
-    logToStdout('CAPABILITIES:');
-    logToStdout(capabilities);
+    logger.logToStdout(`Repository: ${PathObj.repo}`);
+    logger.logToStdout(`Version: ${PackageVersion}`);
+    logger.logToStdout(`Build Time: ${getBuildTimeString()}`);
+    logger.logToStdout(`Install Type: ${isPkgBinary() ? 'standalone executable' : 'local build'}`);
+    logger.logToStdout(`Node Version: ${process.version}`);
+    logger.logToStdout(`LSP Version: ${PackageLspVersion}`);
+    logger.logToStdout(`Binary File: ${PathObj.bin}`);
+    logger.logToStdout(`Man File: ${PathObj.manFile}`);
+    logger.logToStdout(`Log File: ${config.fish_lsp_log_file}`);
+    logger.logToStdout('CAPABILITIES:');
+    logger.logToStdout(capabilities);
     process.exit(0);
   });
 
@@ -313,8 +308,8 @@ commandBin.command('url')
   .option('--sources', 'show a list of helpful sources')
   .action(args => {
     const amount = Object.keys(args).length;
-    if (amount === 0) logToStdout('https://fish-lsp.dev');
-    Object.keys(args).forEach(key => logToStdout(SourcesDict[key]?.toString() || ''));
+    if (amount === 0) logger.logToStdout('https://fish-lsp.dev');
+    Object.keys(args).forEach(key => logger.logToStdout(SourcesDict[key]?.toString() || ''));
     process.exit(0);
   });
 
@@ -328,22 +323,22 @@ commandBin.command('complete')
   .description('copy completions output to fish-lsp completions file')
   .action(args => {
     if (args.names) {
-      commandBin.commands.forEach(cmd => logToStdout(cmd.name() + '\t' + cmd.summary()));
+      commandBin.commands.forEach(cmd => logger.logToStdout(cmd.name() + '\t' + cmd.summary()));
       process.exit(0);
     } else if (args.toggles) {
       commandBin.commands.forEach(cmd => {
-        logToStdout(cmd.name() + '\t' + cmd.summary());
-        Object.entries(cmd.opts()).forEach(opt => logToStdout('--' + opt[0]));
+        logger.logToStdout(cmd.name() + '\t' + cmd.summary());
+        Object.entries(cmd.opts()).forEach(opt => logger.logToStdout('--' + opt[0]));
       });
       process.exit(0);
     } else if (args.fish) {
-      logToStdout(buildFishLspCompletions(commandBin));
+      logger.logToStdout(buildFishLspCompletions(commandBin));
       process.exit(0);
     } else if (args.features) {
-      Object.entries(configHandlers).forEach((name) => logToStdout(name.toString()));
+      Object.entries(configHandlers).forEach((name) => logger.logToStdout(name.toString()));
       process.exit(0);
     }
-    logToStdout(buildFishLspCompletions(commandBin));
+    logger.logToStdout(buildFishLspCompletions(commandBin));
     process.exit(0);
   });
 

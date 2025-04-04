@@ -2,7 +2,7 @@ import { Hover, Position, SymbolKind, WorkspaceSymbol, URI, Location } from 'vsc
 import Parser, { SyntaxNode, Tree } from 'web-tree-sitter';
 import * as LSP from 'vscode-languageserver';
 import { isPositionWithinRange, getChildNodes } from './utils/tree-sitter';
-import { LspDocument } from './document';
+import { LspDocument, documents } from './document';
 import { isAliasDefinitionName, isCommand, isCommandName } from './utils/node-types';
 import { pathToUri, symbolKindToString, uriToPath } from './utils/translation';
 import { existsSync } from 'fs';
@@ -11,7 +11,6 @@ import { findDefinitionSymbols, getReferenceLocations } from './workspace-symbol
 import { config } from './config';
 import { logger } from './logger';
 import { execFileSync } from 'child_process';
-import { documents } from './server';
 import { SyncFileHelper } from './utils/file-operations';
 import { filterLastPerScopeSymbol, FishSymbol, processNestedTree } from './parsing/symbol';
 import { flattenNested } from './utils/flatten';

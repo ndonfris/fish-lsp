@@ -46,6 +46,10 @@ __Sections:__
         creating potentially unwanted formatting changes
   - [ ] Allow option to specify either `fish_indent --only-indent` or `fish_indent` for formatting a file.
 - [ ] Update docs for using `initializationParams` in the client configuration
+- [ ] remove `fish-lsp logger`
+  - [ ] remove `fish-lsp logger` from the `src/cli.ts` file
+  - [ ] remove `fish-lsp logger` from the completions 
+  - [ ] remove `fish-lsp logger` utilities from the `src/logger.ts` file
 
 ## General Codebase Changes
 
@@ -173,6 +177,19 @@ __Sections:__
   might need to called/referenced to use it in an interactive shell.
 - [ ] add `completion` snippets for [builtins](https://fishshell.com/docs/current/commands.html)
 - [ ] `onSemanticToken` support
+- [ ] add headless commandline mode `fish-lsp headless`
+  - [x] an example of what would be included here is things like: `fish-lsp info --time-startup` (move this to `headless subcommand`)
+  - [ ] `--code-action generate-completions FILE` use the `fish-lsp` server to generate
+        completions for a file, and then write them to the file.
+  - [ ] `--code-action fix-all FILE` use the `fish-lsp` server to generate completions for a file, and then write them to the file.
+  - [ ] `--lint FILE` show diagnostics for a file
+  - [ ] `--show-symbols-tree FILE` output a nested symbols tree of definitions for a file
+  - [ ] `--references FILE symbol_name` show all references to a symbol in a file
+  - [ ] `--diagnostics FILE` show all diagnostic warnings for a file
+
+    > *NOTE:* this feature essentially would allow users to use the server as a
+    cli utility, without needing to be in their client.
+
 
 ## Automation and pipelines
 

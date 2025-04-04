@@ -4,9 +4,9 @@ import { Analyzer } from './analyze';
 import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, ImplementationParams } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import * as LSP from 'vscode-languageserver';
-import { LspDocument, LspDocuments } from './document';
+import { LspDocument, LspDocuments, documents } from './document';
 import { formatDocumentContent } from './formatting';
-import { createServerLogger, Logger, logger } from './logger';
+import { Logger, logger } from './logger';
 import { formatTextWithIndents, symbolKindsFromNode, uriToPath } from './utils/translation';
 import { getChildNodes } from './utils/tree-sitter';
 import { getVariableExpansionDocs, handleHover } from './hover';
@@ -21,7 +21,7 @@ import { getDocumentationResolver } from './utils/completion/documentation';
 import { FishCompletionList } from './utils/completion/list';
 import { PrebuiltDocumentationMap, getPrebuiltDocUrl } from './utils/snippets';
 import { findParentCommand, isAliasDefinitionName, isCommand, isOption, isReturnStatusNumber, isVariableDefinition } from './utils/node-types';
-import { adjustInitializeResultCapabilitiesFromConfig, configHandlers, config, updateConfigFromInitializationOptions } from './config';
+import { config, Config } from './config';
 import { enrichToMarkdown, handleSourceArgumentHover } from './documentation';
 import { getAliasedCompletionItemSignature } from './signature';
 import { CompletionItemMap } from './utils/completion/startup-cache';
@@ -40,33 +40,13 @@ export type SupportedFeatures = {
   codeActionDisabledSupport: boolean;
 };
 
-function initializeConfigFromInitializationOptions(params: InitializeParams, connection: Connection): InitializeResult {
-  logger.logAsJson('async server.initialize(params)');
-  if (params) {
-    logger.log();
-    logger.log({ 'server.initialize.params': params });
-    logger.log();
-  }
-  const previousLogFile = config.fish_lsp_log_file;
-  updateConfigFromInitializationOptions(params.initializationOptions);
-  if (previousLogFile !== config.fish_lsp_log_file) {
-    createServerLogger(config.fish_lsp_log_file, true, connection.console, true);
-  }
-  logger.log({ disable_error_codes: `${config.fish_lsp_diagnostic_disable_error_codes[0]}`, type: typeof config.fish_lsp_diagnostic_disable_error_codes[0] });
-  const result = adjustInitializeResultCapabilitiesFromConfig(configHandlers, config);
-  logger.log({ onInitializedResult: result });
-  return result;
-}
-
-export const documents: LspDocuments = new LspDocuments();
-
 export default class FishServer {
   public static async create(
     connection: Connection,
     params: InitializeParams,
   ): Promise<{ server: FishServer; initializeResult: InitializeResult; }> {
-    const initializeResult = initializeConfigFromInitializationOptions(params, connection);
-    const initUris = getWorkspacePathsFromInitializationParams(params);
+    const initializeResult = Config.initialize(params, connection);
+    const initializeUris = getWorkspacePathsFromInitializationParams(params);
 
     // Run these operations in parallel rather than sequentially
     const [
@@ -78,7 +58,7 @@ export default class FishServer {
     ] = await Promise.all([
       initializeParser(),
       initializeDocumentationCache(),
-      initializeDefaultFishWorkspaces(...initUris),
+      initializeDefaultFishWorkspaces(...initializeUris),
       CompletionItemMap.initialize(),
       setupProcessEnvExecFile(),
     ]);
@@ -123,20 +103,23 @@ export default class FishServer {
   register(connection: Connection): void {
     // handle the documents using the documents dependency
     this.documents.listen(connection);
+
     this.documents.onDidChangeContent(event => {
       this.logParams('onDidChangeContent', event);
-      this.connection.sendDiagnostics({ uri: event.document.uri, diagnostics: [] });
+      this.clearDiagnostics(event.document);
       this.analyzeDocument(event.document);
-      this.docs.update(event.document);
+      this.docs.updateTextDocument(event.document);
     });
+
     this.documents.onDidOpen(event => {
       this.logParams('onDidOpen', event);
       this.docs.openTextDocument(event.document);
       this.analyzeDocument(event.document);
     });
+
     this.documents.onDidClose(event => {
       this.logParams('onDidClose', event);
-      this.connection.sendDiagnostics({ uri: event.document.uri, diagnostics: [] });
+      this.clearDiagnostics(event.document);
       this.docs.closeTextDocument(event.document);
     });
 
@@ -592,6 +575,10 @@ export default class FishServer {
       };
     }
     return null;
+  }
+
+  public clearDiagnostics(document: TextDocumentIdentifier) {
+    this.connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
   }
 
   public analyzeDocument(document: TextDocumentIdentifier) {

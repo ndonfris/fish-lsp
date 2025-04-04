@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import PackageJSON from '../../package.json';
-import { logToStdout } from '../logger';
+import { logger } from '../logger';
 
 /**
  * Accumulate the arguments into two arrays, '--enable' and '--disable'
@@ -35,7 +35,7 @@ export function accumulateStartupOptions(args: string[]): {
       return;
     }
     if (['--dump'].includes(arg)) {
-      logToStdout('SEEN SHOW COMMAND! dumping...');
+      logger.logToStdout('SEEN SHOW COMMAND! dumping...');
       dumpCmd = true;
       return;
     }
@@ -70,7 +70,7 @@ const getOutTime = () => {
   try {
     buildTime = readFileSync(buildFile, 'utf8');
   } catch (e) {
-    logToStdout('Error reading ./out/build-time.txt');
+    logger.logToStdout('Error reading ./out/build-time.txt');
   }
   return buildTime.trim();
 };

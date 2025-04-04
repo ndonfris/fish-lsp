@@ -265,6 +265,10 @@ export class LspDocuments {
   private loadingQueue: Set<string> = new Set();
   private loadedFiles: Map<string, number> = new Map(); // uri -> timestamp
 
+  static create(): LspDocuments {
+    return new LspDocuments();
+  }
+
   /**
    * Sorted by last access.
    */
@@ -334,6 +338,11 @@ export class LspDocuments {
     return lspDocument;
   }
 
+  updateTextDocument(textDocument: TextDocument): void {
+    const path = uriToPath(textDocument.uri);
+    this.documents.set(path, LspDocument.fromTextDocument(textDocument));
+  }
+
   closeTextDocument(document: TextDocument): LspDocument | undefined {
     const path = uriToPath(document.uri);
     return this.close(path);
@@ -361,11 +370,6 @@ export class LspDocuments {
     return true;
   }
 
-  update(newDocument: TextDocument): void {
-    const path = uriToPath(newDocument.uri);
-    this.documents.set(path, LspDocument.fromTextDocument(newDocument));
-  }
-
   public toResource(filepath: string): URI {
     const document = this.documents.get(filepath);
     if (document) {
@@ -374,3 +378,21 @@ export class LspDocuments {
     return URI.file(filepath);
   }
 }
+
+/**
+ * GLOBAL DOCUMENTS OBJECT
+ *
+ * This is a singleton object that holds all the documents open inside of it.
+ *
+ * Import this object and use it to access the documents.
+ *
+ * NOTE: while the documents inside this object should be accessible anywhere in
+ *       the code, the object itself does not need to handle listening to events.
+ *
+ *       This is done by the server itself, in the `server.register()` method,
+ *       specifically by the `this.documents` property of the server.
+ *
+ *       Notice that the server has a `this.documents` object (that is used to listen for document events)
+ *       and it updates the `documents` object here, when they are seen
+ */
+export const documents = LspDocuments.create();

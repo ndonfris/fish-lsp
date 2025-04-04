@@ -1,7 +1,7 @@
 import * as os from 'os';
 import { setLogger } from './helpers';
-import { currentWorkspace, FishUriWorkspace, initializeDefaultFishWorkspaces, Workspace, workspaces } from '../src/utils/workspace';
-import { Config, config, ConfigSchema, getConfigFromEnvironmentVariables } from '../src/config';
+import { FishUriWorkspace, initializeDefaultFishWorkspaces, Workspace } from '../src/utils/workspace';
+import { Config, config, ConfigSchema } from '../src/config';
 import { uriToPath } from '../src/utils/translation';
 import * as LSP from 'vscode-languageserver';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
