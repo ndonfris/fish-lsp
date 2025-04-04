@@ -1,4 +1,4 @@
-.TH "FISH\-LSP" "1" "March 2025" "1.0.8-4" "fish-lsp"
+.TH "FISH\-LSP" "1" "April 2025" "1.0.8-4" "fish-lsp"
 .SH "NAME"
 \fBfish-lsp\fR
 .TS
@@ -56,19 +56,6 @@ show the environment variables available to the lsp
 \fB\-\-no\-comments\fP   skip outputting comments
 .br
 \fB\-\-confd\fP         output for redirecting to conf\.d/fish\-lsp\.fish
-.SS \fBlogger\fP
-.P
-Access the logger
-.P
-\fB\-s\fP, \fB\-\-show\fP    show the logger and don't edit it
-.br
-\fB\-c\fP, \fB\-\-clear\fP   clear the logger
-.br
-\fB\-d\fP, \fB\-\-date\fP    write the date
-.br
-\fB\-q\fP, \fB\-\-quiet\fP   silence logging
-.br
-\fB\-\-config\fP      show the logger config
 .SS \fBinfo\fP
 .P
 show the build info of fish\-lsp
@@ -159,7 +146,7 @@ Show information about the \fBfish\-lsp\fP language server:
 Show startup timing information for the \fBfish\-lsp\fP language server:
 .RS 2
 .nf
->_ fish\-lsp info \-\-startup\-time
+>_ fish\-lsp info \-\-time\-startup
 .fi
 .RE
 .IP \(bu 2

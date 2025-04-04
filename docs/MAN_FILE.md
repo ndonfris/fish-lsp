@@ -46,16 +46,6 @@ show the environment variables available to the lsp
   `--no-comments`   skip outputting comments  
   `--confd`         output for redirecting to conf.d/fish-lsp.fish  
 
-### `logger`
-
-Access the logger
-
-  `-s`, `--show`    show the logger and don't edit it  
-  `-c`, `--clear`   clear the logger  
-  `-d`, `--date`    write the date  
-  `-q`, `--quiet`   silence logging  
-  `--config`      show the logger config  
-
 ### `info`
 
 show the build info of fish-lsp
