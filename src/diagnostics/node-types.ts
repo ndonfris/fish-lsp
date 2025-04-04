@@ -78,10 +78,21 @@ export function isUniversalDefinition(node: SyntaxNode): boolean {
 }
 
 export function isSourceFilename(node: SyntaxNode): boolean {
-  const parent = node.parent;
-  if (!parent) return false;
   if (isSourceCommandArgumentName(node)) {
-    return !isExistingSourceFilenameNode(node);
+    const isExisting = isExistingSourceFilenameNode(node);
+    if (!isExisting) {
+      // check if the node is a variable expansion
+      // if it is, do not through a diagnostic because we can't evaluate if this is a valid path
+      // An example of this case:
+      // for file in $__fish_data_dir/functions
+      //     source $file # <--- we have no clue if this file exists
+      // end
+      if (node.type === 'variable_expansion') {
+        return false;
+      }
+      return true;
+    }
+    return !isExisting;
   }
   return false;
 }

@@ -16,8 +16,9 @@ import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import { SymbolKind } from 'vscode-languageserver';
 import { md } from '../src/utils/markdown-builder';
 // import { isFunctionDefinitionName } from '../src/parsing/function';
-import { getExpandedSourcedFilenameNode, isExistingSourceFilenameNode, isSourcedFilename, isSourceCommandName, isSourceCommandWithArgument } from '../src/parsing/source';
+import { getExpandedSourcedFilenameNode, isExistingSourceFilenameNode, isSourcedFilename, isSourceCommandName, isSourceCommandWithArgument, isSourceCommandArgumentName } from '../src/parsing/source';
 import { SyncFileHelper } from '../src/utils/file-operations';
+import * as Diagnostics from '../src/diagnostics/node-types';
 
 let parser: Parser;
 type PrintClientTreeOpts = { log: boolean; };
@@ -951,6 +952,38 @@ describe('parsing symbols', () => {
         const foundNode = getChildNodes(rootNode).find(n => isSourcedFilename(n))!;
         const expanded = getExpandedSourcedFilenameNode(foundNode);
         expect(expanded).toBeDefined();
+      });
+
+      it('for file in $HOME/.config/fish/config.fish; source $file; end', () => {
+        const source = [
+          'for file in $HOME/.config/fish/config.fish',
+          '    source $file',
+          '    source boo.fish',
+          '    source ~/__foo.fish',
+          '    source $__fish_data_dir/config.fish',
+          '    source $__fish_data_dir/baz.fish',
+          '    source $HOME/.config/fish/config.fish',
+          'end'].join('\n');
+        const { rootNode } = parser.parse(source);
+        const foundNodes = getChildNodes(rootNode).filter(n => isSourceCommandArgumentName(n))!;
+        const diagnosticNodes = [
+          'boo.fish',
+          '~/__foo.fish',
+          '$__fish_data_dir/baz.fish',
+        ];
+        const notDiagnosticNodes = [
+          '$file',
+          '$HOME/.config/fish/config.fish',
+          '$__fish_data_dir/config.fish',
+        ];
+        foundNodes.forEach(n => {
+          const isDiagnostic = Diagnostics.isSourceFilename(n);
+          if (diagnosticNodes.includes(n.text)) {
+            expect(isDiagnostic).toBeTruthy();
+          } else if (notDiagnosticNodes.includes(n.text)) {
+            expect(isDiagnostic).toBeFalsy();
+          }
+        });
       });
     });
   });
