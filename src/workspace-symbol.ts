@@ -6,6 +6,7 @@ import { SyntaxNode } from 'web-tree-sitter';
 import { isCommandName, isCommandWithName } from './utils/node-types';
 import { FishSymbol, findLocalLocations, findMatchingLocations } from './parsing/symbol';
 import { containsRange, precedesRange } from './utils/tree-sitter';
+import { getGlobalArgparseLocations } from './parsing/argparse';
 
 export function canRenamePosition(analyzer: Analyzer, document: LspDocument, position: Position): boolean {
   return !!analyzer.findDocumentSymbol(document, position);
@@ -115,17 +116,24 @@ export function getReferenceLocations(analyzer: Analyzer, document: LspDocument,
   const node = analyzer.nodeAtPoint(document.uri, position.line, position.character);
   if (!node) return [];
   const symbol = analyzer.getDefinition(document, position);
-  // TODO _flag_ support
+
+  // create the locations array, and add location links for the `_flag_*` nodes from argparse commands
+  const result: Location[] = [];
+  if (symbol && symbol.fishKind === 'ARGPARSE') {
+    result.push(...getGlobalArgparseLocations(analyzer, document, symbol));
+  }
   if (symbol) {
     const doc = analyzer.getDocument(symbol.uri)!;
     const { scopeTag } = symbol.scope;
     switch (scopeTag) {
       case 'global':
       case 'universal':
-        return findGlobalLocations(analyzer, doc, symbol.selectionRange.start);
+        result.push(...findGlobalLocations(analyzer, doc, symbol.selectionRange.start));
+        break;
       case 'local':
       default:
-        return findLocalLocations(symbol, analyzer.getFlatDocumentSymbols(doc.uri));
+        result.push(...findLocalLocations(symbol, analyzer.getFlatDocumentSymbols(doc.uri)));
+        break;
     }
   }
   if (isCommandName(node)) {
@@ -140,7 +148,7 @@ export function getReferenceLocations(analyzer: Analyzer, document: LspDocument,
     }
     return locations;
   }
-  return [];
+  return result;
 }
 
 export function getRenameFiles(analyzer: Analyzer, document: LspDocument, position: Position, newName: string): RenameFile[] | null {

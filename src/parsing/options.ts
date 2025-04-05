@@ -240,6 +240,11 @@ export class Option {
     return rawOption.some(option => this.longOptions.includes(option));
   }
 
+  equalsOption(other: Option): boolean {
+    const flags = other.getAllFlags() as Flag[];
+    return this.equalsRawOption(...flags);
+  }
+
   findValueRangeAfterEquals(node: SyntaxNode): LSP.Range | null {
     if (!isOption(node)) return null;
     if (!node.text.includes('=')) return null;

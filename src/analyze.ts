@@ -16,6 +16,7 @@ import { filterLastPerScopeSymbol, FishSymbol, processNestedTree } from './parsi
 import { flattenNested } from './utils/flatten';
 import { isArgparseVariableDefinitionName } from './parsing/argparse';
 import { getExpandedSourcedFilenameNode, isSourceCommandArgumentName, reachableSources, SourceResource, symbolsFromResource } from './parsing/source';
+import { CompletionSymbol, isCompletionDefinition, processCompletion } from './parsing/complete';
 
 export class Analyzer {
   protected parser: Parser;
@@ -404,6 +405,30 @@ export class Analyzer {
 
   getFlatDocumentSymbols(documentUri: string): FishSymbol[] {
     return this.cache.getFlatDocumentSymbols(documentUri);
+  }
+
+  /**
+   * Returns a list of symbols similar to a DocumentSymbol array, but
+   * instead of using that data type, we use our custom CompletionSymbol to define completions
+   *
+   * NOTE: while this method's visibility is public, it is really more of a utility
+   *       for the `getGlobalArgparseLocations()` function in `src/parsing/argparse.ts`
+   *
+   * @param documentUri - the uri of the document to get the completions for
+   * @returns {CompletionSymbol[]} - an array of CompletionSymbol objects
+   */
+  getFlatCompletionSymbols(documentUri: string): CompletionSymbol[] {
+    const doc = this.cache.getDocument(documentUri);
+    if (!doc) return [];
+    const { document, tree } = doc;
+    const rootNode = tree.rootNode;
+    const childrenSymbols = getChildNodes(rootNode)
+      .filter(n => isCompletionDefinition(n));
+    const result: CompletionSymbol[] = [];
+    for (const child of childrenSymbols) {
+      result.push(...processCompletion(document, child));
+    }
+    return result;
   }
 
   getSourced(document: LspDocument): SourceResource[] {

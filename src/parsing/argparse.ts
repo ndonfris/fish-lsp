@@ -5,6 +5,11 @@ import { FishSymbol } from './symbol';
 import { LspDocument } from '../document';
 import { DefinitionScope, ScopeTag } from '../utils/definition-scope';
 import { getRange } from '../utils/tree-sitter';
+import { Analyzer } from '../analyze';
+import path, { dirname } from 'path';
+import { SyncFileHelper } from '../utils/file-operations';
+import { pathToUri, uriToPath } from '../utils/translation';
+import { workspaces } from '../utils/workspace';
 
 export const ArparseOptions = [
   Option.create('-n', '--name').withValue(),
@@ -71,6 +76,49 @@ export function convertNodeRangeWithPrecedingFlag(node: SyntaxNode) {
     };
   }
   return range;
+}
+
+export function isGlobalArgparseDefinition(analyzer: Analyzer, document: LspDocument, symbol: FishSymbol) {
+  if (symbol.fishKind !== 'ARGPARSE') return false;
+  const parent = symbol.scopeNode;
+  if (parent.type === 'function_definition') {
+    const functionName = parent.firstNamedChild?.text;
+    if (document.getAutoLoadName() !== functionName) {
+      return false;
+    }
+    const filepath = uriToPath(document.uri);
+    const workspaceDirectory = workspaces.find(ws => ws.contains(filepath) || ws.path === filepath)?.path || dirname(dirname(filepath));
+    const completionFile = path.join(
+      workspaceDirectory,
+      'completions',
+      document.getFilename(),
+    );
+    if (process.env.NODE_ENV !== 'test' && !SyncFileHelper.isFile(completionFile)) {
+      return false;
+    }
+    return analyzer.getFlatCompletionSymbols(pathToUri(completionFile)).length > 0;
+  }
+  return false;
+}
+
+export function getGlobalArgparseLocations(analyzer: Analyzer, document: LspDocument, symbol: FishSymbol) {
+  if (isGlobalArgparseDefinition(analyzer, document, symbol)) {
+    const filepath = uriToPath(document.uri);
+    const workspaceDirectory = workspaces.find(ws => ws.contains(filepath) || ws.path === filepath)?.path || dirname(dirname(filepath));
+    const completionFile = path.join(
+      workspaceDirectory,
+      'completions',
+      document.getFilename(),
+    );
+    if (process.env.NODE_ENV !== 'test' && !SyncFileHelper.isFile(completionFile)) {
+      return [];
+    }
+    return analyzer
+      .getFlatCompletionSymbols(pathToUri(completionFile))
+      .filter(s => s.equalsFishSymbol(symbol))
+      .map(s => s.toLocation(symbol));
+  }
+  return [];
 }
 
 function getArgparseScopeModifier(document: LspDocument, _node: SyntaxNode): ScopeTag {

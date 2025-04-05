@@ -2,7 +2,7 @@ import { Parsers, Option, ParsingDefinitionNames, DefinitionNodeNames } from '..
 import { execAsyncF } from '../src/utils/exec';
 
 import { initializeParser } from '../src/parser';
-import { createFakeLspDocument, setLogger } from './helpers';
+import { createFakeLspDocument, createFakeUriPath, setLogger } from './helpers';
 // import { isLongOption, isOption, isShortOption, NodeOptionQueryText } from '../src/utils/node-types';
 import * as Parser from 'web-tree-sitter';
 import { SyntaxNode } from 'web-tree-sitter';
@@ -10,7 +10,7 @@ import { getChildNodes, getNamedChildNodes } from '../src/utils/tree-sitter';
 import { FishSymbol, processNestedTree } from '../src/parsing/symbol';
 import { processAliasCommand } from '../src/parsing/alias';
 import { flattenNested } from '../src/utils/flatten';
-import { isCommandWithName, isEndStdinCharacter, isFunctionDefinition } from '../src/utils/node-types';
+import { isCommandWithName, isCompleteCommandName, isEndStdinCharacter, isFunctionDefinition } from '../src/utils/node-types';
 import { findOptionsSet, LongFlag, ShortFlag } from '../src/parsing/options';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import { SymbolKind } from 'vscode-languageserver';
@@ -19,7 +19,12 @@ import { md } from '../src/utils/markdown-builder';
 import { getExpandedSourcedFilenameNode, isExistingSourceFilenameNode, isSourcedFilename, isSourceCommandName, isSourceCommandWithArgument, isSourceCommandArgumentName } from '../src/parsing/source';
 import { SyncFileHelper } from '../src/utils/file-operations';
 import * as Diagnostics from '../src/diagnostics/node-types';
+import { Analyzer } from '../src/analyze';
+import { isCompletionDefinition, processCompletion } from '../src/parsing/complete';
+import { getGlobalArgparseLocations, isGlobalArgparseDefinition } from '../src/parsing/argparse';
+import { currentWorkspace, Workspace, workspaces } from '../src/utils/workspace';
 
+let analyzer: Analyzer;
 let parser: Parser;
 type PrintClientTreeOpts = { log: boolean; };
 function printClientTree(
@@ -459,23 +464,6 @@ describe('parsing symbols', () => {
   });
 
   describe('test options file', () => {
-    const logResult = (
-      results: {
-        found: { option: Option; value: SyntaxNode; }[];
-        remaining: SyntaxNode[];
-        unused: Option[];
-      }) => {
-      results.found.forEach(({ option, value }) => {
-        console.log('found', option.getAllFlags(), value.text);
-      });
-      results.remaining.forEach(opt => {
-        console.log('remaining', opt.text);
-      });
-      results.unused.forEach(opt => {
-        console.log('unused', opt.getAllFlags().join(', '));
-      });
-    };
-
     describe('findOptions', () => {
       it('Argparse findOptions()', async () => {
         const source = 'argparse --name foo h/help -- $argv; or return';
@@ -983,6 +971,156 @@ describe('parsing symbols', () => {
           } else if (notDiagnosticNodes.includes(n.text)) {
             expect(isDiagnostic).toBeFalsy();
           }
+        });
+      });
+    });
+  });
+
+  describe('completion <--> argparse locations', () => {
+    describe('find completions in a document', () => {
+      it('`functions/foo.fish` | `foo --help | foo -h`', () => {
+        const input = [
+          'function foo',
+          '    argparse -i h/help -- $argv',
+          '    or return',
+          '    echo hi',
+          'end',
+        ].join('\n');
+        const document = createFakeLspDocument('functions/foo.fish', input);
+        const { rootNode } = parser.parse(input);
+        const symbols = flattenNested(...processNestedTree(document, rootNode));
+        const opts = symbols.filter(symbol => symbol.fishKind === 'ARGPARSE');
+        console.log({
+          opts: opts.map(o => o.name),
+        });
+      });
+
+      it('`completions/foo.fish', () => {
+        const input = [
+          'complete -c foo -f',
+          'complete -c foo -s h -l help',
+        ].join('\n');
+        const document = createFakeLspDocument('completions/foo.fish', input);
+        expect(document).toBeDefined();
+        const { rootNode } = parser.parse(input);
+        const matches: string[] = [];
+        const completeCommands = getChildNodes(rootNode).filter(n => isCompletionDefinition(n));
+        for (const completeCommand of completeCommands) {
+          const completionSymbol = processCompletion(document, completeCommand);
+          const firstItem = completionSymbol.pop();
+          if (firstItem?.hasShortOptions()) {
+            firstItem.getFlags().short.forEach(o => {
+              matches.push(o.value.text);
+            });
+          }
+          if (firstItem?.hasLongOptions()) {
+            firstItem.getFlags().long.forEach(o => {
+              matches.push(o.value.text);
+            });
+          }
+        }
+        expect(matches.length).toBe(2);
+      });
+    });
+
+    describe('compare symbols to completions', () => {
+      const inputs = [
+        {
+          uri: 'functions/foo.fish',
+          source: [
+            'function foo',
+            '    argparse -i h/help -- $argv',
+            '    or return',
+            '    echo hi',
+            'end',
+          ].join('\n'),
+
+        },
+        {
+          uri: 'completions/foo.fish',
+          source: [
+            'complete -c foo -f',
+            'complete -c foo -s h -l help',
+          ].join('\n'),
+        },
+      ];
+      it("compare `foo _flag_h/_flag_help` to `h/help' `{functions,completions}/foo.fish`", () => {
+        analyzer = new Analyzer(parser);
+        const documents = inputs.map(({ uri, source }) => {
+          const document = createFakeLspDocument(uri, source);
+          analyzer.analyze(document);
+          return document;
+        });
+        const completionDoc = documents.find(d => d.uri.endsWith('completions/foo.fish'))!;
+        const functionDoc = documents.find(d => d.uri.endsWith('functions/foo.fish'))!;
+        // console.log({
+        //   completionDoc: completionDoc.uri,
+        //   functionDoc: functionDoc.uri,
+        // });
+        expect(functionDoc).toBeDefined();
+        expect(completionDoc).toBeDefined();
+        const argparseSymbols = analyzer.getFlatDocumentSymbols(functionDoc.uri)
+          .filter(sym => sym.fishKind === 'ARGPARSE');
+        const completionSymbols = analyzer.getFlatCompletionSymbols(completionDoc.uri);
+        expect(completionSymbols.length).toBe(2);
+        argparseSymbols.map((symbol) => {
+          const document = analyzer.getDocument(symbol.uri);
+          if (document && document.getAutoloadType() === 'functions') {
+            const equalCompletionSymbol = completionSymbols.find(completionSymbol => {
+              return completionSymbol.equalsFishSymbol(symbol);
+            });
+            expect(equalCompletionSymbol).toBeDefined();
+            return;
+          }
+          fail();
+        });
+      });
+
+      it('compare using `getGlobalArgparseLocations()`', async () => {
+        // setup the analyzer
+        analyzer = new Analyzer(parser);
+        // setup the documents
+        const documents = inputs.map(({ uri, source }) => {
+          const document = createFakeLspDocument(uri, source);
+          analyzer.analyze(document);
+          return document;
+        });
+        // get the documents so testing is easier
+        const completionDoc = documents.find(d => d.uri.endsWith('completions/foo.fish'))!;
+        const functionDoc = documents.find(d => d.uri.endsWith('functions/foo.fish'))!;
+        const argparseSymbols = analyzer.getFlatDocumentSymbols(functionDoc.uri)
+          .filter(sym => sym.fishKind === 'ARGPARSE');
+
+        const workspace = await Workspace.createFromUri(completionDoc.getFilePath()!);
+        if (!workspace) fail();
+        workspaces.push(workspace);
+
+        // console.log({
+        //   workspaces: workspaces.length,
+        // })
+
+        // check that the argparse symbols are are defined in both files
+        argparseSymbols.forEach(symbol => {
+          console.log({
+            symbol: {
+              name: symbol.name,
+              kind: symbol.fishKind,
+              uri: symbol.uri,
+            },
+            'isGlobalArgparseDefinition(analyzer, functionDoc, symbol)': isGlobalArgparseDefinition(analyzer, functionDoc, symbol),
+            'getGlobalArgparseLocations(analyzer, functionDoc, symbol)': getGlobalArgparseLocations(analyzer, functionDoc, symbol),
+            completionDoc: completionDoc.uri,
+            functionDoc: functionDoc.uri,
+            workspace: workspace.uri,
+          });
+          const locations = getGlobalArgparseLocations(analyzer, functionDoc, symbol);
+          expect(locations.length).toBe(1);
+          const completionSymbol = locations[0];
+          expect(completionSymbol).toBeDefined();
+          if (!completionSymbol) fail();
+          expect(completionSymbol.uri).toBe(completionDoc.uri);
+          const equalCompletionSymbol = completionSymbol.uri !== functionDoc.uri;
+          expect(equalCompletionSymbol).toBeTruthy();
         });
       });
     });
