@@ -96,7 +96,10 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
     }
 
     if (isSingleQuoteVariableExpansion(node) && handler.isCodeEnabled(ErrorCodes.singleQuoteVariableExpansion)) {
-      diagnostics.push(FishDiagnostic.create(ErrorCodes.singleQuoteVariableExpansion, node));
+      // don't add this diagnostic if the autoload type is completions
+      if (doc.getAutoloadType() !== 'completions') {
+        diagnostics.push(FishDiagnostic.create(ErrorCodes.singleQuoteVariableExpansion, node));
+      }
     }
 
     if (isAlias(node) && handler.isCodeEnabled(ErrorCodes.usedAlias)) {

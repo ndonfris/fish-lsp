@@ -1,9 +1,7 @@
 import { Location, Position, SymbolKind } from 'vscode-languageserver';
 import { Analyzer } from './analyze';
 import { LspDocument } from './document';
-import { isCommandWithName, isMatchingOption, isOption } from './utils/node-types';
-// import { getGlobalArgparseLocations } from './parsing/argparse';
-// import { SyntaxNode } from 'web-tree-sitter';
+import { isCommandWithName, isCompleteCommandName, isMatchingOption, isOption } from './utils/node-types';
 import { getRange } from './utils/tree-sitter';
 import { FishSymbol } from './parsing/symbol';
 import { isCompletionDefinition } from './parsing/complete';
@@ -18,8 +16,6 @@ export function getReferences(
   position: Position,
 ): Location[] {
   const locations: Location[] = [];
-  // const node = analyzer.nodeAtPoint(document.uri, position.line, position.character);
-  // if (!node) return [];
 
   const symbol = analyzer.getDefinition(document, position);
   if (!symbol) return [];
@@ -32,61 +28,7 @@ export function getReferences(
   locations.push(...findSymbolLocations(analyzer, symbol));
   return locations;
 }
-// handle argparse reference where we ask for references on a
-// `some_func --flag` and we have a definition symbol for `--flag`
-// if (isOption(node)) {
-//   const parentCommand = node.parent?.firstNamedChild;
-//   const analyzeCommandSymbol = analyzer.findSymbol(sym =>
-//     sym.node.parent?.firstNamedChild === parentCommand
-//     && sym.fishKind === 'ARGPARSE'
-//     && sym.argparseFlagName === node.text
-//   );
-//   if (analyzeCommandSymbol) {
-//     locations.push(...getGlobalArgparseLocations(analyzer, document, analyzeCommandSymbol));
-//   }
-//   const matchingNodes = analyzer.findNodes((node: SyntaxNode) => {
-//     if (node.parent && isCommandWithName(node.parent, parentCommand!.text)) {
-//       return node.text === analyzeCommandSymbol?.argparseFlag;
-//     }
-//     return false;
-//   });
-//   matchingNodes.forEach(({ uri, nodes }) =>
-//     locations.push(...nodes.map(node => Location.create(uri, getRange(node))))
-//   );
-//   return locations;
-// }
 
-// if (symbol.fishKind === 'FUNCTION') {
-//   locations.push(symbol.toLocation());
-//   locations.push(...findSymbolLocations(analyzer, symbol));
-//   return locations;
-// }
-// if (symbol.fishKind === 'VARIABLE') {
-// if (symbol.isGlobal()) {
-//   const globalNodes = analyzer.findNodes((node: SyntaxNode, document) => {
-//     const localSymbols = analyzer.cache.getFlatDocumentSymbols(document!.uri)
-//       .filter(s => s.name === symbol.name && s.isLocal());
-//     if (localSymbols.length > 0 && localSymbols.some(s => s.containsNode(node))) {
-//       return false
-//     }
-//     return node.text === symbol.name;
-//
-//   });
-//   globalNodes.forEach(({ uri, nodes }) =>
-//     locations.push(...nodes.map(node => Location.create(uri, getRange(node))))
-//   );
-// }
-//   return locations;
-// }
-
-// const symbol = analyzer.findDocumentSymbol(document, position);
-// if (!symbol) return [];
-// const references = analyzer.getReferences(document, symbol);
-// for (const reference of references) {
-//   const range = reference.range;
-//   const uri = reference.uri;
-//   locations.push(Location.create(uri, range));
-// }
 export function implementationLocation(
   analyzer: Analyzer,
   document: LspDocument,
@@ -130,23 +72,40 @@ function findSymbolLocations(
   const locations: Location[] = [];
   if (symbol.kind !== SymbolKind.Function && symbol.kind !== SymbolKind.Variable) return [];
   const matchingNodes = analyzer.findNodes((n, document) => {
+    // check if the node is a local symbol
     if (symbol.isLocal() && document!.uri === symbol.uri) {
       return symbol.scopeContainsNode(n) && n.text === symbol.name && !symbol.focusedNode.equals(n);
     }
     if (symbol.isGlobal()) {
+      // get all the local symbols for the current document, and remove any node that is redefined in the local scope
       const localSymbols = analyzer.cache.getFlatDocumentSymbols(document!.uri)
         .filter(s => s.name === symbol.name && s.isLocal());
       if (localSymbols.length > 0 && localSymbols.some(s => s.scopeContainsNode(n))) {
         return false;
       }
+      // remove `complete ... -s opt -l opt` entries for variables
       if (symbol.kind === SymbolKind.Variable && n.parent) {
         const isCompletion = isCompletionDefinition(n.parent);
         if (isCompletion) return false;
+      }
+      // remove `complete ... -l cmdname` entries, keep `complete -c cmdname` for functions
+      if (symbol.kind === SymbolKind.Function && isCompleteCommandName(n)) {
+        return n.text === symbol.name && !symbol.focusedNode.equals(n);
+      } else if (symbol.kind === SymbolKind.Function && n.parent && isCommandWithName(n.parent, 'complete')) {
+        return false;
+      }
+      // remove non command name entries for functions
+      // if (symbol.kind === SymbolKind.Function && n.parent && isCommandWithName(n.parent, 'command', 'type', 'builtin', 'functions')) {
+      //   return n.text === symbol.name && !symbol.focusedNode.equals(n);
+      // }
+      if (symbol.kind === SymbolKind.Function && !isCommandWithName(n, symbol.name)) {
+        return false;
       }
       return n.text === symbol.name && !symbol.focusedNode.equals(n);
     }
     return false;
   });
+  // create the new locations
   for (const { uri, nodes } of matchingNodes) {
     for (const node of nodes) {
       const range = getRange(node);

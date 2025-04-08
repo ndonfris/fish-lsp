@@ -208,7 +208,7 @@ export default class FishServer {
       await this.handleWorkspaceChange(oldWorkspace, currentWorkspace.current);
     });
     return {
-      backgroundAnalysisCompleted: this.startBackgroundAnalysis(),
+      backgroundAnalysisCompleted: this.startBackgroundAnalysis(false),
     };
   }
 
@@ -303,6 +303,9 @@ export default class FishServer {
     const { doc } = this.getDefaultsForPartialParams(params);
     if (!doc) return [];
 
+    // update the current workspace to be the opened document,
+    // this will be used to determine the workspace for the document
+    // currentWorkspace.updateCurrent(doc);
     const symbols = this.analyzer.cache.getDocumentSymbols(doc.uri);
     return filterLastPerScopeSymbol(symbols);
   }
@@ -338,25 +341,17 @@ export default class FishServer {
     const { doc } = this.getDefaults(params);
     if (!doc) return [];
 
-    // const oldReferences = getReferenceLocations(this.analyzer, doc, params.position);
-    // for (const reference of oldReferences) {
-    //   logger.log('oldReference', {
+    // const newReferences = getReferences(this.analyzer, doc, params.position);
+    // logger.log('refCount', newReferences.length);
+    // for (const reference of newReferences) {
+    //   logger.log('newReference', {
     //     uri: reference.uri,
     //     start: reference.range.start,
     //     end: reference.range.end,
     //   });
     // }
-    const newReferences = getReferences(this.analyzer, doc, params.position);
-    logger.log('refCount', newReferences.length);
-    for (const reference of newReferences) {
-      logger.log('newReference', {
-        uri: reference.uri,
-        start: reference.range.start,
-        end: reference.range.end,
-      });
-    }
 
-    return newReferences;
+    return getReferences(this.analyzer, doc, params.position);
     // return getReferences(this.analyzer, doc, params.position);
   }
 
@@ -464,7 +459,7 @@ export default class FishServer {
       symbolType,
     );
 
-    logger.log({ './src/server.ts:395': `this.documentationCache.resolve() found ${!!globalItem}`, docs: globalItem.docs });
+    logger.log(`this.documentationCache.resolve() found ${!!globalItem}`, { docs: globalItem.docs });
     if (globalItem && globalItem.docs && allowsGlobalDocs) {
       logger.log(globalItem.docs);
       return {
@@ -737,7 +732,7 @@ export default class FishServer {
 
     // Analyze the new workspace
     if (newWorkspace && !newWorkspace.isAnalyzed()) {
-      await this.startBackgroundAnalysis(false);
+      await this.startBackgroundAnalysis(true);
     }
   }
 
