@@ -2,7 +2,6 @@ import { SyntaxNode } from 'web-tree-sitter';
 import { FishSymbol } from './symbol';
 import { DefinitionScope } from '../utils/definition-scope';
 import { LspDocument } from '../document';
-// import { isTopLevelDefinition } from '../utils/node-types';
 
 export function isForVariableDefinitionName(node: SyntaxNode): boolean {
   if (node.parent && node.parent.type === 'for_statement') {
@@ -12,19 +11,6 @@ export function isForVariableDefinitionName(node: SyntaxNode): boolean {
   }
   return false;
 }
-
-// function getForScopeModifier(document: LspDocument, node: SyntaxNode): 'local' {
-//   const autoloadType = document.getAutoloadType();
-//   switch (autoloadType) {
-//     case 'conf.d':
-//     case 'config':
-//       return 'local';
-//     case 'functions':
-//       return 'local';
-//     default:
-//       return 'local';
-//   }
-// }
 
 export function processForDefinition(document: LspDocument, node: SyntaxNode, children: FishSymbol[] = []) {
   const modifier = 'local';

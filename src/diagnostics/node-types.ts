@@ -238,9 +238,6 @@ export type LocalFunctionCallType = {
 };
 
 export function isMatchingCompleteOptionIsCommand(node: SyntaxNode) {
-  // return isMatchingOption(node, { shortOption: '-n', longOption: '--condition' })
-  //   || isMatchingOption(node, { shortOption: '-a', longOption: '--arguments' })
-  //   || isMatchingOption(node, { shortOption: '-c', longOption: '--command' });
   return isMatchingOption(node, Option.create('-n', '--condition').withValue())
     || isMatchingOption(node, Option.create('-a', '--arguments').withValue())
     || isMatchingOption(node, Option.create('-c', '--command').withValue());

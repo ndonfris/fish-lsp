@@ -120,28 +120,6 @@ commandBin.command('start [TOGGLE]')
     startServer();
   });
 
-// LOGGER
-// commandBin.command('logger')
-//   .summary('test the logger by displaying it')
-//   .option('-s, --show', 'show the logger and don\'t edit it')
-//   .option('-c, --clear', 'clear the logger')
-//   .option('-d, --date', 'write the date')
-//   .option('-q, --quiet', 'silence logging')
-//   .option('--config', 'show the logger config')
-//   .action(args => {
-//     createServerLogger(config.fish_lsp_log_file);
-//     const objArgs = Object.getOwnPropertyNames(args);
-//     const argsQueue = objArgs;
-//     let currentArg: string = '';
-//     while (argsQueue.length !== 0) {
-//       currentArg = argsQueue.shift() || '';
-//     }
-//
-//     if (!args.show) return;
-//     logger.showLogfileText();
-//     return;
-//   });
-
 // INFO
 commandBin.command('info')
   .summary('show the build info of fish-lsp')

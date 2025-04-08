@@ -31,14 +31,6 @@ export class DocumentationStringBuilder {
     return this.inner.previousSibling || null;
   }
 
-  //get tagsString(): string {
-  //    return optionTagProvider(this.inner, this.outer)
-  //        .map((tag) => {
-  //            return tag.toString();
-  //        })
-  //        .join("\n");
-  //}
-
   /**
    * ~/.config/fish/functions/yarn_reset.fish
    *  causes error, shows entire file instead of just function
@@ -77,8 +69,6 @@ export class DocumentationStringBuilder {
 
   // add this.tagString once further implemented
   toString() {
-    //const optionTags = optionTagProvider(this.inner, this.outer);
-    //const tagsText = optionTags.map((tag) => tag.toString()).join("\n");
     const symbolString = symbolKindToString(this.kind);
     const prebuiltType = symbolString === 'function' ? 'command' : 'variable';
     const prebuiltMatch = PrebuiltDocumentationMap.getByType(prebuiltType)

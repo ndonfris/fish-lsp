@@ -9,8 +9,6 @@ import { DefinitionScope } from '../utils/definition-scope';
 import { FishSymbol } from './symbol';
 
 // TODO think of better naming conventions for these functions
-// TODO add symbols in sourced file to the current file in analysis
-// TODO add sourced file to the current workspace
 
 export function isSourceCommandName(node: SyntaxNode) {
   return isCommandWithName(node, 'source') || isCommandWithName(node, '.');

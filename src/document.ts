@@ -178,9 +178,6 @@ export class LspDocument implements TextDocument {
     const fileName = pathArray.pop();
     const parentDir = pathArray.pop();
     return parentDir && ['functions', 'conf.d', 'completion'].includes(parentDir?.toString()) || fileName === 'config.fish';
-    // const folderType = this.getFolderType();
-    // if (!folderType) return false;
-    // return ['functions', 'conf.d', 'completions', 'config' ].includes(folderType)
   }
 
   public getWorkspace(): Workspace | undefined {
@@ -188,8 +185,6 @@ export class LspDocument implements TextDocument {
   }
 
   private getFolderType(): AutoloadType | null {
-    // if (!this.getWorkspace()) return null;
-
     const docPath = uriToPath(this.uri);
     if (!docPath) return null;
 

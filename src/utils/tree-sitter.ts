@@ -121,12 +121,6 @@ export function findFirstParent(node: SyntaxNode, predicate: (node: SyntaxNode) 
   return null;
 }
 
-//const getSiblingFunc = (n: SyntaxNode, direction: 'before' | 'after') => {
-//if (direction === 'before') return n.nextNamedSibling
-//if (direction === 'after') return n.previousNamedSibling
-//return null
-//}
-
 /**
  * collects all siblings either before or after the current node.
  *
@@ -317,45 +311,6 @@ export function getNamedNeighbors(node: SyntaxNode): SyntaxNode[] {
   return node.parent?.namedChildren || [];
 }
 
-/**
- * uses nodesGen to build an array.
- *
- * @param {SyntaxNode} node - the root node of a document (where to begin search)
- * @returns {SyntaxNode[]} - all nodes seen in the document.
- */
-//function getChildrenArray(node: SyntaxNode): SyntaxNode[] {
-//    let root =  nodesGen(node);
-//    const result: SyntaxNode[] = [];
-//
-//    var currNode = root.next();
-//    while (!currNode.done) {
-//        if (currNode.value) {
-//            result.push(currNode.value)
-//        }
-//        currNode = root.next()
-//    }
-//    return result
-//}
-//
-//function _findNodes(root: SyntaxNode): SyntaxNode[] {
-//    let queue: SyntaxNode[] = [root]
-//    let result: SyntaxNode[] = []
-//
-//    while (queue.length) {
-//        let current : SyntaxNode | undefined = queue.pop();
-//        if (current && current.namedChildCount > 0) {
-//            result.push(current)
-//            queue.unshift(...current.namedChildren.filter(child => child))
-//        } else if (current && current.childCount > 0){
-//            result.push(current)
-//            queue.unshift(...current.children)
-//        } else {
-//            continue
-//        }
-//    }
-//    return result
-//}
-
 export function getRange(node: SyntaxNode): Range {
   return Range.create(
     node.startPosition.row,
@@ -459,25 +414,6 @@ export function getNodeAtRange(root: SyntaxNode, range: Range): SyntaxNode | nul
     positionToPoint(range.end),
   );
 }
-
-// export function getDependencyUrl(node: SyntaxNode, baseUri: string): URL {
-//   let filename = node.children[1]?.text.replaceAll('"', '')!
-//
-//
-//   if (!!filename && !filename.endsWith('.fish')) {
-//     filename += '.fish'
-//   }
-//
-//   const paths = process.env.PATH?.split(':') || []
-//
-//   for (const p of paths) {
-//     const url = pathToFileURL(join(p, filename))
-//
-//     // if (existsSync(url)) return new URL(url).toString()
-//   }
-//
-//   return new URL(filename, baseUri)
-// }
 
 export function positionToPoint(pos: Position): Point {
   return {
@@ -604,46 +540,6 @@ export function getLastLeafNode(node: SyntaxNode, maxIndex: number = Infinity): 
   return allLeafNodes[allLeafNodes.length - 1]!;
 }
 
-// Check out awk-language-server:
-//     • https://github.com/Beaglefoot/awk-language-server/tree/master/server/src/utils.ts
-//     • https://github.com/bash-lsp/bash-language-server/blob/main/server/src/util/tree-sitter.ts
-//
-//export function getQueriesList(queriesRawText: string): string[] {
-//  const result: string[] = []
-//
-//  let openParenCount = 0
-//  let openBracketCount = 0
-//  let isQuoteCharMet = false
-//  let isComment = false
-//  let currentQuery = ''
-//
-//  for (const char of queriesRawText) {
-//    if (char === '"') isQuoteCharMet = !isQuoteCharMet
-//    if (isQuoteCharMet) {
-//      currentQuery += char
-//      continue
-//    } else if (!isQuoteCharMet && char === ';') isComment = true
-//    else if (isComment && char !== '\n') continue
-//    else if (char === '(') openParenCount++
-//    else if (char === ')') openParenCount--
-//    else if (char === '[') openBracketCount++
-//    else if (char === ']') openBracketCount--
-//    else if (char === '\n') {
-//      isComment = false
-//
-//      if (!openParenCount && !openBracketCount && currentQuery) {
-//        result.push(currentQuery.trim())
-//        currentQuery = ''
-//      }
-//
-//      continue
-//    }
-//
-//    if (!isComment) currentQuery += char
-//  }
-//
-//  return result
-//}
 export function getNodeAtPosition(tree: Tree, position: { line: number; character: number; }): SyntaxNode | null {
   return tree.rootNode.descendantForPosition({ row: position.line, column: position.character });
 }

@@ -169,12 +169,6 @@ export class CurrentWorkspace {
 
   get current(): Workspace | null {
     if (this._current) return this._current;
-    // const cwd = process.cwd();
-    // const found = this.all.find(ws => cwd.startsWith(ws.path));
-    // if (found) {
-    //   this._current = found;
-    //   return found;
-    // }
     return null;
   }
 
@@ -297,17 +291,18 @@ export class Workspace implements FishWorkspace {
 
   contains(...checkUris: string[]) {
     for (const uri of checkUris) {
-      // const uriAsPath = uriToPath(uri);
       if (!this.uris.has(uri)) {
         return false;
       }
-      // if (!uriAsPath.startsWith(this.path)) {
-      //   return false;
-      // }
     }
     return true;
   }
 
+  /**
+   * mostly for testing, (i.e., when writing at test that doesn't actually put any *.fish uri into memory)
+   * @param uri - the uri to check if the the workspace should contain
+   * @returns true if the uri is inside the workspace (inside meaning the uri starts with the workspace uri)
+   */
   shouldContain(uri: string) {
     return uri.startsWith(this.uri) && !this.uris.has(uri);
   }
@@ -574,13 +569,7 @@ export namespace FishUriWorkspace {
     if (basename(path) === CONFIG_FILE) {
       return true;
     }
-    // if (config.fish_lsp_single_workspace_support) {
-    //   return config.fish_lsp_all_indexed_paths.some(p => path.startsWith(p));
-    // }
-    // console.log('not isFishWorkspacePath', path);
     return config.fish_lsp_all_indexed_paths.includes(path);
-    // return !config.fish_lsp_single_workspace_support && config.fish_lsp_all_indexed_paths.includes(path) ||
-    //   FISH_DIRS.includes(basename(path)) || basename(path) === CONFIG_FILE;
   }
 
   /**

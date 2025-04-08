@@ -54,13 +54,6 @@ export function normalizeFsPath(fsPath: string): string {
   return fsPath.replace(RE_PATHSEP_WINDOWS, '/');
 }
 
-// function currentVersion(filepath: string, documents: LspDocuments | undefined): number | null {
-//   const fileUri = URI.file(filepath);
-//   const normalizedFilepath = normalizePath(fileUri.fsPath);
-//   const document = documents && documents.get(normalizedFilepath);
-//   return document ? document.version : null;
-// }
-
 export function pathToRelativeFunctionName(uriPath: string): string {
   const relativeName = uriPath.split('/').at(-1) || uriPath;
   return relativeName.replace('.fish', '');
@@ -138,58 +131,6 @@ export function toSelectionRange(range: SelectionRange): SelectionRange {
     range.parent ? toSelectionRange(range.parent) : undefined,
   );
 }
-
-// export function toTextEdit(edit: FishProtocol.CodeEdit): TextEdit {
-//   return {
-//     range: {
-//       start: LocationNamespace.Position.fromLocation(edit.start),
-//       end: LocationNamespace.Position.fromLocation(edit.end),
-//     },
-//     newText: edit.newText,
-//   };
-// }
-//
-// export function toTextDocumentEdit(change: FishProtocol.FileCodeEdits, documents: LspDocuments | undefined): TextDocumentEdit {
-//   return {
-//     textDocument: {
-//       uri: pathToUri(change.fileName, documents),
-//       version: currentVersion(change.fileName, documents),
-//     },
-//     edits: change.textChanges.map(c => toTextEdit(c)),
-//   };
-// }
-
-// export function toFoldingRange(node: SyntaxNode, document: LspDocument): FoldingRange {
-//   let collapsedText: string = '';
-//   let _kind = FoldingRangeKind.Region;
-//   if (isFunctionDefinition(node) || isFunctionDefinitionName(node.firstNamedChild!)) {
-//     collapsedText = node.firstNamedChild?.text || node.text.split(' ')[0]?.toString() || '';
-//   }
-//   if (isScope(node)) {
-//     collapsedText = node.text;
-//   }
-//   if (isVariableDefinition(node)) {
-//     collapsedText = node.text;
-//   }
-//   if (isComment(node)) {
-//     collapsedText = node.text.slice(0, 10);
-//     if (node.text.length >= 10) {
-//       collapsedText += '...';
-//     }
-//     _kind = FoldingRangeKind.Comment;
-//   }
-//   const range = getRangeWithPrecedingComments(node);
-//   const startLine = range.start.line;
-//   const endLine = range.end.line > 0 && document.getText(LSP.Range.create(
-//     LSP.Position.create(range.end.line, range.end.character - 1),
-//     range.end,
-//   )) === 'end' ? Math.max(range.end.line + 1, range.start.line) : range.end.line;
-//   return {
-//     ...FoldingRange.create(startLine, endLine),
-//     collapsedText: collapsedText,
-//     kind: FoldingRangeKind.Region,
-//   };
-// }
 
 export function toLspDocument(filename: string, content: string): LspDocument {
   const doc = TextDocumentItem.create(pathToUri(filename), 'fish', 0, content);

@@ -7,8 +7,6 @@ import { md } from './utils/markdown-builder';
 import { Analyzer } from './analyze';
 import { getExpandedSourcedFilenameNode } from './parsing/source';
 
-//////// @TODO: clean up this file
-
 export type markdownFiletypes = 'fish' | 'man';
 
 export function enrichToMarkdown(doc: string): MarkupContent {
@@ -72,14 +70,6 @@ export function enrichCommandWithFlags(command: string, description: string, fla
     result.push(flagLines.join(md.newline()));
   }
 
-  // const retString = [
-  //   description ? `(${md.bold(command)}) ${description}` : md.bold(command),
-  //   md.separator(),
-  //   flags.map(line => line.split('\t'))
-  //     .map(line => `${md.bold(line.at(0)!)} ${md.italic(line.slice(1).join(' '))}`)
-  //     .join(md.newline()),
-  // ].join(md.newline());
-  // return enrichToMarkdown(retString);
   return enrichToMarkdown(result.join(md.newline()));
 }
 
@@ -200,32 +190,6 @@ export function forwardArgCommandCollect(rootNode: SyntaxNode): string[] {
   }
   return stringToComplete;
 }
-
-// export function collectCompletionOptions(rootNode: SyntaxNode) {
-//   let cmdText = [rootNode.children[0]!.text];
-//   if (hasPossibleSubCommand(cmdText[0]!)) {
-//     cmdText = forwardSubCommandCollect(rootNode);
-//   }
-//   // DIFF FLAG FORMATS
-//   // consider the difference between, find -name .git
-//   // and ls --long -l
-//
-//   // do complete and check for each flagsToFind
-//   //
-//   //exec
-//
-//   const flagsToFind = forwardArgCommandCollect(rootNode);
-// }
-
-/*export async function hoverForCommandArgument(node: SyntaxNode): Promise<Hover | null> {*/
-/*const text = getNodeText(node) */
-/*if (text.startsWith('-')) {*/
-/*const parent = findParentCommand(node);*/
-/*const hoverCompletion = new HoverFromCompletion(parent)*/
-/*return await hoverCompletion.generate()*/
-/*}*/
-/*return null*/
-/*}*/
 
 function getFlagString(arr: string[]): string {
   return '__' + arr[0] + '__' + ' ' + arr[1] + '\n';

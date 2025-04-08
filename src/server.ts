@@ -35,7 +35,6 @@ import { isArgparseVariableDefinitionName } from './parsing/argparse';
 import { isSourceCommandArgumentName } from './parsing/source';
 import { getReferences } from './references';
 
-// @TODO
 export type SupportedFeatures = {
   codeActionDisabledSupport: boolean;
 };
@@ -189,13 +188,6 @@ export default class FishServer {
     connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
     connection.onExecuteCommand(executeHandler);
 
-    // connection.onDidChangeWatchedFiles(e => {
-    //   this.logParams('onDidChangeWatchedFiles', e);
-    //   e.changes.forEach(change => {
-    //     change.uri
-    //   })
-    // });
-
     this.documents.listen(connection);
     logger.log({ 'server.register': 'registered' });
   }
@@ -219,23 +211,6 @@ export default class FishServer {
     };
   }
 
-  // async initializeBackgroundAnalysisForTiming(): Promise<{
-  //   all: number;
-  //   items: { [key: string]: number; };
-  // }> {
-  //   const items: { [key: string]: number; } = {};
-  //   let all: number = 0;
-  //   for await (const workspace of workspaces) {
-  //     currentWorkspace.current = workspace;
-  //     await this.startBackgroundAnalysis();
-  //     items[currentWorkspace.current.path] = currentWorkspace.current.uris.size;
-  //     all += currentWorkspace.current.uris.size;
-  //   }
-  //   return {
-  //     all,
-  //     items,
-  //   };
-  // }
   async initializeBackgroundAnalysisForTiming(): Promise<{
     all: number;
     items: { [key: string]: number; };
@@ -357,14 +332,6 @@ export default class FishServer {
     const { doc } = this.getDefaultsForPartialParams(params);
     if (!doc) return [];
 
-    // update the current workspace to be the opened document,
-    // this will be used to determine the workspace for the document
-    // const prevWorkspace = currentWorkspace.current;
-    // currentWorkspace.updateCurrent(doc);
-    // if (prevWorkspace?.path !== currentWorkspace.current?.path) {
-    //   currentWorkspace.current?.removeAnalyzed();
-    // }
-
     const symbols = this.analyzer.cache.getDocumentSymbols(doc.uri);
     return filterLastPerScopeSymbol(symbols);
   }
@@ -399,19 +366,7 @@ export default class FishServer {
 
     const { doc } = this.getDefaults(params);
     if (!doc) return [];
-
-    // const newReferences = getReferences(this.analyzer, doc, params.position);
-    // logger.log('refCount', newReferences.length);
-    // for (const reference of newReferences) {
-    //   logger.log('newReference', {
-    //     uri: reference.uri,
-    //     start: reference.range.start,
-    //     end: reference.range.end,
-    //   });
-    // }
-
     return getReferences(this.analyzer, doc, params.position);
-    // return getReferences(this.analyzer, doc, params.position);
   }
 
   async onImplementation(params: ImplementationParams): Promise<Location[]> {
@@ -546,13 +501,6 @@ export default class FishServer {
     if (!doc) return null;
 
     const locations = getReferences(this.analyzer, doc, params.position);
-
-    // return getRenameWorkspaceEdit(
-    //   this.analyzer,
-    //   doc,
-    //   params.position,
-    //   params.newName,
-    // );
 
     const changes: { [uri: string]: TextEdit[]; } = {};
     for (const location of locations) {
@@ -691,25 +639,12 @@ export default class FishServer {
     return folds;
   }
 
-  // public async onCodeLens(params: CodeLensParams): Promise<CodeLens[]> {
-  //   this.logParams('onCodeLens', params);
-  //   const uri = uriToPath(params.textDocument.uri);
-  //   const document = this.docs.get(uri);
-  //
-  //   if (!document) return [];
-  //
-  //   return getGlobalReferencesCodeLens(this.analyzer, document);
-  // }
-
   // works but is super slow and resource intensive, plus it doesn't really display much
   async onInlayHints(params: InlayHintParams) {
     logger.log({ params });
 
     const { doc } = this.getDefaultsForPartialParams(params);
     if (!doc) return [];
-
-    // const root = this.analyzer.getRootNode(document);
-    // if (!root) return [];
 
     return getAllInlayHints(this.analyzer, doc);
   }

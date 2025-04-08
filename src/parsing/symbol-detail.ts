@@ -186,11 +186,6 @@ function getArgumentNamesIndexString(node: SyntaxNode, name: string) {
     .findIndex((flag) => flag.value.text === name);
   const argvStr = '$argv[' + (index + 1) + ']';
   return `${md.italic('named argument')}: ${md.inlineCode(argvStr)}`;
-  // .forEach((flag, idx) => {
-  //   if (flag.value.text === name) resultFlags.push(flag.value.text);
-  //   else resultFlags.push(`\$argv[${idx + 1}]`);
-  // });
-  // return resultFlags.join(' ');
 }
 
 function buildVariableDetail(symbol: FishSymbol) {

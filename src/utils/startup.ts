@@ -7,6 +7,10 @@ import * as os from 'os';
 import { pathToUri } from './translation';
 import { PackageVersion } from './commander-cli-subcommands';
 
+/**
+ * Creaete a connection for the server. Initialize the server with the connection.
+ * Listen for incoming messages and handle them.
+ */
 export function startServer() {
   // Create a connection for the server.
   // The connection uses stdin/stdout for communication.
@@ -16,7 +20,6 @@ export function startServer() {
   );
   connection.onInitialize(
     async (params: InitializeParams): Promise<InitializeResult> => {
-      // connection.console.log(`Initialized server FISH-LSP with ${JSON.stringify(params, null, 2)}`);
       const { initializeResult } = await FishServer.create(connection, params);
       return initializeResult;
     },
@@ -50,6 +53,9 @@ export async function timeOperation<T>(
   }
 }
 
+/**
+ * Time the startup of the server. Use inside `fish-lsp info --time-startup`.
+ */
 export async function timeServerStartup() {
   // define a local server instance
   let server: FishServer | undefined;

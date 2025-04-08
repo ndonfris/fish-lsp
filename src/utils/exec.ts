@@ -72,11 +72,6 @@ export function execFishNoExecute(filepath: string) {
   }
 }
 //
-// Similar to the above execPrintLsp
-// export async function execInlayHintType(...cmd: string[]): Promise<string> {
-//   const child = await execEscapedCommand(`type -t ${cmd.join(' ')} 2>/dev/null`);
-//   return child.join(' ');
-// }
 
 export async function execCompletions(...cmd: string[]): Promise<string[]> {
   const file = resolve(__dirname, '../../fish_files/get-completion.fish');
@@ -93,16 +88,8 @@ export async function execSubCommandCompletions(...cmd: string[]): Promise<strin
 }
 
 export async function execCompleteLine(cmd: string): Promise<string[]> {
-  // const escapedCommand = cmd.replace(/(["'$`\\/])/g, '\\$1').trimStart();
-  // const completeString = `complete --do-complete='${escapedCommand}'`;
-  //
-  // const child = await execAsyncF(completeString);
-  // return child.trim().split('\n') || []
   const escapedCmd = cmd.replace(/(["'`\\])/g, '\\$1');
   const completeString = `fish -c "complete --do-complete='${escapedCmd}'"`;
-  // Using the `--escape` flag will include extra backslashes in the output
-  // for example, 'echo "$' -> ['\"$PATH', '\"$PWD', ...]
-  // const completeString = `fish -c "complete --escape --do-complete='${escapedCmd}'"`;
 
   const child = await execAsync(completeString);
 
@@ -190,12 +177,6 @@ export async function execFindDependency(cmd: string): Promise<string> {
   return docs.toString().trim();
 }
 
-// open the uri and read the file
-// export async function execOpenFile(uri: string): Promise<string> {
-//   const fileUri = URI.parse(uri).fsPath;
-//   const file = await promises.readFile(fileUri.toString(), 'utf8');
-//   return file.toString();
-// }
 export function execCommandLocations(cmd: string): {uri: string; path: string;}[] {
   const output = execFileSync('fish', ['--command', `type -ap ${cmd}`], {
     stdio: ['pipe', 'pipe', 'ignore'],

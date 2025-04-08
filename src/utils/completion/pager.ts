@@ -111,18 +111,6 @@ export class CompletionPager {
       setupData.context,
     );
 
-    // const shellOutput = await shellComplete(line.toString());
-    // const subshellOutput = await this.getSubshellStdoutCompletions(line);
-    // const lineOutput = await execCompleteLine(line);
-    // logger.log({
-    //   location: 'CompletionPager.complete',
-    //   build: getBuildTimeString(),
-    //   line: line,
-    //   shellOutput: shellOutput.slice(0, 5),
-    //   subshellOutput: subshellOutput.slice(0, 5),
-    //   lineOutput: lineOutput.slice(0, 5),
-    // });
-
     const { variables, functions } = sortSymbols(symbols);
     if (!word && !command) {
       return this.completeEmpty(symbols);
@@ -321,22 +309,3 @@ function sortSymbols(symbols: FishSymbol[]) {
   return { variables, functions };
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
-// Trying functional approach
-/////////////////////////////////////////////////////////////////////////////////////////
-
-// namespace CommandHas {
-//   export function string(command: string, word: string) {
-//     if (!command) {
-//       return false;
-//     }
-//     return word.startsWith('"') || word.startsWith("'");
-//   }
-//   export function path(command: string, word: string) {
-//     if (!command) {
-//       return false;
-//     }
-//     return word.includes('/') || word.startsWith('~');
-//   }
-// }
-//

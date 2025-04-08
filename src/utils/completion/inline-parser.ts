@@ -3,8 +3,6 @@ import { initializeParser } from '../../parser';
 import { getChildNodes, getLeafNodes, getLastLeafNode, firstAncestorMatch } from '../tree-sitter';
 import { isUnmatchedStringCharacter, isPartialForLoop } from '../node-types';
 import { FishCompletionItem } from './types';
-//import { CompletionItemsArrayTypes, WordsToNotCompleteAfter } from './utils/completion-types';
-//import { isBuiltin, BuiltInList, isFunction } from "./utils/builtins";
 
 export class InlineParser {
   private readonly COMMAND_TYPES = ['command', 'for_statement', 'case', 'function'];
@@ -147,57 +145,9 @@ export class InlineParser {
     return 0;
   }
 
-  /**
-    * here we will specifically populate the completion list with items specific to their
-    * command & word context.
-    * For example:
-    * ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-    *     LINE      •   CONTEXTUAL INFO FROM LINE       •    ITEMS ADDED
-    * ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-    *     `end `    •  {word: null, command: 'end'}     •   pipes
-    * ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-    *    `printf "` •  {word: '"',  command: 'printf'}  •   format specifiers,
-    *               •                                   •   strings, variables
-    * ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-    */
-  //getCompletionArrayTypes(line: string) {
-  //    const {word, command, wordNode, commandNode} = this.getNodeContext(line)
-  //    const result: CompletionItemsArrayTypes[] = []
-  //    switch (command) {
-  //        case 'functions': result.push(CompletionItemsArrayTypes.FUNCTIONS); break
-  //        case 'end': result.push(CompletionItemsArrayTypes.PIPES); break
-  //        case 'printf': result.push(CompletionItemsArrayTypes.FORMAT_SPECIFIERS); break
-  //        case 'set': result.push(CompletionItemsArrayTypes.VARIABLES); break
-  //        case 'function':
-  //            //if (isOption(lastNode) && ['-e', '--on-event'].includes(lastNode.text)) result.push(CompletionItemsArrayTypes.FUNCTIONS);
-  //            //if (isOption(lastNode) && ['-v', '--on-variable'].includes(lastNode.text)) result.push(CompletionItemsArrayTypes.VARIABLES);
-  //            //if (isOption(lastNode) && ['-V', '--inherit-variable'].includes(lastNode.text)) result.push(CompletionItemsArrayTypes.VARIABLES);
-  //            result.push(CompletionItemsArrayTypes.AUTOLOAD_FILENAME);
-  //            break
-  //        case 'return':
-  //            result.push(CompletionItemsArrayTypes.STATUS_NUMBERS, CompletionItemsArrayTypes.VARIABLES);
-  //            break
-  //        default:
-  //            result.push(CompletionItemsArrayTypes.VARIABLES, CompletionItemsArrayTypes.FUNCTIONS, CompletionItemsArrayTypes.PIPES, CompletionItemsArrayTypes.WILDCARDS, CompletionItemsArrayTypes.ESCAPE_CHARS)
-  //            break
-  //    }
-  //    //if (isStringCharacter(lastNode)) result.push(CompletionItemsArrayTypes.VARIABLES, CompletionItemsArrayTypes.ESCAPE_CHARS)
-  //    return result
-  //}
-
   async createCompletionList(line: string): Promise<FishCompletionItem[]> {
     const result: FishCompletionItem[] = [];
-    const { word: _word, command, wordNode: _wordNode, commandNode: _commandNode } = this.getNodeContext(line);
-    if (!command) {
-      //result.push(items.allCo)
-    }
-    //const completionArrayTypes = this.getCompletionArrayTypes(line)
-    //const completionData: FishCompletionData = {
-    //    word, command, wordNode, commandNode, line
-    //}
-    //for (const arrayType of completionArrayTypes) {
-    //    //result.push(...await createCompletionItem(arrayType, completionData))
-    //}
+    const { word: _word, wordNode: _wordNode, commandNode: _commandNode } = this.getNodeContext(line);
     return result;
   }
 }

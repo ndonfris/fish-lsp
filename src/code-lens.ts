@@ -86,34 +86,6 @@ export function getReturnStatusValue(returnNode: SyntaxNode): {
   } : undefined;
 }
 
-// export function getGlobalReferencesCodeLens(analyzer: Analyzer, document: LspDocument): InlayHint[] {
-//     return analyzer.getFlatDocumentSymbols(document.uri)
-//     .filter(symbol => symbol.scope.scopeTag === 'global' || symbol.scope.scopeTag === 'universal')
-//     .map(symbol => {
-//       const referenceCount = getReferenceLocations(analyzer, document, symbol.selectionRange.start).length
-//       return {
-//         position: document.getLineEnd(symbol.selectionRange.start.line),
-//         kind: InlayHintKind.Type,
-//         label: `${referenceCount} reference${referenceCount === 0 ? '' : 's'}`,
-//         paddingLeft: true,
-//       }
-//     })
-// }
-
-// export function getAllInlayHints(analyzer: Analyzer, document: LspDocument): InlayHint[] {
-//   const root = analyzer.getRootNode(document);
-//   const results: InlayHint[] = [];
-//   if (root) {
-//     results.push(...getStatusInlayHints(root));
-//   }
-//
-//   // const globalReferencesHints = getGlobalReferencesCodeLens(analyzer, document);
-//   // if (globalReferencesHints.length > 0) {
-//   //   results.push(...globalReferencesHints);
-//   // }
-//   return results
-// }
-
 // Add a cache for the entire inlay hints result
 type InlayHintsCache = {
   hints: InlayHint[];
@@ -199,24 +171,6 @@ export function getAllInlayHints(analyzer: Analyzer, document: LspDocument): Inl
   const root = analyzer.getRootNode(document.uri);
   if (root) {
     results.push(...getStatusInlayHints(root));
-    // results.push(...getGlobalReferencesInlayHints(analyzer, document));
   }
   return results;
-  // const cachedHints = getCachedInlayHints(document.uri, document.version);
-  // if (cachedHints) {
-  //   return cachedHints;
-  // }
-  //
-  // const results: InlayHint[] = [];
-  // const root = analyzer.getRootNode(document);
-  //
-  // if (root) {
-  //   results.push(...getStatusInlayHints(root));
-  //   results.push(...getGlobalReferencesInlayHints(analyzer, document));
-  // }
-  //
-  // // Cache all hints together
-  // setCachedInlayHints(document.uri, results, document.version);
-  //
-  // return results;
 }

@@ -148,11 +148,6 @@ export function getAliasedCompletionItemSignature(item: FishAliasCompletionItem)
 }
 
 export function regexStringSignature(): SignatureInformation {
-  //const regexItems = stringRegexExpressions;
-  //let signatureDoc = ["__String Regex Patterns__", "---"];
-  //for (const item of regexItems) {
-  //    signatureDoc.push(`${item.label}  {item.description}`)
-  //}
   const signatureDoc: MarkupContent = {
     kind: 'markdown',
     value: [
@@ -220,15 +215,6 @@ export function isMatchingOption(
   return false;
 }
 
-// export function isRegexStringSignature(line: string): boolean {
-//   const tokens = line.split(' ');
-//   if (tokens.some(s => s.startsWith('string'))) {
-//     if (tokens.some(s => s.includes('--regex') || s.replace(/^-/, '').includes('r'))) {
-//       return true;
-//     }
-//   }
-//   return false;
-// }
 /**
  * Determines the active parameter index based on cursor position
  *
@@ -259,11 +245,6 @@ export function getActiveParameterIndex(line: string, commandName: string, needs
     }
     break;
   }
-
-  // Skip the command name
-  // if (tokens.length > 0) {
-  //   currentPosition += tokens[0]!.length + 1; // +1 for the space
-  // }
 
   // Find which parameter the cursor is in
   for (let i = 1; i < tokens.length; i++) {

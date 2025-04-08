@@ -130,14 +130,6 @@ function findScopeFromFlag(node: SyntaxNode, flag: VariableDefinitionFlag) {
         scopeFlag = 'global';
       }
       break;
-    // case 'for_scope':
-    //   scopeNode = firstAncestorMatch(node, NodeTypes.isFunctionDefinition);
-    //   scopeFlag = 'function';
-    //   if (!scopeNode) {
-    //     scopeNode = firstAncestorMatch(node, NodeTypes.isProgram);
-    //     scopeFlag = 'global';
-    //   }
-    //   break;
     case 'inherit':
       scopeNode = firstAncestorMatch(node, NodeTypes.isScope);
       scopeFlag = 'inherit';

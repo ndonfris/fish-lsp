@@ -50,18 +50,7 @@ export function implementationLocation(
     locations.push(newLocations.find(s => s.uri.includes('completions/'))!);
     return locations;
   }
-  // if (newLocations.some(s => s.uri.includes('functions/'))) {
-  //   locations.push(newLocations.find(s => s.uri.includes('functions/'))!);
-  //   return locations;
-  // }
-
-  // if (symbol.kind === SymbolKind.Function) {
-  //   locations.push(symbol.toLocation());
-  //   locations.push(...findSymbolLocations(analyzer, symbol));
-  //   return locations;
-  // }
   locations.push(symbol.toLocation());
-  // locations.push(...findSymbolLocations(analyzer, symbol));
   return locations;
 }
 

@@ -438,18 +438,6 @@ export class Analyzer {
   ): Location[] {
     const definition = this.getDefinition(document, position);
     if (!definition) return [];
-    // const references = getReferences(this, document, position);
-    // return references.filter((ref) => {
-    //   let refDoc = this.getDocument(ref.uri);
-    //   if (!refDoc) {
-    //     this.analyzePath(ref.uri);
-    //     refDoc = this.getDocument(ref.uri) as LspDocument;
-    //   }
-    //   if (!definition.equalLocations(ref) && ['conf.d', 'completions'].includes(refDoc.getAutoloadType())) {
-    //     return true;
-    //   }
-    //   return false;
-    // });
     const locations = implementationLocation(this, document, position);
     return locations;
   }
@@ -632,8 +620,6 @@ export class Analyzer {
     lineRootNode: SyntaxNode;
     lineLastNode: SyntaxNode;
   } {
-    //const linePreTrim: string = document.getLineBeforeCursor(position);
-    //const line = linePreTrim.slice(0,linePreTrim.lastIndexOf('\n'));
     const line = document
       .getLineBeforeCursor(position)
       .replace(/^(.*)\n$/, '$1') || '';

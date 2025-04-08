@@ -517,17 +517,6 @@ export namespace Config {
    * * The `initializeResult` is the result of the `initialize` method
    */
   export function initialize(params: InitializeParams, connection: Connection) {
-    // logger.logAsJson('async server.initialize(params)');
-    // if (params) {
-    //   logger.log('server.initialize.params', {
-    //     clientInfo: params?.clientInfo,
-    //     capabilities: 'params.capabilities',
-    //     initializationOptions: params?.initializationOptions,
-    //     workspaceFolders: params?.workspaceFolders,
-    //     rootUri: params?.rootUri,
-    //     rootPath: params?.rootPath,
-    //   });
-    // }
     updateFromInitializationOptions(params.initializationOptions);
     createServerLogger(config.fish_lsp_log_file, connection.console);
     const result = getResultCapabilities();
