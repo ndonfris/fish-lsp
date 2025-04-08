@@ -1,4 +1,4 @@
-import { DocumentSymbol, SymbolKind, Range, WorkspaceSymbol, Location, FoldingRange, FoldingRangeKind, MarkupContent, MarkupKind, Hover } from 'vscode-languageserver';
+import { DocumentSymbol, SymbolKind, Range, WorkspaceSymbol, Location, FoldingRange, FoldingRangeKind, MarkupContent, MarkupKind, Hover, DocumentUri } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { DefinitionScope } from '../utils/definition-scope';
 import { LspDocument } from '../document';
@@ -396,10 +396,14 @@ export class FishSymbol {
     };
   }
 
-  toHover(): Hover {
+  /**
+   * Optionally include the current document's uri to the hover, this will determine
+   * if a range is local to the current document (local ranges include hover range)
+   */
+  toHover(currentUri: DocumentUri = ''): Hover {
     return {
       contents: this.toMarkupContent(),
-      range: this.selectionRange,
+      range: currentUri === this.uri ? this.selectionRange : undefined,
     };
   }
 

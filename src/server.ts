@@ -14,7 +14,6 @@ import { getDiagnostics } from './diagnostics/validate';
 import { DocumentationCache, initializeDocumentationCache } from './utils/documentation-cache';
 import { currentWorkspace, findCurrentWorkspace, getWorkspacePathsFromInitializationParams, initializeDefaultFishWorkspaces, updateWorkspaces, Workspace, workspaces } from './utils/workspace';
 import { formatFishSymbolTree, filterLastPerScopeSymbol } from './parsing/symbol';
-import { getReferenceLocations } from './workspace-symbol';
 import { CompletionPager, initializeCompletionPager, SetupData } from './utils/completion/pager';
 import { FishCompletionItem } from './utils/completion/types';
 import { getDocumentationResolver } from './utils/completion/documentation';
@@ -114,8 +113,6 @@ export default class FishServer {
 
   register(connection: Connection): void {
     // handle the documents using the documents dependency
-    this.documents.listen(connection);
-
     this.documents.onDidChangeContent(async (event) => {
       const oldWorkspace = currentWorkspace.current;
       this.logParams('onDidChangeContent', event);
@@ -192,10 +189,14 @@ export default class FishServer {
     connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
     connection.onExecuteCommand(executeHandler);
 
-    connection.onDidChangeWatchedFiles(e => {
-      this.logParams('onDidChangeWatchedFiles', e);
-    });
+    // connection.onDidChangeWatchedFiles(e => {
+    //   this.logParams('onDidChangeWatchedFiles', e);
+    //   e.changes.forEach(change => {
+    //     change.uri
+    //   })
+    // });
 
+    this.documents.listen(connection);
     logger.log({ 'server.register': 'registered' });
   }
 
@@ -358,7 +359,12 @@ export default class FishServer {
 
     // update the current workspace to be the opened document,
     // this will be used to determine the workspace for the document
+    // const prevWorkspace = currentWorkspace.current;
     // currentWorkspace.updateCurrent(doc);
+    // if (prevWorkspace?.path !== currentWorkspace.current?.path) {
+    //   currentWorkspace.current?.removeAnalyzed();
+    // }
+
     const symbols = this.analyzer.cache.getDocumentSymbols(doc.uri);
     return filterLastPerScopeSymbol(symbols);
   }
@@ -442,20 +448,20 @@ export default class FishServer {
     }
 
     if (isAliasDefinitionName(current)) {
-      result = this.analyzer.getDefinition(doc, params.position)?.toHover() || null;
+      result = this.analyzer.getDefinition(doc, params.position)?.toHover(doc.uri) || null;
       if (result) return result;
     }
 
     if (isArgparseVariableDefinitionName(current)) {
       logger.log('isArgparseDefinition');
-      result = this.analyzer.getDefinition(doc, params.position)?.toHover() || null;
+      result = this.analyzer.getDefinition(doc, params.position)?.toHover(doc.uri) || null;
       return result;
     }
 
     if (isOption(current)) {
       // check that we aren't hovering a function option that is defined by
       // argparse inside the function, if we are then return it's hover value
-      result = this.analyzer.getDefinition(doc, params.position)?.toHover() || null;
+      result = this.analyzer.getDefinition(doc, params.position)?.toHover(doc.uri) || null;
       if (result) return result;
       // otherwise we get the hover using inline documentation from `complete --do-complete {option}`
       result = await handleHover(
@@ -539,7 +545,7 @@ export default class FishServer {
     const { doc } = this.getDefaults(params);
     if (!doc) return null;
 
-    const locations = getReferenceLocations(this.analyzer, doc, params.position);
+    const locations = getReferences(this.analyzer, doc, params.position);
 
     // return getRenameWorkspaceEdit(
     //   this.analyzer,
@@ -816,7 +822,6 @@ export default class FishServer {
     // Skip if both are null or the same workspace
     if (!oldWorkspace && !newWorkspace ||
       oldWorkspace && newWorkspace && oldWorkspace.equals(newWorkspace) ||
-      newWorkspace?.isAnalyzed() ||
       newWorkspace?.path.startsWith('/tmp')
     ) {
       return;
@@ -829,7 +834,7 @@ export default class FishServer {
 
     // Analyze the new workspace
     if (newWorkspace && !newWorkspace.isAnalyzed()) {
-      await this.startBackgroundAnalysis(!hasAnalyzedOnce);
+      this.startBackgroundAnalysis(!hasAnalyzedOnce);
     }
   }
 

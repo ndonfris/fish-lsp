@@ -3,9 +3,9 @@ import { Analyzer } from './analyze';
 import { getRange } from './utils/tree-sitter';
 import { DocumentHighlight, DocumentHighlightKind, DocumentHighlightParams, Location } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
-import { getReferenceLocations } from './workspace-symbol';
 import { isCommandName, isFunctionDefinitionName, isVariableDefinitionName } from './utils/node-types';
 import { LspDocument } from './document';
+import { getReferences } from './references';
 
 /**
  * TODO:
@@ -41,7 +41,7 @@ export function getDocumentHighlights(analyzer: Analyzer) {
 
     // check if the node is a reference to a symbol
     if (isSymbolReference(node)) {
-      const refLocations = getReferenceLocations(analyzer, doc, params.position);
+      const refLocations = getReferences(analyzer, doc, params.position);
       if (!refLocations) return [];
       return convertSymbolLocationsToHighlights(doc, refLocations);
     // check if the node is a command name (node with node.parent.type === 'command')
@@ -49,7 +49,7 @@ export function getDocumentHighlights(analyzer: Analyzer) {
       // check if the command name is a symbol reference
       const defLocation = symbols.find(symbol => symbol.name === node.text);
       if (defLocation) {
-        const refLocations = getReferenceLocations(analyzer, doc, defLocation.selectionRange.start);
+        const refLocations = getReferences(analyzer, doc, defLocation.selectionRange.start);
         return convertSymbolLocationsToHighlights(doc, refLocations);
       }
       // not a symbol reference, just a command name

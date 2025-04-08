@@ -2,13 +2,12 @@ import { Hover, Position, SymbolKind, WorkspaceSymbol, URI, Location } from 'vsc
 import * as Parser from 'web-tree-sitter';
 import { SyntaxNode, Tree } from 'web-tree-sitter';
 import * as LSP from 'vscode-languageserver';
-import { isPositionWithinRange, getChildNodes } from './utils/tree-sitter';
+import { isPositionWithinRange, getChildNodes, containsRange, getRange, precedesRange } from './utils/tree-sitter';
 import { LspDocument, documents } from './document';
 import { isAliasDefinitionName, isCommand, isCommandName, isOption, isTopLevelDefinition } from './utils/node-types';
 import { pathToUri, symbolKindToString, uriToPath } from './utils/translation';
 import { existsSync } from 'fs';
 import { currentWorkspace, Workspace, workspaces } from './utils/workspace';
-import { findDefinitionSymbols } from './workspace-symbol';
 import { config } from './config';
 import { logger } from './logger';
 import { SyncFileHelper } from './utils/file-operations';
@@ -312,58 +311,43 @@ export class Analyzer {
       });
   }
 
+  private getDefinitionHelper(
+    document: LspDocument,
+    position: Position,
+  ): FishSymbol[] {
+    const symbols: FishSymbol[] = [];
+    const localSymbols = this.getFlatDocumentSymbols(document.uri);
+    const toFind = this.wordAtPoint(document.uri, position.line, position.character);
+    const nodeToFind = this.nodeAtPoint(document.uri, position.line, position.character);
+    if (!toFind || !nodeToFind) return [];
+
+    const localSymbol = localSymbols.find((s) => {
+      return s.name === toFind && containsRange(s.selectionRange, getRange(nodeToFind));
+    });
+    if (localSymbol) {
+      symbols.push(localSymbol);
+    } else {
+      const toAdd: FishSymbol[] = localSymbols.filter((s) => {
+        const variableBefore = s.kind === SymbolKind.Variable ? precedesRange(s.selectionRange, getRange(nodeToFind)) : true;
+        return (
+          s.name === toFind
+          && containsRange(getRange(s.scope.scopeNode), getRange(nodeToFind))
+          && variableBefore
+        );
+      });
+      symbols.push(...toAdd);
+    }
+    if (!symbols.length) {
+      symbols.push(...this.globalSymbols.find(toFind));
+    }
+    return symbols;
+  }
+
   public getDefinition(
     document: LspDocument,
     position: Position,
   ): FishSymbol | null {
-    // const symbols: FishSymbol[] = findDefinitionSymbols(this, document, position);
-    // // const symbols: FishSymbol[] = this.getFlatDocumentSymbols(document.uri)
-    // //   .filter(s => s.containsPosition(position))
-    //
-    // const wordAtPoint = this.wordAtPoint(document.uri, position.line, position.character);
-    // const nodeAtPoint = this.nodeAtPoint(document.uri, position.line, position.character);
-    // if (nodeAtPoint && isCompletionSymbol(nodeAtPoint)) {
-    //   logger.log('definition  isCompletionSymbol');
-    //   const completionSymbols = this.getFlatCompletionSymbols(document.uri);;
-    //   const completionSymbol = completionSymbols.find(s => s.equalsNode(nodeAtPoint));
-    //   if (!completionSymbol) {
-    //     return null;
-    //   }
-    //   const { argparseFlagName, commandName } = completionSymbol.toArgparse(nodeAtPoint);
-    //   const symbol = this.findSymbol((s) =>
-    //     s.fishKind === 'ARGPARSE' &&
-    //     argparseFlagName.includes(s.name) && s.node.parent?.firstNamedChild?.text === commandName
-    //   );
-    //   if (symbol) {
-    //     logger.log('got symbol', symbol.name);
-    //     return symbol;
-    //   }
-    //   // return null;
-    // }
-    // if (nodeAtPoint && isAliasDefinitionName(nodeAtPoint)) {
-    //   logger.log('definition  isAliasDefinitionName');
-    //   return symbols.find(s => s.name === wordAtPoint) || symbols.pop()!;
-    // }
-    // if (nodeAtPoint && isArgparseVariableDefinitionName(nodeAtPoint)) {
-    //   logger.log('definition  isArgparseVariableDefinitionName');
-    //   const foundSymbols = this.findSymbols((s, _document) => {
-    //     return s.scopeContainsNode(nodeAtPoint);
-    //   });
-    //   logger.log('foundSymbols');
-    //   foundSymbols.forEach(s => {
-    //     logger.log('definition  symbol', s.name);
-    //   });
-    //   if (foundSymbols.length > 0) {
-    //     logger.log('there was a found symbol? ');
-    //     return foundSymbols.pop()!;
-    //   }
-    // }
-    // logger.log('definition  other');
-    // symbols.forEach(s => {
-    //   logger.log('definition  symbol', s.name);
-    // });
-    // return symbols.pop() || null;
-    const symbols: FishSymbol[] = findDefinitionSymbols(this, document, position);
+    const symbols: FishSymbol[] = this.getDefinitionHelper(document, position);
     const wordAtPoint = this.wordAtPoint(document.uri, position.line, position.character);
     const nodeAtPoint = this.nodeAtPoint(document.uri, position.line, position.character);
     if (nodeAtPoint && isAliasDefinitionName(nodeAtPoint)) {

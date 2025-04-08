@@ -5,7 +5,7 @@ import { isCommand, isCommandName, isReturn } from './utils/node-types';
 import { findChildNodes } from './utils/tree-sitter';
 import { Analyzer } from './analyze';
 import { LspDocument } from './document';
-import { getReferenceLocations } from './workspace-symbol';
+import { getReferences } from './references';
 import { logger } from './logger';
 
 export function getStatusInlayHints(root: SyntaxNode): InlayHint[] {
@@ -169,7 +169,7 @@ export function getGlobalReferencesInlayHints(
   const hints: InlayHint[] = analyzer.getFlatDocumentSymbols(document.uri)
     .filter(symbol => symbol.scope.scopeTag === 'global' || symbol.scope.scopeTag === 'universal')
     .map(symbol => {
-      const referenceCount = getReferenceLocations(analyzer, document, symbol.selectionRange.start).length;
+      const referenceCount = getReferences(analyzer, document, symbol.selectionRange.start).length;
 
       return {
         position: document.getLineEnd(symbol.selectionRange.start.line),
