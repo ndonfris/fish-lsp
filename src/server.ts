@@ -42,6 +42,7 @@ export type SupportedFeatures = {
 };
 
 export let CurrentDocument: LspDocument | undefined;
+export let hasAnalyzedOnce = false;
 
 export default class FishServer {
   public static async create(
@@ -181,6 +182,7 @@ export default class FishServer {
 
     connection.onRenameRequest(this.onRename.bind(this));
     connection.onDocumentFormatting(this.onDocumentFormatting.bind(this));
+    connection.onDocumentOnTypeFormatting(this.onDocumentTypeFormatting.bind(this));
     connection.onDocumentRangeFormatting(this.onDocumentRangeFormatting.bind(this));
     connection.onCodeAction(codeActionHandler);
     connection.onFoldingRanges(this.onFoldingRanges.bind(this));
@@ -205,10 +207,14 @@ export default class FishServer {
       const oldWorkspace = currentWorkspace.current;
       logger.log('onDidChangeWorkspaceFolders', e);
       await updateWorkspaces(e);
+      currentWorkspace.current?.removeAnalyzed();
       await this.handleWorkspaceChange(oldWorkspace, currentWorkspace.current);
     });
+    if (!hasAnalyzedOnce) {
+      hasAnalyzedOnce = true;
+    }
     return {
-      backgroundAnalysisCompleted: this.startBackgroundAnalysis(false),
+      backgroundAnalysisCompleted: this.startBackgroundAnalysis(true),
     };
   }
 
@@ -531,6 +537,26 @@ export default class FishServer {
     return [TextEdit.replace(fullRange, formattedText)];
   }
 
+  async onDocumentTypeFormatting(params: DocumentFormattingParams): Promise<TextEdit[]> {
+    this.logParams('onDocumentTypeFormatting', params);
+    const { doc } = this.getDefaultsForPartialParams(params);
+    if (!doc) return [];
+
+    const formattedText = await formatDocumentContent(doc.getText()).catch(error => {
+      this.connection.console.error(`Formatting error: ${error}`);
+      if (config.fish_lsp_show_client_popups) {
+        this.connection.window.showErrorMessage(`Failed to format range: ${error}`);
+      }
+      return doc.getText(); // fallback to original text on error
+    });
+
+    const fullRange: LSP.Range = {
+      start: doc.positionAt(0),
+      end: doc.positionAt(doc.getText().length),
+    };
+
+    return [TextEdit.replace(fullRange, formattedText)];
+  }
   /**
    * Currently only works for whole line selections, in the future we should try to make every
    * selection a whole line selection.
@@ -732,7 +758,7 @@ export default class FishServer {
 
     // Analyze the new workspace
     if (newWorkspace && !newWorkspace.isAnalyzed()) {
-      await this.startBackgroundAnalysis(true);
+      await this.startBackgroundAnalysis(!hasAnalyzedOnce);
     }
   }
 

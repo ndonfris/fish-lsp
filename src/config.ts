@@ -20,6 +20,7 @@ export const ConfigHandlerSchema = z.object({
   reference: z.boolean().default(true),
   logger: z.boolean().default(true),
   formatting: z.boolean().default(true),
+  typeFormatting: z.boolean().default(true),
   codeAction: z.boolean().default(true),
   codeLens: z.boolean().default(true),
   folding: z.boolean().default(true),
@@ -61,7 +62,7 @@ export const configHandlers = ConfigHandlerSchema.parse({});
 
 export const validHandlers: Array<keyof typeof ConfigHandlerSchema.shape> = [
   'complete', 'hover', 'rename', 'definition', 'implementation', 'reference', 'formatting',
-  'codeAction', 'codeLens', 'folding', 'signature', 'executeCommand',
+  'typeFormatting', 'codeAction', 'codeLens', 'folding', 'signature', 'executeCommand',
   'inlayHint', 'highlight', 'diagnostic', 'popups',
 ];
 
@@ -473,6 +474,10 @@ export namespace Config {
         documentLinkProvider: {
           resolveProvider: true,
         },
+        documentOnTypeFormattingProvider: configHandlers.typeFormatting ? {
+          firstTriggerCharacter: '.',
+          moreTriggerCharacter: [';', '}', ']', ')'],
+        } : undefined,
         workspace: {
           // fileOperations: {
           //   didRename: FileListenerFilter,

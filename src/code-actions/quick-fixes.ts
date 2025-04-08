@@ -146,6 +146,25 @@ function handleZeroIndexedArray(
   };
 }
 
+function handleDotSourceCommand(
+  document: LspDocument,
+  diagnostic: Diagnostic,
+): CodeAction | undefined {
+  const edit = TextEdit.replace(diagnostic.range, 'source');
+
+  return {
+    title: 'Convert dot source command to source',
+    kind: SupportedCodeActionKinds.QuickFix,
+    diagnostics: [diagnostic],
+    edit: {
+      changes: {
+        [document.uri]: [edit],
+      },
+    },
+    isPreferred: true,
+  };
+}
+
 // fix cases like: -xU
 function handleUniversalVariable(
   document: LspDocument,
@@ -419,6 +438,11 @@ export async function getQuickFixes(
 
     case ErrorCodes.usedUnviersalDefinition:
       action = handleUniversalVariable(document, diagnostic);
+      if (action) actions.push(action);
+      return actions;
+
+    case ErrorCodes.dotSourceCommand:
+      action = handleDotSourceCommand(document, diagnostic);
       if (action) actions.push(action);
       return actions;
 

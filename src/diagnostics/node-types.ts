@@ -90,9 +90,20 @@ export function isSourceFilename(node: SyntaxNode): boolean {
       if (node.type === 'variable_expansion') {
         return false;
       }
+      // also skip something like `source '$file'`
+      if (isString(node)) {
+        return false;
+      }
       return true;
     }
     return !isExisting;
+  }
+  return false;
+}
+
+export function isDotSourceCommand(node: SyntaxNode): boolean {
+  if (node.parent && isCommandWithName(node.parent, '.')) {
+    return node.parent.firstNamedChild?.equals(node) || false;
   }
   return false;
 }
