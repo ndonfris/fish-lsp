@@ -1,7 +1,11 @@
 import {
   MarkupContent,
+  MarkupKind,
+  ParameterInformation,
+  Position,
   SignatureHelp,
   SignatureInformation,
+  SymbolKind,
 } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { ExtendedBaseJson, PrebuiltDocumentationMap } from './utils/snippets';
@@ -10,8 +14,11 @@ import * as NodeTypes from './utils/node-types';
 import * as TreeSitter from './utils/tree-sitter';
 import { CompletionItemMap } from './utils/completion/startup-cache';
 import { Option } from './parsing/options';
+import { Analyzer } from './analyze';
+import { md } from './utils/markdown-builder';
+import { symbolKindToString } from './utils/translation';
 
-export function buildSignature(label: string, value: string) : SignatureInformation {
+export function buildSignature(label: string, value: string): SignatureInformation {
   return {
     label: label,
     documentation: {
@@ -140,7 +147,7 @@ export function getAliasedCompletionItemSignature(item: FishAliasCompletionItem)
   };
 }
 
-export function regexStringSignature() : SignatureInformation {
+export function regexStringSignature(): SignatureInformation {
   //const regexItems = stringRegexExpressions;
   //let signatureDoc = ["__String Regex Patterns__", "---"];
   //for (const item of regexItems) {
@@ -161,23 +168,177 @@ export function regexStringSignature() : SignatureInformation {
 }
 
 function regexStringCharacterSets(): SignatureInformation {
+  const inputText: string = [
+    markdownStringRepetitions,
+    markdownStringCharClasses,
+    markdownStringGroups,
+  ].join('\n---\n');
+  const parameters: ParameterInformation[] = [
+    ParameterInformation.create('argv[1]', inputText),
+    ParameterInformation.create('argv[2]', inputText),
+  ];
   return {
     label: 'Regex Groups',
     documentation: {
       kind: 'markdown',
       value: markdownStringCharacterSets,
     } as MarkupContent,
+    parameters: parameters,
+    activeParameter: 0,
   };
 }
+/**
+ * Checks if a flag matches either a short flag (-r) or a long flag (--regex)
+ * For short flags, it will check if the flag is part of a combined flag string (-re)
+ *
+ * @param text The text to check
+ * @param shortFlag The short flag to check for (e.g. 'r')
+ * @param longFlag The long flag to check for (e.g. 'regex')
+ * @returns true if the text matches either the short or long flag
+ */
+export function isMatchingOption(
+  text: string,
+  options: { shortOption?: string; longOption?: string; },
+): boolean {
+  // Early return if text doesn't start with a dash
+  if (!text.startsWith('-')) return false;
 
+  // Handle long options (--option)
+  if (text.startsWith('--') && options.longOption) {
+    // Remove any equals sign and following text (--option=value)
+    const cleanText = text.includes('=') ? text.slice(0, text.indexOf('=')) : text;
+    return cleanText === `--${options.longOption}`;
+  }
+
+  // Handle short options (-o)
+  if (text.startsWith('-') && options.shortOption) {
+    // Check if the short option is included in the characters after the dash
+    // This handles combined flags like -abc where we want to check for 'a'
+    return text.slice(1).includes(options.shortOption);
+  }
+
+  return false;
+}
+
+// export function isRegexStringSignature(line: string): boolean {
+//   const tokens = line.split(' ');
+//   if (tokens.some(s => s.startsWith('string'))) {
+//     if (tokens.some(s => s.includes('--regex') || s.replace(/^-/, '').includes('r'))) {
+//       return true;
+//     }
+//   }
+//   return false;
+// }
+/**
+ * Determines the active parameter index based on cursor position
+ *
+ * @param line The complete command line
+ * @param commandName The name of the command
+ * @param cursorPosition The position of the cursor in the line
+ * @returns The index of the active parameter
+ */
+export function getActiveParameterIndex(line: string, commandName: string, needsSubcommand: boolean, cursorPosition: number): number {
+  // Split the line into tokens
+  const tokens = line.trim().split(/\s+/);
+  let currentPosition = 0;
+  let paramIndex = 0;
+  const commands = commandName.split(' ');
+  let previousWasCommand = false;
+  for (const token of tokens) {
+    if (commands.includes(token) || ['if', 'else if', 'switch', 'case'].includes(token)) {
+      // Skip the command name
+      cursorPosition += token.length + 1; // +1 for the space
+      previousWasCommand = true;
+      continue;
+    }
+    // Skip the subcommand
+    if (needsSubcommand && previousWasCommand) {
+      cursorPosition += token.length + 1; // +1 for the space
+      previousWasCommand = false;
+      continue;
+    }
+    break;
+  }
+
+  // Skip the command name
+  // if (tokens.length > 0) {
+  //   currentPosition += tokens[0]!.length + 1; // +1 for the space
+  // }
+
+  // Find which parameter the cursor is in
+  for (let i = 1; i < tokens.length; i++) {
+    const token = tokens[i];
+
+    // Check if cursor is before this token
+    if (currentPosition + token!.length >= cursorPosition) {
+      break;
+    }
+
+    // If token is a flag, it's not a parameter
+    if (token!.startsWith('-')) {
+      // Skip flag parameter if it's a value flag
+      if (i + 1 < tokens.length && !tokens[i + 1]!.startsWith('-')) {
+        i++; // Skip the value
+        currentPosition += tokens[i]!.length + 1;
+      }
+    } else {
+      // This is a parameter
+      paramIndex++;
+    }
+
+    currentPosition += token!.length + 1; // +1 for the space
+  }
+
+  return paramIndex;
+}
+
+/**
+ * Check if the input line is a string command with regex option
+ */
+export function isRegexStringSignature(line: string): boolean {
+  const tokens = line.split(' ');
+  const hasStringCommand = tokens.some(token => token === 'string') && !tokens.some(token => token === '--');
+
+  if (hasStringCommand) {
+    return tokens.some(token =>
+      isMatchingOption(token, {
+        shortOption: 'r',
+        longOption: 'regex',
+      }),
+    );
+  }
+
+  return false;
+}
+
+export function findActiveParameterStringRegex(
+  line: string,
+  cursorPosition: number,
+): {
+  isRegex: boolean;
+  activeParameter: number;
+} {
+  const tokens = line.split(' ');
+  const hasStringCommand = tokens.some(token => token === 'string');
+
+  const isRegex = hasStringCommand && tokens.some(token =>
+    isMatchingOption(token, {
+      shortOption: 'r',
+      longOption: 'regex',
+    }),
+  );
+
+  const activeParameter = isRegex ? getActiveParameterIndex(line, 'string ', true, cursorPosition) : 0;
+  return { isRegex, activeParameter };
+}
 type signatureType = 'stringRegexPatterns' | 'stringRegexCharacterSets';
 
-export const signatureIndex: {[str in signatureType]: number} = {
+export const signatureIndex: { [str in signatureType]: number } = {
   stringRegexPatterns: 0,
   stringRegexCharacterSets: 1,
 };
 
-export function getDefaultSignatures() : SignatureHelp {
+export function getDefaultSignatures(): SignatureHelp {
   return {
     activeParameter: 0,
     activeSignature: 0,
@@ -188,6 +349,140 @@ export function getDefaultSignatures() : SignatureHelp {
   };
 }
 
+/**
+ * Creates a signature help for a function
+ *
+ * @param analyzer The analyzer instance
+ * @param lineLastNode The last node in the current line
+ * @param line The current line text
+ * @param position The cursor position
+ * @returns A SignatureHelp object or null
+ */
+export function getFunctionSignatureHelp(
+  analyzer: Analyzer,
+  lineLastNode: SyntaxNode,
+  line: string,
+  position: Position,
+): SignatureHelp | null {
+  // Find the function symbol based on the node's parent's first named child
+  const functionName = lineLastNode.parent?.firstNamedChild?.text.trim();
+  if (!functionName) return null;
+
+  const funcSymbol = analyzer.findSymbol((symbol, _) => symbol.name === functionName);
+  if (!funcSymbol || funcSymbol.kind !== SymbolKind.Function) return null;
+
+  // Get all parameter names, filtering out non-function variables
+  const paramNames = funcSymbol.children
+    .filter(s => s.fishKind === 'FUNCTION_VARIABLE' && s.name !== 'argv');
+
+  // Add argv as the last parameter if it exists
+  const argvParam = funcSymbol.children
+    .find(s => s.fishKind === 'FUNCTION_VARIABLE' && s.name === 'argv');
+  if (argvParam) {
+    paramNames.push(argvParam);
+  }
+
+  // Create parameter information for each parameter
+  const paramDocs: ParameterInformation[] = paramNames.map((p, idx) => {
+    const markdownString = p.toMarkupContent().value.split(md.separator());
+    // set the labels for `argv` to be `$argv[1..-1]` and the rest to be `$argv[1]`
+    const label = p.name === 'argv'
+      ? `$${p.name}[${idx + 1}..-1]`
+      : p.name;
+    // set the documentation to be the first line of the markdown string
+    const newContentString = p.name === 'argv'
+      ? [
+        '',
+        `${md.bold(`(${symbolKindToString(p.kind)})`)} ${label}`,
+        md.separator(),
+        `This parameter corresponds to ${md.inlineCode(`$argv[${idx + 1}..-1]`)} in the function.`,
+        '',
+      ].join(md.newline())
+      : [
+        '',
+        `${md.bold(`(${symbolKindToString(p.kind)})`)} ${md.inlineCode(p.name)}`,
+        md.separator(),
+        `This parameter corresponds to ${md.inlineCode(`$argv[${idx + 1}]`)} in the function.`,
+        '',
+      ].join(md.newline());
+    // set the documentation
+    const newValue = p.name === 'argv'
+      ? [
+        newContentString,
+      ].join(md.separator())
+      : [
+        newContentString,
+        markdownString.slice(3, 4),
+      ].join(md.separator());
+    // set content
+    const newContent = {
+      kind: MarkupKind.Markdown,
+      value: newValue,
+    };
+    return {
+      label: label,
+      documentation: newContent,
+    };
+  });
+
+  // Create the signature label with the function name and parameter names
+  const label = `${funcSymbol.name} ${paramDocs.map(p => p.label).join(' ')}`.trim();
+
+  // Create the signature information
+  const signature = SignatureInformation.create(
+    label,
+    funcSymbol.detail,
+    ...paramDocs,
+  );
+  signature.documentation = {
+    kind: MarkupKind.Markdown,
+    value: funcSymbol.detail || 'No documentation available',
+  };
+
+  // Calculate the active parameter based on cursor position
+  const activeParameter = calculateActiveParameter(line, position) - 1;
+
+  return {
+    signatures: [signature],
+    activeSignature: 0,
+    activeParameter: Math.min(activeParameter, paramNames.length - 1),
+  };
+}
+
+/**
+ * Calculates which parameter the cursor is currently on
+ *
+ * @param line The current line text
+ * @param position The cursor position
+ * @returns The index of the active parameter
+ */
+function calculateActiveParameter(line: string, position: Position): number {
+  const textBeforeCursor = line.substring(0, position.character);
+  const tokens = textBeforeCursor.trim().split(/\s+/);
+
+  // First token is the function name, so we start at 0 (first parameter)
+  // and count parameters (non-flag arguments)
+  let paramCount = 0;
+
+  // Skip the first token (function name)
+  for (let i = 1; i < tokens.length; i++) {
+    const token = tokens[i];
+    // Skip flags and their values
+    if (token?.startsWith('-')) {
+      // If this is a flag that takes a value and the next token exists
+      // and isn't a flag, skip that too
+      if (i + 1 < tokens.length && !tokens[i + 1]?.startsWith('-')) {
+        i++;
+      }
+      continue;
+    }
+
+    // Count this as a parameter
+    paramCount++;
+  }
+
+  return paramCount;
+}
 // REGEX STRING LINES
 const markdownStringRepetitions = [
   'Repetitions',

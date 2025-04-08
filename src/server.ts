@@ -23,7 +23,7 @@ import { PrebuiltDocumentationMap, getPrebuiltDocUrl } from './utils/snippets';
 import { findParentCommand, isAliasDefinitionName, isCommand, isOption, isReturnStatusNumber, isVariableDefinition } from './utils/node-types';
 import { config, Config } from './config';
 import { enrichToMarkdown, handleSourceArgumentHover } from './documentation';
-import { getAliasedCompletionItemSignature } from './signature';
+import { findActiveParameterStringRegex, getAliasedCompletionItemSignature, getDefaultSignatures, getFunctionSignatureHelp, isRegexStringSignature } from './signature';
 import { CompletionItemMap } from './utils/completion/startup-cache';
 import { getDocumentHighlights } from './document-highlight';
 import { buildCommentCompletions } from './utils/completion/comment-completions';
@@ -694,6 +694,30 @@ export default class FishServer {
         activeParameter: 0,
       };
     }
+    if (isRegexStringSignature(line)) {
+      const signature = getDefaultSignatures();
+      logger.log('signature', signature);
+      const cursorLineOffset = line.length - lineLastNode.endIndex;
+      const { activeParameter } = findActiveParameterStringRegex(line, cursorLineOffset);
+      logger.log({
+        line,
+        lineLength: line.length,
+        lineLastNodeEndIndex: lineLastNode.endIndex,
+        lineLastNodeText: lineLastNode.text,
+        cursorLineOffset,
+        activeParameter,
+      });
+      logger.log('activeParameter', activeParameter);
+      signature.activeParameter = activeParameter;
+      return signature;
+    }
+    const functionSignature = getFunctionSignatureHelp(
+      this.analyzer,
+      lineLastNode,
+      line,
+      params.position,
+    );
+    if (functionSignature) return functionSignature;
     return null;
   }
 

@@ -16,7 +16,7 @@ import { flattenNested } from '../utils/flatten';
 import { uriToPath } from '../utils/translation';
 import { isCommand, isCommandWithName, isFunctionDefinitionName, isTopLevelDefinition, isVariableDefinitionName } from '../utils/node-types';
 
-export type FishSymbolKind = 'ARGPARSE' | 'FUNCTION' | 'ALIAS' | 'COMPLETE' | 'SET' | 'READ' | 'FOR' | 'VARIABLE';
+export type FishSymbolKind = 'ARGPARSE' | 'FUNCTION' | 'ALIAS' | 'COMPLETE' | 'SET' | 'READ' | 'FOR' | 'VARIABLE' | 'FUNCTION_VARIABLE';
 
 export const FishSymbolKindMap: Record<Lowercase<FishSymbolKind>, FishSymbolKind> = {
   ['argparse']: 'ARGPARSE',
@@ -27,6 +27,7 @@ export const FishSymbolKindMap: Record<Lowercase<FishSymbolKind>, FishSymbolKind
   ['read']: 'READ',
   ['for']: 'FOR',
   ['variable']: 'VARIABLE',
+  ['function_variable']: 'FUNCTION_VARIABLE',
 };
 
 export const fishSymbolKindToSymbolKind: Record<FishSymbolKind, SymbolKind> = {
@@ -38,6 +39,7 @@ export const fishSymbolKindToSymbolKind: Record<FishSymbolKind, SymbolKind> = {
   ['READ']: SymbolKind.Variable,
   ['FOR']: SymbolKind.Variable,
   ['VARIABLE']: SymbolKind.Variable,
+  ['FUNCTION_VARIABLE']: SymbolKind.Variable,
 } as const;
 
 export const SetModifierToScopeTag = (modifier: Option) => {
