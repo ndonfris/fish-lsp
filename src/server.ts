@@ -12,7 +12,7 @@ import { getChildNodes } from './utils/tree-sitter';
 import { getVariableExpansionDocs, handleHover } from './hover';
 import { getDiagnostics } from './diagnostics/validate';
 import { DocumentationCache, initializeDocumentationCache } from './utils/documentation-cache';
-import { currentWorkspace, findCurrentWorkspace, getWorkspacePathsFromInitializationParams, initializeDefaultFishWorkspaces, updateWorkspaces, Workspace } from './utils/workspace';
+import { currentWorkspace, findCurrentWorkspace, getWorkspacePathsFromInitializationParams, initializeDefaultFishWorkspaces, updateWorkspaces, Workspace, workspaces } from './utils/workspace';
 import { formatFishSymbolTree, filterLastPerScopeSymbol } from './parsing/symbol';
 import { getReferenceLocations } from './workspace-symbol';
 import { CompletionPager, initializeCompletionPager, SetupData } from './utils/completion/pager';
@@ -218,6 +218,53 @@ export default class FishServer {
     };
   }
 
+  // async initializeBackgroundAnalysisForTiming(): Promise<{
+  //   all: number;
+  //   items: { [key: string]: number; };
+  // }> {
+  //   const items: { [key: string]: number; } = {};
+  //   let all: number = 0;
+  //   for await (const workspace of workspaces) {
+  //     currentWorkspace.current = workspace;
+  //     await this.startBackgroundAnalysis();
+  //     items[currentWorkspace.current.path] = currentWorkspace.current.uris.size;
+  //     all += currentWorkspace.current.uris.size;
+  //   }
+  //   return {
+  //     all,
+  //     items,
+  //   };
+  // }
+  async initializeBackgroundAnalysisForTiming(): Promise<{
+    all: number;
+    items: { [key: string]: number; };
+  }> {
+    const items: { [key: string]: number; } = {};
+    let all: number = 0;
+
+    // Create an array of promises, one for each workspace
+    const analysisPromises = workspaces.map(async (workspace) => {
+      // Store the current workspace for reference
+      currentWorkspace.current = workspace;
+
+      // Start background analysis for this workspace
+      const result = await this.startBackgroundAnalysis();
+
+      // Store the results
+      items[workspace.path] = result.filesParsed;
+      all += result.filesParsed;
+
+      return { workspace: workspace, count: workspace.uris.size };
+    });
+
+    // Wait for all analyses to complete
+    await Promise.all(analysisPromises);
+
+    return {
+      all,
+      items,
+    };
+  }
   // @TODO: REFACTOR THIS OUT OF SERVER
   // https://github.com/Dart-Code/Dart-Code/blob/7df6509870d51cc99a90cf220715f4f97c681bbf/src/providers/dart_completion_item_provider.ts#L197-202
   // https://github.com/microsoft/vscode-languageserver-node/pull/322

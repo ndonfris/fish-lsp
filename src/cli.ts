@@ -1,100 +1,11 @@
 #!/usr/bin/env node
 //'use strict'
 import { BuildCapabilityString, PathObj, PackageLspVersion, PackageVersion, accumulateStartupOptions, getBuildTimeString, FishLspHelp, FishLspManPage, SourcesDict, smallFishLogo, isPkgBinary } from './utils/commander-cli-subcommands';
-import { createConnection, InitializeParams, InitializeResult, StreamMessageReader, StreamMessageWriter } from 'vscode-languageserver/node';
 import { Command, Option } from 'commander';
-import FishServer from './server';
 import { buildFishLspCompletions } from './utils/get-lsp-completions';
-import { createServerLogger, logger } from './logger';
+import { logger } from './logger';
 import { configHandlers, generateJsonSchemaShellScript, config, showJsonSchemaShellScript, updateHandlers, validHandlers, Config } from './config';
-
-export function startServer() {
-  // Create a connection for the server.
-  // The connection uses stdin/stdout for communication.
-  const connection = createConnection(
-    new StreamMessageReader(process.stdin),
-    new StreamMessageWriter(process.stdout),
-  );
-  connection.onInitialize(
-    async (params: InitializeParams): Promise<InitializeResult> => {
-      // connection.console.log(`Initialized server FISH-LSP with ${JSON.stringify(params, null, 2)}`);
-      const { initializeResult } = await FishServer.create(connection, params);
-      return initializeResult;
-    },
-  );
-  connection.listen();
-  createServerLogger(config.fish_lsp_log_file, connection.console);
-  logger.log('Starting FISH-LSP server');
-  logger.log('Server started with the following handlers:', configHandlers);
-  logger.log('Server started with the following config:', config);
-}
-
-async function timeOperation<T>(
-  operation: () => Promise<T>,
-  label: string,
-): Promise<T> {
-  const start = performance.now();
-  try {
-    const result = await operation();
-    const end = performance.now();
-    const duration = end - start;
-    logger.logToStdoutJoined(
-      `${label}:`.padEnd(55),
-      `${duration.toFixed(2)}ms`.padStart(10),
-    );
-    return result;
-  } catch (error) {
-    const end = performance.now();
-    const duration = end - start;
-    logger.logToStdout(`${label} failed after ${duration.toFixed(2)}ms`);
-    throw error;
-  }
-}
-
-async function timeServerStartup() {
-  // define a local server instance
-  let server: FishServer | undefined;
-
-  // 1. Time server creation and startup
-  await timeOperation(async () => {
-    const connection = createConnection(
-      new StreamMessageReader(process.stdin),
-      new StreamMessageWriter(process.stdout),
-    );
-    const startupParams: InitializeParams = {
-      processId: process.pid,
-      rootUri: process.cwd(),
-      capabilities: {},
-    };
-    ({ server } = await FishServer.create(connection, startupParams));
-    connection.listen();
-    return server;
-  }, 'Server Start Time');
-
-  // 2. Time server initialization and background analysis
-  await timeOperation(async () => {
-    await server?.startBackgroundAnalysis();
-  }, 'Background Analysis Time');
-
-  // 3. Log the number of files indexed
-  logger.logToStdoutJoined(
-    'Total Files Indexed: '.padEnd(55),
-    `${server?.analyzer.amountIndexed} files`.padStart(10),
-  );
-
-  // 4. Log the directories indexed
-  const all_indexed = config.fish_lsp_all_indexed_paths;
-  logger.logToStdoutJoined(
-    "Indexed Files in '$fish_lsp_all_indexed_paths':".padEnd(55),
-    `${all_indexed.length} paths`.padStart(10),
-  );
-  const maxItemLen = all_indexed.reduce((max, item) => Math.max(max, item.length), 0);
-  const startStr = ' '.repeat(3);
-  config.fish_lsp_all_indexed_paths.forEach((item, idx) => logger.logToStdoutJoined(
-    `${startStr}$fish_lsp_all_indexed_paths[${idx + 1}]  `.padEnd(64 - maxItemLen),
-    `|${item}|`.padStart(maxItemLen + 2),
-  ));
-}
+import { startServer, timeServerStartup } from './utils/startup';
 
 /**
  *  creates local 'commandBin' used for commander.js

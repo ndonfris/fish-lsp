@@ -108,7 +108,7 @@ export const ConfigSchema = z.object({
   fish_lsp_enable_experimental_diagnostics: z.boolean().default(false),
 
   /** max background files */
-  fish_lsp_max_background_files: z.number().default(Number.MAX_VALUE),
+  fish_lsp_max_background_files: z.number().default(10000),
 
   /** show startup analysis notification */
   fish_lsp_show_client_popups: z.boolean().default(true),
@@ -132,10 +132,10 @@ export function getConfigFromEnvironmentVariables(): {
     fish_lsp_all_indexed_paths: process.env.fish_lsp_all_indexed_paths?.split(' '),
     fish_lsp_modifiable_paths: process.env.fish_lsp_modifiable_paths?.split(' '),
     fish_lsp_diagnostic_disable_error_codes: process.env.fish_lsp_diagnostic_disable_error_codes?.split(' ').map(toNumber),
-    fish_lsp_enable_experimental_diagnostics: toBoolean(process.env.fish_lsp_enable_experimental_diagnostics),
+    fish_lsp_enable_experimental_diagnostics: toBoolean(process.env.fish_lsp_enable_experimental_diagnostics) || false,
     fish_lsp_max_background_files: toNumber(process.env.fish_lsp_max_background_files),
-    fish_lsp_show_client_popups: toBoolean(process.env.fish_lsp_show_client_popups),
-    fish_lsp_single_workspace_support: toBoolean(process.env.fish_lsp_single_workspace_support),
+    fish_lsp_show_client_popups: toBoolean(process.env.fish_lsp_show_client_popups) || true,
+    fish_lsp_single_workspace_support: toBoolean(process.env.fish_lsp_single_workspace_support) || false,
   };
 
   const environmentVariablesUsed = Object.entries(rawConfig)
@@ -393,7 +393,7 @@ export namespace Config {
    * @param {Config | null} initializationOptions - the initialization options from the client
    * @returns {void} updates both the `config` and `configHandlers` objects
    */
-  export function updateFromInitializationOptions(initializationOptions: Config | null): void {
+  export function updateFromInitializationOptions(initializationOptions: Partial<Config> | null): void {
     if (initializationOptions === null) return;
     ConfigSchema.parse(initializationOptions);
     Object.keys(initializationOptions).forEach((key) => {
@@ -516,19 +516,17 @@ export namespace Config {
    * * The `initializeResult` is the result of the `initialize` method
    */
   export function initialize(params: InitializeParams, connection: Connection) {
-    logger.logAsJson('async server.initialize(params)');
-    if (params) {
-      logger.log('server.initialize.params', {
-        clientInfo: params.clientInfo,
-        capabilities: 'params.capabilities',
-        initializationOptions: params.initializationOptions,
-        workspaceFolders: params.workspaceFolders,
-        rootUri: params.rootUri,
-        rootPath: params.rootPath,
-        trace: params.trace,
-
-      });
-    }
+    // logger.logAsJson('async server.initialize(params)');
+    // if (params) {
+    //   logger.log('server.initialize.params', {
+    //     clientInfo: params?.clientInfo,
+    //     capabilities: 'params.capabilities',
+    //     initializationOptions: params?.initializationOptions,
+    //     workspaceFolders: params?.workspaceFolders,
+    //     rootUri: params?.rootUri,
+    //     rootPath: params?.rootPath,
+    //   });
+    // }
     updateFromInitializationOptions(params.initializationOptions);
     createServerLogger(config.fish_lsp_log_file, connection.console);
     const result = getResultCapabilities();
