@@ -87,6 +87,41 @@ export function getReferences(
 //   const uri = reference.uri;
 //   locations.push(Location.create(uri, range));
 // }
+export function implementationLocation(
+  analyzer: Analyzer,
+  document: LspDocument,
+  position: Position,
+): Location[] {
+  const locations: Location[] = [];
+  const node = analyzer.nodeAtPoint(document.uri, position.line, position.character);
+  if (!node) return [];
+  const symbol = analyzer.getDefinition(document, position);
+  if (!symbol) return [];
+  const newLocations = getReferences(analyzer, document, position)
+    .filter(location => location.uri !== document.uri);
+
+  if (newLocations.some(s => s.uri === symbol.uri)) {
+    locations.push(symbol.toLocation());
+    return locations;
+  }
+  if (newLocations.some(s => s.uri.includes('completions/'))) {
+    locations.push(newLocations.find(s => s.uri.includes('completions/'))!);
+    return locations;
+  }
+  // if (newLocations.some(s => s.uri.includes('functions/'))) {
+  //   locations.push(newLocations.find(s => s.uri.includes('functions/'))!);
+  //   return locations;
+  // }
+
+  // if (symbol.kind === SymbolKind.Function) {
+  //   locations.push(symbol.toLocation());
+  //   locations.push(...findSymbolLocations(analyzer, symbol));
+  //   return locations;
+  // }
+  locations.push(symbol.toLocation());
+  // locations.push(...findSymbolLocations(analyzer, symbol));
+  return locations;
+}
 
 function findSymbolLocations(
   analyzer: Analyzer,

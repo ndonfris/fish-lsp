@@ -8,7 +8,7 @@ import { isAliasDefinitionName, isCommand, isCommandName, isOption, isTopLevelDe
 import { pathToUri, symbolKindToString, uriToPath } from './utils/translation';
 import { existsSync } from 'fs';
 import { currentWorkspace, Workspace, workspaces } from './utils/workspace';
-import { findDefinitionSymbols, getReferenceLocations } from './workspace-symbol';
+import { findDefinitionSymbols } from './workspace-symbol';
 import { config } from './config';
 import { logger } from './logger';
 import { SyncFileHelper } from './utils/file-operations';
@@ -18,6 +18,7 @@ import { isArgparseVariableDefinitionName } from './parsing/argparse';
 import { getExpandedSourcedFilenameNode, isSourceCommandArgumentName, reachableSources, SourceResource, symbolsFromResource } from './parsing/source';
 import { CompletionSymbol, isCompletionDefinition, processCompletion } from './parsing/complete';
 import { execCommandLocations } from './utils/exec';
+import { implementationLocation } from './references';
 
 export class Analyzer {
   protected parser: Parser;
@@ -72,7 +73,6 @@ export class Analyzer {
   }
 
   public async initiateBackgroundAnalysis(
-    token: LSP.WorkDoneProgressReporter,
     callbackfn: (text: string) => void,
   ): Promise<{ filesParsed: number; }> {
     const startTime = performance.now();
@@ -89,20 +89,17 @@ export class Analyzer {
       max_files,
     });
     if (!workspace) {
-      token.done();
       return { filesParsed: 0 };
     }
     const workspaceUri = currentWorkspace.current?.uri || '';
     if (!!workspaceUri && workspace.isAnalyzed()) {
-      token.done();
       return { filesParsed: 0 };
     }
     workspace.setAnalyzed();
     let amount = 0;
 
     for (const document of workspace.urisToLspDocuments()) {
-      const reportPercent = Math.floor(amount / workspace.uris.size * 100);
-      token.report(reportPercent);
+      // const reportPercent = Math.floor(amount / workspace.uris.size * 100);
       if (amount >= max_files) break;
       try {
         this.analyze(document);
@@ -111,11 +108,10 @@ export class Analyzer {
       }
       amount++;
     }
-    token.done();
     const endTime = performance.now();
     const duration = ((endTime - startTime) / 1000).toFixed(2); // Convert to seconds with 2 decimal places
     callbackfn(`[fish-lsp] analyzed ${amount} files in ${duration}s`);
-    logger.log(`[fish-lsp] analyzed ${amount} files in ${duration}s`);
+    // logger.log(`[fish-lsp] analyzed ${amount} files in ${duration}s`);
     return { filesParsed: amount };
   }
 
@@ -458,18 +454,20 @@ export class Analyzer {
   ): Location[] {
     const definition = this.getDefinition(document, position);
     if (!definition) return [];
-    const references = getReferenceLocations(this, document, position);
-    return references.filter((ref) => {
-      let refDoc = this.getDocument(ref.uri);
-      if (!refDoc) {
-        this.analyzePath(ref.uri);
-        refDoc = this.getDocument(ref.uri) as LspDocument;
-      }
-      if (!definition.equalLocations(ref) && ['config', 'conf.d', 'completions'].includes(refDoc.getAutoloadType())) {
-        return true;
-      }
-      return false;
-    });
+    // const references = getReferences(this, document, position);
+    // return references.filter((ref) => {
+    //   let refDoc = this.getDocument(ref.uri);
+    //   if (!refDoc) {
+    //     this.analyzePath(ref.uri);
+    //     refDoc = this.getDocument(ref.uri) as LspDocument;
+    //   }
+    //   if (!definition.equalLocations(ref) && ['conf.d', 'completions'].includes(refDoc.getAutoloadType())) {
+    //     return true;
+    //   }
+    //   return false;
+    // });
+    const locations = implementationLocation(this, document, position);
+    return locations;
   }
 
   /**

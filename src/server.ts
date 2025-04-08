@@ -192,13 +192,6 @@ export default class FishServer {
 
     connection.onDidChangeWatchedFiles(e => {
       this.logParams('onDidChangeWatchedFiles', e);
-      // for (const doc of e.changes) {
-      //   const path = uriToPath(doc.uri);
-      //   const document = this.docs.get(path);
-      //   if (!document) continue;
-      //   this.docs.updateTextDocument(document);
-      //   this.analyzeDocument(document);
-      // }
     });
 
     logger.log({ 'server.register': 'registered' });
@@ -744,7 +737,7 @@ export default class FishServer {
 
     // Analyze the new workspace
     if (newWorkspace && !newWorkspace.isAnalyzed()) {
-      await this.startBackgroundAnalysis();
+      await this.startBackgroundAnalysis(false);
     }
   }
 
@@ -796,16 +789,16 @@ export default class FishServer {
     return { doc, path, root };
   }
 
-  public async startBackgroundAnalysis(): Promise<{ filesParsed: number; }> {
+  public async startBackgroundAnalysis(showMessage: boolean = true): Promise<{ filesParsed: number; }> {
     // ../node_modules/vscode-languageserver/lib/common/progress.d.ts
-    const token = await this.connection.window.createWorkDoneProgress();
-    token.begin('Analyzing workspace');
-    token.report(0);
+    // const token = await this.connection.window.createWorkDoneProgress();
     const notifyCallback = (text: string) => {
+      logger.log(`Background analysis: ${text}`);
       if (!config.fish_lsp_show_client_popups) return;
+      if (!showMessage) return;
       this.connection.window.showInformationMessage(text);
     };
-    return this.analyzer.initiateBackgroundAnalysis(token, notifyCallback);
+    return this.analyzer.initiateBackgroundAnalysis(notifyCallback);
   }
 }
 
