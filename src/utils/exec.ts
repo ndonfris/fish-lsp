@@ -2,6 +2,7 @@ import { exec, execFile, execFileSync } from 'child_process';
 import { resolve } from 'path';
 import { promisify } from 'util';
 import { logger } from '../logger';
+import { pathToUri, uriToPath } from './translation';
 
 export const execAsync = promisify(exec);
 
@@ -195,3 +196,15 @@ export async function execFindDependency(cmd: string): Promise<string> {
 //   const file = await promises.readFile(fileUri.toString(), 'utf8');
 //   return file.toString();
 // }
+export function execCommandLocations(cmd: string): {uri: string; path: string;}[] {
+  const output = execFileSync('fish', ['--command', `type -ap ${cmd}`], {
+    stdio: ['pipe', 'pipe', 'ignore'],
+  });
+  return output.toString().trim().split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0 && line !== '\n' && line.includes('/'))
+    .map(line => ({
+      uri: pathToUri(line),
+      path: uriToPath(line),
+    })) || [];
+}

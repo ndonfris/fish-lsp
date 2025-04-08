@@ -196,7 +196,7 @@ export function invalidateInlayHintsCache(uri: string) {
 
 export function getAllInlayHints(analyzer: Analyzer, document: LspDocument): InlayHint[] {
   const results: InlayHint[] = [];
-  const root = analyzer.getRootNode(document);
+  const root = analyzer.getRootNode(document.uri);
   if (root) {
     results.push(...getStatusInlayHints(root));
     // results.push(...getGlobalReferencesInlayHints(analyzer, document));

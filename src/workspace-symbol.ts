@@ -7,6 +7,7 @@ import { isCommandName, isCommandWithName } from './utils/node-types';
 import { FishSymbol, findLocalLocations, findMatchingLocations } from './parsing/symbol';
 import { containsRange, precedesRange } from './utils/tree-sitter';
 import { getGlobalArgparseLocations } from './parsing/argparse';
+import { logger } from './logger';
 
 export function canRenamePosition(analyzer: Analyzer, document: LspDocument, position: Position): boolean {
   return !!analyzer.findDocumentSymbol(document, position);
@@ -70,7 +71,7 @@ function findGlobalLocations(analyzer: Analyzer, document: LspDocument, position
     if (!doc.isAutoloadedUri()) {
       continue;
     }
-    const rootNode = analyzer.getRootNode(doc)!;
+    const rootNode = analyzer.getRootNode(doc.uri)!;
     const newSymbols = analyzer.getFlatDocumentSymbols(doc.uri);
     if (document.uri === doc.uri) {
       const newLocations = findLocalLocations(symbol, newSymbols);
@@ -121,6 +122,15 @@ export function getReferenceLocations(analyzer: Analyzer, document: LspDocument,
   const result: Location[] = [];
   if (symbol && symbol.fishKind === 'ARGPARSE') {
     result.push(...getGlobalArgparseLocations(analyzer, document, symbol));
+    // location was outside of the document
+    if (symbol.uri !== document.uri) {
+      logger.log('symbol.uri !== document.uri', {
+        symbolUri: symbol.uri,
+        documentUri: document.uri,
+        symbolName: symbol.name,
+      });
+      // result.push(Location.create(document.uri, getRange(node)));
+    }
   }
   if (symbol) {
     const doc = analyzer.getDocument(symbol.uri)!;
@@ -141,13 +151,14 @@ export function getReferenceLocations(analyzer: Analyzer, document: LspDocument,
     const locations: Location[] = [];
     for (const uri of uris) {
       const doc = analyzer.getDocument(uri)!;
-      const rootNode = analyzer.getRootNode(doc)!;
+      const rootNode = analyzer.getRootNode(doc.uri)!;
       const nodes = getChildNodes(rootNode).filter(n => isCommandName(n));
       const newLocations = findLocations(uri, nodes, node.text);
       locations.push(...newLocations);
     }
     return locations;
   }
+
   return result;
 }
 
@@ -178,7 +189,7 @@ export function getRenameWorkspaceEdit(analyzer: Analyzer, document: LspDocument
   if (!locations || locations.length === 0) {
     return null;
   }
-  const changes: {[uri: string]: TextEdit[];} = {};
+  const changes: { [uri: string]: TextEdit[]; } = {};
   const symbol = analyzer.getDefinition(document, position);
   if (symbol?.fishKind === 'ALIAS') {
     const edits = changes[symbol.uri] || [];

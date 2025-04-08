@@ -15,9 +15,9 @@ export type UnixFlag = `-${string}`;
 export type LongFlag = `--${string}`;
 export type Flag = ShortFlag | UnixFlag | LongFlag;
 
-const stringIsShortFlag = (str: string): str is ShortFlag => str.startsWith('-') && str.length === 2;
-const stringIsLongFlag = (str: string): str is LongFlag => str.startsWith('--');
-const stringIsUnixFlag = (str: string): str is UnixFlag => str.startsWith('-') && str.length > 2 && !str.startsWith('--');
+export const stringIsShortFlag = (str: string): str is ShortFlag => str.startsWith('-') && str.length === 2;
+export const stringIsLongFlag = (str: string): str is LongFlag => str.startsWith('--');
+export const stringIsUnixFlag = (str: string): str is UnixFlag => str.startsWith('-') && str.length > 2 && !str.startsWith('--');
 
 export class Option {
   public shortOptions: ShortFlag[] = [];
@@ -53,6 +53,20 @@ export class Option {
   static unix(unixOption: UnixFlag): Option {
     const option = new Option();
     option.unixOptions.push(unixOption);
+    return option;
+  }
+
+  static fromRaw(...str: string[]) {
+    const option = new Option();
+    for (const s of str) {
+      if (stringIsLongFlag(s)) {
+        option.longOptions.push(s);
+      } else if (stringIsShortFlag(s)) {
+        option.shortOptions.push(s as ShortFlag);
+      } else if (stringIsUnixFlag(s)) {
+        option.unixOptions.push(s as UnixFlag);
+      }
+    }
     return option;
   }
 

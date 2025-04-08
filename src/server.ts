@@ -14,7 +14,7 @@ import { getDiagnostics } from './diagnostics/validate';
 import { DocumentationCache, initializeDocumentationCache } from './utils/documentation-cache';
 import { currentWorkspace, findCurrentWorkspace, getWorkspacePathsFromInitializationParams, initializeDefaultFishWorkspaces, updateWorkspaces, Workspace } from './utils/workspace';
 import { formatFishSymbolTree, filterLastPerScopeSymbol } from './parsing/symbol';
-import { getRenameWorkspaceEdit, getReferenceLocations } from './workspace-symbol';
+import { getReferenceLocations } from './workspace-symbol';
 import { CompletionPager, initializeCompletionPager, SetupData } from './utils/completion/pager';
 import { FishCompletionItem } from './utils/completion/types';
 import { getDocumentationResolver } from './utils/completion/documentation';
@@ -34,6 +34,7 @@ import { setupProcessEnvExecFile } from './utils/process-env';
 import { flattenNested } from './utils/flatten';
 import { isArgparseVariableDefinitionName } from './parsing/argparse';
 import { isSourceCommandArgumentName } from './parsing/source';
+import { getReferences } from './references';
 
 // @TODO
 export type SupportedFeatures = {
@@ -211,18 +212,6 @@ export default class FishServer {
       const oldWorkspace = currentWorkspace.current;
       logger.log('onDidChangeWorkspaceFolders', e);
       await updateWorkspaces(e);
-      // logger.info('NewWorkspace', {
-      //   currentWorkspace: currentWorkspace.current ? {
-      //     name: currentWorkspace.current?.name,
-      //     uri: currentWorkspace.current?.uri,
-      //     path: currentWorkspace.current?.path,
-      //   } : 'undefined',
-      //   oldWorkspace: oldWorkspace ? {
-      //     name: oldWorkspace?.name,
-      //     uri: oldWorkspace?.uri,
-      //     path: oldWorkspace?.path,
-      //   } : 'undefined',
-      // });
       await this.handleWorkspaceChange(oldWorkspace, currentWorkspace.current);
     });
     return {
@@ -350,13 +339,32 @@ export default class FishServer {
     return this.analyzer.getDefinitionLocation(doc, params.position);
   }
 
-  async onReferences(params: ReferenceParams): Promise<Location[]> {
+  onReferences(params: ReferenceParams): Location[] {
     this.logParams('onReference', params);
 
-    const { doc, path, root, current } = this.getDefaults(params);
-    if (!doc || !path || !root || !current) return [];
+    const { doc } = this.getDefaults(params);
+    if (!doc) return [];
 
-    return getReferenceLocations(this.analyzer, doc, params.position);
+    // const oldReferences = getReferenceLocations(this.analyzer, doc, params.position);
+    // for (const reference of oldReferences) {
+    //   logger.log('oldReference', {
+    //     uri: reference.uri,
+    //     start: reference.range.start,
+    //     end: reference.range.end,
+    //   });
+    // }
+    const newReferences = getReferences(this.analyzer, doc, params.position);
+    logger.log('refCount', newReferences.length);
+    for (const reference of newReferences) {
+      logger.log('newReference', {
+        uri: reference.uri,
+        start: reference.range.start,
+        end: reference.range.end,
+      });
+    }
+
+    return newReferences;
+    // return getReferences(this.analyzer, doc, params.position);
   }
 
   async onImplementation(params: ImplementationParams): Promise<Location[]> {
@@ -404,6 +412,11 @@ export default class FishServer {
     }
 
     if (isOption(current)) {
+      // check that we aren't hovering a function option that is defined by
+      // argparse inside the function, if we are then return it's hover value
+      result = this.analyzer.getDefinition(doc, params.position)?.toHover() || null;
+      if (result) return result;
+      // otherwise we get the hover using inline documentation from `complete --do-complete {option}`
       result = await handleHover(
         this.analyzer,
         doc,
@@ -485,12 +498,27 @@ export default class FishServer {
     const { doc } = this.getDefaults(params);
     if (!doc) return null;
 
-    return getRenameWorkspaceEdit(
-      this.analyzer,
-      doc,
-      params.position,
-      params.newName,
-    );
+    const locations = getReferenceLocations(this.analyzer, doc, params.position);
+
+    // return getRenameWorkspaceEdit(
+    //   this.analyzer,
+    //   doc,
+    //   params.position,
+    //   params.newName,
+    // );
+
+    const changes: { [uri: string]: TextEdit[]; } = {};
+    for (const location of locations) {
+      const range = location.range;
+      const uri = location.uri;
+      const edits = changes[uri] || [];
+      edits.push(TextEdit.replace(range, params.newName));
+      changes[uri] = edits;
+    }
+    const workspaceEdit: WorkspaceEdit = {
+      changes,
+    };
+    return workspaceEdit;
   }
 
   async onDocumentFormatting(params: DocumentFormattingParams): Promise<TextEdit[]> {
@@ -681,7 +709,7 @@ export default class FishServer {
       });
       return { uri: document.uri, path: path, doc: null };
     }
-    const root = this.analyzer.getRootNode(resultDoc);
+    const root = this.analyzer.getRootNode(resultDoc.uri);
 
     const diagnostics = root ? getDiagnostics(root, resultDoc) : [];
     logger.log('Sending Diagnostics', {
@@ -746,7 +774,7 @@ export default class FishServer {
     const doc = this.docs.get(path);
 
     if (!doc || !path) return { path };
-    const root = this.analyzer.getRootNode(doc);
+    const root = this.analyzer.getRootNode(doc.uri);
     const current = this.analyzer.nodeAtPoint(
       doc.uri,
       params.position.line,
@@ -764,17 +792,20 @@ export default class FishServer {
   } {
     const path = uriToPath(params.textDocument.uri);
     const doc = this.docs.get(path);
-    const root = doc ? this.analyzer.getRootNode(doc) : undefined;
+    const root = doc ? this.analyzer.getRootNode(doc.uri) : undefined;
     return { doc, path, root };
   }
 
   public async startBackgroundAnalysis(): Promise<{ filesParsed: number; }> {
     // ../node_modules/vscode-languageserver/lib/common/progress.d.ts
+    const token = await this.connection.window.createWorkDoneProgress();
+    token.begin('Analyzing workspace');
+    token.report(0);
     const notifyCallback = (text: string) => {
       if (!config.fish_lsp_show_client_popups) return;
       this.connection.window.showInformationMessage(text);
     };
-    return this.analyzer.initiateBackgroundAnalysis(notifyCallback);
+    return this.analyzer.initiateBackgroundAnalysis(token, notifyCallback);
   }
 }
 

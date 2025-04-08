@@ -1,22 +1,23 @@
 import { Hover, Position, SymbolKind, WorkspaceSymbol, URI, Location } from 'vscode-languageserver';
-import Parser, { SyntaxNode, Tree } from 'web-tree-sitter';
+import * as Parser from 'web-tree-sitter';
+import { SyntaxNode, Tree } from 'web-tree-sitter';
 import * as LSP from 'vscode-languageserver';
 import { isPositionWithinRange, getChildNodes } from './utils/tree-sitter';
 import { LspDocument, documents } from './document';
-import { isAliasDefinitionName, isCommand, isCommandName, isTopLevelDefinition } from './utils/node-types';
+import { isAliasDefinitionName, isCommand, isCommandName, isOption, isTopLevelDefinition } from './utils/node-types';
 import { pathToUri, symbolKindToString, uriToPath } from './utils/translation';
 import { existsSync } from 'fs';
 import { currentWorkspace, Workspace, workspaces } from './utils/workspace';
 import { findDefinitionSymbols, getReferenceLocations } from './workspace-symbol';
 import { config } from './config';
 import { logger } from './logger';
-import { execFileSync } from 'child_process';
 import { SyncFileHelper } from './utils/file-operations';
 import { filterLastPerScopeSymbol, FishSymbol, processNestedTree } from './parsing/symbol';
 import { flattenNested } from './utils/flatten';
 import { isArgparseVariableDefinitionName } from './parsing/argparse';
 import { getExpandedSourcedFilenameNode, isSourceCommandArgumentName, reachableSources, SourceResource, symbolsFromResource } from './parsing/source';
 import { CompletionSymbol, isCompletionDefinition, processCompletion } from './parsing/complete';
+import { execCommandLocations } from './utils/exec';
 
 export class Analyzer {
   protected parser: Parser;
@@ -71,6 +72,7 @@ export class Analyzer {
   }
 
   public async initiateBackgroundAnalysis(
+    token: LSP.WorkDoneProgressReporter,
     callbackfn: (text: string) => void,
   ): Promise<{ filesParsed: number; }> {
     const startTime = performance.now();
@@ -87,19 +89,21 @@ export class Analyzer {
       max_files,
     });
     if (!workspace) {
+      token.done();
       return { filesParsed: 0 };
     }
     const workspaceUri = currentWorkspace.current?.uri || '';
     if (!!workspaceUri && workspace.isAnalyzed()) {
+      token.done();
       return { filesParsed: 0 };
     }
     workspace.setAnalyzed();
     let amount = 0;
 
     for (const document of workspace.urisToLspDocuments()) {
-      if (amount >= max_files) {
-        break;
-      }
+      const reportPercent = Math.floor(amount / workspace.uris.size * 100);
+      token.report(reportPercent);
+      if (amount >= max_files) break;
       try {
         this.analyze(document);
       } catch (err) {
@@ -107,7 +111,7 @@ export class Analyzer {
       }
       amount++;
     }
-
+    token.done();
     const endTime = performance.now();
     const duration = ((endTime - startTime) / 1000).toFixed(2); // Convert to seconds with 2 decimal places
     callbackfn(`[fish-lsp] analyzed ${amount} files in ${duration}s`);
@@ -207,6 +211,75 @@ export class Analyzer {
     });
   }
 
+  public findSymbol(
+    callbackfn: (symbol: FishSymbol, doc?: LspDocument) => boolean,
+  ) {
+    const uris = this.cache.uris();
+    for (const uri of uris) {
+      const symbols = this.cache.getFlatDocumentSymbols(uri);
+      const document = this.cache.getDocument(uri)?.document;
+      const symbol = symbols.find(s => callbackfn(s, document));
+      if (symbol) {
+        return symbol;
+      }
+    }
+    return undefined;
+  }
+
+  public findSymbols(
+    callbackfn: (symbol: FishSymbol, doc?: LspDocument) => boolean,
+  ): FishSymbol[] {
+    const uris = this.cache.uris();
+    const symbols: FishSymbol[] = [];
+    for (const uri of uris) {
+      const document = this.cache.getDocument(uri)?.document;
+      const symbols = this.getFlatDocumentSymbols(document!.uri);
+      const newSymbols = symbols.filter(s => callbackfn(s, document));
+      if (newSymbols) {
+        symbols.push(...newSymbols);
+      }
+    }
+    return symbols;
+  }
+
+  public findNode(
+    callbackfn: (n: SyntaxNode, document?: LspDocument) => boolean,
+  ): SyntaxNode | undefined {
+    const uris = this.cache.uris();
+    for (const uri of uris) {
+      const root = this.cache.getRootNode(uri);
+      const document = this.cache.getDocument(uri)!.document;
+      if (!root || !document) continue;
+      const node = getChildNodes(root).find((n) => callbackfn(n, document));
+      if (node) {
+        return node;
+      }
+    }
+    return undefined;
+  }
+
+  public findNodes(
+    callbackfn: (node: SyntaxNode, document: LspDocument) => boolean,
+  ): {
+    uri: string;
+    nodes: SyntaxNode[];
+  }[] {
+    const uris = this.cache.uris();
+    const result: { uri: string; nodes: SyntaxNode[]; }[] = [];
+    for (const uri of uris) {
+      logger.log('findNodes', uri);
+      const root = this.cache.getRootNode(uri);
+      const document = this.cache.getDocument(uri)!.document;
+      if (!root || !document) continue;
+      const nodes = getChildNodes(root).filter((node) => callbackfn(node, document));
+      if (nodes.length > 0) {
+        logger.log('findNodes', nodes.length, 'uri', document.uri);
+        result.push({ uri: document.uri, nodes });
+      }
+    }
+    return result;
+  }
+
   public allSymbolsAccessibleAtPosition(
     document: LspDocument,
     position: Position,
@@ -247,6 +320,53 @@ export class Analyzer {
     document: LspDocument,
     position: Position,
   ): FishSymbol | null {
+    // const symbols: FishSymbol[] = findDefinitionSymbols(this, document, position);
+    // // const symbols: FishSymbol[] = this.getFlatDocumentSymbols(document.uri)
+    // //   .filter(s => s.containsPosition(position))
+    //
+    // const wordAtPoint = this.wordAtPoint(document.uri, position.line, position.character);
+    // const nodeAtPoint = this.nodeAtPoint(document.uri, position.line, position.character);
+    // if (nodeAtPoint && isCompletionSymbol(nodeAtPoint)) {
+    //   logger.log('definition  isCompletionSymbol');
+    //   const completionSymbols = this.getFlatCompletionSymbols(document.uri);;
+    //   const completionSymbol = completionSymbols.find(s => s.equalsNode(nodeAtPoint));
+    //   if (!completionSymbol) {
+    //     return null;
+    //   }
+    //   const { argparseFlagName, commandName } = completionSymbol.toArgparse(nodeAtPoint);
+    //   const symbol = this.findSymbol((s) =>
+    //     s.fishKind === 'ARGPARSE' &&
+    //     argparseFlagName.includes(s.name) && s.node.parent?.firstNamedChild?.text === commandName
+    //   );
+    //   if (symbol) {
+    //     logger.log('got symbol', symbol.name);
+    //     return symbol;
+    //   }
+    //   // return null;
+    // }
+    // if (nodeAtPoint && isAliasDefinitionName(nodeAtPoint)) {
+    //   logger.log('definition  isAliasDefinitionName');
+    //   return symbols.find(s => s.name === wordAtPoint) || symbols.pop()!;
+    // }
+    // if (nodeAtPoint && isArgparseVariableDefinitionName(nodeAtPoint)) {
+    //   logger.log('definition  isArgparseVariableDefinitionName');
+    //   const foundSymbols = this.findSymbols((s, _document) => {
+    //     return s.scopeContainsNode(nodeAtPoint);
+    //   });
+    //   logger.log('foundSymbols');
+    //   foundSymbols.forEach(s => {
+    //     logger.log('definition  symbol', s.name);
+    //   });
+    //   if (foundSymbols.length > 0) {
+    //     logger.log('there was a found symbol? ');
+    //     return foundSymbols.pop()!;
+    //   }
+    // }
+    // logger.log('definition  other');
+    // symbols.forEach(s => {
+    //   logger.log('definition  symbol', s.name);
+    // });
+    // return symbols.pop() || null;
     const symbols: FishSymbol[] = findDefinitionSymbols(this, document, position);
     const wordAtPoint = this.wordAtPoint(document.uri, position.line, position.character);
     const nodeAtPoint = this.nodeAtPoint(document.uri, position.line, position.character);
@@ -255,6 +375,36 @@ export class Analyzer {
     }
     if (nodeAtPoint && isArgparseVariableDefinitionName(nodeAtPoint)) {
       return this.getFlatDocumentSymbols(document.uri).findLast(s => s.containsPosition(position)) || symbols.pop()!;
+    }
+    if (nodeAtPoint && nodeAtPoint.parent && isCompletionDefinition(nodeAtPoint.parent)) {
+      const completionSymbols = this.getFlatCompletionSymbols(document.uri);
+      const completionSymbol = completionSymbols.find(s => s.equalsNode(nodeAtPoint));
+      if (!completionSymbol) {
+        return null;
+      }
+      const { argparseFlagName, commandName } = completionSymbol.toArgparse(nodeAtPoint);
+      const symbol = this.findSymbol((s) =>
+        s.fishKind === 'ARGPARSE' &&
+        argparseFlagName.includes(s.name) && s.node.parent?.firstNamedChild?.text === commandName,
+      );
+      if (symbol) {
+        logger.log('got symbol', symbol.name);
+        return symbol;
+      }
+    }
+    if (nodeAtPoint && isOption(nodeAtPoint)) {
+      logger.log('definition  isOption');
+      const symbol = this.findSymbol((s) => {
+        if (s.parent && s.fishKind === 'ARGPARSE') {
+          return nodeAtPoint.parent?.firstNamedChild?.text === s.parent?.name &&
+            s.parent.isGlobal() &&
+            nodeAtPoint.text.startsWith(s.argparseFlag);
+        }
+        return false;
+      });
+      if (symbol) {
+        return symbol;
+      }
     }
     return symbols.pop() || null;
   }
@@ -274,33 +424,26 @@ export class Analyzer {
 
     const symbol = this.getDefinition(document, position) as FishSymbol;
     if (symbol) {
-      return [
-        Location.create(symbol.uri, symbol.selectionRange),
-      ];
+      return [Location.create(symbol.uri, symbol.selectionRange)];
     }
-    if (config.fish_lsp_single_workspace_support && currentWorkspace.current) {
+    // this is the only location where `config.fish_lsp_single_workspace_support` is used
+    if (!config.fish_lsp_single_workspace_support && currentWorkspace.current) {
       const node = this.nodeAtPoint(document.uri, position.line, position.character);
       if (node && isCommandName(node)) {
         const text = node.text.toString();
-        logger.log('isCommandName', text);
-        const location = execFileSync('fish', ['--command', `type -ap ${text}`], {
-          stdio: ['pipe', 'pipe', 'ignore'],
-        });
-        logger.log({ location: location.toString() });
-        for (const path of location.toString().trim().split('\n')) {
-          const uri = pathToUri(path);
+        const locations = execCommandLocations(text);
+        for (const { uri, path } of locations) {
           const content = SyncFileHelper.read(path, 'utf8');
           const doc = LspDocument.createTextDocumentItem(uri, content);
           documents.open(doc);
           currentWorkspace.updateCurrent(doc);
         }
-
-        return location.toString().trim().split('\n').map((path: string) => {
-          return Location.create(pathToUri(path), {
+        return locations.map(({ uri }) =>
+          Location.create(uri, {
             start: { line: 0, character: 0 },
             end: { line: 0, character: 0 },
-          });
-        });
+          }),
+        );
       }
     }
     return [];
@@ -386,8 +529,8 @@ export class Analyzer {
    * Finds the rootnode given a LspDocument. If useCache is set to false, it will
    * use the parser to parse the document passed in, and then return the rootNode.
    */
-  getRootNode(document: LspDocument): SyntaxNode | undefined {
-    return this.cache.getParsedTree(document.uri)?.rootNode;
+  getRootNode(documentUri: string): SyntaxNode | undefined {
+    return this.cache.getParsedTree(documentUri)?.rootNode;
   }
 
   getDocument(documentUri: string): LspDocument | undefined {
@@ -473,7 +616,7 @@ export class Analyzer {
     document: LspDocument,
     position: Position,
   ): { root: SyntaxNode | null; currentNode: SyntaxNode | null; } {
-    const root = this.getRootNode(document) || null;
+    const root = this.getRootNode(document.uri) || null;
     return {
       root: root,
       currentNode:

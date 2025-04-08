@@ -60,7 +60,6 @@ async function getFileUriSet(path: string) {
  * `initializeDefaultFishWorkspaces()` will store all new workspaces into this array
  */
 export const workspaces: Workspace[] = [];
-export let currentWorkspace: CurrentWorkspace;
 
 /**
  * Initializes the default fish workspaces. Does not control the currentWorkspace, only sets it up.
@@ -155,20 +154,27 @@ export async function getRelevantDocs(workspaces: Workspace[]): Promise<LspDocum
 
 export class CurrentWorkspace {
   private _current: Workspace | null = null;
-  constructor(private all: Workspace[]) { }
+  constructor(private all: Workspace[] = []) { }
+
+  static create() {
+    return new CurrentWorkspace();
+  }
 
   set current(ws: Workspace | null) {
+    if (ws && !this.all.includes(ws)) {
+      this.all.push(ws);
+    }
     this._current = ws;
   }
 
   get current(): Workspace | null {
     if (this._current) return this._current;
-    const cwd = process.cwd();
-    const found = this.all.find(ws => cwd.startsWith(ws.path));
-    if (found) {
-      this._current = found;
-      return found;
-    }
+    // const cwd = process.cwd();
+    // const found = this.all.find(ws => cwd.startsWith(ws.path));
+    // if (found) {
+    //   this._current = found;
+    //   return found;
+    // }
     return null;
   }
 
@@ -181,8 +187,18 @@ export class CurrentWorkspace {
     }
   }
 
+  updateWorkspace(workspace: Workspace) {
+    for (const ws of this.all) {
+      if (ws.contains(workspace.uri)) {
+        this.current = workspace;
+        return;
+      }
+    }
+    this.current = workspace;
+  }
+
   findWorkspace(uri: string) {
-    return this.all.find(ws => ws.contains(uri));
+    return this.all.find(ws => ws.contains(uri) || ws.uri === uri || uri.startsWith(ws.uri));
   }
 
   workspaceExists(uri: string) {
@@ -208,6 +224,18 @@ export class CurrentWorkspace {
       this._current = workspace;
       workspaces.push(workspace);
     }
+  }
+
+  get workspaces() {
+    return this.all;
+  }
+
+  hasWorkspaces() {
+    return this.all.length > 0;
+  }
+
+  addNewWorkspace(workspace: Workspace) {
+    this.current = workspace;
   }
 }
 
@@ -242,8 +270,10 @@ export class Workspace implements FishWorkspace {
 
   public static createTestWorkspaceFromUri(uri: string) {
     const workspace = FishUriWorkspace.create(uri);
-    if (!workspace) return null;
-    return new Workspace(workspace.name, workspace.uri, workspace.path, new Set(uri));
+    if (!workspace) return undefined as never;
+    const newUris = new Set<string>();
+    newUris.add(uri);
+    return new Workspace(workspace.name, workspace.uri, workspace.path, newUris);
   }
 
   public static async createFromUri(uri: string) {
@@ -276,6 +306,14 @@ export class Workspace implements FishWorkspace {
       // }
     }
     return true;
+  }
+
+  shouldContain(uri: string) {
+    return uri.startsWith(this.uri) && !this.uris.has(uri);
+  }
+
+  addUri(uri: string) {
+    this.uris.add(uri);
   }
 
   add(...newUris: string[]) {
@@ -387,6 +425,10 @@ export class Workspace implements FishWorkspace {
       docs.push(doc);
     }
     return docs;
+  }
+
+  getUris() {
+    return Array.from(this.uris || []);
   }
 
   forEach(callback: (lspDocument: LspDocument) => void) {
@@ -589,3 +631,5 @@ export namespace FishUriWorkspace {
     };
   }
 }
+export let currentWorkspace: CurrentWorkspace = CurrentWorkspace.create();
+

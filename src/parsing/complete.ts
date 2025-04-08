@@ -1,7 +1,7 @@
 
 import { SyntaxNode } from 'web-tree-sitter';
 import { isCommandWithName, isProgram } from '../utils/node-types';
-import { findOptions, Option, OptionValueMatch } from './options';
+import { findOptions, isMatchingOption, Option, OptionValueMatch, stringIsLongFlag, stringIsShortFlag } from './options';
 import { LspDocument } from '../document';
 import { getChildNodes, getRange } from '../utils/tree-sitter';
 import { FishSymbol } from './symbol';
@@ -63,6 +63,41 @@ export const CompletionSymbolFlags: Record<'short' | 'long' | 'old', OptionValue
 
 export function isCompletionDefinition(node: SyntaxNode) {
   return isCommandWithName(node, 'complete');
+}
+
+export function isCompletionDefinitionWithName(node: SyntaxNode, name: string, doc: LspDocument) {
+  if (node.parent && isCompletionDefinition(node.parent)) {
+    const symbol = getCompletionSymbol(doc, node.parent);
+    return symbol?.command === name && isCompletionSymbol(node);
+  }
+  return false;
+}
+
+export function isCompletionSymbolShort(node: SyntaxNode) {
+  if (node.parent && isCompletionDefinition(node.parent)) {
+    return node.previousSibling && isMatchingOption(node.previousSibling, Option.create('-s', '--short-option'));
+  }
+  return false;
+}
+
+export function isCompletionSymbolLong(node: SyntaxNode) {
+  if (node.parent && isCompletionDefinition(node.parent)) {
+    return node.previousSibling && isMatchingOption(node.previousSibling, Option.create('-l', '--long-option'));
+  }
+  return false;
+}
+
+export function isCompletionSymbolOld(node: SyntaxNode) {
+  if (node.parent && isCompletionDefinition(node.parent)) {
+    return node.previousSibling && isMatchingOption(node.previousSibling, Option.create('-o', '--old-option'));
+  }
+  return false;
+}
+
+export function isCompletionSymbol(node: SyntaxNode) {
+  return isCompletionSymbolShort(node)
+    || isCompletionSymbolLong(node)
+    || isCompletionSymbolOld(node);
 }
 
 function getCompletionSymbol(document: LspDocument, node: SyntaxNode): CompletionSymbol | null {
@@ -195,6 +230,32 @@ export class CompletionSymbol {
     return this.found.some(item => option.equals(item.value));
   }
 
+  getLocations() {
+    return this.found.map(item => {
+      return Location.create(this.document.uri, getRange(item.value));
+    });
+  }
+
+  equalsFlags(option: Option) {
+    const flags = option.getAllFlags().map(flag => {
+      if (stringIsShortFlag(flag)) {
+        return flag.replace(/^-/g, '');
+      }
+      if (stringIsLongFlag(flag)) {
+        return flag.replace(/^--/g, '');
+      }
+      if (flag.startsWith('-')) {
+        return flag.replace(/^-/g, '');
+      }
+      return flag;
+    });
+    return this.found.some(item => item.option.equalsRawOption('-s', '--short-option', '-l', '--long-option', '-o', '--old-option') && flags.includes(item.value.text));
+  }
+
+  equalsNode(node: SyntaxNode) {
+    return this.found.some(item => item.value.equals(node));
+  }
+
   equalsFishSymbol(symbol: FishSymbol) {
     const { scopeNode, uri } = symbol;
     let commandName = scopeNode.firstNamedChild?.text || '';
@@ -211,5 +272,51 @@ export class CompletionSymbol {
       return opt.value.text === symbol.argparseFlagName;
     })!;
     return Location.create(this.document.uri, getRange(text?.value));
+  }
+
+  toShortLocation() {
+    return this.flags.short.map(item => {
+      return Location.create(this.document.uri, getRange(item.value));
+    });
+  }
+
+  toLongLocation() {
+    return this.flags.long.map(item => {
+      return Location.create(this.document.uri, getRange(item.value));
+    });
+  }
+
+  toOldLocation() {
+    return this.flags.old.map(item => {
+      return Location.create(this.document.uri, getRange(item.value));
+    });
+  }
+
+  fromNodeToLocation(node: SyntaxNode) {
+    if (isCompletionSymbol(node)) {
+      return Location.create(this.document.uri, getRange(node));
+    }
+    return null;
+  }
+
+  toArgparse(node: SyntaxNode | null = null) {
+    const argparseNames: string[] = [];
+    if (!node) {
+      argparseNames.push(...[
+        ...this.found.filter(item => item.option.equalsRawOption('-s', '--short-option')).map(item => item.value.text),
+        ...this.found.filter(item => item.option.equalsRawOption('-l', '--long-option')).map(item => item.value.text),
+        ...this.found.filter(item => item.option.equalsRawOption('-o', '--old-option')).map(item => item.value.text),
+      ]);
+    } else if (node) {
+      argparseNames.push(
+        ...this.found
+          .filter(item => item.value.text === node.text)
+          .map(item => item.value.text),
+      );
+    }
+    return {
+      commandName: this.command,
+      argparseFlagName: argparseNames.map(item => `_flag_${item.replace(/^-+/, '_')}`),
+    };
   }
 }

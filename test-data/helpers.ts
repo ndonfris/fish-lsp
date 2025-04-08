@@ -6,10 +6,11 @@ import { Point, SyntaxNode, Tree } from 'web-tree-sitter';
 import { TextDocumentItem } from 'vscode-languageserver';
 import { LspDocument } from '../src/document';
 import { homedir } from 'os';
-import { Workspace, workspaces } from '../src/utils/workspace';
+import { CurrentWorkspace, currentWorkspace, Workspace, workspaces } from '../src/utils/workspace';
 import { flattenNested } from '../src/utils/flatten';
 import { getChildNodes, getNamedChildNodes } from '../src/utils/tree-sitter';
 import { FishSymbol, processNestedTree } from '../src/parsing/symbol';
+import { Analyzer } from '../src/analyze';
 
 export function setLogger(
   beforeCallback: () => Promise<void> = async () => { },
@@ -63,19 +64,41 @@ export function createFakeUriPath(path: string): string {
   return `file://${homedir()}/.config/fish/${path}`;
 }
 
-export function createFakeLspDocument(name: string, text: string): LspDocument {
-  const uri = createFakeUriPath(name);
-  const doc = TextDocumentItem.create(uri, 'fish', 0, text);
-  let workspace: Workspace | undefined = undefined;
-  if (workspaces.length !== 0) {
-    workspace = workspaces.find((ws) => ws.contains(uri));
-    if (!workspace) {
-      // workspaces.push(Workspace.createTestWorkspaceFromUri(uri)!);
-    } else {
-      workspace.add(uri);
-    }
+export type TestLspDocument = {
+  path: string;
+  text: string | string[];
+};
+
+export function createTestWorkspace(
+  analyzer: Analyzer,
+  ...docs: TestLspDocument[]
+) {
+  const result: LspDocument[] = [];
+  for (const doc of docs) {
+    const newDoc = createFakeLspDocument(doc.path, ...Array.isArray(doc.text) ? doc.text : [doc.text]);
+    analyzer.analyze(newDoc);
+    result.push(newDoc);
   }
-  return new LspDocument(doc);
+  return result;
+}
+
+export function createFakeLspDocument(name: string, ...text: string[]): LspDocument {
+  const uri = createFakeUriPath(name);
+  const doc = LspDocument.createTextDocumentItem(uri, text.join('\n'));
+  // get the current workspace, if it exists, otherwise create a test workspace
+  const workspace: Workspace = currentWorkspace?.findWorkspace(uri) || Workspace.createTestWorkspaceFromUri(uri);
+  // Add the uri to the workspace if it isn't already there and it should be
+  // This is to ensure that test workspaces group similar files together
+  if (workspace.shouldContain(uri)) {
+    workspace.add(uri);
+  }
+  // add the workspace to the `workspaces` array if it doesn't already exist
+  if (!workspaces.some(ws => ws.uri === workspace.uri)) {
+    workspaces.push(workspace);
+  }
+  // update currentWorkspace.current with the new workspace
+  currentWorkspace.updateWorkspace(workspace);
+  return doc;
 }
 
 export function setupTestCallback(parser: Parser) {

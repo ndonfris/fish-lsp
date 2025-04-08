@@ -136,7 +136,7 @@ export class LspDocument implements TextDocument {
     this.document = TextDocument.create(newUri, this.languageId, this.version, this.getText());
   }
 
-  getFilePath(): string | undefined {
+  getFilePath(): string {
     return uriToPath(this.uri);
   }
 
@@ -177,7 +177,7 @@ export class LspDocument implements TextDocument {
     const pathArray = this.uri.split('/');
     const fileName = pathArray.pop();
     const parentDir = pathArray.pop();
-    return parentDir && ['functions', 'conf.d'].includes(parentDir?.toString()) || fileName === 'config.fish';
+    return parentDir && ['functions', 'conf.d', 'completion'].includes(parentDir?.toString()) || fileName === 'config.fish';
     // const folderType = this.getFolderType();
     // if (!folderType) return false;
     // return ['functions', 'conf.d', 'completions', 'config' ].includes(folderType)

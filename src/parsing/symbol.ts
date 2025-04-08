@@ -8,7 +8,7 @@ import { processReadCommand } from './read';
 import { processArgvDefinition, processFunctionDefinition } from './function';
 import { processForDefinition } from './for';
 import { convertNodeRangeWithPrecedingFlag, processArgparseCommand } from './argparse';
-import { Option } from './options';
+import { Flag, LongFlag, Option, ShortFlag } from './options';
 import { processAliasCommand } from './alias';
 import { createDetail } from './symbol-detail';
 import { config } from '../config';
@@ -65,6 +65,7 @@ export interface FishSymbol extends DocumentSymbol {
   scope: DefinitionScope;
   children: FishSymbol[];
   detail: string;
+  parent: FishSymbol | undefined;
 }
 
 type OptionalFishSymbolPrototype = {
@@ -95,6 +96,9 @@ export class FishSymbol {
     this.focusedNode = obj.focusedNode;
     this.scope = obj.scope;
     this.children = obj.children;
+    this.children.forEach(child => {
+      child.parent = this;
+    });
     this.detail = obj.detail;
     this.setupDetail();
   }
@@ -131,6 +135,9 @@ export class FishSymbol {
 
   addChildren(...children: FishSymbol[]) {
     this.children.push(...children);
+    children.forEach(child => {
+      child.parent = this;
+    });
     return this;
   }
 
@@ -145,6 +152,15 @@ export class FishSymbol {
 
   public get argparseFlagName() {
     return this.name.replace(/^_flag_/, '').replace(/_/g, '-');
+  }
+
+  public get argparseFlag(): Flag | string {
+    if (this.fishKind !== 'ARGPARSE') return this.name;
+    const flagName = this.argparseFlagName;
+    if (flagName.length === 1) {
+      return `-${flagName}` as ShortFlag;
+    }
+    return `--${flagName}` as LongFlag;
   }
 
   private isArgparseCompletionFlag(node: SyntaxNode) {

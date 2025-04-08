@@ -391,7 +391,7 @@ export async function getQuickFixes(
   let action: CodeAction | undefined;
   const actions: CodeAction[] = [];
 
-  const root = analyzer.getRootNode(document);
+  const root = analyzer.getRootNode(document.uri);
   let node = root;
 
   if (root) {

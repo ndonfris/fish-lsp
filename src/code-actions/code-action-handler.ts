@@ -17,7 +17,7 @@ export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) 
    * quickfixes to the list of results, when a quickfix is requested.
    */
   async function getSelectionCodeActions(document: LspDocument, range: Range) {
-    const rootNode = analyzer.getRootNode(document);
+    const rootNode = analyzer.getRootNode(document.uri);
     if (!rootNode) return [];
 
     const selectedNode = getNodeAtRange(rootNode, range);
@@ -76,7 +76,7 @@ export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) 
   async function processRefactors(document: LspDocument, range: Range) {
     const results: CodeAction[] = [];
 
-    const rootNode = analyzer.getRootNode(document);
+    const rootNode = analyzer.getRootNode(document.uri);
     if (!rootNode) return results;
 
     // Get node at the selected range

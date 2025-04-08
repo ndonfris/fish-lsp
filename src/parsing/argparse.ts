@@ -88,11 +88,13 @@ export function isGlobalArgparseDefinition(analyzer: Analyzer, document: LspDocu
     }
     const filepath = uriToPath(document.uri);
     const workspaceDirectory = workspaces.find(ws => ws.contains(filepath) || ws.path === filepath)?.path || dirname(dirname(filepath));
-    const completionFile = path.join(
-      workspaceDirectory,
-      'completions',
-      document.getFilename(),
-    );
+    const completionFile = document.getAutoloadType() === 'conf.d' || document.getAutoloadType() === 'config'
+      ? document.getFilePath()
+      : path.join(
+        workspaceDirectory,
+        'completions',
+        document.getFilename(),
+      );
     if (process.env.NODE_ENV !== 'test' && !SyncFileHelper.isFile(completionFile)) {
       return false;
     }
@@ -105,11 +107,13 @@ export function getGlobalArgparseLocations(analyzer: Analyzer, document: LspDocu
   if (isGlobalArgparseDefinition(analyzer, document, symbol)) {
     const filepath = uriToPath(document.uri);
     const workspaceDirectory = workspaces.find(ws => ws.contains(filepath) || ws.path === filepath)?.path || dirname(dirname(filepath));
-    const completionFile = path.join(
-      workspaceDirectory,
-      'completions',
-      document.getFilename(),
-    );
+    const completionFile = document.getAutoloadType() === 'conf.d' || document.getAutoloadType() === 'config'
+      ? document.getFilePath()
+      : path.join(
+        workspaceDirectory,
+        'completions',
+        document.getFilename(),
+      );
     if (process.env.NODE_ENV !== 'test' && !SyncFileHelper.isFile(completionFile)) {
       return [];
     }
@@ -132,6 +136,15 @@ function getArgparseScopeModifier(document: LspDocument, _node: SyntaxNode): Sco
       // return isTopLevelDefinition(node) ? 'global' : 'local';
       return 'local';
   }
+}
+
+export function getArgparseDefinitionName(node: SyntaxNode): string {
+  if (!node.parent || !isCommandWithName(node.parent, 'complete')) return '';
+  if (node.text) {
+    const text = `_flag_${node.text}`;
+    return text.replace(/-/, '_');
+  }
+  return '';
 }
 
 function createSelectionRange(node: SyntaxNode, flags: string[], flag: string, idx: number) {
