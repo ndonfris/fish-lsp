@@ -25,7 +25,7 @@ export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) 
 
     const results: CodeAction[] = [];
     if (isProgram(selectedNode)) {
-      analyzer.getNodes(document).forEach(n => {
+      analyzer.getNodes(document.uri).forEach(n => {
         if (isCommandWithName(n, 'argparse')) {
           const argparseAction = createArgparseCompletionsCodeAction(n, document);
           if (argparseAction) results.push(argparseAction);

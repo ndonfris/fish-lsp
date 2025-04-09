@@ -20,22 +20,22 @@ __Sections:__
       configuration. An example auto-loaded variable would be `$__fish_config_dir`
 - [x] Improve parsing of specific DocumentSymbols (now `FishSymbol`) by using
       more verbose rules for excluding certain tokens from `web-tree-sitter`
-- [ ] Add better workspace support for non-standard/small fish workspaces. 
+- [x] Add better workspace support for non-standard/small fish workspaces. 
   **THE `server` FILE LIKELY NEEDS [workspace handlers](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#workspace_workspaceFolders)**
-  - [ ] Supporting `/tmp/*.fish` buffers from things like `edit_command_buffer`/`alt-e`
+  - [x] Supporting `/tmp/*.fish` buffers from things like `edit_command_buffer`/`alt-e`
   - [ ] Supporting `fisher` workspaces (consider a workspace like `~/repo/fisher-plugin`, as its own workspace without `$fish_lps_all_indexed_paths`)
       > *NOTE:* `fish_lsp_single_workspace_support` was an attempt at specifying that
       the user has opted into this feature
-  - [ ] Supporting sourced files outside of workspace, and adding them to the
+  - [x] Supporting sourced files outside of workspace, and adding them to the
         workspace
 - [x] Go-to-Definition && Hover support for `source some_file.fish` command
 - [ ] Improving completions for `set -gx fish_lsp_*` env variables
     - [ ] adding better hover documentation to `fish_lsp_*` env variables, using
       the `options` [property](https://github.com/ndonfris/fish-lsp/blob/feat/seperating-symbols-parsing/src/snippets/fishlspEnvVariables.json)
-- [ ] [Comparing](https://github.com/ndonfris/fish-lsp/tree/feat/seperating-symbols-parsing/src/parsing) already generated `complete -c cmd -s _ -l _` [completions](https://github.com/ndonfris/fish-lsp/blob/feat/seperating-symbols-parsing/src/parsing/complete.ts) to the
+- [x] [Comparing](https://github.com/ndonfris/fish-lsp/tree/feat/seperating-symbols-parsing/src/parsing) already generated `complete -c cmd -s _ -l _` [completions](https://github.com/ndonfris/fish-lsp/blob/feat/seperating-symbols-parsing/src/parsing/complete.ts) to the
       a [function](https://github.com/ndonfris/fish-lsp/blob/feat/seperating-symbols-parsing/src/parsing/argparse.ts) with an `argparse` child definition, so that duplicate
       completions are not generated
-  - [ ] `argparse 'n/name=' -- $argv` command could generate
+  - [x] `argparse 'n/name=' -- $argv` command could generate
         `complete -c cmd -s n -l name -a ' '` - Key difference being the `-a` flag is outputted
         There is also the `-x` and `-r` flags that could be used.
 - [ ] General plumbing
@@ -46,10 +46,10 @@ __Sections:__
         creating potentially unwanted formatting changes
   - [ ] Allow option to specify either `fish_indent --only-indent` or `fish_indent` for formatting a file.
 - [ ] Update docs for using `initializationParams` in the client configuration
-- [ ] remove `fish-lsp logger`
-  - [ ] remove `fish-lsp logger` from the `src/cli.ts` file
-  - [ ] remove `fish-lsp logger` from the completions 
-  - [ ] remove `fish-lsp logger` utilities from the `src/logger.ts` file
+- [x] remove `fish-lsp logger`
+  - [x] remove `fish-lsp logger` from the `src/cli.ts` file
+  - [x] remove `fish-lsp logger` from the completions 
+  - [x] remove `fish-lsp logger` utilities from the `src/logger.ts` file
 
 ## General Codebase Changes
 
@@ -99,7 +99,9 @@ __Sections:__
           traditional signature handler
 - [ ] Add `set_color` [Color Presentation](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_colorPresentation) to the server, for displaying how the shell would render output. 
   - [ ] Could be toggled via a server command
-- [ ] `FormatOnType` provider (useful for small files)
+  - [ ] color theme variables as well
+- [x] `FormatOnType` provider (useful for small files)
+  - [x] add to `config`
 - [x] Enable server via __shebang's__:
   - [x] `#!/usr/bin/fish`
   - [x] `#!/usr/local/bin/fish`
@@ -222,6 +224,7 @@ __Sections:__
   - [ ] add `CodeAction` gifs for a section in the README (specifically the [completion GIF](https://preview.redd.it/fish-lsp-is-now-available-on-vscode-v0-zbe2mz3b00he1.gif?width=800&auto=webp&s=22211934b3ed13063cbab551fcac7e76c830d1f8) since its already recorded)
   - [ ] use a screenshot of the `# @fish-lsp-disable` feature, instead of the
         shell code version given
+  - [ ] add go-to implementation to README.md
 - [ ] Extend documentation provided via [wiki](https://github.com/ndonfris/fish-lsp/wiki)
   - [x] workflows - guide for creating new __workflows__
   - [ ] testing - guide for __writing tests__

@@ -10,6 +10,13 @@ import { logger } from './logger';
 import { getGlobalArgparseLocations } from './parsing/argparse';
 import { SyntaxNode } from 'web-tree-sitter';
 
+/**
+ * get all the references for a symbol, including the symbol's definition
+ * @param analyzer the analyzer
+ * @param document the document
+ * @param position the position of the symbol
+ * @return the locations of the symbol
+ */
 export function getReferences(
   analyzer: Analyzer,
   document: LspDocument,
@@ -29,6 +36,13 @@ export function getReferences(
   return locations;
 }
 
+/**
+ * bi-directional jump to either definition or completion definition
+ * @param analyzer the analyzer
+ * @param document the document
+ * @param position the position of the symbol
+ * @return the locations of the symbol, should be a lower number of locations than getReferences
+ */
 export function implementationLocation(
   analyzer: Analyzer,
   document: LspDocument,
@@ -54,6 +68,9 @@ export function implementationLocation(
   return locations;
 }
 
+/**
+ * find all the symbol locations for a normal symbol (not an `argparse` flag)
+ */
 function findSymbolLocations(
   analyzer: Analyzer,
   symbol: FishSymbol,
@@ -104,6 +121,10 @@ function findSymbolLocations(
   return locations;
 }
 
+/**
+ * Handle finding the locations of an argparse flag, including any completion definition
+ * or usage of the flag itself.
+ */
 export function getArgparseLocations(
   analyzer: Analyzer,
   symbol: FishSymbol,

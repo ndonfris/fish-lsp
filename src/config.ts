@@ -393,8 +393,8 @@ export namespace Config {
    * @param {Config | null} initializationOptions - the initialization options from the client
    * @returns {void} updates both the `config` and `configHandlers` objects
    */
-  export function updateFromInitializationOptions(initializationOptions: Partial<Config> | null): void {
-    if (initializationOptions === null) return;
+  export function updateFromInitializationOptions(initializationOptions: Config | null): void {
+    if (!initializationOptions) return;
     ConfigSchema.parse(initializationOptions);
     Object.keys(initializationOptions).forEach((key) => {
       const configKey = getEnvVariableKey(key);
@@ -472,9 +472,6 @@ export namespace Config {
         documentHighlightProvider: configHandlers.highlight,
         inlayHintProvider: configHandlers.inlayHint,
         signatureHelpProvider: configHandlers.signature ? { workDoneProgress: false, triggerCharacters: ['.'] } : undefined,
-        documentLinkProvider: {
-          resolveProvider: true,
-        },
         documentOnTypeFormattingProvider: configHandlers.typeFormatting ? {
           firstTriggerCharacter: '.',
           moreTriggerCharacter: [';', '}', ']', ')'],
@@ -496,6 +493,7 @@ export namespace Config {
     };
   }
 
+  // might need later in the getResultCapabilities() object
   export const FileListenerFilter: FileOperationRegistrationOptions = {
     filters: [
       {

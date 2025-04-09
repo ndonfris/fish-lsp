@@ -54,7 +54,7 @@ export function getDocumentHighlights(analyzer: Analyzer) {
       }
       // not a symbol reference, just a command name
       const matchingCommandNodes =
-        analyzer.getNodes(doc)
+        analyzer.getNodes(doc.uri)
           .filter(n => isCommandName(n) && n.text === node.text);
 
       return matchingCommandNodes.map(n => {

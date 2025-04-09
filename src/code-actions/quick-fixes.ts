@@ -56,7 +56,7 @@ export function handleMissingEndFix(
   diagnostic: Diagnostic,
   analyzer: Analyzer,
 ): CodeAction | undefined {
-  const root = analyzer.getTree(document)!.rootNode;
+  const root = analyzer.getTree(document.uri)!.rootNode;
 
   const errNode = root.descendantForPosition({ row: diagnostic.range.start.line, column: diagnostic.range.start.character })!;
 

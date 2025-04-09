@@ -14,6 +14,11 @@ import { isReservedKeyword } from '../utils/builtins';
 import { getNoExecuteDiagnostics } from './no-execute-diagnostic';
 import { checkForInvalidDiagnosticCodes } from './invalid-error-code';
 
+// Utilities related to building a documents Diagnostics.
+
+/**
+ * Allow the node to be reachable from any Diagnostic
+ */
 export interface FishDiagnostic extends Diagnostic {
   data: {
     node: SyntaxNode;
@@ -52,6 +57,10 @@ export namespace FishDiagnostic {
   }
 }
 
+/**
+ * Handle building the diagnostics for the document passed in.
+ * This will also handle any comment that might disable/enable certain diagnostics per range
+ */
 export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
   let diagnostics: Diagnostic[] = [];
 
@@ -190,6 +199,7 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
       }
     }
   }
+  // allow nodes outside of the loop, to retrieve the old state
   handler.finalizeStateMap(root.text.split('\n').length + 1);
 
   const isMissingAutoloadedFunction = docType === 'functions'
@@ -249,12 +259,14 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
     });
   }
 
+  // remove all globally disabled diagnostics
   if (config.fish_lsp_diagnostic_disable_error_codes.length > 0) {
     for (const errorCode of config.fish_lsp_diagnostic_disable_error_codes) {
       diagnostics = diagnostics.filter(diagnostic => diagnostic.code !== errorCode);
     }
   }
 
+  // add 9999 diagnostics from `fish --no-execute` if the user enabled it
   if (config.fish_lsp_enable_experimental_diagnostics) {
     const noExecuteDiagnostics = getNoExecuteDiagnostics(doc);
     for (const diagnostic of noExecuteDiagnostics) {

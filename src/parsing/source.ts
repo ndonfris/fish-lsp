@@ -93,7 +93,7 @@ export class SourceResource {
 
 export function createSourceResources(analyzer: Analyzer, from: LspDocument): SourceResource[] {
   const result: SourceResource[] = [];
-  const nodes = analyzer.getNodes(from).filter(n => {
+  const nodes = analyzer.getNodes(from.uri).filter(n => {
     return isSourceCommandArgumentName(n) && !!isExistingSourceFilenameNode(n);
   });
   if (nodes.length === 0) return result;

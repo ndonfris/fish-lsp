@@ -41,12 +41,23 @@ export type SupportedFeatures = {
 
 export let CurrentDocument: LspDocument | undefined;
 export let hasAnalyzedOnce = false;
+/**
+ * The globally accessible configuration setting. Set from the client, and used by the server.
+ * When enabled, the analyzer will search through the current workspace, and update it's
+ * cache of symbols only within the current workspace. When disabled, the analyzer will have
+ * to search through all workspaces.
+ *
+ * Also, this setting is used to determine if the initializationResult.workspace.workspaceFolders
+ * should be enabled or disabled.
+ */
+export let hasWorkspaceFolderCapability = false;
 
 export default class FishServer {
   public static async create(
     connection: Connection,
     params: InitializeParams,
   ): Promise<{ server: FishServer; initializeResult: InitializeResult; }> {
+    const capabilities = params.capabilities;
     const initializeResult = Config.initialize(params, connection);
     logger.log({
       server: 'FishServer',
@@ -55,6 +66,9 @@ export default class FishServer {
       rootPath: params.rootPath,
       workspaceFolders: params.workspaceFolders,
     });
+    hasWorkspaceFolderCapability = !!(
+      capabilities.workspace && !!capabilities.workspace.workspaceFolders
+    );
     const initializeUris = getWorkspacePathsFromInitializationParams(params);
     logger.warning('initializeUris', initializeUris);
 
@@ -86,6 +100,22 @@ export default class FishServer {
       cache,
       logger,
     );
+    if (!hasWorkspaceFolderCapability) {
+      initializeResult.capabilities.workspace = {
+        workspaceFolders: {
+          supported: false,
+          changeNotifications: false,
+        },
+      };
+    }
+    if (hasWorkspaceFolderCapability) {
+      initializeResult.capabilities.workspace = {
+        workspaceFolders: {
+          supported: true,
+          changeNotifications: true,
+        },
+      };
+    }
     server.register(connection);
     return { server, initializeResult };
   }
@@ -196,21 +226,26 @@ export default class FishServer {
   //  • @link [bash-lsp](https://github.com/bash-lsp/bash-language-server/blob/3a319865af9bd525d8e08cd0dd94504d5b5b7d66/server/src/server.ts#L236)
   async onInitialized() {
     logger.log('onInitialized', this.initializeParams);
-    this.connection.workspace.onDidChangeWorkspaceFolders(async e => {
-      const oldWorkspace = currentWorkspace.current;
-      logger.log('onDidChangeWorkspaceFolders', e);
-      await updateWorkspaces(e);
-      currentWorkspace.current?.removeAnalyzed();
-      await this.handleWorkspaceChange(oldWorkspace, currentWorkspace.current);
-    });
-    if (!hasAnalyzedOnce) {
-      hasAnalyzedOnce = true;
+    if (hasWorkspaceFolderCapability) {
+      this.connection.workspace.onDidChangeWorkspaceFolders(async e => {
+        const oldWorkspace = currentWorkspace.current;
+        logger.log('onDidChangeWorkspaceFolders', e);
+        await updateWorkspaces(e);
+        currentWorkspace.current?.removeAnalyzed();
+        await this.handleWorkspaceChange(oldWorkspace, currentWorkspace.current);
+      });
+      if (!hasAnalyzedOnce) {
+        hasAnalyzedOnce = true;
+      }
     }
     return {
       backgroundAnalysisCompleted: this.startBackgroundAnalysis(true),
     };
   }
 
+  /**
+   * Utility to build a object that stores the data required for `fish-lsp info --time-startup`
+   */
   async initializeBackgroundAnalysisForTiming(): Promise<{
     all: number;
     items: { [key: string]: number; };
@@ -369,6 +404,9 @@ export default class FishServer {
     return getReferences(this.analyzer, doc, params.position);
   }
 
+  /**
+   * bi-directional lookup of completion <-> definition under cursor location.
+   */
   async onImplementation(params: ImplementationParams): Promise<Location[]> {
     this.logParams('onImplementation', params);
     const { doc } = this.getDefaults(params);

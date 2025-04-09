@@ -11,13 +11,14 @@ import { currentWorkspace, Workspace, workspaces } from './utils/workspace';
 import { config } from './config';
 import { logger } from './logger';
 import { SyncFileHelper } from './utils/file-operations';
-import { filterLastPerScopeSymbol, FishSymbol, processNestedTree } from './parsing/symbol';
+import { FishSymbol, processNestedTree } from './parsing/symbol';
 import { flattenNested } from './utils/flatten';
 import { isArgparseVariableDefinitionName } from './parsing/argparse';
-import { getExpandedSourcedFilenameNode, isSourceCommandArgumentName, reachableSources, SourceResource, symbolsFromResource } from './parsing/source';
+import { getExpandedSourcedFilenameNode, isSourceCommandArgumentName, SourceResource } from './parsing/source';
 import { CompletionSymbol, isCompletionDefinition, processCompletion } from './parsing/complete';
 import { execCommandLocations } from './utils/exec';
 import { implementationLocation } from './references';
+import { hasWorkspaceFolderCapability } from './server';
 
 export class Analyzer {
   protected parser: Parser;
@@ -31,6 +32,9 @@ export class Analyzer {
     this.parser = parser;
   }
 
+  /**
+   * Analyze an LspDocument and return an AnalyzedDocument.
+   */
   public analyze(document: LspDocument): AnalyzedDocument {
     this.parser.reset();
     const analyzedDocument = this.getAnalyzedDocument(
@@ -45,6 +49,9 @@ export class Analyzer {
     return analyzedDocument;
   }
 
+  /**
+   * Helper method to get the AnalyzedDocument.
+   */
   private getAnalyzedDocument(
     parser: Parser,
     document: LspDocument,
@@ -54,7 +61,7 @@ export class Analyzer {
       document,
       tree.rootNode,
     );
-    const commands = this.getCommandNames(document);
+    const commands = this.getCommandNames(document.uri);
 
     return AnalyzedDocument.create(
       document,
@@ -64,6 +71,9 @@ export class Analyzer {
     );
   }
 
+  /**
+   * Take a path to a file and analyze it, returning it's AnalyzedDocument.
+   */
   public analyzePath(rawFilePath: string): AnalyzedDocument {
     const path = uriToPath(rawFilePath);
     const content = SyncFileHelper.read(path, 'utf-8');
@@ -76,6 +86,28 @@ export class Analyzer {
   ): Promise<{ filesParsed: number; }> {
     const startTime = performance.now();
     const max_files = config.fish_lsp_max_background_files;
+    let amount = 0;
+    // if there isn't a workspace folder capability, we need to analyze all the workspaces
+    // that are available.
+    if (!hasWorkspaceFolderCapability) {
+      let totalFiles = 0;
+      callbackfn('[fish-lsp] workspace folder capability not enabled');
+      for (const workspace of workspaces) {
+        amount = 0;
+        if (!workspace.isAnalyzed()) {
+          workspace.setAnalyzed();
+          for (const uri of workspace.uris) {
+            if (amount >= max_files) break;
+            this.analyzePath(uri);
+            amount++;
+          }
+          callbackfn(`[fish-lsp] analyzed ${workspace.uris.size} files`);
+          totalFiles += amount;
+        }
+      }
+      return { filesParsed: totalFiles };
+    }
+    // if there is a workspace folder capability, we can just analyze the current workspace
     const workspace = currentWorkspace.current;
     logger.log('workspace analyzer.initiateBackgroundAnalysis', {
       workspace: {
@@ -87,6 +119,7 @@ export class Analyzer {
       },
       max_files,
     });
+
     if (!workspace) {
       return { filesParsed: 0 };
     }
@@ -95,7 +128,6 @@ export class Analyzer {
       return { filesParsed: 0 };
     }
     workspace.setAnalyzed();
-    let amount = 0;
 
     for (const document of workspace.urisToLspDocuments()) {
       // const reportPercent = Math.floor(amount / workspace.uris.size * 100);
@@ -157,7 +189,7 @@ export class Analyzer {
     const path = uriToPath(uri);
     const cached = this.analyzePath(path);
     const { document } = cached;
-    const nodes = this.getNodes(document);
+    const nodes = this.getNodes(document.uri);
 
     for (const node of nodes) {
       if (isSourceCommandArgumentName(node) && isTopLevelDefinition(node)) {
@@ -186,6 +218,9 @@ export class Analyzer {
     }
   }
 
+  /**
+   * Return the first FishSymbol seen that could be defined by the given position.
+   */
   public findDocumentSymbol(
     document: LspDocument,
     position: Position,
@@ -196,6 +231,9 @@ export class Analyzer {
     });
   }
 
+  /**
+   * Return all FishSymbols seen that could be defined by the given position.
+   */
   public findDocumentSymbols(
     document: LspDocument,
     position: Position,
@@ -206,6 +244,10 @@ export class Analyzer {
     });
   }
 
+  /**
+   * Search through all the documents in the cache, and return the first symbol found
+   * that matches the callback function.
+   */
   public findSymbol(
     callbackfn: (symbol: FishSymbol, doc?: LspDocument) => boolean,
   ) {
@@ -221,6 +263,9 @@ export class Analyzer {
     return undefined;
   }
 
+  /**
+   * Search through all the documents in the cache, and return all symbols found
+   */
   public findSymbols(
     callbackfn: (symbol: FishSymbol, doc?: LspDocument) => boolean,
   ): FishSymbol[] {
@@ -237,6 +282,9 @@ export class Analyzer {
     return symbols;
   }
 
+  /**
+   * Search through all the documents in the cache, and return the first node found
+   */
   public findNode(
     callbackfn: (n: SyntaxNode, document?: LspDocument) => boolean,
   ): SyntaxNode | undefined {
@@ -253,6 +301,9 @@ export class Analyzer {
     return undefined;
   }
 
+  /**
+   * Search through all the documents in the cache, and return all nodes found (with their uris)
+   */
   public findNodes(
     callbackfn: (node: SyntaxNode, document: LspDocument) => boolean,
   ): {
@@ -311,6 +362,9 @@ export class Analyzer {
       });
   }
 
+  /**
+   * Utility function to get the definitions of a symbol at a given position.
+   */
   private getDefinitionHelper(
     document: LspDocument,
     position: Position,
@@ -343,6 +397,9 @@ export class Analyzer {
     return symbols;
   }
 
+  /**
+   * Get the first definition of a position that we can find.
+   */
   public getDefinition(
     document: LspDocument,
     position: Position,
@@ -389,6 +446,9 @@ export class Analyzer {
     return symbols.pop() || null;
   }
 
+  /**
+   * Get all the definition locations of a position that we can find
+   */
   public getDefinitionLocation(
     document: LspDocument,
     position: Position,
@@ -465,7 +525,7 @@ export class Analyzer {
   }
 
   public getHover(document: LspDocument, position: Position): Hover | null {
-    const tree = this.getTree(document);
+    const tree = this.getTree(document.uri);
     const node = this.nodeAtPoint(
       document.uri,
       position.line,
@@ -491,8 +551,8 @@ export class Analyzer {
     return null;
   }
 
-  getTree(document: LspDocument): Tree | undefined {
-    return this.cache.getDocument(document.uri)?.tree;
+  getTree(documentUri: string): Tree | undefined {
+    return this.cache.getDocument(documentUri)?.tree;
   }
 
   /**
@@ -503,19 +563,34 @@ export class Analyzer {
     return this.cache.getParsedTree(documentUri)?.rootNode;
   }
 
+  /**
+   * Returns the document from the cache. If the document is not in the cache,
+   * it will return undefined.
+   */
   getDocument(documentUri: string): LspDocument | undefined {
     return this.cache.getDocument(documentUri)?.document;
   }
 
+  /**
+   * Returns the document from the cache if the document is in the cache.
+   */
   getDocumentFromPath(path: string): LspDocument | undefined {
     const uri = pathToUri(path);
     return this.getDocument(uri);
   }
 
+  /**
+   * Returns the FishSymbol[] array in the cache for the given documentUri.
+   * The result is a nested array (tree) of FishSymbol[] items
+   */
   getDocumentSymbols(documentUri: string): FishSymbol[] {
     return this.cache.getDocumentSymbols(documentUri);
   }
 
+  /**
+   * Returns the flat array of FishSymbol[] for the given documentUri.
+   * Iterating through the result will allow you to reach every symbol in the documentUri.
+   */
   getFlatDocumentSymbols(documentUri: string): FishSymbol[] {
     return this.cache.getFlatDocumentSymbols(documentUri);
   }
@@ -544,42 +619,26 @@ export class Analyzer {
     return result;
   }
 
-  getSourced(document: LspDocument): SourceResource[] {
-    return this.cache.getDocument(document.uri)?.sourced || [];
-  }
-
-  getSourcedReachableAtNode(document: LspDocument, node: SyntaxNode): SourceResource[] {
-    const sourced = this.getSourced(document).filter((source) => source.scopeReachableFromNode(node));
-    if (sourced.length === 0) {
+  /**
+   * Returns a list of all the nodes in the document.
+   */
+  public getNodes(documentUri: string): SyntaxNode[] {
+    const document = this.cache.getDocument(documentUri)?.document;
+    if (!document) {
       return [];
     }
-    return reachableSources(sourced);
+    return getChildNodes(this.parser.parse(document.getText()).rootNode);
   }
 
-  getAllSymbolsBeforePosition(
-    document: LspDocument,
-    position: Position,
-  ): FishSymbol[] {
-    const nodeAtPosition = this.nodeAtPoint(document.uri, position.line, position.character);
-    if (!nodeAtPosition) return [];
-
-    const reachableSymbols: FishSymbol[] = [
-      ...filterLastPerScopeSymbol(this.allSymbolsAccessibleAtPosition(document, position)),
-    ].reduce<FishSymbol[]>((acc, symbol) => {
-      const filtered = acc.filter(s => s.name !== symbol.name);
-      return [...filtered, symbol];
-    }, []);
-
-    const reachableNames: Set<string> = new Set(reachableSymbols.map(s => s.name));
-    const reachableSources = this.getSourcedReachableAtNode(document, nodeAtPosition);
-    for (const r of reachableSources) {
-      const symbols =
-        symbolsFromResource(this, r).filter(s => !reachableNames.has(s.name));
-      symbols.forEach(s => reachableNames.add(s.name));
-      reachableSymbols.push(...symbols);
-    }
-
-    return reachableSymbols;
+  /**
+   * Returns a list of all the command names in the document
+   */
+  private getCommandNames(documentUri: string): string[] {
+    const allCommands = this.getNodes(documentUri)
+      .filter((node) => isCommandName(node))
+      .map((node) => node.text);
+    const result = new Set(allCommands);
+    return Array.from(result);
   }
 
   public parsePosition(
@@ -694,18 +753,6 @@ export class Analyzer {
     }
 
     return firstChild.text.trim();
-  }
-
-  public getNodes(document: LspDocument): SyntaxNode[] {
-    return getChildNodes(this.parser.parse(document.getText()).rootNode);
-  }
-
-  private getCommandNames(document: LspDocument): string[] {
-    const allCommands = this.getNodes(document)
-      .filter((node) => isCommandName(node))
-      .map((node) => node.text);
-    const result = new Set(allCommands);
-    return Array.from(result);
   }
 
   public getExistingAutoloadedFiles(symbol: FishSymbol): string[] {
