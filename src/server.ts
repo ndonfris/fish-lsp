@@ -34,6 +34,7 @@ import { flattenNested } from './utils/flatten';
 import { isArgparseVariableDefinitionName } from './parsing/argparse';
 import { isSourceCommandArgumentName } from './parsing/source';
 import { getReferences } from './references';
+import { getRenames } from './renames';
 
 export type SupportedFeatures = {
   codeActionDisabledSupport: boolean;
@@ -538,14 +539,14 @@ export default class FishServer {
     const { doc } = this.getDefaults(params);
     if (!doc) return null;
 
-    const locations = getReferences(this.analyzer, doc, params.position);
+    const locations = getRenames(this.analyzer, doc, params.position, params.newName);
 
     const changes: { [uri: string]: TextEdit[]; } = {};
     for (const location of locations) {
       const range = location.range;
       const uri = location.uri;
       const edits = changes[uri] || [];
-      edits.push(TextEdit.replace(range, params.newName));
+      edits.push(TextEdit.replace(range, location.newText));
       changes[uri] = edits;
     }
     const workspaceEdit: WorkspaceEdit = {

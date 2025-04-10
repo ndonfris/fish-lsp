@@ -1,6 +1,6 @@
 import { SyntaxNode } from 'web-tree-sitter';
 import { isCommandWithName, isEndStdinCharacter, isString, isEscapeSequence, isVariableExpansion } from '../utils/node-types';
-import { findOptions, Option } from './options';
+import { findOptions, isMatchingOption, Option } from './options';
 import { FishSymbol } from './symbol';
 import { LspDocument } from '../document';
 import { DefinitionScope, ScopeTag } from '../utils/definition-scope';
@@ -145,6 +145,74 @@ export function getArgparseDefinitionName(node: SyntaxNode): string {
     return text.replace(/-/, '_');
   }
   return '';
+}
+
+/**
+ * Checks if a syntax node is a completion argparse flag with a specific command name.
+ *
+ * On the input: `complete -c test -s h -l help -d 'show help info for the test command'`
+ *                                          ^---- node is here
+ * A truthy result would be returned from the following function call:
+ *
+ * `isCompletionArgparseFlagWithCommandName(node, 'test', 'help')`
+ * ___
+ * @param node - The syntax node to check
+ * @param commandName - The command name to match against
+ * @param flagName - The flag name to match against
+ * @param opts - Optional configuration options
+ * @param opts.noCommandNameAllowed - When true, a completion without a `-c`/`--command` Option is allowed
+ * @param opts.discardIfContainsOptions - A list of options that, if present, will cause the match to be discarded
+ * @returns True if the node is a completion argparse flag with the specified command name
+ */
+export function isCompletionArgparseFlagWithCommandName(node: SyntaxNode, commandName: string, flagName: string, opts?: {
+  noCommandNameAllowed?: boolean;
+  discardIfContainsOptions?: Option[];
+}) {
+  // make sure that the node we are checking is inside a completion definition
+  if (!node?.parent || !isCommandWithName(node.parent, 'complete')) return false;
+
+  // parent is the entire completion command
+  const parent = node.parent;
+
+  // check if any of the options to discard are seen
+  if (opts?.discardIfContainsOptions) {
+    for (const option of opts.discardIfContainsOptions) {
+      if (parent.children.some(c => option.matches(c))) {
+        return false;
+      }
+    }
+  }
+
+  // check if the command name is present in the completion
+  let completeCmdName: boolean = !!parent.children.find(c =>
+    c.previousSibling &&
+    isMatchingOption(c.previousSibling, Option.create('-c', '--command')) &&
+    c.text === commandName,
+  );
+
+  // if noCommandNameAllowed is true, and we don't have a command name yet
+  // update the completeCmdName to be true if the `-c`/`--command` option is not present
+  if (opts?.noCommandNameAllowed && !completeCmdName) {
+    completeCmdName = !parent.children.some(c =>
+      c.previousSibling &&
+      isMatchingOption(c.previousSibling, Option.create('-c', '--command')),
+    );
+  }
+
+  // Here we determine if which type of option we are looking for
+  const option = flagName.length === 1
+    ? Option.create('-s', '--short')
+    : Option.create('-l', '--long');
+
+  // check if the option name is present in the completion
+  const completeFlagName: boolean = !!(
+    node.previousSibling &&
+    option.equals(node.previousSibling) &&
+    node.text === flagName
+  );
+
+  // return true if both the command name and option name
+  return completeCmdName && completeFlagName;
 }
 
 function createSelectionRange(node: SyntaxNode, flags: string[], flag: string, idx: number) {

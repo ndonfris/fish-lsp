@@ -1,17 +1,17 @@
-import * as os from 'os';
 import * as Parser from 'web-tree-sitter';
-import { Analyzer } from '../src/analyze';
+import { AnalyzedDocument, Analyzer } from '../src/analyze';
 import { initializeParser } from '../src/parser';
-import { execCommandLocations } from '../src/utils/exec';
-import { currentWorkspace, findCurrentWorkspace, workspaces } from '../src/utils/workspace';
+import { workspaces } from '../src/utils/workspace';
 import { createFakeLspDocument, createTestWorkspace, setLogger } from './helpers';
-import { getRange } from '../src/utils/tree-sitter';
-import { isMatchingOption, Option } from '../src/parsing/options';
-import { isCompletionDefinition, isCompletionDefinitionWithName, isCompletionSymbol } from '../src/parsing/complete';
-import { isCommandWithName, isOption } from '../src/utils/node-types';
-import { getArgparseDefinitionName, getGlobalArgparseLocations, isArgparseVariableDefinitionName } from '../src/parsing/argparse';
+import { getChildNodes, getRange } from '../src/utils/tree-sitter';
+import { isCompletionDefinition } from '../src/parsing/complete';
+import { isOption } from '../src/utils/node-types';
+import { getArgparseDefinitionName, isCompletionArgparseFlagWithCommandName } from '../src/parsing/argparse';
+import { getRenames } from '../src/renames';
 import { getArgparseLocations, getReferences } from '../src/references';
 import { Position } from 'vscode-languageserver';
+import { SyntaxNode } from 'web-tree-sitter';
+import { LspDocument } from '../src/document';
 
 let parser: Parser;
 let analyzer: Analyzer;
@@ -324,18 +324,18 @@ describe('find definition locations of symbols', () => {
           return functionDoc.uri === document!.uri && s.name === getArgparseDefinitionName(nodeAtPoint);
         })!;
         const others = getArgparseLocations(analyzer, def);
-        console.log('location', {
-          uri: def.toLocation().uri,
-          rangeStart: def.toLocation().range.start,
-          rangeEnd: def.toLocation().range.end,
-        });
-        others.forEach(loc => {
-          console.log('location', {
-            uri: loc.uri,
-            rangeStart: loc.range.start,
-            rangeEnd: loc.range.end,
-          });
-        });
+        // console.log('location', {
+        //   uri: def.toLocation().uri,
+        //   rangeStart: def.toLocation().range.start,
+        //   rangeEnd: def.toLocation().range.end,
+        // });
+        // others.forEach(loc => {
+        //   console.log('location', {
+        //     uri: loc.uri,
+        //     rangeStart: loc.range.start,
+        //     rangeEnd: loc.range.end,
+        //   });
+        // });
         // console.log('def', {
         //   uri: def.uri,
         //   rangeStart: def.range.start,
@@ -631,4 +631,217 @@ describe('find definition locations of symbols', () => {
       expect(result).toHaveLength(3);
     });
   });
+
+  describe('renames', () => {
+    describe('using `conf.d/test.fish` document', () => {
+      const document = createFakeLspDocument(
+        'conf.d/test.fish',
+        'function test_1',
+        '    argparse --stop-nonopt h/help name= q/quiet v/version y/yes n/no -- $argv',
+        '    or return',
+        '    if set -lq _flag_help',
+        '        echo "help_msg"',
+        '    end',
+        '    if set -lq _flag_name && test -n "$_flag_name"',
+        '        echo "$_flag_name"',
+        '    end',
+        'end',
+        'function test_2',
+        '     test_1 --help',
+        'end',
+        'complete -c test_1 -s h -l help',
+        'complete -c test_1      -l name',
+        'complete -c test_1 -s q -l quiet',
+        'complete -c test_1 -s v -l version',
+        'complete -c test_1 -s y -l yes',
+      );
+
+      let cached: AnalyzedDocument;
+      beforeEach(() => {
+        cached = analyzer.analyze(document);
+      });
+
+      it('child completion nodes', () => {
+        const nodeAtPoint = analyzer.nodeAtPoint(document.uri, 1, 32);
+        console.log(nodeAtPoint?.text);
+        expect(nodeAtPoint).toBeDefined();
+        const results: SyntaxNode[] = [];
+        getChildNodes(cached.tree.rootNode).forEach(node => {
+          if (
+            isCompletionArgparseFlagWithCommandName(node, 'test_1', 'help') ||
+            isCompletionArgparseFlagWithCommandName(node, 'test_1', 'h')
+          ) {
+            results.push(node);
+          }
+        });
+        expect(results).toHaveLength(2);
+      });
+
+      it('argparse references for `h/help` position inside of `help`', () => {
+        const nodeAtPoint = analyzer.nodeAtPoint(document.uri, 1, 32);
+        console.log(nodeAtPoint?.text);
+        expect(nodeAtPoint).toBeDefined();
+        const refs = getReferences(analyzer, cached.document, Position.create(1, 31));
+        const resultTexts: string[] = [];
+        refs.forEach(loc => {
+          if (analyzer.getTextAtLocation(loc).startsWith('_flag_')) {
+            loc.range.start.character += '_flag_'.length;
+          }
+          // console.log('location ref', {
+          //   uri: loc.uri,
+          //   rangeStart: loc.range.start,
+          //   rangeEnd: loc.range.end,
+          //   text: analyzer.getTextAtLocation(loc),
+          // });
+          resultTexts.push(analyzer.getTextAtLocation(loc));
+        });
+        expect(resultTexts).toHaveLength(4);
+        for (const text of resultTexts) {
+          if (text !== 'help') fail();
+        }
+      });
+    });
+
+    describe.only('using \'{completions,functions,conf.d}/test.fish\' workspace', () => {
+      let documents: LspDocument[] = [];
+      let functionDoc: LspDocument;
+      let completionDoc: LspDocument;
+      let confdDoc: LspDocument;
+      let configDoc: LspDocument;
+
+      beforeEach(async () => {
+        documents = createTestWorkspace(
+          analyzer,
+          {
+            path: 'functions/foo_test.fish',
+            text: [
+              'function foo_test',
+              '  argparse --stop-nonopt special-option h/help name= q/quiet v/version y/yes n/no -- $argv',
+              '  or return',
+              '  if set -lq _flag_help',
+              '      echo "help_msg"',
+              '  end',
+              '  if set -lq _flag_name && test -n "$_flag_name"',
+              '      echo "$_flag_name"',
+              '  end',
+              '  if set -lq _flag_special_option',
+              '      echo "special-option"',
+              '  end',
+              'end',
+            ],
+          },
+          {
+            path: 'completions/foo_test.fish',
+            text: [
+              'complete -c foo_test -s h -l help',
+              'complete -c foo_test      -l name',
+              'complete -c foo_test -s q -l quiet',
+              'complete -c foo_test -s v -l version',
+              'complete -c foo_test -s y -l yes',
+              'complete -c foo_test -s n -l no',
+              'complete -c foo_test -l special-option',
+            ],
+          },
+          {
+            path: 'conf.d/__test.fish',
+            text: [
+              'function __test',
+              '   foo_test --yes',
+              '   foo_test --special-option',
+              'end',
+            ],
+          },
+          {
+            path: 'config.fish',
+            text: [
+              'set -gx FISH_TEST_CONFIG "test"',
+              'set -gx FISH_TEST_CONFIG_2 "test"',
+              'function foo_test_wrapper -w foo_test -d "`foo_test --yes` wrapper"',
+              '   foo_test --yes $argv',
+              '   foo_test --special-option="$argv"',
+              'end',
+            ],
+          },
+        );
+        documents.forEach(doc => {
+          analyzer.analyze(doc);
+        });
+        functionDoc = documents.at(0)!;
+        completionDoc = documents.at(1)!;
+        confdDoc = documents.at(2)!;
+        configDoc = documents.at(3)!;
+        expect(functionDoc).toBeDefined();
+        expect(completionDoc).toBeDefined();
+        expect(confdDoc).toBeDefined();
+        expect(configDoc).toBeDefined();
+      });
+
+      it('argparse rename `name=` -> `na` test', () => {
+        const nodeAtPoint = analyzer.nodeAtPoint(functionDoc.uri, 1, 34);
+        expect(nodeAtPoint).toBeDefined();
+        // console.log(1, nodeAtPoint?.text);
+        const refs = getRenames(analyzer, functionDoc, Position.create(1, 34), 'na');
+        const newTexts: Set<string> = new Set();
+        refs.forEach(loc => {
+          newTexts.add(loc.newText);
+        });
+        expect(refs).toHaveLength(5);
+        expect(newTexts.size === 1).toBeTruthy();
+      });
+
+      //   console.log('location ref', {
+      //     uri: loc.uri,
+      //     rangeStart: loc.range.start,
+      //     rangeEnd: loc.range.end,
+      //     // text: analyzer.getTextAtLocation(loc),
+      //     newText: loc.newText
+      //   });
+
+      it('argparse `name=` test', () => {
+        const nodeAtPoint = analyzer.nodeAtPoint(functionDoc.uri, 1, 47);
+        expect(nodeAtPoint).toBeDefined();
+        expect(nodeAtPoint!.text).toBe('name=');
+        console.log(2, nodeAtPoint?.text);
+        const refs = getRenames(analyzer, functionDoc, Position.create(1, 47), 'special-name');
+        const newTexts: Set<string> = new Set();
+        refs.forEach(loc => {
+          newTexts.add(loc.newText);
+        });
+        expect(refs).toHaveLength(5);
+        expect(newTexts.size === 2).toBeTruthy();
+        expect(newTexts.has('special-name')).toBeTruthy();
+        expect(newTexts.has('special_name')).toBeTruthy();
+      });
+
+      it('function `foo_test`', () => {
+        const nodeAtPoint = analyzer.nodeAtPoint(functionDoc.uri, 0, 11);
+        expect(nodeAtPoint).toBeDefined();
+        expect(nodeAtPoint!.text).toBe('foo_test');
+        const refs = getRenames(analyzer, functionDoc, Position.create(0, 11), 'test-rename');
+        const newTexts: Set<string> = new Set();
+        const refUris: Set<string> = new Set();
+        const countPerUri: Map<string, number> = new Map();
+        refs.forEach(loc => {
+          // console.log('location ref', {
+          //   uri: loc.uri,
+          //   rangeStart: loc.range.start,
+          //   rangeEnd: loc.range.end,
+          //   text: loc.newText,
+          // });
+          const count = countPerUri.get(loc.uri) || 0;
+          countPerUri.set(loc.uri, count + 1);
+          newTexts.add(loc.newText);
+          refUris.add(loc.uri);
+        });
+        expect(newTexts.size === 1).toBeTruthy();
+        expect(refs).toHaveLength(13);
+        expect(refUris.size).toBe(4);
+        expect(countPerUri.get(functionDoc.uri)).toBe(1);
+        expect(countPerUri.get(completionDoc.uri)).toBe(7);
+        expect(countPerUri.get(confdDoc.uri)).toBe(2);
+        expect(countPerUri.get(configDoc.uri)).toBe(3);
+      });
+    });
+  });
 });
+

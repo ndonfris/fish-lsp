@@ -7,8 +7,9 @@ import { FishSymbol } from './parsing/symbol';
 import { isCompletionDefinition } from './parsing/complete';
 import { Option } from './parsing/options';
 import { logger } from './logger';
-import { getGlobalArgparseLocations } from './parsing/argparse';
+import { getGlobalArgparseLocations, isCompletionArgparseFlagWithCommandName } from './parsing/argparse';
 import { SyntaxNode } from 'web-tree-sitter';
+import * as Locations from './utils/locations';
 
 /**
  * get all the references for a symbol, including the symbol's definition
@@ -104,7 +105,7 @@ function findSymbolLocations(
       // if (symbol.kind === SymbolKind.Function && n.parent && isCommandWithName(n.parent, 'command', 'type', 'builtin', 'functions')) {
       //   return n.text === symbol.name && !symbol.focusedNode.equals(n);
       // }
-      if (symbol.kind === SymbolKind.Function && !isCommandWithName(n, symbol.name)) {
+      if (symbol.kind === SymbolKind.Function && n.parent && !isCommandWithName(n.parent, symbol.name) && n.parent.firstChild?.equals(n)) {
         return false;
       }
       return n.text === symbol.name && !symbol.focusedNode.equals(n);
@@ -131,21 +132,18 @@ export function getArgparseLocations(
 ): Location[] {
   const result: Location[] = [];
   // if (symbol.fishKind !== 'ARGPARSE') return [];
-  logger.log('checking argparse locations for ', symbol.name);
+  logger.debug('checking argparse locations for ', symbol.name);
   const parentName = symbol.parent!.name || symbol.scopeNode.firstNamedChild!.text!;
-  logger.log('parentName: ', parentName);
+  // logger.log('parentName: ', parentName);
   const document = analyzer.getDocument(symbol.uri);
   if (document) {
     result.push(...getGlobalArgparseLocations(analyzer, document, symbol));
   }
   const matchingNodes = analyzer.findNodes((n, document) => {
     // complete -c parentName -s ... -l flag-name
-    // if (
-    //   isCompletionDefinitionWithName(n, parentName, document)
-    //   && n.text === symbol.argparseFlagName
-    // ) {
-    //   return true;
-    // }
+    if (isCompletionArgparseFlagWithCommandName(n, parentName, symbol.argparseFlagName)) {
+      return true;
+    }
     // parentName --flag-name
     if (
       n.parent
@@ -165,7 +163,6 @@ export function getArgparseLocations(
     }
     return false;
   });
-  logger.log('found matches: ', matchingNodes.length);
   matchingNodes.forEach(({ uri, nodes }) => {
     if (!nodes) return;
     nodes.forEach(node => {
@@ -174,7 +171,7 @@ export function getArgparseLocations(
         range = {
           start: {
             line: range.start.line,
-            character: range.start.character + getLeadingDashCount(node) + 1,
+            character: range.start.character + getLeadingDashCount(node),
           },
           end: {
             line: range.end.line,
@@ -182,7 +179,9 @@ export function getArgparseLocations(
           },
         };
       }
-      result.push(Location.create(uri, range));
+      if (!result.some(loc => Locations.Location.equals(loc, { uri, range }))) {
+        result.push(Location.create(uri, range));
+      }
     });
   });
   return result;

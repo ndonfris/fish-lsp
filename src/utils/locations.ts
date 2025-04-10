@@ -2,6 +2,7 @@
 
 import * as LSP from 'vscode-languageserver';
 import * as TS from 'web-tree-sitter';
+import { equalRanges } from './tree-sitter';
 
 interface Location {
   line: number;
@@ -125,4 +126,8 @@ export namespace Location {
   export const is = (value: any): value is LSP.Location => LSP.Location.is(value);
   export const fromTextSpan = (resource: LSP.DocumentUri, fishTextSpan: TextSpan): LSP.Location =>
     LSP.Location.create(resource, Range.fromTextSpan(fishTextSpan));
+
+  export function equals(one: LSP.Location, other: LSP.Location): boolean {
+    return one.uri === other.uri && Range.is(one.range) && Range.is(other.range) && equalRanges(one.range, other.range);
+  }
 }

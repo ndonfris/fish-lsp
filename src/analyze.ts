@@ -20,6 +20,32 @@ import { execCommandLocations } from './utils/exec';
 import { implementationLocation } from './references';
 import { hasWorkspaceFolderCapability } from './server';
 
+export type AnalyzedDocument = {
+  document: LspDocument;
+  documentSymbols: FishSymbol[];
+  commands: string[];
+  tree: Parser.Tree;
+  sourced: SourceResource[];
+};
+
+export namespace AnalyzedDocument {
+  export function create(
+    document: LspDocument,
+    documentSymbols: FishSymbol[],
+    commands: string[],
+    tree: Parser.Tree,
+    sourced: SourceResource[] = [],
+  ): AnalyzedDocument {
+    return {
+      document,
+      documentSymbols,
+      commands,
+      tree,
+      sourced,
+    };
+  }
+}
+
 export class Analyzer {
   protected parser: Parser;
   public cache: AnalyzedDocumentCache = new AnalyzedDocumentCache();
@@ -755,6 +781,20 @@ export class Analyzer {
     return firstChild.text.trim();
   }
 
+  /**
+   * Get the text at the given location, using the range of the location to find the text
+   * inside the range.
+   * Super helpful for debugging Locations like references, renames, definitions, etc.
+   */
+  public getTextAtLocation(location: LSP.Location): string {
+    const document = this.cache.getDocument(location.uri);
+    if (!document) {
+      return '';
+    }
+    const text = document.document.getText(location.range);
+    return text;
+  }
+
   public getExistingAutoloadedFiles(symbol: FishSymbol): string[] {
     if (!symbol.uri.includes(`functions/${symbol.name}.fish`)) {
       return [];
@@ -827,32 +867,6 @@ export class GlobalDefinitionCache {
   }
   get map(): Map<string, FishSymbol[]> {
     return this._definitions;
-  }
-}
-
-type AnalyzedDocument = {
-  document: LspDocument;
-  documentSymbols: FishSymbol[];
-  commands: string[];
-  tree: Parser.Tree;
-  sourced: SourceResource[];
-};
-
-export namespace AnalyzedDocument {
-  export function create(
-    document: LspDocument,
-    documentSymbols: FishSymbol[],
-    commands: string[],
-    tree: Parser.Tree,
-    sourced: SourceResource[] = [],
-  ): AnalyzedDocument {
-    return {
-      document,
-      documentSymbols,
-      commands,
-      tree,
-      sourced,
-    };
   }
 }
 
