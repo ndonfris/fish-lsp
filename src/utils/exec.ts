@@ -1,10 +1,12 @@
 import { exec, execFile, execFileSync } from 'child_process';
 import { resolve } from 'path';
 import { promisify } from 'util';
+import { logger } from '../logger';
+import { pathToUri, uriToPath } from './translation';
 
-const execAsync = promisify(exec);
+export const execAsync = promisify(exec);
 
-const execFileAsync = promisify(execFile);
+export const execFileAsync = promisify(execFile);
 
 /**
  * @async execEscapedComplete() - executes the fish command with
@@ -36,6 +38,7 @@ export async function execCmd(cmd: string): Promise<string[]> {
 
 export async function execAsyncF(cmd: string) {
   const file = resolve(__dirname, '../../fish_files/exec.fish');
+  logger.log({ func: 'execAsyncF', file, cmd });
   const child = await execFileAsync(file, [cmd]);
   return child.stdout.toString().trim();
 }
@@ -52,24 +55,23 @@ export async function execAsyncFish(cmd: string) {
   return await execAsync(`fish -c '${cmd}'`);
 }
 
-/**
- * Subshell print alias for inlay hints -- too slow for running on large documents
- * and/or workspaces
- */
-export async function execPrintLsp(line: string) {
-  const file = resolve(__dirname, '../../fish_files/printflsp.fish');
-  const child = await execFileAsync(file, [line]);
-  if (child.stderr) {
-    return child.stdout.trim();
+export function execFishNoExecute(filepath: string) {
+  try {
+    // execFileSync will throw on non-zero exit codes
+    return execFileSync('fish', ['--no-execute', filepath], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'ignore', 'pipe'], // Only capture stderr
+    }).toString();
+  } catch (err: any) {
+    // When fish finds syntax errors, it exits non-zero but still gives useful output in stderr
+    if (err.stderr) {
+      return err.stderr.toString();
+    }
+    // If something else went wrong, throw the error
+    // throw err;
   }
-  return child.stdout.trim();
 }
 //
-// Similar to the above execPrintLsp
-// export async function execInlayHintType(...cmd: string[]): Promise<string> {
-//   const child = await execEscapedCommand(`type -t ${cmd.join(' ')} 2>/dev/null`);
-//   return child.join(' ');
-// }
 
 export async function execCompletions(...cmd: string[]): Promise<string[]> {
   const file = resolve(__dirname, '../../fish_files/get-completion.fish');
@@ -86,11 +88,16 @@ export async function execSubCommandCompletions(...cmd: string[]): Promise<strin
 }
 
 export async function execCompleteLine(cmd: string): Promise<string[]> {
-  const escapedCommand = cmd.replace(/(["'$`\\/])/g, '\\$1');
-  const completeString = `complete --do-complete='${escapedCommand}'`;
+  const escapedCmd = cmd.replace(/(["'`\\])/g, '\\$1');
+  const completeString = `fish -c "complete --do-complete='${escapedCmd}'"`;
 
-  const child = await execCmd(completeString);
-  return child || [];
+  const child = await execAsync(completeString);
+
+  if (child.stderr) {
+    return [''];
+  }
+
+  return child.stdout.trim().split('\n');
 }
 
 export async function execCompleteSpace(cmd: string): Promise<string[]> {
@@ -170,9 +177,15 @@ export async function execFindDependency(cmd: string): Promise<string> {
   return docs.toString().trim();
 }
 
-// open the uri and read the file
-// export async function execOpenFile(uri: string): Promise<string> {
-//   const fileUri = URI.parse(uri).fsPath;
-//   const file = await promises.readFile(fileUri.toString(), 'utf8');
-//   return file.toString();
-// }
+export function execCommandLocations(cmd: string): {uri: string; path: string;}[] {
+  const output = execFileSync('fish', ['--command', `type -ap ${cmd}`], {
+    stdio: ['pipe', 'pipe', 'ignore'],
+  });
+  return output.toString().trim().split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0 && line !== '\n' && line.includes('/'))
+    .map(line => ({
+      uri: pathToUri(line),
+      path: uriToPath(line),
+    })) || [];
+}

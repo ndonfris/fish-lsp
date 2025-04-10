@@ -1,101 +1,12 @@
 #!/usr/bin/env node
 //'use strict'
 import { BuildCapabilityString, PathObj, PackageLspVersion, PackageVersion, accumulateStartupOptions, getBuildTimeString, FishLspHelp, FishLspManPage, SourcesDict, smallFishLogo, isPkgBinary } from './utils/commander-cli-subcommands';
-import { createConnection, InitializeParams, InitializeResult, StreamMessageReader, StreamMessageWriter } from 'vscode-languageserver/node';
 import { Command, Option } from 'commander';
-import FishServer from './server';
 import { buildFishLspCompletions } from './utils/get-lsp-completions';
-import { createServerLogger, log, logger, logToStdout, logToStdoutJoined } from './logger';
+import { logger } from './logger';
 import { configHandlers, generateJsonSchemaShellScript, config, showJsonSchemaShellScript, updateHandlers, validHandlers, Config } from './config';
-
-export function startServer() {
-  // Create a connection for the server.
-  // The connection uses stdin/stdout for communication.
-  const connection = createConnection(
-    new StreamMessageReader(process.stdin),
-    new StreamMessageWriter(process.stdout),
-  );
-  connection.onInitialize(
-    async (params: InitializeParams): Promise<InitializeResult> => {
-      // connection.console.log(`Initialized server FISH-LSP with ${JSON.stringify(params, null, 2)}`);
-      const { initializeResult } = await FishServer.create(connection, params);
-      return initializeResult;
-    },
-  );
-  connection.listen();
-  createServerLogger(config.fish_lsp_logfile, true, connection.console);
-  logger.log('Starting FISH-LSP server');
-  logger.log('Server started with the following handlers:', configHandlers);
-  logger.log('Server started with the following config:', config);
-}
-
-async function timeOperation<T>(
-  operation: () => Promise<T>,
-  label: string,
-): Promise<T> {
-  const start = performance.now();
-  try {
-    const result = await operation();
-    const end = performance.now();
-    const duration = end - start;
-    logToStdoutJoined(
-      `${label}:`.padEnd(55),
-      `${duration.toFixed(2)}ms`.padStart(10),
-    );
-    return result;
-  } catch (error) {
-    const end = performance.now();
-    const duration = end - start;
-    logToStdout(`${label} failed after ${duration.toFixed(2)}ms`);
-    throw error;
-  }
-}
-
-async function timeServerStartup() {
-  // define a local server instance
-  let server: FishServer | undefined;
-
-  // 1. Time server creation and startup
-  await timeOperation(async () => {
-    const connection = createConnection(
-      new StreamMessageReader(process.stdin),
-      new StreamMessageWriter(process.stdout),
-    );
-    // connection.console.log('Starting FISH-LSP server');
-    const startupParams: InitializeParams = {
-      processId: process.pid,
-      rootUri: process.cwd(),
-      capabilities: {},
-    };
-    ({ server } = await FishServer.create(connection, startupParams));
-    connection.listen();
-    return server;
-  }, 'Server Start Time');
-
-  // 2. Time server initialization and background analysis
-  await timeOperation(async () => {
-    await server?.startBackgroundAnalysis();
-  }, 'Background Analysis Time');
-
-  // 3. Log the number of files indexed
-  logToStdoutJoined(
-    'Total Files Indexed: '.padEnd(55),
-    `${server?.analyzer.amountIndexed} files`.padStart(10),
-  );
-
-  // 4. Log the directories indexed
-  const all_indexed = config.fish_lsp_all_indexed_paths;
-  logToStdoutJoined(
-    "Indexed Files in '$fish_lsp_all_indexed_paths':".padEnd(55),
-    `${all_indexed.length} paths`.padStart(10),
-  );
-  const maxItemLen = all_indexed.reduce((max, item) => Math.max(max, item.length), 0);
-  const startStr = ' '.repeat(3);
-  config.fish_lsp_all_indexed_paths.forEach((item, idx) => logToStdoutJoined(
-    `${startStr}$fish_lsp_all_indexed_paths[${idx + 1}]  `.padEnd(64 - maxItemLen),
-    `|${item}|`.padStart(maxItemLen + 2),
-  ));
-}
+import { ConnectionOptions, ConnectionType, startServer, timeServerStartup } from './utils/startup';
+import { performHealthCheck } from './utils/health-check';
 
 /**
  *  creates local 'commandBin' used for commander.js
@@ -127,7 +38,7 @@ commandBin
   .action(opt => {
     if (opt.helpMan) {
       const { path: _path, content } = FishLspManPage();
-      logToStdout(content.join('\n').trim());
+      logger.logToStdout(content.join('\n').trim());
     } else if (opt.helpAll) {
       const globalOpts = commandBin.options.concat(new Option('-h, --help', 'show help'));
       const subCommands = commandBin.commands.map((cmd) => {
@@ -136,7 +47,7 @@ commandBin
           cmd.options.map(o => `    ${o.flags}\t\t${o.description}`).join('\n'),
           ''].join('\n');
       });
-      logToStdout(['NAME:',
+      logger.logToStdout(['NAME:',
         'fish-lsp - an lsp for the fish shell language',
         '',
         'USAGE: ',
@@ -155,7 +66,7 @@ commandBin
         FishLspHelp.after.split('\n').slice(2).join('\n'),
       ].join('\n').trim());
     } else if (opt.helpShort) {
-      logToStdout([
+      logger.logToStdout([
         'Usage: fish-lsp ', commandBin.usage().split('\n').slice(0, 1),
         '',
         commandBin.description(),
@@ -171,17 +82,22 @@ commandBin.command('start [TOGGLE]')
   .option('--dump', 'stop lsp & show the startup options being read')
   .option('--enable <string...>', 'enable the startup option')
   .option('--disable <string...>', 'disable the startup option')
+  .option('--stdio', 'use stdin/stdout for communication (default)', true)
+  .option('--node-ipc', 'use node IPC for communication')
+  .option('--socket <port>', 'use TCP socket for communication')
+  .option('--memory-limit <mb>', 'set memory usage limit in MB')
+  .option('--max-files <number>', 'override the maximum number of files to analyze')
   .addHelpText('afterAll', [
     '',
     'STRINGS FOR \'--enable/--disable\':',
-    `(${validHandlers.map((opt, index) => {
+    `${validHandlers.map((opt, index) => {
       return index < validHandlers.length - 1 && index > 0 && index % 5 === 0 ? `${opt},\n` :
         index < validHandlers.length - 1 ? `${opt},` : opt;
-    }).join(' ')})`,
+    }).join(' ').split('\n').map(line => `\t${line.trim()}`).join('\n')}`,
     '',
     'Examples:',
     '\tfish-lsp start --disable hover  # only disable the hover feature',
-    '\tfish-lsp start --disable complete logging index hover --show',
+    '\tfish-lsp start --disable complete logging index hover --dump',
     '\tfish-lsp start --enable --disable logging complete codeAction',
   ].join('\n'))
   .action(() => {
@@ -193,6 +109,29 @@ commandBin.command('start [TOGGLE]')
     updateHandlers(config.fish_lsp_enabled_handlers, true);
     updateHandlers(config.fish_lsp_disabled_handlers, false);
 
+    // Extract new options
+    const { nodeIpc, socket, memoryLimit, maxFiles } = commandBin.opts();
+    // Handle max files option
+    if (maxFiles && !isNaN(parseInt(maxFiles))) {
+      config.fish_lsp_max_background_files = parseInt(maxFiles);
+    }
+
+    // Handle memory limit
+    if (memoryLimit && !isNaN(parseInt(memoryLimit))) {
+      const limitInMB = parseInt(memoryLimit);
+      process.env.NODE_OPTIONS = `--max-old-space-size=${limitInMB}`;
+    }
+
+    // Determine connection type
+    let connectionType: ConnectionType = 'stdio';
+    const connectionOptions: ConnectionOptions = {};
+
+    if (nodeIpc) {
+      connectionType = 'node-ipc';
+    } else if (socket) {
+      connectionType = 'socket';
+      connectionOptions.port = parseInt(socket);
+    }
     // override `configHandlers` with command line args
     const { enabled, disabled, dumpCmd } = accumulateStartupOptions(commandBin.args);
     updateHandlers(enabled, true);
@@ -201,40 +140,13 @@ commandBin.command('start [TOGGLE]')
 
     // Dump the configHandlers, if requested from the command line. This stops the server.
     if (dumpCmd) {
-      log(JSON.stringify({ handlers: configHandlers }, null, 2));
-      log(JSON.stringify({ config: config }, null, 2));
+      logger.logFallbackToStdout({ handlers: configHandlers });
+      logger.logFallbackToStdout({ config: config });
       process.exit(0);
     }
 
     /* config needs to be used in `startServer()` below */
-    startServer();
-  });
-
-// LOGGER
-commandBin.command('logger')
-  .summary('test the logger by displaying it')
-  .option('-s, --show', 'show the logger and don\'t edit it')
-  .option('-c, --clear', 'clear the logger')
-  .option('-d, --date', 'write the date')
-  .option('-q, --quiet', 'silence logging')
-  .option('--config', 'show the logger config')
-  .action(args => {
-    const logger = createServerLogger(config.fish_lsp_logfile, false);
-    const objArgs = Object.getOwnPropertyNames(args);
-    const argsQueue = objArgs;
-    let currentArg: string = '';
-    while (argsQueue.length !== 0) {
-      currentArg = argsQueue.shift() || '';
-      if (currentArg === 'clear') logger.clearLogFile();
-      if (currentArg === 'quiet') logger.toggleSilence();
-      if (currentArg === 'date') logger.log(getBuildTimeString());
-      if (currentArg === 'config') logToStdout(JSON.stringify(logger.getLoggingOpts()));
-      if (currentArg === 'show') break;
-    }
-
-    if (!args.show) return;
-    logger.showLogfileText();
-    return;
+    startServer(connectionType, connectionOptions);
   });
 
 // INFO
@@ -246,9 +158,12 @@ commandBin.command('info')
   .option('--lsp-version', 'show the lsp version')
   .option('--capabilities', 'show the lsp capabilities')
   .option('--man-file', 'show the man file path')
-  .option('--logs-file', 'show the logs.txt file path')
+  .option('--logs-file', 'show the logs file path')
+  .option('--log-file', 'show the log file path')
   .option('--more', 'show the build time of the fish-lsp executable')
   .option('--time-startup', 'time the startup of the fish-lsp executable')
+  .option('--health-check', 'run diagnostics and report health status')
+  .option('--check-health', 'run diagnostics and report health status')
   .action(async args => {
     const capabilities = BuildCapabilityString()
       .split('\n')
@@ -260,41 +175,45 @@ commandBin.command('info')
     if (args.bin || args.repo) {
       const logPath = args.bin ? PathObj.bin : PathObj.repo;
       const wpath = args.bin ? 'BINARY' : 'REPOSITORY';
-      logToStdout(wpath + ' ' + smallFishLogo());
-      logToStdout(logPath);
+      logger.logToStdout(wpath + ' ' + smallFishLogo());
+      logger.logToStdout(logPath);
+      process.exit(0);
+    }
+    if (args.healthCheck || args.checkHealth) {
+      await performHealthCheck();
       process.exit(0);
     }
     if (args.time) {
-      logToStdout(`Build Time: ${getBuildTimeString()}`);
+      logger.logToStdout(`Build Time: ${getBuildTimeString()}`);
       process.exit(0);
     }
     if (args.capabilities) {
-      logToStdout(`Capabilities:\n${capabilities}`);
+      logger.logToStdout(`Capabilities:\n${capabilities}`);
       process.exit(0);
     }
     if (args.lspVersion) {
-      logToStdout(`LSP Version: ${PackageLspVersion}`);
+      logger.logToStdout(`LSP Version: ${PackageLspVersion}`);
       process.exit(0);
     }
     if (args.manFile) {
-      logToStdout(PathObj.manFile);
+      logger.logToStdout(PathObj.manFile);
       process.exit(0);
     }
-    if (args.logsFile) {
-      logToStdout(config.fish_lsp_logfile);
+    if (args.logsFile || args.logFile) {
+      logger.logToStdout(config.fish_lsp_log_file);
       process.exit(0);
     }
-    logToStdout(`Repository: ${PathObj.repo}`);
-    logToStdout(`Version: ${PackageVersion}`);
-    logToStdout(`Build Time: ${getBuildTimeString()}`);
-    logToStdout(`Install Type: ${isPkgBinary() ? 'standalone executable' : 'local build'}`);
-    logToStdout(`Node Version: ${process.version}`);
-    logToStdout(`LSP Version: ${PackageLspVersion}`);
-    logToStdout(`Binary File: ${PathObj.bin}`);
-    logToStdout(`Man File: ${PathObj.manFile}`);
-    logToStdout(`Log File: ${config.fish_lsp_logfile}`);
-    logToStdout('CAPABILITIES:');
-    logToStdout(capabilities);
+    logger.logToStdout(`Repository: ${PathObj.repo}`);
+    logger.logToStdout(`Version: ${PackageVersion}`);
+    logger.logToStdout(`Build Time: ${getBuildTimeString()}`);
+    logger.logToStdout(`Install Type: ${isPkgBinary() ? 'standalone executable' : 'local build'}`);
+    logger.logToStdout(`Node Version: ${process.version}`);
+    logger.logToStdout(`LSP Version: ${PackageLspVersion}`);
+    logger.logToStdout(`Binary File: ${PathObj.bin}`);
+    logger.logToStdout(`Man File: ${PathObj.manFile}`);
+    logger.logToStdout(`Log File: ${config.fish_lsp_log_file}`);
+    logger.logToStdout('CAPABILITIES:');
+    logger.logToStdout(capabilities);
     process.exit(0);
   });
 
@@ -313,8 +232,8 @@ commandBin.command('url')
   .option('--sources', 'show a list of helpful sources')
   .action(args => {
     const amount = Object.keys(args).length;
-    if (amount === 0) logToStdout('https://fish-lsp.dev');
-    Object.keys(args).forEach(key => logToStdout(SourcesDict[key]?.toString() || ''));
+    if (amount === 0) logger.logToStdout('https://fish-lsp.dev');
+    Object.keys(args).forEach(key => logger.logToStdout(SourcesDict[key]?.toString() || ''));
     process.exit(0);
   });
 
@@ -328,22 +247,22 @@ commandBin.command('complete')
   .description('copy completions output to fish-lsp completions file')
   .action(args => {
     if (args.names) {
-      commandBin.commands.forEach(cmd => logToStdout(cmd.name() + '\t' + cmd.summary()));
+      commandBin.commands.forEach(cmd => logger.logToStdout(cmd.name() + '\t' + cmd.summary()));
       process.exit(0);
     } else if (args.toggles) {
       commandBin.commands.forEach(cmd => {
-        logToStdout(cmd.name() + '\t' + cmd.summary());
-        Object.entries(cmd.opts()).forEach(opt => logToStdout('--' + opt[0]));
+        logger.logToStdout(cmd.name() + '\t' + cmd.summary());
+        Object.entries(cmd.opts()).forEach(opt => logger.logToStdout('--' + opt[0]));
       });
       process.exit(0);
     } else if (args.fish) {
-      logToStdout(buildFishLspCompletions(commandBin));
+      logger.logToStdout(buildFishLspCompletions(commandBin));
       process.exit(0);
     } else if (args.features) {
-      Object.entries(configHandlers).forEach((name) => logToStdout(name.toString()));
+      Object.entries(configHandlers).forEach((name) => logger.logToStdout(name.toString()));
       process.exit(0);
     }
-    logToStdout(buildFishLspCompletions(commandBin));
+    logger.logToStdout(buildFishLspCompletions(commandBin));
     process.exit(0);
   });
 
@@ -357,12 +276,13 @@ commandBin.command('env')
   .option('--no-global', 'use local env variables')
   .option('--no-local', 'do not use local scope for variables')
   .option('--no-export', 'don\'t export the variables')
+  .option('--confd', 'output for piping to conf.d')
   .action(args => {
     if (args.show) {
-      showJsonSchemaShellScript(args.comments, args.global, args.local, args.export);
+      showJsonSchemaShellScript(args.confd || false, args.comments, args.global, args.local, args.export);
       process.exit(0);
     }
-    generateJsonSchemaShellScript(args.comments, args.global, args.local, args.export);
+    generateJsonSchemaShellScript(args.confd || false, args.comments, args.global, args.local, args.export);
   });
 
 /**

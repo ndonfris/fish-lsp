@@ -1,18 +1,24 @@
 import { Diagnostic, Range } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { LspDocument } from '../document';
-import { containsRange, findEnclosingScope, getChildNodes, getRange } from '../utils/tree-sitter';
-import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter, isMatchingCompleteOptionIsCommand, LocalFunctionCallType, isArgparseWithoutEndStdin } from './node-types';
-import { ErrorCodes } from './errorCodes';
-import { SyncFileHelper } from '../utils/file-operations';
+import { findEnclosingScope, getChildNodes, getRange } from '../utils/tree-sitter';
+import { containsRange } from '../utils/tree-sitter';
+import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter, isMatchingCompleteOptionIsCommand, LocalFunctionCallType, isArgparseWithoutEndStdin, isFishLspDeprecatedVariableName, getDeprecatedFishLspMessage, isDotSourceCommand } from './node-types';
+import { ErrorCodes } from './error-codes';
 import { config } from '../config';
 import { DiagnosticCommentsHandler } from './comments-handler';
 import { logger } from '../logger';
 import { isAutoloadedUriLoadsFunctionName } from '../utils/translation';
 import { isCommandName, isCommandWithName, isComment, isFunctionDefinitionName, isOption, isString, isTopLevelFunctionDefinition } from '../utils/node-types';
 import { isReservedKeyword } from '../utils/builtins';
+import { getNoExecuteDiagnostics } from './no-execute-diagnostic';
 import { checkForInvalidDiagnosticCodes } from './invalid-error-code';
 
+// Utilities related to building a documents Diagnostics.
+
+/**
+ * Allow the node to be reachable from any Diagnostic
+ */
 export interface FishDiagnostic extends Diagnostic {
   data: {
     node: SyntaxNode;
@@ -23,20 +29,38 @@ export namespace FishDiagnostic {
   export function create(
     code: ErrorCodes.CodeTypes,
     node: SyntaxNode,
+    message: string = '',
   ): FishDiagnostic {
+    const errorMessage = message && message.length > 0
+      ? ErrorCodes.codes[code].message + ' | ' + message
+      : ErrorCodes.codes[code].message;
     return {
       ...ErrorCodes.codes[code],
       range: {
         start: { line: node.startPosition.row, character: node.startPosition.column },
         end: { line: node.endPosition.row, character: node.endPosition.column },
       },
+      message: errorMessage,
       data: {
         node,
       },
     };
   }
+
+  export function fromDiagnostic(diagnostic: Diagnostic): FishDiagnostic {
+    return {
+      ...diagnostic,
+      data: {
+        node: undefined as any,
+      },
+    };
+  }
 }
 
+/**
+ * Handle building the diagnostics for the document passed in.
+ * This will also handle any comment that might disable/enable certain diagnostics per range
+ */
 export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
   let diagnostics: Diagnostic[] = [];
 
@@ -68,7 +92,7 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
     if (node.isError) {
       const found: SyntaxNode | null = findErrorCause(node.children);
       if (found && handler.isCodeEnabled(ErrorCodes.missingEnd)) {
-        diagnostics.push(FishDiagnostic.create(ErrorCodes.missingEnd, found));
+        diagnostics.push(FishDiagnostic.create(ErrorCodes.missingEnd, node));
       }
     }
 
@@ -81,7 +105,10 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
     }
 
     if (isSingleQuoteVariableExpansion(node) && handler.isCodeEnabled(ErrorCodes.singleQuoteVariableExpansion)) {
-      diagnostics.push(FishDiagnostic.create(ErrorCodes.singleQuoteVariableExpansion, node));
+      // don't add this diagnostic if the autoload type is completions
+      if (doc.getAutoloadType() !== 'completions') {
+        diagnostics.push(FishDiagnostic.create(ErrorCodes.singleQuoteVariableExpansion, node));
+      }
     }
 
     if (isAlias(node) && handler.isCodeEnabled(ErrorCodes.usedAlias)) {
@@ -92,8 +119,12 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
       diagnostics.push(FishDiagnostic.create(ErrorCodes.usedUnviersalDefinition, node));
     }
 
-    if (isSourceFilename(node) && node.type !== 'subshell' && node.text.includes('/') && !SyncFileHelper.exists(node.text) && handler.isCodeEnabled(ErrorCodes.sourceFileDoesNotExist)) {
+    if (isSourceFilename(node) && handler.isCodeEnabled(ErrorCodes.sourceFileDoesNotExist)) {
       diagnostics.push(FishDiagnostic.create(ErrorCodes.sourceFileDoesNotExist, node));
+    }
+
+    if (isDotSourceCommand(node) && handler.isCodeEnabled(ErrorCodes.dotSourceCommand)) {
+      diagnostics.push(FishDiagnostic.create(ErrorCodes.dotSourceCommand, node));
     }
 
     if (isTestCommandVariableExpansionWithoutString(node) && handler.isCodeEnabled(ErrorCodes.testCommandMissingStringCharacters)) {
@@ -101,7 +132,7 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
     }
 
     if (isConditionalWithoutQuietCommand(node) && handler.isCodeEnabled(ErrorCodes.missingQuietOption)) {
-      logger.log('isSingleQuoteDiagnostic', { type: node.type, text: node.text });
+      logger.log('isConditionalWithoutQuietCommand', { type: node.type, text: node.text });
       const command = node.firstNamedChild || node;
       let subCommand = command;
       if (command.text.includes('string')) {
@@ -124,6 +155,11 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
 
     if (isVariableDefinitionWithExpansionCharacter(node) && handler.isCodeEnabled(ErrorCodes.expansionInDefinition)) {
       diagnostics.push(FishDiagnostic.create(ErrorCodes.expansionInDefinition, node));
+    }
+
+    if (isFishLspDeprecatedVariableName(node) && handler.isCodeEnabled(ErrorCodes.fishLspDeprecatedEnvName)) {
+      logger.log('isFishLspDeprecatedVariableName', doc.getText(getRange(node)));
+      diagnostics.push(FishDiagnostic.create(ErrorCodes.fishLspDeprecatedEnvName, node, getDeprecatedFishLspMessage(node)));
     }
 
     /** store any functions we see, to reuse later */
@@ -163,6 +199,7 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
       }
     }
   }
+  // allow nodes outside of the loop, to retrieve the old state
   handler.finalizeStateMap(root.text.split('\n').length + 1);
 
   const isMissingAutoloadedFunction = docType === 'functions'
@@ -210,7 +247,11 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
     });
   });
 
-  if (unusedLocalFunction.length >= 1) {
+  unusedLocalFunction.forEach(node => {
+    logger.log('UNUSED:', node.text);
+  });
+
+  if (unusedLocalFunction.length >= 1 || !isMissingAutoloadedFunction) {
     unusedLocalFunction.forEach(node => {
       if (handler.isCodeEnabledAtNode(ErrorCodes.unusedLocalFunction, node)) {
         diagnostics.push(FishDiagnostic.create(ErrorCodes.unusedLocalFunction, node));
@@ -218,9 +259,20 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
     });
   }
 
+  // remove all globally disabled diagnostics
   if (config.fish_lsp_diagnostic_disable_error_codes.length > 0) {
     for (const errorCode of config.fish_lsp_diagnostic_disable_error_codes) {
       diagnostics = diagnostics.filter(diagnostic => diagnostic.code !== errorCode);
+    }
+  }
+
+  // add 9999 diagnostics from `fish --no-execute` if the user enabled it
+  if (config.fish_lsp_enable_experimental_diagnostics) {
+    const noExecuteDiagnostics = getNoExecuteDiagnostics(doc);
+    for (const diagnostic of noExecuteDiagnostics) {
+      if (handler.isCodeEnabledAtNode(ErrorCodes.syntaxError, diagnostic.data.node)) {
+        diagnostics.push(diagnostic);
+      }
     }
   }
 

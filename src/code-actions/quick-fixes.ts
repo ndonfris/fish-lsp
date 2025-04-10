@@ -1,6 +1,6 @@
 import { ChangeAnnotation, CodeAction, Diagnostic, RenameFile, TextEdit, WorkspaceEdit } from 'vscode-languageserver';
 import { LspDocument } from '../document';
-import { ErrorCodes } from '../diagnostics/errorCodes';
+import { ErrorCodes } from '../diagnostics/error-codes';
 import { getChildNodes } from '../utils/tree-sitter';
 import { SyntaxNode } from 'web-tree-sitter';
 import { ErrorNodeTypes } from '../diagnostics/node-types';
@@ -56,7 +56,7 @@ export function handleMissingEndFix(
   diagnostic: Diagnostic,
   analyzer: Analyzer,
 ): CodeAction | undefined {
-  const root = analyzer.getTree(document)!.rootNode;
+  const root = analyzer.getTree(document.uri)!.rootNode;
 
   const errNode = root.descendantForPosition({ row: diagnostic.range.start.line, column: diagnostic.range.start.character })!;
 
@@ -140,6 +140,25 @@ function handleZeroIndexedArray(
           TextEdit.del(diagnostic.range),
           TextEdit.insert(diagnostic.range.start, '1'),
         ],
+      },
+    },
+    isPreferred: true,
+  };
+}
+
+function handleDotSourceCommand(
+  document: LspDocument,
+  diagnostic: Diagnostic,
+): CodeAction | undefined {
+  const edit = TextEdit.replace(diagnostic.range, 'source');
+
+  return {
+    title: 'Convert dot source command to source',
+    kind: SupportedCodeActionKinds.QuickFix,
+    diagnostics: [diagnostic],
+    edit: {
+      changes: {
+        [document.uri]: [edit],
       },
     },
     isPreferred: true,
@@ -353,6 +372,26 @@ function handleAddEndStdinToArgparse(diagnostic: Diagnostic, document: LspDocume
   };
 }
 
+function handleConvertDeprecatedFishLsp(diagnostic: Diagnostic, node: SyntaxNode, document: LspDocument): CodeAction {
+  // const value = document.getText(diagnostic.range);
+  logger.log({ name: 'handleConvertDeprecatedFishLsp', diagnostic: diagnostic.range, node: node.text });
+
+  const replaceText = node.text === 'fish_lsp_logfile' ? 'fish_lsp_log_file' : node.text;
+  const edit = TextEdit.replace(diagnostic.range, replaceText);
+  const workspaceEdit: WorkspaceEdit = {
+    changes: {
+      [document.uri]: [edit],
+    },
+  };
+  return {
+    title: 'Convert deprecated environment variable name',
+    kind: SupportedCodeActionKinds.QuickFix,
+    diagnostics: [diagnostic],
+    edit: workspaceEdit,
+    isPreferred: true,
+  };
+}
+
 export async function getQuickFixes(
   document: LspDocument,
   diagnostic: Diagnostic,
@@ -371,13 +410,15 @@ export async function getQuickFixes(
   let action: CodeAction | undefined;
   const actions: CodeAction[] = [];
 
-  const root = analyzer.getRootNode(document);
+  const root = analyzer.getRootNode(document.uri);
   let node = root;
+
   if (root) {
     node = getChildNodes(root).find(n =>
       n.startPosition.row === diagnostic.range.start.line &&
       n.startPosition.column === diagnostic.range.start.character);
   }
+  logger.info('getQuickFixes', { code: diagnostic.code, message: diagnostic.message, node: node?.text });
 
   switch (diagnostic.code) {
     case ErrorCodes.missingEnd:
@@ -400,6 +441,11 @@ export async function getQuickFixes(
       if (action) actions.push(action);
       return actions;
 
+    case ErrorCodes.dotSourceCommand:
+      action = handleDotSourceCommand(document, diagnostic);
+      if (action) actions.push(action);
+      return actions;
+
     case ErrorCodes.zeroIndexedArray:
       action = handleZeroIndexedArray(document, diagnostic);
       if (action) actions.push(action);
@@ -414,16 +460,6 @@ export async function getQuickFixes(
       action = handleTestCommandVariableExpansionWithoutString(document, diagnostic);
       if (action) actions.push(action);
       return actions;
-
-      // case ErrorCodes.usedAlias:
-      //   if (!node) return [];
-      //   actions.push(
-      //     ...await Promise.all([
-      //       createAliasInlineAction(node, document),
-      //       createAliasSaveActionNewFile(node, document),
-      //     ]),
-      //   );
-      //   return actions;
 
     case ErrorCodes.autoloadedFunctionMissingDefinition:
       if (!node) return [];
@@ -444,6 +480,10 @@ export async function getQuickFixes(
       action = handleAddEndStdinToArgparse(diagnostic, document);
       if (action) actions.push(action);
       return actions;
+
+    case ErrorCodes.fishLspDeprecatedEnvName:
+      if (!node) return [];
+      return [handleConvertDeprecatedFishLsp(diagnostic, node, document)];
 
     default:
       return actions;

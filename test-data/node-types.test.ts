@@ -1,8 +1,24 @@
-import Parser, { SyntaxNode } from 'web-tree-sitter';
+import * as Parser from 'web-tree-sitter';
+import { SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from '../src/parser';
 import { findFirstSibling, getChildNodes } from '../src/utils/tree-sitter';
 import * as NodeTypes from '../src/utils/node-types';
+import { PrebuiltDocumentationMap } from '../src/utils/snippets';
+import { getPrebuiltVariableExpansionDocs, isPrebuiltVariableExpansion } from '../src/hover';
+import { AutoloadedPathVariables, setupProcessEnvExecFile } from '../src/utils/process-env';
+import { FishAlias, FishAliasInfoType } from '../src/parsing/alias';
+import { createFakeLspDocument } from './helpers';
+import { Option } from '../src/parsing/options';
+import { processArgparseCommand } from '../src/parsing/argparse';
+import { env } from '../src/utils/env-manager';
+import { isAliasDefinitionName } from '../src/parsing/alias';
+// import { isAliasDefinitionName } from '@parsing/alias';
 // import { assert } from 'chai';
+
+// function _parseTreeForRoot(str: string) {
+//   const tree = parser.parse(str);
+//   return tree.rootNode;
+// }
 
 function parseStringForNodeType(str: string, predicate: (n: SyntaxNode) => boolean) {
   const tree = parser.parse(str);
@@ -53,6 +69,10 @@ function logNodes(nodes: SyntaxNode[]) {
 
 let parser: Parser;
 const jestConsole = console;
+
+beforeAll(async () => {
+  await setupProcessEnvExecFile();
+});
 
 beforeEach(async () => {
   parser = await initializeParser();
@@ -449,22 +469,22 @@ describe('node-types tests', () => {
 
   it('isMatchingOption', () => {
     expect([
-      ...parseStringForNodeType('set -gxa PATH $HOME/.cargo/bin', (n: SyntaxNode) => NodeTypes.isMatchingOption(n, { shortOption: '-g' })),
-      ...parseStringForNodeType('set -gxa PATH $HOME/.cargo/bin', (n: SyntaxNode) => NodeTypes.isMatchingOption(n, { shortOption: '-x' })),
-      ...parseStringForNodeType('set -gxa PATH $HOME/.cargo/bin', (n: SyntaxNode) => NodeTypes.isMatchingOption(n, { shortOption: '-a' })),
+      ...parseStringForNodeType('set -gxa PATH $HOME/.cargo/bin', (n: SyntaxNode) => NodeTypes.isMatchingOption(n, Option.short('-g'))),
+      ...parseStringForNodeType('set -gxa PATH $HOME/.cargo/bin', (n: SyntaxNode) => NodeTypes.isMatchingOption(n, Option.short('-x'))),
+      ...parseStringForNodeType('set -gxa PATH $HOME/.cargo/bin', (n: SyntaxNode) => NodeTypes.isMatchingOption(n, Option.short('-a'))),
     ].map(n => n.text)).toEqual(['-gxa', '-gxa', '-gxa']);
 
-    const oldFlag = parseStringForNodeType('find -type d', (n: SyntaxNode) => NodeTypes.isMatchingOption(n, { oldUnixOption: '-type' }));
+    const oldFlag = parseStringForNodeType('find -type d', (n: SyntaxNode) => NodeTypes.isMatchingOption(n, Option.unix('-type')));
     expect(oldFlag.map(n => n.text)).toEqual(['-type']);
 
     expect(
       parseStringForNodeType(
         'set --global PATH /bin',
-        (n: SyntaxNode) => NodeTypes.isMatchingOption(n, { longOption: '--global' }),
+        (n: SyntaxNode) => NodeTypes.isMatchingOption(n, Option.long('--global')),
       ).map(n => n.text),
     ).toEqual(['--global']);
 
-    const longOpt = parseStringForNodeType('command ls --ignore=\'install_scripts\'', (n: SyntaxNode) => NodeTypes.isMatchingOption(n, { longOption: '--ignore' }));
+    const longOpt = parseStringForNodeType('command ls --ignore=\'install_scripts\'', (n: SyntaxNode) => NodeTypes.isMatchingOption(n, Option.long('--ignore')));
     expect(
       longOpt.map(n => n.text.slice(0, n.text.indexOf('='))),
     ).toEqual(['--ignore', '--ignore']);
@@ -675,7 +695,7 @@ describe('node-types tests', () => {
     const strNodes = parseStringForNodeType('string match -re "^-.*" "$argv"', NodeTypes.isString);
     const lastStrNode = strNodes.pop()!;
     const parentNode = NodeTypes.findParentCommand(lastStrNode);
-    const regexOption = findFirstSibling(lastStrNode, n => NodeTypes.isMatchingOption(n, { shortOption: '-r', longOption: '--regex' }));
+    const regexOption = findFirstSibling(lastStrNode, n => NodeTypes.isMatchingOption(n, Option.create('-r', '--regex')));
     // if (parentNode?.firstChild?.text === 'string' && regexOption) {
     //   console.log("found");
     // }
@@ -733,11 +753,11 @@ describe('node-types tests', () => {
     const valueMatch = (parent: SyntaxNode, node: SyntaxNode) => {
       switch (parent.text) {
         case 'test':
-          return NodeTypes.isMatchingOption(node, { shortOption: '-z' });
+          return NodeTypes.isMatchingOption(node, Option.short('-z'));
         case 'string':
-          return NodeTypes.isMatchingOption(node, { shortOption: '-f', longOption: '--field' });
+          return NodeTypes.isMatchingOption(node, Option.create('-f', '--field').withValue());
         case 'abbr':
-          return NodeTypes.isMatchingOption(node, { longOption: '--set-cursor' });
+          return NodeTypes.isMatchingOption(node, Option.long('--set-cursor').withOptionalValue());
         default:
           return null;
       }
@@ -757,6 +777,416 @@ describe('node-types tests', () => {
         *                                             ^- refactor to `shortOption | longOption | oldOption`
         */
       // console.log(parentCmd.text, o.text, result);
+    });
+  });
+
+  describe('alias symbols', () => {
+    it('isAliasName(node: SyntaxNode)', () => {
+      const aliasNames = parseStringForNodeType([
+        'alias gsc="git stash create"',
+        'alias g="git"',
+        'alias ls "ls -1"',
+        'alias lsd "ls -1"',
+        'alias funky="echo $PATH && ls"',
+        'alias echo-quote="echo \\"hello world\\""',
+      ].join('\n'), isAliasDefinitionName);
+      // console.log(aliasNames.map(n => n.text));
+      expect(aliasNames.map(n => n.text.split('=').at(0))).toEqual(['gsc', 'g', 'ls', 'lsd', 'funky', 'echo-quote']);
+    });
+
+    it('check for alias definition', () => {
+      const testInfo = [
+        {
+          input: 'alias g="git"',
+          output: {
+            name: 'g',
+            value: 'git',
+            prefix: '',
+            wraps: 'git',
+            hasEquals: true,
+          },
+        },
+        {
+          input: 'alias ls "ls -1"',
+          output: {
+            name: 'ls',
+            value: 'ls -1',
+            prefix: 'command',
+            wraps: null,
+            hasEquals: false,
+          },
+        },
+        {
+          input: "alias fdf 'fd --hidden | fzf'",
+          output: {
+            name: 'fdf',
+            value: 'fd --hidden | fzf',
+            prefix: '',
+            wraps: 'fd --hidden | fzf',
+            hasEquals: false,
+          },
+        },
+        {
+          input: "alias fzf='fzf --height 40%'",
+          output: {
+            name: 'fzf',
+            value: 'fzf --height 40%',
+            prefix: 'command',
+            wraps: null,
+            hasEquals: true,
+          },
+        },
+        {
+          input: "alias grep='grep --color=auto'",
+          output: {
+            name: 'grep',
+            value: 'grep --color=auto',
+            prefix: 'command',
+            wraps: null,
+            hasEquals: true,
+          },
+        },
+        {
+          input: "alias rm='rm -i'",
+          output: {
+            name: 'rm',
+            value: 'rm -i',
+            prefix: 'command',
+            wraps: null,
+            hasEquals: true,
+          },
+        },
+      ];
+
+      const results: FishAliasInfoType[] = [];
+      testInfo.forEach(({ input, output }) => {
+        const { rootNode } = parser.parse(input);
+        for (const child of getChildNodes(rootNode)) {
+          if (NodeTypes.isCommandWithName(child, 'alias')) {
+            const info = FishAlias.getInfo(child);
+            if (!info) fail();
+            results.push(info);
+            expect(info).toEqual(output);
+          }
+        }
+      });
+      expect(results.length).toBe(6);
+    });
+
+    it('alias function outputs', () => {
+      const testInfo = [
+        {
+          input: 'alias gsc="git stash create"',
+          output: "function gsc --wraps='git stash create' --description 'alias gsc=git stash create'\n" +
+            '    git stash create $argv\n' +
+            'end',
+        },
+        {
+          input: 'alias g="git"',
+          output: "function g --wraps='git' --description 'alias g=git'\n    git $argv\nend",
+        },
+        {
+          input: "alias ls 'exa --group-directories-first --icons --color=always -1 -a'",
+          output: "function ls --wraps='exa --group-directories-first --icons --color=always -1 -a' --description 'alias ls exa --group-directories-first --icons --color=always -1 -a'\n" +
+            '    exa --group-directories-first --icons --color=always -1 -a $argv\n' +
+            'end',
+        },
+        {
+          input: "alias lsd 'exa --group-directories-first --icons --color=always -a'",
+          output: "function lsd --wraps='exa --group-directories-first --icons --color=always -a' --description 'alias lsd exa --group-directories-first --icons --color=always -a'\n" +
+            '    exa --group-directories-first --icons --color=always -a $argv\n' +
+            'end',
+        },
+        {
+          input: "alias exa 'exa --group-directories-first --icons --color=always -1 -a'",
+          output: "function exa --description 'alias exa exa --group-directories-first --icons --color=always -1 -a'\n" +
+            '    command exa --group-directories-first --icons --color=always -1 -a $argv\n' +
+            'end',
+        },
+        {
+          input: "alias funky='echo $PATH && ls'",
+          output: "function funky --wraps='echo $PATH && ls' --description 'alias funky=echo $PATH && ls'\n" +
+            '    echo $PATH && ls $argv\n' +
+            'end',
+        },
+        {
+          input: "alias echo-quote='echo \"hello world\"'",
+          output: "function echo-quote --wraps='echo \"hello world\"' --description 'alias echo-quote=echo \"hello world\"'\n" +
+            '    echo "hello world" $argv\n' +
+            'end',
+        },
+      ];
+
+      testInfo.forEach(({ input, output }) => {
+        const { rootNode } = parser.parse(input);
+        const aliasCommandNode = getChildNodes(rootNode).find(child => NodeTypes.isCommandWithName(child, 'alias'))!;
+        if (!aliasCommandNode) {
+          fail();
+        }
+        const result = FishAlias.toFunction(aliasCommandNode);
+        // console.log(result);
+        expect(result).toEqual(output);
+      });
+    });
+
+    //     it('alias SymbolDefinition', () => {
+    //       const testInfo = [
+    //         {
+    //           filename: 'conf.d/aliases.fish',
+    //           input: 'alias gsc="git stash create"',
+    //           expected: {
+    //             name: 'gsc',
+    //             kind: SymbolKind.Function,
+    //             text: [
+    //
+    //               `(${md.italic('alias')}) ${'gsc'}`,
+    //               md.separator(),
+    //               md.codeBlock('fish', 'alias gsc="git stash create"'),
+    //               md.separator(),
+    //               md.codeBlock('fish', 'function gsc --wraps=\'git stash create\' --description \'alias gsc=git stash create\'\n    git stash create $argv\nend'),
+    //             ].join('\n'),
+    //             selectionRange: {
+    //               start: { line: 0, character: 6 },
+    //               end: { line: 0, character: 9 },
+    //             },
+    //             scope: 'global',
+    //           },
+    //         },
+    //         {
+    //           filename: 'functions/foo.fish',
+    //           input: `function foo
+    //     alias foo_alias="echo 'foo alias'"
+    // end
+    //
+    // function bar
+    //     alias bar_alias "echo 'bar alias'"
+    // end
+    // `,
+    //           expected: {
+    //             name: 'foo_alias',
+    //             kind: SymbolKind.Function,
+    //             text: [
+    //
+    //               `(${md.italic('alias')}) ${'foo_alias'}`,
+    //               md.separator(),
+    //               md.codeBlock('fish', 'alias foo_alias="echo \'foo alias\'"'),
+    //               md.separator(),
+    //               md.codeBlock('fish', 'function foo_alias --wraps=\'echo \\\'foo alias\\\'\' --description \'alias foo_alias=echo \\\'foo alias\\\'\'\n    echo \'foo alias\' $argv\nend'),
+    //             ].join('\n'),
+    //             selectionRange: {
+    //               start: { line: 1, character: 10 },
+    //               end: { line: 1, character: 19 },
+    //             },
+    //             scope: 'local',
+    //           },
+    //         },
+    //       ];
+    //
+    //       function resultToExpected(result: FishSymbol): any {
+    //         return {
+    //           name: result.name,
+    //           kind: result.kind,
+    //           text: result.detail,
+    //           selectionRange: result.selectionRange,
+    //           scope: result.scope.scopeTag.toString(),
+    //         };
+    //       }
+    //
+    //       testInfo.forEach(({ filename, input, expected }) => {
+    //         const doc = createFakeLspDocument(filename, input);
+    //         const { rootNode } = parser.parse(doc.getText());
+    //         const aliasNode = getChildNodes(rootNode).find(child => NodeTypes.isAliasName(child))!;
+    //         if (!aliasNode) {
+    //           fail();
+    //         }
+    //         // console.log(getScope(doc, aliasNode), doc.uri);
+    //         const result = FishAlias.toFishDocumentSymbol(
+    //           aliasNode,
+    //           aliasNode.parent!,
+    //           doc,
+    //         );
+    //         // console.log(result);
+    //         if (!result) fail();
+    //         // console.log(result.scope.scopeNode.text);
+    //         expect(resultToExpected(result)).toEqual(expected);
+    //       });
+    //     });
+  });
+
+  it.skip('find $status hover', () => {
+    const { rootNode } = parser.parse(`
+function foo
+    echo a
+    echo b
+    echo c
+    echo d
+    echo $status
+
+    if test -n "$argv"
+        echo $status
+    end
+
+    if test "$argv" = "test"
+        pritnf %s "$status"
+    end
+    echo $status
+end
+`);
+    // const results: SyntaxNode[] = [];
+    // console.log(PrebuiltDocumentationMap.getByType('variable').map(v => v.name));
+    let idx = 0;
+    for (const child of getChildNodes(rootNode)) {
+      if (isPrebuiltVariableExpansion(child)) {
+        if (PrebuiltDocumentationMap.getByName(child.text)) {
+          const docs = getPrebuiltVariableExpansionDocs(child);
+          // const docs = PrebuiltDocumentationMap.getByType('variable').find(v => v.name === child.text.slice(1));
+          console.log(docs);
+        }
+        console.log({
+          idx,
+          text: child.text,
+          type: child.type,
+          id: child.id,
+          prevCommand: NodeTypes.findPreviousSibling(child.parent!)!.text,
+        });
+      }
+      idx++;
+    }
+  });
+
+  describe('argparse variables', () => {
+    it('find argparse tokens', () => {
+      const testInfo = [
+        {
+          filename: 'functions/foo.fish',
+          input: `function foo
+    argparse --ignore-unknown "h/help" "v/value" new-flag= -- $argv
+    or return
+
+end`,
+          expected: {
+            name: 'argparse --ignore-unknown "h/help" "v/value" new-flag=',
+            values: ['_flag_h', '_flag_help', '_flag_v', '_flag_value', '_flag_new_flag'],
+          },
+        },
+      ];
+
+      testInfo.forEach(({ filename, input, expected }) => {
+        const doc = createFakeLspDocument(filename, input);
+        const { rootNode } = parser.parse(doc.getText());
+        for (const child of getChildNodes(rootNode)) {
+          if (NodeTypes.isCommandWithName(child, 'argparse')) {
+            const tokens = processArgparseCommand(doc, child);
+            expect(tokens.map(t => t.name)).toEqual(expected.values);
+          }
+        }
+      });
+    });
+  });
+
+  it('is return number', () => {
+    const { rootNode } = parser.parse('return 1; echo 125');
+    const results: SyntaxNode[] = [];
+    for (const child of getChildNodes(rootNode)) {
+      if (NodeTypes.isReturn(child)) {
+        // console.log(child.text);
+        results.push(child);
+      }
+    }
+    expect(results.length).toBe(1);
+  });
+
+  it('check command names', () => {
+    const { rootNode } = parser.parse('set --show PWD; read -l dirs; echo $dirs');
+    const empty: SyntaxNode[] = [];
+    const results: SyntaxNode[] = [];
+    for (const node of getChildNodes(rootNode)) {
+      if (NodeTypes.isCommandWithName(node, 's', 'r')) {
+        empty.push(node);
+      }
+      if (NodeTypes.isCommandWithName(node, 'set', 'read', 'echo')) {
+        results.push(node);
+      }
+    }
+    expect(empty.length).toBe(0);
+    expect(results.length).toBe(3);
+  });
+
+  describe('autoloaded path variables', () => {
+    it('is autoloaded variable', () => {
+      expect(env.get('fish_complete_path')).toBeTruthy();
+      expect(env.get('fish_function_path')).toBeTruthy();
+      expect(env.get('__fish_data_dir')).toBeTruthy();
+      expect(env.get('__fish_config_dir')).toBeTruthy();
+    });
+
+    it('all autoloaded variables', () => {
+      // AutoloadedPathVariables.all().forEach(path => {
+      //   console.log(AutoloadedPathVariables.getHoverDocumentation(path));
+      //   console.log('-'.repeat(80));
+      // });
+      expect(AutoloadedPathVariables.all().length).toBe(14);
+    });
+
+    it('AutoloadedPathVariables', () => {
+      const { rootNode } = parser.parse('set -agx fish_complete_path $HOME/.config/fish/completions');
+      const results: SyntaxNode[] = [];
+      for (const child of getChildNodes(rootNode)) {
+        if (NodeTypes.isVariableDefinitionName(child) && AutoloadedPathVariables.includes(child.text)) {
+          // console.log({
+          //   text: child.text,
+          //   value: AutoloadedPathVariables.get(child.text),
+          //   read: AutoloadedPathVariables.read(child.text),
+          // });
+          // console.log(AutoloadedPathVariables.getHoverDocumentation(child.text));
+          results.push(child);
+        }
+      }
+      expect(results.length).toBe(1);
+      const documentation = AutoloadedPathVariables.getHoverDocumentation(results[0]!.text);
+      const result = documentation.split('\n').shift();
+      expect(result).toEqual('(*variable*) **$fish_complete_path**');
+    });
+  });
+
+  describe('complete', () => {
+    it('isCompleteCommandName(node) === true', () => {
+      const { rootNode } = parser.parse('complete -c foo -a "bar"');
+      const cmdName = getChildNodes(rootNode).find(child => child.text === 'foo');
+      if (!cmdName) fail();
+
+      expect(NodeTypes.isCompleteCommandName(cmdName)).toBeTruthy();
+    });
+    it('find isCompleteCommandName(node)', () => {
+      const { rootNode } = parser.parse('complete -c foo -a "bar"');
+      const results: SyntaxNode[] = [];
+      for (const child of getChildNodes(rootNode)) {
+        if (NodeTypes.isCompleteCommandName(child)) {
+          results.push(child);
+        }
+      }
+      expect(results.length).toBe(1);
+    });
+
+    it('find all isCompleteCommandName(node)', () => {
+      const { rootNode } = parser.parse(`
+complete -c foo -a "a"
+complete -c foo -a "b"
+complete -c foo -a "c"
+complete -c foo -a "d"
+complete -c foo -s h -l help -d 'help'
+complete -c foo -s a -l args -d 'arguments'
+complete -c foo -s c -l complete -d 'completions'
+complete -c foo -s z -l null -d 'null'
+complete -c foo -s d -l describe -d 'describe'`);
+      const results: SyntaxNode[] = [];
+      for (const child of getChildNodes(rootNode)) {
+        if (NodeTypes.isCompleteCommandName(child)) {
+          results.push(child);
+        }
+      }
+      expect(results.length).toBe(9);
+      expect(new Set([...results.map(n => n.text)]).size).toEqual(1);
     });
   });
 });

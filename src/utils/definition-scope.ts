@@ -1,6 +1,6 @@
 import { SyntaxNode } from 'web-tree-sitter';
 import * as NodeTypes from './node-types';
-import { isAutoloadedUriLoadsFunctionName } from './translation';
+import { isAutoloadedUriLoadsAliasName, isAutoloadedUriLoadsFunctionName } from './translation';
 import { firstAncestorMatch, getRange, isPositionWithinRange, getParentNodes } from './tree-sitter';
 import { Position } from 'vscode-languageserver';
 import { LspDocument } from '../document';
@@ -9,16 +9,44 @@ export type ScopeTag = 'global' | 'universal' | 'local' | 'function' | 'inherit'
 export interface DefinitionScope {
   scopeNode: SyntaxNode;
   scopeTag: ScopeTag;
-  containsPosition: (position: Position) => boolean;
 }
 
-export namespace DefinitionScope {
-  export function create(scopeNode: SyntaxNode, scopeTag: 'global' | 'universal' | 'local' | 'function' | 'inherit'): DefinitionScope {
-    return {
-      scopeNode,
-      scopeTag,
-      containsPosition: (position: Position) => isPositionWithinRange(position, getRange(scopeNode)),
-    };
+export class DefinitionScope {
+  constructor(public scopeNode: SyntaxNode, public scopeTag: ScopeTag) {}
+
+  static create(scopeNode: SyntaxNode, scopeTag: 'global' | 'universal' | 'local' | 'function' | 'inherit'): DefinitionScope {
+    return new DefinitionScope(scopeNode, scopeTag);
+  }
+
+  containsPosition(position: Position) {
+    return isPositionWithinRange(position, getRange(this.scopeNode));
+  }
+
+  isBeforePosition(position: Position) {
+    return this.scopeNode.startPosition.row < position.line ||
+      this.scopeNode.startPosition.row === position.line && this.scopeNode.startPosition.column < position.character;
+  }
+
+  isAfterPosition(position: Position) {
+    return this.scopeNode.endPosition.row > position.line ||
+      this.scopeNode.endPosition.row === position.line && this.scopeNode.endPosition.column > position.character;
+  }
+
+  isBeforeNode(node: SyntaxNode) {
+    const range = getRange(node);
+    return this.scopeNode.startPosition.row < range.start.line ||
+      this.scopeNode.startPosition.row === range.start.line && this.scopeNode.startPosition.column < range.start.character;
+  }
+
+  isAfterNode(node: SyntaxNode) {
+    const range = getRange(node);
+    return this.scopeNode.endPosition.row > range.end.line ||
+      this.scopeNode.endPosition.row === range.end.line && this.scopeNode.endPosition.column > range.end.character;
+  }
+
+  containsNode(node: SyntaxNode) {
+    const range = getRange(node);
+    return this.containsPosition(range.start);
   }
 }
 
@@ -102,14 +130,6 @@ function findScopeFromFlag(node: SyntaxNode, flag: VariableDefinitionFlag) {
         scopeFlag = 'global';
       }
       break;
-    // case 'for_scope':
-    //   scopeNode = firstAncestorMatch(node, NodeTypes.isFunctionDefinition);
-    //   scopeFlag = 'function';
-    //   if (!scopeNode) {
-    //     scopeNode = firstAncestorMatch(node, NodeTypes.isProgram);
-    //     scopeFlag = 'global';
-    //   }
-    //   break;
     case 'inherit':
       scopeNode = firstAncestorMatch(node, NodeTypes.isScope);
       scopeFlag = 'inherit';
@@ -147,7 +167,18 @@ export function getVariableScope(node: SyntaxNode) {
 }
 
 export function getScope(document: LspDocument, node: SyntaxNode) {
-  if (NodeTypes.isFunctionDefinitionName(node)) {
+  if (NodeTypes.isAliasDefinitionName(node)) {
+    const isAutoloadedName = isAutoloadedUriLoadsAliasName(document);
+    if (isAutoloadedName(node)) {
+      return DefinitionScope.create(node, 'global')!;
+    }
+    const parents = getParentNodes(node.parent!.parent!) || getParentNodes(node.parent!);
+    const firstParent = parents
+      .filter(n => NodeTypes.isProgram(n) || NodeTypes.isFunctionDefinition(n))
+      .at(0)!;
+
+    return DefinitionScope.create(firstParent, 'local')!;
+  } else if (NodeTypes.isFunctionDefinitionName(node)) {
     const isAutoloadedName = isAutoloadedUriLoadsFunctionName(document);
     // gets <HERE> from ~/.config/fish/functions/<HERE>.fish
     // const loadedName = pathToRelativeFunctionName(uri);

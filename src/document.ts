@@ -1,9 +1,11 @@
 import { promises as fs } from 'fs';
-import { TextDocument } from 'vscode-languageserver-textdocument';
+import { DocumentUri, TextDocument } from 'vscode-languageserver-textdocument';
 import { Position, Range, TextDocumentItem, TextDocumentContentChangeEvent } from 'vscode-languageserver';
+import * as path from 'path';
 import { URI } from 'vscode-uri';
 import { homedir } from 'os';
 import { AutoloadType, uriToPath } from './utils/translation';
+import { Workspace, workspaces } from './utils/workspace';
 
 export class LspDocument implements TextDocument {
   protected document: TextDocument;
@@ -12,8 +14,30 @@ export class LspDocument implements TextDocument {
     const { uri, languageId, version, text } = doc;
     this.document = TextDocument.create(uri, languageId, version, text);
   }
+  static createTextDocumentItem(uri: string, text: string): LspDocument {
+    return new LspDocument({
+      uri,
+      languageId: 'fish',
+      version: 1,
+      text,
+    });
+  }
 
-  get uri(): string {
+  static fromTextDocument(doc: TextDocument): LspDocument {
+    const item = TextDocumentItem.create(doc.uri, doc.languageId, doc.version, doc.getText());
+    return new LspDocument(item);
+  }
+
+  asTextDocumentItem(): TextDocumentItem {
+    return {
+      uri: this.document.uri,
+      languageId: this.document.languageId,
+      version: this.document.version,
+      text: this.document.getText(),
+    };
+  }
+
+  get uri(): DocumentUri {
     return this.document.uri;
   }
 
@@ -39,6 +63,19 @@ export class LspDocument implements TextDocument {
 
   get lineCount(): number {
     return this.document.lineCount;
+  }
+
+  create(uri: string, languageId: string, version: number, text: string): LspDocument {
+    return new LspDocument({
+      uri,
+      languageId: languageId || 'fish',
+      version: version || 1,
+      text,
+    });
+  }
+
+  update(changes: TextDocumentContentChangeEvent[]): void {
+    this.document = TextDocument.update(this.document, changes, this.version);
   }
 
   /**
@@ -86,7 +123,6 @@ export class LspDocument implements TextDocument {
     for (const change of changes) {
       const content = this.getText();
       let newContent = change.text;
-
       if (TextDocumentContentChangeEvent.isIncremental(change)) {
         const start = this.offsetAt(change.range.start);
         const end = this.offsetAt(change.range.end);
@@ -100,7 +136,7 @@ export class LspDocument implements TextDocument {
     this.document = TextDocument.create(newUri, this.languageId, this.version, this.getText());
   }
 
-  getFilePath(): string | undefined {
+  getFilePath(): string {
     return uriToPath(this.uri);
   }
 
@@ -115,7 +151,8 @@ export class LspDocument implements TextDocument {
     const workspaceRootIndex = dirs.find(dir => dir === 'fish')
       ? dirs.indexOf('fish')
       : dirs.find(dir => ['conf.d', 'functions', 'completions', 'config.fish'].includes(dir))
-        ? dirs.findLastIndex(dir => ['conf.d', 'functions', 'completions', 'config.fish'].includes(dir))
+        // ? dirs.findLastIndex(dir => ['conf.d', 'functions', 'completions', 'config.fish'].includes(dir))
+        ? dirs.findIndex(dir => ['conf.d', 'functions', 'completions', 'config.fish'].includes(dir))
         : dirs.length - 1;
 
     return dirs.slice(workspaceRootIndex).join('/');
@@ -140,7 +177,26 @@ export class LspDocument implements TextDocument {
     const pathArray = this.uri.split('/');
     const fileName = pathArray.pop();
     const parentDir = pathArray.pop();
-    return parentDir && ['functions', 'conf.d'].includes(parentDir?.toString()) || fileName === 'config.fish';
+    return parentDir && ['functions', 'conf.d', 'completion'].includes(parentDir?.toString()) || fileName === 'config.fish';
+  }
+
+  public getWorkspace(): Workspace | undefined {
+    return workspaces.find(workspace => workspace.contains(this.uri));
+  }
+
+  private getFolderType(): AutoloadType | null {
+    const docPath = uriToPath(this.uri);
+    if (!docPath) return null;
+
+    const dirName = path.basename(path.dirname(docPath));
+    const fileName = path.basename(docPath);
+
+    if (dirName === 'functions') return 'functions';
+    if (dirName === 'conf.d') return 'conf.d';
+    if (dirName === 'completions') return 'completions';
+    if (fileName === 'config.fish') return 'config';
+
+    return '';
   }
 
   /**
@@ -152,15 +208,9 @@ export class LspDocument implements TextDocument {
    * files.
    */
   isAutoloaded(): boolean {
-    const path = uriToPath(this.uri);
-    if (path?.includes('fish/functions')) {
-      return true;
-    } else if (path?.includes('fish/conf.d')) {
-      return true;
-    } else if (path?.includes('fish/config.fish')) {
-      return true;
-    }
-    return false;
+    const folderType = this.getFolderType();
+    if (!folderType) return false;
+    return ['functions', 'conf.d', 'config'].includes(folderType);
   }
 
   /**
@@ -173,34 +223,16 @@ export class LspDocument implements TextDocument {
    *  completion files.
    */
   isAutoloadedUri(): boolean {
-    const path = uriToPath(this.uri);
-    if (path?.includes('fish/functions')) {
-      return true;
-    } else if (path?.includes('fish/conf.d')) {
-      return true;
-    } else if (path?.includes('fish/config.fish')) {
-      return true;
-    } else if (path?.includes('fish/completions')) {
-      return true;
-    }
-    return false;
+    const folderType = this.getFolderType();
+    if (!folderType) return false;
+    return ['functions', 'conf.d', 'config', 'completions'].includes(folderType);
   }
 
   /**
    * helper that gets the document URI if it is fish/functions directory
    */
   getAutoloadType(): AutoloadType {
-    const path = uriToPath(this.uri);
-    if (path?.includes('fish/functions')) {
-      return 'functions';
-    } else if (path?.includes('fish/conf.d')) {
-      return 'conf.d';
-    } else if (path?.includes('fish/config.fish')) {
-      return 'config';
-    } else if (path?.includes('fish/completions')) {
-      return 'completions';
-    }
-    return '';
+    return this.getFolderType() || '';
   }
 
   /**
@@ -227,6 +259,10 @@ export class LspDocuments {
   private readonly documents = new Map<string, LspDocument>();
   private loadingQueue: Set<string> = new Set();
   private loadedFiles: Map<string, number> = new Map(); // uri -> timestamp
+
+  static create(): LspDocuments {
+    return new LspDocuments();
+  }
 
   /**
    * Sorted by last access.
@@ -276,13 +312,36 @@ export class LspDocuments {
     return this.documents.get(uri);
   }
 
-  open(file: string, doc: TextDocumentItem): boolean {
+  open(doc: LspDocument): boolean {
+    const file = uriToPath(doc.uri);
     if (this.documents.has(file)) {
       return false;
     }
-    this.documents.set(file, new LspDocument(doc));
+    this.documents.set(file, doc);
     this._files.unshift(file);
     return true;
+  }
+
+  openTextDocument(document: TextDocument): LspDocument {
+    const path = uriToPath(document.uri);
+    if (this.documents.has(path)) {
+      return this.documents.get(path)!;
+    }
+    const lspDocument = LspDocument.fromTextDocument(document);
+    this.documents.set(path, lspDocument);
+    this._files.unshift(path);
+    return lspDocument;
+  }
+
+  updateTextDocument(textDocument: TextDocument): LspDocument {
+    const path = uriToPath(textDocument.uri);
+    this.documents.set(path, LspDocument.fromTextDocument(textDocument));
+    return this.documents.get(path) as LspDocument;
+  }
+
+  closeTextDocument(document: TextDocument): LspDocument | undefined {
+    const path = uriToPath(document.uri);
+    return this.close(path);
   }
 
   close(file: string): LspDocument | undefined {
@@ -315,3 +374,21 @@ export class LspDocuments {
     return URI.file(filepath);
   }
 }
+
+/**
+ * GLOBAL DOCUMENTS OBJECT
+ *
+ * This is a singleton object that holds all the documents open inside of it.
+ *
+ * Import this object and use it to access the documents.
+ *
+ * NOTE: while the documents inside this object should be accessible anywhere in
+ *       the code, the object itself does not need to handle listening to events.
+ *
+ *       This is done by the server itself, in the `server.register()` method,
+ *       specifically by the `this.documents` property of the server.
+ *
+ *       Notice that the server has a `this.documents` object (that is used to listen for document events)
+ *       and it updates the `documents` object here, when they are seen
+ */
+export const documents = LspDocuments.create();
