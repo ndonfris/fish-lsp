@@ -1,4 +1,4 @@
-import { createConnection, InitializeParams, InitializeResult, StreamMessageReader, StreamMessageWriter } from 'vscode-languageserver/node';
+// import { Connection, createConnection, InitializeParams, InitializeResult, IPCMessageReader, IPCMessageWriter, ProposedFeatures, SocketMessageReader, SocketMessageWriter, StreamMessageReader, StreamMessageWriter } from 'vscode-languageserver/node';
 import FishServer from '../server';
 import { createServerLogger, logger } from '../logger';
 import { config, configHandlers } from '../config';
@@ -7,29 +7,118 @@ import * as os from 'os';
 import { pathToUri } from './translation';
 import { PackageVersion } from './commander-cli-subcommands';
 
+import { createConnection, InitializeParams, InitializeResult, StreamMessageReader, StreamMessageWriter, ProposedFeatures, Connection } from 'vscode-languageserver/node';
+import * as net from 'net';
+
+// Define proper types for the connection options
+export type ConnectionType = 'stdio' | 'node-ipc' | 'socket';
+
+export interface ConnectionOptions {
+  port?: number;
+}
+
 /**
- * Creaete a connection for the server. Initialize the server with the connection.
- * Listen for incoming messages and handle them.
+ * Creates an LSP connection based on the specified type
  */
-export function startServer() {
-  // Create a connection for the server.
-  // The connection uses stdin/stdout for communication.
-  const connection = createConnection(
-    new StreamMessageReader(process.stdin),
-    new StreamMessageWriter(process.stdout),
-  );
+function createLspConnection(connectionType: ConnectionType = 'stdio', options: ConnectionOptions = {}): Connection | null {
+  let server: net.Server;
+  switch (connectionType) {
+    case 'node-ipc':
+      return createConnection(ProposedFeatures.all);
+
+    case 'socket':
+      if (!options.port) {
+        logger.log('Socket connection requires a port number');
+        process.exit(1);
+      }
+
+      // For socket connections, we need to set up a TCP server
+      server = net.createServer((socket) => {
+        const connection = createConnection(
+          new StreamMessageReader(socket),
+          new StreamMessageWriter(socket),
+        );
+
+        // Server setup code that would normally go in startServer
+        setupServerWithConnection(connection);
+      });
+
+      server.listen(options.port);
+      logger.log(`Server listening on port ${options.port}`);
+
+      // For socket connections, we return null since the connection is created in the callback
+      // This is a special case that needs to be handled in startServer
+      return null;
+
+    case 'stdio':
+    default:
+      return createConnection(
+        new StreamMessageReader(process.stdin),
+        new StreamMessageWriter(process.stdout),
+      );
+  }
+}
+
+/**
+ * Sets up the server with the provided connection
+ */
+function setupServerWithConnection(connection: Connection): void {
   connection.onInitialize(
     async (params: InitializeParams): Promise<InitializeResult> => {
       const { initializeResult } = await FishServer.create(connection, params);
       return initializeResult;
     },
   );
+
+  // Start listening
   connection.listen();
+
+  // Setup logger
   createServerLogger(config.fish_lsp_log_file, connection.console);
   logger.log('Starting FISH-LSP server');
   logger.log('Server started with the following handlers:', configHandlers);
   logger.log('Server started with the following config:', config);
 }
+
+/**
+ * Starts the LSP server with the specified connection parameters
+ */
+export function startServer(connectionType: ConnectionType = 'stdio', options: ConnectionOptions = {}): void {
+  // Create connection using the refactored function
+  const connection = createLspConnection(connectionType, options);
+
+  // For socket connections, the setup is handled in the connection creation
+  if (connectionType === 'socket' || !connection) {
+    // Connection is already set up in createLspConnection for socket connections
+    return;
+  }
+
+  // For other connection types, set up the server with the connection
+  setupServerWithConnection(connection);
+}
+/**
+ * Creaete a connection for the server. Initialize the server with the connection.
+ * Listen for incoming messages and handle them.
+ */
+// export function startServer() {
+//   // Create a connection for the server.
+//   // The connection uses stdin/stdout for communication.
+//   const connection = createConnection(
+//     new StreamMessageReader(process.stdin),
+//     new StreamMessageWriter(process.stdout),
+//   );
+//   connection.onInitialize(
+//     async (params: InitializeParams): Promise<InitializeResult> => {
+//       const { initializeResult } = await FishServer.create(connection, params);
+//       return initializeResult;
+//     },
+//   );
+//   connection.listen();
+//   createServerLogger(config.fish_lsp_log_file, connection.console);
+//   logger.log('Starting FISH-LSP server');
+//   logger.log('Server started with the following handlers:', configHandlers);
+//   logger.log('Server started with the following config:', config);
+// }
 
 export async function timeOperation<T>(
   operation: () => Promise<T>,

@@ -5,7 +5,8 @@ import { Command, Option } from 'commander';
 import { buildFishLspCompletions } from './utils/get-lsp-completions';
 import { logger } from './logger';
 import { configHandlers, generateJsonSchemaShellScript, config, showJsonSchemaShellScript, updateHandlers, validHandlers, Config } from './config';
-import { startServer, timeServerStartup } from './utils/startup';
+import { ConnectionOptions, ConnectionType, startServer, timeServerStartup } from './utils/startup';
+import { performHealthCheck } from './utils/health-check';
 
 /**
  *  creates local 'commandBin' used for commander.js
@@ -81,17 +82,22 @@ commandBin.command('start [TOGGLE]')
   .option('--dump', 'stop lsp & show the startup options being read')
   .option('--enable <string...>', 'enable the startup option')
   .option('--disable <string...>', 'disable the startup option')
+  .option('--stdio', 'use stdin/stdout for communication (default)', true)
+  .option('--node-ipc', 'use node IPC for communication')
+  .option('--socket <port>', 'use TCP socket for communication')
+  .option('--memory-limit <mb>', 'set memory usage limit in MB')
+  .option('--max-files <number>', 'override the maximum number of files to analyze')
   .addHelpText('afterAll', [
     '',
     'STRINGS FOR \'--enable/--disable\':',
-    `(${validHandlers.map((opt, index) => {
+    `${validHandlers.map((opt, index) => {
       return index < validHandlers.length - 1 && index > 0 && index % 5 === 0 ? `${opt},\n` :
         index < validHandlers.length - 1 ? `${opt},` : opt;
-    }).join(' ')})`,
+    }).join(' ').split('\n').map(line => `\t${line.trim()}`).join('\n')}`,
     '',
     'Examples:',
     '\tfish-lsp start --disable hover  # only disable the hover feature',
-    '\tfish-lsp start --disable complete logging index hover --show',
+    '\tfish-lsp start --disable complete logging index hover --dump',
     '\tfish-lsp start --enable --disable logging complete codeAction',
   ].join('\n'))
   .action(() => {
@@ -103,6 +109,29 @@ commandBin.command('start [TOGGLE]')
     updateHandlers(config.fish_lsp_enabled_handlers, true);
     updateHandlers(config.fish_lsp_disabled_handlers, false);
 
+    // Extract new options
+    const { nodeIpc, socket, memoryLimit, maxFiles } = commandBin.opts();
+    // Handle max files option
+    if (maxFiles && !isNaN(parseInt(maxFiles))) {
+      config.fish_lsp_max_background_files = parseInt(maxFiles);
+    }
+
+    // Handle memory limit
+    if (memoryLimit && !isNaN(parseInt(memoryLimit))) {
+      const limitInMB = parseInt(memoryLimit);
+      process.env.NODE_OPTIONS = `--max-old-space-size=${limitInMB}`;
+    }
+
+    // Determine connection type
+    let connectionType: ConnectionType = 'stdio';
+    const connectionOptions: ConnectionOptions = {};
+
+    if (nodeIpc) {
+      connectionType = 'node-ipc';
+    } else if (socket) {
+      connectionType = 'socket';
+      connectionOptions.port = parseInt(socket);
+    }
     // override `configHandlers` with command line args
     const { enabled, disabled, dumpCmd } = accumulateStartupOptions(commandBin.args);
     updateHandlers(enabled, true);
@@ -117,7 +146,7 @@ commandBin.command('start [TOGGLE]')
     }
 
     /* config needs to be used in `startServer()` below */
-    startServer();
+    startServer(connectionType, connectionOptions);
   });
 
 // INFO
@@ -133,6 +162,7 @@ commandBin.command('info')
   .option('--log-file', 'show the log file path')
   .option('--more', 'show the build time of the fish-lsp executable')
   .option('--time-startup', 'time the startup of the fish-lsp executable')
+  .option('--health-check', 'run diagnostics and report health status')
   .action(async args => {
     const capabilities = BuildCapabilityString()
       .split('\n')
@@ -146,6 +176,10 @@ commandBin.command('info')
       const wpath = args.bin ? 'BINARY' : 'REPOSITORY';
       logger.logToStdout(wpath + ' ' + smallFishLogo());
       logger.logToStdout(logPath);
+      process.exit(0);
+    }
+    if (args.healthCheck) {
+      await performHealthCheck();
       process.exit(0);
     }
     if (args.time) {

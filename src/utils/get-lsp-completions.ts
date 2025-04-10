@@ -105,6 +105,7 @@ complete -c fish-lsp -n '__fish_lsp_using_command info; and not __fish_contains_
 complete -c fish-lsp -n '__fish_lsp_using_command info; and not __fish_contains_opt log-file'      -l log-file       -d 'show log file path'
 complete -c fish-lsp -n '__fish_lsp_using_command info; and not __fish_contains_opt more'          -l more           -d 'show more info'
 complete -c fish-lsp -n '__fish_lsp_using_command info; and not __fish_contains_opt time-startup'  -l time-startup   -d 'show startup timing info'
+complete -c fish-lsp -n '__fish_lsp_using_command info; and not __fish_contains_opt check-health'  -l check-health   -d 'show the server health'
 `;
 
 // const completeCompletions: string = `# fish-lsp complete <TAB>
@@ -130,40 +131,40 @@ end
 export function buildFishLspCompletions(commandBin: Command) {
   const subcmdStrs = commandBin.commands.map(cmd => `${cmd.name()}\\t'${cmd.summary()}'`).join('\n');
   const output: string[] = [];
+
   output.push(AUTO_GENERATED_HEADER_STRING);
   output.push(__fish_lsp_using_command);
-
+  // default completions
   output.push('# disable file completions');
   output.push('complete -c fish-lsp -f', '');
   output.push(`complete -c fish-lsp -n "__fish_use_subcommand" -a "\n${subcmdStrs}\"`);
-
+  // fish-lsp <TAB>
   output.push(noFishLspSubcommands);
-
-  // flags for `fish-lsp start`
+  // flags for `fish-lsp start --<TAB>`
+  output.push(featuresCompletions);
   output.push([
-    '',
     'set __fish_lsp_subcommands start',
     '',
     '# fish_lsp start --<TAB> ',
-    'complete -c fish-lsp -n \'__fish_seen_subcommand_from $__fish_lsp_subcommands\' -a \"',
-    '--dump\\t\'dump output and stop server\'',
-    '--enable\\t\'enable feature\'',
-    '--disable\\t\'disable feature\'\"',
+    'complete -c fish-lsp -n \'__fish_seen_subcommand_from $__fish_lsp_subcommands\' -l dump          -d \'stop lsp & show the startup options being read\'',
+    'complete -c fish-lsp -n \'__fish_seen_subcommand_from $__fish_lsp_subcommands\' -l enable        -d \'enable the startup option\'      -xa \'(_fish_lsp_get_features)\'',
+    'complete -c fish-lsp -n \'__fish_seen_subcommand_from $__fish_lsp_subcommands\' -l disable       -d \'disable the startup option\'     -xa \'(_fish_lsp_get_features)\'',
+    'complete -c fish-lsp -n \'__fish_seen_subcommand_from $__fish_lsp_subcommands\' -l stdio         -d \'use stdin/stdout for communication (default)\'',
+    'complete -c fish-lsp -n \'__fish_seen_subcommand_from $__fish_lsp_subcommands\' -l node-ipc      -d \'use node IPC for communication\'',
+    'complete -c fish-lsp -n \'__fish_seen_subcommand_from $__fish_lsp_subcommands\' -l socket        -d \'use TCP socket for communication\' -x',
+    'complete -c fish-lsp -n \'__fish_seen_subcommand_from $__fish_lsp_subcommands\' -l memory-limit  -d \'set memory usage limit in MB\' -x ',
+    'complete -c fish-lsp -n \'__fish_seen_subcommand_from $__fish_lsp_subcommands\' -l max-files     -d \'override the maximum number of files to analyze\' -x',
     '',
   ].join('\n'));
-
+  // fish-lsp url --<TAB>
   output.push(urlCompletions);
-
+  // fish-lsp complete --<TAB>
   output.push(completeCompletions);
+  // fish-lsp info --<TAB>
   output.push(infoCompletions);
-  // output.push(loggerCompletions);
-
-  output.push(featuresCompletions);
+  // fish-lsp env --<TAB>
   output.push(envCompletions);
-  output.push('# COMPLETION: fish-lsp subcmd <option> [VALUE] (`fish-lsp start --enable ...`)');
-  output.push('complete -c fish-lsp -n \'__fish_seen_subcommand_from $__fish_lsp_subcommands\' -l enable -xa \'(_fish_lsp_get_features)\'');
-  output.push('complete -c fish-lsp -n \'__fish_seen_subcommand_from $__fish_lsp_subcommands\' -l disable -xa \'(_fish_lsp_get_features)\'');
-
+  // footer comment section
   output.push('');
   output.push('# built by any of the commands: ');
   output.push('# fish-lsp complete > ~/.config/fish/completions/fish-lsp.fish');
