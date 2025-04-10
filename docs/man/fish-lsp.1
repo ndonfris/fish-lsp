@@ -39,6 +39,16 @@ Start the language server\.
 \fB\-\-disable\fP   disable the language server features
 .br
 \fB\-\-dump\fP    dump the json output of the language server features enabled after startup
+.br
+\fB\-\-stdio\fP    use stdin/stdout for communication (default)
+.br
+\fB\-\-node\-ipc\fP    use node IPC for communication
+.br
+\fB\-\-socket <port>\fP    use TCP socket for communication
+.br
+\fB\-\-memory\-limit <mb>\fP    set memory usage limit in MB
+.br
+\fB\-\-max\-files <number>\fP    override the maximum number of files to analyze
 .SS \fBenv\fP
 .P
 show the environment variables available to the lsp
@@ -79,6 +89,8 @@ show the build info of fish\-lsp
 \fB\-\-more\fP            show the build time of the fish\-lsp executable
 .br
 \fB\-\-time\-startup\fP    time the startup of the fish\-lsp executable
+.br
+\fB\-\-health\-check\fP    run diagnostics and report health status
 .SS \fBurl\fP
 .P
 show a helpful url related to the fish\-lsp

@@ -33,6 +33,11 @@ Start the language server.
   `--enable`    enable the language server features  
   `--disable`   disable the language server features  
   `--dump`    dump the json output of the language server features enabled after startup  
+  `--stdio`    use stdin/stdout for communication (default)  
+  `--node-ipc`    use node IPC for communication  
+  `--socket <port>`    use TCP socket for communication  
+  `--memory-limit <mb>`    set memory usage limit in MB  
+  `--max-files <number>`    override the maximum number of files to analyze  
 
 ### `env`
 
@@ -60,6 +65,7 @@ show the build info of fish-lsp
   `--logs-file`       show the logs.txt file path  
   `--more`            show the build time of the fish-lsp executable  
   `--time-startup`    time the startup of the fish-lsp executable  
+  `--health-check`    run diagnostics and report health status  
 
 ### `url`
 

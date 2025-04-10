@@ -163,6 +163,7 @@ commandBin.command('info')
   .option('--more', 'show the build time of the fish-lsp executable')
   .option('--time-startup', 'time the startup of the fish-lsp executable')
   .option('--health-check', 'run diagnostics and report health status')
+  .option('--check-health', 'run diagnostics and report health status')
   .action(async args => {
     const capabilities = BuildCapabilityString()
       .split('\n')
@@ -178,7 +179,7 @@ commandBin.command('info')
       logger.logToStdout(logPath);
       process.exit(0);
     }
-    if (args.healthCheck) {
+    if (args.healthCheck || args.checkHealth) {
       await performHealthCheck();
       process.exit(0);
     }
