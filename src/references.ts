@@ -35,7 +35,13 @@ export function getReferences(
     return locations;
   }
   locations.push(symbol.toLocation());
-  locations.push(...findSymbolLocations(analyzer, symbol, localOnly));
+  const symbolLocations = findSymbolLocations(analyzer, symbol, localOnly);
+  // add unique locations
+  for (const location of symbolLocations) {
+    if (!locations.some(loc => Locations.Location.equals(loc, location))) {
+      locations.push(location);
+    }
+  }
   return locations;
 }
 
@@ -81,15 +87,15 @@ function findSymbolLocations(
 ): Location[] {
   const locations: Location[] = [];
   if (symbol.kind !== SymbolKind.Function && symbol.kind !== SymbolKind.Variable) return [];
-  const matchingNodes = analyzer.findNodes((n, document) => {
-    if (localOnly && document.uri !== symbol.uri) return false;
+  const locationsCallback = (n: SyntaxNode, doc: LspDocument) => {
+    if (localOnly && doc.uri !== symbol.uri) return false;
     // check if the node is a local symbol
-    if (symbol.isLocal() && document!.uri === symbol.uri) {
+    if (symbol.isLocal() && doc!.uri === symbol.uri) {
       return symbol.scopeContainsNode(n) && n.text === symbol.name && !symbol.focusedNode.equals(n);
     }
     if (symbol.isGlobal()) {
       // get all the local symbols for the current document, and remove any node that is redefined in the local scope
-      const localSymbols = analyzer.cache.getFlatDocumentSymbols(document!.uri)
+      const localSymbols = analyzer.cache.getFlatDocumentSymbols(doc!.uri)
         .filter(s => s.name === symbol.name && s.isLocal());
       if (localSymbols.length > 0 && localSymbols.some(s => s.scopeContainsNode(n))) {
         return false;
@@ -115,7 +121,16 @@ function findSymbolLocations(
       return n.text === symbol.name && !symbol.focusedNode.equals(n);
     }
     return false;
-  });
+  };
+  const localDocument = analyzer.getDocument(symbol.uri);
+  const matchingNodes: { uri: string; nodes: SyntaxNode[]; }[] = [];
+  if (localOnly && localDocument) {
+    const localNodes = analyzer.getNodes(symbol.uri)
+      .filter(n => locationsCallback(n, localDocument));
+    matchingNodes.push({ uri: localDocument.uri, nodes: localNodes });
+  } else {
+    matchingNodes.push(...analyzer.findNodes((n: SyntaxNode, doc: LspDocument) => locationsCallback(n, doc)));
+  }
   // create the new locations
   for (const { uri, nodes } of matchingNodes) {
     for (const node of nodes) {
