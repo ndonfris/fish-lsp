@@ -192,7 +192,7 @@
   },
   {
     "name": "fish_lsp_enable_experimental_diagnostics",
-    "description": "Enables the experimental diagnostics feature.\n\nThis feature will enable the diagnostic error code 9999.\n\nUses `fish --no-execute`\n\nDiagnostic error code 9999 will be disabled by default.",
+    "description": "Enables the experimental diagnostics feature, using `fish --no-execute`.\n\nThis feature will enable the diagnostic error code 9999 (disabled by default).",
     "exactMatchOptions": true,
     "options": [
       true,
