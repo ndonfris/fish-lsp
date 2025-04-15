@@ -20,6 +20,7 @@ export namespace ErrorCodes {
   export const autoloadedFunctionFilenameMismatch = 4002;
   export const functionNameUsingReservedKeyword = 4003;
   export const unusedLocalFunction = 4004;
+  export const autoloadedCompletionMissingCommandName = 4005;
   // export const preferAutloadedFunctionHasDescription = 4005;
 
   export const argparseMissingEndStdin = 5001;
@@ -34,7 +35,7 @@ export namespace ErrorCodes {
     1001 | 1002 | 1003 | 1004 | 1005 |
     2001 | 2002 | 2003 |
     3001 | 3002 | 3003 |
-    4001 | 4002 | 4003 | 4004 |
+    4001 | 4002 | 4003 | 4004 | 4005 |
     5001 |
     6001 |
     8001 |
@@ -157,6 +158,13 @@ export namespace ErrorCodes {
       codeDescription: { href: 'https://fishshell.com/docs/current/cmds/functions.html' },
       source: 'fish-lsp',
       message: 'Unused local function',
+    },
+    [autoloadedCompletionMissingCommandName]: {
+      severity: DiagnosticSeverity.Error,
+      code: autoloadedCompletionMissingCommandName,
+      codeDescription: { href: 'https://fishshell.com/docs/current/cmds/complete.html' },
+      source: 'fish-lsp',
+      message: 'Autoloaded completion missing command name',
     },
     [argparseMissingEndStdin]: {
       severity: DiagnosticSeverity.Error,

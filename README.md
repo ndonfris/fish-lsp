@@ -390,20 +390,20 @@ Specific functionality for the server can be set independently from the client. 
 ```fish
 # $fish_lsp_enabled_handlers <ARRAY>
 # Enables the fish-lsp handlers. By default, all handlers are enabled.
-# (Options: 'complete', 'hover', 'rename', 'definition', 'implementation',
-#           'reference', 'logger', 'formatting', 'typeFormatting',
-#           'codeAction', 'codeLens', 'folding', 'signature',
-#           'executeCommand', 'inlayHint', 'highlight', 'diagnostic',
+# (Options: 'complete', 'hover', 'rename', 'definition', 'implementation', 
+#           'reference', 'logger', 'formatting', 'typeFormatting', 
+#           'codeAction', 'codeLens', 'folding', 'signature', 
+#           'executeCommand', 'inlayHint', 'highlight', 'diagnostic', 
 #           'popups')
 # (Default: [])
 set -gx fish_lsp_enabled_handlers
 
 # $fish_lsp_disabled_handlers <ARRAY>
 # Disables the fish-lsp handlers. By default, no handlers are disabled.
-# (Options: 'complete', 'hover', 'rename', 'definition', 'implementation',
-#           'reference', 'logger', 'formatting', 'typeFormatting',
-#           'codeAction', 'codeLens', 'folding', 'signature',
-#           'executeCommand', 'inlayHint', 'highlight', 'diagnostic',
+# (Options: 'complete', 'hover', 'rename', 'definition', 'implementation', 
+#           'reference', 'logger', 'formatting', 'typeFormatting', 
+#           'codeAction', 'codeLens', 'folding', 'signature', 
+#           'executeCommand', 'inlayHint', 'highlight', 'diagnostic', 
 #           'popups')
 # (Default: [])
 set -gx fish_lsp_disabled_handlers
@@ -412,8 +412,8 @@ set -gx fish_lsp_disabled_handlers
 # Array of the completion expansion characters.
 # Single letter values only.
 # Commit characters are used to select completion items, as shortcuts.
-# (Example Options: '.', ',', ';', ':', '(', ')', '[', ']', '{', '}', '<',
-#                   '>', ''', '"', '=', '+', '-', '/', '\', '|', '&', '%',
+# (Example Options: '.', ',', ';', ':', '(', ')', '[', ']', '{', '}', '<', 
+#                   '>', ''', '"', '=', '+', '-', '/', '\', '|', '&', '%', 
 #                   '$', '#', '@', '!', '?', '*', '^', '`', '~', '\t')
 # (Default: ['\t', ';', ' '])
 set -gx fish_lsp_commit_characters
@@ -433,30 +433,28 @@ set -gx fish_lsp_log_level
 # $fish_lsp_all_indexed_paths <ARRAY>
 # The fish file paths to include in the fish-lsp's startup indexing, as workspaces.
 # Order matters (usually place `$__fish_config_dir` before `$__fish_data_dir`).
-# (Example Options: '$HOME/.config/fish', '/usr/share/fish',
+# (Example Options: '$HOME/.config/fish', '/usr/share/fish', 
 #                   '$__fish_config_dir', '$__fish_data_dir')
 # (Default: ['$HOME/.config/fish', '/usr/share/fish'])
 set -gx fish_lsp_all_indexed_paths
 
 # $fish_lsp_modifiable_paths <ARRAY>
 # The fish file paths, for workspaces where global symbols can be renamed by the user.
-# (Example Options: '/usr/share/fish', '$HOME/.config/fish',
+# (Example Options: '/usr/share/fish', '$HOME/.config/fish', 
 #                   '$__fish_data_dir', '$__fish_config_dir')
 # (Default: ['$HOME/.config/fish'])
 set -gx fish_lsp_modifiable_paths
 
 # $fish_lsp_diagnostic_disable_error_codes <ARRAY>
 # The diagnostics error codes to disable from the fish-lsp's diagnostics.
-# (Options: 1001, 1002, 1003, 1004, 1005, 2001, 2002, 2003, 3001, 3002, 3003,
-#           4001, 4002, 4003, 4004, 5001, 6001, 8001, 9999)
+# (Options: 1001, 1002, 1003, 1004, 1005, 2001, 2002, 2003, 3001, 3002, 3003, 
+#           4001, 4002, 4003, 4004, 4005, 5001, 6001, 8001, 9999)
 # (Default: [])
 set -gx fish_lsp_diagnostic_disable_error_codes
 
 # $fish_lsp_enable_experimental_diagnostics <BOOLEAN>
-# Enables the experimental diagnostics feature.
-# This feature will enable the diagnostic error code 9999.
-# Uses `fish --no-execute`
-# Diagnostic error code 9999 will be disabled by default.
+# Enables the experimental diagnostics feature, using `fish --no-execute`.
+# This feature will enable the diagnostic error code 9999 (disabled by default).
 # (Options: 'true', 'false')
 # (Default: 'false')
 set -gx fish_lsp_enable_experimental_diagnostics
@@ -474,7 +472,7 @@ set -gx fish_lsp_max_background_files
 set -gx fish_lsp_show_client_popups
 
 # $fish_lsp_single_workspace_support <BOOLEAN>
-# Try to limit the fish-lsp's workspace searching to only the current workspace open.
+# Try to limit the fish-lsp's workspace searching to only the current workspace open. 
 # (Options: 'true', 'false')
 # (Default: 'false')
 set -gx fish_lsp_single_workspace_support

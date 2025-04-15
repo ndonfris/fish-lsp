@@ -240,7 +240,7 @@ export class LspDocument implements TextDocument {
      * @returns {string} - what the function name should be, or '' if it is not autoloaded
      */
   getAutoLoadName(): string {
-    if (!this.isAutoloaded()) {
+    if (!this.isAutoloadedUri()) {
       return '';
     }
     const parts = uriToPath(this.uri)?.split('/') || [];

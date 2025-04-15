@@ -296,6 +296,39 @@ function handleFilenameMismatch(diagnostic: Diagnostic, node: SyntaxNode, docume
   };
 }
 
+function handleCompletionFilenameMismatch(diagnostic: Diagnostic, node: SyntaxNode, document: LspDocument): CodeAction | undefined {
+  const functionName = node.text;
+  const newUri = document.uri.replace(/[^/]+\.fish$/, `${functionName}.fish`);
+  if (document.getAutoloadType() !== 'completions') {
+    return;
+  }
+  const oldName = document.getAutoLoadName();
+  const oldFilePath = document.getFilePath();
+  const oldFilename = document.getFilename();
+  const newFilePath = uriToPath(newUri);
+
+  const annotation = ChangeAnnotation.create(
+    `rename ${oldFilename} to ${newUri.split('/').pop()}`,
+    true,
+    `Rename '${oldFilePath}' to '${newFilePath}'`,
+  );
+
+  const workspaceEdit: WorkspaceEdit = {
+    documentChanges: [
+      RenameFile.create(document.uri, newUri, { ignoreIfExists: false, overwrite: true }),
+    ],
+    changeAnnotations: {
+      [annotation.label]: annotation,
+    },
+  };
+
+  return {
+    title: `RENAME: '${oldFilename}' to '${functionName}.fish' (File missing completion '${oldName}')`,
+    kind: SupportedCodeActionKinds.RefactorRewrite,
+    diagnostics: [diagnostic],
+    edit: workspaceEdit,
+  };
+}
 function handleReservedKeyword(diagnostic: Diagnostic, node: SyntaxNode, document: LspDocument): CodeAction {
   const replaceText = `__${node.text}`;
 
@@ -475,6 +508,12 @@ export async function getQuickFixes(
     case ErrorCodes.unusedLocalFunction:
       if (!node) return [];
       return [handleUnusedFunction(diagnostic, node, document)];
+
+    case ErrorCodes.autoloadedCompletionMissingCommandName:
+      if (!node) return [];
+      action = handleCompletionFilenameMismatch(diagnostic, node, document);
+      if (action) actions.push(action);
+      return actions;
 
     case ErrorCodes.argparseMissingEndStdin:
       action = handleAddEndStdinToArgparse(diagnostic, document);

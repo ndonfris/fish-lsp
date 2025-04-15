@@ -9,7 +9,7 @@ import { config } from '../config';
 import { DiagnosticCommentsHandler } from './comments-handler';
 import { logger } from '../logger';
 import { isAutoloadedUriLoadsFunctionName } from '../utils/translation';
-import { isCommandName, isCommandWithName, isComment, isFunctionDefinitionName, isOption, isString, isTopLevelFunctionDefinition } from '../utils/node-types';
+import { isCommandName, isCommandWithName, isComment, isCompleteCommandName, isFunctionDefinitionName, isOption, isString, isTopLevelFunctionDefinition } from '../utils/node-types';
 import { isReservedKeyword } from '../utils/builtins';
 import { getNoExecuteDiagnostics } from './no-execute-diagnostic';
 import { checkForInvalidDiagnosticCodes } from './invalid-error-code';
@@ -76,6 +76,7 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
   const localFunctions: SyntaxNode[] = [];
   const localFunctionCalls: LocalFunctionCallType[] = [];
   const commandNames: SyntaxNode[] = [];
+  const completeCommandNames: SyntaxNode[] = [];
 
   // compute in single pass
   for (const node of getChildNodes(root)) {
@@ -178,6 +179,7 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
       // get the parent and previous sibling, for the next checks
       const { parent, previousSibling } = node;
       if (!parent || !previousSibling) continue;
+      if (isCompleteCommandName(node)) completeCommandNames.push(node);
       // skip if no parent command (note we already added commands above)
       if (!isCommandWithName(parent, 'complete')) continue;
       // skip if no previous sibling (since we're looking for `complete -n/-a/-c <HERE>`)
@@ -257,6 +259,19 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
         diagnostics.push(FishDiagnostic.create(ErrorCodes.unusedLocalFunction, node));
       }
     });
+  }
+
+  const docNameMatchesCompleteCommandNames = completeCommandNames.some(node =>
+    node.text === doc.getAutoLoadName());
+  // if no `complete -c func_name` matches the autoload name
+  if (completeCommandNames.length > 0 && !docNameMatchesCompleteCommandNames) {
+    const completeNames: Set<string> = new Set();
+    for (const completeCommandName of completeCommandNames) {
+      if (!completeNames.has(completeCommandName.text) && handler.isCodeEnabledAtNode(ErrorCodes.autoloadedCompletionMissingCommandName, completeCommandName)) {
+        diagnostics.push(FishDiagnostic.create(ErrorCodes.autoloadedCompletionMissingCommandName, completeCommandName, completeCommandName.text));
+        completeNames.add(completeCommandName.text);
+      }
+    }
   }
 
   // remove all globally disabled diagnostics
