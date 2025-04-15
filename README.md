@@ -408,7 +408,7 @@ set -gx fish_lsp_max_background_files
 # $fish_lsp_show_client_popups <BOOLEAN>
 # Should the client receive pop-up window notification requests from the fish-lsp server?
 # (Options: 'true', 'false')
-# (Default: 'true')
+# (Default: 'false')
 set -gx fish_lsp_show_client_popups
 
 # $fish_lsp_single_workspace_support <BOOLEAN>

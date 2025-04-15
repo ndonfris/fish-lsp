@@ -874,9 +874,9 @@ export default class FishServer {
     // const token = await this.connection.window.createWorkDoneProgress();
     const notifyCallback = (text: string) => {
       logger.log(`Background analysis: ${text}`);
-      if (!config.fish_lsp_show_client_popups) return;
-      if (!showMessage) return;
-      this.connection.window.showInformationMessage(text);
+      if (!!config.fish_lsp_show_client_popups && !!showMessage) {
+        this.connection.window.showInformationMessage(text);
+      }
     };
     return this.analyzer.initiateBackgroundAnalysis(notifyCallback);
   }

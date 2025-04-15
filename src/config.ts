@@ -111,7 +111,7 @@ export const ConfigSchema = z.object({
   fish_lsp_max_background_files: z.number().default(10000),
 
   /** show startup analysis notification */
-  fish_lsp_show_client_popups: z.boolean().default(true),
+  fish_lsp_show_client_popups: z.boolean().default(false),
 
   /** single workspace support */
   fish_lsp_single_workspace_support: z.boolean().default(false),
@@ -134,7 +134,7 @@ export function getConfigFromEnvironmentVariables(): {
     fish_lsp_diagnostic_disable_error_codes: process.env.fish_lsp_diagnostic_disable_error_codes?.split(' ').map(toNumber),
     fish_lsp_enable_experimental_diagnostics: toBoolean(process.env.fish_lsp_enable_experimental_diagnostics) || false,
     fish_lsp_max_background_files: toNumber(process.env.fish_lsp_max_background_files),
-    fish_lsp_show_client_popups: toBoolean(process.env.fish_lsp_show_client_popups) || true,
+    fish_lsp_show_client_popups: toBoolean(process.env.fish_lsp_show_client_popups) || false,
     fish_lsp_single_workspace_support: toBoolean(process.env.fish_lsp_single_workspace_support) || false,
   };
 
