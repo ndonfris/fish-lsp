@@ -109,6 +109,7 @@ export class Analyzer {
 
   public async initiateBackgroundAnalysis(
     callbackfn: (text: string) => void,
+    progress: LSP.WorkDoneProgressReporter,
   ): Promise<{ filesParsed: number; }> {
     const startTime = performance.now();
     const max_files = config.fish_lsp_max_background_files;
@@ -117,12 +118,15 @@ export class Analyzer {
     // that are available.
     if (!hasWorkspaceFolderCapability) {
       let totalFiles = 0;
-      callbackfn('[fish-lsp] workspace folder capability not enabled');
+      logger.log('[fish-lsp] workspace folder capability not enabled');
       for (const workspace of workspaces) {
         amount = 0;
         if (!workspace.isAnalyzed()) {
           workspace.setAnalyzed();
+          const upperBound = Math.min(workspace.uris.size, max_files);
           for (const uri of workspace.uris) {
+            const reportPercent = Math.floor(amount / upperBound);
+            progress.report(reportPercent);
             if (amount >= max_files) break;
             this.analyzePath(uri);
             amount++;
@@ -131,6 +135,7 @@ export class Analyzer {
           totalFiles += amount;
         }
       }
+      progress.done();
       return { filesParsed: totalFiles };
     }
     // if there is a workspace folder capability, we can just analyze the current workspace
@@ -147,16 +152,19 @@ export class Analyzer {
     });
 
     if (!workspace) {
+      progress.done();
       return { filesParsed: 0 };
     }
     const workspaceUri = currentWorkspace.current?.uri || '';
     if (!!workspaceUri && workspace.isAnalyzed()) {
+      progress.done();
       return { filesParsed: 0 };
     }
     workspace.setAnalyzed();
 
     for (const document of workspace.urisToLspDocuments()) {
-      // const reportPercent = Math.floor(amount / workspace.uris.size * 100);
+      const reportPercent = Math.floor(amount / workspace.uris.size);
+      progress.report(reportPercent);
       if (amount >= max_files) break;
       try {
         this.analyze(document);
@@ -167,6 +175,7 @@ export class Analyzer {
     }
     const endTime = performance.now();
     const duration = ((endTime - startTime) / 1000).toFixed(2); // Convert to seconds with 2 decimal places
+    progress.done();
     callbackfn(`[fish-lsp] analyzed ${amount} files in ${duration}s`);
     // logger.log(`[fish-lsp] analyzed ${amount} files in ${duration}s`);
     return { filesParsed: amount };

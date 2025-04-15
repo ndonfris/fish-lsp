@@ -826,11 +826,11 @@ export default class FishServer {
   /////////////////////////////////////////////////////////////////////////////////////
 
   /**
-     * Logs the params passed into a handler
-     *
-     * @param {string} methodName - the FishLsp method name that was called
-     * @param {any[]} params - the params passed into the method
-     */
+   * Logs the params passed into a handler
+   *
+   * @param {string} methodName - the FishLsp method name that was called
+   * @param {any[]} params - the params passed into the method
+   */
   private logParams(methodName: string, ...params: any[]) {
     logger.log({ handler: methodName, params });
   }
@@ -869,16 +869,17 @@ export default class FishServer {
     return { doc, path, root };
   }
 
-  public async startBackgroundAnalysis(showMessage: boolean = true): Promise<{ filesParsed: number; }> {
+  public async startBackgroundAnalysis(): Promise<{ filesParsed: number; }> {
     // ../node_modules/vscode-languageserver/lib/common/progress.d.ts
-    // const token = await this.connection.window.createWorkDoneProgress();
+    const progress = this.connection.window.attachWorkDoneProgress(undefined);
+    progress.begin('fish-lsp', 0, 'Starting background analysis', true);
     const notifyCallback = (text: string) => {
       logger.log(`Background analysis: ${text}`);
-      if (!!config.fish_lsp_show_client_popups && !!showMessage) {
+      if (config?.fish_lsp_show_client_popups) {
         this.connection.window.showInformationMessage(text);
       }
     };
-    return this.analyzer.initiateBackgroundAnalysis(notifyCallback);
+    return this.analyzer.initiateBackgroundAnalysis(notifyCallback, progress);
   }
 }
 
