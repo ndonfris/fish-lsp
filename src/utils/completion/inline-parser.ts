@@ -1,10 +1,8 @@
 import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from '../../parser';
-import { getChildNodes, getLeafs, getLastLeaf, firstAncestorMatch } from '../tree-sitter';
+import { getChildNodes, getLeafNodes, getLastLeafNode, firstAncestorMatch } from '../tree-sitter';
 import { isUnmatchedStringCharacter, isPartialForLoop } from '../node-types';
 import { FishCompletionItem } from './types';
-//import { CompletionItemsArrayTypes, WordsToNotCompleteAfter } from './utils/completion-types';
-//import { isBuiltin, BuiltInList, isFunction } from "./utils/builtins";
 
 export class InlineParser {
   private readonly COMMAND_TYPES = ['command', 'for_statement', 'case', 'function'];
@@ -39,7 +37,7 @@ export class InlineParser {
     const { rootNode } = this.parser.parse(line);
     //let node = rootNode.descendantForPosition({row: 0, column: line.length-1});
     //const node = getLastLeaf(rootNode);
-    const node = getLastLeaf(rootNode);
+    const node = getLastLeafNode(rootNode);
     if (!node || node.text.trim() === '') {
       return { word: null, wordNode: null };
     }
@@ -72,7 +70,7 @@ export class InlineParser {
     }
     const { virtualLine, maxLength } = Line.appendEndSequence(line, wordNode);
     const { rootNode } = this.parser.parse(virtualLine);
-    const node = getLastLeaf(rootNode, maxLength);
+    const node = getLastLeafNode(rootNode, maxLength);
     if (!node) {
       return { command: null, commandNode: null };
     }
@@ -126,7 +124,7 @@ export class InlineParser {
     //if (wordPrecedesCommand(word)) return {command: null, commandNode: null};
     const { virtualLine, maxLength: _maxLength } = Line.appendEndSequence(line, wordNode);
     const rootNode = this.parse(virtualLine);
-    const node = getLastLeaf(rootNode);
+    const node = getLastLeafNode(rootNode);
     return node;
   }
 
@@ -141,63 +139,15 @@ export class InlineParser {
     }
     if (commandNode) {
       const node = firstAncestorMatch(commandNode, (n) => this.COMMAND_TYPES.includes(n.type))!;
-      const allLeafs = getLeafs(node).filter(leaf => leaf.startPosition.column < line.length);
-      return Math.max(allLeafs.length - 1, 1);
+      const allLeafNodes = getLeafNodes(node).filter(leaf => leaf.startPosition.column < line.length);
+      return Math.max(allLeafNodes.length - 1, 1);
     }
     return 0;
   }
 
-  /**
-    * here we will specifically populate the completion list with items specific to their
-    * command & word context.
-    * For example:
-    * ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-    *     LINE      •   CONTEXTUAL INFO FROM LINE       •    ITEMS ADDED
-    * ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-    *     `end `    •  {word: null, command: 'end'}     •   pipes
-    * ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-    *    `printf "` •  {word: '"',  command: 'printf'}  •   format specifiers,
-    *               •                                   •   strings, variables
-    * ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-    */
-  //getCompletionArrayTypes(line: string) {
-  //    const {word, command, wordNode, commandNode} = this.getNodeContext(line)
-  //    const result: CompletionItemsArrayTypes[] = []
-  //    switch (command) {
-  //        case 'functions': result.push(CompletionItemsArrayTypes.FUNCTIONS); break
-  //        case 'end': result.push(CompletionItemsArrayTypes.PIPES); break
-  //        case 'printf': result.push(CompletionItemsArrayTypes.FORMAT_SPECIFIERS); break
-  //        case 'set': result.push(CompletionItemsArrayTypes.VARIABLES); break
-  //        case 'function':
-  //            //if (isOption(lastNode) && ['-e', '--on-event'].includes(lastNode.text)) result.push(CompletionItemsArrayTypes.FUNCTIONS);
-  //            //if (isOption(lastNode) && ['-v', '--on-variable'].includes(lastNode.text)) result.push(CompletionItemsArrayTypes.VARIABLES);
-  //            //if (isOption(lastNode) && ['-V', '--inherit-variable'].includes(lastNode.text)) result.push(CompletionItemsArrayTypes.VARIABLES);
-  //            result.push(CompletionItemsArrayTypes.AUTOLOAD_FILENAME);
-  //            break
-  //        case 'return':
-  //            result.push(CompletionItemsArrayTypes.STATUS_NUMBERS, CompletionItemsArrayTypes.VARIABLES);
-  //            break
-  //        default:
-  //            result.push(CompletionItemsArrayTypes.VARIABLES, CompletionItemsArrayTypes.FUNCTIONS, CompletionItemsArrayTypes.PIPES, CompletionItemsArrayTypes.WILDCARDS, CompletionItemsArrayTypes.ESCAPE_CHARS)
-  //            break
-  //    }
-  //    //if (isStringCharacter(lastNode)) result.push(CompletionItemsArrayTypes.VARIABLES, CompletionItemsArrayTypes.ESCAPE_CHARS)
-  //    return result
-  //}
-
   async createCompletionList(line: string): Promise<FishCompletionItem[]> {
     const result: FishCompletionItem[] = [];
-    const { word: _word, command, wordNode: _wordNode, commandNode: _commandNode } = this.getNodeContext(line);
-    if (!command) {
-      //result.push(items.allCo)
-    }
-    //const completionArrayTypes = this.getCompletionArrayTypes(line)
-    //const completionData: FishCompletionData = {
-    //    word, command, wordNode, commandNode, line
-    //}
-    //for (const arrayType of completionArrayTypes) {
-    //    //result.push(...await createCompletionItem(arrayType, completionData))
-    //}
+    const { word: _word, wordNode: _wordNode, commandNode: _commandNode } = this.getNodeContext(line);
     return result;
   }
 }
@@ -264,10 +214,10 @@ export namespace Line {
       const errorNode = firstAncestorMatch(wordNode, (n) =>
         n.hasError,
       )!;
-      const leafs = getLeafs(errorNode);
+      const leafNodes = getLeafNodes(errorNode);
       virtualEOLChars =
                 ' ' +
-                completeForLoop.slice(leafs.length).join(' ') +
+                completeForLoop.slice(leafNodes.length).join(' ') +
                 endSequence;
     }
     return {

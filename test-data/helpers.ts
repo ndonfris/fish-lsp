@@ -1,10 +1,16 @@
-import { readdirSync, readFileSync } from 'fs';
+import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { initializeParser } from '../src/parser';
-import Parser, { Point, SyntaxNode, Tree } from 'web-tree-sitter';
+import * as Parser from 'web-tree-sitter';
+import { Point, SyntaxNode, Tree } from 'web-tree-sitter';
 import { TextDocumentItem } from 'vscode-languageserver';
 import { LspDocument } from '../src/document';
 import { homedir } from 'os';
+import { CurrentWorkspace, currentWorkspace, Workspace, workspaces } from '../src/utils/workspace';
+import { flattenNested } from '../src/utils/flatten';
+import { getChildNodes, getNamedChildNodes } from '../src/utils/tree-sitter';
+import { FishSymbol, processNestedTree } from '../src/parsing/symbol';
+import { Analyzer } from '../src/analyze';
 
 export function setLogger(
   beforeCallback: () => Promise<void> = async () => { },
@@ -52,11 +58,78 @@ export async function parseFile(fname: string): Promise<Tree> {
 }
 
 export function createFakeUriPath(path: string): string {
+  if (path.startsWith('/')) {
+    return `file://${path}`;
+  }
   return `file://${homedir()}/.config/fish/${path}`;
 }
 
-export function createFakeLspDocument(name: string, text: string): LspDocument {
+export type TestLspDocument = {
+  path: string;
+  text: string | string[];
+};
+
+export function createTestWorkspace(
+  analyzer: Analyzer,
+  ...docs: TestLspDocument[]
+) {
+  const result: LspDocument[] = [];
+  for (const doc of docs) {
+    const newDoc = createFakeLspDocument(doc.path, ...Array.isArray(doc.text) ? doc.text : [doc.text]);
+    analyzer.analyze(newDoc);
+    result.push(newDoc);
+  }
+  return result;
+}
+
+export function createFakeLspDocument(name: string, ...text: string[]): LspDocument {
   const uri = createFakeUriPath(name);
-  const doc = TextDocumentItem.create(uri, 'fish', 0, text);
-  return new LspDocument(doc);
+  const doc = LspDocument.createTextDocumentItem(uri, text.join('\n'));
+  // get the current workspace, if it exists, otherwise create a test workspace
+  const workspace: Workspace = currentWorkspace?.findWorkspace(uri) || Workspace.createTestWorkspaceFromUri(uri);
+  // Add the uri to the workspace if it isn't already there and it should be
+  // This is to ensure that test workspaces group similar files together
+  if (workspace.shouldContain(uri)) {
+    workspace.add(uri);
+  }
+  // add the workspace to the `workspaces` array if it doesn't already exist
+  if (!workspaces.some(ws => ws.uri === workspace.uri)) {
+    workspaces.push(workspace);
+  }
+  // update currentWorkspace.current with the new workspace
+  currentWorkspace.updateWorkspace(workspace);
+  return doc;
+}
+
+export function setupTestCallback(parser: Parser) {
+  return function setupTestDocument(name: string, ...text: string[]): {
+    doc: LspDocument;
+    input: string;
+    tree: Tree;
+    root: SyntaxNode;
+  } {
+    const input = text.join('\n');
+    const doc = createFakeLspDocument(name, input);
+    const tree = parser.parse(input);
+    const root = tree.rootNode;
+    return { doc, tree, root, input };
+  };
+}
+
+export function getAllTypesOfNestedArrays(doc: LspDocument, root: SyntaxNode) {
+  const allNodes: SyntaxNode[] = getChildNodes(root);
+  const allNamedNodes: SyntaxNode[] = getNamedChildNodes(root);
+  const nodes: SyntaxNode[] = flattenNested(root);
+  const flatNodes: SyntaxNode[] = flattenNested(root);
+  const symbols: FishSymbol[] = processNestedTree(doc, root);
+  const flatSymbols: FishSymbol[] = flattenNested(...symbols);
+
+  return {
+    allNodes,
+    allNamedNodes,
+    nodes,
+    flatNodes,
+    symbols,
+    flatSymbols,
+  };
 }

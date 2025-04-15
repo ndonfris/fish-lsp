@@ -6,6 +6,7 @@ export namespace ErrorCodes {
   export const extraEnd = 1002;
   export const zeroIndexedArray = 1003;
   export const sourceFileDoesNotExist = 1004;
+  export const dotSourceCommand = 1005;
 
   export const singleQuoteVariableExpansion = 2001;
   export const usedAlias = 2002;
@@ -19,19 +20,26 @@ export namespace ErrorCodes {
   export const autoloadedFunctionFilenameMismatch = 4002;
   export const functionNameUsingReservedKeyword = 4003;
   export const unusedLocalFunction = 4004;
+  export const autoloadedCompletionMissingCommandName = 4005;
   // export const preferAutloadedFunctionHasDescription = 4005;
 
   export const argparseMissingEndStdin = 5001;
 
+  export const fishLspDeprecatedEnvName = 6001;
+
   export const invalidDiagnosticCode = 8001;
 
+  export const syntaxError = 9999;
+
   export type CodeTypes =
-    1001 | 1002 | 1003 | 1004 |
+    1001 | 1002 | 1003 | 1004 | 1005 |
     2001 | 2002 | 2003 |
     3001 | 3002 | 3003 |
-    4001 | 4002 | 4003 | 4004 |
+    4001 | 4002 | 4003 | 4004 | 4005 |
     5001 |
-    8001;
+    6001 |
+    8001 |
+    9999 ;
 
   export type CodeValueType = {
     severity: DiagnosticSeverity;
@@ -73,6 +81,13 @@ export namespace ErrorCodes {
       codeDescription: { href: 'https://fishshell.com/docs/current/cmds/source.html' },
       source: 'fish-lsp',
       message: 'source filename does not exist',
+    },
+    [dotSourceCommand]: {
+      severity: DiagnosticSeverity.Error,
+      code: dotSourceCommand,
+      codeDescription: { href: 'https://fishshell.com/docs/current/cmds/source.html' },
+      source: 'fish-lsp',
+      message: '`.` source command not allowed, use `source` instead',
     },
     [singleQuoteVariableExpansion]: {
       severity: DiagnosticSeverity.Warning,
@@ -144,6 +159,13 @@ export namespace ErrorCodes {
       source: 'fish-lsp',
       message: 'Unused local function',
     },
+    [autoloadedCompletionMissingCommandName]: {
+      severity: DiagnosticSeverity.Error,
+      code: autoloadedCompletionMissingCommandName,
+      codeDescription: { href: 'https://fishshell.com/docs/current/cmds/complete.html' },
+      source: 'fish-lsp',
+      message: 'Autoloaded completion missing command name',
+    },
     [argparseMissingEndStdin]: {
       severity: DiagnosticSeverity.Error,
       code: argparseMissingEndStdin,
@@ -151,12 +173,26 @@ export namespace ErrorCodes {
       source: 'fish-lsp',
       message: 'argparse missing end of stdin',
     },
+    [fishLspDeprecatedEnvName]: {
+      severity: DiagnosticSeverity.Warning,
+      code: fishLspDeprecatedEnvName,
+      codeDescription: { href: 'https://github.com/ndonfris/fish-lsp#environment-variables' },
+      source: 'fish-lsp',
+      message: 'Deprecated fish-lsp environment variable name',
+    },
     [invalidDiagnosticCode]: {
       severity: DiagnosticSeverity.Warning,
       code: invalidDiagnosticCode,
       codeDescription: { href: 'https://github.com/ndonfris/fish-lsp/wiki/Diagnostic-Error-Codes' },
       source: 'fish-lsp',
       message: 'Invalid diagnostic control code',
+    },
+    [syntaxError]: {
+      severity: DiagnosticSeverity.Error,
+      code: syntaxError,
+      codeDescription: { href: 'https://fishshell.com/docs/current/fish_for_bash_users.html#syntax-overview' },
+      source: 'fish-lsp',
+      message: 'fish syntax error',
     },
   };
 

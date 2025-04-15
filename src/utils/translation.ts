@@ -1,14 +1,14 @@
-import { DocumentSymbol, FoldingRange, FoldingRangeKind, SelectionRange, SymbolInformation, SymbolKind, TextDocumentEdit, TextDocumentItem, TextEdit } from 'vscode-languageserver';
+import { DocumentSymbol, SelectionRange, SymbolInformation, SymbolKind, TextDocumentItem } from 'vscode-languageserver';
 import * as LSP from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { URI } from 'vscode-uri';
-import { findParentVariableDefinitionKeyword, isCommand, isCommandName, isComment, isFunctionDefinition, isFunctionDefinitionName, isProgram, isScope, isStatement, isString, isTopLevelFunctionDefinition, isVariable, isVariableDefinition } from './node-types';
+import { findParentVariableDefinitionKeyword, isCommand, isCommandName, isFunctionDefinition, isFunctionDefinitionName, isProgram, isStatement, isString, isTopLevelDefinition, isTopLevelFunctionDefinition, isVariable } from './node-types';
 import { LspDocument, LspDocuments } from '../document';
-import { FishProtocol } from './fishProtocol';
-import { getPrecedingComments, getRange, getRangeWithPrecedingComments } from './tree-sitter';
+import { getPrecedingComments, getRange } from './tree-sitter';
 import * as LocationNamespace from './locations';
-import os from 'os';
+import * as os from 'os';
 import { isBuiltin } from './builtins';
+import { env } from './env-manager';
 
 const RE_PATHSEP_WINDOWS = /\\/g;
 
@@ -52,13 +52,6 @@ export function normalizePath(filePath: string): string {
  */
 export function normalizeFsPath(fsPath: string): string {
   return fsPath.replace(RE_PATHSEP_WINDOWS, '/');
-}
-
-function currentVersion(filepath: string, documents: LspDocuments | undefined): number | null {
-  const fileUri = URI.file(filepath);
-  const normalizedFilepath = normalizePath(fileUri.fsPath);
-  const document = documents && documents.get(normalizedFilepath);
-  return document ? document.version : null;
 }
 
 export function pathToRelativeFunctionName(uriPath: string): string {
@@ -139,58 +132,6 @@ export function toSelectionRange(range: SelectionRange): SelectionRange {
   );
 }
 
-export function toTextEdit(edit: FishProtocol.CodeEdit): TextEdit {
-  return {
-    range: {
-      start: LocationNamespace.Position.fromLocation(edit.start),
-      end: LocationNamespace.Position.fromLocation(edit.end),
-    },
-    newText: edit.newText,
-  };
-}
-
-export function toTextDocumentEdit(change: FishProtocol.FileCodeEdits, documents: LspDocuments | undefined): TextDocumentEdit {
-  return {
-    textDocument: {
-      uri: pathToUri(change.fileName, documents),
-      version: currentVersion(change.fileName, documents),
-    },
-    edits: change.textChanges.map(c => toTextEdit(c)),
-  };
-}
-
-export function toFoldingRange(node: SyntaxNode, document: LspDocument): FoldingRange {
-  let collapsedText: string = '';
-  let _kind = FoldingRangeKind.Region;
-  if (isFunctionDefinition(node) || isFunctionDefinitionName(node.firstNamedChild!)) {
-    collapsedText = node.firstNamedChild?.text || node.text.split(' ')[0]?.toString() || '';
-  }
-  if (isScope(node)) {
-    collapsedText = node.text;
-  }
-  if (isVariableDefinition(node)) {
-    collapsedText = node.text;
-  }
-  if (isComment(node)) {
-    collapsedText = node.text.slice(0, 10);
-    if (node.text.length >= 10) {
-      collapsedText += '...';
-    }
-    _kind = FoldingRangeKind.Comment;
-  }
-  const range = getRangeWithPrecedingComments(node);
-  const startLine = range.start.line;
-  const endLine = range.end.line > 0 && document.getText(LSP.Range.create(
-    LSP.Position.create(range.end.line, range.end.character - 1),
-    range.end,
-  )) === 'end' ? Math.max(range.end.line + 1, range.start.line) : range.end.line;
-  return {
-    ...FoldingRange.create(startLine, endLine),
-    collapsedText: collapsedText,
-    kind: FoldingRangeKind.Region,
-  };
-}
-
 export function toLspDocument(filename: string, content: string): LspDocument {
   const doc = TextDocumentItem.create(pathToUri(filename), 'fish', 0, content);
   return new LspDocument(doc);
@@ -231,6 +172,39 @@ export function symbolKindToString(kind: SymbolKind) {
     default:
       return 'other';
   }
+}
+
+/**
+ * Converts a URI to a more readable path by replacing known prefixes with fish variables
+ * or ~ for home directory.
+ *
+ * @param uri The URI to convert to a readable path
+ * @returns A more readable path using fish variables or tilde when possible
+ */
+export function uriToReadablePath(uri: string): string {
+  // First convert URI to filesystem path
+  const path = uriToPath(uri);
+
+  // Try to replace with fish variables first
+  const autoloadedKeys = env.getAutoloadedKeys();
+  for (const key of autoloadedKeys) {
+    const values = env.getAsArray(key);
+
+    for (const value of values) {
+      if (path.startsWith(value)) {
+        return path.replace(value, `$${key}`);
+      }
+    }
+  }
+
+  // If no fish variables match, try to replace home directory with tilde
+  const homeDir = os.homedir();
+  if (path.startsWith(homeDir)) {
+    return path.replace(homeDir, '~');
+  }
+
+  // Return the original path if no substitutions were made
+  return path;
 }
 
 /**
@@ -303,6 +277,18 @@ export function isAutoloadedUriLoadsFunctionName(document: LspDocument): (n: Syn
   };
   return callbackmap[document.getAutoloadType()];
 }
+
+export function isAutoloadedUriLoadsAliasName(document: LspDocument): (n: SyntaxNode) => boolean {
+  const callbackmap: Record<AutoloadType, (n: SyntaxNode) => boolean> = {
+    'conf.d': (node: SyntaxNode) => isTopLevelDefinition(node),
+    config: (node: SyntaxNode) => isTopLevelDefinition(node),
+    functions: (_: SyntaxNode) => false,
+    completions: (_: SyntaxNode) => false,
+    '': (_: SyntaxNode) => false,
+  };
+  return callbackmap[document.getAutoloadType()];
+}
+
 export function shouldHaveAutoloadedFunction(document: LspDocument): boolean {
   return 'functions' === document.getAutoloadType();
 }

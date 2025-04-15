@@ -1,5 +1,5 @@
 import { FishCompletionData, FishCompletionItem, toCompletionItemKind } from './types';
-import { FishDocumentSymbol } from '../../document-symbol';
+import { FishSymbol } from '../../parsing/symbol';
 import { Logger } from '../../logger';
 import { CompletionList, SymbolKind } from 'vscode-languageserver';
 
@@ -20,7 +20,7 @@ export class FishCompletionListBuilder {
     this.items.push(...items);
   }
 
-  addSymbols(symbols: FishDocumentSymbol[], insertDollarSign: boolean = false) {
+  addSymbols(symbols: FishSymbol[], insertDollarSign: boolean = false) {
     const symbolItems = symbols.map((symbol) => {
       if (insertDollarSign && symbol.kind === SymbolKind.Variable) {
         return {
@@ -35,11 +35,14 @@ export class FishCompletionListBuilder {
 
   addData(data: FishCompletionData) {
     this.items = this.items.map((item: FishCompletionItem) => {
-      const newData = {
-        ...data,
-        line: data.line.slice(0, data.line.length - data.word.length) + item.label,
-      } as FishCompletionData;
-      return item.setData(newData);
+      if (!data.line.endsWith(' ')) {
+        const newData = {
+          ...data,
+          line: data.line.slice(0, data.line.length - data.word.length) + item.label,
+        } as FishCompletionData;
+        return item.setData(newData);
+      }
+      return item;
     });
     return this;
   }

@@ -1,4 +1,5 @@
-import Parser, { SyntaxNode } from 'web-tree-sitter';
+import * as Parser from 'web-tree-sitter';
+import { SyntaxNode } from 'web-tree-sitter';
 // import {getReturnSiblings} from '../src/diagnostics/syntaxError';
 import * as NodeTypes from '../src/utils/node-types';
 import { getChildNodes } from '../src/utils/tree-sitter';
@@ -139,7 +140,8 @@ describe('FISH web-tree-sitter SUITE', () => {
       return node;
     });
 
-    expect(vars.length).toEqual(7);
+    expect(vars.length).toEqual(8);
+    expect(vars.map(n => n.text)).toEqual(['a', 'i', 'b', 'c', 'd', 'PATH', 'e', 'f']);
     if (SHOULD_LOG) [...vars].forEach((node) => console.log('function variable definitions', node));
   });
 

@@ -6,7 +6,7 @@ import { setLogger } from './helpers';
 import { config } from '../src/config';
 import { checkForInvalidDiagnosticCodes } from '../src/diagnostics/invalid-error-code';
 import { isComment } from '../src/utils/node-types';
-import { ErrorCodes } from '../src/diagnostics/errorCodes';
+import { ErrorCodes } from '../src/diagnostics/error-codes';
 
 let parser: Parser;
 

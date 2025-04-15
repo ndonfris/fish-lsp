@@ -17,7 +17,7 @@ export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) 
    * quickfixes to the list of results, when a quickfix is requested.
    */
   async function getSelectionCodeActions(document: LspDocument, range: Range) {
-    const rootNode = analyzer.getRootNode(document);
+    const rootNode = analyzer.getRootNode(document.uri);
     if (!rootNode) return [];
 
     const selectedNode = getNodeAtRange(rootNode, range);
@@ -25,7 +25,7 @@ export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) 
 
     const results: CodeAction[] = [];
     if (isProgram(selectedNode)) {
-      analyzer.getNodes(document).forEach(n => {
+      analyzer.getNodes(document.uri).forEach(n => {
         if (isCommandWithName(n, 'argparse')) {
           const argparseAction = createArgparseCompletionsCodeAction(n, document);
           if (argparseAction) results.push(argparseAction);
@@ -76,7 +76,7 @@ export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) 
   async function processRefactors(document: LspDocument, range: Range) {
     const results: CodeAction[] = [];
 
-    const rootNode = analyzer.getRootNode(document);
+    const rootNode = analyzer.getRootNode(document.uri);
     if (!rootNode) return results;
 
     // Get node at the selected range
@@ -123,6 +123,7 @@ export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) 
     const uri = uriToPath(params.textDocument.uri);
     const document = docs.get(uri);
     if (!document || !uri) return [];
+    logger.log('onCodeAction', { uri });
 
     const results: CodeAction[] = [];
 

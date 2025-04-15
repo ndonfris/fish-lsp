@@ -3,6 +3,7 @@ import { CompletionItemMap } from '../src/utils/completion/startup-cache';
 import { setLogger } from './helpers';
 import { spawn } from 'child_process';
 import { StaticItems } from '../src/utils/completion/static-items';
+import { execAsyncF, execCompleteLine } from '../src/utils/exec';
 
 /**
  * Executes a command in a Fish subshell without inheriting autoloaded behaviors.
@@ -111,7 +112,7 @@ describe('utils/completion/startup-config.ts test', () => {
    */
 
   describe('static items', () => {
-    it.only('should have static items', async () => {
+    it('should have static items', async () => {
       completionItemMap.allOfKinds('function').forEach(item => {
         console.log(item.label, item.kind);
       });
@@ -124,6 +125,13 @@ describe('utils/completion/startup-config.ts test', () => {
       completionItemMap.allOfKinds('status').forEach(item => {
         console.log(item.label, item.kind);
       });
+    });
+  });
+
+  describe.only('completion shell', () => {
+    it('should complete shell', async () => {
+      const shell = await execCompleteLine('fish-lsp --');
+      console.log(shell);
     });
   });
 });

@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import PackageJSON from '../../package.json';
-import { logToStdout } from '../logger';
+import { logger } from '../logger';
 
 /**
  * Accumulate the arguments into two arrays, '--enable' and '--disable'
@@ -16,10 +16,11 @@ export function accumulateStartupOptions(args: string[]): {
   dumpCmd: boolean;
 } {
   const [_subcmd, ...options] = args;
-  const [enabled, disabled]: [ string[], string[] ] = [[], []];
+  const filteredOptions = filterStartCommandArgs(options);
+  const [enabled, disabled]: [string[], string[]] = [[], []];
   let dumpCmd = false;
   let current: string[];
-  options?.forEach(arg => {
+  filteredOptions?.forEach(arg => {
     if (['--enable', '--disable'].includes(arg)) {
       if (arg === '--enable') {
         current = enabled;
@@ -35,8 +36,11 @@ export function accumulateStartupOptions(args: string[]): {
       return;
     }
     if (['--dump'].includes(arg)) {
-      logToStdout('SEEN SHOW COMMAND! dumping...');
+      logger.logToStdout('SEEN SHOW COMMAND! dumping...');
       dumpCmd = true;
+      return;
+    }
+    if (arg.startsWith('-')) {
       return;
     }
     if (current) {
@@ -46,12 +50,46 @@ export function accumulateStartupOptions(args: string[]): {
   return { enabled, disabled, dumpCmd };
 }
 
+// filter out the start command args that are not used for the --enable/--disable values
+function filterStartCommandArgs(args: string[]): string[] {
+  const filteredArgs = [];
+  let skipNext = false;
+  for (const arg of args) {
+    // Skip this argument if the previous iteration marked it for skipping
+    if (skipNext) {
+      skipNext = false;
+      continue;
+    }
+
+    // Check if the current arg is one of the flags that take values
+    if (arg === '--socket' || arg === '--max-files' || arg === '--memory-limit') {
+      skipNext = true; // Skip both the flag and its value
+      continue;
+    }
+
+    // Check if the current arg is one of the flags without values
+    if (arg === '--stdio' || arg === '--node-ipc') {
+      continue;
+    }
+
+    // For flags with values in the format --flag=value
+    if (arg.startsWith('--socket=') || arg.startsWith('--max-files=') || arg.startsWith('--memory-limit=')) {
+      continue;
+    }
+
+    // Otherwise, keep the argument
+    filteredArgs.push(arg);
+  }
+
+  return filteredArgs;
+}
+
 /// HELPERS
 export const smallFishLogo = () => '><(((°> FISH LSP';
 export const RepoUrl = PackageJSON.repository?.url.slice(0, -4);
 export const PackageVersion = PackageJSON.version;
 
-export const PathObj: { [ K in 'bin' | 'root' | 'repo' | 'manFile' ]: string } = {
+export const PathObj: { [K in 'bin' | 'root' | 'repo' | 'manFile']: string } = {
   ['bin']: resolve(__dirname.toString(), '..', '..', 'bin', 'fish-lsp'),
   ['root']: resolve(__dirname, '..', '..'),
   ['repo']: resolve(__dirname, '..', '..'),
@@ -70,7 +108,7 @@ const getOutTime = () => {
   try {
     buildTime = readFileSync(buildFile, 'utf8');
   } catch (e) {
-    logToStdout('Error reading ./out/build-time.txt');
+    logger.logToStdout('Error reading ./out/build-time.txt');
   }
   return buildTime.trim();
 };
@@ -87,7 +125,6 @@ export const FishLspHelp = {
   beforeAll: `
        fish-lsp [-h | --help] [-v | --version] [--help-man] [--help-all] [--help-short]
        fish-lsp start [--enable | --disable] [--dump]
-       fish-lsp logger [-s | --show] [-d | --date] [-c | --clear] [-q | --quiet] [--config]
        fish-lsp info [--bare] [--repo] [--time] [--env]
        fish-lsp url [--repo] [--discussions] [--homepage] [--npm] [--contributions]
                     [--wiki] [--issues] [--client-repo] [--sources]
@@ -129,7 +166,7 @@ export function FishLspManPage() {
   };
 }
 
-export const SourcesDict: { [ key: string ]: string; } = {
+export const SourcesDict: { [key: string]: string; } = {
   repo: 'https://github.com/ndonfris/fish-lsp',
   git: 'https://github.com/ndonfris/fish-lsp',
   npm: 'https://npmjs.io/ndonfris/fish-lsp',
