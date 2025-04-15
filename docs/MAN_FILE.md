@@ -14,9 +14,9 @@ It requires a client that supports the Language Server Protocol (LSP). For examp
 
 ## OPTIONS
 
-`-v` or `--version`  Show version information and exit.
+`-v` or `--version`    Show version information and exit.
 
-`-h` or  `--help`    Show help message and exit.
+`-h` or `--help`       Show help message and exit.
 
 `--help-all`         Show all the help information
 
@@ -30,13 +30,13 @@ It requires a client that supports the Language Server Protocol (LSP). For examp
 
 Start the language server.
 
-  `--enable`    enable the language server features  
-  `--disable`   disable the language server features  
-  `--dump`    dump the json output of the language server features enabled after startup  
-  `--stdio`    use stdin/stdout for communication (default)  
-  `--node-ipc`    use node IPC for communication  
-  `--socket <port>`    use TCP socket for communication  
-  `--memory-limit <mb>`    set memory usage limit in MB  
+  `--enable`                enable the language server features  
+  `--disable`               disable the language server features  
+  `--dump`                  dump the json output of the language server features enabled after startup  
+  `--stdio`                 use stdin/stdout for communication (default)  
+  `--node-ipc`              use node IPC for communication  
+  `--socket <port>`         use TCP socket for communication  
+  `--memory-limit <mb>`     set memory usage limit in MB  
   `--max-files <number>`    override the maximum number of files to analyze  
 
 ### `env`
