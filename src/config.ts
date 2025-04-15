@@ -29,7 +29,7 @@ export const ConfigHandlerSchema = z.object({
   inlayHint: z.boolean().default(true),
   highlight: z.boolean().default(true),
   diagnostic: z.boolean().default(true),
-  popups: z.boolean().default(true),
+  popups: z.boolean().default(false),
 });
 
 /**

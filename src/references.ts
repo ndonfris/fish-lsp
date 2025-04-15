@@ -16,12 +16,14 @@ import * as Locations from './utils/locations';
  * @param analyzer the analyzer
  * @param document the document
  * @param position the position of the symbol
+ * @param localOnly if true, only return local references inside current document
  * @return the locations of the symbol
  */
 export function getReferences(
   analyzer: Analyzer,
   document: LspDocument,
   position: Position,
+  localOnly = false,
 ): Location[] {
   const locations: Location[] = [];
 
@@ -29,11 +31,11 @@ export function getReferences(
   if (!symbol) return [];
   if (symbol.fishKind === 'ARGPARSE') {
     locations.push(symbol.toLocation());
-    locations.push(...getArgparseLocations(analyzer, symbol));
+    locations.push(...getArgparseLocations(analyzer, symbol, localOnly));
     return locations;
   }
   locations.push(symbol.toLocation());
-  locations.push(...findSymbolLocations(analyzer, symbol));
+  locations.push(...findSymbolLocations(analyzer, symbol, localOnly));
   return locations;
 }
 
@@ -75,10 +77,12 @@ export function implementationLocation(
 function findSymbolLocations(
   analyzer: Analyzer,
   symbol: FishSymbol,
+  localOnly = false,
 ): Location[] {
   const locations: Location[] = [];
   if (symbol.kind !== SymbolKind.Function && symbol.kind !== SymbolKind.Variable) return [];
   const matchingNodes = analyzer.findNodes((n, document) => {
+    if (localOnly && document.uri !== symbol.uri) return false;
     // check if the node is a local symbol
     if (symbol.isLocal() && document!.uri === symbol.uri) {
       return symbol.scopeContainsNode(n) && n.text === symbol.name && !symbol.focusedNode.equals(n);
@@ -129,6 +133,7 @@ function findSymbolLocations(
 export function getArgparseLocations(
   analyzer: Analyzer,
   symbol: FishSymbol,
+  localOnly = false,
 ): Location[] {
   const result: Location[] = [];
   // if (symbol.fishKind !== 'ARGPARSE') return [];
@@ -140,6 +145,7 @@ export function getArgparseLocations(
     result.push(...getGlobalArgparseLocations(analyzer, document, symbol));
   }
   const matchingNodes = analyzer.findNodes((n, document) => {
+    if (localOnly && document.uri !== symbol.uri) return false;
     // complete -c parentName -s ... -l flag-name
     if (isCompletionArgparseFlagWithCommandName(n, parentName, symbol.argparseFlagName)) {
       return true;
