@@ -89,7 +89,8 @@
       "^",
       "`",
       "~",
-      "\\t"
+      "\\t",
+      " "
     ],
     "defaultValue": ["\\t", ";", " "],
     "valueType": "array"
