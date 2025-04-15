@@ -176,7 +176,11 @@ export async function timeServerStartup() {
       },
       initializationOptions: {},
       workspaceFolders: [],
-      capabilities: {},
+      capabilities: {
+        workspace: {
+          workspaceFolders: true,
+        },
+      },
     };
     ({ server } = await FishServer.create(connection, startupParams));
     connection.listen();
