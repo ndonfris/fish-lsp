@@ -74,8 +74,9 @@ export class LspDocument implements TextDocument {
     });
   }
 
-  update(changes: TextDocumentContentChangeEvent[]): void {
-    this.document = TextDocument.update(this.document, changes, this.version);
+  update(changes: TextDocumentContentChangeEvent[]): LspDocument {
+    this.document = TextDocument.update(this.document, changes, this.version + 1);
+    return this;
   }
 
   /**
@@ -337,6 +338,14 @@ export class LspDocuments {
     const path = uriToPath(textDocument.uri);
     this.documents.set(path, LspDocument.fromTextDocument(textDocument));
     return this.documents.get(path) as LspDocument;
+  }
+
+  applyChanges(uri: DocumentUri, changes: TextDocumentContentChangeEvent[]) {
+    const path = uriToPath(uri);
+    const document = this.documents.get(path);
+    if (document) {
+      document.update(changes);
+    }
   }
 
   closeTextDocument(document: TextDocument): LspDocument | undefined {

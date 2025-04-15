@@ -41,7 +41,6 @@ export type SupportedFeatures = {
 };
 
 export let CurrentDocument: LspDocument | undefined;
-export let hasAnalyzedOnce = false;
 /**
  * The globally accessible configuration setting. Set from the client, and used by the server.
  * When enabled, the analyzer will search through the current workspace, and update it's
@@ -151,7 +150,6 @@ export default class FishServer {
       const newWorkspace = await findCurrentWorkspace(event.document.uri);
       await this.handleWorkspaceChange(oldWorkspace, newWorkspace);
       this.analyzer.ensureSourcedFilesToWorkspace(event.document.uri);
-
       logger.log('newWorkspace', newWorkspace?.name);
     });
 
@@ -219,6 +217,20 @@ export default class FishServer {
     connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
     connection.onExecuteCommand(executeHandler);
 
+    connection.onDidChangeWatchedFiles(async event => {
+      this.logParams('onDidChangeWatchedFiles', event);
+      const oldWorkspace = currentWorkspace.current;
+      for (const change of event.changes) {
+        const uri = change.uri;
+        const path = uriToPath(uri);
+        const doc = this.docs.get(path);
+        if (doc) {
+          this.analyzeDocument(doc);
+          await this.handleWorkspaceChange(oldWorkspace, currentWorkspace.current);
+        }
+      }
+    });
+
     this.documents.listen(connection);
     logger.log({ 'server.register': 'registered' });
   }
@@ -235,12 +247,9 @@ export default class FishServer {
         currentWorkspace.current?.removeAnalyzed();
         await this.handleWorkspaceChange(oldWorkspace, currentWorkspace.current);
       });
-      if (!hasAnalyzedOnce) {
-        hasAnalyzedOnce = true;
-      }
     }
     return {
-      backgroundAnalysisCompleted: this.startBackgroundAnalysis(true),
+      backgroundAnalysisCompleted: this.startBackgroundAnalysis(),
     };
   }
 
@@ -808,7 +817,7 @@ export default class FishServer {
 
     // Analyze the new workspace
     if (newWorkspace && !newWorkspace.isAnalyzed()) {
-      this.startBackgroundAnalysis(!hasAnalyzedOnce);
+      this.startBackgroundAnalysis();
     }
   }
 

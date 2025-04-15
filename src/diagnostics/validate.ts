@@ -94,6 +94,9 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
       const found: SyntaxNode | null = findErrorCause(node.children);
       if (found && handler.isCodeEnabled(ErrorCodes.missingEnd)) {
         diagnostics.push(FishDiagnostic.create(ErrorCodes.missingEnd, node));
+        if (docType === 'conf.d') {
+          return diagnostics;
+        }
       }
     }
 
