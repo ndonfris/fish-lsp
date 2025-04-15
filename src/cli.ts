@@ -154,7 +154,7 @@ commandBin.command('info')
   .summary('show the build info of fish-lsp')
   .option('--bin', 'show the path of the fish-lsp executable')
   .option('--repo', 'show the path of the entire fish-lsp repo')
-  .option('--time', 'show the path of the entire fish-lsp repo')
+  .option('--build-time', 'show the path of the entire fish-lsp repo')
   .option('--lsp-version', 'show the lsp version')
   .option('--capabilities', 'show the lsp capabilities')
   .option('--man-file', 'show the man file path')
@@ -183,7 +183,7 @@ commandBin.command('info')
       await performHealthCheck();
       process.exit(0);
     }
-    if (args.time) {
+    if (args.buildTime) {
       logger.logToStdout(`Build Time: ${getBuildTimeString()}`);
       process.exit(0);
     }

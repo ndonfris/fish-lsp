@@ -97,7 +97,7 @@ complete -c fish-lsp -n '__fish_lsp_using_command complete; and not __fish_conta
 const infoCompletions: string = `# fish-lsp info --<TAB>
 complete -c fish-lsp -n '__fish_lsp_using_command info; and not __fish_contains_opt bin'           -l bin            -d 'show the binary path'
 complete -c fish-lsp -n '__fish_lsp_using_command info; and not __fish_contains_opt repo'          -l repo           -d 'show the repo path'
-complete -c fish-lsp -n '__fish_lsp_using_command info; and not __fish_contains_opt time'          -l time           -d 'show the build-time'
+complete -c fish-lsp -n '__fish_lsp_using_command info; and not __fish_contains_opt build-time'    -l build-time     -d 'show the build-time'
 complete -c fish-lsp -n '__fish_lsp_using_command info; and not __fish_contains_opt env'           -l env            -d 'show the env-variables used'
 complete -c fish-lsp -n '__fish_lsp_using_command info; and not __fish_contains_opt lsp-version'   -l lsp-version    -d 'show the npm package for the lsp-version'
 complete -c fish-lsp -n '__fish_lsp_using_command info; and not __fish_contains_opt capabilities'  -l capabilities   -d 'show the lsp capabilities implemented' 
