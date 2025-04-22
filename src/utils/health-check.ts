@@ -8,7 +8,7 @@ import { execAsyncFish } from './exec';
 import { SyncFileHelper } from './file-operations';
 
 export async function performHealthCheck() {
-  logger.logToStdout('fish-lsp health check\n' + '='.repeat(20));
+  logger.logToStdout('fish-lsp health check\n' + '='.repeat(21));
 
   // Check if fish shell is available
   try {
@@ -29,11 +29,19 @@ export async function performHealthCheck() {
     process.exit(1);
   }
 
+  if (isNodeVersionGreaterThan18()) {
+    logger.logToStdout(`✓ node version satisfies minimum version 18 (current version: ${process.versions.node})`);
+  } else {
+    logger.logToStdout(`✓ node version doesn't satisfy minimum version 18 (current version: ${process.versions.node})`);
+  }
+
   // Check file permissions
   await logFishLspConfig();
 
   // Check log file
+  logger.logToStdout('\nchecking log file:');
   if (config.fish_lsp_log_file) {
+    logger.logToStdout(`✓ log file found: ${config.fish_lsp_log_file}`);
     try {
       const logDir = path.dirname(config.fish_lsp_log_file);
       await fs.promises.access(logDir, fs.constants.W_OK);
@@ -41,6 +49,43 @@ export async function performHealthCheck() {
     } catch (error) {
       logger.logToStdout(`✗ cannot write to log directory: ${path.dirname(config.fish_lsp_log_file)}`);
     }
+  } else {
+    logger.logToStdout('✗ log file not specified');
+  }
+
+  try {
+    logger.log('\nchecking for fish-lsp completions:');
+    const completions = (await execAsyncFish('path sort --unique --key=basename $fish_complete_path/*.fish | string match -re "fish-lsp.fish\\$"')).stdout.toString().trim();
+    if (completions) {
+      logger.logToStdout(`✓ completions file found: ${completions}`);
+    } else {
+      logger.logToStdout('✗ completions file not found');
+    }
+
+    try {
+      const completionsEqual = await execAsyncFish(`fish-lsp complete | command diff ${completions} -`);
+      if (completionsEqual.stdout.toString().trim() === '') {
+        logger.logToStdout('✓ completions file is up to date');
+      } else {
+        logger.logToStdout('✗ completions file is not up to date');
+      }
+    } catch (error) {
+      logger.logToStdout('✗ completions file is not up to date');
+    }
+  } catch (error) {
+    logger.logToStdout('✗ completion file not found');
+  }
+
+  try {
+    logger.logToStdout('\nchecking for fish-lsp man page:');
+    const manFile = await execAsyncFish('man fish-lsp 2>/dev/null | command cat | count');
+    if (manFile.stdout && parseInt(manFile.stdout.toString().trim()) > 1) {
+      logger.logToStdout('✓ man page found');
+    } else {
+      logger.logToStdout('✗ man page not found');
+    }
+  } catch (error) {
+    logger.logToStdout('✗ man page not found');
   }
 
   // Memory usage
@@ -81,4 +126,10 @@ async function logFishLspConfig() {
       logger.logToStdout(`✗ fish-lsp workspace '${path}' is not writable`);
     }
   }
+}
+
+function isNodeVersionGreaterThan18() {
+  const currentVersion = process.versions.node;
+  const majorVersion = parseInt(currentVersion.split('.')[0]!, 10);
+  return majorVersion >= 18;
 }

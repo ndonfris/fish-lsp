@@ -464,7 +464,7 @@ export namespace Config {
           workDoneProgress: true,
         } : undefined,
         documentSymbolProvider: {
-          label: 'Fish-LSP',
+          label: 'fish-lsp',
         },
         workspaceSymbolProvider: {
           resolveProvider: true,

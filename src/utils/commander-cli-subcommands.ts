@@ -84,15 +84,28 @@ function filterStartCommandArgs(args: string[]): string[] {
   return filteredArgs;
 }
 
+// For the specific case of finding the fish-lsp executable path:
+function getCurrentExecutablePath(): string {
+  // If this is being run as a Node.js script
+  if (process.argv[0] && process.argv[0].includes('node')) {
+    // Return the script that was executed
+    return process.argv[1]!;
+  }
+
+  // Otherwise, return the executable path itself
+  return process.execPath;
+}
+
 /// HELPERS
 export const smallFishLogo = () => '><(((°> FISH LSP';
 export const RepoUrl = PackageJSON.repository?.url.slice(0, -4);
 export const PackageVersion = PackageJSON.version;
 
-export const PathObj: { [K in 'bin' | 'root' | 'repo' | 'manFile']: string } = {
+export const PathObj: { [K in 'bin' | 'root' | 'repo' | 'manFile' | 'execFile' ]: string } = {
   ['bin']: resolve(__dirname.toString(), '..', '..', 'bin', 'fish-lsp'),
   ['root']: resolve(__dirname, '..', '..'),
   ['repo']: resolve(__dirname, '..', '..'),
+  ['execFile']: getCurrentExecutablePath(),
   ['manFile']: resolve(__dirname, '..', '..', 'docs', 'man', 'fish-lsp.1'),
 };
 
@@ -169,14 +182,14 @@ export function FishLspManPage() {
 export const SourcesDict: { [key: string]: string; } = {
   repo: 'https://github.com/ndonfris/fish-lsp',
   git: 'https://github.com/ndonfris/fish-lsp',
-  npm: 'https://npmjs.io/ndonfris/fish-lsp',
+  npm: 'https://npmjs.com/fish-lsp',
   homepage: 'https://fish-lsp.dev',
-  contributions: 'https://github.com/ndonfris/fish-lsp/issues?q=',
+  contributing: 'https://github.com/ndonfris/fish-lsp/blob/master/docs/CONTRIBUTING.md',
   issues: 'https://github.com/ndonfris/fish-lsp/issues?q=',
   report: 'https://github.com/ndonfris/fish-lsp/issues?q=',
   wiki: 'https://github.com/ndonfris/fish-lsp/wiki',
   discussions: 'https://github.com/ndonfris/fish-lsp/discussions',
-  clientsRepos: 'https://github.com/ndonfris/fish-lsp-language-clients/',
+  clientsRepo: 'https://github.com/ndonfris/fish-lsp-language-clients/',
   sources: [
     'https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#headerPart',
     'https://github.com/microsoft/vscode-extension-samples/tree/main',

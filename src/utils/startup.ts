@@ -16,15 +16,34 @@ export type ConnectionType = 'stdio' | 'node-ipc' | 'socket';
 export interface ConnectionOptions {
   port?: number;
 }
+export function createConnectionType(opts: {
+  stdio?: boolean;
+  nodeIpc?: boolean;
+  socket?: boolean;
+}): ConnectionType {
+  if (opts.stdio) {
+    return 'stdio';
+  }
+  if (opts.nodeIpc) {
+    return 'node-ipc';
+  }
+  if (opts.socket) {
+    return 'socket';
+  }
+  return 'stdio';
+}
+
+export let connection: Connection;
 
 /**
  * Creates an LSP connection based on the specified type
  */
-function createLspConnection(connectionType: ConnectionType = 'stdio', options: ConnectionOptions = {}): Connection | null {
+function createLspConnection(connectionType: ConnectionType = 'stdio', options: ConnectionOptions = {}) {
   let server: net.Server;
   switch (connectionType) {
     case 'node-ipc':
-      return createConnection(ProposedFeatures.all);
+      connection = createConnection(ProposedFeatures.all);
+      break;
 
     case 'socket':
       if (!options.port) {
@@ -34,7 +53,7 @@ function createLspConnection(connectionType: ConnectionType = 'stdio', options: 
 
       // For socket connections, we need to set up a TCP server
       server = net.createServer((socket) => {
-        const connection = createConnection(
+        connection = createConnection(
           new StreamMessageReader(socket),
           new StreamMessageWriter(socket),
         );
@@ -48,14 +67,15 @@ function createLspConnection(connectionType: ConnectionType = 'stdio', options: 
 
       // For socket connections, we return null since the connection is created in the callback
       // This is a special case that needs to be handled in startServer
-      return null;
+      break;
 
     case 'stdio':
     default:
-      return createConnection(
+      connection = createConnection(
         new StreamMessageReader(process.stdin),
         new StreamMessageWriter(process.stdout),
       );
+      break;
   }
 }
 
@@ -85,7 +105,7 @@ function setupServerWithConnection(connection: Connection): void {
  */
 export function startServer(connectionType: ConnectionType = 'stdio', options: ConnectionOptions = {}): void {
   // Create connection using the refactored function
-  const connection = createLspConnection(connectionType, options);
+  createLspConnection(connectionType, options);
 
   // For socket connections, the setup is handled in the connection creation
   if (connectionType === 'socket' || !connection) {
