@@ -1,6 +1,6 @@
 import { promises as fs } from 'fs';
 import { DocumentUri, TextDocument } from 'vscode-languageserver-textdocument';
-import { Position, Range, TextDocumentItem, TextDocumentContentChangeEvent } from 'vscode-languageserver';
+import { Position, Range, TextDocumentItem, TextDocumentContentChangeEvent, VersionedTextDocumentIdentifier } from 'vscode-languageserver';
 import * as path from 'path';
 import { URI } from 'vscode-uri';
 import { homedir } from 'os';
@@ -74,10 +74,10 @@ export class LspDocument implements TextDocument {
     });
   }
 
-  update(changes: TextDocumentContentChangeEvent[]): LspDocument {
-    this.document = TextDocument.update(this.document, changes, this.version + 1);
-    return this;
-  }
+  // update(changes: TextDocumentContentChangeEvent[]): LspDocument {
+  //   this.document = TextDocument.update(this.document, changes, this.version);
+  //   return this;
+  // }
 
   /**
    * @see getLineBeforeCursor()
@@ -120,17 +120,24 @@ export class LspDocument implements TextDocument {
     return indent ? indent[0] : '';
   }
 
-  applyEdits(version: number, ...changes: TextDocumentContentChangeEvent[]): void {
-    for (const change of changes) {
-      const content = this.getText();
-      let newContent = change.text;
-      if (TextDocumentContentChangeEvent.isIncremental(change)) {
-        const start = this.offsetAt(change.range.start);
-        const end = this.offsetAt(change.range.end);
-        newContent = content.substring(0, start) + change.text + content.substring(end);
-      }
-      this.document = TextDocument.create(this.uri, this.languageId, version, newContent);
-    }
+  update(changes: TextDocumentContentChangeEvent[]): LspDocument {
+    this.document = TextDocument.update(this.document, changes, this.version + 1);
+    return LspDocument.fromTextDocument(this.document);
+
+    // for (const change of changes) {
+    //   const content = this.getText();
+    //   let newContent = change.text;
+    //   if (TextDocumentContentChangeEvent.isIncremental(change)) {
+    //     const start = this.offsetAt(change.range.start);
+    //     const end = this.offsetAt(change.range.end);
+    //     newContent = content.substring(0, start) + change.text + content.substring(end);
+    //   }
+    //   this.document = TextDocument.create(this.uri, this.languageId, version, newContent);
+    // }
+  }
+
+  asVersionedIdentifier() {
+    return VersionedTextDocumentIdentifier.create(this.uri, this.version);
   }
 
   rename(newUri: string): void {
@@ -313,6 +320,13 @@ export class LspDocuments {
     return this.documents.get(uri);
   }
 
+  openPath(path: string, doc: TextDocumentItem): LspDocument {
+    const lspDocument = new LspDocument(doc);
+    this.documents.set(path, lspDocument);
+    this._files.unshift(path);
+    return lspDocument;
+  }
+
   open(doc: LspDocument): boolean {
     const file = uriToPath(doc.uri);
     if (this.documents.has(file)) {
@@ -342,10 +356,20 @@ export class LspDocuments {
 
   applyChanges(uri: DocumentUri, changes: TextDocumentContentChangeEvent[]) {
     const path = uriToPath(uri);
-    const document = this.documents.get(path);
+    let document = this.documents.get(path);
     if (document) {
-      document.update(changes);
+      document = document.update(changes);
+      this.documents.set(path, document);
     }
+  }
+
+  set(document: LspDocument): void {
+    const path = uriToPath(document.uri);
+    this.documents.set(path, document);
+  }
+
+  all(): LspDocument[] {
+    return Array.from(this.documents.values());
   }
 
   closeTextDocument(document: TextDocument): LspDocument | undefined {

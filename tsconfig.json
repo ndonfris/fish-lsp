@@ -3,6 +3,8 @@
   "compilerOptions": {
     "incremental": true,
     "esModuleInterop": true,
+    "importHelpers": true,
+    "downlevelIteration": true,
     "noUncheckedIndexedAccess": true,
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,

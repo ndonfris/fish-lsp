@@ -290,6 +290,17 @@ export class FishSymbol {
     );
   }
 
+  toDocumentSymbol(): DocumentSymbol {
+    return DocumentSymbol.create(
+      this.name,
+      this.detail,
+      this.kind,
+      this.range,
+      this.selectionRange,
+      this.children.map(child => child.toDocumentSymbol()),
+    );
+  }
+
   toLocation(): Location {
     return Location.create(
       this.uri,

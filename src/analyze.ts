@@ -2,9 +2,9 @@ import { Hover, Position, SymbolKind, WorkspaceSymbol, URI, Location } from 'vsc
 import * as Parser from 'web-tree-sitter';
 import { SyntaxNode, Tree } from 'web-tree-sitter';
 import * as LSP from 'vscode-languageserver';
-import { isPositionWithinRange, getChildNodes, containsRange, getRange, precedesRange } from './utils/tree-sitter';
+import { isPositionWithinRange, getChildNodes, containsRange, getRange, precedesRange, isPositionAfter } from './utils/tree-sitter';
 import { LspDocument, documents } from './document';
-import { isAliasDefinitionName, isCommand, isCommandName, isOption, isTopLevelDefinition } from './utils/node-types';
+import { findParentFunction, isAliasDefinitionName, isCommand, isCommandName, isOption, isTopLevelDefinition } from './utils/node-types';
 import { pathToUri, symbolKindToString, uriToPath } from './utils/translation';
 import { existsSync } from 'fs';
 import { currentWorkspace, Workspace, workspaces } from './utils/workspace';
@@ -14,18 +14,47 @@ import { SyncFileHelper } from './utils/file-operations';
 import { FishSymbol, processNestedTree } from './parsing/symbol';
 import { flattenNested } from './utils/flatten';
 import { isArgparseVariableDefinitionName } from './parsing/argparse';
-import { getExpandedSourcedFilenameNode, isSourceCommandArgumentName, SourceResource } from './parsing/source';
+import { getExpandedSourcedFilenameNode, isSourceCommandArgumentName } from './parsing/source';
 import { CompletionSymbol, isCompletionDefinition, processCompletion } from './parsing/complete';
 import { execCommandLocations } from './utils/exec';
 import { implementationLocation } from './references';
 import { hasWorkspaceFolderCapability } from './server';
 
 export type AnalyzedDocument = {
+  /**
+   * The LspDocument that was analyzed.
+   */
   document: LspDocument;
+  /**
+   * A nested array of FishSymbols, representing the symbols in the document.
+   */
   documentSymbols: FishSymbol[];
+  /**
+   * The names of every command used in this document
+   */
   commands: string[];
+  /**
+   * A tree that has been parsed by web-tree-sitter
+   */
   tree: Parser.Tree;
-  sourced: SourceResource[];
+  /**
+   * root node of a SyntaxTree
+   */
+  root: Parser.SyntaxNode;
+  /**
+   * All the `source some_file_path` nodes in a document, scoping is not considered.
+   * However, the nodes can be filtered to consider scoping at a later time.
+   */
+  sourceNodes: SyntaxNode[];
+  /**
+   * All the sourced files in a document. This is a simple utility that is used
+   * while searching for reachable sources from a single document. It is not
+   * equivalent to all the sourced nodes that a document might recognize
+   * (i.e., source of a source).
+   * For all reachable sources use the methods in the analyzer class:
+   * `analyzer.collectAllSources()` or `analyzer.collectReachableSources()`
+   */
+  sourced: Set<string>;
 };
 
 export namespace AnalyzedDocument {
@@ -34,13 +63,16 @@ export namespace AnalyzedDocument {
     documentSymbols: FishSymbol[],
     commands: string[],
     tree: Parser.Tree,
-    sourced: SourceResource[] = [],
+    sourceNodes: SyntaxNode[] = [],
+    sourced: Set<string> = new Set(),
   ): AnalyzedDocument {
     return {
       document,
       documentSymbols,
       commands,
       tree,
+      root: tree.rootNode,
+      sourceNodes,
       sourced,
     };
   }
@@ -82,18 +114,30 @@ export class Analyzer {
     parser: Parser,
     document: LspDocument,
   ): AnalyzedDocument {
+    parser.reset();
     const tree = parser.parse(document.getText());
     const documentSymbols = processNestedTree(
       document,
       tree.rootNode,
     );
     const commands = this.getCommandNames(document.uri);
+    // const sourcedUris = new Set<string>();
+    const sourceNodes: SyntaxNode[] = [];
+    getChildNodes(tree.rootNode)
+      .filter(node => isSourceCommandArgumentName(node))
+      .forEach(node => {
+        if (isSourceCommandArgumentName(node)) {
+          sourceNodes.push(node);
+        }
+      });
 
     return AnalyzedDocument.create(
       document,
       documentSymbols,
       commands,
       tree,
+      sourceNodes,
+      // sourcedUris,
     );
   }
 
@@ -116,7 +160,7 @@ export class Analyzer {
     let amount = 0;
     // if there isn't a workspace folder capability, we need to analyze all the workspaces
     // that are available.
-    if (!hasWorkspaceFolderCapability) {
+    if (!hasWorkspaceFolderCapability || !config.fish_lsp_single_workspace_support) {
       let totalFiles = 0;
       logger.log('[fish-lsp] workspace folder capability not enabled');
       for (const workspace of workspaces) {
@@ -124,7 +168,7 @@ export class Analyzer {
         if (!workspace.isAnalyzed()) {
           workspace.setAnalyzed();
           const upperBound = Math.min(workspace.uris.size, max_files);
-          for (const uri of workspace.uris) {
+          for (const uri of Array.from(workspace.uris)) {
             const reportPercent = Math.floor(amount / upperBound);
             progress.report(reportPercent);
             if (amount >= max_files) break;
@@ -213,45 +257,44 @@ export class Analyzer {
     });
   }
 
-  public ensureSourcedFilesToWorkspace(
-    uri: string,
-    sourceFiles: Set<string> = new Set(),
-  ) {
-    const workspace = currentWorkspace.current;
-    if (!workspace) {
-      return;
-    }
-    const path = uriToPath(uri);
-    const cached = this.analyzePath(path);
-    const { document } = cached;
-    const nodes = this.getNodes(document.uri);
-
-    for (const node of nodes) {
-      if (isSourceCommandArgumentName(node) && isTopLevelDefinition(node)) {
-        const sourced = getExpandedSourcedFilenameNode(node);
-        if (!sourced) continue;
-        const sourcedUri = pathToUri(sourced);
-        if (!sourceFiles.has(sourcedUri)) {
-          currentWorkspace.current?.add(cached.document.uri);
-          sourceFiles.add(sourcedUri);
-          this.ensureSourcedFilesToWorkspace(sourcedUri, sourceFiles);
-        }
-        logger.info('ensureSourcedFilesToWorkspace', {
-          node: node.text,
-          currentWorkspace: {
-            path: currentWorkspace.current?.path,
-            uri: currentWorkspace.current?.uri,
-            name: currentWorkspace.current?.name,
-            uris: Array.from(currentWorkspace.current?.uris || []).join(':'),
-          },
-          cached: {
-            uri: cached.document.uri,
-            sourcedUri,
-          },
-        });
-      }
-    }
-  }
+  // public async ensureSourcedFilesToWorkspace(
+  //   uri: string,
+  //   sourceFiles: Set<string> = new Set(),
+  // ) {
+  //
+  //   await currentWorkspace.updateCurrentWorkspace(uri);
+  //
+  //   const path = uriToPath(uri);
+  //   const cached = this.analyzePath(path);
+  //   const { document } = cached;
+  //   const nodes = this.getNodes(document.uri);
+  //
+  //   for (const node of nodes) {
+  //     if (isSourceCommandArgumentName(node) && isTopLevelDefinition(node)) {
+  //       const sourced = getExpandedSourcedFilenameNode(node);
+  //       if (!sourced) continue;
+  //       const sourcedUri = pathToUri(sourced);
+  //       if (!sourceFiles.has(sourcedUri)) {
+  //         currentWorkspace.current?.add(cached.document.uri);
+  //         sourceFiles.add(sourcedUri);
+  //         this.ensureSourcedFilesToWorkspace(sourcedUri, sourceFiles);
+  //       }
+  //       logger.info('ensureSourcedFilesToWorkspace', {
+  //         node: node.text,
+  //         currentWorkspace: {
+  //           path: currentWorkspace.current?.path,
+  //           uri: currentWorkspace.current?.uri,
+  //           name: currentWorkspace.current?.name,
+  //           uris: Array.from(currentWorkspace.current?.uris || []).join(':'),
+  //         },
+  //         cached: {
+  //           uri: cached.document.uri,
+  //           sourcedUri,
+  //         },
+  //       });
+  //     }
+  //   }
+  // }
 
   /**
    * Return the first FishSymbol seen that could be defined by the given position.
@@ -365,20 +408,40 @@ export class Analyzer {
     document: LspDocument,
     position: Position,
   ): FishSymbol[] {
+    // Set to avoid duplicate symbols
+    const symbolNames: Set<string> = new Set();
+    // add the local symbols
     const symbols = flattenNested(...this.cache.getDocumentSymbols(document.uri))
       .filter((symbol) => symbol.scope.containsPosition(position));
-    const globalSymbols = this.globalSymbols.allSymbols.filter((symbol) => {
-      if (symbol.uri !== document.uri) {
-        return !symbols.some((s) => s.name === symbol.name);
+    symbols.forEach((symbol) => symbolNames.add(symbol.name));
+    // add the sourced symbols
+    const sourcedUris = this.collectReachableSources(document.uri, position);
+    for (const sourcedUri of sourcedUris) {
+      const sourcedSymbols = this.cache.getFlatDocumentSymbols(sourcedUri)
+        .filter(s =>
+          !symbolNames.has(s.name)
+          && isTopLevelDefinition(s.focusedNode)
+          && s.uri !== document.uri,
+        );
+      symbols.push(...sourcedSymbols);
+      sourcedSymbols.forEach((symbol) => symbolNames.add(symbol.name));
+    }
+    // add the global symbols
+    for (const globalSymbol of this.globalSymbols.allSymbols) {
+      // skip any symbols that are already in the result so that
+      // next conditionals don't have to consider duplicate symbols
+      if (symbolNames.has(globalSymbol.name)) continue;
+      // any global symbol not in the document
+      if (globalSymbol.uri !== document.uri) {
+        symbols.push(globalSymbol);
+        symbolNames.add(globalSymbol.name);
+        // any symbol in the document that is globally scoped
+      } else if (globalSymbol.uri === document.uri) {
+        symbols.push(globalSymbol);
+        symbolNames.add(globalSymbol.name);
       }
-      return true;
-    });
-
-    return [
-      ...symbols,
-      ...globalSymbols,
-
-    ];
+    }
+    return symbols;
   }
 
   /**
@@ -491,9 +554,19 @@ export class Analyzer {
     // handle source argument definition location
     const node = this.nodeAtPoint(document.uri, position.line, position.character);
     if (node && isSourceCommandArgumentName(node)) {
+      logger.log({
+        isSourceCommandArgumentName: node.text,
+        node: true,
+        parent: false,
+      });
       return this.getSourceDefinitionLocation(node);
     }
     if (node && node.parent && isSourceCommandArgumentName(node.parent)) {
+      logger.log({
+        isSourceCommandArgumentName: node.parent.text,
+        node: false,
+        parent: true,
+      });
       return this.getSourceDefinitionLocation(node.parent);
     }
 
@@ -674,6 +747,84 @@ export class Analyzer {
       .map((node) => node.text);
     const result = new Set(allCommands);
     return Array.from(result);
+  }
+
+  /**
+   * Utility to collect all the sources in the input documentUri, or if specified
+   * it will only collect the included sources from the sources parameter
+   * @param documentUri - the uri of the document to collect sources from
+   * @param sources - the sources to collect from (optional set to narrow results)
+   * @returns {Set<string>} - a flat set of all the sourceUri's reachable from the input sources
+   */
+  private collectSources(
+    documentUri: string,
+    sources = this.cache.getSources(documentUri),
+  ): Set<string> {
+    const visited = new Set<string>();
+    const collectionStack: string[] = Array.from(sources);
+    while (collectionStack.length > 0) {
+      const source = collectionStack.pop()!;
+      if (visited.has(source)) continue;
+      visited.add(source);
+      const cahedSourceDoc = this.cache.hasUri(source)
+        ? this.cache.getDocument(source) as AnalyzedDocument
+        : this.analyzePath(uriToPath(source)) as AnalyzedDocument;
+      if (!cahedSourceDoc) continue;
+      const sourced = this.cache.getSources(cahedSourceDoc.document.uri);
+      collectionStack.push(...Array.from(sourced));
+    }
+    return visited;
+  }
+
+  /**
+   * Collects all the sourceUri's that are reachable from the given documentUri at Position
+   * @param documentUri - the uri of the document to collect sources from
+   * @param position - the position to collect sources from
+   * @returns {Set<string>} - a set of all the sourceUri's in the document before the position
+   */
+  public collectReachableSources(
+    documentUri: string,
+    position: Position,
+  ): Set<string> {
+    const currentNode = this.nodeAtPoint(documentUri, position.line, position.character);
+    let currentParent: SyntaxNode | null;
+    if (currentNode) currentParent = findParentFunction(currentNode);
+    const sourceNodes = this.cache.getSourceNodes(documentUri)
+      .filter(node => {
+        if (isTopLevelDefinition(node) && isPositionAfter(getRange(node).start, position)) {
+          return true;
+        }
+        const parentFunction = findParentFunction(node);
+        if (currentParent && parentFunction?.equals(currentParent) && isPositionAfter(getRange(node).start, position)) {
+          return true;
+        }
+        return false;
+      },
+      );
+    const sources = new Set<string>();
+    for (const node of sourceNodes) {
+      const sourced = getExpandedSourcedFilenameNode(node);
+      if (sourced) {
+        sources.add(pathToUri(sourced));
+      }
+    }
+    return this.collectSources(documentUri, sources);
+  }
+
+  /**
+   * Collects all the sourceUri's that are in the documentUri
+   * @param documentUri - the uri of the document to collect sources from
+   * @returns {Set<string>} - a set of all the sourceUri's in the document
+   */
+  public collectAllSources(documentUri: string): Set<string> {
+    const allSources = this.collectSources(documentUri);
+    for (const source of allSources) {
+      const sourceDoc = this.cache.getDocument(source);
+      if (!sourceDoc) {
+        this.analyzePath(source);
+      }
+    }
+    return allSources;
   }
 
   public parsePosition(
@@ -893,6 +1044,9 @@ export class AnalyzedDocumentCache {
     }
     return this._documents.get(uri);
   }
+  hasUri(uri: URI): boolean {
+    return this._documents.has(uri);
+  }
   updateUri(oldUri: URI, newUri: URI): void {
     const oldValue = this.getDocument(oldUri);
     if (oldValue) {
@@ -921,6 +1075,26 @@ export class AnalyzedDocumentCache {
       return [];
     }
     return document.documentSymbols;
+  }
+  getSources(uri: URI): Set<string> {
+    const document = this.getDocument(uri);
+    if (!document) {
+      return new Set();
+    }
+    const result: Set<string> = new Set();
+    const sourceNodes = document.sourceNodes.map(node => getExpandedSourcedFilenameNode(node)).filter(s => !!s) as string[];
+    for (const source of sourceNodes) {
+      const sourceUri = pathToUri(source);
+      result.add(sourceUri);
+    }
+    return result;
+  }
+  getSourceNodes(uri: URI): SyntaxNode[] {
+    const document = this.getDocument(uri);
+    if (!document) {
+      return [];
+    }
+    return document.sourceNodes;
   }
   /**
    * Name is a string that will be searched across all symbols in cache. tree-sitter-fish

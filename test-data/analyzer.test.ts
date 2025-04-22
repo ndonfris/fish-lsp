@@ -1,11 +1,13 @@
 import { setLogger, createFakeLspDocument } from './helpers';
 import { initializeParser } from '../src/parser';
+/* @ts-ignore */
 import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { Analyzer } from '../src/analyze';
 import { containsNode, getChildNodes, getRange } from '../src/utils/tree-sitter';
 import { isFunctionDefinitionName } from '../src/utils/node-types';
 import * as LSP from 'vscode-languageserver';
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs';
+/* @ts-ignore */
 import os from 'os';
 import { join } from 'path';
 import { pathToUri } from '../src/utils/translation';
@@ -113,7 +115,7 @@ describe('Analyzer class in file: `src/analyze.ts`', () => {
       ].join('\n'));
       analyzer.analyze(document);
       const matchTree = parser.parse(document.getText());
-      const result = analyzer.getTree(document);
+      const result = analyzer.getTree(document.uri);
       expect(result).toBeDefined();
       expect(result!.rootNode.text).toEqual(matchTree.rootNode.text);
     });
@@ -128,7 +130,7 @@ describe('Analyzer class in file: `src/analyze.ts`', () => {
       ].join('\n'));
       analyzer.analyze(document);
       const output = parser.parse(document.getText()).rootNode;
-      const result = analyzer.getRootNode(document);
+      const result = analyzer.getRootNode(document.uri);
       expect(result).toBeDefined();
       expect(result!.text).toEqual(output.text);
     });
@@ -276,7 +278,7 @@ describe('Analyzer class in file: `src/analyze.ts`', () => {
       expect(flatSymbols.map(s => s.name)).toEqual(['argv', 'foo', 'bar', 'baz', 'argv', 'argv', 'argv']);
     });
 
-    it.skip('source command', async () => {
+    it('source command', async () => {
       testFilePath = join(tmpDir, 'foo.fish');
       const content = [
         'source $__fish_data_dir/config.fish',
@@ -293,40 +295,19 @@ describe('Analyzer class in file: `src/analyze.ts`', () => {
       // expect(result).toHaveLength(2);
       const document = analyzer.getDocumentFromPath(testFilePath);
       if (!document) fail();
-      const fooNode = result.find(n => n.name === 'foo')!;
-      const reachableFoo = analyzer.getAllSymbolsBeforePosition(document, getRange(fooNode.node).start);
-      expect(reachableFoo).toBeDefined();
-      expect(reachableFoo).toHaveLength(2); // make sure we don't include fish_add_path
-      const barNode = result.find(n => n.name === 'bar')!;
-      const reachableBar = analyzer.getAllSymbolsBeforePosition(document, getRange(barNode.scopeNode).start);
-      expect(reachableBar).toBeDefined();
-      expect(reachableBar).toHaveLength(3);
-
-      // const reachableSymbols: FishSymbol[] = [
-      //   ...filterLastPerScopeSymbol(analyzer.allSymbolsAccessibleAtPosition(document, barNode.range.start)),
-      // ].reduce<FishSymbol[]>((acc, symbol) => {
-      //   const filtered = acc.filter(s => s.name !== symbol.name);
-      //   return [...filtered, symbol];
-      // }, []);
-      //
-      // const reachableNames: Set<string> = new Set(reachableSymbols.map(s => s.name));
-      // for (const r of reachableBar) {
-      //   const symbols = symbolsFromResource(analyzer, r)
-      //     .filter(s => !reachableNames.has(s.name));
-      //   console.log({
-      //     reachableBar: r.to.uri,
-      //     reachableSymbols: symbols.map(s => s.name),
-      //   })
-      //   symbols.forEach(s => reachableNames.add(s.name));
-      //   reachableSymbols.push(...symbols);
+      const allSources = analyzer.collectAllSources(document.uri);
+      // for (const sourceUri of Array.from(sources)) {
+      //   const sourceDocument = analyzer.getDocument(sourceUri);
+      //   console.log({sourceUri})
+      //   expect(sourceDocument).toBeDefined();
       // }
-      const reachableSymbols = analyzer.getAllSymbolsBeforePosition(document, barNode.range.start).map(r => r.name);
-      expect(reachableSymbols).toBeDefined();
-      // console.log({
-      //   reachableFoo: reachableFoo.map(r => r.to.uri),
-      //   reachableBar: reachableBar.map(r => r.to.uri),
-      //   rs: analyzer.getAllSymbolsBeforePosition(document, barNode.range.start).map(r => r.name),
-      // });
+      expect(allSources.size).toBe(3);
+      const { sourceNodes } = result;
+      const addPathNode = sourceNodes.at(-1)!;
+      const sourceBeforeAddPathNode = analyzer.collectReachableSources(document.uri, getRange(addPathNode).start);
+      const sourceAfterAddPathNode = analyzer.collectReachableSources(document.uri, getRange(addPathNode).end);
+      expect(sourceBeforeAddPathNode.size).toBe(2);
+      expect(sourceAfterAddPathNode.size).toBe(3);
     });
   });
 

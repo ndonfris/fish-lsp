@@ -438,7 +438,7 @@ export namespace Config {
 
         textDocumentSync: {
           openClose: true,
-          change: TextDocumentSyncKind.Full,
+          change: TextDocumentSyncKind.Incremental,
         },
         completionProvider: configHandlers.complete ? {
           resolveProvider: true,

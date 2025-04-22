@@ -2,7 +2,6 @@ import { SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from './parser';
 import { Analyzer } from './analyze';
 import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, ImplementationParams } from 'vscode-languageserver';
-import { TextDocument } from 'vscode-languageserver-textdocument';
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments, documents } from './document';
 import { formatDocumentContent } from './formatting';
@@ -122,7 +121,6 @@ export default class FishServer {
 
   private initializeParams: InitializeParams | undefined;
   protected features: SupportedFeatures;
-  private documents = new LSP.TextDocuments(TextDocument);
   public clientSupportsShowDocument: boolean;
 
   constructor(
@@ -141,51 +139,6 @@ export default class FishServer {
   }
 
   register(connection: Connection): void {
-    // handle the documents using the documents dependency
-    this.documents.onDidChangeContent(async (event) => {
-      const oldWorkspace = currentWorkspace.current;
-      this.logParams('onDidChangeContent', event);
-      this.docs.updateTextDocument(event.document);
-      this.analyzeDocument(event.document);
-      const newWorkspace = await findCurrentWorkspace(event.document.uri);
-      await this.handleWorkspaceChange(oldWorkspace, newWorkspace);
-      this.analyzer.ensureSourcedFilesToWorkspace(event.document.uri);
-      logger.log('newWorkspace', newWorkspace?.name);
-    });
-
-    this.documents.onDidOpen(async event => {
-      this.logParams('onDidOpen', event);
-      const oldWorkspace = currentWorkspace.current;
-      const newWorkspace = await findCurrentWorkspace(event.document.uri);
-      CurrentDocument = this.docs.openTextDocument(event.document);
-      currentWorkspace.current = null;
-      await currentWorkspace.updateCurrentWorkspace(event.document.uri);
-      this.analyzeDocument(event.document);
-      if (!event.document.uri.startsWith('file:///tmp')) {
-        await this.handleWorkspaceChange(oldWorkspace, newWorkspace);
-      }
-      logger.log('newWorkspace', newWorkspace?.name);
-    });
-
-    this.documents.onDidClose(event => {
-      this.logParams('onDidClose', event);
-      const perviousWorkspace = currentWorkspace.current;
-      this.clearDiagnostics(event.document);
-      const remainingDocumentsInWorkspace = this.documents.all()
-        .filter((item) => {
-          if (!perviousWorkspace) return true;
-          return perviousWorkspace.contains(item.uri);
-        });
-      if (remainingDocumentsInWorkspace.length === 0) {
-        currentWorkspace.current = null;
-        CurrentDocument = undefined;
-      }
-      if (perviousWorkspace) {
-        this.analyzer.clearWorkspace(perviousWorkspace, event.document.uri, ...this.documents.all().map(doc => doc.uri));
-      }
-      this.docs.closeTextDocument(event.document);
-    });
-
     // setup handlers
     const codeActionHandler = createCodeActionHandler(this.docs, this.analyzer);
     const executeHandler = createExecuteCommandHandler(this.connection, this.docs, this.logger);
@@ -193,6 +146,10 @@ export default class FishServer {
 
     // register the handlers
     connection.onInitialized(this.onInitialized.bind(this));
+    connection.onDidOpenTextDocument(this.didOpenTextDocument.bind(this));
+    connection.onDidChangeTextDocument(this.didChangeTextDocument.bind(this));
+    connection.onDidCloseTextDocument(this.didCloseTextDocument.bind(this));
+    connection.onDidSaveTextDocument(this.didSaveTextDocument.bind(this));
     // • for multiple completionProviders -> https://github.com/microsoft/vscode-extension-samples/blob/main/completions-sample/src/extension.ts#L15
     // • https://github.com/Dart-Code/Dart-Code/blob/7df6509870d51cc99a90cf220715f4f97c681bbf/src/providers/dart_completion_item_provider.ts#L197-202
     connection.onCompletion(this.onCompletion.bind(this));
@@ -217,22 +174,127 @@ export default class FishServer {
     connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
     connection.onExecuteCommand(executeHandler);
 
-    connection.onDidChangeWatchedFiles(async event => {
-      this.logParams('onDidChangeWatchedFiles', event);
-      const oldWorkspace = currentWorkspace.current;
-      for (const change of event.changes) {
-        const uri = change.uri;
-        const path = uriToPath(uri);
-        const doc = this.docs.get(path);
-        if (doc) {
-          this.analyzeDocument(doc);
-          await this.handleWorkspaceChange(oldWorkspace, currentWorkspace.current);
-        }
-      }
-    });
+    // connection.onDidChangeWatchedFiles(async event => {
+    //   this.logParams('onDidChangeWatchedFiles', event);
+    //   const oldWorkspace = currentWorkspace.current;
+    //   for (const change of event.changes) {
+    //     const uri = change.uri;
+    //     if (doc) {
+    //       this.analyzeDocument(doc);
+    //       await this.handleWorkspaceChange(oldWorkspace, currentWorkspace.current);
+    //     }
+    //   }
+    // });
 
-    this.documents.listen(connection);
+    // this.documents.listen(connection);
     logger.log({ 'server.register': 'registered' });
+  }
+
+  async didOpenTextDocument(params: LSP.DidOpenTextDocumentParams): Promise<void> {
+    this.logParams('didOpenTextDocument', params);
+    const path = uriToPath(params.textDocument.uri);
+    const doc = this.docs.openPath(path, params.textDocument);
+    const { tree } = this.analyzer.analyze(doc);
+    const root = tree.rootNode;
+
+    const diagnostics = root ? getDiagnostics(root, doc) : [];
+    this.connection.sendDiagnostics({ uri: doc.uri, diagnostics });
+    // const oldWorkspace = currentWorkspace.current;
+    // const newWorkspace = await findCurrentWorkspace(params.textDocument.uri);
+    // await currentWorkspace.updateCurrentWorkspace(params.textDocument.uri);
+    const newWorkspace = await findCurrentWorkspace(doc.uri);
+    this.analyzer.collectAllSources(doc.uri).forEach(uri => {
+      newWorkspace?.addUri(uri);
+    });
+    // this.analyzer.getNodes(doc.uri).map(n => {
+    //   const sourced = getExpandedSourcedFilenameNode(n);
+    //   if (!!sourced) {
+    //     logger.log('sourced', sourced);
+    //     this.analyzer.analyzePath(sourced);
+    //     newWorkspace?.addUri(pathToUri(sourced));
+    //   }
+    // });
+    this.startBackgroundAnalysis();
+
+    // await this.handleWorkspaceChange(oldWorkspace, newWorkspace);
+    // if (!params.textDocument.uri.startsWith('file:///tmp')) {
+    // }
+  }
+
+  async didChangeTextDocument(params: LSP.DidChangeTextDocumentParams): Promise<void> {
+    this.logParams('didChangeTextDocument', params);
+    const path = uriToPath(params.textDocument.uri);
+    let doc = this.docs.get(path);
+    if (!doc) {
+      doc = this.analyzer.analyzePath(path).document;
+      logger.error(`Document not found: ${path}`);
+      return;
+    }
+    doc = doc.update(params.contentChanges);
+    this.analyzer.analyze(doc);
+    this.docs.set(doc);
+    logger.logAsJson(`CHANGED -> ${doc.version}:::${doc.uri}`);
+    logger.log(
+      {
+        params: { v: params.textDocument.version, c: params.contentChanges },
+        doc: { v: doc.version, uri: doc.uri, text: doc.getText() },
+      },
+    );
+    const root = this.analyzer.getRootNode(doc.uri);
+
+    const diagnostics = root ? getDiagnostics(root, doc) : [];
+    this.connection.sendDiagnostics({ uri: doc.uri, diagnostics });
+    // this.analyzer.ensureSourcedFilesToWorkspace(doc.uri);
+    // await findCurrentWorkspace(doc.uri);
+    // currentWorkspace.current?.urisToLspDocuments().forEach(d => {
+    //   this.analyzer.analyze(d);
+    // });
+    // this.analyzeDocument(doc.asVersionedIdentifier());
+    // this.docs.updateTextDocument(doc);
+    // const newWorkspace = await findCurrentWorkspace(doc.uri);
+    // this.analyzer.getNodes(doc.uri).map(n => {
+    //   const sourced = getExpandedSourcedFilenameNode(n);
+    //   if (!!sourced) {
+    //     logger.log('sourced', sourced);
+    //     this.analyzer.analyzePath(sourced);
+    //     newWorkspace?.addUri(pathToUri(sourced));
+    //   }
+    // });
+    // this.startBackgroundAnalysis();
+
+    // await this.handleWorkspaceChange(oldWorkspace, newWorkspace);
+    // this.analyzer.ensureSourcedFilesToWorkspace(doc.uri);
+    // logger.log('newWorkspace', newWorkspace?.name);
+  }
+
+  didCloseTextDocument(params: LSP.DidCloseTextDocumentParams): void {
+    this.logParams('didCloseTextDocument', params);
+    const path = uriToPath(params.textDocument.uri);
+    this.docs.close(path);
+    const perviousWorkspace = currentWorkspace.current;
+    this.clearDiagnostics(params.textDocument);
+    const remainingDocumentsInWorkspace = this.docs.all()
+      .filter((item) => {
+        if (!perviousWorkspace) return true;
+        return perviousWorkspace.contains(item.uri);
+      });
+    if (remainingDocumentsInWorkspace.length === 0) {
+      currentWorkspace.current = null;
+      CurrentDocument = undefined;
+    }
+    if (perviousWorkspace) {
+      this.analyzer.clearWorkspace(perviousWorkspace, params.textDocument.uri, ...this.docs.all().map(doc => doc.uri));
+    }
+  }
+
+  async didSaveTextDocument(params: LSP.DidSaveTextDocumentParams): Promise<void> {
+    this.logParams('didSaveTextDocument', params);
+    const newSources = this.analyzer.collectAllSources(params.textDocument.uri);
+    const newWorkspace = await findCurrentWorkspace(params.textDocument.uri);
+    newSources.forEach(uri => {
+      newWorkspace?.addUri(uri);
+    });
+    this.startBackgroundAnalysis();
   }
 
   // @see:
@@ -369,16 +431,15 @@ export default class FishServer {
   // ResolveWorkspaceResult
   // https://github.com/Dart-Code/Dart-Code/blob/master/src/extension/providers/dart_workspace_symbol_provider.ts#L7
   //
-  async onDocumentSymbols(
+  onDocumentSymbols(
     params: DocumentSymbolParams,
-  ): Promise<DocumentSymbol[]> {
+  ): DocumentSymbol[] {
     this.logParams('onDocumentSymbols', params);
 
     const { doc } = this.getDefaultsForPartialParams(params);
     if (!doc) return [];
-
     const symbols = this.analyzer.cache.getDocumentSymbols(doc.uri);
-    return filterLastPerScopeSymbol(symbols);
+    return filterLastPerScopeSymbol(symbols).map((symbol) => symbol.toDocumentSymbol());
   }
 
   protected get supportHierarchicalDocumentSymbol(): boolean {
@@ -791,7 +852,7 @@ export default class FishServer {
       diagnostics: diagnostics.map(d => d.code),
     });
     this.connection.sendDiagnostics({ uri: resultDoc.uri, diagnostics });
-    this.analyzer.ensureSourcedFilesToWorkspace(doc.uri);
+    this.analyzer.collectAllSources(resultDoc.uri);
 
     return {
       uri: document.uri,

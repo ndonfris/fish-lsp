@@ -11,12 +11,13 @@ module.exports = {
     'plugin:@typescript-eslint/recommended',
   ],
   parserOptions: {
+    // requireConfigFile: false,
     sourceType: 'module',
     project: './tsconfig.eslint.json',
     tsconfigRootDir: __dirname,
   },
   rules: {
-    'array-bracket-spacing':  'error',
+    'array-bracket-spacing': 'error',
     'brace-style': 'error',
     'comma-dangle': ['error', 'always-multiline'],
     'comma-spacing': 'error',
@@ -40,8 +41,8 @@ module.exports = {
     ],
     'no-constant-binary-expression': 'error',
     'no-constructor-return': 'error',
-    'no-multi-spaces': ['error', { ignoreEOLComments: true }],
-    'no-multiple-empty-lines': ['error', { max: 1 }],
+    'no-multi-spaces': ['error', {ignoreEOLComments: true}],
+    'no-multiple-empty-lines': ['error', {max: 1}],
     'no-tabs': 'error',
     'no-template-curly-in-string': 'off',
     'no-trailing-spaces': 'error',
@@ -79,9 +80,9 @@ module.exports = {
     '@typescript-eslint/indent': [
       'off', 2, {
         SwitchCase: 1,
-        FunctionDeclaration: { parameters: 'first' },
-        FunctionExpression: { parameters: 'first' },
-        CallExpression: { arguments: 'first' },
+        FunctionDeclaration: {parameters: 'first'},
+        FunctionExpression: {parameters: 'first'},
+        CallExpression: {arguments: 'first'},
       },
     ],
     '@typescript-eslint/member-delimiter-style': [
@@ -113,21 +114,29 @@ module.exports = {
     // TODO: Try to remove existing uses.
     // https://github.com/typescript-eslint/typescript-eslint/blob/master/packages/eslint-plugin/docs/rules/no-non-null-assertion.md
     '@typescript-eslint/no-non-null-assertion': 'off',
-    '@typescript-eslint/quotes': ['error', 'single', { avoidEscape: true, allowTemplateLiterals: false }],
+    '@typescript-eslint/quotes': ['error', 'single', {avoidEscape: true, allowTemplateLiterals: false}],
     '@typescript-eslint/restrict-plus-operands': 'error',
     '@typescript-eslint/semi': ['warn', 'always'],
-    'nonblock-statement-body-position': ['warn', 'beside', { overrides: { while: 'below' } }],
+    'nonblock-statement-body-position': ['warn', 'beside', {overrides: {while: 'below'}}],
     '@typescript-eslint/no-unsafe-declaration-merging': 'off',
   },
   overrides: [
     {
       files: ['test-data/**/*.ts'],
+      // project: './tsconfig.jest.json',
       rules: {
         '@typescript-eslint/no-unused-vars': 'off',
         '@typescript-eslint/no-require-imports': 'off',
         'no-console': 'off',
         'no-control-regex': 'off',
         '@typescript-eslint/no-var-requires': 'off',
+
+        // other rules...
+        '@typescript-eslint/no-explicit-any': 'off',
+        '@typescript-eslint/no-implied-eval': 'off',
+        'downlevel-iteration': 'off',
+        'import/no-default-export': 'off',
+        'import/prefer-default-export': 'off',
       },
     },
   ],
