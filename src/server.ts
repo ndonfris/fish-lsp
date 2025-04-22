@@ -932,15 +932,36 @@ export default class FishServer {
 
   public async startBackgroundAnalysis(): Promise<{ filesParsed: number; }> {
     // ../node_modules/vscode-languageserver/lib/common/progress.d.ts
-    const progress = this.connection.window.attachWorkDoneProgress(undefined);
-    progress.begin('fish-lsp', 0, 'Starting background analysis', true);
+    const progress = await this.connection.window.createWorkDoneProgress();
+    progress.begin('fish-lsp', 0, 'Analyzing workspace files', true);
+    const progressWrapper = {
+      begin: progress.begin.bind(progress),
+      report: progress.report.bind(progress),
+      // HACK: The builtin progress reporter API doesn't support sending a message with the done method, so we implement ourselves for now.
+      done: () => {
+        const WorkDoneProgressReporterImpl = progress.constructor as Record<string, any>;
+        if (WorkDoneProgressReporterImpl && WorkDoneProgressReporterImpl.Instances instanceof Map && ('_token' in progress && (typeof progress._token === 'number' || typeof progress._token === 'string'))) {
+          WorkDoneProgressReporterImpl.Instances.delete(progress.token);
+          this.connection.sendProgress(LSP.WorkDoneProgress.type, progress._token, {
+            kind: 'end',
+            message: 'Analysis complete',
+          });
+        } else {
+          progress.done();
+        }
+      },
+      get token() {
+        return progress.token;
+      },
+    } satisfies typeof progress;
+
     const notifyCallback = (text: string) => {
       logger.log(`Background analysis: ${text}`);
       if (config?.fish_lsp_show_client_popups) {
         this.connection.window.showInformationMessage(text);
       }
     };
-    return this.analyzer.initiateBackgroundAnalysis(notifyCallback, progress);
+    return this.analyzer.initiateBackgroundAnalysis(notifyCallback, progressWrapper);
   }
 }
 

@@ -169,8 +169,8 @@ export class Analyzer {
           workspace.setAnalyzed();
           const upperBound = Math.min(workspace.uris.size, max_files);
           for (const uri of Array.from(workspace.uris)) {
-            const reportPercent = Math.floor(amount / upperBound);
-            progress.report(reportPercent);
+            const reportPercent = amount / upperBound * 100;
+            progress.report(Math.floor(reportPercent));
             if (amount >= max_files) break;
             this.analyzePath(uri);
             amount++;
@@ -207,8 +207,8 @@ export class Analyzer {
     workspace.setAnalyzed();
 
     for (const document of workspace.urisToLspDocuments()) {
-      const reportPercent = Math.floor(amount / workspace.uris.size);
-      progress.report(reportPercent);
+      const reportPercent = amount / workspace.uris.size * 100;
+      progress.report(Math.floor(reportPercent));
       if (amount >= max_files) break;
       try {
         this.analyze(document);

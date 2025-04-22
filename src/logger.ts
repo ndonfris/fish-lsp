@@ -306,13 +306,10 @@ export class Logger {
 export const logger: Logger = new Logger();
 
 export function createServerLogger(logFilePath: string, connectionConsole?: IConsole): Logger {
-  if (!logger.isStarted()) {
-    return logger
-      .setLogFilePath(logFilePath)
-      .setConnectionConsole(connectionConsole)
-      .setSilent()
-      .setLogLevel(config.fish_lsp_log_level as LogLevel)
-      .start();
-  }
-  return logger;
+  return logger
+    .setLogFilePath(logFilePath)
+    .setConnectionConsole(connectionConsole)
+    .setSilent()
+    .setLogLevel(config.fish_lsp_log_level as LogLevel)
+    .start();
 }
