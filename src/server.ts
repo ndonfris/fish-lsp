@@ -39,7 +39,6 @@ export type SupportedFeatures = {
   codeActionDisabledSupport: boolean;
 };
 
-export let CurrentDocument: LspDocument | undefined;
 /**
  * The globally accessible configuration setting. Set from the client, and used by the server.
  * When enabled, the analyzer will search through the current workspace, and update it's
@@ -126,7 +125,6 @@ export default class FishServer {
   constructor(
     // the connection of the FishServer
     private connection: Connection,
-    // private parser: Parser,
     public analyzer: Analyzer,
     private docs: LspDocuments,
     private completion: CompletionPager,
@@ -173,20 +171,6 @@ export default class FishServer {
     connection.languages.inlayHint.on(this.onInlayHints.bind(this));
     connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
     connection.onExecuteCommand(executeHandler);
-
-    // connection.onDidChangeWatchedFiles(async event => {
-    //   this.logParams('onDidChangeWatchedFiles', event);
-    //   const oldWorkspace = currentWorkspace.current;
-    //   for (const change of event.changes) {
-    //     const uri = change.uri;
-    //     if (doc) {
-    //       this.analyzeDocument(doc);
-    //       await this.handleWorkspaceChange(oldWorkspace, currentWorkspace.current);
-    //     }
-    //   }
-    // });
-
-    // this.documents.listen(connection);
     logger.log({ 'server.register': 'registered' });
   }
 
@@ -196,29 +180,14 @@ export default class FishServer {
     const doc = this.docs.openPath(path, params.textDocument);
     const { tree } = this.analyzer.analyze(doc);
     const root = tree.rootNode;
-
     const diagnostics = root ? getDiagnostics(root, doc) : [];
     this.connection.sendDiagnostics({ uri: doc.uri, diagnostics });
-    // const oldWorkspace = currentWorkspace.current;
-    // const newWorkspace = await findCurrentWorkspace(params.textDocument.uri);
-    // await currentWorkspace.updateCurrentWorkspace(params.textDocument.uri);
     const newWorkspace = await findCurrentWorkspace(doc.uri);
     this.analyzer.collectAllSources(doc.uri).forEach(uri => {
       newWorkspace?.addUri(uri);
     });
-    // this.analyzer.getNodes(doc.uri).map(n => {
-    //   const sourced = getExpandedSourcedFilenameNode(n);
-    //   if (!!sourced) {
-    //     logger.log('sourced', sourced);
-    //     this.analyzer.analyzePath(sourced);
-    //     newWorkspace?.addUri(pathToUri(sourced));
-    //   }
-    // });
+    currentWorkspace.updateCurrent(doc);
     this.startBackgroundAnalysis();
-
-    // await this.handleWorkspaceChange(oldWorkspace, newWorkspace);
-    // if (!params.textDocument.uri.startsWith('file:///tmp')) {
-    // }
   }
 
   async didChangeTextDocument(params: LSP.DidChangeTextDocumentParams): Promise<void> {
@@ -233,38 +202,10 @@ export default class FishServer {
     doc = doc.update(params.contentChanges);
     this.analyzer.analyze(doc);
     this.docs.set(doc);
-    logger.logAsJson(`CHANGED -> ${doc.version}:::${doc.uri}`);
-    logger.log(
-      {
-        params: { v: params.textDocument.version, c: params.contentChanges },
-        doc: { v: doc.version, uri: doc.uri, text: doc.getText() },
-      },
-    );
     const root = this.analyzer.getRootNode(doc.uri);
-
     const diagnostics = root ? getDiagnostics(root, doc) : [];
     this.connection.sendDiagnostics({ uri: doc.uri, diagnostics });
-    // this.analyzer.ensureSourcedFilesToWorkspace(doc.uri);
-    // await findCurrentWorkspace(doc.uri);
-    // currentWorkspace.current?.urisToLspDocuments().forEach(d => {
-    //   this.analyzer.analyze(d);
-    // });
-    // this.analyzeDocument(doc.asVersionedIdentifier());
-    // this.docs.updateTextDocument(doc);
-    // const newWorkspace = await findCurrentWorkspace(doc.uri);
-    // this.analyzer.getNodes(doc.uri).map(n => {
-    //   const sourced = getExpandedSourcedFilenameNode(n);
-    //   if (!!sourced) {
-    //     logger.log('sourced', sourced);
-    //     this.analyzer.analyzePath(sourced);
-    //     newWorkspace?.addUri(pathToUri(sourced));
-    //   }
-    // });
-    // this.startBackgroundAnalysis();
-
-    // await this.handleWorkspaceChange(oldWorkspace, newWorkspace);
-    // this.analyzer.ensureSourcedFilesToWorkspace(doc.uri);
-    // logger.log('newWorkspace', newWorkspace?.name);
+    currentWorkspace.updateCurrent(doc);
   }
 
   didCloseTextDocument(params: LSP.DidCloseTextDocumentParams): void {
@@ -280,7 +221,6 @@ export default class FishServer {
       });
     if (remainingDocumentsInWorkspace.length === 0) {
       currentWorkspace.current = null;
-      CurrentDocument = undefined;
     }
     if (perviousWorkspace) {
       this.analyzer.clearWorkspace(perviousWorkspace, params.textDocument.uri, ...this.docs.all().map(doc => doc.uri));
@@ -293,6 +233,11 @@ export default class FishServer {
     const newWorkspace = await findCurrentWorkspace(params.textDocument.uri);
     newSources.forEach(uri => {
       newWorkspace?.addUri(uri);
+    });
+    logger.info({
+      didSaveTextDocument: params.textDocument.uri,
+      'currentWorkspace.current.name: ': currentWorkspace.current?.name,
+      willRunBackgroundAnalysis: currentWorkspace.current?.isAnalyzed(),
     });
     this.startBackgroundAnalysis();
   }
@@ -723,8 +668,6 @@ export default class FishServer {
     this.logParams('onFoldingRanges', params);
 
     const { path, doc } = this.getDefaultsForPartialParams(params);
-    // const path = uriToPath(params.textDocument.uri);
-    // const document = this.docs.get(path);
 
     if (!doc) {
       throw new Error(`The document should not be opened in the folding range, file: ${path}`);

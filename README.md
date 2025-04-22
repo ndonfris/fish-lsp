@@ -52,7 +52,7 @@ A detailed explanation of how a language server connection works is described in
 | __Workspace Symbols__ | Shows all commands, variables, and functions in a workspace | ✅ |
 | __Document Formatting__ | Formats a document, _full_ & _selection_ | ✅ |
 | __On Type Formatting__ | Formats a document while typing | ✅ |
-| __Document Highlight__ / __Semantic Token__ | Highlights all references to a command, variable, or function.  | ✅  |
+| __Document Highlight__ | Highlights all references to a command, variable, or function.  | ✅  |
 | __Command Execution__ | Executes a server command from the client | ✅ |
 | __Code Action__ | Automate code generation | ✅  |
 | __Quick fix__ | Auto fix lint issues | ✅  |
@@ -61,7 +61,7 @@ A detailed explanation of how a language server connection works is described in
 | __Logger__ | Logs all server activity | ✅ |
 | __Diagnostic__ | Shows all diagnostics | ✅ |
 | __Folding Range__ | Toggle ranges to fold text  | ✅ |
-| __CLI Interactivity__ | Provides a CLI for server interaction. <br/>Built by `fish-lsp complete <option>` | ✅ |
+| __CLI Interactivity__ | Provides a CLI for server interaction. <br/>Built by `fish-lsp complete` | ✅ |
 | __Client Tree__ | Shows the defined scope as a Tree | ✅ |
 | __Indexing__ | Indexes all commands, variables, functions, and source files | ✅ |
 

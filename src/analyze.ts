@@ -221,7 +221,6 @@ export class Analyzer {
     const duration = ((endTime - startTime) / 1000).toFixed(2); // Convert to seconds with 2 decimal places
     progress.done();
     callbackfn(`[fish-lsp] analyzed ${amount} files in ${duration}s`);
-    // logger.log(`[fish-lsp] analyzed ${amount} files in ${duration}s`);
     return { filesParsed: amount };
   }
 
@@ -256,45 +255,6 @@ export class Analyzer {
       remainingUris: this.cache.uris().length,
     });
   }
-
-  // public async ensureSourcedFilesToWorkspace(
-  //   uri: string,
-  //   sourceFiles: Set<string> = new Set(),
-  // ) {
-  //
-  //   await currentWorkspace.updateCurrentWorkspace(uri);
-  //
-  //   const path = uriToPath(uri);
-  //   const cached = this.analyzePath(path);
-  //   const { document } = cached;
-  //   const nodes = this.getNodes(document.uri);
-  //
-  //   for (const node of nodes) {
-  //     if (isSourceCommandArgumentName(node) && isTopLevelDefinition(node)) {
-  //       const sourced = getExpandedSourcedFilenameNode(node);
-  //       if (!sourced) continue;
-  //       const sourcedUri = pathToUri(sourced);
-  //       if (!sourceFiles.has(sourcedUri)) {
-  //         currentWorkspace.current?.add(cached.document.uri);
-  //         sourceFiles.add(sourcedUri);
-  //         this.ensureSourcedFilesToWorkspace(sourcedUri, sourceFiles);
-  //       }
-  //       logger.info('ensureSourcedFilesToWorkspace', {
-  //         node: node.text,
-  //         currentWorkspace: {
-  //           path: currentWorkspace.current?.path,
-  //           uri: currentWorkspace.current?.uri,
-  //           name: currentWorkspace.current?.name,
-  //           uris: Array.from(currentWorkspace.current?.uris || []).join(':'),
-  //         },
-  //         cached: {
-  //           uri: cached.document.uri,
-  //           sourcedUri,
-  //         },
-  //       });
-  //     }
-  //   }
-  // }
 
   /**
    * Return the first FishSymbol seen that could be defined by the given position.
