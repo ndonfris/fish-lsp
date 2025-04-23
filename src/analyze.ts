@@ -344,11 +344,13 @@ export class Analyzer {
    */
   public findNodes(
     callbackfn: (node: SyntaxNode, document: LspDocument) => boolean,
+    // useCurrentWorkspace: boolean = true,
   ): {
     uri: string;
     nodes: SyntaxNode[];
   }[] {
-    const uris = this.cache.uris();
+    const currentWs = currentWorkspace.current;
+    const uris = this.cache.uris().filter(uri => currentWs ? currentWs?.contains(uri) : uri);
     const result: { uri: string; nodes: SyntaxNode[]; }[] = [];
     for (const uri of uris) {
       logger.log('findNodes', uri);

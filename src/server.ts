@@ -253,6 +253,7 @@ export default class FishServer {
         await updateWorkspaces(e);
         currentWorkspace.current?.removeAnalyzed();
         await this.handleWorkspaceChange(oldWorkspace, currentWorkspace.current);
+        currentWorkspace.current?.setAnalyzed();
       });
     }
     return {
