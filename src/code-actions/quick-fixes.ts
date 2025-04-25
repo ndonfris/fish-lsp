@@ -1,7 +1,7 @@
 import { ChangeAnnotation, CodeAction, Diagnostic, RenameFile, TextEdit, WorkspaceEdit } from 'vscode-languageserver';
 import { LspDocument } from '../document';
 import { ErrorCodes } from '../diagnostics/error-codes';
-import { getChildNodes } from '../utils/tree-sitter';
+import { equalRanges, getChildNodes } from '../utils/tree-sitter';
 import { SyntaxNode } from 'web-tree-sitter';
 import { ErrorNodeTypes } from '../diagnostics/node-types';
 import { SupportedCodeActionKinds } from './action-kinds';
@@ -34,6 +34,66 @@ function createQuickFix(
     isPreferred: true,
     diagnostics: [diagnostic],
     edit: { changes: edits },
+  };
+}
+
+/**
+ * Helper to create a QuickFix code action for fixing all problems
+ */
+export function createFixAllAction(
+  document: LspDocument,
+  actions: CodeAction[],
+): CodeAction | undefined {
+  if (actions.length === 0) return undefined;
+  const fixableActions = actions.filter(action => {
+    return action.isPreferred && action.kind === SupportedCodeActionKinds.QuickFix;
+  });
+  for (const fixable of fixableActions) {
+    logger.info('createFixAllAction', { fixable: fixable.title });
+  }
+
+  if (fixableActions.length === 0) return undefined;
+  const resultEdits: { [uri: string]: TextEdit[]; } = {};
+  const diagnostics: Diagnostic[] = [];
+  for (const action of fixableActions) {
+    if (!action.edit || !action.edit.changes) continue;
+    const changes = action.edit.changes;
+    for (const uri of Object.keys(changes)) {
+      const edits = changes[uri];
+      if (!edits || edits.length === 0) continue;
+      if (!resultEdits[uri]) {
+        resultEdits[uri] = [];
+      }
+      const oldEdits = resultEdits[uri];
+      if (edits && edits?.length > 0) {
+        if (!oldEdits.some(e => edits.find(newEdit => equalRanges(e.range, newEdit.range)))) {
+          oldEdits.push(...edits);
+          resultEdits[uri] = oldEdits;
+          diagnostics.push(...action.diagnostics || []);
+        }
+        // resultEdits[uri].push(...edits);
+      }
+    }
+  }
+  const allEdits: TextEdit[] = [];
+  for (const uri in resultEdits) {
+    const edits = resultEdits[uri];
+    if (!edits || edits.length === 0) continue;
+    allEdits.push(...edits);
+  }
+  return {
+    title: `Fix all auto-fixable quickfixes (total fixes: ${allEdits.length}) (codes: ${diagnostics.map(d => d.code).join(', ')})`,
+    kind: SupportedCodeActionKinds.QuickFixAll,
+    diagnostics,
+    edit: {
+      changes: resultEdits,
+    },
+    data: {
+      isQuickFix: true,
+      documentUri: document.uri,
+      totalEdits: allEdits.length,
+      uris: Array.from(new Set(Object.keys(resultEdits))),
+    },
   };
 }
 

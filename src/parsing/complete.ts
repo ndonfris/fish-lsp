@@ -1,6 +1,6 @@
 
 import { SyntaxNode } from 'web-tree-sitter';
-import { isCommandWithName, isProgram } from '../utils/node-types';
+import { isCommandWithName, isProgram, isString } from '../utils/node-types';
 import { findOptions, isMatchingOption, Option, OptionValueMatch, stringIsLongFlag, stringIsShortFlag } from './options';
 import { LspDocument } from '../document';
 import { getChildNodes, getRange } from '../utils/tree-sitter';
@@ -98,6 +98,233 @@ export function isCompletionSymbol(node: SyntaxNode) {
   return isCompletionSymbolShort(node)
     || isCompletionSymbolLong(node)
     || isCompletionSymbolOld(node);
+}
+
+type OptionType = '' | 'short' | 'long' | 'old';
+export class VerboseCompletionSymbol {
+  constructor(
+    public optionType: OptionType = '',
+    public commandName: string = '',
+    public node: SyntaxNode | null = null,
+    public description: string = '',
+    public condition: string = '',
+    public requireParameter: boolean = false,
+    public argumentNames: string = '',
+    public exclusive: boolean = false,
+  ) { }
+
+  /**
+   * Initialize the VerboseCompletionSymbol with empty values.
+   */
+  static createEmpty() {
+    return new VerboseCompletionSymbol();
+  }
+
+  /**
+   * util for building a VerboseCompletionSymbol
+   */
+  static create({
+    optionType = '',
+    commandName = '',
+    node = null,
+    description = '',
+    condition = '',
+    requireParameter = false,
+    argumentNames = '',
+    exclusive = false,
+  }: {
+    optionType?: OptionType;
+    commandName?: string;
+    node?: SyntaxNode | null;
+    description?: string;
+    condition?: string;
+    requireParameter?: boolean;
+    argumentNames?: string;
+    exclusive?: boolean;
+  }) {
+    return new this(optionType, commandName, node, description, condition, requireParameter, argumentNames, exclusive);
+  }
+
+  /**
+   * If the node is not found, we don't have a valid VerboseCompletionSymbol.
+   */
+  isEmpty() {
+    return this.node === null;
+  }
+
+  /**
+   * Type Guard that our node & its parent are defined,
+   * therefore we have found a valid VerboseCompletionSymbol.
+   */
+  isNonEmpty(): this is VerboseCompletionSymbol & { node: SyntaxNode; parent: SyntaxNode; } {
+    return this.node !== null && this.parent !== null;
+  }
+
+  get parent() {
+    if (this.node) {
+      return this.node.parent;
+    }
+    return null;
+  }
+
+  get text(): string {
+    if (this.isNonEmpty()) {
+      return this.node.text;
+    }
+    return '';
+  }
+
+  isShort() {
+    return this.optionType === 'short';
+  }
+
+  isLong() {
+    return this.optionType === 'long';
+  }
+
+  isOld() {
+    return this.optionType === 'old';
+  }
+
+  /**
+   * Check if one option is a pair of another option.
+   * ```fish
+   * complete -c foo -s h -l help # 'h' <--> 'help' are pairs
+   * ```
+   */
+  isCorrespondingOption(other: VerboseCompletionSymbol) {
+    if (!this.isNonEmpty() || !other.isNonEmpty()) {
+      return false;
+    }
+    return this.parent.equals(other.parent)
+      && this.commandName === other.commandName
+      && this.optionType !== other.optionType;
+  }
+
+  /**
+   * Return the `-f`/`--flag`/`-flag` string
+   */
+  toFlag() {
+    if (!this.isNonEmpty()) {
+      return '';
+    }
+    switch (this.optionType) {
+      case 'short':
+      case 'old':
+        return `-${this.node.text}`;
+      case 'long':
+        return `--${this.node.text}`;
+      default:
+        return '';
+    }
+  }
+
+  /**
+   * return the commandName and the flag as a string
+   */
+  toUsage() {
+    if (!this.isNonEmpty()) {
+      return '';
+    }
+    return `${this.commandName} ${this.toFlag()}`;
+  }
+
+  /**
+   * return the usage, with the description in a trailing comment
+   */
+  toUsageVerbose() {
+    if (!this.isNonEmpty()) {
+      return '';
+    }
+    return `${this.commandName} ${this.toFlag()} # ${this.description}`;
+  }
+
+  /**
+   * check if the symbol inside a globally defined `argparse o/opt -- $argv` matches
+   * this VerboseCompletionSymbol
+   */
+  equalsArgparse(symbol: FishSymbol) {
+    if (symbol.fishKind !== 'ARGPARSE' || !symbol.parent) {
+      return false;
+    }
+    const commandName = symbol.parent.name;
+    const symbolName = symbol.argparseFlagName;
+    return this.commandName === commandName
+      && this.node?.text === symbolName;
+  }
+}
+
+/**
+ * Create a VerboseCompletionSymbol from a SyntaxNode, for any SyntaxNode passed in.
+ * Calling this function will need to check if `result.isEmpty()` or `result.isNonEmpty()`
+ * @param node any syntax node, preferably one that is a child of a `complete` node (not required though)
+ * @returns {VerboseCompletionSymbol} `result.isEmpty()` when not found, `result.isNonEmpty()` when `isCompletionSymbolVerbose(node)` is found
+ */
+export function isCompletionSymbolVerbose(node: SyntaxNode): VerboseCompletionSymbol {
+  const result = VerboseCompletionSymbol.createEmpty();
+  if (!isCompletionSymbol(node) || !node.parent) {
+    return result;
+  }
+  switch (true) {
+    case isCompletionSymbolShort(node):
+      result.optionType = 'short';
+      break;
+    case isCompletionSymbolLong(node):
+      result.optionType = 'long';
+      break;
+    case isCompletionSymbolOld(node):
+      result.optionType = 'old';
+      break;
+    default:
+      break;
+  }
+  result.node = node;
+  const parent = node.parent;
+  const children = parent.childrenForFieldName('argument');
+  children.forEach((child, idx) => {
+    if (idx === 0) return;
+    if (isMatchingOption(child, Option.create('-r', '--require-parameter'))) {
+      result.requireParameter = true;
+    }
+    if (isMatchingOption(child, Option.create('-x', '--exclusive'))) {
+      result.exclusive = true;
+    }
+    const prev = child.previousSibling;
+    if (!prev) return;
+    if (isMatchingOption(prev, Option.create('-c', '--command'))) {
+      result.commandName = child.text;
+    }
+    if (isMatchingOption(prev, Option.create('-d', '--description'))) {
+      result.description = isString(child) ? child.text.slice(1, -1) : child.text;
+    }
+    if (isMatchingOption(prev, Option.create('-n', '--condition'))) {
+      result.condition = child.text;
+    }
+    if (isMatchingOption(prev, Option.create('-a', '--arguments'))) {
+      result.argumentNames = child.text;
+    }
+  });
+  return result;
+}
+
+export function groupVerboseCompletionSymbolsTogether(
+  ...symbols: VerboseCompletionSymbol[]
+): VerboseCompletionSymbol[][] {
+  const storedSymbols: Set<string> = new Set();
+  const groupedSymbols: VerboseCompletionSymbol[][] = [];
+  symbols.forEach((symbol) => {
+    if (storedSymbols.has(symbol.text)) {
+      return;
+    }
+    const newGroup: VerboseCompletionSymbol[] = [symbol];
+    const matches = symbols.filter((s) => s.isCorrespondingOption(symbol));
+    matches.forEach((s) => {
+      storedSymbols.add(s.text);
+      newGroup.push(s);
+    });
+    groupedSymbols.push(newGroup);
+  });
+  return groupedSymbols;
 }
 
 function getCompletionSymbol(document: LspDocument, node: SyntaxNode): CompletionSymbol | null {

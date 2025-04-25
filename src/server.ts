@@ -25,7 +25,7 @@ import { findActiveParameterStringRegex, getAliasedCompletionItemSignature, getD
 import { CompletionItemMap } from './utils/completion/startup-cache';
 import { getDocumentHighlights } from './document-highlight';
 import { buildCommentCompletions } from './utils/completion/comment-completions';
-import { createCodeActionHandler } from './code-actions/code-action-handler';
+import { codeActionHandlers } from './code-actions/code-action-handler';
 import { createExecuteCommandHandler } from './command';
 import { getAllInlayHints } from './code-lens';
 import { setupProcessEnvExecFile } from './utils/process-env';
@@ -138,8 +138,8 @@ export default class FishServer {
 
   register(connection: Connection): void {
     // setup handlers
-    const codeActionHandler = createCodeActionHandler(this.docs, this.analyzer);
-    const executeHandler = createExecuteCommandHandler(this.connection, this.docs, this.logger);
+    const { onCodeAction } = codeActionHandlers(this.docs, this.analyzer);
+    const executeHandler = createExecuteCommandHandler(this.connection, this.docs, this.analyzer);
     const documentHighlightHandler = getDocumentHighlights(this.analyzer);
 
     // register the handlers
@@ -164,7 +164,8 @@ export default class FishServer {
     connection.onDocumentFormatting(this.onDocumentFormatting.bind(this));
     connection.onDocumentOnTypeFormatting(this.onDocumentTypeFormatting.bind(this));
     connection.onDocumentRangeFormatting(this.onDocumentRangeFormatting.bind(this));
-    connection.onCodeAction(codeActionHandler);
+    connection.onCodeAction(onCodeAction);
+    // connection.onCodeActionResolve(onCodeActionResolve);
     connection.onFoldingRanges(this.onFoldingRanges.bind(this));
 
     connection.onDocumentHighlight(documentHighlightHandler);
@@ -206,6 +207,7 @@ export default class FishServer {
     const diagnostics = root ? getDiagnostics(root, doc) : [];
     this.connection.sendDiagnostics({ uri: doc.uri, diagnostics });
     currentWorkspace.updateCurrent(doc);
+    this.analyzer.updateConfigInWorkspace(doc.uri);
   }
 
   didCloseTextDocument(params: LSP.DidCloseTextDocumentParams): void {
@@ -240,6 +242,7 @@ export default class FishServer {
       willRunBackgroundAnalysis: currentWorkspace.current?.isAnalyzed(),
     });
     this.startBackgroundAnalysis();
+    this.analyzer.updateConfigInWorkspace(params.textDocument.uri);
   }
 
   // @see:

@@ -7,8 +7,11 @@ import { initializeParser } from '../parser';
 import { execAsyncFish } from './exec';
 import { SyncFileHelper } from './file-operations';
 
+// Add this function to safely run the health check within the server
+
 export async function performHealthCheck() {
-  logger.logToStdout('fish-lsp health check\n' + '='.repeat(21));
+  logger.logToStdout('fish-lsp health check');
+  logger.logToStdout('='.repeat(21));
 
   // Check if fish shell is available
   try {
@@ -54,7 +57,7 @@ export async function performHealthCheck() {
   }
 
   try {
-    logger.log('\nchecking for fish-lsp completions:');
+    logger.logToStdout('\nchecking for fish-lsp completions:');
     const completions = (await execAsyncFish('path sort --unique --key=basename $fish_complete_path/*.fish | string match -re "fish-lsp.fish\\$"')).stdout.toString().trim();
     if (completions) {
       logger.logToStdout(`✓ completions file found: ${completions}`);

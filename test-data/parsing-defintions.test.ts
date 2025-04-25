@@ -2,7 +2,7 @@ import { Parsers, Option, ParsingDefinitionNames, DefinitionNodeNames } from '..
 import { execAsyncF } from '../src/utils/exec';
 
 import { initializeParser } from '../src/parser';
-import { createFakeLspDocument, createFakeUriPath, setLogger } from './helpers';
+import { createFakeLspDocument, createTestWorkspace, createFakeUriPath, setLogger } from './helpers';
 // import { isLongOption, isOption, isShortOption, NodeOptionQueryText } from '../src/utils/node-types';
 import * as Parser from 'web-tree-sitter';
 import { SyntaxNode } from 'web-tree-sitter';
@@ -20,9 +20,10 @@ import { getExpandedSourcedFilenameNode, isExistingSourceFilenameNode, isSourced
 import { SyncFileHelper } from '../src/utils/file-operations';
 import * as Diagnostics from '../src/diagnostics/node-types';
 import { Analyzer } from '../src/analyze';
-import { isCompletionDefinition, processCompletion } from '../src/parsing/complete';
-import { getGlobalArgparseLocations, isGlobalArgparseDefinition } from '../src/parsing/argparse';
+import { groupVerboseCompletionSymbolsTogether, isCompletionDefinition, isCompletionSymbol, isCompletionSymbolVerbose, processCompletion, VerboseCompletionSymbol } from '../src/parsing/complete';
+import { getGlobalArgparseLocations, isArgparseVariableDefinitionName, isGlobalArgparseDefinition } from '../src/parsing/argparse';
 import { currentWorkspace, Workspace, workspaces } from '../src/utils/workspace';
+import { LspDocument } from '../src/document';
 
 let analyzer: Analyzer;
 let parser: Parser;
@@ -1122,6 +1123,86 @@ describe('parsing symbols', () => {
           const equalCompletionSymbol = completionSymbol.uri !== functionDoc.uri;
           expect(equalCompletionSymbol).toBeTruthy();
         });
+      });
+    });
+    describe.only('completion --> to argparse', () => {
+      let workspace: LspDocument[] = [];
+      beforeEach(async () => {
+        parser = await initializeParser();
+        analyzer = new Analyzer(parser);
+        workspace = createTestWorkspace(analyzer,
+          {
+            path: 'functions/foo.fish',
+            text: [
+              'function foo',
+              '    argparse -i h/help long other-long s \'1\' -- $argv',
+              '    or return',
+              '    echo hi',
+              'end',
+            ].join('\n'),
+          },
+          {
+            path: 'completions/foo.fish',
+            text: [
+              'complete -c foo -f -k',
+              'complete -c foo -s h -l help',
+              'complete -c foo -k -l long',
+              'complete -c foo -k -l other-long -d \'other long\'',
+              'complete -c foo -k -s s -d \'short\'',
+              'complete -c foo -k -s 1 -d \'1 item\'',
+            ].join('\n'),
+          });
+      });
+
+      it('completion >>(((*> function', () => {
+        const resultOptions: VerboseCompletionSymbol[] = [];
+        const resultArgparse: FishSymbol[] = [];
+        workspace.forEach(doc => {
+          console.log(doc.uri);
+          if (doc.isFunction()) {
+            const symbolTree = processNestedTree(doc, analyzer.getRootNode(doc.uri)!);
+            const flatTree = flattenNested(...symbolTree);
+            resultArgparse.push(...flatTree);
+          }
+          analyzer.getNodes(doc.uri).forEach(node => {
+            const cmpSymbol = isCompletionSymbolVerbose(node);
+            if (cmpSymbol.isNonEmpty()) {
+              resultOptions.push(cmpSymbol);
+            }
+          });
+        });
+        for (const cmpSymbol of resultOptions) {
+          const found = resultOptions.find(o => cmpSymbol.isCorrespondingOption(o));
+          if (!found) continue;
+          expect(found.node?.text === 'h' || found.node?.text === 'help').toBeTruthy();
+          console.log({
+            cmpSymbol: cmpSymbol.toUsage(),
+            found: found?.toUsage(),
+          });
+        }
+        groupVerboseCompletionSymbolsTogether(...resultOptions).forEach((group, idx) => {
+          group.forEach(symbol => {
+            console.log(idx, {
+              text: symbol.text,
+              symbol: symbol.toUsage(),
+            });
+          });
+        });
+        // there is only one pair: `-h`/`--help`
+        expect(groupVerboseCompletionSymbolsTogether(...resultOptions)).toHaveLength(5);
+
+        // make _flag_h/_flag_help === -h/--help ...
+        for (const argSymbol of resultArgparse.filter(arg => arg.fishKind === 'ARGPARSE')) {
+          const foundOption = resultOptions.find(o => o.equalsArgparse(argSymbol));
+          if (!foundOption) continue;
+          console.log({
+            found: foundOption.toUsage(),
+            flag: argSymbol.argparseFlagName,
+            argparseLength: argSymbol.argparseFlagName.length,
+            argparseParent: argSymbol.parent?.name,
+            argSymbol: argSymbol.name,
+          });
+        }
       });
     });
   });

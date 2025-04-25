@@ -1,6 +1,6 @@
 import { CodeAction, CodeActionParams, Diagnostic, Range } from 'vscode-languageserver';
 import { getDisableDiagnosticActions } from './disable-actions';
-import { getQuickFixes } from './quick-fixes';
+import { createFixAllAction, getQuickFixes } from './quick-fixes';
 import { uriToPath } from '../utils/translation';
 import { logger } from '../logger';
 import { LspDocument, LspDocuments } from '../document';
@@ -143,6 +143,8 @@ export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) 
       logger.log('Processing onlyQuickFixes');
       results.push(...await processQuickFixes(document, params.context.diagnostics, analyzer));
       results.push(...await getSelectionCodeActions(document, params.range));
+      const allAction = createFixAllAction(document, results);
+      if (allAction) results.push(allAction);
       logger.log('CodeAction results', results.map(r => r.title));
       return results;
     }
@@ -158,7 +160,41 @@ export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) 
     logger.log('Processing all actions');
     results.push(...await processQuickFixes(document, params.context.diagnostics, analyzer));
     results.push(...await getSelectionCodeActions(document, params.range));
+    const allAction = createFixAllAction(document, results);
+    if (allAction) {
+      logger.log({
+        name: 'allAction',
+        title: allAction.title,
+        kind: allAction.kind,
+        diagnostics: allAction.diagnostics?.map(d => d.message),
+        edit: allAction.edit,
+      });
+      results.push(allAction);
+    }
     logger.log('CodeAction results', results.map(r => r.title));
     return results;
   };
 }
+
+export function equalDiagnostics(d1: Diagnostic, d2: Diagnostic) {
+  return d1.code === d2.code &&
+    d1.message === d2.message &&
+    d1.range.start.line === d2.range.start.line &&
+    d1.range.start.character === d2.range.start.character &&
+    d1.range.end.line === d2.range.end.line &&
+    d1.range.end.character === d2.range.end.character;
+}
+
+export function createOnCodeActionResolveHandler(_docs: LspDocuments, _analyzer: Analyzer) {
+  return async function codeActionResolover(codeAction: CodeAction) {
+    return codeAction;
+  };
+}
+
+export function codeActionHandlers(docs: LspDocuments, analyzer: Analyzer) {
+  return {
+    onCodeAction: createCodeActionHandler(docs, analyzer),
+    onCodeActionResolve: createOnCodeActionResolveHandler(docs, analyzer),
+  };
+}
+

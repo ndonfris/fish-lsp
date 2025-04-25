@@ -8,7 +8,7 @@ import { findParentFunction, isAliasDefinitionName, isCommand, isCommandName, is
 import { pathToUri, symbolKindToString, uriToPath } from './utils/translation';
 import { existsSync } from 'fs';
 import { currentWorkspace, Workspace, workspaces } from './utils/workspace';
-import { config } from './config';
+import { config, getDefaultConfiguration, updateBasedOnSymbols } from './config';
 import { logger } from './logger';
 import { SyncFileHelper } from './utils/file-operations';
 import { FishSymbol, processNestedTree } from './parsing/symbol';
@@ -149,6 +149,35 @@ export class Analyzer {
     const content = SyncFileHelper.read(path, 'utf-8');
     const document = LspDocument.createTextDocumentItem(pathToUri(path), content);
     return this.analyze(document);
+  }
+
+  updateConfigInWorkspace(
+    documentUri: string,
+  ) {
+    const workspace = currentWorkspace.current;
+    let symbols = this.getFlatDocumentSymbols(documentUri).filter(symbol => {
+      return symbol.kind === SymbolKind.Variable && Object.keys(config).includes(symbol.name);
+    });
+    if (!workspace || !config.fish_lsp_single_workspace_support) {
+      if (symbols.length === 0) {
+        const prev = config.fish_lsp_single_workspace_support;
+        Object.assign(config, getDefaultConfiguration());
+        config.fish_lsp_single_workspace_support = prev;
+        return;
+      }
+      updateBasedOnSymbols(symbols);
+      return;
+    }
+    symbols = this.findSymbols((sym, doc) => {
+      if (doc && workspace.contains(doc?.uri)) return false;
+      if (sym.kind === SymbolKind.Variable && Object.keys(config).includes(sym.name)) {
+        return true;
+      }
+      return false;
+    });
+    if (symbols.length > 0) {
+      updateBasedOnSymbols(symbols);
+    }
   }
 
   public async initiateBackgroundAnalysis(

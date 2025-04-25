@@ -1,11 +1,12 @@
 import { promises as fs } from 'fs';
 import { DocumentUri, TextDocument } from 'vscode-languageserver-textdocument';
-import { Position, Range, TextDocumentItem, TextDocumentContentChangeEvent, VersionedTextDocumentIdentifier } from 'vscode-languageserver';
+import { Position, Range, TextDocumentItem, TextDocumentContentChangeEvent, VersionedTextDocumentIdentifier, TextDocumentIdentifier } from 'vscode-languageserver';
 import * as path from 'path';
 import { URI } from 'vscode-uri';
 import { homedir } from 'os';
 import { AutoloadType, uriToPath } from './utils/translation';
 import { Workspace, workspaces } from './utils/workspace';
+import { SyncFileHelper } from './utils/file-operations';
 
 export class LspDocument implements TextDocument {
   protected document: TextDocument;
@@ -28,12 +29,23 @@ export class LspDocument implements TextDocument {
     return new LspDocument(item);
   }
 
+  static createFromUri(uri: DocumentUri): LspDocument {
+    const content = SyncFileHelper.read(uriToPath(uri));
+    return LspDocument.createTextDocumentItem(uri, content);
+  }
+
   asTextDocumentItem(): TextDocumentItem {
     return {
       uri: this.document.uri,
       languageId: this.document.languageId,
       version: this.document.version,
       text: this.document.getText(),
+    };
+  }
+
+  asTextDocumentIdentifier(): TextDocumentIdentifier {
+    return {
+      uri: this.document.uri,
     };
   }
 
