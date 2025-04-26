@@ -124,6 +124,10 @@
     "description": "exit the shell"
   },
   {
+    "name": "export",
+    "description": "compatibility function for exporting variables"
+  },
+  {
     "name": "false",
     "description": "return an unsuccessful result"
   },
@@ -206,6 +210,10 @@
   {
     "name": "fish_right_prompt",
     "description": "define the appearance of the right-side command line prompt"
+  },
+  {
+    "name": "fish_should_add_to_history",
+    "description": "decide whether a command should be added to the history"
   },
   {
     "name": "fish_status_to_signal",
