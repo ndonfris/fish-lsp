@@ -1,5 +1,5 @@
 import { CompletionItemKind } from 'vscode-languageserver';
-import { ErrorCodes } from '../../diagnostics/errorCodes';
+import { ErrorCodes } from '../../diagnostics/error-codes';
 import { md } from '../markdown-builder';
 import { FishCompletionItem, FishCompletionItemKind, CompletionExample } from './types';
 import { PrebuiltDocumentationMap } from '../snippets';

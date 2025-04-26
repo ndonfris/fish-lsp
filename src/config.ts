@@ -1,10 +1,13 @@
 import os from 'os';
 import { z } from 'zod';
-import { logToStdout } from './logger';
-import fishLspEnvVariables from './snippets/fishlspEnvVariables.json';
-import { InitializeResult, TextDocumentSyncKind } from 'vscode-languageserver';
+import { createServerLogger, logger } from './logger';
+import { PrebuiltDocumentationMap, EnvVariableJson } from './utils/snippets';
+import { Connection, FileOperationRegistrationOptions, FormattingOptions, InitializeParams, InitializeResult, SymbolKind, TextDocumentSyncKind } from 'vscode-languageserver';
 import { AllSupportedActions } from './code-actions/action-kinds';
 import { LspCommands } from './command';
+import { PackageVersion } from './utils/commander-cli-subcommands';
+import { FishSymbol } from './parsing/symbol';
+import { LocalFishLspDocumentVariable } from './parsing/values';
 
 /********************************************
  **********  Handlers/Providers   ***********
@@ -14,9 +17,12 @@ export const ConfigHandlerSchema = z.object({
   complete: z.boolean().default(true),
   hover: z.boolean().default(true),
   rename: z.boolean().default(true),
+  definition: z.boolean().default(true),
+  implementation: z.boolean().default(true),
   reference: z.boolean().default(true),
   logger: z.boolean().default(true),
   formatting: z.boolean().default(true),
+  typeFormatting: z.boolean().default(true),
   codeAction: z.boolean().default(true),
   codeLens: z.boolean().default(true),
   folding: z.boolean().default(true),
@@ -25,28 +31,40 @@ export const ConfigHandlerSchema = z.object({
   inlayHint: z.boolean().default(true),
   highlight: z.boolean().default(true),
   diagnostic: z.boolean().default(true),
-  popups: z.boolean().default(true),
+  popups: z.boolean().default(false),
 });
 
 /**
  * The configHandlers object stores the enabled/disabled state of the cli flags
  * for the language server handlers.
  *
- * USAGE:
- *  1.) This object first uses the parsed shell env values found in the variables:
+ * The object (shaped by `ConfigHandlerSchema`) contains a single key and value pair
+ * for each handler type that is supported by the language server. Each handler
+ * can only either be enabled or disabled, and their default value is `true`.
+ *
+ * The object could be checked three different times during the initialization of the
+ * language server:
+ *
+ *  1.) The `initializeParams` are passed into the language server during startup
+ *      - `initializeParams.fish_lsp_enabled_handlers`
+ *      - `initializeParams.fish_lsp_disabled_handlers`
+
+ *  2.) This object parses the shell env values found in the variables:
  *      - `fish_lsp_enabled_handlers`
  *      - `fish_lsp_disabled_handlers`
  *
- *  2.) Next, it uses the cli flags parsed from the `--enable` and `--disable` flags:
+ *  3.) Next, it uses the cli flags parsed from the `--enable` and `--disable` flags:
  *      - keys are from the validHandlers array.
  *
- *  3.) Finally, its values can be used to determine if a handler is enabled or disabled.
+ * Finally, its values can be used to determine if a handler is enabled or disabled.
+ *
+ * For example, `configHandlers.complete` will store the state of the `complete` handler.
  */
 export const configHandlers = ConfigHandlerSchema.parse({});
 
 export const validHandlers: Array<keyof typeof ConfigHandlerSchema.shape> = [
-  'complete', 'hover', 'rename', 'reference', 'formatting',
-  'codeAction', 'codeLens', 'folding', 'signature', 'executeCommand',
+  'complete', 'hover', 'rename', 'definition', 'implementation', 'reference', 'formatting',
+  'typeFormatting', 'codeAction', 'codeLens', 'folding', 'signature', 'executeCommand',
   'inlayHint', 'highlight', 'diagnostic', 'popups',
 ];
 
@@ -56,6 +74,7 @@ export function updateHandlers(keys: string[], value: boolean): void {
       configHandlers[key as keyof typeof ConfigHandlerSchema.shape] = value;
     }
   });
+  Config.fixEnabledDisabledHandlers();
 }
 
 /********************************************
@@ -73,7 +92,10 @@ export const ConfigSchema = z.object({
   fish_lsp_commit_characters: z.array(z.string()).default(['\t', ';', ' ']),
 
   /** Path to the log files */
-  fish_lsp_logfile: z.string().default(''),
+  fish_lsp_log_file: z.string().default(''),
+
+  /** show startup analysis notification */
+  fish_lsp_log_level: z.string().default(''),
 
   /** All workspaces/paths for the language-server to index */
   fish_lsp_all_indexed_paths: z.array(z.string()).default([`${os.homedir()}/.config/fish`, '/usr/share/fish']),
@@ -84,11 +106,17 @@ export const ConfigSchema = z.object({
   /** error code numbers to disable */
   fish_lsp_diagnostic_disable_error_codes: z.array(z.number()).default([]),
 
+  /** fish lsp experimental diagnostics */
+  fish_lsp_enable_experimental_diagnostics: z.boolean().default(false),
+
   /** max background files */
-  fish_lsp_max_background_files: z.number().default(1000),
+  fish_lsp_max_background_files: z.number().default(10000),
 
   /** show startup analysis notification */
-  fish_lsp_show_client_popups: z.boolean().default(true),
+  fish_lsp_show_client_popups: z.boolean().default(false),
+
+  /** single workspace support */
+  fish_lsp_single_workspace_support: z.boolean().default(false),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -101,12 +129,15 @@ export function getConfigFromEnvironmentVariables(): {
     fish_lsp_enabled_handlers: process.env.fish_lsp_enabled_handlers?.split(' '),
     fish_lsp_disabled_handlers: process.env.fish_lsp_disabled_handlers?.split(' '),
     fish_lsp_commit_characters: process.env.fish_lsp_commit_characters?.split(' '),
-    fish_lsp_logfile: process.env.fish_lsp_logfile,
+    fish_lsp_log_file: process.env.fish_lsp_log_file || process.env.fish_lsp_logfile,
+    fish_lsp_log_level: process.env.fish_lsp_log_level,
     fish_lsp_all_indexed_paths: process.env.fish_lsp_all_indexed_paths?.split(' '),
     fish_lsp_modifiable_paths: process.env.fish_lsp_modifiable_paths?.split(' '),
     fish_lsp_diagnostic_disable_error_codes: process.env.fish_lsp_diagnostic_disable_error_codes?.split(' ').map(toNumber),
+    fish_lsp_enable_experimental_diagnostics: toBoolean(process.env.fish_lsp_enable_experimental_diagnostics) || false,
     fish_lsp_max_background_files: toNumber(process.env.fish_lsp_max_background_files),
-    fish_lsp_show_client_popups: toBoolean(process.env.fish_lsp_show_client_popups),
+    fish_lsp_show_client_popups: toBoolean(process.env.fish_lsp_show_client_popups) || false,
+    fish_lsp_single_workspace_support: toBoolean(process.env.fish_lsp_single_workspace_support) || false,
   };
 
   const environmentVariablesUsed = Object.entries(rawConfig)
@@ -118,83 +149,180 @@ export function getConfigFromEnvironmentVariables(): {
   return { config, environmentVariablesUsed };
 }
 
-export function updateConfigFromInitializationOptions(initializationOptions: Config | null): void {
-  if (initializationOptions === null) return;
-  ConfigSchema.parse(initializationOptions);
-  Object.keys(initializationOptions).forEach((key) => {
-    const configKey = key as keyof Config;
-    if (configKey in config) {
-      (config[configKey] as any) = initializationOptions[configKey];
-    }
-  });
-  if (initializationOptions.fish_lsp_enabled_handlers) {
-    updateHandlers(initializationOptions.fish_lsp_enabled_handlers, true);
-  }
-  if (initializationOptions.fish_lsp_disabled_handlers) {
-    updateHandlers(initializationOptions.fish_lsp_disabled_handlers, false);
-  }
-}
-
 export function getDefaultConfiguration(): Config {
   return ConfigSchema.parse({});
+}
+
+export function updateBasedOnSymbols(
+  symbols: FishSymbol[],
+) {
+  const fishLspSymbols = symbols.filter(s => s.kind === SymbolKind.Variable && s.name.startsWith('fish_lsp_'));
+
+  const newConfig: Record<keyof Config, unknown> = {} as Record<keyof Config, unknown>;
+  const configCopy: Config = Object.assign({}, config);
+
+  for (const s of fishLspSymbols) {
+    const configKey = Config.getEnvVariableKey(s.name);
+    if (!configKey) {
+      continue;
+    }
+
+    if (LocalFishLspDocumentVariable.hasEraseFlag(s)) {
+      const schemaType = ConfigSchema.shape[configKey as keyof z.infer<typeof ConfigSchema>];
+
+      (config[configKey] as any) = schemaType.parse(schemaType._def.defaultValue());
+      continue;
+    }
+
+    const shellValues = LocalFishLspDocumentVariable.findValueNodes(s).map(s => LocalFishLspDocumentVariable.nodeToShellValue(s));
+
+    if (shellValues.length > 0) {
+      if (shellValues.length === 1) {
+        const value = shellValues[0];
+        if (toBoolean(value)) {
+          newConfig[configKey] = toBoolean(value);
+          continue;
+        }
+        if (toNumber(value)) {
+          newConfig[configKey] = toNumber(value);
+          continue;
+        }
+        newConfig[configKey] = value;
+        continue;
+      } else {
+        if (shellValues.every(v => !!toNumber(v))) {
+          (newConfig[configKey] as any) = shellValues.map(v => toNumber(v));
+        } else if (shellValues.every(v => toBoolean(v))) {
+          (newConfig[configKey] as any) = shellValues.map(v => toBoolean(v));
+        } else {
+          (newConfig[configKey] as any) = shellValues;
+        }
+      }
+    }
+  }
+  Object.assign(config, updateConfigValues(configCopy, newConfig));
+}
+
+/**
+ * Updates config values from environment variables while maintaining proper types
+ * @param config The current config object
+ * @param newValues Object containing new values to update
+ * @returns Updated config object with proper types
+ */
+export function updateConfigValues<T extends z.infer<typeof ConfigSchema>>(
+  config: T,
+  newValues: Record<string, unknown>,
+): T {
+  // Create a new object to hold our updates
+  const updates: Partial<T> = {};
+
+  // Iterate through all keys in newValues
+  Object.keys(newValues).forEach(key => {
+    if (key in config) {
+      const configKey = key as keyof T;
+      const schemaType = ConfigSchema.shape[configKey as keyof z.infer<typeof ConfigSchema>];
+
+      if (schemaType) {
+        try {
+          // Parse the new value through the corresponding Zod schema
+          // This ensures type safety and validation
+          const parsedValue = schemaType.safeParse(newValues[key]);
+          if (parsedValue.success) {
+            updates[configKey] = parsedValue.data as T[keyof T];
+          } else {
+            updates[configKey] = schemaType._def.defaultValue() as T[keyof T];
+          }
+        } catch (error) {
+          // Handle parsing errors - could log or throw depending on your needs
+          logger.error(`Failed to parse value for ${key}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+    }
+  });
+
+  // Return a new config object with the updates
+  return { ...config, ...updates };
 }
 
 /**
  * convert boolean & number shell strings to their correct type
  */
-const toBoolean = (s?: string): boolean | undefined =>
+export const toBoolean = (s?: string): boolean | undefined =>
   typeof s !== 'undefined' ? s === 'true' || s === '1' : undefined;
 
-const toNumber = (s?: string): number | undefined =>
+export const toNumber = (s?: string): number | undefined =>
   typeof s !== 'undefined' ? parseInt(s, 10) : undefined;
+
+function buildOutput(confd: boolean, result: string[]) {
+  return confd
+    ? [
+      '# built by `fish-lsp env --confd`',
+      'type -aq fish-lsp || exit',
+      'if status is-interactive',
+      result.map(line =>
+        line.split('\n').map(innerLine => '    ' + innerLine).join('\n').trimEnd(),
+      ).join('\n\n').trimEnd(),
+      'end',
+    ].join('\n')
+    : result.join('\n').trimEnd();
+}
 
 /**
  * generateJsonSchemaShellScript - just prints the starter template for the schema
  * in fish-shell
  */
-export function generateJsonSchemaShellScript(showComments: boolean, useGlobal: boolean, useLocal: boolean, useExport: boolean) {
+export function generateJsonSchemaShellScript(confd: boolean, showComments: boolean, useGlobal: boolean, useLocal: boolean, useExport: boolean, callbackfn: (s: string) => void = (s: string) => logger.logToStdout(s)) {
   const result: string[] = [];
   const command = getEnvVariableCommand(useGlobal, useLocal, useExport);
-  Object.values(fishLspEnvVariables).forEach(entry => {
-    const { name, description, valueType } = entry;
+
+  const variables = PrebuiltDocumentationMap
+    .getByType('variable', 'fishlsp')
+    .filter((v) => EnvVariableJson.is(v))
+    .filter((v) => !v.isDeprecated);
+
+  variables.forEach(entry => {
+    const { name } = entry;
     const line = !showComments
       ? `${command} ${name}\n`
       : [
-        `# ${name} <${valueType.toUpperCase()}>`,
-        formatDescription(description, 80),
+        EnvVariableJson.toCliOutput(entry),
         `${command} ${name}`,
         '',
       ].join('\n');
     result.push(line);
   });
-  const output = result.join('\n').trimEnd();
-  logToStdout(output);
+  const output = buildOutput(confd, result);
+  callbackfn(output);
 }
 
 /**
  * showJsonSchemaShellScript - prints the current environment schema
  * in fish
  */
-export function showJsonSchemaShellScript(showComments: boolean, useGlobal: boolean, useLocal: boolean, useExport: boolean) {
+export function showJsonSchemaShellScript(confd: boolean, showComments: boolean, useGlobal: boolean, useLocal: boolean, useExport: boolean) {
   const { config } = getConfigFromEnvironmentVariables();
   const command = getEnvVariableCommand(useGlobal, useLocal, useExport);
+  const variables = PrebuiltDocumentationMap
+    .getByType('variable', 'fishlsp')
+    .filter((v) => EnvVariableJson.is(v))
+    .filter((v) => !v.isDeprecated);
+
   const findValue = (keyName: string) => {
-    return Object.values(fishLspEnvVariables).find(entry => {
-      const { name } = entry;
-      return name === keyName;
-    })!;
+    return variables.find(entry => entry.name === keyName)!;
   };
+
   const result: string[] = [];
   for (const item of Object.entries(config)) {
     const [key, value] = item;
     const entry = findValue(key);
+
     let line = !showComments
       ? `${command} ${key} `
       : [
-        `# ${entry.name} <${entry.valueType.toUpperCase()}>`,
-        formatDescription(entry.description, 80),
+        EnvVariableJson.toCliOutput(entry),
         `${command} ${key} `,
       ].join('\n');
+
     if (Array.isArray(value)) {
       if (value.length === 0) {
         line += "''\n"; // Print two single quotes for empty arrays
@@ -209,38 +337,13 @@ export function showJsonSchemaShellScript(showComments: boolean, useGlobal: bool
     }
     result.push(line);
   }
-  const output = result.join('\n').trimEnd();
-  logToStdout(output);
+  const output = buildOutput(confd, result);
+  logger.logToStdout(output);
 }
 
 /*************************************
  *******  formatting helpers ********
  ************************************/
-
-// Function to format descriptions into multi-line comments
-function formatDescription(description: string, maxLineLength: number = 80): string {
-  const words = description.split(' ');
-  let currentLine = '#';
-  let formattedDescription = '';
-
-  for (const word of words) {
-    // Check if adding the next word would exceed the line length
-    if (currentLine.length + word.length + 1 > maxLineLength) {
-      formattedDescription += currentLine + '\n';
-      currentLine = '# ' + word; // Start a new line with the word
-    } else {
-      // Append word to the current line
-      currentLine += (currentLine.length > 1 ? ' ' : ' ') + word;
-    }
-  }
-
-  // Append any remaining text in the current line
-  if (currentLine.length > 1) {
-    formattedDescription += currentLine;
-  }
-
-  return formattedDescription;
-}
 
 function escapeValue(value: string | number | boolean): string {
   if (typeof value === 'string') {
@@ -274,55 +377,14 @@ function getEnvVariableCommand(useGlobal: boolean, useLocal: boolean, useExport:
   return command as 'set -g' | 'set -l' | 'set -gx' | 'set -lx' | 'set' | 'set -x';
 }
 
-/********************************************
- ***        initializeResult              ***
- *******************************************/
-
-/* in server onInitialize() */
-export function adjustInitializeResultCapabilitiesFromConfig(configHandlers: z.infer<typeof ConfigHandlerSchema>, userConfig: z.infer<typeof ConfigSchema>): InitializeResult {
-  return {
-    capabilities: {
-      textDocumentSync: TextDocumentSyncKind.Incremental,
-      completionProvider: configHandlers.complete ? {
-        resolveProvider: true,
-        allCommitCharacters: userConfig.fish_lsp_commit_characters,
-        workDoneProgress: true,
-        triggerCharacters: ['$'],
-      } : undefined,
-      hoverProvider: configHandlers.hover,
-      definitionProvider: configHandlers.reference,
-      referencesProvider: configHandlers.reference,
-      renameProvider: configHandlers.rename,
-      documentFormattingProvider: configHandlers.formatting,
-      documentRangeFormattingProvider: configHandlers.formatting,
-      foldingRangeProvider: configHandlers.folding,
-      codeActionProvider: configHandlers.codeAction ? {
-        codeActionKinds: [...AllSupportedActions],
-        workDoneProgress: true,
-        resolveProvider: true,
-      } : undefined,
-      executeCommandProvider: configHandlers.executeCommand ? {
-        commands: [...AllSupportedActions, ...LspCommands],
-        workDoneProgress: true,
-      } : undefined,
-      documentSymbolProvider: {
-        label: 'Fish-LSP',
-      },
-      workspaceSymbolProvider: {
-        resolveProvider: true,
-      },
-      documentHighlightProvider: configHandlers.highlight,
-      inlayHintProvider: configHandlers.inlayHint,
-      signatureHelpProvider: configHandlers.signature ? { workDoneProgress: false, triggerCharacters: ['.'] } : undefined,
-    },
-
-  };
-}
+export const FormatOptions: FormattingOptions = {
+  insertSpaces: true,
+  tabSize: 4,
+};
 
 /********************************************
  ***               Config                 ***
  *******************************************/
-
 export namespace Config {
 
   /**
@@ -392,6 +454,168 @@ export namespace Config {
 
     // `process.env.fish_lsp_show_client_popups` is set and 'popups' is enabled/disabled in the handlers
     return;
+  }
+
+  /**
+   * All old environment variables mapped to their new key names.
+   */
+  export const deprecatedKeys: { [deprecated_key: string]: keyof Config; } = {
+    ['fish_lsp_logfile']: 'fish_lsp_log_file',
+  };
+
+  /**
+   * We only need to call this for the `initializationOptions`, but it ensures any string
+   * passed in is a valid config key. If the key is not found, it will return undefined.
+   *
+   * @param {string} key - the key to check
+   * @return {keyof Config | undefined} - the key if it exists in the config, or undefined
+   */
+  export function getEnvVariableKey(key: string): keyof Config | undefined {
+    if (key in config) {
+      return key as keyof Config;
+    }
+    if (Object.keys(deprecatedKeys).includes(key)) {
+      return deprecatedKeys[key] as keyof Config;
+    }
+    return undefined;
+  }
+
+  /**
+   * update the `config` object from the `params.initializationOptions` object,
+   * where the `params` are `InitializeParams` from the language client.
+   * @param {Config | null} initializationOptions - the initialization options from the client
+   * @returns {void} updates both the `config` and `configHandlers` objects
+   */
+  export function updateFromInitializationOptions(initializationOptions: Config | null): void {
+    if (!initializationOptions) return;
+    ConfigSchema.parse(initializationOptions);
+    Object.keys(initializationOptions).forEach((key) => {
+      const configKey = getEnvVariableKey(key);
+      if (!configKey) return;
+      (config[configKey] as any) = initializationOptions[configKey];
+    });
+    if (initializationOptions.fish_lsp_enabled_handlers) {
+      updateHandlers(initializationOptions.fish_lsp_enabled_handlers, true);
+    }
+    if (initializationOptions.fish_lsp_disabled_handlers) {
+      updateHandlers(initializationOptions.fish_lsp_disabled_handlers, false);
+    }
+  }
+
+  /**
+   * Call this after updating the `configHandlers` to ensure that all
+   * enabled/disabled handlers are set correctly.
+   */
+  export function fixEnabledDisabledHandlers(): void {
+    config.fish_lsp_enabled_handlers = [];
+    config.fish_lsp_disabled_handlers = [];
+    Object.keys(configHandlers).forEach((key) => {
+      const value = configHandlers[key as keyof typeof ConfigHandlerSchema.shape];
+      if (!value) {
+        config.fish_lsp_disabled_handlers.push(key);
+      } else {
+        config.fish_lsp_enabled_handlers.push(key);
+      }
+    });
+  }
+
+  /**
+   * getResultCapabilities - returns the capabilities for the language server based on the
+   * Uses both global objects: `config` and `configHandlers`
+   * Therefore, these values must be set/updated before calling this function.
+   */
+  export function getResultCapabilities(): InitializeResult {
+    return {
+      capabilities: {
+        // textDocumentSync: TextDocumentSyncKind.Full,
+
+        textDocumentSync: {
+          openClose: true,
+          change: TextDocumentSyncKind.Incremental,
+          save: { includeText: true },
+          willSave: true,
+          willSaveWaitUntil: true,
+        },
+        completionProvider: configHandlers.complete ? {
+          resolveProvider: true,
+          allCommitCharacters: config.fish_lsp_commit_characters,
+          workDoneProgress: true,
+          triggerCharacters: ['$'],
+        } : undefined,
+        hoverProvider: configHandlers.hover,
+        definitionProvider: configHandlers.definition,
+        implementationProvider: configHandlers.implementation,
+        referencesProvider: configHandlers.reference,
+        renameProvider: configHandlers.rename,
+        documentFormattingProvider: configHandlers.formatting,
+        documentRangeFormattingProvider: configHandlers.formatting,
+        foldingRangeProvider: configHandlers.folding,
+        codeActionProvider: configHandlers.codeAction ? {
+          codeActionKinds: [...AllSupportedActions],
+          workDoneProgress: true,
+          resolveProvider: true,
+        } : undefined,
+        executeCommandProvider: configHandlers.executeCommand ? {
+          commands: [...AllSupportedActions, ...LspCommands],
+          workDoneProgress: true,
+        } : undefined,
+        documentSymbolProvider: {
+          label: 'fish-lsp',
+        },
+        workspaceSymbolProvider: {
+          resolveProvider: true,
+        },
+        documentHighlightProvider: configHandlers.highlight,
+        inlayHintProvider: configHandlers.inlayHint,
+        signatureHelpProvider: configHandlers.signature ? { workDoneProgress: false, triggerCharacters: ['.'] } : undefined,
+        documentOnTypeFormattingProvider: configHandlers.typeFormatting ? {
+          firstTriggerCharacter: '.',
+          moreTriggerCharacter: [';', '}', ']', ')'],
+        } : undefined,
+        workspace: {
+          // fileOperations: {
+          //   didRename: FileListenerFilter,
+          // },
+          workspaceFolders: {
+            supported: true,
+            changeNotifications: true,
+          },
+        },
+      },
+      serverInfo: {
+        name: 'fish-lsp',
+        version: PackageVersion,
+      },
+    };
+  }
+
+  // might need later in the getResultCapabilities() object
+  export const FileListenerFilter: FileOperationRegistrationOptions = {
+    filters: [
+      {
+        pattern: {
+          glob: '**/*.fish',
+          matches: 'file',
+          options: {
+            ignoreCase: true,
+          },
+        },
+      },
+    ],
+  };
+
+  /**
+   * *******************************************
+   * ***        initializeResult             ***
+   * *******************************************
+   * * The `initializeResult` is the result of the `initialize` method
+   */
+  export function initialize(params: InitializeParams, connection: Connection) {
+    updateFromInitializationOptions(params.initializationOptions);
+    createServerLogger(config.fish_lsp_log_file, connection.console);
+    const result = getResultCapabilities();
+    logger.log({ onInitializedResult: result });
+    return result;
   }
 }
 

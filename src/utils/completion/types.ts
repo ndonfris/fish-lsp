@@ -6,7 +6,7 @@ import {
   SymbolKind,
   TextEdit,
 } from 'vscode-languageserver';
-import { FishDocumentSymbol } from '../../document-symbol';
+import { FishSymbol } from '../../parsing/symbol';
 
 export const FishCompletionItemKind = {
   ABBR: 'abbr',
@@ -61,6 +61,7 @@ export type FishCompletionData = {
   line: string;
   word: string;
   position: Position;
+  command?: string;
   context?: CompletionContext;
 };
 
@@ -157,7 +158,7 @@ export namespace FishCompletionItem {
         return new FishCompletionItem(label, kind, detail, documentation, examples);
     }
   }
-  export function fromSymbol(symbol: FishDocumentSymbol) {
+  export function fromSymbol(symbol: FishSymbol) {
     switch (symbol.kind) {
       case SymbolKind.Function:
         return create(symbol.name, FishCompletionItemKind.FUNCTION, 'Function', symbol.detail).setLocal();
@@ -173,9 +174,10 @@ export namespace FishCompletionItem {
     line: string,
     word: string,
     position: Position,
+    command?: string,
     context?: CompletionContext,
   ): FishCompletionData {
-    return { uri, line, word, position, context };
+    return { uri, line, word, position, command, context };
   }
 }
 
