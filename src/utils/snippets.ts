@@ -16,6 +16,7 @@ interface BaseJson {
 
 type JsonType = 'command' | 'pipe' | 'status' | 'variable';
 type SpecialType = 'fishlsp' | 'env' | 'locale' | 'special' | 'theme';
+type AllTypes = JsonType | SpecialType;
 
 export interface ExtendedBaseJson extends BaseJson {
   type: JsonType;
@@ -277,7 +278,7 @@ class DocumentationMap {
     this.typeMap.get(item.type)!.push(item);
   }
 
-  findMatchingNames(query: string, ...types: (JsonType | SpecialType)[]): ExtendedJson[] {
+  findMatchingNames(query: string, ...types: AllTypes[]): ExtendedJson[] {
     const results: ExtendedBaseJson[] = [];
     this.map.forEach(items => {
       if (items.filter(item => item.name.startsWith(query) && (types.length === 0 || types.includes(item.type || item.specialType)))) {
