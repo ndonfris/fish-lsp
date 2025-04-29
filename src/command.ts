@@ -49,9 +49,7 @@ export type CommandArgs = {
   [CommandNames.FIX_ALL]: [path: string];
   [CommandNames.TOGGLE_SINGLE_WORKSPACE_SUPPORT]: [];
   [CommandNames.GENERATE_ENV_VARIABLES]: [path: string];
-
-  // use uri
-  [CommandNames.SHOW_REFERENCES]: [uri: string, position: Position, references: Location[]];  // Add this line
+  [CommandNames.SHOW_REFERENCES]: [path: string, position: Position, references: Location[]];  // Add this line
 };
 
 // Function to create the command handler with dependencies injected
@@ -409,18 +407,42 @@ export function createExecuteCommandHandler(
     connection.workspace.applyEdit(workspaceEdit);
   }
 
-  async function handleShowReferences(uri: string, position: Position, references: Location[]) {
-    logger.log('handleShowReferences', uri, position, references);
-    // Use the built-in LSP capability to show references in the editor
-    await connection.sendRequest('textDocument/references', {
-      textDocument: { uri },
-      position,
-      context: { includeDeclaration: true },
+  async function showReferences(path: string, position: Position, references: Location[]) {
+    const uri = pathToUri(path);
+    logger.log('handleShowReferences', { path, uri, position, references });
+    // logger.log('handleShowReferences', uri, position);
+    // try {
+    // // Use the built-in LSP capability to show references in the editor
+    //   // await connection.sendNotification(
+    //   //   'textDocument/references',
+    //   //   {
+    //   //     textDocument: {
+    //   //       uri: uri,
+    //   //     },
+    //   //     position: position,
+    //   //     context: {
+    //   //       includeDeclaration: true,
+    //   //     },
+    //   //   }
+    //   // );
+    //
+    // } catch (error) {
+    //   logger.error('Error showing references:', error);
+    //   connection.sendNotification('window/showMessage', {
+    //     type: MessageType.Error,
+    //     message: `Error showing references: ${error}`,
+    //   });
+    // }
+
+    connection.sendNotification('window/showMessage', {
+      type: MessageType.Info,  // Info, Warning, Error, Log
+      message: ` Fish LSP found ${references.length} references to this symbol `,
     });
+    return references;
   }
 
   // Command handler mapping
-  const commandHandlers: Record<string, (...args: any[]) => Promise<void> | void> = {
+  const commandHandlers: Record<string, (...args: any[]) => Promise<void> | void | Promise<Location[]>> = {
     // 'fish-lsp.showReferences': handleShowReferences,
     'fish-lsp.executeRange': executeRange,
     'fish-lsp.executeLine': executeLine,
@@ -434,7 +456,7 @@ export function createExecuteCommandHandler(
     'fish-lsp.fixAll': fixAllDiagnostics,
     'fish-lsp.toggleSingleWorkspaceSupport': toggleSingleWorkspaceSupport,
     'fish-lsp.generateEnvVariables': outputFishLspEnv,
-    'fish-lsp.handleShowReferenceds': handleShowReferences,
+    'fish-lsp.showReferences': showReferences,
   };
 
   // Main command handler function

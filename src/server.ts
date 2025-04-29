@@ -1,7 +1,7 @@
 import { SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from './parser';
 import { Analyzer } from './analyze';
-import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, ImplementationParams } from 'vscode-languageserver';
+import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, ImplementationParams, CodeLensParams, CodeLens } from 'vscode-languageserver';
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments, documents } from './document';
 import { formatDocumentContent } from './formatting';
@@ -34,6 +34,7 @@ import { isArgparseVariableDefinitionName } from './parsing/argparse';
 import { isSourceCommandArgumentName } from './parsing/source';
 import { getReferences } from './references';
 import { getRenames } from './renames';
+import { getReferenceCountCodeLenses } from './code-lens';
 
 export type SupportedFeatures = {
   codeActionDisabledSupport: boolean;
@@ -165,11 +166,15 @@ export default class FishServer {
     connection.onDocumentOnTypeFormatting(this.onDocumentTypeFormatting.bind(this));
     connection.onDocumentRangeFormatting(this.onDocumentRangeFormatting.bind(this));
     connection.onCodeAction(onCodeAction);
+
+    connection.onCodeLens(this.onCodeLens.bind(this));
+    // connection.onCodeLensResolve(this.onCodeLensResolve.bind(this));
     // connection.onCodeActionResolve(onCodeActionResolve);
     connection.onFoldingRanges(this.onFoldingRanges.bind(this));
 
     connection.onDocumentHighlight(documentHighlightHandler);
     connection.languages.inlayHint.on(this.onInlayHints.bind(this));
+    // connection.onCodeLens(this.onCodeLens.bind(this));
     connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
     connection.onExecuteCommand(executeHandler);
     logger.log({ 'server.register': 'registered' });
@@ -704,6 +709,19 @@ export default class FishServer {
     if (!doc) return [];
 
     return getAllInlayHints(this.analyzer, doc);
+  }
+
+  // https://code.visualstudio.com/api/language-extensions/programmatic-language-features#codelens-show-actionable-context-information-within-source-code
+  async onCodeLens(params: CodeLensParams): Promise<CodeLens[]> {
+    this.logParams('onCodeLens', params);
+
+    const path = uriToPath(params.textDocument.uri);
+    const doc = this.docs.get(path);
+
+    if (!doc) return [];
+
+    return getReferenceCountCodeLenses(this.analyzer, doc);
+    // return getCodeLensInit(this.analyzer, doc);
   }
 
   public onShowSignatureHelp(params: SignatureHelpParams): SignatureHelp | null {

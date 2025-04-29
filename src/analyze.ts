@@ -382,13 +382,11 @@ export class Analyzer {
     const uris = this.cache.uris().filter(uri => currentWs ? currentWs?.contains(uri) : uri);
     const result: { uri: string; nodes: SyntaxNode[]; }[] = [];
     for (const uri of uris) {
-      logger.log('findNodes', uri);
       const root = this.cache.getRootNode(uri);
       const document = this.cache.getDocument(uri)!.document;
       if (!root || !document) continue;
       const nodes = getChildNodes(root).filter((node) => callbackfn(node, document));
       if (nodes.length > 0) {
-        logger.log('findNodes', nodes.length, 'uri', document.uri);
         result.push({ uri: document.uri, nodes });
       }
     }

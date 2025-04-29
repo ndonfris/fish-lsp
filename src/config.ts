@@ -528,7 +528,6 @@ export namespace Config {
     return {
       capabilities: {
         // textDocumentSync: TextDocumentSyncKind.Full,
-
         textDocumentSync: {
           openClose: true,
           change: TextDocumentSyncKind.Incremental,
@@ -567,6 +566,10 @@ export namespace Config {
         },
         documentHighlightProvider: configHandlers.highlight,
         inlayHintProvider: configHandlers.inlayHint,
+        codeLensProvider: configHandlers.codeLens ? {
+          resolveProvider: true,
+          workDoneProgress: true,
+        } : undefined,
         signatureHelpProvider: configHandlers.signature ? { workDoneProgress: false, triggerCharacters: ['.'] } : undefined,
         documentOnTypeFormattingProvider: configHandlers.typeFormatting ? {
           firstTriggerCharacter: '.',
