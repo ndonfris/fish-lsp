@@ -14,7 +14,7 @@ export namespace ErrorCodes {
 
   export const testCommandMissingStringCharacters = 3001;
   export const missingQuietOption = 3002;
-  export const expansionInDefinition = 3003;
+  export const dereferencedDefinition = 3003;
 
   export const autoloadedFunctionMissingDefinition = 4001;
   export const autoloadedFunctionFilenameMismatch = 4002;
@@ -89,6 +89,7 @@ export namespace ErrorCodes {
       source: 'fish-lsp',
       message: '`.` source command not allowed, use `source` instead',
     },
+    /** consider disabling this */
     [singleQuoteVariableExpansion]: {
       severity: DiagnosticSeverity.Warning,
       code: singleQuoteVariableExpansion,
@@ -124,12 +125,12 @@ export namespace ErrorCodes {
       source: 'fish-lsp',
       message: 'Conditional command should include a silence option',
     },
-    [expansionInDefinition]: {
+    [dereferencedDefinition]: {
       severity: DiagnosticSeverity.Warning,
-      code: expansionInDefinition,
-      codeDescription: { href: 'https://fishshell.com/docs/current/cmds/set.html' },
+      code: dereferencedDefinition,
+      codeDescription: { href: 'https://fishshell.com/docs/current/language.html#dereferencing-variables' },
       source: 'fish-lsp',
-      message: 'Variable definition should not include expansion character',
+      message: 'Dereferenced variable could be undefined',
     },
     [autoloadedFunctionMissingDefinition]: {
       severity: DiagnosticSeverity.Warning,

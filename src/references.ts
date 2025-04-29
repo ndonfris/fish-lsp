@@ -34,6 +34,11 @@ export function getReferences(
     locations.push(...getArgparseLocations(analyzer, symbol, localOnly));
     return locations;
   }
+
+  // only search for local references if the symbol is local definition
+  // NOTICE: we don't do this for argparse locations cause they might not be local
+  if (symbol.isLocal()) localOnly = true;
+
   locations.push(symbol.toLocation());
   const symbolLocations = findSymbolLocations(analyzer, symbol, localOnly);
   // add unique locations

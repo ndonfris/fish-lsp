@@ -157,8 +157,8 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
       diagnostics.push(FishDiagnostic.create(ErrorCodes.argparseMissingEndStdin, node));
     }
 
-    if (isVariableDefinitionWithExpansionCharacter(node) && handler.isCodeEnabled(ErrorCodes.expansionInDefinition)) {
-      diagnostics.push(FishDiagnostic.create(ErrorCodes.expansionInDefinition, node));
+    if (isVariableDefinitionWithExpansionCharacter(node) && handler.isCodeEnabled(ErrorCodes.dereferencedDefinition)) {
+      diagnostics.push(FishDiagnostic.create(ErrorCodes.dereferencedDefinition, node));
     }
 
     if (isFishLspDeprecatedVariableName(node) && handler.isCodeEnabled(ErrorCodes.fishLspDeprecatedEnvName)) {
@@ -252,13 +252,16 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
     });
   });
 
+  logger.info({
+    isMissingAutoloadedFunction,
+  });
   unusedLocalFunction.forEach(node => {
     logger.log('UNUSED:', node.text);
   });
 
   if (unusedLocalFunction.length >= 1 || !isMissingAutoloadedFunction) {
     unusedLocalFunction.forEach(node => {
-      if (handler.isCodeEnabledAtNode(ErrorCodes.unusedLocalFunction, node)) {
+      if (!['conf.d', 'config'].includes(docType) && handler.isCodeEnabledAtNode(ErrorCodes.unusedLocalFunction, node)) {
         diagnostics.push(FishDiagnostic.create(ErrorCodes.unusedLocalFunction, node));
       }
     });

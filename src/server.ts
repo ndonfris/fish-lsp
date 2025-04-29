@@ -27,7 +27,7 @@ import { getDocumentHighlights } from './document-highlight';
 import { buildCommentCompletions } from './utils/completion/comment-completions';
 import { codeActionHandlers } from './code-actions/code-action-handler';
 import { createExecuteCommandHandler } from './command';
-import { getAllInlayHints } from './code-lens';
+import { getAllInlayHints } from './inlay-hints';
 import { setupProcessEnvExecFile } from './utils/process-env';
 import { flattenNested } from './utils/flatten';
 import { isArgparseVariableDefinitionName } from './parsing/argparse';
@@ -416,11 +416,12 @@ export default class FishServer {
     return this.analyzer.getDefinitionLocation(doc, params.position);
   }
 
-  onReferences(params: ReferenceParams): Location[] {
+  async onReferences(params: ReferenceParams): Promise<Location[]> {
     this.logParams('onReference', params);
 
     const { doc } = this.getDefaults(params);
     if (!doc) return [];
+
     return getReferences(this.analyzer, doc, params.position);
   }
 

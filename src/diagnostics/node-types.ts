@@ -58,6 +58,9 @@ export function isSingleQuoteVariableExpansion(node: Parser.SyntaxNode): boolean
   if (node.type !== 'single_quote_string') {
     return false;
   }
+  if (node.parent && isCommandWithName(node.parent, 'string')) {
+    return false;
+  }
 
   const variableRegex = /(?<!\\)\$\w+/; // Matches $variable, not preceded by a backslash
   return variableRegex.test(node.text);

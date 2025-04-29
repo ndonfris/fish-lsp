@@ -1,4 +1,4 @@
-import { Connection, ExecuteCommandParams, MessageType, Range, TextEdit, WorkspaceEdit } from 'vscode-languageserver';
+import { Connection, ExecuteCommandParams, MessageType, Position, Range, TextEdit, WorkspaceEdit } from 'vscode-languageserver';
 import { Analyzer } from './analyze';
 import { codeActionHandlers } from './code-actions/code-action-handler';
 import { createFixAllAction } from './code-actions/quick-fixes';
@@ -28,6 +28,7 @@ export const CommandNames = {
   TOGGLE_SINGLE_WORKSPACE_SUPPORT: 'fish-lsp.toggleSingleWorkspaceSupport',
   GENERATE_ENV_VARIABLES: 'fish-lsp.generateEnvVariables',
   CHECK_HEALTH: 'fish-lsp.checkHealth',
+  SHOW_REFERENCES: 'fish-lsp.showReferences',
 } as const;
 
 export const LspCommands = [...Array.from(Object.values(CommandNames))];
@@ -48,6 +49,9 @@ export type CommandArgs = {
   [CommandNames.FIX_ALL]: [path: string];
   [CommandNames.TOGGLE_SINGLE_WORKSPACE_SUPPORT]: [];
   [CommandNames.GENERATE_ENV_VARIABLES]: [path: string];
+
+  // use uri
+  [CommandNames.SHOW_REFERENCES]: [uri: string, position: Position, references: Location[]];  // Add this line
 };
 
 // Function to create the command handler with dependencies injected
@@ -405,6 +409,16 @@ export function createExecuteCommandHandler(
     connection.workspace.applyEdit(workspaceEdit);
   }
 
+  async function handleShowReferences(uri: string, position: Position, references: Location[]) {
+    logger.log('handleShowReferences', uri, position, references);
+    // Use the built-in LSP capability to show references in the editor
+    await connection.sendRequest('textDocument/references', {
+      textDocument: { uri },
+      position,
+      context: { includeDeclaration: true },
+    });
+  }
+
   // Command handler mapping
   const commandHandlers: Record<string, (...args: any[]) => Promise<void> | void> = {
     // 'fish-lsp.showReferences': handleShowReferences,
@@ -420,6 +434,7 @@ export function createExecuteCommandHandler(
     'fish-lsp.fixAll': fixAllDiagnostics,
     'fish-lsp.toggleSingleWorkspaceSupport': toggleSingleWorkspaceSupport,
     'fish-lsp.generateEnvVariables': outputFishLspEnv,
+    'fish-lsp.handleShowReferenceds': handleShowReferences,
   };
 
   // Main command handler function
