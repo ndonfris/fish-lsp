@@ -151,6 +151,21 @@ export class Analyzer {
     return this.analyze(document);
   }
 
+  /**
+   * Take a path to a file and analyze it, returning it's AnalyzedDocument.
+   * This is useful for when you are bulk analyzing files for a workspace, 
+   * and don't want to block the event loop.
+   */
+  public async analyzePathAsync(
+    rawFilePath: string,
+  ): Promise<AnalyzedDocument> {
+    const path = uriToPath(rawFilePath);
+    const uri = pathToUri(path);
+    const content = await fs.readFile(path, 'utf-8');
+    const document = LspDocument.createTextDocumentItem(uri, content);
+    return this.analyze(document);
+  }
+
   updateConfigInWorkspace(
     documentUri: string,
   ) {

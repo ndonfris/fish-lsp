@@ -281,17 +281,29 @@ export default class FishServer {
 
     // Create an array of promises, one for each workspace
     const analysisPromises = workspaces.map(async (workspace) => {
+    const analysisPromises = currentWorkspace.workspaces.map(async (workspace) => {
+      logger.logToStdout(`Starting background analysis for workspace ${workspace.uri}`, true);
       // Store the current workspace for reference
       currentWorkspace.current = workspace;
+      currentWorkspace.current.removeAnalyzed();
 
       // Start background analysis for this workspace
       const result = await this.startBackgroundAnalysis();
+      let count = 0;
+      const resultPromise = currentWorkspace.current.getUris().map(uri => {
+        this.analyzer.analyzePathAsync(uri);
+        count++;
+      });
 
+      await Promise.all(resultPromise);
       // Store the results
       items[workspace.path] = result.filesParsed;
       all += result.filesParsed;
+      items[workspace.path] = count;
+      all += count;
 
       return { workspace: workspace, count: workspace.uris.size };
+      return { workspace: workspace, count };
     });
 
     // Wait for all analyses to complete
