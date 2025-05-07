@@ -158,7 +158,7 @@ export function createExecuteCommandHandler(
   }
 
   function showWorkspaceMessage() {
-    const message = `${fishLspPromptIcon} Workspace: ${currentWorkspace.current?.path}`;
+    const message = `${fishLspPromptIcon} Workspace: ${currentWorkspace.current?.path}\n\n Total files analyzed: ${analyzer.cache.uris().filter(uri => currentWorkspace.current?.contains(uri)).length}`;
     logger.log('showWorkspaceMessage',
       config,
     );

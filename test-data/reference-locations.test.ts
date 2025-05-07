@@ -4,7 +4,7 @@ import { initializeParser } from '../src/parser';
 import { workspaces } from '../src/utils/workspace';
 import { createFakeLspDocument, createTestWorkspace, setLogger } from './helpers';
 import { getChildNodes, getRange } from '../src/utils/tree-sitter';
-import { isCompletionDefinition } from '../src/parsing/complete';
+import {  isCompletionCommandDefinition } from '../src/parsing/complete';
 import { isOption } from '../src/utils/node-types';
 import { getArgparseDefinitionName, isCompletionArgparseFlagWithCommandName } from '../src/parsing/argparse';
 import { getRenames } from '../src/renames';
@@ -319,7 +319,7 @@ describe('find definition locations of symbols', () => {
       //   text: nodeAtPoint?.text,
       // })
       expect(nodeAtPoint!.text).toBe('help');
-      if (nodeAtPoint.parent && isCompletionDefinition(nodeAtPoint.parent)) {
+      if (nodeAtPoint.parent &&  isCompletionCommandDefinition(nodeAtPoint.parent)) {
         const def = analyzer.findSymbol((s, document) => {
           return functionDoc.uri === document!.uri && s.name === getArgparseDefinitionName(nodeAtPoint);
         })!;

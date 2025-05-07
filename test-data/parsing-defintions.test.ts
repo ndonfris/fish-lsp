@@ -2,7 +2,7 @@ import { Parsers, Option, ParsingDefinitionNames, DefinitionNodeNames } from '..
 import { execAsyncF } from '../src/utils/exec';
 
 import { initializeParser } from '../src/parser';
-import { createFakeLspDocument, createTestWorkspace, createFakeUriPath, setLogger } from './helpers';
+import { createFakeLspDocument, createTestWorkspace, setLogger } from './helpers';
 // import { isLongOption, isOption, isShortOption, NodeOptionQueryText } from '../src/utils/node-types';
 import * as Parser from 'web-tree-sitter';
 import { SyntaxNode } from 'web-tree-sitter';
@@ -10,8 +10,8 @@ import { getChildNodes, getNamedChildNodes } from '../src/utils/tree-sitter';
 import { FishSymbol, processNestedTree } from '../src/parsing/symbol';
 import { processAliasCommand } from '../src/parsing/alias';
 import { flattenNested } from '../src/utils/flatten';
-import { isCommandWithName, isCompleteCommandName, isEndStdinCharacter, isFunctionDefinition } from '../src/utils/node-types';
-import { findOptionsSet, LongFlag, ShortFlag } from '../src/parsing/options';
+import { isCommandWithName, isEndStdinCharacter, isFunctionDefinition } from '../src/utils/node-types';
+import { LongFlag, ShortFlag } from '../src/parsing/options';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import { SymbolKind } from 'vscode-languageserver';
 import { md } from '../src/utils/markdown-builder';
@@ -20,9 +20,9 @@ import { getExpandedSourcedFilenameNode, isExistingSourceFilenameNode, isSourced
 import { SyncFileHelper } from '../src/utils/file-operations';
 import * as Diagnostics from '../src/diagnostics/node-types';
 import { Analyzer } from '../src/analyze';
-import { groupVerboseCompletionSymbolsTogether, isCompletionDefinition, isCompletionSymbol, isCompletionSymbolVerbose, processCompletion, VerboseCompletionSymbol } from '../src/parsing/complete';
-import { getGlobalArgparseLocations, isArgparseVariableDefinitionName, isGlobalArgparseDefinition } from '../src/parsing/argparse';
-import { currentWorkspace, Workspace, workspaces } from '../src/utils/workspace';
+import { groupCompletionSymbolsTogether, isCompletionCommandDefinition, getCompletionSymbol, processCompletion, CompletionSymbol } from '../src/parsing/complete';
+import { getGlobalArgparseLocations, isGlobalArgparseDefinition } from '../src/parsing/argparse';
+import { Workspace, workspaces } from '../src/utils/workspace';
 import { LspDocument } from '../src/document';
 
 let analyzer: Analyzer;
@@ -182,7 +182,7 @@ describe('parsing symbols', () => {
     it('complete', async () => {
       const source = 'complete -c foo -f -a \'bar\'';
       const { rootNode } = parser.parse(source);
-      const foundNode = getChildNodes(rootNode).find(Parsers.complete.isCompletionDefinition);
+      const foundNode = getChildNodes(rootNode).find(Parsers.complete.isCompletionCommandDefinition);
       expect(foundNode).toBeDefined();
     });
   });
@@ -1005,20 +1005,11 @@ describe('parsing symbols', () => {
         expect(document).toBeDefined();
         const { rootNode } = parser.parse(input);
         const matches: string[] = [];
-        const completeCommands = getChildNodes(rootNode).filter(n => isCompletionDefinition(n));
+        const completeCommands = getChildNodes(rootNode).filter(n => isCompletionCommandDefinition(n));
         for (const completeCommand of completeCommands) {
           const completionSymbol = processCompletion(document, completeCommand);
           const firstItem = completionSymbol.pop();
-          if (firstItem?.hasShortOptions()) {
-            firstItem.getFlags().short.forEach(o => {
-              matches.push(o.value.text);
-            });
-          }
-          if (firstItem?.hasLongOptions()) {
-            firstItem.getFlags().long.forEach(o => {
-              matches.push(o.value.text);
-            });
-          }
+          matches.push(firstItem?.text || '');
         }
         expect(matches.length).toBe(2);
       });
@@ -1068,7 +1059,7 @@ describe('parsing symbols', () => {
           const document = analyzer.getDocument(symbol.uri);
           if (document && document.getAutoloadType() === 'functions') {
             const equalCompletionSymbol = completionSymbols.find(completionSymbol => {
-              return completionSymbol.equalsFishSymbol(symbol);
+              return completionSymbol.equalsArgparse(symbol);
             });
             expect(equalCompletionSymbol).toBeDefined();
             return;
@@ -1155,7 +1146,7 @@ describe('parsing symbols', () => {
       });
 
       it('completion >>(((*> function', () => {
-        const resultOptions: VerboseCompletionSymbol[] = [];
+        const resultOptions: CompletionSymbol[] = [];
         const resultArgparse: FishSymbol[] = [];
         workspace.forEach(doc => {
           console.log(doc.uri);
@@ -1165,7 +1156,7 @@ describe('parsing symbols', () => {
             resultArgparse.push(...flatTree);
           }
           analyzer.getNodes(doc.uri).forEach(node => {
-            const cmpSymbol = isCompletionSymbolVerbose(node);
+            const cmpSymbol = getCompletionSymbol(node);
             if (cmpSymbol.isNonEmpty()) {
               resultOptions.push(cmpSymbol);
             }
@@ -1180,7 +1171,7 @@ describe('parsing symbols', () => {
             found: found?.toUsage(),
           });
         }
-        groupVerboseCompletionSymbolsTogether(...resultOptions).forEach((group, idx) => {
+        groupCompletionSymbolsTogether(...resultOptions).forEach((group, idx) => {
           group.forEach(symbol => {
             console.log(idx, {
               text: symbol.text,
@@ -1189,11 +1180,11 @@ describe('parsing symbols', () => {
           });
         });
         // there is only one pair: `-h`/`--help`
-        expect(groupVerboseCompletionSymbolsTogether(...resultOptions)).toHaveLength(5);
+        expect(groupCompletionSymbolsTogether(...resultOptions)).toHaveLength(5);
 
         // make _flag_h/_flag_help === -h/--help ...
         for (const argSymbol of resultArgparse.filter(arg => arg.fishKind === 'ARGPARSE')) {
-          const foundOption = resultOptions.find(o => o.equalsArgparse(argSymbol));
+          const foundOption = resultOptions.find(o => o.equalsArgparse(argSymbol) && o?.hasCommandName(argSymbol.name));
           if (!foundOption) continue;
           console.log({
             found: foundOption.toUsage(),

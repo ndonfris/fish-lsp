@@ -7,7 +7,7 @@ import { currentWorkspace, findCurrentWorkspace, workspaces } from '../src/utils
 import { createFakeLspDocument, createTestWorkspace, setLogger } from './helpers';
 import { getRange } from '../src/utils/tree-sitter';
 import { isMatchingOption, Option } from '../src/parsing/options';
-import { isCompletionDefinition, isCompletionDefinitionWithName, isCompletionSymbol } from '../src/parsing/complete';
+import { isCompletionCommandDefinition, isCompletionDefinitionWithName, isCompletionSymbol } from '../src/parsing/complete';
 import { isCommandWithName, isOption } from '../src/utils/node-types';
 import { getGlobalArgparseLocations, isArgparseVariableDefinitionName } from '../src/parsing/argparse';
 import { getReferences } from '../src/references';
@@ -89,7 +89,7 @@ describe('find definition locations of symbols', () => {
       );
       expect(documents).toHaveLength(3);
       const doc = documents.at(-1)!;
-      const nodes = analyzer.getNodes(doc);
+      const nodes = analyzer.getNodes(doc.uri);
       const node = nodes.find((n) => n.type === 'command' && n.text === 'test')!;
       // console.log('node', {
       //   text: node?.text,
@@ -163,13 +163,18 @@ describe('find definition locations of symbols', () => {
       expect(functionSymbols).toHaveLength(13);
       const completionSymbols = analyzer.getFlatCompletionSymbols(completionDoc.uri);
       expect(completionSymbols).toHaveLength(6);
-      const searchNode = analyzer.getNodes(completionDoc).find(n => isCompletionSymbol(n) && n.text === 'help');
+      const searchNode = analyzer.getNodes(completionDoc.uri).find(n => isCompletionSymbol(n) && n.text === 'help');
       const result = analyzer.getDefinitionLocation(completionDoc, getRange(searchNode!).start);
       const resultUri = result[0]?.uri;
       // console.log({
       //   uri: result[0]?.uri,
       //   range: result[0]?.range,
       // })
+      if (!resultUri) {
+        console.log('resultUri is undefined');
+        fail()
+        return;
+      }
       expect(result).toHaveLength(1);
       expect(resultUri).toBe(functionDoc.uri);
     });
@@ -234,7 +239,7 @@ describe('find definition locations of symbols', () => {
       expect(confdDoc).toBeDefined();
       const nodeAtPoint = analyzer.nodeAtPoint(confdDoc.uri, 1, 10);
       const completionNode = analyzer.findNode((n, doc) => {
-        if (doc?.uri === completionDoc.uri && n.parent && isCompletionDefinition(n.parent)) {
+        if (doc?.uri === completionDoc.uri && n.parent && isCompletionCommandDefinition(n.parent)) {
           return n.text === 'yes';
         }
         return false;

@@ -1,12 +1,11 @@
-
 import { SyntaxNode } from 'web-tree-sitter';
-import { isCommandWithName, isProgram, isString } from '../utils/node-types';
-import { findOptions, isMatchingOption, Option, OptionValueMatch, stringIsLongFlag, stringIsShortFlag } from './options';
+import { isCommandWithName, isString } from '../utils/node-types';
+import { Flag, isMatchingOption, Option } from './options';
 import { LspDocument } from '../document';
 import { getChildNodes, getRange } from '../utils/tree-sitter';
 import { FishSymbol } from './symbol';
-import { pathToRelativeFunctionName, uriToPath } from '../utils/translation';
-import { Location } from 'vscode-languageserver';
+import { Location, Range } from 'vscode-languageserver';
+// import { pathToRelativeFunctionName, uriToPath } from '../utils/translation';
 
 export const CompleteOptions = [
   Option.create('-c', '--command').withValue(),
@@ -29,66 +28,45 @@ export const CompleteOptions = [
   Option.create('-h', '--help'),
 ];
 
-export type CompletionOptionKeys = 'command' | 'short' | 'long' | 'old' | 'description' | 'condition' | 'arguments';
-export const CompletionOptionMap = {
-  command: CompleteOptions.find(n => n.equalsRawOption('-c', '--command'))!,
-  short: CompleteOptions.find(n => n.equalsRawOption('-s', '--short-option'))!,
-  long: CompleteOptions.find(n => n.equalsRawOption('-l', '--long-option'))!,
-  old: CompleteOptions.find(n => n.equalsRawOption('-o', '--old-option'))!,
-  description: CompleteOptions.find(n => n.equalsRawOption('-d', '--description'))!,
-  condition: CompleteOptions.find(n => n.equalsRawOption('-n', '--condition'))!,
-  arguments: CompleteOptions.find(n => n.equalsRawOption('-a', '--arguments'))!,
-};
+// export type CompletionOptionKeys = 'command' | 'short' | 'long' | 'old' | 'description' | 'condition' | 'arguments';
+// export const CompletionOptionMap = {
+//   command: CompleteOptions.find(n => n.equalsRawOption('-c', '--command'))!,
+//   short: CompleteOptions.find(n => n.equalsRawOption('-s', '--short-option'))!,
+//   long: CompleteOptions.find(n => n.equalsRawOption('-l', '--long-option'))!,
+//   old: CompleteOptions.find(n => n.equalsRawOption('-o', '--old-option'))!,
+//   description: CompleteOptions.find(n => n.equalsRawOption('-d', '--description'))!,
+//   condition: CompleteOptions.find(n => n.equalsRawOption('-n', '--condition'))!,
+//   arguments: CompleteOptions.find(n => n.equalsRawOption('-a', '--arguments'))!,
+// };
 
-export function getFocusedCompletionOptions(opts: OptionValueMatch[]) {
-  const focusedOptions: Record<CompletionOptionKeys, OptionValueMatch[]> = {} as Record<CompletionOptionKeys, OptionValueMatch[]>;
-  Object.keys(CompletionOptionMap).forEach(key => {
-    const option = CompletionOptionMap[key as CompletionOptionKeys];
-    opts.forEach((item) => {
-      if (item.option.equalsOption(option)) {
-        const value = focusedOptions[key as CompletionOptionKeys] || [];
-        value.push(item);
-        focusedOptions[key as CompletionOptionKeys] = value;
-      }
-    });
-  });
-  return focusedOptions;
-}
-
-export const CompletionSymbolFlags: Record<'short' | 'long' | 'old', OptionValueMatch[]> = {
-  ['short']: [] as OptionValueMatch[],
-  ['long']: [] as OptionValueMatch[],
-  ['old']: [] as OptionValueMatch[],
-};
-
-export function isCompletionDefinition(node: SyntaxNode) {
+export function isCompletionCommandDefinition(node: SyntaxNode) {
   return isCommandWithName(node, 'complete');
 }
 
 export function isCompletionDefinitionWithName(node: SyntaxNode, name: string, doc: LspDocument) {
-  if (node.parent && isCompletionDefinition(node.parent)) {
-    const symbol = getCompletionSymbol(doc, node.parent);
-    return symbol?.command === name && isCompletionSymbol(node);
+  if (node.parent && isCompletionCommandDefinition(node.parent)) {
+    const symbol = getCompletionSymbol(node.parent, doc);
+    return symbol?.commandName === name && isCompletionSymbol(node);
   }
   return false;
 }
 
 export function isCompletionSymbolShort(node: SyntaxNode) {
-  if (node.parent && isCompletionDefinition(node.parent)) {
+  if (node.parent && isCompletionCommandDefinition(node.parent)) {
     return node.previousSibling && isMatchingOption(node.previousSibling, Option.create('-s', '--short-option'));
   }
   return false;
 }
 
 export function isCompletionSymbolLong(node: SyntaxNode) {
-  if (node.parent && isCompletionDefinition(node.parent)) {
+  if (node.parent && isCompletionCommandDefinition(node.parent)) {
     return node.previousSibling && isMatchingOption(node.previousSibling, Option.create('-l', '--long-option'));
   }
   return false;
 }
 
 export function isCompletionSymbolOld(node: SyntaxNode) {
-  if (node.parent && isCompletionDefinition(node.parent)) {
+  if (node.parent && isCompletionCommandDefinition(node.parent)) {
     return node.previousSibling && isMatchingOption(node.previousSibling, Option.create('-o', '--old-option'));
   }
   return false;
@@ -101,7 +79,7 @@ export function isCompletionSymbol(node: SyntaxNode) {
 }
 
 type OptionType = '' | 'short' | 'long' | 'old';
-export class VerboseCompletionSymbol {
+export class CompletionSymbol {
   constructor(
     public optionType: OptionType = '',
     public commandName: string = '',
@@ -111,13 +89,14 @@ export class VerboseCompletionSymbol {
     public requireParameter: boolean = false,
     public argumentNames: string = '',
     public exclusive: boolean = false,
+    public doc?: LspDocument,
   ) { }
 
   /**
    * Initialize the VerboseCompletionSymbol with empty values.
    */
   static createEmpty() {
-    return new VerboseCompletionSymbol();
+    return new CompletionSymbol();
   }
 
   /**
@@ -156,10 +135,14 @@ export class VerboseCompletionSymbol {
    * Type Guard that our node & its parent are defined,
    * therefore we have found a valid VerboseCompletionSymbol.
    */
-  isNonEmpty(): this is VerboseCompletionSymbol & { node: SyntaxNode; parent: SyntaxNode; } {
+  isNonEmpty(): this is CompletionSymbol & { node: SyntaxNode; parent: SyntaxNode; } {
     return this.node !== null && this.parent !== null;
   }
 
+  /**
+   * Getter (w/ type guarding) to retrieve the CompletionSymbol.node.parent
+   * Removes the pattern of null checking a CompletionSymbol.node.parent
+   */
   get parent() {
     if (this.node) {
       return this.node.parent;
@@ -167,6 +150,10 @@ export class VerboseCompletionSymbol {
     return null;
   }
 
+  /**
+   * Getter (w/ type guarding) to retrieve the CompletionSymbol.node.text
+   * Removes the pattern of null checking a CompletionSymbol.node
+   */
   get text(): string {
     if (this.isNonEmpty()) {
       return this.node.text;
@@ -174,14 +161,23 @@ export class VerboseCompletionSymbol {
     return '';
   }
 
+  /**
+   * Check if the option is a short option: `-s <flag>` or `--short-option <flag>`.
+   */
   isShort() {
     return this.optionType === 'short';
   }
 
+  /**
+   * Check if the option is a long option: `-l <flag>` or `--long-option <flag>`.
+   */
   isLong() {
     return this.optionType === 'long';
   }
 
+  /**
+   * Check if the option is an old option: `-o <flag>` or `--old-option <flag>`.
+   */
   isOld() {
     return this.optionType === 'old';
   }
@@ -192,7 +188,7 @@ export class VerboseCompletionSymbol {
    * complete -c foo -s h -l help # 'h' <--> 'help' are pairs
    * ```
    */
-  isCorrespondingOption(other: VerboseCompletionSymbol) {
+  isCorrespondingOption(other: CompletionSymbol) {
     if (!this.isNonEmpty() || !other.isNonEmpty()) {
       return false;
     }
@@ -252,16 +248,75 @@ export class VerboseCompletionSymbol {
     return this.commandName === commandName
       && this.node?.text === symbolName;
   }
+
+  /**
+   * Check if our CompletionSymbol.node === the node passed in
+   */
+  equalsNode(n: SyntaxNode) {
+    return this.node?.equals(n);
+  }
+
+
+  /**
+   * check if our CompletionSymbol.commandName === the commandName passed in
+   */
+  hasCommandName(name: string) {
+    return this.commandName === name;
+  }
+
+  /**
+   * A test utility for easily getting a completion flag
+   */
+  isMatchingRawOption(...opts: Flag[]) {
+    const flag = this.toFlag();
+    for (const opt of opts) {
+      if (flag === opt) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * utility to get the range of the node
+   */
+  getRange(): Range {
+    if (this.isNonEmpty()) {
+      return getRange(this.node);
+    }
+    return null as never;
+  }
+
+  /**
+   * Create a Location from the current CompletionSymbol
+   */
+  toLocation(): Location {
+    return Location.create(this.doc?.uri || '', this.getRange());
+  }
+
 }
+
+export function isCompletionSymbolVerbose(node: SyntaxNode, doc?: LspDocument): boolean {
+  if (isCompletionSymbol(node) || !node.parent) {
+    return true;
+  }
+  if (node.parent && isCompletionCommandDefinition(node.parent)) {
+    const symbol = getCompletionSymbol(node, doc);
+    return symbol?.isNonEmpty() || false;
+  }
+  return false;
+
+}
+
 
 /**
  * Create a VerboseCompletionSymbol from a SyntaxNode, for any SyntaxNode passed in.
  * Calling this function will need to check if `result.isEmpty()` or `result.isNonEmpty()`
  * @param node any syntax node, preferably one that is a child of a `complete` node (not required though)
- * @returns {VerboseCompletionSymbol} `result.isEmpty()` when not found, `result.isNonEmpty()` when `isCompletionSymbolVerbose(node)` is found
+ * @returns {CompletionSymbol} `result.isEmpty()` when not found, `result.isNonEmpty()` when `isCompletionSymbolVerbose(node)` is found
  */
-export function isCompletionSymbolVerbose(node: SyntaxNode): VerboseCompletionSymbol {
-  const result = VerboseCompletionSymbol.createEmpty();
+export function getCompletionSymbol(node: SyntaxNode, doc?: LspDocument): CompletionSymbol {
+  const result = CompletionSymbol.createEmpty();
   if (!isCompletionSymbol(node) || !node.parent) {
     return result;
   }
@@ -281,6 +336,7 @@ export function isCompletionSymbolVerbose(node: SyntaxNode): VerboseCompletionSy
   result.node = node;
   const parent = node.parent;
   const children = parent.childrenForFieldName('argument');
+  result.doc = doc;
   children.forEach((child, idx) => {
     if (idx === 0) return;
     if (isMatchingOption(child, Option.create('-r', '--require-parameter'))) {
@@ -307,16 +363,16 @@ export function isCompletionSymbolVerbose(node: SyntaxNode): VerboseCompletionSy
   return result;
 }
 
-export function groupVerboseCompletionSymbolsTogether(
-  ...symbols: VerboseCompletionSymbol[]
-): VerboseCompletionSymbol[][] {
+export function groupCompletionSymbolsTogether(
+  ...symbols: CompletionSymbol[]
+): CompletionSymbol[][] {
   const storedSymbols: Set<string> = new Set();
-  const groupedSymbols: VerboseCompletionSymbol[][] = [];
+  const groupedSymbols: CompletionSymbol[][] = [];
   symbols.forEach((symbol) => {
     if (storedSymbols.has(symbol.text)) {
       return;
     }
-    const newGroup: VerboseCompletionSymbol[] = [symbol];
+    const newGroup: CompletionSymbol[] = [symbol];
     const matches = symbols.filter((s) => s.isCorrespondingOption(symbol));
     matches.forEach((s) => {
       storedSymbols.add(s.text);
@@ -327,223 +383,224 @@ export function groupVerboseCompletionSymbolsTogether(
   return groupedSymbols;
 }
 
-function getCompletionSymbol(document: LspDocument, node: SyntaxNode): CompletionSymbol | null {
-  if (!isCompletionDefinition(node)) {
-    return null;
-  }
-
-  const searchNodes = node.childrenForFieldName('argument');
-  const options = findOptions(searchNodes, CompleteOptions);
-
-  const focused = getFocusedCompletionOptions(options.found);
-  const flags: typeof CompletionSymbolFlags = {
-    short: focused.short,
-    long: focused.long,
-    old: focused.old,
-  };
-  const command = focused.command.pop();
-  const args = focused.arguments?.pop();
-  const description = focused.description?.pop();
-  const condition = focused.condition?.pop();
-
-  return CompletionSymbol.create({
-    flags,
-    command: command?.value,
-    description,
-    argumentNames: args,
-    condition,
-    ...options,
-    document,
-  });
-}
+// function getCompletionSymbol(document: LspDocument, node: SyntaxNode): CompletionSymbol | null {
+//   if (!isCompletionDefinition(node)) {
+//     return null;
+//   }
+//
+//   const searchNodes = node.childrenForFieldName('argument');
+//   const options = findOptions(searchNodes, CompleteOptions);
+//
+//   const focused = getFocusedCompletionOptions(options.found);
+//   const flags: typeof CompletionSymbolFlags = {
+//     short: focused.short,
+//     long: focused.long,
+//     old: focused.old,
+//   };
+//   const command = focused.command.pop();
+//   const args = focused.arguments?.pop();
+//   const description = focused.description?.pop();
+//   const condition = focused.condition?.pop();
+//
+//   return CompletionSymbol.create({
+//     flags,
+//     command: command?.value,
+//
+//     description,
+//     argumentNames: args,
+//     condition,
+//     ...options,
+//     document,
+//   });
+// }
 
 export function processCompletion(document: LspDocument, node: SyntaxNode) {
   const result: CompletionSymbol[] = [];
   for (const child of getChildNodes(node)) {
-    if (isCompletionDefinition(node)) {
-      const newSymbol = getCompletionSymbol(document, child);
+    if (isCompletionCommandDefinition(node)) {
+      const newSymbol = getCompletionSymbol(child, document);
       if (newSymbol) result.push(newSymbol);
     }
   }
   return result;
 }
 
-export interface CompletionSymbolOptions {
-  flags: typeof CompletionSymbolFlags;
-  command?: SyntaxNode | undefined;
-  description?: OptionValueMatch | undefined;
-  argumentNames?: OptionValueMatch | undefined;
-  condition?: OptionValueMatch | undefined;
-  remaining: SyntaxNode[];
-  found: OptionValueMatch[];
-  unused: Option[];
-  document: LspDocument;
-}
-
-export class CompletionSymbol {
-  public flags: typeof CompletionSymbolFlags = {
-    short: [] as OptionValueMatch[],
-    long: [] as OptionValueMatch[],
-    old: [] as OptionValueMatch[],
-  } as typeof CompletionSymbolFlags;
-  public command: string | undefined = undefined;
-  public description: OptionValueMatch | undefined = undefined;
-  public argumentNames: OptionValueMatch | undefined = undefined;
-  public condition: OptionValueMatch | undefined = undefined;
-  public remaining: SyntaxNode[] = [];
-  public found: OptionValueMatch[] = [];
-  public unused: Option[] = [];
-  public document: LspDocument;
-
-  static create(opts: CompletionSymbolOptions) {
-    return new this(opts);
-  }
-
-  constructor(opts: CompletionSymbolOptions) {
-    this.flags = opts.flags;
-    this.command = opts.command?.text || opts.document.getAutoLoadName();
-    this.description = opts?.description;
-    this.remaining = opts.remaining || [];
-    this.found = opts.found || [];
-    this.unused = opts.unused || [];
-    this.document = opts.document;
-  }
-
-  public getFlags() {
-    return {
-      short: this.flags.short || [],
-      long: this.flags.long || [],
-      old: this.flags.old || [],
-    };
-  }
-
-  getShortOptions() {
-    return this.flags.short?.map(item => item.option) || [];
-  }
-
-  getLongOptions() {
-    return this.flags.long?.map(item => item.option) || [];
-  }
-
-  getOldOptions() {
-    return this.flags.old?.map(item => item.option) || [];
-  }
-
-  hasShortOptions() {
-    return this.getShortOptions().length > 0;
-  }
-
-  hasLongOptions() {
-    return this.getLongOptions().length > 0;
-  }
-
-  hasOldOptions() {
-    return this.getOldOptions().length > 0;
-  }
-
-  getCommand() {
-    return this.command;
-  }
-
-  getDescription() {
-    return this.description?.value;
-  }
-
-  getCondition() {
-    return this.condition?.value;
-  }
-
-  equals(option: Option) {
-    return this.found.some(item => option.equals(item.value));
-  }
-
-  getLocations() {
-    return this.found.map(item => {
-      return Location.create(this.document.uri, getRange(item.value));
-    });
-  }
-
-  equalsFlags(option: Option) {
-    const flags = option.getAllFlags().map(flag => {
-      if (stringIsShortFlag(flag)) {
-        return flag.replace(/^-/g, '');
-      }
-      if (stringIsLongFlag(flag)) {
-        return flag.replace(/^--/g, '');
-      }
-      if (flag.startsWith('-')) {
-        return flag.replace(/^-/g, '');
-      }
-      return flag;
-    });
-    return this.found.some(item => item.option.equalsRawOption('-s', '--short-option', '-l', '--long-option', '-o', '--old-option') && flags.includes(item.value.text));
-  }
-
-  equalsNode(node: SyntaxNode) {
-    return this.found.some(item => item.value.equals(node));
-  }
-
-  equalsFishSymbol(symbol: FishSymbol) {
-    const { scopeNode, uri } = symbol;
-    let commandName = scopeNode.firstNamedChild?.text || '';
-    if (isProgram(scopeNode)) {
-      commandName = pathToRelativeFunctionName(uriToPath(uri));
-    }
-    const symbolName = symbol.argparseFlagName;
-    return commandName === this.command
-      && this.found.some(item => item.value.text === symbolName);
-  }
-
-  toLocation(symbol: FishSymbol): Location {
-    const text = this.found.find(opt => {
-      return opt.value.text === symbol.argparseFlagName;
-    })!;
-    return Location.create(this.document.uri, getRange(text?.value));
-  }
-
-  toShortLocation() {
-    return this.flags.short.map(item => {
-      return Location.create(this.document.uri, getRange(item.value));
-    });
-  }
-
-  toLongLocation() {
-    return this.flags.long.map(item => {
-      return Location.create(this.document.uri, getRange(item.value));
-    });
-  }
-
-  toOldLocation() {
-    return this.flags.old.map(item => {
-      return Location.create(this.document.uri, getRange(item.value));
-    });
-  }
-
-  fromNodeToLocation(node: SyntaxNode) {
-    if (isCompletionSymbol(node)) {
-      return Location.create(this.document.uri, getRange(node));
-    }
-    return null;
-  }
-
-  toArgparse(node: SyntaxNode | null = null) {
-    const argparseNames: string[] = [];
-    if (!node) {
-      argparseNames.push(...[
-        ...this.found.filter(item => item.option.equalsRawOption('-s', '--short-option')).map(item => item.value.text),
-        ...this.found.filter(item => item.option.equalsRawOption('-l', '--long-option')).map(item => item.value.text),
-        ...this.found.filter(item => item.option.equalsRawOption('-o', '--old-option')).map(item => item.value.text),
-      ]);
-    } else if (node) {
-      argparseNames.push(
-        ...this.found
-          .filter(item => item.value.text === node.text)
-          .map(item => item.value.text),
-      );
-    }
-    return {
-      commandName: this.command,
-      argparseFlagName: argparseNames.map(item => `_flag_${item.replace(/^-+/, '_')}`),
-    };
-  }
-}
+// export interface CompletionSymbolOptions {
+//   flags: typeof CompletionSymbolFlags;
+//   command?: SyntaxNode | undefined;
+//   description?: OptionValueMatch | undefined;
+//   argumentNames?: OptionValueMatch | undefined;
+//   condition?: OptionValueMatch | undefined;
+//   remaining: SyntaxNode[];
+//   found: OptionValueMatch[];
+//   unused: Option[];
+//   document: LspDocument;
+// }
+//
+// export class CompletionSymbol {
+//   public flags: typeof CompletionSymbolFlags = {
+//     short: [] as OptionValueMatch[],
+//     long: [] as OptionValueMatch[],
+//     old: [] as OptionValueMatch[],
+//   } as typeof CompletionSymbolFlags;
+//   public command: string | undefined = undefined;
+//   public description: OptionValueMatch | undefined = undefined;
+//   public argumentNames: OptionValueMatch | undefined = undefined;
+//   public condition: OptionValueMatch | undefined = undefined;
+//   public remaining: SyntaxNode[] = [];
+//   public found: OptionValueMatch[] = [];
+//   public unused: Option[] = [];
+//   public document: LspDocument;
+//
+//   static create(opts: CompletionSymbolOptions) {
+//     return new this(opts);
+//   }
+//
+//   constructor(opts: CompletionSymbolOptions) {
+//     this.flags = opts.flags;
+//     this.command = opts.command?.text || opts.document.getAutoLoadName();
+//     this.description = opts?.description;
+//     this.remaining = opts.remaining || [];
+//     this.found = opts.found || [];
+//     this.unused = opts.unused || [];
+//     this.document = opts.document;
+//   }
+//
+//   public getFlags() {
+//     return {
+//       short: this.flags.short || [],
+//       long: this.flags.long || [],
+//       old: this.flags.old || [],
+//     };
+//   }
+//
+//   getShortOptions() {
+//     return this.flags.short?.map(item => item.option) || [];
+//   }
+//
+//   getLongOptions() {
+//     return this.flags.long?.map(item => item.option) || [];
+//   }
+//
+//   getOldOptions() {
+//     return this.flags.old?.map(item => item.option) || [];
+//   }
+//
+//   hasShortOptions() {
+//     return this.getShortOptions().length > 0;
+//   }
+//
+//   hasLongOptions() {
+//     return this.getLongOptions().length > 0;
+//   }
+//
+//   hasOldOptions() {
+//     return this.getOldOptions().length > 0;
+//   }
+//
+//   getCommand() {
+//     return this.command;
+//   }
+//
+//   getDescription() {
+//     return this.description?.value;
+//   }
+//
+//   getCondition() {
+//     return this.condition?.value;
+//   }
+//
+//   equals(option: Option) {
+//     return this.found.some(item => option.equals(item.value));
+//   }
+//
+//   getLocations() {
+//     return this.found.map(item => {
+//       return Location.create(this.document.uri, getRange(item.value));
+//     });
+//   }
+//
+//   equalsFlags(option: Option) {
+//     const flags = option.getAllFlags().map(flag => {
+//       if (stringIsShortFlag(flag)) {
+//         return flag.replace(/^-/g, '');
+//       }
+//       if (stringIsLongFlag(flag)) {
+//         return flag.replace(/^--/g, '');
+//       }
+//       if (flag.startsWith('-')) {
+//         return flag.replace(/^-/g, '');
+//       }
+//       return flag;
+//     });
+//     return this.found.some(item => item.option.equalsRawOption('-s', '--short-option', '-l', '--long-option', '-o', '--old-option') && flags.includes(item.value.text));
+//   }
+//
+//   equalsNode(node: SyntaxNode) {
+//     return this.found.some(item => item.value.equals(node));
+//   }
+//
+//   equalsFishSymbol(symbol: FishSymbol) {
+//     const { scopeNode, uri } = symbol;
+//     let commandName = scopeNode.firstNamedChild?.text || '';
+//     if (isProgram(scopeNode)) {
+//       commandName = pathToRelativeFunctionName(uriToPath(uri));
+//     }
+//     const symbolName = symbol.argparseFlagName;
+//     return commandName === this.command
+//       && this.found.some(item => item.value.text === symbolName);
+//   }
+//
+//   toLocation(symbol: FishSymbol): Location {
+//     const text = this.found.find(opt => {
+//       return opt.value.text === symbol.argparseFlagName;
+//     })!;
+//     return Location.create(this.document.uri, getRange(text?.value));
+//   }
+//
+//   toShortLocation() {
+//     return this.flags.short.map(item => {
+//       return Location.create(this.document.uri, getRange(item.value));
+//     });
+//   }
+//
+//   toLongLocation() {
+//     return this.flags.long.map(item => {
+//       return Location.create(this.document.uri, getRange(item.value));
+//     });
+//   }
+//
+//   toOldLocation() {
+//     return this.flags.old.map(item => {
+//       return Location.create(this.document.uri, getRange(item.value));
+//     });
+//   }
+//
+//   fromNodeToLocation(node: SyntaxNode) {
+//     if (isCompletionSymbol(node)) {
+//       return Location.create(this.document.uri, getRange(node));
+//     }
+//     return null;
+//   }
+//
+//   toArgparse(node: SyntaxNode | null = null) {
+//     const argparseNames: string[] = [];
+//     if (!node) {
+//       argparseNames.push(...[
+//         ...this.found.filter(item => item.option.equalsRawOption('-s', '--short-option')).map(item => item.value.text),
+//         ...this.found.filter(item => item.option.equalsRawOption('-l', '--long-option')).map(item => item.value.text),
+//         ...this.found.filter(item => item.option.equalsRawOption('-o', '--old-option')).map(item => item.value.text),
+//       ]);
+//     } else if (node) {
+//       argparseNames.push(
+//         ...this.found
+//           .filter(item => item.value.text === node.text)
+//           .map(item => item.value.text),
+//       );
+//     }
+//     return {
+//       commandName: this.command,
+//       argparseFlagName: argparseNames.map(item => `_flag_${item.replace(/^-+/, '_')}`),
+//     };
+//   }
+// }

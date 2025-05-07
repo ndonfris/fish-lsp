@@ -1,7 +1,17 @@
 
+import * as Parser from 'web-tree-sitter';
 import { env, EnvManager } from '../src/utils/env-manager';
 import { setupProcessEnvExecFile, AutoloadedPathVariables } from '../src/utils/process-env';
-import { setLogger } from './helpers';
+import { createFakeLspDocument, setLogger } from './helpers';
+import { initializeParser } from '../src/parser';
+import { getChildNodes } from '../src/utils/tree-sitter';
+import { isVariableDefinitionName } from '../src/utils/node-types';
+import { config } from '../src/config';
+import { Analyzer } from '../src/analyze';
+import { LocalFishLspDocumentVariable } from '../src/parsing/values';
+import * as os from 'os';
+import { FishUriWorkspace } from '../src/utils/workspace';
+import { pathToUri } from '../src/utils/translation';
 
 describe('setting up process-env', () => {
   setLogger();
@@ -46,6 +56,12 @@ describe('setting up process-env', () => {
       env.set('fish_lsp_all_indexed_paths', '/usr/share/fish /usr/local/share/fish $HOME/.config/fish');
       // console.log('fish_lsp_all_indexed_paths', env.getAsArray('fish_lsp_all_indexed_paths'));
       expect(env.getAsArray('fish_lsp_all_indexed_paths').length).toEqual(3);
+    });
+
+
+    it('find keys where value is used', () => {
+      env.set('fish_lsp_all_indexed_paths', '/usr/share/fish /usr/local/share/fish $HOME/.config/fish');
+
     });
 
     it('getProcessEnv()', () => {
@@ -224,6 +240,49 @@ describe('setting up process-env', () => {
         env.prepend(key, '/usr/bin /bin');
         expect(env.getAsArray(key)).toEqual(['/usr/bin', '/bin']);
         expect(env.get(key)).toEqual('/usr/bin /bin');
+      });
+    });
+  });
+
+  describe('workspace names', () => {
+    let parser: Parser;
+    let analyzer: Analyzer;
+    beforeEach(async () => {
+      parser = await initializeParser();
+      analyzer = new Analyzer(parser);
+    });
+
+    it.only('getWorkspaceName', () => {
+      env.set('fish_lsp_all_indexed_paths', '/usr/share/fish /usr/local/share/fish $HOME/.config/fish');
+      const input = `set -gx fish_lsp_all_indexed_paths $HOME/.config/fish /usr/share/fish $__fish_data_dir`;
+      const doc = createFakeLspDocument('config.fish', input);
+      analyzer.analyze(doc);
+      for (const symbol of analyzer.getFlatDocumentSymbols(doc.uri)) {
+        if (symbol.isConfigDefinition()) {
+          const values = symbol.valuesAsShellValues();
+          console.log(`values for ${symbol.name}:`, values);
+          for (const value of values) {
+            // const autoloaded = env.getAutoloadedKeys().find(k => k === value || env.getAsArray(k).includes(value) || (value.startsWith('$') && value.slice(1) === k));
+            const autoloaded = env.findAutolaodedKey(value);
+            if (autoloaded) {
+              console.log(`found autoloaded`, { autoloaded, value });
+            }
+          }
+        }
+      }
+    });
+
+    it.only('getWorkspaceName with autoloaded', () => {
+      const wsURI = pathToUri(`${os.homedir()}/.config/fish`);
+      const workspaceName = FishUriWorkspace.getWorkspaceName(wsURI);
+      console.log('workspaceName', workspaceName);
+      console.log(FishUriWorkspace.create(wsURI));
+    });
+
+    it.only('initializeEnvWorkspaces', () => {
+      const workspaces = FishUriWorkspace.initializeEnvWorkspaces();
+      workspaces.forEach((ws, idx) => {
+        console.log(idx, { ws });
       });
     });
   });

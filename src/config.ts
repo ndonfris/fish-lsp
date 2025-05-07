@@ -124,7 +124,7 @@ export type Config = z.infer<typeof ConfigSchema>;
 export function getConfigFromEnvironmentVariables(): {
   config: Config;
   environmentVariablesUsed: string[];
-  } {
+} {
   const rawConfig = {
     fish_lsp_enabled_handlers: process.env.fish_lsp_enabled_handlers?.split(' '),
     fish_lsp_disabled_handlers: process.env.fish_lsp_disabled_handlers?.split(' '),
@@ -167,14 +167,14 @@ export function updateBasedOnSymbols(
       continue;
     }
 
-    if (LocalFishLspDocumentVariable.hasEraseFlag(s)) {
+    if (s.isConfigDefinitionWithErase()) {
       const schemaType = ConfigSchema.shape[configKey as keyof z.infer<typeof ConfigSchema>];
 
       (config[configKey] as any) = schemaType.parse(schemaType._def.defaultValue());
       continue;
     }
 
-    const shellValues = LocalFishLspDocumentVariable.findValueNodes(s).map(s => LocalFishLspDocumentVariable.nodeToShellValue(s));
+    const shellValues = s.valuesAsShellValues();
 
     if (shellValues.length > 0) {
       if (shellValues.length === 1) {
@@ -456,6 +456,11 @@ export namespace Config {
     return;
   }
 
+  export function getDefaultValue(key: keyof Config): Config[keyof Config] {
+    const defaults = ConfigSchema.parse({});
+    return defaults[key];
+  }
+
   /**
    * All old environment variables mapped to their new key names.
    */
@@ -532,8 +537,8 @@ export namespace Config {
           openClose: true,
           change: TextDocumentSyncKind.Incremental,
           save: { includeText: true },
-          willSave: true,
-          willSaveWaitUntil: true,
+          // willSave: true,
+          // willSaveWaitUntil: true,
         },
         completionProvider: configHandlers.complete ? {
           resolveProvider: true,
@@ -566,10 +571,11 @@ export namespace Config {
         },
         documentHighlightProvider: configHandlers.highlight,
         inlayHintProvider: configHandlers.inlayHint,
-        codeLensProvider: configHandlers.codeLens ? {
-          resolveProvider: true,
-          workDoneProgress: true,
-        } : undefined,
+        // codeLensProvider: configHandlers.codeLens ? {
+        //   resolveProvider: true,
+        //   workDoneProgress: true,
+        // } : undefined,
+        // codeLensProvider: false,
         signatureHelpProvider: configHandlers.signature ? { workDoneProgress: false, triggerCharacters: ['.'] } : undefined,
         documentOnTypeFormattingProvider: configHandlers.typeFormatting ? {
           firstTriggerCharacter: '.',

@@ -213,6 +213,13 @@ export class EnvManager {
     return Array.from(this.processEnvKeys);
   }
 
+  public findAutolaodedKey(key: string): string | undefined {
+    if (key.startsWith('$')) {
+      key = key.slice(1);
+    }
+    return this.getAutoloadedKeys().find((k) => k === key || this.getAsArray(k).includes(key));
+  }
+
   get values() {
     const values: string[][] = [];
     for (const key in this.envStore) {

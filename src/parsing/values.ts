@@ -4,6 +4,8 @@ import { isMatchingOption, isString } from '../utils/node-types';
 import { config } from '../config';
 import { findSetChildren } from './set';
 import { Option } from './options';
+import { SyncFileHelper } from '../utils/file-operations';
+import { SymbolKind } from 'vscode-languageserver';
 
 /**
  * Current implementation is for evaluating `config` keys, in non autoloaded
@@ -18,26 +20,37 @@ import { Option } from './options';
 
 export namespace LocalFishLspDocumentVariable {
 
+  export function isConfigVariableDefinition(symbol: FishSymbol): boolean {
+    if (symbol.kind !== SymbolKind.Variable || symbol.fishKind !== 'SET') {
+      return false;
+    }
+    return Object.keys(config).includes(symbol.name);
+  }
+
+  export function isConfigVariableDefinitionWithErase(
+    symbol: FishSymbol,
+  ): boolean {
+    if (!symbol.isConfigDefinition()) {
+      return false;
+    }
+    return hasEraseFlag(symbol);
+  }
+
   export function findValueNodes(symbol: FishSymbol) {
     const valueNodes: SyntaxNode[] = [];
-    if (!Object.keys(config).includes(symbol.name)) {
-      return valueNodes;
-    }
+    if (!symbol.isConfigDefinition()) return valueNodes;
     let node: null | SyntaxNode = symbol.focusedNode.nextNamedSibling;
     while (node) {
-      if (!isEmptyString(node)) {
-        valueNodes.push(node);
-      }
+      if (!isEmptyString(node)) valueNodes.push(node);
       node = node.nextNamedSibling;
     }
     return valueNodes;
   }
 
   export function nodeToShellValue(node: SyntaxNode): string {
-    if (isString(node)) {
-      return node.text.slice(1, -1);
-    }
-    return node.text;
+    let text = node.text;
+    if (isString(node)) text = text.slice(1, -1);
+    return SyncFileHelper.expandEnvVars(text);
   }
 
   export const eraseOption = Option.create('-e', '--erase');
@@ -58,3 +71,17 @@ function isEmptyString(node: SyntaxNode) {
   return isString(node) && node.text.length === 2;
 }
 
+export function configDefinitionParser(
+  symbol: FishSymbol,
+) {
+  const isDefinition = LocalFishLspDocumentVariable.isConfigVariableDefinition(symbol);
+  const isDefinitionWithErase = LocalFishLspDocumentVariable.isConfigVariableDefinitionWithErase(symbol);
+  const valueNodes = LocalFishLspDocumentVariable.findValueNodes(symbol);
+  const values = valueNodes.map(node => LocalFishLspDocumentVariable.nodeToShellValue(node));
+  return {
+    isDefinition,
+    isErase: isDefinitionWithErase,
+    valueNodes,
+    values,
+  }
+}

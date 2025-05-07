@@ -1,12 +1,11 @@
 import { createFakeLspDocument, setLogger } from './helpers';
 import { Analyzer } from '../src/analyze';
 import { initializeParser } from '../src/parser';
-import { FishSymbol } from '../src/parsing/symbol';
 import { getDocumentHighlights } from '../src/document-highlight';
 
 import * as Parser from 'web-tree-sitter';
 import { DocumentHighlight, DocumentHighlightKind, Position } from 'vscode-languageserver';
-import { isCommandName, isCommandWithName, isFunctionDefinitionName, isVariableDefinitionName } from '../src/utils/node-types';
+import { isCommandName, isFunctionDefinitionName, isVariableDefinitionName } from '../src/utils/node-types';
 import { getRange } from '../src/utils/tree-sitter';
 import { LspDocument } from '../src/document';
 
@@ -75,8 +74,8 @@ describe('document-highlights test', () => {
         const sourceCode = 'set var_1 10; set var_2 20; set var_3 30; echo $var_1';
         const doc = createFakeLspDocument('functions/test.fish', sourceCode);
         analyzer.analyze(doc);
-        const searchDefNode = analyzer.getNodes(doc).find((node) => node.text === 'var_1' && isVariableDefinitionName(node))!; // set var_1 10
-        const searchRefNode = analyzer.getNodes(doc).find((node) => node.text === 'var_1' && node.type === 'variable_name')!; // echo $var_1
+        const searchDefNode = analyzer.getNodes(doc.uri).find((node) => node.text === 'var_1' && isVariableDefinitionName(node))!; // set var_1 10
+        const searchRefNode = analyzer.getNodes(doc.uri).find((node) => node.text === 'var_1' && node.type === 'variable_name')!; // echo $var_1
 
         const requests = [
           searchDefNode,
@@ -100,7 +99,7 @@ if set -q PATH
 end`;
         const doc = createFakeLspDocument('config.fish', sourceCode);
         analyzer.analyze(doc);
-        const searchNode = analyzer.getNodes(doc).find((node) => node.text === 'PATH')!; // set var_1 10
+        const searchNode = analyzer.getNodes(doc.uri).find((node) => node.text === 'PATH')!; // set var_1 10
         const requests = [
           searchNode,
         ].map((node) => createHighlightRequest(doc, getRange(node).start));
@@ -125,8 +124,8 @@ end
 my_func`;
         const doc = createFakeLspDocument('functions/test.fish', sourceCode);
         analyzer.analyze(doc);
-        const searchDefNode = analyzer.getNodes(doc).find((node) => node.text === 'my_func' && isFunctionDefinitionName(node))!; // function my_func
-        const searchRefNode = analyzer.getNodes(doc).find((node) => node.text === 'my_func' && isCommandName(node))!; // my_func
+        const searchDefNode = analyzer.getNodes(doc.uri).find((node) => node.text === 'my_func' && isFunctionDefinitionName(node))!; // function my_func
+        const searchRefNode = analyzer.getNodes(doc.uri).find((node) => node.text === 'my_func' && isCommandName(node))!; // my_func
 
         const requests = [
           searchDefNode,

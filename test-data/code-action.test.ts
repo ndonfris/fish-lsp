@@ -6,7 +6,7 @@ import { Option } from '../src/parsing/options';
 import { convertIfToCombinersString } from '../src/code-actions/combiner';
 import { setLogger } from './helpers';
 import { initializeParser } from '../src/parser';
-import { findReturnNodes, getReturnStatusValue } from '../src/code-lens';
+import { findReturnNodes, getReturnStatusValue } from '../src/inlay-hints';
 import { TextDocumentItem } from 'vscode-languageserver';
 import { LspDocument } from '../src/document';
 import { SyntaxNode } from 'web-tree-sitter';

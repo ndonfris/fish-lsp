@@ -1,0 +1,102 @@
+import * as LSP from 'vscode-languageserver';
+import { Connection, WorkDoneProgressReporter } from 'vscode-languageserver';
+import { Workspace } from './workspace';
+import { config } from '../config';
+
+/**
+ * Create the progress token for the workspace progress token.
+ */
+export namespace AnalyzeProgressToken {
+  /**
+   * Create the progress token for the workspace progress token.
+   */
+  export async function create(
+    connection: Connection,
+    workspace: Workspace,
+  ): Promise<ProgressWrapper> {
+    const progress = await connection.window.createWorkDoneProgress();
+    const workspaceMaxSize = Math.min(workspace.paths.length, config.fish_lsp_max_background_files);
+    const progressWrapper = new ProgressWrapper(progress, connection);
+
+    progressWrapper.begin(`[fish-lsp] ${workspace.name}`, 0, `analyzing ${workspaceMaxSize} files`, true);
+    // https://github.com/ndonfris/fish-lsp/pull/78#issuecomment-2820933206
+    // https://github.com/microsoft/vscode-extension-samples/blob/main/notifications-sample/src/extension.ts
+    return progressWrapper;
+  }
+
+  /**
+   * Create the callback function for the workspace progress token.
+   */
+  export function callbackfn(
+    connection: Connection,
+  ) {
+    return async function (workspace: Workspace) {
+      return await create(connection, workspace);
+    };
+  }
+}
+
+/**
+ * Wrapper for the WorkdoneProgressReporter, built by the namespace defined above (AnalyzeProgressToken).
+ * This class is used to manage the progress of our analysis inside a workspace.
+ */
+export class ProgressWrapper implements WorkDoneProgressReporter {
+  private status: 'created' | 'inProgress' | 'finished' | 'cancelled' = 'created';
+  private name: string = '';
+
+  constructor(
+    public _progress: LSP.WorkDoneProgressServerReporter,
+    private connection: LSP.Connection,
+  ) { }
+
+  begin(title: string, percentage?: number, message?: string, cancellable?: boolean): void {
+    this.status = 'inProgress';
+    this._progress.begin(title, percentage, message, cancellable);
+    this.name = title;
+  }
+
+  report(percentage: number): void;
+  report(message: string): void;
+  report(percentage: number, message: string): void; // Add this third overload
+  report(percentageOrString: number | string, message?: string): void {
+    // this.connection.sendNotification('$/progress',
+    //   {
+    //     kind: 'report',
+    //     percentage: typeof percentageOrString === 'number' ? percentageOrString : undefined,
+    //     message: typeof percentageOrString === 'string' ? percentageOrString : message,
+    //   });
+    if (typeof percentageOrString === 'number' && typeof message === 'string') {
+      this._progress.report(percentageOrString, message);
+    } else if (typeof percentageOrString === 'number') {
+      this._progress.report(percentageOrString);
+    } else if (typeof percentageOrString === 'string') {
+      this._progress.report(percentageOrString);
+    }
+  }
+
+  done(): void {
+    this.status = 'finished';
+    this._progress.report(100, "Completed");
+    const WorkDoneProgressReporterImpl = this._progress.constructor as Record<string, any>;
+    if (WorkDoneProgressReporterImpl && WorkDoneProgressReporterImpl.Instances instanceof Map && ('_token' in this._progress && (typeof this._progress._token === 'number' || typeof this._progress._token === 'string'))) {
+      WorkDoneProgressReporterImpl.Instances.delete(this._progress.token);
+      this.connection.sendProgress(LSP.WorkDoneProgress.type, this._progress._token, {
+        kind: 'end',
+        message: 'Analysis complete',
+      });
+    } else {
+      this.connection.sendProgress(LSP.WorkDoneProgress.type, this.name, {
+        kind: 'end',
+        message: 'Analysis complete',
+      });
+      this._progress.done();
+    }
+  }
+  isCanceled(): boolean {
+    return this.status === 'cancelled';
+  }
+
+  isFinished(): boolean {
+    return this.status === 'finished';
+  }
+}

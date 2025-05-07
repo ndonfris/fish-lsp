@@ -146,10 +146,12 @@ export class DiagnosticCommentsHandler {
   private globalEnabledCodes(): ErrorCodes.CodeTypes[] {
     if (config.fish_lsp_diagnostic_disable_error_codes.length > 0) {
       return ErrorCodes.allErrorCodes.filter(
-        code => !config.fish_lsp_diagnostic_disable_error_codes.includes(code),
-      );
+        code => !config.fish_lsp_diagnostic_disable_error_codes.includes(code)
+      ).filter(code => ErrorCodes.nonDeprecatedErrorCodes.some(e => e.code === code));
     }
-    return ErrorCodes.allErrorCodes;
+    return ErrorCodes.allErrorCodes.filter(code =>
+      ErrorCodes.nonDeprecatedErrorCodes.some(e => e.code === code)
+    );
   }
 
   private pushState(state: DiagnosticState) {

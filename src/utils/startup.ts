@@ -9,6 +9,10 @@ import { PackageVersion } from './commander-cli-subcommands';
 
 import { createConnection, InitializeParams, InitializeResult, StreamMessageReader, StreamMessageWriter, ProposedFeatures, Connection } from 'vscode-languageserver/node';
 import * as net from 'net';
+import { Workspace, workspaces } from './workspace';
+import { AnalyzedDocument } from '../analyze';
+import { LspDocument } from '../document';
+// import { AnalyzedDocument } from '../analyze';
 
 // Define proper types for the connection options
 export type ConnectionType = 'stdio' | 'node-ipc' | 'socket';
@@ -116,6 +120,7 @@ export function startServer(connectionType: ConnectionType = 'stdio', options: C
   // For other connection types, set up the server with the connection
   setupServerWithConnection(connection);
 }
+
 /**
  * Creaete a connection for the server. Initialize the server with the connection.
  * Listen for incoming messages and handle them.
@@ -164,6 +169,8 @@ export async function timeOperation<T>(
 
 /**
  * Time the startup of the server. Use inside `fish-lsp info --time-startup`.
+ * Easy testing can be done with: 
+ *   >_ `nodemon --watch src/ --ext ts --exec 'fish-lsp info --time-startup'`
  */
 export async function timeServerStartup() {
   // define a local server instance
@@ -213,12 +220,14 @@ export async function timeServerStartup() {
 
   // 2. Time server initialization and background analysis
   await timeOperation(async () => {
-    const result = await server?.initializeBackgroundAnalysisForTiming();
-    if (result) {
-      all = result.all;
-      items = result.items;
-    }
+    // Create array of workspace analysis promises with timing
+    await Promise.all(workspaces.map(async (workspace) => {
+      items[workspace.path] = workspace.paths.length;
+      all += workspace.paths.length;
+      await server!.analyzer.analyzeWorkspace(workspace);
+    }));
   }, 'Background Analysis Time');
+
 
   // 3. Log the number of files indexed
   logger.logToStdoutJoined(
@@ -229,26 +238,72 @@ export async function timeServerStartup() {
   // 4. Log the directories indexed
   const all_indexed = config.fish_lsp_all_indexed_paths;
   logger.logToStdoutJoined(
-    "Indexed Files in '$fish_lsp_all_indexed_paths':".padEnd(75),
-    `${all_indexed.length} paths`.padStart(10),
+    "Indexed Files in '$fish_lsp_all_indexed_paths':".padEnd(65),
+    `${all_indexed.length} paths`.padStart(20),
   );
-  const maxItemLen = all_indexed.reduce((max, item) => Math.max(max, item.length), 0);
-  const startStr = ' '.repeat(3);
+  // const maxItemLen = all_indexed.reduce((max, item) => Math.max(max, item.length > 60 ? 60 : item.length), 0);
   config.fish_lsp_all_indexed_paths.forEach((item, idx) => {
-    logger.logToStdoutJoined(
-      `${startStr}$fish_lsp_all_indexed_paths[${idx + 1}]  `.padEnd(64 - maxItemLen),
-      `|${item}|`.padStart(maxItemLen + 6).padEnd(65 - (maxItemLen + 4)),
-      `${items[item]!.toString()} files`.padStart(14),
-    );
+    let text = item.length > 55 ? '...' + item.slice(item.length - 52) : item;
+    const output = formatColumns([` [${idx}]`, `| ${text} |`, `${items[item]?.toString() || 0} files`], [6, -59, -10], 85);
+    logger.logToStdout(output);
   });
   // incase we decide to log a different starting directory that isn't `~/.config/fish`
   logger.logToStdout('-'.repeat(85));
-  Object.keys(items).forEach((key) => {
-    const indexedPath = config.fish_lsp_all_indexed_paths.findIndex((item) => item === key);
-    if (indexedPath !== -1) return;
-    logger.logToStdoutJoined(
-      `  ${key}`.padEnd(40),
-      `${items[key]!.toString()} files`.padStart(66),
-    );
-  });
+  // Object.keys(items).forEach((key) => {
+  //   const indexedPath = config.fish_lsp_all_indexed_paths.findIndex((item) => item === key);
+  //   if (indexedPath !== -1) return;
+  //   logger.logToStdoutJoined(
+  //     `  ${key}`.padEnd(40),
+  //     `${items[key]?.toString()} files`.padStart(66),
+  //   );
+  // });
+};
+
+/**
+ * Creates a string with aligned columns for command line output
+ * @param text The text for each column
+ * @param widths The width for each column (negative for right alignment)
+ * @param maxLen The maximum length of the output string
+ * @returns A formatted string with aligned columns
+ */
+function formatColumns(text: string[], widths: number[], maxLen = 85): string {
+  const fixedWidths = widths.length < text.length
+    ? [...widths, ...new Array().fill(10, text.length - widths.length)]
+    : Array.from(widths);
+  let maxWidth = 0;
+  fixedWidths.map(Math.abs).forEach(num => maxWidth += num);
+  let i = 0;
+  let remainingWidth = maxLen;
+  const result: string[] = [];
+  const textLength = text.length - 1;
+  const isLast = (i: number) => i === textLength;
+  while (text.length > 0) {
+    const currentText = text.shift()!;
+    const widthItem = fixedWidths.shift()!;
+    const width = Math.abs(widthItem);
+
+    const isLastItem = isLast(i);
+    const isRightAligned = widthItem < 0 || isLastItem;
+
+    // Truncate if needed
+    const content = currentText.length > width
+      ? currentText.substring(0, width - 1) + '…'
+      : currentText;
+
+    // create the padded content
+    let paddedContent = content;
+    if (isRightAligned) {
+      paddedContent = content.padStart(width) + ' ';
+    } else {
+      paddedContent = ' ' + content.padEnd(width);
+    }
+    // fix the last item if it is too short
+    remainingWidth -= paddedContent.length;
+    if (isLastItem && remainingWidth > 0) {
+      paddedContent = ' ' + content.padStart(remainingWidth + width);
+    }
+    result.push(paddedContent);
+    i++;
+  }
+  return result.join('').trimEnd();
 }

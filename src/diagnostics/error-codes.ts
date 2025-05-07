@@ -46,6 +46,7 @@ export namespace ErrorCodes {
     code: CodeTypes;
     codeDescription: CodeDescription;
     source: 'fish-lsp';
+    isDeprecated?: boolean;
     message: string;
   };
 
@@ -95,6 +96,7 @@ export namespace ErrorCodes {
       code: singleQuoteVariableExpansion,
       codeDescription: { href: 'https://fishshell.com/docs/current/language.html#variable-expansion' },
       source: 'fish-lsp',
+      isDeprecated: true,
       message: 'non-escaped expansion variable in single quote string',
     },
     [usedAlias]: {
@@ -199,6 +201,10 @@ export namespace ErrorCodes {
 
   /** All error codes */
   export const allErrorCodes = Object.values(codes).map((diagnostic) => diagnostic.code) as CodeTypes[];
+
+  export const allErrorCodeObjects = Object.values(codes) as CodeValueType[];
+
+  export const nonDeprecatedErrorCodes = allErrorCodeObjects.filter((code) => !code.isDeprecated);
 
   export function getSeverityString(severity: DiagnosticSeverity | undefined): string {
     if (!severity) return '';

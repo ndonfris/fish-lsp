@@ -9,6 +9,7 @@ import { basename, dirname, join } from 'path';
 import * as LSP from 'vscode-languageserver';
 import { env } from './env-manager';
 import { SyncFileHelper } from './file-operations';
+import { Analyzer } from '../analyze';
 
 /**
  * Extracts the unique workspace paths from the initialization parameters.
@@ -99,12 +100,12 @@ export async function initializeDefaultFishWorkspaces(...uris: string[]): Promis
   // Wait for all promises to resolve
   const defaultSpaces = await Promise.all(allWorkspaces);
   const results = defaultSpaces.filter((ws): ws is Workspace => ws !== null);
-  results.forEach((ws, idx) => {
-    logger.log(`Initialized workspace '${ws.name}' @ ${idx}`, {
-      name: ws.name,
-      uri: ws.uri,
-      path: ws.path,
-    });
+  results.forEach((ws) => {
+    // logger.log(`Initialized workspace '${ws.name}' @ ${idx}`, {
+    //   name: ws.name,
+    //   uri: ws.uri,
+    //   path: ws.path,
+    // });
     workspaces.push(ws);
   });
   currentWorkspace = new CurrentWorkspace(workspaces);
@@ -163,6 +164,7 @@ export class CurrentWorkspace {
   set current(ws: Workspace | null) {
     if (ws && !this.all.includes(ws)) {
       this.all.push(ws);
+      workspaces.push(ws);
     }
     this._current = ws;
   }
@@ -401,9 +403,26 @@ export class Workspace implements FishWorkspace {
     return docs.filter((doc): doc is LspDocument => doc !== null);
   }
 
-  async asyncForEach(callback: (doc: LspDocument) => void): Promise<void> {
+  async analyze(analyzer: Analyzer) {
+    return await Promise.all(this.urisToLspDocuments().map(async path => analyzer.analyzeAsync(path)));
+    // docs.forEach(doc => {
+    //   analyzer.analyze(doc);
+    // })
+    // const analyzePromises = docs.map(async doc => {
+    //   if (!doc.shouldAnalyzeInBackground()) return;
+    //   try {
+    //     analyzer.analyze(doc);
+    //   } catch (err) {
+    //     logger.log(`Error analyzing file ${doc.uri}: ${err}`);
+    //   }
+    // });
+    // const analyzeResults = Promise.all(analyzePromises);
+  }
+
+
+  async asyncForEach(callback: (doc: LspDocument, index?: number, array?: LspDocument[]) => void): Promise<void> {
     const docs = await this.asyncUrisToLspDocuments();
-    docs.forEach(callback);
+    docs.forEach((doc, index, array) => callback(doc, index, array));
   }
 
   async asyncFilter(callbackfn: (doc: LspDocument) => boolean): Promise<LspDocument[]> {
@@ -420,6 +439,10 @@ export class Workspace implements FishWorkspace {
       docs.push(doc);
     }
     return docs;
+  }
+
+  get paths() {
+    return Array.from(this.uris).map(uri => uriToPath(uri));
   }
 
   getUris() {
@@ -445,6 +468,41 @@ export class Workspace implements FishWorkspace {
   equals(other: FishWorkspace | null) {
     if (!other) return false;
     return this.name === other.name && this.uri === other.uri && this.path === other.path;
+  }
+
+  /**
+   * Creates an async generator that yields LspDocuments for all files in the workspace
+   * This allows for efficient streaming and processing of documents
+   */
+  async *asyncDocumentGenerator(): AsyncGenerator<LspDocument> {
+    // Process files in batches for better memory management
+    const BATCH_SIZE = 20;
+    const uriArray = Array.from(this.uris);
+
+    for (let i = 0; i < uriArray.length; i += BATCH_SIZE) {
+      // Create a batch of promises for parallel file reading
+      const batch = uriArray.slice(i, i + BATCH_SIZE);
+      const batchPromises = batch.map(async uri => {
+        try {
+          const path = uriToPath(uri);
+          const content = await promises.readFile(path, 'utf8');
+          return toLspDocument(path, content);
+        } catch (err) {
+          logger.log(`Error reading file ${uri}: ${err}`);
+          return null;
+        }
+      });
+
+      // Process all files in the batch concurrently
+      const results = await Promise.all(batchPromises);
+
+      // Yield each valid document
+      for (const doc of results) {
+        if (doc !== null) {
+          yield doc;
+        }
+      }
+    }
   }
 }
 
@@ -542,16 +600,24 @@ export namespace FishUriWorkspace {
     if (!root) return '';
 
     // Special cases for system directories
-    if (root.endsWith('/.config/fish')) return '__fish_config_dir';
+    // if (root.endsWith('/.config/fish')) return '__fish_config_dir';
     // const specialName = autoloadedFishVariableNames.find(loadedName => process.env[loadedName] === root);
-    const specialName = env.getAutoloadedKeys()
-      .find(k => env.getAsArray(k).includes(root));
+    const specialName = env.findAutolaodedKey(root);
+
+    // env.getAutoloadedKeys().forEach((key) => {
+    //   logger.log(key, env.getAsArray(key));
+    // })
+    logger.debug('getWorkspaceName', { root, specialName });
 
     if (specialName) return specialName;
-    // if (root === '/usr/share/fish') return '__fish_data_dir';
+
+    // get the base of the path, if it is a fish workspace (ends in `fish`)
+    // return the entire path name as the name of the workspace
+    let base = basename(root);
+    if (base === 'fish') return root;
 
     // For other paths, return the workspace root's basename
-    return basename(root);
+    return base;
   }
 
   /**
@@ -582,7 +648,7 @@ export namespace FishUriWorkspace {
   export function initializeEnvWorkspaces(): FishUriWorkspace[] {
     // if (config.fish_lsp_single_workspace_support) return [];
     return config.fish_lsp_all_indexed_paths
-      .map(path => create(path))
+      .map(path => create(pathToUri(path)))
       .filter((ws): ws is FishUriWorkspace => ws !== null);
   }
 

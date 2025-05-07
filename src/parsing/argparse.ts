@@ -103,6 +103,10 @@ export function isGlobalArgparseDefinition(analyzer: Analyzer, document: LspDocu
   return false;
 }
 
+/**
+ * This is really more of a utility to ensure that any document that would contain
+ * any references to completions for an autoloaded file, is parsed by the analyzer.
+ */
 export function getGlobalArgparseLocations(analyzer: Analyzer, document: LspDocument, symbol: FishSymbol) {
   if (isGlobalArgparseDefinition(analyzer, document, symbol)) {
     const filepath = uriToPath(document.uri);
@@ -119,8 +123,8 @@ export function getGlobalArgparseLocations(analyzer: Analyzer, document: LspDocu
     }
     return analyzer
       .getFlatCompletionSymbols(pathToUri(completionFile))
-      .filter(s => s.equalsFishSymbol(symbol))
-      .map(s => s.toLocation(symbol));
+      .filter(s => s.equalsArgparse(symbol))
+      .map(s => s.toLocation());
   }
   return [];
 }

@@ -3,7 +3,7 @@ import { resolve } from 'path';
 import { initializeParser } from '../src/parser';
 import * as Parser from 'web-tree-sitter';
 import { Point, SyntaxNode, Tree } from 'web-tree-sitter';
-import { TextDocumentItem } from 'vscode-languageserver';
+import { TextDocumentItem, Location } from 'vscode-languageserver';
 import { LspDocument } from '../src/document';
 import { homedir } from 'os';
 import { CurrentWorkspace, currentWorkspace, Workspace, workspaces } from '../src/utils/workspace';
@@ -132,4 +132,51 @@ export function getAllTypesOfNestedArrays(doc: LspDocument, root: SyntaxNode) {
     symbols,
     flatSymbols,
   };
+}
+
+
+
+export type PrintClientTreeOpts = { log: boolean; };
+
+/**
+ * Will print the client tree of document definition symbols  
+ */
+export function printClientTree(
+  opts: PrintClientTreeOpts = { log: true },
+  ...symbols: FishSymbol[]
+): string[] {
+  const result: string[] = [];
+
+  function logAtLevel(indent = '', ...remainingSymbols: FishSymbol[]) {
+    const newResult: string[] = [];
+    remainingSymbols.forEach(n => {
+      if (opts.log) {
+        console.log(`${indent}${n.name} --- ${n.fishKind} --- ${n.scope.scopeTag} --- ${n.scope.scopeNode.firstNamedChild?.text}`);
+      }
+      newResult.push(`${indent}${n.name}`);
+      newResult.push(...logAtLevel(indent + '    ', ...n.children));
+    });
+    return newResult;
+  }
+  result.push(...logAtLevel('', ...symbols));
+  return result;
+}
+
+
+export function locationAsString(loc: Location): string[] {
+  return [
+    loc.uri,
+    ...[loc.range.start.line, loc.range.start.character, loc.range.end.line, loc.range.end.character].map(s => s.toString())
+  ];
+
+}
+
+export function fakeDocumentTrimUri(doc: LspDocument): string {
+  if (['conf.d', 'functions', 'completions'].includes(doc.getAutoloadType())) {
+    return [doc.getAutoloadType(), doc.getFileName()].join('/');
+  }
+  if ('config' === doc.getAutoloadType()) {
+    return doc.getFileName()
+  }
+  return doc.getFileName();
 }

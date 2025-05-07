@@ -4,12 +4,13 @@ import { LspDocument } from './document';
 import { isCommandWithName, isCompleteCommandName, isMatchingOption, isOption } from './utils/node-types';
 import { getRange } from './utils/tree-sitter';
 import { FishSymbol } from './parsing/symbol';
-import { isCompletionDefinition } from './parsing/complete';
+import { isCompletionCommandDefinition } from './parsing/complete';
 import { Option } from './parsing/options';
 import { logger } from './logger';
 import { getGlobalArgparseLocations, isCompletionArgparseFlagWithCommandName } from './parsing/argparse';
 import { SyntaxNode } from 'web-tree-sitter';
 import * as Locations from './utils/locations';
+import { uriToReadablePath } from './utils/translation';
 
 /**
  * get all the references for a symbol, including the symbol's definition
@@ -25,6 +26,8 @@ export function getReferences(
   position: Position,
   localOnly = false,
 ): Location[] {
+  const startTime = performance.now();
+
   const locations: Location[] = [];
 
   const symbol = analyzer.getDefinition(document, position);
@@ -32,6 +35,18 @@ export function getReferences(
   if (symbol.fishKind === 'ARGPARSE') {
     locations.push(symbol.toLocation());
     locations.push(...getArgparseLocations(analyzer, symbol, localOnly));
+    const endTime = performance.now();
+    const duration = ((endTime - startTime) / 1000).toFixed(2); // Convert to seconds with 2 decimal places
+
+    // logging performance
+    logger.info({
+      isArgparse: true,
+      document: uriToReadablePath(document.uri),
+      position: `${position.line}:${position.character}`,
+      symbol: symbol.name,
+      locations: locations.length,
+      message: `getReferences() took ${duration} ms`,
+    });
     return locations;
   }
 
@@ -47,6 +62,19 @@ export function getReferences(
       locations.push(location);
     }
   }
+
+  const endTime = performance.now();
+  const duration = ((endTime - startTime) / 1000).toFixed(2); // Convert to seconds with 2 decimal places
+  // logging performance
+  logger.info({
+    isArgparse: false,
+    document: uriToReadablePath(document.uri),
+    position: `${position.line}:${position.character}`,
+    symbol: symbol.name,
+    locations: locations.length,
+    message: `getReferences() took ${duration} ms`,
+  });
+
   return locations;
 }
 
@@ -107,7 +135,7 @@ function findSymbolLocations(
       }
       // remove `complete ... -s opt -l opt` entries for variables
       if (symbol.kind === SymbolKind.Variable && n.parent) {
-        const isCompletion = isCompletionDefinition(n.parent);
+        const isCompletion = isCompletionCommandDefinition(n.parent);
         if (isCompletion) return false;
       }
       // remove `complete ... -l cmdname` entries, keep `complete -c cmdname` for functions
@@ -156,11 +184,14 @@ export function getArgparseLocations(
   localOnly = false,
 ): Location[] {
   const result: Location[] = [];
-  // if (symbol.fishKind !== 'ARGPARSE') return [];
-  logger.debug('checking argparse locations for ', symbol.name);
-  const parentName = symbol.parent!.name || symbol.scopeNode.firstNamedChild!.text!;
-  // logger.log('parentName: ', parentName);
+  const parentName = symbol.parent?.name
+    || symbol.scopeNode.firstNamedChild?.text
+    || symbol.scopeNode.text;
+
   const document = analyzer.getDocument(symbol.uri);
+  /**
+   * Ensure that our document includes all possible global completion location
+   */
   if (document) {
     result.push(...getGlobalArgparseLocations(analyzer, document, symbol));
   }

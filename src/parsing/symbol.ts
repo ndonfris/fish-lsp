@@ -3,18 +3,19 @@ import { SyntaxNode } from 'web-tree-sitter';
 import { DefinitionScope } from '../utils/definition-scope';
 import { LspDocument } from '../document';
 import { containsNode, getChildNodes, getRange } from '../utils/tree-sitter';
-import { processSetCommand } from './set';
+import { findSetChildren, processSetCommand } from './set';
 import { processReadCommand } from './read';
 import { processArgvDefinition, processFunctionDefinition } from './function';
 import { processForDefinition } from './for';
 import { convertNodeRangeWithPrecedingFlag, processArgparseCommand } from './argparse';
-import { Flag, LongFlag, Option, ShortFlag } from './options';
+import { Flag, isMatchingOption, LongFlag, Option, ShortFlag } from './options';
 import { processAliasCommand } from './alias';
 import { createDetail } from './symbol-detail';
 import { config } from '../config';
 import { flattenNested } from '../utils/flatten';
 import { uriToPath } from '../utils/translation';
-import { isCommand, isCommandWithName, isFunctionDefinitionName, isTopLevelDefinition, isVariableDefinitionName } from '../utils/node-types';
+import { isCommand, isCommandWithName, isFunctionDefinitionName, isString, isTopLevelDefinition, isVariableDefinitionName } from '../utils/node-types';
+import { SyncFileHelper } from '../utils/file-operations';
 
 export type FishSymbolKind = 'ARGPARSE' | 'FUNCTION' | 'ALIAS' | 'COMPLETE' | 'SET' | 'READ' | 'FOR' | 'VARIABLE' | 'FUNCTION_VARIABLE';
 
@@ -391,12 +392,6 @@ export class FishSymbol {
     if (!config.fish_lsp_modifiable_paths.some(path => this.path.startsWith(path))) {
       return true;
     }
-    // if (
-    //   config.fish_lsp_all_indexed_paths.length > 0 &&
-    //   !config.fish_lsp_modifiable_paths.some(path => this.uri.includes(path))
-    // ) {
-    //   return false;
-    // }
     return false;
   }
 
@@ -431,6 +426,58 @@ export class FishSymbol {
     return this.selectionRange.start.line === position.line
       && this.selectionRange.start.character <= position.character
       && this.selectionRange.end.character >= position.character;
+  }
+
+  // 
+  // Helpers for checking if the symbol is a fish_lsp_* config variable
+  // 
+
+  /**
+   * Checks if the symbol is a key in the `config` object, which means it changes the
+   * configuration of the fish-lsp server.
+   */
+  isConfigDefinition() {
+    if (this.kind !== SymbolKind.Variable || this.fishKind !== 'SET') {
+      return false;
+    }
+    return Object.keys(config).includes(this.name);
+  }
+
+  /**
+   * Checks if a config variable has the `--erase` option set
+   */
+  isConfigDefinitionWithErase() {
+    if (!this.isConfigDefinition()) return false;
+    const eraseOption = Option.create('-e', '--erase');
+    const definitionNode = this.focusedNode;
+    const children = findSetChildren(this.node)
+      .filter(s => s.startIndex < definitionNode.startIndex);
+    return children.some(s => isMatchingOption(s, eraseOption));
+  }
+
+  /**
+   * Finds the value nodes of a config variable definition
+   */
+  findValueNodes(): SyntaxNode[] {
+    const valueNodes: SyntaxNode[] = [];
+    if (!this.isConfigDefinition()) return valueNodes;
+    let node: null | SyntaxNode = this.focusedNode.nextNamedSibling;
+    while (node) {
+      if (!isEmptyString(node)) valueNodes.push(node);
+      node = node.nextNamedSibling;
+    }
+    return valueNodes;
+  }
+
+  /**
+   * Converts the value nodes of a config variable definition to shell values
+   */
+  valuesAsShellValues() {
+    return this.findValueNodes().map(node => {
+      let text = node.text;
+      if (isString(node)) text = text.slice(1, -1);
+      return SyncFileHelper.expandEnvVars(text);
+    });
   }
 }
 
@@ -512,6 +559,10 @@ export function findMatchingLocations(symbol: FishSymbol, allSymbols: FishSymbol
 
 export function removeLocalSymbols(symbol: FishSymbol, symbols: FlatFishSymbolTree) {
   return symbols.filter(s => s.name === symbol.name && !symbol.equalScopes(s) && !s.equals(symbol));
+}
+
+function isEmptyString(node: SyntaxNode) {
+  return isString(node) && node.text.length === 2;
 }
 
 /**

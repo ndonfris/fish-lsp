@@ -1,10 +1,10 @@
-import { promises as fs } from 'fs';
+import { promises } from 'fs';
 import { DocumentUri, TextDocument } from 'vscode-languageserver-textdocument';
 import { Position, Range, TextDocumentItem, TextDocumentContentChangeEvent, VersionedTextDocumentIdentifier, TextDocumentIdentifier } from 'vscode-languageserver';
 import * as path from 'path';
 import { URI } from 'vscode-uri';
 import { homedir } from 'os';
-import { AutoloadType, uriToPath } from './utils/translation';
+import { AutoloadType, pathToUri, uriToPath } from './utils/translation';
 import { Workspace, workspaces } from './utils/workspace';
 import { SyncFileHelper } from './utils/file-operations';
 
@@ -59,6 +59,10 @@ export class LspDocument implements TextDocument {
 
   get version(): number {
     return this.document.version;
+  }
+
+  get path(): string {
+    return uriToPath(this.document.uri);
   }
 
   getText(range?: Range): string {
@@ -197,7 +201,7 @@ export class LspDocument implements TextDocument {
     const pathArray = this.uri.split('/');
     const fileName = pathArray.pop();
     const parentDir = pathArray.pop();
-    return parentDir && ['functions', 'conf.d', 'completion'].includes(parentDir?.toString()) || fileName === 'config.fish';
+    return parentDir && ['functions', 'conf.d', 'completions'].includes(parentDir?.toString()) || fileName === 'config.fish';
   }
 
   public getWorkspace(): Workspace | undefined {
@@ -268,6 +272,12 @@ export class LspDocument implements TextDocument {
     return name!.replace('.fish', '');
   }
 
+  getFileName(): string {
+    const items = uriToPath(this.uri).split('/') || [];
+    const name = items.length > 0 ? items.pop()! : uriToPath(this.uri);
+    return name;
+  }
+
   getLines(): number {
     const lines = this.getText().split('\n');
     return lines.length;
@@ -316,7 +326,7 @@ export class LspDocuments {
     if (!this.loadingQueue.has(uri) && !this.loadedFiles.has(uri)) {
       this.loadingQueue.add(uri);
       try {
-        const content = await fs.readFile(uriToPath(uri), 'utf8');
+        const content = await promises.readFile(uriToPath(uri), 'utf8');
         const doc = new LspDocument({
           uri,
           languageId: 'fish',
@@ -347,6 +357,10 @@ export class LspDocuments {
     this.documents.set(file, doc);
     this._files.unshift(file);
     return true;
+  }
+
+  get uris(): string[] {
+    return Array.from(this._files).map(file => pathToUri(file));
   }
 
   openTextDocument(document: TextDocument): LspDocument {
@@ -397,6 +411,11 @@ export class LspDocuments {
     this.documents.delete(file);
     this._files.splice(this._files.indexOf(file), 1);
     return document;
+  }
+
+  closeAll(): void {
+    this.documents.clear();
+    this._files.length = 0;
   }
 
   rename(oldFile: string, newFile: string): boolean {

@@ -235,6 +235,12 @@ export class Logger {
     });
   }
 
+  public logTime(...args: any[]): void {
+    const formattedMessage = this.convertArgsToString(...args);
+    const time = new Date().toLocaleTimeString();
+    this._log(`[${time}] ${formattedMessage}`);
+  }
+
   public log(...args: any[]): void {
     const formattedMessage = this.convertArgsToString(...args);
     if (!this.hasLogLevel()) {
