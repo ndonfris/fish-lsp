@@ -183,19 +183,30 @@ export class Logger {
   }
 
   private convertArgsToString(...args: any[]): string {
-    const formattedMessage = args.map((arg) => {
-      if (arg instanceof Error) {
-        return arg.stack || arg.message;
-      }
-      if (typeof arg === 'object') {
-        return JSON.stringify(arg, null, 2);
-      }
-      return String(arg);
-    }).join('\n');
-    return formattedMessage;
+    if (!args) {
+      return '';
+    }
+    if (args.length === 0) return '';
+    if (args instanceof Error) {
+      return args.stack || args.message;
+    }
+    if (args instanceof Array) {
+      const formattedMessage = args.map((arg) => {
+        if (arg instanceof Error) {
+          return arg.stack || arg.message;
+        }
+        if (typeof arg === 'object') {
+          return JSON.stringify(arg, null, 2);
+        }
+        return String(arg);
+      }).join('\n');
+      return formattedMessage;
+    }
+    return JSON.stringify(args, null, 2);
   }
 
   private _log(...args: any[]): void {
+    if (!args) return
     if (!this.isSilent() && this.hasConsole()) this._console.log(...args);
     const formattedMessage = this.convertArgsToString(...args);
     if (this.hasLogFile()) {
@@ -206,6 +217,7 @@ export class Logger {
   }
 
   public logAsJson(...args: any[]) {
+    if (!args || args.some(arg => !arg)) return
     const formattedMessage = this.convertArgsToString(args);
     this._log({
       date: new Date().toLocaleString(),
@@ -242,6 +254,7 @@ export class Logger {
   }
 
   public log(...args: any[]): void {
+    if (!args) return
     const formattedMessage = this.convertArgsToString(...args);
     if (!this.hasLogLevel()) {
       this._log(formattedMessage);

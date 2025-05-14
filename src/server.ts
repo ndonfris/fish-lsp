@@ -1,7 +1,7 @@
 import { SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from './parser';
 import { Analyzer } from './analyze';
-import { AnalyzeProgressToken, ProgressTokens } from './utils/progress-token';
+import { AnalyzeProgressToken } from './utils/progress-token';
 import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, ImplementationParams, CodeLensParams, CodeLens, WorkspaceFoldersChangeEvent } from 'vscode-languageserver';
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, LspDocuments, documents } from './document';
@@ -124,7 +124,6 @@ export default class FishServer {
   protected features: SupportedFeatures;
   public clientSupportsShowDocument: boolean;
   public backgroundAnalysisComplete: boolean;
-  private progressTokens: Set<string> = new Set();
 
   constructor(
     // the connection of the FishServer
@@ -196,11 +195,9 @@ export default class FishServer {
     this.analyzer.collectAllSources(doc.uri).forEach(uri => {
       current?.addUri(uri);
     });
-    if (this.backgroundAnalysisComplete) {
-      if (current && !current.isAnalyzed() && ProgressTokens.has(current?.name)) {
-        const progress = await AnalyzeProgressToken.create(this.connection, current);
-        await this.analyzer.analyzeWorkspace(current, logger.log, progress);
-      }
+    if (current && !current.isAnalyzed()) {
+      const progress = await AnalyzeProgressToken.create(this.connection, current);
+      await this.analyzer.analyzeWorkspace(current, logger.log, progress);
     }
   }
 
@@ -220,11 +217,11 @@ export default class FishServer {
     this.docs.set(doc);
     this.analyzeDocument({ uri: doc.uri });
     workspaces.updateCurrentFromUri(doc.uri);
-    workspaces.current?.unanalyzeUri(doc.uri);
+    // workspaces.current?.unanalyzeUri(doc.uri);
     this.analyzer.updateConfigInWorkspace(doc.uri);
-    if (workspaces.current && !workspaces.current.isAnalyzed() && !ProgressTokens.has(workspaces.current.name)) {
+    if (workspaces.current && !workspaces.current.isAnalyzed()) {
       const progress = await AnalyzeProgressToken.create(this.connection, workspaces.current);
-      await this.analyzer.analyzeWorkspace(workspaces.current, logger.log, progress);
+      this.analyzer.analyzeWorkspace(workspaces.current, logger.log, progress);
     }
   }
 
@@ -258,7 +255,7 @@ export default class FishServer {
       'Workspaces.current.name: ': workspaces.current?.name,
       willRunBackgroundAnalysis: workspaces.current?.isAnalyzed(),
     });
-    if (workspaces.current && !workspaces.current.isAnalyzed() && !ProgressTokens.has(workspaces.current.name)) {
+    if (workspaces.current && !workspaces.current.isAnalyzed()) {
       logger.log('willRunBackgroundAnalysis', {
         workspaces: workspaces.current?.name,
       });
@@ -272,32 +269,20 @@ export default class FishServer {
   // @see:
   //  • @link [bash-lsp](https://github.com/bash-lsp/bash-language-server/blob/3a319865af9bd525d8e08cd0dd94504d5b5b7d66/server/src/server.ts#L236)
   async onInitialized() {
-    logger.logTime('FishServer.onInitialized()');
+    // logger.logTime('FishServer.onInitialized()');
     if (hasWorkspaceFolderCapability) {
       this.connection.workspace.onDidChangeWorkspaceFolders(event => {
         logger.info('onDidChangeWorkspaceFolders', event);
         if (this.backgroundAnalysisComplete) {
           return;
         }
-        if (!this.backgroundAnalysisComplete) {
-          setTimeout(() => {
-            this.handleWorkspaceFolderChanges(event);
-          }, 3000);
-        } else {
-          this.handleWorkspaceFolderChanges(event);
-        }
+        this.handleWorkspaceFolderChanges(event);
       });
     }
-    setTimeout(() => {
-      this.connection.sendNotification('fish-lsp/initializeComplete', {
-        message: 'Fish LSP server initialized',
-      });
-      this.startBackgroundAnalysis();
-    }, 0);
-
     this.backgroundAnalysisComplete = true;
+    this.startBackgroundAnalysis();
     return {
-      backgroundAnalysisComplete: true
+      totalItems: 0
     };
   }
 
@@ -318,7 +303,7 @@ export default class FishServer {
     // Handle added workspaces
     for (const folder of event.added) {
       const workspace = workspaces.findWorkspace(folder.uri);
-      if (workspace && !workspace.isAnalyzed() && !ProgressTokens.has(workspace.name)) {
+      if (workspace && !workspace.isAnalyzed()) {
         // Analyze the new workspace
         const progress = await AnalyzeProgressToken.create(this.connection, workspace);
         await this.analyzer.analyzeWorkspace(workspace, (t) => logger.log(t), progress);
@@ -348,7 +333,6 @@ export default class FishServer {
   // convert to CompletionItem[]
   async onCompletion(params: CompletionParams): Promise<CompletionList> {
     this.logParams('onCompletion', params);
-
     if (!this.backgroundAnalysisComplete) {
       return this.completion.empty();
     }
@@ -357,11 +341,19 @@ export default class FishServer {
     let list: FishCompletionList = FishCompletionList.empty();
 
     if (!path || !doc) {
-      logger.logAsJson('onComplete got [NOT FOUND]: ' + path);
+      // logger.logAsJson('onComplete got [NOT FOUND]: ' + path);
       return this.completion.empty();
     }
     const symbols = this.analyzer.allSymbolsAccessibleAtPosition(doc, params.position);
-    const { line, word } = this.analyzer.parseCurrentLine(doc, params.position);
+    let line = ''; let word = '';
+    try {
+      const result = this.analyzer.parseCurrentLine(doc, params.position);
+      line = result.line;
+      word = result.word;
+    } catch (error) {
+      // logger.log('onComplete got [ERROR]: ' + error?.toString() || 'error');
+      return this.completion.empty();
+    }
 
     if (!line) return await this.completion.completeEmpty(symbols);
 
@@ -376,22 +368,22 @@ export default class FishServer {
 
     try {
       if (line.trim().startsWith('#') && current) {
-        logger.log('completeComment');
+        // logger.log('completeComment');
         return buildCommentCompletions(line, params.position, current, fishCompletionData, word);
       }
       if (word.trim().endsWith('$') || line.trim().endsWith('$') || word.trim() === '$' && !word.startsWith('$$')) {
-        logger.log('completeVariables');
+        // logger.log('completeVariables');
         return this.completion.completeVariables(line, word, fishCompletionData, symbols);
       }
     } catch (error) {
-      logger.error('ERROR: onComplete ' + error?.toString() || 'error');
+      // logger.warning('ERROR: onComplete ' + error?.toString() || 'error');
     }
 
     try {
       logger.log('complete');
       list = await this.completion.complete(line, fishCompletionData, symbols);
     } catch (error) {
-      this.logger.logAsJson('ERROR: onComplete ' + error?.toString() || 'error');
+      // this.logger.logAsJson('ERROR: onComplete ' + error?.toString() || 'error');
     }
     return list;
   }
@@ -922,13 +914,7 @@ export default class FishServer {
     return { doc, path, root };
   }
 
-  public async startBackgroundAnalysis(): Promise<{
-    totalItems: number;
-    items: {  [workspaceUri: string]: {
-      count: number;
-      duration: string;
-    }} 
-  }> {
+  public async startBackgroundAnalysis() {
     const notifyCallback = (text: string) => {
       logger.info(`${new Date().toLocaleTimeString()} - [BACKGROUND ANALYSIS] - ${text}`);
       if (config?.fish_lsp_show_client_popups) {
@@ -936,10 +922,7 @@ export default class FishServer {
       }
     };
     const progressCallback = AnalyzeProgressToken.callbackfn(this.connection);
-    return this.analyzer.analyzeAllWorkspacesNew(
-      workspaces.orderedWorkspaces().filter(w => w.needsAnalysis()),
-      progressCallback,
-    )
+    return this.analyzer.initiateBackgroundAnalysis(notifyCallback, progressCallback);
     // return this.analyzer
     //   .initiateBackgroundAnalysis(notifyCallback, progressCallback)
     //   .then((result) => {

@@ -1,7 +1,7 @@
 import * as fs from 'fs/promises';
 import * as LSP from 'vscode-languageserver';
 import { Connection, Diagnostic, Hover, Location, Position, ProgressToken, SymbolKind, URI, WorkDoneProgressReporter, WorkspaceSymbol } from 'vscode-languageserver';
-import { ProgressWrapper, AnalyzeProgressToken, ProgressTokens } from './utils/progress-token';
+import { ProgressWrapper, AnalyzeProgressToken } from './utils/progress-token';
 import * as Parser from 'web-tree-sitter';
 import { SyntaxNode, Tree } from 'web-tree-sitter';
 import { Config, config, ConfigSchema, getDefaultConfiguration, updateBasedOnSymbols } from './config';
@@ -12,7 +12,6 @@ import { CompletionSymbol, isCompletionCommandDefinition, isCompletionSymbol, pr
 import { getExpandedSourcedFilenameNode, isSourceCommandArgumentName } from './parsing/source';
 import { FishSymbol, processNestedTree } from './parsing/symbol';
 import { implementationLocation } from './references';
-import { hasWorkspaceFolderCapability } from './server';
 import { execCommandLocations } from './utils/exec';
 import { SyncFileHelper } from './utils/file-operations';
 import { flattenNested } from './utils/flatten';
@@ -211,11 +210,11 @@ export class Analyzer {
 
   public async analyzeWorkspace(
     workspace: Workspace,
-    callbackfn: (text: string) => void = (text) => logger.log(text),
+    callbackfn: (text: string) => void = (text: string) => { },
     progress: ProgressWrapper | undefined = undefined,
   ) {
     const startTime = performance.now();
-    logger.logTime(workspace.name + ' started');
+    // logger.logTime(workspace.name + ' started');
     let count = 0;
     if (workspace.isAnalyzed()) {
       callbackfn(`[fish-lsp] workspace ${workspace.name} already analyzed`);
@@ -226,16 +225,17 @@ export class Analyzer {
         duration: '0.00',
       };
     }
-    if (this.workspacesInProgress.has(workspace.name)) {
-      callbackfn(`[fish-lsp] workspace ${workspace.name} already in progress`);
-      progress?.done();
-      return {
-        count,
-        workspace,
-        duration: '0.00',
-      };
-    }
-    this.workspacesInProgress.add(workspace.name);
+    // if (this.workspacesInProgress.has(workspace.name)) {
+    //   callbackfn(`[fish-lsp] workspace ${workspace.name} already in progress`);
+    //   progress?.done();
+    //   return {
+    //     count,
+    //     workspace,
+    //     duration: '0.00',
+    //   };
+    // }
+    // this.workspacesInProgress.add(workspace.name);
+    progress?.begin(workspace.name, 0, 'Analyzing workspace', true);
     const docs = await workspace.unanalyzedUrisToLspDocuments();
     for (const doc of docs) {
       try {
@@ -246,14 +246,14 @@ export class Analyzer {
         const reportPercent = Math.floor(count / docs.length * 100);
         progress?.report(reportPercent, `Analyzing ${count}/${docs.length} files`);
       } catch (err) {
-        logger.error(`[fish-lsp] ERROR analyzing workspace '${workspace.name}' (${err})`);
+        // logger.log(`[fish-lsp] ERROR analyzing workspace '${workspace.name}' (${err?.toString() || ''})`);
       }
     }
     progress?.done();
     const endTime = performance.now();
     const duration = ((endTime - startTime) / 1000).toFixed(2); // Convert to seconds with 2 decimal places
-    logger.logTime(workspace.name + ' ended');
-    this.workspacesInProgress.delete(workspace.name);
+    // logger.logTime(workspace.name + ' ended');
+    // this.workspacesInProgress.delete(workspace.name);
     return {
       count,
       workspace: workspace,
@@ -271,10 +271,10 @@ export class Analyzer {
       .filter(workspace => workspace.needsAnalysis())
       .map(async workspace => {
         // const startTime = performance.now();
-        const progress = await progressCallback(workspace);
+        // const progress = await progressCallback(workspace);
         // return await this.analyzeWorkspaceNew(workspace, logger.info, progress)
-        return await this.analyzeWorkspace(workspace, logger.info, progress).then((res) => {
-          logger.info(`[fish-lsp] analyzed workspace '${workspace.name}', found ${res.count} files in ${res.duration} ms`);
+        return await this.analyzeWorkspace(workspace, logger.info).then((res) => {
+          // logger.log(`[fish-lsp] analyzed workspace '${workspace.name}', found ${res.count} files in ${res.duration} ms`);
           return res;
         });
       });
@@ -400,12 +400,14 @@ export class Analyzer {
   }> {
     const items: { [key: string]: number; } = {};
     let all: number = 0;
-    const uniqueWorkspaces = workspaces.orderedWorkspaces().filter((workspace) => {
-      if (workspace.isAnalyzed() || ProgressTokens.has(workspace)) {
-        return false;
-      }
-      return true;
-    });
+    const uniqueWorkspaces = config.fish_lsp_single_workspace_support 
+      ? [workspaces.current!]
+      : workspaces.orderedWorkspaces().filter((workspace) => {
+        if (workspace.isAnalyzed()) {
+          return false;
+        }
+        return true;
+      });
 
     await Promise.all(uniqueWorkspaces.map(async (workspace) => {
       if (!workspace.isAnalyzed()) {
@@ -413,10 +415,10 @@ export class Analyzer {
         all += workspace.paths.length;
         const progress = await progressCallback(workspace);
         await this.analyzeWorkspace(workspace, callbackfn, progress);
-        return progress
+        return progress;
       }
       return undefined;
-    }))
+    }));
     return {
       totalFilesParsed: all,
       items,
@@ -767,7 +769,7 @@ export class Analyzer {
           const content = SyncFileHelper.read(path, 'utf8');
           const doc = LspDocument.createTextDocumentItem(uri, content);
           documents.open(doc);
-          workspaces.updateCurrentFromUri(doc.uri)
+          workspaces.updateCurrentFromUri(doc.uri);
         }
         return locations.map(({ uri }) =>
           Location.create(uri, {

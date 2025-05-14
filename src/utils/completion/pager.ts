@@ -48,14 +48,18 @@ export class CompletionPager {
     this._items.reset();
     this._items.addSymbols(symbols, true);
     this._items.addItems(this.itemsMap.allOfKinds('builtin'));
-    const stdout: [string, string][] = [];
-    const toAdd = await this.getSubshellStdoutCompletions(' ');
-    stdout.push(...toAdd);
-    for (const [name, description] of stdout) {
-      this._items.addItem(FishCompletionItem.create(name, 'command', description, name));
+    try {
+      const stdout: [string, string][] = [];
+      const toAdd = await this.getSubshellStdoutCompletions(' ');
+      stdout.push(...toAdd);
+      for (const [name, description] of stdout) {
+        this._items.addItem(FishCompletionItem.create(name, 'command', description, name));
+      }
+    } catch (e) {
+      logger.info('Error getting subshell stdout completions', e);
     }
-    this._items.addItems(this.itemsMap.allOfKinds('function'));
     this._items.addItems(this.itemsMap.allOfKinds('comment'));
+    this._items.addItems(this.itemsMap.allOfKinds('function'));
     return this._items.build(false);
   }
 
