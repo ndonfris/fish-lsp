@@ -4,6 +4,7 @@ import { LspDocument } from '../document';
 import { pathToUri } from './translation';
 import { basename, dirname, extname } from 'path';
 import { env } from './env-manager';
+import * as promises from 'fs/promises';
 
 /**
  * Synchronous file operations.
@@ -130,4 +131,42 @@ export class SyncFileHelper {
       return false;
     }
   }
+}
+
+export namespace AsyncFileHelper {
+  export async function isReadable(filePath: string): Promise<boolean> {
+    const expandedFilePath = SyncFileHelper.expandEnvVars(filePath);
+    try {
+      await promises.access(expandedFilePath, promises.constants.R_OK);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  export async function isDir(filePath: string): Promise<boolean> {
+    const expandedFilePath = SyncFileHelper.expandEnvVars(filePath);
+    try {
+      const fileStat = await promises.stat(expandedFilePath);
+      return fileStat.isDirectory();
+    } catch {
+      return false;
+    }
+  }
+
+  export async function isFile(filePath: string): Promise<boolean> {
+    const expandedFilePath = SyncFileHelper.expandEnvVars(filePath);
+    try {
+      const fileStat = await promises.stat(expandedFilePath);
+      return fileStat.isFile();
+    } catch {
+      return false;
+    }
+  }
+
+  export async function readFile(filePath: string, encoding: BufferEncoding = 'utf8'): Promise<string> {
+    const expandedFilePath = SyncFileHelper.expandEnvVars(filePath);
+    return promises.readFile(expandedFilePath, { encoding });
+  }
+
 }

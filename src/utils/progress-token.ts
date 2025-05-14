@@ -3,6 +3,7 @@ import { Connection, WorkDoneProgressReporter } from 'vscode-languageserver';
 import { Workspace } from './workspace';
 import { config } from '../config';
 
+
 /**
  * Create the progress token for the workspace progress token.
  */
@@ -14,11 +15,18 @@ export namespace AnalyzeProgressToken {
     connection: Connection,
     workspace: Workspace,
   ): Promise<ProgressWrapper> {
+    if (ProgressTokens.has(workspace)) {
+      const token = ProgressTokens.get(workspace);
+      if (token) {
+        token.done();
+        ProgressTokens.delete(workspace);
+      }
+    }
     const progress = await connection.window.createWorkDoneProgress();
     const workspaceMaxSize = Math.min(workspace.paths.length, config.fish_lsp_max_background_files);
     const progressWrapper = new ProgressWrapper(progress, connection);
 
-    progressWrapper.begin(`[fish-lsp] ${workspace.name}`, 0, `analyzing ${workspaceMaxSize} files`, true);
+    progressWrapper.begin(workspace.name, 0, `analyzing ${workspaceMaxSize} file${workspaceMaxSize > 1 ? 's' : ''}`, true);
     // https://github.com/ndonfris/fish-lsp/pull/78#issuecomment-2820933206
     // https://github.com/microsoft/vscode-extension-samples/blob/main/notifications-sample/src/extension.ts
     return progressWrapper;
@@ -51,8 +59,15 @@ export class ProgressWrapper implements WorkDoneProgressReporter {
 
   begin(title: string, percentage?: number, message?: string, cancellable?: boolean): void {
     this.status = 'inProgress';
-    this._progress.begin(title, percentage, message, cancellable);
+    this._progress.begin(`[fish-lsp] ${title}`, percentage, message, cancellable);
     this.name = title;
+    // ProgressTokens.add(title, this);
+    this._progress.token.onCancellationRequested((e) => {
+      e.then(() => {
+        this.status = 'cancelled';
+        this._progress.report(0, "Cancelled");
+      });
+    });
   }
 
   report(percentage: number): void;
@@ -75,6 +90,9 @@ export class ProgressWrapper implements WorkDoneProgressReporter {
   }
 
   done(): void {
+    if (this.status === 'finished') {
+      return;
+    }
     this.status = 'finished';
     this._progress.report(100, "Completed");
     const WorkDoneProgressReporterImpl = this._progress.constructor as Record<string, any>;
@@ -91,6 +109,7 @@ export class ProgressWrapper implements WorkDoneProgressReporter {
       });
       this._progress.done();
     }
+    // ProgressTokens.delete(this.name);
   }
   isCanceled(): boolean {
     return this.status === 'cancelled';
@@ -100,3 +119,94 @@ export class ProgressWrapper implements WorkDoneProgressReporter {
     return this.status === 'finished';
   }
 }
+
+type WorkspaceName = string;
+export class ProgressTokens {
+
+  private tokens: Map<WorkspaceName, ProgressWrapper> = new Map<WorkspaceName, ProgressWrapper>();
+  private static _instance: ProgressTokens;
+
+  constructor() { }
+
+  static initialize() {
+    return new ProgressTokens();
+  }
+
+  private static get instance() {
+    if (!this._instance) {
+      this._instance = new ProgressTokens();
+    }
+    return this._instance;
+  }
+
+  static has(workspaceUri: string): boolean;
+  static has(workspace: Workspace): boolean;
+  static has(workspace: Workspace | WorkspaceName): boolean {
+    if (typeof workspace === 'string') {
+      return this.instance.tokens.has(workspace);
+    }
+    if (workspace instanceof Workspace) {
+      return this.instance.tokens.has(workspace.name);
+    }
+    return false;
+  }
+
+  static get(workspaceUri: string): ProgressWrapper | undefined; 
+  static get(workspace: Workspace): ProgressWrapper | undefined;
+  static get(workspace: Workspace | WorkspaceName): ProgressWrapper | undefined {
+    if (typeof workspace === 'string') {
+      return this.instance.tokens.get(workspace);
+    }
+    if (workspace instanceof Workspace) {
+      return this.instance.tokens.get(workspace.name);
+    }
+    return undefined;
+  }
+
+  static cancel(workspaceUri: WorkspaceName): void;
+  static cancel(workspace: Workspace): void;
+  static cancel(workspace: Workspace | WorkspaceName): void {
+    if (typeof workspace === 'string') {
+      const token = this.instance.tokens.get(workspace);
+      if (token) {
+        token.done();
+        this.instance.tokens.delete(workspace);
+      }
+    } else if (workspace instanceof Workspace) {
+      const token = this.instance.tokens.get(workspace.uri);
+      if (token) {
+        token.done();
+        this.instance.tokens.delete(workspace.uri);
+      }
+    }
+  }
+
+  static add(workspace: WorkspaceName, token: ProgressWrapper): void;
+  static add(workspace: Workspace, token: ProgressWrapper): void;
+  static add(workspace: Workspace | WorkspaceName, token: ProgressWrapper): void {
+    if (typeof workspace === 'string') {
+      this.instance.tokens.set(workspace, token);
+      return;
+    }
+    this.instance.tokens.set(workspace.name, token);
+  }
+
+  static delete(workspaceUri: WorkspaceName): void;
+  static delete(workspace: Workspace): void;
+  static delete(workspace: Workspace | WorkspaceName): void {
+    if (typeof workspace === 'string') {
+      this.instance.tokens.delete(workspace);
+      return;
+    }
+    this.instance.tokens.delete(workspace.name);
+  }
+
+  static cancelAll(): void {
+    this.instance.tokens.forEach((token) => {
+      token.done();
+    });
+    this.instance.tokens.clear();
+  }
+}
+ProgressTokens.initialize();
+

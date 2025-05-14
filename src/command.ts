@@ -12,7 +12,7 @@ import { execAsync, execAsyncF, execAsyncFish } from './utils/exec';
 import { PrebuiltDocumentationMap } from './utils/snippets';
 import { pathToUri, uriToReadablePath } from './utils/translation';
 import { getRange } from './utils/tree-sitter';
-import { currentWorkspace } from './utils/workspace';
+import { workspaces } from './utils/workspace-manager';
 
 // Define command name constants to avoid string literals
 export const CommandNames = {
@@ -158,7 +158,7 @@ export function createExecuteCommandHandler(
   }
 
   function showWorkspaceMessage() {
-    const message = `${fishLspPromptIcon} Workspace: ${currentWorkspace.current?.path}\n\n Total files analyzed: ${analyzer.cache.uris().filter(uri => currentWorkspace.current?.contains(uri)).length}`;
+    const message = `${fishLspPromptIcon} Workspace: ${workspaces.current?.path}\n\n Total files analyzed: ${analyzer.cache.uris().filter(uri => workspaces.current?.contains(uri)).length}`;
     logger.log('showWorkspaceMessage',
       config,
     );
@@ -172,8 +172,8 @@ export function createExecuteCommandHandler(
 
   async function _updateWorkspace(path: string) {
     const uri = pathToUri(path);
-    currentWorkspace.updateCurrentWorkspace(uri);
-    const message = `${fishLspPromptIcon} Workspace: ${currentWorkspace.current?.path}`;
+    workspaces.updateCurrentFromUri(uri)
+    const message = `${fishLspPromptIcon} Workspace: ${workspaces.current?.path}`;
     connection.sendNotification('workspace/didChangeWorkspaceFolders', {
       event: {
         added: [path],

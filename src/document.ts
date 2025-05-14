@@ -5,7 +5,8 @@ import * as path from 'path';
 import { URI } from 'vscode-uri';
 import { homedir } from 'os';
 import { AutoloadType, pathToUri, uriToPath } from './utils/translation';
-import { Workspace, workspaces } from './utils/workspace';
+import { Workspace } from './utils/workspace';
+import { workspaces } from './utils/workspace-manager';
 import { SyncFileHelper } from './utils/file-operations';
 
 export class LspDocument implements TextDocument {
@@ -31,6 +32,11 @@ export class LspDocument implements TextDocument {
 
   static createFromUri(uri: DocumentUri): LspDocument {
     const content = SyncFileHelper.read(uriToPath(uri));
+    return LspDocument.createTextDocumentItem(uri, content);
+  }
+
+  static async createFromUriAsync(uri: DocumentUri): Promise<LspDocument> {
+    const content = await promises.readFile(uriToPath(uri), 'utf8');
     return LspDocument.createTextDocumentItem(uri, content);
   }
 
@@ -205,7 +211,7 @@ export class LspDocument implements TextDocument {
   }
 
   public getWorkspace(): Workspace | undefined {
-    return workspaces.find(workspace => workspace.contains(this.uri));
+    return workspaces.findContainingWorkspace(this.uri);
   }
 
   private getFolderType(): AutoloadType | null {

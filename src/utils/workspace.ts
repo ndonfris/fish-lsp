@@ -8,8 +8,23 @@ import { logger } from '../logger';
 import { basename, dirname, join } from 'path';
 import * as LSP from 'vscode-languageserver';
 import { env } from './env-manager';
-import { SyncFileHelper } from './file-operations';
-import { Analyzer } from '../analyze';
+import { AsyncFileHelper, SyncFileHelper } from './file-operations';
+import { AnalyzedDocument, Analyzer } from '../analyze';
+import { workspaces } from './workspace-manager';
+
+export type AnalyzedWorkspace = {
+  uri: string;
+  content: string;
+  doc: LspDocument;
+  result: AnalyzedDocument;
+}[];
+
+export type AnalyzeWorkspacePromise = Promise<{
+  uri: string;
+  content: string;
+  doc: LspDocument;
+  result: AnalyzedDocument;
+}>[];
 
 /**
  * Extracts the unique workspace paths from the initialization parameters.
@@ -48,19 +63,17 @@ async function getFileUriSet(path: string) {
   return result;
 }
 
-/**
- * global array of workspaces used for analyzing and grouping symbols
- * ___
- * You can add workspaces to this array by directly pushing into it.
- * ___
- * ```typescript
- * const newWorkspace = await Workspace.create('name', 'uri', 'path');
- * workspaces.push(newWorkspace);
- * ```
- * ___
- * `initializeDefaultFishWorkspaces()` will store all new workspaces into this array
- */
-export const workspaces: Workspace[] = [];
+function syncGetFileUriSet(path: string) {
+  const result: Set<string> = new Set();
+  const entries = fastGlob.sync('**/*.fish', { cwd: path, absolute: true });
+  for (const entry of entries) {
+    const absPath = entry.toString();
+    const uri = pathToUri(absPath);
+    result.add(uri);
+  }
+  return result;
+}
+
 
 /**
  * Initializes the default fish workspaces. Does not control the currentWorkspace, only sets it up.
@@ -106,21 +119,20 @@ export async function initializeDefaultFishWorkspaces(...uris: string[]): Promis
     //   uri: ws.uri,
     //   path: ws.path,
     // });
-    workspaces.push(ws);
+    workspaces.addWorkspace(ws);
   });
-  currentWorkspace = new CurrentWorkspace(workspaces);
+  // currentWorkspace = new CurrentWorkspace(workspaces);
   return results;
 }
 
-export async function findCurrentWorkspace(uri: string): Promise<Workspace | null> {
-  for (const ws of workspaces) {
-    if (ws.uri === uri || ws.contains(uri)) {
-      currentWorkspace.current = ws;
+export async function findCurrentWorkspace(uri: string): Promise<Workspace | undefined> {
+  for (const ws of workspaces.orderedWorkspaces()) {
+    if (ws.contains(uri)) {
       return ws;
     }
   }
-  currentWorkspace.current = await Workspace.createFromUri(uri);
-  return currentWorkspace.current;
+  workspaces.updateCurrentFromUri(uri);
+  return workspaces.current;
 }
 
 export async function updateWorkspaces(event: LSP.WorkspaceFoldersChangeEvent) {
@@ -128,18 +140,18 @@ export async function updateWorkspaces(event: LSP.WorkspaceFoldersChangeEvent) {
   for (const folder of added) {
     const workspace = await Workspace.createFromUri(folder.uri);
     if (workspace) {
-      if (currentWorkspace.workspaceExists(workspace.uri)) {
-        currentWorkspace.current = workspace;
+      if (workspaces.exists(workspace.uri)) {
+        workspaces.current = workspace;
         return;
       }
-      currentWorkspace.current = workspace;
-      workspaces.push(workspace);
+      workspaces.current = workspace;
+      workspaces.addWorkspace(workspace);
     }
   }
   for (const folder of removed) {
-    const workspace = workspaces.find(ws => ws.uri === folder.uri);
+    const workspace = workspaces.findWorkspace(folder.uri);
     if (workspace) {
-      workspaces.splice(workspaces.indexOf(workspace), 1);
+      workspaces.removeWorkspace(workspace);
     }
   }
 }
@@ -153,93 +165,11 @@ export async function getRelevantDocs(workspaces: Workspace[]): Promise<LspDocum
   return docs;
 }
 
-export class CurrentWorkspace {
-  private _current: Workspace | null = null;
-  constructor(private all: Workspace[] = []) { }
-
-  static create() {
-    return new CurrentWorkspace();
-  }
-
-  set current(ws: Workspace | null) {
-    if (ws && !this.all.includes(ws)) {
-      this.all.push(ws);
-      workspaces.push(ws);
-    }
-    this._current = ws;
-  }
-
-  get current(): Workspace | null {
-    if (this._current) return this._current;
-    return null;
-  }
-
-  updateCurrent(doc: LspDocument) {
-    for (const ws of this.all) {
-      if (ws.contains(doc.uri)) {
-        this._current = ws;
-        return;
-      }
-    }
-  }
-
-  updateWorkspace(workspace: Workspace) {
-    for (const ws of this.all) {
-      if (ws.contains(workspace.uri)) {
-        this.current = workspace;
-        return;
-      }
-    }
-    this.current = workspace;
-  }
-
-  findWorkspace(uri: string) {
-    return this.all.find(ws => ws.contains(uri) || ws.uri === uri || uri.startsWith(ws.uri));
-  }
-
-  workspaceExists(uri: string) {
-    return this.findWorkspace(uri) !== undefined;
-  }
-
-  removeWorkspace(uri: string) {
-    const workspace = this.findWorkspace(uri);
-    if (workspace) {
-      const index = this.all.indexOf(workspace);
-      this.all.splice(index, 1);
-      workspaces.splice(workspaces.indexOf(workspace), 1);
-    }
-  }
-
-  async updateCurrentWorkspace(uri: string) {
-    if (this.workspaceExists(uri)) {
-      this._current = this.findWorkspace(uri)!;
-      return;
-    }
-    const workspace = await Workspace.createFromUri(uri);
-    if (workspace) {
-      this._current = workspace;
-      workspaces.push(workspace);
-    }
-  }
-
-  get workspaces() {
-    return this.all;
-  }
-
-  hasWorkspaces() {
-    return this.all.length > 0;
-  }
-
-  addNewWorkspace(workspace: Workspace) {
-    this.current = workspace;
-  }
-}
-
 export interface FishWorkspace extends LSP.WorkspaceFolder {
   name: string;
   uri: string;
   path: string;
-  uris: Set<string>;
+  allUris: Set<string>;
   contains(...checkUris: string[]): boolean;
   urisToLspDocuments(): LspDocument[];
   filter(callbackfn: (lspDocument: LspDocument) => boolean): LspDocument[];
@@ -250,9 +180,10 @@ export class Workspace implements FishWorkspace {
   public name: string;
   public uri: string;
   public path: string;
-  public uris: Set<string>;
+  private analyzedUris: Set<string> = new Set();
+  private unanalyzedUris: Set<string> = new Set();
+  private uris: Set<string> = new Set();
   public symbols: Map<string, FishSymbol[]> = new Map();
-  private entireWorkspaceAnalyzed = false;
 
   public static async create(name: string, uri: string, path: string) {
     let foundUris: Set<string> = new Set<string>();
@@ -272,6 +203,7 @@ export class Workspace implements FishWorkspace {
     return new Workspace(workspace.name, workspace.uri, workspace.path, newUris);
   }
 
+
   public static async createFromUri(uri: string) {
     const workspace = FishUriWorkspace.create(uri);
     if (!workspace) return null;
@@ -284,16 +216,49 @@ export class Workspace implements FishWorkspace {
     return new Workspace(workspace.name, workspace.uri, workspace.path, foundUris);
   }
 
+  public static syncCreateFromUri(uri: string) {
+    const workspace = FishUriWorkspace.create(uri);
+    if (!workspace) return null;
+    let foundUris: Set<string> = new Set<string>();
+    if (!workspace.path.startsWith('/tmp')) {
+      foundUris = syncGetFileUriSet(workspace.path);
+    } else {
+      foundUris = new Set<string>([workspace.uri]);
+    }
+    return new Workspace(workspace.name, workspace.uri, workspace.path, foundUris);
+  }
+
   public constructor(name: string, uri: string, path: string, fileUris: Set<string>) {
     this.name = name;
     this.uri = uri;
     this.path = path;
-    this.uris = fileUris;
+    this.unanalyzedUris = new Set(fileUris);
+    this.uris = new Set(fileUris);
+  }
+
+  public get allUris() {
+    if (this.uris.size === (this.analyzedUris.size + this.unanalyzedUris.size)) {
+      return this.uris;
+    }
+    return new Set<string>(...Array.from(this.analyzedUris), ...Array.from(this.unanalyzedUris));
+  }
+
+  public get allAnalyzedUris() {
+    // logger.log('allAnalyzedUris', {
+    //   allUris: this.allUris.size,
+    //   analyzedUris: this.analyzedUris.size,
+    //   unanalyzedUris: this.unanalyzedUris.size,
+    // });
+    return Array.from(this.analyzedUris);
+  }
+
+  public get allUnanalyzedUris() {
+    return Array.from(this.unanalyzedUris);
   }
 
   contains(...checkUris: string[]) {
     for (const uri of checkUris) {
-      if (!this.uris.has(uri)) {
+      if (!this.allUris.has(uri)) {
         return false;
       }
     }
@@ -306,23 +271,43 @@ export class Workspace implements FishWorkspace {
    * @returns true if the uri is inside the workspace (inside meaning the uri starts with the workspace uri)
    */
   shouldContain(uri: string) {
-    return uri.startsWith(this.uri) && !this.uris.has(uri);
+    return uri.startsWith(this.uri) && !this.analyzedUris.has(uri);
   }
 
   addUri(uri: string) {
-    this.uris.add(uri);
+    if (this.analyzedUris.has(uri)) {
+      this.unanalyzedUris.add(uri);
+      return;
+    }
+    this.analyzedUris.add(uri);
   }
 
   add(...newUris: string[]) {
     for (const newUri of newUris) {
-      this.uris.add(newUri);
+      this.unanalyzedUris.add(newUri);
     }
+  }
+
+  get urisToAnalyze() {
+    return Array.from(this.unanalyzedUris);
+  }
+
+  analyzedUri(uri: string) {
+    this.unanalyzedUris.delete(uri);
+    this.analyzedUris.add(uri);
+    this.uris.add(uri);
+  }
+
+  unanalyzeUri(uri: string) {
+    this.unanalyzedUris.add(uri);
+    this.analyzedUris.delete(uri);
+    this.uris.add(uri);
   }
 
   findMatchingFishIdentifiers(fishIdentifier: string) {
     const matches: string[] = [];
     const toMatch = `/${fishIdentifier}.fish`;
-    for (const uri of Array.from(this.uris)) {
+    for (const uri of Array.from(this.analyzedUris)) {
       if (uri.endsWith(toMatch)) {
         matches.push(uri);
       }
@@ -345,24 +330,16 @@ export class Workspace implements FishWorkspace {
   }
 
   isAnalyzed() {
-    return this.entireWorkspaceAnalyzed;
-  }
-
-  removeAnalyzed() {
-    this.entireWorkspaceAnalyzed = false;
-  }
-
-  setAnalyzed() {
-    this.entireWorkspaceAnalyzed = true;
+    return this.urisToAnalyze.length === 0 && this.allUris.size > 0;
   }
 
   async updateFiles() {
     const newUris = await getFileUriSet(this.path);
-    const diff = new Set(Array.from(this.uris).filter(x => !this.uris.has(x)));
+    const diff = new Set(Array.from(this.analyzedUris).filter(x => !this.analyzedUris.has(x)));
     if (diff.size === 0) {
       return false;
     }
-    newUris.forEach(uri => this.uris.add(uri));
+    newUris.forEach(uri => this.analyzedUris.add(uri));
     return true;
   }
 
@@ -386,7 +363,7 @@ export class Workspace implements FishWorkspace {
   }
 
   async asyncUrisToLspDocuments(): Promise<LspDocument[]> {
-    const readPromises = Array.from(this.uris).map(async uri => {
+    const readPromises = Array.from(this.analyzedUris).map(async uri => {
       try {
         const path = uriToPath(uri);
         const content = await promises.readFile(path, 'utf8');
@@ -403,8 +380,40 @@ export class Workspace implements FishWorkspace {
     return docs.filter((doc): doc is LspDocument => doc !== null);
   }
 
+  async unanalyzedUrisToLspDocuments(): Promise<LspDocument[]> {
+    let uris = Array.from(this.unanalyzedUris);
+    // fix size if too big
+    if (uris.length > config.fish_lsp_max_background_files) {
+      uris = uris.slice(0, config.fish_lsp_max_background_files);
+    }
+    // build promise array
+    const readPromises = uris.map(async uri => {
+      const path = uriToPath(uri);
+      const content = await promises.readFile(path, 'utf8');
+      const doc = LspDocument.createTextDocumentItem(uri, content);
+      documents.open(doc);
+      return doc;
+    });
+    const docs = await Promise.all(readPromises);
+    return docs.filter((doc): doc is LspDocument => doc !== null);
+  }
+
   async analyze(analyzer: Analyzer) {
-    return await Promise.all(this.urisToLspDocuments().map(async path => analyzer.analyzeAsync(path)));
+    const startTime = performance.now();
+    const docs = await this.unanalyzedUrisToLspDocuments();
+    for (const doc of docs) {
+      this.analyzedUri(doc.uri);
+      if (!doc.shouldAnalyzeInBackground()) continue;
+      try {
+        analyzer.analyze(doc);
+      } catch (err) {
+        logger.log(`Error analyzing file ${doc.uri}: ${err}`);
+      }
+    }
+    const endTime = performance.now();
+    const totalTime = ((endTime - startTime) / 1000).toFixed(2);
+    logger.log(`Analyzed ${docs.length} files in ${totalTime} seconds`);
+    // return await Promise.all(this.urisToLspDocuments().map(async path => analyzer.analyzeAsync(path)));
     // docs.forEach(doc => {
     //   analyzer.analyze(doc);
     // })
@@ -432,7 +441,7 @@ export class Workspace implements FishWorkspace {
 
   urisToLspDocuments(): LspDocument[] {
     const docs: LspDocument[] = [];
-    for (const uri of Array.from(this.uris)) {
+    for (const uri of Array.from(this.allUris)) {
       const path = uriToPath(uri);
       const content = readFileSync(path);
       const doc = toLspDocument(path, content.toString());
@@ -442,11 +451,11 @@ export class Workspace implements FishWorkspace {
   }
 
   get paths() {
-    return Array.from(this.uris).map(uri => uriToPath(uri));
+    return Array.from(this.allUris).map(uri => uriToPath(uri));
   }
 
   getUris() {
-    return Array.from(this.uris || []);
+    return Array.from(this.allUris || []);
   }
 
   forEach(callback: (lspDocument: LspDocument) => void) {
@@ -477,7 +486,7 @@ export class Workspace implements FishWorkspace {
   async *asyncDocumentGenerator(): AsyncGenerator<LspDocument> {
     // Process files in batches for better memory management
     const BATCH_SIZE = 20;
-    const uriArray = Array.from(this.uris);
+    const uriArray = Array.from(this.allUris);
 
     for (let i = 0; i < uriArray.length; i += BATCH_SIZE) {
       // Create a batch of promises for parallel file reading
@@ -503,6 +512,37 @@ export class Workspace implements FishWorkspace {
         }
       }
     }
+  }
+
+  public needsAnalysis() {
+    return this.unanalyzedUris.size > 0;
+  }
+
+  analyzeWorkspacePromise(analyzer: Analyzer): AnalyzeWorkspacePromise {
+    const callbackfn = async (uri: string) => {
+      const path = uriToPath(uri);
+      const content = await AsyncFileHelper.readFile(path);
+      const newUris = analyzer.collectAllSources(uri);
+      for (const newUri of Array.from(newUris)) {
+        if (!this.uris.has(newUri)) {
+          this.unanalyzedUris.add(newUri);
+        }
+      }
+      const doc = toLspDocument(path, content);
+      this.analyzedUri(uri);
+      const result = analyzer.analyze(doc);
+      return {
+        uri,
+        content,
+        doc,
+        result,
+      };
+    };
+    const promises: ReturnType<typeof callbackfn>[] = [];
+    for (const uri of this.allUnanalyzedUris) {
+      promises.push(callbackfn(uri));
+    }
+    return promises;
   }
 }
 
@@ -686,5 +726,4 @@ export namespace FishUriWorkspace {
     };
   }
 }
-export let currentWorkspace: CurrentWorkspace = CurrentWorkspace.create();
 
