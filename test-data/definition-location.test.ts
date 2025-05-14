@@ -28,7 +28,7 @@ describe('find definition locations of symbols', () => {
     parser.delete();
     analyzer = new Analyzer(parser);
     for (const ws of workspaces) {
-      ws.uris.clear();
+      ws.allUris.clear();
       workspaces.pop();
     }
   });

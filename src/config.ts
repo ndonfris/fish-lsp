@@ -542,9 +542,9 @@ export namespace Config {
         },
         completionProvider: configHandlers.complete ? {
           resolveProvider: true,
-          allCommitCharacters: config.fish_lsp_commit_characters,
-          workDoneProgress: true,
-          triggerCharacters: ['$'],
+          // allCommitCharacters: config.fish_lsp_commit_characters,
+          workDoneProgress: false,
+          // triggerCharacters: ['$'],
         } : undefined,
         hoverProvider: configHandlers.hover,
         definitionProvider: configHandlers.definition,

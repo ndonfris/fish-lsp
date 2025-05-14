@@ -631,9 +631,9 @@
   integrity sha512-ICgUR+kPimx0vvRzf+N/7L7tVSQeE3BYY+NhHRHXS1kBuPO7z2+7ea2HbhDyZdTephgvNvKrlDDKUexuCVBVvg==
 
 "@esdmr/tree-sitter-fish@^3.5.2-0":
-  version "3.5.2-0"
-  resolved "https://registry.yarnpkg.com/@esdmr/tree-sitter-fish/-/tree-sitter-fish-3.5.2-0.tgz#2df41e0b2ccdad0d8bbb8a9e2aae953441d60c7f"
-  integrity sha512-fK/t2mAIN67j+wJv2iPPglOM15QwvTUSzNIU+hsHWHrwNJtvr1SGqTmXdKa+sRpa7U6ShWRNe3G3n9q/SDLIhQ==
+  version "3.5.2-1"
+  resolved "https://registry.yarnpkg.com/@esdmr/tree-sitter-fish/-/tree-sitter-fish-3.5.2-1.tgz#e5c23c39c13c404ffdb6ca7233331c7d10ee41fd"
+  integrity sha512-FRANpy/W1f6SKqP7i/rnksZ0YtZQZN7GPP5dLoswg0yYWD116xDz/ullmBNhuRYRbl5bnvFWd0ZySimwQ3vE1w==
 
 "@eslint-community/eslint-utils@^4.2.0", "@eslint-community/eslint-utils@^4.4.0":
   version "4.4.1"

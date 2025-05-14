@@ -9,10 +9,7 @@ import { PackageVersion } from './commander-cli-subcommands';
 
 import { createConnection, InitializeParams, InitializeResult, StreamMessageReader, StreamMessageWriter, ProposedFeatures, Connection } from 'vscode-languageserver/node';
 import * as net from 'net';
-import { Workspace, workspaces } from './workspace';
-import { AnalyzedDocument } from '../analyze';
-import { LspDocument } from '../document';
-// import { AnalyzedDocument } from '../analyze';
+import { workspaces } from './workspace-manager';
 
 // Define proper types for the connection options
 export type ConnectionType = 'stdio' | 'node-ipc' | 'socket';
@@ -121,30 +118,6 @@ export function startServer(connectionType: ConnectionType = 'stdio', options: C
   setupServerWithConnection(connection);
 }
 
-/**
- * Creaete a connection for the server. Initialize the server with the connection.
- * Listen for incoming messages and handle them.
- */
-// export function startServer() {
-//   // Create a connection for the server.
-//   // The connection uses stdin/stdout for communication.
-//   const connection = createConnection(
-//     new StreamMessageReader(process.stdin),
-//     new StreamMessageWriter(process.stdout),
-//   );
-//   connection.onInitialize(
-//     async (params: InitializeParams): Promise<InitializeResult> => {
-//       const { initializeResult } = await FishServer.create(connection, params);
-//       return initializeResult;
-//     },
-//   );
-//   connection.listen();
-//   createServerLogger(config.fish_lsp_log_file, connection.console);
-//   logger.log('Starting FISH-LSP server');
-//   logger.log('Server started with the following handlers:', configHandlers);
-//   logger.log('Server started with the following config:', config);
-// }
-
 export async function timeOperation<T>(
   operation: () => Promise<T>,
   label: string,
@@ -221,7 +194,7 @@ export async function timeServerStartup() {
   // 2. Time server initialization and background analysis
   await timeOperation(async () => {
     // Create array of workspace analysis promises with timing
-    await Promise.all(workspaces.map(async (workspace) => {
+    await Promise.all(workspaces.orderedWorkspaces().map(async (workspace) => {
       items[workspace.path] = workspace.paths.length;
       all += workspace.paths.length;
       await server!.analyzer.analyzeWorkspace(workspace);

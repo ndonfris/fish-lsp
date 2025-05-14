@@ -11,7 +11,8 @@ import { formatTextWithIndents, symbolKindsFromNode, uriToPath } from './utils/t
 import { getChildNodes } from './utils/tree-sitter';
 import { getVariableExpansionDocs, handleHover } from './hover';
 import { DocumentationCache, initializeDocumentationCache } from './utils/documentation-cache';
-import { currentWorkspace, findCurrentWorkspace, getWorkspacePathsFromInitializationParams, initializeDefaultFishWorkspaces, workspaces } from './utils/workspace';
+import { findCurrentWorkspace, getWorkspacePathsFromInitializationParams, initializeDefaultFishWorkspaces } from './utils/workspace';
+import { workspaces } from './utils/workspace-manager';
 import { formatFishSymbolTree, filterLastPerScopeSymbol } from './parsing/symbol';
 import { CompletionPager, initializeCompletionPager, SetupData } from './utils/completion/pager';
 import { FishCompletionItem } from './utils/completion/types';
@@ -62,7 +63,7 @@ export default class FishServer {
     const initializeResult = Config.initialize(params, connection);
     logger.log({
       server: 'FishServer',
-      initializeResult,
+      // initializeResult,
       rootUri: params.rootUri,
       rootPath: params.rootPath,
       workspaceFolders: params.workspaceFolders,
@@ -189,18 +190,14 @@ export default class FishServer {
     const doc = this.docs.openPath(path, params.textDocument);
     currentDocument = doc;
     this.analyzeDocument({ uri: doc.uri });
-    const newWorkspace = await findCurrentWorkspace(doc.uri);
+    workspaces.updateCurrentFromUri(doc.uri);
+    const current = workspaces.current;
     this.analyzer.collectAllSources(doc.uri).forEach(uri => {
-      newWorkspace?.addUri(uri);
+      current?.addUri(uri);
     });
-    currentWorkspace.updateCurrent(doc);
-    logger.log({
-      'didOpenTextDocument': params.textDocument.uri,
-      'currentWorkspace.current.name: ': currentWorkspace.current?.name,
-      'currentWorkspace.current.isAnalyzed': currentWorkspace.current?.isAnalyzed(),
-    });
-    if (newWorkspace && !newWorkspace.isAnalyzed()) {
-      this.startBackgroundAnalysis();
+    if (current && !current.isAnalyzed()) {
+      const progress = await AnalyzeProgressToken.create(this.connection, current);
+      await this.analyzer.analyzeWorkspace(current, logger.log, progress);
     }
   }
 
@@ -217,27 +214,30 @@ export default class FishServer {
     }
     currentDocument = doc;
     doc = doc.update(params.contentChanges);
-    this.analyzer.analyze(doc);
     this.docs.set(doc);
     this.analyzeDocument({ uri: doc.uri });
-    currentWorkspace.updateCurrent(doc);
+    workspaces.updateCurrentFromUri(doc.uri);
+    // workspaces.current?.unanalyzeUri(doc.uri);
     this.analyzer.updateConfigInWorkspace(doc.uri);
+    if (workspaces.current && !workspaces.current.isAnalyzed()) {
+      const progress = await AnalyzeProgressToken.create(this.connection, workspaces.current);
+      this.analyzer.analyzeWorkspace(workspaces.current, logger.log, progress);
+    }
   }
 
   didCloseTextDocument(params: LSP.DidCloseTextDocumentParams): void {
     this.logParams('didCloseTextDocument', params);
     const path = uriToPath(params.textDocument.uri);
     this.docs.close(path);
-    const perviousWorkspace = currentWorkspace.current;
+    const perviousWorkspace = workspaces.current;
+    const newWorkspace = workspaces.removeLast();
     this.clearDiagnostics(params.textDocument);
     const remainingDocumentsInWorkspace = this.docs.all()
       .filter((item) => {
         if (!perviousWorkspace) return true;
         return perviousWorkspace.contains(item.uri);
       });
-    if (remainingDocumentsInWorkspace.length === 0) {
-      currentWorkspace.current = null;
-    }
+
     if (perviousWorkspace) {
       this.analyzer.clearWorkspace(perviousWorkspace, params.textDocument.uri, ...this.docs.all().map(doc => doc.uri));
     }
@@ -252,15 +252,16 @@ export default class FishServer {
     });
     logger.info({
       didSaveTextDocument: params.textDocument.uri,
-      'currentWorkspace.current.name: ': currentWorkspace.current?.name,
-      willRunBackgroundAnalysis: currentWorkspace.current?.isAnalyzed(),
+      'Workspaces.current.name: ': workspaces.current?.name,
+      willRunBackgroundAnalysis: workspaces.current?.isAnalyzed(),
     });
-    if (!currentWorkspace.current?.isAnalyzed()) {
+    if (workspaces.current && !workspaces.current.isAnalyzed()) {
       logger.log('willRunBackgroundAnalysis', {
-        currentWorkspace: currentWorkspace.current?.name,
-        willRunBackgroundAnalysis: currentWorkspace.current?.isAnalyzed(),
-      })
-      this.startBackgroundAnalysis();
+        workspaces: workspaces.current?.name,
+      });
+      const progress = await AnalyzeProgressToken.create(this.connection, workspaces.current);
+      await this.analyzer.analyzeWorkspace(workspaces.current, (t) => logger.log(t), progress);
+      progress.done();
     }
     this.analyzer.updateConfigInWorkspace(params.textDocument.uri);
   }
@@ -268,16 +269,10 @@ export default class FishServer {
   // @see:
   //  • @link [bash-lsp](https://github.com/bash-lsp/bash-language-server/blob/3a319865af9bd525d8e08cd0dd94504d5b5b7d66/server/src/server.ts#L236)
   async onInitialized() {
-    logger.logTime('FishServer.onInitialized()');
-    setTimeout(() => {
-      this.connection.sendNotification('fish-lsp/initializeComplete', {
-        message: 'Fish LSP server initialized',
-      });
-      this.startBackgroundAnalysis();
-    }, 0);
-
+    // logger.logTime('FishServer.onInitialized()');
     if (hasWorkspaceFolderCapability) {
       this.connection.workspace.onDidChangeWorkspaceFolders(event => {
+        logger.info('onDidChangeWorkspaceFolders', event);
         if (this.backgroundAnalysisComplete) {
           return;
         }
@@ -285,8 +280,9 @@ export default class FishServer {
       });
     }
     this.backgroundAnalysisComplete = true;
+    this.startBackgroundAnalysis();
     return {
-      backgroundAnalysisComplete: true
+      totalItems: 0
     };
   }
 
@@ -294,29 +290,29 @@ export default class FishServer {
    * Stop the server and close all workspaces.
    */
   async onShutdown() {
-    while (workspaces.length > 0) {
-      const workspace = workspaces.pop();
-      workspace?.isAnalyzed();
+    while (workspaces.orderedWorkspaces().length > 0) {
+      workspaces.removeLast();
     }
     this.docs.closeAll();
     currentDocument = null;
     this.backgroundAnalysisComplete = false;
   }
 
-  private handleWorkspaceFolderChanges(event: WorkspaceFoldersChangeEvent) {
+  private async handleWorkspaceFolderChanges(event: WorkspaceFoldersChangeEvent) {
     this.logParams('handleWorkspaceFolderChanges', event);
     // Handle added workspaces
     for (const folder of event.added) {
-      const workspace = workspaces.find(ws => ws.uri === folder.uri);
+      const workspace = workspaces.findWorkspace(folder.uri);
       if (workspace && !workspace.isAnalyzed()) {
         // Analyze the new workspace
-        this.analyzer.analyzeWorkspace(workspace);
+        const progress = await AnalyzeProgressToken.create(this.connection, workspace);
+        await this.analyzer.analyzeWorkspace(workspace, (t) => logger.log(t), progress);
       }
     }
 
     // Handle removed workspaces
     for (const folder of event.removed) {
-      const workspace = workspaces.find(ws => ws.uri === folder.uri);
+      const workspace = workspaces.findWorkspace(folder.uri);
       if (workspace) {
         // Clean up the workspace data
         this.analyzer.clearWorkspace(workspace, '', ...this.docs.uris);
@@ -337,7 +333,6 @@ export default class FishServer {
   // convert to CompletionItem[]
   async onCompletion(params: CompletionParams): Promise<CompletionList> {
     this.logParams('onCompletion', params);
-
     if (!this.backgroundAnalysisComplete) {
       return this.completion.empty();
     }
@@ -346,11 +341,19 @@ export default class FishServer {
     let list: FishCompletionList = FishCompletionList.empty();
 
     if (!path || !doc) {
-      logger.logAsJson('onComplete got [NOT FOUND]: ' + path);
+      // logger.logAsJson('onComplete got [NOT FOUND]: ' + path);
       return this.completion.empty();
     }
     const symbols = this.analyzer.allSymbolsAccessibleAtPosition(doc, params.position);
-    const { line, word } = this.analyzer.parseCurrentLine(doc, params.position);
+    let line = ''; let word = '';
+    try {
+      const result = this.analyzer.parseCurrentLine(doc, params.position);
+      line = result.line;
+      word = result.word;
+    } catch (error) {
+      // logger.log('onComplete got [ERROR]: ' + error?.toString() || 'error');
+      return this.completion.empty();
+    }
 
     if (!line) return await this.completion.completeEmpty(symbols);
 
@@ -365,22 +368,22 @@ export default class FishServer {
 
     try {
       if (line.trim().startsWith('#') && current) {
-        logger.log('completeComment');
+        // logger.log('completeComment');
         return buildCommentCompletions(line, params.position, current, fishCompletionData, word);
       }
       if (word.trim().endsWith('$') || line.trim().endsWith('$') || word.trim() === '$' && !word.startsWith('$$')) {
-        logger.log('completeVariables');
+        // logger.log('completeVariables');
         return this.completion.completeVariables(line, word, fishCompletionData, symbols);
       }
     } catch (error) {
-      logger.error('ERROR: onComplete ' + error?.toString() || 'error');
+      // logger.warning('ERROR: onComplete ' + error?.toString() || 'error');
     }
 
     try {
       logger.log('complete');
       list = await this.completion.complete(line, fishCompletionData, symbols);
     } catch (error) {
-      this.logger.logAsJson('ERROR: onComplete ' + error?.toString() || 'error');
+      // this.logger.logAsJson('ERROR: onComplete ' + error?.toString() || 'error');
     }
     return list;
   }
@@ -848,7 +851,13 @@ export default class FishServer {
       diagnostics: diagnostics.map(d => d.code),
     });
     this.connection.sendDiagnostics({ uri: resultDoc.uri, diagnostics });
-    this.analyzer.collectAllSources(resultDoc.uri);
+    const newUris = this.analyzer.collectAllSources(resultDoc.uri);
+    const current = workspaces.current;
+    if (current) {
+      newUris.forEach(uri => {
+        current.addUri(uri);
+      });
+    }
 
     return {
       uri: document.uri,
@@ -905,9 +914,7 @@ export default class FishServer {
     return { doc, path, root };
   }
 
-  public async startBackgroundAnalysis(): Promise<{
-    totalFilesParsed: number;
-  }> {
+  public async startBackgroundAnalysis() {
     const notifyCallback = (text: string) => {
       logger.info(`${new Date().toLocaleTimeString()} - [BACKGROUND ANALYSIS] - ${text}`);
       if (config?.fish_lsp_show_client_popups) {
@@ -915,26 +922,34 @@ export default class FishServer {
       }
     };
     const progressCallback = AnalyzeProgressToken.callbackfn(this.connection);
+    return this.analyzer.initiateBackgroundAnalysis(notifyCallback, progressCallback);
+    // return this.analyzer
+    //   .initiateBackgroundAnalysis(notifyCallback, progressCallback)
+    //   .then((result) => {
+    //     this.backgroundAnalysisComplete = true;
+    //     ProgressTokens.cancelAll();
+    //     return { totalFilesParsed: result.totalFilesParsed };
+    //   });
     // return this.analyzer.initiateBackgroundAnalysis(notifyCallback, progressCallback);
     // Return a placeholder promise immediately
-    return new Promise(resolve => {
-      // Use setTimeout to ensure background processing happens on the next event loop tick
-      setTimeout(() => {
-        // Start analysis without awaiting completion
-        this.analyzer.initiateBackgroundAnalysis(notifyCallback, progressCallback)
-          .then(result => {
-            this.backgroundAnalysisComplete = true;
-            // Notify client that analysis is complete
-            this.connection.sendNotification('fish-lsp/analysisComplete', result);
-            resolve(result);
-          })
-          .catch(err => {
-            logger.error(`Background analysis error: ${err}`);
-            this.backgroundAnalysisComplete = true;
-            resolve({ totalFilesParsed: 0 });
-          });
-      }, 0);
-    });
+    // return new Promise(resolve => {
+    //   // Use setTimeout to ensure background processing happens on the next event loop tick
+    //   setTimeout(() => {
+    //     // Start analysis without awaiting completion
+    //     this.analyzer.initiateBackgroundAnalysis(notifyCallback, progressCallback)
+    //       .then(result => {
+    //         this.backgroundAnalysisComplete = true;
+    //         // Notify client that analysis is complete
+    //         this.connection.sendNotification('fish-lsp/analysisComplete', result);
+    //         resolve(result);
+    //       })
+    //       .catch(err => {
+    //         logger.error(`Background analysis error: ${err}`);
+    //         this.backgroundAnalysisComplete = true;
+    //         resolve({ totalFilesParsed: 0 });
+    //       });
+    //   }, 0);
+    // });
   }
 }
 
