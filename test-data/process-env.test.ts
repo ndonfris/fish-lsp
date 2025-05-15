@@ -58,10 +58,8 @@ describe('setting up process-env', () => {
       expect(env.getAsArray('fish_lsp_all_indexed_paths').length).toEqual(3);
     });
 
-
     it('find keys where value is used', () => {
       env.set('fish_lsp_all_indexed_paths', '/usr/share/fish /usr/local/share/fish $HOME/.config/fish');
-
     });
 
     it('getProcessEnv()', () => {
@@ -254,7 +252,7 @@ describe('setting up process-env', () => {
 
     it.only('getWorkspaceName', () => {
       env.set('fish_lsp_all_indexed_paths', '/usr/share/fish /usr/local/share/fish $HOME/.config/fish');
-      const input = `set -gx fish_lsp_all_indexed_paths $HOME/.config/fish /usr/share/fish $__fish_data_dir`;
+      const input = 'set -gx fish_lsp_all_indexed_paths $HOME/.config/fish /usr/share/fish $__fish_data_dir';
       const doc = createFakeLspDocument('config.fish', input);
       analyzer.analyze(doc);
       for (const symbol of analyzer.getFlatDocumentSymbols(doc.uri)) {
@@ -265,7 +263,7 @@ describe('setting up process-env', () => {
             // const autoloaded = env.getAutoloadedKeys().find(k => k === value || env.getAsArray(k).includes(value) || (value.startsWith('$') && value.slice(1) === k));
             const autoloaded = env.findAutolaodedKey(value);
             if (autoloaded) {
-              console.log(`found autoloaded`, { autoloaded, value });
+              console.log('found autoloaded', { autoloaded, value });
             }
           }
         }

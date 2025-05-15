@@ -2,13 +2,10 @@ import { DocumentUri } from 'vscode-languageserver';
 import { logger } from '../logger';
 import { Workspace } from './workspace';
 
-
 export class WorkspaceManager {
   private allWorkspaces: Map<string, Workspace> = new Map<string, Workspace>();
   private currentWorkspace: Workspace | undefined = undefined;
   private historyStack: Workspace[] = [];
-
-  constructor() { }
 
   public copy(workspaceManager: WorkspaceManager): void {
     this.allWorkspaces = new Map<string, Workspace>(workspaceManager.allWorkspaces);
@@ -142,9 +139,9 @@ export class WorkspaceManager {
 
   orderedWorkspaces(): Workspace[] {
     const result = [
-      ...(!!this.current ? [this.current] : []),
-      ...(this.historyStack.length > 0 ? this.historyStack.slice(1) : []),
-      ...(this.workspaces),
+      ...this.current ? [this.current] : [],
+      ...this.historyStack.length > 0 ? this.historyStack.slice(1) : [],
+      ...this.workspaces,
     ].filter(Boolean) as Workspace[];
 
     const allWorkspaces: Workspace[] = [];

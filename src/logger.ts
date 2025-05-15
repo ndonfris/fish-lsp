@@ -197,7 +197,7 @@ export class Logger {
   /**
  * Converts arguments to a formatted string for logging
  * Handles various types of arguments with special handling for different types
- * 
+ *
  * @param args - Arguments to convert to string
  * @returns Formatted string representation
  */
@@ -217,7 +217,7 @@ export class Logger {
 
   /**
    * Formats a single argument into a string representation
-   * 
+   *
    * @param arg - The argument to format
    * @returns Formatted string representation
    */
@@ -257,7 +257,7 @@ export class Logger {
     try {
       const seen = new WeakSet();
       return JSON.stringify(arg, (key, value) => {
-        // Skip functions 
+        // Skip functions
         if (typeof value === 'function') {
           return '[Function]';
         }

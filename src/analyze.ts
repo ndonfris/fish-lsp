@@ -1,10 +1,10 @@
 import * as fs from 'fs/promises';
 import * as LSP from 'vscode-languageserver';
-import { Connection, Diagnostic, Hover, Location, Position, ProgressToken, SymbolKind, URI, WorkDoneProgressReporter, WorkspaceSymbol } from 'vscode-languageserver';
-import { ProgressWrapper, AnalyzeProgressToken } from './utils/progress-token';
+import { Connection, Diagnostic, Hover, Location, Position, SymbolKind, URI, WorkspaceSymbol } from 'vscode-languageserver';
+import { ProgressWrapper } from './utils/progress-token';
 import * as Parser from 'web-tree-sitter';
 import { SyntaxNode, Tree } from 'web-tree-sitter';
-import { Config, config, ConfigSchema, getDefaultConfiguration, updateBasedOnSymbols } from './config';
+import { config, getDefaultConfiguration, updateBasedOnSymbols } from './config';
 import { documents, LspDocument, LspDocuments } from './document';
 import { logger } from './logger';
 import { isArgparseVariableDefinitionName } from './parsing/argparse';
@@ -15,9 +15,9 @@ import { implementationLocation } from './references';
 import { execCommandLocations } from './utils/exec';
 import { SyncFileHelper } from './utils/file-operations';
 import { flattenNested } from './utils/flatten';
-import { findParentFunction, isAliasDefinitionName, isCommand, isCommandName, isOption, isProgram, isTopLevelDefinition } from './utils/node-types';
-import { pathToUri, symbolKindToString, uriToPath, uriToReadablePath } from './utils/translation';
-import { containsRange, getChildNodes, getRange, isPositionAfter, isPositionWithinRange, nodesGen, precedesRange } from './utils/tree-sitter';
+import { findParentFunction, isAliasDefinitionName, isCommand, isCommandName, isOption, isTopLevelDefinition } from './utils/node-types';
+import { pathToUri, symbolKindToString, uriToPath } from './utils/translation';
+import { containsRange, getChildNodes, getRange, isPositionAfter, isPositionWithinRange, precedesRange } from './utils/tree-sitter';
 import { Workspace } from './utils/workspace';
 import { workspaces } from './utils/workspace-manager';
 import { getDiagnostics } from './diagnostics/validate';
@@ -130,7 +130,6 @@ export class Analyzer {
     return analyzedDocument;
   }
 
-
   public analyzeAsync(
     document: LspDocument,
   ): Promise<AnalyzedDocument> {
@@ -183,7 +182,7 @@ export class Analyzer {
 
   /**
    * Take a path to a file and analyze it, returning it's AnalyzedDocument.
-   * This is useful for when you are bulk analyzing files for a workspace, 
+   * This is useful for when you are bulk analyzing files for a workspace,
    * and don't want to block the event loop.
    */
   public async analyzePathAsync(
@@ -285,9 +284,8 @@ export class Analyzer {
 
   public async analyzeAllWorkspacesNew(
     _workspaces: Workspace[],
-    progressCallback: (ws: Workspace) => Promise<ProgressWrapper | undefined> = async (_: Workspace) => undefined,
+    _progressCallback: (ws: Workspace) => Promise<ProgressWrapper | undefined> = async (_: Workspace) => undefined,
   ) {
-
     const initTime = performance.now();
     const allPromises = _workspaces
       .filter(workspace => workspace.needsAnalysis())
@@ -621,7 +619,7 @@ export class Analyzer {
     callbackfn: (symbol: FishSymbol, doc?: LspDocument) => boolean,
   ) {
     const currentWs = workspaces.current;
-    const uris = this.cache.uris().filter(uri => !!currentWs ? currentWs?.contains(uri) : true);
+    const uris = this.cache.uris().filter(uri => currentWs ? currentWs?.contains(uri) : true);
     for (const uri of uris) {
       const symbols = this.cache.getFlatDocumentSymbols(uri);
       const document = this.cache.getDocument(uri)?.document;
@@ -640,7 +638,7 @@ export class Analyzer {
     callbackfn: (symbol: FishSymbol, doc?: LspDocument) => boolean,
   ): FishSymbol[] {
     const currentWs = workspaces.current;
-    const uris = this.cache.uris().filter(uri => !!currentWs ? currentWs?.contains(uri) : true);
+    const uris = this.cache.uris().filter(uri => currentWs ? currentWs?.contains(uri) : true);
     const symbols: FishSymbol[] = [];
     for (const uri of uris) {
       const document = this.cache.getDocument(uri)?.document;
@@ -818,7 +816,7 @@ export class Analyzer {
         return null;
       }
       const symbol = this.findSymbol((s) => completionSymbol.equalsArgparse(s));
-      let endTime = performance.now();
+      const endTime = performance.now();
       const duration = ((endTime - startTime) / 1000).toFixed(2); // Convert to seconds with 2 decimal places
 
       logger.debug({
@@ -1141,7 +1139,7 @@ export class Analyzer {
       }
     }
     return this.collectSources(documentUri, sources);
-  };
+  }
 
   /**
    * Collects all the sourceUri's that are in the documentUri

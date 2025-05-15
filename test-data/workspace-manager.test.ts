@@ -37,7 +37,7 @@ describe('workspace-manager tests', () => {
   });
 
   it.skip('should create a workspace manager', async () => {
-    const workspaceManager = new WorkspaceManager();;
+    const workspaceManager = new WorkspaceManager();
     workspaces.workspaces.forEach((workspace) => {
       workspaceManager.addWorkspace(workspace);
       // console.log({
@@ -115,7 +115,6 @@ describe('workspace-manager tests', () => {
     //   results.push(...res);
     // });
 
-
     //   console.log({
     //     res: res.map(r => r.document.uri),
     //   })
@@ -128,7 +127,7 @@ describe('workspace-manager tests', () => {
     // results.push(...res);
     // }));
     let idx = 0;
-    // const items = await Promise.all(promiseArr.map(workspacePromises => 
+    // const items = await Promise.all(promiseArr.map(workspacePromises =>
     //   Promise.all(workspacePromises)
     // ));
     for (const item of results) {
@@ -150,13 +149,13 @@ describe('workspace-manager tests', () => {
         ws: w.name.toString(),
         uris: w.allAnalyzedUris.length,
         unanalyzed: w.allUnanalyzedUris.length,
-      }))
+      })),
     });
     expect(true).toBeTruthy();
   });
 
-  it.skip("test 2", async () => {
-    const workspaceManager = new WorkspaceManager();;
+  it.skip('test 2', async () => {
+    const workspaceManager = new WorkspaceManager();
     workspaces.workspaces.forEach((workspace) => {
       workspaceManager.addWorkspace(workspace);
     });
@@ -211,7 +210,7 @@ describe('workspace-manager tests', () => {
     // })
     // allPromises.forEach(promise => {
     //   promise.then(() => {})
-    //     
+    //
     //     // console.log({ res });
     //     // res.forEach((result) => {
     //     //   result.then((r: {time: number, count: number, workspace: string}) => {
@@ -323,7 +322,7 @@ describe('workspace-manager tests', () => {
         ws: w.name.toString(),
         analyzedUris: w.allAnalyzedUris.length,
         unanalyzedUris: w.allUnanalyzedUris.length,
-      }))
+      })),
     });
     // const workspacePromises = workspaces.map(async workspace =>
     //   await Promise.all(workspace.allUnanalyzedUris.map(async uri => new Promise(async (resolve) => {
@@ -347,7 +346,6 @@ describe('workspace-manager tests', () => {
     //     unanalyzed: w.allUnanalyzedUris.length,
     //   }))
     // });
-
   });
 
   // it.only('updating uri', async () => {
@@ -369,7 +367,6 @@ describe('workspace-manager tests', () => {
   //   });
   //   await analyzer.analyzeAllWorkspacesNew(workspaceManager.orderedWorkspaces());
   // });
-
 
   // it.only('should create a workspace from a path', async () => {
   //   const workspaceManager = new WorkspaceManager();;
@@ -457,7 +454,7 @@ describe('workspace-manager tests', () => {
       // });
     });
 
-    it("workspace history length 3, remove workspaces", () => {
+    it('workspace history length 3, remove workspaces', () => {
       // make sure we have 3 workspaces
       expect(workspaceManager.workspaces).toHaveLength(3);
 
@@ -506,13 +503,13 @@ describe('workspace-manager tests', () => {
           unanalyzed: w.allUnanalyzedUris.length,
           needsAnalysis: w.needsAnalysis(),
           isAnalyzed: w.isAnalyzed(),
-        }))
+        })),
       });
       console.log({ totalItems });
     });
 
     describe('removing from workspaces', () => {
-      it("test removing w/ uri", async () => {
+      it('test removing w/ uri', async () => {
         let totalItems = 0;
         await Promise.all(docs.map(async (doc) => {
           if (doc.getAutoloadType() === 'completions') {
@@ -562,7 +559,7 @@ describe('workspace-manager tests', () => {
         analyzer.clearWorkspace(newWorkspace, currentDoc.uri, ...docs.map(d => d.uri));
       });
 
-      it("test removing w/o uri", async () => {
+      it('test removing w/o uri', async () => {
         let totalItems = 0;
         workspaces.current?.addUri(locations.uris.fish_config.config);
         // workspaces.current?.addUri(uriToDefaultFishConfig)
@@ -626,7 +623,7 @@ describe('workspace-manager tests', () => {
         });
       });
 
-      it("clear analyzer w/ single doc in workspace", async () => {
+      it('clear analyzer w/ single doc in workspace', async () => {
         let totalItems = 0;
         let currentDoc: LspDocument | undefined;
         await Promise.all(docs.map(async (doc) => {
@@ -683,10 +680,9 @@ describe('workspace-manager tests', () => {
         //   removedUris: result.removedUris.length,
         //   removedSymbols: result.removedSymbols.length,
         // });
-
       });
 
-      it("clear analyzer w/ multi docs in workspace", async () => {
+      it('clear analyzer w/ multi docs in workspace', async () => {
         let totalItems = 0;
         let currentDoc: LspDocument | undefined;
         await Promise.all(docs.map(async (doc) => {
@@ -737,7 +733,7 @@ describe('workspace-manager tests', () => {
       });
     });
 
-    it("analyze.initializeBackgroundAnalysis", async () => {
+    it('analyze.initializeBackgroundAnalysis', async () => {
       const { items, totalFilesParsed, workspaces } = await analyzer.initiateBackgroundAnalysis();
       // console.log({
       //   items: Object.entries(items),
@@ -763,8 +759,7 @@ describe('workspace-manager tests', () => {
       expect(totalFilesParsed).toBeGreaterThanOrEqual(items[locations.paths.test_workspace.dir]! + items[locations.paths.fish_data.dir]!);
     });
 
-
-    it.skip("workspace history length 3, remove workspaces from analyzer", async () => {
+    it.skip('workspace history length 3, remove workspaces from analyzer', async () => {
       expect(workspaceManager.workspaces).toHaveLength(3);
       // expect(workspaces.workspaces).toHaveLength(3);
       let totalItems = 0;
@@ -805,5 +800,4 @@ describe('workspace-manager tests', () => {
       // expect(items).toBeGreaterThan(0);
     });
   });
-
 });

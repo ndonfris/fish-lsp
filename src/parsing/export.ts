@@ -8,7 +8,6 @@ import { getRange } from '../utils/tree-sitter';
 import { md } from '../utils/markdown-builder';
 import { uriToReadablePath } from '../utils/translation';
 
-
 /**
  * Checks if a node is an export command definition
  */
@@ -111,7 +110,6 @@ export function findVariableDefinitionNameNode(node: SyntaxNode): {
  * Extracts variable information from an export definition
  */
 export function extractExportVariable(node: SyntaxNode): ExtractedExportVariable | null {
-
   const argument = node.firstChild?.nextNamedSibling;
   if (!argument) {
     return null;
@@ -124,17 +122,16 @@ export function extractExportVariable(node: SyntaxNode): ExtractedExportVariable
   // Calculate range for just the name part
   const nameStart = {
     line: argument.startPosition.row,
-    character: argument.startPosition.column
+    character: argument.startPosition.column,
   };
 
   const nameEnd = {
     line: nameStart.line,
-    character: nameStart.character + name.length
+    character: nameStart.character + name.length,
   };
 
   return { name, value, nameRange: Range.create(nameStart, nameEnd) };
 }
-
 
 export function buildExportDetail(doc: LspDocument, commandNode: SyntaxNode, variableDefinitionNode: SyntaxNode) {
   const commandText = commandNode.text;
@@ -146,7 +143,7 @@ export function buildExportDetail(doc: LspDocument, commandNode: SyntaxNode, var
   // Create a detail string with the command and variable definition
   const detail = [
     `${md.bold('(variable)')} ${md.inlineCode(name)}`,
-    `${md.italic('globally')} scoped, ${md.italic(`exported`)}`,
+    `${md.italic('globally')} scoped, ${md.italic('exported')}`,
     `located in file: ${md.inlineCode(uriToReadablePath(doc.uri))}`,
     md.separator(),
     md.codeBlock('fish', commandText),
@@ -163,14 +160,14 @@ export function processExportCommand(document: LspDocument, node: SyntaxNode, ch
   if (!isExportDefinition(node)) return [];
 
   // Find the variable definition in the command's arguments
-  const found = findVariableDefinitionNameNode(node)
+  const found = findVariableDefinitionNameNode(node);
 
   const varDefNode = found?.nameNode;
   if (!found || !varDefNode) return [];
 
   const {
     name,
-    nameRange
+    nameRange,
   } = extractExportVariable(varDefNode) as ExtractedExportVariable;
 
   // Get the scope - export always creates global exported variables
@@ -193,7 +190,7 @@ export function processExportCommand(document: LspDocument, node: SyntaxNode, ch
       detail,
       scope,
       children,
-    })
+    }),
   ];
 }
 

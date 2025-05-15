@@ -254,7 +254,7 @@ export default class FishServer {
         newWorkspace: {
           name: workspaces.current?.name,
           uris: workspaces.current?.uris.size,
-        }
+        },
       });
     }
   }
@@ -359,8 +359,8 @@ export default class FishServer {
     const symbols = this.analyzer.allSymbolsAccessibleAtPosition(doc, params.position);
     const { line, word } = this.analyzer.parseCurrentLine(doc, params.position);
     logger.log({
-      symbols: symbols.map(s => s.name)
-    })
+      symbols: symbols.map(s => s.name),
+    });
 
     if (!line) return await this.completion.completeEmpty(symbols);
 
@@ -461,7 +461,7 @@ export default class FishServer {
       symbols: symbols.map(s => s.name),
     });
     return this.analyzer.getWorkspaceSymbols(params.query) || [];
-  };
+  }
 
   // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#showDocumentParams
   async onDefinition(params: DefinitionParams): Promise<Location[]> {
@@ -480,7 +480,7 @@ export default class FishServer {
     if (!doc) return [];
 
     return getReferences(this.analyzer, doc, params.position);
-  };
+  }
 
   /**
    * bi-directional lookup of completion <-> definition under cursor location.
@@ -495,7 +495,7 @@ export default class FishServer {
     const result = this.analyzer.getImplementation(doc, params.position);
     logger.log('implementationResult', { result });
     return result;
-  };
+  }
 
   // Probably should move away from `documentationCache`. It works but is too expensive memory wise.
   // REFACTOR into a procedure that conditionally determines output type needed.
@@ -673,7 +673,7 @@ export default class FishServer {
     };
 
     return [TextEdit.replace(fullRange, formattedText)];
-  };
+  }
   /**
    * Currently only works for whole line selections, in the future we should try to make every
    * selection a whole line selection.
@@ -751,7 +751,7 @@ export default class FishServer {
     folds.forEach((fold) => logger.log({ fold }));
 
     return folds;
-  };
+  }
 
   // works but is super slow and resource intensive, plus it doesn't really display much
   async onInlayHints(params: InlayHintParams) {

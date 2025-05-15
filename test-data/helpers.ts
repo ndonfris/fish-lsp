@@ -138,12 +138,10 @@ export function getAllTypesOfNestedArrays(doc: LspDocument, root: SyntaxNode) {
   };
 }
 
-
-
 export type PrintClientTreeOpts = { log: boolean; };
 
 /**
- * Will print the client tree of document definition symbols  
+ * Will print the client tree of document definition symbols
  */
 export function printClientTree(
   opts: PrintClientTreeOpts = { log: true },
@@ -166,13 +164,11 @@ export function printClientTree(
   return result;
 }
 
-
 export function locationAsString(loc: Location): string[] {
   return [
     loc.uri,
-    ...[loc.range.start.line, loc.range.start.character, loc.range.end.line, loc.range.end.character].map(s => s.toString())
+    ...[loc.range.start.line, loc.range.start.character, loc.range.end.line, loc.range.end.character].map(s => s.toString()),
   ];
-
 }
 
 export function fakeDocumentTrimUri(doc: LspDocument): string {
@@ -185,7 +181,6 @@ export function fakeDocumentTrimUri(doc: LspDocument): string {
   return doc.getFileName();
 }
 
-
 /**
  * Call this function in a `beforeEach()`/`beforeAll()` block of a test suite, and
  * it will allow you to use fish-lsp's autoloaded fish variables in your tests.
@@ -197,7 +192,7 @@ export function fakeDocumentTrimUri(doc: LspDocument): string {
  * let locations: FishLocations;
  * describe('My test suite', () => {
  *   beforeAll(async () => {
- *     locations = await fishLocations();   
+ *     locations = await fishLocations();
  *   })
  *   it('does something', () => {
  *      expect(locations.paths.fish_config.dir).toBe('/home/user/.config/fish');
@@ -245,13 +240,13 @@ export async function fishLocations(): Promise<FishLocations> {
       fish_config: createFishLocationGroup(_fish_config_dir, _fish_config_config, _fish_config_functions, _fish_config_completions, _fish_config_confd),
       fish_data: createFishLocationGroup(_fish_data_dir, _fish_data_config, _fish_data_functions, _fish_data_completions, _fish_data_confd),
       test_workspace: createFishLocationGroup(_fish_test_workspace_dir, _fish_test_workspace_config, _fish_test_workspace_functions, _fish_test_workspace_completions, _fish_test_workspace_confd),
-      tmp: createFishLocationGroup(_tmp_dir, _tmp_config, _tmp_functions, _tmp_completions, _tmp_confd)
+      tmp: createFishLocationGroup(_tmp_dir, _tmp_config, _tmp_functions, _tmp_completions, _tmp_confd),
     },
     uris: {
       fish_config: createFishLocationGroupFromUri(_fish_config_dir, _fish_config_config, _fish_config_functions, _fish_config_completions, _fish_config_confd),
       fish_data: createFishLocationGroupFromUri(_fish_data_dir, _fish_data_config, _fish_data_functions, _fish_data_completions, _fish_data_confd),
       test_workspace: createFishLocationGroupFromUri(_fish_test_workspace_dir, _fish_test_workspace_config, _fish_test_workspace_functions, _fish_test_workspace_completions, _fish_test_workspace_confd),
-      tmp: createFishLocationGroupFromUri(_tmp_dir, _tmp_config, _tmp_functions, _tmp_completions, _tmp_confd)
+      tmp: createFishLocationGroupFromUri(_tmp_dir, _tmp_config, _tmp_functions, _tmp_completions, _tmp_confd),
     },
   } as const;
 }

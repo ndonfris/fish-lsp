@@ -14,7 +14,6 @@ import { getReferences } from '../src/references';
 let analyzer: Analyzer;
 let parser: Parser;
 
-
 describe('parsing symbols', () => {
   setLogger();
   beforeEach(async () => {
@@ -61,7 +60,7 @@ describe('parsing symbols', () => {
             '    argparse h/help 1/oneline -- $argv',
             '    or return',
             '    echo inside bar',
-            'end'
+            'end',
           ].join('\n'),
         },
         {
@@ -79,11 +78,10 @@ describe('parsing symbols', () => {
             'complete -c baz -s h -l help',
             'function baz_helper',
             '     foo --help',
-            'end'
-          ].join('\n')
-        }
+            'end',
+          ].join('\n'),
+        },
       );
-
     });
 
     // it('completion >>(((*> function', () => {
@@ -94,7 +92,7 @@ describe('parsing symbols', () => {
         'foo --long',
         'foo --other-long',
         'foo -s',
-        'foo -1'
+        'foo -1',
       ];
 
       const searchDoc = workspace.find(doc => doc.uri.endsWith('functions/foo.fish'))!;
@@ -161,7 +159,7 @@ describe('parsing symbols', () => {
       expect(locationUris).toEqual([
         'functions/foo.fish',
         'completions/foo.fish',
-        'conf.d/baz.fish'
+        'conf.d/baz.fish',
       ]);
 
       expect(refLocations.map(l => {
@@ -175,22 +173,22 @@ describe('parsing symbols', () => {
         {
           uri: 'functions/foo.fish',
           range: Range.create(1, 18, 1, 22),
-          text: 'help'
+          text: 'help',
         },
         {
           uri: 'completions/foo.fish',
           range: Range.create(1, 24, 1, 28),
-          text: 'help'
+          text: 'help',
         },
         {
           uri: 'conf.d/baz.fish',
           range: Range.create(11, 11, 11, 16),
-          text: 'help'
-        }
+          text: 'help',
+        },
       ]);
     });
 
-    it("argparse simple => `argparse h/help -- $argv` -> `complete -c foo -l help`", () => {
+    it('argparse simple => `argparse h/help -- $argv` -> `complete -c foo -l help`', () => {
       const searchDoc = workspace.find(doc => doc.uri.endsWith('functions/foo.fish'))!;
       // const funcName = searchDoc?.getAutoLoadName() as string;
       const funcSymbol = analyzer.getFlatDocumentSymbols(searchDoc.uri).find((symbol) => {
@@ -216,18 +214,18 @@ describe('parsing symbols', () => {
         {
           uri: 'functions/foo.fish',
           range: Range.create(1, 18, 1, 22),
-          text: 'help'
+          text: 'help',
         },
         {
           uri: 'completions/foo.fish',
           range: Range.create(1, 24, 1, 28),
-          text: 'help'
+          text: 'help',
         },
         {
           uri: 'conf.d/baz.fish',
           range: Range.create(11, 11, 11, 16),
-          text: 'help'
-        }
+          text: 'help',
+        },
       ]);
     });
 
@@ -260,7 +258,7 @@ describe('parsing symbols', () => {
       });
 
       const foundDefDoc = analyzer.getDocument(foundDef.uri)!;
-      /** 
+      /**
        * Confirm that getReferences works when passing in both:
        * a reference and a definition Location
        */
@@ -288,10 +286,9 @@ describe('parsing symbols', () => {
           uri: 'completions/foo.fish',
           range: Range.create(3, 22, 3, 32),
           text: 'other-long',
-        }
+        },
       ]);
     });
-
 
     it('command => `complete -c baz` -> `function baz;end;`', () => {
       const searchDoc = workspace.find(doc => doc.uri.endsWith('conf.d/baz.fish'))!;
@@ -305,7 +302,7 @@ describe('parsing symbols', () => {
       refLocations.forEach(l => {
         console.log({
           location: locationAsString(l),
-          text: analyzer.getTextAtLocation(l)
+          text: analyzer.getTextAtLocation(l),
         });
       });
       expect(refLocations).toHaveLength(3);
@@ -314,8 +311,8 @@ describe('parsing symbols', () => {
           ({
             uri: fakeDocumentTrimUri(analyzer.getDocument(l.uri)!),
             range: l.range,
-          })
-        )
+          }),
+        ),
       ).toEqual([
         { uri: 'conf.d/baz.fish', range: Range.create(0, 9, 0, 12) },
         { uri: 'conf.d/baz.fish', range: Range.create(8, 12, 8, 15) },

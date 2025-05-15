@@ -431,9 +431,9 @@ export class FishSymbol {
       && this.selectionRange.end.character >= position.character;
   }
 
-  // 
+  //
   // Helpers for checking if the symbol is a fish_lsp_* config variable
-  // 
+  //
 
   /**
    * Checks if the symbol is a key in the `config` object, which means it changes the

@@ -62,9 +62,7 @@ describe('parsing `export` variable defs', () => {
   });
 
   describe('test checking functions', () => {
-
     describe('(SyntaxNode) => boolean', () => {
-
       beforeEach(() => {
         parser.reset();
         text = [
@@ -92,9 +90,9 @@ describe('parsing `export` variable defs', () => {
         parser.reset();
         text = [
           'export foo=bar',
-          `export baz='b a z'`,
-          `export qux="q u x"`,
-          `export quux=(q u u x)`,
+          'export baz=\'b a z\'',
+          'export qux="q u x"',
+          'export quux=(q u u x)',
         ].join('\n');
         doc = createFakeLspDocument('functions/test.fish', text);
         rootNode = parser.parse(text).rootNode;
@@ -139,7 +137,7 @@ describe('parsing `export` variable defs', () => {
         });
       });
 
-      it("show details", () => {
+      it('show details', () => {
         const nodes = rootNode.descendantsOfType('command').filter(c => c.firstChild && c.firstNamedChild?.text === 'export');
         const result: FishSymbol[] = [];
         nodes.forEach((node, index) => {
@@ -162,14 +160,11 @@ describe('parsing `export` variable defs', () => {
         expect(result).toHaveLength(4);
       });
 
-      it("processTree", () => {
+      it('processTree', () => {
         const nestedTree = processNestedTree(doc, rootNode);
         const symbols = flattenNested(...nestedTree);
         expect(symbols).toHaveLength(4);
       });
     });
-
   });
-
-
 });

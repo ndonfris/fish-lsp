@@ -172,7 +172,7 @@ export function createExecuteCommandHandler(
 
   async function _updateWorkspace(path: string) {
     const uri = pathToUri(path);
-    workspaces.updateCurrentFromUri(uri)
+    workspaces.updateCurrentFromUri(uri);
     const message = `${fishLspPromptIcon} Workspace: ${workspaces.current?.path}`;
     connection.sendNotification('workspace/didChangeWorkspaceFolders', {
       event: {

@@ -781,8 +781,8 @@ describe('`./src/parsing/**.ts` tests', () => {
           const iVariable = flatSymbols.find(s => s.name === 'i')!;
           expect(iVariable).toBeDefined();
           // if (idx === 0) {
-            expect(iVariable.isLocal()).toBeTruthy();
-            expect(iVariable.scopeNode.type).toBe('for_statement');
+          expect(iVariable.isLocal()).toBeTruthy();
+          expect(iVariable.scopeNode.type).toBe('for_statement');
           // } else {
           //   expect(iVariable.isGlobal()).toBeTruthy();
           //   expect(iVariable.scopeNode.type).toBe('program');

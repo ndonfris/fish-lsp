@@ -172,7 +172,7 @@ describe('find definition locations of symbols', () => {
       // })
       if (!resultUri) {
         console.log('resultUri is undefined');
-        fail()
+        fail();
         return;
       }
       expect(result).toHaveLength(1);

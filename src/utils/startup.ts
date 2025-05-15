@@ -9,7 +9,6 @@ import { PackageVersion } from './commander-cli-subcommands';
 
 import { createConnection, InitializeParams, InitializeResult, StreamMessageReader, StreamMessageWriter, ProposedFeatures, Connection } from 'vscode-languageserver/node';
 import * as net from 'net';
-import { workspaces } from './workspace-manager';
 
 // Define proper types for the connection options
 export type ConnectionType = 'stdio' | 'node-ipc' | 'socket';
@@ -142,7 +141,7 @@ export async function timeOperation<T>(
 
 /**
  * Time the startup of the server. Use inside `fish-lsp info --time-startup`.
- * Easy testing can be done with: 
+ * Easy testing can be done with:
  *   >_ `nodemon --watch src/ --ext ts --exec 'fish-lsp info --time-startup'`
  */
 export async function timeServerStartup() {
@@ -206,7 +205,6 @@ export async function timeServerStartup() {
     }
   }, 'Background Analysis Time');
 
-
   // 3. Log the number of files indexed
   logger.logToStdoutJoined(
     'Total Files Indexed: '.padEnd(75),
@@ -221,7 +219,7 @@ export async function timeServerStartup() {
   );
   // const maxItemLen = all_indexed.reduce((max, item) => Math.max(max, item.length > 60 ? 60 : item.length), 0);
   config.fish_lsp_all_indexed_paths.forEach((item, idx) => {
-    let text = item.length > 55 ? '...' + item.slice(item.length - 52) : item;
+    const text = item.length > 55 ? '...' + item.slice(item.length - 52) : item;
     const output = formatColumns([` [${idx}]`, `| ${text} |`, `${items[item]?.toString() || 0} files`], [6, -59, -10], 85);
     logger.logToStdout(output);
   });
@@ -235,7 +233,7 @@ export async function timeServerStartup() {
   //     `${items[key]?.toString()} files`.padStart(66),
   //   );
   // });
-};
+}
 
 /**
  * Creates a string with aligned columns for command line output
@@ -246,7 +244,7 @@ export async function timeServerStartup() {
  */
 function formatColumns(text: string[], widths: number[], maxLen = 85): string {
   const fixedWidths = widths.length < text.length
-    ? [...widths, ...new Array().fill(10, text.length - widths.length)]
+    ? [...widths, ...([] as number[]).fill(10, text.length - widths.length)]
     : Array.from(widths);
   let maxWidth = 0;
   fixedWidths.map(Math.abs).forEach(num => maxWidth += num);

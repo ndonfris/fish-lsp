@@ -74,7 +74,6 @@ export function syncGetFileUriSet(path: string) {
   return result;
 }
 
-
 /**
  * Initializes the default fish workspaces. Does not control the currentWorkspace, only sets it up.
  *
@@ -202,7 +201,6 @@ export class Workspace implements FishWorkspace {
     newUris.add(uri);
     return new Workspace(workspace.name, workspace.uri, workspace.path, newUris);
   }
-
 
   public static async createFromUri(uri: string) {
     const workspace = FishUriWorkspace.create(uri);
@@ -458,7 +456,6 @@ export class Workspace implements FishWorkspace {
     // const analyzeResults = Promise.all(analyzePromises);
   }
 
-
   async asyncForEach(callback: (doc: LspDocument, index?: number, array?: LspDocument[]) => void): Promise<void> {
     const docs = await this.asyncUrisToLspDocuments();
     docs.forEach((doc, index, array) => callback(doc, index, array));
@@ -683,7 +680,7 @@ export namespace FishUriWorkspace {
 
     // get the base of the path, if it is a fish workspace (ends in `fish`)
     // return the entire path name as the name of the workspace
-    let base = basename(root);
+    const base = basename(root);
     if (base === 'fish') return root;
 
     // For other paths, return the workspace root's basename
