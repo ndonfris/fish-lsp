@@ -50,7 +50,7 @@ export class CompletionPager {
     this._items.addItems(this.itemsMap.allOfKinds('builtin'));
     try {
       const stdout: [string, string][] = [];
-      const toAdd = await this.getSubshellStdoutCompletions(' ');
+      const toAdd = (await this.getSubshellStdoutCompletions(' ')).filter((line) => !line.includes('echo $dest'));
       stdout.push(...toAdd);
       for (const [name, description] of stdout) {
         this._items.addItem(FishCompletionItem.create(name, 'command', description, name));
@@ -84,6 +84,10 @@ export class CompletionPager {
       this._items.addItem(variableItem);
     }
     for (const item of this.itemsMap.allOfKinds('variable')) {
+      // HACK: fix for fish 4.0.2 showing completion: `$(echo $dest)` in the list
+      if (item.label.includes('echo $dest')) {
+        continue;
+      }
       item.insertText = '$' + item.label;
       this._items.addItem(item);
     }
@@ -126,7 +130,9 @@ export class CompletionPager {
       return this._items.build(false);
     }
 
-    const toAdd = await shellComplete(line);
+    // HACK: fix for fish 4.0.2 showing completion: `$(echo $dest)` in the list
+    //       from command $__fish_data_dir/functions/__fish_move_last.fish
+    const toAdd = (await shellComplete(line)).filter(line => !line.includes('$dest'));
     stdout.push(...toAdd);
     logger.log('toAdd =', toAdd.slice(0, 5));
 
@@ -137,7 +143,7 @@ export class CompletionPager {
     }
     const isOption = this.inlineParser.lastItemIsOption(line);
     for (const [name, description] of stdout) {
-      //if (this.itemsMap.skippableItem(name, description)) continue;
+      if (name === '$(echo $dest)' || name.includes('$dest')) continue;
       if (isOption || name.startsWith('-') || command) {
         this._items.addItem(FishCompletionItem.create(name, 'argument', description, [
           line.slice(0, line.lastIndexOf(' ')),
