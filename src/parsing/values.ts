@@ -83,5 +83,5 @@ export function configDefinitionParser(
     isErase: isDefinitionWithErase,
     valueNodes,
     values,
-  }
+  };
 }

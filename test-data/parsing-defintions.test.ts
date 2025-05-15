@@ -22,7 +22,8 @@ import * as Diagnostics from '../src/diagnostics/node-types';
 import { Analyzer } from '../src/analyze';
 import { groupCompletionSymbolsTogether, isCompletionCommandDefinition, getCompletionSymbol, processCompletion, CompletionSymbol } from '../src/parsing/complete';
 import { getGlobalArgparseLocations, isGlobalArgparseDefinition } from '../src/parsing/argparse';
-import { Workspace, workspaces } from '../src/utils/workspace';
+import { Workspace } from '../src/utils/workspace';
+import { workspaces } from '../src/utils/workspace-manager';
 import { LspDocument } from '../src/document';
 
 let analyzer: Analyzer;
@@ -1085,7 +1086,7 @@ describe('parsing symbols', () => {
 
         const workspace = await Workspace.createFromUri(completionDoc.getFilePath()!);
         if (!workspace) fail();
-        workspaces.push(workspace);
+        workspaces.addWorkspace(workspace);
 
         // console.log({
         //   workspaces: workspaces.length,

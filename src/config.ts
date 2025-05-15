@@ -7,7 +7,6 @@ import { AllSupportedActions } from './code-actions/action-kinds';
 import { LspCommands } from './command';
 import { PackageVersion } from './utils/commander-cli-subcommands';
 import { FishSymbol } from './parsing/symbol';
-import { LocalFishLspDocumentVariable } from './parsing/values';
 
 /********************************************
  **********  Handlers/Providers   ***********
@@ -124,7 +123,7 @@ export type Config = z.infer<typeof ConfigSchema>;
 export function getConfigFromEnvironmentVariables(): {
   config: Config;
   environmentVariablesUsed: string[];
-} {
+  } {
   const rawConfig = {
     fish_lsp_enabled_handlers: process.env.fish_lsp_enabled_handlers?.split(' '),
     fish_lsp_disabled_handlers: process.env.fish_lsp_disabled_handlers?.split(' '),

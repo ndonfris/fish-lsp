@@ -1,8 +1,6 @@
 import * as LSP from 'vscode-languageserver';
 import { Connection, WorkDoneProgressReporter } from 'vscode-languageserver';
 import { Workspace } from './workspace';
-import { config } from '../config';
-
 
 /**
  * Create the progress token for the workspace progress token.
@@ -13,15 +11,19 @@ export namespace AnalyzeProgressToken {
    */
   export async function create(
     connection: Connection,
-    workspace: Workspace,
+    opts: { workspace: Workspace; } | { title: string; message: string; },
   ): Promise<ProgressWrapper> {
     const progress = await connection.window.createWorkDoneProgress();
-    const workspaceMaxSize = Math.min(workspace.paths.length, config.fish_lsp_max_background_files);
+    // const workspaceMaxSize = Math.min(workspace.paths.length, config.fish_lsp_max_background_files);
     const progressWrapper = new ProgressWrapper(progress, connection);
 
-    progressWrapper.begin(workspace.name, 0, `analyzing ${workspaceMaxSize} file${workspaceMaxSize > 1 ? 's' : ''}`);
-    // https://github.com/ndonfris/fish-lsp/pull/78#issuecomment-2820933206
-    // https://github.com/microsoft/vscode-extension-samples/blob/main/notifications-sample/src/extension.ts
+    if ('workspace' in opts) {
+      const workspace = opts.workspace;
+      progressWrapper.begin(workspace.name, 0, `analyzing ${workspace.name}`);
+      return progressWrapper;
+    }
+    const { title, message } = opts;
+    progressWrapper.begin(title, 0, message);
     return progressWrapper;
   }
 
@@ -31,8 +33,8 @@ export namespace AnalyzeProgressToken {
   export function callbackfn(
     connection: Connection,
   ) {
-    return async function (workspace: Workspace) {
-      return await create(connection, workspace);
+    return async function(opts: {workspace: Workspace;} | { title: string; message: string; }): Promise<ProgressWrapper> {
+      return await create(connection, opts);
     };
   }
 }
@@ -96,7 +98,7 @@ export class ProgressWrapper implements WorkDoneProgressReporter {
       return;
     }
     this.status = 'finished';
-    this._progress.report(100, "Completed");
+    this._progress.report(100, 'Completed');
     const WorkDoneProgressReporterImpl = this._progress.constructor as Record<string, any>;
     if (WorkDoneProgressReporterImpl && WorkDoneProgressReporterImpl.Instances instanceof Map && ('_token' in this._progress && (typeof this._progress._token === 'number' || typeof this._progress._token === 'string'))) {
       WorkDoneProgressReporterImpl.Instances.delete(this._progress.token);

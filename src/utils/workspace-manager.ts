@@ -2,13 +2,16 @@ import { DocumentUri } from 'vscode-languageserver';
 import { logger } from '../logger';
 import { Workspace } from './workspace';
 
-
 export class WorkspaceManager {
   private allWorkspaces: Map<string, Workspace> = new Map<string, Workspace>();
   private currentWorkspace: Workspace | undefined = undefined;
   private historyStack: Workspace[] = [];
 
-  constructor() { }
+  public copy(workspaceManager: WorkspaceManager): void {
+    this.allWorkspaces = new Map<string, Workspace>(workspaceManager.allWorkspaces);
+    this.currentWorkspace = workspaceManager.currentWorkspace;
+    this.historyStack = [...workspaceManager.historyStack];
+  }
 
   public addWorkspace(workspace: Workspace): void {
     if (this.allWorkspaces.has(workspace.uri)) {
@@ -50,7 +53,8 @@ export class WorkspaceManager {
     } else {
       this.currentWorkspace = undefined;
     }
-    return this.currentWorkspace;
+    // return this.currentWorkspace;
+    return removed;
   }
 
   public get allWorkspacePaths() {
@@ -113,35 +117,31 @@ export class WorkspaceManager {
   // use WorkspaceManager.current to get the current workspace
   public updateCurrentFromUri(uri: DocumentUri): {
     didUpdate: boolean;
+    workspace: Workspace | undefined | null;
   } {
     for (const workspace of this.workspaces) {
       if (workspace.contains(uri)) {
-        return { didUpdate: this.setCurrent(workspace) };
+        this.current = workspace;
+        return { didUpdate: this.setCurrent(workspace), workspace };
       }
     }
     const newWorkspace = Workspace.syncCreateFromUri(uri);
     if (!newWorkspace) {
-      logger.error(`No workspace found for URI: ${uri}`);
-      return { didUpdate: false };
+      logger.warning(`No workspace found for URI: ${uri}`);
+      return { didUpdate: false, workspace: undefined };
     }
-    this.setCurrent(newWorkspace);
-    //   if (!workspace) {
-    //     logger.error(`No workspace found for URI: ${uri}`);
-    //     return undefined as never;
-    //   }
-    // logger.log(`Creating workspace from URI: ${uri}`);
-    // this.setCurrent(workspace);
-    // });
+    this.current = newWorkspace;
     return {
       didUpdate: true,
+      workspace: newWorkspace,
     };
   }
 
   orderedWorkspaces(): Workspace[] {
     const result = [
-      ...(!!this.current ? [this.current] : []),
-      ...(this.historyStack.length > 0 ? this.historyStack.slice(1) : []),
-      ...(this.workspaces),
+      ...this.current ? [this.current] : [],
+      ...this.historyStack.length > 0 ? this.historyStack.slice(1) : [],
+      ...this.workspaces,
     ].filter(Boolean) as Workspace[];
 
     const allWorkspaces: Workspace[] = [];
@@ -168,7 +168,7 @@ export class WorkspaceManager {
   }
 
   public findContainingWorkspace(uri: DocumentUri): Workspace | undefined {
-    return this.workspaces.find((ws) => ws.contains(uri) || ws.uri === uri);
+    return this.workspaces.find((ws) => ws.uris.has(uri) || ws.uri === uri);
   }
 
   public allNewUrisToAnalyze(): { documentUris: string[]; items: { [workspaceUri: string]: string[]; }; } {
@@ -198,6 +198,12 @@ export class WorkspaceManager {
       return this.historyStack.at(-1);
     }
     return undefined;
+  }
+
+  clear() {
+    this.allWorkspaces.clear();
+    this.currentWorkspace = undefined;
+    this.historyStack = [];
   }
 }
 

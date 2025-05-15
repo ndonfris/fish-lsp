@@ -60,6 +60,18 @@ export class Logger {
 
   constructor(logFilePath: string = '') {
     this.logFilePath = logFilePath;
+
+    // Bind methods to ensure proper this context
+    this.log = this.log.bind(this);
+    this.debug = this.debug.bind(this);
+    this.info = this.info.bind(this);
+    this.warning = this.warning.bind(this);
+    this.error = this.error.bind(this);
+    this._log = this._log.bind(this);
+    this.convertArgsToString = this.convertArgsToString.bind(this);
+    this._logWithSeverity = this._logWithSeverity.bind(this);
+    this.logAsJson = this.logAsJson.bind(this);
+    this.logFallbackToStdout = this.logFallbackToStdout.bind(this);
   }
 
   /**
@@ -182,31 +194,104 @@ export class Logger {
     }
   }
 
-  private convertArgsToString(...args: any[]): string {
-    if (!args) {
+  /**
+ * Converts arguments to a formatted string for logging
+ * Handles various types of arguments with special handling for different types
+ *
+ * @param args - Arguments to convert to string
+ * @returns Formatted string representation
+ */
+  convertArgsToString(...args: any[]): string {
+    if (!args || args.length === 0) {
       return '';
     }
-    if (args.length === 0) return '';
-    if (args instanceof Error) {
-      return args.stack || args.message;
+
+    // Format each argument appropriately
+    const formattedArgs = args.map(arg => this.formatArgument(arg));
+
+    // Join with newlines if multiple arguments
+    return formattedArgs.length === 1
+      ? formattedArgs.at(0) || ''
+      : formattedArgs.join('\n');
+  }
+
+  /**
+   * Formats a single argument into a string representation
+   *
+   * @param arg - The argument to format
+   * @returns Formatted string representation
+   */
+  private formatArgument(arg: any): string {
+    // Handle null and undefined
+    if (arg === null) return 'null';
+    if (arg === undefined) return 'undefined';
+
+    // Handle Error objects
+    if (arg instanceof Error) {
+      return arg.stack || arg.message || String(arg);
     }
-    if (args instanceof Array) {
-      const formattedMessage = args.map((arg) => {
-        if (arg instanceof Error) {
-          return arg.stack || arg.message;
-        }
-        if (typeof arg === 'object') {
-          return JSON.stringify(arg, null, 2);
-        }
-        return String(arg);
-      }).join('\n');
-      return formattedMessage;
+
+    // Handle primitive types
+    if (typeof arg === 'string') return arg;
+    if (typeof arg !== 'object') return String(arg);
+
+    // Handle Date objects
+    if (arg instanceof Date) {
+      return arg.toISOString();
     }
-    return JSON.stringify(args, null, 2);
+
+    // Handle Arrays specially for better readability
+    if (Array.isArray(arg)) {
+      if (arg.length === 0) return '[]';
+
+      // For small arrays of primitives, format on one line
+      if (arg.length < 5 && arg.every(item =>
+        item === null ||
+        item === undefined ||
+        typeof item !== 'object')) {
+        return JSON.stringify(arg);
+      }
+    }
+
+    // Handle objects and arrays with circular reference protection
+    try {
+      const seen = new WeakSet();
+      return JSON.stringify(arg, (key, value) => {
+        // Skip functions
+        if (typeof value === 'function') {
+          return '[Function]';
+        }
+
+        // Handle RegExp
+        if (value instanceof RegExp) {
+          return value.toString();
+        }
+
+        // Skip circular references
+        if (typeof value === 'object' && value !== null) {
+          if (seen.has(value)) {
+            return '[Circular Reference]';
+          }
+          seen.add(value);
+        }
+        return value;
+      }, 2);
+    } catch (err) {
+      // Fallback in case of JSON.stringify failure
+      try {
+        const className = arg.constructor?.name || 'Object';
+        const properties = Object.keys(arg).length > 0
+          ? `with ${Object.keys(arg).length} properties`
+          : 'empty';
+        return `[${className}: ${properties}]`;
+      } catch {
+        return '[Object: stringify failed]';
+      }
+    }
   }
 
   private _log(...args: any[]): void {
-    if (!args) return
+    if (!args) return;
     if (!this.isSilent() && this.hasConsole()) this._console.log(...args);
     const formattedMessage = this.convertArgsToString(...args);
     if (this.hasLogFile()) {
@@ -217,7 +302,7 @@ export class Logger {
   }
 
   public logAsJson(...args: any[]) {
-    if (!args || args.some(arg => !arg)) return
+    if (!args || args.some(arg => !arg)) return;
     const formattedMessage = this.convertArgsToString(args);
     this._log({
       date: new Date().toLocaleString(),
@@ -254,7 +339,7 @@ export class Logger {
   }
 
   public log(...args: any[]): void {
-    if (!args) return
+    if (!args) return;
     const formattedMessage = this.convertArgsToString(...args);
     if (!this.hasLogLevel()) {
       this._log(formattedMessage);

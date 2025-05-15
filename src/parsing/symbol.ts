@@ -16,8 +16,9 @@ import { flattenNested } from '../utils/flatten';
 import { uriToPath } from '../utils/translation';
 import { isCommand, isCommandWithName, isFunctionDefinitionName, isString, isTopLevelDefinition, isVariableDefinitionName } from '../utils/node-types';
 import { SyncFileHelper } from '../utils/file-operations';
+import { processExportCommand } from './export';
 
-export type FishSymbolKind = 'ARGPARSE' | 'FUNCTION' | 'ALIAS' | 'COMPLETE' | 'SET' | 'READ' | 'FOR' | 'VARIABLE' | 'FUNCTION_VARIABLE';
+export type FishSymbolKind = 'ARGPARSE' | 'FUNCTION' | 'ALIAS' | 'COMPLETE' | 'SET' | 'READ' | 'FOR' | 'VARIABLE' | 'FUNCTION_VARIABLE' | 'EXPORT';
 
 export const FishSymbolKindMap: Record<Lowercase<FishSymbolKind>, FishSymbolKind> = {
   ['argparse']: 'ARGPARSE',
@@ -29,6 +30,7 @@ export const FishSymbolKindMap: Record<Lowercase<FishSymbolKind>, FishSymbolKind
   ['for']: 'FOR',
   ['variable']: 'VARIABLE',
   ['function_variable']: 'FUNCTION_VARIABLE',
+  ['export']: 'EXPORT',
 };
 
 export const fishSymbolKindToSymbolKind: Record<FishSymbolKind, SymbolKind> = {
@@ -41,6 +43,7 @@ export const fishSymbolKindToSymbolKind: Record<FishSymbolKind, SymbolKind> = {
   ['FOR']: SymbolKind.Variable,
   ['VARIABLE']: SymbolKind.Variable,
   ['FUNCTION_VARIABLE']: SymbolKind.Variable,
+  ['EXPORT']: SymbolKind.Variable,
 } as const;
 
 export const SetModifierToScopeTag = (modifier: Option) => {
@@ -428,9 +431,9 @@ export class FishSymbol {
       && this.selectionRange.end.character >= position.character;
   }
 
-  // 
+  //
   // Helpers for checking if the symbol is a fish_lsp_* config variable
-  // 
+  //
 
   /**
    * Checks if the symbol is a key in the `config` object, which means it changes the
@@ -615,6 +618,9 @@ function buildNested(document: LspDocument, node: SyntaxNode, ...children: FishS
         case 'alias':
           newSymbols.push(...processAliasCommand(document, node, children));
           break;
+        case 'export':
+          newSymbols.push(...processExportCommand(document, node, children));
+          break;
         default:
           break;
       }
@@ -628,6 +634,12 @@ export type FlatFishSymbolTree = FishSymbol[];
 
 export function processNestedTree(document: LspDocument, ...nodes: SyntaxNode[]): NestedFishSymbolTree {
   const symbols: FishSymbol[] = [];
+
+  /** add argv to script files */
+  if (!document.isAutoloadedUri()) {
+    const programNode = nodes.find(node => node.type === 'program');
+    if (programNode) symbols.push(...processArgvDefinition(document, programNode));
+  }
 
   for (const node of nodes) {
     // Process children first (bottom-up approach)
@@ -644,12 +656,6 @@ export function processNestedTree(document: LspDocument, ...nodes: SyntaxNode[])
       symbols.push(...childSymbols);
     }
     // If neither condition is met, we add nothing
-  }
-
-  /** add argv to script files */
-  if (!document.isAutoloadedUri()) {
-    const programNode = nodes.find(node => node.type === 'program');
-    if (programNode) symbols.unshift(...processArgvDefinition(document, programNode));
   }
 
   return symbols;

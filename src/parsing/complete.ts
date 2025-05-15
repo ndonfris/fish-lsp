@@ -256,7 +256,6 @@ export class CompletionSymbol {
     return this.node?.equals(n);
   }
 
-
   /**
    * check if our CompletionSymbol.commandName === the commandName passed in
    */
@@ -293,7 +292,6 @@ export class CompletionSymbol {
   toLocation(): Location {
     return Location.create(this.doc?.uri || '', this.getRange());
   }
-
 }
 
 export function isCompletionSymbolVerbose(node: SyntaxNode, doc?: LspDocument): boolean {
@@ -305,9 +303,7 @@ export function isCompletionSymbolVerbose(node: SyntaxNode, doc?: LspDocument): 
     return symbol?.isNonEmpty() || false;
   }
   return false;
-
 }
-
 
 /**
  * Create a VerboseCompletionSymbol from a SyntaxNode, for any SyntaxNode passed in.

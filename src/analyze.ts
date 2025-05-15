@@ -1,26 +1,27 @@
 import * as fs from 'fs/promises';
 import * as LSP from 'vscode-languageserver';
-import { Connection, Diagnostic, Hover, Location, Position, ProgressToken, SymbolKind, URI, WorkDoneProgressReporter, WorkspaceSymbol } from 'vscode-languageserver';
-import { ProgressWrapper, AnalyzeProgressToken } from './utils/progress-token';
+import { Connection, Diagnostic, Hover, Location, Position, SymbolKind, URI, WorkspaceSymbol } from 'vscode-languageserver';
+import { ProgressWrapper } from './utils/progress-token';
 import * as Parser from 'web-tree-sitter';
 import { SyntaxNode, Tree } from 'web-tree-sitter';
-import { Config, config, ConfigSchema, getDefaultConfiguration, updateBasedOnSymbols } from './config';
-import { documents, LspDocument } from './document';
+import { config, getDefaultConfiguration, updateBasedOnSymbols } from './config';
+import { documents, LspDocument, LspDocuments } from './document';
 import { logger } from './logger';
 import { isArgparseVariableDefinitionName } from './parsing/argparse';
 import { CompletionSymbol, isCompletionCommandDefinition, isCompletionSymbol, processCompletion } from './parsing/complete';
-import { getExpandedSourcedFilenameNode, isSourceCommandArgumentName } from './parsing/source';
+import { getExpandedSourcedFilenameNode, isSourceCommandArgumentName, isSourceCommandWithArgument } from './parsing/source';
 import { FishSymbol, processNestedTree } from './parsing/symbol';
 import { implementationLocation } from './references';
 import { execCommandLocations } from './utils/exec';
 import { SyncFileHelper } from './utils/file-operations';
 import { flattenNested } from './utils/flatten';
 import { findParentFunction, isAliasDefinitionName, isCommand, isCommandName, isOption, isTopLevelDefinition } from './utils/node-types';
-import { pathToUri, symbolKindToString, uriToPath, uriToReadablePath } from './utils/translation';
+import { pathToUri, symbolKindToString, uriToPath } from './utils/translation';
 import { containsRange, getChildNodes, getRange, isPositionAfter, isPositionWithinRange, precedesRange } from './utils/tree-sitter';
 import { Workspace } from './utils/workspace';
 import { workspaces } from './utils/workspace-manager';
 import { getDiagnostics } from './diagnostics/validate';
+import { isExportVariableDefinitionName } from './parsing/barrel';
 
 export type AnalyzedDocument = {
   /**
@@ -101,7 +102,6 @@ export class Analyzer {
    * Analyze an LspDocument and return an AnalyzedDocument.
    */
   public analyze(document: LspDocument): AnalyzedDocument {
-    // this.parser.reset();
     const analyzedDocument = this.getAnalyzedDocument(
       this.parser,
       document,
@@ -111,6 +111,22 @@ export class Analyzer {
     flattenNested(...symbols)
       .filter(s => s.isGlobal())
       .forEach((symbol: FishSymbol) => this.globalSymbols.add(symbol));
+    return analyzedDocument;
+  }
+
+  // for documents where we can assume the document nodes aren't important
+  // i.e., completions
+  public analyzeShort(document: LspDocument): AnalyzedDocument {
+    const tree = this.parser.parse(document.getText());
+    const root = tree.rootNode;
+    const sourceNodes: SyntaxNode[] = [];
+    const commandNames: Set<string> = new Set();
+    root.descendantsOfType('command').forEach(node => {
+      if (isSourceCommandWithArgument(node)) sourceNodes.push(node);
+      commandNames.add(node.text);
+    });
+    const analyzedDocument = AnalyzedDocument.create(document, [], Array.from(commandNames), tree, sourceNodes);
+    this.cache.setDocument(document.uri, analyzedDocument);
     return analyzedDocument;
   }
 
@@ -127,7 +143,7 @@ export class Analyzer {
     parser: Parser,
     document: LspDocument,
   ): AnalyzedDocument {
-    parser.reset();
+    // parser.reset();
     const tree = parser.parse(document.getText());
     const documentSymbols = processNestedTree(
       document,
@@ -166,7 +182,7 @@ export class Analyzer {
 
   /**
    * Take a path to a file and analyze it, returning it's AnalyzedDocument.
-   * This is useful for when you are bulk analyzing files for a workspace, 
+   * This is useful for when you are bulk analyzing files for a workspace,
    * and don't want to block the event loop.
    */
   public async analyzePathAsync(
@@ -210,7 +226,7 @@ export class Analyzer {
 
   public async analyzeWorkspace(
     workspace: Workspace,
-    callbackfn: (text: string) => void = (text: string) => { },
+    callbackfn: (text: string) => void = (text: string) => logger.log(text),
     progress: ProgressWrapper | undefined = undefined,
   ) {
     const startTime = performance.now();
@@ -218,6 +234,7 @@ export class Analyzer {
     let count = 0;
     if (workspace.isAnalyzed()) {
       callbackfn(`[fish-lsp] workspace ${workspace.name} already analyzed`);
+      logger.log('[fish-lsp] workspace already analyzed', workspace.name);
       progress?.done();
       return {
         count,
@@ -240,7 +257,11 @@ export class Analyzer {
     for (const doc of docs) {
       try {
         // if (!doc.shouldAnalyzeInBackground()) continue;
-        this.analyze(doc);
+        if (doc.getAutoloadType() === 'completions') {
+          this.analyzeShort(doc);
+        } else {
+          this.analyze(doc);
+        }
         workspace.analyzedUri(doc.uri);
         count++;
         const reportPercent = Math.floor(count / docs.length * 100);
@@ -263,9 +284,8 @@ export class Analyzer {
 
   public async analyzeAllWorkspacesNew(
     _workspaces: Workspace[],
-    progressCallback: (ws: Workspace) => Promise<ProgressWrapper | undefined> = async (_: Workspace) => undefined,
+    _progressCallback: (ws: Workspace) => Promise<ProgressWrapper | undefined> = async (_: Workspace) => undefined,
   ) {
-
     const initTime = performance.now();
     const allPromises = _workspaces
       .filter(workspace => workspace.needsAnalysis())
@@ -391,38 +411,82 @@ export class Analyzer {
   // }
 
   public async initiateBackgroundAnalysis(
-    callbackfn?: (text: string) => void,
-    progressCallback: (ws: Workspace) => Promise<ProgressWrapper | undefined> = async (_: Workspace) => undefined,
+    connection?: Connection,
+    callbackfn: (text: string) => void = (str: string) => logger.log(str),
+    progress?: ProgressWrapper,
   ): Promise<{
     totalFilesParsed: number;
     items: { [key: string]: number; };
     workspaces: Workspace[];
   }> {
     const items: { [key: string]: number; } = {};
-    let all: number = 0;
-    const uniqueWorkspaces = config.fish_lsp_single_workspace_support 
-      ? [workspaces.current!]
-      : workspaces.orderedWorkspaces().filter((workspace) => {
-        if (workspace.isAnalyzed()) {
-          return false;
-        }
-        return true;
-      });
-
-    await Promise.all(uniqueWorkspaces.map(async (workspace) => {
-      if (!workspace.isAnalyzed()) {
-        items[workspace.path] = workspace.paths.length;
-        all += workspace.paths.length;
-        const progress = await progressCallback(workspace);
-        await this.analyzeWorkspace(workspace, callbackfn, progress);
-        return progress;
+    // const uniqueWorkspaces = config.fish_lsp_single_workspace_support
+    //   ? [workspaces.current!]
+    //   : workspaces.orderedWorkspaces().filter((workspace) => {
+    //     if (workspace.isAnalyzed()) {
+    //       return false;
+    //     }
+    //     return true;
+    //   });
+    //
+    // await Promise.all(uniqueWorkspaces.map(async (workspace) => {
+    //   if (!workspace.isAnalyzed()) {
+    //     items[workspace.path] = workspace.paths.length;
+    //     all += workspace.paths.length;
+    //     const progress = await progressCallback(workspace);
+    //     await this.analyzeWorkspace(workspace, callbackfn, progress);
+    //     return progress;
+    //   }
+    //   return undefined;
+    // }));
+    // return {
+    //   totalFilesParsed: all,
+    //   items,
+    //   workspaces: uniqueWorkspaces,
+    // };
+    const startTime = performance.now();
+    const allDocs: LspDocument[] = [];
+    const allWorkspaces: Workspace[] = [];
+    for (const workspace of workspaces.orderedWorkspaces()) {
+      if (workspace.isAnalyzed()) continue;
+      allDocs.push(...workspace.documentsToAnalyze());
+      allWorkspaces.push(workspace);
+    }
+    // truncate the documents to the max number of files
+    if (allDocs.length >= config.fish_lsp_max_background_files) {
+      allDocs.slice(0, config.fish_lsp_max_background_files);
+    }
+    // const progress = !!connection
+    //   ? await AnalyzeProgressToken.create(connection, { title: '[fish-lsp]', message: `Analyzing all workspaces (${allDocs.length} file${allDocs.length > 1 ? 's' : ''})` })
+    //   : undefined;
+    await Promise.all(allDocs.map(async (doc, idx) => {
+      if (doc.getAutoloadType() === 'completions') {
+        this.analyzeShort(doc);
+      } else {
+        this.analyze(doc);
       }
-      return undefined;
+      const workspace = workspaces.findContainingWorkspace(doc.uri);
+      if (workspace) {
+        workspace.analyzedUri(doc.uri);
+        let currentWorkspaceCount = items[workspace.path] || 0;
+        currentWorkspaceCount++;
+        items[workspace.path] = currentWorkspaceCount;
+        if (progress) {
+          const reportPercent = Math.floor(idx / allDocs.length * 100);
+          progress.report(reportPercent, `Analyzing ${idx}/${allDocs.length} files`);
+        }
+      }
     }));
+    const endTime = performance.now();
+    const duration = ((endTime - startTime) / 1000).toFixed(2); // Convert to seconds with 2 decimal places
+    callbackfn(`[fish-lsp] analyzed ${allDocs.length} files in ${allWorkspaces.length} workspaces | ${duration} seconds`);
+    if (progress) {
+      progress?.done();
+    }
     return {
-      totalFilesParsed: all,
+      totalFilesParsed: allDocs.length,
       items,
-      workspaces: uniqueWorkspaces,
+      workspaces: allWorkspaces,
     };
   }
 
@@ -459,6 +523,68 @@ export class Analyzer {
     });
   }
 
+  public clearDocumentFromWorkspace(
+    workspace: Workspace,
+    documents: LspDocuments,
+    currentUri: string,
+  ) {
+    const isOnlyDocumentInWorkspace = documents.all().filter(doc => workspace.contains(doc.uri)).length === 1;
+    if (isOnlyDocumentInWorkspace) return this.clearEntireWorkspace(workspace, documents);
+
+    const symbolsToRemove =
+      this.globalSymbols.allSymbols.filter(symbol => currentUri === symbol.uri);
+
+    const removedSymbols = new Map<LSP.DocumentUri, FishSymbol[]>();
+    for (const symbol of symbolsToRemove) {
+      this.globalSymbols.map.delete(symbol.name);
+      const otherSymbolsInUri = removedSymbols.get(symbol.uri) || [];
+      otherSymbolsInUri.push(symbol);
+      removedSymbols.set(symbol.uri, otherSymbolsInUri);
+    }
+    documents.close(uriToPath(currentUri));
+
+    return {
+      removedUris: [currentUri],
+      removedSymbols: Array.from(removedSymbols.values()).flat(),
+    };
+  }
+
+  public clearEntireWorkspace(workspace: Workspace, docsManager: LspDocuments) {
+    const urisInWorkspace = this.cache.uris().filter(uri => workspace.contains(uri));
+    const urisNotInOtherWorkspaces = urisInWorkspace.filter(uri => {
+      return !workspaces.workspaces.some((workspace) => {
+        if (workspace.uri === workspace.uri) return false;
+        if (workspace.uris.has(uri)) return true;
+        return false;
+      });
+    });
+
+    const removedUris: string[] = [];
+    const removedSymbols = new Map<LSP.DocumentUri, FishSymbol[]>();
+    urisNotInOtherWorkspaces.forEach(uri => {
+      this.cache.clear(uri);
+      removedUris.push(uri);
+      if (docsManager.isOpen(uri)) {
+        docsManager.close(uriToPath(uri));
+      }
+    });
+
+    const symbolsToRemove = this.globalSymbols.allSymbols
+      .filter(symbol => urisNotInOtherWorkspaces.some(uri => uri === symbol.uri));
+
+    for (const symbol of symbolsToRemove) {
+      this.globalSymbols.map.delete(symbol.name);
+      const otherSymbolsInUri = removedSymbols.get(symbol.uri) || [];
+      otherSymbolsInUri.push(symbol);
+      removedSymbols.set(symbol.uri, otherSymbolsInUri);
+    }
+    workspaces.removeWorkspace(workspace);
+    return {
+      removedUris,
+      removedSymbols: Array.from(removedSymbols.values()).flat(),
+    };
+  }
+
   /**
    * Return the first FishSymbol seen that could be defined by the given position.
    */
@@ -493,7 +619,7 @@ export class Analyzer {
     callbackfn: (symbol: FishSymbol, doc?: LspDocument) => boolean,
   ) {
     const currentWs = workspaces.current;
-    const uris = this.cache.uris().filter(uri => !!currentWs ? currentWs?.contains(uri) : true);
+    const uris = this.cache.uris().filter(uri => currentWs ? currentWs?.contains(uri) : true);
     for (const uri of uris) {
       const symbols = this.cache.getFlatDocumentSymbols(uri);
       const document = this.cache.getDocument(uri)?.document;
@@ -512,7 +638,7 @@ export class Analyzer {
     callbackfn: (symbol: FishSymbol, doc?: LspDocument) => boolean,
   ): FishSymbol[] {
     const currentWs = workspaces.current;
-    const uris = this.cache.uris().filter(uri => !!currentWs ? currentWs?.contains(uri) : true);
+    const uris = this.cache.uris().filter(uri => currentWs ? currentWs?.contains(uri) : true);
     const symbols: FishSymbol[] = [];
     for (const uri of uris) {
       const document = this.cache.getDocument(uri)?.document;
@@ -671,6 +797,9 @@ export class Analyzer {
     const word = this.wordAtPoint(document.uri, position.line, position.character);
     const node = this.nodeAtPoint(document.uri, position.line, position.character);
     const startTime = performance.now();
+    if (node && isExportVariableDefinitionName(node)) {
+      return symbols.find(s => s.name === word) || symbols.pop()!;
+    }
     if (node && isAliasDefinitionName(node)) {
       return symbols.find(s => s.name === word) || symbols.pop()!;
     }
@@ -687,7 +816,7 @@ export class Analyzer {
         return null;
       }
       const symbol = this.findSymbol((s) => completionSymbol.equalsArgparse(s));
-      let endTime = performance.now();
+      const endTime = performance.now();
       const duration = ((endTime - startTime) / 1000).toFixed(2); // Convert to seconds with 2 decimal places
 
       logger.debug({
@@ -1010,7 +1139,7 @@ export class Analyzer {
       }
     }
     return this.collectSources(documentUri, sources);
-  };
+  }
 
   /**
    * Collects all the sourceUri's that are in the documentUri
