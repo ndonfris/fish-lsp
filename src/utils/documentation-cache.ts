@@ -49,7 +49,7 @@ export function createCachedItem(type: SymbolKind, uri?: string): CachedGlobalIt
 /**
  * Currently spoofs docs as FormattedDocs, likely to change in future versions.
  */
-async function getNewDocString(name: string, item: CachedGlobalItem) : Promise<string | undefined> {
+async function getNewDocString(name: string, item: CachedGlobalItem): Promise<string | undefined> {
   switch (item.type) {
     case SymbolKind.Variable:
       return await getVariableDocString(name);
@@ -98,7 +98,7 @@ async function getFunctionUri(name: string): Promise<string | undefined> {
  * is naming convention with leading '__', this function ensures that our MarkupStrings
  * will be able to display the FunctionName (instead of interpreting it as '__' bold text)
  */
-function _escapePathStr(functionTitleLine: string) : string {
+function _escapePathStr(functionTitleLine: string): string {
   const afterComment = functionTitleLine.split(' ').slice(1);
   const pathIndex = afterComment.findIndex((str: string) => str.includes('/'));
   const path: string = afterComment[pathIndex]?.toString() || '';
@@ -152,8 +152,8 @@ export async function getStaticDocString(item: FishCompletionItem): Promise<stri
 
 export async function getAbbrDocString(name: string): Promise<string | undefined> {
   const items: string[] = await execCmd('abbr --show | string split \' -- \' -m1 -f2');
-  function getAbbr(items: string[]) : [string, string] {
-    const start : string = `${name} `;
+  function getAbbr(items: string[]): [string, string] {
+    const start: string = `${name} `;
     for (const item of items) {
       if (item.startsWith(start)) {
         return [start.trimEnd(), item.slice(start.length)];
@@ -268,6 +268,10 @@ export function initializeMap(collection: string[], type: SymbolKind, _uri?: str
   return items;
 }
 
+export const extraBuiltins: string[] = [
+  'export',
+];
+
 /**
  * Uses internal fish shell commands to store brief output for global variables, functions,
  * builtins, and unknown identifiers. This class is meant to be initialized once, on server
@@ -299,6 +303,10 @@ export class DocumentationCache {
       this._variables = initializeMap(vars, SymbolKind.Variable, uri);
       this._functions = initializeMap(funcs, SymbolKind.Function, uri);
       this._builtins = initializeMap(builtins, SymbolKind.Class, uri);
+    });
+    // add the extra builtins
+    extraBuiltins.forEach((builtin) => {
+      this._builtins.set(builtin, createCachedItem(SymbolKind.Class));
     });
     return this;
   }
@@ -334,9 +342,9 @@ export class DocumentationCache {
    * Resolves a symbol's documentation. Store's resolved items in the Cache, otherwise
    * returns the already cached item.
    */
-  async resolve(name: string, uri?:string, type?: SymbolKind) {
+  async resolve(name: string, uri?: string, type?: SymbolKind) {
     const itemType = type || this.findType(name);
-    let item : CachedGlobalItem | undefined = this.find(name, itemType);
+    let item: CachedGlobalItem | undefined = this.find(name, itemType);
     if (!item) {
       item = createCachedItem(itemType, uri);
       this._unknowns.set(name, item);

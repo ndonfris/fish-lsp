@@ -4,7 +4,7 @@ function get_type --argument-names str
     set -l type_result (type -t "$str" 2> /dev/null)
     switch "$type_result"
     case "function"
-        if type -f -q $str 2> /dev/null
+        if type -f -q $str 2>/dev/null || contains -- $str export
             echo 'command'
         else
             echo 'file'

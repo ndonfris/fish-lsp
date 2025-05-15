@@ -52,7 +52,7 @@ export function getWorkspacePathsFromInitializationParams(params: LSP.Initialize
   return Array.from(new Set(result));
 }
 
-async function getFileUriSet(path: string) {
+export async function getFileUriSet(path: string) {
   const stream = fastGlob.stream('**/*.fish', { cwd: path, absolute: true });
   const result: Set<string> = new Set();
   for await (const entry of stream) {
@@ -63,7 +63,7 @@ async function getFileUriSet(path: string) {
   return result;
 }
 
-function syncGetFileUriSet(path: string) {
+export function syncGetFileUriSet(path: string) {
   const result: Set<string> = new Set();
   const entries = fastGlob.sync('**/*.fish', { cwd: path, absolute: true });
   for (const entry of entries) {
@@ -182,7 +182,7 @@ export class Workspace implements FishWorkspace {
   public path: string;
   private analyzedUris: Set<string> = new Set();
   private unanalyzedUris: Set<string> = new Set();
-  private uris: Set<string> = new Set();
+  public uris: Set<string> = new Set();
   public symbols: Map<string, FishSymbol[]> = new Map();
 
   public static async create(name: string, uri: string, path: string) {
@@ -237,10 +237,28 @@ export class Workspace implements FishWorkspace {
   }
 
   public get allUris() {
-    if (this.uris.size === (this.analyzedUris.size + this.unanalyzedUris.size)) {
-      return this.uris;
+    // for (const uri of Array.from(this.unanalyzedUris)) {
+    //   this.uris.add(uri);
+    // }
+    // for (const uri of Array.from(this.analyzedUris)) {
+    //   this.uris.add(uri);
+    // }
+    // logger.log('allUris', {
+    //   allUris: this.uris.size,
+    //   analyzedUris: this.analyzedUris.size,
+    //   unanalyzedUris: this.unanalyzedUris.size,
+    // })
+    const newSet = new Set<string>();
+    for (const uri of Array.from(this.unanalyzedUris)) {
+      newSet.add(uri);
     }
-    return new Set<string>(...Array.from(this.analyzedUris), ...Array.from(this.unanalyzedUris));
+    for (const uri of Array.from(this.analyzedUris)) {
+      newSet.add(uri);
+    }
+    for (const uri of Array.from(this.uris)) {
+      newSet.add(uri);
+    }
+    return newSet;
   }
 
   public get allAnalyzedUris() {
@@ -285,6 +303,7 @@ export class Workspace implements FishWorkspace {
   add(...newUris: string[]) {
     for (const newUri of newUris) {
       this.unanalyzedUris.add(newUri);
+      this.uris.add(newUri);
     }
   }
 
@@ -330,7 +349,7 @@ export class Workspace implements FishWorkspace {
   }
 
   isAnalyzed() {
-    return this.urisToAnalyze.length === 0 && this.allUris.size > 0;
+    return this.unanalyzedUris.size === 0 && this.allUris.size > 0;
   }
 
   async updateFiles() {
@@ -396,6 +415,17 @@ export class Workspace implements FishWorkspace {
     });
     const docs = await Promise.all(readPromises);
     return docs.filter((doc): doc is LspDocument => doc !== null);
+  }
+
+  documentsToAnalyze(): LspDocument[] {
+    const docs: LspDocument[] = [];
+    for (const uri of this.urisToAnalyze) {
+      const path = uriToPath(uri);
+      const content = readFileSync(path);
+      const doc = toLspDocument(path, content.toString());
+      docs.push(doc);
+    }
+    return docs;
   }
 
   async analyze(analyzer: Analyzer) {

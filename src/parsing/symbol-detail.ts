@@ -258,6 +258,8 @@ function buildVariableDetail(symbol: FishSymbol) {
 }
 
 export function createDetail(symbol: FishSymbol) {
+  if (symbol.fishKind === 'EXPORT') return symbol.detail.toString();
+
   const symbolKind = getSymbolKind(symbol);
   if (symbolKind === '') return symbol.detail;
 

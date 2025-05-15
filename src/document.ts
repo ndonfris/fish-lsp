@@ -365,6 +365,13 @@ export class LspDocuments {
     return true;
   }
 
+  isOpen(path: string | DocumentUri): boolean {
+    if (URI.isUri(path)) {
+      path = uriToPath(path);
+    }
+    return this.documents.has(path);
+  }
+
   get uris(): string[] {
     return Array.from(this._files).map(file => pathToUri(file));
   }
@@ -442,6 +449,11 @@ export class LspDocuments {
       return URI.parse(document.uri);
     }
     return URI.file(filepath);
+  }
+
+  clear(): void {
+    this.documents.clear();
+    this._files.length = 0;
   }
 }
 

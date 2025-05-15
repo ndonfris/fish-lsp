@@ -194,11 +194,16 @@ export async function timeServerStartup() {
   // 2. Time server initialization and background analysis
   await timeOperation(async () => {
     // Create array of workspace analysis promises with timing
-    await Promise.all(workspaces.orderedWorkspaces().map(async (workspace) => {
-      items[workspace.path] = workspace.paths.length;
-      all += workspace.paths.length;
-      await server!.analyzer.analyzeWorkspace(workspace);
-    }));
+    // await Promise.all(workspaces.orderedWorkspaces().map(async (workspace) => {
+    //   items[workspace.path] = workspace.paths.length;
+    //   all += workspace.paths.length;
+    //   await server!.analyzer.analyzeWorkspace(workspace);
+    // }));
+    const result = await server?.analyzer.initiateBackgroundAnalysis();
+    if (result) {
+      all = result.totalFilesParsed;
+      items = result.items;
+    }
   }, 'Background Analysis Time');
 
 
