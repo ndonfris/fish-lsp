@@ -4,7 +4,7 @@ import { BuildCapabilityString, PathObj, PackageLspVersion, PackageVersion, accu
 import { Command, Option } from 'commander';
 import { buildFishLspCompletions } from './utils/get-lsp-completions';
 import { logger } from './logger';
-import { configHandlers, generateJsonSchemaShellScript, config, showJsonSchemaShellScript, updateHandlers, validHandlers, Config } from './config';
+import { configHandlers, config, updateHandlers, validHandlers, Config, handleEnvOutput } from './config';
 import { ConnectionOptions, ConnectionType, createConnectionType, startServer, timeServerStartup } from './utils/startup';
 import { performHealthCheck } from './utils/health-check';
 
@@ -108,20 +108,6 @@ commandBin.command('start')
     // use the `config` object's shell environment values to update the handlers
     updateHandlers(config.fish_lsp_enabled_handlers, true);
     updateHandlers(config.fish_lsp_disabled_handlers, false);
-
-    // logger.log({
-    //   commandBinArgs: commandBin.args,
-    //   opts,
-    //   globalOpts: commandBin.opts(),
-    //   args: {
-    //     enabled: opts?.enable,
-    //     disabled: opts?.disable,
-    //     dump: opts?.dump,
-    //     stdio: opts?.stdio,
-    //     nodeIpc: opts?.nodeIpc,
-    //     socket: opts?.socket,
-    //   }
-    // })
 
     // Handle max files option
     if (opts.maxFiles && !isNaN(parseInt(opts.maxFiles))) {
@@ -285,17 +271,20 @@ commandBin.command('env')
   .description('generate fish-lsp env variables')
   .option('-c, --create', 'build initial fish-lsp env variables')
   .option('-s, --show', 'show the current fish-lsp env variables')
+  .option('--show-default', 'show the default fish-lsp env variables')
+  .option('--only <variables...>', 'only show specified variables (comma-separated)')
   .option('--no-comments', 'skip comments in output')
   .option('--no-global', 'use local env variables')
   .option('--no-local', 'do not use local scope for variables')
   .option('--no-export', 'don\'t export the variables')
   .option('--confd', 'output for piping to conf.d')
   .action(args => {
-    if (args.show) {
-      showJsonSchemaShellScript(args.confd || false, args.comments, args.global, args.local, args.export);
-      process.exit(0);
-    }
-    generateJsonSchemaShellScript(args.confd || false, args.comments, args.global, args.local, args.export);
+    const only = args.only ?
+      typeof args.only === 'string' ? args.only.split(',') : args.only :
+      undefined;
+    const outputType = args.showDefault ? 'showDefault' : args.show ? 'show' : 'create';
+    handleEnvOutput(outputType, logger.logToStdout, { ...args, only });
+    process.exit(0);
   });
 
 /**

@@ -2,7 +2,7 @@ import { Connection, ExecuteCommandParams, MessageType, Position, Range, TextEdi
 import { Analyzer } from './analyze';
 import { codeActionHandlers } from './code-actions/code-action-handler';
 import { createFixAllAction } from './code-actions/quick-fixes';
-import { config, generateJsonSchemaShellScript } from './config';
+import { config, handleEnvOutput } from './config';
 import { getDiagnostics } from './diagnostics/validate';
 import { LspDocuments } from './document';
 import { buildExecuteNotificationResponse, execEntireBuffer, fishLspPromptIcon, useMessageKind } from './execute-handler';
@@ -391,7 +391,14 @@ export function createExecuteCommandHandler(
     const outputCallback = (s: string) => {
       output.push(s);
     };
-    generateJsonSchemaShellScript(false, true, true, false, true, outputCallback);
+    handleEnvOutput('show', outputCallback, {
+      confd: false,
+      comments: true,
+      global: true,
+      local: false,
+      export: true,
+      only: undefined,
+    });
     connection.sendNotification('window/showMessage', {
       type: MessageType.Info,  // Info, Warning, Error, Log
       message: ` Fish LSP Environment Variables: \n ${env.getAutoloadedKeys().join('\n')} `,

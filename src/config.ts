@@ -267,77 +267,104 @@ function buildOutput(confd: boolean, result: string[]) {
 }
 
 /**
- * generateJsonSchemaShellScript - just prints the starter template for the schema
- * in fish-shell
+ * Handles building the output for the `fish-lsp env` command
  */
-export function generateJsonSchemaShellScript(confd: boolean, showComments: boolean, useGlobal: boolean, useLocal: boolean, useExport: boolean, callbackfn: (s: string) => void = (s: string) => logger.logToStdout(s)) {
+export function handleEnvOutput(
+  outputType: 'show' | 'create' | 'showDefault',
+  callbackfn: (str: string) => void = (str) => logger.logToStdout(str),
+  opts: {
+    confd: boolean;
+    comments: boolean;
+    global: boolean;
+    local: boolean;
+    export: boolean;
+    only: string[] | undefined;
+  } = {
+    confd: true,
+    comments: true,
+    global: true,
+    local: true,
+    export: true,
+    only: undefined,
+  },
+) {
+  const command = getEnvVariableCommand(opts.global, opts.local, opts.export);
   const result: string[] = [];
-  const command = getEnvVariableCommand(useGlobal, useLocal, useExport);
 
   const variables = PrebuiltDocumentationMap
     .getByType('variable', 'fishlsp')
     .filter((v) => EnvVariableJson.is(v))
     .filter((v) => !v.isDeprecated);
 
-  variables.forEach(entry => {
-    const { name } = entry;
-    const line = !showComments
-      ? `${command} ${name}\n`
-      : [
-        EnvVariableJson.toCliOutput(entry),
-        `${command} ${name}`,
-        '',
-      ].join('\n');
-    result.push(line);
-  });
-  const output = buildOutput(confd, result);
-  callbackfn(output);
-}
+  const getEnvVariableJsonObject = (keyName: string): EnvVariableJson =>
+    variables.find(entry => entry.name === keyName)!;
 
-/**
- * showJsonSchemaShellScript - prints the current environment schema
- * in fish
- */
-export function showJsonSchemaShellScript(confd: boolean, showComments: boolean, useGlobal: boolean, useLocal: boolean, useExport: boolean) {
-  const { config } = getConfigFromEnvironmentVariables();
-  const command = getEnvVariableCommand(useGlobal, useLocal, useExport);
-  const variables = PrebuiltDocumentationMap
-    .getByType('variable', 'fishlsp')
-    .filter((v) => EnvVariableJson.is(v))
-    .filter((v) => !v.isDeprecated);
+  // Converts a value to valid fish-shell code
+  const convertValueToShellOutput = (value: Config.ConfigValueType) => {
+    if (!Array.isArray(value)) return escapeValue(value) + '\n';
 
-  const findValue = (keyName: string) => {
-    return variables.find(entry => entry.name === keyName)!;
+    // For arrays
+    if (value.length === 0) return "''\n"; // empty array -> ''
+    return value.map(v => escapeValue(v)).join(' ') + '\n'; // escape and join array
   };
 
-  const result: string[] = [];
+  // Gets the default value for an environment variable, from the zod schema
+  const getDefaultValueAsShellOutput = (key: Config.ConvigKeyType) => {
+    const value = Config.getDefaultValue(key);
+    return convertValueToShellOutput(value);
+  };
+
+  // Builds the line (with its comment if needed) for a fish_lsp_* variable.
+  // Does not include the value
+  const buildBasicLine = (
+    entry: EnvVariableJson,
+    command: EnvVariableCommand,
+    key: Config.ConvigKeyType,
+  ) => {
+    if (!opts.comments) return `${command} ${key} `;
+    return [
+      EnvVariableJson.toCliOutput(entry),
+      `${command} ${key} `,
+    ].join('\n');
+  };
+
+  // builds the output for a fish_lsp_* variable (including the comments, and valid shell code)
+  const buildOutputSection = (
+    entry: EnvVariableJson,
+    command: EnvVariableCommand,
+    key: Config.ConvigKeyType,
+    value: Config.ConfigValueType,
+  ) => {
+    let line = buildBasicLine(entry, command, key);
+    switch (outputType) {
+      case 'show':
+        line += convertValueToShellOutput(value);
+        break;
+      case 'showDefault':
+        line += getDefaultValueAsShellOutput(key);
+        break;
+      case 'create':
+      default:
+        break;
+    }
+    return line;
+  };
+
+  // show - output what is currently being used
+  // create - output the default value
+  // showDefault - output the default value
   for (const item of Object.entries(config)) {
     const [key, value] = item;
-    const entry = findValue(key);
-
-    let line = !showComments
-      ? `${command} ${key} `
-      : [
-        EnvVariableJson.toCliOutput(entry),
-        `${command} ${key} `,
-      ].join('\n');
-
-    if (Array.isArray(value)) {
-      if (value.length === 0) {
-        line += "''\n"; // Print two single quotes for empty arrays
-      } else {
-        // Map each value to ensure any special characters are escaped
-        const escapedValues = value.map(v => escapeValue(v));
-        line += escapedValues.join(' ') + '\n'; // Join array values with a space
-      }
-    } else {
-      // Use a helper function to handle string escaping
-      line += escapeValue(value) + '\n';
-    }
+    if (opts.only && !opts.only.includes(key)) continue;
+    const configKey = key as keyof Config;
+    const entry = getEnvVariableJsonObject(key);
+    const line = buildOutputSection(entry, command, configKey, value);
     result.push(line);
   }
-  const output = buildOutput(confd, result);
-  logger.logToStdout(output);
+
+  const output = buildOutput(opts.confd, result);
+  callbackfn(output);
+  return output;
 }
 
 /*************************************
@@ -354,6 +381,7 @@ function escapeValue(value: string | number | boolean): string {
   }
 }
 
+type EnvVariableCommand = 'set -g' | 'set -l' | 'set -gx' | 'set -lx' | 'set' | 'set -x';
 /**
  * getEnvVariableCommand - returns the correct command for setting environment variables
  * in fish-shell. Used for generating `fish-lsp env` output. Result string will be
@@ -369,7 +397,7 @@ function escapeValue(value: string | number | boolean): string {
  * @param {boolean} useExport - whether to use the export flag
  * @returns {string} - the correct command for setting environment variables
  */
-function getEnvVariableCommand(useGlobal: boolean, useLocal: boolean, useExport: boolean): 'set -g' | 'set -l' | 'set -gx' | 'set -lx' | 'set' | 'set -x' {
+function getEnvVariableCommand(useGlobal: boolean, useLocal: boolean, useExport: boolean): EnvVariableCommand {
   let command = 'set';
   command = useGlobal ? `${command} -g` : useLocal ? `${command} -l` : command;
   command = useExport ? command.endsWith('-g') || command.endsWith('-l') ? `${command}x` : `${command} -x` : command;
@@ -455,6 +483,9 @@ export namespace Config {
     return;
   }
 
+  export type ConfigValueType = string | number | boolean | string[] | number[]; // Config[keyof Config] | string[] | number[];
+  export type ConvigKeyType = keyof Config;
+
   export function getDefaultValue(key: keyof Config): Config[keyof Config] {
     const defaults = ConfigSchema.parse({});
     return defaults[key];
@@ -466,6 +497,13 @@ export namespace Config {
   export const deprecatedKeys: { [deprecated_key: string]: keyof Config; } = {
     ['fish_lsp_logfile']: 'fish_lsp_log_file',
   };
+
+  // Or use a helper function approach for even better typing
+  const keys = <T extends z.ZodObject<any>>(schema: T): Array<keyof z.infer<T>> => {
+    return Object.keys(schema.shape) as Array<keyof z.infer<T>>;
+  };
+
+  export const allKeys: Array<keyof typeof ConfigSchema.shape> = keys(ConfigSchema);
 
   /**
    * We only need to call this for the `initializationOptions`, but it ensures any string
