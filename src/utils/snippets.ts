@@ -49,7 +49,7 @@ export type CliObject = {
   defaultValue: string;
 };
 
-interface EnvVariableJson extends BaseJson {
+export interface EnvVariableJson extends BaseJson {
   type: JsonType;
   specialType: SpecialType;
   valueType: 'boolean' | 'number' | 'string' | 'array';

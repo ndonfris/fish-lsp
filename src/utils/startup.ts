@@ -21,20 +21,13 @@ export function createConnectionType(opts: {
   nodeIpc?: boolean;
   socket?: boolean;
 }): ConnectionType {
-  if (opts.stdio) {
-    return 'stdio';
-  }
-  if (opts.nodeIpc) {
-    return 'node-ipc';
-  }
-  if (opts.socket) {
-    return 'socket';
-  }
+  if (opts.stdio) return 'stdio';
+  if (opts.nodeIpc) return 'node-ipc';
+  if (opts.socket) return 'socket';
   return 'stdio';
 }
 
 export let connection: Connection;
-
 /**
  * Creates an LSP connection based on the specified type
  */
@@ -243,8 +236,9 @@ export async function timeServerStartup() {
  * @returns A formatted string with aligned columns
  */
 function formatColumns(text: string[], widths: number[], maxLen = 85): string {
+  const extraSpace: number[] = [].fill(10, text.length - widths.length);
   const fixedWidths = widths.length < text.length
-    ? [...widths, ...([] as number[]).fill(10, text.length - widths.length)]
+    ? [...widths, ...extraSpace]
     : Array.from(widths);
   let maxWidth = 0;
   fixedWidths.map(Math.abs).forEach(num => maxWidth += num);

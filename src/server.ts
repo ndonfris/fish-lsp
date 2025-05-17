@@ -153,10 +153,10 @@ export default class FishServer {
     connection.onDidChangeTextDocument(this.didChangeTextDocument.bind(this));
     connection.onDidCloseTextDocument(this.didCloseTextDocument.bind(this));
     connection.onDidSaveTextDocument(this.didSaveTextDocument.bind(this));
-    // • for multiple completionProviders -> https://github.com/microsoft/vscode-extension-samples/blob/main/completions-sample/src/extension.ts#L15
-    // • https://github.com/Dart-Code/Dart-Code/blob/7df6509870d51cc99a90cf220715f4f97c681bbf/src/providers/dart_completion_item_provider.ts#L197-202
+
     connection.onCompletion(this.onCompletion.bind(this));
     connection.onCompletionResolve(this.onCompletionResolve.bind(this));
+
     connection.onDocumentSymbol(this.onDocumentSymbols.bind(this));
     connection.onWorkspaceSymbol(this.onWorkspaceSymbol.bind(this));
 
@@ -166,9 +166,10 @@ export default class FishServer {
     connection.onHover(this.onHover.bind(this));
 
     connection.onRenameRequest(this.onRename.bind(this));
+
     connection.onDocumentFormatting(this.onDocumentFormatting.bind(this));
-    connection.onDocumentOnTypeFormatting(this.onDocumentTypeFormatting.bind(this));
     connection.onDocumentRangeFormatting(this.onDocumentRangeFormatting.bind(this));
+    connection.onDocumentOnTypeFormatting(this.onDocumentTypeFormatting.bind(this));
     connection.onCodeAction(onCodeAction);
 
     connection.onCodeLens(this.onCodeLens.bind(this));
@@ -178,7 +179,6 @@ export default class FishServer {
 
     connection.onDocumentHighlight(documentHighlightHandler);
     connection.languages.inlayHint.on(this.onInlayHints.bind(this));
-    // connection.onCodeLens(this.onCodeLens.bind(this));
     connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
     connection.onExecuteCommand(executeHandler);
     logger.log({ 'server.register': 'registered' });
@@ -277,7 +277,6 @@ export default class FishServer {
       });
       const progress = await AnalyzeProgressToken.create(this.connection, { workspace: workspaces.current });
       await this.analyzer.analyzeWorkspace(workspaces.current, (t) => logger.log(t), progress);
-      progress.done();
     }
     this.analyzer.updateConfigInWorkspace(params.textDocument.uri);
   }
@@ -423,9 +422,7 @@ export default class FishServer {
   // ResolveWorkspaceResult
   // https://github.com/Dart-Code/Dart-Code/blob/master/src/extension/providers/dart_workspace_symbol_provider.ts#L7
   //
-  onDocumentSymbols(
-    params: DocumentSymbolParams,
-  ): DocumentSymbol[] {
+  onDocumentSymbols(params: DocumentSymbolParams): DocumentSymbol[] {
     this.logParams('onDocumentSymbols', params);
 
     const { doc } = this.getDefaultsForPartialParams(params);
