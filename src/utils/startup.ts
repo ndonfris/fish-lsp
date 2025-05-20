@@ -10,8 +10,6 @@ import { PackageVersion } from './commander-cli-subcommands';
 import { createConnection, InitializeParams, InitializeResult, StreamMessageReader, StreamMessageWriter, ProposedFeatures, Connection } from 'vscode-languageserver/node';
 import * as net from 'net';
 import { workspaceManager } from './workspace-manager';
-import { analyzer } from '../analyze';
-import { AnalyzeProgressToken, ProgressWrapper } from './progress-token';
 
 // Define proper types for the connection options
 export type ConnectionType = 'stdio' | 'node-ipc' | 'socket';
@@ -189,7 +187,7 @@ export async function timeServerStartup() {
   }, 'Server Start Time');
 
   let all: number = 0;
-  let items: { [key: string]: number; } = {};
+  const items: { [key: string]: number; } = {};
 
   // 2. Time server initialization and background analysis
   await timeOperation(async () => {

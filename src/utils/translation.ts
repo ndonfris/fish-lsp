@@ -30,7 +30,7 @@ export function isPath(pathOrUri: unknown): pathOrUri is PathLike {
 
 /**
  * Type guard to check if an object is a TextDocument from vscode-languageserver-textdocument
- * 
+ *
  * @param value The value to check
  * @returns True if the value is a TextDocument, false otherwise
  */
@@ -54,7 +54,7 @@ export function isTextDocument(value: unknown): value is TextDocument {
 
 /**
  * Type guard to check if an object is a TextDocumentItem from vscode-languageserver
- * 
+ *
  * @param value The value to check
  * @returns True if the value is a TextDocumentItem, false otherwise
  */

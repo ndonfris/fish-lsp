@@ -318,7 +318,7 @@ export class LspDocument implements TextDocument {
 
   /**
    * Type guard to check if an object is an LspDocument
-   * 
+   *
    * @param value The value to check
    * @returns True if the value is an LspDocument, false otherwise
    */
@@ -448,7 +448,6 @@ export class LspDocuments {
     return true;
   }
 
-
   // open(doc: LspDocument): boolean {
   //   const file = uriToPath(doc.uri);
   //   if (this.documents.has(file)) {
@@ -515,12 +514,12 @@ export class LspDocuments {
     return this.close(path);
   }
 
-  close(uri: DocumentUri): LspDocument | undefined; 
-  close(path: PathLike): LspDocument | undefined; 
-  close(lspDocument: LspDocument): LspDocument | undefined; 
-  close(textDocument: TextDocument): LspDocument | undefined; 
-  close(textDocumentItem: TextDocumentItem): LspDocument | undefined; 
-  close(param: PathLike | DocumentUri | LspDocument | TextDocument | TextDocumentItem): LspDocument | undefined; 
+  close(uri: DocumentUri): LspDocument | undefined;
+  close(path: PathLike): LspDocument | undefined;
+  close(lspDocument: LspDocument): LspDocument | undefined;
+  close(textDocument: TextDocument): LspDocument | undefined;
+  close(textDocumentItem: TextDocumentItem): LspDocument | undefined;
+  close(param: PathLike | DocumentUri | LspDocument | TextDocument | TextDocumentItem): LspDocument | undefined;
   close(param: PathLike | DocumentUri | LspDocument | TextDocument | TextDocumentItem): LspDocument | undefined {
     const path: string = this.getPathFromParam(param);
     const document = this.documents.get(path);
@@ -589,5 +588,4 @@ export class LspDocuments {
  *       and it updates the `documents` object here, when they are seen
  */
 export const documents = LspDocuments.create();
-
 

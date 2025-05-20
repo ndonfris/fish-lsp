@@ -1,15 +1,15 @@
 import * as fastGlob from 'fast-glob';
-import { readFileSync, promises } from 'fs';
+import { readFileSync } from 'fs';
 import { pathToUri, toLspDocument, uriToPath } from './translation';
-import { LspDocument, documents } from '../document';
+import { LspDocument } from '../document';
 import { FishSymbol } from '../parsing/symbol';
 import { config } from '../config';
 import { logger } from '../logger';
 import { basename, dirname, join } from 'path';
 import * as LSP from 'vscode-languageserver';
 import { env } from './env-manager';
-import { AsyncFileHelper, SyncFileHelper } from './file-operations';
-import { AnalyzedDocument, Analyzer } from '../analyze';
+import { SyncFileHelper } from './file-operations';
+import { AnalyzedDocument } from '../analyze';
 import { workspaceManager } from './workspace-manager';
 import { DocumentUri } from 'vscode-languageserver';
 
@@ -533,7 +533,6 @@ export namespace FishUriWorkspace {
     };
   }
 }
-
 
 /**
  * Minimal tracker for URI analysis status within a workspace

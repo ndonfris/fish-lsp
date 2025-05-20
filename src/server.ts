@@ -1,12 +1,10 @@
 import { SyntaxNode } from 'web-tree-sitter';
-import { initializeParser } from './parser';
 import { AnalyzedDocument, analyzer, Analyzer } from './analyze';
-import { AnalyzeProgressToken, ProgressWrapper } from './utils/progress-token';
-import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, ImplementationParams, CodeLensParams, CodeLens, WorkspaceFoldersChangeEvent, MessageActionItem } from 'vscode-languageserver';
+import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, ImplementationParams, CodeLensParams, CodeLens, WorkspaceFoldersChangeEvent } from 'vscode-languageserver';
 import * as LSP from 'vscode-languageserver';
-import { LspDocument, LspDocuments, documents } from './document';
+import { LspDocument, documents } from './document';
 import { formatDocumentContent } from './formatting';
-import { Logger, logger } from './logger';
+import { logger } from './logger';
 import { formatTextWithIndents, symbolKindsFromNode, uriToPath } from './utils/translation';
 import { getChildNodes } from './utils/tree-sitter';
 import { getVariableExpansionDocs, handleHover } from './hover';
@@ -129,7 +127,6 @@ export default class FishServer {
   protected features: SupportedFeatures;
   public clientSupportsShowDocument: boolean;
   public backgroundAnalysisComplete: boolean;
-  public onOpenCallbacks: Function[] = [];
 
   constructor(
     // the connection of the FishServer
@@ -151,7 +148,6 @@ export default class FishServer {
     const { onCodeAction } = codeActionHandlers(documents, analyzer);
     const executeHandler = createExecuteCommandHandler(connection, documents, analyzer);
     const documentHighlightHandler = getDocumentHighlights(analyzer);
-
 
     // register the handlers
 
@@ -204,7 +200,7 @@ export default class FishServer {
     if (!this.backgroundAnalysisComplete) return;
     if (workspaceManager.needsAnalysis() && workspaceManager.allAnalysisDocuments().length > 0) {
       const progress = await connection.window.createWorkDoneProgress();
-      progress.begin(`[fish-lsp] analysis`);
+      progress.begin('[fish-lsp] analysis');
       await workspaceManager.analyzePendingDocuments(progress, (str) => logger.info('didOpen', str));
       progress.done();
     }
@@ -250,7 +246,7 @@ export default class FishServer {
   async didSaveTextDocument(params: LSP.DidSaveTextDocumentParams): Promise<void> {
     this.logParams('didSaveTextDocument', params);
     const path = uriToPath(params.textDocument.uri);
-    let doc = documents.get(path);
+    const doc = documents.get(path);
     if (doc) {
       this.analyzeDocument({ uri: doc.uri });
       workspaceManager.handleUpdateDocument(doc);
@@ -268,7 +264,7 @@ export default class FishServer {
       });
     }
     const result = await connection.window.createWorkDoneProgress().then(async (progress) => {
-      progress.begin(`[fish-lsp] analyzing workspaces`);
+      progress.begin('[fish-lsp] analyzing workspaces');
       const { totalDocuments } = await workspaceManager.analyzePendingDocuments(progress, (str) => logger.info('onInitialized', str));
       progress.done();
       this.backgroundAnalysisComplete = true;
@@ -466,7 +462,7 @@ export default class FishServer {
     if (!doc) return [];
 
     return getReferences(analyzer, doc, params.position);
-  };
+  }
 
   /**
    * bi-directional lookup of completion <-> definition under cursor location.
@@ -481,7 +477,7 @@ export default class FishServer {
     const result = analyzer.getImplementation(doc, params.position);
     logger.log('implementationResult', { result });
     return result;
-  };
+  }
 
   // Probably should move away from `documentationCache`. It works but is too expensive memory wise.
   // REFACTOR into a procedure that conditionally determines output type needed.
@@ -659,7 +655,7 @@ export default class FishServer {
     };
 
     return [TextEdit.replace(fullRange, formattedText)];
-  };
+  }
   /**
    * Currently only works for whole line selections, in the future we should try to make every
    * selection a whole line selection.
@@ -737,7 +733,7 @@ export default class FishServer {
     folds.forEach((fold) => logger.log({ fold }));
 
     return folds;
-  };
+  }
 
   // works but is super slow and resource intensive, plus it doesn't really display much
   async onInlayHints(params: InlayHintParams) {

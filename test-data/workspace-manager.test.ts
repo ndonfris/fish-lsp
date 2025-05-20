@@ -621,7 +621,6 @@ describe('workspace-manager tests', () => {
       });
     });
 
-
     // it('test /tmp/foooo.fish', async () => {
     //   const newUri = createFakeUriPath('/tmp/foooo.fish');
     //   const newDoc = LspDocument.createFromUri(newUri);
@@ -733,7 +732,7 @@ describe.only('testing adding and removing workspaces with overlapping docs', ()
           `source ${testWorkspace3Path}/functions/func3.fish`,
           `source ${testWorkspace3Path}/functions/func4.fish`,
         ),
-      ]
+      ],
     },
     {
       dirpath: testWorkspace2Path,
@@ -752,27 +751,27 @@ describe.only('testing adding and removing workspaces with overlapping docs', ()
       docs: [
         createFakeLspDocument(
           path.join(testWorkspace3Path, 'functions', 'func1.fish'),
-          `function func1`,
-          `      echo "func1"`,
-          `end`,
+          'function func1',
+          '      echo "func1"',
+          'end',
         ),
         createFakeLspDocument(
           path.join(testWorkspace3Path, 'functions', 'func2.fish'),
-          `function func2`,
-          `      echo "func2"`,
-          `end`,
+          'function func2',
+          '      echo "func2"',
+          'end',
         ),
         createFakeLspDocument(
           path.join(testWorkspace3Path, 'functions', 'func3.fish'),
-          `function func3`,
-          `      echo "func3"`,
-          ` end`,
+          'function func3',
+          '      echo "func3"',
+          ' end',
         ),
         createFakeLspDocument(
           path.join(testWorkspace3Path, 'functions', 'func4.fish'),
-          `function func4`,
-          `     echo "func4"`,
-          `end`,
+          'function func4',
+          '     echo "func4"',
+          'end',
         ),
       ],
     },
@@ -796,7 +795,7 @@ describe.only('testing adding and removing workspaces with overlapping docs', ()
           `source ${testWorkspace3Path}/functions/func4.fish`,
         ),
       ],
-    }
+    },
   ];
 
   beforeAll(() => {

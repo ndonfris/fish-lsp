@@ -4,9 +4,7 @@ import { Workspace, WorkspaceUri } from './workspace';
 import { documents, LspDocument } from '../document';
 import { analyzer } from '../analyze';
 import { config } from '../config';
-import { ProgressWrapper } from './progress-token';
 import { isPath, PathLike, pathToUri } from './translation';
-import { connection } from './startup';
 
 export class WorkspaceManager {
   private stack: WorkspaceStack = new WorkspaceStack();
@@ -121,7 +119,7 @@ export class WorkspaceManager {
   }
 
   /**
-   * get all workspaces that need indexing to be done to their documents 
+   * get all workspaces that need indexing to be done to their documents
    */
   public workspacesToAnalyze(): Workspace[] {
     return this.all.filter((workspace) => workspace.needsAnalysis());
@@ -170,7 +168,7 @@ export class WorkspaceManager {
    */
   private getWorkspaceContainingUri(uri: DocumentUri): Workspace | null {
     return this.all.find((workspace) =>
-      workspace.uris.has(uri) || workspace.uri === uri
+      workspace.uris.has(uri) || workspace.uri === uri,
     ) || null;
   }
 
@@ -213,7 +211,7 @@ export class WorkspaceManager {
   public handleOpenDocument(documentUri: DocumentUri): Workspace | null;
   public handleOpenDocument(documentUri: DocumentUri | LspDocument): Workspace | null;
   public handleOpenDocument(doc: DocumentUri | LspDocument): Workspace | null {
-    logger.info('workspaceManager.handleOpenDocument()', `Opening document`, doc);
+    logger.info('workspaceManager.handleOpenDocument()', 'Opening document', doc);
     const documentUri = this.getDocumentUriFromParams(doc);
     documents.open(documentUri);
     const document = documents.getDocument(documentUri);
@@ -222,7 +220,7 @@ export class WorkspaceManager {
       logger.error(
         'workspaceManager.handleOpenDocument()',
         `Failed to create or find workspace for URI: ${documentUri}`,
-        { params: doc }
+        { params: doc },
       );
       return null;
     }
@@ -232,7 +230,7 @@ export class WorkspaceManager {
     if (newWorkspace.needsAnalysis()) {
       logger.info(`workspaceManager.handleOpenDocument() - Workspace('${newWorkspace.name}').needsAnalysis()`);
       analyzer.analyzeWorkspace(newWorkspace);
-    };
+    }
     return this.current as Workspace;
   }
 
@@ -244,7 +242,7 @@ export class WorkspaceManager {
   public handleCloseDocument(documentUri: DocumentUri): Workspace | null;
   public handleCloseDocument(doc: DocumentUri | LspDocument): Workspace | null;
   public handleCloseDocument(doc: DocumentUri | LspDocument): Workspace | null {
-    logger.info('workspaceManager.handleCloseDocument()', `Closing document`, { params: doc });
+    logger.info('workspaceManager.handleCloseDocument()', 'Closing document', { params: doc });
     const totalUrisBeforeRemoval = this.allUrisInAllWorkspaces.length;
     const documentUri = this.getDocumentUriFromParams(doc);
     const workspace = this.getWorkspaceContainingUri(documentUri);
@@ -253,12 +251,12 @@ export class WorkspaceManager {
       logger.error(
         'workspaceManager.handleCloseDocument()',
         `Failed to find workspace for URI: ${documentUri}`,
-        { params: doc }
+        { params: doc },
       );
       return null;
     }
     const docsInWorkspace = documents.openDocuments.filter(doc =>
-      workspace.contains(doc.uri) && this.allWorkspacesWithDocument(doc).length === 1
+      workspace.contains(doc.uri) && this.allWorkspacesWithDocument(doc).length === 1,
     );
     if (docsInWorkspace.length === 0) this.remove(workspace);
     logger.info('workspaceManager.handleCloseDocument()', {
@@ -281,13 +279,13 @@ export class WorkspaceManager {
   public handleUpdateDocument(documentUri: DocumentUri): Workspace | null;
   public handleUpdateDocument(doc: DocumentUri | LspDocument): Workspace | null;
   public handleUpdateDocument(doc: DocumentUri | LspDocument): Workspace | null {
-    logger.info('workspaceManager.handleUpdateDocument()', `Updating document:`, doc);
+    logger.info('workspaceManager.handleUpdateDocument()', 'Updating document:', doc);
     const documentUri = this.getDocumentUriFromParams(doc);
     const workspace = this.getExistingWorkspaceOrCreateNew(documentUri);
     if (!workspace) {
       logger.error(
         'workspaceManager.handleUpdateDocument()',
-        `Failed to find workspace for URI: ${documentUri}`
+        `Failed to find workspace for URI: ${documentUri}`,
       );
       return null;
     }
@@ -312,8 +310,8 @@ export class WorkspaceManager {
       'workspaceManager.handleWorkspaceChangeEvent()',
       `Workspace change event: { added: ${event.added.length}, removed: ${event.removed.length}} `,
       {
-        added: event.added.map((ws) => (ws.uri)),
-        removed: event.removed.map((ws) => (ws.uri)),
+        added: event.added.map((ws) => ws.uri),
+        removed: event.removed.map((ws) => ws.uri),
       },
     );
     event.added.forEach((workspace) => {
@@ -323,7 +321,7 @@ export class WorkspaceManager {
       } else {
         logger.warning(
           'workspaceManager.handleWorkspaceChangeEvent()',
-          `FAILED: event.added: ${workspace.uri}`
+          `FAILED: event.added: ${workspace.uri}`,
         );
       }
     });
@@ -334,12 +332,11 @@ export class WorkspaceManager {
       } else {
         logger.warning(
           'workspaceManager.handleWorkspaceChangeEvent()',
-          `FAILED event.removed: ${workspace.uri}`
+          `FAILED event.removed: ${workspace.uri}`,
         );
       }
     });
   }
-
 
   /**
    * Analyze all documents that need analysis, across all workspaces.
@@ -403,7 +400,7 @@ export class WorkspaceManager {
         logger.error(
           'workspaceManager.analyzePendingDocuments()',
           `Error analyzing document: ${doc.uri}`,
-          { error }
+          { error },
         );
       }
 
@@ -413,8 +410,8 @@ export class WorkspaceManager {
       const isBatchEnd = idx % BATCH_SIZE === BATCH_SIZE - 1;
       const timeToUpdate = currentTime - lastUpdateTime > MIN_UPDATE_INTERVAL;
 
-      if (isLastItem || (isBatchEnd && timeToUpdate)) {
-        const percentage = Math.ceil(((idx + 1) / maxSize) * 100);
+      if (isLastItem || isBatchEnd && timeToUpdate) {
+        const percentage = Math.ceil((idx + 1) / maxSize * 100);
         progress?.report(`${percentage}% Analyzing ${idx + 1}/${maxSize} ${maxSize > 1 ? 'documents' : 'document'}`);
         lastUpdateTime = currentTime;
 
@@ -435,13 +432,13 @@ export class WorkspaceManager {
         duration: `${duration}s`,
         totalDocuments: currentDocuments.length,
         maxSize,
-      }
+      },
     );
 
     return {
       items,
       totalDocuments: currentDocuments.length,
-      duration: ((endTime - startTime) / 1000),
+      duration: (endTime - startTime) / 1000,
     };
   }
   // public async analyzePendingDocuments(
@@ -520,7 +517,6 @@ export class WorkspaceManager {
   //     duration: ((endTime - startTime) / 1000),
   //   };
   // }
-
 
   // public analyzePendingDocuments(
   //   progress: ProgressWrapper | WorkDoneProgressServerReporter | undefined = undefined,
@@ -660,7 +656,7 @@ class WorkspaceStack {
 
   public remove(...workspaces: Workspace[]): void {
     this.stack = this.stack.filter((w) =>
-      !workspaces.some((ws) => ws.equals(w))
+      !workspaces.some((ws) => ws.equals(w)),
     );
   }
 }

@@ -34,7 +34,7 @@ describe('new-workspace-manager', () => {
           `source ${testWorkspace3Path}/functions/func3.fish`,
           `source ${testWorkspace3Path}/functions/func4.fish`,
         ),
-      ]
+      ],
     },
     {
       dirpath: testWorkspace2Path,
@@ -53,27 +53,27 @@ describe('new-workspace-manager', () => {
       docs: [
         createFakeLspDocument(
           path.join(testWorkspace3Path, 'functions', 'func1.fish'),
-          `function func1`,
-          `      echo "func1"`,
-          `end`,
+          'function func1',
+          '      echo "func1"',
+          'end',
         ),
         createFakeLspDocument(
           path.join(testWorkspace3Path, 'functions', 'func2.fish'),
-          `function func2`,
-          `      echo "func2"`,
-          `end`,
+          'function func2',
+          '      echo "func2"',
+          'end',
         ),
         createFakeLspDocument(
           path.join(testWorkspace3Path, 'functions', 'func3.fish'),
-          `function func3`,
-          `      echo "func3"`,
-          ` end`,
+          'function func3',
+          '      echo "func3"',
+          ' end',
         ),
         createFakeLspDocument(
           path.join(testWorkspace3Path, 'functions', 'func4.fish'),
-          `function func4`,
-          `     echo "func4"`,
-          `end`,
+          'function func4',
+          '     echo "func4"',
+          'end',
         ),
       ],
     },
@@ -97,11 +97,11 @@ describe('new-workspace-manager', () => {
           `source ${testWorkspace3Path}/functions/func4.fish`,
         ),
       ],
-    }
+    },
   ];
 
   beforeAll(async () => {
-    locations = await fishLocations()
+    locations = await fishLocations();
     for (const { dirpath, docs } of testWorkspaceSkeleton) {
       mkdirSync(dirpath, { recursive: true });
       // make subdirectories for dirs that use them
@@ -138,7 +138,7 @@ describe('new-workspace-manager', () => {
   //   }
   //   workspaces.copy(workspaceManager);
   //   // await analyzer.initiateBackgroundAnalysis()
-  // });                                                             
+  // });
 
   beforeEach(async () => {
     await Analyzer.initialize();
@@ -152,9 +152,8 @@ describe('new-workspace-manager', () => {
   });
 
   describe('setup 1', () => {
-
     beforeEach(() => {
-      workspaceManager.clear()
+      workspaceManager.clear();
       documents.clear();
       testWorkspaceSkeleton.forEach(({ dirpath, docs }) => {
         const newWorkspace = Workspace.syncCreateFromUri(pathToUri(dirpath));
@@ -166,15 +165,13 @@ describe('new-workspace-manager', () => {
           newWorkspace.uris.add(doc.uri);
         });
       });
-
     });
-
 
     it('check length', () => {
       expect(workspaceManager.all).toHaveLength(4);
     });
 
-    it("check ws 1", async () => {
+    it('check ws 1', async () => {
       const ws1 = workspaceManager.all.at(0)!;
       const focusedDoc = ws1.allDocuments().at(0)!;
       // console.log({
@@ -200,7 +197,7 @@ describe('new-workspace-manager', () => {
       documents.applyChanges(focusedDoc2.uri, [
         {
           text: [focusedDoc2.getText(), `source ${focusedDoc.path}`].join('\n'),
-        }
+        },
       ]);
       focusedDoc2 = documents.getDocument(focusedDoc2.uri)!;
       workspaceManager.handleUpdateDocument(focusedDoc2);
@@ -211,7 +208,7 @@ describe('new-workspace-manager', () => {
           focusedDoc: focusedDoc2.uri,
           isFocusedDoc: LspDocument.is(focusedDoc2),
           openedDocs: documents.openDocuments.map((doc) => doc.uri),
-        }
+        },
       });
       workspaceManager.handleCloseDocument(focusedDoc2);
       // console.log({
@@ -222,7 +219,7 @@ describe('new-workspace-manager', () => {
       expect(workspaceManager.current).toEqual(ws1);
     });
 
-    it("didChangeWorkspace", () => {
+    it('didChangeWorkspace', () => {
       const ws1 = workspaceManager.all.at(0)!;
       const focusedDoc = ws1.allDocuments().at(0)!;
       workspaceManager.handleOpenDocument(focusedDoc);
@@ -243,20 +240,20 @@ describe('new-workspace-manager', () => {
           {
             uri: ws4.uri,
             name: ws4.name,
-          }
+          },
         ],
         removed: [
           {
             uri: ws1.uri,
             name: ws1.name,
-          }
+          },
         ],
       });
-      workspaceManager.setCurrent(ws4)
+      workspaceManager.setCurrent(ws4);
       expect(workspaceManager.current).toEqual(ws4);
     });
 
-    it("check ws __fish_config_dir", () => {
+    it('check ws __fish_config_dir', () => {
       const workspaces = [
         ...workspaceManager.all,
         Workspace.syncCreateFromUri(locations.uris.fish_config.dir)!,
@@ -278,7 +275,7 @@ describe('new-workspace-manager', () => {
           value: value.length,
         })),
         total: result.totalDocuments,
-      })
+      });
       workspaceManager.handleOpenDocument(locations.uris.fish_config.config);
       workspaceManager.handleOpenDocument(locations.uris.fish_data.config);
       workspaceManager.handleCloseDocument(locations.uris.fish_data.config);
@@ -292,8 +289,6 @@ describe('new-workspace-manager', () => {
       //     openedDocs: documents.openDocuments.map((doc) => doc.uri),
       //   }
       // });
-    })
+    });
   });
-
-
 });
