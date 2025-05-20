@@ -8,7 +8,7 @@ import { TextDocumentItem, Location } from 'vscode-languageserver';
 import { LspDocument } from '../src/document';
 import { homedir } from 'os';
 import { Workspace } from '../src/utils/workspace';
-import { workspaces } from '../src/utils/workspace-manager';
+import { workspaceManager } from '../src/utils/workspace-manager';
 import { flattenNested } from '../src/utils/flatten';
 import { getChildNodes, getNamedChildNodes } from '../src/utils/tree-sitter';
 import { FishSymbol, processNestedTree } from '../src/parsing/symbol';
@@ -90,18 +90,18 @@ export function createFakeLspDocument(name: string, ...text: string[]): LspDocum
   const uri = createFakeUriPath(name);
   const doc = LspDocument.createTextDocumentItem(uri, text.join('\n'));
   // get the current workspace, if it exists, otherwise create a test workspace
-  const workspace: Workspace = workspaces?.findWorkspace(uri) || Workspace.createTestWorkspaceFromUri(uri);
+  const workspace: Workspace = workspaceManager?.findContainingWorkspace(uri) || Workspace.syncCreateFromUri(uri)!;
   // Add the uri to the workspace if it isn't already there and it should be
   // This is to ensure that test workspaces group similar files together
   if (workspace.shouldContain(uri)) {
     workspace.add(uri);
   }
   // add the workspace to the `workspaces` array if it doesn't already exist
-  if (!workspaces.workspaces.find(ws => ws.uri === workspace.uri)) {
-    workspaces.addWorkspace(workspace);
-  }
+  // if (!workspaceManager.hasContainingWorkspace(uri)) {
+  // }
+  workspaceManager.add(workspace);
   // update currentWorkspace.current with the new workspace
-  workspaces.current = workspace;
+  // workspaceManager.setCurrent(workspace)
   return doc;
 }
 

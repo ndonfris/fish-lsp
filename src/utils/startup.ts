@@ -9,6 +9,9 @@ import { PackageVersion } from './commander-cli-subcommands';
 
 import { createConnection, InitializeParams, InitializeResult, StreamMessageReader, StreamMessageWriter, ProposedFeatures, Connection } from 'vscode-languageserver/node';
 import * as net from 'net';
+import { workspaceManager } from './workspace-manager';
+import { analyzer } from '../analyze';
+import { AnalyzeProgressToken, ProgressWrapper } from './progress-token';
 
 // Define proper types for the connection options
 export type ConnectionType = 'stdio' | 'node-ipc' | 'socket';
@@ -91,6 +94,11 @@ function setupServerWithConnection(connection: Connection): void {
   logger.log('Starting FISH-LSP server');
   logger.log('Server started with the following handlers:', configHandlers);
   logger.log('Server started with the following config:', config);
+  // connection.onInitialized(async () => {
+  //   const progress = await connection.window.createWorkDoneProgress();
+  //   // progress.begin('Fish LSP', 0, 'Initializing workspace');
+  //   workspaceManager.analyzePendingDocuments(progress);
+  // });
 }
 
 /**
@@ -191,10 +199,12 @@ export async function timeServerStartup() {
     //   all += workspace.paths.length;
     //   await server!.analyzer.analyzeWorkspace(workspace);
     // }));
-    const result = await server?.analyzer.initiateBackgroundAnalysis();
+    const result = await workspaceManager.analyzePendingDocuments();
     if (result) {
-      all = result.totalFilesParsed;
-      items = result.items;
+      all = result.totalDocuments;
+      for (const [path, docUris] of Object.entries(result.items)) {
+        items[path] = docUris.length;
+      }
     }
   }, 'Background Analysis Time');
 
@@ -236,7 +246,7 @@ export async function timeServerStartup() {
  * @returns A formatted string with aligned columns
  */
 function formatColumns(text: string[], widths: number[], maxLen = 85): string {
-  const extraSpace: number[] = [].fill(10, text.length - widths.length);
+  const extraSpace: number[] = new Array<number>().fill(10, text.length - widths.length);
   const fixedWidths = widths.length < text.length
     ? [...widths, ...extraSpace]
     : Array.from(widths);

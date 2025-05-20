@@ -11,20 +11,28 @@ export namespace AnalyzeProgressToken {
    */
   export async function create(
     connection: Connection,
-    opts: { workspace: Workspace; } | { title: string; message: string; },
+    opts?: { workspace: Workspace; } | { title: string; message: string; },
   ): Promise<ProgressWrapper> {
     const progress = await connection.window.createWorkDoneProgress();
+    //   .then((progress) => {
+    //   progress.begin('fish-lsp', 0, 'Analyzing', true);
+    //   progress.report(0, 'Analyzing');
+    //   progress.done()
+    //
+    // });
     // const workspaceMaxSize = Math.min(workspace.paths.length, config.fish_lsp_max_background_files);
-    const progressWrapper = new ProgressWrapper(progress, connection);
+    progress.begin('[fish-lsp]', 0, 'Analyzing', true);
+    return new ProgressWrapper(progress, connection);
 
-    if ('workspace' in opts) {
-      const workspace = opts.workspace;
-      progressWrapper.begin(workspace.name, 0, `analyzing ${workspace.name}`);
-      return progressWrapper;
-    }
-    const { title, message } = opts;
-    progressWrapper.begin(title, 0, message);
-    return progressWrapper;
+    // if (!opts) return progressWrapper;
+    // if ('workspace' in opts) {
+    //   const workspace = opts.workspace;
+    //   progressWrapper.begin(workspace.name, 0, `analyzing ${workspace.allUris.size} file${workspace.allUris.size > 1 ? 's' : ''}`, true);
+    //   return progressWrapper;
+    // }
+    // const { title, message } = opts;
+    // progressWrapper.begin(title, 0, message);
+    // return progressWrapper;
   }
 
   /**
@@ -55,7 +63,7 @@ export class ProgressWrapper implements WorkDoneProgressReporter {
 
   begin(title: string, percentage?: number, message?: string, cancellable?: boolean): void {
     this.status = 'inProgress';
-    this._progress.begin(`[fish-lsp] ${title}`, percentage, message, cancellable);
+    this._progress.begin(title, percentage, message, cancellable);
     this.current = percentage || 0;
   }
 

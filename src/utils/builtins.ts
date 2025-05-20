@@ -60,7 +60,6 @@ export const BuiltInList = [
   'ulimit',
   'wait',
   'while',
-  // 'export' // added so that it will show manpage
 ];
 
 // You can generate this list by running `builtin --names` in a fish session

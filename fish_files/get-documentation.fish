@@ -21,12 +21,9 @@ end
 
 set -l type_result (type -t "$argv[1]" 2> /dev/null)
 
-# Array to check if the function should really show the manpage instead of its definition
-set -l special_functions_with_manpages export
-
 switch "$type_result"
 case "function"
-    if type -f -q $argv 2>/dev/null || contains -- $argv $special_functions_with_manpages
+    if type -f -q $argv 2>/dev/null
         _flsp_get_manpage $argv
     else
         functions --all $argv | col -bx 

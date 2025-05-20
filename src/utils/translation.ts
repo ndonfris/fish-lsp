@@ -1,4 +1,4 @@
-import { DocumentSymbol, SelectionRange, SymbolInformation, SymbolKind, TextDocumentItem } from 'vscode-languageserver';
+import { DocumentSymbol, DocumentUri, SelectionRange, SymbolInformation, SymbolKind, TextDocumentItem } from 'vscode-languageserver';
 import * as LSP from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { URI } from 'vscode-uri';
@@ -9,20 +9,78 @@ import * as LocationNamespace from './locations';
 import * as os from 'os';
 import { isBuiltin } from './builtins';
 import { env } from './env-manager';
+import { TextDocument } from 'vscode-languageserver-textdocument';
+import { WorkspaceUri } from './workspace';
 
 const RE_PATHSEP_WINDOWS = /\\/g;
 
-export function isUri(stringUri: string): boolean {
-  const uri = URI.parse(stringUri);
+export function isUri(stringOrUri: unknown): stringOrUri is DocumentUri {
+  if (typeof stringOrUri !== 'string') {
+    return false;
+  }
+  const uri = URI.parse(stringOrUri);
   return URI.isUri(uri);
 }
 
-export function uriToPath(stringUri: string): string {
+/** a string that is a path to a file, not a uri */
+export type PathLike = string;
+export function isPath(pathOrUri: unknown): pathOrUri is PathLike {
+  return typeof pathOrUri === 'string' && !isUri(pathOrUri);
+}
+
+/**
+ * Type guard to check if an object is a TextDocument from vscode-languageserver-textdocument
+ * 
+ * @param value The value to check
+ * @returns True if the value is a TextDocument, false otherwise
+ */
+export function isTextDocument(value: unknown): value is TextDocument {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    // TextDocument has these properties
+    typeof (value as TextDocument).uri === 'string' &&
+    typeof (value as TextDocument).languageId === 'string' &&
+    typeof (value as TextDocument).version === 'number' &&
+    typeof (value as TextDocument).lineCount === 'number' &&
+    // TextDocument has these methods
+    typeof (value as TextDocument).getText === 'function' &&
+    typeof (value as TextDocument).positionAt === 'function' &&
+    typeof (value as TextDocument).offsetAt === 'function' &&
+    // TextDocumentItem has direct 'text' property, TextDocument doesn't
+    (value as any).text === undefined
+  );
+}
+
+/**
+ * Type guard to check if an object is a TextDocumentItem from vscode-languageserver
+ * 
+ * @param value The value to check
+ * @returns True if the value is a TextDocumentItem, false otherwise
+ */
+export function isTextDocumentItem(value: unknown): value is TextDocumentItem {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    // TextDocumentItem has these properties
+    typeof (value as TextDocumentItem).uri === 'string' &&
+    typeof (value as TextDocumentItem).languageId === 'string' &&
+    typeof (value as TextDocumentItem).version === 'number' &&
+    typeof (value as TextDocumentItem).text === 'string' &&
+    // TextDocument has these methods, TextDocumentItem doesn't
+    (value as any).getText === undefined &&
+    (value as any).positionAt === undefined &&
+    (value as any).offsetAt === undefined &&
+    (value as any).lineCount === undefined
+  );
+}
+
+export function uriToPath(stringUri: DocumentUri): PathLike {
   const uri = URI.parse(stringUri);
   return normalizeFsPath(uri.fsPath);
 }
 
-export function pathToUri(filepath: string, documents?: LspDocuments | undefined): string {
+export function pathToUri(filepath: PathLike, documents?: LspDocuments | undefined): DocumentUri {
   // Yarn v2+ hooks tsserver and sends `zipfile:` URIs for Vim. Keep as-is.
   // Example: zipfile:///foo/bar/baz.zip::path/to/module
   if (filepath.startsWith('zipfile:')) {
@@ -42,7 +100,7 @@ export function pathToUri(filepath: string, documents?: LspDocuments | undefined
  * On Windows, an input path in a format like "C:/path/file.ts"
  * will be normalized to "c:/path/file.ts".
  */
-export function normalizePath(filePath: string): string {
+export function normalizePath(filePath: PathLike): PathLike {
   const fsPath = URI.file(filePath).fsPath;
   return normalizeFsPath(fsPath);
 }
@@ -54,12 +112,12 @@ export function normalizeFsPath(fsPath: string): string {
   return fsPath.replace(RE_PATHSEP_WINDOWS, '/');
 }
 
-export function pathToRelativeFunctionName(uriPath: string): string {
-  const relativeName = uriPath.split('/').at(-1) || uriPath;
+export function pathToRelativeFunctionName(filepath: PathLike): string {
+  const relativeName = filepath.split('/').at(-1) || filepath;
   return relativeName.replace('.fish', '');
 }
 
-export function uriInUserFunctions(uri: string) {
+export function uriInUserFunctions(uri: DocumentUri) {
   const path = uriToPath(uri);
   return path?.startsWith(`${os.homedir}/.config/fish`) || false;
 }
@@ -181,7 +239,7 @@ export function symbolKindToString(kind: SymbolKind) {
  * @param uri The URI to convert to a readable path
  * @returns A more readable path using fish variables or tilde when possible
  */
-export function uriToReadablePath(uri: string): string {
+export function uriToReadablePath(uri: DocumentUri | WorkspaceUri): string {
   // First convert URI to filesystem path
   const path = uriToPath(uri);
 

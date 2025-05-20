@@ -50,7 +50,7 @@ export class CompletionPager {
     this._items.addItems(this.itemsMap.allOfKinds('builtin'));
     try {
       const stdout: [string, string][] = [];
-      const toAdd = (await this.getSubshellStdoutCompletions(' ')).filter((line) => !line.includes('echo $dest'));
+      const toAdd = await this.getSubshellStdoutCompletions(' ');
       stdout.push(...toAdd);
       for (const [name, description] of stdout) {
         this._items.addItem(FishCompletionItem.create(name, 'command', description, name));
@@ -84,8 +84,7 @@ export class CompletionPager {
       this._items.addItem(variableItem);
     }
     for (const item of this.itemsMap.allOfKinds('variable')) {
-      // HACK: fix for fish 4.0.2 showing completion: `$(echo $dest)` in the list
-      if (item.label.includes('echo $dest')) {
+      if (item.label) {
         continue;
       }
       item.insertText = '$' + item.label;
@@ -129,10 +128,7 @@ export class CompletionPager {
       this._items.addItems(this.itemsMap.allOfKinds('pipe'));
       return this._items.build(false);
     }
-
-    // HACK: fix for fish 4.0.2 showing completion: `$(echo $dest)` in the list
-    //       from command $__fish_data_dir/functions/__fish_move_last.fish
-    const toAdd = (await shellComplete(line)).filter(line => !line.includes('$dest'));
+    const toAdd = await shellComplete(line);
     stdout.push(...toAdd);
     logger.log('toAdd =', toAdd.slice(0, 5));
 

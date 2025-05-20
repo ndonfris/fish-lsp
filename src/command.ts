@@ -12,7 +12,7 @@ import { execAsync, execAsyncF, execAsyncFish } from './utils/exec';
 import { PrebuiltDocumentationMap } from './utils/snippets';
 import { pathToUri, uriToReadablePath } from './utils/translation';
 import { getRange } from './utils/tree-sitter';
-import { workspaces } from './utils/workspace-manager';
+import { workspaceManager } from './utils/workspace-manager';
 
 // Define command name constants to avoid string literals
 export const CommandNames = {
@@ -62,7 +62,9 @@ export function createExecuteCommandHandler(
 
   async function executeRange(path: string, startLine: number, endLine: number) {
     // could also do executeLine() on every line in the range
-    const { document } = analyzer.analyzePath(path);
+    const cached = analyzer.analyzePath(path);
+    if (!cached) return;
+    const { document } = cached;
     const current = document;
     if (!current) return;
     const start = current.getLineStart(startLine - 1);
@@ -80,7 +82,9 @@ export function createExecuteCommandHandler(
   }
 
   async function executeLine(path: string, line: number) {
-    const { document } = analyzer.analyzePath(path);
+    const cached = analyzer.analyzePath(path);
+    if (!cached) return;
+    const { document } = cached;
     logger.log('executeLine', document.uri, line);
     if (!document) return;
 
@@ -98,7 +102,9 @@ export function createExecuteCommandHandler(
   }
 
   async function createTheme(path: string, asVariables: boolean = true) {
-    const { document } = analyzer.analyzePath(path);
+    const cached = analyzer.analyzePath(path);
+    if (!cached) return;
+    const { document } = cached;
     const output = (await execAsyncFish('fish_config theme dump; or true')).stdout.split('\n');
 
     if (!document) {
@@ -158,7 +164,7 @@ export function createExecuteCommandHandler(
   }
 
   function showWorkspaceMessage() {
-    const message = `${fishLspPromptIcon} Workspace: ${workspaces.current?.path}\n\n Total files analyzed: ${analyzer.cache.uris().filter(uri => workspaces.current?.contains(uri)).length}`;
+    const message = `${fishLspPromptIcon} Workspace: ${workspaceManager.current?.path}\n\n Total files analyzed: ${analyzer.cache.uris().filter(uri => workspaceManager.current?.contains(uri)).length}`;
     logger.log('showWorkspaceMessage',
       config,
     );
@@ -172,8 +178,8 @@ export function createExecuteCommandHandler(
 
   async function _updateWorkspace(path: string) {
     const uri = pathToUri(path);
-    workspaces.updateCurrentFromUri(uri);
-    const message = `${fishLspPromptIcon} Workspace: ${workspaces.current?.path}`;
+    workspaceManager.handleUpdateDocument(uri)
+    const message = `${fishLspPromptIcon} Workspace: ${workspaceManager.current?.path}`;
     connection.sendNotification('workspace/didChangeWorkspaceFolders', {
       event: {
         added: [path],
@@ -309,7 +315,9 @@ export function createExecuteCommandHandler(
     //   logger.log('No autoloaded functions found for config update');
     //   connection.window.showInformationMessage('No autoloaded functions found for config update');
     // }
-    const { document } = analyzer.analyzePath(path);
+    const cached = analyzer.analyzePath(path);
+    if (!cached) return;
+    const { document } = cached;
     if (!document) return;
     analyzer.updateConfigInWorkspace(document.uri);
     connection.sendNotification('window/showMessage', {
@@ -322,7 +330,9 @@ export function createExecuteCommandHandler(
   async function fixAllDiagnostics(path: string) {
     const uri = pathToUri(path);
     logger.log('fixAllDiagnostics', uri);
-    const { document } = analyzer.analyzePath(path);
+    const cached = analyzer.analyzePath(path);
+    if (!cached) return;
+    const { document } = cached;
     const root = analyzer.getRootNode(uri);
     if (!document || !root) return;
     const diagnostics = root ? getDiagnostics(root, document) : [];
@@ -385,7 +395,9 @@ export function createExecuteCommandHandler(
   }
 
   function outputFishLspEnv(path: string) {
-    const { document } = analyzer.analyzePath(path);
+    const cached = analyzer.analyzePath(path);
+    if (!cached) return;
+    const { document } = cached;
     if (!document) return;
     const output: string[] = ['\n'];
     const outputCallback = (s: string) => {

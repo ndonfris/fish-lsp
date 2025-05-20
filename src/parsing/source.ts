@@ -34,7 +34,7 @@ export function isSourcedFilename(node: SyntaxNode) {
 
 export function isExistingSourceFilenameNode(node: SyntaxNode) {
   if (!isSourcedFilename(node)) return false;
-  return SyncFileHelper.exists(node.text);
+  return SyncFileHelper.exists(node.text) && !SyncFileHelper.isDirectory(node.text) && SyncFileHelper.isFile(node.text);
 }
 
 export function getExpandedSourcedFilenameNode(node: SyntaxNode) {
