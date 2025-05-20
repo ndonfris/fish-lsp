@@ -1,13 +1,14 @@
 import { promises } from 'fs';
-import { DocumentUri, TextDocument } from 'vscode-languageserver-textdocument';
-import { Position, Range, TextDocumentItem, TextDocumentContentChangeEvent, VersionedTextDocumentIdentifier, TextDocumentIdentifier } from 'vscode-languageserver';
+import { TextDocument } from 'vscode-languageserver-textdocument';
+import { Position, Range, TextDocumentItem, TextDocumentContentChangeEvent, VersionedTextDocumentIdentifier, TextDocumentIdentifier, DocumentUri } from 'vscode-languageserver';
 import * as path from 'path';
 import { URI } from 'vscode-uri';
 import { homedir } from 'os';
-import { AutoloadType, pathToUri, uriToPath } from './utils/translation';
+import { AutoloadType, isPath, isTextDocument, isTextDocumentItem, isUri, PathLike, pathToUri, uriToPath } from './utils/translation';
 import { Workspace } from './utils/workspace';
-import { workspaces } from './utils/workspace-manager';
+import { workspaceManager } from './utils/workspace-manager';
 import { SyncFileHelper } from './utils/file-operations';
+import { logger } from './logger';
 
 export class LspDocument implements TextDocument {
   protected document: TextDocument;
@@ -33,6 +34,32 @@ export class LspDocument implements TextDocument {
   static createFromUri(uri: DocumentUri): LspDocument {
     const content = SyncFileHelper.read(uriToPath(uri));
     return LspDocument.createTextDocumentItem(uri, content);
+  }
+
+  static createFromPath(path: PathLike): LspDocument {
+    const content = SyncFileHelper.read(path);
+    return LspDocument.createTextDocumentItem(pathToUri(path), content);
+  }
+  /**
+   * Creates a new LspDocument from a path, URI, TextDocument, TextDocumentItem, or another LspDocument.
+   * @param param The parameter to create the LspDocument from.
+   * @returns A new LspDocument instance.
+   */
+  static create(uri: DocumentUri): LspDocument;
+  static create(path: PathLike): LspDocument;
+  static create(doc: TextDocument): LspDocument;
+  static create(doc: TextDocumentItem): LspDocument;
+  static create(doc: LspDocument): LspDocument;
+  static create(param: PathLike | DocumentUri | TextDocument | TextDocumentItem | LspDocument): LspDocument;
+  static create(param: PathLike | DocumentUri | TextDocument | TextDocumentItem | LspDocument): LspDocument {
+    if (typeof param === 'string' && isPath(param)) return LspDocument.createFromPath(param);
+    if (typeof param === 'string' && isUri(param)) return LspDocument.createFromUri(param);
+    if (LspDocument.is(param)) return LspDocument.fromTextDocument(param.document);
+    if (isTextDocumentItem(param)) return LspDocument.createTextDocumentItem(param.uri, param.text);
+    if (isTextDocument(param)) return LspDocument.fromTextDocument(param);
+    // we should never reach here
+    logger.error('Invalid parameter type `LspDocument.create()`: ', param);
+    return undefined as never;
   }
 
   static async createFromUriAsync(uri: DocumentUri): Promise<LspDocument> {
@@ -211,7 +238,7 @@ export class LspDocument implements TextDocument {
   }
 
   public getWorkspace(): Workspace | undefined {
-    return workspaces.findContainingWorkspace(this.uri);
+    return workspaceManager.findContainingWorkspace(this.uri) || undefined;
   }
 
   private getFolderType(): AutoloadType | null {
@@ -288,16 +315,72 @@ export class LspDocument implements TextDocument {
     const lines = this.getText().split('\n');
     return lines.length;
   }
+
+  /**
+   * Type guard to check if an object is an LspDocument
+   *
+   * @param value The value to check
+   * @returns True if the value is an LspDocument, false otherwise
+   */
+  static is(value: unknown): value is LspDocument {
+    return (
+      // Check if it's an object first
+      typeof value === 'object' &&
+      value !== null &&
+      // Check for LspDocument-specific methods/properties not found in TextDocument or TextDocumentItem
+      typeof (value as LspDocument).asTextDocumentItem === 'function' &&
+      typeof (value as LspDocument).asTextDocumentIdentifier === 'function' &&
+      typeof (value as LspDocument).getAutoloadType === 'function' &&
+      typeof (value as LspDocument).isAutoloaded === 'function' &&
+      typeof (value as LspDocument).path === 'string' &&
+      typeof (value as LspDocument).getFileName === 'function' &&
+      typeof (value as LspDocument).getRelativeFilenameToWorkspace === 'function' &&
+      typeof (value as LspDocument).getLine === 'function' &&
+      typeof (value as LspDocument).getLines === 'function' &&
+      // Ensure base TextDocument properties are also present
+      typeof (value as LspDocument).uri === 'string' &&
+      typeof (value as LspDocument).getText === 'function'
+    );
+  }
 }
 
 export class LspDocuments {
   private readonly _files: string[] = [];
   private readonly documents = new Map<string, LspDocument>();
-  private loadingQueue: Set<string> = new Set();
-  private loadedFiles: Map<string, number> = new Map(); // uri -> timestamp
 
   static create(): LspDocuments {
     return new LspDocuments();
+  }
+
+  static from(documents: LspDocuments): LspDocuments {
+    const newDocuments = new LspDocuments();
+    newDocuments.documents.clear();
+    newDocuments._files.length = 0;
+    documents.documents.forEach((doc, file) => {
+      newDocuments.documents.set(file, doc);
+      newDocuments._files.push(file);
+    });
+    return newDocuments;
+  }
+
+  copy(documents: LspDocuments): LspDocuments {
+    this.documents.clear();
+    this._files.push(...documents._files);
+    documents.documents.forEach((doc, file) => {
+      this.documents.set(file, doc);
+    });
+    return this;
+  }
+
+  get openDocuments(): LspDocument[] {
+    const result: LspDocument[] = [];
+    for (const file of this._files.toReversed()) {
+      const document = this.documents.get(file);
+      if (document) {
+        result.push(document);
+      }
+    }
+    return result;
   }
 
   /**
@@ -322,32 +405,6 @@ export class LspDocuments {
     return document;
   }
 
-  // Enhanced get method that supports async loading
-  async getAsync(uri?: string): Promise<LspDocument | undefined> {
-    if (!uri) return undefined;
-    return this.getDocument(uri);
-  }
-
-  async getDocument(uri: string): Promise<LspDocument | undefined> {
-    if (!this.loadingQueue.has(uri) && !this.loadedFiles.has(uri)) {
-      this.loadingQueue.add(uri);
-      try {
-        const content = await promises.readFile(uriToPath(uri), 'utf8');
-        const doc = new LspDocument({
-          uri,
-          languageId: 'fish',
-          version: 1,
-          text: content,
-        });
-        this.documents.set(uri, doc);
-        this.loadedFiles.set(uri, Date.now());
-      } finally {
-        this.loadingQueue.delete(uri);
-      }
-    }
-    return this.documents.get(uri);
-  }
-
   openPath(path: string, doc: TextDocumentItem): LspDocument {
     const lspDocument = new LspDocument(doc);
     this.documents.set(path, lspDocument);
@@ -355,15 +412,51 @@ export class LspDocuments {
     return lspDocument;
   }
 
-  open(doc: LspDocument): boolean {
-    const file = uriToPath(doc.uri);
-    if (this.documents.has(file)) {
+  private getPathFromParam(param: PathLike | DocumentUri | LspDocument | TextDocumentItem | TextDocument): string {
+    if (isUri(param)) {
+      return uriToPath(param);
+    }
+    if (isPath(param)) {
+      return param;
+    }
+    if (isTextDocument(param)) {
+      return uriToPath(param.uri);
+    }
+    if (isTextDocumentItem(param)) {
+      return uriToPath(param.uri);
+    }
+    if (LspDocument.is(param)) {
+      return (param as LspDocument).path;
+    }
+    throw new Error('Invalid parameter type');
+  }
+
+  open(uri: DocumentUri): boolean;
+  open(path: PathLike): boolean;
+  open(lspDocument: LspDocument): boolean;
+  open(textDocument: TextDocument): boolean;
+  open(textDocumentItem: TextDocumentItem): boolean;
+  open(param: PathLike | DocumentUri | LspDocument | TextDocument | TextDocumentItem): boolean;
+  open(param: PathLike | DocumentUri | LspDocument | TextDocument | TextDocumentItem): boolean {
+    const path: string = this.getPathFromParam(param);
+    if (this.documents.has(path)) {
       return false;
     }
-    this.documents.set(file, doc);
-    this._files.unshift(file);
+    const newDoc = LspDocument.create(param);
+    this.documents.set(path, newDoc);
+    this._files.unshift(path);
     return true;
   }
+
+  // open(doc: LspDocument): boolean {
+  //   const file = uriToPath(doc.uri);
+  //   if (this.documents.has(file)) {
+  //     return false;
+  //   }
+  //   this.documents.set(file, doc);
+  //   this._files.unshift(file);
+  //   return true;
+  // }
 
   isOpen(path: string | DocumentUri): boolean {
     if (URI.isUri(path)) {
@@ -374,6 +467,11 @@ export class LspDocuments {
 
   get uris(): string[] {
     return Array.from(this._files).map(file => pathToUri(file));
+  }
+
+  getDocument(uri: DocumentUri): LspDocument | undefined {
+    const path = uriToPath(uri);
+    return this.documents.get(path);
   }
 
   openTextDocument(document: TextDocument): LspDocument {
@@ -416,15 +514,31 @@ export class LspDocuments {
     return this.close(path);
   }
 
-  close(file: string): LspDocument | undefined {
-    const document = this.documents.get(file);
+  close(uri: DocumentUri): LspDocument | undefined;
+  close(path: PathLike): LspDocument | undefined;
+  close(lspDocument: LspDocument): LspDocument | undefined;
+  close(textDocument: TextDocument): LspDocument | undefined;
+  close(textDocumentItem: TextDocumentItem): LspDocument | undefined;
+  close(param: PathLike | DocumentUri | LspDocument | TextDocument | TextDocumentItem): LspDocument | undefined;
+  close(param: PathLike | DocumentUri | LspDocument | TextDocument | TextDocumentItem): LspDocument | undefined {
+    const path: string = this.getPathFromParam(param);
+    const document = this.documents.get(path);
     if (!document) {
       return undefined;
     }
-    this.documents.delete(file);
-    this._files.splice(this._files.indexOf(file), 1);
+    this.documents.delete(path);
+    this._files.splice(this._files.indexOf(path), 1);
     return document;
   }
+  // close(file: string): LspDocument | undefined {
+  //   const document = this.documents.get(file);
+  //   if (!document) {
+  //     return undefined;
+  //   }
+  //   this.documents.delete(file);
+  //   this._files.splice(this._files.indexOf(file), 1);
+  //   return document;
+  // }
 
   closeAll(): void {
     this.documents.clear();
@@ -474,3 +588,4 @@ export class LspDocuments {
  *       and it updates the `documents` object here, when they are seen
  */
 export const documents = LspDocuments.create();
+

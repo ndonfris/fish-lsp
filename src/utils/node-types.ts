@@ -2,7 +2,7 @@ import { SyntaxNode } from 'web-tree-sitter';
 import { getLeafNodes } from './tree-sitter';
 import { VariableDefinitionKeywords } from '../parsing/barrel';
 import { Option, isMatchingOption } from '../parsing/options';
-import { isVariableDefinitionName, isFunctionDefinitionName, isAliasDefinitionName } from '../parsing/barrel';
+import { isVariableDefinitionName, isFunctionDefinitionName, isAliasDefinitionName, isExportVariableDefinitionName } from '../parsing/barrel';
 
 // use the `../parsing/barrel` barrel file's imports for finding the definition names
 
@@ -10,6 +10,7 @@ export {
   isVariableDefinitionName,
   isFunctionDefinitionName,
   isAliasDefinitionName,
+  isExportVariableDefinitionName,
 };
 
 /**

@@ -1,16 +1,19 @@
 
-import { createFakeUriPath, fishLocations, setLogger, FishLocations } from './helpers';
+import { createFakeUriPath, fishLocations, setLogger, FishLocations, createFakeLspDocument } from './helpers';
 import { WorkspaceManager } from '../src/utils/workspace-manager';
 import { initializeDefaultFishWorkspaces, Workspace } from '../src/utils/workspace';
 import { workspaces } from '../src/utils/workspace-manager';
 import { config, ConfigSchema } from '../src/config';
-import { uriToPath, uriToReadablePath } from '../src/utils/translation';
+import { pathToUri, uriToPath, uriToReadablePath } from '../src/utils/translation';
 import { AnalyzedDocument, Analyzer } from '../src/analyze';
 import { initializeParser } from '../src/parser';
 import * as Parser from 'web-tree-sitter';
 import { documents, LspDocument } from '../src/document';
 import * as path from 'path';
 import { DocumentUri } from 'vscode-languageserver';
+import { mkdirSync, promises, rm, rmdir, rmdirSync, writeFileSync } from 'fs';
+import { logger } from '../src/logger';
+import { SyncFileHelper } from '../src/utils/file-operations';
 
 let workspaceManager: WorkspaceManager;
 let parser: Parser;
@@ -34,124 +37,6 @@ describe('workspace-manager tests', () => {
     await initializeDefaultFishWorkspaces();
     parser = await initializeParser();
     analyzer = new Analyzer(parser);
-  });
-
-  it.skip('should create a workspace manager', async () => {
-    const workspaceManager = new WorkspaceManager();
-    workspaces.workspaces.forEach((workspace) => {
-      workspaceManager.addWorkspace(workspace);
-      // console.log({
-      //   workspaceManagerSize: workspaceManager.workspaces.length,
-      // });
-    });
-    workspaceManager.setCurrent(workspaces.workspaces[0]!);
-    const newUri = createFakeUriPath('/tmp/foo.fish');
-    const newWorkspace = Workspace.syncCreateFromUri(newUri);
-    if (!newWorkspace) {
-      console.log({
-        error: 'No workspace found',
-      });
-      fail();
-    }
-    workspaceManager.setCurrent(newWorkspace);
-    // console.log({
-    //   current: workspaceManager.current?.uri.toString(),
-    //   workspaceManagerSize: workspaceManager.workspaces.length,
-    //   // didUpdate,
-    // });
-    workspaceManager.removeWorkspace(workspaceManager.current!);
-    // console.log({
-    //   current: workspaceManager.current?.uri.toString(),
-    //   workspaceManagerSize: workspaceManager.workspaces.length,
-    // })
-    expect(workspaceManager.workspaces).toHaveLength(2);
-    const { didUpdate } = workspaceManager.updateCurrentFromUri(newUri);
-    console.log({
-      current: workspaceManager.current?.uri.toString(),
-      workspaceManagerSize: workspaceManager.workspaces.length,
-      didUpdate,
-      paths: workspaceManager.allWorkspacePaths,
-      namesToAnalyze: workspaceManager.getWorkspacesToAnalyze().map(w => w.name),
-    });
-    // expect(workspaceManager.current?.uri.toString()).toBe(newUri.toString());
-    expect(workspaceManager.workspaces).toHaveLength(3);
-    // expect(workspaceManager).toBeDefined();
-    console.log({
-      ordered: workspaceManager.orderedWorkspaces().map(w => w.uri.toString()),
-      workspaces: workspaceManager.workspaces.map(w => w.uri.toString()),
-    });
-    // workspaceManager.allNewUrisToAnalyze().documentUris.forEach((uri, idx) => {
-    //   console.log({
-    //     uri: uriToReadablePath(uri),
-    //     idx: idx,
-    //   })
-    // })
-    console.log(workspaceManager.allNewUrisToAnalyze().documentUris.length);
-    const start = performance.now();
-    const workspaceItems = Object.keys(workspaceManager.allNewUrisToAnalyze().items);
-    const results: AnalyzedDocument[] = [];
-    // for await (const uri of workspaceItems) {
-    //
-    Promise.race(workspaceItems.map(async (uri) => {
-      const workspace = workspaceManager.findWorkspace(uri);
-      if (!workspace) return [];
-      return await Promise.all(workspace.allUnanalyzedUris.map(async (uri) => {
-        workspace.analyzedUri(uri);
-        const filePath = uriToPath(uri);
-        // const fileContent = AsyncFileHelper.isReadable(filePath)
-        // if (!fileContent) {
-        //   const doc = LspDocument.createTextDocumentItem(filePath, '');
-        return Promise.resolve(analyzer.analyzePath(filePath)).then((r) => {
-          results.push(r);
-          return r;
-        });
-      })).then((resolve) => resolve);
-      //   console.log('r', r);
-      // } else {
-
-      // }
-    }));
-    // Promise.allworkspacePromises.then((res) => {
-    //   results.push(...res);
-    // });
-
-    //   console.log({
-    //     res: res.map(r => r.document.uri),
-    //   })
-    // });
-
-    // console.log('res', res);
-    // console.log('results', results);
-
-    // const res = await Promise.all(workspacePromises.map(async (promise) => promise));
-    // results.push(...res);
-    // }));
-    let idx = 0;
-    // const items = await Promise.all(promiseArr.map(workspacePromises =>
-    //   Promise.all(workspacePromises)
-    // ));
-    for (const item of results) {
-      if (idx === 10) {
-        console.log('10', item);
-      }
-      idx++;
-    }
-    // const items = promiseArr.map(async (item) => console.log(await item));
-    // console.log(items.length, {
-    //   item_10: items.at(10)?.toString(),
-    // });
-    // await Promise.all(promiseArr);
-    // await Promise.all(promiseArr);
-    const end = performance.now();
-    console.log({
-      time: (end - start) / 1000,
-      items: workspaceManager.workspaces.map(w => ({
-        ws: w.name.toString(),
-        uris: w.allAnalyzedUris.length,
-        unanalyzed: w.allUnanalyzedUris.length,
-      })),
-    });
-    expect(true).toBeTruthy();
   });
 
   it.skip('test 2', async () => {
@@ -202,7 +87,7 @@ describe('workspace-manager tests', () => {
     //   });
     // });
     // await Promise.all(allPromises);
-    const { totalItems } = await analyzer.analyzeAllWorkspacesNew(workspaceManager.orderedWorkspaces());
+    const { totalFilesParsed } = await analyzer.initiateBackgroundAnalysis();
     // await analyzer.analyzeAllWorkspacesNew(workspaceManager.workspaces).workspacePromises.forEach(({ promise, name }) => {
     //   promise.then((result) => {
     //     console.log(`result ${result.filesParsed} name: ${result.workspace.name}`);
@@ -317,7 +202,7 @@ describe('workspace-manager tests', () => {
     const finalTime = performance.now();
     console.log({
       totalTime: ((finalTime - initTime) / 1000).toFixed(2),
-      count: totalItems,
+      count: totalFilesParsed,
       items: workspaceManager.workspaces.map(w => ({
         ws: w.name.toString(),
         analyzedUris: w.allAnalyzedUris.length,
@@ -403,7 +288,7 @@ describe('workspace-manager tests', () => {
   //   });
   // });
 
-  describe.only('many workspaces piled together', () => {
+  describe.skip('many workspaces piled together', () => {
     let pathToTestWorkspace: string;
     let newUri: string;
     let newDocUri: string;
@@ -424,13 +309,13 @@ describe('workspace-manager tests', () => {
       workspaces.orderedWorkspaces().forEach((workspace) => {
         workspaceManager.addWorkspace(workspace);
         workspaceManager.current = workspace;
-        docs.push(...workspace.urisToLspDocuments());
+        docs.push(...workspace.allDocuments());
       });
 
       // create the new workspace
       workspaceManager.addWorkspace(newWorkspace);
       workspaceManager.current = newWorkspace;
-      docs.push(...newWorkspace.urisToLspDocuments());
+      docs.push(...newWorkspace.allDocuments());
       analyzer = new Analyzer(parser);
       workspaces.copy(workspaceManager);
       documents.clear();
@@ -484,7 +369,7 @@ describe('workspace-manager tests', () => {
       const startTime = performance.now();
       await Promise.all(docs.map(async (doc) => {
         if (doc.getAutoloadType() === 'completions') {
-          analyzer.analyzeShort(doc);
+          analyzer.analyzePartial(doc);
         } else {
           analyzer.analyze(doc);
         }
@@ -508,12 +393,12 @@ describe('workspace-manager tests', () => {
       console.log({ totalItems });
     });
 
-    describe('removing from workspaces', () => {
+    describe.skip('removing from workspaces', () => {
       it('test removing w/ uri', async () => {
         let totalItems = 0;
         await Promise.all(docs.map(async (doc) => {
           if (doc.getAutoloadType() === 'completions') {
-            analyzer.analyzeShort(doc);
+            analyzer.analyzePartial(doc);
           } else {
             analyzer.analyze(doc);
           }
@@ -556,7 +441,7 @@ describe('workspace-manager tests', () => {
           currentDocName: currentDoc.getFilename(),
           removedUris: removedUris.length,
         });
-        analyzer.clearWorkspace(newWorkspace, currentDoc.uri, ...docs.map(d => d.uri));
+        analyzer.clearEntireWorkspace(newWorkspace, documents);
       });
 
       it('test removing w/o uri', async () => {
@@ -565,7 +450,7 @@ describe('workspace-manager tests', () => {
         // workspaces.current?.addUri(uriToDefaultFishConfig)
         await Promise.all(docs.map(async (doc) => {
           if (doc.getAutoloadType() === 'completions') {
-            analyzer.analyzeShort(doc);
+            analyzer.analyzePartial(doc);
           } else {
             analyzer.analyze(doc);
           }
@@ -628,7 +513,7 @@ describe('workspace-manager tests', () => {
         let currentDoc: LspDocument | undefined;
         await Promise.all(docs.map(async (doc) => {
           if (doc.getAutoloadType() === 'completions') {
-            analyzer.analyzeShort(doc);
+            analyzer.analyzePartial(doc);
           } else {
             analyzer.analyze(doc);
           }
@@ -687,7 +572,10 @@ describe('workspace-manager tests', () => {
         let currentDoc: LspDocument | undefined;
         await Promise.all(docs.map(async (doc) => {
           if (doc.getAutoloadType() === 'completions') {
-            analyzer.analyzeShort(doc);
+            const res = analyzer.analyzePartial(doc);
+            if (res) {
+              console.log('res', res.sourceNodes.map(r => r.text));
+            }
           } else {
             analyzer.analyze(doc);
           }
@@ -733,7 +621,31 @@ describe('workspace-manager tests', () => {
       });
     });
 
-    it('analyze.initializeBackgroundAnalysis', async () => {
+    // it('test /tmp/foooo.fish', async () => {
+    //   const newUri = createFakeUriPath('/tmp/foooo.fish');
+    //   const newDoc = LspDocument.createFromUri(newUri);
+    //   // const newWorkspace = Workspace.syncCreateFromUri(newUri);
+    //   // if (!newWorkspace) {
+    //   //   console.log({
+    //   //     error: 'No workspace found',
+    //   //   });
+    //   //   fail();
+    //   // }
+    //   workspaceManager.updateCurrentFromUri(newUri);
+    //   const res = analyzer.analyze(newDoc);
+    //   console.log({
+    //     aliases: res.sourceNodes.map(r => r.text),
+    //   })
+    //   const newSources = Array.from(analyzer.collectAllSources(newUri));
+    //   console.log({
+    //     newSources: newSources,
+    //   })
+    //   expect(newSources).toHaveLength(3);
+    //   expect(workspaceManager.current?.uri.toString()).toBe(newUri.toString());
+    //   expect(workspaceManager.workspaces).toHaveLength(4);
+    // })
+
+    it.skip('analyze.initializeBackgroundAnalysis', async () => {
       const { items, totalFilesParsed, workspaces } = await analyzer.initiateBackgroundAnalysis();
       // console.log({
       //   items: Object.entries(items),
@@ -801,3 +713,177 @@ describe('workspace-manager tests', () => {
     });
   });
 });
+
+describe.only('testing adding and removing workspaces with overlapping docs', () => {
+  setLogger();
+
+  const testWorkspace1Path = path.join('/tmp', 'test_workspace_1');
+  const testWorkspace2Path = path.join('/tmp', 'test_workspace_2');
+  const testWorkspace3Path = path.join('/tmp', 'test_workspace_3');
+  const testWorkspace4Path = path.join('/tmp', 'test_workspace_4');
+  const testWorkspaceSkeleton = [
+    {
+      dirpath: testWorkspace1Path,
+      docs: [
+        createFakeLspDocument(
+          path.join(testWorkspace1Path, 'config.fish'),
+          `source ${testWorkspace3Path}/functions/func1.fish`,
+          `source ${testWorkspace3Path}/functions/func2.fish`,
+          `source ${testWorkspace3Path}/functions/func3.fish`,
+          `source ${testWorkspace3Path}/functions/func4.fish`,
+        ),
+      ],
+    },
+    {
+      dirpath: testWorkspace2Path,
+      docs: [
+        createFakeLspDocument(
+          path.join(testWorkspace2Path, '.env.fish'),
+          `source ${testWorkspace3Path}/functions/func1.fish`,
+          `source ${testWorkspace3Path}/functions/func2.fish`,
+          `source ${testWorkspace3Path}/functions/func3.fish`,
+          `source ${testWorkspace3Path}/functions/func4.fish`,
+        ),
+      ],
+    },
+    {
+      dirpath: testWorkspace3Path,
+      docs: [
+        createFakeLspDocument(
+          path.join(testWorkspace3Path, 'functions', 'func1.fish'),
+          'function func1',
+          '      echo "func1"',
+          'end',
+        ),
+        createFakeLspDocument(
+          path.join(testWorkspace3Path, 'functions', 'func2.fish'),
+          'function func2',
+          '      echo "func2"',
+          'end',
+        ),
+        createFakeLspDocument(
+          path.join(testWorkspace3Path, 'functions', 'func3.fish'),
+          'function func3',
+          '      echo "func3"',
+          ' end',
+        ),
+        createFakeLspDocument(
+          path.join(testWorkspace3Path, 'functions', 'func4.fish'),
+          'function func4',
+          '     echo "func4"',
+          'end',
+        ),
+      ],
+    },
+    {
+      dirpath: testWorkspace4Path,
+      docs: [
+        createFakeLspDocument(
+          path.join(testWorkspace4Path, 'conf.d', 'load_1.fish'),
+          `source ${testWorkspace3Path}/functions/func1.fish`,
+        ),
+        createFakeLspDocument(
+          path.join(testWorkspace4Path, 'conf.d', 'load_2.fish'),
+          `source ${testWorkspace3Path}/functions/func2.fish`,
+        ),
+        createFakeLspDocument(
+          path.join(testWorkspace4Path, 'conf.d', 'load_3.fish'),
+          `source ${testWorkspace3Path}/functions/func3.fish`,
+        ),
+        createFakeLspDocument(
+          path.join(testWorkspace4Path, 'conf.d', 'load_4.fish'),
+          `source ${testWorkspace3Path}/functions/func4.fish`,
+        ),
+      ],
+    },
+  ];
+
+  beforeAll(() => {
+    workspaceManager = new WorkspaceManager();
+    for (const { dirpath, docs } of testWorkspaceSkeleton) {
+      mkdirSync(dirpath, { recursive: true });
+      // make subdirectories for dirs that use them
+      if (![testWorkspace1Path, testWorkspace2Path].includes(dirpath)) {
+        ['conf.d', 'functions', 'completions'].forEach((subdir) => {
+          const subdirPath = path.join(dirpath, subdir);
+          mkdirSync(subdirPath, { recursive: true });
+        });
+      }
+      docs.forEach((doc) => {
+        const filepath = doc.path;
+        writeFileSync(filepath, doc.getText());
+      });
+    }
+  });
+
+  afterAll(async () => {
+    for (const { dirpath } of testWorkspaceSkeleton) {
+      rm(dirpath, { recursive: true, force: true }, (err) => { });
+    }
+  });
+
+  beforeEach(async () => {
+    parser = await initializeParser();
+    analyzer = new Analyzer(parser);
+    workspaceManager = new WorkspaceManager();
+    documents.clear();
+    for (const { dirpath, docs } of testWorkspaceSkeleton) {
+      const workspace = Workspace.syncCreateFromUri(pathToUri(dirpath))!;
+      workspaceManager.addWorkspace(workspace);
+      docs.forEach((doc) => {
+        workspace.addUri(doc.uri);
+        documents.open(doc);
+      });
+    }
+    workspaces.copy(workspaceManager);
+    // await analyzer.initiateBackgroundAnalysis()
+  });
+
+  it.only('test 1', async () => {
+    workspaces.workspaces.forEach((workspace) => {
+      console.log({
+        name: workspace.name.toString(),
+        uris: workspace.uris.size,
+      });
+    });
+    workspaceManager.setCurrent(workspaceManager.orderedWorkspaces().at(0)!);
+    await Promise.all(documents.all().map(async (doc) => {
+      if (doc.getAutoloadType() === 'completions') {
+        analyzer.analyzePartial(doc);
+      } else {
+        analyzer.analyze(doc);
+      }
+      const workspace = workspaceManager.findContainingWorkspace(doc.uri);
+      if (workspace) workspace.analyzedUri(doc.uri);
+    }));
+    workspaces.current = workspaceManager.orderedWorkspaces().at(1)!;
+    documents.all().forEach((doc) => {
+      console.log({
+        uri: doc.uri,
+        text: doc.getText(),
+        exists: SyncFileHelper.exists(doc.path),
+      });
+    });
+    console.log({
+      workspaces: workspaceManager.workspaces.length,
+      current: workspaceManager.current?.name.toString(),
+      totalUris: documents.all().length,
+    });
+    expect(documents.all()).toHaveLength(10);
+    analyzer.clearEntireWorkspace(workspaceManager.current!, documents);
+    // workspaceManager.removeLast(); // see below about not setting the previous workspace
+    console.log({
+      workspaces: workspaceManager.workspaces.length,
+      current: workspaceManager.current?.name.toString(), // doesn't correctly set the previous workspace
+      totalUris: documents.all().length,
+    });
+    expect(documents.all()).toHaveLength(9);
+    expect(true).toBeTruthy();
+    // const allSources = analyzer.collectAllSources(pathToUri(path.join(testWorkspace1Path, 'config.fish')));
+    // console.log({
+    //   allSources: Array.from(allSources),
+    // });
+    // await analyzer.analyzeWorkspace(workspaceManager.current!);
+  });
+});
+

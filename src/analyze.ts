@@ -18,9 +18,10 @@ import { findParentFunction, isAliasDefinitionName, isCommand, isCommandName, is
 import { pathToUri, symbolKindToString, uriToPath } from './utils/translation';
 import { containsRange, getChildNodes, getRange, isPositionAfter, isPositionWithinRange, precedesRange } from './utils/tree-sitter';
 import { Workspace } from './utils/workspace';
-import { workspaces } from './utils/workspace-manager';
+import { workspaceManager } from './utils/workspace-manager';
 import { getDiagnostics } from './diagnostics/validate';
 import { isExportVariableDefinitionName } from './parsing/barrel';
+import { initializeParser } from './parser';
 
 export type AnalyzedDocument = {
   /**
@@ -83,6 +84,11 @@ export namespace AnalyzedDocument {
   }
 }
 
+/**
+ * Call `analyzer.initialize()` to create an instance of the Analyzer class.
+ */
+export let analyzer: Analyzer;
+
 /***
  * Handles analysis of documents and caching their symbols.
  *
@@ -112,6 +118,12 @@ export class Analyzer {
   public globalSymbols: GlobalDefinitionCache = new GlobalDefinitionCache();
 
   constructor(protected parser: Parser) { }
+
+  static async initialize(): Promise<Analyzer> {
+    const parser = await initializeParser();
+    analyzer = new Analyzer(parser);
+    return analyzer;
+  }
 
   /**
    * Perform full analysis on a LspDocument to build a AnalyzedDocument containing
@@ -158,7 +170,7 @@ export class Analyzer {
     const sourceNodes: SyntaxNode[] = [];
     const commandNames: Set<string> = new Set();
     root.descendantsOfType('command').forEach(node => {
-      if (isSourceCommandWithArgument(node)) sourceNodes.push(node);
+      if (isSourceCommandWithArgument(node)) sourceNodes.push(node.child(1)!);
       commandNames.add(node.text);
     });
     const analyzedDocument = AnalyzedDocument.create(document, [], Array.from(commandNames), tree, sourceNodes);
@@ -180,7 +192,7 @@ export class Analyzer {
     const commandNames = new Set<string>();
     const sourceNodes: SyntaxNode[] = [];
     tree.rootNode.descendantsOfType('command').forEach(node => {
-      if (isSourceCommandWithArgument(node)) sourceNodes.push(node);
+      if (isSourceCommandWithArgument(node)) sourceNodes.push(node.child(1)!);
       commandNames.add(node.text);
     });
     return AnalyzedDocument.create(
@@ -209,18 +221,19 @@ export class Analyzer {
       progress?.done();
       return { count, workspace, duration: '0.00' };
     }
-    progress?.begin(workspace.name, 0, 'Analyzing workspace', true);
-    const docs = await workspace.unanalyzedUrisToLspDocuments();
-    for (const doc of docs) {
+    // progress?.begin(workspace.name, 0, 'Analyzing workspace', true);
+    const docs = workspace.pendingDocuments();
+    const maxSize = Math.min(docs.length, config.fish_lsp_max_background_files);
+    for (const doc of workspace.pendingDocuments()) {
       try {
         if (doc.getAutoloadType() === 'completions') {
           this.analyzePartial(doc);
         } else {
           this.analyze(doc);
         }
-        workspace.analyzedUri(doc.uri);
+        workspace.uris.markIndexed(doc.uri);
         count++;
-        const reportPercent = Math.floor(count / docs.length * 100);
+        const reportPercent = Math.floor(count / maxSize * 100);
         progress?.report(reportPercent, `Analyzing ${count}/${docs.length} files`);
       } catch (err) {
         logger.log(`[fish-lsp] ERROR analyzing workspace '${workspace.name}' (${err?.toString() || ''})`);
@@ -257,27 +270,24 @@ export class Analyzer {
     const startTime = performance.now();
     const allDocs: LspDocument[] = [];
     const allWorkspaces: Workspace[] = [];
-    for (const workspace of workspaces.orderedWorkspaces()) {
+    for (const workspace of workspaceManager.all) {
       if (workspace.isAnalyzed()) continue;
-      allDocs.push(...workspace.documentsToAnalyze());
+      allDocs.push(...workspace.pendingDocuments());
       allWorkspaces.push(workspace);
     }
     // truncate the documents to the max number of files
     if (allDocs.length >= config.fish_lsp_max_background_files) {
       allDocs.slice(0, config.fish_lsp_max_background_files);
     }
-    // const progress = !!connection
-    //   ? await AnalyzeProgressToken.create(connection, { title: '[fish-lsp]', message: `Analyzing all workspaces (${allDocs.length} file${allDocs.length > 1 ? 's' : ''})` })
-    //   : undefined;
     await Promise.all(allDocs.map(async (doc, idx) => {
       if (doc.getAutoloadType() === 'completions') {
         this.analyzePartial(doc);
       } else {
         this.analyze(doc);
       }
-      const workspace = workspaces.findContainingWorkspace(doc.uri);
+      const workspace = workspaceManager.findContainingWorkspace(doc.uri);
       if (workspace) {
-        workspace.analyzedUri(doc.uri);
+        workspace.uris.markIndexed(doc.uri);
         let currentWorkspaceCount = items[workspace.path] || 0;
         currentWorkspaceCount++;
         items[workspace.path] = currentWorkspaceCount;
@@ -305,7 +315,7 @@ export class Analyzer {
    * a fish-lsp environment variable in the workspace.
    */
   updateConfigInWorkspace(documentUri: string) {
-    const workspace = workspaces.current;
+    const workspace = workspaceManager.current;
     let symbols = this.getFlatDocumentSymbols(documentUri).filter(symbol =>
       symbol.kind === SymbolKind.Variable && Object.keys(config).includes(symbol.name),
     );
@@ -378,7 +388,7 @@ export class Analyzer {
   public clearEntireWorkspace(workspace: Workspace, docsManager: LspDocuments) {
     const urisInWorkspace = this.cache.uris().filter(uri => workspace.contains(uri));
     const urisNotInOtherWorkspaces = urisInWorkspace.filter(uri => {
-      return !workspaces.workspaces.some((workspace) => {
+      return !workspaceManager.all.some((workspace) => {
         if (workspace.uri === workspace.uri) return false;
         if (workspace.uris.has(uri)) return true;
         return false;
@@ -390,7 +400,7 @@ export class Analyzer {
     urisNotInOtherWorkspaces.forEach(uri => {
       this.cache.clear(uri);
       removedUris.push(uri);
-      if (docsManager.isOpen(uri)) {
+      if (docsManager.isOpen(uriToPath(uri))) {
         docsManager.close(uriToPath(uri));
       }
     });
@@ -404,7 +414,7 @@ export class Analyzer {
       otherSymbolsInUri.push(symbol);
       removedSymbols.set(symbol.uri, otherSymbolsInUri);
     }
-    workspaces.removeWorkspace(workspace);
+    workspaceManager.remove(workspace);
     return {
       removedUris,
       removedSymbols: Array.from(removedSymbols.values()).flat(),
@@ -444,7 +454,7 @@ export class Analyzer {
   public findSymbol(
     callbackfn: (symbol: FishSymbol, doc?: LspDocument) => boolean,
   ) {
-    const currentWs = workspaces.current;
+    const currentWs = workspaceManager.current;
     const uris = this.cache.uris().filter(uri => currentWs ? currentWs?.contains(uri) : true);
     for (const uri of uris) {
       const symbols = this.cache.getFlatDocumentSymbols(uri);
@@ -463,7 +473,7 @@ export class Analyzer {
   public findSymbols(
     callbackfn: (symbol: FishSymbol, doc?: LspDocument) => boolean,
   ): FishSymbol[] {
-    const currentWs = workspaces.current;
+    const currentWs = workspaceManager.current;
     const uris = this.cache.uris().filter(uri => currentWs ? currentWs?.contains(uri) : true);
     const symbols: FishSymbol[] = [];
     for (const uri of uris) {
@@ -506,7 +516,7 @@ export class Analyzer {
     uri: string;
     nodes: SyntaxNode[];
   }[] {
-    const currentWs = workspaces.current;
+    const currentWs = workspaceManager.current;
     const uris = this.cache.uris().filter(uri => currentWs ? currentWs?.contains(uri) : uri);
     const result: { uri: string; nodes: SyntaxNode[]; }[] = [];
     for (const uri of uris) {
@@ -576,7 +586,7 @@ export class Analyzer {
    * @returns {WorkspaceSymbol[]} array of all symbols
    */
   public getWorkspaceSymbols(query: string = ''): WorkspaceSymbol[] {
-    const workspace = workspaces.current;
+    const workspace = workspaceManager.current;
     logger.log({ searching: workspace?.path, query });
     return this.globalSymbols.allSymbols
       .filter(symbol => workspace?.contains(symbol.uri) || symbol.uri === workspace?.uri)
@@ -710,7 +720,7 @@ export class Analyzer {
 
     // This is currently the only location where `config.fish_lsp_single_workspace_support` is used.
     // It allows users to go-to-definition on commands that are not in the current workspace.
-    if (!config.fish_lsp_single_workspace_support && workspaces.current) {
+    if (!config.fish_lsp_single_workspace_support && workspaceManager.current) {
       const node = this.nodeAtPoint(document.uri, position.line, position.character);
       if (node && isCommandName(node)) {
         const text = node.text.toString();
@@ -719,7 +729,7 @@ export class Analyzer {
           const content = SyncFileHelper.read(path, 'utf8');
           const doc = LspDocument.createTextDocumentItem(uri, content);
           documents.open(doc);
-          workspaces.updateCurrentFromUri(doc.uri);
+          workspaceManager.handleOpenDocument(doc.uri);
         }
         return locations.map(({ uri }) =>
           Location.create(uri, {
@@ -798,11 +808,11 @@ export class Analyzer {
    * @param documentUri - the uri of the document to get the tree for
    * @return {Tree | undefined} - the tree for the document, or undefined if the document is not in the cache
    */
-  getTree(documentUri: string): Tree {
+  getTree(documentUri: string): Tree | undefined {
     if (this.cache.hasUri(documentUri)) {
       return this.cache.getDocument(documentUri)?.tree as Tree;
     }
-    return this.analyzePath(uriToPath(documentUri)).tree;
+    return this.analyzePath(uriToPath(documentUri))?.tree;
   }
 
   /**
@@ -903,7 +913,7 @@ export class Analyzer {
    * @param sources - the sources to collect from (optional set to narrow results)
    * @returns {Set<string>} - a flat set of all the sourceUri's reachable from the input sources
    */
-  private collectSources(
+  public collectSources(
     documentUri: string,
     sources = this.cache.getSources(documentUri),
   ): Set<string> {
@@ -913,6 +923,9 @@ export class Analyzer {
       const source = collectionStack.pop()!;
       if (visited.has(source)) continue;
       visited.add(source);
+      if (SyncFileHelper.isDirectory(uriToPath(source))) {
+        continue;
+      }
       const cahedSourceDoc = this.cache.hasUri(source)
         ? this.cache.getDocument(source) as AnalyzedDocument
         : this.analyzePath(uriToPath(source)) as AnalyzedDocument;

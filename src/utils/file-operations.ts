@@ -1,10 +1,11 @@
-import { PathLike, appendFileSync, closeSync, existsSync, openSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'fs';
+import { PathLike, accessSync, appendFileSync, closeSync, constants, existsSync, openSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'fs';
 import { TextDocumentItem } from 'vscode-languageserver';
 import { LspDocument } from '../document';
 import { pathToUri } from './translation';
 import { basename, dirname, extname } from 'path';
 import { env } from './env-manager';
 import * as promises from 'fs/promises';
+import { logger } from '../logger';
 
 /**
  * Synchronous file operations.
@@ -20,8 +21,16 @@ export class SyncFileHelper {
   }
 
   static read(filePath: PathLike, encoding: BufferEncoding = 'utf8'): string {
-    const expandedFilePath = this.expandEnvVars(filePath);
-    return readFileSync(expandedFilePath, { encoding });
+    try {
+      const expandedFilePath = this.expandEnvVars(filePath);
+      if (this.isDirectory(expandedFilePath)) {
+        return '';
+      }
+      return readFileSync(expandedFilePath, { encoding });
+    } catch (error) {
+      logger.error(`Error reading file: ${filePath}`, error);
+      return '';
+    }
   }
 
   static write(filePath: PathLike, data: string, encoding: BufferEncoding = 'utf8'): void {
@@ -128,6 +137,41 @@ export class SyncFileHelper {
       const fileStat = statSync(expandedFilePath);
       return fileStat.isFile();
     } catch (_) {
+      return false;
+    }
+  }
+
+  /**
+   * Synchronously checks if a workspace path is a writable directory
+   * @param workspacePath - The path to check
+   * @returns true if path exists, is a directory, and is writable
+   */
+  static isWriteableDirectory(workspacePath: string): boolean {
+    const expandedPath = this.expandEnvVars(workspacePath);
+    if (!this.isDirectory(expandedPath)) {
+      return false;
+    }
+    return this.isWriteablePath(expandedPath);
+  }
+
+  static isWriteableFile(filePath: string): boolean {
+    const expandedFilePath = this.expandEnvVars(filePath);
+    if (!this.isFile(expandedFilePath)) {
+      return false;
+    }
+    return this.isWriteablePath(expandedFilePath);
+  }
+
+  static isWriteable(filePath: string): boolean {
+    const expandedFilePath = this.expandEnvVars(filePath);
+    return this.isWriteablePath(expandedFilePath);
+  }
+
+  private static isWriteablePath(path: string): boolean {
+    try {
+      accessSync(path, constants.W_OK);
+      return true;
+    } catch (error) {
       return false;
     }
   }

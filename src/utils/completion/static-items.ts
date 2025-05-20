@@ -418,7 +418,7 @@ const StringRegex: FishCompletionItem[] = [
     label: '{n,m}',
     detail: 'n <= MATCHES <= m',
     documentation: 'at least n, no more than m.',
-    insertText: '{n,m}',
+    insertText: '{${1:n},${2:m}}',
     examples: [],
   },
 

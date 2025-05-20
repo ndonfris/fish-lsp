@@ -9,7 +9,7 @@ import { Analyzer } from '../analyze';
 import path, { dirname } from 'path';
 import { SyncFileHelper } from '../utils/file-operations';
 import { pathToUri, uriToPath } from '../utils/translation';
-import { workspaces } from '../utils/workspace-manager';
+import { workspaceManager } from '../utils/workspace-manager';
 
 export const ArparseOptions = [
   Option.create('-n', '--name').withValue(),
@@ -88,7 +88,7 @@ export function isGlobalArgparseDefinition(analyzer: Analyzer, document: LspDocu
     }
     const filepath = uriToPath(document.uri);
     // const workspaceDirectory = workspaces.find(ws => ws.contains(filepath) || ws.path === filepath)?.path || dirname(dirname(filepath));
-    const workspaceDirectory = workspaces.findContainingWorkspace(document.uri)?.path || dirname(dirname(filepath));
+    const workspaceDirectory = workspaceManager.findContainingWorkspace(document.uri)?.path || dirname(dirname(filepath));
     const completionFile = document.getAutoloadType() === 'conf.d' || document.getAutoloadType() === 'config'
       ? document.getFilePath()
       : path.join(
@@ -111,7 +111,7 @@ export function isGlobalArgparseDefinition(analyzer: Analyzer, document: LspDocu
 export function getGlobalArgparseLocations(analyzer: Analyzer, document: LspDocument, symbol: FishSymbol) {
   if (isGlobalArgparseDefinition(analyzer, document, symbol)) {
     const filepath = uriToPath(document.uri);
-    const workspaceDirectory = workspaces.findContainingWorkspace(document.uri)?.path || dirname(dirname(filepath));
+    const workspaceDirectory = workspaceManager.findContainingWorkspace(document.uri)?.path || dirname(dirname(filepath));
     const completionFile = document.getAutoloadType() === 'conf.d' || document.getAutoloadType() === 'config'
       ? document.getFilePath()
       : path.join(
