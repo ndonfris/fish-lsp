@@ -1,10 +1,9 @@
 import * as LSP from 'vscode-languageserver';
-import { Connection, Diagnostic, Hover, Location, Position, SymbolKind, URI, WorkspaceSymbol } from 'vscode-languageserver';
-import { ProgressWrapper } from './utils/progress-token';
+import { Diagnostic, Hover, Location, Position, SymbolKind, URI, WorkDoneProgressReporter, WorkspaceSymbol } from 'vscode-languageserver';
 import * as Parser from 'web-tree-sitter';
 import { SyntaxNode, Tree } from 'web-tree-sitter';
 import { config, getDefaultConfiguration, updateBasedOnSymbols } from './config';
-import { documents, LspDocument, LspDocuments } from './document';
+import { LspDocument } from './document';
 import { logger } from './logger';
 import { isArgparseVariableDefinitionName } from './parsing/argparse';
 import { CompletionSymbol, isCompletionCommandDefinition, isCompletionSymbol, processCompletion } from './parsing/complete';
@@ -13,7 +12,7 @@ import { FishSymbol, processNestedTree } from './parsing/symbol';
 import { implementationLocation } from './references';
 import { execCommandLocations } from './utils/exec';
 import { SyncFileHelper } from './utils/file-operations';
-import { flattenNested } from './utils/flatten';
+import { flattenNested, iterateNested } from './utils/flatten';
 import { findParentFunction, isAliasDefinitionName, isCommand, isCommandName, isOption, isTopLevelDefinition } from './utils/node-types';
 import { pathToUri, symbolKindToString, uriToPath } from './utils/translation';
 import { containsRange, getChildNodes, getRange, isPositionAfter, isPositionWithinRange, precedesRange } from './utils/tree-sitter';
@@ -23,6 +22,20 @@ import { getDiagnostics } from './diagnostics/validate';
 import { isExportVariableDefinitionName } from './parsing/barrel';
 import { initializeParser } from './parser';
 
+/**
+ * AnalyzedDocument items are created in three public methods of the Analyzer class:
+ *   - analyze()
+ *   - analyzePath()
+ *   - analyzePartial()
+ *
+ * A partial AnalyzeDocument will not have the documentSymbols computed, because we
+ * don't expect there to be global definitions in the document (based off of the
+ * uri. i.e., $__fish_config_dir/completions/*.fish). Partial AnalyzeDocuments are
+ * used to greatly reduce the overhead required for background indexing of large
+ * workspaces.
+ *
+ * Use the AnalyzeDocument namespace to create `AnalyzedDocument` items.
+ */
 export type AnalyzedDocument = {
   /**
    * The LspDocument that was analyzed.
@@ -33,10 +46,6 @@ export type AnalyzedDocument = {
    */
   documentSymbols: FishSymbol[];
   /**
-   * The names of every command used in this document
-   */
-  commands: string[];
-  /**
    * A tree that has been parsed by web-tree-sitter
    */
   tree: Parser.Tree;
@@ -45,19 +54,14 @@ export type AnalyzedDocument = {
    */
   root: Parser.SyntaxNode;
   /**
+   * A flat array of every command used in this document
+   */
+  commandNodes: SyntaxNode[];
+  /**
    * All the `source some_file_path` nodes in a document, scoping is not considered.
    * However, the nodes can be filtered to consider scoping at a later time.
    */
   sourceNodes: SyntaxNode[];
-  /**
-   * All the sourced files in a document. This is a simple utility that is used
-   * while searching for reachable sources from a single document. It is not
-   * equivalent to all the sourced nodes that a document might recognize
-   * (i.e., source of a source).
-   * For all reachable sources use the methods in the analyzer class:
-   * `analyzer.collectAllSources()` or `analyzer.collectReachableSources()`
-   */
-  sourced: Set<string>;
 };
 
 /**
@@ -67,25 +71,79 @@ export namespace AnalyzedDocument {
   export function create(
     document: LspDocument,
     documentSymbols: FishSymbol[],
-    commands: string[],
     tree: Parser.Tree,
+    commandNodes: SyntaxNode[] = [],
     sourceNodes: SyntaxNode[] = [],
-    sourced: Set<string> = new Set(),
   ): AnalyzedDocument {
     return {
       document,
       documentSymbols,
-      commands,
       tree,
       root: tree.rootNode,
+      commandNodes,
       sourceNodes,
-      sourced,
     };
+  }
+
+  export function createFull(
+    document: LspDocument,
+    documentSymbols: FishSymbol[],
+    tree: Parser.Tree,
+  ): AnalyzedDocument {
+    const commandNodes: SyntaxNode[] = [];
+    const sourceNodes: SyntaxNode[] = [];
+    tree.rootNode.descendantsOfType('command').forEach(node => {
+      if (isSourceCommandWithArgument(node)) sourceNodes.push(node.child(1)!);
+      commandNodes.push(node);
+    });
+    return {
+      document,
+      documentSymbols,
+      tree,
+      root: tree.rootNode,
+      commandNodes,
+      sourceNodes,
+    };
+  }
+
+  export function createPartial(
+    document: LspDocument,
+    tree: Parser.Tree,
+  ): AnalyzedDocument {
+    const commandNodes: SyntaxNode[] = [];
+    const sourceNodes: SyntaxNode[] = [];
+    tree.rootNode.descendantsOfType('command').forEach(node => {
+      if (isSourceCommandWithArgument(node)) sourceNodes.push(node.child(1)!);
+      commandNodes.push(node);
+    });
+    return {
+      document,
+      documentSymbols: [],
+      tree,
+      root: tree.rootNode,
+      commandNodes,
+      sourceNodes,
+    };
+  }
+
+  export function isPartial(analyzedDocument: AnalyzedDocument): boolean {
+    return analyzedDocument.documentSymbols.length === 0;
+  }
+
+  export function isFull(analyzedDocument: AnalyzedDocument): boolean {
+    return analyzedDocument.documentSymbols.length > 0;
   }
 }
 
 /**
- * Call `analyzer.initialize()` to create an instance of the Analyzer class.
+ * Call `await analyzer.initialize()` to create an instance of the Analyzer class.
+ * This way we avoid instantiating the parser, and passing it to each analyzer
+ * instance that we create (common test pattern). Also, by initializing the
+ * analyzer globally, we can import it to any procedure that needs access
+ * to the analyzer.
+ *
+ * The analyzer stores and computes our symbols, from the tree-sitter AST and
+ * caches the results in AnalyzedDocument[] items.
  */
 export let analyzer: Analyzer;
 
@@ -119,6 +177,16 @@ export class Analyzer {
 
   constructor(protected parser: Parser) { }
 
+  /**
+   * The method that is used to instantiate the singleton `analyzer`, to avoid
+   * dependency injecting the analyzer in every utility that might need it.
+   *
+   * This method can be called during the `connection.onInitialize()` in the server,
+   * or `beforeAll()` in a test-suite.
+   *
+   * It is okay to use the analyzer returned for testing purposes, however for
+   * consistency throughout source code, please use the exported `analyzer` variable.
+   */
   static async initialize(): Promise<Analyzer> {
     const parser = await initializeParser();
     analyzer = new Analyzer(parser);
@@ -135,10 +203,9 @@ export class Analyzer {
   public analyze(document: LspDocument): AnalyzedDocument {
     const analyzedDocument = this.getAnalyzedDocument(document);
     this.cache.setDocument(document.uri, analyzedDocument);
-    const symbols = this.cache.getDocumentSymbols(document.uri);
-    flattenNested(...symbols)
-      .filter(s => s.isGlobal())
-      .forEach((symbol: FishSymbol) => this.globalSymbols.add(symbol));
+    for (const symbol of iterateNested(...analyzedDocument.documentSymbols)) {
+      if (symbol.isGlobal()) this.globalSymbols.add(symbol);
+    }
     return analyzedDocument;
   }
 
@@ -166,14 +233,7 @@ export class Analyzer {
    */
   public analyzePartial(document: LspDocument): AnalyzedDocument {
     const tree = this.parser.parse(document.getText());
-    const root = tree.rootNode;
-    const sourceNodes: SyntaxNode[] = [];
-    const commandNames: Set<string> = new Set();
-    root.descendantsOfType('command').forEach(node => {
-      if (isSourceCommandWithArgument(node)) sourceNodes.push(node.child(1)!);
-      commandNames.add(node.text);
-    });
-    const analyzedDocument = AnalyzedDocument.create(document, [], Array.from(commandNames), tree, sourceNodes);
+    const analyzedDocument = AnalyzedDocument.createPartial(document, tree);
     this.cache.setDocument(document.uri, analyzedDocument);
     return analyzedDocument;
   }
@@ -189,19 +249,7 @@ export class Analyzer {
   private getAnalyzedDocument(document: LspDocument): AnalyzedDocument {
     const tree = this.parser.parse(document.getText());
     const documentSymbols = processNestedTree(document, tree.rootNode);
-    const commandNames = new Set<string>();
-    const sourceNodes: SyntaxNode[] = [];
-    tree.rootNode.descendantsOfType('command').forEach(node => {
-      if (isSourceCommandWithArgument(node)) sourceNodes.push(node.child(1)!);
-      commandNames.add(node.text);
-    });
-    return AnalyzedDocument.create(
-      document,
-      documentSymbols,
-      Array.from(commandNames),
-      tree,
-      sourceNodes,
-    );
+    return AnalyzedDocument.createFull(document, documentSymbols, tree);
   }
 
   /**
@@ -211,20 +259,32 @@ export class Analyzer {
    */
   public async analyzeWorkspace(
     workspace: Workspace,
-    callbackfn: (text: string) => void = (text: string) => logger.log(text),
-    progress: ProgressWrapper | undefined = undefined,
+    progress: WorkDoneProgressReporter | undefined = undefined,
+    callbackfn: (text: string) => void = (text: string) => logger.log(`analyzer.analyzerWorkspace(${workspace.name})`, text),
   ) {
     const startTime = performance.now();
-    let count = 0;
     if (workspace.isAnalyzed()) {
       callbackfn(`[fish-lsp] workspace ${workspace.name} already analyzed`);
       progress?.done();
-      return { count, workspace, duration: '0.00' };
+      return { count: 0, workspace, duration: '0.00' };
     }
+
     // progress?.begin(workspace.name, 0, 'Analyzing workspace', true);
     const docs = workspace.pendingDocuments();
     const maxSize = Math.min(docs.length, config.fish_lsp_max_background_files);
-    for (const doc of workspace.pendingDocuments()) {
+    const currentDocuments = workspace.pendingDocuments().slice(0, maxSize);
+
+    // Helper function to delay execution
+    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+    // Calculate adaptive delay and batch size based on document count
+    const BATCH_SIZE = Math.max(1, Math.floor(currentDocuments.length / 20));
+    const UPDATE_DELAY = currentDocuments.length > 100 ? 10 : 25; // Shorter delay for large sets
+
+    let lastUpdateTime = 0;
+    const MIN_UPDATE_INTERVAL = 15; // Minimum ms between visual updates
+
+    currentDocuments.forEach(async (doc, idx) => {
       try {
         if (doc.getAutoloadType() === 'completions') {
           this.analyzePartial(doc);
@@ -232,79 +292,36 @@ export class Analyzer {
           this.analyze(doc);
         }
         workspace.uris.markIndexed(doc.uri);
-        count++;
-        const reportPercent = Math.floor(count / maxSize * 100);
-        progress?.report(reportPercent, `Analyzing ${count}/${docs.length} files`);
+        const reportPercent = Math.ceil(idx / maxSize * 100);
+        progress?.report(reportPercent, `Analyzing ${idx}/${docs.length} files`);
       } catch (err) {
         logger.log(`[fish-lsp] ERROR analyzing workspace '${workspace.name}' (${err?.toString() || ''})`);
       }
-    }
+
+      const currentTime = performance.now();
+      const isLastItem = idx === currentDocuments.length - 1;
+      const isBatchEnd = idx % BATCH_SIZE === BATCH_SIZE - 1;
+      const timeToUpdate = currentTime - lastUpdateTime > MIN_UPDATE_INTERVAL;
+
+      if (isLastItem || isBatchEnd && timeToUpdate) {
+        const percentage = Math.ceil((idx + 1) / maxSize * 100);
+        progress?.report(`${percentage}% Analyzing ${idx + 1}/${maxSize} ${maxSize > 1 ? 'documents' : 'document'}`);
+        lastUpdateTime = currentTime;
+
+        // Add a small delay for visual perception
+        await delay(UPDATE_DELAY);
+      }
+    });
     progress?.done();
     const endTime = performance.now();
     const duration = ((endTime - startTime) / 1000).toFixed(2); // Convert to seconds with 2 decimal places
+    const count = currentDocuments.length;
+    const message = `Analyzed ${count} document${count > 1 ? 's' : ''} in ${duration}s`;
+    callbackfn(message);
     return {
-      count,
+      count: currentDocuments.length,
       workspace: workspace,
       duration,
-    };
-  }
-
-  /**
-   * Analyzes all the workspaces in the server that are not already analyzed.
-   * Used during the server.onInitialized() event.
-   * @param connection The connection to the server (optional because `fish-lsp info --time-startup` does not have a connection)
-   * @param callbackfn A function to call for logging and displaying completion in the client
-   * @param progress A ProgressWrapper to report progress to the client
-   * @returns An object containing the total number of files parsed, the items in each workspace, and the workspaces themselves
-   */
-  public async initiateBackgroundAnalysis(
-    connection?: Connection,
-    callbackfn: (text: string) => void = (str: string) => logger.log(str),
-    progress?: ProgressWrapper,
-  ): Promise<{
-    totalFilesParsed: number;
-    items: { [key: string]: number; };
-    workspaces: Workspace[];
-  }> {
-    const items: { [key: string]: number; } = {};
-    const startTime = performance.now();
-    const allDocs: LspDocument[] = [];
-    const allWorkspaces: Workspace[] = [];
-    for (const workspace of workspaceManager.all) {
-      if (workspace.isAnalyzed()) continue;
-      allDocs.push(...workspace.pendingDocuments());
-      allWorkspaces.push(workspace);
-    }
-    // truncate the documents to the max number of files
-    if (allDocs.length >= config.fish_lsp_max_background_files) {
-      allDocs.slice(0, config.fish_lsp_max_background_files);
-    }
-    await Promise.all(allDocs.map(async (doc, idx) => {
-      if (doc.getAutoloadType() === 'completions') {
-        this.analyzePartial(doc);
-      } else {
-        this.analyze(doc);
-      }
-      const workspace = workspaceManager.findContainingWorkspace(doc.uri);
-      if (workspace) {
-        workspace.uris.markIndexed(doc.uri);
-        let currentWorkspaceCount = items[workspace.path] || 0;
-        currentWorkspaceCount++;
-        items[workspace.path] = currentWorkspaceCount;
-        if (progress) {
-          const reportPercent = Math.floor(idx / allDocs.length * 100);
-          progress.report(reportPercent, `Analyzing ${idx}/${allDocs.length} files`);
-        }
-      }
-    }));
-    const endTime = performance.now();
-    const duration = ((endTime - startTime) / 1000).toFixed(2); // Convert to seconds with 2 decimal places
-    callbackfn(`[fish-lsp] analyzed ${allDocs.length} files in ${allWorkspaces.length} workspaces | ${duration} seconds`);
-    if (progress) progress?.done();
-    return {
-      totalFilesParsed: allDocs.length,
-      items,
-      workspaces: allWorkspaces,
     };
   }
 
@@ -339,86 +356,6 @@ export class Analyzer {
     if (symbols.length > 0) {
       updateBasedOnSymbols(symbols);
     }
-  }
-
-  /**
-   * Removes a document, its document symbols and global symbols from the cache.
-   *
-   * If the document is the only open server document in the workspace, it will remove the
-   * entire workspace, including all its symbols and analyzed documents.
-   *
-   * If the document is not the only open server document, it will only remove its symbols
-   * from the cache & global symbol manager.
-   *
-   * @param workspace The workspace that the currentUri is in.
-   * @param documents The LspDocuments manager from the server (handles opening/closing documents).
-   * @param currentUri The uri of the document to be removed.
-   * @returns An object containing the removedUris and removedSymbols.
-   */
-  public clearDocumentFromWorkspace(
-    workspace: Workspace,
-    documents: LspDocuments,
-    currentUri: string,
-  ) {
-    const isOnlyDocumentInWorkspace = documents.all().filter(doc => workspace.contains(doc.uri)).length === 1;
-    if (isOnlyDocumentInWorkspace) return this.clearEntireWorkspace(workspace, documents);
-
-    const symbolsToRemove =
-      this.globalSymbols.allSymbols.filter(symbol => currentUri === symbol.uri);
-
-    const removedSymbols = new Map<LSP.DocumentUri, FishSymbol[]>();
-    for (const symbol of symbolsToRemove) {
-      this.globalSymbols.map.delete(symbol.name);
-      const otherSymbolsInUri = removedSymbols.get(symbol.uri) || [];
-      otherSymbolsInUri.push(symbol);
-      removedSymbols.set(symbol.uri, otherSymbolsInUri);
-    }
-    documents.close(uriToPath(currentUri));
-
-    return {
-      removedUris: [currentUri],
-      removedSymbols: flattenNested(...Array.from(removedSymbols.values()).flat()),
-    };
-  }
-
-  /**
-   * Clear the entire workspace (document symbols, global symbols, and close its LspDocuments)
-   * and remove it from the workspaces.
-   */
-  public clearEntireWorkspace(workspace: Workspace, docsManager: LspDocuments) {
-    const urisInWorkspace = this.cache.uris().filter(uri => workspace.contains(uri));
-    const urisNotInOtherWorkspaces = urisInWorkspace.filter(uri => {
-      return !workspaceManager.all.some((workspace) => {
-        if (workspace.uri === workspace.uri) return false;
-        if (workspace.uris.has(uri)) return true;
-        return false;
-      });
-    });
-
-    const removedUris: string[] = [];
-    const removedSymbols = new Map<LSP.DocumentUri, FishSymbol[]>();
-    urisNotInOtherWorkspaces.forEach(uri => {
-      this.cache.clear(uri);
-      removedUris.push(uri);
-      if (docsManager.isOpen(uriToPath(uri))) {
-        docsManager.close(uriToPath(uri));
-      }
-    });
-
-    const symbolsToRemove = this.globalSymbols.allSymbols
-      .filter(symbol => urisNotInOtherWorkspaces.some(uri => uri === symbol.uri));
-
-    for (const symbol of symbolsToRemove) {
-      this.globalSymbols.map.delete(symbol.name);
-      const otherSymbolsInUri = removedSymbols.get(symbol.uri) || [];
-      otherSymbolsInUri.push(symbol);
-      removedSymbols.set(symbol.uri, otherSymbolsInUri);
-    }
-    workspaceManager.remove(workspace);
-    return {
-      removedUris,
-      removedSymbols: Array.from(removedSymbols.values()).flat(),
-    };
   }
 
   /**
@@ -728,8 +665,7 @@ export class Analyzer {
         for (const { uri, path } of locations) {
           const content = SyncFileHelper.read(path, 'utf8');
           const doc = LspDocument.createTextDocumentItem(uri, content);
-          documents.open(doc);
-          workspaceManager.handleOpenDocument(doc.uri);
+          workspaceManager.handleOpenDocument(doc);
         }
         return locations.map(({ uri }) =>
           Location.create(uri, {
@@ -868,11 +804,9 @@ export class Analyzer {
   getFlatCompletionSymbols(documentUri: string): CompletionSymbol[] {
     const doc = this.cache.getDocument(documentUri);
     if (!doc) return [];
-    const { document, root } = doc;
-    // TODO: add this to the AnalyzedDocument object since it can be computed in analyzePartial and analyze
-    // get the completion symbols from the document
-    const childrenSymbols = root.descendantsOfType('command')
-      .filter(n => isCompletionCommandDefinition(n));
+    const { document, commandNodes } = doc;
+    // get the `complete` SyntaxNode[]
+    const childrenSymbols = commandNodes.filter(n => isCompletionCommandDefinition(n));
     // build the CompletionSymbol[] for the entire document
     const result: CompletionSymbol[] = [];
     for (const child of childrenSymbols) {
@@ -923,9 +857,9 @@ export class Analyzer {
       const source = collectionStack.pop()!;
       if (visited.has(source)) continue;
       visited.add(source);
-      if (SyncFileHelper.isDirectory(uriToPath(source))) {
-        continue;
-      }
+      if (SyncFileHelper.isDirectory(uriToPath(source))) continue;
+      if (!SyncFileHelper.isFile(uriToPath(source))) continue;
+
       const cahedSourceDoc = this.cache.hasUri(source)
         ? this.cache.getDocument(source) as AnalyzedDocument
         : this.analyzePath(uriToPath(source)) as AnalyzedDocument;
@@ -1191,8 +1125,8 @@ class AnalyzedDocumentCache {
   getFlatDocumentSymbols(uri: URI): FishSymbol[] {
     return flattenNested<FishSymbol>(...this.getDocumentSymbols(uri));
   }
-  getCommands(uri: URI): string[] {
-    return this._documents.get(uri)?.commands || [];
+  getCommands(uri: URI): SyntaxNode[] {
+    return this._documents.get(uri)?.commandNodes || [];
   }
   getRootNode(uri: URI): Parser.SyntaxNode | undefined {
     return this.getParsedTree(uri)?.rootNode;
@@ -1226,48 +1160,6 @@ class AnalyzedDocumentCache {
       return [];
     }
     return document.sourceNodes;
-  }
-  /**
-   * Name is a string that will be searched across all symbols in cache. tree-sitter-fish
-   * type of symbols that will be searched is 'word' (i.e. variables, functions, commands)
-   * @param {string} name - string SyntaxNode.name to search in cache
-   * @returns {map<URI, SyntaxNode[]>} - map of URIs to SyntaxNodes that match the name
-   */
-  findMatchingNames(name: string): Map<URI, SyntaxNode[]> {
-    const matches = new Map<URI, SyntaxNode[]>();
-    this.forEach((uri, doc) => {
-      const root = doc.tree.rootNode;
-      const nodes = root.descendantsOfType('word').filter(node => node.text === name);
-      if (nodes.length > 0) {
-        matches.set(uri, nodes);
-      }
-    });
-    return matches;
-  }
-  forEach(callbackfn: (uri: URI, document: AnalyzedDocument) => void): void {
-    for (const [uri, document] of this._documents) {
-      callbackfn(uri, document);
-    }
-  }
-  filter(callbackfn: (uri: URI, document?: AnalyzedDocument) => boolean): AnalyzedDocument[] {
-    const result: AnalyzedDocument[] = [];
-    this.forEach((currentUri, currentDocument) => {
-      if (callbackfn(currentUri, currentDocument)) {
-        result.push(currentDocument);
-      }
-    });
-    return result;
-  }
-  mapUris<U>(callbackfn: (doc: AnalyzedDocument) => U, uris: URI[] = this.uris()): U[] {
-    const result: U[] = [];
-    for (const uri of uris) {
-      const doc = this.getDocument(uri);
-      if (!doc) {
-        continue;
-      }
-      result.push(callbackfn(doc));
-    }
-    return result;
   }
   clear(uri: URI) {
     this._documents.delete(uri);

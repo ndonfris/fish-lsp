@@ -311,6 +311,7 @@ export class Workspace implements FishWorkspace {
     const docs: LspDocument[] = [];
     for (const uri of this.uris.pending) {
       const path = uriToPath(uri);
+      if (SyncFileHelper.isDirectory(path)) continue;
       const content = readFileSync(path, 'utf8');
       const doc = toLspDocument(path, content.toString());
       docs.push(doc);

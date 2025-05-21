@@ -4,24 +4,24 @@
     "description": "Enables the fish-lsp handlers. By default, all handlers are enabled.",
     "exactMatchOptions": true,
     "options": [
-			"complete",
-			"hover",
-			"rename",
-			"definition",
-			"implementation",
-			"reference",
-			"logger",
-			"formatting",
-			"typeFormatting",
-			"codeAction",
-			"codeLens",
-			"folding",
-			"signature",
-			"executeCommand",
-			"inlayHint",
-			"highlight",
-			"diagnostic",
-			"popups"
+      "complete",
+      "hover",
+      "rename",
+      "definition",
+      "implementation",
+      "reference",
+      "logger",
+      "formatting",
+      "typeFormatting",
+      "codeAction",
+      "codeLens",
+      "folding",
+      "signature",
+      "executeCommand",
+      "inlayHint",
+      "highlight",
+      "diagnostic",
+      "popups"
     ],
     "defaultValue": [],
     "valueType": "array"
@@ -31,24 +31,24 @@
     "description": "Disables the fish-lsp handlers. By default, no handlers are disabled.",
     "exactMatchOptions": true,
     "options": [
-			"complete",
-			"hover",
-			"rename",
-			"definition",
-			"implementation",
-			"reference",
-			"logger",
-			"formatting",
-			"typeFormatting",
-			"codeAction",
-			"codeLens",
-			"folding",
-			"signature",
-			"executeCommand",
-			"inlayHint",
-			"highlight",
-			"diagnostic",
-			"popups"
+      "complete",
+      "hover",
+      "rename",
+      "definition",
+      "implementation",
+      "reference",
+      "logger",
+      "formatting",
+      "typeFormatting",
+      "codeAction",
+      "codeLens",
+      "folding",
+      "signature",
+      "executeCommand",
+      "inlayHint",
+      "highlight",
+      "diagnostic",
+      "popups"
     ],
     "defaultValue": [],
     "valueType": "array"
@@ -92,7 +92,11 @@
       "\\t",
       " "
     ],
-    "defaultValue": ["\\t", ";", " "],
+    "defaultValue": [
+      "\\t",
+      ";",
+      " "
+    ],
     "valueType": "array"
   },
   {
@@ -143,8 +147,8 @@
       "$__fish_data_dir"
     ],
     "defaultValue": [
-      "$HOME/.config/fish",
-      "/usr/share/fish"
+      "$__fish_config_dir",
+      "$__fish_data_dir"
     ],
     "valueType": "array"
   },
@@ -159,7 +163,7 @@
       "$__fish_config_dir"
     ],
     "defaultValue": [
-      "$HOME/.config/fish"
+      "$__fish_config_dir"
     ],
     "valueType": "array"
   },

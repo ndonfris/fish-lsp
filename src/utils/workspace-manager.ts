@@ -304,8 +304,8 @@ export class WorkspaceManager {
    * This method will update the map of all workspaces and the resulting workspaces will be
    * re-analyzed.
    */
-  public handleWorkspaceChangeEvent(event: WorkspaceFoldersChangeEvent, progress?: ProgressWrapper): void {
-    progress?.begin('[fish-lsp] indexing files', 0, `Analyzing ${event.added.length} workspace${event.added.length > 1 ? 's' : ''}`, true);
+  public handleWorkspaceChangeEvent(event: WorkspaceFoldersChangeEvent, progress?: WorkDoneProgressServerReporter): void {
+    progress?.begin('[fish-lsp] indexing files', 0, `Analyzing workspaces [+${event.added.length} | -${event.removed.length}]`, true);
     logger.info(
       'workspaceManager.handleWorkspaceChangeEvent()',
       `Workspace change event: { added: ${event.added.length}, removed: ${event.removed.length}} `,
@@ -355,7 +355,7 @@ export class WorkspaceManager {
    * @returns An object containing the analyzed items, total documents, and duration of analysis.
    */
   public async analyzePendingDocuments(
-    progress: ProgressWrapper | WorkDoneProgressServerReporter | undefined = undefined,
+    progress: WorkDoneProgressServerReporter | undefined = undefined,
     callbackfn: (str: string) => void = (s) => logger.log(s),
   ) {
     logger.info('workspaceManager.analyzePendingDocuments()');
