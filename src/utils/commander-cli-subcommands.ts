@@ -236,6 +236,7 @@ export function BuildCapabilityString() {
     `${done} onDocumentSave`,
     `${done} onDocumentOpen`,
     `${done} onDocumentChange`,
+    `${todo} semanticTokens`,
   ].join('\n');
   return statusString;
 }
