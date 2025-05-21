@@ -1,7 +1,7 @@
 import { ChangeAnnotation, CodeAction, Diagnostic, RenameFile, TextEdit, WorkspaceEdit } from 'vscode-languageserver';
 import { LspDocument } from '../document';
-import { ErrorCodes } from '../diagnostics/errorCodes';
-import { getChildNodes } from '../utils/tree-sitter';
+import { ErrorCodes } from '../diagnostics/error-codes';
+import { equalRanges, getChildNodes } from '../utils/tree-sitter';
 import { SyntaxNode } from 'web-tree-sitter';
 import { ErrorNodeTypes } from '../diagnostics/node-types';
 import { SupportedCodeActionKinds } from './action-kinds';
@@ -38,6 +38,66 @@ function createQuickFix(
 }
 
 /**
+ * Helper to create a QuickFix code action for fixing all problems
+ */
+export function createFixAllAction(
+  document: LspDocument,
+  actions: CodeAction[],
+): CodeAction | undefined {
+  if (actions.length === 0) return undefined;
+  const fixableActions = actions.filter(action => {
+    return action.isPreferred && action.kind === SupportedCodeActionKinds.QuickFix;
+  });
+  for (const fixable of fixableActions) {
+    logger.info('createFixAllAction', { fixable: fixable.title });
+  }
+
+  if (fixableActions.length === 0) return undefined;
+  const resultEdits: { [uri: string]: TextEdit[]; } = {};
+  const diagnostics: Diagnostic[] = [];
+  for (const action of fixableActions) {
+    if (!action.edit || !action.edit.changes) continue;
+    const changes = action.edit.changes;
+    for (const uri of Object.keys(changes)) {
+      const edits = changes[uri];
+      if (!edits || edits.length === 0) continue;
+      if (!resultEdits[uri]) {
+        resultEdits[uri] = [];
+      }
+      const oldEdits = resultEdits[uri];
+      if (edits && edits?.length > 0) {
+        if (!oldEdits.some(e => edits.find(newEdit => equalRanges(e.range, newEdit.range)))) {
+          oldEdits.push(...edits);
+          resultEdits[uri] = oldEdits;
+          diagnostics.push(...action.diagnostics || []);
+        }
+        // resultEdits[uri].push(...edits);
+      }
+    }
+  }
+  const allEdits: TextEdit[] = [];
+  for (const uri in resultEdits) {
+    const edits = resultEdits[uri];
+    if (!edits || edits.length === 0) continue;
+    allEdits.push(...edits);
+  }
+  return {
+    title: `Fix all auto-fixable quickfixes (total fixes: ${allEdits.length}) (codes: ${diagnostics.map(d => d.code).join(', ')})`,
+    kind: SupportedCodeActionKinds.QuickFixAll,
+    diagnostics,
+    edit: {
+      changes: resultEdits,
+    },
+    data: {
+      isQuickFix: true,
+      documentUri: document.uri,
+      totalEdits: allEdits.length,
+      uris: Array.from(new Set(Object.keys(resultEdits))),
+    },
+  };
+}
+
+/**
  * utility function to get the error node token
  */
 function getErrorNodeToken(node: SyntaxNode): string | undefined {
@@ -56,7 +116,7 @@ export function handleMissingEndFix(
   diagnostic: Diagnostic,
   analyzer: Analyzer,
 ): CodeAction | undefined {
-  const root = analyzer.getTree(document)!.rootNode;
+  const root = analyzer.getTree(document.uri)!.rootNode;
 
   const errNode = root.descendantForPosition({ row: diagnostic.range.start.line, column: diagnostic.range.start.character })!;
 
@@ -140,6 +200,25 @@ function handleZeroIndexedArray(
           TextEdit.del(diagnostic.range),
           TextEdit.insert(diagnostic.range.start, '1'),
         ],
+      },
+    },
+    isPreferred: true,
+  };
+}
+
+function handleDotSourceCommand(
+  document: LspDocument,
+  diagnostic: Diagnostic,
+): CodeAction | undefined {
+  const edit = TextEdit.replace(diagnostic.range, 'source');
+
+  return {
+    title: 'Convert dot source command to source',
+    kind: SupportedCodeActionKinds.QuickFix,
+    diagnostics: [diagnostic],
+    edit: {
+      changes: {
+        [document.uri]: [edit],
       },
     },
     isPreferred: true,
@@ -277,6 +356,39 @@ function handleFilenameMismatch(diagnostic: Diagnostic, node: SyntaxNode, docume
   };
 }
 
+function handleCompletionFilenameMismatch(diagnostic: Diagnostic, node: SyntaxNode, document: LspDocument): CodeAction | undefined {
+  const functionName = node.text;
+  const newUri = document.uri.replace(/[^/]+\.fish$/, `${functionName}.fish`);
+  if (document.getAutoloadType() !== 'completions') {
+    return;
+  }
+  const oldName = document.getAutoLoadName();
+  const oldFilePath = document.getFilePath();
+  const oldFilename = document.getFilename();
+  const newFilePath = uriToPath(newUri);
+
+  const annotation = ChangeAnnotation.create(
+    `rename ${oldFilename} to ${newUri.split('/').pop()}`,
+    true,
+    `Rename '${oldFilePath}' to '${newFilePath}'`,
+  );
+
+  const workspaceEdit: WorkspaceEdit = {
+    documentChanges: [
+      RenameFile.create(document.uri, newUri, { ignoreIfExists: false, overwrite: true }),
+    ],
+    changeAnnotations: {
+      [annotation.label]: annotation,
+    },
+  };
+
+  return {
+    title: `RENAME: '${oldFilename}' to '${functionName}.fish' (File missing completion '${oldName}')`,
+    kind: SupportedCodeActionKinds.RefactorRewrite,
+    diagnostics: [diagnostic],
+    edit: workspaceEdit,
+  };
+}
 function handleReservedKeyword(diagnostic: Diagnostic, node: SyntaxNode, document: LspDocument): CodeAction {
   const replaceText = `__${node.text}`;
 
@@ -353,6 +465,26 @@ function handleAddEndStdinToArgparse(diagnostic: Diagnostic, document: LspDocume
   };
 }
 
+function handleConvertDeprecatedFishLsp(diagnostic: Diagnostic, node: SyntaxNode, document: LspDocument): CodeAction {
+  // const value = document.getText(diagnostic.range);
+  logger.log({ name: 'handleConvertDeprecatedFishLsp', diagnostic: diagnostic.range, node: node.text });
+
+  const replaceText = node.text === 'fish_lsp_logfile' ? 'fish_lsp_log_file' : node.text;
+  const edit = TextEdit.replace(diagnostic.range, replaceText);
+  const workspaceEdit: WorkspaceEdit = {
+    changes: {
+      [document.uri]: [edit],
+    },
+  };
+  return {
+    title: 'Convert deprecated environment variable name',
+    kind: SupportedCodeActionKinds.QuickFix,
+    diagnostics: [diagnostic],
+    edit: workspaceEdit,
+    isPreferred: true,
+  };
+}
+
 export async function getQuickFixes(
   document: LspDocument,
   diagnostic: Diagnostic,
@@ -371,13 +503,15 @@ export async function getQuickFixes(
   let action: CodeAction | undefined;
   const actions: CodeAction[] = [];
 
-  const root = analyzer.getRootNode(document);
+  const root = analyzer.getRootNode(document.uri);
   let node = root;
+
   if (root) {
     node = getChildNodes(root).find(n =>
       n.startPosition.row === diagnostic.range.start.line &&
       n.startPosition.column === diagnostic.range.start.character);
   }
+  logger.info('getQuickFixes', { code: diagnostic.code, message: diagnostic.message, node: node?.text });
 
   switch (diagnostic.code) {
     case ErrorCodes.missingEnd:
@@ -400,6 +534,11 @@ export async function getQuickFixes(
       if (action) actions.push(action);
       return actions;
 
+    case ErrorCodes.dotSourceCommand:
+      action = handleDotSourceCommand(document, diagnostic);
+      if (action) actions.push(action);
+      return actions;
+
     case ErrorCodes.zeroIndexedArray:
       action = handleZeroIndexedArray(document, diagnostic);
       if (action) actions.push(action);
@@ -414,16 +553,6 @@ export async function getQuickFixes(
       action = handleTestCommandVariableExpansionWithoutString(document, diagnostic);
       if (action) actions.push(action);
       return actions;
-
-      // case ErrorCodes.usedAlias:
-      //   if (!node) return [];
-      //   actions.push(
-      //     ...await Promise.all([
-      //       createAliasInlineAction(node, document),
-      //       createAliasSaveActionNewFile(node, document),
-      //     ]),
-      //   );
-      //   return actions;
 
     case ErrorCodes.autoloadedFunctionMissingDefinition:
       if (!node) return [];
@@ -440,10 +569,20 @@ export async function getQuickFixes(
       if (!node) return [];
       return [handleUnusedFunction(diagnostic, node, document)];
 
+    case ErrorCodes.autoloadedCompletionMissingCommandName:
+      if (!node) return [];
+      action = handleCompletionFilenameMismatch(diagnostic, node, document);
+      if (action) actions.push(action);
+      return actions;
+
     case ErrorCodes.argparseMissingEndStdin:
       action = handleAddEndStdinToArgparse(diagnostic, document);
       if (action) actions.push(action);
       return actions;
+
+    case ErrorCodes.fishLspDeprecatedEnvName:
+      if (!node) return [];
+      return [handleConvertDeprecatedFishLsp(diagnostic, node, document)];
 
     default:
       return actions;

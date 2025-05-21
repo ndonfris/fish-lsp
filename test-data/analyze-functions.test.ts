@@ -1,19 +1,13 @@
-import * as os from 'os';
 import * as Parser from 'web-tree-sitter';
-import { containsRange, findEnclosingScope, getChildNodes, getRange } from '../src/utils/tree-sitter';
-import { isCommandName, isCommandWithName, isComment, isFunctionDefinitionName, isIfStatement, isMatchingOption, isOption, isString, isTopLevelFunctionDefinition } from '../src/utils/node-types';
-import { convertIfToCombinersString } from '../src/code-actions/combiner';
+import { getChildNodes, getRange } from '../src/utils/tree-sitter';
+import { isCommandWithName } from '../src/utils/node-types';
 import { setLogger } from './helpers';
 import { initializeParser } from '../src/parser';
-import { findReturnNodes, getReturnStatusValue } from '../src/code-lens';
 import { TextDocumentItem } from 'vscode-languageserver';
 import { LspDocument } from '../src/document';
-import { SyntaxNode } from 'web-tree-sitter';
-import { isReservedKeyword } from '../src/utils/builtins';
-import { isAutoloadedUriLoadsFunctionName, shouldHaveAutoloadedFunction } from '../src/utils/translation';
-import { CompleteFlag, findFlagsToComplete, buildCompleteString } from '../src/code-actions/argparse-completions';
 import { Analyzer } from '../src/analyze';
-import { filterGlobalSymbols } from '../src/document-symbol';
+import { getGlobalSymbols } from '../src/parsing/symbol';
+// import { filterGlobalSymbols } from '../src/document-symbol';
 
 let parser: Parser;
 let analyzer: Analyzer;
@@ -93,9 +87,9 @@ foo`,
       analyzer.analyze(doc);
       console.log('rootNode', rootNode.text);
 
-      const symbols = analyzer.getDocumentSymbols(doc.uri);
+      const symbols = analyzer.getFlatDocumentSymbols(doc.uri);
 
-      const globalSymbols = filterGlobalSymbols(symbols);
+      const globalSymbols = getGlobalSymbols(symbols);
       const ws = analyzer.getWorkspaceSymbols('foo_1');
       let position = { line: 0, character: 0 };
       for (const node of getChildNodes(rootNode)) {

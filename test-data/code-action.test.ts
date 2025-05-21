@@ -1,11 +1,12 @@
 import * as os from 'os';
 import * as Parser from 'web-tree-sitter';
-import { containsRange, findEnclosingScope, getChildNodes, getNamedChildNodes, getRange } from '../src/utils/tree-sitter';
+import { containsRange, findEnclosingScope, getChildNodes, getRange } from '../src/utils/tree-sitter';
 import { isCommandName, isCommandWithName, isComment, isFunctionDefinitionName, isIfStatement, isMatchingOption, isOption, isString, isTopLevelFunctionDefinition } from '../src/utils/node-types';
+import { Option } from '../src/parsing/options';
 import { convertIfToCombinersString } from '../src/code-actions/combiner';
 import { setLogger } from './helpers';
 import { initializeParser } from '../src/parser';
-import { findReturnNodes, getReturnStatusValue } from '../src/code-lens';
+import { findReturnNodes, getReturnStatusValue } from '../src/inlay-hints';
 import { TextDocumentItem } from 'vscode-languageserver';
 import { LspDocument } from '../src/document';
 import { SyntaxNode } from 'web-tree-sitter';
@@ -480,8 +481,11 @@ export type LocalFunctionCallType = {
 };
 
 function isMatchingCompletionOption(node: SyntaxNode) {
-  return isMatchingOption(node, { shortOption: '-n', longOption: '--condition' })
-    || isMatchingOption(node, { shortOption: '-a', longOption: '--arguments' })
-    || isMatchingOption(node, { shortOption: '-c', longOption: '--command' });
+  // return isMatchingOption(node, { shortOption: '-n', longOption: '--condition' })
+  //   || isMatchingOption(node, { shortOption: '-a', longOption: '--arguments' })
+  //   || isMatchingOption(node, { shortOption: '-c', longOption: '--command' });
+  return isMatchingOption(node, Option.create('-c', '--command').withValue())
+    || isMatchingOption(node, Option.create('-a', '--arguments').withMultipleValues())
+    || isMatchingOption(node, Option.create('-n', '--condition').withValue());
 }
 

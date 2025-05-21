@@ -1,9 +1,14 @@
-import { promises as fs } from 'fs';
+import { promises } from 'fs';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { Position, Range, TextDocumentItem, TextDocumentContentChangeEvent } from 'vscode-languageserver';
+import { Position, Range, TextDocumentItem, TextDocumentContentChangeEvent, VersionedTextDocumentIdentifier, TextDocumentIdentifier, DocumentUri } from 'vscode-languageserver';
+import * as path from 'path';
 import { URI } from 'vscode-uri';
 import { homedir } from 'os';
-import { AutoloadType, uriToPath } from './utils/translation';
+import { AutoloadType, isPath, isTextDocument, isTextDocumentItem, isUri, PathLike, pathToUri, uriToPath } from './utils/translation';
+import { Workspace } from './utils/workspace';
+import { workspaceManager } from './utils/workspace-manager';
+import { SyncFileHelper } from './utils/file-operations';
+import { logger } from './logger';
 
 export class LspDocument implements TextDocument {
   protected document: TextDocument;
@@ -12,8 +17,72 @@ export class LspDocument implements TextDocument {
     const { uri, languageId, version, text } = doc;
     this.document = TextDocument.create(uri, languageId, version, text);
   }
+  static createTextDocumentItem(uri: string, text: string): LspDocument {
+    return new LspDocument({
+      uri,
+      languageId: 'fish',
+      version: 1,
+      text,
+    });
+  }
 
-  get uri(): string {
+  static fromTextDocument(doc: TextDocument): LspDocument {
+    const item = TextDocumentItem.create(doc.uri, doc.languageId, doc.version, doc.getText());
+    return new LspDocument(item);
+  }
+
+  static createFromUri(uri: DocumentUri): LspDocument {
+    const content = SyncFileHelper.read(uriToPath(uri));
+    return LspDocument.createTextDocumentItem(uri, content);
+  }
+
+  static createFromPath(path: PathLike): LspDocument {
+    const content = SyncFileHelper.read(path);
+    return LspDocument.createTextDocumentItem(pathToUri(path), content);
+  }
+  /**
+   * Creates a new LspDocument from a path, URI, TextDocument, TextDocumentItem, or another LspDocument.
+   * @param param The parameter to create the LspDocument from.
+   * @returns A new LspDocument instance.
+   */
+  static create(uri: DocumentUri): LspDocument;
+  static create(path: PathLike): LspDocument;
+  static create(doc: TextDocument): LspDocument;
+  static create(doc: TextDocumentItem): LspDocument;
+  static create(doc: LspDocument): LspDocument;
+  static create(param: PathLike | DocumentUri | TextDocument | TextDocumentItem | LspDocument): LspDocument;
+  static create(param: PathLike | DocumentUri | TextDocument | TextDocumentItem | LspDocument): LspDocument {
+    if (typeof param === 'string' && isPath(param)) return LspDocument.createFromPath(param);
+    if (typeof param === 'string' && isUri(param)) return LspDocument.createFromUri(param);
+    if (LspDocument.is(param)) return LspDocument.fromTextDocument(param.document);
+    if (isTextDocumentItem(param)) return LspDocument.createTextDocumentItem(param.uri, param.text);
+    if (isTextDocument(param)) return LspDocument.fromTextDocument(param);
+    // we should never reach here
+    logger.error('Invalid parameter type `LspDocument.create()`: ', param);
+    return undefined as never;
+  }
+
+  static async createFromUriAsync(uri: DocumentUri): Promise<LspDocument> {
+    const content = await promises.readFile(uriToPath(uri), 'utf8');
+    return LspDocument.createTextDocumentItem(uri, content);
+  }
+
+  asTextDocumentItem(): TextDocumentItem {
+    return {
+      uri: this.document.uri,
+      languageId: this.document.languageId,
+      version: this.document.version,
+      text: this.document.getText(),
+    };
+  }
+
+  asTextDocumentIdentifier(): TextDocumentIdentifier {
+    return {
+      uri: this.document.uri,
+    };
+  }
+
+  get uri(): DocumentUri {
     return this.document.uri;
   }
 
@@ -23,6 +92,10 @@ export class LspDocument implements TextDocument {
 
   get version(): number {
     return this.document.version;
+  }
+
+  get path(): string {
+    return uriToPath(this.document.uri);
   }
 
   getText(range?: Range): string {
@@ -40,6 +113,20 @@ export class LspDocument implements TextDocument {
   get lineCount(): number {
     return this.document.lineCount;
   }
+
+  create(uri: string, languageId: string, version: number, text: string): LspDocument {
+    return new LspDocument({
+      uri,
+      languageId: languageId || 'fish',
+      version: version || 1,
+      text,
+    });
+  }
+
+  // update(changes: TextDocumentContentChangeEvent[]): LspDocument {
+  //   this.document = TextDocument.update(this.document, changes, this.version);
+  //   return this;
+  // }
 
   /**
    * @see getLineBeforeCursor()
@@ -82,25 +169,31 @@ export class LspDocument implements TextDocument {
     return indent ? indent[0] : '';
   }
 
-  applyEdits(version: number, ...changes: TextDocumentContentChangeEvent[]): void {
-    for (const change of changes) {
-      const content = this.getText();
-      let newContent = change.text;
+  update(changes: TextDocumentContentChangeEvent[]): LspDocument {
+    this.document = TextDocument.update(this.document, changes, this.version + 1);
+    return LspDocument.fromTextDocument(this.document);
 
-      if (TextDocumentContentChangeEvent.isIncremental(change)) {
-        const start = this.offsetAt(change.range.start);
-        const end = this.offsetAt(change.range.end);
-        newContent = content.substring(0, start) + change.text + content.substring(end);
-      }
-      this.document = TextDocument.create(this.uri, this.languageId, version, newContent);
-    }
+    // for (const change of changes) {
+    //   const content = this.getText();
+    //   let newContent = change.text;
+    //   if (TextDocumentContentChangeEvent.isIncremental(change)) {
+    //     const start = this.offsetAt(change.range.start);
+    //     const end = this.offsetAt(change.range.end);
+    //     newContent = content.substring(0, start) + change.text + content.substring(end);
+    //   }
+    //   this.document = TextDocument.create(this.uri, this.languageId, version, newContent);
+    // }
+  }
+
+  asVersionedIdentifier() {
+    return VersionedTextDocumentIdentifier.create(this.uri, this.version);
   }
 
   rename(newUri: string): void {
     this.document = TextDocument.create(newUri, this.languageId, this.version, this.getText());
   }
 
-  getFilePath(): string | undefined {
+  getFilePath(): string {
     return uriToPath(this.uri);
   }
 
@@ -115,7 +208,8 @@ export class LspDocument implements TextDocument {
     const workspaceRootIndex = dirs.find(dir => dir === 'fish')
       ? dirs.indexOf('fish')
       : dirs.find(dir => ['conf.d', 'functions', 'completions', 'config.fish'].includes(dir))
-        ? dirs.findLastIndex(dir => ['conf.d', 'functions', 'completions', 'config.fish'].includes(dir))
+        // ? dirs.findLastIndex(dir => ['conf.d', 'functions', 'completions', 'config.fish'].includes(dir))
+        ? dirs.findIndex(dir => ['conf.d', 'functions', 'completions', 'config.fish'].includes(dir))
         : dirs.length - 1;
 
     return dirs.slice(workspaceRootIndex).join('/');
@@ -140,7 +234,26 @@ export class LspDocument implements TextDocument {
     const pathArray = this.uri.split('/');
     const fileName = pathArray.pop();
     const parentDir = pathArray.pop();
-    return parentDir && ['functions', 'conf.d'].includes(parentDir?.toString()) || fileName === 'config.fish';
+    return parentDir && ['functions', 'conf.d', 'completions'].includes(parentDir?.toString()) || fileName === 'config.fish';
+  }
+
+  public getWorkspace(): Workspace | undefined {
+    return workspaceManager.findContainingWorkspace(this.uri) || undefined;
+  }
+
+  private getFolderType(): AutoloadType | null {
+    const docPath = uriToPath(this.uri);
+    if (!docPath) return null;
+
+    const dirName = path.basename(path.dirname(docPath));
+    const fileName = path.basename(docPath);
+
+    if (dirName === 'functions') return 'functions';
+    if (dirName === 'conf.d') return 'conf.d';
+    if (dirName === 'completions') return 'completions';
+    if (fileName === 'config.fish') return 'config';
+
+    return '';
   }
 
   /**
@@ -152,15 +265,9 @@ export class LspDocument implements TextDocument {
    * files.
    */
   isAutoloaded(): boolean {
-    const path = uriToPath(this.uri);
-    if (path?.includes('fish/functions')) {
-      return true;
-    } else if (path?.includes('fish/conf.d')) {
-      return true;
-    } else if (path?.includes('fish/config.fish')) {
-      return true;
-    }
-    return false;
+    const folderType = this.getFolderType();
+    if (!folderType) return false;
+    return ['functions', 'conf.d', 'config'].includes(folderType);
   }
 
   /**
@@ -173,34 +280,16 @@ export class LspDocument implements TextDocument {
    *  completion files.
    */
   isAutoloadedUri(): boolean {
-    const path = uriToPath(this.uri);
-    if (path?.includes('fish/functions')) {
-      return true;
-    } else if (path?.includes('fish/conf.d')) {
-      return true;
-    } else if (path?.includes('fish/config.fish')) {
-      return true;
-    } else if (path?.includes('fish/completions')) {
-      return true;
-    }
-    return false;
+    const folderType = this.getFolderType();
+    if (!folderType) return false;
+    return ['functions', 'conf.d', 'config', 'completions'].includes(folderType);
   }
 
   /**
    * helper that gets the document URI if it is fish/functions directory
    */
   getAutoloadType(): AutoloadType {
-    const path = uriToPath(this.uri);
-    if (path?.includes('fish/functions')) {
-      return 'functions';
-    } else if (path?.includes('fish/conf.d')) {
-      return 'conf.d';
-    } else if (path?.includes('fish/config.fish')) {
-      return 'config';
-    } else if (path?.includes('fish/completions')) {
-      return 'completions';
-    }
-    return '';
+    return this.getFolderType() || '';
   }
 
   /**
@@ -208,7 +297,7 @@ export class LspDocument implements TextDocument {
      * @returns {string} - what the function name should be, or '' if it is not autoloaded
      */
   getAutoLoadName(): string {
-    if (!this.isAutoloaded()) {
+    if (!this.isAutoloadedUri()) {
       return '';
     }
     const parts = uriToPath(this.uri)?.split('/') || [];
@@ -216,17 +305,83 @@ export class LspDocument implements TextDocument {
     return name!.replace('.fish', '');
   }
 
+  getFileName(): string {
+    const items = uriToPath(this.uri).split('/') || [];
+    const name = items.length > 0 ? items.pop()! : uriToPath(this.uri);
+    return name;
+  }
+
   getLines(): number {
     const lines = this.getText().split('\n');
     return lines.length;
+  }
+
+  /**
+   * Type guard to check if an object is an LspDocument
+   *
+   * @param value The value to check
+   * @returns True if the value is an LspDocument, false otherwise
+   */
+  static is(value: unknown): value is LspDocument {
+    return (
+      // Check if it's an object first
+      typeof value === 'object' &&
+      value !== null &&
+      // Check for LspDocument-specific methods/properties not found in TextDocument or TextDocumentItem
+      typeof (value as LspDocument).asTextDocumentItem === 'function' &&
+      typeof (value as LspDocument).asTextDocumentIdentifier === 'function' &&
+      typeof (value as LspDocument).getAutoloadType === 'function' &&
+      typeof (value as LspDocument).isAutoloaded === 'function' &&
+      typeof (value as LspDocument).path === 'string' &&
+      typeof (value as LspDocument).getFileName === 'function' &&
+      typeof (value as LspDocument).getRelativeFilenameToWorkspace === 'function' &&
+      typeof (value as LspDocument).getLine === 'function' &&
+      typeof (value as LspDocument).getLines === 'function' &&
+      // Ensure base TextDocument properties are also present
+      typeof (value as LspDocument).uri === 'string' &&
+      typeof (value as LspDocument).getText === 'function'
+    );
   }
 }
 
 export class LspDocuments {
   private readonly _files: string[] = [];
   private readonly documents = new Map<string, LspDocument>();
-  private loadingQueue: Set<string> = new Set();
-  private loadedFiles: Map<string, number> = new Map(); // uri -> timestamp
+
+  static create(): LspDocuments {
+    return new LspDocuments();
+  }
+
+  static from(documents: LspDocuments): LspDocuments {
+    const newDocuments = new LspDocuments();
+    newDocuments.documents.clear();
+    newDocuments._files.length = 0;
+    documents.documents.forEach((doc, file) => {
+      newDocuments.documents.set(file, doc);
+      newDocuments._files.push(file);
+    });
+    return newDocuments;
+  }
+
+  copy(documents: LspDocuments): LspDocuments {
+    this.documents.clear();
+    this._files.push(...documents._files);
+    documents.documents.forEach((doc, file) => {
+      this.documents.set(file, doc);
+    });
+    return this;
+  }
+
+  get openDocuments(): LspDocument[] {
+    const result: LspDocument[] = [];
+    for (const file of this._files.toReversed()) {
+      const document = this.documents.get(file);
+      if (document) {
+        result.push(document);
+      }
+    }
+    return result;
+  }
 
   /**
    * Sorted by last access.
@@ -250,49 +405,144 @@ export class LspDocuments {
     return document;
   }
 
-  // Enhanced get method that supports async loading
-  async getAsync(uri?: string): Promise<LspDocument | undefined> {
-    if (!uri) return undefined;
-    return this.getDocument(uri);
+  openPath(path: string, doc: TextDocumentItem): LspDocument {
+    const lspDocument = new LspDocument(doc);
+    this.documents.set(path, lspDocument);
+    this._files.unshift(path);
+    return lspDocument;
   }
 
-  async getDocument(uri: string): Promise<LspDocument | undefined> {
-    if (!this.loadingQueue.has(uri) && !this.loadedFiles.has(uri)) {
-      this.loadingQueue.add(uri);
-      try {
-        const content = await fs.readFile(uriToPath(uri), 'utf8');
-        const doc = new LspDocument({
-          uri,
-          languageId: 'fish',
-          version: 1,
-          text: content,
-        });
-        this.documents.set(uri, doc);
-        this.loadedFiles.set(uri, Date.now());
-      } finally {
-        this.loadingQueue.delete(uri);
-      }
+  private getPathFromParam(param: PathLike | DocumentUri | LspDocument | TextDocumentItem | TextDocument): string {
+    if (isUri(param)) {
+      return uriToPath(param);
     }
-    return this.documents.get(uri);
+    if (isPath(param)) {
+      return param;
+    }
+    if (isTextDocument(param)) {
+      return uriToPath(param.uri);
+    }
+    if (isTextDocumentItem(param)) {
+      return uriToPath(param.uri);
+    }
+    if (LspDocument.is(param)) {
+      return (param as LspDocument).path;
+    }
+    throw new Error('Invalid parameter type');
   }
 
-  open(file: string, doc: TextDocumentItem): boolean {
-    if (this.documents.has(file)) {
+  open(uri: DocumentUri): boolean;
+  open(path: PathLike): boolean;
+  open(lspDocument: LspDocument): boolean;
+  open(textDocument: TextDocument): boolean;
+  open(textDocumentItem: TextDocumentItem): boolean;
+  open(param: PathLike | DocumentUri | LspDocument | TextDocument | TextDocumentItem): boolean;
+  open(param: PathLike | DocumentUri | LspDocument | TextDocument | TextDocumentItem): boolean {
+    const path: string = this.getPathFromParam(param);
+    if (this.documents.has(path)) {
       return false;
     }
-    this.documents.set(file, new LspDocument(doc));
-    this._files.unshift(file);
+    const newDoc = LspDocument.create(param);
+    this.documents.set(path, newDoc);
+    this._files.unshift(path);
     return true;
   }
 
-  close(file: string): LspDocument | undefined {
-    const document = this.documents.get(file);
+  // open(doc: LspDocument): boolean {
+  //   const file = uriToPath(doc.uri);
+  //   if (this.documents.has(file)) {
+  //     return false;
+  //   }
+  //   this.documents.set(file, doc);
+  //   this._files.unshift(file);
+  //   return true;
+  // }
+
+  isOpen(path: string | DocumentUri): boolean {
+    if (URI.isUri(path)) {
+      path = uriToPath(path);
+    }
+    return this.documents.has(path);
+  }
+
+  get uris(): string[] {
+    return Array.from(this._files).map(file => pathToUri(file));
+  }
+
+  getDocument(uri: DocumentUri): LspDocument | undefined {
+    const path = uriToPath(uri);
+    return this.documents.get(path);
+  }
+
+  openTextDocument(document: TextDocument): LspDocument {
+    const path = uriToPath(document.uri);
+    if (this.documents.has(path)) {
+      return this.documents.get(path)!;
+    }
+    const lspDocument = LspDocument.fromTextDocument(document);
+    this.documents.set(path, lspDocument);
+    this._files.unshift(path);
+    return lspDocument;
+  }
+
+  updateTextDocument(textDocument: TextDocument): LspDocument {
+    const path = uriToPath(textDocument.uri);
+    this.documents.set(path, LspDocument.fromTextDocument(textDocument));
+    return this.documents.get(path) as LspDocument;
+  }
+
+  applyChanges(uri: DocumentUri, changes: TextDocumentContentChangeEvent[]) {
+    const path = uriToPath(uri);
+    let document = this.documents.get(path);
+    if (document) {
+      document = document.update(changes);
+      this.documents.set(path, document);
+    }
+  }
+
+  set(document: LspDocument): void {
+    const path = uriToPath(document.uri);
+    this.documents.set(path, document);
+  }
+
+  all(): LspDocument[] {
+    return Array.from(this.documents.values());
+  }
+
+  closeTextDocument(document: TextDocument): LspDocument | undefined {
+    const path = uriToPath(document.uri);
+    return this.close(path);
+  }
+
+  close(uri: DocumentUri): LspDocument | undefined;
+  close(path: PathLike): LspDocument | undefined;
+  close(lspDocument: LspDocument): LspDocument | undefined;
+  close(textDocument: TextDocument): LspDocument | undefined;
+  close(textDocumentItem: TextDocumentItem): LspDocument | undefined;
+  close(param: PathLike | DocumentUri | LspDocument | TextDocument | TextDocumentItem): LspDocument | undefined;
+  close(param: PathLike | DocumentUri | LspDocument | TextDocument | TextDocumentItem): LspDocument | undefined {
+    const path: string = this.getPathFromParam(param);
+    const document = this.documents.get(path);
     if (!document) {
       return undefined;
     }
-    this.documents.delete(file);
-    this._files.splice(this._files.indexOf(file), 1);
+    this.documents.delete(path);
+    this._files.splice(this._files.indexOf(path), 1);
     return document;
+  }
+  // close(file: string): LspDocument | undefined {
+  //   const document = this.documents.get(file);
+  //   if (!document) {
+  //     return undefined;
+  //   }
+  //   this.documents.delete(file);
+  //   this._files.splice(this._files.indexOf(file), 1);
+  //   return document;
+  // }
+
+  closeAll(): void {
+    this.documents.clear();
+    this._files.length = 0;
   }
 
   rename(oldFile: string, newFile: string): boolean {
@@ -314,4 +564,28 @@ export class LspDocuments {
     }
     return URI.file(filepath);
   }
+
+  clear(): void {
+    this.documents.clear();
+    this._files.length = 0;
+  }
 }
+
+/**
+ * GLOBAL DOCUMENTS OBJECT
+ *
+ * This is a singleton object that holds all the documents open inside of it.
+ *
+ * Import this object and use it to access the documents.
+ *
+ * NOTE: while the documents inside this object should be accessible anywhere in
+ *       the code, the object itself does not need to handle listening to events.
+ *
+ *       This is done by the server itself, in the `server.register()` method,
+ *       specifically by the `this.documents` property of the server.
+ *
+ *       Notice that the server has a `this.documents` object (that is used to listen for document events)
+ *       and it updates the `documents` object here, when they are seen
+ */
+export const documents = LspDocuments.create();
+

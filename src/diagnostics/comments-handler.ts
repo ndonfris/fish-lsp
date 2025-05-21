@@ -1,6 +1,6 @@
 import { SyntaxNode } from 'web-tree-sitter';
 import { isComment } from '../utils/node-types';
-import { ErrorCodes } from './errorCodes';
+import { ErrorCodes } from './error-codes';
 import { config } from '../config';
 import { Position } from 'vscode-languageserver';
 
@@ -147,9 +147,11 @@ export class DiagnosticCommentsHandler {
     if (config.fish_lsp_diagnostic_disable_error_codes.length > 0) {
       return ErrorCodes.allErrorCodes.filter(
         code => !config.fish_lsp_diagnostic_disable_error_codes.includes(code),
-      );
+      ).filter(code => ErrorCodes.nonDeprecatedErrorCodes.some(e => e.code === code));
     }
-    return ErrorCodes.allErrorCodes;
+    return ErrorCodes.allErrorCodes.filter(code =>
+      ErrorCodes.nonDeprecatedErrorCodes.some(e => e.code === code),
+    );
   }
 
   private pushState(state: DiagnosticState) {

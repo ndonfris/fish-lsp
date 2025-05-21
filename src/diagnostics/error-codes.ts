@@ -6,6 +6,7 @@ export namespace ErrorCodes {
   export const extraEnd = 1002;
   export const zeroIndexedArray = 1003;
   export const sourceFileDoesNotExist = 1004;
+  export const dotSourceCommand = 1005;
 
   export const singleQuoteVariableExpansion = 2001;
   export const usedAlias = 2002;
@@ -13,31 +14,39 @@ export namespace ErrorCodes {
 
   export const testCommandMissingStringCharacters = 3001;
   export const missingQuietOption = 3002;
-  export const expansionInDefinition = 3003;
+  export const dereferencedDefinition = 3003;
 
   export const autoloadedFunctionMissingDefinition = 4001;
   export const autoloadedFunctionFilenameMismatch = 4002;
   export const functionNameUsingReservedKeyword = 4003;
   export const unusedLocalFunction = 4004;
+  export const autoloadedCompletionMissingCommandName = 4005;
   // export const preferAutloadedFunctionHasDescription = 4005;
 
   export const argparseMissingEndStdin = 5001;
 
+  export const fishLspDeprecatedEnvName = 6001;
+
   export const invalidDiagnosticCode = 8001;
 
+  export const syntaxError = 9999;
+
   export type CodeTypes =
-    1001 | 1002 | 1003 | 1004 |
+    1001 | 1002 | 1003 | 1004 | 1005 |
     2001 | 2002 | 2003 |
     3001 | 3002 | 3003 |
-    4001 | 4002 | 4003 | 4004 |
+    4001 | 4002 | 4003 | 4004 | 4005 |
     5001 |
-    8001;
+    6001 |
+    8001 |
+    9999 ;
 
   export type CodeValueType = {
     severity: DiagnosticSeverity;
     code: CodeTypes;
     codeDescription: CodeDescription;
     source: 'fish-lsp';
+    isDeprecated?: boolean;
     message: string;
   };
 
@@ -74,11 +83,20 @@ export namespace ErrorCodes {
       source: 'fish-lsp',
       message: 'source filename does not exist',
     },
+    [dotSourceCommand]: {
+      severity: DiagnosticSeverity.Error,
+      code: dotSourceCommand,
+      codeDescription: { href: 'https://fishshell.com/docs/current/cmds/source.html' },
+      source: 'fish-lsp',
+      message: '`.` source command not allowed, use `source` instead',
+    },
+    /** consider disabling this */
     [singleQuoteVariableExpansion]: {
       severity: DiagnosticSeverity.Warning,
       code: singleQuoteVariableExpansion,
       codeDescription: { href: 'https://fishshell.com/docs/current/language.html#variable-expansion' },
       source: 'fish-lsp',
+      isDeprecated: true,
       message: 'non-escaped expansion variable in single quote string',
     },
     [usedAlias]: {
@@ -109,12 +127,12 @@ export namespace ErrorCodes {
       source: 'fish-lsp',
       message: 'Conditional command should include a silence option',
     },
-    [expansionInDefinition]: {
+    [dereferencedDefinition]: {
       severity: DiagnosticSeverity.Warning,
-      code: expansionInDefinition,
-      codeDescription: { href: 'https://fishshell.com/docs/current/cmds/set.html' },
+      code: dereferencedDefinition,
+      codeDescription: { href: 'https://fishshell.com/docs/current/language.html#dereferencing-variables' },
       source: 'fish-lsp',
-      message: 'Variable definition should not include expansion character',
+      message: 'Dereferenced variable could be undefined',
     },
     [autoloadedFunctionMissingDefinition]: {
       severity: DiagnosticSeverity.Warning,
@@ -144,12 +162,26 @@ export namespace ErrorCodes {
       source: 'fish-lsp',
       message: 'Unused local function',
     },
+    [autoloadedCompletionMissingCommandName]: {
+      severity: DiagnosticSeverity.Error,
+      code: autoloadedCompletionMissingCommandName,
+      codeDescription: { href: 'https://fishshell.com/docs/current/cmds/complete.html' },
+      source: 'fish-lsp',
+      message: 'Autoloaded completion missing command name',
+    },
     [argparseMissingEndStdin]: {
       severity: DiagnosticSeverity.Error,
       code: argparseMissingEndStdin,
       codeDescription: { href: 'https://fishshell.com/docs/current/cmds/argparse.html' },
       source: 'fish-lsp',
       message: 'argparse missing end of stdin',
+    },
+    [fishLspDeprecatedEnvName]: {
+      severity: DiagnosticSeverity.Warning,
+      code: fishLspDeprecatedEnvName,
+      codeDescription: { href: 'https://github.com/ndonfris/fish-lsp#environment-variables' },
+      source: 'fish-lsp',
+      message: 'Deprecated fish-lsp environment variable name',
     },
     [invalidDiagnosticCode]: {
       severity: DiagnosticSeverity.Warning,
@@ -158,10 +190,21 @@ export namespace ErrorCodes {
       source: 'fish-lsp',
       message: 'Invalid diagnostic control code',
     },
+    [syntaxError]: {
+      severity: DiagnosticSeverity.Error,
+      code: syntaxError,
+      codeDescription: { href: 'https://fishshell.com/docs/current/fish_for_bash_users.html#syntax-overview' },
+      source: 'fish-lsp',
+      message: 'fish syntax error',
+    },
   };
 
   /** All error codes */
   export const allErrorCodes = Object.values(codes).map((diagnostic) => diagnostic.code) as CodeTypes[];
+
+  export const allErrorCodeObjects = Object.values(codes) as CodeValueType[];
+
+  export const nonDeprecatedErrorCodes = allErrorCodeObjects.filter((code) => !code.isDeprecated);
 
   export function getSeverityString(severity: DiagnosticSeverity | undefined): string {
     if (!severity) return '';

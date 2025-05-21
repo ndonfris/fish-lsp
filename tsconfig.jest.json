@@ -1,12 +1,14 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
+    "target": "ES2023",
+    "downlevelIteration": true,
     "esModuleInterop": true,
-    "noUncheckedIndexedAccess": true,
-    "resolveJsonModule": true,
-    "include": [
-      "test-data/**/*"
-    ]
-  }
+    "allowSyntheticDefaultImports": true
+  },
+  "include": [
+    "src/**/*",
+    "test-data/**/*",
+    "jest.config.js"
+  ]
 }
-

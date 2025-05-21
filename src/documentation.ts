@@ -3,8 +3,9 @@ import { SyntaxNode } from 'web-tree-sitter';
 // import { hasPossibleSubCommand } from './utils/builtins';
 import { execCommandDocs, execCommandType, CompletionArguments, execCompleteSpace, execCompleteCmdArgs, documentCommandDescription } from './utils/exec';
 import { getChildNodes, getNodeText } from './utils/tree-sitter';
-
-//////// @TODO: clean up this file
+import { md } from './utils/markdown-builder';
+import { Analyzer } from './analyze';
+import { getExpandedSourcedFilenameNode } from './parsing/source';
 
 export type markdownFiletypes = 'fish' | 'man';
 
@@ -17,7 +18,7 @@ export function enrichToMarkdown(doc: string): MarkupContent {
   };
 }
 
-export function enrichToCodeBlockMarkdown(doc: string, filetype:markdownFiletypes = 'fish'): MarkupContent {
+export function enrichToCodeBlockMarkdown(doc: string, filetype: markdownFiletypes = 'fish'): MarkupContent {
   return {
     kind: MarkupKind.Markdown,
     value: [
@@ -57,15 +58,40 @@ export function enrichCommandArg(doc: string): MarkupContent {
   return enrichToMarkdown(enrichedDoc);
 }
 
-export function enrichCommandWithFlags(command: string, flags: string[]): MarkupContent {
-  const retString = [
-    `___${command}___`,
-    '___',
-    flags.map(line => line.split('\t'))
-      .map(line => `__${line[0]}__ _${line.slice(1).join(' ')}_`)
-      .join('\n'),
-  ].join('\n');
-  return enrichToMarkdown(retString);
+export function enrichCommandWithFlags(command: string, description: string, flags: string[]): MarkupContent {
+  const title = description ? `(${md.bold(command)}) ${description}` : md.bold(command);
+  const flagLines = flags.map(line => line.split('\t'))
+    .map(line => `${md.bold(line.at(0)!)} ${md.italic(line.slice(1).join(' '))}`);
+
+  const result: string[] = [];
+  result.push(title);
+  if (flags.length > 0) {
+    result.push(md.separator());
+    result.push(flagLines.join(md.newline()));
+  }
+
+  return enrichToMarkdown(result.join(md.newline()));
+}
+
+export function handleSourceArgumentHover(analyzer: Analyzer, current: SyntaxNode): Hover | null {
+  const sourceExpanded = getExpandedSourcedFilenameNode(current);
+  if (!sourceExpanded) return null;
+  const sourceDoc = analyzer.getDocumentFromPath(sourceExpanded);
+  if (!sourceDoc) {
+    analyzer.analyzePath(sourceExpanded);
+  }
+  return {
+    contents: enrichToMarkdown([
+      `${md.boldItalic('SOURCE')} - ${md.italic('https://fishshell.com/docs/current/cmds/source.html')}`,
+      md.separator(),
+      `${md.codeBlock('fish', [
+        'source ' + current.text,
+        sourceExpanded && sourceExpanded !== current.text ? `# source ${sourceExpanded}` : undefined,
+      ].filter(Boolean).join('\n'))}`,
+      md.separator(),
+      md.codeBlock('fish', sourceDoc!.getText()),
+    ].join(md.newline())),
+  };
 }
 
 export function enrichToPlainText(doc: string): MarkupContent {
@@ -75,7 +101,7 @@ export function enrichToPlainText(doc: string): MarkupContent {
   };
 }
 
-export async function documentationHoverProvider(cmd: string) : Promise<Hover | null> {
+export async function documentationHoverProvider(cmd: string): Promise<Hover | null> {
   const cmdDocs = await execCommandDocs(cmd);
   const cmdType = await execCommandType(cmd);
 
@@ -118,7 +144,7 @@ function commandStringHelper(cmd: string) {
     : '___' + cmdArray[0] + '___';
 }
 
-export function documentationHoverCommandArg(root: SyntaxNode, cmp: CompletionArguments) : Hover {
+export function documentationHoverCommandArg(root: SyntaxNode, cmp: CompletionArguments): Hover {
   let text = '';
   const argsArray = [...cmp.args.keys()];
   for (const node of getChildNodes(root)) {
@@ -128,19 +154,20 @@ export function documentationHoverCommandArg(root: SyntaxNode, cmp: CompletionAr
     }
   }
   const cmd = commandStringHelper(cmp.command.trim());
-  return { contents:
-        enrichToMarkdown(
-          [
-            cmd,
-            '---',
-            text.trim(),
-          ].join('\n'),
-        ),
+  return {
+    contents:
+      enrichToMarkdown(
+        [
+          cmd,
+          '---',
+          text.trim(),
+        ].join('\n'),
+      ),
   };
 }
 
 export function forwardSubCommandCollect(rootNode: SyntaxNode): string[] {
-  const stringToComplete : string[] = [];
+  const stringToComplete: string[] = [];
   for (const curr of rootNode.children) {
     if (curr.text.startsWith('-') && curr.text.startsWith('$')) {
       break;
@@ -151,8 +178,8 @@ export function forwardSubCommandCollect(rootNode: SyntaxNode): string[] {
   return stringToComplete;
 }
 
-export function forwardArgCommandCollect(rootNode: SyntaxNode) : string[] {
-  const stringToComplete : string[] = [];
+export function forwardArgCommandCollect(rootNode: SyntaxNode): string[] {
+  const stringToComplete: string[] = [];
   const _currentNode = rootNode.children;
   for (const curr of rootNode.children) {
     if (curr.text.startsWith('-') && curr.text.startsWith('$')) {
@@ -163,32 +190,6 @@ export function forwardArgCommandCollect(rootNode: SyntaxNode) : string[] {
   }
   return stringToComplete;
 }
-
-// export function collectCompletionOptions(rootNode: SyntaxNode) {
-//   let cmdText = [rootNode.children[0]!.text];
-//   if (hasPossibleSubCommand(cmdText[0]!)) {
-//     cmdText = forwardSubCommandCollect(rootNode);
-//   }
-//   // DIFF FLAG FORMATS
-//   // consider the difference between, find -name .git
-//   // and ls --long -l
-//
-//   // do complete and check for each flagsToFind
-//   //
-//   //exec
-//
-//   const flagsToFind = forwardArgCommandCollect(rootNode);
-// }
-
-/*export async function hoverForCommandArgument(node: SyntaxNode): Promise<Hover | null> {*/
-/*const text = getNodeText(node) */
-/*if (text.startsWith('-')) {*/
-/*const parent = findParentCommand(node);*/
-/*const hoverCompletion = new HoverFromCompletion(parent)*/
-/*return await hoverCompletion.generate()*/
-/*}*/
-/*return null*/
-/*}*/
 
 function getFlagString(arr: string[]): string {
   return '__' + arr[0] + '__' + ' ' + arr[1] + '\n';
@@ -352,7 +353,6 @@ export class HoverFromCompletion {
     this.commandString = await this.checkForSubCommands();
     if (this.isSubCommand()) {
       const output = await documentationHoverProvider(this.commandString);
-      //console.log(output)
       if (output) {
         return output;
       }

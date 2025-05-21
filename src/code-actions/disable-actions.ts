@@ -1,7 +1,7 @@
 // src/code-actions/disable-diagnostics.ts
 import { CodeAction, Diagnostic, DiagnosticSeverity, TextEdit } from 'vscode-languageserver';
 import { LspDocument } from '../document';
-import { ErrorCodes } from '../diagnostics/errorCodes';
+import { ErrorCodes } from '../diagnostics/error-codes';
 import { SupportedCodeActionKinds } from './action-kinds';
 import { logger } from '../logger';
 

@@ -108,6 +108,15 @@
       "contributions": [
         "code"
       ]
+    },
+    {
+      "login": "ndegruchy",
+      "name": "Nathan DeGruchy",
+      "avatar_url": "https://avatars.githubusercontent.com/u/52262673?v=4",
+      "profile": "https://degruchy.org/",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,

@@ -1,6 +1,8 @@
 import Parser, { SyntaxNode } from 'web-tree-sitter';
-import { isCommand, isCommandName, isCommandWithName, isEndStdinCharacter, isIfOrElseIfConditional, isMatchingOption, isOption, isString } from '../utils/node-types';
-import { getChildNodes } from '../utils/tree-sitter';
+import { isCommand, isCommandName, isCommandWithName, isEndStdinCharacter, isIfOrElseIfConditional, isMatchingOption, isOption, isString, isVariableDefinitionName } from '../utils/node-types';
+import { getChildNodes, isNodeWithinOtherNode } from '../utils/tree-sitter';
+import { Option } from '../parsing/options';
+import { isExistingSourceFilenameNode, isSourceCommandArgumentName } from '../parsing/source';
 
 type startTokenType = 'function' | 'while' | 'if' | 'for' | 'begin' | '[' | '{' | '(' | "'" | '"';
 type endTokenType = 'end' | "'" | '"' | ']' | '}' | ')';
@@ -56,6 +58,9 @@ export function isSingleQuoteVariableExpansion(node: Parser.SyntaxNode): boolean
   if (node.type !== 'single_quote_string') {
     return false;
   }
+  if (node.parent && isCommandWithName(node.parent, 'string')) {
+    return false;
+  }
 
   const variableRegex = /(?<!\\)\$\w+/; // Matches $variable, not preceded by a backslash
   return variableRegex.test(node.text);
@@ -70,16 +75,38 @@ export function isUniversalDefinition(node: SyntaxNode): boolean {
   if (!parent) return false;
 
   if (isCommandWithName(parent, 'read') || isCommandWithName(parent, 'set')) {
-    return isMatchingOption(node, { shortOption: '-U', longOption: '--universal' });
+    return isMatchingOption(node, Option.create('-U', '--universal'));
   }
   return false;
 }
 
 export function isSourceFilename(node: SyntaxNode): boolean {
-  const parent = node.parent;
-  if (!parent) return false;
-  if (isCommandWithName(parent, 'source') && parent.childCount === 2) {
-    return parent.child(1)?.equals(node) || false;
+  if (isSourceCommandArgumentName(node)) {
+    const isExisting = isExistingSourceFilenameNode(node);
+    if (!isExisting) {
+      // check if the node is a variable expansion
+      // if it is, do not through a diagnostic because we can't evaluate if this is a valid path
+      // An example of this case:
+      // for file in $__fish_data_dir/functions
+      //     source $file # <--- we have no clue if this file exists
+      // end
+      if (node.type === 'variable_expansion') {
+        return false;
+      }
+      // also skip something like `source '$file'`
+      if (isString(node)) {
+        return false;
+      }
+      return true;
+    }
+    return !isExisting;
+  }
+  return false;
+}
+
+export function isDotSourceCommand(node: SyntaxNode): boolean {
+  if (node.parent && isCommandWithName(node.parent, '.')) {
+    return node.parent.firstNamedChild?.equals(node) || false;
   }
   return false;
 }
@@ -91,11 +118,17 @@ export function isTestCommandVariableExpansionWithoutString(node: SyntaxNode): b
 
   if (!isCommandWithName(parent, 'test', '[')) return false;
 
-  if (isMatchingOption(previousSibling, { shortOption: '-n' }) || isMatchingOption(previousSibling, { shortOption: '-z' })) {
+  if (isMatchingOption(previousSibling, Option.short('-n'), Option.short('-z'))) {
     return !isString(node) && !!parent.child(2) && parent.child(2)!.equals(node);
   }
 
   return false;
+}
+
+function isInsideStatementCondition(statement: SyntaxNode, node: SyntaxNode): boolean {
+  const conditionNode = statement.childForFieldName('condition');
+  if (!conditionNode) return false;
+  return isNodeWithinOtherNode(node, conditionNode);
 }
 
 /**
@@ -107,19 +140,52 @@ export function isTestCommandVariableExpansionWithoutString(node: SyntaxNode): b
  * @param node - the current node to check (should be a command)
  * @returns true if the node is a conditional statement, otherwise false
  */
-function isConditionalStatement(node: SyntaxNode) {
+export function isConditionalStatement(node: SyntaxNode) {
+  if (!node.isNamed) return false;
   if (['\n', ';'].includes(node?.previousSibling?.type || '')) return false;
   let curr: SyntaxNode | null = node.parent;
   while (curr) {
     if (curr.type === 'conditional_execution') {
       curr = curr?.parent;
     } else if (isIfOrElseIfConditional(curr)) {
-      return true;
+      return isInsideStatementCondition(curr, node);
     } else {
       break;
     }
   }
   return false;
+}
+
+/**
+ * Check if a conditional_execution node starts with a conditional operator
+ */
+function checkConditionalStartsWith(node: SyntaxNode) {
+  if (node.type === 'conditional_execution') {
+    return node.text.startsWith('&&') || node.text.startsWith('||')
+      || node.text.startsWith('and') || node.text.startsWith('or');
+  }
+  return false;
+}
+
+/**
+ * Check if a command node is the first node in a conditional_execution
+ */
+export function isFirstNodeInConditionalExecution(node: SyntaxNode) {
+  if (!node.isNamed) return false;
+  if (['\n', ';'].includes(node?.type || '')) return false;
+  if (isConditionalStatement(node)) return false;
+
+  if (
+    node.parent &&
+    node.parent.type === 'conditional_execution' &&
+    !checkConditionalStartsWith(node.parent)
+  ) {
+    return node.parent.firstNamedChild?.equals(node) || false;
+  }
+
+  const next = node.nextNamedSibling;
+  if (!next) return false;
+  return next.type === 'conditional_execution' && checkConditionalStartsWith(next);
 }
 
 /**
@@ -144,8 +210,9 @@ function hasCommandSubstitution(node: SyntaxNode) {
  * @returns true if the command is a conditional statement without -q,--quiet/--query flags, otherwise false
  */
 export function isConditionalWithoutQuietCommand(node: SyntaxNode) {
+  // if (!isCommand(node)) return false;
   if (!isCommandWithName(node, 'command', 'type', 'read', 'set', 'string', 'abbr', 'builtin', 'functions', 'jobs')) return false;
-  if (!isConditionalStatement(node)) return false;
+  if (!isConditionalStatement(node) && !isFirstNodeInConditionalExecution(node)) return false;
 
   // skip `set` commands with command substitution
   if (isCommandWithName(node, 'set') && hasCommandSubstitution(node)) {
@@ -153,8 +220,8 @@ export function isConditionalWithoutQuietCommand(node: SyntaxNode) {
   }
 
   const flags = node?.childrenForFieldName('argument')
-    .filter(n => isMatchingOption(n, { shortOption: '-q', longOption: '--quiet' })
-      || isMatchingOption(n, { shortOption: '-q', longOption: '--query' })) || [];
+    .filter(n => isMatchingOption(n, Option.create('-q', '--quiet'))
+      || isMatchingOption(n, Option.create('-q', '--query'))) || [];
 
   return flags.length === 0;
 }
@@ -174,9 +241,9 @@ export type LocalFunctionCallType = {
 };
 
 export function isMatchingCompleteOptionIsCommand(node: SyntaxNode) {
-  return isMatchingOption(node, { shortOption: '-n', longOption: '--condition' })
-    || isMatchingOption(node, { shortOption: '-a', longOption: '--arguments' })
-    || isMatchingOption(node, { shortOption: '-c', longOption: '--command' });
+  return isMatchingOption(node, Option.create('-n', '--condition').withValue())
+    || isMatchingOption(node, Option.create('-a', '--arguments').withValue())
+    || isMatchingOption(node, Option.create('-c', '--command').withValue());
 }
 
 export function isArgparseWithoutEndStdin(node: SyntaxNode) {
@@ -184,4 +251,22 @@ export function isArgparseWithoutEndStdin(node: SyntaxNode) {
   const endStdin = getChildNodes(node).find(n => isEndStdinCharacter(n));
   if (!endStdin) return true;
   return false;
+}
+
+export function isFishLspDeprecatedVariableName(node: SyntaxNode): boolean {
+  if (isVariableDefinitionName(node)) {
+    return node.text === 'fish_lsp_logfile';
+  }
+  if (node.type === 'variable_name') {
+    return node.text === 'fish_lsp_logfile';
+  }
+  return node.text === 'fish_lsp_logfile';
+}
+export function getDeprecatedFishLspMessage(node: SyntaxNode): string {
+  switch (node.text) {
+    case 'fish_lsp_logfile':
+      return `REPLACE \`${node.text}\` with \`fish_lsp_log_file\``;
+    default:
+      return '';
+  }
 }

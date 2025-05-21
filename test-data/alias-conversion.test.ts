@@ -1,7 +1,7 @@
-import { Diagnostic, TextEdit } from 'vscode-languageserver';
+import { Diagnostic } from 'vscode-languageserver';
 import { initializeParser } from '../src/parser';
-import { createAliasInlineAction, AliasHelper } from '../src/code-actions/alias-wrapper';
-import { ErrorCodes } from '../src/diagnostics/errorCodes';
+import { AliasHelper, createAliasInlineAction } from '../src/code-actions/alias-wrapper';
+import { ErrorCodes } from '../src/diagnostics/error-codes';
 import { LspDocument } from '../src/document';
 import * as Parser from 'web-tree-sitter';
 import { setLogger } from './helpers';
@@ -11,115 +11,115 @@ import { execAsyncF } from '../src/utils/exec';
 
 setLogger();
 describe('createFunctionDefinition', () => {
-  const tests = [
-    {
-      name: 'basic ls alias',
-      aliasName: 'll',
-      command: 'ls -l',
-      expected: `function ll --wraps 'ls -l' --description "alias ll=ls -l"
-    ls -l $argv
-end`,
-      reason: 'should create basic function with wraps',
-    },
-    {
-      name: 'command needing builtin prefix',
-      aliasName: 'echo',
-      command: 'echo -n',
-      expected: `function echo --wraps 'echo -n' --description "alias echo=echo -n"
-    builtin echo -n $argv
-end`,
-      reason: 'should add builtin prefix for builtins',
-    },
-    {
-      name: 'command needing command prefix',
-      aliasName: 'ls',
-      command: 'ls -la',
-      expected: `function ls --wraps 'ls -la' --description "alias ls=ls -la"
-    command ls -la $argv
-end`,
-      reason: 'should add command prefix for same-named commands',
-    },
-    {
-      name: 'command with single quotes',
-      aliasName: 'say',
-      command: "echo 'hello world'",
-      expected: `function say --wraps 'echo \\'hello world\\'' --description "alias say=echo \\'hello world\\'"
-    echo 'hello world' $argv
-end`,
-      reason: 'should properly escape single quotes',
-    },
-    {
-      name: 'command with double quotes',
-      aliasName: 'greet',
-      command: 'echo "hello world"',
-      expected: `function greet --wraps 'echo "hello world"' --description "alias greet=echo \\"hello world\\""
-    echo "hello world" $argv
-end`,
-      reason: 'should properly escape double quotes',
-    },
-    {
-      name: 'recursive command skipping wraps',
-      aliasName: 'foo',
-      command: 'foo bar',
-      expected: `function foo --description "alias foo=foo bar"
-    command foo bar $argv
-end`,
-      reason: 'should skip wraps and add command prefix for recursive commands',
-    },
-    {
-      name: 'sudo command with recursive part',
-      aliasName: 'update',
-      command: 'sudo update',
-      expected: `function update --description "alias update=sudo update"
-    sudo update $argv
-end`,
-      reason: 'should skip wraps for sudo recursion',
-    },
-    {
-      name: 'command with multiple options',
-      aliasName: 'grep',
-      command: 'grep --color=auto --line-number',
-      expected: `function grep --wraps 'grep --color=auto --line-number' --description "alias grep=grep --color=auto --line-number"
-    command grep --color=auto --line-number $argv
-end`,
-      reason: 'should handle multiple command options',
-    },
-    {
-      name: 'command with backslashes',
-      aliasName: 'search',
-      command: 'find . -name "\\*.txt"',
-      expected: `function search --wraps 'find . -name "\\*.txt"' --description "alias search=find . -name \\"\\\\*.txt\\""
-    find . -name "\\*.txt" $argv
-end`,
-      reason: 'should preserve backslashes in command but escape in description',
-    },
-    {
-      name: 'command with pipes',
-      aliasName: 'count',
-      command: 'wc -l | sort -n',
-      expected: `function count --wraps 'wc -l | sort -n' --description "alias count=wc -l | sort -n"
-    wc -l | sort -n $argv
-end`,
-      reason: 'should handle pipes correctly',
-    },
-    {
-      name: 'command with special characters',
-      aliasName: 'list_all',
-      command: 'ls -la && echo "Done!"',
-      expected: `function list_all --wraps 'ls -la && echo "Done!"' --description "alias list_all=ls -la && echo \\"Done!\\""
-    ls -la && echo "Done!" $argv
-end`,
-      reason: 'should handle special shell characters',
-    },
-  ];
-
-  // tests.forEach(({ name, aliasName, command, expected, reason }) => {
-  //   it(`${name} - ${reason}`, () => {
-  //     const result = createFunctionDefinition(aliasName, command);
-  //     console.log({ name, result, expected });
-  //     // expect(result).toBe(expected);
+  //   const tests = [
+  //     {
+  //       name: 'basic ls alias',
+  //       aliasName: 'll',
+  //       command: 'ls -l',
+  //       expected: `function ll --wraps 'ls -l' --description "alias ll=ls -l"
+  //     ls -l $argv
+  // end`,
+  //       reason: 'should create basic function with wraps',
+  //     },
+  //     {
+  //       name: 'command needing builtin prefix',
+  //       aliasName: 'echo',
+  //       command: 'echo -n',
+  //       expected: `function echo --wraps 'echo -n' --description "alias echo=echo -n"
+  //     builtin echo -n $argv
+  // end`,
+  //       reason: 'should add builtin prefix for builtins',
+  //     },
+  //     {
+  //       name: 'command needing command prefix',
+  //       aliasName: 'ls',
+  //       command: 'ls -la',
+  //       expected: `function ls --wraps 'ls -la' --description "alias ls=ls -la"
+  //     command ls -la $argv
+  // end`,
+  //       reason: 'should add command prefix for same-named commands',
+  //     },
+  //     {
+  //       name: 'command with single quotes',
+  //       aliasName: 'say',
+  //       command: "echo 'hello world'",
+  //       expected: `function say --wraps 'echo \\'hello world\\'' --description "alias say=echo \\'hello world\\'"
+  //     echo 'hello world' $argv
+  // end`,
+  //       reason: 'should properly escape single quotes',
+  //     },
+  //     {
+  //       name: 'command with double quotes',
+  //       aliasName: 'greet',
+  //       command: 'echo "hello world"',
+  //       expected: `function greet --wraps 'echo "hello world"' --description "alias greet=echo \\"hello world\\""
+  //     echo "hello world" $argv
+  // end`,
+  //       reason: 'should properly escape double quotes',
+  //     },
+  //     {
+  //       name: 'recursive command skipping wraps',
+  //       aliasName: 'foo',
+  //       command: 'foo bar',
+  //       expected: `function foo --description "alias foo=foo bar"
+  //     command foo bar $argv
+  // end`,
+  //       reason: 'should skip wraps and add command prefix for recursive commands',
+  //     },
+  //     {
+  //       name: 'sudo command with recursive part',
+  //       aliasName: 'update',
+  //       command: 'sudo update',
+  //       expected: `function update --description "alias update=sudo update"
+  //     sudo update $argv
+  // end`,
+  //       reason: 'should skip wraps for sudo recursion',
+  //     },
+  //     {
+  //       name: 'command with multiple options',
+  //       aliasName: 'grep',
+  //       command: 'grep --color=auto --line-number',
+  //       expected: `function grep --wraps 'grep --color=auto --line-number' --description "alias grep=grep --color=auto --line-number"
+  //     command grep --color=auto --line-number $argv
+  // end`,
+  //       reason: 'should handle multiple command options',
+  //     },
+  //     {
+  //       name: 'command with backslashes',
+  //       aliasName: 'search',
+  //       command: 'find . -name "\\*.txt"',
+  //       expected: `function search --wraps 'find . -name "\\*.txt"' --description "alias search=find . -name \\"\\\\*.txt\\""
+  //     find . -name "\\*.txt" $argv
+  // end`,
+  //       reason: 'should preserve backslashes in command but escape in description',
+  //     },
+  //     {
+  //       name: 'command with pipes',
+  //       aliasName: 'count',
+  //       command: 'wc -l | sort -n',
+  //       expected: `function count --wraps 'wc -l | sort -n' --description "alias count=wc -l | sort -n"
+  //     wc -l | sort -n $argv
+  // end`,
+  //       reason: 'should handle pipes correctly',
+  //     },
+  //     {
+  //       name: 'command with special characters',
+  //       aliasName: 'list_all',
+  //       command: 'ls -la && echo "Done!"',
+  //       expected: `function list_all --wraps 'ls -la && echo "Done!"' --description "alias list_all=ls -la && echo \\"Done!\\""
+  //     ls -la && echo "Done!" $argv
+  // end`,
+  //       reason: 'should handle special shell characters',
+  //     },
+  //   ];
+  //
+  //   tests.forEach(({ name, aliasName, command, expected, reason }) => {
+  //     it(`${name} - ${reason}`, () => {
+  //       const result = AliasHelper.extractFunctionName.(command);
+  //       console.log({ name, result, expected });
+  //       // expect(result).toBe(expected);
+  //     });
   //   });
-  // });
   //
   // describe('error handling', () => {
   //   it('handles empty command', () => {

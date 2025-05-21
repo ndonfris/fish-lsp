@@ -5,7 +5,7 @@ import { SyntaxNode } from 'web-tree-sitter';
 import { DIAGNOSTIC_COMMENT_REGEX, DiagnosticAction, isValidErrorCode } from '../../diagnostics/comments-handler';
 import { FishCompletionList } from './list';
 import { SetupData } from './pager';
-import { ErrorCodes } from '../../diagnostics/errorCodes';
+import { ErrorCodes } from '../../diagnostics/error-codes';
 
 export function buildCommentCompletions(
   line: string,

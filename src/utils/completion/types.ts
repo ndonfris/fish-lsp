@@ -6,7 +6,7 @@ import {
   SymbolKind,
   TextEdit,
 } from 'vscode-languageserver';
-import { FishDocumentSymbol } from '../../document-symbol';
+import { FishSymbol } from '../../parsing/symbol';
 
 export const FishCompletionItemKind = {
   ABBR: 'abbr',
@@ -61,6 +61,7 @@ export type FishCompletionData = {
   line: string;
   word: string;
   position: Position;
+  command?: string;
   context?: CompletionContext;
 };
 
@@ -72,9 +73,11 @@ export interface FishCompletionItem extends CompletionItem {
   local: boolean;
   useDocAsDetail: boolean;
   data?: FishCompletionData;
+  priority?: number;
   setKinds(kind: FishCompletionItemKind): FishCompletionItem;
   setLocal(): FishCompletionItem;
   setData(data: FishCompletionData): FishCompletionItem;
+  setPriority(priority: number): FishCompletionItem;
 }
 
 export class FishCompletionItem implements FishCompletionItem {
@@ -114,6 +117,11 @@ export class FishCompletionItem implements FishCompletionItem {
       Range.create({ line: data.position.line, character: data.position.character - removeLength }, data.position),
       this.insertText || this.label,
     );
+    return this;
+  }
+
+  setPriority(priority: number) {
+    this.priority = priority;
     return this;
   }
 }
@@ -157,14 +165,14 @@ export namespace FishCompletionItem {
         return new FishCompletionItem(label, kind, detail, documentation, examples);
     }
   }
-  export function fromSymbol(symbol: FishDocumentSymbol) {
+  export function fromSymbol(symbol: FishSymbol) {
     switch (symbol.kind) {
       case SymbolKind.Function:
-        return create(symbol.name, FishCompletionItemKind.FUNCTION, 'Function', symbol.detail).setLocal();
+        return create(symbol.name, FishCompletionItemKind.FUNCTION, 'Function', symbol.detail).setLocal().setPriority(50);
       case SymbolKind.Variable:
-        return create(symbol.name, FishCompletionItemKind.VARIABLE, 'Variable', symbol.detail).setLocal();
+        return create(symbol.name, FishCompletionItemKind.VARIABLE, 'Variable', symbol.detail).setLocal().setPriority(60);
       default:
-        return create(symbol.name, FishCompletionItemKind.EMPTY, 'Empty', symbol.detail).setLocal();
+        return create(symbol.name, FishCompletionItemKind.EMPTY, 'Empty', symbol.detail).setLocal().setPriority(70);
     }
   }
 
@@ -173,9 +181,10 @@ export namespace FishCompletionItem {
     line: string,
     word: string,
     position: Position,
+    command?: string,
     context?: CompletionContext,
   ): FishCompletionData {
-    return { uri, line, word, position, context };
+    return { uri, line, word, position, command, context };
   }
 }
 

@@ -1,47 +1,247 @@
 [
   {
     "name": "fish_lsp_enabled_handlers",
-    "description": "enables the fish-lsp handlers (options: 'popups', 'formatting', 'complete', 'hover', 'rename', 'definition', 'references', 'diagnostics', 'signatureHelp', 'codeAction', 'inlayHint')",
+    "description": "Enables the fish-lsp handlers. By default, all handlers are enabled.",
+    "exactMatchOptions": true,
+    "options": [
+      "complete",
+      "hover",
+      "rename",
+      "definition",
+      "implementation",
+      "reference",
+      "logger",
+      "formatting",
+      "typeFormatting",
+      "codeAction",
+      "codeLens",
+      "folding",
+      "signature",
+      "executeCommand",
+      "inlayHint",
+      "highlight",
+      "diagnostic",
+      "popups"
+    ],
+    "defaultValue": [],
     "valueType": "array"
   },
   {
     "name": "fish_lsp_disabled_handlers",
-    "description": "disables the fish-lsp handlers(options: 'popups', 'formatting', 'complete', 'hover', 'rename', 'definition', 'references', 'diagnostics', 'signatureHelp', 'codeAction', 'inlayHint')",
+    "description": "Disables the fish-lsp handlers. By default, no handlers are disabled.",
+    "exactMatchOptions": true,
+    "options": [
+      "complete",
+      "hover",
+      "rename",
+      "definition",
+      "implementation",
+      "reference",
+      "logger",
+      "formatting",
+      "typeFormatting",
+      "codeAction",
+      "codeLens",
+      "folding",
+      "signature",
+      "executeCommand",
+      "inlayHint",
+      "highlight",
+      "diagnostic",
+      "popups"
+    ],
+    "defaultValue": [],
     "valueType": "array"
   },
   {
     "name": "fish_lsp_commit_characters",
-    "description": "array of the completion expansion characters. Single letter values only. Commit characters are used to select completion items, as shortcuts. (default: [])",
+    "description": "Array of the completion expansion characters.\n\nSingle letter values only.\n\nCommit characters are used to select completion items, as shortcuts.",
+    "exactMatchOptions": false,
+    "options": [
+      ".",
+      ",",
+      ";",
+      ":",
+      "(",
+      ")",
+      "[",
+      "]",
+      "{",
+      "}",
+      "<",
+      ">",
+      "'",
+      "\"",
+      "=",
+      "+",
+      "-",
+      "/",
+      "\\",
+      "|",
+      "&",
+      "%",
+      "$",
+      "#",
+      "@",
+      "!",
+      "?",
+      "*",
+      "^",
+      "`",
+      "~",
+      "\\t",
+      " "
+    ],
+    "defaultValue": [
+      "\\t",
+      ";",
+      " "
+    ],
     "valueType": "array"
   },
   {
+    "name": "fish_lsp_log_file",
+    "description": "A path to the fish-lsp's logging file. Empty string disables logging.",
+    "exactMatchOptions": false,
+    "options": [
+      "/tmp/fish_lsp.logs",
+      "~/path/to/fish_lsp/logs.txt"
+    ],
+    "defaultValue": "",
+    "valueType": "string"
+  },
+  {
     "name": "fish_lsp_logfile",
-    "description": "path to the logging file. An example location could be '/tmp/fish_lsp_logs.txt' (default: '')",
+    "description": "DEPRECATED. USE `fish_lsp_log_file` instead.\n\nPath to the logging file.",
+    "isDeprecated": true,
+    "exactMatchOptions": false,
+    "options": [
+      "/tmp/fish_lsp.logs",
+      "~/path/to/fish_lsp/logs.txt"
+    ],
+    "defaultValue": "",
+    "valueType": "string"
+  },
+  {
+    "name": "fish_lsp_log_level",
+    "description": "The logging severity level for displaying messages in the log file.",
+    "exactMatchOptions": true,
+    "options": [
+      "debug",
+      "info",
+      "warning",
+      "error",
+      "log"
+    ],
+    "defaultValue": "",
     "valueType": "string"
   },
   {
     "name": "fish_lsp_all_indexed_paths",
-    "description": "fish file paths to include as workspaces (default: ['/usr/share/fish', '$HOME/.config/fish'])",
+    "description": "The fish file paths to include in the fish-lsp's startup indexing, as workspaces.\n\nOrder matters (usually place `$__fish_config_dir` before `$__fish_data_dir`).",
+    "exactMatchOptions": false,
+    "options": [
+      "$HOME/.config/fish",
+      "/usr/share/fish",
+      "$__fish_config_dir",
+      "$__fish_data_dir"
+    ],
+    "defaultValue": [
+      "$__fish_config_dir",
+      "$__fish_data_dir"
+    ],
     "valueType": "array"
   },
   {
     "name": "fish_lsp_modifiable_paths",
-    "description": "fish file paths that can be renamed by the user (default: ['$HOME/.config/fish'])",
+    "description": "The fish file paths, for workspaces where global symbols can be renamed by the user.",
+    "exactMatchOptions": false,
+    "options": [
+      "/usr/share/fish",
+      "$HOME/.config/fish",
+      "$__fish_data_dir",
+      "$__fish_config_dir"
+    ],
+    "defaultValue": [
+      "$__fish_config_dir"
+    ],
     "valueType": "array"
   },
   {
     "name": "fish_lsp_diagnostic_disable_error_codes",
-    "description": "disable diagnostics for matching error codes (options: 1001, 1002, 1003, 1004, 2001, 2002, 2003, 3001, 3002, 3003, 4001, 4002, 4003, 4004, 5001, 8001) (default: [])",
+    "description": "The diagnostics error codes to disable from the fish-lsp's diagnostics.",
+    "exactMatchOptions": true,
+    "options": [
+      1001,
+      1002,
+      1003,
+      1004,
+      1005,
+      2001,
+      2002,
+      2003,
+      3001,
+      3002,
+      3003,
+      4001,
+      4002,
+      4003,
+      4004,
+      4005,
+      5001,
+      6001,
+      8001,
+      9999
+    ],
+    "defaultValue": [],
     "valueType": "array"
   },
   {
+    "name": "fish_lsp_enable_experimental_diagnostics",
+    "description": "Enables the experimental diagnostics feature, using `fish --no-execute`.\n\nThis feature will enable the diagnostic error code 9999 (disabled by default).",
+    "exactMatchOptions": true,
+    "options": [
+      true,
+      false
+    ],
+    "defaultValue": false,
+    "valueType": "boolean"
+  },
+  {
     "name": "fish_lsp_max_background_files",
-    "description": "maximum number of background files to read into buffer on startup (default: 1000)",
+    "description": "The maximum number of background files to read into buffer on startup.",
+    "exactMatchOptions": false,
+    "options": [
+      100,
+      250,
+      500,
+      1000,
+      5000,
+      10000
+    ],
+    "defaultValue": 10000,
     "valueType": "number"
   },
   {
     "name": "fish_lsp_show_client_popups",
-    "description": "show popup window notification in the connected client (default: true)",
+    "description": "Should the client receive pop-up window notification requests from the fish-lsp server?",
+    "exactMatchOptions": true,
+    "options": [
+      true,
+      false
+    ],
+    "defaultValue": false,
+    "valueType": "boolean"
+  },
+  {
+    "name": "fish_lsp_single_workspace_support",
+    "description": "Try to limit the fish-lsp's workspace searching to only the current workspace open. ",
+    "exactMatchOptions": true,
+    "options": [
+      true,
+      false
+    ],
+    "defaultValue": false,
     "valueType": "boolean"
   }
 ]

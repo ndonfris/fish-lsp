@@ -5,14 +5,20 @@ import { SyntaxNode, Tree } from 'web-tree-sitter';
 import { findChildNodes, getChildNodes, getNodeAtRange } from '../src/utils/tree-sitter';
 import { Diagnostic, DiagnosticSeverity, TextDocumentItem } from 'vscode-languageserver';
 import { initializeParser } from '../src/parser';
-import { ErrorCodes } from '../src/diagnostics/errorCodes';
-import { findParent, hasParentFunction, isCommand, isCommandWithName, isComment, isDefinition, isIfOrElseIfConditional, isMatchingOption, isVariableDefinitionName } from '../src/utils/node-types';
+import { ErrorCodes } from '../src/diagnostics/error-codes';
+// import { fishNoExecuteDiagnostic } from '../src/diagnostics/no-execute-diagnostic';
+import { isCommand, isComment, isDefinition, isMatchingOption, isVariableDefinitionName } from '../src/utils/node-types';
 // import { ScopeStack, isReference } from '../src/diagnostics/scope';
 import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter, isArgparseWithoutEndStdin } from '../src/diagnostics/node-types';
 import { LspDocument } from '../src/document';
 import { createFakeLspDocument, setLogger } from './helpers';
 import { getDiagnostics } from '../src/diagnostics/validate';
 import { DiagnosticComment, DiagnosticCommentsHandler, isDiagnosticComment, parseDiagnosticComment } from '../src/diagnostics/comments-handler';
+import { withTempFishFile } from './temp';
+import { workspaceManager } from '../src/utils/workspace-manager';
+import { Option } from '../src/parsing/options';
+import { getNoExecuteDiagnostics } from '../src/diagnostics/no-execute-diagnostic';
+
 let parser: Parser;
 let diagnostics: Diagnostic[] = [];
 let output: SyntaxNode[] = [];
@@ -413,8 +419,8 @@ awk
           if (isVariableDefinitionName(node)) {
             const parent = node.parent!;
             const isGlobal = findChildNodes(parent, n => {
-              return isMatchingOption(n, { shortOption: '-U', longOption: '--universal' })
-                || isMatchingOption(n, { shortOption: '-g', longOption: '--global' });
+              return isMatchingOption(n, Option.create('-U', '--universal'))
+                || isMatchingOption(n, Option.create('-g', '--global'));
             });
             if (isGlobal.length === 0) {
               definitions.push(node);
@@ -569,7 +575,7 @@ awk
     });
   });
 
-  it.only('VALIDATE: isDiagnosticComment', () => {
+  it('VALIDATE: isDiagnosticComment', () => {
     const input = `echo 'now diagnostics are enabled'
 # @fish-lsp-disable 
 echo '1 all diagnostics are disabled'
@@ -665,7 +671,7 @@ echo '10 3003 3002 3001 are still disabled'`;
       }
     });
   });
-  describe.only('NODE_TEST: find argparse', () => {
+  describe('NODE_TEST: find argparse', () => {
     it('find argparse', () => {
       const input = `
 function foo
@@ -683,7 +689,135 @@ end`;
       expect(true).toBe(true);
     });
   });
+
+  describe.only('CONDITIONAL EDGE CASES', () => {
+    const testcases = [
+      // {
+      //   title: 'normal case, where both variables are in a if statement, so both should be silenced',
+      //   input: `if set -q var1 && set -q var2; echo 'var1 and var2 are set'; end`,
+      //   expected: [
+      //
+      //   ],
+      // },
+      {
+        shouldRun: true,
+        title: '[CHAINED] updating a variable only when it exists 1',
+        input: `
+echo 'hello world'
+if set var_with_default_value && set var_with_default_value 'new_value'
+    echo hi
+end
+set ovar && set ovar 'new_value'
+set uvar
+and set uvar 'new_value'
+`,
+        expected: [
+          'set var_with_default_value',
+          'set var_with_default_value \'new_value\'',
+          'set ovar',
+          'set uvar',
+        ],
+      },
+      {
+        shouldRun: false,
+        title: '[CHAINED] defining a variable only when it is not set',
+        input: 'not set -q var_with_default_value && set var_with_default_value \'default_value\'',
+        expected: [
+          'var_with_default_value',
+        ],
+      },
+      {
+        title: '[CHAINED], updating a variable or defining it w/ default value',
+        input: 'set -q var_with_default_value && set var_with_default_value \'new_value\' || set var_with_default_value \'default_value\'',
+        expected: [
+          'var_with_default_value',
+        ],
+      },
+      {
+        title: '[IF + CHAINED] if statement [expect silenced], inner blocks [only need first cmd silence]',
+        input: `
+# checks all edge cases for if statements
+if set -q var1 && set -q var2
+    set -q var3 && set var1 'new_value' && set var2 'new_value'
+end
+`,
+        expected: [
+
+        ],
+      },
+      {
+        title: '[IF] normal if statement to silence a variable',
+        input: 'if set -q var1; echo \'var1 is set\'; end',
+        expected: [
+
+        ],
+      },
+    ];
+
+    // fix this usecase for when first `set` with child `nextSibling.type ==== conditional_execution`
+    // does not have any value after `set`
+    // ```
+    // set uvar
+    // and set uvar 'new_value'
+    // ```
+    // This should have a diagnostic but does not currently,
+    // checkout files:
+    //   - ../src/diagnostics/node-types.ts
+    //   - ../src/diagnostics/validate.ts
+    //  FIX SPECIFIC function `isConditionalStatement()`
+    testcases.forEach(({ title, input, expected, shouldRun }) => {
+      if (shouldRun) {
+        it.only(title, () => {
+          // console.log(title);
+          // console.log('-'.repeat(70));
+          const { rootNode } = parser.parse(input);
+          // console.log(rootNode.text);
+          // console.log('-'.repeat(70));
+          const result: SyntaxNode[] = [];
+          for (const child of getChildNodes(rootNode)) {
+            if (isConditionalWithoutQuietCommand(child)) {
+              // console.log('conditional', {text: child.text});
+              result.push(child);
+            }
+          }
+          expect(result.map(r => r.text)).toEqual(expected);
+        });
+      }
+    });
+  });
+
+  describe.only('fish --no-execute diagnostics', () => {
+    afterEach(async () => {
+      workspaceManager.clear();
+    });
+
+    it.only('NODE_TEST: fish --no-execute diagnostic 1', async () => {
+      const input = `
+function foo
+    echo "hi"`;
+      await withTempFishFile(input, async ({ document, path }) => {
+        console.log({ document, path });
+        const result = getNoExecuteDiagnostics(document);
+        console.log({ result });
+        expect(result.length).toBe(1);
+      });
+    });
+
+    it.only('VALIDATE: fish --no-execute diagnostic 2', async () => {
+      const input = `
+function foo
+    echo "hi"`;
+      await withTempFishFile(input, async ({ document, path }) => {
+        console.log({ document, path });
+        const result = getNoExecuteDiagnostics(document);
+        const finalRes = getNoExecuteDiagnostics(document);
+        console.log({ finalRes });
+        // console.log(result)
+      });
+    });
+  });
 });
+
 // expect(definitions.map(d => d.text)).toEqual([
 //   'foo',
 //   'variable_1',
@@ -698,4 +832,3 @@ end`;
 //
 //
 //
-// })

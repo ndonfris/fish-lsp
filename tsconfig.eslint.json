@@ -1,11 +1,17 @@
 {
   "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "downlevelIteration": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true
+  },
   "include": [
     "package.json",
     "src",
     ".eslintrc.cjs",
     "commitlint.config.ts",
     "jest.config.js",
-    "test-data"
+    "test-data",
+    "scripts/fish-commands-scrapper.ts"
   ]
 }

@@ -1,5 +1,5 @@
 import { CompletionItemKind } from 'vscode-languageserver';
-import { ErrorCodes } from '../../diagnostics/errorCodes';
+import { ErrorCodes } from '../../diagnostics/error-codes';
 import { md } from '../markdown-builder';
 import { FishCompletionItem, FishCompletionItemKind, CompletionExample } from './types';
 import { PrebuiltDocumentationMap } from '../snippets';
@@ -418,7 +418,7 @@ const StringRegex: FishCompletionItem[] = [
     label: '{n,m}',
     detail: 'n <= MATCHES <= m',
     documentation: 'at least n, no more than m.',
-    insertText: '{n,m}',
+    insertText: '{${1:n},${2:m}}',
     examples: [],
   },
 

@@ -1,6 +1,29 @@
 import { SyntaxNode } from 'web-tree-sitter';
-import { firstAncestorMatch, getParentNodes, getLeafs } from './tree-sitter';
-import * as VariableTypes from './variable-syntax-nodes';
+import { getLeafNodes } from './tree-sitter';
+import { VariableDefinitionKeywords } from '../parsing/barrel';
+import { Option, isMatchingOption } from '../parsing/options';
+import { isVariableDefinitionName, isFunctionDefinitionName, isAliasDefinitionName, isExportVariableDefinitionName } from '../parsing/barrel';
+
+// use the `../parsing/barrel` barrel file's imports for finding the definition names
+
+export {
+  isVariableDefinitionName,
+  isFunctionDefinitionName,
+  isAliasDefinitionName,
+  isExportVariableDefinitionName,
+};
+
+/**
+ * checks if a node is a variable definition. Current syntax tree from tree-sitter-fish will
+ * only tokenize variable names if they are defined in a for loop. Otherwise, they are tokenized
+ * with the node type of 'name'.
+ *
+ * @param {SyntaxNode} node - the node to check if it is a variable definition
+ * @returns {boolean} true if the node is a variable definition, false otherwise
+ */
+export function isVariableDefinition(node: SyntaxNode): boolean {
+  return isVariableDefinitionName(node);
+}
 
 /**
  * fish shell comment: '# ...'
@@ -49,25 +72,6 @@ export function isCommand(node: SyntaxNode): boolean {
   ].includes(node.type);
 }
 
-/**
- * essentially avoids having to null check functionDefinition nodes for having a function
- * name, since
- *
- * @param {SyntaxNode} node - the node to check
- * @returns {boolean} true if the node is the firstNamedChild of a function_definition
- */
-export function isFunctionDefinitionName(node: SyntaxNode): boolean {
-  // function name must have parent which would be `function_definition`
-  if (!node.parent) return false;
-  // function name must be a child of `function_definition`
-  if (!isFunctionDefinition(node.parent)) return false;
-  // `function_definition` must have a firstNamedChild
-  if (!node.parent.firstNamedChild) return false;
-  // function name must be the firstNamedChild of `function_definition`
-  // and must be a `SyntaxNode.type === 'word'`
-  return node.parent.firstNamedChild.equals(node) && node.type === 'word';
-}
-
 export function isTopLevelFunctionDefinition(node: SyntaxNode): boolean {
   if (isFunctionDefinition(node)) {
     return node.parent?.type === 'program';
@@ -76,6 +80,21 @@ export function isTopLevelFunctionDefinition(node: SyntaxNode): boolean {
     return node.parent?.parent?.type === 'program';
   }
   return false;
+}
+
+export function isTopLevelDefinition(node: SyntaxNode): boolean {
+  let currentNode: SyntaxNode | null = node;
+  while (currentNode) {
+    if (!currentNode) break;
+    if (isProgram(currentNode)) {
+      return true;
+    }
+    if (isFunctionDefinition(currentNode)) {
+      return false;
+    }
+    currentNode = currentNode.parent;
+  }
+  return true;
 }
 
 /**
@@ -220,19 +239,48 @@ export function isStringCharacter(node: SyntaxNode) {
   ].includes(node.type);
 }
 
+/**
+ * Checks if a node is fish's end stdin token `--`
+ * This is used to signal the end of stdin input, like in the argparse command: `argparse h/help -- $argv`
+ * @param {SyntaxNode} node - the node to check
+ * @returns  true if the node is the end stdin token
+ */
 export function isEndStdinCharacter(node: SyntaxNode) {
   return '--' === node.text && node.type === 'word';
+}
+
+/**
+ * Checks if a node is fish escape sequence token `\` character
+ * This token will be used to escape commands which span multiple lines
+ */
+export function isEscapeSequence(node: SyntaxNode) {
+  return node.type === 'escape_sequence';
 }
 
 export function isLongOption(node: SyntaxNode): boolean {
   return node.text.startsWith('--') && !isEndStdinCharacter(node);
 }
 
+/**
+ * node.text !== '-' because `-` this would not be an option... Consider the case:
+ * ```
+ * cat some_file | nvim -
+ * ```
+ */
 export function isShortOption(node: SyntaxNode): boolean {
-  return node.text.startsWith('-') && !isLongOption(node);
+  return node.text.startsWith('-') && !isLongOption(node) && node.text !== '-';
 }
 
+/**
+ * Checks if a node is an option/switch/flag in any of the following formats:
+ *    - short options: `-g`, `-f1`, `-f 1`, `-f=2`, `-gx`
+ *    - long options: `--global`, `--file`, `--file=1`, `--file 1`
+ *    - old unix style flags: `-type`, `-type=file`
+ * @param {SyntaxNode} node - the node to check
+ * @returns {boolean} true if the node is an option
+ */
 export function isOption(node: SyntaxNode): boolean {
+  if (isEndStdinCharacter(node)) return false;
   return isShortOption(node) || isLongOption(node);
 }
 
@@ -248,29 +296,7 @@ export function hasShortOptionCharacter(node: SyntaxNode, findChar: string) {
   return isShortOption(node) && node.text.slice(1).includes(findChar);
 }
 
-export type NodeOptionQueryText = {
-  shortOption?: `-${string}`;
-  oldUnixOption?: `-${string}`;
-  longOption?: `--${string}`;
-};
-
-/**
- * @param node - the node to check
- * @param optionQuery - object of node strings to match
- * @returns boolean result corresponding to query
- */
-export function isMatchingOption(node: SyntaxNode, optionQuery: NodeOptionQueryText): boolean {
-  if (!isOption(node)) return false;
-
-  const nodeText = node.text.includes('=') ? node.text.slice(0, node.text.indexOf('=')) : node.text;
-
-  if (isLongOption(node) && optionQuery?.longOption === nodeText) return true;
-
-  if (isShortOption(node) && optionQuery?.oldUnixOption === nodeText) return true;
-
-  if (!optionQuery.shortOption) return false;
-  return isShortOption(node) && hasShortOptionCharacter(node, optionQuery.shortOption.slice(1));
-}
+export { isMatchingOption, findMatchingOptions } from '../parsing/options';
 
 export function isPipe(node: SyntaxNode): boolean {
   return node.type === 'pipe';
@@ -301,12 +327,35 @@ export function isBeforeCommand(node: SyntaxNode) {
   ].includes(node.type) || isFunctionDefinition(node) || isStatement(node) || isSemicolon(node) || isNewline(node) || isEnd(node);
 }
 
+export function isVariableExpansion(node: SyntaxNode) {
+  return node.type === 'variable_expansion';
+}
+/**
+ * Checks for variable expansions that match the variable name, DONT PASS `variableName` with leading `$`
+ * @param {SyntaxNode} node - the node to check
+ * @param {string} variableName - the name of the variable to check for (`pipestatus`, `status`, `argv`, ...)
+ * @returns {boolean} true if the node is a variable expansion matching the name
+ */
+export function isVariableExpansionWithName(node: SyntaxNode, variableName: string): boolean {
+  return node.type === 'variable_expansion' && node.text === `$${variableName}`;
+}
+
 export function isVariable(node: SyntaxNode) {
   if (isVariableDefinition(node)) {
     return true;
   } else {
     return ['variable_expansion', 'variable_name'].includes(node.type);
   }
+}
+
+export function isCompleteFlagCommandName(node: SyntaxNode) {
+  if (node.parent && isCommandWithName(node, 'set')) {
+    const children = node.parent.childrenForFieldName('arguments').filter(n => !isOption(n));
+    if (children && children.at(0)?.equals(node)) {
+      return node.text.startsWith('_flag_');
+    }
+  }
+  return false;
 }
 
 /**
@@ -348,6 +397,17 @@ export function findParentCommand(node?: SyntaxNode): SyntaxNode | null {
   return null;
 }
 
+export function isConcatenation(node: SyntaxNode) {
+  return node.type === 'concatenation';
+}
+
+export function isAliasWithName(node: SyntaxNode, aliasName: string) {
+  if (isAliasDefinitionName(node)) {
+    return node.text.split('=').at(0) === aliasName;
+  }
+  return false;
+}
+
 /**
  * finds the parent function of the current node
  *
@@ -368,27 +428,8 @@ export function findParentFunction(node?: SyntaxNode): SyntaxNode | null {
   return null;
 }
 
-const definitionKeywords = ['set', 'read', 'function', 'for'];
-
-// TODO: check if theres a child node that is a variable definition -> return full command
-export function isVariableDefinitionCommand(node: SyntaxNode): boolean {
-  if (!isCommand(node)) {
-    return false;
-  }
-  const command = node.firstChild?.text.trim() || '';
-  if (definitionKeywords.includes(command)) {
-    return true;
-  }
-  // if (isCommand(node) && definitionKeywords.includes(node.firstChild?.text || '')) {
-  //     const variableDef = findChildNodes(node, isVariableDefinition)
-  //     if (variableDef.length > 0) {
-  //         return true;
-  //     }
-  // }
-  return false;
-}
-
 export function findParentVariableDefinitionKeyword(node?: SyntaxNode): SyntaxNode | null {
+  if (!node || !isVariableDefinitionName(node)) return null;
   const currentNode: SyntaxNode | null | undefined = node;
   const parent = currentNode?.parent;
   if (!currentNode || !parent) {
@@ -398,108 +439,10 @@ export function findParentVariableDefinitionKeyword(node?: SyntaxNode): SyntaxNo
   if (!varKeyword) {
     return null;
   }
-  if (definitionKeywords.includes(varKeyword)) {
+  if (VariableDefinitionKeywords.includes(varKeyword)) {
     return parent;
   }
   return null;
-}
-
-export function refinedFindParentVariableDefinitionKeyword(node?: SyntaxNode): SyntaxNode | null {
-  const currentNode: SyntaxNode | null | undefined = node;
-  const parent = currentNode?.parent;
-  if (!currentNode || !parent) {
-    return null;
-  }
-  const varKeyword = parent.firstChild?.text.trim() || '';
-  if (!varKeyword) {
-    return null;
-  }
-  if (definitionKeywords.includes(varKeyword)) {
-    return parent.firstChild!;
-  }
-  return null;
-}
-
-// @TODO: replace isVariableDefinition with this
-export function isVariableDefinitionName(node: SyntaxNode): boolean {
-  if (isFunctionDefinition(node) ||
-    isCommand(node) ||
-    isCommandName(node) ||
-    definitionKeywords.includes(node.firstChild?.text || '') ||
-    !VariableTypes.isPossible(node)
-  ) {
-    return false;
-  }
-  const keyword = refinedFindParentVariableDefinitionKeyword(node);
-  if (!keyword) {
-    return false;
-  }
-  const siblings = VariableTypes.gatherVariableSiblings(keyword);
-  switch (keyword.text) {
-    case 'set':
-      return VariableTypes.isSetDefinitionNode(siblings, node);
-    case 'read':
-      return VariableTypes.isReadDefinitionNode(siblings, node);
-    case 'function':
-      return VariableTypes.isFunctionArgumentDefinitionNode(siblings, node);
-    case 'for':
-      return VariableTypes.isForLoopDefinitionNode(siblings, node);
-    default:
-      return false;
-  }
-}
-
-/**
- * checks if a node is a variable definition. Current syntax tree from tree-sitter-fish will
- * only tokenize variable names if they are defined in a for loop. Otherwise, they are tokenized
- * with the node type of 'name'. Currently does not support argparse.
- *
- * @param {SyntaxNode} node - the node to check if it is a variable definition
- * @returns {boolean} true if the node is a variable definition, false otherwise
- */
-export function isVariableDefinition(node: SyntaxNode): boolean {
-  return isVariableDefinitionName(node);
-}
-
-function findParentForScope(currentNode: SyntaxNode, switchFound: VariableScope | ''): SyntaxNode | null {
-  switch (switchFound) {
-    case 'local':
-      return firstAncestorMatch(currentNode, (n) => isStatement(n) || isFunctionDefinition(n) || isProgram(n));
-    case 'function':
-      return firstAncestorMatch(currentNode, (n) => isFunctionDefinition(n));
-    case '':
-      return firstAncestorMatch(currentNode, (n) => isFunctionDefinition(n) || isProgram(n));
-    case 'universal':
-    case 'global':
-    case 'export':
-      return firstAncestorMatch(currentNode, (n) => isProgram(n));
-    default:
-      return null;
-  }
-}
-
-export function findEnclosingVariableScope(currentNode: SyntaxNode): SyntaxNode | null {
-  if (!isVariableDefinition(currentNode)) {
-    return null;
-  }
-  const parent = findParentVariableDefinitionKeyword(currentNode);
-  const switchFound = findSwitchForVariable(currentNode);
-  //console.log(`switchFound: ${switchFound}`)
-  if (!parent) {
-    return null;
-  }
-  switch (parent.firstChild?.text) {
-    case 'set':
-      return findParentForScope(currentNode, switchFound); // implement firstAncestorMatch for array of functions
-    case 'read':
-      return findParentForScope(currentNode, switchFound);
-    case 'function':
-      return parent;
-    case 'for':
-      return parent;
-    default:
-      return null;
-  }
 }
 
 export function findForLoopVariable(node: SyntaxNode): SyntaxNode | null {
@@ -540,76 +483,6 @@ export function findSetDefinedVariable(node: SyntaxNode): SyntaxNode | null {
   }
 
   return child;
-}
-
-//// for function variables
-
-function _isArgFlags(node: SyntaxNode) {
-  return node.type === 'word'
-    ? node.text === '--argument-names' || node.text === '-a'
-    : false;
-}
-
-export type VariableScope = 'global' | 'local' | 'universal' | 'export' | 'unexport' | 'function';
-export const VariableScopeFlags: { [flag: string]: VariableScope; } = {
-  '-g': 'global',
-  '--global': 'global',
-  '-l': 'local',
-  '--local': 'local',
-  '-U': 'universal',
-  '--universal': 'universal',
-  '-x': 'export',
-  '-gx': 'global',
-  '--export': 'export',
-  '-u': 'unexport',
-  '--unexport': 'unexport',
-};
-
-//// for read variables
-function findLastFlag(nodes: SyntaxNode[]) {
-  let maxIdx = 0;
-  for (let i = 0; i < nodes.length; i++) {
-    const child = nodes[i];
-    if (child?.text.startsWith('-')) {
-      maxIdx = Math.max(i, maxIdx);
-    }
-  }
-  return maxIdx;
-}
-
-function findSwitchForVariable(node: SyntaxNode): VariableScope | '' {
-  let current: SyntaxNode | null = node;
-  while (current !== null) {
-    if (VariableScopeFlags[current.text] !== undefined) {
-      return VariableScopeFlags[current.text] || '';
-    } else if (current.text.startsWith('-')) {
-      return '';
-    }
-    current = current.previousSibling;
-  }
-  return 'function';
-}
-
-export function findReadVariables(node: SyntaxNode) {
-  const variables: SyntaxNode[] = [];
-  const lastFlag = findLastFlag(node.children);
-  variables.push(...node.children.slice(lastFlag + 1).filter(n => n.type === 'word'));
-  const possibleFlags = node.children.slice(0, lastFlag + 1);
-  for (let i = 0; i < possibleFlags.length; i++) {
-    const child = possibleFlags[i];
-    if (VariableScopeFlags[child?.text || ''] !== undefined) {
-      i++;
-      while (i < possibleFlags.length && possibleFlags[i]?.type === 'word') {
-        if (possibleFlags[i]?.text.startsWith('-')) {
-          break;
-        } else {
-          variables.unshift(possibleFlags[i]!);
-        }
-        i++;
-      }
-    }
-  }
-  return variables;
 }
 
 export function hasParent(node: SyntaxNode, callbackfn: (n: SyntaxNode) => boolean) {
@@ -668,13 +541,6 @@ export function scopeCheck(node1: SyntaxNode, node2: SyntaxNode): boolean {
   return scope1 === scope2;
 }
 
-export function isLocalVariable(node: SyntaxNode) {
-  const _parents = getParentNodes(node);
-  //if (pCmd.child(0)?.text === 'read' || pCmd.child(0)?.text === 'set') {
-  //    console.log(pCmd.text)
-  //}
-}
-
 export function wordNodeIsCommand(node: SyntaxNode) {
   if (node.type !== 'word') {
     return false;
@@ -701,17 +567,9 @@ export function isConditionalCommand(node: SyntaxNode) {
 
 // @TODO: see ./tree-sitter.ts -> getRangeWithPrecedingComments(),
 //        for implementation of chained returns of conditional_executions
-export function chainedCommandGroup(): SyntaxNode[] {
-  return [];
-}
-
-/*
- * echo $hello_world
- *           ^--- variable_name
- * fd --type f
- *        ^------- word
- *           ^--- word
- */
+// export function chainedCommandGroup(): SyntaxNode[] {
+//   return [];
+// }
 
 export function isCommandFlag(node: SyntaxNode) {
   return [
@@ -742,7 +600,7 @@ export function isPartialForLoop(node: SyntaxNode) {
     if (!errorNode) {
       return true;
     }
-    if (getLeafs(errorNode).length < semiCompleteForLoop.length) {
+    if (getLeafNodes(errorNode).length < semiCompleteForLoop.length) {
       return true;
     }
     return false;
@@ -770,22 +628,20 @@ export function isCommandWithName(node: SyntaxNode, ...commandNames: string[]) {
   return !!node.firstChild && commandNames.includes(node.firstChild.text);
 }
 
-//
-// TODO: either move use or remove
-// /**
-//  * checks for SyntaxNode.text === '-f1' | '--fields=1'
-//  * but not    SyntaxNode.text !== '-1'  | '-m1f1' | '--fields-1'
-//  */
-// export function isOptionWithValue(node: SyntaxNode) {
-//   if (!isOption(node)) return false
-//   // must be option
-//
-//   if (isShortOption(node)) {
-//     const lastChar = node.text.charAt(2) || ''
-//     return Number.isInteger(Number.parseInt(lastChar));
-//   } else if (isLongOption(node)) {
-//     return node.text.includes('=')
-//   }
-//   return false
-// }
-//
+export function isReturnStatusNumber(node: SyntaxNode) {
+  if (node.type !== 'integer') return false;
+  const parent = node.parent;
+  if (!parent) return false;
+  return parent.type === 'return';
+}
+
+export function isCompleteCommandName(node: SyntaxNode) {
+  if (!node.parent || !isCommand(node.parent)) return false;
+  if (!isCommandWithName(node.parent, 'complete')) return false;
+  const previousSibling = node.previousNamedSibling;
+  if (!previousSibling) return false;
+  if (isMatchingOption(previousSibling, Option.create('-c', '--command').withValue())) {
+    return !isOption(node);
+  }
+  return false;
+}

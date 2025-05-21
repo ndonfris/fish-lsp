@@ -1,4 +1,4 @@
-.TH "FISH\-LSP" "1" "March 2025" "1.0.8-4" "fish-lsp"
+.TH "FISH\-LSP" "1" "May 2025" "1.0.9" "fish-lsp"
 .SH "NAME"
 \fBfish-lsp\fR
 .TS
@@ -20,9 +20,9 @@ T}
 It requires a client that supports the Language Server Protocol (LSP)\. For example, you can use \fBcoc\.nvim\fP or \fBnvim\-lsp\fP\|\.
 .SH OPTIONS
 .P
-\fB\-v\fP or \fB\-\-version\fP  Show version information and exit\.
+\fB\-v\fP or \fB\-\-version\fP    Show version information and exit\.
 .P
-\fB\-h\fP or  \fB\-\-help\fP    Show help message and exit\.
+\fB\-h\fP or \fB\-\-help\fP       Show help message and exit\.
 .P
 \fB\-\-help\-all\fP         Show all the help information
 .P
@@ -34,11 +34,21 @@ It requires a client that supports the Language Server Protocol (LSP)\. For exam
 .P
 Start the language server\.
 .P
-\fB\-\-enable\fP    enable the language server features
+\fB\-\-enable\fP                enable the language server features
 .br
-\fB\-\-disable\fP   disable the language server features
+\fB\-\-disable\fP               disable the language server features
 .br
-\fB\-\-dump\fP    dump the json output of the language server features enabled after startup
+\fB\-\-dump\fP                  dump the json output of the language server features enabled after startup
+.br
+\fB\-\-stdio\fP                 use stdin/stdout for communication (default)
+.br
+\fB\-\-node\-ipc\fP              use node IPC for communication
+.br
+\fB\-\-socket <port>\fP         use TCP socket for communication
+.br
+\fB\-\-memory\-limit <mb>\fP     set memory usage limit in MB
+.br
+\fB\-\-max\-files <number>\fP    override the maximum number of files to analyze
 .SS \fBenv\fP
 .P
 show the environment variables available to the lsp
@@ -49,24 +59,13 @@ show the environment variables available to the lsp
 .br
 \fB\-\-no\-global\fP     don't use global scope when generating environment variables
 .br
-\fB\-\-no\-local\fP      don't use local scope when generating environment variables (pair with \fB\-\-no\-global\fP)
+\fB\-\-no\-local\fP      don't use local scope when generating environment variables
 .br
 \fB\-\-no\-export\fP     don't use export flag when generating environment variables
 .br
 \fB\-\-no\-comments\fP   skip outputting comments
-.SS \fBlogger\fP
-.P
-Access the logger
-.P
-\fB\-s\fP, \fB\-\-show\fP    show the logger and don't edit it
 .br
-\fB\-c\fP, \fB\-\-clear\fP   clear the logger
-.br
-\fB\-d\fP, \fB\-\-date\fP    write the date
-.br
-\fB\-q\fP, \fB\-\-quiet\fP   silence logging
-.br
-\fB\-\-config\fP      show the logger config
+\fB\-\-confd\fP         output for redirecting to conf\.d/fish\-lsp\.fish
 .SS \fBinfo\fP
 .P
 show the build info of fish\-lsp
@@ -89,7 +88,9 @@ show the build info of fish\-lsp
 .br
 \fB\-\-more\fP            show the build time of the fish\-lsp executable
 .br
-\fB\-\-startup\-time\fP    time the startup of the fish\-lsp executable
+\fB\-\-time\-startup\fP    time the startup of the fish\-lsp executable
+.br
+\fB\-\-health\-check\fP    run diagnostics and report health status
 .SS \fBurl\fP
 .P
 show a helpful url related to the fish\-lsp
@@ -157,7 +158,7 @@ Show information about the \fBfish\-lsp\fP language server:
 Show startup timing information for the \fBfish\-lsp\fP language server:
 .RS 2
 .nf
->_ fish\-lsp info \-\-startup\-time
+>_ fish\-lsp info \-\-time\-startup
 .fi
 .RE
 .IP \(bu 2

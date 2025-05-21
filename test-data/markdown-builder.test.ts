@@ -26,7 +26,7 @@ describe('markdown-builder test suite', () => {
 
   it('simple test newline', () => {
     const value = md.newline();
-    expect(value).toBe('\n');
+    expect(value).toBe('  \n');
   });
 
   it('simple test blockquote', () => {
@@ -53,7 +53,7 @@ describe('markdown-builder test suite', () => {
       '**hello** - *world*',
       '___',
       'here is a message to the world!',
-    ].join('\n'));
+    ].join(md.newline()));
   });
 
   it('test markdown builder 2', () => {
@@ -86,7 +86,7 @@ describe('markdown-builder test suite', () => {
 
     // console.log(built);
     expect(built).toBe([
-      '**use** `hello` **to echo the message**',
+      '**use** `hello` **to echo the message**  ',
       '```fish',
       'function hello',
       '    echo hello world',

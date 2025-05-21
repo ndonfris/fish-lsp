@@ -128,8 +128,8 @@ export async function createAliasSaveActionNewFile(
 /**
  * Extra exports for testing purposes
  */
-export const AliasHelper = [
+export const AliasHelper = {
   extractFunctionName,
   createAliasInlineAction,
   createAliasSaveActionNewFile,
-] as const;
+} as const;

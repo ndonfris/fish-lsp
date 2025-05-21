@@ -1,3 +1,26 @@
+## <small>1.0.9 (2025-05-21)</small>
+
+* release/v1.0.9 (#78) ([715d765](https://github.com/ndonfris/fish-lsp/commit/715d765)), closes [#78](https://github.com/ndonfris/fish-lsp/issues/78) [#76](https://github.com/ndonfris/fish-lsp/issues/76)
+* fix: `./scripts/build-time` now uses node for mason.nvim tests (#71) ([9e25626](https://github.com/ndonfris/fish-lsp/commit/9e25626)), closes [#71](https://github.com/ndonfris/fish-lsp/issues/71)
+* fix: bump `.nvmrc` to 22.14.0 ([8f13575](https://github.com/ndonfris/fish-lsp/commit/8f13575))
+* fix: comment disable function diagnostics (#75) ([da187f9](https://github.com/ndonfris/fish-lsp/commit/da187f9)), closes [#75](https://github.com/ndonfris/fish-lsp/issues/75)
+* fix: document-symbol-highlights handler in server (#73) ([1952f6a](https://github.com/ndonfris/fish-lsp/commit/1952f6a)), closes [#73](https://github.com/ndonfris/fish-lsp/issues/73) [#66](https://github.com/ndonfris/fish-lsp/issues/66)
+* fix: remove "pkg" from `package.json` & remove duplicates from `.npmignore` ([c517ec0](https://github.com/ndonfris/fish-lsp/commit/c517ec0))
+* fix: removed/corrected failing tests (`yarn test` now exits 0) ([1bff10b](https://github.com/ndonfris/fish-lsp/commit/1bff10b))
+* fix: reset log file on initialize when changed (#70) ([bd647a3](https://github.com/ndonfris/fish-lsp/commit/bd647a3)), closes [#70](https://github.com/ndonfris/fish-lsp/issues/70) [#69](https://github.com/ndonfris/fish-lsp/issues/69)
+* fix: update config from init_options before server start (#76) ([b46dab6](https://github.com/ndonfris/fish-lsp/commit/b46dab6)), closes [#76](https://github.com/ndonfris/fish-lsp/issues/76)
+* feat: added `update-changelog` script w/ `conventional-changelog` dep ([4abd29f](https://github.com/ndonfris/fish-lsp/commit/4abd29f))
+* feat: support initializationOptions (#69) ([db2e754](https://github.com/ndonfris/fish-lsp/commit/db2e754)), closes [#69](https://github.com/ndonfris/fish-lsp/issues/69)
+* feat: update workflows & add `.github/workflows/check-npm-release.yml` ([004fc5d](https://github.com/ndonfris/fish-lsp/commit/004fc5d))
+* chore: added @ClanEver to .all-contributorsrc ([5adf24d](https://github.com/ndonfris/fish-lsp/commit/5adf24d))
+* chore: clean up tracked files, workflow fixes, update git/husky hooks ([4535cd9](https://github.com/ndonfris/fish-lsp/commit/4535cd9))
+* chore: removed .npmignore ([fefe872](https://github.com/ndonfris/fish-lsp/commit/fefe872))
+* chore: updated man file ([d8780ab](https://github.com/ndonfris/fish-lsp/commit/d8780ab))
+* chore(deps): bump the npm_and_yarn group across 1 directory with 2 updates (#72) ([01712c8](https://github.com/ndonfris/fish-lsp/commit/01712c8)), closes [#72](https://github.com/ndonfris/fish-lsp/issues/72)
+* docs: update `README.md` shields w/ clickable links ([e3ad7ba](https://github.com/ndonfris/fish-lsp/commit/e3ad7ba))
+
+
+
 ## \[1.0.8-4\] - 2025-01-20 ([PR #64](https://github.com/ndonfris/fish-lsp/pull/64))
 
 - added code actions

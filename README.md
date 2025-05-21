@@ -42,26 +42,29 @@ A detailed explanation of how a language server connection works is described in
 | Feature | Description | Status |
 | --- | --- | --- |
 | __Completion__ | Provides completions for commands, variables, and functions | ✅ |
-| __Hover__ | Shows documentation for commands, variables, and functions. Has special handlers for `--flag`, `commands`, `functions`, `variables` | ✅ |
+| __Hover__ | Shows documentation for commands, variables, and functions. Has special handlers for --flag, commands, functions, and variables | ✅ |
 | __Signature Help__ | Shows the signature of a command or function | ✅  |
-| __Goto Definition__ | Jumps to the definition of a command, variable, or function | ✅ |
-| __Find References__ | Shows all references to a command, variable, or function | ✅ |
+| __Goto Definition__ | Jumps to the definition of a command, variable, function or --flag | ✅ |
+| __Goto Implementation__ | Jumps between symbol definitions and completion definitions | ✅ |
+| __Find References__ | Shows all references to a command, variable, function, or --flag | ✅ |
 | __Rename__ | Rename within _matching_ __global__ && __local__ scope | ✅ |
 | __Document Symbols__ | Shows all commands, variables, and functions in a document | ✅ |
 | __Workspace Symbols__ | Shows all commands, variables, and functions in a workspace | ✅ |
 | __Document Formatting__ | Formats a document, _full_ & _selection_ | ✅ |
-| __Document Highlight__ / __Semantic Token__ | Highlights all references to a command, variable, or function.  | ✅  |
+| __On Type Formatting__ | Formats a document while typing | ✅ |
+| __Document Highlight__ | Highlights all references to a command, variable, or function.  | ✅  |
 | __Command Execution__ | Executes a server command from the client | ✅ |
-| __Code Action__ | Shows all available code actions | ✅  |
+| __Code Action__ | Automate code generation | ✅  |
+| __Quick fix__ | Auto fix lint issues | ✅  |
 | __Inlay Hint__ | Shows Virtual Text/Inlay Hints | ✅  |
 | __Code Lens__ | Shows all available code lenses | ✖ |
 | __Logger__ | Logs all server activity | ✅ |
 | __Diagnostic__ | Shows all diagnostics | ✅ |
 | __Folding Range__ | Toggle ranges to fold text  | ✅ |
-| __Telescope Integration__ | Integrates with the telescope.nvim plugin | ✅ |
-| __CLI Interactivity__ | Provides a CLI for server interaction. <br/>Built by `fish-lsp complete <option>` | ✅ |
+| __Semantic Tokens__ | Server provides extra syntax highlighting | ✖ |
+| __CLI Interactivity__ | Provides a CLI for server interaction. <br/>Built by `fish-lsp complete` | ✅ |
 | __Client Tree__ | Shows the defined scope as a Tree | ✅ |
-| __Indexing__ | Indexes all commands, variables, and functions | ✅ |
+| __Indexing__ | Indexes all commands, variables, functions, and source files | ✅ |
 
 ## Installation
 
@@ -93,7 +96,7 @@ fish-lsp complete > ~/.config/fish/completions/fish-lsp.fish
 
 ### Build from Source
 
-Recommended Dependencies: `yarn@1.22.22` `node@22.14.0` `fish@4.0.1`
+Recommended Dependencies: `yarn@1.22.22` `node@22.14.0` `fish@4.0.2`
 
 ```bash
 git clone https://github.com/ndonfris/fish-lsp && cd fish-lsp
@@ -104,16 +107,6 @@ yarn dev # to watch for changes use `yarn dev:watch`
 Using the `yarn dev:watch` command will automatically rebuild the project when changes are detected. This allows easy testing of new features or bug fixes, if you're interested in contributing.
 
 Building the project from source is the most portable method for installing the language server.
-
-<!-- ### Download a Standalone Executable -->
-<!---->
-<!-- Available on the [releases page](https://github.com/ndonfris/fish-lsp/releases) or using the installation script below: -->
-<!---->
-<!-- ```bash -->
-<!-- curl -sL https://raw.githubusercontent.com/ndonfris/fish-lsp/master/scripts/install.fish | fish -->
-<!-- ``` -->
-<!---->
-<!-- The standalone executables are built using [pkg](https://www.npmjs.com/package/@yao-pkg/pkg), and don't require `node` or `yarn` to be installed. -->
 
 ### Verifying Installation
 
@@ -156,6 +149,8 @@ Theoretically, the language-server should generally be compatible with almost an
   ```
 
   Alternatively, you can also see official documentation for [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig/blob/master/doc/configs.md#fish_lsp), or use your client of choice below.
+
+  > There is also a useful configuration for testing out the language server in `nvim@v0.11.1` included in the [fish-lsp-language-clients](https://github.com/ndonfris/fish-lsp-language-clients/tree/packer) repository.
 
 </details>
 <details>
@@ -317,13 +312,21 @@ Theoretically, the language-server should generally be compatible with almost an
 </details>
 
 <details>
-  <summary><b>vscode</b></summary>
+  <summary><b>VSCode</b></summary>
 
   > To download the extension, visit the [fish-lsp extension on the VSCode Marketplace](https://marketplace.visualstudio.com/items?itemName=ndonfris.fish-lsp).
   >
   > VSCode configuration does not require a client configuration. The server will automatically start when a `.fish` file is opened.
   >
   > A server configuration can still be specified to control the server's behavior. ([see below](#server-configuration-optional))
+
+</details>
+<details>
+  <summary><b>BBEdit</b></summary>
+
+  > To install the fish-lsp in [BBEdit](https://www.barebones.com/products/bbedit/), please follow the instructions in the repository [fish-lsp-language-clients](https://github.com/ndonfris/fish-lsp-language-clients/blob/bbedit/BBEdit%20Install.md).
+  >
+  > This configuration includes a [Fish.plist](https://github.com/ndonfris/fish-lsp-language-clients/blob/bbedit/Lanugage%20Modules/Fish.plist) file that provides syntax highlighting and other features for the fish shell.
 
 </details>
 
@@ -336,65 +339,121 @@ Specific functionality for the server can be set independently from the client. 
 > Generated by `fish-lsp env --create`
 
 ```fish
-# fish_lsp_enabled_handlers <ARRAY>
-# enables the fish-lsp handlers (options: 'popups', 'formatting', 'complete', 'hover', 'rename', 'definition', 'references', 'diagnostics', 'signatureHelp', 'codeAction', 'inlayHint', 'highlight')
+# $fish_lsp_enabled_handlers <ARRAY>
+# Enables the fish-lsp handlers. By default, all handlers are enabled.
+# (Options: 'complete', 'hover', 'rename', 'definition', 'implementation', 
+#           'reference', 'logger', 'formatting', 'typeFormatting', 
+#           'codeAction', 'codeLens', 'folding', 'signature', 
+#           'executeCommand', 'inlayHint', 'highlight', 'diagnostic', 
+#           'popups')
+# (Default: [])
 set -gx fish_lsp_enabled_handlers
 
-# fish_lsp_disabled_handlers <ARRAY>
-# disables the fish-lsp handlers (options: 'popups', 'formatting', 'complete', 'hover', 'rename', 'definition', 'references', 'diagnostics', 'signatureHelp', 'codeAction', 'inlayHint', 'highlight')
+# $fish_lsp_disabled_handlers <ARRAY>
+# Disables the fish-lsp handlers. By default, no handlers are disabled.
+# (Options: 'complete', 'hover', 'rename', 'definition', 'implementation', 
+#           'reference', 'logger', 'formatting', 'typeFormatting', 
+#           'codeAction', 'codeLens', 'folding', 'signature', 
+#           'executeCommand', 'inlayHint', 'highlight', 'diagnostic', 
+#           'popups')
+# (Default: [])
 set -gx fish_lsp_disabled_handlers
 
-# fish_lsp_commit_characters <ARRAY>
-# array of the completion expansion characters. Single letter values only.
-# Commit characters are used to select completion items, as shortcuts. (default: [])
+# $fish_lsp_commit_characters <ARRAY>
+# Array of the completion expansion characters.
+# Single letter values only.
+# Commit characters are used to select completion items, as shortcuts.
+# (Example Options: '.', ',', ';', ':', '(', ')', '[', ']', '{', '}', '<', 
+#                   '>', ''', '"', '=', '+', '-', '/', '\', '|', '&', '%', 
+#                   '$', '#', '@', '!', '?', '*', '^', '`', '~', '\t')
+# (Default: ['\t', ';', ' '])
 set -gx fish_lsp_commit_characters
 
-# fish_lsp_logfile <STRING>
-# path to the logs.txt file (default: '')
-# example locations could be: '~/path/to/fish-lsp/logs.txt' or '/tmp/fish_lsp.logs'
-set -gx fish_lsp_logfile
+# $fish_lsp_log_file <STRING>
+# A path to the fish-lsp's logging file. Empty string disables logging.
+# (Example Options: '/tmp/fish_lsp.logs', '~/path/to/fish_lsp/logs.txt')
+# (Default: '')
+set -gx fish_lsp_log_file
 
-# fish_lsp_all_indexed_paths <ARRAY>
-# fish file paths/workspaces to include as workspaces (default: ["$HOME/.config/fish", '/usr/share/fish'])
+# $fish_lsp_log_level <STRING>
+# The logging severity level for displaying messages in the log file.
+# (Options: 'debug', 'info', 'warning', 'error', 'log')
+# (Default: '')
+set -gx fish_lsp_log_level
+
+# $fish_lsp_all_indexed_paths <ARRAY>
+# The fish file paths to include in the fish-lsp's startup indexing, as workspaces.
+# Order matters (usually place `$__fish_config_dir` before `$__fish_data_dir`).
+# (Example Options: '$HOME/.config/fish', '/usr/share/fish', 
+#                   '$__fish_config_dir', '$__fish_data_dir')
+# (Default: ['$__fish_config_dir', '$__fish_data_dir'])
 set -gx fish_lsp_all_indexed_paths
 
-# fish_lsp_modifiable_paths <ARRAY>
-# fish file paths/workspaces that can be renamed by the user. (default: ["$HOME/.config/fish"])
+# $fish_lsp_modifiable_paths <ARRAY>
+# The fish file paths, for workspaces where global symbols can be renamed by the user.
+# (Example Options: '/usr/share/fish', '$HOME/.config/fish', 
+#                   '$__fish_data_dir', '$__fish_config_dir')
+# (Default: ['$__fish_config_dir'])
 set -gx fish_lsp_modifiable_paths
 
-# fish_lsp_diagnostic_disable_error_codes <ARRAY>
-# disable diagnostics for matching error codes (default: [])
-# (options: 1001, 1002, 1003, 1004, 2001, 2002, 2003, 3001, 3002, 3003, 4001, 4002, 4003, 4004, 5001, 8001)
+# $fish_lsp_diagnostic_disable_error_codes <ARRAY>
+# The diagnostics error codes to disable from the fish-lsp's diagnostics.
+# (Options: 1001, 1002, 1003, 1004, 1005, 2001, 2002, 2003, 3001, 3002, 3003, 
+#           4001, 4002, 4003, 4004, 4005, 5001, 6001, 8001, 9999)
+# (Default: [])
 set -gx fish_lsp_diagnostic_disable_error_codes
 
-# fish_lsp_max_background_files <NUMBER>
-# maximum number of background files to read into buffer on startup (default: 1000)
+# $fish_lsp_enable_experimental_diagnostics <BOOLEAN>
+# Enables the experimental diagnostics feature, using `fish --no-execute`.
+# This feature will enable the diagnostic error code 9999 (disabled by default).
+# (Options: 'true', 'false')
+# (Default: 'false')
+set -gx fish_lsp_enable_experimental_diagnostics
+
+# $fish_lsp_max_background_files <NUMBER>
+# The maximum number of background files to read into buffer on startup.
+# (Example Options: 100, 250, 500, 1000, 5000, 10000)
+# (Default: 10000)
 set -gx fish_lsp_max_background_files
 
-# fish_lsp_show_client_popups <BOOLEAN>
-# show popup window notification in the connected client (default: true)
-# DISABLING THIS MIGHT BE REQUIRED FOR SOME CLIENTS THAT DO NOT SUPPORT POPUPS
+# $fish_lsp_show_client_popups <BOOLEAN>
+# Should the client receive pop-up window notification requests from the fish-lsp server?
+# (Options: 'true', 'false')
+# (Default: 'false')
 set -gx fish_lsp_show_client_popups
+
+# $fish_lsp_single_workspace_support <BOOLEAN>
+# Try to limit the fish-lsp's workspace searching to only the current workspace open. 
+# (Options: 'true', 'false')
+# (Default: 'false')
+set -gx fish_lsp_single_workspace_support
 ```
 
 If you're interested in disabling specific diagnostic messages, the [wiki](https://github.com/ndonfris/fish-lsp/wiki) includes a table of [error codes](https://github.com/ndonfris/fish-lsp/wiki/Diagnostic-Error-Codes) that should be helpful. Diagnostics are a newer feature so [PRs](https://github.com/ndonfris/fish-lsp/blob/master/docs/CONTRIBUTING.md#getting-started-rocket) are welcome to improve their support.
 
 Alternatively, you can now __use comments__ to disable diagnostics.
 
-```fish
-# @fish-lsp-disable-next-line 
-alias ls='ls -G' # all diagnostics have been disabled for this line
+<!-- ![](https://github.com/ndonfris/fish-lsp.dev/blob/master/public/comment.png?raw=true) -->
+<div align="center">
 
-# @fish-lsp-disable 2001
-alias ll='ls -l' # only the diagnostic 2001 has been disabled for this line
+![`# @fish-lsp-disable`](https://github.com/ndonfris/fish-lsp.dev/blob/master/public/comment.svg?raw=true)
 
-# @fish-lsp-enable
-## all diagnostics are re-enabled till the next @fish-lsp-disable for this file
+</div>
 
-# @fish-lsp-disable 2001 2002
-## now both diagnostics 2001 and 2002 have been disabled for the rest of this file
-alias la='ls -la'
-```
+<!-- ```fish -->
+<!-- # @fish-lsp-disable-next-line  -->
+<!-- alias ls='ls -G' # all diagnostics have been disabled for this line -->
+<!---->
+<!-- # @fish-lsp-disable 2001 -->
+<!-- alias ll='ls -l' # only the diagnostic 2001 has been disabled for this line -->
+<!---->
+<!-- # @fish-lsp-enable -->
+<!-- ## all diagnostics are re-enabled till the next @fish-lsp-disable for this file -->
+<!---->
+<!-- # @fish-lsp-disable 2001 2002 -->
+<!-- ## now both diagnostics 2001 and 2002 have been disabled for the rest of this file -->
+<!-- alias la='ls -la' -->
+<!-- ``` -->
 
 #### Command Flags
 
@@ -409,27 +468,29 @@ fish-lsp start --disable complete signature --dump
 
 Any [flags](#command-flags) will overwrite their corresponding [environment variables](#environment-variables), if both are seen for the `fish-lsp` process. For this reason, it is encouraged to wrap any non-standard behavior of the `fish-lsp` in [functions](https://fishshell.com/docs/current/language.html#functions) or [aliases](https://fishshell.com/docs/current/language.html#defining-aliases).
 
-<details>
-  <summary><b>Example</b> <code>edit_command_buffer</code> wrapper to conditionally disable specific <code>fish-lsp</code> features</summary>
+Custom server configurations can also be [set interactively](https://github.com/ndonfris/fish-lsp/wiki/Diagnostic-Error-Codes#using-the-fish_lsp_diagnostic_disable_error_codes-env-variable), or in a fish function (i.e., [`edit_command_buffer`](https://github.com/ndonfris/fish-lsp/wiki/Diagnostic-Error-Codes#disabling-diagnostics-for-edit_command_buffer)).
 
-  > ```fish
-  > function edit_command_buffer_wrapper --description 'edit command buffer with custom server configurations'
-  >   # place any CUSTOM server configurations here
-  >   set -lx fish_lsp_diagnostic_disable_error_codes 1001 1002 1003 1004 2001 2002 2003 3001 3002 3003 
-  >   set -lx fish_lsp_show_client_popups false
-  > 
-  >   # open the command buffer with the custom server configuration, without
-  >   # overwriting the default server settings
-  >   edit_command_buffer
-  > end
-  > bind \ee edit_command_buffer_wrapper
-  > # now pressing alt+e in an interactive command prompt will open fish-lsp with the
-  > # options set above, but opening the `$EDITOR` normally will still behave as expected
-  > ```
-  >
-  > This allows normal editing of fish files to keep their default behaviour, while disabling unwanted server features for _"interactive"_ buffers.
-
-</details>
+<!-- <details> -->
+<!--   <summary><b>Example</b> <code>edit_command_buffer</code> wrapper to conditionally disable specific <code>fish-lsp</code> features</summary> -->
+<!---->
+<!--   > ```fish -->
+<!--   > function edit_command_buffer_wrapper --description 'edit command buffer with custom server configurations' -->
+<!--   >   # place any CUSTOM server configurations here -->
+<!--   >   set -lx fish_lsp_diagnostic_disable_error_codes 1001 1002 1003 1004 2001 2002 2003 3001 3002 3003  -->
+<!--   >   set -lx fish_lsp_show_client_popups false -->
+<!--   >  -->
+<!--   >   # open the command buffer with the custom server configuration, without -->
+<!--   >   # overwriting the default server settings -->
+<!--   >   edit_command_buffer -->
+<!--   > end -->
+<!--   > bind \ee edit_command_buffer_wrapper -->
+<!--   > # now pressing alt+e in an interactive command prompt will open fish-lsp with the -->
+<!--   > # options set above, but opening the `$EDITOR` normally will still behave as expected -->
+<!--   > ``` -->
+<!--   > -->
+<!--   > This allows normal editing of fish files to keep their default behaviour, while disabling unwanted server features for _"interactive"_ buffers. -->
+<!---->
+<!-- </details> -->
 
 Due to the vast possibilities this project aims to support in the fish shell, [sharing useful configurations is highly encouraged](https://github.com/ndonfris/fish-lsp/discussions).
 
@@ -498,6 +559,7 @@ Contributions of any kind are welcome!
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/branchvincent"><img src="https://avatars.githubusercontent.com/u/19800529?v=4?s=50" width="50px;" alt="Branch Vincent"/><br /><sub><b>Branch Vincent</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=branchvincent" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/devsunb"><img src="https://avatars.githubusercontent.com/u/23169202?v=4?s=50" width="50px;" alt="Jaeseok Lee"/><br /><sub><b>Jaeseok Lee</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=devsunb" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/ClanEver"><img src="https://avatars.githubusercontent.com/u/73160783?v=4?s=50" width="50px;" alt="ClanEver"/><br /><sub><b>ClanEver</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=ClanEver" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://degruchy.org/"><img src="https://avatars.githubusercontent.com/u/52262673?v=4?s=50" width="50px;" alt="Nathan DeGruchy"/><br /><sub><b>Nathan DeGruchy</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=ndegruchy" title="Code">💻</a></td>
     </tr>
   </tbody>
 </table>

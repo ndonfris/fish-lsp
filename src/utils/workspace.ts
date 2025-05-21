@@ -1,14 +1,60 @@
 import * as fastGlob from 'fast-glob';
-import { readFileSync, promises } from 'fs';
-import { pathToUri, toLspDocument, uriToPath } from './translation';
+import { pathToUri, uriToPath } from './translation';
 import { LspDocument } from '../document';
-import { FishDocumentSymbol } from '../document-symbol';
+import { FishSymbol } from '../parsing/symbol';
 import { config } from '../config';
 import { logger } from '../logger';
+import { basename, dirname, join } from 'path';
+import * as LSP from 'vscode-languageserver';
+import { env } from './env-manager';
+import { SyncFileHelper } from './file-operations';
+import { AnalyzedDocument, analyzer } from '../analyze';
+import { workspaceManager } from './workspace-manager';
+import { DocumentUri } from 'vscode-languageserver';
 
-async function getFileUriSet(path: string) {
+export type AnalyzedWorkspace = {
+  uri: string;
+  content: string;
+  doc: LspDocument;
+  result: AnalyzedDocument;
+}[];
+
+export type AnalyzeWorkspacePromise = Promise<{
+  uri: string;
+  content: string;
+  doc: LspDocument;
+  result: AnalyzedDocument;
+}>[];
+
+/**
+ * Extracts the unique workspace paths from the initialization parameters.
+ * @param params - The initialization parameters
+ * @returns The unique workspace paths given in the initialization parameters
+ */
+export function getWorkspacePathsFromInitializationParams(params: LSP.InitializeParams): string[] {
+  const result: string[] = [];
+
+  const { rootUri, rootPath, workspaceFolders } = params;
+  logger.log('getWorkspacePathsFromInitializationParams(params)', { rootUri, rootPath, workspaceFolders });
+
+  // consider removing rootUri and rootPath since they are deprecated
+
+  if (rootUri) {
+    result.push(uriToPath(rootUri));
+  }
+  if (rootPath) {
+    result.push(rootPath);
+  }
+  if (workspaceFolders) {
+    result.push(...workspaceFolders.map(folder => uriToPath(folder.uri)));
+  }
+
+  return Array.from(new Set(result));
+}
+
+export async function getFileUriSet(path: string) {
   const stream = fastGlob.stream('**/*.fish', { cwd: path, absolute: true });
-  const result: Set<string> = new Set();
+  const result: Set<DocumentUri> = new Set();
   for await (const entry of stream) {
     const absPath = entry.toString();
     const uri = pathToUri(absPath);
@@ -17,70 +63,205 @@ async function getFileUriSet(path: string) {
   return result;
 }
 
-export async function initializeDefaultFishWorkspaces(): Promise<Workspace[]> {
-  const configWorkspaces = config.fish_lsp_all_indexed_paths;
-  // Create an array of promises by mapping over workspacePaths
-  const workspacePromises = configWorkspaces.map(path => Workspace.create(path));
+export function syncGetFileUriSet(path: string) {
+  const result: Set<string> = new Set();
+  const entries = fastGlob.sync('**/*.fish', { cwd: path, absolute: true });
+  for (const entry of entries) {
+    const absPath = entry.toString();
+    const uri = pathToUri(absPath);
+    result.add(uri);
+  }
+  return result;
+}
+
+/**
+ * Initializes the default fish workspaces. Does not control the currentWorkspace, only sets it up.
+ *
+ * UPDATES the `config.fish_lsp_single_workspace_support` if user sets it to true, and no workspaces are found (`/tmp` workspace will cause this).
+ *
+ * @param uris - The uris to initialize the workspaces with, if any
+ * @returns The workspaces that were initialized, or an empty array if none were found (unlikely)
+ */
+export async function initializeDefaultFishWorkspaces(...uris: string[]): Promise<Workspace[]> {
+  /** Compute the newWorkaces from the uris, before building if the configWorkspaces */
+  const newWorkspaces = uris.map(uri => {
+    return FishUriWorkspace.create(uri);
+  }).filter((ws): ws is FishUriWorkspace => ws !== null);
+
+  /** fix single workspace support if no workspaces were found */
+  // if (newWorkspaces.length === 0 && config.fish_lsp_single_workspace_support) {
+  //   logger.log('No new workspaces found');
+  //   config.fish_lsp_single_workspace_support = false;
+  // }
+
+  const configWorkspaces = FishUriWorkspace.initializeEnvWorkspaces();
+
+  /** don't add duplicates to the workspaces */
+  const toAddWorkspaces = newWorkspaces.filter(ws =>
+    !configWorkspaces.some(configWs => configWs.uri === ws.uri),
+  );
+
+  // merge both arrays but keep the unique uris in the order they were passed in
+  const allWorkspaces = [
+    ...configWorkspaces,
+    ...toAddWorkspaces,
+  ].filter((workspace, index, self) =>
+    index === self.findIndex(w => w.uri === workspace.uri),
+  ).map(({ name, uri, path }) => Workspace.create(name, uri, path));
 
   // Wait for all promises to resolve
-  const defaultSpaces = await Promise.all(workspacePromises);
-  return defaultSpaces;
+  const defaultSpaces = await Promise.all(allWorkspaces);
+  const results = defaultSpaces.filter((ws): ws is Workspace => ws !== null);
+  results.forEach((ws) => {
+    logger.log(`Initialized workspace '${ws.name}' @ defaultFish`, {
+      name: ws.name,
+      uri: ws.uri,
+      path: ws.path,
+    });
+    workspaceManager.add(ws);
+  });
+  // workspaceManager.setCurrent(results.at(-1)!)
+  // currentWorkspace = new CurrentWorkspace(workspaces);
+  return results;
 }
 
-export async function getRelevantDocs(workspaces: Workspace[]): Promise<LspDocument[]> {
-  const docs: LspDocument[] = [];
-  for await (const ws of workspaces) {
-    const workspaceDocs = await ws.asyncFilter((doc: LspDocument) => doc.shouldAnalyzeInBackground());
-    docs.push(...workspaceDocs);
-  }
-  return docs;
-}
+// export async function findCurrentWorkspace(uri: string): Promise<Workspace | undefined> {
+//   for (const ws of workspaceManager.all) {
+//     if (ws.contains(uri)) {
+//       return ws;
+//     }
+//   }
+//   workspaceManager..updateCurrentFromUri(uri);
+//   return workspaces.current;
+// }
+//
+// export async function updateWorkspaces(event: LSP.WorkspaceFoldersChangeEvent) {
+//   const { added, removed } = event;
+//   for (const folder of added) {
+//     const workspace = await Workspace.createFromUri(folder.uri);
+//     if (workspace) {
+//       if (workspaces.exists(workspace.uri)) {
+//         workspaces.current = workspace;
+//         return;
+//       }
+//       workspaces.current = workspace;
+//       workspaces.addWorkspace(workspace);
+//     }
+//   }
+//   for (const folder of removed) {
+//     const workspace = workspaces.findWorkspace(folder.uri);
+//     if (workspace) {
+//       workspaces.removeWorkspace(workspace);
+//     }
+//   }
+// }
 
-export interface FishWorkspace {
+export type WorkspaceUri = string;
+
+export interface FishWorkspace extends LSP.WorkspaceFolder {
+  name: string;
+  uri: WorkspaceUri;
   path: string;
-  uris: Set<string>;
+  uris: UriTracker;
+  allUris: Set<string>;
   contains(...checkUris: string[]): boolean;
-  urisToLspDocuments(): LspDocument[];
-  filter(callbackfn: (lspDocument: LspDocument) => boolean): LspDocument[];
-  forEach(callbackfn: (lspDocument: LspDocument) => void): void;
+  allDocuments(): LspDocument[];
 }
 
 export class Workspace implements FishWorkspace {
+  public name: string;
+  public uri: WorkspaceUri;
   public path: string;
-  public uris: Set<string>;
-  public symbols: Map<string, FishDocumentSymbol[]> = new Map();
+  public uris = new UriTracker();
+  public symbols: Map<string, FishSymbol[]> = new Map();
 
-  public static async create(path: string) {
-    const foundUris = await getFileUriSet(path);
-    return new Workspace(path, foundUris);
+  public static async create(name: string, uri: DocumentUri | WorkspaceUri, path: string) {
+    const isDirectory = SyncFileHelper.isDirectory(path);
+    let foundUris: Set<string> = new Set<string>();
+    if (isDirectory) {
+      if (!path.startsWith('/tmp')) {
+        foundUris = await getFileUriSet(path);
+      }
+    } else {
+      foundUris = new Set<string>([uri]);
+    }
+    return new Workspace(name, uri, path, foundUris);
   }
 
-  public constructor(path: string, fileUris: Set<string>) {
+  public static syncCreateFromUri(uri: string) {
+    const path = uriToPath(uri);
+    try {
+      const isDirectory = SyncFileHelper.isDirectory(path);
+      const workspace = FishUriWorkspace.create(uri);
+      if (!workspace) return null;
+      let foundUris: Set<string> = new Set<string>();
+      if (isDirectory) {
+        if (!workspace.path.startsWith('/tmp')) {
+          foundUris = syncGetFileUriSet(workspace.path);
+        }
+      } else {
+        foundUris = new Set<string>([workspace.uri]);
+      }
+      return new Workspace(workspace.name, workspace.uri, workspace.path, foundUris);
+    } catch (e) {
+      logger.error('syncCreateFromUri', { uri, error: e });
+      return null;
+    }
+  }
+
+  public constructor(name: string, uri: WorkspaceUri, path: string, fileUris: Set<DocumentUri>) {
+    this.name = name;
+    this.uri = uri;
     this.path = path;
-    this.uris = fileUris;
+    this.uris = UriTracker.create(...Array.from(fileUris));
   }
 
-  contains(...checkUris: string[]) {
+  public get allUris(): Set<DocumentUri> {
+    return this.uris.allAsSet();
+  }
+
+  // public get allAnalyzedUris(): DocumentUri[] {
+  //   return Array.from(this.uris.indexed);
+  // }
+  //
+  // public get allUnanalyzedUris(): DocumentUri[] {
+  //   return Array.from(this.uris.pending);
+  // }
+
+  contains(...checkUris: DocumentUri[]): boolean {
     for (const uri of checkUris) {
-      const uriAsPath = uriToPath(uri);
-      if (!uriAsPath.startsWith(this.path)) {
+      if (!this.uris.has(uri)) {
         return false;
       }
-      //if (!this.uris.has(uri)) return false
     }
     return true;
   }
 
-  add(...newUris: string[]) {
-    for (const newUri of newUris) {
-      this.uris.add(newUri);
-    }
+  /**
+   * mostly for testing, (i.e., when writing at test that doesn't actually put any *.fish uri into memory)
+   * @param uri - the uri to check if the the workspace should contain
+   * @returns true if the uri is inside the workspace (inside meaning the uri starts with the workspace uri)
+   */
+  shouldContain(uri: DocumentUri) {
+    return uri.startsWith(this.uri) && !this.uris.allAsSet().has(uri);
+  }
+
+  addUri(uri: DocumentUri) {
+    this.uris.add(uri);
+  }
+
+  add(...newUris: DocumentUri[]) {
+    this.uris.add(...newUris);
+  }
+
+  addPending(...newUris: DocumentUri[]) {
+    this.uris.addPending(newUris);
   }
 
   findMatchingFishIdentifiers(fishIdentifier: string) {
     const matches: string[] = [];
     const toMatch = `/${fishIdentifier}.fish`;
-    for (const uri of this.uris) {
+    for (const uri of Array.from(this.uris.allAsSet())) {
       if (uri.endsWith(toMatch)) {
         matches.push(uri);
       }
@@ -89,27 +270,21 @@ export class Workspace implements FishWorkspace {
   }
 
   /**
-     * An immutable workspace would be '/usr/share/fish', since we don't want to
-     * modify the system files.
-     *
-     * A mutable workspace would be '~/.config/fish'
-     */
+   * An immutable workspace would be '/usr/share/fish', since we don't want to
+   * modify the system files.
+   *
+   * A mutable workspace would be '~/.config/fish'
+   */
   isMutable() {
-    return config.fish_lsp_modifiable_paths.includes(this.path);
+    return config.fish_lsp_modifiable_paths.includes(this.path) || SyncFileHelper.isWriteable(this.path);
   }
 
   isLoadable() {
     return config.fish_lsp_all_indexed_paths.includes(this.path);
   }
 
-  async updateFiles() {
-    const newUris = await getFileUriSet(this.path);
-    const diff = new Set([...this.uris].filter(x => !this.uris.has(x)));
-    if (diff.size === 0) {
-      return false;
-    }
-    newUris.forEach(uri => this.uris.add(uri));
-    return true;
+  isAnalyzed() {
+    return this.uris.pendingCount === 0 && this.allUris.size > 0;
   }
 
   hasCompletionUri(fishIdentifier: string) {
@@ -126,56 +301,351 @@ export class Workspace implements FishWorkspace {
     return this.hasFunctionUri(fishIdentifier) && this.hasCompletionUri(fishIdentifier);
   }
 
-  async asyncUrisToLspDocuments(): Promise<LspDocument[]> {
-    const readPromises = Array.from(this.uris).map(async uri => {
-      try {
-        const path = uriToPath(uri);
-        const content = await promises.readFile(path, 'utf8');
-        return toLspDocument(path, content);
-      } catch (err) {
-        logger.log(`Error reading file ${uri}: ${err}`);
-        return null;
-      }
-    });
-
-    const docs = await Promise.all(readPromises);
-    return docs.filter((doc): doc is LspDocument => doc !== null);
+  getCompletionUri(fishIdentifier: string) {
+    const matchingUris = this.findMatchingFishIdentifiers(fishIdentifier);
+    return matchingUris.find(uri => uri.endsWith(`/completions/${fishIdentifier}.fish`));
   }
 
-  async asyncForEach(callback: (doc: LspDocument) => void): Promise<void> {
-    const docs = await this.asyncUrisToLspDocuments();
-    docs.forEach(callback);
-  }
-
-  async asyncFilter(callbackfn: (doc: LspDocument) => boolean): Promise<LspDocument[]> {
-    const docs = await this.asyncUrisToLspDocuments();
-    return docs.filter(callbackfn);
-  }
-
-  urisToLspDocuments(): LspDocument[] {
+  pendingDocuments(): LspDocument[] {
     const docs: LspDocument[] = [];
-    for (const uri of this.uris) {
+    for (const uri of this.uris.pending) {
       const path = uriToPath(uri);
-      const content = readFileSync(path);
-      const doc = toLspDocument(path, content.toString());
+      const doc = SyncFileHelper.loadDocumentSync(path);
+      if (!doc) {
+        logger.error('pendingDocuments', { uri, path });
+        continue;
+      }
       docs.push(doc);
     }
     return docs;
   }
 
-  forEach(callback: (lspDocument: LspDocument) => void) {
-    for (const doc of this.urisToLspDocuments()) {
-      callback(doc);
+  allDocuments(): LspDocument[] {
+    const docs: LspDocument[] = [];
+    for (const uri of this.uris.all) {
+      const analyzedDoc = analyzer.getDocument(uri);
+      if (analyzedDoc) {
+        docs.push(analyzedDoc);
+        continue;
+      }
+      const path = uriToPath(uri);
+      const doc = SyncFileHelper.loadDocumentSync(path);
+      if (!doc) {
+        logger.error('allDocuments', { uri, path });
+        continue;
+      }
+      docs.push(doc);
     }
+    return docs;
   }
 
-  filter(callbackfn: (lspDocument: LspDocument) => boolean): LspDocument[] {
-    const result: LspDocument[] = [];
-    for (const doc of this.urisToLspDocuments()) {
-      if (callbackfn(doc)) {
-        result.push(doc);
+  get paths(): string[] {
+    return Array.from(this.allUris).map(uri => uriToPath(uri));
+  }
+
+  getUris(): DocumentUri[] {
+    return Array.from(this.allUris || []);
+  }
+
+  equals(other: FishWorkspace | null) {
+    if (!other) return false;
+    return this.name === other.name && this.uri === other.uri && this.path === other.path;
+  }
+
+  public needsAnalysis() {
+    return this.uris.pendingCount > 0;
+  }
+
+  setAllPending() {
+    for (const uri of this.uris.all) {
+      this.uris.markPending(uri);
+    }
+  }
+}
+
+export interface FishUriWorkspace {
+  name: string;
+  uri: string;
+  path: string;
+}
+
+export namespace FishUriWorkspace {
+
+  /** special location names */
+  const FISH_DIRS = ['functions', 'completions', 'conf.d'];
+  const CONFIG_FILE = 'config.fish';
+
+  export function isTmpWorkspace(uri: string) {
+    const path = uriToPath(uri);
+    return path.startsWith('/tmp');
+  }
+
+  /**
+   * Removes file path component from a fish file URI unless it's config.fish
+   */
+  export function trimFishFilePath(uri: string): string | undefined {
+    const path = uriToPath(uri);
+    if (!path) return undefined;
+
+    const base = basename(path);
+    if (base === CONFIG_FILE || path.startsWith('/tmp')) return path;
+    return !SyncFileHelper.isDirectory(path) && base.endsWith('.fish') ? dirname(path) : path;
+  }
+
+  /**
+   * Gets the workspace root directory from a URI
+   */
+  export function getWorkspaceRootFromUri(uri: string): string | undefined {
+    const path = uriToPath(uri);
+    if (!path) return undefined;
+
+    let current = path;
+    const base = basename(current);
+
+    if (current.startsWith('/tmp')) {
+      return current;
+    }
+
+    // check if the path is a fish workspace
+    // (i.e., `~/.config/fish`, `/usr/share/fish`, `~/some_plugin`)
+    if (SyncFileHelper.isDirectory(current) && isFishWorkspacePath(current)) {
+      return current;
+    }
+
+    // If path is a fish directory or config.fish, return parent
+    // Check if the parent is a fish directory or the current is config.fish
+    // (i.e., `~/.config/fish/{functions,conf.d,completions}`, `~/.config/fish/config.fish`)
+    if (FISH_DIRS.includes(base) || base === CONFIG_FILE) {
+      return dirname(current);
+    }
+
+    // If a single workspace is supported is true, return the path
+    // if (config.fish_lsp_single_workspace_support) {
+    //   const indexedPath = config.fish_lsp_all_indexed_paths.find(p => path.startsWith(p));
+    //   if (indexedPath) return indexedPath;
+    //   return path;
+    // }
+
+    // Walk up looking for fish workspace indicators
+    while (current !== dirname(current)) {
+      // Check for fish dirs in current directory
+      for (const dir of FISH_DIRS) {
+        if (basename(current) === dir) {
+          return dirname(current);
+        }
+      }
+
+      // Check for config.fish or fish dirs as children
+      if (
+        FISH_DIRS.some(dir => isFishWorkspacePath(join(current, dir))) ||
+        isFishWorkspacePath(join(current, CONFIG_FILE))) {
+        return current;
+      }
+
+      current = dirname(current);
+    }
+
+    // Check if we're in a configured path
+    return config.fish_lsp_all_indexed_paths.find(p => path.startsWith(p));
+  }
+
+  /**
+   * Gets a human-readable name for the workspace root
+   */
+  export function getWorkspaceName(uri: string): string {
+    const root = getWorkspaceRootFromUri(uri);
+    if (!root) return '';
+
+    // Special cases for system directories
+    // if (root.endsWith('/.config/fish')) return '__fish_config_dir';
+    // const specialName = autoloadedFishVariableNames.find(loadedName => process.env[loadedName] === root);
+    const specialName = env.findAutolaodedKey(root);
+
+    // env.getAutoloadedKeys().forEach((key) => {
+    //   logger.log(key, env.getAsArray(key));
+    // })
+    logger.debug('getWorkspaceName', { root, specialName });
+
+    if (specialName) return specialName;
+
+    // get the base of the path, if it is a fish workspace (ends in `fish`)
+    // return the entire path name as the name of the workspace
+    const base = basename(root);
+    if (base === 'fish') return root;
+
+    // For other paths, return the workspace root's basename
+    return base;
+  }
+
+  /**
+   * Checks if a path indicates a fish workspace
+   */
+  export function isFishWorkspacePath(path: string): boolean {
+    if (SyncFileHelper.isDirectory(path) &&
+      (SyncFileHelper.exists(`${path}/functions`) ||
+        SyncFileHelper.exists(`${path}/completions`) ||
+        SyncFileHelper.exists(`${path}/conf.d`)
+      )
+    ) {
+      return SyncFileHelper.isDirectory(path);
+    }
+    if (basename(path) === CONFIG_FILE) {
+      return true;
+    }
+    return config.fish_lsp_all_indexed_paths.includes(path);
+  }
+
+  /**
+   * Determines if a URI is within a fish workspace
+   */
+  export function isInFishWorkspace(uri: string): boolean {
+    return getWorkspaceRootFromUri(uri) !== undefined;
+  }
+
+  export function initializeEnvWorkspaces(): FishUriWorkspace[] {
+    // if (config.fish_lsp_single_workspace_support) return [];
+    return config.fish_lsp_all_indexed_paths
+      .map(path => create(pathToUri(path)))
+      .filter((ws): ws is FishUriWorkspace => ws !== null);
+  }
+
+  /**
+   * Creates a FishUriWorkspace from a URI
+   * @returns null if the URI is not in a fish workspace, otherwise the workspace
+   */
+  export function create(uri: string): FishUriWorkspace | null {
+    // skip workspaces for tmp
+    if (isTmpWorkspace(uri)) {
+      // workaround -- disable single workspace support if there is no workspace
+      // config.fish_lsp_single_workspace_support = false;
+      // return null;
+      return {
+        name: uriToPath(uri),
+        uri,
+        path: uriToPath(uri),
+      };
+    }
+
+    if (!isInFishWorkspace(uri)) return null;
+
+    const trimmedUri = trimFishFilePath(uri);
+    if (!trimmedUri) return null;
+
+    const rootPath = getWorkspaceRootFromUri(trimmedUri);
+    const workspaceName = getWorkspaceName(trimmedUri);
+
+    if (!rootPath || !workspaceName) return null;
+
+    return {
+      name: workspaceName,
+      uri: pathToUri(rootPath),
+      path: rootPath,
+    };
+  }
+}
+
+/**
+ * Minimal tracker for URI analysis status within a workspace
+ */
+export class UriTracker {
+  private _indexed = new Set<string>();
+  private _pending = new Set<string>();
+
+  static create(...uris: string[]) {
+    const tracker = new UriTracker();
+    for (const uri of uris) {
+      tracker.add(uri);
+    }
+    return tracker;
+  }
+
+  /**
+   * Add URIs to pending if not already indexed
+   */
+  add(...uris: string[]) {
+    for (const uri of uris) {
+      if (!this._indexed.has(uri)) {
+        this._pending.add(uri);
       }
     }
-    return result;
+    return this;
+  }
+
+  /**
+   * Add URIs to pending analysis
+   */
+  addPending(uris: string[]) {
+    for (const uri of uris) {
+      if (!this._indexed.has(uri)) {
+        this._pending.add(uri);
+      }
+    }
+    return this;
+  }
+
+  /**
+   * Mark URI as indexed (analyzed)
+   */
+  markIndexed(uri: string): void {
+    this._pending.delete(uri);
+    this._indexed.add(uri);
+  }
+
+  /**
+   * Mark URI as pending analysis
+   */
+  markPending(uri: string): void {
+    this._indexed.delete(uri);
+    this._pending.add(uri);
+  }
+
+  /**
+   * Get all URIs (both indexed and pending)
+   */
+  get all(): string[] {
+    return [...this._indexed, ...this._pending];
+  }
+
+  allAsSet(): Set<string> {
+    return new Set<string>([...this._indexed, ...this._pending]);
+  }
+
+  /**
+   * Get all indexed URIs
+   */
+  get indexed(): string[] {
+    return Array.from(this._indexed);
+  }
+
+  /**
+   * Get all pending URIs
+   */
+  get pending(): string[] {
+    return Array.from(this._pending);
+  }
+
+  /**
+   * Get pending URIs count
+   */
+  get pendingCount(): number {
+    return this._pending.size;
+  }
+
+  /**
+   * Get indexed URIs count
+   */
+  get indexedCount(): number {
+    return this._indexed.size;
+  }
+
+  /**
+   * Check if URI is indexed
+   */
+  isIndexed(uri: string): boolean {
+    return this._indexed.has(uri);
+  }
+
+  has(uri: string): boolean {
+    return this._indexed.has(uri) || this._pending.has(uri);
   }
 }
