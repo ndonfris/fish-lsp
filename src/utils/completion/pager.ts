@@ -47,19 +47,19 @@ export class CompletionPager {
   ): Promise<FishCompletionList> {
     this._items.reset();
     this._items.addSymbols(symbols, true);
-    this._items.addItems(this.itemsMap.allOfKinds('builtin'));
+    this._items.addItems(this.itemsMap.allOfKinds('builtin').map(item => item.setPriority(10)));
     try {
       const stdout: [string, string][] = [];
       const toAdd = await this.getSubshellStdoutCompletions(' ');
       stdout.push(...toAdd);
       for (const [name, description] of stdout) {
-        this._items.addItem(FishCompletionItem.create(name, 'command', description, name));
+        this._items.addItem(FishCompletionItem.create(name, 'command', description, name).setPriority(1));
       }
     } catch (e) {
       logger.info('Error getting subshell stdout completions', e);
     }
-    this._items.addItems(this.itemsMap.allOfKinds('comment'));
-    this._items.addItems(this.itemsMap.allOfKinds('function'));
+    this._items.addItems(this.itemsMap.allOfKinds('comment').map(item => item.setPriority(95)));
+    this._items.addItems(this.itemsMap.allOfKinds('function').map(item => item.setPriority(30)));
     return this._items.build(false);
   }
 
@@ -125,7 +125,7 @@ export class CompletionPager {
 
     const stdout: [string, string][] = [];
     if (command && this.itemsMap.blockedCommands.includes(command)) {
-      this._items.addItems(this.itemsMap.allOfKinds('pipe'));
+      this._items.addItems(this.itemsMap.allOfKinds('pipe'), 85);
       return this._items.build(false);
     }
     const toAdd = await shellComplete(line);
@@ -135,31 +135,30 @@ export class CompletionPager {
     if (word && word.includes('/')) {
       this.logger.log('word includes /', word);
       const toAdd = await this.getSubshellStdoutCompletions(`__fish_complete_path ${word}`);
-      this._items.addItems(toAdd.map((item) => FishCompletionItem.create(item[0], 'path', item[1], item.join(' '))));
+      this._items.addItems(toAdd.map((item) => FishCompletionItem.create(item[0], 'path', item[1], item.join(' '))), 1);
     }
     const isOption = this.inlineParser.lastItemIsOption(line);
     for (const [name, description] of stdout) {
-      if (name === '$(echo $dest)' || name.includes('$dest')) continue;
       if (isOption || name.startsWith('-') || command) {
         this._items.addItem(FishCompletionItem.create(name, 'argument', description, [
           line.slice(0, line.lastIndexOf(' ')),
           name,
-        ].join(' ').trim()));
+        ].join(' ').trim()).setPriority(1));
         continue;
       }
       const item = this.itemsMap.findLabel(name);
       if (!item) {
         continue;
       }
-      this._items.addItem(item);
+      this._items.addItem(item.setPriority(1));
     }
 
     if (command && line.includes(' ')) {
       this._items.addSymbols(variables);
       if (index === 1) {
-        this._items.addItems(addFirstIndexedItems(command, this.itemsMap));
+        this._items.addItems(addFirstIndexedItems(command, this.itemsMap), 25);
       } else {
-        this._items.addItems(addSpecialItems(command, line, this.itemsMap));
+        this._items.addItems(addSpecialItems(command, line, this.itemsMap), 24);
       }
     } else if (word && !command) {
       this._items.addSymbols(functions);
@@ -167,7 +166,7 @@ export class CompletionPager {
 
     switch (wordsFirstChar(word)) {
       case '$':
-        this._items.addItems(this.itemsMap.allOfKinds('variable'));
+        this._items.addItems(this.itemsMap.allOfKinds('variable'), 55);
         this._items.addSymbols(variables);
         break;
       case '/':

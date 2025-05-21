@@ -33,6 +33,34 @@ export class SyncFileHelper {
     }
   }
 
+  static loadDocumentSync(filePath: PathLike): LspDocument | undefined {
+    try {
+      const expandedFilePath = this.expandEnvVars(filePath);
+
+      // Check if path exists and is a file
+      if (!this.exists(expandedFilePath)) {
+        return undefined;
+      }
+
+      const stats = statSync(expandedFilePath);
+      if (stats.isDirectory()) {
+        return undefined;
+      }
+
+      // Read file content safely
+      const content = readFileSync(expandedFilePath, { encoding: 'utf8' });
+      const uri = pathToUri(expandedFilePath.toString());
+
+      // Create document
+      const doc = TextDocumentItem.create(uri, 'fish', 0, content);
+      return new LspDocument(doc);
+    } catch (error) {
+      // Handle all possible errors without crashing
+      // Just return undefined on any file system error
+      return undefined;
+    }
+  }
+
   static write(filePath: PathLike, data: string, encoding: BufferEncoding = 'utf8'): void {
     const expandedFilePath = this.expandEnvVars(filePath);
     writeFileSync(expandedFilePath, data, { encoding });

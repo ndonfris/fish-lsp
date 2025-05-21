@@ -214,10 +214,13 @@ export class Analyzer {
    * and cached. This is useful for testing purposes, or for the rare occasion that
    * we need to analyze a file that is not yet a LspDocument.
    */
-  public analyzePath(rawFilePath: string): AnalyzedDocument {
+  public analyzePath(rawFilePath: string): AnalyzedDocument | undefined {
     const path = uriToPath(rawFilePath);
-    const content = SyncFileHelper.read(path, 'utf-8');
-    const document = LspDocument.createTextDocumentItem(pathToUri(path), content);
+    const document = SyncFileHelper.loadDocumentSync(path);
+    if (!document) {
+      logger.warning(`analyzer.analyzePath: ${path} not found`);
+      return undefined;
+    }
     return this.analyze(document);
   }
 

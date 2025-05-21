@@ -229,12 +229,7 @@ export default class FishServer {
       progress.done();
       return;
     }
-    if (workspaceManager.needsAnalysis() && workspaceManager.isLargeAnalysis) {
-      progress.begin(`[fish-lsp] analyzed ${workspaceManager.workspacesToAnalyze().length} files`);
-      await workspaceManager.analyzePendingDocuments(progress);
-    } else {
-      await workspaceManager.analyzePendingDocuments();
-    }
+    await workspaceManager.analyzePendingDocuments();
     progress.done();
   }
 

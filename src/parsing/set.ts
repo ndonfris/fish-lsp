@@ -96,7 +96,8 @@ export function processSetCommand(document: LspDocument, node: SyntaxNode, child
   const searchNodes = findSetChildren(node);
   // find the definition node, which should be the last node of the searchNodes
   const definitionNode = searchNodes.find(n => !isOption(n));
-  if (!definitionNode || definitionNode.text.startsWith('$') || definitionNode.text.startsWith('(')) return [];
+  const skipText: string[] = ['-', '$', '('];
+  if (!definitionNode || skipText.some(t => definitionNode.text.startsWith(t))) return [];
   const modifierOption = findOptionsSet(node.childrenForFieldName('argument'), SetModifiers).pop();
   let modifier = 'local' as ScopeTag;
   if (modifierOption) {

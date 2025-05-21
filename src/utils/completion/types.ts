@@ -73,9 +73,11 @@ export interface FishCompletionItem extends CompletionItem {
   local: boolean;
   useDocAsDetail: boolean;
   data?: FishCompletionData;
+  priority?: number;
   setKinds(kind: FishCompletionItemKind): FishCompletionItem;
   setLocal(): FishCompletionItem;
   setData(data: FishCompletionData): FishCompletionItem;
+  setPriority(priority: number): FishCompletionItem;
 }
 
 export class FishCompletionItem implements FishCompletionItem {
@@ -115,6 +117,11 @@ export class FishCompletionItem implements FishCompletionItem {
       Range.create({ line: data.position.line, character: data.position.character - removeLength }, data.position),
       this.insertText || this.label,
     );
+    return this;
+  }
+
+  setPriority(priority: number) {
+    this.priority = priority;
     return this;
   }
 }
@@ -161,11 +168,11 @@ export namespace FishCompletionItem {
   export function fromSymbol(symbol: FishSymbol) {
     switch (symbol.kind) {
       case SymbolKind.Function:
-        return create(symbol.name, FishCompletionItemKind.FUNCTION, 'Function', symbol.detail).setLocal();
+        return create(symbol.name, FishCompletionItemKind.FUNCTION, 'Function', symbol.detail).setLocal().setPriority(50);
       case SymbolKind.Variable:
-        return create(symbol.name, FishCompletionItemKind.VARIABLE, 'Variable', symbol.detail).setLocal();
+        return create(symbol.name, FishCompletionItemKind.VARIABLE, 'Variable', symbol.detail).setLocal().setPriority(60);
       default:
-        return create(symbol.name, FishCompletionItemKind.EMPTY, 'Empty', symbol.detail).setLocal();
+        return create(symbol.name, FishCompletionItemKind.EMPTY, 'Empty', symbol.detail).setLocal().setPriority(70);
     }
   }
 
