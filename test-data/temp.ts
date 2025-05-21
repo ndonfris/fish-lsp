@@ -1,9 +1,10 @@
 import { writeFileSync, unlinkSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { Workspace, workspaces } from '../src/utils/workspace';
+import { Workspace } from '../src/utils/workspace';
 import { LspDocument } from '../src/document';
 import { TextDocumentItem } from 'vscode-languageserver';
+import { workspaceManager } from '../src/utils/workspace-manager';
 
 interface TempFileResult {
   path: string;
@@ -13,9 +14,9 @@ interface TempFileResult {
 
 function createFakeLspDocument(document: TextDocumentItem) {
   // const doc = TextDocumentItem.create(document.uri, 'fish', 0, document.getText());
-  const workspace = workspaces.find((ws) => ws.contains(document.uri));
+  const workspace = workspaceManager.findContainingWorkspace(document.uri);
   if (!workspace) {
-    workspaces.push(Workspace.createTestWorkspaceFromUri(document.uri)!);
+    workspaceManager.add(Workspace.syncCreateFromUri(document.uri)!);
   } else {
     workspace.add(document.uri);
   }

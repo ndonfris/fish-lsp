@@ -1,7 +1,7 @@
 import * as Parser from 'web-tree-sitter';
-import { AnalyzedDocument, Analyzer } from '../src/analyze';
+import { AnalyzedDocument, analyzer, Analyzer } from '../src/analyze';
 import { initializeParser } from '../src/parser';
-import { workspaces } from '../src/utils/workspace';
+import { workspaceManager } from '../src/utils/workspace-manager';
 import { createFakeLspDocument, createTestWorkspace, setLogger } from './helpers';
 import { getChildNodes, getRange } from '../src/utils/tree-sitter';
 import { isCompletionCommandDefinition } from '../src/parsing/complete';
@@ -14,7 +14,6 @@ import { SyntaxNode } from 'web-tree-sitter';
 import { LspDocument } from '../src/document';
 
 let parser: Parser;
-let analyzer: Analyzer;
 // let currentWorkspace: CurrentWorkspace = new CurrentWorkspace();
 
 describe('find definition locations of symbols', () => {
@@ -22,16 +21,12 @@ describe('find definition locations of symbols', () => {
 
   beforeEach(async () => {
     parser = await initializeParser();
-    analyzer = new Analyzer(parser);
+    await Analyzer.initialize();
   });
 
   afterEach(() => {
     parser.delete();
-    analyzer = new Analyzer(parser);
-    for (const ws of workspaces) {
-      ws.uris.clear();
-      workspaces.pop();
-    }
+    workspaceManager.clear();
   });
 
   describe('argparse', () => {

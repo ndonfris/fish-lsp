@@ -23,7 +23,7 @@ import { Analyzer } from '../src/analyze';
 import { groupCompletionSymbolsTogether, isCompletionCommandDefinition, getCompletionSymbol, processCompletion, CompletionSymbol } from '../src/parsing/complete';
 import { getGlobalArgparseLocations, isGlobalArgparseDefinition } from '../src/parsing/argparse';
 import { Workspace } from '../src/utils/workspace';
-import { workspaces } from '../src/utils/workspace-manager';
+import { workspaceManager } from '../src/utils/workspace-manager';
 import { LspDocument } from '../src/document';
 import { buildExportDetail, extractExportVariable, findVariableDefinitionNameNode, isExportDefinition, isExportVariableDefinitionName, processExportCommand } from '../src/parsing/export';
 

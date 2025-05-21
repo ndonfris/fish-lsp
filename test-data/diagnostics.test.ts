@@ -15,7 +15,7 @@ import { createFakeLspDocument, setLogger } from './helpers';
 import { getDiagnostics } from '../src/diagnostics/validate';
 import { DiagnosticComment, DiagnosticCommentsHandler, isDiagnosticComment, parseDiagnosticComment } from '../src/diagnostics/comments-handler';
 import { withTempFishFile } from './temp';
-import { workspaces } from '../src/utils/workspace';
+import { workspaceManager } from '../src/utils/workspace-manager';
 import { Option } from '../src/parsing/options';
 import { getNoExecuteDiagnostics } from '../src/diagnostics/no-execute-diagnostic';
 
@@ -788,9 +788,7 @@ end
 
   describe.only('fish --no-execute diagnostics', () => {
     afterEach(async () => {
-      while (workspaces.length > 0) {
-        workspaces.pop();
-      }
+      workspaceManager.clear();
     });
 
     it.only('NODE_TEST: fish --no-execute diagnostic 1', async () => {
