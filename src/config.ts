@@ -1,4 +1,3 @@
-import os from 'os';
 import { z } from 'zod';
 import { createServerLogger, logger } from './logger';
 import { PrebuiltDocumentationMap, EnvVariableJson } from './utils/snippets';
@@ -21,6 +20,7 @@ export const ConfigHandlerSchema = z.object({
   reference: z.boolean().default(true),
   logger: z.boolean().default(true),
   formatting: z.boolean().default(true),
+  formatRange: z.boolean().default(true),
   typeFormatting: z.boolean().default(true),
   codeAction: z.boolean().default(true),
   codeLens: z.boolean().default(true),
@@ -30,7 +30,7 @@ export const ConfigHandlerSchema = z.object({
   inlayHint: z.boolean().default(true),
   highlight: z.boolean().default(true),
   diagnostic: z.boolean().default(true),
-  popups: z.boolean().default(false),
+  popups: z.boolean().default(true),
 });
 
 /**
@@ -63,8 +63,8 @@ export const configHandlers = ConfigHandlerSchema.parse({});
 
 export const validHandlers: Array<keyof typeof ConfigHandlerSchema.shape> = [
   'complete', 'hover', 'rename', 'definition', 'implementation', 'reference', 'formatting',
-  'typeFormatting', 'codeAction', 'codeLens', 'folding', 'signature', 'executeCommand',
-  'inlayHint', 'highlight', 'diagnostic', 'popups',
+  'formatRange', 'typeFormatting', 'codeAction', 'codeLens', 'folding', 'signature',
+  'executeCommand', 'inlayHint', 'highlight', 'diagnostic', 'popups',
 ];
 
 export function updateHandlers(keys: string[], value: boolean): void {
@@ -97,10 +97,10 @@ export const ConfigSchema = z.object({
   fish_lsp_log_level: z.string().default(''),
 
   /** All workspaces/paths for the language-server to index */
-  fish_lsp_all_indexed_paths: z.array(z.string()).default([`${os.homedir()}/.config/fish`, '/usr/share/fish']),
+  fish_lsp_all_indexed_paths: z.array(z.string()).default(['$__fish_config_dir', '$__fish_data_dir']),
 
   /** All workspace/paths that the language-server should be able to rename inside*/
-  fish_lsp_modifiable_paths: z.array(z.string()).default([`${os.homedir()}/.config/fish`]),
+  fish_lsp_modifiable_paths: z.array(z.string()).default(['$__fish_config_dir']),
 
   /** error code numbers to disable */
   fish_lsp_diagnostic_disable_error_codes: z.array(z.number()).default([]),
@@ -112,7 +112,7 @@ export const ConfigSchema = z.object({
   fish_lsp_max_background_files: z.number().default(10000),
 
   /** show startup analysis notification */
-  fish_lsp_show_client_popups: z.boolean().default(true),
+  fish_lsp_show_client_popups: z.boolean().default(false),
 
   /** single workspace support */
   fish_lsp_single_workspace_support: z.boolean().default(false),
@@ -123,7 +123,7 @@ export type Config = z.infer<typeof ConfigSchema>;
 export function getConfigFromEnvironmentVariables(): {
   config: Config;
   environmentVariablesUsed: string[];
-  } {
+} {
   const rawConfig = {
     fish_lsp_enabled_handlers: process.env.fish_lsp_enabled_handlers?.split(' '),
     fish_lsp_disabled_handlers: process.env.fish_lsp_disabled_handlers?.split(' '),
@@ -280,13 +280,13 @@ export function handleEnvOutput(
     export: boolean;
     only: string[] | undefined;
   } = {
-    confd: true,
-    comments: true,
-    global: true,
-    local: true,
-    export: true,
-    only: undefined,
-  },
+      confd: true,
+      comments: true,
+      global: true,
+      local: true,
+      export: true,
+      only: undefined,
+    },
 ) {
   const command = getEnvVariableCommand(opts.global, opts.local, opts.export);
   const result: string[] = [];
@@ -373,6 +373,8 @@ export function handleEnvOutput(
 
 function escapeValue(value: string | number | boolean): string {
   if (typeof value === 'string') {
+    // for config values that are variables, surround w/ -> "
+    if (value.startsWith('$__fish')) return `"${value}"`;
     // Replace special characters with their escaped equivalents
     return `'${value.replace(/\\/g, '\\\\').replace(/\t/g, '\\t').replace(/'/g, "\\'")}'`;
   } else {
@@ -579,9 +581,8 @@ export namespace Config {
         },
         completionProvider: configHandlers.complete ? {
           resolveProvider: true,
-          // allCommitCharacters: config.fish_lsp_commit_characters,
+          allCommitCharacters: config.fish_lsp_commit_characters,
           workDoneProgress: false,
-          // triggerCharacters: ['$'],
         } : undefined,
         hoverProvider: configHandlers.hover,
         definitionProvider: configHandlers.definition,
@@ -589,7 +590,7 @@ export namespace Config {
         referencesProvider: configHandlers.reference,
         renameProvider: configHandlers.rename,
         documentFormattingProvider: configHandlers.formatting,
-        documentRangeFormattingProvider: configHandlers.formatting,
+        documentRangeFormattingProvider: configHandlers.formatRange,
         foldingRangeProvider: configHandlers.folding,
         codeActionProvider: configHandlers.codeAction ? {
           codeActionKinds: [...AllSupportedActions],

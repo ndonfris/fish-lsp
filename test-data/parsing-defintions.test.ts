@@ -23,7 +23,7 @@ import { Analyzer } from '../src/analyze';
 import { groupCompletionSymbolsTogether, isCompletionCommandDefinition, getCompletionSymbol, processCompletion, CompletionSymbol } from '../src/parsing/complete';
 import { getGlobalArgparseLocations, isGlobalArgparseDefinition } from '../src/parsing/argparse';
 import { Workspace } from '../src/utils/workspace';
-import { workspaces } from '../src/utils/workspace-manager';
+import { workspaceManager } from '../src/utils/workspace-manager';
 import { LspDocument } from '../src/document';
 
 let analyzer: Analyzer;
@@ -1084,9 +1084,9 @@ describe('parsing symbols', () => {
         const argparseSymbols = analyzer.getFlatDocumentSymbols(functionDoc.uri)
           .filter(sym => sym.fishKind === 'ARGPARSE');
 
-        const workspace = await Workspace.createFromUri(completionDoc.getFilePath()!);
+        const workspace = Workspace.syncCreateFromUri(completionDoc.getFilePath()!);
         if (!workspace) fail();
-        workspaces.addWorkspace(workspace);
+        workspaceManager.add(workspace);
 
         // console.log({
         //   workspaces: workspaces.length,

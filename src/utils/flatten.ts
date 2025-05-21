@@ -36,3 +36,26 @@ export function flattenNested<T extends { children?: T[]; }>(...roots: T[]): T[]
 
   return result;
 }
+
+/**
+ * Generator function that iterates over a nested structure of objects with a \`children\` property
+ * in the same DFS order used by the `flattenNested` function.
+ */
+export function* iterateNested<T extends { children?: T[]; }>(...roots: T[]): Generator<T> {
+  // Create a queue starting with the root nodes
+  const queue: T[] = [...roots];
+
+  // Process nodes in the queue one by one
+  while (queue.length > 0) {
+    // Get the next node from the front of the queue
+    const current = queue.shift()!;
+
+    // Yield the current node
+    yield current;
+
+    // Add its children to the end of the queue (if any)
+    if (current?.children) {
+      queue.push(...current.children);
+    }
+  }
+}
