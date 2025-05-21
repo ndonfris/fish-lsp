@@ -345,6 +345,7 @@ export function handleEnvOutput(
         break;
       case 'create':
       default:
+        line += '\n';
         break;
     }
     return line;
