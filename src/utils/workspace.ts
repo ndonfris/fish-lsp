@@ -1,6 +1,5 @@
 import * as fastGlob from 'fast-glob';
-import { readFileSync } from 'fs';
-import { pathToUri, toLspDocument, uriToPath } from './translation';
+import { pathToUri, uriToPath } from './translation';
 import { LspDocument } from '../document';
 import { FishSymbol } from '../parsing/symbol';
 import { config } from '../config';
@@ -9,7 +8,7 @@ import { basename, dirname, join } from 'path';
 import * as LSP from 'vscode-languageserver';
 import { env } from './env-manager';
 import { SyncFileHelper } from './file-operations';
-import { AnalyzedDocument } from '../analyze';
+import { AnalyzedDocument, analyzer } from '../analyze';
 import { workspaceManager } from './workspace-manager';
 import { DocumentUri } from 'vscode-languageserver';
 
@@ -311,9 +310,11 @@ export class Workspace implements FishWorkspace {
     const docs: LspDocument[] = [];
     for (const uri of this.uris.pending) {
       const path = uriToPath(uri);
-      if (SyncFileHelper.isDirectory(path)) continue;
-      const content = readFileSync(path, 'utf8');
-      const doc = toLspDocument(path, content.toString());
+      const doc = SyncFileHelper.loadDocumentSync(path);
+      if (!doc) {
+        logger.error('pendingDocuments', { uri, path });
+        continue;
+      }
       docs.push(doc);
     }
     return docs;
@@ -322,9 +323,17 @@ export class Workspace implements FishWorkspace {
   allDocuments(): LspDocument[] {
     const docs: LspDocument[] = [];
     for (const uri of this.uris.all) {
+      const analyzedDoc = analyzer.getDocument(uri);
+      if (analyzedDoc) {
+        docs.push(analyzedDoc);
+        continue;
+      }
       const path = uriToPath(uri);
-      const content = readFileSync(path);
-      const doc = toLspDocument(path, content.toString());
+      const doc = SyncFileHelper.loadDocumentSync(path);
+      if (!doc) {
+        logger.error('allDocuments', { uri, path });
+        continue;
+      }
       docs.push(doc);
     }
     return docs;
