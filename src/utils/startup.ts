@@ -1,15 +1,15 @@
-// import { Connection, createConnection, InitializeParams, InitializeResult, IPCMessageReader, IPCMessageWriter, ProposedFeatures, SocketMessageReader, SocketMessageWriter, StreamMessageReader, StreamMessageWriter } from 'vscode-languageserver/node';
+import * as path from 'path';
+import * as os from 'os';
+import * as net from 'net';
 import FishServer from '../server';
 import { createServerLogger, logger } from '../logger';
 import { config, configHandlers } from '../config';
-import * as path from 'path';
-import * as os from 'os';
 import { pathToUri } from './translation';
 import { PackageVersion } from './commander-cli-subcommands';
-
 import { createConnection, InitializeParams, InitializeResult, StreamMessageReader, StreamMessageWriter, ProposedFeatures, Connection } from 'vscode-languageserver/node';
-import * as net from 'net';
 import { workspaceManager } from './workspace-manager';
+import { Workspace } from './workspace';
+import { SyncFileHelper } from './file-operations';
 
 // Define proper types for the connection options
 export type ConnectionType = 'stdio' | 'node-ipc' | 'socket';
@@ -92,11 +92,6 @@ function setupServerWithConnection(connection: Connection): void {
   logger.log('Starting FISH-LSP server');
   logger.log('Server started with the following handlers:', configHandlers);
   logger.log('Server started with the following config:', config);
-  // connection.onInitialized(async () => {
-  //   const progress = await connection.window.createWorkDoneProgress();
-  //   // progress.begin('Fish LSP', 0, 'Initializing workspace');
-  //   workspaceManager.analyzePendingDocuments(progress);
-  // });
 }
 
 /**
@@ -172,7 +167,10 @@ export async function timeServerStartup() {
         name: 'fish-lsp info --time-startup',
         version: PackageVersion,
       },
-      initializationOptions: {},
+      initializationOptions: {
+        fish_lsp_all_indexed_paths: config.fish_lsp_all_indexed_paths,
+        fish_lsp_max_background_files: config.fish_lsp_max_background_files,
+      },
       workspaceFolders: [],
       capabilities: {
         workspace: {
@@ -183,6 +181,7 @@ export async function timeServerStartup() {
     ({ server } = await FishServer.create(connection, startupParams));
     connection.listen();
     createServerLogger(config.fish_lsp_log_file, connection.console);
+
     return server;
   }, 'Server Start Time');
 
@@ -191,17 +190,24 @@ export async function timeServerStartup() {
 
   // 2. Time server initialization and background analysis
   await timeOperation(async () => {
-    // Create array of workspace analysis promises with timing
-    // await Promise.all(workspaces.orderedWorkspaces().map(async (workspace) => {
-    //   items[workspace.path] = workspace.paths.length;
-    //   all += workspace.paths.length;
-    //   await server!.analyzer.analyzeWorkspace(workspace);
-    // }));
+    // clear any existing workspaces, use the env variables if they are set,
+    // otherwise use their default values (since there isn't a client)
+    workspaceManager.clear();
+    for (const pathLike of config.fish_lsp_all_indexed_paths) {
+      const fullPath = SyncFileHelper.expandEnvVars(pathLike);
+      const workspace = Workspace.syncCreateFromUri(pathToUri(fullPath));
+      if (!workspace) {
+        logger.logToStderr(`Failed to create workspace for path: ${pathLike}`);
+        continue;
+      }
+      workspaceManager.add(workspace);
+    }
+    // analyze all documents from the workspaces created above
     const result = await workspaceManager.analyzePendingDocuments();
     if (result) {
       all = result.totalDocuments;
-      for (const [path, docUris] of Object.entries(result.items)) {
-        items[path] = docUris.length;
+      for (const [path, uris] of Object.entries(result.items)) {
+        items[path] = uris.length;
       }
     }
   }, 'Background Analysis Time');
@@ -219,21 +225,13 @@ export async function timeServerStartup() {
     `${all_indexed.length} paths`.padStart(20),
   );
   // const maxItemLen = all_indexed.reduce((max, item) => Math.max(max, item.length > 60 ? 60 : item.length), 0);
-  config.fish_lsp_all_indexed_paths.forEach((item, idx) => {
+  Object.keys(items).forEach((item, idx) => {
     const text = item.length > 55 ? '...' + item.slice(item.length - 52) : item;
     const output = formatColumns([` [${idx}]`, `| ${text} |`, `${items[item]?.toString() || 0} files`], [6, -59, -10], 85);
     logger.logToStdout(output);
   });
   // incase we decide to log a different starting directory that isn't `~/.config/fish`
   logger.logToStdout('-'.repeat(85));
-  // Object.keys(items).forEach((key) => {
-  //   const indexedPath = config.fish_lsp_all_indexed_paths.findIndex((item) => item === key);
-  //   if (indexedPath !== -1) return;
-  //   logger.logToStdoutJoined(
-  //     `  ${key}`.padEnd(40),
-  //     `${items[key]?.toString()} files`.padStart(66),
-  //   );
-  // });
 }
 
 /**

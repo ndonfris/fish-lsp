@@ -129,14 +129,9 @@ export default class FishServer {
   public backgroundAnalysisComplete: boolean;
 
   constructor(
-    // the connection of the FishServer
-    // private connection: Connection,
-    // public analyzer: Analyzer,
-    // private docs: LspDocuments,
     private completion: CompletionPager,
     private completionMap: CompletionItemMap,
     private documentationCache: DocumentationCache,
-    // protected logger: Logger,
   ) {
     this.features = { codeActionDisabledSupport: true };
     this.clientSupportsShowDocument = false;
@@ -150,7 +145,6 @@ export default class FishServer {
     const documentHighlightHandler = getDocumentHighlights(analyzer);
 
     // register the handlers
-
     connection.onDidOpenTextDocument(this.didOpenTextDocument.bind(this));
     connection.onDidChangeTextDocument(this.didChangeTextDocument.bind(this));
     connection.onDidCloseTextDocument(this.didCloseTextDocument.bind(this));
@@ -287,25 +281,6 @@ export default class FishServer {
     workspaceManager.analyzePendingDocuments();
   }
 
-  //   for (const folder of event.added) {
-  //     const workspace = workspaceManager.findWorkspace(folder.uri);
-  //     if (workspace && !workspace.isAnalyzed()) {
-  //       // Analyze the new workspace
-  //       const progress = await AnalyzeProgressToken.create(this.connection, { workspace: workspace });
-  //       // progress.begin('analyzing workspace', 0, `analyzing ${workspace.name}`);
-  //       await this.analyzer.analyzeWorkspace(workspace, (t) => logger.log(t), progress);
-  //     }
-  //   }
-  //
-  //   // Handle removed workspaces
-  //   for (const folder of event.removed) {
-  //     const workspace = workspaceManager.findWorkspace(folder.uri);
-  //     if (workspace) {
-  //       // Clean up the workspace data
-  //       this.analyzer.clearEntireWorkspace(workspace, this.docs);
-  //     }
-  //   }
-  // }
   // @TODO: REFACTOR THIS OUT OF SERVER
   // https://github.com/Dart-Code/Dart-Code/blob/7df6509870d51cc99a90cf220715f4f97c681bbf/src/providers/dart_completion_item_provider.ts#L197-202
   // https://github.com/microsoft/vscode-languageserver-node/pull/322
@@ -897,17 +872,5 @@ export default class FishServer {
     const root = doc ? analyzer.getRootNode(doc.uri) : undefined;
     return { doc, path, root };
   }
-
-  // public async startBackgroundAnalysis(progress?: ProgressWrapper) {
-  //   const notifyCallback = (text: string) => {
-  //     logger.info(`${new Date().toLocaleTimeString()} - [BACKGROUND ANALYSIS] - ${text}`);
-  //     if (config?.fish_lsp_show_client_popups) {
-  //       connection.window.showInformationMessage(text);
-  //     }
-  //   };
-  //   // analyzer.initiateBackgroundAnalysis(connection, notifyCallback);
-  //   // setTimeout(() => workspaceManager.analyzePendingDocuments(), 500);
-  //   return workspaceManager.analyzePendingDocuments(progress, notifyCallback);
-  // }
 }
 

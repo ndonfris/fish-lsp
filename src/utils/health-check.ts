@@ -1,15 +1,14 @@
 import * as fs from 'fs';
-// import * as os from 'os';
 import * as path from 'path';
 import { config } from '../config';
 import { logger } from '../logger';
 import { initializeParser } from '../parser';
 import { execAsyncFish } from './exec';
 import { SyncFileHelper } from './file-operations';
-
-// Add this function to safely run the health check within the server
+import { setupProcessEnvExecFile } from './process-env';
 
 export async function performHealthCheck() {
+  await setupProcessEnvExecFile();
   logger.logToStdout('fish-lsp health check');
   logger.logToStdout('='.repeat(21));
 
