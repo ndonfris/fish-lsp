@@ -1,7 +1,8 @@
 import { setLogger } from './helpers';
 // import * as JsonObjs from '../src/utils/snippets'
 import { EnvVariableJson, ExtendedJson, fishLspObjs, fromCliOutputToString, fromCliToMarkdownString, getPrebuiltDocUrlByName, PrebuiltDocumentationMap } from '../src/utils/snippets';
-import { generateJsonSchemaShellScript, showJsonSchemaShellScript } from '../src/config';
+import { handleEnvOutput } from '../src/config';
+import { logger } from '../src/logger';
 let prebuiltDocs = PrebuiltDocumentationMap;
 
 prebuiltDocs = PrebuiltDocumentationMap;
@@ -69,11 +70,11 @@ describe('snippets tests', () => {
     });
 
     it('build in cli', () => {
-      generateJsonSchemaShellScript(false, true, true, false, true);
+      handleEnvOutput('create', logger.log);
     });
 
     it('cli show', () => {
-      showJsonSchemaShellScript(false, true, true, false, true);
+      handleEnvOutput('show', logger.log);
     });
   });
 
