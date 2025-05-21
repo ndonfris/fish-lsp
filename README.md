@@ -95,7 +95,7 @@ fish-lsp complete > ~/.config/fish/completions/fish-lsp.fish
 
 ### Build from Source
 
-Recommended Dependencies: `yarn@1.22.22` `node@22.14.0` `fish@4.0.1`
+Recommended Dependencies: `yarn@1.22.22` `node@22.14.0` `fish@4.0.2`
 
 ```bash
 git clone https://github.com/ndonfris/fish-lsp && cd fish-lsp
@@ -148,6 +148,8 @@ Theoretically, the language-server should generally be compatible with almost an
   ```
 
   Alternatively, you can also see official documentation for [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig/blob/master/doc/configs.md#fish_lsp), or use your client of choice below.
+
+  > There is also a useful configuration for testing out the language server in `nvim@v0.11.1` included in the [fish-lsp-language-clients](https://github.com/ndonfris/fish-lsp-language-clients/tree/packer) repository.
 
 </details>
 <details>
@@ -318,6 +320,14 @@ Theoretically, the language-server should generally be compatible with almost an
   > A server configuration can still be specified to control the server's behavior. ([see below](#server-configuration-optional))
 
 </details>
+<details>
+  <summary><b>BBEdit</b></summary>
+
+  > To install the fish-lsp in [BBEdit](https://www.barebones.com/products/bbedit/), please follow the instructions in the repository [fish-lsp-language-clients](https://github.com/ndonfris/fish-lsp-language-clients/blob/bbedit/BBEdit%20Install.md).
+  >
+  > This configuration includes a [Fish.plist](https://github.com/ndonfris/fish-lsp-language-clients/blob/bbedit/Lanugage%20Modules/Fish.plist) file that provides syntax highlighting and other features for the fish shell.
+
+</details>
 
 ### Server Configuration <ins><i>(Optional)</i></ins>
 
@@ -375,14 +385,14 @@ set -gx fish_lsp_log_level
 # Order matters (usually place `$__fish_config_dir` before `$__fish_data_dir`).
 # (Example Options: '$HOME/.config/fish', '/usr/share/fish', 
 #                   '$__fish_config_dir', '$__fish_data_dir')
-# (Default: ['$HOME/.config/fish', '/usr/share/fish'])
+# (Default: ['$__fish_config_dir', '$__fish_data_dir'])
 set -gx fish_lsp_all_indexed_paths
 
 # $fish_lsp_modifiable_paths <ARRAY>
 # The fish file paths, for workspaces where global symbols can be renamed by the user.
 # (Example Options: '/usr/share/fish', '$HOME/.config/fish', 
 #                   '$__fish_data_dir', '$__fish_config_dir')
-# (Default: ['$HOME/.config/fish'])
+# (Default: ['$__fish_config_dir'])
 set -gx fish_lsp_modifiable_paths
 
 # $fish_lsp_diagnostic_disable_error_codes <ARRAY>
@@ -548,6 +558,7 @@ Contributions of any kind are welcome!
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/branchvincent"><img src="https://avatars.githubusercontent.com/u/19800529?v=4?s=50" width="50px;" alt="Branch Vincent"/><br /><sub><b>Branch Vincent</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=branchvincent" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/devsunb"><img src="https://avatars.githubusercontent.com/u/23169202?v=4?s=50" width="50px;" alt="Jaeseok Lee"/><br /><sub><b>Jaeseok Lee</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=devsunb" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/ClanEver"><img src="https://avatars.githubusercontent.com/u/73160783?v=4?s=50" width="50px;" alt="ClanEver"/><br /><sub><b>ClanEver</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=ClanEver" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://degruchy.org/"><img src="https://avatars.githubusercontent.com/u/52262673?v=4?s=50" width="50px;" alt="Nathan DeGruchy"/><br /><sub><b>Nathan DeGruchy</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=ndegruchy" title="Code">💻</a></td>
     </tr>
   </tbody>
 </table>
