@@ -31,7 +31,7 @@ import { initializeParser } from './parser';
  * A partial AnalyzeDocument will not have the documentSymbols computed, because we
  * don't expect there to be global definitions in the document (based off of the
  * uri. i.e., $__fish_config_dir/completions/*.fish). Partial AnalyzeDocuments are
- * used to greatly reduce the overhead required for background indexing of large 
+ * used to greatly reduce the overhead required for background indexing of large
  * workspaces.
  *
  * Use the AnalyzeDocument namespace to create `AnalyzedDocument` items.
@@ -137,8 +137,8 @@ export namespace AnalyzedDocument {
 
 /**
  * Call `await analyzer.initialize()` to create an instance of the Analyzer class.
- * This way we avoid instantiating the parser, and passing it to each analyzer 
- * instance that we create (common test pattern). Also, by initializing the 
+ * This way we avoid instantiating the parser, and passing it to each analyzer
+ * instance that we create (common test pattern). Also, by initializing the
  * analyzer globally, we can import it to any procedure that needs access
  * to the analyzer.
  *
@@ -179,7 +179,7 @@ export class Analyzer {
 
   /**
    * The method that is used to instantiate the singleton `analyzer`, to avoid
-   * dependency injecting the analyzer in every utility that might need it. 
+   * dependency injecting the analyzer in every utility that might need it.
    *
    * This method can be called during the `connection.onInitialize()` in the server,
    * or `beforeAll()` in a test-suite.
@@ -899,7 +899,7 @@ export class Analyzer {
       }
     }
     return this.collectSources(documentUri, sources);
-  };
+  }
 
   /**
    * Collects all the sourceUri's that are in the documentUri

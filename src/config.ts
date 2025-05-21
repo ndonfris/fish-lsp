@@ -123,7 +123,7 @@ export type Config = z.infer<typeof ConfigSchema>;
 export function getConfigFromEnvironmentVariables(): {
   config: Config;
   environmentVariablesUsed: string[];
-} {
+  } {
   const rawConfig = {
     fish_lsp_enabled_handlers: process.env.fish_lsp_enabled_handlers?.split(' '),
     fish_lsp_disabled_handlers: process.env.fish_lsp_disabled_handlers?.split(' '),
@@ -280,13 +280,13 @@ export function handleEnvOutput(
     export: boolean;
     only: string[] | undefined;
   } = {
-      confd: true,
-      comments: true,
-      global: true,
-      local: true,
-      export: true,
-      only: undefined,
-    },
+    confd: true,
+    comments: true,
+    global: true,
+    local: true,
+    export: true,
+    only: undefined,
+  },
 ) {
   const command = getEnvVariableCommand(opts.global, opts.local, opts.export);
   const result: string[] = [];
