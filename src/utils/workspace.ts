@@ -120,41 +120,8 @@ export async function initializeDefaultFishWorkspaces(...uris: string[]): Promis
     });
     workspaceManager.add(ws);
   });
-  // workspaceManager.setCurrent(results.at(-1)!)
-  // currentWorkspace = new CurrentWorkspace(workspaces);
   return results;
 }
-
-// export async function findCurrentWorkspace(uri: string): Promise<Workspace | undefined> {
-//   for (const ws of workspaceManager.all) {
-//     if (ws.contains(uri)) {
-//       return ws;
-//     }
-//   }
-//   workspaceManager..updateCurrentFromUri(uri);
-//   return workspaces.current;
-// }
-//
-// export async function updateWorkspaces(event: LSP.WorkspaceFoldersChangeEvent) {
-//   const { added, removed } = event;
-//   for (const folder of added) {
-//     const workspace = await Workspace.createFromUri(folder.uri);
-//     if (workspace) {
-//       if (workspaces.exists(workspace.uri)) {
-//         workspaces.current = workspace;
-//         return;
-//       }
-//       workspaces.current = workspace;
-//       workspaces.addWorkspace(workspace);
-//     }
-//   }
-//   for (const folder of removed) {
-//     const workspace = workspaces.findWorkspace(folder.uri);
-//     if (workspace) {
-//       workspaces.removeWorkspace(workspace);
-//     }
-//   }
-// }
 
 export type WorkspaceUri = string;
 
@@ -219,14 +186,6 @@ export class Workspace implements FishWorkspace {
   public get allUris(): Set<DocumentUri> {
     return this.uris.allAsSet();
   }
-
-  // public get allAnalyzedUris(): DocumentUri[] {
-  //   return Array.from(this.uris.indexed);
-  // }
-  //
-  // public get allUnanalyzedUris(): DocumentUri[] {
-  //   return Array.from(this.uris.pending);
-  // }
 
   contains(...checkUris: DocumentUri[]): boolean {
     for (const uri of checkUris) {

@@ -5,13 +5,36 @@ import { logger } from '../logger';
 import { initializeParser } from '../parser';
 import { execAsyncFish } from './exec';
 import { SyncFileHelper } from './file-operations';
-import { setupProcessEnvExecFile } from './process-env';
+import { env } from './env-manager';
+import { PackageVersion } from './commander-cli-subcommands';
 
 export async function performHealthCheck() {
-  await setupProcessEnvExecFile();
   logger.logToStdout('fish-lsp health check');
   logger.logToStdout('='.repeat(21));
 
+  // check info about the fish-lsp binary
+  logger.logToStdout('\nchecking `fish-lsp` command:');
+  try {
+    const fishLspVersion = PackageVersion;
+    logger.logToStdout(`✓ fish-lsp version: v${fishLspVersion}`);
+  } catch (error) {
+    logger.logToStdout('✗ fish-lsp version not found');
+  }
+
+  // check if fish-lsp binary is in path
+  try {
+    const fishLspPath = (await execAsyncFish('command -v fish-lsp')).stdout.toString().trim();
+    if (!fishLspPath) {
+      logger.logToStdout(`✓ fish-lsp binary found: ${fishLspPath}`);
+    } else {
+      logger.logToStdout('✗ fish-lsp binary not found in path');
+    }
+  } catch (error) {
+    logger.logToStdout('✗ fish-lsp binary not found in path');
+    process.exit(1);
+  }
+
+  logger.logToStdout('\nchecking dependencies:');
   // Check if fish shell is available
   try {
     const fishVersion = (await execAsyncFish('fish --version | string match -r "\\d.*\\$"')).stdout.toString().trim();
@@ -81,13 +104,14 @@ export async function performHealthCheck() {
   try {
     logger.logToStdout('\nchecking for fish-lsp man page:');
     const manFile = await execAsyncFish('man fish-lsp 2>/dev/null | command cat | count');
-    if (manFile.stdout && parseInt(manFile.stdout.toString().trim()) > 1) {
-      logger.logToStdout('✓ man page found');
+    const manFilePath = (await execAsyncFish('man -w fish-lsp 2> /dev/null')).stdout.toString().trim();
+    if (manFile.stdout && parseInt(manFile.stdout.toString().trim()) > 1 && manFilePath !== '') {
+      logger.logToStdout(`✓ man file found: ${manFilePath}`);
     } else {
-      logger.logToStdout('✗ man page not found');
+      logger.logToStdout('✗ man file not found');
     }
   } catch (error) {
-    logger.logToStdout('✗ man page not found');
+    logger.logToStdout('✗ man file not found');
   }
 
   // Memory usage
@@ -108,6 +132,7 @@ export async function performHealthCheck() {
 
 async function logFishLspConfig() {
   logger.logToStdout('\nfish_lsp_all_indexed_paths:');
+  const dataDir = env.getFirstValueInArray('__fish_data_dir');
   for (const path of config.fish_lsp_all_indexed_paths) {
     const expanded_path = SyncFileHelper.expandEnvVars(path);
     if (fs.statSync(expanded_path).isDirectory()) {
@@ -125,7 +150,11 @@ async function logFishLspConfig() {
       await fs.promises.access(expanded_path, fs.constants.W_OK);
       logger.logToStdout(`✓ fish-lsp workspace '${path}' is writable`);
     } catch (error) {
-      logger.logToStdout(`✗ fish-lsp workspace '${path}' is not writable`);
+      if (expanded_path === dataDir) {
+        logger.logToStdout(`✗ fish-lsp workspace '${path}' is not writable (this is expected)`);
+      } else {
+        logger.logToStdout(`✗ fish-lsp workspace '${path}' is not writable`);
+      }
     }
   }
 }

@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 //'use strict'
-import { BuildCapabilityString, PathObj, PackageLspVersion, PackageVersion, accumulateStartupOptions, getBuildTimeString, FishLspHelp, FishLspManPage, SourcesDict, isPkgBinary } from './utils/commander-cli-subcommands';
+import { BuildCapabilityString, PathObj, PackageLspVersion, PackageVersion, accumulateStartupOptions, getBuildTimeString, FishLspHelp, FishLspManPage, SourcesDict, isPkgBinary, SubcommandEnv } from './utils/commander-cli-subcommands';
 import { Command, Option } from 'commander';
 import { buildFishLspCompletions } from './utils/get-lsp-completions';
 import { logger } from './logger';
 import { configHandlers, config, updateHandlers, validHandlers, Config, handleEnvOutput } from './config';
 import { ConnectionOptions, ConnectionType, createConnectionType, startServer, timeServerStartup } from './utils/startup';
 import { performHealthCheck } from './utils/health-check';
+import { setupProcessEnvExecFile } from './utils/process-env';
 
 /**
  *  creates local 'commandBin' used for commander.js
@@ -100,7 +101,8 @@ commandBin.command('start')
     '\t>_ fish-lsp start --disable complete logging index hover --dump',
     '\t>_ fish-lsp start --enable --disable logging complete codeAction',
   ].join('\n'))
-  .action(opts => {
+  .action(async opts => {
+    await setupProcessEnvExecFile();
     // NOTE: `config` is a global object, already initialized. Here, we are updating its
     // values passed from the shell environment, and then possibly overriding them with
     // the command line args.
@@ -126,7 +128,6 @@ commandBin.command('start')
     if (opts.socket) {
       connectionOptions.port = parseInt(opts.socket);
     }
-    // logger.log({connectionType, connectionOptions: connectionOptions.port});
 
     // override `configHandlers` with command line args
     const { enabled, disabled, dumpCmd } = accumulateStartupOptions(commandBin.args);
@@ -162,6 +163,7 @@ commandBin.command('info')
   .option('--health-check', 'run diagnostics and report health status')
   .option('--check-health', 'run diagnostics and report health status')
   .action(async args => {
+    await setupProcessEnvExecFile();
     const capabilities = BuildCapabilityString()
       .split('\n')
       .map(line => `  ${line}`).join('\n');
@@ -246,8 +248,11 @@ commandBin.command('complete')
   .option('--toggles', 'show the feature names of the completions')
   .option('--fish', 'show fish script')
   .option('--features', 'show features')
+  .option('--env-variables', 'show env variables')
+  .option('--env-variable-names', 'show env variable names')
   .description('copy completions output to fish-lsp completions file')
-  .action(args => {
+  .action(async args => {
+    await setupProcessEnvExecFile();
     if (args.names) {
       commandBin.commands.forEach(cmd => logger.logToStdout(cmd.name()));
       process.exit(0);
@@ -259,6 +264,14 @@ commandBin.command('complete')
       process.exit(0);
     } else if (args.features || args.toggles) {
       Object.keys(configHandlers).forEach((name) => logger.logToStdout(name.toString()));
+      process.exit(0);
+    } else if (args.envVariables) {
+      Object.entries(Config.envDocs).forEach(([key, value]) => {
+        logger.logToStdout(`${key}\\t'${value}'`);
+      });
+      process.exit(0);
+    } else if (args.envVariableNames) {
+      Object.keys(Config.envDocs).forEach((name) => logger.logToStdout(name.toString()));
       process.exit(0);
     }
     logger.logToStdout(buildFishLspCompletions(commandBin));
@@ -278,12 +291,22 @@ commandBin.command('env')
   .option('--no-local', 'do not use local scope for variables')
   .option('--no-export', 'don\'t export the variables')
   .option('--confd', 'output for piping to conf.d')
-  .action(args => {
-    const only = args.only ?
-      typeof args.only === 'string' ? args.only.split(',') : args.only :
-      undefined;
-    const outputType = args.showDefault ? 'showDefault' : args.show ? 'show' : 'create';
-    handleEnvOutput(outputType, logger.logToStdout, { ...args, only });
+  .option('--names', 'show only the variable names')
+  .option('--joined', 'print the names in a single line')
+  .action(async (args: SubcommandEnv.ArgsType) => {
+    await setupProcessEnvExecFile();
+    const outputType = SubcommandEnv.getOutputType(args);
+    const opts = SubcommandEnv.toEnvOutputOptions(args);
+    if (args.names) {
+      let result = '';
+      Object.keys(Config.envDocs).forEach((name) => {
+        if (args?.only && args.only.length > 0 && !args.only.includes(name)) return;
+        result += args.joined ? `${name} ` : `${name}\n`;
+      });
+      logger.logToStdout(result.trim());
+      process.exit(0);
+    }
+    handleEnvOutput(outputType, logger.logToStdout, opts);
     process.exit(0);
   });
 

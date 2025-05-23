@@ -7,7 +7,7 @@ const AUTO_GENERATED_HEADER_STRING = `#
 #   * Any command should generate the completions file
 #
 #      >_ fish-lsp complete > ~/.config/fish/completions/fish-lsp.fish
-#      >_ fish-lsp complete --fish > ~/.config/fish/completions/fish-lsp.fish
+#      >_ fish-lsp complete > $fish_complete_path[1]/fish-lsp.fish
 #      >_ yarn install && yarn dev # from inside the '~/path/to/fish-lsp' source code
 #
 #   * You can test the completions by editing:
@@ -29,55 +29,17 @@ const AUTO_GENERATED_HEADER_STRING = `#
 #
 #         ~/...install_path.../fish-lsp/src/utils/get-lsp-completions.ts 
 #
+#   * You can see if the completions are up to date by running the command:
+#
+#      >_ fish-lsp info --check-health
+#
+# REPO URL: https://github.com/ndonfris/fish-lsp
 `;
 
-const __fish_lsp_using_command = `
-# Returns exit code of 0 if any command (argv[1..-1]) appears once, ignores flags.
-function __fish_lsp_using_command
-    set -l commands $argv
-    set -l cmd (commandline -opc)
-    if test (count $cmd) -gt 1
-        set -l command_seen_once 1
-        for c in $cmd[2..-1]
-            switch $c
-                case '-*'
-                    continue
-                case $commands
-                    # If the command is seen more than once then return 1
-                    if test $command_seen_once -eq 1
-                        set command_seen_once 0
-                    else
-                        return 1
-                    end
-                case '*'
-                    if test $command_seen_once -eq 0
-                        return 0
-                    else
-                        return 1
-                    end
-            end
-        end
-        return $command_seen_once
-    end
-    return 1
-end
-`;
-
-const noFishLspSubcommands: string = `
-## fish-lsp --<TAB>
-complete -c fish-lsp -n 'not __fish_use_subcommand; and __fish_is_first_arg' -s v -l version      -d 'Show lsp version'
-complete -c fish-lsp -n 'not __fish_use_subcommand; and __fish_is_first_arg' -s h -l help         -d 'Show help information'
-complete -c fish-lsp -n 'not __fish_use_subcommand; and __fish_is_first_arg'      -l help-all     -d 'Show all help information'
-complete -c fish-lsp -n 'not __fish_use_subcommand; and __fish_is_first_arg'      -l help-short   -d 'Show short help information'
-complete -c fish-lsp -n 'not __fish_use_subcommand; and __fish_is_first_arg'      -l help-man     -d 'Show raw manpage'
-#complete -c fish-lsp -n 'not __fish_lsp_using_command start logger info url complete env; and __fish_is_first_arg' -s v -l version      -d 'Show lsp version'
-#complete -c fish-lsp -n 'not __fish_lsp_using_command start logger info url complete env; and __fish_is_first_arg' -s h -l help         -d 'Show help information'
-#complete -c fish-lsp -n 'not __fish_lsp_using_command start logger info url complete env; and __fish_is_first_arg'      -l help-all     -d 'Show all help information'
-#complete -c fish-lsp -n 'not __fish_lsp_using_command start logger info url complete env; and __fish_is_first_arg'      -l help-short   -d 'Show short help information'
-#complete -c fish-lsp -n 'not __fish_lsp_using_command start logger info url complete env; and __fish_is_first_arg'      -l help-man     -d 'Show raw manpage'
-`;
-
-const startCompletions: string = `## \`fish-lsp start\` helper functions
+const HELPER_FUNCTIONS: string = `
+#############################################
+# helper functions for fish-lsp completions #
+#############################################
 
 # print all unique \`fish-lsp start --enable|--disable ...\` features (i.e., complete, hover, etc.)
 # if a feature is already specified in the command line, it will be skipped
@@ -99,39 +61,120 @@ function __fish_lsp_get_features -d 'print all features controlled by the server
     end
 end
 
-# print all unique \'fish-lsp env --only ...\` env_variables (i.e., ${Config.allKeys.slice(0, 2).join(', ')}, etc.)
-# if a env_variable is already specified in the command line, it will be skipped
-  function __fish_lsp_get_env_variables -d 'print all fish_lsp_* env variables, not yet used in the commandline'
-    set -l all_fish_lsp_env_vars ${Config.allKeys.map(envVarName => `'${envVarName}'`).join(' ')}
+# print all unique \'fish-lsp env --only ...\` env_variables (i.e., $fish_lsp_*, ...)
+# if a env_variable is already specified in the command line, it will not be included again
+function __fish_lsp_get_env_variables -d 'print all fish_lsp_* env variables, not yet used in the commandline'
+    # every env variable name 
+    set -l env_names ${Object.keys(Config.envDocs).map(k => `"${k}"`).join(' \\\n\t\t')}
+
+    # every completion argument \`name\\t'description'\`, only unused env variables will be printed
+    set -l env_names_with_descriptions ${Object.entries(Config.envDocs).map(([k, v]) => `"${k}\\t'${v}'"`).join(' \\\n\t\t')}
+
+    # get the current command line token (for comma separated options)
+    set -l current (commandline -ct)
+
+    # utility function to check if the current token contains a comma
+    function has_comma --inherit-variable current --description 'check if the current token contains a comma'
+        string match -rq '.*,.*' -- $current || string match -rq -- '--only=.*' $current
+        return $status
+    end
+
+    # get the current command line options, adding the current token if it contains a comma
     set -l opts (commandline -opc)
+    has_comma && set -a opts $current 
+
+    # create two arrays, one for the env variables already used, and the other
+    # for all the arguments passed into the commandline 
     set -l features_to_skip
+    set -l fixed_opts
+
+    # split any comma separated options
     for opt in $opts
-        if contains -- $opt $all_fish_lsp_env_vars
-            set features_to_skip $features_to_skip $opt
+        if string match -rq -- '--only=.*' $opt
+            set -a fixed_opts '--only' (string split -m1 -f2 -- '--only=' $opt | string split ',')
+        else if string match -q '*,*' -- $opt
+            set fixed_opts $fixed_opts (string split ',' -- $opt)
+        else
+            set fixed_opts $fixed_opts $opt
         end
     end
-    set all_fish_lsp_completions "
-    fish_lsp_all_indexed_paths\\t'all paths the lsp should always index'
-    fish_lsp_enabled_handlers\\t'handlers to enable'
-    fish_lsp_disabled_handlers\\t'handlers to disable'
-    fish_lsp_commit_characters\\t'commit characters that select completion items'
-    fish_lsp_log_file\\t'path to the log file'
-    fish_lsp_log_level\\t'minimum log level to show'
-    fish_lsp_all_indexed_paths\\t'all paths the lsp should always index'
-    fish_lsp_modifiable_paths\\t'indexed paths that can be modified'
-    fish_lsp_diagnostic_disable_error_codes\\t'error codes to disable'
-    fish_lsp_enable_experimental_diagnostics\\t'enable fish-lsp experimental diagnostics'
-    fish_lsp_max_background_files\\t'maximum number of files to analyze in the background'
-    fish_lsp_show_client_popups\\t'allow the server to send client pop-ups/notifications'
-    fish_lsp_single_workspace_support\\t'exclude the server from searching fish workspaces outside the current working directory'"
-    for line in (echo $all_fish_lsp_completions | string split '\\n' -n | string trim -l)
+
+    # skip any env variable that is already specified in the command line
+    for opt in $fixed_opts
+        if contains -- $opt $env_names
+            set -a features_to_skip $opt
+        end
+    end
+
+    # if using the \`--only=\` syntax, remove the \`--only\` part.
+    # when entries are separated by commas, we need to keep the current token's prefix comma
+    # in the completion output
+    set prefix ''
+    if has_comma
+        set prefix (string replace -r '[^,]*$' '' -- $current | string replace -r -- '^--only=' '')
+    end
+
+    # print the completions that haven't been used yet
+    for line in $env_names_with_descriptions
         set name (string split -f1 -m1 '\\t' -- $line)
-        # set desc (string split -f2 -m1 '\\t' -- $line)
         if not contains -- $name $features_to_skip
-            echo -e "$line"
+            echo -e "$prefix$line"
         end
     end
-end                               
+end
+
+# check for usage of the main switches in env command \`fish-lsp env --show|--create|--show-default|--names\` 
+#
+# requires passing in one of switches: \`--none\` or \`--any\`
+#  - \`--none\`     check that none of the main switches are used
+#  - \`--any\`      check that a main switch has been seen
+#  - \`--no-names\` check that the \`--names\` switch is not used, but needs to be
+#  paired with \`--none\` or \`--any\`
+#
+# used in the \`env\` completions, for grouping repeated logic on those
+# completions conditional checks.
+#
+# \`\`\`
+# complete -n '__fish_lsp_env_main_switch --none'
+# \`\`\` 
+function __fish_lsp_env_main_switch --description 'check if the commandline contains any of the main env switches (--show|--create|--show-default|--names)'
+    argparse any none no-names names-joined -- $argv
+    or return 1
+
+    # none means we don't want to see any of the main switches
+    # no-names doesn't change anything here, since we are making sure that
+    # names already doesn't exist in the command line
+    if set -ql _flag_none
+        not __fish_contains_opt names
+        and not __fish_contains_opt -s s show
+        and not __fish_contains_opt -s c create
+        and not __fish_contains_opt show-default
+        return $status
+    end
+
+    # any means that one of the main switches has been used.
+    if set -ql _flag_any
+        if set -ql _flag_no_names
+            __fish_contains_opt names
+            and return 1
+        end
+        not set -ql _flag_no_names && __fish_contains_opt names
+        or __fish_contains_opt -s s show
+        or __fish_contains_opt -s c create
+        or __fish_contains_opt show-default
+        return $status
+    end
+
+    # names joined means that both the --names and --joined switches are used
+    if set -ql _flag_names_joined
+        __fish_contains_opt names
+        and not __fish_contains_opt -s j joined
+        and return $status
+    end
+    # if no switches are found, return 1
+    return 1
+end
+
 
 
 # make sure \`fish-lsp start --stdio|--node-ipc|--socket\` is used singularly
@@ -170,7 +213,20 @@ function __fish_lsp_last_switch -d 'check if the last argument w/ a leading \`-\
     return 1
 end
 
-## fish-lsp start --<TAB>
+###############################
+### END OF HELPER FUNCTIONS ###
+###############################
+`;
+
+const noFishLspSubcommands: string = `## \`fish-lsp -<TAB>\`
+complete -c fish-lsp -n 'not __fish_use_subcommand; and __fish_is_first_arg; and not __fish_contains_opt -s v version'  -s v -l version      -d 'Show lsp version'
+complete -c fish-lsp -n 'not __fish_use_subcommand; and __fish_is_first_arg; and not __fish_contains_opt -s h help'     -s h -l help         -d 'Show help information'
+complete -c fish-lsp -n 'not __fish_use_subcommand; and __fish_is_first_arg; and not __fish_contains_opt help-all'           -l help-all     -d 'Show all help information'
+complete -c fish-lsp -n 'not __fish_use_subcommand; and __fish_is_first_arg; and not __fish_contains_opt help-short'         -l help-short   -d 'Show short help information'
+complete -c fish-lsp -n 'not __fish_use_subcommand; and __fish_is_first_arg; and not __fish_contains_opt help-man'           -l help-man     -d 'Show raw manpage'
+`;
+
+const startCompletions: string = `## \`fish-lsp start --<TAB>\`
 complete -c fish-lsp -n '__fish_seen_subcommand_from start; and not __fish_contains_opt dump'         -l dump          -d 'stop lsp & show the startup options being read'
 complete -c fish-lsp -n '__fish_seen_subcommand_from start'                                           -l enable        -d 'enable the startup option'      -xa '(__fish_lsp_get_features)'
 complete -c fish-lsp -n '__fish_seen_subcommand_from start'                                           -l disable       -d 'disable the startup option'     -xa '(__fish_lsp_get_features)'
@@ -179,7 +235,8 @@ complete -c fish-lsp -n '__fish_seen_subcommand_from start; and not __fish_lsp_s
 complete -c fish-lsp -n '__fish_seen_subcommand_from start; and not __fish_lsp_start_connection_opts' -l node-ipc      -d 'use node IPC for communication'
 complete -c fish-lsp -n '__fish_seen_subcommand_from start; and not __fish_lsp_start_connection_opts' -l socket        -d 'use TCP socket for communication' -x
 complete -c fish-lsp -n '__fish_seen_subcommand_from start; and not __fish_contains_opt memory-limit' -l memory-limit  -d 'set memory usage limit in MB' -x
-complete -c fish-lsp -n '__fish_seen_subcommand_from start; and not __fish_contains_opt max-files'    -l max-files     -d 'override the maximum number of files to analyze' -x
+complete -c fish-lsp -n '__fish_seen_subcommand_from start; and not __fish_contains_opt max-files'    -l max-files     -d 'override the maximum number of files to analyze' -xa '(echo 100; echo 500; seq 1000 500 10000)'
+complete -c fish-lsp -n '__fish_seen_subcommand_from start; and test (commandline -opc)[-1] = "--max-files"' -a '(echo 100; echo 500; seq 1000 500 10000)' -d 'override the maximum number of files to analyze'
 `;
 
 /**
@@ -187,51 +244,66 @@ complete -c fish-lsp -n '__fish_seen_subcommand_from start; and not __fish_conta
  * by receiving multiple duplicated arguments
  */
 const urlCompletions: string = `## fish-lsp url --<TAB>
-complete -c fish-lsp -n '__fish_lsp_using_command url; and not __fish_contains_opt repo'          -l repo          -d 'show git repo url'  
-complete -c fish-lsp -n '__fish_lsp_using_command url; and not __fish_contains_opt git'           -l git           -d 'show git repo url'  
-complete -c fish-lsp -n '__fish_lsp_using_command url; and not __fish_contains_opt npm'           -l npm           -d 'show npmjs.com url' 
-complete -c fish-lsp -n '__fish_lsp_using_command url; and not __fish_contains_opt homepage'      -l homepage      -d 'show website url'   
-complete -c fish-lsp -n '__fish_lsp_using_command url; and not __fish_contains_opt contributing'  -l contributing  -d 'show git CONTRIBUTING.md url'
-complete -c fish-lsp -n '__fish_lsp_using_command url; and not __fish_contains_opt wiki'          -l wiki          -d 'show git wiki url'
-complete -c fish-lsp -n '__fish_lsp_using_command url; and not __fish_contains_opt issues'        -l issues        -d 'show git issues url'
-complete -c fish-lsp -n '__fish_lsp_using_command url; and not __fish_contains_opt report'        -l report        -d 'show git issues url'
-complete -c fish-lsp -n '__fish_lsp_using_command url; and not __fish_contains_opt discussions'   -l discussions   -d 'show git discussions url' 
-complete -c fish-lsp -n '__fish_lsp_using_command url; and not __fish_contains_opt clients-repo'  -l clients-repo  -d 'show git clients-repo url'
-complete -c fish-lsp -n '__fish_lsp_using_command url; and not __fish_contains_opt sources'       -l sources       -d 'show useful url list of sources'
+complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt repo'          -l repo          -d 'show git repo url'  
+complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt git'           -l git           -d 'show git repo url'  
+complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt npm'           -l npm           -d 'show npmjs.com url' 
+complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt homepage'      -l homepage      -d 'show website url'   
+complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt contributing'  -l contributing  -d 'show git CONTRIBUTING.md url'
+complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt wiki'          -l wiki          -d 'show git wiki url'
+complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt issues'        -l issues        -d 'show git issues url'
+complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt report'        -l report        -d 'show git issues url'
+complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt discussions'   -l discussions   -d 'show git discussions url' 
+complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt clients-repo'  -l clients-repo  -d 'show git clients-repo url'
+complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt sources'       -l sources       -d 'show useful url list of sources'
 `;
 
-const completeCompletions: string = `## fish-lsp complete <TAB>
-complete -c fish-lsp -n '__fish_lsp_using_command complete; and not __fish_contains_opt fish'                   -l fish                   -d 'DEFAULT BEHAVIOR: show output for completion/fish-lsp.fish'
-complete -c fish-lsp -n '__fish_lsp_using_command complete; and not __fish_contains_opt names'                  -l names                  -d 'show names of subcommands'
-complete -c fish-lsp -n '__fish_lsp_using_command complete; and not __fish_contains_opt names-with-summary'     -l names-with-summary     -d 'show \`name\\tsummary\\n\` of subcommands'
-complete -c fish-lsp -n '__fish_lsp_using_command complete; and not __fish_contains_opt features'               -l features               -d 'show feature/toggle names'
-complete -c fish-lsp -n '__fish_lsp_using_command complete; and not __fish_contains_opt toggles'                -l toggles                -d 'show feature/toggle names'
+const completeCompletions: string = `## fish-lsp complete --<TAB>
+complete -c fish-lsp -n '__fish_seen_subcommand_from complete; and not __fish_contains_opt fish'                   -l fish                   -d 'DEFAULT BEHAVIOR: show output for completion/fish-lsp.fish'
+complete -c fish-lsp -n '__fish_seen_subcommand_from complete; and not __fish_contains_opt names'                  -l names                  -d 'show names of subcommands'
+complete -c fish-lsp -n '__fish_seen_subcommand_from complete; and not __fish_contains_opt names-with-summary'     -l names-with-summary     -d 'show \`name\\tsummary\\n\` of subcommands'
+complete -c fish-lsp -n '__fish_seen_subcommand_from complete; and not __fish_contains_opt features'               -l features               -d 'show feature/toggle names'
+complete -c fish-lsp -n '__fish_seen_subcommand_from complete; and not __fish_contains_opt toggles'                -l toggles                -d 'show feature/toggle names'
+complete -c fish-lsp -n '__fish_seen_subcommand_from complete; and not __fish_contains_opt env-variables'          -l env-variables          -d 'show env variable completions'
+complete -c fish-lsp -n '__fish_seen_subcommand_from complete; and not __fish_contains_opt env-variable-names'     -l env-variable-names     -d 'show env variable names'
 `;
 
 const infoCompletions: string = `## fish-lsp info --<TAB>
-complete -c fish-lsp -n '__fish_lsp_using_command info; and not __fish_contains_opt bin'           -l bin            -d 'show the binary path'
-complete -c fish-lsp -n '__fish_lsp_using_command info; and not __fish_contains_opt repo'          -l repo           -d 'show the repo path'  
-complete -c fish-lsp -n '__fish_lsp_using_command info; and not __fish_contains_opt build-time'    -l build-time     -d 'show the build-time' 
-complete -c fish-lsp -n '__fish_lsp_using_command info; and not __fish_contains_opt lsp-version'   -l lsp-version    -d 'show the npm package for the lsp-version'
-complete -c fish-lsp -n '__fish_lsp_using_command info; and not __fish_contains_opt capabilities'  -l capabilities   -d 'show the lsp capabilities implemented' 
-complete -c fish-lsp -n '__fish_lsp_using_command info; and not __fish_contains_opt man-file'      -l man-file       -d 'show man file path' 
-complete -c fish-lsp -n '__fish_lsp_using_command info; and not __fish_contains_opt log-file'      -l log-file       -d 'show log file path' 
-complete -c fish-lsp -n '__fish_lsp_using_command info; and not __fish_contains_opt more'          -l more           -d 'show more info' 
-complete -c fish-lsp -n '__fish_lsp_using_command info; and not __fish_contains_opt time-startup'  -l time-startup   -d 'show startup timing info'
-complete -c fish-lsp -n '__fish_lsp_using_command info; and not __fish_contains_opt check-health'  -l check-health   -d 'show the server health'
+complete -c fish-lsp -n '__fish_seen_subcommand_from info; and not __fish_contains_opt bin'           -l bin            -d 'show the binary path'
+complete -c fish-lsp -n '__fish_seen_subcommand_from info; and not __fish_contains_opt repo'          -l repo           -d 'show the repo path'  
+complete -c fish-lsp -n '__fish_seen_subcommand_from info; and not __fish_contains_opt build-time'    -l build-time     -d 'show the build-time' 
+complete -c fish-lsp -n '__fish_seen_subcommand_from info; and not __fish_contains_opt lsp-version'   -l lsp-version    -d 'show the npm package for the lsp-version'
+complete -c fish-lsp -n '__fish_seen_subcommand_from info; and not __fish_contains_opt capabilities'  -l capabilities   -d 'show the lsp capabilities implemented' 
+complete -c fish-lsp -n '__fish_seen_subcommand_from info; and not __fish_contains_opt man-file'      -l man-file       -d 'show man file path' 
+complete -c fish-lsp -n '__fish_seen_subcommand_from info; and not __fish_contains_opt log-file'      -l log-file       -d 'show log file path' 
+complete -c fish-lsp -n '__fish_seen_subcommand_from info; and not __fish_contains_opt more'          -l more           -d 'show more info' 
+complete -c fish-lsp -n '__fish_seen_subcommand_from info; and not __fish_contains_opt time-startup'  -l time-startup   -d 'show startup timing info'
+complete -c fish-lsp -n '__fish_seen_subcommand_from info; and not __fish_contains_opt check-health'  -l check-health   -d 'show the server health'
 `;
 
 const envCompletions: string = `## fish-lsp env --<TAB>
-complete -c fish-lsp -n '__fish_lsp_using_command env; and not __fish_contains_opt -s s show; and not __fish_contains_opt -s c create; and not __fish_contains_opt show-default' -s s -l show         -d 'show the current fish-lsp env variables'
-complete -c fish-lsp -n '__fish_lsp_using_command env; and not __fish_contains_opt -s s show; and not __fish_contains_opt -s c create; and not __fish_contains_opt show-default' -s c -l create       -d 'build initial fish-lsp env variables'   
-complete -c fish-lsp -n '__fish_lsp_using_command env; and not __fish_contains_opt -s s show; and not __fish_contains_opt -s c create; and not __fish_contains_opt show-default'      -l show-default -d 'show the default values for fish-lsp env variables'
-complete -c fish-lsp -n '__fish_lsp_using_command env; and not __fish_contains_opt only; and __fish_contains_opt -s s show; or __fish_contains_opt -s c create; or __fish_contains_opt show-default' -l only -d 'show only certain env variables' -xa '(__fish_lsp_get_env_variables)'
-complete -c fish-lsp -n '__fish_lsp_using_command env; and __fish_lsp_last_switch --only' -xa '(__fish_lsp_get_env_variables)'
-complete -c fish-lsp -n '__fish_lsp_using_command env; and not __fish_contains_opt no-comments'                                             -l no-comments  -d 'skip outputting comments'               
-complete -c fish-lsp -n '__fish_lsp_using_command env; and not __fish_contains_opt no-global'                                               -l no-global    -d 'use local exports'                      
-complete -c fish-lsp -n '__fish_lsp_using_command env; and not __fish_contains_opt no-local'                                                -l no-local     -d 'do not use local scope (pair with --no-global)'
-complete -c fish-lsp -n '__fish_lsp_using_command env; and not __fish_contains_opt no-export'                                               -l no-export    -d 'do not export variables'                       
-complete -c fish-lsp -n '__fish_lsp_using_command env; and not __fish_contains_opt confd'                                                   -l confd        -d 'output for redirect to "conf.d/fish-lsp.fish"'
+# fish-lsp env <TAB>
+complete -c fish-lsp -n '__fish_seen_subcommand_from env; and __fish_lsp_env_main_switch --none; and __fish_complete_subcommand --fcs-skip=2' -kra "
+--show-default\\t'show the default values for fish-lsp env variables'
+-c\\t'create the env variables'
+--create\\t'create the env variables'
+-s\\t'show the current fish-lsp env variables with their values'
+--show\\t'show the current fish-lsp env variables with their values'
+--names\\t'output only the names of the env variables'"
+# main switches (first arguments after the \`env\` subcommand)
+complete -c fish-lsp -n '__fish_seen_subcommand_from env; and __fish_lsp_env_main_switch --none'              -l show-default -d 'show the default values for fish-lsp env variables' -k
+complete -c fish-lsp -n '__fish_seen_subcommand_from env; and __fish_lsp_env_main_switch --none'         -s c -l create       -d 'build initial fish-lsp env variables'               -k
+complete -c fish-lsp -n '__fish_seen_subcommand_from env; and __fish_lsp_env_main_switch --none'         -s s -l show         -d 'show the current fish-lsp env variables'            -k
+complete -c fish-lsp -n '__fish_seen_subcommand_from env; and __fish_lsp_env_main_switch --none'              -l names        -d 'output only the names of the env variables'         -k
+# --only switch
+complete -c fish-lsp -n '__fish_seen_subcommand_from env; and __fish_lsp_env_main_switch --any' -l only -d 'show only certain env variables' -xa '(__fish_lsp_get_env_variables)'
+complete -c fish-lsp -n '__fish_seen_subcommand_from env; and __fish_lsp_last_switch --only' -xa '(__fish_lsp_get_env_variables)'
+# switches usable after the main switches
+complete -c fish-lsp -n '__fish_seen_subcommand_from env; and __fish_lsp_env_main_switch --any --no-names; and not __fish_contains_opt no-comments'                                             -l no-comments  -d 'skip outputting comments'               
+complete -c fish-lsp -n '__fish_seen_subcommand_from env; and __fish_lsp_env_main_switch --any --no-names; and not __fish_contains_opt no-global'                                               -l no-global    -d 'use local exports'                      
+complete -c fish-lsp -n '__fish_seen_subcommand_from env; and __fish_lsp_env_main_switch --any --no-names; and not __fish_contains_opt no-local'                                                -l no-local     -d 'do not use local scope (pair with --no-global)'
+complete -c fish-lsp -n '__fish_seen_subcommand_from env; and __fish_lsp_env_main_switch --any --no-names; and not __fish_contains_opt no-export'                                               -l no-export    -d 'do not export variables'                       
+complete -c fish-lsp -n '__fish_seen_subcommand_from env; and __fish_lsp_env_main_switch --any --no-names; and not __fish_contains_opt confd'                                                   -l confd        -d 'output for redirect to "conf.d/fish-lsp.fish"'
+complete -c fish-lsp -n '__fish_seen_subcommand_from env; and __fish_lsp_env_main_switch --names-joined; and not __fish_contains_opt joined'                                                    -l joined       -d 'output the names in a single line'
 `;
 
 // firefox-dev https://github.com/fish-shell/fish-shell/blob/master/share/completions/cjxl.fish
@@ -240,11 +312,12 @@ export function buildFishLspCompletions(commandBin: Command) {
   const output: string[] = [];
 
   output.push(AUTO_GENERATED_HEADER_STRING);
-  output.push(__fish_lsp_using_command);
+  output.push(HELPER_FUNCTIONS);
   // default completions
-  output.push('# disable file completions');
+  output.push('## disable file completions');
   output.push('complete -c fish-lsp -f', '');
-  output.push(`complete -c fish-lsp -n "__fish_is_first_arg; and __fish_use_subcommand" -k -a "\n${subcmdStrs}\"`);
+  output.push('## fish-lsp <TAB>');
+  output.push(`complete -c fish-lsp -n "__fish_is_first_arg; and __fish_complete_subcommand" -k -a "\n${subcmdStrs}\"`, '');
   // fish-lsp <TAB>
   output.push(noFishLspSubcommands);
   // flags for `fish-lsp start --<TAB>`
@@ -262,6 +335,6 @@ export function buildFishLspCompletions(commandBin: Command) {
   output.push('# built by any of the commands: ');
   output.push('# fish-lsp complete > ~/.config/fish/completions/fish-lsp.fish');
   output.push('# fish-lsp complete > $fish_complete_path[1]/fish-lsp.fish');
-  output.push('# fish-lsp complete > $__fish_user_data_dir[1]/fish-lsp.fish');
+  output.push('# fish-lsp complete > $__fish_config_dir/completions/fish-lsp.fish');
   return output.join('\n');
 }

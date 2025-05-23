@@ -2,6 +2,7 @@
   {
     "name": "fish_lsp_enabled_handlers",
     "description": "Enables the fish-lsp handlers. By default, all handlers are enabled.",
+    "shortDescription": "server handlers to enable",
     "exactMatchOptions": true,
     "options": [
       "complete",
@@ -12,6 +13,7 @@
       "reference",
       "logger",
       "formatting",
+      "formatRange",
       "typeFormatting",
       "codeAction",
       "codeLens",
@@ -29,6 +31,7 @@
   {
     "name": "fish_lsp_disabled_handlers",
     "description": "Disables the fish-lsp handlers. By default, no handlers are disabled.",
+    "shortDescription": "server handlers to disable",
     "exactMatchOptions": true,
     "options": [
       "complete",
@@ -39,6 +42,7 @@
       "reference",
       "logger",
       "formatting",
+      "formatRange",
       "typeFormatting",
       "codeAction",
       "codeLens",
@@ -56,6 +60,7 @@
   {
     "name": "fish_lsp_commit_characters",
     "description": "Array of the completion expansion characters.\n\nSingle letter values only.\n\nCommit characters are used to select completion items, as shortcuts.",
+    "shortDescription": "commit characters that select completion items",
     "exactMatchOptions": false,
     "options": [
       ".",
@@ -102,6 +107,7 @@
   {
     "name": "fish_lsp_log_file",
     "description": "A path to the fish-lsp's logging file. Empty string disables logging.",
+    "shortDescription": "path to the fish-lsp's log file",
     "exactMatchOptions": false,
     "options": [
       "/tmp/fish_lsp.logs",
@@ -113,6 +119,7 @@
   {
     "name": "fish_lsp_logfile",
     "description": "DEPRECATED. USE `fish_lsp_log_file` instead.\n\nPath to the logging file.",
+    "shortDescription": "path to the fish-lsp's log file",
     "isDeprecated": true,
     "exactMatchOptions": false,
     "options": [
@@ -125,6 +132,7 @@
   {
     "name": "fish_lsp_log_level",
     "description": "The logging severity level for displaying messages in the log file.",
+    "shortDescription": "minimum log level to include in the log file",
     "exactMatchOptions": true,
     "options": [
       "debug",
@@ -139,6 +147,7 @@
   {
     "name": "fish_lsp_all_indexed_paths",
     "description": "The fish file paths to include in the fish-lsp's startup indexing, as workspaces.\n\nOrder matters (usually place `$__fish_config_dir` before `$__fish_data_dir`).",
+    "shortDescription": "directories that the server should always index on startup",
     "exactMatchOptions": false,
     "options": [
       "$HOME/.config/fish",
@@ -155,6 +164,7 @@
   {
     "name": "fish_lsp_modifiable_paths",
     "description": "The fish file paths, for workspaces where global symbols can be renamed by the user.",
+    "shortDescription": "indexed paths that can be modified",
     "exactMatchOptions": false,
     "options": [
       "/usr/share/fish",
@@ -170,6 +180,7 @@
   {
     "name": "fish_lsp_diagnostic_disable_error_codes",
     "description": "The diagnostics error codes to disable from the fish-lsp's diagnostics.",
+    "shortDescription": "diagnostic codes to disable",
     "exactMatchOptions": true,
     "options": [
       1001,
@@ -199,6 +210,7 @@
   {
     "name": "fish_lsp_enable_experimental_diagnostics",
     "description": "Enables the experimental diagnostics feature, using `fish --no-execute`.\n\nThis feature will enable the diagnostic error code 9999 (disabled by default).",
+    "shortDescription": "enable fish-lsp's experimental diagnostics",
     "exactMatchOptions": true,
     "options": [
       true,
@@ -210,6 +222,7 @@
   {
     "name": "fish_lsp_max_background_files",
     "description": "The maximum number of background files to read into buffer on startup.",
+    "shortDescription": "maximum number of files to analyze in the background on startup",
     "exactMatchOptions": false,
     "options": [
       100,
@@ -225,6 +238,7 @@
   {
     "name": "fish_lsp_show_client_popups",
     "description": "Should the client receive pop-up window notification requests from the fish-lsp server?",
+    "shortDescription": "send `connection/window/*` requests in the server",
     "exactMatchOptions": true,
     "options": [
       true,
@@ -235,7 +249,8 @@
   },
   {
     "name": "fish_lsp_single_workspace_support",
-    "description": "Try to limit the fish-lsp's workspace searching to only the current workspace open. ",
+    "description": "Try to limit the fish-lsp's workspace searching to only the current workspace open.",
+    "shortDescription": "limit workspace searching to only the current workspace",
     "exactMatchOptions": true,
     "options": [
       true,

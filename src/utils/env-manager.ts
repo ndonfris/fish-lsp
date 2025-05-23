@@ -149,6 +149,10 @@ export class EnvManager {
     return FishVariableParser.parse(value || '');
   }
 
+  public getFirstValueInArray(key: string): string | undefined {
+    return this.getAsArray(key).at(0);
+  }
+
   public static isArrayValue(value: string): boolean {
     return FishVariableParser.parse(value).length > 1;
   }

@@ -50,6 +50,95 @@ export function accumulateStartupOptions(args: string[]): {
   return { enabled, disabled, dumpCmd };
 }
 
+export namespace SubcommandEnv {
+
+  export type ArgsType = {
+    create?: boolean;
+    show?: boolean;
+    showDefault?: boolean;
+    only?: string[] | string | undefined;
+    comments?: boolean;
+    global?: boolean;
+    local?: boolean;
+    export?: boolean;
+    confd?: boolean;
+    names?: boolean;
+    joined?: boolean;
+  };
+
+  export type HandlerOptionsType = {
+    only: string[] | undefined;
+    comments: boolean;
+    global: boolean;
+    local: boolean;
+    export: boolean;
+    confd: boolean;
+  };
+
+  export const defaultHandlerOptions: HandlerOptionsType = {
+    only: undefined,
+    comments: true,
+    global: true,
+    local: false,
+    export: true,
+    confd: false,
+  };
+
+  /**
+   * Get the output type based on the cli env args
+   * Only one of these options is allowed at a time:
+   *   -c, --create    `create the default env file`
+   *   --show-default: `same as --create`
+   *   -s, --show:     `show the current values in use`
+   * If `fish-lsp env` is called without any of the flags above, it will default to `create`
+   */
+  export function getOutputType(args: ArgsType): 'show' | 'create' | 'showDefault' {
+    return args.showDefault ? 'showDefault' : args.show ? 'show' : 'create';
+  }
+
+  export function getOnly(args: ArgsType): string[] | undefined {
+    if (args.only) {
+      const only = Array.isArray(args.only) ? args.only : [args.only];
+      return only.reduce((acc: string[], value) => {
+        acc.push(...value.split(',').map(v => v.trim()));
+        return acc;
+      }, []);
+    }
+    return undefined;
+  }
+
+  export function toEnvOutputOptions(args: ArgsType) : HandlerOptionsType {
+    const only = getOnly(args);
+    return {
+      only,
+      comments: args.comments ?? true,
+      global: args.global ?? true,
+      local: args.local ?? false,
+      export: args.export ?? true,
+      confd: args.confd ?? false,
+    };
+  }
+}
+
+export function getEnvOnlyArgs(cliEnvOnly: string | string[] | undefined): string[] | undefined {
+  const splitOnlyValues = (v: string) => v.split(',').map(value => value.trim());
+  const isValidOnlyInput = (v: unknown): v is string | string[] =>
+    typeof v === 'string'
+    || Array.isArray(v) && v.every((value) => typeof value === 'string');
+  const onlyArrayBuilder = (v: string | string[]) => {
+    if (typeof v === 'string') {
+      return splitOnlyValues(v);
+    }
+    return v.reduce((acc: string[], value) => {
+      acc.push(...splitOnlyValues(value));
+      return acc;
+    }, []);
+  };
+  if (!cliEnvOnly || !isValidOnlyInput(cliEnvOnly)) return undefined;
+  const only = Array.from(cliEnvOnly);
+  return onlyArrayBuilder(only);
+}
+
 // filter out the start command args that are not used for the --enable/--disable values
 function filterStartCommandArgs(args: string[]): string[] {
   const filteredArgs = [];
@@ -101,7 +190,7 @@ export const smallFishLogo = () => '><(((°> FISH LSP';
 export const RepoUrl = PackageJSON.repository?.url.slice(0, -4);
 export const PackageVersion = PackageJSON.version;
 
-export const PathObj: { [K in 'bin' | 'root' | 'repo' | 'manFile' | 'execFile' ]: string } = {
+export const PathObj: { [K in 'bin' | 'root' | 'repo' | 'manFile' | 'execFile']: string } = {
   ['bin']: resolve(__dirname.toString(), '..', '..', 'bin', 'fish-lsp'),
   ['root']: resolve(__dirname, '..', '..'),
   ['repo']: resolve(__dirname, '..', '..'),

@@ -4,7 +4,7 @@ import { PrebuiltDocumentationMap, EnvVariableJson } from './utils/snippets';
 import { Connection, FileOperationRegistrationOptions, FormattingOptions, InitializeParams, InitializeResult, SymbolKind, TextDocumentSyncKind } from 'vscode-languageserver';
 import { AllSupportedActions } from './code-actions/action-kinds';
 import { LspCommands } from './command';
-import { PackageVersion } from './utils/commander-cli-subcommands';
+import { PackageVersion, SubcommandEnv } from './utils/commander-cli-subcommands';
 import { FishSymbol } from './parsing/symbol';
 
 /********************************************
@@ -273,20 +273,13 @@ export function handleEnvOutput(
   outputType: 'show' | 'create' | 'showDefault',
   callbackfn: (str: string) => void = (str) => logger.logToStdout(str),
   opts: {
+    only: string[] | undefined;
     confd: boolean;
     comments: boolean;
     global: boolean;
     local: boolean;
     export: boolean;
-    only: string[] | undefined;
-  } = {
-    confd: true,
-    comments: true,
-    global: true,
-    local: true,
-    export: true,
-    only: undefined,
-  },
+  } = SubcommandEnv.defaultHandlerOptions,
 ) {
   const command = getEnvVariableCommand(opts.global, opts.local, opts.export);
   const result: string[] = [];
@@ -494,6 +487,35 @@ export namespace Config {
     return defaults[key];
   }
 
+  export function getDocsForKey(key: keyof Config): string {
+    const entry = PrebuiltDocumentationMap.getByType('variable', 'fishlsp').find(e => e.name === key);
+    if (entry) {
+      return entry.description;
+    }
+    return '';
+  }
+
+  /**
+   * Builder for the `envDocs` object
+   */
+  const getDocsObj = (): Record<keyof Config, string> => {
+    const docsObj = {} as Record<keyof Config, string>;
+    const entries = PrebuiltDocumentationMap.getByType('variable', 'fishlsp');
+    entries.forEach(entry => {
+      if (EnvVariableJson.is(entry)) {
+        if (entry?.isDeprecated) return;
+        docsObj[entry.name as keyof Config] = entry.shortDescription;
+      }
+    });
+    return docsObj;
+  };
+
+  /**
+   * Config.docs[fish_lsp_*]: Documentation for fish_lsp_* variables
+   * Used for the `fish-lsp env` cli completions
+   */
+  export const envDocs: Record<keyof Config, string> = getDocsObj();
+
   /**
    * All old environment variables mapped to their new key names.
    */
@@ -614,7 +636,6 @@ export namespace Config {
         //   resolveProvider: true,
         //   workDoneProgress: true,
         // } : undefined,
-        // codeLensProvider: false,
         signatureHelpProvider: configHandlers.signature ? { workDoneProgress: false, triggerCharacters: ['.'] } : undefined,
         documentOnTypeFormattingProvider: configHandlers.typeFormatting ? {
           firstTriggerCharacter: '.',

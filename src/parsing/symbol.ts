@@ -509,15 +509,6 @@ export function filterLastPerScopeSymbol(symbols: FishSymbol[]) {
     }
   }
   return array;
-  // return array
-  //   .filter((symbol) => !flatArray.some((s) => {
-  //     return (
-  //       s.name === symbol.name &&
-  //       !s.equals(symbol) &&
-  //       symbol.equalScopes(s) &&
-  //       symbol.isBefore(s)
-  //     );
-  //   }));
 }
 
 export function findLocalLocations(symbol: FishSymbol, allSymbols: FishSymbol[], includeSelf = true): Location[] {

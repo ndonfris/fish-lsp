@@ -123,11 +123,6 @@ export class LspDocument implements TextDocument {
     });
   }
 
-  // update(changes: TextDocumentContentChangeEvent[]): LspDocument {
-  //   this.document = TextDocument.update(this.document, changes, this.version);
-  //   return this;
-  // }
-
   /**
    * @see getLineBeforeCursor()
    */
@@ -172,17 +167,6 @@ export class LspDocument implements TextDocument {
   update(changes: TextDocumentContentChangeEvent[]): LspDocument {
     this.document = TextDocument.update(this.document, changes, this.version + 1);
     return LspDocument.fromTextDocument(this.document);
-
-    // for (const change of changes) {
-    //   const content = this.getText();
-    //   let newContent = change.text;
-    //   if (TextDocumentContentChangeEvent.isIncremental(change)) {
-    //     const start = this.offsetAt(change.range.start);
-    //     const end = this.offsetAt(change.range.end);
-    //     newContent = content.substring(0, start) + change.text + content.substring(end);
-    //   }
-    //   this.document = TextDocument.create(this.uri, this.languageId, version, newContent);
-    // }
   }
 
   asVersionedIdentifier() {
@@ -448,16 +432,6 @@ export class LspDocuments {
     return true;
   }
 
-  // open(doc: LspDocument): boolean {
-  //   const file = uriToPath(doc.uri);
-  //   if (this.documents.has(file)) {
-  //     return false;
-  //   }
-  //   this.documents.set(file, doc);
-  //   this._files.unshift(file);
-  //   return true;
-  // }
-
   isOpen(path: string | DocumentUri): boolean {
     if (URI.isUri(path)) {
       path = uriToPath(path);
@@ -530,15 +504,6 @@ export class LspDocuments {
     this._files.splice(this._files.indexOf(path), 1);
     return document;
   }
-  // close(file: string): LspDocument | undefined {
-  //   const document = this.documents.get(file);
-  //   if (!document) {
-  //     return undefined;
-  //   }
-  //   this.documents.delete(file);
-  //   this._files.splice(this._files.indexOf(file), 1);
-  //   return document;
-  // }
 
   closeAll(): void {
     this.documents.clear();

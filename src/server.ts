@@ -77,12 +77,10 @@ export default class FishServer {
 
     // Run these operations in parallel rather than sequentially
     const [
-      // parser,
       cache,
       _workspaces,
       completionsMap,
     ] = await Promise.all([
-      // initializeParser(),
       initializeDocumentationCache(),
       initializeDefaultFishWorkspaces(...initializeUris),
       CompletionItemMap.initialize(),
@@ -94,14 +92,9 @@ export default class FishServer {
     const completions = await initializeCompletionPager(logger, completionsMap);
 
     const server = new FishServer(
-      // connection,
-      // parser,
-      // analyzer,
-      // documents,
       completions,
       completionsMap,
       cache,
-      // logger,
     );
     if (!hasWorkspaceFolderCapability) {
       initializeResult.capabilities.workspace = {
@@ -216,7 +209,6 @@ export default class FishServer {
     doc = doc.update(params.contentChanges);
     documents.set(doc);
     this.analyzeDocument({ uri: doc.uri });
-    workspaceManager.handleUpdateDocument(doc);
     analyzer.updateConfigInWorkspace(doc.uri);
     if (!this.backgroundAnalysisComplete) {
       await workspaceManager.analyzePendingDocuments();
@@ -807,17 +799,8 @@ export default class FishServer {
       diagnostics: diagnostics.map(d => d.code),
     });
     connection.sendDiagnostics({ uri: doc.uri, diagnostics });
-    // workspaceManager.handleUpdateDocument(doc);
-    // const newUris = this.analyzer.collectAllSources(doc.uri);
-    // logger.log('newUris', newUris);
-    // const current = workspaceManager.current;
-    // if (current) {
-    //   newUris.forEach(uri => {
-    //     logger.log('Adding uri to current workspace', { uri });
-    //     current.addUri(uri);
-    //   });
-    // }
-
+    // re-indexes the workspace and changes the current workspace to the document
+    workspaceManager.handleUpdateDocument(doc);
     return {
       uri: document.uri,
       path: path,

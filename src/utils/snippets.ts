@@ -52,6 +52,7 @@ export type CliObject = {
 export interface EnvVariableJson extends BaseJson {
   type: JsonType;
   specialType: SpecialType;
+  shortDescription: string;
   valueType: 'boolean' | 'number' | 'string' | 'array';
   isDeprecated: boolean;
   exactMatchOptions: boolean;

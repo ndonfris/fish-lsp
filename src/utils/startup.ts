@@ -188,20 +188,21 @@ export async function timeServerStartup() {
   let all: number = 0;
   const items: { [key: string]: number; } = {};
 
+  // clear any existing workspaces, use the env variables if they are set,
+  // otherwise use their default values (since there isn't a client)
+  workspaceManager.clear();
+  for (const pathLike of config.fish_lsp_all_indexed_paths) {
+    const fullPath = SyncFileHelper.expandEnvVars(pathLike);
+    const workspace = Workspace.syncCreateFromUri(pathToUri(fullPath));
+    if (!workspace) {
+      logger.logToStderr(`Failed to create workspace for path: ${pathLike}`);
+      continue;
+    }
+    workspaceManager.add(workspace);
+  }
+
   // 2. Time server initialization and background analysis
   await timeOperation(async () => {
-    // clear any existing workspaces, use the env variables if they are set,
-    // otherwise use their default values (since there isn't a client)
-    workspaceManager.clear();
-    for (const pathLike of config.fish_lsp_all_indexed_paths) {
-      const fullPath = SyncFileHelper.expandEnvVars(pathLike);
-      const workspace = Workspace.syncCreateFromUri(pathToUri(fullPath));
-      if (!workspace) {
-        logger.logToStderr(`Failed to create workspace for path: ${pathLike}`);
-        continue;
-      }
-      workspaceManager.add(workspace);
-    }
     // analyze all documents from the workspaces created above
     const result = await workspaceManager.analyzePendingDocuments();
     if (result) {
