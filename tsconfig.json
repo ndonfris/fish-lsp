@@ -3,7 +3,7 @@
   "compilerOptions": {
     "incremental": true,
     "esModuleInterop": true,
-    "importHelpers": true,
+    "importHelpers": false,
     "downlevelIteration": true,
     "noUncheckedIndexedAccess": true,
     "resolveJsonModule": true,

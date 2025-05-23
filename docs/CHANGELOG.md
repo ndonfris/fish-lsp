@@ -1,3 +1,17 @@
+## <small>1.0.9-1 (2025-05-23)</small>
+
+* fix: added tslib to package.json dev dependency ([45c1ac2](https://github.com/ndonfris/fish-lsp/commit/45c1ac2))
+* fix: npm install error using tslib ([93a5091](https://github.com/ndonfris/fish-lsp/commit/93a5091))
+
+
+
+## <small>1.0.9-1 (2025-05-23)</small>
+
+* fix: added tslib to package.json dev dependency ([45c1ac2](https://github.com/ndonfris/fish-lsp/commit/45c1ac2))
+* fix: npm install error using tslib ([93a5091](https://github.com/ndonfris/fish-lsp/commit/93a5091))
+
+
+
 ## <small>1.0.9 (2025-05-21)</small>
 
 * release/v1.0.9 (#78) ([715d765](https://github.com/ndonfris/fish-lsp/commit/715d765)), closes [#78](https://github.com/ndonfris/fish-lsp/issues/78) [#76](https://github.com/ndonfris/fish-lsp/issues/76)
