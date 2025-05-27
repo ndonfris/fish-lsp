@@ -10,14 +10,24 @@ _Thanks for the interest in contributing to the project_ :pray:
 
 ---
 
-__There are many ways to contribute to the project:__
+__There are many ways that contributions can be made to the `fish-lsp`, including:__
 
-- Submit bugs, and help work on fixes
-- __Refactor__ out unnecessary source code 
-- Implement features, outlined in the [roadmap](./ROADMAP.md).
-- Implement new client configurations, outlined in this [repo](https://github.com/ndonfris/fish-lsp-language-clients/blob/master/)
-- Add [tests](https://github.com/ndonfris/fish-lsp/blob/master/test-data) to verify expected behavior.
-- Update __documentation__, across any of the project's repositories
+- [fish-lsp.dev](https://github.com/ndonfris/fish-lsp.dev/) - Home website __{url: [https://fish-lsp.dev](https://fish-lsp.dev)}__
+  - Add **<ins>new documentation</ins>**, or **<ins>improve existing documentation</ins>**
+  - Add **<ins>gifs/images</ins>** that are reused across multiple of the projects repositories in the [public/](https://github.com/ndonfris/fish-lsp.dev/tree/master/public) directory
+- [fish-lsp-language-clients](https://github.com/ndonfris/fish-lsp-language-clients) - Client configurations repository
+  - add or update how to **<ins>configure a client</ins>** on [different branches](https://github.com/ndonfris/fish-lsp-language-clients/branches)
+- [vscode-fish-lsp](https://github.com/ndonfris/vscode-fish-lsp) - VSCode extension repository __(VSCode client code base)__
+  - Add or improve **<ins>VSCode related client [features](https://github.com/ndonfris/vscode-fish-lsp/?tab=readme-ov-file#features)/[documentation](https://github.com/ndonfris/vscode-fish-lsp/?tab=readme-ov-file)</ins>** 
+- [fish-lsp](https://github.com/ndonfris/fish-lsp) - Main repository
+  - Add [**<ins>tests</ins>**](https://github.com/ndonfris/fish-lsp/blob/master/test-data) to verify expected behavior
+  - Implement new **<ins>[features](https://github.com/ndonfris/fish-lsp#features)</ins>** (some are outlined in the [ROADMAP.md](./ROADMAP.md) file)
+  - Fix [**<ins>bugs/issues</ins>**](https://github.com/ndonfris/fish-lsp/issues)
+  - Improve **<ins>documentation</ins>**, by adding to the [README.md](../README.md) or [WIKI](https://github.com/ndonfris/fish-lsp/wiki)
+  - Add [**<ins>gh-actions/workflows</ins>**](https://github.com/ndonfris/fish-lsp/tree/master/.github/workflows) to the project, that help automate the development process
+
+> [!IMPORTANT]
+> Below, we primarily focus on documenting how to __contribute__ to the __main [fish-lsp](https://github.com/ndonfris/fish-lsp) repository.__
 
 ## Getting started :rocket:
 
@@ -78,7 +88,7 @@ Test directly in the [client](https://github.com/ndonfris/fish-lsp-language-clie
     - __START WITH VERY BASIC EXAMPLES!!!__  [Pure functions](https://en.wikipedia.org/wiki/Pure_function) are your friend
     - Checkout [./test-data/helpers.ts](../test-data/helpers.ts), `setLogger()` which is provided for `logging` tests
     - Test your `FILE.test.ts` with command: `yarn test FILE --watchAll`
-    - Feel free to overwrite _any existing test-file_ that is not in the [package.json](../package.json) key `test-hook`
+    - Feel free to overwrite _any existing test-file_
     - Use `import { initializeParser } from '../src/parser` for building `SyntaxNode[]` [composite object](https://en.wikipedia.org/wiki/Composite_pattern) arrays (aka [trees](https://en.wikipedia.org/wiki/Tree_traversal)).
 
 1. __Iteratively__ continue improving your feature :infinity:
@@ -87,7 +97,7 @@ Test directly in the [client](https://github.com/ndonfris/fish-lsp-language-clie
 
       > ```fish
       > # display the logs
-      > tail -f $(fish-lsp info --logs-file)
+      > tail -f $(fish-lsp info --log-file)
       > ```
 
     - Alternatively, you can mock the data-type from the `vscode-languageserver` or refer to the [same documentation on lsif](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#definitionParams)
@@ -147,10 +157,8 @@ Prefetching relevant information and [caching](https://en.wikipedia.org/wiki/Cac
     - _builds_ the result object in the global variable `config` 
 
 - [vscode-languageserver](https://github.com/Microsoft/vscode-languageserver-node) - the _SPEC_ for defining our _LSP_.
-    - `Objects` & `Interfaces` specific to `fish-lsp` typically __extend__ this base
-    specification
-    - `Type Definitions` useful for handler's are defined throughout this
-    package
+    - `Objects` & `Interfaces` specific to `fish-lsp` typically __extend__ this base specification
+    - `Type Definitions` useful for handler's are defined throughout this package
 
 - [husky](https://typicode.github.io/husky/) - the [git-hooks](https://github.com/ndonfris/fish-lsp/blob/a41b2654cc7607993b3fd80c8560e2fdcfeca6d2/package.json#L42) for interacting with project's source code 
     - lints the project `on-push`
@@ -159,9 +167,9 @@ Prefetching relevant information and [caching](https://en.wikipedia.org/wiki/Cac
 
 - [jest](https://jestjs.io/docs/configuration) - testing the project
     - relevant locations: [test-data/*.test.ts](https://github.com/ndonfris/fish-lsp/blob/master/test-data), [jest.config.js](https://github.com/ndonfris/fish-lsp/blob/master/jest.config.js) && [tsconfig.test.json](https://github.com/ndonfris/fish-lsp/blob/master/tsconfig.test.js)
-    - `yarn test-hook` is a future supported feature, for specifying individual test files to opt into
-    successful reporting for master branch (_via_ `git action`).
+    - `yarn test` is a shorthand for running jest on all tests, or you can specify a file to test via `yarn test test-data/someFile.test.ts`
     - `yarn test someFile.test.ts --watchAll` is the designated method for watching a test's changes
+    - `yarn test:coverage` is used to generate a coverage report for the project's tests
 
 ### Other Noteworthy Tooling :hammer_and_wrench:
 
@@ -169,7 +177,15 @@ Becoming familiar with using the `src/utils/{tree-sitter,node-types}.ts` code, i
 
 Using an equivalent tree-sitter visualization command to neovim's command, `:InspectEdit` is also highly recommended. If you are unsure what this command does, it essentially allows you to visualize the AST that tree-sitter parsed from fish input. Using this while writing test files, significantly improves the overall testing experience.
 
-Also don't forget to make use of the [fish-lsp --flags](https://github.com/ndonfris/fish-lsp/blob/master/README.md#command-flags)! There is plenty of use cases the binary supports, like: <br>`fish-lsp env --create`, `fish-lsp complete`, `fish-lsp info --logs-file`, <br> `fish-lsp info --time`, `fish-lsp url --sources`, `fish-lsp logger --show`, ___+ more...___
+Also don't forget to make use of the [`fish-lsp` command](https://github.com/ndonfris/fish-lsp/blob/master/docs/MAN_FILE.md), to help you with debugging and testing your changes!
+
+>  <ins>Some noteworthy use cases include:</ins>
+>
+> `fish-lsp start --dump`, `fish-lsp env --show-defaults`,
+> `fish-lsp info --time-startup`, `fish-lsp info --check-health`,
+> `fish-lsp url --sources`, `fish-lsp complete`, ___+ more...___
+>
+> See the [wiki's `abbr` page](https://github.com/ndonfris/fish-lsp/wiki/Abbreviations) for speeding up interactions with the `fish-lsp` command.
 
 ## Adding New Language Clients :chart_with_upwards_trend:
 

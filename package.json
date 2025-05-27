@@ -44,7 +44,7 @@
     "dev": "run-s setup compile",
     "dev:watch": "run-s setup watch",
     "postinstall": "run-s sh:build-time",
-    "prepack": "run-s update-changelog lint:check generate-man-page sh:build-wasm compile",
+    "prepack": "run-s update-changelog lint:check generate:man generate:commands sh:build-wasm compile",
     "compile": "tsc -b",
     "watch": "tsc -b -w",
     "sh:build-completions": "fish ./scripts/build-completions.fish",
@@ -62,8 +62,11 @@
     "lint:fix": "eslint . --ext .ts --fix ",
     "lint:check-fix": "eslint . --ext .ts --fix-dry-run",
     "update-changelog": "conventional-changelog -i docs/CHANGELOG.md --same-file",
-    "generate-commands-json": "tsx ./scripts/fish-commands-scrapper.ts --write-to-snippets",
-    "generate-man-page": "mkdir -p ./docs/man && cat docs/MAN_FILE.md | npx marked-man --date \"$(date)\"  --manual fish-lsp --section 1 --name fish-lsp > ./docs/man/fish-lsp.1"
+    "generate:commands": "tsx ./scripts/fish-commands-scrapper.ts --write-to-snippets",
+    "generate:commands:check": "tsx ./scripts/fish-commands-scrapper.ts",
+    "generate:man": "mkdir -p ./docs/man && cat docs/MAN_FILE.md | npx marked-man --date \"$(date)\"  --manual fish-lsp --section 1 > ./docs/man/fish-lsp.1",
+    "generate:man:cp": "cp ./docs/man/fish-lsp.1 ~/.local/share/man/man1/fish-lsp.1",
+    "generate:man:write-global": "run-s generate:man generate:man:cp"
   },
   "enabledApiProposals": [
     "inlineCompletions"

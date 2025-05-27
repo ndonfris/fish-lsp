@@ -3,7 +3,7 @@
   "compilerOptions": {
     "incremental": true,
     "esModuleInterop": true,
-    "importHelpers": false,
+    "importHelpers": false, // causes tslib dependency which might not be available on node
     "downlevelIteration": true,
     "noUncheckedIndexedAccess": true,
     "resolveJsonModule": true,
