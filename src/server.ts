@@ -209,7 +209,7 @@ export default class FishServer {
     doc = doc.update(params.contentChanges);
     documents.set(doc);
     this.analyzeDocument({ uri: doc.uri });
-    analyzer.updateConfigInWorkspace(doc.uri);
+    // analyzer.updateConfigInWorkspace(doc.uri);
     if (!this.backgroundAnalysisComplete) {
       await workspaceManager.analyzePendingDocuments();
       progress.done();
@@ -233,7 +233,7 @@ export default class FishServer {
       workspaceManager.handleUpdateDocument(doc);
       await workspaceManager.analyzePendingDocuments();
     }
-    analyzer.updateConfigInWorkspace(params.textDocument.uri);
+    // analyzer.updateConfigInWorkspace(params.textDocument.uri);
   }
 
   async onInitialized() {

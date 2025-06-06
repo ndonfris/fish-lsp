@@ -65,7 +65,7 @@ export namespace FishDiagnostic {
  * This will also handle any comment that might disable/enable certain diagnostics per range
  */
 export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
-  let diagnostics: Diagnostic[] = [];
+  const diagnostics: Diagnostic[] = [];
 
   const handler = new DiagnosticCommentsHandler();
   const isAutoloadedFunctionName = isAutoloadedUriLoadsFunctionName(doc);
@@ -326,9 +326,9 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
 
   logger.info({
     isMissingAutoloadedFunction,
-  });
-  unusedLocalFunction.forEach(node => {
-    logger.log('UNUSED:', node.text);
+    fish_lsp_diagnostic_disable_error_codes: config.fish_lsp_diagnostic_disable_error_codes,
+    unusedLocalFunction: unusedLocalFunction.map(node => node.text).join(', '),
+    localFunctionCalls: localFunctionCalls.map(call => call.text).join(', '),
   });
 
   if (unusedLocalFunction.length >= 1 || !isMissingAutoloadedFunction) {
@@ -349,13 +349,6 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
         diagnostics.push(FishDiagnostic.create(ErrorCodes.autoloadedCompletionMissingCommandName, completeCommandName, completeCommandName.text));
         completeNames.add(completeCommandName.text);
       }
-    }
-  }
-
-  // remove all globally disabled diagnostics
-  if (config.fish_lsp_diagnostic_disable_error_codes.length > 0) {
-    for (const errorCode of config.fish_lsp_diagnostic_disable_error_codes) {
-      diagnostics = diagnostics.filter(diagnostic => diagnostic.code !== errorCode);
     }
   }
 
