@@ -246,6 +246,10 @@ export function isMatchingCompleteOptionIsCommand(node: SyntaxNode) {
     || isMatchingOption(node, Option.create('-c', '--command').withValue());
 }
 
+export function isMatchingAbbrFunction(node: SyntaxNode) {
+  return isMatchingOption(node, Option.create('-f', '--function').withValue());
+}
+
 export function isArgparseWithoutEndStdin(node: SyntaxNode) {
   if (!isCommandWithName(node, 'argparse')) return false;
   const endStdin = getChildNodes(node).find(n => isEndStdinCharacter(n));

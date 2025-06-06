@@ -1030,6 +1030,13 @@ export class Analyzer {
     const text = document.document.getText(location.range);
     return text;
   }
+
+  public ensureCachedDocument(doc: LspDocument): AnalyzedDocument {
+    if (this.cache.hasUri(doc.uri)) {
+      return this.cache.getDocument(doc.uri) as AnalyzedDocument;
+    }
+    return this.analyze(doc);
+  }
 }
 
 /**

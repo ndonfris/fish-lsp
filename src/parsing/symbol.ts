@@ -391,6 +391,14 @@ export class FishSymbol {
     return isTopLevelDefinition(this.node);
   }
 
+  isFunction(): boolean {
+    return this.fishKind === 'FUNCTION' || this.fishKind === 'ALIAS';
+  }
+
+  isVariable(): boolean {
+    return !this.isFunction();
+  }
+
   isSymbolImmutable() {
     if (!config.fish_lsp_modifiable_paths.some(path => this.path.startsWith(path))) {
       return true;
