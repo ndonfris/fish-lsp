@@ -1,18 +1,20 @@
-import { Diagnostic, Range } from 'vscode-languageserver';
+import { Diagnostic, DiagnosticRelatedInformation, Range } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { LspDocument } from '../document';
 import { findEnclosingScope, getChildNodes, getRange } from '../utils/tree-sitter';
 import { containsRange } from '../utils/tree-sitter';
-import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter, isMatchingCompleteOptionIsCommand, LocalFunctionCallType, isArgparseWithoutEndStdin, isFishLspDeprecatedVariableName, getDeprecatedFishLspMessage, isDotSourceCommand } from './node-types';
+import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter, isMatchingCompleteOptionIsCommand, LocalFunctionCallType, isArgparseWithoutEndStdin, isFishLspDeprecatedVariableName, getDeprecatedFishLspMessage, isDotSourceCommand, isMatchingAbbrFunction } from './node-types';
 import { ErrorCodes } from './error-codes';
 import { config } from '../config';
 import { DiagnosticCommentsHandler } from './comments-handler';
 import { logger } from '../logger';
-import { isAutoloadedUriLoadsFunctionName } from '../utils/translation';
+import { isAutoloadedUriLoadsFunctionName, uriToReadablePath } from '../utils/translation';
 import { isCommandName, isCommandWithName, isComment, isCompleteCommandName, isFunctionDefinitionName, isOption, isString, isTopLevelFunctionDefinition } from '../utils/node-types';
 import { isReservedKeyword } from '../utils/builtins';
 import { getNoExecuteDiagnostics } from './no-execute-diagnostic';
 import { checkForInvalidDiagnosticCodes } from './invalid-error-code';
+import { analyzer } from '../analyze';
+import { FishSymbol } from '../parsing/symbol';
 
 // Utilities related to building a documents Diagnostics.
 
@@ -22,6 +24,7 @@ import { checkForInvalidDiagnosticCodes } from './invalid-error-code';
 export interface FishDiagnostic extends Diagnostic {
   data: {
     node: SyntaxNode;
+    symbol?: FishSymbol;
   };
 }
 
@@ -62,13 +65,18 @@ export namespace FishDiagnostic {
  * This will also handle any comment that might disable/enable certain diagnostics per range
  */
 export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
-  let diagnostics: Diagnostic[] = [];
+  const diagnostics: Diagnostic[] = [];
 
   const handler = new DiagnosticCommentsHandler();
   const isAutoloadedFunctionName = isAutoloadedUriLoadsFunctionName(doc);
 
   const docType = doc.getAutoloadType();
 
+  // ensure the document is analyzed
+  analyzer.ensureCachedDocument(doc);
+
+  // arrays to keep track of different groups of functions
+  const allFunctions: FishSymbol[] = analyzer.getFlatDocumentSymbols(doc.uri).filter(s => s.isFunction());
   const autoloadedFunctions: SyntaxNode[] = [];
   const topLevelFunctions: SyntaxNode[] = [];
   const functionsWithReservedKeyword: SyntaxNode[] = [];
@@ -174,14 +182,44 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
       if (!isAutoloadedFunctionName(node)) localFunctions.push(node);
     }
 
+    // skip comments and options
+    if (isComment(node) || isOption(node)) continue;
+
     /** keep this section at end of loop iteration, because it uses continue */
     if (isCommandName(node)) commandNames.push(node);
-    if (docType === 'completions') {
-      // skip comments and options
-      if (isComment(node) || isOption(node)) continue;
-      // get the parent and previous sibling, for the next checks
-      const { parent, previousSibling } = node;
-      if (!parent || !previousSibling) continue;
+
+    // get the parent and previous sibling, for the next checks
+    const { parent, previousSibling } = node;
+    if (!parent || !previousSibling) continue;
+
+    // skip if this is an abbr function, since we don't want to complete abbr functions
+    if (isCommandWithName(parent, 'abbr') && isMatchingAbbrFunction(previousSibling)) {
+      localFunctionCalls.push({ node, text: node.text });
+      continue;
+    }
+
+    // if the current node is a bind subcommand `bind ctrl-k <CMD>` where `<CMD>` gets added to the localFunctionCalls
+    if (isCommandWithName(parent, 'bind')) {
+      const subcommands = parent.children.slice(2).filter(c => !isOption(c));
+      subcommands.forEach(subcommand => {
+        if (isString(subcommand)) {
+          // like this example:        `(cmd; and cmd2)`
+          // we remove the characters: `(   ; and     )`
+          localFunctionCalls.push({
+            node,
+            text: subcommand.text.slice(1, -1)
+              .replace(/[\(\)]/g, '')  // Remove parentheses
+              .replace(/[^\u0020-\u007F]/g, ''), // Keep only ASCII printable chars
+          });
+          return;
+        }
+        localFunctionCalls.push({ node, text: subcommand.text });
+      });
+      continue;
+    }
+
+    // for autoloaded files that could have completions, we only want to check for `complete`  commands
+    if (doc.isAutoloadedWithPotentialCompletions()) {
       if (isCompleteCommandName(node)) completeCommandNames.push(node);
       // skip if no parent command (note we already added commands above)
       if (!isCommandWithName(parent, 'complete')) continue;
@@ -233,10 +271,44 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
     }
   });
 
+  // get all function definitions in the document
+  const duplicateFunctions: { [name: string]: FishSymbol[]; } = {};
+  allFunctions.forEach(node => {
+    const currentDupes = duplicateFunctions[node.name] ?? [];
+    currentDupes.push(node);
+    duplicateFunctions[node.name] = currentDupes;
+  });
+
+  // Add diagnostics for duplicate function definitions in the same scope
+  Object.entries(duplicateFunctions).forEach(([_, functionSymbols]) => {
+    // skip single function definitions
+    if (functionSymbols.length <= 1) return;
+    functionSymbols.forEach(n => {
+      if (handler.isCodeEnabledAtNode(ErrorCodes.duplicateFunctionDefinitionInSameScope, n.focusedNode)) {
+        // dupes are the array of all function symbols that have the same name and scope as the current symbol `n`
+        const dupes = functionSymbols.filter(s => s.scopeNode.equals(n.scopeNode) && !s.equals(n)) ?? [] as FishSymbol[];
+        // skip if the function is defined in a different scope
+        if (dupes.length < 1) return;
+        // create a diagnostic for the duplicate function definition
+        const diagnostic = FishDiagnostic.create(ErrorCodes.duplicateFunctionDefinitionInSameScope, n.focusedNode);
+        diagnostic.range = n.selectionRange;
+        // plus one because the dupes array does not include the current symbol `n`
+        diagnostic.message += ` '${n.name}' is defined ${dupes.length + 1} time(s) in ${n.scopeTag.toUpperCase()} scope.`;
+        diagnostic.message += `\n\nFILE: ${uriToReadablePath(n.uri)}`;
+        // diagnostic.data.symbol = n;
+        diagnostic.relatedInformation = dupes.filter(s => !s.equals(n)).map(s => DiagnosticRelatedInformation.create(
+          s.toLocation(),
+          `${s.scopeTag.toUpperCase()} duplicate '${s.name}' defined on line ${s.focusedNode.startPosition.row}`,
+        ));
+        diagnostics.push(diagnostic);
+      }
+    });
+  });
+
   localFunctions.forEach(node => {
     const matches = commandNames.filter(call => call.text === node.text);
     if (matches.length === 0) return;
-    if (!localFunctionCalls.some(call => call.node.equals(node))) {
+    if (!localFunctionCalls.some(call => call.text === node.text)) {
       localFunctionCalls.push({ node, text: node.text });
     }
   });
@@ -254,14 +326,14 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
 
   logger.info({
     isMissingAutoloadedFunction,
-  });
-  unusedLocalFunction.forEach(node => {
-    logger.log('UNUSED:', node.text);
+    fish_lsp_diagnostic_disable_error_codes: config.fish_lsp_diagnostic_disable_error_codes,
+    unusedLocalFunction: unusedLocalFunction.map(node => node.text).join(', '),
+    localFunctionCalls: localFunctionCalls.map(call => call.text).join(', '),
   });
 
   if (unusedLocalFunction.length >= 1 || !isMissingAutoloadedFunction) {
     unusedLocalFunction.forEach(node => {
-      if (!['conf.d', 'config'].includes(docType) && handler.isCodeEnabledAtNode(ErrorCodes.unusedLocalFunction, node)) {
+      if (handler.isCodeEnabledAtNode(ErrorCodes.unusedLocalFunction, node)) {
         diagnostics.push(FishDiagnostic.create(ErrorCodes.unusedLocalFunction, node));
       }
     });
@@ -277,13 +349,6 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
         diagnostics.push(FishDiagnostic.create(ErrorCodes.autoloadedCompletionMissingCommandName, completeCommandName, completeCommandName.text));
         completeNames.add(completeCommandName.text);
       }
-    }
-  }
-
-  // remove all globally disabled diagnostics
-  if (config.fish_lsp_diagnostic_disable_error_codes.length > 0) {
-    for (const errorCode of config.fish_lsp_diagnostic_disable_error_codes) {
-      diagnostics = diagnostics.filter(diagnostic => diagnostic.code !== errorCode);
     }
   }
 

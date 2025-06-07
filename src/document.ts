@@ -270,6 +270,16 @@ export class LspDocument implements TextDocument {
   }
 
   /**
+   * checks if the document is in a location where it is autoloaded
+   * @returns {boolean} - true if the document is in a location that could contain `complete` definitions
+   */
+  isAutoloadedWithPotentialCompletions(): boolean {
+    const folderType = this.getFolderType();
+    if (!folderType) return false;
+    return ['conf.d', 'config', 'completions'].includes(folderType);
+  }
+
+  /**
    * helper that gets the document URI if it is fish/functions directory
    */
   getAutoloadType(): AutoloadType {

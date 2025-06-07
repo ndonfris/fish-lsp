@@ -228,7 +228,7 @@ export async function timeServerStartup() {
   // const maxItemLen = all_indexed.reduce((max, item) => Math.max(max, item.length > 60 ? 60 : item.length), 0);
   Object.keys(items).forEach((item, idx) => {
     const text = item.length > 55 ? '...' + item.slice(item.length - 52) : item;
-    const output = formatColumns([` [${idx}]`, `| ${text} |`, `${items[item]?.toString() || 0} files`], [6, -59, -10], 85);
+    const output = formatColumns([` [${idx + 1}]`, `| ${text} |`, `${items[item]?.toString() || 0} files`], [6, -59, -10], 85);
     logger.logToStdout(output);
   });
   // incase we decide to log a different starting directory that isn't `~/.config/fish`

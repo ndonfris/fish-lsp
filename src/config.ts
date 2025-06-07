@@ -152,6 +152,7 @@ export function getDefaultConfiguration(): Config {
   return ConfigSchema.parse({});
 }
 
+// TODO: fix using this in the analyzer to update the config
 export function updateBasedOnSymbols(
   symbols: FishSymbol[],
 ) {
