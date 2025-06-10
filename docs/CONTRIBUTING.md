@@ -31,11 +31,33 @@ __There are many ways that contributions can be made to the `fish-lsp`, includin
 
 ## Getting started :rocket:
 
-1. Begin by forking the project, then [build your local fork](../README.md#installation) :card_file_box:.
+1. Begin by forking the project, then [build your local fork](https://github.com/ndonfris/fish-lsp#installation) :card_file_box:.
 
-2. Once you have installed the local fork of the project (_i.e.,_ you have a successfully
-compiled `fish-lsp` executable, and have a working [client configuration](https://github.com/ndonfris/fish-lsp-language-clients)),
-you can then begin [testing locally](#helpful-workflows) :memo:.
+    > <details> 
+    > <summary>  <b><ins>INSTRUCTIONS</ins></b>: how to build from source - <i>compiling your local version of the project</i> </summary>
+    > 
+    > - **Step 1:** Get the dependencies installed by running the command:
+    >
+    >     ```bash
+    >     yarn install
+    >     ```
+    > 
+    > - **Step 2:** Then, you can [build the project](https://github.com/ndonfris/fish-lsp#build-from-source) by running the command:
+    >
+    >     ```bash
+    >     yarn dev # or `yarn dev:watch` for continuously recompiling the project on any changes
+    >     ```
+    >
+    > - **Step 3:** Finally, you can verify the global `fish-lsp` command is linked to the local version of the project by running:
+    >
+    >     ```bash
+    >     fish-lsp info
+    >     ```
+    >     ![](https://github.com/ndonfris/fish-lsp.dev/blob/master/public/fish-lsp-info.svg?raw=true)
+    >
+    > </details>
+
+2. Once you have installed the local fork of the project (_i.e.,_ you have a successfully [compiled](https://github.com/ndonfris/fish-lsp?tab=readme-ov-file#build-from-source) `fish-lsp` executable, and have a working [client configuration](https://github.com/ndonfris/fish-lsp-language-clients)), you can then begin [testing locally](#helpful-workflows) :memo:.
 
 3. Upon completing a change, submit a [PR](https://github.com/ndonfris/fish-lsp/pulls) :tada:.
 
@@ -53,11 +75,9 @@ you can then begin [testing locally](#helpful-workflows) :memo:.
 
 ### Test Driven Development Workflow :hatching_chick:
 
-Since __stdin/stdout__ are reserved for the protocol to communicate, a generally
-successful method to achieve quick results, is through [TDD (Test Driven Development)](https://en.wikipedia.org/wiki/Test-driven_development). Many tree-sitter helper functions ([tree-sitter.ts](../src/utils/tree-sitter.ts), and [node-types.ts](../src/utils/node-types.ts)) have already been written, to aid in providing useful functionality for generic support of any possible combination need for future types.
+Since __stdin/stdout__ are reserved for the protocol to communicate, a generally successful method to achieve quick results, is through [TDD (Test Driven Development)](https://en.wikipedia.org/wiki/Test-driven_development). Many tree-sitter helper functions ([tree-sitter.ts](../src/utils/tree-sitter.ts), and [node-types.ts](../src/utils/node-types.ts)) have already been written, to aid in providing useful functionality for generic support of any possible combination need for future types.
 
 Having said that, if you a need for a new definition in [tree-sitter.ts](../src/utils/tree-sitter.ts) or [node-types.ts](../src/utils/node-types.ts) comes up, adding it to the proper file is fine (`tree-sitter.ts` generally deals with movement or interacting with a `SyntaxNode[] | Tree`, where as `node-types.ts` generally deals with filter functions that can determine what __type__ of `SyntaxNode` is passed into it). The only requirement is that you will for new additions to these files, is that you include proper tests in their corresponding [test-data/{node-types,tree-sitter}.test.ts](https://github.com/ndonfris/fish-lsp/blob/master/test-data/))
-
 
 <details>
 <summary> Sceenshot </summary>
