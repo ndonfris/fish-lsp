@@ -560,6 +560,7 @@ Contributions of any kind are welcome!
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/devsunb"><img src="https://avatars.githubusercontent.com/u/23169202?v=4?s=50" width="50px;" alt="Jaeseok Lee"/><br /><sub><b>Jaeseok Lee</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=devsunb" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/ClanEver"><img src="https://avatars.githubusercontent.com/u/73160783?v=4?s=50" width="50px;" alt="ClanEver"/><br /><sub><b>ClanEver</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=ClanEver" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://degruchy.org/"><img src="https://avatars.githubusercontent.com/u/52262673?v=4?s=50" width="50px;" alt="Nathan DeGruchy"/><br /><sub><b>Nathan DeGruchy</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=ndegruchy" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://teddyhuang-00.github.io/"><img src="https://avatars.githubusercontent.com/u/64199650?v=4?s=50" width="50px;" alt="Nan Huang"/><br /><sub><b>Nan Huang</b></sub></a><br /><a href="https://github.com/ndonfris/fish-lsp/commits?author=TeddyHuang-00" title="Code">💻</a></td>
     </tr>
   </tbody>
 </table>
