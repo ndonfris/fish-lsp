@@ -127,21 +127,24 @@ export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) 
 
     const results: CodeAction[] = [];
 
+    // only process diagnostics from the fish-lsp source
+    const diagnostics = params.context.diagnostics.filter(d => d.source === 'fish-lsp');
+
     // Check what kinds of actions are requested
     const onlyRefactoring = params.context.only?.some(kind => kind.startsWith('refactor'));
     const onlyQuickFix = params.context.only?.some(kind => kind.startsWith('quickfix'));
 
     logger.log('Requested actions', { onlyRefactoring, onlyQuickFix });
-    logger.log('Diagnostics', params.context.diagnostics.map(d => d.message));
+    logger.log('Diagnostics', diagnostics.map(d => d.message));
 
     // Add disable actions
-    if (params.context.diagnostics.length > 0 && !onlyRefactoring) {
-      results.push(...getDisableDiagnosticActions(document, params.context.diagnostics));
+    if (diagnostics.length > 0 && !onlyRefactoring) {
+      results.push(...getDisableDiagnosticActions(document, diagnostics));
     }
     // Add quick fixes if requested
     if (onlyQuickFix) {
       logger.log('Processing onlyQuickFixes');
-      results.push(...await processQuickFixes(document, params.context.diagnostics, analyzer));
+      results.push(...await processQuickFixes(document, diagnostics, analyzer));
       results.push(...await getSelectionCodeActions(document, params.range));
       const allAction = createFixAllAction(document, results);
       if (allAction) results.push(allAction);
@@ -158,7 +161,7 @@ export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) 
     }
 
     logger.log('Processing all actions');
-    results.push(...await processQuickFixes(document, params.context.diagnostics, analyzer));
+    results.push(...await processQuickFixes(document, diagnostics, analyzer));
     results.push(...await getSelectionCodeActions(document, params.range));
     const allAction = createFixAllAction(document, results);
     if (allAction) {
@@ -166,7 +169,7 @@ export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) 
         name: 'allAction',
         title: allAction.title,
         kind: allAction.kind,
-        diagnostics: allAction.diagnostics?.map(d => d.message),
+        diagnostics: diagnostics?.map(d => d.message),
         edit: allAction.edit,
       });
       results.push(allAction);
