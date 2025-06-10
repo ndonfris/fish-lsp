@@ -329,6 +329,8 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
     fish_lsp_diagnostic_disable_error_codes: config.fish_lsp_diagnostic_disable_error_codes,
     unusedLocalFunction: unusedLocalFunction.map(node => node.text).join(', '),
     localFunctionCalls: localFunctionCalls.map(call => call.text).join(', '),
+    toplevelFunctions: topLevelFunctions.map(node => node.text).join(', '),
+    commandNames: commandNames.map(node => node.text).join(', '),
   });
 
   if (unusedLocalFunction.length >= 1 || !isMissingAutoloadedFunction) {

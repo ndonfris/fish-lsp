@@ -21,6 +21,14 @@ export const FunctionOptions = [
   Option.create('-V', '--inherit-variable').withValue(),
 ];
 
+export const FunctionEventOptions = [
+  Option.create('-e', '--on-event').withValue(),
+  Option.create('-v', '--on-variable').withValue(),
+  Option.create('-j', '--on-job-exit').withValue(),
+  Option.create('-p', '--on-process-exit').withValue(),
+  Option.create('-s', '--on-signal').withValue(),
+];
+
 function isFunctionDefinition(node: SyntaxNode) {
   return node.type === 'function_definition';
 }

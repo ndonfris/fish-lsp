@@ -72,12 +72,36 @@ export function isCommand(node: SyntaxNode): boolean {
   ].includes(node.type);
 }
 
+/**
+ * Checks if a node is a top level function definition. Nodes can be either:
+ *   - `node.type === 'function_definition'`
+ *   - `node.parent.type === 'function_definition' && node.type === 'word' && node.parent.firstChild.eqauls(node)`
+ * This is used to determine if a function is defined inside another function or at the top level of a script.
+ * ___
+ * ```fish
+ * #### T === TRUE && F === FALSE
+ * function top_level_function_1; end;
+ * # ^-- T      ^-- T
+ * if status is-interactive
+ *     function top_level_function_2; end;
+ *     # ^-- T   ^-- T
+ *     function top_level_function_3
+ *     # ^-- T  ^-- T
+ *          function not_top_level_function; end;
+ *          # ^-- F  ^-- F
+ *     end
+ * end
+ * ```
+ * ___
+ * @param {SyntaxNode} node - the node to check if it is a top level function definition
+ * @returns {boolean} true if the node is a top level function definition, false otherwise
+ */
 export function isTopLevelFunctionDefinition(node: SyntaxNode): boolean {
   if (isFunctionDefinition(node)) {
-    return node.parent?.type === 'program';
+    return !!(node.parent && isTopLevelDefinition(node.parent));
   }
   if (isFunctionDefinitionName(node)) {
-    return node.parent?.parent?.type === 'program';
+    return !!(node.parent && node.parent.parent && isTopLevelDefinition(node.parent.parent));
   }
   return false;
 }

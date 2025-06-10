@@ -5,7 +5,7 @@ import { LspDocument } from '../document';
 import { containsNode, getChildNodes, getRange } from '../utils/tree-sitter';
 import { findSetChildren, processSetCommand } from './set';
 import { processReadCommand } from './read';
-import { processArgvDefinition, processFunctionDefinition } from './function';
+import { findFunctionDefinitionChildren, FunctionEventOptions, processArgvDefinition, processFunctionDefinition } from './function';
 import { processForDefinition } from './for';
 import { convertNodeRangeWithPrecedingFlag, processArgparseCommand } from './argparse';
 import { Flag, isMatchingOption, LongFlag, Option, ShortFlag } from './options';
@@ -14,7 +14,7 @@ import { createDetail } from './symbol-detail';
 import { config } from '../config';
 import { flattenNested } from '../utils/flatten';
 import { uriToPath } from '../utils/translation';
-import { isCommand, isCommandWithName, isFunctionDefinitionName, isString, isTopLevelDefinition, isVariableDefinitionName } from '../utils/node-types';
+import { isCommand, isCommandWithName, isFunctionDefinitionName, isOption, isString, isTopLevelDefinition, isVariableDefinitionName } from '../utils/node-types';
 import { SyncFileHelper } from '../utils/file-operations';
 import { processExportCommand } from './export';
 
@@ -489,6 +489,19 @@ export class FishSymbol {
       if (isString(node)) text = text.slice(1, -1);
       return SyncFileHelper.expandEnvVars(text);
     });
+  }
+
+  /**
+   * A function that is autoloaded and includes an `event` hook
+   */
+  hasEventHook() {
+    if (!this.isFunction()) return false;
+    for (const child of findFunctionDefinitionChildren(this.node)) {
+      if (isOption(child) && FunctionEventOptions.some(option => option.matches(child))) {
+        return true;
+      }
+    }
+    return false;
   }
 }
 

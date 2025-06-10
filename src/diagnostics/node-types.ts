@@ -210,8 +210,8 @@ function hasCommandSubstitution(node: SyntaxNode) {
  * @returns true if the command is a conditional statement without -q,--quiet/--query flags, otherwise false
  */
 export function isConditionalWithoutQuietCommand(node: SyntaxNode) {
-  // if (!isCommand(node)) return false;
-  if (!isCommandWithName(node, 'command', 'type', 'read', 'set', 'string', 'abbr', 'builtin', 'functions', 'jobs')) return false;
+  // read does not have quiet option
+  if (!isCommandWithName(node, 'command', 'type', 'set', 'string', 'abbr', 'builtin', 'functions', 'jobs')) return false;
   if (!isConditionalStatement(node) && !isFirstNodeInConditionalExecution(node)) return false;
 
   // skip `set` commands with command substitution
