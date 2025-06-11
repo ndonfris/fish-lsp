@@ -2,9 +2,10 @@ import { SyntaxNode } from 'web-tree-sitter';
 import { isCommandWithName, isString } from '../utils/node-types';
 import { Flag, isMatchingOption, Option } from './options';
 import { LspDocument } from '../document';
-import { getChildNodes, getRange } from '../utils/tree-sitter';
+import { getChildNodes, getRange, pointToPosition } from '../utils/tree-sitter';
 import { FishSymbol } from './symbol';
 import { Location, Range } from 'vscode-languageserver';
+import { logger } from '../logger';
 
 export const CompleteOptions = [
   Option.create('-c', '--command').withValue(),
@@ -189,9 +190,7 @@ export class CompletionSymbol {
    * Return the `-f`/`--flag`/`-flag` string
    */
   toFlag() {
-    if (!this.isNonEmpty()) {
-      return '';
-    }
+    if (!this.isNonEmpty()) return '';
     switch (this.optionType) {
       case 'short':
       case 'old':
@@ -280,6 +279,48 @@ export class CompletionSymbol {
   toLocation(): Location {
     return Location.create(this.doc?.uri || '', this.getRange());
   }
+
+  toPosition(): { line: number; character: number; } | null {
+    if (this.isNonEmpty()) {
+      return pointToPosition(this.node.startPosition);
+    }
+    return null as never;
+  }
+
+  /**
+   * Alias for the `this.text` property. Helps with readability, when comparing Argparse FishSymbols, to the string representation of the option.
+   *
+   * ```fish
+   * complete -c foo -s h -l help
+   *                  # ^    ^^^^ are both our `text` properties, we can build a string representation of the argparse option `h/help`
+   * ```
+   *
+   * ```fish
+   * function foo
+   *    argparse h/help -- $argv
+   * end
+   * ```
+   * Returns the string representation of the option, e.g. `-h`, `--help`, or `-h/--help`.
+   */
+  toArgparseOpt(): string {
+    if (!this.isNonEmpty()) {
+      return '';
+    }
+    return this.text;
+  }
+
+  /**
+   * Example: { name: `help-msg` } -> `_flag_help_msg`
+   * Returns the variable name that argparse would create for this completion.
+   */
+  toArgparseVariableName(): string {
+    const prefix = '_flag_';
+    const fixString = (str: string) => str.replace(/-/g, '_');
+    if (!this.isNonEmpty()) {
+      return '';
+    }
+    return prefix + fixString(this.text);
+  }
 }
 
 export function isCompletionSymbolVerbose(node: SyntaxNode, doc?: LspDocument): boolean {
@@ -365,6 +406,22 @@ export function groupCompletionSymbolsTogether(
     groupedSymbols.push(newGroup);
   });
   return groupedSymbols;
+}
+
+export function getGroupedCompletionSymbolsAsArgparse(groupedCompletionSymbols: CompletionSymbol[][], argparseSymbols: FishSymbol[]): CompletionSymbol[][] {
+  const missingArgparseValues: CompletionSymbol[][] = [];
+  for (const symbolGroup of groupedCompletionSymbols) {
+    if (argparseSymbols.some(argparseSymbol => symbolGroup.find(s => s.equalsArgparse(argparseSymbol)))) {
+      logger.info({
+        message: 'Skipping symbol group that already has an argparse value',
+        symbolGroup: symbolGroup.map(s => s.toFlag()),
+        focusedSymbols: argparseSymbols.find(fs => symbolGroup.find(s => s.equalsArgparse(fs)))?.name,
+      });
+      continue;
+    }
+    missingArgparseValues.push(symbolGroup);
+  }
+  return missingArgparseValues;
 }
 
 export function processCompletion(document: LspDocument, node: SyntaxNode) {

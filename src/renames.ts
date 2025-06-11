@@ -1,5 +1,5 @@
 import { getReferences } from './references';
-import { Analyzer } from './analyze';
+import { analyzer, Analyzer } from './analyze';
 import { Position, Range } from 'vscode-languageserver';
 import { LspDocument } from './document';
 import { FishSymbol } from './parsing/symbol';
@@ -15,7 +15,6 @@ export interface FishRenameLocation {
 }
 
 export function getRenames(
-  analyzer: Analyzer,
   doc: LspDocument,
   position: Position,
   newText: string,
@@ -24,7 +23,7 @@ export function getRenames(
   if (!symbol || !newText) return [];
   if (!canRenameWithNewText(analyzer, doc, position, newText)) return [];
   newText = fixNewText(symbol, position, newText);
-  const locs = getReferences(analyzer, doc, symbol.selectionRange.start);
+  const locs = getReferences(doc, symbol.selectionRange.start);
   return locs.map(loc => {
     const locationText = analyzer.getTextAtLocation(loc);
     let replaceText = newText || locationText;

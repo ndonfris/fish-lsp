@@ -10,6 +10,7 @@ import path, { dirname } from 'path';
 import { SyncFileHelper } from '../utils/file-operations';
 import { pathToUri, uriToPath } from '../utils/translation';
 import { workspaceManager } from '../utils/workspace-manager';
+import { logger } from '../logger';
 
 export const ArparseOptions = [
   Option.create('-n', '--name').withValue(),
@@ -120,8 +121,15 @@ export function getGlobalArgparseLocations(analyzer: Analyzer, document: LspDocu
         document.getFilename(),
       );
     if (process.env.NODE_ENV !== 'test' && !SyncFileHelper.isFile(completionFile)) {
+      logger.debug({
+        env: 'test',
+        message: `Completion file does not exist: ${completionFile}`,
+      });
       return [];
     }
+    logger.debug({
+      message: `Getting global argparse locations for symbol: ${symbol.name} in file: ${completionFile}`,
+    });
     return analyzer
       .getFlatCompletionSymbols(pathToUri(completionFile))
       .filter(s => s.equalsArgparse(symbol))

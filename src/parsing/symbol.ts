@@ -305,6 +305,13 @@ export class FishSymbol {
     );
   }
 
+  toPosition(): { line: number; character: number; } {
+    return {
+      line: this.selectionRange.start.line,
+      character: this.selectionRange.start.character,
+    };
+  }
+
   toLocation(): Location {
     return Location.create(
       this.uri,

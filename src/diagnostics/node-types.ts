@@ -1,8 +1,13 @@
 import Parser, { SyntaxNode } from 'web-tree-sitter';
-import { isCommand, isCommandName, isCommandWithName, isEndStdinCharacter, isIfOrElseIfConditional, isMatchingOption, isOption, isString, isVariableDefinitionName } from '../utils/node-types';
+import { isCommand, isCommandName, isCommandWithName, isEndStdinCharacter, isFunctionDefinitionName, isIfOrElseIfConditional, isMatchingOption, isOption, isString, isVariableDefinitionName } from '../utils/node-types';
 import { getChildNodes, isNodeWithinOtherNode } from '../utils/tree-sitter';
 import { Option } from '../parsing/options';
 import { isExistingSourceFilenameNode, isSourceCommandArgumentName } from '../parsing/source';
+import { LspDocument } from '../document';
+import { DiagnosticCommentsHandler } from './comments-handler';
+import { FishSymbol } from '../parsing/symbol';
+import { ErrorCodes } from './error-codes';
+import { getReferences } from '../references';
 
 type startTokenType = 'function' | 'while' | 'if' | 'for' | 'begin' | '[' | '{' | '(' | "'" | '"';
 type endTokenType = 'end' | "'" | '"' | ']' | '}' | ')';
@@ -255,6 +260,27 @@ export function isArgparseWithoutEndStdin(node: SyntaxNode) {
   const endStdin = getChildNodes(node).find(n => isEndStdinCharacter(n));
   if (!endStdin) return true;
   return false;
+}
+
+//
+export function isFunctionWithEventHookCallback(doc: LspDocument, handler: DiagnosticCommentsHandler, allFunctions: FishSymbol[]) {
+  const docType = doc.getAutoloadType();
+  return (node: SyntaxNode): boolean => {
+    if (docType !== 'functions') return false;
+    if (!isFunctionDefinitionName(node)) return false;
+    if (docType === 'functions' && handler.isCodeEnabledAtNode(ErrorCodes.autoloadedFunctionWithEventHookUnused, node)) {
+      const funcSymbol = allFunctions.find(symbol => symbol.name === node.text);
+      if (funcSymbol && funcSymbol.hasEventHook()) {
+        const refs = getReferences(doc, funcSymbol.toPosition()).filter(ref =>
+          !funcSymbol.equalLocations(ref) &&
+          !ref.uri.includes('completions/') &&
+          ref.uri !== doc.uri,
+        );
+        if (refs.length === 0) return true;
+      }
+    }
+    return false;
+  };
 }
 
 export function isFishLspDeprecatedVariableName(node: SyntaxNode): boolean {

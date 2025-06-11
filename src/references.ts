@@ -1,5 +1,5 @@
 import { Location, Position, SymbolKind } from 'vscode-languageserver';
-import { Analyzer } from './analyze';
+import { analyzer, Analyzer } from './analyze';
 import { LspDocument } from './document';
 import { isCommandWithName, isCompleteCommandName, isMatchingOption, isOption } from './utils/node-types';
 import { getRange } from './utils/tree-sitter';
@@ -21,7 +21,6 @@ import { uriToReadablePath } from './utils/translation';
  * @return the locations of the symbol
  */
 export function getReferences(
-  analyzer: Analyzer,
   document: LspDocument,
   position: Position,
   localOnly = false,
@@ -55,7 +54,7 @@ export function getReferences(
   if (symbol.isLocal()) localOnly = true;
 
   locations.push(symbol.toLocation());
-  const symbolLocations = findSymbolLocations(analyzer, symbol, localOnly);
+  const symbolLocations = findSymbolLocations(symbol, localOnly);
   // add unique locations
   for (const location of symbolLocations) {
     if (!locations.some(loc => Locations.Location.equals(loc, location))) {
@@ -86,7 +85,6 @@ export function getReferences(
  * @return the locations of the symbol, should be a lower number of locations than getReferences
  */
 export function implementationLocation(
-  analyzer: Analyzer,
   document: LspDocument,
   position: Position,
 ): Location[] {
@@ -95,7 +93,7 @@ export function implementationLocation(
   if (!node) return [];
   const symbol = analyzer.getDefinition(document, position);
   if (!symbol) return [];
-  const newLocations = getReferences(analyzer, document, position)
+  const newLocations = getReferences(document, position)
     .filter(location => location.uri !== document.uri);
 
   if (newLocations.some(s => s.uri === symbol.uri)) {
@@ -114,7 +112,6 @@ export function implementationLocation(
  * find all the symbol locations for a normal symbol (not an `argparse` flag)
  */
 function findSymbolLocations(
-  analyzer: Analyzer,
   symbol: FishSymbol,
   localOnly = false,
 ): Location[] {

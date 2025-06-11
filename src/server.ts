@@ -423,7 +423,7 @@ export default class FishServer {
     const { doc } = this.getDefaults(params);
     if (!doc) return [];
 
-    return getReferences(analyzer, doc, params.position);
+    return getReferences(doc, params.position);
   }
 
   /**
@@ -560,7 +560,7 @@ export default class FishServer {
     const { doc } = this.getDefaults(params);
     if (!doc) return null;
 
-    const locations = getRenames(analyzer, doc, params.position, params.newName);
+    const locations = getRenames(doc, params.position, params.newName);
 
     const changes: { [uri: string]: TextEdit[]; } = {};
     for (const location of locations) {

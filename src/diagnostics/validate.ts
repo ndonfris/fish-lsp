@@ -3,7 +3,7 @@ import { SyntaxNode } from 'web-tree-sitter';
 import { LspDocument } from '../document';
 import { findEnclosingScope, getChildNodes, getRange } from '../utils/tree-sitter';
 import { containsRange } from '../utils/tree-sitter';
-import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter, isMatchingCompleteOptionIsCommand, LocalFunctionCallType, isArgparseWithoutEndStdin, isFishLspDeprecatedVariableName, getDeprecatedFishLspMessage, isDotSourceCommand, isMatchingAbbrFunction } from './node-types';
+import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter, isMatchingCompleteOptionIsCommand, LocalFunctionCallType, isArgparseWithoutEndStdin, isFishLspDeprecatedVariableName, getDeprecatedFishLspMessage, isDotSourceCommand, isMatchingAbbrFunction, isFunctionWithEventHookCallback } from './node-types';
 import { ErrorCodes } from './error-codes';
 import { config } from '../config';
 import { DiagnosticCommentsHandler } from './comments-handler';
@@ -85,6 +85,9 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
   const localFunctionCalls: LocalFunctionCallType[] = [];
   const commandNames: SyntaxNode[] = [];
   const completeCommandNames: SyntaxNode[] = [];
+
+  // callback to check if the function has an `--event` handler && the handler is enabled at the node
+  const isFunctionWithEventHook = isFunctionWithEventHookCallback(doc, handler, allFunctions);
 
   // compute in single pass
   for (const node of getChildNodes(root)) {
@@ -180,6 +183,16 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
       if (isTopLevelFunctionDefinition(node)) topLevelFunctions.push(node);
       if (isReservedKeyword(node.text)) functionsWithReservedKeyword.push(node);
       if (!isAutoloadedFunctionName(node)) localFunctions.push(node);
+      if (isFunctionWithEventHook(node)) {
+        // TODO: add support for `emit` to reference the event hook
+        diagnostics.push(
+          FishDiagnostic.create(
+            ErrorCodes.autoloadedFunctionWithEventHookUnused,
+            node,
+            `Function '${node.text}' has an event hook but is not called anywhere in the workspace.`,
+          ),
+        );
+      }
     }
 
     // skip comments and options

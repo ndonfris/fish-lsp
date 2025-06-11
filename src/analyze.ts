@@ -472,6 +472,51 @@ export class Analyzer {
   }
 
   /**
+   * A generator function that yields all the documents in the workspace.
+   */
+  public* findDocumentsGen(): Generator<LspDocument> {
+    const currentWs = workspaceManager.current;
+    const uris = this.cache.uris().filter(uri => currentWs ? currentWs?.contains(uri) : true);
+    for (const uri of uris) {
+      const document = this.cache.getDocument(uri)?.document;
+      if (document) {
+        yield document;
+      }
+    }
+  }
+
+  /**
+   * A generator function that yields all the symbols in the workspace, per document
+   * The symbols yielded are flattened FishSymbols (NOT nested).
+   */
+  public* findSymbolsGen(): Generator<{ document: LspDocument; symbols: FishSymbol[]; }> {
+    const currentWs = workspaceManager.current;
+    const uris = this.cache.uris().filter(uri => currentWs ? currentWs?.contains(uri) : true);
+    for (const uri of uris) {
+      const symbols = this.cache.getFlatDocumentSymbols(uri);
+      const document = this.cache.getDocument(uri)?.document;
+      if (!document || !symbols) continue;
+      yield { document, symbols };
+    }
+  }
+
+  /**
+   * A generator function that yields all the nodes in the workspace, per document.
+   * The nodes yielded are using the `this.getNodes()` method, which returns the cached
+   * nodes for the document.
+   */
+  public* findNodesGen() : Generator<{ document: LspDocument; nodes: SyntaxNode[]; }> {
+    const currentWs = workspaceManager.current;
+    const uris = this.cache.uris().filter(uri => currentWs ? currentWs?.contains(uri) : true);
+    for (const uri of uris) {
+      const root = this.cache.getRootNode(uri);
+      const document = this.cache.getDocument(uri)?.document;
+      if (!root || !document) continue;
+      yield { document, nodes: this.getNodes(document.uri) };
+    }
+  }
+
+  /**
    * Collect all the global symbols in the workspace, and the document symbols usable
    * at the requests position. DocumentSymbols that are not in the position's scope are
    * excluded from the result array of FishSymbols.
@@ -687,7 +732,7 @@ export class Analyzer {
   public getImplementation(document: LspDocument, position: Position): Location[] {
     const definition = this.getDefinition(document, position);
     if (!definition) return [];
-    const locations = implementationLocation(this, document, position);
+    const locations = implementationLocation(document, position);
     return locations;
   }
 

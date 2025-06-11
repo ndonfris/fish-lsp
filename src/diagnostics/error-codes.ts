@@ -22,6 +22,7 @@ export namespace ErrorCodes {
   export const unusedLocalFunction = 4004;
   export const autoloadedCompletionMissingCommandName = 4005;
   export const duplicateFunctionDefinitionInSameScope = 4006;
+  export const autoloadedFunctionWithEventHookUnused = 4007;
   // export const preferAutloadedFunctionHasDescription = 4005;
 
   export const argparseMissingEndStdin = 5001;
@@ -36,7 +37,7 @@ export namespace ErrorCodes {
     1001 | 1002 | 1003 | 1004 | 1005 |
     2001 | 2002 | 2003 |
     3001 | 3002 | 3003 |
-    4001 | 4002 | 4003 | 4004 | 4005 | 4006 |
+    4001 | 4002 | 4003 | 4004 | 4005 | 4006 | 4007 |
     5001 |
     6001 |
     8001 |
@@ -176,6 +177,13 @@ export namespace ErrorCodes {
       codeDescription: { href: 'https://fishshell.com/docs/current/cmds/functions.html' },
       source: 'fish-lsp',
       message: 'Duplicate function definition exists in the same scope.\n\nAmbiguous function',
+    },
+    [autoloadedFunctionWithEventHookUnused]: {
+      severity: DiagnosticSeverity.Warning,
+      code: autoloadedFunctionWithEventHookUnused,
+      codeDescription: { href: 'https://fishshell.com/docs/current/language.html#event' },
+      source: 'fish-lsp',
+      message: 'Autoloaded function with event hook is unused',
     },
     [argparseMissingEndStdin]: {
       severity: DiagnosticSeverity.Error,

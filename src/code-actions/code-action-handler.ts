@@ -185,7 +185,8 @@ export function equalDiagnostics(d1: Diagnostic, d2: Diagnostic) {
     d1.range.start.line === d2.range.start.line &&
     d1.range.start.character === d2.range.start.character &&
     d1.range.end.line === d2.range.end.line &&
-    d1.range.end.character === d2.range.end.character;
+    d1.range.end.character === d2.range.end.character &&
+    d1.data.node?.text === d2.data.node?.text;
 }
 
 export function createOnCodeActionResolveHandler(_docs: LspDocuments, _analyzer: Analyzer) {
