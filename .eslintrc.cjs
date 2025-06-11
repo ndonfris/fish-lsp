@@ -16,6 +16,12 @@ module.exports = {
         project: './tsconfig.eslint.json',
         tsconfigRootDir: __dirname,
     },
+    ignorePatterns: [
+        'scripts/build-*.ts',
+        'scripts/build-standalone.ts',
+        'dist/',
+        '.bun/'
+    ],
     rules: {
         'array-bracket-spacing': 'error',
         'brace-style': 'error',

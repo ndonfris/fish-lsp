@@ -13,3 +13,5 @@ test-data/staging
 .editorconfig
 .gitattributes
 coverage
+.bun
+dist
