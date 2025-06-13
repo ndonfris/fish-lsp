@@ -13,6 +13,20 @@ import * as Locations from './utils/locations';
 import { uriToReadablePath } from './utils/translation';
 
 /**
+ * Options for the getReferences function
+ */
+export type ReferenceOptions = {
+  // only check local references inside the current document
+  localOnly?: boolean;
+  // stop searching after the first match
+  firstMatch?: boolean;
+  // search in all workspaces, default is to search only the current workspace
+  allWorkspaces?: boolean;
+  // only consider matches in the specified files
+  onlyInFiles?: ('conf.d' | 'functions' | 'config' | 'completions')[];
+};
+
+/**
  * get all the references for a symbol, including the symbol's definition
  * @param analyzer the analyzer
  * @param document the document
@@ -23,7 +37,7 @@ import { uriToReadablePath } from './utils/translation';
 export function getReferences(
   document: LspDocument,
   position: Position,
-  localOnly = false,
+  opts: ReferenceOptions = { localOnly: false, firstMatch: false, allWorkspaces: false, onlyInFiles: [] },
 ): Location[] {
   const startTime = performance.now();
 
@@ -33,7 +47,7 @@ export function getReferences(
   if (!symbol) return [];
   if (symbol.fishKind === 'ARGPARSE') {
     locations.push(symbol.toLocation());
-    locations.push(...getArgparseLocations(analyzer, symbol, localOnly));
+    locations.push(...getArgparseLocations(analyzer, symbol, opts));
     const endTime = performance.now();
     const duration = ((endTime - startTime) / 1000).toFixed(2); // Convert to seconds with 2 decimal places
 
@@ -51,10 +65,10 @@ export function getReferences(
 
   // only search for local references if the symbol is local definition
   // NOTICE: we don't do this for argparse locations cause they might not be local
-  if (symbol.isLocal()) localOnly = true;
+  if (symbol.isLocal()) opts.localOnly = true;
 
   locations.push(symbol.toLocation());
-  const symbolLocations = findSymbolLocations(symbol, localOnly);
+  const symbolLocations = findSymbolLocations(symbol, opts.localOnly);
   // add unique locations
   for (const location of symbolLocations) {
     if (!locations.some(loc => Locations.Location.equals(loc, location))) {
@@ -178,7 +192,7 @@ function findSymbolLocations(
 export function getArgparseLocations(
   analyzer: Analyzer,
   symbol: FishSymbol,
-  localOnly = false,
+  opts: ReferenceOptions = { localOnly: false, firstMatch: false, allWorkspaces: false, onlyInFiles: [] },
 ): Location[] {
   const result: Location[] = [];
   const parentName = symbol.parent?.name
@@ -193,7 +207,7 @@ export function getArgparseLocations(
     result.push(...getGlobalArgparseLocations(analyzer, document, symbol));
   }
   const matchingNodes = analyzer.findNodes((n, document) => {
-    if (localOnly && document.uri !== symbol.uri) return false;
+    if (opts.localOnly && document.uri !== symbol.uri) return false;
     // complete -c parentName -s ... -l flag-name
     if (isCompletionArgparseFlagWithCommandName(n, parentName, symbol.argparseFlagName)) {
       return true;

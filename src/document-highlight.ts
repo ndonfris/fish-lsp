@@ -64,7 +64,7 @@ export function getDocumentHighlights(analyzer: Analyzer) {
 
     // use local symbol reference locations
     if (symbol) {
-      const refLocations = getReferences(doc, symbol.selectionRange.start, true);
+      const refLocations = getReferences(doc, symbol.selectionRange.start, { localOnly: true });
       if (!refLocations) return [];
       return convertSymbolLocationsToHighlights(doc, refLocations);
     }
