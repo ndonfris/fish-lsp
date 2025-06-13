@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 
+// @ts-ignore
 import { $ } from 'bun';
 import { join } from 'path';
 
@@ -24,13 +25,13 @@ async function buildBinary(target: string): Promise<void> {
   await $`bun build ./out/cli.js \
     --compile \
     --target ${target} \
-    --outfile ./dist/${outName} \
+    --outfile ./build/${outName} \
     --minify`;
 }
 
 async function main(): Promise<void> {
   // Ensure dist directory exists
-  await $`mkdir -p dist`;
+  await $`mkdir -p build`;
   
   // Build for all targets
   for (const target of targets) {
