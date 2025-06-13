@@ -21,7 +21,7 @@
   },
   "man": "./docs/man/fish-lsp.1",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.0.0"
   },
   "directories": {
     "bin": "./bin/fish-lsp",
@@ -52,9 +52,10 @@
     "sh:build-wasm": "fish ./scripts/build-fish-wasm.fish",
     "sh:relink": "fish ./scripts/relink-locally.fish",
     "sh:build-release": "fish ./scripts/build-release.fish",
-    "clean": "rimraf out node_modules .tsbuildinfo coverage",
-    "clean:all": "rimraf out .tsbuildinfo node_modules tree-sitter-fish.wasm logs.txt build coverage",
-    "clean:build": "rimraf build .tsbuildinfo *.tgz coverage",
+    "sh:binary": "./scripts/build-with-bun.sh",
+    "clean": "rimraf out node_modules .tsbuildinfo coverage .bun build",
+    "clean:all": "rimraf out .tsbuildinfo node_modules tree-sitter-fish.wasm logs.txt build coverage .bun build",
+    "clean:build": "rimraf build .tsbuildinfo *.tgz coverage .bun build",
     "test": "env -i HOME=$HOME PATH=$PATH NODE_ENV=test jest",
     "test:coverage": "env -i HOME=$HOME PATH=$PATH NODE_ENV=test jest --coverage --collectCoverageFrom 'src/**/*.ts'",
     "refactor": "knip",
@@ -66,7 +67,8 @@
     "generate:commands:check": "tsx ./scripts/fish-commands-scrapper.ts",
     "generate:man": "mkdir -p ./docs/man && cat docs/MAN_FILE.md | npx marked-man --date \"$(date)\"  --manual fish-lsp --section 1 > ./docs/man/fish-lsp.1",
     "generate:man:cp": "cp ./docs/man/fish-lsp.1 ~/.local/share/man/man1/fish-lsp.1",
-    "generate:man:write-global": "run-s generate:man generate:man:cp"
+    "generate:man:write-global": "run-s generate:man generate:man:cp",
+    "build:binary": "run-s dev sh:binary"
   },
   "enabledApiProposals": [
     "inlineCompletions"

@@ -6,10 +6,12 @@ node_modules
 *.tsbuildinfo
 logs.txt
 wikis
-build
 test-data/staging
 *.tgz
 *.tsbuildinfo
 .editorconfig
 .gitattributes
 coverage
+.bun
+dist
+build
