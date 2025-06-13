@@ -214,6 +214,18 @@ export class LspDocument implements TextDocument {
     return parentDir === 'functions';
   }
 
+  isAutoloadedFunction(): boolean {
+    return this.getAutoloadType() === 'functions';
+  }
+
+  isAutoloadedCompletion(): boolean {
+    return this.getAutoloadType() === 'completions';
+  }
+
+  isAutoloadedConfd(): boolean {
+    return this.getAutoloadType() === 'conf.d';
+  }
+
   shouldAnalyzeInBackground(): boolean {
     const pathArray = this.uri.split('/');
     const fileName = pathArray.pop();

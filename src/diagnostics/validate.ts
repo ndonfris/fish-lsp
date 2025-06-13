@@ -354,10 +354,11 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
     });
   }
 
+  doc.isFunction();
   const docNameMatchesCompleteCommandNames = completeCommandNames.some(node =>
     node.text === doc.getAutoLoadName());
   // if no `complete -c func_name` matches the autoload name
-  if (completeCommandNames.length > 0 && !docNameMatchesCompleteCommandNames) {
+  if (completeCommandNames.length > 0 && !docNameMatchesCompleteCommandNames && doc.isAutoloadedCompletion()) {
     const completeNames: Set<string> = new Set();
     for (const completeCommandName of completeCommandNames) {
       if (!completeNames.has(completeCommandName.text) && handler.isCodeEnabledAtNode(ErrorCodes.autoloadedCompletionMissingCommandName, completeCommandName)) {
