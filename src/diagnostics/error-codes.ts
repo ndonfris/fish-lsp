@@ -26,6 +26,7 @@ export namespace ErrorCodes {
   // export const preferAutloadedFunctionHasDescription = 4005;
 
   export const argparseMissingEndStdin = 5001;
+  export const unreachableCode = 5555;
 
   export const fishLspDeprecatedEnvName = 6001;
 
@@ -38,7 +39,7 @@ export namespace ErrorCodes {
     2001 | 2002 | 2003 |
     3001 | 3002 | 3003 |
     4001 | 4002 | 4003 | 4004 | 4005 | 4006 | 4007 |
-    5001 |
+    5001 | 5555 |
     6001 |
     8001 |
     9999 ;
@@ -191,6 +192,13 @@ export namespace ErrorCodes {
       codeDescription: { href: 'https://fishshell.com/docs/current/cmds/argparse.html' },
       source: 'fish-lsp',
       message: 'argparse missing end of stdin',
+    },
+    [unreachableCode]: {
+      severity: DiagnosticSeverity.Warning,
+      code: unreachableCode,
+      codeDescription: { href: 'https://fishshell.com/docs/current/language.html#unreachable-code-blocks' },
+      source: 'fish-lsp',
+      message: 'Unreachable code blocks detected',
     },
     [fishLspDeprecatedEnvName]: {
       severity: DiagnosticSeverity.Warning,

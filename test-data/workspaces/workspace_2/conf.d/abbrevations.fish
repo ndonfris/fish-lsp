@@ -72,6 +72,14 @@ function gh_browse_master_branch
     string join ' ' -- gh browse $master_branch
 end
 
+function asdf
+  set -q PATH
+  and return 1    # Success path terminates
+  or return 0     # Failure path terminates
+
+  echo hi # Correctly detected as unreachable!
+end
+
 #########################################################################################
 #########################################################################################
 #########################################################################################

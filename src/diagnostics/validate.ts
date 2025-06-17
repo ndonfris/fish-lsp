@@ -15,6 +15,7 @@ import { getNoExecuteDiagnostics } from './no-execute-diagnostic';
 import { checkForInvalidDiagnosticCodes } from './invalid-error-code';
 import { analyzer } from '../analyze';
 import { FishSymbol } from '../parsing/symbol';
+import { findUnreachableCode } from '../parsing/unreachable';
 
 // Utilities related to building a documents Diagnostics.
 
@@ -354,7 +355,7 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
     });
   }
 
-  doc.isFunction();
+  // doc.isFunction();
   const docNameMatchesCompleteCommandNames = completeCommandNames.some(node =>
     node.text === doc.getAutoLoadName());
   // if no `complete -c func_name` matches the autoload name
@@ -364,6 +365,15 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
       if (!completeNames.has(completeCommandName.text) && handler.isCodeEnabledAtNode(ErrorCodes.autoloadedCompletionMissingCommandName, completeCommandName)) {
         diagnostics.push(FishDiagnostic.create(ErrorCodes.autoloadedCompletionMissingCommandName, completeCommandName, completeCommandName.text));
         completeNames.add(completeCommandName.text);
+      }
+    }
+  }
+
+  if (handler.isCodeEnabled(ErrorCodes.unreachableCode)) {
+    const unreachableNodes = findUnreachableCode(root);
+    for (const unreachableNode of unreachableNodes) {
+      if (handler.isCodeEnabledAtNode(ErrorCodes.unreachableCode, unreachableNode)) {
+        diagnostics.push(FishDiagnostic.create(ErrorCodes.unreachableCode, unreachableNode));
       }
     }
   }
