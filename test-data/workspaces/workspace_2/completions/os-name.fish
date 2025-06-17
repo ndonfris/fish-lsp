@@ -38,7 +38,7 @@ complete -c os-name -f # remove the file completion for os-name command
 # show help message
 complete -c os-name -n 'not __fish_contains_opt -s h help' -s h -l help -d "Show help message"
 # --is-* completions
-complete -c os-name -n 'not __os-name-using-status-check; and not __os-name-using-scope-flag; and not __fish_contains_opt set; and not __fish_contains_opt dry-run; and not __fish_contains_opt -s h help' -l is-mac -d "Return 0 if macOS, 1 otherwise"
+complete -c os-name -n '__os-name-using-status-check; and not __os-name-using-scope-flag; and not __fish_contains_opt set; and not __fish_contains_opt dry-run; and not __fish_contains_opt -s h help' -l is-mac -d "Return 0 if macOS, 1 otherwise"
 complete -c os-name -n 'not __os-name-using-status-check; and not __os-name-using-scope-flag; and not __fish_contains_opt set; and not __fish_contains_opt dry-run; and not __fish_contains_opt -s h help' -l is-linux -d "Return 0 if Linux, 1 otherwise"  
 complete -c os-name -n 'not __os-name-using-status-check; and not __os-name-using-scope-flag; and not __fish_contains_opt set; and not __fish_contains_opt dry-run; and not __fish_contains_opt -s h help' -l is-unix -d "Return 0 if Unix-like (Linux/macOS), 1 otherwise"
 complete -c os-name -n 'not __os-name-using-status-check; and not __os-name-using-scope-flag; and not __fish_contains_opt set; and not __fish_contains_opt dry-run; and not __fish_contains_opt -s h help' -l is-windows -d "Return 0 if Windows, 1 otherwise"

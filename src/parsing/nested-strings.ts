@@ -56,6 +56,10 @@ export function extractCommands(
   const cleanedText = cleanQuotes(node.text);
   const commands = new Set<string>();
   
+  // Always parse direct commands first
+  const directCommands = parseDirectCommands(cleanedText, config);
+  directCommands.forEach(cmd => commands.add(cmd));
+  
   // Parse command substitutions: $(cmd args)
   if (config.parseCommandSubstitutions) {
     const substitutionCommands = parseCommandSubstitutions(cleanedText);
@@ -66,12 +70,6 @@ export function extractCommands(
   if (config.parseParenthesized) {
     const parenthesizedCommands = parseParenthesizedExpressions(cleanedText);
     parenthesizedCommands.forEach(cmd => commands.add(cmd));
-  }
-  
-  // Parse direct commands (fallback for simple cases)
-  if (commands.size === 0) {
-    const directCommands = parseDirectCommands(cleanedText, config);
-    directCommands.forEach(cmd => commands.add(cmd));
   }
   
   return Array.from(commands).filter(cmd => cmd.length > 0);
@@ -148,6 +146,9 @@ function findCommandsWithOffsets(
 ): Array<{ command: string; offset: number }> {
   const results: Array<{ command: string; offset: number }> = [];
   
+  // Always parse direct commands first
+  results.push(...findDirectCommandOffsets(text, config));
+  
   // Parse command substitutions
   if (config.parseCommandSubstitutions) {
     results.push(...findCommandSubstitutionOffsets(text));
@@ -156,11 +157,6 @@ function findCommandsWithOffsets(
   // Parse parenthesized expressions
   if (config.parseParenthesized) {
     results.push(...findParenthesizedCommandOffsets(text));
-  }
-  
-  // Parse direct commands if no special syntax found
-  if (results.length === 0) {
-    results.push(...findDirectCommandOffsets(text, config));
   }
   
   return results;
@@ -238,16 +234,40 @@ function findDirectCommandOffsets(
   text: string, 
   config: ExtractConfig
 ): Array<{ command: string; offset: number }> {
-  const firstCommand = getFirstCommand(text);
-  if (!firstCommand) return [];
+  const results: Array<{ command: string; offset: number }> = [];
+  const statements = text.split(/[;&|]+/);
+  let currentOffset = 0;
   
-  if (config.cleanKeywords && 
-      (FISH_KEYWORDS.has(firstCommand) || FISH_OPERATORS.has(firstCommand))) {
-    return [];
+  for (const statement of statements) {
+    const trimmedStatement = statement.trim();
+    const statementStart = text.indexOf(trimmedStatement, currentOffset);
+    
+    if (trimmedStatement) {
+      const tokens = tokenizeStatement(trimmedStatement);
+      
+      // Filter tokens if cleaning is enabled
+      const relevantTokens = config.cleanKeywords 
+        ? tokens.filter(token => !FISH_KEYWORDS.has(token) && !FISH_OPERATORS.has(token))
+        : tokens;
+      
+      // Find offset for each relevant token
+      for (const token of relevantTokens) {
+        if (token && !isNumeric(token) && token.length > 1) {
+          const tokenOffset = trimmedStatement.indexOf(token);
+          if (tokenOffset !== -1) {
+            results.push({
+              command: token,
+              offset: statementStart + tokenOffset
+            });
+          }
+        }
+      }
+    }
+    
+    currentOffset = statementStart + statement.length;
   }
   
-  const offset = text.indexOf(firstCommand);
-  return offset !== -1 ? [{ command: firstCommand, offset }] : [];
+  return results;
 }
 
 /**
@@ -261,7 +281,7 @@ function getFirstCommand(text: string): string | null {
 /**
  * Extract individual commands from a text string
  */
-function extractCommandsFromText(input: string): string[] {
+function extractCommandsFromText(input: string, cleanKeywords = true): string[] {
   const statements = input.split(/[;&|]+/)
     .map(stmt => stmt.trim())
     .filter(stmt => stmt.length > 0);
@@ -270,10 +290,17 @@ function extractCommandsFromText(input: string): string[] {
   
   for (const statement of statements) {
     const tokens = tokenizeStatement(statement);
-    const firstToken = tokens[0];
     
-    if (firstToken && !isNumeric(firstToken) && firstToken.length > 1) {
-      commands.push(firstToken);
+    // Filter out fish keywords if enabled
+    const filteredTokens = cleanKeywords 
+      ? tokens.filter(token => !FISH_KEYWORDS.has(token) && !FISH_OPERATORS.has(token))
+      : tokens;
+    
+    // Get all potential commands from the statement
+    for (const token of filteredTokens) {
+      if (token && !isNumeric(token) && token.length > 1) {
+        commands.push(token);
+      }
     }
   }
   
@@ -291,7 +318,7 @@ function parseCommandSubstitutions(input: string): string[] {
   while ((match = regex.exec(input)) !== null) {
     const commandText = match[1];
     if (commandText?.trim()) {
-      commands.push(...extractCommandsFromText(commandText));
+      commands.push(...extractCommandsFromText(commandText, true));
     }
   }
   
@@ -316,7 +343,7 @@ function parseParenthesizedExpressions(input: string): string[] {
       if (stack.length === 0 && start !== -1) {
         const innerText = input.slice(start + 1, i);
         if (innerText.trim()) {
-          commands.push(...extractCommandsFromText(innerText));
+          commands.push(...extractCommandsFromText(innerText, true));
         }
         start = -1;
       }
@@ -330,10 +357,7 @@ function parseParenthesizedExpressions(input: string): string[] {
  * Parse direct commands
  */
 function parseDirectCommands(input: string, config: ExtractConfig): string[] {
-  return extractCommandsFromText(input).filter(cmd => {
-    if (!config.cleanKeywords) return true;
-    return !FISH_KEYWORDS.has(cmd) && !FISH_OPERATORS.has(cmd);
-  });
+  return extractCommandsFromText(input, config.cleanKeywords);
 }
 
 /**
@@ -347,7 +371,7 @@ function tokenizeStatement(statement: string): string[] {
   
   for (let i = 0; i < statement.length; i++) {
     const char = statement[i];
-    if (!char) continue; // Skip null characters
+    if (!char) continue;
     
     if (!inQuotes && (char === '"' || char === "'")) {
       inQuotes = true;

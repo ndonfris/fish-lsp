@@ -1,7 +1,7 @@
 
 import { createFakeLspDocument, rangeAsString, setLogger, TestWorkspaces } from './helpers';
 import { getReferencesOld } from '../src/old-references';
-import { ReferenceOptions, getReferences } from '../src/references';
+import { NestedSyntaxNodeWithReferences, ReferenceOptions, getReferences } from '../src/references';
 import { Analyzer, analyzer } from '../src/analyze';
 import { documents, LspDocument } from '../src/document';
 import * as path from 'path';
@@ -9,11 +9,13 @@ import { SyncFileHelper } from '../src/utils/file-operations';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import { workspaceManager } from '../src/utils/workspace-manager';
 import { Workspace } from '../src/utils/workspace';
-import { getRange, pointToPosition } from '../src/utils/tree-sitter';
+import { getChildNodes, getRange, pointToPosition } from '../src/utils/tree-sitter';
 import { Location } from 'vscode-languageserver';
 import { logger } from '../src/logger';
 import { FishAlias, isAliasDefinitionValue } from '../src/parsing/alias';
-import { findParentCommand } from '../src/utils/node-types';
+import { findParentCommand, isString } from '../src/utils/node-types';
+import { extractCommands } from '../src/parsing/nested-strings';
+import { Option, isMatchingOptionOrOptionValue } from '../src/parsing/options';
 // import { pathToUri } from '../src/utils/translation';
 
 const testWorkspace = TestWorkspaces.workspace2;
@@ -22,7 +24,7 @@ const ws = Workspace.syncCreateFromUri(testWorkspace.uri)!;
 function referenceLocationsToString(locations: Location[]) {
   return locations.map(loc => {
     const doc = ws.findDocument(doc => doc.uri === loc.uri);
-    return `${doc?.getRelativeFilenameToWorkspace()}---${rangeAsString(loc.range)}`;
+    return `${doc?.getRelativeFilenameToWorkspace()}   ${rangeAsString(loc.range)}`;
   });
 }
 
@@ -34,7 +36,7 @@ describe('testing references with new `opts` param', () => {
   setLogger();
 
   beforeAll(async () => {
-    logger.setLogLevel('debug');
+    // logger.setLogLevel('debug');
     await setupProcessEnvExecFile();
     await Analyzer.initialize();
   });
@@ -189,6 +191,10 @@ describe('testing references with new `opts` param', () => {
           txt: doc.getText(ref.range),
         });
       }
+      console.log({
+        msg: `checking newRefs.length for '${defSymbol!.name}': ${newRefs.length}`,
+        refs: referenceLocationsToString(newRefs),
+      });
       expect(newRefs.length).toBeGreaterThanOrEqual(7);
     });
 
@@ -234,8 +240,86 @@ describe('testing references with new `opts` param', () => {
           range: rangeAsString(getRange(n)),
           info: FishAlias.getInfo(parent!),
         });
-      })
-        ;
+      });
+    });
+  });
+
+  describe('parse inline string references', () => {
+
+    it('should find references in inline strings', () => {
+      const fakeDoc = createFakeLspDocument('test_inline_string.fish',
+        'function __test_inline_string_1',
+        '    echo "This is a test string with a reference to ls"',
+        '    return 0',
+        'end',
+        'function __test_inline_string_2',
+        '    echo "Another test string with a reference to ls"',
+        '    return 0',
+        'end',
+        'complete -c test_inline_string -n "__test_inline_string_1" -l ls',
+        'complete -c test_inline_string -n "__test_inline_string_2" -l exa',
+        '',
+        'complete -c test_inline_string -n "not __test_inline_string_1" -s l',
+        'complete -c test_inline_string -n "not __test_inline_string_2" -s e',
+        '',
+        'complete -c test_inline_string -n "__test_inline_string_1; and not __test_inline_string_2" -l both1',
+        'complete -c test_inline_string -n "not __test_inline_string_1; and not __test_inline_string_2" -l both2',
+      );
+      const cached = analyzer.analyze(fakeDoc);
+      expect(cached).toBeDefined();
+
+      workspaceManager.current?.add(fakeDoc.uri);
+
+      const symbol = cached.documentSymbols.find(s => s.name === '__test_inline_string_1');
+      expect(symbol).toBeDefined();
+      const pos = pointToPosition(symbol!.focusedNode.startPosition);
+      const refs = getReferences(fakeDoc, pos, { logPerformance: true });
+      const cmpStr = getChildNodes(cached.root).find(n => isString(n) && n.text === '"__test_inline_string_1; and not __test_inline_string_2"')!;
+      const extractedCommands = extractCommands(cmpStr);
+      expect(extractedCommands).toHaveLength(2);
+      expect(refs).toHaveLength(5);
+      for (const ref of refs) {
+        const doc = ws.findDocument(d => d.uri === ref.uri)!;
+        console.log({
+          msg: `New ref: file:///${ref.uri.slice(ref.uri.lastIndexOf('workspace_2'))} - ${rangeAsString(ref.range)}`,
+          txt: doc.getText(ref.range),
+        });
+      }
+    });
+
+    it.only("function foo --wraps bar", () => {
+      const fakeDoc = createFakeLspDocument('functions/foo.fish',
+        `function foo --wraps=bar`,
+        '    echo "This is a test string with a reference to bar"',
+        '    return 0',
+        'end',
+        'function bar',
+        '    echo "This is bar function"',
+        '    return 0',
+        'end',
+      );
+      const cached = analyzer.analyze(fakeDoc);
+      expect(cached).toBeDefined();
+      workspaceManager.current?.add(fakeDoc.uri);
+
+      const fooSymbol = cached.documentSymbols.find(s => s.name === 'foo')!;
+      const barSymbol = cached.documentSymbols.find(s => s.name === 'bar')!;
+      const wrappedNode = getChildNodes(fooSymbol?.node).find(n => n.text === '--wraps=bar')!;
+      expect(wrappedNode).toBeDefined();
+      logger.debug({
+        msg: `Wrapped node: ${wrappedNode?.text}`,
+        type: wrappedNode?.type,
+        range: rangeAsString(getRange(wrappedNode!)),
+        isOpt: isMatchingOptionOrOptionValue(wrappedNode, Option.fromRaw('-w', '--wraps')),
+        parent: {
+          text: wrappedNode.parent?.text,
+          type: wrappedNode.parent?.type,
+        },
+        isWrappedCall: NestedSyntaxNodeWithReferences.isWrappedCall(barSymbol, wrappedNode),
+      });
+      NestedSyntaxNodeWithReferences.isWrappedCall(barSymbol, wrappedNode);
+
+
     });
 
   });

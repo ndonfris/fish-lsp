@@ -1,11 +1,11 @@
 import { DocumentUri, Location, Position, Range } from 'vscode-languageserver';
 import { analyzer } from './analyze';
 import { LspDocument } from './document';
-import { findParentCommand, isCommandWithName, isCompleteCommandName, isMatchingOption, isOption, isString } from './utils/node-types';
+import { findParentCommand, isCommandWithName, isCompleteCommandName, isFunctionDefinition, isMatchingOption, isOption, isString } from './utils/node-types';
 import { getRange } from './utils/tree-sitter';
 import { FishSymbol } from './parsing/symbol';
 import { isCompletionCommandDefinition } from './parsing/complete';
-import { Option } from './parsing/options';
+import { isMatchingOptionOrOptionValue, Option } from './parsing/options';
 import { logger } from './logger';
 import { getGlobalArgparseLocations, isCompletionArgparseFlagWithCommandName } from './parsing/argparse';
 import { SyntaxNode } from 'web-tree-sitter';
@@ -210,25 +210,7 @@ function isArgparseMatchCallback(definitionSymbol: FishSymbol) {
  * @param definitionSymbol the symbol to match against
  */
 function isCommandMatchCallback(definitionSymbol: FishSymbol) {
-
-  return function (searchDocument: LspDocument, node: SyntaxNode): boolean {
-    // skip all `command some_func` as references for functions
-    if (definitionSymbol.isFunction() && node.parent && isCommandWithName(node.parent, 'command')) {
-      return false;
-    }
-    // check if the node is a local symbol
-    if (definitionSymbol.isLocal() && searchDocument.uri === definitionSymbol.uri) {
-      return definitionSymbol.scopeContainsNode(node) &&
-        node.text === definitionSymbol.name &&
-        !definitionSymbol.focusedNode.equals(node);
-    }
-    if (definitionSymbol.isGlobal()) {
-      // get all the local symbols for the current document, and remove any node that is redefined in the local scope
-      const localSymbols = analyzer.cache.getFlatDocumentSymbols(searchDocument.uri)
-        .filter(s => s.name === definitionSymbol.name && s.isLocal());
-      if (localSymbols.length > 0 && localSymbols.some(s => s.scopeContainsNode(node))) {
-        return false;
-      }
+  function compareNodeToSymbolBasedOnType(searchDocument: LspDocument, node: SyntaxNode): boolean {
       // remove `complete ... -s opt -l opt` entries for variables
       if (definitionSymbol.isVariable() && node.parent) {
         const isCompletion = isCompletionCommandDefinition(node.parent);
@@ -257,6 +239,28 @@ function isCommandMatchCallback(definitionSymbol: FishSymbol) {
         }
       }
       return node.text === definitionSymbol.name && !definitionSymbol.focusedNode.equals(node);
+  }
+
+
+  return function (searchDocument: LspDocument, node: SyntaxNode): boolean {
+    // skip all `command some_func` as references for functions
+    if (definitionSymbol.isFunction() && node.parent && isCommandWithName(node.parent, 'command')) {
+      return false;
+    }
+    // check if the node is a local symbol
+    if (definitionSymbol.isLocal() && searchDocument.uri === definitionSymbol.uri) {
+      return definitionSymbol.scopeContainsNode(node) &&
+        !definitionSymbol.focusedNode.equals(node) &&
+        compareNodeToSymbolBasedOnType(searchDocument, node);
+    }
+    if (definitionSymbol.isGlobal()) {
+      // get all the local symbols for the current document, and remove any node that is redefined in the local scope
+      const localSymbols = analyzer.cache.getFlatDocumentSymbols(searchDocument.uri)
+        .filter(s => s.name === definitionSymbol.name && s.isLocal());
+      if (localSymbols.length > 0 && localSymbols.some(s => s.scopeContainsNode(node))) {
+        return false;
+      }
+      return compareNodeToSymbolBasedOnType(searchDocument, node);
     }
     return false;
   };
@@ -345,12 +349,34 @@ export namespace NestedSyntaxNodeWithReferences {
   }
 
   export function isCompleteConditionCall(definitionSymbol: FishSymbol, node: SyntaxNode): boolean {
+    if (isOption(node) || !node.isNamed) return false; // skip options
+    logger.info({
+      msg: `Checking if node is a complete condition call for symbol ${definitionSymbol.name}`,
+      node: {
+        type: node.type,
+        text: node.text,
+      },
+      parent: {
+        type: node.parent?.type,
+        text: node.parent?.text,
+      }
+    })
     if (!node.parent || !isCommandWithName(node.parent, 'complete')) return false;
-    if (isOption(node)) return false; // skip options
     if (!node?.previousSibling || !isMatchingOption(node?.previousSibling, Option.fromRaw('-n', '--condition'))) return false;
-    if (!isString(node)) return node.text === definitionSymbol.name;
     const cmds = extractCommands(node);
-    return cmds.some(cmd => cmd === definitionSymbol.name);
+    logger.debug(`Extracted commands from complete condition node: ${cmds}`);
+    return !!cmds.some(cmd => cmd.trim() === definitionSymbol.name);
+  }
+
+  export function isWrappedCall(definitionSymbol: FishSymbol, node: SyntaxNode): boolean {
+    if (!node?.parent || !isFunctionDefinition(node.parent)) return false;
+    if (isMatchingOptionOrOptionValue(node, Option.fromRaw('-w', '--wraps'))) {
+      logger.warning(`Node ${node.text} is a wrapped call for symbol ${definitionSymbol.name}`);
+      const cmds = extractCommands(node);
+      logger.debug(`Extracted commands from wrapped call node: ${cmds}`);
+      return cmds.some(cmd => cmd.trim() === definitionSymbol.name);
+    }
+    return false;
   }
 
   export function isAnyNestedCommand(definitionSymbol: FishSymbol, node: SyntaxNode): boolean {
@@ -426,19 +452,8 @@ export function implementationLocation(
     }
     return [Location.create(nextLocation.uri, nextLocation.range)];
   }
+  locations.unshift(symbol.toLocation())
   locations.push(...newLocations.map(s => Location.create(s.uri, s.range)));
-  // if () {}
-
-
-  // if (newLocations.some(s => s.uri === symbol.uri)) {
-  //   locations.push(symbol.toLocation());
-  //   return locations;
-  // }
-  // if (newLocations.some(s => s.uri.includes('completions/'))) {
-  //   locations.push(newLocations.find(s => s.uri.includes('completions/'))!);
-  //   return locations;
-  // }
-  // locations.push(symbol.toLocation());
   return locations;
 }
 
@@ -615,7 +630,6 @@ function logWrapper(
   },
 ) {
   const posStr = `{line: ${position.line}, character: ${position.character}}`;
-  const optsStr = `{${Object.entries(opts).map(([key, value]) => `${key}: ${value}`).join(', ')}}`;
   const requestMsg = `getReferencesNew(params) -> ${new Date().toISOString()}`;
   const params = {
     uri: uriToReadablePath(document.uri),
