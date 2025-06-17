@@ -368,7 +368,7 @@ export function getAllFilesInDir(dir: string): {
   confd: FishTestWorkspaceLocation;
   config: FishTestWorkspaceLocation;
   allDocuments: LspDocument[];
-  allFiles: string[],
+  allFiles: string[];
   allUris: string[];
 } {
   const resultObj = {
@@ -417,7 +417,6 @@ export function getAllFilesInDir(dir: string): {
   return resultObj;
 }
 
-
 export namespace TestWorkspaces {
 
   export const workspace1Path = path.join(__dirname, 'workspaces', 'workspace_1', 'fish');
@@ -432,9 +431,9 @@ export namespace TestWorkspaces {
     maxLength: number;
     showWorkspace: boolean;
   } = {
-      maxLength: 80,
-      showWorkspace: !doc.uri.includes('/fish/')
-    }): string {
+    maxLength: 80,
+    showWorkspace: !doc.uri.includes('/fish/'),
+  }): string {
     const endSearchStr = opts?.showWorkspace ? '/workspace_' : '/fish/';
 
     const start = doc.uri.slice(0, URI.parse(doc.uri).scheme.length + 3);
@@ -443,13 +442,13 @@ export namespace TestWorkspaces {
     let result = [
       start,
       middle,
-      end
+      end,
     ].join('');
 
     if (opts?.maxLength < result.length) {
       result = [
         start,
-        end
+        end,
       ].join('').toString();
     }
     return result;

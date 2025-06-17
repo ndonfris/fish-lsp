@@ -256,9 +256,11 @@ export class FishSymbol {
   equals(other: FishSymbol) {
     if (this.fishKind === 'ARGPARSE' && other.fishKind === 'ARGPARSE') {
       const equalNames = this.name === other.name || this.aliasedNames.includes(other.name) || other.aliasedNames.includes(this.name);
+      // const equalNames = this.aliasedNames.includes(other.name)
+      // && other.aliasedNames.includes(this.name)
       return equalNames &&
         this.uri === other.uri &&
-        this.node.equals(other.node);
+        this.focusedNode.equals(other.focusedNode);
     }
     const equalNames = this.name === other.name
       ? true
@@ -275,6 +277,22 @@ export class FishSymbol {
       this.selectionRange.end.line === other.selectionRange.end.line &&
       this.selectionRange.end.character === other.selectionRange.end.character &&
       this.fishKind === other.fishKind;
+  }
+
+  equalArgparse(other: FishSymbol) {
+    const equalNames = this.name !== other.name && this.aliasedNames.includes(other.name) && other.aliasedNames.includes(this.name);
+
+    const equalParents = this.parent && other.parent
+      ? this.parent.equals(other.parent)
+      : !this.parent && !other.parent;
+
+    return equalNames &&
+      this.uri === other.uri &&
+      this.fishKind === 'ARGPARSE' && other.fishKind === 'ARGPARSE' &&
+      this.focusedNode.equals(other.focusedNode) &&
+      this.node.equals(other.node) &&
+      equalParents &&
+      this.scopeNode.equals(other.scopeNode);
   }
 
   equalLocations(other: Location) {

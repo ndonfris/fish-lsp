@@ -1,7 +1,7 @@
 import { DocumentUri, Location, Position, Range } from 'vscode-languageserver';
 import { analyzer } from './analyze';
 import { LspDocument } from './document';
-import { findParentCommand, findParentFunction, isCommandWithName, isCompleteCommandName, isFunctionDefinition, isMatchingOption, isOption, isString } from './utils/node-types';
+import { findParentCommand, findParentFunction, isCommandWithName, isCompleteCommandName, isMatchingOption, isOption, isProgram } from './utils/node-types';
 import { getRange } from './utils/tree-sitter';
 import { FishSymbol } from './parsing/symbol';
 import { isCompletionCommandDefinition } from './parsing/complete';
@@ -32,6 +32,8 @@ export type ReferenceOptions = {
   onlyInFiles?: ('conf.d' | 'functions' | 'config' | 'completions')[];
   // log performance, show timing of the function
   logPerformance?: boolean;
+  // enable logging for the function
+  loggingEnabled?: boolean;
 };
 
 /**
@@ -52,6 +54,7 @@ export function getReferences(
     allWorkspaces: false,
     onlyInFiles: [],
     logPerformance: false,
+    loggingEnabled: false,
   },
 ): Location[] {
   const results: Location[] = [];
@@ -61,7 +64,7 @@ export function getReferences(
   if (!definitionSymbol) {
     logCallback(
       `No definition symbol found for position ${JSON.stringify(position)} in document ${document.uri}`,
-      'warning'
+      'warning',
     );
     return [];
   }
@@ -69,8 +72,8 @@ export function getReferences(
   // include the definition symbol itself
   if (!opts.excludeDefinition) results.push(definitionSymbol.toLocation());
 
-  // if the symbol is local, we only search in the current document 
-  if (isSymbolLocalToDocument(definitionSymbol)) opts.localOnly = true; 
+  // if the symbol is local, we only search in the current document
+  if (isSymbolLocalToDocument(definitionSymbol)) opts.localOnly = true;
 
   // create a list of al documents we will search for references
   let documentsToSearch: LspDocument[] = [];
@@ -128,7 +131,7 @@ export function getReferences(
 
     for (const node of nodes) {
       if (callbackfn(document, node)) {
-        let currentDocumentsNodes = matchingNodes[document.uri] ?? [];
+        const currentDocumentsNodes = matchingNodes[document.uri] ?? [];
         currentDocumentsNodes.push(node);
         matchingNodes[document.uri] = currentDocumentsNodes;
         if (opts.firstMatch) {
@@ -178,8 +181,7 @@ function isArgparseMatchCallback(definitionSymbol: FishSymbol) {
     || definitionSymbol.scopeNode.firstNamedChild?.text
     || definitionSymbol.scopeNode.text;
 
-
-  return function (searchDocument: LspDocument, node: SyntaxNode): boolean {
+  return function(searchDocument: LspDocument, node: SyntaxNode): boolean {
     if (isCompletionArgparseFlagWithCommandName(node, parentName, definitionSymbol.argparseFlagName)) {
       return true;
     }
@@ -211,42 +213,47 @@ function isArgparseMatchCallback(definitionSymbol: FishSymbol) {
  */
 function isCommandMatchCallback(definitionSymbol: FishSymbol) {
   function compareNodeToSymbolBasedOnType(searchDocument: LspDocument, node: SyntaxNode): boolean {
-      // remove `complete ... -s opt -l opt` entries for variables
-      if (definitionSymbol.isVariable() && node.parent) {
-        const isCompletion = isCompletionCommandDefinition(node.parent);
-        if (isCompletion) return false;
+    // remove `complete ... -s opt -l opt` entries for variables
+    if (definitionSymbol.isVariable() && node.parent) {
+      const isCompletion = isCompletionCommandDefinition(node.parent);
+      if (isCompletion) return false;
+      if (definitionSymbol.aliasedNames.includes(node.text)) {
+        return true;
       }
-      if (definitionSymbol.isFunction()) {
-        // remove `complete ... -l cmdname` entries, keep `complete -c cmdname` for functions
-        if (isCompleteCommandName(node)) {
-          return node.text === definitionSymbol.name && !definitionSymbol.focusedNode.equals(node);
-          // keep `complete ... -n 'cmdname'` entries for functions
-        } else if (NestedSyntaxNodeWithReferences.isCompleteConditionCall(definitionSymbol, node)) {
-          return true;
-        } else if (definitionSymbol.isFunction() && node.parent && isCommandWithName(node.parent, 'complete')) {
-          return false;
-        }
-        // keep `alias ...='cmdname'` entries for functions
-        if (NestedSyntaxNodeWithReferences.isAliasValueNode(definitionSymbol, node)) {
-          return true;
-        }
-        // keep `bind ... cmdname` entries for functions
-        if (NestedSyntaxNodeWithReferences.isBindCall(definitionSymbol, node)) {
-          return true;
-        }
-        // function ... --wraps='cmdname'
-        if (NestedSyntaxNodeWithReferences.isWrappedCall(definitionSymbol, node)) {
-          return true;
-        }
-        if (node.parent && !isCommandWithName(node.parent, definitionSymbol.name) && node.parent.firstChild?.equals(node)) {
-          return false;
-        }
+    }
+    if (definitionSymbol.isFunction()) {
+      // remove `complete ... -l cmdname` entries, keep `complete -c cmdname` for functions
+      if (isCompleteCommandName(node)) {
+        return node.text === definitionSymbol.name && !definitionSymbol.focusedNode.equals(node);
+        // keep `complete ... -n 'cmdname'` entries for functions
+      } else if (NestedSyntaxNodeWithReferences.isCompleteConditionCall(definitionSymbol, node)) {
+        return true;
+      } else if (definitionSymbol.isFunction() && node.parent && isCommandWithName(node.parent, 'complete')) {
+        return false;
       }
-      return node.text === definitionSymbol.name && !definitionSymbol.focusedNode.equals(node);
+      // keep `alias ...='cmdname'` entries for functions
+      if (NestedSyntaxNodeWithReferences.isAliasValueNode(definitionSymbol, node)) {
+        return true;
+      }
+      // keep `bind ... cmdname` entries for functions
+      if (NestedSyntaxNodeWithReferences.isBindCall(definitionSymbol, node)) {
+        return true;
+      }
+      // function ... --wraps='cmdname'
+      if (NestedSyntaxNodeWithReferences.isWrappedCall(definitionSymbol, node)) {
+        return true;
+      }
+      if (isCommandWithName(node, definitionSymbol.name) && !definitionSymbol.focusedNode.equals(node)) {
+        return true;
+      }
+      if (node.parent && !isCommandWithName(node.parent, definitionSymbol.name) && node.parent.firstChild?.equals(node)) {
+        return false;
+      }
+    }
+    return node.text === definitionSymbol.name && !definitionSymbol.focusedNode.equals(node);
   }
 
-
-  return function (searchDocument: LspDocument, node: SyntaxNode): boolean {
+  return function(searchDocument: LspDocument, node: SyntaxNode): boolean {
     // skip all `command some_func` as references for functions
     if (definitionSymbol.isFunction() && node.parent && isCommandWithName(node.parent, 'command')) {
       return false;
@@ -353,18 +360,7 @@ export namespace NestedSyntaxNodeWithReferences {
   }
 
   export function isCompleteConditionCall(definitionSymbol: FishSymbol, node: SyntaxNode): boolean {
-    if (isOption(node) || !node.isNamed) return false; // skip options
-    logger.info({
-      msg: `Checking if node is a complete condition call for symbol ${definitionSymbol.name}`,
-      node: {
-        type: node.type,
-        text: node.text,
-      },
-      parent: {
-        type: node.parent?.type,
-        text: node.parent?.text,
-      }
-    })
+    if (isOption(node) || !node.isNamed || isProgram(node)) return false; // skip options
     if (!node.parent || !isCommandWithName(node.parent, 'complete')) return false;
     if (!node?.previousSibling || !isMatchingOption(node?.previousSibling, Option.fromRaw('-n', '--condition'))) return false;
     const cmds = extractCommands(node);
@@ -389,12 +385,11 @@ export namespace NestedSyntaxNodeWithReferences {
   }
 
   export function isAnyNestedCommand(definitionSymbol: FishSymbol, node: SyntaxNode): boolean {
-    return NestedSyntaxNodeWithReferences.isAliasValueNode(definitionSymbol, node)
-      || NestedSyntaxNodeWithReferences.isBindCall(definitionSymbol, node)
-      || NestedSyntaxNodeWithReferences.isCompleteConditionCall(definitionSymbol, node);
+    return isAliasValueNode(definitionSymbol, node)
+      || isBindCall(definitionSymbol, node)
+      || isCompleteConditionCall(definitionSymbol, node);
   }
 }
-
 
 /**
  * bi-directional jump to either definition or completion definition
@@ -437,22 +432,22 @@ export function implementationLocation(
     const completionLocation = newLocations.find(s => {
       const parent = analyzer.commandAtPoint(s.uri, s.range.start.line, s.range.start.character);
       if (parent && isCommandWithName(parent, 'complete')) {
-        return true
+        return true;
       }
       return false;
-    })
+    });
     if (completionLocation) {
-      return [Location.create(completionLocation.uri, completionLocation.range)]
+      return [Location.create(completionLocation.uri, completionLocation.range)];
     }
   }
 
-  if (symbol.fishKind === 'ARGPARSE') {
-
-  }
+  // if (symbol.fishKind === 'ARGPARSE') {
+  //
+  // }
 
   // jump to the next reference
   if (symbol.isVariable()) {
-    newLocations.unshift({...symbol.toLocation(), node: symbol.focusedNode});
+    newLocations.unshift({ ...symbol.toLocation(), node: symbol.focusedNode });
     const currentIndex = newLocations.findIndex(s => s.node && s.node.equals(node));
     const nextIndex = (currentIndex + 1) % newLocations.length;
     const nextLocation = newLocations[nextIndex];
@@ -461,7 +456,7 @@ export function implementationLocation(
     }
     return [Location.create(nextLocation.uri, nextLocation.range)];
   }
-  locations.unshift(symbol.toLocation())
+  locations.unshift(symbol.toLocation());
   locations.push(...newLocations.map(s => Location.create(s.uri, s.range)));
   return locations;
 }
@@ -475,7 +470,7 @@ export function implementationLocation(
  * @param symbol the symbol to check
  * @return true if the symbol's references can only be local to the document, false otherwise
  */
-function isSymbolLocalToDocument(symbol: FishSymbol) : boolean {
+function isSymbolLocalToDocument(symbol: FishSymbol): boolean {
   if (symbol.isGlobal()) return false;
   if (symbol.isLocal() && symbol.fishKind === 'ARGPARSE') {
     const parent = symbol.parent;
@@ -487,8 +482,49 @@ function isSymbolLocalToDocument(symbol: FishSymbol) : boolean {
   // thus, we consider them local to the document
   return true;
 }
-   
 
+/**
+ * Returns all unused local references in the current document
+ */
+export function allUnusedLocalReferences(document: LspDocument): FishSymbol[] {
+  const symbols = analyzer.getFlatDocumentSymbols(document.uri)
+    .filter(s => s.isLocal());
+
+  if (!symbols) return [];
+
+  const nodes = analyzer.getNodes(document.uri);
+
+  const usedSymbols: FishSymbol[] = [];
+  const unusedSymbols: FishSymbol[] = [];
+
+  for (const symbol of symbols) {
+    if (symbol.name === 'argv') continue; // skip argv variable
+
+    const callbackfn = symbol.fishKind === 'ARGPARSE'
+      ? isArgparseMatchCallback(symbol)
+      : isCommandMatchCallback(symbol);
+
+    let found = false;
+    for (const node of nodes) {
+      if (callbackfn(document, node)) {
+        found = true;
+        usedSymbols.push(symbol);
+        break;
+      }
+    }
+    if (!found) unusedSymbols.push(symbol);
+  }
+
+  const finalUnusedSymbols = unusedSymbols.filter(symbol => {
+    if (symbol.fishKind === 'ARGPARSE' && usedSymbols.some(s => s.equalArgparse(symbol))) {
+      return false;
+    }
+    return true;
+  });
+
+  // if the symbol is local, we only search in the current document
+  return finalUnusedSymbols;
+}
 
 /**
  * Extracts the precise range of a command reference within an alias definition value
@@ -497,7 +533,7 @@ function isSymbolLocalToDocument(symbol: FishSymbol) : boolean {
 //   const text = node.text;
 //   let searchText = text;
 //   let baseOffset = 0;
-//   
+//
 //   // Handle different alias value formats
 //   if (text.includes('=')) {
 //     // Format: name=value
@@ -505,24 +541,24 @@ function isSymbolLocalToDocument(symbol: FishSymbol) : boolean {
 //     searchText = text.substring(equalsIndex + 1);
 //     baseOffset = equalsIndex + 1;
 //   }
-//   
+//
 //   // Remove surrounding quotes if present
-//   if ((searchText.startsWith('"') && searchText.endsWith('"')) || 
+//   if ((searchText.startsWith('"') && searchText.endsWith('"')) ||
 //       (searchText.startsWith("'") && searchText.endsWith("'"))) {
 //     searchText = searchText.slice(1, -1);
 //     baseOffset += 1;
 //   }
-//   
+//
 //   // Find the command using word boundaries to avoid partial matches
 //   const regex = new RegExp(`\\b${escapeRegexChars(commandName)}\\b`);
 //   const match = regex.exec(searchText);
-//   
+//
 //   if (!match) return null;
-//   
+//
 //   // Calculate the precise range within the original node
 //   const startOffset = baseOffset + match.index;
 //   const endOffset = startOffset + commandName.length;
-//   
+//
 //   return Range.create(
 //     node.startPosition.row,
 //     node.startPosition.column + startOffset,
@@ -557,8 +593,8 @@ function extractCommandRangeFromAliasValue(node: SyntaxNode, commandName: string
   }
 
   // Remove surrounding quotes if present
-  if ((searchText.startsWith('"') && searchText.endsWith('"')) ||
-    (searchText.startsWith("'") && searchText.endsWith("'"))) {
+  if (searchText.startsWith('"') && searchText.endsWith('"') ||
+    searchText.startsWith("'") && searchText.endsWith("'")) {
     searchText = searchText.slice(1, -1);
     baseOffset += 1;
   }
@@ -579,7 +615,7 @@ function extractCommandRangeFromAliasValue(node: SyntaxNode, commandName: string
     node.startPosition.row,
     node.startPosition.column + startOffset,
     node.startPosition.row,
-    node.startPosition.column + endOffset
+    node.startPosition.column + endOffset,
   );
 }
 
@@ -614,7 +650,7 @@ function findCommandPositions(shellCode: string, commandName: string): Array<{ s
         if (firstWord === commandName) {
           matches.push({
             start: partStartOffset,
-            end: partStartOffset + commandName.length
+            end: partStartOffset + commandName.length,
           });
         }
       }
@@ -647,7 +683,8 @@ function logWrapper(
   };
   const startTime = performance.now();
 
-  return function (message: string, level: 'info' | 'debug' | 'warning' | 'error' = 'info') {
+  return function(message: string, level: 'info' | 'debug' | 'warning' | 'error' = 'info') {
+    if (!opts.loggingEnabled) return; // If logging is disabled
     const endTime = performance.now();
     const duration = ((endTime - startTime) / 1000).toFixed(2); // Convert to seconds with 2 decimal places
     const logObj: {

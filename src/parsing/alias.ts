@@ -270,11 +270,11 @@ export function isAliasDefinitionValue(node: SyntaxNode) {
   // skip `alias` named node, since it's not the alias name
   if (firstChild && firstChild.equals(node)) return false;
   const args = flattenNested(...parentNode.childrenForFieldName('argument'))
-    .filter(a => a.isNamed)
+    .filter(a => a.isNamed);
 
   // first element is args is the alias name
   // logger.debug('alias args', args.map(a => a.text));
-  const aliasValue = args.at(-1)
+  const aliasValue = args.at(-1);
   return !!aliasValue && aliasValue.equals(node);
 }
 

@@ -15,6 +15,8 @@ function fish_user_key_bindings --description 'User-defined key bindings for Fis
         bind ctrl-down down-or-nextd-or-forward-word
         bind ctrl-up up-or-prevd-or-backward-word
     end
+
+    set -l unused_keys (bind | grep -v '^\s*bind' | awk '{print $1}' | sort | uniq)
 end
 
 abbr -a fukb fish_user_key_bindings

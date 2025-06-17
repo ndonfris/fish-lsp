@@ -36,12 +36,12 @@ const DEFAULT_CONFIG: ExtractConfig = {
 const FISH_KEYWORDS = new Set([
   'and', 'or', 'not', 'begin', 'end', 'if', 'else', 'switch', 'case',
   'for', 'in', 'while', 'function', 'return', 'break', 'continue',
-  'set', 'test', 'true', 'false'
+  'set', 'test', 'true', 'false',
 ]);
 
 const FISH_OPERATORS = new Set([
   '&&', '||', '|', ';', '&', '>', '<', '>>', '<<', '>&', '<&',
-  '2>', '2>>', '2>&1', '1>&2', '/dev/null'
+  '2>', '2>>', '2>&1', '1>&2', '/dev/null',
 ]);
 
 /**
@@ -49,37 +49,37 @@ const FISH_OPERATORS = new Set([
  */
 export function extractCommands(
   node: SyntaxNode,
-  config: ExtractConfig = DEFAULT_CONFIG
+  config: ExtractConfig = DEFAULT_CONFIG,
 ): string[] {
   if (!node.text?.trim()) return [];
 
   const nodeText = node.text;
-  
+
   // Handle option arguments like --wraps=command
   const optionCommand = parseOptionArgument(nodeText);
   if (optionCommand) {
     return [optionCommand];
   }
-  
+
   const cleanedText = cleanQuotes(nodeText);
   const commands = new Set<string>();
-  
+
   // Always parse direct commands first
   const directCommands = parseDirectCommands(cleanedText, config);
   directCommands.forEach(cmd => commands.add(cmd));
-  
+
   // Parse command substitutions: $(cmd args)
   if (config.parseCommandSubstitutions) {
     const substitutionCommands = parseCommandSubstitutions(cleanedText);
     substitutionCommands.forEach(cmd => commands.add(cmd));
   }
-  
+
   // Parse parenthesized expressions: (cmd; and cmd2)
   if (config.parseParenthesized) {
     const parenthesizedCommands = parseParenthesizedExpressions(cleanedText);
     parenthesizedCommands.forEach(cmd => commands.add(cmd));
   }
-  
+
   return Array.from(commands).filter(cmd => cmd.length > 0);
 }
 
@@ -89,10 +89,10 @@ export function extractCommands(
 export function extractCommandLocations(
   node: SyntaxNode,
   documentUri: DocumentUri,
-  config: ExtractConfig = DEFAULT_CONFIG
+  config: ExtractConfig = DEFAULT_CONFIG,
 ): CommandReference[] {
   if (!node.text?.trim()) return [];
-  
+
   const nodeRange = getRange(node);
   const nodeText = node.text;
   // Handle option arguments like --wraps=command
@@ -103,21 +103,21 @@ export function extractCommandLocations(
       command: optionCommand,
       location: Location.create(
         documentUri,
-        createPreciseRange(optionCommand, offset, nodeRange)
-      )
+        createPreciseRange(optionCommand, offset, nodeRange),
+      ),
     }];
   }
-  
+
   const cleanedText = cleanQuotes(nodeText);
   const quoteOffset = getQuoteOffset(nodeText);
-  
+
   return findCommandsWithOffsets(cleanedText, config)
     .map(({ command, offset }) => ({
       command,
       location: Location.create(
         documentUri,
-        createPreciseRange(command, offset + quoteOffset, nodeRange)
-      )
+        createPreciseRange(command, offset + quoteOffset, nodeRange),
+      ),
     }));
 }
 
@@ -125,10 +125,10 @@ export function extractCommandLocations(
  * Extract locations for a specific command name
  */
 export function extractMatchingCommandLocations(
-  symbol: { name: string },
+  symbol: { name: string; },
   node: SyntaxNode,
   documentUri: DocumentUri,
-  config: ExtractConfig = DEFAULT_CONFIG
+  config: ExtractConfig = DEFAULT_CONFIG,
 ): Location[] {
   return extractCommandLocations(node, documentUri, config)
     .filter(ref => ref.command === symbol.name)
@@ -140,8 +140,8 @@ export function extractMatchingCommandLocations(
  */
 function cleanQuotes(input: string): string {
   const trimmed = input.trim();
-  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-      (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+  if (trimmed.startsWith('"') && trimmed.endsWith('"') ||
+      trimmed.startsWith("'") && trimmed.endsWith("'")) {
     return trimmed.slice(1, -1);
   }
   return trimmed;
@@ -152,8 +152,8 @@ function cleanQuotes(input: string): string {
  */
 function getQuoteOffset(input: string): number {
   const trimmed = input.trim();
-  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-      (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+  if (trimmed.startsWith('"') && trimmed.endsWith('"') ||
+      trimmed.startsWith("'") && trimmed.endsWith("'")) {
     return 1; // Account for opening quote
   }
   return 0;
@@ -163,72 +163,72 @@ function getQuoteOffset(input: string): number {
  * Find all commands with their precise offsets in the text
  */
 function findCommandsWithOffsets(
-  text: string, 
-  config: ExtractConfig
-): Array<{ command: string; offset: number }> {
-  const results: Array<{ command: string; offset: number }> = [];
-  
+  text: string,
+  config: ExtractConfig,
+): Array<{ command: string; offset: number; }> {
+  const results: Array<{ command: string; offset: number; }> = [];
+
   // Always parse direct commands first
   results.push(...findDirectCommandOffsets(text, config));
-  
+
   // Parse command substitutions
   if (config.parseCommandSubstitutions) {
     results.push(...findCommandSubstitutionOffsets(text));
   }
-  
+
   // Parse parenthesized expressions
   if (config.parseParenthesized) {
     results.push(...findParenthesizedCommandOffsets(text));
   }
-  
+
   return results;
 }
 
 /**
  * Find command substitutions with offsets
  */
-function findCommandSubstitutionOffsets(text: string): Array<{ command: string; offset: number }> {
-  const results: Array<{ command: string; offset: number }> = [];
+function findCommandSubstitutionOffsets(text: string): Array<{ command: string; offset: number; }> {
+  const results: Array<{ command: string; offset: number; }> = [];
   const regex = /\$\(([^)]+)\)/g;
   let match: RegExpExecArray | null;
-  
+
   while ((match = regex.exec(text)) !== null) {
     const commandText = match[1];
     const innerOffset = match.index + 2; // Skip '$('
-    
+
     if (commandText?.trim()) {
       const firstCommand = getFirstCommand(commandText);
       if (firstCommand) {
         results.push({
           command: firstCommand,
-          offset: innerOffset + commandText.indexOf(firstCommand)
+          offset: innerOffset + commandText.indexOf(firstCommand),
         });
       }
     }
   }
-  
+
   return results;
 }
 
 /**
  * Find parenthesized commands with offsets
  */
-function findParenthesizedCommandOffsets(text: string): Array<{ command: string; offset: number }> {
-  const results: Array<{ command: string; offset: number }> = [];
+function findParenthesizedCommandOffsets(text: string): Array<{ command: string; offset: number; }> {
+  const results: Array<{ command: string; offset: number; }> = [];
   const stack: number[] = [];
   let start = -1;
-  
+
   for (let i = 0; i < text.length; i++) {
     if (text[i] === '(') {
       if (stack.length === 0) start = i;
       stack.push(i);
     } else if (text[i] === ')' && stack.length > 0) {
       stack.pop();
-      
+
       if (stack.length === 0 && start !== -1) {
         const innerText = text.slice(start + 1, i);
         const innerOffset = start + 1;
-        
+
         if (innerText.trim()) {
           const commands = extractCommandsFromText(innerText);
           for (const command of commands) {
@@ -236,7 +236,7 @@ function findParenthesizedCommandOffsets(text: string): Array<{ command: string;
             if (commandOffset !== -1) {
               results.push({
                 command,
-                offset: innerOffset + commandOffset
+                offset: innerOffset + commandOffset,
               });
             }
           }
@@ -245,7 +245,7 @@ function findParenthesizedCommandOffsets(text: string): Array<{ command: string;
       }
     }
   }
-  
+
   return results;
 }
 
@@ -253,25 +253,25 @@ function findParenthesizedCommandOffsets(text: string): Array<{ command: string;
  * Find direct commands with offsets
  */
 function findDirectCommandOffsets(
-  text: string, 
-  config: ExtractConfig
-): Array<{ command: string; offset: number }> {
-  const results: Array<{ command: string; offset: number }> = [];
+  text: string,
+  config: ExtractConfig,
+): Array<{ command: string; offset: number; }> {
+  const results: Array<{ command: string; offset: number; }> = [];
   const statements = text.split(/[;&|]+/);
   let currentOffset = 0;
-  
+
   for (const statement of statements) {
     const trimmedStatement = statement.trim();
     const statementStart = text.indexOf(trimmedStatement, currentOffset);
-    
+
     if (trimmedStatement) {
       const tokens = tokenizeStatement(trimmedStatement);
-      
+
       // Filter tokens if cleaning is enabled
-      const relevantTokens = config.cleanKeywords 
+      const relevantTokens = config.cleanKeywords
         ? tokens.filter(token => !FISH_KEYWORDS.has(token) && !FISH_OPERATORS.has(token))
         : tokens;
-      
+
       // Find offset for each relevant token
       for (const token of relevantTokens) {
         if (token && !isNumeric(token) && token.length > 1) {
@@ -279,16 +279,16 @@ function findDirectCommandOffsets(
           if (tokenOffset !== -1) {
             results.push({
               command: token,
-              offset: statementStart + tokenOffset
+              offset: statementStart + tokenOffset,
             });
           }
         }
       }
     }
-    
+
     currentOffset = statementStart + statement.length;
   }
-  
+
   return results;
 }
 
@@ -307,17 +307,17 @@ function extractCommandsFromText(input: string, cleanKeywords = true): string[] 
   const statements = input.split(/[;&|]+/)
     .map(stmt => stmt.trim())
     .filter(stmt => stmt.length > 0);
-  
+
   const commands: string[] = [];
-  
+
   for (const statement of statements) {
     const tokens = tokenizeStatement(statement);
-    
+
     // Filter out fish keywords if enabled
-    const filteredTokens = cleanKeywords 
+    const filteredTokens = cleanKeywords
       ? tokens.filter(token => !FISH_KEYWORDS.has(token) && !FISH_OPERATORS.has(token))
       : tokens;
-    
+
     // Get all potential commands from the statement
     for (const token of filteredTokens) {
       if (token && !isNumeric(token) && token.length > 1) {
@@ -325,7 +325,7 @@ function extractCommandsFromText(input: string, cleanKeywords = true): string[] 
       }
     }
   }
-  
+
   return commands;
 }
 
@@ -336,14 +336,14 @@ function parseCommandSubstitutions(input: string): string[] {
   const commands: string[] = [];
   const regex = /\$\(([^)]+)\)/g;
   let match: RegExpExecArray | null;
-  
+
   while ((match = regex.exec(input)) !== null) {
     const commandText = match[1];
     if (commandText?.trim()) {
       commands.push(...extractCommandsFromText(commandText, true));
     }
   }
-  
+
   return commands;
 }
 
@@ -354,14 +354,14 @@ function parseParenthesizedExpressions(input: string): string[] {
   const commands: string[] = [];
   const stack: number[] = [];
   let start = -1;
-  
+
   for (let i = 0; i < input.length; i++) {
     if (input[i] === '(') {
       if (stack.length === 0) start = i;
       stack.push(i);
     } else if (input[i] === ')' && stack.length > 0) {
       stack.pop();
-      
+
       if (stack.length === 0 && start !== -1) {
         const innerText = input.slice(start + 1, i);
         if (innerText.trim()) {
@@ -371,10 +371,9 @@ function parseParenthesizedExpressions(input: string): string[] {
       }
     }
   }
-  
+
   return commands;
 }
-
 
 /**
  * Parse option arguments like --wraps=command, --command=cmd, etc.
@@ -383,7 +382,7 @@ function parseOptionArgument(text: string): string | null {
   // Match patterns like --wraps=command, --command=cmd, -c=cmd
   const optionArgRegex = /^(?:-[a-zA-Z]|--[a-zA-Z][a-zA-Z0-9-]*)\s*=\s*([a-zA-Z_][a-zA-Z0-9_-]*)/;
   const match = text.match(optionArgRegex);
-  
+
   if (match && match[1]) {
     const command = match[1].trim();
     // Only return if it looks like a valid command (not a number or single char)
@@ -391,7 +390,7 @@ function parseOptionArgument(text: string): string | null {
       return command;
     }
   }
-  
+
   return null;
 }
 
@@ -410,11 +409,11 @@ function tokenizeStatement(statement: string): string[] {
   let current = '';
   let inQuotes = false;
   let quoteChar = '';
-  
+
   for (let i = 0; i < statement.length; i++) {
     const char = statement[i];
     if (!char) continue;
-    
+
     if (!inQuotes && (char === '"' || char === "'")) {
       inQuotes = true;
       quoteChar = char;
@@ -432,11 +431,11 @@ function tokenizeStatement(statement: string): string[] {
       current += char;
     }
   }
-  
+
   if (current.trim()) {
     tokens.push(current.trim());
   }
-  
+
   return tokens;
 }
 
@@ -445,16 +444,16 @@ function tokenizeStatement(statement: string): string[] {
  */
 function createPreciseRange(command: string, offset: number, nodeRange: Range): Range {
   const startChar = nodeRange.start.character + offset;
-  
+
   return {
     start: {
       line: nodeRange.start.line,
-      character: startChar
+      character: startChar,
     },
     end: {
       line: nodeRange.start.line,
-      character: startChar + command.length
-    }
+      character: startChar + command.length,
+    },
   };
 }
 

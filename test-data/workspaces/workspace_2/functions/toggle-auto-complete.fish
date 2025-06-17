@@ -2,7 +2,7 @@
 # https://github.com/ndonfris/bends.fish
 
 function toggle-auto-complete -d 'accept current completion or open completion menu'
-    argparse 'a/accept' 'r/reject' 'h/help' -- $argv
+    argparse 'a/accept' 'r/reject' h/help -- $argv
     or return
 
     if set -q _flag_help

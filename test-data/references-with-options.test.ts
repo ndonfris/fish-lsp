@@ -1,7 +1,7 @@
 
 import { createFakeLspDocument, rangeAsString, setLogger, TestWorkspaces } from './helpers';
 import { getReferencesOld } from '../src/old-references';
-import { NestedSyntaxNodeWithReferences, ReferenceOptions, getReferences } from '../src/references';
+import { NestedSyntaxNodeWithReferences, ReferenceOptions, allUnusedLocalReferences, getReferences } from '../src/references';
 import { Analyzer, analyzer } from '../src/analyze';
 import { documents, LspDocument } from '../src/document';
 import * as path from 'path';
@@ -54,7 +54,7 @@ describe('testing references with new `opts` param', () => {
   });
 
   describe(`setting up workspace ${ws.name}`, () => {
-    it("workspace path", () => {
+    it('workspace path', () => {
       console.log({
         doesExist: SyncFileHelper.exists(TestWorkspaces.workspace2.path),
         isDirectory: SyncFileHelper.isDirectory(TestWorkspaces.workspace2.path),
@@ -63,7 +63,7 @@ describe('testing references with new `opts` param', () => {
       expect(SyncFileHelper.isDirectory(TestWorkspaces.workspace2.path)).toBe(true);
     });
 
-    it("workspace non-completion docs", () => {
+    it('workspace non-completion docs', () => {
       workspaceManager.current?.allDocuments().forEach((doc: LspDocument, idx) => {
         console.log({
           idx,
@@ -136,7 +136,6 @@ describe('testing references with new `opts` param', () => {
   });
 
   describe('working with function<->completion references', () => {
-
     const symbolNamesWithFunctionsAndCompletions = [
       'cdls',
       'fzf-history-search',
@@ -228,7 +227,7 @@ describe('testing references with new `opts` param', () => {
   });
 
   describe('finding alias refs', () => {
-    it("config.fish", () => {
+    it('config.fish', () => {
       const doc = ws.findDocument(d => d.getFilename().endsWith('config.fish'))!;
       const nodes = analyzer.getNodes(doc.uri);
       const aliasValues = nodes.filter(n => isAliasDefinitionValue(n));
@@ -245,7 +244,6 @@ describe('testing references with new `opts` param', () => {
   });
 
   describe('parse inline string references', () => {
-
     it('should find references in inline strings', () => {
       const fakeDoc = createFakeLspDocument('test_inline_string.fish',
         'function __test_inline_string_1',
@@ -287,9 +285,9 @@ describe('testing references with new `opts` param', () => {
       }
     });
 
-    it("function foo --wraps=bar", () => {
+    it('function foo --wraps=bar', () => {
       const fakeDoc = createFakeLspDocument('functions/foo.fish',
-        `function foo --wraps=bar`,
+        'function foo --wraps=bar',
         '    echo "This is a test string with a reference to bar"',
         '    return 0',
         'end',
@@ -326,7 +324,7 @@ describe('testing references with new `opts` param', () => {
 
     it("function foo --wraps='bar'", () => {
       const fakeDoc = createFakeLspDocument('functions/foo.fish',
-        `function foo --wraps='bar'`,
+        'function foo --wraps=\'bar\'',
         '    echo "This is a test string with a reference to bar"',
         '    return 0',
         'end',
@@ -341,7 +339,7 @@ describe('testing references with new `opts` param', () => {
 
       const fooSymbol = cached.documentSymbols.find(s => s.name === 'foo')!;
       const barSymbol = cached.documentSymbols.find(s => s.name === 'bar')!;
-      const wrappedNode = getChildNodes(fooSymbol?.node).find(n => n.text === `'bar'`)!;
+      const wrappedNode = getChildNodes(fooSymbol?.node).find(n => n.text === '\'bar\'')!;
       expect(wrappedNode).toBeDefined();
       const barRefs = getReferences(cached.document, pointToPosition(barSymbol.focusedNode.startPosition));
       console.log({
@@ -351,4 +349,69 @@ describe('testing references with new `opts` param', () => {
     });
   });
 
+  describe('find entire workspace local symbol usages', () => {
+    // it('single doc', () => {
+    //   ws.allDocuments().forEach(doc => {
+    //     if (!doc.uri.endsWith('completions/os-name.fish')) return;
+    //     const symbols = analyzer.getFlatDocumentSymbols(doc.uri)
+    //       .filter(s => s.isLocal());
+    //     for (const symbol of symbols) {
+    //       const localRefs = getReferences(doc, pointToPosition(symbol.focusedNode.startPosition), { logPerformance: true, firstMatch: true, excludeDefinition: true });
+    //       if (localRefs.length === 0) {
+    //         logger.warning({
+    //           msg: `No local references found for symbol: ${symbol.name}`,
+    //           uri: doc.getRelativeFilenameToWorkspace(),
+    //           position: JSON.stringify(symbol.focusedNode.startPosition),
+    //         });
+    //       }
+    //     };
+    //   });
+    // });
+
+    it.only('multiple docs', () => {
+      ws.allDocuments().forEach(doc => {
+        analyzer.analyze(doc);
+        const symbols = analyzer.getFlatDocumentSymbols(doc.uri)
+          .filter(s => s.isLocal());
+        for (const symbol of symbols) {
+          if (symbol.name === 'argv') continue;
+
+          if (!symbol.uri.endsWith('functions/toggle-auto-complete.fish')) continue; // skip this one, it has too many references
+          const localRefs = getReferences(doc, symbol.selectionRange.start, { excludeDefinition: true, localOnly: true, firstMatch: true });
+          if (symbol.fishKind === 'ARGPARSE' && symbol.aliasedNames.length > 1) {
+            const otherSymbol = symbols.find(s => s.equalArgparse(symbol));
+            localRefs.push(...getReferences(doc, otherSymbol!.selectionRange.start, { excludeDefinition: true, localOnly: true, firstMatch: true }));
+          }
+          if (localRefs.length === 0) {
+            logger.warning({
+              msg: `No local references found for symbol: ${symbol.name}`,
+              uri: doc.getRelativeFilenameToWorkspace(),
+              localRefs: referenceLocationsToString(localRefs),
+            });
+          } else {
+            logger.warning({
+              msg: `Found local references for symbol: ${symbol.name}`,
+              uri: doc.getRelativeFilenameToWorkspace(),
+              position: JSON.stringify(symbol.focusedNode.startPosition),
+              refs: referenceLocationsToString(localRefs),
+            });
+          }
+        }
+      });
+    });
+
+    it.only('single doc', () => {
+      const doc = findDocumentByAutoloadedName('toggle-auto-complete');
+      if (!doc) {
+        fail('Document with toggle-auto-complete not found');
+      }
+      const localRefs = allUnusedLocalReferences(doc);
+      logger.warning({
+        uri: doc.getRelativeFilenameToWorkspace(),
+        msg: `Found unused local references: ${localRefs.length}`,
+        refs: referenceLocationsToString(localRefs),
+        refNames: localRefs.map(ref => ref.name),
+      });
+    });
+  });
 });
