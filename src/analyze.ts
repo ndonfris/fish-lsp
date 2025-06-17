@@ -13,7 +13,7 @@ import { implementationLocation } from './references';
 import { execCommandLocations } from './utils/exec';
 import { SyncFileHelper } from './utils/file-operations';
 import { flattenNested, iterateNested } from './utils/flatten';
-import { findParentFunction, isAliasDefinitionName, isCommand, isCommandName, isOption, isTopLevelDefinition } from './utils/node-types';
+import { findParentCommand, findParentFunction, isAliasDefinitionName, isCommand, isCommandName, isOption, isTopLevelDefinition } from './utils/node-types';
 import { pathToUri, symbolKindToString, uriToPath } from './utils/translation';
 import { containsRange, getChildNodes, getRange, isPositionAfter, isPositionWithinRange, precedesRange } from './utils/tree-sitter';
 import { Workspace } from './utils/workspace';
@@ -1060,6 +1060,17 @@ export class Analyzer {
     if (!firstChild || !isCommandName(firstChild)) return null;
 
     return firstChild.text.trim();
+  }
+
+  public commandAtPoint(
+    uri: string,
+    line: number,
+    column: number,
+  ): SyntaxNode | null {
+    const node = this.nodeAtPoint(uri, line, column) ?? undefined;
+    if (node && isCommand(node)) return node;
+    const parentCommand = findParentCommand(node);
+    return parentCommand;
   }
 
   /**

@@ -4,7 +4,7 @@ import { resolve } from 'path';
 import { initializeParser } from '../src/parser';
 import * as Parser from 'web-tree-sitter';
 import { Point, SyntaxNode, Tree } from 'web-tree-sitter';
-import { TextDocumentItem, Location } from 'vscode-languageserver';
+import { TextDocumentItem, Location, Range } from 'vscode-languageserver';
 import { LspDocument } from '../src/document';
 import { homedir } from 'os';
 import { Workspace } from '../src/utils/workspace';
@@ -15,6 +15,9 @@ import { FishSymbol, processNestedTree } from '../src/parsing/symbol';
 import { Analyzer } from '../src/analyze';
 import { env } from '../src/utils/env-manager';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
+import { pathToUri } from '../src/utils/translation';
+import { glob } from 'fast-glob';
+import { URI } from 'vscode-uri';
 
 export function setLogger(
   beforeCallback: () => Promise<void> = async () => { },
@@ -169,6 +172,13 @@ export function locationAsString(loc: Location): string[] {
     loc.uri,
     ...[loc.range.start.line, loc.range.start.character, loc.range.end.line, loc.range.end.character].map(s => s.toString()),
   ];
+}
+
+export function rangeAsString(range: Range): string {
+  const result = [
+    ...[range.start.line, range.start.character, range.end.line, range.end.character].map(s => s.toString()),
+  ];
+  return `[${result.join(', ')}]`;
 }
 
 export function fakeDocumentTrimUri(doc: LspDocument): string {
@@ -343,3 +353,105 @@ export type FishLocations = {
     };
   };
 };
+
+type FishTestWorkspaceLocation = {
+  uri: string;
+  path: string;
+  documents: LspDocument[];
+};
+
+export function getAllFilesInDir(dir: string): {
+  uri: string;
+  path: string;
+  functions: FishTestWorkspaceLocation;
+  completions: FishTestWorkspaceLocation;
+  confd: FishTestWorkspaceLocation;
+  config: FishTestWorkspaceLocation;
+  allDocuments: LspDocument[];
+  allFiles: string[],
+  allUris: string[];
+} {
+  const resultObj = {
+    uri: pathToUri(dir),
+    path: dir,
+    functions: {
+      uri: pathToUri(path.join(dir, 'functions')),
+      path: path.join(dir, 'functions'),
+      documents: [] as LspDocument[],
+    },
+    completions: {
+      uri: pathToUri(path.join(dir, 'completions')),
+      path: path.join(dir, 'completions'),
+      documents: [] as LspDocument[],
+    },
+    confd: {
+      uri: pathToUri(path.join(dir, 'conf.d')),
+      path: path.join(dir, 'conf.d'),
+      documents: [] as LspDocument[],
+    },
+    config: {
+      uri: pathToUri(path.join(dir, 'config.fish')),
+      path: path.join(dir, 'config.fish'),
+      documents: [] as LspDocument[],
+    },
+    allDocuments: [] as LspDocument[],
+    allFiles: [] as string[],
+    allUris: [] as string[],
+  };
+  glob.sync('**/*.fish', { cwd: dir, absolute: true }).forEach(file => {
+    const fileUri = pathToUri(file);
+    const doc = LspDocument.createFromUri(fileUri);
+    if (dir.endsWith('functions')) {
+      resultObj.functions.documents.push(doc);
+    } else if (dir.endsWith('completions')) {
+      resultObj.completions.documents.push(doc);
+    } else if (dir.endsWith('conf.d')) {
+      resultObj.confd.documents.push(doc);
+    } else if (file.endsWith('config.fish')) {
+      resultObj.config.documents.push(doc);
+    }
+    resultObj.allDocuments.push(doc);
+    resultObj.allFiles.push(file);
+    resultObj.allUris.push(fileUri);
+  });
+  return resultObj;
+}
+
+
+export namespace TestWorkspaces {
+
+  export const workspace1Path = path.join(__dirname, 'workspaces', 'workspace_1', 'fish');
+  export const workspace2Path = path.join(__dirname, 'workspaces', 'workspace_2');
+  export const workspace3Path = path.join(__dirname, 'workspaces', 'workspace_3', 'fish');
+
+  export const workspace1 = getAllFilesInDir(workspace1Path);
+  export const workspace2 = getAllFilesInDir(workspace2Path);
+  export const workspace3 = getAllFilesInDir(workspace3Path);
+
+  export function truncatedUri(doc: LspDocument, opts: {
+    maxLength: number;
+    showWorkspace: boolean;
+  } = {
+      maxLength: 80,
+      showWorkspace: !doc.uri.includes('/fish/')
+    }): string {
+    const endSearchStr = opts?.showWorkspace ? '/workspace_' : '/fish/';
+
+    const start = doc.uri.slice(0, URI.parse(doc.uri).scheme.length + 3);
+    const middle = '...';
+    const end = doc.uri.slice(doc.uri.lastIndexOf(endSearchStr));
+    let result = [
+      start,
+      middle,
+      end
+    ].join('');
+
+    if (opts?.maxLength < result.length) {
+      result = [
+        start,
+        end
+      ].join('').toString();
+    }
+    return result;
+  }
+}

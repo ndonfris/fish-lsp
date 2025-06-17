@@ -228,6 +228,16 @@ export class Workspace implements FishWorkspace {
     return matches;
   }
 
+  findDocument(callbackfn: (doc: LspDocument) => boolean): LspDocument | undefined {
+    for (const uri of this.uris.all) {
+      const doc = analyzer.getDocument(uri);
+      if (doc && callbackfn(doc)) {
+        return doc;
+      }
+    }
+    return undefined;
+  }
+
   /**
    * An immutable workspace would be '/usr/share/fish', since we don't want to
    * modify the system files.
