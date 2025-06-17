@@ -19,7 +19,8 @@ export namespace ErrorCodes {
   export const autoloadedFunctionMissingDefinition = 4001;
   export const autoloadedFunctionFilenameMismatch = 4002;
   export const functionNameUsingReservedKeyword = 4003;
-  export const unusedLocalFunction = 4004;
+  // export const unusedLocalFunction = 4004;
+  export const unusedLocalDefinition = 4004;
   export const autoloadedCompletionMissingCommandName = 4005;
   export const duplicateFunctionDefinitionInSameScope = 4006;
   export const autoloadedFunctionWithEventHookUnused = 4007;
@@ -158,12 +159,19 @@ export namespace ErrorCodes {
       source: 'fish-lsp',
       message: 'Function name uses reserved keyword',
     },
-    [unusedLocalFunction]: {
+    // [unusedLocalFunction]: {
+    //   severity: DiagnosticSeverity.Warning,
+    //   code: unusedLocalFunction,
+    //   codeDescription: { href: 'https://fishshell.com/docs/current/cmds/functions.html' },
+    //   source: 'fish-lsp',
+    //   message: 'Unused local function',
+    // },
+    [unusedLocalDefinition]: {
       severity: DiagnosticSeverity.Warning,
-      code: unusedLocalFunction,
-      codeDescription: { href: 'https://fishshell.com/docs/current/cmds/functions.html' },
+      code: unusedLocalDefinition,
+      codeDescription: { href: 'https://fishshell.com/docs/current/language.html#local-variables' },
       source: 'fish-lsp',
-      message: 'Unused local function',
+      message: 'Unused local',
     },
     [autoloadedCompletionMissingCommandName]: {
       severity: DiagnosticSeverity.Error,

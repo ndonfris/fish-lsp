@@ -421,7 +421,13 @@ export class FishSymbol {
   }
 
   isVariable(): boolean {
-    return !this.isFunction();
+    return this.fishKind === 'VARIABLE' ||
+      this.fishKind === 'FUNCTION_VARIABLE' ||
+      this.fishKind === 'SET' ||
+      this.fishKind === 'READ' ||
+      this.fishKind === 'FOR' ||
+      this.fishKind === 'ARGPARSE' ||
+      this.fishKind === 'EXPORT';
   }
 
   isSymbolImmutable() {

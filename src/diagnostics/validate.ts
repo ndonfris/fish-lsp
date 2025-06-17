@@ -16,6 +16,7 @@ import { checkForInvalidDiagnosticCodes } from './invalid-error-code';
 import { analyzer } from '../analyze';
 import { FishSymbol } from '../parsing/symbol';
 import { findUnreachableCode } from '../parsing/unreachable';
+import { allUnusedLocalReferences } from '../references';
 
 // Utilities related to building a documents Diagnostics.
 
@@ -25,7 +26,7 @@ import { findUnreachableCode } from '../parsing/unreachable';
 export interface FishDiagnostic extends Diagnostic {
   data: {
     node: SyntaxNode;
-    symbol?: FishSymbol;
+    fromSymbol: boolean;
   };
 }
 
@@ -47,6 +48,7 @@ export namespace FishDiagnostic {
       message: errorMessage,
       data: {
         node,
+        fromSymbol: false,
       },
     };
   }
@@ -56,8 +58,20 @@ export namespace FishDiagnostic {
       ...diagnostic,
       data: {
         node: undefined as any,
+        fromSymbol: false,
       },
     };
+  }
+
+  export function fromSymbol(code: ErrorCodes.CodeTypes, symbol: FishSymbol): FishDiagnostic {
+    const diagnostic = create(code, symbol.focusedNode);
+    if (code === ErrorCodes.unusedLocalDefinition) {
+      const localSymbolType = symbol.isVariable() ? 'variable' : 'function';
+      diagnostic.message += ` ${localSymbolType} '${symbol.name}' is defined but never used.`;
+    }
+    diagnostic.range = symbol.selectionRange;
+    diagnostic.data.fromSymbol = true;
+    return diagnostic;
   }
 }
 
@@ -347,13 +361,13 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
     commandNames: commandNames.map(node => node.text).join(', '),
   });
 
-  if (unusedLocalFunction.length >= 1 || !isMissingAutoloadedFunction) {
-    unusedLocalFunction.forEach(node => {
-      if (handler.isCodeEnabledAtNode(ErrorCodes.unusedLocalFunction, node)) {
-        diagnostics.push(FishDiagnostic.create(ErrorCodes.unusedLocalFunction, node));
-      }
-    });
-  }
+  // if (unusedLocalFunction.length >= 1 || !isMissingAutoloadedFunction) {
+  //   unusedLocalFunction.forEach(node => {
+  //     if (handler.isCodeEnabledAtNode(ErrorCodes.unusedLocalFunction, node)) {
+  //       diagnostics.push(FishDiagnostic.create(ErrorCodes.unusedLocalFunction, node));
+  //     }
+  //   });
+  // }
 
   // doc.isFunction();
   const docNameMatchesCompleteCommandNames = completeCommandNames.some(node =>
@@ -374,6 +388,24 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
     for (const unreachableNode of unreachableNodes) {
       if (handler.isCodeEnabledAtNode(ErrorCodes.unreachableCode, unreachableNode)) {
         diagnostics.push(FishDiagnostic.create(ErrorCodes.unreachableCode, unreachableNode));
+      }
+    }
+  }
+
+  if (handler.isCodeEnabled(ErrorCodes.unusedLocalDefinition)) {
+    const unusedLocalDefinitions = allUnusedLocalReferences(doc);
+    for (const unusedLocalDefinition of unusedLocalDefinitions) {
+      if (handler.isCodeEnabledAtNode(ErrorCodes.unusedLocalDefinition, unusedLocalDefinition.focusedNode)) {
+        // const localSymbolType = unusedLocalDefinition.isVariable() ? 'variable' : 'function';
+        // const message = `${localSymbolType} '${unusedLocalDefinition.name}' is defined but never used.`;
+        // const diagnostic = FishDiagnostic.create(
+        //   ErrorCodes.unusedLocalDefinition,
+        //   unusedLocalDefinition.focusedNode,
+        // );
+        // diagnostic.message += ` ${message}`;
+        // diagnostic.range = unusedLocalDefinition.selectionRange;
+        // diagnostic.data.node = unusedLocalDefinition.focusedNode;
+        diagnostics.push(FishDiagnostic.fromSymbol(ErrorCodes.unusedLocalDefinition, unusedLocalDefinition));
       }
     }
   }

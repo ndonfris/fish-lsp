@@ -77,6 +77,23 @@ export function isExportVariableDefinitionName(node: SyntaxNode) {
 }
 
 /**
+ * Checks if a node is an `argparse` definition variable
+ * NOTE: if the node in question is a variable expansion, it will be skipped.
+ * ```fish
+ * argparse --max-args=2 --ignore-unknown --stop-nonopt h/help 'n/name=?' 'x/exclusive' -- $argv
+ * ```
+ * Would return true for the following SyntaxNodes passed in:
+ * - `h/help`
+ * - `n/name=?`
+ * - `x/exclusive`
+ * @param node The node to check, where it's parent isCommandWithName(parent, 'argparse'), and it's not a switch
+ * @returns true if the node is an argparse definition variable (flags for the `argparse` command with be skipped)
+ */
+export function isArgparseVariableDefinitionName(node: SyntaxNode) {
+  return ArgparseParser.isArgparseVariableDefinitionName(node);
+}
+
+/**
  * Checks if a node is a definition name.
  * Definition names are variable names (read/set/argparse/function flags), function names (alias/function),
  */
