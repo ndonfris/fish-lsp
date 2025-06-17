@@ -287,7 +287,7 @@ describe('testing references with new `opts` param', () => {
       }
     });
 
-    it.only("function foo --wraps bar", () => {
+    it("function foo --wraps=bar", () => {
       const fakeDoc = createFakeLspDocument('functions/foo.fish',
         `function foo --wraps=bar`,
         '    echo "This is a test string with a reference to bar"',
@@ -306,22 +306,49 @@ describe('testing references with new `opts` param', () => {
       const barSymbol = cached.documentSymbols.find(s => s.name === 'bar')!;
       const wrappedNode = getChildNodes(fooSymbol?.node).find(n => n.text === '--wraps=bar')!;
       expect(wrappedNode).toBeDefined();
-      logger.debug({
-        msg: `Wrapped node: ${wrappedNode?.text}`,
-        type: wrappedNode?.type,
-        range: rangeAsString(getRange(wrappedNode!)),
-        isOpt: isMatchingOptionOrOptionValue(wrappedNode, Option.fromRaw('-w', '--wraps')),
-        parent: {
-          text: wrappedNode.parent?.text,
-          type: wrappedNode.parent?.type,
-        },
-        isWrappedCall: NestedSyntaxNodeWithReferences.isWrappedCall(barSymbol, wrappedNode),
+      // logger.debug({
+      //   msg: `Wrapped node: ${wrappedNode?.text}`,
+      //   type: wrappedNode?.type,
+      //   range: rangeAsString(getRange(wrappedNode!)),
+      //   isOpt: isMatchingOptionOrOptionValue(wrappedNode, Option.fromRaw('-w', '--wraps')),
+      //   parent: {
+      //     text: wrappedNode.parent?.text,
+      //     type: wrappedNode.parent?.type,
+      //   },
+      //   isWrappedCall: NestedSyntaxNodeWithReferences.isWrappedCall(barSymbol, wrappedNode),
+      // });
+      const barRefs = getReferences(cached.document, pointToPosition(barSymbol.focusedNode.startPosition));
+      console.log({
+        barRefs: referenceLocationsToString(barRefs),
       });
-      NestedSyntaxNodeWithReferences.isWrappedCall(barSymbol, wrappedNode);
-
-
+      expect(barRefs).toHaveLength(2);
     });
 
+    it("function foo --wraps='bar'", () => {
+      const fakeDoc = createFakeLspDocument('functions/foo.fish',
+        `function foo --wraps='bar'`,
+        '    echo "This is a test string with a reference to bar"',
+        '    return 0',
+        'end',
+        'function bar',
+        '    echo "This is bar function"',
+        '    return 0',
+        'end',
+      );
+      const cached = analyzer.analyze(fakeDoc);
+      expect(cached).toBeDefined();
+      workspaceManager.current?.add(fakeDoc.uri);
+
+      const fooSymbol = cached.documentSymbols.find(s => s.name === 'foo')!;
+      const barSymbol = cached.documentSymbols.find(s => s.name === 'bar')!;
+      const wrappedNode = getChildNodes(fooSymbol?.node).find(n => n.text === `'bar'`)!;
+      expect(wrappedNode).toBeDefined();
+      const barRefs = getReferences(cached.document, pointToPosition(barSymbol.focusedNode.startPosition));
+      console.log({
+        barRefs: referenceLocationsToString(barRefs),
+      });
+      expect(barRefs).toHaveLength(2);
+    });
   });
 
 });

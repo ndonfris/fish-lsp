@@ -52,8 +52,16 @@ export function extractCommands(
   config: ExtractConfig = DEFAULT_CONFIG
 ): string[] {
   if (!node.text?.trim()) return [];
+
+  const nodeText = node.text;
   
-  const cleanedText = cleanQuotes(node.text);
+  // Handle option arguments like --wraps=command
+  const optionCommand = parseOptionArgument(nodeText);
+  if (optionCommand) {
+    return [optionCommand];
+  }
+  
+  const cleanedText = cleanQuotes(nodeText);
   const commands = new Set<string>();
   
   // Always parse direct commands first
@@ -86,8 +94,22 @@ export function extractCommandLocations(
   if (!node.text?.trim()) return [];
   
   const nodeRange = getRange(node);
-  const cleanedText = cleanQuotes(node.text);
-  const quoteOffset = getQuoteOffset(node.text);
+  const nodeText = node.text;
+  // Handle option arguments like --wraps=command
+  const optionCommand = parseOptionArgument(nodeText);
+  if (optionCommand) {
+    const offset = nodeText.indexOf(optionCommand);
+    return [{
+      command: optionCommand,
+      location: Location.create(
+        documentUri,
+        createPreciseRange(optionCommand, offset, nodeRange)
+      )
+    }];
+  }
+  
+  const cleanedText = cleanQuotes(nodeText);
+  const quoteOffset = getQuoteOffset(nodeText);
   
   return findCommandsWithOffsets(cleanedText, config)
     .map(({ command, offset }) => ({
@@ -351,6 +373,26 @@ function parseParenthesizedExpressions(input: string): string[] {
   }
   
   return commands;
+}
+
+
+/**
+ * Parse option arguments like --wraps=command, --command=cmd, etc.
+ */
+function parseOptionArgument(text: string): string | null {
+  // Match patterns like --wraps=command, --command=cmd, -c=cmd
+  const optionArgRegex = /^(?:-[a-zA-Z]|--[a-zA-Z][a-zA-Z0-9-]*)\s*=\s*([a-zA-Z_][a-zA-Z0-9_-]*)/;
+  const match = text.match(optionArgRegex);
+  
+  if (match && match[1]) {
+    const command = match[1].trim();
+    // Only return if it looks like a valid command (not a number or single char)
+    if (command.length > 1 && !isNumeric(command)) {
+      return command;
+    }
+  }
+  
+  return null;
 }
 
 /**

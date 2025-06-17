@@ -1,7 +1,7 @@
 import { DocumentUri, Location, Position, Range } from 'vscode-languageserver';
 import { analyzer } from './analyze';
 import { LspDocument } from './document';
-import { findParentCommand, isCommandWithName, isCompleteCommandName, isFunctionDefinition, isMatchingOption, isOption, isString } from './utils/node-types';
+import { findParentCommand, findParentFunction, isCommandWithName, isCompleteCommandName, isFunctionDefinition, isMatchingOption, isOption, isString } from './utils/node-types';
 import { getRange } from './utils/tree-sitter';
 import { FishSymbol } from './parsing/symbol';
 import { isCompletionCommandDefinition } from './parsing/complete';
@@ -232,7 +232,11 @@ function isCommandMatchCallback(definitionSymbol: FishSymbol) {
         }
         // keep `bind ... cmdname` entries for functions
         if (NestedSyntaxNodeWithReferences.isBindCall(definitionSymbol, node)) {
-          return true; // skip bind calls for functions
+          return true;
+        }
+        // function ... --wraps='cmdname'
+        if (NestedSyntaxNodeWithReferences.isWrappedCall(definitionSymbol, node)) {
+          return true;
         }
         if (node.parent && !isCommandWithName(node.parent, definitionSymbol.name) && node.parent.firstChild?.equals(node)) {
           return false;
@@ -369,7 +373,12 @@ export namespace NestedSyntaxNodeWithReferences {
   }
 
   export function isWrappedCall(definitionSymbol: FishSymbol, node: SyntaxNode): boolean {
-    if (!node?.parent || !isFunctionDefinition(node.parent)) return false;
+    if (!node?.parent || !findParentFunction(node)) return false;
+    if (node.previousNamedSibling && isMatchingOption(node.previousNamedSibling, Option.fromRaw('-w', '--wraps'))) {
+      const cmds = extractCommands(node);
+      logger.debug(`Extracted commands from wrapped call node: ${cmds}`);
+      return cmds.some(cmd => cmd.trim() === definitionSymbol.name);
+    }
     if (isMatchingOptionOrOptionValue(node, Option.fromRaw('-w', '--wraps'))) {
       logger.warning(`Node ${node.text} is a wrapped call for symbol ${definitionSymbol.name}`);
       const cmds = extractCommands(node);
