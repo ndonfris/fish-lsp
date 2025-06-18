@@ -361,15 +361,6 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
     commandNames: commandNames.map(node => node.text).join(', '),
   });
 
-  // if (unusedLocalFunction.length >= 1 || !isMissingAutoloadedFunction) {
-  //   unusedLocalFunction.forEach(node => {
-  //     if (handler.isCodeEnabledAtNode(ErrorCodes.unusedLocalFunction, node)) {
-  //       diagnostics.push(FishDiagnostic.create(ErrorCodes.unusedLocalFunction, node));
-  //     }
-  //   });
-  // }
-
-  // doc.isFunction();
   const docNameMatchesCompleteCommandNames = completeCommandNames.some(node =>
     node.text === doc.getAutoLoadName());
   // if no `complete -c func_name` matches the autoload name
@@ -383,29 +374,24 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
     }
   }
 
+  // 4004 -> unused local function/variable definitions
+  if (handler.isCodeEnabled(ErrorCodes.unusedLocalDefinition)) {
+    const unusedLocalDefinitions = allUnusedLocalReferences(doc);
+    for (const unusedLocalDefinition of unusedLocalDefinitions) {
+      if (handler.isCodeEnabledAtNode(ErrorCodes.unusedLocalDefinition, unusedLocalDefinition.focusedNode)) {
+        diagnostics.push(
+          FishDiagnostic.fromSymbol(ErrorCodes.unusedLocalDefinition, unusedLocalDefinition),
+        );
+      }
+    }
+  }
+
+  // 5555 -> code is not reachable
   if (handler.isCodeEnabled(ErrorCodes.unreachableCode)) {
     const unreachableNodes = findUnreachableCode(root);
     for (const unreachableNode of unreachableNodes) {
       if (handler.isCodeEnabledAtNode(ErrorCodes.unreachableCode, unreachableNode)) {
         diagnostics.push(FishDiagnostic.create(ErrorCodes.unreachableCode, unreachableNode));
-      }
-    }
-  }
-
-  if (handler.isCodeEnabled(ErrorCodes.unusedLocalDefinition)) {
-    const unusedLocalDefinitions = allUnusedLocalReferences(doc);
-    for (const unusedLocalDefinition of unusedLocalDefinitions) {
-      if (handler.isCodeEnabledAtNode(ErrorCodes.unusedLocalDefinition, unusedLocalDefinition.focusedNode)) {
-        // const localSymbolType = unusedLocalDefinition.isVariable() ? 'variable' : 'function';
-        // const message = `${localSymbolType} '${unusedLocalDefinition.name}' is defined but never used.`;
-        // const diagnostic = FishDiagnostic.create(
-        //   ErrorCodes.unusedLocalDefinition,
-        //   unusedLocalDefinition.focusedNode,
-        // );
-        // diagnostic.message += ` ${message}`;
-        // diagnostic.range = unusedLocalDefinition.selectionRange;
-        // diagnostic.data.node = unusedLocalDefinition.focusedNode;
-        diagnostics.push(FishDiagnostic.fromSymbol(ErrorCodes.unusedLocalDefinition, unusedLocalDefinition));
       }
     }
   }

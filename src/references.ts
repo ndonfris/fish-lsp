@@ -215,57 +215,22 @@ export function implementationLocation(
   position: Position,
 ): Location[] {
   const locations: Location[] = [];
-
   const node = analyzer.nodeAtPoint(document.uri, position.line, position.character);
   if (!node) return [];
-
   const symbol = analyzer.getDefinition(document, position);
   if (!symbol) return [];
+  const newLocations = getReferences(document, position)
+    .filter(location => location.uri !== document.uri);
 
-  // all references to the symbol, excluding the definition itself
-  const newLocations = getReferences(document, position, { excludeDefinition: true })
-    .map(location => ({
-      uri: location.uri,
-      range: location.range,
-      node: analyzer.nodeAtPoint(location.uri, location.range.start.line, location.range.start.character),
-    }));
-
-  const commandNode = analyzer.commandAtPoint(document.uri, position.line, position.character);
-
-  // if the current node is a function definition at a completion command
-  // return its definition location
-  if (symbol.isFunction() && commandNode && isCommandWithName(commandNode, 'complete')) {
-    return [symbol.toLocation()];
+  if (newLocations.some(s => s.uri === symbol.uri)) {
+    locations.push(symbol.toLocation());
+    return locations;
   }
-
-  // if the current node is a function definition not at its completion command
-  // return its completion location
-  if (symbol.isFunction()) {
-    const completionLocation = newLocations.find(s => {
-      const parent = analyzer.commandAtPoint(s.uri, s.range.start.line, s.range.start.character);
-      if (parent && isCommandWithName(parent, 'complete')) {
-        return true;
-      }
-      return false;
-    });
-    if (completionLocation) {
-      return [Location.create(completionLocation.uri, completionLocation.range)];
-    }
+  if (newLocations.some(s => s.uri.includes('completions/'))) {
+    locations.push(newLocations.find(s => s.uri.includes('completions/'))!);
+    return locations;
   }
-
-  // jump to the next reference
-  if (symbol.isVariable()) {
-    newLocations.unshift({ ...symbol.toLocation(), node: symbol.focusedNode });
-    const currentIndex = newLocations.findIndex(s => s.node && s.node.equals(node));
-    const nextIndex = (currentIndex + 1) % newLocations.length;
-    const nextLocation = newLocations[nextIndex];
-    if (!nextLocation) {
-      return [symbol.toLocation()];
-    }
-    return [Location.create(nextLocation.uri, nextLocation.range)];
-  }
-  locations.unshift(symbol.toLocation());
-  locations.push(...newLocations.map(s => Location.create(s.uri, s.range)));
+  locations.push(symbol.toLocation());
   return locations;
 }
 

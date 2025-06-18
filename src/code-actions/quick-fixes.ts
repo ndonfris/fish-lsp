@@ -7,7 +7,6 @@ import { ErrorNodeTypes } from '../diagnostics/node-types';
 import { SupportedCodeActionKinds } from './action-kinds';
 import { logger } from '../logger';
 import { analyzer, Analyzer } from '../analyze';
-// import { createAliasInlineAction, createAliasSaveActionNewFile } from './alias-wrapper';
 import { getRange } from '../utils/tree-sitter';
 import { pathToRelativeFunctionName, uriToPath, uriToReadablePath } from '../utils/translation';
 import { findParentCommand, isAliasDefinitionName, isArgparseVariableDefinitionName, isConditionalCommand, isFunctionDefinition, isFunctionDefinitionName, isVariableDefinitionName } from '../utils/node-types';

@@ -3,14 +3,12 @@ import { ErrorCodes } from '../src/diagnostics/error-codes';
 import { getDiagnostics } from '../src/diagnostics/validate';
 import { createFakeLspDocument, setLogger } from './helpers';
 
-
 describe('Unreachable Code Detection', () => {
   setLogger();
 
   beforeEach(async () => {
     await Analyzer.initialize();
   });
-
 
   it('should detect code after return statement', () => {
     const fishCode = `
@@ -158,7 +156,6 @@ end`;
     expect(unreachableDiagnostics).toHaveLength(2); // after break and after continue
   });
 
-
   it('should detect code after switch with default case 2', () => {
     const fishCode = `
 function test_func
@@ -216,23 +213,22 @@ end`;
     expect(unreachableDiagnostics).toHaveLength(0);
   });
 
-//   it('should handle complex conditional chains', () => {
-//     const fishCode = `function test_func
-//   test -f /some/file
-//   and echo "found"
-//   and return 0
-//   or echo "not found"
-//   or return 1
-//
-//   echo "unreachable because both paths terminate"
-// end`;
-//
-//     const fakeDoc = createFakeLspDocument('config.fish', fishCode);
-//     const { root } = analyzer.analyze(fakeDoc);
-//
-//     const diagnostics = getDiagnostics(root, fakeDoc);
-//     const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
-//     expect(unreachableDiagnostics).toHaveLength(1);
-//   });
-
+  //   it('should handle complex conditional chains', () => {
+  //     const fishCode = `function test_func
+  //   test -f /some/file
+  //   and echo "found"
+  //   and return 0
+  //   or echo "not found"
+  //   or return 1
+  //
+  //   echo "unreachable because both paths terminate"
+  // end`;
+  //
+  //     const fakeDoc = createFakeLspDocument('config.fish', fishCode);
+  //     const { root } = analyzer.analyze(fakeDoc);
+  //
+  //     const diagnostics = getDiagnostics(root, fakeDoc);
+  //     const unreachableDiagnostics = diagnostics.filter(d => d.code === ErrorCodes.unreachableCode);
+  //     expect(unreachableDiagnostics).toHaveLength(1);
+  //   });
 });

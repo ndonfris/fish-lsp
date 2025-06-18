@@ -1,7 +1,5 @@
-// Complete fixed version for src/parsing/unreachable.ts
-
 import { SyntaxNode } from 'web-tree-sitter';
-import { isCommand, isReturn, isSwitchStatement, isCaseClause, isIfStatement, isElseStatement, isForLoop, isFunctionDefinition, isComment, isConditionalCommand } from '../utils/node-types';
+import { isCommand, isReturn, isSwitchStatement, isCaseClause, isIfStatement, isForLoop, isFunctionDefinition, isComment, isConditionalCommand } from '../utils/node-types';
 import { getChildNodes } from '../utils/tree-sitter';
 
 /**
@@ -9,17 +7,17 @@ import { getChildNodes } from '../utils/tree-sitter';
  */
 function isTerminalStatement(node: SyntaxNode): boolean {
   if (isReturn(node)) return true;
-  
+
   if (isCommand(node)) {
     const commandName = node.firstNamedChild?.text;
     return commandName === 'exit' || commandName === 'break' || commandName === 'continue';
   }
-  
+
   // Also check if the node itself is a break/continue/exit/return keyword
   if (node.type === 'break' || node.type === 'continue' || node.type === 'exit' || node.type === 'return') {
     return true;
   }
-  
+
   return false;
 }
 
@@ -44,24 +42,24 @@ function conditionalExecutionTerminates(conditionalNode: SyntaxNode): boolean {
 function sequenceFormsTerminatingAndOrChain(nodes: SyntaxNode[], startIndex: number): boolean {
   // Need at least 3 nodes: initial command + and branch + or branch
   if (startIndex + 2 >= nodes.length) return false;
-  
+
   const first = nodes[startIndex];
   const second = nodes[startIndex + 1];
   const third = nodes[startIndex + 2];
-  
+
   // Pattern: command followed by two conditional_execution nodes
   if (!first || !second || !third) return false;
-  
+
   const isCommandSequence = (isCommand(first) || isConditionalCommand(first)) &&
-                           isConditionalCommand(second) &&
-                           isConditionalCommand(third);
-  
+    isConditionalCommand(second) &&
+    isConditionalCommand(third);
+
   if (!isCommandSequence) return false;
-  
+
   // Both conditional executions must terminate
   const secondTerminates = conditionalExecutionTerminates(second);
   const thirdTerminates = conditionalExecutionTerminates(third);
-  
+
   return secondTerminates && thirdTerminates;
 }
 
@@ -88,11 +86,11 @@ function caseContainsTerminalStatement(caseNode: SyntaxNode): boolean {
       skipPattern = false; // Skip the first child (the pattern)
       continue;
     }
-    
+
     if (isTerminalStatement(child)) {
       return true;
     }
-    
+
     // Recursively check nested blocks
     if (containsDirectTerminalStatement(child) || hasTerminalInNestedBlocks(child)) {
       return true;
@@ -139,9 +137,9 @@ function allPathsTerminate(ifNode: SyntaxNode): boolean {
       if (containsDirectTerminalStatement(child) || hasTerminalInNestedBlocks(child)) {
         elseBodyTerminates = true;
       }
-    }
+
     // Check the if body (everything that's not an else clause)
-    else if (child.type !== 'else_if_clause' && !ifBodyTerminates) {
+    } else if (child.type !== 'else_if_clause' && !ifBodyTerminates) {
       if (isTerminalStatement(child) || hasTerminalInNestedBlocks(child)) {
         ifBodyTerminates = true;
       }
@@ -165,7 +163,7 @@ function allSwitchPathsTerminate(switchNode: SyntaxNode): boolean {
       if (casePattern === '*' || casePattern === '"*"' || casePattern === "'*'" || casePattern === '\\*') {
         hasDefault = true;
       }
-      
+
       // Check if this case terminates
       if (!caseContainsTerminalStatement(child)) {
         allCasesTerminate = false;
@@ -185,7 +183,7 @@ function getUnreachableStatementsInSequence(nodes: SyntaxNode[]): SyntaxNode[] {
 
   for (let i = 0; i < nodes.length; i++) {
     const node = nodes[i]!;
-    
+
     // Skip comments - they're allowed after terminal statements
     if (isComment(node)) {
       continue;
@@ -230,12 +228,12 @@ function getUnreachableStatementsInSequence(nodes: SyntaxNode[]): SyntaxNode[] {
  */
 function findUnreachableInFunction(functionNode: SyntaxNode): SyntaxNode[] {
   const unreachable: SyntaxNode[] = [];
-  
+
   // Get the function body (all children except the function keyword and name)
   const functionBodyNodes: SyntaxNode[] = [];
   let foundFunctionKeyword = false;
   let foundFunctionName = false;
-  
+
   for (const child of functionNode.namedChildren) {
     // Skip function keyword
     if (!foundFunctionKeyword && child.type === 'word' && child.text === 'function') {
@@ -247,18 +245,18 @@ function findUnreachableInFunction(functionNode: SyntaxNode): SyntaxNode[] {
       foundFunctionName = true;
       continue;
     }
-    
+
     // Skip comments - they don't affect control flow
     if (isComment(child)) {
       continue;
     }
-    
+
     functionBodyNodes.push(child);
   }
 
   // Find unreachable statements in the function body
   unreachable.push(...getUnreachableStatementsInSequence(functionBodyNodes));
-  
+
   return unreachable;
 }
 
@@ -267,7 +265,7 @@ function findUnreachableInFunction(functionNode: SyntaxNode): SyntaxNode[] {
  */
 function findUnreachableInBlock(blockNode: SyntaxNode): SyntaxNode[] {
   const blockBodyNodes: SyntaxNode[] = [];
-  
+
   // For if statements, get everything except the condition
   if (isIfStatement(blockNode)) {
     let skipCondition = true;
@@ -277,7 +275,7 @@ function findUnreachableInBlock(blockNode: SyntaxNode): SyntaxNode[] {
         continue;
       }
       skipCondition = false;
-      
+
       // Don't include else clauses as unreachable in the if body
       if (child.type !== 'else_clause' && child.type !== 'else_if_clause') {
         blockBodyNodes.push(child);
@@ -307,22 +305,22 @@ function findUnreachableInBlock(blockNode: SyntaxNode): SyntaxNode[] {
  */
 export function findUnreachableCode(root: SyntaxNode): SyntaxNode[] {
   const unreachable: SyntaxNode[] = [];
-  
+
   // Use getChildNodes to traverse all descendants
   const allNodes = getChildNodes(root);
-  
+
   // Process each node type
   for (const node of allNodes) {
     // Check function definitions
     if (isFunctionDefinition(node)) {
       unreachable.push(...findUnreachableInFunction(node));
-    }
-    // Check other block structures  
-    else if (isIfStatement(node) || isForLoop(node)) {
+
+      // Check other block structures
+    } else if (isIfStatement(node) || isForLoop(node)) {
       unreachable.push(...findUnreachableInBlock(node));
     }
   }
-  
+
   return unreachable;
 }
 
