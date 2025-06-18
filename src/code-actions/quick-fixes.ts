@@ -169,7 +169,7 @@ function handleMissingQuietError(
   const edit = TextEdit.insert(diagnostic.range.end, ' -q ');
 
   return {
-    title: 'Add quiet (-q) flag',
+    title: 'Add silence (-q) flag',
     kind: SupportedCodeActionKinds.QuickFix,
     diagnostics: [diagnostic],
     edit: {

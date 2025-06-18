@@ -154,6 +154,16 @@ Theoretically, the language-server should generally be compatible with almost an
 
 </details>
 <details>
+  <summary><b>mason.nvim</b></summary>
+
+  Install the `fish-lsp` using [mason.nvim](https://github.com/mason-org/mason-registry/pull/8609#event-18154473712)
+
+  ```vimscript
+  :MasonInstall fish-lsp
+  ```
+
+</details>
+<details>
   <summary><b>coc.nvim</b></summary>
 
   [Neovim](https://neovim.io) client using [coc.nvim](https://github.com/neoclide/coc.nvim) configuration, located inside [coc-settings.json](https://github.com/neoclide/coc.nvim/wiki/Language-servers#register-custom-language-servers) `"languageserver"` key
