@@ -84,20 +84,55 @@
   "contributes": {
     "commands": [
       {
-        "command": "fish-lsp.createTheme",
-        "title": "create a new theme"
-      },
-      {
-        "command": "fish-lsp.executeBuffer",
-        "title": "execute the buffer"
-      },
-      {
-        "command": "fish-lsp.execute",
-        "title": "execute the buffer"
+        "command": "fish-lsp.executeRange",
+        "title": "execute the range"
       },
       {
         "command": "fish-lsp.executeLine",
         "title": "execute the line"
+      },
+      {
+        "command": "fish-lsp.executeBuffer",
+        "title": "execute the buffer"
+      },{
+        "command": "fish-lsp.execute",
+        "title": "execute the buffer"
+      },
+      {
+        "command": "fish-lsp.createTheme",
+        "title": "create a new theme"
+      },
+      {
+        "command": "fish-lsp.showStatusDocs",
+        "title": "show the status documentation"
+      },
+      {
+        "command": "fish-lsp.showWorkspaceMessage",
+        "title": "show the workspace message"
+      },
+      {
+        "command": "fish-lsp.updateWorkspace",
+        "title": "update the workspace"
+      },
+      {
+        "command": "fish-lsp.updateConfig",
+        "title": "update the configuration"
+      },
+      {
+        "command": "fish-lsp.fixAll",
+        "title": "execute all quick-fixes in file"
+      },
+      {
+        "command": "fish-lsp.toggleSingleWorkspaceSupport",
+        "title": "enable/disable single workspace support"
+      },
+      {
+        "command": "fish-lsp.generateEnvVariables",
+        "title": "output the $fish_lsp_* environment variables"
+      },
+      {
+        "command": "fish-lsp.showReferences",
+        "title": "show references"
       }
     ]
   },
