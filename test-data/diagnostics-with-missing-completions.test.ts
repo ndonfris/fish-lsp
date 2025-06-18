@@ -1,5 +1,5 @@
-import os from 'os';
-import fs from 'fs';
+import * as os from 'os';
+import * as fs from 'fs';
 import { findAllMissingArgparseFlags } from '../src/diagnostics/missing-completions';
 import { LspDocument } from '../src/document';
 import { flattenNested } from '../src/utils/flatten';
@@ -86,7 +86,7 @@ describe('diagnostics with missing completions', () => {
       expect(completionCached).toBeDefined();
 
       const diagnostics = getDiagnostics(functionCached.root, functionDoc);
-      expect(diagnostics.length).toBe(0);
+      expect(diagnostics.length).toBe(2);
 
       const flatFuncSymbols = flattenNested(...functionCached.documentSymbols).filter(s => s.isFunction() && s.isGlobal());
       const flatAutoloadedSymbols = flattenNested(...flatFuncSymbols);

@@ -89,6 +89,7 @@ export function getReferences(
 
   // create a list of al documents we will search for references
   const documentsToSearch: LspDocument[] = getDocumentsToSearch(document, logCallback, opts);
+  // results.push(definitionSymbol.toLocation());
 
   // analyze the CompletionSymbol's and add their locations to result array
   // this is separate from the search operation because analysis lazy loads
@@ -297,7 +298,7 @@ function isCommonSymbolMatchCallback(definitionSymbol: FishSymbol) {
     }
 
     // skip any definition name since we should already have it
-    if (!node.isNamed) return false;
+    // if (!node.isNamed) return false;
     // remove `complete ... -s opt -l opt` entries for variables
     if (definitionSymbol.isVariable()) {
       if (node.parent) {

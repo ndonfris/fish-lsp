@@ -590,12 +590,6 @@ export function isConditionalCommand(node: SyntaxNode) {
   return node.type === 'conditional_execution';
 }
 
-// @TODO: see ./tree-sitter.ts -> getRangeWithPrecedingComments(),
-//        for implementation of chained returns of conditional_executions
-// export function chainedCommandGroup(): SyntaxNode[] {
-//   return [];
-// }
-
 export function isCommandFlag(node: SyntaxNode) {
   return [
     'test_option',
