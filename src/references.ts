@@ -1,8 +1,8 @@
-import { DocumentUri, Location, Position, Range } from 'vscode-languageserver';
+import { DocumentUri, Location, Position, Range, WorkDoneProgressReporter } from 'vscode-languageserver';
 import { analyzer } from './analyze';
 import { LspDocument } from './document';
-import { findParentCommand, findParentFunction, isCommandWithName, isCompleteCommandName, isFunctionDefinitionName, isMatchingOption, isOption, isProgram, isString } from './utils/node-types';
-import { getChildNodes, getRange } from './utils/tree-sitter';
+import { findParentCommand, findParentFunction, isCommand, isCommandName, isCommandWithName, isCompleteCommandName, isFunctionDefinitionName, isMatchingOption, isOption, isProgram, isString } from './utils/node-types';
+import { containsNode, getChildNodes, getRange } from './utils/tree-sitter';
 import { filterFirstUniqueSymbolperScope, findFirstPerScopeSymbol, FishSymbol } from './parsing/symbol';
 import { isCompletionCommandDefinition } from './parsing/complete';
 import { isMatchingOptionOrOptionValue, Option } from './parsing/options';
@@ -20,6 +20,10 @@ import { isFunctionVariableDefinitionName } from './parsing/function';
 import { isReadVariableDefinitionName } from './parsing/read';
 import { isSetVariableDefinitionName } from './parsing/set';
 import { flattenNested } from './utils/flatten';
+import { connection } from './utils/startup';
+import { number } from 'zod';
+import { report } from 'process';
+import { DefinitionScope } from './utils/definition-scope';
 
 // ┌──────────────────────────────────┐
 // │ file handles 3 main operations:  │
@@ -46,6 +50,8 @@ export type ReferenceOptions = {
   logPerformance?: boolean;
   // enable logging for the function
   loggingEnabled?: boolean;
+
+  reporter?: WorkDoneProgressReporter; // callback to report the number of references found
 };
 
 /**
@@ -65,8 +71,9 @@ export function getReferences(
     firstMatch: false,
     allWorkspaces: false,
     onlyInFiles: [],
-    logPerformance: false,
-    loggingEnabled: false,
+    logPerformance: true,
+    loggingEnabled: true,
+    reporter: undefined,
   },
 ): Location[] {
   const results: Location[] = [];
@@ -106,7 +113,8 @@ export function getReferences(
   //   : isCommonSymbolMatchCallback(definitionSymbol);
 
   // convert the documentsToSearch to a Set for O(1) lookups
-  const searchableDocuments = new Set<string>(documentsToSearch.map(doc => doc.uri));
+  const searchableDocumentsUris = new Set<string>(documentsToSearch.map(doc => doc.uri));
+  const searchableDocuments = new Set<LspDocument>(documentsToSearch.filter(doc => searchableDocumentsUris.has(doc.uri)));
 
   // dictionary where we will store the references found, used to build the results
   const matchingNodes: { [document: DocumentUri]: SyntaxNode[]; } = {};
@@ -114,33 +122,118 @@ export function getReferences(
   // boolean to control stopping our search when opts.firstMatch is true
   let shouldExitEarly = false;
 
+  let reporting = false;
+  const reporter = opts.reporter;
+
+  if (opts.reporter && searchableDocuments.size > 500) {
+    // if we have a reporter, we will report the progress of the search
+    reporter?.begin('[fish-lsp] finding references', 0, 'Finding references...', true);
+    reporting = true;
+  }
+
+
+  let index = 0;
+
   // search the valid documents for references and store matches to build after
   // we have collected all valid matches for the requested options
-  for (const { document, nodes } of analyzer.findNodesGen()) {
+  for (const doc of searchableDocuments) {
+    const prog = Math.ceil((index + 1) / searchableDocuments.size * 100);
+    if (reporting) {
+      reporter?.report(prog);
+    }
+    index += 1;
+
+    if (!workspaceManager.current?.contains(doc.uri)) {
+      continue;
+    }
 
     // skip documents that are not in the searchableDocuments set
-    if (!searchableDocuments.has(document.uri)) continue;
+    // if (!searchableDocumentsUris.has(doc.uri)) continue;
 
     // Extract the symbols from a document that aren't a reference, 
     // like a definition w/ a same name but in a smaller scope.
-    const localSymbols = analyzer.cache.getFlatDocumentSymbols(document.uri)
-      .filter(s =>
-        s.name === definitionSymbol.name
-        && s.kind === definitionSymbol.kind
-        && s.isLocal()
-        && !s.equalScopes(definitionSymbol)
-      );
+    // const localSymbols = analyzer.cache.getFlatDocumentSymbols(document.uri)
+    // const localSymbols = filterFirstUniqueSymbolperScope(doc)
+    //   .filter(s =>
+    //     s.name === definitionSymbol.name
+    //     && s.kind === definitionSymbol.kind
+    //     && definitionSymbol.equalScopes(s)
+    //     && !definitionSymbol.containsScope(s)
+    //   );
+    // const localSymbols = analyzer.cache.getFlatDocumentSymbols(doc.uri)
+    //   .filter(s => {
+    //     if (definitionSymbol.isArgparse()) {
+    //       if (s.uri !== definitionSymbol.uri) return false; // argparse flags are only local to their definition
+    //     }
+    //     if (s.isVariable() && definitionSymbol.isVariable()) {
+    //       // if the symbol is a variable, we want to match it only if it is in the same scope
+    //       return s.name === definitionSymbol.name
+    //         && s.kind === definitionSymbol.kind
+    //         && s.isLocal()
+    //         && definitionSymbol.equalScopes(s);
+    //     }
+    //     if (definitionSymbol.isFunction()) {
+    //       return s.name === definitionSymbol.name
+    //         && s.kind === definitionSymbol.kind
+    //         && s.isLocal();
+    //     }
+    //   });
+
+    const filteredSymbols = findFirstPerScopeSymbol(analyzer.getDocumentSymbols(doc.uri))
+      .filter(s => s.isLocal() && s.name === definitionSymbol.name && s.kind === definitionSymbol.kind);
+
+    //   analyzer.cache.getFlatDocumentSymbols(doc.uri)
+    //     .filter(s => {
+    //       if (definitionSymbol.isArgparse()) {
+    //         if (s.uri !== definitionSymbol.uri) return false; // argparse flags are only local to their definition
+    //       }
+    //       if (s.isVariable() && definitionSymbol.isVariable()) {
+    //         // if the symbol is a variable, we want to match it only if it is in the same scope
+    //         return s.name === definitionSymbol.name
+    //           && s.kind === definitionSymbol.kind
+    //           && s.isLocal()
+    //           && definitionSymbol.equalScopes(s);
+    //       }
+    //       if (definitionSymbol.isFunction()) {
+    //         return s.name === definitionSymbol.name
+    //           && s.kind === definitionSymbol.kind
+    //           && s.isLocal();
+    //       }
+    //     })
+    // );
 
     // Filter out nodes that are a redefinition of the symbol in the local scope.
-    const searchNodes = nodes.filter(
-      node => !localSymbols.some(s => s.scopeContainsNode(node))
-    );
+    // const skipNodes = localSymbols.map(s => s.scopeNode);
 
-    for (const node of searchNodes) {
-      if (definitionSymbol.isReference(document, node, true)) {
-        const currentDocumentsNodes = matchingNodes[document.uri] ?? [];
+    const matchableTexts = definitionSymbol.isFunction()
+      ? [definitionSymbol.name]
+      : definitionSymbol.isArgparse()
+        ? [definitionSymbol.name, ...definitionSymbol.aliasedNames, definitionSymbol.argparseFlag, definitionSymbol.argparseFlagName]
+        : [definitionSymbol.name, ...definitionSymbol.aliasedNames];
+
+    logger.log({
+      message: `Searching for references of symbol '${definitionSymbol.name}' in document '${doc.uri}'`,
+      document: doc.uri,
+      defSymbol: definitionSymbol.toString(),
+      matchableTexts,
+    });
+
+    const root = analyzer.getRootNode(doc.uri);
+    if (!root) {
+      logCallback(`No root node found for document ${doc.uri}`, 'warning');
+      continue;
+    }
+    const matchableNodes = getChildNodesOptimized(definitionSymbol, doc);
+
+    for (const node of matchableNodes) {
+      // skip nodes that are redefinitions of the symbol in the local scope
+      if (filteredSymbols.some(s => s.containsNode(node) || s.scopeNode.equals(node))) {
+        continue;
+      }
+      if (definitionSymbol.isReference(doc, node, true)) {
+        const currentDocumentsNodes = matchingNodes[doc.uri] ?? [];
         currentDocumentsNodes.push(node);
-        matchingNodes[document.uri] = currentDocumentsNodes;
+        matchingNodes[doc.uri] = currentDocumentsNodes;
         if (opts.firstMatch) {
           shouldExitEarly = true; // stop searching after the first match
           break;
@@ -149,6 +242,12 @@ export function getReferences(
     }
     if (shouldExitEarly) break;
   }
+
+  // logCallback(
+  //   `Found ${Object.keys(matchingNodes).length} documents with matching nodes for symbol '${definitionSymbol.name}'`,
+  //   'debug',
+  // );
+  // logger.debug(`Matching nodes found: ${JSON.stringify(matchingNodes)}`);
 
   // now convert the matching nodes to locations
   for (const [uri, nodes] of Object.entries(matchingNodes)) {
@@ -160,16 +259,20 @@ export function getReferences(
   }
 
   // log the results, if logging option is enabled
-  const docShorthand = `${workspaceManager.current?.name}/${document.getRelativeFilenameToWorkspace()}`;
+  const docShorthand = `${workspaceManager.current?.name}`;
   const count = results.length;
   const name = definitionSymbol.name;
   logCallback(
     `Found ${count} references for symbol '${name}' in document '${docShorthand}'`,
-    'debug',
+    'info',
   );
 
+  if (reporting) reporter?.done();
+
+
   const sorter = locationSorter(definitionSymbol);
-  return results.sort((a, b) => sorter(a, b));
+  // return results.sort((a, b) => sorter(a, b));
+  return results.sort(sorter);
 }
 
 /**
@@ -184,12 +287,21 @@ export function allUnusedLocalReferences(document: LspDocument): FishSymbol[] {
   const unusedSymbols: FishSymbol[] = [];
 
   for (const symbol of symbols) {
-    const localSymbols = symbol.parent?.children.filter(c =>
+    let localSymbols = symbol.parent?.children.filter(c =>
       c.name === symbol.name
       && !c.equals(symbol)
       && c.kind === symbol.kind
-      && !c.equalScopes(symbol)
+      && !symbol.containsScope(c)
     );
+    // if (
+    //   // !symbol.isArgparse()
+    //   // && symbol.isLocal()
+    //   // && symbol.isVariable()
+    //   symbol.isVariable()
+    //   && localSymbols?.find(c => c.isVariable() && c.isLocal() && c.name === symbol.name) // if there is an argparse with the same name, skip it
+    // ) {
+    //   continue;
+    // }
 
     let found = false;
     for (const node of getChildNodes(symbol.scopeNode)) {
@@ -646,7 +758,104 @@ function findCommandPositions(shellCode: string, commandName: string): Array<{ s
 
   return matches;
 }
+/**
+ * Optimized version of getChildNodes that pre-filters by text content
+ * This significantly reduces the number of nodes we need to check
+ */
+// function* getChildNodesOptimized(root: SyntaxNode, ...targetText: string[]): Generator<SyntaxNode> {
+//   const queue: SyntaxNode[] = [root];
+//
+//   while (queue.length > 0) {
+//     const current = queue.shift();
+//     if (!current) continue;
+//
+//     // Only yield nodes that match the target text (quick filter)
+//     if (targetText.includes(current.text) || isString(current)) {
+//       yield current;
+//     }
+//
+//     // Add children to queue for processing
+//     if (current.children.length > 0) {
+//       queue.unshift(...current.children);
+//     }
+//   }
+// }
+const getTargetText = (s: FishSymbol, doc: LspDocument) => {
+  if (s.isFunction()) {
+    return [s.name];
+  } else if (s.isArgparse()) {
+    // if the symbol is an argparse flag, we want to return the flag name and aliased names
+    // so that we can match them in the document
+    if (s.uri === doc.uri) {
+      return [s.name];
+    } else if (s.document.getAutoloadType() === 'completions') {
+      return [s.argparseFlagName];
+    }
+    return [s.name];
+  } else {
+    return [s.name];
+  }
+};
 
+function* getChildNodesOptimized(symbol: FishSymbol, doc: LspDocument): Generator<SyntaxNode> {
+  const root = analyzer.analyze(doc).root;
+  if (!root) return;
+
+  const localSymbols = analyzer.getFlatDocumentSymbols(doc.uri)
+    .filter(s => {
+      if (s.isFunction() && s.isLocal() && s.name === symbol.name && symbol.isFunction()) {
+        return !s.equals(symbol);
+      }
+      return s.name === symbol.name
+        && s.kind === symbol.kind
+        && s.isLocal()
+        && !symbol.equalDefinition(s);
+    });
+
+  const skipNodes = localSymbols.map(s => s.parent?.node).filter(n => n !== undefined) as SyntaxNode[];
+
+  const isPotentialMatch = (current: SyntaxNode) => {
+    if (symbol.isArgparse()
+      && ((isOption(current) || current.text === symbol.name || current.text === symbol.argparseFlagName))
+    ) {
+      return true;
+    } else if (symbol.name === current.text) {
+      return true;
+    } else if (isString(current)) {
+      return true;
+    }
+    if (symbol.isFunction()) {
+      return symbol.name === current.text
+        || isCommandName(current)
+        || isCommand(current)
+        || current.type === 'word'
+        || current.isNamed;
+    }
+    return false;
+  };
+
+  const queue: SyntaxNode[] = [root];
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current) continue;
+
+    if (
+      skipNodes.some(s =>
+        containsNode(s, current) || (s.equals(current) && !isProgram(current))
+      )) {
+      continue;
+    }
+
+    if (isPotentialMatch(current)) {
+      yield current;
+    }
+    // Add children to queue for processing
+    if (current.children.length > 0) {
+      queue.unshift(...current.children);
+    }
+  }
+}
 /**
  * Returns a list of documents to search for references based on the options provided.
  *
@@ -724,41 +933,40 @@ function logWrapper(
       request: string;
       params: typeof params;
       message: string;
-      duration?: string;
+      // duration?: string;
     } = {
       request: requestMsg,
       params,
       message,
-      duration: undefined,
+      // duration: opts.logPerformance ? `duration: ${duration} seconds` : undefined,
     };
-
-    if (opts.logPerformance) {
-      logObj.duration = `total duration ${duration} ms`;
-    }
 
     switch (level) {
       case 'info':
-        logger.info(logObj);
+        logger.info(logObj, duration);
         break;
       case 'debug':
-        logger.debug(logObj);
+        logger.debug(logObj, duration);
         break;
       case 'warning':
-        logger.warning(logObj);
+        logger.warning(logObj, duration);
         break;
       case 'error':
         logger.error({
           ...logObj,
           message: `Error: ${message}`,
+          duration,
         });
         break;
       default:
         logger.warning({
           ...logObj,
           message: `Unknown log level: ${level}. Original message: ${message}`,
+          duration,
         });
         break;
     }
+    logger.debug(`DURATION: ${duration}`, { uri: uriToReadablePath(document.uri), position: posStr });
   };
 }
 

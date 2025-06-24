@@ -14,7 +14,7 @@ import { createDetail } from './symbol-detail';
 import { config } from '../config';
 import { flattenNested } from '../utils/flatten';
 import { uriToPath } from '../utils/translation';
-import { findParentCommand, isCommand, isCommandWithName, isCompleteCommandName, isCompleteFlagCommandName, isEndStdinCharacter, isFunctionDefinition, isFunctionDefinitionName, isOption, isString, isTopLevelDefinition, isVariable, isVariableDefinitionName } from '../utils/node-types';
+import { findParentCommand, findParentFunction, isCommand, isCommandWithName, isCompleteCommandName, isCompleteFlagCommandName, isEndStdinCharacter, isFunctionDefinition, isFunctionDefinitionName, isOption, isString, isTopLevelDefinition, isVariable, isVariableDefinitionName } from '../utils/node-types';
 import * as Locations from '../utils/locations';
 import { SyncFileHelper } from '../utils/file-operations';
 import { processExportCommand } from './export';
@@ -465,23 +465,77 @@ export class FishSymbol {
     };
   }
 
-  equalScopes(other: FishSymbol) {
-    if (this.scope.scopeNode.equals(other.scope.scopeNode) && this.fishKind === other.fishKind) {
-      if ([this.scope.scopeTag, other.scope.scopeTag].includes('inherit')) {
-        return this.scope.scopeNode.equals(other.scope.scopeNode);
+  containsScope(other: FishSymbol) {
+    if (this.equalScopes((other))) return true;
+    if (this.isVariable() && other.isVariable()) {
+      if (this.isGlobal() && other.isGlobal()) return true;
+      const isSameScope = this.scope.scopeNode.equals(other.scope.scopeNode);
+      const containsScope = containsNode(this.scope.scopeNode, other.scope.scopeNode);
+      if (isFunctionDefinition(this.scopeNode) && isFunctionDefinition(other.scopeNode)) {
+        return isSameScope;
+      }
+      return isSameScope || containsScope;
+    }
+    if (this.scope.scopeNode.equals(other.scope.scopeNode) && this.kind === other.kind) {
+      if (
+        [this.scope.scopeTag, other.scope.scopeTag].includes('inherit')
+        || (this.isLocal() && other.isLocal() && this.kind === other.kind && this.isVariable() && other.isVariable())
+      ) {
+        if (isFunctionDefinition(this.scope.scopeNode) && isFunctionDefinition(other.scope.scopeNode)) {
+          return this.scope.scopeNode.equals(other.scope.scopeNode);
+        }
+        return this.scope.scopeNode.equals(other.scope.scopeNode)
+          || (containsNode(this.scope.scopeNode, other.scope.scopeNode));
       } else if (this.isGlobal() && other.isGlobal()) {
+        return true;
+      } else if (this.isLocal() && other.isLocal()) {
         return true;
       }
       return this.scope.scopeTag === other.scope.scopeTag;
     }
+    // if (this.isArgparse() && other.isVariable() && other.isLocal()) {
+    //   // argparse symbols can be in the same scope as a variable, so we check if the scope nodes are equal
+    //   return this.scope.scopeNode.equals(other.scope.scopeNode);
+    // } else if (other.isArgparse() && this.isVariable() && this.isLocal()) {
+    //   return other.scope.scopeNode.equals(other.scope.scopeNode);
+    // }
+    // if (this.isLocal() && other.isLocal() && this.isVariable() && other.isVariable()) {
+    //   return this.scope.scopeNode.equals(other.scope.scopeNode);
+    // }
+    return false;
+  }
+
+  equalScopes(other: FishSymbol) {
+    if (this.scope.scopeNode.equals(other.scope.scopeNode) && this.kind === other.kind) {
+      if (
+        [this.scope.scopeTag, other.scope.scopeTag].includes('inherit')
+        || (this.isLocal() && other.isLocal() && this.kind === other.kind && this.isVariable() && other.isVariable())
+      ) {
+        return true;
+      } else if (this.isGlobal() && other.isGlobal()) {
+        return true;
+      } else if (this.isLocal() && other.isLocal()) {
+        return true;
+      }
+      return this.scope.scopeTag === other.scope.scopeTag;
+    }
+    // if (this.isArgparse() && other.isVariable() && other.isLocal()) {
+    //   // argparse symbols can be in the same scope as a variable, so we check if the scope nodes are equal
+    //   return this.scope.scopeNode.equals(other.scope.scopeNode);
+    // } else if (other.isArgparse() && this.isVariable() && this.isLocal()) {
+    //   return other.scope.scopeNode.equals(other.scope.scopeNode);
+    // }
+    // if (this.isLocal() && other.isLocal() && this.isVariable() && other.isVariable()) {
+    //   return this.scope.scopeNode.equals(other.scope.scopeNode);
+    // }
     return false;
   }
 
   equalDefinition(other: FishSymbol) {
     return this.name === other.name
-      && this.fishKind === other.fishKind
+      && this.kind === other.kind
       && this.uri === other.uri
-      && this.equalScopes(other);
+      && this.containsScope(other);
   }
 
   isLocal() {
@@ -552,6 +606,22 @@ export class FishSymbol {
     return this.selectionRange.start.line === position.line
       && this.selectionRange.start.character <= position.character
       && this.selectionRange.end.character >= position.character;
+  }
+
+  inScope(uri: DocumentUri, node: SyntaxNode) {
+    // if the scope is local, we need to check if the node is in the same scope
+    if (this.scope.tag >= DefinitionScope.ScopeTags.global) {
+      return true;
+    }
+    if (this.isVariable()) {
+      if (this.isArgparse()) {
+        return true;
+      }
+      // if the symbol is local, we need to check if the node is in the same scope
+      if (this.isLocal()) {
+        return this.scopeContainsNode(node) && this.uri === uri;
+      }
+    }
   }
 
   //
@@ -637,7 +707,9 @@ export class FishSymbol {
       if (!this.scopeContainsNode(node) || this.uri !== document.uri) return false;
     }
 
-    const parentNode = findParentCommand(node);
+    let parentNode = node.parent
+      ? findParentCommand(node)
+      : null;
 
     // checks any `complete -c <ref> -n '<ref>; or not <ref>' -l <ref> -a '<ref>'` 
     if (parentNode && isCommandWithName(parentNode, 'complete')) {
@@ -677,12 +749,19 @@ export class FishSymbol {
       //   }
       // }
 
+      const parentFunction = findParentFunction(node);
       // `_flag_<ref>` checks
       if (
         isVariable(node)
         || isVariableDefinitionName(node)
         || isSetVariableDefinitionName(node, false)) {
-        return this.name === node.text && this.scopeContainsNode(node);
+        return this.name === node.text && this.scopeContainsNode(node) && parentFunction?.equals(this.scopeNode);
+      }
+      if (
+        parentNode
+        && isCommandWithName(parentNode, 'set', 'read', 'for', 'export', 'argparse')
+      ) {
+        return this.name === node.text && this.scopeContainsNode(node) && parentFunction?.equals(this.scopeNode);
       }
       return false;
     }
@@ -749,11 +828,21 @@ export class FishSymbol {
           return extractCommands(node).some(cmd => cmd === this.name);
         }
       }
+
+      if (parentNode && isCommandWithName(parentNode, 'export', 'set', 'read', 'for', 'argparse')) {
+        if (isOption(node) || isVariableDefinitionName(node)) return false;
+        if (isString(node))  {
+          return extractCommands(node).some(cmd => cmd === this.name);
+        }
+        return this.name === node.text;
+      }
+      return this.name === node.text && this.scopeContainsNode(node);
     }
 
     // find any remaining variable references
     if (this.isVariable() && node.text === this.name) {
       if (isVariable(node) || isVariableDefinitionName(node)) return true;
+      return this.name === node.text && this.scopeContainsNode(node);
     }
 
     return false;
@@ -792,8 +881,7 @@ export function findFirstPerScopeSymbol(symbols: FishSymbol[]) {
   const array: FishSymbol[] = [];
   for (const symbol of symbols) {
     const firstSymbol = flatArray.find((s: FishSymbol) => {
-      return s.name === symbol.name && s.kind === symbol.kind && s.uri === symbol.uri
-        && s.equalScopes(symbol);
+      return s.equalDefinition(symbol);
     });
     if (firstSymbol && firstSymbol.equals(symbol)) {
       array.push(symbol);
@@ -817,7 +905,6 @@ export function filterFirstUniqueSymbolperScope(document: LspDocument): FishSymb
 
   return result;
 }
-
 
 export function findLocalLocations(symbol: FishSymbol, allSymbols: FishSymbol[], includeSelf = true): Location[] {
   const result: SyntaxNode[] = [];

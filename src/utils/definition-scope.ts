@@ -2,20 +2,26 @@ import { SyntaxNode } from 'web-tree-sitter';
 import * as NodeTypes from './node-types';
 import { isAutoloadedUriLoadsAliasName, isAutoloadedUriLoadsFunctionName } from './translation';
 import { firstAncestorMatch, getRange, isPositionWithinRange, getParentNodes } from './tree-sitter';
-import { Position } from 'vscode-languageserver';
+import { Position, Location, DocumentUri } from 'vscode-languageserver';
 import { LspDocument } from '../document';
 import { FishSymbol } from '../parsing/symbol';
 
 export type ScopeTag = 'global' | 'universal' | 'local' | 'function' | 'inherit';
 export interface DefinitionScope {
+  uri: string;
   scopeNode: SyntaxNode;
   scopeTag: ScopeTag;
 }
 
 export class DefinitionScope {
-  constructor(public scopeNode: SyntaxNode, public scopeTag: ScopeTag) {}
+  constructor(
+    public scopeNode: SyntaxNode,
+    public scopeTag: ScopeTag) { }
 
-  static create(scopeNode: SyntaxNode, scopeTag: 'global' | 'universal' | 'local' | 'function' | 'inherit'): DefinitionScope {
+  static create(
+    scopeNode: SyntaxNode,
+    scopeTag: 'global' | 'universal' | 'local' | 'function' | 'inherit'
+  ): DefinitionScope {
     return new DefinitionScope(scopeNode, scopeTag);
   }
 
@@ -48,6 +54,22 @@ export class DefinitionScope {
   containsNode(node: SyntaxNode) {
     const range = getRange(node);
     return this.containsPosition(range.start);
+  }
+
+  get tag() {
+    const tag = this.scopeTag;
+    return DefinitionScope.ScopeTags[tag] || 0;
+  }
+
+  static get ScopeTags() {
+    return {
+      universal: 5,
+      global: 4,
+      function: 3,
+      local: 2,
+      inherit: 1,
+      '': 0
+    } as const;
   }
 }
 

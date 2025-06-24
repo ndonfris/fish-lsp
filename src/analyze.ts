@@ -15,12 +15,15 @@ import { SyncFileHelper } from './utils/file-operations';
 import { flattenNested, iterateNested } from './utils/flatten';
 import { findParentCommand, findParentFunction, isAliasDefinitionName, isCommand, isCommandName, isOption, isTopLevelDefinition } from './utils/node-types';
 import { pathToUri, symbolKindToString, uriToPath } from './utils/translation';
-import { containsRange, equalRanges, getChildNodes, getNamedChildNodes, getRange, isPositionAfter, isPositionWithinRange, precedesRange } from './utils/tree-sitter';
+import { containsRange, equalRanges, getChildNodes, getNamedChildNodes, getRange, isPositionAfter, isPositionWithinRange, namedNodesGen, nodesGen, precedesRange } from './utils/tree-sitter';
 import { Workspace } from './utils/workspace';
 import { workspaceManager } from './utils/workspace-manager';
 import { getDiagnostics } from './diagnostics/validate';
 import { isExportVariableDefinitionName } from './parsing/barrel';
 import { initializeParser } from './parser';
+import FishServer from './server';
+import server from './server';
+import { connection } from './utils/startup';
 
 /**
  * AnalyzedDocument items are created in three public methods of the Analyzer class:
@@ -505,14 +508,14 @@ export class Analyzer {
    * The nodes yielded are using the `this.getNodes()` method, which returns the cached
    * nodes for the document.
    */
-  public * findNodesGen(): Generator<{ document: LspDocument; nodes: SyntaxNode[]; }> {
+  public * findNodesGen(): Generator<{ document: LspDocument; nodes: Generator<SyntaxNode>; }> {
     const currentWs = workspaceManager.current;
     const uris = this.cache.uris().filter(uri => currentWs ? currentWs?.contains(uri) : true);
     for (const uri of uris) {
       const root = this.cache.getRootNode(uri);
       const document = this.cache.getDocument(uri)?.document;
       if (!root || !document) continue;
-      yield { document, nodes: this.getNodes(document.uri) };
+      yield { document, nodes: this.nodesGen(document.uri).nodes };
     }
   }
 
@@ -585,37 +588,106 @@ export class Analyzer {
    * Utility function to get the definitions of a symbol at a given position.
    */
   private getDefinitionHelper(document: LspDocument, position: Position): FishSymbol[] {
+    // const symbols: FishSymbol[] = [];
+    // const localSymbols = this.getFlatDocumentSymbols(document.uri)
+    //   .filter(s => s.containsPosition(position));
+    // // .filter((s) => s.isLocal());
+    // const toFind = this.wordAtPoint(document.uri, position.line, position.character);
+    // const nodeToFind = this.nodeAtPoint(document.uri, position.line, position.character);
+    // if (!toFind || !nodeToFind) return [];
+    //
+    // logger.log({
+    //   getDefinitionHelper: 'Searching for definition',
+    //   toFind,
+    //   nodeToFind: {
+    //     name: toFind,
+    //     position: {
+    //       line: position.line,
+    //       character: position.character,
+    //     },
+    //     text: nodeToFind.text,
+    //     type: nodeToFind.type,
+    //   },
+    // });
+    //
+    //
+    // const foundLocalDefinition = localSymbols.find((s) => {
+    //   return s.name === toFind
+    //     && containsRange(getRange(s.focusedNode), getRange(nodeToFind))
+    //     && s.scopeContainsNode(nodeToFind)
+    //     && s.name === nodeToFind.text
+    // });
+    //
+    // logger.debug({
+    //   getDefinitionHelper: 'Searching for definition',
+    //   foundLocalDefinition: foundLocalDefinition ? foundLocalDefinition.name : 'none',
+    //   toFind,
+    //   nodeToFind: {
+    //     name: toFind,
+    //     position: {
+    //       line: position.line,
+    //       character: position.character,
+    //     },
+    //     text: nodeToFind.text,
+    //     type: nodeToFind.type,
+    //   },
+    // },
+    //   formatFishSymbolTree(localSymbols)
+    // );
+    //
+    // if (foundLocalDefinition) {
+    //   symbols.push(foundLocalDefinition);
+    //   return symbols;
+    // }
+    //
+    // const localSymbol = localSymbols.find((s) => {
+    //   return s.name === toFind && containsRange(s.selectionRange, getRange(nodeToFind));
+    // });
+    // if (localSymbol) {
+    //   symbols.push(localSymbol);
+    // } else {
+    //   const toAdd: FishSymbol[] = localSymbols.filter((s) => {
+    //     const variableBefore = s.kind === SymbolKind.Variable ? s.isBefore(nodeToFind) : true;
+    //     return (
+    //       s.name === toFind
+    //       && containsRange(getRange(s.scope.scopeNode), getRange(nodeToFind))
+    //       && variableBefore
+    //     );
+    //   });
+    //   symbols.push(...toAdd);
+    // }
+    // if (!symbols.length) {
+    //   let found = false;
+    //   for (const item of this.findSymbolsGen()) {
+    //     const match = item.symbols.find(s =>
+    //       s.name === toFind
+    //       && (s.isArgparse() && s.parent!.isGlobal()) || s.isGlobal()
+    //     );
+    //     if (match) {
+    //       symbols.push(match);
+    //       logger.debug({
+    //         getDefinitionHelper: 'Found symbol in other document',
+    //         symbol: match.name,
+    //         uri: match.uri,
+    //         position: {
+    //           line: position.line,
+    //           character: position.character,
+    //         },
+    //       });
+    //       found = true;
+    //       break;
+    //     }
+    //   }
+    //   if (!found) {
+    //     symbols.push(...this.globalSymbols.find(toFind));
+    //   }
+    // }
+    // return symbols;
     const symbols: FishSymbol[] = [];
-    const localSymbols = filterFirstUniqueSymbolperScope(document);
-    // .filter((s) => s.isLocal()
+    const localSymbols = this.getFlatDocumentSymbols(document.uri);
     const toFind = this.wordAtPoint(document.uri, position.line, position.character);
     const nodeToFind = this.nodeAtPoint(document.uri, position.line, position.character);
     if (!toFind || !nodeToFind) return [];
-
-
-    const foundLocalDefinition = localSymbols.find((s) => {
-      return s.name === toFind && s.containsNode(nodeToFind);
-    });
-
-    logger.debug({
-      getDefinitionHelper: 'Searching for definition',
-      foundLocalDefinition: foundLocalDefinition ? foundLocalDefinition.name : 'none',
-      toFind,
-      nodeToFind: {
-        name: toFind,
-        position: {
-          line: position.line,
-          character: position.character,
-        },
-      },
-    },
-      formatFishSymbolTree(localSymbols)
-    );
-
-    if (foundLocalDefinition) {
-      symbols.push(foundLocalDefinition);
-      return symbols;
-    }
 
     const localSymbol = localSymbols.find((s) => {
       return s.name === toFind && containsRange(s.selectionRange, getRange(nodeToFind));
@@ -624,7 +696,7 @@ export class Analyzer {
       symbols.push(localSymbol);
     } else {
       const toAdd: FishSymbol[] = localSymbols.filter((s) => {
-        const variableBefore = s.kind === SymbolKind.Variable ? s.isBefore(nodeToFind) : true;
+        const variableBefore = s.kind === SymbolKind.Variable ? precedesRange(s.selectionRange, getRange(nodeToFind)) : true;
         return (
           s.name === toFind
           && containsRange(getRange(s.scope.scopeNode), getRange(nodeToFind))
@@ -634,27 +706,7 @@ export class Analyzer {
       symbols.push(...toAdd);
     }
     if (!symbols.length) {
-      let found = false;
-      for (const item of this.findSymbolsGen()) {
-        const match = item.symbols.find(s => s.name === toFind);
-        if (match) {
-          symbols.push(match);
-          logger.debug({
-            getDefinitionHelper: 'Found symbol in other document',
-            symbol: match.name,
-            uri: match.uri,
-            position: {
-              line: position.line,
-              character: position.character,
-            },
-          });
-          found = true;
-          break;
-        }
-      }
-      if (!found) {
-        symbols.push(...this.globalSymbols.find(toFind));
-      }
+      symbols.push(...this.globalSymbols.find(toFind));
     }
     return symbols;
   }
@@ -675,9 +727,25 @@ export class Analyzer {
       return symbols.find(s => s.name === word) || symbols.pop()!;
     }
     if (node && isArgparseVariableDefinitionName(node)) {
-      return this.getFlatDocumentSymbols(document.uri).findLast(s =>
+      const atPos = this.getFlatDocumentSymbols(document.uri).findLast(s =>
         s.containsPosition(position) && s.fishKind === 'ARGPARSE'
       ) || symbols.pop()!;
+      logger.debug({
+        isArgparseVariableDefinitionName: true,
+        node: {
+          text: node.text,
+          type: node.type,
+        },
+        atPos: {
+          name: atPos.name,
+          uri: atPos.uri,
+          position: {
+            line: atPos.selectionRange.start.line,
+            character: atPos.selectionRange.start.character,
+          },
+        }
+      });
+      return atPos;
     }
     if (node && isCompletionSymbol(node)) {
       logger.debug({
@@ -749,6 +817,18 @@ export class Analyzer {
 
     // check if we have a symbol defined at the position
     const symbol = this.getDefinition(document, position) as FishSymbol;
+    logger.log({
+      getDefinitionLocation: 'getDefinitionLocation, checking symbol',
+      symbol: {
+        name: symbol?.name,
+        uri: symbol?.uri,
+        selectionRange: [symbol?.selectionRange.start.line,
+        symbol?.selectionRange.start.character,
+        symbol?.selectionRange.end.line,
+        symbol?.selectionRange.end.character
+        ].join(', '),
+      }
+    });
     if (symbol) {
       const newSymbol = filterFirstUniqueSymbolperScope(document).find((s) => {
         return s.equalDefinition(symbol);
@@ -791,7 +871,15 @@ export class Analyzer {
           const content = SyncFileHelper.read(path, 'utf8');
           const doc = LspDocument.createTextDocumentItem(uri, content);
           workspaceManager.handleOpenDocument(doc);
+          connection.sendNotification('workspace/didChangeWorkspaceFolders', {
+            event: {
+              added: [path],
+              removed: [],
+            },
+          })
+          workspaceManager.analyzePendingDocuments();
         }
+        // workspaceManager.analyzePendingDocuments();
         return locations.map(({ uri }) =>
           Location.create(uri, {
             start: { line: 0, character: 0 },
@@ -938,6 +1026,27 @@ export class Analyzer {
       result.push(...processCompletion(document, child));
     }
     return result;
+  }
+
+  /**
+   * Returns a list of all the nodes in the document.
+   */
+  public nodesGen(documentUri: string): {
+    nodes: Generator<SyntaxNode>;
+    namedNodes: Generator<SyntaxNode>;
+  } {
+    const document = this.cache.getDocument(documentUri)?.document;
+    if (!document) {
+      return undefined as any; // Return an empty generator if the document is not found
+    }
+    const root = this.getRootNode(documentUri);
+    if (!root) {
+      return undefined as any; // Return an empty generator if the root node is not found
+    }
+    return {
+      nodes: nodesGen(root),
+      namedNodes: namedNodesGen(root),
+    };
   }
 
   /**

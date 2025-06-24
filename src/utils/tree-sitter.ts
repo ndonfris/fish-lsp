@@ -138,6 +138,23 @@ export function* nodesGen(node: SyntaxNode) {
   }
 }
 
+export function* namedNodesGen(node: SyntaxNode) {
+  const queue: SyntaxNode[] = [node];
+
+  while (queue.length) {
+    const n = queue.shift();
+
+    if (!n?.isNamed) {
+      return;
+    }
+
+    if (n.children.length) {
+      queue.unshift(...n.children);
+    }
+
+    yield n;
+  }
+}
 export function findFirstParent(node: SyntaxNode, predicate: (node: SyntaxNode) => boolean) : SyntaxNode | null {
   let current: SyntaxNode | null = node.parent;
   while (current !== null) {

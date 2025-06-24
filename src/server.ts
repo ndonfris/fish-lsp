@@ -35,6 +35,7 @@ import { getReferences } from './references';
 import { getRenames } from './renames';
 import { getReferenceCountCodeLenses } from './code-lens';
 import { connection } from './utils/startup';
+import { number } from 'zod';
 // import { connection } from './utils/startup';
 
 export type SupportedFeatures = {
@@ -231,14 +232,14 @@ export default class FishServer {
     logger.log('onInitialized');
     if (hasWorkspaceFolderCapability) {
       // const commandCallback = createExecuteCommandHandler(connection, documents, analyzer);
-      connection.workspace.onDidChangeWorkspaceFolders(async event => {
+      connection.workspace.onDidChangeWorkspaceFolders(event => {
         logger.info({
           'connection.workspace.onDidChangeWorkspaceFolders': 'analyzer.onInitialized',
           added: event.added.map(folder => folder.name),
           removed: event.removed.map(folder => folder.name),
           hasWorkspaceFolderCapability: hasWorkspaceFolderCapability,
         });
-        await this.handleWorkspaceFolderChanges(event);
+        this.handleWorkspaceFolderChanges(event);
         // await commandCallback({command: 'fish-lsp.showWorkspaceMessage', arguments: []});
       });
     }
@@ -438,7 +439,14 @@ export default class FishServer {
     const { doc } = this.getDefaults(params);
     if (!doc) return [];
 
-    return analyzer.getDefinitionLocation(doc, params.position);
+    const newDefs = analyzer.getDefinitionLocation(doc, params.position);
+    for (const location of newDefs) {
+      workspaceManager.handleOpenDocument(location.uri);
+      workspaceManager.handleUpdateDocument(location.uri);
+      // workspaceManager.current?.setAllPending();
+      await workspaceManager.analyzePendingDocuments();
+    }
+    return newDefs
   }
 
   async onReferences(params: ReferenceParams): Promise<Location[]> {
@@ -447,7 +455,27 @@ export default class FishServer {
     const { doc } = this.getDefaults(params);
     if (!doc) return [];
 
-    return getReferences(doc, params.position);
+    const progress = await connection.window.createWorkDoneProgress().then(
+      (progress) => {
+        // progress.begin('[fish-lsp] finding references', 0, 'Finding references...', true);
+        return {
+          begin: (title: string) => progress.begin(title),
+          report: (message: string | number) => {
+            if (typeof message === 'number') {
+              message = `Found ${message} references`;
+            }
+            progress.report(message)
+          },
+          done: () => progress.done(),
+        };
+      },
+    );
+    return getReferences(doc, params.position, {
+      excludeDefinition: !params.context.includeDeclaration,
+      reporter: progress,
+      logPerformance: true,
+      loggingEnabled: true,
+    });
   }
 
   /**
