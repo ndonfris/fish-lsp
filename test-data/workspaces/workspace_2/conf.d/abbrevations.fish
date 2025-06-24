@@ -128,3 +128,5 @@ abbr -a --command date -- tomorrow_ --date=\'1 day ago\' \'+%Y-%m-%d_%H:%M:%S\'
 # └──────┘
 abbr -a fcc fish_clipboard_copy
 abbr -a fcp fish_clipboard_paste
+
+abbr -a cdl cdls

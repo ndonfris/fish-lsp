@@ -22,6 +22,7 @@ export function processForDefinition(document: LspDocument, node: SyntaxNode, ch
       node,
       definitionNode,
       'FOR',
+      document,
       document.uri,
       node.text,
       definitionScope,

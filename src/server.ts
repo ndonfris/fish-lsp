@@ -18,7 +18,7 @@ import { getDocumentationResolver } from './utils/completion/documentation';
 import { FishCompletionList } from './utils/completion/list';
 import { PrebuiltDocumentationMap, getPrebuiltDocUrl } from './utils/snippets';
 import { findParentCommand, isAliasDefinitionName, isCommand, isOption, isReturnStatusNumber, isVariableDefinition } from './utils/node-types';
-import { config, Config } from './config';
+import { config, Config, configHandlers } from './config';
 import { enrichToMarkdown, handleSourceArgumentHover } from './documentation';
 import { findActiveParameterStringRegex, getAliasedCompletionItemSignature, getDefaultSignatures, getFunctionSignatureHelp, isRegexStringSignature } from './signature';
 import { CompletionItemMap } from './utils/completion/startup-cache';
@@ -51,8 +51,10 @@ export type SupportedFeatures = {
  * should be enabled or disabled.
  */
 export let hasWorkspaceFolderCapability = false;
+export const enableWorkspaceFolderSupport = () => {
+  hasWorkspaceFolderCapability = true;
+};
 export let currentDocument: LspDocument | null = null;
-// export let analyzer: Analyzer;
 
 export default class FishServer {
   public static async create(
@@ -69,9 +71,13 @@ export default class FishServer {
       rootPath: params.rootPath,
       workspaceFolders: params.workspaceFolders,
     });
+
+    // set this only it it hasn't been set yet
     hasWorkspaceFolderCapability = !!(
       capabilities.workspace && !!capabilities.workspace.workspaceFolders
     );
+    logger.debug('hasWorkspaceFolderCapability', hasWorkspaceFolderCapability);
+
     const initializeUris = getWorkspacePathsFromInitializationParams(params);
     logger.info('initializeUris', initializeUris);
 
@@ -96,22 +102,6 @@ export default class FishServer {
       completionsMap,
       cache,
     );
-    if (!hasWorkspaceFolderCapability) {
-      initializeResult.capabilities.workspace = {
-        workspaceFolders: {
-          supported: false,
-          changeNotifications: false,
-        },
-      };
-    }
-    if (hasWorkspaceFolderCapability) {
-      initializeResult.capabilities.workspace = {
-        workspaceFolders: {
-          supported: true,
-          changeNotifications: true,
-        },
-      };
-    }
     server.register(connection);
     return { server, initializeResult };
   }
@@ -134,8 +124,8 @@ export default class FishServer {
   register(connection: Connection): void {
     // setup handlers
     const { onCodeAction } = codeActionHandlers(documents, analyzer);
-    const executeHandler = createExecuteCommandHandler(connection, documents, analyzer);
     const documentHighlightHandler = getDocumentHighlights(analyzer);
+    const commandCallback = createExecuteCommandHandler(connection, documents, analyzer);
 
     // register the handlers
     connection.onDidOpenTextDocument(this.didOpenTextDocument.bind(this));
@@ -148,6 +138,7 @@ export default class FishServer {
 
     connection.onDocumentSymbol(this.onDocumentSymbols.bind(this));
     connection.onWorkspaceSymbol(this.onWorkspaceSymbol.bind(this));
+    connection.onWorkspaceSymbolResolve(this.onWorkspaceSymbolResolve.bind(this));
 
     connection.onDefinition(this.onDefinition.bind(this));
     connection.onImplementation(this.onImplementation.bind(this));
@@ -169,7 +160,7 @@ export default class FishServer {
     connection.onDocumentHighlight(documentHighlightHandler);
     connection.languages.inlayHint.on(this.onInlayHints.bind(this));
     connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
-    connection.onExecuteCommand(executeHandler);
+    connection.onExecuteCommand(commandCallback);
 
     connection.onInitialized(this.onInitialized.bind(this));
     connection.onShutdown(this.onShutdown.bind(this));
@@ -239,9 +230,16 @@ export default class FishServer {
   async onInitialized() {
     logger.log('onInitialized');
     if (hasWorkspaceFolderCapability) {
-      connection.workspace.onDidChangeWorkspaceFolders(event => {
-        this.handleWorkspaceFolderChanges(event);
-        workspaceManager.analyzePendingDocuments();
+      // const commandCallback = createExecuteCommandHandler(connection, documents, analyzer);
+      connection.workspace.onDidChangeWorkspaceFolders(async event => {
+        logger.info({
+          'connection.workspace.onDidChangeWorkspaceFolders': 'analyzer.onInitialized',
+          added: event.added.map(folder => folder.name),
+          removed: event.removed.map(folder => folder.name),
+          hasWorkspaceFolderCapability: hasWorkspaceFolderCapability,
+        });
+        await this.handleWorkspaceFolderChanges(event);
+        // await commandCallback({command: 'fish-lsp.showWorkspaceMessage', arguments: []});
       });
     }
     const result = await connection.window.createWorkDoneProgress().then(async (progress) => {
@@ -269,8 +267,15 @@ export default class FishServer {
   private async handleWorkspaceFolderChanges(event: WorkspaceFoldersChangeEvent) {
     this.logParams('handleWorkspaceFolderChanges', event);
     // Handle added workspaces
-    workspaceManager.handleWorkspaceChangeEvent(event);
-    workspaceManager.analyzePendingDocuments();
+    const progress = await connection.window.createWorkDoneProgress();
+    progress.begin(`[fish-lsp] analyzing workspaces [${event.added.map(s => s.name).join(',')}] added`);
+    workspaceManager.handleWorkspaceChangeEvent(event, progress);
+    await workspaceManager.analyzePendingDocuments(progress);
+  }
+
+  onCommand(params: LSP.ExecuteCommandParams): Promise<any> {
+    const callback = createExecuteCommandHandler(connection, documents, analyzer);
+    return callback(params);
   }
 
   // @TODO: REFACTOR THIS OUT OF SERVER
@@ -405,6 +410,25 @@ export default class FishServer {
       symbols: symbols.map(s => s.name),
     });
     return analyzer.getWorkspaceSymbols(params.query) || [];
+  }
+
+  /**
+   * Resolve a workspace symbol to its full definition.
+   */
+  async onWorkspaceSymbolResolve(symbol: WorkspaceSymbol): Promise<WorkspaceSymbol> {
+    this.logParams('onWorkspaceSymbolResolve', symbol);
+    const { uri } = symbol.location;
+    const foundSymbol = analyzer.getFlatDocumentSymbols(uri)
+      .find(s => s.name === symbol.name && s.isGlobal());
+    if (foundSymbol) {
+      return {
+        ...foundSymbol.toWorkspaceSymbol(),
+        ...foundSymbol.toDocumentSymbol(),
+      };
+    }
+    // This is a no-op, as we don't have any additional information to resolve.
+    // In the future, we could add more information to the symbol if needed.
+    return symbol;
   }
 
   // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#showDocumentParams

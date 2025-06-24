@@ -5,7 +5,7 @@ import { FishSymbol } from './symbol';
 import { LspDocument } from '../document';
 import { DefinitionScope, ScopeTag } from '../utils/definition-scope';
 import { getRange } from '../utils/tree-sitter';
-import { Analyzer } from '../analyze';
+import { analyzer, Analyzer } from '../analyze';
 import path, { dirname } from 'path';
 import { SyncFileHelper } from '../utils/file-operations';
 import { pathToUri, uriToPath } from '../utils/translation';
@@ -79,15 +79,15 @@ export function convertNodeRangeWithPrecedingFlag(node: SyntaxNode) {
   return range;
 }
 
-export function isGlobalArgparseDefinition(analyzer: Analyzer, document: LspDocument, symbol: FishSymbol) {
-  if (symbol.fishKind !== 'ARGPARSE') return false;
-  const parent = symbol.scopeNode;
-  if (parent.type === 'function_definition') {
-    const functionName = parent.firstNamedChild?.text;
+export function isGlobalArgparseDefinition(document: LspDocument, symbol: FishSymbol) {
+  if (!symbol.isArgparse()) return false;
+  const parent = symbol.parent;
+  if (parent && parent?.isFunction()) {
+    const functionName = parent.name;
     if (document.getAutoLoadName() !== functionName) {
       return false;
     }
-    const filepath = uriToPath(document.uri);
+    const filepath = document.getFilePath();
     // const workspaceDirectory = workspaces.find(ws => ws.contains(filepath) || ws.path === filepath)?.path || dirname(dirname(filepath));
     const workspaceDirectory = workspaceManager.findContainingWorkspace(document.uri)?.path || dirname(dirname(filepath));
     const completionFile = document.getAutoloadType() === 'conf.d' || document.getAutoloadType() === 'config'
@@ -109,10 +109,16 @@ export function isGlobalArgparseDefinition(analyzer: Analyzer, document: LspDocu
  * This is really more of a utility to ensure that any document that would contain
  * any references to completions for an autoloaded file, is parsed by the analyzer.
  */
-export function getGlobalArgparseLocations(analyzer: Analyzer, document: LspDocument, symbol: FishSymbol) {
-  if (isGlobalArgparseDefinition(analyzer, document, symbol)) {
+export function getGlobalArgparseLocations(document: LspDocument, symbol: FishSymbol) {
+  if (isGlobalArgparseDefinition(document, symbol)) {
     const filepath = uriToPath(document.uri);
     const workspaceDirectory = workspaceManager.findContainingWorkspace(document.uri)?.path || dirname(dirname(filepath));
+    logger.log(
+      `Getting global argparse locations for symbol: ${symbol.name} in file: ${filepath}`,
+      {
+      filepath,
+      workspaceDirectory,
+    })
     const completionFile = document.getAutoloadType() === 'conf.d' || document.getAutoloadType() === 'config'
       ? document.getFilePath()
       : path.join(
@@ -130,11 +136,18 @@ export function getGlobalArgparseLocations(analyzer: Analyzer, document: LspDocu
     logger.debug({
       message: `Getting global argparse locations for symbol: ${symbol.name} in file: ${completionFile}`,
     });
-    return analyzer
+    const completionLocations = analyzer
       .getFlatCompletionSymbols(pathToUri(completionFile))
+      .filter(s => s.isNonEmpty())
       .filter(s => s.equalsArgparse(symbol))
       .map(s => s.toLocation());
+
+    const containsOpt = analyzer.getNodes(pathToUri(completionFile)).filter(n => isCommandWithName(n, '__fish_contains_opt'))
+
+
+
   }
+  logger.warning(`no global argparse locations found for symbol: ${symbol.name}`, 'HERE');
   return [];
 }
 
@@ -327,6 +340,7 @@ export function processArgparseCommand(document: LspDocument, node: SyntaxNode, 
         node: node,
         focusedNode: n,
         fishKind: 'ARGPARSE',
+        document: document,
         uri: document.uri,
         detail: n.text,
         range: getRange(n),

@@ -8,6 +8,7 @@ import { configHandlers, config, updateHandlers, validHandlers, Config, handleEn
 import { ConnectionOptions, ConnectionType, createConnectionType, startServer, timeServerStartup } from './utils/startup';
 import { performHealthCheck } from './utils/health-check';
 import { setupProcessEnvExecFile } from './utils/process-env';
+import { enableWorkspaceFolderSupport } from './server';
 
 /**
  *  creates local 'commandBin' used for commander.js

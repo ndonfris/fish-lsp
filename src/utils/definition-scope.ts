@@ -4,6 +4,7 @@ import { isAutoloadedUriLoadsAliasName, isAutoloadedUriLoadsFunctionName } from 
 import { firstAncestorMatch, getRange, isPositionWithinRange, getParentNodes } from './tree-sitter';
 import { Position } from 'vscode-languageserver';
 import { LspDocument } from '../document';
+import { FishSymbol } from '../parsing/symbol';
 
 export type ScopeTag = 'global' | 'universal' | 'local' | 'function' | 'inherit';
 export interface DefinitionScope {
@@ -239,3 +240,11 @@ export function setQuery(searchNodes: SyntaxNode[]) {
   }
   return false;
 }
+
+// export function patchScopes(symbols: FishSymbol[]) {
+//   for (const symbol of symbols) {
+//     const equalSymbols = symbol.children.filter(child => 
+//       child.kind === symbol.kind && child.name === symbol.name && child.scopeContainsNode()
+//     )
+//   }
+// }

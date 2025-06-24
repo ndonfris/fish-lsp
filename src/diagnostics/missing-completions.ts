@@ -168,7 +168,7 @@ function createCompletionDiagnostic(completionGroup: CompletionSymbol[], symbols
   const joinedGroup = completionGroup.map(c => c.toArgparseOpt()).join('/');
 
   const firstCompletion = completionGroup.find(c => c.isNonEmpty())!;
-  const firstCompletionDoc = firstCompletion.doc!;
+  const firstCompletionDoc = firstCompletion.document!;
   const prettyPath = uriToReadablePath(firstCompletionDoc.uri);
 
   // Create a diagnostic for the completion group

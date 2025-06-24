@@ -186,6 +186,7 @@ export function processExportCommand(document: LspDocument, node: SyntaxNode, ch
       range: getRange(node),
       selectionRange: nameRange,
       fishKind: 'EXPORT', // Using SET since export is equivalent to 'set -gx'
+      document,
       uri: document.uri,
       detail,
       scope,

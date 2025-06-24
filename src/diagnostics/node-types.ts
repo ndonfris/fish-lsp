@@ -1,5 +1,5 @@
 import Parser, { SyntaxNode } from 'web-tree-sitter';
-import { isCommand, isCommandName, isCommandWithName, isEndStdinCharacter, isFunctionDefinitionName, isIfOrElseIfConditional, isMatchingOption, isOption, isString, isVariableDefinitionName } from '../utils/node-types';
+import { findParentCommand, isCommand, isCommandName, isCommandWithName, isEndStdinCharacter, isFunctionDefinitionName, isIfOrElseIfConditional, isMatchingOption, isOption, isString, isVariableDefinitionName } from '../utils/node-types';
 import { getChildNodes, isNodeWithinOtherNode } from '../utils/tree-sitter';
 import { Option } from '../parsing/options';
 import { isExistingSourceFilenameNode, isSourceCommandArgumentName } from '../parsing/source';
@@ -253,6 +253,17 @@ export function isMatchingCompleteOptionIsCommand(node: SyntaxNode) {
 
 export function isMatchingAbbrFunction(node: SyntaxNode) {
   return isMatchingOption(node, Option.create('-f', '--function').withValue());
+}
+
+export function isAbbrDefinitionName(node: SyntaxNode) {
+  const parent = findParentCommand(node);
+  if (!parent) return false;
+  if (!isCommandWithName(parent, 'abbr')) return false;
+  const child = parent.childrenForFieldName('argument')
+    .filter(n => !isOption(n))
+    .find(n => n.type === 'word' && n.text !== '--' && !isString(n))
+
+  return child ? child.equals(node) : false;
 }
 
 export function isArgparseWithoutEndStdin(node: SyntaxNode) {

@@ -40,7 +40,17 @@ alias lsup='cd .. && ls'
 alias really_weird_alias='mkdir ls'
 alias sf source_fish
 alias sff='source_fish'
+alias cl='cdls'
 # @fish-lsp-enable 2002
 
 ## Use keybindings
 fish_user_key_bindings
+
+if command os-name --is-mac
+  # macOS specific settings
+else if os-name --is-mac
+    function cdd -w='cdls'
+        cdls $argv
+    end
+  
+end

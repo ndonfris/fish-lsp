@@ -194,6 +194,7 @@ export namespace FishAlias {
 
     return FishSymbol.fromObject({
       name,
+      document,
       uri: document.uri,
       node: parent,
       focusedNode: child,
@@ -293,6 +294,7 @@ export function processAliasCommand(document: LspDocument, node: SyntaxNode, chi
       range: getRange(node),
       selectionRange: nameRange || getRange(definitionNode),
       fishKind: 'ALIAS',
+      document,
       uri: document.uri,
       detail,
       scope: DefinitionScope.create(node.parent!, modifier),

@@ -1,11 +1,12 @@
 import { SyntaxNode } from 'web-tree-sitter';
-import { isCommandWithName, isString } from '../utils/node-types';
+import { isCommand, isCommandWithName, isOption, isString } from '../utils/node-types';
 import { Flag, isMatchingOption, Option } from './options';
 import { LspDocument } from '../document';
 import { getChildNodes, getRange, pointToPosition } from '../utils/tree-sitter';
 import { FishSymbol } from './symbol';
 import { Location, Range } from 'vscode-languageserver';
 import { logger } from '../logger';
+import { extractCommands } from './nested-strings';
 
 export const CompleteOptions = [
   Option.create('-c', '--command').withValue(),
@@ -30,6 +31,45 @@ export const CompleteOptions = [
 
 export function isCompletionCommandDefinition(node: SyntaxNode) {
   return isCommandWithName(node, 'complete');
+}
+
+export function isMatchingCompletionFlagNodeWithFishSymbol(symbol: FishSymbol, node: SyntaxNode) {
+  if (!node?.parent || isCommand(node) || isOption(node)) return false;
+
+  const prevNode = node.previousNamedSibling;
+  if (!prevNode) return false;
+
+  if (symbol.isFunction()) {
+    if (isMatchingOption(
+      prevNode,
+      Option.create('-c', '--command'),
+      Option.create('-w', '--wraps')
+    )) {
+      return symbol.name === node.text && !symbol.equalsNode(node);
+    }
+
+    if (isMatchingOption(
+      prevNode,
+      Option.create('-n', '--condition'),
+      Option.create('-a', '--arguments')
+    )) {
+      return isString(node)
+        ? extractCommands(node).some(cmd => cmd === symbol.name)
+        : node.text === symbol.name;
+    }
+  }
+
+  if (symbol.isArgparse()) {
+    if (isCompletionSymbol(node)) {
+      const completionSymbol = getCompletionSymbol(node);
+      return completionSymbol.equalsArgparse(symbol);
+    }
+  }
+
+  if (symbol.isVariable()) {
+    return node.text === symbol.name
+  }
+  return false;
 }
 
 export function isCompletionDefinitionWithName(node: SyntaxNode, name: string, doc: LspDocument) {
@@ -78,7 +118,7 @@ export class CompletionSymbol {
     public requireParameter: boolean = false,
     public argumentNames: string = '',
     public exclusive: boolean = false,
-    public doc?: LspDocument,
+    public document?: LspDocument,
   ) { }
 
   /**
@@ -277,7 +317,7 @@ export class CompletionSymbol {
    * Create a Location from the current CompletionSymbol
    */
   toLocation(): Location {
-    return Location.create(this.doc?.uri || '', this.getRange());
+    return Location.create(this.document?.uri || '', this.getRange());
   }
 
   toPosition(): { line: number; character: number; } | null {
@@ -321,6 +361,19 @@ export class CompletionSymbol {
     }
     return prefix + fixString(this.text);
   }
+
+  static is(obj: unknown): obj is CompletionSymbol {
+    if (!obj || typeof obj !== 'object') {
+      return false;
+    }
+    return obj instanceof CompletionSymbol
+      && typeof obj.optionType === 'string'
+      && typeof obj.commandName === 'string'
+      && typeof obj.description === 'string'
+      && typeof obj.condition === 'string'
+      && typeof obj.requireParameter === 'boolean'
+      && typeof obj.argumentNames === 'string'
+  }
 }
 
 export function isCompletionSymbolVerbose(node: SyntaxNode, doc?: LspDocument): boolean {
@@ -361,7 +414,7 @@ export function getCompletionSymbol(node: SyntaxNode, doc?: LspDocument): Comple
   result.node = node;
   const parent = node.parent;
   const children = parent.childrenForFieldName('argument');
-  result.doc = doc;
+  result.document = doc;
   children.forEach((child, idx) => {
     if (idx === 0) return;
     if (isMatchingOption(child, Option.create('-r', '--require-parameter'))) {

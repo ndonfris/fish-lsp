@@ -1,4 +1,4 @@
-function cdls -d "Change directory and list contents"
+function cdls -d "Change directory and list contents" -w='cd'
     if test (count $argv) -eq 0
         echo "Usage: cdls <directory>"
         return 1

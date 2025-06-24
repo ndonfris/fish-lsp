@@ -135,7 +135,7 @@ export function processReadCommand(document: LspDocument, node: SyntaxNode, chil
 
   for (const arg of definitionNodes) {
     if (arg.text.startsWith('$')) continue;
-    result.push(FishSymbol.create(arg.text, node, arg, 'READ', document.uri, node.text, definitionScope, children));
+    result.push(FishSymbol.create(arg.text, node, arg, 'READ', document, document.uri, node.text, definitionScope, children));
   }
 
   return result;

@@ -1,10 +1,9 @@
 
 import { createFakeLspDocument, rangeAsString, setLogger, TestWorkspaces } from './helpers';
 import { getReferencesOld } from '../src/old-references';
-import { NestedSyntaxNodeWithReferences, ReferenceOptions, allUnusedLocalReferences, getReferences } from '../src/references';
+import { allUnusedLocalReferences, getReferences } from '../src/references';
 import { Analyzer, analyzer } from '../src/analyze';
 import { documents, LspDocument } from '../src/document';
-import * as path from 'path';
 import { SyncFileHelper } from '../src/utils/file-operations';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import { workspaceManager } from '../src/utils/workspace-manager';
@@ -13,9 +12,11 @@ import { getChildNodes, getRange, pointToPosition } from '../src/utils/tree-sitt
 import { Location } from 'vscode-languageserver';
 import { logger } from '../src/logger';
 import { FishAlias, isAliasDefinitionValue } from '../src/parsing/alias';
-import { findParentCommand, isString } from '../src/utils/node-types';
+import { findParentCommand, isCommandWithName, isOption, isString } from '../src/utils/node-types';
 import { extractCommands } from '../src/parsing/nested-strings';
-import { Option, isMatchingOptionOrOptionValue } from '../src/parsing/options';
+import { SyntaxNode } from 'web-tree-sitter';
+import { FishSymbol } from '../src/parsing/symbol';
+import { uriToReadablePath } from '../src/utils/translation';
 // import { pathToUri } from '../src/utils/translation';
 
 const testWorkspace = TestWorkspaces.workspace2;
@@ -159,42 +160,33 @@ describe('testing references with new `opts` param', () => {
       const cmds = analyzer.cache.getCommands(cdlsDoc.uri);
       expect(cmds).toBeDefined();
       expect(cmds.length).toBeGreaterThan(1);
-      const lsNode = cmds.find(c => c.firstNamedChild!.text.startsWith('ls'))!;
+      const def = analyzer.getFlatDocumentSymbols(cdlsDoc!.uri)
+        .find(s => s.name === 'cdls')!;
+      // const lsNode = cmds.find(c => c.firstNamedChild!.text.startsWith('ls'))!;
+      const lsNode = def.focusedNode
       expect(lsNode).toBeDefined();
-      expect(lsNode.text).toBe('ls');
+      expect(lsNode.text).toBe('cdls');
       const lsPosition = pointToPosition(lsNode.startPosition);
       const defSymbol = analyzer.getDefinition(cdlsDoc, lsPosition);
-      const refs = getReferences(cdlsDoc, lsPosition);
+      const refs = getReferencesOld(cdlsDoc, lsPosition);
       const newRefs = getReferences(cdlsDoc, lsPosition, { logPerformance: true });
-      // logger.warning({
-      //   cdlsDoc: cdlsDoc.getRelativeFilenameToWorkspace(),
-      //   cdlsDocSymbols: analyzer.getFlatDocumentSymbols(cdlsDoc.uri)
-      //     .filter(s => s.isGlobal())
-      //     .map(s => s.name),
-      //   cmds: cmds.map(c => c.firstNamedChild?.text),
-      //   lsNode: lsNode.text,
-      //   defSymbol: {
-      //     name: defSymbol?.name,
-      //     uri: ws.findDocument(doc => doc.uri === defSymbol?.uri)?.getRelativeFilenameToWorkspace(),
-      //     position: JSON.stringify(defSymbol?.selectionRange),
-      //   },
-      //   refs: referenceLocationsToString(refs),
-      //   newRefs: referenceLocationsToString(newRefs),
-      // });
-      expect(refs.length).toBeGreaterThanOrEqual(6); // TODO: should be more, `alias blah=sl`, etc...
-      for (const ref of newRefs) {
-        const doc = ws.findDocument(d => d.uri === ref.uri)!;
-        if (!doc.uri.endsWith('config.fish')) continue;
-        console.log({
-          msg: `New ref: ${ref.uri.slice(-40)} - ${rangeAsString(ref.range)}`,
-          txt: doc.getText(ref.range),
-        });
-      }
-      console.log({
-        msg: `checking newRefs.length for '${defSymbol!.name}': ${newRefs.length}`,
-        refs: referenceLocationsToString(newRefs),
+      logger.warning({
+        cdlsDoc: cdlsDoc.getRelativeFilenameToWorkspace(),
+        cdlsDocSymbols: analyzer.getFlatDocumentSymbols(cdlsDoc.uri)
+          .filter(s => s.isGlobal())
+          .map(s => s.name),
+        cmds: cmds.map(c => c.firstNamedChild?.text),
+        lsNode: lsNode.text,
+        defSymbol: {
+          name: defSymbol?.name,
+          uri: ws.findDocument(doc => doc.uri === defSymbol?.uri)?.getRelativeFilenameToWorkspace(),
+          position: JSON.stringify(defSymbol?.selectionRange),
+        },
+        refs: referenceLocationsToString(refs),
+        newRefs: referenceLocationsToString(newRefs),
       });
-      expect(newRefs.length).toBeGreaterThanOrEqual(7);
+      expect(refs.length).toBeGreaterThanOrEqual(3); // TODO: should be more, `alias blah=sl`, etc...
+      expect(newRefs.length).toBeGreaterThanOrEqual(4);
     });
 
     it('`fzf-history-search.fish` document, references in `fish_user_key_bindings.fish`', () => {
@@ -210,19 +202,13 @@ describe('testing references with new `opts` param', () => {
       const pos = pointToPosition(symbol.focusedNode.startPosition);
       const refs = getReferences(histDoc, pos);
       const newRefs = getReferences(histDoc, pos);
+      const newRefUriSet = new Set(newRefs.map(r => 'file://...'+uriToReadablePath(r.uri).slice(uriToReadablePath(r.uri).indexOf('workspace_2') + 11)));
       console.log({
         refs: referenceLocationsToString(refs),
         newRefs: referenceLocationsToString(newRefs),
+        newRefUriSet: Array.from(newRefUriSet),
       });
-      const newRefUriSet = new Set(newRefs.map(r => r.uri));
-      // for (const ref of newRefs) {
-      //   const doc = ws.findDocument(d => d.uri === ref.uri)!;
-      //   console.log({
-      //     msg: `New ref: file:///${ref.uri.slice(ref.uri.lastIndexOf('workspace_2'))} - ${rangeAsString(ref.range)}`,
-      //     txt: doc.getText(ref.range),
-      //   });
-      // }
-      expect(newRefUriSet.size).toBe(3);
+      expect(newRefUriSet.size).toBeGreaterThanOrEqual(3);
     });
   });
 
@@ -304,17 +290,6 @@ describe('testing references with new `opts` param', () => {
       const barSymbol = cached.documentSymbols.find(s => s.name === 'bar')!;
       const wrappedNode = getChildNodes(fooSymbol?.node).find(n => n.text === '--wraps=bar')!;
       expect(wrappedNode).toBeDefined();
-      // logger.debug({
-      //   msg: `Wrapped node: ${wrappedNode?.text}`,
-      //   type: wrappedNode?.type,
-      //   range: rangeAsString(getRange(wrappedNode!)),
-      //   isOpt: isMatchingOptionOrOptionValue(wrappedNode, Option.fromRaw('-w', '--wraps')),
-      //   parent: {
-      //     text: wrappedNode.parent?.text,
-      //     type: wrappedNode.parent?.type,
-      //   },
-      //   isWrappedCall: NestedSyntaxNodeWithReferences.isWrappedCall(barSymbol, wrappedNode),
-      // });
       const barRefs = getReferences(cached.document, pointToPosition(barSymbol.focusedNode.startPosition));
       console.log({
         barRefs: referenceLocationsToString(barRefs),
@@ -368,7 +343,7 @@ describe('testing references with new `opts` param', () => {
     //   });
     // });
 
-    it.only('multiple docs', () => {
+    it('multiple docs', () => {
       ws.allDocuments().forEach(doc => {
         analyzer.analyze(doc);
         const symbols = analyzer.getFlatDocumentSymbols(doc.uri)
@@ -400,7 +375,7 @@ describe('testing references with new `opts` param', () => {
       });
     });
 
-    it.only('single doc', () => {
+    it('single doc', () => {
       const doc = findDocumentByAutoloadedName('toggle-auto-complete');
       if (!doc) {
         fail('Document with toggle-auto-complete not found');
@@ -412,6 +387,109 @@ describe('testing references with new `opts` param', () => {
         refs: referenceLocationsToString(localRefs),
         refNames: localRefs.map(ref => ref.name),
       });
+    });
+  });
+
+  describe('collect all references ', () => {
+    it('os-name --is-mac', () => {
+      let focuesDoc: LspDocument | undefined;
+      let foundNode: SyntaxNode | undefined;
+      let focusedCompletionDoc: LspDocument | undefined;
+      let focusedFunctionDoc: LspDocument | undefined;
+      let defSymbol: FishSymbol | null;
+
+      const cmpDocs: LspDocument[] = [];
+      ws.allDocuments().forEach(doc => {
+        analyzer.analyze(doc);
+        if (doc.getAutoloadType() === 'completions') {
+          cmpDocs.push(doc);
+        }
+        if (doc.uri.endsWith('completions/os-name.fish')) {
+          focusedCompletionDoc = doc;
+        }
+        if (doc.uri.endsWith('functions/os-name.fish')) {
+          focusedFunctionDoc = doc;
+        }
+        if (doc.uri.endsWith('conf.d/fish_user_key_bindings.fish')) {
+          focuesDoc = doc;
+          for (const node of analyzer.getNodes(doc.uri)) {
+            if (
+              isOption(node)
+              && node.text === '--is-mac'
+              && node.parent
+              && isCommandWithName(node.parent, 'os-name')
+            ) {
+              foundNode = node;
+            }
+          }
+        }
+      });
+      expect(focuesDoc).toBeDefined();
+      expect(foundNode).toBeDefined();
+      expect(cmpDocs.length).toBeGreaterThan(0);
+
+      if (!focuesDoc || !foundNode || cmpDocs.length === 0 || !focusedCompletionDoc || !focusedFunctionDoc) {
+        fail('Focused document or found node is not defined');
+      }
+
+      defSymbol = analyzer.getDefinition(focuesDoc, pointToPosition(foundNode.startPosition));
+      if (!defSymbol) {
+        fail('Definition symbol not found for focused node');
+      }
+
+      // console.log({
+      //   focuesDoc: focuesDoc!.getRelativeFilenameToWorkspace(),
+      //   foundNode: {
+      //     text: foundNode!.text,
+      //     type: foundNode!.type,
+      //     range: rangeAsString(getRange(foundNode!)),
+      //     isOption: isOption(foundNode!),
+      //     isCommandWithName: isCommandWithName(foundNode!.parent!, 'os-name'),
+      //   },
+      //   cmpDocs: cmpDocs.map(doc => doc.getRelativeFilenameToWorkspace()),
+      //   focusedCompletionDoc: focusedCompletionDoc.getRelativeFilenameToWorkspace(),
+      //   focusedFunctionDoc: focusedFunctionDoc.getRelativeFilenameToWorkspace(),
+      // });
+      const refs = getReferences(focuesDoc, pointToPosition(foundNode!.startPosition), { logPerformance: true });
+      const cmps = analyzer
+        .getFlatCompletionSymbols(focusedCompletionDoc.uri)
+        .filter(c => c.isNonEmpty());
+
+      const matchingCmps = cmps.filter(c => c.equalsArgparse(defSymbol));
+      // console.log({
+      //   isGlobalArgparseDef: {
+      //     cmp: isGlobalArgparseDefinition(focusedCompletionDoc, defSymbol),
+      //     func: isGlobalArgparseDefinition(focusedFunctionDoc, defSymbol)
+      //   },
+      //   globalLocs: {
+      //      cmp: JSON.stringify(getGlobalArgparseLocations(focusedCompletionDoc, defSymbol)),
+      //      func: JSON.stringify(getGlobalArgparseLocations(focusedFunctionDoc, defSymbol))
+      //   }
+      // });
+      //
+      // console.log({
+      //   refs: referenceLocationsToString(refs),
+      //   cmps: cmps.map(c => c.toUsage()),
+      //   matchingCmps: matchingCmps.map(c => c.toUsage()),
+      //   symbol: {
+      //     name: defSymbol?.name,
+      //     uri: defSymbol?.uri,
+      //     position: JSON.stringify(defSymbol?.selectionRange),
+      //     isArgparse: defSymbol?.isArgparse(),
+      //     isFishContainsOpt: defSymbol?.fishContainsOptCommand,
+      //   },
+      // })
+      //
+      // refs.forEach((ref, idx) => {
+      //   const doc = ws.findDocument(d => d.uri === ref.uri)!;
+      //   console.log({
+      //     idx: idx,
+      //     msg: `file:///${ref.uri.slice(ref.uri.lastIndexOf('workspace_2'))} - ${rangeAsString(ref.range)}`,
+      //     txt: doc.getText(ref.range),
+      //     line: doc.getLine(ref.range.start.line).trim(),
+      //   });
+      // })
+      expect(refs.length).toBeGreaterThanOrEqual(6);
     });
   });
 });

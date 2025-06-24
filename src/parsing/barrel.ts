@@ -37,7 +37,7 @@ export const VariableDefinitionKeywords = [
  * - `set -g -x foo '...'`      -> foo
  * - `read -l bar baz`          -> bar baz
  * - `argparse h/help -- $argv` -> h/help
- * - `for foo in _ `            -> i
+ * - `for i in _ `              -> i
  * - `export foo=bar`           -> foo
  */
 export function isVariableDefinitionName(node: SyntaxNode) {

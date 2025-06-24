@@ -57,7 +57,7 @@ export function getReferencesOld(
   const symbol = analyzer.getDefinition(document, position);
   if (!symbol) return [];
 
-  if (symbol.fishKind === 'ARGPARSE') {
+  if (symbol.isArgparse()) {
     locations.push(symbol.toLocation());
     locations.push(...getArgparseLocations(analyzer, symbol, opts));
     const endTime = performance.now();
@@ -216,7 +216,7 @@ export function getArgparseLocations(
    * Ensure that our document includes all possible global completion location
    */
   if (document) {
-    result.push(...getGlobalArgparseLocations(analyzer, document, symbol));
+    result.push(...getGlobalArgparseLocations(document, symbol));
   }
   const matchingNodes = analyzer.findNodes((n, document) => {
     if (opts.localOnly && document.uri !== symbol.uri) return false;
