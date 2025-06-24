@@ -30,10 +30,10 @@ export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) 
           const argparseAction = createArgparseCompletionsCodeAction(n, document);
           if (argparseAction) results.push(argparseAction);
         }
-        if (isIfStatement(n)) {
-          const convertIfAction = convertIfToCombiners(document, n, false);
-          if (convertIfAction) results.push(convertIfAction);
-        }
+        // if (isIfStatement(n)) {
+        //   const convertIfAction = convertIfToCombiners(document, n, false);
+        //   if (convertIfAction) results.push(convertIfAction);
+        // }
       });
     }
 
