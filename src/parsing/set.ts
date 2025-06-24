@@ -1,5 +1,5 @@
 import { SyntaxNode } from 'web-tree-sitter';
-import { isOption, isCommandWithName, isTopLevelDefinition } from '../utils/node-types';
+import { isOption, isCommandWithName, isTopLevelDefinition, findParentCommand, findParentFunction, isConditionalCommand } from '../utils/node-types';
 import { Option, findOptions, findOptionsSet, isMatchingOption } from './options';
 import { LspDocument } from '../document';
 import { FishSymbol, SetModifierToScopeTag } from './symbol';
@@ -104,7 +104,7 @@ export function processSetCommand(document: LspDocument, node: SyntaxNode, child
 
   const skipText: string[] = ['-', '$', '('];
   if (
-    !definitionNode 
+    !definitionNode
     || definitionNode.type === 'concatenation' // skip `set -e FOO[1]`
     || skipText.some(t => definitionNode.text.startsWith(t)) // skip `set $FOO`, `set (FOO)`, `set -`
   ) return [];
@@ -116,6 +116,19 @@ export function processSetCommand(document: LspDocument, node: SyntaxNode, child
   } else {
     modifier = getFallbackModifierScope(document, node) as ScopeTag;
   }
+
+  // fix conditional_command scoping to use the parent command 
+  // of the conditional_execution statement, so that
+  // we can reference the variable in the parent scope
+  let parentNode = findParentCommand(node.parent || node) || node.parent || node;
+  if (parentNode && isConditionalCommand(parentNode)) {
+    while (parentNode && isConditionalCommand(parentNode)) {
+      if (parentNode.type === 'function_definition') break;
+      if (!parentNode.parent) break;
+      parentNode = parentNode.parent;
+    }
+  }
+
   return [
     FishSymbol.create(
       definitionNode.text.toString(),
@@ -125,7 +138,7 @@ export function processSetCommand(document: LspDocument, node: SyntaxNode, child
       document,
       document.uri,
       node.text.toString(),
-      DefinitionScope.create(node.parent!, modifier),
+      DefinitionScope.create(parentNode, modifier),
       children,
     ),
   ];

@@ -842,6 +842,11 @@ export class FishSymbol {
     // find any remaining variable references
     if (this.isVariable() && node.text === this.name) {
       if (isVariable(node) || isVariableDefinitionName(node)) return true;
+      if (parentNode && isCommandWithName(parentNode, 'export', 'set', 'read', 'for', 'argparse')) {
+        if (isOption(node)) return false;
+        if (isVariableDefinitionName(node)) return this.name === node.text;
+      }
+
       return this.name === node.text && this.scopeContainsNode(node);
     }
 
