@@ -5,7 +5,7 @@ import { FishSymbol } from './symbol';
 import { LspDocument } from '../document';
 import { DefinitionScope, ScopeTag } from '../utils/definition-scope';
 import { getRange } from '../utils/tree-sitter';
-import { analyzer, Analyzer } from '../analyze';
+import { analyzer } from '../analyze';
 import path, { dirname } from 'path';
 import { SyncFileHelper } from '../utils/file-operations';
 import { pathToUri, uriToPath } from '../utils/translation';
@@ -116,9 +116,9 @@ export function getGlobalArgparseLocations(document: LspDocument, symbol: FishSy
     logger.log(
       `Getting global argparse locations for symbol: ${symbol.name} in file: ${filepath}`,
       {
-      filepath,
-      workspaceDirectory,
-    })
+        filepath,
+        workspaceDirectory,
+      });
     const completionFile = document.getAutoloadType() === 'conf.d' || document.getAutoloadType() === 'config'
       ? document.getFilePath()
       : path.join(
@@ -136,16 +136,13 @@ export function getGlobalArgparseLocations(document: LspDocument, symbol: FishSy
     logger.debug({
       message: `Getting global argparse locations for symbol: ${symbol.name} in file: ${completionFile}`,
     });
-    const completionLocations = analyzer
-      .getFlatCompletionSymbols(pathToUri(completionFile))
-      .filter(s => s.isNonEmpty())
-      .filter(s => s.equalsArgparse(symbol))
-      .map(s => s.toLocation());
-
-    const containsOpt = analyzer.getNodes(pathToUri(completionFile)).filter(n => isCommandWithName(n, '__fish_contains_opt'))
-
-
-
+    // const completionLocations = analyzer
+    //   .getFlatCompletionSymbols(pathToUri(completionFile))
+    //   .filter(s => s.isNonEmpty())
+    //   .filter(s => s.equalsArgparse(symbol))
+    //   .map(s => s.toLocation());
+    //
+    // const containsOpt = analyzer.getNodes(pathToUri(completionFile)).filter(n => isCommandWithName(n, '__fish_contains_opt'));
   }
   logger.warning(`no global argparse locations found for symbol: ${symbol.name}`, 'HERE');
   return [];

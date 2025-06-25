@@ -1,5 +1,5 @@
 import { SyntaxNode } from 'web-tree-sitter';
-import { isOption, isCommandWithName, isTopLevelDefinition, findParentCommand, findParentFunction, isConditionalCommand } from '../utils/node-types';
+import { isOption, isCommandWithName, isTopLevelDefinition, findParentCommand, isConditionalCommand } from '../utils/node-types';
 import { Option, findOptions, findOptionsSet, isMatchingOption } from './options';
 import { LspDocument } from '../document';
 import { FishSymbol, SetModifierToScopeTag } from './symbol';
@@ -117,7 +117,7 @@ export function processSetCommand(document: LspDocument, node: SyntaxNode, child
     modifier = getFallbackModifierScope(document, node) as ScopeTag;
   }
 
-  // fix conditional_command scoping to use the parent command 
+  // fix conditional_command scoping to use the parent command
   // of the conditional_execution statement, so that
   // we can reference the variable in the parent scope
   let parentNode = findParentCommand(node.parent || node) || node.parent || node;

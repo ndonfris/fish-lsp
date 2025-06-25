@@ -8,7 +8,7 @@ import { Analyzer } from '../analyze';
 import { getNodeAtRange } from '../utils/tree-sitter';
 import { convertIfToCombiners, extractCommandToFunction, extractFunctionToFile, extractFunctionWithArgparseToCompletionsFile, extractToFunction, extractToVariable } from './refactors';
 import { createArgparseCompletionsCodeAction } from './argparse-completions';
-import { isCommandWithName, isIfStatement, isProgram } from '../utils/node-types';
+import { isCommandWithName, isProgram } from '../utils/node-types';
 import { createAliasInlineAction, createAliasSaveActionNewFile } from './alias-wrapper';
 
 export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) {

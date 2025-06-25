@@ -3,10 +3,9 @@ import { Position, Range, URI } from 'vscode-languageserver';
 import { Point, SyntaxNode, Tree } from 'web-tree-sitter';
 import { findSetDefinedVariable, isFunctionDefinition, isVariableDefinition, isFunctionDefinitionName, isVariable, isScope, isProgram, isCommandName, isForLoop, findForLoopVariable } from './node-types';
 
-
 // You can add this as a utility function or extend it if needed
 export function isSyntaxNode(obj: unknown): obj is SyntaxNode {
-  return typeof obj === 'object' 
+  return typeof obj === 'object'
     && obj !== null
     && 'id' in obj
     && 'type' in obj

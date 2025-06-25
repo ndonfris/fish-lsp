@@ -1,5 +1,5 @@
 import * as LSP from 'vscode-languageserver';
-import { Diagnostic, Hover, Range, Location, Position, SymbolKind, URI, WorkDoneProgressReporter, WorkspaceSymbol } from 'vscode-languageserver';
+import { Diagnostic, Hover, Location, Position, SymbolKind, URI, WorkDoneProgressReporter, WorkspaceSymbol } from 'vscode-languageserver';
 import * as Parser from 'web-tree-sitter';
 import { SyntaxNode, Tree } from 'web-tree-sitter';
 import { config, getDefaultConfiguration, updateBasedOnSymbols } from './config';
@@ -8,21 +8,19 @@ import { logger } from './logger';
 import { isArgparseVariableDefinitionName } from './parsing/argparse';
 import { CompletionSymbol, isCompletionCommandDefinition, isCompletionSymbol, processCompletion } from './parsing/complete';
 import { getExpandedSourcedFilenameNode, isSourceCommandArgumentName, isSourceCommandWithArgument } from './parsing/source';
-import { filterFirstUniqueSymbolperScope, FishSymbol, formatFishSymbolTree, processNestedTree } from './parsing/symbol';
+import { filterFirstUniqueSymbolperScope, FishSymbol, processNestedTree } from './parsing/symbol';
 import { implementationLocation } from './references';
 import { execCommandLocations } from './utils/exec';
 import { SyncFileHelper } from './utils/file-operations';
 import { flattenNested, iterateNested } from './utils/flatten';
 import { findParentCommand, findParentFunction, isAliasDefinitionName, isCommand, isCommandName, isOption, isTopLevelDefinition } from './utils/node-types';
 import { pathToUri, symbolKindToString, uriToPath } from './utils/translation';
-import { containsRange, equalRanges, getChildNodes, getNamedChildNodes, getRange, isPositionAfter, isPositionWithinRange, namedNodesGen, nodesGen, precedesRange } from './utils/tree-sitter';
+import { containsRange, getChildNodes, getNamedChildNodes, getRange, isPositionAfter, isPositionWithinRange, namedNodesGen, nodesGen, precedesRange } from './utils/tree-sitter';
 import { Workspace } from './utils/workspace';
 import { workspaceManager } from './utils/workspace-manager';
 import { getDiagnostics } from './diagnostics/validate';
 import { isExportVariableDefinitionName } from './parsing/barrel';
 import { initializeParser } from './parser';
-import FishServer from './server';
-import server from './server';
 import { connection } from './utils/startup';
 
 /**
@@ -728,7 +726,7 @@ export class Analyzer {
     }
     if (node && isArgparseVariableDefinitionName(node)) {
       const atPos = this.getFlatDocumentSymbols(document.uri).findLast(s =>
-        s.containsPosition(position) && s.fishKind === 'ARGPARSE'
+        s.containsPosition(position) && s.fishKind === 'ARGPARSE',
       ) || symbols.pop()!;
       logger.debug({
         isArgparseVariableDefinitionName: true,
@@ -743,7 +741,7 @@ export class Analyzer {
             line: atPos.selectionRange.start.line,
             character: atPos.selectionRange.start.character,
           },
-        }
+        },
       });
       return atPos;
     }
@@ -823,11 +821,11 @@ export class Analyzer {
         name: symbol?.name,
         uri: symbol?.uri,
         selectionRange: [symbol?.selectionRange.start.line,
-        symbol?.selectionRange.start.character,
-        symbol?.selectionRange.end.line,
-        symbol?.selectionRange.end.character
+          symbol?.selectionRange.start.character,
+          symbol?.selectionRange.end.line,
+          symbol?.selectionRange.end.character,
         ].join(', '),
-      }
+      },
     });
     if (symbol) {
       const newSymbol = filterFirstUniqueSymbolperScope(document).find((s) => {
@@ -839,20 +837,20 @@ export class Analyzer {
           name: symbol?.name,
           uri: symbol?.uri,
           selectionRange: [newSymbol?.selectionRange.start.line,
-          symbol?.selectionRange.start.character,
-          symbol?.selectionRange.end.line,
-          symbol?.selectionRange.end.character
+            symbol?.selectionRange.start.character,
+            symbol?.selectionRange.end.line,
+            symbol?.selectionRange.end.character,
           ].join(', '),
         },
         newSymbol: {
           name: newSymbol?.name,
           uri: newSymbol?.uri,
           selectionRange: [newSymbol?.selectionRange.start.line,
-          newSymbol?.selectionRange.start.character,
-          newSymbol?.selectionRange.end.line,
-          newSymbol?.selectionRange.end.character
+            newSymbol?.selectionRange.start.character,
+            newSymbol?.selectionRange.end.line,
+            newSymbol?.selectionRange.end.character,
           ].join(', '),
-        }
+        },
       });
       if (newSymbol) {
         return [Location.create(newSymbol.uri, newSymbol.selectionRange)];
@@ -876,7 +874,7 @@ export class Analyzer {
               added: [path],
               removed: [],
             },
-          })
+          });
           workspaceManager.analyzePendingDocuments();
         }
         // workspaceManager.analyzePendingDocuments();
@@ -1060,7 +1058,6 @@ export class Analyzer {
     return getChildNodes(this.parser.parse(document.getText()).rootNode);
   }
 
-
   /**
    * Returns a list of all the NAMED nodes in the document.
    */
@@ -1071,7 +1068,6 @@ export class Analyzer {
     }
     return getNamedChildNodes(this.parser.parse(document.getText()).rootNode);
   }
-
 
   /**
    * Returns a list of all the diagnostics in the document (if the document is analyzed)

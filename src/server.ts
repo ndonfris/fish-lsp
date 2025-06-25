@@ -18,7 +18,7 @@ import { getDocumentationResolver } from './utils/completion/documentation';
 import { FishCompletionList } from './utils/completion/list';
 import { PrebuiltDocumentationMap, getPrebuiltDocUrl } from './utils/snippets';
 import { findParentCommand, isAliasDefinitionName, isCommand, isOption, isReturnStatusNumber, isVariableDefinition } from './utils/node-types';
-import { config, Config, configHandlers } from './config';
+import { config, Config } from './config';
 import { enrichToMarkdown, handleSourceArgumentHover } from './documentation';
 import { findActiveParameterStringRegex, getAliasedCompletionItemSignature, getDefaultSignatures, getFunctionSignatureHelp, isRegexStringSignature } from './signature';
 import { CompletionItemMap } from './utils/completion/startup-cache';
@@ -35,7 +35,6 @@ import { getReferences } from './references';
 import { getRenames } from './renames';
 import { getReferenceCountCodeLenses } from './code-lens';
 import { connection } from './utils/startup';
-import { number } from 'zod';
 // import { connection } from './utils/startup';
 
 export type SupportedFeatures = {
@@ -446,7 +445,7 @@ export default class FishServer {
       // workspaceManager.current?.setAllPending();
       await workspaceManager.analyzePendingDocuments();
     }
-    return newDefs
+    return newDefs;
   }
 
   async onReferences(params: ReferenceParams): Promise<Location[]> {
@@ -464,7 +463,7 @@ export default class FishServer {
             if (typeof message === 'number') {
               message = `Found ${message} references`;
             }
-            progress.report(message)
+            progress.report(message);
           },
           done: () => progress.done(),
         };

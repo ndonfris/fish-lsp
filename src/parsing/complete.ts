@@ -43,7 +43,7 @@ export function isMatchingCompletionFlagNodeWithFishSymbol(symbol: FishSymbol, n
     if (isMatchingOption(
       prevNode,
       Option.create('-c', '--command'),
-      Option.create('-w', '--wraps')
+      Option.create('-w', '--wraps'),
     )) {
       return symbol.name === node.text && !symbol.equalsNode(node);
     }
@@ -51,7 +51,7 @@ export function isMatchingCompletionFlagNodeWithFishSymbol(symbol: FishSymbol, n
     if (isMatchingOption(
       prevNode,
       Option.create('-n', '--condition'),
-      Option.create('-a', '--arguments')
+      Option.create('-a', '--arguments'),
     )) {
       return isString(node)
         ? extractCommands(node).some(cmd => cmd === symbol.name)
@@ -67,7 +67,7 @@ export function isMatchingCompletionFlagNodeWithFishSymbol(symbol: FishSymbol, n
   }
 
   if (symbol.isVariable()) {
-    return node.text === symbol.name
+    return node.text === symbol.name;
   }
   return false;
 }
@@ -372,7 +372,7 @@ export class CompletionSymbol {
       && typeof obj.description === 'string'
       && typeof obj.condition === 'string'
       && typeof obj.requireParameter === 'boolean'
-      && typeof obj.argumentNames === 'string'
+      && typeof obj.argumentNames === 'string';
   }
 }
 

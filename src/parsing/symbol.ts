@@ -14,16 +14,15 @@ import { createDetail } from './symbol-detail';
 import { config } from '../config';
 import { flattenNested } from '../utils/flatten';
 import { uriToPath } from '../utils/translation';
-import { findParentCommand, findParentFunction, isCommand, isCommandWithName, isCompleteCommandName, isCompleteFlagCommandName, isEndStdinCharacter, isFunctionDefinition, isFunctionDefinitionName, isOption, isString, isTopLevelDefinition, isVariable, isVariableDefinitionName } from '../utils/node-types';
+import { findParentCommand, findParentFunction, isCommand, isCommandWithName, isEndStdinCharacter, isFunctionDefinition, isFunctionDefinitionName, isOption, isString, isTopLevelDefinition, isVariable, isVariableDefinitionName } from '../utils/node-types';
 import * as Locations from '../utils/locations';
 import { SyncFileHelper } from '../utils/file-operations';
 import { processExportCommand } from './export';
-import { isAbbrDefinitionName, isMatchingAbbrFunction, isMatchingCompleteOptionIsCommand } from '../diagnostics/node-types';
+import { isAbbrDefinitionName, isMatchingAbbrFunction } from '../diagnostics/node-types';
 import { extractCommands } from './nested-strings';
-import { CompletionSymbol, isCompletionDefinitionWithName, isMatchingCompletionFlagNodeWithFishSymbol } from './complete';
+import { CompletionSymbol, isMatchingCompletionFlagNodeWithFishSymbol } from './complete';
 import { isBindFunctionCall } from './bind';
 import { analyzer } from '../analyze';
-import { logger } from '../logger';
 
 export type FishSymbolKind = 'ARGPARSE' | 'FUNCTION' | 'ALIAS' | 'COMPLETE' | 'SET' | 'READ' | 'FOR' | 'VARIABLE' | 'FUNCTION_VARIABLE' | 'EXPORT';
 
@@ -466,7 +465,7 @@ export class FishSymbol {
   }
 
   containsScope(other: FishSymbol) {
-    if (this.equalScopes((other))) return true;
+    if (this.equalScopes(other)) return true;
     if (this.isVariable() && other.isVariable()) {
       if (this.isGlobal() && other.isGlobal()) return true;
       const isSameScope = this.scope.scopeNode.equals(other.scope.scopeNode);
@@ -479,13 +478,13 @@ export class FishSymbol {
     if (this.scope.scopeNode.equals(other.scope.scopeNode) && this.kind === other.kind) {
       if (
         [this.scope.scopeTag, other.scope.scopeTag].includes('inherit')
-        || (this.isLocal() && other.isLocal() && this.kind === other.kind && this.isVariable() && other.isVariable())
+        || this.isLocal() && other.isLocal() && this.kind === other.kind && this.isVariable() && other.isVariable()
       ) {
         if (isFunctionDefinition(this.scope.scopeNode) && isFunctionDefinition(other.scope.scopeNode)) {
           return this.scope.scopeNode.equals(other.scope.scopeNode);
         }
         return this.scope.scopeNode.equals(other.scope.scopeNode)
-          || (containsNode(this.scope.scopeNode, other.scope.scopeNode));
+          || containsNode(this.scope.scopeNode, other.scope.scopeNode);
       } else if (this.isGlobal() && other.isGlobal()) {
         return true;
       } else if (this.isLocal() && other.isLocal()) {
@@ -509,7 +508,7 @@ export class FishSymbol {
     if (this.scope.scopeNode.equals(other.scope.scopeNode) && this.kind === other.kind) {
       if (
         [this.scope.scopeTag, other.scope.scopeTag].includes('inherit')
-        || (this.isLocal() && other.isLocal() && this.kind === other.kind && this.isVariable() && other.isVariable())
+        || this.isLocal() && other.isLocal() && this.kind === other.kind && this.isVariable() && other.isVariable()
       ) {
         return true;
       } else if (this.isGlobal() && other.isGlobal()) {
@@ -707,11 +706,11 @@ export class FishSymbol {
       if (!this.scopeContainsNode(node) || this.uri !== document.uri) return false;
     }
 
-    let parentNode = node.parent
+    const parentNode = node.parent
       ? findParentCommand(node)
       : null;
 
-    // checks any `complete -c <ref> -n '<ref>; or not <ref>' -l <ref> -a '<ref>'` 
+    // checks any `complete -c <ref> -n '<ref>; or not <ref>' -l <ref> -a '<ref>'`
     if (parentNode && isCommandWithName(parentNode, 'complete')) {
       return isMatchingCompletionFlagNodeWithFishSymbol(this, node);
     }
@@ -739,13 +738,13 @@ export class FishSymbol {
 
       // checks is `__fish_contains_opt -s <ref> <long-ref>`
       // if (
-      //   parentNode 
+      //   parentNode
       //   && (isCommandWithName(parentNode, '__fish_contains_opt') || extractCommands(parentNode).some(cmd => cmd === '__fish_contains_opt'))
       //   && document.isAutoloadedCompletion()
       //   && !isOption(node)
       // ) {
       //   if (isString(parentNode) && isCompletionDefinitionWithName(parentNode, parentName, document)) {
-      //     return 
+      //     return
       //   }
       // }
 
@@ -783,12 +782,12 @@ export class FishSymbol {
       // matches any `function _ -w=<cmd>'` blocks
       const prevNode = node.previousNamedSibling;
       if (
-        (prevNode && isMatchingOption(prevNode, Option.create('-w', '--wraps')))
-        || (
+        prevNode && isMatchingOption(prevNode, Option.create('-w', '--wraps'))
+        ||
           node.parent
           && isFunctionDefinition(node.parent)
           && isMatchingOptionOrOptionValue(node, Option.create('-w', '--wraps'))
-        )
+
       ) return extractCommands(node).some(cmd => cmd === this.name);
       // matches any `abbr ... --function <cmd>` blocks
       if (parentNode && isCommandWithName(parentNode, 'abbr')) {
@@ -831,7 +830,7 @@ export class FishSymbol {
 
       if (parentNode && isCommandWithName(parentNode, 'export', 'set', 'read', 'for', 'argparse')) {
         if (isOption(node) || isVariableDefinitionName(node)) return false;
-        if (isString(node))  {
+        if (isString(node)) {
           return extractCommands(node).some(cmd => cmd === this.name);
         }
         return this.name === node.text;
@@ -901,7 +900,7 @@ export function filterFirstUniqueSymbolperScope(document: LspDocument): FishSymb
 
   for (const symbol of symbols) {
     const alreadyExists = result.some(existing =>
-      existing.name === symbol.name && existing.equalDefinition(symbol)
+      existing.name === symbol.name && existing.equalDefinition(symbol),
     );
     if (!alreadyExists) {
       result.push(symbol);

@@ -1,6 +1,6 @@
 import Parser, { SyntaxNode } from 'web-tree-sitter';
-import { findParent, findParentCommand, isCommand, isCommandName, isCommandWithName, isConditional, isConditionalCommand, isEndStdinCharacter, isFunctionDefinitionName, isIfOrElseIfConditional, isMatchingOption, isOption, isString, isVariableDefinitionName } from '../utils/node-types';
-import { findFirstParent, getChildNodes, isNodeWithinOtherNode } from '../utils/tree-sitter';
+import { findParentCommand, isCommand, isCommandName, isCommandWithName, isEndStdinCharacter, isFunctionDefinitionName, isIfOrElseIfConditional, isMatchingOption, isOption, isString, isVariableDefinitionName } from '../utils/node-types';
+import { getChildNodes, isNodeWithinOtherNode } from '../utils/tree-sitter';
 import { Option } from '../parsing/options';
 import { isExistingSourceFilenameNode, isSourceCommandArgumentName } from '../parsing/source';
 import { LspDocument } from '../document';
@@ -8,7 +8,6 @@ import { DiagnosticCommentsHandler } from './comments-handler';
 import { FishSymbol } from '../parsing/symbol';
 import { ErrorCodes } from './error-codes';
 import { getReferences } from '../references';
-import { logger } from '../logger';
 
 type startTokenType = 'function' | 'while' | 'if' | 'for' | 'begin' | '[' | '{' | '(' | "'" | '"';
 type endTokenType = 'end' | "'" | '"' | ']' | '}' | ')';

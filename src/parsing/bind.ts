@@ -1,6 +1,6 @@
 import { SyntaxNode } from 'web-tree-sitter';
-import { findOptions, Flag, isMatchingOption, Option } from './options';
-import { findParentCommand, isCommand, isCommandWithName, isCompleteCommandName, isCompleteFlagCommandName, isFunctionDefinition, isFunctionDefinitionName, isOption, isString, isTopLevelDefinition, isVariable, isVariableDefinitionName } from '../utils/node-types';
+import { findOptions, Option } from './options';
+import { findParentCommand, isCommandWithName, isFunctionDefinitionName } from '../utils/node-types';
 
 export const BindOptions = [
   Option.create('-f', '--function-names'),
@@ -25,9 +25,9 @@ export function isBindKeySequence(node: SyntaxNode) {
     return false;
   }
   const children = parent.namedChildren.slice(1);
-  const optionResults = findOptions(children, BindOptions)
+  const optionResults = findOptions(children, BindOptions);
   const { remaining } = optionResults;
-  return remaining.at(0)?.equals(node)
+  return remaining.at(0)?.equals(node);
 }
 
 export function isBindFunctionCall(node: SyntaxNode) {
@@ -36,8 +36,8 @@ export function isBindFunctionCall(node: SyntaxNode) {
     return false;
   }
   const children = parent.namedChildren.slice(1);
-  const optionResults = findOptions(children, BindOptions)
+  const optionResults = findOptions(children, BindOptions);
   const { remaining } = optionResults;
-  const functionCalls = remaining.slice(1)
+  const functionCalls = remaining.slice(1);
   return functionCalls.some(child => isFunctionDefinitionName(child) && child.equals(node));
 }

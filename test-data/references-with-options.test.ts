@@ -163,7 +163,7 @@ describe('testing references with new `opts` param', () => {
       const def = analyzer.getFlatDocumentSymbols(cdlsDoc!.uri)
         .find(s => s.name === 'cdls')!;
       // const lsNode = cmds.find(c => c.firstNamedChild!.text.startsWith('ls'))!;
-      const lsNode = def.focusedNode
+      const lsNode = def.focusedNode;
       expect(lsNode).toBeDefined();
       expect(lsNode.text).toBe('cdls');
       const lsPosition = pointToPosition(lsNode.startPosition);
@@ -202,7 +202,7 @@ describe('testing references with new `opts` param', () => {
       const pos = pointToPosition(symbol.focusedNode.startPosition);
       const refs = getReferences(histDoc, pos);
       const newRefs = getReferences(histDoc, pos);
-      const newRefUriSet = new Set(newRefs.map(r => 'file://...'+uriToReadablePath(r.uri).slice(uriToReadablePath(r.uri).indexOf('workspace_2') + 11)));
+      const newRefUriSet = new Set(newRefs.map(r => 'file://...' + uriToReadablePath(r.uri).slice(uriToReadablePath(r.uri).indexOf('workspace_2') + 11)));
       console.log({
         refs: referenceLocationsToString(refs),
         newRefs: referenceLocationsToString(newRefs),
@@ -396,7 +396,7 @@ describe('testing references with new `opts` param', () => {
       let foundNode: SyntaxNode | undefined;
       let focusedCompletionDoc: LspDocument | undefined;
       let focusedFunctionDoc: LspDocument | undefined;
-      let defSymbol: FishSymbol | null;
+      // let defSymbol: FishSymbol | null;
 
       const cmpDocs: LspDocument[] = [];
       ws.allDocuments().forEach(doc => {
@@ -432,7 +432,7 @@ describe('testing references with new `opts` param', () => {
         fail('Focused document or found node is not defined');
       }
 
-      defSymbol = analyzer.getDefinition(focuesDoc, pointToPosition(foundNode.startPosition));
+      const defSymbol = analyzer.getDefinition(focuesDoc, pointToPosition(foundNode.startPosition));
       if (!defSymbol) {
         fail('Definition symbol not found for focused node');
       }

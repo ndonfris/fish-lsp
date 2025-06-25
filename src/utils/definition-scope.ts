@@ -2,9 +2,8 @@ import { SyntaxNode } from 'web-tree-sitter';
 import * as NodeTypes from './node-types';
 import { isAutoloadedUriLoadsAliasName, isAutoloadedUriLoadsFunctionName } from './translation';
 import { firstAncestorMatch, getRange, isPositionWithinRange, getParentNodes } from './tree-sitter';
-import { Position, Location, DocumentUri } from 'vscode-languageserver';
+import { Position } from 'vscode-languageserver';
 import { LspDocument } from '../document';
-import { FishSymbol } from '../parsing/symbol';
 
 export type ScopeTag = 'global' | 'universal' | 'local' | 'function' | 'inherit';
 export interface DefinitionScope {
@@ -20,7 +19,7 @@ export class DefinitionScope {
 
   static create(
     scopeNode: SyntaxNode,
-    scopeTag: 'global' | 'universal' | 'local' | 'function' | 'inherit'
+    scopeTag: 'global' | 'universal' | 'local' | 'function' | 'inherit',
   ): DefinitionScope {
     return new DefinitionScope(scopeNode, scopeTag);
   }
@@ -68,7 +67,7 @@ export class DefinitionScope {
       function: 3,
       local: 2,
       inherit: 1,
-      '': 0
+      '': 0,
     } as const;
   }
 }
@@ -265,7 +264,7 @@ export function setQuery(searchNodes: SyntaxNode[]) {
 
 // export function patchScopes(symbols: FishSymbol[]) {
 //   for (const symbol of symbols) {
-//     const equalSymbols = symbol.children.filter(child => 
+//     const equalSymbols = symbol.children.filter(child =>
 //       child.kind === symbol.kind && child.name === symbol.name && child.scopeContainsNode()
 //     )
 //   }

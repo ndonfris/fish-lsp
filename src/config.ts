@@ -64,7 +64,7 @@ export const configHandlers = ConfigHandlerSchema.parse({});
 export const validHandlers: Array<keyof typeof ConfigHandlerSchema.shape> = [
   'complete', 'hover', 'rename', 'definition', 'implementation', 'reference', 'formatting',
   'formatRange', 'typeFormatting', 'codeAction', 'codeLens', 'folding', 'signature',
-  'executeCommand', 'inlayHint', 'highlight', 'diagnostic', 'popups'
+  'executeCommand', 'inlayHint', 'highlight', 'diagnostic', 'popups',
 ];
 
 export function updateHandlers(keys: string[], value: boolean): void {
@@ -642,7 +642,7 @@ export namespace Config {
           firstTriggerCharacter: '.',
           moreTriggerCharacter: [';', '}', ']', ')'],
         } : undefined,
-             // Add this for workspace folder support:
+        // Add this for workspace folder support:
         workspace: {
           workspaceFolders: {
             supported: true,

@@ -44,7 +44,7 @@ export namespace Range {
   }
 
   export function isAfter(one: LSP.Range, other: LSP.Range): boolean {
-    return Position.isAfter(one.end, other.end) || (Position.isAfter(one.end, other.start) && Position.isBeforeOrEqual(one.start, other.start));
+    return Position.isAfter(one.end, other.end) || Position.isAfter(one.end, other.start) && Position.isBeforeOrEqual(one.start, other.start);
   }
 }
 
