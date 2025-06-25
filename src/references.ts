@@ -1,8 +1,8 @@
 import { DocumentUri, Location, Position, Range, WorkDoneProgressReporter } from 'vscode-languageserver';
 import { analyzer } from './analyze';
 import { LspDocument } from './document';
-import { findParentCommand, findParentFunction, isCommand, isCommandName, isCommandWithName, isMatchingOption, isOption, isProgram, isString } from './utils/node-types';
-import { containsNode, getRange } from './utils/tree-sitter';
+import { findParentCommand, findParentFunction, isCommandName, isCommandWithName, isMatchingOption, isOption, isProgram, isString } from './utils/node-types';
+import { containsNode, getChildNodes, getRange } from './utils/tree-sitter';
 import { filterFirstUniqueSymbolperScope, findFirstPerScopeSymbol, FishSymbol } from './parsing/symbol';
 import { isMatchingOptionOrOptionValue, Option } from './parsing/options';
 import { logger } from './logger';
@@ -62,7 +62,7 @@ export function getReferences(
     allWorkspaces: false,
     onlyInFiles: [],
     logPerformance: true,
-    loggingEnabled: true,
+    loggingEnabled: false,
     reporter: undefined,
   },
 ): Location[] {
@@ -130,8 +130,14 @@ export function getReferences(
       continue;
     }
 
-    const filteredSymbols = findFirstPerScopeSymbol(analyzer.getDocumentSymbols(doc.uri))
-      .filter(s => s.isLocal() && s.name === definitionSymbol.name && s.kind === definitionSymbol.kind);
+    const filteredSymbols = doc.uri === definitionSymbol.uri ? []
+      : findFirstPerScopeSymbol(analyzer.getFlatDocumentSymbols(doc.uri))
+        .filter(s =>
+          s.isLocal()
+        && s.name === definitionSymbol.name
+        && s.kind === definitionSymbol.kind
+        && !s.equals(definitionSymbol),
+        );
 
     const root = analyzer.getRootNode(doc.uri);
     if (!root) {
@@ -142,7 +148,7 @@ export function getReferences(
 
     for (const node of matchableNodes) {
       // skip nodes that are redefinitions of the symbol in the local scope
-      if (filteredSymbols.some(s => s.containsNode(node) || s.scopeNode.equals(node))) {
+      if (filteredSymbols && filteredSymbols.some(s => s.containsNode(node) || s.scopeNode.equals(node))) {
         continue;
       }
       // store matches in the matchingNodes dictionary
@@ -203,8 +209,12 @@ export function allUnusedLocalReferences(document: LspDocument): FishSymbol[] {
       && !symbol.containsScope(c),
     );
     let found = false;
-    const children = getChildNodesOptimized(symbol, document);
-    for (const node of children) {
+    const root = analyzer.getRootNode(document.uri);
+    if (!root) {
+      logger.warning(`No root node found for document ${document.uri}`);
+      continue;
+    }
+    for (const node of getChildNodes(root)) {
       // skip nodes that are redefinitions of the symbol in the local scope
       if (localSymbols?.some(c => c.scopeContainsNode(node))) {
         continue;
@@ -518,6 +528,7 @@ function* getChildNodesOptimized(symbol: FishSymbol, doc: LspDocument): Generato
 
   const localSymbols = analyzer.getFlatDocumentSymbols(doc.uri)
     .filter(s => {
+      if (s.uri === doc.uri) return false;
       if (s.isFunction() && s.isLocal() && s.name === symbol.name && symbol.isFunction()) {
         return !s.equals(symbol);
       }
@@ -542,7 +553,6 @@ function* getChildNodesOptimized(symbol: FishSymbol, doc: LspDocument): Generato
     if (symbol.isFunction()) {
       return symbol.name === current.text
         || isCommandName(current)
-        || isCommand(current)
         || current.type === 'word'
         || current.isNamed;
     }

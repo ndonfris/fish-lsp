@@ -23,6 +23,7 @@ import { extractCommands } from './nested-strings';
 import { CompletionSymbol, isMatchingCompletionFlagNodeWithFishSymbol } from './complete';
 import { isBindFunctionCall } from './bind';
 import { analyzer } from '../analyze';
+import { logger } from '../logger';
 
 export type FishSymbolKind = 'ARGPARSE' | 'FUNCTION' | 'ALIAS' | 'COMPLETE' | 'SET' | 'READ' | 'FOR' | 'VARIABLE' | 'FUNCTION_VARIABLE' | 'EXPORT';
 
@@ -312,14 +313,14 @@ export class FishSymbol {
   }
 
   equals(other: FishSymbol) {
-    if (this.fishKind === 'ARGPARSE' && other.fishKind === 'ARGPARSE') {
-      const equalNames = this.name === other.name || this.aliasedNames.includes(other.name) || other.aliasedNames.includes(this.name);
-      // const equalNames = this.aliasedNames.includes(other.name)
-      // && other.aliasedNames.includes(this.name)
-      return equalNames &&
-        this.uri === other.uri &&
-        this.focusedNode.equals(other.focusedNode);
-    }
+    // if (this.fishKind === 'ARGPARSE' && other.fishKind === 'ARGPARSE') {
+    //   const equalNames = this.name === other.name || this.aliasedNames.includes(other.name) || other.aliasedNames.includes(this.name);
+    //   // const equalNames = this.aliasedNames.includes(other.name)
+    //   // && other.aliasedNames.includes(this.name)
+    //   return equalNames &&
+    //     this.uri === other.uri &&
+    //     this.focusedNode.equals(other.focusedNode);
+    // }
     const equalNames = this.name === other.name
       ? true
       : this.aliasedNames.includes(other.name) || other.aliasedNames.includes(this.name);
@@ -694,18 +695,23 @@ export class FishSymbol {
   }
 
   isReference(document: LspDocument, node: SyntaxNode, excludeEqualNode = false) {
+    // Next 4 cases are ones we can always ignore
     if (excludeEqualNode && this.equalsNode(node)) return false;
     if (excludeEqualNode && document.uri === this.uri) {
       if (equalRanges(getRange(this.focusedNode), getRange(node))) {
         return false;
       }
     }
-
+    // skip any references that are not in the same scope
     if (this.isLocal() && !this.isArgparse()) {
-      // skip any references that are not in the same scope
       if (!this.scopeContainsNode(node) || this.uri !== document.uri) return false;
     }
+    // skip any reference that is not the same text as a function (command)
+    if (this.isFunction() && this.name !== node.text && !isString(node)) {
+      return false;
+    }
 
+    // Begin checking for specific symbol types
     const parentNode = node.parent
       ? findParentCommand(node)
       : null;
@@ -747,6 +753,9 @@ export class FishSymbol {
       //     return
       //   }
       // }
+      if (this.name === node.text && this.parent?.scopeContainsNode(node)) {
+        return true;
+      }
 
       const parentFunction = findParentFunction(node);
       // `_flag_<ref>` checks
@@ -754,7 +763,7 @@ export class FishSymbol {
         isVariable(node)
         || isVariableDefinitionName(node)
         || isSetVariableDefinitionName(node, false)) {
-        return this.name === node.text && this.scopeContainsNode(node) && parentFunction?.equals(this.scopeNode);
+        return this.name === node.text && this.scopeContainsNode(node);
       }
       if (
         parentNode
@@ -762,6 +771,7 @@ export class FishSymbol {
       ) {
         return this.name === node.text && this.scopeContainsNode(node) && parentFunction?.equals(this.scopeNode);
       }
+
       return false;
     }
 
@@ -784,9 +794,9 @@ export class FishSymbol {
       if (
         prevNode && isMatchingOption(prevNode, Option.create('-w', '--wraps'))
         ||
-          node.parent
-          && isFunctionDefinition(node.parent)
-          && isMatchingOptionOrOptionValue(node, Option.create('-w', '--wraps'))
+        node.parent
+        && isFunctionDefinition(node.parent)
+        && isMatchingOptionOrOptionValue(node, Option.create('-w', '--wraps'))
 
       ) return extractCommands(node).some(cmd => cmd === this.name);
       // matches any `abbr ... --function <cmd>` blocks
@@ -840,12 +850,26 @@ export class FishSymbol {
 
     // find any remaining variable references
     if (this.isVariable() && node.text === this.name) {
+      logger.log({
+        message: `Checking if variable ${this.name} is a reference`,
+        node: {
+          text: node.text,
+          type: node.type,
+          start: node.startPosition,
+          end: node.endPosition,
+        },
+        parentNode: {
+          text: node.parent?.text,
+          type: node.parent?.type,
+          start: node.parent?.startPosition,
+          end: node.parent?.endPosition,
+        },
+      });
       if (isVariable(node) || isVariableDefinitionName(node)) return true;
       if (parentNode && isCommandWithName(parentNode, 'export', 'set', 'read', 'for', 'argparse')) {
         if (isOption(node)) return false;
         if (isVariableDefinitionName(node)) return this.name === node.text;
       }
-
       return this.name === node.text && this.scopeContainsNode(node);
     }
 

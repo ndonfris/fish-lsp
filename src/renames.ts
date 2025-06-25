@@ -23,7 +23,7 @@ export function getRenames(
   if (!symbol || !newText) return [];
   if (!canRenameWithNewText(analyzer, doc, position, newText)) return [];
   newText = fixNewText(symbol, position, newText);
-  const locs = getReferences(doc, symbol.selectionRange.start);
+  const locs = getReferences(doc, position);
   return locs.map(loc => {
     const locationText = analyzer.getTextAtLocation(loc);
     let replaceText = newText || locationText;
