@@ -815,42 +815,9 @@ export class Analyzer {
 
     // check if we have a symbol defined at the position
     const symbol = this.getDefinition(document, position) as FishSymbol;
-    logger.log({
-      getDefinitionLocation: 'getDefinitionLocation, checking symbol',
-      symbol: {
-        name: symbol?.name,
-        uri: symbol?.uri,
-        selectionRange: [symbol?.selectionRange.start.line,
-          symbol?.selectionRange.start.character,
-          symbol?.selectionRange.end.line,
-          symbol?.selectionRange.end.character,
-        ].join(', '),
-      },
-    });
     if (symbol) {
       const newSymbol = filterFirstUniqueSymbolperScope(document).find((s) => {
         return s.equalDefinition(symbol);
-      });
-      logger.log({
-        getDefinitionLocation: 'getDefinitionLocation, checking symbols',
-        symbol: {
-          name: symbol?.name,
-          uri: symbol?.uri,
-          selectionRange: [newSymbol?.selectionRange.start.line,
-            symbol?.selectionRange.start.character,
-            symbol?.selectionRange.end.line,
-            symbol?.selectionRange.end.character,
-          ].join(', '),
-        },
-        newSymbol: {
-          name: newSymbol?.name,
-          uri: newSymbol?.uri,
-          selectionRange: [newSymbol?.selectionRange.start.line,
-            newSymbol?.selectionRange.start.character,
-            newSymbol?.selectionRange.end.line,
-            newSymbol?.selectionRange.end.character,
-          ].join(', '),
-        },
       });
       if (newSymbol) {
         return [Location.create(newSymbol.uri, newSymbol.selectionRange)];

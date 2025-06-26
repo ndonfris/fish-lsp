@@ -176,7 +176,9 @@ export function createExecuteCommandHandler(
     return undefined;
   }
 
-  async function _updateWorkspace(path: string) {
+  async function _updateWorkspace(path: string, ...args: string[]) {
+    const silence = args.includes('--quiet') || args.includes('-q');
+
     const uri = pathToUri(path);
     workspaceManager.handleUpdateDocument(uri);
     const message = `${fishLspPromptIcon} Workspace: ${workspaceManager.current?.path}`;
@@ -186,6 +188,8 @@ export function createExecuteCommandHandler(
         removed: [],
       },
     });
+
+    if (silence) return undefined;
 
     // Using the notification method directly
     connection.sendNotification('window/showMessage', {

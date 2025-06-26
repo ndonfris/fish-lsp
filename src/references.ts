@@ -80,6 +80,19 @@ export function getReferences(
     return [];
   }
 
+  logger.debug('onReferences', {
+    symbol: {
+      name: definitionSymbol.name,
+      kind: definitionSymbol.kind,
+      uri: definitionSymbol.uri,
+    },
+    uri: uriToReadablePath(document.uri),
+    position: {
+      line: position.line,
+      character: position.character,
+    },
+  });
+
   // include the definition symbol itself
   if (!opts.excludeDefinition) results.push(definitionSymbol.toLocation());
 
@@ -92,7 +105,7 @@ export function getReferences(
   // analyze the CompletionSymbol's and add their locations to result array
   // this is separate from the search operation because analysis lazy loads
   // completion documents (completion files are skipped during the initial workspace load)
-  if (definitionSymbol.isArgparse()) {
+  if (definitionSymbol.isArgparse() || definitionSymbol.isFunction()) {
     results.push(...getGlobalArgparseLocations(definitionSymbol.document, definitionSymbol));
   }
 

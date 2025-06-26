@@ -94,17 +94,20 @@ export async function initializeDefaultFishWorkspaces(...uris: string[]): Promis
   //   config.fish_lsp_single_workspace_support = false;
   // }
 
-  const configWorkspaces = FishUriWorkspace.initializeEnvWorkspaces();
+  const tmpConfigWorkspaces = FishUriWorkspace.initializeEnvWorkspaces();
+  const configWorkspaces = tmpConfigWorkspaces.filter(ws =>
+    !newWorkspaces.some(newWs => newWs.uri === ws.uri),
+  );
 
   /** don't add duplicates to the workspaces */
-  const toAddWorkspaces = newWorkspaces.filter(ws =>
-    !configWorkspaces.some(configWs => configWs.uri === ws.uri),
-  );
+  // const toAddWorkspaces = newWorkspaces.filter(ws =>
+  //   !configWorkspaces.some(configWs => configWs.uri === ws.uri),
+  // );
 
   // merge both arrays but keep the unique uris in the order they were passed in
   const allWorkspaces = [
+    ...newWorkspaces,
     ...configWorkspaces,
-    ...toAddWorkspaces,
   ].filter((workspace, index, self) =>
     index === self.findIndex(w => w.uri === workspace.uri),
   ).map(({ name, uri, path }) => Workspace.create(name, uri, path));
@@ -112,8 +115,8 @@ export async function initializeDefaultFishWorkspaces(...uris: string[]): Promis
   // Wait for all promises to resolve
   const defaultSpaces = await Promise.all(allWorkspaces);
   const results = defaultSpaces.filter((ws): ws is Workspace => ws !== null);
-  results.forEach((ws) => {
-    logger.log(`Initialized workspace '${ws.name}' @ defaultFish`, {
+  results.forEach((ws, idx) => {
+    logger.debug(`Initialized workspace '${ws.name}' @ ${idx}`, {
       name: ws.name,
       uri: ws.uri,
       path: ws.path,
@@ -162,7 +165,7 @@ export class Workspace implements FishWorkspace {
       const workspace = FishUriWorkspace.create(uri);
       if (!workspace) return null;
       let foundUris: Set<string> = new Set<string>();
-      if (isDirectory) {
+      if (isDirectory || SyncFileHelper.isDirectory(workspace.path)) {
         if (!workspace.path.startsWith('/tmp')) {
           foundUris = syncGetFileUriSet(workspace.path);
         }

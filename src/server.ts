@@ -175,7 +175,7 @@ export default class FishServer {
     workspaceManager.handleOpenDocument(doc);
     currentDocument = doc;
     this.analyzeDocument({ uri: doc.uri });
-    if (!this.backgroundAnalysisComplete) return;
+    workspaceManager.handleUpdateDocument(doc);
     if (workspaceManager.needsAnalysis() && workspaceManager.allAnalysisDocuments().length > 0) {
       const progress = await connection.window.createWorkDoneProgress();
       progress.begin('[fish-lsp] analysis');
@@ -221,24 +221,24 @@ export default class FishServer {
     const doc = documents.get(path);
     if (doc) {
       this.analyzeDocument({ uri: doc.uri });
+      workspaceManager.handleOpenDocument(doc);
       workspaceManager.handleUpdateDocument(doc);
       await workspaceManager.analyzePendingDocuments();
     }
     // analyzer.updateConfigInWorkspace(params.textDocument.uri);
   }
 
-  async onInitialized() {
-    logger.log('onInitialized');
+  async onInitialized(params: any): Promise<{ result: number; }> {
+    logger.log('onInitialized', params);
     if (hasWorkspaceFolderCapability) {
-      // const commandCallback = createExecuteCommandHandler(connection, documents, analyzer);
-      connection.workspace.onDidChangeWorkspaceFolders(event => {
+      connection.workspace.onDidChangeWorkspaceFolders(async event => {
         logger.info({
           'connection.workspace.onDidChangeWorkspaceFolders': 'analyzer.onInitialized',
           added: event.added.map(folder => folder.name),
           removed: event.removed.map(folder => folder.name),
           hasWorkspaceFolderCapability: hasWorkspaceFolderCapability,
         });
-        this.handleWorkspaceFolderChanges(event);
+        await this.handleWorkspaceFolderChanges(event);
         // await commandCallback({command: 'fish-lsp.showWorkspaceMessage', arguments: []});
       });
     }
@@ -443,6 +443,8 @@ export default class FishServer {
       workspaceManager.handleOpenDocument(location.uri);
       workspaceManager.handleUpdateDocument(location.uri);
       // workspaceManager.current?.setAllPending();
+    }
+    if (workspaceManager.needsAnalysis()) {
       await workspaceManager.analyzePendingDocuments();
     }
     return newDefs;
@@ -469,12 +471,38 @@ export default class FishServer {
         };
       },
     );
-    return getReferences(doc, params.position, {
-      excludeDefinition: !params.context.includeDeclaration,
+
+    await this.onDefinition(params);
+
+    const defLoc = analyzer.getDefinitionLocation(doc, params.position).pop();
+    if (!defLoc) {
+      logger.log('onReferences: no definition found at position', params.position);
+      return [];
+    }
+
+    const defDoc = analyzer.getDocument(defLoc.uri);
+    if (!defDoc) {
+      logger.log('onReferences: definition document not found', defLoc.uri);
+      return [];
+    }
+
+    const results = getReferences(defDoc, defLoc.range.start, {
       reporter: progress,
       logPerformance: true,
       loggingEnabled: true,
     });
+
+    logger.debug({
+      onReferences: 'found references',
+      uri: defDoc.uri,
+      count: results.length,
+      position: params.position,
+    });
+    if (results.length === 0) {
+      logger.log('onReferences: no references found', { uri: defDoc.uri, position: params.position });
+      return [];
+    }
+    return results;
   }
 
   /**

@@ -80,8 +80,11 @@ export function convertNodeRangeWithPrecedingFlag(node: SyntaxNode) {
 }
 
 export function isGlobalArgparseDefinition(document: LspDocument, symbol: FishSymbol) {
-  if (!symbol.isArgparse()) return false;
-  const parent = symbol.parent;
+  if (!symbol.isArgparse() || !symbol.isFunction()) return false;
+  let parent = symbol.parent;
+  if (symbol.isFunction() && symbol.isGlobal()) {
+    parent = symbol;
+  }
   if (parent && parent?.isFunction()) {
     const functionName = parent.name;
     if (document.getAutoLoadName() !== functionName) {
@@ -136,13 +139,16 @@ export function getGlobalArgparseLocations(document: LspDocument, symbol: FishSy
     logger.debug({
       message: `Getting global argparse locations for symbol: ${symbol.name} in file: ${completionFile}`,
     });
-    // const completionLocations = analyzer
-    //   .getFlatCompletionSymbols(pathToUri(completionFile))
-    //   .filter(s => s.isNonEmpty())
-    //   .filter(s => s.equalsArgparse(symbol))
-    //   .map(s => s.toLocation());
-    //
+    const completionLocations = analyzer
+      .getFlatCompletionSymbols(pathToUri(completionFile))
+      .filter(s => s.isNonEmpty())
+      .filter(s => s.equalsArgparse(symbol) || s.equalsCommand(symbol))
+      .map(s => s.toLocation());
+
+    logger.log(`Found ${completionLocations.length} global argparse locations for symbol: ${symbol.name}`, 'HERE');
+
     // const containsOpt = analyzer.getNodes(pathToUri(completionFile)).filter(n => isCommandWithName(n, '__fish_contains_opt'));
+    return completionLocations;
   }
   logger.warning(`no global argparse locations found for symbol: ${symbol.name}`, 'HERE');
   return [];

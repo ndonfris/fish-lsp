@@ -276,6 +276,14 @@ export class CompletionSymbol {
       && this.node?.text === symbolName;
   }
 
+  equalsCommand(symbol: FishSymbol) {
+    if (!symbol.isFunction()) {
+      return false;
+    }
+    const commandName = symbol.name;
+    return this.hasCommandName(commandName);
+  }
+
   /**
    * Check if our CompletionSymbol.node === the node passed in
    */
