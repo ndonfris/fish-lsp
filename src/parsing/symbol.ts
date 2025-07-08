@@ -1,79 +1,29 @@
-import { DocumentSymbol, SymbolKind, Range, WorkspaceSymbol, Location, FoldingRange, FoldingRangeKind, MarkupContent, MarkupKind, Hover, DocumentUri } from 'vscode-languageserver';
+import { DocumentSymbol, SymbolKind, WorkspaceSymbol, Location, FoldingRange, MarkupContent, Hover, DocumentUri, Position } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { DefinitionScope } from '../utils/definition-scope';
 import { LspDocument } from '../document';
-import { containsNode, equalRanges, getChildNodes, getRange, isSyntaxNode } from '../utils/tree-sitter';
-import { findSetChildren, isSetVariableDefinitionName, processSetCommand } from './set';
+import { containsNode, getChildNodes, getRange } from '../utils/tree-sitter';
+import { findSetChildren, processSetCommand } from './set';
 import { processReadCommand } from './read';
-import { processArgvDefinition, processFunctionDefinition } from './function';
+import { isFunctionVariableDefinitionName, processArgvDefinition, processFunctionDefinition } from './function';
 import { processForDefinition } from './for';
-import { convertNodeRangeWithPrecedingFlag, isCompletionArgparseFlagWithCommandName, processArgparseCommand } from './argparse';
-import { Flag, isMatchingOption, isMatchingOptionOrOptionValue, LongFlag, Option, ShortFlag } from './options';
-import { isAliasDefinitionValue, processAliasCommand } from './alias';
+import { convertNodeRangeWithPrecedingFlag, processArgparseCommand } from './argparse';
+import { Flag, isMatchingOption, LongFlag, Option, ShortFlag } from './options';
+import { processAliasCommand } from './alias';
 import { createDetail } from './symbol-detail';
 import { config } from '../config';
 import { flattenNested } from '../utils/flatten';
 import { uriToPath } from '../utils/translation';
-import { findParentCommand, findParentFunction, isCommand, isCommandWithName, isEndStdinCharacter, isFunctionDefinition, isFunctionDefinitionName, isOption, isString, isTopLevelDefinition, isVariable, isVariableDefinitionName } from '../utils/node-types';
-import * as Locations from '../utils/locations';
+import { isCommand, isCommandWithName, isEmptyString, isFunctionDefinitionName, isString, isTopLevelDefinition, isVariableDefinitionName } from '../utils/node-types';
 import { SyncFileHelper } from '../utils/file-operations';
-import { processExportCommand } from './export';
-import { isAbbrDefinitionName, isMatchingAbbrFunction } from '../diagnostics/node-types';
-import { extractCommands } from './nested-strings';
-import { CompletionSymbol, isMatchingCompletionFlagNodeWithFishSymbol } from './complete';
-import { isBindFunctionCall } from './bind';
+import { isExportVariableDefinitionName, processExportCommand } from './export';
+import { CompletionSymbol, isCompletionCommandDefinition, isCompletionSymbol } from './complete';
 import { analyzer } from '../analyze';
-import { logger } from '../logger';
-import { isEmittedEventDefinitionName, processEmitEventCommandName } from './emit';
-
-export type FishSymbolKind = 'ARGPARSE' | 'FUNCTION' | 'ALIAS' | 'COMPLETE' | 'SET' | 'READ' | 'FOR' | 'VARIABLE' | 'FUNCTION_VARIABLE' | 'EXPORT' | 'EVENT' | 'FUNCTION_EVENT';
-
-export const FishSymbolKindMap: Record<Lowercase<FishSymbolKind>, FishSymbolKind> = {
-  ['argparse']: 'ARGPARSE',
-  ['function']: 'FUNCTION',
-  ['alias']: 'ALIAS',
-  ['complete']: 'COMPLETE',
-  ['set']: 'SET',
-  ['read']: 'READ',
-  ['for']: 'FOR',
-  ['variable']: 'VARIABLE',
-  ['event']: 'EVENT',
-  ['function_variable']: 'FUNCTION_VARIABLE',
-  ['function_event']: 'FUNCTION_EVENT',
-  ['export']: 'EXPORT',
-};
-
-export const fishSymbolKindToSymbolKind: Record<FishSymbolKind, SymbolKind> = {
-  ['ARGPARSE']: SymbolKind.Variable,
-  ['FUNCTION']: SymbolKind.Function,
-  ['ALIAS']: SymbolKind.Function,
-  ['COMPLETE']: SymbolKind.Interface,
-  ['SET']: SymbolKind.Variable,
-  ['READ']: SymbolKind.Variable,
-  ['FOR']: SymbolKind.Variable,
-  ['VARIABLE']: SymbolKind.Variable,
-  ['FUNCTION_VARIABLE']: SymbolKind.Variable,
-  ['EVENT']: SymbolKind.Event,
-  ['FUNCTION_EVENT']: SymbolKind.Event,
-  ['EXPORT']: SymbolKind.Variable,
-} as const;
-
-export const SetModifierToScopeTag = (modifier: Option) => {
-  switch (true) {
-    case modifier.isOption('-U', '--universal'):
-      return 'universal';
-    case modifier.isOption('-g', '--global'):
-      return 'global';
-    case modifier.isOption('-f', '--function'):
-      return 'function';
-    case modifier.isOption('-l', '--local'):
-      return 'local';
-    default:
-      return 'local';
-  }
-};
-
-export const fromFishSymbolKindToSymbolKind = (kind: FishSymbolKind) => fishSymbolKindToSymbolKind[kind];
+import { isEmittedEventDefinitionName, isGenericFunctionEventHandlerDefinitionName, processEmitEventCommandName } from './emit';
+import { isSymbolReference } from './reference-comparator';
+import { equalSymbolDefinitions, equalSymbols, equalSymbolScopes, fishSymbolNameEqualsNodeText, isFishSymbol, symbolContainsNode, symbolContainsPosition, symbolContainsScope, symbolEqualsLocation, symbolEqualsNode, symbolScopeContainsNode } from './equality-utils';
+import { SymbolConverters } from './symbol-converters';
+import { FishKindGroups, FishSymbolInput, FishSymbolKind, fishSymbolKindToSymbolKind, fromFishSymbolKindToSymbolKind } from './symbol-kinds';
 
 export interface FishSymbol extends DocumentSymbol {
   document: LspDocument;
@@ -87,26 +37,12 @@ export interface FishSymbol extends DocumentSymbol {
   parent: FishSymbol | undefined;
 }
 
-type OptionalFishSymbolPrototype = {
-  name?: string;
-  node: SyntaxNode;
-  focusedNode: SyntaxNode;
-  document: LspDocument;
-  uri?: string;
-  detail: string;
-  fishKind: FishSymbolKind;
-  scope: DefinitionScope;
-  children: FishSymbol[];
-  range?: Range;
-  selectionRange?: Range;
-};
-
 export class FishSymbol {
   public children: FishSymbol[] = [];
   public aliasedNames: string[] = [];
   public document: LspDocument;
 
-  constructor(obj: OptionalFishSymbolPrototype) {
+  constructor(obj: FishSymbolInput) {
     this.name = obj.name || obj.focusedNode.text;
     this.kind = fromFishSymbolKindToSymbolKind(obj.fishKind);
     this.fishKind = obj.fishKind;
@@ -153,39 +89,16 @@ export class FishSymbol {
     });
   }
 
-  static fromObject(obj: OptionalFishSymbolPrototype) {
+  static fromObject(obj: FishSymbolInput) {
     return new this(obj);
   }
 
   public copy(): FishSymbol {
-    return new FishSymbol({
-      name: this.name,
-      fishKind: this.fishKind,
-      document: this.document,
-      uri: this.uri,
-      detail: this.detail,
-      node: this.node,
-      focusedNode: this.focusedNode,
-      scope: this.scope,
-      children: this.children.map(child => child.copy()),
-      range: this.range,
-      selectionRange: this.selectionRange,
-    });
+    return SymbolConverters.copySymbol(this);
   }
 
   static is(obj: unknown): obj is FishSymbol {
-    return typeof obj === 'object'
-      && obj !== null
-      && 'name' in obj
-      && 'fishKind' in obj
-      && 'uri' in obj
-      && 'node' in obj
-      && 'focusedNode' in obj
-      && 'scope' in obj
-      && 'children' in obj
-      && typeof (obj as any).name === 'string'
-      && typeof (obj as any).uri === 'string'
-      && Array.isArray((obj as any).children);
+    return isFishSymbol(obj);
   }
 
   addChildren(...children: FishSymbol[]) {
@@ -202,18 +115,26 @@ export class FishSymbol {
   }
 
   private nameEqualsNodeText(node: SyntaxNode) {
-    return this.name === node.text;
+    return fishSymbolNameEqualsNodeText(this, node);
   }
 
+  /**
+   * Returns the `argparse flag-name` for the symbol `_flag_flag_name`
+   */
   public get argparseFlagName() {
-    return this.name.replace(/^_flag_/, '').replace(/_/g, '-');
+    return FishSymbol.argparseFlagFromName(this.name);
   }
 
+  /**
+   * Static method to convert a FishSymbol.isArgparse() with `_flag_variable_name` to `variable-name`
+   */
   public static argparseFlagFromName(name: string) {
-    const flagName = name.replace(/^_flag_/, '').replace(/_/g, '-');
-    return flagName;
+    return name.replace(/^_flag_/, '').replace(/_/g, '-');
   }
 
+  /**
+   * Returns the argparse flag for the symbol, e.g. `-f` or `--flag-name`
+   */
   public get argparseFlag(): Flag | string {
     if (this.fishKind !== 'ARGPARSE') return this.name;
     const flagName = this.argparseFlagName;
@@ -223,33 +144,25 @@ export class FishSymbol {
     return `--${flagName}` as LongFlag;
   }
 
-  public get fishContainsOptCommand() {
-    if (this.fishKind !== 'ARGPARSE') return { commandStr: '', isShort: false, isLong: false };
-    const containsOpt: string[] = [];
-    let isShort = false;
-    let isLong = false;
-    for (const name of this.aliasedNames) {
-      const opt = FishSymbol.argparseFlagFromName(name);
-      if (opt.length === 1) {
-        containsOpt.push(`-s ${opt}`);
-        if (opt === FishSymbol.argparseFlagFromName(this.name)) {
-          isShort = true;
-        }
-      } else {
-        containsOpt.push(`${opt}`);
-        if (opt === FishSymbol.argparseFlagFromName(this.name)) {
-          isLong = true;
-        }
-      }
-    }
-    return {
-      commandStr: `__fish_contains_opt ${containsOpt.join(' ').trim()}`,
-      isShort,
-      isLong,
-    };
-  }
-
-  private isArgparseCompletionFlag(node: SyntaxNode) {
+  /**
+   * Checks if an argparse _flag_name FishSymbol is equal to a SyntaxNode,
+   * where the SyntaxNode corresponds to the argparse
+   *
+   *
+   * ```fish
+   * function this.parent.name
+   *     argparse f/flag-name -- $argv
+   * #            ^^^^^^^^^^^---- This is the argparse flag name
+   * end
+   *
+   * complete -c this.parent.name -s f -l flag-name
+   * #                               ^    ^^^^^^^^^ Either of these could be the node (depending on the FishSymbol selected)
+   * ```
+   *
+   * @param node - The SyntaxNode to check against (`complete ... -s/-l NODE`)
+   * @return {boolean} - True if the node matches the argparse flag name, false otherwise
+   */
+  private isArgparseCompletionFlag(node: SyntaxNode): boolean {
     if (this.fishKind === 'ARGPARSE') return false;
     if (node.parent && isCommandWithName(node, 'complete')) {
       const flagName = this.argparseFlagName;
@@ -262,6 +175,9 @@ export class FishSymbol {
     return false;
   }
 
+  /**
+   * Checks if the node is a command completion flag, e.g. `complete -c NODE` or `complete --command NODE`
+   */
   private isCommandCompletionFlag(node: SyntaxNode) {
     if (this.fishKind === 'COMPLETE') return false;
     if (node.parent && isCommandWithName(node.parent, 'complete')) {
@@ -290,6 +206,18 @@ export class FishSymbol {
       case 'FOR':
       case 'VARIABLE':
         return !isFunctionDefinitionName(node);
+      case 'EXPORT':
+        return isExportVariableDefinitionName(node);
+      case 'FUNCTION_VARIABLE':
+        return isFunctionVariableDefinitionName(node);
+      case 'EVENT':
+        return isEmittedEventDefinitionName(node);
+      case 'FUNCTION_EVENT':
+        return isGenericFunctionEventHandlerDefinitionName(node);
+      case 'COMPLETE':
+        return isCompletionCommandDefinition(node) || isCompletionSymbol(node);
+      default:
+        return false;
     }
   }
 
@@ -315,282 +243,54 @@ export class FishSymbol {
     return this.scope.scopeTag;
   }
 
+  /**
+   * Enclosing SyntaxNode for symbols constraint inside of a local document
+   * A global symbol will still have a scopeNode, but it should not be used to limit
+   * the scope of a symbol. It is more common to limit the scope of a Symbol based
+   * on if their is a redefined symbol (same name & type) inside of a smaller scope.
+   */
   get scopeNode() {
     return this.scope.scopeNode;
   }
 
+  // === Conversion Utils ===
   toString() {
-    return JSON.stringify({
-      name: this.name,
-      kind: this.kind,
-      uri: this.uri,
-      detail: this.detail,
-      range: this.range,
-      selectionRange: this.selectionRange,
-      scope: this.scope.scopeTag,
-      aliasedNames: this.aliasedNames,
-      children: this.children.map(child => child.name),
-    }, null, 2);
-  }
-
-  equals(other: FishSymbol) {
-    // if (this.fishKind === 'ARGPARSE' && other.fishKind === 'ARGPARSE') {
-    //   const equalNames = this.name === other.name || this.aliasedNames.includes(other.name) || other.aliasedNames.includes(this.name);
-    //   // const equalNames = this.aliasedNames.includes(other.name)
-    //   // && other.aliasedNames.includes(this.name)
-    //   return equalNames &&
-    //     this.uri === other.uri &&
-    //     this.focusedNode.equals(other.focusedNode);
-    // }
-    const equalNames = this.name === other.name
-      ? true
-      : this.aliasedNames.includes(other.name) || other.aliasedNames.includes(this.name);
-    return equalNames &&
-      this.kind === other.kind &&
-      this.uri === other.uri &&
-      this.range.start.line === other.range.start.line &&
-      this.range.start.character === other.range.start.character &&
-      this.range.end.line === other.range.end.line &&
-      this.range.end.character === other.range.end.character &&
-      this.selectionRange.start.line === other.selectionRange.start.line &&
-      this.selectionRange.start.character === other.selectionRange.start.character &&
-      this.selectionRange.end.line === other.selectionRange.end.line &&
-      this.selectionRange.end.character === other.selectionRange.end.character &&
-      this.fishKind === other.fishKind;
-  }
-
-  equalArgparse(other: FishSymbol | CompletionSymbol) {
-    if (FishSymbol.is(other)) {
-      const equalNames = this.name !== other.name && this.aliasedNames.includes(other.name) && other.aliasedNames.includes(this.name);
-
-      const equalParents = this.parent && other.parent
-        ? this.parent.equals(other.parent)
-        : !this.parent && !other.parent;
-
-      return equalNames &&
-        this.uri === other.uri &&
-        this.fishKind === 'ARGPARSE' && other.fishKind === 'ARGPARSE' &&
-        this.focusedNode.equals(other.focusedNode) &&
-        this.node.equals(other.node) &&
-        equalParents &&
-        this.scopeNode.equals(other.scopeNode);
-    }
-  }
-
-  equalFunctionEventHandler(other: FishSymbol | CompletionSymbol) {
-    if (FishSymbol.is(other) && this.hasEventHook() && other.isEventHook()) {
-      return this.children.some(child => child.equals(other));
-    }
-    if (FishSymbol.is(other) && this.isFunction() && this.hasEventHook()) {
-      return this.parent?.equals(other);
-    }
-    return false;
-  }
-
-  equalLocations(other: Location) {
-    return this.uri === other.uri
-      && this.selectionRange.start.line === other.range.start.line
-      && this.selectionRange.start.character === other.range.start.character
-      && this.selectionRange.end.line === other.range.end.line
-      && this.selectionRange.end.character === other.range.end.character;
+    return SymbolConverters.symbolToString(this);
   }
 
   toWorkspaceSymbol(): WorkspaceSymbol {
-    return WorkspaceSymbol.create(
-      this.name,
-      this.kind,
-      this.uri,
-      this.selectionRange,
-    );
-  }
-
-  includeAsDocumentSymbol(): boolean {
-    switch (true) {
-      case this.fishKind === 'FUNCTION_EVENT':
-        return false; // Emitted events are not included as document symbols
-      default:
-        return true;
-    }
+    return SymbolConverters.symbolToWorkspaceSymbol(this);
   }
 
   toDocumentSymbol(): DocumentSymbol | undefined {
-    const visitedChildren: DocumentSymbol[] = [];
-    if (!this.includeAsDocumentSymbol()) {
-      return undefined;
-    }
-    this.children.forEach(child => {
-      if (!child.includeAsDocumentSymbol()) return;
-      if (child.includeAsDocumentSymbol()) {
-        const newChild = child.toDocumentSymbol();
-        if (!newChild) return;
-        visitedChildren.push(newChild);
-      }
-    });
-
-    return DocumentSymbol.create(
-      this.name,
-      this.detail,
-      this.kind,
-      this.range,
-      this.selectionRange,
-      visitedChildren,
-    );
-  }
-
-  toPosition(): { line: number; character: number; } {
-    return {
-      line: this.selectionRange.start.line,
-      character: this.selectionRange.start.character,
-    };
+    return SymbolConverters.symbolToDocumentSymbol(this);
   }
 
   toLocation(): Location {
-    return Location.create(
-      this.uri,
-      this.selectionRange,
-    );
+    return SymbolConverters.symbolToLocation(this);
   }
 
-  isBefore(other: FishSymbol | SyntaxNode) {
-    if (FishSymbol.is(other)) {
-      if (this.fishKind === 'FUNCTION' && other.name === 'argv') {
-        return this.range.start.line === other.range.start.line
-          && this.range.start.character === other.range.start.character;
-      }
-      if (this.selectionRange.start.line < other.selectionRange.start.line) {
-        return true;
-      }
-      if (this.selectionRange.start.line === other.selectionRange.start.line) {
-        return this.selectionRange.start.character < other.selectionRange.start.character
-          && this.selectionRange.end.character < other.selectionRange.end.character;
-      }
-      return false;
-    }
-    if (isSyntaxNode(other)) {
-      if (this.selectionRange.start.line < other.startPosition.row) {
-        return true;
-      }
-      if (this.selectionRange.start.line === other.startPosition.row) {
-        return this.selectionRange.start.character < other.startPosition.column
-          && this.selectionRange.end.character < other.endPosition.column;
-      }
-      return false;
-    }
-  }
-
-  isAfter(other: FishSymbol) {
-    if (this.name === 'argv' && other.fishKind === 'FUNCTION') {
-      return this.selectionRange.start.line === other.selectionRange.start.line
-        && this.selectionRange.start.character === other.selectionRange.start.character;
-    }
-    if (this.selectionRange.start.line > other.selectionRange.start.line) {
-      return true;
-    }
-    if (this.selectionRange.start.line === other.selectionRange.start.line) {
-      return this.selectionRange.start.character > other.selectionRange.start.character;
-    }
-    return false;
-  }
-
-  isAfterRange(range: Range) {
-    if (this.selectionRange.start.line > range.start.line) {
-      return true;
-    }
-    if (this.selectionRange.start.line === range.start.line) {
-      if (this.selectionRange.end.line === range.end.line) {
-        return this.selectionRange.start.character > range.start.character
-          && this.selectionRange.end.character <= range.end.character;
-      }
-      return this.selectionRange.start.character > range.start.character
-        && this.selectionRange.end.line <= range.end.line;
-    }
-    return false;
+  toPosition(): Position {
+    return SymbolConverters.symbolToPosition(this);
   }
 
   toFoldingRange(): FoldingRange {
-    return {
-      startLine: this.range.start.line,
-      endLine: this.range.end.line,
-      startCharacter: this.range.start.character,
-      endCharacter: this.range.end.character,
-      collapsedText: this.name,
-      kind: FoldingRangeKind.Region,
-    };
+    return SymbolConverters.symbolToFoldingRange(this);
   }
 
-  containsScope(other: FishSymbol) {
-    if (this.equalScopes(other)) return true;
-    if (this.isVariable() && other.isVariable()) {
-      if (this.isGlobal() && other.isGlobal()) return true;
-      const isSameScope = this.scope.scopeNode.equals(other.scope.scopeNode);
-      const containsScope = containsNode(this.scope.scopeNode, other.scope.scopeNode);
-      if (isFunctionDefinition(this.scopeNode) && isFunctionDefinition(other.scopeNode)) {
-        return isSameScope;
-      }
-      return isSameScope || containsScope;
-    }
-    if (this.scope.scopeNode.equals(other.scope.scopeNode) && this.kind === other.kind) {
-      if (
-        [this.scope.scopeTag, other.scope.scopeTag].includes('inherit')
-        || this.isLocal() && other.isLocal() && this.kind === other.kind && this.isVariable() && other.isVariable()
-      ) {
-        if (isFunctionDefinition(this.scope.scopeNode) && isFunctionDefinition(other.scope.scopeNode)) {
-          return this.scope.scopeNode.equals(other.scope.scopeNode);
-        }
-        return this.scope.scopeNode.equals(other.scope.scopeNode)
-          || containsNode(this.scope.scopeNode, other.scope.scopeNode);
-      } else if (this.isGlobal() && other.isGlobal()) {
-        return true;
-      } else if (this.isLocal() && other.isLocal()) {
-        return true;
-      }
-      return this.scope.scopeTag === other.scope.scopeTag;
-    }
-    // if (this.isArgparse() && other.isVariable() && other.isLocal()) {
-    //   // argparse symbols can be in the same scope as a variable, so we check if the scope nodes are equal
-    //   return this.scope.scopeNode.equals(other.scope.scopeNode);
-    // } else if (other.isArgparse() && this.isVariable() && this.isLocal()) {
-    //   return other.scope.scopeNode.equals(other.scope.scopeNode);
-    // }
-    // if (this.isLocal() && other.isLocal() && this.isVariable() && other.isVariable()) {
-    //   return this.scope.scopeNode.equals(other.scope.scopeNode);
-    // }
-    return false;
+  toMarkupContent(): MarkupContent {
+    return SymbolConverters.symbolToMarkupContent(this);
   }
 
-  equalScopes(other: FishSymbol) {
-    if (this.scope.scopeNode.equals(other.scope.scopeNode) && this.kind === other.kind) {
-      if (
-        [this.scope.scopeTag, other.scope.scopeTag].includes('inherit')
-        || this.isLocal() && other.isLocal() && this.kind === other.kind && this.isVariable() && other.isVariable()
-      ) {
-        return true;
-      } else if (this.isGlobal() && other.isGlobal()) {
-        return true;
-      } else if (this.isLocal() && other.isLocal()) {
-        return true;
-      }
-      return this.scope.scopeTag === other.scope.scopeTag;
-    }
-    // if (this.isArgparse() && other.isVariable() && other.isLocal()) {
-    //   // argparse symbols can be in the same scope as a variable, so we check if the scope nodes are equal
-    //   return this.scope.scopeNode.equals(other.scope.scopeNode);
-    // } else if (other.isArgparse() && this.isVariable() && this.isLocal()) {
-    //   return other.scope.scopeNode.equals(other.scope.scopeNode);
-    // }
-    // if (this.isLocal() && other.isLocal() && this.isVariable() && other.isVariable()) {
-    //   return this.scope.scopeNode.equals(other.scope.scopeNode);
-    // }
-    return false;
+  /**
+   * Optionally include the current document's uri to the hover, this will determine
+   * if a range is local to the current document (local ranges include hover range)
+   */
+  toHover(currentUri: DocumentUri = ''): Hover {
+    return SymbolConverters.symbolToHover(this, currentUri);
   }
 
-  equalDefinition(other: FishSymbol) {
-    return this.name === other.name
-      && this.kind === other.kind
-      && this.uri === other.uri
-      && this.containsScope(other);
-  }
-
+  // === FishSymbol type/location info ===
   isLocal() {
     return !this.isGlobal();
   }
@@ -612,25 +312,19 @@ export class FishSymbol {
   }
 
   isEvent(): boolean {
-    return this.fishKind === 'EVENT' || this.fishKind === 'FUNCTION_EVENT';
+    return FishKindGroups.EVENTS.includes(this.fishKind);
   }
 
   isFunction(): boolean {
-    return this.fishKind === 'FUNCTION' || this.fishKind === 'ALIAS';
+    return FishKindGroups.FUNCTIONS.includes(this.fishKind);
   }
 
   isVariable(): boolean {
-    return this.fishKind === 'VARIABLE' ||
-      this.fishKind === 'FUNCTION_VARIABLE' ||
-      this.fishKind === 'SET' ||
-      this.fishKind === 'READ' ||
-      this.fishKind === 'FOR' ||
-      this.fishKind === 'ARGPARSE' ||
-      this.fishKind === 'EXPORT';
+    return FishKindGroups.VARIABLES.includes(this.fishKind);
   }
 
   isArgparse(): boolean {
-    return this.fishKind === 'ARGPARSE';
+    return FishKindGroups.ARGPARSE.includes(this.fishKind);
   }
 
   isSymbolImmutable() {
@@ -638,55 +332,6 @@ export class FishSymbol {
       return true;
     }
     return false;
-  }
-
-  toMarkupContent(): MarkupContent {
-    return {
-      kind: MarkupKind.Markdown,
-      value: this.detail,
-    };
-  }
-
-  /**
-   * Optionally include the current document's uri to the hover, this will determine
-   * if a range is local to the current document (local ranges include hover range)
-   */
-  toHover(currentUri: DocumentUri = ''): Hover {
-    return {
-      contents: this.toMarkupContent(),
-      range: currentUri === this.uri ? this.selectionRange : undefined,
-    };
-  }
-
-  scopeContainsNode(node: SyntaxNode) {
-    return this.scope.containsPosition(getRange(node).start);
-  }
-
-  containsNode(node: SyntaxNode) {
-    return this.range.start.line <= node.startPosition.row
-      && this.range.end.line >= node.endPosition.row;
-  }
-
-  containsPosition(position: { line: number; character: number; }) {
-    return this.selectionRange.start.line === position.line
-      && this.selectionRange.start.character <= position.character
-      && this.selectionRange.end.character >= position.character;
-  }
-
-  inScope(uri: DocumentUri, node: SyntaxNode) {
-    // if the scope is local, we need to check if the node is in the same scope
-    if (this.scope.tag >= DefinitionScope.ScopeTags.global) {
-      return true;
-    }
-    if (this.isVariable()) {
-      if (this.isArgparse()) {
-        return true;
-      }
-      // if the symbol is local, we need to check if the node is in the same scope
-      if (this.isLocal()) {
-        return this.scopeContainsNode(node) && this.uri === uri;
-      }
-    }
   }
 
   //
@@ -742,15 +387,39 @@ export class FishSymbol {
   }
 
   /**
+   * Checks if both the current & other symbol define the same argparse flag, when
+   * their is multiple equivalent _flag_names/_flag_n seen in the same argparse option.
+   */
+  equalArgparse(other: FishSymbol | CompletionSymbol) {
+    if (FishSymbol.is(other)) {
+      const equalNames = this.name !== other.name && this.aliasedNames.includes(other.name) && other.aliasedNames.includes(this.name);
+
+      const equalParents = this.parent && other.parent
+        ? this.parent.equals(other.parent)
+        : !this.parent && !other.parent;
+
+      return equalNames &&
+        this.uri === other.uri &&
+        this.fishKind === 'ARGPARSE' && other.fishKind === 'ARGPARSE' &&
+        this.focusedNode.equals(other.focusedNode) &&
+        this.node.equals(other.node) &&
+        equalParents &&
+        this.scopeNode.equals(other.scopeNode);
+    }
+    return false;
+  }
+
+  /**
    * A function that is autoloaded and includes an `event` hook
+   *
+   * ```fish
+   * function my_function --on-event my_event
+   * #        ^^^^^^^^^^^--------------------  my_function would return true
+   * end
+   * ```
    */
   hasEventHook() {
     if (!this.isFunction()) return false;
-    // for (const child of findFunctionDefinitionChildren(this.node)) {
-    //   if (isOption(child) && FunctionEventOptions.some(option => option.matches(child))) {
-    //     return true;
-    //   }
-    // }
     for (const child of this.children) {
       if (child.isEventHook()) {
         return true;
@@ -759,262 +428,164 @@ export class FishSymbol {
     return false;
   }
 
-  equalsEvent(other: FishSymbol | CompletionSymbol) {
+  // /**
+  //  * Return true if the symbol
+  //  */
+  // equalFunctionEventHandler(other: FishSymbol | CompletionSymbol) {
+  //   if (FishSymbol.is(other) && this.hasEventHook() && other.isEventHook()) {
+  //     return this.children.some(child => child.equals(other));
+  //   }
+  //   if (FishSymbol.is(other) && this.isFunction() && this.hasEventHook()) {
+  //     return this.parent?.equals(other);
+  //   }
+  //   return false;
+  // }
+
+  /**
+   * Checks if two symbols are equal events, excluding equality of the symbols
+   * equaling the exact same symbol. Also ensures that one of the Symbols is a
+   * event handler name, and the other is the emitted event name. Order does not
+   * matter, allowing for either symbol to be the event handler or the emitted event.
+   *
+   * ```fish
+   *  function PARENT --on-event SYMBOL
+   *  #                          ^^^^^^---- This is the event handler definition name
+   *  end
+   *
+   *  emit SYMBOL
+   *  #    ^^^^^^-------------------------- This is the emitted event definition name
+   * ```
+   *
+   * @param other - The other symbol to compare against
+   * @return {boolean} - True if the symbols are equal events, false otherwise
+   *
+   */
+  equalsEvent(other: FishSymbol | CompletionSymbol): boolean {
     if (!FishSymbol.is(other)) return false;
-    if (
-      !['EVENT', 'FUNCTION_EVENT'].includes(this.fishKind)
-      || !['EVENT', 'FUNCTION_EVENT'].includes(other.fishKind)
-    ) return false;
-    // if (this.fishKind !== 'EVENT' && this.fishKind !== 'FUNCTION_EVENT') return false;
-    // if (other.fishKind !== 'EVENT' && other.fishKind !== 'FUNCTION_EVENT') return false;
-    if (this.fishKind === other.fishKind) {
-      return false;
-    }
+    if (!this.isEvent() || !other.isEvent()) return false;
+    if (this.fishKind === other.fishKind) return false;
+
+    // parent of the `function PARENT --on-event SYMBOL`
     const parent = this.fishKind === 'FUNCTION_EVENT'
       ? this.parent
       : other.parent;
 
+    // child is the `emit SYMBOL` corresponding to the event in a function handler
     const child = this.fishKind === 'EVENT'
       ? this
       : other;
 
-    logger.debug('equalsEvent', {
-      this: this.name,
-      other: other.name,
-      parent: parent?.name,
-      child: child.name,
-    });
-    if (parent && child.name === parent.name) {
-      return true;
-    }
-
-    // if (this.name === node.text && isEmittedEventDefinitionName(node)) {
-    //   return true;
-    // }
-    // // check if the node is a child of the focused node
-    // if (this.focusedNode.equals(node) || containsNode(this.focusedNode, node)) {
-    //   return true;
-    // }
-    return false;
+    // check if the parent and child exist and have same name
+    return !!(parent && child && child.name === parent.name);
   }
 
-  equalsNode(node: SyntaxNode, strict = false) {
-    if (strict) return this.focusedNode.equals(node);
-    return this.node.equals(node) || this.focusedNode.equals(node);
+  /**
+   * The heavy lifting utility to determine if a node is a reference to the current
+   * symbol.
+   *
+   * @param document The LspDocument to check against
+   * @param node The SyntaxNode to check
+   * @param excludeEqualNode If true, the node itself will not be considered a reference
+   *
+   * @returns {boolean} True if the node is a reference to the symbol, false otherwise
+   */
+  isReference(document: LspDocument, node: SyntaxNode, excludeEqualNode = false): boolean {
+    return isSymbolReference(this, document, node, excludeEqualNode);
   }
 
-  isReference(document: LspDocument, node: SyntaxNode, excludeEqualNode = false) {
-    // Next 4 cases are ones we can always ignore
-    if (excludeEqualNode && this.equalsNode(node)) return false;
-    if (excludeEqualNode && document.uri === this.uri) {
-      if (equalRanges(getRange(this.focusedNode), getRange(node))) {
-        return false;
-      }
-    }
+  /**
+   * Checks if 2 symbols are the same, based on their properties.
+   */
+  equals(other: FishSymbol): boolean {
+    return equalSymbols(this, other);
+  }
 
-    // handle event
-    if (excludeEqualNode && this.isEvent() && this.focusedNode.equals(node)) {
-      return false;
-    }
-    // non-strict check for any `function ... --on-event hook` matching `emit hook`
-    // because we want to match `...` to `emit hook`
-    if (this.isEventHook()) {
-      if (this.name === node.text && isEmittedEventDefinitionName(node)) {
-        return true;
-      }
-    }
-    if (this.isEmittedEvent()) {
-      if (this.name === node.text && !isEmittedEventDefinitionName(node)) {
-        return true;
-      }
-    }
+  /**
+   * Checks if the symbols have the same location.
+   */
+  equalLocations(location: Location): boolean {
+    return symbolEqualsLocation(this, location);
+  }
 
-    // skip any references that are not in the same scope
-    if (this.isLocal() && !this.isArgparse()) {
-      if (!this.scopeContainsNode(node) || this.uri !== document.uri) return false;
-    }
-    // skip any reference that is not the same text as a function (command)
-    if (this.isFunction() && this.name !== node.text && !isString(node)) {
-      return false;
-    }
+  /**
+   * Checks if a Symbol is defined in the same scope as its comparison symbol.
+   */
+  equalDefinition(other: FishSymbol): boolean {
+    return equalSymbolDefinitions(this, other);
+  }
 
-    // Begin checking for specific symbol types
-    const parentNode = node.parent
-      ? findParentCommand(node)
-      : null;
+  /**
+   * Checks if the symbol is equal to the SyntaxNode
+   * @param node The SyntaxNode to compare against
+   * @param strict If true, the comparison will be strict, meaning the node must match the symbol's focusedNode
+   *               Otherwise, a match can be either the focusedNode or the node itself.
+   * @returns {boolean} True if the symbol is equal to the node, false otherwise
+   */
+  equalsNode(node: SyntaxNode, strict = false): boolean {
+    return symbolEqualsNode(this, node, strict);
+  }
 
-    // checks any `complete -c <ref> -n '<ref>; or not <ref>' -l <ref> -a '<ref>'`
-    if (parentNode && isCommandWithName(parentNode, 'complete')) {
-      return isMatchingCompletionFlagNodeWithFishSymbol(this, node);
-    }
+  /**
+   * Checks if the symbol contains the other symbol's scope.
+   * Here, the current Symbol must be ATLEAST equivalent parents to the other symbol
+   * when the other symbol's Scope is not greater than the current symbol's scope.
+   */
+  containsScope(other: FishSymbol): boolean {
+    return symbolContainsScope(this, other);
+  }
 
-    // argparse checks
-    if (this.isArgparse()) {
-      const parentName = this.parent?.name
-        || this.scopeNode.firstNamedChild?.text
-        || this.scopeNode.text;
+  /**
+   * Checks if the symbol has the same scope as the other symbol.
+   */
+  equalScopes(other: FishSymbol): boolean {
+    return equalSymbolScopes(this, other);
+  }
 
-      // checks for `complete -c <cmd> -n '<cmd>; or not <cmd>' -l <flag>` blocks
-      if (isCompletionArgparseFlagWithCommandName(node, parentName, this.argparseFlagName)) {
-        return true;
-      }
+  /**
+   * Checks if the symbol contains the node in its scope.
+   */
+  scopeContainsNode(node: SyntaxNode): boolean {
+    return symbolScopeContainsNode(this, node);
+  }
 
-      // checks if a cmds `argparse flag` matches  `cmd --flag`
-      if (
-        isOption(node)
-        && node.parent
-        && isCommandWithName(node.parent, parentName)
-        && isMatchingOptionOrOptionValue(node, Option.fromRaw(this.argparseFlag))
-      ) return true;
+  /**
+   * Checks if the symbol.range contains or is equal to the node's range.
+   */
+  containsNode(node: SyntaxNode): boolean {
+    return symbolContainsNode(this, node);
+  }
 
-      // check for nested `bind ... 'cmd --flag'` blocks
-
-      // checks is `__fish_contains_opt -s <ref> <long-ref>`
-      // if (
-      //   parentNode
-      //   && (isCommandWithName(parentNode, '__fish_contains_opt') || extractCommands(parentNode).some(cmd => cmd === '__fish_contains_opt'))
-      //   && document.isAutoloadedCompletion()
-      //   && !isOption(node)
-      // ) {
-      //   if (isString(parentNode) && isCompletionDefinitionWithName(parentNode, parentName, document)) {
-      //     return
-      //   }
-      // }
-      if (this.name === node.text && this.parent?.scopeContainsNode(node)) {
-        return true;
-      }
-
-      const parentFunction = findParentFunction(node);
-      // `_flag_<ref>` checks
-      if (
-        isVariable(node)
-        || isVariableDefinitionName(node)
-        || isSetVariableDefinitionName(node, false)) {
-        return this.name === node.text && this.scopeContainsNode(node);
-      }
-      if (
-        parentNode
-        && isCommandWithName(parentNode, 'set', 'read', 'for', 'export', 'argparse')
-      ) {
-        return this.name === node.text && this.scopeContainsNode(node) && parentFunction?.equals(this.scopeNode);
-      }
-
-      return false;
-    }
-
-    // function checks
-    if (this.isFunction()) {
-      // skip any `cmd ... -blah -bhah -bhah`  blocks
-      if (isCommand(node) && node.text === this.name) return true;
-      // skip any functions defined with the same name, that are not the same node
-      if (isFunctionDefinitionName(node) && this.isGlobal()) return this.equalsNode(node);
-      // matches any `<cmd> -blah -blah -blah` blocks
-      if (isCommandWithName(node, this.name)) return true;
-      // matches any `type <cmd>` | `functions <cmd>`  blocks
-      if (parentNode && isCommandWithName(parentNode, 'type', 'functions')) {
-        const firstChild = parentNode.namedChildren.find(n => !isOption(n));
-        if (!firstChild) return false;
-        return firstChild?.text === this.name;
-      }
-      // matches any `function _ -w=<cmd>'` blocks
-      const prevNode = node.previousNamedSibling;
-      if (
-        prevNode && isMatchingOption(prevNode, Option.create('-w', '--wraps'))
-        ||
-        node.parent
-        && isFunctionDefinition(node.parent)
-        && isMatchingOptionOrOptionValue(node, Option.create('-w', '--wraps'))
-
-      ) return extractCommands(node).some(cmd => cmd === this.name);
-      // matches any `abbr ... --function <cmd>` blocks
-      if (parentNode && isCommandWithName(parentNode, 'abbr')) {
-        if (prevNode && isMatchingAbbrFunction(node)) {
-          return extractCommands(node).some(cmd => cmd === this.name);
-        }
-        const namedChild = getChildNodes(parentNode).find(n => isAbbrDefinitionName(n));
-        if (
-          namedChild
-          && Locations.Range.isAfter(getRange(namedChild), this.selectionRange)
-          && !isOption(node)
-          && node.text === this.name
-        ) {
-          return true;
-        }
-      }
-      // matches any `bind ... '<cmd>'` blocks
-      if (parentNode && isCommandWithName(parentNode, 'bind')) {
-        if (isOption(node)) return false;
-        if (isBindFunctionCall(node)) {
-          return extractCommands(node).some(cmd => cmd === this.name);
-        }
-        // matches any `bind ... '<cmd> --flag or <cmd>'` blocks
-        if (isString(node) && extractCommands(node).some(cmd => cmd === this.name)) {
-          return true;
-        }
-        const cmd = parentNode.childrenForFieldName('argument').slice(1)
-          .filter(n => !isOption(n) && !isEndStdinCharacter(n))
-          .find(n => n.equals(node) && n.text === this.name);
-        // matches any `bind ... <cmd> or <cmd>` blocks
-        if (cmd) return true;
-      }
-
-      if (parentNode && isCommandWithName(parentNode, 'alias')) {
-        // matches any `complete -c <cmd> -n '<cmd>; or not <cmd>' -l <cmd>` blocks
-        if (isAliasDefinitionValue(node)) {
-          return extractCommands(node).some(cmd => cmd === this.name);
-        }
-      }
-
-      if (parentNode && isCommandWithName(parentNode, 'export', 'set', 'read', 'for', 'argparse')) {
-        if (isOption(node) || isVariableDefinitionName(node)) return false;
-        if (isString(node)) {
-          return extractCommands(node).some(cmd => cmd === this.name);
-        }
-        return this.name === node.text;
-      }
-      return this.name === node.text && this.scopeContainsNode(node);
-    }
-
-    // find any remaining variable references
-    if (this.isVariable() && node.text === this.name) {
-      logger.log({
-        message: `Checking if variable ${this.name} is a reference`,
-        node: {
-          text: node.text,
-          type: node.type,
-          start: node.startPosition,
-          end: node.endPosition,
-        },
-        parentNode: {
-          text: node.parent?.text,
-          type: node.parent?.type,
-          start: node.parent?.startPosition,
-          end: node.parent?.endPosition,
-        },
-      });
-      if (isVariable(node) || isVariableDefinitionName(node)) return true;
-      if (parentNode && isCommandWithName(parentNode, 'export', 'set', 'read', 'for', 'argparse')) {
-        if (isOption(node)) return false;
-        if (isVariableDefinitionName(node)) return this.name === node.text;
-      }
-      return this.name === node.text && this.scopeContainsNode(node);
-    }
-
-    return false;
+  /**
+   * Check if the current symbols position contains or is equal to the given position
+   * @param position The position to check against
+   * @return {boolean} True if the symbol contains the position, false otherwise
+   */
+  containsPosition(position: { line: number; character: number; }): boolean {
+    return symbolContainsPosition(this, position);
   }
 }
 
-export function getLocalSymbols(symbols: FishSymbol[]): FishSymbol[] {
-  return symbols.filter(symbol => symbol.isLocal());
-}
+export const SetModifierToScopeTag = (modifier: Option) => {
+  switch (true) {
+    case modifier.isOption('-U', '--universal'):
+      return 'universal';
+    case modifier.isOption('-g', '--global'):
+      return 'global';
+    case modifier.isOption('-f', '--function'):
+      return 'function';
+    case modifier.isOption('-l', '--local'):
+      return 'local';
+    default:
+      return 'local';
+  }
+};
 
-export function getGlobalSymbols(symbols: FishSymbol[]): FishSymbol[] {
-  return symbols.filter(symbol => symbol.isGlobal());
-}
-
-export function isSymbol(symbols: FishSymbol[], kind: FishSymbolKind): FishSymbol[] {
-  return symbols.filter(symbol => symbol.fishKind === kind);
-}
+export {
+  FishSymbolKind,
+  fromFishSymbolKindToSymbolKind,
+  FishKindGroups,
+  fishSymbolKindToSymbolKind,
+};
 
 export function filterLastPerScopeSymbol(symbols: FishSymbol[]) {
   const flatArray: FishSymbol[] = flattenNested(...symbols);
@@ -1030,15 +601,6 @@ export function filterLastPerScopeSymbol(symbols: FishSymbol[]) {
   }
   return array;
 }
-
-// export function buildDefinitionDocumentSymbolArray(symbols: FishSymbol[]) {
-//   const uniqueSymbols = filterLastPerScopeSymbol(symbols);
-//
-//   const result: DocumentSymbol[] = [];
-//
-//   return uniqueSymbols.map(symbol => {
-//   };
-// }
 
 export function findFirstPerScopeSymbol(symbols: FishSymbol[]) {
   const flatArray: FishSymbol[] = flattenNested(...symbols);
@@ -1093,29 +655,25 @@ export function findLocalLocations(symbol: FishSymbol, allSymbols: FishSymbol[],
   ].filter(Boolean) as Location[];
 }
 
-export function findMatchingLocations(symbol: FishSymbol, allSymbols: FishSymbol[], document: LspDocument, rootNode: SyntaxNode): Location[] {
-  const result: SyntaxNode[] = [];
-  const matchingNodes = allSymbols.filter(s => s.name === symbol.name && !symbol.equalScopes(s))
-    .map(s => symbol.fishKind === 'ALIAS' ? s.node : s.scopeNode);
-
-  for (const node of getChildNodes(rootNode)) {
-    if (matchingNodes.some(n => containsNode(n, node))) continue;
-    if (symbol.isEqualLocation(node)) {
-      result.push(node);
-    }
-  }
-  return result.map(node => symbol.fishKind === 'ARGPARSE'
-    ? Location.create(document.uri, convertNodeRangeWithPrecedingFlag(node))
-    : Location.create(document.uri, getRange(node)),
-  );
-}
+// export function findMatchingLocations(symbol: FishSymbol, allSymbols: FishSymbol[], document: LspDocument, rootNode: SyntaxNode): Location[] {
+//   const result: SyntaxNode[] = [];
+//   const matchingNodes = allSymbols.filter(s => s.name === symbol.name && !symbol.equalScopes(s))
+//     .map(s => symbol.fishKind === 'ALIAS' ? s.node : s.scopeNode);
+//
+//   for (const node of getChildNodes(rootNode)) {
+//     if (matchingNodes.some(n => containsNode(n, node))) continue;
+//     if (symbol.isEqualLocation(node)) {
+//       result.push(node);
+//     }
+//   }
+//   return result.map(node => symbol.fishKind === 'ARGPARSE'
+//     ? Location.create(document.uri, convertNodeRangeWithPrecedingFlag(node))
+//     : Location.create(document.uri, getRange(node)),
+//   );
+// }
 
 export function removeLocalSymbols(symbol: FishSymbol, symbols: FlatFishSymbolTree) {
   return symbols.filter(s => s.name === symbol.name && !symbol.equalScopes(s) && !s.equals(symbol));
-}
-
-function isEmptyString(node: SyntaxNode) {
-  return isString(node) && node.text.length === 2;
 }
 
 /**

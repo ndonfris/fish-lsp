@@ -1,6 +1,6 @@
 import { SyntaxNode } from 'web-tree-sitter';
 import { findOptionsSet, Option, OptionValueMatch } from './options';
-import { FishSymbol, FishSymbolKindMap } from './symbol';
+import { FishSymbol } from './symbol';
 import { LspDocument } from '../document';
 import { isEscapeSequence, isNewline } from '../utils/node-types';
 import { PrebuiltDocumentationMap } from '../utils/snippets';
@@ -8,6 +8,7 @@ import { DefinitionScope } from '../utils/definition-scope';
 import { isAutoloadedUriLoadsFunctionName } from '../utils/translation';
 import { getRange } from '../utils/tree-sitter';
 import { md } from '../utils/markdown-builder';
+import { FishSymbolKindMap } from './symbol-kinds';
 
 export const FunctionOptions = [
   Option.create('-a', '--argument-names').withMultipleValues(),
@@ -108,7 +109,7 @@ export function isFunctionVariableDefinitionName(node: SyntaxNode) {
  * @param node the function_definition node
  * @returns Object containing the defined SyntaxNode[] and OptionValueMatch[] flags set
  */
-function findFunctionOptionNamedArguments(node: SyntaxNode): {
+export function findFunctionOptionNamedArguments(node: SyntaxNode): {
   variableNodes: SyntaxNode[];
   eventNodes: SyntaxNode[];
   flagsSet: OptionValueMatch[];

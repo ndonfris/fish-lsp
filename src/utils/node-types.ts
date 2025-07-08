@@ -265,6 +265,10 @@ export function isStringCharacter(node: SyntaxNode) {
   ].includes(node.type);
 }
 
+export function isEmptyString(node: SyntaxNode) {
+  return isString(node) && node.text.length === 2;
+}
+
 /**
  * Checks if a node is fish's end stdin token `--`
  * This is used to signal the end of stdin input, like in the argparse command: `argparse h/help -- $argv`

@@ -1,11 +1,12 @@
 import { SyntaxNode } from 'web-tree-sitter';
-import { isCommandWithName } from '../utils/node-types';
+import { isCommandWithName, isFunctionDefinition } from '../utils/node-types';
 import { FishSymbol } from './symbol';
 import { DefinitionScope, ScopeTag } from '../utils/definition-scope';
 import { LspDocument } from '../document';
 import { getRange } from '../utils/tree-sitter';
 import { md } from '../utils/markdown-builder';
 import { unindentNestedSyntaxNode } from './symbol-detail';
+import { findFunctionOptionNamedArguments } from './function';
 
 /**
  * Check if a SyntaxNode is an emitted/fired event definition name
@@ -38,6 +39,27 @@ function findEmittedEventDefinitionName(node: SyntaxNode): SyntaxNode | undefine
   if (!isCommandWithName(node, 'emit')) return undefined;
   if (node.namedChild(1)) return node.namedChild(1) || undefined;
   return undefined;
+}
+
+/**
+ * Checks if a SyntaxNode is a generic event handler name, in a function definition
+ *
+ * ```fish
+ * function my_function --on-event my_event_name
+ * #                     ^^^^^^^^^^^^^^^^^^^^^^ This is the event handler definition name
+ * end
+ * ````
+ *
+ * @param node - The SyntaxNode to check
+ * @return {boolean} - True if the node is a generic event handler definition name, false otherwise
+ */
+export function isGenericFunctionEventHandlerDefinitionName(node: SyntaxNode): boolean {
+  if (!node.parent || !node.isNamed) return false;
+
+  // Check if the parent is a function definition with an event handler option
+  if (!isFunctionDefinition(node.parent)) return false;
+  const { eventNodes } = findFunctionOptionNamedArguments(node.parent);
+  return eventNodes.some(eventNode => eventNode.equals(node));
 }
 
 /**
