@@ -588,7 +588,6 @@ export function isCaseClause(node: SyntaxNode) {
 
 export function isReturn(node: SyntaxNode) {
   return node.type === 'return' && node.firstChild?.text === 'return';
-  //return node.type === 'return'
 }
 
 export function isConditionalCommand(node: SyntaxNode) {
