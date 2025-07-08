@@ -13,13 +13,12 @@ import { getImplementation } from './references';
 import { execCommandLocations } from './utils/exec';
 import { SyncFileHelper } from './utils/file-operations';
 import { flattenNested, iterateNested } from './utils/flatten';
-import { findParentCommand, findParentFunction, isAliasDefinitionName, isCommand, isCommandName, isOption, isTopLevelDefinition } from './utils/node-types';
+import { findParentCommand, findParentFunction, isAliasDefinitionName, isCommand, isCommandName, isOption, isTopLevelDefinition, isExportVariableDefinitionName } from './utils/node-types';
 import { pathToUri, symbolKindToString, uriToPath } from './utils/translation';
 import { containsRange, getChildNodes, getNamedChildNodes, getRange, isPositionAfter, isPositionWithinRange, namedNodesGen, nodesGen, precedesRange } from './utils/tree-sitter';
 import { Workspace } from './utils/workspace';
 import { workspaceManager } from './utils/workspace-manager';
 import { getDiagnostics } from './diagnostics/validate';
-import { isExportVariableDefinitionName } from './parsing/barrel';
 import { initializeParser } from './parser';
 import { connection } from './utils/startup';
 

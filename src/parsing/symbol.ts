@@ -428,19 +428,6 @@ export class FishSymbol {
     return false;
   }
 
-  // /**
-  //  * Return true if the symbol
-  //  */
-  // equalFunctionEventHandler(other: FishSymbol | CompletionSymbol) {
-  //   if (FishSymbol.is(other) && this.hasEventHook() && other.isEventHook()) {
-  //     return this.children.some(child => child.equals(other));
-  //   }
-  //   if (FishSymbol.is(other) && this.isFunction() && this.hasEventHook()) {
-  //     return this.parent?.equals(other);
-  //   }
-  //   return false;
-  // }
-
   /**
    * Checks if two symbols are equal events, excluding equality of the symbols
    * equaling the exact same symbol. Also ensures that one of the Symbols is a

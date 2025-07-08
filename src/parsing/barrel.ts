@@ -11,6 +11,15 @@ import * as SymbolParser from './symbol';
 import * as EventParser from './emit';
 import { SyntaxNode } from 'web-tree-sitter';
 
+/**
+ * Internal SyntaxNode parsers for finding FishSymbol definitions
+ * of any `FishKindType`. These are marked as internal because
+ * ideally they will be exported through the `../utils/node-types.ts`
+ * file, which is where we want to isolate importing SyntaxNode
+ * checkers while using them throughout the code bases' files.
+ */
+
+/** @internal */
 export const Parsers = {
   set: SetParser,
   read: ReadParser,
@@ -24,6 +33,7 @@ export const Parsers = {
   event: EventParser,
 };
 
+/** @internal */
 export const VariableDefinitionKeywords = [
   'set',
   'read',
@@ -34,6 +44,7 @@ export const VariableDefinitionKeywords = [
 ];
 
 /**
+ * @internal
  * Checks if a node is a variable definition name.
  * Examples of variable names include:
  * - `set -g -x foo '...'`      -> foo
@@ -52,6 +63,7 @@ export function isVariableDefinitionName(node: SyntaxNode) {
 }
 
 /**
+ * @internal
  * Checks if a node is a function definition name.
  * Examples of function names include:
  * - `function baz; end;`       -> baz
@@ -61,6 +73,7 @@ export function isFunctionDefinitionName(node: SyntaxNode) {
 }
 
 /**
+ * @internal
  * Checks if a node is a alias definition name.
  * - `alias foo '__foo'`        -> foo
  * - `alias bar='__bar'`        -> bar
@@ -69,11 +82,17 @@ export function isAliasDefinitionName(node: SyntaxNode) {
   return AliasParser.isAliasDefinitionName(node);
 }
 
+/**
+ * @internal
+ * Checks if a node is a function variable definition name.
+ * - `emit event-name` -> event-name
+ */
 export function isEmittedEventDefinitionName(node: SyntaxNode) {
   return EventParser.isEmittedEventDefinitionName(node);
 }
 
 /**
+ * @internal
  * Checks if a node is a export definition name.
  * - `export foo=__foo`          -> foo
  * - `export bar='__bar'`        -> bar
@@ -83,6 +102,7 @@ export function isExportVariableDefinitionName(node: SyntaxNode) {
 }
 
 /**
+ * @internal
  * Checks if a node is an `argparse` definition variable
  * NOTE: if the node in question is a variable expansion, it will be skipped.
  * ```fish
@@ -100,6 +120,7 @@ export function isArgparseVariableDefinitionName(node: SyntaxNode) {
 }
 
 /**
+ * @internal
  * Checks if a node is a definition name.
  * Definition names are variable names (read/set/argparse/function flags), function names (alias/function),
  */
@@ -107,6 +128,9 @@ export function isDefinitionName(node: SyntaxNode) {
   return isVariableDefinitionName(node) || isFunctionDefinitionName(node) || isAliasDefinitionName(node);
 }
 
+/**
+ * @internal
+ */
 export const NodeTypes = {
   isVariableDefinitionName: isVariableDefinitionName,
   isFunctionDefinitionName: isFunctionDefinitionName,
@@ -121,6 +145,9 @@ export const NodeTypes = {
   isMatchingOption: OptionsParser.isMatchingOption,
 };
 
+/**
+ * @internal
+ */
 export const ParsingDefinitionNames = {
   isSetVariableDefinitionName: SetParser.isSetVariableDefinitionName,
   isReadVariableDefinitionName: ReadParser.isReadVariableDefinitionName,
@@ -134,6 +161,7 @@ export const ParsingDefinitionNames = {
 
 type DefinitionNodeNameTypes = 'isDefinitionName' | 'isVariableDefinitionName' | 'isFunctionDefinitionName' | 'isAliasDefinitionName';
 type DefinitionNodeChecker = (n: SyntaxNode) => boolean;
+/** @internal */
 export const DefinitionNodeNames: Record<DefinitionNodeNameTypes, DefinitionNodeChecker> = {
   isDefinitionName: isDefinitionName,
   isVariableDefinitionName: isVariableDefinitionName,
@@ -141,10 +169,13 @@ export const DefinitionNodeNames: Record<DefinitionNodeNameTypes, DefinitionNode
   isAliasDefinitionName: isAliasDefinitionName,
 };
 
+/** @internal */
 export * from './options';
 
+/** @internal */
 export const parsers = Object.keys(Parsers).map(key => Parsers[key as keyof typeof Parsers]);
 
+/** @internal */
 export {
   SetParser,
   ReadParser,

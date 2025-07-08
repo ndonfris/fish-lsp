@@ -3,6 +3,9 @@ import { isLongOption, isOption, isShortOption } from '../utils/node-types';
 import { getRange } from '../utils/tree-sitter';
 import * as LSP from 'vscode-languageserver';
 
+/**
+ * Type definitions to allow us for checking single character (short) flags.
+ */
 type AlphaLowercaseChar = 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g' | 'h' | 'i' | 'j' | 'k' | 'l' | 'm' | 'n' | 'o' | 'p' | 'q' | 'r' | 's' | 't' | 'u' | 'v' | 'w' | 'x' | 'y' | 'z';
 type AlphaUppercaseChar = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J' | 'K' | 'L' | 'M' | 'N' | 'O' | 'P' | 'Q' | 'R' | 'S' | 'T' | 'U' | 'V' | 'W' | 'X' | 'Y' | 'Z';
 type AlphaChar = AlphaLowercaseChar | AlphaUppercaseChar;
@@ -10,11 +13,20 @@ type DigitChar = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9';
 type ExtraChar = '?' | '!' | '@' | '$' | '%' | '^' | '&' | '*' | '(' | ')' | '+' | '=' | '{' | '}' | '[' | ']' | '|' | ';' | ':' | '"' | "'" | '<' | '>' | ',' | '.' | '/' | '\\' | '~' | '`';
 type Character = AlphaChar | DigitChar | ExtraChar;
 
+/**
+ * flags types using template literals to ensure the following type safetry:
+ * - ShortFlag is max a single character.
+ * - UnixFlag can be single or multiple characters, but must start with a single `-`.
+ * - LongFlag must start with `--` and can be multiple characters.
+ */
 export type ShortFlag = `-${Character}`;
 export type UnixFlag = `-${string}`;
 export type LongFlag = `--${string}`;
 export type Flag = ShortFlag | UnixFlag | LongFlag;
 
+/**
+ * Type Guard for converting a option string into the correct flag type.
+ */
 export const stringIsShortFlag = (str: string): str is ShortFlag => str.startsWith('-') && str.length === 2;
 export const stringIsLongFlag = (str: string): str is LongFlag => str.startsWith('--');
 export const stringIsUnixFlag = (str: string): str is UnixFlag => str.startsWith('-') && str.length > 2 && !str.startsWith('--');

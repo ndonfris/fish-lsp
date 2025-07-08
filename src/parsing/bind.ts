@@ -15,10 +15,17 @@ export const BindOptions = [
   Option.create('-h', '--help'),
 ];
 
+/**
+ * Checks if a node is a bind command. `bind ...`
+ */
 export function isBindCommand(node: SyntaxNode) {
   return isCommandWithName(node, 'bind');
 }
 
+/**
+ * Checks if a node is a bind command's key sequence.
+ * `bind -M insert ctrl-r ...` -> ctrl-r
+ */
 export function isBindKeySequence(node: SyntaxNode) {
   const parent = findParentCommand(node);
   if (!parent || !isBindCommand(parent)) {
@@ -30,6 +37,11 @@ export function isBindKeySequence(node: SyntaxNode) {
   return remaining.at(0)?.equals(node);
 }
 
+/**
+ * Checks if a node is a bind command's function call, which
+ * is any argument after the key sequence && bind options on
+ * a `bind -M default ctrl-r cmd1 cmd2 cmd3` -> cmd1, cmd2, cmd3
+ */
 export function isBindFunctionCall(node: SyntaxNode) {
   const parent = findParentCommand(node);
   if (!parent || !isBindCommand(parent)) {

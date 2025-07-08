@@ -108,26 +108,6 @@ export const FishKindGroups: Record<kindGroups, FishSymbolKind[]> = {
   OTHER: ['COMPLETE'],
 } as const;
 
-// export type RequiredSymbolFields = {
-//   node: SyntaxNode;
-//   focusedNode: SyntaxNode;
-//   document: LspDocument;
-//   fishKind: FishSymbolKind;
-//   scope: DefinitionScope;
-//   detail: string;
-//   children: FishSymbol[];
-// };
-//
-// type OptionalSymbolFields = {
-//   name?: string;
-//   uri?: string;
-//   range?: Range;
-//   selectionRange?: Range;
-// };
-
-// export type FishSymbolInput = RequiredSymbolFields & OptionalSymbolFields & FishSymbol;
-// export type FishSymbolInput = RequiredSymbolFields & OptionalSymbolFields & FishSymbol;
-
 /**
  * FishSymbolInput is a type that represents the input required to create a FishSymbol.
  * These are the minimum required fields to build all of the FishSymbol properties.

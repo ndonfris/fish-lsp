@@ -138,40 +138,5 @@ export namespace SymbolConverters {
     }, null, 2);
   };
 
-  // === CLASS EXTENSION METHOD ===
-  //
-  // // Extension method for the FishSymbol class to maintain API compatibility
-  // export const addConverterMethods = <T extends typeof FishSymbol>(FishSymbolClass: typeof FishSymbol) => {
-  //   FishSymbolClass.prototype.toWorkspaceSymbol = function(): WorkspaceSymbol {
-  //     return symbolToWorkspaceSymbol(this);
-  //   };
-  //
-  //   FishSymbolClass.prototype.toDocumentSymbol = function(): DocumentSymbol | undefined {
-  //     return symbolToDocumentSymbol(this);
-  //   };
-  //
-  //   FishSymbolClass.prototype.toLocation = function(): Location {
-  //     return symbolToLocation(this);
-  //   };
-  //
-  //   FishSymbolClass.prototype.toPosition = function(): { line: number; character: number; } {
-  //     return symbolToPosition(this);
-  //   };
-  //
-  //   FishSymbolClass.prototype.toFoldingRange = function(): FoldingRange {
-  //     return symbolToFoldingRange(this);
-  //   };
-  //
-  //   FishSymbolClass.prototype.toMarkupContent = function(): MarkupContent {
-  //     return symbolToMarkupContent(this);
-  //   };
-  //
-  //   FishSymbolClass.prototype.toHover = function(currentUri: DocumentUri = ''): Hover {
-  //     return symbolToHover(this, currentUri);
-  //   };
-  //
-  //   return FishSymbolClass;
-  // };
-
 }
 
