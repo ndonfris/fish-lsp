@@ -119,7 +119,7 @@ export class CompletionSymbol {
     public argumentNames: string = '',
     public exclusive: boolean = false,
     public document?: LspDocument,
-  ) { }
+  ) {}
 
   /**
    * Initialize the VerboseCompletionSymbol with empty values.

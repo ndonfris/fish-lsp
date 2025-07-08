@@ -3,7 +3,7 @@ import { analyzer } from './analyze';
 import { LspDocument } from './document';
 import { findParentCommand, findParentFunction, isCommandName, isCommandWithName, isMatchingOption, isOption, isProgram, isString } from './utils/node-types';
 import { containsNode, getChildNodes, getRange } from './utils/tree-sitter';
-import { filterFirstUniqueSymbolperScope, findFirstPerScopeSymbol, FishSymbol } from './parsing/symbol';
+import { findFirstPerScopeSymbol, FishSymbol } from './parsing/symbol';
 import { isMatchingOptionOrOptionValue, Option } from './parsing/options';
 import { logger } from './logger';
 import { getGlobalArgparseLocations } from './parsing/argparse';
@@ -14,6 +14,7 @@ import { workspaceManager } from './utils/workspace-manager';
 import { uriToReadablePath } from './utils/translation';
 import { FishAlias, isAliasDefinitionValue } from './parsing/alias';
 import { extractCommandLocations, extractCommands, extractMatchingCommandLocations } from './parsing/nested-strings';
+import { isEmittedEventDefinitionName } from './parsing/emit';
 
 // ┌──────────────────────────────────┐
 // │ file handles 3 main operations:  │
@@ -108,6 +109,18 @@ export function getReferences(
   if (definitionSymbol.isArgparse() || definitionSymbol.isFunction()) {
     results.push(...getGlobalArgparseLocations(definitionSymbol.document, definitionSymbol));
   }
+  if (
+    definitionSymbol.isFunction()
+    && definitionSymbol.hasEventHook()
+    && definitionSymbol.document.isAutoloaded()
+  ) {
+    results.push(...analyzer.findSymbols((d, _) => {
+      if (d.isEmittedEvent() && d.name === definitionSymbol.name) {
+        return true;
+      }
+      return false;
+    }).map(d => d.toLocation()));
+  }
 
   // convert the documentsToSearch to a Set for O(1) lookups
   const searchableDocumentsUris = new Set<string>(documentsToSearch.map(doc => doc.uri));
@@ -147,9 +160,9 @@ export function getReferences(
       : findFirstPerScopeSymbol(analyzer.getFlatDocumentSymbols(doc.uri))
         .filter(s =>
           s.isLocal()
-        && s.name === definitionSymbol.name
-        && s.kind === definitionSymbol.kind
-        && !s.equals(definitionSymbol),
+          && s.name === definitionSymbol.name
+          && s.kind === definitionSymbol.kind
+          && !s.equals(definitionSymbol),
         );
 
     const root = analyzer.getRootNode(doc.uri);
@@ -161,7 +174,7 @@ export function getReferences(
 
     for (const node of matchableNodes) {
       // skip nodes that are redefinitions of the symbol in the local scope
-      if (filteredSymbols && filteredSymbols.some(s => s.containsNode(node) || s.scopeNode.equals(node))) {
+      if (filteredSymbols && filteredSymbols.some(s => s.containsNode(node) || s.scopeNode.equals(node) || s.scopeContainsNode(node))) {
         continue;
       }
       // store matches in the matchingNodes dictionary
@@ -207,7 +220,13 @@ export function getReferences(
  * Returns all unused local references in the current document.
  */
 export function allUnusedLocalReferences(document: LspDocument): FishSymbol[] {
-  const symbols = filterFirstUniqueSymbolperScope(document).filter(s => s.isLocal() && s.name !== 'argv');
+  const allSymbols = analyzer.getFlatDocumentSymbols(document.uri);
+
+  const symbols = findFirstPerScopeSymbol(allSymbols).filter(s =>
+    s.isLocal()
+    && s.name !== 'argv'
+    && !s.isEventHook(),
+  );
 
   if (!symbols) return [];
 
@@ -241,11 +260,43 @@ export function allUnusedLocalReferences(document: LspDocument): FishSymbol[] {
     if (!found) unusedSymbols.push(symbol);
   }
 
+  // Confirm that the unused symbols are not referenced by any used symbols for edge cases
+  // where names don't match, but the symbols are meant to overlap in usage:
+  //
+  // `argparse h/help`/`_flag_h`/`_flag_help`/`complete -s h -l help`
+  // `function event_handler --on-event my_event`/`emit my_event # usage of event_handler`
+  //
   const finalUnusedSymbols = unusedSymbols.filter(symbol => {
     if (symbol.isArgparse() && usedSymbols.some(s => s.equalArgparse(symbol))) {
       return false;
     }
+    if (symbol.hasEventHook()) {
+      if (symbol.isGlobal()) return false;
+      if (
+        symbol.isLocal()
+        && symbol.children.some(c => c.fishKind === 'FUNCTION_EVENT' && usedSymbols.some(s => s.isEmittedEvent() && c.name === s.name))
+      ) {
+        return false;
+      }
+      // for a function that should be treated locally, but a event that is emitted globally in another doc
+      if (symbol.document.isAutoloaded() && symbol.isFunction() && symbol.hasEventHook()) {
+        const eventsEmitted = symbol.children.filter(c => c.isEventHook());
+        for (const event of eventsEmitted) {
+          if (analyzer.findNode(n => isEmittedEventDefinitionName(n) && n.text === event.name)) {
+            return false;
+          }
+        }
+        // eventsEmitted.some(event =>
+        //
+        // })
+        // return getReferences(symbol.document, symbol.toPosition(), {excludeDefinition: true}).filter(s => symbol.).length > 0
+      }
+    }
     return true;
+  });
+  logger.debug({
+    usage: 'finalUnusedLocalReferences',
+    finalUnusedSymbols: finalUnusedSymbols.map(s => s.name),
   });
 
   return finalUnusedSymbols;
@@ -258,7 +309,7 @@ export function allUnusedLocalReferences(document: LspDocument): FishSymbol[] {
  * @param position the position of the symbol
  * @return the locations of the symbol, should be a lower number of locations than getReferences
  */
-export function implementationLocation(
+export function getImplementation(
   document: LspDocument,
   position: Position,
 ): Location[] {
@@ -267,6 +318,25 @@ export function implementationLocation(
   if (!node) return [];
   const symbol = analyzer.getDefinition(document, position);
   if (!symbol) return [];
+  if (symbol.isEmittedEvent()) {
+    const result = analyzer.findSymbol((s, _) =>
+      s.isEventHook() && s.name === symbol.name,
+    )?.toLocation();
+    if (result) {
+      locations.push(result);
+      return locations;
+    }
+  }
+  if (symbol.isEventHook()) {
+    const result = analyzer.findSymbol((s, _) =>
+      s.isEmittedEvent() && s.name === symbol.name,
+    )?.toLocation();
+    if (result) {
+      locations.push(result);
+      return locations;
+    }
+  }
+
   const newLocations = getReferences(document, position)
     .filter(location => location.uri !== document.uri);
 
@@ -440,6 +510,16 @@ function isSymbolLocalToDocument(symbol: FishSymbol): boolean {
     // so we don't consider them local to the document
     if (parent && parent.isGlobal()) return false;
   }
+  if (symbol.document.isAutoloaded()) {
+    if (symbol.isFunction() || symbol.hasEventHook()) {
+      // functions and event hooks that are autoloaded are considered global
+      return false;
+    }
+    if (symbol.isEvent()) {
+      return false; // global event hooks are not local to the document
+    }
+  }
+
   // symbols that are not explicitly defined as global, will reach this point
   // thus, we consider them local to the document
   return true;

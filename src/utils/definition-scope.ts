@@ -189,6 +189,10 @@ export function getVariableScope(node: SyntaxNode) {
 }
 
 export function getScope(document: LspDocument, node: SyntaxNode) {
+  if (NodeTypes.isEmittedEventDefinitionName(node)) {
+    return DefinitionScope.create(node, 'global')!;
+  }
+
   if (NodeTypes.isAliasDefinitionName(node)) {
     const isAutoloadedName = isAutoloadedUriLoadsAliasName(document);
     if (isAutoloadedName(node)) {

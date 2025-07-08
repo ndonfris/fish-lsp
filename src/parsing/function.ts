@@ -7,6 +7,7 @@ import { PrebuiltDocumentationMap } from '../utils/snippets';
 import { DefinitionScope } from '../utils/definition-scope';
 import { isAutoloadedUriLoadsFunctionName } from '../utils/translation';
 import { getRange } from '../utils/tree-sitter';
+import { md } from '../utils/markdown-builder';
 
 export const FunctionOptions = [
   Option.create('-a', '--argument-names').withMultipleValues(),
@@ -93,13 +94,13 @@ export function isFunctionDefinitionName(node: SyntaxNode) {
  */
 export function isFunctionVariableDefinitionName(node: SyntaxNode) {
   if (!node.parent || !isFunctionDefinition(node.parent)) return false;
-  const { variableNodes } = findFunctionVariableArguments(node.parent);
+  const { variableNodes } = findFunctionOptionNamedArguments(node.parent);
   const definitionNode = variableNodes.find(n => n.equals(node));
   return !!definitionNode && definitionNode.equals(node);
 }
 
 /**
- * Find all the function_definition variables that are defined in the function header
+ * Find all the function_definition variables/events that are defined in the function header
  *
  * The `flagsSet` property contains all the nodes that were found to be variable names,
  * with the flag that was used to define them.
@@ -107,8 +108,13 @@ export function isFunctionVariableDefinitionName(node: SyntaxNode) {
  * @param node the function_definition node
  * @returns Object containing the defined SyntaxNode[] and OptionValueMatch[] flags set
  */
-function findFunctionVariableArguments(node: SyntaxNode): { variableNodes: SyntaxNode[]; flagsSet: OptionValueMatch[]; } {
+function findFunctionOptionNamedArguments(node: SyntaxNode): {
+  variableNodes: SyntaxNode[];
+  eventNodes: SyntaxNode[];
+  flagsSet: OptionValueMatch[];
+} {
   const variableNodes: SyntaxNode[] = [];
+  const eventNodes: SyntaxNode[] = [];
   const focused = node.childrenForFieldName('option').filter(n => !isEscapeSequence(n) && !isNewline(n));
   const flagsSet = findOptionsSet(focused, FunctionOptions);
   for (const flag of flagsSet) {
@@ -119,12 +125,16 @@ function findFunctionVariableArguments(node: SyntaxNode): { variableNodes: Synta
         // case option.isOption('-v', '--on-variable'):
         variableNodes.push(focused);
         break;
+      case option.isOption('-e', '--on-event'):
+        eventNodes.push(focused);
+        break;
       default:
         break;
     }
   }
   return {
     variableNodes,
+    eventNodes,
     flagsSet,
   };
 }
@@ -171,7 +181,7 @@ export function processFunctionDefinition(document: LspDocument, node: SyntaxNod
 
   if (!focused) return [functionSymbol];
 
-  const { flagsSet } = findFunctionVariableArguments(node);
+  const { flagsSet } = findFunctionOptionNamedArguments(node);
   for (const flag of flagsSet) {
     const { option, value: focused } = flag;
     switch (true) {
@@ -188,6 +198,37 @@ export function processFunctionDefinition(document: LspDocument, node: SyntaxNod
             document.uri,
             focused.text,
             DefinitionScope.create(node, 'local'),
+          ),
+        );
+        break;
+      case option.isOption('-e', '--on-event'):
+        functionSymbol.addChildren(
+          FishSymbol.create(
+            focused.text,
+            node,
+            focused,
+            FishSymbolKindMap.function_event,
+            document,
+            document.uri,
+            [
+              `${md.boldItalic('Generic Event:')} ${md.inlineCode(focused.text)}`,
+              `${md.boldItalic('Event Handler:')} ${md.inlineCode(focusedNode.text)}`,
+              md.separator(),
+              md.codeBlock('fish', [
+                `### function definition: '${focusedNode.text}'`,
+                focusedNode?.parent?.text.toString(),
+                '',
+                '### Use the builtin `emit`, to fire this event:',
+                `emit ${focused.text.toString()}`,
+                `emit ${focused.text.toString()} with arguments # Specifies \`$argv\` to the event handler`,
+              ].join('\n')),
+              md.separator(),
+              md.boldItalic('SEE ALSO:'),
+              '  • Emit Events: https://fishshell.com/docs/current/cmds/emit.html',
+              '  • Emit Handling: https://fishshell.com/docs/current/language.html#event',
+
+            ].join(md.newline()),
+            DefinitionScope.create(node, 'global'),
           ),
         );
         break;

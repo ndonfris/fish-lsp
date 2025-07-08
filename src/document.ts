@@ -9,6 +9,8 @@ import { Workspace } from './utils/workspace';
 import { workspaceManager } from './utils/workspace-manager';
 import { SyncFileHelper } from './utils/file-operations';
 import { logger } from './logger';
+import * as Locations from './utils/locations';
+import { FishSymbol } from './parsing/symbol';
 
 export class LspDocument implements TextDocument {
   protected document: TextDocument;
@@ -40,6 +42,31 @@ export class LspDocument implements TextDocument {
     const content = SyncFileHelper.read(path);
     return LspDocument.createTextDocumentItem(pathToUri(path), content);
   }
+
+  static testUri(uri: DocumentUri): string {
+    const removeString = 'test-data/workspaces';
+    if (uri.includes(removeString)) {
+      return 'file:///…/' + uri.slice(uri.indexOf(removeString) + removeString.length + 1);
+    }
+    return uri;
+  }
+
+  static testUtil(uri: DocumentUri) {
+    const shortUri = LspDocument.testUri(uri);
+    const fullPath = uriToPath(uri);
+
+    const parentDir = path.dirname(fullPath);
+    const relativePath = shortUri.slice(shortUri.indexOf(parentDir) + parentDir.length + 1);
+
+    return {
+      uri,
+      shortUri,
+      fullPath,
+      relativePath,
+      parentDir,
+    };
+  }
+
   /**
    * Creates a new LspDocument from a path, URI, TextDocument, TextDocumentItem, or another LspDocument.
    * @param param The parameter to create the LspDocument from.
@@ -126,9 +153,21 @@ export class LspDocument implements TextDocument {
   /**
    * @see getLineBeforeCursor()
    */
-  getLine(line: number): string {
-    const lineRange = this.getLineRange(line);
-    return this.getText(lineRange);
+  getLine(line: number | Position | Range | FishSymbol): string {
+    // if (typeof line === 'number') {
+    // } else
+    if (Locations.Position.is(line)) {
+      line = line.line;
+    } else if (Locations.Range.is(line)) {
+      line = line.start.line;
+    } else if (FishSymbol.is(line)) {
+      line = line.range.start.line;
+    }
+    // const lineRange = this.getLineRange(line);
+    const lines = this.document.getText().split('\n');
+    return lines[line] || '';
+    // return this.document.getText().split(('\n').at(line) || '') || '';
+    // return this.getText(lineRange);
   }
 
   getLineBeforeCursor(position: Position): string {

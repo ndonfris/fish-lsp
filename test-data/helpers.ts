@@ -1,23 +1,23 @@
-import { readFileSync } from 'fs';
+import { glob } from 'fast-glob';
+import fs, { readFileSync } from 'fs';
+import { homedir } from 'os';
 import * as path from 'path';
 import { resolve } from 'path';
-import { initializeParser } from '../src/parser';
+import { DocumentSymbol, Location, Range, SymbolKind, TextDocumentItem } from 'vscode-languageserver';
+import { URI } from 'vscode-uri';
 import * as Parser from 'web-tree-sitter';
 import { Point, SyntaxNode, Tree } from 'web-tree-sitter';
-import { TextDocumentItem, Location, Range } from 'vscode-languageserver';
-import { LspDocument } from '../src/document';
-import { homedir } from 'os';
-import { Workspace } from '../src/utils/workspace';
-import { workspaceManager } from '../src/utils/workspace-manager';
-import { flattenNested } from '../src/utils/flatten';
-import { getChildNodes, getNamedChildNodes } from '../src/utils/tree-sitter';
+import { analyzer, Analyzer } from '../src/analyze';
+import { documents, LspDocument } from '../src/document';
+import { initializeParser } from '../src/parser';
 import { FishSymbol, processNestedTree } from '../src/parsing/symbol';
-import { Analyzer } from '../src/analyze';
 import { env } from '../src/utils/env-manager';
+import { flattenNested } from '../src/utils/flatten';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import { pathToUri } from '../src/utils/translation';
-import { glob } from 'fast-glob';
-import { URI } from 'vscode-uri';
+import { getChildNodes, getNamedChildNodes } from '../src/utils/tree-sitter';
+import { Workspace } from '../src/utils/workspace';
+import { workspaceManager } from '../src/utils/workspace-manager';
 
 export function setLogger(
   beforeCallback: () => Promise<void> = async () => { },
@@ -148,18 +148,28 @@ export type PrintClientTreeOpts = { log: boolean; };
  */
 export function printClientTree(
   opts: PrintClientTreeOpts = { log: true },
-  ...symbols: FishSymbol[]
+  ...symbols: FishSymbol[] | DocumentSymbol[]
 ): string[] {
   const result: string[] = [];
 
-  function logAtLevel(indent = '', ...remainingSymbols: FishSymbol[]) {
+  function logAtLevel(indent = '', ...remainingSymbols: FishSymbol[] | DocumentSymbol[]): string[] {
     const newResult: string[] = [];
     remainingSymbols.forEach(n => {
-      if (opts.log) {
-        console.log(`${indent}${n.name} --- ${n.fishKind} --- ${n.scope.scopeTag} --- ${n.scope.scopeNode.firstNamedChild?.text}`);
+      let kind = '';
+      if (DocumentSymbol.is(n)) {
+        kind = n.kind === SymbolKind.Function ? 'FUNCTION' : n.kind === SymbolKind.Variable ? 'VARIABLE' : n.kind === SymbolKind.Event ? 'EVENT' : n.kind.toString();
+      }
+      if (FishSymbol.is(n)) {
+        kind = n.fishKind.toUpperCase();
+      }
+      if (opts.log && FishSymbol.is(n)) {
+        console.log(`${indent}${n.name} --- ${kind} --- ${n.scope.scopeTag} --- ${n.scope.scopeNode.firstNamedChild?.text}`);
+      } else if (opts.log && DocumentSymbol.is(n)) {
+        console.log(`${indent}${n.name} --- ${kind} --- ${n.range.start.line}:${n.range.start.character} - ${n.range.end.line}:${n.range.end.character}`);
       }
       newResult.push(`${indent}${n.name}`);
-      newResult.push(...logAtLevel(indent + '    ', ...n.children));
+      const children = n.children || [];
+      newResult.push(...logAtLevel(indent + '    ', ...children));
     });
     return newResult;
   }
@@ -169,7 +179,7 @@ export function printClientTree(
 
 export function locationAsString(loc: Location): string[] {
   return [
-    loc.uri,
+    LspDocument.testUri(loc.uri),
     ...[loc.range.start.line, loc.range.start.character, loc.range.end.line, loc.range.end.character].map(s => s.toString()),
   ];
 }
@@ -189,6 +199,37 @@ export function fakeDocumentTrimUri(doc: LspDocument): string {
     return doc.getFileName();
   }
   return doc.getFileName();
+}
+
+export function printLocations(locations: Location[], opts: {
+  verbose?: boolean;
+  showText?: boolean;
+  showLineText?: boolean;
+  showIndex?: boolean;
+  rangeVerbose?: boolean;
+} = {
+  verbose: false,
+  showText: false,
+  showLineText: false,
+  rangeVerbose: false,
+  showIndex: false,
+}): void {
+  locations.forEach((loc, idx) => {
+    const doc = analyzer.started ? analyzer.getDocument(loc.uri) : undefined;
+    const obj = {
+      uri: LspDocument.testUri(loc.uri),
+      range: rangeAsString(loc.range),
+      startPos: opts.verbose || opts.rangeVerbose ? loc.range.start : undefined,
+      endPos: opts.verbose || opts.rangeVerbose ? loc.range.end : undefined,
+      text: opts.verbose || opts.showText ? analyzer.getTextAtLocation(loc) : undefined,
+      lineText: opts.verbose || opts.showLineText ? doc?.getLine(loc.range) : undefined,
+      index: opts.verbose || opts.showIndex ? idx.toString() : undefined,
+    };
+    const cleanObj = Object.fromEntries(
+      Object.entries(obj).filter(([, value]) => value !== undefined),
+    );
+    console.log(cleanObj);
+  });
 }
 
 /**
@@ -454,3 +495,4 @@ export namespace TestWorkspaces {
     return result;
   }
 }
+

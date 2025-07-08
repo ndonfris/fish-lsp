@@ -9,7 +9,7 @@ import { isArgparseVariableDefinitionName } from './parsing/argparse';
 import { CompletionSymbol, isCompletionCommandDefinition, isCompletionSymbol, processCompletion } from './parsing/complete';
 import { getExpandedSourcedFilenameNode, isSourceCommandArgumentName, isSourceCommandWithArgument } from './parsing/source';
 import { filterFirstUniqueSymbolperScope, FishSymbol, processNestedTree } from './parsing/symbol';
-import { implementationLocation } from './references';
+import { getImplementation } from './references';
 import { execCommandLocations } from './utils/exec';
 import { SyncFileHelper } from './utils/file-operations';
 import { flattenNested, iterateNested } from './utils/flatten';
@@ -176,6 +176,8 @@ export class Analyzer {
    */
   public globalSymbols: GlobalDefinitionCache = new GlobalDefinitionCache();
 
+  public started = false;
+
   constructor(protected parser: Parser) { }
 
   /**
@@ -191,6 +193,7 @@ export class Analyzer {
   static async initialize(): Promise<Analyzer> {
     const parser = await initializeParser();
     analyzer = new Analyzer(parser);
+    analyzer.started = true;
     return analyzer;
   }
 
@@ -686,6 +689,18 @@ export class Analyzer {
     const toFind = this.wordAtPoint(document.uri, position.line, position.character);
     const nodeToFind = this.nodeAtPoint(document.uri, position.line, position.character);
     if (!toFind || !nodeToFind) return [];
+    logger.log({
+      getDefinitionHelper: 'Searching for definition',
+      toFind,
+      nodeToFind: {
+        position: {
+          line: position.line,
+          character: position.character,
+        },
+        text: nodeToFind.text,
+        type: nodeToFind.type,
+      },
+    });
 
     const localSymbol = localSymbols.find((s) => {
       return s.name === toFind && containsRange(s.selectionRange, getRange(nodeToFind));
@@ -816,6 +831,9 @@ export class Analyzer {
     // check if we have a symbol defined at the position
     const symbol = this.getDefinition(document, position) as FishSymbol;
     if (symbol) {
+      if (symbol.isEvent()) {
+        return [Location.create(symbol.uri, symbol.selectionRange)];
+      }
       const newSymbol = filterFirstUniqueSymbolperScope(document).find((s) => {
         return s.equalDefinition(symbol);
       });
@@ -862,7 +880,7 @@ export class Analyzer {
   public getImplementation(document: LspDocument, position: Position): Location[] {
     const definition = this.getDefinition(document, position);
     if (!definition) return [];
-    const locations = implementationLocation(document, position);
+    const locations = getImplementation(document, position);
     return locations;
   }
 
@@ -952,6 +970,28 @@ export class Analyzer {
     const uri = pathToUri(path);
     return this.getDocument(uri);
   }
+
+  // getDocumentSymbols(documentUri: string): DocumentSymbol[] {
+  //   const doc = this.cache.getDocument(documentUri)?.document;
+  //   if (!doc) {
+  //     logger.warning(`analyzer.getDocumentSymbols: Document not found for uri ${documentUri}`);
+  //     return [];
+  //   }
+  //   this.analyze(doc);
+  //   const fishSymbols = this.getFlatFishSymbols(documentUri);
+  //   const completionSymbols = this.getFlatCompletionSymbols(documentUri);
+  //   const allSymbols = [...fishSymbols, ...completionSymbols];
+  //   const symbols: DocumentSymbol[] = [];
+  //   for (const symbol of allSymbols) {
+  //     const docSymbol = symbol.toDocumentSymbol();
+  //     if (docSymbol) {
+  //       symbols.push(docSymbol);
+  //     }
+  //   }
+  //
+  //
+  //   return symbols;
+  // }
 
   /**
    * Returns the FishSymbol[] array in the cache for the given documentUri.

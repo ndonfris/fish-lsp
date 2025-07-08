@@ -5,7 +5,7 @@ import { LspDocument } from '../document';
 import { containsNode, equalRanges, getChildNodes, getRange, isSyntaxNode } from '../utils/tree-sitter';
 import { findSetChildren, isSetVariableDefinitionName, processSetCommand } from './set';
 import { processReadCommand } from './read';
-import { findFunctionDefinitionChildren, FunctionEventOptions, processArgvDefinition, processFunctionDefinition } from './function';
+import { processArgvDefinition, processFunctionDefinition } from './function';
 import { processForDefinition } from './for';
 import { convertNodeRangeWithPrecedingFlag, isCompletionArgparseFlagWithCommandName, processArgparseCommand } from './argparse';
 import { Flag, isMatchingOption, isMatchingOptionOrOptionValue, LongFlag, Option, ShortFlag } from './options';
@@ -24,8 +24,9 @@ import { CompletionSymbol, isMatchingCompletionFlagNodeWithFishSymbol } from './
 import { isBindFunctionCall } from './bind';
 import { analyzer } from '../analyze';
 import { logger } from '../logger';
+import { isEmittedEventDefinitionName, processEmitEventCommandName } from './emit';
 
-export type FishSymbolKind = 'ARGPARSE' | 'FUNCTION' | 'ALIAS' | 'COMPLETE' | 'SET' | 'READ' | 'FOR' | 'VARIABLE' | 'FUNCTION_VARIABLE' | 'EXPORT';
+export type FishSymbolKind = 'ARGPARSE' | 'FUNCTION' | 'ALIAS' | 'COMPLETE' | 'SET' | 'READ' | 'FOR' | 'VARIABLE' | 'FUNCTION_VARIABLE' | 'EXPORT' | 'EVENT' | 'FUNCTION_EVENT';
 
 export const FishSymbolKindMap: Record<Lowercase<FishSymbolKind>, FishSymbolKind> = {
   ['argparse']: 'ARGPARSE',
@@ -36,7 +37,9 @@ export const FishSymbolKindMap: Record<Lowercase<FishSymbolKind>, FishSymbolKind
   ['read']: 'READ',
   ['for']: 'FOR',
   ['variable']: 'VARIABLE',
+  ['event']: 'EVENT',
   ['function_variable']: 'FUNCTION_VARIABLE',
+  ['function_event']: 'FUNCTION_EVENT',
   ['export']: 'EXPORT',
 };
 
@@ -50,6 +53,8 @@ export const fishSymbolKindToSymbolKind: Record<FishSymbolKind, SymbolKind> = {
   ['FOR']: SymbolKind.Variable,
   ['VARIABLE']: SymbolKind.Variable,
   ['FUNCTION_VARIABLE']: SymbolKind.Variable,
+  ['EVENT']: SymbolKind.Event,
+  ['FUNCTION_EVENT']: SymbolKind.Event,
   ['EXPORT']: SymbolKind.Variable,
 } as const;
 
@@ -150,6 +155,22 @@ export class FishSymbol {
 
   static fromObject(obj: OptionalFishSymbolPrototype) {
     return new this(obj);
+  }
+
+  public copy(): FishSymbol {
+    return new FishSymbol({
+      name: this.name,
+      fishKind: this.fishKind,
+      document: this.document,
+      uri: this.uri,
+      detail: this.detail,
+      node: this.node,
+      focusedNode: this.focusedNode,
+      scope: this.scope,
+      children: this.children.map(child => child.copy()),
+      range: this.range,
+      selectionRange: this.selectionRange,
+    });
   }
 
   static is(obj: unknown): obj is FishSymbol {
@@ -356,6 +377,16 @@ export class FishSymbol {
     }
   }
 
+  equalFunctionEventHandler(other: FishSymbol | CompletionSymbol) {
+    if (FishSymbol.is(other) && this.hasEventHook() && other.isEventHook()) {
+      return this.children.some(child => child.equals(other));
+    }
+    if (FishSymbol.is(other) && this.isFunction() && this.hasEventHook()) {
+      return this.parent?.equals(other);
+    }
+    return false;
+  }
+
   equalLocations(other: Location) {
     return this.uri === other.uri
       && this.selectionRange.start.line === other.range.start.line
@@ -373,14 +404,36 @@ export class FishSymbol {
     );
   }
 
-  toDocumentSymbol(): DocumentSymbol {
+  includeAsDocumentSymbol(): boolean {
+    switch (true) {
+      case this.fishKind === 'FUNCTION_EVENT':
+        return false; // Emitted events are not included as document symbols
+      default:
+        return true;
+    }
+  }
+
+  toDocumentSymbol(): DocumentSymbol | undefined {
+    const visitedChildren: DocumentSymbol[] = [];
+    if (!this.includeAsDocumentSymbol()) {
+      return undefined;
+    }
+    this.children.forEach(child => {
+      if (!child.includeAsDocumentSymbol()) return;
+      if (child.includeAsDocumentSymbol()) {
+        const newChild = child.toDocumentSymbol();
+        if (!newChild) return;
+        visitedChildren.push(newChild);
+      }
+    });
+
     return DocumentSymbol.create(
       this.name,
       this.detail,
       this.kind,
       this.range,
       this.selectionRange,
-      this.children.map(child => child.toDocumentSymbol()),
+      visitedChildren,
     );
   }
 
@@ -550,6 +603,18 @@ export class FishSymbol {
     return isTopLevelDefinition(this.node);
   }
 
+  isEventHook(): boolean {
+    return this.fishKind === 'FUNCTION_EVENT';
+  }
+
+  isEmittedEvent(): boolean {
+    return this.fishKind === 'EVENT';
+  }
+
+  isEvent(): boolean {
+    return this.fishKind === 'EVENT' || this.fishKind === 'FUNCTION_EVENT';
+  }
+
   isFunction(): boolean {
     return this.fishKind === 'FUNCTION' || this.fishKind === 'ALIAS';
   }
@@ -681,11 +746,55 @@ export class FishSymbol {
    */
   hasEventHook() {
     if (!this.isFunction()) return false;
-    for (const child of findFunctionDefinitionChildren(this.node)) {
-      if (isOption(child) && FunctionEventOptions.some(option => option.matches(child))) {
+    // for (const child of findFunctionDefinitionChildren(this.node)) {
+    //   if (isOption(child) && FunctionEventOptions.some(option => option.matches(child))) {
+    //     return true;
+    //   }
+    // }
+    for (const child of this.children) {
+      if (child.isEventHook()) {
         return true;
       }
     }
+    return false;
+  }
+
+  equalsEvent(other: FishSymbol | CompletionSymbol) {
+    if (!FishSymbol.is(other)) return false;
+    if (
+      !['EVENT', 'FUNCTION_EVENT'].includes(this.fishKind)
+      || !['EVENT', 'FUNCTION_EVENT'].includes(other.fishKind)
+    ) return false;
+    // if (this.fishKind !== 'EVENT' && this.fishKind !== 'FUNCTION_EVENT') return false;
+    // if (other.fishKind !== 'EVENT' && other.fishKind !== 'FUNCTION_EVENT') return false;
+    if (this.fishKind === other.fishKind) {
+      return false;
+    }
+    const parent = this.fishKind === 'FUNCTION_EVENT'
+      ? this.parent
+      : other.parent;
+
+    const child = this.fishKind === 'EVENT'
+      ? this
+      : other;
+
+    logger.debug('equalsEvent', {
+      this: this.name,
+      other: other.name,
+      parent: parent?.name,
+      child: child.name,
+    });
+    if (parent && child.name === parent.name) {
+      return true;
+    }
+
+    // if (this.name === node.text && isEmittedEventDefinitionName(node)) {
+    //   return true;
+    // }
+    // // check if the node is a child of the focused node
+    // if (this.focusedNode.equals(node) || containsNode(this.focusedNode, node)) {
+    //   return true;
+    // }
     return false;
   }
 
@@ -702,6 +811,24 @@ export class FishSymbol {
         return false;
       }
     }
+
+    // handle event
+    if (excludeEqualNode && this.isEvent() && this.focusedNode.equals(node)) {
+      return false;
+    }
+    // non-strict check for any `function ... --on-event hook` matching `emit hook`
+    // because we want to match `...` to `emit hook`
+    if (this.isEventHook()) {
+      if (this.name === node.text && isEmittedEventDefinitionName(node)) {
+        return true;
+      }
+    }
+    if (this.isEmittedEvent()) {
+      if (this.name === node.text && !isEmittedEventDefinitionName(node)) {
+        return true;
+      }
+    }
+
     // skip any references that are not in the same scope
     if (this.isLocal() && !this.isArgparse()) {
       if (!this.scopeContainsNode(node) || this.uri !== document.uri) return false;
@@ -904,6 +1031,15 @@ export function filterLastPerScopeSymbol(symbols: FishSymbol[]) {
   return array;
 }
 
+// export function buildDefinitionDocumentSymbolArray(symbols: FishSymbol[]) {
+//   const uniqueSymbols = filterLastPerScopeSymbol(symbols);
+//
+//   const result: DocumentSymbol[] = [];
+//
+//   return uniqueSymbols.map(symbol => {
+//   };
+// }
+
 export function findFirstPerScopeSymbol(symbols: FishSymbol[]) {
   const flatArray: FishSymbol[] = flattenNested(...symbols);
   const array: FishSymbol[] = [];
@@ -1034,6 +1170,9 @@ function buildNested(document: LspDocument, node: SyntaxNode, ...children: FishS
           break;
         case 'export':
           newSymbols.push(...processExportCommand(document, node, children));
+          break;
+        case 'emit':
+          newSymbols.push(...processEmitEventCommandName(document, node, children));
           break;
         default:
           break;

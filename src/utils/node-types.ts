@@ -1,6 +1,6 @@
 import { SyntaxNode } from 'web-tree-sitter';
 import { getLeafNodes } from './tree-sitter';
-import { VariableDefinitionKeywords } from '../parsing/barrel';
+import { isEmittedEventDefinitionName, VariableDefinitionKeywords } from '../parsing/barrel';
 import { Option, isMatchingOption } from '../parsing/options';
 import { isVariableDefinitionName, isFunctionDefinitionName, isAliasDefinitionName, isExportVariableDefinitionName, isArgparseVariableDefinitionName } from '../parsing/barrel';
 
@@ -12,6 +12,7 @@ export {
   isAliasDefinitionName,
   isExportVariableDefinitionName,
   isArgparseVariableDefinitionName,
+  isEmittedEventDefinitionName,
 };
 
 /**

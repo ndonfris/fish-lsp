@@ -380,7 +380,7 @@ export default class FishServer {
     const { doc } = this.getDefaultsForPartialParams(params);
     if (!doc) return [];
     const symbols = analyzer.cache.getDocumentSymbols(doc.uri);
-    return filterLastPerScopeSymbol(symbols).map((symbol) => symbol.toDocumentSymbol());
+    return filterLastPerScopeSymbol(symbols).map(s => s.toDocumentSymbol()).filter(s => !!s);
   }
 
   protected get supportHierarchicalDocumentSymbol(): boolean {

@@ -8,6 +8,7 @@ import * as FunctionParser from './function';
 import * as CompleteParser from './complete';
 import * as OptionsParser from './options';
 import * as SymbolParser from './symbol';
+import * as EventParser from './emit';
 import { SyntaxNode } from 'web-tree-sitter';
 
 export const Parsers = {
@@ -20,6 +21,7 @@ export const Parsers = {
   options: OptionsParser,
   symbol: SymbolParser,
   export: ExportParser,
+  event: EventParser,
 };
 
 export const VariableDefinitionKeywords = [
@@ -65,6 +67,10 @@ export function isFunctionDefinitionName(node: SyntaxNode) {
  */
 export function isAliasDefinitionName(node: SyntaxNode) {
   return AliasParser.isAliasDefinitionName(node);
+}
+
+export function isEmittedEventDefinitionName(node: SyntaxNode) {
+  return EventParser.isEmittedEventDefinitionName(node);
 }
 
 /**
