@@ -2,7 +2,7 @@
   "author": "ndonfris",
   "license": "MIT",
   "name": "fish-lsp",
-  "version": "1.0.10-nightly-v1",
+  "version": "1.0.10",
   "description": "LSP implementation for fish/fish-shell",
   "keywords": [
     "lsp",
@@ -94,7 +94,8 @@
       {
         "command": "fish-lsp.executeBuffer",
         "title": "execute the buffer"
-      },{
+      },
+      {
         "command": "fish-lsp.execute",
         "title": "execute the buffer"
       },
