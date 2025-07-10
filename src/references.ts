@@ -286,10 +286,6 @@ export function allUnusedLocalReferences(document: LspDocument): FishSymbol[] {
             return false;
           }
         }
-        // eventsEmitted.some(event =>
-        //
-        // })
-        // return getReferences(symbol.document, symbol.toPosition(), {excludeDefinition: true}).filter(s => symbol.).length > 0
       }
     }
     return true;
