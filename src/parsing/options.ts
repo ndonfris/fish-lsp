@@ -384,3 +384,33 @@ export function isMatchingOptionOrOptionValue(node: SyntaxNode, option: Option):
   }
   return false;
 }
+
+/**
+ * For any option passed in, check if the node is a value set on that option.
+ *
+ * ```fish
+ * function foo --wraps=a -w='b' --wraps 'c'; end; # matches a b c
+ * #            ^^^^^^^^^    ^^^         ^^^
+ * complete -c foo -s s -l long --wraps bar # matches: foo, s, long, bar
+ * #           ^^^    ^    ^^^^         ^^^
+ * ```
+ *
+ * Useful because we can match either case where tree-sitter parse a option's values
+ *    • the option itself contains a value (e.g., `--wraps=a`, WHEN A `=` SIGN IS PRESENT)
+ *    • the value, where the previous named silbing matches the option
+ *
+ * @param node The node to check
+ * @param options The options to check against
+ *
+ * @returns true if the node is a value set on any of the given option(s)
+ */
+export function isMatchingOptionValue(node: SyntaxNode, ...options: Option[]): boolean {
+  if (!node?.isNamed) return false;
+  if (isOption(node)) {
+    return options.some((option) => option.equals(node, true));
+  }
+  if (node.previousNamedSibling && isOption(node.previousNamedSibling)) {
+    return options.some(option => option.matchesValue(node));
+  }
+  return false;
+}

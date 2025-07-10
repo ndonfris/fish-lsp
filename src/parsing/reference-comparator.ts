@@ -4,7 +4,7 @@ import { FishSymbol } from './symbol';
 import { LspDocument } from '../document';
 import { equalRanges, getChildNodes, getRange } from '../utils/tree-sitter';
 import { isEmittedEventDefinitionName } from './emit';
-import { findParentCommand, findParentFunction, isCommand, isCommandWithName, isEndStdinCharacter, isFunctionDefinition, isFunctionDefinitionName, isOption, isString, isVariable, isVariableDefinitionName } from '../utils/node-types';
+import { findParentCommand, findParentFunction, isArgumentThatCanContainCommandCalls, isCommand, isCommandWithName, isEndStdinCharacter, isFunctionDefinition, isFunctionDefinitionName, isOption, isString, isVariable, isVariableDefinitionName } from '../utils/node-types';
 import { isMatchingCompletionFlagNodeWithFishSymbol } from './complete';
 import { isCompletionArgparseFlagWithCommandName } from './argparse';
 import { isMatchingOption, isMatchingOptionOrOptionValue, Option } from './options';
@@ -64,8 +64,11 @@ const isInValidScope: ReferenceCheck = ({ symbol, document, node }) => {
 
 // Function name matching
 const matchesFunctionName: ReferenceCheck = ({ symbol, node }) => {
-  if (symbol.isFunction() && symbol.name !== node.text && !isString(node)) {
-    return false;
+  if (symbol.isFunction()) {
+    if (isArgumentThatCanContainCommandCalls(node)) return true;
+    if (symbol.name !== node.text && !isString(node)) {
+      return false;
+    }
   }
   return true;
 };
@@ -138,9 +141,41 @@ const checkFunctionReference: ReferenceCheck = ({ symbol, node }) => {
   if (isFunctionDefinitionName(node) && symbol.isGlobal()) {
     return symbol.equalsNode(node);
   }
+  if (
+    parentNode
+    && isCommandWithName(parentNode, symbol.name)
+    && parentNode.firstNamedChild?.equals(node)
+  ) {
+    return true;
+  }
 
   // Command with name
   if (isCommandWithName(node, symbol.name)) return true;
+
+  // function calls that are strings
+  if (isArgumentThatCanContainCommandCalls(node)) {
+    if (isString(node) || isOption(node)) {
+      return extractCommands(node).some(cmd => cmd === symbol.name);
+    }
+    return node.text === symbol.name;
+  }
+
+  // if (isDefinitionName((node))) return false;
+
+  // if (node.parent && isCommandWithName(node.parent, 'functions', 'emit', 'trap', 'command', 'bind', 'abbr')) {
+  //   if (node.parent.firstNamedChild?.equals(node)) return false;
+  //   if (isOption(node)) return false;
+  //   if (isString(node)) return extractCommands(node).some(cmd => cmd === symbol.name);
+  //   const firstIndex = isCommandWithName(node.parent, 'bind', 'abbr') ? 2 : 1;
+  //   const endStdinIndex = isCommandWithName(node.parent, 'abbr')
+  //     ? -1
+  //     : node.parent.children.findIndex(c => isEndStdinCharacter(c));
+  //   const children = node.parent.children.slice(firstIndex, endStdinIndex).filter(c => !isOption(c) && !isEndStdinCharacter(c));
+  //   const found = children.find(c => c.text === symbol.name);
+  //   if (found) {
+  //     return found.equals(node);
+  //   }
+  // }
 
   // Type/functions commands
   if (parentNode && isCommandWithName(parentNode, 'type', 'functions')) {
@@ -151,7 +186,7 @@ const checkFunctionReference: ReferenceCheck = ({ symbol, node }) => {
   // Wrapped functions
   if (prevNode && isMatchingOption(prevNode, Option.create('-w', '--wraps')) ||
     node.parent && isFunctionDefinition(node.parent) &&
-      isMatchingOptionOrOptionValue(node, Option.create('-w', '--wraps'))) {
+    isMatchingOptionOrOptionValue(node, Option.create('-w', '--wraps'))) {
     return extractCommands(node).some(cmd => cmd === symbol.name);
   }
 
@@ -195,13 +230,18 @@ const checkFunctionReference: ReferenceCheck = ({ symbol, node }) => {
     }
   }
 
-  // Export/set/read/for/argparse commands
-  if (parentNode && isCommandWithName(parentNode, 'export', 'set', 'read', 'for', 'argparse')) {
-    if (isOption(node) || isVariableDefinitionName(node)) return false;
-
-    if (isString(node)) {
+  if (parentNode && isCommandWithName(parentNode, 'argparse')) {
+    if (isOption(node) || isString(node)) {
       return extractCommands(node).some(cmd => cmd === symbol.name);
     }
+  }
+
+  // Export/set/read/for/argparse commands
+  if (parentNode && isCommandWithName(parentNode, 'export', 'set', 'read', 'for', 'argparse')) {
+    if (isOption(node) || isString(node)) {
+      return extractCommands(node).some(cmd => cmd === symbol.name);
+    }
+    if (isVariableDefinitionName(node)) return false;
 
     return symbol.name === node.text;
   }

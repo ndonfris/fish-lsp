@@ -1,7 +1,7 @@
 import { SyntaxNode } from 'web-tree-sitter';
 import { getLeafNodes } from './tree-sitter';
-import { isEmittedEventDefinitionName, VariableDefinitionKeywords } from '../parsing/barrel';
-import { Option, isMatchingOption } from '../parsing/options';
+import { isDefinitionName, isEmittedEventDefinitionName, VariableDefinitionKeywords } from '../parsing/barrel';
+import { Option, isMatchingOption, isMatchingOptionOrOptionValue, isMatchingOptionValue } from '../parsing/options';
 import { isVariableDefinitionName, isFunctionDefinitionName, isAliasDefinitionName, isExportVariableDefinitionName, isArgparseVariableDefinitionName } from '../parsing/barrel';
 
 // use the `../parsing/barrel` barrel file's imports for finding the definition names
@@ -13,6 +13,7 @@ export {
   isExportVariableDefinitionName,
   isArgparseVariableDefinitionName,
   isEmittedEventDefinitionName,
+  isDefinitionName,
 };
 
 /**
@@ -312,6 +313,22 @@ export function isShortOption(node: SyntaxNode): boolean {
 export function isOption(node: SyntaxNode): boolean {
   if (isEndStdinCharacter(node)) return false;
   return isShortOption(node) || isLongOption(node);
+}
+
+export function isOptionValue(node: SyntaxNode): boolean {
+  if (isEndStdinCharacter(node)) return false;
+  if (isDefinitionName(node)) return false;
+  if (!node.parent) return false;
+  if (isOption(node) && node.text.includes('=') && node.type === 'word') {
+    return true;
+  }
+  if (isString(node) && node.previousNamedSibling && isOption(node.previousNamedSibling)) {
+    return true;
+  }
+  if (node.type === 'word' && node.previousSibling && isOption(node.previousSibling)) {
+    return true;
+  }
+  return false;
 }
 
 /** careful not to call this on old unix style flags/options */
@@ -649,6 +666,80 @@ export function isCommandWithName(node: SyntaxNode, ...commandNames: string[]) {
   if (node.type !== 'command') return false;
   // const currentCommandName = node.firstChild?.text
   return !!node.firstChild && commandNames.includes(node.firstChild.text);
+}
+
+export function isArgumentThatCanContainCommandCalls(node: SyntaxNode) {
+  if (
+    isDefinitionName(node)
+    || isCommand(node)
+    || isCommandName(node)
+    || !node.isNamed
+  ) return false;
+  // if (!isString(node) || node.type !== 'word') return false;
+  const parent = findParent(node, (n) => isCommand(n) || isFunctionDefinition(n));
+  // logger.log({
+  //   p: parent?.text,
+  //   pType: parent?.type,
+  //   node: node.text,
+  // })
+  if (!parent) return false;
+  if (isFunctionDefinition(parent)) {
+    return isMatchingOptionValue(node, Option.create('-w', '--wraps').withValue());
+  }
+  const commandName = parent.firstNamedChild?.text;
+  if (!commandName) return false;
+  switch (commandName) {
+    case 'complete':
+      return isMatchingOptionValue(node, Option.create('-w', '--wraps').withValue())
+        || isMatchingOptionValue(node, Option.create('-c', '--command').withValue())
+        || isMatchingOptionValue(node, Option.create('-a', '--arguments').withValue())
+        || isMatchingOptionValue(node, Option.create('-n', '--condition').withValue());
+    case 'alias':
+    case 'bind':
+      return true;
+    case 'abbr':
+      return isMatchingOptionValue(node, Option.create('-f', '--function').withValue())
+        || isMatchingOptionValue(node, Option.create('-c', '--command').withValue());
+    case 'argparse':
+      return isMatchingOptionValue(node, Option.create('-n', '--name').withValue());
+    default:
+      return false;
+  }
+}
+
+export function isStringWithCommandCall(node: SyntaxNode) {
+  if (!isString(node)) return false;
+
+  // currently there is only TWO different types parent nodes, that we consider some
+  //of their string children to contain references to command/function calls
+  const parent = findParent(node, (n) => isFunctionDefinition(n) || isCommand(n));
+  if (!parent) return false;
+
+  // when a function definition contains the `--wraps`/`-w` option,
+  if (isFunctionDefinition(parent)) {
+    return isMatchingOptionOrOptionValue(node, Option.create('-w', '--wraps').withValue());
+  }
+
+  // when a command is `complete`, `alias`, or `bind` command, we check for the options that are allowed
+  if (isCommand(parent)) {
+    const parentCommandName = parent.firstChild?.text;
+    if (!parentCommandName) return false;
+    switch (parentCommandName) {
+      case 'complete':
+        return isMatchingOptionOrOptionValue(node, Option.create('-w', '--wraps').withValue())
+          || isMatchingOptionOrOptionValue(node, Option.create('-c', '--command').withValue())
+          || isMatchingOptionOrOptionValue(node, Option.create('-a', '--arguments').withValue())
+          || isMatchingOptionOrOptionValue(node, Option.create('-n', '--condition').withValue());
+      // note: both of these cases are considered matches since any node string argument
+      //       passed in must be an argument after the "definition" node
+      case 'alias':
+      case 'bind':
+        return true;
+      case 'abbr':
+        return isMatchingOptionOrOptionValue(node, Option.create('-f', '--function').withValue());
+    }
+  }
+  return false;
 }
 
 export function isReturnStatusNumber(node: SyntaxNode) {

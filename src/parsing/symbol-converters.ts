@@ -120,7 +120,7 @@ export namespace SymbolConverters {
       scope: symbol.scope,
       range: symbol.range,
       selectionRange: symbol.selectionRange,
-      children: symbol.children.map(copySymbol), // Recursively copy children
+      children: symbol.children.map(copySymbol), // NOT Recursive but probably should be
     });
   };
 
@@ -129,10 +129,10 @@ export namespace SymbolConverters {
       name: symbol.name,
       kind: symbol.kind,
       uri: symbol.uri,
+      scope: symbol.scope.scopeTag,
       detail: symbol.detail,
       range: symbol.range,
       selectionRange: symbol.selectionRange,
-      scope: symbol.scope.scopeTag,
       aliasedNames: symbol.aliasedNames,
       children: symbol.children.map(child => child.name),
     }, null, 2);

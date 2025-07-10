@@ -4,18 +4,21 @@ import { workspaceManager } from '../src/utils/workspace-manager';
 import { printClientTree, printLocations, setLogger, TestLspDocument } from './helpers';
 import { getChildNodes, getRange, pointToPosition } from '../src/utils/tree-sitter';
 import { isCompletionCommandDefinition } from '../src/parsing/complete';
-import { isCommand, isOption, isVariable, isVariableDefinitionName } from '../src/utils/node-types';
+import { isArgumentThatCanContainCommandCalls, isCommand, isCommandName, isCommandWithName, isDefinitionName, isEndStdinCharacter, isOption, isString, isVariable, isVariableDefinitionName } from '../src/utils/node-types';
 import { getArgparseDefinitionName, isCompletionArgparseFlagWithCommandName } from '../src/parsing/argparse';
 import { getRenames } from '../src/renames';
 import { allUnusedLocalReferences, getReferences, getImplementation } from '../src/references';
-import { getReferencesOld } from '../src/old-references';
-import { Position } from 'vscode-languageserver';
+import { Position, Location } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { LspDocument } from '../src/document';
 import * as path from 'path';
 import { Workspace } from '../src/utils/workspace';
 import { pathToUri } from '../src/utils/translation';
 import { findFirstPerScopeSymbol } from '../src/parsing/symbol';
+import { isMatchingOptionValue } from '../src/parsing/options';
+import { Option } from '../src/parsing/options';
+import { extractCommands, extractMatchingCommandLocations } from '../src/parsing/nested-strings';
+import * as Locations from '../src/utils/locations';
 // import { buildDefinitionDocumentSymbolArray } from '../src/parsing/symbol';
 
 // let currentWorkspace: CurrentWorkspace = new CurrentWorkspace();
@@ -329,30 +332,252 @@ describe('find definition locations of symbols', () => {
           '    ls $argv',
           'end',
         ],
-      }).setup();
+      },
+      {
+        path: 'completions/ls-wrapper.fish',
+        text: [
+          'complete -c ls-wrapper -w \'ls\'',
+        ],
+      },
+      {
+        path: 'completions/ls.fish',
+        text: [
+          'complete -c ls -n \'command -aq ls\'',
+        ],
+      },
+      {
+        path: 'functions/ls-wrapper.fish',
+        text: [
+          'function ls-wrapper -w=ls --wraps \'command ls\'',
+          '    argparse -n=ls h/help -- $argv; or return 1',
+          '    echo "ls-wrapper"',
+          '    ls $argv',
+          'end',
+        ],
+      },
+      {
+
+        path: 'functions/user_keybinds.fish',
+        text: [
+          'function user_keybinds',
+          '    bind ctro-o,ctrl-l \'ls\'',
+          'end',
+        ],
+      },
+      {
+        path: 'conf.d/abbrevaitons.fish',
+        text: [
+          'abbr -a ll ls -l',
+          'abbr -a lt -- ls -t',
+          'abbr -a --command=ls lt -- -lt',
+        ],
+      },
+      {
+
+        path: 'functions/local-alias.fish',
+        text: [
+          'function local-alias',
+          '    alias ls=\'ls-wrapper\'',
+          '    ls $argv',
+          'end',
+        ],
+      },
+    ).setup();
+
+    it('check seen -w/--wraps nodes', () => {
+      const values = analyzer.findNodes((n, _) => {
+        return isMatchingOptionValue(n, Option.create('-w', '--wraps').withValue());
+      }).flatMap(({ nodes }) => nodes);
+      expect(values).toHaveLength(3);
+    });
+
+    it('check all strings that should be a function call location', () => {
+      const symbol = analyzer.findSymbol((s, d) => {
+        return !!(s.name === 'ls' && d?.uri.endsWith('conf.d/alias.fish'));
+      })!;
+
+      const commandCalls = analyzer.findNodes((n, d) => {
+        if (symbol.equalsNode(n, { strict: true })) {
+          console.log({
+            symbol: symbol.toString(),
+            node: n.text,
+            uri: d?.uri,
+            range: getRange(n),
+          });
+        }
+        const flatSymbols = analyzer.getFlatDocumentSymbols(d.uri).filter(s =>
+          s.isLocal()
+          && s.name === symbol.name
+          && s.kind === symbol.kind,
+        );
+
+        if (flatSymbols && flatSymbols.some(s => s.scopeContainsNode(n))) {
+          return false;
+        }
+
+        if (
+          n.parent
+          && isCommandWithName(n.parent, symbol.name)
+          && n.parent.firstNamedChild?.equals(n)
+        ) {
+          return true;
+        }
+
+        if (isArgumentThatCanContainCommandCalls(n)) {
+          if (isString(n) || n.text.includes('=')) {
+            return extractCommands(n).some(cmd => cmd === symbol.name);
+          }
+          return n.text === symbol.name;
+        }
+
+        if (isDefinitionName(n)) return false;
+
+        if (n.parent && isCommandWithName(n.parent, 'functions', 'emit', 'trap', 'command', 'bind', 'abbr')) {
+          if (n.parent.firstNamedChild?.equals(n)) return false;
+          if (isOption(n)) return false;
+          if (isString(n)) return extractCommands(n).some(cmd => cmd === symbol.name);
+          const firstIndex = isCommandWithName(n.parent, 'bind', 'abbr') ? 2 : 1;
+          const endStdinIndex = isCommandWithName(n.parent, 'abbr')
+            ? -1
+            : n.parent.children.findIndex(c => isEndStdinCharacter(c));
+          const children = n.parent.children.slice(firstIndex, endStdinIndex).filter(c => !isOption(c) && !isEndStdinCharacter(c));
+          const found = children.find(n => n.text === symbol.name);
+          if (found) {
+            return found.equals(n);
+          }
+        }
+
+        return false;
+      });
+      commandCalls.forEach(({ uri, nodes }, index) => {
+        console.log(`commandCall ${index}`, {
+          uri: LspDocument.testUri(uri),
+          nodes: nodes.map(n => ({
+            text: n.text,
+            type: n.type,
+            startPosition: `{ row: ${n.startPosition.row}, column: ${n.startPosition.column} }`,
+            endPosition: `{ row: ${n.endPosition.row}, column: ${n.endPosition.column} }`,
+          })),
+        });
+      });
+    });
 
     it('global alias', () => {
-      expect(documents).toHaveLength(3);
       const searchDoc = documents.find(doc => doc.uri.endsWith('conf.d/alias.fish'))!;
       expect(searchDoc).toBeDefined();
       const found = analyzer.findNode((n, document) => {
         return document!.uri === searchDoc.uri && n.text === 'ls=';
       })!;
       expect(found).toBeDefined();
-      const result = getReferencesOld(searchDoc, getRange(found).start);
-      expect(result).toHaveLength(2);
+      const symbol = analyzer.findSymbol((s, _) => {
+        if (s.fishKind === 'ALIAS') {
+          return s.name === 'ls' && s.uri === searchDoc.uri;
+        }
+        return false;
+      })!;
+
+      const refNodes = analyzer.findNodes((n, d) => {
+        // return isCommandWithName(n, searchSymbol.name);
+        // return isArgumentThatCanContainCommandCalls(n)
+        // if (isCommandName(n)) {
+        if (symbol.equalsNode(n, { strict: true })) {
+          console.log({
+            symbol: symbol.toString(),
+            node: n.text,
+            uri: d?.uri,
+            range: getRange(n),
+          });
+        }
+        const flatSymbols = analyzer.getFlatDocumentSymbols(d.uri).filter(s =>
+          s.isLocal()
+          && s.name === symbol.name
+          && s.kind === symbol.kind,
+        );
+
+        if (flatSymbols && flatSymbols.some(s => s.scopeContainsNode(n))) {
+          return false;
+        }
+
+        if (
+          n.parent
+          && isCommandWithName(n.parent, symbol.name)
+          && n.parent.firstNamedChild?.equals(n)
+        ) {
+          return true;
+        }
+
+        if (isArgumentThatCanContainCommandCalls(n)) {
+          if (isString(n) || n.text.includes('=')) {
+            return extractCommands(n).some(cmd => cmd === symbol.name);
+          }
+          return n.text === symbol.name;
+        }
+
+        if (isDefinitionName(n)) return false;
+
+        if (n.parent && isCommandWithName(n.parent, 'functions', 'emit', 'trap', 'command')) {
+          if (n.parent.firstNamedChild?.equals(n)) return false;
+          if (isOption(n)) return false;
+          if (isString(n)) return extractCommands(n).some(cmd => cmd === symbol.name);
+          return n.parent.children.slice(1).find(n => !isOption(n))?.text === symbol.name;
+        }
+
+        return false;
+      });
+
+      let i = 0;
+      const results: Location[] = [];
+      for (const { uri, nodes } of refNodes) {
+        console.log(`refNode ${i++}`, {
+          uri,
+          nodes: nodes.map(n => ({
+            text: n.text,
+            type: n.type,
+            startPosition: `{ row: ${n.startPosition.row}, column: ${n.startPosition.column} }`,
+            endPosition: `{ row: ${n.endPosition.row}, column: ${n.endPosition.column} }`,
+          })),
+        });
+        nodes.forEach(n => {
+          if (n.text !== symbol.name) {
+            const newLocations = extractMatchingCommandLocations(symbol, n, uri);
+            results.push(...newLocations);
+          } else {
+            results.push(Location.create(uri, getRange(n)));
+          }
+        });
+      }
+      // // console.log({
+      // //   results: results.map(loc => ({
+      // //   })
+      // // })
+      //
+      // // const result = getReferences(searchDoc, getRange(found).start);
+      // printLocations(results, {
+      //   verbose: true,
+      // });
+      const builtinRefs = getReferences(searchDoc, getRange(found).start);
+      console.log('builtinRefs', builtinRefs.length);
+      printLocations(builtinRefs, {
+        showText: true,
+        showLineText: true,
+        showIndex: true,
+      });
+      expect(builtinRefs).toHaveLength(12);
+
+      // expect(result).toHaveLength(2);
+      // const result = getReferencesOld(searchDoc, getRange(found).start);
+      // expect(result).toHaveLength(2);
     });
 
     it('local alias', () => {
-      expect(documents).toHaveLength(3);
-      const searchDoc = documents.find(doc => doc.uri.endsWith('conf.d/alias.fish'))!;
+      const searchDoc = documents.find(doc => doc.uri.endsWith('functions/local-alias.fish'))!;
       expect(searchDoc).toBeDefined();
       const found = analyzer.findNode((n, document) => {
         return document!.uri === searchDoc.uri && n.text === 'ls=';
       })!;
       expect(found).toBeDefined();
       const result = getReferences(searchDoc, getRange(found).start);
-      expect(result).toHaveLength(1);
+      expect(result).toHaveLength(2);
     });
   });
 

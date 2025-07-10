@@ -504,12 +504,12 @@ export class FishSymbol {
   /**
    * Checks if the symbol is equal to the SyntaxNode
    * @param node The SyntaxNode to compare against
-   * @param strict If true, the comparison will be strict, meaning the node must match the symbol's focusedNode
+   * @param opts.strict If true, the comparison will be strict, meaning the node must match the symbol's focusedNode
    *               Otherwise, a match can be either the focusedNode or the node itself.
    * @returns {boolean} True if the symbol is equal to the node, false otherwise
    */
-  equalsNode(node: SyntaxNode, strict = false): boolean {
-    return symbolEqualsNode(this, node, strict);
+  equalsNode(node: SyntaxNode, opts: {strict?: boolean;} = { strict: false }): boolean {
+    return symbolEqualsNode(this, node, opts.strict);
   }
 
   /**

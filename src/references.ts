@@ -403,7 +403,7 @@ function getLocationWrapper(symbol: FishSymbol, node: SyntaxNode, uri: DocumentU
   if (NestedSyntaxNodeWithReferences.isCompleteConditionCall(symbol, node)) {
     return extractMatchingCommandLocations(symbol, node, uri);
   }
-  if (symbol.isFunction() && isString(node)) {
+  if (symbol.isFunction() && (isString(node) || isOption(node))) {
     return extractCommandLocations(node, uri)
       .filter(loc => loc.command === symbol.name)
       .map(loc => loc.location);
