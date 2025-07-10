@@ -1,4 +1,4 @@
 #!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
+# . "$(dirname -- "$0")/_/husky.sh"
 
 cp "$1" "/tmp/fish-lsp-last-commit-msg-$(date +%Y%m%d-%H%M%S).msg"

@@ -6,6 +6,7 @@
     "importHelpers": false, // causes tslib dependency which might not be available on node
     "downlevelIteration": true,
     "stripInternal": true,
+    "removeComments": true,
     "noUncheckedIndexedAccess": true,
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
