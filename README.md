@@ -408,7 +408,7 @@ set -gx fish_lsp_modifiable_paths
 # $fish_lsp_diagnostic_disable_error_codes <ARRAY>
 # The diagnostics error codes to disable from the fish-lsp's diagnostics.
 # (Options: 1001, 1002, 1003, 1004, 1005, 2001, 2002, 2003, 3001, 3002, 3003, 
-#           4001, 4002, 4003, 4004, 4005, 4006, 5001, 5555, 6001, 8001, 9999)
+#           4001, 4002, 4003, 4004, 4005, 4006, 4007, 5001, 5555, 6001, 8001, 9999)
 # (Default: [])
 set -gx fish_lsp_diagnostic_disable_error_codes 
 
