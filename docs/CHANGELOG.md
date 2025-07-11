@@ -1,3 +1,19 @@
+## <small>1.0.10 (2025-07-11)</small>
+
+* fix: added tslib to package.json dev dependency ([45c1ac2](https://github.com/ndonfris/fish-lsp/commit/45c1ac2))
+* fix: bump to v1.0.9-1 to remove tslib dep ([ae36543](https://github.com/ndonfris/fish-lsp/commit/ae36543))
+* fix: diagnostics and code actions from other clients (#82) ([67675c9](https://github.com/ndonfris/fish-lsp/commit/67675c9)), closes [#82](https://github.com/ndonfris/fish-lsp/issues/82)
+* fix: false positives for local functions #80 (#81) ([d870374](https://github.com/ndonfris/fish-lsp/commit/d870374)), closes [#80](https://github.com/ndonfris/fish-lsp/issues/80) [#81](https://github.com/ndonfris/fish-lsp/issues/81) [#80](https://github.com/ndonfris/fish-lsp/issues/80)
+* fix: minor fixes to `--check-health` output ([e0c643c](https://github.com/ndonfris/fish-lsp/commit/e0c643c))
+* fix: narrow variable references for matching command names ([d406d5e](https://github.com/ndonfris/fish-lsp/commit/d406d5e))
+* docs: added `4007` diagnostic to snippets and README.md ([523021b](https://github.com/ndonfris/fish-lsp/commit/523021b))
+* docs: synced `./docs/*` files to source code published for `v1.0.9-1` ([a25dd1d](https://github.com/ndonfris/fish-lsp/commit/a25dd1d))
+* feat: build stadalone binaries  (#83) ([36af0b4](https://github.com/ndonfris/fish-lsp/commit/36af0b4)), closes [#83](https://github.com/ndonfris/fish-lsp/issues/83)
+* feat: parsing functions with event hook support (#89) ([4563f89](https://github.com/ndonfris/fish-lsp/commit/4563f89)), closes [#89](https://github.com/ndonfris/fish-lsp/issues/89)
+* chore: bump deps @dependabot ([440de78](https://github.com/ndonfris/fish-lsp/commit/440de78))
+
+
+
 ## <small>1.0.9-1 (2025-05-23)</small>
 
 * fix: added tslib to package.json dev dependency ([45c1ac2](https://github.com/ndonfris/fish-lsp/commit/45c1ac2))
