@@ -165,7 +165,7 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
       diagnostics.push(FishDiagnostic.create(ErrorCodes.usedAlias, node));
     }
 
-    if (isUniversalDefinition(node) && !doc.uri.split('/').includes('conf.d') && handler.isCodeEnabled(ErrorCodes.usedUnviersalDefinition)) {
+    if (isUniversalDefinition(node) && docType !== 'conf.d' && handler.isCodeEnabled(ErrorCodes.usedUnviersalDefinition)) {
       diagnostics.push(FishDiagnostic.create(ErrorCodes.usedUnviersalDefinition, node));
     }
 

@@ -200,9 +200,8 @@ export default class FishServer {
     doc = doc.update(params.contentChanges);
     documents.set(doc);
     this.analyzeDocument({ uri: doc.uri });
-    // analyzer.updateConfigInWorkspace(doc.uri);
     if (!this.backgroundAnalysisComplete) {
-      await workspaceManager.analyzePendingDocuments();
+      await workspaceManager.analyzePendingDocuments(progress);
       progress.done();
       return;
     }
@@ -225,21 +224,34 @@ export default class FishServer {
       workspaceManager.handleUpdateDocument(doc);
       await workspaceManager.analyzePendingDocuments();
     }
-    // analyzer.updateConfigInWorkspace(params.textDocument.uri);
   }
 
+  /**
+   * Stop the server and close all workspaces.
+   */
+  async onShutdown() {
+    workspaceManager.clear();
+    documents.clear();
+    currentDocument = null;
+    this.backgroundAnalysisComplete = false;
+  }
+
+  /**
+   * Called after the server.onInitialize() handler, dynamically registers
+   * the onDidChangeWorkspaceFolders handler if the client supports it.
+   * It will also try to analyze the current workspaces' pending documents.
+   */
   async onInitialized(params: any): Promise<{ result: number; }> {
     logger.log('onInitialized', params);
     if (hasWorkspaceFolderCapability) {
-      connection.workspace.onDidChangeWorkspaceFolders(async event => {
+      connection.workspace.onDidChangeWorkspaceFolders(event => {
         logger.info({
           'connection.workspace.onDidChangeWorkspaceFolders': 'analyzer.onInitialized',
           added: event.added.map(folder => folder.name),
           removed: event.removed.map(folder => folder.name),
           hasWorkspaceFolderCapability: hasWorkspaceFolderCapability,
         });
-        await this.handleWorkspaceFolderChanges(event);
-        // await commandCallback({command: 'fish-lsp.showWorkspaceMessage', arguments: []});
+        this.handleWorkspaceFolderChanges(event);
       });
     }
     const result = await connection.window.createWorkDoneProgress().then(async (progress) => {
@@ -254,23 +266,13 @@ export default class FishServer {
     };
   }
 
-  /**
-   * Stop the server and close all workspaces.
-   */
-  async onShutdown() {
-    workspaceManager.clear();
-    documents.clear();
-    currentDocument = null;
-    this.backgroundAnalysisComplete = false;
-  }
-
   private async handleWorkspaceFolderChanges(event: WorkspaceFoldersChangeEvent) {
     this.logParams('handleWorkspaceFolderChanges', event);
-    // Handle added workspaces
+    // Show progress for added workspaces
     const progress = await connection.window.createWorkDoneProgress();
     progress.begin(`[fish-lsp] analyzing workspaces [${event.added.map(s => s.name).join(',')}] added`);
     workspaceManager.handleWorkspaceChangeEvent(event, progress);
-    await workspaceManager.analyzePendingDocuments(progress);
+    workspaceManager.analyzePendingDocuments(progress);
   }
 
   onCommand(params: LSP.ExecuteCommandParams): Promise<any> {
@@ -456,50 +458,28 @@ export default class FishServer {
     const { doc } = this.getDefaults(params);
     if (!doc) return [];
 
-    const progress = await connection.window.createWorkDoneProgress().then(
-      (progress) => {
-        // progress.begin('[fish-lsp] finding references', 0, 'Finding references...', true);
-        return {
-          begin: (title: string) => progress.begin(title),
-          report: (message: string | number) => {
-            if (typeof message === 'number') {
-              message = `Found ${message} references`;
-            }
-            progress.report(message);
-          },
-          done: () => progress.done(),
-        };
-      },
-    );
+    const progress = await connection.window.createWorkDoneProgress();
 
-    await this.onDefinition(params);
-
-    const defLoc = analyzer.getDefinitionLocation(doc, params.position).pop();
-    if (!defLoc) {
+    const defSymbol = analyzer.getDefinition(doc, params.position);
+    if (!defSymbol) {
       logger.log('onReferences: no definition found at position', params.position);
       return [];
     }
 
-    const defDoc = analyzer.getDocument(defLoc.uri);
-    if (!defDoc) {
-      logger.log('onReferences: definition document not found', defLoc.uri);
-      return [];
-    }
-
-    const results = getReferences(defDoc, defLoc.range.start, {
+    const results = getReferences(defSymbol.document, defSymbol.toPosition(), {
       reporter: progress,
-      logPerformance: true,
-      loggingEnabled: true,
     });
 
-    logger.debug({
+    logger.info({
       onReferences: 'found references',
-      uri: defDoc.uri,
+      uri: defSymbol.uri,
       count: results.length,
       position: params.position,
+      symbol: defSymbol.name,
     });
+
     if (results.length === 0) {
-      logger.log('onReferences: no references found', { uri: defDoc.uri, position: params.position });
+      logger.warning('onReferences: no references found', { uri: params.textDocument.uri, position: params.position });
       return [];
     }
     return results;

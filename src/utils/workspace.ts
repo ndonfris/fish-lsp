@@ -88,21 +88,10 @@ export async function initializeDefaultFishWorkspaces(...uris: string[]): Promis
     return FishUriWorkspace.create(uri);
   }).filter((ws): ws is FishUriWorkspace => ws !== null);
 
-  /** fix single workspace support if no workspaces were found */
-  // if (newWorkspaces.length === 0 && config.fish_lsp_single_workspace_support) {
-  //   logger.log('No new workspaces found');
-  //   config.fish_lsp_single_workspace_support = false;
-  // }
-
   const tmpConfigWorkspaces = FishUriWorkspace.initializeEnvWorkspaces();
   const configWorkspaces = tmpConfigWorkspaces.filter(ws =>
     !newWorkspaces.some(newWs => newWs.uri === ws.uri),
   );
-
-  /** don't add duplicates to the workspaces */
-  // const toAddWorkspaces = newWorkspaces.filter(ws =>
-  //   !configWorkspaces.some(configWs => configWs.uri === ws.uri),
-  // );
 
   // merge both arrays but keep the unique uris in the order they were passed in
   const allWorkspaces = [
@@ -116,7 +105,7 @@ export async function initializeDefaultFishWorkspaces(...uris: string[]): Promis
   const defaultSpaces = await Promise.all(allWorkspaces);
   const results = defaultSpaces.filter((ws): ws is Workspace => ws !== null);
   results.forEach((ws, idx) => {
-    logger.debug(`Initialized workspace '${ws.name}' @ ${idx}`, {
+    logger.info(`Initialized workspace '${ws.name}' @ ${idx}`, {
       name: ws.name,
       uri: ws.uri,
       path: ws.path,
@@ -391,13 +380,6 @@ export namespace FishUriWorkspace {
       return dirname(current);
     }
 
-    // If a single workspace is supported is true, return the path
-    // if (config.fish_lsp_single_workspace_support) {
-    //   const indexedPath = config.fish_lsp_all_indexed_paths.find(p => path.startsWith(p));
-    //   if (indexedPath) return indexedPath;
-    //   return path;
-    // }
-
     // Walk up looking for fish workspace indicators
     while (current !== dirname(current)) {
       // Check for fish dirs in current directory
@@ -488,9 +470,6 @@ export namespace FishUriWorkspace {
   export function create(uri: string): FishUriWorkspace | null {
     // skip workspaces for tmp
     if (isTmpWorkspace(uri)) {
-      // workaround -- disable single workspace support if there is no workspace
-      // config.fish_lsp_single_workspace_support = false;
-      // return null;
       return {
         name: uriToPath(uri),
         uri,

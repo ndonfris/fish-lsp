@@ -76,15 +76,25 @@ export function isAlias(node: SyntaxNode): boolean {
 }
 
 export function isUniversalDefinition(node: SyntaxNode): boolean {
-  const parent = node.parent;
+  // simple heuristic to not check anything that is not an option
+  if (!isOption(node)) return false;
+
+  // get the parent command to make sure we are in the right context
+  const parent = findParentCommand(node);
   if (!parent) return false;
 
-  if (isCommandWithName(parent, 'read') || isCommandWithName(parent, 'set')) {
+  if (isCommandWithName(parent, 'read', 'set')) {
     // skip flags that are after the variable name `set non_universal_var -U` should not be considered universal
-    const definitionName = parent.children.find(c => isVariableDefinitionName(c));
+    // Consider doing this check only for `set` commands, although `read` manpage mentions
+    // formatting similar to `set` and even denotes the syntax as `read [OPTIONS] [VARIABLE ...]`
+    const definitionName = parent
+      .childrenForFieldName('argument')
+      .find(c => !isOption(c) && isVariableDefinitionName(c));
+
     if (!definitionName || !precedesRange(getRange(node), getRange(definitionName))) {
       return false;
     }
+    // check if the command is a -U/--universal option
     return isMatchingOption(node, Option.create('-U', '--universal'));
   }
   return false;

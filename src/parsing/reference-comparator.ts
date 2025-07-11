@@ -13,7 +13,6 @@ import { extractCommands } from './nested-strings';
 import { isAbbrDefinitionName, isMatchingAbbrFunction } from '../diagnostics/node-types';
 import { isBindFunctionCall } from './bind';
 import { isAliasDefinitionValue } from './alias';
-import { logger } from '../logger';
 
 type ReferenceContext = {
   symbol: FishSymbol;
@@ -236,25 +235,18 @@ const checkFunctionReference: ReferenceCheck = ({ symbol, node }) => {
 const checkVariableReference: ReferenceCheck = ({ symbol, node }) => {
   if (!symbol.isVariable() || node.text !== symbol.name) return false;
 
-  logger.log({
-    message: `Checking if variable ${symbol.name} is a reference`,
-    node: {
-      text: node.text,
-      type: node.type,
-      start: node.startPosition,
-      end: node.endPosition,
-    },
-    parentNode: {
-      text: node.parent?.text,
-      type: node.parent?.type,
-      start: node.parent?.startPosition,
-      end: node.parent?.endPosition,
-    },
-  });
-
+  // Check if the node is a variaable definition with the same name
   if (isVariable(node) || isVariableDefinitionName(node)) return true;
 
   const parentNode = node.parent ? findParentCommand(node) : null;
+
+  // skip the edge case where a function could share a variables name
+  // NOTE: `set FOO ...` is a variable definition
+  //  • `$FOO` will still be counted as a reference
+  //  • `FOO` will not be counted as a references (`FOO` could be a function)
+  if (parentNode && isCommandWithName(parentNode, symbol.name)) {
+    return false;
+  }
 
   if (parentNode && isCommandWithName(parentNode, 'export', 'set', 'read', 'for', 'argparse')) {
     if (isOption(node)) return false;

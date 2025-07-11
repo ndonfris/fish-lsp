@@ -601,22 +601,6 @@ export class Analyzer {
     const word = this.wordAtPoint(document.uri, position.line, position.character);
     const node = this.nodeAtPoint(document.uri, position.line, position.character);
     if (!word || !node) return [];
-    logger.info({
-      getDefinitionHelper: 'Searching for definition...',
-      searching: `toFind: {node: ${node.text}, word: ${word}}, at requested position`,
-      word,
-      node: {
-        position: {
-          line: position.line,
-          character: position.character,
-        },
-        text: node.text,
-        type: node.type,
-      },
-      uri: document.uri,
-      localSymbols: localSymbols.length,
-    });
-
     const localSymbol = localSymbols.find((s) => {
       return s.name === word && containsRange(s.selectionRange, getRange(node));
     });
