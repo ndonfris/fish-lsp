@@ -1,5 +1,5 @@
 import { createFakeLspDocument, setLogger } from './helpers';
-import { Analyzer } from '../src/analyze';
+import { analyzer, Analyzer } from '../src/analyze';
 import { initializeParser } from '../src/parser';
 import { getDocumentHighlights } from '../src/document-highlight';
 
@@ -37,7 +37,6 @@ function createHighlightRequest(doc: LspDocument, position: Position) {
 }
 
 let parser: Parser;
-let analyzer: Analyzer;
 let getHighlights: (params: {
   textDocument: { uri: string; };
   position: { line: number; character: number; };
@@ -45,9 +44,9 @@ let getHighlights: (params: {
 
 describe('document-highlights test', () => {
   setLogger();
-  beforeEach(async () => {
+  beforeAll(async () => {
     parser = await initializeParser();
-    analyzer = new Analyzer(parser);
+    await Analyzer.initialize();
     getHighlights = getDocumentHighlights(analyzer);
   });
 

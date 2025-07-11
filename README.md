@@ -142,7 +142,6 @@ Theoretically, the language-server should generally be compatible with almost an
       vim.lsp.start({
         name = 'fish-lsp',
         cmd = { 'fish-lsp', 'start' },
-        cmd_env = { fish_lsp_show_client_popups = false },
       })
     end,
   })
@@ -151,6 +150,16 @@ Theoretically, the language-server should generally be compatible with almost an
   Alternatively, you can also see official documentation for [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig/blob/master/doc/configs.md#fish_lsp), or use your client of choice below.
 
   > There is also a useful configuration for testing out the language server in `nvim@v0.11.1` included in the [fish-lsp-language-clients](https://github.com/ndonfris/fish-lsp-language-clients/tree/packer) repository.
+
+</details>
+<details>
+  <summary><b>mason.nvim</b></summary>
+
+  Install the `fish-lsp` using [mason.nvim](https://github.com/mason-org/mason-registry/pull/8609#event-18154473712)
+
+  ```vimscript
+  :MasonInstall fish-lsp
+  ```
 
 </details>
 <details>
@@ -399,7 +408,7 @@ set -gx fish_lsp_modifiable_paths
 # $fish_lsp_diagnostic_disable_error_codes <ARRAY>
 # The diagnostics error codes to disable from the fish-lsp's diagnostics.
 # (Options: 1001, 1002, 1003, 1004, 1005, 2001, 2002, 2003, 3001, 3002, 3003, 
-#           4001, 4002, 4003, 4004, 4005, 5001, 6001, 8001, 9999)
+#           4001, 4002, 4003, 4004, 4005, 4006, 5001, 5555, 6001, 8001, 9999)
 # (Default: [])
 set -gx fish_lsp_diagnostic_disable_error_codes 
 

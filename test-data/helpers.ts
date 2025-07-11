@@ -1,20 +1,23 @@
-import { readFileSync } from 'fs';
+import { glob } from 'fast-glob';
+import fs, { readFileSync } from 'fs';
+import { homedir } from 'os';
 import * as path from 'path';
 import { resolve } from 'path';
-import { initializeParser } from '../src/parser';
+import { DocumentSymbol, Location, Range, SymbolKind, TextDocumentItem } from 'vscode-languageserver';
+import { URI } from 'vscode-uri';
 import * as Parser from 'web-tree-sitter';
 import { Point, SyntaxNode, Tree } from 'web-tree-sitter';
-import { TextDocumentItem, Location } from 'vscode-languageserver';
-import { LspDocument } from '../src/document';
-import { homedir } from 'os';
+import { analyzer, Analyzer } from '../src/analyze';
+import { documents, LspDocument } from '../src/document';
+import { initializeParser } from '../src/parser';
+import { FishSymbol, processNestedTree } from '../src/parsing/symbol';
+import { env } from '../src/utils/env-manager';
+import { flattenNested } from '../src/utils/flatten';
+import { setupProcessEnvExecFile } from '../src/utils/process-env';
+import { pathToUri } from '../src/utils/translation';
+import { getChildNodes, getNamedChildNodes } from '../src/utils/tree-sitter';
 import { Workspace } from '../src/utils/workspace';
 import { workspaceManager } from '../src/utils/workspace-manager';
-import { flattenNested } from '../src/utils/flatten';
-import { getChildNodes, getNamedChildNodes } from '../src/utils/tree-sitter';
-import { FishSymbol, processNestedTree } from '../src/parsing/symbol';
-import { Analyzer } from '../src/analyze';
-import { env } from '../src/utils/env-manager';
-import { setupProcessEnvExecFile } from '../src/utils/process-env';
 
 export function setLogger(
   beforeCallback: () => Promise<void> = async () => { },
@@ -145,18 +148,28 @@ export type PrintClientTreeOpts = { log: boolean; };
  */
 export function printClientTree(
   opts: PrintClientTreeOpts = { log: true },
-  ...symbols: FishSymbol[]
+  ...symbols: FishSymbol[] | DocumentSymbol[]
 ): string[] {
   const result: string[] = [];
 
-  function logAtLevel(indent = '', ...remainingSymbols: FishSymbol[]) {
+  function logAtLevel(indent = '', ...remainingSymbols: FishSymbol[] | DocumentSymbol[]): string[] {
     const newResult: string[] = [];
     remainingSymbols.forEach(n => {
-      if (opts.log) {
-        console.log(`${indent}${n.name} --- ${n.fishKind} --- ${n.scope.scopeTag} --- ${n.scope.scopeNode.firstNamedChild?.text}`);
+      let kind = '';
+      if (DocumentSymbol.is(n)) {
+        kind = n.kind === SymbolKind.Function ? 'FUNCTION' : n.kind === SymbolKind.Variable ? 'VARIABLE' : n.kind === SymbolKind.Event ? 'EVENT' : n.kind.toString();
+      }
+      if (FishSymbol.is(n)) {
+        kind = n.fishKind.toUpperCase();
+      }
+      if (opts.log && FishSymbol.is(n)) {
+        console.log(`${indent}${n.name} --- ${kind} --- ${n.scope.scopeTag} --- ${n.scope.scopeNode.firstNamedChild?.text}`);
+      } else if (opts.log && DocumentSymbol.is(n)) {
+        console.log(`${indent}${n.name} --- ${kind} --- ${n.range.start.line}:${n.range.start.character} - ${n.range.end.line}:${n.range.end.character}`);
       }
       newResult.push(`${indent}${n.name}`);
-      newResult.push(...logAtLevel(indent + '    ', ...n.children));
+      const children = n.children || [];
+      newResult.push(...logAtLevel(indent + '    ', ...children));
     });
     return newResult;
   }
@@ -166,9 +179,16 @@ export function printClientTree(
 
 export function locationAsString(loc: Location): string[] {
   return [
-    loc.uri,
+    LspDocument.testUri(loc.uri),
     ...[loc.range.start.line, loc.range.start.character, loc.range.end.line, loc.range.end.character].map(s => s.toString()),
   ];
+}
+
+export function rangeAsString(range: Range): string {
+  const result = [
+    ...[range.start.line, range.start.character, range.end.line, range.end.character].map(s => s.toString()),
+  ];
+  return `[${result.join(', ')}]`;
 }
 
 export function fakeDocumentTrimUri(doc: LspDocument): string {
@@ -179,6 +199,37 @@ export function fakeDocumentTrimUri(doc: LspDocument): string {
     return doc.getFileName();
   }
   return doc.getFileName();
+}
+
+export function printLocations(locations: Location[], opts: {
+  verbose?: boolean;
+  showText?: boolean;
+  showLineText?: boolean;
+  showIndex?: boolean;
+  rangeVerbose?: boolean;
+} = {
+  verbose: false,
+  showText: false,
+  showLineText: false,
+  rangeVerbose: false,
+  showIndex: false,
+}): void {
+  locations.forEach((loc, idx) => {
+    const doc = analyzer.started ? analyzer.getDocument(loc.uri) : undefined;
+    const obj = {
+      uri: LspDocument.testUri(loc.uri),
+      range: rangeAsString(loc.range),
+      startPos: opts.verbose || opts.rangeVerbose ? loc.range.start : undefined,
+      endPos: opts.verbose || opts.rangeVerbose ? loc.range.end : undefined,
+      text: opts.verbose || opts.showText ? analyzer.getTextAtLocation(loc) : undefined,
+      lineText: opts.verbose || opts.showLineText ? doc?.getLine(loc.range) : undefined,
+      index: opts.verbose || opts.showIndex ? idx.toString() : undefined,
+    };
+    const cleanObj = Object.fromEntries(
+      Object.entries(obj).filter(([, value]) => value !== undefined),
+    );
+    console.log(cleanObj);
+  });
 }
 
 /**
@@ -343,3 +394,105 @@ export type FishLocations = {
     };
   };
 };
+
+type FishTestWorkspaceLocation = {
+  uri: string;
+  path: string;
+  documents: LspDocument[];
+};
+
+export function getAllFilesInDir(dir: string): {
+  uri: string;
+  path: string;
+  functions: FishTestWorkspaceLocation;
+  completions: FishTestWorkspaceLocation;
+  confd: FishTestWorkspaceLocation;
+  config: FishTestWorkspaceLocation;
+  allDocuments: LspDocument[];
+  allFiles: string[];
+  allUris: string[];
+} {
+  const resultObj = {
+    uri: pathToUri(dir),
+    path: dir,
+    functions: {
+      uri: pathToUri(path.join(dir, 'functions')),
+      path: path.join(dir, 'functions'),
+      documents: [] as LspDocument[],
+    },
+    completions: {
+      uri: pathToUri(path.join(dir, 'completions')),
+      path: path.join(dir, 'completions'),
+      documents: [] as LspDocument[],
+    },
+    confd: {
+      uri: pathToUri(path.join(dir, 'conf.d')),
+      path: path.join(dir, 'conf.d'),
+      documents: [] as LspDocument[],
+    },
+    config: {
+      uri: pathToUri(path.join(dir, 'config.fish')),
+      path: path.join(dir, 'config.fish'),
+      documents: [] as LspDocument[],
+    },
+    allDocuments: [] as LspDocument[],
+    allFiles: [] as string[],
+    allUris: [] as string[],
+  };
+  glob.sync('**/*.fish', { cwd: dir, absolute: true }).forEach(file => {
+    const fileUri = pathToUri(file);
+    const doc = LspDocument.createFromUri(fileUri);
+    if (dir.endsWith('functions')) {
+      resultObj.functions.documents.push(doc);
+    } else if (dir.endsWith('completions')) {
+      resultObj.completions.documents.push(doc);
+    } else if (dir.endsWith('conf.d')) {
+      resultObj.confd.documents.push(doc);
+    } else if (file.endsWith('config.fish')) {
+      resultObj.config.documents.push(doc);
+    }
+    resultObj.allDocuments.push(doc);
+    resultObj.allFiles.push(file);
+    resultObj.allUris.push(fileUri);
+  });
+  return resultObj;
+}
+
+export namespace TestWorkspaces {
+
+  export const workspace1Path = path.join(__dirname, 'workspaces', 'workspace_1', 'fish');
+  // export const workspace2Path = path.join(__dirname, 'workspaces', 'workspace_2');
+  export const workspace3Path = path.join(__dirname, 'workspaces', 'workspace_3', 'fish');
+
+  export const workspace1 = getAllFilesInDir(workspace1Path);
+  // export const workspace2 = getAllFilesInDir(workspace2Path);
+  export const workspace3 = getAllFilesInDir(workspace3Path);
+
+  export function truncatedUri(doc: LspDocument, opts: {
+    maxLength: number;
+    showWorkspace: boolean;
+  } = {
+    maxLength: 80,
+    showWorkspace: !doc.uri.includes('/fish/'),
+  }): string {
+    const endSearchStr = opts?.showWorkspace ? '/workspace_' : '/fish/';
+
+    const start = doc.uri.slice(0, URI.parse(doc.uri).scheme.length + 3);
+    const middle = '...';
+    const end = doc.uri.slice(doc.uri.lastIndexOf(endSearchStr));
+    let result = [
+      start,
+      middle,
+      end,
+    ].join('');
+
+    if (opts?.maxLength < result.length) {
+      result = [
+        start,
+        end,
+      ].join('').toString();
+    }
+    return result;
+  }
+}
+

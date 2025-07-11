@@ -42,6 +42,10 @@ export namespace Range {
     }
     return LSP.Range.create(start, end);
   }
+
+  export function isAfter(one: LSP.Range, other: LSP.Range): boolean {
+    return Position.isAfter(one.end, other.end) || Position.isAfter(one.end, other.start) && Position.isBeforeOrEqual(one.start, other.start);
+  }
 }
 
 export namespace Position {

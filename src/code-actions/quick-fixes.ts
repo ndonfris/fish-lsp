@@ -6,11 +6,10 @@ import { SyntaxNode } from 'web-tree-sitter';
 import { ErrorNodeTypes } from '../diagnostics/node-types';
 import { SupportedCodeActionKinds } from './action-kinds';
 import { logger } from '../logger';
-import { Analyzer } from '../analyze';
-// import { createAliasInlineAction, createAliasSaveActionNewFile } from './alias-wrapper';
+import { analyzer, Analyzer } from '../analyze';
 import { getRange } from '../utils/tree-sitter';
-import { pathToRelativeFunctionName, uriToPath } from '../utils/translation';
-import { isFunctionDefinition } from '../utils/node-types';
+import { pathToRelativeFunctionName, uriToPath, uriToReadablePath } from '../utils/translation';
+import { findParentCommand, isAliasDefinitionName, isArgparseVariableDefinitionName, isConditionalCommand, isFunctionDefinition, isFunctionDefinitionName, isVariableDefinitionName } from '../utils/node-types';
 
 /**
  * These quick-fixes are separated from the other diagnostic quick-fixes because
@@ -170,7 +169,7 @@ function handleMissingQuietError(
   const edit = TextEdit.insert(diagnostic.range.end, ' -q ');
 
   return {
-    title: 'Add quiet (-q) flag',
+    title: 'Add silence (-q) flag',
     kind: SupportedCodeActionKinds.QuickFix,
     diagnostics: [diagnostic],
     edit: {
@@ -417,36 +416,107 @@ function handleReservedKeyword(diagnostic: Diagnostic, node: SyntaxNode, documen
   };
 }
 
-function handleUnusedFunction(diagnostic: Diagnostic, node: SyntaxNode, document: LspDocument): CodeAction {
+const getNodeType = (node: SyntaxNode) => {
+  if (isFunctionDefinitionName(node)) {
+    return 'function';
+  }
+  if (isArgparseVariableDefinitionName(node)) {
+    return 'argparse';
+  }
+  if (isAliasDefinitionName(node)) {
+    return 'alias';
+  }
+  if (isVariableDefinitionName(node)) {
+    return 'variable';
+  }
+  return 'unknown';
+};
+
+function handleUnusedSymbol(diagnostic: Diagnostic, node: SyntaxNode, document: LspDocument): CodeAction | undefined {
+  const nodeType = getNodeType(node);
+  if (nodeType === 'unknown') return undefined;
+
   // Find the entire function definition to remove
   let scopeNode = node;
   while (scopeNode && !isFunctionDefinition(scopeNode)) {
     scopeNode = scopeNode.parent!;
   }
 
-  const changeAnnotation = ChangeAnnotation.create(
-    `Removed unused function ${node.text}`,
-    true,
-    `Removed unused function '${node.text}', in file '${document.getFilePath()}'  (line: ${node.startPosition.row + 1} - ${node.endPosition.row + 1})`,
-  );
+  if (nodeType === 'function') {
+    const changeAnnotation = ChangeAnnotation.create(
+      `Removed unused function ${node.text}`,
+      true,
+      `Removed unused function '${node.text}', in file '${document.getFilePath()}'  (line: ${node.startPosition.row + 1} - ${node.endPosition.row + 1})`,
+    );
 
-  const workspaceEdit: WorkspaceEdit = {
-    changes: {
-      [document.uri]: [
-        TextEdit.del(getRange(scopeNode)),
-      ],
-    },
-    changeAnnotations: {
-      [changeAnnotation.label]: changeAnnotation,
-    },
-  };
+    const workspaceEdit: WorkspaceEdit = {
+      changes: {
+        [document.uri]: [
+          TextEdit.del(getRange(scopeNode)),
+        ],
+      },
+      changeAnnotations: {
+        [changeAnnotation.label]: changeAnnotation,
+      },
+    };
 
-  return {
-    title: `Remove unused function ${node.text} (line: ${node.startPosition.row + 1})`,
-    kind: SupportedCodeActionKinds.QuickFix,
-    diagnostics: [diagnostic],
-    edit: workspaceEdit,
-  };
+    return {
+      title: `Remove unused function ${node.text} (line: ${node.startPosition.row + 1})`,
+      kind: SupportedCodeActionKinds.QuickFix,
+      diagnostics: [diagnostic],
+      edit: workspaceEdit,
+    };
+  }
+  if (nodeType === 'argparse') {
+    const parentCommand = findParentCommand(node);
+    if (!parentCommand) return undefined;
+
+    const changeAnnotation = ChangeAnnotation.create(
+      `Check if argparse variable ${node.text} is set`,
+      true,
+      `Check if argparse variable '${node.text}' is set, in file '${document.getFilePath()}'  (line: ${node.startPosition.row + 1})`,
+    );
+
+    const symbol = analyzer.getDefinition(document, diagnostic.range.end);
+    if (!symbol) return undefined;
+
+    const indent = document.getIndentAtLine(parentCommand.endPosition.row);
+    const name = symbol.aliasedNames.length > 0
+      ? symbol.aliasedNames.reduce((longest, current) => current.length > longest.length ? current : longest, '')
+      : symbol.name;
+    const insertText = [
+      '\n',
+      `if set -ql ${name}`,
+      '    ',
+      'end',
+    ].map(line => `${indent}${line}`).join('\n');
+
+    let parentNode = symbol.node;
+    if (parentNode && parentNode.nextNamedSibling && isConditionalCommand(parentNode.nextNamedSibling)) {
+      while (parentNode && parentNode.nextNamedSibling && isConditionalCommand(parentNode.nextNamedSibling)) {
+        parentNode = parentNode.nextNamedSibling;
+      }
+    }
+
+    const workspaceEdit: WorkspaceEdit = {
+      changes: {
+        [document.uri]: [
+          TextEdit.insert(getRange(parentNode).end, insertText),
+        ],
+      },
+      changeAnnotations: {
+        [changeAnnotation.label]: changeAnnotation,
+      },
+    };
+    return {
+      title: `Use \`argparse ${node.text}\` variable '${name}' if it's set in '${symbol.parent?.name || uriToReadablePath(document.uri)}'`,
+      kind: SupportedCodeActionKinds.QuickFix,
+      diagnostics: [diagnostic],
+      edit: workspaceEdit,
+      isPreferred: true,
+    };
+  }
+  return undefined;
 }
 
 function handleAddEndStdinToArgparse(diagnostic: Diagnostic, document: LspDocument): CodeAction {
@@ -565,9 +635,14 @@ export async function getQuickFixes(
     case ErrorCodes.functionNameUsingReservedKeyword:
       if (!node) return [];
       return [handleReservedKeyword(diagnostic, node, document)];
-    case ErrorCodes.unusedLocalFunction:
+    // case ErrorCodes.unusedLocalFunction:
+    //   if (!node) return [];
+    //   return [handleUnusedFunction(diagnostic, node, document)];
+    case ErrorCodes.unusedLocalDefinition:
       if (!node) return [];
-      return [handleUnusedFunction(diagnostic, node, document)];
+      action = handleUnusedSymbol(diagnostic, node, document);
+      if (action) actions.push(action);
+      return actions;
 
     case ErrorCodes.autoloadedCompletionMissingCommandName:
       if (!node) return [];

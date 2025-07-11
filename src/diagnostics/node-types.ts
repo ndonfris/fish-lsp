@@ -1,8 +1,13 @@
 import Parser, { SyntaxNode } from 'web-tree-sitter';
-import { isCommand, isCommandName, isCommandWithName, isEndStdinCharacter, isIfOrElseIfConditional, isMatchingOption, isOption, isString, isVariableDefinitionName } from '../utils/node-types';
-import { getChildNodes, isNodeWithinOtherNode } from '../utils/tree-sitter';
+import { findParentCommand, isCommandWithName, isEndStdinCharacter, isFunctionDefinitionName, isIfOrElseIfConditional, isMatchingOption, isOption, isString, isVariableDefinitionName } from '../utils/node-types';
+import { getChildNodes, getRange, isNodeWithinOtherNode, precedesRange } from '../utils/tree-sitter';
 import { Option } from '../parsing/options';
 import { isExistingSourceFilenameNode, isSourceCommandArgumentName } from '../parsing/source';
+import { LspDocument } from '../document';
+import { DiagnosticCommentsHandler } from './comments-handler';
+import { FishSymbol } from '../parsing/symbol';
+import { ErrorCodes } from './error-codes';
+import { getReferences } from '../references';
 
 type startTokenType = 'function' | 'while' | 'if' | 'for' | 'begin' | '[' | '{' | '(' | "'" | '"';
 type endTokenType = 'end' | "'" | '"' | ']' | '}' | ')';
@@ -75,6 +80,11 @@ export function isUniversalDefinition(node: SyntaxNode): boolean {
   if (!parent) return false;
 
   if (isCommandWithName(parent, 'read') || isCommandWithName(parent, 'set')) {
+    // skip flags that are after the variable name `set non_universal_var -U` should not be considered universal
+    const definitionName = parent.children.find(c => isVariableDefinitionName(c));
+    if (!definitionName || !precedesRange(getRange(node), getRange(definitionName))) {
+      return false;
+    }
     return isMatchingOption(node, Option.create('-U', '--universal'));
   }
   return false;
@@ -210,8 +220,8 @@ function hasCommandSubstitution(node: SyntaxNode) {
  * @returns true if the command is a conditional statement without -q,--quiet/--query flags, otherwise false
  */
 export function isConditionalWithoutQuietCommand(node: SyntaxNode) {
-  // if (!isCommand(node)) return false;
-  if (!isCommandWithName(node, 'command', 'type', 'read', 'set', 'string', 'abbr', 'builtin', 'functions', 'jobs')) return false;
+  // read does not have quiet option
+  if (!isCommandWithName(node, 'command', 'type', 'set', 'string', 'abbr', 'builtin', 'functions', 'jobs')) return false;
   if (!isConditionalStatement(node) && !isFirstNodeInConditionalExecution(node)) return false;
 
   // skip `set` commands with command substitution
@@ -226,10 +236,18 @@ export function isConditionalWithoutQuietCommand(node: SyntaxNode) {
   return flags.length === 0;
 }
 
-export function isVariableDefinitionWithExpansionCharacter(node: SyntaxNode) {
-  if (node.parent && isCommandWithName(node.parent, 'set', 'read')) {
-    const definition = getChildNodes(node.parent).filter(n => !isCommand(n) && !isCommandName(n) && !isOption(n)).shift();
-    return (node.type === 'variable_expansion' || node.text.startsWith('$')) && definition?.equals(node);
+export function isVariableDefinitionWithExpansionCharacter(node: SyntaxNode, definedVariableExpansions: { [name: string]: SyntaxNode[]; } = {}): boolean {
+  if (!isVariableDefinitionName(node)) return false;
+  const parent = findParentCommand(node);
+  if (parent && isCommandWithName(parent, 'set', 'read')) {
+    if (!isVariableDefinitionName(node)) return false;
+    const name = node.text.startsWith('$') ? node.text.slice(1) : node.text;
+    if (!name || name.length === 0) return false;
+
+    if (definedVariableExpansions[name] && definedVariableExpansions[name]?.some(scope => isNodeWithinOtherNode(node, scope))) {
+      return false;
+    }
+    return node.type === 'variable_expansion' || node.text.startsWith('$');
   }
 
   return false;
@@ -250,11 +268,43 @@ export function isMatchingAbbrFunction(node: SyntaxNode) {
   return isMatchingOption(node, Option.create('-f', '--function').withValue());
 }
 
+export function isAbbrDefinitionName(node: SyntaxNode) {
+  const parent = findParentCommand(node);
+  if (!parent) return false;
+  if (!isCommandWithName(parent, 'abbr')) return false;
+  const child = parent.childrenForFieldName('argument')
+    .filter(n => !isOption(n))
+    .find(n => n.type === 'word' && n.text !== '--' && !isString(n));
+
+  return child ? child.equals(node) : false;
+}
+
 export function isArgparseWithoutEndStdin(node: SyntaxNode) {
   if (!isCommandWithName(node, 'argparse')) return false;
   const endStdin = getChildNodes(node).find(n => isEndStdinCharacter(n));
   if (!endStdin) return true;
   return false;
+}
+
+//
+export function isFunctionWithEventHookCallback(doc: LspDocument, handler: DiagnosticCommentsHandler, allFunctions: FishSymbol[]) {
+  const docType = doc.getAutoloadType();
+  return (node: SyntaxNode): boolean => {
+    if (docType !== 'functions') return false;
+    if (!isFunctionDefinitionName(node)) return false;
+    if (docType === 'functions' && handler.isCodeEnabledAtNode(ErrorCodes.autoloadedFunctionWithEventHookUnused, node)) {
+      const funcSymbol = allFunctions.find(symbol => symbol.name === node.text);
+      if (funcSymbol && funcSymbol.hasEventHook()) {
+        const refs = getReferences(doc, funcSymbol.toPosition()).filter(ref =>
+          !funcSymbol.equalsLocation(ref) &&
+          !ref.uri.includes('completions/') &&
+          ref.uri !== doc.uri,
+        );
+        if (refs.length === 0) return true;
+      }
+    }
+    return false;
+  };
 }
 
 export function isFishLspDeprecatedVariableName(node: SyntaxNode): boolean {

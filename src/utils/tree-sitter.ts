@@ -3,6 +3,33 @@ import { Position, Range, URI } from 'vscode-languageserver';
 import { Point, SyntaxNode, Tree } from 'web-tree-sitter';
 import { findSetDefinedVariable, isFunctionDefinition, isVariableDefinition, isFunctionDefinitionName, isVariable, isScope, isProgram, isCommandName, isForLoop, findForLoopVariable } from './node-types';
 
+// You can add this as a utility function or extend it if needed
+export function isSyntaxNode(obj: unknown): obj is SyntaxNode {
+  return typeof obj === 'object'
+    && obj !== null
+    && 'id' in obj
+    && 'type' in obj
+    && 'text' in obj
+    && 'tree' in obj
+    && 'startPosition' in obj
+    && 'endPosition' in obj
+    && 'children' in obj
+    && 'equals' in obj
+    && 'isNamed' in obj
+    && 'isMissing' in obj
+    && 'isError' in obj
+    && 'isExtra' in obj
+    && typeof (obj as any).id === 'number'
+    && typeof (obj as any).isNamed === 'boolean'
+    && typeof (obj as any).isMissing === 'boolean'
+    && typeof (obj as any).isError === 'boolean'
+    && typeof (obj as any).isExtra === 'boolean'
+    && typeof (obj as any).type === 'string'
+    && typeof (obj as any).text === 'string'
+    && typeof (obj as any).equals === 'function'
+    && Array.isArray((obj as any).children);
+}
+
 /**
  * Returns an array for all the nodes in the tree (@see also nodesGen)
  *
@@ -110,6 +137,23 @@ export function* nodesGen(node: SyntaxNode) {
   }
 }
 
+export function* namedNodesGen(node: SyntaxNode) {
+  const queue: SyntaxNode[] = [node];
+
+  while (queue.length) {
+    const n = queue.shift();
+
+    if (!n?.isNamed) {
+      return;
+    }
+
+    if (n.children.length) {
+      queue.unshift(...n.children);
+    }
+
+    yield n;
+  }
+}
 export function findFirstParent(node: SyntaxNode, predicate: (node: SyntaxNode) => boolean) : SyntaxNode | null {
   let current: SyntaxNode | null = node.parent;
   while (current !== null) {

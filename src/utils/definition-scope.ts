@@ -7,14 +7,20 @@ import { LspDocument } from '../document';
 
 export type ScopeTag = 'global' | 'universal' | 'local' | 'function' | 'inherit';
 export interface DefinitionScope {
+  uri: string;
   scopeNode: SyntaxNode;
   scopeTag: ScopeTag;
 }
 
 export class DefinitionScope {
-  constructor(public scopeNode: SyntaxNode, public scopeTag: ScopeTag) {}
+  constructor(
+    public scopeNode: SyntaxNode,
+    public scopeTag: ScopeTag) { }
 
-  static create(scopeNode: SyntaxNode, scopeTag: 'global' | 'universal' | 'local' | 'function' | 'inherit'): DefinitionScope {
+  static create(
+    scopeNode: SyntaxNode,
+    scopeTag: 'global' | 'universal' | 'local' | 'function' | 'inherit',
+  ): DefinitionScope {
     return new DefinitionScope(scopeNode, scopeTag);
   }
 
@@ -47,6 +53,22 @@ export class DefinitionScope {
   containsNode(node: SyntaxNode) {
     const range = getRange(node);
     return this.containsPosition(range.start);
+  }
+
+  get tag() {
+    const tag = this.scopeTag;
+    return DefinitionScope.ScopeTags[tag] || 0;
+  }
+
+  static get ScopeTags() {
+    return {
+      universal: 5,
+      global: 4,
+      function: 3,
+      local: 2,
+      inherit: 1,
+      '': 0,
+    } as const;
   }
 }
 
@@ -167,6 +189,10 @@ export function getVariableScope(node: SyntaxNode) {
 }
 
 export function getScope(document: LspDocument, node: SyntaxNode) {
+  if (NodeTypes.isEmittedEventDefinitionName(node)) {
+    return DefinitionScope.create(node, 'global')!;
+  }
+
   if (NodeTypes.isAliasDefinitionName(node)) {
     const isAutoloadedName = isAutoloadedUriLoadsAliasName(document);
     if (isAutoloadedName(node)) {
@@ -239,3 +265,11 @@ export function setQuery(searchNodes: SyntaxNode[]) {
   }
   return false;
 }
+
+// export function patchScopes(symbols: FishSymbol[]) {
+//   for (const symbol of symbols) {
+//     const equalSymbols = symbol.children.filter(child =>
+//       child.kind === symbol.kind && child.name === symbol.name && child.scopeContainsNode()
+//     )
+//   }
+// }

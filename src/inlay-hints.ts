@@ -141,7 +141,7 @@ export function getGlobalReferencesInlayHints(
   const hints: InlayHint[] = analyzer.getFlatDocumentSymbols(document.uri)
     .filter(symbol => symbol.scope.scopeTag === 'global' || symbol.scope.scopeTag === 'universal')
     .map(symbol => {
-      const referenceCount = getReferences(analyzer, document, symbol.selectionRange.start).length;
+      const referenceCount = getReferences(document, symbol.selectionRange.start).length;
 
       return {
         position: document.getLineEnd(symbol.selectionRange.start.line),

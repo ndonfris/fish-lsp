@@ -2,7 +2,7 @@ import { setLogger, createFakeLspDocument } from './helpers';
 import { initializeParser } from '../src/parser';
 /* @ts-ignore */
 import Parser, { SyntaxNode } from 'web-tree-sitter';
-import { Analyzer } from '../src/analyze';
+import { analyzer, Analyzer } from '../src/analyze';
 import { getChildNodes, getRange } from '../src/utils/tree-sitter';
 import { isFunctionDefinitionName } from '../src/utils/node-types';
 import * as LSP from 'vscode-languageserver';
@@ -14,7 +14,6 @@ import { pathToUri } from '../src/utils/translation';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 
 let parser: Parser;
-let analyzer: Analyzer;
 const tmpDir = join(os.tmpdir(), 'fish-lsp-analyzer-tests');
 
 describe('Analyzer class in file: `src/analyze.ts`', () => {
@@ -22,7 +21,7 @@ describe('Analyzer class in file: `src/analyze.ts`', () => {
 
   beforeEach(async () => {
     parser = await initializeParser();
-    analyzer = new Analyzer(parser);
+    await Analyzer.initialize();
     await setupProcessEnvExecFile();
   });
 
@@ -209,7 +208,6 @@ describe('Analyzer class in file: `src/analyze.ts`', () => {
 
       // Initialize parser for analyzer
       parser = await initializeParser();
-      analyzer = new Analyzer(parser);
       await setupProcessEnvExecFile();
     });
 
@@ -246,7 +244,7 @@ describe('Analyzer class in file: `src/analyze.ts`', () => {
       writeFileSync(testFilePath, content);
       const result = analyzer.analyzePath(testFilePath);
       expect(result).toBeDefined();
-      expect(result.documentSymbols).toHaveLength(2);
+      expect(result?.documentSymbols).toHaveLength(2);
     });
 
     it('multiple functions', async () => {
@@ -264,7 +262,7 @@ describe('Analyzer class in file: `src/analyze.ts`', () => {
       writeFileSync(testFilePath, content);
       const result = analyzer.analyzePath(testFilePath);
       expect(result).toBeDefined();
-      expect(result.documentSymbols).toHaveLength(4);
+      expect(result?.documentSymbols).toHaveLength(4);
       const lookupUri = pathToUri(testFilePath);
       const document = analyzer.getDocument(lookupUri);
       expect(document).toBeDefined();
@@ -273,38 +271,6 @@ describe('Analyzer class in file: `src/analyze.ts`', () => {
       expect(flatSymbols).toBeDefined();
       expect(flatSymbols).toHaveLength(7);
       expect(flatSymbols.map(s => s.name)).toEqual(['argv', 'foo', 'bar', 'baz', 'argv', 'argv', 'argv']);
-    });
-
-    it.skip('source command', async () => {
-      testFilePath = join(tmpDir, 'foo.fish');
-      const content = [
-        'source $__fish_data_dir/config.fish',
-        'function foo',
-        '    echo \'inside foo\'',
-        'end',
-        'function bar',
-        '    source $__fish_data_dir/functions/fish_add_path.fish',
-        'end',
-      ].join('\n');
-      writeFileSync(testFilePath, content);
-      const result = analyzer.analyzePath(testFilePath);
-      expect(result).toBeDefined();
-      // expect(result).toHaveLength(2);
-      const document = analyzer.getDocumentFromPath(testFilePath);
-      if (!document) fail();
-      const allSources = analyzer.collectAllSources(document.uri);
-      // for (const sourceUri of Array.from(sources)) {
-      //   const sourceDocument = analyzer.getDocument(sourceUri);
-      //   console.log({sourceUri})
-      //   expect(sourceDocument).toBeDefined();
-      // }
-      expect(allSources.size).toBe(3);
-      const { sourceNodes } = result;
-      const addPathNode = sourceNodes.at(-1)!;
-      const sourceBeforeAddPathNode = analyzer.collectReachableSources(document.uri, getRange(addPathNode).start);
-      const sourceAfterAddPathNode = analyzer.collectReachableSources(document.uri, getRange(addPathNode).end);
-      expect(sourceBeforeAddPathNode.size).toBe(2);
-      expect(sourceAfterAddPathNode.size).toBe(3);
     });
   });
 

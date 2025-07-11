@@ -135,6 +135,9 @@ function createFunctionEventsList() {
   return result.stdout.toString().split('\n');
 }
 
+/**
+ * Consider using these utilities to check if a word is a event on a function/emit/trap
+ */
 export const EventNamesList = createFunctionEventsList();
 export function isEvent(word: string): boolean {
   return EventNamesList.includes(word);

@@ -1,11 +1,11 @@
-import { DocumentSymbol, SymbolKind, Range, WorkspaceSymbol, Location, FoldingRange, FoldingRangeKind, MarkupContent, MarkupKind, Hover, DocumentUri } from 'vscode-languageserver';
+import { DocumentSymbol, SymbolKind, WorkspaceSymbol, Location, FoldingRange, MarkupContent, Hover, DocumentUri, Position } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { DefinitionScope } from '../utils/definition-scope';
 import { LspDocument } from '../document';
 import { containsNode, getChildNodes, getRange } from '../utils/tree-sitter';
 import { findSetChildren, processSetCommand } from './set';
 import { processReadCommand } from './read';
-import { processArgvDefinition, processFunctionDefinition } from './function';
+import { isFunctionVariableDefinitionName, processArgvDefinition, processFunctionDefinition } from './function';
 import { processForDefinition } from './for';
 import { convertNodeRangeWithPrecedingFlag, processArgparseCommand } from './argparse';
 import { Flag, isMatchingOption, LongFlag, Option, ShortFlag } from './options';
@@ -14,56 +14,19 @@ import { createDetail } from './symbol-detail';
 import { config } from '../config';
 import { flattenNested } from '../utils/flatten';
 import { uriToPath } from '../utils/translation';
-import { isCommand, isCommandWithName, isFunctionDefinitionName, isString, isTopLevelDefinition, isVariableDefinitionName } from '../utils/node-types';
+import { isCommand, isCommandWithName, isEmptyString, isFunctionDefinitionName, isString, isTopLevelDefinition, isVariableDefinitionName } from '../utils/node-types';
 import { SyncFileHelper } from '../utils/file-operations';
-import { processExportCommand } from './export';
-
-export type FishSymbolKind = 'ARGPARSE' | 'FUNCTION' | 'ALIAS' | 'COMPLETE' | 'SET' | 'READ' | 'FOR' | 'VARIABLE' | 'FUNCTION_VARIABLE' | 'EXPORT';
-
-export const FishSymbolKindMap: Record<Lowercase<FishSymbolKind>, FishSymbolKind> = {
-  ['argparse']: 'ARGPARSE',
-  ['function']: 'FUNCTION',
-  ['alias']: 'ALIAS',
-  ['complete']: 'COMPLETE',
-  ['set']: 'SET',
-  ['read']: 'READ',
-  ['for']: 'FOR',
-  ['variable']: 'VARIABLE',
-  ['function_variable']: 'FUNCTION_VARIABLE',
-  ['export']: 'EXPORT',
-};
-
-export const fishSymbolKindToSymbolKind: Record<FishSymbolKind, SymbolKind> = {
-  ['ARGPARSE']: SymbolKind.Variable,
-  ['FUNCTION']: SymbolKind.Function,
-  ['ALIAS']: SymbolKind.Function,
-  ['COMPLETE']: SymbolKind.Interface,
-  ['SET']: SymbolKind.Variable,
-  ['READ']: SymbolKind.Variable,
-  ['FOR']: SymbolKind.Variable,
-  ['VARIABLE']: SymbolKind.Variable,
-  ['FUNCTION_VARIABLE']: SymbolKind.Variable,
-  ['EXPORT']: SymbolKind.Variable,
-} as const;
-
-export const SetModifierToScopeTag = (modifier: Option) => {
-  switch (true) {
-    case modifier.isOption('-U', '--universal'):
-      return 'universal';
-    case modifier.isOption('-g', '--global'):
-      return 'global';
-    case modifier.isOption('-f', '--function'):
-      return 'function';
-    case modifier.isOption('-l', '--local'):
-      return 'local';
-    default:
-      return 'local';
-  }
-};
-
-export const fromFishSymbolKindToSymbolKind = (kind: FishSymbolKind) => fishSymbolKindToSymbolKind[kind];
+import { isExportVariableDefinitionName, processExportCommand } from './export';
+import { CompletionSymbol, isCompletionCommandDefinition, isCompletionSymbol } from './complete';
+import { analyzer } from '../analyze';
+import { isEmittedEventDefinitionName, isGenericFunctionEventHandlerDefinitionName, processEmitEventCommandName } from './emit';
+import { isSymbolReference } from './reference-comparator';
+import { equalSymbolDefinitions, equalSymbols, equalSymbolScopes, fishSymbolNameEqualsNodeText, isFishSymbol, symbolContainsNode, symbolContainsPosition, symbolContainsScope, symbolEqualsLocation, symbolEqualsNode, symbolScopeContainsNode } from './equality-utils';
+import { SymbolConverters } from './symbol-converters';
+import { FishKindGroups, FishSymbolInput, FishSymbolKind, fishSymbolKindToSymbolKind, fromFishSymbolKindToSymbolKind } from './symbol-kinds';
 
 export interface FishSymbol extends DocumentSymbol {
+  document: LspDocument;
   uri: string;
   fishKind: FishSymbolKind;
   node: SyntaxNode;
@@ -74,28 +37,17 @@ export interface FishSymbol extends DocumentSymbol {
   parent: FishSymbol | undefined;
 }
 
-type OptionalFishSymbolPrototype = {
-  name?: string;
-  node: SyntaxNode;
-  focusedNode: SyntaxNode;
-  uri: string;
-  detail: string;
-  fishKind: FishSymbolKind;
-  scope: DefinitionScope;
-  children: FishSymbol[];
-  range?: Range;
-  selectionRange?: Range;
-};
-
 export class FishSymbol {
   public children: FishSymbol[] = [];
   public aliasedNames: string[] = [];
+  public document: LspDocument;
 
-  constructor(obj: OptionalFishSymbolPrototype) {
+  constructor(obj: FishSymbolInput) {
     this.name = obj.name || obj.focusedNode.text;
     this.kind = fromFishSymbolKindToSymbolKind(obj.fishKind);
     this.fishKind = obj.fishKind;
-    this.uri = obj.uri;
+    this.document = obj.document;
+    this.uri = obj.uri || obj.document.uri.toString();
     this.range = obj.range || getRange(obj.node);
     this.selectionRange = obj.selectionRange || getRange(obj.focusedNode);
     this.node = obj.node;
@@ -118,7 +70,8 @@ export class FishSymbol {
     node: SyntaxNode,
     focusedNode: SyntaxNode,
     fishKind: FishSymbolKind,
-    uri: string,
+    document: LspDocument,
+    uri: string = document.uri.toString(),
     detail: string,
     scope: DefinitionScope,
     children: FishSymbol[] = [],
@@ -126,6 +79,7 @@ export class FishSymbol {
     return new this({
       name: name || focusedNode.text,
       fishKind,
+      document,
       uri,
       detail,
       node,
@@ -135,8 +89,16 @@ export class FishSymbol {
     });
   }
 
-  static fromObject(obj: OptionalFishSymbolPrototype) {
+  static fromObject(obj: FishSymbolInput) {
     return new this(obj);
+  }
+
+  public copy(): FishSymbol {
+    return SymbolConverters.copySymbol(this);
+  }
+
+  static is(obj: unknown): obj is FishSymbol {
+    return isFishSymbol(obj);
   }
 
   addChildren(...children: FishSymbol[]) {
@@ -153,13 +115,26 @@ export class FishSymbol {
   }
 
   private nameEqualsNodeText(node: SyntaxNode) {
-    return this.name === node.text;
+    return fishSymbolNameEqualsNodeText(this, node);
   }
 
+  /**
+   * Returns the `argparse flag-name` for the symbol `_flag_flag_name`
+   */
   public get argparseFlagName() {
-    return this.name.replace(/^_flag_/, '').replace(/_/g, '-');
+    return FishSymbol.argparseFlagFromName(this.name);
   }
 
+  /**
+   * Static method to convert a FishSymbol.isArgparse() with `_flag_variable_name` to `variable-name`
+   */
+  public static argparseFlagFromName(name: string) {
+    return name.replace(/^_flag_/, '').replace(/_/g, '-');
+  }
+
+  /**
+   * Returns the argparse flag for the symbol, e.g. `-f` or `--flag-name`
+   */
   public get argparseFlag(): Flag | string {
     if (this.fishKind !== 'ARGPARSE') return this.name;
     const flagName = this.argparseFlagName;
@@ -169,7 +144,25 @@ export class FishSymbol {
     return `--${flagName}` as LongFlag;
   }
 
-  private isArgparseCompletionFlag(node: SyntaxNode) {
+  /**
+   * Checks if an argparse _flag_name FishSymbol is equal to a SyntaxNode,
+   * where the SyntaxNode corresponds to the argparse
+   *
+   *
+   * ```fish
+   * function this.parent.name
+   *     argparse f/flag-name -- $argv
+   * #            ^^^^^^^^^^^---- This is the argparse flag name
+   * end
+   *
+   * complete -c this.parent.name -s f -l flag-name
+   * #                               ^    ^^^^^^^^^ Either of these could be the node (depending on the FishSymbol selected)
+   * ```
+   *
+   * @param node - The SyntaxNode to check against (`complete ... -s/-l NODE`)
+   * @return {boolean} - True if the node matches the argparse flag name, false otherwise
+   */
+  private isArgparseCompletionFlag(node: SyntaxNode): boolean {
     if (this.fishKind === 'ARGPARSE') return false;
     if (node.parent && isCommandWithName(node, 'complete')) {
       const flagName = this.argparseFlagName;
@@ -182,6 +175,9 @@ export class FishSymbol {
     return false;
   }
 
+  /**
+   * Checks if the node is a command completion flag, e.g. `complete -c NODE` or `complete --command NODE`
+   */
   private isCommandCompletionFlag(node: SyntaxNode) {
     if (this.fishKind === 'COMPLETE') return false;
     if (node.parent && isCommandWithName(node.parent, 'complete')) {
@@ -210,6 +206,18 @@ export class FishSymbol {
       case 'FOR':
       case 'VARIABLE':
         return !isFunctionDefinitionName(node);
+      case 'EXPORT':
+        return isExportVariableDefinitionName(node);
+      case 'FUNCTION_VARIABLE':
+        return isFunctionVariableDefinitionName(node);
+      case 'EVENT':
+        return isEmittedEventDefinitionName(node);
+      case 'FUNCTION_EVENT':
+        return isGenericFunctionEventHandlerDefinitionName(node);
+      case 'COMPLETE':
+        return isCompletionCommandDefinition(node) || isCompletionSymbol(node);
+      default:
+        return false;
     }
   }
 
@@ -235,150 +243,54 @@ export class FishSymbol {
     return this.scope.scopeTag;
   }
 
+  /**
+   * Enclosing SyntaxNode for symbols constraint inside of a local document
+   * A global symbol will still have a scopeNode, but it should not be used to limit
+   * the scope of a symbol. It is more common to limit the scope of a Symbol based
+   * on if their is a redefined symbol (same name & type) inside of a smaller scope.
+   */
   get scopeNode() {
     return this.scope.scopeNode;
   }
 
+  // === Conversion Utils ===
   toString() {
-    return JSON.stringify({
-      name: this.name,
-      kind: this.kind,
-      uri: this.uri,
-      detail: this.detail,
-      range: this.range,
-      selectionRange: this.selectionRange,
-      scope: this.scope.scopeTag,
-      aliasedNames: this.aliasedNames,
-      children: this.children.map(child => child.name),
-    }, null, 2);
-  }
-
-  equals(other: FishSymbol) {
-    if (this.fishKind === 'ARGPARSE' && other.fishKind === 'ARGPARSE') {
-      const equalNames = this.name === other.name || this.aliasedNames.includes(other.name) || other.aliasedNames.includes(this.name);
-      return equalNames &&
-        this.uri === other.uri &&
-        this.node.equals(other.node);
-    }
-    const equalNames = this.name === other.name
-      ? true
-      : this.aliasedNames.includes(other.name) || other.aliasedNames.includes(this.name);
-    return equalNames &&
-      this.kind === other.kind &&
-      this.uri === other.uri &&
-      this.range.start.line === other.range.start.line &&
-      this.range.start.character === other.range.start.character &&
-      this.range.end.line === other.range.end.line &&
-      this.range.end.character === other.range.end.character &&
-      this.selectionRange.start.line === other.selectionRange.start.line &&
-      this.selectionRange.start.character === other.selectionRange.start.character &&
-      this.selectionRange.end.line === other.selectionRange.end.line &&
-      this.selectionRange.end.character === other.selectionRange.end.character &&
-      this.fishKind === other.fishKind;
-  }
-
-  equalLocations(other: Location) {
-    return this.uri === other.uri
-      && this.selectionRange.start.line === other.range.start.line
-      && this.selectionRange.start.character === other.range.start.character
-      && this.selectionRange.end.line === other.range.end.line
-      && this.selectionRange.end.character === other.range.end.character;
+    return SymbolConverters.symbolToString(this);
   }
 
   toWorkspaceSymbol(): WorkspaceSymbol {
-    return WorkspaceSymbol.create(
-      this.name,
-      this.kind,
-      this.uri,
-      this.selectionRange,
-    );
+    return SymbolConverters.symbolToWorkspaceSymbol(this);
   }
 
-  toDocumentSymbol(): DocumentSymbol {
-    return DocumentSymbol.create(
-      this.name,
-      this.detail,
-      this.kind,
-      this.range,
-      this.selectionRange,
-      this.children.map(child => child.toDocumentSymbol()),
-    );
+  toDocumentSymbol(): DocumentSymbol | undefined {
+    return SymbolConverters.symbolToDocumentSymbol(this);
   }
 
   toLocation(): Location {
-    return Location.create(
-      this.uri,
-      this.selectionRange,
-    );
+    return SymbolConverters.symbolToLocation(this);
   }
 
-  isBefore(other: FishSymbol) {
-    if (this.fishKind === 'FUNCTION' && other.name === 'argv') {
-      return this.range.start.line === other.range.start.line
-        && this.range.start.character === other.range.start.character;
-    }
-    if (this.selectionRange.start.line < other.selectionRange.start.line) {
-      return true;
-    }
-    if (this.selectionRange.start.line === other.selectionRange.start.line) {
-      return this.selectionRange.start.character < other.selectionRange.start.character
-        && this.selectionRange.end.character < other.selectionRange.end.character;
-    }
-    return false;
-  }
-
-  isAfter(other: FishSymbol) {
-    if (this.name === 'argv' && other.fishKind === 'FUNCTION') {
-      return this.selectionRange.start.line === other.selectionRange.start.line
-        && this.selectionRange.start.character === other.selectionRange.start.character;
-    }
-    if (this.selectionRange.start.line > other.selectionRange.start.line) {
-      return true;
-    }
-    if (this.selectionRange.start.line === other.selectionRange.start.line) {
-      return this.selectionRange.start.character > other.selectionRange.start.character;
-    }
-    return false;
-  }
-
-  isAfterRange(range: Range) {
-    if (this.selectionRange.start.line > range.start.line) {
-      return true;
-    }
-    if (this.selectionRange.start.line === range.start.line) {
-      if (this.selectionRange.end.line === range.end.line) {
-        return this.selectionRange.start.character > range.start.character
-          && this.selectionRange.end.character <= range.end.character;
-      }
-      return this.selectionRange.start.character > range.start.character
-        && this.selectionRange.end.line <= range.end.line;
-    }
-    return false;
+  toPosition(): Position {
+    return SymbolConverters.symbolToPosition(this);
   }
 
   toFoldingRange(): FoldingRange {
-    return {
-      startLine: this.range.start.line,
-      endLine: this.range.end.line,
-      startCharacter: this.range.start.character,
-      endCharacter: this.range.end.character,
-      collapsedText: this.name,
-      kind: FoldingRangeKind.Region,
-    };
+    return SymbolConverters.symbolToFoldingRange(this);
   }
 
-  equalScopes(other: FishSymbol) {
-    if (this.scope.scopeNode.equals(other.scope.scopeNode) && this.fishKind === other.fishKind) {
-      if ([this.scope.scopeTag, other.scope.scopeTag].includes('inherit')) {
-        return this.scope.scopeNode.equals(other.scope.scopeNode);
-      } else if (this.isGlobal() && other.isGlobal()) {
-        return true;
-      }
-      return this.scope.scopeTag === other.scope.scopeTag;
-    }
-    return false;
+  toMarkupContent(): MarkupContent {
+    return SymbolConverters.symbolToMarkupContent(this);
   }
 
+  /**
+   * Optionally include the current document's uri to the hover, this will determine
+   * if a range is local to the current document (local ranges include hover range)
+   */
+  toHover(currentUri: DocumentUri = ''): Hover {
+    return SymbolConverters.symbolToHover(this, currentUri);
+  }
+
+  // === FishSymbol type/location info ===
   isLocal() {
     return !this.isGlobal();
   }
@@ -391,12 +303,28 @@ export class FishSymbol {
     return isTopLevelDefinition(this.node);
   }
 
+  isEventHook(): boolean {
+    return this.fishKind === 'FUNCTION_EVENT';
+  }
+
+  isEmittedEvent(): boolean {
+    return this.fishKind === 'EVENT';
+  }
+
+  isEvent(): boolean {
+    return FishKindGroups.EVENTS.includes(this.fishKind);
+  }
+
   isFunction(): boolean {
-    return this.fishKind === 'FUNCTION' || this.fishKind === 'ALIAS';
+    return FishKindGroups.FUNCTIONS.includes(this.fishKind);
   }
 
   isVariable(): boolean {
-    return !this.isFunction();
+    return FishKindGroups.VARIABLES.includes(this.fishKind);
+  }
+
+  isArgparse(): boolean {
+    return FishKindGroups.ARGPARSE.includes(this.fishKind);
   }
 
   isSymbolImmutable() {
@@ -404,39 +332,6 @@ export class FishSymbol {
       return true;
     }
     return false;
-  }
-
-  toMarkupContent(): MarkupContent {
-    return {
-      kind: MarkupKind.Markdown,
-      value: this.detail,
-    };
-  }
-
-  /**
-   * Optionally include the current document's uri to the hover, this will determine
-   * if a range is local to the current document (local ranges include hover range)
-   */
-  toHover(currentUri: DocumentUri = ''): Hover {
-    return {
-      contents: this.toMarkupContent(),
-      range: currentUri === this.uri ? this.selectionRange : undefined,
-    };
-  }
-
-  scopeContainsNode(node: SyntaxNode) {
-    return this.scope.containsPosition(getRange(node).start);
-  }
-
-  containsNode(node: SyntaxNode) {
-    return this.range.start.line <= node.startPosition.row
-      && this.range.end.line >= node.endPosition.row;
-  }
-
-  containsPosition(position: { line: number; character: number; }) {
-    return this.selectionRange.start.line === position.line
-      && this.selectionRange.start.character <= position.character
-      && this.selectionRange.end.character >= position.character;
   }
 
   //
@@ -490,19 +385,194 @@ export class FishSymbol {
       return SyncFileHelper.expandEnvVars(text);
     });
   }
+
+  /**
+   * Checks if both the current & other symbol define the same argparse flag, when
+   * their is multiple equivalent _flag_names/_flag_n seen in the same argparse option.
+   */
+  equalArgparse(other: FishSymbol | CompletionSymbol) {
+    if (FishSymbol.is(other)) {
+      const equalNames = this.name !== other.name && this.aliasedNames.includes(other.name) && other.aliasedNames.includes(this.name);
+
+      const equalParents = this.parent && other.parent
+        ? this.parent.equals(other.parent)
+        : !this.parent && !other.parent;
+
+      return equalNames &&
+        this.uri === other.uri &&
+        this.fishKind === 'ARGPARSE' && other.fishKind === 'ARGPARSE' &&
+        this.focusedNode.equals(other.focusedNode) &&
+        this.node.equals(other.node) &&
+        equalParents &&
+        this.scopeNode.equals(other.scopeNode);
+    }
+    return false;
+  }
+
+  /**
+   * A function that is autoloaded and includes an `event` hook
+   *
+   * ```fish
+   * function my_function --on-event my_event
+   * #        ^^^^^^^^^^^--------------------  my_function would return true
+   * end
+   * ```
+   */
+  hasEventHook() {
+    if (!this.isFunction()) return false;
+    for (const child of this.children) {
+      if (child.isEventHook()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Checks if two symbols are equal events, excluding equality of the symbols
+   * equaling the exact same symbol. Also ensures that one of the Symbols is a
+   * event handler name, and the other is the emitted event name. Order does not
+   * matter, allowing for either symbol to be the event handler or the emitted event.
+   *
+   * ```fish
+   *  function PARENT --on-event SYMBOL
+   *  #                          ^^^^^^---- This is the event handler definition name
+   *  end
+   *
+   *  emit SYMBOL
+   *  #    ^^^^^^-------------------------- This is the emitted event definition name
+   * ```
+   *
+   * @param other - The other symbol to compare against
+   * @return {boolean} - True if the symbols are equal events, false otherwise
+   *
+   */
+  equalsEvent(other: FishSymbol | CompletionSymbol): boolean {
+    if (!FishSymbol.is(other)) return false;
+    if (!this.isEvent() || !other.isEvent()) return false;
+    if (this.fishKind === other.fishKind) return false;
+
+    // parent of the `function PARENT --on-event SYMBOL`
+    const parent = this.fishKind === 'FUNCTION_EVENT'
+      ? this.parent
+      : other.parent;
+
+    // child is the `emit SYMBOL` corresponding to the event in a function handler
+    const child = this.fishKind === 'EVENT'
+      ? this
+      : other;
+
+    // check if the parent and child exist and have same name
+    return !!(parent && child && child.name === parent.name);
+  }
+
+  /**
+   * The heavy lifting utility to determine if a node is a reference to the current
+   * symbol.
+   *
+   * @param document The LspDocument to check against
+   * @param node The SyntaxNode to check
+   * @param excludeEqualNode If true, the node itself will not be considered a reference
+   *
+   * @returns {boolean} True if the node is a reference to the symbol, false otherwise
+   */
+  isReference(document: LspDocument, node: SyntaxNode, excludeEqualNode = false): boolean {
+    return isSymbolReference(this, document, node, excludeEqualNode);
+  }
+
+  /**
+   * Checks if 2 symbols are the same, based on their properties.
+   */
+  equals(other: FishSymbol): boolean {
+    return equalSymbols(this, other);
+  }
+
+  /**
+   * Checks if the symbol is the location.
+   */
+  equalsLocation(location: Location): boolean {
+    return symbolEqualsLocation(this, location);
+  }
+
+  /**
+   * Checks if a Symbol is defined in the same scope as its comparison symbol.
+   */
+  equalDefinition(other: FishSymbol): boolean {
+    return equalSymbolDefinitions(this, other);
+  }
+
+  /**
+   * Checks if the symbol is equal to the SyntaxNode
+   * @param node The SyntaxNode to compare against
+   * @param opts.strict If true, the comparison will be strict, meaning the node must match the symbol's focusedNode
+   *               Otherwise, a match can be either the focusedNode or the node itself.
+   * @returns {boolean} True if the symbol is equal to the node, false otherwise
+   */
+  equalsNode(node: SyntaxNode, opts: {strict?: boolean;} = { strict: false }): boolean {
+    return symbolEqualsNode(this, node, opts.strict);
+  }
+
+  /**
+   * Checks if the symbol contains the other symbol's scope.
+   * Here, the current Symbol must be ATLEAST equivalent parents to the other symbol
+   * when the other symbol's Scope is not greater than the current symbol's scope.
+   */
+  containsScope(other: FishSymbol): boolean {
+    return symbolContainsScope(this, other);
+  }
+
+  /**
+   * Checks if the symbol has the same scope as the other symbol.
+   */
+  equalScopes(other: FishSymbol): boolean {
+    return equalSymbolScopes(this, other);
+  }
+
+  /**
+   * Checks if the symbol contains the node in its scope.
+   */
+  scopeContainsNode(node: SyntaxNode): boolean {
+    return symbolScopeContainsNode(this, node);
+  }
+
+  /**
+   * Checks if the symbol.range contains or is equal to the node's range.
+   */
+  containsNode(node: SyntaxNode): boolean {
+    return symbolContainsNode(this, node);
+  }
+
+  /**
+   * Check if the current symbols position contains or is equal to the given position
+   * @param position The position to check against
+   * @return {boolean} True if the symbol contains the position, false otherwise
+   */
+  containsPosition(position: { line: number; character: number; }): boolean {
+    return symbolContainsPosition(this, position);
+  }
 }
 
-export function getLocalSymbols(symbols: FishSymbol[]): FishSymbol[] {
-  return symbols.filter(symbol => symbol.isLocal());
-}
+export const SetModifierToScopeTag = (modifier: Option) => {
+  switch (true) {
+    case modifier.isOption('-U', '--universal'):
+      return 'universal';
+    case modifier.isOption('-g', '--global'):
+      return 'global';
+    case modifier.isOption('-f', '--function'):
+      return 'function';
+    case modifier.isOption('-l', '--local'):
+      return 'local';
+    default:
+      return 'local';
+  }
+};
 
-export function getGlobalSymbols(symbols: FishSymbol[]): FishSymbol[] {
-  return symbols.filter(symbol => symbol.isGlobal());
-}
-
-export function isSymbol(symbols: FishSymbol[], kind: FishSymbolKind): FishSymbol[] {
-  return symbols.filter(symbol => symbol.fishKind === kind);
-}
+export {
+  FishSymbolKind,
+  fromFishSymbolKindToSymbolKind,
+  FishKindGroups,
+  fishSymbolKindToSymbolKind,
+};
 
 export function filterLastPerScopeSymbol(symbols: FishSymbol[]) {
   const flatArray: FishSymbol[] = flattenNested(...symbols);
@@ -517,6 +587,38 @@ export function filterLastPerScopeSymbol(symbols: FishSymbol[]) {
     }
   }
   return array;
+}
+
+export function filterFirstPerScopeSymbol(document: LspDocument | DocumentUri): FishSymbol[] {
+  const uri: DocumentUri = LspDocument.is(document) ? document.uri : document;
+  const symbols = analyzer.getFlatDocumentSymbols(uri);
+  const flatArray: FishSymbol[] = Array.from(symbols);
+
+  const array: FishSymbol[] = [];
+  for (const symbol of symbols) {
+    const firstSymbol = flatArray.find((s: FishSymbol) => s.equalDefinition(symbol));
+    if (firstSymbol && firstSymbol.equals(symbol)) {
+      array.push(symbol);
+    }
+  }
+  return array;
+}
+
+export function filterFirstUniqueSymbolperScope(document: LspDocument | DocumentUri): FishSymbol[] {
+  const uri: DocumentUri = LspDocument.is(document) ? document.uri : document;
+  const symbols = analyzer.getFlatDocumentSymbols(uri);
+  const result: FishSymbol[] = [];
+
+  for (const symbol of symbols) {
+    const alreadyExists = result.some(existing =>
+      existing.name === symbol.name && existing.equalDefinition(symbol),
+    );
+    if (!alreadyExists) {
+      result.push(symbol);
+    }
+  }
+
+  return result;
 }
 
 export function findLocalLocations(symbol: FishSymbol, allSymbols: FishSymbol[], includeSelf = true): Location[] {
@@ -540,31 +642,6 @@ export function findLocalLocations(symbol: FishSymbol, allSymbols: FishSymbol[],
       : Location.create(symbol.uri, getRange(node)),
     ),
   ].filter(Boolean) as Location[];
-}
-
-export function findMatchingLocations(symbol: FishSymbol, allSymbols: FishSymbol[], document: LspDocument, rootNode: SyntaxNode): Location[] {
-  const result: SyntaxNode[] = [];
-  const matchingNodes = allSymbols.filter(s => s.name === symbol.name && !symbol.equalScopes(s))
-    .map(s => symbol.fishKind === 'ALIAS' ? s.node : s.scopeNode);
-
-  for (const node of getChildNodes(rootNode)) {
-    if (matchingNodes.some(n => containsNode(n, node))) continue;
-    if (symbol.isEqualLocation(node)) {
-      result.push(node);
-    }
-  }
-  return result.map(node => symbol.fishKind === 'ARGPARSE'
-    ? Location.create(document.uri, convertNodeRangeWithPrecedingFlag(node))
-    : Location.create(document.uri, getRange(node)),
-  );
-}
-
-export function removeLocalSymbols(symbol: FishSymbol, symbols: FlatFishSymbolTree) {
-  return symbols.filter(s => s.name === symbol.name && !symbol.equalScopes(s) && !s.equals(symbol));
-}
-
-function isEmptyString(node: SyntaxNode) {
-  return isString(node) && node.text.length === 2;
 }
 
 /**
@@ -619,6 +696,9 @@ function buildNested(document: LspDocument, node: SyntaxNode, ...children: FishS
           break;
         case 'export':
           newSymbols.push(...processExportCommand(document, node, children));
+          break;
+        case 'emit':
+          newSymbols.push(...processEmitEventCommandName(document, node, children));
           break;
         default:
           break;

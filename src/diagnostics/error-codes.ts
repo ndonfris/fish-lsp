@@ -19,12 +19,14 @@ export namespace ErrorCodes {
   export const autoloadedFunctionMissingDefinition = 4001;
   export const autoloadedFunctionFilenameMismatch = 4002;
   export const functionNameUsingReservedKeyword = 4003;
-  export const unusedLocalFunction = 4004;
+  export const unusedLocalDefinition = 4004;
   export const autoloadedCompletionMissingCommandName = 4005;
   export const duplicateFunctionDefinitionInSameScope = 4006;
+  export const autoloadedFunctionWithEventHookUnused = 4007;
   // export const preferAutloadedFunctionHasDescription = 4005;
 
   export const argparseMissingEndStdin = 5001;
+  export const unreachableCode = 5555;
 
   export const fishLspDeprecatedEnvName = 6001;
 
@@ -36,8 +38,8 @@ export namespace ErrorCodes {
     1001 | 1002 | 1003 | 1004 | 1005 |
     2001 | 2002 | 2003 |
     3001 | 3002 | 3003 |
-    4001 | 4002 | 4003 | 4004 | 4005 | 4006 |
-    5001 |
+    4001 | 4002 | 4003 | 4004 | 4005 | 4006 | 4007 |
+    5001 | 5555 |
     6001 |
     8001 |
     9999 ;
@@ -156,12 +158,12 @@ export namespace ErrorCodes {
       source: 'fish-lsp',
       message: 'Function name uses reserved keyword',
     },
-    [unusedLocalFunction]: {
+    [unusedLocalDefinition]: {
       severity: DiagnosticSeverity.Warning,
-      code: unusedLocalFunction,
-      codeDescription: { href: 'https://fishshell.com/docs/current/cmds/functions.html' },
+      code: unusedLocalDefinition,
+      codeDescription: { href: 'https://fishshell.com/docs/current/language.html#local-variables' },
       source: 'fish-lsp',
-      message: 'Unused local function',
+      message: 'Unused local',
     },
     [autoloadedCompletionMissingCommandName]: {
       severity: DiagnosticSeverity.Error,
@@ -177,12 +179,26 @@ export namespace ErrorCodes {
       source: 'fish-lsp',
       message: 'Duplicate function definition exists in the same scope.\n\nAmbiguous function',
     },
+    [autoloadedFunctionWithEventHookUnused]: {
+      severity: DiagnosticSeverity.Warning,
+      code: autoloadedFunctionWithEventHookUnused,
+      codeDescription: { href: 'https://fishshell.com/docs/current/language.html#event' },
+      source: 'fish-lsp',
+      message: 'Autoloaded function with event hook is unused',
+    },
     [argparseMissingEndStdin]: {
       severity: DiagnosticSeverity.Error,
       code: argparseMissingEndStdin,
       codeDescription: { href: 'https://fishshell.com/docs/current/cmds/argparse.html' },
       source: 'fish-lsp',
       message: 'argparse missing end of stdin',
+    },
+    [unreachableCode]: {
+      severity: DiagnosticSeverity.Warning,
+      code: unreachableCode,
+      codeDescription: { href: 'https://fishshell.com/docs/current/language.html#unreachable-code-blocks' },
+      source: 'fish-lsp',
+      message: 'Unreachable code blocks detected',
     },
     [fishLspDeprecatedEnvName]: {
       severity: DiagnosticSeverity.Warning,

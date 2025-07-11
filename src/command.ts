@@ -164,7 +164,7 @@ export function createExecuteCommandHandler(
   }
 
   function showWorkspaceMessage() {
-    const message = `${fishLspPromptIcon} Workspace: ${workspaceManager.current?.path}\n\n Total files analyzed: ${analyzer.cache.uris().filter(uri => workspaceManager.current?.contains(uri)).length}`;
+    const message = `${fishLspPromptIcon} Workspace: ${workspaceManager.current?.name}\n\n Total files analyzed: ${workspaceManager.current?.uris.indexedCount}`;
     logger.log('showWorkspaceMessage',
       config,
     );
@@ -176,7 +176,9 @@ export function createExecuteCommandHandler(
     return undefined;
   }
 
-  async function _updateWorkspace(path: string) {
+  async function _updateWorkspace(path: string, ...args: string[]) {
+    const silence = args.includes('--quiet') || args.includes('-q');
+
     const uri = pathToUri(path);
     workspaceManager.handleUpdateDocument(uri);
     const message = `${fishLspPromptIcon} Workspace: ${workspaceManager.current?.path}`;
@@ -186,6 +188,8 @@ export function createExecuteCommandHandler(
         removed: [],
       },
     });
+
+    if (silence) return undefined;
 
     // Using the notification method directly
     connection.sendNotification('window/showMessage', {

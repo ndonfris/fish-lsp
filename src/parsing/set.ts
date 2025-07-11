@@ -1,5 +1,5 @@
 import { SyntaxNode } from 'web-tree-sitter';
-import { isOption, isCommandWithName, isTopLevelDefinition } from '../utils/node-types';
+import { isOption, isCommandWithName, isTopLevelDefinition, findParentCommand, isConditionalCommand, hasParentFunction } from '../utils/node-types';
 import { Option, findOptions, findOptionsSet, isMatchingOption } from './options';
 import { LspDocument } from '../document';
 import { FishSymbol, SetModifierToScopeTag } from './symbol';
@@ -37,13 +37,18 @@ export function isSetDefinition(node: SyntaxNode) {
   return isCommandWithName(node, 'set') && !node.children.some(child => isMatchingOption(child, Option.create('-q', '--query')));
 }
 
+export function isSetQueryDefinition(node: SyntaxNode) {
+  return isCommandWithName(node, 'set') && node.children.some(child => isMatchingOption(child, Option.create('-q', '--query')));
+}
+
 /**
  * checks if a node is the variable name of a set command
  * set -g -x foo '...'
  *           ^-- cursor is here
  */
-export function isSetVariableDefinitionName(node: SyntaxNode) {
-  if (!node.parent || !isSetDefinition(node.parent)) return false;
+export function isSetVariableDefinitionName(node: SyntaxNode, excludeQuery = true) {
+  if (!node.parent) return false;
+  if (excludeQuery && isSetQueryDefinition(node.parent)) return false;
   const searchNodes = findSetChildren(node.parent);
   const definitionNode = searchNodes.find(n => !isOption(n));
   return !!definitionNode && definitionNode.equals(node);
@@ -54,10 +59,14 @@ function getFallbackModifierScope(document: LspDocument, node: SyntaxNode) {
   switch (autoloadType) {
     case 'conf.d':
     case 'config':
-      return isTopLevelDefinition(node) ? 'global' : 'local';
     case 'functions':
-    default:
+      return isTopLevelDefinition(node) ? 'global' : hasParentFunction(node) ? 'function' : 'inherit';
+    case 'completions':
+      return isTopLevelDefinition(node) ? 'local' : hasParentFunction(node) ? 'function' : 'local';
+    case '':
       return 'local';
+    default:
+      return 'inherit';
   }
 }
 
@@ -67,8 +76,8 @@ export function findSetChildren(node: SyntaxNode) {
   return children.slice(0, firstNonOption + 1);
 }
 
-export function setModifierDetailDescriptor(nodee: SyntaxNode) {
-  const options = findOptions(nodee.childrenForFieldName('argument'), SetModifiers);
+export function setModifierDetailDescriptor(node: SyntaxNode) {
+  const options = findOptions(node.childrenForFieldName('argument'), SetModifiers);
   const exportedOption = options.found.find(o => o.option.equalsRawOption('-x', '--export') || o.option.equalsRawOption('-u', '--unexport'));
   const exportedStr = exportedOption ? exportedOption.option.isOption('-x', '--export') ? 'exported' : 'unexported' : '';
   const modifier = options.found.find(o => o.option.equalsRawOption('-U', '-g', '-f', '-l'));
@@ -96,24 +105,44 @@ export function processSetCommand(document: LspDocument, node: SyntaxNode, child
   const searchNodes = findSetChildren(node);
   // find the definition node, which should be the last node of the searchNodes
   const definitionNode = searchNodes.find(n => !isOption(n));
+
   const skipText: string[] = ['-', '$', '('];
-  if (!definitionNode || skipText.some(t => definitionNode.text.startsWith(t))) return [];
-  const modifierOption = findOptionsSet(node.childrenForFieldName('argument'), SetModifiers).pop();
+  if (
+    !definitionNode
+    || definitionNode.type === 'concatenation' // skip `set -e FOO[1]`
+    || skipText.some(t => definitionNode.text.startsWith(t)) // skip `set $FOO`, `set (FOO)`, `set -`
+  ) return [];
+
+  const modifierOption = findOptionsSet(searchNodes, SetModifiers).pop();
   let modifier = 'local' as ScopeTag;
   if (modifierOption) {
     modifier = SetModifierToScopeTag(modifierOption.option) as ScopeTag;
   } else {
     modifier = getFallbackModifierScope(document, node) as ScopeTag;
   }
+
+  // fix conditional_command scoping to use the parent command
+  // of the conditional_execution statement, so that
+  // we can reference the variable in the parent scope
+  let parentNode = findParentCommand(node.parent || node) || node.parent || node;
+  if (parentNode && isConditionalCommand(parentNode)) {
+    while (parentNode && isConditionalCommand(parentNode)) {
+      if (parentNode.type === 'function_definition') break;
+      if (!parentNode.parent) break;
+      parentNode = parentNode.parent;
+    }
+  }
+
   return [
     FishSymbol.create(
       definitionNode.text.toString(),
       node,
       definitionNode,
       'SET',
+      document,
       document.uri,
       node.text.toString(),
-      DefinitionScope.create(node.parent!, modifier),
+      DefinitionScope.create(parentNode, modifier),
       children,
     ),
   ];

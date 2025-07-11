@@ -1,8 +1,8 @@
 import { SyntaxNode } from 'web-tree-sitter';
 import { getLeafNodes } from './tree-sitter';
-import { VariableDefinitionKeywords } from '../parsing/barrel';
-import { Option, isMatchingOption } from '../parsing/options';
-import { isVariableDefinitionName, isFunctionDefinitionName, isAliasDefinitionName, isExportVariableDefinitionName } from '../parsing/barrel';
+import { isDefinitionName, isEmittedEventDefinitionName, VariableDefinitionKeywords } from '../parsing/barrel';
+import { Option, isMatchingOption, isMatchingOptionOrOptionValue, isMatchingOptionValue } from '../parsing/options';
+import { isVariableDefinitionName, isFunctionDefinitionName, isAliasDefinitionName, isExportVariableDefinitionName, isArgparseVariableDefinitionName } from '../parsing/barrel';
 
 // use the `../parsing/barrel` barrel file's imports for finding the definition names
 
@@ -11,6 +11,9 @@ export {
   isFunctionDefinitionName,
   isAliasDefinitionName,
   isExportVariableDefinitionName,
+  isArgparseVariableDefinitionName,
+  isEmittedEventDefinitionName,
+  isDefinitionName,
 };
 
 /**
@@ -72,12 +75,36 @@ export function isCommand(node: SyntaxNode): boolean {
   ].includes(node.type);
 }
 
+/**
+ * Checks if a node is a top level function definition. Nodes can be either:
+ *   - `node.type === 'function_definition'`
+ *   - `node.parent.type === 'function_definition' && node.type === 'word' && node.parent.firstChild.eqauls(node)`
+ * This is used to determine if a function is defined inside another function or at the top level of a script.
+ * ___
+ * ```fish
+ * #### T === TRUE && F === FALSE
+ * function top_level_function_1; end;
+ * # ^-- T      ^-- T
+ * if status is-interactive
+ *     function top_level_function_2; end;
+ *     # ^-- T   ^-- T
+ *     function top_level_function_3
+ *     # ^-- T  ^-- T
+ *          function not_top_level_function; end;
+ *          # ^-- F  ^-- F
+ *     end
+ * end
+ * ```
+ * ___
+ * @param {SyntaxNode} node - the node to check if it is a top level function definition
+ * @returns {boolean} true if the node is a top level function definition, false otherwise
+ */
 export function isTopLevelFunctionDefinition(node: SyntaxNode): boolean {
   if (isFunctionDefinition(node)) {
-    return node.parent?.type === 'program';
+    return !!(node.parent && isTopLevelDefinition(node.parent));
   }
   if (isFunctionDefinitionName(node)) {
-    return node.parent?.parent?.type === 'program';
+    return !!(node.parent && node.parent.parent && isTopLevelDefinition(node.parent.parent));
   }
   return false;
 }
@@ -239,6 +266,10 @@ export function isStringCharacter(node: SyntaxNode) {
   ].includes(node.type);
 }
 
+export function isEmptyString(node: SyntaxNode) {
+  return isString(node) && node.text.length === 2;
+}
+
 /**
  * Checks if a node is fish's end stdin token `--`
  * This is used to signal the end of stdin input, like in the argparse command: `argparse h/help -- $argv`
@@ -282,6 +313,22 @@ export function isShortOption(node: SyntaxNode): boolean {
 export function isOption(node: SyntaxNode): boolean {
   if (isEndStdinCharacter(node)) return false;
   return isShortOption(node) || isLongOption(node);
+}
+
+export function isOptionValue(node: SyntaxNode): boolean {
+  if (isEndStdinCharacter(node)) return false;
+  if (isDefinitionName(node)) return false;
+  if (!node.parent) return false;
+  if (isOption(node) && node.text.includes('=') && node.type === 'word') {
+    return true;
+  }
+  if (isString(node) && node.previousNamedSibling && isOption(node.previousNamedSibling)) {
+    return true;
+  }
+  if (node.type === 'word' && node.previousSibling && isOption(node.previousSibling)) {
+    return true;
+  }
+  return false;
 }
 
 /** careful not to call this on old unix style flags/options */
@@ -558,18 +605,11 @@ export function isCaseClause(node: SyntaxNode) {
 
 export function isReturn(node: SyntaxNode) {
   return node.type === 'return' && node.firstChild?.text === 'return';
-  //return node.type === 'return'
 }
 
 export function isConditionalCommand(node: SyntaxNode) {
   return node.type === 'conditional_execution';
 }
-
-// @TODO: see ./tree-sitter.ts -> getRangeWithPrecedingComments(),
-//        for implementation of chained returns of conditional_executions
-// export function chainedCommandGroup(): SyntaxNode[] {
-//   return [];
-// }
 
 export function isCommandFlag(node: SyntaxNode) {
   return [
@@ -626,6 +666,75 @@ export function isCommandWithName(node: SyntaxNode, ...commandNames: string[]) {
   if (node.type !== 'command') return false;
   // const currentCommandName = node.firstChild?.text
   return !!node.firstChild && commandNames.includes(node.firstChild.text);
+}
+
+export function isArgumentThatCanContainCommandCalls(node: SyntaxNode) {
+  if (
+    isDefinitionName(node)
+    || isCommand(node)
+    || isCommandName(node)
+    || !node.isNamed
+  ) return false;
+  // if (!isString(node) || node.type !== 'word') return false;
+  const parent = findParent(node, (n) => isCommand(n) || isFunctionDefinition(n));
+  if (!parent) return false;
+  if (isFunctionDefinition(parent)) {
+    return isMatchingOptionValue(node, Option.create('-w', '--wraps').withValue());
+  }
+  const commandName = parent.firstNamedChild?.text;
+  if (!commandName) return false;
+  switch (commandName) {
+    case 'complete':
+      return isMatchingOptionValue(node, Option.create('-w', '--wraps').withValue())
+        || isMatchingOptionValue(node, Option.create('-c', '--command').withValue())
+        || isMatchingOptionValue(node, Option.create('-a', '--arguments').withValue())
+        || isMatchingOptionValue(node, Option.create('-n', '--condition').withValue());
+    case 'alias':
+    case 'bind':
+      return true;
+    case 'abbr':
+      return isMatchingOptionValue(node, Option.create('-f', '--function').withValue())
+        || isMatchingOptionValue(node, Option.create('-c', '--command').withValue());
+    case 'argparse':
+      return isMatchingOptionValue(node, Option.create('-n', '--name').withValue());
+    default:
+      return false;
+  }
+}
+
+export function isStringWithCommandCall(node: SyntaxNode) {
+  if (!isString(node)) return false;
+
+  // currently there is only TWO different types parent nodes, that we consider some
+  //of their string children to contain references to command/function calls
+  const parent = findParent(node, (n) => isFunctionDefinition(n) || isCommand(n));
+  if (!parent) return false;
+
+  // when a function definition contains the `--wraps`/`-w` option,
+  if (isFunctionDefinition(parent)) {
+    return isMatchingOptionOrOptionValue(node, Option.create('-w', '--wraps').withValue());
+  }
+
+  // when a command is `complete`, `alias`, or `bind` command, we check for the options that are allowed
+  if (isCommand(parent)) {
+    const parentCommandName = parent.firstChild?.text;
+    if (!parentCommandName) return false;
+    switch (parentCommandName) {
+      case 'complete':
+        return isMatchingOptionOrOptionValue(node, Option.create('-w', '--wraps').withValue())
+          || isMatchingOptionOrOptionValue(node, Option.create('-c', '--command').withValue())
+          || isMatchingOptionOrOptionValue(node, Option.create('-a', '--arguments').withValue())
+          || isMatchingOptionOrOptionValue(node, Option.create('-n', '--condition').withValue());
+      // note: both of these cases are considered matches since any node string argument
+      //       passed in must be an argument after the "definition" node
+      case 'alias':
+      case 'bind':
+        return true;
+      case 'abbr':
+        return isMatchingOptionOrOptionValue(node, Option.create('-f', '--function').withValue());
+    }
+  }
+  return false;
 }
 
 export function isReturnStatusNumber(node: SyntaxNode) {

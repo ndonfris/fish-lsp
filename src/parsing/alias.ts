@@ -6,6 +6,7 @@ import { getRange } from '../utils/tree-sitter';
 import { isCommandWithName, isConcatenation, isString, isTopLevelDefinition } from '../utils/node-types';
 import { isBuiltin } from '../utils/builtins';
 import { md } from '../utils/markdown-builder';
+import { flattenNested } from '../utils/flatten';
 
 export type FishAliasInfoType = {
   name: string;
@@ -193,6 +194,7 @@ export namespace FishAlias {
 
     return FishSymbol.fromObject({
       name,
+      document,
       uri: document.uri,
       node: parent,
       focusedNode: child,
@@ -253,6 +255,30 @@ export function isAliasDefinitionName(node: SyntaxNode) {
   return !!aliasName && aliasName.equals(node);
 }
 
+export function isAliasDefinitionValue(node: SyntaxNode) {
+  if (!node.parent) return false;
+  // concatenated node is an alias with `=`
+  const isConcatenated = isConcatenation(node.parent);
+  // if the parent is a concatenation node, then move up to it's parent
+  let parentNode = node.parent;
+  // if that is the case, then we need to move up 1 more parent
+  if (isConcatenated) parentNode = parentNode.parent as SyntaxNode;
+  if (!parentNode || !isCommandWithName(parentNode, 'alias')) return false;
+  // since there is two possible cases, handle concatenated and non-concatenated differently
+  const firstChild = isConcatenated
+    ? parentNode.firstNamedChild?.nextNamedSibling
+    : parentNode.firstChild;
+  // skip `alias` named node, since it's not the alias name
+  if (firstChild && firstChild.equals(node)) return false;
+  const args = flattenNested(...parentNode.childrenForFieldName('argument'))
+    .filter(a => a.isNamed);
+
+  // first element is args is the alias name
+  // logger.debug('alias args', args.map(a => a.text));
+  const aliasValue = args.at(-1);
+  return !!aliasValue && aliasValue.equals(node);
+}
+
 export function processAliasCommand(document: LspDocument, node: SyntaxNode, children: FishSymbol[] = []) {
   const modifier = getAliasScopeModifier(document, node);
   const definitionNode = node.firstNamedChild!;
@@ -268,6 +294,7 @@ export function processAliasCommand(document: LspDocument, node: SyntaxNode, chi
       range: getRange(node),
       selectionRange: nameRange || getRange(definitionNode),
       fishKind: 'ALIAS',
+      document,
       uri: document.uri,
       detail,
       scope: DefinitionScope.create(node.parent!, modifier),

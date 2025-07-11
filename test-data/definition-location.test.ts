@@ -10,7 +10,7 @@ import { getRange } from '../src/utils/tree-sitter';
 import { isMatchingOption, Option } from '../src/parsing/options';
 import { isCompletionCommandDefinition, isCompletionDefinitionWithName, isCompletionSymbol } from '../src/parsing/complete';
 import { isCommandWithName, isOption } from '../src/utils/node-types';
-import { getGlobalArgparseLocations, isArgparseVariableDefinitionName } from '../src/parsing/argparse';
+import { isArgparseVariableDefinitionName } from '../src/parsing/argparse';
 import { getReferences } from '../src/references';
 
 let parser: Parser;
@@ -157,7 +157,6 @@ describe('find definition locations of symbols', () => {
       expect(completionDoc).toBeDefined();
       const functionSymbols = analyzer.getFlatDocumentSymbols(functionDoc.uri);
       expect(functionSymbols).toHaveLength(13);
-      const completionSymbols = analyzer.getFlatCompletionSymbols(completionDoc.uri);
       // expect(completionSymbols).toHaveLength(6);
       const searchNode = analyzer.getNodes(completionDoc.uri).find(n => isCompletionSymbol(n) && n.text === 'help');
       const result = analyzer.getDefinitionLocation(completionDoc, getRange(searchNode!).start);
@@ -272,7 +271,7 @@ describe('find definition locations of symbols', () => {
       },
       );
       if (nodeAtPoint && isOption(nodeAtPoint)) {
-        const result = getReferences(analyzer, confdDoc, getRange(nodeAtPoint).start);
+        const result = getReferences(confdDoc, getRange(nodeAtPoint).start);
         result.forEach(loc => {
           console.log('location', {
             uri: loc.uri,

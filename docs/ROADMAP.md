@@ -16,6 +16,34 @@ __Sections:__
 
 ## Current Prioritized Changes
 
+- [ ] Add code actions to replace absolute paths w/ variable that points to the
+      previous location
+    - [ ] inefficient path diagnostics
+    - [ ] checking if a symbol is a path (could be `isString()`, `isConcatenation()`, `...`). 
+          Currently considering a simple check for `/` in the `node.text`, to
+          solve this
+- [ ] Add `src/parsing/emit.ts` file for emitting a `FishSymbol` to call
+      a `Function`. This would disable diagnostics causing false positives for 
+      users who like to use a lot of event handlers in their fish config
+- [ ] Add virtual document support for `go-to-definition` of a manpage
+- [ ] Server Command to display `fish_config` in a browser
+- [x] Add binary releases for common platforms
+  - [x] `fish-lsp` binary for `macOS`
+  - [x] `fish-lsp` binary for `Linux`
+  - [ ] `fish-lsp` binary for `Windows`
+- [x] Improve filtering of tokens between renaming and referencing (tricky issue because
+      the [lsif.dev](https://lsif.dev) specification does not support renaming
+      symbols that don't have exact matching names 
+        - [x] `argparse h/help` vs `$_flag_{h,help}` vs `set -lq _flag_help` vs
+               `complete -s h -l help` vs `cmd --help`/`cmd -h`
+        - [x] `set -gx fish_lsp_*` vs `$_fish_lsp_{var_name}`
+        - [x] `alias foo='bar'` vs `foo` vs `function foo --wraps=bar;...end;`
+        - [x] `function baz --wraps=foo` vs `foo` vs `function foo; end;`
+        - [x] `complete -n 'foo' ...` vs `function foo; end;`
+        - [x] `bind ... foo` vs `bind ... 'foo'` vs `function foo; end;`
+        - [x] `abbr ... --function foo` vs `function foo; end;` vs `abbr ... foo`
+- [x] update `src/references.ts` w/ a `getReferences()` function that supports
+      passing general behavior changes
 - [x] Add `$__fish_**` auto-loaded environment variables to the server's startup
       configuration. An example auto-loaded variable would be `$__fish_config_dir`
 - [x] Improve parsing of specific DocumentSymbols (now `FishSymbol`) by using

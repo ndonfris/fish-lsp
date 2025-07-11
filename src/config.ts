@@ -642,10 +642,8 @@ export namespace Config {
           firstTriggerCharacter: '.',
           moreTriggerCharacter: [';', '}', ']', ')'],
         } : undefined,
+        // Add this for workspace folder support:
         workspace: {
-          // fileOperations: {
-          //   didRename: FileListenerFilter,
-          // },
           workspaceFolders: {
             supported: true,
             changeNotifications: true,

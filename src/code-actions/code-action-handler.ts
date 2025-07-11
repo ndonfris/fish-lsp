@@ -8,7 +8,7 @@ import { Analyzer } from '../analyze';
 import { getNodeAtRange } from '../utils/tree-sitter';
 import { convertIfToCombiners, extractCommandToFunction, extractFunctionToFile, extractFunctionWithArgparseToCompletionsFile, extractToFunction, extractToVariable } from './refactors';
 import { createArgparseCompletionsCodeAction } from './argparse-completions';
-import { isCommandWithName, isIfStatement, isProgram } from '../utils/node-types';
+import { isCommandWithName, isProgram } from '../utils/node-types';
 import { createAliasInlineAction, createAliasSaveActionNewFile } from './alias-wrapper';
 
 export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) {
@@ -30,10 +30,10 @@ export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) 
           const argparseAction = createArgparseCompletionsCodeAction(n, document);
           if (argparseAction) results.push(argparseAction);
         }
-        if (isIfStatement(n)) {
-          const convertIfAction = convertIfToCombiners(document, n, false);
-          if (convertIfAction) results.push(convertIfAction);
-        }
+        // if (isIfStatement(n)) {
+        //   const convertIfAction = convertIfToCombiners(document, n, false);
+        //   if (convertIfAction) results.push(convertIfAction);
+        // }
       });
     }
 
@@ -185,7 +185,8 @@ export function equalDiagnostics(d1: Diagnostic, d2: Diagnostic) {
     d1.range.start.line === d2.range.start.line &&
     d1.range.start.character === d2.range.start.character &&
     d1.range.end.line === d2.range.end.line &&
-    d1.range.end.character === d2.range.end.character;
+    d1.range.end.character === d2.range.end.character &&
+    d1.data.node?.text === d2.data.node?.text;
 }
 
 export function createOnCodeActionResolveHandler(_docs: LspDocuments, _analyzer: Analyzer) {

@@ -14,7 +14,7 @@ export function getReferenceCountCodeLenses(analyzer: Analyzer, document: LspDoc
   // Create a code lens for each global symbol
   for (const symbol of globalSymbols) {
     // Get reference count
-    const references = getReferences(analyzer, document, symbol.selectionRange.start) || [];
+    const references = getReferences(document, symbol.selectionRange.start) || [];
     const referencesCount = references.length;
     codeLenses.push({
       range: symbol.range,

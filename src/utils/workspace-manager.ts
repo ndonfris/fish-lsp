@@ -163,6 +163,14 @@ export class WorkspaceManager {
     return this.allAnalysisDocuments().length > 25;
   }
 
+  public findDocumentInAnyWorkspace(uri: DocumentUri): LspDocument | null {
+    for (const workspace of this.all) {
+      const doc = workspace.findDocument(d => d.uri === uri);
+      if (doc) return doc;
+    }
+    return null;
+  }
+
   /**
    * Check if the workspace manager already has a workspace that contains the given URI.
    */

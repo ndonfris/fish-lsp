@@ -8,19 +8,19 @@ import { logger } from './logger';
 import { isArgparseVariableDefinitionName } from './parsing/argparse';
 import { CompletionSymbol, isCompletionCommandDefinition, isCompletionSymbol, processCompletion } from './parsing/complete';
 import { getExpandedSourcedFilenameNode, isSourceCommandArgumentName, isSourceCommandWithArgument } from './parsing/source';
-import { FishSymbol, processNestedTree } from './parsing/symbol';
-import { implementationLocation } from './references';
+import { filterFirstPerScopeSymbol, FishSymbol, processNestedTree } from './parsing/symbol';
+import { getImplementation } from './references';
 import { execCommandLocations } from './utils/exec';
 import { SyncFileHelper } from './utils/file-operations';
 import { flattenNested, iterateNested } from './utils/flatten';
-import { findParentFunction, isAliasDefinitionName, isCommand, isCommandName, isOption, isTopLevelDefinition } from './utils/node-types';
+import { findParentCommand, findParentFunction, isAliasDefinitionName, isCommand, isCommandName, isOption, isTopLevelDefinition, isExportVariableDefinitionName } from './utils/node-types';
 import { pathToUri, symbolKindToString, uriToPath } from './utils/translation';
-import { containsRange, getChildNodes, getRange, isPositionAfter, isPositionWithinRange, precedesRange } from './utils/tree-sitter';
+import { containsRange, getChildNodes, getNamedChildNodes, getRange, isPositionAfter, isPositionWithinRange, namedNodesGen, nodesGen, precedesRange } from './utils/tree-sitter';
 import { Workspace } from './utils/workspace';
 import { workspaceManager } from './utils/workspace-manager';
 import { getDiagnostics } from './diagnostics/validate';
-import { isExportVariableDefinitionName } from './parsing/barrel';
 import { initializeParser } from './parser';
+import { connection } from './utils/startup';
 
 /**
  * AnalyzedDocument items are created in three public methods of the Analyzer class:
@@ -175,6 +175,8 @@ export class Analyzer {
    */
   public globalSymbols: GlobalDefinitionCache = new GlobalDefinitionCache();
 
+  public started = false;
+
   constructor(protected parser: Parser) { }
 
   /**
@@ -190,6 +192,7 @@ export class Analyzer {
   static async initialize(): Promise<Analyzer> {
     const parser = await initializeParser();
     analyzer = new Analyzer(parser);
+    analyzer.started = true;
     return analyzer;
   }
 
@@ -362,6 +365,14 @@ export class Analyzer {
   }
 
   /**
+   * Return the first FishSymbol seen that matches is defined at the location passed in
+   */
+  public getSymbolAtLocation(location: Location): FishSymbol | undefined {
+    const symbols = this.cache.getFlatDocumentSymbols(location.uri);
+    return symbols.find((symbol) => symbol.equalsLocation(location));
+  }
+
+  /**
    * Return the first FishSymbol seen that could be defined by the given position.
    */
   public findDocumentSymbol(
@@ -472,6 +483,51 @@ export class Analyzer {
   }
 
   /**
+   * A generator function that yields all the documents in the workspace.
+   */
+  public * findDocumentsGen(): Generator<LspDocument> {
+    const currentWs = workspaceManager.current;
+    const uris = this.cache.uris().filter(uri => currentWs ? currentWs?.contains(uri) : true);
+    for (const uri of uris) {
+      const document = this.cache.getDocument(uri)?.document;
+      if (document) {
+        yield document;
+      }
+    }
+  }
+
+  /**
+   * A generator function that yields all the symbols in the workspace, per document
+   * The symbols yielded are flattened FishSymbols (NOT nested).
+   */
+  public * findSymbolsGen(): Generator<{ document: LspDocument; symbols: FishSymbol[]; }> {
+    const currentWs = workspaceManager.current;
+    const uris = this.cache.uris().filter(uri => currentWs ? currentWs?.contains(uri) : true);
+    for (const uri of uris) {
+      const symbols = this.cache.getFlatDocumentSymbols(uri);
+      const document = this.cache.getDocument(uri)?.document;
+      if (!document || !symbols) continue;
+      yield { document, symbols };
+    }
+  }
+
+  /**
+   * A generator function that yields all the nodes in the workspace, per document.
+   * The nodes yielded are using the `this.getNodes()` method, which returns the cached
+   * nodes for the document.
+   */
+  public * findNodesGen(): Generator<{ document: LspDocument; nodes: Generator<SyntaxNode>; }> {
+    const currentWs = workspaceManager.current;
+    const uris = this.cache.uris().filter(uri => currentWs ? currentWs?.contains(uri) : true);
+    for (const uri of uris) {
+      const root = this.cache.getRootNode(uri);
+      const document = this.cache.getDocument(uri)?.document;
+      if (!root || !document) continue;
+      yield { document, nodes: this.nodesGen(document.uri).nodes };
+    }
+  }
+
+  /**
    * Collect all the global symbols in the workspace, and the document symbols usable
    * at the requests position. DocumentSymbols that are not in the position's scope are
    * excluded from the result array of FishSymbols.
@@ -542,28 +598,43 @@ export class Analyzer {
   private getDefinitionHelper(document: LspDocument, position: Position): FishSymbol[] {
     const symbols: FishSymbol[] = [];
     const localSymbols = this.getFlatDocumentSymbols(document.uri);
-    const toFind = this.wordAtPoint(document.uri, position.line, position.character);
-    const nodeToFind = this.nodeAtPoint(document.uri, position.line, position.character);
-    if (!toFind || !nodeToFind) return [];
+    const word = this.wordAtPoint(document.uri, position.line, position.character);
+    const node = this.nodeAtPoint(document.uri, position.line, position.character);
+    if (!word || !node) return [];
+    logger.info({
+      getDefinitionHelper: 'Searching for definition...',
+      searching: `toFind: {node: ${node.text}, word: ${word}}, at requested position`,
+      word,
+      node: {
+        position: {
+          line: position.line,
+          character: position.character,
+        },
+        text: node.text,
+        type: node.type,
+      },
+      uri: document.uri,
+      localSymbols: localSymbols.length,
+    });
 
     const localSymbol = localSymbols.find((s) => {
-      return s.name === toFind && containsRange(s.selectionRange, getRange(nodeToFind));
+      return s.name === word && containsRange(s.selectionRange, getRange(node));
     });
     if (localSymbol) {
       symbols.push(localSymbol);
     } else {
       const toAdd: FishSymbol[] = localSymbols.filter((s) => {
-        const variableBefore = s.kind === SymbolKind.Variable ? precedesRange(s.selectionRange, getRange(nodeToFind)) : true;
+        const variableBefore = s.kind === SymbolKind.Variable ? precedesRange(s.selectionRange, getRange(node)) : true;
         return (
-          s.name === toFind
-          && containsRange(getRange(s.scope.scopeNode), getRange(nodeToFind))
+          s.name === word
+          && containsRange(getRange(s.scope.scopeNode), getRange(node))
           && variableBefore
         );
       });
       symbols.push(...toAdd);
     }
     if (!symbols.length) {
-      symbols.push(...this.globalSymbols.find(toFind));
+      symbols.push(...this.globalSymbols.find(word));
     }
     return symbols;
   }
@@ -576,7 +647,6 @@ export class Analyzer {
     const symbols: FishSymbol[] = this.getDefinitionHelper(document, position);
     const word = this.wordAtPoint(document.uri, position.line, position.character);
     const node = this.nodeAtPoint(document.uri, position.line, position.character);
-    const startTime = performance.now();
     if (node && isExportVariableDefinitionName(node)) {
       return symbols.find(s => s.name === word) || symbols.pop()!;
     }
@@ -584,28 +654,19 @@ export class Analyzer {
       return symbols.find(s => s.name === word) || symbols.pop()!;
     }
     if (node && isArgparseVariableDefinitionName(node)) {
-      return this.getFlatDocumentSymbols(document.uri).findLast(s => s.containsPosition(position)) || symbols.pop()!;
+      const atPos = this.getFlatDocumentSymbols(document.uri).findLast(s =>
+        s.containsPosition(position) && s.fishKind === 'ARGPARSE',
+      ) || symbols.pop()!;
+      return atPos;
     }
     if (node && isCompletionSymbol(node)) {
-      logger.debug({
-        isCompletionSymbol: true,
-      });
       const completionSymbols = this.getFlatCompletionSymbols(document.uri);
       const completionSymbol = completionSymbols.find(s => s.equalsNode(node));
       if (!completionSymbol) {
         return null;
       }
       const symbol = this.findSymbol((s) => completionSymbol.equalsArgparse(s));
-      const endTime = performance.now();
-      const duration = ((endTime - startTime) / 1000).toFixed(2); // Convert to seconds with 2 decimal places
-      logger.debug({
-        isCompletionSymbol: true,
-        duration: `${duration} ms`,
-        symbol: symbol?.name,
-      });
-      if (symbol) {
-        return symbol;
-      }
+      if (symbol) return symbol;
     }
     if (node && isOption(node)) {
       const symbol = this.findSymbol((s) => {
@@ -615,14 +676,6 @@ export class Analyzer {
             node.text.startsWith(s.argparseFlag);
         }
         return false;
-      });
-      const endTIme = performance.now();
-      logger.debug({
-        isOption: true,
-        node: node.text,
-        parent: node?.parent?.text,
-        symbol: symbol?.name || '',
-        duration: `${endTIme - startTime} ms`,
       });
       if (symbol) return symbol;
     }
@@ -638,25 +691,23 @@ export class Analyzer {
 
     // check that the node (or its parent) is a `source` command argument
     if (node && isSourceCommandArgumentName(node)) {
-      logger.log({
-        isSourceCommandArgumentName: node.text,
-        node: true,
-        parent: false,
-      });
       return this.getSourceDefinitionLocation(node);
     }
     if (node && node.parent && isSourceCommandArgumentName(node.parent)) {
-      logger.log({
-        isSourceCommandArgumentName: node.parent.text,
-        node: false,
-        parent: true,
-      });
       return this.getSourceDefinitionLocation(node.parent);
     }
 
     // check if we have a symbol defined at the position
     const symbol = this.getDefinition(document, position) as FishSymbol;
-    if (symbol) return [Location.create(symbol.uri, symbol.selectionRange)];
+    if (symbol) {
+      if (symbol.isEvent()) return [symbol.toLocation()];
+
+      const newSymbol = filterFirstPerScopeSymbol(document.uri)
+        .find((s) => s.equalDefinition(symbol));
+
+      if (newSymbol) return [newSymbol.toLocation()];
+    }
+    if (symbol) return [symbol.toLocation()];
 
     // This is currently the only location where `config.fish_lsp_single_workspace_support` is used.
     // It allows users to go-to-definition on commands that are not in the current workspace.
@@ -669,7 +720,16 @@ export class Analyzer {
           const content = SyncFileHelper.read(path, 'utf8');
           const doc = LspDocument.createTextDocumentItem(uri, content);
           workspaceManager.handleOpenDocument(doc);
+          connection.sendNotification('workspace/didChangeWorkspaceFolders', {
+            event: {
+              added: [path],
+              removed: [],
+            },
+          });
+          workspaceManager.analyzePendingDocuments();
         }
+        // consider just finding the definition symbol since we analyze the document
+        // with the above `workspaceManager.handleOpenDocument(doc)` call
         return locations.map(({ uri }) =>
           Location.create(uri, {
             start: { line: 0, character: 0 },
@@ -687,7 +747,7 @@ export class Analyzer {
   public getImplementation(document: LspDocument, position: Position): Location[] {
     const definition = this.getDefinition(document, position);
     if (!definition) return [];
-    const locations = implementationLocation(this, document, position);
+    const locations = getImplementation(document, position);
     return locations;
   }
 
@@ -821,12 +881,44 @@ export class Analyzer {
   /**
    * Returns a list of all the nodes in the document.
    */
+  public nodesGen(documentUri: string): {
+    nodes: Generator<SyntaxNode>;
+    namedNodes: Generator<SyntaxNode>;
+  } {
+    const document = this.cache.getDocument(documentUri)?.document;
+    if (!document) {
+      return undefined as any; // Return an empty generator if the document is not found
+    }
+    const root = this.getRootNode(documentUri);
+    if (!root) {
+      return undefined as any; // Return an empty generator if the root node is not found
+    }
+    return {
+      nodes: nodesGen(root),
+      namedNodes: namedNodesGen(root),
+    };
+  }
+
+  /**
+   * Returns a list of all the nodes in the document.
+   */
   public getNodes(documentUri: string): SyntaxNode[] {
     const document = this.cache.getDocument(documentUri)?.document;
     if (!document) {
       return [];
     }
     return getChildNodes(this.parser.parse(document.getText()).rootNode);
+  }
+
+  /**
+   * Returns a list of all the NAMED nodes in the document.
+   */
+  public getNamedNodes(documentUri: string): SyntaxNode[] {
+    const document = this.cache.getDocument(documentUri)?.document;
+    if (!document) {
+      return [];
+    }
+    return getNamedChildNodes(this.parser.parse(document.getText()).rootNode);
   }
 
   /**
@@ -1015,6 +1107,17 @@ export class Analyzer {
     if (!firstChild || !isCommandName(firstChild)) return null;
 
     return firstChild.text.trim();
+  }
+
+  public commandAtPoint(
+    uri: string,
+    line: number,
+    column: number,
+  ): SyntaxNode | null {
+    const node = this.nodeAtPoint(uri, line, column) ?? undefined;
+    if (node && isCommand(node)) return node;
+    const parentCommand = findParentCommand(node);
+    return parentCommand;
   }
 
   /**
