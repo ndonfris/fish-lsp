@@ -1,22 +1,13 @@
 import { createFakeLspDocument, fishLocations, FishLocations, setLogger } from './helpers';
-import { LspDocument, LspDocuments, documents } from '../src/document';
-import { initializeParser } from '../src/parser';
+import { LspDocument, documents } from '../src/document';
 import { Analyzer } from '../src/analyze';
-import { WorkspaceManager, workspaceManager } from '../src/utils/workspace-manager';
-import * as Parser from 'web-tree-sitter';
-import { SyntaxNode } from 'web-tree-sitter';
+import { workspaceManager } from '../src/utils/workspace-manager';
 import * as path from 'path';
 import { mkdirSync, rm, writeFileSync } from 'fs';
 import { Workspace } from '../src/utils/workspace';
 import { pathToUri } from '../src/utils/translation';
-import { analyzer } from '../src/analyze';
-import { TextDocumentContentChangeEvent, WorkspaceFolder } from 'vscode-languageserver';
-// let analyzer: Analyzer;
-// let workspaceManager: NewWorkspaceManager;
 let locations: FishLocations;
 describe('new-workspace-manager', () => {
-  // handles LspDocuments open/close and workspaces
-
   setLogger();
 
   const testWorkspace1Path = path.join('/tmp', 'test_workspace_1');
@@ -279,16 +270,6 @@ describe('new-workspace-manager', () => {
       workspaceManager.handleOpenDocument(locations.uris.fish_config.config);
       workspaceManager.handleOpenDocument(locations.uris.fish_data.config);
       workspaceManager.handleCloseDocument(locations.uris.fish_data.config);
-
-      // console.log({
-      //   ws2: {
-      //     uri: ws2.uri,
-      //     uris: ws2.uris,
-      //     focusedDoc: focusedDoc2.uri,
-      //     isFocusedDoc: LspDocument.is(focusedDoc2),
-      //     openedDocs: documents.openDocuments.map((doc) => doc.uri),
-      //   }
-      // });
     });
   });
 });

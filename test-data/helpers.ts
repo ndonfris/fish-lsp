@@ -461,11 +461,11 @@ export function getAllFilesInDir(dir: string): {
 export namespace TestWorkspaces {
 
   export const workspace1Path = path.join(__dirname, 'workspaces', 'workspace_1', 'fish');
-  export const workspace2Path = path.join(__dirname, 'workspaces', 'workspace_2');
+  // export const workspace2Path = path.join(__dirname, 'workspaces', 'workspace_2');
   export const workspace3Path = path.join(__dirname, 'workspaces', 'workspace_3', 'fish');
 
   export const workspace1 = getAllFilesInDir(workspace1Path);
-  export const workspace2 = getAllFilesInDir(workspace2Path);
+  // export const workspace2 = getAllFilesInDir(workspace2Path);
   export const workspace3 = getAllFilesInDir(workspace3Path);
 
   export function truncatedUri(doc: LspDocument, opts: {
