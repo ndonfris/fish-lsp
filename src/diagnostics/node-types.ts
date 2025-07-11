@@ -283,7 +283,7 @@ export function isFunctionWithEventHookCallback(doc: LspDocument, handler: Diagn
       const funcSymbol = allFunctions.find(symbol => symbol.name === node.text);
       if (funcSymbol && funcSymbol.hasEventHook()) {
         const refs = getReferences(doc, funcSymbol.toPosition()).filter(ref =>
-          !funcSymbol.equalLocations(ref) &&
+          !funcSymbol.equalsLocation(ref) &&
           !ref.uri.includes('completions/') &&
           ref.uri !== doc.uri,
         );

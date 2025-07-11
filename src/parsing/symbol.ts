@@ -488,9 +488,9 @@ export class FishSymbol {
   }
 
   /**
-   * Checks if the symbols have the same location.
+   * Checks if the symbol is the location.
    */
-  equalLocations(location: Location): boolean {
+  equalsLocation(location: Location): boolean {
     return symbolEqualsLocation(this, location);
   }
 
@@ -589,13 +589,14 @@ export function filterLastPerScopeSymbol(symbols: FishSymbol[]) {
   return array;
 }
 
-export function findFirstPerScopeSymbol(symbols: FishSymbol[]) {
-  const flatArray: FishSymbol[] = flattenNested(...symbols);
+export function filterFirstPerScopeSymbol(document: LspDocument | DocumentUri): FishSymbol[] {
+  const uri: DocumentUri = LspDocument.is(document) ? document.uri : document;
+  const symbols = analyzer.getFlatDocumentSymbols(uri);
+  const flatArray: FishSymbol[] = Array.from(symbols);
+
   const array: FishSymbol[] = [];
   for (const symbol of symbols) {
-    const firstSymbol = flatArray.find((s: FishSymbol) => {
-      return s.equalDefinition(symbol);
-    });
+    const firstSymbol = flatArray.find((s: FishSymbol) => s.equalDefinition(symbol));
     if (firstSymbol && firstSymbol.equals(symbol)) {
       array.push(symbol);
     }
@@ -603,8 +604,9 @@ export function findFirstPerScopeSymbol(symbols: FishSymbol[]) {
   return array;
 }
 
-export function filterFirstUniqueSymbolperScope(document: LspDocument): FishSymbol[] {
-  const symbols = analyzer.getFlatDocumentSymbols(document.uri);
+export function filterFirstUniqueSymbolperScope(document: LspDocument | DocumentUri): FishSymbol[] {
+  const uri: DocumentUri = LspDocument.is(document) ? document.uri : document;
+  const symbols = analyzer.getFlatDocumentSymbols(uri);
   const result: FishSymbol[] = [];
 
   for (const symbol of symbols) {
@@ -640,27 +642,6 @@ export function findLocalLocations(symbol: FishSymbol, allSymbols: FishSymbol[],
       : Location.create(symbol.uri, getRange(node)),
     ),
   ].filter(Boolean) as Location[];
-}
-
-// export function findMatchingLocations(symbol: FishSymbol, allSymbols: FishSymbol[], document: LspDocument, rootNode: SyntaxNode): Location[] {
-//   const result: SyntaxNode[] = [];
-//   const matchingNodes = allSymbols.filter(s => s.name === symbol.name && !symbol.equalScopes(s))
-//     .map(s => symbol.fishKind === 'ALIAS' ? s.node : s.scopeNode);
-//
-//   for (const node of getChildNodes(rootNode)) {
-//     if (matchingNodes.some(n => containsNode(n, node))) continue;
-//     if (symbol.isEqualLocation(node)) {
-//       result.push(node);
-//     }
-//   }
-//   return result.map(node => symbol.fishKind === 'ARGPARSE'
-//     ? Location.create(document.uri, convertNodeRangeWithPrecedingFlag(node))
-//     : Location.create(document.uri, getRange(node)),
-//   );
-// }
-
-export function removeLocalSymbols(symbol: FishSymbol, symbols: FlatFishSymbolTree) {
-  return symbols.filter(s => s.name === symbol.name && !symbol.equalScopes(s) && !s.equals(symbol));
 }
 
 /**

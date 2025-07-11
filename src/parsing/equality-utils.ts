@@ -123,6 +123,12 @@ export const symbolContainsPosition = (symbol: FishSymbol, position: Position): 
 
 // Check if two symbols have identical scope nodes
 const haveSameScopeNode: ScopeCheck = ({ a, b }) => {
+  if (a.scopeTag === 'inherit' || b.scopeTag === 'inherit') {
+    return a.scopeContainsNode(b.node) || b.scopeContainsNode(a.node);
+  }
+  if (a.isLocal() && b.isLocal() && a.kind === b.kind && a.isVariable() && b.isVariable()) {
+    return a.scopeContainsNode(b.node) || b.scopeContainsNode(a.node);
+  }
   return a.scope.scopeNode.equals(b.scope.scopeNode);
 };
 
@@ -152,6 +158,10 @@ const checkVariableScopeContainment: ScopeCheck = ({ a, b }) => {
   // Both global variables
   if (a.isGlobal() && b.isGlobal()) return true;
 
+  // if one of the tags is global and the other is local, they cannot contain each other
+  if (a.isGlobal() && b.isLocal() || a.isLocal() && b.isGlobal()) {
+    return false;
+  }
   const isSameScope = haveSameScopeNode({ a, b });
   const scopeContains = nodeContainsNode(a.scope.scopeNode, b.scope.scopeNode);
 

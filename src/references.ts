@@ -3,7 +3,7 @@ import { analyzer } from './analyze';
 import { LspDocument } from './document';
 import { findParentCommand, findParentFunction, isCommandName, isCommandWithName, isMatchingOption, isOption, isProgram, isString } from './utils/node-types';
 import { containsNode, getChildNodes, getRange } from './utils/tree-sitter';
-import { findFirstPerScopeSymbol, FishSymbol } from './parsing/symbol';
+import { filterFirstPerScopeSymbol, FishSymbol } from './parsing/symbol';
 import { isMatchingOptionOrOptionValue, Option } from './parsing/options';
 import { logger } from './logger';
 import { getGlobalArgparseLocations } from './parsing/argparse';
@@ -81,19 +81,6 @@ export function getReferences(
     return [];
   }
 
-  logger.debug('onReferences', {
-    symbol: {
-      name: definitionSymbol.name,
-      kind: definitionSymbol.kind,
-      uri: definitionSymbol.uri,
-    },
-    uri: uriToReadablePath(document.uri),
-    position: {
-      line: position.line,
-      character: position.character,
-    },
-  });
-
   // include the definition symbol itself
   if (!opts.excludeDefinition) results.push(definitionSymbol.toLocation());
 
@@ -156,14 +143,30 @@ export function getReferences(
       continue;
     }
 
-    const filteredSymbols = doc.uri === definitionSymbol.uri ? []
-      : findFirstPerScopeSymbol(analyzer.getFlatDocumentSymbols(doc.uri))
+    const getFilteredSymbols = () => {
+      if (definitionSymbol.isVariable() && !definitionSymbol.isArgparse()) {
+        // if the symbol is a variable, we only want to find references in the current document
+        return analyzer.getFlatDocumentSymbols(doc.uri)
+          .filter(
+            s => s.isLocal()
+            && !s.equals(definitionSymbol)
+            && !definitionSymbol.equalScopes(s)
+            // && !s.parent?.equals(definitionSymbol?.parent || definitionSymbol)
+            && s.name === definitionSymbol.name
+            && s.kind === definitionSymbol.kind,
+          );
+      }
+      if (doc.uri === definitionSymbol.uri) return [];
+      return analyzer.getFlatDocumentSymbols(doc.uri)
         .filter(s =>
           s.isLocal()
           && s.name === definitionSymbol.name
           && s.kind === definitionSymbol.kind
           && !s.equals(definitionSymbol),
         );
+    };
+
+    const filteredSymbols = getFilteredSymbols();
 
     const root = analyzer.getRootNode(doc.uri);
     if (!root) {
@@ -212,7 +215,6 @@ export function getReferences(
   if (reporting) reporter?.done();
 
   const sorter = locationSorter(definitionSymbol);
-  // return results.sort((a, b) => sorter(a, b));
   return results.sort(sorter);
 }
 
@@ -220,9 +222,9 @@ export function getReferences(
  * Returns all unused local references in the current document.
  */
 export function allUnusedLocalReferences(document: LspDocument): FishSymbol[] {
-  const allSymbols = analyzer.getFlatDocumentSymbols(document.uri);
+  // const allSymbols = analyzer.getFlatDocumentSymbols(document.uri);
 
-  const symbols = findFirstPerScopeSymbol(allSymbols).filter(s =>
+  const symbols = filterFirstPerScopeSymbol(document).filter(s =>
     s.isLocal()
     && s.name !== 'argv'
     && !s.isEventHook(),

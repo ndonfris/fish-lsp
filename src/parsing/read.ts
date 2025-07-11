@@ -1,6 +1,6 @@
 import { SyntaxNode } from 'web-tree-sitter';
 import { Option, isMatchingOption, findMatchingOptions } from './options';
-import { isOption, isCommandWithName, isString, isTopLevelDefinition, findParent, isProgram, isFunctionDefinition } from '../utils/node-types';
+import { isOption, isCommandWithName, isString, isTopLevelDefinition, findParent, isProgram, isFunctionDefinition, hasParentFunction } from '../utils/node-types';
 import { FishSymbol, SetModifierToScopeTag } from './symbol';
 import { LspDocument } from '../document';
 import { DefinitionScope } from '../utils/definition-scope';
@@ -56,10 +56,14 @@ function getFallbackModifierScope(document: LspDocument, node: SyntaxNode) {
   switch (autoloadType) {
     case 'conf.d':
     case 'config':
-      return isTopLevelDefinition(node) ? 'global' : 'local';
     case 'functions':
-    default:
+      return isTopLevelDefinition(node) ? 'global' : hasParentFunction(node) ? 'function' : 'inherit';
+    case 'completions':
+      return isTopLevelDefinition(node) ? 'local' : hasParentFunction(node) ? 'function' : 'local';
+    case '':
       return 'local';
+    default:
+      return 'inherit';
   }
 }
 

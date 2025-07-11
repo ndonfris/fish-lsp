@@ -4,7 +4,7 @@ import { workspaceManager } from '../src/utils/workspace-manager';
 import { printClientTree, printLocations, setLogger, TestLspDocument } from './helpers';
 import { getChildNodes, getRange, pointToPosition } from '../src/utils/tree-sitter';
 import { isCompletionCommandDefinition } from '../src/parsing/complete';
-import { isArgumentThatCanContainCommandCalls, isCommand, isCommandName, isCommandWithName, isDefinitionName, isEndStdinCharacter, isOption, isString, isVariable, isVariableDefinitionName } from '../src/utils/node-types';
+import { isArgumentThatCanContainCommandCalls, isCommand, isCommandWithName, isDefinitionName, isEndStdinCharacter, isOption, isString, isVariable, isVariableDefinitionName } from '../src/utils/node-types';
 import { getArgparseDefinitionName, isCompletionArgparseFlagWithCommandName } from '../src/parsing/argparse';
 import { getRenames } from '../src/renames';
 import { allUnusedLocalReferences, getReferences, getImplementation } from '../src/references';
@@ -14,12 +14,10 @@ import { LspDocument } from '../src/document';
 import * as path from 'path';
 import { Workspace } from '../src/utils/workspace';
 import { pathToUri } from '../src/utils/translation';
-import { findFirstPerScopeSymbol } from '../src/parsing/symbol';
+import { filterFirstPerScopeSymbol } from '../src/parsing/symbol';
 import { isMatchingOptionValue } from '../src/parsing/options';
 import { Option } from '../src/parsing/options';
 import { extractCommands, extractMatchingCommandLocations } from '../src/parsing/nested-strings';
-import * as Locations from '../src/utils/locations';
-// import { buildDefinitionDocumentSymbolArray } from '../src/parsing/symbol';
 
 // let currentWorkspace: CurrentWorkspace = new CurrentWorkspace();
 let documents: LspDocument[] = [];
@@ -242,6 +240,11 @@ describe('find definition locations of symbols', () => {
         text: [
           'function test',
           '    set -lx foo bar',
+          '    set -ql foo',
+          '    if test -n "$foo"',
+          '        set foo bar2',
+          '        echo $foo',
+          '    end',
           'end',
         ],
       },
@@ -277,7 +280,7 @@ describe('find definition locations of symbols', () => {
       globalTestDoc = documents.find(doc => doc.uri.endsWith('conf.d/global_test.fish'))!;
     });
 
-    it('foo local', () => {
+    it('foo local in conf.d/_foo.fish `2 refs for \'foo\'`', () => {
       expect(documents).toHaveLength(5);
       expect(functionDoc).toBeDefined();
       const found = analyzer.findNode((n, document) => {
@@ -289,6 +292,27 @@ describe('find definition locations of symbols', () => {
         showLineText: true,
       });
       expect(result).toHaveLength(2);
+    });
+
+    it('foo local in functions/test.fish `5 refs for \'foo\'`', () => {
+      const node = analyzer.getNodes(functionDoc.uri).find((n) => n.text === 'foo' && isVariableDefinitionName(n))!;
+      expect(node).toBeDefined();
+      const result = getReferences(functionDoc, getRange(node).start);
+      printLocations(result, {
+        showText: true,
+        showLineText: true,
+        showIndex: true,
+        rangeVerbose: true,
+      });
+      for (const loc of result) {
+        console.log({
+          uri: LspDocument.testUri(loc.uri),
+          text: analyzer.getTextAtLocation(loc),
+          node: analyzer.nodeAtPoint(loc.uri, loc.range.start.line, loc.range.start.character)?.text,
+          symbol: analyzer.getFlatDocumentSymbols(loc.uri).find(s => s.equalsLocation(loc))?.toString(),
+        });
+      }
+      expect(result).toHaveLength(5);
     });
 
     it('foo global', () => {
@@ -1054,8 +1078,8 @@ describe('find definition locations of symbols', () => {
 
       it('other_event_test.fish', () => {
         const focusedDoc = focusedDoc2;
-        const allSymbols = analyzer.getDocumentSymbols(focusedDoc.uri);
-        const symbols = findFirstPerScopeSymbol(allSymbols);
+        // const allSymbols = analyzer.getDocumentSymbols(focusedDoc.uri);
+        const symbols = filterFirstPerScopeSymbol(focusedDoc);
         printClientTree({ log: true }, ...symbols);
         const unusedRefs = allUnusedLocalReferences(focusedDoc);
         console.log('unused references', unusedRefs.length);
@@ -1069,8 +1093,8 @@ describe('find definition locations of symbols', () => {
 
       it('event_without_emit.fish', () => {
         const focusedDoc = focusedDoc3;
-        const allSymbols = analyzer.getDocumentSymbols(focusedDoc.uri);
-        const symbols = findFirstPerScopeSymbol(allSymbols);
+        // const allSymbols = analyzer.getDocumentSymbols(focusedDoc.uri);
+        const symbols = filterFirstPerScopeSymbol(focusedDoc);
         printClientTree({ log: true }, ...symbols);
         const unusedRefs = allUnusedLocalReferences(focusedDoc);
         console.log('unused references', unusedRefs.length);
@@ -1131,6 +1155,115 @@ describe('find definition locations of symbols', () => {
         const impls = getImplementation(focusedDoc, focusedSymbol.toPosition());
         expect(impls).toHaveLength(1);
       });
+    });
+  });
+
+  describe('variable references edge cases', () => {
+    setupWorkspace('test_v_ref_edge_cases_workspace',
+      {
+        path: 'functions/local_test_var.fish',
+        text: [
+          'set -g test_var # definition',
+          'set other_test_var',
+          'function local_test_var',
+          '     set -l test_var local_1',
+          '     echo $test_var    # skip',
+          '     set -l other_test_var',
+          '     echo $other_test_var',
+          '     echo $global_test_var',
+          '     if test -n "$test_var"  # skip',
+          '         set -a test_var local_2',
+          '     end',
+          '     private_function',
+          'end',
+          'echo $test_var # outer 1',
+          'function private_function',
+          '     set test_var     # skip',
+          '     set -l other_test_var',
+          '     echo $test_var   # skip',
+          '     echo $other_test_var',
+          '     echo $global_test_var',
+          '     set test_var     # skip',
+          'end',
+          'echo $test_var # outer 2',
+          'function no_skip; echo $test_var; end # used in function',
+          'function skip -a test_var; echo $test_var; end; # 3',
+          'set test_var # global inherit 4',
+        ],
+      },
+      {
+        path: 'conf.d/global_test_var.fish',
+        text: [
+          'set -gx global_test_var',
+          'echo $global_test_var',
+          'echo $test_var        # global ref 5',
+        ],
+      }
+      ,
+    ).setup();
+
+    it('test global variable w/o local references', () => {
+      const doc = documents.find(d => d.uri.endsWith('functions/local_test_var.fish'))!;
+      expect(doc).toBeDefined();
+      const focusedSymbol = analyzer.getFlatDocumentSymbols(doc.uri).find(s => s.name === 'test_var')!;
+
+      const refs = getReferences(doc, focusedSymbol.toPosition());
+      console.log({
+        date: new Date().toISOString(),
+        refs: refs.length,
+      });
+      printLocations(refs, {
+        showText: true,
+        showLineText: true,
+        showIndex: true,
+      });
+      expect(refs).toHaveLength(6);
+    });
+
+    it('test global variable w/ local references', () => {
+      const doc = documents.find(d => d.uri.endsWith('functions/local_test_var.fish'))!;
+      expect(doc).toBeDefined();
+      const focusedSymbol = analyzer.getFlatDocumentSymbols(doc.uri).find(s => s.name === 'test_var' && s.parent?.name === 'local_test_var')!;
+      console.log('focusedSymbol', focusedSymbol.toString());
+      const def = analyzer.getDefinition(doc, focusedSymbol.toPosition());
+      console.log('definition', def?.toString());
+
+      const refs = getReferences(doc, focusedSymbol.toPosition());
+      // console.log({
+      //   date: new Date().toISOString(),
+      //   refs: refs.length,
+      // });
+      const matchSymbols = refs.map(loc => analyzer.getSymbolAtLocation(loc));
+      console.log('matchSymbols', matchSymbols.map(s => s?.toString()));
+      printLocations(refs, {
+        showText: true,
+        showLineText: true,
+        showIndex: true,
+      });
+      expect(refs).toHaveLength(4);
+    });
+
+    it('test variable w/ local references && {localOnly: true}', () => {
+      const doc = documents.find(d => d.uri.endsWith('functions/local_test_var.fish'))!;
+      expect(doc).toBeDefined();
+      const focusedSymbol = analyzer.getFlatDocumentSymbols(doc.uri).find(s => s.name === 'test_var' && s.parent?.name === 'local_test_var')!;
+      console.log('focusedSymbol', focusedSymbol.toString());
+      const def = analyzer.getDefinition(doc, focusedSymbol.toPosition());
+      console.log('definition', def?.toString());
+
+      const refs = getReferences(doc, focusedSymbol.toPosition(), { localOnly: true });
+      // console.log({
+      //   date: new Date().toISOString(),
+      //   refs: refs.length,
+      // });
+      const matchSymbols = refs.map(loc => analyzer.getSymbolAtLocation(loc));
+      console.log('matchSymbols', matchSymbols.map(s => s?.toString()));
+      printLocations(refs, {
+        showText: true,
+        showLineText: true,
+        showIndex: true,
+      });
+      expect(refs).toHaveLength(4);
     });
   });
 });

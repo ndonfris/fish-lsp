@@ -77,7 +77,7 @@ function findMissingArgparseFlagsWithExistingCompletions(
   for (const symbol of argparseSymbols) {
     // get the locations where the completion symbol is implemented
     const completionLocations = analyzer.getImplementation(document, symbol.toPosition())
-      .filter(loc => !symbol.equalLocations(loc));
+      .filter(loc => !symbol.equalsLocation(loc));
 
     if (completionLocations.length === 0) continue;
 
