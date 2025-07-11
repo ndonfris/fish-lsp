@@ -24,7 +24,7 @@ export async function performHealthCheck() {
   // check if fish-lsp binary is in path
   try {
     const fishLspPath = (await execAsyncFish('command -v fish-lsp')).stdout.toString().trim();
-    if (!fishLspPath) {
+    if (fishLspPath) {
       logger.logToStdout(`✓ fish-lsp binary found: ${fishLspPath}`);
     } else {
       logger.logToStdout('✗ fish-lsp binary not found in path');
@@ -54,10 +54,10 @@ export async function performHealthCheck() {
     process.exit(1);
   }
 
-  if (isNodeVersionGreaterThan18()) {
-    logger.logToStdout(`✓ node version satisfies minimum version 18 (current version: ${process.versions.node})`);
+  if (isNodeVersionGreaterThan22()) {
+    logger.logToStdout(`✓ node version satisfies minimum version 22 (current version: ${process.versions.node})`);
   } else {
-    logger.logToStdout(`✓ node version doesn't satisfy minimum version 18 (current version: ${process.versions.node})`);
+    logger.logToStdout(`✓ node version doesn't satisfy minimum version 22 (current version: ${process.versions.node})`);
   }
 
   // Check file permissions
@@ -159,8 +159,8 @@ async function logFishLspConfig() {
   }
 }
 
-function isNodeVersionGreaterThan18() {
+function isNodeVersionGreaterThan22() {
   const currentVersion = process.versions.node;
   const majorVersion = parseInt(currentVersion.split('.')[0]!, 10);
-  return majorVersion >= 18;
+  return majorVersion >= 22;
 }
