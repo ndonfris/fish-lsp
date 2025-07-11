@@ -143,30 +143,30 @@ export function getReferences(
       continue;
     }
 
-    const getFilteredSymbols = () => {
-      if (definitionSymbol.isVariable() && !definitionSymbol.isArgparse()) {
-        // if the symbol is a variable, we only want to find references in the current document
-        return analyzer.getFlatDocumentSymbols(doc.uri)
-          .filter(
-            s => s.isLocal()
-            && !s.equals(definitionSymbol)
-            && !definitionSymbol.equalScopes(s)
-            // && !s.parent?.equals(definitionSymbol?.parent || definitionSymbol)
-            && s.name === definitionSymbol.name
-            && s.kind === definitionSymbol.kind,
-          );
-      }
-      if (doc.uri === definitionSymbol.uri) return [];
-      return analyzer.getFlatDocumentSymbols(doc.uri)
-        .filter(s =>
-          s.isLocal()
-          && s.name === definitionSymbol.name
-          && s.kind === definitionSymbol.kind
-          && !s.equals(definitionSymbol),
-        );
-    };
+    // const getFilteredSymbols = () => {
+    //   if (definitionSymbol.isVariable() && !definitionSymbol.isArgparse()) {
+    //     // if the symbol is a variable, we only want to find references in the current document
+    //     return analyzer.getFlatDocumentSymbols(doc.uri)
+    //       .filter(
+    //         s => s.isLocal()
+    //         && !s.equals(definitionSymbol)
+    //         && !definitionSymbol.equalScopes(s)
+    //         // && !s.parent?.equals(definitionSymbol?.parent || definitionSymbol)
+    //         && s.name === definitionSymbol.name
+    //         && s.kind === definitionSymbol.kind,
+    //       );
+    //   }
+    //   if (doc.uri === definitionSymbol.uri) return [];
+    //   return analyzer.getFlatDocumentSymbols(doc.uri)
+    //     .filter(s =>
+    //       s.isLocal()
+    //       && s.name === definitionSymbol.name
+    //       && s.kind === definitionSymbol.kind
+    //       && !s.equals(definitionSymbol),
+    //     );
+    // };
 
-    const filteredSymbols = getFilteredSymbols();
+    const filteredSymbols = getFilteredLocalSymbols(definitionSymbol, doc);
 
     const root = analyzer.getRootNode(doc.uri);
     if (!root) {
@@ -236,12 +236,14 @@ export function allUnusedLocalReferences(document: LspDocument): FishSymbol[] {
   const unusedSymbols: FishSymbol[] = [];
 
   for (const symbol of symbols) {
-    const localSymbols = symbol.parent?.children.filter(c =>
-      c.name === symbol.name
-      && !c.equals(symbol)
-      && c.kind === symbol.kind
-      && !symbol.containsScope(c),
-    );
+    // const localSymbols = symbol.parent?.children.filter(c =>
+    //   c.name === symbol.name
+    //   && !c.equals(symbol)
+    //   && c.kind === symbol.kind
+    //   && !symbol.containsScope(c),
+    // );
+    const localSymbols = getFilteredLocalSymbols(symbol, document);
+
     let found = false;
     const root = analyzer.getRootNode(document.uri);
     if (!root) {
@@ -831,4 +833,27 @@ const locationSorter = (defSymbol: FishSymbol) => {
     }
     return a.range.start.character - b.range.start.character;
   };
+};
+
+export const getFilteredLocalSymbols = (definitionSymbol: FishSymbol, doc: LspDocument) => {
+  if (definitionSymbol.isVariable() && !definitionSymbol.isArgparse()) {
+    // if the symbol is a variable, we only want to find references in the current document
+    return analyzer.getFlatDocumentSymbols(doc.uri)
+      .filter(
+        s => s.isLocal()
+          && !s.equals(definitionSymbol)
+          && !definitionSymbol.equalScopes(s)
+          // && !s.parent?.equals(definitionSymbol?.parent || definitionSymbol)
+          && s.name === definitionSymbol.name
+          && s.kind === definitionSymbol.kind,
+      );
+  }
+  if (doc.uri === definitionSymbol.uri) return [];
+  return analyzer.getFlatDocumentSymbols(doc.uri)
+    .filter(s =>
+      s.isLocal()
+        && s.name === definitionSymbol.name
+        && s.kind === definitionSymbol.kind
+        && !s.equals(definitionSymbol),
+    );
 };

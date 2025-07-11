@@ -1197,6 +1197,9 @@ describe('find definition locations of symbols', () => {
           'set -gx global_test_var',
           'echo $global_test_var',
           'echo $test_var        # global ref 5',
+          'set -U universal_v -gx',
+          'set -gx global_fake_universal_v --universal',
+          'set fake_universal_v --universal',
         ],
       }
       ,

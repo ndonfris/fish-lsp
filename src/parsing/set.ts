@@ -76,8 +76,8 @@ export function findSetChildren(node: SyntaxNode) {
   return children.slice(0, firstNonOption + 1);
 }
 
-export function setModifierDetailDescriptor(nodee: SyntaxNode) {
-  const options = findOptions(nodee.childrenForFieldName('argument'), SetModifiers);
+export function setModifierDetailDescriptor(node: SyntaxNode) {
+  const options = findOptions(node.childrenForFieldName('argument'), SetModifiers);
   const exportedOption = options.found.find(o => o.option.equalsRawOption('-x', '--export') || o.option.equalsRawOption('-u', '--unexport'));
   const exportedStr = exportedOption ? exportedOption.option.isOption('-x', '--export') ? 'exported' : 'unexported' : '';
   const modifier = options.found.find(o => o.option.equalsRawOption('-U', '-g', '-f', '-l'));
@@ -113,7 +113,7 @@ export function processSetCommand(document: LspDocument, node: SyntaxNode, child
     || skipText.some(t => definitionNode.text.startsWith(t)) // skip `set $FOO`, `set (FOO)`, `set -`
   ) return [];
 
-  const modifierOption = findOptionsSet(node.childrenForFieldName('argument'), SetModifiers).pop();
+  const modifierOption = findOptionsSet(searchNodes, SetModifiers).pop();
   let modifier = 'local' as ScopeTag;
   if (modifierOption) {
     modifier = SetModifierToScopeTag(modifierOption.option) as ScopeTag;

@@ -1,15 +1,15 @@
 import { Diagnostic, DiagnosticRelatedInformation, Range } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { LspDocument } from '../document';
-import { findEnclosingScope, getChildNodes, getRange } from '../utils/tree-sitter';
-import { containsRange } from '../utils/tree-sitter';
-import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter, isMatchingCompleteOptionIsCommand, LocalFunctionCallType, isArgparseWithoutEndStdin, isFishLspDeprecatedVariableName, getDeprecatedFishLspMessage, isDotSourceCommand, isMatchingAbbrFunction, isFunctionWithEventHookCallback } from './node-types';
+import { getChildNodes, getRange } from '../utils/tree-sitter';
+import { isMatchingOption, Option } from '../parsing/options';
+import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isMatchingCompleteOptionIsCommand, LocalFunctionCallType, isArgparseWithoutEndStdin, isFishLspDeprecatedVariableName, getDeprecatedFishLspMessage, isDotSourceCommand, isMatchingAbbrFunction, isFunctionWithEventHookCallback, isVariableDefinitionWithExpansionCharacter } from './node-types';
 import { ErrorCodes } from './error-codes';
 import { config } from '../config';
 import { DiagnosticCommentsHandler } from './comments-handler';
 import { logger } from '../logger';
 import { isAutoloadedUriLoadsFunctionName, uriToReadablePath } from '../utils/translation';
-import { isCommandName, isCommandWithName, isComment, isCompleteCommandName, isFunctionDefinitionName, isOption, isString, isTopLevelFunctionDefinition } from '../utils/node-types';
+import { findParent, findParentCommand, isCommandName, isCommandWithName, isComment, isCompleteCommandName, isFunctionDefinitionName, isOption, isScope, isString, isTopLevelFunctionDefinition } from '../utils/node-types';
 import { isReservedKeyword } from '../utils/builtins';
 import { getNoExecuteDiagnostics } from './no-execute-diagnostic';
 import { checkForInvalidDiagnosticCodes } from './invalid-error-code';
@@ -101,6 +101,10 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
   const commandNames: SyntaxNode[] = [];
   const completeCommandNames: SyntaxNode[] = [];
 
+  // handles and returns true/false if the node is a variable definition with an expansion character
+  const definedVariables: { [name: string]: SyntaxNode[]; } = {};
+  // const isVariableDefinitionExpansions = handleVariableDefinitionWithExpansionCharacter(definedVariables, handler)
+
   // callback to check if the function has an `--event` handler && the handler is enabled at the node
   const isFunctionWithEventHook = isFunctionWithEventHookCallback(doc, handler, allFunctions);
 
@@ -114,6 +118,22 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
       // notice, this is the only case where we don't check if the user has disabled the error code
       // because `# @fish-lsp-disable` will always be recognized as a disabled error code
       diagnostics.push(...invalidDiagnosticCodes);
+    }
+
+    if (node.type === 'variable_name' || node.text.startsWith('$') || isString(node)) {
+      const parent = findParentCommand(node);
+      if (parent && isCommandWithName(parent, 'set', 'test')) {
+        const opt = isCommandWithName(parent, 'test') ? Option.short('-n') : Option.create('-q', '--query');
+        let text = isString(node) ? node.text.slice(1, -1) : node.text;
+        if (text.startsWith('$')) text = text.slice(1);
+        if (text && text.length !== 0) {
+          const scope = findParent(node, n => isScope(n));
+          if (scope && parent.children.some(c => isMatchingOption(c, opt))) {
+            definedVariables[text] = definedVariables[text] || [];
+            definedVariables[text]?.push(scope);
+          }
+        }
+      }
     }
 
     if (node.isError) {
@@ -183,7 +203,8 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
       diagnostics.push(FishDiagnostic.create(ErrorCodes.argparseMissingEndStdin, node));
     }
 
-    if (isVariableDefinitionWithExpansionCharacter(node) && handler.isCodeEnabled(ErrorCodes.dereferencedDefinition)) {
+    // store the defined variable expansions and then use them in the next check
+    if (isVariableDefinitionWithExpansionCharacter(node, definedVariables) && handler.isCodeEnabled(ErrorCodes.dereferencedDefinition)) {
       diagnostics.push(FishDiagnostic.create(ErrorCodes.dereferencedDefinition, node));
     }
 
@@ -341,25 +362,25 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
     }
   });
 
-  const unusedLocalFunction = localFunctions.filter(localFunction => {
-    const callableRange = getRange(findEnclosingScope(localFunction)!);
-    return !localFunctionCalls.find(call => {
-      const callRange = getRange(findEnclosingScope(call.node)!);
-      return containsRange(callRange, callableRange) &&
-        call.text.split(/[&<>;|! ]/)
-          .filter(cmd => !['or', 'and', 'not'].includes(cmd))
-          .some(t => t === localFunction.text);
-    });
-  });
+  // const unusedLocalFunction = localFunctions.filter(localFunction => {
+  //   const callableRange = getRange(findEnclosingScope(localFunction)!);
+  //   return !localFunctionCalls.find(call => {
+  //     const callRange = getRange(findEnclosingScope(call.node)!);
+  //     return containsRange(callRange, callableRange) &&
+  //       call.text.split(/[&<>;|! ]/)
+  //         .filter(cmd => !['or', 'and', 'not'].includes(cmd))
+  //         .some(t => t === localFunction.text);
+  //   });
+  // });
 
-  logger.info({
-    isMissingAutoloadedFunction,
-    fish_lsp_diagnostic_disable_error_codes: config.fish_lsp_diagnostic_disable_error_codes,
-    unusedLocalFunction: unusedLocalFunction.map(node => node.text).join(', '),
-    localFunctionCalls: localFunctionCalls.map(call => call.text).join(', '),
-    toplevelFunctions: topLevelFunctions.map(node => node.text).join(', '),
-    commandNames: commandNames.map(node => node.text).join(', '),
-  });
+  // logger.info({
+  //   isMissingAutoloadedFunction,
+  //   fish_lsp_diagnostic_disable_error_codes: config.fish_lsp_diagnostic_disable_error_codes,
+  //   unusedLocalFunction: unusedLocalFunction.map(node => node.text).join(', '),
+  //   localFunctionCalls: localFunctionCalls.map(call => call.text).join(', '),
+  //   toplevelFunctions: topLevelFunctions.map(node => node.text).join(', '),
+  //   commandNames: commandNames.map(node => node.text).join(', '),
+  // });
 
   const docNameMatchesCompleteCommandNames = completeCommandNames.some(node =>
     node.text === doc.getAutoLoadName());

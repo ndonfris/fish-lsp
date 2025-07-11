@@ -1,6 +1,6 @@
 import Parser, { SyntaxNode } from 'web-tree-sitter';
-import { findParentCommand, isCommand, isCommandName, isCommandWithName, isEndStdinCharacter, isFunctionDefinitionName, isIfOrElseIfConditional, isMatchingOption, isOption, isString, isVariableDefinitionName } from '../utils/node-types';
-import { getChildNodes, isNodeWithinOtherNode } from '../utils/tree-sitter';
+import { findParentCommand, isCommandWithName, isEndStdinCharacter, isFunctionDefinitionName, isIfOrElseIfConditional, isMatchingOption, isOption, isScope, isString, isVariableDefinitionName } from '../utils/node-types';
+import { findFirstParent, getChildNodes, getRange, isNodeWithinOtherNode, precedesRange } from '../utils/tree-sitter';
 import { Option } from '../parsing/options';
 import { isExistingSourceFilenameNode, isSourceCommandArgumentName } from '../parsing/source';
 import { LspDocument } from '../document';
@@ -8,6 +8,9 @@ import { DiagnosticCommentsHandler } from './comments-handler';
 import { FishSymbol } from '../parsing/symbol';
 import { ErrorCodes } from './error-codes';
 import { getReferences } from '../references';
+import { isSetVariableDefinitionName } from '../parsing/set';
+import { logger } from '../logger';
+import { isReadVariableDefinitionName } from '../parsing/read';
 
 type startTokenType = 'function' | 'while' | 'if' | 'for' | 'begin' | '[' | '{' | '(' | "'" | '"';
 type endTokenType = 'end' | "'" | '"' | ']' | '}' | ')';
@@ -80,6 +83,11 @@ export function isUniversalDefinition(node: SyntaxNode): boolean {
   if (!parent) return false;
 
   if (isCommandWithName(parent, 'read') || isCommandWithName(parent, 'set')) {
+    // skip flags that are after the variable name `set non_universal_var -U` should not be considered universal
+    const definitionName = parent.children.find(c => isVariableDefinitionName(c));
+    if (!definitionName || !precedesRange(getRange(node), getRange(definitionName))) {
+      return false;
+    }
     return isMatchingOption(node, Option.create('-U', '--universal'));
   }
   return false;
@@ -231,13 +239,92 @@ export function isConditionalWithoutQuietCommand(node: SyntaxNode) {
   return flags.length === 0;
 }
 
-export function isVariableDefinitionWithExpansionCharacter(node: SyntaxNode) {
-  if (node.parent && isCommandWithName(node.parent, 'set', 'read')) {
-    const definition = getChildNodes(node.parent).filter(n => !isCommand(n) && !isCommandName(n) && !isOption(n)).shift();
-    return (node.type === 'variable_expansion' || node.text.startsWith('$')) && definition?.equals(node);
+export function isVariableDefinitionWithExpansionCharacter(node: SyntaxNode, definedVariableExpansions: { [name: string]: SyntaxNode[]; } = {}): boolean {
+  if (!isVariableDefinitionName(node)) return false;
+  const parent = findParentCommand(node);
+  if (parent && isCommandWithName(parent, 'set', 'read')) {
+    if (!isVariableDefinitionName(node)) return false;
+    const name = node.text.startsWith('$') ? node.text.slice(1) : node.text;
+    if (!name || name.length === 0) return false;
+
+    if (definedVariableExpansions[name] && definedVariableExpansions[name]?.some(scope => isNodeWithinOtherNode(node, scope))) {
+      return false;
+    }
+    return node.type === 'variable_expansion' || node.text.startsWith('$');
   }
 
   return false;
+}
+
+export function handleVariableDefinitionWithExpansionCharacter(
+  definedVariableExpansions: { [name: string]: SyntaxNode[]; },
+  handler: DiagnosticCommentsHandler,
+) {
+  /**
+   * Stores defined variables that are being expanded via `set -q $var`
+   * in the `definedVariableExpansions` object with key value pairs being:
+   * `{ '$var': SyntaxNode[] }` where the values are the scope nodes of the variable expansions
+   * @param node - the current node to check (should be a variable expansion)
+   * @param definedVariableExpansions - an object to store the defined variable expansions
+   * Usage: called
+   */
+  function handleDefinedVariableExpansion(
+    node: SyntaxNode,
+  ): void {
+    // if node is not a variable expansion, return
+    // if (!isSetVariableDefinitionName(node, false)) return;
+    // if (!isExpansionVariableDefinitionSilenced(node)) return
+
+    // if the node is not a variable definition with expansion character, return
+    const scope = findFirstParent(node, n => isScope(n));
+    if (!scope) return;
+
+    // make sure the variable name is not empty
+    let name = isString(node) ? node.text.slice(1, 1) : node.text;
+    name = name.startsWith('$') ? name.slice(1) : name;
+    if (!name || name.length === 0) return;
+
+    // Store the variable name in the definedVariableExpansions object
+    (definedVariableExpansions[name] ??= []).push(scope);
+    logger.debug(`handleDefinedVariableExpansion: defined variable expansion for ${name} in scope ${scope.text}`);
+  }
+
+  function isExpansionVariableDefinitionSilenced(node: SyntaxNode) {
+    const possibleTestMatches = (n: SyntaxNode) => {
+      return n.type === 'variable_expansion' || isString(n);
+    };
+    const parent = findParentCommand(node);
+    if (!parent || !isCommandWithName(parent, 'set', 'test', '[')) return false;
+    if (isCommandWithName(parent, 'test', '[')) {
+      const opt = parent.children.find(n => isOption(n));
+      if (opt && isMatchingOption(opt, Option.short('-n')) && possibleTestMatches(node)) {
+        logger.debug('isExpansionVariableDefinitionSilenced: found test with -n option');
+        logger.debug(Object.entries(definedVariableExpansions));
+        return true;
+      }
+    }
+    if (!isSetVariableDefinitionName(node, false) || !isReadVariableDefinitionName(node)) return false;
+
+    const hasSilence = parent.children.filter(n => precedesRange(getRange(n), getRange(node)))
+      .some(n => isOption(n) && isMatchingOption(n, Option.create('-q', '--query')));
+    // Return the parent scope if the set command is silenced
+    return hasSilence;
+  }
+
+  // callback function to handle variable definitions with expansion character
+  return (node: SyntaxNode) => {
+    if (!isString(node) || !isVariableDefinitionName(node)) return false;
+    const parent = findParentCommand(node);
+    if (!parent) return false;
+    if (!isCommandWithName(parent, 'set', 'read', 'test', '[')) return false;
+    if (isExpansionVariableDefinitionSilenced(node)) {
+      handleDefinedVariableExpansion(node);
+      logger.debug('ENTRIES');
+      logger.debug(Object.entries(definedVariableExpansions).map(([k, v]) => `${k}: ${v.map(s => s.text).join(', ')}`));
+    }
+    if (!handler.isCodeEnabled(ErrorCodes.missingQuietOption)) return false;
+    return isVariableDefinitionWithExpansionCharacter(node, definedVariableExpansions);
+  };
 }
 
 export type LocalFunctionCallType = {
