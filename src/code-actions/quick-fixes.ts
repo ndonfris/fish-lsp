@@ -416,38 +416,6 @@ function handleReservedKeyword(diagnostic: Diagnostic, node: SyntaxNode, documen
   };
 }
 
-// function handleUnusedFunction(diagnostic: Diagnostic, node: SyntaxNode, document: LspDocument): CodeAction {
-//   // Find the entire function definition to remove
-//   let scopeNode = node;
-//   while (scopeNode && !isFunctionDefinition(scopeNode)) {
-//     scopeNode = scopeNode.parent!;
-//   }
-//
-//   const changeAnnotation = ChangeAnnotation.create(
-//     `Removed unused function ${node.text}`,
-//     true,
-//     `Removed unused function '${node.text}', in file '${document.getFilePath()}'  (line: ${node.startPosition.row + 1} - ${node.endPosition.row + 1})`,
-//   );
-//
-//   const workspaceEdit: WorkspaceEdit = {
-//     changes: {
-//       [document.uri]: [
-//         TextEdit.del(getRange(scopeNode)),
-//       ],
-//     },
-//     changeAnnotations: {
-//       [changeAnnotation.label]: changeAnnotation,
-//     },
-//   };
-//
-//   return {
-//     title: `Remove unused function ${node.text} (line: ${node.startPosition.row + 1})`,
-//     kind: SupportedCodeActionKinds.QuickFix,
-//     diagnostics: [diagnostic],
-//     edit: workspaceEdit,
-//   };
-// }
-
 const getNodeType = (node: SyntaxNode) => {
   if (isFunctionDefinitionName(node)) {
     return 'function';

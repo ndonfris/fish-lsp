@@ -677,11 +677,6 @@ export function isArgumentThatCanContainCommandCalls(node: SyntaxNode) {
   ) return false;
   // if (!isString(node) || node.type !== 'word') return false;
   const parent = findParent(node, (n) => isCommand(n) || isFunctionDefinition(n));
-  // logger.log({
-  //   p: parent?.text,
-  //   pType: parent?.type,
-  //   node: node.text,
-  // })
   if (!parent) return false;
   if (isFunctionDefinition(parent)) {
     return isMatchingOptionValue(node, Option.create('-w', '--wraps').withValue());

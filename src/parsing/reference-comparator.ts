@@ -160,23 +160,6 @@ const checkFunctionReference: ReferenceCheck = ({ symbol, node }) => {
     return node.text === symbol.name;
   }
 
-  // if (isDefinitionName((node))) return false;
-
-  // if (node.parent && isCommandWithName(node.parent, 'functions', 'emit', 'trap', 'command', 'bind', 'abbr')) {
-  //   if (node.parent.firstNamedChild?.equals(node)) return false;
-  //   if (isOption(node)) return false;
-  //   if (isString(node)) return extractCommands(node).some(cmd => cmd === symbol.name);
-  //   const firstIndex = isCommandWithName(node.parent, 'bind', 'abbr') ? 2 : 1;
-  //   const endStdinIndex = isCommandWithName(node.parent, 'abbr')
-  //     ? -1
-  //     : node.parent.children.findIndex(c => isEndStdinCharacter(c));
-  //   const children = node.parent.children.slice(firstIndex, endStdinIndex).filter(c => !isOption(c) && !isEndStdinCharacter(c));
-  //   const found = children.find(c => c.text === symbol.name);
-  //   if (found) {
-  //     return found.equals(node);
-  //   }
-  // }
-
   // Type/functions commands
   if (parentNode && isCommandWithName(parentNode, 'type', 'functions')) {
     const firstChild = parentNode.namedChildren.find(n => !isOption(n));

@@ -362,26 +362,6 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
     }
   });
 
-  // const unusedLocalFunction = localFunctions.filter(localFunction => {
-  //   const callableRange = getRange(findEnclosingScope(localFunction)!);
-  //   return !localFunctionCalls.find(call => {
-  //     const callRange = getRange(findEnclosingScope(call.node)!);
-  //     return containsRange(callRange, callableRange) &&
-  //       call.text.split(/[&<>;|! ]/)
-  //         .filter(cmd => !['or', 'and', 'not'].includes(cmd))
-  //         .some(t => t === localFunction.text);
-  //   });
-  // });
-
-  // logger.info({
-  //   isMissingAutoloadedFunction,
-  //   fish_lsp_diagnostic_disable_error_codes: config.fish_lsp_diagnostic_disable_error_codes,
-  //   unusedLocalFunction: unusedLocalFunction.map(node => node.text).join(', '),
-  //   localFunctionCalls: localFunctionCalls.map(call => call.text).join(', '),
-  //   toplevelFunctions: topLevelFunctions.map(node => node.text).join(', '),
-  //   commandNames: commandNames.map(node => node.text).join(', '),
-  // });
-
   const docNameMatchesCompleteCommandNames = completeCommandNames.some(node =>
     node.text === doc.getAutoLoadName());
   // if no `complete -c func_name` matches the autoload name

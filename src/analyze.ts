@@ -838,28 +838,6 @@ export class Analyzer {
     return this.getDocument(uri);
   }
 
-  // getDocumentSymbols(documentUri: string): DocumentSymbol[] {
-  //   const doc = this.cache.getDocument(documentUri)?.document;
-  //   if (!doc) {
-  //     logger.warning(`analyzer.getDocumentSymbols: Document not found for uri ${documentUri}`);
-  //     return [];
-  //   }
-  //   this.analyze(doc);
-  //   const fishSymbols = this.getFlatFishSymbols(documentUri);
-  //   const completionSymbols = this.getFlatCompletionSymbols(documentUri);
-  //   const allSymbols = [...fishSymbols, ...completionSymbols];
-  //   const symbols: DocumentSymbol[] = [];
-  //   for (const symbol of allSymbols) {
-  //     const docSymbol = symbol.toDocumentSymbol();
-  //     if (docSymbol) {
-  //       symbols.push(docSymbol);
-  //     }
-  //   }
-  //
-  //
-  //   return symbols;
-  // }
-
   /**
    * Returns the FishSymbol[] array in the cache for the given documentUri.
    * The result is a nested array (tree) of FishSymbol[] items
