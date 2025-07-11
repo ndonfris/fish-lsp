@@ -142,7 +142,6 @@ Theoretically, the language-server should generally be compatible with almost an
       vim.lsp.start({
         name = 'fish-lsp',
         cmd = { 'fish-lsp', 'start' },
-        cmd_env = { fish_lsp_show_client_popups = false },
       })
     end,
   })
