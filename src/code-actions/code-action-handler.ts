@@ -123,12 +123,13 @@ export function createCodeActionHandler(docs: LspDocuments, analyzer: Analyzer) 
     const uri = uriToPath(params.textDocument.uri);
     const document = docs.get(uri);
     if (!document || !uri) return [];
-    logger.log('onCodeAction', { uri });
 
     const results: CodeAction[] = [];
 
     // only process diagnostics from the fish-lsp source
-    const diagnostics = params.context.diagnostics.filter(d => d.source === 'fish-lsp');
+    const diagnostics = params.context.diagnostics
+      .filter(d => !!d?.severity)
+      .filter(d => d.source === 'fish-lsp');
 
     // Check what kinds of actions are requested
     const onlyRefactoring = params.context.only?.some(kind => kind.startsWith('refactor'));

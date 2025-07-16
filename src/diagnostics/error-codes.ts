@@ -246,6 +246,10 @@ export namespace ErrorCodes {
     }
   }
 
+  export function codeTypeGuard(code: CodeTypes | number | string | undefined): code is CodeTypes {
+    return typeof code === 'number' && code >= 1000 && code < 10000 && allErrorCodes.includes(code as CodeTypes);
+  }
+
   export function getDiagnostic(code: CodeTypes | number): CodeValueType {
     if (typeof code === 'number') return codes[code as CodeTypes];
     return codes[code];
