@@ -285,11 +285,11 @@ export const isSymbolReference = (
   if (!isInValidScope(ctx)) return false;
 
   // Validate function name matching
-  if (!matchesFunctionName(ctx)) return false;
+  if (symbol.isFunction() && !matchesFunctionName(ctx)) return false;
 
   // Check complete command references
   const parentNode = node.parent ? findParentCommand(node) : null;
-  if (parentNode && isCommandWithName(parentNode, 'complete')) {
+  if (parentNode && isCommandWithName(parentNode, 'complete') && !isVariable(node)) {
     return checkCompleteCommandReference(ctx);
   }
 
