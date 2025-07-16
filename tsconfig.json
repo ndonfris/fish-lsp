@@ -1,6 +1,8 @@
 {
   "extends": "@tsconfig/node22/tsconfig.json",
   "compilerOptions": {
+    //"target": "ES2022",
+    "lib": ["ESNext"],
     "incremental": true,
     "esModuleInterop": true,
     "importHelpers": false, // causes tslib dependency which might not be available on node

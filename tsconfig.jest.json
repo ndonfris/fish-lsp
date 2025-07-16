@@ -1,7 +1,6 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "target": "ES2023",
     "downlevelIteration": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true
