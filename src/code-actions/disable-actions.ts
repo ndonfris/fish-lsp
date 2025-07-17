@@ -130,8 +130,10 @@ export function handleDisableEntireFile(
   const results: CodeAction[] = [];
   const diagnosticsCounts = new Map<keyof typeof ErrorCodes.allErrorCodes, number>();
   diagnostics.forEach(diagnostic => {
-    const code = diagnostic.code as keyof typeof ErrorCodes.allErrorCodes;
-    diagnosticsCounts.set(code, (diagnosticsCounts.get(code) || 0) + 1);
+    if (ErrorCodes.codeTypeGuard(diagnostic.code)) {
+      const code = ErrorCodes.getDiagnostic(diagnostic.code).code;
+      diagnosticsCounts.set(code, (diagnosticsCounts.get(code) || 0) + 1);
+    }
   });
 
   const matchingDiagnostics: Array<ErrorCodes.CodeTypes> = [];
@@ -193,23 +195,29 @@ export function getDisableDiagnosticActions(
 ): CodeAction[] {
   const actions: CodeAction[] = [];
 
-  // Add single-line disable actions for each diagnostic
-  diagnostics
+  const fixedDiagnostics = diagnostics
+    .filter(diagnostic => !!diagnostic?.severity)
     .filter(diagnostic =>
-      diagnostic.severity === DiagnosticSeverity.Warning
+      diagnostic?.source === 'fish-lsp' && diagnostic?.code !== ErrorCodes.invalidDiagnosticCode,
+    );
+
+  // Add single-line disable actions for each diagnostic
+  fixedDiagnostics
+    .filter(diagnostic =>
+      diagnostic?.severity === DiagnosticSeverity.Warning
       || diagnostic.code === ErrorCodes.sourceFileDoesNotExist,
     ).forEach(diagnostic => {
       actions.push(handleDisableSingleLine(document, diagnostic));
     });
 
   // Add block disable actions for groups
-  const groups = groupDiagnostics(diagnostics);
+  const groups = groupDiagnostics(fixedDiagnostics);
   groups.forEach(group => {
     // Only create block actions for multiple diagnostics
     if (group.diagnostics.length > 1) {
       actions.push(handleDisableBlock(document, group));
     }
   });
-  actions.push(...handleDisableEntireFile(document, diagnostics));
+  actions.push(...handleDisableEntireFile(document, fixedDiagnostics));
   return actions;
 }

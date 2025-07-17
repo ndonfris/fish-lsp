@@ -630,7 +630,7 @@ function* getChildNodesOptimized(symbol: FishSymbol, doc: LspDocument): Generato
     if (!current) continue;
 
     if (
-      skipNodes.some(s =>
+      skipNodes && skipNodes.some(s =>
         containsNode(s, current) || s.equals(current) && !isProgram(current),
       )) {
       continue;
@@ -823,8 +823,8 @@ export const getFilteredLocalSymbols = (definitionSymbol: FishSymbol, doc: LspDo
   return analyzer.getFlatDocumentSymbols(doc.uri)
     .filter(s =>
       s.isLocal()
-        && s.name === definitionSymbol.name
-        && s.kind === definitionSymbol.kind
-        && !s.equals(definitionSymbol),
+      && s.name === definitionSymbol.name
+      && s.kind === definitionSymbol.kind
+      && !s.equals(definitionSymbol),
     );
 };
