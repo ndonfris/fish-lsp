@@ -1,3 +1,13 @@
+## <small>1.0.10-nightly-v6 (2025-07-18)</small>
+
+* fix: missing return in `src/parsing/options.ts` ([1b29f5f](https://github.com/ndonfris/fish-lsp/commit/1b29f5f))
+* fix: nullish `Definitionscope.containsPosition()` check for issue #96 ([d546fbf](https://github.com/ndonfris/fish-lsp/commit/d546fbf)), closes [#96](https://github.com/ndonfris/fish-lsp/issues/96)
+* fix: variable refs #92 && invalid code-actions #91  (#94) ([435e272](https://github.com/ndonfris/fish-lsp/commit/435e272)), closes [#92](https://github.com/ndonfris/fish-lsp/issues/92) [#91](https://github.com/ndonfris/fish-lsp/issues/91) [#94](https://github.com/ndonfris/fish-lsp/issues/94)
+* feat: update `{package,tsconfig}.json` to support `ES2025` features ([3edb5f3](https://github.com/ndonfris/fish-lsp/commit/3edb5f3))
+* docs: updated `docs/ROADMAP.md` ([730eab3](https://github.com/ndonfris/fish-lsp/commit/730eab3))
+
+
+
 ## <small>1.0.10 (2025-07-11)</small>
 
 * fix: added tslib to package.json dev dependency ([45c1ac2](https://github.com/ndonfris/fish-lsp/commit/45c1ac2))
