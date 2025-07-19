@@ -66,6 +66,7 @@ export function isFunctionDefinition(node: SyntaxNode): boolean {
 
 /**
  * checks for all fish types of SyntaxNodes that are commands.
+ * This includes: `command`, `test_command`, and `command_substitution`.
  */
 export function isCommand(node: SyntaxNode): boolean {
   return [
@@ -349,6 +350,22 @@ export function isPipe(node: SyntaxNode): boolean {
   return node.type === 'pipe';
 }
 
+// Makes sure that the node we are assuming is a variable name (for a command that creates a variable definition from its arguments)
+// is not a token that fish uses for other purposes, like `-`, `--`, `\\`, `;`, or `(`
+export function isInvalidVariableName(node: SyntaxNode): boolean {
+  switch (node.text.trim()) {
+    case '':
+    case '-':
+    case '--':
+    case '\\':
+    case ';':
+    case '(':
+      return true; // these are not valid variable names
+    default:
+      return false; // all other names are valid
+  }
+}
+
 export function gatherSiblingsTillEol(node: SyntaxNode): SyntaxNode[] {
   const siblings = [];
   let next = node.nextSibling;
@@ -552,6 +569,20 @@ export function findParent(node: SyntaxNode, callbackfn: (n: SyntaxNode) => bool
     currentNode = currentNode.parent!;
   }
   return null;
+}
+
+/**
+ * Find the parent node that matches the callback function, or return the root node of the tree
+ */
+export function findParentWithFallback(node: SyntaxNode, callbackfn: (n: SyntaxNode) => boolean) {
+  let currentNode: SyntaxNode | null = node;
+  while (currentNode !== null) {
+    if (callbackfn(currentNode)) {
+      return currentNode;
+    }
+    currentNode = currentNode.parent;
+  }
+  return node.tree.rootNode;
 }
 
 export function hasParentFunction(node: SyntaxNode) {

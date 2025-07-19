@@ -98,6 +98,20 @@ export function setModifierDetailDescriptor(node: SyntaxNode) {
   return ['', exportedStr].filter(Boolean).join('; ');
 }
 
+// function findParentScopeNode(commandNode: SyntaxNode, modifier: ModifierScopeTag): SyntaxNode {
+//   switch (modifier) {
+//     case 'universal':
+//     case 'global':
+//     case 'function':
+//       return findParentWithFallback(commandNode, (n) => isFunctionDefinition(n))
+//     case 'inherit':
+//     case 'local':
+//     default:
+//       return findParentWithFallback(commandNode, (n) => isScope(n))
+//   }
+//
+// }
+
 export function processSetCommand(document: LspDocument, node: SyntaxNode, children: FishSymbol[] = []) {
   /** skip `set -q/--query` */
   if (!isSetDefinition(node)) return [];

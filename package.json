@@ -23,6 +23,7 @@
   "engines": {
     "node": ">=22.0.0"
   },
+  "engineStrict": true,
   "directories": {
     "bin": "./bin/fish-lsp",
     "man": "./docs/man/"

@@ -552,7 +552,9 @@ export class FishSymbol {
   }
 }
 
-export const SetModifierToScopeTag = (modifier: Option) => {
+export type ModifierScopeTag = 'universal' | 'global' | 'function' | 'local' | 'inherit';
+
+export const SetModifierToScopeTag = (modifier: Option): ModifierScopeTag => {
   switch (true) {
     case modifier.isOption('-U', '--universal'):
       return 'universal';
