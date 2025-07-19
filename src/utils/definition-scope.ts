@@ -24,7 +24,15 @@ export class DefinitionScope {
     return new DefinitionScope(scopeNode, scopeTag);
   }
 
+  /**
+   * Add checks for issue mentioned at: https://github.com/ndonfris/fish-lsp/issues/96
+   */
   containsPosition(position: Position) {
+    // Global and universal scopes are always considered to contain all positions
+    if (this.tag >= DefinitionScope.ScopeTags.global) return true;
+    // If there is no scope node, we cannot determine containment
+    if (!this.scopeNode) return false;
+    // Check if the position is within the range of the scope node
     return isPositionWithinRange(position, getRange(this.scopeNode));
   }
 

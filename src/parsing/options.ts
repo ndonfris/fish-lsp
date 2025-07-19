@@ -235,7 +235,7 @@ export class Option {
   }
 
   equals(node: SyntaxNode, allowEquals = false): boolean {
-    if (!isOption(node)) false;
+    if (!isOption(node)) return false;
     const text = allowEquals ? node.text.slice(0, node.text.indexOf('=')) : node.text;
     if (isLongOption(node)) return this.matchesLongFlag(text);
     if (isShortOption(node) && this.unixOptions.length >= 1) return this.matchesUnixFlag(text);
