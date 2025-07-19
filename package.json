@@ -2,7 +2,7 @@
   "author": "ndonfris",
   "license": "MIT",
   "name": "fish-lsp",
-  "version": "1.0.10",
+  "version": "1.0.10-nightly-v7",
   "description": "LSP implementation for fish/fish-shell",
   "keywords": [
     "lsp",
