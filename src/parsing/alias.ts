@@ -3,7 +3,7 @@ import { FishSymbol } from './symbol';
 import { DefinitionScope, getScope } from '../utils/definition-scope';
 import { LspDocument } from '../document';
 import { getRange } from '../utils/tree-sitter';
-import { isCommandWithName, isConcatenation, isString, isTopLevelDefinition } from '../utils/node-types';
+import { findParentWithFallback, isCommandWithName, isConcatenation, isFunctionDefinition, isString, isTopLevelDefinition } from '../utils/node-types';
 import { isBuiltin } from '../utils/builtins';
 import { md } from '../utils/markdown-builder';
 import { flattenNested } from '../utils/flatten';
@@ -221,6 +221,11 @@ function getAliasScopeModifier(document: LspDocument, node: SyntaxNode) {
   }
 }
 
+function getScopeNode(node: SyntaxNode) {
+  if (node.parent) return node.parent;
+  return findParentWithFallback(node, isFunctionDefinition);
+}
+
 /**
  * TODO: remove this function from ../utils/node-types.ts `isAliasName`
  * checks if a node is the firstNamedChild of an alias command
@@ -281,6 +286,7 @@ export function isAliasDefinitionValue(node: SyntaxNode) {
 
 export function processAliasCommand(document: LspDocument, node: SyntaxNode, children: FishSymbol[] = []) {
   const modifier = getAliasScopeModifier(document, node);
+  const scopeNode = getScopeNode(node);
   const definitionNode = node.firstNamedChild!;
   const info = FishAlias.getInfo(node);
   const detail = FishAlias.buildDetail(node);
@@ -297,7 +303,7 @@ export function processAliasCommand(document: LspDocument, node: SyntaxNode, chi
       document,
       uri: document.uri,
       detail,
-      scope: DefinitionScope.create(node.parent!, modifier),
+      scope: DefinitionScope.create(scopeNode, modifier),
       children,
     }),
   ];

@@ -2,7 +2,7 @@ import { SyntaxNode } from 'web-tree-sitter';
 import { findOptionsSet, Option, OptionValueMatch } from './options';
 import { FishSymbol } from './symbol';
 import { LspDocument } from '../document';
-import { isEscapeSequence, isNewline } from '../utils/node-types';
+import { findParentWithFallback, isEscapeSequence, isNewline } from '../utils/node-types';
 import { PrebuiltDocumentationMap } from '../utils/snippets';
 import { DefinitionScope } from '../utils/definition-scope';
 import { isAutoloadedUriLoadsFunctionName } from '../utils/translation';
@@ -151,9 +151,11 @@ export function processFunctionDefinition(document: LspDocument, node: SyntaxNod
   const autoloadScope = isAutoloadedUriLoadsFunctionName(document);
 
   const focusedNode = node.firstNamedChild!;
-  const isGlobal = autoloadScope(focusedNode) ? 'global' : 'local';
 
   if (!focusedNode) return [];
+
+  const scopeModifier = autoloadScope(focusedNode) ? 'global' : 'local';
+  const scopeParentNode = findParentWithFallback(node, (n) => !n.equals(node) && isFunctionDefinition(n));
 
   const functionSymbol = FishSymbol.create(
     focusedNode.text,
@@ -163,7 +165,7 @@ export function processFunctionDefinition(document: LspDocument, node: SyntaxNod
     document,
     document.uri,
     node.text,
-    DefinitionScope.create(node.parent!, isGlobal),
+    DefinitionScope.create(scopeParentNode, scopeModifier),
   );
 
   const focused = node.childrenForFieldName('option').filter(n => !isEscapeSequence(n) && !isNewline(n));
@@ -229,7 +231,7 @@ export function processFunctionDefinition(document: LspDocument, node: SyntaxNod
               '  • Emit Handling: https://fishshell.com/docs/current/language.html#event',
 
             ].join(md.newline()),
-            DefinitionScope.create(node, 'global'),
+            DefinitionScope.create(node.tree.rootNode, 'global'),
           ),
         );
         break;

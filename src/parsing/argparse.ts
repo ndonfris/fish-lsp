@@ -1,5 +1,5 @@
 import { SyntaxNode } from 'web-tree-sitter';
-import { isCommandWithName, isEndStdinCharacter, isString, isEscapeSequence, isVariableExpansion } from '../utils/node-types';
+import { isCommandWithName, isEndStdinCharacter, isString, isEscapeSequence, isVariableExpansion, isCommand, isInvalidVariableName, findParentWithFallback, isFunctionDefinition } from '../utils/node-types';
 import { findOptions, isMatchingOption, Option } from './options';
 import { FishSymbol } from './symbol';
 import { LspDocument } from '../document';
@@ -34,6 +34,27 @@ export function findArgparseOptions(node: SyntaxNode) {
   return findOptions(nodes, ArparseOptions);
 }
 
+function isInvalidArgparseName(node: SyntaxNode) {
+  if (isEscapeSequence(node) || isCommand(node) || isInvalidVariableName(node)) return true;
+  if (isVariableExpansion(node) && node.type === 'variable_name') return true;
+  let text = node.text.trim();
+  if (isString(node)) {
+    text = text.slice(1, -1);
+    text = text.slice(0, text.indexOf('=') || -1);
+  }
+  if (text.includes('(')) return true; // skip function calls
+  return false;
+}
+
+/**
+ * Find the names of the `argparse` definitions in a given node.
+ * Example:
+ * argparse -n foo -x g,U --ignore-unknown --stop-nonopt h/help 'n/name=?' 'x/exclusive' -- $argv
+ *                                                       ^^^^^^  ^^^^^^^^^ ^^^^^^^^^^^^^
+ *                                                       Notice that the nodes that are matches can be strings
+ *
+ *
+ */
 export function findArgparseDefinitionNames(node: SyntaxNode): SyntaxNode[] {
   // check if the node is a 'argparse' command
   if (!node || !isCommandWithName(node, 'argparse')) return [];
@@ -43,7 +64,7 @@ export function findArgparseDefinitionNames(node: SyntaxNode): SyntaxNode[] {
   // get the children of the node that are not options and before the endChar (currently skips variables)
   const nodes = node.childrenForFieldName('argument')
     .filter(n => !isEscapeSequence(n) && isBefore(n, endChar))
-    .filter(n => !isVariableExpansion(n) || n.type !== 'variable_name');
+    .filter(n => !isInvalidArgparseName(n));
 
   const { remaining } = findOptions(nodes, ArparseOptions);
   return remaining;
@@ -323,6 +344,7 @@ export function processArgparseCommand(document: LspDocument, node: SyntaxNode, 
   const result: FishSymbol[] = [];
   // get the scope modifier
   const modifier = getArgparseScopeModifier(document, node);
+  const scopeNode = findParentWithFallback(node, (n) => isFunctionDefinition(n));
   // array of nodes that are `argparse` flags
   const focuesedNodes = findArgparseDefinitionNames(node);
   // build the flags, and store them in the result array
@@ -348,7 +370,7 @@ export function processArgparseCommand(document: LspDocument, node: SyntaxNode, 
         detail: n.text,
         range: getRange(n),
         selectionRange: selectedRange,
-        scope: DefinitionScope.create(node.parent!, modifier),
+        scope: DefinitionScope.create(scopeNode, modifier),
         children,
       }).addAliasedNames(...names);
     });

@@ -1,7 +1,7 @@
 import { SyntaxNode } from 'web-tree-sitter';
 import { Option, isMatchingOption, findMatchingOptions } from './options';
-import { isOption, isCommandWithName, isString, isTopLevelDefinition, findParent, isProgram, isFunctionDefinition, hasParentFunction } from '../utils/node-types';
-import { FishSymbol, SetModifierToScopeTag } from './symbol';
+import { isOption, isCommandWithName, isString, isTopLevelDefinition, isProgram, isFunctionDefinition, hasParentFunction, findParentWithFallback, isScope, isInvalidVariableName } from '../utils/node-types';
+import { FishSymbol, ModifierScopeTag, SetModifierToScopeTag } from './symbol';
 import { LspDocument } from '../document';
 import { DefinitionScope } from '../utils/definition-scope';
 
@@ -40,6 +40,15 @@ export const ReadModifiers = [
  *                        ^   ^   ^
  *                        |   |   |
  *                     cursor could be here
+ * invalid variable names include:
+ * read -
+ *      ^
+ *      |
+ *    this would signify to read from stdin, not a variable
+ * read --
+ *      ^^
+ *      ||
+ *    this would signify to stop parsing options
  */
 export function isReadVariableDefinitionName(node: SyntaxNode) {
   if (!node.parent || !isReadDefinition(node.parent)) return false;
@@ -118,6 +127,7 @@ function findReadChildren(node: SyntaxNode): { definitionNodes: SyntaxNode[]; mo
   allFocused.forEach((arg) => {
     if (isOption(arg)) return;
     if (isString(arg)) return;
+    if (isInvalidVariableName(arg)) return;
     definitionNodes.push(arg);
   });
   return {
@@ -127,15 +137,32 @@ function findReadChildren(node: SyntaxNode): { definitionNodes: SyntaxNode[]; mo
 }
 
 /**
+ * NOTE: `set` uses the parent of the command to determine the scope of the variable
+ * At a later date, consider which `scopeNode` should be used for both `set` and `read` commands
+ */
+function findReadParent(node: SyntaxNode, scopeModifier: ModifierScopeTag): SyntaxNode {
+  switch (scopeModifier) {
+    case 'global':
+      return findParentWithFallback(node, (n) => isProgram(n));
+    case 'inherit':
+    case 'function':
+      return findParentWithFallback(node, (n) => isFunctionDefinition(n) || isProgram(n));
+    case 'local':
+    default:
+      return findParentWithFallback(node, (n) => isScope(n));
+  }
+}
+
+/**
  * Get all read command variable names as `FishSymbol[]`
  */
 export function processReadCommand(document: LspDocument, node: SyntaxNode, children: FishSymbol[] = []) {
   const result: FishSymbol[] = [];
   const { definitionNodes, modifier } = findReadChildren(node);
+
   const scopeModifier = modifier ? SetModifierToScopeTag(modifier) : getFallbackModifierScope(document, node);
-  const definitionScope = scopeModifier === 'global'
-    ? DefinitionScope.create(findParent(node, isProgram)!, scopeModifier)
-    : DefinitionScope.create(findParent(node, isFunctionDefinition || isProgram)!, scopeModifier);
+  const definitionParent = findReadParent(node, scopeModifier);
+  const definitionScope = DefinitionScope.create(definitionParent, scopeModifier);
 
   for (const arg of definitionNodes) {
     if (arg.text.startsWith('$')) continue;

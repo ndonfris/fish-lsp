@@ -799,11 +799,15 @@ export class Analyzer {
   }
 
   /**
-   * Finds the rootnode given a LspDocument. If useCache is set to false, it will
-   * use the parser to parse the document passed in, and then return the rootNode.
+   * gets/finds the rootNode given a DocumentUri. if cached it will return the root from the cache,
+   * Otherwise it will analyze the path and return the root node, which might not be possible if the path
+   * is not readable or the file does not exist.
    */
   getRootNode(documentUri: string): SyntaxNode | undefined {
-    return this.cache.getParsedTree(documentUri)?.rootNode;
+    if (this.cache.hasUri(documentUri)) {
+      return this.cache.getRootNode(documentUri)!;
+    }
+    return this.analyzePath(uriToPath(documentUri))?.root;
   }
 
   /**
