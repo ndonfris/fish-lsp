@@ -1,3 +1,12 @@
+## <small>1.0.11-pre.0 (2025-07-19)</small>
+
+* fix: prevent crashes caused by read `FishSymbol` (#98) ([7066ee1](https://github.com/ndonfris/fish-lsp/commit/7066ee1)), closes [#98](https://github.com/ndonfris/fish-lsp/issues/98)
+* fix: variable refs #92 && invalid code-actions #91  (#94) ([435e272](https://github.com/ndonfris/fish-lsp/commit/435e272)), closes [#92](https://github.com/ndonfris/fish-lsp/issues/92) [#91](https://github.com/ndonfris/fish-lsp/issues/91) [#94](https://github.com/ndonfris/fish-lsp/issues/94)
+* feat: support es2025 iterators and minor tweaks to symbol utilities for #96 (#97) ([067c384](https://github.com/ndonfris/fish-lsp/commit/067c384)), closes [#96](https://github.com/ndonfris/fish-lsp/issues/96) [#97](https://github.com/ndonfris/fish-lsp/issues/97) [#96](https://github.com/ndonfris/fish-lsp/issues/96)
+* docs: updated `docs/ROADMAP.md` ([730eab3](https://github.com/ndonfris/fish-lsp/commit/730eab3))
+
+
+
 ## <small>1.0.10 (2025-07-11)</small>
 
 * fix: added tslib to package.json dev dependency ([45c1ac2](https://github.com/ndonfris/fish-lsp/commit/45c1ac2))
