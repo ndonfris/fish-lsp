@@ -1,0 +1,283 @@
+#!/usr/bin/env fish
+
+# fish-lsp Nightly Release Automation Script
+# Automates the process of creating and publishing nightly releases
+
+set relative_filename (status filename)
+set full_path (status filename | path resolve)
+set script_name (path basename -- $relative_filename)
+
+function create_completions 
+    echo "# Generating completions for $script_name"
+    echo "complete --path $full_path -f"
+    echo "complete --path $full_path -s h -l help -d 'Show this help message'"
+    echo "complete --path $full_path -l create-tags-only -d 'Create tags only, do not publish to NPM'"
+    echo "complete --path $full_path -l dry-run -d 'Show what would be done without making changes'"
+    echo "complete --path $full_path -l bump-tag-only -d 'Bump package.json version only, do not create tags or publish'"
+    echo "complete --path $full_path -s c -l complete -d 'Generate completions for this script'"
+    echo "complete --path $full_path -l info -d 'Show script information'"
+end
+
+function print_info
+    echo "`fish-lsp` Nightly Release Automation Script"
+    string repeat '=' --count 80
+    echo "Automates the process of creating and publishing nightly releases"
+    string repeat '=' --count 80
+    echo "full filename: $relative_filename"
+    echo "full path:     $full_path"
+    echo "script name:   $script_name"
+    string repeat '=' --count 80
+end
+
+function print_usage
+    echo "Usage: $script_name [--dry-run | --create-tags-only | --bump-tag-only | --completion] [--help]"
+    echo ""
+    echo "Options:"
+    echo "  -h, --help              Show this help message"
+    echo "      --create-tags-only  Create tags only, do not publish to NPM"
+    echo "      --dry-run           Show what would be done without making changes"
+    echo "      --bump-tag-only     Bump package.json version"
+    echo "  -c, --completion        Generate completions for this script"
+    echo "      --info             Show script information"
+end
+
+function log_info
+    echo "[$script_name] $argv" >&2
+end
+
+function log_error
+    echo "[$script_name] ERROR: $argv" >&2
+end
+
+function exit_with_error
+    log_error $argv[1]
+    exit 1
+end
+
+function cleanup_on_exit
+    # Get the original head if it was stored
+    if set -q original_head
+        log_info "Restoring to original state (commit: $original_head)"
+        git reset --hard $original_head 2>/dev/null
+        
+        # Restore stash if we created one
+        if set -q stash_created
+            # Check if stash exists before trying to pop
+            if git stash list | grep -q "fish-lsp nightly release auto-stash"
+                log_info "Restoring stashed changes..."
+                git stash pop 2>/dev/null
+            end
+        end
+    end
+end
+
+function increment_nightly_version
+    set -l current_version $argv[1]
+    
+    # Extract version parts: 1.0.10-nightly-v6 -> base=1.0.10, num=6
+    if string match -qr '^(.+)-nightly-v(\d+)$' $current_version
+        set -l base_version (string replace -r '^(.+)-nightly-v\d+$' '$1' $current_version)
+        set -l nightly_num (string replace -r '^.+-nightly-v(\d+)$' '$1' $current_version)
+        set -l new_nightly_num (math $nightly_num + 1)
+        echo "$base_version-nightly-v$new_nightly_num"
+    else
+        exit_with_error "Invalid nightly version format: $current_version"
+    end
+end
+
+function main
+
+    argparse --ignore-unknown h/help d/dry-run create-tags-only bump-tag-only c/complete info -- $argv
+    or return 
+    
+    # Parse arguments
+
+    # show help
+    set -ql _flag_info && print_info && print_usage && return 0
+    set -ql _flag_help && print_usage && return 0
+    set -ql _flag_complete && create_completions && return 0
+
+    # Ensure we're in a git repository
+    if not git rev-parse --git-dir >/dev/null 2>&1
+        exit_with_error "Not in a git repository"
+    end
+    
+    # Store the original HEAD commit for safe restoration
+    set -g original_head (git rev-parse HEAD)
+    log_info "Storing original state: $original_head"
+    
+    # Handle uncommitted changes by stashing them
+    if not git diff --quiet; or not git diff --quiet --cached
+        log_info "Found uncommitted changes, stashing them..."
+        git stash push -m "fish-lsp nightly release auto-stash"
+        if test $status -ne 0
+            exit_with_error "Failed to stash uncommitted changes"
+        end
+        set -g stash_created true
+        log_info "Changes stashed successfully"
+    end
+    
+    # Check if we're on the main/master branch (recommended for releases)
+    set -l current_branch (git branch --show-current)
+    if test "$current_branch" != "master"
+        read -P "You're on branch '$current_branch'. Continue anyway? [y/N]: " -n1 branch_confirm
+        or exit_with_error "Aborted by user" 
+        switch $branch_confirm
+            case y Y ''
+                log_info "Continuing on branch '$current_branch'"
+            case n N '*'
+                exit_with_error "Aborted by user"
+        end
+        echo # newline after single char input
+    end
+    
+    log_info "Starting nightly release process..."
+    
+    # Get current nightly version from NPM
+    log_info "Fetching current nightly version from NPM..."
+    set -l current_nightly_version (npm view fish-lsp@nightly version 2>/dev/null)
+    
+    if test -z "$current_nightly_version"
+        exit_with_error "Could not fetch current nightly version from NPM"
+    end
+    
+    log_info "Current nightly version: $current_nightly_version"
+    
+    # Increment the nightly version
+    set -l new_nightly_version (increment_nightly_version $current_nightly_version)
+    log_info "New nightly version: $new_nightly_version"
+    
+    # Create tag name
+    set -l tag_name "v$new_nightly_version"
+    log_info "Tag name: $tag_name"
+    
+    if set -ql _flag_dry_run
+        log_info "DRY RUN: Current state would be preserved"
+        if not git diff --quiet; or not git diff --quiet --cached
+            log_info "DRY RUN: Would stash uncommitted changes"
+        end
+        log_info "DRY RUN: Would update package.json version to: $new_nightly_version"
+        log_info "DRY RUN: Would run yarn prepack"
+        log_info "DRY RUN: Would create commit with message: 'ci: tagging version $tag_name'"
+        log_info "DRY RUN: Would create git tag: $tag_name"
+        log_info "DRY RUN: Would prompt for publishing"
+        log_info "DRY RUN: Would restore to original state"
+        exit 0
+    end
+    
+    # Set up cleanup trap
+    trap cleanup_on_exit EXIT
+    
+    # Update package.json version
+    log_info "Updating package.json version to $new_nightly_version..."
+    npm pkg set version=$new_nightly_version
+    if test $status -ne 0
+        exit_with_error "Failed to update package.json version"
+    end
+
+    set -ql _flag_bump_tag_only && return 0
+    
+    # Run prepack to update docs and build
+    log_info "Running yarn prepack to update documentation and build..."
+    yarn prepack
+    if test $status -ne 0
+        exit_with_error "yarn prepack failed"
+    end
+    
+    # Stage and commit the changes
+    log_info "Staging changes for commit..."
+    git add package.json docs/CHANGELOG.md docs/man/fish-lsp.1
+    
+    if git diff --quiet --cached
+        exit_with_error "No changes to commit. This shouldn't happen."
+    end
+    
+    log_info "Creating commit..."
+    git commit -m "ci: tagging version $tag_name"
+    if test $status -ne 0
+        exit_with_error "Failed to create commit"
+    end
+    
+    # Create git tag
+    log_info "Creating git tag $tag_name..."
+    git tag $tag_name
+    if test $status -ne 0
+        exit_with_error "Failed to create git tag"
+    end
+
+    if set -ql _flag_create_tags_only
+        log_info "Tag created successfully: '$tag_name' exiting as per --create-tags-only option"
+        log_info "To publish run 'git push origin $tag_name' and 'npm publish --tag nightly'"
+        return 0
+    end
+    
+    # Prompt user for publishing
+    echo
+    log_info "Ready to publish version '$new_nightly_version'"
+    echo ''
+    log_info "Publishing will execute the following commands:"
+    log_info "  >_ $(set_color magenta)npm publish --tag nightly$(set_color normal)"
+    log_info "  >_ $(set_color magenta)git push origin $tag_name$(set_color normal)"
+    echo -e "\n$(set_color blue)Confirmation Options:\n  y Y - Publish to NPM with nightly tag\n  q Q - Exit script with cleanup\n  n N - Quit and cleanup script$(set_color normal)"
+    read -P "Publish new nightly version '$tag_name'? [y/N/q]: " -n1 publish_confirm
+    or set publish_confirm 'n'  # Default to 'n' if no input
+
+    echo # newline after single char input
+    
+    switch $publish_confirm
+        case y Y ''
+            log_info "Publishing to NPM with nightly tag..."
+            npm publish --tag nightly
+            if test $status -ne 0
+                log_error "NPM publish failed!"
+                log_info "Cleaning up: deleting git tag $tag_name"
+                git tag -d $tag_name
+                exit_with_error "Publication failed, tag cleaned up"
+            end
+            
+            log_info "Pushing git tag to origin..."
+            git push origin $tag_name
+            if test $status -ne 0
+                log_error "Failed to push git tag to origin"
+                log_info "Package was published but tag push failed"
+                exit 1
+            end
+            
+            log_info "✅ Successfully published $new_nightly_version and pushed tag $tag_name"
+
+        case q Q
+            log_info "Quitting without publishing or removing tags"
+            return 0
+
+        case n N '*'
+            log_info "Publishing cancelled by user"
+            log_info "Cleaning up: deleting git tag $tag_name"
+            git tag -d $tag_name
+            if test $status -ne 0
+                log_error "Failed to delete git tag"
+            else
+                log_info "Tag deleted successfully"
+            end
+    end
+    
+    # Reset to original state (this happens in both cases)
+    log_info "Resetting to original state..."
+    git reset --hard $original_head
+    if test $status -ne 0
+        exit_with_error "Failed to reset to original state"
+    end
+    
+    # Restore stash if we created one
+    if set -q stash_created
+        log_info "Restoring stashed changes..."
+        git stash pop
+        if test $status -ne 0
+            log_error "Failed to restore stashed changes (they're still in the stash)"
+        end
+    end
+    
+    log_info "Nightly release process completed successfully"
+end
+
+# Run main function
+main $argv
