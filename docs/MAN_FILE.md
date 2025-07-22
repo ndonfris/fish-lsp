@@ -64,7 +64,7 @@ show the build info of fish-lsp
   `--capabilities`            show the lsp capabilities  
   `--man-file`                show the man file path  
   `--log-file`                show the log file path  
-  `--more`                    show the build time of the fish-lsp executable  
+  `--extra`                   show all info, including capabilities, paths, and version  
   `--time-startup`            time the startup of the fish-lsp executable  
   `--health-check`            run diagnostics and report health status  
 
