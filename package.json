@@ -2,7 +2,7 @@
   "author": "ndonfris",
   "license": "MIT",
   "name": "fish-lsp",
-  "version": "1.0.10",
+  "version": "1.0.11-pre.3",
   "description": "LSP implementation for fish/fish-shell",
   "keywords": [
     "lsp",
@@ -175,6 +175,7 @@
     "@typescript-eslint/eslint-plugin": "^7.0.1",
     "@typescript-eslint/parser": "^7.4.0",
     "all-contributors-cli": "^6.26.1",
+    "conventional-changelog": "^7.1.1",
     "eslint": "^8.0.1",
     "eslint-config-love": "^44.0.0",
     "eslint-plugin-import": "^2.25.2",
