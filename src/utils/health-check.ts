@@ -6,7 +6,7 @@ import { initializeParser } from '../parser';
 import { execAsyncFish } from './exec';
 import { SyncFileHelper } from './file-operations';
 import { env } from './env-manager';
-import { PackageVersion } from './commander-cli-subcommands';
+import { DepVersion, PkgJson } from './commander-cli-subcommands';
 
 export async function performHealthCheck() {
   logger.logToStdout('fish-lsp health check');
@@ -15,7 +15,7 @@ export async function performHealthCheck() {
   // check info about the fish-lsp binary
   logger.logToStdout('\nchecking `fish-lsp` command:');
   try {
-    const fishLspVersion = PackageVersion;
+    const fishLspVersion = PkgJson.version;
     logger.logToStdout(`✓ fish-lsp version: v${fishLspVersion}`);
   } catch (error) {
     logger.logToStdout('✗ fish-lsp version not found');
@@ -27,10 +27,10 @@ export async function performHealthCheck() {
     if (fishLspPath) {
       logger.logToStdout(`✓ fish-lsp binary found: ${fishLspPath}`);
     } else {
-      logger.logToStdout('✗ fish-lsp binary not found in path');
+      logger.logToStdout('✗ fish-lsp binary not found in PATH');
     }
   } catch (error) {
-    logger.logToStdout('✗ fish-lsp binary not found in path');
+    logger.logToStdout('✗ fish-lsp binary not found in PATH');
     process.exit(1);
   }
 
@@ -54,10 +54,10 @@ export async function performHealthCheck() {
     process.exit(1);
   }
 
-  if (isNodeVersionGreaterThan22()) {
-    logger.logToStdout(`✓ node version satisfies minimum version 22 (current version: ${process.versions.node})`);
+  if (isNodeVersionGreaterThanMinimumRequiredVersion()) {
+    logger.logToStdout(`✓ node version satisfies minimum version '>=${PkgJson.node.raw}' (current version: ${process.versions.node})`);
   } else {
-    logger.logToStdout(`✓ node version doesn't satisfy minimum version 22 (current version: ${process.versions.node})`);
+    logger.logToStdout(`✗ node version doesn't satisfy minimum version '>=${PkgJson.node.raw}' (current version: ${process.versions.node})`);
   }
 
   // Check file permissions
@@ -159,8 +159,13 @@ async function logFishLspConfig() {
   }
 }
 
-function isNodeVersionGreaterThan22() {
+function isNodeVersionGreaterThanMinimumRequiredVersion() {
   const currentVersion = process.versions.node;
-  const majorVersion = parseInt(currentVersion.split('.')[0]!, 10);
-  return majorVersion >= 22;
+  const currentParsed = DepVersion.extract(currentVersion);
+  if (!currentParsed) {
+    logger.logToStdout(`✗ could not parse current node version: ${currentVersion}`);
+    return false;
+  }
+  const minimumVersion = PkgJson.node;
+  return DepVersion.satisfies(currentParsed, minimumVersion);
 }

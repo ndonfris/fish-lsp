@@ -107,7 +107,7 @@ export namespace SubcommandEnv {
     return undefined;
   }
 
-  export function toEnvOutputOptions(args: ArgsType) : HandlerOptionsType {
+  export function toEnvOutputOptions(args: ArgsType): HandlerOptionsType {
     const only = getOnly(args);
     return {
       only,
@@ -198,7 +198,77 @@ export const PathObj: { [K in 'bin' | 'root' | 'repo' | 'manFile' | 'execFile']:
   ['manFile']: resolve(__dirname, '..', '..', 'docs', 'man', 'fish-lsp.1'),
 };
 
+export type VersionTuple = {
+  major: number;
+  minor: number;
+  patch: number;
+  raw: string;
+};
+
+export namespace DepVersion {
+
+  /**
+   * Extracts the major, minor, and patch version numbers from a version string.
+   */
+  export function minimumNodeVersion(): VersionTuple {
+    const versionString = PackageJSON.engines.node?.toString();
+    const version = extract(versionString);
+    if (!version) {
+      return extract('>=18.0.0')!; // Fallback to a default version if extraction fails
+    }
+    return version;
+  }
+
+  export function extract(versionString: string): VersionTuple | null {
+    // Match major.minor.patch, ignoring operators and prerelease/build metadata
+    const match = versionString.match(/^[^\d]*(\d+)\.(\d+)\.(\d+)/);
+
+    if (!match) return null;
+
+    const [, majorStr, minorStr, patchStr] = match;
+
+    return {
+      major: parseInt(majorStr!, 10),
+      minor: parseInt(minorStr!, 10),
+      patch: parseInt(patchStr!, 10),
+      raw: `${majorStr}.${minorStr}.${patchStr}`,
+    };
+  }
+
+  export function compareVersions(a: VersionTuple, b: VersionTuple): number {
+    if (a.major !== b.major) return a.major - b.major;
+    if (a.minor !== b.minor) return a.minor - b.minor;
+    return a.patch - b.patch;
+  }
+
+  /**
+   * Compares two version tuples and returns true if the current version satisfies the required version.
+   * @param current - The current version tuple.
+   * @param required - The required version tuple.
+   * @returns true if current version is greater than or equal to required version, false otherwise.
+   */
+  export function satisfies(current: VersionTuple, required: VersionTuple): boolean {
+    return compareVersions(current, required) >= 0;
+  }
+}
+
 export const PackageLspVersion = PackageJSON.dependencies['vscode-languageserver-protocol']!.toString();
+
+export const PackageNodeRequiredVersion = DepVersion.minimumNodeVersion();
+
+export const PkgJson = {
+  ...PackageJSON,
+  name: PackageJSON.name,
+  version: PackageJSON.version,
+  description: PackageJSON.description,
+  repository: PackageJSON.repository?.url || ' ',
+  homepage: PackageJSON.homepage || ' ',
+  lspVersion: PackageLspVersion,
+  node: PackageNodeRequiredVersion,
+  man: PathObj.manFile,
+  bin: PathObj.bin,
+  execFile: PathObj.execFile,
+};
 
 /**
  * shows last compile bundle time in server cli executable
