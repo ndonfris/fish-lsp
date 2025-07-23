@@ -275,7 +275,7 @@ complete -c fish-lsp -n '__fish_seen_subcommand_from info; and not __fish_contai
 complete -c fish-lsp -n '__fish_seen_subcommand_from info; and not __fish_contains_opt capabilities'  -l capabilities   -d 'show the lsp capabilities implemented' 
 complete -c fish-lsp -n '__fish_seen_subcommand_from info; and not __fish_contains_opt man-file'      -l man-file       -d 'show man file path' 
 complete -c fish-lsp -n '__fish_seen_subcommand_from info; and not __fish_contains_opt log-file'      -l log-file       -d 'show log file path' 
-complete -c fish-lsp -n '__fish_seen_subcommand_from info; and not __fish_contains_opt more'          -l more           -d 'show more info' 
+complete -c fish-lsp -n '__fish_seen_subcommand_from info; and not __fish_contains_opt extra'         -l extra          -d 'show all info, including capabilities, paths, and version' 
 complete -c fish-lsp -n '__fish_seen_subcommand_from info; and not __fish_contains_opt time-startup'  -l time-startup   -d 'show startup timing info'
 complete -c fish-lsp -n '__fish_seen_subcommand_from info; and not __fish_contains_opt check-health'  -l check-health   -d 'show the server health'
 `;

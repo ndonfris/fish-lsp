@@ -158,7 +158,7 @@ commandBin.command('info')
   .option('--man-file', 'show the man file path')
   .option('--logs-file', 'show the logs file path')
   .option('--log-file', 'show the log file path')
-  .option('--more', 'show the build time of the fish-lsp executable')
+  .option('--extra', 'show all info, including capabilities, paths, and version')
   .option('--time-startup', 'time the startup of the fish-lsp executable')
   .option('--health-check', 'run diagnostics and report health status')
   .option('--check-health', 'run diagnostics and report health status')
@@ -213,9 +213,11 @@ commandBin.command('info')
     logger.logToStdout(`Binary File: ${PathObj.bin}`);
     logger.logToStdout(`Man File: ${PathObj.manFile}`);
     logger.logToStdout(`Log File: ${config.fish_lsp_log_file}`);
-    logger.logToStdout('_'.repeat(parseInt(process.env.COLUMNS || '80')));
-    logger.logToStdout('CAPABILITIES:');
-    logger.logToStdout(capabilities);
+    if (args.extra || args.capabilities) {
+      logger.logToStdout('_'.repeat(parseInt(process.env.COLUMNS || '80')));
+      logger.logToStdout('CAPABILITIES:');
+      logger.logToStdout(capabilities);
+    }
     process.exit(0);
   });
 

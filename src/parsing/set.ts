@@ -1,8 +1,8 @@
 import { SyntaxNode } from 'web-tree-sitter';
-import { isOption, isCommandWithName, isTopLevelDefinition, findParentCommand, isConditionalCommand, hasParentFunction } from '../utils/node-types';
+import { isOption, isCommandWithName, isTopLevelDefinition, findParentCommand, isConditionalCommand, hasParentFunction, findParentWithFallback, isFunctionDefinition, isScope } from '../utils/node-types';
 import { Option, findOptions, findOptionsSet, isMatchingOption } from './options';
 import { LspDocument } from '../document';
-import { FishSymbol, SetModifierToScopeTag } from './symbol';
+import { FishSymbol, ModifierScopeTag, SetModifierToScopeTag } from './symbol';
 import { DefinitionScope, ScopeTag } from '../utils/definition-scope';
 
 export const SetOptions = [
@@ -98,19 +98,18 @@ export function setModifierDetailDescriptor(node: SyntaxNode) {
   return ['', exportedStr].filter(Boolean).join('; ');
 }
 
-// function findParentScopeNode(commandNode: SyntaxNode, modifier: ModifierScopeTag): SyntaxNode {
-//   switch (modifier) {
-//     case 'universal':
-//     case 'global':
-//     case 'function':
-//       return findParentWithFallback(commandNode, (n) => isFunctionDefinition(n))
-//     case 'inherit':
-//     case 'local':
-//     default:
-//       return findParentWithFallback(commandNode, (n) => isScope(n))
-//   }
-//
-// }
+function findParentScopeNode(commandNode: SyntaxNode, modifier: ModifierScopeTag): SyntaxNode {
+  switch (modifier) {
+    case 'universal':
+    case 'global':
+    case 'function':
+      return findParentWithFallback(commandNode, (n) => isFunctionDefinition(n));
+    case 'inherit':
+    case 'local':
+    default:
+      return findParentWithFallback(commandNode, (n) => isScope(n));
+  }
+}
 
 export function processSetCommand(document: LspDocument, node: SyntaxNode, children: FishSymbol[] = []) {
   /** skip `set -q/--query` */
@@ -135,6 +134,8 @@ export function processSetCommand(document: LspDocument, node: SyntaxNode, child
     modifier = getFallbackModifierScope(document, node) as ScopeTag;
   }
 
+  const scopeNode = findParentScopeNode(node, modifier);
+
   // fix conditional_command scoping to use the parent command
   // of the conditional_execution statement, so that
   // we can reference the variable in the parent scope
@@ -156,7 +157,7 @@ export function processSetCommand(document: LspDocument, node: SyntaxNode, child
       document,
       document.uri,
       node.text.toString(),
-      DefinitionScope.create(parentNode, modifier),
+      DefinitionScope.create(scopeNode, modifier),
       children,
     ),
   ];
