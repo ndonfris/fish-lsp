@@ -1,3 +1,16 @@
+## <small>1.0.11-pre.3 (2025-07-23)</small>
+
+* fix: `fish-lsp info --check-health` min node version ([2a853eb](https://github.com/ndonfris/fish-lsp/commit/2a853eb))
+* fix: `FishSymbol` w/ `set --function` definition `scopeNode` #99 + `fish-lsp info` change (#101) ([a82fd69](https://github.com/ndonfris/fish-lsp/commit/a82fd69)), closes [#99](https://github.com/ndonfris/fish-lsp/issues/99) [#101](https://github.com/ndonfris/fish-lsp/issues/101) [#99](https://github.com/ndonfris/fish-lsp/issues/99)
+* fix: prevent crashes caused by read `FishSymbol` (#98) ([7066ee1](https://github.com/ndonfris/fish-lsp/commit/7066ee1)), closes [#98](https://github.com/ndonfris/fish-lsp/issues/98)
+* fix: variable refs #92 && invalid code-actions #91  (#94) ([435e272](https://github.com/ndonfris/fish-lsp/commit/435e272)), closes [#92](https://github.com/ndonfris/fish-lsp/issues/92) [#91](https://github.com/ndonfris/fish-lsp/issues/91) [#94](https://github.com/ndonfris/fish-lsp/issues/94)
+* chore: bump form-data in the npm_and_yarn group across 1 directory (#100) ([faa069a](https://github.com/ndonfris/fish-lsp/commit/faa069a)), closes [#100](https://github.com/ndonfris/fish-lsp/issues/100)
+* feat: support es2025 iterators and minor tweaks to symbol utilities for #96 (#97) ([067c384](https://github.com/ndonfris/fish-lsp/commit/067c384)), closes [#96](https://github.com/ndonfris/fish-lsp/issues/96) [#97](https://github.com/ndonfris/fish-lsp/issues/97) [#96](https://github.com/ndonfris/fish-lsp/issues/96)
+* feat: use `Babel` to compile valid `ES2025` syntax to `node>=18` (#102) ([b9a43aa](https://github.com/ndonfris/fish-lsp/commit/b9a43aa)), closes [#102](https://github.com/ndonfris/fish-lsp/issues/102)
+* docs: updated `docs/ROADMAP.md` ([730eab3](https://github.com/ndonfris/fish-lsp/commit/730eab3))
+
+
+
 ## <small>1.0.10 (2025-07-11)</small>
 
 * fix: added tslib to package.json dev dependency ([45c1ac2](https://github.com/ndonfris/fish-lsp/commit/45c1ac2))
