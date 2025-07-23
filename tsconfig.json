@@ -3,7 +3,7 @@
   "compilerOptions": {
     //"target": "ES2022",
     "target": "ES2018",
-    "lib": ["ESNext", "dom"],
+    "lib": ["ESNext"],
     // "module": "commonjs",
     "noEmit": true,
     "incremental": true,
