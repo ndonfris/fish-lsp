@@ -20,7 +20,8 @@ module.exports = {
         'scripts/build-*.ts',
         'scripts/build-standalone.ts',
         'dist/',
-        '.bun/'
+        '.bun/',
+        'out/'
     ],
     rules: {
         'array-bracket-spacing': 'error',

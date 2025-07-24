@@ -5,7 +5,9 @@
     "target": "ES2018",
     "lib": ["ESNext"],
     // "module": "commonjs",
-    "noEmit": true,
+    "noEmit": false,
+    "declaration": true,
+    "declarationMap": true,
     "incremental": true,
     "esModuleInterop": true,
     "importHelpers": false, // causes tslib dependency which might not be available on node
