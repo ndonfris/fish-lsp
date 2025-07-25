@@ -15,6 +15,9 @@
     "noUncheckedIndexedAccess": true,
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
+    "verbatimModuleSyntax": false,
+    "isolatedDeclarations": false,
+    "erasableSyntaxOnly": false,
     "outDir": "./out",
     "rootDir": "./src",
     "baseUrl": ".",  // Base URL for module resolution
