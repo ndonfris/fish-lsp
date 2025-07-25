@@ -137,6 +137,10 @@
       {
         "command": "fish-lsp.showReferences",
         "title": "show references"
+      },
+      {
+        "command": "fish-lsp.showInfo",
+        "title": "show server info"
       }
     ]
   },
@@ -165,11 +169,12 @@
     "@commitlint/cli": "^19.6.0",
     "@commitlint/config-conventional": "^19.6.0",
     "@esdmr/tree-sitter-fish": "^3.5.2-0",
+    "@tsconfig/node-ts": "^23.6.1",
     "@tsconfig/node22": "^22.0.2",
     "@types/eslint": "^9.6.1",
     "@types/jest": "^29.5.12",
     "@types/jsdom": "^21.1.7",
-    "@types/node": "^24.0.14",
+    "@types/node": "^24.1.0",
     "@types/node-fetch": "^2.6.12",
     "@typescript-eslint/eslint-plugin": "^7.0.1",
     "@typescript-eslint/parser": "^7.4.0",

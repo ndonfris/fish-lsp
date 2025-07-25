@@ -256,20 +256,6 @@ export const PackageLspVersion = PackageJSON.dependencies['vscode-languageserver
 
 export const PackageNodeRequiredVersion = DepVersion.minimumNodeVersion();
 
-export const PkgJson = {
-  ...PackageJSON,
-  name: PackageJSON.name,
-  version: PackageJSON.version,
-  description: PackageJSON.description,
-  repository: PackageJSON.repository?.url || ' ',
-  homepage: PackageJSON.homepage || ' ',
-  lspVersion: PackageLspVersion,
-  node: PackageNodeRequiredVersion,
-  man: PathObj.manFile,
-  bin: PathObj.bin,
-  execFile: PathObj.execFile,
-};
-
 /**
  * shows last compile bundle time in server cli executable
  */
@@ -291,6 +277,20 @@ export const getBuildTimeString = () => {
 
 export const isPkgBinary = () => {
   return resolve(__dirname).startsWith('/snapshot/');
+};
+
+export const PkgJson = {
+  ...PackageJSON,
+  name: PackageJSON.name,
+  version: PackageJSON.version,
+  description: PackageJSON.description,
+  repository: PackageJSON.repository?.url || ' ',
+  homepage: PackageJSON.homepage || ' ',
+  lspVersion: PackageLspVersion,
+  node: PackageNodeRequiredVersion,
+  man: PathObj.manFile,
+  buildTime: getBuildTimeString(),
+  ...PathObj,
 };
 
 export const SourcesDict: { [key: string]: string; } = {

@@ -5,6 +5,7 @@ import * as LSP from 'vscode-languageserver';
 import { LspDocument, documents } from './document';
 import { formatDocumentContent } from './formatting';
 import { logger } from './logger';
+import { connection, setExternalConnection } from './utils/startup';
 import { formatTextWithIndents, symbolKindsFromNode, uriToPath } from './utils/translation';
 import { getChildNodes } from './utils/tree-sitter';
 import { getVariableExpansionDocs, handleHover } from './hover';
@@ -34,8 +35,7 @@ import { isSourceCommandArgumentName } from './parsing/source';
 import { getReferences } from './references';
 import { getRenames } from './renames';
 import { getReferenceCountCodeLenses } from './code-lens';
-import { connection } from './utils/startup';
-// import { connection } from './utils/startup';
+import { PkgJson } from './utils/commander-cli-subcommands';
 
 export type SupportedFeatures = {
   codeActionDisabledSupport: boolean;
@@ -61,12 +61,12 @@ export default class FishServer {
     connection: Connection,
     params: InitializeParams,
   ): Promise<{ server: FishServer; initializeResult: InitializeResult; }> {
+    setExternalConnection(connection);
     await setupProcessEnvExecFile();
     const capabilities = params.capabilities;
     const initializeResult = Config.initialize(params, connection);
     logger.log({
       server: 'FishServer',
-      // initializeResult,
       rootUri: params.rootUri,
       rootPath: params.rootPath,
       workspaceFolders: params.workspaceFolders,
@@ -94,19 +94,18 @@ export default class FishServer {
 
     await Analyzer.initialize();
 
-    // analyzer = new Analyzer(parser);
     const completions = await initializeCompletionPager(logger, completionsMap);
 
     const server = new FishServer(
       completions,
       completionsMap,
       cache,
+      params,
     );
     server.register(connection);
     return { server, initializeResult };
   }
 
-  private initializeParams: InitializeParams | undefined;
   protected features: SupportedFeatures;
   public clientSupportsShowDocument: boolean;
   public backgroundAnalysisComplete: boolean;
@@ -115,6 +114,8 @@ export default class FishServer {
     private completion: CompletionPager,
     private completionMap: CompletionItemMap,
     private documentationCache: DocumentationCache,
+    private initializeParams: InitializeParams,
+
   ) {
     this.features = { codeActionDisabledSupport: true };
     this.clientSupportsShowDocument = false;
@@ -865,6 +866,15 @@ export default class FishServer {
       path: path,
       doc: doc,
     };
+  }
+
+  /**
+   * Getter for information about the server.
+   *
+   * Includes the package.json information, and other useful data about the server.
+   */
+  public get info() {
+    return PkgJson;
   }
 
   /////////////////////////////////////////////////////////////////////////////////////
