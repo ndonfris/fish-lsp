@@ -13,6 +13,7 @@ import { PrebuiltDocumentationMap } from './utils/snippets';
 import { pathToUri, uriToReadablePath } from './utils/translation';
 import { getRange } from './utils/tree-sitter';
 import { workspaceManager } from './utils/workspace-manager';
+import { PkgJson } from './utils/commander-cli-subcommands';
 
 // Define command name constants to avoid string literals
 export const CommandNames = {
@@ -29,6 +30,7 @@ export const CommandNames = {
   GENERATE_ENV_VARIABLES: 'fish-lsp.generateEnvVariables',
   CHECK_HEALTH: 'fish-lsp.checkHealth',
   SHOW_REFERENCES: 'fish-lsp.showReferences',
+  SHOW_INFO: 'fish-lsp.showInfo',
 } as const;
 
 export const LspCommands = [...Array.from(Object.values(CommandNames))];
@@ -50,6 +52,7 @@ export type CommandArgs = {
   [CommandNames.TOGGLE_SINGLE_WORKSPACE_SUPPORT]: [];
   [CommandNames.GENERATE_ENV_VARIABLES]: [path: string];
   [CommandNames.SHOW_REFERENCES]: [path: string, position: Position, references: Location[]];  // Add this line
+  [CommandNames.SHOW_INFO]: [];
 };
 
 // Function to create the command handler with dependencies injected
@@ -321,6 +324,23 @@ export function createExecuteCommandHandler(
     return references;
   }
 
+  function showInfo() {
+    const message = JSON.stringify({
+      version: PkgJson.version,
+      buildTime: PkgJson.buildTime,
+      repo: PkgJson.repo,
+    }, null, 2);
+    if (config.fish_lsp_show_client_popups) {
+      connection.window.showInformationMessage(message);
+    } else {
+      connection.sendNotification('window/showMessage', {
+        type: MessageType.Info,  // Info, Warning, Error, Log
+        message: message,
+      });
+      logger.log('showInfo', message);
+    }
+  }
+
   // Command handler mapping
   const commandHandlers: Record<string, (...args: any[]) => Promise<void> | void | Promise<Location[]>> = {
     // 'fish-lsp.showReferences': handleShowReferences,
@@ -337,6 +357,7 @@ export function createExecuteCommandHandler(
     'fish-lsp.toggleSingleWorkspaceSupport': toggleSingleWorkspaceSupport,
     'fish-lsp.generateEnvVariables': outputFishLspEnv,
     'fish-lsp.showReferences': showReferences,
+    'fish-lsp.showInfo': showInfo,
   };
 
   // Main command handler function

@@ -28,7 +28,25 @@ export function createConnectionType(opts: {
   return 'stdio';
 }
 
+/**
+ * Global variable to hold the LSP connection.
+ */
 export let connection: Connection;
+
+/**
+ * Used when the server is started via a shim, like in the vscode extension.
+ *
+ * Essentially, anywhere that is not using the cli directly to start the server, and
+ * is instead using the module directly to connect to the server will need to set the connection
+ * manually using this function.
+ */
+export function setExternalConnection(externalConnection: Connection): void {
+  if (!connection) {
+    logger.log('Setting external connection for FISH-LSP server');
+    connection = externalConnection;
+  }
+}
+
 /**
  * Creates an LSP connection based on the specified type
  */

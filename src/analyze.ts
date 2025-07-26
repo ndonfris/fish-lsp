@@ -1,5 +1,5 @@
 import * as LSP from 'vscode-languageserver';
-import { Diagnostic, Hover, Location, Position, SymbolKind, URI, WorkDoneProgressReporter, WorkspaceSymbol } from 'vscode-languageserver';
+import { Diagnostic, DocumentUri, Hover, Location, Position, SymbolKind, URI, WorkDoneProgressReporter, WorkspaceSymbol } from 'vscode-languageserver';
 import * as Parser from 'web-tree-sitter';
 import { SyntaxNode, Tree } from 'web-tree-sitter';
 import { config, getDefaultConfiguration, updateBasedOnSymbols } from './config';
@@ -405,9 +405,7 @@ export class Analyzer {
   public findSymbol(
     callbackfn: (symbol: FishSymbol, doc?: LspDocument) => boolean,
   ) {
-    const currentWs = workspaceManager.current;
-    const uris = this.cache.uris().filter(uri => currentWs ? currentWs?.contains(uri) : true);
-    for (const uri of uris) {
+    for (const uri of this.getIterableUris()) {
       const symbols = this.cache.getFlatDocumentSymbols(uri);
       const document = this.cache.getDocument(uri)?.document;
       const symbol = symbols.find(s => callbackfn(s, document));
@@ -424,10 +422,8 @@ export class Analyzer {
   public findSymbols(
     callbackfn: (symbol: FishSymbol, doc?: LspDocument) => boolean,
   ): FishSymbol[] {
-    const currentWs = workspaceManager.current;
-    const uris = this.cache.uris().filter(uri => currentWs ? currentWs?.contains(uri) : true);
     const symbols: FishSymbol[] = [];
-    for (const uri of uris) {
+    for (const uri of this.getIterableUris()) {
       const document = this.cache.getDocument(uri)?.document;
       const symbols = this.getFlatDocumentSymbols(document!.uri);
       const newSymbols = symbols.filter(s => callbackfn(s, document));
@@ -467,10 +463,8 @@ export class Analyzer {
     uri: string;
     nodes: SyntaxNode[];
   }[] {
-    const currentWs = workspaceManager.current;
-    const uris = this.cache.uris().filter(uri => currentWs ? currentWs?.contains(uri) : uri);
     const result: { uri: string; nodes: SyntaxNode[]; }[] = [];
-    for (const uri of uris) {
+    for (const uri of this.getIterableUris()) {
       const root = this.cache.getRootNode(uri);
       const document = this.cache.getDocument(uri)!.document;
       if (!root || !document) continue;
@@ -486,9 +480,7 @@ export class Analyzer {
    * A generator function that yields all the documents in the workspace.
    */
   public * findDocumentsGen(): Generator<LspDocument> {
-    const currentWs = workspaceManager.current;
-    const uris = this.cache.uris().filter(uri => currentWs ? currentWs?.contains(uri) : true);
-    for (const uri of uris) {
+    for (const uri of this.getIterableUris()) {
       const document = this.cache.getDocument(uri)?.document;
       if (document) {
         yield document;
@@ -501,9 +493,7 @@ export class Analyzer {
    * The symbols yielded are flattened FishSymbols (NOT nested).
    */
   public * findSymbolsGen(): Generator<{ document: LspDocument; symbols: FishSymbol[]; }> {
-    const currentWs = workspaceManager.current;
-    const uris = this.cache.uris().filter(uri => currentWs ? currentWs?.contains(uri) : true);
-    for (const uri of uris) {
+    for (const uri of this.getIterableUris()) {
       const symbols = this.cache.getFlatDocumentSymbols(uri);
       const document = this.cache.getDocument(uri)?.document;
       if (!document || !symbols) continue;
@@ -517,9 +507,7 @@ export class Analyzer {
    * nodes for the document.
    */
   public * findNodesGen(): Generator<{ document: LspDocument; nodes: Generator<SyntaxNode>; }> {
-    const currentWs = workspaceManager.current;
-    const uris = this.cache.uris().filter(uri => currentWs ? currentWs?.contains(uri) : true);
-    for (const uri of uris) {
+    for (const uri of this.getIterableUris()) {
       const root = this.cache.getRootNode(uri);
       const document = this.cache.getDocument(uri)?.document;
       if (!root || !document) continue;
@@ -1127,6 +1115,14 @@ export class Analyzer {
       return this.cache.getDocument(doc.uri) as AnalyzedDocument;
     }
     return this.analyze(doc);
+  }
+
+  private getIterableUris(): DocumentUri[] {
+    const currentWs = workspaceManager.current;
+    if (currentWs) {
+      return currentWs.uris.all;
+    }
+    return this.cache.uris();
   }
 }
 
