@@ -1,6 +1,7 @@
 {
   "extends": ["@tsconfig/node22/tsconfig.json", "@tsconfig/node-ts/tsconfig.json"],
   "compilerOptions": {
+    "target": "es2018",
     "lib": ["ES2022", "ESNext"],
     "noEmit": false,
     "declaration": true,

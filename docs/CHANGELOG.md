@@ -1,3 +1,9 @@
+## <small>1.0.11-pre.7 (2025-07-26)</small>
+
+* ci: bump v1.0.11 ([267f0ea](https://github.com/ndonfris/fish-lsp/commit/267f0ea))
+
+
+
 ## <small>1.0.11-pre.6 (2025-07-26)</small>
 
 * ci: v1.0.11-pre.6 ([3e7d278](https://github.com/ndonfris/fish-lsp/commit/3e7d278))
