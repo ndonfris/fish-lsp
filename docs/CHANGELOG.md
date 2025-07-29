@@ -1,3 +1,14 @@
+## <small>1.0.11-pre.8 (2025-07-29)</small>
+
+* chore: bump v1.0.11-pre.8 ([b0f2e47](https://github.com/ndonfris/fish-lsp/commit/b0f2e47))
+* feat: added env variable `fish_lsp_prefer_builtin_fish_commands` diagnostic 2004 ([9a207d3](https://github.com/ndonfris/fish-lsp/commit/9a207d3))
+* feat: added hover support for `{a,b,c}/{d,e,f}` and `--` ([4daf5e3](https://github.com/ndonfris/fish-lsp/commit/4daf5e3))
+* feat: updated `fish-lsp info --<TAB>` ([82573b8](https://github.com/ndonfris/fish-lsp/commit/82573b8))
+* fix: `3002` global env variable `fish_lsp_strict_conditional_command_warnings` ([3282238](https://github.com/ndonfris/fish-lsp/commit/3282238)), closes [#93](https://github.com/ndonfris/fish-lsp/issues/93)
+* fix: `fish-lsp info --path` instead of `fish-lsp info --repo` ([d795120](https://github.com/ndonfris/fish-lsp/commit/d795120))
+
+
+
 ## <small>1.0.11-pre.7 (2025-07-26)</small>
 
 * ci: bump v1.0.11 ([267f0ea](https://github.com/ndonfris/fish-lsp/commit/267f0ea))
