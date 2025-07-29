@@ -407,8 +407,9 @@ set -gx fish_lsp_modifiable_paths
 
 # $fish_lsp_diagnostic_disable_error_codes <ARRAY>
 # The diagnostics error codes to disable from the fish-lsp's diagnostics.
-# (Options: 1001, 1002, 1003, 1004, 1005, 2001, 2002, 2003, 3001, 3002, 3003, 
-#           4001, 4002, 4003, 4004, 4005, 4006, 4007, 5001, 5555, 6001, 8001, 9999)
+# (Options: 1001, 1002, 1003, 1004, 1005, 2001, 2002, 2003, 2004, 3001, 3002, 
+#           3003, 4001, 4002, 4003, 4004, 4005, 4006, 4007, 5001, 5555, 6001, 
+#           8001, 9999)
 # (Default: [])
 set -gx fish_lsp_diagnostic_disable_error_codes 
 
@@ -418,6 +419,20 @@ set -gx fish_lsp_diagnostic_disable_error_codes
 # (Options: 'true', 'false')
 # (Default: 'false')
 set -gx fish_lsp_enable_experimental_diagnostics 
+
+# $fish_lsp_strict_conditional_command_warnings <BOOLEAN>
+# Diagnostic `3002` includes/excludes conditionally chained commands to explicitly check existence.
+# ENABLED EXAMPLE: `command -q ls && command ls || echo 'no ls'`
+# DISABLED EXAMPLE: `command ls || echo 'no ls'`
+# (Options: 'true', 'false')
+# (Default: 'true')
+set -gx fish_lsp_strict_conditional_command_warnings 
+
+# $fish_lsp_prefer_builtin_fish_commands <BOOLEAN>
+# Show diagnostic `2004` which warns the user when they are using a recognized external command that can be replaced by an equivalent fish builtin command.
+# (Options: 'true', 'false')
+# (Default: 'false')
+set -gx fish_lsp_prefer_builtin_fish_commands 
 
 # $fish_lsp_max_background_files <NUMBER>
 # The maximum number of background files to read into buffer on startup.

@@ -35,7 +35,7 @@ __Sections:__
 - [ ] add support for hovering a `~/some/file/path` and show the expanded result
   - [ ] add info diagnostics for replacing absolute paths with expandable paths
   - [ ] allow disabling this feature
-- [ ] add support for renaming autoloaded files
+- [ ] add support for renaming ALL autoloaded files (currently requires atleast two code-actions to be used)
   - [ ] when a code-action changes an autoloaded function, also rename its completions file, and vice versa
 - [ ] Add virtual document support for `go-to-definition` of a manpage
 - [ ] Server Command to display `fish_config` in a browser
@@ -108,7 +108,7 @@ __Sections:__
 - [ ] allow functions with `--argument-names` to provide inlay hints for the
       arguments that are passed into the function calls, so that named arguments
       are shown in the client as inlay hints.
-- [ ] add support for expanding `concatenation` SyntaxNode: definitions, references and hovers
+- [x] add support for expanding `concatenation` SyntaxNode: definitions, references and hovers
   ```fish
   for opt in fish_lsp_{enabled_handlers,disabled_handlers,commit_characters,log_file,log_level,all_indexed_paths,modifiable_paths,diagnostic_disable_error_codes,enable_experimental_diagnostics,max_background_files,show_client_popups,single_workspace_support}
   #          ^^^^^^^^^^---------------------- Hovering here would show the expansion 
@@ -141,7 +141,11 @@ __Sections:__
 - [ ] Add code action to convert shebangs
   - [ ] `#!/usr/bin/fish` to `#!/usr/bin/env fish`
   - [ ] `#!/usr/local/bin/fish` to `#!/usr/bin/env fish`
-
+- [x] add hover support to end stdin token `--`
+- [x] add code-action to convert external shell commands to fish builtins (where applicable)
+- [x] add `fish-lsp info --time-startup --use-workspace $PWD` support, to time how long it takes to start the server with only the current workspace
+- [ ] consider if exported variables should not be included in the unused `FishSymbol[]` reported
+      by diagnostic `4004`
 
 ## General Codebase Changes
 
