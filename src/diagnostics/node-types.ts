@@ -1,5 +1,5 @@
 import Parser, { SyntaxNode } from 'web-tree-sitter';
-import { findParentCommand, isCommandWithName, isEndStdinCharacter, isFunctionDefinitionName, isIfOrElseIfConditional, isMatchingOption, isOption, isString, isVariableDefinitionName } from '../utils/node-types';
+import { findParentCommand, isCommandName, isCommandWithName, isEndStdinCharacter, isFunctionDefinitionName, isIfOrElseIfConditional, isMatchingOption, isOption, isString, isVariableDefinitionName } from '../utils/node-types';
 import { getChildNodes, getRange, isNodeWithinOtherNode, precedesRange } from '../utils/tree-sitter';
 import { Option } from '../parsing/options';
 import { isExistingSourceFilenameNode, isSourceCommandArgumentName } from '../parsing/source';
@@ -309,6 +309,60 @@ export function isArgparseWithoutEndStdin(node: SyntaxNode) {
   const endStdin = getChildNodes(node).find(n => isEndStdinCharacter(n));
   if (!endStdin) return true;
   return false;
+}
+
+export function isPosixCommandInsteadOfFishCommand(node: SyntaxNode): boolean {
+  if (!config.fish_lsp_prefer_builtin_fish_commands) return false;
+  if (!isCommandName(node)) {
+    return false;
+  }
+  const parent = findParentCommand(node);
+  if (!parent) return false;
+
+  if (isCommandWithName(parent, 'dirname', 'basename', 'realpath')) {
+    return true;
+  }
+  if (isCommandWithName(parent, 'cut', 'wc')) {
+    return true;
+  }
+  if (isCommandWithName(parent, 'pbcopy', 'wl-copy', 'xsel', 'xclip', 'clip.exe')) {
+    return true;
+  }
+  if (isCommandWithName(parent, 'pbpaste', 'wl-paste', 'xsel', 'xclip', 'clip.exe')) {
+    return true;
+  }
+  return false;
+}
+
+export function getFishBuiltinEquivalentCommandName(node: SyntaxNode): string | null {
+  if (!isPosixCommandInsteadOfFishCommand(node)) return null;
+  if (!isCommandName(node)) {
+    return null;
+  }
+  const parent = findParentCommand(node);
+  if (!parent) return null;
+  if (isCommandWithName(parent, 'dirname', 'basename')) {
+    return ['path', node.text].join(' ');
+  }
+  if (isCommandWithName(parent, 'realpath')) {
+    return 'path resolve';
+  }
+  if (isCommandWithName(parent, 'cut')) {
+    return 'string split';
+  }
+  if (isCommandWithName(parent, 'wc')) {
+    return 'count';
+  }
+  if (isCommandWithName(parent, 'pbcopy', 'wl-copy', /*'xsel', 'xclip',*/ 'clip.exe')) {
+    return 'fish_clipboard_copy';
+  }
+  if (isCommandWithName(parent, 'pbpaste', 'wl-paste' /*'xsel', 'xclip', 'powershell.exe'*/)) {
+    return 'fish_clipboard_paste';
+  }
+  if (isCommandWithName(parent, 'xsel', 'xclip')) {
+    return 'fish_clipboard_copy | fish_clipboard_paste';
+  }
+  return null;
 }
 
 //

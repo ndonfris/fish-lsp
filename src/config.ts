@@ -111,6 +111,12 @@ export const ConfigSchema = z.object({
   /** diagnostic 3002 warnings should be shown forcing the user to check if a command exists before using it */
   fish_lsp_strict_conditional_command_warnings: z.boolean().default(true),
 
+  /**
+   * include diagnostic warnings when an external shell command is used instead of
+   * a fish built-in command
+   */
+  fish_lsp_prefer_builtin_fish_commands: z.boolean().default(false),
+
   /** max background files */
   fish_lsp_max_background_files: z.number().default(10000),
 
@@ -137,6 +143,7 @@ export function getConfigFromEnvironmentVariables(): {
     fish_lsp_modifiable_paths: process.env.fish_lsp_modifiable_paths?.split(' '),
     fish_lsp_diagnostic_disable_error_codes: process.env.fish_lsp_diagnostic_disable_error_codes?.split(' ').map(toNumber),
     fish_lsp_enable_experimental_diagnostics: toBoolean(process.env.fish_lsp_enable_experimental_diagnostics),
+    fish_lsp_prefer_builtin_fish_commands: toBoolean(process.env.fish_lsp_prefer_builtin_fish_commands),
     fish_lsp_strict_conditional_command_warnings: toBoolean(process.env.fish_lsp_strict_conditional_command_warnings),
     fish_lsp_max_background_files: toNumber(process.env.fish_lsp_max_background_files),
     fish_lsp_show_client_popups: toBoolean(process.env.fish_lsp_show_client_popups),

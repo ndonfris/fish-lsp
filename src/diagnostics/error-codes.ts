@@ -11,6 +11,7 @@ export namespace ErrorCodes {
   export const singleQuoteVariableExpansion = 2001;
   export const usedAlias = 2002;
   export const usedUnviersalDefinition = 2003;
+  export const usedExternalShellCommandWhenBuiltinExists = 2004;
 
   export const testCommandMissingStringCharacters = 3001;
   export const missingQuietOption = 3002;
@@ -23,7 +24,7 @@ export namespace ErrorCodes {
   export const autoloadedCompletionMissingCommandName = 4005;
   export const duplicateFunctionDefinitionInSameScope = 4006;
   export const autoloadedFunctionWithEventHookUnused = 4007;
-  // export const preferAutloadedFunctionHasDescription = 4005;
+  // export const requireAutloadedFunctionHasDescription = 4008;
 
   export const argparseMissingEndStdin = 5001;
   export const unreachableCode = 5555;
@@ -36,7 +37,7 @@ export namespace ErrorCodes {
 
   export type CodeTypes =
     1001 | 1002 | 1003 | 1004 | 1005 |
-    2001 | 2002 | 2003 |
+    2001 | 2002 | 2003 | 2004 |
     3001 | 3002 | 3003 |
     4001 | 4002 | 4003 | 4004 | 4005 | 4006 | 4007 |
     5001 | 5555 |
@@ -115,6 +116,13 @@ export namespace ErrorCodes {
       codeDescription: { href: 'https://fishshell.com/docs/current/language.html#universal-variables' },
       source: 'fish-lsp',
       message: 'Universal scope set in non-interactive session',
+    },
+    [usedExternalShellCommandWhenBuiltinExists]: {
+      severity: DiagnosticSeverity.Warning,
+      code: usedExternalShellCommandWhenBuiltinExists,
+      codeDescription: { href: 'https://fishshell.com/docs/current/cmds/builtins.html' },
+      source: 'fish-lsp',
+      message: 'External shell command used when equivalent fish builtin exists',
     },
     [testCommandMissingStringCharacters]: {
       severity: DiagnosticSeverity.Warning,

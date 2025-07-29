@@ -191,6 +191,7 @@
       2001,
       2002,
       2003,
+      2004,
       3001,
       3002,
       3003,
@@ -232,6 +233,18 @@
       false
     ],
     "defaultValue": true,
+    "valueType": "boolean"
+  },
+  {
+    "name": "fish_lsp_prefer_builtin_fish_commands",
+    "description": "Show diagnostic `2004` which warns the user when they are using a recognized external command that can be replaced by an equivalent fish builtin command.",
+    "shortDescription": "prefer built-in fish commands over external shell commands",
+    "exactMatchOptions": true,
+    "options": [
+      true,
+      false
+    ],
+    "defaultValue": false,
     "valueType": "boolean"
   },
   {

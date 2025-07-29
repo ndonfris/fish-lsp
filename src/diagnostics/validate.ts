@@ -3,7 +3,7 @@ import { SyntaxNode } from 'web-tree-sitter';
 import { LspDocument } from '../document';
 import { getChildNodes, getRange } from '../utils/tree-sitter';
 import { isMatchingOption, Option } from '../parsing/options';
-import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isMatchingCompleteOptionIsCommand, LocalFunctionCallType, isArgparseWithoutEndStdin, isFishLspDeprecatedVariableName, getDeprecatedFishLspMessage, isDotSourceCommand, isMatchingAbbrFunction, isFunctionWithEventHookCallback, isVariableDefinitionWithExpansionCharacter } from './node-types';
+import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isMatchingCompleteOptionIsCommand, LocalFunctionCallType, isArgparseWithoutEndStdin, isFishLspDeprecatedVariableName, getDeprecatedFishLspMessage, isDotSourceCommand, isMatchingAbbrFunction, isFunctionWithEventHookCallback, isVariableDefinitionWithExpansionCharacter, isPosixCommandInsteadOfFishCommand, getFishBuiltinEquivalentCommandName } from './node-types';
 import { ErrorCodes } from './error-codes';
 import { config } from '../config';
 import { DiagnosticCommentsHandler } from './comments-handler';
@@ -169,6 +169,9 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
       diagnostics.push(FishDiagnostic.create(ErrorCodes.usedUnviersalDefinition, node));
     }
 
+    if (isPosixCommandInsteadOfFishCommand(node) && handler.isCodeEnabled(ErrorCodes.usedExternalShellCommandWhenBuiltinExists)) {
+      diagnostics.push(FishDiagnostic.create(ErrorCodes.usedExternalShellCommandWhenBuiltinExists, node, `Use the Fish builtin command '${getFishBuiltinEquivalentCommandName(node)!}' instead of the external shell command.`));
+    }
     if (isSourceFilename(node) && handler.isCodeEnabled(ErrorCodes.sourceFileDoesNotExist)) {
       diagnostics.push(FishDiagnostic.create(ErrorCodes.sourceFileDoesNotExist, node));
     }

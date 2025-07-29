@@ -3,7 +3,7 @@ import { LspDocument } from '../document';
 import { ErrorCodes } from '../diagnostics/error-codes';
 import { equalRanges, getChildNodes } from '../utils/tree-sitter';
 import { SyntaxNode } from 'web-tree-sitter';
-import { ErrorNodeTypes } from '../diagnostics/node-types';
+import { ErrorNodeTypes, getFishBuiltinEquivalentCommandName } from '../diagnostics/node-types';
 import { SupportedCodeActionKinds } from './action-kinds';
 import { logger } from '../logger';
 import { analyzer, Analyzer } from '../analyze';
@@ -244,6 +244,44 @@ function handleUniversalVariable(
 
   return {
     title: 'Convert universal scope to global scope',
+    kind: SupportedCodeActionKinds.QuickFix,
+    diagnostics: [diagnostic],
+    edit: {
+      changes: {
+        [document.uri]: [edit],
+      },
+    },
+    isPreferred: true,
+  };
+}
+
+function handleExternalShellCommandInsteadOfBuiltin(
+  document: LspDocument,
+  diagnostic: Diagnostic,
+): CodeAction | undefined {
+  // Replace the command with an external shell command
+  const node = analyzer.nodeAtPoint(document.uri, diagnostic.range.start.line, diagnostic.range.start.character);
+  if (!node) {
+    logger.warning('handleExternalShellCommandInsteadOfBuiltin: No node found for diagnostic', diagnostic);
+    return undefined;
+  }
+  const newCommandText = getFishBuiltinEquivalentCommandName(node);
+  if (!newCommandText) {
+    logger.warning('handleExternalShellCommandInsteadOfBuiltin: No equivalent command found for', node.text);
+    return undefined;
+  }
+  // Don't handle ambiguous commands
+  if (newCommandText.includes(' | ')) {
+    logger.warning('handleExternalShellCommandInsteadOfBuiltin: Command is ambiguous, skipping', newCommandText);
+    return undefined;
+  }
+  const edit = TextEdit.replace(
+    diagnostic.range,
+    newCommandText,
+  );
+
+  return {
+    title: `Convert external shell command "${node.text}" to fish builtin "${newCommandText}"`,
     kind: SupportedCodeActionKinds.QuickFix,
     diagnostics: [diagnostic],
     edit: {
@@ -601,6 +639,11 @@ export async function getQuickFixes(
 
     case ErrorCodes.usedUnviersalDefinition:
       action = handleUniversalVariable(document, diagnostic);
+      if (action) actions.push(action);
+      return actions;
+
+    case ErrorCodes.usedExternalShellCommandWhenBuiltinExists:
+      action = handleExternalShellCommandInsteadOfBuiltin(document, diagnostic);
       if (action) actions.push(action);
       return actions;
 
