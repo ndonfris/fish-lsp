@@ -190,10 +190,10 @@ export const smallFishLogo = () => '><(((°> FISH LSP';
 export const RepoUrl = PackageJSON.repository?.url.slice(0, -4);
 export const PackageVersion = PackageJSON.version;
 
-export const PathObj: { [K in 'bin' | 'root' | 'repo' | 'manFile' | 'execFile']: string } = {
+export const PathObj: { [K in 'bin' | 'root' | 'path' | 'manFile' | 'execFile']: string } = {
   ['bin']: resolve(__dirname.toString(), '..', '..', 'bin', 'fish-lsp'),
   ['root']: resolve(__dirname, '..', '..'),
-  ['repo']: resolve(__dirname, '..', '..'),
+  ['path']: resolve(__dirname, '..', '..'),
   ['execFile']: getCurrentExecutablePath(),
   ['manFile']: resolve(__dirname, '..', '..', 'docs', 'man', 'fish-lsp.1'),
 };

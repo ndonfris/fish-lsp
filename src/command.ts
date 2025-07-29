@@ -328,7 +328,7 @@ export function createExecuteCommandHandler(
     const message = JSON.stringify({
       version: PkgJson.version,
       buildTime: PkgJson.buildTime,
-      repo: PkgJson.repo,
+      repo: PkgJson.path,
     }, null, 2);
     if (config.fish_lsp_show_client_popups) {
       connection.window.showInformationMessage(message);

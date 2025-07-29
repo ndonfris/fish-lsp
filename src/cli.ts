@@ -151,7 +151,7 @@ commandBin.command('info')
   .summary('show info about the fish-lsp')
   .description('the info about the `fish-lsp` executable')
   .option('--bin', 'show the path of the fish-lsp executable')
-  .option('--repo', 'show the path of the entire fish-lsp repo')
+  .option('--path', 'show the path of the entire fish-lsp repo')
   .option('--build-time', 'show the path of the entire fish-lsp repo')
   .option('--lsp-version', 'show the lsp version')
   .option('--capabilities', 'show the lsp capabilities')
@@ -175,8 +175,8 @@ commandBin.command('info')
       logger.logToStdout(PathObj.execFile);
       process.exit(0);
     }
-    if (args.repo) {
-      logger.logToStdout(PathObj.repo);
+    if (args.path) {
+      logger.logToStdout(PathObj.path);
       process.exit(0);
     }
     if (args.healthCheck || args.checkHealth) {
@@ -204,7 +204,7 @@ commandBin.command('info')
       process.exit(0);
     }
     logger.logToStdout(`Executable Path: ${PathObj.execFile}`);
-    logger.logToStdout(`Build Location: ${PathObj.repo}`);
+    logger.logToStdout(`Build Location: ${PathObj.path}`);
     logger.logToStdout(`Build Version: ${PackageVersion}`);
     logger.logToStdout(`Build Time: ${getBuildTimeString()}`);
     logger.logToStdout(`Install Type: ${isPkgBinary() ? 'standalone executable' : 'local build'}`);

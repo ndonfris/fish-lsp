@@ -57,7 +57,7 @@ show the environment variables available to the lsp
 show the build info of fish-lsp
 
   `--bin`                     show the path of the fish-lsp executable  
-  `--repo`                    show the path of the entire fish-lsp repo  
+  `--path`                    show the path of the entire fish-lsp installation  
   `--time`                    show the path of the entire fish-lsp repo  
   `--env`                     show the env variables used  
   `--lsp-version`             show the lsp version  
