@@ -203,6 +203,16 @@ export class SyncFileHelper {
       return false;
     }
   }
+
+  static isAbsolutePath(filePath: string): boolean {
+    const expandedFilePath = this.expandEnvVars(filePath);
+    return expandedFilePath.startsWith('/') || expandedFilePath.startsWith('~');
+  }
+
+  static isRelativePath(filePath: string): boolean {
+    const expandedFilePath = this.expandEnvVars(filePath);
+    return !this.isAbsolutePath(expandedFilePath);
+  }
 }
 
 export namespace AsyncFileHelper {

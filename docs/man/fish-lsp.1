@@ -87,11 +87,19 @@ show the build info of fish\-lsp
 .br
 \fB\-\-log\-file\fP                show the log file path
 .br
-\fB\-\-extra\fP                   show all info, including capabilities, paths, and version
+\fB\-\-extra\fP                   show debugging server info (capabilities, paths, version, etc\.)
+.br
+\fB\-\-verbose\fP                 show debugging server info (capabilities, paths, version, etc\.)
+.br
+\fB\-\-check\-health\fP            run diagnostics and report health status
+.br
+\fB\-\-health\-check\fP            run diagnostics and report health status
 .br
 \fB\-\-time\-startup\fP            time the startup of the fish\-lsp executable
 .br
-\fB\-\-health\-check\fP            run diagnostics and report health status
+\fB\-\-use\-workspace <PATH>\fP    use the workspace at the specified directory path when \fBfish\-lsp info \-\-time\-startup\fP is used
+.br
+\fB\-\-no\-warning\fP              disable message in the \fBfish\-lsp info \-\-time\-startup\fP output
 .SS \fBurl\fP
 .P
 show a helpful url related to the fish\-lsp
@@ -162,6 +170,13 @@ Show information about the \fBfish\-lsp\fP language server:
 .fi
 .RE
 .IP \(bu 2
+Show all the available information about the \fBfish\-lsp\fP language server:
+.RS 2
+.nf
+>_ fish\-lsp info \-\-verbose
+.fi
+.RE
+.IP \(bu 2
 Show startup timing information for the \fBfish\-lsp\fP language server:
 .RS 2
 .nf
@@ -169,10 +184,31 @@ Show startup timing information for the \fBfish\-lsp\fP language server:
 .fi
 .RE
 .IP \(bu 2
+Show startup timing information for the \fBfish\-lsp\fP language server for a specific workspace:
+.RS 2
+.nf
+>_ fish\-lsp info \-\-time\-startup \-\-use\-workspace ~/\.config/fish \-\-no\-warning
+.fi
+.RE
+.IP \(bu 2
+Preform a health check on the \fBfish\-lsp\fP language server:
+.RS 2
+.nf
+>_ fish\-lsp info \-\-check\-health
+.fi
+.RE
+.IP \(bu 2
 Show the environment variables available to the \fBfish\-lsp\fP language server:
 .RS 2
 .nf
 >_ fish\-lsp env \-\-show
+.fi
+.RE
+.IP \(bu 2
+Show the default values for specific environment variables used by the \fBfish\-lsp\fP language server:
+.RS 2
+.nf
+>_ fish\-lsp env \-\-show\-default \-\-only fish_lsp_all_indexed_paths,fish_lsp_max_background_files \-\-no\-comments
 .fi
 .RE
 .IP \(bu 2

@@ -158,65 +158,84 @@ commandBin.command('info')
   .option('--man-file', 'show the man file path')
   .option('--logs-file', 'show the logs file path')
   .option('--log-file', 'show the log file path')
-  .option('--extra', 'show all info, including capabilities, paths, and version')
-  .option('--time-startup', 'time the startup of the fish-lsp executable')
+  .option('--verbose', 'show debugging server info (capabilities, paths, version, etc.)')
+  .option('--extra', 'show debugging server info (capabilities, paths, version, etc.)')
   .option('--health-check', 'run diagnostics and report health status')
   .option('--check-health', 'run diagnostics and report health status')
+  .option('--time-startup', 'time the startup of the fish-lsp executable')
+  .option('--use-workspace <PATH>', 'use the specified workspace path for `fish-lsp info --time-startup`')
+  .option('--no-warning', 'do not show warnings in the output for `fish-lsp info --time-startup`')
   .action(async args => {
     await setupProcessEnvExecFile();
     const capabilities = BuildCapabilityString()
       .split('\n')
       .map(line => `  ${line}`).join('\n');
-    if (args.timeStartup) {
-      await timeServerStartup();
-      process.exit(0);
+
+    // Variable to determine if we saw specific info requests
+    let shouldExit = false;
+
+    // If the user requested specific info, we will try to show only the requested output.
+    if (!args.verbose) {
+      // immediately exit if the user requested a specific info
+      if (args.useWorkspace && !args.timeStartup) {
+        logger.logToStderr('The `--use-workspace` option is only valid with `--time-startup`.');
+        process.exit(1);
+      }
+      if (args.timeStartup) {
+        await timeServerStartup(args.useWorkspace, args.warning);
+        process.exit(0);
+      }
+      if (args.healthCheck || args.checkHealth) {
+        await performHealthCheck();
+        process.exit(0);
+      }
+
+      // normal info about the fish-lsp
+      if (args.bin) {
+        logger.logToStdout(PathObj.execFile);
+        shouldExit = true;
+      }
+      if (args.path) {
+        logger.logToStdout(PathObj.path);
+        shouldExit = true;
+      }
+      if (args.buildTime) {
+        logger.logToStdout(`Build Time: ${getBuildTimeString()}`);
+        shouldExit = true;
+      }
+      if (args.capabilities) {
+        logger.logToStdout(`Capabilities:\n${capabilities}`);
+        shouldExit = true;
+      }
+      if (args.lspVersion) {
+        logger.logToStdout(`LSP Version: ${PackageLspVersion}`);
+        shouldExit = true;
+      }
+      if (args.manFile) {
+        logger.logToStdout(PathObj.manFile);
+        shouldExit = true;
+      }
+      if (args.logsFile || args.logFile) {
+        logger.logToStdout(config.fish_lsp_log_file);
+        shouldExit = true;
+      }
     }
-    if (args.bin) {
-      logger.logToStdout(PathObj.execFile);
-      process.exit(0);
-    }
-    if (args.path) {
-      logger.logToStdout(PathObj.path);
-      process.exit(0);
-    }
-    if (args.healthCheck || args.checkHealth) {
-      await performHealthCheck();
-      process.exit(0);
-    }
-    if (args.buildTime) {
+    if (!shouldExit || args.verbose) {
+      logger.logToStdout(`Executable Path: ${PathObj.execFile}`);
+      logger.logToStdout(`Build Location: ${PathObj.path}`);
+      logger.logToStdout(`Build Version: ${PackageVersion}`);
       logger.logToStdout(`Build Time: ${getBuildTimeString()}`);
-      process.exit(0);
-    }
-    if (args.capabilities) {
-      logger.logToStdout(`Capabilities:\n${capabilities}`);
-      process.exit(0);
-    }
-    if (args.lspVersion) {
+      logger.logToStdout(`Install Type: ${isPkgBinary() ? 'standalone executable' : 'local build'}`);
+      logger.logToStdout(`Node Version: ${process.version}`);
       logger.logToStdout(`LSP Version: ${PackageLspVersion}`);
-      process.exit(0);
-    }
-    if (args.manFile) {
-      logger.logToStdout(PathObj.manFile);
-      process.exit(0);
-    }
-    if (args.logsFile || args.logFile) {
-      logger.logToStdout(config.fish_lsp_log_file);
-      process.exit(0);
-    }
-    logger.logToStdout(`Executable Path: ${PathObj.execFile}`);
-    logger.logToStdout(`Build Location: ${PathObj.path}`);
-    logger.logToStdout(`Build Version: ${PackageVersion}`);
-    logger.logToStdout(`Build Time: ${getBuildTimeString()}`);
-    logger.logToStdout(`Install Type: ${isPkgBinary() ? 'standalone executable' : 'local build'}`);
-    logger.logToStdout(`Node Version: ${process.version}`);
-    logger.logToStdout(`LSP Version: ${PackageLspVersion}`);
-    logger.logToStdout(`Binary File: ${PathObj.bin}`);
-    logger.logToStdout(`Man File: ${PathObj.manFile}`);
-    logger.logToStdout(`Log File: ${config.fish_lsp_log_file}`);
-    if (args.extra || args.capabilities) {
-      logger.logToStdout('_'.repeat(parseInt(process.env.COLUMNS || '80')));
-      logger.logToStdout('CAPABILITIES:');
-      logger.logToStdout(capabilities);
+      logger.logToStdout(`Binary File: ${PathObj.bin}`);
+      logger.logToStdout(`Man File: ${PathObj.manFile}`);
+      logger.logToStdout(`Log File: ${config.fish_lsp_log_file}`);
+      if (args.extra || args.capabilities || args.verbose) {
+        logger.logToStdout('_'.repeat(parseInt(process.env.COLUMNS || '80')));
+        logger.logToStdout('CAPABILITIES:');
+        logger.logToStdout(capabilities);
+      }
     }
     process.exit(0);
   });

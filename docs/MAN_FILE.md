@@ -64,9 +64,13 @@ show the build info of fish-lsp
   `--capabilities`            show the lsp capabilities  
   `--man-file`                show the man file path  
   `--log-file`                show the log file path  
-  `--extra`                   show all info, including capabilities, paths, and version  
-  `--time-startup`            time the startup of the fish-lsp executable  
+  `--extra`                   show debugging server info (capabilities, paths, version, etc.)  
+  `--verbose`                 show debugging server info (capabilities, paths, version, etc.)  
+  `--check-health`            run diagnostics and report health status  
   `--health-check`            run diagnostics and report health status  
+  `--time-startup`            time the startup of the fish-lsp executable  
+  `--use-workspace <PATH>`    use the workspace at the specified directory path when `fish-lsp info --time-startup` is used  
+  `--no-warning`              disable message in the `fish-lsp info --time-startup` output  
 
 ### `url`
 
@@ -120,16 +124,40 @@ Provide completions for the `fish-lsp`
   >_ fish-lsp info 
   ```
 
+- Show all the available information about the `fish-lsp` language server:
+
+  ```fish
+  >_ fish-lsp info --verbose
+  ```
+
 - Show startup timing information for the `fish-lsp` language server:
 
   ```fish
   >_ fish-lsp info --time-startup
   ```
 
+- Show startup timing information for the `fish-lsp` language server for a specific workspace:
+
+  ```fish
+  >_ fish-lsp info --time-startup --use-workspace ~/.config/fish --no-warning
+  ```
+
+- Preform a health check on the `fish-lsp` language server:
+
+  ```fish
+  >_ fish-lsp info --check-health
+  ```
+
 - Show the environment variables available to the `fish-lsp` language server:
 
   ```fish
   >_ fish-lsp env --show
+  ```
+
+- Show the default values for specific environment variables used by the `fish-lsp` language server:
+
+  ```fish
+  >_ fish-lsp env --show-default --only fish_lsp_all_indexed_paths,fish_lsp_max_background_files --no-comments
   ```
 
 - Get sources related to the `fish-lsp` language server's development:

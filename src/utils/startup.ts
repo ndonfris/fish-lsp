@@ -151,24 +151,40 @@ export async function timeOperation<T>(
   }
 }
 
+function fixupStartPath(startPath: string | undefined): string | undefined {
+  if (!startPath) return undefined;
+  if (startPath === '.') {
+    return process.cwd();
+  }
+  const resultPath = SyncFileHelper.expandEnvVars(startPath);
+  if (SyncFileHelper.isAbsolutePath(resultPath)) {
+    return resultPath;
+  }
+  return path.resolve(resultPath);
+}
+
 /**
  * Time the startup of the server. Use inside `fish-lsp info --time-startup`.
  * Easy testing can be done with:
  *   >_ `nodemon --watch src/ --ext ts --exec 'fish-lsp info --time-startup'`
  */
-export async function timeServerStartup() {
+export async function timeServerStartup(startPath?: string, showWarning: boolean = true): Promise<void> {
   // define a local server instance
   let server: FishServer | undefined;
 
+  startPath = fixupStartPath(startPath);
+
   const title = 'fish-lsp'.padStart(43).padEnd(42);
-  logger.logToStdoutJoined(
-    `${title}\n\n`,
-    '       NOTE: a normal server instance will only start one of these workspaces\n\n',
-    '       if you frequently find yourself working inside a relatively large \n',
-    '       workspaces, please consider using the provided environment variable\n\n',
-    '`set -gx fish_lsp_max_background_files`'.padStart(58),
-    '\n',
-  );
+  if (showWarning) {
+    logger.logToStdoutJoined(
+      `${title}\n\n`,
+      '       NOTE: a normal server instance will only start one of these workspaces\n\n',
+      '       if you frequently find yourself working inside a relatively large \n',
+      '       workspaces, please consider using the provided environment variable\n\n',
+      '`set -gx fish_lsp_max_background_files`'.padStart(58),
+      '\n',
+    );
+  }
   logger.logToStdout('-'.repeat(85));
 
   // 1. Time server creation and startup
@@ -189,7 +205,12 @@ export async function timeServerStartup() {
         fish_lsp_all_indexed_paths: config.fish_lsp_all_indexed_paths,
         fish_lsp_max_background_files: config.fish_lsp_max_background_files,
       },
-      workspaceFolders: [],
+      workspaceFolders: startPath ? [
+        {
+          uri: pathToUri(startPath),
+          name: 'fish-lsp info --time-startup',
+        },
+      ] : [],
       capabilities: {
         workspace: {
           workspaceFolders: true,
@@ -209,7 +230,8 @@ export async function timeServerStartup() {
   // clear any existing workspaces, use the env variables if they are set,
   // otherwise use their default values (since there isn't a client)
   workspaceManager.clear();
-  for (const pathLike of config.fish_lsp_all_indexed_paths) {
+  const allPaths = startPath ? [startPath] : config.fish_lsp_all_indexed_paths;
+  for (const pathLike of allPaths) {
     const fullPath = SyncFileHelper.expandEnvVars(pathLike);
     const workspace = Workspace.syncCreateFromUri(pathToUri(fullPath));
     if (!workspace) {
@@ -238,18 +260,24 @@ export async function timeServerStartup() {
   );
 
   // 4. Log the directories indexed
-  const all_indexed = config.fish_lsp_all_indexed_paths;
-  logger.logToStdoutJoined(
-    "Indexed Files in '$fish_lsp_all_indexed_paths':".padEnd(65),
-    `${all_indexed.length} paths`.padStart(20),
-  );
-  // const maxItemLen = all_indexed.reduce((max, item) => Math.max(max, item.length > 60 ? 60 : item.length), 0);
+  if (!startPath) {
+    const all_indexed = config.fish_lsp_all_indexed_paths;
+    logger.logToStdoutJoined(
+      "Indexed paths in '$fish_lsp_all_indexed_paths':".padEnd(65),
+      `${all_indexed.length} paths`.padStart(20),
+    );
+    // const maxItemLen = all_indexed.reduce((max, item) => Math.max(max, item.length > 60 ? 60 : item.length), 0);
+  } else {
+    logger.logToStdoutJoined(
+      `Indexed paths in '${startPath.replace(process.cwd(), '.').replace(os.homedir(), '~')}':`.padEnd(65),
+      `${Object.keys(items).length} paths`.padStart(20),
+    );
+  }
   Object.keys(items).forEach((item, idx) => {
     const text = item.length > 55 ? '...' + item.slice(item.length - 52) : item;
     const output = formatColumns([` [${idx + 1}]`, `| ${text} |`, `${items[item]?.toString() || 0} files`], [6, -59, -10], 85);
     logger.logToStdout(output);
   });
-  // incase we decide to log a different starting directory that isn't `~/.config/fish`
   logger.logToStdout('-'.repeat(85));
 }
 

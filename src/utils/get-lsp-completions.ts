@@ -61,6 +61,18 @@ function __fish_lsp_get_features -d 'print all features controlled by the server
     end
 end
 
+# check if \`fish_lsp info\` is used without arguments that prevent more switches
+# to be completed. \`$argv\` should be a switch that is \`not __fish_contains_opt\`.
+function __fish_lsp_info_complete_opt --description 'check if the commandline contains any of the info switches' 
+    __fish_seen_subcommand_from info
+    and not __fish_contains_opt extra
+    and not __fish_contains_opt verbose
+    and not __fish_contains_opt time-startup
+    and not __fish_contains_opt check-health
+    and not __fish_contains_opt $argv
+end
+
+
 # print all unique \'fish-lsp env --only ...\` env_variables (i.e., $fish_lsp_*, ...)
 # if a env_variable is already specified in the command line, it will not be included again
 function __fish_lsp_get_env_variables -d 'print all fish_lsp_* env variables, not yet used in the commandline'
@@ -268,16 +280,20 @@ complete -c fish-lsp -n '__fish_seen_subcommand_from complete; and not __fish_co
 `;
 
 const infoCompletions: string = `## fish-lsp info --<TAB>
-complete -c fish-lsp -n '__fish_seen_subcommand_from info; and not __fish_contains_opt bin'           -l bin            -d 'show the binary path'
-complete -c fish-lsp -n '__fish_seen_subcommand_from info; and not __fish_contains_opt path'          -l path           -d 'show the path to the installation'  
-complete -c fish-lsp -n '__fish_seen_subcommand_from info; and not __fish_contains_opt build-time'    -l build-time     -d 'show the build-time' 
-complete -c fish-lsp -n '__fish_seen_subcommand_from info; and not __fish_contains_opt lsp-version'   -l lsp-version    -d 'show the npm package for the lsp-version'
-complete -c fish-lsp -n '__fish_seen_subcommand_from info; and not __fish_contains_opt capabilities'  -l capabilities   -d 'show the lsp capabilities implemented' 
-complete -c fish-lsp -n '__fish_seen_subcommand_from info; and not __fish_contains_opt man-file'      -l man-file       -d 'show man file path' 
-complete -c fish-lsp -n '__fish_seen_subcommand_from info; and not __fish_contains_opt log-file'      -l log-file       -d 'show log file path' 
-complete -c fish-lsp -n '__fish_seen_subcommand_from info; and not __fish_contains_opt extra'         -l extra          -d 'show all info, including capabilities, paths, and version' 
-complete -c fish-lsp -n '__fish_seen_subcommand_from info; and not __fish_contains_opt time-startup'  -l time-startup   -d 'show startup timing info'
-complete -c fish-lsp -n '__fish_seen_subcommand_from info; and not __fish_contains_opt check-health'  -l check-health   -d 'show the server health'
+complete -c fish-lsp -n '__fish_lsp_info_complete_opt bin'           -l bin            -d 'show the binary path'
+complete -c fish-lsp -n '__fish_lsp_info_complete_opt path'          -l path           -d 'show the path to the installation'  
+complete -c fish-lsp -n '__fish_lsp_info_complete_opt build-time'    -l build-time     -d 'show the build-time' 
+complete -c fish-lsp -n '__fish_lsp_info_complete_opt lsp-version'   -l lsp-version    -d 'show the npm package for the lsp-version'
+complete -c fish-lsp -n '__fish_lsp_info_complete_opt capabilities'  -l capabilities   -d 'show the lsp capabilities implemented' 
+complete -c fish-lsp -n '__fish_lsp_info_complete_opt man-file'      -l man-file       -d 'show man file path' 
+complete -c fish-lsp -n '__fish_lsp_info_complete_opt log-file'      -l log-file       -d 'show log file path' 
+complete -c fish-lsp -n '__fish_lsp_info_complete_opt verbose'       -l verbose        -d 'show all debugging server info (capabilities, paths, version, etc.)' 
+complete -c fish-lsp -n '__fish_lsp_info_complete_opt extra'         -l extra          -d 'show all debugging server info (capabilities, paths, version, etc.)' 
+complete -c fish-lsp -n '__fish_lsp_info_complete_opt check-health'  -l check-health   -d 'show the server health'
+complete -c fish-lsp -n '__fish_lsp_info_complete_opt time-startup'  -l time-startup   -d 'show startup timing info'
+complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_contains_opt time-startup; and not __fish_contains_opt no-warning'    -l no-warning    -d 'do not show warning message'
+complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_contains_opt time-startup; and not __fish_contains_opt use-workspace' -l use-workspace -d 'specify workspace directory' -xa '(__fish_complete_directories)'
+complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_lsp_last_switch --use-workspace' -xa '(__fish_complete_directories)' -d 'workspace directory'
 `;
 
 const envCompletions: string = `## fish-lsp env --<TAB>
