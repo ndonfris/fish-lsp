@@ -223,6 +223,18 @@
     "valueType": "boolean"
   },
   {
+    "name": "fish_lsp_strict_conditional_command_warnings",
+    "description": "Diagnostic `3002` includes/excludes conditionally chained commands to explicitly check existence.\n\nENABLED EXAMPLE: `command -q ls && command ls || echo 'no ls'`\n\nDISABLED EXAMPLE: `command ls || echo 'no ls'`",
+    "shortDescription": "diagnostic `3002` show warnings for syntax like `command ls || echo 'no ls'`",
+    "exactMatchOptions": true,
+    "options": [
+      true,
+      false
+    ],
+    "defaultValue": true,
+    "valueType": "boolean"
+  },
+  {
     "name": "fish_lsp_max_background_files",
     "description": "The maximum number of background files to read into buffer on startup.",
     "shortDescription": "maximum number of files to analyze in the background on startup",

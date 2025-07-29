@@ -108,6 +108,9 @@ export const ConfigSchema = z.object({
   /** fish lsp experimental diagnostics */
   fish_lsp_enable_experimental_diagnostics: z.boolean().default(false),
 
+  /** diagnostic 3002 warnings should be shown forcing the user to check if a command exists before using it */
+  fish_lsp_strict_conditional_command_warnings: z.boolean().default(true),
+
   /** max background files */
   fish_lsp_max_background_files: z.number().default(10000),
 
@@ -133,10 +136,11 @@ export function getConfigFromEnvironmentVariables(): {
     fish_lsp_all_indexed_paths: process.env.fish_lsp_all_indexed_paths?.split(' '),
     fish_lsp_modifiable_paths: process.env.fish_lsp_modifiable_paths?.split(' '),
     fish_lsp_diagnostic_disable_error_codes: process.env.fish_lsp_diagnostic_disable_error_codes?.split(' ').map(toNumber),
-    fish_lsp_enable_experimental_diagnostics: toBoolean(process.env.fish_lsp_enable_experimental_diagnostics) || false,
+    fish_lsp_enable_experimental_diagnostics: toBoolean(process.env.fish_lsp_enable_experimental_diagnostics),
+    fish_lsp_strict_conditional_command_warnings: toBoolean(process.env.fish_lsp_strict_conditional_command_warnings),
     fish_lsp_max_background_files: toNumber(process.env.fish_lsp_max_background_files),
-    fish_lsp_show_client_popups: toBoolean(process.env.fish_lsp_show_client_popups) || false,
-    fish_lsp_single_workspace_support: toBoolean(process.env.fish_lsp_single_workspace_support) || false,
+    fish_lsp_show_client_popups: toBoolean(process.env.fish_lsp_show_client_popups),
+    fish_lsp_single_workspace_support: toBoolean(process.env.fish_lsp_single_workspace_support),
   };
 
   const environmentVariablesUsed = Object.entries(rawConfig)
@@ -523,6 +527,11 @@ export namespace Config {
   export const deprecatedKeys: { [deprecated_key: string]: keyof Config; } = {
     ['fish_lsp_logfile']: 'fish_lsp_log_file',
   };
+
+  export function isDeprecatedKey(key: string): boolean {
+    if (key.trim() === '') return false;
+    return Object.keys(deprecatedKeys).includes(key);
+  }
 
   // Or use a helper function approach for even better typing
   const keys = <T extends z.ZodObject<any>>(schema: T): Array<keyof z.infer<T>> => {

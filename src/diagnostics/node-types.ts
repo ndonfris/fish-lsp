@@ -8,6 +8,7 @@ import { DiagnosticCommentsHandler } from './comments-handler';
 import { FishSymbol } from '../parsing/symbol';
 import { ErrorCodes } from './error-codes';
 import { getReferences } from '../references';
+import { config, Config } from '../config';
 
 type startTokenType = 'function' | 'while' | 'if' | 'for' | 'begin' | '[' | '{' | '(' | "'" | '"';
 type endTokenType = 'end' | "'" | '"' | ']' | '}' | ')';
@@ -225,13 +226,27 @@ function hasCommandSubstitution(node: SyntaxNode) {
 }
 
 /**
+ * Get all conditional command names based on the config setting
+ * FIX: https://github.com/ndonfris/fish-lsp/issues/93
+ */
+const allConditionalCommandNames = ['command', 'type', 'set', 'string', 'abbr', 'builtin', 'functions', 'jobs'];
+const getConditionalCommandNames = () => {
+  if (!config.fish_lsp_strict_conditional_command_warnings) {
+    return ['set', 'abbr', 'functions', 'jobs'];
+  }
+  return allConditionalCommandNames;
+};
+
+/**
  * Check if -q,--quiet/--query flags are present for commands which follow an `if/else if` conditional statement
  * @param node - the current node to check (should be a command)
  * @returns true if the command is a conditional statement without -q,--quiet/--query flags, otherwise false
  */
 export function isConditionalWithoutQuietCommand(node: SyntaxNode) {
+  const conditionalCommandNames = getConditionalCommandNames();
+
   // read does not have quiet option
-  if (!isCommandWithName(node, 'command', 'type', 'set', 'string', 'abbr', 'builtin', 'functions', 'jobs')) return false;
+  if (!isCommandWithName(node, ...conditionalCommandNames)) return false;
   if (!isConditionalStatement(node) && !isFirstNodeInConditionalExecution(node)) return false;
 
   // skip `set` commands with command substitution
@@ -319,18 +334,18 @@ export function isFunctionWithEventHookCallback(doc: LspDocument, handler: Diagn
 
 export function isFishLspDeprecatedVariableName(node: SyntaxNode): boolean {
   if (isVariableDefinitionName(node)) {
-    return node.text === 'fish_lsp_logfile';
+    return Config.isDeprecatedKey(node.text);
   }
   if (node.type === 'variable_name') {
-    return node.text === 'fish_lsp_logfile';
+    return Config.isDeprecatedKey(node.text);
   }
-  return node.text === 'fish_lsp_logfile';
+  return false;
 }
 export function getDeprecatedFishLspMessage(node: SyntaxNode): string {
-  switch (node.text) {
-    case 'fish_lsp_logfile':
-      return `REPLACE \`${node.text}\` with \`fish_lsp_log_file\``;
-    default:
-      return '';
+  for (const [key, value] of Object.entries(Config.deprecatedKeys)) {
+    if (node.text === key) {
+      return `REPLACE \`${key}\` with \`${value}\``;
+    }
   }
+  return '';
 }
