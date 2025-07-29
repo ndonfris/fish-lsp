@@ -18,9 +18,9 @@ import { FishCompletionItem } from './utils/completion/types';
 import { getDocumentationResolver } from './utils/completion/documentation';
 import { FishCompletionList } from './utils/completion/list';
 import { PrebuiltDocumentationMap, getPrebuiltDocUrl } from './utils/snippets';
-import { findParentCommand, isAliasDefinitionName, isCommand, isOption, isReturnStatusNumber, isVariableDefinition } from './utils/node-types';
+import { findParent, findParentCommand, isAliasDefinitionName, isBraceExpansion, isCommand, isConcatenatedValue, isConcatenation, isEndStdinCharacter, isOption, isReturnStatusNumber, isVariableDefinition } from './utils/node-types';
 import { config, Config } from './config';
-import { enrichToMarkdown, handleSourceArgumentHover } from './documentation';
+import { enrichToMarkdown, handleBraceExpansionHover, handleEndStdinHover, handleSourceArgumentHover } from './documentation';
 import { findActiveParameterStringRegex, getAliasedCompletionItemSignature, getDefaultSignatures, getFunctionSignatureHelp, isRegexStringSignature } from './signature';
 import { CompletionItemMap } from './utils/completion/startup-cache';
 import { getDocumentHighlights } from './document-highlight';
@@ -547,6 +547,17 @@ export default class FishServer {
         this.documentationCache,
       );
       if (result) return result;
+    }
+
+    // handle brace expansion hover
+    if (isBraceExpansion(current)) return await handleBraceExpansionHover(current);
+    if (isConcatenatedValue(current)) {
+      const parent = findParent(current, isConcatenation);
+      if (parent) return await handleBraceExpansionHover(parent);
+    }
+
+    if (isEndStdinCharacter(current)) {
+      return handleEndStdinHover(current);
     }
 
     const { kindType, kindString } = symbolKindsFromNode(current);

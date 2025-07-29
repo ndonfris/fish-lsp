@@ -1,11 +1,12 @@
 import { Hover, MarkupContent, MarkupKind } from 'vscode-languageserver-protocol/node';
 import { SyntaxNode } from 'web-tree-sitter';
 // import { hasPossibleSubCommand } from './utils/builtins';
-import { execCommandDocs, execCommandType, CompletionArguments, execCompleteSpace, execCompleteCmdArgs, documentCommandDescription } from './utils/exec';
+import { execCommandDocs, execCommandType, CompletionArguments, execCompleteSpace, execCompleteCmdArgs, documentCommandDescription, execExpandBraceExpansion } from './utils/exec';
 import { getChildNodes, getNodeText } from './utils/tree-sitter';
 import { md } from './utils/markdown-builder';
 import { Analyzer } from './analyze';
 import { getExpandedSourcedFilenameNode } from './parsing/source';
+import { isCommand, isOption } from './utils/node-types';
 
 export type markdownFiletypes = 'fish' | 'man';
 
@@ -90,6 +91,66 @@ export function handleSourceArgumentHover(analyzer: Analyzer, current: SyntaxNod
       ].filter(Boolean).join('\n'))}`,
       md.separator(),
       md.codeBlock('fish', sourceDoc!.getText()),
+    ].join(md.newline())),
+  };
+}
+
+export async function handleBraceExpansionHover(current: SyntaxNode): Promise<Hover> {
+  let text = current.text;
+  if (isOption(current) || isCommand(current)) {
+    if (text.includes('=')) {
+      text = text.split('=').at(1)!.trim();
+    }
+  }
+  let expanded = await execExpandBraceExpansion(text);
+  if (!expanded) expanded = 'No expansion found.';
+  return {
+    contents: enrichToMarkdown([
+      `${md.boldItalic('BRACE EXPANSION')} - ${md.italic('https://fishshell.com/docs/current/language.html#brace-expansion')}`,
+      md.separator(),
+      md.codeBlock('fish', current.text),
+      md.separator(),
+      md.codeBlock('markdown', expanded),
+    ].join(md.newline())),
+  };
+}
+
+export function handleEndStdinHover(current: SyntaxNode): Hover {
+  return {
+    contents: enrichToMarkdown([
+      `(${md.boldItalic('END STDIN TOKEN')}) ${md.inlineCode(current.text)}`,
+      md.separator(),
+      [
+        `The ${md.inlineCode('--')} token is used to denote that the command should ${md.bold('stop reading')} from ${md.inlineCode('/dev/stdin')} for ${md.italic('switches')}, and use the remaining ${md.inlineCode('$argv')} as ${md.italic('positional arguments')}.`,
+        // '',
+        // 'Useful when a command accepts switches and arguments that start with a dash (-).',
+        // '',
+        // `The ${md.boldItalic(`first`)} ${md.inlineCode('--')} ${md.boldItalic('argument')} that is not an option-argument should be accepted as a ${md.bold('delimiter')} indicating the ${md.bold('end of options')}.`,
+        // '',
+        // `Any ${md.bold('following arguments')} should be treated as operands, even if they begin with the ${md.bold('-')} character.`,
+        // '',
+        // md.codeBlock('fish', [
+        //   '# example pattern:',
+        //   'utility_name [options] [--] [operands]'
+        // ].join(md.newline())),
+      ].join(md.newline()),
+      md.separator(),
+      md.codeBlock('fish', [
+        '### EXAMPLES',
+        '',
+        '# 1. `argparse` considers `--help` as input and not an option (variable `_flag_help` is set)',
+        'argparse h/help -- --help',
+        '',
+        '# 2. `markdown_list` is joined without treating the \'- .*\' as options',
+        'set markdown_list (string join -- \\n \'- first\' \'- second\' \'- third\')',
+        '',
+        '# 3. `hasargs` checks if the arguments contains a -q option',
+        'function hasargs',
+        '    if contains -- -q $argv',
+        '        echo \'$argv contains a -q option\'',
+        '    end',
+        'end',
+      ].join('\n')),
     ].join(md.newline())),
   };
 }

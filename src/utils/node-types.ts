@@ -775,6 +775,23 @@ export function isReturnStatusNumber(node: SyntaxNode) {
   return parent.type === 'return';
 }
 
+export function isConcatenatedValue(node: SyntaxNode) {
+  if (!['word', 'variable_expansion', 'brace_expansion', 'integer', 'concatenation'].includes(node.type)) return false;
+  if (node.type === 'concatenation') return true;
+  const parent = findParent(node, isConcatenation);
+  if (!parent) return false;
+  return true;
+}
+
+export function isBraceExpansion(node: SyntaxNode) {
+  return node.type === 'brace_expansion';
+}
+
+export function isPath(node: SyntaxNode) {
+  if (node.text.includes('/')) return true;
+  return false;
+}
+
 export function isCompleteCommandName(node: SyntaxNode) {
   if (!node.parent || !isCommand(node.parent)) return false;
   if (!isCommandWithName(node.parent, 'complete')) return false;

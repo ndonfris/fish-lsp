@@ -177,6 +177,12 @@ export async function execFindDependency(cmd: string): Promise<string> {
   return docs.toString().trim();
 }
 
+export async function execExpandBraceExpansion(input: string): Promise<string> {
+  const file = resolve(__dirname, '../../fish_files/expand_cartesian.fish');
+  const result = await execFileAsync('fish', [file, input]);
+  return result.stdout.toString().trimEnd();
+}
+
 export function execCommandLocations(cmd: string): {uri: string; path: string;}[] {
   const output = execFileSync('fish', ['--command', `type -ap ${cmd}`], {
     stdio: ['pipe', 'pipe', 'ignore'],
