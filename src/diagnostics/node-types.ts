@@ -319,7 +319,10 @@ export function isPosixCommandInsteadOfFishCommand(node: SyntaxNode): boolean {
   const parent = findParentCommand(node);
   if (!parent) return false;
 
-  if (isCommandWithName(parent, 'dirname', 'basename', 'realpath')) {
+  if (isCommandWithName(parent, 'realpath')) {
+    return !parent.children.some(c => isOption(c));
+  }
+  if (isCommandWithName(parent, 'dirname', 'basename')) {
     return true;
   }
   if (isCommandWithName(parent, 'cut', 'wc')) {
