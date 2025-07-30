@@ -24,7 +24,7 @@ export namespace ErrorCodes {
   export const autoloadedCompletionMissingCommandName = 4005;
   export const duplicateFunctionDefinitionInSameScope = 4006;
   export const autoloadedFunctionWithEventHookUnused = 4007;
-  // export const requireAutloadedFunctionHasDescription = 4008;
+  export const requireAutloadedFunctionHasDescription = 4008;
 
   export const argparseMissingEndStdin = 5001;
   export const unreachableCode = 5555;
@@ -39,11 +39,11 @@ export namespace ErrorCodes {
     1001 | 1002 | 1003 | 1004 | 1005 |
     2001 | 2002 | 2003 | 2004 |
     3001 | 3002 | 3003 |
-    4001 | 4002 | 4003 | 4004 | 4005 | 4006 | 4007 |
+    4001 | 4002 | 4003 | 4004 | 4005 | 4006 | 4007 | 4008 |
     5001 | 5555 |
     6001 |
     8001 |
-    9999 ;
+    9999;
 
   export type CodeValueType = {
     severity: DiagnosticSeverity;
@@ -193,6 +193,13 @@ export namespace ErrorCodes {
       codeDescription: { href: 'https://fishshell.com/docs/current/language.html#event' },
       source: 'fish-lsp',
       message: 'Autoloaded function with event hook is unused',
+    },
+    [requireAutloadedFunctionHasDescription]: {
+      severity: DiagnosticSeverity.Warning,
+      code: requireAutloadedFunctionHasDescription,
+      codeDescription: { href: 'https://fishshell.com/docs/current/cmds/functions.html' },
+      source: 'fish-lsp',
+      message: 'Autoloaded function requires a description | Add `-d`/`--description` to the function definition',
     },
     [argparseMissingEndStdin]: {
       severity: DiagnosticSeverity.Error,

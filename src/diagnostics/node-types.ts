@@ -368,7 +368,18 @@ export function getFishBuiltinEquivalentCommandName(node: SyntaxNode): string | 
   return null;
 }
 
-//
+// Returns all the autoloaded functions that do not have a `-d`/`--description` option set
+export function getAutoloadedFunctionsWithoutDescription(doc: LspDocument, handler: DiagnosticCommentsHandler, allFunctions: FishSymbol[]): FishSymbol[] {
+  if (!doc.isAutoloaded()) return [];
+  return allFunctions.filter((symbol) =>
+    symbol.isGlobal()
+    && symbol.fishKind !== 'ALIAS'
+    && !symbol.node.childrenForFieldName('option').some(child => isMatchingOption(child, Option.create('-d', '--description')))
+    && handler.isCodeEnabledAtNode(ErrorCodes.requireAutloadedFunctionHasDescription, symbol.node),
+  );
+}
+
+//  callback function to check if a function is autoloaded and has an event hook
 export function isFunctionWithEventHookCallback(doc: LspDocument, handler: DiagnosticCommentsHandler, allFunctions: FishSymbol[]) {
   const docType = doc.getAutoloadType();
   return (node: SyntaxNode): boolean => {

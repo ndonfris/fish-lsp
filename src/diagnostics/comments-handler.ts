@@ -144,12 +144,13 @@ export class DiagnosticCommentsHandler {
   }
 
   private globalEnabledCodes(): ErrorCodes.CodeTypes[] {
+    const codes = ErrorCodes.allErrorCodes;
     if (config.fish_lsp_diagnostic_disable_error_codes.length > 0) {
-      return ErrorCodes.allErrorCodes.filter(
+      return codes.filter(
         code => !config.fish_lsp_diagnostic_disable_error_codes.includes(code),
       ).filter(code => ErrorCodes.nonDeprecatedErrorCodes.some(e => e.code === code));
     }
-    return ErrorCodes.allErrorCodes.filter(code =>
+    return codes.filter(code =>
       ErrorCodes.nonDeprecatedErrorCodes.some(e => e.code === code),
     );
   }
