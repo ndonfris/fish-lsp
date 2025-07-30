@@ -453,7 +453,7 @@ export function findParentCommand(node?: SyntaxNode): SyntaxNode | null {
     return null;
   }
   while (currentNode !== null) {
-    if (isCommand(currentNode)) {
+    if (currentNode && isCommand(currentNode)) {
       return currentNode;
     }
     currentNode = currentNode.parent;

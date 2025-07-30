@@ -95,15 +95,17 @@ export function handleSourceArgumentHover(analyzer: Analyzer, current: SyntaxNod
   };
 }
 
-export async function handleBraceExpansionHover(current: SyntaxNode): Promise<Hover> {
+export async function handleBraceExpansionHover(current: SyntaxNode): Promise<Hover | null> {
   let text = current.text;
   if (isOption(current) || isCommand(current)) {
     if (text.includes('=')) {
-      text = text.split('=').at(1)!.trim();
+      text = text.slice(text.indexOf('=') + 1).trim();
     }
   }
-  let expanded = await execExpandBraceExpansion(text);
-  if (!expanded) expanded = 'No expansion found.';
+  const expanded = await execExpandBraceExpansion(text);
+  if (expanded.trim() === '' || expanded.trim() === '1  |``|') {
+    return null; // No expansion found, return null
+  }
   return {
     contents: enrichToMarkdown([
       `${md.boldItalic('BRACE EXPANSION')} - ${md.italic('https://fishshell.com/docs/current/language.html#brace-expansion')}`,
@@ -121,6 +123,7 @@ export function handleEndStdinHover(current: SyntaxNode): Hover {
       `(${md.boldItalic('END STDIN TOKEN')}) ${md.inlineCode(current.text)}`,
       md.separator(),
       [
+        // TODO: decide on best wording for this documentation
         `The ${md.inlineCode('--')} token is used to denote that the command should ${md.bold('stop reading')} from ${md.inlineCode('/dev/stdin')} for ${md.italic('switches')}, and use the remaining ${md.inlineCode('$argv')} as ${md.italic('positional arguments')}.`,
         // '',
         // 'Useful when a command accepts switches and arguments that start with a dash (-).',
@@ -241,7 +244,6 @@ export function forwardSubCommandCollect(rootNode: SyntaxNode): string[] {
 
 export function forwardArgCommandCollect(rootNode: SyntaxNode): string[] {
   const stringToComplete: string[] = [];
-  const _currentNode = rootNode.children;
   for (const curr of rootNode.children) {
     if (curr.text.startsWith('-') && curr.text.startsWith('$')) {
       stringToComplete.push(curr.text);

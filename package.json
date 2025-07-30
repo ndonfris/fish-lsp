@@ -169,7 +169,7 @@
     "@babel/preset-typescript": "^7.27.1",
     "@commitlint/cli": "^19.6.0",
     "@commitlint/config-conventional": "^19.6.0",
-    "@esdmr/tree-sitter-fish": "^3.5.2-0",
+    "@esdmr/tree-sitter-fish": "^3.5.2-1",
     "@tsconfig/node-ts": "^23.6.1",
     "@tsconfig/node22": "^22.0.2",
     "@types/eslint": "^9.6.1",

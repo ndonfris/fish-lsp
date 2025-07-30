@@ -549,11 +549,29 @@ export default class FishServer {
       if (result) return result;
     }
 
-    // handle brace expansion hover
-    if (isBraceExpansion(current)) return await handleBraceExpansionHover(current);
     if (isConcatenatedValue(current)) {
+      logger.log('isConcatenatedValue', { text: current.text, type: current.type });
       const parent = findParent(current, isConcatenation);
-      if (parent) return await handleBraceExpansionHover(parent);
+      const brace = findParent(current, isBraceExpansion);
+      if (parent) {
+        const res = await handleBraceExpansionHover(parent);
+        if (res) return res;
+      }
+      if (brace) {
+        const res = await handleBraceExpansionHover(brace);
+        if (res) return res;
+      }
+    }
+    // handle brace expansion hover
+    if (isBraceExpansion(current)) {
+      logger.log('isBraceExpansion', { text: current.text, type: current.type });
+      const res = await handleBraceExpansionHover(current);
+      if (res) return res;
+    }
+    if (current.parent && isBraceExpansion(current.parent)) {
+      logger.log('isBraceExpansion: parent', { text: current.parent.text, type: current.parent.type });
+      const res = await handleBraceExpansionHover(current.parent);
+      if (res) return res;
     }
 
     if (isEndStdinCharacter(current)) {
