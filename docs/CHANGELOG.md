@@ -1,3 +1,21 @@
+## <small>1.0.11-pre.9 (2025-07-30)</small>
+
+* chore: bump v1.0.11-pre.8 ([5af45ad](https://github.com/ndonfris/fish-lsp/commit/5af45ad))
+* chore: bump v1.0.11-pre.8 ([b0f2e47](https://github.com/ndonfris/fish-lsp/commit/b0f2e47))
+* chore: bump v1.0.11-pre.9 ([3055d60](https://github.com/ndonfris/fish-lsp/commit/3055d60))
+* fix: `3002` global env variable `fish_lsp_strict_conditional_command_warnings` ([3282238](https://github.com/ndonfris/fish-lsp/commit/3282238)), closes [#93](https://github.com/ndonfris/fish-lsp/issues/93)
+* fix: `fish-lsp env --show-default | source` no longer breaks server usage ([27b94cb](https://github.com/ndonfris/fish-lsp/commit/27b94cb))
+* fix: `fish-lsp info --path` instead of `fish-lsp info --repo` ([d795120](https://github.com/ndonfris/fish-lsp/commit/d795120))
+* fix: `realpath` diagnostic `2004` not shown when has options in arguments ([7b5d533](https://github.com/ndonfris/fish-lsp/commit/7b5d533))
+* fix: expansion of cartesian product and update tree-sitter-fish ([15675bf](https://github.com/ndonfris/fish-lsp/commit/15675bf))
+* feat: added diagnostic `4008` for requiring `function _ -d/--description` flags ([68647e6](https://github.com/ndonfris/fish-lsp/commit/68647e6))
+* feat: added env variable `fish_lsp_prefer_builtin_fish_commands` diagnostic 2004 ([9a207d3](https://github.com/ndonfris/fish-lsp/commit/9a207d3))
+* feat: added hover support for `{a,b,c}/{d,e,f}` and `--` ([4daf5e3](https://github.com/ndonfris/fish-lsp/commit/4daf5e3))
+* feat: updated `fish-lsp info --<TAB>` ([82573b8](https://github.com/ndonfris/fish-lsp/commit/82573b8))
+* refactor: `fish_files/expand_cartesian.fish` remove unused ([e0e1c75](https://github.com/ndonfris/fish-lsp/commit/e0e1c75))
+
+
+
 ## <small>1.0.11-pre.8 (2025-07-29)</small>
 
 * chore: bump v1.0.11-pre.8 ([b0f2e47](https://github.com/ndonfris/fish-lsp/commit/b0f2e47))
