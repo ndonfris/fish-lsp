@@ -1,5 +1,5 @@
-import { resolve } from 'path';
 import Parser from 'web-tree-sitter';
+import { getTreeSitterWasmPath } from './utils/path-resolution';
 
 const _global: any = global;
 
@@ -19,10 +19,5 @@ export async function initializeParser(): Promise<Parser> {
 }
 
 export function getLanguageWasmPath(): string {
-  const fishLangPath = resolve(
-    __dirname,
-    '..',
-    'tree-sitter-fish.wasm',
-  );
-  return fishLangPath.toString();
+  return getTreeSitterWasmPath();
 }

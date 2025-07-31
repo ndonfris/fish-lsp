@@ -17,11 +17,12 @@ module.exports = {
         tsconfigRootDir: __dirname,
     },
     ignorePatterns: [
-        'scripts/build-*.ts',
+        'scripts/build-*.(ts|js)',
         'scripts/build-standalone.ts',
         'dist/',
         '.bun/',
-        'out/'
+        'out/',
+        'build/'
     ],
     rules: {
         'array-bracket-spacing': 'error',

@@ -1,8 +1,8 @@
 import { exec, execFile, execFileSync } from 'child_process';
-import { resolve } from 'path';
 import { promisify } from 'util';
 import { logger } from '../logger';
 import { pathToUri, uriToPath } from './translation';
+import { getFishFilePath } from './path-resolution';
 
 export const execAsync = promisify(exec);
 
@@ -37,7 +37,7 @@ export async function execCmd(cmd: string): Promise<string[]> {
 }
 
 export async function execAsyncF(cmd: string) {
-  const file = resolve(__dirname, '../../fish_files/exec.fish');
+  const file = getFishFilePath('exec.fish');
   logger.log({ func: 'execAsyncF', file, cmd });
   const child = await execFileAsync(file, [cmd]);
   return child.stdout.toString().trim();
@@ -74,14 +74,14 @@ export function execFishNoExecute(filepath: string) {
 //
 
 export async function execCompletions(...cmd: string[]): Promise<string[]> {
-  const file = resolve(__dirname, '../../fish_files/get-completion.fish');
+  const file = getFishFilePath('get-completion.fish');
   const cmpArgs = ['1', `${cmd.join(' ').trim()}`];
   const cmps = await execFileAsync(file, cmpArgs);
   return cmps.stdout.trim().split('\n');
 }
 
 export async function execSubCommandCompletions(...cmd: string[]): Promise<string[]> {
-  const file = resolve(__dirname, '../../fish_files/get-completion.fish');
+  const file = getFishFilePath('get-completion.fish');
   const cmpArgs = ['2', cmd.join(' ')];
   const cmps = await execFileAsync(file, cmpArgs);
   return cmps.stdout.trim().split('\n');
@@ -114,7 +114,7 @@ export async function execCompleteSpace(cmd: string): Promise<string[]> {
 }
 
 export async function execCompleteCmdArgs(cmd: string): Promise<string[]> {
-  const exec = resolve(__dirname, '../../fish_files/get-command-options.fish');
+  const exec = getFishFilePath('get-command-options.fish');
   const args = execFile(exec, [cmd]);
   const results = args.toString().trim().split('\n');
 
@@ -136,7 +136,7 @@ export async function execCompleteCmdArgs(cmd: string): Promise<string[]> {
 }
 
 export async function execCommandDocs(cmd: string): Promise<string> {
-  const file = resolve(__dirname, '../../fish_files/get-documentation.fish');
+  const file = getFishFilePath('get-documentation.fish');
   const docs = await execFileAsync(file, [cmd]);
   const out = docs.stdout;
   return out.toString().trim();
@@ -152,7 +152,7 @@ export async function execCommandDocs(cmd: string): Promise<string> {
  *                     '' ->    cmd is neither
  */
 export async function execCommandType(cmd: string): Promise<string> {
-  const file = resolve(__dirname, '../../fish_files/get-type.fish');
+  const file = getFishFilePath('get-type.fish');
   const cmdCheck = cmd.split(' ')[0]?.trim() as string;
   const docs = await execFileAsync(file, [cmdCheck]);
   if (docs.stderr) {
@@ -172,13 +172,13 @@ export async function documentCommandDescription(cmd: string): Promise<string> {
 }
 
 export async function execFindDependency(cmd: string): Promise<string> {
-  const file = resolve(__dirname, '../../fish_files/get-dependency.fish');
+  const file = getFishFilePath('get-dependency.fish');
   const docs = execFileSync(file, [cmd]);
   return docs.toString().trim();
 }
 
 export async function execExpandBraceExpansion(input: string): Promise<string> {
-  const file = resolve(__dirname, '../../fish_files/expand_cartesian.fish');
+  const file = getFishFilePath('expand_cartesian.fish');
   const result = await execFileAsync('fish', [file, input]);
   return result.stdout.toString().trimEnd();
 }

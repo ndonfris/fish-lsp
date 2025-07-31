@@ -1,9 +1,9 @@
 import { execFile } from 'child_process';
-import { resolve } from 'path';
 import { promisify } from 'util';
 import { PrebuiltDocumentationMap } from './snippets';
 import { md } from './markdown-builder';
 import { env } from './env-manager';
+import { getFishFilePath } from './path-resolution';
 
 const execFileAsync = promisify(execFile);
 
@@ -28,7 +28,7 @@ export type AutoloadedFishVariableName = typeof autoloadedFishVariableNames[numb
 
 export async function setupProcessEnvExecFile() {
   try {
-    const file = resolve(__dirname, '../../fish_files/get-fish-autoloaded-paths.fish');
+    const file = getFishFilePath('get-fish-autoloaded-paths.fish');
     const { stdout } = await execFileAsync('fish', [file]);
 
     stdout.split('\n').forEach(line => {

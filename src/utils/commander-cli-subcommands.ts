@@ -2,6 +2,7 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import PackageJSON from '../../package.json';
 import { logger } from '../logger';
+import { getCurrentExecutablePath, getProjectRootPath, getManFilePath, getFishBuildTimeFilePath } from './path-resolution';
 
 /**
  * Accumulate the arguments into two arrays, '--enable' and '--disable'
@@ -173,29 +174,17 @@ function filterStartCommandArgs(args: string[]): string[] {
   return filteredArgs;
 }
 
-// For the specific case of finding the fish-lsp executable path:
-function getCurrentExecutablePath(): string {
-  // If this is being run as a Node.js script
-  if (process.argv[0] && process.argv[0].includes('node')) {
-    // Return the script that was executed
-    return process.argv[1]!;
-  }
-
-  // Otherwise, return the executable path itself
-  return process.execPath;
-}
-
 /// HELPERS
 export const smallFishLogo = () => '><(((°> FISH LSP';
 export const RepoUrl = PackageJSON.repository?.url.slice(0, -4);
 export const PackageVersion = PackageJSON.version;
 
 export const PathObj: { [K in 'bin' | 'root' | 'path' | 'manFile' | 'execFile']: string } = {
-  ['bin']: resolve(__dirname.toString(), '..', '..', 'bin', 'fish-lsp'),
-  ['root']: resolve(__dirname, '..', '..'),
-  ['path']: resolve(__dirname, '..', '..'),
+  ['bin']: resolve(getProjectRootPath(), 'bin', 'fish-lsp'),
+  ['root']: getProjectRootPath(),
+  ['path']: getProjectRootPath(),
   ['execFile']: getCurrentExecutablePath(),
-  ['manFile']: resolve(__dirname, '..', '..', 'docs', 'man', 'fish-lsp.1'),
+  ['manFile']: getManFilePath(),
 };
 
 export type VersionTuple = {
@@ -260,13 +249,22 @@ export const PackageNodeRequiredVersion = DepVersion.minimumNodeVersion();
  * shows last compile bundle time in server cli executable
  */
 const getOutTime = () => {
-  // @ts-ignore
-  const buildFile = resolve(__dirname, '..', '..', 'out', 'build-time.txt');
+  // First check if build time is embedded via environment variable (for bundled version)
+  if (process.env.FISH_LSP_BUILD_TIME) {
+    return process.env.FISH_LSP_BUILD_TIME;
+  }
+
+  // Fallback to reading from file (for development version)
+  const buildFile = getFishBuildTimeFilePath();
   let buildTime = 'unknown';
   try {
     buildTime = readFileSync(buildFile, 'utf8');
   } catch (e) {
-    logger.logToStdout('Error reading ./out/build-time.txt');
+    logger.logToStderr('Error reading ./out/build-time.txt');
+    logger.error([
+      'Error reading ./out/build-time.txt',
+      `Could not read build time from file: ${e}`,
+    ]);
   }
   return buildTime.trim();
 };
@@ -352,7 +350,7 @@ export const FishLspHelp = {
     '',
     'Examples:',
     '  # Default setup, with all options enabled',
-    '  > fish-lsp start ',
+    '  > fish-lsp start',
     '',
     '  # Generate and store completions file:',
     '  > fish-lsp complete > ~/.config/fish/completions/fish-lsp.fish',

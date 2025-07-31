@@ -11,6 +11,7 @@
     ".eslintrc.cjs",
     "commitlint.config.ts",
     "jest.config.js",
+    "scripts/",
     "test-data",
     "scripts/fish-commands-scrapper.ts"
   ]
