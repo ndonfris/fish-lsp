@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 //'use strict'
-import { BuildCapabilityString, PathObj, PackageLspVersion, PackageVersion, accumulateStartupOptions, getBuildTimeString, FishLspHelp, FishLspManPage, SourcesDict, isPkgBinary, SubcommandEnv } from './utils/commander-cli-subcommands';
+import { BuildCapabilityString, PathObj, PackageLspVersion, PackageVersion, accumulateStartupOptions, getBuildTimeString, FishLspHelp, FishLspManPage, SourcesDict, isPkgBinary, SubcommandEnv, infoHandleShowArgs, CommanderSubcommand } from './utils/commander-cli-subcommands';
 import { Command, Option } from 'commander';
 import { buildFishLspCompletions } from './utils/get-lsp-completions';
 import { logger } from './logger';
@@ -156,6 +156,7 @@ commandBin.command('info')
   .option('--lsp-version', 'show the lsp version')
   .option('--capabilities', 'show the lsp capabilities')
   .option('--man-file', 'show the man file path')
+  .option('--show', 'show the man file output')
   .option('--logs-file', 'show the logs file path')
   .option('--log-file', 'show the log file path')
   .option('--verbose', 'show debugging server info (capabilities, paths, version, etc.)')
@@ -173,7 +174,9 @@ commandBin.command('info')
 
     // Variable to determine if we saw specific info requests
     let shouldExit = false;
+    let exitCode = 0;
 
+    const argsCount = CommanderSubcommand.countArgs(args);
     // If the user requested specific info, we will try to show only the requested output.
     if (!args.verbose) {
       // immediately exit if the user requested a specific info
@@ -192,11 +195,19 @@ commandBin.command('info')
 
       // normal info about the fish-lsp
       if (args.bin) {
-        logger.logToStdout(PathObj.execFile);
+        logger.logToStdout(
+          argsCount > 1
+            ? `Binary File: ${PathObj.execFile} `
+            : PathObj.execFile,
+        );
         shouldExit = true;
       }
       if (args.path) {
-        logger.logToStdout(PathObj.path);
+        logger.logToStdout(
+          argsCount > 1
+            ? `Build Path: ${PathObj.path} `
+            : PathObj.path,
+        );
         shouldExit = true;
       }
       if (args.buildTime) {
@@ -211,12 +222,14 @@ commandBin.command('info')
         logger.logToStdout(`LSP Version: ${PackageLspVersion}`);
         shouldExit = true;
       }
-      if (args.manFile) {
-        logger.logToStdout(PathObj.manFile);
-        shouldExit = true;
-      }
-      if (args.logsFile || args.logFile) {
-        logger.logToStdout(config.fish_lsp_log_file);
+      // handle `[--man-file | --log-file] (--show)?`
+      if (args.manFile || args.logFile || args.logsFile) {
+        exitCode = infoHandleShowArgs({
+          otherArgs: CommanderSubcommand.keys(args).filter(k => !['manFile', 'logFile', 'logsFile', 'show'].includes(k)),
+          show: args.show,
+          manFile: args.manFile,
+          logFile: args.logFile || args.logsFile,
+        });
         shouldExit = true;
       }
     }
@@ -237,7 +250,7 @@ commandBin.command('info')
         logger.logToStdout(capabilities);
       }
     }
-    process.exit(0);
+    process.exit(exitCode);
   });
 
 // URL

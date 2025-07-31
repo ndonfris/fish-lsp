@@ -1,3 +1,7 @@
+## <small>1.0.11-pre.10 (2025-07-31)</small>
+
+* build: use esbuild instead of babel ([21538ee](https://github.com/ndonfris/fish-lsp/commit/21538ee))
+
 ## <small>1.0.11-pre.9 (2025-07-30)</small>
 
 * chore: bump v1.0.11-pre.8 ([5af45ad](https://github.com/ndonfris/fish-lsp/commit/5af45ad))

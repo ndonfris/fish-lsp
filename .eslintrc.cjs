@@ -17,7 +17,8 @@ module.exports = {
         tsconfigRootDir: __dirname,
     },
     ignorePatterns: [
-        'scripts/build-*.(ts|js)',
+        'scripts/build-*.ts',
+        'scripts/build-*.js',
         'scripts/build-standalone.ts',
         'dist/',
         '.bun/',

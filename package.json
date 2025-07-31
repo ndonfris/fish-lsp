@@ -1,8 +1,9 @@
 {
+  "$schema": "https://json.schemastore.org/package",
   "author": "ndonfris",
   "license": "MIT",
   "name": "fish-lsp",
-  "version": "1.0.11-pre.9",
+  "version": "1.0.11-pre.10",
   "description": "LSP implementation for fish/fish-shell",
   "keywords": [
     "lsp",
@@ -15,6 +16,9 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ndonfris/fish-lsp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ndonfris/fish-lsp/issues"
   },
   "main": "./out/server.js",
   "typings": "./out/server.d.ts",

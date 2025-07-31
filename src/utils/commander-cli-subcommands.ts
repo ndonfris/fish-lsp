@@ -3,6 +3,8 @@ import { resolve } from 'path';
 import PackageJSON from '../../package.json';
 import { logger } from '../logger';
 import { getCurrentExecutablePath, getProjectRootPath, getManFilePath, getFishBuildTimeFilePath } from './path-resolution';
+import { SyncFileHelper } from './file-operations';
+import { config } from '../config';
 
 /**
  * Accumulate the arguments into two arrays, '--enable' and '--disable'
@@ -364,6 +366,81 @@ export function FishLspManPage() {
     path: resolve(PathObj.root, PathObj.manFile),
     content: content.split('\n'),
   };
+}
+
+export function fishLspLogFile() {
+  const logFile = SyncFileHelper.expandEnvVars(config.fish_lsp_log_file);
+  if (!logFile) {
+    logger.error('fish_lsp_log_file is not set in the config file.');
+    return {
+      path: '',
+      content: [],
+    };
+  }
+  const content = SyncFileHelper.read(logFile).split('\n');
+  return {
+    path: resolve(logFile),
+    content: content,
+  };
+}
+
+type subcommandInfoShowFileArgs = {
+  otherArgs?: string[];
+  manFile?: boolean;
+  logFile?: boolean;
+  show?: boolean;
+};
+
+export namespace CommanderSubcommand {
+
+  export const countArgs = (args: any): number => {
+    return Object.keys(args).length;
+  };
+
+  export const keys = (args: any) => {
+    return Object.entries(args)
+      .filter(([key, value]) => !!key && !!value)
+      .map(([key, _]) => key);
+  };
+
+  export function entries(args: any) {
+    return Object.entries(args);
+  }
+
+  export function noArgs(args: any): boolean {
+    return Object.keys(args).length === 0;
+  }
+
+}
+
+export function infoHandleShowArgs(args: subcommandInfoShowFileArgs) {
+  let header = '';
+  if (args.logFile) {
+    if (args.otherArgs && args.otherArgs.length > 0) header = 'Log File: ';
+    const logObj = fishLspLogFile();
+    if (args.show) {
+      logger.logToStdout(`${header}${!!header && '\n'}${logObj.content.join('\n')}`);
+    } else {
+      logger.logToStdout(`${header}${logObj.path}`);
+    }
+  }
+  if (args.manFile) {
+    if (args.otherArgs && args.otherArgs.length > 0) header = 'Man File: ';
+    const manObj = FishLspManPage();
+    if (args.show) {
+      logger.logToStdout(`${header}${!!header && '\n'}${manObj.content.join('\n')}`);
+    } else {
+      logger.logToStdout(`${header}${manObj.path}`);
+    }
+  }
+  if (!args.logFile && !args.manFile && args.show) {
+    logger.logToStderr([
+      'ERROR: flag `--show` requires either `--log-file` or `-man-file`',
+      'fish-lsp info [--log-file | --man-file] --show',
+    ].join('\n'));
+    return 1;
+  }
+  return 0;
 }
 
 export function BuildCapabilityString() {
