@@ -6,7 +6,9 @@ import { createServerLogger, logger } from '../logger';
 import { config, configHandlers } from '../config';
 import { pathToUri } from './translation';
 import { PackageVersion } from './commander-cli-subcommands';
-import { createConnection, InitializeParams, InitializeResult, StreamMessageReader, StreamMessageWriter, ProposedFeatures, Connection } from 'vscode-languageserver/node';
+import { createConnection, InitializeParams, InitializeResult, StreamMessageReader, StreamMessageWriter, ProposedFeatures } from 'vscode-languageserver/node';
+import * as Browser from 'vscode-languageserver/browser';
+import { Connection } from 'vscode-languageserver';
 import { workspaceManager } from './workspace-manager';
 import { Workspace } from './workspace';
 import { SyncFileHelper } from './file-operations';
@@ -90,6 +92,81 @@ function createLspConnection(connectionType: ConnectionType = 'stdio', options: 
       break;
   }
 }
+
+export type WebServerProps = {
+  connection?: Connection;
+  params?: InitializeParams;
+};
+
+/**
+ * Creates a browser connection for the FISH-LSP server.
+ */
+export function createBrowserConnection(): Connection {
+  // const messageReader = new Browser.BrowserMessageReader(self);
+  // const messageWriter = new Browser.BrowserMessageWriter(self);
+  // const conn = Browser.createConnection(
+  //   messageReader,
+  //   messageWriter,
+  // );
+  // let server: FishServer;
+
+  let port = 8080;
+  while (isPortTaken(port)) {
+    port++;
+  }
+  connection = Browser.createConnection(
+    new Browser.BrowserMessageReader(self),
+    new Browser.BrowserMessageWriter(self),
+  );
+
+  // const webServer = net.createServer((socket) => {
+  //
+  //   connection.onInitialize(async (params: InitializeParams): Promise<InitializeResult> => {
+  //     const { initializeResult } = await FishServer.create(connection, params);
+  //     Config.isWebServer = true;
+  //     return initializeResult;
+  //   })
+  // });
+  //
+  // webServer.listen(port);
+  // logger.info(`Server listening on port ${port}`);
+  return connection;
+}
+
+import * as Net from 'net';
+
+/**
+ * Checks if a given port is currently in use.
+ * @param port The port number to check.
+ * @returns A Promise that resolves to `true` if the port is in use, `false` otherwise.
+ *          Rejects if an unexpected error occurs during the port check.
+ */
+function isPortTaken(port: number): Promise<boolean> {
+  return new Promise((resolve, reject) => {
+    const tester = Net.createServer();
+
+    tester.once('error', (err: any) => {
+      // If the error code is 'EADDRINUSE', the port is in use.
+      if (err.code === 'EADDRINUSE') {
+        resolve(true);
+      } else {
+        // Reject for other unexpected errors.
+        reject(err);
+      }
+    });
+
+    tester.once('listening', () => {
+      // If we successfully listen, the port is free. Close the server.
+      tester.close(() => {
+        resolve(false);
+      });
+    });
+
+    tester.listen(port);
+  });
+}
+
+// Example usage:
 
 /**
  * Sets up the server with the provided connection

@@ -22,41 +22,46 @@
   },
   "main": "./out/server.js",
   "typings": "./out/server.d.ts",
+  "browser": "./out/web.js",
   "bin": {
-    "fish-lsp": "bin/fish-lsp"
+    "fish-lsp": "./build/fish-lsp"
   },
   "man": "./docs/man/fish-lsp.1",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=18.0.0"
   },
   "directories": {
-    "bin": "./bin/fish-lsp",
-    "man": "./docs/man/"
+    "man": "./build/docs/man/"
   },
   "files": [
-    "tree-sitter-fish.wasm",
-    "package.json",
+    "build/fish-lsp",
+    "build/tree-sitter-fish.wasm",
+    "build/fish_files",
+    "build/docs/man/fish-lsp.1",
+    "build/out/build-time.txt",
     "out",
-    "docs/man/fish-lsp.1",
-    "bin",
-    "scripts/build-time",
+    "tree-sitter-fish.wasm",
     "fish_files",
+    "package.json",
     "README.md",
     "LICENSE.md"
   ],
   "scripts": {
     "prepare": "husky",
-    "setup": "run-s sh:build-time sh:build-wasm compile:prod sh:relink sh:build-completions",
+    "setup": "run-s sh:build-time sh:build-wasm build:binary sh:relink sh:build-completions",
     "dev": "run-s setup",
     "dev:watch": "run-s setup watch",
     "postinstall": "run-s sh:build-time",
-    "prepack": "run-s update-changelog lint:check generate:man generate:commands sh:build-wasm compile:prod",
-    "compile": "tsx scripts/build-esbuild-dev.ts",
-    "compile:prod": "tsx scripts/build-esbuild-dev.ts --production",
+    "prepack": "run-s update-changelog lint:check generate:man generate:commands sh:build-wasm compile:prod build:binary:prod",
+    "package": "yarn pack",
+    "package:dry": "run-s package:build && npm pack --dry-run --ignore-scripts",
+    "package:build": "run-s lint:check generate:man generate:commands sh:build-wasm compile:prod build:binary:prod",
+    "compile": "tsx scripts/build.ts",
+    "compile:prod": "tsx scripts/build.ts --production",
     "compile:types": "tsc --emitDeclarationOnly",
     "compile:legacy": "tsc -b",
     "copy:json": "cp -r src/snippets out/",
-    "watch": "tsx scripts/build-esbuild-dev.ts --watch",
+    "watch": "tsx scripts/build.ts --watch",
     "watch:legacy": "tsc -b -w",
     "sh:build-completions": "fish ./scripts/build-completions.fish",
     "sh:build-time": "node ./scripts/build-time",
@@ -79,11 +84,13 @@
     "generate:man": "mkdir -p ./docs/man && cat docs/MAN_FILE.md | npx marked-man --date \"$(date)\"  --manual fish-lsp --section 1 > ./docs/man/fish-lsp.1",
     "generate:man:cp": "cp ./docs/man/fish-lsp.1 ~/.local/share/man/man1/fish-lsp.1",
     "generate:man:write-global": "run-s generate:man generate:man:cp",
-    "build": "tsx scripts/build-esbuild-dev.ts",
-    "build:binary:esbuild": "run-s dev build:esbuild",
-    "build:binary": "run-s dev sh:binary",
-    "build:esbuild": "tsx scripts/build-esbuild-dev.ts --binary",
-    "build:esbuild:dev": "tsx scripts/build-esbuild-dev.ts"
+    "build": "tsx scripts/build.ts",
+    "build:dev": "tsx scripts/build.ts",
+    "build:prod": "tsx scripts/build.ts --production",
+    "build:binary": "tsx scripts/build.ts --binary",
+    "build:binary:prod": "tsx scripts/build.ts --binary --production",
+    "build:web": "tsx scripts/build.ts --web",
+    "build:web:prod": "tsx scripts/build.ts --web --production"
   },
   "lint-staged": {
     "**/*.ts": [
@@ -171,6 +178,7 @@
   "devDependencies": {
     "@commitlint/cli": "^19.6.0",
     "@commitlint/config-conventional": "^19.6.0",
+    "@esbuild-plugins/node-globals-polyfill": "^0.2.3",
     "@esdmr/tree-sitter-fish": "^3.5.2-1",
     "@tsconfig/node-ts": "^23.6.1",
     "@tsconfig/node22": "^22.0.2",

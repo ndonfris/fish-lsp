@@ -1,11 +1,13 @@
+// Import polyfills for Node.js 18 compatibility
+import './utils/array-polyfills';
 import { SyntaxNode } from 'web-tree-sitter';
 import { AnalyzedDocument, analyzer, Analyzer } from './analyze';
 import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, ImplementationParams, CodeLensParams, CodeLens, WorkspaceFoldersChangeEvent } from 'vscode-languageserver';
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, documents } from './document';
 import { formatDocumentContent } from './formatting';
-import { logger } from './logger';
-import { connection, setExternalConnection } from './utils/startup';
+import { createServerLogger, logger } from './logger';
+import { connection, createBrowserConnection, setExternalConnection } from './utils/startup';
 import { formatTextWithIndents, symbolKindsFromNode, uriToPath } from './utils/translation';
 import { getChildNodes } from './utils/tree-sitter';
 import { getVariableExpansionDocs, handleHover } from './hover';
@@ -19,7 +21,7 @@ import { getDocumentationResolver } from './utils/completion/documentation';
 import { FishCompletionList } from './utils/completion/list';
 import { PrebuiltDocumentationMap, getPrebuiltDocUrl } from './utils/snippets';
 import { findParent, findParentCommand, isAliasDefinitionName, isBraceExpansion, isCommand, isConcatenatedValue, isConcatenation, isEndStdinCharacter, isOption, isReturnStatusNumber, isVariableDefinition } from './utils/node-types';
-import { config, Config } from './config';
+import { config, Config, configHandlers } from './config';
 import { enrichToMarkdown, handleBraceExpansionHover, handleEndStdinHover, handleSourceArgumentHover } from './documentation';
 import { findActiveParameterStringRegex, getAliasedCompletionItemSignature, getDefaultSignatures, getFunctionSignatureHelp, isRegexStringSignature } from './signature';
 import { CompletionItemMap } from './utils/completion/startup-cache';
@@ -54,9 +56,58 @@ export let hasWorkspaceFolderCapability = false;
 export const enableWorkspaceFolderSupport = () => {
   hasWorkspaceFolderCapability = true;
 };
+
 export let currentDocument: LspDocument | null = null;
 
+type WebServerProps = {
+  connection?: Connection;
+  params?: InitializeParams;
+};
+
 export default class FishServer {
+  public static async createWebServer(props: WebServerProps): Promise<{
+    server: FishServer;
+    initializeResult: InitializeResult;
+  }> {
+    const connection = props.connection || createBrowserConnection();
+    logger.info(`(${new Date().toISOString()}) FishServer.createWebServer()`, {
+      version: PkgJson.version,
+      buildTime: PkgJson.buildTime,
+      props,
+    });
+
+    Config.isWebServer = true;
+
+    if (!props.params) {
+      props.params = {
+        processId: 0,
+        rootUri: null,
+        rootPath: null,
+        capabilities: {},
+        initializationOptions: {},
+        workspaceFolders: [],
+      } as InitializeParams;
+    }
+    connection.onInitialize(
+      async (params: InitializeParams): Promise<InitializeResult> => {
+        const { initializeResult } = await FishServer.create(connection, params);
+        Config.isWebServer = true;
+        return initializeResult;
+      },
+    );
+
+    // Start listening
+    connection.listen();
+
+    // Setup logger
+    createServerLogger(config.fish_lsp_log_file, connection.console);
+    logger.log('Starting FISH-LSP server');
+    logger.log('Server started with the following handlers:', configHandlers);
+    logger.log('Server started with the following config:', config);
+
+    return await FishServer.create(connection, props.params);
+  }
+
   public static async create(
     connection: Connection,
     params: InitializeParams,

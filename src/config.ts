@@ -422,6 +422,9 @@ export const FormatOptions: FormattingOptions = {
  *******************************************/
 export namespace Config {
 
+  // eslint-disable-next-line prefer-const
+  export let isWebServer = false;
+
   /**
    *  fixPopups - updates the `config.fish_lsp_show_client_popups` value based on the 3 cases:
    *   - cli flags include 'popups' -> directly sets `fish_lsp_show_client_popups`

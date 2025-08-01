@@ -394,7 +394,7 @@ type subcommandInfoShowFileArgs = {
 export namespace CommanderSubcommand {
 
   export const countArgs = (args: any): number => {
-    return Object.keys(args).length;
+    return keys(args).length;
   };
 
   export const keys = (args: any) => {

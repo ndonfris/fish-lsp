@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 //'use strict'
+// Import polyfills for Node.js 18 compatibility
+import './utils/array-polyfills';
 import { BuildCapabilityString, PathObj, PackageLspVersion, PackageVersion, accumulateStartupOptions, getBuildTimeString, FishLspHelp, FishLspManPage, SourcesDict, isPkgBinary, SubcommandEnv, infoHandleShowArgs, CommanderSubcommand } from './utils/commander-cli-subcommands';
 import { Command, Option } from 'commander';
 import { buildFishLspCompletions } from './utils/get-lsp-completions';

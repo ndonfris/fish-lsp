@@ -9,10 +9,15 @@ import { existsSync } from 'fs';
  * Get the current executable path
  */
 export function getCurrentExecutablePath(): string {
-  // If this is being run as a Node.js script
-  if (process.argv[0] && process.argv[0].includes('node')) {
+  // If this is being run as a Node.js script and argv[1] exists
+  if (process.argv[0] && process.argv[0].includes('node') && process.argv[1]) {
     // Return the script that was executed
-    return process.argv[1]!;
+    return process.argv[1];
+  }
+
+  // For library imports, use the current module's directory
+  if (!process.argv[1]) {
+    return __filename;
   }
 
   // Otherwise, return the executable path itself
