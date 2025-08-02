@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 //'use strict'
+
 // Import polyfills for Node.js 18 compatibility
 import './utils/array-polyfills';
-import { BuildCapabilityString, PathObj, PackageLspVersion, PackageVersion, accumulateStartupOptions, getBuildTimeString, FishLspHelp, FishLspManPage, SourcesDict, isPkgBinary, SubcommandEnv, infoHandleShowArgs, CommanderSubcommand } from './utils/commander-cli-subcommands';
+import { BuildCapabilityString, PathObj, PackageLspVersion, PackageVersion, accumulateStartupOptions, getBuildTimeString, FishLspHelp, FishLspManPage, SourcesDict, SubcommandEnv, CommanderSubcommand, getBuildTypeString, CommandlineLogger } from './utils/commander-cli-subcommands';
 import { Command, Option } from 'commander';
 import { buildFishLspCompletions } from './utils/get-lsp-completions';
 import { logger } from './logger';
@@ -155,6 +156,7 @@ commandBin.command('info')
   .option('--bin', 'show the path of the fish-lsp executable')
   .option('--path', 'show the path of the entire fish-lsp repo')
   .option('--build-time', 'show the path of the entire fish-lsp repo')
+  .option('--build-type', 'show the build type being used')
   .option('--lsp-version', 'show the lsp version')
   .option('--capabilities', 'show the lsp capabilities')
   .option('--man-file', 'show the man file path')
@@ -180,15 +182,25 @@ commandBin.command('info')
 
     const argsCount = CommanderSubcommand.countArgs(args);
 
-    // logger.logToStdout(`fish-lsp info command called with args: ${argsCount}`);
+    // immediately exit if the user requested a specific info
+    const hasPreferredArg = args.timeStartup || args.checkHealth || args.healthCheck;
+    if (args.useWorkspace && !args.timeStartup && argsCount > 1) {
+      logger.logToStderr('The `--use-workspace` option is only valid with `--time-startup`.');
+      process.exit(1);
+    }
+    if (hasPreferredArg) {
+      const localArgs = CommanderSubcommand.removeArgs(args, 'useWorkspace', 'warning', 'healthCheck', 'checkHealth', 'timeStartup');
+      const localArgsCount = CommanderSubcommand.countArgs(localArgs);
+      if (localArgsCount > 0) {
+        const skipOpts = ['--time-startup', '--health-check', 'info', '--no-warning', '--use-workspace', '--use-workspace=', '--check-health'];
+        logger.logToStderr(`ERROR:\n\n\tThe '--time-startup' and/or '--health-check' options should not include UNRELATED ARGUMENTS.\nUNRELATED ARGUMENTS:\n\t${commandBin.args.filter(k => !skipOpts.some(opt => k.startsWith(opt))).map(m => ['', m, ''].join('"')).join(', ')}`);
+        process.exit(1);
+      }
+    }
 
     // If the user requested specific info, we will try to show only the requested output.
     if (!args.verbose) {
-      // immediately exit if the user requested a specific info
-      if (args.useWorkspace && !args.timeStartup) {
-        logger.logToStderr('The `--use-workspace` option is only valid with `--time-startup`.');
-        process.exit(1);
-      }
+      // handle the preferred args (`--time-startup`, `--health-check`, `--check-health`)
       if (args.timeStartup) {
         await timeServerStartup(args.useWorkspace, args.warning);
         process.exit(0);
@@ -197,62 +209,51 @@ commandBin.command('info')
         await performHealthCheck();
         process.exit(0);
       }
-
       // normal info about the fish-lsp
       if (args.bin) {
-        logger.logToStdout(
-          argsCount > 1
-            ? `Binary File: ${PathObj.execFile} `
-            : PathObj.execFile,
-        );
+        CommandlineLogger.info(argsCount, 'Executable Path', PathObj.execFile);
         shouldExit = true;
       }
       if (args.path) {
-        logger.logToStdout(
-          argsCount > 1
-            ? `Build Path: ${PathObj.path} `
-            : PathObj.path,
-        );
+        CommandlineLogger.info(argsCount, 'Build Path', PathObj.path);
         shouldExit = true;
       }
       if (args.buildTime) {
-        logger.logToStdout(`Build Time: ${getBuildTimeString()}`);
+        CommandlineLogger.info(argsCount, 'Build Time', getBuildTimeString());
+        shouldExit = true;
+      }
+      if (args.buildType) {
+        CommandlineLogger.info(argsCount, 'Build Type', getBuildTypeString());
         shouldExit = true;
       }
       if (args.capabilities) {
-        logger.logToStdout(`Capabilities:\n${capabilities}`);
+        CommandlineLogger.info(argsCount, 'Capabilities', capabilities, true);
         shouldExit = true;
       }
       if (args.lspVersion) {
-        logger.logToStdout(`LSP Version: ${PackageLspVersion}`);
+        CommandlineLogger.info(argsCount, 'LSP Version', PackageLspVersion, true);
         shouldExit = true;
       }
       // handle `[--man-file | --log-file] (--show)?`
       if (args.manFile || args.logFile || args.logsFile) {
-        exitCode = infoHandleShowArgs({
-          otherArgs: CommanderSubcommand.keys(args).filter(k => !['manFile', 'logFile', 'logsFile', 'show'].includes(k)),
-          show: args.show,
-          manFile: args.manFile,
-          logFile: args.logFile || args.logsFile,
-        });
+        exitCode = CommandlineLogger.infoShowFileHandler(args);
         shouldExit = true;
       }
     }
     if (!shouldExit || args.verbose) {
-      logger.logToStdout(`Executable Path: ${PathObj.execFile}`);
-      logger.logToStdout(`Build Location: ${PathObj.path}`);
-      logger.logToStdout(`Build Version: ${PackageVersion}`);
-      logger.logToStdout(`Build Time: ${getBuildTimeString()}`);
-      logger.logToStdout(`Install Type: ${isPkgBinary() ? 'standalone executable' : 'local build'}`);
-      logger.logToStdout(`Node Version: ${process.version}`);
-      logger.logToStdout(`LSP Version: ${PackageLspVersion}`);
-      logger.logToStdout(`Binary File: ${PathObj.bin}`);
-      logger.logToStdout(`Man File: ${PathObj.manFile}`);
-      logger.logToStdout(`Log File: ${config.fish_lsp_log_file}`);
+      CommandlineLogger.info(argsCount, 'Executable Path', PathObj.execFile, true);
+      CommandlineLogger.info(argsCount, 'Build Location', PathObj.path, true);
+      CommandlineLogger.info(argsCount, 'Build Version', PackageVersion, true);
+      CommandlineLogger.info(argsCount, 'Build Time', getBuildTimeString(), true);
+      CommandlineLogger.info(argsCount, 'Build Type', getBuildTypeString(), true);
+      CommandlineLogger.info(argsCount, 'Node Version', process.version, true);
+      CommandlineLogger.info(argsCount, 'LSP Version', PackageLspVersion, true);
+      CommandlineLogger.info(argsCount, 'Binary File', PathObj.bin, true);
+      CommandlineLogger.info(argsCount, 'Man File', PathObj.manFile, true);
+      CommandlineLogger.info(argsCount, 'Log File', config.fish_lsp_log_file, true);
       if (args.extra || args.capabilities || args.verbose) {
         logger.logToStdout('_'.repeat(parseInt(process.env.COLUMNS || '80')));
-        logger.logToStdout('CAPABILITIES:');
-        logger.logToStdout(capabilities);
+        CommandlineLogger.info(argsCount, 'Capabilities', capabilities, false);
       }
     }
     process.exit(exitCode);

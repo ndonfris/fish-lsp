@@ -25,14 +25,31 @@ function ensureOutDirExists() {
   return outDir;
 }
 
+// Ensure the lib directory exists
+function ensureLibDirExists() {
+  const libDir = path.resolve(__dirname, '../lib');
+  if (!fs.existsSync(libDir)) {
+    fs.mkdirSync(libDir, { recursive: true });
+  }
+  return libDir;
+}
+
 // Write the build time to a file
 function writeBuildTime() {
   const outDir = ensureOutDirExists();
-  const buildTimeFile = path.join(outDir, 'build-time.txt');
+  const libDir = ensureLibDirExists();
   const buildTime = getCurrentDateTime();
   
+  // Write to both out/ and lib/ directories
+  const files = [
+    path.join(outDir, 'build-time.txt'),
+    path.join(libDir, 'build-time.txt')
+  ];
+  
   try {
-    fs.writeFileSync(buildTimeFile, `${buildTime}\n`);
+    files.forEach(file => {
+      fs.writeFileSync(file, `${buildTime}\n`);
+    });
     console.log(`Build time recorded: ${buildTime}`);
   } catch (error) {
     console.error(`Error writing build time: ${error.message}`);

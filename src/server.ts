@@ -716,6 +716,10 @@ export default class FishServer {
     return workspaceEdit;
   }
 
+  get analyzer(): Analyzer {
+    return analyzer;
+  }
+
   async onDocumentFormatting(params: DocumentFormattingParams): Promise<TextEdit[]> {
     this.logParams('onDocumentFormatting', params);
 

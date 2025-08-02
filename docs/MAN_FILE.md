@@ -58,8 +58,8 @@ show the build info of fish-lsp
 
   `--bin`                     show the path of the fish-lsp executable  
   `--path`                    show the path of the entire fish-lsp installation  
-  `--time`                    show the path of the entire fish-lsp repo  
-  `--env`                     show the env variables used  
+  `--build-time`              show the path of the entire fish-lsp repo  
+  `--build-type`              show the build type of the command  
   `--lsp-version`             show the lsp version  
   `--capabilities`            show the lsp capabilities  
   `--man-file`                show the man file path  

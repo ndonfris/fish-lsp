@@ -1,12 +1,10 @@
 .DS_Store
-out
-node_modules
 .vim
 *.log
 *.tsbuildinfo
 logs.txt
 wikis
-test-data/staging
+tests/staging
 *.tgz
 *.tsbuildinfo
 .editorconfig
@@ -18,3 +16,9 @@ build
 *.cast
 *.gif
 *.txt
+
+out
+node_modules
+bin
+lib
+dist

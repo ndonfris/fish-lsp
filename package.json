@@ -20,50 +20,61 @@
   "bugs": {
     "url": "https://github.com/ndonfris/fish-lsp/issues"
   },
-  "main": "./build/server.js",
-  "typings": "./build/server.d.ts",
-  "browser": "./build/fish-lsp-web.js",
+  "main": "./lib/server.js",
+  "typings": "./lib/server.d.ts",
+  "browser": "./lib/fish-lsp-web.js",
   "bin": {
-    "fish-lsp": "./build/fish-lsp"
+    "fish-lsp": "./bin/fish-lsp"
   },
-  "man": "./docs/man/fish-lsp.1",
+  "man": "./man/fish-lsp.1",
   "engines": {
     "node": ">=18.0.0"
   },
+  "funding": {
+    "url": "https://github.con/ndonfris",
+    "type": "github"
+  },
   "directories": {
-    "man": "./build/docs/man/"
+    "man": "./man/"
   },
   "files": [
-    "build/",
+    "bin/fish-lsp",
+    "dist/fish-lsp",
+    "!lib/*.(map|map.js)",
+    "lib/*.js",
+    "lib/*.d.ts",
+    "lib/*.txt",
+    "fish_scripts/",
+    "scripts/build-time",
     "package.json",
+    "man/fish-lsp.1",
     "README.md",
-    "LICENSE.md"
+    "LICENSE.md",
+    "tree-sitter-fish.wasm"
   ],
   "scripts": {
     "prepare": "husky",
     "dev": "run-s sh:build-time sh:build-wasm build:prod sh:relink sh:build-completions",
     "dev:watch": "run-s dev watch",
     "postinstall": "run-s sh:build-time",
-    "prepack": "run-s -nl --continue-on-error -- stash clean:build update-changelog lint:check generate:man generate:commands dev prepack:commit stash:add",
+    "prepack": "run-s -nl --continue-on-error -- stash clean:lib update-changelog lint:check generate:man generate:commands build prepack:commit stash:add",
     "prepack:commit": "git add -u && (git log -1 --pretty=%B | grep -q '^chore: prepack auto-commit' && git commit --amend --no-edit || git commit -m \"chore: prepack auto-commit changes before pack $(date +%D\\ %T)\") || true",
     "postpack": "git log -1 --pretty=%B | grep -q '^chore: prepack auto-commit' && git reset --soft HEAD~1 || true",
-    "pack:dry": "run-s --continue-on-error stash clean:build update-changelog:dry:diff lint:check generate:man generate:commands dev",
-    "package": "yarn pack",
+    "package": "npm pack",
     "package:dry": "run-s package:build && npm pack --dry-run --ignore-scripts",
     "package:build": "run-s lint:check generate:man generate:commands sh:build-wasm build:prod",
     "build": "tsx scripts/build.ts --all",
     "build:prod": "tsx scripts/build.ts --all --production",
     "build:web": "tsx scripts/build.ts --web --production",
-    "watch": "tsx scripts/build.ts --watch",
+    "watch": "tsx scripts/build.ts --all --watch",
     "sh:build-completions": "fish ./scripts/build-completions.fish",
     "sh:build-time": "node ./scripts/build-time",
     "sh:build-wasm": "fish ./scripts/build-fish-wasm.fish",
     "sh:relink": "fish ./scripts/relink-locally.fish",
     "sh:build-release": "fish ./scripts/build-release.fish",
-    "sh:binary": "./scripts/build-with-bun.sh",
-    "clean": "rimraf out node_modules .tsbuildinfo coverage .bun build",
-    "clean:all": "rimraf out .tsbuildinfo node_modules tree-sitter-fish.wasm logs.txt build coverage .bun build",
-    "clean:build": "rimraf build .tsbuildinfo *.tgz coverage .bun out",
+    "clean": "rimraf out dist lib man node_modules *.tgz .tsbuildinfo coverage .bun",
+    "clean:all": "rimraf out lib dist .tsbuildinfo node_modules tree-sitter-fish.wasm logs.txt coverage .bun",
+    "clean:lib": "rimraf out lib dist .tsbuildinfo",
     "test": "env -i HOME=$HOME PATH=$PATH NODE_ENV=test jest",
     "test:coverage": "env -i HOME=$HOME PATH=$PATH NODE_ENV=test jest --coverage --collectCoverageFrom 'src/**/*.ts'",
     "refactor": "knip",
@@ -76,14 +87,16 @@
     "stash": "run-s -sn stash:add stash:undo",
     "stash:add": "git stash push -a -u -m \"prepack: automated stash before packaging $(date +%D\\ %T)\"",
     "stash:undo": "git stash apply 2>/dev/null || echo \"ERROR: reset stash failed!\" >&2",
-    "generate:commands": "tsx ./scripts/fish-commands-scrapper.ts --write-to-snippets",
-    "generate:commands:check": "tsx ./scripts/fish-commands-scrapper.ts",
-    "generate:man:cat": "mkdir -p ./docs/man && cat docs/MAN_FILE.md | npx marked-man --date \"$(date)\"  --manual fish-lsp --section 1 2>/dev/null || true",
     "show:pass": "echo \"\\033[32mPASS: $1\\033[0m\"",
     "show:fail": "echo \"\\033[31mFAIL: $1\\033[0m\" >&2",
-    "generate:man": "npm run --foreground-scripts -s generate:man:cat > ./docs/man/fish-lsp.1",
-    "generate:man:diff": "npm run --foreground-scripts -s generate:man:cat | diff --color=always --unified ./docs/man/fish-lsp.1 - && npm run -s show:pass 'NO CHANGES TO docs/man/fish-lsp.1' || npm run -s show:fail 'CHANGES IN docs/man/fish-lsp.1'",
-    "generate:man:cp": "cp ./docs/man/fish-lsp.1 ~/.local/share/man/man1/fish-lsp.1",
+    "generate:commands": "tsx ./scripts/fish-commands-scrapper.ts --write-to-snippets",
+    "generate:commands:check": "tsx ./scripts/fish-commands-scrapper.ts",
+    "create:man:dir": "mkdir -p ./man",
+    "generate:man:cat": "cat docs/MAN_FILE.md | npx marked-man --date \"$(date)\"  --manual fish-lsp --section 1 2>/dev/null || true",
+    "generate:man": "run-s create:man:dir generate:man:actual",
+    "generate:man:actual": "npm run --foreground-scripts -s generate:man:cat > ./man/fish-lsp.1",
+    "generate:man:diff": "npm run --foreground-scripts -s generate:man:cat | diff --color=always --unified ./man/fish-lsp.1 - && npm run -s show:pass 'NO CHANGES TO man/fish-lsp.1' || npm run -s show:fail 'CHANGES IN man/fish-lsp.1'",
+    "generate:man:cp": "cp ./man/fish-lsp.1 ~/.local/share/man/man1/fish-lsp.1",
     "generate:man:write-global": "run-s generate:man generate:man:cp"
   },
   "lint-staged": {

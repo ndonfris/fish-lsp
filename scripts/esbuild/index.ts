@@ -26,35 +26,74 @@ export async function build(customArgs?: string[]): Promise<void> {
 
   try {
     if (args.target === 'all') {
-      // Build all targets sequentially
       const targets: Array<keyof typeof buildConfigs> = ['development', 'library', 'binary', 'web'];
       
-      console.log('🚀 Building all targets...');
-      
-      for (const targetName of targets) {
-        const config = buildConfigs[targetName];
-        const buildOptions = createBuildOptions(config, args.production || args.minify);
+      if (args.watch) {
+        // Watch mode for all targets
+        console.log('🚀 Starting watch mode for all targets...');
+        const contexts: esbuild.BuildContext[] = [];
         
-        console.log(`\n📦 Building ${config.name.toLowerCase()}...`);
-        await esbuild.build(buildOptions);
-        
-        // Post-build tasks for each target
-        if (targetName === 'development') {
-          generateTypeDeclarations();
-          copyDevelopmentAssets();
-        } else if (targetName === 'library' && config.outfile) {
-          generateLibraryTypeDeclarations();
-          showBuildStats(config.outfile, 'Library bundle');
-        } else if (targetName === 'binary' && config.outfile) {
-          makeExecutable(config.outfile);
-          showBuildStats(config.outfile, 'Binary');
-        } else if (targetName === 'web' && config.outfile) {
-          showBuildStats(config.outfile, 'Web bundle');
+        for (const targetName of targets) {
+          const config = buildConfigs[targetName];
+          const buildOptions = createBuildOptions(config, args.production || args.minify);
+          
+          console.log(`\n📦 Starting watch for ${config.name.toLowerCase()}...`);
+          const ctx = await esbuild.context(buildOptions);
+          contexts.push(ctx);
+          
+          // Post-build tasks for initial build
+          if (targetName === 'development') {
+            generateTypeDeclarations();
+            copyDevelopmentAssets();
+          } else if (targetName === 'library' && config.outfile) {
+            generateLibraryTypeDeclarations();
+          } else if (targetName === 'binary' && config.outfile) {
+            makeExecutable(config.outfile);
+          }
+          
+          await ctx.watch();
         }
+        
+        console.log('\n👀 Watching all targets for changes...');
+        
+        // Keep the process running and handle cleanup
+        process.on('SIGINT', () => {
+          console.log('\n🛑 Stopping watch mode...');
+          Promise.all(contexts.map(ctx => ctx.dispose())).then(() => {
+            process.exit(0);
+          });
+        });
+        
+        return;
+      } else {
+        // Build all targets sequentially (non-watch mode)
+        console.log('🚀 Building all targets...');
+        
+        for (const targetName of targets) {
+          const config = buildConfigs[targetName];
+          const buildOptions = createBuildOptions(config, args.production || args.minify);
+          
+          console.log(`\n📦 Building ${config.name.toLowerCase()}...`);
+          await esbuild.build(buildOptions);
+          
+          // Post-build tasks for each target
+          if (targetName === 'development') {
+            generateTypeDeclarations();
+            copyDevelopmentAssets();
+          } else if (targetName === 'library' && config.outfile) {
+            generateLibraryTypeDeclarations();
+            showBuildStats(config.outfile, 'Library bundle');
+          } else if (targetName === 'binary' && config.outfile) {
+            makeExecutable(config.outfile);
+            showBuildStats(config.outfile, 'Binary');
+          } else if (targetName === 'web' && config.outfile) {
+            showBuildStats(config.outfile, 'Web bundle');
+          }
+        }
+        
+        console.log('\n✅ All builds complete!');
+        return;
       }
-      
-      console.log('\n✅ All builds complete!');
-      return;
     }
 
     const config = buildConfigs[args.target];

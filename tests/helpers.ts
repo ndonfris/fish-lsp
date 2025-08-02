@@ -35,7 +35,7 @@ export function setLogger(
 }
 
 /**
- * @param {string} fname - relative path to file, in test-data folder
+ * @param {string} fname - relative path to file, in tests folder
  * @param {boolean} inAutoloadPath - simulate the doc uri being in ~/.config/fish/functions/*.fish
  * @returns {LspDocument} - lsp document (from '../src/document.ts')
  */

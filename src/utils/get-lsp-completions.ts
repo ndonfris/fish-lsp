@@ -362,6 +362,7 @@ complete -c fish-lsp -n '__fish_seen_subcommand_from complete; and not __fish_co
 const infoCompletions: string = `## fish-lsp info --<TAB>
 complete -c fish-lsp -n '__fish_lsp_info_complete_opt bin'                                                                                     -l bin             -d 'show the binary path'
 complete -c fish-lsp -n '__fish_lsp_info_complete_opt path'                                                                                    -l path            -d 'show the path to the installation'  
+complete -c fish-lsp -n '__fish_lsp_info_complete_opt build-type'                                                                              -l build-type      -d 'show the build-type' 
 complete -c fish-lsp -n '__fish_lsp_info_complete_opt build-time'                                                                              -l build-time      -d 'show the build-time' 
 complete -c fish-lsp -n '__fish_lsp_info_complete_opt lsp-version'                                                                             -l lsp-version     -d 'show the npm package for the lsp-version'
 complete -c fish-lsp -n '__fish_lsp_info_complete_opt capabilities'                                                                            -l capabilities    -d 'show the lsp capabilities implemented' 

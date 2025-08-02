@@ -9,7 +9,7 @@
   },
   "include": [
     "src/**/*",
-    "test-data/**/*",
+    "tests/**/*",
     "jest.config.js"
   ]
 }

@@ -12,7 +12,7 @@
     "commitlint.config.ts",
     "jest.config.js",
     "scripts/",
-    "test-data",
+    "tests",
     "scripts/fish-commands-scrapper.ts"
   ]
 }

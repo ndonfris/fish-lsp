@@ -39,7 +39,8 @@ export function getCurrentExecutablePath(): string {
 
   // For library imports, use the current module's directory
   if (!process.argv[1]) {
-    return __filename;
+    // In bundled environment, __filename is undefined, use process.execPath
+    return typeof __filename !== 'undefined' ? __filename : process.execPath;
   }
 
   // Otherwise, return the executable path itself
@@ -52,37 +53,42 @@ export function getCurrentExecutablePath(): string {
 export function getProjectRootPath(): string {
   const execPath = getCurrentExecutablePath();
 
-  // For bundled versions, the executable is in the build directory
-  if (execPath.includes('/build/')) {
-    // Go up one level from build directory to get project root
-    return resolve(dirname(execPath), '..');
+  // For bundled binary in dist directory (NORMAL: bundled development), bin directory (wrapper), or out directory (pre-bundled development (rarely used if ever))
+  if (execPath.includes('/dist/') || execPath.includes('/bin/') || execPath.includes('/out/')) {
+    // Wrapper script execution from bin/ directory
+    if (execPath.includes('/bin/')) {
+      return resolve(dirname(execPath), '..');
+    }
+
+    // Direct execution from dist/ directory (bundled binary)
+    if (execPath.includes('/dist/')) {
+      return resolve(dirname(execPath), '..');
+    }
+
+    // Direct execution from out/ directory (development)
+    if (execPath.includes('/out/')) {
+      const pathFromOut = execPath.split('/out/')[1];
+      const levels = pathFromOut ? pathFromOut.split('/').length : 1;
+      return resolve(dirname(execPath), ...Array(levels).fill('..'));
+    }
   }
 
-  // For development version, go up from out directory
-  if (execPath.includes('/out/')) {
-    // If we're in a subdirectory of out (like out/utils), go up more levels
-    const pathFromOut = execPath.split('/out/')[1];
-    // const pathFromOut = execPath.split(/\/\(out\|bin\)\//)[1];
-    const levels = pathFromOut ? pathFromOut.split('/').length : 1;
-    return resolve(dirname(execPath), ...Array(levels).fill('..'));
-  }
-
-  // Fallback: use __dirname resolution for development
-  return resolve(__dirname, '..', '..');
+  // Fallback: use __dirname resolution for development, or process.cwd() for bundled
+  return typeof __dirname !== 'undefined' ? resolve(__dirname, '..', '..') : process.cwd();
 }
 
 /**
  * Resolves the fish_files directory path for bundled and development versions
  */
 export function getFishFilesPath(): string {
-  // Try multiple possible locations for regular builds
+  // Try multiple possible locations, prioritizing original location
   const possiblePaths = [
-    // For bundled version: fish_files should be copied alongside the binary
-    resolve(dirname(getCurrentExecutablePath()), 'fish_files'),
-    // For development version: relative to project root
+    // For all versions: relative to project root (original location)
     resolve(getProjectRootPath(), 'fish_files'),
     // Fallback: relative to process.cwd()
     resolve(process.cwd(), 'fish_files'),
+    // Legacy: for bundled version that copied files alongside the binary
+    resolve(dirname(getCurrentExecutablePath()), 'fish_files'),
     // Another fallback: relative to the build directory
     resolve(process.cwd(), 'build/fish_files'),
   ];
@@ -109,12 +115,12 @@ export function getFishFilePath(filename: string): string {
  */
 export function getTreeSitterWasmPath(): string {
   const possiblePaths = [
-    // For bundled version: should be alongside the binary
-    resolve(dirname(getCurrentExecutablePath()), 'tree-sitter-fish.wasm'),
-    // For development version: relative to project root
+    // For all versions: relative to project root (original location)
     resolve(getProjectRootPath(), 'tree-sitter-fish.wasm'),
     // Fallback: relative to process.cwd()
     resolve(process.cwd(), 'tree-sitter-fish.wasm'),
+    // Legacy: for bundled version that copied alongside the binary
+    resolve(dirname(getCurrentExecutablePath()), 'tree-sitter-fish.wasm'),
     // Another fallback: relative to the build directory
     resolve(process.cwd(), 'build/tree-sitter-fish.wasm'),
   ];
@@ -134,10 +140,26 @@ export function getTreeSitterWasmPath(): string {
  */
 export function getFishBuildTimeFilePath(): string {
   const possiblePaths = [
-    resolve(dirname(getCurrentExecutablePath()), 'out', 'build-time.txt'),
+    // For bundled version: build-time.txt copied to lib/
+    resolve(getProjectRootPath(), 'lib', 'build-time.txt'),
+    // For development: out/build-time.txt
     resolve(getProjectRootPath(), 'out', 'build-time.txt'),
+    // Fallbacks
+    resolve(process.cwd(), 'lib', 'build-time.txt'),
     resolve(process.cwd(), 'out', 'build-time.txt'),
+    // Legacy: support old directories
+    resolve(getProjectRootPath(), 'build', 'build-time.txt'),
+    resolve(getProjectRootPath(), 'dist', 'build-time.txt'),
+    resolve(process.cwd(), 'build', 'build-time.txt'),
+    resolve(process.cwd(), 'dist', 'build-time.txt'),
+    // Legacy: for bundled version that copied scripts/build-time alongside
+    resolve(dirname(getCurrentExecutablePath()), 'scripts', 'build-time'),
+    resolve(dirname(getCurrentExecutablePath()), 'out', 'build-time.txt'),
+    resolve(dirname(getCurrentExecutablePath()), 'dist', 'build-time.txt'),
+    resolve(process.cwd(), 'lib/out/build-time.txt'),
+    resolve(process.cwd(), 'lib/scripts/build-time'),
     resolve(process.cwd(), 'build/out/build-time.txt'),
+    resolve(process.cwd(), 'build/scripts/build-time'),
   ];
 
   for (const path of possiblePaths) {
@@ -154,13 +176,18 @@ export function getFishBuildTimeFilePath(): string {
  */
 export function getManFilePath(): string {
   const possiblePaths = [
-    // For bundled version: should be copied alongside in docs structure
-    resolve(dirname(getCurrentExecutablePath()), 'docs', 'man', 'fish-lsp.1'),
-    // For development version: relative to project root
+    // For all versions: man directory in project root (new preferred location)
+    resolve(getProjectRootPath(), 'man', 'fish-lsp.1'),
+    // Legacy: docs/man directory
     resolve(getProjectRootPath(), 'docs', 'man', 'fish-lsp.1'),
     // Fallback: relative to process.cwd()
+    resolve(process.cwd(), 'man', 'fish-lsp.1'),
     resolve(process.cwd(), 'docs', 'man', 'fish-lsp.1'),
-    // Another fallback: relative to the build directory
+    // Legacy: for bundled version that copied alongside in man structure
+    resolve(dirname(getCurrentExecutablePath()), 'man', 'fish-lsp.1'),
+    resolve(dirname(getCurrentExecutablePath()), 'docs', 'man', 'fish-lsp.1'),
+    // Build directory fallbacks
+    resolve(process.cwd(), 'build/man/fish-lsp.1'),
     resolve(process.cwd(), 'build/docs/man/fish-lsp.1'),
   ];
 
@@ -170,8 +197,8 @@ export function getManFilePath(): string {
     }
   }
 
-  // If none found, return the development path
-  return resolve(getProjectRootPath(), 'docs', 'man', 'fish-lsp.1');
+  // If none found, return the new preferred path
+  return resolve(getProjectRootPath(), 'man', 'fish-lsp.1');
 }
 
 /**
