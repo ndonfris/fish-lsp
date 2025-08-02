@@ -5,6 +5,7 @@ import { logger } from '../logger';
 import { getCurrentExecutablePath, getProjectRootPath, getManFilePath, getFishBuildTimeFilePath, isBundledEnvironment } from './path-resolution';
 import { SyncFileHelper } from './file-operations';
 import { config } from '../config';
+import { z } from 'zod';
 
 /**
  * Accumulate the arguments into two arrays, '--enable' and '--disable'
@@ -475,7 +476,238 @@ export function fishLspLogFile() {
 
 export namespace CommanderSubcommand {
 
-  export function removeArgs(args: {[k: string]: unknown;}, ...keysToRemove: string[]) {
+  // Define the subcommands and their schemas
+  export namespace start {
+    export const schema = z.record(z.unknown()).and(
+      z.object({
+        enable: z.array(z.string()).optional().default([]),
+        disable: z.array(z.string()).optional().default([]),
+        dump: z.boolean().optional().default(false),
+        socket: z.string().optional(),
+        maxFiles: z.string().optional(),
+        memoryLimit: z.string().optional(),
+        stdio: z.boolean().optional().default(false),
+        nodeIpc: z.boolean().optional().default(false),
+      }),
+    );
+    export type schemaType = z.infer<typeof schema>;
+    export function parse(args: unknown): schemaType {
+      const isValidArgs = schema.safeParse(args);
+      return isValidArgs?.success ? isValidArgs.data : schema.parse(args) || defaultSchema; // Validate the args against the schema
+    }
+    export const defaultSchema: schemaType = schema.parse({});
+  }
+  export namespace info {
+    export const schema = z.record(z.unknown()).and(
+      z.object({
+        bin: z.boolean().optional().default(false),
+        path: z.boolean().optional().default(false),
+        buildTime: z.boolean().optional().default(false),
+        buildType: z.boolean().optional().default(false),
+        lspVersion: z.boolean().optional().default(false),
+        capabilities: z.boolean().optional().default(false),
+        manFile: z.boolean().optional().default(false),
+        logFile: z.boolean().optional().default(false),
+        logsFile: z.boolean().optional().default(false),
+        show: z.boolean().optional().default(false),
+        verbose: z.boolean().optional().default(false),
+        extra: z.boolean().optional().default(false),
+        healthCheck: z.boolean().optional().default(false),
+        checkHealth: z.boolean().optional().default(false),
+        timeStartup: z.boolean().optional().default(false),
+        timeOnly: z.boolean().optional().default(false),
+        useWorkspace: z.string().optional().default(''),
+        warning: z.boolean().optional().default(true),
+      }),
+    );
+    export type schemaType = z.infer<typeof schema>;
+    export function parse(args: unknown): schemaType {
+      const isValidArgs = schema.safeParse(args);
+      return isValidArgs?.success ? isValidArgs.data : schema.parse(args);
+    }
+    export const defaultSchema: schemaType = schema.parse({});
+    export const skipable = z.object({
+      healhCheck: z.boolean().default(false),
+      checkHealth: z.boolean().default(false),
+      timeStartup: z.boolean().default(false),
+      timeOnly: z.boolean().default(false),
+      useWorkspace: z.string().default(''),
+      warning: z.boolean().default(true),
+    });
+    export type skipableType = z.infer<typeof skipable>;
+    export type skipableArgs = keyof skipableType;
+
+    export const parseSkip = (args: unknown): z.infer<typeof skipable> => {
+      const isValidArgs = skipable.safeParse(args);
+      return isValidArgs?.success ? isValidArgs.data : skipable.parse(args) || skipable.parse({}); // Validate the args against the schema
+    };
+  }
+  export namespace url {
+    export const schema = z.record(z.unknown()).and(
+      z.object({
+        repo: z.boolean().optional().default(false),
+        discussions: z.boolean().optional().default(false),
+        homepage: z.boolean().optional().default(false),
+        npm: z.boolean().optional().default(false),
+        contributions: z.boolean().optional().default(false),
+        wiki: z.boolean().optional().default(false),
+        issues: z.boolean().optional().default(false),
+        clientRepo: z.boolean().optional().default(false),
+        sources: z.boolean().optional().default(false),
+      }),
+    );
+    export type schemaType = z.infer<typeof schema>;
+    export function parse(args: unknown): schemaType {
+      const isValidArgs = schema.safeParse(args);
+      return isValidArgs?.success ? isValidArgs.data : schema.parse(args) || defaultSchema; // Validate the args against the schema
+    }
+    export const defaultSchema: schemaType = schema.parse({});
+  }
+
+  export namespace complete {
+    export const schema = z.record(z.unknown()).and(
+      z.object({
+        names: z.boolean().optional().default(false),
+        namesWithSummary: z.boolean().optional().default(false),
+        fish: z.boolean().optional().default(false),
+        toggles: z.boolean().optional().default(false),
+        features: z.boolean().optional().default(false),
+        envVariables: z.boolean().optional().default(false),
+        envVariablesNames: z.boolean().optional().default(false),
+      }),
+    );
+    export type schemaType = z.infer<typeof schema>;
+    export function parse(args: unknown): schemaType {
+      const isValidArgs = schema.safeParse(args);
+      return isValidArgs?.success ? isValidArgs.data : schema.parse(args) || defaultSchema; // Validate the args against the schema
+    }
+    export const defaultSchema: schemaType = schema.parse({});
+  }
+
+  export namespace env {
+    export const schema = z.record(z.unknown()).and(
+      z.object({
+        create: z.boolean().optional().default(false),
+        show: z.boolean().optional().default(false),
+        showDefault: z.boolean().optional().default(false),
+        only: z.union([z.string(), z.array(z.string())]).optional(),
+        comments: z.boolean().optional().default(true),
+        global: z.boolean().optional().default(true),
+        local: z.boolean().optional().default(false),
+        export: z.boolean().optional().default(true),
+        confd: z.boolean().optional().default(false),
+        names: z.boolean().optional().default(false),
+        joined: z.boolean().optional().default(false),
+      }),
+    );
+    export type schemaType = z.infer<typeof schema>;
+    export function parse(args: unknown): schemaType {
+      const isValidArgs = schema.safeParse(args);
+      return isValidArgs?.success ? isValidArgs.data : schema.parse(args) || defaultSchema; // Validate the args against the schema
+    }
+    export const defaultSchema: schemaType = schema.parse({});
+  }
+
+  export const subcommands = [
+    'start',
+    'info',
+    'url',
+    'env',
+    'complete',
+  ] as const;
+  export type SubcommandType = (typeof subcommands)[number];
+
+  export type schemas = typeof start.schema
+    | typeof info.schema
+    | typeof url.schema
+    | typeof env.schema
+    | typeof complete.schema;
+
+  const allSchemas = z.object({
+    start: start.schema,
+    info: info.schema,
+    url: url.schema,
+    env: env.schema,
+    complete: complete.schema,
+  });
+
+  export function parseSubcommand(command: SubcommandType, args: unknown): z.infer<schemas> {
+    switch (command) {
+      case 'start':
+        return start.schema.parse(args);
+      case 'info':
+        return info.schema.parse(args);
+      case 'url':
+        return url.schema.parse(args);
+      case 'env':
+        return env.schema.parse(args);
+      case 'complete':
+        return complete.schema.parse(args);
+      default:
+        throw new Error(`Unknown subcommand: ${command}`);
+    }
+  }
+
+  export const getSchemaKeys = (schema: typeof allSchemas) => {
+    // return schema.keyof()?._def.values;
+    return [...schema.keyof().options];
+  };
+
+  export function hasSkipable(command: SubcommandType) {
+    switch (command) {
+      case 'info':
+        return true;
+      // No skipable
+      case 'start':
+      case 'complete':
+      case 'url':
+      case 'env':
+        return false;
+      default:
+        throw new Error(`Unknown subcommand: ${command}`);
+    }
+  }
+
+  export function getSubcommand(command: SubcommandType): schemas {
+    switch (command) {
+      case 'start':
+        return start.schema;
+      case 'info':
+        return info.schema;
+      case 'url':
+        return url.schema;
+      case 'env':
+        return env.schema;
+      case 'complete':
+        return complete.schema;
+      default:
+        throw new Error(`Unknown subcommand: ${command}`);
+    }
+  }
+
+  export function countArgsWithValues(subcommand: SubcommandType, args: Record<string, unknown>): number {
+    const keysToCount = getSubcommand(subcommand).parse(args);
+    const results: Record<string, boolean> = {};
+    const skipableArgs = hasSkipable(subcommand);
+    const removed: Record<string, boolean> = {};
+    if (skipableArgs) {
+      const skipable = info.skipable.parse(args);
+      for (const key in skipable) {
+        if (key === subcommand) removed[key] = true;
+        if (skipable[key as keyof typeof skipable]) {
+          removed[key] = false;
+        }
+      }
+    }
+    for (const key in keysToCount) {
+      if (key === subcommand) removed[key] = true;
+      if (removed[key]) continue;
+      if (keysToCount[key]) results[key] = true;
+    }
+    return Object.keys(results).length;
+  }
+
+  export function removeArgs(args: { [k: string]: unknown; }, ...keysToRemove: string[]) {
     const argKeys = keys(args);
     return argKeys.filter((key) => !keysToRemove.includes(key));
   }
@@ -484,7 +716,7 @@ export namespace CommanderSubcommand {
     return keys(args).length;
   };
 
-  export const keys = (args: {[k: string]: unknown;}) => {
+  export const keys = (args: { [k: string]: unknown; }) => {
     return Object.entries(args)
       .filter(([key, value]) => !!key && !!value && !(key === 'warning' && value === true))
       .map(([key, _]) => key);
@@ -500,6 +732,59 @@ export namespace CommanderSubcommand {
     return Object.keys(args).length === 0;
   }
 
+  // export type InfoArgsType = {
+  //   bin?: boolean;
+  //   path?: boolean;
+  //   buildTime?: boolean;
+  //   buildType?: boolean;
+  //   lspVersion?: boolean;
+  //   capabilities?: boolean;
+  //   manFile?: boolean;
+  //   logFile?: boolean;
+  //   logsFile?: boolean;
+  //   show?: boolean;
+  //   verbose: boolean;
+  //   extra: boolean;
+  //   healthCheck?: boolean;
+  //   checkHealth?: boolean;
+  //   timeStartup?: boolean;
+  //   timeOnly?: boolean;
+  //   useWorkspace?: string;
+  //   warning?: boolean;
+  //   [k: string]: unknown; // allow any other keys
+  // };
+
+  export const infoArgsTypeSchema = z.record(z.unknown()).and(
+    z.object({
+      bin: z.boolean().optional().default(false),
+      path: z.boolean().optional().default(false),
+      buildTime: z.boolean().optional().default(false),
+      buildType: z.boolean().optional().default(false),
+      lspVersion: z.boolean().optional().default(false),
+      capabilities: z.boolean().optional().default(false),
+      manFile: z.boolean().optional().default(false),
+      logFile: z.boolean().optional().default(false),
+      logsFile: z.boolean().optional().default(false),
+      show: z.boolean().optional().default(false),
+      verbose: z.boolean().optional().default(false),
+      extra: z.boolean().optional().default(false),
+      healthCheck: z.boolean().optional().default(false),
+      checkHealth: z.boolean().optional().default(false),
+      timeStartup: z.boolean().optional().default(false),
+      timeOnly: z.boolean().optional().default(false),
+      useWorkspace: z.string().optional().default(''),
+      warning: z.boolean().optional().default(true),
+    }),
+  );
+
+  export type InfoArgsType = z.infer<typeof infoArgsTypeSchema>;
+
+  export const defaultInfoArgs: InfoArgsType = ParseInfoArgs({});
+
+  export function ParseInfoArgs(args: unknown): z.infer<typeof infoArgsTypeSchema> {
+    const isValidArgs = infoArgsTypeSchema.safeParse(args);
+    return isValidArgs?.success ? isValidArgs.data : infoArgsTypeSchema.parse(args) || defaultInfoArgs; // Validate the args against the schema
+  }
 }
 
 export function BuildCapabilityString() {

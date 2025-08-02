@@ -5,6 +5,7 @@
     "target": "es2018",
     "lib": ["ES2022", "ESNext"],
     "noEmit": false,
+    "moduleResolution": "nodenext",
     "declaration": true,
     "declarationMap": true,
     "incremental": true,

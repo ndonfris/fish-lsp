@@ -153,46 +153,52 @@ commandBin.command('start')
 commandBin.command('info')
   .summary('show info about the fish-lsp')
   .description('the info about the `fish-lsp` executable')
-  .option('--bin', 'show the path of the fish-lsp executable')
-  .option('--path', 'show the path of the entire fish-lsp repo')
-  .option('--build-time', 'show the path of the entire fish-lsp repo')
-  .option('--build-type', 'show the build type being used')
-  .option('--lsp-version', 'show the lsp version')
-  .option('--capabilities', 'show the lsp capabilities')
-  .option('--man-file', 'show the man file path')
-  .option('--show', 'show the man file output')
-  .option('--logs-file', 'show the logs file path')
-  .option('--log-file', 'show the log file path')
-  .option('--verbose', 'show debugging server info (capabilities, paths, version, etc.)')
-  .option('--extra', 'show debugging server info (capabilities, paths, version, etc.)')
-  .option('--health-check', 'run diagnostics and report health status')
-  .option('--check-health', 'run diagnostics and report health status')
-  .option('--time-startup', 'time the startup of the fish-lsp executable')
-  .option('--use-workspace <PATH>', 'use the specified workspace path for `fish-lsp info --time-startup`')
-  .option('--no-warning', 'do not show warnings in the output for `fish-lsp info --time-startup`')
-  .action(async args => {
+  .option('--bin', 'show the path of the fish-lsp executable', false)
+  .option('--path', 'show the path of the entire fish-lsp repo', false)
+  .option('--build-time', 'show the path of the entire fish-lsp repo', false)
+  .option('--build-type', 'show the build type being used', false)
+  .option('--lsp-version', 'show the lsp version', false)
+  .option('--capabilities', 'show the lsp capabilities', false)
+  .option('--man-file', 'show the man file path', false)
+  .option('--show', 'show the man file output', false)
+  .option('--logs-file', 'show the logs file path', false)
+  .option('--log-file', 'show the log file path', false)
+  .option('--verbose', 'show debugging server info (capabilities, paths, version, etc.)', false)
+  .option('--extra', 'show debugging server info (capabilities, paths, version, etc.)', false)
+  .option('--health-check', 'run diagnostics and report health status', false)
+  .option('--check-health', 'run diagnostics and report health status', false)
+  .option('--time-startup', 'time the startup of the fish-lsp executable', false)
+  .option('--time-only', 'alias to show only the time taken for the server to index files', false)
+  .option('--use-workspace <PATH>', 'use the specified workspace path for `fish-lsp info --time-startup`', undefined)
+  .option('--no-warning', 'do not show warnings in the output for `fish-lsp info --time-startup`', false)
+  .action(async (args: CommanderSubcommand.InfoArgsType) => {
     await setupProcessEnvExecFile();
     const capabilities = BuildCapabilityString()
       .split('\n')
-      .map(line => `  ${line}`).join('\n');
+      .map((line: string) => `  ${line}`).join('\n');
 
     // Variable to determine if we saw specific info requests
     let shouldExit = false;
     let exitCode = 0;
 
-    const argsCount = CommanderSubcommand.countArgs(args);
+    const argsCount = CommanderSubcommand.countArgsWithValues('info', args);
+    const allSkips = [...CommanderSubcommand.info.skipable.keyof().options] as string[];
+
+    const skipped = CommanderSubcommand.info.skipable.parse(args);
 
     // immediately exit if the user requested a specific info
-    const hasPreferredArg = args.timeStartup || args.checkHealth || args.healthCheck;
-    if (args.useWorkspace && !args.timeStartup && argsCount > 1) {
-      logger.logToStderr('The `--use-workspace` option is only valid with `--time-startup`.');
-      process.exit(1);
-    }
+    const hasPreferredArg = Object.entries(skipped)
+      .filter(([key, value]) => !!allSkips.includes(key) && !!value).length > 0 || false;
+
     if (hasPreferredArg) {
-      const localArgs = CommanderSubcommand.removeArgs(args, 'useWorkspace', 'warning', 'healthCheck', 'checkHealth', 'timeStartup');
+      if (args.useWorkspace && !args.timeStartup && argsCount > 1) {
+        logger.logToStderr('The `--use-workspace` option is only valid with `--time-startup`.');
+        process.exit(1);
+      }
+      const skipOpts = ['info', 'healthCheck', 'checkHealth', 'timeStartup', 'timeOnly', 'noWarning', 'useWorkspace', 'useWorkspace'];
+      const localArgs = CommanderSubcommand.removeArgs(args, ...skipOpts);
       const localArgsCount = CommanderSubcommand.countArgs(localArgs);
       if (localArgsCount > 0) {
-        const skipOpts = ['--time-startup', '--health-check', 'info', '--no-warning', '--use-workspace', '--use-workspace=', '--check-health'];
         logger.logToStderr(`ERROR:\n\n\tThe '--time-startup' and/or '--health-check' options should not include UNRELATED ARGUMENTS.\nUNRELATED ARGUMENTS:\n\t${commandBin.args.filter(k => !skipOpts.some(opt => k.startsWith(opt))).map(m => ['', m, ''].join('"')).join(', ')}`);
         process.exit(1);
       }
@@ -201,8 +207,12 @@ commandBin.command('info')
     // If the user requested specific info, we will try to show only the requested output.
     if (!args.verbose) {
       // handle the preferred args (`--time-startup`, `--health-check`, `--check-health`)
-      if (args.timeStartup) {
-        await timeServerStartup(args.useWorkspace, args.warning);
+      if (args.timeStartup || args.timeOnly) {
+        await timeServerStartup({
+          workspacePath: args.useWorkspace,
+          showWarning: args.warning,
+          timeOnly: args.timeOnly,
+        });
         process.exit(0);
       }
       if (args.healthCheck || args.checkHealth) {
@@ -272,12 +282,138 @@ commandBin.command('url')
   .option('--discussions', 'show the discussions page')
   .option('--clients-repo', 'show the clients configuration repo')
   .option('--sources', 'show a list of helpful sources')
-  .action(args => {
+  .option('--download', 'show download instructions')
+  .option('--source-map', 'show source map download url for current version')
+  .option('--install', 'download and install source maps (use with --download --source-map)')
+  .option('--remove', 'remove source maps (use with --download --source-map)')
+  .option('--status', 'check source map availability (use with --download --source-map)')
+  .action(async (args) => {
     const amount = Object.keys(args).length;
-    if (amount === 0) logger.logToStdout('https://fish-lsp.dev');
+    if (amount === 0) {
+      logger.logToStdout('https://fish-lsp.dev');
+      process.exit(0);
+    }
+    
+    // Handle source map management (requires --download --source-map)
+    if (args.download && args.sourceMap) {
+      const fs = await import('fs');
+      const path = await import('path');
+      const https = await import('https');
+      
+      const executablePath = getCurrentExecutablePath();
+      const executableDir = path.dirname(executablePath);
+      const sourceMapPath = path.join(executableDir, 'fish-lsp.map');
+      
+      if (args.status) {
+        const exists = fs.existsSync(sourceMapPath);
+        logger.logToStdout(`Source maps: ${exists ? '✅ Available' : '❌ Not found'}`);
+        if (exists) {
+          const stats = fs.statSync(sourceMapPath);
+          logger.logToStdout(`Location: ${sourceMapPath}`);
+          logger.logToStdout(`Size: ${(stats.size / 1024 / 1024).toFixed(1)} MB`);
+          logger.logToStdout(`Modified: ${stats.mtime.toISOString()}`);
+        }
+        process.exit(exists ? 0 : 1);
+      }
+      
+      if (args.remove) {
+        if (fs.existsSync(sourceMapPath)) {
+          fs.unlinkSync(sourceMapPath);
+          logger.logToStdout('✅ Source maps removed');
+        } else {
+          logger.logToStdout('ℹ️  Source maps not found');
+        }
+        process.exit(0);
+      }
+      
+      if (args.install) {
+        logger.logToStdout(`🔍 Downloading source maps for v${PackageVersion}...`);
+        
+        const sourceMapUrl = `https://github.com/ndonfris/fish-lsp/releases/download/v${PackageVersion}/fish-lsp-sourcemaps-${PackageVersion}.tar.gz`;
+        const tempFile = path.join(executableDir, 'sourcemaps.tar.gz');
+        
+        try {
+          // Download the tar.gz file
+          const file = fs.createWriteStream(tempFile);
+          const request = https.get(sourceMapUrl, (response) => {
+            if (response.statusCode === 200) {
+              response.pipe(file);
+              file.on('finish', () => {
+                file.close();
+                
+                // Extract using tar command
+                const { execSync } = require('child_process');
+                try {
+                  execSync(`tar -xzf "${tempFile}" -C "${executableDir}"`, { stdio: 'pipe' });
+                  fs.unlinkSync(tempFile); // Clean up temp file
+                  
+                  if (fs.existsSync(sourceMapPath)) {
+                    logger.logToStdout('✅ Source maps installed successfully');
+                    logger.logToStdout(`📍 Location: ${sourceMapPath}`);
+                    logger.logToStdout('🐛 Stack traces will now show TypeScript source locations');
+                  } else {
+                    logger.logToStdout('❌ Source map extraction failed');
+                    process.exit(1);
+                  }
+                } catch (error) {
+                  logger.logToStdout(`❌ Extraction failed: ${error}`);
+                  if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
+                  process.exit(1);
+                }
+              });
+            } else {
+              logger.logToStdout(`❌ Download failed: HTTP ${response.statusCode}`);
+              logger.logToStdout(`   URL: ${sourceMapUrl}`);
+              logger.logToStdout('   Make sure this version has been released on GitHub');
+              process.exit(1);
+            }
+          });
+          
+          request.on('error', (error) => {
+            logger.logToStdout(`❌ Download failed: ${error.message}`);
+            process.exit(1);
+          });
+          
+        } catch (error) {
+          logger.logToStdout(`❌ Failed to download source maps: ${error}`);
+          process.exit(1);
+        }
+        return;
+      }
+      
+      // Default: just show the source map URL
+      const sourceMapUrl = `https://github.com/ndonfris/fish-lsp/releases/download/v${PackageVersion}/fish-lsp-sourcemaps-${PackageVersion}.tar.gz`;
+      logger.logToStdout(sourceMapUrl);
+      process.exit(0);
+    }
+    
+    if (args.download) {
+      logger.logToStdout([
+        `# Download fish-lsp v${PackageVersion}`,
+        '',
+        '## Binary (Recommended)',
+        'curl -fsSL https://github.com/ndonfris/fish-lsp/releases/latest/download/fish-lsp -o fish-lsp',
+        'chmod +x fish-lsp',
+        'sudo mv fish-lsp /usr/local/bin/',
+        '',
+        '## NPM',
+        'npm install -g fish-lsp',
+        '',
+        '## Source Maps (for debugging)',
+        `curl -fsSL https://github.com/ndonfris/fish-lsp/releases/download/v${PackageVersion}/fish-lsp-sourcemaps-${PackageVersion}.tar.gz | tar -xz`,
+        '',
+        '## Source Map Management',
+        'fish-lsp url --download --source-map --install    # Install source maps',
+        'fish-lsp url --download --source-map --status     # Check status',
+        'fish-lsp url --download --source-map --remove     # Remove source maps',
+      ].join('\n'));
+      process.exit(0);
+    }
+    
     Object.keys(args).forEach(key => logger.logToStdout(SourcesDict[key]?.toString() || ''));
     process.exit(0);
   });
+
 
 // COMPLETE
 commandBin.command('complete')

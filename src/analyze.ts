@@ -22,6 +22,8 @@ import { getDiagnostics } from './diagnostics/validate';
 import { initializeParser } from './parser';
 import { connection } from './utils/startup';
 
+export type AnalyzedDocumentType = 'partial' | 'full';
+
 /**
  * AnalyzedDocument items are created in three public methods of the Analyzer class:
  *   - analyze()
@@ -36,56 +38,61 @@ import { connection } from './utils/startup';
  *
  * Use the AnalyzeDocument namespace to create `AnalyzedDocument` items.
  */
-export type AnalyzedDocument = {
-  /**
-   * The LspDocument that was analyzed.
-   */
-  document: LspDocument;
-  /**
-   * A nested array of FishSymbols, representing the symbols in the document.
-   */
-  documentSymbols: FishSymbol[];
-  /**
-   * A tree that has been parsed by web-tree-sitter
-   */
-  tree: Parser.Tree;
-  /**
-   * root node of a SyntaxTree
-   */
-  root: Parser.SyntaxNode;
-  /**
-   * A flat array of every command used in this document
-   */
-  commandNodes: SyntaxNode[];
-  /**
-   * All the `source some_file_path` nodes in a document, scoping is not considered.
-   * However, the nodes can be filtered to consider scoping at a later time.
-   */
-  sourceNodes: SyntaxNode[];
-};
+export class AnalyzedDocument {
+  private constructor(
+    /**
+     * The LspDocument that was analyzed.
+     */
+    public document: LspDocument,
+    /**
+     * A nested array of FishSymbols, representing the symbols in the document.
+     */
+    public documentSymbols: FishSymbol[] = [],
+    /**
+     * A tree that has been parsed by web-tree-sitter
+     */
+    public tree?: Parser.Tree,
+    /**
+     * root node of a SyntaxTree
+     */
+    public root?: Parser.SyntaxNode,
+    /**
+     * A flat array of every command used in this document
+     */
+    public commandNodes: SyntaxNode[] = [],
+    /**
+     * All the `source some_file_path` nodes in a document, scoping is not considered.
+     * However, the nodes can be filtered to consider scoping at a later time.
+     */
+    public sourceNodes: SyntaxNode[] = [],
+    /**
+     * If the document has been fully analyzed, or only partially.
+     */
+    private type: AnalyzedDocumentType = tree ? 'full' : 'partial',
+  ) {
+    if (tree) this.root = tree.rootNode || undefined;
+  }
 
-/**
- * Builder function to create an AnalyzedDocument object.
- */
-export namespace AnalyzedDocument {
-  export function create(
+  public static create(
     document: LspDocument,
-    documentSymbols: FishSymbol[],
-    tree: Parser.Tree,
+    documentSymbols: FishSymbol[] = [],
+    tree: Parser.Tree | undefined = undefined,
+    root: Parser.SyntaxNode | undefined = undefined,
     commandNodes: SyntaxNode[] = [],
     sourceNodes: SyntaxNode[] = [],
   ): AnalyzedDocument {
-    return {
+    return new AnalyzedDocument(
       document,
       documentSymbols,
       tree,
-      root: tree.rootNode,
+      root || tree?.rootNode,
       commandNodes,
       sourceNodes,
-    };
+      tree ? 'full' : 'partial',
+    );
   }
 
-  export function createFull(
+  public static createFull(
     document: LspDocument,
     documentSymbols: FishSymbol[],
     tree: Parser.Tree,
@@ -96,42 +103,45 @@ export namespace AnalyzedDocument {
       if (isSourceCommandWithArgument(node)) sourceNodes.push(node.child(1)!);
       commandNodes.push(node);
     });
-    return {
+    return new AnalyzedDocument(
       document,
       documentSymbols,
       tree,
-      root: tree.rootNode,
+      tree.rootNode,
       commandNodes,
       sourceNodes,
-    };
+      'full',
+    );
   }
 
-  export function createPartial(
-    document: LspDocument,
-    tree: Parser.Tree,
-  ): AnalyzedDocument {
-    const commandNodes: SyntaxNode[] = [];
-    const sourceNodes: SyntaxNode[] = [];
-    tree.rootNode.descendantsOfType('command').forEach(node => {
-      if (isSourceCommandWithArgument(node)) sourceNodes.push(node.child(1)!);
-      commandNodes.push(node);
-    });
-    return {
-      document,
-      documentSymbols: [],
-      tree,
-      root: tree.rootNode,
-      commandNodes,
-      sourceNodes,
-    };
+  public static createPartial(document: LspDocument): AnalyzedDocument {
+    return AnalyzedDocument.create(document);
   }
 
-  export function isPartial(analyzedDocument: AnalyzedDocument): boolean {
-    return analyzedDocument.documentSymbols.length === 0;
+  public isPartial(): boolean {
+    return this.type === 'partial';
   }
 
-  export function isFull(analyzedDocument: AnalyzedDocument): boolean {
-    return analyzedDocument.documentSymbols.length > 0;
+  public isFull(): boolean {
+    return this.type === 'full';
+  }
+
+  public ensureParsed() {
+    if (this.isPartial()) {
+      const fullDocument = analyzer.analyze(this.document);
+      // Update this instance's properties in-place
+      this.documentSymbols = fullDocument.documentSymbols;
+      this.tree = fullDocument.tree;
+      this.root = fullDocument.root;
+      this.commandNodes = fullDocument.commandNodes;
+      this.sourceNodes = fullDocument.sourceNodes;
+      this.type = 'full';
+
+      // Update the cache with the fully parsed document
+      analyzer.cache.setDocument(this.document.uri, this);
+      return this;
+    }
+    return this;
   }
 }
 
@@ -238,8 +248,7 @@ export class Analyzer {
    * instead of the
    */
   public analyzePartial(document: LspDocument): AnalyzedDocument {
-    const tree = this.parser.parse(document.getText());
-    const analyzedDocument = AnalyzedDocument.createPartial(document, tree);
+    const analyzedDocument = AnalyzedDocument.createPartial(document);
     this.cache.setDocument(document.uri, analyzedDocument);
     return analyzedDocument;
   }
@@ -781,7 +790,10 @@ export class Analyzer {
    */
   getTree(documentUri: string): Tree | undefined {
     if (this.cache.hasUri(documentUri)) {
-      return this.cache.getDocument(documentUri)?.tree as Tree;
+      const doc = this.cache.getDocument(documentUri);
+      if (doc) {
+        return doc.ensureParsed().tree;
+      }
     }
     return this.analyzePath(uriToPath(documentUri))?.tree;
   }
@@ -793,7 +805,10 @@ export class Analyzer {
    */
   getRootNode(documentUri: string): SyntaxNode | undefined {
     if (this.cache.hasUri(documentUri)) {
-      return this.cache.getRootNode(documentUri)!;
+      const doc = this.cache.getDocument(documentUri);
+      if (doc) {
+        return doc.ensureParsed().root;
+      }
     }
     return this.analyzePath(uriToPath(documentUri))?.root;
   }
@@ -1217,34 +1232,51 @@ class AnalyzedDocumentCache {
     }
   }
   getDocumentSymbols(uri: URI): FishSymbol[] {
-    return this._documents.get(uri)?.documentSymbols || [];
+    const doc = this._documents.get(uri);
+    if (doc) {
+      doc.ensureParsed();
+      return doc.documentSymbols;
+    }
+    return [];
   }
   getFlatDocumentSymbols(uri: URI): FishSymbol[] {
     return flattenNested<FishSymbol>(...this.getDocumentSymbols(uri));
   }
   getCommands(uri: URI): SyntaxNode[] {
-    return this._documents.get(uri)?.commandNodes || [];
+    const doc = this._documents.get(uri);
+    if (doc) {
+      doc.ensureParsed();
+      return doc.commandNodes;
+    }
+    return [];
   }
   getRootNode(uri: URI): Parser.SyntaxNode | undefined {
     return this.getParsedTree(uri)?.rootNode;
   }
   getParsedTree(uri: URI): Parser.Tree | undefined {
-    return this._documents.get(uri)?.tree;
+    const doc = this._documents.get(uri);
+    if (doc) {
+      doc.ensureParsed();
+      return doc.tree;
+    }
+    return undefined;
   }
   getSymbolTree(uri: URI): FishSymbol[] {
-    const document = this.getDocument(uri);
-    if (!document) {
+    const analyzedDoc = this._documents.get(uri);
+    if (!analyzedDoc) {
       return [];
     }
-    return document.documentSymbols;
+    analyzedDoc.ensureParsed();
+    return analyzedDoc.documentSymbols;
   }
   getSources(uri: URI): Set<string> {
-    const document = this.getDocument(uri);
-    if (!document) {
+    const analyzedDoc = this._documents.get(uri);
+    if (!analyzedDoc) {
       return new Set();
     }
+    analyzedDoc.ensureParsed();
     const result: Set<string> = new Set();
-    const sourceNodes = document.sourceNodes.map(node => getExpandedSourcedFilenameNode(node)).filter(s => !!s) as string[];
+    const sourceNodes = analyzedDoc.sourceNodes.map((node: any) => getExpandedSourcedFilenameNode(node)).filter((s: any) => !!s) as string[];
     for (const source of sourceNodes) {
       const sourceUri = pathToUri(source);
       result.add(sourceUri);
@@ -1252,11 +1284,12 @@ class AnalyzedDocumentCache {
     return result;
   }
   getSourceNodes(uri: URI): SyntaxNode[] {
-    const document = this.getDocument(uri);
-    if (!document) {
+    const analyzedDoc = this._documents.get(uri);
+    if (!analyzedDoc) {
       return [];
     }
-    return document.sourceNodes;
+    analyzedDoc.ensureParsed();
+    return analyzedDoc.sourceNodes;
   }
   clear(uri: URI) {
     this._documents.delete(uri);

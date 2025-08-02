@@ -373,6 +373,7 @@ complete -c fish-lsp -n '__fish_lsp_info_complete_opt verbose extra; and __fish_
 complete -c fish-lsp -n '__fish_lsp_info_complete_opt extra verbose; and __fish_lsp_is_first_switch'                                           -l extra           -d 'show all debugging server info (capabilities, paths, version, etc.)' 
 complete -c fish-lsp -n '__fish_lsp_info_complete_opt check-health time-startup; and __fish_lsp_is_first_switch'                               -l check-health    -d 'show the server health'
 complete -c fish-lsp -n '__fish_lsp_info_complete_opt time-startup check-health; and __fish_lsp_is_first_switch'                               -l time-startup    -d 'show startup timing info'
+complete -c fish-lsp -n '__fish_lsp_info_complete_opt time-only;'                                                                              -l time-only       -d 'show only summary of the startup timing info'
 complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_contains_opt time-startup; and not __fish_contains_opt no-warning'       -l no-warning      -d 'do not show warning message'
 complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_contains_opt time-startup; and not __fish_contains_opt use-workspace'    -l use-workspace   -d 'specify workspace directory' -xa '(__fish_complete_directories)'
 complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_contains_opt time-startup; and __fish_lsp_last_switch --use-workspace'                      -d 'workspace directory'         -xa '(__fish_complete_directories)'

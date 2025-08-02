@@ -716,10 +716,6 @@ export default class FishServer {
     return workspaceEdit;
   }
 
-  get analyzer(): Analyzer {
-    return analyzer;
-  }
-
   async onDocumentFormatting(params: DocumentFormattingParams): Promise<TextEdit[]> {
     this.logParams('onDocumentFormatting', params);
 
@@ -934,7 +930,13 @@ export default class FishServer {
         return;
       }
     } else {
-      analyzedDoc = analyzer.analyze(foundDoc);
+      const cachedDoc = analyzer.cache.getDocument(foundDoc.uri);
+      if (cachedDoc) {
+        cachedDoc.ensureParsed();
+        analyzedDoc = cachedDoc;
+      } else {
+        analyzedDoc = analyzer.analyze(foundDoc);
+      }
     }
     const doc = analyzedDoc.document;
     const diagnostics = analyzer.getDiagnostics(doc.uri);

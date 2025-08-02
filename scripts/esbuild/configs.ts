@@ -4,7 +4,7 @@ import { resolve } from 'path';
 import { createPlugins, createDefines, PluginOptions } from './plugins';
 import { copyBinaryAssets } from './utils';
 
-export interface BuildConfig {
+export interface BuildConfig extends esbuild.BuildOptions {
   name: string;
   entryPoint: string;
   outfile?: string;
@@ -16,7 +16,8 @@ export interface BuildConfig {
   minify: boolean;
   sourcemap: boolean;
   external?: string[];
-  plugins: PluginOptions;
+  plugins?: esbuild.Plugin[];
+  internalPlugins?: PluginOptions;
   onBuildEnd?: () => void;
 }
 
@@ -29,13 +30,14 @@ export const buildConfigs: Record<string, BuildConfig> = {
     format: 'cjs',
     platform: 'node',
     bundle: true,
-    minify: true,
-    sourcemap: true, // Always include source maps for debugging
-    external: ['tree-sitter', 'web-tree-sitter'],
-    plugins: {
+    treeShaking: true,
+    minify: false,
+    sourcemap: false, // Disabled by default for production; can be enabled with FISH_LSP_SOURCEMAPS=true
+    external: ['tree-sitter', 'web-tree-sitter', 'fs', 'path', 'os', 'crypto', 'util'],
+    internalPlugins: {
       target: 'node',
-      typescript: true,
-      polyfills: 'minimal',
+      typescript: false, // Use native esbuild TS support
+      polyfills: 'none', // Skip polyfills for node target
     },
     onBuildEnd: copyBinaryAssets,
   },
@@ -51,7 +53,7 @@ export const buildConfigs: Record<string, BuildConfig> = {
     minify: true,
     sourcemap: true,
     external: ['web-tree-sitter'],
-    plugins: {
+    internalPlugins: {
       target: 'browser',
       typescript: true,
       polyfills: 'full',
@@ -67,12 +69,12 @@ export const buildConfigs: Record<string, BuildConfig> = {
     platform: 'node',
     bundle: true,
     minify: false, // Keep readable for library use
-    sourcemap: true,
-    external: ['tree-sitter', 'web-tree-sitter'],
-    plugins: {
+    sourcemap: 'external', // Generate external source maps for debugging
+    external: ['tree-sitter', 'web-tree-sitter', 'fs', 'path', 'os', 'crypto', 'util'],
+    internalPlugins: {
       target: 'node',
-      typescript: true,
-      polyfills: 'minimal',
+      typescript: false, // Use native esbuild TS support
+      polyfills: 'none', // Skip polyfills for node target
     },
   },
 
@@ -86,7 +88,7 @@ export const buildConfigs: Record<string, BuildConfig> = {
     bundle: false,
     minify: false,
     sourcemap: true,
-    plugins: {
+    internalPlugins: {
       target: 'node',
       typescript: false, // Use tsc separately
       polyfills: 'none',
@@ -95,6 +97,17 @@ export const buildConfigs: Record<string, BuildConfig> = {
 };
 
 export function createBuildOptions(config: BuildConfig, production = false): esbuild.BuildOptions {
+  // Source map strategy: 
+  // - Development: Always generate external source maps for debugging
+  // - Production: Only generate if explicitly enabled via config or environment variable
+  const forcedSourceMaps = process.env.FISH_LSP_SOURCEMAPS === 'true';
+  const defaultSourceMaps = !production && (config.sourcemap !== false);
+  const explicitSourceMaps = config.sourcemap === 'external' || config.sourcemap === true;
+  
+  const shouldGenerateSourceMaps = forcedSourceMaps || defaultSourceMaps || explicitSourceMaps;
+  
+  const sourcemapSetting = shouldGenerateSourceMaps ? 'external' : false;
+
   return {
     entryPoints: config.bundle ? [config.entryPoint] : [config.entryPoint],
     bundle: config.bundle,
@@ -103,13 +116,19 @@ export function createBuildOptions(config: BuildConfig, production = false): esb
     format: config.format,
     ...(config.outfile ? { outfile: config.outfile } : { outdir: config.outdir }),
     minify: config.minify && production,
-    sourcemap: config.name === 'Binary' ? config.sourcemap : (config.sourcemap && !production),
+    sourcemap: sourcemapSetting,
     keepNames: !production,
-    treeShaking: config.bundle || production,
+    treeShaking: config.bundle ? true : production,
     external: config.external,
     define: createDefines(config.target, production),
+    // Performance optimizations for startup speed
+    splitting: false, // Disable code splitting for faster startup
+    metafile: false, // Disable metadata generation
+    legalComments: 'none', // Remove legal comments for smaller bundles
+    ignoreAnnotations: false, // Keep function annotations for V8 optimization
+    // mangleProps: false, // Don't mangle properties to avoid runtime overhead
     plugins: [
-      ...createPlugins(config.plugins),
+      ...createPlugins(config.internalPlugins),
       ...(config.onBuildEnd ? [{
         name: 'build-end-hook',
         setup(build: esbuild.PluginBuild) {

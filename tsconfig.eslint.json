@@ -11,8 +11,14 @@
     ".eslintrc.cjs",
     "commitlint.config.ts",
     "jest.config.js",
-    "scripts/",
     "tests",
     "scripts/fish-commands-scrapper.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "lib",
+    "scripts",
+    "coverage"
   ]
 }

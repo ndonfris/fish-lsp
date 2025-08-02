@@ -587,7 +587,7 @@ function findCommandPositions(shellCode: string, commandName: string): Array<{ s
  * This significantly reduces the number of nodes we need to check
  */
 function* getChildNodesOptimized(symbol: FishSymbol, doc: LspDocument): Generator<SyntaxNode> {
-  const root = analyzer.analyze(doc).root;
+  const root = analyzer.getRootNode(doc.uri);
   if (!root) return;
 
   const localSymbols = analyzer.getFlatDocumentSymbols(doc.uri)

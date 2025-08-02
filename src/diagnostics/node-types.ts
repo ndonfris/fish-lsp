@@ -1,6 +1,7 @@
 import Parser, { SyntaxNode } from 'web-tree-sitter';
-import { findParentCommand, isCommandName, isCommandWithName, isEndStdinCharacter, isFunctionDefinitionName, isIfOrElseIfConditional, isMatchingOption, isOption, isString, isVariableDefinitionName } from '../utils/node-types';
-import { getChildNodes, getRange, isNodeWithinOtherNode, precedesRange } from '../utils/tree-sitter';
+import { isCommand, isCommandName, isCommandWithName, isEndStdinCharacter, isFunctionDefinitionName, isIfOrElseIfConditional, isMatchingOption, isOption, isString, isVariableDefinitionName } from '../utils/node-types';
+import { getChildNodes, getRange, isNodeWithinOtherNode, precedesRange, TreeWalker } from '../utils/tree-sitter';
+import { Maybe } from '../utils/maybe';
 import { Option } from '../parsing/options';
 import { isExistingSourceFilenameNode, isSourceCommandArgumentName } from '../parsing/source';
 import { LspDocument } from '../document';
@@ -178,38 +179,6 @@ export function isConditionalStatement(node: SyntaxNode) {
 }
 
 /**
- * Check if a conditional_execution node starts with a conditional operator
- */
-function checkConditionalStartsWith(node: SyntaxNode) {
-  if (node.type === 'conditional_execution') {
-    return node.text.startsWith('&&') || node.text.startsWith('||')
-      || node.text.startsWith('and') || node.text.startsWith('or');
-  }
-  return false;
-}
-
-/**
- * Check if a command node is the first node in a conditional_execution
- */
-export function isFirstNodeInConditionalExecution(node: SyntaxNode) {
-  if (!node.isNamed) return false;
-  if (['\n', ';'].includes(node?.type || '')) return false;
-  if (isConditionalStatement(node)) return false;
-
-  if (
-    node.parent &&
-    node.parent.type === 'conditional_execution' &&
-    !checkConditionalStartsWith(node.parent)
-  ) {
-    return node.parent.firstNamedChild?.equals(node) || false;
-  }
-
-  const next = node.nextNamedSibling;
-  if (!next) return false;
-  return next.type === 'conditional_execution' && checkConditionalStartsWith(next);
-}
-
-/**
  * Checks if a command has a command substitution. For example,
  *
  *   ```fish
@@ -238,27 +207,163 @@ const getConditionalCommandNames = () => {
 };
 
 /**
- * Check if -q,--quiet/--query flags are present for commands which follow an `if/else if` conditional statement
- * @param node - the current node to check (should be a command)
- * @returns true if the command is a conditional statement without -q,--quiet/--query flags, otherwise false
+ * Command analysis utilities for functional composition
+ * Provides reusable command analysis operations for conditional execution logic
  */
-export function isConditionalWithoutQuietCommand(node: SyntaxNode) {
-  const conditionalCommandNames = getConditionalCommandNames();
-
-  // read does not have quiet option
-  if (!isCommandWithName(node, ...conditionalCommandNames)) return false;
-  if (!isConditionalStatement(node) && !isFirstNodeInConditionalExecution(node)) return false;
-
-  // skip `set` commands with command substitution
-  if (isCommandWithName(node, 'set') && hasCommandSubstitution(node)) {
-    return false;
+class CommandAnalyzer {
+  /**
+   * Find the first command in a node's children
+   */
+  static findFirstCommand(node: SyntaxNode): Maybe<SyntaxNode> {
+    return TreeWalker.findFirstChild(node, isCommand);
   }
 
-  const flags = node?.childrenForFieldName('argument')
-    .filter(n => isMatchingOption(n, Option.create('-q', '--quiet'))
-      || isMatchingOption(n, Option.create('-q', '--query'))) || [];
+  /**
+   * Check if a command has quiet flags (-q, --quiet, --query)
+   */
+  static hasQuietFlags(command: SyntaxNode): boolean {
+    return command.childrenForFieldName('argument')
+      .some(arg =>
+        isMatchingOption(arg, Option.create('-q', '--quiet')) ||
+        isMatchingOption(arg, Option.create('-q', '--query')),
+      );
+  }
 
-  return flags.length === 0;
+  /**
+   * Check if a command is in the list of conditional commands
+   */
+  static isConditionalCommand(command: SyntaxNode): boolean {
+    return isCommandWithName(command, ...getConditionalCommandNames());
+  }
+}
+
+/**
+ * Conditional context analysis utilities
+ * Provides methods to analyze conditional execution contexts
+ */
+class ConditionalContext {
+  /**
+   * Check if a node is at the top level (direct child of program)
+   */
+  static isTopLevel(node: SyntaxNode): boolean {
+    return Maybe.of(node.parent)
+      .map(parent => parent.type === 'program')
+      .getOrElse(false);
+  }
+
+  /**
+   * Check if a node is used as a condition in an if/else if statement
+   */
+  static isUsedAsCondition(node: SyntaxNode): boolean {
+    return Maybe.of(node.parent)
+      .filter(isIfOrElseIfConditional)
+      .flatMap(parent => Maybe.of(parent.childForFieldName('condition')))
+      .equals(node);
+  }
+
+  /**
+   * Check if a node contains conditional operators (&&, ||)
+   */
+  static hasConditionalOperators(node: SyntaxNode): boolean {
+    return node.text.includes('&&') || node.text.includes('||');
+  }
+
+  /**
+   * Check if a node is a conditional chain node (conditional_execution or ERROR with operators)
+   */
+  static isConditionalChainNode(node: SyntaxNode): boolean {
+    return node.type === 'conditional_execution' ||
+           node.type === 'ERROR' && ConditionalContext.hasConditionalOperators(node);
+  }
+}
+
+/**
+ * Check if a command in a conditional context needs a -q/--quiet/--query flag
+ *
+ * This function identifies commands that are used as conditional expressions and
+ * should have explicit quiet flags to suppress output when used for existence checking.
+ *
+ * Rules:
+ * 1. In conditional_execution chains (&&, ||): only check the first command
+ * 2. In if/else if conditions: check the first command in the condition
+ * 3. Commands inside if body, nested if statements, etc. are not checked
+ *
+ * @param node - the command name node to check
+ * @returns true if the command needs a quiet flag, false otherwise
+ */
+export function isConditionalWithoutQuietCommand(node: SyntaxNode): boolean {
+  return Maybe.of(node)
+    .filter(isCommandName)
+    .map(n => n.parent)
+    .filter(isCommand)
+    .filter(CommandAnalyzer.isConditionalCommand)
+    .filter(cmd => !isCommandWithName(cmd, 'set') || !hasCommandSubstitution(cmd))
+    .filter(cmd => !CommandAnalyzer.hasQuietFlags(cmd))
+    .map(cmd => isCommandInConditionalContext(cmd))
+    .getOrElse(false);
+}
+
+/**
+ * Determines if a command is in a conditional context where it should have quiet flags
+ *
+ * Two scenarios:
+ * 1. Command is the first command in a conditional_execution chain (cmd1 && cmd2 || cmd3)
+ * 2. Command is the first command in an if/else if condition (including nested ones)
+ */
+function isCommandInConditionalContext(command: SyntaxNode): boolean {
+  // Check if this is the first command in a conditional_execution chain
+  if (isFirstCommandInConditionalChain(command)) {
+    return true;
+  }
+
+  // Check if this is the first command in an if/else if condition (including nested)
+  if (isFirstCommandInAnyIfCondition(command)) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Check if a command is the first command in a conditional_execution chain that is used as a test
+ * Examples: "set a && set -q b" at top level or in if condition - only "set a" should be flagged
+ * But "set a && set b" inside an if body should NOT be flagged
+ */
+function isFirstCommandInConditionalChain(command: SyntaxNode): boolean {
+  return TreeWalker.findHighest(command, ConditionalContext.isConditionalChainNode)
+    .filter(rootNode =>
+      ConditionalContext.isTopLevel(rootNode) ||
+      ConditionalContext.isUsedAsCondition(rootNode),
+    )
+    .flatMap(CommandAnalyzer.findFirstCommand)
+    .equals(command);
+}
+
+/**
+ * Check if a command is the first command in any if/else if condition (including nested)
+ * Examples: "if set a; end" or "else if set b; end" or nested "if set -q PATH; if set YARN_PATH; ..."
+ */
+function isFirstCommandInAnyIfCondition(command: SyntaxNode): boolean {
+  return TreeWalker.walkUpAll(command, isIfOrElseIfConditional)
+    .some(ifNode =>
+      Maybe.of(ifNode.childForFieldName('condition'))
+        .flatMap(condition => isFirstCommandInSpecificCondition(command, condition))
+        .getOrElse(false),
+    );
+}
+
+/**
+ * Check if a command is the first command in a specific condition node
+ */
+function isFirstCommandInSpecificCondition(command: SyntaxNode, conditionNode: SyntaxNode): Maybe<boolean> {
+  // Direct command match
+  if (isCommand(conditionNode)) {
+    return Maybe.of(conditionNode.equals(command));
+  }
+
+  // Find first command in condition
+  return CommandAnalyzer.findFirstCommand(conditionNode)
+    .map(firstCmd => firstCmd.equals(command));
 }
 
 export function isVariableDefinitionWithExpansionCharacter(node: SyntaxNode, definedVariableExpansions: { [name: string]: SyntaxNode[]; } = {}): boolean {

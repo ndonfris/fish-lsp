@@ -240,19 +240,33 @@ function fixupStartPath(startPath: string | undefined): string | undefined {
   return path.resolve(resultPath);
 }
 
+type TimeServerOpts = {
+  workspacePath?: string;
+  showWarning?: boolean;
+  timeOnly?: boolean;
+};
+
+const defaultTimeServerOpts: Required<TimeServerOpts> = {
+  workspacePath: '',
+  showWarning: true,
+  timeOnly: false,
+};
+
 /**
  * Time the startup of the server. Use inside `fish-lsp info --time-startup`.
  * Easy testing can be done with:
  *   >_ `nodemon --watch src/ --ext ts --exec 'fish-lsp info --time-startup'`
  */
-export async function timeServerStartup(startPath?: string, showWarning: boolean = true): Promise<void> {
+export async function timeServerStartup(
+  opts: TimeServerOpts = defaultTimeServerOpts,
+): Promise<void> {
   // define a local server instance
   let server: FishServer | undefined;
 
-  startPath = fixupStartPath(startPath);
+  const startPath = fixupStartPath(opts.workspacePath);
 
   const title = 'fish-lsp'.padStart(43).padEnd(42);
-  if (showWarning) {
+  if (opts.showWarning && !opts.timeOnly) {
     logger.logToStdoutJoined(
       `${title}\n\n`,
       '       NOTE: a normal server instance will only start one of these workspaces\n\n',
@@ -262,7 +276,8 @@ export async function timeServerStartup(startPath?: string, showWarning: boolean
       '\n',
     );
   }
-  logger.logToStdout('-'.repeat(85));
+
+  if (!opts.timeOnly) logger.logToStdout('-'.repeat(85));
 
   // 1. Time server creation and startup
   await timeOperation(async () => {
@@ -330,32 +345,35 @@ export async function timeServerStartup(startPath?: string, showWarning: boolean
     }
   }, 'Background Analysis Time');
 
-  // 3. Log the number of files indexed
+  // 3. Stop here if we only want to log the time
+  if (opts.timeOnly) return;
+
+  // 4. Log the number of files indexed
   logger.logToStdoutJoined(
     'Total Files Indexed: '.padEnd(75),
     `${all} files`.padStart(10),
   );
 
-  // 4. Log the directories indexed
+  // 5. Log the directories indexed
   if (!startPath) {
     const all_indexed = config.fish_lsp_all_indexed_paths;
     logger.logToStdoutJoined(
       "Indexed paths in '$fish_lsp_all_indexed_paths':".padEnd(65),
       `${all_indexed.length} paths`.padStart(20),
     );
-    // const maxItemLen = all_indexed.reduce((max, item) => Math.max(max, item.length > 60 ? 60 : item.length), 0);
   } else {
     logger.logToStdoutJoined(
       `Indexed paths in '${startPath.replace(process.cwd(), '.').replace(os.homedir(), '~')}':`.padEnd(65),
       `${Object.keys(items).length} paths`.padStart(20),
     );
   }
+  // 6. Log the items indexed
   Object.keys(items).forEach((item, idx) => {
     const text = item.length > 55 ? '...' + item.slice(item.length - 52) : item;
     const output = formatColumns([` [${idx + 1}]`, `| ${text} |`, `${items[item]?.toString() || 0} files`], [6, -59, -10], 85);
     logger.logToStdout(output);
   });
-  logger.logToStdout('-'.repeat(85));
+  if (!opts.timeOnly) logger.logToStdout('-'.repeat(85));
 }
 
 /**
