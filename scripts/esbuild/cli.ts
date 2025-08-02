@@ -2,7 +2,7 @@
 import { Command } from 'commander';
 
 export interface BuildArgs {
-  target: 'binary' | 'web' | 'development';
+  target: 'binary' | 'web' | 'library' | 'development' | 'all';
   watch: boolean;
   production: boolean;
   minify: boolean;
@@ -19,7 +19,9 @@ export function parseArgs(): BuildArgs {
     .option('-w, --watch', 'Watch for changes and rebuild', false)
     .option('-p, --production', 'Production build (minified, no sourcemaps)', false)
     .option('-m, --minify', 'Minify output', false)
+    .option('--all', 'Build all targets: development, library, binary, and web', false)
     .option('--binary', 'Create bundled binary in build/', false)
+    .option('--library', 'Create bundled library files for npm distribution', false)
     .option('--web', 'Create web bundle with Node.js polyfills for browser usage', false)
     .option('--fish-wasm', 'Create web bundle with full Fish shell via WASM', false)
     .option('--enhanced', 'Use enhanced web build with Fish WASM', false)
@@ -29,8 +31,10 @@ export function parseArgs(): BuildArgs {
   const options = program.opts();
 
   // Determine target based on flags
-  let target: 'binary' | 'web' | 'development' = 'development';
-  if (options.binary) target = 'binary';
+  let target: 'binary' | 'web' | 'library' | 'development' | 'all' = 'development';
+  if (options.all) target = 'all';
+  else if (options.binary) target = 'binary';
+  else if (options.library) target = 'library';
   else if (options.web || options.fishWasm) target = 'web';
 
   return {

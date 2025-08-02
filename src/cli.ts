@@ -179,6 +179,9 @@ commandBin.command('info')
     let exitCode = 0;
 
     const argsCount = CommanderSubcommand.countArgs(args);
+
+    // logger.logToStdout(`fish-lsp info command called with args: ${argsCount}`);
+
     // If the user requested specific info, we will try to show only the requested output.
     if (!args.verbose) {
       // immediately exit if the user requested a specific info

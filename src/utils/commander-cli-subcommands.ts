@@ -398,8 +398,9 @@ export namespace CommanderSubcommand {
   };
 
   export const keys = (args: any) => {
+    // logger.logToStdout(`Keys: ${JSON.stringify(args)}`);
     return Object.entries(args)
-      .filter(([key, value]) => !!key && !!value)
+      .filter(([key, value]) => !!key && !!value && !(key === 'warning' && value === true))
       .map(([key, _]) => key);
   };
 

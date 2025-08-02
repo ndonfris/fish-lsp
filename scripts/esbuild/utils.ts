@@ -63,3 +63,14 @@ export function generateTypeDeclarations(): void {
     console.warn('⚠️  Failed to generate type declarations');
   }
 }
+
+export function generateLibraryTypeDeclarations(): void {
+  console.log('Generating library type declarations...');
+  try {
+    // Generate bundled type declaration for server.ts using existing out/ files
+    execSync('cp out/server.d.ts build/server.d.ts', { stdio: 'inherit' });
+    console.log('✅ Generated bundled library types');
+  } catch (error) {
+    console.warn('⚠️  Failed to generate library type declarations - ensure "out/" exists');
+  }
+}

@@ -11,7 +11,7 @@ export * from './cli';
 // Import everything we need for the main build function
 import { parseArgs, showHelp } from './cli';
 import { buildConfigs, createBuildOptions } from './configs';
-import { generateTypeDeclarations, copyDevelopmentAssets, showBuildStats, makeExecutable } from './utils';
+import { generateTypeDeclarations, generateLibraryTypeDeclarations, copyDevelopmentAssets, showBuildStats, makeExecutable } from './utils';
 
 /**
  * Main build function - can be called programmatically or from CLI
@@ -25,6 +25,38 @@ export async function build(customArgs?: string[]): Promise<void> {
   }
 
   try {
+    if (args.target === 'all') {
+      // Build all targets sequentially
+      const targets: Array<keyof typeof buildConfigs> = ['development', 'library', 'binary', 'web'];
+      
+      console.log('🚀 Building all targets...');
+      
+      for (const targetName of targets) {
+        const config = buildConfigs[targetName];
+        const buildOptions = createBuildOptions(config, args.production || args.minify);
+        
+        console.log(`\n📦 Building ${config.name.toLowerCase()}...`);
+        await esbuild.build(buildOptions);
+        
+        // Post-build tasks for each target
+        if (targetName === 'development') {
+          generateTypeDeclarations();
+          copyDevelopmentAssets();
+        } else if (targetName === 'library' && config.outfile) {
+          generateLibraryTypeDeclarations();
+          showBuildStats(config.outfile, 'Library bundle');
+        } else if (targetName === 'binary' && config.outfile) {
+          makeExecutable(config.outfile);
+          showBuildStats(config.outfile, 'Binary');
+        } else if (targetName === 'web' && config.outfile) {
+          showBuildStats(config.outfile, 'Web bundle');
+        }
+      }
+      
+      console.log('\n✅ All builds complete!');
+      return;
+    }
+
     const config = buildConfigs[args.target];
     const buildOptions = createBuildOptions(config, args.production || args.minify);
     
@@ -55,6 +87,9 @@ export async function build(customArgs?: string[]): Promise<void> {
       if (args.target === 'development') {
         generateTypeDeclarations();
         copyDevelopmentAssets();
+      } else if (args.target === 'library' && config.outfile) {
+        generateLibraryTypeDeclarations();
+        showBuildStats(config.outfile, 'Library bundle');
       } else if (args.target === 'binary' && config.outfile) {
         makeExecutable(config.outfile);
         showBuildStats(config.outfile, 'Binary');

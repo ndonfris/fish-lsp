@@ -9,4 +9,4 @@ if not test -d $HOME/.config/fish/completions
   end
 end
 
-./bin/fish-lsp complete > $fish_complete_path[1]/fish-lsp.fish
+./build/fish-lsp complete > $fish_complete_path[1]/fish-lsp.fish

@@ -1,5 +1,5 @@
 import { resolve, dirname } from 'path';
-import { existsSync } from 'fs';
+import { existsSync, realpathSync } from 'fs';
 
 /**
  * Centralized path resolution utilities for handling bundled vs development environments
@@ -9,6 +9,28 @@ import { existsSync } from 'fs';
  * Get the current executable path
  */
 export function getCurrentExecutablePath(): string {
+  // For bundled binaries, check multiple indicators
+  if (process.argv[1]) {
+    let execPath = process.argv[1];
+
+    // Resolve symlinks to get the real path
+    try {
+      execPath = realpathSync(execPath);
+    } catch (error) {
+      // If realpath fails, use the original path
+    }
+
+    // Direct path to bundled binary
+    if (execPath.includes('/build/fish-lsp') || execPath.endsWith('/fish-lsp')) {
+      return execPath;
+    }
+
+    // Check if we're running from a bundled context (no node in argv[0])
+    if (!process.argv[0]?.includes('node') && process.argv[1]) {
+      return execPath;
+    }
+  }
+
   // If this is being run as a Node.js script and argv[1] exists
   if (process.argv[0] && process.argv[0].includes('node') && process.argv[1]) {
     // Return the script that was executed
@@ -38,7 +60,11 @@ export function getProjectRootPath(): string {
 
   // For development version, go up from out directory
   if (execPath.includes('/out/')) {
-    return resolve(dirname(execPath), '..');
+    // If we're in a subdirectory of out (like out/utils), go up more levels
+    const pathFromOut = execPath.split('/out/')[1];
+    // const pathFromOut = execPath.split(/\/\(out\|bin\)\//)[1];
+    const levels = pathFromOut ? pathFromOut.split('/').length : 1;
+    return resolve(dirname(execPath), ...Array(levels).fill('..'));
   }
 
   // Fallback: use __dirname resolution for development

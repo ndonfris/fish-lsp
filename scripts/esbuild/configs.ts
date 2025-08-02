@@ -58,6 +58,24 @@ export const buildConfigs: Record<string, BuildConfig> = {
     },
   },
 
+  library: {
+    name: 'Library',
+    entryPoint: 'src/server.ts',
+    outfile: resolve('build', 'server.js'),
+    target: 'node',
+    format: 'cjs',
+    platform: 'node',
+    bundle: true,
+    minify: false, // Keep readable for library use
+    sourcemap: true,
+    external: ['tree-sitter', 'web-tree-sitter'],
+    plugins: {
+      target: 'node',
+      typescript: true,
+      polyfills: 'minimal',
+    },
+  },
+
   development: {
     name: 'Development',
     entryPoint: 'src/**/*.ts',
