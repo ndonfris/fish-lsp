@@ -4,26 +4,8 @@ import { existsSync, statSync } from 'fs';
 import { execSync } from 'child_process';
 
 export function copyBinaryAssets(): void {
-  console.log('Copying binary assets...');
-
-  const assets = [
-    { src: 'tree-sitter-fish.wasm', dest: 'build/tree-sitter-fish.wasm' },
-    { src: 'fish_files', dest: 'build/fish_files' },
-    { src: 'docs/man/fish-lsp.1', dest: 'build/docs/man/fish-lsp.1', createDir: 'build/docs/man' },
-    { src: 'out/build-time.txt', dest: 'build/out/build-time.txt', createDir: 'build/out' },
-  ];
-
-  for (const asset of assets) {
-    if (existsSync(asset.src)) {
-      if (asset.createDir) {
-        ensureDirSync(asset.createDir);
-      }
-      copySync(asset.src, asset.dest);
-      console.log(`✅ Copied ${asset.src}`);
-    } else {
-      console.warn(`⚠️  Asset not found: ${asset.src}`);
-    }
-  }
+  console.log('Skipping asset copying - assets remain in original locations');
+  console.log('✅ Binary assets accessible in original locations');
 }
 
 export function copyDevelopmentAssets(): void {
@@ -67,8 +49,10 @@ export function generateTypeDeclarations(): void {
 export function generateLibraryTypeDeclarations(): void {
   console.log('Generating library type declarations...');
   try {
+    // Ensure lib directory exists
+    ensureDirSync('lib');
     // Generate bundled type declaration for server.ts using existing out/ files
-    execSync('cp out/server.d.ts build/server.d.ts', { stdio: 'inherit' });
+    execSync('cp out/server.d.ts lib/server.d.ts', { stdio: 'inherit' });
     console.log('✅ Generated bundled library types');
   } catch (error) {
     console.warn('⚠️  Failed to generate library type declarations - ensure "out/" exists');

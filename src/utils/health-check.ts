@@ -183,13 +183,14 @@ namespace CheckHealthErrorMessages {
       logger.logToStderr('\nTO UPDATE MAN FILE, RUN: ');
       logger.logToStderr([
         '```fish',
-        'set global_man_file (man -w fish-lsp)',
-        'set local_man_file (fish-lsp info --man-file)',
-        'if [ -f $global_man_file ] && [ -f $local_man_file ]',
-        '    cp $local_man_file $global_man_file',
-        'else',
-        '    echo "ADD \'$local_man_file\' to \$MANPATH" >&2',
+        'set global_man_file (path filter -f -- $MANPATH/*/fish-lsp.1)',
+        'if ![ -f $global_man_file ]',
+        '    echo "\$MANFILE does not contain \'fish-lsp.1\'" >&2',
+        '    return 1',
         'end',
+        '[ -f $(fish-lsp info --man-file) ] && cp $(fish-lsp info --man-file) $global_man_file -f && echo \'finished\'',
+        'or cp $(fish-lsp info --man-file) $global_man_file -f && echo \'finished\'',
+        'or echo "failed"',
         '```',
       ].join('\n'));
     },

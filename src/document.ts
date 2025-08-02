@@ -44,7 +44,7 @@ export class LspDocument implements TextDocument {
   }
 
   static testUri(uri: DocumentUri): string {
-    const removeString = 'test-data/workspaces';
+    const removeString = 'tests/workspaces';
     if (uri.includes(removeString)) {
       return 'file:///…/' + uri.slice(uri.indexOf(removeString) + removeString.length + 1);
     }

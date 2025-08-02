@@ -2,7 +2,7 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import PackageJSON from '../../package.json';
 import { logger } from '../logger';
-import { getCurrentExecutablePath, getProjectRootPath, getManFilePath, getFishBuildTimeFilePath } from './path-resolution';
+import { getCurrentExecutablePath, getProjectRootPath, getManFilePath, getFishBuildTimeFilePath, isBundledEnvironment } from './path-resolution';
 import { SyncFileHelper } from './file-operations';
 import { config } from '../config';
 
@@ -276,7 +276,96 @@ export const getBuildTimeString = () => {
 };
 
 export const isPkgBinary = () => {
-  return resolve(__dirname).startsWith('/snapshot/');
+  return typeof __dirname !== 'undefined' ? resolve(__dirname).startsWith('/snapshot/') : false;
+};
+
+/**
+ * Detect if the binary is installed globally by checking if it's accessible via PATH
+ */
+export const isInstalledGlobally = (): boolean => {
+  try {
+    const execPath = getCurrentExecutablePath();
+
+    // Check if the executable is in a global npm/yarn installation directory
+    if (execPath.includes('/node_modules/.bin/') ||
+      execPath.includes('/.npm/') ||
+      execPath.includes('/.yarn/') ||
+      execPath.includes('/usr/local/') ||
+      execPath.includes('/opt/') ||
+      execPath.includes('/.local/bin/')) {
+      return true;
+    }
+
+    // Check if the current executable matches what would be found in PATH
+    if (process.env.PATH) {
+      const pathDirs = process.env.PATH.split(':');
+      for (const dir of pathDirs) {
+        const potentialPath = resolve(dir, 'fish-lsp');
+        if (execPath === potentialPath || execPath.startsWith(potentialPath)) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Detect the execution context: module, web, binary, or unknown
+ * Also differentiates between direct execution and node execution
+ */
+export const getExecutionContext = (): 'module' | 'web' | 'binary' | 'node-binary' | 'node-module' | 'unknown' => {
+  const execPath = getCurrentExecutablePath();
+  const isNodeExecution = process.argv[0]?.includes('node');
+
+  // Check if running in web context (no real filesystem paths)
+  if (typeof window !== 'undefined' || typeof self !== 'undefined') {
+    return 'web';
+  }
+
+  // Locations where the CLI Binary might be run from
+  const cliPaths = ['/bin/fish-lsp', '/dist/fish-lsp', '/out/cli.js'];
+
+  // Check if running as CLI binary
+  if (cliPaths.some(path => execPath.endsWith(path))) {
+    return isNodeExecution ? 'node-binary' : 'binary';
+  }
+
+  // Server/module execution paths
+  const modulePaths = ['/out/server.js', '/dist/server.js', '/src/server.ts'];
+  if (modulePaths.some(path => execPath.endsWith(path))) {
+    return isNodeExecution ? 'node-module' : 'module';
+  }
+
+  // Default to unknown context
+  return 'unknown';
+};
+
+/**
+ * Generate build type string in format: (local|global) (bundled?) (module|web|binary)
+ */
+export const getBuildTypeString = (): string => {
+  const result: string[] = [];
+
+  // 1. Installation type: local or global
+  const installType = isInstalledGlobally() ? 'global' : 'local';
+  result.push(installType);
+
+  // 2. Bundling status: bundled or not
+  if (isPkgBinary()) {
+    result.push('pkg-bundle'); // Special case for pkg bundling
+  } else if (isBundledEnvironment() || getCurrentExecutablePath().includes('/dist/')) {
+    result.push('bundled');
+  }
+
+  // 3. Execution context: module, web, or binary
+  const context = getExecutionContext();
+  result.push(context);
+
+  return result.join(' ').trim();
 };
 
 export const PkgJson = {
@@ -384,64 +473,33 @@ export function fishLspLogFile() {
   };
 }
 
-type subcommandInfoShowFileArgs = {
-  otherArgs?: string[];
-  manFile?: boolean;
-  logFile?: boolean;
-  show?: boolean;
-};
-
 export namespace CommanderSubcommand {
+
+  export function removeArgs(args: {[k: string]: unknown;}, ...keysToRemove: string[]) {
+    const argKeys = keys(args);
+    return argKeys.filter((key) => !keysToRemove.includes(key));
+  }
 
   export const countArgs = (args: any): number => {
     return keys(args).length;
   };
 
-  export const keys = (args: any) => {
-    // logger.logToStdout(`Keys: ${JSON.stringify(args)}`);
+  export const keys = (args: {[k: string]: unknown;}) => {
     return Object.entries(args)
       .filter(([key, value]) => !!key && !!value && !(key === 'warning' && value === true))
       .map(([key, _]) => key);
   };
 
   export function entries(args: any) {
-    return Object.entries(args);
+    return Object.entries(args)
+      .filter(([key, value]) => !!key && !!value && !(key === 'warning' && value === true))
+      .map(([key, _]) => key);
   }
 
   export function noArgs(args: any): boolean {
     return Object.keys(args).length === 0;
   }
 
-}
-
-export function infoHandleShowArgs(args: subcommandInfoShowFileArgs) {
-  let header = '';
-  if (args.logFile) {
-    if (args.otherArgs && args.otherArgs.length > 0) header = 'Log File: ';
-    const logObj = fishLspLogFile();
-    if (args.show) {
-      logger.logToStdout(`${header}${!!header && '\n'}${logObj.content.join('\n')}`);
-    } else {
-      logger.logToStdout(`${header}${logObj.path}`);
-    }
-  }
-  if (args.manFile) {
-    if (args.otherArgs && args.otherArgs.length > 0) header = 'Man File: ';
-    const manObj = FishLspManPage();
-    if (args.show) {
-      logger.logToStdout(`${header}${!!header && '\n'}${manObj.content.join('\n')}`);
-    } else {
-      logger.logToStdout(`${header}${manObj.path}`);
-    }
-  }
-  if (!args.logFile && !args.manFile && args.show) {
-    logger.logToStderr([
-      'ERROR: flag `--show` requires either `--log-file` or `-man-file`',
-      'fish-lsp info [--log-file | --man-file] --show',
-    ].join('\n'));
-    return 1;
-  }
-  return 0;
 }
 
 export function BuildCapabilityString() {
@@ -474,4 +532,44 @@ export function BuildCapabilityString() {
     `${todo} semanticTokens`,
   ].join('\n');
   return statusString;
+}
+export namespace CommandlineLogger {
+
+  export function info(argsCount: number, title: string, message: string, alwaysShowTitle = false) {
+    const isCapabilitiesString = title.toLowerCase() === 'capabilities';
+    if (isCapabilitiesString) message = `\n${message}`;
+    if (argsCount > 1 || alwaysShowTitle || isCapabilitiesString) {
+      logger.logToStdout(`${title}: ${message}`);
+    } else {
+      logger.logToStdout(`${message}`);
+    }
+  }
+
+  export function infoShowFileHandler(args: { [k: 'manFile' | 'logFile' | 'logsFile' | 'show' | string]: unknown; }) {
+    const otherArgs = CommanderSubcommand.keys(args).filter(k => !['manFile', 'logFile', 'logsFile', 'show'].includes(k));
+    const argsCount = otherArgs.length >= 1 ? otherArgs.length + 1 : otherArgs.length || 0;
+    const hasLogFile = args.logFile || args.logsFile;
+    const hasManFile = args.manFile;
+    const hasShowFlag = args.show;
+    if (hasLogFile) {
+      const logObj = fishLspLogFile();
+      const title = 'Log File';
+      const message = args.show ? logObj.content.join('\n') : logObj.path;
+      info(argsCount, title, message);
+    }
+    if (hasManFile) {
+      const manObj = FishLspManPage();
+      const title = 'Man File';
+      const message = args.show ? manObj.content.join('\n') : manObj.path;
+      info(argsCount, title, message);
+    }
+    if (!hasLogFile && !hasManFile && hasShowFlag) {
+      logger.logToStderr([
+        'ERROR: flag `--show` requires either `--log-file` or `-man-file`',
+        'fish-lsp info [--log-file | --man-file] --show',
+      ].join('\n'));
+      return 1;
+    }
+    return 0;
+  }
 }

@@ -24,13 +24,13 @@ export const buildConfigs: Record<string, BuildConfig> = {
   binary: {
     name: 'Binary',
     entryPoint: 'src/cli.ts',
-    outfile: resolve('build', 'fish-lsp'),
+    outfile: resolve('dist', 'fish-lsp'),
     target: 'node',
     format: 'cjs',
     platform: 'node',
     bundle: true,
     minify: true,
-    sourcemap: false,
+    sourcemap: true, // Always include source maps for debugging
     external: ['tree-sitter', 'web-tree-sitter'],
     plugins: {
       target: 'node',
@@ -43,7 +43,7 @@ export const buildConfigs: Record<string, BuildConfig> = {
   web: {
     name: 'Web',
     entryPoint: 'src/web.ts',
-    outfile: resolve('build', 'fish-lsp-web.js'),
+    outfile: resolve('lib', 'fish-lsp-web.js'),
     target: 'browser',
     format: 'esm',
     platform: 'browser',
@@ -61,7 +61,7 @@ export const buildConfigs: Record<string, BuildConfig> = {
   library: {
     name: 'Library',
     entryPoint: 'src/server.ts',
-    outfile: resolve('build', 'server.js'),
+    outfile: resolve('lib', 'server.js'),
     target: 'node',
     format: 'cjs',
     platform: 'node',
@@ -103,7 +103,7 @@ export function createBuildOptions(config: BuildConfig, production = false): esb
     format: config.format,
     ...(config.outfile ? { outfile: config.outfile } : { outdir: config.outdir }),
     minify: config.minify && production,
-    sourcemap: config.sourcemap && !production,
+    sourcemap: config.name === 'Binary' ? config.sourcemap : (config.sourcemap && !production),
     keepNames: !production,
     treeShaking: config.bundle || production,
     external: config.external,

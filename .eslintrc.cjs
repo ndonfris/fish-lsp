@@ -17,12 +17,7 @@ module.exports = {
         tsconfigRootDir: __dirname,
     },
     ignorePatterns: [
-        'scripts/build.ts',
-        'scripts/esbuild/**',
-        'scripts/build-*.ts',
-        'scripts/build-*.ts',
-        'scripts/build-*.js',
-        'scripts/build-standalone.ts',
+        'scripts/',
         'dist/',
         '.bun/',
         'out/',
@@ -134,7 +129,7 @@ module.exports = {
     },
     overrides: [
         {
-            files: ['test-data/**/*.ts'],
+            files: ['tests/**/*.ts'],
             // project: './tsconfig.jest.json',
             rules: {
                 '@typescript-eslint/no-unused-vars': 'off',

@@ -1,12 +1,10 @@
 .DS_Store
-out
-node_modules
 .vim
 *.log
 *.tsbuildinfo
 logs.txt
 wikis
-test-data/staging
+tests/staging
 *.tgz
 *.tsbuildinfo
 .editorconfig
@@ -18,3 +16,15 @@ build
 *.cast
 *.gif
 *.txt
+
+# ignore all build artifacts
+out
+node_modules
+bin
+lib
+dist
+
+scripts/build-with-bun.sh
+scripts/build-binary.ts
+scripts/debug.fish
+scripts/build-release.fish
