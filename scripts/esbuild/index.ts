@@ -7,11 +7,15 @@ export * from './plugins';
 export * from './configs';
 export * from './utils';
 export * from './cli';
+export * from './colors';
 
 // Import everything we need for the main build function
-import { parseArgs, showHelp } from './cli';
+import { parseArgs, showCompletions, showHelp } from './cli';
 import { buildConfigs, createBuildOptions } from './configs';
 import { generateTypeDeclarations, generateLibraryTypeDeclarations, copyDevelopmentAssets, showBuildStats, makeExecutable } from './utils';
+import { logger } from './colors';
+import { startFileWatcher } from './file-watcher';
+
 
 /**
  * Main build function - can be called programmatically or from CLI
@@ -23,21 +27,37 @@ export async function build(customArgs?: string[]): Promise<void> {
     showHelp();
     process.exit(0);
   }
+  if (process.argv.includes('--completions') || process.argv.includes('-c')) {
+    showCompletions();
+    process.exit(0);
+  }
+
+  // Handle comprehensive file watching
+  if (args.watchAll) {
+    console.log(logger.header('`fish-lsp` comprehensive file watcher'));
+    console.log(logger.info('Starting comprehensive file watcher...'));
+    console.log(logger.dim('This will watch src/**, fish_files/*, package.json, and other relevant files'));
+    console.log(logger.dim('Any change will trigger a full `yarn dev` rebuild'));
+    await startFileWatcher();
+    return;
+  }
 
   try {
     if (args.target === 'all') {
-      const targets: Array<keyof typeof buildConfigs> = ['development', 'library', 'binary', 'web'];
+      const targets: Array<keyof typeof buildConfigs> = ['development', 'binary', 'web'];
       
       if (args.watch) {
         // Watch mode for all targets
-        console.log('🚀 Starting watch mode for all targets...');
+        console.log(logger.header('`fish-lsp` esbuild (BUILD SYSTEM)'));
+        console.log(logger.info('  Starting watch mode for all targets...  '));
         const contexts: esbuild.BuildContext[] = [];
         
-        for (const targetName of targets) {
+        for (let i = 0; i < targets.length; i++) {
+          const targetName = targets[i];
           const config = buildConfigs[targetName];
           const buildOptions = createBuildOptions(config, args.production || args.minify);
           
-          console.log(`\n📦 Starting watch for ${config.name.toLowerCase()}...`);
+          console.log(`\n${logger.step(i + 1, targets.length, logger.building(config.name))}`);
           const ctx = await esbuild.context(buildOptions);
           contexts.push(ctx);
           
@@ -45,21 +65,23 @@ export async function build(customArgs?: string[]): Promise<void> {
           if (targetName === 'development') {
             generateTypeDeclarations();
             copyDevelopmentAssets();
-          } else if (targetName === 'library' && config.outfile) {
-            generateLibraryTypeDeclarations();
           } else if (targetName === 'binary' && config.outfile) {
+            await generateLibraryTypeDeclarations();
             makeExecutable(config.outfile);
           }
           
           await ctx.watch();
+          console.log(logger.watching(config.name));
         }
         
-        console.log('\n👀 Watching all targets for changes...');
+        console.log(`\n${logger.info('   All targets are now being watched for changes...   ')}`);
+        console.log(logger.dim('Press Ctrl+C to stop'));
         
         // Keep the process running and handle cleanup
         process.on('SIGINT', () => {
-          console.log('\n🛑 Stopping watch mode...');
+          console.log(`\n${logger.warning('🛑 Stopping watch mode...')}`);
           Promise.all(contexts.map(ctx => ctx.dispose())).then(() => {
+            console.log(logger.success('✨ Watch mode stopped cleanly'));
             process.exit(0);
           });
         });
@@ -67,23 +89,28 @@ export async function build(customArgs?: string[]): Promise<void> {
         return;
       } else {
         // Build all targets sequentially (non-watch mode)
-        console.log('🚀 Building all targets...');
+        console.log(logger.header('`fish-lsp` esbuild (BUILD SYSTEM)'));
+        console.log(logger.info('Building all targets... '), logger.bold('   '));
         
-        for (const targetName of targets) {
+        for (let i = 0; i < targets.length; i++) {
+          const targetName = targets[i];
           const config = buildConfigs[targetName];
           const buildOptions = createBuildOptions(config, args.production || args.minify);
           
-          console.log(`\n📦 Building ${config.name.toLowerCase()}...`);
+          console.log(`\n${logger.step(i + 1, targets.length, logger.building(config.name))}`);
+          const startTime = Date.now();
+          
           await esbuild.build(buildOptions);
+          
+          const buildTime = Date.now() - startTime;
+          console.log(logger.success(`✨ ${config.name} built in ${buildTime} ms`));
           
           // Post-build tasks for each target
           if (targetName === 'development') {
             generateTypeDeclarations();
             copyDevelopmentAssets();
-          } else if (targetName === 'library' && config.outfile) {
-            generateLibraryTypeDeclarations();
-            showBuildStats(config.outfile, 'Library bundle');
           } else if (targetName === 'binary' && config.outfile) {
+            await generateLibraryTypeDeclarations();
             makeExecutable(config.outfile);
             showBuildStats(config.outfile, 'Binary');
           } else if (targetName === 'web' && config.outfile) {
@@ -91,7 +118,7 @@ export async function build(customArgs?: string[]): Promise<void> {
           }
         }
         
-        console.log('\n✅ All builds complete!');
+        console.log(`\n${logger.success('  All builds completed successfully!')}`);
         return;
       }
     }
@@ -99,7 +126,8 @@ export async function build(customArgs?: string[]): Promise<void> {
     const config = buildConfigs[args.target];
     const buildOptions = createBuildOptions(config, args.production || args.minify);
     
-    console.log(`Building ${config.name.toLowerCase()} version with esbuild...`);
+    console.log(logger.header('`fish-lsp` esbuild (BUILD SYSTEM)'));
+    console.log(logger.building(config.name));
 
     if (args.watch) {
       // Watch mode
@@ -109,37 +137,41 @@ export async function build(customArgs?: string[]): Promise<void> {
         copyDevelopmentAssets();
       }
       
-      console.log('  Watching for changes...');
+      console.log(logger.watching(config.name));
+      console.log(logger.dim('Press Ctrl+C to stop'));
       await ctx.watch();
 
       // Keep the process running
       process.on('SIGINT', () => {
-        console.log('\n   Stopping watch mode...');
+        console.log(`\n${logger.warning('🛑 Stopping watch mode...')}`);
         ctx.dispose();
+        console.log(logger.success('✨ Watch mode stopped cleanly'));
         process.exit(0);
       });
     } else {
       // Single build
+      const startTime = Date.now();
       await esbuild.build(buildOptions);
+      const buildTime = Date.now() - startTime;
+      
+      console.log(logger.success(`✨ ${config.name} built in ${buildTime} ms`));
 
       // Post-build tasks
       if (args.target === 'development') {
         generateTypeDeclarations();
         copyDevelopmentAssets();
-      } else if (args.target === 'library' && config.outfile) {
-        generateLibraryTypeDeclarations();
-        showBuildStats(config.outfile, 'Library bundle');
       } else if (args.target === 'binary' && config.outfile) {
+        await generateLibraryTypeDeclarations();
         makeExecutable(config.outfile);
         showBuildStats(config.outfile, 'Binary');
       } else if (args.target === 'web' && config.outfile) {
         showBuildStats(config.outfile, 'Web bundle');
       }
 
-      console.log('✅ Build complete!');
+      console.log(logger.success('  Build completed successfully!'));
     }
   } catch (error) {
-    console.error('❌ Build failed:', error);
+    logger.logError('Build failed', error as Error);
     process.exit(1);
   }
 }

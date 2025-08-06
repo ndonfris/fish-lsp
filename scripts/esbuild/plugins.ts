@@ -1,11 +1,14 @@
 // Build plugin factory for consistent configuration
 import * as esbuild from 'esbuild';
+import { writeFileSync, readFileSync } from 'fs';
+import { resolve } from 'path';
 
 // ESBuild plugins - these packages don't provide TypeScript definitions
 
 import { polyfillNode } from 'esbuild-plugin-polyfill-node';
 import { nodeModulesPolyfillPlugin } from 'esbuild-plugins-node-modules-polyfill';
 import { NodeGlobalsPolyfillPlugin } from '@esbuild-plugins/node-globals-polyfill';
+import { colorize, colors, toRelativePath } from './colors';
 
 export interface PluginOptions {
   target: 'node' | 'browser';
@@ -76,4 +79,47 @@ export function createDefines(target: 'node' | 'browser', production = false): R
   }
 
   return defines;
+}
+
+/**
+ * Plugin to optimize source maps by removing embedded source content
+ * This reduces file size significantly while keeping source file references
+ */
+export function createSourceMapOptimizationPlugin(): esbuild.Plugin {
+  return {
+    name: 'sourcemap-optimization',
+    setup(build) {
+      build.onEnd((result) => {
+        if (!result.outputFiles && build.initialOptions.outfile && build.initialOptions.sourcemap) {
+          const outfile = build.initialOptions.outfile;
+          const sourcemapFile = outfile + '.map';
+          
+          try {
+            const sourcemapContent = readFileSync(sourcemapFile, 'utf8');
+            const originalSize = sourcemapContent.length;
+            const sourcemap = JSON.parse(sourcemapContent);
+            
+            // Remove embedded source content to reduce file size
+            // This keeps file references but removes the full source code
+            if (sourcemap.sourcesContent) {
+              delete sourcemap.sourcesContent;
+              
+              const optimizedContent = JSON.stringify(sourcemap);
+              writeFileSync(sourcemapFile, optimizedContent);
+              
+              const newSize = optimizedContent.length;
+              const reduction = ((originalSize - newSize) / originalSize * 100).toFixed(1);
+              
+              console.log(`📦 Optimized source map: ${colorize(toRelativePath(sourcemapFile), colors.white)}`);
+              const reductionSize = colorize(`${reduction}% (${(originalSize/1024/1024).toFixed(1)}MB → ${(newSize/1024/1024).toFixed(1)}MB)`, colors.white);
+              console.log(`  Size reduction: ${reductionSize}`);
+              console.log(`  Sources: ${colorize(sourcemap.sources.length + ' files', colors.white)}`);
+            }
+          } catch (error) {
+            // Silently ignore if source map doesn't exist or can't be processed
+          }
+        }
+      });
+    },
+  };
 }

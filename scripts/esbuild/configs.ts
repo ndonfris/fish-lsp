@@ -1,7 +1,7 @@
 // Centralized build configurations
 import * as esbuild from 'esbuild';
 import { resolve } from 'path';
-import { createPlugins, createDefines, PluginOptions } from './plugins';
+import { createPlugins, createDefines, createSourceMapOptimizationPlugin, PluginOptions } from './plugins';
 import { copyBinaryAssets } from './utils';
 
 export interface BuildConfig extends esbuild.BuildOptions {
@@ -32,7 +32,7 @@ export const buildConfigs: Record<string, BuildConfig> = {
     bundle: true,
     treeShaking: true,
     minify: false,
-    sourcemap: false, // Disabled by default for production; can be enabled with FISH_LSP_SOURCEMAPS=true
+    sourcemap: true, // Generate external source maps for debugging
     external: ['tree-sitter', 'web-tree-sitter', 'fs', 'path', 'os', 'crypto', 'util'],
     internalPlugins: {
       target: 'node',
@@ -60,23 +60,6 @@ export const buildConfigs: Record<string, BuildConfig> = {
     },
   },
 
-  library: {
-    name: 'Library',
-    entryPoint: 'src/server.ts',
-    outfile: resolve('lib', 'server.js'),
-    target: 'node',
-    format: 'cjs',
-    platform: 'node',
-    bundle: true,
-    minify: false, // Keep readable for library use
-    sourcemap: 'external', // Generate external source maps for debugging
-    external: ['tree-sitter', 'web-tree-sitter', 'fs', 'path', 'os', 'crypto', 'util'],
-    internalPlugins: {
-      target: 'node',
-      typescript: false, // Use native esbuild TS support
-      polyfills: 'none', // Skip polyfills for node target
-    },
-  },
 
   development: {
     name: 'Development',
@@ -98,13 +81,17 @@ export const buildConfigs: Record<string, BuildConfig> = {
 
 export function createBuildOptions(config: BuildConfig, production = false): esbuild.BuildOptions {
   // Source map strategy: 
-  // - Development: Always generate external source maps for debugging
-  // - Production: Only generate if explicitly enabled via config or environment variable
+  // - Development builds (yarn dev/dev:watch): Always generate external source maps for debugging
+  // - Production builds: Only generate if explicitly enabled via FISH_LSP_SOURCEMAPS=true
   const forcedSourceMaps = process.env.FISH_LSP_SOURCEMAPS === 'true';
-  const defaultSourceMaps = !production && (config.sourcemap !== false);
-  const explicitSourceMaps = config.sourcemap === 'external' || config.sourcemap === true;
+  const developmentMode = !production;
+  const configAllowsSourceMaps = config.sourcemap !== false;
   
-  const shouldGenerateSourceMaps = forcedSourceMaps || defaultSourceMaps || explicitSourceMaps;
+  // For binary target: generate source maps in development or when explicitly forced
+  // For other targets: use their existing config
+  const shouldGenerateSourceMaps = config.name === 'Binary' 
+    ? (developmentMode || forcedSourceMaps) && configAllowsSourceMaps
+    : forcedSourceMaps || (developmentMode && configAllowsSourceMaps) || config.sourcemap;
   
   const sourcemapSetting = shouldGenerateSourceMaps ? 'external' : false;
 
@@ -129,6 +116,7 @@ export function createBuildOptions(config: BuildConfig, production = false): esb
     // mangleProps: false, // Don't mangle properties to avoid runtime overhead
     plugins: [
       ...createPlugins(config.internalPlugins),
+      ...(shouldGenerateSourceMaps ? [createSourceMapOptimizationPlugin()] : []),
       ...(config.onBuildEnd ? [{
         name: 'build-end-hook',
         setup(build: esbuild.PluginBuild) {

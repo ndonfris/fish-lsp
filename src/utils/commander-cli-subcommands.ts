@@ -940,8 +940,9 @@ export namespace CommandlineLogger {
   }
 
   export function infoShowFileHandler(args: { [k: 'manFile' | 'logFile' | 'logsFile' | 'show' | string]: unknown; }) {
+    const seenArgs = CommanderSubcommand.keys(args).filter(k => ['manFile', 'logFile', 'logsFile'].includes(k));
     const otherArgs = CommanderSubcommand.keys(args).filter(k => !['manFile', 'logFile', 'logsFile', 'show'].includes(k));
-    const argsCount = otherArgs.length >= 1 ? otherArgs.length + 1 : otherArgs.length || 0;
+    const argsCount = otherArgs.length >= 1 ? otherArgs.length + 1 + seenArgs.length : otherArgs.length + seenArgs.length || 0;
     const hasLogFile = args.logFile || args.logsFile;
     const hasManFile = args.manFile;
     const hasShowFlag = args.show;

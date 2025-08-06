@@ -1,7 +1,46 @@
 #!/usr/bin/env node
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+export const colors = {
+  // Basic colors
+  reset: '\x1b[0m',
+  bright: '\x1b[1m',
+  dim: '\x1b[2m',
+  
+  // Text colors
+  red: '\x1b[31m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  blue: '\x1b[34m',
+  magenta: '\x1b[35m',
+  cyan: '\x1b[36m',
+  white: '\x1b[37m',
+  gray: '\x1b[90m',
+  
+  // Background colors
+  bgRed: '\x1b[41m',
+  bgGreen: '\x1b[42m',
+  bgYellow: '\x1b[43m',
+  bgBlue: '\x1b[44m',
+  bgMagenta: '\x1b[45m',
+  bgCyan: '\x1b[46m',
+  bgWhite: '\x1b[47m',
+}
+
+// Check if we should use colors (respects NO_COLOR env var and TTY detection)
+// const shouldUseColors = !process.env.NO_COLOR && process.stdout.isTTY;
+
+function colorize(text, color) {
+  // if (!shouldUseColors) return text;
+  return `${color}${text}${colors.reset}`;
+}
+
 
 // Get the current date and time in YYYY-MM-DD HH:MM:SS format
 function getCurrentDateTime() {
@@ -50,9 +89,9 @@ function writeBuildTime() {
     files.forEach(file => {
       fs.writeFileSync(file, `${buildTime}\n`);
     });
-    console.log(`Build time recorded: ${buildTime}`);
+    console.log(`${colorize(' Build time recorded:', colors.green)} ${colorize(buildTime, colors.blue)}`);
   } catch (error) {
-    console.error(`Error writing build time: ${error.message}`);
+    console.error(colorize(`Error writing build time: ${error.message}`, colors.red));
     process.exit(1);
   }
 }

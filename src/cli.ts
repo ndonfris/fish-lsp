@@ -473,7 +473,4 @@ commandBin.command('env')
 //   process.argv.push('--help')
 // }
 
-/**
- * PARSE THE SUBCOMMAND/OPTION
- */
 commandBin.parse();

@@ -486,10 +486,10 @@ function processAlignedItem(item: AlignedItem, availableWidth: number, defaultAl
   }
 
   // Calculate padding lengths
-  let padLeftLen = 0,
-    padRightLen = 0;
-  let padLeftText = '',
-    padRightText = '';
+  let padLeftLen = 0;
+  let padRightLen = 0;
+  let padLeftText = '';
+  let padRightText = '';
 
   if (item.pad) {
     padLeftLen = padRightLen = item.pad.length;
@@ -595,39 +595,43 @@ function processAlignedItem(item: AlignedItem, availableWidth: number, defaultAl
 }
 
 export function maxWidthForOutput(): number {
-  // Try multiple methods to get terminal width
+  function getColumnsFromEnv(): number | undefined {
+    // Try multiple methods to get terminal width
 
-  // 1. Check if COLUMNS is in environment
-  if (process.env.COLUMNS) {
-    const cols = parseInt(process.env.COLUMNS, 10);
-    if (!isNaN(cols) && cols > 0) {
-      return cols;
+    // 1. Check if COLUMNS is in environment
+    if (process.env.COLUMNS) {
+      const cols = parseInt(process.env.COLUMNS, 10);
+      if (!isNaN(cols) && cols > 0) {
+        return cols;
+      }
     }
-  }
 
-  // 2. Try using process.stdout.columns if available (Node.js TTY)
-  if (process.stdout.columns && typeof process.stdout.columns === 'number') {
-    return process.stdout.columns;
-  }
-
-  // 3. Try executing shell command to get COLUMNS (as fallback)
-  try {
-    // Try to get COLUMNS from shell environment
-    const result = execSync('echo $COLUMNS', {
-      encoding: 'utf8',
-      timeout: 1000,
-      stdio: ['pipe', 'pipe', 'ignore'],
-    }).trim();
-    const cols = parseInt(result, 10);
-    if (!isNaN(cols) && cols > 0) {
-      return cols;
+    // 2. Try using process.stdout.columns if available (Node.js TTY)
+    if (process.stdout.columns && typeof process.stdout.columns === 'number') {
+      return process.stdout.columns;
     }
-  } catch {
-    // Ignore errors from shell command
+
+    // 3. Try executing shell command to get COLUMNS (as fallback)
+    try {
+      // Try to get COLUMNS from shell environment
+      const result = execSync('echo $COLUMNS', {
+        encoding: 'utf8',
+        timeout: 1000,
+        stdio: ['pipe', 'pipe', 'ignore'],
+      }).trim();
+      const cols = parseInt(result, 10);
+      if (!isNaN(cols) && cols > 0) {
+        return cols;
+      }
+    } catch {
+      // Ignore errors from shell command
+    }
+
+    // 4. Default fallback
+    return 95;
   }
 
-  // 4. Default fallback
-  return 95;
+  return Math.min(95, getColumnsFromEnv() || 95); // Ensure at least 95 characters wide
 }
 
 /**

@@ -20,30 +20,19 @@
   "bugs": {
     "url": "https://github.com/ndonfris/fish-lsp/issues"
   },
-  "main": "./lib/server.js",
-  "typings": "./lib/server.d.ts",
-  "browser": "./lib/fish-lsp-web.js",
-  "bin": {
-    "fish-lsp": "bin/fish-lsp"
-  },
-  "man": "./man/fish-lsp.1",
-  "engines": {
-    "node": ">=18.0.0"
-  },
   "funding": {
     "url": "https://github.con/ndonfris",
     "type": "github"
   },
-  "directories": {
-    "man": "./man/"
+  "engines": {
+    "node": ">=18.0.0"
   },
   "files": [
     "bin/fish-lsp",
     "dist/fish-lsp",
-    "!lib/*.(map|map.js)",
-    "lib/*.js",
-    "lib/*.d.ts",
-    "lib/*.txt",
+    "dist/fish-lsp.map",
+    "lib/",
+    "!lib/server.js.map",
     "fish_scripts/",
     "scripts/build-time",
     "package.json",
@@ -52,18 +41,27 @@
     "LICENSE.md",
     "tree-sitter-fish.wasm"
   ],
+  "main": "./lib/server.js",
+  "types": "./lib/lsp.d.ts",
+  "browser": "./lib/fish-lsp-web.js",
+  "bin": {
+    "fish-lsp": "bin/fish-lsp"
+  },
+  "man": "./man/fish-lsp.1",
   "scripts": {
     "prepare": "husky",
-    "dev": "run-s sh:build-time sh:build-wasm build:prod sh:relink sh:build-completions",
+    "dev": "run-s sh:build-time sh:build-wasm build:all sh:relink sh:build-completions",
     "dev:watch": "run-s dev watch",
+    "dev:watch-all": "tsx scripts/build.ts --watch-all",
     "postinstall": "run-s sh:build-time",
-    "prepack": "run-s --continue-on-error stash clean:build update-changelog lint:check generate:man generate:commands build:prod prepack:commit stash:add",
+    "prepack": "run-s --continue-on-error stash clean:build update-changelog lint:check generate:man generate:commands build:all prepack:commit stash:add",
     "prepack:commit": "git add -u && (git log -1 --pretty=%B | grep -q '^chore: prepack auto-commit' && git commit --amend --no-edit || git commit -m \"chore: prepack auto-commit changes before pack $(date +%D\\ %T)\") || true",
     "postpack": "git log -1 --pretty=%B | grep -q '^chore: prepack auto-commit' && git reset --soft HEAD~1 || true",
     "package": "npm pack",
     "package:dry": "run-s package:build && npm pack --dry-run --ignore-scripts",
-    "package:build": "run-s lint:check generate:man generate:commands sh:build-wasm build:prod",
-    "build": "tsx scripts/build.ts --all",
+    "package:build": "run-s lint:check generate:man generate:commands sh:build-wasm build:all",
+    "build": "tsx scripts/build.ts",
+    "build:all": "tsx scripts/build.ts --all",
     "build:prod": "tsx scripts/build.ts --all --production",
     "build:web": "tsx scripts/build.ts --web --production",
     "watch": "tsx scripts/build.ts --all --watch",
@@ -72,14 +70,17 @@
     "sh:build-wasm": "fish ./scripts/build-fish-wasm.fish",
     "sh:relink": "fish ./scripts/relink-locally.fish",
     "sh:build-release": "fish ./scripts/build-release.fish",
+    "sh:dev:complete": "env -i INSTALL_DEV_COMPLETIONS=true ./scripts/dev-complete.fish",
     "clean": "rimraf out dist lib man node_modules *.tgz .tsbuildinfo coverage .bun",
     "clean:all": "rimraf out lib dist .tsbuildinfo node_modules tree-sitter-fish.wasm logs.txt coverage .bun",
     "clean:build": "rimraf out lib dist .tsbuildinfo",
+    "clean:packs": "rimraf *.tgz .tsbuildinfo",
     "test": "env -i HOME=$HOME PATH=$PATH NODE_ENV=test jest",
     "test:coverage": "env -i HOME=$HOME PATH=$PATH NODE_ENV=test jest --coverage --collectCoverageFrom 'src/**/*.ts'",
+    "tag-and-publish": "fish ./scripts/tag-and-publish.fish",
     "refactor": "knip",
     "lint:check": "eslint . --ext .ts",
-    "lint:fix": "eslint . --ext .ts --fix ",
+    "lint:fix": "eslint . --ext .ts --fix",
     "lint:check-fix": "eslint . --ext .ts --fix-dry-run",
     "update-changelog": "conventional-changelog -i docs/CHANGELOG.md --same-file",
     "update-changelog:dry": "conventional-changelog -i docs/CHANGELOG.md --stdout",

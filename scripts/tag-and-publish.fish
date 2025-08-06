@@ -16,10 +16,14 @@
 #   --dry-run     Show what would happen without executing
 #
 
+source ./scripts/continue_or_exit.fish
+source ./scripts/pretty-print.fish
+
 # Parse command line arguments
 argparse --name='tag-and-publish' \
     h/help \
     d/dry-run \
+    c/complete \
     bump \
     bump-pre \
     bump-patch \
@@ -34,6 +38,7 @@ if set -q _flag_help
     echo "Options:"
     echo "  -h, --help        Show this help message"
     echo "  -d, --dry-run     Show what would happen without executing"
+    echo "  -c, --complete    Show completion commands for this script"
     echo "  --bump            Auto-increment using existing logic (default)"
     echo "  --bump-pre        Increment prerelease number only"
     echo "  --bump-patch      Increment patch version"
@@ -48,33 +53,65 @@ if set -q _flag_help
     exit 0
 end
 
-source ./scripts/continue_or_exit.fish
+if set -q _flag_complete
+    function show_completion -d 'show the \'complete\' commands for this script'
+        set -l script (path resolve -- (status current-filename))
+        echo "
+            complete --path $script -f
+            complete --path $script -s h -l help -d 'Show this help message'
+            complete --path $script -s d -l dry-run -d 'Show what would happen without executing'
+            complete --path $script -s c -l complete -d 'Show completion commands for this script'
+            complete --path $script -l bump -d 'Auto-increment using existing logic (default)'
+            complete --path $script -l bump-pre -d 'Increment pre release number only'
+            complete --path $script -l bump-patch -d 'Increment patch version'
+            complete --path $script -l bump-minor -d 'Increment minor version'
+            complete --path $script -l use-current -d 'Use current package.json version instead'
+            # yarn tag-and-publish
+            complete -c yarn -n '__fish_seen_subcommand_from tag-and-publish' -f
+            complete -c yarn -n '__fish_seen_subcommand_from tag-and-publish' -s h -l help -d 'Show this help message'
+            complete -c yarn -n '__fish_seen_subcommand_from tag-and-publish' -s d -l dry-run -d 'Show what would happen without executing'
+            complete -c yarn -n '__fish_seen_subcommand_from tag-and-publish' -s c -l complete -d 'Show completion commands for this script'
+            complete -c yarn -n '__fish_seen_subcommand_from tag-and-publish' -l bump -d 'Auto-increment using existing logic (default)'
+            complete -c yarn -n '__fish_seen_subcommand_from tag-and-publish' -l bump-pre -d 'Increment pre release number only'
+            complete -c yarn -n '__fish_seen_subcommand_from tag-and-publish' -l bump-patch -d 'Increment patch version'
+            complete -c yarn -n '__fish_seen_subcommand_from tag-and-publish' -l bump-minor -d 'Increment minor version'
+            complete -c yarn -n '__fish_seen_subcommand_from tag-and-publish' -l use-current -d 'Use current package.json version instead'
+        " | string trim -l 
+    end
+    set -l cachedir (__fish_make_cache_dir completions)
+    show_completion 
+    show_completion | source -
+    show_completion > $cachedir/tag-and-publish.fish
+    __fish_cache_put $cachedir/tag-and-publish.fish
+    source "$cachedir/tag-and-publish.fish"
+    exit
+end
 
 # Determine which bump type to use
-set -l bump_type "auto"
+set -l bump_type auto
 if set -q _flag_bump_pre
-    set bump_type "pre"
+    set bump_type pre
 else if set -q _flag_bump_patch
-    set bump_type "patch"
+    set bump_type patch
 else if set -q _flag_bump_minor
-    set bump_type "minor"
+    set bump_type minor
 else if set -q _flag_bump
-    set bump_type "auto"
+    set bump_type auto
 end
 
 # Function to calculate new version
-function calculate_new_version --argument bump_type
+function calculate_new_version --argument-names bump_type
     set -l current_version (npm pkg get version | string unescape)
-    
+
     switch $bump_type
-        case "pre"
+        case pre
             # Increment prerelease number
             set -l v (npm show "fish-lsp@preminor" version 2>/dev/null)
             if test $status -ne 0
                 echo "Error: Could not fetch preminor version" >&2
                 return 1
             end
-            
+
             # Parse version like "1.0.11-pre.9" -> "1.0.11-pre." and "9"
             if string match -qr '\d+\.\d+\.\d+-pre\.\d+' -- $v
                 set -l vt (string replace -r '(\d+\.\d+\.\d+-pre\.)\d+' '$1' -- $v)
@@ -85,8 +122,8 @@ function calculate_new_version --argument bump_type
                 echo "Error: Could not parse preminor version format: $v" >&2
                 return 1
             end
-            
-        case "patch"
+
+        case patch
             # Increment patch version (1.0.11 → 1.0.12)
             set -l parts (string split '.' -- $current_version | string split '-')
             set -l major $parts[1]
@@ -94,23 +131,23 @@ function calculate_new_version --argument bump_type
             set -l patch (string match -rg '(\d+)' -- $parts[3])
             set -l new_patch (math $patch + 1)
             echo "$major.$minor.$new_patch"
-            
-        case "minor"
+
+        case minor
             # Increment minor version (1.0.11 → 1.1.0)
             set -l parts (string split '.' -- $current_version | string split '-')
             set -l major $parts[1]
             set -l minor $parts[2]
             set -l new_minor (math $minor + 1)
             echo "$major.$new_minor.0"
-            
-        case "auto"
+
+        case auto
             # Use existing logic - increment based on preminor
             set -l v (npm show "fish-lsp@preminor" version 2>/dev/null)
             if test $status -ne 0
                 echo "Error: Could not fetch preminor version" >&2
                 return 1
             end
-            
+
             # Parse version like "1.0.11-pre.9" -> "1.0.11-pre." and "9"
             if string match -qr '\d+\.\d+\.\d+-pre\.\d+' -- $v
                 set -l vt (string replace -r '(\d+\.\d+\.\d+-pre\.)\d+' '$1' -- $v)
@@ -121,7 +158,7 @@ function calculate_new_version --argument bump_type
                 echo "Error: Could not parse preminor version format: $v" >&2
                 return 1
             end
-            
+
         case "*"
             echo "Error: Unknown bump type: $bump_type" >&2
             return 1
@@ -129,51 +166,53 @@ function calculate_new_version --argument bump_type
 end
 
 # Calculate new version
-echo "🔍 Calculating new version..."
+echo $GREEN"🔍 Calculating new version..."
 set -l current_version (npm pkg get version | string unescape)
-echo "   Current version: $current_version"
+
+echo $GREEN"   Current version: $current_version"
+set new_version $current_version
 
 if set -q _flag_use_current
-    set -l new_version $current_version
+    set new_version $current_version
     echo "   Using current package.json version: $new_version"
     echo "   Mode: use-current"
 else
-    set -l new_version (calculate_new_version $bump_type)
+    set new_version (calculate_new_version $bump_type)
     if test $status -ne 0
-        echo "❌ Failed to calculate new version"
+        echo $RED"❌ Failed to calculate new version"
         exit 1
     end
-    echo "   New version: $new_version"
-    echo "   Bump type: $bump_type"
+    echo $GREEN"   New version: $new_version"
+    echo $GREEN"   Bump type: $bump_type"
 end
 
 # Check if version already exists
 set -l tag_request "fish-lsp@$new_version"
 echo ""
-echo "🔍 Checking if version exists..."
+echo $GREEN"🔍 Checking if version exists..."
 npm show $tag_request version &>/dev/null
 
 if test $status -eq 0
-    echo "❌ Tag $new_version already exists, skipping tag and publish"
+    echo $RED"❌ Tag $new_version already exists, skipping tag and publish"
     exit 0
 end
 
-echo "✅ Version $new_version is available"
+echo $GREEN"✅ Version $new_version is available"
 
 # Dry run mode
 if set -q _flag_dry_run
-    echo ""
-    echo "🧪 DRY RUN MODE - No changes will be made"
-    echo ""
-    echo "Would perform the following actions:"
-    echo "  1. Update package.json version to: $new_version"
-    echo "  2. Reset changelog from origin"
-    echo "  3. Publish to NPM with tag: preminor"
-    echo "  4. Add NPM dist-tag: nightly"
-    echo "  5. Create git tag: v$tag_request"
-    echo "  6. Push tag to origin"
-    echo ""
-    echo "To execute for real, run without --dry-run flag"
+    echo $BLUE""
+    echo $BLUE"🧪 DRY RUN MODE - No changes will be made"
+    echo $BLUE""
+    echo $BLUE"Would perform the following actions:"
+    echo $BLUE"  1. Update package.json version to: $new_version"
+    echo $BLUE"  2. Reset changelog from origin"
+    echo $BLUE"  3. Publish to NPM with tag: preminor"
+    echo $BLUE"  4. Add NPM dist-tag: nightly"
+    echo $BLUE"  5. Create git tag: v$new_version"
+    echo $BLUE"  6. Push tag to origin"
+    echo $BLUE""
+    echo $BLUE"To execute for real, run without --dry-run flag"$NORMAL
     exit 0
 end
 
@@ -187,12 +226,12 @@ echo ""
 
 # Confirm with user
 if not continue_or_exit --time-in-prompt --no-empty-accept --prompt-str='Proceed with version bump'
-    echo "❌ Aborted by user"
+    echo $RED"❌ Aborted by user"
     exit 1
 end
 
 echo ""
-echo "🚀 Starting version bump and publish process..."
+echo $BLUE"🚀 Starting version bump and publish process..."
 
 # Function to execute or simulate commands based on dry-run mode
 function safe_exec --argument-names description command
@@ -220,25 +259,25 @@ else
 end
 
 # Step 2: Reset the changelog to the latest version
-echo "📄 Resetting changelog from origin..."
+echo $GREEN"📄 Resetting $(icon_file)./docs/CHANGELOG.md from origin..."
 if set -q _flag_dry_run
-    echo "🧪 [DRY RUN] Would execute: git checkout origin/(current_branch) -- docs/CHANGELOG.md"
+    echo $BLUE"🧪 [DRY RUN] Would execute: git checkout origin/(current_branch) -- docs/CHANGELOG.md"
 else
-    git checkout origin/(git branch --show-current 2>/dev/null || echo 'master') -- docs/CHANGELOG.md 
+    git checkout origin/(git branch --show-current 2>/dev/null || echo 'master') -- docs/CHANGELOG.md
     if test $status -ne 0
-        echo "⚠️  Warning: Could not reset changelog from origin"
+        echo $YELLOW"⚠️  Warning: Could not reset changelog from origin"
     end
 end
 
 # Step 3: Publish to npm
 echo "📦 Publishing to NPM..."
 if set -q _flag_dry_run
-    echo "🧪 [DRY RUN] Would execute: npm publish --tag preminor"
-    echo "🧪 [DRY RUN] Package.json version would be: $new_version"
+    echo $BLUE"🧪 [DRY RUN] Would execute: npm publish --tag preminor"
+    echo $BLUE"🧪 [DRY RUN] Package.json version would be: $new_version"
 else
     npm publish --tag preminor
     if test $status -ne 0
-        echo "❌ Failed to publish to NPM"
+        echo $RED"❌ Failed to publish to NPM"
         # Revert package.json changes
         git checkout -- package.json
         exit 1
@@ -263,57 +302,57 @@ end
 echo ""
 echo "🏷️  Git tagging process..."
 if set -q _flag_dry_run
-    echo "🧪 [DRY RUN] Would prompt: Create git tag v$tag_request?"
-    echo "🧪 [DRY RUN] Would execute: git tag -a v$tag_request -m '...'"
-    echo "🧪 [DRY RUN] Would prompt: Push tag to origin?"
-    echo "🧪 [DRY RUN] Would execute: git push origin v$tag_request"
+    echo $BLUE"🧪 [DRY RUN] Would prompt: Create git tag v$new_version?"
+    echo $BLUE"🧪 [DRY RUN] Would execute: git tag -a v$new_version -m '...'"
+    echo $BLUE"🧪 [DRY RUN] Would prompt: Push tag to origin?"
+    echo $BLUE"🧪 [DRY RUN] Would execute: git push origin v$new_version"
     echo ""
-    echo "🧪 [DRY RUN] Final summary would show:"
-    echo "  ✅ Version bumped: $current_version → $new_version"
-    echo "  ✅ Published to NPM: fish-lsp@$new_version (preminor, nightly)"
-    echo "  ✅ Git tag created and pushed: v$tag_request"
+    echo $BLUE"🧪 [DRY RUN] Final summary would show:"
+    echo $BLUE"  ✅ Version bumped: $current_version → $new_version"
+    echo $BLUE"  ✅ Published to NPM: fish-lsp@$new_version (preminor, nightly)"
+    echo $BLUE"  ✅ Git tag created and pushed: v$new_version"
 else
     if continue_or_exit --time-in-prompt --no-empty-accept --no-retry --prompt-str='Create git tag'
-        echo "📝 Creating git tag v$tag_request..."
-        git tag -a "v$tag_request" -m "fish-lsp version v$tag_request
+        echo $GREEN"📝 Creating git tag v$tag_request..."
+        git tag -a "v$new_version" -m "fish-lsp version v$new_version
 
-https://www.npmjs.com/package/fish-lsp/v/$tag_request
+https://www.npmjs.com/package/fish-lsp/v/$new_version
 
 "
         if test $status -ne 0
-            echo "❌ Failed to create git tag"
+            echo $RED"❌ Failed to create git tag"
             exit 1
         end
-        
-        echo "✅ Created git tag v$tag_request"
-        git show "v$tag_request"
-        
+
+        echo $GREEN"✅ Created git tag v$new_version"
+        git show "v$new_version"
+
         echo ""
         if continue_or_exit --time-in-prompt --prompt-str='Push tag to origin'
-            echo "📤 Pushing tag to origin..."
-            git push origin "v$tag_request"
+            echo $BLUE"📤 Pushing tag to origin..."
+            git push origin "v$new_version"
             if test $status -ne 0
-                echo "❌ Failed to push tag to origin"
+                echo $RED"❌ Failed to push tag to origin"
                 exit 1
             end
-            echo "✅ PUSHED TAG: v$tag_request"
-            
-            echo ""
-            echo "🎉 Release process complete!"
-            echo ""
-            echo "📋 Summary:"
-            echo "  ✅ Version bumped: $current_version → $new_version"
-            echo "  ✅ Published to NPM: fish-lsp@$new_version (preminor, nightly)"
-            echo "  ✅ Git tag created and pushed: v$tag_request"
-            echo ""
-            echo "🚀 GitHub Actions will now create the release automatically!"
-            echo "   Check: https://github.com/ndonfris/fish-lsp/actions"
+            echo $BLUE"✅ PUSHED TAG: v$new_version"
+
+            echo $BLUE""
+            echo $BLUE"🎉 Release process complete!"
+            echo $BLUE""
+            echo $BLUE"📋 Summary:"
+            echo $BLUE"  ✅ Version bumped: $current_version → $new_version"
+            echo $BLUE"  ✅ Published to NPM: fish-lsp@$new_version (preminor, nightly)"
+            echo $BLUE"  ✅ Git tag created and pushed: v$new_version"
+            echo $BLUE""
+            echo $BLUE"🚀 GitHub Actions will now create the release automatically!"
+            echo $BLUE"   Check: https://github.com/ndonfris/fish-lsp/actions"
         else
-            echo "⚠️  Tag created but not pushed to origin"
-            echo "   To push manually: git push origin v$tag_request"
+            echo $RED"⚠️  Tag created but not pushed to origin"
+            echo $RED"   To push manually: git push origin v$new_version"
         end
     else
-        echo "⚠️  Git tag creation skipped"
-        echo "✅ NPM package published successfully"
+        echo $BLUE"⚠️  Git tag creation skipped"
+        echo $BLUE"✅ NPM package published successfully"
     end
 end

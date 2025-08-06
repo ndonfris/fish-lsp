@@ -7,6 +7,7 @@
 # Use this for testing changes to the fish-lsp package.
 
 # Usage: ./relink-locally.sh
+source ./scripts/pretty-print.fish
 
 argparse --max-args 1 h/help q/quiet v/verbose no-stderr -- $argv
 or return
@@ -60,16 +61,17 @@ else if set -q _flag_verbose
 else
     # silence all sub shells (don't include stdout & stderr) 
     # occurs when: ZERO flags given or $_flag_quiet
-    echo "RELINKING 'fish-lsp' GLOBALLY..."
+    echo $YELLOW" RELINKING $BLUE\"fish-lsp\"$YELLOW GLOBALLY..."$NORMAL
     if command -vq fish-lsp
-        echo '    "fish-lsp" is already installed'
-        echo '    UNLINKING and LINKING again'
+        echo $YELLOW"    $(icon_warning) command $BLUE\"fish-lsp\"$YELLOW is already installed"$NORMAL
+        echo $YELLOW"    $(icon_file) UNLINKING and LINKING again"$NORMAL
         yarn unlink --global fish-lsp &>/dev/null
         yarn global remove fish-lsp &>/dev/null
     end
     yarn link --global fish-lsp --force &>/dev/null
 
-    echo -e 'SUCCESS! "fish-lsp" is now installed and linked'
+    # echo -e $BOLD_GREEN"$(icon_check)SUCCESS! $BLUE\"fish-lsp\"$BOLD_GREEN is now installed and linked"$NORMAL
+    print_success "$BLUE\"fish-lsp\"$GREEN is now installed and linked globally"
     return 0
 
 end
