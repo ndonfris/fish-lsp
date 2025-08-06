@@ -20,6 +20,9 @@ source ./scripts/continue_or_exit.fish
 source ./scripts/pretty-print.fish
 
 # Parse command line arguments
+set original_argv $argv
+set original_argv_count (count $original_argv)
+
 argparse --name='tag-and-publish' \
     h/help \
     d/dry-run \
@@ -29,6 +32,9 @@ argparse --name='tag-and-publish' \
     bump-patch \
     bump-minor \
     use-current \
+    archive-sourcemaps \
+    build-release-assets \
+    reset-changelog \
     -- $argv
 or exit 1
 
@@ -44,6 +50,9 @@ if set -q _flag_help
     echo "  --bump-patch      Increment patch version"
     echo "  --bump-minor      Increment minor version"
     echo "  --use-current     Use current package.json version instead of calculating from npm"
+    echo "  --archive-sourcemaps Create sourcemaps.tar.gz archive with sourcemap files"
+    echo "  --build-release-assets Create release-assets/ folder with assets (no publishing)"
+    echo "  --reset-changelog Reset docs/CHANGELOG.md to origin version"
     echo ""
     echo "Examples:"
     echo "  ./scripts/tag-and-publish.fish --bump-pre --dry-run"
@@ -66,6 +75,9 @@ if set -q _flag_complete
             complete --path $script -l bump-patch -d 'Increment patch version'
             complete --path $script -l bump-minor -d 'Increment minor version'
             complete --path $script -l use-current -d 'Use current package.json version instead'
+            complete --path $script -l archive-sourcemaps -d 'Create sourcemaps.tar.gz archive'
+            complete --path $script -l build-release-assets -d 'Create release-assets folder (no publishing)'
+            complete --path $script -l reset-changelog -d 'Reset docs/CHANGELOG.md to origin version'
             # yarn tag-and-publish
             complete -c yarn -n '__fish_seen_subcommand_from tag-and-publish' -f
             complete -c yarn -n '__fish_seen_subcommand_from tag-and-publish' -s h -l help -d 'Show this help message'
@@ -76,6 +88,9 @@ if set -q _flag_complete
             complete -c yarn -n '__fish_seen_subcommand_from tag-and-publish' -l bump-patch -d 'Increment patch version'
             complete -c yarn -n '__fish_seen_subcommand_from tag-and-publish' -l bump-minor -d 'Increment minor version'
             complete -c yarn -n '__fish_seen_subcommand_from tag-and-publish' -l use-current -d 'Use current package.json version instead'
+            complete -c yarn -n '__fish_seen_subcommand_from tag-and-publish' -l archive-sourcemaps -d 'Create sourcemaps.tar.gz archive'
+            complete -c yarn -n '__fish_seen_subcommand_from tag-and-publish' -l build-release-assets -d 'Create release-assets folder (no publishing)'
+            complete -c yarn -n '__fish_seen_subcommand_from tag-and-publish' -l reset-changelog -d 'Reset docs/CHANGELOG.md to origin version'
         " | string trim -l 
     end
     set -l cachedir (__fish_make_cache_dir completions)
@@ -97,6 +112,20 @@ else if set -q _flag_bump_minor
     set bump_type minor
 else if set -q _flag_bump
     set bump_type auto
+end
+
+# Function to reset changelog
+function reset_changelog
+    echo "📄 Resetting docs/CHANGELOG.md from origin..."
+    set -l current_branch (git branch --show-current 2>/dev/null || echo 'master')
+    git checkout "origin/$current_branch" -- docs/CHANGELOG.md
+    if test $status -eq 0
+        echo "✅ Reset docs/CHANGELOG.md from origin/$current_branch"
+        return 0
+    else
+        echo "⚠️  Warning: Could not reset changelog from origin/$current_branch"
+        return 1
+    end
 end
 
 # Function to calculate new version
@@ -199,6 +228,137 @@ end
 
 echo $GREEN"✅ Version $new_version is available"
 
+if set -q _flag_reset_changelog
+    reset_changelog
+    if test $original_argv_count -eq 1
+        exit 0
+    end
+end
+
+# Build release assets mode (early exit)
+if set -q _flag_build_release_assets
+    echo ""
+    echo $BLUE"📁 Building release assets (no publishing)..."
+    
+    # Create release-assets directory
+    echo "🗂️  Creating release-assets/ directory..."
+    if test -d release-assets
+        rm -rf release-assets
+    end
+    mkdir release-assets
+    
+    if test $status -ne 0
+        echo $RED"❌ Failed to create release-assets/ directory"
+        exit 1
+    end
+    echo "✅ Created release-assets/ directory"
+    
+    # Create sourcemaps archive in release-assets/
+    echo "📁 Creating sourcemaps archive..."
+    set -l sourcemap_files dist/fish-lsp.map lib/fish-lsp-web.js.map
+    set -l existing_files
+    
+    for file in $sourcemap_files
+        if test -f $file
+            set -a existing_files $file
+        else
+            echo "⚠️  Warning: Sourcemap file not found: $file"
+        end
+    end
+    
+    if test (count $existing_files) -gt 0
+        tar -czf release-assets/sourcemaps.tar.gz $existing_files
+        if test $status -eq 0
+            echo "✅ Created release-assets/sourcemaps.tar.gz with files: $existing_files"
+        else
+            echo $RED"❌ Failed to create sourcemaps archive"
+            exit 1
+        end
+    else
+        echo "⚠️  Warning: No sourcemap files found, skipping archive creation"
+    end
+    
+    # Copy man page
+    echo "📖 Copying man page..."
+    if test -f man/fish-lsp.1
+        cp man/fish-lsp.1 release-assets/
+        if test $status -eq 0
+            echo "✅ Copied man/fish-lsp.1 to release-assets/"
+        else
+            echo $RED"❌ Failed to copy man page"
+            exit 1
+        end
+    else
+        echo "⚠️  Warning: Man page not found at man/fish-lsp.1"
+    end
+    
+    # Copy binary
+    echo "🔧 Copying binary..."
+    if test -f dist/fish-lsp
+        cp dist/fish-lsp release-assets/
+        if test $status -eq 0
+            echo "✅ Copied dist/fish-lsp to release-assets/"
+        else
+            echo $RED"❌ Failed to copy binary"
+            exit 1
+        end
+    else
+        echo "⚠️  Warning: Binary not found at dist/fish-lsp"
+    end
+    
+    # Generate and copy completions
+    echo "🐚 Generating and copying completions..."
+    if test -f bin/fish-lsp
+        ./bin/fish-lsp complete > release-assets/fish-lsp.fish
+        if test $status -eq 0
+            echo "✅ Generated and copied completions to release-assets/fish-lsp.fish"
+        else
+            echo $RED"❌ Failed to generate completions"
+            exit 1
+        end
+    else
+        echo "⚠️  Warning: fish-lsp binary not found at bin/fish-lsp"
+    end
+    
+    # Create npm package
+    echo "📦 Creating npm package..."
+    npm pack
+    if test $status -eq 0
+        # Find and move the .tgz file
+        set -l tgz_file (command ls -t *.tgz 2>/dev/null | head -n1)
+        if test -n "$tgz_file"
+            mv "$tgz_file" release-assets/
+            if test $status -eq 0
+                echo "✅ Created and moved $tgz_file to release-assets/"
+            else
+                echo $RED"❌ Failed to move $tgz_file to release-assets/"
+                exit 1
+            end
+        else
+            echo $RED"❌ No .tgz file found after npm pack"
+            exit 1
+        end
+    else
+        echo $RED"❌ Failed to run npm pack"
+        exit 1
+    end
+    
+    echo ""
+    echo $GREEN"🎉 Release assets built successfully!"
+    echo $GREEN"📁 Contents of release-assets/:"
+    ls -la release-assets/
+    
+    # Reset changelog if flag is provided
+    if set -q _flag_reset_changelog
+        echo $BLUE"resetting the docs/CHANGELOG.md as requested..."$NORMAL
+        reset_changelog
+    end
+    
+    echo ""
+    echo $GREEN"Ready for release! 🚀"
+    exit 0
+end
+
 # Dry run mode
 if set -q _flag_dry_run
     echo $BLUE""
@@ -209,8 +369,14 @@ if set -q _flag_dry_run
     echo $BLUE"  2. Reset changelog from origin"
     echo $BLUE"  3. Publish to NPM with tag: preminor"
     echo $BLUE"  4. Add NPM dist-tag: nightly"
-    echo $BLUE"  5. Create git tag: v$new_version"
-    echo $BLUE"  6. Push tag to origin"
+    if set -q _flag_archive_sourcemaps
+        echo $BLUE"  5. Create sourcemaps.tar.gz archive"
+        echo $BLUE"  6. Create git tag: v$new_version"
+        echo $BLUE"  7. Push tag to origin"
+    else
+        echo $BLUE"  5. Create git tag: v$new_version"
+        echo $BLUE"  6. Push tag to origin"
+    end
     echo $BLUE""
     echo $BLUE"To execute for real, run without --dry-run flag"$NORMAL
     exit 0
@@ -298,7 +464,38 @@ else
     end
 end
 
-# Step 5: Create and push git tag
+# Step 5: Create sourcemaps archive (if requested)
+if set -q _flag_archive_sourcemaps
+    echo "📁 Creating sourcemaps archive..."
+    if set -q _flag_dry_run
+        echo "🧪 [DRY RUN] Would execute: tar -czf sourcemaps.tar.gz dist/fish-lsp.map lib/fish-lsp-web.js.map"
+    else
+        # Check if the sourcemap files exist
+        set -l sourcemap_files dist/fish-lsp.map lib/fish-lsp-web.js.map
+        set -l existing_files
+        
+        for file in $sourcemap_files
+            if test -f $file
+                set -a existing_files $file
+            else
+                echo "⚠️  Warning: Sourcemap file not found: $file"
+            end
+        end
+        
+        if test (count $existing_files) -gt 0
+            tar -czf sourcemaps.tar.gz $existing_files
+            if test $status -eq 0
+                echo "✅ Created sourcemaps.tar.gz with files: $existing_files"
+            else
+                echo "❌ Failed to create sourcemaps archive"
+            end
+        else
+            echo "⚠️  Warning: No sourcemap files found, skipping archive creation"
+        end
+    end
+end
+
+# Step 6: Create and push git tag
 echo ""
 echo "🏷️  Git tagging process..."
 if set -q _flag_dry_run
@@ -310,6 +507,9 @@ if set -q _flag_dry_run
     echo $BLUE"🧪 [DRY RUN] Final summary would show:"
     echo $BLUE"  ✅ Version bumped: $current_version → $new_version"
     echo $BLUE"  ✅ Published to NPM: fish-lsp@$new_version (preminor, nightly)"
+    if set -q _flag_archive_sourcemaps
+        echo $BLUE"  ✅ Created sourcemaps.tar.gz archive"
+    end
     echo $BLUE"  ✅ Git tag created and pushed: v$new_version"
 else
     if continue_or_exit --time-in-prompt --no-empty-accept --no-retry --prompt-str='Create git tag'
@@ -343,6 +543,9 @@ https://www.npmjs.com/package/fish-lsp/v/$new_version
             echo $BLUE"📋 Summary:"
             echo $BLUE"  ✅ Version bumped: $current_version → $new_version"
             echo $BLUE"  ✅ Published to NPM: fish-lsp@$new_version (preminor, nightly)"
+            if set -q _flag_archive_sourcemaps
+                echo $BLUE"  ✅ Created sourcemaps.tar.gz archive"
+            end
             echo $BLUE"  ✅ Git tag created and pushed: v$new_version"
             echo $BLUE""
             echo $BLUE"🚀 GitHub Actions will now create the release automatically!"

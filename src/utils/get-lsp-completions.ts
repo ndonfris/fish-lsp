@@ -85,6 +85,7 @@ function __fish_lsp_info_complete_opt --description 'check if the commandline co
       or __fish_contains_opt verbose
       or __fish_contains_opt time-startup
       or __fish_contains_opt check-health
+      or __fish_contains_opt source-maps
     end && return 1
     
     for opt in $argv
@@ -256,6 +257,26 @@ function __fish_lsp_last_switch -d 'check if the last argument w/ a leading \`-\
     return 1
 end
 
+# Utility function to check if non or switches have been seen in the commandline
+# EXAMPLES:
+#   > \`__fish_lsp_not_contains_opt stdio enable disable\`
+#   > \`fish-lsp start --stdio <TAB>\`                   ---> 1
+#   > \`fish-lsp start --enable <TAB>\`                  ---> 1
+#   > \`fish-lsp start --stdio --enable complete <TAB>\` ---> 1
+function __fish_lsp_not_contains_opt -d 'check if no switches have been seen in the commandline'
+    for opt in $argv
+        not __fish_contains_opt "$opt"
+        or return 1
+    end
+end
+
+function __fish_lsp_info_sourcemaps_complete -d 'complete the source map url for the current lsp version'
+    __fish_seen_subcommand_from info
+    and __fish_contains_opt source-maps
+    and __fish_lsp_not_contains_opt all all-paths check install status remove 
+end
+
+
 # Utility function for checking if we have seen any switches yet.
 # EXAMPLES:
 #   > \`fish-lsp start --stdio <TAB>\`                   ---> 1
@@ -392,6 +413,13 @@ complete -c fish-lsp -n '__fish_lsp_info_complete_opt time-only;'               
 complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_contains_opt time-startup; and not __fish_contains_opt no-warning'       -l no-warning      -d 'do not show warning message'
 complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_contains_opt time-startup; and not __fish_contains_opt use-workspace'    -l use-workspace   -d 'specify workspace directory' -xa '(__fish_complete_directories)'
 complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_contains_opt time-startup; and __fish_lsp_last_switch --use-workspace'                      -d 'workspace directory'         -xa '(__fish_complete_directories)'
+complete -c fish-lsp -n '__fish_lsp_info_complete_opt source-maps;'                                                                            -l source-maps     -d 'show the source maps used by the server'
+complete -c fish-lsp -n '__fish_lsp_info_sourcemaps_complete'                                                                                  -l all             -d 'verbose info showing all sourcemaps used by the server on the local machine' 
+complete -c fish-lsp -n '__fish_lsp_info_sourcemaps_complete'                                                                                  -l all-paths       -d 'the absolute paths of the installed sourcemaps' 
+complete -c fish-lsp -n '__fish_lsp_info_sourcemaps_complete'                                                                                  -l check           -d 'check if the sourcemaps are installed & valid' 
+complete -c fish-lsp -n '__fish_lsp_info_sourcemaps_complete'                                                                                  -l remove          -d 'remove the sourcemaps' 
+complete -c fish-lsp -n '__fish_lsp_info_sourcemaps_complete'                                                                                  -l install         -d 'install the sourcemaps' 
+complete -c fish-lsp -n '__fish_lsp_info_sourcemaps_complete'                                                                                  -l status          -d 'info about the sourcemaps' 
 `;
 
 const envCompletions: string = `## fish-lsp env --<TAB>
@@ -445,9 +473,11 @@ export function buildFishLspCompletions(commandBin: Command) {
   output.push(AUTO_GENERATED_HEADER_STRING);
   output.push(HELPER_FUNCTIONS);
   // remove the cached completions
-  // output.push('## remove cached completions');
-  // output.push('complete -c fish-lsp -e');
-  // output.push('complete -e fish-lsp');
+  if (process.env.FISH_LSP_COMPLETIONS_CACHE_DISABLE === 'true') {
+    output.push('## remove cached completions');
+    output.push('complete -c fish-lsp -e');
+    output.push('complete -e fish-lsp');
+  }
   // default completions
   output.push('## disable file completions');
   output.push('complete -c fish-lsp -f', '');

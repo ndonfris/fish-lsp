@@ -3,16 +3,14 @@
 
 // Import polyfills for Node.js 18 compatibility
 import './utils/array-polyfills';
-import { BuildCapabilityString, PathObj, PackageLspVersion, PackageVersion, accumulateStartupOptions, getBuildTimeString, FishLspHelp, FishLspManPage, SourcesDict, SubcommandEnv, CommanderSubcommand, getBuildTypeString, PkgJson } from './utils/commander-cli-subcommands';
+import { BuildCapabilityString, PathObj, PackageLspVersion, PackageVersion, accumulateStartupOptions, getBuildTimeString, FishLspHelp, FishLspManPage, SourcesDict, SubcommandEnv, CommanderSubcommand, getBuildTypeString, PkgJson, SourceMaps } from './utils/commander-cli-subcommands';
 import { Command, Option } from 'commander';
 import { buildFishLspCompletions } from './utils/get-lsp-completions';
 import { logger } from './logger';
 import { configHandlers, config, updateHandlers, validHandlers, Config, handleEnvOutput } from './config';
-import { ConnectionOptions, ConnectionType, createConnectionType, startServer, timeServerStartup } from './utils/startup';
+import { ConnectionOptions, ConnectionType, createConnectionType, maxWidthForOutput, startServer, timeServerStartup } from './utils/startup';
 import { performHealthCheck } from './utils/health-check';
 import { setupProcessEnvExecFile } from './utils/process-env';
-import { getCurrentExecutablePath } from './utils/path-resolution';
-import { execSync } from 'child_process';
 
 /**
  *  creates local 'commandBin' used for commander.js
@@ -173,6 +171,13 @@ commandBin.command('info')
   .option('--time-only', 'alias to show only the time taken for the server to index files', false)
   .option('--use-workspace <PATH>', 'use the specified workspace path for `fish-lsp info --time-startup`', undefined)
   .option('--no-warning', 'do not show warnings in the output for `fish-lsp info --time-startup`', true)
+  .option('--source-maps', 'show source map information and management options', false)
+  .option('--all', 'show all source maps (use with --source-maps)', false)
+  .option('--all-paths', 'show the paths to all the source maps (use with --source-maps)', false)
+  .option('--install', 'download and install source maps (use with --source-maps)', false)
+  .option('--remove', 'remove source maps (use with --source-maps)', false)
+  .option('--check', 'check source map availability (use with --source-maps)', false)
+  .option('--status', 'show the status of all the source-maps available to the server (use with --source-maps)', false)
   .action(async (args: CommanderSubcommand.info.schemaType) => {
     await setupProcessEnvExecFile();
     const capabilities = BuildCapabilityString()
@@ -183,7 +188,7 @@ commandBin.command('info')
     let shouldExit = false;
     let exitCode = 0;
 
-    const argsCount = CommanderSubcommand.countArgsWithValues('info', args);
+    let argsCount = CommanderSubcommand.countArgsWithValues('info', args);
 
     // immediately exit if the user requested a specific info
     CommanderSubcommand.info.handleBadArgs(args);
@@ -203,28 +208,40 @@ commandBin.command('info')
         await performHealthCheck();
         process.exit(0);
       }
+
+      // Handle sourcemaps (requires --source-maps or specific sourcemap options)
+      if (args.sourceMaps) {
+        exitCode = CommanderSubcommand.info.handleSourceMaps(args);
+        shouldExit = true;
+      }
       // normal info about the fish-lsp
       if (args.bin) {
+        argsCount = argsCount - 1;
         CommanderSubcommand.info.log(argsCount, 'Executable Path', PathObj.execFile);
         shouldExit = true;
       }
       if (args.path) {
+        argsCount = argsCount - 1;
         CommanderSubcommand.info.log(argsCount, 'Build Path', PathObj.path);
         shouldExit = true;
       }
       if (args.buildTime) {
+        argsCount = argsCount - 1;
         CommanderSubcommand.info.log(argsCount, 'Build Time', getBuildTimeString());
         shouldExit = true;
       }
       if (args.buildType) {
+        argsCount = argsCount - 1;
         CommanderSubcommand.info.log(argsCount, 'Build Type', getBuildTypeString());
         shouldExit = true;
       }
       if (args.capabilities) {
+        argsCount = argsCount - 1;
         CommanderSubcommand.info.log(argsCount, 'Capabilities', capabilities, true);
         shouldExit = true;
       }
       if (args.lspVersion) {
+        argsCount = argsCount - 1;
         CommanderSubcommand.info.log(argsCount, 'LSP Version', PackageLspVersion, true);
         shouldExit = true;
       }
@@ -245,8 +262,9 @@ commandBin.command('info')
       CommanderSubcommand.info.log(argsCount, 'Binary File', PathObj.bin, true);
       CommanderSubcommand.info.log(argsCount, 'Man File', PathObj.manFile, true);
       CommanderSubcommand.info.log(argsCount, 'Log File', config.fish_lsp_log_file, true);
+      CommanderSubcommand.info.log(argsCount, 'Sourcemaps', `\n${Object.values(SourceMaps).join('\n')}`, true);
       if (args.extra || args.capabilities || args.verbose) {
-        logger.logToStdout('_'.repeat(parseInt(process.env.COLUMNS || '80')));
+        logger.logToStdout('_'.repeat(maxWidthForOutput()));
         CommanderSubcommand.info.log(argsCount, 'Capabilities', capabilities, false);
       }
     }
@@ -268,9 +286,6 @@ commandBin.command('url')
   .option('--sources-list', 'show a list of helpful sources')
   .option('--source-map', 'show source map download url for current version')
   .option('--download', 'show download instructions')
-  .option('--install', 'download and install source maps (use with --download --source-map)')
-  .option('--remove', 'remove source maps (use with --download --source-map)')
-  .option('--status', 'check source map availability (use with --download --source-map)')
   .action(async (args) => {
     const amount = Object.keys(args).length;
     if (amount === 0) {
@@ -278,93 +293,13 @@ commandBin.command('url')
       process.exit(0);
     }
 
-    // Handle source map management (requires --download --source-map)
+    // Handle source map URL (simplified - just show the download URL)
     if (args.download && args.sourceMap) {
-      const fs = await import('fs');
-      const path = await import('path');
-      const https = await import('https');
-
-      const executablePath = getCurrentExecutablePath();
-      const executableDir = path.dirname(executablePath);
-      const sourceMapPath = path.join(executableDir, 'fish-lsp.map');
-
-      if (args.status) {
-        const exists = fs.existsSync(sourceMapPath);
-        logger.logToStdout(`Source maps: ${exists ? '✅ Available' : '❌ Not found'}`);
-        if (exists) {
-          const stats = fs.statSync(sourceMapPath);
-          logger.logToStdout(`Location: ${sourceMapPath}`);
-          logger.logToStdout(`Size: ${(stats.size / 1024 / 1024).toFixed(1)} MB`);
-          logger.logToStdout(`Modified: ${stats.mtime.toISOString()}`);
-        }
-        process.exit(exists ? 0 : 1);
-      }
-
-      if (args.remove) {
-        if (fs.existsSync(sourceMapPath)) {
-          fs.unlinkSync(sourceMapPath);
-          logger.logToStdout('✅ Source maps removed');
-        } else {
-          logger.logToStdout('ℹ️  Source maps not found');
-        }
-        process.exit(0);
-      }
-
-      if (args.install) {
-        logger.logToStdout(`🔍 Downloading source maps for v${PackageVersion}...`);
-
-        const sourceMapUrl = `https://github.com/ndonfris/fish-lsp/releases/download/v${PackageVersion}/fish-lsp-sourcemaps-${PackageVersion}.tar.gz`;
-        const tempFile = path.join(executableDir, 'sourcemaps.tar.gz');
-
-        try {
-          // Download the tar.gz file
-          const file = fs.createWriteStream(tempFile);
-          const request = https.get(sourceMapUrl, (response) => {
-            if (response.statusCode === 200) {
-              response.pipe(file);
-              file.on('finish', () => {
-                file.close();
-
-                try {
-                  execSync(`tar -xzf "${tempFile}" -C "${executableDir}"`, { stdio: 'pipe' });
-                  fs.unlinkSync(tempFile); // Clean up temp file
-
-                  if (fs.existsSync(sourceMapPath)) {
-                    logger.logToStdout('✅ Source maps installed successfully');
-                    logger.logToStdout(`📍 Location: ${sourceMapPath}`);
-                    logger.logToStdout('🐛 Stack traces will now show TypeScript source locations');
-                  } else {
-                    logger.logToStdout('❌ Source map extraction failed');
-                    process.exit(1);
-                  }
-                } catch (error) {
-                  logger.logToStdout(`❌ Extraction failed: ${error}`);
-                  if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
-                  process.exit(1);
-                }
-              });
-            } else {
-              logger.logToStdout(`❌ Download failed: HTTP ${response.statusCode}`);
-              logger.logToStdout(`   URL: ${sourceMapUrl}`);
-              logger.logToStdout('   Make sure this version has been released on GitHub');
-              process.exit(1);
-            }
-          });
-
-          request.on('error', (error) => {
-            logger.logToStdout(`❌ Download failed: ${error.message}`);
-            process.exit(1);
-          });
-        } catch (error) {
-          logger.logToStdout(`❌ Failed to download source maps: ${error}`);
-          process.exit(1);
-        }
-        return;
-      }
-
-      // Default: just show the source map URL
-      const sourceMapUrl = `https://github.com/ndonfris/fish-lsp/releases/download/v${PackageVersion}/fish-lsp-sourcemaps-${PackageVersion}.tar.gz`;
+      const sourceMapUrl = `https://github.com/ndonfris/fish-lsp/releases/download/v${PackageVersion}/sourcemaps.tar.gz`;
       logger.logToStdout(sourceMapUrl);
+      logger.logToStdout('');
+      logger.logToStdout('💡 For better source map management, use:');
+      logger.logToStdout('   fish-lsp info --sourcemaps');
       process.exit(0);
     }
 
@@ -381,12 +316,12 @@ commandBin.command('url')
         'npm install -g fish-lsp',
         '',
         '## Source Maps (for debugging)',
-        `curl -fsSL https://github.com/ndonfris/fish-lsp/releases/download/v${PackageVersion}/fish-lsp-sourcemaps-${PackageVersion}.tar.gz | tar -xz`,
+        `curl -fsSL https://github.com/ndonfris/fish-lsp/releases/download/v${PackageVersion}/sourcemaps.tar.gz | tar -xz`,
         '',
         '## Source Map Management',
-        'fish-lsp url --download --source-map --install    # Install source maps',
-        'fish-lsp url --download --source-map --status     # Check status',
-        'fish-lsp url --download --source-map --remove     # Remove source maps',
+        'fish-lsp info --sourcemaps --install   # Install source maps',
+        'fish-lsp info --sourcemaps --check     # Check status',
+        'fish-lsp info --sourcemaps --remove    # Remove source maps',
       ].join('\n'));
       process.exit(0);
     }

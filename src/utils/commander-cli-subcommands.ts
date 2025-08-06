@@ -1,13 +1,17 @@
-import { readFileSync } from 'fs';
-import { resolve } from 'path';
-import PackageJSON from '../../package.json';
-import { logger } from '../logger';
-import { getCurrentExecutablePath, getProjectRootPath, getManFilePath, getFishBuildTimeFilePath, isBundledEnvironment } from './path-resolution';
-import { SyncFileHelper } from './file-operations';
-import { config } from '../config';
-import { z } from 'zod';
-import { commandBin } from '../cli';
 import chalk from 'chalk';
+import fs, { readFileSync } from 'fs';
+import { execSync } from 'child_process';
+import http from 'http';
+import { homedir } from 'os';
+import path, { resolve } from 'path';
+import { z } from 'zod';
+import PackageJSON from '../../package.json';
+import { commandBin } from '../cli';
+import { config } from '../config';
+import { logger } from '../logger';
+import { SyncFileHelper } from './file-operations';
+import { getCurrentExecutablePath, getFishBuildTimeFilePath, getManFilePath, getProjectRootPath, isBundledEnvironment } from './path-resolution';
+import { maxWidthForOutput } from './startup';
 
 /**
  * Accumulate the arguments into two arrays, '--enable' and '--disable'
@@ -521,6 +525,11 @@ export namespace CommanderSubcommand {
         timeOnly: z.boolean().optional().default(false),
         useWorkspace: z.string().optional().default(''),
         warning: z.boolean().optional().default(true),
+        sourceMaps: z.boolean().optional().default(false),
+        check: z.boolean().optional().default(false),
+        install: z.boolean().optional().default(false),
+        remove: z.boolean().optional().default(false),
+        status: z.boolean().optional().default(false),
       }),
     );
     export type schemaType = z.infer<typeof schema>;
@@ -607,6 +616,122 @@ export namespace CommanderSubcommand {
       }
       return 0;
     }
+
+    // Show output for the sourcemaps switch
+    export function handleSourceMaps(args: schemaType) {
+      let exitStatus = 0;
+      if (!args.sourceMaps) return exitStatus;
+
+      // check if all sourcemaps are present
+      Object.values(SourceMaps).forEach(v => {
+        if (!fs.existsSync(v)) {
+          exitStatus = 1;
+        }
+      });
+
+      if (args.all && !args.allPaths) {
+        logger.logToStdout('-'.repeat(maxWidthForOutput()));
+        Object.entries(SourceMaps).forEach(([k, v]) => {
+          const exists = fs.existsSync(v);
+          logger.logToStdoutJoined(`${chalk.white('Sourcemap \'')}`, chalk.blue(k), chalk.white("': "), exists ? chalk.green('✅ Available') : chalk.red('❌ Not found'));
+          if (exists) {
+            const stats = fs.statSync(v);
+            logger.logToStdoutJoined(chalk.white('Location: '), chalk.blue(`${v}`));
+            logger.logToStdoutJoined(chalk.white('Size:     '), chalk.blue(`${(stats.size / 1024 / 1024).toFixed(1)} MB`));
+            logger.logToStdoutJoined(chalk.white('Modified: '), chalk.blue(`${stats.mtime.toLocaleDateString()} ${stats.mtime.toLocaleTimeString()}`));
+          }
+          logger.logToStdout('-'.repeat(maxWidthForOutput())); // Add a blank line between maps
+        });
+        return exitStatus;
+      }
+
+      if (args.allPaths) {
+        Object.entries(SourceMaps).forEach(([_, v]) => {
+          logger.logToStdout(v);
+        });
+        return exitStatus;
+      }
+
+      if (args.check) {
+        logger.logToStdout('-'.repeat(maxWidthForOutput())); // Add a blank line between maps
+        Object.entries(SourceMaps).forEach(([k, v]) => {
+          const exists = fs.existsSync(v);
+          logger.logToStdoutJoined(`${chalk.white('Sourcemap \'')}`, chalk.blue(k), chalk.white("': "), exists ? chalk.green('✅ Available') : chalk.red('❌ Not found'));
+          if (exists) {
+            logger.logToStdout(`${chalk.white('Path:')} ${chalk.blue(v.replace(homedir(), '~'))}`);
+          } else {
+            logger.logToStdout(`${chalk.white('Path:')} ${chalk.blue(v.replace(homedir(), '~'))} ${chalk.red('(not found)')}`);
+          }
+          logger.logToStdout('-'.repeat(maxWidthForOutput())); // Add a blank line between maps
+        });
+        return exitStatus;
+      }
+
+      if (args.remove) {
+        exitStatus = 0;
+        Object.entries(SourceMaps).forEach(([_, v]) => {
+          if (fs.existsSync(v)) {
+            fs.unlinkSync(v);
+            logger.logToStdout(`✅ Removed sourcemap at ${v.replace(homedir(), '~')}`);
+          } else {
+            logger.logToStdout(`❌ Sourcemap not found at ${v.replace(homedir(), '~')}, nothing to remove`);
+            exitStatus = 1;
+          }
+        });
+        return exitStatus;
+      }
+
+      if (args.install) {
+        logger.logToStdout(`🔍 Download sourcemaps for v${PackageVersion}...`);
+
+        const rootDir = getProjectRootPath();
+        const file = fs.createWriteStream(path.join(rootDir, 'sourcemaps.tar.gz'));
+        const sourceMapUrl = `http://github.com/ndonfris/fish-lsp/releases/download/v${PackageVersion}/sourcemaps.tar.gz`;
+        logger.logToStdoutJoined(chalk.white('sourcemap url: '), chalk.blue(sourceMapUrl));
+        http.get(sourceMapUrl, (res) => {
+          if (res.statusCode !== 200) {
+            logger.logToStdout(`❌ Download failed: HTTP ${res.statusCode}`);
+            logger.logToStdout(`   URL: ${sourceMapUrl}`);
+            logger.logToStdout('   Make sure this version has been released on GitHub');
+            process.exit(1);
+          } else {
+            logger.logToStdout('✅ Download started, extracting source maps...');
+            file.on('finish', () => {
+              file.close();
+              try {
+                execSync(`tar -xzf "${path.join(rootDir, 'sourcemaps.tar.gz')}" -C "${rootDir}"`, { stdio: 'pipe' });
+                fs.unlinkSync(path.join(rootDir, 'sourcemaps.tar.gz')); // Clean up temp file
+                logger.logToStdout('✅ Source maps installed successfully');
+                logger.logToStdout(`📍 Location: ${rootDir}`);
+                logger.logToStdout('🐛 Stack traces will now show TypeScript source locations');
+              } catch (error) {
+                logger.logToStdout(`❌ Extraction failed: ${error}`);
+                if (fs.existsSync(path.join(rootDir, 'fish-lsp-sourcemaps.tar.gz'))) {
+                  fs.unlinkSync(path.join(rootDir, 'fish-lsp-sourcemaps.tar.gz'));
+                }
+                process.exit(1);
+              }
+            });
+          }
+        });
+        return exitStatus;
+      }
+
+      // Default source map path
+      logger.logToStdout('-'.repeat(maxWidthForOutput())); // Add a blank line between maps
+      Object.entries(SourceMaps).forEach(([k, v]) => {
+        const exists = fs.existsSync(v);
+        logger.logToStdoutJoined(`${chalk.white('Sourcemap \'')}`, chalk.blue(k), chalk.white("': "), exists ? chalk.green('✅ Available') : chalk.red('❌ Not found'));
+        if (exists) {
+          logger.logToStdout(`${chalk.white('Path:')} ${chalk.blue(v.replace(homedir(), '~'))}`);
+        } else {
+          logger.logToStdout(`${chalk.white('Path:')} ${chalk.blue(v.replace(homedir(), '~'))} ${chalk.red('(not found)')}`);
+        }
+        logger.logToStdout('-'.repeat(maxWidthForOutput())); // Add a blank line between maps
+      });
+      return exitStatus;
+    }
+
     export function log(argsCount: number, title: string, message: string, alwaysShowTitle = false) {
       const isCapabilitiesString = title.toLowerCase() === 'capabilities';
       if (isCapabilitiesString) message = `\n${message}`;
@@ -910,3 +1035,11 @@ export function BuildCapabilityString() {
   ].join('\n');
   return statusString;
 }
+
+/**
+ * Record of the sourcemaps for each file in the project.
+ */
+export const SourceMaps: Record<string, string> = {
+  'dist/fish-lsp': path.resolve(path.dirname(getCurrentExecutablePath()), '..', 'dist', 'fish-lsp.map'),
+  'lib/fish-lsp-web.js': path.resolve(path.dirname(getCurrentExecutablePath()), '..', 'lib', 'fish-lsp-web.js.map'),
+};

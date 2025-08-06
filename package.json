@@ -65,7 +65,7 @@
     "build:prod": "tsx scripts/build.ts --all --production",
     "build:web": "tsx scripts/build.ts --web --production",
     "watch": "tsx scripts/build.ts --all --watch",
-    "sh:build-completions": "fish ./scripts/build-completions.fish",
+    "sh:build-completions": "env -i FISH_LSP_COMPLETIONS_CACHE_DISABLE=true fish ./scripts/build-completions.fish",
     "sh:build-time": "node ./scripts/build-time",
     "sh:build-wasm": "fish ./scripts/build-fish-wasm.fish",
     "sh:relink": "fish ./scripts/relink-locally.fish",

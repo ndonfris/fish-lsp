@@ -36,6 +36,10 @@ class FileWatcher {
       this.watchPath(watchPath);
     }
 
+    execSync('yarn dev', {
+      stdio: 'inherit',
+      cwd: process.cwd()
+    })
     this.showRebuildCompletedMessage();
 
     process.on('SIGTERM', () => this.stop());
@@ -51,7 +55,7 @@ class FileWatcher {
     const stats = fs.statSync(watchPath);
     const isDirectory = stats.isDirectory();
 
-    const watcher = fs.watch(watchPath, { recursive: isDirectory }, (eventType, filename) => {
+    const watcher = fs.watch(watchPath, { recursive: isDirectory }, (_eventType, filename) => {
       let actualFilename: string;
       let actualFilePath: string;
       
@@ -128,7 +132,7 @@ class FileWatcher {
   }
 
   private cleanupRecentFiles(now: number): void {
-    for (const [filePath, timestamp] of this.recentlyChangedFiles.entries()) {
+    for (const [filePath, timestamp] of Array.from(this.recentlyChangedFiles.entries())) {
       if (now - timestamp > this.fileChangeThrottleMs * 2) {
         this.recentlyChangedFiles.delete(filePath);
       }
@@ -173,7 +177,7 @@ class FileWatcher {
     
     // Visual separator
     console.log(colorize('━'.repeat(80), colors.blue));
-    console.log(logger.header('Rebuild Completed'));
+    console.log(colorize('Rebuild Completed', colors.bright));
     console.log(colorize('━'.repeat(80), colors.blue));
     console.log(colorize(`  Rebuild completed successfully! `, colors.white), colorize(`(${this.rebuildCount} total rebuilds)`, colors.blue));
     console.log(colorize(`  Build timestamp:`, colors.white), colorize(buildTime, colors.yellow));
