@@ -578,6 +578,44 @@ export namespace CommanderSubcommand {
         process.exit(1);
       }
     }
+
+    export function handleFileArgs(args: schemaType) {
+      const seenArgs = keys(args).filter(k => ['manFile', 'logFile', 'logsFile'].includes(k));
+      const otherArgs = keys(args).filter(k => !['manFile', 'logFile', 'logsFile', 'show'].includes(k));
+      const argsCount = otherArgs.length >= 1 ? otherArgs.length + 1 + seenArgs.length : otherArgs.length + seenArgs.length || 0;
+      const hasLogFile = args.logFile || args.logsFile;
+      const hasManFile = args.manFile;
+      const hasShowFlag = args.show;
+      if (hasLogFile) {
+        const logObj = fishLspLogFile();
+        const title = 'Log File';
+        const message = args.show ? logObj.content.join('\n') : logObj.path;
+        log(argsCount, title, message);
+      }
+      if (hasManFile) {
+        const manObj = FishLspManPage();
+        const title = 'Man File';
+        const message = args.show ? manObj.content.join('\n') : manObj.path;
+        log(argsCount, title, message);
+      }
+      if (!hasLogFile && !hasManFile && hasShowFlag) {
+        logger.logToStderr([
+          'ERROR: flag `--show` requires either `--log-file` or `-man-file`',
+          'fish-lsp info [--log-file | --man-file] --show',
+        ].join('\n'));
+        return 1;
+      }
+      return 0;
+    }
+    export function log(argsCount: number, title: string, message: string, alwaysShowTitle = false) {
+      const isCapabilitiesString = title.toLowerCase() === 'capabilities';
+      if (isCapabilitiesString) message = `\n${message}`;
+      if (argsCount > 1 || alwaysShowTitle || isCapabilitiesString) {
+        logger.logToStdout(`${chalk.whiteBright.bold(`${title}:`)} ${chalk.cyan(message)}`);
+      } else {
+        logger.logToStdout(`${message}`);
+      }
+    }
   }
   export namespace url {
     export const schema = z.record(z.unknown()).and(
@@ -790,61 +828,6 @@ export namespace CommanderSubcommand {
       }).join(' ');
     }).join(' ');
   }
-
-  // export type InfoArgsType = {
-  //   bin?: boolean;
-  //   path?: boolean;
-  //   buildTime?: boolean;
-  //   buildType?: boolean;
-  //   lspVersion?: boolean;
-  //   capabilities?: boolean;
-  //   manFile?: boolean;
-  //   logFile?: boolean;
-  //   logsFile?: boolean;
-  //   show?: boolean;
-  //   verbose: boolean;
-  //   extra: boolean;
-  //   healthCheck?: boolean;
-  //   checkHealth?: boolean;
-  //   timeStartup?: boolean;
-  //   timeOnly?: boolean;
-  //   useWorkspace?: string;
-  //   warning?: boolean;
-  //   [k: string]: unknown; // allow any other keys
-  // };
-
-  export const infoArgsTypeSchema = z.record(z.unknown()).and(
-    z.object({
-      bin: z.boolean().optional().default(false),
-      path: z.boolean().optional().default(false),
-      buildTime: z.boolean().optional().default(false),
-      buildType: z.boolean().optional().default(false),
-      lspVersion: z.boolean().optional().default(false),
-      capabilities: z.boolean().optional().default(false),
-      manFile: z.boolean().optional().default(false),
-      logFile: z.boolean().optional().default(false),
-      logsFile: z.boolean().optional().default(false),
-      show: z.boolean().optional().default(false),
-      verbose: z.boolean().optional().default(false),
-      extra: z.boolean().optional().default(false),
-      healthCheck: z.boolean().optional().default(false),
-      checkHealth: z.boolean().optional().default(false),
-      timeStartup: z.boolean().optional().default(false),
-      timeOnly: z.boolean().optional().default(false),
-      useWorkspace: z.string().optional().default(''),
-      warning: z.boolean().optional().default(true),
-    }),
-  );
-
-  export type InfoArgsType = z.infer<typeof infoArgsTypeSchema>;
-
-  export const defaultInfoArgs: InfoArgsType = ParseInfoArgs({});
-
-  export function ParseInfoArgs(args: unknown): z.infer<typeof infoArgsTypeSchema> {
-    const isValidArgs = infoArgsTypeSchema.safeParse(args);
-    return isValidArgs?.success ? isValidArgs.data : infoArgsTypeSchema.parse(args) || defaultInfoArgs; // Validate the args against the schema
-  }
-
   export type CommandlineOpts = {
     subcommand: 'start' | 'info' | 'url' | 'env' | 'complete' | '';
     args?: string[];
@@ -926,45 +909,4 @@ export function BuildCapabilityString() {
     `${todo} semanticTokens`,
   ].join('\n');
   return statusString;
-}
-export namespace CommandlineLogger {
-
-  export function info(argsCount: number, title: string, message: string, alwaysShowTitle = false) {
-    const isCapabilitiesString = title.toLowerCase() === 'capabilities';
-    if (isCapabilitiesString) message = `\n${message}`;
-    if (argsCount > 1 || alwaysShowTitle || isCapabilitiesString) {
-      logger.logToStdout(`${chalk.whiteBright.bold(`${title}:`)} ${chalk.cyan(message)}`);
-    } else {
-      logger.logToStdout(`${message}`);
-    }
-  }
-
-  export function infoShowFileHandler(args: { [k: 'manFile' | 'logFile' | 'logsFile' | 'show' | string]: unknown; }) {
-    const seenArgs = CommanderSubcommand.keys(args).filter(k => ['manFile', 'logFile', 'logsFile'].includes(k));
-    const otherArgs = CommanderSubcommand.keys(args).filter(k => !['manFile', 'logFile', 'logsFile', 'show'].includes(k));
-    const argsCount = otherArgs.length >= 1 ? otherArgs.length + 1 + seenArgs.length : otherArgs.length + seenArgs.length || 0;
-    const hasLogFile = args.logFile || args.logsFile;
-    const hasManFile = args.manFile;
-    const hasShowFlag = args.show;
-    if (hasLogFile) {
-      const logObj = fishLspLogFile();
-      const title = 'Log File';
-      const message = args.show ? logObj.content.join('\n') : logObj.path;
-      info(argsCount, title, message);
-    }
-    if (hasManFile) {
-      const manObj = FishLspManPage();
-      const title = 'Man File';
-      const message = args.show ? manObj.content.join('\n') : manObj.path;
-      info(argsCount, title, message);
-    }
-    if (!hasLogFile && !hasManFile && hasShowFlag) {
-      logger.logToStderr([
-        'ERROR: flag `--show` requires either `--log-file` or `-man-file`',
-        'fish-lsp info [--log-file | --man-file] --show',
-      ].join('\n'));
-      return 1;
-    }
-    return 0;
-  }
 }

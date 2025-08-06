@@ -3,7 +3,7 @@
 
 // Import polyfills for Node.js 18 compatibility
 import './utils/array-polyfills';
-import { BuildCapabilityString, PathObj, PackageLspVersion, PackageVersion, accumulateStartupOptions, getBuildTimeString, FishLspHelp, FishLspManPage, SourcesDict, SubcommandEnv, CommanderSubcommand, getBuildTypeString, CommandlineLogger, PkgJson } from './utils/commander-cli-subcommands';
+import { BuildCapabilityString, PathObj, PackageLspVersion, PackageVersion, accumulateStartupOptions, getBuildTimeString, FishLspHelp, FishLspManPage, SourcesDict, SubcommandEnv, CommanderSubcommand, getBuildTypeString, PkgJson } from './utils/commander-cli-subcommands';
 import { Command, Option } from 'commander';
 import { buildFishLspCompletions } from './utils/get-lsp-completions';
 import { logger } from './logger';
@@ -205,49 +205,49 @@ commandBin.command('info')
       }
       // normal info about the fish-lsp
       if (args.bin) {
-        CommandlineLogger.info(argsCount, 'Executable Path', PathObj.execFile);
+        CommanderSubcommand.info.log(argsCount, 'Executable Path', PathObj.execFile);
         shouldExit = true;
       }
       if (args.path) {
-        CommandlineLogger.info(argsCount, 'Build Path', PathObj.path);
+        CommanderSubcommand.info.log(argsCount, 'Build Path', PathObj.path);
         shouldExit = true;
       }
       if (args.buildTime) {
-        CommandlineLogger.info(argsCount, 'Build Time', getBuildTimeString());
+        CommanderSubcommand.info.log(argsCount, 'Build Time', getBuildTimeString());
         shouldExit = true;
       }
       if (args.buildType) {
-        CommandlineLogger.info(argsCount, 'Build Type', getBuildTypeString());
+        CommanderSubcommand.info.log(argsCount, 'Build Type', getBuildTypeString());
         shouldExit = true;
       }
       if (args.capabilities) {
-        CommandlineLogger.info(argsCount, 'Capabilities', capabilities, true);
+        CommanderSubcommand.info.log(argsCount, 'Capabilities', capabilities, true);
         shouldExit = true;
       }
       if (args.lspVersion) {
-        CommandlineLogger.info(argsCount, 'LSP Version', PackageLspVersion, true);
+        CommanderSubcommand.info.log(argsCount, 'LSP Version', PackageLspVersion, true);
         shouldExit = true;
       }
       // handle `[--man-file | --log-file] (--show)?`
       if (args.manFile || args.logFile || args.logsFile) {
-        exitCode = CommandlineLogger.infoShowFileHandler(args);
+        exitCode = CommanderSubcommand.info.handleFileArgs(args);
         shouldExit = true;
       }
     }
     if (!shouldExit || args.verbose) {
-      CommandlineLogger.info(argsCount, 'Executable Path', PathObj.execFile, true);
-      CommandlineLogger.info(argsCount, 'Build Location', PathObj.path, true);
-      CommandlineLogger.info(argsCount, 'Build Version', PackageVersion, true);
-      CommandlineLogger.info(argsCount, 'Build Time', getBuildTimeString(), true);
-      CommandlineLogger.info(argsCount, 'Build Type', getBuildTypeString(), true);
-      CommandlineLogger.info(argsCount, 'Node Version', process.version, true);
-      CommandlineLogger.info(argsCount, 'LSP Version', PackageLspVersion, true);
-      CommandlineLogger.info(argsCount, 'Binary File', PathObj.bin, true);
-      CommandlineLogger.info(argsCount, 'Man File', PathObj.manFile, true);
-      CommandlineLogger.info(argsCount, 'Log File', config.fish_lsp_log_file, true);
+      CommanderSubcommand.info.log(argsCount, 'Executable Path', PathObj.execFile, true);
+      CommanderSubcommand.info.log(argsCount, 'Build Location', PathObj.path, true);
+      CommanderSubcommand.info.log(argsCount, 'Build Version', PackageVersion, true);
+      CommanderSubcommand.info.log(argsCount, 'Build Time', getBuildTimeString(), true);
+      CommanderSubcommand.info.log(argsCount, 'Build Type', getBuildTypeString(), true);
+      CommanderSubcommand.info.log(argsCount, 'Node Version', process.version, true);
+      CommanderSubcommand.info.log(argsCount, 'LSP Version', PackageLspVersion, true);
+      CommanderSubcommand.info.log(argsCount, 'Binary File', PathObj.bin, true);
+      CommanderSubcommand.info.log(argsCount, 'Man File', PathObj.manFile, true);
+      CommanderSubcommand.info.log(argsCount, 'Log File', config.fish_lsp_log_file, true);
       if (args.extra || args.capabilities || args.verbose) {
         logger.logToStdout('_'.repeat(parseInt(process.env.COLUMNS || '80')));
-        CommandlineLogger.info(argsCount, 'Capabilities', capabilities, false);
+        CommanderSubcommand.info.log(argsCount, 'Capabilities', capabilities, false);
       }
     }
     process.exit(exitCode);
