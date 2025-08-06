@@ -1,4 +1,5 @@
 import { Command } from 'commander';
+import os from 'os';
 import { Config, validHandlers } from '../config';
 import { PkgJson } from './commander-cli-subcommands';
 
@@ -28,8 +29,8 @@ const AUTO_GENERATED_HEADER_STRING = `#
 #
 #   * For more info, try editing the generated output inside:
 #
-#      >_ ${PkgJson.bin} complete | $EDITOR -
-#      >_ $EDITOR ${PkgJson.path}/src/utils/get-lsp-completions.ts 
+#      >_ fish-lsp complete | $EDITOR -
+#      >_ $EDITOR ${PkgJson?.path || '~/path/to/fish-lsp'}/src/utils/get-lsp-completions.ts 
 #
 #      NOTE: bundled server installations will not allow you to view the source code as easily
 #
@@ -49,7 +50,7 @@ const HELPER_FUNCTIONS: string = `
 # if a feature is already specified in the command line, it will be skipped
 # the features can also be used in the global environment variables \`fish_lsp_enabled_handlers\` or \`fish_lsp_disabled_handlers\`
 function __fish_lsp_get_features -d 'print all features controlled by the server, not yet used in the commandline'
-    set -l all_features ${validHandlers.map(handlerName => `'${handlerName}'`).join(' ')}
+    set -l all_features ${validHandlers?.map(handlerName => `'${handlerName}'`).join(' ')}
     set -l features_to_complete
     set -l features_to_skip
     set -l opts (commandline -opc)
@@ -99,10 +100,10 @@ end
 # if a env_variable is already specified in the command line, it will not be included again
 function __fish_lsp_get_env_variables -d 'print all fish_lsp_* env variables, not yet used in the commandline'
     # every env variable name 
-    set -l env_names ${Object.keys(Config.envDocs).map(k => `"${k}"`).join(' \\\n\t\t')}
+    set -l env_names ${Config?.envDocs ? Object.keys(Config.envDocs).map(k => `"${k}"`).join(' \\\n\t\t') : ''}
 
     # every completion argument \`name\\t'description'\`, only unused env variables will be printed
-    set -l env_names_with_descriptions ${Object.entries(Config.envDocs).map(([k, v]) => `"${k}\\t'${v}'"`).join(' \\\n\t\t')}
+    set -l env_names_with_descriptions ${!!Config?.envDocs && Object.entries(Config.envDocs).map(([k, v]) => `"${k}\\t'${v}'"`).join(' \\\n\t\t')}
 
     # get the current command line token (for comma separated options)
     set -l current (commandline -ct)
@@ -209,6 +210,14 @@ function __fish_lsp_env_main_switch --description 'check if the commandline cont
     return 1
 end
 
+function __fish_lsp_source_map_complete -d 'complete the source map url for the current lsp version'
+    __fish_seen_subcommand_from url
+    and __fish_contains_opt download
+    and __fish_contains_opt source-map
+    and not __fish_contains_opt install
+    and not __fish_contains_opt status
+    and not __fish_contains_opt remove
+end
 
 
 # make sure \`fish-lsp start --stdio|--node-ipc|--socket\` is used singularly
@@ -336,17 +345,23 @@ complete -c fish-lsp -n '__fish_seen_subcommand_from start; and __fish_lsp_last_
  * by receiving multiple duplicated arguments
  */
 const urlCompletions: string = `## fish-lsp url --<TAB>
-complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt repo'          -l repo          -d 'show git repo url'  
-complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt git'           -l git           -d 'show git repo url'  
-complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt npm'           -l npm           -d 'show npmjs.com url' 
-complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt homepage'      -l homepage      -d 'show website url'   
-complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt contributing'  -l contributing  -d 'show git CONTRIBUTING.md url'
-complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt wiki'          -l wiki          -d 'show git wiki url'
-complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt issues'        -l issues        -d 'show git issues url'
-complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt report'        -l report        -d 'show git issues url'
-complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt discussions'   -l discussions   -d 'show git discussions url' 
-complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt clients-repo'  -l clients-repo  -d 'show git clients-repo url'
-complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt sources'       -l sources       -d 'show useful url list of sources'
+complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt download; and not __fish_contains_opt repo'          -l repo          -d 'show git repo url'  
+complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt download; and not __fish_contains_opt git'           -l git           -d 'show git repo url'  
+complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt download; and not __fish_contains_opt npm'           -l npm           -d 'show npmjs.com url' 
+complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt download; and not __fish_contains_opt homepage'      -l homepage      -d 'show website url'   
+complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt download; and not __fish_contains_opt contributing'  -l contributing  -d 'show git CONTRIBUTING.md url'
+complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt download; and not __fish_contains_opt wiki'          -l wiki          -d 'show git wiki url'
+complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt download; and not __fish_contains_opt issues'        -l issues        -d 'show git issues url'
+complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt download; and not __fish_contains_opt report'        -l report        -d 'show git issues url'
+complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt download; and not __fish_contains_opt discussions'   -l discussions   -d 'show git discussions url' 
+complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt download; and not __fish_contains_opt clients-repo'  -l clients-repo  -d 'show git clients-repo url'
+complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt download; and not __fish_contains_opt sources-list'  -l sources-list  -d 'show useful url list of sources'
+complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt download'                                            -l download      -d 'download server url'
+complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt source-map'                                          -l source-map    -d 'show source map url for the current lsp version'
+complete -c fish-lsp -n '__fish_lsp_source_map_complete'                                             -l install      -d 'install source map url'
+complete -c fish-lsp -n '__fish_lsp_source_map_complete'                                             -l status       -d 'show source map status'
+complete -c fish-lsp -n '__fish_lsp_source_map_complete'                                             -l remove       -d 'remove source map url'
+complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt source-map; and __fish_contains_opt download'       -l source-map      -d 'download server url'
 `;
 
 const completeCompletions: string = `## fish-lsp complete --<TAB>
@@ -406,10 +421,10 @@ complete -c fish-lsp -n '__fish_seen_subcommand_from env; and __fish_lsp_env_mai
 `;
 
 const footerItems = [
-  `### build command:        ${PkgJson.bin}`,
-  `### build time:           ${PkgJson.buildTime}`,
-  `### build version:        ${PkgJson.version}`,
-  `### report issues:        ${PkgJson.bugs.url}`,
+  `### build binary:         ${PkgJson?.bin.replace(os.homedir(), '~')}`,
+  `### build time:           ${PkgJson?.buildTime}`,
+  `### build version:        ${PkgJson?.version}`,
+  `### report issues:        ${PkgJson?.bugs.url}`,
 ];
 
 const footerBorderLength = footerItems.reduce((max, currentString) => {

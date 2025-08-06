@@ -188,6 +188,28 @@ export class FishSymbol {
     return false;
   }
 
+  isExported(): boolean {
+    if (this.fishKind === 'EVENT') return false;
+    if (this.fishKind === 'FUNCTION_EVENT') return false;
+    if (this.isFunction()) return false;
+    if (this.fishKind === 'FUNCTION_VARIABLE') return false;
+    if (!this.isVariable()) return false;
+    if (this.isArgparse()) return false;
+    if (this.fishKind === 'EXPORT') return true;
+    const commandNode = this.node;
+    if (isCommandWithName(commandNode, 'set')) {
+      const children = findSetChildren(commandNode)
+        .filter(s => s.startIndex < this.focusedNode.startIndex);
+      return children.some(s => isMatchingOption(s, Option.create('-x', '--export')));
+    }
+    if (isCommandWithName(commandNode, 'read')) {
+      const children = commandNode.children
+        .filter(s => s.startIndex < this.focusedNode.startIndex);
+      return children.some(s => isMatchingOption(s, Option.create('-x', '--export')));
+    }
+    return false;
+  }
+
   isEqualLocation(node: SyntaxNode) {
     if (!node.isNamed || this.focusedNode.equals(node) || !this.nameEqualsNodeText(node)) {
       return false;

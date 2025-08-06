@@ -6,6 +6,8 @@ import { getCurrentExecutablePath, getProjectRootPath, getManFilePath, getFishBu
 import { SyncFileHelper } from './file-operations';
 import { config } from '../config';
 import { z } from 'zod';
+import { commandBin } from '../cli';
+import chalk from 'chalk';
 
 /**
  * Accumulate the arguments into two arrays, '--enable' and '--disable'
@@ -378,7 +380,7 @@ export const PkgJson = {
   homepage: PackageJSON.homepage || ' ',
   lspVersion: PackageLspVersion,
   node: PackageNodeRequiredVersion,
-  man: PathObj.manFile,
+  man: getManFilePath(),
   buildTime: getBuildTimeString(),
   ...PathObj,
 };
@@ -394,7 +396,8 @@ export const SourcesDict: { [key: string]: string; } = {
   wiki: 'https://github.com/ndonfris/fish-lsp/wiki',
   discussions: 'https://github.com/ndonfris/fish-lsp/discussions',
   clientsRepo: 'https://github.com/ndonfris/fish-lsp-language-clients/',
-  sources: [
+  sourceMap: `https://github.com/ndonfris/fish-lsp/releases/download/v${PackageVersion}/fish-lsp-sourcemaps-${PackageVersion}.tar.gz`,
+  sourcesList: [
     'https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#headerPart',
     'https://github.com/microsoft/vscode-extension-samples/tree/main',
     'https://tree-sitter.github.io/tree-sitter/',
@@ -541,6 +544,40 @@ export namespace CommanderSubcommand {
       const isValidArgs = skipable.safeParse(args);
       return isValidArgs?.success ? isValidArgs.data : skipable.parse(args) || skipable.parse({}); // Validate the args against the schema
     };
+
+    export const allSkipableArgvs = [
+      'info',
+      '--health-check',
+      '--check-health',
+      '--time-startup',
+      '--time-only',
+      '--use-workspace',
+      '--no-warning',
+    ] as const;
+
+    export function handleBadArgs(args: schemaType) {
+      const argsCount = countArgsWithValues('info', args);
+      if (args.useWorkspace && args.useWorkspace.length > 0 && !args.timeStartup && !args.timeOnly && argsCount >= 1) {
+        logger.logToStderr([
+          buildErrorMessage('ERROR:', 'The option', '--use-workspace', 'should be used with either:', '--time-startup', 'or', '--time-only'),
+          buildColoredCommandlineString({ subcommand: 'info', args: ['--time-startup', ...commandBin.args.slice(1)] }),
+          buildErrorMessage(`If you believe this is a bug, please report it at ${chalk.underline.whiteBright(PkgJson.bugs.url)}`),
+        ].join('\n\n'));
+        process.exit(1);
+      }
+      const skippedArgs = commandBin.args.filter(arg => arg.startsWith('--') && allSkipableArgvs.some(skipable => arg.startsWith(skipable)));
+      const unrelatedArgs = commandBin.args.filter(arg => arg.startsWith('--') && !allSkipableArgvs.some(skipable => arg.startsWith(skipable)));
+      if (skippedArgs.length > 0 && unrelatedArgs.length > 0) {
+        const unrelatedArgsSeen = argsToString(unrelatedArgs);
+        logger.logToStderr([
+          buildErrorMessage('ERROR:', 'Incompatible arguments provided.'),
+          buildErrorMessage('FIXES:', 'Try removing the invalid arguments provided and running the command again.', 'INVALID ARGUMENTS:', ...unrelatedArgsSeen.replaceAll('"', '').split(', ')),
+          buildColoredCommandlineString({ subcommand: 'info', args: skippedArgs }),
+          buildErrorMessage(`If you believe this is a bug, please report it at ${chalk.underline.whiteBright(PkgJson.bugs.url)}`),
+        ].join('\n\n'));
+        process.exit(1);
+      }
+    }
   }
   export namespace url {
     export const schema = z.record(z.unknown()).and(
@@ -732,6 +769,28 @@ export namespace CommanderSubcommand {
     return Object.keys(args).length === 0;
   }
 
+  export function argsToString(args: { [k: string]: unknown; } | string[]): string {
+    if (Array.isArray(args)) {
+      return args.map(m => ['', m, ''].join('"')).join(', ');
+    }
+    return Object.keys(args).map(m => ['', m, ''].join('"')).join(', ');
+  }
+
+  export function buildErrorMessage(...stdin: string[]) {
+    return stdin.map((item, idx) => {
+      const splitItem = item.split(' ');
+      return splitItem.map((part) => {
+        if (idx === 0 && part.toUpperCase() === part) {
+          return chalk.bold.red(part);
+        }
+        if (part.startsWith('--')) {
+          return chalk.whiteBright(part);
+        }
+        return chalk.redBright(part);
+      }).join(' ');
+    }).join(' ');
+  }
+
   // export type InfoArgsType = {
   //   bin?: boolean;
   //   path?: boolean;
@@ -785,6 +844,56 @@ export namespace CommanderSubcommand {
     const isValidArgs = infoArgsTypeSchema.safeParse(args);
     return isValidArgs?.success ? isValidArgs.data : infoArgsTypeSchema.parse(args) || defaultInfoArgs; // Validate the args against the schema
   }
+
+  export type CommandlineOpts = {
+    subcommand: 'start' | 'info' | 'url' | 'env' | 'complete' | '';
+    args?: string[];
+    prefixIndent?: boolean;
+    showPrompt?: boolean;
+  };
+
+  // default values for commandline options
+  const commandlineOpts = {
+    subcommand: '',
+    args: [],
+    prefixIndent: true,
+    showPrompt: true,
+  } as CommandlineOpts;
+
+  export function buildColoredCommandlineString(opts: CommandlineOpts): string {
+    // set the default values if not provided
+    if (opts.prefixIndent === undefined) opts.prefixIndent = commandlineOpts.prefixIndent;
+    if (opts.showPrompt === undefined) opts.showPrompt = commandlineOpts.showPrompt;
+
+    const result: string[] = [];
+
+    // format the initial part of the command line
+    if (opts.prefixIndent) result.push('       ');
+    if (opts.showPrompt) {
+      if (result.length > 0) {
+        result[0] = result[0] + chalk.whiteBright('>_');
+      } else {
+        result.push(chalk.whiteBright('>_'));
+      }
+    }
+    // add the command and subcommand
+    result.push(chalk.magenta('fish-lsp'));
+    result.push(chalk.blue(opts.subcommand));
+    // add the args if provided
+    if (opts.args && opts.args.length > 0) {
+      opts.args.forEach((arg: string) => {
+        const toAddArg = arg.replaceAll(/"/g, '');
+        if (toAddArg.includes('=')) {
+          const [key, value] = toAddArg.split('=');
+          result.push(`${chalk.white(key)}${chalk.bold.cyan('=')}${chalk.green(value)}`);
+        } else {
+          result.push(chalk.white(toAddArg));
+        }
+      });
+    }
+    // join the result with spaces
+    return result.join(' ');
+  }
 }
 
 export function BuildCapabilityString() {
@@ -824,7 +933,7 @@ export namespace CommandlineLogger {
     const isCapabilitiesString = title.toLowerCase() === 'capabilities';
     if (isCapabilitiesString) message = `\n${message}`;
     if (argsCount > 1 || alwaysShowTitle || isCapabilitiesString) {
-      logger.logToStdout(`${title}: ${message}`);
+      logger.logToStdout(`${chalk.whiteBright.bold(`${title}:`)} ${chalk.cyan(message)}`);
     } else {
       logger.logToStdout(`${message}`);
     }

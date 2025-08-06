@@ -21,9 +21,11 @@ module.exports = {
         'dist/',
         '.bun/',
         'out/',
-        'build/'
+        'build/',
+        "lib/*.d.ts",
     ],
     rules: {
+        'no-control-regex': 'off',
         'array-bracket-spacing': 'error',
         'brace-style': 'error',
         'comma-dangle': ['error', 'always-multiline'],

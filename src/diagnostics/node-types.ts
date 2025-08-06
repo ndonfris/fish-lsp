@@ -1,5 +1,5 @@
 import Parser, { SyntaxNode } from 'web-tree-sitter';
-import { isCommand, isCommandName, isCommandWithName, isEndStdinCharacter, isFunctionDefinitionName, isIfOrElseIfConditional, isMatchingOption, isOption, isString, isVariableDefinitionName } from '../utils/node-types';
+import { findParentCommand, isCommand, isCommandName, isCommandWithName, isEndStdinCharacter, isFunctionDefinitionName, isIfOrElseIfConditional, isMatchingOption, isOption, isString, isVariableDefinitionName } from '../utils/node-types';
 import { getChildNodes, getRange, isNodeWithinOtherNode, precedesRange, TreeWalker } from '../utils/tree-sitter';
 import { Maybe } from '../utils/maybe';
 import { Option } from '../parsing/options';

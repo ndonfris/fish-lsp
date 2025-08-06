@@ -204,7 +204,8 @@ export function allUnusedLocalReferences(document: LspDocument): FishSymbol[] {
   const symbols = filterFirstPerScopeSymbol(document).filter(s =>
     s.isLocal()
     && s.name !== 'argv'
-    && !s.isEventHook(),
+    && !s.isEventHook()
+    && !s.isExported(),
   );
 
   if (!symbols) return [];
