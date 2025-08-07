@@ -248,10 +248,24 @@ export default class FishServer {
       logger.warning('didChangeTextDocument: document not found', { path });
       return;
     }
+
+    // update the document with the changes
     currentDocument = doc;
     doc = doc.update(params.contentChanges);
     documents.set(doc);
-    this.analyzeDocument({ uri: doc.uri });
+
+    // Clear diagnostics immediately when content changes
+    this.clearDiagnostics({ uri: doc.uri });
+
+    // Force fresh analysis by bypassing cache for changed documents
+    const analysisResult = this.analyzeDocument({ uri: doc.uri }, true);
+
+    // Ensure diagnostics were sent
+    logger.log('Document analysis completed:', {
+      uri: doc.uri,
+      analysisResult: !!analysisResult,
+    });
+
     if (!this.backgroundAnalysisComplete) {
       await workspaceManager.analyzePendingDocuments(progress);
       progress.done();
@@ -916,9 +930,11 @@ export default class FishServer {
   }
 
   /**
-   * Parse and analyze a document. Adds diagnostics to the document, and finds `source` commands
+   * Parse and analyze a document. Adds diagnostics to the document, and finds `source` commands.
+   * @param document - The document identifier to analyze
+   * @param bypassCache - If true, forces fresh analysis bypassing cache (used when content changes)
    */
-  public analyzeDocument(document: TextDocumentIdentifier) {
+  public analyzeDocument(document: TextDocumentIdentifier, bypassCache = false) {
     const { path, doc: foundDoc } = this.getDefaultsForPartialParams({ textDocument: document });
     let analyzedDoc: AnalyzedDocument;
     if (!foundDoc) {
@@ -930,17 +946,23 @@ export default class FishServer {
         return;
       }
     } else {
-      const cachedDoc = analyzer.cache.getDocument(foundDoc.uri);
-      if (cachedDoc) {
-        cachedDoc.ensureParsed();
-        analyzedDoc = cachedDoc;
-      } else {
+      if (bypassCache) {
+        // Force fresh analysis by always calling analyzer.analyze, bypassing cache
         analyzedDoc = analyzer.analyze(foundDoc);
+      } else {
+        // Use cache if available
+        const cachedDoc = analyzer.cache.getDocument(foundDoc.uri);
+        if (cachedDoc) {
+          cachedDoc.ensureParsed();
+          analyzedDoc = cachedDoc;
+        } else {
+          analyzedDoc = analyzer.analyze(foundDoc);
+        }
       }
     }
     const doc = analyzedDoc.document;
     const diagnostics = analyzer.getDiagnostics(doc.uri);
-    logger.log('Sending Diagnostics', {
+    logger.log(`Sending Diagnostics${bypassCache ? ' (Bypassed Cache)' : ''}`, {
       uri: doc.uri,
       diagnostics: diagnostics.map(d => d.code),
     });

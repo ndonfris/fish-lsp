@@ -104,7 +104,7 @@ commandBin.command('start')
     '\t>_ fish-lsp start --disable complete logging index hover --dump',
     '\t>_ fish-lsp start --enable --disable logging complete codeAction',
   ].join('\n'))
-  .action(async opts => {
+  .action(async (opts: CommanderSubcommand.start.schemaType) => {
     await setupProcessEnvExecFile();
     // NOTE: `config` is a global object, already initialized. Here, we are updating its
     // values passed from the shell environment, and then possibly overriding them with
@@ -126,7 +126,11 @@ commandBin.command('start')
     }
     //
     // Determine connection type
-    const connectionType: ConnectionType = createConnectionType(opts);
+    const connectionType: ConnectionType = createConnectionType({
+      stdio: opts.stdio,
+      nodeIpc: opts.nodeIpc,
+      socket: !!opts.socket,
+    });
     const connectionOptions: ConnectionOptions = {};
     if (opts.socket) {
       connectionOptions.port = parseInt(opts.socket);
@@ -285,44 +289,10 @@ commandBin.command('url')
   .option('--clients-repo', 'show the clients configuration repo')
   .option('--sources-list', 'show a list of helpful sources')
   .option('--source-map', 'show source map download url for current version')
-  .option('--download', 'show download instructions')
-  .action(async (args) => {
+  .action(async (args: CommanderSubcommand.url.schemaType) => {
     const amount = Object.keys(args).length;
     if (amount === 0) {
       logger.logToStdout('https://fish-lsp.dev');
-      process.exit(0);
-    }
-
-    // Handle source map URL (simplified - just show the download URL)
-    if (args.download && args.sourceMap) {
-      const sourceMapUrl = `https://github.com/ndonfris/fish-lsp/releases/download/v${PackageVersion}/sourcemaps.tar.gz`;
-      logger.logToStdout(sourceMapUrl);
-      logger.logToStdout('');
-      logger.logToStdout('💡 For better source map management, use:');
-      logger.logToStdout('   fish-lsp info --sourcemaps');
-      process.exit(0);
-    }
-
-    if (args.download) {
-      logger.logToStdout([
-        `# Download fish-lsp v${PackageVersion}`,
-        '',
-        '## Binary (Recommended)',
-        'curl -fsSL https://github.com/ndonfris/fish-lsp/releases/latest/download/fish-lsp -o fish-lsp',
-        'chmod +x fish-lsp',
-        'sudo mv fish-lsp /usr/local/bin/',
-        '',
-        '## NPM',
-        'npm install -g fish-lsp',
-        '',
-        '## Source Maps (for debugging)',
-        `curl -fsSL https://github.com/ndonfris/fish-lsp/releases/download/v${PackageVersion}/sourcemaps.tar.gz | tar -xz`,
-        '',
-        '## Source Map Management',
-        'fish-lsp info --sourcemaps --install   # Install source maps',
-        'fish-lsp info --sourcemaps --check     # Check status',
-        'fish-lsp info --sourcemaps --remove    # Remove source maps',
-      ].join('\n'));
       process.exit(0);
     }
 
@@ -342,7 +312,7 @@ commandBin.command('complete')
   .option('--env-variables', 'show env variables')
   .option('--env-variable-names', 'show env variable names')
   .description('copy completions output to fish-lsp completions file')
-  .action(async args => {
+  .action(async (args: CommanderSubcommand.complete.schemaType) => {
     await setupProcessEnvExecFile();
     if (args.names) {
       commandBin.commands.forEach(cmd => logger.logToStdout(cmd.name()));

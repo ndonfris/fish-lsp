@@ -42,7 +42,7 @@
     "tree-sitter-fish.wasm"
   ],
   "main": "./lib/server.js",
-  "types": "./lib/lsp.d.ts",
+  "typings": "./lib/lsp.d.ts",
   "browser": "./lib/fish-lsp-web.js",
   "bin": {
     "fish-lsp": "bin/fish-lsp"

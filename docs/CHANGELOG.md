@@ -1,3 +1,21 @@
+## <small>1.0.11-pre.10 (2025-08-07)</small>
+
+* chore: cleanup `src/{cli,server}.ts` ([3938393](https://github.com/ndonfris/fish-lsp/commit/3938393))
+* fix: added test for `tests/format-aligned-columns.test.ts` for `fish-lsp info` ([e8d7ab1](https://github.com/ndonfris/fish-lsp/commit/e8d7ab1))
+* fix: use vitest instead of jest ([22ca3ff](https://github.com/ndonfris/fish-lsp/commit/22ca3ff)), closes [#105](https://github.com/ndonfris/fish-lsp/issues/105)
+* build: fixup `scripts/esbuild/file-watcher.ts` for initial `.start()` ([5ce6545](https://github.com/ndonfris/fish-lsp/commit/5ce6545))
+* build: renamed moved paths: {build,test-data,docs/man} -> {dist,lib,bin,tests,man} ([d8a3a1d](https://github.com/ndonfris/fish-lsp/commit/d8a3a1d))
+* build: tooling for `esbuild` (single `lib/server.d.ts` type definitions file) ([f1fd227](https://github.com/ndonfris/fish-lsp/commit/f1fd227))
+* build: updates to esbuild script, and `src/utils/path-resolution.ts` ([6b072e2](https://github.com/ndonfris/fish-lsp/commit/6b072e2))
+* build: use esbuild instead of babel ([21538ee](https://github.com/ndonfris/fish-lsp/commit/21538ee))
+* refactor: removed overlapping namespace from `src/utils/commander-cli-subcommand.ts` ([7cda805](https://github.com/ndonfris/fish-lsp/commit/7cda805))
+* feat: `fish-lsp info --time-startup` && `fish-lsp info --time-only` support ([0eb1918](https://github.com/ndonfris/fish-lsp/commit/0eb1918))
+* feat: added/updated completions to `cli` ([ac0271c](https://github.com/ndonfris/fish-lsp/commit/ac0271c))
+* feat: changes related to eslint + added browser support ([09035a3](https://github.com/ndonfris/fish-lsp/commit/09035a3))
+* perf: 1400ms full server start ~2100 files indexed ([9ace93d](https://github.com/ndonfris/fish-lsp/commit/9ace93d))
+
+
+
 ## <small>1.0.11-pre.9 (2025-07-30)</small>
 
 * chore: bump v1.0.11-pre.8 ([5af45ad](https://github.com/ndonfris/fish-lsp/commit/5af45ad))

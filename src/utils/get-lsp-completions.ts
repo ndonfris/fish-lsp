@@ -211,14 +211,6 @@ function __fish_lsp_env_main_switch --description 'check if the commandline cont
     return 1
 end
 
-function __fish_lsp_source_map_complete -d 'complete the source map url for the current lsp version'
-    __fish_seen_subcommand_from url
-    and __fish_contains_opt download
-    and __fish_contains_opt source-map
-    and not __fish_contains_opt install
-    and not __fish_contains_opt status
-    and not __fish_contains_opt remove
-end
 
 
 # make sure \`fish-lsp start --stdio|--node-ipc|--socket\` is used singularly
@@ -379,10 +371,6 @@ complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contain
 complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt download; and not __fish_contains_opt sources-list'  -l sources-list  -d 'show useful url list of sources'
 complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt download'                                            -l download      -d 'download server url'
 complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt source-map'                                          -l source-map    -d 'show source map url for the current lsp version'
-complete -c fish-lsp -n '__fish_lsp_source_map_complete'                                             -l install      -d 'install source map url'
-complete -c fish-lsp -n '__fish_lsp_source_map_complete'                                             -l status       -d 'show source map status'
-complete -c fish-lsp -n '__fish_lsp_source_map_complete'                                             -l remove       -d 'remove source map url'
-complete -c fish-lsp -n '__fish_seen_subcommand_from url; and not __fish_contains_opt source-map; and __fish_contains_opt download'       -l source-map      -d 'download server url'
 `;
 
 const completeCompletions: string = `## fish-lsp complete --<TAB>

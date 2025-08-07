@@ -387,7 +387,7 @@ echo ""
 echo "📋 Execution Plan:"
 echo "  • Version: $current_version → $new_version"
 echo "  • Bump type: $bump_type"
-echo "  • Git tag: v$tag_request"
+echo "  • Git tag: v$new_version"
 echo ""
 
 # Confirm with user
@@ -513,7 +513,7 @@ if set -q _flag_dry_run
     echo $BLUE"  ✅ Git tag created and pushed: v$new_version"
 else
     if continue_or_exit --time-in-prompt --no-empty-accept --no-retry --prompt-str='Create git tag'
-        echo $GREEN"📝 Creating git tag v$tag_request..."
+        echo $GREEN"📝 Creating git tag v$new_version..."
         git tag -a "v$new_version" -m "fish-lsp version v$new_version
 
 https://www.npmjs.com/package/fish-lsp/v/$new_version

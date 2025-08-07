@@ -1,7 +1,5 @@
 import chalk from 'chalk';
 import fs, { readFileSync } from 'fs';
-import { execSync } from 'child_process';
-import http from 'http';
 import { homedir } from 'os';
 import path, { resolve } from 'path';
 import { z } from 'zod';
@@ -400,7 +398,7 @@ export const SourcesDict: { [key: string]: string; } = {
   wiki: 'https://github.com/ndonfris/fish-lsp/wiki',
   discussions: 'https://github.com/ndonfris/fish-lsp/discussions',
   clientsRepo: 'https://github.com/ndonfris/fish-lsp-language-clients/',
-  sourceMap: `https://github.com/ndonfris/fish-lsp/releases/download/v${PackageVersion}/fish-lsp-sourcemaps-${PackageVersion}.tar.gz`,
+  sourceMap: `https://github.com/ndonfris/fish-lsp/releases/download/v${PackageVersion}/sourcemaps.tar.gz`,
   sourcesList: [
     'https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#headerPart',
     'https://github.com/microsoft/vscode-extension-samples/tree/main',
@@ -685,35 +683,9 @@ export namespace CommanderSubcommand {
         logger.logToStdout(`🔍 Download sourcemaps for v${PackageVersion}...`);
 
         const rootDir = getProjectRootPath();
-        const file = fs.createWriteStream(path.join(rootDir, 'sourcemaps.tar.gz'));
-        const sourceMapUrl = `http://github.com/ndonfris/fish-lsp/releases/download/v${PackageVersion}/sourcemaps.tar.gz`;
+        const sourceMapUrl = SourcesDict.sourceMap!.toString();
         logger.logToStdoutJoined(chalk.white('sourcemap url: '), chalk.blue(sourceMapUrl));
-        http.get(sourceMapUrl, (res) => {
-          if (res.statusCode !== 200) {
-            logger.logToStdout(`❌ Download failed: HTTP ${res.statusCode}`);
-            logger.logToStdout(`   URL: ${sourceMapUrl}`);
-            logger.logToStdout('   Make sure this version has been released on GitHub');
-            process.exit(1);
-          } else {
-            logger.logToStdout('✅ Download started, extracting source maps...');
-            file.on('finish', () => {
-              file.close();
-              try {
-                execSync(`tar -xzf "${path.join(rootDir, 'sourcemaps.tar.gz')}" -C "${rootDir}"`, { stdio: 'pipe' });
-                fs.unlinkSync(path.join(rootDir, 'sourcemaps.tar.gz')); // Clean up temp file
-                logger.logToStdout('✅ Source maps installed successfully');
-                logger.logToStdout(`📍 Location: ${rootDir}`);
-                logger.logToStdout('🐛 Stack traces will now show TypeScript source locations');
-              } catch (error) {
-                logger.logToStdout(`❌ Extraction failed: ${error}`);
-                if (fs.existsSync(path.join(rootDir, 'fish-lsp-sourcemaps.tar.gz'))) {
-                  fs.unlinkSync(path.join(rootDir, 'fish-lsp-sourcemaps.tar.gz'));
-                }
-                process.exit(1);
-              }
-            });
-          }
-        });
+        logger.logToStdoutJoined(chalk.white('destination:  '), chalk.blue(path.join(rootDir, 'sourcemaps.tar.gz').replace(homedir(), '~')));
         return exitStatus;
       }
 
@@ -754,6 +726,7 @@ export namespace CommanderSubcommand {
         issues: z.boolean().optional().default(false),
         clientRepo: z.boolean().optional().default(false),
         sources: z.boolean().optional().default(false),
+        sourceMap: z.boolean().optional().default(false),
       }),
     );
     export type schemaType = z.infer<typeof schema>;
