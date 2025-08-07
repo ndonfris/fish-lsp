@@ -24,6 +24,8 @@ bin
 lib
 dist
 
+!bin/fish-lsp
+
 scripts/build-with-bun.sh
 scripts/build-binary.ts
 scripts/debug.fish
