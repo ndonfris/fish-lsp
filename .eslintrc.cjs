@@ -23,6 +23,7 @@ module.exports = {
         'out/',
         'build/',
         "lib/*.d.ts",
+        "vitest.config.ts",
     ],
     rules: {
         'no-control-regex': 'off',

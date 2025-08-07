@@ -10,7 +10,6 @@
     "src",
     ".eslintrc.cjs",
     "commitlint.config.ts",
-    "jest.config.js",
     "tests",
     "scripts/fish-commands-scrapper.ts"
   ],
@@ -19,6 +18,7 @@
     "dist",
     "lib",
     "scripts",
-    "coverage"
+    "coverage",
+    "vitest.config.ts"
   ]
 }
