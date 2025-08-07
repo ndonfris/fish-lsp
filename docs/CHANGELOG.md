@@ -1,4 +1,4 @@
-## <small>1.0.11-pre.10 (2025-08-07)</small>
+## <small>1.0.11-pre.11 (2025-08-07)</small>
 
 * chore: cleanup `src/{cli,server}.ts` ([3938393](https://github.com/ndonfris/fish-lsp/commit/3938393))
 * fix: added test for `tests/format-aligned-columns.test.ts` for `fish-lsp info` ([e8d7ab1](https://github.com/ndonfris/fish-lsp/commit/e8d7ab1))
