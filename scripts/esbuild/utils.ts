@@ -51,7 +51,7 @@ export function generateTypeDeclarations(): void {
       "allowSyntheticDefaultImports": true,
       "allowArbitraryExtensions": true,
       "esModuleInterop": true,
-      "outDir": "lib",
+      "outDir": "out",
       "allowJs": true,
       "moduleResolution": "nodenext",
       "target": "esnext",
@@ -62,6 +62,9 @@ export function generateTypeDeclarations(): void {
       "skipLibCheck": true
     },
     "include": [
+      "src/server.ts"
+    ],
+    "files": [
       "src/server.ts"
     ],
     "exclude": [
@@ -86,8 +89,8 @@ export function generateTypeDeclarations(): void {
       },
       "entries": [
         {
-          "filePath": "./src/server.ts",
-          "outFile": "./lib/server.d.ts",
+          "filePath": "./out/src/server.d.ts",
+          "outFile": "./out/index.d.ts",
           "noCheck": true,
           "output": {
             "inlineDeclareExternals": false,
@@ -105,6 +108,9 @@ export function generateTypeDeclarations(): void {
     writeFileSync('dts-bundle.config.json', JSON.stringify(dtsConfig, null, 2));
     execSync('yarn dts-bundle-generator --config dts-bundle.config.json --external-inlines=web-tree-sitter', { stdio: 'inherit' });
     
+    // Copy the bundled types to lib/server.d.ts
+    execSync('cp out/index.d.ts lib/server.d.ts', { stdio: 'inherit' });
+    
     // Clean up config file
     try {
       unlinkSync('dts-bundle.config.json');
@@ -113,12 +119,19 @@ export function generateTypeDeclarations(): void {
   } catch (error) {
     logger.warn('dts-bundle-generator failed, falling back to simple copy');
     try {
-      execSync('cp out/server.d.ts lib/server.d.ts', { stdio: 'inherit' });
+      // Try to copy bundled index.d.ts first, fallback to out/src/server.d.ts
+      try {
+        execSync('cp out/index.d.ts lib/server.d.ts', { stdio: 'inherit' });
+      } catch {
+        execSync('cp out/src/server.d.ts lib/server.d.ts', { stdio: 'inherit' });
+      }
     } catch (copyError) {
       logger.warn('Failed to copy fallback type declarations');
     }
   } finally {
-    unlinkSync('tsconfig.types.json'); // Clean up temporary tsconfig
+    try {
+      unlinkSync('tsconfig.types.json'); // Clean up temporary tsconfig
+    } catch {}
   }
 }
 
@@ -160,7 +173,11 @@ module.exports = fishLspBinary;
       console.log(logger.success('✨ Copied type definitions to `lib/server.d.ts` (preserved wrapper)'));
     } catch (error) {
       logger.warn('Failed to copy type definitions, falling back to server types only');
-      execSync('cp out/server.d.ts lib/server.d.ts', { stdio: 'inherit' });
+      try {
+        execSync('cp out/index.d.ts lib/server.d.ts', { stdio: 'inherit' });
+      } catch {
+        execSync('cp out/src/server.d.ts lib/server.d.ts', { stdio: 'inherit' });
+      }
     }
 
     console.log(logger.success('✨ Generated library wrapper and types'));
