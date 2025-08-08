@@ -116,8 +116,8 @@ export function createBrowserConnection(): Connection {
     port++;
   }
   connection = Browser.createConnection(
-    new Browser.BrowserMessageReader(self),
-    new Browser.BrowserMessageWriter(self),
+    new Browser.BrowserMessageReader(globalThis as any),
+    new Browser.BrowserMessageWriter(globalThis as any),
   );
 
   // const webServer = net.createServer((socket) => {

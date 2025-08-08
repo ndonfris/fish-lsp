@@ -51,26 +51,74 @@ export function generateTypeDeclarations(): void {
       "allowSyntheticDefaultImports": true,
       "allowArbitraryExtensions": true,
       "esModuleInterop": true,
-      "outFile": "lib/lsp.d.ts",
+      "outDir": "lib",
       "allowJs": true,
       "moduleResolution": "nodenext",
       "target": "esnext",
       "lib": [
         "esnext", "es2022"
-      ]
+      ],
+      "types": ["node"],
+      "skipLibCheck": true
     },
     "include": [
-      "src/**/*.ts",
-      "package.json"
+      "src/server.ts"
+    ],
+    "exclude": [
+      "node_modules/**/*",
+      "tests/**/*",
+      "**/*.test.ts",
+      "node_modules/vitest/**/*",
+      "**/*vitest*"
     ]
   });
   try {
     writeFileSync('tsconfig.types.json', tsconfigContent);
-    execSync('yarn tsc -p tsconfig.types.json', { stdio: 'inherit' });
-    console.log(logger.generated('*.d.ts files'));
-    unlinkSync('tsconfig.types.json'); // Clean up temporary tsconfig
+    execSync('node_modules/typescript/bin/tsc -p tsconfig.types.json', { stdio: 'inherit' });
+    
+    // Now use dts-bundle-generator to bundle all declarations into a single file
+    console.log(logger.info('  Using dts-bundle-generator to create clean types...'));
+    
+    // Create a config file to avoid vitest conflicts
+    const dtsConfig = {
+      "compilationOptions": {
+        "preferredConfigPath": "./tsconfig.types.json"
+      },
+      "entries": [
+        {
+          "filePath": "./src/server.ts",
+          "outFile": "./lib/server.d.ts",
+          "noCheck": true,
+          "output": {
+            "inlineDeclareExternals": false,
+            "sortNodes": true,
+            "exportReferencedTypes": false
+          },
+          "libraries": {
+            "allowedTypesLibraries": ["web-tree-sitter"],
+            "importedLibraries": ["web-tree-sitter", "vscode-languageserver", "vscode-languageserver-textdocument"]
+          }
+        }
+      ]
+    };
+    
+    writeFileSync('dts-bundle.config.json', JSON.stringify(dtsConfig, null, 2));
+    execSync('yarn dts-bundle-generator --config dts-bundle.config.json --external-inlines=web-tree-sitter', { stdio: 'inherit' });
+    
+    // Clean up config file
+    try {
+      unlinkSync('dts-bundle.config.json');
+    } catch {}
+    console.log(logger.generated('Bundled type declarations'));
   } catch (error) {
-    logger.warn('Failed to generate type declarations');
+    logger.warn('dts-bundle-generator failed, falling back to simple copy');
+    try {
+      execSync('cp out/server.d.ts lib/server.d.ts', { stdio: 'inherit' });
+    } catch (copyError) {
+      logger.warn('Failed to copy fallback type declarations');
+    }
+  } finally {
+    unlinkSync('tsconfig.types.json'); // Clean up temporary tsconfig
   }
 }
 
@@ -98,7 +146,7 @@ module.exports = fishLspBinary;
     console.log(logger.generated('lib/server.js (thin wrapper)'));
 
     // Copy only type definitions to lib/ so imports resolve correctly in published package
-    console.log(logger.info('  Building type definitions at `lib/lsp.d.ts`'));
+    console.log(logger.info('  Building type definitions at `lib/server.d.ts`'));
     try {
       // Preserve our thin wrapper
       const wrapperBackup = readFileSync('lib/server.js', 'utf8');
@@ -109,7 +157,7 @@ module.exports = fishLspBinary;
       // Restore our thin wrapper
       writeFileSync('lib/server.js', wrapperBackup);
 
-      console.log(logger.success('✨ Copied type definitions to `lib/lsp.d.ts` (preserved wrapper)'));
+      console.log(logger.success('✨ Copied type definitions to `lib/server.d.ts` (preserved wrapper)'));
     } catch (error) {
       logger.warn('Failed to copy type definitions, falling back to server types only');
       execSync('cp out/server.d.ts lib/server.d.ts', { stdio: 'inherit' });

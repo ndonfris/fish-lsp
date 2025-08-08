@@ -42,8 +42,25 @@
     "tree-sitter-fish.wasm"
   ],
   "main": "./lib/server.js",
-  "typings": "./lib/lsp.d.ts",
+  "typings": "./lib/server.d.ts",
   "browser": "./lib/fish-lsp-web.js",
+  "exports": {
+    ".": {
+      "types": "./lib/server.d.ts",
+      "import": "./lib/server.js",
+      "require": "./lib/server.js"
+    },
+    "./server": {
+      "types": "./lib/server.d.ts",
+      "import": "./lib/server.js",
+      "require": "./lib/server.js"
+    },
+    "./web": {
+      "types": "./lib/server.d.ts",
+      "import": "./lib/fish-lsp-web.js",
+      "require": "./lib/fish-lsp-web.js"
+    }
+  },
   "bin": {
     "fish-lsp": "bin/fish-lsp"
   },
@@ -200,6 +217,7 @@
     "@vitest/ui": "^3.2.4",
     "all-contributors-cli": "^6.26.1",
     "conventional-changelog": "^7.1.1",
+    "dts-bundle-generator": "^9.5.1",
     "esbuild": "^0.25.8",
     "esbuild-plugin-polyfill-node": "^0.3.0",
     "esbuild-plugin-tsc": "^0.5.0",

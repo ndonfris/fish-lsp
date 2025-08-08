@@ -4,7 +4,7 @@ import { execCompleteLine } from '../exec';
 import { logger, Logger } from '../../logger';
 import { InlineParser } from './inline-parser';
 import { CompletionItemMap } from './startup-cache';
-import { CompletionContext, CompletionList, Position, SymbolKind } from 'vscode-languageserver-protocol';
+import { CompletionContext, CompletionList, Position, SymbolKind } from 'vscode-languageserver';
 import { FishCompletionList, FishCompletionListBuilder } from './list';
 import { shellComplete } from './shell';
 

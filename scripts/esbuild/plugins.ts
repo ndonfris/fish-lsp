@@ -1,6 +1,6 @@
 // Build plugin factory for consistent configuration
 import * as esbuild from 'esbuild';
-import { writeFileSync, readFileSync } from 'fs';
+import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
 
 // ESBuild plugins - these packages don't provide TypeScript definitions
@@ -70,6 +70,36 @@ export function createDefines(target: 'node' | 'browser', production = false): R
     'process.env.NODE_ENV': production ? '"production"' : '"development"',
   };
 
+  // Embed build-time for bundled versions
+  try {
+    const buildTimePath = resolve('out', 'build-time.txt');
+    const buildTime = readFileSync(buildTimePath, 'utf8').trim();
+    defines['process.env.FISH_LSP_BUILD_TIME'] = `"${buildTime}"`;
+  } catch (error) {
+    // If build-time.txt doesn't exist, use current time as fallback
+    const now = new Date();
+    const date = now.toISOString().split('T')[0];
+    const time = now.toTimeString().split(' ')[0];
+    const fallbackBuildTime = `${date} ${time}`;
+    defines['process.env.FISH_LSP_BUILD_TIME'] = `"${fallbackBuildTime}"`;
+  }
+
+  // Embed WASM data for Node.js bundled binaries
+  if (target === 'node') {
+    const fishWasmData = getEmbeddedWasmData();
+    if (fishWasmData) {
+      defines['process.env.FISH_LSP_EMBEDDED_WASM'] = `"${fishWasmData}"`;
+      console.log(`📦 Embedded tree-sitter-fish.wasm (${(fishWasmData.length / 1024 / 1024 * 0.75).toFixed(2)}MB)`);
+    }
+    
+    // Embed web-tree-sitter WASM for bundled binaries
+    const webTreeSitterWasmData = getWebTreeSitterWasmData();
+    if (webTreeSitterWasmData) {
+      defines['process.env.WEB_TREE_SITTER_EMBEDDED_WASM'] = `"${webTreeSitterWasmData}"`;
+      console.log(`📦 Embedded web-tree-sitter.wasm (${(webTreeSitterWasmData.length / 1024 / 1024 * 0.75).toFixed(2)}MB)`);
+    }
+  }
+
   if (target === 'browser') {
     defines['global'] = 'globalThis';
     defines['navigator'] = '{"language":"en-US"}';
@@ -79,6 +109,43 @@ export function createDefines(target: 'node' | 'browser', production = false): R
   }
 
   return defines;
+}
+
+/**
+ * Get embedded WASM data for bundling
+ */
+export function getEmbeddedWasmData(): string | null {
+  const possiblePaths = [
+    resolve(process.cwd(), 'tree-sitter-fish.wasm'),
+    resolve(process.cwd(), 'node_modules/@esdmr/tree-sitter-fish/tree-sitter-fish.wasm'),
+  ];
+
+  for (const path of possiblePaths) {
+    if (existsSync(path)) {
+      const wasmBuffer = readFileSync(path);
+      return wasmBuffer.toString('base64');
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Get web-tree-sitter WASM data for bundling
+ */
+export function getWebTreeSitterWasmData(): string | null {
+  const possiblePaths = [
+    resolve(process.cwd(), 'node_modules/web-tree-sitter/tree-sitter.wasm'),
+  ];
+
+  for (const path of possiblePaths) {
+    if (existsSync(path)) {
+      const wasmBuffer = readFileSync(path);
+      return wasmBuffer.toString('base64');
+    }
+  }
+
+  return null;
 }
 
 /**

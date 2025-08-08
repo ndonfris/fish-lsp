@@ -267,9 +267,9 @@ const getOutTime = () => {
   try {
     buildTime = readFileSync(buildFile, 'utf8');
   } catch (e) {
-    logger.logToStderr('Error reading ./out/build-time.txt');
+    logger.logToStderr(`Error reading build-time file: ${buildFile}`);
     logger.error([
-      'Error reading ./out/build-time.txt',
+      `Error reading build-time file: ${buildFile}`,
       `Could not read build time from file: ${e}`,
     ]);
   }
@@ -327,7 +327,7 @@ export const getExecutionContext = (): 'module' | 'web' | 'binary' | 'node-binar
   const isNodeExecution = process.argv[0]?.includes('node');
 
   // Check if running in web context (no real filesystem paths)
-  if (typeof window !== 'undefined' || typeof self !== 'undefined') {
+  if (typeof (globalThis as any).window !== 'undefined' || typeof (globalThis as any).self !== 'undefined') {
     return 'web';
   }
 
