@@ -30,6 +30,7 @@ scripts/build-with-bun.sh
 scripts/build-binary.ts
 scripts/debug.fish
 scripts/build-release.fish
+man/fish-lsp.1
 
 release-assets
 tsconfig.types.json
