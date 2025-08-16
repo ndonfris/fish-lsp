@@ -398,6 +398,7 @@ commandBin.command('env')
   .option('--confd', 'output for piping to conf.d')
   .option('--names', 'show only the variable names')
   .option('--joined', 'print the names in a single line')
+  .option('--json', 'output in JSON format')
   .allowUnknownOption(false)
   .allowExcessArguments(false)
   .action(async (args: SubcommandEnv.ArgsType) => {

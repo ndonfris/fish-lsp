@@ -73,6 +73,7 @@ export namespace SubcommandEnv {
     confd?: boolean;
     names?: boolean;
     joined?: boolean;
+    json?: boolean;
   };
 
   export type HandlerOptionsType = {
@@ -82,6 +83,7 @@ export namespace SubcommandEnv {
     local: boolean;
     export: boolean;
     confd: boolean;
+    json: boolean;
   };
 
   export const defaultHandlerOptions: HandlerOptionsType = {
@@ -91,6 +93,7 @@ export namespace SubcommandEnv {
     local: false,
     export: true,
     confd: false,
+    json: false,
   };
 
   /**
@@ -125,6 +128,7 @@ export namespace SubcommandEnv {
       local: args.local ?? false,
       export: args.export ?? true,
       confd: args.confd ?? false,
+      json: args.json ?? false,
     };
   }
 }

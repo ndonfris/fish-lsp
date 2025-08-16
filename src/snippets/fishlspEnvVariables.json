@@ -233,7 +233,7 @@
       true,
       false
     ],
-    "defaultValue": true,
+    "defaultValue": false,
     "valueType": "boolean"
   },
   {

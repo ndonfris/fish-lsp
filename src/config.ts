@@ -302,6 +302,7 @@ export function handleEnvOutput(
     global: boolean;
     local: boolean;
     export: boolean;
+    json: boolean;
   } = SubcommandEnv.defaultHandlerOptions,
 ) {
   const command = getEnvVariableCommand(opts.global, opts.local, opts.export);
@@ -327,6 +328,9 @@ export function handleEnvOutput(
   // Gets the default value for an environment variable, from the zod schema
   const getDefaultValueAsShellOutput = (key: Config.ConvigKeyType) => {
     const value = Config.getDefaultValue(key);
+    if (opts.json) {
+      return JSON.stringify(value, null, 2);
+    }
     return convertValueToShellOutput(value);
   };
 
@@ -366,6 +370,28 @@ export function handleEnvOutput(
     }
     return line;
   };
+
+  if (opts.json) {
+    const jsonOutput: Record<string, Config.ConfigValueType> = {};
+    for (const item of Object.entries(config)) {
+      const [key, value] = item;
+      if (opts.only && !opts.only.includes(key)) continue;
+      switch (outputType) {
+        case 'create':
+          jsonOutput[key] = config[key as keyof Config];
+          continue;
+        case 'showDefault':
+          jsonOutput[key] = Config.getDefaultValue(key as keyof Config);
+          continue;
+        case 'show':
+        default:
+          jsonOutput[key] = value;
+          continue;
+      }
+    }
+    callbackfn(JSON.stringify(jsonOutput, null, 2));
+    return JSON.stringify(jsonOutput, null, 2);
+  }
 
   // show - output what is currently being used
   // create - output the default value

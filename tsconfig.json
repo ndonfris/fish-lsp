@@ -12,7 +12,7 @@
       "ESNext"
     ],
     "noEmit": false,
-    "moduleResolution": "nodenext",
+    "moduleResolution": "bundler",
     "declaration": true,
     "declarationMap": true,
     "incremental": true,
