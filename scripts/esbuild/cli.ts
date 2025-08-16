@@ -1,14 +1,16 @@
 // Improved CLI argument parsing
 import { Command } from 'commander';
+import { BuildTarget, isValidTarget } from './types';
 
 export interface BuildArgs {
-  target: 'binary' | 'web' | 'development' | 'all';
+  target: BuildTarget;
   watch: boolean;
   watchAll: boolean;
   production: boolean;
   minify: boolean;
   enhanced: boolean;
   fishWasm: boolean;
+  typesOnly: boolean;
 }
 
 export function parseArgs(): BuildArgs {
@@ -27,14 +29,16 @@ export function parseArgs(): BuildArgs {
     .option('--web', 'Create web bundle with Node.js polyfills for browser usage', false)
     .option('--fish-wasm', 'Create web bundle with full Fish shell via WASM', false)
     .option('--enhanced', 'Use enhanced web build with Fish WASM', false)
+    .option('--types', 'Generate TypeScript declaration files only', false)
     .option('-h, --help', 'Show help message');
 
   program.parse();
   const options = program.opts();
 
   // Determine target based on flags
-  let target: 'binary' | 'web' | 'library' | 'development' | 'all' = 'development';
-  if (options.all) target = 'all';
+  let target: BuildTarget = 'development';
+  if (options.types) target = 'types';
+  else if (options.all) target = 'all';
   else if (options.binary) target = 'binary';
   else if (options.library) target = 'library';
   else if (options.web || options.fishWasm) target = 'web';
@@ -47,6 +51,7 @@ export function parseArgs(): BuildArgs {
     minify: options.minify,
     enhanced: options.enhanced,
     fishWasm: options.fishWasm,
+    typesOnly: options.types,
   };
 }
 
@@ -61,6 +66,7 @@ Options:
   --web               Create web bundle with Node.js polyfills for browser usage
   --fish-wasm         Create web bundle with full Fish shell via WASM (large bundle, not yet supported)
   --enhanced          Use enhanced web build with Fish WASM
+  --types             Generate TypeScript declaration files only
   --production, -p    Production build (minified, no sourcemaps)
   --minify, -m        Minify output
   --help, -h          Show this help message
@@ -71,6 +77,7 @@ Examples:
   tsx scripts/build.ts --watch-all           # Watch all files and run full dev build
   tsx scripts/build.ts --binary              # Create bundled binary
   tsx scripts/build.ts --web                 # Create web bundle
+  tsx scripts/build.ts --types               # Generate TypeScript declaration files only
   tsx scripts/build.ts --production          # Production build
   
   # Or use yarn scripts:

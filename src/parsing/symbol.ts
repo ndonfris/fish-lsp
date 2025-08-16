@@ -322,7 +322,11 @@ export class FishSymbol {
   }
 
   isRootLevel() {
-    return isTopLevelDefinition(this.node);
+    // return isTopLevelDefinition(this.node);
+    if (this.parent) {
+      return false;
+    }
+    return !this.parent;
   }
 
   isEventHook(): boolean {

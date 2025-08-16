@@ -70,6 +70,20 @@ export function createDefines(target: 'node' | 'browser', production = false): R
     'process.env.NODE_ENV': production ? '"production"' : '"development"',
   };
 
+  // Embed build-time for bundled versions
+  try {
+    const buildTimePath = resolve('out', 'build-time.txt');
+    const buildTime = readFileSync(buildTimePath, 'utf8').trim();
+    defines['process.env.FISH_LSP_BUILD_TIME'] = `"${buildTime}"`;
+  } catch (error) {
+    // If build-time.txt doesn't exist, use current time as fallback
+    const now = new Date();
+    const date = now.toISOString().split('T')[0];
+    const time = now.toTimeString().split(' ')[0];
+    const fallbackBuildTime = `${date} ${time}`;
+    defines['process.env.FISH_LSP_BUILD_TIME'] = `"${fallbackBuildTime}"`;
+  }
+
   if (target === 'browser') {
     defines['global'] = 'globalThis';
     defines['navigator'] = '{"language":"en-US"}';

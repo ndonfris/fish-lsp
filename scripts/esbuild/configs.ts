@@ -3,6 +3,7 @@ import * as esbuild from 'esbuild';
 import { resolve } from 'path';
 import { createPlugins, createDefines, createSourceMapOptimizationPlugin, PluginOptions } from './plugins';
 import { copyBinaryAssets } from './utils';
+import { BuildConfigTarget } from "./types";
 
 export interface BuildConfig extends esbuild.BuildOptions {
   name: string;
@@ -21,7 +22,7 @@ export interface BuildConfig extends esbuild.BuildOptions {
   onBuildEnd?: () => void;
 }
 
-export const buildConfigs: Record<string, BuildConfig> = {
+export const buildConfigs: Record<BuildConfigTarget, BuildConfig> = {
   binary: {
     name: 'Binary',
     entryPoint: 'src/cli.ts',

@@ -3,7 +3,7 @@
   "author": "ndonfris",
   "license": "MIT",
   "name": "fish-lsp",
-  "version": "1.0.11-pre.11",
+  "version": "1.0.11-pre.12",
   "description": "LSP implementation for fish/fish-shell",
   "keywords": [
     "lsp",
@@ -42,8 +42,25 @@
     "tree-sitter-fish.wasm"
   ],
   "main": "./lib/server.js",
-  "typings": "./lib/lsp.d.ts",
+  "typings": "./lib/server.d.ts",
   "browser": "./lib/fish-lsp-web.js",
+  "exports": {
+    ".": {
+      "types": "./lib/server.d.ts",
+      "import": "./lib/server.js",
+      "require": "./lib/server.js"
+    },
+    "./server": {
+      "types": "./lib/server.d.ts",
+      "import": "./lib/server.js",
+      "require": "./lib/server.js"
+    },
+    "./web": {
+      "types": "./lib/server.d.ts",
+      "import": "./lib/fish-lsp-web.js",
+      "require": "./lib/fish-lsp-web.js"
+    }
+  },
   "bin": {
     "fish-lsp": "bin/fish-lsp"
   },
@@ -78,6 +95,7 @@
     "test": "env -i HOME=$HOME PATH=$PATH NODE_ENV=test vitest",
     "test:coverage": "env -i HOME=$HOME PATH=$PATH NODE_ENV=test vitest --coverage",
     "tag-and-publish": "fish ./scripts/tag-and-publish.fish",
+    "publish-nightly": "fish ./scripts/publish-nightly.fish",
     "refactor": "knip",
     "lint:check": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
@@ -189,7 +207,6 @@
     "@esdmr/tree-sitter-fish": "^3.5.2-1",
     "@tsconfig/node-ts": "^23.6.1",
     "@tsconfig/node22": "^22.0.2",
-    "@types/chalk": "^2.2.4",
     "@types/eslint": "^9.6.1",
     "@types/fs-extra": "^11.0.4",
     "@types/jsdom": "^21.1.7",
@@ -200,12 +217,12 @@
     "@vitest/ui": "^3.2.4",
     "all-contributors-cli": "^6.26.1",
     "conventional-changelog": "^7.1.1",
+    "dts-bundle-generator": "^9.5.1",
     "esbuild": "^0.25.8",
     "esbuild-plugin-polyfill-node": "^0.3.0",
     "esbuild-plugin-tsc": "^0.5.0",
     "esbuild-plugins-node-modules-polyfill": "^1.7.1",
     "eslint": "^8.0.1",
-    "eslint-config-love": "^44.0.0",
     "eslint-plugin-import": "^2.25.2",
     "eslint-plugin-n": "^15.0.0",
     "eslint-plugin-promise": "^6.0.0",
@@ -216,8 +233,6 @@
     "pinst": "^3.0.0",
     "rimraf": "^5.0.5",
     "tree-sitter-cli": "^0.22.2",
-    "ts-node": "^10.9.2",
-    "tsc": "^2.0.4",
     "tsx": "^4.19.3",
     "typescript": "^5.8.3",
     "vitest": "^3.2.4"

@@ -7,14 +7,17 @@ export * from './plugins';
 export * from './configs';
 export * from './utils';
 export * from './cli';
-export * from './colors';
+export * from "./colors";
+export * from "./types";
 
 // Import everything we need for the main build function
-import { parseArgs, showCompletions, showHelp } from './cli';
+import { parseArgs, showCompletions, showHelp } from "./cli";
+import { ALL_TARGETS, BuildConfigTarget, isBuildConfigTarget, getTargetDisplayName } from "./types";
 import { buildConfigs, createBuildOptions } from './configs';
 import { generateTypeDeclarations, generateLibraryTypeDeclarations, copyDevelopmentAssets, showBuildStats, makeExecutable } from './utils';
 import { logger } from './colors';
 import { startFileWatcher } from './file-watcher';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
 
 
 /**
@@ -44,7 +47,7 @@ export async function build(customArgs?: string[]): Promise<void> {
 
   try {
     if (args.target === 'all') {
-      const targets: Array<keyof typeof buildConfigs> = ['development', 'binary', 'web'];
+      const targets = ALL_TARGETS;
       
       if (args.watch) {
         // Watch mode for all targets
@@ -121,6 +124,22 @@ export async function build(customArgs?: string[]): Promise<void> {
         console.log(`\n${logger.success('  All builds completed successfully!')}`);
         return;
       }
+    }
+
+    // Handle types-only build
+    if (args.target === 'types') {
+      console.log(logger.header('`fish-lsp` TypeScript Declarations'));
+      console.log(logger.info('Generating bundled TypeScript declaration files...'));
+      
+      generateTypeDeclarations();
+      
+      console.log(logger.success('✨ TypeScript declarations completed!'));
+      return;
+    }
+
+    // Ensure we have a valid build config target
+    if (!isBuildConfigTarget(args.target)) {
+      throw new Error(`Invalid target: ${args.target}. Must be one of: ${ALL_TARGETS.join(", ")}`);
     }
 
     const config = buildConfigs[args.target];

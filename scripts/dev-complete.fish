@@ -34,6 +34,7 @@ end
 
 yarn -s run build -c >> $cached_file
 yarn -s run tag-and-publish -c >>$cached_file
+yarn -s run publish-nightly -c >>$cached_file
 
 source ~/.config/fish/config.fish
 source $cached_file

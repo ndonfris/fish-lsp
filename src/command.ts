@@ -1,4 +1,4 @@
-import { Connection, ExecuteCommandParams, MessageType, Position, Range, TextEdit, WorkspaceEdit } from 'vscode-languageserver';
+import { Connection, ExecuteCommandParams, MessageType, Position, Range, Location, TextEdit, WorkspaceEdit } from 'vscode-languageserver';
 import { Analyzer } from './analyze';
 import { codeActionHandlers } from './code-actions/code-action-handler';
 import { createFixAllAction } from './code-actions/quick-fixes';
