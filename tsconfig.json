@@ -28,7 +28,6 @@
     "isolatedDeclarations": false,
     "erasableSyntaxOnly": false,
     "outDir": "./out",
-    "rootDir": "./src",
     "baseUrl": ".", // Base URL for module resolution
     "tsBuildInfoFile": ".tsbuildinfo",
     "types": [
@@ -43,7 +42,7 @@
   "include": [
     "package.json",
     "src",
-    "tests",
+    "tests"
   ],
   "exclude": [
     "node_modules",

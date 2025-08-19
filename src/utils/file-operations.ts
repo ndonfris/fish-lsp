@@ -82,6 +82,11 @@ export class SyncFileHelper {
     return filePathString;
   }
 
+  static isExpandable(filePath: PathLike): boolean {
+    const expandedFilePath = this.expandEnvVars(filePath);
+    return expandedFilePath !== filePath.toString() && expandedFilePath !== '';
+  }
+
   static exists(filePath: PathLike): boolean {
     const expandedFilePath = this.expandEnvVars(filePath);
     return existsSync(expandedFilePath);
