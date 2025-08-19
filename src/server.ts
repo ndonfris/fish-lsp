@@ -447,8 +447,17 @@ export default class FishServer {
 
     const { doc } = this.getDefaultsForPartialParams(params);
     if (!doc) return [];
-    const symbols = analyzer.cache.getDocumentSymbols(doc.uri);
-    return filterLastPerScopeSymbol(symbols).map(s => s.toDocumentSymbol()).filter(s => !!s);
+
+    // Get local document symbols
+    const localSymbols = analyzer.cache.getDocumentSymbols(doc.uri);
+
+    // Get sourced symbols and convert them to nested structure if needed
+    const sourcedSymbols = analyzer.collectSourcedSymbols(doc.uri);
+
+    // Combine local and sourced symbols
+    const allSymbols = [...localSymbols, ...sourcedSymbols];
+
+    return filterLastPerScopeSymbol(allSymbols).map(s => s.toDocumentSymbol()).filter(s => !!s);
   }
 
   protected get supportHierarchicalDocumentSymbol(): boolean {
@@ -578,12 +587,12 @@ export default class FishServer {
 
     let result: Hover | null = null;
     if (isSourceCommandArgumentName(current)) {
-      result = handleSourceArgumentHover(analyzer, current);
+      result = handleSourceArgumentHover(analyzer, current, doc);
       if (result) return result;
     }
 
     if (current.parent && isSourceCommandArgumentName(current.parent)) {
-      result = handleSourceArgumentHover(analyzer, current.parent);
+      result = handleSourceArgumentHover(analyzer, current.parent, doc);
       if (result) return result;
     }
 

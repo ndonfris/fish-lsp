@@ -7,7 +7,7 @@ import { LspDocument } from './document';
 import { logger } from './logger';
 import { isArgparseVariableDefinitionName } from './parsing/argparse';
 import { CompletionSymbol, isCompletionCommandDefinition, isCompletionSymbol, processCompletion } from './parsing/complete';
-import { getExpandedSourcedFilenameNode, isSourceCommandArgumentName, isSourceCommandWithArgument } from './parsing/source';
+import { getExpandedSourcedFilenameNode, isSourceCommandArgumentName, isSourceCommandWithArgument, symbolsFromResource } from './parsing/source';
 import { filterFirstPerScopeSymbol, FishSymbol, processNestedTree } from './parsing/symbol';
 import { getImplementation } from './references';
 import { execCommandLocations } from './utils/exec';
@@ -15,6 +15,7 @@ import { SyncFileHelper } from './utils/file-operations';
 import { flattenNested, iterateNested } from './utils/flatten';
 import { findParentCommand, findParentFunction, isAliasDefinitionName, isCommand, isCommandName, isOption, isTopLevelDefinition, isExportVariableDefinitionName } from './utils/node-types';
 import { pathToUri, symbolKindToString, uriToPath } from './utils/translation';
+import { dirname } from 'path';
 import { containsRange, getChildNodes, getNamedChildNodes, getRange, isPositionAfter, isPositionWithinRange, namedNodesGen, nodesGen, precedesRange } from './utils/tree-sitter';
 import { Workspace } from './utils/workspace';
 import { workspaceManager } from './utils/workspace-manager';
@@ -549,7 +550,7 @@ export class Analyzer {
       const sourcedSymbols = this.cache.getFlatDocumentSymbols(sourcedUri)
         .filter(s =>
           !symbolNames.has(s.name)
-          && isTopLevelDefinition(s.focusedNode)
+          && (s.isGlobal() || s.isRootLevel())
           && s.uri !== document.uri,
         );
       symbols.push(...sourcedSymbols);
@@ -594,10 +595,12 @@ export class Analyzer {
    */
   private getDefinitionHelper(document: LspDocument, position: Position): FishSymbol[] {
     const symbols: FishSymbol[] = [];
-    const localSymbols = this.getFlatDocumentSymbols(document.uri);
     const word = this.wordAtPoint(document.uri, position.line, position.character);
     const node = this.nodeAtPoint(document.uri, position.line, position.character);
     if (!word || !node) return [];
+
+    // First check local symbols
+    const localSymbols = this.getFlatDocumentSymbols(document.uri);
     const localSymbol = localSymbols.find((s) => {
       return s.name === word && containsRange(s.selectionRange, getRange(node));
     });
@@ -614,9 +617,21 @@ export class Analyzer {
       });
       symbols.push(...toAdd);
     }
+
+    // If no local symbols found, check sourced symbols
+    if (!symbols.length) {
+      const allAccessibleSymbols = this.allSymbolsAccessibleAtPosition(document, position);
+      const sourcedSymbols = allAccessibleSymbols.filter(s =>
+        s.name === word && s.uri !== document.uri,
+      );
+      symbols.push(...sourcedSymbols);
+    }
+
+    // Finally, check global symbols as fallback
     if (!symbols.length) {
       symbols.push(...this.globalSymbols.find(word));
     }
+
     return symbols;
   }
 
@@ -672,10 +687,10 @@ export class Analyzer {
 
     // check that the node (or its parent) is a `source` command argument
     if (node && isSourceCommandArgumentName(node)) {
-      return this.getSourceDefinitionLocation(node);
+      return this.getSourceDefinitionLocation(node, document);
     }
     if (node && node.parent && isSourceCommandArgumentName(node.parent)) {
-      return this.getSourceDefinitionLocation(node.parent);
+      return this.getSourceDefinitionLocation(node.parent, document);
     }
 
     // check if we have a symbol defined at the position
@@ -735,9 +750,13 @@ export class Analyzer {
   /**
    * Gets the location of the sourced file for the given source command argument name node.
    */
-  private getSourceDefinitionLocation(node: SyntaxNode): LSP.Location[] {
+  private getSourceDefinitionLocation(node: SyntaxNode, document: LspDocument): LSP.Location[] {
     if (node && isSourceCommandArgumentName(node)) {
-      const expanded = getExpandedSourcedFilenameNode(node) as string;
+      // Get the base directory for resolving relative paths
+      const fromPath = uriToPath(document.uri);
+      const baseDir = dirname(fromPath);
+
+      const expanded = getExpandedSourcedFilenameNode(node, baseDir) as string;
       let sourceDoc = this.getDocumentFromPath(expanded);
       if (!sourceDoc) {
         this.analyzePath(expanded); // find the filepath & analyze it
@@ -978,8 +997,13 @@ export class Analyzer {
         return false;
       });
     const sources = new Set<string>();
+
+    // Get the base directory for resolving relative paths
+    const fromPath = uriToPath(documentUri);
+    const baseDir = dirname(fromPath);
+
     for (const node of sourceNodes) {
-      const sourced = getExpandedSourcedFilenameNode(node);
+      const sourced = getExpandedSourcedFilenameNode(node, baseDir);
       if (sourced) {
         sources.add(pathToUri(sourced));
       }
@@ -1001,6 +1025,49 @@ export class Analyzer {
       }
     }
     return allSources;
+  }
+
+  /**
+   * Collects all sourced symbols for a document, including symbols from all reachable source files.
+   * This is used for document symbols to include sourced functions and variables.
+   * @param documentUri - the uri of the document to collect sourced symbols for
+   * @returns {FishSymbol[]} - array of all sourced symbols (functions, variables) that should be visible
+   */
+  public collectSourcedSymbols(documentUri: string): FishSymbol[] {
+    const sourcedSymbols: FishSymbol[] = [];
+    const uniqueNames = new Set<string>();
+
+    // Get all sourced files reachable from this document
+    const sourcedUris = this.collectAllSources(documentUri);
+
+    for (const sourcedUri of sourcedUris) {
+      if (sourcedUri === documentUri) continue; // Skip self
+
+      // Create a mock SourceResource for symbolsFromResource
+      const sourceDoc = this.getDocument(sourcedUri);
+      if (!sourceDoc) continue;
+
+      const mockSourceResource = {
+        to: sourceDoc,
+        from: this.getDocument(documentUri)!,
+        range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
+        node: {} as any,
+        definitionScope: {} as any,
+        sources: [],
+      } as any;
+
+      // Get exportable symbols from this source
+      const symbols = symbolsFromResource(this, mockSourceResource);
+
+      for (const symbol of symbols) {
+        if (!uniqueNames.has(symbol.name)) {
+          uniqueNames.add(symbol.name);
+          sourcedSymbols.push(symbol);
+        }
+      }
+    }
+
+    return sourcedSymbols;
   }
 
   /**
@@ -1276,7 +1343,12 @@ class AnalyzedDocumentCache {
     }
     analyzedDoc.ensureParsed();
     const result: Set<string> = new Set();
-    const sourceNodes = analyzedDoc.sourceNodes.map((node: any) => getExpandedSourcedFilenameNode(node)).filter((s: any) => !!s) as string[];
+
+    // Get the base directory for resolving relative paths
+    const fromPath = uriToPath(uri);
+    const baseDir = dirname(fromPath);
+
+    const sourceNodes = analyzedDoc.sourceNodes.map((node: any) => getExpandedSourcedFilenameNode(node, baseDir)).filter((s: any) => !!s) as string[];
     for (const source of sourceNodes) {
       const sourceUri = pathToUri(source);
       result.add(sourceUri);

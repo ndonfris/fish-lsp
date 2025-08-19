@@ -7,6 +7,9 @@ import { md } from './utils/markdown-builder';
 import { Analyzer } from './analyze';
 import { getExpandedSourcedFilenameNode } from './parsing/source';
 import { isCommand, isOption } from './utils/node-types';
+import { LspDocument } from './document';
+import { uriToPath } from './utils/translation';
+import { dirname } from 'path';
 
 export type markdownFiletypes = 'fish' | 'man';
 
@@ -74,8 +77,11 @@ export function enrichCommandWithFlags(command: string, description: string, fla
   return enrichToMarkdown(result.join(md.newline()));
 }
 
-export function handleSourceArgumentHover(analyzer: Analyzer, current: SyntaxNode): Hover | null {
-  const sourceExpanded = getExpandedSourcedFilenameNode(current);
+export function handleSourceArgumentHover(analyzer: Analyzer, current: SyntaxNode, document?: LspDocument): Hover | null {
+  // Get the base directory for resolving relative paths
+  const baseDir = document ? dirname(uriToPath(document.uri)) : undefined;
+
+  const sourceExpanded = getExpandedSourcedFilenameNode(current, baseDir);
   if (!sourceExpanded) return null;
   const sourceDoc = analyzer.getDocumentFromPath(sourceExpanded);
   if (!sourceDoc) {

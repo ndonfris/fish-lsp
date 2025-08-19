@@ -7,6 +7,8 @@ import { Analyzer } from '../analyze';
 import { getParentNodesGen, getRange, precedesRange } from '../utils/tree-sitter';
 import { DefinitionScope } from '../utils/definition-scope';
 import { FishSymbol } from './symbol';
+import { uriToPath } from '../utils/translation';
+import { resolve, dirname, isAbsolute } from 'path';
 
 // TODO think of better naming conventions for these functions
 
@@ -32,16 +34,44 @@ export function isSourcedFilename(node: SyntaxNode) {
   return false;
 }
 
-export function isExistingSourceFilenameNode(node: SyntaxNode) {
+export function isExistingSourceFilenameNode(node: SyntaxNode, baseDir?: string) {
   if (!isSourcedFilename(node)) return false;
-  return SyncFileHelper.exists(node.text) && !SyncFileHelper.isDirectory(node.text) && SyncFileHelper.isFile(node.text);
+  const resolvedPath = resolveSourcePath(node.text, baseDir);
+  return resolvedPath && SyncFileHelper.exists(resolvedPath) && !SyncFileHelper.isDirectory(resolvedPath) && SyncFileHelper.isFile(resolvedPath);
 }
 
-export function getExpandedSourcedFilenameNode(node: SyntaxNode) {
-  if (isExistingSourceFilenameNode(node)) {
-    return SyncFileHelper.expandEnvVars(node.text);
+export function getExpandedSourcedFilenameNode(node: SyntaxNode, baseDir?: string) {
+  if (!isSourcedFilename(node)) return undefined;
+
+  const resolvedPath = resolveSourcePath(node.text, baseDir);
+  if (resolvedPath && SyncFileHelper.exists(resolvedPath) && !SyncFileHelper.isDirectory(resolvedPath) && SyncFileHelper.isFile(resolvedPath)) {
+    return SyncFileHelper.expandEnvVars(resolvedPath);
   }
   return undefined;
+}
+
+/**
+ * Resolves a source path that might be relative, relative to the base directory
+ * @param sourcePath The path from the source command (e.g., "./scripts/file.fish", "/abs/path.fish")
+ * @param baseDir The directory to resolve relative paths against (usually the directory containing the sourcing script)
+ * @returns The resolved absolute path, or the original path if it was already absolute
+ */
+function resolveSourcePath(sourcePath: string, baseDir?: string): string {
+  // Expand environment variables first
+  const expandedPath = SyncFileHelper.expandEnvVars(sourcePath);
+
+  // If it's already an absolute path, return as-is
+  if (isAbsolute(expandedPath)) {
+    return expandedPath;
+  }
+
+  // If we have a base directory, resolve relative to it
+  if (baseDir) {
+    return resolve(baseDir, expandedPath);
+  }
+
+  // Fallback: return the expanded path (might still be relative)
+  return expandedPath;
 }
 
 export interface SourceResource {
@@ -93,12 +123,17 @@ export class SourceResource {
 
 export function createSourceResources(analyzer: Analyzer, from: LspDocument): SourceResource[] {
   const result: SourceResource[] = [];
+
+  // Get the directory containing the current document for resolving relative paths
+  const fromPath = uriToPath(from.uri);
+  const baseDir = dirname(fromPath);
+
   const nodes = analyzer.getNodes(from.uri).filter(n => {
-    return isSourceCommandArgumentName(n) && !!isExistingSourceFilenameNode(n);
+    return isSourceCommandArgumentName(n) && !!isExistingSourceFilenameNode(n, baseDir);
   });
   if (nodes.length === 0) return result;
   for (const node of nodes) {
-    const sourcedFile = getExpandedSourcedFilenameNode(node);
+    const sourcedFile = getExpandedSourcedFilenameNode(node, baseDir);
     if (!sourcedFile) continue;
     const to = analyzer.getDocumentFromPath(sourcedFile) ||
       SyncFileHelper.toLspDocument(sourcedFile);

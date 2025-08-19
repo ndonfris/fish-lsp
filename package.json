@@ -82,7 +82,7 @@
     "build:prod": "tsx scripts/build.ts --all --production",
     "build:web": "tsx scripts/build.ts --web --production",
     "watch": "tsx scripts/build.ts --all --watch",
-    "sh:build-completions": "env -i FISH_LSP_COMPLETIONS_CACHE_DISABLE=true fish ./scripts/build-completions.fish",
+    "sh:build-completions": "fish ./scripts/build-completions.fish",
     "sh:build-time": "node ./scripts/build-time",
     "sh:build-wasm": "fish ./scripts/build-fish-wasm.fish",
     "sh:relink": "fish ./scripts/relink-locally.fish",
@@ -236,5 +236,6 @@
     "tsx": "^4.19.3",
     "typescript": "^5.8.3",
     "vitest": "^3.2.4"
-  }
+  },
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }
