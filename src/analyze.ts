@@ -188,7 +188,7 @@ export class Analyzer {
 
   public started = false;
 
-  constructor(protected parser: Parser) { }
+  constructor(public parser: Parser) { }
 
   /**
    * The method that is used to instantiate the singleton `analyzer`, to avoid

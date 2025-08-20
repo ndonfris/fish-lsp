@@ -1,16 +1,17 @@
 import * as fastGlob from 'fast-glob';
-import { pathToUri, uriToPath } from './translation';
-import { LspDocument } from '../document';
-import { FishSymbol } from '../parsing/symbol';
-import { config } from '../config';
-import { logger } from '../logger';
-import { basename, dirname, join } from 'path';
+import fs from 'fs';
+import path, { basename, dirname, join } from 'path';
 import * as LSP from 'vscode-languageserver';
+import { DocumentUri } from 'vscode-languageserver';
+import { AnalyzedDocument, analyzer } from '../analyze';
+import { config } from '../config';
+import { LspDocument } from '../document';
+import { logger } from '../logger';
+import { FishSymbol } from '../parsing/symbol';
 import { env } from './env-manager';
 import { SyncFileHelper } from './file-operations';
-import { AnalyzedDocument, analyzer } from '../analyze';
+import { pathToUri, uriToPath } from './translation';
 import { workspaceManager } from './workspace-manager';
-import { DocumentUri } from 'vscode-languageserver';
 
 export type AnalyzedWorkspace = {
   uri: string;
@@ -321,6 +322,38 @@ export class Workspace implements FishWorkspace {
     for (const uri of this.uris.all) {
       this.uris.markPending(uri);
     }
+  }
+
+  toTreeString() {
+    const tree: string[] = [];
+    const buildTree = (dir: string, prefix = '') => {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      entries.forEach((entry, index) => {
+        const isLast = index === entries.length - 1;
+        const currentPrefix = prefix + (isLast ? '└── ' : '├── ');
+        tree.push(currentPrefix + entry.name);
+
+        if (entry.isDirectory()) {
+          const nextPrefix = prefix + (isLast ? '    ' : '│   ');
+          buildTree(path.join(dir, entry.name), nextPrefix);
+        }
+      });
+    };
+
+    tree.push(this.name + '/');
+    buildTree(this.path, '');
+    return tree.join('\n');
+  }
+
+  showAllTreeSitterParseTrees() {
+    const docs = this.allDocuments();
+    if (docs.length === 0) {
+      logger.warning('No documents found in workspace', { name: this.name, uri: this.uri });
+      return;
+    }
+    docs.forEach(doc => {
+      doc.showTree();
+    });
   }
 }
 

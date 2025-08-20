@@ -199,9 +199,9 @@ export class Query {
       return (
         docPath.includes('/scripts/') ||
         !docPath.includes('/functions/') &&
-          !docPath.includes('/completions/') &&
-          !docPath.includes('/conf.d/') &&
-          path.basename(docPath) !== 'config.fish'
+        !docPath.includes('/completions/') &&
+        !docPath.includes('/conf.d/') &&
+        path.basename(docPath) !== 'config.fish'
       ) && docPath.endsWith('.fish');
     });
     return this;
@@ -299,6 +299,21 @@ export interface TestWorkspaceConfig {
   autoAnalyze?: boolean;
   /** Whether to prevent cleanup on inspect() calls */
   preserveOnInspect?: boolean;
+
+  /** Whether to allow empty workspace folders (default: false) */
+  forceAllDefaultWorkspaceFolders?: boolean;
+
+  /** always backup snapshot after cleanup */
+  writeSnapshotOnceSetup?: boolean;
+
+  /** automatically focus the created workspace */
+  autoFocusWorkspace?: boolean;
+
+  /**
+   * prefix created workspace paths with second outermost `fish` folder
+   * (e.g., `tests/workspaces/<TEST_FOLDER>/fish/..`)
+   */
+  addEnclosingFishFolder?: boolean;
 }
 
 /**
@@ -419,7 +434,7 @@ export interface SingleFileTestOptions {
   autoAnalyze?: boolean;
 }
 
-export let testWorkspaces: TestWorkspace[] = [];
+export let focusedWorkspace: Workspace | null = null;
 
 /**
  * Main test workspace utility class
@@ -444,21 +459,23 @@ export class TestWorkspace {
       debug: config.debug ?? false,
       autoAnalyze: config.autoAnalyze ?? true,
       preserveOnInspect: config.preserveOnInspect ?? false,
+      // Allow empty workspace folders by default
+      forceAllDefaultWorkspaceFolders: config.forceAllDefaultWorkspaceFolders ?? false,
+      writeSnapshotOnceSetup: config.writeSnapshotOnceSetup ?? false,
+      autoFocusWorkspace: config.autoFocusWorkspace ?? false,
+      addEnclosingFishFolder: config.addEnclosingFishFolder ?? false,
     };
 
     this._name = this._config.name;
     this._basePath = path.resolve(this._config.baseDir);
     this._workspacePath = path.join(this._basePath, this._name);
+    if (this._config.addEnclosingFishFolder) {
+      this._workspacePath = path.join(this._workspacePath, 'fish');
+    }
 
     if (this._config.debug) {
       logger.log(`TestWorkspace created: ${this._name} at ${this._workspacePath}`);
     }
-    this.addTestWorkspace();
-  }
-
-  addTestWorkspace(): TestWorkspace {
-    testWorkspaces.push(this);
-    return this;
   }
 
   /**
@@ -790,50 +807,78 @@ export class TestWorkspace {
   /**
    * Sets up the workspace - handles beforeAll() functionality
    */
-  initialize(): TestWorkspace {
-    if (!this._beforeAllSetup) {
+  // initialize(): TestWorkspace {
+  //   if (!this._beforeAllSetup) {
+  //     beforeAll(async () => {
+  //       await setupProcessEnvExecFile();
+  //       if (!this._config.debug) logger.setSilent(true);
+  //       await this._createWorkspaceFiles();
+  //       await this._setupWorkspace();
+  //       this._isInitialized = true;
+  //     });
+  //     this._beforeAllSetup = true;
+  //     logger.setSilent(false);
+  //   }
+  //
+  //   if (!this._afterAllCleanup) {
+  //     afterAll(async () => {
+  //       if (!this._isInspecting || !this._config.preserveOnInspect) {
+  //         await this._cleanup();
+  //       }
+  //       testWorkspaces = [];
+  //     });
+  //     this._afterAllCleanup = true;
+  //   }
+  //
+  //   beforeEach(async () => {
+  //     if (!this._config.debug) logger.setSilent(true);
+  //     workspaceManager.clear();
+  //     await setupProcessEnvExecFile();
+  //     await this._resetAnalysisState();
+  //     await this._setupWorkspace();
+  //     workspaceManager.setCurrent(this.getWorkspace()!);
+  //     await workspaceManager.analyzePendingDocuments();
+  //     logger.setSilent(false);
+  //   });
+  //
+  //   afterEach(async () => {
+  //     this._resetAnalysisState();
+  //     workspaceManager.clear();
+  //     await Analyzer.initialize();
+  //   });
+  //
+  //   return this;
+  // }
+  //
+  get setup() {
+    return () => {
       beforeAll(async () => {
         await setupProcessEnvExecFile();
+        await Analyzer.initialize();
         if (!this._config.debug) logger.setSilent(true);
         await this._createWorkspaceFiles();
         await this._setupWorkspace();
         this._isInitialized = true;
       });
-      this._beforeAllSetup = true;
-      logger.setSilent(false);
-    }
-
-    if (!this._afterAllCleanup) {
+      beforeEach(async () => {
+        if (!this._config.debug) logger.setSilent(true);
+        workspaceManager.clear();
+        await setupProcessEnvExecFile();
+        await this._resetAnalysisState();
+        await this._setupWorkspace();
+        workspaceManager.setCurrent(this.getWorkspace()!);
+        await workspaceManager.analyzePendingDocuments();
+        logger.setSilent(false);
+        if (this._config.autoFocusWorkspace) {
+          focusedWorkspace = this.getWorkspace();
+        }
+      });
       afterAll(async () => {
         if (!this._isInspecting || !this._config.preserveOnInspect) {
           await this._cleanup();
         }
-        testWorkspaces = [];
       });
-      this._afterAllCleanup = true;
-    }
-
-    beforeEach(async () => {
-      if (!this._config.debug) logger.setSilent(true);
-      workspaceManager.clear();
-      await setupProcessEnvExecFile();
-      await this._resetAnalysisState();
-      workspaceManager.setCurrent(this.getWorkspace()!);
-      await workspaceManager.analyzePendingDocuments();
-      logger.setSilent(false);
-    });
-
-    afterEach(async () => {
-      this._resetAnalysisState();
-      workspaceManager.clear();
-      await Analyzer.initialize();
-    });
-
-    return this;
-  }
-
-  static allTestWorkspaces(): TestWorkspace[] {
-    return [...testWorkspaces];
+    };
   }
 
   /**
@@ -934,30 +979,30 @@ export class TestWorkspace {
   /**
    * Dumps the file tree structure
    */
-  dumpFileTree(): string {
-    if (!fs.existsSync(this._workspacePath)) {
-      return 'Workspace not created yet';
-    }
-
-    const tree: string[] = [];
-    const buildTree = (dir: string, prefix = '') => {
-      const entries = fs.readdirSync(dir, { withFileTypes: true });
-      entries.forEach((entry, index) => {
-        const isLast = index === entries.length - 1;
-        const currentPrefix = prefix + (isLast ? '└── ' : '├── ');
-        tree.push(currentPrefix + entry.name);
-
-        if (entry.isDirectory()) {
-          const nextPrefix = prefix + (isLast ? '    ' : '│   ');
-          buildTree(path.join(dir, entry.name), nextPrefix);
-        }
-      });
-    };
-
-    tree.push(this._name + '/');
-    buildTree(this._workspacePath, '');
-    return tree.join('\n');
-  }
+  // dumpFileTree(): string {
+  //   if (!fs.existsSync(this._workspacePath)) {
+  //     return 'Workspace not created yet';
+  //   }
+  //
+  //   const tree: string[] = [];
+  //   const buildTree = (dir: string, prefix = '') => {
+  //     const entries = fs.readdirSync(dir, { withFileTypes: true });
+  //     entries.forEach((entry, index) => {
+  //       const isLast = index === entries.length - 1;
+  //       const currentPrefix = prefix + (isLast ? '└── ' : '├── ');
+  //       tree.push(currentPrefix + entry.name);
+  //
+  //       if (entry.isDirectory()) {
+  //         const nextPrefix = prefix + (isLast ? '    ' : '│   ');
+  //         buildTree(path.join(dir, entry.name), nextPrefix);
+  //       }
+  //     });
+  //   };
+  //
+  //   tree.push(this._name + '/');
+  //   buildTree(this._workspacePath, '');
+  //   return tree.join('\n');
+  // }
 
   /**
    * Creates a snapshot of the current workspace
@@ -1015,29 +1060,33 @@ export class TestWorkspace {
     fs.mkdirSync(this._workspacePath, { recursive: true });
 
     // Create fish directory structure
-    const fishDirs = ['functions', 'completions', 'conf.d', 'scripts'];
-    fishDirs.forEach(dir => {
-      fs.mkdirSync(path.join(this._workspacePath, dir), { recursive: true });
-    });
+    if (this._config.forceAllDefaultWorkspaceFolders) {
+      const fishDirs = ['functions', 'completions', 'conf.d'];
+      fishDirs.forEach(dir => {
+        const dirPath = path.join(this._workspacePath, dir);
+        if (!fs.existsSync(dirPath)) {
+          fs.mkdirSync(dirPath, { recursive: true });
+        }
+      });
+    }
 
     // Write all files
     for (const file of this._files) {
       const filePath = path.join(this._workspacePath, file.relativePath);
-      const dir = path.dirname(filePath);
-
-      // Ensure directory exists
-      fs.mkdirSync(dir, { recursive: true });
 
       // Write file content
       const content = Array.isArray(file.content)
         ? file.content.join('\n')
         : file.content;
 
-      fs.writeFileSync(filePath, content, 'utf8');
+      SyncFileHelper.writeRecursive(filePath, content, 'utf8');
 
       if (this._config.debug) {
         logger.log(`Created file: ${file.relativePath}`);
       }
+    }
+    if (this._config.writeSnapshotOnceSetup) {
+      this.writeSnapshot();
     }
   }
 
@@ -1052,6 +1101,7 @@ export class TestWorkspace {
     if (!this._workspace) {
       throw new Error(`Failed to create workspace from ${this.uri}`);
     }
+    this._workspace!.name = this._name;
 
     // Add workspace to manager
     workspaceManager.add(this._workspace);
@@ -1059,6 +1109,7 @@ export class TestWorkspace {
     // Create LspDocument instances for all files
     for (const file of this._files) {
       const filePath = path.join(this._workspacePath, file.relativePath);
+      SyncFileHelper.writeRecursive(filePath, Array.isArray(file.content) ? file.content.join('\n') : file.content, 'utf8');
       const uri = pathToUri(filePath);
       const doc = LspDocument.createFromUri(uri);
 
@@ -1066,14 +1117,55 @@ export class TestWorkspace {
       this._workspace.add(uri);
 
       if (this._config.autoAnalyze) {
+        workspaceManager.handleOpenDocument(doc);
         analyzer.analyze(doc);
+        workspaceManager.current?.addUri(doc.uri);
       }
     }
+    await workspaceManager.analyzePendingDocuments();
     workspaceManager.setCurrent(this._workspace);
 
     if (this._config.debug) {
       logger.log(`Workspace setup complete: ${this._documents.length} documents created`);
     }
+  }
+
+  async analyzeAllFiles() {
+    logger.setSilent();
+    if (!analyzer || !analyzer.started) {
+      await Analyzer.initialize();
+    }
+
+    // Create workspace instance
+    this._workspace = Workspace.syncCreateFromUri(this.uri);
+    if (!this._workspace) {
+      throw new Error(`Failed to create workspace from ${this.uri}`);
+    }
+    this._workspace!.name = this._name;
+
+    // Add workspace to manager
+    workspaceManager.add(this._workspace);
+    workspaceManager.setCurrent(this._workspace);
+
+    // Create LspDocument instances for all files
+    for (const file of this._files) {
+      const filePath = path.join(this._workspacePath, file.relativePath);
+      SyncFileHelper.writeRecursive(filePath, Array.isArray(file.content) ? file.content.join('\n') : file.content, 'utf8');
+      const uri = pathToUri(filePath);
+      const doc = LspDocument.createFromUri(uri);
+
+      this._documents.push(doc);
+      this._workspace.add(uri);
+
+      if (this._config.autoAnalyze) {
+        workspaceManager.handleOpenDocument(doc);
+        analyzer.analyze(doc);
+        workspaceManager.current?.addUri(doc.uri);
+      }
+    }
+    await workspaceManager.analyzePendingDocuments();
+    workspaceManager.setCurrent(this._workspace);
+    logger.setSilent(false);
   }
 
   private async _resetAnalysisState(): Promise<void> {
@@ -1099,11 +1191,16 @@ export class TestWorkspace {
       }
 
       // Remove files from disk
-      if (fs.existsSync(this._workspacePath)) {
-        fs.rmSync(this._workspacePath, { recursive: true, force: true });
+      // For workspaces with addEnclosingFishFolder, we need to remove the parent directory
+      const cleanupPath = this._config.addEnclosingFishFolder
+        ? path.dirname(this._workspacePath)
+        : this._workspacePath;
+
+      if (fs.existsSync(cleanupPath)) {
+        fs.rmSync(cleanupPath, { recursive: true, force: true });
 
         if (this._config.debug) {
-          logger.log(`Cleaned up workspace: ${this._workspacePath}`);
+          logger.log(`Cleaned up workspace: ${cleanupPath}`);
         }
       }
     } catch (error) {

@@ -11,6 +11,7 @@ import { SyncFileHelper } from './utils/file-operations';
 import { logger } from './logger';
 import * as Locations from './utils/locations';
 import { FishSymbol } from './parsing/symbol';
+import { logTreeSitterDocumentDebug } from './utils/dump-parse-tree';
 
 export class LspDocument implements TextDocument {
   protected document: TextDocument;
@@ -359,6 +360,10 @@ export class LspDocument implements TextDocument {
   getLines(): number {
     const lines = this.getText().split('\n');
     return lines.length;
+  }
+
+  showTree(): void {
+    logTreeSitterDocumentDebug(this);
   }
 
   /**

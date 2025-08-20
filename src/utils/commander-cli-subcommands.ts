@@ -528,6 +528,7 @@ export namespace CommanderSubcommand {
         install: z.boolean().optional().default(false),
         remove: z.boolean().optional().default(false),
         status: z.boolean().optional().default(false),
+        dumpParseTree: z.string().optional().default(''),
       }),
     );
     export type schemaType = z.infer<typeof schema>;

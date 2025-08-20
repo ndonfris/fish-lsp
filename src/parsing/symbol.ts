@@ -14,7 +14,7 @@ import { createDetail } from './symbol-detail';
 import { config } from '../config';
 import { flattenNested } from '../utils/flatten';
 import { uriToPath } from '../utils/translation';
-import { isCommand, isCommandWithName, isEmptyString, isFunctionDefinitionName, isString, isTopLevelDefinition, isVariableDefinitionName } from '../utils/node-types';
+import { isCommand, isCommandWithName, isEmptyString, isFunctionDefinitionName, isString, isVariableDefinitionName } from '../utils/node-types';
 import { SyncFileHelper } from '../utils/file-operations';
 import { isExportVariableDefinitionName, processExportCommand } from './export';
 import { CompletionSymbol, isCompletionCommandDefinition, isCompletionSymbol } from './complete';

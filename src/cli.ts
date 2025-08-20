@@ -11,6 +11,10 @@ import { configHandlers, config, updateHandlers, validHandlers, Config, handleEn
 import { ConnectionOptions, ConnectionType, createConnectionType, maxWidthForOutput, startServer, timeServerStartup } from './utils/startup';
 import { performHealthCheck } from './utils/health-check';
 import { setupProcessEnvExecFile } from './utils/process-env';
+import { cliDumpParseTree, expandParseCliTreeFile } from './utils/dump-parse-tree';
+// import { analyzer } from './analyze';
+import { LspDocument } from './document';
+import { SyncFileHelper } from './utils/file-operations';
 
 /**
  *  creates local 'commandBin' used for commander.js
@@ -182,6 +186,7 @@ commandBin.command('info')
   .option('--remove', 'remove source maps (use with --source-maps)', false)
   .option('--check', 'check source map availability (use with --source-maps)', false)
   .option('--status', 'show the status of all the source-maps available to the server (use with --source-maps)', false)
+  .option('--dump-parse-tree <FILE>', 'dump the tree-sitter parse tree of a file', undefined)
   .action(async (args: CommanderSubcommand.info.schemaType) => {
     await setupProcessEnvExecFile();
     const capabilities = BuildCapabilityString()
@@ -196,6 +201,18 @@ commandBin.command('info')
 
     // immediately exit if the user requested a specific info
     CommanderSubcommand.info.handleBadArgs(args);
+
+    if (args.dumpParseTree) {
+      setupProcessEnvExecFile();
+      const filePath = expandParseCliTreeFile(args.dumpParseTree);
+      if (!SyncFileHelper.isFile(filePath)) {
+        logger.logToStderr(`Error: Cannot read file at ${filePath}. Please check the file path and permissions.`);
+        process.exit(1);
+      }
+      const doc = LspDocument.createFromPath(filePath);
+      await cliDumpParseTree(doc);
+      shouldExit = true;
+    }
 
     // If the user requested specific info, we will try to show only the requested output.
     if (!args.verbose) {

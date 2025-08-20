@@ -2,63 +2,41 @@ import { accumulateStartupOptions } from '../src/utils/commander-cli-subcommands
 import { validHandlers } from '../src/config';
 import { timeServerStartup } from '../src/utils/startup';
 import { performHealthCheck } from '../src/utils/health-check';
+import { buildFishLspCompletions } from '../src/utils/get-lsp-completions';
+import { commandBin } from '../src/cli';
+import { spawn } from 'child_process';
+import { vi } from 'vitest';
 
 describe('cli tests', () => {
-  // Mock for process.exit that throws an error instead of exiting
-  let mockExit: jest.SpyInstance;
-
-  // Mock process.stdout.write
-  const stdoutMock = jest.spyOn(process.stdout, 'write').mockImplementation();
-
   // Storage for captured output
   let capturedOutput: string[] = [];
+  let originalStdoutWrite: typeof process.stdout.write;
+  let originalStderrWrite: typeof process.stderr.write;
 
   // Setup and teardown
   beforeEach(() => {
     // Clear previous output before each test
     capturedOutput = [];
 
-    // Set up the process.exit mock
-    // mockExit = jest.spyOn(process, 'exit').mockImplementation((code: string | number | null | undefined) => {
-    //   // Instead of exiting, throw an error with the exit code
-    //   // This error can be caught in your tests
-    //   throw new Error(`PROCESS_EXIT_MOCK: ${code || 0}`);
-    // });
+    // Mock stdout and stderr to capture logger output
+    originalStdoutWrite = process.stdout.write;
+    originalStderrWrite = process.stderr.write;
 
-    // Replace the mock implementation to capture output
-    stdoutMock.mockImplementation((val: string | Uint8Array) => {
-      // Convert Buffer to string if needed
-      const str = val instanceof Uint8Array
-        ? Buffer.from(val).toString('utf8')
-        : val;
-
-      // Split on newlines and add to capture array
-      capturedOutput.push(...str.toString().split(/\n/));
-
-      // Filter empty lines
-      capturedOutput = capturedOutput.filter(line => line.length > 0);
-
+    process.stdout.write = vi.fn((str: string) => {
+      capturedOutput.push(str);
       return true;
-    });
+    }) as any;
 
-    // Mock health check dependencies
-    jest.mock('fs/promises', () => ({
-      access: jest.fn().mockResolvedValue(undefined),
-    }));
-
-    jest.mock('../src/utils/exec', () => ({
-      execAsyncFish: jest.fn().mockResolvedValue({ stdout: '3.5.0', stderr: '' }),
-    }));
+    process.stderr.write = vi.fn((str: string) => {
+      capturedOutput.push(str);
+      return true;
+    }) as any;
   });
 
   afterEach(() => {
-    // Clear mocks after each test
-    jest.resetAllMocks();
-  });
-
-  afterAll(() => {
-    // Restore original implementations after all tests
-    jest.restoreAllMocks();
+    // Restore original functions
+    process.stdout.write = originalStdoutWrite;
+    process.stderr.write = originalStderrWrite;
   });
 
   describe('start test', () => {
@@ -181,38 +159,301 @@ describe('cli tests', () => {
     });
   });
 
-  describe.skip('info', () => {
+  describe('info', () => {
     it('fish-lsp info --time-startup', async () => {
-      await timeServerStartup();
-      // expect(await timeServerStartup()).toHaveBeenCalled();
+      await timeServerStartup({
+        timeOnly: true,
+      });
+      expect(capturedOutput.length).toBeGreaterThan(0);
+
+      // Check that we captured some timing output
+      const outputText = capturedOutput.join('');
+      expect(outputText).toContain('Server Start Time');
+      expect(outputText).toContain('ms');
+      expect(outputText.length).toBeGreaterThan(0);
     });
 
     it('fish-lsp info --check-health', async () => {
       await performHealthCheck();
+      expect(capturedOutput.length).toBeGreaterThan(0);
 
-      // Check for expected health check output
-      expect(capturedOutput.some(line => line.includes('fish-lsp health check'))).toBeTruthy();
-      expect(capturedOutput.some(line => line.includes('memory usage'))).toBeTruthy();
-    });
+      // Check that we captured some health check output
+      const outputText = capturedOutput.join('');
+      expect(outputText.length).toBeGreaterThan(0);
+    }, 10000); // 10 second timeout
   });
 
-  describe.skip('help', () => {
+  describe('help', () => {
     it('fish-lsp --help', async () => {
-      // const originalArgv = process.argv;
-      //
-      // try {
-      //   process.argv = ['node', 'fish-lsp', '--help'];
-      //
-      //   try {
-      //     await jest.isolateModules(async () => {
-      //       await import('../src/cli');
-      //     });
-      //   } catch (err) {
-      //     // expect(err!.message!.split(':')[1]!.trim()).toBe('0');
-      //   }
-      // } finally {
-      //   process.argv = originalArgv;
-      // }
+      return new Promise<void>((resolve, reject) => {
+        try {
+          // Test that src/cli.ts --help outputs help text using Node.js
+          const helpProcess = spawn('node', ['-r', 'tsx/cjs', 'src/cli.ts', '--help'], {
+            stdio: ['pipe', 'pipe', 'pipe'],
+            cwd: process.cwd(),
+          });
+
+          let stdout = '';
+          let stderr = '';
+
+          helpProcess.stdout.on('data', (data) => {
+            stdout += data.toString();
+          });
+
+          helpProcess.stderr.on('data', (data) => {
+            stderr += data.toString();
+          });
+
+          helpProcess.on('error', (error: any) => {
+            reject(new Error(`Help process error: ${error.message}`));
+          });
+
+          helpProcess.on('close', (code) => {
+            // Help command should exit with 0 or 1 (help commands often exit with 0 or 1)
+            if (code !== 0 && code !== 1) {
+              reject(new Error(`Help command failed with exit code ${code}: ${stderr}`));
+              return;
+            }
+
+            const output = stdout + stderr;
+
+            // Check that we got some help output
+            expect(output.length).toBeGreaterThan(0);
+            expect(output).toContain('fish-lsp');
+            expect(output).toContain('Usage:');
+
+            resolve();
+          });
+
+          // Set a timeout
+          setTimeout(() => {
+            helpProcess.kill();
+            reject(new Error('Help test timed out'));
+          }, 5000);
+        } catch (error: any) {
+          reject(new Error(`Help test setup failed: ${error.message}`));
+        }
+      });
+    }, 10000); // 10 second timeout for the test
+  });
+
+  describe('env', () => {
+    const runEnvCommand = async (args: string[]): Promise<string> => {
+      return new Promise<string>((resolve, reject) => {
+        try {
+          const envProcess = spawn('node', ['-r', 'tsx/cjs', 'src/cli.ts', 'env', ...args], {
+            stdio: ['pipe', 'pipe', 'pipe'],
+            cwd: process.cwd(),
+          });
+
+          let stdout = '';
+          let stderr = '';
+
+          envProcess.stdout.on('data', (data) => {
+            stdout += data.toString();
+          });
+
+          envProcess.stderr.on('data', (data) => {
+            stderr += data.toString();
+          });
+
+          envProcess.on('error', (error: any) => {
+            reject(new Error(`Env process error: ${error.message}`));
+          });
+
+          envProcess.on('close', (code) => {
+            if (code !== 0) {
+              reject(new Error(`Env command failed with exit code ${code}: ${stderr}`));
+              return;
+            }
+
+            resolve(stdout + stderr);
+          });
+
+          setTimeout(() => {
+            envProcess.kill();
+            reject(new Error('Env test timed out'));
+          }, 5000);
+        } catch (error: any) {
+          reject(new Error(`Env test setup failed: ${error.message}`));
+        }
+      });
+    };
+
+    it('fish-lsp env --names', async () => {
+      const output = await runEnvCommand(['--names']);
+
+      expect(output.length).toBeGreaterThan(0);
+      expect(output).toContain('fish_lsp_enabled_handlers');
+      expect(output).toContain('fish_lsp_disabled_handlers');
+      expect(output).toContain('fish_lsp_log_file');
+      expect(output).toContain('fish_lsp_log_level');
+
+      // Should not contain comments or values when using --names
+      expect(output).not.toContain('#');
+      expect(output).not.toContain('set -gx');
+    }, 10000);
+
+    it('fish-lsp env --names --joined', async () => {
+      const output = await runEnvCommand(['--names', '--joined']);
+
+      expect(output.length).toBeGreaterThan(0);
+      expect(output).toContain('fish_lsp_enabled_handlers');
+
+      // Should be on a single line when using --joined
+      const lines = output.trim().split('\n');
+      expect(lines.length).toBe(1);
+      expect(lines[0]).toContain('fish_lsp_enabled_handlers');
+      expect(lines[0]).toContain('fish_lsp_disabled_handlers');
+    }, 10000);
+
+    it('fish-lsp env --show-default', async () => {
+      const output = await runEnvCommand(['--show-default']);
+
+      expect(output.length).toBeGreaterThan(0);
+      expect(output).toContain('set -gx fish_lsp_enabled_handlers');
+      expect(output).toContain('set -gx fish_lsp_disabled_handlers');
+      expect(output).toContain('# $fish_lsp_enabled_handlers');
+      expect(output).toContain('# Enables the fish-lsp handlers');
+
+      // Check for some expected default values
+      expect(output).toContain('set -gx fish_lsp_max_background_files 10000');
+      expect(output).toContain('set -gx fish_lsp_enable_experimental_diagnostics false');
+    }, 10000);
+
+    it('fish-lsp env --show-default --no-comments', async () => {
+      const output = await runEnvCommand(['--show-default', '--no-comments']);
+
+      expect(output.length).toBeGreaterThan(0);
+      expect(output).toContain('set -gx fish_lsp_enabled_handlers');
+
+      // Should not contain comments when using --no-comments
+      expect(output).not.toContain('#');
+    }, 10000);
+
+    it('fish-lsp env --show-default --only fish_lsp_log_file,fish_lsp_log_level', async () => {
+      const output = await runEnvCommand(['--show-default', '--only', 'fish_lsp_log_file,fish_lsp_log_level']);
+
+      expect(output.length).toBeGreaterThan(0);
+      expect(output).toContain('set -gx fish_lsp_log_file');
+      expect(output).toContain('set -gx fish_lsp_log_level');
+
+      // Should not contain other variables when using --only
+      expect(output).not.toContain('fish_lsp_enabled_handlers');
+      expect(output).not.toContain('fish_lsp_max_background_files');
+    }, 10000);
+
+    it('fish-lsp env --show-default --no-global', async () => {
+      const output = await runEnvCommand(['--show-default', '--no-global']);
+
+      expect(output.length).toBeGreaterThan(0);
+
+      // Should use 'set -lx' instead of 'set -gx' when using --no-global
+      expect(output).toContain('set -lx fish_lsp_enabled_handlers');
+      expect(output).not.toContain('set -gx fish_lsp_enabled_handlers');
+    }, 10000);
+
+    it('fish-lsp env --show-default --no-export', async () => {
+      const output = await runEnvCommand(['--show-default', '--no-export']);
+
+      expect(output.length).toBeGreaterThan(0);
+
+      // Should use 'set -g' instead of 'set -gx' when using --no-export
+      expect(output).toContain('set -g fish_lsp_enabled_handlers');
+      expect(output).not.toContain('set -gx fish_lsp_enabled_handlers');
+    }, 10000);
+
+    it('fish-lsp env --create', async () => {
+      const output = await runEnvCommand(['--create']);
+
+      expect(output.length).toBeGreaterThan(0);
+      expect(output).toContain('set -gx fish_lsp_enabled_handlers');
+
+      // --create should show current/default values for environment setup
+      expect(output).toContain('fish_lsp');
+    }, 10000);
+
+    it('fish-lsp env help', async () => {
+      const output = await runEnvCommand(['--help']);
+
+      expect(output.length).toBeGreaterThan(0);
+      expect(output).toContain('generate fish-lsp env variables');
+      expect(output).toContain('--names');
+      expect(output).toContain('--show-default');
+      expect(output).toContain('--only');
+    }, 10000);
+  });
+
+  describe('complete', () => {
+    it('fish-lsp complete should generate valid fish syntax', async () => {
+      // Generate the completions
+      const completions = buildFishLspCompletions(commandBin);
+
+      expect(completions).toBeDefined();
+      expect(typeof completions).toBe('string');
+      expect(completions.length).toBeGreaterThan(0);
+
+      // Basic syntax checks
+      expect(completions).toContain('complete -c fish-lsp');
+      expect(completions).toContain('function __fish_lsp');
     });
+
+    it('fish should parse fish-lsp completions without errors', async () => {
+      // Generate the completions
+      const completions = buildFishLspCompletions(commandBin);
+
+      // Check that the completions contain our new --dump-parse-tree flag
+      expect(completions).toContain('--dump-parse-tree');
+      expect(completions).toContain('dump the tree-sitter parse tree of a file');
+
+      return new Promise<void>((resolve, reject) => {
+        try {
+          // Test that fish can parse the completions without syntax errors
+          const fishProcess = spawn('fish', ['-n'], { stdio: ['pipe', 'pipe', 'pipe'] });
+
+          let stderr = '';
+
+          fishProcess.stderr.on('data', (data) => {
+            stderr += data.toString();
+          });
+
+          fishProcess.on('error', (error: any) => {
+            if (error.code === 'ENOENT') {
+              console.warn('Fish shell not available, skipping syntax validation test');
+              resolve();
+              return;
+            }
+            reject(new Error(`Fish process error: ${error.message}`));
+          });
+
+          fishProcess.on('close', (code) => {
+            if (code !== 0) {
+              reject(new Error(`Fish parsing failed with exit code ${code}: ${stderr}`));
+              return;
+            }
+
+            // Fish should not output any syntax errors when parsing with -n flag
+            if (stderr.trim() !== '') {
+              reject(new Error(`Fish parsing produced errors: ${stderr}`));
+              return;
+            }
+
+            resolve();
+          });
+
+          // Send the completions to fish
+          fishProcess.stdin.write(completions);
+          fishProcess.stdin.end();
+
+          // Set a timeout
+          setTimeout(() => {
+            fishProcess.kill();
+            reject(new Error('Fish parsing test timed out'));
+          }, 5000);
+        } catch (error: any) {
+          reject(new Error(`Test setup failed: ${error.message}`));
+        }
+      });
+    }, 10000); // 10 second timeout for the test
   });
 });

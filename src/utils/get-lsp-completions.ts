@@ -86,6 +86,7 @@ function __fish_lsp_info_complete_opt --description 'check if the commandline co
       or __fish_contains_opt time-startup
       or __fish_contains_opt check-health
       or __fish_contains_opt source-maps
+      or __fish_contains_opt dump-parse-tree
     end && return 1
     
     for opt in $argv
@@ -268,7 +269,6 @@ function __fish_lsp_info_sourcemaps_complete -d 'complete the source map url for
     and __fish_lsp_not_contains_opt all all-paths check install status remove 
 end
 
-
 # Utility function for checking if we have seen any switches yet.
 # EXAMPLES:
 #   > \`fish-lsp start --stdio <TAB>\`                   ---> 1
@@ -408,6 +408,8 @@ complete -c fish-lsp -n '__fish_lsp_info_sourcemaps_complete'                   
 complete -c fish-lsp -n '__fish_lsp_info_sourcemaps_complete'                                                                                  -l remove          -d 'remove the sourcemaps' 
 complete -c fish-lsp -n '__fish_lsp_info_sourcemaps_complete'                                                                                  -l install         -d 'install the sourcemaps' 
 complete -c fish-lsp -n '__fish_lsp_info_sourcemaps_complete'                                                                                  -l status          -d 'info about the sourcemaps' 
+complete -c fish-lsp -n '__fish_lsp_info_complete_opt dump-parse-tree; and __fish_lsp_is_first_switch'                                         -l dump-parse-tree -d 'dump the tree-sitter parse tree of a file'       -k -xa '(__fish_complete_suffix "*.fish" --description="path to show tree-sitter AST" | string match -rei -- ".*\\.fish|.*/")'
+complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_lsp_last_switch --dump-parse-tree; and test (__fish_lsp_count_after_last_switch) -le 1'     -d 'fish script file'                                -k -xa '(__fish_complete_suffix "*.fish" --description="path to show tree-sitter AST" | string match -rei -- ".*\\.fish|.*/")' 
 `;
 
 const envCompletions: string = `## fish-lsp env --<TAB>

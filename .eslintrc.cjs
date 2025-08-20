@@ -22,6 +22,7 @@ module.exports = {
         '.bun/',
         'out/',
         'build/',
+        "lib/src/",
         "lib/*.d.ts",
         "vitest.config.ts",
     ],

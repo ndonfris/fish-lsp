@@ -108,7 +108,7 @@ set -l root_local "I should be exported"
       range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
       node: {} as any,
       definitionScope: {} as any,
-      sources: []
+      sources: [],
     };
 
     // Get exported symbols using symbolsFromResource
@@ -189,7 +189,7 @@ end
       range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
       node: {} as any,
       definitionScope: {} as any,
-      sources: []
+      sources: [],
     };
 
     const exportedSymbols = symbolsFromResource(analyzer, mockSourceResource);
