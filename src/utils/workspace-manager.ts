@@ -303,6 +303,13 @@ export class WorkspaceManager {
       analyzer.analyze(document);
       workspace.addPending(documentUri);
       workspace.addPending(...Array.from(analyzer.collectAllSources(documentUri)));
+      const localSymbols = analyzer.cache.getDocumentSymbols(document.uri);
+      const sourcedSymbols = analyzer.collectSourcedSymbols(document.uri);
+      [...localSymbols, ...sourcedSymbols]
+        .filter(s => s.isGlobal() || s.isRootLevel())
+        .forEach(s => {
+          analyzer.globalSymbols.add(s);
+        });
     }
     return this.current!;
   }
@@ -316,7 +323,7 @@ export class WorkspaceManager {
     progress?.begin('[fish-lsp] indexing files', 0, `Analyzing workspaces [+${event.added.length} | -${event.removed.length}]`, true);
     logger.info(
       'workspaceManager.handleWorkspaceChangeEvent()',
-      `Workspace change event: { added: ${event.added.length}, removed: ${event.removed.length}} `,
+      `Workspace change event: { added: ${event.added.length}, removed: ${event.removed.length} } `,
       {
         added: event.added.map((ws) => ws.uri),
         removed: event.removed.map((ws) => ws.uri),
@@ -329,7 +336,7 @@ export class WorkspaceManager {
       } else {
         logger.warning(
           'workspaceManager.handleWorkspaceChangeEvent()',
-          `FAILED: event.added: ${workspace.uri}`,
+          `FAILED: event.added: ${workspace.uri} `,
         );
       }
     });
@@ -340,7 +347,7 @@ export class WorkspaceManager {
       } else {
         logger.warning(
           'workspaceManager.handleWorkspaceChangeEvent()',
-          `FAILED event.removed: ${workspace.uri}`,
+          `FAILED event.removed: ${workspace.uri} `,
         );
       }
     });
@@ -353,8 +360,8 @@ export class WorkspaceManager {
    * NOTE: if the user sets an arbitrarily low value for fish_lsp_max_background_files, this method will need to be called multiple times.
    *
    * ```typescript
-   * while (workspaceManager.needsAnalysis()) {
-   *   workspaceManager.analyzePendingDocuments();
+        * while (workspaceManager.needsAnalysis()) {
+   * workspaceManager.analyzePendingDocuments();
    * }
    * ```
    * ___
@@ -407,7 +414,7 @@ export class WorkspaceManager {
       } catch (error) {
         logger.error(
           'workspaceManager.analyzePendingDocuments()',
-          `Error analyzing document: ${doc.uri}`,
+          `Error analyzing document: ${doc.uri} `,
           { error },
         );
       }
@@ -437,7 +444,7 @@ export class WorkspaceManager {
       'workspaceManager.analyzePendingDocuments()',
       message,
       {
-        duration: `${duration}s`,
+        duration: `${duration} s`,
         totalDocuments: currentDocuments.length,
         maxSize,
       },

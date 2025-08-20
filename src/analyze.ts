@@ -7,7 +7,7 @@ import { LspDocument } from './document';
 import { logger } from './logger';
 import { isArgparseVariableDefinitionName } from './parsing/argparse';
 import { CompletionSymbol, isCompletionCommandDefinition, isCompletionSymbol, processCompletion } from './parsing/complete';
-import { getExpandedSourcedFilenameNode, isSourceCommandArgumentName, isSourceCommandWithArgument, symbolsFromResource } from './parsing/source';
+import { createSourceResources, getExpandedSourcedFilenameNode, isSourceCommandArgumentName, isSourceCommandWithArgument, symbolsFromResource } from './parsing/source';
 import { filterFirstPerScopeSymbol, FishSymbol, processNestedTree } from './parsing/symbol';
 import { getImplementation } from './references';
 import { execCommandLocations } from './utils/exec';
@@ -1047,24 +1047,40 @@ export class Analyzer {
       const sourceDoc = this.getDocument(sourcedUri);
       if (!sourceDoc) continue;
 
-      const mockSourceResource = {
-        to: sourceDoc,
-        from: this.getDocument(documentUri)!,
-        range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
-        node: {} as any,
-        definitionScope: {} as any,
-        sources: [],
-      } as any;
+      // const mockSourceResource = {
+      //   to: sourceDoc,
+      //   from: this.getDocument(documentUri)!,
+      //   range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
+      //   node: {} as any,
+      //   definitionScope: {} as any,
+      //   sources: [],
+      // } as any;
 
-      // Get exportable symbols from this source
-      const symbols = symbolsFromResource(this, mockSourceResource);
+      const topLevelDefinitions = this.getFlatDocumentSymbols(sourceDoc.uri).filter(s => s.isRootLevel() || s.isGlobal());
+      sourcedSymbols.push(...topLevelDefinitions);
 
-      for (const symbol of symbols) {
-        if (!uniqueNames.has(symbol.name)) {
-          uniqueNames.add(symbol.name);
-          sourcedSymbols.push(symbol);
+      for (const resource of createSourceResources(analyzer, sourceDoc)) {
+        // If the resource is a sourced file, we can get its symbols
+        if (resource.to && resource.from && resource.node) {
+          const symbols = symbolsFromResource(this, resource, new Set(sourcedSymbols.map(s => s.name)))
+            .filter(s => s.isRootLevel() || s.isGlobal());
+          for (const symbol of symbols) {
+            if (!uniqueNames.has(symbol.name)) {
+              uniqueNames.add(symbol.name);
+              sourcedSymbols.push(symbol);
+            }
+          }
         }
       }
+      // Get exportable symbols from this source
+      // const symbols = symbolsFromResource(this, mockSourceResource);
+      //
+      // for (const symbol of symbols) {
+      //   if (!uniqueNames.has(symbol.name)) {
+      //     uniqueNames.add(symbol.name);
+      //     sourcedSymbols.push(symbol);
+      //   }
+      // }
     }
 
     return sourcedSymbols;

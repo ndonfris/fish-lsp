@@ -390,50 +390,6 @@ export class TestFile {
   }
 }
 
-/**
- * Common interface for test workspace results with consistent API
- */
-export interface TestWorkspaceResult {
-  /** The test workspace containing the document(s) */
-  workspace: TestWorkspace;
-  /** Gets all documents in the workspace */
-  documents: LspDocument[];
-  /** Get a document by search path */
-  getDocument(searchPath: string): LspDocument | undefined;
-  /** Get documents using query system */
-  getDocuments(...queries: Query[]): LspDocument[];
-}
-
-/**
- * Result from creating a single file test workspace
- */
-export interface SingleFileTestResult extends TestWorkspaceResult {
-  /** The created LspDocument - guaranteed to exist */
-  document: LspDocument;
-  /** The file path relative to workspace root */
-  relativePath: string;
-  /** The absolute file path */
-  absolutePath: string;
-  /** The document URI */
-  uri: string;
-}
-
-/**
- * Options for creating a single file test workspace
- */
-export interface SingleFileTestOptions {
-  /** Custom filename (without .fish extension). If not provided, generates random name */
-  filename?: string;
-  /** File type. Defaults to 'function' */
-  type?: 'function' | 'completion' | 'config' | 'confd' | 'script';
-  /** Custom workspace name. If not provided, generates random name */
-  workspaceName?: string;
-  /** Whether to enable debug logging */
-  debug?: boolean;
-  /** Whether to automatically analyze the document */
-  autoAnalyze?: boolean;
-}
-
 export let focusedWorkspace: Workspace | null = null;
 
 /**
@@ -451,6 +407,7 @@ export class TestWorkspace {
   private _isInspecting = false;
   private _beforeAllSetup = false;
   private _afterAllCleanup = false;
+  private _focusedDocumentPath: string | null = null;
 
   private constructor(config: TestWorkspaceConfig = {}) {
     this._config = {
@@ -462,7 +419,7 @@ export class TestWorkspace {
       // Allow empty workspace folders by default
       forceAllDefaultWorkspaceFolders: config.forceAllDefaultWorkspaceFolders ?? false,
       writeSnapshotOnceSetup: config.writeSnapshotOnceSetup ?? false,
-      autoFocusWorkspace: config.autoFocusWorkspace ?? false,
+      autoFocusWorkspace: config.autoFocusWorkspace ?? true,
       addEnclosingFishFolder: config.addEnclosingFishFolder ?? false,
     };
 
@@ -486,177 +443,54 @@ export class TestWorkspace {
   }
 
   /**
-   * Creates a single file test workspace for simple testing scenarios
+   * Creates a single file workspace with unified API - convenience method
    *
    * @example Basic usage
    * ```typescript
    * describe('My Test', () => {
-   *   const { document, workspace } = TestWorkspace.createSingleFile('function greet\n  echo "hello"\nend');
-   *   workspace.initialize();
+   *   const workspace = TestWorkspace.createSingle('function greet\n  echo "hello"\nend')
+   *     .setup();
    *
    *   it('should work', () => {
-   *     expect(document.getText()).toContain('function greet');
+   *     const doc = workspace.focusedDocument;
+   *     expect(doc?.getText()).toContain('function greet');
    *   });
    * });
    * ```
-   *
-   * @example With options
-   * ```typescript
-   * const result = TestWorkspace.createSingleFile('complete -c foo -l help', {
-   *   type: 'completion',
-   *   filename: 'foo',
-   *   debug: true
-   * });
-   * ```
    */
-  static createSingleFile(
+  static createSingle(
     content: string | string[],
-    options: SingleFileTestOptions = {},
-  ): SingleFileTestResult {
-    const {
-      filename = TestWorkspace._generateRandomName(),
-      type = 'function',
-      workspaceName = `single_file_${TestWorkspace._generateRandomName()}`,
-      debug = false,
-      autoAnalyze = true,
-    } = options;
-
-    // Create the workspace
-    const workspace = new TestWorkspace({
-      name: workspaceName,
-      debug,
-      autoAnalyze,
-    });
+    type: 'function' | 'completion' | 'config' | 'confd' | 'script' = 'function',
+    filename?: string,
+  ): TestWorkspace {
+    const name = filename || TestWorkspace._generateRandomName();
+    const workspace = TestWorkspace.create({ name: `single_${name}` });
 
     // Create the appropriate file based on type
     let testFile: TestFile;
     switch (type) {
       case 'function':
-        testFile = TestFile.function(filename, content);
+        testFile = TestFile.function(name, content);
         break;
       case 'completion':
-        testFile = TestFile.completion(filename, content);
+        testFile = TestFile.completion(name, content);
         break;
       case 'config':
         testFile = TestFile.config(content);
         break;
       case 'confd':
-        testFile = TestFile.confd(filename, content);
+        testFile = TestFile.confd(name, content);
         break;
       case 'script':
-        testFile = TestFile.script(filename, content);
+        testFile = TestFile.script(name, content);
         break;
       default:
         throw new Error(`Unknown file type: ${type}`);
     }
 
     workspace.addFile(testFile);
-
-    // Calculate paths
-    const workspacePath = workspace._workspacePath;
-    const absoluteFilePath = path.join(workspacePath, testFile.relativePath);
-    const absolutePath = path.resolve(absoluteFilePath);
-    const uri = pathToUri(absolutePath);
-
-    // Store the relative path for the closure to avoid reference issues
-    const relativeFilePath = testFile.relativePath;
-
-    // Create a proxy object that provides lazy access to the document
-    const result: SingleFileTestResult = {
-      get document(): LspDocument {
-        const doc = workspace.getDocument(relativeFilePath);
-        if (!doc) {
-          throw new Error(`Document not found: ${relativeFilePath}. Make sure to call workspace.initialize() first.`);
-        }
-        return doc;
-      },
-      workspace,
-      get documents(): LspDocument[] {
-        return workspace.documents;
-      },
-      getDocument: (searchPath: string) => workspace.getDocument(searchPath),
-      getDocuments: (...queries: Query[]) => workspace.getDocuments(...queries),
-      relativePath: relativeFilePath,
-      absolutePath,
-      uri,
-    };
-
-    return result;
-  }
-
-  /**
-   * Alternative static method that immediately initializes and returns a ready-to-use result
-   */
-  static async createSingleFileReady(
-    content: string | string[],
-    options: SingleFileTestOptions = {},
-  ): Promise<SingleFileTestResult> {
-    const {
-      filename = TestWorkspace._generateRandomName(),
-      type = 'function',
-      workspaceName = `single_file_${TestWorkspace._generateRandomName()}`,
-      debug = false,
-      autoAnalyze = true,
-    } = options;
-
-    // Create the workspace
-    const workspace = new TestWorkspace({
-      name: workspaceName,
-      debug,
-      autoAnalyze,
-    });
-
-    // Create the appropriate file based on type
-    let testFile: TestFile;
-    switch (type) {
-      case 'function':
-        testFile = TestFile.function(filename, content);
-        break;
-      case 'completion':
-        testFile = TestFile.completion(filename, content);
-        break;
-      case 'config':
-        testFile = TestFile.config(content);
-        break;
-      case 'confd':
-        testFile = TestFile.confd(filename, content);
-        break;
-      case 'script':
-        testFile = TestFile.script(filename, content);
-        break;
-      default:
-        throw new Error(`Unknown file type: ${type}`);
-    }
-
-    workspace.addFile(testFile);
-
-    // Initialize the workspace manually
-    await workspace._createWorkspaceFiles();
-    await workspace._setupWorkspace();
-    workspace._isInitialized = true;
-
-    // Get the actual document
-    const document = workspace.getDocument(testFile.relativePath);
-    if (!document) {
-      throw new Error(`Failed to create document for ${testFile.relativePath}`);
-    }
-
-    // Calculate paths
-    const workspacePath = workspace._workspacePath;
-    const filePath = path.join(workspacePath, testFile.relativePath);
-    const absolutePath = path.resolve(filePath);
-    const uri = pathToUri(absolutePath);
-
-    return {
-      document,
-      workspace,
-      documents: workspace.documents,
-      getDocument: (searchPath: string) => workspace.getDocument(searchPath),
-      getDocuments: (...queries: Query[]) => workspace.getDocuments(...queries),
-      relativePath: testFile.relativePath,
-      absolutePath,
-      uri,
-    };
+    workspace._focusedDocumentPath = testFile.relativePath;
+    return workspace;
   }
 
   /**
@@ -882,10 +716,36 @@ export class TestWorkspace {
   }
 
   /**
+   * Sets the focused document path for single-file usage
+   */
+  focus(documentPath: string): TestWorkspace {
+    this._focusedDocumentPath = documentPath;
+    return this;
+  }
+
+  /**
+   * Setup with automatic focus on the single file (for single-file workspaces)
+   */
+  get setupWithFocus() {
+    if (this._files.length === 1) {
+      this._focusedDocumentPath = this._files[0].relativePath;
+    }
+    return this.setup;
+  }
+
+  /**
    * Gets all documents in the workspace
    */
   get documents(): LspDocument[] {
     return [...this._documents];
+  }
+
+  /**
+   * Gets the focused document (for single-file workspaces)
+   */
+  get focusedDocument(): LspDocument | null {
+    if (!this._focusedDocumentPath) return null;
+    return this.getDocument(this._focusedDocumentPath) || null;
   }
 
   /**

@@ -106,6 +106,11 @@ export function logTreeSitterDocumentDebug(document: LspDocument): void {
   logger.log('='.repeat(80));
 }
 
+export function returnParseTreeString(document: LspDocument): string {
+  const { parseTree } = debugWorkspaceDocument(document);
+  return parseTree;
+}
+
 export function expandParseCliTreeFile(input: string | undefined): string {
   if (!input || !input.trim()) {
     return '';

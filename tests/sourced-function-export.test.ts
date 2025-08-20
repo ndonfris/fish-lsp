@@ -10,6 +10,8 @@ import { workspaceManager } from '../src/utils/workspace-manager';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import { Server } from 'http';
+import { Workspace } from '../src/utils/workspace';
 
 describe('Sourced Function Export', () => {
   let parser: Parser;
@@ -206,17 +208,25 @@ set -l script_local "script local"
       sources: [],
     };
 
-    const exportedSymbols = symbolsFromResource(analyzer, mockSourceResource);
-    const exportedNames = exportedSymbols.map(s => s.name);
+    const sources = analyzer.collectAllSources(testDoc.uri);
+
+    const resource = createSourceResources(analyzer, testDoc);
+    const collection: FishSymbol[] = [...allSymbols.filter(s => s.isRootLevel() || s.isGlobal())];
+    for (const res of resource) {
+      analyzer.analyze(res.to);
+      collection.push(...symbolsFromResource(analyzer, res, new Set(collection.map(s => s.name))));
+    }
+    // const exportedSymbols = symbolsFromResource(analyzer);
+    // const exportedNames = exportedSymbols.map(s => s.name);
 
     // Should export top-level symbols
-    expect(exportedNames).toContain('top_level_function');
-    expect(exportedNames).toContain('global_var');
-    expect(exportedNames).toContain('script_local');
-
-    // Should NOT export nested symbols
-    expect(exportedNames).not.toContain('nested_function');
-    expect(exportedNames).not.toContain('function_local');
+    expect(collection.map(c => c.name)).toContain('top_level_function');
+    expect(collection.map(c => c.name)).toContain('global_var');
+    expect(collection.map(c => c.name)).toContain('script_local');
+    // collection.map(c => c.name);
+    // Shoucollection.map(c => c.name) nested symbols
+    expect(collection.map(c => c.name)).not.toContain('nested_function');
+    expect(collection.map(c => c.name)).not.toContain('function_local');
   });
 
   test('should handle deeply nested symbols correctly', () => {
@@ -276,8 +286,14 @@ end
       sources: [],
     };
 
-    const exportedSymbols = symbolsFromResource(analyzer, mockSourceResource);
-    const exportedNames = exportedSymbols.map(s => s.name);
+    // const exportedSymbols = symbolsFromResource(analyzer, mockSourceResource);
+    // const exportedNames = exportedSymbols.map(s => s.name);
+    const exportedNames: string[] = [...allSymbols.filter(s => s.isRootLevel()).map(s => s.name)];
+    for (const res of createSourceResources(analyzer, doc)) {
+      analyzer.analyze(res.to);
+      const exportedSymbols = symbolsFromResource(analyzer, res, new Set<string>(exportedNames));
+      exportedNames.push(...exportedSymbols.map(s => s.name));
+    }
 
     // Should only export root-level symbols
     expect(exportedNames).toContain('level1');
@@ -600,5 +616,37 @@ end
       // For now, we'll accept that allSymbolsAccessibleAtPosition works correctly
       // The relative path resolution is working, which is the main goal
     }
+  });
+
+  describe('scripts/publish-nightly.fish', () => {
+    const document = LspDocument.createFromPath(resolve(__dirname, '../scripts/publish-nightly.fish'));
+    let ws: Workspace | null = null;
+    beforeEach(async () => {
+      workspaceManager.clear();
+      ws = workspaceManager.handleOpenDocument(document)!;
+      workspaceManager.handleUpdateDocument(document);
+      workspaceManager.setCurrent(ws);
+      analyzer.analyze(document);
+      analyzer.ensureCachedDocument(document);
+    });
+
+    afterEach(() => {
+      if (ws) {
+        workspaceManager.handleCloseDocument(document.uri);
+        ws = null;
+      }
+    });
+
+    it('should find all symbols in publish-nightly.fish', () => {
+      console.log({
+        document: document.uri,
+        path: document.path,
+        content: document.getText(),
+      });
+      const sourcedSymbols = analyzer.collectSourcedSymbols(document.uri);
+      console.log({
+        sourcedSymbols: sourcedSymbols.map(s => s.name),
+      });
+    });
   });
 });

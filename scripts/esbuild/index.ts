@@ -93,7 +93,7 @@ export async function build(customArgs?: string[]): Promise<void> {
       } else {
         // Build all targets sequentially (non-watch mode)
         console.log(logger.header('`fish-lsp` esbuild (BUILD SYSTEM)'));
-        console.log(logger.info('Building all targets... '), logger.bold('   '));
+        console.log(logger.info('Building all targets... '), logger.bold(''));
         
         for (let i = 0; i < targets.length; i++) {
           const targetName = targets[i];

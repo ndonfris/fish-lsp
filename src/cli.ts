@@ -8,13 +8,15 @@ import { Command, Option } from 'commander';
 import { buildFishLspCompletions } from './utils/get-lsp-completions';
 import { logger } from './logger';
 import { configHandlers, config, updateHandlers, validHandlers, Config, handleEnvOutput } from './config';
-import { ConnectionOptions, ConnectionType, createConnectionType, maxWidthForOutput, startServer, timeServerStartup } from './utils/startup';
+import { connection, ConnectionOptions, ConnectionType, createConnectionType, maxWidthForOutput, startServer, timeServerStartup } from './utils/startup';
 import { performHealthCheck } from './utils/health-check';
 import { setupProcessEnvExecFile } from './utils/process-env';
 import { cliDumpParseTree, expandParseCliTreeFile } from './utils/dump-parse-tree';
 // import { analyzer } from './analyze';
 import { LspDocument } from './document';
 import { SyncFileHelper } from './utils/file-operations';
+import FishServer from './server';
+import { InitializeParams } from 'vscode-languageserver';
 
 /**
  *  creates local 'commandBin' used for commander.js
@@ -203,14 +205,17 @@ commandBin.command('info')
     CommanderSubcommand.info.handleBadArgs(args);
 
     if (args.dumpParseTree) {
-      setupProcessEnvExecFile();
+      startServer();
+      await FishServer.create(connection, {
+
+      } as InitializeParams);
       const filePath = expandParseCliTreeFile(args.dumpParseTree);
       if (!SyncFileHelper.isFile(filePath)) {
         logger.logToStderr(`Error: Cannot read file at ${filePath}. Please check the file path and permissions.`);
         process.exit(1);
       }
       const doc = LspDocument.createFromPath(filePath);
-      await cliDumpParseTree(doc);
+      cliDumpParseTree(doc);
       shouldExit = true;
     }
 

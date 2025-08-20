@@ -454,10 +454,17 @@ export default class FishServer {
     // Get sourced symbols and convert them to nested structure if needed
     const sourcedSymbols = analyzer.collectSourcedSymbols(doc.uri);
 
-    // Combine local and sourced symbols
-    const allSymbols = [...localSymbols, ...sourcedSymbols];
+    // Combine local and sourced symbols and cache the sourced symbols as global definitions
+    // local to the document inside the analyzer workspace. Heuristic to cache global symbols
+    // more frequently in background analysis of focused document because server.onDocumentSymbols
+    // is requested repeatedly in most clients when moving around a LspDocument.
+    [...localSymbols, ...sourcedSymbols]
+      .filter(s => s.isGlobal() || s.isRootLevel())
+      .forEach(s => analyzer.globalSymbols.add(s));
 
-    return filterLastPerScopeSymbol(allSymbols).map(s => s.toDocumentSymbol()).filter(s => !!s);
+    return filterLastPerScopeSymbol(localSymbols)
+      .map(s => s.toDocumentSymbol())
+      .filter(s => !!s);
   }
 
   protected get supportHierarchicalDocumentSymbol(): boolean {
@@ -475,11 +482,16 @@ export default class FishServer {
     const symbols: FishSymbol[] = [];
     const workspace = workspaceManager.current;
     for (const uri of workspace?.allUris || []) {
-      const doc = documents.get(uri);
-      if (doc) {
-        const docSymbols = analyzer.getFlatDocumentSymbols(doc.uri);
-        symbols.push(...filterLastPerScopeSymbol(docSymbols));
-      }
+      const newSymbols = [
+        ...analyzer.cache.getDocumentSymbols(uri),
+        ...analyzer.collectSourcedSymbols(uri),
+      ];
+      symbols.push(...filterLastPerScopeSymbol(newSymbols));
+      // const doc = documents.get(uri);
+      // if (doc) {
+      //   const docSymbols = analyzer.getFlatDocumentSymbols(doc.uri);
+      //   symbols.push(...filterLastPerScopeSymbol(docSymbols));
+      // }
     }
 
     logger.log('symbols', {

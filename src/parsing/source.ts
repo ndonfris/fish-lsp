@@ -8,7 +8,8 @@ import { getParentNodesGen, getRange, precedesRange } from '../utils/tree-sitter
 import { DefinitionScope } from '../utils/definition-scope';
 import { FishSymbol } from './symbol';
 import { uriToPath } from '../utils/translation';
-import { resolve, dirname, isAbsolute } from 'path';
+import path, { dirname, isAbsolute } from 'path';
+import { workspaceManager } from '../utils/workspace-manager';
 
 // TODO think of better naming conventions for these functions
 
@@ -65,9 +66,31 @@ function resolveSourcePath(sourcePath: string, baseDir?: string): string {
     return expandedPath;
   }
 
+  let foundPath = path.join(baseDir || workspaceManager.current?.path || process.cwd(), expandedPath);
+
   // If we have a base directory, resolve relative to it
-  if (baseDir) {
-    return resolve(baseDir, expandedPath);
+  // if (baseDir) return resolve(baseDir, expandedPath);
+  if (SyncFileHelper.exists(foundPath) && SyncFileHelper.isFile(foundPath)) {
+    return foundPath;
+  }
+  if (path.resolve(process.cwd(), expandedPath) !== expandedPath) {
+    foundPath = path.resolve(process.cwd(), expandedPath);
+    if (SyncFileHelper.exists(foundPath) && SyncFileHelper.isFile(foundPath)) {
+      return foundPath;
+    }
+  }
+  if (path.resolve(process.env.PWD || '', expandedPath) !== expandedPath) {
+    foundPath = path.resolve(process.env.PWD || '', expandedPath);
+    if (SyncFileHelper.exists(foundPath) && SyncFileHelper.isFile(foundPath)) {
+      return foundPath;
+    }
+  }
+
+  if (path.resolve(workspaceManager.current?.path || '', expandedPath) !== expandedPath) {
+    foundPath = path.resolve(workspaceManager.current?.path || '', expandedPath);
+    if (SyncFileHelper.exists(foundPath) && SyncFileHelper.isFile(foundPath)) {
+      return foundPath;
+    }
   }
 
   // Fallback: return the expanded path (might still be relative)
