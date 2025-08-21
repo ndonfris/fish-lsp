@@ -71,7 +71,7 @@ if set -q _flag_complete
     exit
 end
 
-set SKIP_CONFIRMATION (set -q _flag_yes && echo 'true' || echo 'false')
+set -g SKIP_CONFIRMATION (set -q _flag_yes && echo 'true' || echo 'false')
 
 function fail -d 'Exit with error message'
     log_error '❌' '[ERROR]' $argv
