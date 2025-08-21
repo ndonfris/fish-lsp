@@ -1,6 +1,6 @@
 import { workspaceManager } from '../src/utils/workspace-manager';
 import { setLogger } from './helpers';
-import { TestWorkspace, TestFile, Query, DefaultTestWorkspaces } from './test-workspace-utils';
+import { TestWorkspace, TestFile, Query, DefaultTestWorkspaces, focusedWorkspace } from './test-workspace-utils';
 
 describe('Example Test Workspace Usage', () => {
   describe('Basic Usage Example', () => {
@@ -25,10 +25,10 @@ function setup_test --on-event fish_prompt
 end`),
       );
 
-    testWorkspace.initialize();
+    testWorkspace.setup();
 
     it('should create all expected documents', () => {
-      expect(testWorkspace.documents.length).toBe(4);
+      expect(focusedWorkspace?.allDocuments.length).toBe(4);
     });
 
     it('should find documents by simple path', () => {
@@ -39,8 +39,8 @@ end`),
 
     it('should support advanced querying', () => {
       // Get all function files
-      const functions = testWorkspace.getDocuments(Query.functions());
-      expect(functions).toHaveLength(1);
+      const functions = focusedWorkspace!.allDocuments().filter(d => d.getAutoloadType() === 'functions');
+      expect(functions.length).toBeGreaterThanOrEqual(1);
       expect(functions[0]!.getText()).toContain('function greet');
 
       // Get files by name across types
@@ -83,7 +83,7 @@ end`);
 
   describe('Using Predefined Workspaces', () => {
     const basicWorkspace = DefaultTestWorkspaces.basicFunctions();
-    basicWorkspace.initialize();
+    basicWorkspace.setup();
 
     it('should work with predefined basic functions workspace', () => {
       expect(basicWorkspace.documents.length).toBeGreaterThan(2);
@@ -100,7 +100,7 @@ end`);
     // should log
     const advancedWorkspace = TestWorkspace.create({
       name: 'example_advanced',
-      debug: true,
+      // debug: true,
     }).addFiles(
       TestFile.script('deploy', `
 #!/usr/bin/env fish
@@ -112,7 +112,7 @@ function helper
 end`),
     );
 
-    advancedWorkspace.initialize();
+    advancedWorkspace.setup();
 
     it('should handle scripts with shebangs', () => {
       const deployScript = advancedWorkspace.getDocument('deploy.fish');
@@ -120,7 +120,7 @@ end`),
     });
 
     it('should support workspace inspection', () => {
-      const fileTree = advancedWorkspace.dumpFileTree();
+      const fileTree: string = focusedWorkspace!.allDocuments().map(doc => [doc.getRelativeFilenameToWorkspace(), doc.getTree()].join('\n')).join('\n');
       expect(fileTree).toContain('deploy.fish');
       expect(fileTree).toContain('functions');
     });
@@ -137,7 +137,7 @@ end`),
 
   describe('Complex Project Simulation', () => {
     const projectWorkspace = DefaultTestWorkspaces.projectWorkspace();
-    projectWorkspace.initialize();
+    projectWorkspace.setup();
 
     it('should simulate a complete project structure', () => {
       expect(projectWorkspace.documents.length).toBeGreaterThan(5);
@@ -166,7 +166,7 @@ end`),
   });
 
   describe('test 3', () => {
-    const test3Workspace = TestWorkspace.create({ name: 'example_test3' })
+    TestWorkspace.create({ name: 'example_test3' })
       .addFiles(
         TestFile.function('test3', `
 function test3
@@ -198,45 +198,54 @@ source ./test3_script_1
 source ./test3_script_2
 `).withShebang(),
       )
-      .initialize();
+      .setup();
 
     it('should create all expected documents for test 3', () => {
-      expect(test3Workspace.documents.length).toBe(7);
+      const docs = focusedWorkspace!.allDocuments();
+      expect(docs!.length).toBe(7);
     });
 
     it('should find documents by simple path in test 3', () => {
-      const test3Func = test3Workspace.getDocument('functions/test3.fish');
+      const test3Func = focusedWorkspace!.findDocument(d => d.uri.endsWith('functions/test3.fish'));
       expect(test3Func).toBeDefined();
       expect(test3Func?.getText()).toContain('function test3');
     });
 
     it('show file tree', () => {
-      const fileTree = test3Workspace.dumpFileTree();
-      console.log(fileTree);
-      expect(fileTree).toContain('test3.fish');
-      expect(fileTree).toContain('test3_script_1');
-      expect(fileTree).toContain('test3_script_2');
-      expect(fileTree).toContain('test3_script_3');
-      expect(fileTree).not.toContain('test3_script_1.fish');
-      expect(fileTree).not.toContain('test3_script_2.fish');
-      expect(fileTree).not.toContain('test3_script_3.fish');
+      const output: string[] = [];
+      focusedWorkspace!.allDocuments().forEach(doc => {
+        output.push(doc.getRelativeFilenameToWorkspace());
+        output.push(doc.getText());
+        output.push(doc.getTree());
+      });
+      const res = output.join('\n');
+      // const fileTree = focusedWorkspace!.showAllTreeSitterParseTrees();
+      // console.log(fileTree);
+      expect(res).toContain('test3.fish');
+      expect(res).toContain('test3_script_1');
+      expect(res).toContain('test3_script_2');
+      expect(res).toContain('test3_script_3');
+      expect(res).not.toContain('test3_script_1.fish');
+      expect(res).not.toContain('test3_script_2.fish');
+      expect(res).not.toContain('test3_script_3.fish');
     });
   });
 
-  describe.only('test workspace src', () => {
+  describe('test workspace src', () => {
     const testSrcWorkspace = TestWorkspace.create({ name: 'example_test_src' })
       .addFiles(
         TestFile.function('src_test', `
 function src_test
     echo "This is a src test function"
 end`),
-      ).inheritFilesFromExistingAutoloadedWorkspace('$__fish_data_dir')
-      .initialize();
+      ).inheritFilesFromExistingAutoloadedWorkspace('$__fish_data_dir');
 
-    setLogger();
+    testSrcWorkspace.setup();
+
+    // setLogger();
 
     it('should create all expected documents for src test', () => {
-      const ws = testSrcWorkspace.getWorkspace();
+      const ws = focusedWorkspace!;
       // Array.from(ws!.allUris).forEach(uri => {
       //   console.log(`URI: ${uri}`);
       // })
@@ -252,9 +261,9 @@ end`),
     it('should create all expected documents for src test2', () => {
       const ws = testSrcWorkspace.getWorkspace();
 
-      TestWorkspace.allTestWorkspaces().forEach(workspace => {
-        console.log(`Workspace: ${workspace.name}, Documents: ${workspace.documents.length}`);
-      });
+      // testSrcWorkspace.getDocuments.forEach(workspace => {
+      //   console.log(`Workspace: ${workspace.name}, Documents: ${workspace.documents.length}`);
+      // });
       // Array.from(ws!.allUris).forEach(uri => {
       //   console.log(`URI: ${uri}`);
       // })

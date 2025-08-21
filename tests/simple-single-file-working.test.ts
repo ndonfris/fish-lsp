@@ -7,12 +7,11 @@ function greet
     echo "Hello, $argv[1]!"
 end`);
 
-    testData.workspace.initialize();
-
     it('should work perfectly', () => {
+      const ws = testData.workspace;
       expect(testData.document.getText()).toContain('function greet');
       expect(testData.document.uri).toContain('functions/');
-      expect(testData.workspace.documents).toHaveLength(1);
+      expect(ws.documents).toHaveLength(1);
     });
 
     it('should avoid null checks', () => {

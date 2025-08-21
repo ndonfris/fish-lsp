@@ -1,9 +1,33 @@
 import { resolve, dirname } from 'path';
-import { existsSync, realpathSync } from 'fs';
+import { realpathSync } from 'fs';
+import { SyncFileHelper } from './file-operations';
 
 /**
  * Centralized path resolution utilities for handling bundled vs development environments
  */
+
+/**
+ * Finds the first existing file from an array of possible file paths
+ * @param possiblePaths File paths to check
+ * @returns The first path that exists as a file, or undefined if none exist
+ */
+export function findFirstExistingFile(...possiblePaths: string[]): string | undefined {
+  for (const path of possiblePaths) {
+    if (SyncFileHelper.exists(path) && SyncFileHelper.isFile(path)) {
+      return path;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Helper function to check if a path exists and is a file
+ * @param path The path to check
+ * @returns True if the path exists and is a file
+ */
+export function isExistingFile(path: string): boolean {
+  return SyncFileHelper.exists(path) && SyncFileHelper.isFile(path);
+}
 
 /**
  * Get the current executable path
@@ -82,7 +106,7 @@ export function getProjectRootPath(): string {
  */
 export function getFishFilesPath(): string {
   // Try multiple possible locations, prioritizing original location
-  const possiblePaths = [
+  const foundPath = findFirstExistingFile(
     // For all versions: relative to project root (original location)
     resolve(getProjectRootPath(), 'fish_files'),
     // Fallback: relative to process.cwd()
@@ -91,16 +115,10 @@ export function getFishFilesPath(): string {
     resolve(dirname(getCurrentExecutablePath()), 'fish_files'),
     // Another fallback: relative to the build directory
     resolve(process.cwd(), 'build/fish_files'),
-  ];
-
-  for (const path of possiblePaths) {
-    if (existsSync(path)) {
-      return path;
-    }
-  }
+  );
 
   // If none found, return the development path and let it fail with a clear error
-  return resolve(getProjectRootPath(), 'fish_files');
+  return foundPath ?? resolve(getProjectRootPath(), 'fish_files');
 }
 
 /**
@@ -114,7 +132,7 @@ export function getFishFilePath(filename: string): string {
  * Get tree-sitter WASM file path for bundled and development versions
  */
 export function getTreeSitterWasmPath(): string {
-  const possiblePaths = [
+  const foundPath = findFirstExistingFile(
     // For all versions: relative to project root (original location)
     resolve(getProjectRootPath(), 'tree-sitter-fish.wasm'),
     // Fallback: relative to process.cwd()
@@ -123,23 +141,17 @@ export function getTreeSitterWasmPath(): string {
     resolve(dirname(getCurrentExecutablePath()), 'tree-sitter-fish.wasm'),
     // Another fallback: relative to the build directory
     resolve(process.cwd(), 'build/tree-sitter-fish.wasm'),
-  ];
-
-  for (const path of possiblePaths) {
-    if (existsSync(path)) {
-      return path;
-    }
-  }
+  );
 
   // If none found, return the development path and let it fail with a clear error
-  return resolve(getProjectRootPath(), 'tree-sitter-fish.wasm');
+  return foundPath ?? resolve(getProjectRootPath(), 'tree-sitter-fish.wasm');
 }
 
 /**
  * Get fish build time file path for bundled and development versions
  */
 export function getFishBuildTimeFilePath(): string {
-  const possiblePaths = [
+  const foundPath = findFirstExistingFile(
     // For bundled version: build-time.txt copied to lib/
     resolve(getProjectRootPath(), 'lib', 'build-time.txt'),
     // For development: out/build-time.txt
@@ -160,22 +172,16 @@ export function getFishBuildTimeFilePath(): string {
     resolve(process.cwd(), 'lib/scripts/build-time'),
     resolve(process.cwd(), 'build/out/build-time.txt'),
     resolve(process.cwd(), 'build/scripts/build-time'),
-  ];
+  );
 
-  for (const path of possiblePaths) {
-    if (existsSync(path)) {
-      return path;
-    }
-  }
-
-  return resolve(getProjectRootPath(), 'out', 'build-time.txt');
+  return foundPath ?? resolve(getProjectRootPath(), 'out', 'build-time.txt');
 }
 
 /**
  * Get man file path for bundled and development versions
  */
 export function getManFilePath(): string {
-  const possiblePaths = [
+  const foundPath = findFirstExistingFile(
     // For all versions: man directory in project root (new preferred location)
     resolve(getProjectRootPath(), 'man', 'fish-lsp.1'),
     // Legacy: docs/man directory
@@ -189,16 +195,10 @@ export function getManFilePath(): string {
     // Build directory fallbacks
     resolve(process.cwd(), 'build/man/fish-lsp.1'),
     resolve(process.cwd(), 'build/docs/man/fish-lsp.1'),
-  ];
-
-  for (const path of possiblePaths) {
-    if (existsSync(path)) {
-      return path;
-    }
-  }
+  );
 
   // If none found, return the new preferred path
-  return resolve(getProjectRootPath(), 'man', 'fish-lsp.1');
+  return foundPath ?? resolve(getProjectRootPath(), 'man', 'fish-lsp.1');
 }
 
 /**

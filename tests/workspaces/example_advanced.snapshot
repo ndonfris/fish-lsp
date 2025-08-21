@@ -1,0 +1,14 @@
+{
+  "name": "example_advanced",
+  "files": [
+    {
+      "relativePath": "deploy.fish",
+      "content": "#!/usr/bin/env fish\n\n#!/usr/bin/env fish\necho \"Deploying application...\"\n# Deploy logic here"
+    },
+    {
+      "relativePath": "functions/helper.fish",
+      "content": "\nfunction helper\n    echo \"Helper function\"\nend"
+    }
+  ],
+  "timestamp": 1755660542073
+}

@@ -10,6 +10,7 @@ import { FishSymbol } from './symbol';
 import { uriToPath } from '../utils/translation';
 import path, { dirname, isAbsolute } from 'path';
 import { workspaceManager } from '../utils/workspace-manager';
+import { findFirstExistingFile, isExistingFile } from '../utils/path-resolution';
 
 // TODO think of better naming conventions for these functions
 
@@ -38,14 +39,14 @@ export function isSourcedFilename(node: SyntaxNode) {
 export function isExistingSourceFilenameNode(node: SyntaxNode, baseDir?: string) {
   if (!isSourcedFilename(node)) return false;
   const resolvedPath = resolveSourcePath(node.text, baseDir);
-  return resolvedPath && SyncFileHelper.exists(resolvedPath) && !SyncFileHelper.isDirectory(resolvedPath) && SyncFileHelper.isFile(resolvedPath);
+  return resolvedPath && isExistingFile(resolvedPath);
 }
 
 export function getExpandedSourcedFilenameNode(node: SyntaxNode, baseDir?: string) {
   if (!isSourcedFilename(node)) return undefined;
 
   const resolvedPath = resolveSourcePath(node.text, baseDir);
-  if (resolvedPath && SyncFileHelper.exists(resolvedPath) && !SyncFileHelper.isDirectory(resolvedPath) && SyncFileHelper.isFile(resolvedPath)) {
+  if (resolvedPath && isExistingFile(resolvedPath)) {
     return SyncFileHelper.expandEnvVars(resolvedPath);
   }
   return undefined;
@@ -66,35 +67,16 @@ function resolveSourcePath(sourcePath: string, baseDir?: string): string {
     return expandedPath;
   }
 
-  let foundPath = path.join(baseDir || workspaceManager.current?.path || process.cwd(), expandedPath);
+  // Try to find the file in multiple possible locations
+  const foundPath = findFirstExistingFile(
+    path.join(baseDir || workspaceManager.current?.path || process.cwd(), expandedPath),
+    path.resolve(process.cwd(), expandedPath),
+    path.resolve(process.env.PWD || '', expandedPath),
+    path.resolve(workspaceManager.current?.path || '', expandedPath),
+  );
 
-  // If we have a base directory, resolve relative to it
-  // if (baseDir) return resolve(baseDir, expandedPath);
-  if (SyncFileHelper.exists(foundPath) && SyncFileHelper.isFile(foundPath)) {
-    return foundPath;
-  }
-  if (path.resolve(process.cwd(), expandedPath) !== expandedPath) {
-    foundPath = path.resolve(process.cwd(), expandedPath);
-    if (SyncFileHelper.exists(foundPath) && SyncFileHelper.isFile(foundPath)) {
-      return foundPath;
-    }
-  }
-  if (path.resolve(process.env.PWD || '', expandedPath) !== expandedPath) {
-    foundPath = path.resolve(process.env.PWD || '', expandedPath);
-    if (SyncFileHelper.exists(foundPath) && SyncFileHelper.isFile(foundPath)) {
-      return foundPath;
-    }
-  }
-
-  if (path.resolve(workspaceManager.current?.path || '', expandedPath) !== expandedPath) {
-    foundPath = path.resolve(workspaceManager.current?.path || '', expandedPath);
-    if (SyncFileHelper.exists(foundPath) && SyncFileHelper.isFile(foundPath)) {
-      return foundPath;
-    }
-  }
-
-  // Fallback: return the expanded path (might still be relative)
-  return expandedPath;
+  // Return the found path or the expanded path as fallback
+  return foundPath ?? expandedPath;
 }
 
 export interface SourceResource {
