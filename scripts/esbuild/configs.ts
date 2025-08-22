@@ -24,8 +24,8 @@ export interface BuildConfig extends esbuild.BuildOptions {
 
 export const buildConfigs: Record<BuildConfigTarget, BuildConfig> = {
   binary: {
-    name: 'Binary',
-    entryPoint: 'src/cli.ts',
+    name: 'Universal Binary',
+    entryPoint: 'src/main.ts',
     outfile: resolve('dist', 'fish-lsp'),
     target: 'node',
     format: 'cjs',
@@ -38,29 +38,10 @@ export const buildConfigs: Record<BuildConfigTarget, BuildConfig> = {
     internalPlugins: {
       target: 'node',
       typescript: false, // Use native esbuild TS support
-      polyfills: 'none', // Skip polyfills for node target
+      polyfills: 'minimal', // Include minimal polyfills for browser compatibility when needed
     },
     onBuildEnd: copyBinaryAssets,
   },
-  
-  web: {
-    name: 'Web',
-    entryPoint: 'src/web.ts',
-    outfile: resolve('lib', 'fish-lsp-web.js'),
-    target: 'browser',
-    format: 'esm',
-    platform: 'browser',
-    bundle: true,
-    minify: true,
-    sourcemap: true,
-    external: ['web-tree-sitter'],
-    internalPlugins: {
-      target: 'browser',
-      typescript: true,
-      polyfills: 'full',
-    },
-  },
-
 
   development: {
     name: 'Development',

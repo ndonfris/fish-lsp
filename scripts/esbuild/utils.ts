@@ -5,7 +5,7 @@ import { execSync } from 'child_process';
 import { logger, toRelativePath } from './colors';
 
 export function copyBinaryAssets(): void {
-  console.log(logger.info('  Skipping asset copying - assets remain in original locations'));
+  console.log(logger.info('  Skipping asset copying - assets remain in original locations'));
   console.log(logger.success('✅ Binary assets accessible in original locations'));
 }
 
@@ -33,13 +33,13 @@ export function showBuildStats(filePath: string, label = 'Bundle'): void {
   if (existsSync(filePath)) {
     const size = statSync(filePath).size;
     console.log(logger.complete(label));
-    console.log(logger.info(`  ${label}: ${logger.dim(toRelativePath(filePath))}`));
+    console.log(logger.info(`  ${label}: ${logger.dim(toRelativePath(filePath))}`));
     console.log(logger.size(label, formatBytes(size)));
   }
 }
 
 export function generateTypeDeclarations(): void {
-  console.log(logger.info('  Generating TypeScript declarations...'));
+  console.log(logger.info('  Generating TypeScript declarations...'));
   const tsconfigContent = JSON.stringify({
     "extends": ["@tsconfig/node22/tsconfig.json", "@tsconfig/node-ts/tsconfig.json"],
     "compilerOptions": {
@@ -123,48 +123,24 @@ export function generateTypeDeclarations(): void {
 }
 
 export async function generateLibraryTypeDeclarations(): Promise<void> {
-  console.log(logger.info('📦 Generating library wrapper...'));
+  console.log(logger.info('📦 Generating type definitions for universal binary...'));
   try {
-    // Ensure lib directory exists
-    ensureDirSync('lib');
+    // Ensure dist directory exists
+    ensureDirSync('dist');
 
-    // Generate thin wrapper that imports from dist/fish-lsp with source map reference
-    const wrapperContent = `#!/usr/bin/env node
-
-// Thin wrapper that re-exports server functionality from the main binary
-// This eliminates code duplication while maintaining the lib/server.js API
-
-const fishLspBinary = require('../dist/fish-lsp');
-
-// Import and export only the server functionality
-module.exports = fishLspBinary;
-
-//# sourceMappingURL=../dist/fish-lsp.map
-`;
-
-    writeFileSync('lib/server.js', wrapperContent);
-    console.log(logger.generated('lib/server.js (thin wrapper)'));
-
-    // Copy only type definitions to lib/ so imports resolve correctly in published package
-    console.log(logger.info('  Building type definitions at `lib/server.d.ts`'));
+    // Generate type definitions directly in dist/ directory for the universal binary
+    console.log(logger.info('  Building type definitions at `dist/fish-lsp.d.ts`'));
+    
     try {
-      // Preserve our thin wrapper
-      const wrapperBackup = readFileSync('lib/server.js', 'utf8');
-
-      // Copy only .d.ts files while preserving directory structure
-      generateTypeDeclarations();
-
-      // Restore our thin wrapper
-      writeFileSync('lib/server.js', wrapperBackup);
-
-      console.log(logger.success('✨ Copied type definitions to `lib/server.d.ts` (preserved wrapper)'));
-    } catch (error) {
-      logger.warn('Failed to copy type definitions, falling back to server types only');
-      execSync('cp out/server.d.ts lib/server.d.ts', { stdio: 'inherit' });
+      // Copy existing server types as the base (since main.ts exports FishServer)
+      execSync('cp out/server.d.ts dist/fish-lsp.d.ts', { stdio: 'inherit' });
+      console.log(logger.generated('Universal binary type definitions'));
+    } catch (copyError) {
+      logger.warn('Failed to copy type declarations');
     }
 
-    console.log(logger.success('✨ Generated library wrapper and types'));
+    console.log(logger.success('✨ Generated universal binary type definitions'));
   } catch (error) {
-    logger.warn('Failed to generate library wrapper');
+    logger.warn('Failed to generate type definitions');
   }
 }

@@ -3,7 +3,7 @@
 /**
  * Individual build configuration targets that map to actual build configs
  */
-export type BuildConfigTarget = 'binary' | 'web' | 'development';
+export type BuildConfigTarget = 'binary' | 'development';
 
 /**
  * Meta targets that control the build process behavior
@@ -28,7 +28,7 @@ export type ConfiguredTarget = BuildConfigTarget;
 /**
  * Targets available when using --all flag (excludes special targets)
  */
-export const ALL_TARGETS: readonly BuildConfigTarget[] = ['development', 'binary', 'web'] as const;
+export const ALL_TARGETS: readonly BuildConfigTarget[] = ['development', 'binary'] as const;
 
 /**
  * All valid CLI targets
@@ -61,8 +61,7 @@ export function isMetaTarget(target: BuildTarget): target is MetaTarget {
  */
 export function getTargetDisplayName(target: BuildTarget): string {
   switch (target) {
-    case 'binary': return 'Binary';
-    case 'web': return 'Web';
+    case 'binary': return 'Universal Binary';
     case 'development': return 'Development';
     case 'all': return 'All targets';
     case 'types': return 'TypeScript Declarations';

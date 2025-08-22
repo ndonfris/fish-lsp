@@ -19,7 +19,6 @@ import { logger } from './colors';
 import { startFileWatcher } from './file-watcher';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 
-
 /**
  * Main build function - can be called programmatically or from CLI
  */
@@ -52,7 +51,7 @@ export async function build(customArgs?: string[]): Promise<void> {
       if (args.watch) {
         // Watch mode for all targets
         console.log(logger.header('`fish-lsp` esbuild (BUILD SYSTEM)'));
-        console.log(logger.info('  Starting watch mode for all targets...  '));
+        console.log(logger.info('  Starting watch mode for all targets...  '));
         const contexts: esbuild.BuildContext[] = [];
         
         for (let i = 0; i < targets.length; i++) {
@@ -77,7 +76,7 @@ export async function build(customArgs?: string[]): Promise<void> {
           console.log(logger.watching(config.name));
         }
         
-        console.log(`\n${logger.info('   All targets are now being watched for changes...   ')}`);
+        console.log(`\n${logger.info('   All targets are now being watched for changes...   ')}`);
         console.log(logger.dim('Press Ctrl+C to stop'));
         
         // Keep the process running and handle cleanup
@@ -93,7 +92,7 @@ export async function build(customArgs?: string[]): Promise<void> {
       } else {
         // Build all targets sequentially (non-watch mode)
         console.log(logger.header('`fish-lsp` esbuild (BUILD SYSTEM)'));
-        console.log(logger.info('Building all targets... '), logger.bold(''));
+        console.log(logger.info('Building all targets... '), logger.bold(''));
         
         for (let i = 0; i < targets.length; i++) {
           const targetName = targets[i];
@@ -115,13 +114,11 @@ export async function build(customArgs?: string[]): Promise<void> {
           } else if (targetName === 'binary' && config.outfile) {
             await generateLibraryTypeDeclarations();
             makeExecutable(config.outfile);
-            showBuildStats(config.outfile, 'Binary');
-          } else if (targetName === 'web' && config.outfile) {
-            showBuildStats(config.outfile, 'Web bundle');
+            showBuildStats(config.outfile, 'Universal Binary');
           }
         }
         
-        console.log(`\n${logger.success('  All builds completed successfully!')}`);
+        console.log(`\n${logger.success('  All builds completed successfully!')}`);
         return;
       }
     }
@@ -150,44 +147,52 @@ export async function build(customArgs?: string[]): Promise<void> {
 
     if (args.watch) {
       // Watch mode
-      const ctx = await esbuild.context(buildOptions);
-      
-      if (args.target === 'development') {
-        copyDevelopmentAssets();
-      }
-      
-      console.log(logger.watching(config.name));
-      console.log(logger.dim('Press Ctrl+C to stop'));
-      await ctx.watch();
+      try {
+        const ctx = await esbuild.context(buildOptions);
+        
+        if (args.target === 'development') {
+          copyDevelopmentAssets();
+        }
+        
+        console.log(logger.watching(config.name));
+        console.log(logger.dim('Press Ctrl+C to stop'));
+        await ctx.watch();
 
-      // Keep the process running
-      process.on('SIGINT', () => {
-        console.log(`\n${logger.warning('🛑 Stopping watch mode...')}`);
-        ctx.dispose();
-        console.log(logger.success('✨ Watch mode stopped cleanly'));
-        process.exit(0);
-      });
+        // Keep the process running
+        process.on('SIGINT', () => {
+          console.log(`\n${logger.warning('🛑 Stopping watch mode...')}`);
+          ctx.dispose();
+          console.log(logger.success('✨ Watch mode stopped cleanly'));
+          process.exit(0);
+        });
+      } catch (error) {
+        logger.logError('Watch mode failed', error as Error);
+        process.exit(1);
+      }
     } else {
       // Single build
-      const startTime = Date.now();
-      await esbuild.build(buildOptions);
-      const buildTime = Date.now() - startTime;
-      
-      console.log(logger.success(`✨ ${config.name} built in ${buildTime} ms`));
+      try {
+        const startTime = Date.now();
+        await esbuild.build(buildOptions);
+        const buildTime = Date.now() - startTime;
+        
+        console.log(logger.success(`✨ ${config.name} built in ${buildTime} ms`));
 
-      // Post-build tasks
-      if (args.target === 'development') {
-        generateTypeDeclarations();
-        copyDevelopmentAssets();
-      } else if (args.target === 'binary' && config.outfile) {
-        await generateLibraryTypeDeclarations();
-        makeExecutable(config.outfile);
-        showBuildStats(config.outfile, 'Binary');
-      } else if (args.target === 'web' && config.outfile) {
-        showBuildStats(config.outfile, 'Web bundle');
+        // Post-build tasks
+        if (args.target === 'development') {
+          generateTypeDeclarations();
+          copyDevelopmentAssets();
+        } else if (args.target === 'binary' && config.outfile) {
+          await generateLibraryTypeDeclarations();
+          makeExecutable(config.outfile);
+          showBuildStats(config.outfile, 'Universal Binary');
+        }
+
+        console.log(logger.success('  Build completed successfully!'));
+      } catch (error) {
+        logger.logError('Single build failed', error as Error);
+        process.exit(1);
       }
-
-      console.log(logger.success('  Build completed successfully!'));
     }
   } catch (error) {
     logger.logError('Build failed', error as Error);

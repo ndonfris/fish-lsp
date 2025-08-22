@@ -544,11 +544,8 @@ export namespace Config {
   }
 
   // Or use a helper function approach for even better typing
-  const keys = <T extends z.ZodObject<any>>(schema: T): Array<keyof z.infer<T>> => {
-    return Object.keys(schema.shape) as Array<keyof z.infer<T>>;
-  };
 
-  export const allKeys: Array<keyof typeof ConfigSchema.shape> = keys(ConfigSchema);
+  export const allKeys: Array<keyof typeof ConfigSchema.shape> = Object.keys(ConfigSchema.parse({})) as Array<keyof typeof ConfigSchema.shape>;
 
   /**
    * We only need to call this for the `initializationOptions`, but it ensures any string

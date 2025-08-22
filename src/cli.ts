@@ -104,6 +104,7 @@ commandBin.command('start')
     '\t>_ fish-lsp start --disable hover  # only disable the hover feature',
     '\t>_ fish-lsp start --disable complete logging index hover --dump',
     '\t>_ fish-lsp start --enable --disable logging complete codeAction',
+    '\t>_ fish-lsp start --socket 3000  # start TCP server on port 3000 (useful for Docker)',
   ].join('\n'))
   .action(async (opts: CommanderSubcommand.start.schemaType) => {
     await setupProcessEnvExecFile();
@@ -191,11 +192,15 @@ commandBin.command('info')
       .split('\n')
       .map((line: string) => `  ${line}`).join('\n');
 
+    args.warning = args.warning === true ? !args.warning : args.warning;
     // Variable to determine if we saw specific info requests
     let shouldExit = false;
     let exitCode = 0;
 
     let argsCount = CommanderSubcommand.countArgsWithValues('info', args);
+    if (args.warning) {
+      argsCount = argsCount - 1;
+    }
 
     // immediately exit if the user requested a specific info
     CommanderSubcommand.info.handleBadArgs(args);
@@ -364,6 +369,7 @@ commandBin.command('env')
   .option('--joined', 'print the names in a single line')
   .action(async (args: SubcommandEnv.ArgsType) => {
     await setupProcessEnvExecFile();
+
     const outputType = SubcommandEnv.getOutputType(args);
     const opts = SubcommandEnv.toEnvOutputOptions(args);
     if (args.names) {
@@ -386,4 +392,7 @@ commandBin.command('env')
 //   process.argv.push('--help')
 // }
 
-commandBin.parse();
+// Only run the CLI if this file is being executed directly (not imported as a module)
+if (require.main === module) {
+  commandBin.parse();
+}

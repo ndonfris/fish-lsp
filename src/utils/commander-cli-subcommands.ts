@@ -1015,5 +1015,5 @@ export function BuildCapabilityString() {
  */
 export const SourceMaps: Record<string, string> = {
   'dist/fish-lsp': path.resolve(path.dirname(getCurrentExecutablePath()), '..', 'dist', 'fish-lsp.map'),
-  'lib/fish-lsp-web.js': path.resolve(path.dirname(getCurrentExecutablePath()), '..', 'lib', 'fish-lsp-web.js.map'),
+  // 'lib/fish-lsp-web.js': path.resolve(path.dirname(getCurrentExecutablePath()), '..', 'lib', 'fish-lsp-web.js.map'),
 };

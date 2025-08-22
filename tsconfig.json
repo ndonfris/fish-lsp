@@ -7,11 +7,12 @@
   "compilerOptions": {
     "target": "es2018",
     "lib": [
+      "ES2019.Object",
       "ES2022",
       "ESNext"
     ],
     "noEmit": false,
-    // "moduleResolution": "nodenext",
+    "moduleResolution": "nodenext",
     "declaration": true,
     "declarationMap": true,
     "incremental": true,
@@ -36,6 +37,9 @@
     "paths": {
       "@package": [
         "./package.json"
+      ],
+      "./cli": [
+        "./src/cli.ts"
       ]
     }
   },

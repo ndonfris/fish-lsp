@@ -56,43 +56,59 @@ const verbose = (...args) => flags.verbose && console.log(...args);
 const exit = (code = 0) => process.exit(flags.forceSuccess ? 0 : code);
 
 try {
-    const timeStr = `${new Date().toISOString().split('T')[0]} ${new Date().toLocaleTimeString()}\n`;
+    const now = new Date();
+    const timeStr = `${now.toISOString().split('T')[0]} ${now.toLocaleTimeString()}`;
+    const buildTimeData = {
+        timestamp: timeStr,
+        isoTimestamp: now.toISOString(),
+        unix: Math.floor(now.getTime() / 1000),
+        version: process.env.npm_package_version || 'unknown',
+        nodeVersion: process.version
+    };
+    
     const scriptDir = path.dirname(path.resolve(__filename));
     const outDir = scriptDir.endsWith('scripts') ? path.join(path.dirname(scriptDir), 'out') : path.join(scriptDir, 'out');
-    const filePath = path.join(outDir, 'build-time.txt');
+    const jsonFilePath = path.join(outDir, 'build-time.json');
+    const txtFilePath = path.join(outDir, 'build-time.txt');
 
     verbose();
     verbose('>>> begin executing verbose build-time script <<<'.white().dim().italic());
     verbose('\n', ' --verbose '.bgGreen().black().bold(), 'enabled!'.green().bold(), '\n');
     verbose(' filePath: '.green().bold(), path.resolve(__filename).blue().bold());
 
-    // Create directory and file
+    // Create directory and files
     fs.mkdirSync(outDir, {recursive: true});
     if (!fs.existsSync(outDir)) {
         error("ERROR:".bgRed().white().bold(), "Failed to access 'out' directory.".red());
         exit(1);
     }
 
-    fs.writeFileSync(filePath, timeStr);
+    // Write JSON file (new format)
+    fs.writeFileSync(jsonFilePath, JSON.stringify(buildTimeData, null, 2));
+    
+    // Write legacy txt file for backwards compatibility
+    fs.writeFileSync(txtFilePath, timeStr + '\n');
 
-    if (!fs.existsSync(filePath)) {
-        error("ERROR:".bgRed().white().bold(), "Failed to write build time file.".red());
+    if (!fs.existsSync(jsonFilePath) || !fs.existsSync(txtFilePath)) {
+        error("ERROR:".bgRed().white().bold(), "Failed to write build time files.".red());
         exit(1);
     }
 
     if (flags.verbose) {
         verbose(' ✓ build-time script executed successfully!'.green().bold());
-        verbose(' ✓ created file:'.green().bold(), filePath.cyan());
-        verbose(' ✓ relative filepath:'.green().bold(), path.relative(process.cwd(), filePath).cyan());
-        verbose(' content:'.green().black().bold(), String.raw`'${timeStr.replace('\n', '\\n')}'`.blue().bold());
-        verbose(' last modified:'.green().black().bold(), fs.statSync(filePath).mtime.toLocaleString().blue().dim());
+        verbose(' ✓ created JSON file:'.green().bold(), jsonFilePath.cyan());
+        verbose(' ✓ created TXT file:'.green().bold(), txtFilePath.cyan());
+        verbose(' ✓ relative filepath:'.green().bold(), path.relative(process.cwd(), jsonFilePath).cyan());
+        verbose(' content:'.green().black().bold(), JSON.stringify(buildTimeData, null, 2).blue().bold());
+        verbose(' last modified:'.green().black().bold(), fs.statSync(jsonFilePath).mtime.toLocaleString().blue().dim());
         verbose();
         verbose('>>> end executing verbose build-time script <<<'.white().dim().italic());
         verbose();
     }
 
-    log(' ✓ created at:     '.bgGreen().black().bold(), path.basename(filePath).cyan().dim());
-    log(' ✓ with timestamp: '.bgGreen().black().bold(), timeStr.trim().blue().dim());
+    log(' ✓ created JSON at:'.bgGreen().black().bold(), path.basename(jsonFilePath).cyan().dim());
+    log(' ✓ created TXT at: '.bgGreen().black().bold(), path.basename(txtFilePath).cyan().dim());
+    log(' ✓ with timestamp: '.bgGreen().black().bold(), timeStr.blue().dim());
 
 } catch (error) {
     error("ERROR:".bgRed().white().bold(), "Script execution failed.".red());

@@ -41,7 +41,8 @@ const AUTO_GENERATED_HEADER_STRING = `#
 # REPO URL: https://github.com/ndonfris/fish-lsp
 `;
 
-const HELPER_FUNCTIONS: string = `
+function getHelperFunctions(): string {
+  return `
 #############################################
 # helper functions for fish-lsp completions #
 #############################################
@@ -50,7 +51,7 @@ const HELPER_FUNCTIONS: string = `
 # if a feature is already specified in the command line, it will be skipped
 # the features can also be used in the global environment variables \`fish_lsp_enabled_handlers\` or \`fish_lsp_disabled_handlers\`
 function __fish_lsp_get_features -d 'print all features controlled by the server, not yet used in the commandline'
-    set -l all_features ${validHandlers?.map(handlerName => `'${handlerName}'`).join(' ')}
+    set -l all_features ${validHandlers?.map(handlerName => `'${handlerName}'`).join(' ') || ['complete', 'hover', 'definition', 'references', 'codeAction', 'highlight', 'formatting', 'rename', 'signatureHelp', 'diagnostics']}
     set -l features_to_complete
     set -l features_to_skip
     set -l opts (commandline -opc)
@@ -102,10 +103,10 @@ end
 # if a env_variable is already specified in the command line, it will not be included again
 function __fish_lsp_get_env_variables -d 'print all fish_lsp_* env variables, not yet used in the commandline'
     # every env variable name 
-    set -l env_names ${Config?.envDocs ? Object.keys(Config.envDocs).map(k => `"${k}"`).join(' \\\n\t\t') : ''}
+    set -l env_names ${Config.allKeys?.map(k => `"${k}"`).join(' \\\n\t\t')}
 
     # every completion argument \`name\\t'description'\`, only unused env variables will be printed
-    set -l env_names_with_descriptions ${!!Config?.envDocs && Object.entries(Config.envDocs).map(([k, v]) => `"${k}\\t'${v}'"`).join(' \\\n\t\t')}
+    set -l env_names_with_descriptions ${Object.entries(Config.envDocs).map(([k, v]) => `"${k}\\t'${v}'"`).join(' \\\n\t\t')}
 
     # get the current command line token (for comma separated options)
     set -l current (commandline -ct)
@@ -331,6 +332,7 @@ end
 ### END OF HELPER FUNCTIONS ###
 ###############################
 `;
+}
 
 const noFishLspSubcommands: string = `## \`fish-lsp -<TAB>\`
 complete -c fish-lsp -n '__fish_is_first_arg; and not __fish_contains_opt -s v version'  -s v -l version      -d 'Show lsp version'
@@ -462,7 +464,7 @@ export function buildFishLspCompletions(commandBin: Command) {
   const output: string[] = [];
 
   output.push(AUTO_GENERATED_HEADER_STRING);
-  output.push(HELPER_FUNCTIONS);
+  output.push(getHelperFunctions());
   // remove the cached completions
   if (process.env.FISH_LSP_COMPLETIONS_CACHE_DISABLE === 'true') {
     output.push('## remove cached completions');

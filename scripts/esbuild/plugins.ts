@@ -84,6 +84,17 @@ export function createDefines(target: 'node' | 'browser', production = false): R
     defines['process.env.FISH_LSP_BUILD_TIME'] = `"${fallbackBuildTime}"`;
   }
 
+  // Embed asset paths for bundled versions (for binary target only)
+  if (target === 'node') {
+    const projectRoot = resolve(process.cwd());
+    defines['process.env.FISH_LSP_BUNDLED'] = '"true"';
+    defines['process.env.FISH_LSP_PROJECT_ROOT'] = `"${projectRoot}"`;
+    defines['process.env.FISH_LSP_FISH_FILES_PATH'] = `"${resolve(projectRoot, 'fish_files')}"`;
+    defines['process.env.FISH_LSP_TREE_SITTER_WASM_PATH'] = `"${resolve(projectRoot, 'tree-sitter-fish.wasm')}"`;
+    defines['process.env.FISH_LSP_MAN_FILE_PATH'] = `"${resolve(projectRoot, 'man', 'fish-lsp.1')}"`;
+    defines['process.env.FISH_LSP_BUILD_TIME_PATH'] = `"${resolve(projectRoot, 'out', 'build-time.json')}"`;
+  }
+
   if (target === 'browser') {
     defines['global'] = 'globalThis';
     defines['navigator'] = '{"language":"en-US"}';
