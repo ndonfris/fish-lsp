@@ -74,6 +74,7 @@ show the build info of fish-lsp
   `--use-workspace <PATH>`    use the workspace at the specified directory path when `fish-lsp info --time-startup` is used  
   `--no-warning`              disable message in the `fish-lsp info --time-startup` output  
   `--dump-parse-tree <FILE>`  show the tree-sitter AST for the specified file  
+  `--no-color`                disable color output in the `fish-lsp info --dump-file-tree` output  
 
 ### `url`
 

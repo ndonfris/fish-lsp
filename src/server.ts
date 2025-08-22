@@ -125,7 +125,7 @@ export default class FishServer {
 
     // set this only it it hasn't been set yet
     hasWorkspaceFolderCapability = !!(
-      capabilities.workspace && !!capabilities.workspace.workspaceFolders
+      !!capabilities?.workspace && !!capabilities?.workspace.workspaceFolders
     );
     logger.debug('hasWorkspaceFolderCapability', hasWorkspaceFolderCapability);
 

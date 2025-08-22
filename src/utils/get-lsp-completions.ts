@@ -410,6 +410,7 @@ complete -c fish-lsp -n '__fish_lsp_info_sourcemaps_complete'                   
 complete -c fish-lsp -n '__fish_lsp_info_sourcemaps_complete'                                                                                  -l status          -d 'info about the sourcemaps' 
 complete -c fish-lsp -n '__fish_lsp_info_complete_opt dump-parse-tree; and __fish_lsp_is_first_switch'                                         -l dump-parse-tree -d 'dump the tree-sitter parse tree of a file'       -k -xa '(__fish_complete_suffix "*.fish" --description="path to show tree-sitter AST" | string match -rei -- ".*\\.fish|.*/")'
 complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_lsp_last_switch --dump-parse-tree; and test (__fish_lsp_count_after_last_switch) -le 1'     -d 'fish script file'                                -k -xa '(__fish_complete_suffix "*.fish" --description="path to show tree-sitter AST" | string match -rei -- ".*\\.fish|.*/")' 
+complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_contains_opt dump-parse-tree; and not __fish_contains_opt no-color'      -l no-color        -d 'do not colorize the output'
 `;
 
 const envCompletions: string = `## fish-lsp env --<TAB>

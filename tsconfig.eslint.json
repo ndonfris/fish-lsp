@@ -11,6 +11,7 @@
     ".eslintrc.cjs",
     "commitlint.config.ts",
     "tests",
+    "bun.config.ts",
     "scripts/fish-commands-scrapper.ts"
   ],
   "exclude": [

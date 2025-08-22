@@ -3,6 +3,11 @@ import { Analyzer, analyzer } from '../analyze';
 import { logger } from '../logger';
 import { SyncFileHelper } from './file-operations';
 import path from 'path';
+import chalk from 'chalk';
+import { connection, startServer } from './startup';
+import FishServer from '../server';
+import { InitializeParams } from 'vscode-languageserver';
+import { CommanderSubcommand } from './commander-cli-subcommands';
 
 interface ParseTreeOutput {
   source: string;
@@ -16,14 +21,14 @@ interface ParseTreeOutput {
  * @param document - The LspDocument to debug
  * @returns Object containing both source and parse tree as strings
  */
-export function debugWorkspaceDocument(document: LspDocument): ParseTreeOutput {
+export function debugWorkspaceDocument(document: LspDocument, useColors: boolean = true): ParseTreeOutput {
   const source = document.getText();
 
   // Parse the document using the existing analyzer's parser
   const tree = analyzer.parser.parse(source);
 
   // Convert the parse tree to a readable string format
-  const parseTree = formatSyntaxTree(tree.rootNode, 0);
+  const parseTree = formatSyntaxTree(tree.rootNode, 0, useColors);
 
   return {
     source,
@@ -32,10 +37,87 @@ export function debugWorkspaceDocument(document: LspDocument): ParseTreeOutput {
 }
 
 /**
- * Recursively formats a syntax tree node into a readable string representation
- * similar to tree-sitter-cli output.
+ * Color scheme for different node types
  */
-function formatSyntaxTree(node: any, depth: number = 0): string {
+const nodeTypeColors = {
+  // Fish-specific node types
+  command: chalk.blue,
+  command_name: chalk.blue.bold,
+  argument: chalk.green,
+  option: chalk.yellow,
+  redirection: chalk.magenta,
+  pipe: chalk.cyan,
+  variable_expansion: chalk.red,
+  variable_name: chalk.red.bold,
+  string: chalk.green,
+  quoted_string: chalk.green,
+  double_quote_string: chalk.green,
+  single_quote_string: chalk.green,
+  concatenation: chalk.yellow,
+  word: chalk.yellow,
+  comment: chalk.yellow.dim,
+  function_definition: chalk.blue.bold,
+  if_statement: chalk.cyan.bold,
+  for_statement: chalk.cyan.bold,
+  while_statement: chalk.cyan.bold,
+  switch_statement: chalk.cyan.bold,
+  case_clause: chalk.cyan,
+  begin_statement: chalk.magenta.bold,
+  end: chalk.magenta.bold,
+  program: chalk.white.bold,
+  integer: chalk.yellow,
+  float: chalk.yellow,
+  boolean: chalk.yellow,
+  identifier: chalk.white.bgBlack,
+  ERROR: chalk.red.bold,
+  // Symbols and operators
+  '(': chalk.white.bold.italic,
+  ')': chalk.white.bold.italic,
+  '[': chalk.white.bold.italic,
+  ']': chalk.white.bold.italic,
+  '{': chalk.white.bold.italic,
+  '}': chalk.white.bold.italic,
+  '|': chalk.cyan.bold,
+  '&&': chalk.cyan,
+  '||': chalk.cyan,
+  ';': chalk.white.bold.italic,
+  '\n': chalk.white.bold.italic,
+  // Default fallback
+  default: chalk.white.bgBlack,
+};
+
+/**
+ * Color scheme for parentheses based on nesting depth
+ */
+const parenthesesColors = [
+  chalk.white,
+  chalk.yellow,
+  chalk.cyan,
+  chalk.magenta,
+  chalk.green,
+  chalk.blue,
+  chalk.red,
+];
+
+/**
+ * Get color function for a given node type
+ */
+function getNodeTypeColor(nodeType: string): (text: string) => string {
+  return nodeTypeColors[nodeType as keyof typeof nodeTypeColors] || nodeTypeColors.default;
+}
+
+/**
+ * Get color function for parentheses based on depth
+ */
+function getParenthesesColor(depth: number): (text: string) => string {
+  return parenthesesColors[depth % parenthesesColors.length] || chalk.yellowBright;
+}
+
+/**
+ * Recursively formats a syntax tree node into a readable string representation
+ * similar to tree-sitter-cli output, with comprehensive color highlighting.
+ */
+function formatSyntaxTree(node: any, depth: number = 0, useColors: boolean = true): string {
   const indent = '  '.repeat(depth);
   const rawNodeType = node.type || 'unknown';
   // If node type is just whitespace, escape it for visibility
@@ -43,12 +125,21 @@ function formatSyntaxTree(node: any, depth: number = 0): string {
   const startPos = `${node.startPosition?.row || 0}:${node.startPosition?.column || 0}`;
   const endPos = `${node.endPosition?.row || 0}:${node.endPosition?.column || 0}`;
 
-  let result = `${indent}(${nodeType} [${startPos}, ${endPos}]`;
+  // Get colors for this depth and node type (or no-op functions if colors disabled)
+  const parenColor = useColors ? getParenthesesColor(depth) : (text: string) => text;
+  const typeColor = useColors ? getNodeTypeColor(nodeType) : (text: string) => text;
+  const rangeColor = useColors ? chalk.dim.white.dim : (text: string) => text;
+
+  let result = `${indent}${parenColor('(')}${typeColor(nodeType)} ${rangeColor(`[${startPos}, ${endPos}]`)}`;
 
   // If it's a leaf node with text, show the text with proper escaping
   if (node.children.length === 0 && node.text) {
     const escapedText = escapeWhitespace(node.text);
-    result += ` "${escapedText}"`;
+    if (useColors) {
+      result += ` ${chalk.dim('"')}${chalk.italic.green(escapedText)}${chalk.dim('"')}`;
+    } else {
+      result += ` "${escapedText}"`;
+    }
   }
 
   // Handle children
@@ -56,11 +147,11 @@ function formatSyntaxTree(node: any, depth: number = 0): string {
     result += '\n';
     // Recursively format children
     for (const child of node.children) {
-      result += formatSyntaxTree(child, depth + 1);
+      result += formatSyntaxTree(child, depth + 1, useColors);
     }
-    result += `${indent})`;
+    result += `${indent}${parenColor(')')}`;
   } else {
-    result += ')';
+    result += parenColor(')');
   }
 
   // Always end with a newline, regardless of whether this node has children
@@ -106,8 +197,8 @@ export function logTreeSitterDocumentDebug(document: LspDocument): void {
   logger.log('='.repeat(80));
 }
 
-export function returnParseTreeString(document: LspDocument): string {
-  const { parseTree } = debugWorkspaceDocument(document);
+export function returnParseTreeString(document: LspDocument, useColors: boolean = true): string {
+  const { parseTree } = debugWorkspaceDocument(document, useColors);
   return parseTree;
 }
 
@@ -123,10 +214,36 @@ export function expandParseCliTreeFile(input: string | undefined): string {
   return path.resolve(resultPath);
 }
 
-export async function cliDumpParseTree(document: LspDocument): Promise<void> {
+export async function cliDumpParseTree(document: LspDocument, useColors: boolean = true): Promise<0 | 1> {
   await Analyzer.initialize();
-  const { parseTree } = debugWorkspaceDocument(document);
+  const { parseTree } = debugWorkspaceDocument(document, useColors);
 
   // Output the parse tree to stdout
   logger.logToStdout(parseTree);
+  if (parseTree.trim().length === 0) {
+    const errorMsg = useColors ? chalk.red('No parse tree available for this document.') : 'No parse tree available for this document.';
+    logger.logToStderr(errorMsg);
+    return 1;
+  }
+  return 0;
+}
+
+// Entire wrapper for `src/cli.ts` usage of this function
+export async function handleCLiDumpParseTree(args: CommanderSubcommand.info.schemaType): Promise<0 | 1> {
+  startServer();
+  await FishServer.create(connection, {
+    capabilities: {
+      workspace: {
+        workspaceFolders: true,
+      },
+    },
+  } as InitializeParams);
+  const filePath = expandParseCliTreeFile(args.dumpParseTree);
+  if (!SyncFileHelper.isFile(filePath)) {
+    logger.logToStderr(`Error: Cannot read file at ${filePath}. Please check the file path and permissions.`);
+    process.exit(1);
+  }
+  const doc = LspDocument.createFromPath(filePath);
+  const useColors = !args.noColor; // Use colors unless --no-color flag is set
+  return await cliDumpParseTree(doc, useColors);
 }

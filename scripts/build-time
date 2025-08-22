@@ -1,100 +1,101 @@
 #!/usr/bin/env node
 
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+const fs = require('fs');
+const path = require('path');
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Parse flags
+const args = process.argv;
+const flags = {
+    quiet: args.includes('-q') || args.includes('--quiet'),
+    verbose: args.includes('-v') || args.includes('--verbose'),
+    help: args.includes('-h') || args.includes('--help'),
+    noColor: args.includes('-n') || args.includes('--no-color'),
+    color: args.includes('-c') || args.includes('--color'),
+    forceSuccess: args.includes('-f') || args.includes('--force-success')
+};
 
-export const colors = {
-  // Basic colors
-  reset: '\x1b[0m',
-  bright: '\x1b[1m',
-  dim: '\x1b[2m',
-  
-  // Text colors
-  red: '\x1b[31m',
-  green: '\x1b[32m',
-  yellow: '\x1b[33m',
-  blue: '\x1b[34m',
-  magenta: '\x1b[35m',
-  cyan: '\x1b[36m',
-  white: '\x1b[37m',
-  gray: '\x1b[90m',
-  
-  // Background colors
-  bgRed: '\x1b[41m',
-  bgGreen: '\x1b[42m',
-  bgYellow: '\x1b[43m',
-  bgBlue: '\x1b[44m',
-  bgMagenta: '\x1b[45m',
-  bgCyan: '\x1b[46m',
-  bgWhite: '\x1b[47m',
+// Setup colors
+const colors = {
+    reset: '\x1b[0m', bold: '\x1b[1m', dim: '\x1b[2m', italic: '\x1b[3m', underline: '\x1b[4m', inverse: '\x1b[7m',
+    black: '\x1b[30m', red: '\x1b[31m', green: '\x1b[32m', yellow: '\x1b[33m', blue: '\x1b[34m', magenta: '\x1b[35m', cyan: '\x1b[36m', white: '\x1b[37m', gray: '\x1b[90m',
+    bgBlack: '\x1b[40m', bgRed: '\x1b[41m', bgGreen: '\x1b[42m', bgYellow: '\x1b[43m', bgBlue: '\x1b[44m', bgMagenta: '\x1b[45m', bgCyan: '\x1b[46m', bgWhite: '\x1b[47m',
+};
+
+Object.keys(colors).forEach(color => {
+    String.prototype[color] = flags.noColor || color === 'reset'
+        ? function () {return this.toString();}
+        : function () {return `${colors[color]}${this}${colors.reset}`;};
+});
+
+
+// Handle conflicting flags
+if (flags.color && flags.noColor) flags.help = true;
+
+if (flags.help) {
+    console.log(`Usage:`.reset().bold(), `yarn sh:build-time  [OPTIONS]
+      ./scripts/build-time [OPTIONS]
+
+${'Description:'.reset().bold()}
+  This script creates a file in the 'out' directory with the current
+  date and time for the most recent \`fish-lsp\` package's build.
+
+${'Options:'.reset().bold()}
+  -h, --help                 Show this help message
+  -q, --quiet                Suppress output
+  -v, --verbose              Enable verbose output
+      --color                Enable colored output
+  -n, --no-color             Disable colored output
+  -f, --force-success        Force success exit code
+`);
+    process.exit(0);
 }
 
-// Check if we should use colors (respects NO_COLOR env var and TTY detection)
-// const shouldUseColors = !process.env.NO_COLOR && process.stdout.isTTY;
+const log = (...args) => !flags.quiet && console.log(...args);
+const error = (...args) => !flags.quiet && console.error(...args);
+const verbose = (...args) => flags.verbose && console.log(...args);
+const exit = (code = 0) => process.exit(flags.forceSuccess ? 0 : code);
 
-function colorize(text, color) {
-  // if (!shouldUseColors) return text;
-  return `${color}${text}${colors.reset}`;
+try {
+    const timeStr = `${new Date().toISOString().split('T')[0]} ${new Date().toLocaleTimeString()}\n`;
+    const scriptDir = path.dirname(path.resolve(__filename));
+    const outDir = scriptDir.endsWith('scripts') ? path.join(path.dirname(scriptDir), 'out') : path.join(scriptDir, 'out');
+    const filePath = path.join(outDir, 'build-time.txt');
+
+    verbose();
+    verbose('>>> begin executing verbose build-time script <<<'.white().dim().italic());
+    verbose('\n', ' --verbose '.bgGreen().black().bold(), 'enabled!'.green().bold(), '\n');
+    verbose(' filePath: '.green().bold(), path.resolve(__filename).blue().bold());
+
+    // Create directory and file
+    fs.mkdirSync(outDir, {recursive: true});
+    if (!fs.existsSync(outDir)) {
+        error("ERROR:".bgRed().white().bold(), "Failed to access 'out' directory.".red());
+        exit(1);
+    }
+
+    fs.writeFileSync(filePath, timeStr);
+
+    if (!fs.existsSync(filePath)) {
+        error("ERROR:".bgRed().white().bold(), "Failed to write build time file.".red());
+        exit(1);
+    }
+
+    if (flags.verbose) {
+        verbose(' ✓ build-time script executed successfully!'.green().bold());
+        verbose(' ✓ created file:'.green().bold(), filePath.cyan());
+        verbose(' ✓ relative filepath:'.green().bold(), path.relative(process.cwd(), filePath).cyan());
+        verbose(' content:'.green().black().bold(), String.raw`'${timeStr.replace('\n', '\\n')}'`.blue().bold());
+        verbose(' last modified:'.green().black().bold(), fs.statSync(filePath).mtime.toLocaleString().blue().dim());
+        verbose();
+        verbose('>>> end executing verbose build-time script <<<'.white().dim().italic());
+        verbose();
+    }
+
+    log(' ✓ created at:     '.bgGreen().black().bold(), path.basename(filePath).cyan().dim());
+    log(' ✓ with timestamp: '.bgGreen().black().bold(), timeStr.trim().blue().dim());
+
+} catch (error) {
+    error("ERROR:".bgRed().white().bold(), "Script execution failed.".red());
+    flags.verbose && console.error('Details:'.bgRed().white().bold(), error.message.red());
+    exit(1);
 }
-
-
-// Get the current date and time in YYYY-MM-DD HH:MM:SS format
-function getCurrentDateTime() {
-  const now = new Date();
-  
-  // Format date as YYYY-MM-DD
-  const date = now.toISOString().split('T')[0];
-  
-  // Format time as HH:MM:SS
-  const time = now.toTimeString().split(' ')[0];
-  
-  return `${date} ${time}`;
-}
-
-// Ensure the output directory exists
-function ensureOutDirExists() {
-  const outDir = path.resolve(__dirname, '../out');
-  if (!fs.existsSync(outDir)) {
-    fs.mkdirSync(outDir, { recursive: true });
-  }
-  return outDir;
-}
-
-// Ensure the lib directory exists
-function ensureLibDirExists() {
-  const libDir = path.resolve(__dirname, '../lib');
-  if (!fs.existsSync(libDir)) {
-    fs.mkdirSync(libDir, { recursive: true });
-  }
-  return libDir;
-}
-
-// Write the build time to a file
-function writeBuildTime() {
-  const outDir = ensureOutDirExists();
-  const libDir = ensureLibDirExists();
-  const buildTime = getCurrentDateTime();
-  
-  // Write to both out/ and lib/ directories
-  const files = [
-    path.join(outDir, 'build-time.txt'),
-    path.join(libDir, 'build-time.txt')
-  ];
-  
-  try {
-    files.forEach(file => {
-      fs.writeFileSync(file, `${buildTime}\n`);
-    });
-    console.log(`${colorize(' Build time recorded:', colors.green)} ${colorize(buildTime, colors.blue)}`);
-  } catch (error) {
-    console.error(colorize(`Error writing build time: ${error.message}`, colors.red));
-    process.exit(1);
-  }
-}
-
-// Execute the script
-writeBuildTime();
