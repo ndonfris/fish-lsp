@@ -1,3 +1,43 @@
+## <small>1.0.11-pre.12 (2025-08-23)</small>
+
+* fix: `scripts/build-assets.fish` simplified ([e5ee660](https://github.com/ndonfris/fish-lsp/commit/e5ee660))
+* fix: `src/cli.ts` correctly starts from inside `src/main.ts` ([5119155](https://github.com/ndonfris/fish-lsp/commit/5119155))
+* fix: `src/cli.ts` uses function to parse instead of namespace ([c5ee59f](https://github.com/ndonfris/fish-lsp/commit/c5ee59f))
+* fix: include `bin/fish-lsp` in git tracking ([d69bc58](https://github.com/ndonfris/fish-lsp/commit/d69bc58))
+* fix: resolve relative workspace symbols `source ./parent/file.fish` ([e39d1e1](https://github.com/ndonfris/fish-lsp/commit/e39d1e1))
+* feat: added `--no-color` switch to output generated from `--dump-parse-tree` ([f352750](https://github.com/ndonfris/fish-lsp/commit/f352750))
+* feat: added `info --dump-parse-tree <FILE>` && `tests/test-workspace-utils.ts` ([88a3085](https://github.com/ndonfris/fish-lsp/commit/88a3085))
+* feat: added `yarn publish-nightly` script ([528671a](https://github.com/ndonfris/fish-lsp/commit/528671a))
+* feat: added build-assets script for publishing ([38df754](https://github.com/ndonfris/fish-lsp/commit/38df754))
+* feat: bundle all entry points to `./dist/fish-lsp` ([088a663](https://github.com/ndonfris/fish-lsp/commit/088a663))
+* feat: workspace testing util setup ([7af26d2](https://github.com/ndonfris/fish-lsp/commit/7af26d2))
+* chore: bundle remove from rebase ([94eed7f](https://github.com/ndonfris/fish-lsp/commit/94eed7f))
+* chore: for bundle w/ relative source paths working ([0213561](https://github.com/ndonfris/fish-lsp/commit/0213561))
+* chore: prepack auto-commit changes before pack 08/21/25 09:16:50 ([37cfc3b](https://github.com/ndonfris/fish-lsp/commit/37cfc3b))
+* docs: automated commit `v1.0.11-pre.11` ci/cd 2025-08-07 ([8a9f34a](https://github.com/ndonfris/fish-lsp/commit/8a9f34a))
+
+
+
+## <small>1.0.11-pre.12 (2025-08-23)</small>
+
+* fix: `scripts/build-assets.fish` simplified ([e5ee660](https://github.com/ndonfris/fish-lsp/commit/e5ee660))
+* fix: `src/cli.ts` correctly starts from inside `src/main.ts` ([5119155](https://github.com/ndonfris/fish-lsp/commit/5119155))
+* fix: `src/cli.ts` uses function to parse instead of namespace ([c5ee59f](https://github.com/ndonfris/fish-lsp/commit/c5ee59f))
+* fix: include `bin/fish-lsp` in git tracking ([d69bc58](https://github.com/ndonfris/fish-lsp/commit/d69bc58))
+* fix: resolve relative workspace symbols `source ./parent/file.fish` ([e39d1e1](https://github.com/ndonfris/fish-lsp/commit/e39d1e1))
+* feat: added `--no-color` switch to output generated from `--dump-parse-tree` ([f352750](https://github.com/ndonfris/fish-lsp/commit/f352750))
+* feat: added `info --dump-parse-tree <FILE>` && `tests/test-workspace-utils.ts` ([88a3085](https://github.com/ndonfris/fish-lsp/commit/88a3085))
+* feat: added `yarn publish-nightly` script ([528671a](https://github.com/ndonfris/fish-lsp/commit/528671a))
+* feat: added build-assets script for publishing ([38df754](https://github.com/ndonfris/fish-lsp/commit/38df754))
+* feat: bundle all entry points to `./dist/fish-lsp` ([088a663](https://github.com/ndonfris/fish-lsp/commit/088a663))
+* feat: workspace testing util setup ([7af26d2](https://github.com/ndonfris/fish-lsp/commit/7af26d2))
+* chore: bundle remove from rebase ([94eed7f](https://github.com/ndonfris/fish-lsp/commit/94eed7f))
+* chore: for bundle w/ relative source paths working ([0213561](https://github.com/ndonfris/fish-lsp/commit/0213561))
+* chore: prepack auto-commit changes before pack 08/21/25 09:16:50 ([37cfc3b](https://github.com/ndonfris/fish-lsp/commit/37cfc3b))
+* docs: automated commit `v1.0.11-pre.11` ci/cd 2025-08-07 ([8a9f34a](https://github.com/ndonfris/fish-lsp/commit/8a9f34a))
+
+
+
 ## <small>1.0.11-pre.11 (2025-08-07)</small>
 
 * chore: cleanup `src/{cli,server}.ts` ([3938393](https://github.com/ndonfris/fish-lsp/commit/3938393))
