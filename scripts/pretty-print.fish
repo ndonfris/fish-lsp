@@ -148,3 +148,14 @@ function log_error -d 'Print error message' -a icon title message
 
     string join ' ' -- $result
 end
+
+function success -d 'Print success message'
+    set icon (icon_check)
+    log_info "$icon" '[OK]' "$argv"
+end
+
+function fail -d 'Print error message and exit'
+    set icon (icon_x)
+    log_error "$icon" '[ERROR]' "$argv"
+    exit 1
+end

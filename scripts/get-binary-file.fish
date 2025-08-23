@@ -12,7 +12,7 @@ if not test -f $pkg_json_bin
 end
 
 function get_fish_lsp_bin_entry --description 'Get the binary file for fish-lsp'
-    set cmds (yarn exec -s node-jq -- -r '.bin | .[]' package.json | path resolve) (yarn -s exec -- fish-lsp info --bin) './dist/fish-lsp'
+    set cmds (yarn -s exec -- fish-lsp info --bin) './dist/fish-lsp'
     for cmd in $cmds
         test -z "$cmd" && continue
         set cmd (path resolve -- $cmd)
@@ -83,5 +83,3 @@ if set -q _flag_print_binary_file
         return 1
     end
 end
-
-
