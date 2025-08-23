@@ -1,3 +1,10 @@
+## <small>1.0.11-pre.13 (2025-08-23)</small>
+
+* fix: `scripts/build-time` not included in published npm version ([0bb19b7](https://github.com/ndonfris/fish-lsp/commit/0bb19b7))
+* docs: update `docs/CHANGELOG.md` ([069d63b](https://github.com/ndonfris/fish-lsp/commit/069d63b))
+
+
+
 ## <small>1.0.11-pre.12 (2025-08-23)</small>
 
 * fix: `scripts/build-assets.fish` simplified ([e5ee660](https://github.com/ndonfris/fish-lsp/commit/e5ee660))
