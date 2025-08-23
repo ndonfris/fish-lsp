@@ -59,7 +59,8 @@ try {
     const now = new Date();
     const timeStr = `${now.toISOString().split('T')[0]} ${now.toLocaleTimeString()}`;
     const buildTimeData = {
-        timestamp: timeStr,
+        date: new Date().toDateString(),
+        timestamp: new Date().toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'medium' }),
         isoTimestamp: now.toISOString(),
         unix: Math.floor(now.getTime() / 1000),
         version: process.env.npm_package_version || 'unknown',

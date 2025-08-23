@@ -12,18 +12,20 @@ import { ConnectionOptions, ConnectionType, createConnectionType, maxWidthForOut
 import { performHealthCheck } from './utils/health-check';
 import { setupProcessEnvExecFile } from './utils/process-env';
 import { handleCLiDumpParseTree } from './utils/dump-parse-tree';
+import chalk from 'chalk';
 
 /**
  *  creates local 'commandBin' used for commander.js
  */
 const createFishLspBin = (): Command => {
   const bin = new Command('fish-lsp')
-    .description(`Description:\n${FishLspHelp?.description || 'fish-lsp command output'}`)
+    .description(`Description:\n${FishLspHelp?.description || 'fish-lsp [COMMAND] [OPTIONS]'}`)
     .helpOption('-h, --help', 'show the relevant help info. Use `--help-all` for comprehensive documentation of all commands and flags. Other `--help-*` flags are also available.')
     .version(PkgJson?.version || 'latest', '-v, --version', 'output the version number')
     .enablePositionalOptions(true)
     .configureHelp({
       showGlobalOptions: false,
+      sortSubcommands: true,
       commandUsage: (_) => FishLspHelp?.usage,
     })
     .showSuggestionAfterError(true)
@@ -45,11 +47,17 @@ commandBin
       const { path: _path, content } = FishLspManPage();
       logger.logToStdout(content.join('\n').trim());
     } else if (opt.helpAll) {
-      const globalOpts = commandBin.options.concat(new Option('-h, --help', 'show help'));
+      const globalOpts = [new Option('-h, --help', 'show help'), ...commandBin.options];
+      const allOpts = [
+        ...globalOpts.map(o => o.flags),
+        ...commandBin.commands.flatMap(c => c.options.map(o => o.flags)),
+      ];
+
+      const padAmount = Math.max(...allOpts.map(o => `${o}\t`.length));
       const subCommands = commandBin.commands.map((cmd) => {
         return [
           `  ${cmd.name()} ${cmd.usage()}\t${cmd.summary()}`,
-          cmd.options.map(o => `    ${o.flags}\t\t${o.description}`).join('\n'),
+          cmd.options.map(o => `    ${o.flags.padEnd(padAmount)}\t${o.description}`).join('\n'),
           ''].join('\n');
       });
       logger.logToStdout(['NAME:',
@@ -62,7 +70,7 @@ commandBin
         '  ' + commandBin.description().split('\n').slice(1).join('\n').trim(),
         '',
         'OPTIONS:',
-        '  ' + globalOpts.map(o => '  ' + o.flags + '\t' + o.description).join('\n').trim(),
+        '  ' + globalOpts.map(o => '  ' + o.flags.padEnd(padAmount) + '\t' + o.description).join('\n').trim(),
         '',
         'SUBCOMMANDS:',
         subCommands.join('\n'),
@@ -385,14 +393,15 @@ commandBin.command('env')
     process.exit(0);
   });
 
-/**
- * ADD HELP MESSAGE WHEN NO SUBCOMMAND IS GIVEN
- */
-// if (process.argv.length <= 2 && process.env['NODE_TEST'] !== 'test') {
-//   process.argv.push('--help')
-// }
-
-// Only run the CLI if this file is being executed directly (not imported as a module)
-if (require.main === module) {
-  commandBin.parse();
+// Parsing the command now happens in the `src/main.ts` file, since our bundler
+export namespace CLI {
+  export function start() {
+    if (process.argv.length <= 2) {
+      logger.logToStderr(chalk.red('[ERROR] No COMMAND provided to `fish-lsp`, displaying `fish-lsp --help` output.\n'));
+      commandBin.outputHelp();
+      logger.logToStdout('\nFor more help, use `fish-lsp --help-all` to see all commands and options.');
+      process.exit(1);
+    }
+    commandBin.parse(process.argv);
+  }
 }

@@ -145,7 +145,7 @@ export function getConfigFromEnvironmentVariables(): {
     fish_lsp_enable_experimental_diagnostics: toBoolean(process.env.fish_lsp_enable_experimental_diagnostics),
     fish_lsp_prefer_builtin_fish_commands: toBoolean(process.env.fish_lsp_prefer_builtin_fish_commands),
     fish_lsp_strict_conditional_command_warnings: toBoolean(process.env.fish_lsp_strict_conditional_command_warnings),
-    fish_lsp_max_background_files: toNumber(process.env.fish_lsp_max_background_files),
+    fish_lsp_max_background_files: toNumber(process.env.fish_lsp_max_background_files || '10000'),
     fish_lsp_show_client_popups: toBoolean(process.env.fish_lsp_show_client_popups),
     fish_lsp_single_workspace_support: toBoolean(process.env.fish_lsp_single_workspace_support),
   };
@@ -261,8 +261,11 @@ export function updateConfigValues<T extends z.infer<typeof ConfigSchema>>(
 export const toBoolean = (s?: string): boolean | undefined =>
   typeof s !== 'undefined' ? s === 'true' || s === '1' : undefined;
 
-export const toNumber = (s?: string): number | undefined =>
-  typeof s !== 'undefined' ? parseInt(s, 10) : undefined;
+export const toNumber = (s?: string | number): number | undefined =>
+  typeof s === 'undefined'
+    ? undefined
+    : typeof s === 'number' ? s
+      : typeof s === 'string' ? parseInt(s, 10) : parseInt(String(s), 10) || undefined;
 
 function buildOutput(confd: boolean, result: string[]) {
   return confd
@@ -530,6 +533,7 @@ export namespace Config {
    * Used for the `fish-lsp env` cli completions
    */
   export const envDocs: Record<keyof Config, string> = getDocsObj();
+  export const allServerFeatures = Array.from([...validHandlers]);
 
   /**
    * All old environment variables mapped to their new key names.

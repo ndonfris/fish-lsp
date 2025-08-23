@@ -187,7 +187,7 @@ export const RepoUrl = PackageJSON.repository?.url.slice(0, -4);
 export const PackageVersion = PackageJSON.version;
 
 export const PathObj: { [K in 'bin' | 'root' | 'path' | 'manFile' | 'execFile']: string } = {
-  ['bin']: resolve(getProjectRootPath(), 'bin', 'fish-lsp'),
+  ['bin']:  getCurrentExecutablePath(),
   ['root']: getProjectRootPath(),
   ['path']: getProjectRootPath(),
   ['execFile']: getCurrentExecutablePath(),
@@ -278,6 +278,28 @@ const getOutTime = () => {
 
 export const getBuildTimeString = () => {
   return getOutTime();
+};
+
+export type BuildTimeJsonObj = {
+  date: string | Date;
+  timestamp: string;
+  isoTimestamp: string;
+  unix: number;
+  version: string;
+  nodeVersion: string;
+  [key: string]: any;
+};
+export const getBuildTimeJsonObj = (): BuildTimeJsonObj | undefined => {
+  try {
+    const jsonFile = getFishBuildTimeFilePath();
+    const jsonContent = readFileSync(jsonFile, 'utf8');
+    const jsonObj: BuildTimeJsonObj = JSON.parse(jsonContent);
+    return { ...jsonObj, date: new Date(jsonObj.date) };
+  } catch (e) {
+    logger.logToStderr(`Error reading build-time JSON file: ${e}`);
+    logger.error(`Error reading build-time JSON file: ${e}`);
+  }
+  return undefined;
 };
 
 export const isPkgBinary = () => {
@@ -378,12 +400,14 @@ export const PkgJson = {
   name: PackageJSON.name,
   version: PackageJSON.version,
   description: PackageJSON.description,
-  repository: PackageJSON.repository?.url || ' ',
+  npm: 'https://www.npmjs.com/fish-lsp',
+  repository: PackageJSON.repository?.url.replace(/^git\+/, '') || ' ',
   homepage: PackageJSON.homepage || ' ',
   lspVersion: PackageLspVersion,
   node: PackageNodeRequiredVersion,
   man: getManFilePath(),
   buildTime: getBuildTimeString(),
+  buildTimeObj: getBuildTimeJsonObj(),
   ...PathObj,
 };
 
