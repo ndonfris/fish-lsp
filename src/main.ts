@@ -5,6 +5,7 @@
 
 // Import polyfills for compatibility
 import './utils/array-polyfills';
+import './utils/commander-cli-subcommands';
 
 // Environment detection
 function isBrowserEnvironment(): boolean {
@@ -17,14 +18,8 @@ function isRunningAsCLI(): boolean {
 
 // CLI functionality - only load when needed
 async function runCLI() {
-  const { CLI } = await import('./cli.ts');
-  CLI.start();
-  // // Handle the case where user didn't provide any arguments
-  // if (process.argv.length <= 2 && process.env.NODE_TEST !== 'test') {
-  //   process.argv.push('--help');
-  // }
-  //
-  // commandBin.parse();
+  const { execCLI } = await import('./cli.ts');
+  execCLI();
 }
 
 // Import web module to ensure it's bundled and can auto-initialize

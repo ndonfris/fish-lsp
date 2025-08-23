@@ -131,12 +131,9 @@ export function getFishBuildTimeFilePath(): string {
     return process.env.FISH_LSP_BUILD_TIME_PATH;
   }
 
-  // Standard locations: out directory first, then lib directory for bundled
+  // Standard locations: out directory
   const foundPath = findFirstExistingFile(
     resolve(getProjectRootPath(), 'out', 'build-time.json'),
-    resolve(getProjectRootPath(), 'out', 'build-time.txt'),
-    resolve(getProjectRootPath(), 'lib', 'build-time.json'),
-    resolve(getProjectRootPath(), 'lib', 'build-time.txt'),
   );
 
   return foundPath ?? resolve(getProjectRootPath(), 'out', 'build-time.json');

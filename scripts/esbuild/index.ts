@@ -14,7 +14,7 @@ export * from "./types";
 import { parseArgs, showCompletions, showHelp } from "./cli";
 import { ALL_TARGETS, BuildConfigTarget, isBuildConfigTarget, getTargetDisplayName } from "./types";
 import { buildConfigs, createBuildOptions } from './configs';
-import { generateTypeDeclarations, generateLibraryTypeDeclarations, copyDevelopmentAssets, showBuildStats, makeExecutable } from './utils';
+import { generateTypeDeclarations, copyDevelopmentAssets, showBuildStats, makeExecutable } from './utils';
 import { logger } from './colors';
 import { startFileWatcher } from './file-watcher';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
@@ -48,6 +48,10 @@ export async function build(customArgs?: string[]): Promise<void> {
     if (args.target === 'all') {
       const targets = ALL_TARGETS;
       
+      // Generate type declarations once for all targets
+      console.log(logger.info('📦 Generating TypeScript declarations for all targets...'));
+      generateTypeDeclarations();
+      
       if (args.watch) {
         // Watch mode for all targets
         console.log(logger.header('`fish-lsp` esbuild (BUILD SYSTEM)'));
@@ -63,12 +67,10 @@ export async function build(customArgs?: string[]): Promise<void> {
           const ctx = await esbuild.context(buildOptions);
           contexts.push(ctx);
           
-          // Post-build tasks for initial build
+          // Post-build tasks for initial build (excluding type generation)
           if (targetName === 'development') {
-            generateTypeDeclarations();
             copyDevelopmentAssets();
           } else if (targetName === 'binary' && config.outfile) {
-            await generateLibraryTypeDeclarations();
             makeExecutable(config.outfile);
           }
           
@@ -107,12 +109,10 @@ export async function build(customArgs?: string[]): Promise<void> {
           const buildTime = Date.now() - startTime;
           console.log(logger.success(`✨ ${config.name} built in ${buildTime} ms`));
           
-          // Post-build tasks for each target
+          // Post-build tasks for each target (excluding type generation)
           if (targetName === 'development') {
-            generateTypeDeclarations();
             copyDevelopmentAssets();
           } else if (targetName === 'binary' && config.outfile) {
-            await generateLibraryTypeDeclarations();
             makeExecutable(config.outfile);
             showBuildStats(config.outfile, 'Universal Binary');
           }
@@ -183,7 +183,7 @@ export async function build(customArgs?: string[]): Promise<void> {
           generateTypeDeclarations();
           copyDevelopmentAssets();
         } else if (args.target === 'binary' && config.outfile) {
-          await generateLibraryTypeDeclarations();
+          generateTypeDeclarations();
           makeExecutable(config.outfile);
           showBuildStats(config.outfile, 'Universal Binary');
         }

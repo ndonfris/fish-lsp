@@ -3,7 +3,7 @@
 
 // Import polyfills for Node.js 18 compatibility
 import './utils/array-polyfills';
-import { BuildCapabilityString, PathObj, PackageLspVersion, PackageVersion, accumulateStartupOptions, getBuildTimeString, FishLspHelp, FishLspManPage, SourcesDict, SubcommandEnv, CommanderSubcommand, getBuildTypeString, PkgJson, SourceMaps } from './utils/commander-cli-subcommands';
+import { BuildCapabilityString, PathObj, PackageLspVersion, PackageVersion, accumulateStartupOptions, FishLspHelp, FishLspManPage, SourcesDict, SubcommandEnv, CommanderSubcommand, getBuildTypeString, PkgJson, SourceMaps } from './utils/commander-cli-subcommands';
 import { Command, Option } from 'commander';
 import { buildFishLspCompletions } from './utils/get-lsp-completions';
 import { logger } from './logger';
@@ -18,19 +18,23 @@ import chalk from 'chalk';
  *  creates local 'commandBin' used for commander.js
  */
 const createFishLspBin = (): Command => {
+  const description = [
+    'Description:',
+    FishLspHelp().description || 'An LSP for the fish shell language',
+  ].join('\n');
   const bin = new Command('fish-lsp')
-    .description(`Description:\n${FishLspHelp?.description || 'fish-lsp [COMMAND] [OPTIONS]'}`)
-    .helpOption('-h, --help', 'show the relevant help info. Use `--help-all` for comprehensive documentation of all commands and flags. Other `--help-*` flags are also available.')
+    .description(description)
+    .helpOption('-h, --help', 'show the relevant help info. Other `--help-*` flags are also available.')
     .version(PkgJson?.version || 'latest', '-v, --version', 'output the version number')
     .enablePositionalOptions(true)
     .configureHelp({
       showGlobalOptions: false,
       sortSubcommands: true,
-      commandUsage: (_) => FishLspHelp?.usage,
+      commandUsage: (_) => FishLspHelp().usage,
     })
     .showSuggestionAfterError(true)
     .showHelpAfterError(true)
-    .addHelpText('after', FishLspHelp?.after);
+    .addHelpText('after', FishLspHelp().after);
   return bin;
 };
 
@@ -60,11 +64,12 @@ commandBin
           cmd.options.map(o => `    ${o.flags.padEnd(padAmount)}\t${o.description}`).join('\n'),
           ''].join('\n');
       });
+      const { beforeAll, after } = FishLspHelp();
       logger.logToStdout(['NAME:',
         'fish-lsp - an lsp for the fish shell language',
         '',
         'USAGE: ',
-        FishLspHelp.beforeAll,
+        beforeAll,
         '',
         'DESCRIPTION:',
         '  ' + commandBin.description().split('\n').slice(1).join('\n').trim(),
@@ -76,11 +81,12 @@ commandBin
         subCommands.join('\n'),
         '',
         'EXAMPLES:',
-        FishLspHelp.after.split('\n').slice(2).join('\n'),
+        after.split('\n').slice(2).join('\n'),
       ].join('\n').trim());
     } else if (opt.helpShort) {
       logger.logToStdout([
-        'Usage: fish-lsp ', commandBin.usage().split('\n').slice(0, 1),
+        'fish-lsp [OPTIONS]',
+        'fish-lsp [COMMAND] [OPTIONS]',
         '',
         commandBin.description(),
       ].join('\n'));
@@ -200,16 +206,18 @@ commandBin.command('info')
       .split('\n')
       .map((line: string) => `  ${line}`).join('\n');
 
-    args.warning = args.warning === true ? !args.warning : args.warning;
+    const hasTimingOpts = args.timeStartup || args.timeOnly;
+    args.warning = !hasTimingOpts && args.warning === true ? !args.warning : args.warning;
     // Variable to determine if we saw specific info requests
     let shouldExit = false;
     let exitCode = 0;
 
     let argsCount = CommanderSubcommand.countArgsWithValues('info', args);
-    if (args.warning) {
+    if (args.warning && !hasTimingOpts) {
       argsCount = argsCount - 1;
     }
 
+    const sourceMaps = Object.values(SourceMaps);
     // immediately exit if the user requested a specific info
     CommanderSubcommand.info.handleBadArgs(args);
 
@@ -252,7 +260,7 @@ commandBin.command('info')
       }
       if (args.buildTime) {
         argsCount = argsCount - 1;
-        CommanderSubcommand.info.log(argsCount, 'Build Time', getBuildTimeString());
+        CommanderSubcommand.info.log(argsCount, 'Build Time', PkgJson.buildTime);
         shouldExit = true;
       }
       if (args.buildType) {
@@ -280,14 +288,15 @@ commandBin.command('info')
       CommanderSubcommand.info.log(argsCount, 'Executable Path', PathObj.execFile, true);
       CommanderSubcommand.info.log(argsCount, 'Build Location', PathObj.path, true);
       CommanderSubcommand.info.log(argsCount, 'Build Version', PackageVersion, true);
-      CommanderSubcommand.info.log(argsCount, 'Build Time', getBuildTimeString(), true);
+      CommanderSubcommand.info.log(argsCount, 'Build Time', PkgJson.buildTime, true);
       CommanderSubcommand.info.log(argsCount, 'Build Type', getBuildTypeString(), true);
       CommanderSubcommand.info.log(argsCount, 'Node Version', process.version, true);
       CommanderSubcommand.info.log(argsCount, 'LSP Version', PackageLspVersion, true);
       CommanderSubcommand.info.log(argsCount, 'Binary File', PathObj.bin, true);
       CommanderSubcommand.info.log(argsCount, 'Man File', PathObj.manFile, true);
       CommanderSubcommand.info.log(argsCount, 'Log File', config.fish_lsp_log_file, true);
-      CommanderSubcommand.info.log(argsCount, 'Sourcemaps', `\n${Object.values(SourceMaps).join('\n')}`, true);
+      const sourceMapString = sourceMaps.length > 1 ? `\n${sourceMaps.join('\n')}` : sourceMaps.join('\n');
+      CommanderSubcommand.info.log(argsCount, 'Sourcemaps', sourceMapString, true);
       if (args.extra || args.capabilities || args.verbose) {
         logger.logToStdout('_'.repeat(maxWidthForOutput()));
         CommanderSubcommand.info.log(argsCount, 'Capabilities', capabilities, false);
@@ -394,14 +403,12 @@ commandBin.command('env')
   });
 
 // Parsing the command now happens in the `src/main.ts` file, since our bundler
-export namespace CLI {
-  export function start() {
-    if (process.argv.length <= 2) {
-      logger.logToStderr(chalk.red('[ERROR] No COMMAND provided to `fish-lsp`, displaying `fish-lsp --help` output.\n'));
-      commandBin.outputHelp();
-      logger.logToStdout('\nFor more help, use `fish-lsp --help-all` to see all commands and options.');
-      process.exit(1);
-    }
-    commandBin.parse(process.argv);
+export function execCLI() {
+  if (process.argv.length <= 2) {
+    logger.logToStderr(chalk.red('[ERROR] No COMMAND provided to `fish-lsp`, displaying `fish-lsp --help` output.\n'));
+    commandBin.outputHelp();
+    logger.logToStdout('\nFor more help, use `fish-lsp --help-all` to see all commands and options.');
+    process.exit(1);
   }
+  commandBin.parse(process.argv);
 }

@@ -72,16 +72,22 @@ export function createDefines(target: 'node' | 'browser', production = false): R
 
   // Embed build-time for bundled versions
   try {
-    const buildTimePath = resolve('out', 'build-time.txt');
-    const buildTime = readFileSync(buildTimePath, 'utf8').trim();
-    defines['process.env.FISH_LSP_BUILD_TIME'] = `"${buildTime}"`;
+    const buildTimePath = resolve('out', 'build-time.json');
+    const buildTimeData = JSON.parse(readFileSync(buildTimePath, 'utf8'));
+    defines['process.env.FISH_LSP_BUILD_TIME'] = `'${JSON.stringify(buildTimeData)}'`;
   } catch (error) {
-    // If build-time.txt doesn't exist, use current time as fallback
+    // If build-time.json doesn't exist, use current time as fallback
     const now = new Date();
-    const date = now.toISOString().split('T')[0];
-    const time = now.toTimeString().split(' ')[0];
-    const fallbackBuildTime = `${date} ${time}`;
-    defines['process.env.FISH_LSP_BUILD_TIME'] = `"${fallbackBuildTime}"`;
+    const timestamp = now.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'medium' });
+    const fallbackBuildTime = {
+      date: now.toDateString(),
+      timestamp,
+      isoTimestamp: now.toISOString(),
+      unix: Math.floor(now.getTime() / 1000),
+      version: process.env.npm_package_version || 'unknown',
+      nodeVersion: process.version
+    };
+    defines['process.env.FISH_LSP_BUILD_TIME'] = `'${JSON.stringify(fallbackBuildTime)}'`;
   }
 
   // Embed asset paths for bundled versions (for binary target only)
@@ -109,8 +115,9 @@ export function createDefines(target: 'node' | 'browser', production = false): R
 /**
  * Plugin to optimize source maps by removing embedded source content
  * This reduces file size significantly while keeping source file references
+ * @param preserveSourceContent - Keep source content for debugging (default: false for production, true for development)
  */
-export function createSourceMapOptimizationPlugin(): esbuild.Plugin {
+export function createSourceMapOptimizationPlugin(preserveSourceContent?: boolean): esbuild.Plugin {
   return {
     name: 'sourcemap-optimization',
     setup(build) {
@@ -126,7 +133,11 @@ export function createSourceMapOptimizationPlugin(): esbuild.Plugin {
             
             // Remove embedded source content to reduce file size
             // This keeps file references but removes the full source code
-            if (sourcemap.sourcesContent) {
+            if (preserveSourceContent) {
+              console.log(`📦 Source map: ${colorize(toRelativePath(sourcemapFile), colors.white)}`);
+              console.log(`  Size: ${colorize((originalSize/1024/1024).toFixed(1) + 'MB', colors.white)} (with source content for debugging)`);
+              console.log(`  Sources: ${colorize(sourcemap.sources.length + ' files', colors.white)}`);
+            } else if (sourcemap.sourcesContent) {
               delete sourcemap.sourcesContent;
               
               const optimizedContent = JSON.stringify(sourcemap);

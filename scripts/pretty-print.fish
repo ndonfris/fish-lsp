@@ -15,6 +15,7 @@ set -gx BLACK (reset_color && set_color black)
 set -gx BOLD (set_color --bold)
 set -gx REVERSE (set_color --reverse)
 set -gx UNDERLINE (set_color --underline)
+set -gx ITALIC (set_color --italics)
 set -gx ITALICS (set_color --italics)
 set -gx DIM (set_color --dim)
 

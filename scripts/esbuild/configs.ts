@@ -1,7 +1,7 @@
 // Centralized build configurations
 import * as esbuild from 'esbuild';
 import { resolve } from 'path';
-import { createPlugins, createDefines, createSourceMapOptimizationPlugin, PluginOptions } from './plugins';
+import { createPlugins, createDefines, PluginOptions } from './plugins';
 import { copyBinaryAssets } from './utils';
 import { BuildConfigTarget } from "./types";
 
@@ -62,19 +62,9 @@ export const buildConfigs: Record<BuildConfigTarget, BuildConfig> = {
 };
 
 export function createBuildOptions(config: BuildConfig, production = false): esbuild.BuildOptions {
-  // Source map strategy: 
-  // - Development builds (yarn dev/dev:watch): Always generate external source maps for debugging
-  // - Production builds: Only generate if explicitly enabled via FISH_LSP_SOURCEMAPS=true
-  const forcedSourceMaps = process.env.FISH_LSP_SOURCEMAPS === 'true';
-  const developmentMode = !production;
-  const configAllowsSourceMaps = config.sourcemap !== false;
-  
-  // For binary target: generate source maps in development or when explicitly forced
-  // For other targets: use their existing config
-  const shouldGenerateSourceMaps = config.name === 'Binary' 
-    ? (developmentMode || forcedSourceMaps) && configAllowsSourceMaps
-    : forcedSourceMaps || (developmentMode && configAllowsSourceMaps) || config.sourcemap;
-  
+  // Always generate compact external sourcemaps for binary builds
+  // This creates small .map files that reference original TypeScript sources
+  const shouldGenerateSourceMaps = config.sourcemap !== false;
   const sourcemapSetting = shouldGenerateSourceMaps ? 'external' : false;
 
   return {
@@ -86,6 +76,7 @@ export function createBuildOptions(config: BuildConfig, production = false): esb
     ...(config.outfile ? { outfile: config.outfile } : { outdir: config.outdir }),
     minify: config.minify && production,
     sourcemap: sourcemapSetting,
+    sourcesContent: false, // Don't embed source content - reference files instead
     keepNames: !production,
     treeShaking: config.bundle ? true : production,
     external: config.external,
@@ -98,7 +89,6 @@ export function createBuildOptions(config: BuildConfig, production = false): esb
     // mangleProps: false, // Don't mangle properties to avoid runtime overhead
     plugins: [
       ...createPlugins(config.internalPlugins),
-      ...(shouldGenerateSourceMaps ? [createSourceMapOptimizationPlugin()] : []),
       ...(config.onBuildEnd ? [{
         name: 'build-end-hook',
         setup(build: esbuild.PluginBuild) {

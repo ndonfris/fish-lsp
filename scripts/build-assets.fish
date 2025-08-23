@@ -15,14 +15,8 @@
 source ./scripts/continue_or_exit.fish
 source ./scripts/pretty-print.fish
 
-argparse --name='build-assets' \
-    h/help \
-    y/yes \
-    d/dry-run \
-    c/complete \
-    clean \
-    -- $argv
-or exit 1
+argparse h/help y/yes c/complete clean -- $argv 2>/dev/null
+or return 1
 
 if set -q _flag_help
     echo "Usage: ./scripts/build-assets.fish [OPTIONS]"
@@ -55,23 +49,21 @@ if set -q _flag_complete
             complete --path $script -s c -l complete -d 'Show completion commands for this script'
             complete --path $script -l clean -d 'Clean existing release-assets/ directory first'
             # yarn publish-assets
-            complete -c yarn -n '__fish_seen_subcommand_from publish-assets' -f
-            complete -c yarn -n '__fish_seen_subcommand_from publish-assets' -s h -l help -d 'Show this help message'
-            complete -c yarn -n '__fish_seen_subcommand_from publish-assets' -s d -l dry-run -d 'Show what would happen without executing'
-            complete -c yarn -n '__fish_seen_subcommand_from publish-assets' -s c -l complete -d 'Show completion commands for this script'
-            complete -c yarn -n '__fish_seen_subcommand_from publish-assets' -l clean -d 'Clean existing release-assets/ directory first'
+            complete -c yarn -n '__fish_seen_subcommand_from sh:build-assets' -f
+            complete -c yarn -n '__fish_seen_subcommand_from sh:build-assets' -s h -l help -d 'Show this help message'
+            complete -c yarn -n '__fish_seen_subcommand_from sh:build-assets' -s d -l dry-run -d 'Show what would happen without executing'
+            complete -c yarn -n '__fish_seen_subcommand_from sh:build-assets' -s c -l complete -d 'Show completion commands for this script'
+            complete -c yarn -n '__fish_seen_subcommand_from sh:build-assets' -l clean -d 'Clean existing release-assets/ directory first'
         " | string trim -l
     end
-    set -l cachedir (__fish_make_cache_dir completions)
+    set -l cachedir (__fish_make_cache_dir completions 2>/dev/null)
     show_completion
     show_completion | source -
     show_completion >$cachedir/publish-assets.fish
     __fish_cache_put $cachedir/publish-assets.fish
     source "$cachedir/publish-assets.fish"
-    exit
+    return 0
 end
-
-set -g SKIP_CONFIRMATION (set -q _flag_yes && echo 'true' || echo 'false')
 
 function fail -d 'Exit with error message'
     log_error '❌' '[ERROR]' $argv
@@ -106,6 +98,20 @@ function check_for_completion_errors -d 'Check for completion errors'
     dist/fish-lsp info --time-only 1>/dev/null
     or return 1
 end
+
+if set -q _flag_clean
+    if test -d release-assets
+        log_warning '⚠️' '[WARNING]' 'release-assets/ directory already exists and will be removed.'
+        confirm 'Do you want to clean it?'
+        rm -rf release-assets
+    else
+        log_info 'ℹ️' '[INFO]' 'No existing release-assets/ directory to clean.'
+    end
+    confirm 'Proceed with creating a new release-assets/ directory?'
+    or fail 'User declined to create release-assets/ directory.'
+end
+
+set -g SKIP_CONFIRMATION (set -q _flag_yes && echo 'true' || echo 'false')
 
 print_separator
 echo $BLUE"🗂️  CREATE ASSETS SCRIPT$WHITE$BOLD ./release-assets/$NORMAL$BLUE "$NORMAL
@@ -190,189 +196,5 @@ else
     log_warning '⚠️' '[WARNING]' 'Skipping npm package creation.'
 end
 
-# Create npm package
-# echo $BLUE"📦 Creating npm package..."$NORMAL
-# exec_cmd "Create npm package" "npm pack"
-# if test $status -eq 0
-#     # Find and move the .tgz file
-#     set -l tgz_file (command ls -t *.tgz 2>/dev/null | head -n1)
-#     if test -n "$tgz_file"
-#         exec_cmd "Move package to release-assets/" "mv '$tgz_file' release-assets/"
-#         if test $status -eq 0
-#             echo $GREEN"✅ Created and moved $tgz_file to release-assets/"$NORMAL
-#         else
-#             echo $RED"❌ Failed to move $tgz_file to release-assets/"$NORMAL
-#             exit 1
-#         end
-#     else
-#         echo $RED"❌ No .tgz file found after npm pack"$NORMAL
-#         exit 1
-#     end
-# else
-#     echo $RED"❌ Failed to run npm pack"$NORMAL
-#     exit 1
-# end
-#
-# # function ensure_built
-# #     echo $BLUE"🔍 Checking if project is built..."$NORMAL
-# #
-# #     if not test -f dist/fish-lsp
-# #         echo $YELLOW"⚠️  Binary not found at dist/fish-lsp, building project..."$NORMAL
-# #         exec_cmd "Building project" "yarn build:all"
-# #         if test $status -ne 0
-# #             echo $RED"❌ Failed to build project"$NORMAL
-# #             exit 1
-# #         end
-# #     end
-# #
-# #     if not test -f man/fish-lsp.1
-# #         echo $YELLOW"⚠️  Man page not found, generating..."$NORMAL
-# #         exec_cmd "Generating man page" "yarn generate:man"
-# #         if test $status -ne 0
-# #             echo $RED"❌ Failed to generate man page"$NORMAL
-# #             exit 1
-# #         end
-# #     end
-# #
-# #     echo $GREEN"✅ Project is built"$NORMAL
-# # end
-#
-# echo $GREEN"📁 Creating GitHub release assets..."$NORMAL
-#
-# # Clean existing release-assets if requested
-# if set -q _flag_clean; and test -d release-assets
-#     exec_cmd "Cleaning existing release-assets/" "rm -rf release-assets"
-#     if test $status -ne 0
-#         echo $RED"❌ Failed to clean release-assets/ directory"$NORMAL
-#         exit 1
-#     end
-# end
-#
-# # Create release-assets directory
-# echo $BLUE"🗂️  Creating release-assets/ directory..."$NORMAL
-# if not set -q _flag_dry_run
-#     if test -d release-assets
-#         rm -rf release-assets
-#     end
-#     mkdir release-assets
-#     if test $status -ne 0
-#         echo $RED"❌ Failed to create release-assets/ directory"$NORMAL
-#         exit 1
-#     end
-# end
-# log_info '✅' '[INFO]' 'release-assets/ directory created successfully!'
-#
-# # Ensure project is built
-# ensure_built
-#
-# # Copy binary
-# echo $BLUE"🔧 Copying binary..."$NORMAL
-# if test -f dist/fish-lsp
-#     exec_cmd "Copy binary" "cp dist/fish-lsp release-assets/"
-#     if test $status -eq 0
-#         echo $GREEN"✅ Copied dist/fish-lsp to release-assets/"$NORMAL
-#     else
-#         echo $RED"❌ Failed to copy binary"$NORMAL
-#         exit 1
-#     end
-# else
-#     echo $RED"❌ Binary not found at dist/fish-lsp"$NORMAL
-#     exit 1
-# end
-#
-# # Copy man page  
-# echo $BLUE"📖 Copying man page..."$NORMAL
-# if test -f man/fish-lsp.1
-#     exec_cmd "Copy man page" "cp man/fish-lsp.1 release-assets/"
-#     if test $status -eq 0
-#         echo $GREEN"✅ Copied man/fish-lsp.1 to release-assets/"$NORMAL
-#     else
-#         echo $RED"❌ Failed to copy man page"$NORMAL
-#         exit 1
-#     end
-# else
-#     echo $RED"❌ Man page not found at man/fish-lsp.1"$NORMAL
-#     exit 1
-# end
-#
-# # Generate and copy completions
-# echo $BLUE"🐚 Generating and copying completions..."$NORMAL
-# if test -f bin/fish-lsp; or test -f dist/fish-lsp
-#     set -l binary_path bin/fish-lsp
-#     if not test -f $binary_path
-#         set binary_path dist/fish-lsp
-#     end
-#
-#     exec_cmd "Generate completions" "$binary_path complete > release-assets/fish-lsp.fish"
-#     if test $status -eq 0
-#         echo $GREEN"✅ Generated and copied completions to release-assets/fish-lsp.fish"$NORMAL
-#     else
-#         echo $RED"❌ Failed to generate completions"$NORMAL
-#         exit 1
-#     end
-# else
-#     echo $RED"❌ fish-lsp binary not found at bin/fish-lsp or dist/fish-lsp"$NORMAL
-#     exit 1
-# end
-#
-# # Create sourcemaps archive
-# echo $BLUE"📁 Creating sourcemaps archive..."$NORMAL
-# set -l sourcemap_files dist/fish-lsp.map lib/fish-lsp-web.js.map
-# set -l existing_files
-#
-# for file in $sourcemap_files
-#     if test -f $file
-#         set -a existing_files $file
-#     else
-#         echo $YELLOW"⚠️  Warning: Sourcemap file not found: $file"$NORMAL
-#     end
-# end
-#
-# if test (count $existing_files) -gt 0
-#     if confirm "CREATE SOURCEMAPS ARCHIVE:$WHITE release-assets/sourcemaps.tar.gz with files: $existing_files $NORMAL" --no-exit
-#         tar -czf release-assets/sourcemaps.tar.gz $existing_files
-#         echo $GREEN"✅ Created release-assets/sourcemaps.tar.gz with files: $existing_files"$NORMAL
-#     else
-#         echo $RED"❌ Failed to create sourcemaps archive"$NORMAL
-#         exit 1
-#     end
-# else
-#     echo $YELLOW"⚠️  Warning: No sourcemap files found, skipping archive creation"$NORMAL
-# end
-#
-# # Create npm package
-# if confirm "CREATE `npm pack` PACKAGE:$WHITE release-assets/fish-lsp-*.tgz $NORMAL" --no-exit
-#     echo "$BLUE📦 Creating npm package...$NORMAL"
-#     npm pack
-#     if test $status -eq 0
-#         # Find and move the .tgz file
-#         set -l tgz_file (command ls -t *.tgz 2>/dev/null | head -n1)
-#         if test -n "$tgz_file"
-#             exec_cmd "Move package to release-assets/" "mv '$tgz_file' release-assets/"
-#             if test $status -eq 0
-#                 echo $GREEN"✅ Created and moved $tgz_file to release-assets/"$NORMAL
-#             else
-#                 echo $RED"❌ Failed to move $tgz_file to release-assets/"$NORMAL
-#                 exit 1
-#             end
-#         else
-#             echo $RED"❌ No .tgz file found after npm pack"$NORMAL
-#             exit 1
-#         end
-#     end
-# else
-#     echo $RED"❌ Failed to run npm pack"$NORMAL
-#     exit 1
-# end
-#
-# echo ""
-# echo $GREEN"🎉 Release assets created successfully!"$NORMAL
-# echo $GREEN"📁 Contents of release-assets/:"$NORMAL
-#
-# if not set -q _flag_dry_run
-#     ls -la release-assets/
-# end
-#
 echo ""
 log_info '✅' '[INFO]' 'Release assets created successfully!'
-# echo $GREEN"Ready for GitHub release! 🚀"$NORMAL

@@ -24,6 +24,8 @@ module.exports = {
         'build/',
         "lib/src/",
         "lib/*.d.ts",
+        "release-assets/",
+        "dist/",
         "vitest.config.ts",
     ],
     rules: {

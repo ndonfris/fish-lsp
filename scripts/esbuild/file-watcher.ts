@@ -161,9 +161,10 @@ class FileWatcher {
 
   private readBuildTime(): string {
     try {
-      const buildTimePath = path.join(process.cwd(), 'out', 'build-time.txt');
+      const buildTimePath = path.join(process.cwd(), 'out', 'build-time.json');
       if (fs.existsSync(buildTimePath)) {
-        return fs.readFileSync(buildTimePath, 'utf-8').trim();
+        const buildTimeData = JSON.parse(fs.readFileSync(buildTimePath, 'utf-8'));
+        return buildTimeData.timestamp || buildTimeData.isoTimestamp;
       }
     } catch (error) {
       // Silently ignore errors reading build time

@@ -15,6 +15,7 @@
   ],
   "exclude": [
     "node_modules",
+    "release-assets",
     "dist",
     "lib",
     "scripts",

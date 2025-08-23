@@ -33,3 +33,6 @@ scripts/build-release.fish
 
 release-assets
 tsconfig.types.json
+
+*.d.ts
+temp-types

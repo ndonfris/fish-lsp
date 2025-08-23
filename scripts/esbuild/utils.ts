@@ -51,7 +51,7 @@ export function generateTypeDeclarations(): void {
       "allowSyntheticDefaultImports": true,
       "allowArbitraryExtensions": true,
       "esModuleInterop": true,
-      "outDir": "lib",
+      "outDir": "temp-types",
       "allowJs": true,
       "moduleResolution": "nodenext",
       "target": "esnext",
@@ -87,7 +87,7 @@ export function generateTypeDeclarations(): void {
       "entries": [
         {
           "filePath": "./src/server.ts",
-          "outFile": "./lib/server.d.ts",
+          "outFile": "./dist/fish-lsp.d.ts",
           "noCheck": true,
           "output": {
             "inlineDeclareExternals": false,
@@ -113,34 +113,18 @@ export function generateTypeDeclarations(): void {
   } catch (error) {
     logger.warn('dts-bundle-generator failed, falling back to simple copy');
     try {
-      execSync('cp out/server.d.ts lib/server.d.ts', { stdio: 'inherit' });
+      execSync('cp temp-types/server.d.ts dist/fish-lsp.d.ts', { stdio: 'inherit' });
     } catch (copyError) {
       logger.warn('Failed to copy fallback type declarations');
     }
   } finally {
     unlinkSync('tsconfig.types.json'); // Clean up temporary tsconfig
-  }
-}
-
-export async function generateLibraryTypeDeclarations(): Promise<void> {
-  console.log(logger.info('📦 Generating type definitions for universal binary...'));
-  try {
-    // Ensure dist directory exists
-    ensureDirSync('dist');
-
-    // Generate type definitions directly in dist/ directory for the universal binary
-    console.log(logger.info('  Building type definitions at `dist/fish-lsp.d.ts`'));
-    
+    // Clean up temporary type definitions directory
     try {
-      // Copy existing server types as the base (since main.ts exports FishServer)
-      execSync('cp out/server.d.ts dist/fish-lsp.d.ts', { stdio: 'inherit' });
-      console.log(logger.generated('Universal binary type definitions'));
-    } catch (copyError) {
-      logger.warn('Failed to copy type declarations');
+      execSync('rm -rf temp-types', { stdio: 'inherit' });
+    } catch (cleanupError) {
+      logger.warn('Failed to clean up temp-types directory');
     }
-
-    console.log(logger.success('✨ Generated universal binary type definitions'));
-  } catch (error) {
-    logger.warn('Failed to generate type definitions');
   }
 }
+

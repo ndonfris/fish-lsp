@@ -187,7 +187,7 @@ export const RepoUrl = PackageJSON.repository?.url.slice(0, -4);
 export const PackageVersion = PackageJSON.version;
 
 export const PathObj: { [K in 'bin' | 'root' | 'path' | 'manFile' | 'execFile']: string } = {
-  ['bin']:  getCurrentExecutablePath(),
+  ['bin']: getCurrentExecutablePath(),
   ['root']: getProjectRootPath(),
   ['path']: getProjectRootPath(),
   ['execFile']: getCurrentExecutablePath(),
@@ -258,26 +258,29 @@ export const PackageNodeRequiredVersion = DepVersion.minimumNodeVersion();
 const getOutTime = () => {
   // First check if build time is embedded via environment variable (for bundled version)
   if (process.env.FISH_LSP_BUILD_TIME) {
-    return process.env.FISH_LSP_BUILD_TIME;
+    try {
+      const buildTimeData = JSON.parse(process.env.FISH_LSP_BUILD_TIME);
+      return buildTimeData.timestamp || new Date(buildTimeData.isoTimestamp).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'medium' });
+    } catch (e) {
+      // If parsing fails, return as-is (fallback for old format)
+      return process.env.FISH_LSP_BUILD_TIME;
+    }
   }
 
   // Fallback to reading from file (for development version)
   const buildFile = getFishBuildTimeFilePath();
-  let buildTime = 'unknown';
   try {
-    buildTime = readFileSync(buildFile, 'utf8');
+    const fileContent = readFileSync(buildFile, 'utf8');
+    const buildTimeData = JSON.parse(fileContent);
+    return buildTimeData.timestamp || buildTimeData.isoTimestamp;
   } catch (e) {
     logger.logToStderr(`Error reading build-time file: ${buildFile}`);
     logger.error([
       `Error reading build-time file: ${buildFile}`,
       `Could not read build time from file: ${e}`,
     ]);
+    return 'unknown';
   }
-  return buildTime.trim();
-};
-
-export const getBuildTimeString = () => {
-  return getOutTime();
 };
 
 export type BuildTimeJsonObj = {
@@ -290,6 +293,17 @@ export type BuildTimeJsonObj = {
   [key: string]: any;
 };
 export const getBuildTimeJsonObj = (): BuildTimeJsonObj | undefined => {
+  // First check if build time is embedded via environment variable (for bundled version)
+  if (process.env.FISH_LSP_BUILD_TIME) {
+    try {
+      const jsonObj: BuildTimeJsonObj = JSON.parse(process.env.FISH_LSP_BUILD_TIME);
+      return { ...jsonObj, date: new Date(jsonObj.date) };
+    } catch (e) {
+      logger.logToStderr(`Error parsing embedded build-time JSON: ${e}`);
+    }
+  }
+
+  // Fallback to reading from file (for development version)
   try {
     const jsonFile = getFishBuildTimeFilePath();
     const jsonContent = readFileSync(jsonFile, 'utf8');
@@ -406,7 +420,7 @@ export const PkgJson = {
   lspVersion: PackageLspVersion,
   node: PackageNodeRequiredVersion,
   man: getManFilePath(),
-  buildTime: getBuildTimeString(),
+  buildTime: getOutTime(),
   buildTimeObj: getBuildTimeJsonObj(),
   ...PathObj,
 };
@@ -442,8 +456,11 @@ export const SourcesDict: { [key: string]: string; } = {
   ].join('\n'),
 };
 
-export const FishLspHelp = {
-  beforeAll: `
+export function FishLspHelp() {
+  const lspV = PackageJSON.dependencies['vscode-languageserver'].toString();
+  return {
+
+    beforeAll: `
        fish-lsp [-h | --help] [-v | --version] [--help-man] [--help-all] [--help-short]
        fish-lsp start [--enable | --disable] [--dump]
        fish-lsp info [--bare] [--repo] [--time] [--env]
@@ -451,32 +468,32 @@ export const FishLspHelp = {
                     [--wiki] [--issues] [--client-repo] [--sources]
        fish-lsp env [-c | --create] [-s | --show] [--no-comments]
        fish-lsp complete`,
-  usage: `fish-lsp [OPTION]
+    usage: `fish-lsp [OPTION]
        fish-lsp [COMMAND [OPTION...]]`,
-  // fish-lsp [start | logger | info | url | complete] [options]
-  // fish-lsp [-h | --help] [-v | --version] [--help-man] [--help-all] [--help-short]
-  description: [
-    '  A language server for the `fish-shell`, written in typescript. Currently supports',
-    `  the following feature set from '${PackageLspVersion}' of the language server protocol.`,
-    '  More documentation is available for any command or subcommand via \'-h/--help\'.',
-    '',
-    '  The current language server protocol, reserves stdin/stdout for communication between the ',
-    '  client and server. This means that when the server is started, it will listen for messages on',
-    '  stdin/stdout. Command communication will be visible in `$fish_lsp_log_file`.',
-    '',
-    '  For more information, see the github repository:',
-    `     ${SourcesDict.git}`,
-  ].join('\n'),
-  after: [
-    '',
-    'Examples:',
-    '  # Default setup, with all options enabled',
-    '  > fish-lsp start',
-    '',
-    '  # Generate and store completions file:',
-    '  > fish-lsp complete > ~/.config/fish/completions/fish-lsp.fish',
-  ].join('\n'),
-};
+    // fish-lsp [start | logger | info | url | complete] [options]
+    // fish-lsp [-h | --help] [-v | --version] [--help-man] [--help-all] [--help-short]
+    description: [
+      '  A language server for the `fish-shell`, written in typescript. Currently supports',
+      `  the following feature set from '${lspV || PackageLspVersion || '^9.0.1'}' of the language server protocol.`,
+      '  More documentation is available for any command or subcommand via \'-h/--help\'.',
+      '',
+      '  The current language server protocol, reserves stdin/stdout for communication between the ',
+      '  client and server. This means that when the server is started, it will listen for messages on',
+      '  stdin/stdout. Command communication will be visible in `$fish_lsp_log_file`.',
+      '',
+      `  For more info, please visit: ${chalk.underline('https://github.com/ndonfris/fish-lsp')}`,
+    ].join('\n'),
+    after: [
+      '',
+      'Examples:',
+      '  # Default setup, with all options enabled',
+      '  > fish-lsp start',
+      '',
+      '  # Generate and store completions file:',
+      '  > fish-lsp complete > ~/.config/fish/completions/fish-lsp.fish',
+    ].join('\n'),
+  };
+}
 
 export function FishLspManPage() {
   const manFile = PathObj.manFile;
@@ -1039,5 +1056,4 @@ export function BuildCapabilityString() {
  */
 export const SourceMaps: Record<string, string> = {
   'dist/fish-lsp': path.resolve(path.dirname(getCurrentExecutablePath()), '..', 'dist', 'fish-lsp.map'),
-  // 'lib/fish-lsp-web.js': path.resolve(path.dirname(getCurrentExecutablePath()), '..', 'lib', 'fish-lsp-web.js.map'),
 };

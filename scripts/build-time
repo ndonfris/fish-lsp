@@ -4,13 +4,14 @@ const fs = require('fs');
 const path = require('path');
 
 // Parse flags
-const args = process.argv;
+const args = process.argv.slice(1).filter(arg => arg.startsWith('-'));
 const flags = {
     quiet: args.includes('-q') || args.includes('--quiet'),
     verbose: args.includes('-v') || args.includes('--verbose'),
     help: args.includes('-h') || args.includes('--help'),
     noColor: args.includes('-n') || args.includes('--no-color'),
-    color: args.includes('-c') || args.includes('--color'),
+    color: args.includes('--color'),
+    complete: args.includes('-c') || args.includes('--complete'),
     forceSuccess: args.includes('-f') || args.includes('--force-success')
 };
 
@@ -50,6 +51,33 @@ ${'Options:'.reset().bold()}
     process.exit(0);
 }
 
+if (flags.complete) {
+    const file = path.resolve(__filename);
+    const logStr = `
+complete --path ${file} -f
+complete --path ${file} -s c -l complete -d "generate shell completions"
+complete --path ${file}      -l color -d "Enable colored output"
+complete --path ${file} -s n -l no-color -d "Disable colored output"
+complete --path ${file} -s h -l help -d "show help message"
+complete --path ${file} -s q -l quiet -d "suppress output"
+complete --path ${file} -s v -l verbose -d "enable verbose output"
+complete --path ${file} -s f -l force-success -d "force success exit"
+# yarn sh:build-time
+complete -c yarn -n '__fish_seen_subcommand_from sh:build-time' -f
+complete -c yarn -n '__fish_seen_subcommand_from sh:build-time' -s c -l complete -d "generate shell completions"
+complete -c yarn -n '__fish_seen_subcommand_from sh:build-time'      -l color -d "Enable colored output"
+complete -c yarn -n '__fish_seen_subcommand_from sh:build-time' -s n -l no-color -d "Disable colored output"
+complete -c yarn -n '__fish_seen_subcommand_from sh:build-time' -s h -l help -d "show help message"
+complete -c yarn -n '__fish_seen_subcommand_from sh:build-time' -s q -l quiet -d "suppress output"
+complete -c yarn -n '__fish_seen_subcommand_from sh:build-time' -s v -l verbose -d "enable verbose output"
+complete -c yarn -n '__fish_seen_subcommand_from sh:build-time' -s f -l force-success -d "force success exit"
+`
+    process.stdout.write(logStr)
+    process.exit(0)
+}
+
+
+
 const log = (...args) => !flags.quiet && console.log(...args);
 const error = (...args) => !flags.quiet && console.error(...args);
 const verbose = (...args) => flags.verbose && console.log(...args);
@@ -57,20 +85,19 @@ const exit = (code = 0) => process.exit(flags.forceSuccess ? 0 : code);
 
 try {
     const now = new Date();
-    const timeStr = `${now.toISOString().split('T')[0]} ${now.toLocaleTimeString()}`;
+    const timestamp = new Date().toLocaleString(undefined, {dateStyle: 'short', timeStyle: 'medium'});
     const buildTimeData = {
-        date: new Date().toDateString(),
-        timestamp: new Date().toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'medium' }),
+        date: now.toDateString(),
+        timestamp,
         isoTimestamp: now.toISOString(),
         unix: Math.floor(now.getTime() / 1000),
         version: process.env.npm_package_version || 'unknown',
         nodeVersion: process.version
     };
-    
+
     const scriptDir = path.dirname(path.resolve(__filename));
     const outDir = scriptDir.endsWith('scripts') ? path.join(path.dirname(scriptDir), 'out') : path.join(scriptDir, 'out');
     const jsonFilePath = path.join(outDir, 'build-time.json');
-    const txtFilePath = path.join(outDir, 'build-time.txt');
 
     verbose();
     verbose('>>> begin executing verbose build-time script <<<'.white().dim().italic());
@@ -84,21 +111,17 @@ try {
         exit(1);
     }
 
-    // Write JSON file (new format)
+    // Write JSON file
     fs.writeFileSync(jsonFilePath, JSON.stringify(buildTimeData, null, 2));
-    
-    // Write legacy txt file for backwards compatibility
-    fs.writeFileSync(txtFilePath, timeStr + '\n');
 
-    if (!fs.existsSync(jsonFilePath) || !fs.existsSync(txtFilePath)) {
-        error("ERROR:".bgRed().white().bold(), "Failed to write build time files.".red());
+    if (!fs.existsSync(jsonFilePath)) {
+        error("ERROR:".bgRed().white().bold(), "Failed to write build time file.".red());
         exit(1);
     }
 
     if (flags.verbose) {
         verbose(' ✓ build-time script executed successfully!'.green().bold());
         verbose(' ✓ created JSON file:'.green().bold(), jsonFilePath.cyan());
-        verbose(' ✓ created TXT file:'.green().bold(), txtFilePath.cyan());
         verbose(' ✓ relative filepath:'.green().bold(), path.relative(process.cwd(), jsonFilePath).cyan());
         verbose(' content:'.green().black().bold(), JSON.stringify(buildTimeData, null, 2).blue().bold());
         verbose(' last modified:'.green().black().bold(), fs.statSync(jsonFilePath).mtime.toLocaleString().blue().dim());
@@ -108,8 +131,7 @@ try {
     }
 
     log(' ✓ created JSON at:'.bgGreen().black().bold(), path.basename(jsonFilePath).cyan().dim());
-    log(' ✓ created TXT at: '.bgGreen().black().bold(), path.basename(txtFilePath).cyan().dim());
-    log(' ✓ with timestamp: '.bgGreen().black().bold(), timeStr.blue().dim());
+    log(' ✓ with timestamp: '.bgGreen().black().bold(), timestamp.blue().dim());
 
 } catch (error) {
     error("ERROR:".bgRed().white().bold(), "Script execution failed.".red());

@@ -1,5 +1,7 @@
 #!/usr/bin/env fish
 
+source ./scripts/pretty-print.fish
+
 ### Example:
 ### ```fish
 ### >_ continue_or_exit -q || echo $status`

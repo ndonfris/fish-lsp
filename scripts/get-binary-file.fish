@@ -5,13 +5,14 @@ source ./scripts/pretty-print.fish
 argparse h/help print-binary-file d/debug export-path -- $argv
 or return
 
-set -gx pkg_json_bin (yarn exec -s node-jq -- -r '.bin | .[]' package.json | path resolve)
+set -gx pkg_json_bin (yarn -s exec -- fish-lsp info --bin)
 if not test -f $pkg_json_bin
-    set -gx pkg_json_bin (yarn -s exec -- fish-lsp info --bin)
+  # set -gx pkg_json_bin (yarn exec -s node-jq -- -r '.bin | .[]' package.json | path resolve)
+  set -gx pkg_json_bin ./dist/fish-lsp
 end
 
 function get_fish_lsp_bin_entry --description 'Get the binary file for fish-lsp'
-    set cmds (yarn exec -s node-jq -- -r '.bin | .[]' package.json | path resolve) (yarn -s exec -- fish-lsp info --bin)
+    set cmds (yarn exec -s node-jq -- -r '.bin | .[]' package.json | path resolve) (yarn -s exec -- fish-lsp info --bin) './dist/fish-lsp'
     for cmd in $cmds
         test -z "$cmd" && continue
         set cmd (path resolve -- $cmd)
