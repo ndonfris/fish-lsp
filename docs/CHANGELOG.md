@@ -1,3 +1,9 @@
+## <small>1.0.11-pre.15 (2025-08-26)</small>
+
+* feat: fix typings for `v1.0.11-pre.14` ([2731e68](https://github.com/ndonfris/fish-lsp/commit/2731e68))
+
+
+
 ## <small>1.0.11-pre.14 (2025-08-26)</small>
 
 * chore: bump version to v1.0.11-pre.14 ([ad647d1](https://github.com/ndonfris/fish-lsp/commit/ad647d1))
