@@ -292,6 +292,9 @@ class ConditionalContext {
  * @returns true if the command needs a quiet flag, false otherwise
  */
 export function isConditionalWithoutQuietCommand(node: SyntaxNode): boolean {
+  if (!config.fish_lsp_strict_conditional_command_warnings) {
+    return false;
+  }
   return Maybe.of(node)
     .filter(isCommandName)
     .map(n => n.parent)

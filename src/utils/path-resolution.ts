@@ -1,4 +1,4 @@
-import { resolve, dirname } from 'path';
+import path, { resolve, dirname } from 'path';
 import { realpathSync } from 'fs';
 import { SyncFileHelper } from './file-operations';
 import { vfs } from '../virtual-fs';
@@ -62,7 +62,11 @@ export function getCurrentExecutablePath(): string {
 export function getProjectRootPath(): string {
   // For bundled mode, always use current working directory (where binary is executed)
   if (isBundledEnvironment()) {
-    return process.cwd();
+    if (getCurrentExecutablePath().endsWith('dist/fish-lsp')) {
+      return resolve(path.dirname(getCurrentExecutablePath()), '..');
+    } else {
+      return resolve(path.basename(getCurrentExecutablePath()));
+    }
   }
 
   // For development mode, try to detect project root from executable location
@@ -79,7 +83,7 @@ export function getProjectRootPath(): string {
   }
 
   // Fallback: use __dirname resolution for development
-  return typeof __dirname !== 'undefined' ? resolve(__dirname, '..', '..') : process.cwd();
+  return typeof __dirname !== 'undefined' ? resolve(__dirname, '..', '..') : resolve(path.dirname(process.execPath));
 }
 
 /**

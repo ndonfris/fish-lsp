@@ -58,9 +58,7 @@
       "require": "./dist/fish-lsp"
     }
   },
-  "bin": {
-    "fish-lsp": "dist/fish-lsp"
-  },
+  "bin": "dist/fish-lsp",
   "man": "./man/fish-lsp.1",
   "scripts": {
     "prepare": "husky",
