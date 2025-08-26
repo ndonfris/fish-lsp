@@ -1,5 +1,7 @@
 // Import polyfills for Node.js 18 compatibility
 import './utils/array-polyfills';
+// Initialize virtual filesystem (must be before any embedded asset usage)
+import './virtual-fs';
 import { SyntaxNode } from 'web-tree-sitter';
 import { AnalyzedDocument, analyzer, Analyzer } from './analyze';
 import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, ImplementationParams, CodeLensParams, CodeLens, WorkspaceFoldersChangeEvent } from 'vscode-languageserver';

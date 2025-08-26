@@ -20,7 +20,7 @@ import manPageContent from '@embedded_assets/man/fish-lsp.1';
 import treeSitterFishWasmContent from '@embedded_assets/tree-sitter-fish.wasm';
 import treeSitterCoreWasmContent from '@embedded_assets/tree-sitter.wasm';
 // import treeSitterWasm from 'web-tree-sitter/tree-sitter.wasm'
-import { existsSync } from 'fs';
+import { existsSync, writeFileSync, unlinkSync } from 'fs';
 import { promisify } from 'util';
 import { execFile, execFileSync } from 'child_process';
 const execAsync = promisify(execFile);
@@ -343,10 +343,30 @@ class VirtualFileSystem {
         file: `/${vf.filepath}`,
         content: vf.content.toString(),
         exec: (...args: string[]) => {
-          return execFileSync('fish', [vf.filepath, ...args])?.toString().trim() || '';
+          // Write content to temp file for execution
+          const tempPath = path.join(tmpdir(), path.basename(vf.filepath));
+          writeFileSync(tempPath, vf.content.toString());
+          try {
+            const result = execFileSync('fish', [tempPath, ...args])?.toString().trim() || '';
+            unlinkSync(tempPath); // Clean up temp file
+            return result;
+          } catch (error) {
+            unlinkSync(tempPath); // Clean up temp file on error
+            throw error;
+          }
         },
         execAsync: async (...args: string[]) => {
-          return await execAsync('fish', [vf.filepath, ...args]);
+          // Write content to temp file for execution
+          const tempPath = path.join(tmpdir(), path.basename(vf.filepath));
+          writeFileSync(tempPath, vf.content.toString());
+          try {
+            const result = await execAsync('fish', [tempPath, ...args]);
+            unlinkSync(tempPath); // Clean up temp file
+            return result;
+          } catch (error) {
+            unlinkSync(tempPath); // Clean up temp file on error
+            throw error;
+          }
         },
       }));
   }
