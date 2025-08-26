@@ -1,3 +1,10 @@
+## <small>1.0.11-pre.16 (2025-08-26)</small>
+
+* fix: mount vfs fish scripts to /tmp/ ([8db09d8](https://github.com/ndonfris/fish-lsp/commit/8db09d8))
+* chore: automated docs for v1.0.11-pre.15 ([6b1aafb](https://github.com/ndonfris/fish-lsp/commit/6b1aafb))
+
+
+
 ## <small>1.0.11-pre.15 (2025-08-26)</small>
 
 * feat: fix typings for `v1.0.11-pre.14` ([2731e68](https://github.com/ndonfris/fish-lsp/commit/2731e68))
