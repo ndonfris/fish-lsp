@@ -1,7 +1,7 @@
 // Centralized build configurations
 import * as esbuild from 'esbuild';
 import { resolve } from 'path';
-import { createPlugins, createDefines, PluginOptions } from './plugins';
+import { createPlugins, createDefines, PluginOptions, createSourceMapOptimizationPlugin } from './plugins';
 import { copyBinaryAssets } from './utils';
 import { BuildConfigTarget } from "./types";
 
@@ -33,12 +33,22 @@ export const buildConfigs: Record<BuildConfigTarget, BuildConfig> = {
     bundle: true,
     treeShaking: true,
     minify: false,
+    assetNames: 'assets/[name]-[hash]', // Include hash in asset names for cache busting
+    loader: {
+      '.wasm': 'file',
+      '.node': 'file',
+
+    },
     sourcemap: true, // Generate external source maps for debugging
-    external: ['tree-sitter', 'web-tree-sitter', 'fs', 'path', 'os', 'crypto', 'util'],
+    preserveSymlinks: true,
+    // external: ['web-tree-sitter', 'fs', 'path', 'os', 'crypto', 'util'],
+    // external: ['tree-sitter', 'web-tree-sitter', 'fs', 'path', 'os', 'crypto', 'util'],
+    external: [],
     internalPlugins: {
       target: 'node',
       typescript: false, // Use native esbuild TS support
       polyfills: 'minimal', // Include minimal polyfills for browser compatibility when needed
+      embedAssets: true, // Enable embedded assets for binary builds
     },
     onBuildEnd: copyBinaryAssets,
   },
@@ -61,10 +71,9 @@ export const buildConfigs: Record<BuildConfigTarget, BuildConfig> = {
   },
 };
 
-export function createBuildOptions(config: BuildConfig, production = false): esbuild.BuildOptions {
-  // Always generate compact external sourcemaps for binary builds
-  // This creates small .map files that reference original TypeScript sources
-  const shouldGenerateSourceMaps = config.sourcemap !== false;
+export function createBuildOptions(config: BuildConfig, production = false, sourcemapsMode: 'optimized' | 'extended' | 'none' = 'optimized'): esbuild.BuildOptions {
+  // Configure sourcemaps based on mode
+  const shouldGenerateSourceMaps = config.sourcemap !== false && sourcemapsMode !== 'none';
   const sourcemapSetting = shouldGenerateSourceMaps ? 'external' : false;
 
   return {
@@ -76,7 +85,7 @@ export function createBuildOptions(config: BuildConfig, production = false): esb
     ...(config.outfile ? { outfile: config.outfile } : { outdir: config.outdir }),
     minify: config.minify && production,
     sourcemap: sourcemapSetting,
-    sourcesContent: false, // Don't embed source content - reference files instead
+    sourcesContent: true, // Will be optimized by plugin based on environment
     keepNames: !production,
     treeShaking: config.bundle ? true : production,
     external: config.external,
@@ -89,6 +98,7 @@ export function createBuildOptions(config: BuildConfig, production = false): esb
     // mangleProps: false, // Don't mangle properties to avoid runtime overhead
     plugins: [
       ...createPlugins(config.internalPlugins),
+      createSourceMapOptimizationPlugin(sourcemapsMode === 'extended'), // Preserve source content for extended mode
       ...(config.onBuildEnd ? [{
         name: 'build-end-hook',
         setup(build: esbuild.PluginBuild) {

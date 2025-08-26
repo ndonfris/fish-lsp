@@ -10,6 +10,7 @@ import { logger } from '../logger';
 import { SyncFileHelper } from './file-operations';
 import { getCurrentExecutablePath, getFishBuildTimeFilePath, getManFilePath, getProjectRootPath, isBundledEnvironment } from './path-resolution';
 import { maxWidthForOutput } from './startup';
+import { vfs } from '../virtual-fs';
 
 /**
  * Accumulate the arguments into two arrays, '--enable' and '--disable'
@@ -409,6 +410,10 @@ export const getBuildTypeString = (): string => {
   return result.join(' ').trim();
 };
 
+export const packageJsonVersion = () => {
+  return PackageJSON.version || JSON.parse(fs.readFileSync(path.join(getProjectRootPath(), 'package.json'), 'utf8')).version;
+};
+
 export const PkgJson = {
   ...PackageJSON,
   name: PackageJSON.name,
@@ -496,12 +501,26 @@ export function FishLspHelp() {
 }
 
 export function FishLspManPage() {
-  const manFile = PathObj.manFile;
-  const content = readFileSync(manFile, 'utf8');
-  return {
-    path: resolve(PathObj.root, PathObj.manFile),
-    content: content.split('\n'),
-  };
+  // Try to get man file from VFS first
+  try {
+    const manPath = vfs.getVirtualPath('man/fish-lsp.1');
+    const content = readFileSync(manPath, 'utf8');
+    return {
+      path: manPath,
+      content: content.split('\n'),
+    };
+  } catch {
+    // Fallback to PathObj.manFile
+    const manFile = PathObj.manFile;
+    if (!manFile) {
+      throw new Error('Man file not available');
+    }
+    const content = readFileSync(manFile, 'utf8');
+    return {
+      path: manFile,
+      content: content.split('\n'),
+    };
+  }
 }
 
 export function fishLspLogFile() {
@@ -550,6 +569,7 @@ export namespace CommanderSubcommand {
         path: z.boolean().optional().default(false),
         buildTime: z.boolean().optional().default(false),
         buildType: z.boolean().optional().default(false),
+        version: z.boolean().optional().default(false),
         lspVersion: z.boolean().optional().default(false),
         capabilities: z.boolean().optional().default(false),
         manFile: z.boolean().optional().default(false),
@@ -570,6 +590,7 @@ export namespace CommanderSubcommand {
         remove: z.boolean().optional().default(false),
         status: z.boolean().optional().default(false),
         dumpParseTree: z.string().optional().default(''),
+        virtualFs: z.boolean().optional().default(false),
       }),
     );
     export type schemaType = z.infer<typeof schema>;
@@ -642,10 +663,14 @@ export namespace CommanderSubcommand {
         log(argsCount, title, message);
       }
       if (hasManFile) {
-        const manObj = FishLspManPage();
-        const title = 'Man File';
-        const message = args.show ? manObj.content.join('\n') : manObj.path;
-        log(argsCount, title, message);
+        try {
+          const manObj = FishLspManPage();
+          const title = 'Man File';
+          const message = args.show ? manObj.content.join('\n') : manObj.path;
+          log(argsCount, title, message);
+        } catch (error) {
+          log(argsCount, 'Man File', 'Error: Man file not available');
+        }
       }
       if (!hasLogFile && !hasManFile && hasShowFlag) {
         logger.logToStderr([

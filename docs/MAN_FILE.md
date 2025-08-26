@@ -60,7 +60,8 @@ show the build info of fish-lsp
   `--path`                    show the path of the entire fish-lsp installation  
   `--build-time`              show the path of the entire fish-lsp repo  
   `--build-type`              show the build type of the command  
-  `--lsp-version`             show the lsp version  
+  `-v` or `--version`           show the lsp version  
+  `--lsp-version`             show the vscode-languageserver version  
   `--capabilities`            show the lsp capabilities  
   `--man-file`                show the man file path  
   `--log-file`                show the log file path  

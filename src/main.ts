@@ -5,7 +5,12 @@
 
 // Import polyfills for compatibility
 import './utils/array-polyfills';
+
+// Initialize virtual filesystem first (must be before any fs operations)
+import './virtual-fs';
+
 import './utils/commander-cli-subcommands';
+import { execCLI } from './cli';
 
 // Environment detection
 function isBrowserEnvironment(): boolean {
@@ -18,7 +23,6 @@ function isRunningAsCLI(): boolean {
 
 // CLI functionality - only load when needed
 async function runCLI() {
-  const { execCLI } = await import('./cli.ts');
   execCLI();
 }
 

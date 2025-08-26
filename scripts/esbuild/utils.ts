@@ -5,8 +5,26 @@ import { execSync } from 'child_process';
 import { logger, toRelativePath } from './colors';
 
 export function copyBinaryAssets(): void {
-  console.log(logger.info('  Skipping asset copying - assets remain in original locations'));
-  console.log(logger.success('✅ Binary assets accessible in original locations'));
+  // Copy fish scripts from src/snippets to dist/snippets
+  console.log(logger.info('  Copying fish scripts to dist/snippets...'));
+// }
+//   // Copy tree-sitter core WASM file from web-tree-sitter dependency
+  // const sourceWasm = 'node_modules/web-tree-sitter/tree-sitter.wasm';
+  // const destWasm = 'dist/tree-sitter.wasm';
+  // 
+  // if (existsSync(sourceWasm)) {
+  //   try {
+  //     ensureDirSync('dist');
+  //     copySync(sourceWasm, destWasm);
+  //     console.log(logger.copied(sourceWasm, destWasm));
+  //   } catch (error) {
+  //     logger.warn(`Failed to copy ${sourceWasm} to ${destWasm}: ${error}`);
+  //   }
+  // } else {
+  //   logger.warn(`Source WASM file not found: ${sourceWasm}`);
+  // }
+  // 
+  // console.log(logger.success('✅ Binary assets copied to dist directory'));
 }
 
 export function copyDevelopmentAssets(): void {
@@ -58,11 +76,11 @@ export function generateTypeDeclarations(): void {
       "lib": [
         "esnext", "es2022"
       ],
-      "types": ["node"],
       "skipLibCheck": true
     },
     "include": [
-      "src/server.ts"
+      "src/server.ts",
+      "src/types/*.d.ts"
     ],
     "exclude": [
       "node_modules/**/*",
@@ -75,50 +93,49 @@ export function generateTypeDeclarations(): void {
   try {
     writeFileSync('tsconfig.types.json', tsconfigContent);
     execSync('node_modules/typescript/bin/tsc -p tsconfig.types.json', { stdio: 'inherit' });
-    
-    // Now use dts-bundle-generator to bundle all declarations into a single file
-    console.log(logger.info('  Using dts-bundle-generator to create clean types...'));
-    
-    // Create a config file to avoid vitest conflicts
-    const dtsConfig = {
-      "compilationOptions": {
-        "preferredConfigPath": "./tsconfig.types.json"
-      },
-      "entries": [
-        {
-          "filePath": "./src/server.ts",
-          "outFile": "./dist/fish-lsp.d.ts",
-          "noCheck": true,
-          "output": {
-            "inlineDeclareExternals": false,
-            "sortNodes": true,
-            "exportReferencedTypes": false
-          },
-          "libraries": {
-            "allowedTypesLibraries": ["web-tree-sitter"],
-            "importedLibraries": ["web-tree-sitter", "vscode-languageserver", "vscode-languageserver-textdocument"]
-          }
-        }
-      ]
-    };
-    
-    writeFileSync('dts-bundle.config.json', JSON.stringify(dtsConfig, null, 2));
-    execSync('yarn dts-bundle-generator --config dts-bundle.config.json --external-inlines=web-tree-sitter', { stdio: 'inherit' });
-    
-    // Clean up config file
-    try {
-      unlinkSync('dts-bundle.config.json');
-    } catch {}
-    console.log(logger.generated('Bundled type declarations'));
+    //
+    // const dtsConfig = {
+    //   "compilationOptions": {
+    //     "preferredConfigPath": "./tsconfig.types.json"
+    //   },
+    //   "entries": [
+    //     {
+    //       "filePath": "./src/server.ts",
+    //       "outFile": "./dist/fish-lsp.d.ts",
+    //       "noCheck": true,
+    //       "output": {
+    //         "inlineDeclareExternals": false,
+    //         "sortNodes": true,
+    //         "exportReferencedTypes": false
+    //       },
+    //       "libraries": {
+    //         "allowedTypesLibraries": ["web-tree-sitter"],
+    //         "importedLibraries": ["web-tree-sitter", "vscode-languageserver", "vscode-languageserver-textdocument"]
+    //       }
+    //     }
+    //   ]
+    // };
+    //
+    // writeFileSync('dts-bundle.config.json', JSON.stringify(dtsConfig, null, 2));
+    // execSync('yarn dts-bundle-generator --config dts-bundle.config.json --external-inlines=web-tree-sitter', { stdio: 'inherit' });
+
+    // unlinkSync('dts-bundle.config.json');
+
+    // Copy the generated server.d.ts to dist
+    execSync('cp temp-types/src/server.d.ts dist/fish-lsp.d.ts');
+    console.log(logger.generated('Generated type declarations'));
   } catch (error) {
     logger.warn('dts-bundle-generator failed, falling back to simple copy');
     try {
-      execSync('cp temp-types/server.d.ts dist/fish-lsp.d.ts', { stdio: 'inherit' });
+      execSync('cp temp-types/src/server.d.ts dist/fish-lsp.d.ts', { stdio: 'inherit' });
     } catch (copyError) {
       logger.warn('Failed to copy fallback type declarations');
     }
   } finally {
-    unlinkSync('tsconfig.types.json'); // Clean up temporary tsconfig
+    // Clean up temporary tsconfig
+    try {
+      unlinkSync('tsconfig.types.json');
+    } catch { }
     // Clean up temporary type definitions directory
     try {
       execSync('rm -rf temp-types', { stdio: 'inherit' });

@@ -9,15 +9,22 @@ import { polyfillNode } from 'esbuild-plugin-polyfill-node';
 import { nodeModulesPolyfillPlugin } from 'esbuild-plugins-node-modules-polyfill';
 import { NodeGlobalsPolyfillPlugin } from '@esbuild-plugins/node-globals-polyfill';
 import { colorize, colors, toRelativePath } from './colors';
+import { createEmbedAssetsPlugin } from './embed-assets-plugin';
 
 export interface PluginOptions {
   target: 'node' | 'browser';
   typescript: boolean;
   polyfills: 'minimal' | 'full' | 'none';
+  embedAssets?: boolean;
 }
 
 export function createPlugins(options: PluginOptions): esbuild.Plugin[] {
   const plugins: esbuild.Plugin[] = [];
+
+  // Add embedded assets plugin if enabled
+  if (options.embedAssets) {
+    plugins.push(createEmbedAssetsPlugin());
+  }
 
   // Note: Using native esbuild TypeScript support instead of external plugin for better performance
 
@@ -90,15 +97,9 @@ export function createDefines(target: 'node' | 'browser', production = false): R
     defines['process.env.FISH_LSP_BUILD_TIME'] = `'${JSON.stringify(fallbackBuildTime)}'`;
   }
 
-  // Embed asset paths for bundled versions (for binary target only)
+  // Mark as bundled for Node target (used by virtual filesystem)
   if (target === 'node') {
-    const projectRoot = resolve(process.cwd());
     defines['process.env.FISH_LSP_BUNDLED'] = '"true"';
-    defines['process.env.FISH_LSP_PROJECT_ROOT'] = `"${projectRoot}"`;
-    defines['process.env.FISH_LSP_FISH_FILES_PATH'] = `"${resolve(projectRoot, 'fish_files')}"`;
-    defines['process.env.FISH_LSP_TREE_SITTER_WASM_PATH'] = `"${resolve(projectRoot, 'tree-sitter-fish.wasm')}"`;
-    defines['process.env.FISH_LSP_MAN_FILE_PATH'] = `"${resolve(projectRoot, 'man', 'fish-lsp.1')}"`;
-    defines['process.env.FISH_LSP_BUILD_TIME_PATH'] = `"${resolve(projectRoot, 'out', 'build-time.json')}"`;
   }
 
   if (target === 'browser') {
@@ -130,6 +131,14 @@ export function createSourceMapOptimizationPlugin(preserveSourceContent?: boolea
             const sourcemapContent = readFileSync(sourcemapFile, 'utf8');
             const originalSize = sourcemapContent.length;
             const sourcemap = JSON.parse(sourcemapContent);
+            
+            // Ensure the bundle has a sourcemap reference
+            const bundleContent = readFileSync(outfile, 'utf8');
+            const sourcemapRef = `\n//# sourceMappingURL=${resolve(sourcemapFile).split('/').pop()}`;
+            
+            if (!bundleContent.includes('//# sourceMappingURL=')) {
+              writeFileSync(outfile, bundleContent + sourcemapRef);
+            }
             
             // Remove embedded source content to reduce file size
             // This keeps file references but removes the full source code

@@ -11,6 +11,7 @@ export interface BuildArgs {
   enhanced: boolean;
   fishWasm: boolean;
   typesOnly: boolean;
+  sourcemaps: 'optimized' | 'extended' | 'none';
 }
 
 export function parseArgs(): BuildArgs {
@@ -21,9 +22,10 @@ export function parseArgs(): BuildArgs {
     .description('Fish LSP build system using esbuild')
     .option('-w, --watch', 'Watch for changes and rebuild (esbuild only)', false)
     .option('--watch-all', 'Watch for changes to all relevant files and run full dev build', false)
-    .option('-p, --production', 'Production build (minified, no sourcemaps)', false)
+    .option('-p, --production', 'Production build (minified, optimized sourcemaps)', false)
     .option('-c, --completions', 'Show shell completions for this command', false)
     .option('-m, --minify', 'Minify output', false)
+    .option('--sourcemaps <type>', 'Sourcemap type: optimized (default), extended (full debug), none', 'optimized')
     .option('--all', 'Build all targets: development, binary, and web', false)
     .option('--binary', 'Create bundled binary in build/', false)
     .option('--web', 'Create web bundle with Node.js polyfills for browser usage', false)
@@ -43,6 +45,12 @@ export function parseArgs(): BuildArgs {
   else if (options.library) target = 'library';
   else if (options.web || options.fishWasm) target = 'web';
 
+  // Validate sourcemaps option
+  const validSourcemaps = ['optimized', 'extended', 'none'];
+  const sourcemaps = validSourcemaps.includes(options.sourcemaps) 
+    ? options.sourcemaps 
+    : 'optimized';
+
   return {
     target,
     watch: options.watch,
@@ -52,6 +60,7 @@ export function parseArgs(): BuildArgs {
     enhanced: options.enhanced,
     fishWasm: options.fishWasm,
     typesOnly: options.types,
+    sourcemaps,
   };
 }
 
@@ -67,8 +76,9 @@ Options:
   --fish-wasm         Create web bundle with full Fish shell via WASM (large bundle, not yet supported)
   --enhanced          Use enhanced web build with Fish WASM
   --types             Generate TypeScript declaration files only
-  --production, -p    Production build (minified, no sourcemaps)
+  --production, -p    Production build (minified, optimized sourcemaps)
   --minify, -m        Minify output
+  --sourcemaps <type> Sourcemap type: optimized (default), extended (full debug), none
   --help, -h          Show this help message
 
 Examples:
@@ -78,7 +88,9 @@ Examples:
   tsx scripts/build.ts --binary              # Create bundled binary
   tsx scripts/build.ts --web                 # Create web bundle
   tsx scripts/build.ts --types               # Generate TypeScript declaration files only
-  tsx scripts/build.ts --production          # Production build
+  tsx scripts/build.ts --production          # Production build with optimized sourcemaps
+  tsx scripts/build.ts --sourcemaps=extended # Development build with full debug sourcemaps
+  tsx scripts/build.ts --sourcemaps=none     # Build without sourcemaps
   
   # Or use yarn scripts:
   yarn build:binary                          # Create bundled binary

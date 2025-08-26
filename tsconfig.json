@@ -46,7 +46,7 @@
   "include": [
     "package.json",
     "src",
-    "tests"
+    "src/types/embedded-assets.d.ts"
   ],
   "exclude": [
     "node_modules",

@@ -12,7 +12,9 @@ import { ConnectionOptions, ConnectionType, createConnectionType, maxWidthForOut
 import { performHealthCheck } from './utils/health-check';
 import { setupProcessEnvExecFile } from './utils/process-env';
 import { handleCLiDumpParseTree } from './utils/dump-parse-tree';
+import PackageJSON from '@package';
 import chalk from 'chalk';
+import vfs from './virtual-fs';
 
 /**
  *  creates local 'commandBin' used for commander.js
@@ -22,10 +24,11 @@ const createFishLspBin = (): Command => {
     'Description:',
     FishLspHelp().description || 'An LSP for the fish shell language',
   ].join('\n');
+  FishLspHelp;
   const bin = new Command('fish-lsp')
     .description(description)
     .helpOption('-h, --help', 'show the relevant help info. Other `--help-*` flags are also available.')
-    .version(PkgJson?.version || 'latest', '-v, --version', 'output the version number')
+    .version(PackageJSON.version, '-v, --version', 'output the version number')
     .enablePositionalOptions(true)
     .configureHelp({
       showGlobalOptions: false,
@@ -177,6 +180,7 @@ commandBin.command('info')
   .option('--path', 'show the path of the entire fish-lsp repo', false)
   .option('--build-time', 'show the path of the entire fish-lsp repo', false)
   .option('--build-type', 'show the build type being used', false)
+  .option('-v, --version', 'show the version of the fish-lsp package', false)
   .option('--lsp-version', 'show the lsp version', false)
   .option('--capabilities', 'show the lsp capabilities', false)
   .option('--man-file', 'show the man file path', false)
@@ -200,6 +204,7 @@ commandBin.command('info')
   .option('--status', 'show the status of all the source-maps available to the server (use with --source-maps)', false)
   .option('--dump-parse-tree <FILE>', 'dump the tree-sitter parse tree of a file', undefined)
   .option('--no-color', 'disable color output for --dump-parse-tree', false)
+  .option('--virtual-fs', 'show the virtual filesystem structure (like tree command)', false)
   .action(async (args: CommanderSubcommand.info.schemaType) => {
     await setupProcessEnvExecFile();
     const capabilities = BuildCapabilityString()
@@ -273,6 +278,11 @@ commandBin.command('info')
         CommanderSubcommand.info.log(argsCount, 'Capabilities', capabilities, true);
         shouldExit = true;
       }
+      if (args.version) {
+        argsCount = argsCount - 1;
+        CommanderSubcommand.info.log(argsCount, 'Build Version', PackageVersion);
+        shouldExit = true;
+      }
       if (args.lspVersion) {
         argsCount = argsCount - 1;
         CommanderSubcommand.info.log(argsCount, 'LSP Version', PackageLspVersion, true);
@@ -281,6 +291,13 @@ commandBin.command('info')
       // handle `[--man-file | --log-file] (--show)?`
       if (args.manFile || args.logFile || args.logsFile) {
         exitCode = CommanderSubcommand.info.handleFileArgs(args);
+        shouldExit = true;
+      }
+      // handle `--virtual-fs`
+      if (args.virtualFs) {
+        argsCount = argsCount - 1;
+        const tree = vfs.displayTree();
+        CommanderSubcommand.info.log(argsCount, 'Virtual Filesystem', tree, true);
         shouldExit = true;
       }
     }

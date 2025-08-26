@@ -61,7 +61,7 @@ export async function build(customArgs?: string[]): Promise<void> {
         for (let i = 0; i < targets.length; i++) {
           const targetName = targets[i];
           const config = buildConfigs[targetName];
-          const buildOptions = createBuildOptions(config, args.production || args.minify);
+          const buildOptions = createBuildOptions(config, args.production || args.minify, args.sourcemaps);
           
           console.log(`\n${logger.step(i + 1, targets.length, logger.building(config.name))}`);
           const ctx = await esbuild.context(buildOptions);
@@ -99,7 +99,7 @@ export async function build(customArgs?: string[]): Promise<void> {
         for (let i = 0; i < targets.length; i++) {
           const targetName = targets[i];
           const config = buildConfigs[targetName];
-          const buildOptions = createBuildOptions(config, args.production || args.minify);
+          const buildOptions = createBuildOptions(config, args.production || args.minify, args.sourcemaps);
           
           console.log(`\n${logger.step(i + 1, targets.length, logger.building(config.name))}`);
           const startTime = Date.now();
@@ -140,7 +140,7 @@ export async function build(customArgs?: string[]): Promise<void> {
     }
 
     const config = buildConfigs[args.target];
-    const buildOptions = createBuildOptions(config, args.production || args.minify);
+    const buildOptions = createBuildOptions(config, args.production || args.minify, args.sourcemaps);
     
     console.log(logger.header('`fish-lsp` esbuild (BUILD SYSTEM)'));
     console.log(logger.building(config.name));

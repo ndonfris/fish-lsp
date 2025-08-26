@@ -4,6 +4,7 @@ source ./scripts/pretty-print.fish
 
 # fish_wasm_file is only used in the nixos build step, and should otherwise be ignored 
 not set -q fish_wasm_file; and set -l fish_wasm_file "$(find node_modules -type f -a -name tree-sitter-fish.wasm)"
+not set -q wasm_file; and set -l wasm_file "$(find node_modules -type f -a -name tree-sitter.wasm)"
 
 if test -z "$fish_wasm_file"
     yarn add @esdmr/tree-sitter-fish
@@ -17,6 +18,14 @@ if test -z "$fish_wasm_file"
     exit 1
 end
 
+if set -q wasm_file && test -z "$wasm_file"
+    print_error "$BLUE'tree-sitter.wasm'$RED not found in node_modules"
+    # echo "ERROR: 'tree-sitter.wasm' not found"
+end
+
 cp -f "$fish_wasm_file" . 
 and print_success "copied $BLUE'tree-sitter-fish.wasm'$GREEN from location $BLUE'$fish_wasm_file'"
 or print_failure "failed to copy $BLUE'tree-sitter-fish.wasm'$RED from location $BLUE'$fish_wasm_file'"
+
+cp -f "$wasm_file" .
+and print_success "copied $BLUE'tree-sitter.wasm'$GREEN from location $BLUE'$wasm_file'"

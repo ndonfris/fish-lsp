@@ -1,6 +1,7 @@
 import { resolve, dirname } from 'path';
 import { realpathSync } from 'fs';
 import { SyncFileHelper } from './file-operations';
+import { vfs } from '../virtual-fs';
 
 /**
  * Centralized path resolution utilities for handling bundled vs development environments
@@ -34,7 +35,7 @@ export function isExistingFile(path: string): boolean {
  * Check if we're running in a bundled environment
  */
 export function isBundledEnvironment(): boolean {
-  // Use environment variable injected at build time if available
+  // Use environment variable injected at build time, or check if we don't have __dirname
   return !!process.env.FISH_LSP_BUNDLED || typeof __dirname === 'undefined';
 }
 
@@ -56,16 +57,18 @@ export function getCurrentExecutablePath(): string {
 
 /**
  * Get the correct project root path for both bundled and development versions
+ * Dynamically resolves from current working directory instead of hardcoded paths
  */
 export function getProjectRootPath(): string {
-  // Use embedded project root if available (injected at build time)
-  if (process.env.FISH_LSP_PROJECT_ROOT) {
-    return process.env.FISH_LSP_PROJECT_ROOT;
+  // For bundled mode, always use current working directory (where binary is executed)
+  if (isBundledEnvironment()) {
+    return process.cwd();
   }
 
+  // For development mode, try to detect project root from executable location
   const execPath = getCurrentExecutablePath();
 
-  // For bundled binary in dist directory, bin directory (wrapper), or out directory
+  // For development binary in dist directory, bin directory (wrapper), or out directory
   if (execPath.includes('/dist/') || execPath.includes('/bin/') || execPath.includes('/out/')) {
     if (execPath.includes('/bin/') || execPath.includes('/dist/')) {
       return resolve(dirname(execPath), '..');
@@ -75,7 +78,7 @@ export function getProjectRootPath(): string {
     }
   }
 
-  // Fallback: use __dirname resolution for development, or process.cwd() for bundled
+  // Fallback: use __dirname resolution for development
   return typeof __dirname !== 'undefined' ? resolve(__dirname, '..', '..') : process.cwd();
 }
 
@@ -83,18 +86,11 @@ export function getProjectRootPath(): string {
  * Resolves the fish_files directory path for bundled and development versions
  */
 export function getFishFilesPath(): string {
-  // Use embedded path if available (injected at build time)
-  if (process.env.FISH_LSP_FISH_FILES_PATH) {
-    return process.env.FISH_LSP_FISH_FILES_PATH;
-  }
-
-  // Standard locations: project root first, then fallback to cwd
-  const foundPath = findFirstExistingFile(
+  return vfs.getPathOrFallback(
+    'fish_files',
     resolve(getProjectRootPath(), 'fish_files'),
     resolve(process.cwd(), 'fish_files'),
   );
-
-  return foundPath ?? resolve(getProjectRootPath(), 'fish_files');
 }
 
 /**
@@ -108,51 +104,51 @@ export function getFishFilePath(filename: string): string {
  * Get tree-sitter WASM file path for bundled and development versions
  */
 export function getTreeSitterWasmPath(): string {
-  // Use embedded path if available (injected at build time)
-  if (process.env.FISH_LSP_TREE_SITTER_WASM_PATH) {
-    return process.env.FISH_LSP_TREE_SITTER_WASM_PATH;
-  }
-
-  // Standard locations: project root first, then fallback to cwd
-  const foundPath = findFirstExistingFile(
+  return vfs.getPathOrFallback(
+    'tree-sitter-fish.wasm',
     resolve(getProjectRootPath(), 'tree-sitter-fish.wasm'),
     resolve(process.cwd(), 'tree-sitter-fish.wasm'),
   );
+}
 
-  return foundPath ?? resolve(getProjectRootPath(), 'tree-sitter-fish.wasm');
+export function getCoreTreeSitterWasmPath(): string {
+  return vfs.getPathOrFallback(
+    'tree-sitter.wasm',
+    resolve(getProjectRootPath(), 'tree-sitter.wasm'),
+    resolve(process.cwd(), 'tree-sitter.wasm'),
+  );
 }
 
 /**
- * Get fish build time file path for bundled and development versions
+ * Get fish build time file path for bundled and development versions, note that
+ * this a generated build-time.json file should be used if available, otherwise
+ * fallback to standard bundled location
  */
 export function getFishBuildTimeFilePath(): string {
-  // Use embedded path if available (injected at build time)
-  if (process.env.FISH_LSP_BUILD_TIME_PATH) {
-    return process.env.FISH_LSP_BUILD_TIME_PATH;
+  const localBuildTimePath = resolve(getProjectRootPath(), 'build-time.json');
+  if (localBuildTimePath && isExistingFile(localBuildTimePath)) {
+    return localBuildTimePath;
   }
-
-  // Standard locations: out directory
-  const foundPath = findFirstExistingFile(
+  return vfs.getPathOrFallback(
+    'out/build-time.json',
     resolve(getProjectRootPath(), 'out', 'build-time.json'),
   );
-
-  return foundPath ?? resolve(getProjectRootPath(), 'out', 'build-time.json');
 }
 
 /**
  * Get man file path for bundled and development versions
  */
 export function getManFilePath(): string {
-  // Use embedded path if available (injected at build time)
-  if (process.env.FISH_LSP_MAN_FILE_PATH) {
-    return process.env.FISH_LSP_MAN_FILE_PATH;
-  }
-
-  // Standard locations: man directory in project root
-  const foundPath = findFirstExistingFile(
+  return vfs.getPathOrFallback(
+    'man/fish-lsp.1',
     resolve(getProjectRootPath(), 'man', 'fish-lsp.1'),
     resolve(process.cwd(), 'man', 'fish-lsp.1'),
   );
+}
 
-  return foundPath ?? resolve(getProjectRootPath(), 'man', 'fish-lsp.1');
+/**
+ * Get embedded fish scripts interface
+ */
+export function getEmbeddedFishScripts() {
+  return vfs.fishFiles || null;
 }
