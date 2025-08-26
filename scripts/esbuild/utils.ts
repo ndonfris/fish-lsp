@@ -3,6 +3,7 @@ import { copySync, ensureDirSync, writeFileSync } from 'fs-extra';
 import { existsSync, statSync, readFileSync, unlinkSync } from 'fs';
 import { execSync } from 'child_process';
 import { logger, toRelativePath } from './colors';
+import { generateEmbeddedAssetsTypes, cleanupEmbeddedAssetsTypes } from '../generate-embedded-assets-types';
 
 export function copyBinaryAssets(): void {
   // Copy fish scripts from src/snippets to dist/snippets
@@ -58,90 +59,156 @@ export function showBuildStats(filePath: string, label = 'Bundle'): void {
 
 export function generateTypeDeclarations(): void {
   console.log(logger.info('  Generating TypeScript declarations...'));
-  const tsconfigContent = JSON.stringify({
-    "extends": ["@tsconfig/node22/tsconfig.json", "@tsconfig/node-ts/tsconfig.json"],
-    "compilerOptions": {
-      "declaration": true,
-      "emitDeclarationOnly": true,
-      "erasableSyntaxOnly": false,
-      "verbatimModuleSyntax": false,
-      "resolveJsonModule": true,
-      "allowSyntheticDefaultImports": true,
-      "allowArbitraryExtensions": true,
-      "esModuleInterop": true,
-      "outDir": "temp-types",
-      "allowJs": true,
-      "moduleResolution": "nodenext",
-      "target": "esnext",
-      "lib": [
-        "esnext", "es2022"
-      ],
-      "skipLibCheck": true
-    },
-    "include": [
-      "src/server.ts",
-      "src/types/*.d.ts"
-    ],
-    "exclude": [
-      "node_modules/**/*",
-      "tests/**/*",
-      "**/*.test.ts",
-      "node_modules/vitest/**/*",
-      "**/*vitest*"
-    ]
-  });
+  
   try {
+    execSync('mkdir -p dist');
+    
+    // Step 1: Generate embedded assets TypeScript modules
+    console.log(logger.info('  Generating embedded assets modules...'));
+    generateEmbeddedAssetsTypes();
+    
+    // Step 2: Create tsconfig with path mapping to embedded assets
+    const tsconfigContent = JSON.stringify({
+      "extends": ["@tsconfig/node22/tsconfig.json"],
+      "compilerOptions": {
+        "declaration": true,
+        "emitDeclarationOnly": true,
+        "outDir": "temp-types",
+        // Remove rootDir to avoid conflicts with path mapping
+        "target": "es2018",
+        "lib": ["es2018", "es2019", "es2020", "es2021", "es2022", "es2023", "dom"],
+        "module": "commonjs",
+        "moduleResolution": "node",
+        "esModuleInterop": true,
+        "allowSyntheticDefaultImports": true,
+        "strict": false,
+        "skipLibCheck": true,
+        "skipDefaultLibCheck": true,
+        "resolveJsonModule": true,
+        "allowJs": false,
+        "types": ["node", "vscode-languageserver"],
+        // Path mapping to resolve embedded assets
+        "baseUrl": ".",
+        "paths": {
+          "@embedded_assets/*": ["./temp-embedded-assets/*"],
+          "@package": ["./temp-embedded-assets/package"]
+        },
+        // Suppress some strict checks for cleaner output
+        "noImplicitAny": false,
+        "noImplicitReturns": false,
+        "noImplicitThis": false
+      },
+      "include": [
+        "src/**/*.ts"
+      ],
+      "exclude": [
+        "node_modules/**/*",
+        "tests/**/*",
+        "**/*.test.ts",
+        "**/vitest/**/*",
+        "node_modules/vitest/**/*"
+      ]
+    });
+    
     writeFileSync('tsconfig.types.json', tsconfigContent);
+    
+    // Step 2.5: Create debug tsconfig for dts-bundle-generator
+    const debugTsconfigContent = JSON.stringify({
+      "extends": ["@tsconfig/node22/tsconfig.json"],
+      "compilerOptions": {
+        "declaration": true,
+        "emitDeclarationOnly": true,
+        "outDir": "temp-types",
+        "target": "es2018",
+        "lib": ["es2018", "es2019", "es2020", "es2021", "es2022", "es2023", "dom"],
+        "module": "commonjs",
+        "moduleResolution": "node",
+        "esModuleInterop": true,
+        "allowSyntheticDefaultImports": true,
+        "strict": false,
+        "skipLibCheck": true,
+        "skipDefaultLibCheck": true,
+        "resolveJsonModule": true,
+        "allowJs": false,
+        "types": ["node", "vscode-languageserver"],
+        "baseUrl": ".",
+        "paths": {
+          "@embedded_assets/*": ["./temp-embedded-assets/*"],
+          "@package": ["./temp-embedded-assets/package"]
+        },
+        "noImplicitAny": false,
+        "noImplicitReturns": false,
+        "noImplicitThis": false
+      },
+      "include": [
+        "src/**/*.ts"
+      ],
+      "exclude": [
+        "node_modules/**/*",
+        "tests/**/*", 
+        "**/*.test.ts",
+        "**/vitest/**/*",
+        "node_modules/vitest/**/*"
+      ]
+    });
+    
+    writeFileSync('tsconfig.debug.json', debugTsconfigContent);
+    
+    // Step 3: Generate .d.ts files with TypeScript compiler
+    console.log(logger.info('  Compiling TypeScript declarations...'));
     execSync('node_modules/typescript/bin/tsc -p tsconfig.types.json', { stdio: 'inherit' });
-    //
-    // const dtsConfig = {
-    //   "compilationOptions": {
-    //     "preferredConfigPath": "./tsconfig.types.json"
-    //   },
-    //   "entries": [
-    //     {
-    //       "filePath": "./src/server.ts",
-    //       "outFile": "./dist/fish-lsp.d.ts",
-    //       "noCheck": true,
-    //       "output": {
-    //         "inlineDeclareExternals": false,
-    //         "sortNodes": true,
-    //         "exportReferencedTypes": false
-    //       },
-    //       "libraries": {
-    //         "allowedTypesLibraries": ["web-tree-sitter"],
-    //         "importedLibraries": ["web-tree-sitter", "vscode-languageserver", "vscode-languageserver-textdocument"]
-    //       }
-    //     }
-    //   ]
-    // };
-    //
-    // writeFileSync('dts-bundle.config.json', JSON.stringify(dtsConfig, null, 2));
-    // execSync('yarn dts-bundle-generator --config dts-bundle.config.json --external-inlines=web-tree-sitter', { stdio: 'inherit' });
-
-    // unlinkSync('dts-bundle.config.json');
-
-    // Copy the generated server.d.ts to dist
-    execSync('cp temp-types/src/server.d.ts dist/fish-lsp.d.ts');
-    console.log(logger.generated('Generated type declarations'));
+    
+    // Step 4: Bundle all declarations with dts-bundle-generator
+    console.log(logger.info('  Bundling type declarations...'));
+    
+    const dtsConfig = {
+      "compilationOptions": {
+        "preferredConfigPath": "./tsconfig.debug.json",
+        "followSymlinks": false
+      },
+      "entries": [
+        {
+          "filePath": "./temp-types/src/main.d.ts",
+          "outFile": "./dist/fish-lsp.d.ts",
+          "noCheck": true,
+          "output": {
+            "inlineDeclareExternals": true,
+            "sortNodes": true,
+            "exportReferencedTypes": false,
+            "respectPreserveConstEnum": true,
+          },
+          "libraries": {
+            "allowedTypesLibraries": ["web-tree-sitter", "vscode-languageserver", "vscode-languageserver-textdocument", "node"],
+            "importedLibraries": ["web-tree-sitter", "vscode-languageserver", "vscode-languageserver-textdocument"]
+          }
+        }
+      ]
+    };
+    
+    writeFileSync('dts-bundle.config.json', JSON.stringify(dtsConfig, null, 2));
+    execSync('yarn dts-bundle-generator --config dts-bundle.config.json --external-inlines=web-tree-sitter --external-types=web-tree-sitter --disable-symlinks-following', { stdio: 'inherit' });
+    
+    console.log(logger.generated('Successfully generated bundled type declarations'));
+    
   } catch (error) {
-    logger.warn('dts-bundle-generator failed, falling back to simple copy');
-    try {
-      execSync('cp temp-types/src/server.d.ts dist/fish-lsp.d.ts', { stdio: 'inherit' });
-    } catch (copyError) {
-      logger.warn('Failed to copy fallback type declarations');
-    }
+    console.error(logger.error('Type generation failed:'), error);
+    throw error;
   } finally {
-    // Clean up temporary tsconfig
+    // Clean up temp files and directories
+    console.log(logger.info('  Cleaning up temporary files...'));
     try {
       unlinkSync('tsconfig.types.json');
-    } catch { }
-    // Clean up temporary type definitions directory
+    } catch {}
     try {
-      execSync('rm -rf temp-types', { stdio: 'inherit' });
-    } catch (cleanupError) {
-      logger.warn('Failed to clean up temp-types directory');
-    }
+      unlinkSync('tsconfig.debug.json');
+    } catch {}
+    try {
+      unlinkSync('dts-bundle.config.json');
+    } catch {}
+    try {
+      execSync('rm -rf temp-types', { stdio: 'pipe' });
+    } catch {}
+    // Clean up embedded assets
+    cleanupEmbeddedAssetsTypes();
   }
 }
-

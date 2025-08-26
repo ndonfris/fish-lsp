@@ -1,3 +1,21 @@
+## <small>1.0.11-pre.14 (2025-08-26)</small>
+
+* chore: bump version to v1.0.11-pre.14 ([ad647d1](https://github.com/ndonfris/fish-lsp/commit/ad647d1))
+* chore: remove unused tests ([a142827](https://github.com/ndonfris/fish-lsp/commit/a142827))
+* chore: update docs for v1.0.11-pre.13 ([1247e37](https://github.com/ndonfris/fish-lsp/commit/1247e37))
+* fix: should have all files embedded fully into dist/fish-lsp ([a29812f](https://github.com/ndonfris/fish-lsp/commit/a29812f))
+
+
+
+## <small>1.0.11-pre.14 (2025-08-26)</small>
+
+* chore: bump version to v1.0.11-pre.14 ([ad647d1](https://github.com/ndonfris/fish-lsp/commit/ad647d1))
+* chore: remove unused tests ([a142827](https://github.com/ndonfris/fish-lsp/commit/a142827))
+* chore: update docs for v1.0.11-pre.13 ([1247e37](https://github.com/ndonfris/fish-lsp/commit/1247e37))
+* fix: should have all files embedded fully into dist/fish-lsp ([a29812f](https://github.com/ndonfris/fish-lsp/commit/a29812f))
+
+
+
 ## <small>1.0.11-pre.13 (2025-08-23)</small>
 
 * fix: `scripts/build-time` not included in published npm version ([0bb19b7](https://github.com/ndonfris/fish-lsp/commit/0bb19b7))

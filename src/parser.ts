@@ -14,7 +14,7 @@ export async function initializeParser(): Promise<Parser> {
 
   // Provide missing WebAssembly environment functions
   if (typeof _global.WebAssembly === 'undefined') {
-    _global.WebAssembly = globalThis.WebAssembly;
+    _global.WebAssembly = (globalThis as any).WebAssembly;
   }
 
   // Polyfill for WebAssembly environment functions
