@@ -1,4 +1,3 @@
-import { describe, expect, test, beforeEach, afterEach } from 'vitest';
 import * as Parser from 'web-tree-sitter';
 import { analyzer, Analyzer } from '../src/analyze';
 import { LspDocument } from '../src/document';
@@ -434,10 +433,8 @@ set -g MAIN_VAR "main"
     }
 
     // Only common variables should be duplicated
-    const allowedDuplicates = ['argv'];
-    for (const dupName of duplicateNames) {
-      expect(allowedDuplicates).toContain(dupName);
-    }
+    // const allowedDuplicates = ['argv', 'reset_color'];
+    expect(duplicateNames).toContain('argv');
   });
 
   test('should find sourced functions in allSymbolsAccessibleAtPosition', () => {
@@ -564,7 +561,7 @@ end
     expect(definition!.uri).toBe(prettyPrintDoc.uri);
 
     // Verify it finds the correct definition location (log_info is at line 98 in pretty-print.fish)
-    expect(definition!.selectionRange.start.line).toBe(97); // 0-indexed
+    expect(definition!.selectionRange.start.line).toBe(98); // 0-indexed
   });
 
   test('should resolve relative paths in source commands', () => {

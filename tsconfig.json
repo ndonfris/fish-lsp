@@ -40,13 +40,17 @@
       ],
       "./cli": [
         "./src/cli.ts"
+      ],
+      "@embedded_assets/*": [
+        "./*"
       ]
     }
   },
   "include": [
     "package.json",
     "src",
-    "src/types/embedded-assets.d.ts"
+    "src/types/embedded-assets.d.ts",
+    "tests"
   ],
   "exclude": [
     "node_modules",
