@@ -287,5 +287,53 @@
     ],
     "defaultValue": false,
     "valueType": "boolean"
+  },
+  {
+    "name": "fish_lsp_ignore_paths",
+    "description": "Glob paths to never search when indexing their parent folder",
+    "shortDescription": "paths to ignore when indexing",
+    "exactMatchOptions": false,
+    "options": [
+      "**/.git",
+      "**/node_modules",
+      "**/vendor",
+      "**/bower_components",
+      "**/__pycache__",
+      "**/docker",
+      "**/containerized",
+      "**/*.log",
+      "**/tmp"
+    ],
+    "defaultValue": [
+      "**/.git",
+      "**/node_modules",
+      "**/vendor",
+      "**/bower_components",
+      "**/__pycache__",
+      "**/docker"
+    ],
+    "valueType": "array"
+  },
+  {
+    "name": "fish_lsp_max_workspace_depth",
+    "description": "The maximum depth for the lsp to search when starting up.",
+    "shortDescription": "maximum directory depth to search for fish files on startup",
+    "exactMatchOptions": false,
+    "options": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      15,
+      20
+    ],
+    "defaultValue": 5,
+    "valueType": "number"
   }
 ]

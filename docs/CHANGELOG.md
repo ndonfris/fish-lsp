@@ -1,3 +1,9 @@
+## <small>1.0.11-pre.18 (2025-08-27)</small>
+
+* chore: added `fish_lsp_ignore_paths`, and `fish_lsp_max_workspace_depth` ([1e93ee3](https://github.com/ndonfris/fish-lsp/commit/1e93ee3))
+
+
+
 ## <small>1.0.11-pre.17 (2025-08-27)</small>
 
 * docs: update man/fish-lsp.1 and package.json verison ([624eb53](https://github.com/ndonfris/fish-lsp/commit/624eb53))

@@ -54,25 +54,55 @@ export function getWorkspacePathsFromInitializationParams(params: LSP.Initialize
 }
 
 export async function getFileUriSet(path: string) {
-  const stream = fastGlob.stream('**/*.fish', { cwd: path, absolute: true });
-  const result: Set<DocumentUri> = new Set();
-  for await (const entry of stream) {
-    const absPath = entry.toString();
-    const uri = pathToUri(absPath);
-    result.add(uri);
+  try {
+    const stream = fastGlob.stream('**/*.fish', {
+      cwd: path,
+      absolute: true,
+      suppressErrors: true,
+      ignore: config.fish_lsp_ignore_paths,
+      deep: config.fish_lsp_max_workspace_depth,
+      onlyFiles: true,
+    });
+    const result: Set<DocumentUri> = new Set();
+    for await (const entry of stream) {
+      const absPath = entry.toString();
+      if (SyncFileHelper.isDirectory(absPath) || !SyncFileHelper.read(absPath)) {
+        continue;
+      }
+      const uri = pathToUri(absPath);
+      result.add(uri);
+    }
+    return result;
+  } catch (error) {
+    logger.debug('getFileUriSet: Error reading directory', { path, error });
+    return new Set<DocumentUri>();
   }
-  return result;
 }
 
 export function syncGetFileUriSet(path: string) {
-  const result: Set<string> = new Set();
-  const entries = fastGlob.sync('**/*.fish', { cwd: path, absolute: true });
-  for (const entry of entries) {
-    const absPath = entry.toString();
-    const uri = pathToUri(absPath);
-    result.add(uri);
+  try {
+    const result: Set<string> = new Set();
+    const entries = fastGlob.sync('**/*.fish', {
+      cwd: path,
+      absolute: true,
+      suppressErrors: true,
+      deep: config.fish_lsp_max_workspace_depth,
+      ignore: config.fish_lsp_ignore_paths,
+      onlyFiles: true,
+    });
+    for (const entry of entries) {
+      const absPath = entry.toString();
+      if (SyncFileHelper.isDirectory(absPath) || !SyncFileHelper.read(absPath)) {
+        continue;
+      }
+      const uri = pathToUri(absPath);
+      result.add(uri);
+    }
+    return result;
+  } catch (error) {
+    logger.debug('syncGetFileUriSet: Error reading directory', { path, error });
+    return new Set<string>();
   }
-  return result;
 }
 
 /**

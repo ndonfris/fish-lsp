@@ -350,20 +350,20 @@ Specific functionality for the server can be set independently from the client. 
 ```fish
 # $fish_lsp_enabled_handlers <ARRAY>
 # Enables the fish-lsp handlers. By default, all handlers are enabled.
-# (Options: 'complete', 'hover', 'rename', 'definition', 'implementation', 
-#           'reference', 'logger', 'formatting', 'formatRange', 
-#           'typeFormatting', 'codeAction', 'codeLens', 'folding', 
-#           'signature', 'executeCommand', 'inlayHint', 'highlight', 
+# (Options: 'complete', 'hover', 'rename', 'definition', 'implementation',
+#           'reference', 'logger', 'formatting', 'formatRange',
+#           'typeFormatting', 'codeAction', 'codeLens', 'folding',
+#           'signature', 'executeCommand', 'inlayHint', 'highlight',
 #           'diagnostic', 'popups')
 # (Default: [])
 set -gx fish_lsp_enabled_handlers 
 
 # $fish_lsp_disabled_handlers <ARRAY>
 # Disables the fish-lsp handlers. By default, no handlers are disabled.
-# (Options: 'complete', 'hover', 'rename', 'definition', 'implementation', 
-#           'reference', 'logger', 'formatting', 'formatRange', 
-#           'typeFormatting', 'codeAction', 'codeLens', 'folding', 
-#           'signature', 'executeCommand', 'inlayHint', 'highlight', 
+# (Options: 'complete', 'hover', 'rename', 'definition', 'implementation',
+#           'reference', 'logger', 'formatting', 'formatRange',
+#           'typeFormatting', 'codeAction', 'codeLens', 'folding',
+#           'signature', 'executeCommand', 'inlayHint', 'highlight',
 #           'diagnostic', 'popups')
 # (Default: [])
 set -gx fish_lsp_disabled_handlers 
@@ -372,8 +372,8 @@ set -gx fish_lsp_disabled_handlers
 # Array of the completion expansion characters.
 # Single letter values only.
 # Commit characters are used to select completion items, as shortcuts.
-# (Example Options: '.', ',', ';', ':', '(', ')', '[', ']', '{', '}', '<', 
-#                   '>', ''', '"', '=', '+', '-', '/', '\', '|', '&', '%', 
+# (Example Options: '.', ',', ';', ':', '(', ')', '[', ']', '{', '}', '<',
+#                   '>', ''', '"', '=', '+', '-', '/', '\', '|', '&', '%',
 #                   '$', '#', '@', '!', '?', '*', '^', '`', '~', '\t', ' ')
 # (Default: ['\t', ';', ' '])
 set -gx fish_lsp_commit_characters 
@@ -451,6 +451,20 @@ set -gx fish_lsp_show_client_popups
 # (Options: 'true', 'false')
 # (Default: 'false')
 set -gx fish_lsp_single_workspace_support
+
+# $fish_lsp_ignore_paths <ARRAY>
+# Glob paths to never search when indexing their parent folder
+# (Example Options: '**/.git', '**/node_modules', '**/vendor', '**/bower_components',
+#           '**/__pycache__', '**/docker', '**/tmp/**', '**/containers/**', '**/.cache/**')
+# (Default: ['**/.git', '**/node_modules', '**/vendor', '**/bower_components',
+#           '**/__pycache__', '**/docker'])
+set -gx fish_lsp_ignore_paths
+
+# $fish_lsp_max_workspace_depth <NUMBER>
+# The maximum depth for the lsp to search when starting up.
+# (Example Options: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20)
+# (Default: 5)
+set -gx fish_lsp_max_workspace_depth
 ```
 
 If you're interested in disabling specific diagnostic messages, the [wiki](https://github.com/ndonfris/fish-lsp/wiki) includes a table of [error codes](https://github.com/ndonfris/fish-lsp/wiki/Diagnostic-Error-Codes) that should be helpful. Diagnostics are a newer feature so [PRs](https://github.com/ndonfris/fish-lsp/blob/master/docs/CONTRIBUTING.md#getting-started-rocket) are welcome to improve their support.
