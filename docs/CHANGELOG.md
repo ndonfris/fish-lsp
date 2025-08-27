@@ -1,3 +1,11 @@
+## <small>1.0.11-pre.17 (2025-08-27)</small>
+
+* docs: update man/fish-lsp.1 and package.json verison ([624eb53](https://github.com/ndonfris/fish-lsp/commit/624eb53))
+* fix: sourcemaps and src/cli.ts `unknown` subcommands ([d079818](https://github.com/ndonfris/fish-lsp/commit/d079818))
+* feat: `config.fish_lsp_strict_conditional_command_warnings` and `info --path` ([5c5fa53](https://github.com/ndonfris/fish-lsp/commit/5c5fa53))
+* feat: fixed embedding for vitest testing ([8f237d1](https://github.com/ndonfris/fish-lsp/commit/8f237d1))
+* chore: automated docs for v1.0.11-pre.16 ([95cbfde](https://github.com/ndonfris/fish-lsp/commit/95cbfde))
+
 ## <small>1.0.11-pre.16 (2025-08-26)</small>
 
 * fix: mount vfs fish scripts to /tmp/ ([8db09d8](https://github.com/ndonfris/fish-lsp/commit/8db09d8))

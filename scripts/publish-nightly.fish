@@ -194,3 +194,4 @@ exec_cmd "Push git tag" "git push origin $git_tag" --interactive; or fail "git p
 # Success
 not $DRY_RUN; and log_info '✅' '[SUCCESS]' "Published $BLUE$package_name@$package_version$NORMAL"
 $DRY_RUN; and log_info '󰜎' '[DRY RUN]' "Would have published: $BLUE$package_name@$package_version$NORMAL"
+or log_info '' '[DONE]' 'Finished successfully'
