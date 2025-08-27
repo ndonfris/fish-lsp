@@ -71,6 +71,7 @@
     "build:all": "tsx scripts/build.ts --all",
     "build:prod": "tsx scripts/build.ts --all --production",
     "build:extended": "tsx scripts/build.ts --all --sourcemaps=extended",
+    "build:special-source-maps": "tsx scripts/build.ts --binary --special-source-maps",
     "build:web": "tsx scripts/build.ts --web --production",
     "watch": "tsx scripts/build.ts --watch",
     "watch:all": "tsx scripts/build.ts --watch-all",
@@ -230,6 +231,7 @@
     "tree-sitter-cli": "^0.22.2",
     "tsx": "^4.19.3",
     "typescript": "^5.8.3",
+    "vite": "^7.1.3",
     "vite-plugin-wasm": "^3.5.0",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^3.2.4"

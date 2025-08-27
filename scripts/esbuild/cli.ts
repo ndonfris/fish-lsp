@@ -11,7 +11,8 @@ export interface BuildArgs {
   enhanced: boolean;
   fishWasm: boolean;
   typesOnly: boolean;
-  sourcemaps: 'optimized' | 'extended' | 'none';
+  sourcemaps: 'optimized' | 'extended' | 'none' | 'special';
+  specialSourceMaps: boolean;
 }
 
 export function parseArgs(): BuildArgs {
@@ -25,7 +26,8 @@ export function parseArgs(): BuildArgs {
     .option('-p, --production', 'Production build (minified, optimized sourcemaps)', false)
     .option('-c, --completions', 'Show shell completions for this command', false)
     .option('-m, --minify', 'Minify output', false)
-    .option('--sourcemaps <type>', 'Sourcemap type: optimized (default), extended (full debug), none', 'optimized')
+    .option('--sourcemaps <type>', 'Sourcemap type: optimized (default), extended (full debug), none, special (src-only)', 'optimized')
+    .option('--special-source-maps', 'Enable special sourcemap processing (src files only with content)', false)
     .option('--all', 'Build all targets: development, binary, and web', false)
     .option('--binary', 'Create bundled binary in build/', false)
     .option('--web', 'Create web bundle with Node.js polyfills for browser usage', false)
@@ -46,10 +48,15 @@ export function parseArgs(): BuildArgs {
   else if (options.web || options.fishWasm) target = 'web';
 
   // Validate sourcemaps option
-  const validSourcemaps = ['optimized', 'extended', 'none'];
-  const sourcemaps = validSourcemaps.includes(options.sourcemaps) 
+  const validSourcemaps = ['optimized', 'extended', 'none', 'special'];
+  let sourcemaps = validSourcemaps.includes(options.sourcemaps) 
     ? options.sourcemaps 
     : 'optimized';
+  
+  // Override sourcemaps if special flag is used
+  if (options.specialSourceMaps) {
+    sourcemaps = 'special';
+  }
 
   return {
     target,
@@ -61,6 +68,7 @@ export function parseArgs(): BuildArgs {
     fishWasm: options.fishWasm,
     typesOnly: options.types,
     sourcemaps,
+    specialSourceMaps: options.specialSourceMaps,
   };
 }
 
@@ -78,7 +86,8 @@ Options:
   --types             Generate TypeScript declaration files only
   --production, -p    Production build (minified, optimized sourcemaps)
   --minify, -m        Minify output
-  --sourcemaps <type> Sourcemap type: optimized (default), extended (full debug), none
+  --sourcemaps <type> Sourcemap type: optimized (default), extended (full debug), none, special (src-only)
+  --special-source-maps Enable special sourcemap processing (src files only with content)
   --help, -h          Show this help message
 
 Examples:
@@ -91,6 +100,7 @@ Examples:
   tsx scripts/build.ts --production          # Production build with optimized sourcemaps
   tsx scripts/build.ts --sourcemaps=extended # Development build with full debug sourcemaps
   tsx scripts/build.ts --sourcemaps=none     # Build without sourcemaps
+  tsx scripts/build.ts --special-source-maps # Build with special sourcemaps (src files only)
   
   # Or use yarn scripts:
   yarn build:binary                          # Create bundled binary
@@ -110,6 +120,7 @@ export function showCompletions(): void {
   console.log(`complete -c yarn -n "__fish_seen_subcommand_from build" -l enhanced -d "Use enhanced web build with Fish WASM"`);
   console.log(`complete -c yarn -n "__fish_seen_subcommand_from build" -l production -d "Production build (minified,  no sourcemaps)"`);
   console.log(`complete -c yarn -n "__fish_seen_subcommand_from build" -l minify -d "Minify output"`);
+  console.log(`complete -c yarn -n "__fish_seen_subcommand_from build" -l special-source-maps -d "Enable special sourcemap processing (src files only with content)"`);
   console.log(`complete -c yarn -n "__fish_seen_subcommand_from build" -s h -l help -d "Show help message"`);
   console.log(`complete -c yarn -n "__fish_seen_subcommand_from build" -s c -l completions -d "Show shell completions for this command"`);
 }

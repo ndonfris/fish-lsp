@@ -123,6 +123,7 @@ commandBin.command('start')
     '\t>_ fish-lsp start --enable --disable logging complete codeAction',
     '\t>_ fish-lsp start --socket 3000  # start TCP server on port 3000 (useful for Docker)',
   ].join('\n'))
+  .allowUnknownOption(false)
   .action(async (opts: CommanderSubcommand.start.schemaType) => {
     await setupProcessEnvExecFile();
     // NOTE: `config` is a global object, already initialized. Here, we are updating its
@@ -205,6 +206,8 @@ commandBin.command('info')
   .option('--dump-parse-tree <FILE>', 'dump the tree-sitter parse tree of a file', undefined)
   .option('--no-color', 'disable color output for --dump-parse-tree', false)
   .option('--virtual-fs', 'show the virtual filesystem structure (like tree command)', false)
+  .allowUnknownOption(false)
+  .allowExcessArguments(false)
   .action(async (args: CommanderSubcommand.info.schemaType) => {
     await setupProcessEnvExecFile();
     const capabilities = BuildCapabilityString()
@@ -336,6 +339,8 @@ commandBin.command('url')
   .option('--clients-repo', 'show the clients configuration repo')
   .option('--sources-list', 'show a list of helpful sources')
   .option('--source-map', 'show source map download url for current version')
+  .allowUnknownOption(false)
+  .allowExcessArguments(false)
   .action(async (args: CommanderSubcommand.url.schemaType) => {
     const amount = Object.keys(args).length;
     if (amount === 0) {
@@ -359,6 +364,7 @@ commandBin.command('complete')
   .option('--env-variables', 'show env variables')
   .option('--env-variable-names', 'show env variable names')
   .description('copy completions output to fish-lsp completions file')
+  .allowUnknownOption(false)
   .action(async (args: CommanderSubcommand.complete.schemaType) => {
     await setupProcessEnvExecFile();
     if (args.names) {
@@ -401,6 +407,8 @@ commandBin.command('env')
   .option('--confd', 'output for piping to conf.d')
   .option('--names', 'show only the variable names')
   .option('--joined', 'print the names in a single line')
+  .allowUnknownOption(false)
+  .allowExcessArguments(false)
   .action(async (args: SubcommandEnv.ArgsType) => {
     await setupProcessEnvExecFile();
 
@@ -409,8 +417,12 @@ commandBin.command('env')
     if (args.names) {
       let result = '';
       Object.keys(Config.envDocs).forEach((name) => {
-        if (args?.only && args.only.length > 0 && !args.only.includes(name)) return;
-        result += args.joined ? `${name} ` : `${name}\n`;
+        if (args?.only && args.only.length > 0 && !args.only.includes(name)) {
+          logger.logToStderr(chalk.red(`\n[ERROR] Unknown variable name '${name} ' in --only option.`));
+          logger.logToStderr(`Valid variable names are:\n${Object.keys(Config.envDocs).join(', ')}`);
+          process.exit(1);
+        }
+        result += args.joined ? `${ name } ` : `${ name }\n`;
       });
       logger.logToStdout(result.trim());
       process.exit(0);
@@ -419,13 +431,14 @@ commandBin.command('env')
     process.exit(0);
   });
 
-// Parsing the command now happens in the `src/main.ts` file, since our bundler
+// Parsing the command now happens in the `src / main.ts` file, since our bundler
 export function execCLI() {
   if (process.argv.length <= 2) {
-    logger.logToStderr(chalk.red('[ERROR] No COMMAND provided to `fish-lsp`, displaying `fish-lsp --help` output.\n'));
+    logger.logToStderr(chalk.red('[ERROR] No COMMAND provided to `fish - lsp`, displaying `fish - lsp--help` output.\n'));
     commandBin.outputHelp();
-    logger.logToStdout('\nFor more help, use `fish-lsp --help-all` to see all commands and options.');
+    logger.logToStdout('\nFor more help, use `fish - lsp--help - all` to see all commands and options.');
     process.exit(1);
   }
-  commandBin.parse(process.argv);
+  // commandBin.parse(process.argv);
+  commandBin.parse();
 }

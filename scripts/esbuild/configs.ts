@@ -1,7 +1,7 @@
 // Centralized build configurations
 import * as esbuild from 'esbuild';
 import { resolve } from 'path';
-import { createPlugins, createDefines, PluginOptions, createSourceMapOptimizationPlugin } from './plugins';
+import { createPlugins, createDefines, PluginOptions, createSourceMapOptimizationPlugin, createSpecialSourceMapPlugin } from './plugins';
 import { copyBinaryAssets } from './utils';
 import { BuildConfigTarget } from "./types";
 
@@ -71,7 +71,7 @@ export const buildConfigs: Record<BuildConfigTarget, BuildConfig> = {
   },
 };
 
-export function createBuildOptions(config: BuildConfig, production = false, sourcemapsMode: 'optimized' | 'extended' | 'none' = 'optimized'): esbuild.BuildOptions {
+export function createBuildOptions(config: BuildConfig, production = false, sourcemapsMode: 'optimized' | 'extended' | 'none' | 'special' = 'optimized'): esbuild.BuildOptions {
   // Configure sourcemaps based on mode
   const shouldGenerateSourceMaps = config.sourcemap !== false && sourcemapsMode !== 'none';
   const sourcemapSetting = shouldGenerateSourceMaps ? 'external' : false;
@@ -98,7 +98,10 @@ export function createBuildOptions(config: BuildConfig, production = false, sour
     // mangleProps: false, // Don't mangle properties to avoid runtime overhead
     plugins: [
       ...createPlugins(config.internalPlugins),
-      createSourceMapOptimizationPlugin(sourcemapsMode === 'extended'), // Preserve source content for extended mode
+      // Always use the special sourcemap plugin for bundled builds
+      config.bundle 
+        ? createSpecialSourceMapPlugin({ preserveOnlySrcContent: true })
+        : createSourceMapOptimizationPlugin(sourcemapsMode === 'extended'), // Preserve source content for extended mode
       ...(config.onBuildEnd ? [{
         name: 'build-end-hook',
         setup(build: esbuild.PluginBuild) {

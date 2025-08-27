@@ -518,6 +518,69 @@ Custom server configurations can also be [set interactively](https://github.com/
 
 Due to the vast possibilities this project aims to support in the fish shell, [sharing useful configurations is highly encouraged](https://github.com/ndonfris/fish-lsp/discussions).
 
+## Trouble Shooting
+
+If you encounter any issues with the server, the following steps may be useful to help diagnose the problem:
+
+- Show every available subcommand and flag for the `fish-lsp`
+
+  ```fish
+  fish-lsp --help-all
+  ```
+
+- Ensure that the `fish-lsp` command is available in your system's PATH by running `which fish-lsp` or `fish-lsp info --bin`. The `fish-lsp` command also ships with an info subcommand, that displays information about the current binary and its environment that you are using.
+
+  ```fish
+  fish-lsp info
+  ```
+
+- Check if the language server is able to start index the `$fish_lsp_all_indexed_paths` directories. This command simulates the server initialization process without requiring a client connection to start the server.
+
+  ```fish
+  fish-lsp info --time-startup
+  ```
+
+  > NOTE: There is also, `fish-lsp info --time-only` which will show a less verbose summary of the startup timings. You can also pair these flags with `--use-workspace ~/path/to/fish/workspace` to limit the indexing to a specific folder.
+
+- Check the health of the server.
+
+  ```fish
+  fish-lsp info --check-health
+  ```
+
+- Check your current env variables for the server.
+
+  ```fish
+  fish-lsp env --show 
+  ```
+
+- Check the server logs, while a server is running.
+
+  ```fish
+  set -gx fish_lsp_log_file /tmp/fish_lsp.logs
+  tail -f (fish-lsp info --log-file)
+  # Ctrl+z to send to bg
+  $EDITOR ~/.config/fish/config.fish
+  # Ctrl+z to send to bg
+  fg %3 # show the tail again
+  # this works better with multiple terminals opens
+  ```
+
+- Enable source maps to debug the bundled server code.
+
+  ```fish
+  set -gx NODE_OPTIONS'--enable-source-maps --inspect' 
+  $EDITOR ~/.config/fish/config.fish
+  ```
+
+- Show the tree-sitter parse tree for a specific file:
+
+  ```fish
+  fish-lsp info --dump-parse-tree path/to/file.fish
+  ```
+
+##### Abbreviations to shorten the amount of characters typed for many of the above commands are available on the [wiki](https://github.com/ndonfris/fish-lsp/wiki/Abbreviations)
+
 ## How does it work?
 
 If you're new to the concept of the [Language Server Protocol (LSP)](https://lsif.dev), this section should be useful to help you grasp its core purpose and benefits.

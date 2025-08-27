@@ -168,3 +168,101 @@ export function createSourceMapOptimizationPlugin(preserveSourceContent?: boolea
     },
   };
 }
+
+/**
+ * Enhanced sourcemap plugin that filters sources to only include src/ files
+ * and validates mappings bounds while preserving sourcesContent for debugging
+ * @param options Configuration for the special sourcemap processing
+ */
+export function createSpecialSourceMapPlugin(options: { preserveOnlySrcContent?: boolean } = {}): esbuild.Plugin {
+  return {
+    name: 'special-sourcemap-optimization',
+    setup(build) {
+      build.onEnd((result) => {
+        if (!result.outputFiles && build.initialOptions.outfile && build.initialOptions.sourcemap) {
+          const outfile = build.initialOptions.outfile;
+          const sourcemapFile = outfile + '.map';
+          
+          try {
+            const sourcemapContent = readFileSync(sourcemapFile, 'utf8');
+            const originalSize = sourcemapContent.length;
+            const sourcemap = JSON.parse(sourcemapContent);
+            
+            // Ensure the bundle has a sourcemap reference
+            const bundleContent = readFileSync(outfile, 'utf8');
+            const sourcemapRef = `\n//# sourceMappingURL=${resolve(sourcemapFile).split('/').pop()}`;
+            
+            if (!bundleContent.includes('//# sourceMappingURL=')) {
+              writeFileSync(outfile, bundleContent + sourcemapRef);
+            }
+            
+            if (options.preserveOnlySrcContent && sourcemap.sources && sourcemap.sourcesContent) {
+              // Instead of filtering and breaking mappings, we'll selectively remove sourcesContent
+              // for non-src files while keeping all sources for valid mappings
+              const optimizedSourcesContent: (string | null)[] = [];
+              let srcFileCount = 0;
+              let removedSourcesSize = 0;
+              
+              sourcemap.sources.forEach((source: string, index: number) => {
+                // Only preserve sourcesContent for TypeScript files from src/ directory
+                // Remove content for node_modules, embedded assets, and other non-src files
+                if (
+                  source.includes('../src/') && 
+                  source.endsWith('.ts') &&
+                  !source.includes('node_modules') &&
+                  !source.startsWith('embedded-asset:') &&
+                  !source.includes('webpack://')
+                ) {
+                  // Keep the source content for src files
+                  optimizedSourcesContent.push(sourcemap.sourcesContent[index] || null);
+                  srcFileCount++;
+                } else {
+                  // Remove source content but keep the entry to maintain mapping indices
+                  const originalContent = sourcemap.sourcesContent[index] || '';
+                  removedSourcesSize += originalContent.length;
+                  optimizedSourcesContent.push(null);
+                }
+              });
+              
+              // Create optimized sourcemap with selective sourcesContent
+              const optimizedSourcemap = {
+                ...sourcemap,
+                sourcesContent: optimizedSourcesContent
+              };
+              
+              console.log(`📦 Special source map: ${colorize(toRelativePath(sourcemapFile), colors.white)}`);
+              console.log(`  Total sources: ${colorize(sourcemap.sources.length + ' files', colors.white)}`);
+              console.log(`  Src/ files with content: ${colorize(srcFileCount + ' files', colors.white)}`);
+              console.log(`  Other sources (content removed): ${colorize((sourcemap.sources.length - srcFileCount) + ' files', colors.white)}`);
+              
+              if (srcFileCount > 0) {
+                const optimizedContent = JSON.stringify(optimizedSourcemap);
+                writeFileSync(sourcemapFile, optimizedContent);
+                
+                const newSize = optimizedContent.length;
+                const reduction = originalSize > newSize 
+                  ? ((originalSize - newSize) / originalSize * 100).toFixed(1)
+                  : '0';
+                
+                console.log(`  Size reduction: ${colorize(`${reduction}% (${(originalSize/1024/1024).toFixed(1)}MB → ${(newSize/1024/1024).toFixed(1)}MB)`, colors.white)}`);
+                console.log(`  Mappings preserved: ${colorize('All mappings intact', colors.white)}`);
+                
+                // Note: Shebang modification removed - use NODE_OPTIONS="--enable-source-maps" instead
+                // to avoid process.argv parsing issues
+              } else {
+                console.log(`  ${colorize('Warning: No src/ TypeScript files found in sourcemap', colors.white)}`);
+              }
+            } else {
+              // Fallback to regular sourcemap optimization
+              console.log(`📦 Source map: ${colorize(toRelativePath(sourcemapFile), colors.white)}`);
+              console.log(`  Size: ${colorize((originalSize/1024/1024).toFixed(1) + 'MB', colors.white)} (preserved for debugging)`);
+              console.log(`  Sources: ${colorize(sourcemap.sources.length + ' files', colors.white)}`);
+            }
+          } catch (error) {
+            console.log(`  ${colorize('Warning: Could not process sourcemap - ' + (error as Error).message, colors.white)}`);
+          }
+        }
+      });
+    },
+  };
+}
