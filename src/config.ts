@@ -125,6 +125,12 @@ export const ConfigSchema = z.object({
 
   /** single workspace support */
   fish_lsp_single_workspace_support: z.boolean().default(false),
+
+  /** paths to ignore when searching for workspace folders */
+  fish_lsp_ignore_paths: z.array(z.string()).default(['**/.git', '**/node_modules', '**/vendor', '**/bower_components', '**/__pycache__', '**/docker']),
+
+  /** max depth to search for workspace folders */
+  fish_lsp_max_workspace_depth: z.number().default(3),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -148,6 +154,8 @@ export function getConfigFromEnvironmentVariables(): {
     fish_lsp_max_background_files: toNumber(process.env.fish_lsp_max_background_files || '10000'),
     fish_lsp_show_client_popups: toBoolean(process.env.fish_lsp_show_client_popups),
     fish_lsp_single_workspace_support: toBoolean(process.env.fish_lsp_single_workspace_support),
+    fish_lsp_ignore_paths: process.env.fish_lsp_ignore_paths?.split(' '),
+    fish_lsp_max_workspace_depth: toNumber(process.env.fish_lsp_max_workspace_depth || '4'),
   };
 
   const environmentVariablesUsed = Object.entries(rawConfig)
