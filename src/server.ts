@@ -897,54 +897,57 @@ export default class FishServer {
   }
 
   public onShowSignatureHelp(params: SignatureHelpParams): SignatureHelp | null {
-    this.logParams('onShowSignatureHelp', params);
+    try {
+      this.logParams('onShowSignatureHelp', params);
+      const { doc, path } = this.getDefaults(params);
+      if (!doc || !path) return null;
 
-    const { doc, path } = this.getDefaults(params);
-    if (!doc || !path) return null;
+      const { line, lineRootNode, lineLastNode } = analyzer.parseCurrentLine(doc, params.position);
+      if (line.trim() === '') return null;
 
-    const { line, lineRootNode, lineLastNode } = analyzer.parseCurrentLine(doc, params.position);
-    if (line.trim() === '') return null;
+      const currentCmd = findParentCommand(lineLastNode)!;
+      const aliasSignature = this.completionMap.allOfKinds('alias').find(a => a.label === currentCmd.text);
+      if (aliasSignature) return getAliasedCompletionItemSignature(aliasSignature);
 
-    const currentCmd = findParentCommand(lineLastNode)!;
-    const aliasSignature = this.completionMap.allOfKinds('alias').find(a => a.label === currentCmd.text);
-    if (aliasSignature) return getAliasedCompletionItemSignature(aliasSignature);
-
-    const varNode = getChildNodes(lineRootNode).find(c => isVariableDefinition(c));
-    const lastCmd = getChildNodes(lineRootNode).filter(c => isCommand(c)).pop();
-    logger.log({ line, lastCmds: lastCmd?.text });
-    if (varNode && (line.startsWith('set') || line.startsWith('read')) && lastCmd?.text === lineRootNode.text.trim()) {
-      const varName = varNode.text;
-      const varDocs = PrebuiltDocumentationMap.getByName(varNode.text);
-      if (!varDocs.length) return null;
-      return {
-        signatures: [
-          {
-            label: varName,
-            documentation: {
-              kind: 'markdown',
-              value: varDocs.map(d => d.description).join('\n'),
+      const varNode = getChildNodes(lineRootNode).find(c => isVariableDefinition(c));
+      const lastCmd = getChildNodes(lineRootNode).filter(c => isCommand(c)).pop();
+      logger.log({ line, lastCmds: lastCmd?.text });
+      if (varNode && (line.startsWith('set') || line.startsWith('read')) && lastCmd?.text === lineRootNode.text.trim()) {
+        const varName = varNode.text;
+        const varDocs = PrebuiltDocumentationMap.getByName(varNode.text);
+        if (!varDocs.length) return null;
+        return {
+          signatures: [
+            {
+              label: varName,
+              documentation: {
+                kind: 'markdown',
+                value: varDocs.map(d => d.description).join('\n'),
+              },
             },
-          },
-        ],
-        activeSignature: 0,
-        activeParameter: 0,
-      };
+          ],
+          activeSignature: 0,
+          activeParameter: 0,
+        };
+      }
+      if (isRegexStringSignature(line)) {
+        const signature = getDefaultSignatures();
+        logger.log('signature', signature);
+        const cursorLineOffset = line.length - lineLastNode.endIndex;
+        const { activeParameter } = findActiveParameterStringRegex(line, cursorLineOffset);
+        signature.activeParameter = activeParameter;
+        return signature;
+      }
+      const functionSignature = getFunctionSignatureHelp(
+        analyzer,
+        lineLastNode,
+        line,
+        params.position,
+      );
+      if (functionSignature) return functionSignature;
+    } catch (err) {
+      logger.error('onShowSignatureHelp', err);
     }
-    if (isRegexStringSignature(line)) {
-      const signature = getDefaultSignatures();
-      logger.log('signature', signature);
-      const cursorLineOffset = line.length - lineLastNode.endIndex;
-      const { activeParameter } = findActiveParameterStringRegex(line, cursorLineOffset);
-      signature.activeParameter = activeParameter;
-      return signature;
-    }
-    const functionSignature = getFunctionSignatureHelp(
-      analyzer,
-      lineLastNode,
-      line,
-      params.position,
-    );
-    if (functionSignature) return functionSignature;
     return null;
   }
 
