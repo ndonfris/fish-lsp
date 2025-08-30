@@ -1,3 +1,10 @@
+## <small>1.0.11-pre.19 (2025-08-30)</small>
+
+* fix: `server.onShowSignatureHelp()` silence error + test fish indexing startup ([ae2badd](https://github.com/ndonfris/fish-lsp/commit/ae2badd))
+* chore: added `fish_lsp_ignore_paths`, and `fish_lsp_max_workspace_depth` ([9ff595a](https://github.com/ndonfris/fish-lsp/commit/9ff595a))
+
+
+
 ## <small>1.0.11-pre.18 (2025-08-27)</small>
 
 * chore: added `fish_lsp_ignore_paths`, and `fish_lsp_max_workspace_depth` ([1e93ee3](https://github.com/ndonfris/fish-lsp/commit/1e93ee3))
