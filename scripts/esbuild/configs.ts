@@ -10,7 +10,7 @@ export interface BuildConfig extends esbuild.BuildOptions {
   entryPoint: string;
   outfile?: string;
   outdir?: string;
-  target: 'node' | 'browser';
+  target: string;
   format: 'cjs' | 'esm';
   platform: 'node' | 'browser';
   bundle: boolean;
@@ -74,7 +74,7 @@ export const buildConfigs: Record<BuildConfigTarget, BuildConfig> = {
     name: 'NPM Package',
     entryPoint: 'src/main.ts',
     outfile: resolve('dist', 'fish-lsp'),
-    target: 'node',
+    target: 'node20',
     format: 'cjs',
     platform: 'node',
     bundle: true,

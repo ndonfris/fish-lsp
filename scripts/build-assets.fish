@@ -5,12 +5,11 @@
 #
 # Creates the release assets for GitHub releases
 # These files are included in the release-assets/ folder:
-#   - fish-lsp             (standalone binary)
-#   - fish-lsp.map         (source map)
-#   - fish-lsp.d.ts        (TypeScript declarations)
-#   - fish-lsp.1           (man page) 
-#   - fish-lsp.fish        (shell completions)
-#   - fish-lsp-*.tgz       (npm package tarball)
+#   - fish-lsp.standalone                                  (standalone binary -- bundled dependencies into a single executable, npm package will be smaller)
+#   - fish-lsp.standalone.extra-assets.tar                 (standalone w/ sourcemaps, manpage, completions, and TypeScript declarations)
+#   - fish-lsp-*.tgz                                       (npm packaged tarball)
+#   - fish-lsp.1                                           (man page) 
+#   - fish-lsp.fish                                        (shell completions)
 #
 
 source ./scripts/continue_or_exit.fish
@@ -43,6 +42,7 @@ end
 
 log_info 'ℹ️' '[INFO]' 'Building project...'
 yarn clean:packs &>/dev/null
+yarn dev &>/dev/null
 
 if set -q _flag_fresh_install || not test -f dist/fish-lsp
     yarn install && yarn dev
@@ -59,9 +59,9 @@ mv fish-lsp-*.tgz release-assets/
 yarn generate:man &>/dev/null && cp man/fish-lsp.1 release-assets/fish-lsp.1
 dist/fish-lsp complete > release-assets/fish-lsp.fish
 
-tar -cvf release-assets/fish-lsp.universal.tar bin man dist/fish-lsp.d.ts
+tar -cvf release-assets/fish-lsp.standalone.extra-assets.tar bin man dist/fish-lsp.d.ts
 
-cp bin/fish-lsp release-assets/fish-lsp.universal
+cp bin/fish-lsp release-assets/fish-lsp.standalone
 
 print_separator
 

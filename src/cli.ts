@@ -204,7 +204,7 @@ commandBin.command('info')
   .option('--no-color', 'disable color output for --dump-parse-tree', false)
   .option('--virtual-fs', 'show the virtual filesystem structure (like tree command)', false)
   .allowUnknownOption(false)
-  .allowExcessArguments(false)
+  // .allowExcessArguments(false)
   .action(async (args: CommanderSubcommand.info.schemaType) => {
     await setupProcessEnvExecFile();
     const capabilities = BuildCapabilityString()
@@ -255,37 +255,30 @@ commandBin.command('info')
       }
       // normal info about the fish-lsp
       if (args.bin) {
-        argsCount = argsCount - 1;
         CommanderSubcommand.info.log(argsCount, 'Executable Path', PathObj.execFile);
         shouldExit = true;
       }
       if (args.path) {
-        argsCount = argsCount - 1;
         CommanderSubcommand.info.log(argsCount, 'Build Path', PathObj.path);
         shouldExit = true;
       }
       if (args.buildTime) {
-        argsCount = argsCount - 1;
         CommanderSubcommand.info.log(argsCount, 'Build Time', PkgJson.buildTime);
         shouldExit = true;
       }
       if (args.buildType) {
-        argsCount = argsCount - 1;
         CommanderSubcommand.info.log(argsCount, 'Build Type', getBuildTypeString());
         shouldExit = true;
       }
       if (args.capabilities) {
-        argsCount = argsCount - 1;
         CommanderSubcommand.info.log(argsCount, 'Capabilities', capabilities, true);
         shouldExit = true;
       }
       if (args.version) {
-        argsCount = argsCount - 1;
         CommanderSubcommand.info.log(argsCount, 'Build Version', PackageVersion);
         shouldExit = true;
       }
       if (args.lspVersion) {
-        argsCount = argsCount - 1;
         CommanderSubcommand.info.log(argsCount, 'LSP Version', PackageLspVersion, true);
         shouldExit = true;
       }

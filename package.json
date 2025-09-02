@@ -3,7 +3,7 @@
   "author": "ndonfris",
   "license": "MIT",
   "name": "fish-lsp",
-  "version": "1.0.11-pre.19",
+  "version": "1.0.11-pre.20",
   "description": "LSP implementation for fish/fish-shell",
   "keywords": [
     "lsp",
@@ -26,7 +26,7 @@
     "type": "github"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "files": [
     "dist/fish-lsp",
