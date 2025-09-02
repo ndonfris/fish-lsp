@@ -4,7 +4,7 @@ import { AliasHelper, createAliasInlineAction } from '../src/code-actions/alias-
 import { ErrorCodes } from '../src/diagnostics/error-codes';
 import { LspDocument } from '../src/document';
 import * as Parser from 'web-tree-sitter';
-import { setLogger } from './helpers';
+import { setLogger, fail } from './helpers';
 import { isCommandWithName } from '../src/utils/node-types';
 import { getChildNodes } from '../src/utils/tree-sitter';
 import { execAsyncF } from '../src/utils/exec';
@@ -304,9 +304,9 @@ end`,
       const diagnostic = createDiagnostic(0, 0, input.length);
       const aliasNode = getChildNodes(tree.rootNode).find(node => isCommandWithName(node, 'alias'));
       if (!aliasNode) fail();
-      console.log({ text: aliasNode.text });
+      console.log({ text: aliasNode?.text });
 
-      const action = await createAliasInlineAction(doc, aliasNode);
+      const action = await createAliasInlineAction(doc, aliasNode!);
       console.log(JSON.stringify(action, null, 2));
       expect(action).toBeTruthy();
     });

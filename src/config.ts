@@ -127,7 +127,7 @@ export const ConfigSchema = z.object({
   fish_lsp_single_workspace_support: z.boolean().default(false),
 
   /** paths to ignore when searching for workspace folders */
-  fish_lsp_ignore_paths: z.array(z.string()).default(['**/.git', '**/node_modules', '**/vendor', '**/bower_components', '**/__pycache__', '**/docker']),
+  fish_lsp_ignore_paths: z.array(z.string()).default(['**/.git/**', '**/node_modules/**', '**/containerized/**', '**/docker/**']),
 
   /** max depth to search for workspace folders */
   fish_lsp_max_workspace_depth: z.number().default(3),

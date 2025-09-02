@@ -11,7 +11,7 @@ import { isCommand, isComment, isDefinition, isMatchingOption, isVariableDefinit
 // import { ScopeStack, isReference } from '../src/diagnostics/scope';
 import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter, isArgparseWithoutEndStdin } from '../src/diagnostics/node-types';
 import { LspDocument } from '../src/document';
-import { createFakeLspDocument, setLogger } from './helpers';
+import { createFakeLspDocument, setLogger, fail } from './helpers';
 import { getDiagnostics } from '../src/diagnostics/validate';
 import { DiagnosticComment, DiagnosticCommentsHandler, isDiagnosticComment, parseDiagnosticComment } from '../src/diagnostics/comments-handler';
 import { withTempFishFile } from './temp';
@@ -113,7 +113,7 @@ describe('diagnostics test suite', () => {
         // console.log(getChildNodes(r).map(n => n.text + ':::' + n.type))
         // if (errorNode) console.log('------\nerrorNode', errorNode.text);
         if (!errorNode) fail();
-        output.push(errorNode);
+        output.push(errorNode!);
       }
     });
     expect(
@@ -765,25 +765,25 @@ end
     //   - ../src/diagnostics/node-types.ts
     //   - ../src/diagnostics/validate.ts
     //  FIX SPECIFIC function `isConditionalStatement()`
-    testcases.forEach(({ title, input, expected, shouldRun }) => {
-      if (shouldRun) {
-        it.only(title, () => {
-          // console.log(title);
-          // console.log('-'.repeat(70));
-          const { rootNode } = parser.parse(input);
-          // console.log(rootNode.text);
-          // console.log('-'.repeat(70));
-          const result: SyntaxNode[] = [];
-          for (const child of getChildNodes(rootNode)) {
-            if (isConditionalWithoutQuietCommand(child)) {
-              // console.log('conditional', {text: child.text});
-              result.push(child);
-            }
-          }
-          expect(result.map(r => r.text)).toEqual(expected);
-        });
-      }
-    });
+    // testcases.forEach(({ title, input, expected, shouldRun }) => {
+    //   if (shouldRun) {
+    //     it.only(title, () => {
+    //       // console.log(title);
+    //       // console.log('-'.repeat(70));
+    //       const { rootNode } = parser.parse(input);
+    //       // console.log(rootNode.text);
+    //       // console.log('-'.repeat(70));
+    //       const result: SyntaxNode[] = [];
+    //       for (const child of getChildNodes(rootNode)) {
+    //         if (isConditionalWithoutQuietCommand(child)) {
+    //           // console.log('conditional', {text: child.text});
+    //           result.push(child);
+    //         }
+    //       }
+    //       expect(result.map(r => r.text)).toEqual(expected);
+    //     });
+    //   }
+    // });
   });
 
   describe.only('fish --no-execute diagnostics', () => {

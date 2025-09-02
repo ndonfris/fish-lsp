@@ -3,7 +3,7 @@
 /**
  * Individual build configuration targets that map to actual build configs
  */
-export type BuildConfigTarget = 'binary' | 'development';
+export type BuildConfigTarget = 'binary' | 'development' | 'npm';
 
 /**
  * Meta targets that control the build process behavior
@@ -28,7 +28,7 @@ export type ConfiguredTarget = BuildConfigTarget;
 /**
  * Targets available when using --all flag (excludes special targets)
  */
-export const ALL_TARGETS: readonly BuildConfigTarget[] = ['development', 'binary'] as const;
+export const ALL_TARGETS: readonly BuildConfigTarget[] = ['development', 'binary', 'npm'] as const;
 
 /**
  * All valid CLI targets
@@ -63,6 +63,7 @@ export function getTargetDisplayName(target: BuildTarget): string {
   switch (target) {
     case 'binary': return 'Universal Binary';
     case 'development': return 'Development';
+    case 'npm': return 'NPM Package';
     case 'all': return 'All targets';
     case 'types': return 'TypeScript Declarations';
     case 'library': return 'Library';

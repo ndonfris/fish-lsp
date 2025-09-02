@@ -26,13 +26,13 @@ export const buildConfigs: Record<BuildConfigTarget, BuildConfig> = {
   binary: {
     name: 'Universal Binary',
     entryPoint: 'src/main.ts',
-    outfile: resolve('dist', 'fish-lsp'),
+    outfile: resolve('bin', 'fish-lsp'),
     target: 'node',
     format: 'cjs',
     platform: 'node',
     bundle: true,
     treeShaking: true,
-    minify: false,
+    minify: true,
     assetNames: 'assets/[name]-[hash]', // Include hash in asset names for cache busting
     loader: {
       '.wasm': 'file',
@@ -67,6 +67,48 @@ export const buildConfigs: Record<BuildConfigTarget, BuildConfig> = {
       target: 'node',
       typescript: false, // Use tsc separately
       polyfills: 'none',
+    },
+  },
+
+  npm: {
+    name: 'NPM Package',
+    entryPoint: 'src/main.ts',
+    outfile: resolve('dist', 'fish-lsp'),
+    target: 'node',
+    format: 'cjs',
+    platform: 'node',
+    bundle: true,
+    treeShaking: true,
+    minify: true,
+    assetNames: 'assets/[name]-[hash]',
+    loader: {
+      '.wasm': 'file',
+      '.node': 'file',
+    },
+    sourcemap: true,
+    preserveSymlinks: true,
+    // External dependencies - don't bundle these, npm will provide them
+    external: [
+      'chalk',
+      'commander',
+      'deepmerge',
+      'fast-glob',
+      'fs-extra',
+      'tree-sitter',
+      'unionfs',
+      'vscode-languageserver',
+      'vscode-languageserver-protocol',
+      'vscode-languageserver-textdocument',
+      'vscode-uri',
+      'zod'
+      // Note: keeping 'web-tree-sitter', 'esbuild-wasm', 'memfs' bundled
+      // as they may be needed for embedded functionality
+    ],
+    internalPlugins: {
+      target: 'node',
+      typescript: false,
+      polyfills: 'minimal',
+      embedAssets: true, // Keep WASM files embedded
     },
   },
 };

@@ -56,12 +56,12 @@ or fail 'Failed to create npm package tarball.'
 
 mv fish-lsp-*.tgz release-assets/
 
-cp dist/fish-lsp release-assets/fish-lsp
-cp dist/fish-lsp.map release-assets/fish-lsp.map
-cp dist/fish-lsp.d.ts release-assets/fish-lsp.d.ts
-
 yarn generate:man &>/dev/null && cp man/fish-lsp.1 release-assets/fish-lsp.1
 dist/fish-lsp complete > release-assets/fish-lsp.fish
+
+tar -cvf release-assets/fish-lsp.universal.tar bin man dist/fish-lsp.d.ts
+
+cp bin/fish-lsp release-assets/fish-lsp.universal
 
 print_separator
 

@@ -1,7 +1,3 @@
-#!/usr/bin/env node
-//'use strict'
-
-// Import polyfills for Node.js 18 compatibility
 import './utils/array-polyfills';
 import { BuildCapabilityString, PathObj, PackageLspVersion, PackageVersion, accumulateStartupOptions, FishLspHelp, FishLspManPage, SourcesDict, SubcommandEnv, CommanderSubcommand, getBuildTypeString, PkgJson, SourceMaps } from './utils/commander-cli-subcommands';
 import { Command, Option } from 'commander';
@@ -196,6 +192,7 @@ commandBin.command('info')
   .option('--time-only', 'alias to show only the time taken for the server to index files', false)
   .option('--use-workspace <PATH>', 'use the specified workspace path for `fish-lsp info --time-startup`', undefined)
   .option('--no-warning', 'do not show warnings in the output for `fish-lsp info --time-startup`', true)
+  .option('--show-files', 'show the files being indexed during `fish-lsp info --time-startup`', false)
   .option('--source-maps', 'show source map information and management options', false)
   .option('--all', 'show all source maps (use with --source-maps)', false)
   .option('--all-paths', 'show the paths to all the source maps (use with --source-maps)', false)
@@ -242,6 +239,7 @@ commandBin.command('info')
           workspacePath: args.useWorkspace,
           warning: args.warning,
           timeOnly: args.timeOnly,
+          showFiles: args.showFiles,
         });
         process.exit(0);
       }

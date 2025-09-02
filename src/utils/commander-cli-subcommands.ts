@@ -584,6 +584,7 @@ export namespace CommanderSubcommand {
         timeOnly: z.boolean().optional().default(false),
         useWorkspace: z.string().optional().default(''),
         warning: z.boolean().optional().default(true),
+        showFiles: z.boolean().optional().default(false),
         sourceMaps: z.boolean().optional().default(false),
         check: z.boolean().optional().default(false),
         install: z.boolean().optional().default(false),
@@ -623,6 +624,7 @@ export namespace CommanderSubcommand {
       '--time-only',
       '--use-workspace',
       '--no-warning',
+      '--show-files',
     ] as const;
 
     export function handleBadArgs(args: schemaType) {

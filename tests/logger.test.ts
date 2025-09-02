@@ -1,10 +1,10 @@
 import * as fs from 'fs';
-import { setLogger } from './helpers';
-import { logger as _logger, createServerLogger, Logger } from '../src/logger';
+import { vi } from 'vitest';
+import { setLogger, fail } from './helpers';
+import { logger, createServerLogger, Logger } from '../src/logger';
 import * as LSP from 'vscode-languageserver';
 import { createConnection, StreamMessageReader, StreamMessageWriter } from 'vscode-languageserver/node';
 
-let logger: Logger | undefined = new Logger().allowDefaultConsole();
 let connection: LSP.Connection = createConnection(
   new StreamMessageReader(process.stdin),
   new StreamMessageWriter(process.stdout),
@@ -16,19 +16,19 @@ export function loggerIsDefined(_logger: Logger | undefined): _logger is Logger 
 
 const logFilePath = '/tmp/fish-lsp-test.log';
 describe('logger test suite', () => {
-  const jestConsole = console;
+  const originalConsole = console;
 
   beforeEach(() => {
     global.console = require('console');
   });
 
   afterEach(() => {
-    global.console = jestConsole;
+    global.console = originalConsole;
   });
 
   describe('logger default behavior', () => {
     beforeEach(() => {
-      logger = new Logger().allowDefaultConsole().setConsole(global.console).start();
+      logger.allowDefaultConsole().setConsole(global.console).start();
     });
     it('logger should log to console', () => {
       if (!loggerIsDefined(logger)) fail();
@@ -57,7 +57,7 @@ describe('logger test suite', () => {
 
     it('logToStdout should log to stdout', () => {
       if (!loggerIsDefined(logger)) fail();
-      const spy = jest.spyOn(process.stdout, 'write').mockImplementation();
+      const spy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
       logger.logToStdout('test log to stdout');
       expect(spy).toHaveBeenCalledWith('test log to stdout\n');
       spy.mockRestore();
@@ -65,7 +65,7 @@ describe('logger test suite', () => {
 
     it('logToStderr should log to stderr', () => {
       if (!loggerIsDefined(logger)) fail();
-      const spy = jest.spyOn(process.stderr, 'write').mockImplementation();
+      const spy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
       logger.logToStderr('test log to stderr');
       expect(spy).toHaveBeenCalledWith('test log to stderr\n');
       spy.mockRestore();
@@ -79,13 +79,14 @@ describe('logger test suite', () => {
 
   describe('server usage', () => {
     setLogger();
+    let testLogger: Logger | undefined;
     beforeEach(() => {
       connection = createConnection(
         new StreamMessageReader(process.stdin),
         new StreamMessageWriter(process.stdout),
       );
       fs.writeFileSync(logFilePath, '');
-      logger = new Logger()
+      testLogger = new Logger()
         .setConnectionConsole(connection.console)
         .setLogFilePath(logFilePath)
         .setSilent(true)
@@ -100,51 +101,51 @@ describe('logger test suite', () => {
     });
 
     afterAll(() => {
-      logger = undefined;
+      testLogger = undefined;
     });
 
     it('should create server logger', () => {
-      if (!loggerIsDefined(logger)) fail();
-      logger = createServerLogger('', connection.console);
-      expect(logger).toBeInstanceOf(Logger);
-      expect(logger.isStarted()).toBe(true);
+      if (!loggerIsDefined(testLogger)) fail();
+      testLogger = createServerLogger('', connection.console);
+      expect(testLogger).toBeInstanceOf(Logger);
+      expect(testLogger.isStarted()).toBe(true);
     });
 
     it('should create server logger and log to file', () => {
-      if (!loggerIsDefined(logger)) fail();
+      if (!loggerIsDefined(testLogger)) fail();
       console.log({
-        logFilePath: logger.logFilePath,
-        isStarted: logger.isStarted(),
-        hasLogFile: logger.hasLogFile(),
-        hasConsole: logger.hasConsole(),
-        isSilent: logger.isSilent(),
+        logFilePath: testLogger.logFilePath,
+        isStarted: testLogger.isStarted(),
+        hasLogFile: testLogger.hasLogFile(),
+        hasConsole: testLogger.hasConsole(),
+        isSilent: testLogger.isSilent(),
       });
       // console.log({output});
-      expect(logger.logFilePath).toBe(logFilePath);
-      expect(logger.isStarted()).toBe(true);
-      expect(logger.isConnected()).toBe(true);
-      expect(logger.hasLogFile()).toBe(true);
-      expect(logger.hasConsole()).toBe(true);
-      expect(logger.isSilent()).toBe(true);
-      logger.log('test log to file');
-      logger.error('error message');
+      expect(testLogger.logFilePath).toBe(logFilePath);
+      expect(testLogger.isStarted()).toBe(true);
+      expect(testLogger.isConnected()).toBe(true);
+      expect(testLogger.hasLogFile()).toBe(true);
+      expect(testLogger.hasConsole()).toBe(true);
+      expect(testLogger.isSilent()).toBe(true);
+      testLogger.log('test log to file');
+      testLogger.error('error message');
       const output = fs.readFileSync(logFilePath, 'utf-8');
       expect(output).toEqual('test log to file\nERROR: error message\n');
     });
 
     it('should log to file and not to console', () => {
-      if (!loggerIsDefined(logger)) fail();
-      logger = new Logger()
+      if (!loggerIsDefined(testLogger)) fail();
+      testLogger = new Logger()
         .setLogFilePath(logFilePath)
         .setConnectionConsole(connection.console)
         .setSilent(true)
         .start();
 
-      logger.log('test log to file');
-      logger.error('error message');
-      logger.warning('warning message');
-      logger.info('info message');
-      logger.debug('debug message');
+      testLogger.log('test log to file');
+      testLogger.error('error message');
+      testLogger.warning('warning message');
+      testLogger.info('info message');
+      testLogger.debug('debug message');
       const output = fs.readFileSync(logFilePath, 'utf-8');
       // console.log({ output });
       expect(output).toEqual([
@@ -157,15 +158,15 @@ describe('logger test suite', () => {
     });
 
     it('logging before file is set', () => {
-      if (!loggerIsDefined(logger)) fail();
-      logger = new Logger().setConnectionConsole(connection.console).setSilent(true);
-      logger.log('test log to file');
-      logger.error('error message');
-      logger.warning('warning message');
-      logger.info('info message');
-      logger.debug('debug message');
-      logger.setLogFilePath(logFilePath);
-      logger.start();
+      if (!loggerIsDefined(testLogger)) fail();
+      testLogger = new Logger().setConnectionConsole(connection.console).setSilent(true);
+      testLogger.log('test log to file');
+      testLogger.error('error message');
+      testLogger.warning('warning message');
+      testLogger.info('info message');
+      testLogger.debug('debug message');
+      testLogger.setLogFilePath(logFilePath);
+      testLogger.start();
       const output = fs.readFileSync(logFilePath, 'utf-8');
       console.log({ output });
       expect(output).toEqual([
@@ -178,19 +179,19 @@ describe('logger test suite', () => {
     });
 
     it('severity ERROR', () => {
-      if (!loggerIsDefined(logger)) fail();
-      logger = new Logger()
+      if (!loggerIsDefined(testLogger)) fail();
+      testLogger = new Logger()
         .setLogFilePath(logFilePath)
         .setConnectionConsole(connection.console)
         .setSilent(true)
         .setLogLevel('error')
         .start();
 
-      logger.log('test log to file');
-      logger.error('error message');
-      logger.warning('warning message');
-      logger.info('info message');
-      logger.debug('debug message');
+      testLogger.log('test log to file');
+      testLogger.error('error message');
+      testLogger.warning('warning message');
+      testLogger.info('info message');
+      testLogger.debug('debug message');
       const output = fs.readFileSync(logFilePath, 'utf-8');
       console.log({ output });
       expect(output).toEqual([
@@ -199,19 +200,19 @@ describe('logger test suite', () => {
     });
 
     it('severity WARNING', () => {
-      if (!loggerIsDefined(logger)) fail();
-      logger = new Logger()
+      if (!loggerIsDefined(testLogger)) fail();
+      testLogger = new Logger()
         .setLogFilePath(logFilePath)
         .setConnectionConsole(connection.console)
         .setSilent(true)
         .setLogLevel('warning')
         .start();
 
-      logger.log('test log to file');
-      logger.error('error message');
-      logger.warning('warning message');
-      logger.info('info message');
-      logger.debug('debug message');
+      testLogger.log('test log to file');
+      testLogger.error('error message');
+      testLogger.warning('warning message');
+      testLogger.info('info message');
+      testLogger.debug('debug message');
       const output = fs.readFileSync(logFilePath, 'utf-8');
       console.log('severity warning', { output });
       expect(output).toEqual([
@@ -222,30 +223,31 @@ describe('logger test suite', () => {
   });
 
   describe('stdout', () => {
+    let testLogger: Logger | undefined;
     beforeEach(() => {
-      logger = new Logger().setConsole(global.console).allowDefaultConsole().start();
+      testLogger = new Logger().setConsole(global.console).allowDefaultConsole().start();
     });
 
     it('should log to stdout', () => {
-      if (!loggerIsDefined(logger)) fail();
-      const spy = jest.spyOn(process.stdout, 'write').mockImplementation();
-      logger.logToStdout('test log to stdout');
+      if (!loggerIsDefined(testLogger)) fail();
+      const spy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+      testLogger.logToStdout('test log to stdout');
       expect(spy).toHaveBeenCalledWith('test log to stdout\n');
       spy.mockRestore();
     });
 
     it('should log to stdout with newline', () => {
-      if (!loggerIsDefined(logger)) fail();
-      const spy = jest.spyOn(process.stdout, 'write').mockImplementation();
-      logger.logToStdout('test log to stdout', false);
+      if (!loggerIsDefined(testLogger)) fail();
+      const spy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+      testLogger.logToStdout('test log to stdout', false);
       expect(spy).toHaveBeenCalledWith('test log to stdout');
       spy.mockRestore();
     });
 
     it('should log to stdout joined', () => {
-      if (!loggerIsDefined(logger)) fail();
-      const spy = jest.spyOn(process.stdout, 'write').mockImplementation();
-      logger.logToStdoutJoined('test log to stdout', ' joined');
+      if (!loggerIsDefined(testLogger)) fail();
+      const spy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+      testLogger.logToStdoutJoined('test log to stdout', ' joined');
       expect(spy).toHaveBeenCalledWith('test log to stdout joined\n');
       spy.mockRestore();
     });

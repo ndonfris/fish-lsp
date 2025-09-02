@@ -90,6 +90,9 @@ export function getProjectRootPath(): string {
  * Resolves the fish_files directory path for bundled and development versions
  */
 export function getFishFilesPath(): string {
+  if (process.env.NODE_ENV === 'test') {
+    return resolve(getProjectRootPath(), 'fish_files');
+  }
   return vfs.getPathOrFallback(
     'fish_files',
     resolve(getProjectRootPath(), 'fish_files'),

@@ -74,6 +74,7 @@ show the build info of fish-lsp
   `--time-only`               show brief summary of the startup timing  
   `--use-workspace <PATH>`    use the workspace at the specified directory path when `fish-lsp info --time-startup` is used  
   `--no-warning`              disable message in the `fish-lsp info --time-startup` output  
+  `--show-files`              show the files that were indexed during startup when `fish-lsp info --time-startup` is used  
   `--dump-parse-tree <FILE>`  show the tree-sitter AST for the specified file  
   `--no-color`                disable color output in the `fish-lsp info --dump-file-tree` output  
 

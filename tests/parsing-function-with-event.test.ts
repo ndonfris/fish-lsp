@@ -1,4 +1,4 @@
-import { createTestWorkspace, setLogger, TestLspDocument } from './helpers';
+import { createTestWorkspace, fail, setLogger, TestLspDocument } from './helpers';
 import { SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from '../src/parser';
 import { Analyzer, analyzer } from '../src/analyze';

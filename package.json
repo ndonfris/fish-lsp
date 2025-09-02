@@ -54,8 +54,8 @@
     },
     "./web": {
       "types": "./dist/fish-lsp.d.ts",
-      "import": "./dist/fish-lsp",
-      "require": "./dist/fish-lsp"
+      "import": "./dist/fish-lsp-npm",
+      "require": "./dist/fish-lsp-npm"
     }
   },
   "bin": "dist/fish-lsp",
@@ -66,9 +66,10 @@
     "dev:watch": "run-s dev watch",
     "dev:watch-all": "tsx scripts/build.ts --watch-all",
     "postinstall": "run-s sh:build-time",
-    "prepack": "run-s --continue-on-error clean:build lint:check update-changelog generate:man generate:commands build:all",
+    "prepack": "run-s --continue-on-error clean:build lint:check update-changelog generate:man generate:commands build:npm",
     "build": "tsx scripts/build.ts",
     "build:all": "tsx scripts/build.ts --all",
+    "build:npm": "tsx scripts/build.ts --npm",
     "build:prod": "tsx scripts/build.ts --all --production",
     "build:extended": "tsx scripts/build.ts --all --sourcemaps=extended",
     "build:special-source-maps": "tsx scripts/build.ts --binary --special-source-maps",
@@ -222,6 +223,7 @@
     "eslint-plugin-import": "^2.25.2",
     "eslint-plugin-n": "^15.0.0",
     "eslint-plugin-promise": "^6.0.0",
+    "fast-check": "^4.3.0",
     "jsdom": "^26.1.0",
     "knip": "^5.7.0",
     "lint-staged": "^15.2.7",

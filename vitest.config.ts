@@ -20,11 +20,25 @@ export default defineConfig({
       ]
     }
   },
+  esbuild: {
+    exclude: ['**/*.fish']
+  },
   resolve: {
     alias: {
       '@package': path.resolve(__dirname, 'package.json'),
       '@embedded_assets/tree-sitter-fish.wasm': path.resolve(__dirname, 'tree-sitter-fish.wasm'),
-      '@embedded_assets/tree-sitter.wasm': path.resolve(__dirname, 'tree-sitter.wasm')
+      '@embedded_assets/tree-sitter.wasm': path.resolve(__dirname, 'tree-sitter.wasm'),
+      // Alias fish files to prevent tsx compilation
+      '@embedded_assets/fish_files/exec.fish': path.resolve(__dirname, 'tests/mocks/fish-files.js'),
+      '@embedded_assets/fish_files/expand_cartesian.fish': path.resolve(__dirname, 'tests/mocks/fish-files.js'),
+      '@embedded_assets/fish_files/get-autoloaded-filepath.fish': path.resolve(__dirname, 'tests/mocks/fish-files.js'),
+      '@embedded_assets/fish_files/get-command-options.fish': path.resolve(__dirname, 'tests/mocks/fish-files.js'),
+      '@embedded_assets/fish_files/get-completion.fish': path.resolve(__dirname, 'tests/mocks/fish-files.js'),
+      '@embedded_assets/fish_files/get-dependency.fish': path.resolve(__dirname, 'tests/mocks/fish-files.js'),
+      '@embedded_assets/fish_files/get-documentation.fish': path.resolve(__dirname, 'tests/mocks/fish-files.js'),
+      '@embedded_assets/fish_files/get-fish-autoloaded-paths.fish': path.resolve(__dirname, 'tests/mocks/fish-files.js'),
+      '@embedded_assets/fish_files/get-type-verbose.fish': path.resolve(__dirname, 'tests/mocks/fish-files.js'),
+      '@embedded_assets/fish_files/get-type.fish': path.resolve(__dirname, 'tests/mocks/fish-files.js')
     }
   }
 })

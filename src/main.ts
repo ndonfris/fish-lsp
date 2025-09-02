@@ -43,7 +43,7 @@ export default FishServer;
 if (isBrowserEnvironment()) {
   // Browser environments are auto-initialized by web.ts itself
   // No need to do anything here
-} else if (isRunningAsCLI()) {
+} else if (isRunningAsCLI() || process.env.NODE_ENV === 'test') {
   // Auto-run CLI if this file is executed directly
   runCLI().catch((error) => {
     console.error('Failed to start fish-lsp CLI:', error);

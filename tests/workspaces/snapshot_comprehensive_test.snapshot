@@ -1,0 +1,10 @@
+{
+  "name": "snapshot_comprehensive_test",
+  "files": [
+    {
+      "relativePath": "functions/snapshot_func.fish",
+      "content": "function snapshot_func\nend"
+    }
+  ],
+  "timestamp": 1756831367079
+}

@@ -19,6 +19,13 @@ import { getChildNodes, getNamedChildNodes } from '../src/utils/tree-sitter';
 import { Workspace } from '../src/utils/workspace';
 import { workspaceManager } from '../src/utils/workspace-manager';
 
+export const fail = () => {
+  return (msg?: string) => {
+    expect(true).toBe(false);
+    return null;
+  };
+};
+
 export function setLogger(
   beforeCallback: () => Promise<void> = async () => { },
   afterCallback: () => Promise<void> = async () => { },

@@ -15,9 +15,7 @@
  *     .addFiles(
  *       TestFile.function('greet', 'function greet\n  echo "Hello, $argv[1]!"\nend'),
  *       TestFile.completion('greet', 'complete -c greet -l help')
- *     );
- *
- *   workspace.initialize(); // Handles beforeAll/afterAll automatically
+ *     ).initialize();
  *
  *   it('should find documents', () => {
  *     const doc = workspace.getDocument('greet.fish');
@@ -285,6 +283,39 @@ export interface TestFileSpec {
   content: string | string[];
 }
 
+export namespace TestFileSpec {
+  export function is(item: any): item is TestFileSpec {
+    return item && typeof item.relativePath === 'string' && (typeof item.content === 'string' || Array.isArray(item.content));
+  }
+}
+
+export interface TestFileSpecLegacy {
+  path: string;
+  text: string;
+}
+
+export namespace TestFileSpecLegacy {
+  export function is(item: any): item is TestFileSpecLegacy {
+    return item && typeof item.path === 'string' && typeof item.text === 'string';
+  }
+
+  export function toNewFormat(item: TestFileSpecLegacy): TestFileSpec {
+    return {
+      relativePath: item.path,
+      content: item.text,
+    };
+  }
+  // export function
+}
+
+export namespace TestFileSpecInput {
+  export function is(item: any): item is TestFileSpecInput {
+    return TestFileSpecLegacy.is(item) || item && typeof item.relativePath === 'string' && (typeof item.content === 'string' || Array.isArray(item.content));
+  }
+}
+
+export type TestFileSpecInput = TestFileSpec | TestFileSpecLegacy;
+
 /**
  * Configuration options for test workspace creation
  */
@@ -388,6 +419,26 @@ export class TestFile {
 
     return new TestFile(this.relativePath, contentWithShebang);
   }
+
+  static fromInput(relativePath: string, content: string | string[]): TestFile {
+    if (relativePath === 'config.fish') {
+      return TestFile.config(content);
+    }
+    switch (path.dirname(relativePath)) {
+      case 'functions':
+        return TestFile.function(path.basename(relativePath), content);
+      case 'completions':
+        return TestFile.completion(path.basename(relativePath), content);
+      case 'conf.d':
+        return TestFile.confd(path.basename(relativePath), content);
+      case '.':
+        if (path.basename(relativePath) === 'config.fish') {
+          return TestFile.config(content);
+        }
+        return TestFile.script(path.basename(relativePath), content);
+    }
+    return new TestFile(relativePath, content);
+  }
 }
 
 export let focusedWorkspace: Workspace | null = null;
@@ -435,6 +486,37 @@ export class TestWorkspace {
     }
   }
 
+  static createBaseWorkspace() {
+    return new TestWorkspace();
+  }
+
+  reset() {
+    if (this._isInitialized) {
+      for (const doc of this._documents) {
+        const filePath = uriToPath(doc.uri);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+          fs.rmSync(filePath, { recursive: true, force: true });
+        }
+      }
+      for (const dir of ['functions', 'completions', 'conf.d']) {
+        const dirPath = path.join(this._workspacePath, dir);
+        if (fs.existsSync(dirPath)) {
+          fs.rmdirSync(dirPath, { recursive: true });
+        }
+      }
+    }
+    if (!fs.existsSync(this._workspacePath)) {
+      fs.mkdirSync(this._workspacePath, { recursive: true });
+    }
+    this._files = [];
+    this._documents = [];
+    this._workspace = null;
+    this._isInitialized = false;
+    this._isInspecting = false;
+    this._focusedDocumentPath = null;
+  }
+
   /**
    * Creates a new test workspace instance
    */
@@ -459,8 +541,8 @@ export class TestWorkspace {
    * ```
    */
   static createSingle(
-    content: string | string[],
-    type: 'function' | 'completion' | 'config' | 'confd' | 'script' = 'function',
+    content: string | string[] | TestFileSpecInput,
+    type: 'function' | 'completion' | 'config' | 'confd' | 'script' | 'custom' = 'function',
     filename?: string,
   ): TestWorkspace {
     const name = filename || TestWorkspace._generateRandomName();
@@ -468,29 +550,62 @@ export class TestWorkspace {
 
     // Create the appropriate file based on type
     let testFile: TestFile;
-    switch (type) {
-      case 'function':
-        testFile = TestFile.function(name, content);
-        break;
-      case 'completion':
-        testFile = TestFile.completion(name, content);
-        break;
-      case 'config':
-        testFile = TestFile.config(content);
-        break;
-      case 'confd':
-        testFile = TestFile.confd(name, content);
-        break;
-      case 'script':
-        testFile = TestFile.script(name, content);
-        break;
-      default:
-        throw new Error(`Unknown file type: ${type}`);
+    if (TestFileSpecInput.is(content) && typeof content !== 'string' && !Array.isArray(content)) {
+      if (TestFileSpecLegacy.is(content)) {
+        const input = TestFileSpecLegacy.toNewFormat(content);
+        testFile = TestFile.fromInput(input.relativePath, input.content);
+      } else {
+        testFile = TestFile.fromInput(content.relativePath, content.content);
+      }
+    } else {
+      switch (type) {
+        case 'function':
+          testFile = TestFile.function(name, content);
+          break;
+        case 'completion':
+          testFile = TestFile.completion(name, content);
+          break;
+        case 'config':
+          testFile = TestFile.config(content);
+          break;
+        case 'confd':
+          testFile = TestFile.confd(name, content);
+          break;
+        case 'script':
+          testFile = TestFile.script(name, content);
+          break;
+        default:
+          testFile = TestFile.custom(name, content);
+          break;
+      }
     }
 
     workspace.addFile(testFile);
     workspace._focusedDocumentPath = testFile.relativePath;
     return workspace;
+  }
+
+  static createSingleFileReady(
+    content: string | string[] | TestFileSpecInput,
+  ): { document: LspDocument; workspace: TestWorkspace; } {
+    const workspace = new TestWorkspace({ name: `single_${TestWorkspace._generateRandomName()}` });
+
+    if (typeof content === 'string' || Array.isArray(content)) {
+      workspace.addFile(
+        TestFile.confd('single_file.fish', content),
+      );
+    } else if (TestFileSpecLegacy.is(content)) {
+      workspace.addFile(TestFileSpecLegacy.toNewFormat(content));
+    } else {
+      workspace.addFile(content);
+    }
+
+    // const workspace = TestWorkspace.createSingle(content)
+    workspace.initialize();
+    return {
+      document: workspace.documents.at(0)!,
+      workspace,
+    };
   }
 
   /**
@@ -508,16 +623,32 @@ export class TestWorkspace {
   /**
    * Adds files to the workspace
    */
-  addFiles(...files: TestFileSpec[]): TestWorkspace {
-    this._files.push(...files);
+  addFiles(...files: TestFileSpecInput[]): TestWorkspace {
+    for (const file of files) {
+      if (TestFileSpecLegacy.is(file)) {
+        if (this._files.some(f => f.relativePath === file.path)) {
+          continue;
+        }
+        this._files.push(TestFileSpecLegacy.toNewFormat(file));
+      } else {
+        if (this._files.some(f => f.relativePath === file.relativePath)) {
+          continue;
+        }
+        this._files.push(file);
+      }
+    }
     return this;
   }
 
   /**
    * Adds a single file to the workspace
    */
-  addFile(file: TestFileSpec): TestWorkspace {
-    this._files.push(file);
+  addFile(file: TestFileSpecInput): TestWorkspace {
+    if (TestFileSpecLegacy.is(file)) {
+      this._files.push(TestFileSpecLegacy.toNewFormat(file));
+    } else {
+      this._files.push(file);
+    }
     return this;
   }
 
@@ -684,6 +815,14 @@ export class TestWorkspace {
   //   return this;
   // }
   //
+  initialize() {
+    this.setup();
+    if (this._files.length === 1) {
+      this.focus();
+    }
+    return this;
+  }
+
   get setup() {
     return () => {
       beforeAll(async () => {
@@ -695,17 +834,26 @@ export class TestWorkspace {
         this._isInitialized = true;
       });
       beforeEach(async () => {
-        if (!this._config.debug) logger.setSilent(true);
-        workspaceManager.clear();
-        await setupProcessEnvExecFile();
-        await this._resetAnalysisState();
-        await this._setupWorkspace();
+        logger.setSilent(true);
+        if (!this._isInitialized) {
+          if (!this._config.debug) logger.setSilent(true);
+          workspaceManager.clear();
+          await setupProcessEnvExecFile();
+          await this._resetAnalysisState();
+          await this._setupWorkspace();
+        }
         workspaceManager.setCurrent(this.getWorkspace()!);
         await workspaceManager.analyzePendingDocuments();
+        // this._workspace = workspaceManager.current!;
         logger.setSilent(false);
         if (this._config.autoFocusWorkspace) {
           focusedWorkspace = this.getWorkspace();
+          this._workspace = focusedWorkspace;
         }
+        this._isInitialized = true;
+      });
+      afterEach(async () => {
+        this._isInitialized = false;
       });
       afterAll(async () => {
         if (!this._isInspecting || !this._config.preserveOnInspect) {
@@ -718,8 +866,20 @@ export class TestWorkspace {
   /**
    * Sets the focused document path for single-file usage
    */
-  focus(documentPath: string): TestWorkspace {
-    this._focusedDocumentPath = documentPath;
+  focus(documentPath?: string | number): TestWorkspace {
+    if (typeof documentPath === 'number') {
+      this._focusedDocumentPath = this._files[documentPath]?.relativePath || null;
+      return this;
+    }
+    if (!documentPath) {
+      if (this._files.length === 1) {
+        this._focusedDocumentPath = this._files[0]!.relativePath;
+      } else {
+        this._focusedDocumentPath = this._files[0] ? this._files[0]!.relativePath : null;
+      }
+    } else {
+      this._focusedDocumentPath = documentPath;
+    }
     return this;
   }
 
@@ -728,7 +888,7 @@ export class TestWorkspace {
    */
   get setupWithFocus() {
     if (this._files.length === 1) {
-      this._focusedDocumentPath = this._files[0].relativePath;
+      this._focusedDocumentPath = this._files[0]!.relativePath;
     }
     return this.setup;
   }
@@ -737,7 +897,7 @@ export class TestWorkspace {
    * Gets all documents in the workspace
    */
   get documents(): LspDocument[] {
-    return [...this._documents];
+    return this._documents;
   }
 
   /**
@@ -746,6 +906,14 @@ export class TestWorkspace {
   get focusedDocument(): LspDocument | null {
     if (!this._focusedDocumentPath) return null;
     return this.getDocument(this._focusedDocumentPath) || null;
+  }
+
+  get document(): LspDocument | null {
+    return this.focusedDocument || this.documents[0] || null;
+  }
+
+  get workspace(): Workspace | null {
+    return this._workspace;
   }
 
   /**
@@ -799,14 +967,14 @@ export class TestWorkspace {
     }
 
     // Combine all query results
-    const allResults = new Set<LspDocument>();
+    const allResults = new Set<string>();
 
     for (const query of queries) {
       const results = query.execute(this._documents);
-      results.forEach(doc => allResults.add(doc));
+      results.forEach(doc => allResults.add(doc.uri));
     }
 
-    return Array.from(allResults);
+    return [...allResults].map(uri => this._documents.find(doc => doc.uri === uri)!).filter(Boolean);
   }
 
   /**
@@ -819,12 +987,17 @@ export class TestWorkspace {
   /**
    * Converts this workspace to a TestWorkspaceResult for unified API
    */
-  asResult(): TestWorkspaceResult {
+  asResult() {
+    const ws = this.getWorkspace();
+    const docs = this.documents;
+    const getDoc = (searchPath: string) => this.getDocument(searchPath);
+    const getDocs = (...queries: Query[]) => this.getDocuments(...queries);
+
     return {
-      workspace: this,
-      documents: this.documents,
-      getDocument: (searchPath: string) => this.getDocument(searchPath),
-      getDocuments: (...queries: Query[]) => this.getDocuments(...queries),
+      workspace: ws,
+      documents: docs,
+      getDocument: getDoc,
+      getDocuments: getDocs,
     };
   }
 
