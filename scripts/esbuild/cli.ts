@@ -47,7 +47,7 @@ export function parseArgs(): BuildArgs {
   else if (options.binary) target = 'binary';
   else if (options.npm) target = 'npm';
   else if (options.library) target = 'library';
-  else if (options.web || options.fishWasm) target = 'web';
+  // else if (options.web || options.fishWasm) target = 'web';
 
   // Validate sourcemaps option
   const validSourcemaps = ['optimized', 'extended', 'none', 'special'];

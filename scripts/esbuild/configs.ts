@@ -18,7 +18,7 @@ export interface BuildConfig extends esbuild.BuildOptions {
   sourcemap: boolean;
   external?: string[];
   plugins?: esbuild.Plugin[];
-  internalPlugins?: PluginOptions;
+  internalPlugins: PluginOptions;
   onBuildEnd?: () => void;
 }
 

@@ -72,7 +72,7 @@ export function createPlugins(options: PluginOptions): esbuild.Plugin[] {
   return plugins;
 }
 
-export function createDefines(target: 'node' | 'browser', production = false): Record<string, string> {
+export function createDefines(target: 'node' | 'browser' | string, production = false): Record<string, string> {
   const defines: Record<string, string> = {
     'process.env.NODE_ENV': production ? '"production"' : '"development"',
   };

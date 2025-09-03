@@ -1,3 +1,14 @@
+## <small>1.0.11-pre.20 (2025-09-03)</small>
+
+* chore: added `fish_lsp_ignore_paths`, and `fish_lsp_max_workspace_depth` ([9ff595a](https://github.com/ndonfris/fish-lsp/commit/9ff595a))
+* chore: bump version for next release ([ac86f88](https://github.com/ndonfris/fish-lsp/commit/ac86f88))
+* chore: update build scripts and docs ([8ff922c](https://github.com/ndonfris/fish-lsp/commit/8ff922c))
+* fix: `server.onShowSignatureHelp()` silence error + test fish indexing startup ([ae2badd](https://github.com/ndonfris/fish-lsp/commit/ae2badd))
+* fix: minify bundled code + cli.ts fixes for `info --<ITEM1> --<ITEM2> <ITEM...>` ([bb9a58e](https://github.com/ndonfris/fish-lsp/commit/bb9a58e))
+* feat: added `fish-lsp info --time-startup --show-files` && tests ([e62339a](https://github.com/ndonfris/fish-lsp/commit/e62339a))
+
+
+
 ## <small>1.0.11-pre.19 (2025-08-30)</small>
 
 * fix: `server.onShowSignatureHelp()` silence error + test fish indexing startup ([ae2badd](https://github.com/ndonfris/fish-lsp/commit/ae2badd))
