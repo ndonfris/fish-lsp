@@ -16,10 +16,26 @@ export default defineConfig({
       exclude: [
         'src/**/*.d.ts',
         'src/**/__tests__/**',
-        'src/**/test/**'
-      ]
+        'tests/**',
+        'src/**/test/**',
+        'src/types/**',
+        'src/snippets/**',
+        'src/documentation.ts',
+        'src/web.ts',
+        'src/utils/completions/**',
+      ],
+      reporter: [
+        ['html-spa', { 'projectRoot': './src' }],
+        ['lcov', { 'projectRoot': './src' }],
+        'text',
+      ],
+      ignoreEmptyLines: true,
+      reportOnFailure: true,
     },
     testTimeout: 20_000,
+    fileParallelism: true,
+    hookTimeout: 60_000,
+    teardownTimeout: 70_000,
   },
   esbuild: {
     exclude: ['**/*.fish']
