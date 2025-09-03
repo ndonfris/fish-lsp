@@ -1,6 +1,6 @@
 import { Diagnostic } from 'vscode-languageserver';
 import { initializeParser } from '../src/parser';
-import { AliasHelper, createAliasInlineAction } from '../src/code-actions/alias-wrapper';
+import { createAliasInlineAction } from '../src/code-actions/alias-wrapper';
 import { ErrorCodes } from '../src/diagnostics/error-codes';
 import { LspDocument } from '../src/document';
 import * as Parser from 'web-tree-sitter';

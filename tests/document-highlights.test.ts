@@ -58,9 +58,9 @@ describe('document-highlights test', () => {
 
     });
 
-    it('test read', () => {
-
-    });
+    // it('test read', () => {
+    //
+    // });
 
     it('test write', () => {
 
@@ -163,17 +163,17 @@ end`;
     });
   });
 
-  describe('test `read` documentHighlights', () => {
-
-  });
-
-  describe('test `write` documentHighlights', () => {
-
-  });
-
-  // https://github.com/ndonfris/fish-lsp/issues/66
-  describe('Empty test input test cases (BUG: #66)', () => {
-
-  });
+  // describe('test `read` documentHighlights', () => {
+  //
+  // });
+  //
+  // describe('test `write` documentHighlights', () => {
+  //
+  // });
+  //
+  // // https://github.com/ndonfris/fish-lsp/issues/66
+  // describe('Empty test input test cases (BUG: #66)', () => {
+  //
+  // });
 });
 

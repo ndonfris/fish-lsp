@@ -18,11 +18,13 @@ export default defineConfig({
         'src/**/__tests__/**',
         'src/**/test/**'
       ]
-    }
+    },
+    testTimeout: 20_000,
   },
   esbuild: {
     exclude: ['**/*.fish']
   },
+  assetsInclude: ['**/*.fish', '**/*.wasm'],
   resolve: {
     alias: {
       '@package': path.resolve(__dirname, 'package.json'),

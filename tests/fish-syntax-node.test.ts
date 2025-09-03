@@ -108,7 +108,7 @@ describe('FISH web-tree-sitter SUITE', () => {
     if (SHOULD_LOG) [...funcs, ...funcNames].forEach((node) => console.log('funcs vs funcName', node));
   });
 
-  it('test defined function', async () => {
+  it('test defined function 2', async () => {
     const test_doc = resolveLspDocumentForHelperTestFile('fish_files/simple/function_variable_def.fish');
     const root = parser.parse(test_doc.getText()).rootNode;
 

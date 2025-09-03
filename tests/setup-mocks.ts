@@ -65,6 +65,7 @@ vi.mock('../src/utils/path-resolution', async () => {
     ...actual,
     getFishBuildTimeFilePath: () => resolve(__dirname, '../out/build-time.json'),
     getProjectRootPath: () => resolve(__dirname, '..'),
+    getTreeSitterWasmPath: () => resolve(__dirname, '../tree-sitter-fish.wasm'),
   };
 });
 
