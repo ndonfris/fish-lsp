@@ -62,6 +62,8 @@ import { logger } from '../src/logger';
 import { SyncFileHelper } from '../src/utils/file-operations';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import { execFileSync, execSync } from 'child_process';
+import fastGlob from 'fast-glob';
+import { Command } from 'commander';
 
 /**
  * Query builder for advanced document selection
@@ -347,6 +349,28 @@ export interface TestWorkspaceConfig {
   addEnclosingFishFolder?: boolean;
 }
 
+export interface ReadWorkspaceConfig {
+  folderPath: string;
+  debug?: boolean;
+  includeEnclosingFishFolder?: boolean;
+}
+export namespace ReadWorkspaceConfig {
+  export function is(item: any): item is ReadWorkspaceConfig {
+    return item && typeof item.folderPath === 'string' && (item.debug === undefined || typeof item.debug === 'boolean') && (item.includeEnclosingFishFolder === undefined || typeof item.includeEnclosingFishFolder === 'boolean');
+  }
+
+  export function fromInput(input: string | ReadWorkspaceConfig): ReadWorkspaceConfig {
+    if (typeof input === 'string') {
+      return { folderPath: input, debug: false, includeEnclosingFishFolder: false };
+    }
+    return {
+      folderPath: input.folderPath,
+      debug: input.debug ?? false,
+      includeEnclosingFishFolder: input.includeEnclosingFishFolder ?? false,
+    };
+  }
+}
+
 /**
  * Snapshot data for recreating workspaces
  */
@@ -456,13 +480,13 @@ export class TestWorkspace {
   private _workspace: Workspace | null = null;
   private _isInitialized = false;
   private _isInspecting = false;
-  private _beforeAllSetup = false;
-  private _afterAllCleanup = false;
+  // private _beforeAllSetup = false;
+  // private _afterAllCleanup = false;
   private _focusedDocumentPath: string | null = null;
 
   private constructor(config: TestWorkspaceConfig = {}) {
     this._config = {
-      name: config.name || this._generateUniqueName(),
+      name: config.name ?? this._generateUniqueName(),
       baseDir: config.baseDir || 'tests/workspaces',
       debug: config.debug ?? false,
       autoAnalyze: config.autoAnalyze ?? true,
@@ -518,7 +542,93 @@ export class TestWorkspace {
   }
 
   /**
+   * Generates a unique workspace from an existing test workspace directory
+   *
+   * `TestWorkspace` can be created using one of the following methods:
+   *    - TestWorkspace.read(...)
+   *    - TestWorkspace.create(...)
+   *    - TestWorkspace.createSingle(...)
+   *
+   * @example
+   * ```typescript
+   * import { TestWorkspace } from './test-workspace-utils';
+   *
+   * describe('read workspace 1 from directory `workspace_1/fish`', () => {
+   *
+   *  const ws = TestWorkspace.read('workspace_1/fish')
+   *    .initialize()
+   *
+   *  it('should read files from the specified directory', () => {
+   *    const docs = ws.documents
+   *    expect(docs.length).toBeGreaterThan(2);
+   *  });
+   *
+   * });
+   * ```
+   *
+   * Normally, you would need to chain `.setup()`/`.initialize()` after creation to
+   * set up the workspace for testing.
+   *
+   * @param input Path to the workspace directory or configuration object
+   * @returns A new TestWorkspace instance populated with files from the specified directory
+   */
+  static read(input: ReadWorkspaceConfig | string): TestWorkspace {
+    const config: ReadWorkspaceConfig = ReadWorkspaceConfig.fromInput(input);
+
+    const absPath = path.isAbsolute(config.folderPath)
+      ? config.folderPath
+      : fs.existsSync(path.join('tests', 'workspaces', config.folderPath))
+        ? path.resolve(path.join('tests', 'workspaces', config.folderPath))
+        : path.resolve(config.folderPath);
+
+    let basePath = absPath;
+    if (fs.existsSync(path.join(absPath, 'fish')) && fs.statSync(path.join(absPath, 'fish')).isDirectory()) {
+      basePath = path.join(basePath, 'fish');
+    }
+
+    const workspace = new TestWorkspace({ debug: config.debug, addEnclosingFishFolder: config.includeEnclosingFishFolder });
+    fastGlob.sync(['**/*.fish'], {
+      cwd: absPath,
+      absolute: true,
+    }).forEach(filePath => {
+      let relPath = path.relative(absPath, filePath);
+      if (basePath.endsWith('fish') && relPath.startsWith('fish/')) {
+        relPath = relPath.substring(5);
+      }
+      const content = fs.readFileSync(filePath, 'utf8');
+      workspace._files.push(TestFile.fromInput(relPath, content));
+      if (config.debug) console.log(`Loaded file: ${relPath}`);
+    });
+    return workspace;
+  }
+
+  /**
    * Creates a new test workspace instance
+   *
+   * `TestWorkspace` can be created using one of the following methods:
+   *    - TestWorkspace.read(...)
+   *    - TestWorkspace.create(...)
+   *    - TestWorkspace.createSingle(...)
+   *
+   * @example
+   * ```typescript
+   * describe('My Test', () => {
+   *   const workspace = TestWorkspace.create({name: 'my_test_workspace'})
+   *     .addFiles(TestFile.function('greet', 'function greet\n  echo "Hello, $argv[1]!"\nend'))
+   *     .initialize();
+   *
+   *   it('should work', () => {
+   *     const doc = workspace.focusedDocument;
+   *     expect(doc?.getText()).toContain('function greet');
+   *   });
+   * });
+   * ```
+   *
+   * Normally, you would need to chain `.setup()`/`.initialize()` after creation to
+   * set up the workspace for testing.
+   *
+   * @param config Optional configuration for the workspace
+   * @returns A new TestWorkspace instance
    */
   static create(config?: TestWorkspaceConfig): TestWorkspace {
     return new TestWorkspace(config);
@@ -527,7 +637,7 @@ export class TestWorkspace {
   /**
    * Creates a single file workspace with unified API - convenience method
    *
-   * @example Basic usage
+   * @example
    * ```typescript
    * describe('My Test', () => {
    *   const workspace = TestWorkspace.createSingle('function greet\n  echo "hello"\nend')
@@ -856,8 +966,11 @@ export class TestWorkspace {
         this._isInitialized = false;
       });
       afterAll(async () => {
-        if (!this._isInspecting || !this._config.preserveOnInspect) {
+        if (!this._isInspecting && !this._config.preserveOnInspect) {
           await this._cleanup();
+          if (this._config.debug) {
+            logger.log(`Cleaned up workspace: ${this._workspacePath}`);
+          }
         }
       });
     };
@@ -1012,30 +1125,30 @@ export class TestWorkspace {
   /**
    * Dumps the file tree structure
    */
-  // dumpFileTree(): string {
-  //   if (!fs.existsSync(this._workspacePath)) {
-  //     return 'Workspace not created yet';
-  //   }
-  //
-  //   const tree: string[] = [];
-  //   const buildTree = (dir: string, prefix = '') => {
-  //     const entries = fs.readdirSync(dir, { withFileTypes: true });
-  //     entries.forEach((entry, index) => {
-  //       const isLast = index === entries.length - 1;
-  //       const currentPrefix = prefix + (isLast ? '└── ' : '├── ');
-  //       tree.push(currentPrefix + entry.name);
-  //
-  //       if (entry.isDirectory()) {
-  //         const nextPrefix = prefix + (isLast ? '    ' : '│   ');
-  //         buildTree(path.join(dir, entry.name), nextPrefix);
-  //       }
-  //     });
-  //   };
-  //
-  //   tree.push(this._name + '/');
-  //   buildTree(this._workspacePath, '');
-  //   return tree.join('\n');
-  // }
+  dumpFileTree(): string {
+    if (!fs.existsSync(this._workspacePath)) {
+      return 'Workspace not created yet';
+    }
+
+    const tree: string[] = [];
+    const buildTree = (dir: string, prefix = '') => {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      entries.forEach((entry, index) => {
+        const isLast = index === entries.length - 1;
+        const currentPrefix = prefix + (isLast ? '└── ' : '├── ');
+        tree.push(currentPrefix + entry.name);
+
+        if (entry.isDirectory()) {
+          const nextPrefix = prefix + (isLast ? '    ' : '│   ');
+          buildTree(path.join(dir, entry.name), nextPrefix);
+        }
+      });
+    };
+
+    tree.push(this._name + '/');
+    buildTree(this._workspacePath, '');
+    return tree.join('\n');
+  }
 
   /**
    * Creates a snapshot of the current workspace
@@ -1427,6 +1540,74 @@ end
 
 echo "Project installed successfully!"`),
       );
+  }
+}
+
+export function cliModule() {
+  const program = new Command()
+    .name('test-workspace-utils')
+    .description('Utility to create and manage test workspaces for fish-language-server')
+    .version('1.0.0')
+    .option('-n, --name <name>', 'Name of the workspace to create')
+    .option('-i, --input <path>', 'Path to the workspace directory to read')
+    .option('--show-tree', 'Show the file tree of the created workspace')
+    .option('--show-tree-sitter-ast', 'Show the Tree-sitter AST of all documents in workspace')
+    .option('--save-snapshot', 'Save a snapshot of the created workspace')
+    .option('--convert-snapshot-to-workspace', 'Convert a snapshot file back to a workspace directory')
+    .option('-h, --help', 'Show help message');
+  program.parse();
+  const options = program.opts();
+  if (options.help) {
+    program.outputHelp();
+    process.exit(0);
+  }
+  let workspace: TestWorkspace | null = null;
+  let wsPath = '';
+  const inputIsSnapshot = options.input && options.input.endsWith('.snapshot');
+
+  if (options.name) {
+    wsPath = fastGlob.globSync([`${options.name}*.snapshot`, `${options.name}*`], { cwd: path.resolve('./tests/workspaces'), deep: 1 })[0] || '';
+  } else if (options.input) {
+    wsPath = path.resolve(options.input);
+  } else {
+    console.error('Error: You must specify either a workspace name or an input path.');
+    program.outputHelp();
+    process.exit(1);
+  }
+  if (wsPath.endsWith('.snapshot') || inputIsSnapshot) {
+    workspace = TestWorkspace.fromSnapshot(wsPath);
+    workspace.inspect();
+    if (options.convertSnapshotToWorkspace) {
+      workspace.initialize();
+      console.log(`Converted snapshot to workspace at: ${workspace.path}`);
+      process.exit(0);
+    }
+  } else if (fs.existsSync(wsPath) && fs.statSync(wsPath).isDirectory()) {
+    workspace = TestWorkspace.read(wsPath);
+  }
+
+  if (!workspace) {
+    console.error('Error: Failed to create workspace. Check the provided name or input path.');
+    process.exit(1);
+  }
+  workspace.inspect().initialize();
+  if (options.showTree) {
+    console.log(`Workspace path: ${workspace.path}`);
+    console.log(workspace.dumpFileTree());
+  }
+  if (options.saveSnapshot) {
+    const snapshotPath = workspace.writeSnapshot();
+    console.log(`Snapshot saved to: ${snapshotPath}`);
+  }
+
+  if (options.showTreeSitterAst) {
+    workspace.documents.forEach((doc, idx) => {
+      const tree = doc.getTree();
+      if (idx === 1) console.log('----------------------------------------');
+      console.log(`Document: ${path.relative(workspace.path, uriToPath(doc.uri))}`);
+      console.log(tree);
+      console.log('----------------------------------------');
+    });
   }
 }
 
