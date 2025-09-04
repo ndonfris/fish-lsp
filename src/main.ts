@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+// Enable source map support for better stack traces
+import 'source-map-support/register';
+
 // Universal entry point for fish-lsp that handles CLI, Node.js module, and browser usage
 // This single file replaces the need for separate entry points and wrappers
 

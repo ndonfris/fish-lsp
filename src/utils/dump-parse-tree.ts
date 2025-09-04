@@ -4,14 +4,30 @@ import { logger } from '../logger';
 import { SyncFileHelper } from './file-operations';
 import path from 'path';
 import chalk from 'chalk';
-import { connection, startServer } from './startup';
-import FishServer from '../server';
-import { InitializeParams } from 'vscode-languageserver';
 import { CommanderSubcommand } from './commander-cli-subcommands';
 
 interface ParseTreeOutput {
   source: string;
   parseTree: string;
+}
+import { createInterface } from 'node:readline';
+
+/**
+ * Reads all content from stdin, line by line.
+ * It works for both piped input and manual terminal input.
+ * @returns Promise<string> - The content from stdin, or an empty string if there is no input.
+ */
+async function readFromStdin(): Promise<string> {
+  const rl = createInterface({
+    input: process.stdin,
+    terminal: false, // Set to false to avoid issues with piped input
+  });
+
+  let data = '';
+  for await (const line of rl) {
+    data += line + '\n';
+  }
+  return data.trim(); // Trim trailing newline for cleaner output
 }
 
 /**
@@ -230,20 +246,28 @@ export async function cliDumpParseTree(document: LspDocument, useColors: boolean
 
 // Entire wrapper for `src/cli.ts` usage of this function
 export async function handleCLiDumpParseTree(args: CommanderSubcommand.info.schemaType): Promise<0 | 1> {
-  startServer();
-  await FishServer.create(connection, {
-    capabilities: {
-      workspace: {
-        workspaceFolders: true,
-      },
-    },
-  } as InitializeParams);
+  // Initialize the analyzer without starting the full server
+  await Analyzer.initialize();
+
+  const useColors = !args.noColor; // Use colors unless --no-color flag is set
+
+  // If no file path provided (either empty string, true boolean, or undefined), read from stdin
+  if (!args.dumpParseTree || args.dumpParseTree === true || typeof args.dumpParseTree === 'string' && args.dumpParseTree.trim() === '') {
+    const stdinContent = await readFromStdin();
+    if (stdinContent.trim() === '') {
+      logger.logToStderr('Error: No input provided. Please provide either a file path or pipe content to stdin.');
+      return 1;
+    }
+    const doc = LspDocument.createTextDocumentItem('stdin.fish', stdinContent);
+    return await cliDumpParseTree(doc, useColors);
+  }
+
+  // Original file-based logic
   const filePath = expandParseCliTreeFile(args.dumpParseTree);
   if (!SyncFileHelper.isFile(filePath)) {
     logger.logToStderr(`Error: Cannot read file at ${filePath}. Please check the file path and permissions.`);
     process.exit(1);
   }
   const doc = LspDocument.createFromPath(filePath);
-  const useColors = !args.noColor; // Use colors unless --no-color flag is set
   return await cliDumpParseTree(doc, useColors);
 }

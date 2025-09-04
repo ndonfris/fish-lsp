@@ -590,7 +590,7 @@ export namespace CommanderSubcommand {
         install: z.boolean().optional().default(false),
         remove: z.boolean().optional().default(false),
         status: z.boolean().optional().default(false),
-        dumpParseTree: z.string().optional().default(''),
+        dumpParseTree: z.union([z.string(), z.boolean()]).optional().default(''),
         virtualFs: z.boolean().optional().default(false),
       }),
     );

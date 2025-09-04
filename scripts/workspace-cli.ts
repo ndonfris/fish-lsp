@@ -3,10 +3,10 @@
 import { Command } from 'commander';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as child_process from 'child_process';
 import fastGlob from 'fast-glob';
-import Parser from 'web-tree-sitter';
+import chalk from 'chalk';
 
-// Conditional imports for Tree-sitter functionality
 // Minimal types for CLI usage (no LSP dependencies)
 interface TestFileSpec {
   relativePath: string;
@@ -134,50 +134,43 @@ class WorkspaceCLI {
     return tree.join('\n');
   }
 
-  static async showTreeSitterAST(folderPath: string): Promise<void> {
-    try {
-      // Resolve WASM file paths at runtime
-      const tsWasmPath = require.resolve('web-tree-sitter/tree-sitter.wasm');
-      const tsFishWasmPath = require.resolve('@esdmr/tree-sitter-fish');
-      
-      // Initialize Parser using the example from @esdmr/tree-sitter-fish
-      await Parser.init({
-        locateFile() {
-          return tsWasmPath;
-        },
-      });
-      
-      const fish = await Parser.Language.load(tsFishWasmPath);
-      const parser = new Parser();
-      parser.setLanguage(fish);
+  static async showTreeSitterAST(folderPath: string, useColors: boolean = true): Promise<void> {
+    const workspace = this.readWorkspace(folderPath);
+    let searchPath = workspace.path;
+    if (fs.existsSync(path.join(workspace.path, 'fish'))) {
+      searchPath = path.join(workspace.path, 'fish');
+    }
 
-      const workspace = this.readWorkspace(folderPath);
+    for (let idx = 0; idx < workspace.files.length; idx++) {
+      const relPath = workspace.files[idx];
+      const fullPath = path.join(searchPath, relPath);
       
-      // Check if there's a fish subdirectory
-      let searchPath = workspace.path;
-      if (fs.existsSync(path.join(workspace.path, 'fish'))) {
-        searchPath = path.join(workspace.path, 'fish');
-      }
-
-      workspace.files.forEach((relPath, idx) => {
-        const fullPath = path.join(searchPath, relPath);
-        const content = fs.readFileSync(fullPath, 'utf8');
+      try {
+        // Use child_process to call fish-lsp info --dump-parse-tree
+        const colorFlag = useColors ? '' : '--no-color';
+        const cmd = `fish-lsp info --dump-parse-tree ${colorFlag} "${fullPath}"`;
         
-        try {
-          const tree = parser.parse(content);
-          
-          if (idx > 0) console.log('----------------------------------------');
-          console.log(`🌳 Document: ${relPath}`);
-          console.log(tree.rootNode.toString());
-          console.log('----------------------------------------');
-        } catch (error) {
-          console.error(`❌ Error parsing ${relPath}:`, error.message);
+        const result = child_process.execSync(cmd, { 
+          encoding: 'utf8',
+          stdio: ['pipe', 'pipe', 'pipe']
+        });
+        
+        if (idx > 0) console.log(chalk.white('---------------------------------------------'));
+        console.log('file:', chalk.green(`${relPath}`));
+        console.log();
+        console.log(result);
+        if (idx < workspace.files.length - 1) {
+          console.log();
         }
-      });
-    } catch (error) {
-      console.error('❌ Tree-sitter dependencies not available or failed to initialize:', error.message);
+      } catch (error) {
+        console.error(`❌ Error parsing ${relPath}:`, error.message);
+        if (error.stderr) {
+          console.error(`stderr: ${error.stderr}`);
+        }
+      }
     }
   }
+
 }
 
 // Generate fish shell completions for yarn sh:workspace-cli
@@ -206,6 +199,7 @@ function generateFishCompletions(): void {
   console.log(`complete -c yarn -n "__fish_seen_subcommand_from sh:workspace-cli" -n "not __fish_seen_subcommand_from read snapshot-to-workspace workspace-to-snapshot show help" -a "show" -d "Display snapshot or workspace contents"`);
   console.log(`complete -c yarn -n "__fish_seen_subcommand_from sh:workspace-cli" -n "__fish_seen_subcommand_from show" -l show-tree -d "Show file tree (for workspaces)"`);
   console.log(`complete -c yarn -n "__fish_seen_subcommand_from sh:workspace-cli" -n "__fish_seen_subcommand_from show" -l show-tree-sitter-ast -d "Show Tree-sitter AST for each fish file (for workspaces)"`);
+  console.log(`complete -c yarn -n "__fish_seen_subcommand_from sh:workspace-cli" -n "__fish_seen_subcommand_from show" -l no-color -d "Disable color output for Tree-sitter AST"`);
   console.log(`complete -c yarn -n "__fish_seen_subcommand_from sh:workspace-cli" -n "__fish_seen_subcommand_from show" -F`);
   console.log(`complete -c yarn -n "__fish_seen_subcommand_from sh:workspace-cli" -n "__fish_seen_subcommand_from show" -k -xa "(find . -name '*.snapshot' -type f 2>/dev/null)"`);
 
@@ -290,6 +284,7 @@ program
   .argument('<path>', 'Path to snapshot file or workspace directory')
   .option('--show-tree', 'Show file tree (for workspaces)')
   .option('--show-tree-sitter-ast', 'Show Tree-sitter AST for each fish file (for workspaces)')
+  .option('--no-color', 'Disable color output for Tree-sitter AST')
   .action(async (inputPath, options) => {
     try {
       if (inputPath.endsWith('.snapshot')) {
@@ -316,7 +311,8 @@ program
         
         if (options.showTreeSitterAst) {
           console.log('\n🌳 Tree-sitter AST:');
-          await WorkspaceCLI.showTreeSitterAST(inputPath);
+          const useColors = !options.noColor;
+          await WorkspaceCLI.showTreeSitterAST(inputPath, useColors);
         }
       }
     } catch (error) {
