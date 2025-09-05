@@ -7,10 +7,10 @@ import { AnalyzedDocument, analyzer, Analyzer } from './analyze';
 import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, ImplementationParams, CodeLensParams, CodeLens, WorkspaceFoldersChangeEvent } from 'vscode-languageserver';
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, documents } from './document';
-import { formatDocumentContent } from './formatting';
+import { formatDocumentWithIndentComments, formatDocumentRangeWithIndentComments } from './formatting';
 import { createServerLogger, logger } from './logger';
 import { connection, createBrowserConnection, setExternalConnection } from './utils/startup';
-import { formatTextWithIndents, symbolKindsFromNode, uriToPath } from './utils/translation';
+import { symbolKindsFromNode, uriToPath } from './utils/translation';
 import { getChildNodes } from './utils/tree-sitter';
 import { getVariableExpansionDocs, handleHover } from './hover';
 import { DocumentationCache, initializeDocumentationCache } from './utils/documentation-cache';
@@ -759,10 +759,10 @@ export default class FishServer {
     const { doc } = this.getDefaultsForPartialParams(params);
     if (!doc) return [];
 
-    const formattedText = await formatDocumentContent(doc.getText()).catch(error => {
+    const formattedText = await formatDocumentWithIndentComments(doc).catch(error => {
       // this.connection.console.error(`Formatting error: ${error}`);
       if (config.fish_lsp_show_client_popups) {
-        connection.window.showErrorMessage(`Failed to format range: ${error}`);
+        connection.window.showErrorMessage(`Failed to format document: ${error}`);
       }
       return doc.getText(); // fallback to original text on error
     });
@@ -780,10 +780,10 @@ export default class FishServer {
     const { doc } = this.getDefaultsForPartialParams(params);
     if (!doc) return [];
 
-    const formattedText = await formatDocumentContent(doc.getText()).catch(error => {
+    const formattedText = await formatDocumentWithIndentComments(doc).catch(error => {
       connection.console.error(`Formatting error: ${error}`);
       if (config.fish_lsp_show_client_popups) {
-        connection.window.showErrorMessage(`Failed to format range: ${error}`);
+        connection.window.showErrorMessage(`Failed to format document: ${error}`);
       }
       return doc.getText(); // fallback to original text on error
     });
@@ -805,46 +805,25 @@ export default class FishServer {
     if (!doc) return [];
 
     const range = params.range;
-    const startOffset = doc.offsetAt(range.start);
-    const endOffset = doc.offsetAt(range.end);
+    const startLine = range.start.line;
+    const endLine = range.end.line;
 
-    // get the text
-    const originalText = doc.getText();
-    const selectedText = doc.getText().slice(startOffset, endOffset).trimStart();
-
-    // Call the formatter 2 differently times, once for the whole document (to get the indentation level)
-    // and a second time to get the specific range formatted
-    const allText = await formatDocumentContent(originalText).catch((error) => {
-      logger.error(`FormattingRange error: ${error}`);
-      return selectedText; // fallback to original text on error
-    });
-
-    const formattedText = await formatDocumentContent(selectedText).catch(error => {
+    const formattedText = await formatDocumentRangeWithIndentComments(doc, startLine, endLine).catch(error => {
       logger.error(`FormattingRange error: ${error}`, {
-        input: selectedText,
         range: range,
       });
       if (config.fish_lsp_show_client_popups) {
         connection.window.showErrorMessage(`Failed to format range: ${params.textDocument.uri}`);
       }
-      return selectedText;
+      return doc.getText(); // fallback to original text on error
     });
 
-    // Create a temporary TextDocumentItem with the formatted text, for passing to formatTextWithIndents()
-    const newDoc = LspDocument.createTextDocumentItem(doc.uri, allText);
+    const fullRange: LSP.Range = {
+      start: doc.positionAt(0),
+      end: doc.positionAt(doc.getText().length),
+    };
 
-    // fixup formatting, so that we end with a single newline character (important for inserting `TextEdit`)
-    const output = formatTextWithIndents(
-      newDoc,
-      range.start.line,
-      formattedText.trim(),
-    ) + '\n';
-    return [
-      TextEdit.replace(
-        params.range,
-        output,
-      ),
-    ];
+    return [TextEdit.replace(fullRange, formattedText)];
   }
 
   async onFoldingRanges(params: FoldingRangeParams): Promise<FoldingRange[] | undefined> {
