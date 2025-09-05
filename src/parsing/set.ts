@@ -34,7 +34,7 @@ export const SetModifiers = [
 ];
 
 export function isSetDefinition(node: SyntaxNode) {
-  return isCommandWithName(node, 'set') && !node.children.some(child => isMatchingOption(child, Option.create('-q', '--query')));
+  return isCommandWithName(node, 'set') && !node.children.some(child => isMatchingOption(child, Option.create('-q', '--query'), Option.create('-n', '--names'), Option.create('-S', '--show'), Option.create('-e', '--erase')));
 }
 
 export function isSetQueryDefinition(node: SyntaxNode) {
@@ -112,7 +112,7 @@ function findParentScopeNode(commandNode: SyntaxNode, modifier: ModifierScopeTag
 }
 
 export function processSetCommand(document: LspDocument, node: SyntaxNode, children: FishSymbol[] = []) {
-  /** skip `set -q/--query` */
+  /** skip `set -q/--query` && `set -e/--erase` */
   if (!isSetDefinition(node)) return [];
   // create the searchNodes, which are the nodes after the command name, but before the variable name
   const searchNodes = findSetChildren(node);
