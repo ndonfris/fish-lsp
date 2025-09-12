@@ -20,7 +20,7 @@ Introducing the [fish-lsp](https://fish-lsp.dev), a [Language Server Protocol (L
 
 Please choose a [method to install](#installation) the language server and [configure a client](#client-configuration-required) to use `fish-lsp` in your editor.
 
-A detailed explanation of how a language server connection works is described in the [how it works](#how-does-it-work) section.
+A detailed explanation of how a language server connection works is described on the following [wiki](https://github.com/ndonfris/fish-lsp/wiki/How-It-Works) page.
 
 ## Why? 🐟
 
@@ -88,7 +88,7 @@ nix-shell -p fish-lsp
 brew install fish-lsp
 ```
 
-If you installed the language server using a __node__ based package manager (__i.e. npm/yarn/pnpm__), you can install the completions by running the following command:
+You can install the completions by running the following command:
 
 ```fish
 fish-lsp complete > ~/.config/fish/completions/fish-lsp.fish
@@ -110,7 +110,8 @@ chmod +x ~/.local/bin/fish-lsp
 fish-lsp complete > ~/.config/fish/completions/fish-lsp.fish
 ```
 
-> **Note:** Ensure `~/.local/bin` is in your `$PATH`. If not, add `fish_add_path ~/.local/bin` to your `~/.config/fish/config.fish`.
+> **Note:**
+> Ensure `~/.local/bin` is in your `$PATH`. 
 
 ### Build from Source
 
@@ -121,8 +122,6 @@ git clone https://github.com/ndonfris/fish-lsp && cd fish-lsp
 yarn install 
 yarn dev # to watch for changes use `yarn dev:watch` 
 ```
-
-Using the `yarn dev:watch` command will automatically rebuild the project when changes are detected. This allows easy testing of new features or bug fixes, if you're interested in contributing.
 
 Building the project from source is the most portable method for installing the language server.
 
@@ -363,12 +362,9 @@ Specific functionality for the server can be set independently from the client. 
 
 #### Environment variables
 
-Environment variables provide a way to globally configure the server across all sessions, but can be overridden interactively<sup>[1](https://fishshell.com/docs/current/language.html#variable-scope)</sup> by the current shell session as well. They can easily be auto-generated<sup>[1](#environment-variables-default) [2](#environment-variables-template) [3](environment-variables-json) [4](environment-variables-confd)</sup> for multiple different use cases using the `fish-lsp env` command.
+Environment variables provide a way to globally configure the server across all sessions, but can be overridden interactively<sup>[\[1\]](https://fishshell.com/docs/current/language.html#variable-scope)</sup> by the current shell session as well. They can easily be auto-generated<sup>[\[1\]](#environment-variables-default)</sup><sup>[\[2\]](#environment-variables-template)</sup><sup>[\[3\]](#environment-variables-json)</sup><sup>[\[4\]](#environment-variables-confd)</sup> for multiple different use cases using the `fish-lsp env` command.
 
 You can store them directly in your `config.fish` to be autoloaded for every fish session. Or if you prefer a more modular approach, checkout the [`--confd`](#environment-variables-confd) flag which will structure the autoloaded environment variables to only be sourced when the `fish-lsp` command exists.
-
-<!-- , environment variables can be passed to the server in the client's configuration via [`initializeParams.initializationOptions`](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#initializeParams), but this removes the flexible/interactive behavior that directly using the binary would allow. -->
-For language clients that import the source code directly and manually connect with the server (e.g., [VSCode](https://github.com/ndonfris/vscode-fish-lsp/blob/4aa63803a0d0a65ceabf164eaeb5a3e360662ef9/package.json#L136)), passing the environment configuration through the [`initializeParams.initializationOptions`](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#initializeParams) is also possible. 
 
 <blockquote><details>
 <summary><span><a id="environment-variables-default"></a><h6>📋 <b>Default Values:</b> <code> fish-lsp env --show-defaults </code></h6><span></summary>
@@ -542,19 +538,19 @@ set -gx fish_lsp_disabled_handlers
 #                   '>', ''', '"', '=', '+', '-', '/', '\', '|', '&', '%', 
 #                   '$', '#', '@', '!', '?', '*', '^', '`', '~', '\t', ' ')
 # (Default: ['\t', ';', ' '])
-set -gx fish_lsp_commit_characters '\t' ';' ' '
+set -gx fish_lsp_commit_characters 
 
 # $fish_lsp_log_file <STRING>
 # A path to the fish-lsp's logging file. Empty string disables logging.
 # (Example Options: '/tmp/fish_lsp.logs', '~/path/to/fish_lsp/logs.txt')
 # (Default: '')
-set -gx fish_lsp_log_file ''
+set -gx fish_lsp_log_file 
 
 # $fish_lsp_log_level <STRING>
 # The logging severity level for displaying messages in the log file.
 # (Options: 'debug', 'info', 'warning', 'error', 'log')
 # (Default: '')
-set -gx fish_lsp_log_level ''
+set -gx fish_lsp_log_level 
 
 # $fish_lsp_all_indexed_paths <ARRAY>
 # The fish file paths to include in the fish-lsp's startup indexing, as workspaces.
@@ -562,14 +558,14 @@ set -gx fish_lsp_log_level ''
 # (Example Options: '$HOME/.config/fish', '/usr/share/fish', 
 #                   '$__fish_config_dir', '$__fish_data_dir')
 # (Default: ['$__fish_config_dir', '$__fish_data_dir'])
-set -gx fish_lsp_all_indexed_paths "$__fish_config_dir" "$__fish_data_dir"
+set -gx fish_lsp_all_indexed_paths 
 
 # $fish_lsp_modifiable_paths <ARRAY>
 # The fish file paths, for workspaces where global symbols can be renamed by the user.
 # (Example Options: '/usr/share/fish', '$HOME/.config/fish', 
 #                   '$__fish_data_dir', '$__fish_config_dir')
 # (Default: ['$__fish_config_dir'])
-set -gx fish_lsp_modifiable_paths "$__fish_config_dir"
+set -gx fish_lsp_modifiable_paths 
 
 # $fish_lsp_diagnostic_disable_error_codes <ARRAY>
 # The diagnostics error codes to disable from the fish-lsp's diagnostics.
@@ -584,7 +580,7 @@ set -gx fish_lsp_diagnostic_disable_error_codes
 # This feature will enable the diagnostic error code 9999 (disabled by default).
 # (Options: 'true', 'false')
 # (Default: 'false')
-set -gx fish_lsp_enable_experimental_diagnostics false
+set -gx fish_lsp_enable_experimental_diagnostics 
 
 # $fish_lsp_strict_conditional_command_warnings <BOOLEAN>
 # Diagnostic `3002` includes/excludes conditionally chained commands to explicitly check existence.
@@ -592,13 +588,13 @@ set -gx fish_lsp_enable_experimental_diagnostics false
 # DISABLED EXAMPLE: `command ls || echo 'no ls'`
 # (Options: 'true', 'false')
 # (Default: 'false')
-set -gx fish_lsp_strict_conditional_command_warnings false
+set -gx fish_lsp_strict_conditional_command_warnings 
 
 # $fish_lsp_prefer_builtin_fish_commands <BOOLEAN>
 # Show diagnostic `2004` which warns the user when they are using a recognized external command that can be replaced by an equivalent fish builtin command.
 # (Options: 'true', 'false')
 # (Default: 'false')
-set -gx fish_lsp_prefer_builtin_fish_commands false
+set -gx fish_lsp_prefer_builtin_fish_commands 
 
 # $fish_lsp_allow_fish_wrapper_functions <BOOLEAN>
 # Show warnings when `alias`, `export`, etc... are used instead of their equivalent fish builtin commands.
@@ -606,31 +602,31 @@ set -gx fish_lsp_prefer_builtin_fish_commands false
 # Diagnostic `2002` is shown when this setting is false, and hidden when true.
 # (Options: 'true', 'false')
 # (Default: 'true')
-set -gx fish_lsp_allow_fish_wrapper_functions true
+set -gx fish_lsp_allow_fish_wrapper_functions 
 
 # $fish_lsp_require_autoloaded_functions_to_have_description <BOOLEAN>
 # Show warning diagnostic `4008` when an autoloaded function definition does not have a description `function -d/--description '...'; end;`
 # (Options: 'true', 'false')
 # (Default: 'true')
-set -gx fish_lsp_require_autoloaded_functions_to_have_description true
+set -gx fish_lsp_require_autoloaded_functions_to_have_description 
 
 # $fish_lsp_max_background_files <NUMBER>
 # The maximum number of background files to read into buffer on startup.
 # (Example Options: 100, 250, 500, 1000, 5000, 10000)
 # (Default: 10000)
-set -gx fish_lsp_max_background_files 10000
+set -gx fish_lsp_max_background_files 
 
 # $fish_lsp_show_client_popups <BOOLEAN>
 # Should the client receive pop-up window notification requests from the fish-lsp server?
 # (Options: 'true', 'false')
 # (Default: 'false')
-set -gx fish_lsp_show_client_popups false
+set -gx fish_lsp_show_client_popups 
 
 # $fish_lsp_single_workspace_support <BOOLEAN>
 # Try to limit the fish-lsp's workspace searching to only the current workspace open.
 # (Options: 'true', 'false')
 # (Default: 'false')
-set -gx fish_lsp_single_workspace_support false
+set -gx fish_lsp_single_workspace_support 
 
 # $fish_lsp_ignore_paths <ARRAY>
 # Glob paths to never search when indexing their parent folder
@@ -639,13 +635,13 @@ set -gx fish_lsp_single_workspace_support false
 #                   '**/containerized/**', '**/*.log', '**/tmp/**')
 # (Default: ['**/.git/**', '**/node_modules/**', '**/containerized/**', 
 #           '**/docker/**'])
-set -gx fish_lsp_ignore_paths '**/.git/**' '**/node_modules/**' '**/containerized/**' '**/docker/**'
+set -gx fish_lsp_ignore_paths 
 
 # $fish_lsp_max_workspace_depth <NUMBER>
 # The maximum depth for the lsp to search when starting up.
 # (Example Options: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20)
 # (Default: 5)
-set -gx fish_lsp_max_workspace_depth 3
+set -gx fish_lsp_max_workspace_depth
 ```
 
 </details></blockquote>
@@ -654,6 +650,40 @@ set -gx fish_lsp_max_workspace_depth 3
 <summary><span><a id="environment-variables-json"></a><h6>📄 <b>Formatting as JSON:</b> <code> fish-lsp env --show-default --json </code></h6><span></summary>
 
 ```json
+{
+  "fish_lsp_enabled_handlers": [],
+  "fish_lsp_disabled_handlers": [],
+  "fish_lsp_commit_characters": [
+    "\t",
+    ";",
+    " "
+  ],
+  "fish_lsp_log_file": "",
+  "fish_lsp_log_level": "",
+  "fish_lsp_all_indexed_paths": [
+    "$__fish_config_dir",
+    "$__fish_data_dir"
+  ],
+  "fish_lsp_modifiable_paths": [
+    "$__fish_config_dir"
+  ],
+  "fish_lsp_diagnostic_disable_error_codes": [],
+  "fish_lsp_enable_experimental_diagnostics": false,
+  "fish_lsp_strict_conditional_command_warnings": false,
+  "fish_lsp_prefer_builtin_fish_commands": false,
+  "fish_lsp_allow_fish_wrapper_functions": true,
+  "fish_lsp_require_autoloaded_functions_to_have_description": true,
+  "fish_lsp_max_background_files": 10000,
+  "fish_lsp_show_client_popups": false,
+  "fish_lsp_single_workspace_support": false,
+  "fish_lsp_ignore_paths": [
+    "**/.git/**",
+    "**/node_modules/**",
+    "**/containerized/**",
+    "**/docker/**"
+  ],
+  "fish_lsp_max_workspace_depth": 3
+}
 ```
 
 </details></blockquote>
@@ -674,20 +704,8 @@ fish-lsp env --show --confd > ~/.config/fish/conf.d/fish-lsp.fish
 
 </details></blockquote>
 
-<!-- ```fish -->
-<!-- # @fish-lsp-disable-next-line  -->
-<!-- alias ls='ls -G' # all diagnostics have been disabled for this line -->
-<!---->
-<!-- # @fish-lsp-disable 2001 -->
-<!-- alias ll='ls -l' # only the diagnostic 2001 has been disabled for this line -->
-<!---->
-<!-- # @fish-lsp-enable -->
-<!-- ## all diagnostics are re-enabled till the next @fish-lsp-disable for this file -->
-<!---->
-<!-- # @fish-lsp-disable 2001 2002 -->
-<!-- ## now both diagnostics 2001 and 2002 have been disabled for the rest of this file -->
-<!-- alias la='ls -la' -->
-<!-- ``` -->
+<!-- , environment variables can be passed to the server in the client's configuration via [`initializeParams.initializationOptions`](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#initializeParams), but this removes the flexible/interactive behavior that directly using the binary would allow. -->
+For language clients that import the source code directly and manually connect with the server (e.g., [VSCode](https://github.com/ndonfris/vscode-fish-lsp/blob/4aa63803a0d0a65ceabf164eaeb5a3e360662ef9/package.json#L136)), passing the environment configuration through the [`initializeParams.initializationOptions`](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#initializeParams) is also possible.
 
 #### Command Flags
 
@@ -702,16 +720,18 @@ fish-lsp start --disable complete signature --dump
 
 Any [flags](#command-flags) will overwrite their corresponding [environment variables](#environment-variables), if both are seen for the `fish-lsp` process. For this reason, it is encouraged to wrap any non-standard behavior of the `fish-lsp` in [functions](https://fishshell.com/docs/current/language.html#functions) or [aliases](https://fishshell.com/docs/current/language.html#defining-aliases).
 
-
 Due to the vast possibilities this project aims to support in the fish shell, [sharing useful configurations is highly encouraged](https://github.com/ndonfris/fish-lsp/discussions).
-
 
 ##### Project Specific configuration via dot-env
 
 If you are using the environment variables, or an alias to start the server from a shell instance, you can also use a `.env` file to set project specific overrides.
 
-This is not directly supported by the server, but can be achieved using the variety of dotenv tools available.
+This is not directly supported by the server, but can be achieved using the variety of dotenv tools available.<sup>[\[1\]](https://github.com/berk-karaal/loadenv.fish)</sup><sup>[\[2\]](https://direnv.net)</sup><sup>[\[3\]](https://github.com/jdx/mise)</sup><sup>[\[4\]](https://github.com/hyperupcall/autoenv)</sup>
 
+<!-- [1]: https://github.com/berk-karaal/loadenv.fish] -->
+<!-- [2]: https://direnv.net] -->
+<!-- [3]: https://github.com/jdx/mise] -->
+<!-- [4]: https://github.com/hyperupcall/autoenv] -->
 <!-- ![](https://github.com/ndonfris/fish-lsp.dev/blob/master/public/comment.png?raw=true) -->
 
 ##### Configuration via Disable Comments
@@ -722,7 +742,7 @@ This is not directly supported by the server, but can be achieved using the vari
 
 </div>
 
-Single document configurations can be set using fish-shell comments to disable diagnostics or formatting from applying to specific lines or sections of a file. These comments are parsed by the server when a file is opened, and can be placed anywhere in the file. 
+Single document configurations can be set using fish-shell comments to disable diagnostics or formatting from applying to specific lines or sections of a file. These comments are parsed by the server when a file is opened, and can be placed anywhere in the file.
 <!-- These comments generally follow the format: `# fish_*` -->
 
 If you're interested in disabling specific diagnostic messages, the [wiki](https://github.com/ndonfris/fish-lsp/wiki) includes a table of [error codes](https://github.com/ndonfris/fish-lsp/wiki/Diagnostic-Error-Codes) that should be helpful. Diagnostics are a newer feature so [PRs](https://github.com/ndonfris/fish-lsp/blob/master/docs/CONTRIBUTING.md#getting-started-rocket) are welcome to improve their support.
@@ -753,35 +773,36 @@ Any diagnostic can be disabled by providing its error code to the environment va
 
 ## Trouble Shooting
 
-If you encounter any issues with the server, the following steps may be useful to help diagnose the problem:
+If you encounter any issues with the server, the following commands may be useful to help diagnose the problem:
 
-- Show every available sub-command and flag for the `fish-lsp`
+- Show every available <a id="#subcommand">sub-command</a> and flag for the `fish-lsp`
 
   ```fish
   fish-lsp --help-all
   ```
 
-- Ensure that the `fish-lsp` command is available in your system's `$PATH` by running `which fish-lsp` or `fish-lsp info --bin`. The `fish-lsp` command also ships with an info subcommand, that displays information about the current binary and its environment that you are using.
+- <a id="info"></a>Ensure that the `fish-lsp` command is available in your system's `$PATH` by running `which fish-lsp` or `fish-lsp info --bin`.
 
   ```fish
   fish-lsp info
   ```
 
-- Confirm that the language server is able to startup correctly by indexing the `$fish_lsp_all_indexed_paths` directories.
+- <a id="startup"></a>Confirm that the language server is able to startup correctly by indexing the `$fish_lsp_all_indexed_paths` directories.
 
   ```fish
   fish-lsp info --time-startup
   ```
 
-  > <ins><b>Note:</b></ins> There is also, `fish-lsp info --time-only` which will show a less verbose summary of the startup timings. You can also pair these flags with `--use-workspace ~/path/to/fish/workspace` to limit the indexing to a specific folder.
+  > <ins><b>Note:</b></ins>
+  > There is also, `fish-lsp info --time-only` which will show a less verbose summary of the startup timings. To limit either of these flags to a specific folder, use `--use-workspace ~/path/to/fish`.
 
-- Check the <b>health</b> of the server.
+- <a id="health"></a>Check the <b>health</b> of the server.
 
   ```fish
   fish-lsp info --check-health
   ```
 
-- Check the <b>server logs</b>, while a server is running.
+- <a id="logs"></a>Check the <b>server logs</b>, while a server is running.
 
   ```fish
   set -gx fish_lsp_log_file /tmp/fish_lsp.logs
@@ -789,33 +810,20 @@ If you encounter any issues with the server, the following steps may be useful t
   # open the server somewhere else
   ```
 
-- Enable [source maps](https://www.typescriptlang.org/tsconfig/#sourceMap) to debug the bundled server code.
+- <a id="source-maps"></a>Enable [source maps](https://www.typescriptlang.org/tsconfig/#sourceMap) to debug the bundled server code.
 
   ```fish
   set -gx NODE_OPTIONS'--enable-source-maps --inspect' 
   $EDITOR ~/.config/fish/config.fish
   ```
 
-- Show the [tree-sitter](https://github.com/esdmr/tree-sitter-fish) parse tree for a specific file:
+- <a id="tree-sitter"></a>Show the [tree-sitter](https://github.com/esdmr/tree-sitter-fish) parse tree for a specific file:
 
   ```fish
   fish-lsp info --dump-parse-tree path/to/file.fish
   ```
 
 ##### Abbreviations to shorten the amount of characters typed for many of the above commands are available on the [wiki](https://github.com/ndonfris/fish-lsp/wiki/Abbreviations)
-
-<!-- ## Challenges -->
-<!-- ![Static Badge](https://img.shields.io/badge/REQUIRED-8a2Be2?style=plastic) -->
-<!---->
-<!-- Since its inception, __fish-lsp__ has undergone substantial changes, requiring frequent refactoring -->
-<!-- and even the temporary exclusion of certain features to maintain compatibility and performance -->
-<!-- with the ever evolving [LSP standards](https://github.com/Microsoft/vscode-languageserver-node). These modifications have often led to extensive rewrites of -->
-<!-- significant sections throughout the project. As a result, some features are currently on hold until -->
-<!-- they can be seamlessly integrated into the updated framework. -->
-<!---->
-<!-- > [!NOTE] -->
-<!-- > __Your sponsorship and/or contributions are vital to continuing the development and refinement of [fish-lsp](https://fish-lsp.dev), -->
-<!-- > ensuring it remains a valuable tool for the community.__ -->
 
 ## Additional Resources
 
