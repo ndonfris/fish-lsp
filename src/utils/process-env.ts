@@ -38,7 +38,7 @@ export async function setupProcessEnvExecFile() {
         const [variable, value]: [AutoloadedFishVariableName, string] = line.split('\t') as [AutoloadedFishVariableName, string];
         if (variable) {
           const storeValue = value ? value.trim() : undefined;
-          env.set(variable, storeValue);
+          env.set(variable.trim(), storeValue);
         }
       }
     });

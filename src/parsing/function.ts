@@ -2,7 +2,7 @@ import { SyntaxNode } from 'web-tree-sitter';
 import { findOptionsSet, Option, OptionValueMatch } from './options';
 import { FishSymbol } from './symbol';
 import { LspDocument } from '../document';
-import { findParentWithFallback, isEscapeSequence, isNewline } from '../utils/node-types';
+import { findParentWithFallback, isEscapeSequence, isNewline, isString } from '../utils/node-types';
 import { PrebuiltDocumentationMap } from '../utils/snippets';
 import { DefinitionScope } from '../utils/definition-scope';
 import { isAutoloadedUriLoadsFunctionName } from '../utils/translation';
@@ -82,6 +82,7 @@ export function processArgvDefinition(document: LspDocument, node: SyntaxNode) {
  */
 export function isFunctionDefinitionName(node: SyntaxNode) {
   if (!node.parent || !isFunctionDefinition(node.parent)) return false;
+  if (isString(node)) return false;
   return !!node.parent.firstNamedChild && node.parent.firstNamedChild.equals(node);
 }
 

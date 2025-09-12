@@ -18,8 +18,8 @@ export function createEmbedAssetsPlugin(options: EmbedAssetsOptions = {}): Plugi
       
       const defaultOptions = {
         fishFilesDir: resolve(projectRoot, 'fish_files'),
-        wasmFile: resolve(projectRoot, 'tree-sitter-fish.wasm'),
-        coreTreeSitterWasmFile: resolve(projectRoot, 'tree-sitter.wasm'),
+        wasmFile: resolve(projectRoot, 'node_modules/@ndonfris/tree-sitter-fish/tree-sitter-fish.wasm'),
+        coreTreeSitterWasmFile: resolve(projectRoot, 'node_modules/web-tree-sitter/tree-sitter.wasm'),
         manFile: resolve(projectRoot, 'man', 'fish-lsp.1'),
         buildTime: resolve(projectRoot, 'out', 'build-time.json'),
         packageJson: resolve(projectRoot, 'package.json'),

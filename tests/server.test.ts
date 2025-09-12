@@ -153,9 +153,9 @@ vi.mock('../src/config', async () => {
   };
 });
 
-vi.mock('../src/formatting', () => ({
-  formatDocumentContent: vi.fn().mockResolvedValue('formatted content'),
-}));
+// vi.mock('../src/formatting', () => ({
+//   formatDocumentContent: vi.fn().mockResolvedValue('formatted content'),
+// }));
 
 vi.mock('../src/utils/completion/startup-cache', () => ({
   CompletionItemMap: {

@@ -249,6 +249,30 @@
     "valueType": "boolean"
   },
   {
+    "name": "fish_lsp_allow_fish_wrapper_functions",
+    "description": "Show warnings when `alias`, `export`, etc... are used instead of their equivalent fish builtin commands.\n\nSome commands will provide quick-fixes to convert this diagnostic to its equivalent fish command.\n\nDiagnostic `2002` is shown when this setting is false, and hidden when true.",
+    "shortDescription": "prefer the user to use primitive fish commands instead of wrapper utilities common in other shells",
+    "exactMatchOptions": true,
+    "options": [
+      true,
+      false
+    ],
+    "defaultValue": true,
+    "valueType": "boolean"
+  },
+    {
+    "name": "fish_lsp_require_autoloaded_functions_to_have_description",
+    "description": "Show warning diagnostic `4008` when an autoloaded function definition does not have a description `function -d/--description '...'; end;`",
+    "shortDescription": "enable showing diagnostic `4008`",
+    "exactMatchOptions": true,
+    "options": [
+      true,
+      false
+    ],
+    "defaultValue": true,
+    "valueType": "boolean"
+  },
+  {
     "name": "fish_lsp_max_background_files",
     "description": "The maximum number of background files to read into buffer on startup.",
     "shortDescription": "maximum number of files to analyze in the background on startup",

@@ -51,6 +51,7 @@ show the environment variables available to the lsp
   `--no-export`               don't use export flag when generating environment variables  
   `--no-comments`             skip outputting comments  
   `--confd`                   output for redirecting to conf.d/fish-lsp.fish  
+  `--json`                    output `fish_lsp_*` initialization variables as JSON object (for vscode `settings.json`)  
 
 ### `info`
 

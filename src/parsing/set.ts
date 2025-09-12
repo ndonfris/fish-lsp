@@ -47,7 +47,7 @@ export function isSetQueryDefinition(node: SyntaxNode) {
  *           ^-- cursor is here
  */
 export function isSetVariableDefinitionName(node: SyntaxNode, excludeQuery = true) {
-  if (!node.parent) return false;
+  if (!node.parent || !isSetDefinition(node.parent)) return false;
   if (excludeQuery && isSetQueryDefinition(node.parent)) return false;
   const searchNodes = findSetChildren(node.parent);
   const definitionNode = searchNodes.find(n => !isOption(n));

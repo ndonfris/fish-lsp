@@ -1,4 +1,4 @@
-// Centralized build configurations
+// Centrfalized build configurations
 import * as esbuild from 'esbuild';
 import { resolve } from 'path';
 import { createPlugins, createDefines, PluginOptions, createSourceMapOptimizationPlugin, createSpecialSourceMapPlugin } from './plugins';
@@ -37,12 +37,10 @@ export const buildConfigs: Record<BuildConfigTarget, BuildConfig> = {
     loader: {
       '.wasm': 'file',
       '.node': 'file',
-
     },
     sourcemap: true, // Generate external source maps for debugging
     preserveSymlinks: true,
-    // external: ['web-tree-sitter', 'fs', 'path', 'os', 'crypto', 'util'],
-    // external: ['tree-sitter', 'web-tree-sitter', 'fs', 'path', 'os', 'crypto', 'util'],
+    // Bundle @ndonfris/tree-sitter-fish for binary builds
     external: [],
     internalPlugins: {
       target: 'node',
@@ -100,8 +98,10 @@ export const buildConfigs: Record<BuildConfigTarget, BuildConfig> = {
       'vscode-languageserver-protocol',
       'vscode-languageserver-textdocument',
       'vscode-uri',
-      'zod'
-      // Note: keeping 'web-tree-sitter', 'esbuild-wasm', 'memfs' bundled
+      'zod',
+      '@ndonfris/tree-sitter-fish',
+      'web-tree-sitter'
+      // Note: keeping 'esbuild-wasm', 'memfs' bundled
       // as they may be needed for embedded functionality
     ],
     internalPlugins: {

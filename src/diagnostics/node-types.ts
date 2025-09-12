@@ -1,5 +1,5 @@
 import Parser, { SyntaxNode } from 'web-tree-sitter';
-import { findParentCommand, isCommand, isCommandName, isCommandWithName, isEndStdinCharacter, isFunctionDefinitionName, isIfOrElseIfConditional, isMatchingOption, isOption, isString, isVariableDefinitionName } from '../utils/node-types';
+import { findParentCommand, hasParent, isCommand, isCommandName, isCommandWithName, isEndStdinCharacter, isFunctionDefinitionName, isIfOrElseIfConditional, isMatchingOption, isOption, isString, isVariableDefinitionName } from '../utils/node-types';
 import { getChildNodes, getRange, isNodeWithinOtherNode, precedesRange, TreeWalker } from '../utils/tree-sitter';
 import { Maybe } from '../utils/maybe';
 import { Option } from '../parsing/options';
@@ -77,6 +77,17 @@ export function isAlias(node: SyntaxNode): boolean {
   return isCommandWithName(node, 'alias');
 }
 
+export function isExport(node: SyntaxNode): boolean {
+  return isCommandWithName(node, 'export');
+}
+
+export function isWrapperFunction(node: SyntaxNode, handler: DiagnosticCommentsHandler): boolean {
+  if (!config.fish_lsp_allow_fish_wrapper_functions || handler.isCodeEnabled(ErrorCodes.usedWrapperFunction)) {
+    return isAlias(node) || isExport(node);
+  }
+  return false;
+}
+
 export function isUniversalDefinition(node: SyntaxNode): boolean {
   // simple heuristic to not check anything that is not an option
   if (!isOption(node)) return false;
@@ -117,6 +128,10 @@ export function isSourceFilename(node: SyntaxNode): boolean {
       }
       // also skip something like `source '$file'`
       if (isString(node)) {
+        return false;
+      }
+      // remove `source (some_cmd a b c d)`
+      if (hasParent(node, (n) => n.type === 'command_substitution')) {
         return false;
       }
       return true;

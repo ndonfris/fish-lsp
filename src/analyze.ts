@@ -476,7 +476,7 @@ export class Analyzer {
     const result: { uri: string; nodes: SyntaxNode[]; }[] = [];
     for (const uri of this.getIterableUris()) {
       const root = this.cache.getRootNode(uri);
-      const document = this.cache.getDocument(uri)!.document;
+      const document = this.cache.getDocument(uri)?.document;
       if (!root || !document) continue;
       const nodes = getChildNodes(root).filter((node) => callbackfn(node, document));
       if (nodes.length > 0) {

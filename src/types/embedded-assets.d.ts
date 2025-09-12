@@ -90,3 +90,8 @@ declare module '@package' {
   const packageJson: any;
   export default packageJson;
 }
+
+declare module '*?url' {
+  const url: string;
+  export default url;
+}

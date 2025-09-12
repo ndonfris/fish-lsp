@@ -6,6 +6,7 @@ import { AllSupportedActions } from './code-actions/action-kinds';
 import { LspCommands } from './command';
 import { PackageVersion, SubcommandEnv } from './utils/commander-cli-subcommands';
 import { FishSymbol } from './parsing/symbol';
+import { ErrorCodes } from './diagnostics/error-codes';
 
 /********************************************
  **********  Handlers/Providers   ***********
@@ -109,13 +110,23 @@ export const ConfigSchema = z.object({
   fish_lsp_enable_experimental_diagnostics: z.boolean().default(false),
 
   /** diagnostic 3002 warnings should be shown forcing the user to check if a command exists before using it */
-  fish_lsp_strict_conditional_command_warnings: z.boolean().default(true),
+  fish_lsp_strict_conditional_command_warnings: z.boolean().default(false),
 
   /**
    * include diagnostic warnings when an external shell command is used instead of
    * a fish built-in command
    */
   fish_lsp_prefer_builtin_fish_commands: z.boolean().default(false),
+
+  /**
+   * don't warn usage of fish wrapper functions
+   */
+  fish_lsp_allow_fish_wrapper_functions: z.boolean().default(true),
+
+  /**
+   * require autoloaded functions to have a description in their header
+   */
+  fish_lsp_require_autoloaded_functions_to_have_description: z.boolean().default(true),
 
   /** max background files */
   fish_lsp_max_background_files: z.number().default(10000),
@@ -151,6 +162,8 @@ export function getConfigFromEnvironmentVariables(): {
     fish_lsp_enable_experimental_diagnostics: toBoolean(process.env.fish_lsp_enable_experimental_diagnostics),
     fish_lsp_prefer_builtin_fish_commands: toBoolean(process.env.fish_lsp_prefer_builtin_fish_commands),
     fish_lsp_strict_conditional_command_warnings: toBoolean(process.env.fish_lsp_strict_conditional_command_warnings),
+    fish_lsp_allow_fish_wrapper_functions: toBoolean(process.env.fish_lsp_allow_fish_wrapper_functions),
+    fish_lsp_require_autoloaded_functions_to_have_description: toBoolean(process.env.fish_lsp_require_autoloaded_functions_to_have_description),
     fish_lsp_max_background_files: toNumber(process.env.fish_lsp_max_background_files || '10000'),
     fish_lsp_show_client_popups: toBoolean(process.env.fish_lsp_show_client_popups),
     fish_lsp_single_workspace_support: toBoolean(process.env.fish_lsp_single_workspace_support),
@@ -163,6 +176,16 @@ export function getConfigFromEnvironmentVariables(): {
     .filter((key): key is string => key !== null);
 
   const config = ConfigSchema.parse(rawConfig);
+
+  if (config.fish_lsp_allow_fish_wrapper_functions) {
+    config.fish_lsp_diagnostic_disable_error_codes.push(ErrorCodes.usedWrapperFunction);
+  }
+  if (config.fish_lsp_strict_conditional_command_warnings) {
+    config.fish_lsp_diagnostic_disable_error_codes.push(ErrorCodes.missingQuietOption);
+  }
+  if (config.fish_lsp_require_autoloaded_functions_to_have_description) {
+    config.fish_lsp_diagnostic_disable_error_codes.push(ErrorCodes.requireAutloadedFunctionHasDescription);
+  }
 
   return { config, environmentVariablesUsed };
 }
@@ -310,8 +333,8 @@ export function handleEnvOutput(
 
   const variables = PrebuiltDocumentationMap
     .getByType('variable', 'fishlsp')
-    .filter((v) => EnvVariableJson.is(v))
-    .filter((v) => !v.isDeprecated);
+    .filter((v) => EnvVariableJson.is(v) ? !v.isDeprecated : false)
+    .map(v => v as EnvVariableJson);
 
   const getEnvVariableJsonObject = (keyName: string): EnvVariableJson =>
     variables.find(entry => entry.name === keyName)!;

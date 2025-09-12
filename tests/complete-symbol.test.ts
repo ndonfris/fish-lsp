@@ -17,8 +17,9 @@ let parser: Parser;
 
 describe('parsing symbols', () => {
   setLogger();
+
   beforeEach(async () => {
-    setupProcessEnvExecFile();
+    await setupProcessEnvExecFile();
     parser = await initializeParser();
     await Analyzer.initialize();
     await setupProcessEnvExecFile();
@@ -78,15 +79,16 @@ describe('parsing symbols', () => {
         'end',
       ].join('\n'),
     },
-    );
-    workspace.setup();
+    ).initialize();
+
+    // const workspace = test_workspace.workspace;
 
     beforeEach(async () => {
       parser = await initializeParser();
     });
 
     // it('completion >>(((*> function', () => {
-    it('completion simple => `complete -c foo -l help` -> `argparse h/help`', () => {
+    it('completion simple => `complete -c foo -l help` -> `argparse h/help`', async () => {
       const expectedOpts = [
         'foo -h',
         'foo --help',
@@ -96,11 +98,13 @@ describe('parsing symbols', () => {
         'foo -1',
       ];
 
+      workspace.analyzeAllFiles();
+
       const searchDoc = workspace.getDocument('functions/foo.fish')!;
       const funcName = searchDoc?.getAutoLoadName() as string;
       const results: CompletionSymbol[] = [];
 
-      analyzer.findNodes((n: SyntaxNode, doc: LspDocument) => {
+      const result = analyzer.findNodes((n: SyntaxNode, doc: LspDocument) => {
         if (['functions', ''].includes(doc.getAutoloadType())) {
           return false;
         }
@@ -112,7 +116,11 @@ describe('parsing symbols', () => {
         return false;
       });
 
-      const uniqueUris = new Set(results.map(res => res?.document?.uri));
+      const uniqueUris = new Set([...result.filter(res => res?.uri)]);
+      console.log({
+        uniqueUris,
+        uris: results.map(res => res?.document?.uri),
+      });
       expect(uniqueUris.size === 1).toBeTruthy();
       // results.forEach((res) => {
       //   console.log({
@@ -160,7 +168,7 @@ describe('parsing symbols', () => {
       expect(locationUris).toEqual([
         'functions/foo.fish',
         'completions/foo.fish',
-        // 'conf.d/baz.fish',
+        'conf.d/baz.fish',
       ]);
 
       expect(refLocations.map(l => {
@@ -181,11 +189,11 @@ describe('parsing symbols', () => {
           range: Range.create(1, 24, 1, 28),
           text: 'help',
         },
-        // {
-        //   uri: 'conf.d/baz.fish',
-        //   range: Range.create(11, 11, 11, 16),
-        //   text: 'help',
-        // },
+        {
+          uri: 'conf.d/baz.fish',
+          range: Range.create(11, 11, 11, 16),
+          text: 'help',
+        },
       ]);
     });
 
@@ -292,7 +300,7 @@ describe('parsing symbols', () => {
     });
 
     it('command => `complete -c baz` -> `function baz;end;`', () => {
-      const searchDoc = workspace.find(doc => doc.uri.endsWith('conf.d/baz.fish'))!;
+      const searchDoc = workspace.getDocument('conf.d/baz.fish')!;
       const searchSymbol = analyzer.getFlatDocumentSymbols(searchDoc.uri).find((symbol) => {
         return symbol.name === 'baz' && symbol.kind === SymbolKind.Function;
       });

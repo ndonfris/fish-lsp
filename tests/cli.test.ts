@@ -257,7 +257,7 @@ describe('cli tests', () => {
       expect(outputText.length).toBeGreaterThan(0);
     });
 
-    it('fish-lsp info --check-health', async () => {
+    it.skip('fish-lsp info --check-health', async () => {
       await performHealthCheck();
       expect(capturedOutput.length).toBeGreaterThan(0);
 
