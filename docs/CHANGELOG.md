@@ -1,3 +1,18 @@
+## <small>1.0.11-pre.21 (2025-09-13)</small>
+
+* feat: add `# @fish_indent: on/off` ([5c6649b](https://github.com/ndonfris/fish-lsp/commit/5c6649b))
+* feat: add virtual file system support and comprehensive settings management ([33f41c8](https://github.com/ndonfris/fish-lsp/commit/33f41c8))
+* feat: added `yarn publish-nightly` script ([580e9ac](https://github.com/ndonfris/fish-lsp/commit/580e9ac))
+* feat: testing formatter, used inserted position algo for formatting ([c9421a2](https://github.com/ndonfris/fish-lsp/commit/c9421a2))
+* docs: update README ([e5b4594](https://github.com/ndonfris/fish-lsp/commit/e5b4594))
+* fix: don't create file definitions from `set -e` ([3a17d0f](https://github.com/ndonfris/fish-lsp/commit/3a17d0f))
+* fix: more updates to tests from converting jests to vitest (w/ embedded) ([e8d847b](https://github.com/ndonfris/fish-lsp/commit/e8d847b))
+* fix: sourcemaps linked to `src/**.ts` files + dump-parse-tree reads from stdin ([4b7454c](https://github.com/ndonfris/fish-lsp/commit/4b7454c))
+* chore: added more tests for code-actions, server, logger, main ([37b87ff](https://github.com/ndonfris/fish-lsp/commit/37b87ff))
+* chore: workspace-cli and documented contributing.md ([66b518a](https://github.com/ndonfris/fish-lsp/commit/66b518a))
+
+
+
 ## <small>1.0.11-pre.20 (2025-09-03)</small>
 
 * chore: added `fish_lsp_ignore_paths`, and `fish_lsp_max_workspace_depth` ([9ff595a](https://github.com/ndonfris/fish-lsp/commit/9ff595a))

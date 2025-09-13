@@ -767,12 +767,13 @@ export default class FishServer {
       return doc.getText(); // fallback to original text on error
     });
 
-    const fullRange: LSP.Range = {
-      start: doc.positionAt(0),
-      end: doc.positionAt(doc.getText().length),
-    };
-
-    return [TextEdit.replace(fullRange, formattedText)];
+    return [{
+      range: LSP.Range.create(
+        LSP.Position.create(0, 0),
+        LSP.Position.create(Number.MAX_VALUE, Number.MAX_VALUE),
+      ),
+      newText: formattedText,
+    }];
   }
 
   async onDocumentTypeFormatting(params: DocumentFormattingParams): Promise<TextEdit[]> {
@@ -788,12 +789,13 @@ export default class FishServer {
       return doc.getText(); // fallback to original text on error
     });
 
-    const fullRange: LSP.Range = {
-      start: doc.positionAt(0),
-      end: doc.positionAt(doc.getText().length),
-    };
-
-    return [TextEdit.replace(fullRange, formattedText)];
+    return [{
+      range: LSP.Range.create(
+        LSP.Position.create(0, 0),
+        LSP.Position.create(Number.MAX_VALUE, Number.MAX_VALUE),
+      ),
+      newText: formattedText,
+    }];
   }
   /**
    * Currently only works for whole line selections, in the future we should try to make every

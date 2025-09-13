@@ -95,18 +95,3 @@ export function getEnabledIndentRanges(doc: LspDocument, rootNode?: SyntaxNode):
     fullDocumentFormatting: false,
   };
 }
-
-// export function docRemoveTextInsideIndentComments(doc: LspDocument): string {
-//   const lines = doc.getText().split("\n");
-//   const root = analyzer.getRootNode(doc.uri);
-//
-//   const comments = processIndentComments(root);
-//   for (const comment of comments) {
-//     const { line } = comment;
-//     if (line >= 0 && line < lines.length) {
-//       lines[line] = ""; // Remove the entire line containing the indent comment
-//     }
-//   }
-//   return lines.join("\n");
-// }
-
