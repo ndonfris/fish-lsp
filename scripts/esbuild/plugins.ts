@@ -232,7 +232,7 @@ export function createSpecialSourceMapPlugin(options: { preserveOnlySrcContent?:
               
               console.log(`📦 Special source map: ${colorize(toRelativePath(sourcemapFile), colors.white)}`);
               console.log(`  Total sources: ${colorize(sourcemap.sources.length + ' files', colors.white)}`);
-              console.log(`  Src/ files with content: ${colorize(srcFileCount + ' files', colors.white)}`);
+              console.log(`  src/ files with content: ${colorize(srcFileCount + ' files', colors.white)}`);
               console.log(`  Other sources (content removed): ${colorize((sourcemap.sources.length - srcFileCount) + ' files', colors.white)}`);
               
               if (srcFileCount > 0) {
