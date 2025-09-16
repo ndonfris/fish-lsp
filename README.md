@@ -20,7 +20,7 @@ Introducing the [fish-lsp](https://fish-lsp.dev), a [Language Server Protocol (L
 
 Please choose a [method to install](#installation) the language server and [configure a client](#client-configuration-required) to use `fish-lsp` in your editor.
 
-A detailed explanation of how a language server connection works is described on the following [wiki](https://github.com/ndonfris/fish-lsp/wiki/How-It-Works) page.
+A detailed explanation of how a language server connection works is described on the following [wiki](https://github.com/ndonfris/fish-lsp/wiki/How-does-it-work%3F) page.
 
 ## Why? 🐟
 
@@ -148,7 +148,7 @@ Some clients may also allow specifying the server configuration directly in the 
 Theoretically, the language-server should generally be compatible with almost any text-editor or IDE you prefer using.  Feel free to setup the project in any [fish-lsp-client](https://github.com/ndonfris/fish-lsp/wiki/Client-Configurations) of your choice, or [submit a PR](https://github.com/ndonfris/fish-lsp-language-clients/pulls) for new configurations.
 
 <details>
-  <summary><b>neovim (v0.8)</b></summary>
+  <summary><span><a id="nvim"></a><b>neovim (v0.8)</b></span></summary>
 
   Full table of options available in the [neovim documentation](https://neovim.io/doc/user/lsp.html)
 
@@ -170,7 +170,7 @@ Theoretically, the language-server should generally be compatible with almost an
 
 </details>
 <details>
-  <summary><b>mason.nvim</b></summary>
+  <summary><span><a id="mason.nvim"></a><b>mason.nvim</b></span></summary>
 
   Install the `fish-lsp` using [mason.nvim](https://github.com/mason-org/mason-registry/pull/8609#event-18154473712)
 
@@ -180,7 +180,7 @@ Theoretically, the language-server should generally be compatible with almost an
 
 </details>
 <details>
-  <summary><b>coc.nvim</b></summary>
+  <summary><span><a id="coc.nvim"></a><b>coc.nvim</b></span></summary>
 
   [Neovim](https://neovim.io) client using [coc.nvim](https://github.com/neoclide/coc.nvim) configuration, located inside [coc-settings.json](https://github.com/neoclide/coc.nvim/wiki/Language-servers#register-custom-language-servers) `"languageserver"` key
 
@@ -196,7 +196,7 @@ Theoretically, the language-server should generally be compatible with almost an
 
 </details>
 <details>
-  <summary><b>YouCompleteMe</b></summary>
+  <summary><span><a id="YouCompleteMe"></a><b>YouCompleteMe</b></span></summary>
 
   [YouCompleteMe](https://github.com/ycm-core/YouCompleteMe) configuration for vim/neovim
 
@@ -213,7 +213,7 @@ Theoretically, the language-server should generally be compatible with almost an
 
 </details>
 <details>
-  <summary><b>vim-lsp</b></summary>
+  <summary><span><a id="vim-lsp"></a><b>vim-lsp</b></span></summary>
 
   Configuration of [prabirshrestha/vim-lsp](https://github.com/prabirshrestha/vim-lsp) in your `init.vim` or `init.lua` file
 
@@ -229,7 +229,7 @@ Theoretically, the language-server should generally be compatible with almost an
 
 </details>
 <details>
-  <summary><b>helix</b></summary>
+  <summary><span><a id="helix"></a><b>helix</b></span></summary>
 
   In config file `~/.config/helix/languages.toml`
 
@@ -246,7 +246,7 @@ Theoretically, the language-server should generally be compatible with almost an
 
 </details>
 <details>
-  <summary><b>kakoune</b></summary>
+  <summary><span><a id="kakoune"></a><b>kakoune</b></span></summary>
 
   Configuration for [kakoune-lsp](https://github.com/kakoune-lsp/kakoune-lsp), located in `~/.config/kak-lsp/kak-lsp.toml`
 
@@ -272,7 +272,7 @@ Theoretically, the language-server should generally be compatible with almost an
 
 </details>
 <details>
-  <summary><b>kate</b></summary>
+  <summary><span><a id="kate"></a><b>kate</b></span></summary>
 
   Configuration for [kate](https://kate-editor.org/)
 
@@ -290,7 +290,7 @@ Theoretically, the language-server should generally be compatible with almost an
 
 </details>
 <details>
-  <summary><b>emacs</b></summary>
+  <summary><span><a id="emacs"></a><b>emacs</b></span></summary>
 
   Configuration using [eglot](https://github.com/joaotavora/eglot) (Built into Emacs 29+)
 
@@ -338,7 +338,7 @@ Theoretically, the language-server should generally be compatible with almost an
 </details>
 
 <details>
-  <summary><b>VSCode</b></summary>
+  <summary><span><a id="vscode"></a><b>VSCode</b> <emph><a href='https://github.com/ndonfris/vscode-fish-lsp'>(Source Code Repo)</a></emph></span></summary>
 
   > To download the extension, visit the [fish-lsp extension on the VSCode Marketplace](https://marketplace.visualstudio.com/items?itemName=ndonfris.fish-lsp).
   >
@@ -348,7 +348,7 @@ Theoretically, the language-server should generally be compatible with almost an
 
 </details>
 <details>
-  <summary><b>BBEdit</b></summary>
+  <summary><span><a id="bbedit"></a><b>BBEdit</b></span></summary>
 
   > To install the fish-lsp in [BBEdit](https://www.barebones.com/products/bbedit/), please follow the instructions in the repository [fish-lsp-language-clients](https://github.com/ndonfris/fish-lsp-language-clients/blob/bbedit/BBEdit%20Install.md).
   >
@@ -366,8 +366,14 @@ Environment variables provide a way to globally configure the server across all 
 
 You can store them directly in your `config.fish` to be autoloaded for every fish session. Or if you prefer a more modular approach, checkout the [`--confd`](#environment-variables-confd) flag which will structure the autoloaded environment variables to only be sourced when the `fish-lsp` command exists.
 
-<blockquote><details>
-<summary><span><a id="environment-variables-default"></a><h6>📋 <b>Default Values:</b> <code> fish-lsp env --show-defaults </code></h6><span></summary>
+<!-- <summary style="flex: 1;"><span style="white-space:nowrap;"><a id="environment-variables-default">:package:</a> <h6><b> Default Values:</b> <code> fish-lsp env --show-defaults </code></h6></span></summary> -->
+<blockquote>
+<details>
+<summary>
+
+###### <a id="environment-variables-default">:package:</a> <b> Default Values: <code> fish-lsp env --show-defaults </code></b>
+
+</summary>
 
 ```fish
 # $fish_lsp_enabled_handlers <ARRAY>
@@ -506,8 +512,14 @@ set -gx fish_lsp_max_workspace_depth 3
 
 </details></blockquote>
 
-<blockquote><details>
-<summary><span><a id="environment-variables-template"></a><h6>⚙️ <b>Complete Configuration Template:</b> <code> fish-lsp env --create </code></h6><span></summary>
+<blockquote>
+<details>
+<summary>
+<!-- <summary style="flex: 1;"><span style="white-space:nowrap;"><a id="environment-variables-template">:gear:</a> <h6><b>Complete Configuration Template:</b> <code> fish-lsp env --create </code></h6></span></summary> -->
+
+###### <a id="environment-variables-template">:gear:</a> <b>Complete Configuration Template: <code> fish-lsp env --create </code></b>
+
+</summary>
 
 ```fish
 # $fish_lsp_enabled_handlers <ARRAY>
@@ -646,8 +658,14 @@ set -gx fish_lsp_max_workspace_depth
 
 </details></blockquote>
 
-<blockquote><details>
-<summary><span><a id="environment-variables-json"></a><h6>📄 <b>Formatting as JSON:</b> <code> fish-lsp env --show-default --json </code></h6><span></summary>
+<blockquote>
+<details>
+<!-- <summary style="flex:1;"><span style="white-space:nowrap;"><h6><a id="environment-variables-json">:floppy_disk:</a> <b> Formatting as JSON:</b> <code> fish-lsp env --show-default --json </code></h6></span></summary> -->
+<summary>
+
+###### <a id="environment-variables-json">:floppy_disk:</a> <b> Formatting as JSON:</b> <code> fish-lsp env --show-default --json </code>
+
+</summary>
 
 ```json
 {
@@ -688,8 +706,13 @@ set -gx fish_lsp_max_workspace_depth
 
 </details></blockquote>
 
-<blockquote><details>
-<summary><span><a id="environment-variables-confd"></a><h6>💾 <b>Writing current values to</b> <code> ~/.config/fish/conf.d/fish-lsp.fish </code></h6><span></summary>
+<blockquote>
+<details>
+<summary>
+
+###### <a id="environment-variables-confd">:jigsaw:</a> <b> Writing current values to <code> ~/.config/fish/conf.d/fish-lsp.fish </code></b>
+
+</summary>
 
 ```fish
 ## clear the current fish-lsp configuration
@@ -813,7 +836,7 @@ If you encounter any issues with the server, the following commands may be usefu
 - <a id="source-maps"></a>Enable [source maps](https://www.typescriptlang.org/tsconfig/#sourceMap) to debug the bundled server code.
 
   ```fish
-  set -gx NODE_OPTIONS'--enable-source-maps --inspect' 
+  set -gx NODE_OPTIONS '--enable-source-maps --inspect' 
   $EDITOR ~/.config/fish/config.fish
   ```
 
@@ -837,8 +860,7 @@ If you encounter any issues with the server, the following commands may be usefu
 
 ## Contributors
 
-Special thanks to anyone who contributed to the project!
-Contributions of any kind are welcome!
+Contributions of any kind are welcome! Special thanks to anyone who contributed to the project! :pray:
 
 <!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
 <!-- prettier-ignore-start -->
