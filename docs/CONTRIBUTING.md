@@ -236,12 +236,12 @@ Prefetching relevant information and [caching](https://en.wikipedia.org/wiki/Cac
 ## Important Tooling Provided :toolbox:
 
 - [tree-sitter](https://www.google.com/search?client=firefox-b-1-d&q=web-tree-sitter) - used for data structures/algorithms, prevalent to the shell language.
-  - `yarn sh:build-wasm ` - should handle building the wasm file
-  - `@esdmr/tree-sitter-fish@3.5.1` - handles installing the actual tree-sitter-fish.wasm package
-  - `web-tree-sitter` - is the API for `SyntaxNode[]`, `Parser`, `Range`, etc...
+  - [`@ndonfris/tree-sitter-fish@3.6.0`](https://www.npmjs.com/package/@ndonfris/tree-sitter-fish) - handles installing the actual tree-sitter-fish.wasm package
+  - [`web-tree-sitter`](https://www.npmjs.com/package/web-tree-sitter) - is the API for `SyntaxNode[]`, `Parser`, `Range`, etc...
 
 - [eslint](https://eslint.org/) - used for linting and formatting
     -  `yarn lint` - lint and fix the current project (`husky pre-push` hook)
+    -  `yarn lint:check` - check the current project 
     -  `yarn lint:verbose` - lint, and display output 
 
 - [knip](https://github.com/webpro/knip) - used for tree-shaking and checking unused dependencies

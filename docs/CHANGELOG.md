@@ -1,3 +1,12 @@
+## <small>1.0.11-pre.22 (2025-09-16)</small>
+
+* fix: devDependencies for `yarn tsx fish-commands-scapper.ts` ([753d41d](https://github.com/ndonfris/fish-lsp/commit/753d41d))
+* fix: tests and remove snapshots ([0d26a7c](https://github.com/ndonfris/fish-lsp/commit/0d26a7c))
+* docs: update readme ([3cf7076](https://github.com/ndonfris/fish-lsp/commit/3cf7076))
+* chore: fix file watcher for `yarn dev:watch-all` ([db89f01](https://github.com/ndonfris/fish-lsp/commit/db89f01))
+
+
+
 ## <small>1.0.11-pre.21 (2025-09-13)</small>
 
 * feat: add `# @fish_indent: on/off` ([5c6649b](https://github.com/ndonfris/fish-lsp/commit/5c6649b))
