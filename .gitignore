@@ -36,3 +36,4 @@ tsconfig.types.json
 
 *.d.ts
 temp-types
+tests/workspaces/*.snapshot
