@@ -110,12 +110,12 @@ chmod +x ~/.local/bin/fish-lsp
 fish-lsp complete > ~/.config/fish/completions/fish-lsp.fish
 ```
 
-> **Note:**
-> Ensure `~/.local/bin` is in your `$PATH`. 
+> __Note:__
+> Ensure `~/.local/bin` is in your `$PATH`.
 
 ### Build from Source
 
-Recommended Dependencies: `yarn@1.22.22` `node@22.14.0` `fish@4.0.2`
+Recommended Dependencies: `yarn@1.22.22` `node@22.14.0` `fish@4.0.8`
 
 ```bash
 git clone https://github.com/ndonfris/fish-lsp && cd fish-lsp
@@ -148,7 +148,7 @@ Some clients may also allow specifying the server configuration directly in the 
 Theoretically, the language-server should generally be compatible with almost any text-editor or IDE you prefer using.  Feel free to setup the project in any [fish-lsp-client](https://github.com/ndonfris/fish-lsp/wiki/Client-Configurations) of your choice, or [submit a PR](https://github.com/ndonfris/fish-lsp-language-clients/pulls) for new configurations.
 
 <details>
-  <summary><span><a id="nvim"></a><b>neovim (v0.8)</b></span></summary>
+  <summary><span><a id="nvim"></a><b>neovim</b> (minimum version <code>>= v0.8.x</code>)</span></summary>
 
   Full table of options available in the [neovim documentation](https://neovim.io/doc/user/lsp.html)
 

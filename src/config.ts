@@ -710,6 +710,12 @@ export namespace Config {
         },
         documentHighlightProvider: configHandlers.highlight,
         inlayHintProvider: configHandlers.inlayHint,
+        diagnosticProvider: configHandlers.diagnostic ? {
+          identifier: 'fish',
+          workspaceDiagnostics: false,
+          interFileDependencies: true,
+          workDoneProgress: true,
+        } : undefined,
         // codeLensProvider: configHandlers.codeLens ? {
         //   resolveProvider: true,
         //   workDoneProgress: true,

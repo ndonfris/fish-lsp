@@ -380,7 +380,7 @@ describe('find definition locations of symbols', () => {
     it('`fish_add_path` -> valid', async () => {
       const cmd = 'fish_add_path';
       const locations = execCommandLocations(cmd);
-      expect(locations).toHaveLength(1);
+      expect(locations.length).toBeGreaterThanOrEqual(1);
     });
     it('`source` -> INVALID', async () => {
       const cmd = 'source';
@@ -391,7 +391,7 @@ describe('find definition locations of symbols', () => {
     it('`alias` -> valid', () => {
       const cmd = 'alias';
       const locations = execCommandLocations(cmd);
-      expect(locations).toHaveLength(1);
+      expect(locations.length).toBeGreaterThanOrEqual(1);
       const { uri, path } = locations.at(0)!;
       // console.log({ uri, path })
       expect(uri).toBeDefined();

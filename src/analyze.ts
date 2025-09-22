@@ -1210,7 +1210,10 @@ export class Analyzer {
 
   public ensureCachedDocument(doc: LspDocument): AnalyzedDocument {
     if (this.cache.hasUri(doc.uri)) {
-      return this.cache.getDocument(doc.uri) as AnalyzedDocument;
+      const cachedDoc = this.cache.getDocument(doc.uri);
+      if (cachedDoc?.document.version === doc.version && cachedDoc.document.getText() === doc.getText()) {
+        return cachedDoc;
+      }
     }
     return this.analyze(doc);
   }

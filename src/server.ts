@@ -4,13 +4,13 @@ import './utils/array-polyfills';
 import './virtual-fs';
 import { SyntaxNode } from 'web-tree-sitter';
 import { AnalyzedDocument, analyzer, Analyzer } from './analyze';
-import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, ImplementationParams, CodeLensParams, CodeLens, WorkspaceFoldersChangeEvent } from 'vscode-languageserver';
+import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, ImplementationParams, CodeLensParams, CodeLens, WorkspaceFoldersChangeEvent, DocumentDiagnosticParams, DocumentDiagnosticReportKind } from 'vscode-languageserver';
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, documents } from './document';
-import { formatDocumentWithIndentComments, formatDocumentRangeWithIndentComments } from './formatting';
+import { formatDocumentWithIndentComments, formatDocumentContent } from './formatting';
 import { createServerLogger, logger } from './logger';
 import { connection, createBrowserConnection, setExternalConnection } from './utils/startup';
-import { symbolKindsFromNode, uriToPath } from './utils/translation';
+import { formatTextWithIndents, symbolKindsFromNode, uriToPath } from './utils/translation';
 import { getChildNodes } from './utils/tree-sitter';
 import { getVariableExpansionDocs, handleHover } from './hover';
 import { DocumentationCache, initializeDocumentationCache } from './utils/documentation-cache';
@@ -213,6 +213,8 @@ export default class FishServer {
 
     connection.onDocumentHighlight(documentHighlightHandler);
     connection.languages.inlayHint.on(this.onInlayHints.bind(this));
+    // @TODO: fix the diagnostics provider before next release (fails in tests)
+    // connection.languages.diagnostics.on(this.onDiagnostics.bind(this));
     connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
     connection.onExecuteCommand(commandCallback);
 
@@ -240,6 +242,9 @@ export default class FishServer {
 
   async didChangeTextDocument(params: LSP.DidChangeTextDocumentParams): Promise<void> {
     this.logParams('didChangeTextDocument', params);
+    // Clear diagnostics immediately when content changes
+    this.clearDiagnostics({ uri: params.textDocument.uri });
+
     const progress = await connection.window.createWorkDoneProgress();
     const path = uriToPath(params.textDocument.uri);
     let doc = documents.get(path);
@@ -253,11 +258,7 @@ export default class FishServer {
 
     // update the document with the changes
     currentDocument = doc;
-    doc = doc.update(params.contentChanges);
-    documents.set(doc);
-
-    // Clear diagnostics immediately when content changes
-    this.clearDiagnostics({ uri: doc.uri });
+    documents.applyChanges(params.textDocument.uri, params.contentChanges);
 
     // Force fresh analysis by bypassing cache for changed documents
     const analysisResult = this.analyzeDocument({ uri: doc.uri }, true);
@@ -268,11 +269,6 @@ export default class FishServer {
       analysisResult: !!analysisResult,
     });
 
-    if (!this.backgroundAnalysisComplete) {
-      await workspaceManager.analyzePendingDocuments(progress);
-      progress.done();
-      return;
-    }
     await workspaceManager.analyzePendingDocuments();
     progress.done();
   }
@@ -284,14 +280,21 @@ export default class FishServer {
 
   async didSaveTextDocument(params: LSP.DidSaveTextDocumentParams): Promise<void> {
     this.logParams('didSaveTextDocument', params);
+    this.clearDiagnostics({ uri: params.textDocument.uri });
     const path = uriToPath(params.textDocument.uri);
-    const doc = documents.get(path);
-    if (doc) {
-      this.analyzeDocument({ uri: doc.uri });
-      workspaceManager.handleOpenDocument(doc);
-      workspaceManager.handleUpdateDocument(doc);
-      await workspaceManager.analyzePendingDocuments();
+    let doc = documents.get(path);
+    if (!doc && params.text) {
+      doc = LspDocument.createTextDocumentItem(params.textDocument.uri, params.text || '');
+      documents.set(doc);
+    } else if (!doc) {
+      this.analyzeDocument({ uri: params.textDocument.uri });
+      return;
     }
+    // this.clearDiagnostics({uri: params.textDocument.uri})
+    this.analyzeDocument({ uri: doc.uri });
+    workspaceManager.handleOpenDocument(doc);
+    workspaceManager.handleUpdateDocument(doc);
+    await workspaceManager.analyzePendingDocuments();
   }
 
   /**
@@ -807,27 +810,47 @@ export default class FishServer {
     if (!doc) return [];
 
     const range = params.range;
-    const startLine = range.start.line;
-    const endLine = range.end.line;
+    const startOffset = doc.offsetAt(range.start);
+    const endOffset = doc.offsetAt(range.end);
 
-    const formattedText = await formatDocumentRangeWithIndentComments(doc, startLine, endLine).catch(error => {
+    // get the text
+    const originalText = doc.getText();
+    const selectedText = doc.getText().slice(startOffset, endOffset).trimStart();
+
+    // Call the formatter 2 differently times, once for the whole document (to get the indentation level)
+    // and a second time to get the specific range formatted
+    const allText = await formatDocumentContent(originalText).catch((error) => {
+      logger.error(`FormattingRange error: ${error}`);
+      return selectedText; // fallback to original text on error
+    });
+
+    const formattedText = await formatDocumentContent(selectedText).catch(error => {
       logger.error(`FormattingRange error: ${error}`, {
+        input: selectedText,
         range: range,
       });
       if (config.fish_lsp_show_client_popups) {
         connection.window.showErrorMessage(`Failed to format range: ${params.textDocument.uri}`);
       }
-      return doc.getText(); // fallback to original text on error
+      return selectedText;
     });
 
-    const fullRange: LSP.Range = {
-      start: doc.positionAt(0),
-      end: doc.positionAt(doc.getText().length),
-    };
+    // Create a temporary TextDocumentItem with the formatted text, for passing to formatTextWithIndents()
+    const newDoc = LspDocument.createTextDocumentItem(doc.uri, allText);
 
-    return [TextEdit.replace(fullRange, formattedText)];
+    // fixup formatting, so that we end with a single newline character (important for inserting `TextEdit`)
+    const output = formatTextWithIndents(
+      newDoc,
+      range.start.line,
+      formattedText.trim(),
+    ) + '\n';
+    return [
+      TextEdit.replace(
+        params.range,
+        output,
+      ),
+    ];
   }
-
   async onFoldingRanges(params: FoldingRangeParams): Promise<FoldingRange[] | undefined> {
     this.logParams('onFoldingRanges', params);
 
@@ -930,6 +953,44 @@ export default class FishServer {
       logger.error('onShowSignatureHelp', err);
     }
     return null;
+  }
+  public onDiagnostics(params: DocumentDiagnosticParams): LSP.DocumentDiagnosticReport {
+    this.logParams('onDiagnostics', params);
+
+    const { path, doc } = this.getDefaultsForPartialParams(params);
+
+    // If document is not found, return empty diagnostic report
+    if (!doc || !path) {
+      logger.warning('onDiagnostics: document not found', { path, uri: params.textDocument.uri });
+      return {
+        kind: DocumentDiagnosticReportKind.Full,
+        items: [],
+      };
+    }
+
+    // Analyze the document to get fresh diagnostics
+    const analysisResult = this.analyzeDocument({ uri: params.textDocument.uri }, false);
+    if (!analysisResult) {
+      logger.warning('onDiagnostics: analysis failed', { path, uri: params.textDocument.uri });
+      return {
+        kind: DocumentDiagnosticReportKind.Full,
+        items: [],
+      };
+    }
+
+    // Get diagnostics from the analyzer
+    const diagnostics = analyzer.getDiagnostics(doc.uri);
+
+    logger.log('onDiagnostics: returning diagnostics', {
+      uri: doc.uri,
+      count: diagnostics.length,
+      codes: diagnostics.map(d => d.code),
+    });
+
+    return {
+      kind: DocumentDiagnosticReportKind.Full,
+      items: diagnostics,
+    };
   }
 
   public clearDiagnostics(document: TextDocumentIdentifier) {

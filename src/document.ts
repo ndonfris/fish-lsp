@@ -370,6 +370,11 @@ export class LspDocument implements TextDocument {
     return returnParseTreeString(this);
   }
 
+  updateVersion(version: number) {
+    this.document = this.create(this.document.uri, this.document.languageId, version, this.document.getText());
+    return this;
+  }
+
   /**
    * Type guard to check if an object is an LspDocument
    *
@@ -535,12 +540,19 @@ export class LspDocuments {
     return this.documents.get(path) as LspDocument;
   }
 
-  applyChanges(uri: DocumentUri, changes: TextDocumentContentChangeEvent[]) {
-    const path = uriToPath(uri);
-    let document = this.documents.get(path);
-    if (document) {
-      document = document.update(changes);
-      this.documents.set(path, document);
+  applyChanges(doc: DocumentUri | VersionedTextDocumentIdentifier, changes: TextDocumentContentChangeEvent[]) {
+    if (typeof doc === 'string') {
+      const path = uriToPath(doc);
+      let document = this.documents.get(path);
+      if (document) {
+        document = document.update(changes);
+        this.documents.set(path, document);
+      }
+    } else {
+      const document = this.documents.get(uriToPath(doc.uri));
+      if (document) {
+        this.documents.set(pathToUri(doc.uri), document?.updateVersion(doc.version).update(changes));
+      }
     }
   }
 

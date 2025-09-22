@@ -88,7 +88,7 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
   const docType = doc.getAutoloadType();
 
   // ensure the document is analyzed
-  analyzer.ensureCachedDocument(doc);
+  // analyzer.ensureCachedDocument(doc);
 
   // arrays to keep track of different groups of functions
   const allFunctions: FishSymbol[] = analyzer.getFlatDocumentSymbols(doc.uri).filter(s => s.isFunction());
