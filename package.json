@@ -63,7 +63,7 @@
   "scripts": {
     "prepare": "husky",
     "postinstall": "run-s sh:build-time",
-    "prepack": "run-s --continue-on-error clean:build lint:check update-changelog generate:man generate:commands \"build --npm\" \"build --types\"",
+    "prepack": "run-s --continue-on-error clean:build lint:check update-changelog generate:man generate:commands \"build --all\"",
     "dev": "run-s sh:build-time \"build --setup\" \"build --npm\" \"build --types\" \"build --binary\" sh:relink sh:build-completions",
     "dev:watch": "run-s watch",
     "build": "tsx scripts/build.ts",

@@ -7,7 +7,7 @@
 # These files are included in the release-assets/ folder:
 #   - fish-lsp.standalone                                  (standalone binary -- bundled dependencies into a single executable, npm package will be smaller)
 #   - fish-lsp.standalone.extra-assets.tar                 (standalone w/ sourcemaps, manpage, completions, and TypeScript declarations)
-#   - fish-lsp-*.tgz                                       (npm packaged tarball)
+#   - fish-lsp.tgz                                         (npm packaged tarball)
 #   - fish-lsp.1                                           (man page) 
 #   - fish-lsp.fish                                        (shell completions)
 #
@@ -47,32 +47,36 @@ if set -q _flag_fresh_install
     and log_info '' '[INFO]' 'Dependencies installed successfully!'
     or fail 'Failed to install dependencies.'
 end
-yarn run dev &>/dev/null
-yarn run build --all &>/dev/null
+yarn dev &>/dev/null
+yarn build --all &>/dev/null
 
 log_info '' '[INFO]' 'Project built successfully!'
 
-echo n | npm pack &>/dev/null
+log_info '' '[INFO]' 'Creating npm package tarball...'
+echo n | yarn pack --filename release-assets/fish-lsp.tgz --silent &>/dev/null
 or fail 'Failed to create npm package tarball.'
 
-mv fish-lsp-*.tgz release-assets/
-
 log_info '' '[INFO]' 'Creating standalone binary...'
-yarn run build --all &>/dev/null
+yarn build --all &>/dev/null
 
+log_info '' '[INFO]' 'Creating release-assets extra files...'
 yarn run -s generate:man &>/dev/null && cp man/fish-lsp.1 release-assets/fish-lsp.1
 dist/fish-lsp complete >release-assets/fish-lsp.fish
 
-log_info '' '[INFO]' 'Creating extra assets archive...'
+log_info '' '[INFO]' 'Creating tarball for extra files...'
 tar -cf release-assets/fish-lsp.standalone.with-all-assets.tar bin man dist/fish-lsp.d.ts &>/dev/null
+or log_warning '' '[WARNING]' 'failed to create `release-assets/fish-lsp.standalone.with-all-assets.tar` archive.'
 
+log_info '' '[INFO]' 'Copying standalone binary to release-assets/ directory...'
 cp bin/fish-lsp release-assets/fish-lsp.standalone
+or log_warning '' '[WARNING]' 'failed to copy `bin/fish-lsp` to `release-assets/fish-lsp.standalone`!'
 
 print_separator
 echo ''
 
 set_color --bold green
-npx --yes tree-cli --base ./release-assets/
+yarn exec -- npx -s -y tree-cli --base ./release-assets/
+or true
 set_color normal
 
 print_separator
