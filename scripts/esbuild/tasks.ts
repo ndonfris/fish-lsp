@@ -7,14 +7,9 @@ import { generateTypeDeclarations } from './utils';
  * Build setup files: tests/setup-mocks.ts and src/types/embedded-assets.d.ts
  */
 export function buildSetup(): void {
-  console.log(logger.header('⚙️  Setup Build'));
-  console.log('  ' + logger.building('tests/setup-mocks.ts and src/types/embedded-assets.d.ts'));
-  
   try {
     generateEmbeddedAssetsTypesOnly();
-    console.log('  ' + logger.complete('setup files generation'));
   } catch (error) {
-    console.log('  ' + logger.failed('setup files generation'));
     if (error instanceof Error) {
       logger.logError('Setup build failed:', error);
     }

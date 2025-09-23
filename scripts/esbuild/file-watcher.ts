@@ -322,6 +322,11 @@ class FileWatcher {
     // Debug: test if patterns match any files
     const glob = require('fast-glob');
     console.log(logger.dim('Testing glob patterns:'));
+    if (this.buildManager.mode === 'setup') {
+      this.config.ignorePatterns.push('**/*.d.ts')
+      this.config.watchPaths.splice(this.config.watchPaths.indexOf('**/*.d.ts'), 1);
+      this.config.watchPaths.splice(this.config.watchPaths.indexOf('tests/setup-workspace.ts'), 1);
+    }
     this.config.watchPaths.forEach(pattern => {
       try {
         const matches = glob.sync(pattern, { ignore: this.config.ignorePatterns });
@@ -340,11 +345,13 @@ class FileWatcher {
     this.watcher = chokidar.watch(toAdd, {
       ignored: this.config.ignorePatterns,
       ignoreInitial: true,
-      persistent: true,
+      persistent: false,
       // @ts-ignore
       disableGlobbing: true, // We already resolved globs with fast-glob
       usePolling: false,
-      useFsEvents: true // Use native filesystem events for better case sensitivity
+      useFsEvents: true, // Use native filesystem events for better case sensitivity
+      interval: 1000,
+      alwaysStat: true,
     });
 
     // Run initial build in current mode
@@ -441,7 +448,7 @@ class FileWatcher {
   }
 
   stop(): void {
-    console.log(''.red.b + ' ' + logger.warning('Stopping file watcher...'));
+    console.log(''.red.b + '  ' + logger.warning('Stopping file watcher...'));
 
     // Cancel any running build
     this.buildManager.cancel();
@@ -621,7 +628,7 @@ class KeyboardHandler {
   }
 
   private exit(): void {
-    console.log('\n' + ''.red.b + ' ' + logger.warning('Exiting watch mode...'));
+    console.log('\n' + ''.red.b + '  ' + logger.warning('Exiting watch mode...'));
 
     // Restore stdin
     if (process.stdin.setRawMode) {
@@ -661,6 +668,7 @@ export async function startFileWatcher(initialMode: BuildType = 'dev'): Promise<
     ],
     ignorePatterns: [
       '**/node_modules/**',
+      '**/temp-embedded-assets/**',
       '**/out/**',
       '**/dist/**',
       '**/lib/**',
@@ -677,7 +685,7 @@ export async function startFileWatcher(initialMode: BuildType = 'dev'): Promise<
       '**/*.tmp',
       '**/*.temp'
     ],
-    debounceMs: 1000,
+    debounceMs: initialMode === 'setup' ? 3000 : 1000,
   }, buildManager);
 
   const keyboardHandler = new KeyboardHandler(buildManager, fileWatcher);

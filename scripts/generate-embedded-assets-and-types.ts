@@ -244,7 +244,7 @@ export function generateEmbeddedAssetsTypesDynamic(): void {
 
   // 1. Scan fish files
   const fishFiles = scanFishFiles(assetPaths.fishFilesDir);
-  console.log(logger.info(`Found ${fishFiles.length} fish files: ${logger.dim(fishFiles.map(f => f.relativePath).join(', '))}`));
+  console.log('  ' + logger.info(`Found ${fishFiles.length} fish files: ${logger.dim(fishFiles.map(f => f.relativePath).join(', '))}`));
 
   // 2. Generate dynamic type definitions
   const typeDefinitions = generateDynamicTypeDefinitions(fishFiles);
@@ -264,7 +264,7 @@ export function generateEmbeddedAssetsTypesDynamic(): void {
   ensureDir(tempAssetsDir);
 
   // 5. Generate WASM modules
-  console.log(['Generating'.green, 'WASM'.blue, 'modules...'.green].join(' '));
+  console.log([' ', 'Generating'.green, 'WASM'.blue, 'modules...'.green].join(' '));
   generateWasmModule(
     assetPaths.wasmFile,
     resolve(tempAssetsDir, 'tree-sitter-fish.wasm.ts')
@@ -276,7 +276,7 @@ export function generateEmbeddedAssetsTypesDynamic(): void {
   );
 
   // 6. Generate JSON modules
-  console.log(['Generating'.green, 'JSON'.blue, 'modules...'.green].join(' '));
+  console.log([' ', 'Generating'.green, 'JSON'.blue, 'modules...'.green].join(' '));
   generateJsonModule(
     assetPaths.packageJson,
     resolve(tempAssetsDir, 'package.json.ts')
@@ -288,7 +288,7 @@ export function generateEmbeddedAssetsTypesDynamic(): void {
   );
 
   // 7. Generate man page module
-  console.log(['Generating'.green, 'MAN PAGE'.blue, 'modules...'.green].join(' '));
+  console.log([' ', 'Generating'.green, 'MAN PAGE'.blue, 'modules...'.green].join(' '));
   ensureDir(resolve(tempAssetsDir, 'man'));
   generateTextModule(
     assetPaths.manFile,
@@ -297,7 +297,7 @@ export function generateEmbeddedAssetsTypesDynamic(): void {
 
   // 8. Generate fish files modules dynamically
   // console.log(logger.info(`Generating ${fishFiles.length} fish file modules...`));
-  console.log(['Generating'.green, fishFiles.length.toString().blue.bold, `fish file`.blue, 'modules...'.green].join(' '));
+  console.log([' ', 'Generating'.green, fishFiles.length.toString().blue.bold, `fish file`.blue, 'modules...'.green].join(' '));
   const fishFilesDir = resolve(tempAssetsDir, 'fish_files');
   ensureDir(fishFilesDir);
 
@@ -311,12 +311,12 @@ export function generateEmbeddedAssetsTypesDynamic(): void {
 
   // 9. Generate @package module (alias for package.json)
   // console.log(logger.info('Generating package alias module...'.red));
-  console.log(['Generating'.green, `package.json alias`.blue, 'modules...'.green].join(' '));
+  console.log([' ', 'Generating'.green, `package.json alias`.blue, 'modules...'.green].join(' '));
   const packageModuleContent = `import pkg from './package.json';
 export default pkg;`;
   writeFileSync(resolve(tempAssetsDir, 'package.ts'), packageModuleContent);
 
-  console.log(`Generated embedded assets modules in ${relative(path.resolve(process.cwd()), tempAssetsDir)}`);
+  console.log(`${' '} Generated embedded assets modules in ${relative(path.resolve(process.cwd()), tempAssetsDir)}`);
 }
 
 export function generateEmbeddedAssetsTypesAndMocks(): void {
@@ -327,8 +327,8 @@ export function generateEmbeddedAssetsTypesAndMocks(): void {
 }
 
 export function generateEmbeddedAssetsTypesOnly(): void {
-  console.log(logger.header('🔧 Generating Types and Mocks Only'));
-  execSync(`mkdir -p out && node scripts/build-time`, { stdio: ['ignore', 'ignore', 'ignore'] });
+  console.log(logger.header('  Generating Types and Mocks Only'));
+  execSync(`mkdir -p out && node scripts/build-time`, { stdio: ['ignore'], killSignal: 'SIGINT' });
 
   const assetPaths: AssetPaths = {
     fishFilesDir: resolve(projectRoot, 'fish_files'),
@@ -341,12 +341,12 @@ export function generateEmbeddedAssetsTypesOnly(): void {
 
   // 1. Scan fish files
   const fishFiles = scanFishFiles(assetPaths.fishFilesDir);
-  console.log(logger.info(`Found ${fishFiles.length} fish files: ${logger.dim(fishFiles.map(f => f.relativePath).join(', '))}`));
+  console.log(logger.info(`${' '} Found ${fishFiles.length} fish files: ${logger.dim(fishFiles.map(f => f.relativePath).join(', '))}`));
 
   // 2. Generate dynamic type definitions
   const typeDefinitions = generateDynamicTypeDefinitions(fishFiles);
   writeFileSync(typesFile, typeDefinitions);
-  console.log(toRelativePath(typesFile));
+  console.log([' ', toRelativePath(typesFile)].join(' '));
 
   // 3. Generate and update tests/setup-mocks.ts
   const testMocks = generateTestSetupMocks(fishFiles);
@@ -359,7 +359,7 @@ export function generateEmbeddedAssetsTypesOnly(): void {
 
 export function cleanupEmbeddedAssetsTypes(): void {
   if (existsSync(tempAssetsDir)) {
-    execSync(`rm -rf "${tempAssetsDir}"`, { stdio: 'ignore' });
+    execSync(`rm -rf "${tempAssetsDir}"`, { stdio: 'inherit' });
   }
 }
 

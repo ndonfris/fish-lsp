@@ -3,11 +3,11 @@ import { copySync, ensureDirSync, writeFileSync } from 'fs-extra';
 import { existsSync, statSync, readFileSync, unlinkSync } from 'fs';
 import { execSync } from 'child_process';
 import { logger, toRelativePath } from './colors';
-import { generateEmbeddedAssetsTypes, cleanupEmbeddedAssetsTypes } from '../generate-embedded-assets-types';
+import { generateEmbeddedAssetsTypesDynamic, cleanupEmbeddedAssetsTypes } from '../generate-embedded-assets-and-types';
 
 export function copyBinaryAssets(): void {
   // Copy fish scripts from src/snippets to dist/snippets
-  console.log(logger.info('  Copying fish scripts to dist/snippets...'));
+  console.log(logger.info('  Copying fish scripts to dist/snippets...'));
 // }
 //   // Copy tree-sitter core WASM file from web-tree-sitter dependency
   // const sourceWasm = 'node_modules/web-tree-sitter/tree-sitter.wasm';
@@ -52,20 +52,20 @@ export function showBuildStats(filePath: string, label = 'Bundle'): void {
   if (existsSync(filePath)) {
     const size = statSync(filePath).size;
     console.log(logger.complete(label));
-    console.log(logger.info(`  ${label}: ${logger.dim(toRelativePath(filePath))}`));
+    console.log(logger.info(`  ${label}: ${logger.dim(toRelativePath(filePath))}`));
     console.log(logger.size(label, formatBytes(size)));
   }
 }
 
 export function generateTypeDeclarations(): void {
-  console.log(logger.info('  Generating TypeScript declarations...'));
+  console.log(logger.info(' Generating TypeScript declarations...'));
   
   try {
     execSync('mkdir -p dist');
     
     // Step 1: Generate embedded assets TypeScript modules
-    console.log(logger.info('  Generating embedded assets modules...'));
-    generateEmbeddedAssetsTypes();
+    console.log(logger.info('  Generating embedded assets modules...'));
+    generateEmbeddedAssetsTypesDynamic();
     
     // Step 2: Create tsconfig with path mapping to embedded assets
     const tsconfigContent = JSON.stringify({
@@ -155,11 +155,11 @@ export function generateTypeDeclarations(): void {
     writeFileSync('tsconfig.debug.json', debugTsconfigContent);
     
     // Step 3: Generate .d.ts files with TypeScript compiler
-    console.log(logger.info('  Compiling TypeScript declarations...'));
+    console.log(logger.info('  Compiling TypeScript declarations...'));
     execSync('node_modules/typescript/bin/tsc -p tsconfig.types.json', { stdio: 'inherit' });
     
     // Step 4: Bundle all declarations with dts-bundle-generator
-    console.log(logger.info('  Bundling type declarations...'));
+    console.log(logger.info('  Bundling type declarations...'));
     
     const dtsConfig = {
       "compilationOptions": {
@@ -186,7 +186,7 @@ export function generateTypeDeclarations(): void {
     };
     
     writeFileSync('dts-bundle.config.json', JSON.stringify(dtsConfig, null, 2));
-    execSync('yarn dts-bundle-generator --config dts-bundle.config.json --external-inlines=web-tree-sitter --external-types=web-tree-sitter --disable-symlinks-following', { stdio: 'inherit' });
+    execSync('yarn dts-bundle-generator --silent --config dts-bundle.config.json --external-inlines=web-tree-sitter --external-types=web-tree-sitter --disable-symlinks-following', { stdio: 'ignore' });
     
     console.log(logger.generated('Successfully generated bundled type declarations'));
     
@@ -195,7 +195,7 @@ export function generateTypeDeclarations(): void {
     throw error;
   } finally {
     // Clean up temp files and directories
-    console.log(logger.info('  Cleaning up temporary files...'));
+    console.log(logger.info('  Cleaning up temporary files...'));
     try {
       unlinkSync('tsconfig.types.json');
     } catch {}

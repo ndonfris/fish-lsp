@@ -130,8 +130,8 @@ try {
         verbose();
     }
 
-    log(' ✓ created JSON at:'.bgGreen().black().bold(), path.basename(jsonFilePath).cyan().dim());
-    log(' ✓ with timestamp: '.bgGreen().black().bold(), timestamp.blue().dim());
+    log('✓  created JSON at:'.bgGreen().black().bold(), path.basename(jsonFilePath).cyan().dim());
+    log('✓  with timestamp: '.bgGreen().black().bold(), timestamp.blue().dim());
 
 } catch (error) {
     error("ERROR:".bgRed().white().bold(), "Script execution failed.".red());
