@@ -3,6 +3,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'fs';
 import { resolve, join, extname } from 'path';
 import { execSync } from 'child_process';
+import { toRelativePath } from './esbuild';
 
 /**
  * Generates actual TypeScript modules for embedded assets so that TypeScript
@@ -166,7 +167,7 @@ export function generateEmbeddedAssetsTypes(): void {
 export default pkg;`;
   writeFileSync(resolve(tempAssetsDir, 'package.ts'), packageModuleContent);
   
-  console.log(`Generated embedded assets modules in ${tempAssetsDir}`);
+  console.log(`Generated embedded assets modules in ${toRelativePath(tempAssetsDir)}`);
 }
 
 export function cleanupEmbeddedAssetsTypes(): void {

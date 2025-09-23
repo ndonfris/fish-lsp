@@ -35,21 +35,28 @@ function killProcessTree(pid: number, signal: string = 'SIGTERM'): void {
 // ============================================================================
 
 const separator = () => {
-  console.log(colorize('━'.repeat(80), colors.blue));
+  console.log(colorize('━'.repeat(Math.max(90, Number.parseInt(process.env['COLUMNS'] || '89', 10))), colors.blue));
 };
 
 const showHelp = (currentMode?: BuildType) => {
   separator();
   console.log(logger.info(' Available Commands:'));
-  console.log(logger.dim(' * h          - Show this help'));
-  console.log(logger.dim(' * m          - Switch watch mode'));
-  console.log(logger.dim(' * w          - Show watched file paths'));
-  console.log(logger.dim(' * Enter/a/r  - Run current mode build'));
-  console.log(logger.dim(' * b          - Binary-only rebuild (yarn build --npm)'));
-  console.log(logger.dim(' * q/Ctrl+C   - Quit watch mode'));
+  console.log(` * ${'[H]'.green}          - Show this help`);
+  console.log(` * ${'[M]'.blue}          - Switch watch mode`);
+  console.log(` * ${'[W]'.magenta}          - Show watched file paths`);
+  console.log(` * ${'[Enter|A|R]'.white}  - Run current mode build`);
+  console.log(` * ${'[D]'.cyan}          - Normal rebuild (yarn dev)`);
+  console.log(` * ${'[N]'.yellow}          - Node rebuild (yarn build --npm)`);
+  console.log(` * ${'[B]'.blue}          - Binary-only rebuild (yarn build --binary)`);
+  console.log(` * ${'[S]'.white}          - Setup-only rebuild (yarn build --setup)`);
+  console.log(` * ${'[L]'.yellow}          - Lint on change rebuild (yarn build --lint)`);
+  console.log(` * ${'[T]'.green}          - Test only rebuild (yarn test)`);
+  console.log(` * ${'[Y]'.white}          - Types-only rebuild (yarn build --types)`);
+  console.log(` * ${'[1-7]'.dim}        - Quick mode switch (1:dev, 2:npm, 3:lint, 4:binary, 5:setup, 6:test, 7:types)`);
+  console.log(` * ${'[Q|Ctrl+C]'.red}   - Quit watch mode`);
   console.log('');
   if (currentMode) {
-    console.log(logger.info(` Current Mode: ${getModeDisplayName(currentMode)}`));
+    console.log(` Current Mode: ${getModeDisplayName(currentMode).bgBlue.black.underline.dim}`);
   }
   separator();
 };
@@ -61,12 +68,20 @@ const log = (...args: string[]) => {
 const getModeDisplayName = (mode: BuildType): string => {
 
   switch (mode) {
-    case 'full':
+    case 'dev':
       return 'Full Project (yarn dev)';
+    case 'setup':
+      return 'Setup Files (yarn build --setup)';
     case 'binary':
-      return 'Binary Only (yarn build --npm)';
+      return 'Binary Build (yarn build --binary)';
     case 'npm':
       return 'NPM Build (yarn build --npm)';
+    case 'test':
+      return 'Test Run (yarn test)';
+    case 'types':
+      return 'Types Build (yarn build --types)';
+    case 'all':
+      return 'All Targets (yarn build --all)';
     case 'lint':
       return 'Lint Fix (yarn lint:fix)';
     default:
@@ -76,21 +91,21 @@ const getModeDisplayName = (mode: BuildType): string => {
 
 const showKeysReminder = (currentMode?: BuildType) => {
   const modeText = currentMode ? `[${getModeDisplayName(currentMode)}]` : '';
-  console.log(logger.highlight(`Press "h" for help, "m" for mode switch, "Enter" to rebuild ${modeText}`));
+  console.log(`Press ${"[H]".bgGreen.black.dim} for help, ${"[M]".bgCyan.black.dim} for mode switch, ${"[Enter]".bgBlue.black.dim} to rebuild ${modeText.bgBlue.black.dim}`);
 };
 
 // ============================================================================
 // Build Manager - Handles all build operations consistently
 // ============================================================================
 
-type BuildType = 'full' | 'binary' | 'npm' | 'lint';
+type BuildType = 'dev' | 'setup' | 'binary' | 'npm' | 'types' | 'all' | 'lint' | 'test';
 type BuildTrigger = 'file-change' | 'manual' | 'mode-switch';
 
 class BuildManager {
   private currentProcess: ChildProcess | null = null;
   private isBuilding = false;
   private buildCount = 0;
-  private currentMode: BuildType = 'full';
+  private currentMode: BuildType = 'dev';
 
   async runBuild(type: BuildType, trigger: BuildTrigger): Promise<void> {
     if (this.isBuilding) {
@@ -104,7 +119,11 @@ class BuildManager {
     const command = this.getCommandForType(type);
     const buildName = this.getBuildNameForType(type);
 
+    this.currentMode = type;
+
+    separator();
     console.log(logger.info(`🔄 ${buildName} rebuild triggered (${trigger})...`));
+    separator();
 
     try {
       await this.executeCommand(['yarn', ...command]);
@@ -158,25 +177,26 @@ class BuildManager {
   private showCompletionMessage(type: BuildType, trigger: BuildTrigger, success: boolean, error?: Error): void {
     separator();
     const buildName = this.getBuildNameForType(type);
+    this.currentMode = type;
 
     if (success) {
-      console.log(colorize(`${buildName} Rebuild Completed`, colors.bright));
+      console.log(`${buildName} Rebuild Completed`.bright);
     } else {
-      console.log(colorize(`${buildName} Rebuild Failed`, colors.red));
+      console.log(`${buildName} Rebuild Failed`.red);
     }
 
     separator();
 
     if (success) {
-      console.log(colorize(`  ${buildName} rebuild completed successfully!`, colors.white));
+      console.log(`  ${buildName} rebuild completed successfully!`.white);
     } else if (error) {
-      console.log(colorize(`  Rebuild failed:`, colors.red), colorize(error.message, colors.dim));
+      console.log(`  Rebuild failed:`.red, error.message.dim);
     }
 
-    console.log(colorize(`  Build timestamp:`, colors.white), colorize(new Date().toLocaleTimeString(), colors.yellow));
-    console.log(colorize(`  Total rebuilds:`, colors.white), colorize(`${this.buildCount}`, colors.blue));
-    console.log(colorize(`  Trigger:`, colors.white), colorize(trigger, colors.magenta));
-    console.log(colorize(`  Current mode:`, colors.white), colorize(getModeDisplayName(this.currentMode), colors.cyan));
+    console.log(`  Build timestamp:`.white, new Date().toLocaleTimeString().yellow);
+    console.log(`  Total rebuilds:`.white, `${this.buildCount}`.blue);
+    console.log(`  Trigger:`.white, trigger.magenta);
+    console.log(`  Current mode:`.white, getModeDisplayName(this.currentMode).cyan);
 
     separator();
     showKeysReminder(this.currentMode);
@@ -184,7 +204,7 @@ class BuildManager {
 
   cancel(): boolean {
     if (this.currentProcess && this.currentProcess.pid) {
-      console.log(logger.warning('🛑 Cancelling current build...'));
+      console.log(logger.warning(' Cancelling current build...'));
 
       const pid = this.currentProcess.pid;
 
@@ -225,12 +245,20 @@ class BuildManager {
 
   private getCommandForType(type: BuildType): string[] {
     switch (type) {
-      case 'full':
+      case 'dev':
         return ['dev'];
+      case 'setup':
+        return ['build', '--setup'];
       case 'binary':
-        return ['build', '--npm'];
+        return ['build', '--binary'];
       case 'npm':
         return ['build', '--npm'];
+      case 'types':
+        return ['build', '--types'];
+      case 'test':
+        return ['test:run'];
+      case 'all':
+        return ['build', '--all'];
       case 'lint':
         return ['lint:fix'];
       default:
@@ -240,7 +268,7 @@ class BuildManager {
 
   private getBuildNameForType(type: BuildType): string {
     switch (type) {
-      case 'full':
+      case 'dev':
         return 'Full';
       case 'binary':
         return 'Binary';
@@ -248,6 +276,14 @@ class BuildManager {
         return 'NPM';
       case 'lint':
         return 'Lint';
+      case 'setup':
+        return 'Setup';
+      case 'types':
+        return 'Types';
+      case 'test':
+        return 'Test';
+      case 'all':
+        return 'All Targets';
       default:
         return 'Full';
     }
@@ -305,6 +341,7 @@ class FileWatcher {
       ignored: this.config.ignorePatterns,
       ignoreInitial: true,
       persistent: true,
+      // @ts-ignore
       disableGlobbing: true, // We already resolved globs with fast-glob
       usePolling: false,
       useFsEvents: true // Use native filesystem events for better case sensitivity
@@ -322,12 +359,6 @@ class FileWatcher {
         if (watchedPaths) {
           const totalFiles = Object.values(watchedPaths).reduce((sum: number, files) => Array.isArray(files) ? sum + files.length : sum, 0);
           console.log(logger.dim(`Watching ${totalFiles} files across ${Object.keys(watchedPaths).length} directories`));
-          // Show first few watched files for debugging
-          // console.log(logger.dim('Sample watched paths:'));
-          // Object.keys(watchedPaths).slice(0, 5).forEach(dir => {
-          //   const files = watchedPaths[dir].slice(0, 3);
-          //   console.log(logger.dim(`  ${dir}: ${files.join(', ')}${watchedPaths[dir].length > 3 ? '...' : ''}`));
-          // });
         }
       })
       .on('change', (path: string) => {
@@ -378,7 +409,7 @@ class FileWatcher {
       return;
     }
 
-    const watchedPaths = this.watcher.getWatched();
+    const watchedPaths: { [regexStr: string]: string[] } = this.watcher.getWatched();
     if (!watchedPaths) {
       console.log(logger.warning('No watched paths available'));
       return;
@@ -388,11 +419,11 @@ class FileWatcher {
     console.log(logger.info('Currently Watched Files:'));
     separator();
 
-    const totalFiles = Object.values(watchedPaths).reduce((sum, files) => sum + files.length, 0);
+    const totalFiles = Object.values(watchedPaths).reduce((sum: number, files) => Array.isArray(files) ? sum + files.length : sum, 0);
+    //                 ^?
     const totalDirs = Object.keys(watchedPaths).length;
 
-    console.log(logger.dim(`Total: ${totalFiles} files across ${totalDirs} directories`));
-    console.log('');
+    console.log(`Total: ${totalFiles.toString().b.green} files across ${totalDirs.toString().b.cyan} directories\n`);
 
     // Group and display by directory
     Object.keys(watchedPaths).sort().forEach(dir => {
@@ -410,7 +441,7 @@ class FileWatcher {
   }
 
   stop(): void {
-    console.log(logger.info('Stopping file watcher...'));
+    console.log(''.red.b + ' ' + logger.warning('Stopping file watcher...'));
 
     // Cancel any running build
     this.buildManager.cancel();
@@ -474,10 +505,6 @@ class KeyboardHandler {
         this.fileWatcher.showWatchedPaths();
         break;
 
-      case 'b':
-        await this.buildManager.runBuild('binary', 'manual');
-        break;
-
       case '\r': // Enter
       case '\n':
       case 'a':
@@ -485,19 +512,56 @@ class KeyboardHandler {
         await this.buildManager.runBuild(this.buildManager.mode, 'manual');
         break;
 
+      case '1':
+      case 'd':
+        await this.buildManager.runBuild('dev', 'mode-switch');
+
+      case '2':
+      case 'n':
+        await this.buildManager.runBuild('npm', 'mode-switch');
+        break;
+
+      case '3':
+      case 'l':
+        await this.buildManager.runBuild('lint', 'mode-switch');
+        break;
+
+      case '4':
+      case 'b':
+        await this.buildManager.runBuild('binary', 'manual');
+        break;
+
+      case '5':
+      case 's':
+        await this.buildManager.runBuild('setup', 'mode-switch');
+        break;
+
+      case '6':
+      case 't':
+        await this.buildManager.runBuild('test', 'mode-switch');
+        break;
+
+      case '7':
+      case 'y':
+        await this.buildManager.runBuild('types', 'mode-switch');
+        break;
+
       default:
-        // Ignore other keys
         break;
     }
   }
 
   private async showModeSelection(): Promise<void> {
-    console.log('\n' + colorize('Select Watch Mode:', colors.bright));
-    console.log(logger.dim('1. Full Project (yarn dev)'));
-    console.log(logger.dim('2. NPM Build (yarn build --npm)'));
-    console.log(logger.dim('3. Lint Fix (yarn lint:fix)'));
-    console.log(logger.dim('Current: ' + getModeDisplayName(this.buildManager.mode)));
-    console.log(logger.highlight('Enter number (1-3) or press any other key to cancel:'));
+    console.log('\n' + 'Select Watch Mode:'.bright.underline.magenta + '\n');
+    console.log('\t' + logger.dim('1. Full Project (yarn dev)'));
+    console.log('\t' + logger.dim('2. NPM Build (yarn build --npm)'));
+    console.log('\t' + logger.dim('3. Lint Fix (yarn lint:fix)'));
+    console.log('\t' + logger.dim('4. Binary Build (yarn build --binary)'));
+    console.log('\t' + logger.dim('5. Setup Files (yarn build --setup)'));
+    console.log('\t' + logger.dim('6. Tests Build (yarn test:run)'));
+    console.log('\t' + logger.dim('7. Types Build (yarn build --types)'));
+    console.log('\n\t' + logger.dim('Current: ') + getModeDisplayName(this.buildManager.mode).bgBlue.black.b + '\n');
+    console.log(logger.highlight('Enter number (1-7) or press any other key to cancel:'));
 
     // Set up temporary key listener for mode selection
     const modeSelectionHandler = (key: string) => {
@@ -508,14 +572,33 @@ class KeyboardHandler {
 
       switch (choice) {
         case '1':
-          newMode = 'full';
+          newMode = 'dev';
           break;
+
         case '2':
           newMode = 'npm';
           break;
+
         case '3':
           newMode = 'lint';
           break;
+
+        case '4':
+          newMode = 'binary';
+          break;
+
+        case '5':
+          newMode = 'setup';
+          break;
+
+        case '6':
+          newMode = 'test';
+          break;
+
+        case '7':
+          newMode = 'types';
+          break;
+
         default:
           console.log(logger.dim('Mode selection cancelled.'));
           showKeysReminder(this.buildManager.mode);
@@ -538,7 +621,7 @@ class KeyboardHandler {
   }
 
   private exit(): void {
-    console.log('\n' + logger.warning('🛑 Exiting watch mode...'));
+    console.log('\n' + ''.red.b + ' ' + logger.warning('Exiting watch mode...'));
 
     // Restore stdin
     if (process.stdin.setRawMode) {
@@ -557,9 +640,10 @@ class KeyboardHandler {
 // Main Export - Simple interface
 // ============================================================================
 
-export async function startFileWatcher(): Promise<void> {
+export async function startFileWatcher(initialMode: BuildType = 'dev'): Promise<void> {
   // Create managers
   const buildManager = new BuildManager();
+  buildManager.setMode(initialMode);
 
   const fileWatcher = new FileWatcher({
     watchPaths: [
@@ -638,7 +722,7 @@ export async function startFileWatcher(): Promise<void> {
   keyboardHandler.setup();
 
   console.log(logger.success('File watcher started!'));
-  console.log(logger.info(`Current mode: ${getModeDisplayName(buildManager.mode)}`));
+  console.log([`Current mode:`.underline.green, `${getModeDisplayName(buildManager.mode).bgBlue.black.underline.b}`].join(' '));
   separator();
   showKeysReminder(buildManager.mode);
   separator();

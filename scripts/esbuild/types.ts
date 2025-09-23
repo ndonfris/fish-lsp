@@ -8,7 +8,7 @@ export type BuildConfigTarget = 'binary' | 'development' | 'npm';
 /**
  * Meta targets that control the build process behavior
  */
-export type MetaTarget = 'all' | 'types' | 'library';
+export type MetaTarget = 'all' | 'types' | 'library' | 'setup' | 'test';
 
 /**
  * All possible build targets that can be passed to the build system
@@ -33,7 +33,7 @@ export const ALL_TARGETS: readonly BuildConfigTarget[] = ['development', 'binary
 /**
  * All valid CLI targets
  */
-export const VALID_TARGETS: readonly BuildTarget[] = [...ALL_TARGETS, 'all', 'types', 'library'] as const;
+export const VALID_TARGETS: readonly BuildTarget[] = [...ALL_TARGETS, 'all', 'types', 'library', 'setup', 'test'] as const;
 
 /**
  * Type guard to check if a string is a valid BuildTarget
@@ -53,7 +53,7 @@ export function isBuildConfigTarget(target: BuildTarget): target is BuildConfigT
  * Type guard to check if a target is a meta target
  */
 export function isMetaTarget(target: BuildTarget): target is MetaTarget {
-  return ['all', 'types', 'library'].includes(target as MetaTarget);
+  return ['all', 'types', 'library', 'setup', 'test'].includes(target as MetaTarget);
 }
 
 /**
@@ -67,6 +67,8 @@ export function getTargetDisplayName(target: BuildTarget): string {
     case 'all': return 'All targets';
     case 'types': return 'TypeScript Declarations';
     case 'library': return 'Library';
+    case 'setup': return 'Setup Files';
+    case 'test': return 'Test Suite';
     default: 
       // This ensures exhaustiveness checking at compile time
       const _exhaustive: never = target;

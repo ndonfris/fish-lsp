@@ -48,7 +48,7 @@ if set -q _flag_fresh_install
     or fail 'Failed to install dependencies.'
 end
 yarn run dev &>/dev/null
-yarn run build:all &>/dev/null
+yarn run build --all &>/dev/null
 
 log_info '' '[INFO]' 'Project built successfully!'
 
@@ -58,7 +58,7 @@ or fail 'Failed to create npm package tarball.'
 mv fish-lsp-*.tgz release-assets/
 
 log_info '' '[INFO]' 'Creating standalone binary...'
-yarn run build:all &>/dev/null
+yarn run build --all &>/dev/null
 
 yarn run -s generate:man &>/dev/null && cp man/fish-lsp.1 release-assets/fish-lsp.1
 dist/fish-lsp complete >release-assets/fish-lsp.fish

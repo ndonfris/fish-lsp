@@ -146,11 +146,20 @@ export function getFishBuildTimeFilePath(): string {
  * Get man file path for bundled and development versions
  */
 export function getManFilePath(): string {
-  return vfs.getPathOrFallback(
-    'man/fish-lsp.1',
+  // Handle case where vfs might not be initialized yet due to circular dependencies
+  if (vfs && typeof vfs.getPathOrFallback === 'function') {
+    return vfs.getPathOrFallback(
+      'man/fish-lsp.1',
+      resolve(getProjectRootPath(), 'man', 'fish-lsp.1'),
+      resolve(process.cwd(), 'man', 'fish-lsp.1'),
+    );
+  }
+
+  // Fallback to direct path resolution
+  return findFirstExistingFile(
     resolve(getProjectRootPath(), 'man', 'fish-lsp.1'),
     resolve(process.cwd(), 'man', 'fish-lsp.1'),
-  );
+  ) || resolve(getProjectRootPath(), 'man', 'fish-lsp.1');
 }
 
 /**

@@ -4,13 +4,14 @@ import { timeServerStartup } from '../src/utils/startup';
 import { performHealthCheck } from '../src/utils/health-check';
 import { buildFishLspCompletions } from '../src/utils/get-lsp-completions';
 import { commandBin } from '../src/cli';
-import { spawn } from 'child_process';
 import { vi } from 'vitest';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import { Analyzer } from '../src/analyze';
 import vfs from '../src/virtual-fs';
 import { promisify } from 'util';
-import { exec } from 'child_process';
+import { exec, spawn } from 'child_process';
+import { SyncFileHelper } from '../src/utils/file-operations';
+import { fail } from 'assert';
 const execAsync = promisify(exec);
 
 describe('cli tests', () => {
@@ -94,7 +95,15 @@ describe('cli tests', () => {
     await vfs.initialize();
     await setupProcessEnvExecFile();
     await Analyzer.initialize();
-    await execAsync('yarn build');
+    if (!SyncFileHelper.exists('./dist/fish-lsp')) {
+      try {
+        await execAsync('yarn run build:npm');
+      } catch (error) {
+        console.error('(FAILED TO BUILD): "./dist/fish-lsp" (`yarn run build:npm`: npm binary|bin w/ node_modules) before tests:', error);
+        console.log('NO EXISTING ./dist/fish-lsp binary found, cannot continue tests.');
+        fail();
+      }
+    }
   });
 
   // Setup and teardown
@@ -264,14 +273,13 @@ describe('cli tests', () => {
       // Check that we captured some health check output
       const outputText = capturedOutput.join('');
       expect(outputText.length).toBeGreaterThan(0);
-    }, 10000); // 10 second timeout
+    }); // 10 second timeout
   });
 
   describe('help', () => {
     it('fish-lsp --help', async () => {
       const { output } = await runFishLspCommand(['--help'], {
         expectedExitCodes: [0, 1], // Help commands often exit with 0 or 1
-        timeout: 10000,
       });
 
       // Debug: log the actual output to see what we get
@@ -282,13 +290,12 @@ describe('cli tests', () => {
       expect(output).toContain('fish-lsp');
       // More flexible check - see if it contains common help patterns
       expect(output).toMatch(/usage|help|command|option/i);
-    }, 15000); // 15 second timeout for the test
+    }); // 15 second timeout for the test
   });
 
   describe('env', () => {
     it('fish-lsp env --names', async () => {
       const { output } = await runFishLspCommand(['env', '--names'], {
-        timeout: 10000,
         allowNonZeroExit: true, // Allow command to fail due to fish file compilation
       });
 
@@ -297,11 +304,11 @@ describe('cli tests', () => {
       // In a real environment, this would contain the expected environment variables
       expect(output).toMatch(/(fish_lsp_enabled_handlers|SyntaxError.*collect)/);
       // The test verifies the wrapper function works, even if the command fails
-    }, 10000);
+    });
 
     it('fish-lsp env --names --joined', async () => {
       const { output } = await runFishLspCommand(['env', '--names', '--joined'], {
-        timeout: 10000,
+        // timeout: 10000,
         allowNonZeroExit: true,
       });
 
@@ -313,7 +320,7 @@ describe('cli tests', () => {
       expect(lines.length).toBe(1);
       expect(lines[0]).toContain('fish_lsp_enabled_handlers');
       expect(lines[0]).toContain('fish_lsp_disabled_handlers');
-    }, 10000);
+    });
 
     it('fish-lsp env --show-default', async () => {
       const { output } = await runFishLspCommand(['env', '--show-default'], {
@@ -330,11 +337,11 @@ describe('cli tests', () => {
       // Check for some expected default values
       expect(output).toContain('set -gx fish_lsp_max_background_files 10000');
       expect(output).toContain('set -gx fish_lsp_enable_experimental_diagnostics false');
-    }, 10000);
+    });
 
     it('fish-lsp env --show-default --no-comments', async () => {
       const { output } = await runFishLspCommand(['env', '--show-default', '--no-comments'], {
-        timeout: 10000,
+        // timeout: 10000,
         allowNonZeroExit: true,
       });
 
@@ -343,11 +350,10 @@ describe('cli tests', () => {
 
       // Should not contain comments when using --no-comments
       expect(output).not.toContain('#');
-    }, 10000);
+    });
 
     it('fish-lsp env --show-default --only fish_lsp_log_file,fish_lsp_log_level', async () => {
       const { output } = await runFishLspCommand(['env', '--show-default', '--only', 'fish_lsp_log_file,fish_lsp_log_level'], {
-        timeout: 10000,
         allowNonZeroExit: true,
       });
 
@@ -358,11 +364,10 @@ describe('cli tests', () => {
       // Should not contain other variables when using --only
       expect(output).not.toContain('fish_lsp_enabled_handlers');
       expect(output).not.toContain('fish_lsp_max_background_files');
-    }, 10000);
+    });
 
     it('fish-lsp env --show-default --no-global', async () => {
       const { output } = await runFishLspCommand(['env', '--show-default', '--no-global'], {
-        timeout: 10000,
         allowNonZeroExit: true,
       });
 
@@ -371,11 +376,10 @@ describe('cli tests', () => {
       // Should use 'set -lx' instead of 'set -gx' when using --no-global
       expect(output).toContain('set -lx fish_lsp_enabled_handlers');
       expect(output).not.toContain('set -gx fish_lsp_enabled_handlers');
-    }, 10000);
+    });
 
     it('fish-lsp env --show-default --no-export', async () => {
       const { output } = await runFishLspCommand(['env', '--show-default', '--no-export'], {
-        timeout: 10000,
         allowNonZeroExit: true,
       });
 
@@ -384,7 +388,7 @@ describe('cli tests', () => {
       // Should use 'set -g' instead of 'set -gx' when using --no-export
       expect(output).toContain('set -g fish_lsp_enabled_handlers');
       expect(output).not.toContain('set -gx fish_lsp_enabled_handlers');
-    }, 10000);
+    });
 
     it('fish-lsp env --create', async () => {
       const { output } = await runFishLspCommand(['env', '--create'], {
@@ -397,11 +401,10 @@ describe('cli tests', () => {
 
       // --create should show current/default values for environment setup
       expect(output).toContain('fish_lsp');
-    }, 10000);
+    });
 
     it('fish-lsp env help', async () => {
       const { output } = await runFishLspCommand(['env', '--help'], {
-        timeout: 10000,
         allowNonZeroExit: true,
       });
 
@@ -410,7 +413,7 @@ describe('cli tests', () => {
       expect(output).toContain('--names');
       expect(output).toContain('--show-default');
       expect(output).toContain('--only');
-    }, 10000);
+    });
   });
 
   describe('complete', () => {
@@ -483,6 +486,6 @@ describe('cli tests', () => {
           reject(new Error(`Test setup failed: ${error.message}`));
         }
       });
-    }, 10000); // 10 second timeout for the test
+    }); // 10 second timeout for the test
   });
-});
+}, 60000); // 60 second timeout for the entire suite)

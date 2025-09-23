@@ -11,7 +11,7 @@ vi.mock('@embedded_assets/tree-sitter.wasm', () => ({
   default: readFileSync(resolve(__dirname, '../node_modules/web-tree-sitter/tree-sitter.wasm')),
 }));
 
-// Mock fish file imports with actual file content for critical ones
+// Mock fish file imports with actual file content
 vi.mock('@embedded_assets/fish_files/exec.fish', () => ({
   default: readFileSync(resolve(__dirname, '../fish_files/exec.fish'), 'utf8'),
 }));

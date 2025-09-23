@@ -142,6 +142,9 @@ export const ConfigSchema = z.object({
 
   /** max depth to search for workspace folders */
   fish_lsp_max_workspace_depth: z.number().default(3),
+
+  /** path to fish executable for child processes */
+  fish_lsp_fish_path: z.string().default('fish'),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -169,6 +172,7 @@ export function getConfigFromEnvironmentVariables(): {
     fish_lsp_single_workspace_support: toBoolean(process.env.fish_lsp_single_workspace_support),
     fish_lsp_ignore_paths: process.env.fish_lsp_ignore_paths?.split(' '),
     fish_lsp_max_workspace_depth: toNumber(process.env.fish_lsp_max_workspace_depth || '4'),
+    fish_lsp_fish_path: process.env.fish_lsp_fish_path,
   };
 
   const environmentVariablesUsed = Object.entries(rawConfig)

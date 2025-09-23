@@ -9,6 +9,7 @@ export * from './utils';
 export * from './cli';
 export * from "./colors";
 export * from "./types";
+export * from "./tasks";
 
 // Import everything we need for the main build function
 import { parseArgs, showCompletions, showHelp } from "./cli";
@@ -39,8 +40,20 @@ export async function build(customArgs?: string[]): Promise<void> {
     console.log(logger.header('`fish-lsp` comprehensive file watcher'));
     console.log(logger.info('Starting comprehensive file watcher...'));
     console.log(logger.dim('This will watch src/**, fish_files/*, package.json, and other relevant files'));
-    console.log(logger.dim('Any change will trigger a full `yarn dev` rebuild'));
-    await startFileWatcher();
+    
+    // Map CLI watchMode to file watcher BuildType
+    const buildMode = args.watchMode === 'dev' ? 'dev' 
+      : args.watchMode === 'setup' ? 'setup'
+      : args.watchMode === 'npm' ? 'npm'
+      : args.watchMode === 'test' ? 'test'
+      : args.watchMode === 'types' ? 'types'
+      : args.watchMode === 'binary' ? 'binary'
+      : args.watchMode === 'all' ? 'all'
+      : args.watchMode === 'lint' ? 'lint'
+      : 'dev';
+    
+    console.log(logger.dim(`Mode: ${buildMode} - Any change will trigger rebuilds`));
+    await startFileWatcher(buildMode);
     return;
   }
 
@@ -123,14 +136,17 @@ export async function build(customArgs?: string[]): Promise<void> {
       }
     }
 
+    // Handle setup-only build
+    if (args.target === 'setup') {
+      const { buildSetup } = await import('./tasks');
+      buildSetup();
+      return;
+    }
+
     // Handle types-only build
     if (args.target === 'types') {
-      console.log(logger.header('`fish-lsp` TypeScript Declarations'));
-      console.log(logger.info('Generating bundled TypeScript declaration files...'));
-      
-      generateTypeDeclarations();
-      
-      console.log(logger.success('✨ TypeScript declarations completed!'));
+      const { buildTypes } = await import('./tasks');
+      buildTypes();
       return;
     }
 

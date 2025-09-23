@@ -356,5 +356,19 @@
     ],
     "defaultValue": 5,
     "valueType": "number"
+  },
+  {
+    "name": "fish_lsp_fish_path",
+    "description": "A path to the fish executable to use exposing fish binary to use in server's spawned child_processes.\n\nTypically, this is used in the language-client's `FishServer.initialize(connection, InitializeParams.initializationOptions)`, NOT as an environment variable",
+    "shortDescription": "specific binary to use for executing 'fish' commands inside server",
+    "exactMatchOptions": false,
+    "options": [
+      "fish",
+      "/usr/bin/fish",
+      "/usr/.local/bin/fish",
+      "~/.local/bin/fish"
+    ],
+    "defaultValue": "fish",
+    "valueType": "string"
   }
 ]
