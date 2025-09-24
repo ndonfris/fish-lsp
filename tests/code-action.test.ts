@@ -4,15 +4,18 @@ import { containsRange, findEnclosingScope, getChildNodes, getRange } from '../s
 import { isCommandName, isCommandWithName, isComment, isFunctionDefinitionName, isIfStatement, isMatchingOption, isOption, isString, isTopLevelFunctionDefinition } from '../src/utils/node-types';
 import { Option } from '../src/parsing/options';
 import { convertIfToCombinersString } from '../src/code-actions/combiner';
-import { setLogger } from './helpers';
+import { setLogger, fail } from './helpers';
 import { initializeParser } from '../src/parser';
 import { findReturnNodes, getReturnStatusValue } from '../src/inlay-hints';
-import { TextDocumentItem } from 'vscode-languageserver';
-import { LspDocument } from '../src/document';
+import { DidDeleteFilesNotification, TextDocumentItem } from 'vscode-languageserver';
+import { documents, LspDocument } from '../src/document';
 import { SyntaxNode } from 'web-tree-sitter';
 import { isReservedKeyword } from '../src/utils/builtins';
 import { isAutoloadedUriLoadsFunctionName, shouldHaveAutoloadedFunction } from '../src/utils/translation';
 import { CompleteFlag, findFlagsToComplete, buildCompleteString } from '../src/code-actions/argparse-completions';
+import { Analyzer, analyzer } from '../src/analyze';
+import TestWorkspace, { TestFile } from './test-workspace-utils';
+import { codeActionHandlers } from '../src/code-actions/code-action-handler';
 
 let parser: Parser;
 
@@ -118,7 +121,7 @@ or echo "file does not exist"`,
         const node = getChildNodes(root).find(n => isIfStatement(n));
 
         if (!node) fail();
-        const combiner = convertIfToCombinersString(node);
+        const combiner = convertIfToCombinersString(node!);
 
         expect(combiner).toBe(expected);
       });
@@ -131,8 +134,8 @@ or echo "file does not exist"`,
       const rootNode = parser.parse(input).rootNode;
       const ret = findReturnNodes(rootNode).pop();
       if (!ret) fail();
-      expect(ret.text).toEqual('return 2');
-      expect(getReturnStatusValue(ret)).toEqual({
+      expect(ret!.text).toEqual('return 2');
+      expect(getReturnStatusValue(ret!)).toEqual({
         inlineValue: 'Misuse of shell builtins',
         tooltip: { code: '2', description: 'Misuse of shell builtins' },
       });
@@ -472,6 +475,51 @@ complete -c util -l other`,
           expect(builtCompletions).toBe(expected.completionText);
         });
       });
+    });
+  });
+  describe('code-actions-handlers', () => {
+    setLogger();
+    beforeAll(async () => {
+      await Analyzer.initialize();
+    });
+    beforeEach(async () => {
+      await Analyzer.initialize();
+    });
+
+    const workspace = TestWorkspace.create().addFiles(
+      TestFile.completion('mycmd', ''),
+      TestFile.function('myfunc', `function myfunc
+    argparse h/help c/command a/arguments -- $argv
+    or return 1
+
+    echo "myfunc"
+end
+`),
+      TestFile.config(`
+    echo "config file",
+    'alias ll="ls -la"',
+    `),
+      TestFile.function('util', 'function util; echo "util"; end'),
+    ).inheritFilesFromExistingAutoloadedWorkspace('$__fish_data_dir').initialize();
+
+    it('can build completions for function', async () => {
+      const docs = workspace.workspace?.allDocuments() || [];
+      docs.forEach(doc => documents.open(doc));
+      const handler = codeActionHandlers(documents, analyzer);
+      for (const doc of documents.all()) {
+        const codeAction = await handler.onCodeAction({
+          textDocument: { uri: doc.uri },
+          range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
+          context: { diagnostics: [...analyzer.getDiagnostics(doc.uri)], only: ['quickfix'] },
+        });
+        if (codeAction.length >= 0) {
+          codeAction.forEach(ca => {
+            handler.onCodeActionResolve(ca);
+          });
+        }
+        console.log({ uri: doc.uri, codeAction });
+      }
+      expect(true).toBe(true);
     });
   });
 });

@@ -73,6 +73,7 @@ export namespace SubcommandEnv {
     confd?: boolean;
     names?: boolean;
     joined?: boolean;
+    json?: boolean;
   };
 
   export type HandlerOptionsType = {
@@ -82,6 +83,7 @@ export namespace SubcommandEnv {
     local: boolean;
     export: boolean;
     confd: boolean;
+    json: boolean;
   };
 
   export const defaultHandlerOptions: HandlerOptionsType = {
@@ -91,6 +93,7 @@ export namespace SubcommandEnv {
     local: false,
     export: true,
     confd: false,
+    json: false,
   };
 
   /**
@@ -125,6 +128,7 @@ export namespace SubcommandEnv {
       local: args.local ?? false,
       export: args.export ?? true,
       confd: args.confd ?? false,
+      json: args.json ?? false,
     };
   }
 }
@@ -584,12 +588,13 @@ export namespace CommanderSubcommand {
         timeOnly: z.boolean().optional().default(false),
         useWorkspace: z.string().optional().default(''),
         warning: z.boolean().optional().default(true),
+        showFiles: z.boolean().optional().default(false),
         sourceMaps: z.boolean().optional().default(false),
         check: z.boolean().optional().default(false),
         install: z.boolean().optional().default(false),
         remove: z.boolean().optional().default(false),
         status: z.boolean().optional().default(false),
-        dumpParseTree: z.string().optional().default(''),
+        dumpParseTree: z.union([z.string(), z.boolean()]).optional().default(''),
         virtualFs: z.boolean().optional().default(false),
       }),
     );
@@ -623,6 +628,7 @@ export namespace CommanderSubcommand {
       '--time-only',
       '--use-workspace',
       '--no-warning',
+      '--show-files',
     ] as const;
 
     export function handleBadArgs(args: schemaType) {

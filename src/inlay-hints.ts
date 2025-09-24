@@ -1,7 +1,7 @@
 import { InlayHint, InlayHintKind } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { PrebuiltDocumentationMap } from './utils/snippets';
-import { isCommand, isCommandName, isReturn } from './utils/node-types';
+import { isCommand, isCommandName, isReturn, isExit } from './utils/node-types';
 import { findChildNodes } from './utils/tree-sitter';
 import { Analyzer } from './analyze';
 import { LspDocument } from './document';
@@ -11,6 +11,7 @@ import { logger } from './logger';
 export function getStatusInlayHints(root: SyntaxNode): InlayHint[] {
   const hints: InlayHint[] = [];
   const returnStatements = findChildNodes(root, isReturn);
+  const exitStatements = findChildNodes(root, isExit);
 
   for (const returnStmt of returnStatements) {
     const status = getReturnStatusValue(returnStmt);
@@ -26,6 +27,25 @@ export function getStatusInlayHints(root: SyntaxNode): InlayHint[] {
         tooltip: {
           kind: 'markdown',
           value: `Status code ${status.tooltip.code}: ${status.tooltip.description}`,
+        },
+      });
+    }
+  }
+
+  for (const exitStmt of exitStatements) {
+    const status = getExitStatusValue(exitStmt);
+    if (status) {
+      hints.push({
+        position: {
+          line: exitStmt.endPosition.row,
+          character: exitStmt.endPosition.column,
+        },
+        kind: InlayHintKind.Parameter,
+        label: ` → ${status.inlineValue}`,
+        paddingLeft: true,
+        tooltip: {
+          kind: 'markdown',
+          value: `Exit code ${status.tooltip.code}: ${status.tooltip.description}`,
         },
       });
     }
@@ -70,6 +90,30 @@ export function getReturnStatusValue(returnNode: SyntaxNode): {
   };
 } | undefined {
   const statusArg = returnNode.children.find(child =>
+    !isCommand(child) && !isCommandName(child) && child.type === 'integer');
+
+  if (!statusArg?.text) return undefined;
+
+  const statusInfo = PrebuiltDocumentationMap.getByName(statusArg.text).pop();
+  const statusInfoShort = getStatusDescription(statusArg.text);
+
+  return statusInfoShort ? {
+    inlineValue: statusInfoShort,
+    tooltip: {
+      code: statusInfo?.name || statusArg.text,
+      description: statusInfo?.description || statusInfoShort,
+    },
+  } : undefined;
+}
+
+export function getExitStatusValue(exitNode: SyntaxNode): {
+  inlineValue: string;
+  tooltip: {
+    code: string;
+    description: string;
+  };
+} | undefined {
+  const statusArg = exitNode.children.find(child =>
     !isCommand(child) && !isCommandName(child) && child.type === 'integer');
 
   if (!statusArg?.text) return undefined;

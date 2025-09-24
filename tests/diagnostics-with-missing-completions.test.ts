@@ -4,7 +4,7 @@ import { findAllMissingArgparseFlags } from '../src/diagnostics/missing-completi
 import { LspDocument } from '../src/document';
 import { flattenNested } from '../src/utils/flatten';
 import { getDiagnostics } from '../src/diagnostics/validate';
-import { createTestWorkspace, setLogger, TestLspDocument } from './helpers';
+import { createTestWorkspace, setLogger, TestLspDocument, fail } from './helpers';
 import { SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from '../src/parser';
 import { Analyzer, analyzer } from '../src/analyze';
@@ -12,6 +12,8 @@ import { WorkspaceManager, workspaceManager } from '../src/utils/workspace-manag
 import { FishUriWorkspace, Workspace } from '../src/utils/workspace';
 import { logger } from '../src/logger';
 import { getGroupedCompletionSymbolsAsArgparse, groupCompletionSymbolsTogether } from '../src/parsing/complete';
+import { config } from '../src/config';
+import { ErrorCodes } from '../src/diagnostics/error-codes';
 
 let documents: LspDocument[] = [];
 
@@ -20,6 +22,7 @@ describe('diagnostics with missing completions', () => {
 
   beforeAll(async () => {
     await Analyzer.initialize();
+    config.fish_lsp_diagnostic_disable_error_codes = [ErrorCodes.requireAutloadedFunctionHasDescription];
   });
 
   describe('analyze workspace 1: `function`', () => {
@@ -74,8 +77,8 @@ describe('diagnostics with missing completions', () => {
     });
 
     it('should analyze a simple function definition', () => {
-      const functionDoc = documents.find(doc => doc.path.endsWith('functions/fish_function.fish'));
-      const completionDoc = documents.find(doc => doc.path.endsWith('completions/fish_function.fish'));
+      const functionDoc = documents.find(doc => doc.path.endsWith('functions/fish_function.fish'))!;
+      const completionDoc = documents.find(doc => doc.path.endsWith('completions/fish_function.fish'))!;
       if (!functionDoc || !completionDoc) fail();
       expect(functionDoc).toBeDefined();
       expect(completionDoc).toBeDefined();
@@ -85,7 +88,7 @@ describe('diagnostics with missing completions', () => {
       expect(functionCached).toBeDefined();
       expect(completionCached).toBeDefined();
 
-      const diagnostics = getDiagnostics(functionCached.root, functionDoc);
+      const diagnostics = getDiagnostics(functionCached.root!, functionDoc);
       expect(diagnostics.length).toBe(2);
 
       const flatFuncSymbols = flattenNested(...functionCached.documentSymbols).filter(s => s.isFunction() && s.isGlobal());

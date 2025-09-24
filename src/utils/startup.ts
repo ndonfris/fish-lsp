@@ -5,7 +5,7 @@ import { execSync } from 'child_process';
 import FishServer from '../server';
 import { createServerLogger, logger } from '../logger';
 import { config, configHandlers } from '../config';
-import { pathToUri } from './translation';
+import { pathToUri, uriToReadablePath } from './translation';
 import { PackageVersion } from './commander-cli-subcommands';
 import { createConnection, InitializeParams, InitializeResult, StreamMessageReader, StreamMessageWriter, ProposedFeatures } from 'vscode-languageserver/node';
 import * as Browser from 'vscode-languageserver/browser';
@@ -248,12 +248,14 @@ type TimeServerOpts = {
   workspacePath: string;
   warning: boolean;
   timeOnly: boolean;
+  showFiles: boolean;
 };
 
 const defaultTimeServerOpts: Partial<TimeServerOpts> = {
   workspacePath: '',
   warning: true,
   timeOnly: false,
+  showFiles: false,
 };
 
 /**
@@ -337,6 +339,7 @@ export async function timeServerStartup(
 
   let all: number = 0;
   const items: { [key: string]: number; } = {};
+  const files: { [key: string]: string[]; } = {};
 
   // clear any existing workspaces, use the env variables if they are set,
   // otherwise use their default values (since there isn't a client)
@@ -360,6 +363,11 @@ export async function timeServerStartup(
       all = result.totalDocuments;
       for (const [path, uris] of Object.entries(result.items)) {
         items[path] = uris.length;
+        files[path] = [...uris
+          .map(u => uriToReadablePath(u))
+          .map(p => p.replace(os.homedir(), '~'))
+          .map(p => opts.workspacePath ? p.replace(process.cwd().replace(os.homedir(), '~'), '$PWD') : p),
+        ];
       }
     }
   }, 'Background Analysis Time');
@@ -407,7 +415,7 @@ export async function timeServerStartup(
   // 6. Log the items indexed
   Object.keys(items).forEach((item, idx) => {
     const text = item.length > 55 ? '...' + item.slice(item.length - 52) : item;
-    const files = items[item] || 0;
+    const filesCount = items[item] || 0;
     const result = formatAlignedColumns([
       {
         text: `${idx + 1}`,
@@ -423,11 +431,47 @@ export async function timeServerStartup(
         truncateIndicator: '…',
         truncateBehavior: 'left',
       },
-      chalk.white(`${chalk.white.bold(files)} ${chalk.white(files === 1 ? 'file' : 'files')}`),
+      chalk.white(`${chalk.white.bold(filesCount)} ${chalk.white(filesCount === 1 ? 'file' : 'files')}`),
     ]);
     logger.logToStdout(result);
   });
   if (!opts.timeOnly) stdoutSeparator();
+  if (opts.showFiles) {
+    Object.keys(files).forEach((item, idx) => {
+      const paths = files[item];
+      if (!paths || paths?.length === 0) return;
+      if (idx > 0) stdoutSeparator();
+      logger.logToStdoutJoined(
+        formatAlignedColumns([
+          chalk.blue('Files in Folder'),
+          chalk.green(`\`${item}\``),
+        ]),
+      );
+      paths.forEach((file, idx) => {
+        const text = file.length > 55 ? file.slice(item.length - 55) : file;
+        logger.logToStdoutJoined(
+          formatAlignedColumns([
+            {
+              text: chalk.blue(`${idx + 1}`),
+              padLeft: '     [',
+              padRight: ']       ',
+              truncate: true,
+              truncateIndicator: ' ',
+              truncateBehavior: 'right',
+            },
+            {
+              text: text,
+              align: 'right',
+              maxWidth: 55,
+              truncate: true,
+              truncateIndicator: '…',
+              truncateBehavior: 'left',
+            },
+          ]),
+        );
+      });
+    });
+  }
 }
 
 export type AlignedItem = string | {

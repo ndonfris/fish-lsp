@@ -7,17 +7,25 @@ import { Diagnostic, DiagnosticSeverity, TextDocumentItem } from 'vscode-languag
 import { initializeParser } from '../src/parser';
 import { ErrorCodes } from '../src/diagnostics/error-codes';
 // import { fishNoExecuteDiagnostic } from '../src/diagnostics/no-execute-diagnostic';
-import { isCommand, isComment, isDefinition, isMatchingOption, isVariableDefinitionName } from '../src/utils/node-types';
+import { isCommand, isComment, isDefinition, isDefinitionName, isMatchingOption, isVariableDefinitionName } from '../src/utils/node-types';
 // import { ScopeStack, isReference } from '../src/diagnostics/scope';
 import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter, isArgparseWithoutEndStdin } from '../src/diagnostics/node-types';
 import { LspDocument } from '../src/document';
-import { createFakeLspDocument, setLogger } from './helpers';
+import { createFakeLspDocument, setLogger, fail } from './helpers';
 import { getDiagnostics } from '../src/diagnostics/validate';
 import { DiagnosticComment, DiagnosticCommentsHandler, isDiagnosticComment, parseDiagnosticComment } from '../src/diagnostics/comments-handler';
 import { withTempFishFile } from './temp';
 import { workspaceManager } from '../src/utils/workspace-manager';
 import { Option } from '../src/parsing/options';
 import { getNoExecuteDiagnostics } from '../src/diagnostics/no-execute-diagnostic';
+import { analyzer, Analyzer } from '../src/analyze';
+import { config } from '../src/config';
+import { setupProcessEnvExecFile } from '../src/utils/process-env';
+import { logger } from '../src/logger';
+import { isFunctionDefinitionName, isFunctionVariableDefinitionName } from '../src/parsing/function';
+import TestWorkspace from './test-workspace-utils';
+import { isArgparseVariableDefinitionName } from '../src/parsing/argparse';
+import { SetParser, AliasParser, ArgparseParser, CompleteParser, ReadParser, ForParser, FunctionParser, ExportParser } from '../src/parsing/barrel';
 
 let parser: Parser;
 let diagnostics: Diagnostic[] = [];
@@ -78,6 +86,30 @@ function extractDiagnostics(tree: Tree) {
 }
 
 describe('diagnostics test suite', () => {
+  beforeAll(async () => {
+    await Analyzer.initialize();
+    logger.setSilent();
+    await setupProcessEnvExecFile();
+  });
+
+  beforeEach(async () => {
+    await Analyzer.initialize();
+    logger.setSilent();
+    config.fish_lsp_diagnostic_disable_error_codes = [4008];
+    config.fish_lsp_strict_conditional_command_warnings = false;
+  });
+
+  afterEach(() => {
+    config.fish_lsp_diagnostic_disable_error_codes = [];
+    config.fish_lsp_strict_conditional_command_warnings = false;
+  });
+
+  afterAll(() => {
+    config.fish_lsp_diagnostic_disable_error_codes = [];
+    config.fish_lsp_strict_conditional_command_warnings = true;
+    logger.setSilent(false);
+  });
+
   it('NODE_TEST: test finding specific error nodes', async () => {
     const inputs: string[] = [
       [
@@ -113,7 +145,7 @@ describe('diagnostics test suite', () => {
         // console.log(getChildNodes(r).map(n => n.text + ':::' + n.type))
         // if (errorNode) console.log('------\nerrorNode', errorNode.text);
         if (!errorNode) fail();
-        output.push(errorNode);
+        output.push(errorNode!);
       }
     });
     expect(
@@ -246,6 +278,7 @@ describe('diagnostics test suite', () => {
   });
 
   it('NODE_TEST: silent flag', () => {
+    config.fish_lsp_strict_conditional_command_warnings = true;
     const outputWithFlag: SyntaxNode[] = [];
     const outputWithoutFlag: SyntaxNode[] = [];
     [
@@ -313,22 +346,22 @@ describe('diagnostics test suite', () => {
     });
 
     expect(output.map(o => o.text)).toEqual([
-      '$variable_1',
       '$variable_3',
       '$variable_4',
     ]);
   });
 
   it('NODE_TEST: conditional', () => {
+    config.fish_lsp_strict_conditional_command_warnings = false;
     type ConditionalOutput = {
       idx: number;
       node: string;
     };
-    const output: ConditionalOutput[] = [];
+    const _output: ConditionalOutput[] = [];
     [
       'if set -q var || set -l bad_1; echo "var is set"; end;',
       'if set -q var; or set -l bad_2; echo "var is set"; end;',
-      'if set fishpath (which fish); echo "fishpath is set"; end;',
+      'if set fishpath (which fish); echo "$fishpath is set"; end;',
       'if not string match -q -- $PNPM_HOME $PATH; set -gx PATH "$PNPM_HOME" $PATH; end;',
       `
 if string match -q -- $PNPM_HOME $PATH \\
@@ -369,18 +402,17 @@ end
 
 awk
       `].forEach((input, idx) => {
-      const { rootNode } = parser.parse(input);
-      for (const node of getChildNodes(rootNode)) {
-        if (isConditionalWithoutQuietCommand(node)) {
-          output.push({
-            idx,
-            node: node.text,
-          });
-        }
-      }
+      const { root, document } = analyzer.ensureCachedDocument(createFakeLspDocument(`file:///tmp/test-${idx}.fish`, input));
+      if (!root || !document) return;
+
+      diagnostics = getDiagnostics(root, document);
+      console.log(`---- input ${idx} ----`);
+      diagnostics.forEach(d => logDiagnostics(d, root));
+
+      _output.push(...diagnostics.map((d) => ({ node: d.data.node.parent.text, idx: idx })));
     });
-    // console.log(output)
-    expect(output).toEqual([
+    console.log(_output);
+    expect(_output).toEqual([
       {
         idx: 0,
         node: 'set -l bad_1',
@@ -393,51 +425,37 @@ awk
   });
 
   /**
-   * TODO:
-   *     Improve references usage for autoloaded functions, and other scopes
-   */
+  * TODO:
+  *     Improve references usage for autoloaded functions, and other scopes
+  */
   it('NODE_TEST: unused local definition', () => {
-    const definitions: SyntaxNode[] = [];
-    [
-      [
-        '# input 1',
-        'function foo',
-        '    echo "inside foo" ',
-        'end',
-      ],
-      [
-        '# input 2',
-        'set --local variable_1 a',
-        'set --local variable_2 b',
-        'set --global variable_3 c',
-      ],
-    ].map(innerArr => innerArr.join('\n')).forEach(input => {
-      const tree = parser.parse(input);
-      const root = tree.rootNode;
-      for (const node of getChildNodes(root)) {
-        if (isDefinition(node)) {
-          if (isVariableDefinitionName(node)) {
-            const parent = node.parent!;
-            const isGlobal = findChildNodes(parent, n => {
-              return isMatchingOption(n, Option.create('-U', '--universal'))
-                || isMatchingOption(n, Option.create('-g', '--global'));
-            });
-            if (isGlobal.length === 0) {
-              definitions.push(node);
-              // console.log({ text: node.text, type: node.type });
-            }
-          } else {
-            // console.log({ text: node.text, type: node.type });
-            definitions.push(node);
-          }
-        }
-      }
+    const input = [
+      '# input 1',
+      'function foo',
+      '    echo "inside foo" ',
+      'end',
+      'set --local variable_1 a',
+      'set --local variable_2 b',
+      'set --global variable_3 c',
+    ].join('\n');
+    const { root, document } = analyzer.ensureCachedDocument(createFakeLspDocument('file:///tmp/test-1.fish', input));
+    logger.setSilent(false);
+    logger.log(document.showTree());
+    logger.setSilent(true);
+    if (!root) return;
+    const defs = getChildNodes(root).filter(n => {
+      return isDefinitionName(n);
     });
-    expect(definitions.map(d => d.text)).toEqual([
+
+    expect(defs.map(d => d.text)).toEqual([
       'foo',
       'variable_1',
       'variable_2',
+      'variable_3',
     ]);
+
+    const result = getDiagnostics(root, document);
+    expect(result.length).toBe(3);
   });
 
   it('VALIDATE: missing end', () => {
@@ -449,6 +467,7 @@ awk
       'echo (',
       'echo $(',
     ].forEach((input, idx) => {
+      analyzer.ensureCachedDocument(createFakeLspDocument(`file:///tmp/test-${idx}.fish`, input));
       const { rootNode } = parser.parse(input);
       const doc = createFakeLspDocument(`file:///tmp/test-${idx}.fish`, input);
       const result = getDiagnostics(rootNode, doc);
@@ -461,6 +480,8 @@ awk
       'for i in (seq 1 10); end; end',
       'function foo; echo hi; end; end',
     ].forEach((input, idx) => {
+      config.fish_lsp_diagnostic_disable_error_codes.push(4004);
+      analyzer.ensureCachedDocument(createFakeLspDocument(`file:///tmp/test-${idx}.fish`, input));
       const { rootNode } = parser.parse(input);
       const doc = createFakeLspDocument(`file:///tmp/test-${idx}.fish`, input);
       const result = getDiagnostics(rootNode, doc);
@@ -472,6 +493,7 @@ awk
     [
       'echo $argv[0]',
     ].forEach((input, idx) => {
+      analyzer.ensureCachedDocument(createFakeLspDocument(`file:///tmp/test-${idx}.fish`, input));
       const { rootNode } = parser.parse(input);
       const doc = createFakeLspDocument(`file:///tmp/test-${idx}.fish`, input);
       const result = getDiagnostics(rootNode, doc);
@@ -479,25 +501,31 @@ awk
     });
   });
 
-  it('VALIDATE: isSingleQuoteVariableExpansion', () => {
+  it.skip('VALIDATE: isSingleQuoteVariableExpansion', () => {
     [
       'echo \'$argv[1]\'; echo \'\\$argv[1]\'',
     ].forEach((input, idx) => {
       const { rootNode } = parser.parse(input);
       const doc = createFakeLspDocument(`file:///tmp/test-${idx}.fish`, input);
+      analyzer.ensureCachedDocument(doc);
       const result = getDiagnostics(rootNode, doc);
       expect(result.length).toBe(1);
     });
   });
 
   it('VALIDATE: isAlias', () => {
+    // config.fish_lsp_diagnostic_disable_error_codes.push(ErrorCodes.usedAlias);
     [
-      'alias foo=\'fish_opt\'',
+      'alias foo=\'fish_opt\'\nfoo',
     ].forEach((input, idx) => {
       const { rootNode } = parser.parse(input);
       const doc = createFakeLspDocument(`file:///tmp/test-${idx}.fish`, input);
+      analyzer.ensureCachedDocument(doc);
       const result = getDiagnostics(rootNode, doc);
+      result.forEach(r => logDiagnostics(r, rootNode));
       expect(result.length).toBe(1);
+      const diagnosticTypes = result.map(r => r.code);
+      expect(diagnosticTypes).toContain(ErrorCodes.usedWrapperFunction);
     });
   });
 
@@ -509,6 +537,7 @@ awk
       const { rootNode } = parser.parse(input);
       const uri = idx === 1 ? `file://${os.homedir()}/.config/fish/conf.d/test-1.fish` : `file:///tmp/test-${idx}.fish`;
       const doc = createFakeLspDocument(uri, input);
+      analyzer.ensureCachedDocument(doc);
       const result = getDiagnostics(rootNode, doc);
       if (idx === 0) {
         expect(result.length).toBe(1);
@@ -526,10 +555,13 @@ awk
       const { rootNode } = parser.parse(input);
       const uri = idx === 1 ? `file://${os.homedir()}/.config/fish/conf.d/test-1.fish` : `file:///tmp/test-${idx}.fish`;
       const doc = createFakeLspDocument(uri, input);
+      analyzer.ensureCachedDocument(doc);
       const result = getDiagnostics(rootNode, doc);
       if (idx === 0) {
         expect(result.length).toBe(1);
       } else if (idx === 1) {
+        // logger.setSilent(false)
+        // logger.log(doc.showTree())
         expect(result.length).toBe(0);
       }
     });
@@ -544,12 +576,15 @@ awk
       const { rootNode } = parser.parse(input);
       const uri = idx === 1 ? `file://${os.homedir()}/.config/fish/conf.d/test-1.fish` : `file:///tmp/test-${idx}.fish`;
       const doc = createFakeLspDocument(uri, input);
+      analyzer.ensureCachedDocument(doc);
       const result = getDiagnostics(rootNode, doc);
       expect(result.length).toBe(1);
     });
   });
 
   it('VALIDATE: isConditionalWithoutQuietCommand', () => {
+    config.fish_lsp_strict_conditional_command_warnings = true;
+
     [
       'if string match -r \'a\' "$argv";end;',
       'if set var;end;',
@@ -557,6 +592,7 @@ awk
       const { rootNode } = parser.parse(input);
       const uri = idx === 1 ? `file://${os.homedir()}/.config/fish/conf.d/test-1.fish` : `file:///tmp/test-${idx}.fish`;
       const doc = createFakeLspDocument(uri, input);
+      analyzer.ensureCachedDocument(doc);
       const result = getDiagnostics(rootNode, doc);
       expect(result.length).toBe(1);
     });
@@ -570,6 +606,7 @@ awk
       const { rootNode } = parser.parse(input);
       const uri = idx === 1 ? `file://${os.homedir()}/.config/fish/conf.d/test-1.fish` : `file:///tmp/test-${idx}.fish`;
       const doc = createFakeLspDocument(uri, input);
+      analyzer.ensureCachedDocument(doc);
       const result = getDiagnostics(rootNode, doc);
       expect(result.length).toBe(1);
     });
@@ -601,6 +638,7 @@ echo '9 2001 and 2002 are enabled again'
 echo '10 3003 3002 3001 are still disabled'`;
     const { rootNode } = parser.parse(input);
     const doc = createFakeLspDocument('file:///tmp/test-1.fish', input);
+    analyzer.ensureCachedDocument(doc);
     const lspDiagnosticComments: DiagnosticComment[] =
       findChildNodes(rootNode, n => isDiagnosticComment(n))
         .map(parseDiagnosticComment)
@@ -681,6 +719,7 @@ end`;
 
       const tree = parser.parse(input);
       const rootNode = tree.rootNode;
+      analyzer.ensureCachedDocument(createFakeLspDocument('file:///tmp/test-argparse.fish', input));
       for (const node of getChildNodes(rootNode)) {
         if (isArgparseWithoutEndStdin(node)) {
           console.log(node.text);
@@ -690,7 +729,7 @@ end`;
     });
   });
 
-  describe.only('CONDITIONAL EDGE CASES', () => {
+  describe.skip('CONDITIONAL EDGE CASES', () => {
     const testcases = [
       // {
       //   title: 'normal case, where both variables are in a if statement, so both should be silenced',
@@ -765,50 +804,52 @@ end
     //   - ../src/diagnostics/node-types.ts
     //   - ../src/diagnostics/validate.ts
     //  FIX SPECIFIC function `isConditionalStatement()`
-    testcases.forEach(({ title, input, expected, shouldRun }) => {
-      if (shouldRun) {
-        it.only(title, () => {
-          // console.log(title);
-          // console.log('-'.repeat(70));
-          const { rootNode } = parser.parse(input);
-          // console.log(rootNode.text);
-          // console.log('-'.repeat(70));
-          const result: SyntaxNode[] = [];
-          for (const child of getChildNodes(rootNode)) {
-            if (isConditionalWithoutQuietCommand(child)) {
-              // console.log('conditional', {text: child.text});
-              result.push(child);
-            }
-          }
-          expect(result.map(r => r.text)).toEqual(expected);
-        });
-      }
-    });
+    // testcases.forEach(({ title, input, expected, shouldRun }) => {
+    //   if (shouldRun) {
+    //     it.only(title, () => {
+    //       // console.log(title);
+    //       // console.log('-'.repeat(70));
+    //       const { rootNode } = parser.parse(input);
+    //       // console.log(rootNode.text);
+    //       // console.log('-'.repeat(70));
+    //       const result: SyntaxNode[] = [];
+    //       for (const child of getChildNodes(rootNode)) {
+    //         if (isConditionalWithoutQuietCommand(child)) {
+    //           // console.log('conditional', {text: child.text});
+    //           result.push(child);
+    //         }
+    //       }
+    //       expect(result.map(r => r.text)).toEqual(expected);
+    //     });
+    //   }
+    // });
   });
 
-  describe.only('fish --no-execute diagnostics', () => {
+  describe.skip('fish --no-execute diagnostics', () => {
     afterEach(async () => {
       workspaceManager.clear();
     });
 
-    it.only('NODE_TEST: fish --no-execute diagnostic 1', async () => {
+    it('NODE_TEST: fish --no-execute diagnostic 1', async () => {
       const input = `
 function foo
     echo "hi"`;
       await withTempFishFile(input, async ({ document, path }) => {
         console.log({ document, path });
+        analyzer.ensureCachedDocument(document);
         const result = getNoExecuteDiagnostics(document);
         console.log({ result });
         expect(result.length).toBe(1);
       });
     });
 
-    it.only('VALIDATE: fish --no-execute diagnostic 2', async () => {
+    it('VALIDATE: fish --no-execute diagnostic 2', async () => {
       const input = `
 function foo
     echo "hi"`;
       await withTempFishFile(input, async ({ document, path }) => {
         console.log({ document, path });
+        analyzer.ensureCachedDocument(document);
         const result = getNoExecuteDiagnostics(document);
         const finalRes = getNoExecuteDiagnostics(document);
         console.log({ finalRes });

@@ -57,25 +57,25 @@ set -gx BG_BLACK (set_color --background black)
 
 # @fish-lsp-disable 4004
 function icon_check -d 'Check icon'
-    printf %s ' '
+    printf %s '  '
 end
 function icon_x -d 'Cross icon'
-    printf %s ' '
+    printf %s '  '
 end
 function icon_warning -d 'Warning icon'
-    printf %s ' '
+    printf %s '  '
 end
 function icon_info -d 'Information icon'
-    printf %s ' '
+    printf %s '  '
 end
 function icon_question -d 'Question icon'
-    printf %s ' '
+    printf %s '  '
 end
 function icon_folder -d 'Folder icon'
-    printf %s ' '
+    printf %s '  '
 end
 function icon_file -d 'File icon'
-    printf %s ' '
+    printf %s '  '
 end
 
 # helpers

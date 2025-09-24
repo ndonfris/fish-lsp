@@ -1,4 +1,4 @@
-// Centralized build configurations
+// Centrfalized build configurations
 import * as esbuild from 'esbuild';
 import { resolve } from 'path';
 import { createPlugins, createDefines, PluginOptions, createSourceMapOptimizationPlugin, createSpecialSourceMapPlugin } from './plugins';
@@ -10,7 +10,7 @@ export interface BuildConfig extends esbuild.BuildOptions {
   entryPoint: string;
   outfile?: string;
   outdir?: string;
-  target: 'node' | 'browser';
+  target: string;
   format: 'cjs' | 'esm';
   platform: 'node' | 'browser';
   bundle: boolean;
@@ -18,7 +18,7 @@ export interface BuildConfig extends esbuild.BuildOptions {
   sourcemap: boolean;
   external?: string[];
   plugins?: esbuild.Plugin[];
-  internalPlugins?: PluginOptions;
+  internalPlugins: PluginOptions;
   onBuildEnd?: () => void;
 }
 
@@ -26,23 +26,21 @@ export const buildConfigs: Record<BuildConfigTarget, BuildConfig> = {
   binary: {
     name: 'Universal Binary',
     entryPoint: 'src/main.ts',
-    outfile: resolve('dist', 'fish-lsp'),
+    outfile: resolve('bin', 'fish-lsp'),
     target: 'node',
     format: 'cjs',
     platform: 'node',
     bundle: true,
     treeShaking: true,
-    minify: false,
+    minify: true,
     assetNames: 'assets/[name]-[hash]', // Include hash in asset names for cache busting
     loader: {
       '.wasm': 'file',
       '.node': 'file',
-
     },
     sourcemap: true, // Generate external source maps for debugging
     preserveSymlinks: true,
-    // external: ['web-tree-sitter', 'fs', 'path', 'os', 'crypto', 'util'],
-    // external: ['tree-sitter', 'web-tree-sitter', 'fs', 'path', 'os', 'crypto', 'util'],
+    // Bundle @ndonfris/tree-sitter-fish for binary builds
     external: [],
     internalPlugins: {
       target: 'node',
@@ -67,6 +65,50 @@ export const buildConfigs: Record<BuildConfigTarget, BuildConfig> = {
       target: 'node',
       typescript: false, // Use tsc separately
       polyfills: 'none',
+    },
+  },
+
+  npm: {
+    name: 'NPM Package',
+    entryPoint: 'src/main.ts',
+    outfile: resolve('dist', 'fish-lsp'),
+    target: 'node20',
+    format: 'cjs',
+    platform: 'node',
+    bundle: true,
+    treeShaking: true,
+    minify: true,
+    assetNames: 'assets/[name]-[hash]',
+    loader: {
+      '.wasm': 'file',
+      '.node': 'file',
+    },
+    sourcemap: true,
+    preserveSymlinks: true,
+    // External dependencies - don't bundle these, npm will provide them
+    external: [
+      'chalk',
+      'commander',
+      'deepmerge',
+      'fast-glob',
+      'fs-extra',
+      'tree-sitter',
+      'unionfs',
+      'vscode-languageserver',
+      'vscode-languageserver-protocol',
+      'vscode-languageserver-textdocument',
+      'vscode-uri',
+      'zod',
+      '@ndonfris/tree-sitter-fish',
+      'web-tree-sitter'
+      // Note: keeping 'esbuild-wasm', 'memfs' bundled
+      // as they may be needed for embedded functionality
+    ],
+    internalPlugins: {
+      target: 'node',
+      typescript: false,
+      polyfills: 'minimal',
+      embedAssets: true, // Keep WASM files embedded
     },
   },
 };

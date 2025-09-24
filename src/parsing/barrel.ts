@@ -183,6 +183,7 @@ export {
   ArgparseParser,
   AliasParser,
   FunctionParser,
+  ExportParser,
   CompleteParser,
   OptionsParser,
   SymbolParser,

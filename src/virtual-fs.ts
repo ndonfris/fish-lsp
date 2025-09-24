@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import path, { resolve, join } from 'path';
 import { Volume } from 'memfs';
 import { tmpdir } from 'os';
+import { config } from './config';
 
 // Import all embedded fish scripts
 import execFishContent from '@embedded_assets/fish_files/exec.fish';
@@ -24,6 +25,12 @@ import { existsSync, writeFileSync, unlinkSync } from 'fs';
 import { promisify } from 'util';
 import { execFile, execFileSync } from 'child_process';
 const execAsync = promisify(execFile);
+
+// Helper function to get the fish path from config
+// Using a function that imports config lazily to avoid circular dependencies
+const getFishPath = (): string => {
+  return config.fish_lsp_fish_path;
+};
 
 // Import fish-specific WASM file
 // let treeSitterFishWasmContent = '';
@@ -347,7 +354,7 @@ class VirtualFileSystem {
           const tempPath = path.join(tmpdir(), path.basename(vf.filepath));
           writeFileSync(tempPath, vf.content.toString());
           try {
-            const result = execFileSync('fish', [tempPath, ...args])?.toString().trim() || '';
+            const result = execFileSync(getFishPath(), [tempPath, ...args])?.toString().trim() || '';
             unlinkSync(tempPath); // Clean up temp file
             return result;
           } catch (error) {
@@ -360,7 +367,7 @@ class VirtualFileSystem {
           const tempPath = path.join(tmpdir(), path.basename(vf.filepath));
           writeFileSync(tempPath, vf.content.toString());
           try {
-            const result = await execAsync('fish', [tempPath, ...args]);
+            const result = await execAsync(getFishPath(), [tempPath, ...args]);
             unlinkSync(tempPath); // Clean up temp file
             return result;
           } catch (error) {

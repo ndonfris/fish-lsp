@@ -1,7 +1,3 @@
-#!/usr/bin/env node
-//'use strict'
-
-// Import polyfills for Node.js 18 compatibility
 import './utils/array-polyfills';
 import { BuildCapabilityString, PathObj, PackageLspVersion, PackageVersion, accumulateStartupOptions, FishLspHelp, FishLspManPage, SourcesDict, SubcommandEnv, CommanderSubcommand, getBuildTypeString, PkgJson, SourceMaps } from './utils/commander-cli-subcommands';
 import { Command, Option } from 'commander';
@@ -196,6 +192,7 @@ commandBin.command('info')
   .option('--time-only', 'alias to show only the time taken for the server to index files', false)
   .option('--use-workspace <PATH>', 'use the specified workspace path for `fish-lsp info --time-startup`', undefined)
   .option('--no-warning', 'do not show warnings in the output for `fish-lsp info --time-startup`', true)
+  .option('--show-files', 'show the files being indexed during `fish-lsp info --time-startup`', false)
   .option('--source-maps', 'show source map information and management options', false)
   .option('--all', 'show all source maps (use with --source-maps)', false)
   .option('--all-paths', 'show the paths to all the source maps (use with --source-maps)', false)
@@ -203,11 +200,11 @@ commandBin.command('info')
   .option('--remove', 'remove source maps (use with --source-maps)', false)
   .option('--check', 'check source map availability (use with --source-maps)', false)
   .option('--status', 'show the status of all the source-maps available to the server (use with --source-maps)', false)
-  .option('--dump-parse-tree <FILE>', 'dump the tree-sitter parse tree of a file', undefined)
+  .option('--dump-parse-tree [FILE]', 'dump the tree-sitter parse tree of a file (reads from stdin if no file provided)', undefined)
   .option('--no-color', 'disable color output for --dump-parse-tree', false)
   .option('--virtual-fs', 'show the virtual filesystem structure (like tree command)', false)
   .allowUnknownOption(false)
-  .allowExcessArguments(false)
+  // .allowExcessArguments(false)
   .action(async (args: CommanderSubcommand.info.schemaType) => {
     await setupProcessEnvExecFile();
     const capabilities = BuildCapabilityString()
@@ -242,6 +239,7 @@ commandBin.command('info')
           workspacePath: args.useWorkspace,
           warning: args.warning,
           timeOnly: args.timeOnly,
+          showFiles: args.showFiles,
         });
         process.exit(0);
       }
@@ -257,37 +255,30 @@ commandBin.command('info')
       }
       // normal info about the fish-lsp
       if (args.bin) {
-        argsCount = argsCount - 1;
         CommanderSubcommand.info.log(argsCount, 'Executable Path', PathObj.execFile);
         shouldExit = true;
       }
       if (args.path) {
-        argsCount = argsCount - 1;
         CommanderSubcommand.info.log(argsCount, 'Build Path', PathObj.path);
         shouldExit = true;
       }
       if (args.buildTime) {
-        argsCount = argsCount - 1;
         CommanderSubcommand.info.log(argsCount, 'Build Time', PkgJson.buildTime);
         shouldExit = true;
       }
       if (args.buildType) {
-        argsCount = argsCount - 1;
         CommanderSubcommand.info.log(argsCount, 'Build Type', getBuildTypeString());
         shouldExit = true;
       }
       if (args.capabilities) {
-        argsCount = argsCount - 1;
         CommanderSubcommand.info.log(argsCount, 'Capabilities', capabilities, true);
         shouldExit = true;
       }
       if (args.version) {
-        argsCount = argsCount - 1;
         CommanderSubcommand.info.log(argsCount, 'Build Version', PackageVersion);
         shouldExit = true;
       }
       if (args.lspVersion) {
-        argsCount = argsCount - 1;
         CommanderSubcommand.info.log(argsCount, 'LSP Version', PackageLspVersion, true);
         shouldExit = true;
       }
@@ -407,6 +398,7 @@ commandBin.command('env')
   .option('--confd', 'output for piping to conf.d')
   .option('--names', 'show only the variable names')
   .option('--joined', 'print the names in a single line')
+  .option('--json', 'output in JSON format')
   .allowUnknownOption(false)
   .allowExcessArguments(false)
   .action(async (args: SubcommandEnv.ArgsType) => {

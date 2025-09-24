@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+// Enable source map support for better stack traces
+import 'source-map-support/register';
+
 // Universal entry point for fish-lsp that handles CLI, Node.js module, and browser usage
 // This single file replaces the need for separate entry points and wrappers
 
@@ -43,7 +46,7 @@ export default FishServer;
 if (isBrowserEnvironment()) {
   // Browser environments are auto-initialized by web.ts itself
   // No need to do anything here
-} else if (isRunningAsCLI()) {
+} else if (isRunningAsCLI() || process.env.NODE_ENV === 'test') {
   // Auto-run CLI if this file is executed directly
   runCLI().catch((error) => {
     console.error('Failed to start fish-lsp CLI:', error);

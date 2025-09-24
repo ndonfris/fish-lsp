@@ -205,11 +205,24 @@ async function logFishLspConfig() {
   logger.logToStdout('\nfish_lsp_all_indexed_paths:');
   const dataDir = env.getFirstValueInArray('__fish_data_dir');
   for (const path of config.fish_lsp_all_indexed_paths) {
+    if (!path || path.trim() === '') {
+      logger.logToStdout(`✗ fish-lsp workspace '${path}' is empty or invalid`);
+      continue;
+    }
     const expanded_path = SyncFileHelper.expandEnvVars(path);
-    if (fs.statSync(expanded_path).isDirectory()) {
-      logger.logToStdout(`✓ fish-lsp workspace '${path}' is a directory`);
-    } else {
-      logger.logToStdout(`✗ fish-lsp workspace '${path}' is not a directory`);
+    if (!expanded_path || expanded_path.trim() === '') {
+      logger.logToStdout(`✗ fish-lsp workspace '${path}' expanded to empty path`);
+      continue;
+    }
+    try {
+      if (fs.statSync(expanded_path).isDirectory()) {
+        logger.logToStdout(`✓ fish-lsp workspace '${path}' is a directory`);
+      } else {
+        logger.logToStdout(`✗ fish-lsp workspace '${path}' is not a directory`);
+      }
+    } catch (error) {
+      logger.logToStdout(`✗ fish-lsp workspace '${path}' (${expanded_path}) stat failed: ${error}`);
+      continue;
     }
     try {
       await fs.promises.access(expanded_path, fs.constants.R_OK);

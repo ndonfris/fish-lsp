@@ -1,18 +1,24 @@
 // ANSI color utilities for terminal output
-import { relative } from 'path';
+import { dirname, relative, resolve } from 'path';
+import path from 'path';
+import process from 'process';
 
 // Helper to convert absolute paths to relative paths from project root
 export function toRelativePath(filePath: string): string {
-  return relative(process.cwd(), filePath);
+  return path.relative(path.resolve(process.cwd()), filePath);
 }
 
 export const colors = {
   // Basic colors
   reset: '\x1b[0m',
   bright: '\x1b[1m',
+  bold: '\x1b[1m',
+  b: '\x1b[1m',
   dim: '\x1b[2m',
-  
+  underline: '\x1b[4m',
+
   // Text colors
+  black: '\x1b[30m',
   red: '\x1b[31m',
   green: '\x1b[32m',
   yellow: '\x1b[33m',
@@ -21,8 +27,9 @@ export const colors = {
   cyan: '\x1b[36m',
   white: '\x1b[37m',
   gray: '\x1b[90m',
-  
+
   // Background colors
+  bgBlack: '\x1b[40m',
   bgRed: '\x1b[41m',
   bgGreen: '\x1b[42m',
   bgYellow: '\x1b[43m',
@@ -50,18 +57,18 @@ export const logger = {
   highlight: (text: string) => colorize(text, colors.cyan),
   bold: (text: string) => colorize(text, colors.bright),
   dim: (text: string) => colorize(text, colors.dim),
-  
+
   // Status indicators
   building: (target: string) => `${colorize('⚡', colors.yellow)} Building ${colorize(target, colors.cyan)}...`,
   watching: (target: string) => `${colorize(' ', colors.blue)} Watching ${colorize(target, colors.cyan)} for changes...`,
   complete: (target: string) => `${colorize('✅', colors.green)} ${colorize(target, colors.cyan)} build complete!`,
   failed: (target: string) => `${colorize('❌', colors.red)} ${colorize(target, colors.cyan)} build failed!`,
-  
+
   // File operations
   copied: (from: string, to?: string) => `${colorize('📋', colors.cyan)} Copied ${colorize(toRelativePath(from), colors.dim)}${to ? ` → ${colorize(toRelativePath(to), colors.dim)}` : ''}`,
   generated: (file: string) => `${colorize(' ', colors.cyan)} Generated ${colorize(toRelativePath(file), colors.dim)}`,
   executable: (file: string) => `${colorize(' ', colors.green)} Made executable: ${colorize(toRelativePath(file), colors.dim)}`,
-  
+
   // Statistics
   size: (label: string, size: string, path?: string) => {
     const sizeColored = colorize(size, colors.yellow);
@@ -69,24 +76,24 @@ export const logger = {
     const pathColored = path ? colorize(path, colors.dim) : '';
     return `${colorize('📦', colors.blue)} ${labelColored} size: ${sizeColored}${path ? ` (${pathColored})` : ''}`;
   },
-  
+
   // Progress indicators
   step: (current: number, total: number, description: string) => {
     const progress = colorize(`[${current}/${total}]`, colors.white);
     const desc = colorize(description, colors.cyan);
     return `${progress} ${desc}`;
   },
-  
+
   // Headers and sections
   header: (text: string) => colorize(`\n${text}`, colors.bright + colors.cyan),
   section: (text: string) => colorize(text, colors.bright),
-  
+
   // Raw logging with color support
   log: (message: string, color?: keyof typeof colors) => {
     const colored = color ? colorize(message, colors[color]) : message;
     console.log(colored);
   },
-  
+
   // Error handling
   warn: (message: string) => console.warn(colorize(`⚠️  ${message}`, colors.yellow)),
   logError: (message: string, error?: Error) => {
@@ -96,3 +103,47 @@ export const logger = {
     }
   }
 };
+
+// Setup colors
+export function enableColors() {
+  return String.prototype;
+}
+
+Object.keys(colors).forEach(color => {
+  String.prototype[color] = () => { return `${colors[color]}${this}${colors.reset}` };
+  Object.defineProperty(String.prototype, color, {
+    get: function() {
+      return colors[color] + this + colors.reset;
+    },
+    configurable: true // Allows redefinition or deletion
+  });
+})
+
+declare global {
+  interface String {
+    red: string;
+    green: string;
+    yellow: string;
+    blue: string;
+    magenta: string;
+    cyan: string;
+    white: string;
+    gray: string;
+    black: string;
+    // @ts-ignore
+    bold: string;
+    b: string;
+    dim: string;
+    bright: string;
+    underline: string;
+    bgRed: string;
+    bgGreen: string;
+    bgYellow: string;
+    bgBlue: string;
+    bgMagenta: string;
+    bgCyan: string;
+    bgWhite: string;
+    bgBlack: string;
+  }
+}
+

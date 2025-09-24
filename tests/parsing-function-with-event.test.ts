@@ -1,4 +1,4 @@
-import { createTestWorkspace, setLogger, TestLspDocument } from './helpers';
+import { createTestWorkspace, fail, setLogger, TestLspDocument } from './helpers';
 import { SyntaxNode } from 'web-tree-sitter';
 import { initializeParser } from '../src/parser';
 import { Analyzer, analyzer } from '../src/analyze';
@@ -6,6 +6,8 @@ import { FishSymbol } from '../src/parsing/symbol';
 import { LspDocument } from '../src/document';
 import { flattenNested } from '../src/utils/flatten';
 import { getDiagnostics } from '../src/diagnostics/validate';
+import { ErrorCodes } from '../src/diagnostics/error-codes';
+import { config } from '../src/config';
 
 const inputDocs: TestLspDocument[] = [];
 let documents: LspDocument[] = [];
@@ -15,6 +17,7 @@ describe('FishSymbol parsing functions tests', () => {
 
   beforeAll(async () => {
     await Analyzer.initialize();
+    config.fish_lsp_diagnostic_disable_error_codes = [ErrorCodes.requireAutloadedFunctionHasDescription];
   });
 
   describe('initialized', () => {
@@ -49,8 +52,8 @@ describe('FishSymbol parsing functions tests', () => {
     });
 
     it('should analyze a simple function definition', () => {
-      const config = documents.find(doc => doc.path.endsWith('config.fish'));
-      const hookFunction = documents.find(doc => doc.path.endsWith('functions/another_function.fish'));
+      const config = documents.find(doc => doc.path.endsWith('config.fish'))!;
+      const hookFunction = documents.find(doc => doc.path.endsWith('functions/another_function.fish'))!;
       if (!hookFunction || !config) fail();
       expect(config).toBeDefined();
       expect(hookFunction).toBeDefined();
@@ -94,8 +97,8 @@ describe('FishSymbol parsing functions tests', () => {
     });
 
     it('should analyze a simple function definition', () => {
-      const config = documents.find(doc => doc.path.endsWith('config.fish'));
-      const functionDoc = documents.find(doc => doc.path.endsWith('conf.d/abbreviations.fish'));
+      const config = documents.find(doc => doc.path.endsWith('config.fish'))!;
+      const functionDoc = documents.find(doc => doc.path.endsWith('conf.d/abbreviations.fish'))!;
       if (!functionDoc || !config) fail();
       expect(config).toBeDefined();
       expect(functionDoc).toBeDefined();
@@ -110,7 +113,7 @@ describe('FishSymbol parsing functions tests', () => {
 
       expect(functionSymbol?.isFunction()).toBeTruthy();
 
-      const diagnostics = getDiagnostics(functionCached.root, functionCached.document);
+      const diagnostics = getDiagnostics(functionCached.root!, functionCached.document);
       expect(diagnostics.length).toBe(0);
     });
   });
@@ -157,8 +160,8 @@ describe('FishSymbol parsing functions tests', () => {
     });
 
     it('should analyze a simple function definition', () => {
-      const config = documents.find(doc => doc.path.endsWith('config.fish'));
-      const bindDoc = documents.find(doc => doc.path.endsWith('conf.d/bindings.fish'));
+      const config = documents.find(doc => doc.path.endsWith('config.fish'))!;
+      const bindDoc = documents.find(doc => doc.path.endsWith('conf.d/bindings.fish'))!;
       if (!bindDoc || !config) fail();
       expect(config).toBeDefined();
       expect(bindDoc).toBeDefined();
@@ -173,7 +176,7 @@ describe('FishSymbol parsing functions tests', () => {
 
       expect(bindSymbol?.isFunction()).toBeTruthy();
 
-      const diagnostics = getDiagnostics(bindCached.root, bindCached.document);
+      const diagnostics = getDiagnostics(bindCached.root!, bindCached.document);
       expect(diagnostics.length).toBe(0);
       diagnostics.forEach((d, idx) => {
         console.log({
@@ -189,10 +192,6 @@ describe('FishSymbol parsing functions tests', () => {
         });
       });
     });
-  });
-
-  describe('analyze workspace 4', () => {
-
   });
 });
 

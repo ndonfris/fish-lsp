@@ -1,4 +1,4 @@
-.TH "FISH\-LSP" "1" "August 2025" "1.0.11-pre.19" "fish-lsp"
+.TH "FISH\-LSP" "1" "September 2025" "1.0.11-pre.23" "fish-lsp"
 .SH "NAME"
 \fBfish-lsp\fR \- A language server for the fish shell
 .SH SYNOPSIS
@@ -67,6 +67,8 @@ show the environment variables available to the lsp
 \fB\-\-no\-comments\fP             skip outputting comments
 .br
 \fB\-\-confd\fP                   output for redirecting to conf\.d/fish\-lsp\.fish
+.br
+\fB\-\-json\fP                    output \fBfish_lsp_*\fP initialization variables as JSON object (for vscode \fBsettings\.json\fP)
 .SS \fBinfo\fP
 .P
 show the build info of fish\-lsp
@@ -106,6 +108,8 @@ show the build info of fish\-lsp
 \fB\-\-use\-workspace <PATH>\fP    use the workspace at the specified directory path when \fBfish\-lsp info \-\-time\-startup\fP is used
 .br
 \fB\-\-no\-warning\fP              disable message in the \fBfish\-lsp info \-\-time\-startup\fP output
+.br
+\fB\-\-show\-files\fP              show the files that were indexed during startup when \fBfish\-lsp info \-\-time\-startup\fP is used
 .br
 \fB\-\-dump\-parse\-tree <FILE>\fP  show the tree\-sitter AST for the specified file
 .br

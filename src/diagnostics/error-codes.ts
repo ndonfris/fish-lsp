@@ -9,7 +9,7 @@ export namespace ErrorCodes {
   export const dotSourceCommand = 1005;
 
   export const singleQuoteVariableExpansion = 2001;
-  export const usedAlias = 2002;
+  export const usedWrapperFunction = 2002;
   export const usedUnviersalDefinition = 2003;
   export const usedExternalShellCommandWhenBuiltinExists = 2004;
 
@@ -103,12 +103,12 @@ export namespace ErrorCodes {
       isDeprecated: true,
       message: 'non-escaped expansion variable in single quote string',
     },
-    [usedAlias]: {
+    [usedWrapperFunction]: {
       severity: DiagnosticSeverity.Warning,
-      code: usedAlias,
-      codeDescription: { href: 'https://fishshell.com/docs/current/cmds/alias.html' },
+      code: usedWrapperFunction,
+      codeDescription: { href: 'https://fishshell.com/docs/current/commands.html' },
       source: 'fish-lsp',
-      message: 'alias used, prefer using functions instead',
+      message: 'Wrapper command (`export`, `alias`, etc.) used, while preferring usage of primitive commands.\n\nUse command: \n```fish\nset -gx fish_lsp_allow_fish_wrapper_functions true\n```\nto disable this warning globally.',
     },
     [usedUnviersalDefinition]: {
       severity: DiagnosticSeverity.Warning,

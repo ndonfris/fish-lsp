@@ -72,7 +72,7 @@ export function createPlugins(options: PluginOptions): esbuild.Plugin[] {
   return plugins;
 }
 
-export function createDefines(target: 'node' | 'browser', production = false): Record<string, string> {
+export function createDefines(target: 'node' | 'browser' | string, production = false): Record<string, string> {
   const defines: Record<string, string> = {
     'process.env.NODE_ENV': production ? '"production"' : '"development"',
   };
@@ -144,8 +144,8 @@ export function createSourceMapOptimizationPlugin(preserveSourceContent?: boolea
             // This keeps file references but removes the full source code
             if (preserveSourceContent) {
               console.log(`📦 Source map: ${colorize(toRelativePath(sourcemapFile), colors.white)}`);
-              console.log(`  Size: ${colorize((originalSize/1024/1024).toFixed(1) + 'MB', colors.white)} (with source content for debugging)`);
-              console.log(`  Sources: ${colorize(sourcemap.sources.length + ' files', colors.white)}`);
+              console.log(`  Size: ${colorize((originalSize/1024/1024).toFixed(1) + 'MB', colors.white)} (with source content for debugging)`);
+              console.log(`  Sources: ${colorize(sourcemap.sources.length + ' files', colors.white)}`);
             } else if (sourcemap.sourcesContent) {
               delete sourcemap.sourcesContent;
               
@@ -231,9 +231,9 @@ export function createSpecialSourceMapPlugin(options: { preserveOnlySrcContent?:
               };
               
               console.log(`📦 Special source map: ${colorize(toRelativePath(sourcemapFile), colors.white)}`);
-              console.log(`  Total sources: ${colorize(sourcemap.sources.length + ' files', colors.white)}`);
-              console.log(`  Src/ files with content: ${colorize(srcFileCount + ' files', colors.white)}`);
-              console.log(`  Other sources (content removed): ${colorize((sourcemap.sources.length - srcFileCount) + ' files', colors.white)}`);
+              console.log(`  Total sources: ${colorize(sourcemap.sources.length + ' files', colors.white)}`);
+              console.log(`  src/ files with content: ${colorize(srcFileCount + ' files', colors.white)}`);
+              console.log(`  Other sources (content removed): ${colorize((sourcemap.sources.length - srcFileCount) + ' files', colors.white)}`);
               
               if (srcFileCount > 0) {
                 const optimizedContent = JSON.stringify(optimizedSourcemap);
@@ -244,22 +244,23 @@ export function createSpecialSourceMapPlugin(options: { preserveOnlySrcContent?:
                   ? ((originalSize - newSize) / originalSize * 100).toFixed(1)
                   : '0';
                 
-                console.log(`  Size reduction: ${colorize(`${reduction}% (${(originalSize/1024/1024).toFixed(1)}MB → ${(newSize/1024/1024).toFixed(1)}MB)`, colors.white)}`);
-                console.log(`  Mappings preserved: ${colorize('All mappings intact', colors.white)}`);
+                console.log(`  Size reduction: ${colorize(`${reduction}% (${(originalSize/1024/1024).toFixed(1)}MB → ${(newSize/1024/1024).toFixed(1)}MB)`, colors.white)}`);
+                console.log(`  Mappings preserved: ${colorize('All mappings intact', colors.white)}`);
                 
                 // Note: Shebang modification removed - use NODE_OPTIONS="--enable-source-maps" instead
                 // to avoid process.argv parsing issues
               } else {
-                console.log(`  ${colorize('Warning: No src/ TypeScript files found in sourcemap', colors.white)}`);
+                console.log(`  ${colorize('Warning: No src/ TypeScript files found in sourcemap', colors.white)}`);
               }
             } else {
               // Fallback to regular sourcemap optimization
               console.log(`📦 Source map: ${colorize(toRelativePath(sourcemapFile), colors.white)}`);
-              console.log(`  Size: ${colorize((originalSize/1024/1024).toFixed(1) + 'MB', colors.white)} (preserved for debugging)`);
-              console.log(`  Sources: ${colorize(sourcemap.sources.length + ' files', colors.white)}`);
+              console.log(`  Size: ${colorize((originalSize/1024/1024).toFixed(1) + 'MB', colors.white)} (preserved for debugging)`);
+              // console.log(`  Sources: ${colorize(sourcemap.sources.length + ' files', colors.white)}`);
+              console.log(`  Sources: ${colorize(sourcemap.sources.length + ' files', colors.white)}`);
             }
           } catch (error) {
-            console.log(`  ${colorize('Warning: Could not process sourcemap - ' + (error as Error).message, colors.white)}`);
+            console.log(`  ${colorize('Warning: Could not process sourcemap - ' + (error as Error).message, colors.white)}`);
           }
         }
       });

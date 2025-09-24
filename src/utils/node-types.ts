@@ -3,6 +3,7 @@ import { getLeafNodes } from './tree-sitter';
 import { isDefinitionName, isEmittedEventDefinitionName, VariableDefinitionKeywords } from '../parsing/barrel';
 import { Option, isMatchingOption, isMatchingOptionOrOptionValue, isMatchingOptionValue } from '../parsing/options';
 import { isVariableDefinitionName, isFunctionDefinitionName, isAliasDefinitionName, isExportVariableDefinitionName, isArgparseVariableDefinitionName } from '../parsing/barrel';
+import { BuiltInList } from './builtins';
 
 // use the `../parsing/barrel` barrel file's imports for finding the definition names
 
@@ -638,6 +639,10 @@ export function isReturn(node: SyntaxNode) {
   return node.type === 'return' && node.firstChild?.text === 'return';
 }
 
+export function isExit(node: SyntaxNode) {
+  return node.type === 'command' && node.firstChild?.text === 'exit';
+}
+
 export function isConditionalCommand(node: SyntaxNode) {
   return node.type === 'conditional_execution';
 }
@@ -790,6 +795,10 @@ export function isBraceExpansion(node: SyntaxNode) {
 export function isPath(node: SyntaxNode) {
   if (node.text.includes('/')) return true;
   return false;
+}
+
+export function isBuiltin(node: SyntaxNode) {
+  return isCommandWithName(node, ...BuiltInList);
 }
 
 export function isCompleteCommandName(node: SyntaxNode) {

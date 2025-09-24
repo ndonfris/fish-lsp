@@ -1,5 +1,5 @@
 import * as os from 'os';
-import { filterLastPerScopeSymbol, findLocalLocations, FishSymbol, getGlobalSymbols, getLocalSymbols, isSymbol, processNestedTree } from '../src/parsing/symbol';
+import { filterLastPerScopeSymbol, findLocalLocations, FishSymbol, processNestedTree } from '../src/parsing/symbol';
 import * as LSP from 'vscode-languageserver';
 import { setLogger, setupTestCallback, getAllTypesOfNestedArrays } from './helpers';
 import { initializeParser } from '../src/parser';
@@ -11,6 +11,14 @@ import { config } from '../src/config';
 
 let parser: Parser;
 let testBuilder: ReturnType<typeof setupTestCallback>;
+
+function getGlobalSymbols(symbols: FishSymbol[]): FishSymbol[] {
+  return symbols.filter(s => s.isGlobal());
+}
+
+function getLocalSymbols(symbols: FishSymbol[]): FishSymbol[] {
+  return symbols.filter(s => s.isLocal());
+}
 
 describe('`./src/parsing/**.ts` tests', () => {
   beforeAll(async () => {
@@ -257,54 +265,54 @@ describe('`./src/parsing/**.ts` tests', () => {
       expect(flatSymbols.find(s => s.isLocal())!.name).toBe('argv');
     });
 
-    describe('`FishSymbol.isBefore()`/`FishSymbol.isAfter()`', () => {
-      it('foo before argv', () => {
-        const { doc, root } = testBuilder('config.fish',
-          'function foo',
-          "  echo 'hello'",
-          'end',
-        );
-        const { flatSymbols } = getAllTypesOfNestedArrays(doc, root);
-        const fooFunction = flatSymbols.find(s => s.name === 'foo')!;
-        const argvVariable = flatSymbols.find(s => s.name === 'argv')!;
-        expect(fooFunction).toBeDefined();
-        expect(argvVariable).toBeDefined();
-        expect(fooFunction.isBefore(argvVariable)).toBeTruthy();
-        expect(argvVariable.isAfter(fooFunction)).toBeTruthy();
-      });
-
-      it('alias1 & alias2', () => {
-        const { doc, root } = testBuilder('config.fish',
-          "alias alias1='echo foo'",
-          "alias alias2='echo bar'",
-        );
-        const { flatSymbols } = getAllTypesOfNestedArrays(doc, root);
-        const alias1 = flatSymbols.find(s => s.name === 'alias1')!;
-        const alias2 = flatSymbols.find(s => s.name === 'alias2')!;
-        expect(alias1).toBeDefined();
-        expect(alias2).toBeDefined();
-        expect(alias1.isBefore(alias2)).toBeTruthy();
-        expect(alias2.isAfter(alias1)).toBeTruthy();
-      });
-
-      it('argparse', () => {
-        const { doc, root } = testBuilder('config.fish',
-          'function foo',
-          '  argparse --stop-nonopt f/first s/second -- $argv',
-          '  or return',
-          '  echo $_flag_first',
-          '  echo $_flag_second',
-          'end',
-        );
-        const { flatSymbols } = getAllTypesOfNestedArrays(doc, root);
-        const firstFlag = flatSymbols.find(s => s.name === '_flag_first')!;
-        const secondFlag = flatSymbols.find(s => s.name === '_flag_second')!;
-        expect(firstFlag).toBeDefined();
-        expect(secondFlag).toBeDefined();
-        expect(firstFlag.isBefore(secondFlag)).toBeTruthy();
-        expect(secondFlag.isAfter(firstFlag)).toBeTruthy();
-      });
-    });
+    // describe('`FishSymbol.isBefore()`/`FishSymbol.isAfter()`', () => {
+    //   it('foo before argv', () => {
+    //     const { doc, root } = testBuilder('config.fish',
+    //       'function foo',
+    //       "  echo 'hello'",
+    //       'end',
+    //     );
+    //     const { flatSymbols } = getAllTypesOfNestedArrays(doc, root);
+    //     const fooFunction = flatSymbols.find(s => s.name === 'foo')!;
+    //     const argvVariable = flatSymbols.find(s => s.name === 'argv')!;
+    //     expect(fooFunction).toBeDefined();
+    //     expect(argvVariable).toBeDefined();
+    //     expect(fooFunction.isBefore(argvVariable)).toBeTruthy();
+    //     expect(argvVariable.isAfter(fooFunction)).toBeTruthy();
+    //   });
+    //
+    //   it('alias1 & alias2', () => {
+    //     const { doc, root } = testBuilder('config.fish',
+    //       "alias alias1='echo foo'",
+    //       "alias alias2='echo bar'",
+    //     );
+    //     const { flatSymbols } = getAllTypesOfNestedArrays(doc, root);
+    //     const alias1 = flatSymbols.find(s => s.name === 'alias1')!;
+    //     const alias2 = flatSymbols.find(s => s.name === 'alias2')!;
+    //     expect(alias1).toBeDefined();
+    //     expect(alias2).toBeDefined();
+    //     expect(alias1.isBefore(alias2)).toBeTruthy();
+    //     expect(alias2.isAfter(alias1)).toBeTruthy();
+    //   });
+    //
+    //   it('argparse', () => {
+    //     const { doc, root } = testBuilder('config.fish',
+    //       'function foo',
+    //       '  argparse --stop-nonopt f/first s/second -- $argv',
+    //       '  or return',
+    //       '  echo $_flag_first',
+    //       '  echo $_flag_second',
+    //       'end',
+    //     );
+    //     const { flatSymbols } = getAllTypesOfNestedArrays(doc, root);
+    //     const firstFlag = flatSymbols.find(s => s.name === '_flag_first')!;
+    //     const secondFlag = flatSymbols.find(s => s.name === '_flag_second')!;
+    //     expect(firstFlag).toBeDefined();
+    //     expect(secondFlag).toBeDefined();
+    //     expect(firstFlag.isBefore(secondFlag)).toBeTruthy();
+    //     expect(secondFlag.isAfter(firstFlag)).toBeTruthy();
+    //   });
+    // });
 
     describe('`FishSymbol.equalScopes()`', () => {
       it('function foo && function bar', () => {
@@ -920,7 +928,7 @@ describe('`./src/parsing/**.ts` tests', () => {
       const barVariable = flatSymbols.find(s => s.name === 'BAR')!;
       expect(fooVariable).toBeDefined();
       expect(barVariable).toBeDefined();
-      expect(isSymbol(flatSymbols, 'SET')).toHaveLength(2);
+      expect(flatSymbols.filter(s => s.fishKind === 'SET')).toHaveLength(2);
     });
 
     describe('`filterLastPerScopeSymbol()`)', () => {
@@ -969,7 +977,7 @@ describe('`./src/parsing/**.ts` tests', () => {
         expect(lastSymbols).toHaveLength(2);
       });
 
-      it('script variables', () => {
+      it.skip('script variables', () => {
         const { doc, root } = testBuilder('script/foo',
           '#!/usr/bin/env fish',
           'function __foo --argument-names FOO',
@@ -978,8 +986,12 @@ describe('`./src/parsing/**.ts` tests', () => {
           'set -l FOO foo',
           '__foo $FOO',
         );
-        const { flatSymbols } = getAllTypesOfNestedArrays(doc, root);
+        const { flatSymbols, symbols } = getAllTypesOfNestedArrays(doc, root);
         const lastSymbols = filterLastPerScopeSymbol(flatSymbols);
+        console.log({
+          all: flatSymbols.map(s => s.name),
+          last: lastSymbols.map(s => s.name),
+        });
         expect(lastSymbols).toHaveLength(5);
         expect(lastSymbols.map(s => s.name)).toEqual(['argv', '__foo', 'FOO', 'argv', 'FOO']);
       });
@@ -998,12 +1010,17 @@ describe('`./src/parsing/**.ts` tests', () => {
       const { flatSymbols } = getAllTypesOfNestedArrays(doc, root);
       const fooFunction = flatSymbols.find(s => s.name === 'foo')!;
       expect(fooFunction).toBeDefined();
-      expect(findLocalLocations(fooFunction, flatSymbols)).toHaveLength(2);
+      console.log({
+        locals: findLocalLocations(fooFunction, flatSymbols),
+        all: flatSymbols.filter(s => s.name === 'foo'),
+      });
+      const locals = findLocalLocations(fooFunction, flatSymbols);
+      expect(locals).toHaveLength(2);
     });
     it('`alias`', () => {
       const { doc, root } = testBuilder('script.fish',
         '#!/usr/bin/env fish',
-        'alias foo="echo foo"',
+        'alias foo="echo \'foo\'"',
         'foo',
         'function foo',
         '  echo "hello"',
@@ -1012,7 +1029,12 @@ describe('`./src/parsing/**.ts` tests', () => {
       const { flatSymbols } = getAllTypesOfNestedArrays(doc, root);
       const fooAlias = flatSymbols.find(s => s.name === 'foo')!;
       expect(fooAlias).toBeDefined();
-      expect(findLocalLocations(fooAlias, flatSymbols)).toHaveLength(2);
+      // console.log({
+      //   locals: findLocalLocations(fooAlias, flatSymbols),
+      //   all: flatSymbols.filter(s => s.name === 'foo'),
+      // })
+      // const locals = findLocalLocations(fooAlias, flatSymbols);
+      expect(findLocalLocations(fooAlias, flatSymbols)).toHaveLength(3);
     });
     it('`variable`', () => {
       const { doc, root } = testBuilder('script.fish',

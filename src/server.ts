@@ -7,7 +7,7 @@ import { AnalyzedDocument, analyzer, Analyzer } from './analyze';
 import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, ImplementationParams, CodeLensParams, CodeLens, WorkspaceFoldersChangeEvent } from 'vscode-languageserver';
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, documents } from './document';
-import { formatDocumentContent } from './formatting';
+import { formatDocumentWithIndentComments, formatDocumentContent } from './formatting';
 import { createServerLogger, logger } from './logger';
 import { connection, createBrowserConnection, setExternalConnection } from './utils/startup';
 import { formatTextWithIndents, symbolKindsFromNode, uriToPath } from './utils/translation';
@@ -28,6 +28,7 @@ import { enrichToMarkdown, handleBraceExpansionHover, handleEndStdinHover, handl
 import { findActiveParameterStringRegex, getAliasedCompletionItemSignature, getDefaultSignatures, getFunctionSignatureHelp, isRegexStringSignature } from './signature';
 import { CompletionItemMap } from './utils/completion/startup-cache';
 import { getDocumentHighlights } from './document-highlight';
+import { FishSemanticTokensProvider } from './semantic-tokens';
 import { buildCommentCompletions } from './utils/completion/comment-completions';
 import { codeActionHandlers } from './code-actions/code-action-handler';
 import { createExecuteCommandHandler } from './command';
@@ -179,6 +180,7 @@ export default class FishServer {
     // setup handlers
     const { onCodeAction } = codeActionHandlers(documents, analyzer);
     const documentHighlightHandler = getDocumentHighlights(analyzer);
+    const semanticTokensProvider = new FishSemanticTokensProvider(analyzer);
     const commandCallback = createExecuteCommandHandler(connection, documents, analyzer);
 
     // register the handlers
@@ -213,6 +215,9 @@ export default class FishServer {
 
     connection.onDocumentHighlight(documentHighlightHandler);
     connection.languages.inlayHint.on(this.onInlayHints.bind(this));
+    connection.languages.semanticTokens.on(semanticTokensProvider.provideSemanticTokens.bind(semanticTokensProvider));
+    connection.languages.semanticTokens.onRange(semanticTokensProvider.provideSemanticTokensRange.bind(semanticTokensProvider));
+
     connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
     connection.onExecuteCommand(commandCallback);
 
@@ -236,10 +241,12 @@ export default class FishServer {
       await workspaceManager.analyzePendingDocuments(progress, (str) => logger.info('didOpen', str));
       progress.done();
     }
+    analyzer.diagnostics.setInitial(doc.uri);
   }
 
   async didChangeTextDocument(params: LSP.DidChangeTextDocumentParams): Promise<void> {
     this.logParams('didChangeTextDocument', params);
+
     const progress = await connection.window.createWorkDoneProgress();
     const path = uriToPath(params.textDocument.uri);
     let doc = documents.get(path);
@@ -253,11 +260,7 @@ export default class FishServer {
 
     // update the document with the changes
     currentDocument = doc;
-    doc = doc.update(params.contentChanges);
-    documents.set(doc);
-
-    // Clear diagnostics immediately when content changes
-    this.clearDiagnostics({ uri: doc.uri });
+    documents.applyChanges(params.textDocument.uri, params.contentChanges);
 
     // Force fresh analysis by bypassing cache for changed documents
     const analysisResult = this.analyzeDocument({ uri: doc.uri }, true);
@@ -268,36 +271,42 @@ export default class FishServer {
       analysisResult: !!analysisResult,
     });
 
-    if (!this.backgroundAnalysisComplete) {
-      await workspaceManager.analyzePendingDocuments(progress);
-      progress.done();
-      return;
-    }
     await workspaceManager.analyzePendingDocuments();
     progress.done();
+    analyzer.diagnostics.set(doc.uri);
   }
 
   didCloseTextDocument(params: LSP.DidCloseTextDocumentParams): void {
     this.logParams('didCloseTextDocument', params);
     workspaceManager.handleCloseDocument(params.textDocument.uri);
+    analyzer.diagnostics.delete(params.textDocument.uri);
   }
 
   async didSaveTextDocument(params: LSP.DidSaveTextDocumentParams): Promise<void> {
     this.logParams('didSaveTextDocument', params);
+    // this.clearDiagnostics({ uri: params.textDocument.uri });
     const path = uriToPath(params.textDocument.uri);
-    const doc = documents.get(path);
-    if (doc) {
-      this.analyzeDocument({ uri: doc.uri });
-      workspaceManager.handleOpenDocument(doc);
-      workspaceManager.handleUpdateDocument(doc);
-      await workspaceManager.analyzePendingDocuments();
+    let doc = documents.get(path);
+    if (!doc && params.text) {
+      doc = LspDocument.createTextDocumentItem(params.textDocument.uri, params.text || '');
+      documents.set(doc);
+    } else if (!doc) {
+      this.analyzeDocument({ uri: params.textDocument.uri });
+      return;
     }
+    // this.clearDiagnostics({uri: params.textDocument.uri})
+    this.analyzeDocument({ uri: doc.uri });
+    workspaceManager.handleOpenDocument(doc);
+    workspaceManager.handleUpdateDocument(doc);
+    await workspaceManager.analyzePendingDocuments();
+    analyzer.diagnostics.setInitial(doc.uri);
   }
 
   /**
    * Stop the server and close all workspaces.
    */
   async onShutdown() {
+    analyzer.diagnostics.clear();
     workspaceManager.clear();
     documents.clear();
     currentDocument = null;
@@ -469,7 +478,7 @@ export default class FishServer {
       .filter(s => !!s);
   }
 
-  protected get supportHierarchicalDocumentSymbol(): boolean {
+  public get supportHierarchicalDocumentSymbol(): boolean {
     const textDocument = this.initializeParams?.capabilities.textDocument;
     const documentSymbol = textDocument && textDocument.documentSymbol;
     return (
@@ -759,20 +768,21 @@ export default class FishServer {
     const { doc } = this.getDefaultsForPartialParams(params);
     if (!doc) return [];
 
-    const formattedText = await formatDocumentContent(doc.getText()).catch(error => {
+    const formattedText = await formatDocumentWithIndentComments(doc).catch(error => {
       // this.connection.console.error(`Formatting error: ${error}`);
       if (config.fish_lsp_show_client_popups) {
-        connection.window.showErrorMessage(`Failed to format range: ${error}`);
+        connection.window.showErrorMessage(`Failed to format document: ${error}`);
       }
       return doc.getText(); // fallback to original text on error
     });
 
-    const fullRange: LSP.Range = {
-      start: doc.positionAt(0),
-      end: doc.positionAt(doc.getText().length),
-    };
-
-    return [TextEdit.replace(fullRange, formattedText)];
+    return [{
+      range: LSP.Range.create(
+        LSP.Position.create(0, 0),
+        LSP.Position.create(Number.MAX_VALUE, Number.MAX_VALUE),
+      ),
+      newText: formattedText,
+    }];
   }
 
   async onDocumentTypeFormatting(params: DocumentFormattingParams): Promise<TextEdit[]> {
@@ -780,20 +790,21 @@ export default class FishServer {
     const { doc } = this.getDefaultsForPartialParams(params);
     if (!doc) return [];
 
-    const formattedText = await formatDocumentContent(doc.getText()).catch(error => {
+    const formattedText = await formatDocumentWithIndentComments(doc).catch(error => {
       connection.console.error(`Formatting error: ${error}`);
       if (config.fish_lsp_show_client_popups) {
-        connection.window.showErrorMessage(`Failed to format range: ${error}`);
+        connection.window.showErrorMessage(`Failed to format document: ${error}`);
       }
       return doc.getText(); // fallback to original text on error
     });
 
-    const fullRange: LSP.Range = {
-      start: doc.positionAt(0),
-      end: doc.positionAt(doc.getText().length),
-    };
-
-    return [TextEdit.replace(fullRange, formattedText)];
+    return [{
+      range: LSP.Range.create(
+        LSP.Position.create(0, 0),
+        LSP.Position.create(Number.MAX_VALUE, Number.MAX_VALUE),
+      ),
+      newText: formattedText,
+    }];
   }
   /**
    * Currently only works for whole line selections, in the future we should try to make every
@@ -846,7 +857,6 @@ export default class FishServer {
       ),
     ];
   }
-
   async onFoldingRanges(params: FoldingRangeParams): Promise<FoldingRange[] | undefined> {
     this.logParams('onFoldingRanges', params);
 
@@ -987,12 +997,12 @@ export default class FishServer {
       }
     }
     const doc = analyzedDoc.document;
-    const diagnostics = analyzer.getDiagnostics(doc.uri);
-    logger.log(`Sending Diagnostics${bypassCache ? ' (Bypassed Cache)' : ''}`, {
-      uri: doc.uri,
-      diagnostics: diagnostics.map(d => d.code),
-    });
-    connection.sendDiagnostics({ uri: doc.uri, diagnostics });
+    // const diagnostics = analyzer.getDiagnostics(doc.uri);
+    // logger.log(`Sending Diagnostics${bypassCache ? ' (Bypassed Cache)' : ''}`, {
+    //   uri: doc.uri,
+    //   diagnostics: diagnostics.map(d => d.code),
+    // });
+    // connection.sendDiagnostics({ uri: doc.uri, diagnostics: analyzer.diagnostics.getDiagnostics(doc.uri) });
     // re-indexes the workspace and changes the current workspace to the document
     workspaceManager.handleUpdateDocument(doc);
     return {

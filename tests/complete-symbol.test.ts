@@ -10,81 +10,85 @@ import { analyzer, Analyzer } from '../src/analyze';
 import { getCompletionSymbol, CompletionSymbol } from '../src/parsing/complete';
 import { LspDocument } from '../src/document';
 import { getReferences } from '../src/references';
+import { fail } from 'assert';
+import TestWorkspace from './test-workspace-utils';
 
 let parser: Parser;
 
 describe('parsing symbols', () => {
   setLogger();
+
   beforeEach(async () => {
-    setupProcessEnvExecFile();
+    await setupProcessEnvExecFile();
     parser = await initializeParser();
     await Analyzer.initialize();
     await setupProcessEnvExecFile();
   });
 
   describe('completion --> to argparse', () => {
-    let workspace: LspDocument[] = [];
+    const workspace = TestWorkspace.create().addFiles({
+      relativePath: 'functions/foo.fish',
+      content: [
+        'function foo',
+        '    argparse -i h/help long other-long s \'1\' -- $argv',
+        '    or return',
+        '    echo hi',
+        'end',
+      ].join('\n'),
+    },
+    {
+      relativePath: 'completions/foo.fish',
+      content: [
+        'complete -c foo -f -k',
+        'complete -c foo -s h -l help',
+        'complete -c foo -k -l long',
+        'complete -c foo -k -l other-long -d \'other long\'',
+        'complete -c foo -k -s s -d \'short\'',
+        'complete -c foo -k -s 1 -d \'1 item\'',
+      ].join('\n'),
+    },
+    {
+      relativePath: 'conf.d/bar.fish',
+      content: [
+        'complete -c bar -f',
+        'complete -c bar -s h -l help',
+        'complete -c bar -s 1 -l oneline',
+        '',
+        'function bar',
+        '    argparse h/help 1/oneline -- $argv',
+        '    or return',
+        '    echo inside bar',
+        'end',
+      ].join('\n'),
+    },
+    {
+      relativePath: 'conf.d/baz.fish',
+      content: [
+        'function baz',
+        '    argparse h/help -- $argv',
+        '    or return',
+        '    if set -ql _flag_help',
+        '         echo \'help message\'',
+        '    end',
+        '    echo \'inside baz\'',
+        'end',
+        'complete -c baz -f',
+        'complete -c baz -s h -l help',
+        'function baz_helper',
+        '     foo --help',
+        'end',
+      ].join('\n'),
+    },
+    ).initialize();
+
+    // const workspace = test_workspace.workspace;
+
     beforeEach(async () => {
       parser = await initializeParser();
-      workspace = createTestWorkspace(analyzer,
-        {
-          path: 'functions/foo.fish',
-          text: [
-            'function foo',
-            '    argparse -i h/help long other-long s \'1\' -- $argv',
-            '    or return',
-            '    echo hi',
-            'end',
-          ].join('\n'),
-        },
-        {
-          path: 'completions/foo.fish',
-          text: [
-            'complete -c foo -f -k',
-            'complete -c foo -s h -l help',
-            'complete -c foo -k -l long',
-            'complete -c foo -k -l other-long -d \'other long\'',
-            'complete -c foo -k -s s -d \'short\'',
-            'complete -c foo -k -s 1 -d \'1 item\'',
-          ].join('\n'),
-        },
-        {
-          path: 'conf.d/bar.fish',
-          text: [
-            'complete -c bar -f',
-            'complete -c bar -s h -l help',
-            'complete -c bar -s 1 -l oneline',
-            '',
-            'function bar',
-            '    argparse h/help 1/oneline -- $argv',
-            '    or return',
-            '    echo inside bar',
-            'end',
-          ].join('\n'),
-        },
-        {
-          path: 'conf.d/baz.fish',
-          text: [
-            'function baz',
-            '    argparse h/help -- $argv',
-            '    or return',
-            '    if set -ql _flag_help',
-            '         echo \'help message\'',
-            '    end',
-            '    echo \'inside baz\'',
-            'end',
-            'complete -c baz -f',
-            'complete -c baz -s h -l help',
-            'function baz_helper',
-            '     foo --help',
-            'end',
-          ].join('\n'),
-        },
-      );
     });
 
     // it('completion >>(((*> function', () => {
-    it('completion simple => `complete -c foo -l help` -> `argparse h/help`', () => {
+    it('completion simple => `complete -c foo -l help` -> `argparse h/help`', async () => {
       const expectedOpts = [
         'foo -h',
         'foo --help',
@@ -94,11 +98,13 @@ describe('parsing symbols', () => {
         'foo -1',
       ];
 
-      const searchDoc = workspace.find(doc => doc.uri.endsWith('functions/foo.fish'))!;
+      workspace.analyzeAllFiles();
+
+      const searchDoc = workspace.getDocument('functions/foo.fish')!;
       const funcName = searchDoc?.getAutoLoadName() as string;
       const results: CompletionSymbol[] = [];
 
-      analyzer.findNodes((n: SyntaxNode, doc: LspDocument) => {
+      const result = analyzer.findNodes((n: SyntaxNode, doc: LspDocument) => {
         if (['functions', ''].includes(doc.getAutoloadType())) {
           return false;
         }
@@ -110,7 +116,11 @@ describe('parsing symbols', () => {
         return false;
       });
 
-      const uniqueUris = new Set(results.map(res => res.doc?.uri));
+      const uniqueUris = new Set([...result.filter(res => res?.uri)]);
+      console.log({
+        uniqueUris,
+        uris: results.map(res => res?.document?.uri),
+      });
       expect(uniqueUris.size === 1).toBeTruthy();
       // results.forEach((res) => {
       //   console.log({
@@ -127,7 +137,7 @@ describe('parsing symbols', () => {
       const helpOptPosition = helpOpt.getRange().start;
       // const helpOptLocation = Location.create(helpOpt.doc!.uri, helpOpt.getRange())
 
-      const defSymbol = analyzer.getDefinition(helpOpt.doc!, helpOptPosition);
+      const defSymbol = analyzer.getDefinition(helpOpt.document!, helpOptPosition);
       if (!defSymbol) {
         fail();
       }
@@ -158,7 +168,7 @@ describe('parsing symbols', () => {
       expect(locationUris).toEqual([
         'functions/foo.fish',
         'completions/foo.fish',
-        // 'conf.d/baz.fish',
+        'conf.d/baz.fish',
       ]);
 
       expect(refLocations.map(l => {
@@ -179,16 +189,16 @@ describe('parsing symbols', () => {
           range: Range.create(1, 24, 1, 28),
           text: 'help',
         },
-        // {
-        //   uri: 'conf.d/baz.fish',
-        //   range: Range.create(11, 11, 11, 16),
-        //   text: 'help',
-        // },
+        {
+          uri: 'conf.d/baz.fish',
+          range: Range.create(11, 11, 11, 16),
+          text: 'help',
+        },
       ]);
     });
 
     it.skip('argparse simple => `argparse h/help -- $argv` -> `complete -c foo -l help`', () => {
-      const searchDoc = workspace.find(doc => doc.uri.endsWith('functions/foo.fish'))!;
+      const searchDoc = workspace.getDocument('functions/foo.fish')!;
       // const funcName = searchDoc?.getAutoLoadName() as string;
       const funcSymbol = analyzer.getFlatDocumentSymbols(searchDoc.uri).find((symbol) => {
         if (symbol.name === '_flag_help' && symbol?.parent && symbol.parent.name === 'foo') {
@@ -229,7 +239,7 @@ describe('parsing symbols', () => {
     });
 
     it('completion advanced => `complete -c foo -l other-long` -> `argparse --other-long`', () => {
-      const searchDoc = workspace.find(doc => doc.uri.endsWith('completions/foo.fish'))!;
+      const searchDoc = workspace.getDocument('completions/foo.fish')!;
       const funcName = searchDoc?.getAutoLoadName() as string;
       const results: CompletionSymbol[] = [];
 
@@ -251,7 +261,7 @@ describe('parsing symbols', () => {
       if (!foundOpt) {
         fail();
       }
-      const foundDef = analyzer.getDefinition(foundOpt.doc!, foundOpt.getRange().start)!;
+      const foundDef = analyzer.getDefinition(foundOpt.document!, foundOpt.getRange().start)!;
       console.log({
         foundDef: foundDef?.name,
       });
@@ -290,7 +300,7 @@ describe('parsing symbols', () => {
     });
 
     it('command => `complete -c baz` -> `function baz;end;`', () => {
-      const searchDoc = workspace.find(doc => doc.uri.endsWith('conf.d/baz.fish'))!;
+      const searchDoc = workspace.getDocument('conf.d/baz.fish')!;
       const searchSymbol = analyzer.getFlatDocumentSymbols(searchDoc.uri).find((symbol) => {
         return symbol.name === 'baz' && symbol.kind === SymbolKind.Function;
       });

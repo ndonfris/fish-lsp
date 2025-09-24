@@ -4,7 +4,7 @@ import { TestWorkspace, TestFile, Query, DefaultTestWorkspaces, focusedWorkspace
 
 describe('Example Test Workspace Usage', () => {
   describe('Basic Usage Example', () => {
-    const testWorkspace = TestWorkspace.create({ name: 'example_basic' })
+    const testWorkspace = TestWorkspace.create({ name: 'example_basic', autoFocusWorkspace: true })
       .addFiles(
         TestFile.function('greet', `
 function greet
@@ -23,12 +23,14 @@ function setup_test --on-event fish_prompt
         echo "Test environment loaded"
     end
 end`),
-      );
-
-    testWorkspace.setup();
+      ).initialize();
 
     it('should create all expected documents', () => {
-      expect(focusedWorkspace?.allDocuments.length).toBe(4);
+      console.log({
+        focusedWorkspace: focusedWorkspace?.name,
+        focusedWorkspaceDocs: focusedWorkspace?.allDocuments().length,
+      });
+      expect(focusedWorkspace?.allDocuments().length).toBe(4);
     });
 
     it('should find documents by simple path', () => {
@@ -110,10 +112,10 @@ echo "Deploying application..."
 function helper
     echo "Helper function"
 end`),
-    );
+    ).initialize();
 
-    advancedWorkspace.setup();
-
+    // advancedWorkspace.setup();
+    //
     it('should handle scripts with shebangs', () => {
       const deployScript = advancedWorkspace.getDocument('deploy.fish');
       expect(deployScript?.getText()).toContain('#!/usr/bin/env fish');

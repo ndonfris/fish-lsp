@@ -297,6 +297,7 @@ export function createExecuteCommandHandler(
       global: true,
       local: false,
       export: true,
+      json: false,
       only: undefined,
     });
     connection.sendNotification('window/showMessage', {

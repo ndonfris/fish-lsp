@@ -22,7 +22,10 @@ export const autoloadedFishVariableNames = [
 
 export type AutoloadedFishVariableName = typeof autoloadedFishVariableNames[number];
 
+export let hasAutoloadedFishVariables = false;
+
 export async function setupProcessEnvExecFile() {
+  if (hasAutoloadedFishVariables) return autoloadedFishVariableNames;
   try {
     const result = await execEmbeddedFishFile('get-fish-autoloaded-paths.fish');
 
@@ -35,7 +38,7 @@ export async function setupProcessEnvExecFile() {
         const [variable, value]: [AutoloadedFishVariableName, string] = line.split('\t') as [AutoloadedFishVariableName, string];
         if (variable) {
           const storeValue = value ? value.trim() : undefined;
-          env.set(variable, storeValue);
+          env.set(variable.trim(), storeValue);
         }
       }
     });
@@ -44,6 +47,7 @@ export async function setupProcessEnvExecFile() {
     // Fallback: set basic default paths
     setupFallbackProcessEnv();
   }
+  hasAutoloadedFishVariables = true;
   return autoloadedFishVariableNames;
 }
 

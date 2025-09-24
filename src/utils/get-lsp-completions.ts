@@ -186,7 +186,7 @@ end
 # complete -n '__fish_lsp_env_main_switch --none'
 # \`\`\` 
 function __fish_lsp_env_main_switch --description 'check if the commandline contains any of the main env switches (--show|--create|--show-default|--names)'
-    argparse any none no-names names-joined -- $argv
+    argparse any none no-names no-output-types no-json names-joined -- $argv
     or return 1
 
     # none means we don't want to see any of the main switches
@@ -204,6 +204,15 @@ function __fish_lsp_env_main_switch --description 'check if the commandline cont
     if set -ql _flag_any
         if set -ql _flag_no_names
             __fish_contains_opt names
+            and return 1
+        end
+        if set -ql _flag_no_output_types
+            __fish_contains_opt json
+            or __fish_contains_opt confd
+            and return 1
+        end
+        if set -ql _flag_no_json
+            __fish_contains_opt json
             and return 1
         end
         not set -ql _flag_no_names && __fish_contains_opt names
@@ -414,6 +423,7 @@ complete -c fish-lsp -n '__fish_lsp_info_complete_opt time-only;'               
 complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_contains_opt time-startup; and not __fish_contains_opt no-warning'       -l no-warning      -d 'do not show warning message'
 complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_contains_opt time-startup; and not __fish_contains_opt use-workspace'    -l use-workspace   -d 'specify workspace directory' -xa '(__fish_complete_directories)'
 complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_contains_opt time-startup; and __fish_lsp_last_switch --use-workspace'                      -d 'workspace directory'         -xa '(__fish_complete_directories)'
+complete -c fish-lsp -n '__fish_seen_subcommand_from info; and __fish_contains_opt time-startup; and not __fish_contains_opt show-files'       -l show-files      -d 'show the files indexed'
 complete -c fish-lsp -n '__fish_lsp_info_complete_opt source-maps;'                                                                            -l source-maps     -d 'show the source maps used by the server'
 complete -c fish-lsp -n '__fish_lsp_info_sourcemaps_complete'                                                                                  -l all             -d 'verbose info showing all sourcemaps used by the server on the local machine' 
 complete -c fish-lsp -n '__fish_lsp_info_sourcemaps_complete'                                                                                  -l all-paths       -d 'the absolute paths of the installed sourcemaps' 
@@ -444,11 +454,12 @@ complete -c fish-lsp -n '__fish_seen_subcommand_from env; and __fish_lsp_env_mai
 complete -c fish-lsp -n '__fish_seen_subcommand_from env; and __fish_lsp_env_main_switch --any' -l only -d 'show only certain env variables' -xa '(__fish_lsp_get_env_variables)'
 complete -c fish-lsp -n '__fish_seen_subcommand_from env; and __fish_lsp_last_switch --only' -xa '(__fish_lsp_get_env_variables)'
 # switches usable after the main switches
-complete -c fish-lsp -n '__fish_seen_subcommand_from env; and __fish_lsp_env_main_switch --any --no-names; and not __fish_contains_opt no-comments'                                             -l no-comments  -d 'skip outputting comments'               
-complete -c fish-lsp -n '__fish_seen_subcommand_from env; and __fish_lsp_env_main_switch --any --no-names; and not __fish_contains_opt no-global'                                               -l no-global    -d 'use local exports'                      
-complete -c fish-lsp -n '__fish_seen_subcommand_from env; and __fish_lsp_env_main_switch --any --no-names; and not __fish_contains_opt no-local'                                                -l no-local     -d 'do not use local scope (pair with --no-global)'
-complete -c fish-lsp -n '__fish_seen_subcommand_from env; and __fish_lsp_env_main_switch --any --no-names; and not __fish_contains_opt no-export'                                               -l no-export    -d 'do not export variables'                       
-complete -c fish-lsp -n '__fish_seen_subcommand_from env; and __fish_lsp_env_main_switch --any --no-names; and not __fish_contains_opt confd'                                                   -l confd        -d 'output for redirect to "conf.d/fish-lsp.fish"'
+complete -c fish-lsp -n '__fish_seen_subcommand_from env; and __fish_lsp_env_main_switch --any --no-names --no-json; and not __fish_contains_opt no-comments'                                   -l no-comments  -d 'skip outputting comments'               
+complete -c fish-lsp -n '__fish_seen_subcommand_from env; and __fish_lsp_env_main_switch --any --no-names --no-json; and not __fish_contains_opt no-global'                                     -l no-global    -d 'use local exports'                      
+complete -c fish-lsp -n '__fish_seen_subcommand_from env; and __fish_lsp_env_main_switch --any --no-names --no-json; and not __fish_contains_opt no-local'                                      -l no-local     -d 'do not use local scope (pair with --no-global)'
+complete -c fish-lsp -n '__fish_seen_subcommand_from env; and __fish_lsp_env_main_switch --any --no-names --no-json; and not __fish_contains_opt no-export'                                     -l no-export    -d 'do not export variables'                       
+complete -c fish-lsp -n '__fish_seen_subcommand_from env; and __fish_lsp_env_main_switch --any --no-names --no-output-types'                                                                    -l json         -d 'output for settings.json'
+complete -c fish-lsp -n '__fish_seen_subcommand_from env; and __fish_lsp_env_main_switch --any --no-names --no-output-types'                                                                    -l confd        -d 'output for redirect to "conf.d/fish-lsp.fish"'
 complete -c fish-lsp -n '__fish_seen_subcommand_from env; and __fish_lsp_env_main_switch --names-joined; and not __fish_contains_opt joined'                                                    -l joined       -d 'output the names in a single line'
 `;
 

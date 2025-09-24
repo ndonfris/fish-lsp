@@ -1,7 +1,6 @@
 #!/usr/bin/env fish
 
 source ./scripts/pretty-print.fish
-source ./scripts/get-binary-file.fish
 
 # The below if statement is only included because of possible CI/CD edge-cases.
 # For almost all users, this should not do anything.
@@ -47,6 +46,6 @@ if set -q _flag_source
 end
 
 # ./bin/fish-lsp complete > $fish_complete_path[1]/fish-lsp.fish
-$pkg_json_bin complete >$fish_complete_path[1]/fish-lsp.fish
+./dist/fish-lsp complete >$fish_complete_path[1]/fish-lsp.fish
 and print_success "Generated completions for fish-lsp in $BLUE'$fish_complete_path[1]/fish-lsp.fish'"
 or print_failure "Failed to generate completions for fish-lsp in $BLUE'$fish_complete_path[1]/fish-lsp.fish'"

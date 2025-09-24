@@ -6,6 +6,7 @@ import { AllSupportedActions } from './code-actions/action-kinds';
 import { LspCommands } from './command';
 import { PackageVersion, SubcommandEnv } from './utils/commander-cli-subcommands';
 import { FishSymbol } from './parsing/symbol';
+import { ErrorCodes } from './diagnostics/error-codes';
 
 /********************************************
  **********  Handlers/Providers   ***********
@@ -31,6 +32,7 @@ export const ConfigHandlerSchema = z.object({
   highlight: z.boolean().default(true),
   diagnostic: z.boolean().default(true),
   popups: z.boolean().default(true),
+  semanticTokens: z.boolean().default(false),
 });
 
 /**
@@ -64,7 +66,7 @@ export const configHandlers = ConfigHandlerSchema.parse({});
 export const validHandlers: Array<keyof typeof ConfigHandlerSchema.shape> = [
   'complete', 'hover', 'rename', 'definition', 'implementation', 'reference', 'formatting',
   'formatRange', 'typeFormatting', 'codeAction', 'codeLens', 'folding', 'signature',
-  'executeCommand', 'inlayHint', 'highlight', 'diagnostic', 'popups',
+  'executeCommand', 'inlayHint', 'highlight', 'diagnostic', 'popups', 'semanticTokens',
 ];
 
 export function updateHandlers(keys: string[], value: boolean): void {
@@ -109,13 +111,23 @@ export const ConfigSchema = z.object({
   fish_lsp_enable_experimental_diagnostics: z.boolean().default(false),
 
   /** diagnostic 3002 warnings should be shown forcing the user to check if a command exists before using it */
-  fish_lsp_strict_conditional_command_warnings: z.boolean().default(true),
+  fish_lsp_strict_conditional_command_warnings: z.boolean().default(false),
 
   /**
    * include diagnostic warnings when an external shell command is used instead of
    * a fish built-in command
    */
   fish_lsp_prefer_builtin_fish_commands: z.boolean().default(false),
+
+  /**
+   * don't warn usage of fish wrapper functions
+   */
+  fish_lsp_allow_fish_wrapper_functions: z.boolean().default(true),
+
+  /**
+   * require autoloaded functions to have a description in their header
+   */
+  fish_lsp_require_autoloaded_functions_to_have_description: z.boolean().default(true),
 
   /** max background files */
   fish_lsp_max_background_files: z.number().default(10000),
@@ -127,10 +139,13 @@ export const ConfigSchema = z.object({
   fish_lsp_single_workspace_support: z.boolean().default(false),
 
   /** paths to ignore when searching for workspace folders */
-  fish_lsp_ignore_paths: z.array(z.string()).default(['**/.git', '**/node_modules', '**/vendor', '**/bower_components', '**/__pycache__', '**/docker']),
+  fish_lsp_ignore_paths: z.array(z.string()).default(['**/.git/**', '**/node_modules/**', '**/containerized/**', '**/docker/**']),
 
   /** max depth to search for workspace folders */
   fish_lsp_max_workspace_depth: z.number().default(3),
+
+  /** path to fish executable for child processes */
+  fish_lsp_fish_path: z.string().default('fish'),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -151,11 +166,14 @@ export function getConfigFromEnvironmentVariables(): {
     fish_lsp_enable_experimental_diagnostics: toBoolean(process.env.fish_lsp_enable_experimental_diagnostics),
     fish_lsp_prefer_builtin_fish_commands: toBoolean(process.env.fish_lsp_prefer_builtin_fish_commands),
     fish_lsp_strict_conditional_command_warnings: toBoolean(process.env.fish_lsp_strict_conditional_command_warnings),
+    fish_lsp_allow_fish_wrapper_functions: toBoolean(process.env.fish_lsp_allow_fish_wrapper_functions),
+    fish_lsp_require_autoloaded_functions_to_have_description: toBoolean(process.env.fish_lsp_require_autoloaded_functions_to_have_description),
     fish_lsp_max_background_files: toNumber(process.env.fish_lsp_max_background_files || '10000'),
     fish_lsp_show_client_popups: toBoolean(process.env.fish_lsp_show_client_popups),
     fish_lsp_single_workspace_support: toBoolean(process.env.fish_lsp_single_workspace_support),
     fish_lsp_ignore_paths: process.env.fish_lsp_ignore_paths?.split(' '),
     fish_lsp_max_workspace_depth: toNumber(process.env.fish_lsp_max_workspace_depth || '4'),
+    fish_lsp_fish_path: process.env.fish_lsp_fish_path,
   };
 
   const environmentVariablesUsed = Object.entries(rawConfig)
@@ -163,6 +181,16 @@ export function getConfigFromEnvironmentVariables(): {
     .filter((key): key is string => key !== null);
 
   const config = ConfigSchema.parse(rawConfig);
+
+  if (config.fish_lsp_allow_fish_wrapper_functions) {
+    config.fish_lsp_diagnostic_disable_error_codes.push(ErrorCodes.usedWrapperFunction);
+  }
+  if (config.fish_lsp_strict_conditional_command_warnings) {
+    config.fish_lsp_diagnostic_disable_error_codes.push(ErrorCodes.missingQuietOption);
+  }
+  if (config.fish_lsp_require_autoloaded_functions_to_have_description) {
+    config.fish_lsp_diagnostic_disable_error_codes.push(ErrorCodes.requireAutloadedFunctionHasDescription);
+  }
 
   return { config, environmentVariablesUsed };
 }
@@ -302,6 +330,7 @@ export function handleEnvOutput(
     global: boolean;
     local: boolean;
     export: boolean;
+    json: boolean;
   } = SubcommandEnv.defaultHandlerOptions,
 ) {
   const command = getEnvVariableCommand(opts.global, opts.local, opts.export);
@@ -309,8 +338,8 @@ export function handleEnvOutput(
 
   const variables = PrebuiltDocumentationMap
     .getByType('variable', 'fishlsp')
-    .filter((v) => EnvVariableJson.is(v))
-    .filter((v) => !v.isDeprecated);
+    .filter((v) => EnvVariableJson.is(v) ? !v.isDeprecated : false)
+    .map(v => v as EnvVariableJson);
 
   const getEnvVariableJsonObject = (keyName: string): EnvVariableJson =>
     variables.find(entry => entry.name === keyName)!;
@@ -327,6 +356,9 @@ export function handleEnvOutput(
   // Gets the default value for an environment variable, from the zod schema
   const getDefaultValueAsShellOutput = (key: Config.ConvigKeyType) => {
     const value = Config.getDefaultValue(key);
+    if (opts.json) {
+      return JSON.stringify(value, null, 2);
+    }
     return convertValueToShellOutput(value);
   };
 
@@ -366,6 +398,28 @@ export function handleEnvOutput(
     }
     return line;
   };
+
+  if (opts.json) {
+    const jsonOutput: Record<string, Config.ConfigValueType> = {};
+    for (const item of Object.entries(config)) {
+      const [key, value] = item;
+      if (opts.only && !opts.only.includes(key)) continue;
+      switch (outputType) {
+        case 'create':
+          jsonOutput[key] = config[key as keyof Config];
+          continue;
+        case 'showDefault':
+          jsonOutput[key] = Config.getDefaultValue(key as keyof Config);
+          continue;
+        case 'show':
+        default:
+          jsonOutput[key] = value;
+          continue;
+      }
+    }
+    callbackfn(JSON.stringify(jsonOutput, null, 2));
+    return JSON.stringify(jsonOutput, null, 2);
+  }
 
   // show - output what is currently being used
   // create - output the default value
@@ -661,6 +715,14 @@ export namespace Config {
         },
         documentHighlightProvider: configHandlers.highlight,
         inlayHintProvider: configHandlers.inlayHint,
+        semanticTokensProvider: configHandlers.semanticTokens ? {
+          legend: {
+            tokenTypes: ['namespace', 'type', 'class', 'enum', 'interface', 'struct', 'typeParameter', 'parameter', 'variable', 'property', 'enumMember', 'event', 'function', 'method', 'macro', 'keyword', 'modifier', 'comment', 'string', 'number', 'regexp', 'operator', 'decorator', 'builtin', 'option', 'optionValue', 'variableExpansion', 'commandSubstitution', 'braceExpansion', 'redirection', 'escape', 'pipe'],
+            tokenModifiers: ['declaration', 'definition', 'readonly', 'static', 'deprecated', 'abstract', 'async', 'modification', 'documentation', 'defaultLibrary'],
+          },
+          range: true,
+          full: { delta: false },
+        } : undefined,
         // codeLensProvider: configHandlers.codeLens ? {
         //   resolveProvider: true,
         //   workDoneProgress: true,

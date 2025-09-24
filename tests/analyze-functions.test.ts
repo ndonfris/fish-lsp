@@ -6,7 +6,7 @@ import { initializeParser } from '../src/parser';
 import { TextDocumentItem } from 'vscode-languageserver';
 import { LspDocument } from '../src/document';
 import { Analyzer } from '../src/analyze';
-import { getGlobalSymbols } from '../src/parsing/symbol';
+// import { getGlobalSymbols } from '../src/parsing/symbol';
 // import { filterGlobalSymbols } from '../src/document-symbol';
 
 let parser: Parser;
@@ -89,7 +89,7 @@ foo`,
 
       const symbols = analyzer.getFlatDocumentSymbols(doc.uri);
 
-      const globalSymbols = getGlobalSymbols(symbols);
+      const globalSymbols = symbols.filter(s => s.isGlobal());
       const ws = analyzer.getWorkspaceSymbols('foo_1');
       let position = { line: 0, character: 0 };
       for (const node of getChildNodes(rootNode)) {

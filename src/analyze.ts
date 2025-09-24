@@ -1,5 +1,5 @@
 import * as LSP from 'vscode-languageserver';
-import { Diagnostic, DocumentUri, Hover, Location, Position, SymbolKind, URI, WorkDoneProgressReporter, WorkspaceSymbol } from 'vscode-languageserver';
+import { DocumentUri, Hover, Location, Position, SymbolKind, URI, WorkDoneProgressReporter, WorkspaceSymbol } from 'vscode-languageserver';
 import * as Parser from 'web-tree-sitter';
 import { SyntaxNode, Tree } from 'web-tree-sitter';
 import { config, getDefaultConfiguration, updateBasedOnSymbols } from './config';
@@ -19,9 +19,9 @@ import { dirname } from 'path';
 import { containsRange, getChildNodes, getNamedChildNodes, getRange, isPositionAfter, isPositionWithinRange, namedNodesGen, nodesGen, precedesRange } from './utils/tree-sitter';
 import { Workspace } from './utils/workspace';
 import { workspaceManager } from './utils/workspace-manager';
-import { getDiagnostics } from './diagnostics/validate';
 import { initializeParser } from './parser';
 import { connection } from './utils/startup';
+import { DiagnosticCache } from './diagnostics/cache';
 
 export type AnalyzedDocumentType = 'partial' | 'full';
 
@@ -187,6 +187,8 @@ export class Analyzer {
   public globalSymbols: GlobalDefinitionCache = new GlobalDefinitionCache();
 
   public started = false;
+
+  public diagnostics: DiagnosticCache = new DiagnosticCache();
 
   constructor(public parser: Parser) { }
 
@@ -476,7 +478,7 @@ export class Analyzer {
     const result: { uri: string; nodes: SyntaxNode[]; }[] = [];
     for (const uri of this.getIterableUris()) {
       const root = this.cache.getRootNode(uri);
-      const document = this.cache.getDocument(uri)!.document;
+      const document = this.cache.getDocument(uri)?.document;
       if (!root || !document) continue;
       const nodes = getChildNodes(root).filter((node) => callbackfn(node, document));
       if (nodes.length > 0) {
@@ -936,13 +938,8 @@ export class Analyzer {
    * @param documentUri - the uri of the document to get the diagnostics for
    * @returns {Diagnostic[]} - an array of Diagnostic objects
    */
-  public getDiagnostics(documentUri: string): Diagnostic[] {
-    const doc = this.getDocument(documentUri);
-    const root = this.getRootNode(documentUri);
-    if (!doc || !root) {
-      return [];
-    }
-    return getDiagnostics(root, doc);
+  public getDiagnostics(documentUri: string) {
+    return this.diagnostics.bindDiagnostics(documentUri);
   }
 
   /**
@@ -1210,7 +1207,10 @@ export class Analyzer {
 
   public ensureCachedDocument(doc: LspDocument): AnalyzedDocument {
     if (this.cache.hasUri(doc.uri)) {
-      return this.cache.getDocument(doc.uri) as AnalyzedDocument;
+      const cachedDoc = this.cache.getDocument(doc.uri);
+      if (cachedDoc?.document.version === doc.version && cachedDoc.document.getText() === doc.getText()) {
+        return cachedDoc;
+      }
     }
     return this.analyze(doc);
   }

@@ -118,6 +118,16 @@ export class FishSymbol {
     return fishSymbolNameEqualsNodeText(this, node);
   }
 
+  public isBefore(other: FishSymbol, urisMustMatch = true) {
+    if (this.uri !== other.uri) return !urisMustMatch;
+    return this.focusedNode.startIndex < other.focusedNode.startIndex;
+  }
+
+  public isAfter(other: FishSymbol, urisMustMatch = true) {
+    if (this.uri !== other.uri) return !urisMustMatch;
+    return this.focusedNode.startIndex > other.focusedNode.startIndex;
+  }
+
   /**
    * Returns the `argparse flag-name` for the symbol `_flag_flag_name`
    */

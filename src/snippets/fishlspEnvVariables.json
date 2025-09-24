@@ -233,7 +233,7 @@
       true,
       false
     ],
-    "defaultValue": true,
+    "defaultValue": false,
     "valueType": "boolean"
   },
   {
@@ -246,6 +246,30 @@
       false
     ],
     "defaultValue": false,
+    "valueType": "boolean"
+  },
+  {
+    "name": "fish_lsp_allow_fish_wrapper_functions",
+    "description": "Show warnings when `alias`, `export`, etc... are used instead of their equivalent fish builtin commands.\n\nSome commands will provide quick-fixes to convert this diagnostic to its equivalent fish command.\n\nDiagnostic `2002` is shown when this setting is false, and hidden when true.",
+    "shortDescription": "prefer the user to use primitive fish commands instead of wrapper utilities common in other shells",
+    "exactMatchOptions": true,
+    "options": [
+      true,
+      false
+    ],
+    "defaultValue": true,
+    "valueType": "boolean"
+  },
+    {
+    "name": "fish_lsp_require_autoloaded_functions_to_have_description",
+    "description": "Show warning diagnostic `4008` when an autoloaded function definition does not have a description `function -d/--description '...'; end;`",
+    "shortDescription": "enable showing diagnostic `4008`",
+    "exactMatchOptions": true,
+    "options": [
+      true,
+      false
+    ],
+    "defaultValue": true,
     "valueType": "boolean"
   },
   {
@@ -294,23 +318,20 @@
     "shortDescription": "paths to ignore when indexing",
     "exactMatchOptions": false,
     "options": [
-      "**/.git",
-      "**/node_modules",
-      "**/vendor",
-      "**/bower_components",
-      "**/__pycache__",
-      "**/docker",
-      "**/containerized",
+      "**/.git/**",
+      "**/node_modules/**",
+      "**/vendor/**",
+      "**/__pycache__/**",
+      "**/docker/**",
+      "**/containerized/**",
       "**/*.log",
-      "**/tmp"
+      "**/tmp/**"
     ],
     "defaultValue": [
-      "**/.git",
-      "**/node_modules",
-      "**/vendor",
-      "**/bower_components",
-      "**/__pycache__",
-      "**/docker"
+      "**/.git/**",
+      "**/node_modules/**",
+      "**/containerized/**",
+      "**/docker/**"
     ],
     "valueType": "array"
   },
@@ -335,5 +356,19 @@
     ],
     "defaultValue": 5,
     "valueType": "number"
+  },
+  {
+    "name": "fish_lsp_fish_path",
+    "description": "A path to the fish executable to use exposing fish binary to use in server's spawned child_processes.\n\nTypically, this is used in the language-client's `FishServer.initialize(connection, InitializeParams.initializationOptions)`, NOT as an environment variable",
+    "shortDescription": "specific binary to use for executing 'fish' commands inside server",
+    "exactMatchOptions": false,
+    "options": [
+      "fish",
+      "/usr/bin/fish",
+      "/usr/.local/bin/fish",
+      "~/.local/bin/fish"
+    ],
+    "defaultValue": "fish",
+    "valueType": "string"
   }
 ]
