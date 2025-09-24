@@ -1,3 +1,16 @@
+## <small>1.0.11-pre.23 (2025-09-24)</small>
+
+* chore: changes to esbuild and other scripts ([2351bf3](https://github.com/ndonfris/fish-lsp/commit/2351bf3))
+* chore: fixup scripts for `4.0.8` ([f6a629c](https://github.com/ndonfris/fish-lsp/commit/f6a629c))
+* chore: mac changes for v1.0.11-pre.23 ([0095e1c](https://github.com/ndonfris/fish-lsp/commit/0095e1c))
+* chore: mac changes for v1.0.11-pre.23 ([0748d43](https://github.com/ndonfris/fish-lsp/commit/0748d43))
+* feat: diagnostic cache +  end token quickfix + init semanticTokens ([fb19c23](https://github.com/ndonfris/fish-lsp/commit/fb19c23))
+* fix: `scripts/build-assets.fish` ([94cdbb4](https://github.com/ndonfris/fish-lsp/commit/94cdbb4))
+* fix: cli-lsp-client diagnostic support ([4a317f1](https://github.com/ndonfris/fish-lsp/commit/4a317f1))
+* fix: update `scripts/*` to include `yarn watch` in `yarn build` file watcher ([8d7455d](https://github.com/ndonfris/fish-lsp/commit/8d7455d))
+
+
+
 ## <small>1.0.11-pre.22 (2025-09-16)</small>
 
 * fix: devDependencies for `yarn tsx fish-commands-scapper.ts` ([753d41d](https://github.com/ndonfris/fish-lsp/commit/753d41d))

@@ -54,8 +54,8 @@
     },
     "./web": {
       "types": "./dist/fish-lsp.d.ts",
-      "import": "./dist/fish-lsp-npm",
-      "require": "./dist/fish-lsp-npm"
+      "import": "./dist/fish-lsp",
+      "require": "./dist/fish-lsp"
     }
   },
   "bin": "dist/fish-lsp",
@@ -63,7 +63,7 @@
   "scripts": {
     "prepare": "husky",
     "postinstall": "run-s sh:build-time",
-    "prepack": "run-s --continue-on-error clean:build lint:check update-changelog generate:man generate:commands \"build --all\"",
+    "prepack": "run-s --continue-on-error clean:build lint:check update-changelog generate:man generate:commands dev",
     "dev": "run-s sh:build-time \"build --all\" sh:relink sh:build-completions",
     "dev:watch": "run-s watch",
     "build": "tsx scripts/build.ts",
