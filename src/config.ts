@@ -32,6 +32,7 @@ export const ConfigHandlerSchema = z.object({
   highlight: z.boolean().default(true),
   diagnostic: z.boolean().default(true),
   popups: z.boolean().default(true),
+  semanticTokens: z.boolean().default(false),
 });
 
 /**
@@ -65,7 +66,7 @@ export const configHandlers = ConfigHandlerSchema.parse({});
 export const validHandlers: Array<keyof typeof ConfigHandlerSchema.shape> = [
   'complete', 'hover', 'rename', 'definition', 'implementation', 'reference', 'formatting',
   'formatRange', 'typeFormatting', 'codeAction', 'codeLens', 'folding', 'signature',
-  'executeCommand', 'inlayHint', 'highlight', 'diagnostic', 'popups',
+  'executeCommand', 'inlayHint', 'highlight', 'diagnostic', 'popups', 'semanticTokens',
 ];
 
 export function updateHandlers(keys: string[], value: boolean): void {
@@ -714,11 +715,13 @@ export namespace Config {
         },
         documentHighlightProvider: configHandlers.highlight,
         inlayHintProvider: configHandlers.inlayHint,
-        diagnosticProvider: configHandlers.diagnostic ? {
-          identifier: 'fish',
-          workspaceDiagnostics: false,
-          interFileDependencies: true,
-          workDoneProgress: true,
+        semanticTokensProvider: configHandlers.semanticTokens ? {
+          legend: {
+            tokenTypes: ['namespace', 'type', 'class', 'enum', 'interface', 'struct', 'typeParameter', 'parameter', 'variable', 'property', 'enumMember', 'event', 'function', 'method', 'macro', 'keyword', 'modifier', 'comment', 'string', 'number', 'regexp', 'operator', 'decorator', 'builtin', 'option', 'optionValue', 'variableExpansion', 'commandSubstitution', 'braceExpansion', 'redirection', 'escape', 'pipe'],
+            tokenModifiers: ['declaration', 'definition', 'readonly', 'static', 'deprecated', 'abstract', 'async', 'modification', 'documentation', 'defaultLibrary'],
+          },
+          range: true,
+          full: { delta: false },
         } : undefined,
         // codeLensProvider: configHandlers.codeLens ? {
         //   resolveProvider: true,

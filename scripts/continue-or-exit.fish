@@ -10,7 +10,7 @@ source ./scripts/pretty-print.fish
 function continue_or_exit --description 'reusable fish prompt utility for shell script continuation'
     set -l original_argv $argv
 
-    argparse h/help q/quiet Q/quit no-empty-accept no-retry prepend-prompt= time-in-prompt prompt-str= quiet-prompt other-opts=+ no-quit-opts -- $argv
+    argparse h/help q/quiet Q/quit no-empty-accept no-retry prepend-prompt= time-in-prompt prompt-str= quiet-prompt other-opts=+ no-quit-opts -- $argv 
     or return
 
     if set -q _flag_help
@@ -56,7 +56,7 @@ function continue_or_exit --description 'reusable fish prompt utility for shell 
         echo "  >_     case *"
         echo "  >_         echo 'You selected something else'"
         echo "  >_ end"
-        return 0
+        exit 0
     end
 
     set -l yes_options Y y ''
@@ -146,7 +146,7 @@ function continue_or_exit --description 'reusable fish prompt utility for shell 
 
 end
 
-function print_text_with_color --argument color text --description 'Print with color'
+function print_text_with_color --argument-names color text --description 'Print with color'
     echo $color | read --delimiter=' ' -a fixed_color
     [ (count $fixed_color) -eq 1 ] && set fixed_color --bold $fixed_color
     set_color $fixed_color

@@ -7,15 +7,15 @@ import { initializeParser } from '../src/parser';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import FishServer from '../src/server';
 import * as LSP from 'vscode-languageserver';
-import { createServerLogger } from '../src/logger';
-import * as startupModule from '../src/utils/startup';
-import { uriToPath, pathToUri } from '../src/utils/translation';
-import { CompletionItemMap } from '../src/utils/completion/startup-cache';
-import { initializeCompletionPager } from '../src/utils/completion/pager';
-import { initializeDocumentationCache } from '../src/utils/documentation-cache';
-import { initializeDefaultFishWorkspaces } from '../src/utils/workspace';
-import { Config } from '../src/config';
-import { URI } from 'vscode-uri';
+// import { createServerLogger } from '../src/logger';
+// import * as startupModule from '../src/utils/startup';
+// import { uriToPath, pathToUri } from '../src/utils/translation';
+// import { CompletionItemMap } from '../src/utils/completion/startup-cache';
+// import { initializeCompletionPager } from '../src/utils/completion/pager';
+// import { initializeDocumentationCache } from '../src/utils/documentation-cache';
+// import { initializeDefaultFishWorkspaces } from '../src/utils/workspace';
+// import { Config } from '../src/config';
+// import { URI } from 'vscode-uri';
 
 // Mock connection for web/virtual scenarios
 function createMockBrowserConnection() {
@@ -45,7 +45,7 @@ function createMockBrowserConnection() {
     onCodeLens: vi.fn(),
     onFoldingRanges: vi.fn(),
     onDocumentHighlight: vi.fn(),
-    languages: { inlayHint: { on: vi.fn() } },
+    languages: { inlayHint: { on: vi.fn() }, semanticTokens: { on: vi.fn(), onRange: vi.fn() } },
     onSignatureHelp: vi.fn(),
     onExecuteCommand: vi.fn(),
     sendDiagnostics: vi.fn(),

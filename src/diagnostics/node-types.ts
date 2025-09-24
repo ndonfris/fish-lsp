@@ -11,15 +11,16 @@ import { ErrorCodes } from './error-codes';
 import { getReferences } from '../references';
 import { config, Config } from '../config';
 
-type startTokenType = 'function' | 'while' | 'if' | 'for' | 'begin' | '[' | '{' | '(' | "'" | '"';
+type startTokenType = 'function' | 'while' | 'if' | 'for' | 'begin' | 'switch' | '[' | '{' | '(' | "'" | '"';
 type endTokenType = 'end' | "'" | '"' | ']' | '}' | ')';
 
 export const ErrorNodeTypes: { [start in startTokenType]: endTokenType } = {
   ['function']: 'end',
   ['while']: 'end',
-  ['begin']: 'end',
   ['for']: 'end',
+  ['begin']: 'end',
   ['if']: 'end',
+  ['switch']: 'end',
   ['"']: '"',
   ["'"]: "'",
   ['{']: '}',
@@ -28,13 +29,15 @@ export const ErrorNodeTypes: { [start in startTokenType]: endTokenType } = {
 } as const;
 
 function isStartTokenType(str: string): str is startTokenType {
-  return ['function', 'while', 'if', 'for', 'begin', '[', '{', '(', "'", '"'].includes(str);
+  return ['function', 'while', 'for', 'if', 'switch', 'begin', '[', '{', '(', "'", '"'].includes(str);
 }
 
 export function findErrorCause(children: Parser.SyntaxNode[]): Parser.SyntaxNode | null {
-  const stack: Array<{ node: Parser.SyntaxNode; type: endTokenType; }> = [];
+  const stack: Array<{ node: Parser.SyntaxNode; type: endTokenType; index: number; }> = [];
 
-  for (const node of children) {
+  for (let i = 0; i < children.length; i++) {
+    const node = children[i];
+    if (!node) continue;
     if (isStartTokenType(node.type)) {
       const expectedEndToken = ErrorNodeTypes[node.type];
       const matchIndex = stack.findIndex(item => item.type === expectedEndToken);
@@ -42,15 +45,42 @@ export function findErrorCause(children: Parser.SyntaxNode[]): Parser.SyntaxNode
       if (matchIndex !== -1) {
         stack.splice(matchIndex, 1); // Remove the matched end token
       } else {
-        stack.push({ node, type: expectedEndToken }); // Push the current node and expected end token to the stack
+        stack.push({ node, type: expectedEndToken, index: i }); // Push the current node and expected end token to the stack
       }
     } else if (Object.values(ErrorNodeTypes).includes(node.type as endTokenType)) {
-      stack.push({ node, type: node.type as endTokenType }); // Track all end tokens
+      stack.push({ node, type: node.type as endTokenType, index: i }); // Track all end tokens
+    }
+  }
+
+  // Lookahead logic for unclosed quote tokens
+  if (stack.length > 0) {
+    for (const item of stack) {
+      // Check if this is a quote token (' or ")
+      if (item.node.type === "'" || item.node.type === '"') {
+        // Look ahead to see if there are nodes after this quote that suggest it should be closed
+        const nodesAfterQuote = children.slice(item.index + 1);
+        if (hasContentAfterQuote(nodesAfterQuote)) {
+          return item.node; // Return this unclosed quote as the error cause
+        }
+      }
     }
   }
 
   // Return the first unmatched start token from the stack, if any
   return stack.length > 0 ? stack[0]?.node || null : null;
+}
+
+function hasContentAfterQuote(nodes: Parser.SyntaxNode[]): boolean {
+  // Check if there are meaningful nodes after the quote that suggest it should be closed
+  for (const node of nodes) {
+    // Skip whitespace and other non-meaningful nodes
+    if (node.type === 'escape_sequence' ||
+        node.type === 'word' ||
+        node.text.trim().length > 0) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export function isExtraEnd(node: SyntaxNode) {
@@ -288,7 +318,7 @@ class ConditionalContext {
    */
   static isConditionalChainNode(node: SyntaxNode): boolean {
     return node.type === 'conditional_execution' ||
-           node.type === 'ERROR' && ConditionalContext.hasConditionalOperators(node);
+      node.type === 'ERROR' && ConditionalContext.hasConditionalOperators(node);
   }
 }
 

@@ -4,7 +4,7 @@ import './utils/array-polyfills';
 import './virtual-fs';
 import { SyntaxNode } from 'web-tree-sitter';
 import { AnalyzedDocument, analyzer, Analyzer } from './analyze';
-import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, ImplementationParams, CodeLensParams, CodeLens, WorkspaceFoldersChangeEvent, DocumentDiagnosticParams, DocumentDiagnosticReportKind } from 'vscode-languageserver';
+import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, ImplementationParams, CodeLensParams, CodeLens, WorkspaceFoldersChangeEvent } from 'vscode-languageserver';
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, documents } from './document';
 import { formatDocumentWithIndentComments, formatDocumentContent } from './formatting';
@@ -28,6 +28,7 @@ import { enrichToMarkdown, handleBraceExpansionHover, handleEndStdinHover, handl
 import { findActiveParameterStringRegex, getAliasedCompletionItemSignature, getDefaultSignatures, getFunctionSignatureHelp, isRegexStringSignature } from './signature';
 import { CompletionItemMap } from './utils/completion/startup-cache';
 import { getDocumentHighlights } from './document-highlight';
+import { FishSemanticTokensProvider } from './semantic-tokens';
 import { buildCommentCompletions } from './utils/completion/comment-completions';
 import { codeActionHandlers } from './code-actions/code-action-handler';
 import { createExecuteCommandHandler } from './command';
@@ -179,6 +180,7 @@ export default class FishServer {
     // setup handlers
     const { onCodeAction } = codeActionHandlers(documents, analyzer);
     const documentHighlightHandler = getDocumentHighlights(analyzer);
+    const semanticTokensProvider = new FishSemanticTokensProvider(analyzer);
     const commandCallback = createExecuteCommandHandler(connection, documents, analyzer);
 
     // register the handlers
@@ -213,8 +215,9 @@ export default class FishServer {
 
     connection.onDocumentHighlight(documentHighlightHandler);
     connection.languages.inlayHint.on(this.onInlayHints.bind(this));
-    // @TODO: fix the diagnostics provider before next release (fails in tests)
-    // connection.languages.diagnostics.on(this.onDiagnostics.bind(this));
+    connection.languages.semanticTokens.on(semanticTokensProvider.provideSemanticTokens.bind(semanticTokensProvider));
+    connection.languages.semanticTokens.onRange(semanticTokensProvider.provideSemanticTokensRange.bind(semanticTokensProvider));
+
     connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
     connection.onExecuteCommand(commandCallback);
 
@@ -238,12 +241,11 @@ export default class FishServer {
       await workspaceManager.analyzePendingDocuments(progress, (str) => logger.info('didOpen', str));
       progress.done();
     }
+    analyzer.diagnostics.setInitial(doc.uri);
   }
 
   async didChangeTextDocument(params: LSP.DidChangeTextDocumentParams): Promise<void> {
     this.logParams('didChangeTextDocument', params);
-    // Clear diagnostics immediately when content changes
-    this.clearDiagnostics({ uri: params.textDocument.uri });
 
     const progress = await connection.window.createWorkDoneProgress();
     const path = uriToPath(params.textDocument.uri);
@@ -271,16 +273,18 @@ export default class FishServer {
 
     await workspaceManager.analyzePendingDocuments();
     progress.done();
+    analyzer.diagnostics.set(doc.uri);
   }
 
   didCloseTextDocument(params: LSP.DidCloseTextDocumentParams): void {
     this.logParams('didCloseTextDocument', params);
     workspaceManager.handleCloseDocument(params.textDocument.uri);
+    analyzer.diagnostics.delete(params.textDocument.uri);
   }
 
   async didSaveTextDocument(params: LSP.DidSaveTextDocumentParams): Promise<void> {
     this.logParams('didSaveTextDocument', params);
-    this.clearDiagnostics({ uri: params.textDocument.uri });
+    // this.clearDiagnostics({ uri: params.textDocument.uri });
     const path = uriToPath(params.textDocument.uri);
     let doc = documents.get(path);
     if (!doc && params.text) {
@@ -295,12 +299,14 @@ export default class FishServer {
     workspaceManager.handleOpenDocument(doc);
     workspaceManager.handleUpdateDocument(doc);
     await workspaceManager.analyzePendingDocuments();
+    analyzer.diagnostics.setInitial(doc.uri);
   }
 
   /**
    * Stop the server and close all workspaces.
    */
   async onShutdown() {
+    analyzer.diagnostics.clear();
     workspaceManager.clear();
     documents.clear();
     currentDocument = null;
@@ -472,7 +478,7 @@ export default class FishServer {
       .filter(s => !!s);
   }
 
-  protected get supportHierarchicalDocumentSymbol(): boolean {
+  public get supportHierarchicalDocumentSymbol(): boolean {
     const textDocument = this.initializeParams?.capabilities.textDocument;
     const documentSymbol = textDocument && textDocument.documentSymbol;
     return (
@@ -954,44 +960,6 @@ export default class FishServer {
     }
     return null;
   }
-  public onDiagnostics(params: DocumentDiagnosticParams): LSP.DocumentDiagnosticReport {
-    this.logParams('onDiagnostics', params);
-
-    const { path, doc } = this.getDefaultsForPartialParams(params);
-
-    // If document is not found, return empty diagnostic report
-    if (!doc || !path) {
-      logger.warning('onDiagnostics: document not found', { path, uri: params.textDocument.uri });
-      return {
-        kind: DocumentDiagnosticReportKind.Full,
-        items: [],
-      };
-    }
-
-    // Analyze the document to get fresh diagnostics
-    const analysisResult = this.analyzeDocument({ uri: params.textDocument.uri }, false);
-    if (!analysisResult) {
-      logger.warning('onDiagnostics: analysis failed', { path, uri: params.textDocument.uri });
-      return {
-        kind: DocumentDiagnosticReportKind.Full,
-        items: [],
-      };
-    }
-
-    // Get diagnostics from the analyzer
-    const diagnostics = analyzer.getDiagnostics(doc.uri);
-
-    logger.log('onDiagnostics: returning diagnostics', {
-      uri: doc.uri,
-      count: diagnostics.length,
-      codes: diagnostics.map(d => d.code),
-    });
-
-    return {
-      kind: DocumentDiagnosticReportKind.Full,
-      items: diagnostics,
-    };
-  }
 
   public clearDiagnostics(document: TextDocumentIdentifier) {
     connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
@@ -1029,12 +997,12 @@ export default class FishServer {
       }
     }
     const doc = analyzedDoc.document;
-    const diagnostics = analyzer.getDiagnostics(doc.uri);
-    logger.log(`Sending Diagnostics${bypassCache ? ' (Bypassed Cache)' : ''}`, {
-      uri: doc.uri,
-      diagnostics: diagnostics.map(d => d.code),
-    });
-    connection.sendDiagnostics({ uri: doc.uri, diagnostics });
+    // const diagnostics = analyzer.getDiagnostics(doc.uri);
+    // logger.log(`Sending Diagnostics${bypassCache ? ' (Bypassed Cache)' : ''}`, {
+    //   uri: doc.uri,
+    //   diagnostics: diagnostics.map(d => d.code),
+    // });
+    // connection.sendDiagnostics({ uri: doc.uri, diagnostics: analyzer.diagnostics.getDiagnostics(doc.uri) });
     // re-indexes the workspace and changes the current workspace to the document
     workspaceManager.handleUpdateDocument(doc);
     return {

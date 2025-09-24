@@ -528,7 +528,7 @@ set -gx fish_lsp_max_workspace_depth 3
 #           'reference', 'logger', 'formatting', 'formatRange', 
 #           'typeFormatting', 'codeAction', 'codeLens', 'folding', 
 #           'signature', 'executeCommand', 'inlayHint', 'highlight', 
-#           'diagnostic', 'popups')
+#           'diagnostic', 'popups', 'semanticTokens')
 # (Default: [])
 set -gx fish_lsp_enabled_handlers 
 
@@ -538,7 +538,7 @@ set -gx fish_lsp_enabled_handlers
 #           'reference', 'logger', 'formatting', 'formatRange', 
 #           'typeFormatting', 'codeAction', 'codeLens', 'folding', 
 #           'signature', 'executeCommand', 'inlayHint', 'highlight', 
-#           'diagnostic', 'popups')
+#           'diagnostic', 'popups', 'semanticTokens')
 # (Default: [])
 set -gx fish_lsp_disabled_handlers 
 
@@ -732,7 +732,7 @@ For language clients that import the source code directly and manually connect w
 
 #### Command Flags
 
-Both the flags `--enable` and `--disable` are provided on the `fish-lsp start` subcommand. __By default, all handlers will be enabled__.
+Both the flags `--enable` and `--disable` are provided on the `fish-lsp start` subcommand. __Default configuration enables all stable server handlers__.
 
 ```fish
 # displays what handlers are enabled. Removing the dump flag will run the server.

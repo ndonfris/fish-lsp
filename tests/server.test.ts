@@ -44,7 +44,7 @@ function createMockConnection() {
     onCodeLens: vi.fn(),
     onFoldingRanges: vi.fn(),
     onDocumentHighlight: vi.fn(),
-    languages: { inlayHint: { on: vi.fn() } },
+    languages: { inlayHint: { on: vi.fn() }, semanticTokens: { on: vi.fn(), onRange: vi.fn() } },
     onSignatureHelp: vi.fn(),
     onExecuteCommand: vi.fn(),
     sendDiagnostics: vi.fn(),
@@ -381,7 +381,7 @@ describe('FishServer', () => {
         expect(true).toBe(true);
       });
 
-      it('should clear diagnostics on change', async () => {
+      it('should add diagnostics on change', async () => {
         const doc = createFakeLspDocument('functions/test.fish', 'function test\nend');
         documents.set(doc);
 
@@ -392,10 +392,13 @@ describe('FishServer', () => {
           ],
         };
 
-        const clearDiagnosticsSpy = vi.spyOn(server, 'clearDiagnostics');
+        const clearDiagnosticsSpy = vi.spyOn(startupModule.connection, 'sendDiagnostics');
         await server.didChangeTextDocument(params);
 
-        expect(clearDiagnosticsSpy).toHaveBeenCalledWith({ uri: doc.uri });
+        expect(clearDiagnosticsSpy).toHaveBeenCalledWith({
+          uri: doc.uri,
+          diagnostics: expect.any(Array),
+        });
       });
     });
 

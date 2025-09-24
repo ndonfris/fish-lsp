@@ -3,7 +3,7 @@
 # ┌──────────────────────────────┐
 # │ Imported variables/functions │
 # └──────────────────────────────┘
-source ./scripts/continue_or_exit.fish
+source ./scripts/continue-or-exit.fish
 source ./scripts/pretty-print.fish
 
 

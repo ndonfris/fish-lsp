@@ -16,7 +16,7 @@
 #   --dry-run     Show what would happen without executing
 #
 
-source ./scripts/continue_or_exit.fish
+source ./scripts/continue-or-exit.fish
 source ./scripts/pretty-print.fish
 
 # Parse command line arguments
@@ -391,7 +391,7 @@ echo "  • Git tag: v$new_version"
 echo ""
 
 # Confirm with user
-if not continue_or_exit --time-in-prompt --no-empty-accept --prompt-str='Proceed with version bump'
+if not continue-or-exit --time-in-prompt --no-empty-accept --prompt-str='Proceed with version bump'
     echo $RED"❌ Aborted by user"
     exit 1
 end

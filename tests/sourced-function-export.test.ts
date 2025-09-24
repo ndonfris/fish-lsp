@@ -31,7 +31,7 @@ describe('Sourced Function Export', () => {
 
   test('should handle real script files with sourcing', () => {
     // Read the actual files from the repository
-    const continueOrExitPath = resolve(__dirname, '../scripts/continue_or_exit.fish');
+    const continueOrExitPath = resolve(__dirname, '../scripts/continue-or-exit.fish');
     const prettyPrintPath = resolve(__dirname, '../scripts/pretty-print.fish');
     const publishNightlyPath = resolve(__dirname, '../scripts/publish-nightly.fish');
 
@@ -40,7 +40,7 @@ describe('Sourced Function Export', () => {
     const publishNightlyContent = readFileSync(publishNightlyPath, 'utf8');
 
     // Create documents using the real file content
-    const continueOrExitDoc = createFakeLspDocument('scripts/continue_or_exit.fish', continueOrExitContent);
+    const continueOrExitDoc = createFakeLspDocument('scripts/continue-or-exit.fish', continueOrExitContent);
     const prettyPrintDoc = createFakeLspDocument('scripts/pretty-print.fish', prettyPrintContent);
     const publishNightlyDoc = createFakeLspDocument('scripts/publish-nightly.fish', publishNightlyContent);
 
@@ -303,7 +303,7 @@ end
 
   test('should include sourced symbols in analyzer collectSourcedSymbols method', () => {
     // Read actual helper files first to get their paths
-    const continueOrExitPath = resolve(__dirname, '../scripts/continue_or_exit.fish');
+    const continueOrExitPath = resolve(__dirname, '../scripts/continue-or-exit.fish');
     const prettyPrintPath = resolve(__dirname, '../scripts/pretty-print.fish');
     const continueOrExitContent = readFileSync(continueOrExitPath, 'utf8');
     const prettyPrintContent = readFileSync(prettyPrintPath, 'utf8');
@@ -364,7 +364,7 @@ set -g MAIN_VAR "main variable"
 
   test('should integrate sourced symbols with server onDocumentSymbols', () => {
     // Read helper file first
-    const continueOrExitPath = resolve(__dirname, '../scripts/continue_or_exit.fish');
+    const continueOrExitPath = resolve(__dirname, '../scripts/continue-or-exit.fish');
     const continueOrExitContent = readFileSync(continueOrExitPath, 'utf8');
 
     // Create a main script that sources helper files using absolute path
@@ -524,7 +524,7 @@ end
     // Test the exact use case from the user's example
     const publishNightlyPath = resolve(__dirname, '../scripts/publish-nightly.fish');
     const prettyPrintPath = resolve(__dirname, '../scripts/pretty-print.fish');
-    const continueOrExitPath = resolve(__dirname, '../scripts/continue_or_exit.fish');
+    const continueOrExitPath = resolve(__dirname, '../scripts/continue-or-exit.fish');
 
     const publishNightlyContent = readFileSync(publishNightlyPath, 'utf8');
     const prettyPrintContent = readFileSync(prettyPrintPath, 'utf8');
@@ -532,7 +532,7 @@ end
 
     // Create a modified version of publish-nightly.fish with absolute paths for sourcing
     const modifiedPublishNightlyContent = publishNightlyContent
-      .replace('source ./scripts/continue_or_exit.fish', `source ${continueOrExitPath}`)
+      .replace('source ./scripts/continue-or-exit.fish', `source ${continueOrExitPath}`)
       .replace('source ./scripts/pretty-print.fish', `source ${prettyPrintPath}`);
 
     // Create documents using the real file paths

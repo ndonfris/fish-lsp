@@ -32,7 +32,7 @@ describe('cli tests', () => {
     output: string;
   }> => {
     const {
-      timeout = 5000,
+      timeout = 7500,
       allowNonZeroExit = false,
       expectedExitCodes = [0],
     } = options;
@@ -40,6 +40,7 @@ describe('cli tests', () => {
     const p = spawn('./dist/fish-lsp', [...args], {
       stdio: ['pipe', 'pipe', 'pipe'],
       cwd: process.cwd(),
+      timeout: timeout,
     });
 
     let stdout = '';

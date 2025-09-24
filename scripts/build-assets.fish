@@ -12,7 +12,7 @@
 #   - fish-lsp.fish                                        (shell completions)
 #
 
-source ./scripts/continue_or_exit.fish
+source ./scripts/continue-or-exit.fish
 source ./scripts/pretty-print.fish
 
 argparse clean fresh-install -- "$argv"

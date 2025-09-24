@@ -1,7 +1,7 @@
 #!/usr/bin/env fish
 
 source ./scripts/pretty-print.fish
-source ./scripts/continue_or_exit.fish
+source ./scripts/continue-or-exit.fish
 
 log_info '  ' '[RUN]' 'Update `docs/CHANGELOG.md` SCRIPT'
 print_separator
