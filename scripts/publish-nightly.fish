@@ -150,7 +150,6 @@ if set -q _flag_complete
     show_completion
     show_completion | source
     show_completion >$cachedir/publish-nightly.fish
-    __fish_cache_put $cachedir/publish-nightly.fish
     source "$cachedir/publish-nightly.fish"
     exit 0
 end

@@ -97,7 +97,6 @@ if set -q _flag_complete
     show_completion 
     show_completion | source -
     show_completion > $cachedir/tag-and-publish.fish
-    __fish_cache_put $cachedir/tag-and-publish.fish
     source "$cachedir/tag-and-publish.fish"
     exit
 end
