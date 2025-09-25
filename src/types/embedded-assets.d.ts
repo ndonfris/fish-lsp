@@ -62,7 +62,7 @@ declare module '@embedded_assets/tree-sitter.wasm' {
   export default wasmContent;
 }
 
-declare module '@embedded_assets/man/man1/fish-lsp.1' {
+declare module '@embedded_assets/man/fish-lsp.1' {
   const manContent: string;
   export default manContent;
 }

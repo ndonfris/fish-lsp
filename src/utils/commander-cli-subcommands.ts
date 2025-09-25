@@ -523,7 +523,7 @@ export function FishLspManPage() {
   if (vfs && vfs.allFiles && Array.isArray(vfs.allFiles)) {
     try {
       const virtual = vfs.allFiles.find(f => {
-        return f.filepath.endsWith('man/man1/fish-lsp.1');
+        return f.filepath.endsWith('man/fish-lsp.1') || f.filepath.endsWith('man/man1/fish-lsp.1');
       });
 
       if (virtual && virtual.content) {

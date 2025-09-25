@@ -1,5 +1,16 @@
-## <small>1.0.11 (2025-09-25)</small>
+## <small>1.0.11 (2025-09-26)</small>
 
+* chore: bump deps for v1.0.11 ([298821d](https://github.com/ndonfris/fish-lsp/commit/298821d))
+* chore: bump form-data in the npm_and_yarn group across 1 directory (#100) ([faa069a](https://github.com/ndonfris/fish-lsp/commit/faa069a)), closes [#100](https://github.com/ndonfris/fish-lsp/issues/100)
+* chore: bump vite in the npm_and_yarn group across 1 directory (#110) ([6725140](https://github.com/ndonfris/fish-lsp/commit/6725140)), closes [#110](https://github.com/ndonfris/fish-lsp/issues/110)
+* feat: support es2025 iterators and minor tweaks to symbol utilities for #96 (#97) ([067c384](https://github.com/ndonfris/fish-lsp/commit/067c384)), closes [#96](https://github.com/ndonfris/fish-lsp/issues/96) [#97](https://github.com/ndonfris/fish-lsp/issues/97) [#96](https://github.com/ndonfris/fish-lsp/issues/96)
+* feat: use `Babel` to compile valid `ES2025` syntax to `node>=18` (#102) ([b9a43aa](https://github.com/ndonfris/fish-lsp/commit/b9a43aa)), closes [#102](https://github.com/ndonfris/fish-lsp/issues/102)
+* feat: v1.0.11 changes (#104) ([a6ddd02](https://github.com/ndonfris/fish-lsp/commit/a6ddd02)), closes [#104](https://github.com/ndonfris/fish-lsp/issues/104) [#93](https://github.com/ndonfris/fish-lsp/issues/93) [#105](https://github.com/ndonfris/fish-lsp/issues/105) [#107](https://github.com/ndonfris/fish-lsp/issues/107) [#108](https://github.com/ndonfris/fish-lsp/issues/108)
+* fix: `fish-lsp info --check-health` min node version ([2a853eb](https://github.com/ndonfris/fish-lsp/commit/2a853eb))
+* fix: `FishSymbol` w/ `set --function` definition `scopeNode` #99 + `fish-lsp info` change (#101) ([a82fd69](https://github.com/ndonfris/fish-lsp/commit/a82fd69)), closes [#99](https://github.com/ndonfris/fish-lsp/issues/99) [#101](https://github.com/ndonfris/fish-lsp/issues/101) [#99](https://github.com/ndonfris/fish-lsp/issues/99)
+* fix: prevent crashes caused by read `FishSymbol` (#98) ([7066ee1](https://github.com/ndonfris/fish-lsp/commit/7066ee1)), closes [#98](https://github.com/ndonfris/fish-lsp/issues/98)
+* fix: variable refs #92 && invalid code-actions #91  (#94) ([435e272](https://github.com/ndonfris/fish-lsp/commit/435e272)), closes [#92](https://github.com/ndonfris/fish-lsp/issues/92) [#91](https://github.com/ndonfris/fish-lsp/issues/91) [#94](https://github.com/ndonfris/fish-lsp/issues/94)
+* docs: updated `docs/ROADMAP.md` ([730eab3](https://github.com/ndonfris/fish-lsp/commit/730eab3))
 * new build system using esbuild
 * improved performance for large workspaces
 * embedded wasm files in the server binary
@@ -15,7 +26,7 @@
 * updated `scripts/*` for automating certain dev features, that a maintainers
   can use
 * added `fish_lsp_fish_path` for custom fish binary provided by user
-* chokidar now used for `yarn dev:watch` binary buuilding
+* chokidar now used for `yarn dev:watch` binary building
 
 
 ## <small>1.0.11-pre.24 (2025-09-25)</small>

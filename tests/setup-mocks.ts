@@ -44,8 +44,8 @@ vi.mock('@embedded_assets/fish_files/get-type.fish', () => ({
 }));
 
 // Mock other assets
-vi.mock('@embedded_assets/man/man1/fish-lsp.1', () => ({
-  default: readFileSync(resolve(__dirname, '../man/man1/fish-lsp.1'), 'utf8'),
+vi.mock('@embedded_assets/man/fish-lsp.1', () => ({
+  default: readFileSync(resolve(__dirname, '../man/fish-lsp.1'), 'utf8'),
 }));
 
 // Use the actual build-time.json from the out directory

@@ -159,17 +159,24 @@ export function getFishBuildTimeFilePath(): string {
  * Get man file path for bundled and development versions
  */
 export function getManFilePath(): string {
-  const existing = resolve(getProjectRootPath(), 'man', 'man1', 'fish-lsp.1');
+  const existing = resolve(getProjectRootPath(), 'man', 'fish-lsp.1');
 
   if (existing && isExistingFile(existing)) {
     return existing;
+  }
+
+  // Support legacy path structure as fallback
+  const legacyExisting = resolve(getProjectRootPath(), 'man', 'man1', 'fish-lsp.1');
+  if (legacyExisting && isExistingFile(legacyExisting)) {
+    return legacyExisting;
   }
 
   // Fallback to VFS if available, otherwise return the expected path
   if (vfs && typeof vfs.getPathOrFallback === 'function') {
     try {
       return vfs.getPathOrFallback(
-        'man/man1/fish-lsp.1',
+        'man/fish-lsp.1',
+        resolve(getProjectRootPath(), 'man', 'fish-lsp.1'),
         resolve(getProjectRootPath(), 'man', 'man1', 'fish-lsp.1'),
       );
     } catch {
@@ -178,7 +185,7 @@ export function getManFilePath(): string {
   }
 
   // Final fallback - return the expected path even if file doesn't exist
-  return resolve(getProjectRootPath(), 'man', 'man1', 'fish-lsp.1');
+  return resolve(getProjectRootPath(), 'man', 'fish-lsp.1');
 }
 
 /**

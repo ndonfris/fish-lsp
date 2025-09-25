@@ -93,7 +93,7 @@ declare module '@embedded_assets/tree-sitter.wasm' {
   export default wasmContent;
 }
 
-declare module '@embedded_assets/man/man1/fish-lsp.1' {
+declare module '@embedded_assets/man/fish-lsp.1' {
   const manContent: string;
   export default manContent;
 }
@@ -140,8 +140,8 @@ vi.mock('@embedded_assets/tree-sitter.wasm', () => ({
 ${fishFileMocks}
 
 // Mock other assets
-vi.mock('@embedded_assets/man/man1/fish-lsp.1', () => ({
-  default: readFileSync(resolve(__dirname, '../man/man1/fish-lsp.1'), 'utf8'),
+vi.mock('@embedded_assets/man/fish-lsp.1', () => ({
+  default: readFileSync(resolve(__dirname, '../man/fish-lsp.1'), 'utf8'),
 }));
 
 // Use the actual build-time.json from the out directory
@@ -237,7 +237,7 @@ export function generateEmbeddedAssetsTypesDynamic(): void {
     fishFilesDir: resolve(projectRoot, 'fish_files'),
     wasmFile: resolve(projectRoot, 'node_modules/@ndonfris/tree-sitter-fish/tree-sitter-fish.wasm'),
     coreTreeSitterWasmFile: resolve(projectRoot, 'node_modules/web-tree-sitter/tree-sitter.wasm'),
-    manFile: resolve(projectRoot, 'man', 'man1', 'fish-lsp.1'),
+    manFile: resolve(projectRoot, 'man', 'fish-lsp.1'),
     buildTimeFile: resolve(projectRoot, 'out', 'build-time.json'),
     packageJson: resolve(projectRoot, 'package.json'),
   };
@@ -334,7 +334,7 @@ export function generateEmbeddedAssetsTypesOnly(): void {
     fishFilesDir: resolve(projectRoot, 'fish_files'),
     wasmFile: resolve(projectRoot, 'node_modules/@ndonfris/tree-sitter-fish/tree-sitter-fish.wasm'),
     coreTreeSitterWasmFile: resolve(projectRoot, 'node_modules/web-tree-sitter/tree-sitter.wasm'),
-    manFile: resolve(projectRoot, 'man', 'man1', 'fish-lsp.1'),
+    manFile: resolve(projectRoot, 'man', 'fish-lsp.1'),
     buildTimeFile: resolve(projectRoot, 'out', 'build-time.json'),
     packageJson: resolve(projectRoot, 'package.json'),
   };
