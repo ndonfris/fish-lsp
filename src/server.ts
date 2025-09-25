@@ -111,6 +111,43 @@ export default class FishServer {
     return await FishServer.create(connection, props.params);
   }
 
+  /**
+   * How a client importing the server as a module would connect to a new server instance
+   *
+   * After a connection is created by the client this method will setup the server
+   * to allow the connection to communicate between the client and server.
+   *
+   * Use this method for standard LSP server implementations, for in browser usage
+   * the `FishServer.createWebServer()` method is provided.
+   * ___
+   *
+   * @example
+   * ```ts
+   * import FishServer from 'fish-lsp';
+   * import {
+   *   createConnection,
+   *   InitializeParams,
+   *   InitializeResult,
+   *   ProposedFeatures,
+   * } from 'vscode-languageserver/node';
+   *
+   * const connection = createConnection(ProposedFeatures.all)
+   *
+   * connection.onInitialize(
+   *   async (params: InitializeParams): Promise<InitializeResult> => {
+   *     const { initializeResult } = await FishServer.create(connection, params);
+   *
+   *     return initializeResult;
+   *   },
+   * );
+   * connection.listen();
+   * ```
+   * ___
+   *
+   * @param connection The LSP connection to use
+   * @param params The initialization parameters from the client
+   * @returns The created FishServer instance and the initialization result
+   */
   public static async create(
     connection: Connection,
     params: InitializeParams,
@@ -176,6 +213,19 @@ export default class FishServer {
     this.backgroundAnalysisComplete = false;
   }
 
+  /**
+   * Bind the connection handlers to their corresponding methods in the
+   * server so that `server.create()` initializes the server with all handlers
+   * enabled.
+   *
+   * The `src/config.ts` file handles dynamic enabling/disabling of these
+   * handlers based on client capabilities and user configuration.
+   *
+   * @see Config.getResultCapabilities for the capabilities negotiated
+   *
+   * @param connection The LSP connection to register handlers on
+   * @returns void
+   */
   register(connection: Connection): void {
     // setup handlers
     const { onCodeAction } = codeActionHandlers(documents, analyzer);
@@ -209,8 +259,6 @@ export default class FishServer {
     connection.onCodeAction(onCodeAction);
 
     connection.onCodeLens(this.onCodeLens.bind(this));
-    // connection.onCodeLensResolve(this.onCodeLensResolve.bind(this));
-    // connection.onCodeActionResolve(onCodeActionResolve);
     connection.onFoldingRanges(this.onFoldingRanges.bind(this));
 
     connection.onDocumentHighlight(documentHighlightHandler);
@@ -539,7 +587,6 @@ export default class FishServer {
     for (const location of newDefs) {
       workspaceManager.handleOpenDocument(location.uri);
       workspaceManager.handleUpdateDocument(location.uri);
-      // workspaceManager.current?.setAllPending();
     }
     if (workspaceManager.needsAnalysis()) {
       await workspaceManager.analyzePendingDocuments();
@@ -766,7 +813,6 @@ export default class FishServer {
     if (!doc) return [];
 
     const formattedText = await formatDocumentWithIndentComments(doc).catch(error => {
-      // this.connection.console.error(`Formatting error: ${error}`);
       if (config.fish_lsp_show_client_popups) {
         connection.window.showErrorMessage(`Failed to format document: ${error}`);
       }
@@ -958,10 +1004,6 @@ export default class FishServer {
     return null;
   }
 
-  public clearDiagnostics(document: TextDocumentIdentifier) {
-    connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
-  }
-
   /**
    * Parse and analyze a document. Adds diagnostics to the document, and finds `source` commands.
    * @param document - The document identifier to analyze
@@ -1015,7 +1057,10 @@ export default class FishServer {
   /**
    * Getter for information about the server.
    *
-   * Includes the package.json information, and other useful data about the server.
+   * Mostly from the `../package.json` file of this module, but also includes
+   * other useful entries about the server such as `out/build-time.json` object,
+   * `manPath` and certain url entries that are slightly modified for easier
+   * access to their links.
    */
   public get info() {
     return PkgJson;

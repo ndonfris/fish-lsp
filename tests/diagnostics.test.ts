@@ -7,7 +7,7 @@ import { Diagnostic, DiagnosticSeverity, TextDocumentItem } from 'vscode-languag
 import { initializeParser } from '../src/parser';
 import { ErrorCodes } from '../src/diagnostics/error-codes';
 // import { fishNoExecuteDiagnostic } from '../src/diagnostics/no-execute-diagnostic';
-import { isCommand, isComment, isDefinition, isDefinitionName, isMatchingOption, isVariableDefinitionName } from '../src/utils/node-types';
+import { isCommand, isComment, isDefinitionName } from '../src/utils/node-types';
 // import { ScopeStack, isReference } from '../src/diagnostics/scope';
 import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isVariableDefinitionWithExpansionCharacter, isArgparseWithoutEndStdin } from '../src/diagnostics/node-types';
 import { LspDocument } from '../src/document';
@@ -16,16 +16,16 @@ import { getDiagnostics } from '../src/diagnostics/validate';
 import { DiagnosticComment, DiagnosticCommentsHandler, isDiagnosticComment, parseDiagnosticComment } from '../src/diagnostics/comments-handler';
 import { withTempFishFile } from './temp';
 import { workspaceManager } from '../src/utils/workspace-manager';
-import { Option } from '../src/parsing/options';
+// import { Option } from '../src/parsing/options';
 import { getNoExecuteDiagnostics } from '../src/diagnostics/no-execute-diagnostic';
 import { analyzer, Analyzer } from '../src/analyze';
 import { config } from '../src/config';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import { logger } from '../src/logger';
-import { isFunctionDefinitionName, isFunctionVariableDefinitionName } from '../src/parsing/function';
-import TestWorkspace from './test-workspace-utils';
-import { isArgparseVariableDefinitionName } from '../src/parsing/argparse';
-import { SetParser, AliasParser, ArgparseParser, CompleteParser, ReadParser, ForParser, FunctionParser, ExportParser } from '../src/parsing/barrel';
+// import { isFunctionDefinitionName, isFunctionVariableDefinitionName } from '../src/parsing/function';
+// import TestWorkspace from './test-workspace-utils';
+// import { isArgparseVariableDefinitionName } from '../src/parsing/argparse';
+// import { SetParser, AliasParser, ArgparseParser, CompleteParser, ReadParser, ForParser, FunctionParser, ExportParser } from '../src/parsing/barrel';
 
 let parser: Parser;
 let diagnostics: Diagnostic[] = [];
@@ -136,7 +136,7 @@ describe('diagnostics test suite', () => {
       ['echo \'\$\( error\'', 'echo "$("'].join('\n'),
     ];
     const output: SyntaxNode[] = [];
-    inputs.forEach((input, index) => {
+    inputs.forEach((input, _) => {
       const tree = parser.parse(input);
       const result = extractDiagnostics(tree).pop()!;
       for (const r of getChildNodes(result)) {
@@ -287,7 +287,7 @@ describe('diagnostics test suite', () => {
       'if true; echo hi; else if string match -q; echo p; end',
       'if builtin -q set; end',
       'if functions -aq ls; end',
-    ].forEach((input, index) => {
+    ].forEach((input, _index) => {
       const { rootNode } = parser.parse(input);
       for (const node of getChildNodes(rootNode)) {
         if (isConditionalWithoutQuietCommand(node)) {
@@ -308,7 +308,7 @@ describe('diagnostics test suite', () => {
         '     set -Ux variable a',
         'end',
       ].join('\n'),
-    ].forEach((input, index) => {
+    ].forEach((input, _index) => {
       const { rootNode } = parser.parse(input);
       for (const node of getChildNodes(rootNode)) {
         // if (index === 5 && node.type === 'if_statement') {
@@ -852,8 +852,7 @@ function foo
         analyzer.ensureCachedDocument(document);
         const result = getNoExecuteDiagnostics(document);
         const finalRes = getNoExecuteDiagnostics(document);
-        console.log({ finalRes });
-        // console.log(result)
+        console.log({ finalRes, result });
       });
     });
   });

@@ -1,11 +1,10 @@
 import { z } from 'zod';
+import { Connection, FormattingOptions, InitializeParams, InitializeResult, TextDocumentSyncKind } from 'vscode-languageserver';
 import { createServerLogger, logger } from './logger';
 import { PrebuiltDocumentationMap, EnvVariableJson } from './utils/snippets';
-import { Connection, FileOperationRegistrationOptions, FormattingOptions, InitializeParams, InitializeResult, SymbolKind, TextDocumentSyncKind } from 'vscode-languageserver';
 import { AllSupportedActions } from './code-actions/action-kinds';
 import { LspCommands } from './command';
 import { PackageVersion, SubcommandEnv } from './utils/commander-cli-subcommands';
-import { FishSymbol } from './parsing/symbol';
 import { ErrorCodes } from './diagnostics/error-codes';
 
 /********************************************
@@ -197,98 +196,6 @@ export function getConfigFromEnvironmentVariables(): {
 
 export function getDefaultConfiguration(): Config {
   return ConfigSchema.parse({});
-}
-
-// TODO: fix using this in the analyzer to update the config
-export function updateBasedOnSymbols(
-  symbols: FishSymbol[],
-) {
-  const fishLspSymbols = symbols.filter(s => s.kind === SymbolKind.Variable && s.name.startsWith('fish_lsp_'));
-
-  const newConfig: Record<keyof Config, unknown> = {} as Record<keyof Config, unknown>;
-  const configCopy: Config = Object.assign({}, config);
-
-  for (const s of fishLspSymbols) {
-    const configKey = Config.getEnvVariableKey(s.name);
-    if (!configKey) {
-      continue;
-    }
-
-    if (s.isConfigDefinitionWithErase()) {
-      const schemaType = ConfigSchema.shape[configKey as keyof z.infer<typeof ConfigSchema>];
-
-      (config[configKey] as any) = schemaType.parse(schemaType._def.defaultValue());
-      continue;
-    }
-
-    const shellValues = s.valuesAsShellValues();
-
-    if (shellValues.length > 0) {
-      if (shellValues.length === 1) {
-        const value = shellValues[0];
-        if (toBoolean(value)) {
-          newConfig[configKey] = toBoolean(value);
-          continue;
-        }
-        if (toNumber(value)) {
-          newConfig[configKey] = toNumber(value);
-          continue;
-        }
-        newConfig[configKey] = value;
-        continue;
-      } else {
-        if (shellValues.every(v => !!toNumber(v))) {
-          (newConfig[configKey] as any) = shellValues.map(v => toNumber(v));
-        } else if (shellValues.every(v => toBoolean(v))) {
-          (newConfig[configKey] as any) = shellValues.map(v => toBoolean(v));
-        } else {
-          (newConfig[configKey] as any) = shellValues;
-        }
-      }
-    }
-  }
-  Object.assign(config, updateConfigValues(configCopy, newConfig));
-}
-
-/**
- * Updates config values from environment variables while maintaining proper types
- * @param config The current config object
- * @param newValues Object containing new values to update
- * @returns Updated config object with proper types
- */
-export function updateConfigValues<T extends z.infer<typeof ConfigSchema>>(
-  config: T,
-  newValues: Record<string, unknown>,
-): T {
-  // Create a new object to hold our updates
-  const updates: Partial<T> = {};
-
-  // Iterate through all keys in newValues
-  Object.keys(newValues).forEach(key => {
-    if (key in config) {
-      const configKey = key as keyof T;
-      const schemaType = ConfigSchema.shape[configKey as keyof z.infer<typeof ConfigSchema>];
-
-      if (schemaType) {
-        try {
-          // Parse the new value through the corresponding Zod schema
-          // This ensures type safety and validation
-          const parsedValue = schemaType.safeParse(newValues[key]);
-          if (parsedValue.success) {
-            updates[configKey] = parsedValue.data as T[keyof T];
-          } else {
-            updates[configKey] = schemaType._def.defaultValue() as T[keyof T];
-          }
-        } catch (error) {
-          // Handle parsing errors - could log or throw depending on your needs
-          logger.error(`Failed to parse value for ${key}: ${error instanceof Error ? error.message : String(error)}`);
-        }
-      }
-    }
-  });
-
-  // Return a new config object with the updates
-  return { ...config, ...updates };
 }
 
 /**
@@ -677,13 +584,10 @@ export namespace Config {
   export function getResultCapabilities(): InitializeResult {
     return {
       capabilities: {
-        // textDocumentSync: TextDocumentSyncKind.Full,
         textDocumentSync: {
           openClose: true,
           change: TextDocumentSyncKind.Incremental,
           save: { includeText: true },
-          // willSave: true,
-          // willSaveWaitUntil: true,
         },
         completionProvider: configHandlers.complete ? {
           resolveProvider: true,
@@ -723,10 +627,6 @@ export namespace Config {
           range: true,
           full: { delta: false },
         } : undefined,
-        // codeLensProvider: configHandlers.codeLens ? {
-        //   resolveProvider: true,
-        //   workDoneProgress: true,
-        // } : undefined,
         signatureHelpProvider: configHandlers.signature ? { workDoneProgress: false, triggerCharacters: ['.'] } : undefined,
         documentOnTypeFormattingProvider: configHandlers.typeFormatting ? {
           firstTriggerCharacter: '.',
@@ -746,21 +646,6 @@ export namespace Config {
       },
     };
   }
-
-  // might need later in the getResultCapabilities() object
-  export const FileListenerFilter: FileOperationRegistrationOptions = {
-    filters: [
-      {
-        pattern: {
-          glob: '**/*.fish',
-          matches: 'file',
-          options: {
-            ignoreCase: true,
-          },
-        },
-      },
-    ],
-  };
 
   /**
    * *******************************************

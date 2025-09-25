@@ -48,8 +48,9 @@ if (isBrowserEnvironment()) {
   // No need to do anything here
 } else if (isRunningAsCLI() || process.env.NODE_ENV === 'test') {
   // Auto-run CLI if this file is executed directly
-  runCLI().catch((error) => {
-    console.error('Failed to start fish-lsp CLI:', error);
+  runCLI().catch(async (error) => {
+    const { logger } = await import('./logger');
+    logger.logToStderr(`Failed to start fish-lsp CLI: ${error}`);
     process.exit(1);
   });
 }

@@ -211,7 +211,6 @@ describe('node-types tests', () => {
     expect(functionDefinitionNames.map(n => n.text)).toEqual(['foo', 'foo_2', 'foo_2_inner']);
   });
 
-  // TODO
   it('isVariableDefinitionCommand', () => {
     const input = [
       'set -x set_foo 1',

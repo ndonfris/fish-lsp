@@ -1,8 +1,9 @@
 import * as LSP from 'vscode-languageserver';
 import { DocumentUri, Hover, Location, Position, SymbolKind, URI, WorkDoneProgressReporter, WorkspaceSymbol } from 'vscode-languageserver';
+import { dirname } from 'path';
 import * as Parser from 'web-tree-sitter';
 import { SyntaxNode, Tree } from 'web-tree-sitter';
-import { config, getDefaultConfiguration, updateBasedOnSymbols } from './config';
+import { config } from './config';
 import { LspDocument } from './document';
 import { logger } from './logger';
 import { isArgparseVariableDefinitionName } from './parsing/argparse';
@@ -15,7 +16,6 @@ import { SyncFileHelper } from './utils/file-operations';
 import { flattenNested, iterateNested } from './utils/flatten';
 import { findParentCommand, findParentFunction, isAliasDefinitionName, isCommand, isCommandName, isOption, isTopLevelDefinition, isExportVariableDefinitionName } from './utils/node-types';
 import { pathToUri, symbolKindToString, uriToPath } from './utils/translation';
-import { dirname } from 'path';
 import { containsRange, getChildNodes, getNamedChildNodes, getRange, isPositionAfter, isPositionWithinRange, namedNodesGen, nodesGen, precedesRange } from './utils/tree-sitter';
 import { Workspace } from './utils/workspace';
 import { workspaceManager } from './utils/workspace-manager';
@@ -354,39 +354,6 @@ export class Analyzer {
       workspace: workspace,
       duration,
     };
-  }
-
-  /**
-   * Update the configuration for the current workspace based on the symbols found in the document
-   *
-   * This is used to update the configuration for the current workspace when a user changes
-   * a fish-lsp environment variable in the workspace.
-   */
-  updateConfigInWorkspace(documentUri: string) {
-    const workspace = workspaceManager.current;
-    let symbols = this.getFlatDocumentSymbols(documentUri).filter(symbol =>
-      symbol.kind === SymbolKind.Variable && Object.keys(config).includes(symbol.name),
-    );
-    if (!workspace || !config.fish_lsp_single_workspace_support) {
-      if (symbols.length === 0) {
-        const prev = config.fish_lsp_single_workspace_support;
-        Object.assign(config, getDefaultConfiguration());
-        config.fish_lsp_single_workspace_support = prev;
-        return;
-      }
-      updateBasedOnSymbols(symbols);
-      return;
-    }
-    symbols = this.findSymbols((sym, doc) => {
-      if (doc && workspace.contains(doc?.uri)) return false;
-      if (sym.kind === SymbolKind.Variable && Object.keys(config).includes(sym.name)) {
-        return true;
-      }
-      return false;
-    });
-    if (symbols.length > 0) {
-      updateBasedOnSymbols(symbols);
-    }
   }
 
   /**
@@ -912,11 +879,11 @@ export class Analyzer {
   } {
     const document = this.cache.getDocument(documentUri)?.document;
     if (!document) {
-      return undefined as any; // Return an empty generator if the document is not found
+      return { nodes: (function*() { })(), namedNodes: (function*() { })() }; // Return an empty generator if the document is not found
     }
     const root = this.getRootNode(documentUri);
     if (!root) {
-      return undefined as any; // Return an empty generator if the root node is not found
+      return { nodes: (function*() { })(), namedNodes: (function*() { })() }; // Return an empty generator if the root node is not found
     }
     return {
       nodes: nodesGen(root),
@@ -1057,15 +1024,6 @@ export class Analyzer {
       const sourceDoc = this.getDocument(sourcedUri);
       if (!sourceDoc) continue;
 
-      // const mockSourceResource = {
-      //   to: sourceDoc,
-      //   from: this.getDocument(documentUri)!,
-      //   range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
-      //   node: {} as any,
-      //   definitionScope: {} as any,
-      //   sources: [],
-      // } as any;
-
       const topLevelDefinitions = this.getFlatDocumentSymbols(sourceDoc.uri).filter(s => s.isRootLevel() || s.isGlobal());
       sourcedSymbols.push(...topLevelDefinitions);
 
@@ -1082,15 +1040,6 @@ export class Analyzer {
           }
         }
       }
-      // Get exportable symbols from this source
-      // const symbols = symbolsFromResource(this, mockSourceResource);
-      //
-      // for (const symbol of symbols) {
-      //   if (!uniqueNames.has(symbol.name)) {
-      //     uniqueNames.add(symbol.name);
-      //     sourcedSymbols.push(symbol);
-      //   }
-      // }
     }
 
     return sourcedSymbols;

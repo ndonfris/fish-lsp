@@ -202,19 +202,6 @@ export function createExecuteCommandHandler(
     return undefined;
   }
 
-  async function updateConfig(path: string) {
-    const cached = analyzer.analyzePath(path);
-    if (!cached) return;
-    const { document } = cached;
-    if (!document) return;
-    analyzer.updateConfigInWorkspace(document.uri);
-    connection.sendNotification('window/showMessage', {
-      message: config,
-      type: MessageType.Info,
-    });
-    return undefined;
-  }
-
   async function fixAllDiagnostics(path: string) {
     const uri = pathToUri(path);
     logger.log('fixAllDiagnostics', uri);
@@ -353,7 +340,6 @@ export function createExecuteCommandHandler(
     'fish-lsp.showStatusDocs': handleShowStatusDocs,
     'fish-lsp.showWorkspaceMessage': showWorkspaceMessage,
     'fish-lsp.updateWorkspace': _updateWorkspace,
-    'fish-lsp.updateConfig': updateConfig,
     'fish-lsp.fixAll': fixAllDiagnostics,
     'fish-lsp.toggleSingleWorkspaceSupport': toggleSingleWorkspaceSupport,
     'fish-lsp.generateEnvVariables': outputFishLspEnv,

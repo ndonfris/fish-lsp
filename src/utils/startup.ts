@@ -103,14 +103,6 @@ export type WebServerProps = {
  * Creates a browser connection for the FISH-LSP server.
  */
 export function createBrowserConnection(): Connection {
-  // const messageReader = new Browser.BrowserMessageReader(self);
-  // const messageWriter = new Browser.BrowserMessageWriter(self);
-  // const conn = Browser.createConnection(
-  //   messageReader,
-  //   messageWriter,
-  // );
-  // let server: FishServer;
-
   let port = 8080;
   while (isPortTaken(port)) {
     port++;
@@ -120,17 +112,6 @@ export function createBrowserConnection(): Connection {
     new Browser.BrowserMessageWriter(globalThis as any),
   );
 
-  // const webServer = net.createServer((socket) => {
-  //
-  //   connection.onInitialize(async (params: InitializeParams): Promise<InitializeResult> => {
-  //     const { initializeResult } = await FishServer.create(connection, params);
-  //     Config.isWebServer = true;
-  //     return initializeResult;
-  //   })
-  // });
-  //
-  // webServer.listen(port);
-  // logger.info(`Server listening on port ${port}`);
   return connection;
 }
 

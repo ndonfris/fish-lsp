@@ -154,10 +154,6 @@
         "title": "update the workspace"
       },
       {
-        "command": "fish-lsp.updateConfig",
-        "title": "update the configuration"
-      },
-      {
         "command": "fish-lsp.fixAll",
         "title": "execute all quick-fixes in file"
       },

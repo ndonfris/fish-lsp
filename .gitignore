@@ -38,3 +38,4 @@ tsconfig.types.json
 temp-types
 tests/workspaces/*.snapshot
 temp-embedded-assets
+tests/workspaces/example_test_src_1

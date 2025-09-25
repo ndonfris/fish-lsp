@@ -1,7 +1,7 @@
 import path, { resolve, dirname } from 'path';
 import { realpathSync } from 'fs';
-import { SyncFileHelper } from './file-operations';
 import { vfs } from '../virtual-fs';
+import { SyncFileHelper } from './file-operations';
 
 /**
  * Centralized path resolution utilities for handling bundled vs development environments
@@ -28,7 +28,11 @@ export function findFirstExistingFile(...possiblePaths: string[]): string | unde
  * @returns True if the path exists and is a file
  */
 export function isExistingFile(path: string): boolean {
-  return SyncFileHelper.exists(path) && SyncFileHelper.isFile(path);
+  try {
+    return SyncFileHelper.exists(path) && SyncFileHelper.isFile(path);
+  } catch {
+    return false;
+  }
 }
 
 /**

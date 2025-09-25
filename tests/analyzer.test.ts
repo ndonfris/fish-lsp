@@ -3,7 +3,7 @@ import { initializeParser } from '../src/parser';
 /* @ts-ignore */
 import Parser, { SyntaxNode } from 'web-tree-sitter';
 import { analyzer, Analyzer } from '../src/analyze';
-import { getChildNodes, getRange } from '../src/utils/tree-sitter';
+import { getChildNodes } from '../src/utils/tree-sitter';
 import { isFunctionDefinitionName } from '../src/utils/node-types';
 import * as LSP from 'vscode-languageserver';
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs';

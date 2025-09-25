@@ -1,8 +1,16 @@
 import * as fs from 'fs';
 import path, { resolve, join } from 'path';
+import { existsSync, writeFileSync, unlinkSync } from 'fs';
+import { promisify } from 'util';
+import { execFile, execFileSync } from 'child_process';
 import { Volume } from 'memfs';
 import { tmpdir } from 'os';
+
+const execAsync = promisify(execFile);
+
+// Local imports
 import { config } from './config';
+import { logger } from './logger';
 
 // Import all embedded fish scripts
 import execFishContent from '@embedded_assets/fish_files/exec.fish';
@@ -20,33 +28,12 @@ import buildTime from '@embedded_assets/build-time.json';
 import manPageContent from '@embedded_assets/man/man1/fish-lsp.1';
 import treeSitterFishWasmContent from '@embedded_assets/tree-sitter-fish.wasm';
 import treeSitterCoreWasmContent from '@embedded_assets/tree-sitter.wasm';
-// import treeSitterWasm from 'web-tree-sitter/tree-sitter.wasm'
-import { existsSync, writeFileSync, unlinkSync } from 'fs';
-import { promisify } from 'util';
-import { execFile, execFileSync } from 'child_process';
-const execAsync = promisify(execFile);
 
 // Helper function to get the fish path from config
 // Using a function that imports config lazily to avoid circular dependencies
 const getFishPath = (): string => {
   return config.fish_lsp_fish_path;
 };
-
-// Import fish-specific WASM file
-// let treeSitterFishWasmContent = '';
-// try {
-//   treeSitterFishWasmContent = require('@embedded_assets/tree-sitter-fish.wasm').default || require('@embedded_assets/tree-sitter-fish.wasm');
-// } catch {
-//   // WASM file not embedded or not available
-// }
-//
-// // Import man file
-// let manPageContent = '';
-// try {
-//   manPageContent = require('@embedded_assets/man/man1/fish-lsp.1').default || require('@embedded_assets/man/man1/fish-lsp.1');
-// } catch {
-//   // Man file not embedded or not available
-// }
 
 type FindMatchPredicateFunction = (vf: VirtualFile) => boolean;
 type FindMatchPredicate = string | FindMatchPredicateFunction;
@@ -204,7 +191,7 @@ class VirtualFileSystem {
             );
           }
         } catch (error) {
-          console.warn('Failed to read WASM file from virtual filesystem:', error);
+          logger.warning('Failed to read WASM file from virtual filesystem:', error);
         }
       }
 
@@ -237,7 +224,7 @@ class VirtualFileSystem {
       await Promise.all(writePromises);
       this.isInitialized = true;
     } catch (error) {
-      console.warn('Failed to initialize virtual filesystem:', error);
+      logger.warning('Failed to initialize virtual filesystem:', error);
     }
   }
 
@@ -258,10 +245,6 @@ class VirtualFileSystem {
   getMountPoint(): string {
     return this.virtualMountPoint;
   }
-
-  // writeFile(relativePath: string, content: string): void {
-  //   this.vol.writeFileSync(`/${relativePath}`, (content));
-  // }
 
   /**
    * Check if virtual filesystem is initialized
@@ -333,7 +316,7 @@ class VirtualFileSystem {
       await fs.promises.rm(this.virtualMountPoint, { recursive: true, force: true });
       this.isInitialized = false;
     } catch (error) {
-      console.warn('Failed to cleanup virtual filesystem:', error);
+      logger.warning('Failed to cleanup virtual filesystem:', error);
     }
   }
 
@@ -415,7 +398,7 @@ export const vfs = new VirtualFileSystem();
 if (process.env.FISH_LSP_BUNDLED || !fs.existsSync(resolve(process.cwd(), 'fish_files'))) {
   // Initialize asynchronously but don't block module loading
   vfs.initialize().catch(error => {
-    console.warn('Failed to initialize virtual filesystem:', error);
+    logger.warning('Failed to initialize virtual filesystem:', error);
   });
 
   // Clean up on exit

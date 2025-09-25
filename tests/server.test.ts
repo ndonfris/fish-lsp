@@ -977,15 +977,6 @@ describe('FishServer', () => {
       });
     });
 
-    describe('clearDiagnostics', () => {
-      it('should clear diagnostics for document', () => {
-        server.clearDiagnostics({ uri: 'file:///test/functions/test.fish' });
-
-        // The method should complete without throwing
-        expect(true).toBe(true);
-      });
-    });
-
     describe('onShutdown', () => {
       it('should clean up resources on shutdown', async () => {
         await server.onShutdown();

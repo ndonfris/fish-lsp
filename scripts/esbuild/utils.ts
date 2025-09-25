@@ -1,32 +1,9 @@
 // Build utility functions
-import { copySync, ensureDirSync, writeFileSync } from 'fs-extra';
-import { existsSync, statSync, readFileSync, unlinkSync } from 'fs';
+import { copySync, writeFileSync } from 'fs-extra';
+import { existsSync, statSync, unlinkSync } from 'fs';
 import { execSync } from 'child_process';
 import { logger, toRelativePath } from './colors';
 import { generateEmbeddedAssetsTypesDynamic, cleanupEmbeddedAssetsTypes } from '../generate-embedded-assets-and-types';
-
-export function copyBinaryAssets(): void {
-  // Copy fish scripts from src/snippets to dist/snippets
-  console.log(logger.info('  Copying fish scripts to dist/snippets...'));
-// }
-//   // Copy tree-sitter core WASM file from web-tree-sitter dependency
-  // const sourceWasm = 'node_modules/web-tree-sitter/tree-sitter.wasm';
-  // const destWasm = 'dist/tree-sitter.wasm';
-  // 
-  // if (existsSync(sourceWasm)) {
-  //   try {
-  //     ensureDirSync('dist');
-  //     copySync(sourceWasm, destWasm);
-  //     console.log(logger.copied(sourceWasm, destWasm));
-  //   } catch (error) {
-  //     logger.warn(`Failed to copy ${sourceWasm} to ${destWasm}: ${error}`);
-  //   }
-  // } else {
-  //   logger.warn(`Source WASM file not found: ${sourceWasm}`);
-  // }
-  // 
-  // console.log(logger.success('✅ Binary assets copied to dist directory'));
-}
 
 export function copyDevelopmentAssets(): void {
   if (existsSync('src/snippets')) {

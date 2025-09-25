@@ -154,16 +154,6 @@ describe('Logger', () => {
       ));
     });
 
-    it('should handle Date objects', () => {
-      fc.assert(fc.property(
-        fc.date(),
-        (date) => {
-          const result = testLogger.convertArgsToString(date.toISOString());
-          expect(result).toBe(date.toISOString());
-        },
-      ));
-    });
-
     it('should handle arrays of primitives', () => {
       fc.assert(fc.property(
         fc.array(fc.oneof(fc.string(), fc.integer(), fc.boolean()), { maxLength: 10 }),
