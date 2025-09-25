@@ -219,10 +219,23 @@ export class Analyzer {
   public analyze(document: LspDocument): AnalyzedDocument {
     const analyzedDocument = this.getAnalyzedDocument(document);
     this.cache.setDocument(document.uri, analyzedDocument);
+
+    // Remove old global symbols for this document before adding new ones
+    this.globalSymbols.removeSymbolsByUri(document.uri);
+
+    // Add new global symbols
     for (const symbol of iterateNested(...analyzedDocument.documentSymbols)) {
       if (symbol.isGlobal()) this.globalSymbols.add(symbol);
     }
     return analyzedDocument;
+  }
+
+  /**
+   * Remove all global symbols for a document (used when document is closed or deleted)
+   */
+  public removeDocumentSymbols(uri: string): void {
+    this.globalSymbols.removeSymbolsByUri(uri);
+    this.cache.clear(uri);
   }
 
   /**
@@ -1240,6 +1253,16 @@ class GlobalDefinitionCache {
       current.push(symbol);
     }
     this._definitions.set(symbol.name, current);
+  }
+  removeSymbolsByUri(uri: string): void {
+    for (const [name, symbols] of this._definitions.entries()) {
+      const filtered = symbols.filter(symbol => symbol.uri !== uri);
+      if (filtered.length === 0) {
+        this._definitions.delete(name);
+      } else {
+        this._definitions.set(name, filtered);
+      }
+    }
   }
   find(name: string): FishSymbol[] {
     return this._definitions.get(name) || [];

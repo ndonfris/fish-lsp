@@ -280,6 +280,8 @@ export default class FishServer {
     this.logParams('didCloseTextDocument', params);
     workspaceManager.handleCloseDocument(params.textDocument.uri);
     analyzer.diagnostics.delete(params.textDocument.uri);
+    // Clean up global symbols for the closed document
+    analyzer.removeDocumentSymbols(params.textDocument.uri);
   }
 
   async didSaveTextDocument(params: LSP.DidSaveTextDocumentParams): Promise<void> {
@@ -498,11 +500,6 @@ export default class FishServer {
         ...analyzer.collectSourcedSymbols(uri),
       ];
       symbols.push(...filterLastPerScopeSymbol(newSymbols));
-      // const doc = documents.get(uri);
-      // if (doc) {
-      //   const docSymbols = analyzer.getFlatDocumentSymbols(doc.uri);
-      //   symbols.push(...filterLastPerScopeSymbol(docSymbols));
-      // }
     }
 
     logger.log('symbols', {
@@ -972,6 +969,12 @@ export default class FishServer {
    */
   public analyzeDocument(document: TextDocumentIdentifier, bypassCache = false) {
     const { path, doc: foundDoc } = this.getDefaultsForPartialParams({ textDocument: document });
+
+    // remove the global symbols for the document before re-analyzing
+    analyzer.removeDocumentSymbols(document.uri);
+
+    // get the analyzedDoc.document for re-indexing the workspace,
+    // we will eventually want to store the resulting analyzedDoc.document in `doc` below
     let analyzedDoc: AnalyzedDocument;
     if (!foundDoc) {
       const pathDoc = analyzer.analyzePath(path);
@@ -996,15 +999,12 @@ export default class FishServer {
         }
       }
     }
+
     const doc = analyzedDoc.document;
-    // const diagnostics = analyzer.getDiagnostics(doc.uri);
-    // logger.log(`Sending Diagnostics${bypassCache ? ' (Bypassed Cache)' : ''}`, {
-    //   uri: doc.uri,
-    //   diagnostics: diagnostics.map(d => d.code),
-    // });
-    // connection.sendDiagnostics({ uri: doc.uri, diagnostics: analyzer.diagnostics.getDiagnostics(doc.uri) });
+
     // re-indexes the workspace and changes the current workspace to the document
     workspaceManager.handleUpdateDocument(doc);
+
     return {
       uri: document.uri,
       path: path,
