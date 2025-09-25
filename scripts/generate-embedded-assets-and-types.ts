@@ -237,7 +237,7 @@ export function generateEmbeddedAssetsTypesDynamic(): void {
     fishFilesDir: resolve(projectRoot, 'fish_files'),
     wasmFile: resolve(projectRoot, 'node_modules/@ndonfris/tree-sitter-fish/tree-sitter-fish.wasm'),
     coreTreeSitterWasmFile: resolve(projectRoot, 'node_modules/web-tree-sitter/tree-sitter.wasm'),
-    manFile: resolve(projectRoot, 'man', 'fish-lsp.1'),
+    manFile: resolve(projectRoot, 'man', 'man1', 'fish-lsp.1'),
     buildTimeFile: resolve(projectRoot, 'out', 'build-time.json'),
     packageJson: resolve(projectRoot, 'package.json'),
   };
@@ -289,10 +289,10 @@ export function generateEmbeddedAssetsTypesDynamic(): void {
 
   // 7. Generate man page module
   console.log([' ', 'Generating'.green, 'MAN PAGE'.blue, 'modules...'.green].join(' '));
-  ensureDir(resolve(tempAssetsDir, 'man'));
+  ensureDir(resolve(tempAssetsDir, 'man', 'man1'));
   generateTextModule(
     assetPaths.manFile,
-    resolve(tempAssetsDir, 'man', 'fish-lsp.1.ts')
+    resolve(tempAssetsDir, 'man', 'man1', 'fish-lsp.1.ts')
   );
 
   // 8. Generate fish files modules dynamically
@@ -334,7 +334,7 @@ export function generateEmbeddedAssetsTypesOnly(): void {
     fishFilesDir: resolve(projectRoot, 'fish_files'),
     wasmFile: resolve(projectRoot, 'node_modules/@ndonfris/tree-sitter-fish/tree-sitter-fish.wasm'),
     coreTreeSitterWasmFile: resolve(projectRoot, 'node_modules/web-tree-sitter/tree-sitter.wasm'),
-    manFile: resolve(projectRoot, 'man', 'fish-lsp.1'),
+    manFile: resolve(projectRoot, 'man', 'man1', 'fish-lsp.1'),
     buildTimeFile: resolve(projectRoot, 'out', 'build-time.json'),
     packageJson: resolve(projectRoot, 'package.json'),
   };

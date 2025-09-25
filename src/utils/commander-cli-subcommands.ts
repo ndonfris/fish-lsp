@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import fs, { readFileSync } from 'fs';
+import fs, { readFileSync, existsSync } from 'fs';
 import { homedir } from 'os';
 import path, { resolve } from 'path';
 import { z } from 'zod';
@@ -505,26 +505,46 @@ export function FishLspHelp() {
 }
 
 export function FishLspManPage() {
-  // Try to get man file from VFS first
-  try {
-    const manPath = vfs.getVirtualPath('man/man1/fish-lsp.1');
-    const content = readFileSync(manPath, 'utf8');
-    return {
-      path: manPath,
-      content: content.split('\n'),
-    };
-  } catch {
-    // Fallback to PathObj.manFile
-    const manFile = PathObj.manFile;
-    if (!manFile) {
-      throw new Error('Man file not available');
+  // Try to get man file from filesystem first (preferred - shows actual install location)
+  const manFile = PathObj.manFile;
+  if (manFile && existsSync(manFile)) {
+    try {
+      const content = readFileSync(manFile, 'utf8');
+      return {
+        path: manFile,
+        content: content.split('\n'),
+      };
+    } catch {
+      // File exists but can't read it, fall through to VFS
     }
-    const content = readFileSync(manFile, 'utf8');
-    return {
-      path: manFile,
-      content: content.split('\n'),
-    };
   }
+
+  // Fallback to embedded man page from VFS
+  if (vfs && vfs.allFiles && Array.isArray(vfs.allFiles)) {
+    try {
+      const virtual = vfs.allFiles.find(f => {
+        return f.filepath.endsWith('man/man1/fish-lsp.1');
+      });
+
+      if (virtual && virtual.content) {
+        // Show warning that we're using embedded version
+        if (process.stderr.isTTY) {
+          process.stderr.write('\x1b[33mWarning: Using embedded man page from virtual filesystem\x1b[0m\n');
+        } else {
+          process.stderr.write('Warning: Using embedded man page from virtual filesystem\n');
+        }
+
+        return {
+          path: `${virtual.filepath} (embedded)`,
+          content: virtual.content.toString().split('\n'),
+        };
+      }
+    } catch (err) {
+      // VFS access failed, continue to final error
+    }
+  }
+
+  throw new Error('Man file not available');
 }
 
 export function fishLspLogFile() {
@@ -673,6 +693,11 @@ export namespace CommanderSubcommand {
           const manObj = FishLspManPage();
           const title = 'Man File';
           const message = args.show ? manObj.content.join('\n') : manObj.path;
+          if (manObj.content && manObj.path.startsWith('/man')) {
+            logger.logToStderr('\x1b[33mWarning: Displaying embedded\x1b[0m');
+            log(argsCount, title + ' (embedded)', manObj.content.join('\n'));
+            return;
+          }
           log(argsCount, title, message);
         } catch (error) {
           log(argsCount, 'Man File', 'Error: Man file not available');

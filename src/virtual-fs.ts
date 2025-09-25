@@ -210,7 +210,7 @@ class VirtualFileSystem {
 
       // Write man file if exists
       if (this.vol.existsSync('/man/man1/fish-lsp.1')) {
-        const manDir = join(this.virtualMountPoint, 'man');
+        const manDir = join(this.virtualMountPoint, 'man', 'man1');
         await fs.promises.mkdir(manDir, { recursive: true });
         const manContent = this.vol.readFileSync('/man/man1/fish-lsp.1', 'utf8');
         writePromises.push(
@@ -386,6 +386,9 @@ class VirtualFileSystem {
     try {
       const virtualPath = this.getVirtualPath(vfsRelativePath);
       if (existsSync(virtualPath)) {
+        return virtualPath;
+      }
+      if (virtualPath && virtualPath.endsWith(vfsRelativePath)) {
         return virtualPath;
       }
     } catch {

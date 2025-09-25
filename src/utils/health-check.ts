@@ -112,11 +112,11 @@ export async function performHealthCheck() {
     }
 
     try {
-      const binManFilePath = (await execAsyncFish('fish-lsp info --man-file')).stdout.toString().trim();
+      const binManFilePath = (await execAsyncFish('path filter -fZ -- $MANPATH/*/fish-lsp.1 | string split0 -m1 -f1')).stdout.toString().trim();
       if (binManFilePath !== '') {
         logger.logToStdout(`✓ binary man file found: ${binManFilePath}`);
         try {
-          const manDiff = (await execAsyncFish(`command diff ${binManFilePath} ${manFilePath}`)).stdout.toString().trim();
+          const manDiff = (await execAsyncFish(`fish-lsp info --man-file --show | command diff ${manFilePath} -`)).stdout.toString().trim();
           if (manDiff === '') {
             logger.logToStdout('✓ global man file is up to date');
           } else {
@@ -183,20 +183,13 @@ namespace CheckHealthErrorMessages {
       logger.logToStderr('\nTO UPDATE MAN FILE, RUN: ');
       logger.logToStderr([
         '```fish',
-        'set global_man_file (path filter -f -- $MANPATH/*/fish-lsp.1)',
-        'if ![ -f $global_man_file ]',
-        '    echo "\$MANFILE does not contain \'fish-lsp.1\'" >&2',
-        '    return 1',
-        'end',
-        '[ -f $(fish-lsp info --man-file) ] && cp $(fish-lsp info --man-file) $global_man_file -f && echo \'finished\'',
-        'or cp $(fish-lsp info --man-file) $global_man_file -f && echo \'finished\'',
-        'or echo "failed"',
+        'fish-lsp info --man-file --show > $MANPATH[1]/fish-lsp.1',
         '```',
       ].join('\n'));
     },
     globalNotFound: () => {
       logger.logToStdout('✗ global man file not found');
-      logger.logToStderr('\nPLEASE INCLUDE `fish-lsp info --man-file` IN YOUR $MANPATH\n');
+      logger.logToStderr('\nPLEASE INCLUDE `fish-lsp info --man-file` IN YOUR $MANPATH, or write it to your $MANPATH `fish-lsp info --man-file --show > $MANPATH[1]/man/man1/fish-lsp.1`\n');
     },
   };
 }
