@@ -1,3 +1,14 @@
+## <small>1.0.11-pre.24 (2025-09-25)</small>
+
+* fix: `server.onShowSignatureHelp()` silence error + test fish indexing startup ([ae2badd](https://github.com/ndonfris/fish-lsp/commit/ae2badd))
+* fix: flaky test behavior ([96e5a24](https://github.com/ndonfris/fish-lsp/commit/96e5a24))
+* feat: v1.0.11.mac.settings.pre release (#107) ([a925cac](https://github.com/ndonfris/fish-lsp/commit/a925cac)), closes [#107](https://github.com/ndonfris/fish-lsp/issues/107)
+* feat: v1.0.11.patching (#108) ([7c9c62b](https://github.com/ndonfris/fish-lsp/commit/7c9c62b)), closes [#108](https://github.com/ndonfris/fish-lsp/issues/108)
+* chore: added `fish_lsp_ignore_paths`, and `fish_lsp_max_workspace_depth` ([9ff595a](https://github.com/ndonfris/fish-lsp/commit/9ff595a))
+* chore: bump version for next release ([ac86f88](https://github.com/ndonfris/fish-lsp/commit/ac86f88))
+
+
+
 ## <small>1.0.11-pre.23 (2025-09-24)</small>
 
 * chore: changes to esbuild and other scripts ([2351bf3](https://github.com/ndonfris/fish-lsp/commit/2351bf3))
