@@ -1,13 +1,14 @@
 import * as LSP from 'vscode-languageserver';
-import { Diagnostic, Hover, Location, Position, SymbolKind, URI, WorkDoneProgressReporter, WorkspaceSymbol } from 'vscode-languageserver';
+import { DocumentUri, Hover, Location, Position, SymbolKind, URI, WorkDoneProgressReporter, WorkspaceSymbol } from 'vscode-languageserver';
+import { dirname } from 'path';
 import * as Parser from 'web-tree-sitter';
 import { SyntaxNode, Tree } from 'web-tree-sitter';
-import { config, getDefaultConfiguration, updateBasedOnSymbols } from './config';
+import { config } from './config';
 import { LspDocument } from './document';
 import { logger } from './logger';
 import { isArgparseVariableDefinitionName } from './parsing/argparse';
 import { CompletionSymbol, isCompletionCommandDefinition, isCompletionSymbol, processCompletion } from './parsing/complete';
-import { getExpandedSourcedFilenameNode, isSourceCommandArgumentName, isSourceCommandWithArgument } from './parsing/source';
+import { createSourceResources, getExpandedSourcedFilenameNode, isSourceCommandArgumentName, isSourceCommandWithArgument, symbolsFromResource } from './parsing/source';
 import { filterFirstPerScopeSymbol, FishSymbol, processNestedTree } from './parsing/symbol';
 import { getImplementation } from './references';
 import { execCommandLocations } from './utils/exec';
@@ -18,9 +19,11 @@ import { pathToUri, symbolKindToString, uriToPath } from './utils/translation';
 import { containsRange, getChildNodes, getNamedChildNodes, getRange, isPositionAfter, isPositionWithinRange, namedNodesGen, nodesGen, precedesRange } from './utils/tree-sitter';
 import { Workspace } from './utils/workspace';
 import { workspaceManager } from './utils/workspace-manager';
-import { getDiagnostics } from './diagnostics/validate';
 import { initializeParser } from './parser';
 import { connection } from './utils/startup';
+import { DiagnosticCache } from './diagnostics/cache';
+
+export type AnalyzedDocumentType = 'partial' | 'full';
 
 /**
  * AnalyzedDocument items are created in three public methods of the Analyzer class:
@@ -36,56 +39,61 @@ import { connection } from './utils/startup';
  *
  * Use the AnalyzeDocument namespace to create `AnalyzedDocument` items.
  */
-export type AnalyzedDocument = {
-  /**
-   * The LspDocument that was analyzed.
-   */
-  document: LspDocument;
-  /**
-   * A nested array of FishSymbols, representing the symbols in the document.
-   */
-  documentSymbols: FishSymbol[];
-  /**
-   * A tree that has been parsed by web-tree-sitter
-   */
-  tree: Parser.Tree;
-  /**
-   * root node of a SyntaxTree
-   */
-  root: Parser.SyntaxNode;
-  /**
-   * A flat array of every command used in this document
-   */
-  commandNodes: SyntaxNode[];
-  /**
-   * All the `source some_file_path` nodes in a document, scoping is not considered.
-   * However, the nodes can be filtered to consider scoping at a later time.
-   */
-  sourceNodes: SyntaxNode[];
-};
+export class AnalyzedDocument {
+  private constructor(
+    /**
+     * The LspDocument that was analyzed.
+     */
+    public document: LspDocument,
+    /**
+     * A nested array of FishSymbols, representing the symbols in the document.
+     */
+    public documentSymbols: FishSymbol[] = [],
+    /**
+     * A tree that has been parsed by web-tree-sitter
+     */
+    public tree?: Parser.Tree,
+    /**
+     * root node of a SyntaxTree
+     */
+    public root?: Parser.SyntaxNode,
+    /**
+     * A flat array of every command used in this document
+     */
+    public commandNodes: SyntaxNode[] = [],
+    /**
+     * All the `source some_file_path` nodes in a document, scoping is not considered.
+     * However, the nodes can be filtered to consider scoping at a later time.
+     */
+    public sourceNodes: SyntaxNode[] = [],
+    /**
+     * If the document has been fully analyzed, or only partially.
+     */
+    private type: AnalyzedDocumentType = tree ? 'full' : 'partial',
+  ) {
+    if (tree) this.root = tree.rootNode || undefined;
+  }
 
-/**
- * Builder function to create an AnalyzedDocument object.
- */
-export namespace AnalyzedDocument {
-  export function create(
+  public static create(
     document: LspDocument,
-    documentSymbols: FishSymbol[],
-    tree: Parser.Tree,
+    documentSymbols: FishSymbol[] = [],
+    tree: Parser.Tree | undefined = undefined,
+    root: Parser.SyntaxNode | undefined = undefined,
     commandNodes: SyntaxNode[] = [],
     sourceNodes: SyntaxNode[] = [],
   ): AnalyzedDocument {
-    return {
+    return new AnalyzedDocument(
       document,
       documentSymbols,
       tree,
-      root: tree.rootNode,
+      root || tree?.rootNode,
       commandNodes,
       sourceNodes,
-    };
+      tree ? 'full' : 'partial',
+    );
   }
 
-  export function createFull(
+  public static createFull(
     document: LspDocument,
     documentSymbols: FishSymbol[],
     tree: Parser.Tree,
@@ -96,42 +104,45 @@ export namespace AnalyzedDocument {
       if (isSourceCommandWithArgument(node)) sourceNodes.push(node.child(1)!);
       commandNodes.push(node);
     });
-    return {
+    return new AnalyzedDocument(
       document,
       documentSymbols,
       tree,
-      root: tree.rootNode,
+      tree.rootNode,
       commandNodes,
       sourceNodes,
-    };
+      'full',
+    );
   }
 
-  export function createPartial(
-    document: LspDocument,
-    tree: Parser.Tree,
-  ): AnalyzedDocument {
-    const commandNodes: SyntaxNode[] = [];
-    const sourceNodes: SyntaxNode[] = [];
-    tree.rootNode.descendantsOfType('command').forEach(node => {
-      if (isSourceCommandWithArgument(node)) sourceNodes.push(node.child(1)!);
-      commandNodes.push(node);
-    });
-    return {
-      document,
-      documentSymbols: [],
-      tree,
-      root: tree.rootNode,
-      commandNodes,
-      sourceNodes,
-    };
+  public static createPartial(document: LspDocument): AnalyzedDocument {
+    return AnalyzedDocument.create(document);
   }
 
-  export function isPartial(analyzedDocument: AnalyzedDocument): boolean {
-    return analyzedDocument.documentSymbols.length === 0;
+  public isPartial(): boolean {
+    return this.type === 'partial';
   }
 
-  export function isFull(analyzedDocument: AnalyzedDocument): boolean {
-    return analyzedDocument.documentSymbols.length > 0;
+  public isFull(): boolean {
+    return this.type === 'full';
+  }
+
+  public ensureParsed() {
+    if (this.isPartial()) {
+      const fullDocument = analyzer.analyze(this.document);
+      // Update this instance's properties in-place
+      this.documentSymbols = fullDocument.documentSymbols;
+      this.tree = fullDocument.tree;
+      this.root = fullDocument.root;
+      this.commandNodes = fullDocument.commandNodes;
+      this.sourceNodes = fullDocument.sourceNodes;
+      this.type = 'full';
+
+      // Update the cache with the fully parsed document
+      analyzer.cache.setDocument(this.document.uri, this);
+      return this;
+    }
+    return this;
   }
 }
 
@@ -177,7 +188,9 @@ export class Analyzer {
 
   public started = false;
 
-  constructor(protected parser: Parser) { }
+  public diagnostics: DiagnosticCache = new DiagnosticCache();
+
+  constructor(public parser: Parser) { }
 
   /**
    * The method that is used to instantiate the singleton `analyzer`, to avoid
@@ -206,10 +219,23 @@ export class Analyzer {
   public analyze(document: LspDocument): AnalyzedDocument {
     const analyzedDocument = this.getAnalyzedDocument(document);
     this.cache.setDocument(document.uri, analyzedDocument);
+
+    // Remove old global symbols for this document before adding new ones
+    this.globalSymbols.removeSymbolsByUri(document.uri);
+
+    // Add new global symbols
     for (const symbol of iterateNested(...analyzedDocument.documentSymbols)) {
       if (symbol.isGlobal()) this.globalSymbols.add(symbol);
     }
     return analyzedDocument;
+  }
+
+  /**
+   * Remove all global symbols for a document (used when document is closed or deleted)
+   */
+  public removeDocumentSymbols(uri: string): void {
+    this.globalSymbols.removeSymbolsByUri(uri);
+    this.cache.clear(uri);
   }
 
   /**
@@ -238,8 +264,7 @@ export class Analyzer {
    * instead of the
    */
   public analyzePartial(document: LspDocument): AnalyzedDocument {
-    const tree = this.parser.parse(document.getText());
-    const analyzedDocument = AnalyzedDocument.createPartial(document, tree);
+    const analyzedDocument = AnalyzedDocument.createPartial(document);
     this.cache.setDocument(document.uri, analyzedDocument);
     return analyzedDocument;
   }
@@ -332,39 +357,6 @@ export class Analyzer {
   }
 
   /**
-   * Update the configuration for the current workspace based on the symbols found in the document
-   *
-   * This is used to update the configuration for the current workspace when a user changes
-   * a fish-lsp environment variable in the workspace.
-   */
-  updateConfigInWorkspace(documentUri: string) {
-    const workspace = workspaceManager.current;
-    let symbols = this.getFlatDocumentSymbols(documentUri).filter(symbol =>
-      symbol.kind === SymbolKind.Variable && Object.keys(config).includes(symbol.name),
-    );
-    if (!workspace || !config.fish_lsp_single_workspace_support) {
-      if (symbols.length === 0) {
-        const prev = config.fish_lsp_single_workspace_support;
-        Object.assign(config, getDefaultConfiguration());
-        config.fish_lsp_single_workspace_support = prev;
-        return;
-      }
-      updateBasedOnSymbols(symbols);
-      return;
-    }
-    symbols = this.findSymbols((sym, doc) => {
-      if (doc && workspace.contains(doc?.uri)) return false;
-      if (sym.kind === SymbolKind.Variable && Object.keys(config).includes(sym.name)) {
-        return true;
-      }
-      return false;
-    });
-    if (symbols.length > 0) {
-      updateBasedOnSymbols(symbols);
-    }
-  }
-
-  /**
    * Return the first FishSymbol seen that matches is defined at the location passed in
    */
   public getSymbolAtLocation(location: Location): FishSymbol | undefined {
@@ -405,9 +397,7 @@ export class Analyzer {
   public findSymbol(
     callbackfn: (symbol: FishSymbol, doc?: LspDocument) => boolean,
   ) {
-    const currentWs = workspaceManager.current;
-    const uris = this.cache.uris().filter(uri => currentWs ? currentWs?.contains(uri) : true);
-    for (const uri of uris) {
+    for (const uri of this.getIterableUris()) {
       const symbols = this.cache.getFlatDocumentSymbols(uri);
       const document = this.cache.getDocument(uri)?.document;
       const symbol = symbols.find(s => callbackfn(s, document));
@@ -424,10 +414,8 @@ export class Analyzer {
   public findSymbols(
     callbackfn: (symbol: FishSymbol, doc?: LspDocument) => boolean,
   ): FishSymbol[] {
-    const currentWs = workspaceManager.current;
-    const uris = this.cache.uris().filter(uri => currentWs ? currentWs?.contains(uri) : true);
     const symbols: FishSymbol[] = [];
-    for (const uri of uris) {
+    for (const uri of this.getIterableUris()) {
       const document = this.cache.getDocument(uri)?.document;
       const symbols = this.getFlatDocumentSymbols(document!.uri);
       const newSymbols = symbols.filter(s => callbackfn(s, document));
@@ -467,12 +455,10 @@ export class Analyzer {
     uri: string;
     nodes: SyntaxNode[];
   }[] {
-    const currentWs = workspaceManager.current;
-    const uris = this.cache.uris().filter(uri => currentWs ? currentWs?.contains(uri) : uri);
     const result: { uri: string; nodes: SyntaxNode[]; }[] = [];
-    for (const uri of uris) {
+    for (const uri of this.getIterableUris()) {
       const root = this.cache.getRootNode(uri);
-      const document = this.cache.getDocument(uri)!.document;
+      const document = this.cache.getDocument(uri)?.document;
       if (!root || !document) continue;
       const nodes = getChildNodes(root).filter((node) => callbackfn(node, document));
       if (nodes.length > 0) {
@@ -486,9 +472,7 @@ export class Analyzer {
    * A generator function that yields all the documents in the workspace.
    */
   public * findDocumentsGen(): Generator<LspDocument> {
-    const currentWs = workspaceManager.current;
-    const uris = this.cache.uris().filter(uri => currentWs ? currentWs?.contains(uri) : true);
-    for (const uri of uris) {
+    for (const uri of this.getIterableUris()) {
       const document = this.cache.getDocument(uri)?.document;
       if (document) {
         yield document;
@@ -501,9 +485,7 @@ export class Analyzer {
    * The symbols yielded are flattened FishSymbols (NOT nested).
    */
   public * findSymbolsGen(): Generator<{ document: LspDocument; symbols: FishSymbol[]; }> {
-    const currentWs = workspaceManager.current;
-    const uris = this.cache.uris().filter(uri => currentWs ? currentWs?.contains(uri) : true);
-    for (const uri of uris) {
+    for (const uri of this.getIterableUris()) {
       const symbols = this.cache.getFlatDocumentSymbols(uri);
       const document = this.cache.getDocument(uri)?.document;
       if (!document || !symbols) continue;
@@ -517,9 +499,7 @@ export class Analyzer {
    * nodes for the document.
    */
   public * findNodesGen(): Generator<{ document: LspDocument; nodes: Generator<SyntaxNode>; }> {
-    const currentWs = workspaceManager.current;
-    const uris = this.cache.uris().filter(uri => currentWs ? currentWs?.contains(uri) : true);
-    for (const uri of uris) {
+    for (const uri of this.getIterableUris()) {
       const root = this.cache.getRootNode(uri);
       const document = this.cache.getDocument(uri)?.document;
       if (!root || !document) continue;
@@ -552,7 +532,7 @@ export class Analyzer {
       const sourcedSymbols = this.cache.getFlatDocumentSymbols(sourcedUri)
         .filter(s =>
           !symbolNames.has(s.name)
-          && isTopLevelDefinition(s.focusedNode)
+          && (s.isGlobal() || s.isRootLevel())
           && s.uri !== document.uri,
         );
       symbols.push(...sourcedSymbols);
@@ -597,10 +577,12 @@ export class Analyzer {
    */
   private getDefinitionHelper(document: LspDocument, position: Position): FishSymbol[] {
     const symbols: FishSymbol[] = [];
-    const localSymbols = this.getFlatDocumentSymbols(document.uri);
     const word = this.wordAtPoint(document.uri, position.line, position.character);
     const node = this.nodeAtPoint(document.uri, position.line, position.character);
     if (!word || !node) return [];
+
+    // First check local symbols
+    const localSymbols = this.getFlatDocumentSymbols(document.uri);
     const localSymbol = localSymbols.find((s) => {
       return s.name === word && containsRange(s.selectionRange, getRange(node));
     });
@@ -617,9 +599,21 @@ export class Analyzer {
       });
       symbols.push(...toAdd);
     }
+
+    // If no local symbols found, check sourced symbols
+    if (!symbols.length) {
+      const allAccessibleSymbols = this.allSymbolsAccessibleAtPosition(document, position);
+      const sourcedSymbols = allAccessibleSymbols.filter(s =>
+        s.name === word && s.uri !== document.uri,
+      );
+      symbols.push(...sourcedSymbols);
+    }
+
+    // Finally, check global symbols as fallback
     if (!symbols.length) {
       symbols.push(...this.globalSymbols.find(word));
     }
+
     return symbols;
   }
 
@@ -675,10 +669,10 @@ export class Analyzer {
 
     // check that the node (or its parent) is a `source` command argument
     if (node && isSourceCommandArgumentName(node)) {
-      return this.getSourceDefinitionLocation(node);
+      return this.getSourceDefinitionLocation(node, document);
     }
     if (node && node.parent && isSourceCommandArgumentName(node.parent)) {
-      return this.getSourceDefinitionLocation(node.parent);
+      return this.getSourceDefinitionLocation(node.parent, document);
     }
 
     // check if we have a symbol defined at the position
@@ -738,9 +732,13 @@ export class Analyzer {
   /**
    * Gets the location of the sourced file for the given source command argument name node.
    */
-  private getSourceDefinitionLocation(node: SyntaxNode): LSP.Location[] {
+  private getSourceDefinitionLocation(node: SyntaxNode, document: LspDocument): LSP.Location[] {
     if (node && isSourceCommandArgumentName(node)) {
-      const expanded = getExpandedSourcedFilenameNode(node) as string;
+      // Get the base directory for resolving relative paths
+      const fromPath = uriToPath(document.uri);
+      const baseDir = dirname(fromPath);
+
+      const expanded = getExpandedSourcedFilenameNode(node, baseDir) as string;
       let sourceDoc = this.getDocumentFromPath(expanded);
       if (!sourceDoc) {
         this.analyzePath(expanded); // find the filepath & analyze it
@@ -793,7 +791,10 @@ export class Analyzer {
    */
   getTree(documentUri: string): Tree | undefined {
     if (this.cache.hasUri(documentUri)) {
-      return this.cache.getDocument(documentUri)?.tree as Tree;
+      const doc = this.cache.getDocument(documentUri);
+      if (doc) {
+        return doc.ensureParsed().tree;
+      }
     }
     return this.analyzePath(uriToPath(documentUri))?.tree;
   }
@@ -805,7 +806,10 @@ export class Analyzer {
    */
   getRootNode(documentUri: string): SyntaxNode | undefined {
     if (this.cache.hasUri(documentUri)) {
-      return this.cache.getRootNode(documentUri)!;
+      const doc = this.cache.getDocument(documentUri);
+      if (doc) {
+        return doc.ensureParsed().root;
+      }
     }
     return this.analyzePath(uriToPath(documentUri))?.root;
   }
@@ -875,11 +879,11 @@ export class Analyzer {
   } {
     const document = this.cache.getDocument(documentUri)?.document;
     if (!document) {
-      return undefined as any; // Return an empty generator if the document is not found
+      return { nodes: (function*() { })(), namedNodes: (function*() { })() }; // Return an empty generator if the document is not found
     }
     const root = this.getRootNode(documentUri);
     if (!root) {
-      return undefined as any; // Return an empty generator if the root node is not found
+      return { nodes: (function*() { })(), namedNodes: (function*() { })() }; // Return an empty generator if the root node is not found
     }
     return {
       nodes: nodesGen(root),
@@ -914,13 +918,8 @@ export class Analyzer {
    * @param documentUri - the uri of the document to get the diagnostics for
    * @returns {Diagnostic[]} - an array of Diagnostic objects
    */
-  public getDiagnostics(documentUri: string): Diagnostic[] {
-    const doc = this.getDocument(documentUri);
-    const root = this.getRootNode(documentUri);
-    if (!doc || !root) {
-      return [];
-    }
-    return getDiagnostics(root, doc);
+  public getDiagnostics(documentUri: string) {
+    return this.diagnostics.bindDiagnostics(documentUri);
   }
 
   /**
@@ -975,8 +974,13 @@ export class Analyzer {
         return false;
       });
     const sources = new Set<string>();
+
+    // Get the base directory for resolving relative paths
+    const fromPath = uriToPath(documentUri);
+    const baseDir = dirname(fromPath);
+
     for (const node of sourceNodes) {
-      const sourced = getExpandedSourcedFilenameNode(node);
+      const sourced = getExpandedSourcedFilenameNode(node, baseDir);
       if (sourced) {
         sources.add(pathToUri(sourced));
       }
@@ -998,6 +1002,47 @@ export class Analyzer {
       }
     }
     return allSources;
+  }
+
+  /**
+   * Collects all sourced symbols for a document, including symbols from all reachable source files.
+   * This is used for document symbols to include sourced functions and variables.
+   * @param documentUri - the uri of the document to collect sourced symbols for
+   * @returns {FishSymbol[]} - array of all sourced symbols (functions, variables) that should be visible
+   */
+  public collectSourcedSymbols(documentUri: string): FishSymbol[] {
+    const sourcedSymbols: FishSymbol[] = [];
+    const uniqueNames = new Set<string>();
+
+    // Get all sourced files reachable from this document
+    const sourcedUris = this.collectAllSources(documentUri);
+
+    for (const sourcedUri of sourcedUris) {
+      if (sourcedUri === documentUri) continue; // Skip self
+
+      // Create a mock SourceResource for symbolsFromResource
+      const sourceDoc = this.getDocument(sourcedUri);
+      if (!sourceDoc) continue;
+
+      const topLevelDefinitions = this.getFlatDocumentSymbols(sourceDoc.uri).filter(s => s.isRootLevel() || s.isGlobal());
+      sourcedSymbols.push(...topLevelDefinitions);
+
+      for (const resource of createSourceResources(analyzer, sourceDoc)) {
+        // If the resource is a sourced file, we can get its symbols
+        if (resource.to && resource.from && resource.node) {
+          const symbols = symbolsFromResource(this, resource, new Set(sourcedSymbols.map(s => s.name)))
+            .filter(s => s.isRootLevel() || s.isGlobal());
+          for (const symbol of symbols) {
+            if (!uniqueNames.has(symbol.name)) {
+              uniqueNames.add(symbol.name);
+              sourcedSymbols.push(symbol);
+            }
+          }
+        }
+      }
+    }
+
+    return sourcedSymbols;
   }
 
   /**
@@ -1124,9 +1169,20 @@ export class Analyzer {
 
   public ensureCachedDocument(doc: LspDocument): AnalyzedDocument {
     if (this.cache.hasUri(doc.uri)) {
-      return this.cache.getDocument(doc.uri) as AnalyzedDocument;
+      const cachedDoc = this.cache.getDocument(doc.uri);
+      if (cachedDoc?.document.version === doc.version && cachedDoc.document.getText() === doc.getText()) {
+        return cachedDoc;
+      }
     }
     return this.analyze(doc);
+  }
+
+  private getIterableUris(): DocumentUri[] {
+    const currentWs = workspaceManager.current;
+    if (currentWs) {
+      return currentWs.uris.all;
+    }
+    return this.cache.uris();
   }
 }
 
@@ -1146,6 +1202,16 @@ class GlobalDefinitionCache {
       current.push(symbol);
     }
     this._definitions.set(symbol.name, current);
+  }
+  removeSymbolsByUri(uri: string): void {
+    for (const [name, symbols] of this._definitions.entries()) {
+      const filtered = symbols.filter(symbol => symbol.uri !== uri);
+      if (filtered.length === 0) {
+        this._definitions.delete(name);
+      } else {
+        this._definitions.set(name, filtered);
+      }
+    }
   }
   find(name: string): FishSymbol[] {
     return this._definitions.get(name) || [];
@@ -1221,34 +1287,56 @@ class AnalyzedDocumentCache {
     }
   }
   getDocumentSymbols(uri: URI): FishSymbol[] {
-    return this._documents.get(uri)?.documentSymbols || [];
+    const doc = this._documents.get(uri);
+    if (doc) {
+      doc.ensureParsed();
+      return doc.documentSymbols;
+    }
+    return [];
   }
   getFlatDocumentSymbols(uri: URI): FishSymbol[] {
     return flattenNested<FishSymbol>(...this.getDocumentSymbols(uri));
   }
   getCommands(uri: URI): SyntaxNode[] {
-    return this._documents.get(uri)?.commandNodes || [];
+    const doc = this._documents.get(uri);
+    if (doc) {
+      doc.ensureParsed();
+      return doc.commandNodes;
+    }
+    return [];
   }
   getRootNode(uri: URI): Parser.SyntaxNode | undefined {
     return this.getParsedTree(uri)?.rootNode;
   }
   getParsedTree(uri: URI): Parser.Tree | undefined {
-    return this._documents.get(uri)?.tree;
+    const doc = this._documents.get(uri);
+    if (doc) {
+      doc.ensureParsed();
+      return doc.tree;
+    }
+    return undefined;
   }
   getSymbolTree(uri: URI): FishSymbol[] {
-    const document = this.getDocument(uri);
-    if (!document) {
+    const analyzedDoc = this._documents.get(uri);
+    if (!analyzedDoc) {
       return [];
     }
-    return document.documentSymbols;
+    analyzedDoc.ensureParsed();
+    return analyzedDoc.documentSymbols;
   }
   getSources(uri: URI): Set<string> {
-    const document = this.getDocument(uri);
-    if (!document) {
+    const analyzedDoc = this._documents.get(uri);
+    if (!analyzedDoc) {
       return new Set();
     }
+    analyzedDoc.ensureParsed();
     const result: Set<string> = new Set();
-    const sourceNodes = document.sourceNodes.map(node => getExpandedSourcedFilenameNode(node)).filter(s => !!s) as string[];
+
+    // Get the base directory for resolving relative paths
+    const fromPath = uriToPath(uri);
+    const baseDir = dirname(fromPath);
+
+    const sourceNodes = analyzedDoc.sourceNodes.map((node: any) => getExpandedSourcedFilenameNode(node, baseDir)).filter((s: any) => !!s) as string[];
     for (const source of sourceNodes) {
       const sourceUri = pathToUri(source);
       result.add(sourceUri);
@@ -1256,11 +1344,12 @@ class AnalyzedDocumentCache {
     return result;
   }
   getSourceNodes(uri: URI): SyntaxNode[] {
-    const document = this.getDocument(uri);
-    if (!document) {
+    const analyzedDoc = this._documents.get(uri);
+    if (!analyzedDoc) {
       return [];
     }
-    return document.sourceNodes;
+    analyzedDoc.ensureParsed();
+    return analyzedDoc.sourceNodes;
   }
   clear(uri: URI) {
     this._documents.delete(uri);

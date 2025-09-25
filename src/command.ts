@@ -1,4 +1,4 @@
-import { Connection, ExecuteCommandParams, MessageType, Position, Range, TextEdit, WorkspaceEdit } from 'vscode-languageserver';
+import { Connection, ExecuteCommandParams, MessageType, Position, Range, Location, TextEdit, WorkspaceEdit } from 'vscode-languageserver';
 import { Analyzer } from './analyze';
 import { codeActionHandlers } from './code-actions/code-action-handler';
 import { createFixAllAction } from './code-actions/quick-fixes';
@@ -13,6 +13,7 @@ import { PrebuiltDocumentationMap } from './utils/snippets';
 import { pathToUri, uriToReadablePath } from './utils/translation';
 import { getRange } from './utils/tree-sitter';
 import { workspaceManager } from './utils/workspace-manager';
+import { PkgJson } from './utils/commander-cli-subcommands';
 
 // Define command name constants to avoid string literals
 export const CommandNames = {
@@ -29,6 +30,7 @@ export const CommandNames = {
   GENERATE_ENV_VARIABLES: 'fish-lsp.generateEnvVariables',
   CHECK_HEALTH: 'fish-lsp.checkHealth',
   SHOW_REFERENCES: 'fish-lsp.showReferences',
+  SHOW_INFO: 'fish-lsp.showInfo',
 } as const;
 
 export const LspCommands = [...Array.from(Object.values(CommandNames))];
@@ -50,6 +52,7 @@ export type CommandArgs = {
   [CommandNames.TOGGLE_SINGLE_WORKSPACE_SUPPORT]: [];
   [CommandNames.GENERATE_ENV_VARIABLES]: [path: string];
   [CommandNames.SHOW_REFERENCES]: [path: string, position: Position, references: Location[]];  // Add this line
+  [CommandNames.SHOW_INFO]: [];
 };
 
 // Function to create the command handler with dependencies injected
@@ -199,19 +202,6 @@ export function createExecuteCommandHandler(
     return undefined;
   }
 
-  async function updateConfig(path: string) {
-    const cached = analyzer.analyzePath(path);
-    if (!cached) return;
-    const { document } = cached;
-    if (!document) return;
-    analyzer.updateConfigInWorkspace(document.uri);
-    connection.sendNotification('window/showMessage', {
-      message: config,
-      type: MessageType.Info,
-    });
-    return undefined;
-  }
-
   async function fixAllDiagnostics(path: string) {
     const uri = pathToUri(path);
     logger.log('fixAllDiagnostics', uri);
@@ -294,6 +284,7 @@ export function createExecuteCommandHandler(
       global: true,
       local: false,
       export: true,
+      json: false,
       only: undefined,
     });
     connection.sendNotification('window/showMessage', {
@@ -321,6 +312,23 @@ export function createExecuteCommandHandler(
     return references;
   }
 
+  function showInfo() {
+    const message = JSON.stringify({
+      version: PkgJson.version,
+      buildTime: PkgJson.buildTime,
+      repo: PkgJson.path,
+    }, null, 2);
+    if (config.fish_lsp_show_client_popups) {
+      connection.window.showInformationMessage(message);
+    } else {
+      connection.sendNotification('window/showMessage', {
+        type: MessageType.Info,  // Info, Warning, Error, Log
+        message: message,
+      });
+      logger.log('showInfo', message);
+    }
+  }
+
   // Command handler mapping
   const commandHandlers: Record<string, (...args: any[]) => Promise<void> | void | Promise<Location[]>> = {
     // 'fish-lsp.showReferences': handleShowReferences,
@@ -332,11 +340,11 @@ export function createExecuteCommandHandler(
     'fish-lsp.showStatusDocs': handleShowStatusDocs,
     'fish-lsp.showWorkspaceMessage': showWorkspaceMessage,
     'fish-lsp.updateWorkspace': _updateWorkspace,
-    'fish-lsp.updateConfig': updateConfig,
     'fish-lsp.fixAll': fixAllDiagnostics,
     'fish-lsp.toggleSingleWorkspaceSupport': toggleSingleWorkspaceSupport,
     'fish-lsp.generateEnvVariables': outputFishLspEnv,
     'fish-lsp.showReferences': showReferences,
+    'fish-lsp.showInfo': showInfo,
   };
 
   // Main command handler function

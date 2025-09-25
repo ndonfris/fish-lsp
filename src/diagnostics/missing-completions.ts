@@ -133,20 +133,6 @@ function findMissingCompletionsWithExistingArgparse(
       missingCompletions.push(symbol);
     }
   }
-  // const argparseLocations = analyzer.getFlatDocumentSymbols(document.uri);
-  //
-  // for (const location of argparseLocations) {
-  //   const cSymbols = analyzer.getFlatCompletionSymbols(location.uri)
-  //     .filter(s => s.isNonEmpty());
-  //
-  //   if (cSymbols.length === 0) continue;
-  //
-  //   const grouped = groupCompletionSymbolsTogether(...cSymbols);
-  //   const result = getGroupedCompletionSymbolsAsArgparse(grouped, argparseLocations);
-  //   if (result.length > 0) {
-  //     missingCompletions.push(...result);
-  //   }
-  // }
   return missingCompletions;
 }
 

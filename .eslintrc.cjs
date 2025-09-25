@@ -17,12 +17,19 @@ module.exports = {
         tsconfigRootDir: __dirname,
     },
     ignorePatterns: [
-        'scripts/build-*.ts',
-        'scripts/build-standalone.ts',
+        'scripts/',
         'dist/',
-        '.bun/'
+        '.bun/',
+        'out/',
+        'build/',
+        "lib/src/",
+        "lib/*.d.ts",
+        "release-assets/",
+        "dist/",
+        "vitest.config.ts",
     ],
     rules: {
+        'no-control-regex': 'off',
         'array-bracket-spacing': 'error',
         'brace-style': 'error',
         'comma-dangle': ['error', 'always-multiline'],
@@ -128,7 +135,7 @@ module.exports = {
     },
     overrides: [
         {
-            files: ['test-data/**/*.ts'],
+            files: ['tests/**/*.ts'],
             // project: './tsconfig.jest.json',
             rules: {
                 '@typescript-eslint/no-unused-vars': 'off',

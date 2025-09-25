@@ -1,11 +1,11 @@
 import { z } from 'zod';
+import { Connection, FormattingOptions, InitializeParams, InitializeResult, TextDocumentSyncKind } from 'vscode-languageserver';
 import { createServerLogger, logger } from './logger';
 import { PrebuiltDocumentationMap, EnvVariableJson } from './utils/snippets';
-import { Connection, FileOperationRegistrationOptions, FormattingOptions, InitializeParams, InitializeResult, SymbolKind, TextDocumentSyncKind } from 'vscode-languageserver';
 import { AllSupportedActions } from './code-actions/action-kinds';
 import { LspCommands } from './command';
 import { PackageVersion, SubcommandEnv } from './utils/commander-cli-subcommands';
-import { FishSymbol } from './parsing/symbol';
+import { ErrorCodes } from './diagnostics/error-codes';
 
 /********************************************
  **********  Handlers/Providers   ***********
@@ -31,6 +31,7 @@ export const ConfigHandlerSchema = z.object({
   highlight: z.boolean().default(true),
   diagnostic: z.boolean().default(true),
   popups: z.boolean().default(true),
+  semanticTokens: z.boolean().default(false),
 });
 
 /**
@@ -64,7 +65,7 @@ export const configHandlers = ConfigHandlerSchema.parse({});
 export const validHandlers: Array<keyof typeof ConfigHandlerSchema.shape> = [
   'complete', 'hover', 'rename', 'definition', 'implementation', 'reference', 'formatting',
   'formatRange', 'typeFormatting', 'codeAction', 'codeLens', 'folding', 'signature',
-  'executeCommand', 'inlayHint', 'highlight', 'diagnostic', 'popups',
+  'executeCommand', 'inlayHint', 'highlight', 'diagnostic', 'popups', 'semanticTokens',
 ];
 
 export function updateHandlers(keys: string[], value: boolean): void {
@@ -108,6 +109,25 @@ export const ConfigSchema = z.object({
   /** fish lsp experimental diagnostics */
   fish_lsp_enable_experimental_diagnostics: z.boolean().default(false),
 
+  /** diagnostic 3002 warnings should be shown forcing the user to check if a command exists before using it */
+  fish_lsp_strict_conditional_command_warnings: z.boolean().default(false),
+
+  /**
+   * include diagnostic warnings when an external shell command is used instead of
+   * a fish built-in command
+   */
+  fish_lsp_prefer_builtin_fish_commands: z.boolean().default(false),
+
+  /**
+   * don't warn usage of fish wrapper functions
+   */
+  fish_lsp_allow_fish_wrapper_functions: z.boolean().default(true),
+
+  /**
+   * require autoloaded functions to have a description in their header
+   */
+  fish_lsp_require_autoloaded_functions_to_have_description: z.boolean().default(true),
+
   /** max background files */
   fish_lsp_max_background_files: z.number().default(10000),
 
@@ -116,6 +136,15 @@ export const ConfigSchema = z.object({
 
   /** single workspace support */
   fish_lsp_single_workspace_support: z.boolean().default(false),
+
+  /** paths to ignore when searching for workspace folders */
+  fish_lsp_ignore_paths: z.array(z.string()).default(['**/.git/**', '**/node_modules/**', '**/containerized/**', '**/docker/**']),
+
+  /** max depth to search for workspace folders */
+  fish_lsp_max_workspace_depth: z.number().default(3),
+
+  /** path to fish executable for child processes */
+  fish_lsp_fish_path: z.string().default('fish'),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -132,11 +161,18 @@ export function getConfigFromEnvironmentVariables(): {
     fish_lsp_log_level: process.env.fish_lsp_log_level,
     fish_lsp_all_indexed_paths: process.env.fish_lsp_all_indexed_paths?.split(' '),
     fish_lsp_modifiable_paths: process.env.fish_lsp_modifiable_paths?.split(' '),
-    fish_lsp_diagnostic_disable_error_codes: process.env.fish_lsp_diagnostic_disable_error_codes?.split(' ').map(toNumber),
-    fish_lsp_enable_experimental_diagnostics: toBoolean(process.env.fish_lsp_enable_experimental_diagnostics) || false,
-    fish_lsp_max_background_files: toNumber(process.env.fish_lsp_max_background_files),
-    fish_lsp_show_client_popups: toBoolean(process.env.fish_lsp_show_client_popups) || false,
-    fish_lsp_single_workspace_support: toBoolean(process.env.fish_lsp_single_workspace_support) || false,
+    fish_lsp_diagnostic_disable_error_codes: process.env.fish_lsp_diagnostic_disable_error_codes?.split(' ').map(toNumber).filter(n => !!n),
+    fish_lsp_enable_experimental_diagnostics: toBoolean(process.env.fish_lsp_enable_experimental_diagnostics),
+    fish_lsp_prefer_builtin_fish_commands: toBoolean(process.env.fish_lsp_prefer_builtin_fish_commands),
+    fish_lsp_strict_conditional_command_warnings: toBoolean(process.env.fish_lsp_strict_conditional_command_warnings),
+    fish_lsp_allow_fish_wrapper_functions: toBoolean(process.env.fish_lsp_allow_fish_wrapper_functions),
+    fish_lsp_require_autoloaded_functions_to_have_description: toBoolean(process.env.fish_lsp_require_autoloaded_functions_to_have_description),
+    fish_lsp_max_background_files: toNumber(process.env.fish_lsp_max_background_files || '10000'),
+    fish_lsp_show_client_popups: toBoolean(process.env.fish_lsp_show_client_popups),
+    fish_lsp_single_workspace_support: toBoolean(process.env.fish_lsp_single_workspace_support),
+    fish_lsp_ignore_paths: process.env.fish_lsp_ignore_paths?.split(' '),
+    fish_lsp_max_workspace_depth: toNumber(process.env.fish_lsp_max_workspace_depth || '4'),
+    fish_lsp_fish_path: process.env.fish_lsp_fish_path,
   };
 
   const environmentVariablesUsed = Object.entries(rawConfig)
@@ -145,103 +181,21 @@ export function getConfigFromEnvironmentVariables(): {
 
   const config = ConfigSchema.parse(rawConfig);
 
+  if (config.fish_lsp_allow_fish_wrapper_functions) {
+    config.fish_lsp_diagnostic_disable_error_codes.push(ErrorCodes.usedWrapperFunction);
+  }
+  if (config.fish_lsp_strict_conditional_command_warnings) {
+    config.fish_lsp_diagnostic_disable_error_codes.push(ErrorCodes.missingQuietOption);
+  }
+  if (config.fish_lsp_require_autoloaded_functions_to_have_description) {
+    config.fish_lsp_diagnostic_disable_error_codes.push(ErrorCodes.requireAutloadedFunctionHasDescription);
+  }
+
   return { config, environmentVariablesUsed };
 }
 
 export function getDefaultConfiguration(): Config {
   return ConfigSchema.parse({});
-}
-
-// TODO: fix using this in the analyzer to update the config
-export function updateBasedOnSymbols(
-  symbols: FishSymbol[],
-) {
-  const fishLspSymbols = symbols.filter(s => s.kind === SymbolKind.Variable && s.name.startsWith('fish_lsp_'));
-
-  const newConfig: Record<keyof Config, unknown> = {} as Record<keyof Config, unknown>;
-  const configCopy: Config = Object.assign({}, config);
-
-  for (const s of fishLspSymbols) {
-    const configKey = Config.getEnvVariableKey(s.name);
-    if (!configKey) {
-      continue;
-    }
-
-    if (s.isConfigDefinitionWithErase()) {
-      const schemaType = ConfigSchema.shape[configKey as keyof z.infer<typeof ConfigSchema>];
-
-      (config[configKey] as any) = schemaType.parse(schemaType._def.defaultValue());
-      continue;
-    }
-
-    const shellValues = s.valuesAsShellValues();
-
-    if (shellValues.length > 0) {
-      if (shellValues.length === 1) {
-        const value = shellValues[0];
-        if (toBoolean(value)) {
-          newConfig[configKey] = toBoolean(value);
-          continue;
-        }
-        if (toNumber(value)) {
-          newConfig[configKey] = toNumber(value);
-          continue;
-        }
-        newConfig[configKey] = value;
-        continue;
-      } else {
-        if (shellValues.every(v => !!toNumber(v))) {
-          (newConfig[configKey] as any) = shellValues.map(v => toNumber(v));
-        } else if (shellValues.every(v => toBoolean(v))) {
-          (newConfig[configKey] as any) = shellValues.map(v => toBoolean(v));
-        } else {
-          (newConfig[configKey] as any) = shellValues;
-        }
-      }
-    }
-  }
-  Object.assign(config, updateConfigValues(configCopy, newConfig));
-}
-
-/**
- * Updates config values from environment variables while maintaining proper types
- * @param config The current config object
- * @param newValues Object containing new values to update
- * @returns Updated config object with proper types
- */
-export function updateConfigValues<T extends z.infer<typeof ConfigSchema>>(
-  config: T,
-  newValues: Record<string, unknown>,
-): T {
-  // Create a new object to hold our updates
-  const updates: Partial<T> = {};
-
-  // Iterate through all keys in newValues
-  Object.keys(newValues).forEach(key => {
-    if (key in config) {
-      const configKey = key as keyof T;
-      const schemaType = ConfigSchema.shape[configKey as keyof z.infer<typeof ConfigSchema>];
-
-      if (schemaType) {
-        try {
-          // Parse the new value through the corresponding Zod schema
-          // This ensures type safety and validation
-          const parsedValue = schemaType.safeParse(newValues[key]);
-          if (parsedValue.success) {
-            updates[configKey] = parsedValue.data as T[keyof T];
-          } else {
-            updates[configKey] = schemaType._def.defaultValue() as T[keyof T];
-          }
-        } catch (error) {
-          // Handle parsing errors - could log or throw depending on your needs
-          logger.error(`Failed to parse value for ${key}: ${error instanceof Error ? error.message : String(error)}`);
-        }
-      }
-    }
-  });
-
-  // Return a new config object with the updates
-  return { ...config, ...updates };
 }
 
 /**
@@ -250,8 +204,11 @@ export function updateConfigValues<T extends z.infer<typeof ConfigSchema>>(
 export const toBoolean = (s?: string): boolean | undefined =>
   typeof s !== 'undefined' ? s === 'true' || s === '1' : undefined;
 
-export const toNumber = (s?: string): number | undefined =>
-  typeof s !== 'undefined' ? parseInt(s, 10) : undefined;
+export const toNumber = (s?: string | number): number | undefined =>
+  typeof s === 'undefined'
+    ? undefined
+    : typeof s === 'number' ? s
+      : typeof s === 'string' ? parseInt(s, 10) : parseInt(String(s), 10) || undefined;
 
 function buildOutput(confd: boolean, result: string[]) {
   return confd
@@ -280,6 +237,7 @@ export function handleEnvOutput(
     global: boolean;
     local: boolean;
     export: boolean;
+    json: boolean;
   } = SubcommandEnv.defaultHandlerOptions,
 ) {
   const command = getEnvVariableCommand(opts.global, opts.local, opts.export);
@@ -287,8 +245,8 @@ export function handleEnvOutput(
 
   const variables = PrebuiltDocumentationMap
     .getByType('variable', 'fishlsp')
-    .filter((v) => EnvVariableJson.is(v))
-    .filter((v) => !v.isDeprecated);
+    .filter((v) => EnvVariableJson.is(v) ? !v.isDeprecated : false)
+    .map(v => v as EnvVariableJson);
 
   const getEnvVariableJsonObject = (keyName: string): EnvVariableJson =>
     variables.find(entry => entry.name === keyName)!;
@@ -298,13 +256,16 @@ export function handleEnvOutput(
     if (!Array.isArray(value)) return escapeValue(value) + '\n';
 
     // For arrays
-    if (value.length === 0) return "''\n"; // empty array -> ''
+    if (value.length === 0) return '\n'; // empty array -> ''
     return value.map(v => escapeValue(v)).join(' ') + '\n'; // escape and join array
   };
 
   // Gets the default value for an environment variable, from the zod schema
   const getDefaultValueAsShellOutput = (key: Config.ConvigKeyType) => {
     const value = Config.getDefaultValue(key);
+    if (opts.json) {
+      return JSON.stringify(value, null, 2);
+    }
     return convertValueToShellOutput(value);
   };
 
@@ -344,6 +305,28 @@ export function handleEnvOutput(
     }
     return line;
   };
+
+  if (opts.json) {
+    const jsonOutput: Record<string, Config.ConfigValueType> = {};
+    for (const item of Object.entries(config)) {
+      const [key, value] = item;
+      if (opts.only && !opts.only.includes(key)) continue;
+      switch (outputType) {
+        case 'create':
+          jsonOutput[key] = config[key as keyof Config];
+          continue;
+        case 'showDefault':
+          jsonOutput[key] = Config.getDefaultValue(key as keyof Config);
+          continue;
+        case 'show':
+        default:
+          jsonOutput[key] = value;
+          continue;
+      }
+    }
+    callbackfn(JSON.stringify(jsonOutput, null, 2));
+    return JSON.stringify(jsonOutput, null, 2);
+  }
 
   // show - output what is currently being used
   // create - output the default value
@@ -410,6 +393,9 @@ export const FormatOptions: FormattingOptions = {
  ***               Config                 ***
  *******************************************/
 export namespace Config {
+
+  // eslint-disable-next-line prefer-const
+  export let isWebServer = false;
 
   /**
    *  fixPopups - updates the `config.fish_lsp_show_client_popups` value based on the 3 cases:
@@ -516,6 +502,7 @@ export namespace Config {
    * Used for the `fish-lsp env` cli completions
    */
   export const envDocs: Record<keyof Config, string> = getDocsObj();
+  export const allServerFeatures = Array.from([...validHandlers]);
 
   /**
    * All old environment variables mapped to their new key names.
@@ -524,12 +511,14 @@ export namespace Config {
     ['fish_lsp_logfile']: 'fish_lsp_log_file',
   };
 
-  // Or use a helper function approach for even better typing
-  const keys = <T extends z.ZodObject<any>>(schema: T): Array<keyof z.infer<T>> => {
-    return Object.keys(schema.shape) as Array<keyof z.infer<T>>;
-  };
+  export function isDeprecatedKey(key: string): boolean {
+    if (key.trim() === '') return false;
+    return Object.keys(deprecatedKeys).includes(key);
+  }
 
-  export const allKeys: Array<keyof typeof ConfigSchema.shape> = keys(ConfigSchema);
+  // Or use a helper function approach for even better typing
+
+  export const allKeys: Array<keyof typeof ConfigSchema.shape> = Object.keys(ConfigSchema.parse({})) as Array<keyof typeof ConfigSchema.shape>;
 
   /**
    * We only need to call this for the `initializationOptions`, but it ensures any string
@@ -595,13 +584,10 @@ export namespace Config {
   export function getResultCapabilities(): InitializeResult {
     return {
       capabilities: {
-        // textDocumentSync: TextDocumentSyncKind.Full,
         textDocumentSync: {
           openClose: true,
           change: TextDocumentSyncKind.Incremental,
           save: { includeText: true },
-          // willSave: true,
-          // willSaveWaitUntil: true,
         },
         completionProvider: configHandlers.complete ? {
           resolveProvider: true,
@@ -633,10 +619,14 @@ export namespace Config {
         },
         documentHighlightProvider: configHandlers.highlight,
         inlayHintProvider: configHandlers.inlayHint,
-        // codeLensProvider: configHandlers.codeLens ? {
-        //   resolveProvider: true,
-        //   workDoneProgress: true,
-        // } : undefined,
+        semanticTokensProvider: configHandlers.semanticTokens ? {
+          legend: {
+            tokenTypes: ['namespace', 'type', 'class', 'enum', 'interface', 'struct', 'typeParameter', 'parameter', 'variable', 'property', 'enumMember', 'event', 'function', 'method', 'macro', 'keyword', 'modifier', 'comment', 'string', 'number', 'regexp', 'operator', 'decorator', 'builtin', 'option', 'optionValue', 'variableExpansion', 'commandSubstitution', 'braceExpansion', 'redirection', 'escape', 'pipe'],
+            tokenModifiers: ['declaration', 'definition', 'readonly', 'static', 'deprecated', 'abstract', 'async', 'modification', 'documentation', 'defaultLibrary'],
+          },
+          range: true,
+          full: { delta: false },
+        } : undefined,
         signatureHelpProvider: configHandlers.signature ? { workDoneProgress: false, triggerCharacters: ['.'] } : undefined,
         documentOnTypeFormattingProvider: configHandlers.typeFormatting ? {
           firstTriggerCharacter: '.',
@@ -656,21 +646,6 @@ export namespace Config {
       },
     };
   }
-
-  // might need later in the getResultCapabilities() object
-  export const FileListenerFilter: FileOperationRegistrationOptions = {
-    filters: [
-      {
-        pattern: {
-          glob: '**/*.fish',
-          matches: 'file',
-          options: {
-            ignoreCase: true,
-          },
-        },
-      },
-    ],
-  };
 
   /**
    * *******************************************

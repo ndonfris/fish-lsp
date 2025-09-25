@@ -1,8 +1,9 @@
 import { exec, execFile, execFileSync } from 'child_process';
-import { resolve } from 'path';
 import { promisify } from 'util';
 import { logger } from '../logger';
 import { pathToUri, uriToPath } from './translation';
+import { vfs } from '../virtual-fs';
+import { config } from '../config';
 
 export const execAsync = promisify(exec);
 
@@ -18,7 +19,7 @@ export const execFileAsync = promisify(execFile);
  */
 export async function execEscapedCommand(cmd: string): Promise<string[]> {
   const escapedCommand = cmd.replace(/(["'$`\\])/g, '\\$1');
-  const { stdout } = await execFileAsync('fish', ['-P', '--command', escapedCommand]);
+  const { stdout } = await execFileAsync(config.fish_lsp_fish_path, ['-P', '--command', escapedCommand]);
 
   if (!stdout) return [''];
 
@@ -26,7 +27,7 @@ export async function execEscapedCommand(cmd: string): Promise<string[]> {
 }
 
 export async function execCmd(cmd: string): Promise<string[]> {
-  const { stdout, stderr } = await execAsync(cmd, { shell: 'fish' });
+  const { stdout, stderr } = await execAsync(cmd, { shell: config.fish_lsp_fish_path });
 
   if (stderr) return [''];
 
@@ -36,11 +37,23 @@ export async function execCmd(cmd: string): Promise<string[]> {
     .split('\n');
 }
 
+export async function execEmbeddedFishFile(file: string, ...args: string[]) {
+  const fishFile = vfs.find(file);
+  if (!fishFile) {
+    throw new Error(`Embedded fish file not found: ${file}`);
+  }
+  const fishScript = vfs.fishFiles.find(f => f.file.endsWith(file));
+  if (!fishScript) {
+    throw new Error(`Fish script execution not available for: ${file}`);
+  }
+  return await fishScript.execAsync(...args);
+}
+
 export async function execAsyncF(cmd: string) {
-  const file = resolve(__dirname, '../../fish_files/exec.fish');
+  const file = await execEmbeddedFishFile('exec.fish', cmd);
   logger.log({ func: 'execAsyncF', file, cmd });
-  const child = await execFileAsync(file, [cmd]);
-  return child.stdout.toString().trim();
+  // const child = await execFileAsync(file, [cmd]);
+  return file.stdout.toString().trim();
 }
 
 /**
@@ -52,13 +65,13 @@ export async function execAsyncF(cmd: string) {
  * @returns  Promise<{stdout, stderr}>
  */
 export async function execAsyncFish(cmd: string) {
-  return await execAsync(`fish -c '${cmd}'`);
+  return await execAsync(`${config.fish_lsp_fish_path} -c '${cmd}'`);
 }
 
 export function execFishNoExecute(filepath: string) {
   try {
     // execFileSync will throw on non-zero exit codes
-    return execFileSync('fish', ['--no-execute', filepath], {
+    return execFileSync(config.fish_lsp_fish_path, ['--no-execute', filepath], {
       encoding: 'utf8',
       stdio: ['ignore', 'ignore', 'pipe'], // Only capture stderr
     }).toString();
@@ -74,22 +87,21 @@ export function execFishNoExecute(filepath: string) {
 //
 
 export async function execCompletions(...cmd: string[]): Promise<string[]> {
-  const file = resolve(__dirname, '../../fish_files/get-completion.fish');
+  //   const file = getFishFilePath('get-completion.fish');
   const cmpArgs = ['1', `${cmd.join(' ').trim()}`];
-  const cmps = await execFileAsync(file, cmpArgs);
+  const cmps = await execEmbeddedFishFile('get-completion.fish', ...cmpArgs);
   return cmps.stdout.trim().split('\n');
 }
 
 export async function execSubCommandCompletions(...cmd: string[]): Promise<string[]> {
-  const file = resolve(__dirname, '../../fish_files/get-completion.fish');
   const cmpArgs = ['2', cmd.join(' ')];
-  const cmps = await execFileAsync(file, cmpArgs);
+  const cmps = await execEmbeddedFishFile('get-completion.fish', ...cmpArgs);
   return cmps.stdout.trim().split('\n');
 }
 
 export async function execCompleteLine(cmd: string): Promise<string[]> {
   const escapedCmd = cmd.replace(/(["'`\\])/g, '\\$1');
-  const completeString = `fish -c "complete --do-complete='${escapedCmd}'"`;
+  const completeString = `${config.fish_lsp_fish_path} -c "complete --do-complete='${escapedCmd}'"`;
 
   const child = await execAsync(completeString);
 
@@ -102,7 +114,7 @@ export async function execCompleteLine(cmd: string): Promise<string[]> {
 
 export async function execCompleteSpace(cmd: string): Promise<string[]> {
   const escapedCommand = cmd.replace(/(["'$`\\])/g, '\\$1');
-  const completeString = `fish -c "complete --do-complete='${escapedCommand} '"`;
+  const completeString = `${config.fish_lsp_fish_path} -c "complete --do-complete='${escapedCommand} '"`;
 
   const child = await execAsync(completeString);
 
@@ -114,9 +126,9 @@ export async function execCompleteSpace(cmd: string): Promise<string[]> {
 }
 
 export async function execCompleteCmdArgs(cmd: string): Promise<string[]> {
-  const exec = resolve(__dirname, '../../fish_files/get-command-options.fish');
-  const args = execFile(exec, [cmd]);
-  const results = args.toString().trim().split('\n');
+  const args = await execEmbeddedFishFile('get-command-options.fish', cmd);
+  // const args = execFile(exec, [cmd]);
+  const results = args?.stdout.toString().trim().split('\n') || [];
 
   let i = 0;
   const fixedResults: string[] = [];
@@ -136,9 +148,9 @@ export async function execCompleteCmdArgs(cmd: string): Promise<string[]> {
 }
 
 export async function execCommandDocs(cmd: string): Promise<string> {
-  const file = resolve(__dirname, '../../fish_files/get-documentation.fish');
-  const docs = await execFileAsync(file, [cmd]);
-  const out = docs.stdout;
+  const result = await execEmbeddedFishFile('get-documentation.fish', cmd);
+  // const docs = await execFileAsync(file, [cmd]);
+  const out = result.stdout || '';
   return out.toString().trim();
 }
 
@@ -152,13 +164,13 @@ export async function execCommandDocs(cmd: string): Promise<string> {
  *                     '' ->    cmd is neither
  */
 export async function execCommandType(cmd: string): Promise<string> {
-  const file = resolve(__dirname, '../../fish_files/get-type.fish');
-  const cmdCheck = cmd.split(' ')[0]?.trim() as string;
-  const docs = await execFileAsync(file, [cmdCheck]);
-  if (docs.stderr) {
+  const result = await execEmbeddedFishFile('get-type.fish', cmd);
+  // const cmdCheck = cmd.split(' ')[0]?.trim() as string;
+  // const docs = await execFileAsync(file, [cmdCheck]);
+  if (result?.stderr) {
     return '';
   }
-  return docs.stdout.toString().trim();
+  return result?.stdout?.toString().trim() || '';
 }
 
 export interface CompletionArguments {
@@ -167,18 +179,23 @@ export interface CompletionArguments {
 }
 
 export async function documentCommandDescription(cmd: string): Promise<string> {
-  const cmdDescription = await execAsync(`fish -c "__fish_describe_command ${cmd}" | head -n1`);
+  const cmdDescription = await execAsync(`${config.fish_lsp_fish_path} -c "__fish_describe_command ${cmd}" | head -n1`);
   return cmdDescription.stdout.trim() || cmd;
 }
 
 export async function execFindDependency(cmd: string): Promise<string> {
-  const file = resolve(__dirname, '../../fish_files/get-dependency.fish');
-  const docs = execFileSync(file, [cmd]);
-  return docs.toString().trim();
+  const file = await execEmbeddedFishFile('find_dependency.fish', cmd);
+  // const docs = execFileSync(file, [cmd]);
+  return file?.stdout?.toString().trim() || '';
 }
 
-export function execCommandLocations(cmd: string): {uri: string; path: string;}[] {
-  const output = execFileSync('fish', ['--command', `type -ap ${cmd}`], {
+export async function execExpandBraceExpansion(input: string): Promise<string> {
+  const result = await execEmbeddedFishFile('expand_cartesian.fish', input);
+  return result?.stdout?.toString().trimEnd() || '';
+}
+
+export function execCommandLocations(cmd: string): { uri: string; path: string; }[] {
+  const output = execFileSync(config.fish_lsp_fish_path, ['--command', `type -ap ${cmd}`], {
     stdio: ['pipe', 'pipe', 'ignore'],
   });
   return output.toString().trim().split('\n')

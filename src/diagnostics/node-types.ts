@@ -1,6 +1,7 @@
 import Parser, { SyntaxNode } from 'web-tree-sitter';
-import { findParentCommand, isCommandWithName, isEndStdinCharacter, isFunctionDefinitionName, isIfOrElseIfConditional, isMatchingOption, isOption, isString, isVariableDefinitionName } from '../utils/node-types';
-import { getChildNodes, getRange, isNodeWithinOtherNode, precedesRange } from '../utils/tree-sitter';
+import { findParentCommand, hasParent, isCommand, isCommandName, isCommandWithName, isEndStdinCharacter, isFunctionDefinitionName, isIfOrElseIfConditional, isMatchingOption, isOption, isString, isVariableDefinitionName } from '../utils/node-types';
+import { getChildNodes, getRange, isNodeWithinOtherNode, precedesRange, TreeWalker } from '../utils/tree-sitter';
+import { Maybe } from '../utils/maybe';
 import { Option } from '../parsing/options';
 import { isExistingSourceFilenameNode, isSourceCommandArgumentName } from '../parsing/source';
 import { LspDocument } from '../document';
@@ -8,16 +9,18 @@ import { DiagnosticCommentsHandler } from './comments-handler';
 import { FishSymbol } from '../parsing/symbol';
 import { ErrorCodes } from './error-codes';
 import { getReferences } from '../references';
+import { config, Config } from '../config';
 
-type startTokenType = 'function' | 'while' | 'if' | 'for' | 'begin' | '[' | '{' | '(' | "'" | '"';
+type startTokenType = 'function' | 'while' | 'if' | 'for' | 'begin' | 'switch' | '[' | '{' | '(' | "'" | '"';
 type endTokenType = 'end' | "'" | '"' | ']' | '}' | ')';
 
 export const ErrorNodeTypes: { [start in startTokenType]: endTokenType } = {
   ['function']: 'end',
   ['while']: 'end',
-  ['begin']: 'end',
   ['for']: 'end',
+  ['begin']: 'end',
   ['if']: 'end',
+  ['switch']: 'end',
   ['"']: '"',
   ["'"]: "'",
   ['{']: '}',
@@ -26,13 +29,15 @@ export const ErrorNodeTypes: { [start in startTokenType]: endTokenType } = {
 } as const;
 
 function isStartTokenType(str: string): str is startTokenType {
-  return ['function', 'while', 'if', 'for', 'begin', '[', '{', '(', "'", '"'].includes(str);
+  return ['function', 'while', 'for', 'if', 'switch', 'begin', '[', '{', '(', "'", '"'].includes(str);
 }
 
 export function findErrorCause(children: Parser.SyntaxNode[]): Parser.SyntaxNode | null {
-  const stack: Array<{ node: Parser.SyntaxNode; type: endTokenType; }> = [];
+  const stack: Array<{ node: Parser.SyntaxNode; type: endTokenType; index: number; }> = [];
 
-  for (const node of children) {
+  for (let i = 0; i < children.length; i++) {
+    const node = children[i];
+    if (!node) continue;
     if (isStartTokenType(node.type)) {
       const expectedEndToken = ErrorNodeTypes[node.type];
       const matchIndex = stack.findIndex(item => item.type === expectedEndToken);
@@ -40,15 +45,42 @@ export function findErrorCause(children: Parser.SyntaxNode[]): Parser.SyntaxNode
       if (matchIndex !== -1) {
         stack.splice(matchIndex, 1); // Remove the matched end token
       } else {
-        stack.push({ node, type: expectedEndToken }); // Push the current node and expected end token to the stack
+        stack.push({ node, type: expectedEndToken, index: i }); // Push the current node and expected end token to the stack
       }
     } else if (Object.values(ErrorNodeTypes).includes(node.type as endTokenType)) {
-      stack.push({ node, type: node.type as endTokenType }); // Track all end tokens
+      stack.push({ node, type: node.type as endTokenType, index: i }); // Track all end tokens
+    }
+  }
+
+  // Lookahead logic for unclosed quote tokens
+  if (stack.length > 0) {
+    for (const item of stack) {
+      // Check if this is a quote token (' or ")
+      if (item.node.type === "'" || item.node.type === '"') {
+        // Look ahead to see if there are nodes after this quote that suggest it should be closed
+        const nodesAfterQuote = children.slice(item.index + 1);
+        if (hasContentAfterQuote(nodesAfterQuote)) {
+          return item.node; // Return this unclosed quote as the error cause
+        }
+      }
     }
   }
 
   // Return the first unmatched start token from the stack, if any
   return stack.length > 0 ? stack[0]?.node || null : null;
+}
+
+function hasContentAfterQuote(nodes: Parser.SyntaxNode[]): boolean {
+  // Check if there are meaningful nodes after the quote that suggest it should be closed
+  for (const node of nodes) {
+    // Skip whitespace and other non-meaningful nodes
+    if (node.type === 'escape_sequence' ||
+        node.type === 'word' ||
+        node.text.trim().length > 0) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export function isExtraEnd(node: SyntaxNode) {
@@ -73,6 +105,17 @@ export function isSingleQuoteVariableExpansion(node: Parser.SyntaxNode): boolean
 
 export function isAlias(node: SyntaxNode): boolean {
   return isCommandWithName(node, 'alias');
+}
+
+export function isExport(node: SyntaxNode): boolean {
+  return isCommandWithName(node, 'export');
+}
+
+export function isWrapperFunction(node: SyntaxNode, handler: DiagnosticCommentsHandler): boolean {
+  if (!config.fish_lsp_allow_fish_wrapper_functions || handler.isCodeEnabled(ErrorCodes.usedWrapperFunction)) {
+    return isAlias(node) || isExport(node);
+  }
+  return false;
 }
 
 export function isUniversalDefinition(node: SyntaxNode): boolean {
@@ -115,6 +158,10 @@ export function isSourceFilename(node: SyntaxNode): boolean {
       }
       // also skip something like `source '$file'`
       if (isString(node)) {
+        return false;
+      }
+      // remove `source (some_cmd a b c d)`
+      if (hasParent(node, (n) => n.type === 'command_substitution')) {
         return false;
       }
       return true;
@@ -177,38 +224,6 @@ export function isConditionalStatement(node: SyntaxNode) {
 }
 
 /**
- * Check if a conditional_execution node starts with a conditional operator
- */
-function checkConditionalStartsWith(node: SyntaxNode) {
-  if (node.type === 'conditional_execution') {
-    return node.text.startsWith('&&') || node.text.startsWith('||')
-      || node.text.startsWith('and') || node.text.startsWith('or');
-  }
-  return false;
-}
-
-/**
- * Check if a command node is the first node in a conditional_execution
- */
-export function isFirstNodeInConditionalExecution(node: SyntaxNode) {
-  if (!node.isNamed) return false;
-  if (['\n', ';'].includes(node?.type || '')) return false;
-  if (isConditionalStatement(node)) return false;
-
-  if (
-    node.parent &&
-    node.parent.type === 'conditional_execution' &&
-    !checkConditionalStartsWith(node.parent)
-  ) {
-    return node.parent.firstNamedChild?.equals(node) || false;
-  }
-
-  const next = node.nextNamedSibling;
-  if (!next) return false;
-  return next.type === 'conditional_execution' && checkConditionalStartsWith(next);
-}
-
-/**
  * Checks if a command has a command substitution. For example,
  *
  *   ```fish
@@ -225,25 +240,178 @@ function hasCommandSubstitution(node: SyntaxNode) {
 }
 
 /**
- * Check if -q,--quiet/--query flags are present for commands which follow an `if/else if` conditional statement
- * @param node - the current node to check (should be a command)
- * @returns true if the command is a conditional statement without -q,--quiet/--query flags, otherwise false
+ * Get all conditional command names based on the config setting
+ * FIX: https://github.com/ndonfris/fish-lsp/issues/93
  */
-export function isConditionalWithoutQuietCommand(node: SyntaxNode) {
-  // read does not have quiet option
-  if (!isCommandWithName(node, 'command', 'type', 'set', 'string', 'abbr', 'builtin', 'functions', 'jobs')) return false;
-  if (!isConditionalStatement(node) && !isFirstNodeInConditionalExecution(node)) return false;
+const allConditionalCommandNames = ['command', 'type', 'set', 'string', 'abbr', 'builtin', 'functions', 'jobs'];
+const getConditionalCommandNames = () => {
+  if (!config.fish_lsp_strict_conditional_command_warnings) {
+    return ['set', 'abbr', 'functions', 'jobs'];
+  }
+  return allConditionalCommandNames;
+};
 
-  // skip `set` commands with command substitution
-  if (isCommandWithName(node, 'set') && hasCommandSubstitution(node)) {
-    return false;
+/**
+ * Command analysis utilities for functional composition
+ * Provides reusable command analysis operations for conditional execution logic
+ */
+class CommandAnalyzer {
+  /**
+   * Find the first command in a node's children
+   */
+  static findFirstCommand(node: SyntaxNode): Maybe<SyntaxNode> {
+    return TreeWalker.findFirstChild(node, isCommand);
   }
 
-  const flags = node?.childrenForFieldName('argument')
-    .filter(n => isMatchingOption(n, Option.create('-q', '--quiet'))
-      || isMatchingOption(n, Option.create('-q', '--query'))) || [];
+  /**
+   * Check if a command has quiet flags (-q, --quiet, --query)
+   */
+  static hasQuietFlags(command: SyntaxNode): boolean {
+    return command.childrenForFieldName('argument')
+      .some(arg =>
+        isMatchingOption(arg, Option.create('-q', '--quiet')) ||
+        isMatchingOption(arg, Option.create('-q', '--query')),
+      );
+  }
 
-  return flags.length === 0;
+  /**
+   * Check if a command is in the list of conditional commands
+   */
+  static isConditionalCommand(command: SyntaxNode): boolean {
+    return isCommandWithName(command, ...getConditionalCommandNames());
+  }
+}
+
+/**
+ * Conditional context analysis utilities
+ * Provides methods to analyze conditional execution contexts
+ */
+class ConditionalContext {
+  /**
+   * Check if a node is at the top level (direct child of program)
+   */
+  static isTopLevel(node: SyntaxNode): boolean {
+    return Maybe.of(node.parent)
+      .map(parent => parent.type === 'program')
+      .getOrElse(false);
+  }
+
+  /**
+   * Check if a node is used as a condition in an if/else if statement
+   */
+  static isUsedAsCondition(node: SyntaxNode): boolean {
+    return Maybe.of(node.parent)
+      .filter(isIfOrElseIfConditional)
+      .flatMap(parent => Maybe.of(parent.childForFieldName('condition')))
+      .equals(node);
+  }
+
+  /**
+   * Check if a node contains conditional operators (&&, ||)
+   */
+  static hasConditionalOperators(node: SyntaxNode): boolean {
+    return node.text.includes('&&') || node.text.includes('||');
+  }
+
+  /**
+   * Check if a node is a conditional chain node (conditional_execution or ERROR with operators)
+   */
+  static isConditionalChainNode(node: SyntaxNode): boolean {
+    return node.type === 'conditional_execution' ||
+      node.type === 'ERROR' && ConditionalContext.hasConditionalOperators(node);
+  }
+}
+
+/**
+ * Check if a command in a conditional context needs a -q/--quiet/--query flag
+ *
+ * This function identifies commands that are used as conditional expressions and
+ * should have explicit quiet flags to suppress output when used for existence checking.
+ *
+ * Rules:
+ * 1. In conditional_execution chains (&&, ||): only check the first command
+ * 2. In if/else if conditions: check the first command in the condition
+ * 3. Commands inside if body, nested if statements, etc. are not checked
+ *
+ * @param node - the command name node to check
+ * @returns true if the command needs a quiet flag, false otherwise
+ */
+export function isConditionalWithoutQuietCommand(node: SyntaxNode): boolean {
+  if (!config.fish_lsp_strict_conditional_command_warnings) {
+    return false;
+  }
+  return Maybe.of(node)
+    .filter(isCommandName)
+    .map(n => n.parent)
+    .filter(isCommand)
+    .filter(CommandAnalyzer.isConditionalCommand)
+    .filter(cmd => !isCommandWithName(cmd, 'set') || !hasCommandSubstitution(cmd))
+    .filter(cmd => !CommandAnalyzer.hasQuietFlags(cmd))
+    .map(cmd => isCommandInConditionalContext(cmd))
+    .getOrElse(false);
+}
+
+/**
+ * Determines if a command is in a conditional context where it should have quiet flags
+ *
+ * Two scenarios:
+ * 1. Command is the first command in a conditional_execution chain (cmd1 && cmd2 || cmd3)
+ * 2. Command is the first command in an if/else if condition (including nested ones)
+ */
+function isCommandInConditionalContext(command: SyntaxNode): boolean {
+  // Check if this is the first command in a conditional_execution chain
+  if (isFirstCommandInConditionalChain(command)) {
+    return true;
+  }
+
+  // Check if this is the first command in an if/else if condition (including nested)
+  if (isFirstCommandInAnyIfCondition(command)) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Check if a command is the first command in a conditional_execution chain that is used as a test
+ * Examples: "set a && set -q b" at top level or in if condition - only "set a" should be flagged
+ * But "set a && set b" inside an if body should NOT be flagged
+ */
+function isFirstCommandInConditionalChain(command: SyntaxNode): boolean {
+  return TreeWalker.findHighest(command, ConditionalContext.isConditionalChainNode)
+    .filter(rootNode =>
+      ConditionalContext.isTopLevel(rootNode) ||
+      ConditionalContext.isUsedAsCondition(rootNode),
+    )
+    .flatMap(CommandAnalyzer.findFirstCommand)
+    .equals(command);
+}
+
+/**
+ * Check if a command is the first command in any if/else if condition (including nested)
+ * Examples: "if set a; end" or "else if set b; end" or nested "if set -q PATH; if set YARN_PATH; ..."
+ */
+function isFirstCommandInAnyIfCondition(command: SyntaxNode): boolean {
+  return TreeWalker.walkUpAll(command, isIfOrElseIfConditional)
+    .some(ifNode =>
+      Maybe.of(ifNode.childForFieldName('condition'))
+        .flatMap(condition => isFirstCommandInSpecificCondition(command, condition))
+        .getOrElse(false),
+    );
+}
+
+/**
+ * Check if a command is the first command in a specific condition node
+ */
+function isFirstCommandInSpecificCondition(command: SyntaxNode, conditionNode: SyntaxNode): Maybe<boolean> {
+  // Direct command match
+  if (isCommand(conditionNode)) {
+    return Maybe.of(conditionNode.equals(command));
+  }
+
+  // Find first command in condition
+  return CommandAnalyzer.findFirstCommand(conditionNode)
+    .map(firstCmd => firstCmd.equals(command));
 }
 
 export function isVariableDefinitionWithExpansionCharacter(node: SyntaxNode, definedVariableExpansions: { [name: string]: SyntaxNode[]; } = {}): boolean {
@@ -296,7 +464,75 @@ export function isArgparseWithoutEndStdin(node: SyntaxNode) {
   return false;
 }
 
-//
+export function isPosixCommandInsteadOfFishCommand(node: SyntaxNode): boolean {
+  if (!config.fish_lsp_prefer_builtin_fish_commands) return false;
+  if (!isCommandName(node)) {
+    return false;
+  }
+  const parent = findParentCommand(node);
+  if (!parent) return false;
+
+  if (isCommandWithName(parent, 'realpath')) {
+    return !parent.children.some(c => isOption(c));
+  }
+  if (isCommandWithName(parent, 'dirname', 'basename')) {
+    return true;
+  }
+  if (isCommandWithName(parent, 'cut', 'wc')) {
+    return true;
+  }
+  if (isCommandWithName(parent, 'pbcopy', 'wl-copy', 'xsel', 'xclip', 'clip.exe')) {
+    return true;
+  }
+  if (isCommandWithName(parent, 'pbpaste', 'wl-paste', 'xsel', 'xclip', 'clip.exe')) {
+    return true;
+  }
+  return false;
+}
+
+export function getFishBuiltinEquivalentCommandName(node: SyntaxNode): string | null {
+  if (!isPosixCommandInsteadOfFishCommand(node)) return null;
+  if (!isCommandName(node)) {
+    return null;
+  }
+  const parent = findParentCommand(node);
+  if (!parent) return null;
+  if (isCommandWithName(parent, 'dirname', 'basename')) {
+    return ['path', node.text].join(' ');
+  }
+  if (isCommandWithName(parent, 'realpath')) {
+    return 'path resolve';
+  }
+  if (isCommandWithName(parent, 'cut')) {
+    return 'string split';
+  }
+  if (isCommandWithName(parent, 'wc')) {
+    return 'count';
+  }
+  if (isCommandWithName(parent, 'pbcopy', 'wl-copy', /*'xsel', 'xclip',*/ 'clip.exe')) {
+    return 'fish_clipboard_copy';
+  }
+  if (isCommandWithName(parent, 'pbpaste', 'wl-paste' /*'xsel', 'xclip', 'powershell.exe'*/)) {
+    return 'fish_clipboard_paste';
+  }
+  if (isCommandWithName(parent, 'xsel', 'xclip')) {
+    return 'fish_clipboard_copy | fish_clipboard_paste';
+  }
+  return null;
+}
+
+// Returns all the autoloaded functions that do not have a `-d`/`--description` option set
+export function getAutoloadedFunctionsWithoutDescription(doc: LspDocument, handler: DiagnosticCommentsHandler, allFunctions: FishSymbol[]): FishSymbol[] {
+  if (!doc.isAutoloaded()) return [];
+  return allFunctions.filter((symbol) =>
+    symbol.isGlobal()
+    && symbol.fishKind !== 'ALIAS'
+    && !symbol.node.childrenForFieldName('option').some(child => isMatchingOption(child, Option.create('-d', '--description')))
+    && handler.isCodeEnabledAtNode(ErrorCodes.requireAutloadedFunctionHasDescription, symbol.node),
+  );
+}
+
+//  callback function to check if a function is autoloaded and has an event hook
 export function isFunctionWithEventHookCallback(doc: LspDocument, handler: DiagnosticCommentsHandler, allFunctions: FishSymbol[]) {
   const docType = doc.getAutoloadType();
   return (node: SyntaxNode): boolean => {
@@ -319,18 +555,18 @@ export function isFunctionWithEventHookCallback(doc: LspDocument, handler: Diagn
 
 export function isFishLspDeprecatedVariableName(node: SyntaxNode): boolean {
   if (isVariableDefinitionName(node)) {
-    return node.text === 'fish_lsp_logfile';
+    return Config.isDeprecatedKey(node.text);
   }
   if (node.type === 'variable_name') {
-    return node.text === 'fish_lsp_logfile';
+    return Config.isDeprecatedKey(node.text);
   }
-  return node.text === 'fish_lsp_logfile';
+  return false;
 }
 export function getDeprecatedFishLspMessage(node: SyntaxNode): string {
-  switch (node.text) {
-    case 'fish_lsp_logfile':
-      return `REPLACE \`${node.text}\` with \`fish_lsp_log_file\``;
-    default:
-      return '';
+  for (const [key, value] of Object.entries(Config.deprecatedKeys)) {
+    if (node.text === key) {
+      return `REPLACE \`${key}\` with \`${value}\``;
+    }
   }
+  return '';
 }

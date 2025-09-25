@@ -2,6 +2,7 @@ import { extname } from 'path';
 import { Position, Range, URI } from 'vscode-languageserver';
 import { Point, SyntaxNode, Tree } from 'web-tree-sitter';
 import { findSetDefinedVariable, isFunctionDefinition, isVariableDefinition, isFunctionDefinitionName, isVariable, isScope, isProgram, isCommandName, isForLoop, findForLoopVariable } from './node-types';
+import { Maybe } from './maybe';
 
 // You can add this as a utility function or extend it if needed
 export function isSyntaxNode(obj: unknown): obj is SyntaxNode {
@@ -586,4 +587,104 @@ export function getLastLeafNode(node: SyntaxNode, maxIndex: number = Infinity): 
 
 export function getNodeAtPosition(tree: Tree, position: { line: number; character: number; }): SyntaxNode | null {
   return tree.rootNode.descendantForPosition({ row: position.line, column: position.character });
+}
+
+/**
+ * Tree traversal utilities for functional composition and null-safe operations
+ *
+ * Provides methods to traverse syntax trees in a functional manner,
+ * eliminating repetitive while loops and null checking patterns.
+ *
+ * @example
+ * ```typescript
+ * // Instead of:
+ * let current = node.parent;
+ * while (current) {
+ *   if (predicate(current)) {
+ *     return current;
+ *   }
+ *   current = current.parent;
+ * }
+ * return null;
+ *
+ * // Use:
+ * TreeWalker.walkUp(node, predicate).getOrElse(null);
+ * ```
+ */
+export class TreeWalker {
+  /**
+   * Walk up the tree until a node matching the predicate is found
+   */
+  static walkUp(node: SyntaxNode, predicate: (n: SyntaxNode) => boolean): Maybe<SyntaxNode> {
+    let current = node.parent;
+    while (current) {
+      if (predicate(current)) {
+        return Maybe.of(current);
+      }
+      current = current.parent;
+    }
+    return Maybe.none();
+  }
+
+  /**
+   * Walk up the tree and collect all nodes matching the predicate
+   */
+  static walkUpAll(node: SyntaxNode, predicate: (n: SyntaxNode) => boolean): SyntaxNode[] {
+    const results: SyntaxNode[] = [];
+    let current = node.parent;
+    while (current) {
+      if (predicate(current)) {
+        results.push(current);
+      }
+      current = current.parent;
+    }
+    return results;
+  }
+
+  /**
+   * Find the first child node matching the predicate
+   */
+  static findFirstChild(node: SyntaxNode, predicate: (n: SyntaxNode) => boolean): Maybe<SyntaxNode> {
+    const child = node.namedChildren.find(predicate);
+    return Maybe.of(child);
+  }
+
+  /**
+   * Find the highest (farthest from start node) ancestor matching the predicate
+   */
+  static findHighest(node: SyntaxNode, predicate: (n: SyntaxNode) => boolean): Maybe<SyntaxNode> {
+    const all = TreeWalker.walkUpAll(node, predicate);
+    return Maybe.of(all[all.length - 1]);
+  }
+
+  /**
+   * Walk down the tree breadth-first until a node matching the predicate is found
+   */
+  static walkDown(node: SyntaxNode, predicate: (n: SyntaxNode) => boolean): Maybe<SyntaxNode> {
+    const queue: SyntaxNode[] = [node];
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      if (predicate(current)) {
+        return Maybe.of(current);
+      }
+      queue.push(...current.namedChildren);
+    }
+    return Maybe.none();
+  }
+
+  /**
+   * Walk down the tree and collect all nodes matching the predicate
+   */
+  static walkDownAll(node: SyntaxNode, predicate: (n: SyntaxNode) => boolean): SyntaxNode[] {
+    const results: SyntaxNode[] = [];
+    const queue: SyntaxNode[] = [node];
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      if (predicate(current)) {
+        results.push(current);
+      }
+      queue.push(...current.namedChildren);
+    }
+    return results;
+  }
 }

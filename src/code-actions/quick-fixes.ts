@@ -3,7 +3,7 @@ import { LspDocument } from '../document';
 import { ErrorCodes } from '../diagnostics/error-codes';
 import { equalRanges, getChildNodes } from '../utils/tree-sitter';
 import { SyntaxNode } from 'web-tree-sitter';
-import { ErrorNodeTypes } from '../diagnostics/node-types';
+import { ErrorNodeTypes, getFishBuiltinEquivalentCommandName } from '../diagnostics/node-types';
 import { SupportedCodeActionKinds } from './action-kinds';
 import { logger } from '../logger';
 import { analyzer, Analyzer } from '../analyze';
@@ -98,15 +98,72 @@ export function createFixAllAction(
 
 /**
  * utility function to get the error node token
+ * Improved to handle all opening tokens defined in ErrorNodeTypes
  */
 function getErrorNodeToken(node: SyntaxNode): string | undefined {
-  const { text } = node;
+  const { text, type } = node;
+
+  // Handle exact node type matches first (most reliable)
+  if (type in ErrorNodeTypes) {
+    return ErrorNodeTypes[type as keyof typeof ErrorNodeTypes];
+  }
+
+  // For ERROR nodes, we need to look at the actual content to determine the token
+  if (type === 'ERROR') {
+    // Look for unclosed quotes at the end of the text
+    if (text.endsWith('"') && !text.startsWith('"')) {
+      return '"';
+    }
+    if (text.endsWith("'") && !text.startsWith("'")) {
+      return "'";
+    }
+    // Look for unclosed quotes at the beginning
+    if (text.includes('"') && text.indexOf('"') === text.lastIndexOf('"')) {
+      return '"';
+    }
+    if (text.includes("'") && text.indexOf("'") === text.lastIndexOf("'")) {
+      return "'";
+    }
+  }
+
+  // Handle single character tokens that might be embedded in text
+  const singleCharTokens = ['"', "'", '{', '[', '('];
+  for (const token of singleCharTokens) {
+    if (text.includes(token)) {
+      // Check if it's an unclosed token by counting occurrences
+      let matches = 0;
+      if (token === '"') {
+        matches = (text.match(/"/g) || []).length;
+      } else if (token === "'") {
+        matches = (text.match(/'/g) || []).length;
+      } else {
+        matches = (text.match(new RegExp(`\\${token}`, 'g')) || []).length;
+      }
+
+      if (matches % 2 === 1) { // Odd number means unclosed
+        return ErrorNodeTypes[token as keyof typeof ErrorNodeTypes];
+      }
+    }
+  }
+
+  // Handle keyword tokens (function, while, if, for, begin, switch)
+  const keywordTokens = ['function', 'while', 'if', 'for', 'begin', 'switch'];
+  for (const token of keywordTokens) {
+    // Check if the text starts with the keyword followed by whitespace or end of string
+    const regex = new RegExp(`^${token}(?=\\s|$)`);
+    if (regex.test(text)) {
+      return ErrorNodeTypes[token as keyof typeof ErrorNodeTypes];
+    }
+  }
+
+  // Fallback to original logic for any remaining cases
   const startTokens = Object.keys(ErrorNodeTypes);
   for (const token of startTokens) {
     if (text.startsWith(token)) {
       return ErrorNodeTypes[token as keyof typeof ErrorNodeTypes];
     }
   }
+
   return undefined;
 }
 
@@ -117,16 +174,24 @@ export function handleMissingEndFix(
 ): CodeAction | undefined {
   const root = analyzer.getTree(document.uri)!.rootNode;
 
-  const errNode = root.descendantForPosition({ row: diagnostic.range.start.line, column: diagnostic.range.start.character })!;
+  let errNode = root.descendantForPosition({ row: diagnostic.range.start.line, column: diagnostic.range.start.character })!;
 
-  // const err = root!.childForFieldName('ERROR')!;
-  // const toSearch = getChildNodes(err).find(node => node.isError)!;
+  // If we found an ERROR node, try to find the specific error token within it
+  if (errNode.type === 'ERROR') {
+    // Use findErrorCause to get the specific problematic node
+    const errorCause = findErrorCauseFromNode(errNode);
+    if (errorCause) {
+      errNode = errorCause;
+    }
+  }
 
   const rawErrorNodeToken = getErrorNodeToken(errNode);
 
   if (!rawErrorNodeToken) return undefined;
 
-  const endTokenWithNewline = rawErrorNodeToken === 'end' ? '\nend' : rawErrorNodeToken;
+  // Determine the appropriate insertion position and text based on token type
+  const insertionData = getTokenInsertionData(errNode, rawErrorNodeToken, document);
+
   return {
     title: `Add missing "${rawErrorNodeToken}"`,
     diagnostics: [diagnostic],
@@ -134,13 +199,76 @@ export function handleMissingEndFix(
     edit: {
       changes: {
         [document.uri]: [
-          TextEdit.insert({
-            line: errNode!.endPosition.row,
-            character: errNode!.endPosition.column,
-          }, endTokenWithNewline),
+          TextEdit.insert(insertionData.position, insertionData.text),
         ],
       },
     },
+  };
+}
+
+/**
+ * Find the specific error cause within an ERROR node
+ */
+function findErrorCauseFromNode(errorNode: SyntaxNode): SyntaxNode | null {
+  // Look for unclosed quote tokens within the error node's children
+  for (const child of errorNode.children) {
+    if (child.type === '"' || child.type === "'" || child.text === '"' || child.text === "'") {
+      return child;
+    }
+  }
+
+  // If no specific token found, look at the text content
+  const text = errorNode.text;
+  if (text.includes('"') && text.indexOf('"') === text.lastIndexOf('"')) {
+    return errorNode; // Return the error node itself
+  }
+  if (text.includes("'") && text.indexOf("'") === text.lastIndexOf("'")) {
+    return errorNode; // Return the error node itself
+  }
+
+  return null;
+}
+
+/**
+ * Determines the appropriate insertion position and text for different token types
+ */
+function getTokenInsertionData(errNode: SyntaxNode, closingToken: string, document: LspDocument): {
+  position: { line: number; character: number; };
+  text: string;
+} {
+  // Handle 'end' tokens (function, while, if, for, begin, switch)
+  if (closingToken === 'end') {
+    // For block statements, add 'end' on a new line with proper indentation
+    const line = errNode.endPosition.row;
+    const indentLevel = document.getIndentAtLine(errNode.startPosition.row);
+    return {
+      position: { line: line, character: errNode.endPosition.column },
+      text: `\n${indentLevel}end`,
+    };
+  }
+
+  // Handle quotes (', ")
+  if (closingToken === "'" || closingToken === '"') {
+    // For quotes, add the closing quote immediately after the current position
+    return {
+      position: { line: errNode.endPosition.row, character: errNode.endPosition.column },
+      text: closingToken,
+    };
+  }
+
+  // Handle brackets, braces, parentheses (], }, ))
+  if ([')', '}', ']'].includes(closingToken)) {
+    // For brackets/braces/parens, add the closing token immediately after
+    return {
+      position: { line: errNode.endPosition.row, character: errNode.endPosition.column },
+      text: closingToken,
+    };
+  }
+
+  // Fallback case
+  return {
+    position: { line: errNode.endPosition.row, character: errNode.endPosition.column },
+    text: closingToken,
   };
 }
 
@@ -244,6 +372,44 @@ function handleUniversalVariable(
 
   return {
     title: 'Convert universal scope to global scope',
+    kind: SupportedCodeActionKinds.QuickFix,
+    diagnostics: [diagnostic],
+    edit: {
+      changes: {
+        [document.uri]: [edit],
+      },
+    },
+    isPreferred: true,
+  };
+}
+
+function handleExternalShellCommandInsteadOfBuiltin(
+  document: LspDocument,
+  diagnostic: Diagnostic,
+): CodeAction | undefined {
+  // Replace the command with an external shell command
+  const node = analyzer.nodeAtPoint(document.uri, diagnostic.range.start.line, diagnostic.range.start.character);
+  if (!node) {
+    logger.warning('handleExternalShellCommandInsteadOfBuiltin: No node found for diagnostic', diagnostic);
+    return undefined;
+  }
+  const newCommandText = getFishBuiltinEquivalentCommandName(node);
+  if (!newCommandText) {
+    logger.warning('handleExternalShellCommandInsteadOfBuiltin: No equivalent command found for', node.text);
+    return undefined;
+  }
+  // Don't handle ambiguous commands
+  if (newCommandText.includes(' | ')) {
+    logger.warning('handleExternalShellCommandInsteadOfBuiltin: Command is ambiguous, skipping', newCommandText);
+    return undefined;
+  }
+  const edit = TextEdit.replace(
+    diagnostic.range,
+    newCommandText,
+  );
+
+  return {
+    title: `Convert external shell command "${node.text}" to fish builtin "${newCommandText}"`,
     kind: SupportedCodeActionKinds.QuickFix,
     diagnostics: [diagnostic],
     edit: {
@@ -601,6 +767,11 @@ export async function getQuickFixes(
 
     case ErrorCodes.usedUnviersalDefinition:
       action = handleUniversalVariable(document, diagnostic);
+      if (action) actions.push(action);
+      return actions;
+
+    case ErrorCodes.usedExternalShellCommandWhenBuiltinExists:
+      action = handleExternalShellCommandInsteadOfBuiltin(document, diagnostic);
       if (action) actions.push(action);
       return actions;
 

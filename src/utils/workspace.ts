@@ -1,16 +1,17 @@
 import * as fastGlob from 'fast-glob';
-import { pathToUri, uriToPath } from './translation';
-import { LspDocument } from '../document';
-import { FishSymbol } from '../parsing/symbol';
-import { config } from '../config';
-import { logger } from '../logger';
-import { basename, dirname, join } from 'path';
+import fs from 'fs';
+import path, { basename, dirname, join } from 'path';
 import * as LSP from 'vscode-languageserver';
+import { DocumentUri } from 'vscode-languageserver';
+import { AnalyzedDocument, analyzer } from '../analyze';
+import { config } from '../config';
+import { LspDocument } from '../document';
+import { logger } from '../logger';
+import { FishSymbol } from '../parsing/symbol';
 import { env } from './env-manager';
 import { SyncFileHelper } from './file-operations';
-import { AnalyzedDocument, analyzer } from '../analyze';
+import { pathToUri, uriToPath } from './translation';
 import { workspaceManager } from './workspace-manager';
-import { DocumentUri } from 'vscode-languageserver';
 
 export type AnalyzedWorkspace = {
   uri: string;
@@ -53,25 +54,55 @@ export function getWorkspacePathsFromInitializationParams(params: LSP.Initialize
 }
 
 export async function getFileUriSet(path: string) {
-  const stream = fastGlob.stream('**/*.fish', { cwd: path, absolute: true });
-  const result: Set<DocumentUri> = new Set();
-  for await (const entry of stream) {
-    const absPath = entry.toString();
-    const uri = pathToUri(absPath);
-    result.add(uri);
+  try {
+    const stream = fastGlob.stream('**/*.fish', {
+      cwd: path,
+      absolute: true,
+      suppressErrors: true,
+      ignore: config.fish_lsp_ignore_paths,
+      deep: config.fish_lsp_max_workspace_depth,
+      onlyFiles: true,
+    });
+    const result: Set<DocumentUri> = new Set();
+    for await (const entry of stream) {
+      const absPath = entry.toString();
+      if (SyncFileHelper.isDirectory(absPath) || !SyncFileHelper.read(absPath)) {
+        continue;
+      }
+      const uri = pathToUri(absPath);
+      result.add(uri);
+    }
+    return result;
+  } catch (error) {
+    logger.debug('getFileUriSet: Error reading directory', { path, error });
+    return new Set<DocumentUri>();
   }
-  return result;
 }
 
 export function syncGetFileUriSet(path: string) {
-  const result: Set<string> = new Set();
-  const entries = fastGlob.sync('**/*.fish', { cwd: path, absolute: true });
-  for (const entry of entries) {
-    const absPath = entry.toString();
-    const uri = pathToUri(absPath);
-    result.add(uri);
+  try {
+    const result: Set<string> = new Set();
+    const entries = fastGlob.sync('**/*.fish', {
+      cwd: path,
+      absolute: true,
+      suppressErrors: true,
+      deep: config.fish_lsp_max_workspace_depth,
+      ignore: config.fish_lsp_ignore_paths,
+      onlyFiles: true,
+    });
+    for (const entry of entries) {
+      const absPath = entry.toString();
+      if (SyncFileHelper.isDirectory(absPath) || !SyncFileHelper.read(absPath)) {
+        continue;
+      }
+      const uri = pathToUri(absPath);
+      result.add(uri);
+    }
+    return result;
+  } catch (error) {
+    logger.debug('syncGetFileUriSet: Error reading directory', { path, error });
+    return new Set<string>();
   }
-  return result;
 }
 
 /**
@@ -205,6 +236,11 @@ export class Workspace implements FishWorkspace {
     this.uris.add(...newUris);
   }
 
+  addDocument(...newDocs: LspDocument[]) {
+    const newUris = newDocs.map(doc => doc.uri);
+    this.uris.add(...newUris);
+  }
+
   addPending(...newUris: DocumentUri[]) {
     this.uris.addPending(newUris);
   }
@@ -321,6 +357,38 @@ export class Workspace implements FishWorkspace {
     for (const uri of this.uris.all) {
       this.uris.markPending(uri);
     }
+  }
+
+  toTreeString() {
+    const tree: string[] = [];
+    const buildTree = (dir: string, prefix = '') => {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      entries.forEach((entry, index) => {
+        const isLast = index === entries.length - 1;
+        const currentPrefix = prefix + (isLast ? '└── ' : '├── ');
+        tree.push(currentPrefix + entry.name);
+
+        if (entry.isDirectory()) {
+          const nextPrefix = prefix + (isLast ? '    ' : '│   ');
+          buildTree(path.join(dir, entry.name), nextPrefix);
+        }
+      });
+    };
+
+    tree.push(this.name + '/');
+    buildTree(this.path, '');
+    return tree.join('\n');
+  }
+
+  showAllTreeSitterParseTrees() {
+    const docs = this.allDocuments();
+    if (docs.length === 0) {
+      logger.warning('No documents found in workspace', { name: this.name, uri: this.uri });
+      return;
+    }
+    docs.forEach(doc => {
+      doc.showTree();
+    });
   }
 }
 

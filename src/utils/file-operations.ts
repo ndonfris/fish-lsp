@@ -1,4 +1,4 @@
-import { PathLike, accessSync, appendFileSync, closeSync, constants, existsSync, openSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'fs';
+import { PathLike, accessSync, appendFileSync, closeSync, constants, existsSync, mkdirSync, openSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'fs';
 import { TextDocumentItem } from 'vscode-languageserver';
 import { LspDocument } from '../document';
 import { pathToUri } from './translation';
@@ -61,9 +61,23 @@ export class SyncFileHelper {
     }
   }
 
+  // Write a file synchronously
   static write(filePath: PathLike, data: string, encoding: BufferEncoding = 'utf8'): void {
     const expandedFilePath = this.expandEnvVars(filePath);
     writeFileSync(expandedFilePath, data, { encoding });
+  }
+
+  // write to a file that needs a directory created first
+  static writeRecursive(filePath: PathLike, data: string, encoding: BufferEncoding = 'utf8'): void {
+    const expandedFilePath = this.expandEnvVars(filePath);
+    const directory = dirname(expandedFilePath);
+
+    try {
+      mkdirSync(directory, { recursive: true });
+      writeFileSync(expandedFilePath, data, { encoding });
+    } catch (error) {
+      logger.error(`Error writing file recursively: ${expandedFilePath}`, error);
+    }
   }
 
   static append(filePath: PathLike, data: string, encoding: BufferEncoding = 'utf8'): void {
@@ -80,6 +94,11 @@ export class SyncFileHelper {
       return env.get(envVarName) || '';
     });
     return filePathString;
+  }
+
+  static isExpandable(filePath: PathLike): boolean {
+    const expandedFilePath = this.expandEnvVars(filePath);
+    return expandedFilePath !== filePath.toString() && expandedFilePath !== '';
   }
 
   static exists(filePath: PathLike): boolean {
@@ -202,6 +221,16 @@ export class SyncFileHelper {
     } catch (error) {
       return false;
     }
+  }
+
+  static isAbsolutePath(filePath: string): boolean {
+    const expandedFilePath = this.expandEnvVars(filePath);
+    return expandedFilePath.startsWith('/') || expandedFilePath.startsWith('~');
+  }
+
+  static isRelativePath(filePath: string): boolean {
+    const expandedFilePath = this.expandEnvVars(filePath);
+    return !this.isAbsolutePath(expandedFilePath);
   }
 }
 

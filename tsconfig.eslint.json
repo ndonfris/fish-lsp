@@ -10,8 +10,16 @@
     "src",
     ".eslintrc.cjs",
     "commitlint.config.ts",
-    "jest.config.js",
-    "test-data",
+    "tests",
     "scripts/fish-commands-scrapper.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "release-assets",
+    "dist",
+    "lib",
+    "scripts",
+    "coverage",
+    "vitest.config.ts"
   ]
 }

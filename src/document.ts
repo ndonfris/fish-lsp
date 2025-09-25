@@ -11,6 +11,7 @@ import { SyncFileHelper } from './utils/file-operations';
 import { logger } from './logger';
 import * as Locations from './utils/locations';
 import { FishSymbol } from './parsing/symbol';
+import { logTreeSitterDocumentDebug, returnParseTreeString } from './utils/dump-parse-tree';
 
 export class LspDocument implements TextDocument {
   protected document: TextDocument;
@@ -44,7 +45,7 @@ export class LspDocument implements TextDocument {
   }
 
   static testUri(uri: DocumentUri): string {
-    const removeString = 'test-data/workspaces';
+    const removeString = 'tests/workspaces';
     if (uri.includes(removeString)) {
       return 'file:///…/' + uri.slice(uri.indexOf(removeString) + removeString.length + 1);
     }
@@ -361,6 +362,19 @@ export class LspDocument implements TextDocument {
     return lines.length;
   }
 
+  showTree(): void {
+    logTreeSitterDocumentDebug(this);
+  }
+
+  getTree(): string {
+    return returnParseTreeString(this);
+  }
+
+  updateVersion(version: number) {
+    this.document = this.create(this.document.uri, this.document.languageId, version, this.document.getText());
+    return this;
+  }
+
   /**
    * Type guard to check if an object is an LspDocument
    *
@@ -526,12 +540,19 @@ export class LspDocuments {
     return this.documents.get(path) as LspDocument;
   }
 
-  applyChanges(uri: DocumentUri, changes: TextDocumentContentChangeEvent[]) {
-    const path = uriToPath(uri);
-    let document = this.documents.get(path);
-    if (document) {
-      document = document.update(changes);
-      this.documents.set(path, document);
+  applyChanges(doc: DocumentUri | VersionedTextDocumentIdentifier, changes: TextDocumentContentChangeEvent[]) {
+    if (typeof doc === 'string') {
+      const path = uriToPath(doc);
+      let document = this.documents.get(path);
+      if (document) {
+        document = document.update(changes);
+        this.documents.set(path, document);
+      }
+    } else {
+      const document = this.documents.get(uriToPath(doc.uri));
+      if (document) {
+        this.documents.set(pathToUri(doc.uri), document?.updateVersion(doc.version).update(changes));
+      }
     }
   }
 

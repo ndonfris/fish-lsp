@@ -3,7 +3,7 @@ import { SyntaxNode } from 'web-tree-sitter';
 import { LspDocument } from '../document';
 import { getChildNodes, getRange } from '../utils/tree-sitter';
 import { isMatchingOption, Option } from '../parsing/options';
-import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isAlias, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isMatchingCompleteOptionIsCommand, LocalFunctionCallType, isArgparseWithoutEndStdin, isFishLspDeprecatedVariableName, getDeprecatedFishLspMessage, isDotSourceCommand, isMatchingAbbrFunction, isFunctionWithEventHookCallback, isVariableDefinitionWithExpansionCharacter } from './node-types';
+import { findErrorCause, isExtraEnd, isZeroIndex, isSingleQuoteVariableExpansion, isUniversalDefinition, isSourceFilename, isTestCommandVariableExpansionWithoutString, isConditionalWithoutQuietCommand, isMatchingCompleteOptionIsCommand, LocalFunctionCallType, isArgparseWithoutEndStdin, isFishLspDeprecatedVariableName, getDeprecatedFishLspMessage, isDotSourceCommand, isMatchingAbbrFunction, isFunctionWithEventHookCallback, isVariableDefinitionWithExpansionCharacter, isPosixCommandInsteadOfFishCommand, getFishBuiltinEquivalentCommandName, getAutoloadedFunctionsWithoutDescription, isWrapperFunction } from './node-types';
 import { ErrorCodes } from './error-codes';
 import { config } from '../config';
 import { DiagnosticCommentsHandler } from './comments-handler';
@@ -88,7 +88,7 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
   const docType = doc.getAutoloadType();
 
   // ensure the document is analyzed
-  analyzer.ensureCachedDocument(doc);
+  // analyzer.ensureCachedDocument(doc);
 
   // arrays to keep track of different groups of functions
   const allFunctions: FishSymbol[] = analyzer.getFlatDocumentSymbols(doc.uri).filter(s => s.isFunction());
@@ -161,14 +161,17 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
       }
     }
 
-    if (isAlias(node) && handler.isCodeEnabled(ErrorCodes.usedAlias)) {
-      diagnostics.push(FishDiagnostic.create(ErrorCodes.usedAlias, node));
+    if (isWrapperFunction(node, handler)) {
+      diagnostics.push(FishDiagnostic.create(ErrorCodes.usedWrapperFunction, node));
     }
 
     if (isUniversalDefinition(node) && docType !== 'conf.d' && handler.isCodeEnabled(ErrorCodes.usedUnviersalDefinition)) {
       diagnostics.push(FishDiagnostic.create(ErrorCodes.usedUnviersalDefinition, node));
     }
 
+    if (isPosixCommandInsteadOfFishCommand(node) && handler.isCodeEnabled(ErrorCodes.usedExternalShellCommandWhenBuiltinExists)) {
+      diagnostics.push(FishDiagnostic.create(ErrorCodes.usedExternalShellCommandWhenBuiltinExists, node, `Use the Fish builtin command '${getFishBuiltinEquivalentCommandName(node)!}' instead of the external shell command.`));
+    }
     if (isSourceFilename(node) && handler.isCodeEnabled(ErrorCodes.sourceFileDoesNotExist)) {
       diagnostics.push(FishDiagnostic.create(ErrorCodes.sourceFileDoesNotExist, node));
     }
@@ -354,6 +357,11 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
     });
   });
 
+  // `4008` autoloaded functions without description
+  getAutoloadedFunctionsWithoutDescription(doc, handler, allFunctions).forEach((symbol) => {
+    diagnostics.push(FishDiagnostic.fromSymbol(ErrorCodes.requireAutloadedFunctionHasDescription, symbol));
+  });
+
   localFunctions.forEach(node => {
     const matches = commandNames.filter(call => call.text === node.text);
     if (matches.length === 0) return;
@@ -379,6 +387,15 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
   if (handler.isCodeEnabled(ErrorCodes.unusedLocalDefinition)) {
     const unusedLocalDefinitions = allUnusedLocalReferences(doc);
     for (const unusedLocalDefinition of unusedLocalDefinitions) {
+      if (['conf.d', 'config', 'functions'].includes(docType) && unusedLocalDefinition.isExported() && unusedLocalDefinition.isVariable()) {
+        logger.debug('Skipping unused local definition for exported variable in conf.d/config/functions', {
+          name: unusedLocalDefinition.name,
+          uri: unusedLocalDefinition.uri,
+          type: unusedLocalDefinition.fishKind,
+          focusedNode: unusedLocalDefinition.focusedNode.text,
+        });
+        continue;
+      }
       if (handler.isCodeEnabledAtNode(ErrorCodes.unusedLocalDefinition, unusedLocalDefinition.focusedNode)) {
         diagnostics.push(
           FishDiagnostic.fromSymbol(ErrorCodes.unusedLocalDefinition, unusedLocalDefinition),

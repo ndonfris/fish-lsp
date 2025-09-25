@@ -3,42 +3,138 @@
 const fs = require('fs');
 const path = require('path');
 
-// Get the current date and time in YYYY-MM-DD HH:MM:SS format
-function getCurrentDateTime() {
-  const now = new Date();
-  
-  // Format date as YYYY-MM-DD
-  const date = now.toISOString().split('T')[0];
-  
-  // Format time as HH:MM:SS
-  const time = now.toTimeString().split(' ')[0];
-  
-  return `${date} ${time}`;
+// Parse flags
+const args = process.argv.slice(1).filter(arg => arg.startsWith('-'));
+const flags = {
+    quiet: args.includes('-q') || args.includes('--quiet'),
+    verbose: args.includes('-v') || args.includes('--verbose'),
+    help: args.includes('-h') || args.includes('--help'),
+    noColor: args.includes('-n') || args.includes('--no-color'),
+    color: args.includes('--color'),
+    complete: args.includes('-c') || args.includes('--complete'),
+    forceSuccess: args.includes('-f') || args.includes('--force-success')
+};
+
+// Setup colors
+const colors = {
+    reset: '\x1b[0m', bold: '\x1b[1m', dim: '\x1b[2m', italic: '\x1b[3m', underline: '\x1b[4m', inverse: '\x1b[7m',
+    black: '\x1b[30m', red: '\x1b[31m', green: '\x1b[32m', yellow: '\x1b[33m', blue: '\x1b[34m', magenta: '\x1b[35m', cyan: '\x1b[36m', white: '\x1b[37m', gray: '\x1b[90m',
+    bgBlack: '\x1b[40m', bgRed: '\x1b[41m', bgGreen: '\x1b[42m', bgYellow: '\x1b[43m', bgBlue: '\x1b[44m', bgMagenta: '\x1b[45m', bgCyan: '\x1b[46m', bgWhite: '\x1b[47m',
+};
+
+Object.keys(colors).forEach(color => {
+    String.prototype[color] = flags.noColor || color === 'reset'
+        ? function () {return this.toString();}
+        : function () {return `${colors[color]}${this}${colors.reset}`;};
+});
+
+
+// Handle conflicting flags
+if (flags.color && flags.noColor) flags.help = true;
+
+if (flags.help) {
+    console.log(`Usage:`.reset().bold(), `yarn sh:build-time  [OPTIONS]
+      ./scripts/build-time [OPTIONS]
+
+${'Description:'.reset().bold()}
+  This script creates a file in the 'out' directory with the current
+  date and time for the most recent \`fish-lsp\` package's build.
+
+${'Options:'.reset().bold()}
+  -h, --help                 Show this help message
+  -q, --quiet                Suppress output
+  -v, --verbose              Enable verbose output
+      --color                Enable colored output
+  -n, --no-color             Disable colored output
+  -f, --force-success        Force success exit code
+`);
+    process.exit(0);
 }
 
-// Ensure the output directory exists
-function ensureOutDirExists() {
-  const outDir = path.resolve(__dirname, '../out');
-  if (!fs.existsSync(outDir)) {
-    fs.mkdirSync(outDir, { recursive: true });
-  }
-  return outDir;
+if (flags.complete) {
+    const file = path.resolve(__filename);
+    const logStr = `
+complete --path ${file} -f
+complete --path ${file} -s c -l complete -d "generate shell completions"
+complete --path ${file}      -l color -d "Enable colored output"
+complete --path ${file} -s n -l no-color -d "Disable colored output"
+complete --path ${file} -s h -l help -d "show help message"
+complete --path ${file} -s q -l quiet -d "suppress output"
+complete --path ${file} -s v -l verbose -d "enable verbose output"
+complete --path ${file} -s f -l force-success -d "force success exit"
+# yarn sh:build-time
+complete -c yarn -n '__fish_seen_subcommand_from sh:build-time' -f
+complete -c yarn -n '__fish_seen_subcommand_from sh:build-time' -s c -l complete -d "generate shell completions"
+complete -c yarn -n '__fish_seen_subcommand_from sh:build-time'      -l color -d "Enable colored output"
+complete -c yarn -n '__fish_seen_subcommand_from sh:build-time' -s n -l no-color -d "Disable colored output"
+complete -c yarn -n '__fish_seen_subcommand_from sh:build-time' -s h -l help -d "show help message"
+complete -c yarn -n '__fish_seen_subcommand_from sh:build-time' -s q -l quiet -d "suppress output"
+complete -c yarn -n '__fish_seen_subcommand_from sh:build-time' -s v -l verbose -d "enable verbose output"
+complete -c yarn -n '__fish_seen_subcommand_from sh:build-time' -s f -l force-success -d "force success exit"
+`
+    process.stdout.write(logStr)
+    process.exit(0)
 }
 
-// Write the build time to a file
-function writeBuildTime() {
-  const outDir = ensureOutDirExists();
-  const buildTimeFile = path.join(outDir, 'build-time.txt');
-  const buildTime = getCurrentDateTime();
-  
-  try {
-    fs.writeFileSync(buildTimeFile, `${buildTime}\n`);
-    console.log(`Build time recorded: ${buildTime}`);
-  } catch (error) {
-    console.error(`Error writing build time: ${error.message}`);
-    process.exit(1);
-  }
-}
 
-// Execute the script
-writeBuildTime();
+
+const log = (...args) => !flags.quiet && console.log(...args);
+const error = (...args) => !flags.quiet && console.error(...args);
+const verbose = (...args) => flags.verbose && console.log(...args);
+const exit = (code = 0) => process.exit(flags.forceSuccess ? 0 : code);
+
+try {
+    const now = new Date();
+    const timestamp = new Date().toLocaleString(undefined, {dateStyle: 'short', timeStyle: 'medium'});
+    const buildTimeData = {
+        date: now.toDateString(),
+        timestamp,
+        isoTimestamp: now.toISOString(),
+        unix: Math.floor(now.getTime() / 1000),
+        version: process.env.npm_package_version || 'unknown',
+        nodeVersion: process.version
+    };
+
+    const scriptDir = path.dirname(path.resolve(__filename));
+    const outDir = scriptDir.endsWith('scripts') ? path.join(path.dirname(scriptDir), 'out') : path.join(scriptDir, 'out');
+    const jsonFilePath = path.join(outDir, 'build-time.json');
+
+    verbose();
+    verbose('>>> begin executing verbose build-time script <<<'.white().dim().italic());
+    verbose('\n', ' --verbose '.bgGreen().black().bold(), 'enabled!'.green().bold(), '\n');
+    verbose(' filePath: '.green().bold(), path.resolve(__filename).blue().bold());
+
+    // Create directory and files
+    fs.mkdirSync(outDir, {recursive: true});
+    if (!fs.existsSync(outDir)) {
+        error("ERROR:".bgRed().white().bold(), "Failed to access 'out' directory.".red());
+        exit(1);
+    }
+
+    // Write JSON file
+    fs.writeFileSync(jsonFilePath, JSON.stringify(buildTimeData, null, 2));
+
+    if (!fs.existsSync(jsonFilePath)) {
+        error("ERROR:".bgRed().white().bold(), "Failed to write build time file.".red());
+        exit(1);
+    }
+
+    if (flags.verbose) {
+        verbose(' ✓ build-time script executed successfully!'.green().bold());
+        verbose(' ✓ created JSON file:'.green().bold(), jsonFilePath.cyan());
+        verbose(' ✓ relative filepath:'.green().bold(), path.relative(process.cwd(), jsonFilePath).cyan());
+        verbose(' content:'.green().black().bold(), JSON.stringify(buildTimeData, null, 2).blue().bold());
+        verbose(' last modified:'.green().black().bold(), fs.statSync(jsonFilePath).mtime.toLocaleString().blue().dim());
+        verbose();
+        verbose('>>> end executing verbose build-time script <<<'.white().dim().italic());
+        verbose();
+    }
+
+    log('✓  created JSON at:'.bgGreen().black().bold(), path.basename(jsonFilePath).cyan().dim());
+    log('✓  with timestamp: '.bgGreen().black().bold(), timestamp.blue().dim());
+
+} catch (error) {
+    error("ERROR:".bgRed().white().bold(), "Script execution failed.".red());
+    flags.verbose && console.error('Details:'.bgRed().white().bold(), error.message.red());
+    exit(1);
+}

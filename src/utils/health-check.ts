@@ -79,12 +79,12 @@ export async function performHealthCheck() {
   }
 
   try {
-    logger.logToStdout('\nchecking for fish-lsp completions:');
-    const completions = (await execAsyncFish('path sort --unique --key=basename $fish_complete_path/*.fish | string match -re "fish-lsp.fish\\$"')).stdout.toString().trim();
+    logger.logToStdout('\nchecking completions:');
+    const completions = (await execAsyncFish('path sort --unique --key=basename $fish_complete_path/*.fish | string match -re "\./fish-lsp.fish\\$"')).stdout.toString().trim();
     if (completions) {
       logger.logToStdout(`✓ completions file found: ${completions}`);
     } else {
-      logger.logToStdout('✗ completions file not found');
+      CheckHealthErrorMessages.completionsFile.globalNotFound();
     }
 
     try {
@@ -92,26 +92,47 @@ export async function performHealthCheck() {
       if (completionsEqual.stdout.toString().trim() === '') {
         logger.logToStdout('✓ completions file is up to date');
       } else {
-        logger.logToStdout('✗ completions file is not up to date');
+        CheckHealthErrorMessages.completionsFile.notUpToDate();
       }
     } catch (error) {
-      logger.logToStdout('✗ completions file is not up to date');
+      CheckHealthErrorMessages.completionsFile.notUpToDate();
     }
   } catch (error) {
-    logger.logToStdout('✗ completion file not found');
+    CheckHealthErrorMessages.completionsFile.globalNotFound();
   }
 
   try {
-    logger.logToStdout('\nchecking for fish-lsp man page:');
+    logger.logToStdout('\nchecking man page:');
     const manFile = await execAsyncFish('man fish-lsp 2>/dev/null | command cat | count');
     const manFilePath = (await execAsyncFish('man -w fish-lsp 2> /dev/null')).stdout.toString().trim();
     if (manFile.stdout && parseInt(manFile.stdout.toString().trim()) > 1 && manFilePath !== '') {
-      logger.logToStdout(`✓ man file found: ${manFilePath}`);
+      logger.logToStdout(`✓ global man file found: ${manFilePath}`);
     } else {
-      logger.logToStdout('✗ man file not found');
+      CheckHealthErrorMessages.manFile.globalNotFound();
+    }
+
+    try {
+      const binManFilePath = (await execAsyncFish('path filter -fZ -- $MANPATH/*/fish-lsp.1 | string split0 -m1 -f1')).stdout.toString().trim();
+      if (binManFilePath !== '') {
+        logger.logToStdout(`✓ binary man file found: ${binManFilePath}`);
+        try {
+          const manDiff = (await execAsyncFish(`fish-lsp info --man-file --show | command diff ${manFilePath} -`)).stdout.toString().trim();
+          if (manDiff === '') {
+            logger.logToStdout('✓ global man file is up to date');
+          } else {
+            CheckHealthErrorMessages.manFile.notUpToDate();
+          }
+        } catch (error) {
+          CheckHealthErrorMessages.manFile.notUpToDate();
+        }
+      } else {
+        logger.logToStdout('✗ binary man file not found');
+      }
+    } catch (error) {
+      logger.logToStdout('✗ binary man file not found');
     }
   } catch (error) {
-    logger.logToStdout('✗ man file not found');
+    CheckHealthErrorMessages.manFile.globalNotFound();
   }
 
   // Memory usage
@@ -130,15 +151,71 @@ export async function performHealthCheck() {
   logger.logToStdout('\nall checks completed!');
 }
 
+namespace CheckHealthErrorMessages {
+
+  export const completionsFile = {
+    notUpToDate: () => {
+      logger.logToStdout('✗ completions file is not up to date');
+      logger.logToStderr('\nTO UPDATE COMPLETIONS FILE, RUN: ');
+      logger.logToStderr([
+        '```fish',
+        'fish-lsp complete > ~/.config/fish/completions/fish-lsp.fish',
+        'source ~/.config/fish/completions/fish-lsp.fish',
+        '```',
+      ].join('\n'));
+    },
+    globalNotFound: () => {
+      logger.logToStdout('✗ completions file not found');
+      logger.logToStderr('\nPLEASE INCLUDE `fish-lsp complete | source` IN YOUR $fish_complete_path\n');
+      logger.logToStderr('OR RUN:');
+      logger.logToStderr([
+        '```fish',
+        'fish-lsp complete > ~/.config/fish/completions/fish-lsp.fish',
+        'source ~/.config/fish/completions/fish-lsp.fish',
+        '```',
+      ].join('\n'));
+    },
+  };
+
+  export const manFile = {
+    notUpToDate: () => {
+      logger.logToStdout('✗ global man file is not up to date');
+      logger.logToStderr('\nTO UPDATE MAN FILE, RUN: ');
+      logger.logToStderr([
+        '```fish',
+        'fish-lsp info --man-file --show > $MANPATH[1]/fish-lsp.1',
+        '```',
+      ].join('\n'));
+    },
+    globalNotFound: () => {
+      logger.logToStdout('✗ global man file not found');
+      logger.logToStderr('\nPLEASE INCLUDE `fish-lsp info --man-file` IN YOUR $MANPATH, or write it to your $MANPATH `fish-lsp info --man-file --show > $MANPATH[1]/man/man1/fish-lsp.1`\n');
+    },
+  };
+}
+
 async function logFishLspConfig() {
   logger.logToStdout('\nfish_lsp_all_indexed_paths:');
   const dataDir = env.getFirstValueInArray('__fish_data_dir');
   for (const path of config.fish_lsp_all_indexed_paths) {
+    if (!path || path.trim() === '') {
+      logger.logToStdout(`✗ fish-lsp workspace '${path}' is empty or invalid`);
+      continue;
+    }
     const expanded_path = SyncFileHelper.expandEnvVars(path);
-    if (fs.statSync(expanded_path).isDirectory()) {
-      logger.logToStdout(`✓ fish-lsp workspace '${path}' is a directory`);
-    } else {
-      logger.logToStdout(`✗ fish-lsp workspace '${path}' is not a directory`);
+    if (!expanded_path || expanded_path.trim() === '') {
+      logger.logToStdout(`✗ fish-lsp workspace '${path}' expanded to empty path`);
+      continue;
+    }
+    try {
+      if (fs.statSync(expanded_path).isDirectory()) {
+        logger.logToStdout(`✓ fish-lsp workspace '${path}' is a directory`);
+      } else {
+        logger.logToStdout(`✗ fish-lsp workspace '${path}' is not a directory`);
+      }
+    } catch (error) {
+      logger.logToStdout(`✗ fish-lsp workspace '${path}' (${expanded_path}) stat failed: ${error}`);
+      continue;
     }
     try {
       await fs.promises.access(expanded_path, fs.constants.R_OK);

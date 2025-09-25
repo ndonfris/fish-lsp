@@ -1,31 +1,57 @@
 {
-  "extends": "@tsconfig/node22/tsconfig.json",
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": [
+    "@tsconfig/node22/tsconfig.json",
+    "@tsconfig/node-ts/tsconfig.json"
+  ],
   "compilerOptions": {
-    //"target": "ES2022",
-    "target": "ES2018",
-    "lib": ["ESNext"],
-    // "module": "commonjs",
-    "noEmit": true,
+    "target": "es2018",
+    "lib": [
+      "ES2019.Object",
+      "ES2022",
+      "ESNext"
+    ],
+    "noEmit": false,
+    "moduleResolution": "bundler",
+    "declaration": true,
+    "declarationMap": true,
     "incremental": true,
     "esModuleInterop": true,
     "importHelpers": false, // causes tslib dependency which might not be available on node
+    "isolatedModules": true,
     "downlevelIteration": true,
+    "sourceMap": true,
     "stripInternal": true,
     "removeComments": true,
     "noUncheckedIndexedAccess": true,
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
+    "verbatimModuleSyntax": false,
+    "isolatedDeclarations": false,
+    "erasableSyntaxOnly": false,
     "outDir": "./out",
-    "rootDir": "./src",
-    "baseUrl": ".",  // Base URL for module resolution
+    "baseUrl": ".", // Base URL for module resolution
     "tsBuildInfoFile": ".tsbuildinfo",
+    "types": [
+      "vitest/globals"
+    ],
     "paths": {
-      "@package": ["./package.json"]
+      "@package": [
+        "./package.json"
+      ],
+      "./cli": [
+        "./src/cli.ts"
+      ],
+      "@embedded_assets/*": [
+        "./*"
+      ]
     }
   },
   "include": [
     "package.json",
-    "src"
+    "src",
+    "src/types/embedded-assets.d.ts",
+    "tests"
   ],
   "exclude": [
     "node_modules",

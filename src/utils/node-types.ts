@@ -3,6 +3,7 @@ import { getLeafNodes } from './tree-sitter';
 import { isDefinitionName, isEmittedEventDefinitionName, VariableDefinitionKeywords } from '../parsing/barrel';
 import { Option, isMatchingOption, isMatchingOptionOrOptionValue, isMatchingOptionValue } from '../parsing/options';
 import { isVariableDefinitionName, isFunctionDefinitionName, isAliasDefinitionName, isExportVariableDefinitionName, isArgparseVariableDefinitionName } from '../parsing/barrel';
+import { BuiltInList } from './builtins';
 
 // use the `../parsing/barrel` barrel file's imports for finding the definition names
 
@@ -453,7 +454,7 @@ export function findParentCommand(node?: SyntaxNode): SyntaxNode | null {
     return null;
   }
   while (currentNode !== null) {
-    if (isCommand(currentNode)) {
+    if (currentNode && isCommand(currentNode)) {
       return currentNode;
     }
     currentNode = currentNode.parent;
@@ -638,6 +639,10 @@ export function isReturn(node: SyntaxNode) {
   return node.type === 'return' && node.firstChild?.text === 'return';
 }
 
+export function isExit(node: SyntaxNode) {
+  return node.type === 'command' && node.firstChild?.text === 'exit';
+}
+
 export function isConditionalCommand(node: SyntaxNode) {
   return node.type === 'conditional_execution';
 }
@@ -773,6 +778,27 @@ export function isReturnStatusNumber(node: SyntaxNode) {
   const parent = node.parent;
   if (!parent) return false;
   return parent.type === 'return';
+}
+
+export function isConcatenatedValue(node: SyntaxNode) {
+  if (!['word', 'variable_expansion', 'brace_expansion', 'integer', 'concatenation'].includes(node.type)) return false;
+  if (node.type === 'concatenation') return true;
+  const parent = findParent(node, isConcatenation);
+  if (!parent) return false;
+  return true;
+}
+
+export function isBraceExpansion(node: SyntaxNode) {
+  return node.type === 'brace_expansion';
+}
+
+export function isPath(node: SyntaxNode) {
+  if (node.text.includes('/')) return true;
+  return false;
+}
+
+export function isBuiltin(node: SyntaxNode) {
+  return isCommandWithName(node, ...BuiltInList);
 }
 
 export function isCompleteCommandName(node: SyntaxNode) {

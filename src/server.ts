@@ -1,10 +1,15 @@
+// Import polyfills for Node.js 18 compatibility
+import './utils/array-polyfills';
+// Initialize virtual filesystem (must be before any embedded asset usage)
+import './virtual-fs';
 import { SyntaxNode } from 'web-tree-sitter';
 import { AnalyzedDocument, analyzer, Analyzer } from './analyze';
 import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, ImplementationParams, CodeLensParams, CodeLens, WorkspaceFoldersChangeEvent } from 'vscode-languageserver';
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, documents } from './document';
-import { formatDocumentContent } from './formatting';
-import { logger } from './logger';
+import { formatDocumentWithIndentComments, formatDocumentContent } from './formatting';
+import { createServerLogger, logger } from './logger';
+import { connection, createBrowserConnection, setExternalConnection } from './utils/startup';
 import { formatTextWithIndents, symbolKindsFromNode, uriToPath } from './utils/translation';
 import { getChildNodes } from './utils/tree-sitter';
 import { getVariableExpansionDocs, handleHover } from './hover';
@@ -17,12 +22,13 @@ import { FishCompletionItem } from './utils/completion/types';
 import { getDocumentationResolver } from './utils/completion/documentation';
 import { FishCompletionList } from './utils/completion/list';
 import { PrebuiltDocumentationMap, getPrebuiltDocUrl } from './utils/snippets';
-import { findParentCommand, isAliasDefinitionName, isCommand, isOption, isReturnStatusNumber, isVariableDefinition } from './utils/node-types';
-import { config, Config } from './config';
-import { enrichToMarkdown, handleSourceArgumentHover } from './documentation';
+import { findParent, findParentCommand, isAliasDefinitionName, isBraceExpansion, isCommand, isConcatenatedValue, isConcatenation, isEndStdinCharacter, isOption, isReturnStatusNumber, isVariableDefinition } from './utils/node-types';
+import { config, Config, configHandlers } from './config';
+import { enrichToMarkdown, handleBraceExpansionHover, handleEndStdinHover, handleSourceArgumentHover } from './documentation';
 import { findActiveParameterStringRegex, getAliasedCompletionItemSignature, getDefaultSignatures, getFunctionSignatureHelp, isRegexStringSignature } from './signature';
 import { CompletionItemMap } from './utils/completion/startup-cache';
 import { getDocumentHighlights } from './document-highlight';
+import { FishSemanticTokensProvider } from './semantic-tokens';
 import { buildCommentCompletions } from './utils/completion/comment-completions';
 import { codeActionHandlers } from './code-actions/code-action-handler';
 import { createExecuteCommandHandler } from './command';
@@ -34,8 +40,7 @@ import { isSourceCommandArgumentName } from './parsing/source';
 import { getReferences } from './references';
 import { getRenames } from './renames';
 import { getReferenceCountCodeLenses } from './code-lens';
-import { connection } from './utils/startup';
-// import { connection } from './utils/startup';
+import { PkgJson } from './utils/commander-cli-subcommands';
 
 export type SupportedFeatures = {
   codeActionDisabledSupport: boolean;
@@ -54,19 +59,105 @@ export let hasWorkspaceFolderCapability = false;
 export const enableWorkspaceFolderSupport = () => {
   hasWorkspaceFolderCapability = true;
 };
+
 export let currentDocument: LspDocument | null = null;
 
+type WebServerProps = {
+  connection?: Connection;
+  params?: InitializeParams;
+};
+
 export default class FishServer {
+  public static async createWebServer(props: WebServerProps): Promise<{
+    server: FishServer;
+    initializeResult: InitializeResult;
+  }> {
+    const connection = props.connection || createBrowserConnection();
+    logger.info(`(${new Date().toISOString()}) FishServer.createWebServer()`, {
+      version: PkgJson.version,
+      buildTime: PkgJson.buildTime,
+      props,
+    });
+
+    Config.isWebServer = true;
+
+    if (!props.params) {
+      props.params = {
+        processId: 0,
+        rootUri: null,
+        rootPath: null,
+        capabilities: {},
+        initializationOptions: {},
+        workspaceFolders: [],
+      } as InitializeParams;
+    }
+    connection.onInitialize(
+      async (params: InitializeParams): Promise<InitializeResult> => {
+        const { initializeResult } = await FishServer.create(connection, params);
+        Config.isWebServer = true;
+        return initializeResult;
+      },
+    );
+
+    // Start listening
+    connection.listen();
+
+    // Setup logger
+    createServerLogger(config.fish_lsp_log_file, connection.console);
+    logger.log('Starting FISH-LSP server');
+    logger.log('Server started with the following handlers:', configHandlers);
+    logger.log('Server started with the following config:', config);
+
+    return await FishServer.create(connection, props.params);
+  }
+
+  /**
+   * How a client importing the server as a module would connect to a new server instance
+   *
+   * After a connection is created by the client this method will setup the server
+   * to allow the connection to communicate between the client and server.
+   *
+   * Use this method for standard LSP server implementations, for in browser usage
+   * the `FishServer.createWebServer()` method is provided.
+   * ___
+   *
+   * @example
+   * ```ts
+   * import FishServer from 'fish-lsp';
+   * import {
+   *   createConnection,
+   *   InitializeParams,
+   *   InitializeResult,
+   *   ProposedFeatures,
+   * } from 'vscode-languageserver/node';
+   *
+   * const connection = createConnection(ProposedFeatures.all)
+   *
+   * connection.onInitialize(
+   *   async (params: InitializeParams): Promise<InitializeResult> => {
+   *     const { initializeResult } = await FishServer.create(connection, params);
+   *
+   *     return initializeResult;
+   *   },
+   * );
+   * connection.listen();
+   * ```
+   * ___
+   *
+   * @param connection The LSP connection to use
+   * @param params The initialization parameters from the client
+   * @returns The created FishServer instance and the initialization result
+   */
   public static async create(
     connection: Connection,
     params: InitializeParams,
   ): Promise<{ server: FishServer; initializeResult: InitializeResult; }> {
+    setExternalConnection(connection);
     await setupProcessEnvExecFile();
     const capabilities = params.capabilities;
     const initializeResult = Config.initialize(params, connection);
     logger.log({
       server: 'FishServer',
-      // initializeResult,
       rootUri: params.rootUri,
       rootPath: params.rootPath,
       workspaceFolders: params.workspaceFolders,
@@ -74,7 +165,7 @@ export default class FishServer {
 
     // set this only it it hasn't been set yet
     hasWorkspaceFolderCapability = !!(
-      capabilities.workspace && !!capabilities.workspace.workspaceFolders
+      !!capabilities?.workspace && !!capabilities?.workspace.workspaceFolders
     );
     logger.debug('hasWorkspaceFolderCapability', hasWorkspaceFolderCapability);
 
@@ -94,19 +185,18 @@ export default class FishServer {
 
     await Analyzer.initialize();
 
-    // analyzer = new Analyzer(parser);
     const completions = await initializeCompletionPager(logger, completionsMap);
 
     const server = new FishServer(
       completions,
       completionsMap,
       cache,
+      params,
     );
     server.register(connection);
     return { server, initializeResult };
   }
 
-  private initializeParams: InitializeParams | undefined;
   protected features: SupportedFeatures;
   public clientSupportsShowDocument: boolean;
   public backgroundAnalysisComplete: boolean;
@@ -115,16 +205,32 @@ export default class FishServer {
     private completion: CompletionPager,
     private completionMap: CompletionItemMap,
     private documentationCache: DocumentationCache,
+    private initializeParams: InitializeParams,
+
   ) {
     this.features = { codeActionDisabledSupport: true };
     this.clientSupportsShowDocument = false;
     this.backgroundAnalysisComplete = false;
   }
 
+  /**
+   * Bind the connection handlers to their corresponding methods in the
+   * server so that `server.create()` initializes the server with all handlers
+   * enabled.
+   *
+   * The `src/config.ts` file handles dynamic enabling/disabling of these
+   * handlers based on client capabilities and user configuration.
+   *
+   * @see Config.getResultCapabilities for the capabilities negotiated
+   *
+   * @param connection The LSP connection to register handlers on
+   * @returns void
+   */
   register(connection: Connection): void {
     // setup handlers
     const { onCodeAction } = codeActionHandlers(documents, analyzer);
     const documentHighlightHandler = getDocumentHighlights(analyzer);
+    const semanticTokensProvider = new FishSemanticTokensProvider(analyzer);
     const commandCallback = createExecuteCommandHandler(connection, documents, analyzer);
 
     // register the handlers
@@ -153,12 +259,13 @@ export default class FishServer {
     connection.onCodeAction(onCodeAction);
 
     connection.onCodeLens(this.onCodeLens.bind(this));
-    // connection.onCodeLensResolve(this.onCodeLensResolve.bind(this));
-    // connection.onCodeActionResolve(onCodeActionResolve);
     connection.onFoldingRanges(this.onFoldingRanges.bind(this));
 
     connection.onDocumentHighlight(documentHighlightHandler);
     connection.languages.inlayHint.on(this.onInlayHints.bind(this));
+    connection.languages.semanticTokens.on(semanticTokensProvider.provideSemanticTokens.bind(semanticTokensProvider));
+    connection.languages.semanticTokens.onRange(semanticTokensProvider.provideSemanticTokensRange.bind(semanticTokensProvider));
+
     connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
     connection.onExecuteCommand(commandCallback);
 
@@ -182,10 +289,12 @@ export default class FishServer {
       await workspaceManager.analyzePendingDocuments(progress, (str) => logger.info('didOpen', str));
       progress.done();
     }
+    analyzer.diagnostics.setInitial(doc.uri);
   }
 
   async didChangeTextDocument(params: LSP.DidChangeTextDocumentParams): Promise<void> {
     this.logParams('didChangeTextDocument', params);
+
     const progress = await connection.window.createWorkDoneProgress();
     const path = uriToPath(params.textDocument.uri);
     let doc = documents.get(path);
@@ -196,40 +305,58 @@ export default class FishServer {
       logger.warning('didChangeTextDocument: document not found', { path });
       return;
     }
+
+    // update the document with the changes
     currentDocument = doc;
-    doc = doc.update(params.contentChanges);
-    documents.set(doc);
-    this.analyzeDocument({ uri: doc.uri });
-    if (!this.backgroundAnalysisComplete) {
-      await workspaceManager.analyzePendingDocuments(progress);
-      progress.done();
-      return;
-    }
+    documents.applyChanges(params.textDocument.uri, params.contentChanges);
+
+    // Force fresh analysis by bypassing cache for changed documents
+    const analysisResult = this.analyzeDocument({ uri: doc.uri }, true);
+
+    // Ensure diagnostics were sent
+    logger.log('Document analysis completed:', {
+      uri: doc.uri,
+      analysisResult: !!analysisResult,
+    });
+
     await workspaceManager.analyzePendingDocuments();
     progress.done();
+    analyzer.diagnostics.set(doc.uri);
   }
 
   didCloseTextDocument(params: LSP.DidCloseTextDocumentParams): void {
     this.logParams('didCloseTextDocument', params);
     workspaceManager.handleCloseDocument(params.textDocument.uri);
+    analyzer.diagnostics.delete(params.textDocument.uri);
+    // Clean up global symbols for the closed document
+    analyzer.removeDocumentSymbols(params.textDocument.uri);
   }
 
   async didSaveTextDocument(params: LSP.DidSaveTextDocumentParams): Promise<void> {
     this.logParams('didSaveTextDocument', params);
+    // this.clearDiagnostics({ uri: params.textDocument.uri });
     const path = uriToPath(params.textDocument.uri);
-    const doc = documents.get(path);
-    if (doc) {
-      this.analyzeDocument({ uri: doc.uri });
-      workspaceManager.handleOpenDocument(doc);
-      workspaceManager.handleUpdateDocument(doc);
-      await workspaceManager.analyzePendingDocuments();
+    let doc = documents.get(path);
+    if (!doc && params.text) {
+      doc = LspDocument.createTextDocumentItem(params.textDocument.uri, params.text || '');
+      documents.set(doc);
+    } else if (!doc) {
+      this.analyzeDocument({ uri: params.textDocument.uri });
+      return;
     }
+    // this.clearDiagnostics({uri: params.textDocument.uri})
+    this.analyzeDocument({ uri: doc.uri });
+    workspaceManager.handleOpenDocument(doc);
+    workspaceManager.handleUpdateDocument(doc);
+    await workspaceManager.analyzePendingDocuments();
+    analyzer.diagnostics.setInitial(doc.uri);
   }
 
   /**
    * Stop the server and close all workspaces.
    */
   async onShutdown() {
+    analyzer.diagnostics.clear();
     workspaceManager.clear();
     documents.clear();
     currentDocument = null;
@@ -381,11 +508,27 @@ export default class FishServer {
 
     const { doc } = this.getDefaultsForPartialParams(params);
     if (!doc) return [];
-    const symbols = analyzer.cache.getDocumentSymbols(doc.uri);
-    return filterLastPerScopeSymbol(symbols).map(s => s.toDocumentSymbol()).filter(s => !!s);
+
+    // Get local document symbols
+    const localSymbols = analyzer.cache.getDocumentSymbols(doc.uri);
+
+    // Get sourced symbols and convert them to nested structure if needed
+    const sourcedSymbols = analyzer.collectSourcedSymbols(doc.uri);
+
+    // Combine local and sourced symbols and cache the sourced symbols as global definitions
+    // local to the document inside the analyzer workspace. Heuristic to cache global symbols
+    // more frequently in background analysis of focused document because server.onDocumentSymbols
+    // is requested repeatedly in most clients when moving around a LspDocument.
+    [...localSymbols, ...sourcedSymbols]
+      .filter(s => s.isGlobal() || s.isRootLevel())
+      .forEach(s => analyzer.globalSymbols.add(s));
+
+    return filterLastPerScopeSymbol(localSymbols)
+      .map(s => s.toDocumentSymbol())
+      .filter(s => !!s);
   }
 
-  protected get supportHierarchicalDocumentSymbol(): boolean {
+  public get supportHierarchicalDocumentSymbol(): boolean {
     const textDocument = this.initializeParams?.capabilities.textDocument;
     const documentSymbol = textDocument && textDocument.documentSymbol;
     return (
@@ -400,11 +543,11 @@ export default class FishServer {
     const symbols: FishSymbol[] = [];
     const workspace = workspaceManager.current;
     for (const uri of workspace?.allUris || []) {
-      const doc = documents.get(uri);
-      if (doc) {
-        const docSymbols = analyzer.getFlatDocumentSymbols(doc.uri);
-        symbols.push(...filterLastPerScopeSymbol(docSymbols));
-      }
+      const newSymbols = [
+        ...analyzer.cache.getDocumentSymbols(uri),
+        ...analyzer.collectSourcedSymbols(uri),
+      ];
+      symbols.push(...filterLastPerScopeSymbol(newSymbols));
     }
 
     logger.log('symbols', {
@@ -444,7 +587,6 @@ export default class FishServer {
     for (const location of newDefs) {
       workspaceManager.handleOpenDocument(location.uri);
       workspaceManager.handleUpdateDocument(location.uri);
-      // workspaceManager.current?.setAllPending();
     }
     if (workspaceManager.needsAnalysis()) {
       await workspaceManager.analyzePendingDocuments();
@@ -512,12 +654,12 @@ export default class FishServer {
 
     let result: Hover | null = null;
     if (isSourceCommandArgumentName(current)) {
-      result = handleSourceArgumentHover(analyzer, current);
+      result = handleSourceArgumentHover(analyzer, current, doc);
       if (result) return result;
     }
 
     if (current.parent && isSourceCommandArgumentName(current.parent)) {
-      result = handleSourceArgumentHover(analyzer, current.parent);
+      result = handleSourceArgumentHover(analyzer, current.parent, doc);
       if (result) return result;
     }
 
@@ -546,6 +688,35 @@ export default class FishServer {
         this.documentationCache,
       );
       if (result) return result;
+    }
+
+    if (isConcatenatedValue(current)) {
+      logger.log('isConcatenatedValue', { text: current.text, type: current.type });
+      const parent = findParent(current, isConcatenation);
+      const brace = findParent(current, isBraceExpansion);
+      if (parent) {
+        const res = await handleBraceExpansionHover(parent);
+        if (res) return res;
+      }
+      if (brace) {
+        const res = await handleBraceExpansionHover(brace);
+        if (res) return res;
+      }
+    }
+    // handle brace expansion hover
+    if (isBraceExpansion(current)) {
+      logger.log('isBraceExpansion', { text: current.text, type: current.type });
+      const res = await handleBraceExpansionHover(current);
+      if (res) return res;
+    }
+    if (current.parent && isBraceExpansion(current.parent)) {
+      logger.log('isBraceExpansion: parent', { text: current.parent.text, type: current.parent.type });
+      const res = await handleBraceExpansionHover(current.parent);
+      if (res) return res;
+    }
+
+    if (isEndStdinCharacter(current)) {
+      return handleEndStdinHover(current);
     }
 
     const { kindType, kindString } = symbolKindsFromNode(current);
@@ -641,20 +812,20 @@ export default class FishServer {
     const { doc } = this.getDefaultsForPartialParams(params);
     if (!doc) return [];
 
-    const formattedText = await formatDocumentContent(doc.getText()).catch(error => {
-      // this.connection.console.error(`Formatting error: ${error}`);
+    const formattedText = await formatDocumentWithIndentComments(doc).catch(error => {
       if (config.fish_lsp_show_client_popups) {
-        connection.window.showErrorMessage(`Failed to format range: ${error}`);
+        connection.window.showErrorMessage(`Failed to format document: ${error}`);
       }
       return doc.getText(); // fallback to original text on error
     });
 
-    const fullRange: LSP.Range = {
-      start: doc.positionAt(0),
-      end: doc.positionAt(doc.getText().length),
-    };
-
-    return [TextEdit.replace(fullRange, formattedText)];
+    return [{
+      range: LSP.Range.create(
+        LSP.Position.create(0, 0),
+        LSP.Position.create(Number.MAX_VALUE, Number.MAX_VALUE),
+      ),
+      newText: formattedText,
+    }];
   }
 
   async onDocumentTypeFormatting(params: DocumentFormattingParams): Promise<TextEdit[]> {
@@ -662,20 +833,21 @@ export default class FishServer {
     const { doc } = this.getDefaultsForPartialParams(params);
     if (!doc) return [];
 
-    const formattedText = await formatDocumentContent(doc.getText()).catch(error => {
+    const formattedText = await formatDocumentWithIndentComments(doc).catch(error => {
       connection.console.error(`Formatting error: ${error}`);
       if (config.fish_lsp_show_client_popups) {
-        connection.window.showErrorMessage(`Failed to format range: ${error}`);
+        connection.window.showErrorMessage(`Failed to format document: ${error}`);
       }
       return doc.getText(); // fallback to original text on error
     });
 
-    const fullRange: LSP.Range = {
-      start: doc.positionAt(0),
-      end: doc.positionAt(doc.getText().length),
-    };
-
-    return [TextEdit.replace(fullRange, formattedText)];
+    return [{
+      range: LSP.Range.create(
+        LSP.Position.create(0, 0),
+        LSP.Position.create(Number.MAX_VALUE, Number.MAX_VALUE),
+      ),
+      newText: formattedText,
+    }];
   }
   /**
    * Currently only works for whole line selections, in the future we should try to make every
@@ -728,7 +900,6 @@ export default class FishServer {
       ),
     ];
   }
-
   async onFoldingRanges(params: FoldingRangeParams): Promise<FoldingRange[] | undefined> {
     this.logParams('onFoldingRanges', params);
 
@@ -779,66 +950,73 @@ export default class FishServer {
   }
 
   public onShowSignatureHelp(params: SignatureHelpParams): SignatureHelp | null {
-    this.logParams('onShowSignatureHelp', params);
+    try {
+      this.logParams('onShowSignatureHelp', params);
+      const { doc, path } = this.getDefaults(params);
+      if (!doc || !path) return null;
 
-    const { doc, path } = this.getDefaults(params);
-    if (!doc || !path) return null;
+      const { line, lineRootNode, lineLastNode } = analyzer.parseCurrentLine(doc, params.position);
+      if (line.trim() === '') return null;
 
-    const { line, lineRootNode, lineLastNode } = analyzer.parseCurrentLine(doc, params.position);
-    if (line.trim() === '') return null;
+      const currentCmd = findParentCommand(lineLastNode)!;
+      const aliasSignature = this.completionMap.allOfKinds('alias').find(a => a.label === currentCmd.text);
+      if (aliasSignature) return getAliasedCompletionItemSignature(aliasSignature);
 
-    const currentCmd = findParentCommand(lineLastNode)!;
-    const aliasSignature = this.completionMap.allOfKinds('alias').find(a => a.label === currentCmd.text);
-    if (aliasSignature) return getAliasedCompletionItemSignature(aliasSignature);
-
-    const varNode = getChildNodes(lineRootNode).find(c => isVariableDefinition(c));
-    const lastCmd = getChildNodes(lineRootNode).filter(c => isCommand(c)).pop();
-    logger.log({ line, lastCmds: lastCmd?.text });
-    if (varNode && (line.startsWith('set') || line.startsWith('read')) && lastCmd?.text === lineRootNode.text.trim()) {
-      const varName = varNode.text;
-      const varDocs = PrebuiltDocumentationMap.getByName(varNode.text);
-      if (!varDocs.length) return null;
-      return {
-        signatures: [
-          {
-            label: varName,
-            documentation: {
-              kind: 'markdown',
-              value: varDocs.map(d => d.description).join('\n'),
+      const varNode = getChildNodes(lineRootNode).find(c => isVariableDefinition(c));
+      const lastCmd = getChildNodes(lineRootNode).filter(c => isCommand(c)).pop();
+      logger.log({ line, lastCmds: lastCmd?.text });
+      if (varNode && (line.startsWith('set') || line.startsWith('read')) && lastCmd?.text === lineRootNode.text.trim()) {
+        const varName = varNode.text;
+        const varDocs = PrebuiltDocumentationMap.getByName(varNode.text);
+        if (!varDocs.length) return null;
+        return {
+          signatures: [
+            {
+              label: varName,
+              documentation: {
+                kind: 'markdown',
+                value: varDocs.map(d => d.description).join('\n'),
+              },
             },
-          },
-        ],
-        activeSignature: 0,
-        activeParameter: 0,
-      };
+          ],
+          activeSignature: 0,
+          activeParameter: 0,
+        };
+      }
+      if (isRegexStringSignature(line)) {
+        const signature = getDefaultSignatures();
+        logger.log('signature', signature);
+        const cursorLineOffset = line.length - lineLastNode.endIndex;
+        const { activeParameter } = findActiveParameterStringRegex(line, cursorLineOffset);
+        signature.activeParameter = activeParameter;
+        return signature;
+      }
+      const functionSignature = getFunctionSignatureHelp(
+        analyzer,
+        lineLastNode,
+        line,
+        params.position,
+      );
+      if (functionSignature) return functionSignature;
+    } catch (err) {
+      logger.error('onShowSignatureHelp', err);
     }
-    if (isRegexStringSignature(line)) {
-      const signature = getDefaultSignatures();
-      logger.log('signature', signature);
-      const cursorLineOffset = line.length - lineLastNode.endIndex;
-      const { activeParameter } = findActiveParameterStringRegex(line, cursorLineOffset);
-      signature.activeParameter = activeParameter;
-      return signature;
-    }
-    const functionSignature = getFunctionSignatureHelp(
-      analyzer,
-      lineLastNode,
-      line,
-      params.position,
-    );
-    if (functionSignature) return functionSignature;
     return null;
   }
 
-  public clearDiagnostics(document: TextDocumentIdentifier) {
-    connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
-  }
-
   /**
-   * Parse and analyze a document. Adds diagnostics to the document, and finds `source` commands
+   * Parse and analyze a document. Adds diagnostics to the document, and finds `source` commands.
+   * @param document - The document identifier to analyze
+   * @param bypassCache - If true, forces fresh analysis bypassing cache (used when content changes)
    */
-  public analyzeDocument(document: TextDocumentIdentifier) {
+  public analyzeDocument(document: TextDocumentIdentifier, bypassCache = false) {
     const { path, doc: foundDoc } = this.getDefaultsForPartialParams({ textDocument: document });
+
+    // remove the global symbols for the document before re-analyzing
+    analyzer.removeDocumentSymbols(document.uri);
+
+    // get the analyzedDoc.document for re-indexing the workspace,
+    // we will eventually want to store the resulting analyzedDoc.document in `doc` below
     let analyzedDoc: AnalyzedDocument;
     if (!foundDoc) {
       const pathDoc = analyzer.analyzePath(path);
@@ -849,22 +1027,43 @@ export default class FishServer {
         return;
       }
     } else {
-      analyzedDoc = analyzer.analyze(foundDoc);
+      if (bypassCache) {
+        // Force fresh analysis by always calling analyzer.analyze, bypassing cache
+        analyzedDoc = analyzer.analyze(foundDoc);
+      } else {
+        // Use cache if available
+        const cachedDoc = analyzer.cache.getDocument(foundDoc.uri);
+        if (cachedDoc) {
+          cachedDoc.ensureParsed();
+          analyzedDoc = cachedDoc;
+        } else {
+          analyzedDoc = analyzer.analyze(foundDoc);
+        }
+      }
     }
+
     const doc = analyzedDoc.document;
-    const diagnostics = analyzer.getDiagnostics(doc.uri);
-    logger.log('Sending Diagnostics', {
-      uri: doc.uri,
-      diagnostics: diagnostics.map(d => d.code),
-    });
-    connection.sendDiagnostics({ uri: doc.uri, diagnostics });
+
     // re-indexes the workspace and changes the current workspace to the document
     workspaceManager.handleUpdateDocument(doc);
+
     return {
       uri: document.uri,
       path: path,
       doc: doc,
     };
+  }
+
+  /**
+   * Getter for information about the server.
+   *
+   * Mostly from the `../package.json` file of this module, but also includes
+   * other useful entries about the server such as `out/build-time.json` object,
+   * `manPath` and certain url entries that are slightly modified for easier
+   * access to their links.
+   */
+  public get info() {
+    return PkgJson;
   }
 
   /////////////////////////////////////////////////////////////////////////////////////

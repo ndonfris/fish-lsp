@@ -24,16 +24,6 @@ export function getReferenceCountCodeLenses(analyzer: Analyzer, document: LspDoc
         arguments: [uriToPath(document.uri), symbol.selectionRange.start, references],
       },
     });
-
-    // Create code lens with count display
-    // codeLenses.push({
-    //   range: symbol.selectionRange,
-    //   command: {
-    //     title: `${referencesCount} references`,
-    //     command: "fish-lsp.showReferences",
-    //     arguments: [document.getFilePath(), symbol.selectionRange.start, references]
-    //   }
-    // });
   }
 
   return codeLenses;

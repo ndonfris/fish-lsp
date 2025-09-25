@@ -64,50 +64,48 @@ function sequenceFormsTerminatingAndOrChain(nodes: SyntaxNode[], startIndex: num
 }
 
 /**
- * Checks if a node contains a terminal statement in its direct children (not deep descendants)
- */
-function containsDirectTerminalStatement(node: SyntaxNode): boolean {
-  for (const child of node.namedChildren) {
-    if (isTerminalStatement(child)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-/**
  * Checks if a case clause contains a terminal statement
  */
 function caseContainsTerminalStatement(caseNode: SyntaxNode): boolean {
   // Look through all children of the case clause (excluding the pattern)
+  const caseBodyNodes: SyntaxNode[] = [];
   let skipPattern = true;
+
   for (const child of caseNode.namedChildren) {
     if (skipPattern) {
       skipPattern = false; // Skip the first child (the pattern)
       continue;
     }
-
-    if (isTerminalStatement(child)) {
-      return true;
-    }
-
-    // Recursively check nested blocks
-    if (containsDirectTerminalStatement(child) || hasTerminalInNestedBlocks(child)) {
-      return true;
-    }
+    caseBodyNodes.push(child);
   }
-  return false;
+
+  // Check if the sequence of statements in this case terminates all paths
+  return sequenceTerminatesAllPaths(caseBodyNodes);
 }
 
 /**
- * Recursively checks if nested blocks contain terminal statements
+ * Checks if a sequence of statements terminates all possible execution paths
+ * This is the core logic for determining if code after this sequence is unreachable
  */
-function hasTerminalInNestedBlocks(node: SyntaxNode): boolean {
-  for (const child of node.namedChildren) {
-    if (isTerminalStatement(child)) {
+function sequenceTerminatesAllPaths(nodes: SyntaxNode[]): boolean {
+  for (const node of nodes) {
+    // Skip comments
+    if (isComment(node)) {
+      continue;
+    }
+
+    // Direct terminal statements
+    if (isTerminalStatement(node)) {
       return true;
     }
-    if (hasTerminalInNestedBlocks(child)) {
+
+    // Complete if/else statements where all paths terminate
+    if (isIfStatement(node) && allPathsTerminate(node)) {
+      return true;
+    }
+
+    // Complete switch statements where all paths terminate
+    if (isSwitchStatement(node) && allSwitchPathsTerminate(node)) {
       return true;
     }
   }
@@ -122,28 +120,35 @@ function allPathsTerminate(ifNode: SyntaxNode): boolean {
   let ifBodyTerminates = false;
   let elseBodyTerminates = false;
 
-  // Walk through all named children to find the different parts
+  // Extract the different parts of the if statement
+  const ifBodyNodes: SyntaxNode[] = [];
+  let elseClauseNode: SyntaxNode | null = null;
   let skipCondition = true;
+
   for (const child of ifNode.namedChildren) {
-    // Skip the condition parts
+    // Skip the condition parts (only the first condition)
     if (skipCondition && (child.type === 'command' || child.type === 'test_command' || child.type === 'command_substitution')) {
+      skipCondition = false; // Only skip the very first condition
       continue;
     }
-    skipCondition = false;
 
     // Check else clause
     if (child.type === 'else_clause') {
       hasElse = true;
-      if (containsDirectTerminalStatement(child) || hasTerminalInNestedBlocks(child)) {
-        elseBodyTerminates = true;
-      }
-
-    // Check the if body (everything that's not an else clause)
-    } else if (child.type !== 'else_if_clause' && !ifBodyTerminates) {
-      if (isTerminalStatement(child) || hasTerminalInNestedBlocks(child)) {
-        ifBodyTerminates = true;
-      }
+      elseClauseNode = child;
+    } else if (child.type !== 'else_if_clause') {
+      // This is part of the if body
+      ifBodyNodes.push(child);
     }
+  }
+
+  // Check if the if body terminates - must check if the sequence of statements terminates
+  ifBodyTerminates = sequenceTerminatesAllPaths(ifBodyNodes);
+
+  // Check if the else body terminates
+  if (hasElse && elseClauseNode) {
+    const elseBodyNodes = Array.from(elseClauseNode.namedChildren);
+    elseBodyTerminates = sequenceTerminatesAllPaths(elseBodyNodes);
   }
 
   return ifBodyTerminates && hasElse && elseBodyTerminates;
@@ -264,25 +269,41 @@ function findUnreachableInFunction(functionNode: SyntaxNode): SyntaxNode[] {
  * Finds unreachable code nodes in any block scope (if, for, etc.)
  */
 function findUnreachableInBlock(blockNode: SyntaxNode): SyntaxNode[] {
-  const blockBodyNodes: SyntaxNode[] = [];
+  const unreachable: SyntaxNode[] = [];
 
-  // For if statements, get everything except the condition
+  // For if statements, we need to check each branch separately
   if (isIfStatement(blockNode)) {
+    const ifBodyNodes: SyntaxNode[] = [];
+    let elseClauseNode: SyntaxNode | null = null;
     let skipCondition = true;
+
+    // Extract if body and else clause
     for (const child of blockNode.namedChildren) {
-      // Skip until we're past the condition
+      // Skip only the FIRST condition part
       if (skipCondition && (child.type === 'command' || child.type === 'test_command' || child.type === 'command_substitution')) {
+        skipCondition = false; // Only skip the very first condition
         continue;
       }
-      skipCondition = false;
 
-      // Don't include else clauses as unreachable in the if body
-      if (child.type !== 'else_clause' && child.type !== 'else_if_clause') {
-        blockBodyNodes.push(child);
+      if (child.type === 'else_clause') {
+        elseClauseNode = child;
+      } else if (child.type !== 'else_if_clause') {
+        // This is part of the if body
+        ifBodyNodes.push(child);
       }
+    }
+
+    // Check for unreachable code in the if body
+    unreachable.push(...getUnreachableStatementsInSequence(ifBodyNodes));
+
+    // Check for unreachable code in the else clause
+    if (elseClauseNode) {
+      const elseBodyNodes = Array.from(elseClauseNode.namedChildren);
+      unreachable.push(...getUnreachableStatementsInSequence(elseBodyNodes));
     }
   } else if (isForLoop(blockNode)) {
     // For loops: skip the iterator variable and iterable, get the body
+    const loopBodyNodes: SyntaxNode[] = [];
     let skipForParts = true;
     for (const child of blockNode.namedChildren) {
       // Skip "for var in iterable" parts
@@ -290,14 +311,16 @@ function findUnreachableInBlock(blockNode: SyntaxNode): SyntaxNode[] {
         continue;
       }
       skipForParts = false;
-      blockBodyNodes.push(child);
+      loopBodyNodes.push(child);
     }
+    unreachable.push(...getUnreachableStatementsInSequence(loopBodyNodes));
   } else {
     // For other block types, include all children
-    blockBodyNodes.push(...blockNode.namedChildren);
+    const blockBodyNodes = Array.from(blockNode.namedChildren);
+    unreachable.push(...getUnreachableStatementsInSequence(blockBodyNodes));
   }
 
-  return getUnreachableStatementsInSequence(blockBodyNodes);
+  return unreachable;
 }
 
 /**
@@ -305,6 +328,13 @@ function findUnreachableInBlock(blockNode: SyntaxNode): SyntaxNode[] {
  */
 export function findUnreachableCode(root: SyntaxNode): SyntaxNode[] {
   const unreachable: SyntaxNode[] = [];
+
+  // Handle top-level program statements
+  if (root.type === 'program') {
+    const topLevelNodes = Array.from(root.namedChildren).filter(child => !isComment(child));
+    const topLevelUnreachable = getUnreachableStatementsInSequence(topLevelNodes);
+    unreachable.push(...topLevelUnreachable);
+  }
 
   // Use getChildNodes to traverse all descendants
   const allNodes = getChildNodes(root);

@@ -14,7 +14,7 @@ import { createDetail } from './symbol-detail';
 import { config } from '../config';
 import { flattenNested } from '../utils/flatten';
 import { uriToPath } from '../utils/translation';
-import { isCommand, isCommandWithName, isEmptyString, isFunctionDefinitionName, isString, isTopLevelDefinition, isVariableDefinitionName } from '../utils/node-types';
+import { isCommand, isCommandWithName, isEmptyString, isFunctionDefinitionName, isString, isVariableDefinitionName } from '../utils/node-types';
 import { SyncFileHelper } from '../utils/file-operations';
 import { isExportVariableDefinitionName, processExportCommand } from './export';
 import { CompletionSymbol, isCompletionCommandDefinition, isCompletionSymbol } from './complete';
@@ -118,6 +118,16 @@ export class FishSymbol {
     return fishSymbolNameEqualsNodeText(this, node);
   }
 
+  public isBefore(other: FishSymbol, urisMustMatch = true) {
+    if (this.uri !== other.uri) return !urisMustMatch;
+    return this.focusedNode.startIndex < other.focusedNode.startIndex;
+  }
+
+  public isAfter(other: FishSymbol, urisMustMatch = true) {
+    if (this.uri !== other.uri) return !urisMustMatch;
+    return this.focusedNode.startIndex > other.focusedNode.startIndex;
+  }
+
   /**
    * Returns the `argparse flag-name` for the symbol `_flag_flag_name`
    */
@@ -184,6 +194,28 @@ export class FishSymbol {
       if (node.previousSibling) {
         return Option.create('-c', '--command').matches(node.previousSibling);
       }
+    }
+    return false;
+  }
+
+  isExported(): boolean {
+    if (this.fishKind === 'EVENT') return false;
+    if (this.fishKind === 'FUNCTION_EVENT') return false;
+    if (this.isFunction()) return false;
+    if (this.fishKind === 'FUNCTION_VARIABLE') return false;
+    if (!this.isVariable()) return false;
+    if (this.isArgparse()) return false;
+    if (this.fishKind === 'EXPORT') return true;
+    const commandNode = this.node;
+    if (isCommandWithName(commandNode, 'set')) {
+      const children = findSetChildren(commandNode)
+        .filter(s => s.startIndex < this.focusedNode.startIndex);
+      return children.some(s => isMatchingOption(s, Option.create('-x', '--export')));
+    }
+    if (isCommandWithName(commandNode, 'read')) {
+      const children = commandNode.children
+        .filter(s => s.startIndex < this.focusedNode.startIndex);
+      return children.some(s => isMatchingOption(s, Option.create('-x', '--export')));
     }
     return false;
   }
@@ -300,7 +332,11 @@ export class FishSymbol {
   }
 
   isRootLevel() {
-    return isTopLevelDefinition(this.node);
+    // return isTopLevelDefinition(this.node);
+    if (this.parent) {
+      return false;
+    }
+    return !this.parent;
   }
 
   isEventHook(): boolean {

@@ -1,7 +1,16 @@
-import { readFileSync } from 'fs';
-import { resolve } from 'path';
+import chalk from 'chalk';
+import fs, { readFileSync, existsSync } from 'fs';
+import { homedir } from 'os';
+import path, { resolve } from 'path';
+import { z } from 'zod';
 import PackageJSON from '../../package.json';
+import { commandBin } from '../cli';
+import { config } from '../config';
 import { logger } from '../logger';
+import { SyncFileHelper } from './file-operations';
+import { getCurrentExecutablePath, getFishBuildTimeFilePath, getManFilePath, getProjectRootPath, isBundledEnvironment } from './path-resolution';
+import { maxWidthForOutput } from './startup';
+import { vfs } from '../virtual-fs';
 
 /**
  * Accumulate the arguments into two arrays, '--enable' and '--disable'
@@ -64,6 +73,7 @@ export namespace SubcommandEnv {
     confd?: boolean;
     names?: boolean;
     joined?: boolean;
+    json?: boolean;
   };
 
   export type HandlerOptionsType = {
@@ -73,6 +83,7 @@ export namespace SubcommandEnv {
     local: boolean;
     export: boolean;
     confd: boolean;
+    json: boolean;
   };
 
   export const defaultHandlerOptions: HandlerOptionsType = {
@@ -82,6 +93,7 @@ export namespace SubcommandEnv {
     local: false,
     export: true,
     confd: false,
+    json: false,
   };
 
   /**
@@ -116,6 +128,7 @@ export namespace SubcommandEnv {
       local: args.local ?? false,
       export: args.export ?? true,
       confd: args.confd ?? false,
+      json: args.json ?? false,
     };
   }
 }
@@ -173,29 +186,17 @@ function filterStartCommandArgs(args: string[]): string[] {
   return filteredArgs;
 }
 
-// For the specific case of finding the fish-lsp executable path:
-function getCurrentExecutablePath(): string {
-  // If this is being run as a Node.js script
-  if (process.argv[0] && process.argv[0].includes('node')) {
-    // Return the script that was executed
-    return process.argv[1]!;
-  }
-
-  // Otherwise, return the executable path itself
-  return process.execPath;
-}
-
 /// HELPERS
 export const smallFishLogo = () => '><(((°> FISH LSP';
 export const RepoUrl = PackageJSON.repository?.url.slice(0, -4);
 export const PackageVersion = PackageJSON.version;
 
-export const PathObj: { [K in 'bin' | 'root' | 'repo' | 'manFile' | 'execFile']: string } = {
-  ['bin']: resolve(__dirname.toString(), '..', '..', 'bin', 'fish-lsp'),
-  ['root']: resolve(__dirname, '..', '..'),
-  ['repo']: resolve(__dirname, '..', '..'),
+export const PathObj: { [K in 'bin' | 'root' | 'path' | 'manFile' | 'execFile']: string } = {
+  ['bin']: getCurrentExecutablePath(),
+  ['root']: getProjectRootPath(),
+  ['path']: getProjectRootPath(),
   ['execFile']: getCurrentExecutablePath(),
-  ['manFile']: resolve(__dirname, '..', '..', 'docs', 'man', 'fish-lsp.1'),
+  ['manFile']: getManFilePath(),
 };
 
 export type VersionTuple = {
@@ -256,41 +257,181 @@ export const PackageLspVersion = PackageJSON.dependencies['vscode-languageserver
 
 export const PackageNodeRequiredVersion = DepVersion.minimumNodeVersion();
 
+/**
+ * shows last compile bundle time in server cli executable
+ */
+const getOutTime = () => {
+  // First check if build time is embedded via environment variable (for bundled version)
+  if (process.env.FISH_LSP_BUILD_TIME) {
+    try {
+      const buildTimeData = JSON.parse(process.env.FISH_LSP_BUILD_TIME);
+      return buildTimeData.timestamp || new Date(buildTimeData.isoTimestamp).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'medium' });
+    } catch (e) {
+      // If parsing fails, return as-is (fallback for old format)
+      return process.env.FISH_LSP_BUILD_TIME;
+    }
+  }
+
+  // Fallback to reading from file (for development version)
+  const buildFile = getFishBuildTimeFilePath();
+  try {
+    const fileContent = readFileSync(buildFile, 'utf8');
+    const buildTimeData = JSON.parse(fileContent);
+    return buildTimeData.timestamp || buildTimeData.isoTimestamp;
+  } catch (e) {
+    logger.logToStderr(`Error reading build-time file: ${buildFile}`);
+    logger.error([
+      `Error reading build-time file: ${buildFile}`,
+      `Could not read build time from file: ${e}`,
+    ]);
+    return 'unknown';
+  }
+};
+
+export type BuildTimeJsonObj = {
+  date: string | Date;
+  timestamp: string;
+  isoTimestamp: string;
+  unix: number;
+  version: string;
+  nodeVersion: string;
+  [key: string]: any;
+};
+export const getBuildTimeJsonObj = (): BuildTimeJsonObj | undefined => {
+  // First check if build time is embedded via environment variable (for bundled version)
+  if (process.env.FISH_LSP_BUILD_TIME) {
+    try {
+      const jsonObj: BuildTimeJsonObj = JSON.parse(process.env.FISH_LSP_BUILD_TIME);
+      return { ...jsonObj, date: new Date(jsonObj.date) };
+    } catch (e) {
+      logger.logToStderr(`Error parsing embedded build-time JSON: ${e}`);
+    }
+  }
+
+  // Fallback to reading from file (for development version)
+  try {
+    const jsonFile = getFishBuildTimeFilePath();
+    const jsonContent = readFileSync(jsonFile, 'utf8');
+    const jsonObj: BuildTimeJsonObj = JSON.parse(jsonContent);
+    return { ...jsonObj, date: new Date(jsonObj.date) };
+  } catch (e) {
+    logger.logToStderr(`Error reading build-time JSON file: ${e}`);
+    logger.error(`Error reading build-time JSON file: ${e}`);
+  }
+  return undefined;
+};
+
+export const isPkgBinary = () => {
+  return typeof __dirname !== 'undefined' ? resolve(__dirname).startsWith('/snapshot/') : false;
+};
+
+/**
+ * Detect if the binary is installed globally by checking if it's accessible via PATH
+ */
+export const isInstalledGlobally = (): boolean => {
+  try {
+    const execPath = getCurrentExecutablePath();
+
+    // Check if the executable is in a global npm/yarn installation directory
+    if (execPath.includes('/node_modules/.bin/') ||
+      execPath.includes('/.npm/') ||
+      execPath.includes('/.yarn/') ||
+      execPath.includes('/usr/local/') ||
+      execPath.includes('/opt/') ||
+      execPath.includes('/.local/bin/')) {
+      return true;
+    }
+
+    // Check if the current executable matches what would be found in PATH
+    if (process.env.PATH) {
+      const pathDirs = process.env.PATH.split(':');
+      for (const dir of pathDirs) {
+        const potentialPath = resolve(dir, 'fish-lsp');
+        if (execPath === potentialPath || execPath.startsWith(potentialPath)) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Detect the execution context: module, web, binary, or unknown
+ * Also differentiates between direct execution and node execution
+ */
+export const getExecutionContext = (): 'module' | 'web' | 'binary' | 'node-binary' | 'node-module' | 'unknown' => {
+  const execPath = getCurrentExecutablePath();
+  const isNodeExecution = process.argv[0]?.includes('node');
+
+  // Check if running in web context (no real filesystem paths)
+  if (typeof (globalThis as any).window !== 'undefined' || typeof (globalThis as any).self !== 'undefined') {
+    return 'web';
+  }
+
+  // Locations where the CLI Binary might be run from
+  const cliPaths = ['/bin/fish-lsp', '/dist/fish-lsp', '/out/cli.js'];
+
+  // Check if running as CLI binary
+  if (cliPaths.some(path => execPath.endsWith(path))) {
+    return isNodeExecution ? 'node-binary' : 'binary';
+  }
+
+  // Server/module execution paths
+  const modulePaths = ['/out/server.js', '/dist/server.js', '/src/server.ts'];
+  if (modulePaths.some(path => execPath.endsWith(path))) {
+    return isNodeExecution ? 'node-module' : 'module';
+  }
+
+  // Default to unknown context
+  return 'unknown';
+};
+
+/**
+ * Generate build type string in format: (local|global) (bundled?) (module|web|binary)
+ */
+export const getBuildTypeString = (): string => {
+  const result: string[] = [];
+
+  // 1. Installation type: local or global
+  const installType = isInstalledGlobally() ? 'global' : 'local';
+  result.push(installType);
+
+  // 2. Bundling status: bundled or not
+  if (isPkgBinary()) {
+    result.push('pkg-bundle'); // Special case for pkg bundling
+  } else if (isBundledEnvironment() || getCurrentExecutablePath().includes('/dist/')) {
+    result.push('bundled');
+  }
+
+  // 3. Execution context: module, web, or binary
+  const context = getExecutionContext();
+  result.push(context);
+
+  return result.join(' ').trim();
+};
+
+export const packageJsonVersion = () => {
+  return PackageJSON.version || JSON.parse(fs.readFileSync(path.join(getProjectRootPath(), 'package.json'), 'utf8')).version;
+};
+
 export const PkgJson = {
   ...PackageJSON,
   name: PackageJSON.name,
   version: PackageJSON.version,
   description: PackageJSON.description,
-  repository: PackageJSON.repository?.url || ' ',
+  npm: 'https://www.npmjs.com/fish-lsp',
+  repository: PackageJSON.repository?.url.replace(/^git\+/, '') || ' ',
   homepage: PackageJSON.homepage || ' ',
   lspVersion: PackageLspVersion,
   node: PackageNodeRequiredVersion,
-  man: PathObj.manFile,
-  bin: PathObj.bin,
-  execFile: PathObj.execFile,
-};
-
-/**
- * shows last compile bundle time in server cli executable
- */
-const getOutTime = () => {
-  // @ts-ignore
-  const buildFile = resolve(__dirname, '..', '..', 'out', 'build-time.txt');
-  let buildTime = 'unknown';
-  try {
-    buildTime = readFileSync(buildFile, 'utf8');
-  } catch (e) {
-    logger.logToStdout('Error reading ./out/build-time.txt');
-  }
-  return buildTime.trim();
-};
-
-export const getBuildTimeString = () => {
-  return getOutTime();
-};
-
-export const isPkgBinary = () => {
-  return resolve(__dirname).startsWith('/snapshot/');
+  man: getManFilePath(),
+  buildTime: getOutTime(),
+  buildTimeObj: getBuildTimeJsonObj(),
+  ...PathObj,
 };
 
 export const SourcesDict: { [key: string]: string; } = {
@@ -304,7 +445,8 @@ export const SourcesDict: { [key: string]: string; } = {
   wiki: 'https://github.com/ndonfris/fish-lsp/wiki',
   discussions: 'https://github.com/ndonfris/fish-lsp/discussions',
   clientsRepo: 'https://github.com/ndonfris/fish-lsp-language-clients/',
-  sources: [
+  sourceMap: `https://github.com/ndonfris/fish-lsp/releases/download/v${PackageVersion}/sourcemaps.tar.gz`,
+  sourcesList: [
     'https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#headerPart',
     'https://github.com/microsoft/vscode-extension-samples/tree/main',
     'https://tree-sitter.github.io/tree-sitter/',
@@ -323,8 +465,11 @@ export const SourcesDict: { [key: string]: string; } = {
   ].join('\n'),
 };
 
-export const FishLspHelp = {
-  beforeAll: `
+export function FishLspHelp() {
+  const lspV = PackageJSON.dependencies['vscode-languageserver'].toString();
+  return {
+
+    beforeAll: `
        fish-lsp [-h | --help] [-v | --version] [--help-man] [--help-all] [--help-short]
        fish-lsp start [--enable | --disable] [--dump]
        fish-lsp info [--bare] [--repo] [--time] [--env]
@@ -332,40 +477,602 @@ export const FishLspHelp = {
                     [--wiki] [--issues] [--client-repo] [--sources]
        fish-lsp env [-c | --create] [-s | --show] [--no-comments]
        fish-lsp complete`,
-  usage: `fish-lsp [OPTION]
+    usage: `fish-lsp [OPTION]
        fish-lsp [COMMAND [OPTION...]]`,
-  // fish-lsp [start | logger | info | url | complete] [options]
-  // fish-lsp [-h | --help] [-v | --version] [--help-man] [--help-all] [--help-short]
-  description: [
-    '  A language server for the `fish-shell`, written in typescript. Currently supports',
-    `  the following feature set from '${PackageLspVersion}' of the language server protocol.`,
-    '  More documentation is available for any command or subcommand via \'-h/--help\'.',
-    '',
-    '  The current language server protocol, reserves stdin/stdout for communication between the ',
-    '  client and server. This means that when the server is started, it will listen for messages on',
-    '  stdin/stdout. Command communication will be visible in `$fish_lsp_log_file`.',
-    '',
-    '  For more information, see the github repository:',
-    `     ${SourcesDict.git}`,
-  ].join('\n'),
-  after: [
-    '',
-    'Examples:',
-    '  # Default setup, with all options enabled',
-    '  > fish-lsp start ',
-    '',
-    '  # Generate and store completions file:',
-    '  > fish-lsp complete > ~/.config/fish/completions/fish-lsp.fish',
-  ].join('\n'),
-};
+    // fish-lsp [start | logger | info | url | complete] [options]
+    // fish-lsp [-h | --help] [-v | --version] [--help-man] [--help-all] [--help-short]
+    description: [
+      '  A language server for the `fish-shell`, written in typescript. Currently supports',
+      `  the following feature set from '${lspV || PackageLspVersion || '^9.0.1'}' of the language server protocol.`,
+      '  More documentation is available for any command or subcommand via \'-h/--help\'.',
+      '',
+      '  The current language server protocol, reserves stdin/stdout for communication between the ',
+      '  client and server. This means that when the server is started, it will listen for messages on',
+      '  stdin/stdout. Command communication will be visible in `$fish_lsp_log_file`.',
+      '',
+      `  For more info, please visit: ${chalk.underline('https://github.com/ndonfris/fish-lsp')}`,
+    ].join('\n'),
+    after: [
+      '',
+      'Examples:',
+      '  # Default setup, with all options enabled',
+      '  > fish-lsp start',
+      '',
+      '  # Generate and store completions file:',
+      '  > fish-lsp complete > ~/.config/fish/completions/fish-lsp.fish',
+    ].join('\n'),
+  };
+}
 
 export function FishLspManPage() {
+  // Try to get man file from filesystem first (preferred - shows actual install location)
   const manFile = PathObj.manFile;
-  const content = readFileSync(manFile, 'utf8');
+  if (manFile && existsSync(manFile)) {
+    try {
+      const content = readFileSync(manFile, 'utf8');
+      return {
+        path: manFile,
+        content: content.split('\n'),
+      };
+    } catch {
+      // File exists but can't read it, fall through to VFS
+    }
+  }
+
+  // Fallback to embedded man page from VFS
+  if (vfs && vfs.allFiles && Array.isArray(vfs.allFiles)) {
+    try {
+      const virtual = vfs.allFiles.find(f => {
+        return f.filepath.endsWith('man/man1/fish-lsp.1');
+      });
+
+      if (virtual && virtual.content) {
+        // Show warning that we're using embedded version
+        if (process.stderr.isTTY) {
+          process.stderr.write('\x1b[33mWarning: Using embedded man page from virtual filesystem\x1b[0m\n');
+        } else {
+          process.stderr.write('Warning: Using embedded man page from virtual filesystem\n');
+        }
+
+        return {
+          path: `${virtual.filepath} (embedded)`,
+          content: virtual.content.toString().split('\n'),
+        };
+      }
+    } catch (err) {
+      // VFS access failed, continue to final error
+    }
+  }
+
+  throw new Error('Man file not available');
+}
+
+export function fishLspLogFile() {
+  const logFile = SyncFileHelper.expandEnvVars(config.fish_lsp_log_file);
+  if (!logFile) {
+    logger.error('fish_lsp_log_file is not set in the config file.');
+    return {
+      path: '',
+      content: [],
+    };
+  }
+  const content = SyncFileHelper.read(logFile).split('\n');
   return {
-    path: resolve(PathObj.root, PathObj.manFile),
-    content: content.split('\n'),
+    path: resolve(logFile),
+    content: content,
   };
+}
+
+export namespace CommanderSubcommand {
+
+  // Define the subcommands and their schemas
+  export namespace start {
+    export const schema = z.record(z.unknown()).and(
+      z.object({
+        enable: z.array(z.string()).optional().default([]),
+        disable: z.array(z.string()).optional().default([]),
+        dump: z.boolean().optional().default(false),
+        socket: z.string().optional(),
+        maxFiles: z.string().optional(),
+        memoryLimit: z.string().optional(),
+        stdio: z.boolean().optional().default(false),
+        nodeIpc: z.boolean().optional().default(false),
+      }),
+    );
+    export type schemaType = z.infer<typeof schema>;
+    export function parse(args: unknown): schemaType {
+      const isValidArgs = schema.safeParse(args);
+      return isValidArgs?.success ? isValidArgs.data : schema.parse(args) || defaultSchema; // Validate the args against the schema
+    }
+    export const defaultSchema: schemaType = schema.parse({});
+  }
+  export namespace info {
+    export const schema = z.record(z.unknown()).and(
+      z.object({
+        bin: z.boolean().optional().default(false),
+        path: z.boolean().optional().default(false),
+        buildTime: z.boolean().optional().default(false),
+        buildType: z.boolean().optional().default(false),
+        version: z.boolean().optional().default(false),
+        lspVersion: z.boolean().optional().default(false),
+        capabilities: z.boolean().optional().default(false),
+        manFile: z.boolean().optional().default(false),
+        logFile: z.boolean().optional().default(false),
+        logsFile: z.boolean().optional().default(false),
+        show: z.boolean().optional().default(false),
+        verbose: z.boolean().optional().default(false),
+        extra: z.boolean().optional().default(false),
+        healthCheck: z.boolean().optional().default(false),
+        checkHealth: z.boolean().optional().default(false),
+        timeStartup: z.boolean().optional().default(false),
+        timeOnly: z.boolean().optional().default(false),
+        useWorkspace: z.string().optional().default(''),
+        warning: z.boolean().optional().default(true),
+        showFiles: z.boolean().optional().default(false),
+        sourceMaps: z.boolean().optional().default(false),
+        check: z.boolean().optional().default(false),
+        install: z.boolean().optional().default(false),
+        remove: z.boolean().optional().default(false),
+        status: z.boolean().optional().default(false),
+        dumpParseTree: z.union([z.string(), z.boolean()]).optional().default(''),
+        virtualFs: z.boolean().optional().default(false),
+      }),
+    );
+    export type schemaType = z.infer<typeof schema>;
+    export function parse(args: unknown): schemaType {
+      const isValidArgs = schema.safeParse(args);
+      return isValidArgs?.success ? isValidArgs.data : schema.parse(args);
+    }
+    export const defaultSchema: schemaType = schema.parse({});
+    export const skipable = z.object({
+      healhCheck: z.boolean().default(false),
+      checkHealth: z.boolean().default(false),
+      timeStartup: z.boolean().default(false),
+      timeOnly: z.boolean().default(false),
+      useWorkspace: z.string().default(''),
+      warning: z.boolean().default(true),
+    });
+    export type skipableType = z.infer<typeof skipable>;
+    export type skipableArgs = keyof skipableType;
+
+    export const parseSkip = (args: unknown): z.infer<typeof skipable> => {
+      const isValidArgs = skipable.safeParse(args);
+      return isValidArgs?.success ? isValidArgs.data : skipable.parse(args) || skipable.parse({}); // Validate the args against the schema
+    };
+
+    export const allSkipableArgvs = [
+      'info',
+      '--health-check',
+      '--check-health',
+      '--time-startup',
+      '--time-only',
+      '--use-workspace',
+      '--no-warning',
+      '--show-files',
+    ] as const;
+
+    export function handleBadArgs(args: schemaType) {
+      const argsCount = countArgsWithValues('info', args);
+      if (args.useWorkspace && args.useWorkspace.length > 0 && !args.timeStartup && !args.timeOnly && argsCount >= 1) {
+        logger.logToStderr([
+          buildErrorMessage('ERROR:', 'The option', '--use-workspace', 'should be used with either:', '--time-startup', 'or', '--time-only'),
+          buildColoredCommandlineString({ subcommand: 'info', args: ['--time-startup', ...commandBin.args.slice(1)] }),
+          buildErrorMessage(`If you believe this is a bug, please report it at ${chalk.underline.whiteBright(PkgJson.bugs.url)}`),
+        ].join('\n\n'));
+        process.exit(1);
+      }
+      const skippedArgs = commandBin.args.filter(arg => arg.startsWith('--') && allSkipableArgvs.some(skipable => arg.startsWith(skipable)));
+      const unrelatedArgs = commandBin.args.filter(arg => arg.startsWith('--') && !allSkipableArgvs.some(skipable => arg.startsWith(skipable)));
+      if (skippedArgs.length > 0 && unrelatedArgs.length > 0) {
+        const unrelatedArgsSeen = argsToString(unrelatedArgs);
+        logger.logToStderr([
+          buildErrorMessage('ERROR:', 'Incompatible arguments provided.'),
+          buildErrorMessage('FIXES:', 'Try removing the invalid arguments provided and running the command again.', 'INVALID ARGUMENTS:', ...unrelatedArgsSeen.replaceAll('"', '').split(', ')),
+          buildColoredCommandlineString({ subcommand: 'info', args: skippedArgs }),
+          buildErrorMessage(`If you believe this is a bug, please report it at ${chalk.underline.whiteBright(PkgJson.bugs.url)}`),
+        ].join('\n\n'));
+        process.exit(1);
+      }
+    }
+
+    export function handleFileArgs(args: schemaType) {
+      const seenArgs = keys(args).filter(k => ['manFile', 'logFile', 'logsFile'].includes(k));
+      const otherArgs = keys(args).filter(k => !['manFile', 'logFile', 'logsFile', 'show'].includes(k));
+      const argsCount = otherArgs.length >= 1 ? otherArgs.length + 1 + seenArgs.length : otherArgs.length + seenArgs.length || 0;
+      const hasLogFile = args.logFile || args.logsFile;
+      const hasManFile = args.manFile;
+      const hasShowFlag = args.show;
+      if (hasLogFile) {
+        const logObj = fishLspLogFile();
+        const title = 'Log File';
+        const message = args.show ? logObj.content.join('\n') : logObj.path;
+        log(argsCount, title, message);
+      }
+      if (hasManFile) {
+        try {
+          const manObj = FishLspManPage();
+          const title = 'Man File';
+          const message = args.show ? manObj.content.join('\n') : manObj.path;
+          if (manObj.content && manObj.path.startsWith('/man')) {
+            logger.logToStderr('\x1b[33mWarning: Displaying embedded\x1b[0m');
+            log(argsCount, title + ' (embedded)', manObj.content.join('\n'));
+            return;
+          }
+          log(argsCount, title, message);
+        } catch (error) {
+          log(argsCount, 'Man File', 'Error: Man file not available');
+        }
+      }
+      if (!hasLogFile && !hasManFile && hasShowFlag) {
+        logger.logToStderr([
+          'ERROR: flag `--show` requires either `--log-file` or `-man-file`',
+          'fish-lsp info [--log-file | --man-file] --show',
+        ].join('\n'));
+        return 1;
+      }
+      return 0;
+    }
+
+    // Show output for the sourcemaps switch
+    export function handleSourceMaps(args: schemaType) {
+      let exitStatus = 0;
+      if (!args.sourceMaps) return exitStatus;
+
+      // check if all sourcemaps are present
+      Object.values(SourceMaps).forEach(v => {
+        if (!fs.existsSync(v)) {
+          exitStatus = 1;
+        }
+      });
+
+      if (args.all && !args.allPaths) {
+        logger.logToStdout('-'.repeat(maxWidthForOutput()));
+        Object.entries(SourceMaps).forEach(([k, v]) => {
+          const exists = fs.existsSync(v);
+          logger.logToStdoutJoined(`${chalk.white('Sourcemap \'')}`, chalk.blue(k), chalk.white("': "), exists ? chalk.green('✅ Available') : chalk.red('❌ Not found'));
+          if (exists) {
+            const stats = fs.statSync(v);
+            logger.logToStdoutJoined(chalk.white('Location: '), chalk.blue(`${v}`));
+            logger.logToStdoutJoined(chalk.white('Size:     '), chalk.blue(`${(stats.size / 1024 / 1024).toFixed(1)} MB`));
+            logger.logToStdoutJoined(chalk.white('Modified: '), chalk.blue(`${stats.mtime.toLocaleDateString()} ${stats.mtime.toLocaleTimeString()}`));
+          }
+          logger.logToStdout('-'.repeat(maxWidthForOutput())); // Add a blank line between maps
+        });
+        return exitStatus;
+      }
+
+      if (args.allPaths) {
+        Object.entries(SourceMaps).forEach(([_, v]) => {
+          logger.logToStdout(v);
+        });
+        return exitStatus;
+      }
+
+      if (args.check) {
+        logger.logToStdout('-'.repeat(maxWidthForOutput())); // Add a blank line between maps
+        Object.entries(SourceMaps).forEach(([k, v]) => {
+          const exists = fs.existsSync(v);
+          logger.logToStdoutJoined(`${chalk.white('Sourcemap \'')}`, chalk.blue(k), chalk.white("': "), exists ? chalk.green('✅ Available') : chalk.red('❌ Not found'));
+          if (exists) {
+            logger.logToStdout(`${chalk.white('Path:')} ${chalk.blue(v.replace(homedir(), '~'))}`);
+          } else {
+            logger.logToStdout(`${chalk.white('Path:')} ${chalk.blue(v.replace(homedir(), '~'))} ${chalk.red('(not found)')}`);
+          }
+          logger.logToStdout('-'.repeat(maxWidthForOutput())); // Add a blank line between maps
+        });
+        return exitStatus;
+      }
+
+      if (args.remove) {
+        exitStatus = 0;
+        Object.entries(SourceMaps).forEach(([_, v]) => {
+          if (fs.existsSync(v)) {
+            fs.unlinkSync(v);
+            logger.logToStdout(`✅ Removed sourcemap at ${v.replace(homedir(), '~')}`);
+          } else {
+            logger.logToStdout(`❌ Sourcemap not found at ${v.replace(homedir(), '~')}, nothing to remove`);
+            exitStatus = 1;
+          }
+        });
+        return exitStatus;
+      }
+
+      if (args.install) {
+        logger.logToStdout(`🔍 Download sourcemaps for v${PackageVersion}...`);
+
+        const rootDir = getProjectRootPath();
+        const sourceMapUrl = SourcesDict.sourceMap!.toString();
+        logger.logToStdoutJoined(chalk.white('sourcemap url: '), chalk.blue(sourceMapUrl));
+        logger.logToStdoutJoined(chalk.white('destination:  '), chalk.blue(path.join(rootDir, 'sourcemaps.tar.gz').replace(homedir(), '~')));
+        return exitStatus;
+      }
+
+      // Default source map path
+      logger.logToStdout('-'.repeat(maxWidthForOutput())); // Add a blank line between maps
+      Object.entries(SourceMaps).forEach(([k, v]) => {
+        const exists = fs.existsSync(v);
+        logger.logToStdoutJoined(`${chalk.white('Sourcemap \'')}`, chalk.blue(k), chalk.white("': "), exists ? chalk.green('✅ Available') : chalk.red('❌ Not found'));
+        if (exists) {
+          logger.logToStdout(`${chalk.white('Path:')} ${chalk.blue(v.replace(homedir(), '~'))}`);
+        } else {
+          logger.logToStdout(`${chalk.white('Path:')} ${chalk.blue(v.replace(homedir(), '~'))} ${chalk.red('(not found)')}`);
+        }
+        logger.logToStdout('-'.repeat(maxWidthForOutput())); // Add a blank line between maps
+      });
+      return exitStatus;
+    }
+
+    export function log(argsCount: number, title: string, message: string, alwaysShowTitle = false) {
+      const isCapabilitiesString = title.toLowerCase() === 'capabilities';
+      if (isCapabilitiesString) message = `\n${message}`;
+      if (argsCount > 1 || alwaysShowTitle || isCapabilitiesString) {
+        logger.logToStdout(`${chalk.whiteBright.bold(`${title}:`)} ${chalk.cyan(message)}`);
+      } else {
+        logger.logToStdout(`${message}`);
+      }
+    }
+  }
+  export namespace url {
+    export const schema = z.record(z.unknown()).and(
+      z.object({
+        repo: z.boolean().optional().default(false),
+        discussions: z.boolean().optional().default(false),
+        homepage: z.boolean().optional().default(false),
+        npm: z.boolean().optional().default(false),
+        contributions: z.boolean().optional().default(false),
+        wiki: z.boolean().optional().default(false),
+        issues: z.boolean().optional().default(false),
+        clientRepo: z.boolean().optional().default(false),
+        sources: z.boolean().optional().default(false),
+        sourceMap: z.boolean().optional().default(false),
+      }),
+    );
+    export type schemaType = z.infer<typeof schema>;
+    export function parse(args: unknown): schemaType {
+      const isValidArgs = schema.safeParse(args);
+      return isValidArgs?.success ? isValidArgs.data : schema.parse(args) || defaultSchema; // Validate the args against the schema
+    }
+    export const defaultSchema: schemaType = schema.parse({});
+  }
+
+  export namespace complete {
+    export const schema = z.record(z.unknown()).and(
+      z.object({
+        names: z.boolean().optional().default(false),
+        namesWithSummary: z.boolean().optional().default(false),
+        fish: z.boolean().optional().default(false),
+        toggles: z.boolean().optional().default(false),
+        features: z.boolean().optional().default(false),
+        envVariables: z.boolean().optional().default(false),
+        envVariablesNames: z.boolean().optional().default(false),
+      }),
+    );
+    export type schemaType = z.infer<typeof schema>;
+    export function parse(args: unknown): schemaType {
+      const isValidArgs = schema.safeParse(args);
+      return isValidArgs?.success ? isValidArgs.data : schema.parse(args) || defaultSchema; // Validate the args against the schema
+    }
+    export const defaultSchema: schemaType = schema.parse({});
+  }
+
+  export namespace env {
+    export const schema = z.record(z.unknown()).and(
+      z.object({
+        create: z.boolean().optional().default(false),
+        show: z.boolean().optional().default(false),
+        showDefault: z.boolean().optional().default(false),
+        only: z.union([z.string(), z.array(z.string())]).optional(),
+        comments: z.boolean().optional().default(true),
+        global: z.boolean().optional().default(true),
+        local: z.boolean().optional().default(false),
+        export: z.boolean().optional().default(true),
+        confd: z.boolean().optional().default(false),
+        names: z.boolean().optional().default(false),
+        joined: z.boolean().optional().default(false),
+      }),
+    );
+    export type schemaType = z.infer<typeof schema>;
+    export function parse(args: unknown): schemaType {
+      const isValidArgs = schema.safeParse(args);
+      return isValidArgs?.success ? isValidArgs.data : schema.parse(args) || defaultSchema; // Validate the args against the schema
+    }
+    export const defaultSchema: schemaType = schema.parse({});
+  }
+
+  export const subcommands = [
+    'start',
+    'info',
+    'url',
+    'env',
+    'complete',
+  ] as const;
+  export type SubcommandType = (typeof subcommands)[number];
+
+  export type schemas = typeof start.schema
+    | typeof info.schema
+    | typeof url.schema
+    | typeof env.schema
+    | typeof complete.schema;
+
+  const allSchemas = z.object({
+    start: start.schema,
+    info: info.schema,
+    url: url.schema,
+    env: env.schema,
+    complete: complete.schema,
+  });
+
+  export function parseSubcommand(command: SubcommandType, args: unknown): z.infer<schemas> {
+    switch (command) {
+      case 'start':
+        return start.schema.parse(args);
+      case 'info':
+        return info.schema.parse(args);
+      case 'url':
+        return url.schema.parse(args);
+      case 'env':
+        return env.schema.parse(args);
+      case 'complete':
+        return complete.schema.parse(args);
+      default:
+        throw new Error(`Unknown subcommand: ${command}`);
+    }
+  }
+
+  export const getSchemaKeys = (schema: typeof allSchemas) => {
+    // return schema.keyof()?._def.values;
+    return [...schema.keyof().options];
+  };
+
+  export function hasSkipable(command: SubcommandType) {
+    switch (command) {
+      case 'info':
+        return true;
+      // No skipable
+      case 'start':
+      case 'complete':
+      case 'url':
+      case 'env':
+        return false;
+      default:
+        throw new Error(`Unknown subcommand: ${command}`);
+    }
+  }
+
+  export function getSubcommand(command: SubcommandType): schemas {
+    switch (command) {
+      case 'start':
+        return start.schema;
+      case 'info':
+        return info.schema;
+      case 'url':
+        return url.schema;
+      case 'env':
+        return env.schema;
+      case 'complete':
+        return complete.schema;
+      default:
+        throw new Error(`Unknown subcommand: ${command}`);
+    }
+  }
+
+  export function countArgsWithValues(subcommand: SubcommandType, args: Record<string, unknown>): number {
+    const keysToCount = getSubcommand(subcommand).parse(args);
+    const results: Record<string, boolean> = {};
+    const skipableArgs = hasSkipable(subcommand);
+    const removed: Record<string, boolean> = {};
+    if (skipableArgs) {
+      const skipable = info.skipable.parse(args);
+      for (const key in skipable) {
+        if (key === subcommand) removed[key] = true;
+        if (skipable[key as keyof typeof skipable]) {
+          removed[key] = false;
+        }
+      }
+    }
+    for (const key in keysToCount) {
+      if (key === subcommand) removed[key] = true;
+      if (removed[key]) continue;
+      if (keysToCount[key]) results[key] = true;
+    }
+    return Object.keys(results).length;
+  }
+
+  export function removeArgs(args: { [k: string]: unknown; }, ...keysToRemove: string[]) {
+    const argKeys = keys(args);
+    return argKeys.filter((key) => !keysToRemove.includes(key));
+  }
+
+  export const countArgs = (args: any): number => {
+    return keys(args).length;
+  };
+
+  export const keys = (args: { [k: string]: unknown; }) => {
+    return Object.entries(args)
+      .filter(([key, value]) => !!key && !!value && !(key === 'warning' && value === true))
+      .map(([key, _]) => key);
+  };
+
+  export function entries(args: any) {
+    return Object.entries(args)
+      .filter(([key, value]) => !!key && !!value && !(key === 'warning' && value === true))
+      .map(([key, _]) => key);
+  }
+
+  export function noArgs(args: any): boolean {
+    return Object.keys(args).length === 0;
+  }
+
+  export function argsToString(args: { [k: string]: unknown; } | string[]): string {
+    if (Array.isArray(args)) {
+      return args.map(m => ['', m, ''].join('"')).join(', ');
+    }
+    return Object.keys(args).map(m => ['', m, ''].join('"')).join(', ');
+  }
+
+  export function buildErrorMessage(...stdin: string[]) {
+    return stdin.map((item, idx) => {
+      const splitItem = item.split(' ');
+      return splitItem.map((part) => {
+        if (idx === 0 && part.toUpperCase() === part) {
+          return chalk.bold.red(part);
+        }
+        if (part.startsWith('--')) {
+          return chalk.whiteBright(part);
+        }
+        return chalk.redBright(part);
+      }).join(' ');
+    }).join(' ');
+  }
+  export type CommandlineOpts = {
+    subcommand: 'start' | 'info' | 'url' | 'env' | 'complete' | '';
+    args?: string[];
+    prefixIndent?: boolean;
+    showPrompt?: boolean;
+  };
+
+  // default values for commandline options
+  const commandlineOpts = {
+    subcommand: '',
+    args: [],
+    prefixIndent: true,
+    showPrompt: true,
+  } as CommandlineOpts;
+
+  export function buildColoredCommandlineString(opts: CommandlineOpts): string {
+    // set the default values if not provided
+    if (opts.prefixIndent === undefined) opts.prefixIndent = commandlineOpts.prefixIndent;
+    if (opts.showPrompt === undefined) opts.showPrompt = commandlineOpts.showPrompt;
+
+    const result: string[] = [];
+
+    // format the initial part of the command line
+    if (opts.prefixIndent) result.push('       ');
+    if (opts.showPrompt) {
+      if (result.length > 0) {
+        result[0] = result[0] + chalk.whiteBright('>_');
+      } else {
+        result.push(chalk.whiteBright('>_'));
+      }
+    }
+    // add the command and subcommand
+    result.push(chalk.magenta('fish-lsp'));
+    result.push(chalk.blue(opts.subcommand));
+    // add the args if provided
+    if (opts.args && opts.args.length > 0) {
+      opts.args.forEach((arg: string) => {
+        const toAddArg = arg.replaceAll(/"/g, '');
+        if (toAddArg.includes('=')) {
+          const [key, value] = toAddArg.split('=');
+          result.push(`${chalk.white(key)}${chalk.bold.cyan('=')}${chalk.green(value)}`);
+        } else {
+          result.push(chalk.white(toAddArg));
+        }
+      });
+    }
+    // join the result with spaces
+    return result.join(' ');
+  }
 }
 
 export function BuildCapabilityString() {
@@ -399,3 +1106,10 @@ export function BuildCapabilityString() {
   ].join('\n');
   return statusString;
 }
+
+/**
+ * Record of the sourcemaps for each file in the project.
+ */
+export const SourceMaps: Record<string, string> = {
+  'dist/fish-lsp': path.resolve(path.dirname(getCurrentExecutablePath()), '..', 'dist', 'fish-lsp.map'),
+};
