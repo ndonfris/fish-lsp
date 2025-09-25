@@ -132,10 +132,19 @@ export function getCoreTreeSitterWasmPath(): string {
  * fallback to standard bundled location
  */
 export function getFishBuildTimeFilePath(): string {
+  // Check for out/build-time.json first (created by postinstall - shows installation time)
+  const outBuildTimePath = resolve(getProjectRootPath(), 'out', 'build-time.json');
+  if (outBuildTimePath && isExistingFile(outBuildTimePath)) {
+    return outBuildTimePath;
+  }
+
+  // Fallback to root build-time.json if it exists
   const localBuildTimePath = resolve(getProjectRootPath(), 'build-time.json');
   if (localBuildTimePath && isExistingFile(localBuildTimePath)) {
     return localBuildTimePath;
   }
+
+  // Final fallback to embedded build-time.json (shows publish time)
   return vfs.getPathOrFallback(
     'out/build-time.json',
     resolve(getProjectRootPath(), 'out', 'build-time.json'),
@@ -149,9 +158,9 @@ export function getManFilePath(): string {
   // Handle case where vfs might not be initialized yet due to circular dependencies
   if (vfs && typeof vfs.getPathOrFallback === 'function') {
     return vfs.getPathOrFallback(
-      'man/fish-lsp.1',
-      resolve(getProjectRootPath(), 'man', 'fish-lsp.1'),
-      resolve(process.cwd(), 'man', 'fish-lsp.1'),
+      'man/man1/fish-lsp.1',
+      resolve(getProjectRootPath(), 'man', 'man1', 'fish-lsp.1'),
+      resolve(process.cwd(), 'man', 'man1', 'fish-lsp.1'),
     );
   }
 

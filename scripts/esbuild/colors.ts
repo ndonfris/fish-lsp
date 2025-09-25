@@ -85,7 +85,7 @@ export const logger = {
   },
 
   // Headers and sections
-  header: (text: string) => colorize(`\n${text}`, colors.bright + colors.cyan),
+  header: (text: string) => colorize(`${text}`, colors.bright + colors.cyan),
   section: (text: string) => colorize(text, colors.bright),
 
   // Raw logging with color support

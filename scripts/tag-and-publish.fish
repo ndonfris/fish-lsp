@@ -279,16 +279,16 @@ if set -q _flag_build_release_assets
     
     # Copy man page
     echo "📖 Copying man page..."
-    if test -f man/fish-lsp.1
-        cp man/fish-lsp.1 release-assets/
+    if test -f man/man1/fish-lsp.1
+        cp man/man1/fish-lsp.1 release-assets/
         if test $status -eq 0
-            echo "✅ Copied man/fish-lsp.1 to release-assets/"
+            echo "✅ Copied man/man1/fish-lsp.1 to release-assets/"
         else
             echo $RED"❌ Failed to copy man page"
             exit 1
         end
     else
-        echo "⚠️  Warning: Man page not found at man/fish-lsp.1"
+        echo "⚠️  Warning: Man page not found at man/man1/fish-lsp.1"
     end
     
     # Copy binary

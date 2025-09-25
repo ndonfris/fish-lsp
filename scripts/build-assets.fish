@@ -60,7 +60,7 @@ log_info '' '[INFO]' 'Creating standalone binary...'
 yarn build --all &>/dev/null
 
 log_info '' '[INFO]' 'Creating release-assets extra files...'
-yarn run -s generate:man &>/dev/null && cp man/fish-lsp.1 release-assets/fish-lsp.1
+yarn run -s generate:man &>/dev/null && cp man/man1/fish-lsp.1 release-assets/fish-lsp.1
 dist/fish-lsp complete >release-assets/fish-lsp.fish
 
 log_info '' '[INFO]' 'Creating tarball for extra files...'

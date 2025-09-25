@@ -1,3 +1,23 @@
+## <small>1.0.11 (2025-09-25)</small>
+
+* new build system using esbuild
+* improved performance for large workspaces
+* embedded wasm files in the server binary
+* added `fish_lsp_ignore_paths`, and `fish_lsp_max_workspace_depth` settings
+* added `fish_lsp_strict_conditional_command_warnings` settings
+* added `fish-lsp info --dump-parse-tree <FILE>` for user's to see tree-sitter
+  parsing of output
+* updated the vscode extension to use a bundler as well
+* sourcemaps correctly point to `src/**.ts` files for easier debugging
+* improved tests using vitest with embedded file system >=70% coverage
+* improved code actions and diagnostics for variable references and function definitions
+* document's received minor changes for syncing definitions and diagnostics
+* updated `scripts/*` for automating certain dev features, that a maintainers
+  can use
+* added `fish_lsp_fish_path` for custom fish binary provided by user
+* chokidar now used for `yarn dev:watch` binary buuilding
+
+
 ## <small>1.0.11-pre.24 (2025-09-25)</small>
 
 * fix: `server.onShowSignatureHelp()` silence error + test fish indexing startup ([ae2badd](https://github.com/ndonfris/fish-lsp/commit/ae2badd))

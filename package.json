@@ -3,7 +3,7 @@
   "author": "ndonfris",
   "license": "MIT",
   "name": "fish-lsp",
-  "version": "1.0.11-pre.24",
+  "version": "1.0.11",
   "description": "LSP implementation for fish/fish-shell",
   "keywords": [
     "lsp",
@@ -22,7 +22,7 @@
     "url": "https://github.com/ndonfris/fish-lsp/issues"
   },
   "funding": {
-    "url": "https://github.con/ndonfris",
+    "url": "https://github.com/ndonfris",
     "type": "github"
   },
   "engines": {
@@ -34,7 +34,7 @@
     "dist/fish-lsp.d.ts",
     "scripts/build-time",
     "package.json",
-    "man/fish-lsp.1",
+    "man/man1/fish-lsp.1",
     "README.md",
     "LICENSE.md"
   ],
@@ -61,7 +61,7 @@
   "bin": {
     "fish-lsp": "dist/fish-lsp"
   },
-  "man": "./man/fish-lsp.1",
+  "man": "./man/man1/fish-lsp.1",
   "scripts": {
     "prepare": "husky",
     "postinstall": "run-s sh:build-time",
@@ -106,9 +106,9 @@
     "all-contributors": "npx -s -y all-contributors-cli -c .all-contributorsrc",
     "generate:man:cat": "npx marked-man --date \"$(date)\"  --manual fish-lsp --section 1 -i ./docs/MAN_FILE.md -o ./man/fish-lsp.1 2>/dev/null",
     "generate:man": "run-s create:man:dir generate:man:actual",
-    "generate:man:actual": "npm run --foreground-scripts -s generate:man:cat > ./man/fish-lsp.1",
-    "generate:man:diff": "npm run --foreground-scripts -s generate:man:cat | diff --color=always --unified ./man/fish-lsp.1 - && echo 'NO CHANGES TO man/fish-lsp.1' || echo 'CHANGES IN man/fish-lsp.1'",
-    "generate:man:cp": "cp ./man/fish-lsp.1 ~/.local/share/man/man1/fish-lsp.1",
+    "generate:man:actual": "npm run --foreground-scripts -s generate:man:cat > ./man/man1/fish-lsp.1",
+    "generate:man:diff": "npm run --foreground-scripts -s generate:man:cat | diff --color=always --unified ./man/man1/fish-lsp.1 - && echo 'NO CHANGES TO man/man1/fish-lsp.1' || echo 'CHANGES IN man/man1/fish-lsp.1'",
+    "generate:man:cp": "cp ./man/man1/fish-lsp.1 ~/.local/share/man/man1/fish-lsp.1",
     "generate:man:write-global": "run-s generate:man generate:man:cp"
   },
   "lint-staged": {

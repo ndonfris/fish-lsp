@@ -93,7 +93,7 @@ declare module '@embedded_assets/tree-sitter.wasm' {
   export default wasmContent;
 }
 
-declare module '@embedded_assets/man/fish-lsp.1' {
+declare module '@embedded_assets/man/man1/fish-lsp.1' {
   const manContent: string;
   export default manContent;
 }
@@ -140,8 +140,8 @@ vi.mock('@embedded_assets/tree-sitter.wasm', () => ({
 ${fishFileMocks}
 
 // Mock other assets
-vi.mock('@embedded_assets/man/fish-lsp.1', () => ({
-  default: readFileSync(resolve(__dirname, '../man/fish-lsp.1'), 'utf8'),
+vi.mock('@embedded_assets/man/man1/fish-lsp.1', () => ({
+  default: readFileSync(resolve(__dirname, '../man/man1/fish-lsp.1'), 'utf8'),
 }));
 
 // Use the actual build-time.json from the out directory

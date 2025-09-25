@@ -507,7 +507,7 @@ export function FishLspHelp() {
 export function FishLspManPage() {
   // Try to get man file from VFS first
   try {
-    const manPath = vfs.getVirtualPath('man/fish-lsp.1');
+    const manPath = vfs.getVirtualPath('man/man1/fish-lsp.1');
     const content = readFileSync(manPath, 'utf8');
     return {
       path: manPath,

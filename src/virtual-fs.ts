@@ -17,7 +17,7 @@ import getTypeVerboseContent from '@embedded_assets/fish_files/get-type-verbose.
 import getTypeContent from '@embedded_assets/fish_files/get-type.fish';
 import packageJson from '@package';
 import buildTime from '@embedded_assets/build-time.json';
-import manPageContent from '@embedded_assets/man/fish-lsp.1';
+import manPageContent from '@embedded_assets/man/man1/fish-lsp.1';
 import treeSitterFishWasmContent from '@embedded_assets/tree-sitter-fish.wasm';
 import treeSitterCoreWasmContent from '@embedded_assets/tree-sitter.wasm';
 // import treeSitterWasm from 'web-tree-sitter/tree-sitter.wasm'
@@ -43,7 +43,7 @@ const getFishPath = (): string => {
 // // Import man file
 // let manPageContent = '';
 // try {
-//   manPageContent = require('@embedded_assets/man/fish-lsp.1').default || require('@embedded_assets/man/fish-lsp.1');
+//   manPageContent = require('@embedded_assets/man/man1/fish-lsp.1').default || require('@embedded_assets/man/man1/fish-lsp.1');
 // } catch {
 //   // Man file not embedded or not available
 // }
@@ -133,7 +133,7 @@ export const VirtualFiles = [
   VirtualFile.create('tree-sitter-fish.wasm', treeSitterFishWasmContent),
   VirtualFile.create('tree-sitter.wasm', treeSitterCoreWasmContent),
   // Man
-  VirtualFile.create('man/fish-lsp.1', manPageContent),
+  VirtualFile.create('man/man1/fish-lsp.1', manPageContent),
   // Build info
   VirtualFile.create('out/build-time.json', JSON.stringify(buildTime)),
   // Package info
@@ -209,10 +209,10 @@ class VirtualFileSystem {
       }
 
       // Write man file if exists
-      if (this.vol.existsSync('/man/fish-lsp.1')) {
+      if (this.vol.existsSync('/man/man1/fish-lsp.1')) {
         const manDir = join(this.virtualMountPoint, 'man');
         await fs.promises.mkdir(manDir, { recursive: true });
-        const manContent = this.vol.readFileSync('/man/fish-lsp.1', 'utf8');
+        const manContent = this.vol.readFileSync('/man/man1/fish-lsp.1', 'utf8');
         writePromises.push(
           fs.promises.writeFile(join(manDir, 'fish-lsp.1'), manContent),
         );
