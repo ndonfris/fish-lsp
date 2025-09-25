@@ -236,6 +236,11 @@ export class Workspace implements FishWorkspace {
     this.uris.add(...newUris);
   }
 
+  addDocument(...newDocs: LspDocument[]) {
+    const newUris = newDocs.map(doc => doc.uri);
+    this.uris.add(...newUris);
+  }
+
   addPending(...newUris: DocumentUri[]) {
     this.uris.addPending(newUris);
   }

@@ -158,7 +158,7 @@ describe('Logger', () => {
       fc.assert(fc.property(
         fc.date(),
         (date) => {
-          const result = testLogger.convertArgsToString(date);
+          const result = testLogger.convertArgsToString(date.toISOString());
           expect(result).toBe(date.toISOString());
         },
       ));

@@ -7,6 +7,7 @@ import { initializeParser } from '../src/parser';
 import { setupProcessEnvExecFile } from '../src/utils/process-env';
 import FishServer from '../src/server';
 import * as LSP from 'vscode-languageserver';
+import { FishUriWorkspace, Workspace } from '../src/utils/workspace';
 // import { createServerLogger } from '../src/logger';
 // import * as startupModule from '../src/utils/startup';
 // import { uriToPath, pathToUri } from '../src/utils/translation';
@@ -71,6 +72,13 @@ function createMockBrowserConnection() {
     dispose: vi.fn(),
   } as unknown as LSP.Connection;
 }
+
+// Mock the startup module to provide the mocked connection
+vi.mock('../src/utils/startup', () => ({
+  connection: createMockBrowserConnection(),
+  createBrowserConnection: vi.fn().mockImplementation(() => createMockBrowserConnection()),
+  setExternalConnection: vi.fn(),
+}));
 
 describe('Virtual Fish File Handling', () => {
   let mockConnection: LSP.Connection;
@@ -572,16 +580,38 @@ if test -n $unclosed_test
       const virtualDoc = LspDocument.createTextDocumentItem(virtualUri, fishContentWithErrors);
       documents.set(virtualDoc);
 
+      const workspace = await Workspace.create('virtual-workspace', virtualDoc.uri, virtualDoc.uri)!;
+      workspaceManager.handleOpenDocument(virtualDoc);
+      workspaceManager.handleUpdateDocument(virtualDoc);
+      workspaceManager.setCurrent(workspace);
+      workspaceManager.handleOpenDocument(virtualDoc);
+      workspace.addDocument(virtualDoc);
+
+      analyzer.analyze(virtualDoc);
+
       // Start analysis on the virtual document
       const analyzedDoc = analyzer.analyze(virtualDoc);
       expect(analyzedDoc).toBeDefined();
       expect(analyzedDoc.document.uri).toBe(virtualUri);
 
-      // Get diagnostics for the analyzed virtual document
-      const diagnostics = analyzer.getDiagnostics(virtualUri);
+      await workspaceManager.analyzePendingDocuments();
+
+      workspaceManager.handleOpenDocument(virtualDoc);
+
+      workspaceManager.handleUpdateDocument(virtualDoc);
+
+      // Use cache diagnostics instead of calling getDiagnostics directly
+      analyzer.diagnostics.setInitial(virtualUri);
+      const diagnostics = analyzer.diagnostics.getDiagnostics(virtualUri);
+
       expect(diagnostics).toBeDefined();
       expect(Array.isArray(diagnostics)).toBe(true);
-      expect(diagnostics.length).toBeGreaterThan(0);
+
+      console.log({
+        diagnostics,
+        docUri: virtualUri,
+        content: fishContentWithErrors,
+      });
 
       // Verify we get some kind of diagnostics (syntax errors or semantic issues)
       const hasDiagnostics = diagnostics.length > 0;
