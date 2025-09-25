@@ -508,6 +508,14 @@ set -gx fish_lsp_ignore_paths '**/.git/**' '**/node_modules/**' '**/containerize
 # (Example Options: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20)
 # (Default: 5)
 set -gx fish_lsp_max_workspace_depth 3
+
+# $fish_lsp_fish_path <STRING>
+# A path to the fish executable to use exposing fish binary to use in server's spawned child_processes.
+# Typically, this is used in the language-client's `FishServer.initialize(connection, InitializeParams.initializationOptions)`, NOT as an environment variable
+# (Example Options: 'fish', '/usr/bin/fish', '/usr/.local/bin/fish', 
+#                   '~/.local/bin/fish')
+# (Default: 'fish')
+set -gx fish_lsp_fish_path 'fish'
 ```
 
 </details></blockquote>
@@ -654,6 +662,15 @@ set -gx fish_lsp_ignore_paths
 # (Example Options: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20)
 # (Default: 5)
 set -gx fish_lsp_max_workspace_depth
+
+
+# $fish_lsp_fish_path <STRING>
+# A path to the fish executable to use exposing fish binary to use in server's spawned child_processes.
+# Typically, this is used in the language-client's `FishServer.initialize(connection, InitializeParams.initializationOptions)`, NOT as an environment variable
+# (Example Options: 'fish', '/usr/bin/fish', '/usr/.local/bin/fish', 
+#                   '~/.local/bin/fish')
+# (Default: 'fish')
+set -gx fish_lsp_fish_path
 ```
 
 </details></blockquote>
@@ -700,7 +717,8 @@ set -gx fish_lsp_max_workspace_depth
     "**/containerized/**",
     "**/docker/**"
   ],
-  "fish_lsp_max_workspace_depth": 3
+  "fish_lsp_max_workspace_depth": 3,
+  "fish_lsp_fish_path": "fish"
 }
 ```
 
