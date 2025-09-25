@@ -24,6 +24,13 @@ export function diagnosticsEqual(a: Diagnostic, b: Diagnostic): boolean {
     a.relatedInformation === b.relatedInformation;
 }
 
+const isFishLspDiagnostic = (diag: Diagnostic, allDiagnostics: Diagnostic[]) => {
+  return (
+    diag.source === 'fish-lsp' &&
+    !allDiagnostics.some(existing => diagnosticsEqual(existing, diag)) // make sure not already present
+  );
+};
+
 export class DiagnosticCache {
   private cache: Map<DocumentUri, DiagnosticCacheEntry> = new Map();
 
@@ -45,7 +52,9 @@ export class DiagnosticCache {
     const doc = analyzer.getDocument(documentUri);
     const timer = setTimeout(() => {
       if (!root || !doc) return;
-      diagnostics.push(...getDiagnostics(root, doc).filter(d => d.source === 'fish-lsp' && !diagnostics.some(existing => diagnosticsEqual(existing, d))));
+      diagnostics.push(...getDiagnostics(root, doc).filter(d =>
+        isFishLspDiagnostic(d, entry ? entry.diagnostics : []),
+      )); // Only include fish-lsp diagnostics
       connection.sendDiagnostics({ uri: documentUri, diagnostics });
     }, 100);
     if (!doc) return;
@@ -61,18 +70,22 @@ export class DiagnosticCache {
     const doc = analyzer.getDocument(documentUri);
     if (!doc || !root) return;
 
+    if (this.cache.has(documentUri)) {
+      clearTimeout(this.cache.get(documentUri)!.timer);
+    }
+
     // Use setImmediate for 'as-soon-as-possible' execution after I/O
-    const timer = setImmediate(() => {
-      const diagnostics: Diagnostic[] = [];
-      diagnostics.push(...getDiagnostics(root, doc).filter(d => d.source === 'fish-lsp' && !diagnostics.some(existing => diagnosticsEqual(existing, d))));
-      // Send diagnostics INSIDE the callback
+    const diagnostics: Diagnostic[] = getDiagnostics(root, doc);
+
+    // Send diagnostics INSIDE the callback
+    if (connection) {
       connection.sendDiagnostics({ uri: documentUri, diagnostics });
-    });
+    }
 
     this.cache.set(documentUri, {
       document: doc,
-      diagnostics: [], // Diagnostics will be sent from the timer
-      timer: timer as unknown as NodeJS.Timeout, // Cast needed if using setImmediate
+      diagnostics,
+      timer: setImmediate(() => { /* no-op timer */ }) as any as NodeJS.Timeout,
     });
   }
 
