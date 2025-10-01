@@ -387,12 +387,12 @@ export function getDiagnostics(root: SyntaxNode, doc: LspDocument) {
   if (handler.isCodeEnabled(ErrorCodes.unusedLocalDefinition)) {
     const unusedLocalDefinitions = allUnusedLocalReferences(doc);
     for (const unusedLocalDefinition of unusedLocalDefinitions) {
-      if (['conf.d', 'config', 'functions'].includes(docType) && unusedLocalDefinition.isExported() && unusedLocalDefinition.isVariable()) {
-        logger.debug('Skipping unused local definition for exported variable in conf.d/config/functions', {
+      // skip definitions that do not need local references
+      if (!unusedLocalDefinition.needsLocalReferences()) {
+        logger.debug('Skipping unused local definition', {
           name: unusedLocalDefinition.name,
           uri: unusedLocalDefinition.uri,
-          type: unusedLocalDefinition.fishKind,
-          focusedNode: unusedLocalDefinition.focusedNode.text,
+          type: unusedLocalDefinition.kind,
         });
         continue;
       }

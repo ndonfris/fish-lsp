@@ -1,5 +1,4 @@
 // ANSI color utilities for terminal output
-import { dirname, relative, resolve } from 'path';
 import path from 'path';
 import process from 'process';
 

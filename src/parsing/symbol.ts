@@ -25,6 +25,11 @@ import { equalSymbolDefinitions, equalSymbols, equalSymbolScopes, fishSymbolName
 import { SymbolConverters } from './symbol-converters';
 import { FishKindGroups, FishSymbolInput, FishSymbolKind, fishSymbolKindToSymbolKind, fromFishSymbolKindToSymbolKind } from './symbol-kinds';
 
+export const SKIPPABLE_VARIABLE_REFERENCE_NAMES = [
+  'argv',
+  'fish_trace',
+];
+
 export interface FishSymbol extends DocumentSymbol {
   document: LspDocument;
   uri: string;
@@ -251,6 +256,46 @@ export class FishSymbol {
       default:
         return false;
     }
+  }
+
+  /**
+   * Determines if the symbol requires local references to be found, which is used
+   * to skip matching diagnostics `4004`|`unused symbol` for certain matches.
+   *
+   * Examples include:
+   *   - Functions which are autoloaded based on their path and file name.
+   *   - Variables which are autoloaded based on their path.
+   *   - Variables which are exported or global do not need local references.
+   *   - Variables like `argv` and `fish_trace` do not need local references.
+   *
+   * @return {boolean} True if the symbol needs local references, false otherwise
+   */
+  needsLocalReferences(): boolean {
+    if (this.isFunction()) {
+      // if function has a parent, it needs local references
+      if (!this.isRootLevel()) return true;
+
+      // if function is in a shebang script, and at root level, no local references needed
+      if (this.document.hasShebang()) return false;
+
+      // if function is autoloaded, global, and matches autoload name, no local references needed
+      if (
+        this.document.isAutoloaded() &&
+        this.isGlobal() &&
+        this.name === this.document.getAutoLoadName()
+      ) return false;
+
+      // otherwise, function needs local references
+      return true;
+    }
+    if (this.fishKind === 'ALIAS') return false;
+    if (this.isVariable()) {
+      if (SKIPPABLE_VARIABLE_REFERENCE_NAMES.includes(this.name)) return false;
+      if (this.isExported()) return false;
+      if (this.isGlobal()) return false;
+      return true;
+    }
+    return false;
   }
 
   get path() {
@@ -544,7 +589,7 @@ export class FishSymbol {
    *               Otherwise, a match can be either the focusedNode or the node itself.
    * @returns {boolean} True if the symbol is equal to the node, false otherwise
    */
-  equalsNode(node: SyntaxNode, opts: {strict?: boolean;} = { strict: false }): boolean {
+  equalsNode(node: SyntaxNode, opts: { strict?: boolean; } = { strict: false }): boolean {
     return symbolEqualsNode(this, node, opts.strict);
   }
 

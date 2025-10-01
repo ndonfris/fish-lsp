@@ -401,6 +401,11 @@ export class LspDocument implements TextDocument {
       typeof (value as LspDocument).getText === 'function'
     );
   }
+
+  hasShebang(): boolean {
+    const firstLine = this.getLine(0);
+    return firstLine.startsWith('#!');
+  }
 }
 
 export class LspDocuments {

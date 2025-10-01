@@ -1,6 +1,7 @@
 import { spawn, ChildProcess } from 'child_process';
 import { colorize, colors, logger } from './colors';
 import chokidar from 'chokidar';
+import fastGlob from 'fast-glob';
 
 // Utility to kill process tree (handles child processes)
 function killProcessTree(pid: number, signal: string = 'SIGTERM'): void {
@@ -319,17 +320,21 @@ class FileWatcher {
     console.log(logger.dim(`Debounce: ${this.config.debounceMs}ms`));
 
     const toAdd: string[] = []
+
     // Debug: test if patterns match any files
-    const glob = require('fast-glob');
     console.log(logger.dim('Testing glob patterns:'));
+
+    // In 'setup' mode, ignore .d.ts files and setup-workspace.ts
     if (this.buildManager.mode === 'setup') {
       this.config.ignorePatterns.push('**/*.d.ts')
       this.config.watchPaths.splice(this.config.watchPaths.indexOf('**/*.d.ts'), 1);
       this.config.watchPaths.splice(this.config.watchPaths.indexOf('tests/setup-workspace.ts'), 1);
     }
+
+    // Resolve globs to actual file paths
     this.config.watchPaths.forEach(pattern => {
       try {
-        const matches = glob.sync(pattern, { ignore: this.config.ignorePatterns });
+        const matches = fastGlob.sync(pattern, { ignore: this.config.ignorePatterns });
         console.log(logger.dim(`  ${pattern} -> ${matches.length} files`));
         matches.forEach((m: string) => {
           if (!toAdd.includes(m)) {

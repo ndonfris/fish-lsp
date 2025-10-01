@@ -938,12 +938,13 @@ export class TestWorkspace {
       beforeAll(async () => {
         await setupProcessEnvExecFile();
         await Analyzer.initialize();
-        if (!this._config.debug) logger.setSilent(true);
+        logger.setSilent();
         await this._createWorkspaceFiles();
         await this._setupWorkspace();
         this._isInitialized = true;
       });
       beforeEach(async () => {
+        const wasSilentBefore = logger.isSilent();
         logger.setSilent(true);
         if (!this._isInitialized) {
           if (!this._config.debug) logger.setSilent(true);
@@ -955,7 +956,9 @@ export class TestWorkspace {
         workspaceManager.setCurrent(this.getWorkspace()!);
         await workspaceManager.analyzePendingDocuments();
         // this._workspace = workspaceManager.current!;
-        logger.setSilent(false);
+        if (!this._config.debug && !wasSilentBefore) {
+          logger.setSilent(false);
+        }
         if (this._config.autoFocusWorkspace) {
           focusedWorkspace = this.getWorkspace();
           this._workspace = focusedWorkspace;
@@ -1088,6 +1091,41 @@ export class TestWorkspace {
     }
 
     return [...allResults].map(uri => this._documents.find(doc => doc.uri === uri)!).filter(Boolean);
+  }
+
+  find(...query: (Query | string | number)[]) {
+    if (query.length === 0) {
+      return this.documents.at(0) || null;
+    }
+    if (query.length === 1) {
+      const q = query[0];
+      if (typeof q === 'string') {
+        return this.documents.find(doc => doc.uri.endsWith(q)) || null;
+      } else if (typeof q === 'number') {
+        return this.documents.at(q) || null;
+      } else {
+        const results = q!.execute(this._documents);
+        return results.at(0) || null;
+      }
+    }
+    if (query.length > 1) {
+      let results = this.getDocuments();
+      for (const q of query) {
+        if (typeof q === 'string') {
+          results = results.filter(doc => {
+            const docPath = uriToPath(doc.uri);
+            const relativePath = path.relative(this._workspacePath, docPath);
+            return relativePath === q || path.basename(docPath) === q || relativePath.endsWith(q);
+          });
+        } else if (typeof q === 'number') {
+          results = results.slice(q, q + 1);
+        } else {
+          results = q!.execute(results);
+        }
+      }
+      return results.at(0) || null;
+    }
+    return null;
   }
 
   /**
