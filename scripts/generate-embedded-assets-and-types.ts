@@ -1,6 +1,7 @@
 #!/usr/bin/env tsx
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'fs';
+import fs from 'fs-extra';
+import { existsSync, mkdirSync, readdirSync, statSync, readFileSync, writeFileSync } from 'fs';
 import path, { resolve, join, extname, relative } from 'path';
 import { execSync } from 'child_process';
 import { logger, toRelativePath } from './esbuild/colors';
@@ -297,7 +298,7 @@ export function generateEmbeddedAssetsTypesDynamic(): void {
 
   // 8. Generate fish files modules dynamically
   // console.log(logger.info(`Generating ${fishFiles.length} fish file modules...`));
-  console.log([' ', 'Generating'.green, fishFiles.length.toString().blue.bold, `fish file`.blue, 'modules...'.green].join(' '));
+  console.log([' ', 'Generating'.green, fishFiles.length.toString().blue.b, `fish file`.blue, 'modules...'.green].join(' '));
   const fishFilesDir = resolve(tempAssetsDir, 'fish_files');
   ensureDir(fishFilesDir);
 
@@ -358,13 +359,13 @@ export function generateEmbeddedAssetsTypesOnly(): void {
 }
 
 export function cleanupEmbeddedAssetsTypes(): void {
-  if (existsSync(tempAssetsDir)) {
+  if (fs.existsSync(tempAssetsDir)) {
     execSync(`rm -rf "${tempAssetsDir}"`, { stdio: 'inherit' });
   }
 }
 
 // Allow running as script
-if (require.main === module) {
+if (typeof require !== 'undefined' && require.main === module) {
   // Check for command line args
   const args = process.argv.slice(2);
   const setupOnly = args.includes('--setup-only') || args.includes('--types-only');

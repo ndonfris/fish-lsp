@@ -97,7 +97,7 @@ function print_error -d 'Print error message'
 end
 
 function log_info -d 'Print success message' -a icon title message
-    set result 
+    set result
     if test -n "$icon"
         set -a result (string pad --width 5 --right --char ' ' -- " $WHITE$icon$NORMAL")
     end
@@ -158,4 +158,174 @@ function fail -d 'Print error message and exit'
     set icon (icon_x)
     log_error "$icon" '[ERROR]' "$argv"
     exit 1
+end
+
+# A general logging function with various options to customize the output
+#
+# USAGE:
+#  log_msg [OPTIONS] [TITLE] MESSAGE
+#
+# EXAMPLES:
+#  >_ log_msg --info "This is an informational message"
+#  `       [INFO]      This is an informational message`
+#
+#  >_ log_msg --fail "Low disk space" --exit
+#  `       [WARNING]   Low disk space`
+#      exits with status 1
+#
+function log_msg -d 'Print log message'
+    argparse --ignore-unknown \
+        -x w,e,i,d \
+        -x success,failure \
+        w/warning e/error i/info d/debug \
+        'icon=?' 't/title=?' 'm/message=?' \
+        'theme=?' date \
+        pass passed success fail failed failure exit \
+        h/help -- $argv
+    or return 1
+
+    if set -ql _flag_pass || set -ql _flag_passed || set -ql _flag_success
+        set -f _flag_success 1
+    end
+
+    if set -ql _flag_fail || set -ql _flag_failed || set -ql _flag_failure
+        set -f _flag_failure 1
+    end
+
+    if set -q _flag_help
+        echo \
+'Usage: log_msg [OPTIONS] [TITLE] MESSAGE
+
+Options:
+    -w, --warning                    Set log level to WARNING
+    -e, --error                      Set log level to ERROR
+    -i, --info                       Set log level to INFO
+    -d, --debug                      Set log level to DEBUG
+    --icon ICON                      Specify a custom icon
+    --title TITLE                    Specify a custom title
+    --message MESSAGE                Specify a custom message
+    --theme THEME                    Specify a theme
+    --date                           Prepend the current date and time to the message
+    --success, --pass, --passed      Print message in passed style
+    --failure, --fail, --failed      Print message in failed style
+    --exit                           Exit after printing the message
+    --help                           Show this help message
+
+Arguments:
+    TITLE                 The title of the log message (optional if --title is used)
+    MESSAGE               The log message content
+
+Examples:
+    >_ log_msg "TITLE" "MESSAGE"
+            [TITLE]     MESSAGE
+
+    >_ log_msg --success "Operation completed successfully"
+           [OK]        Operation completed successfully
+
+    >_ log_msg --info "This is an informational message"
+           [INFO]      This is an informational message
+
+    >_ log_msg --warning "Low disk space"
+           [WARNING]   Low disk space
+
+    >_ log_msg --fail --error "Failed to connect to server"
+           [ERROR]     Failed to connect to server
+        # Exits with status 1
+
+    >_ log_msg --date --debug "Debugging application"
+           [DEBUG]     [2024-06-01 12:34:56] Debugging application'
+        return 0
+    end
+
+    set icon ''
+    set title ''
+    set message ''
+    set theme ''
+    set remaining_args (count $argv)
+
+    if set -q _flag_warning
+        set icon (icon_warning)
+        set title '[WARNING]'
+        set theme "$YELLOW"
+    else if set -q _flag_error
+        set icon (icon_x)
+        set title '[ERROR]'
+        set theme "$RED"
+    else if set -q _flag_info
+        set icon (icon_info)
+        set title '[INFO]'
+        set theme "$BLUE"
+    else if set -q _flag_debug
+        set icon (icon_question)
+        set title '[DEBUG]'
+        set theme "$MAGENTA"
+    else if set -q _flag_success
+        set icon (icon_check)
+        set title '[SUCCESS]'
+        set theme "$GREEN"
+    else if set -q _flag_failure
+        set icon (icon_x)
+        set title '[FAILURE]'
+        set theme "$RED"
+    end
+
+    if set -q _flag_icon
+        switch $_flag_icon
+            case 'check'
+                set icon (icon_check)
+            case 'x'
+                set icon (icon_x)
+            case 'warning'
+                set icon (icon_warning)
+            case 'info'
+                set icon (icon_info)
+            case 'question'
+                set icon (icon_question)
+            case 'folder'
+                set icon (icon_folder)
+            case 'file'
+                set icon (icon_file)
+            case '*'
+                set icon $_flag_icon
+        end
+    end
+
+    test -z "$icon" && set icon (icon_info)
+    
+    set -q _flag_title && set title $_flag_title
+    set -q _flag_message && set message $_flag_message
+    set -q _flag_theme && set theme $NORMAL$_flag_theme
+
+    if test $remaining_args -eq 2
+        if test -z "$title"
+            set title $argv[1]
+            set message $argv[2]
+        else
+            set message (string join ':' -n -- $(string upper -- $argv[1]) $argv[2])
+        end
+    else if test $remaining_args -eq 1
+        set message $argv[1]
+    end
+
+    if set -q _flag_date
+        set message (string join ' ' -- \
+            (echo "$message$NORMAL" | string pad --width 35 --right --char ' ') \
+            "$WHITE$BG_BLACK$REVERSE $(date '+%Y-%m-%d %H:%M:%S') $NORMAL"
+        )
+    end
+
+    if test -n "$title" 
+        set title (string trim -- $title | string upper)
+        if string match -rvq -- '\[.*\]' "$title"
+            set title "[$(string upper -- $title)]"
+        end
+    end
+
+
+    string join -n ' ' -- $(echo "  $NORMAL$theme$BG_BLACK$REVERSE  $icon $NORMAL$theme" | string pad --width 7 --right --char " " ) \
+        (string pad --width 5 -- ' ') \
+        (string pad --width 15 --right --char ' ' -- "$theme$BOLD$title$NORMAL") \
+        "$NORMAL$theme$message$NORMAL"
+
+    set -q _flag_exit && exit 1
 end
