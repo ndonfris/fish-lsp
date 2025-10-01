@@ -1,13 +1,13 @@
 // Build utility functions
-import { copySync, writeFileSync } from 'fs-extra';
+import fs from 'fs-extra';
 import { existsSync, statSync, unlinkSync } from 'fs';
 import { execSync } from 'child_process';
 import { logger, toRelativePath } from './colors';
 import { generateEmbeddedAssetsTypesDynamic, cleanupEmbeddedAssetsTypes } from '../generate-embedded-assets-and-types';
 
 export function copyDevelopmentAssets(): void {
-  if (existsSync('src/snippets')) {
-    copySync('src/snippets', 'out/snippets');
+  if (fs.existsSync('src/snippets')) {
+    fs.copySync('src/snippets', 'out/snippets');
     console.log(logger.copied('src/snippets', 'out/snippets'));
   }
 }
@@ -87,7 +87,7 @@ export function generateTypeDeclarations(): void {
       ]
     });
     
-    writeFileSync('tsconfig.types.json', tsconfigContent);
+    fs.writeFileSync('tsconfig.types.json', tsconfigContent);
     
     // Step 2.5: Create debug tsconfig for dts-bundle-generator
     const debugTsconfigContent = JSON.stringify({
@@ -129,7 +129,7 @@ export function generateTypeDeclarations(): void {
       ]
     });
     
-    writeFileSync('tsconfig.debug.json', debugTsconfigContent);
+    fs.writeFileSync('tsconfig.debug.json', debugTsconfigContent);
     
     // Step 3: Generate .d.ts files with TypeScript compiler
     console.log(logger.info('  Compiling TypeScript declarations...'));
@@ -162,7 +162,7 @@ export function generateTypeDeclarations(): void {
       ]
     };
     
-    writeFileSync('dts-bundle.config.json', JSON.stringify(dtsConfig, null, 2));
+    fs.writeFileSync('dts-bundle.config.json', JSON.stringify(dtsConfig, null, 2));
     execSync('yarn dts-bundle-generator --silent --config dts-bundle.config.json --external-inlines=web-tree-sitter --external-types=web-tree-sitter --disable-symlinks-following', { stdio: 'ignore' });
     
     console.log(logger.generated('Successfully generated bundled type declarations'));

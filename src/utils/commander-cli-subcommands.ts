@@ -215,7 +215,7 @@ export namespace DepVersion {
     const versionString = PackageJSON.engines.node?.toString();
     const version = extract(versionString);
     if (!version) {
-      return extract('>=18.0.0')!; // Fallback to a default version if extraction fails
+      return extract('>=20.0.0')!; // Fallback to a default version if extraction fails
     }
     return version;
   }

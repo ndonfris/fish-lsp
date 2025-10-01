@@ -2,7 +2,6 @@
 import * as esbuild from 'esbuild';
 import { resolve } from 'path';
 import { createPlugins, createDefines, PluginOptions, createSourceMapOptimizationPlugin, createSpecialSourceMapPlugin } from './plugins';
-import { copyBinaryAssets } from './utils';
 import { BuildConfigTarget } from "./types";
 
 export interface BuildConfig extends esbuild.BuildOptions {
@@ -48,7 +47,7 @@ export const buildConfigs: Record<BuildConfigTarget, BuildConfig> = {
       polyfills: 'minimal', // Include minimal polyfills for browser compatibility when needed
       embedAssets: true, // Enable embedded assets for binary builds
     },
-    onBuildEnd: copyBinaryAssets,
+    onBuildEnd: () => {}
   },
 
   development: {
