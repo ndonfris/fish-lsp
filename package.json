@@ -3,7 +3,7 @@
   "author": "ndonfris",
   "license": "MIT",
   "name": "fish-lsp",
-  "version": "1.1.0-pre.0",
+  "version": "1.1.0",
   "description": "LSP implementation for fish/fish-shell",
   "keywords": [
     "lsp",
@@ -106,8 +106,8 @@
     "create:man:dir": "mkdir -p ./man",
     "generate:man": "run-s create:man:dir generate:man:actual",
     "generate:man:cat": "npx marked-man --date \"$(date)\"  --manual fish-lsp --section 1 -i ./docs/MAN_FILE.md -o ./man/fish-lsp.1 2>/dev/null",
-    "generate:man:actual": "npm run --foreground-scripts -s generate:man:cat > ./man/fish-lsp.1",
-    "generate:man:diff": "npm run --foreground-scripts -s generate:man:cat | diff --color=always --unified ./man/fish-lsp.1 - && echo 'NO CHANGES TO man/fish-lsp.1' || echo 'CHANGES IN man/fish-lsp.1'",
+    "generate:man:actual": "yarn run --silent generate:man:cat > ./man/fish-lsp.1",
+    "generate:man:diff": "yarn run --silent generate:man:cat | diff --color=always --unified ./man/fish-lsp.1 - && echo 'NO CHANGES TO man/fish-lsp.1' || echo 'CHANGES IN man/fish-lsp.1'",
     "generate:man:cp": "cp ./man/fish-lsp.1 ~/.local/share/man/man1/fish-lsp.1",
     "generate:man:write-global": "run-s generate:man generate:man:cp"
   },

@@ -1,3 +1,13 @@
+## 1.1.0 (2025-10-01)
+
+* fix: `scripts/*.fish` now use `scripts/utils.fish` for npm pkg info ([420c436](https://github.com/ndonfris/fish-lsp/commit/420c436))
+* fix: remove unused `scripts/tag-and-publish.fish` ([153efc6](https://github.com/ndonfris/fish-lsp/commit/153efc6))
+* feat: added tests for [`LspDocument`]((https://github.com/ndonfris/fish-lsp/tree/master/tests/document.test.ts))
+* feat: added `FishSymbol.needsLocalReferences()` method for skipping `4004` ([5f1842e](https://github.com/ndonfris/fish-lsp/commit/5f1842e))
+* patch: v1.0.11.deps -> bump to v1.1.0 (#112) ([97d4966](https://github.com/ndonfris/fish-lsp/commit/97d4966)), closes [#112](https://github.com/ndonfris/fish-lsp/issues/112)
+
+
+
 ## 1.1.0-pre.0 (2025-10-01)
 
 * fix: release `v1.0.11` had issues with node@24.x.x dependencies, fixes should allow `node@18`, `node@20`, `node@22` and `node@24` to work correctly again
