@@ -1,3 +1,14 @@
+## 1.1.0-pre.0 (2025-10-01)
+
+* fix: release `v1.0.11` had issues with node@24.x.x dependencies, fixes should allow `node@18`, `node@20`, `node@22` and `node@24` to work correctly again
+* chore: 1.1.0-pre.0 `package.json` version ([7eedebc](https://github.com/ndonfris/fish-lsp/commit/7eedebc))
+* docs: update docs and add @unlimitedsola to .all-contributorsrc ([6277402](https://github.com/ndonfris/fish-lsp/commit/6277402))
+* fix: allow development on node versions >= 22.14.0 ([960ab25](https://github.com/ndonfris/fish-lsp/commit/960ab25))
+* fix: make `fish-lsp info --check-health` output correct min node version ([524cb44](https://github.com/ndonfris/fish-lsp/commit/524cb44))
+* fix: revert dependencies for node@24.x.x ([b893bb4](https://github.com/ndonfris/fish-lsp/commit/b893bb4))
+
+
+
 ## <small>1.0.11 (2025-09-26)</small>
 
 * chore: bump deps for v1.0.11 ([298821d](https://github.com/ndonfris/fish-lsp/commit/298821d))
