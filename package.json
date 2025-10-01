@@ -91,7 +91,6 @@
     "test:coverage": "env -i HOME=$HOME PATH=$PATH NODE_ENV=test vitest --coverage",
     "test:coverage:ui": "env -i HOME=$HOME PATH=$PATH NODE_ENV=test vitest --ui --open --coverage",
     "test:coverage:run": "env -i HOME=$HOME PATH=$PATH NODE_ENV=test vitest --coverage --run",
-    "tag-and-publish": "fish ./scripts/tag-and-publish.fish",
     "publish-nightly": "fish ./scripts/publish-nightly.fish",
     "refactor": "knip",
     "lint:check": "eslint . --ext .ts",
