@@ -33,7 +33,8 @@ end
 " > $cached_file
 
 yarn -s run build -c >> $cached_file
-yarn -s run tag-and-publish -c >>$cached_file
+# yarn -s run tag-and-publish -c >>$cached_file
+yarn -s run publish-and-release -c >>$cached_file
 yarn -s run publish-nightly -c >>$cached_file
 node ./scripts/build-time -c >>$cached_file
 yarn -s run sh:workspace-cli -c >>$cached_file
