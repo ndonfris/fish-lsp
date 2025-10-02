@@ -103,6 +103,7 @@ commandBin.command('start')
   .option('--stdio', 'use stdin/stdout for communication (default)')
   .option('--node-ipc', 'use node IPC for communication')
   .option('--socket <port>', 'use TCP socket for communication')
+  .option('--port <port>', 'use TCP socket for communication (alias for --socket)')
   .option('--memory-limit <mb>', 'set memory usage limit in MB')
   .option('--max-files <number>', 'override the maximum number of files to analyze')
   .addHelpText('afterAll', [
@@ -117,7 +118,8 @@ commandBin.command('start')
     '\t>_ fish-lsp start --disable hover  # only disable the hover feature',
     '\t>_ fish-lsp start --disable complete logging index hover --dump',
     '\t>_ fish-lsp start --enable --disable logging complete codeAction',
-    '\t>_ fish-lsp start --socket 3000  # start TCP server on port 3000 (useful for Docker)',
+    '\t>_ fish-lsp start --port 3000  # start TCP server on port 3000 (useful for Docker)',
+    '\t>_ fish-lsp start --socket 3000  # alternative syntax for --port',
   ].join('\n'))
   .allowUnknownOption(false)
   .action(async (opts: CommanderSubcommand.start.schemaType) => {
@@ -142,14 +144,16 @@ commandBin.command('start')
     }
     //
     // Determine connection type
+    const portValue = opts.port || opts.socket;
     const connectionType: ConnectionType = createConnectionType({
       stdio: opts.stdio,
       nodeIpc: opts.nodeIpc,
-      socket: !!opts.socket,
+      pipe: !!portValue,
+      socket: false,
     });
     const connectionOptions: ConnectionOptions = {};
-    if (opts.socket) {
-      connectionOptions.port = parseInt(opts.socket);
+    if (portValue) {
+      connectionOptions.port = parseInt(portValue, 10);
     }
 
     // override `configHandlers` with command line args

@@ -28,7 +28,7 @@ import { enrichToMarkdown, handleBraceExpansionHover, handleEndStdinHover, handl
 import { findActiveParameterStringRegex, getAliasedCompletionItemSignature, getDefaultSignatures, getFunctionSignatureHelp, isRegexStringSignature } from './signature';
 import { CompletionItemMap } from './utils/completion/startup-cache';
 import { getDocumentHighlights } from './document-highlight';
-import { FishSemanticTokensProvider } from './semantic-tokens';
+import { provideTreeSitterSemanticTokens } from './semantic-tokens';
 import { buildCommentCompletions } from './utils/completion/comment-completions';
 import { codeActionHandlers } from './code-actions/code-action-handler';
 import { createExecuteCommandHandler } from './command';
@@ -230,7 +230,16 @@ export default class FishServer {
     // setup handlers
     const { onCodeAction } = codeActionHandlers(documents, analyzer);
     const documentHighlightHandler = getDocumentHighlights(analyzer);
-    const semanticTokensProvider = new FishSemanticTokensProvider(analyzer);
+    // Semantic tokens handler using tree-sitter queries
+    const semanticTokensHandler = (params: LSP.SemanticTokensParams) => {
+      const document = analyzer.getDocument(params.textDocument.uri);
+      return document ? provideTreeSitterSemanticTokens(document) : { data: [] };
+    };
+
+    const semanticTokensRangeHandler = (params: LSP.SemanticTokensRangeParams) => {
+      const document = analyzer.getDocument(params.textDocument.uri);
+      return document ? provideTreeSitterSemanticTokens(document, params.range) : { data: [] };
+    };
     const commandCallback = createExecuteCommandHandler(connection, documents, analyzer);
 
     // register the handlers
@@ -263,8 +272,8 @@ export default class FishServer {
 
     connection.onDocumentHighlight(documentHighlightHandler);
     connection.languages.inlayHint.on(this.onInlayHints.bind(this));
-    connection.languages.semanticTokens.on(semanticTokensProvider.provideSemanticTokens.bind(semanticTokensProvider));
-    connection.languages.semanticTokens.onRange(semanticTokensProvider.provideSemanticTokensRange.bind(semanticTokensProvider));
+    connection.languages.semanticTokens.on(semanticTokensHandler);
+    connection.languages.semanticTokens.onRange(semanticTokensRangeHandler);
 
     connection.onSignatureHelp(this.onShowSignatureHelp.bind(this));
     connection.onExecuteCommand(commandCallback);

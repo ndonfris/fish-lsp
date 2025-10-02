@@ -6,6 +6,7 @@ import { AllSupportedActions } from './code-actions/action-kinds';
 import { LspCommands } from './command';
 import { PackageVersion, SubcommandEnv } from './utils/commander-cli-subcommands';
 import { ErrorCodes } from './diagnostics/error-codes';
+import { FISH_SEMANTIC_TOKENS_LEGEND } from './semantic-tokens';
 
 /********************************************
  **********  Handlers/Providers   ***********
@@ -31,7 +32,7 @@ export const ConfigHandlerSchema = z.object({
   highlight: z.boolean().default(true),
   diagnostic: z.boolean().default(true),
   popups: z.boolean().default(true),
-  semanticTokens: z.boolean().default(false),
+  semanticTokens: z.boolean().default(true),
 });
 
 /**
@@ -620,10 +621,7 @@ export namespace Config {
         documentHighlightProvider: configHandlers.highlight,
         inlayHintProvider: configHandlers.inlayHint,
         semanticTokensProvider: configHandlers.semanticTokens ? {
-          legend: {
-            tokenTypes: ['namespace', 'type', 'class', 'enum', 'interface', 'struct', 'typeParameter', 'parameter', 'variable', 'property', 'enumMember', 'event', 'function', 'method', 'macro', 'keyword', 'modifier', 'comment', 'string', 'number', 'regexp', 'operator', 'decorator', 'builtin', 'option', 'optionValue', 'variableExpansion', 'commandSubstitution', 'braceExpansion', 'redirection', 'escape', 'pipe'],
-            tokenModifiers: ['declaration', 'definition', 'readonly', 'static', 'deprecated', 'abstract', 'async', 'modification', 'documentation', 'defaultLibrary'],
-          },
+          legend: FISH_SEMANTIC_TOKENS_LEGEND,
           range: true,
           full: { delta: false },
         } : undefined,

@@ -44,7 +44,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@package': path.resolve(__dirname, 'package.json'),
-      '@embedded_assets/tree-sitter-fish.wasm': path.resolve(__dirname, 'tree-sitter-fish.wasm'),
       '@embedded_assets/tree-sitter.wasm': path.resolve(__dirname, 'tree-sitter.wasm'),
       // Alias fish files to prevent tsx compilation
       '@embedded_assets/fish_files/exec.fish': path.resolve(__dirname, 'tests/mocks/fish-files.js'),

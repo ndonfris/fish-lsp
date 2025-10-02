@@ -26,7 +26,7 @@ import getTypeContent from '@embedded_assets/fish_files/get-type.fish';
 import packageJson from '@package';
 import buildTime from '@embedded_assets/build-time.json';
 import manPageContent from '@embedded_assets/man/fish-lsp.1';
-import treeSitterFishWasmContent from '@embedded_assets/tree-sitter-fish.wasm';
+// Import the bundled package for WASM access
 import treeSitterCoreWasmContent from '@embedded_assets/tree-sitter.wasm';
 
 // Helper function to get the fish path from config
@@ -44,7 +44,7 @@ class VirtualFile {
   private constructor(
     // public realpath: string,
     public filepath: string,
-    public content: string | Buffer,
+    public content: string | Buffer | Promise<Buffer>,
   ) {
     this.filetype = filepath.endsWith('.fish') ? 'fish'
       : filepath.endsWith('.wasm') ? 'wasm'
@@ -53,19 +53,32 @@ class VirtualFile {
             : 'unknown';
 
     if (this.filetype === 'wasm') {
-      if (typeof this.content === 'string' && this.content.startsWith('data:application/wasm;base64,')) {
-        this.content = Buffer.from(this.content.split(',')[1]!, 'base64');
-      } else {
-        this.content = '';
+      if (typeof this.content === 'string') {
+        if (this.content.startsWith('data:application/wasm;base64,')) {
+          this.content = Buffer.from(this.content.split(',')[1]!, 'base64');
+        } else if (this.content.startsWith('bundled://')) {
+          // Handle bundled WASM - content will be resolved lazily
+          this.content = content.toString();
+        } else {
+          this.content = '';
+        }
       }
     }
   }
 
   static create(
     filepath: string,
-    content: string | Buffer,
+    content: string | Buffer | Promise<Buffer>,
   ) {
     return new VirtualFile(filepath, content);
+  }
+
+  async getContent(): Promise<string | Buffer> {
+    if (this.filetype === 'wasm' && typeof this.content === 'string' && this.content.startsWith('bundled://')) {
+      // Resolve bundled WASM content
+      return Buffer.from(this.content);
+    }
+    return this.content as string | Buffer;
   }
 
   get type() {
@@ -116,8 +129,8 @@ export const VirtualFiles = [
   VirtualFile.create('fish_files/get-fish-autoloaded-paths.fish', getFishAutoloadedPathsContent),
   VirtualFile.create('fish_files/get-type-verbose.fish', getTypeVerboseContent),
   VirtualFile.create('fish_files/get-type.fish', getTypeContent),
-  // WASM
-  VirtualFile.create('tree-sitter-fish.wasm', treeSitterFishWasmContent),
+  // WASM (bundled)
+  VirtualFile.create('tree-sitter-fish.wasm', 'bundled://tree-sitter-fish.wasm'),
   VirtualFile.create('tree-sitter.wasm', treeSitterCoreWasmContent),
   // Man
   VirtualFile.create('man/fish-lsp.1', manPageContent),
@@ -125,7 +138,7 @@ export const VirtualFiles = [
   VirtualFile.create('out/build-time.json', JSON.stringify(buildTime)),
   // Package info
   VirtualFile.create('package.json', JSON.stringify(packageJson)),
-].filter(vf => vf.content && vf.content.length > 0);
+]; // Remove filter since some content is async and can't be checked here
 
 class VirtualFileSystem {
   private vol: Volume;
@@ -137,14 +150,23 @@ class VirtualFileSystem {
   constructor() {
     this.virtualMountPoint = join(tmpdir(), 'fish-lsp.virt');
     this.vol = new Volume();
-    this.setupVirtualFS();
+    // Don't call setupVirtualFS in constructor since it's async now
+    // It will be called during initialize()
   }
 
-  private setupVirtualFS() {
+  private async setupVirtualFS() {
     const virtualFiles: Record<string, string | Buffer> = {};
-    this.allFiles.forEach(virt => {
-      virtualFiles[`/${virt.filepath}`] = virt.content;
-    });
+
+    // Process all files, resolving async content
+    for (const virt of this.allFiles) {
+      try {
+        const content = await virt.getContent();
+        virtualFiles[`/${virt.filepath}`] = content;
+      } catch (error) {
+        logger.warning(`Failed to get content for ${virt.filepath}:`, error);
+        // Skip files that fail to load
+      }
+    }
 
     // Initialize the volume with all files
     this.vol.fromJSON(virtualFiles, '/');
@@ -160,6 +182,8 @@ class VirtualFileSystem {
     }
 
     try {
+      // First setup the virtual filesystem with async content
+      await this.setupVirtualFS();
       // Create the virtual mount point directory
       await fs.promises.mkdir(this.virtualMountPoint, { recursive: true });
 
@@ -222,7 +246,7 @@ class VirtualFileSystem {
       }
 
       await Promise.all(writePromises);
-      this.isInitialized = true;
+      // this.isInitialized is already set to true in setupVirtualFS()
     } catch (error) {
       logger.warning('Failed to initialize virtual filesystem:', error);
     }

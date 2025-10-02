@@ -572,6 +572,7 @@ export namespace CommanderSubcommand {
         enable: z.array(z.string()).optional().default([]),
         disable: z.array(z.string()).optional().default([]),
         dump: z.boolean().optional().default(false),
+        port: z.string().optional(),
         socket: z.string().optional(),
         maxFiles: z.string().optional(),
         memoryLimit: z.string().optional(),

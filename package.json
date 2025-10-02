@@ -3,7 +3,7 @@
   "author": "ndonfris",
   "license": "MIT",
   "name": "fish-lsp",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "LSP implementation for fish/fish-shell",
   "keywords": [
     "lsp",
@@ -177,7 +177,7 @@
     ]
   },
   "dependencies": {
-    "@ndonfris/tree-sitter-fish": "^3.6.0",
+    "@ndonfris/tree-sitter-fish": "^3.6.0-dev.1759543059758",
     "chalk": "^5.5.0",
     "commander": "^12.0.0",
     "deepmerge": "^4.3.1",
