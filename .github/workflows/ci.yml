@@ -47,7 +47,7 @@ jobs:
 
       - name: Build Development
         shell: fish {0}
-        run: yarn dev
+        run: yarn build
 
       - name: Check Binary
         shell: fish {0}

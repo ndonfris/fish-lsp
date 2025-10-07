@@ -118,9 +118,11 @@ fish-lsp complete > ~/.config/fish/completions/fish-lsp.fish
 Recommended Dependencies: `yarn@1.22.22` `node@22.14.0` `fish@4.0.8`
 
 ```bash
-git clone https://github.com/ndonfris/fish-lsp && cd fish-lsp
+git clone https://github.com/ndonfris/fish-lsp 
+cd fish-lsp/
+
 yarn install 
-yarn dev # to watch for changes use `yarn dev:watch` 
+yarn build # links `./dist/fish-lsp` to `yarn global bin` $PATH
 ```
 
 Building the project from source is the most portable method for installing the language server.

@@ -45,7 +45,7 @@ __There are many ways that contributions can be made to the `fish-lsp`, includin
     > - **Step 2:** Then, you can [build the project](https://github.com/ndonfris/fish-lsp#build-from-source) by running the command:
     >
     >     ```bash
-    >     yarn dev # or `yarn dev:watch` for continuously recompiling the project on any changes
+    >     yarn build # or `yarn build:watch` for continuously recompiling the project on any changes
     >     ```
     >
     > - **Step 3:** Finally, you can verify the global `fish-lsp` command is linked to the local version of the project by running:
@@ -273,10 +273,10 @@ Prefetching relevant information and [caching](https://en.wikipedia.org/wiki/Cac
 
 - [esbuild](https://esbuild.github.io/) - used for bundling the project
     - relevant locations: [scripts/build.ts](https://github.com/ndonfris/fish-lsp/blob/master/scripts/build.ts), [scripts/esbuild/*](https://github.com/ndonfris/fish-lsp/blob/master/scripts/esbuild)
-    - `yarn build` runs `tsx scripts/build.ts` to create a production build of the project in the `dist/` directory. Use this command to pass flags to the `scripts/build.ts` file (see, `yarn build --help`)
-    - `yarn dev` runs all build steps, and build all esbuild files, potentially with the modules and dependencies bundled
-    - `yarn dev:watch` runs `yarn dev`, and watches for changes to recompile the project automatically
-    - `yarn dev:watch-all` is similar to `yarn dev:watch`, but will re-run the entire `yarn dev` command on any changes in the project
+    - `yarn dev` runs `tsx scripts/build.ts` to create a production build of the project in the `dist/` directory. Use this command to pass flags to the `scripts/build.ts` file (see, `yarn dev --help`)
+    - `yarn build` runs all build steps, and build all esbuild files, potentially with the modules and dependencies bundled
+    - `yarn build:watch` runs `yarn build`, and watches for changes to recompile the project automatically
+    - `yarn build:watch-all` is similar to `yarn build:watch`, but will re-run the entire `yarn build` command on any changes in the project
     - **NOTE:** depending on the version you of the server you are targeting when building (`bin/fish-lsp`, `dist/fish-lsp`, etc...), esbuild may or may not bundle and/or embed dependencies into the final output file.
 
 ### Other Noteworthy Tooling :hammer_and_wrench:
