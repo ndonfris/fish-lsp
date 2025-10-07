@@ -39,6 +39,7 @@ export interface FishSymbol extends DocumentSymbol {
   scope: DefinitionScope;
   children: FishSymbol[];
   detail: string;
+  options: Option[];
   parent: FishSymbol | undefined;
 }
 
@@ -46,6 +47,7 @@ export class FishSymbol {
   public children: FishSymbol[] = [];
   public aliasedNames: string[] = [];
   public document: LspDocument;
+  public options: Option[] = [];
 
   constructor(obj: FishSymbolInput) {
     this.name = obj.name || obj.focusedNode.text;
@@ -62,6 +64,7 @@ export class FishSymbol {
     this.children.forEach(child => {
       child.parent = this;
     });
+    this.options = obj.options || [];
     this.detail = obj.detail;
     this.setupDetail();
   }
@@ -79,6 +82,7 @@ export class FishSymbol {
     uri: string = document.uri.toString(),
     detail: string,
     scope: DefinitionScope,
+    options: Option[] = [],
     children: FishSymbol[] = [],
   ) {
     return new this({
@@ -89,6 +93,7 @@ export class FishSymbol {
       detail,
       node,
       focusedNode,
+      options,
       scope,
       children,
     });

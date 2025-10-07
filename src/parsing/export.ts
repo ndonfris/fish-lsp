@@ -7,6 +7,7 @@ import { DefinitionScope } from '../utils/definition-scope';
 import { getRange } from '../utils/tree-sitter';
 import { md } from '../utils/markdown-builder';
 import { uriToReadablePath } from '../utils/translation';
+import { Option } from './options';
 
 /**
  * Checks if a node is an export command definition
@@ -190,6 +191,8 @@ export function processExportCommand(document: LspDocument, node: SyntaxNode, ch
       uri: document.uri,
       detail,
       scope,
+      // this is so that we always see that export variables are global and exported
+      options: [Option.create('-g', '--global'), Option.create('-x', '--export')],
       children,
     }),
   ];

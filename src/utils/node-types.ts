@@ -4,6 +4,7 @@ import { isDefinitionName, isEmittedEventDefinitionName, VariableDefinitionKeywo
 import { Option, isMatchingOption, isMatchingOptionOrOptionValue, isMatchingOptionValue } from '../parsing/options';
 import { isVariableDefinitionName, isFunctionDefinitionName, isAliasDefinitionName, isExportVariableDefinitionName, isArgparseVariableDefinitionName } from '../parsing/barrel';
 import { BuiltInList } from './builtins';
+import { PrebuiltDocumentationMap } from './snippets';
 
 // use the `../parsing/barrel` barrel file's imports for finding the definition names
 
@@ -75,6 +76,15 @@ export function isCommand(node: SyntaxNode): boolean {
     'test_command',
     'command_substitution',
   ].includes(node.type);
+}
+
+export function isFishShippedFunctionName(node: SyntaxNode): boolean {
+  return !!PrebuiltDocumentationMap.getByType('command').find((item) => {
+    if (item.name === node.text) {
+      return true;
+    }
+    return false;
+  });
 }
 
 /**

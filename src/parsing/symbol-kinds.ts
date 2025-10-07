@@ -1,5 +1,6 @@
 import { SymbolKind, Range } from 'vscode-languageserver';
 import { FishSymbol } from './symbol';
+import { Option } from './options';
 
 /**
  * ALL possible `FishSymbol.fishKind` values
@@ -125,5 +126,6 @@ export type FishSymbolInput = Pick<FishSymbol,
   uri?: string;
   range?: Range;
   selectionRange?: Range;
+  options?: Option[];
 };
 

@@ -253,6 +253,16 @@ end
       expect(queryCaptures.length).toBeGreaterThanOrEqual(13);
     });
 
+    it('get language raw', () => {
+      const lang = analyzer.parser.getLanguage();
+      const queries = highlights;
+      console.log({
+        lang: lang,
+        queries,
+        cmd: lang.fieldIdForName('command_substitution'),
+      });
+    });
+
     it('get semantic-token modifier map', () => {
       FISH_SEMANTIC_TOKENS_LEGEND.tokenTypes.forEach((mod, index) => {
         console.log({
@@ -330,7 +340,7 @@ end
         const tokenType = data[i + 3];
         const modifiersMask = data[i + 4];
 
-        if (modifiersMask > 0) {
+        if (modifiersMask && modifiersMask > 0) {
           const modifiers = getModifiersFromMask(modifiersMask);
           tokensWithModifiers.push({
             line,

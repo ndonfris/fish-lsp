@@ -1,10 +1,7 @@
 import {
   SemanticTokens,
   SemanticTokensBuilder,
-  // SemanticTokensParams,
-  SemanticTokensRegistrationOptions,
   SemanticTokensLegend,
-  // SemanticTokensRangeParams,
   Range,
   Position,
 } from 'vscode-languageserver';
@@ -15,26 +12,12 @@ import { highlights } from '@ndonfris/tree-sitter-fish';
 import {
   isCommand,
   isCommandName,
+  isFishShippedFunctionName,
   isFunctionDefinition,
-  isFunctionDefinitionName,
-  isVariableDefinitionName,
-  isVariableExpansion,
-  // isVariableDefinitionName,
-  // isOption,
-  // isBuiltin,
 } from './utils/node-types';
-import { isSetVariableDefinitionName, SetModifiers } from './parsing/set';
-import { isReadVariableDefinitionName, ReadModifiers } from './parsing/read';
-import {
-  isFunctionVariableDefinitionName, /* FunctionOptions */
-  processFunctionDefinition,
-} from './parsing/function';
-import { isAliasDefinitionName } from './parsing/alias';
-import { isExportVariableDefinitionName } from './parsing/export';
-import { isEmittedEventDefinitionName, isGenericFunctionEventHandlerDefinitionName } from './parsing/emit';
-import { findOptions, findMatchingOptions } from './parsing/options';
 import { isBuiltin as checkBuiltin } from './utils/builtins';
 import { logger } from './logger';
+import { FishSymbolToSemanticToken, getSymbolModifiers } from './parsing/symbol-modifiers';
 
 /**
  * Internal semantic token representation
@@ -143,12 +126,19 @@ export const FishSemanticTokenModifiers = {
   ...SemanticTokenModifiers,
   // Fish-specific modifiers
   local: 'local',
+  function: 'function',
   global: 'global',
   universal: 'universal',
+  inherit: 'inherit',
   export: 'export',
   autoloaded: 'autoloaded',
+  ['not-autoloaded']: 'not-autoloaded',
   builtin: 'builtin',
+  script: 'script',
 } as const;
+
+export type FishSemanticTokenModifier = keyof typeof FishSemanticTokenModifiers;
+export type FishSemanticTokenType = keyof typeof SemanticTokenTypes;
 
 /**
  * Complete list of semantic token modifiers for Fish LSP
@@ -320,18 +310,162 @@ export function getCaptureToTokenMapping(): Record<string, { tokenType: string; 
 }
 
 /**
+ * Check if a string node contains variable expansions or command substitutions
+ * that should take precedence over the string token
+ */
+function containsVariableExpansionsOrCommands(node: SyntaxNode): boolean {
+  function hasNestedExpansions(n: SyntaxNode): boolean {
+    // Check if this node is a variable expansion or command substitution
+    if (n.type === 'variable_expansion' || n.type === 'command_substitution') {
+      return true;
+    }
+
+    // Recursively check all children
+    for (const child of n.namedChildren) {
+      if (hasNestedExpansions(child)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  return hasNestedExpansions(node);
+}
+
+/**
+ * Add partial string tokens for parts of a string that don't contain expansions
+ * This allows commands inside strings to be highlighted properly while still
+ * highlighting the string parts as strings
+ */
+function addPartialStringTokens(
+  tokens: SemanticToken[],
+  stringNode: SyntaxNode,
+  document: LspDocument,
+  stringTokenTypeIndex: number,
+): void {
+  // Get all expansion nodes within this string
+  const expansions: SyntaxNode[] = [];
+
+  function collectExpansions(node: SyntaxNode) {
+    if (node.type === 'variable_expansion' || node.type === 'command_substitution') {
+      expansions.push(node);
+      return; // Don't recurse into expansions
+    }
+
+    for (const child of node.namedChildren) {
+      collectExpansions(child);
+    }
+  }
+
+  collectExpansions(stringNode);
+
+  if (expansions.length === 0) {
+    // No expansions found, create a normal string token
+    tokens.push({
+      line: stringNode.startPosition.row,
+      startChar: stringNode.startPosition.column,
+      length: stringNode.endIndex - stringNode.startIndex,
+      tokenType: stringTokenTypeIndex,
+      tokenModifiers: 0,
+    });
+    return;
+  }
+
+  // Sort expansions by position
+  expansions.sort((a, b) => {
+    if (a.startPosition.row !== b.startPosition.row) {
+      return a.startPosition.row - b.startPosition.row;
+    }
+    return a.startPosition.column - b.startPosition.column;
+  });
+
+  // Create string tokens for the gaps between expansions
+  let lastEnd = stringNode.startIndex;
+
+  for (const expansion of expansions) {
+    // Add string token before this expansion
+    if (expansion.startIndex > lastEnd) {
+      const gapStart = lastEnd;
+      const gapEnd = expansion.startIndex;
+      const gapLength = gapEnd - gapStart;
+
+      if (gapLength > 0) {
+        // Convert byte offset to line/column position
+        const content = document.getText();
+        const gapStartPos = getPositionFromOffset(content, gapStart);
+
+        tokens.push({
+          line: gapStartPos.line,
+          startChar: gapStartPos.character,
+          length: gapLength,
+          tokenType: stringTokenTypeIndex,
+          tokenModifiers: 0,
+        });
+      }
+    }
+
+    lastEnd = expansion.endIndex;
+  }
+
+  // Add string token after the last expansion
+  if (lastEnd < stringNode.endIndex) {
+    const gapStart = lastEnd;
+    const gapEnd = stringNode.endIndex;
+    const gapLength = gapEnd - gapStart;
+
+    if (gapLength > 0) {
+      const content = document.getText();
+      const gapStartPos = getPositionFromOffset(content, gapStart);
+
+      tokens.push({
+        line: gapStartPos.line,
+        startChar: gapStartPos.character,
+        length: gapLength,
+        tokenType: stringTokenTypeIndex,
+        tokenModifiers: 0,
+      });
+    }
+  }
+}
+
+/**
+ * Convert byte offset to line/column position
+ */
+function getPositionFromOffset(content: string, offset: number): { line: number; character: number; } {
+  let line = 0;
+  let character = 0;
+
+  for (let i = 0; i < offset && i < content.length; i++) {
+    if (content[i] === '\n') {
+      line++;
+      character = 0;
+    } else {
+      character++;
+    }
+  }
+
+  return { line, character };
+}
+
+/**
  * Enhanced semantic token provider using tree-sitter queries
  */
 export function provideTreeSitterSemanticTokens(
   document: LspDocument,
   range?: Range,
-  useOverlappingTokens: boolean = false,
+  useOverlappingTokens: boolean = true,
 ): SemanticTokens {
+  // Ensure the document is analyzed
+  analyzer.analyze(document);
   const tree = analyzer.cache.getParsedTree(document.uri);
-  if (!tree) return { data: [] };
+  if (!tree) {
+    logger.warning(`No parse tree available for document: ${document.uri}`);
+    return { data: [] };
+  }
 
   const lang = tree.getLanguage();
-  const queries = getQueriesList(highlights);
+  const queries = getQueriesList(highlights); // Remove the embedded query
   const queryCaptures: QueryCapture[] = [];
   const mapping = getCaptureToTokenMapping();
 
@@ -343,7 +477,7 @@ export function provideTreeSitterSemanticTokens(
 
       // Filter captures by range if specified
       if (range) {
-        queryCaptures.push(...captures.filter(capture =>
+        queryCaptures.push(...captures.filter((capture: QueryCapture) =>
           nodeIntersectsRange(capture.node, range),
         ));
       } else {
@@ -357,7 +491,7 @@ export function provideTreeSitterSemanticTokens(
   // Collect all tokens (including overlapping ones if supported)
   const allTokens: SemanticToken[] = [];
 
-  // Process tree-sitter captures
+  // Process tree-sitter captures with smart string handling
   for (const capture of queryCaptures) {
     const captureMapping = mapping[capture.name];
     if (!captureMapping || captureMapping.index === -1) {
@@ -366,6 +500,13 @@ export function provideTreeSitterSemanticTokens(
 
     // Skip if range is specified and node doesn't intersect
     if (range && !nodeIntersectsRange(capture.node, range)) {
+      continue;
+    }
+
+    // Smart string token handling: for strings containing expansions, create partial string tokens
+    if (capture.name === 'string' && containsVariableExpansionsOrCommands(capture.node)) {
+      // Instead of skipping entirely, add partial string tokens for the non-expansion parts
+      addPartialStringTokens(allTokens, capture.node, document, captureMapping.index);
       continue;
     }
 
@@ -382,8 +523,11 @@ export function provideTreeSitterSemanticTokens(
     });
   }
 
+  // Add tokens for command substitutions (embedded commands)
+  addCommandSubstitutionTokensToArray(allTokens, tree.rootNode, document, range);
+
   // Add variable definition tokens with enhanced detection
-  addVariableDefinitionTokensToArray(allTokens, tree.rootNode, document, range);
+  addDefinitionSymbolTokensToArray(allTokens, document, range);
 
   // Convert tokens to LSP format
   if (useOverlappingTokens) {
@@ -413,61 +557,15 @@ function nodeIntersectsRange(node: SyntaxNode, range: Range): boolean {
  * Build overlapping semantic tokens (for clients that support it)
  */
 function buildOverlappingSemanticTokens(tokens: SemanticToken[]): SemanticTokens {
+  const builder = new SemanticTokensBuilder();
+
   // Sort tokens by position to ensure proper ordering
   const sortedTokens = [...tokens].sort((a, b) => {
     if (a.line !== b.line) return a.line - b.line;
     return a.startChar - b.startChar;
   });
 
-  // For overlapping tokens, we use absolute positions
-  const data: number[] = [];
   for (const token of sortedTokens) {
-    data.push(
-      token.line,
-      token.startChar,
-      token.length,
-      token.tokenType,
-      token.tokenModifiers,
-    );
-  }
-
-  return { data };
-}
-
-/**
- * Build non-overlapping semantic tokens using the standard SemanticTokensBuilder
- */
-function buildNonOverlappingSemanticTokens(tokens: SemanticToken[]): SemanticTokens {
-  const builder = new SemanticTokensBuilder();
-
-  // Sort tokens by position
-  const sortedTokens = [...tokens].sort((a, b) => {
-    if (a.line !== b.line) return a.line - b.line;
-    return a.startChar - b.startChar;
-  });
-
-  // Remove overlapping tokens (keep the first one at each position)
-  const nonOverlappingTokens: SemanticToken[] = [];
-  let lastEndPos = { line: -1, char: -1 };
-
-  for (const token of sortedTokens) {
-    const tokenStart = { line: token.line, char: token.startChar };
-    const tokenEnd = { line: token.line, char: token.startChar + token.length };
-
-    // Check if this token overlaps with the previous one
-    const overlaps =
-      tokenStart.line < lastEndPos.line ||
-      tokenStart.line === lastEndPos.line && tokenStart.char < lastEndPos.char
-      ;
-
-    if (!overlaps) {
-      nonOverlappingTokens.push(token);
-      lastEndPos = tokenEnd;
-    }
-  }
-
-  // Use SemanticTokensBuilder for delta encoding
-  for (const token of nonOverlappingTokens) {
     builder.push(
       token.line,
       token.startChar,
@@ -481,485 +579,243 @@ function buildNonOverlappingSemanticTokens(tokens: SemanticToken[]): SemanticTok
 }
 
 /**
- * Add variable definition tokens to array (instead of builder)
+ * Get token type priority for conflict resolution
+ * Higher numbers = higher priority (more specific tokens)
  */
-function addVariableDefinitionTokensToArray(
+function getTokenTypePriority(tokenTypeIndex: number): number {
+  const tokenTypesArray = Object.values(SemanticTokenTypes);
+  const tokenType = tokenTypesArray[tokenTypeIndex];
+
+  if (!tokenType) {
+    return 30; // Default priority for unknown types
+  }
+
+  // Define priority hierarchy - more specific tokens should override generic ones
+  const priorities: Record<string, number> = {
+    // Highest priority: semantic elements
+    function: 100,
+    method: 100,
+    variable: 90,
+    parameter: 90,
+    property: 90,
+    keyword: 80,
+    type: 80,
+    class: 80,
+    namespace: 80,
+    event: 70,
+    operator: 60,
+    number: 50,
+    comment: 40,
+    // Lowest priority: generic tokens that should be overridden
+    string: 10,
+    regexp: 10,
+  };
+
+  return priorities[tokenType] || 30; // Default priority for unlisted types
+}
+
+/**
+ * Build non-overlapping semantic tokens using the standard SemanticTokensBuilder
+ * with intelligent conflict resolution that prioritizes more specific tokens
+ */
+function buildNonOverlappingSemanticTokens(tokens: SemanticToken[]): SemanticTokens {
+  const builder = new SemanticTokensBuilder();
+
+  // Sort tokens by position
+  const sortedTokens = [...tokens].sort((a, b) => {
+    if (a.line !== b.line) return a.line - b.line;
+    return a.startChar - b.startChar;
+  });
+
+  // Group overlapping tokens and resolve conflicts by priority
+  const resolvedTokens: SemanticToken[] = [];
+  let i = 0;
+
+  while (i < sortedTokens.length) {
+    const currentToken = sortedTokens[i];
+    if (!currentToken) break;
+
+    const overlappingTokens = [currentToken];
+
+    // Find all tokens that overlap with the current token
+    let j = i + 1;
+    while (j < sortedTokens.length) {
+      const nextToken = sortedTokens[j];
+      if (!nextToken) break;
+
+      // Check if tokens overlap
+      const currentEnd = currentToken.startChar + currentToken.length;
+      const nextStart = nextToken.startChar;
+
+      if (nextToken.line === currentToken.line && nextStart < currentEnd) {
+        overlappingTokens.push(nextToken);
+        j++;
+      } else {
+        break;
+      }
+    }
+
+    // If multiple overlapping tokens, choose the one with highest priority
+    if (overlappingTokens.length > 1) {
+      const bestToken = overlappingTokens.reduce((best, token) => {
+        const bestPriority = getTokenTypePriority(best.tokenType);
+        const tokenPriority = getTokenTypePriority(token.tokenType);
+
+        // If priorities are equal, prefer the longer token
+        if (tokenPriority === bestPriority) {
+          return token.length > best.length ? token : best;
+        }
+
+        return tokenPriority > bestPriority ? token : best;
+      });
+
+      resolvedTokens.push(bestToken);
+    } else {
+      resolvedTokens.push(currentToken);
+    }
+
+    // Move to the next non-overlapping position
+    i = j > i + 1 ? j : i + 1;
+  }
+
+  // Use SemanticTokensBuilder for delta encoding
+  for (const token of resolvedTokens) {
+    builder.push(
+      token.line,
+      token.startChar,
+      token.length,
+      token.tokenType,
+      token.tokenModifiers,
+    );
+  }
+
+  return builder.build();
+}
+
+/**
+ * Add semantic tokens for command substitutions (embedded commands)
+ */
+function addCommandSubstitutionTokensToArray(
   tokens: SemanticToken[],
   rootNode: SyntaxNode,
   document: LspDocument,
   range?: Range,
 ): void {
-  // Traverse the tree to find variable definitions
-  function traverse(node: SyntaxNode): void {
-    // Skip nodes outside the range if range is specified
-    if (range && !nodeIntersectsRange(node, range)) {
-      return;
+  const commandSubstitutions = findCommandSubstitutions(rootNode);
+
+  for (const cmdSub of commandSubstitutions) {
+    // Skip if range is specified and node doesn't intersect
+    if (range && !nodeIntersectsRange(cmdSub, range)) {
+      continue;
     }
 
-    // use variable definition checks to add tokens
-    if (isVariableDefinitionName(node)) {
-      /// get the modifiers based on the type of variable definition
-      const modifiers = getVariableDefinitionModifiers(node, document);
-      const tokenIndex = getTokenTypeIndex(SemanticTokenTypes.variable);
-      if (tokenIndex !== -1) {
-        tokens.push({
-          line: node.startPosition.row,
-          startChar: node.startPosition.column,
-          length: node.text.length,
-          tokenType: tokenIndex,
-          tokenModifiers: calculateModifiersMask(modifiers || []),
-        });
-      }
-    } else if (isVariableExpansion(node)) {
-      const tokenIndex = getTokenTypeIndex(SemanticTokenTypes.variable);
-      if (tokenIndex !== -1) {
-        tokens.push({
-          line: node.startPosition.row,
-          startChar: node.startPosition.column,
-          length: node.text.length,
-          tokenType: tokenIndex,
-          tokenModifiers: 0, // No special modifiers for variable expansions
-        });
-      }
+    // Get the inner content of the command substitution (between $( and ))
+    const innerContent = cmdSub.namedChildren;
+
+    for (const child of innerContent) {
+      // Recursively process commands inside the substitution
+      addCommandTokensFromNode(tokens, child, document, range);
     }
-    if (isFunctionDefinitionName(node) || isAliasDefinitionName(node)) {
-      const modifiers = getFunctionDefinitionModifiers(node, document);
-      const tokenIndex = getTokenTypeIndex(SemanticTokenTypes.function);
-      if (tokenIndex !== -1) {
-        tokens.push({
-          line: node.startPosition.row,
-          startChar: node.startPosition.column,
-          length: node.text.length,
-          tokenType: tokenIndex,
-          tokenModifiers: calculateModifiersMask(modifiers),
-        });
-      }
-    }
-    if (isGenericFunctionEventHandlerDefinitionName(node)) {
-      const modifiers = getFunctionEventHandlerModifiers(node);
-      const tokenIndex = getTokenTypeIndex(SemanticTokenTypes.event);
-      if (tokenIndex !== -1) {
-        tokens.push({
-          line: node.startPosition.row,
-          startChar: node.startPosition.column,
-          length: node.text.length,
-          tokenType: tokenIndex,
-          tokenModifiers: calculateModifiersMask(modifiers),
-        });
-      }
+  }
+}
+
+/**
+ * Find all command substitution nodes in the syntax tree
+ */
+function findCommandSubstitutions(node: SyntaxNode): SyntaxNode[] {
+  const commandSubstitutions: SyntaxNode[] = [];
+
+  function traverse(n: SyntaxNode) {
+    if (n.type === 'command_substitution') {
+      commandSubstitutions.push(n);
     }
 
-    // Check for set variable definitions
-    // if (isSetVariableDefinitionName(node)) {
-    //   const modifiers = getSetVariableModifiers(node, document);
-    //   const tokenIndex = getTokenTypeIndex(SemanticTokenTypes.variable);
-    //   if (tokenIndex !== -1) {
-    //     tokens.push({
-    //       line: node.startPosition.row,
-    //       startChar: node.startPosition.column,
-    //       length: node.text.length,
-    //       tokenType: tokenIndex,
-    //       tokenModifiers: calculateModifiersMask(modifiers),
-    //     });
-    //   }
-    //   // Check for read variable definitions
-    // } else if (isReadVariableDefinitionName(node)) {
-    //   const modifiers = getReadVariableModifiers(node, document);
-    //   const tokenIndex = getTokenTypeIndex(SemanticTokenTypes.variable);
-    //   if (tokenIndex !== -1) {
-    //     tokens.push({
-    //       line: node.startPosition.row,
-    //       startChar: node.startPosition.column,
-    //       length: node.text.length,
-    //       tokenType: tokenIndex,
-    //       tokenModifiers: calculateModifiersMask(modifiers),
-    //     });
-    //   }
-    //
-    //   // Check for function argument definitions
-    // } else if (isFunctionVariableDefinitionName(node)) {
-    //   const modifiers = getFunctionArgumentModifiers(node);
-    //   const tokenIndex = getTokenTypeIndex(SemanticTokenTypes.parameter);
-    //   if (tokenIndex !== -1) {
-    //     tokens.push({
-    //       line: node.startPosition.row,
-    //       startChar: node.startPosition.column,
-    //       length: node.text.length,
-    //       tokenType: tokenIndex,
-    //       tokenModifiers: calculateModifiersMask(modifiers),
-    //     });
-    //   }
-    //
-    //   // Check for alias definitions
-    // } else if (isAliasDefinitionName(node)) {
-    //   const modifiers = getAliasDefinitionModifiers(node);
-    //   const tokenIndex = getTokenTypeIndex(SemanticTokenTypes.function);
-    //   if (tokenIndex !== -1) {
-    //     tokens.push({
-    //       line: node.startPosition.row,
-    //       startChar: node.startPosition.column,
-    //       length: node.text.length,
-    //       tokenType: tokenIndex,
-    //       tokenModifiers: calculateModifiersMask(modifiers),
-    //     });
-    //   }
-    //   // Check for export variable definitions
-    // } else if (isExportVariableDefinitionName(node)) {
-    //   const modifiers = getExportVariableModifiers(node);
-    //   const tokenIndex = getTokenTypeIndex(SemanticTokenTypes.variable);
-    //   if (tokenIndex !== -1) {
-    //     tokens.push({
-    //       line: node.startPosition.row,
-    //       startChar: node.startPosition.column,
-    //       length: node.text.length,
-    //       tokenType: tokenIndex,
-    //       tokenModifiers: calculateModifiersMask(modifiers),
-    //     });
-    //   }
-    //   // Check for emitted event definitions (emit command)
-    // } else if (isEmittedEventDefinitionName(node)) {
-    //   const modifiers = getEmittedEventModifiers(node);
-    //   const tokenIndex = getTokenTypeIndex(SemanticTokenTypes.event);
-    //   if (tokenIndex !== -1) {
-    //     tokens.push({
-    //       line: node.startPosition.row,
-    //       startChar: node.startPosition.column,
-    //       length: node.text.length,
-    //       tokenType: tokenIndex,
-    //       tokenModifiers: calculateModifiersMask(modifiers),
-    //     });
-    //   }
-    //   // Check for function event handler definitions (function --on-event)
-    // } else if (isGenericFunctionEventHandlerDefinitionName(node)) {
-    //   const modifiers = getFunctionEventHandlerModifiers(node);
-    //   const tokenIndex = getTokenTypeIndex(SemanticTokenTypes.event);
-    //   if (tokenIndex !== -1) {
-    //     tokens.push({
-    //       line: node.startPosition.row,
-    //       startChar: node.startPosition.column,
-    //       length: node.text.length,
-    //       tokenType: tokenIndex,
-    //       tokenModifiers: calculateModifiersMask(modifiers),
-    //     });
-    //   }
-    // }
-
-    // Traverse children
-    for (const child of node.children) {
+    for (const child of n.namedChildren) {
       traverse(child);
     }
   }
 
-  traverse(rootNode);
-}
-
-function getVariableDefinitionModifiers(node: SyntaxNode, document: LspDocument) {
-  if (isSetVariableDefinitionName(node)) {
-    return getSetVariableModifiers(node, document);
-  }
-  if (isReadVariableDefinitionName(node)) {
-    return getReadVariableModifiers(node, document);
-  }
-  if (isFunctionVariableDefinitionName(node)) {
-    return getFunctionArgumentModifiers(node);
-  }
-  if (isAliasDefinitionName(node)) {
-    return getAliasDefinitionModifiers(node);
-  }
-  if (isExportVariableDefinitionName(node)) {
-    return getExportVariableModifiers(node);
-  }
-  if (isEmittedEventDefinitionName(node)) {
-    return getEmittedEventModifiers(node);
-  }
-  if (isGenericFunctionEventHandlerDefinitionName(node)) {
-    return getFunctionEventHandlerModifiers(node);
-  }
-}
-
-export function getFunctionDefinitionModifiers(node: SyntaxNode, document: LspDocument) {
-  if (isFunctionDefinitionName(node)) {
-    const fishToken = processFunctionDefinition(document, node).at(0);
-    if (fishToken?.isLocal()) {
-      return [
-        FishSemanticTokenModifiers.definition,
-        FishSemanticTokenModifiers.local,
-      ];
-    } else if (fishToken?.isGlobal()) {
-      return [
-        FishSemanticTokenModifiers.definition,
-        FishSemanticTokenModifiers.global,
-        FishSemanticTokenModifiers.export,
-      ];
-    }
-  }
-  if (isAliasDefinitionName(node)) {
-    return getAliasDefinitionModifiers(node);
-  }
-  return [
-    FishSemanticTokenModifiers.definition,
-  ];
+  traverse(node);
+  return commandSubstitutions;
 }
 
 /**
- * Add variable definition tokens with enhanced scope detection (legacy function for backward compatibility)
+ * Add semantic tokens for commands and their components from a node
  */
-// function _addVariableDefinitionTokens(
-//   builder: SemanticTokensBuilder,
-//   rootNode: SyntaxNode,
-//   document: LspDocument,
-//   range?: Range,
-// ): void {
-//   // Traverse the tree to find variable definitions
-//   function traverse(node: SyntaxNode): void {
-//     // Skip nodes outside the range if range is specified
-//     if (range && !nodeIntersectsRange(node, range)) {
-//       return;
-//     }
-//     // Check for set variable definitions
-//     if (isSetVariableDefinitionName(node)) {
-//       const modifiers = getSetVariableModifiers(node, document);
-//       const tokenIndex = getTokenTypeIndex(SemanticTokenTypes.variable);
-//       if (tokenIndex !== -1) {
-//         builder.push(
-//           node.startPosition.row,
-//           node.startPosition.column,
-//           node.text.length,
-//           tokenIndex,
-//           calculateModifiersMask(modifiers),
-//         );
-//       }
-//     }
-//
-//     // Check for read variable definitions
-//     else if (isReadVariableDefinitionName(node)) {
-//       const modifiers = getReadVariableModifiers(node, document);
-//       const tokenIndex = getTokenTypeIndex(SemanticTokenTypes.variable);
-//       if (tokenIndex !== -1) {
-//         builder.push(
-//           node.startPosition.row,
-//           node.startPosition.column,
-//           node.text.length,
-//           tokenIndex,
-//           calculateModifiersMask(modifiers),
-//         );
-//       }
-//     }
-//
-//     // Check for function argument definitions
-//     else if (isFunctionVariableDefinitionName(node)) {
-//       const modifiers = getFunctionArgumentModifiers(node);
-//       const tokenIndex = getTokenTypeIndex(SemanticTokenTypes.parameter);
-//       if (tokenIndex !== -1) {
-//         builder.push(
-//           node.startPosition.row,
-//           node.startPosition.column,
-//           node.text.length,
-//           tokenIndex,
-//           calculateModifiersMask(modifiers),
-//         );
-//       }
-//     }
-//
-//     // Check for alias definitions
-//     else if (isAliasDefinitionName(node)) {
-//       const modifiers = getAliasDefinitionModifiers(node);
-//       const tokenIndex = getTokenTypeIndex(SemanticTokenTypes.function);
-//       if (tokenIndex !== -1) {
-//         builder.push(
-//           node.startPosition.row,
-//           node.startPosition.column,
-//           node.text.length,
-//           tokenIndex,
-//           calculateModifiersMask(modifiers),
-//         );
-//       }
-//     }
-//
-//     // Check for export variable definitions
-//     else if (isExportVariableDefinitionName(node)) {
-//       const modifiers = getExportVariableModifiers(node);
-//       const tokenIndex = getTokenTypeIndex(SemanticTokenTypes.variable);
-//       if (tokenIndex !== -1) {
-//         builder.push(
-//           node.startPosition.row,
-//           node.startPosition.column,
-//           node.text.length,
-//           tokenIndex,
-//           calculateModifiersMask(modifiers),
-//         );
-//       }
-//     }
-//
-//     // Check for emitted event definitions (emit command)
-//     else if (isEmittedEventDefinitionName(node)) {
-//       const modifiers = getEmittedEventModifiers(node);
-//       const tokenIndex = getTokenTypeIndex(SemanticTokenTypes.event);
-//       if (tokenIndex !== -1) {
-//         builder.push(
-//           node.startPosition.row,
-//           node.startPosition.column,
-//           node.text.length,
-//           tokenIndex,
-//           calculateModifiersMask(modifiers),
-//         );
-//       }
-//     }
-//
-//     // Check for function event handler definitions (function --on-event)
-//     else if (isGenericFunctionEventHandlerDefinitionName(node)) {
-//       const modifiers = getFunctionEventHandlerModifiers(node);
-//       const tokenIndex = getTokenTypeIndex(SemanticTokenTypes.event);
-//       if (tokenIndex !== -1) {
-//         builder.push(
-//           node.startPosition.row,
-//           node.startPosition.column,
-//           node.text.length,
-//           tokenIndex,
-//           calculateModifiersMask(modifiers),
-//         );
-//       }
-//     }
-//
-//     // Traverse children
-//     for (const child of node.children) {
-//       traverse(child);
-//     }
-//   }
-//
-//   traverse(rootNode);
-// }
+function addCommandTokensFromNode(
+  tokens: SemanticToken[],
+  node: SyntaxNode,
+  document: LspDocument,
+  range?: Range,
+): void {
+  const lang = analyzer.cache.getParsedTree(document.uri)?.getLanguage();
+  if (!lang) return;
 
-/**
- * Get modifiers for set command variable definitions
- */
-function getSetVariableModifiers(node: SyntaxNode, _document: LspDocument): string[] {
-  const modifiers: (keyof typeof FishSemanticTokenModifiers)[] = [FishSemanticTokenModifiers.definition];
-  const command = node.parent;
+  // Use the same tree-sitter queries as the main function
+  const queries = getQueriesList(highlights);
+  const mapping = getCaptureToTokenMapping();
 
-  if (!command) return modifiers;
+  for (const queryText of queries) {
+    try {
+      const query = lang.query(queryText);
+      const captures = query.captures(node);
 
-  const args = command.childrenForFieldName('argument');
-  const options = findOptions(args, SetModifiers);
+      for (const capture of captures) {
+        const captureMapping = mapping[capture.name];
+        if (!captureMapping || captureMapping.index === -1) {
+          continue;
+        }
 
-  // Add scope modifiers based on set flags
-  for (const optionMatch of options.found) {
-    const option = optionMatch.option;
-    if (option.isOption('-l', '--local')) {
-      modifiers.push(FishSemanticTokenModifiers.local);
-    } else if (option.isOption('-g', '--global')) {
-      modifiers.push(FishSemanticTokenModifiers.global);
-    } else if (option.isOption('-U', '--universal')) {
-      modifiers.push(FishSemanticTokenModifiers.universal);
-    } else if (option.isOption('-f', '--function')) {
-      // Function scope is similar to local but within function context
-      modifiers.push(FishSemanticTokenModifiers.local);
-    } else if (option.isOption('-x', '--export')) {
-      // Export flag implies global scope
-      modifiers.push(FishSemanticTokenModifiers.export);
-    }
-  }
+        // Skip if range is specified and node doesn't intersect
+        if (range && !nodeIntersectsRange(capture.node, range)) {
+          continue;
+        }
 
-  return modifiers;
-}
+        // Determine modifiers based on capture name and node context
+        const modifiers = getModifiersForCapture(capture, document);
+        const modifiersMask = calculateModifiersMask(modifiers);
 
-/**
- * Get modifiers for read command variable definitions
- */
-function getReadVariableModifiers(node: SyntaxNode, _document: LspDocument): string[] {
-  const modifiers: (keyof typeof FishSemanticTokenModifiers)[] = [FishSemanticTokenModifiers.definition];
-  const command = node.parent;
-
-  if (!command) return modifiers;
-
-  const args = command.childrenForFieldName('argument');
-
-  // Find scope modifiers
-  for (const arg of args) {
-    const matchedOption = findMatchingOptions(arg, ...ReadModifiers);
-    if (matchedOption) {
-      if (matchedOption.isOption('-l', '--local')) {
-        modifiers.push(FishSemanticTokenModifiers.local);
-      } else if (matchedOption.isOption('-g', '--global')) {
-        modifiers.push(FishSemanticTokenModifiers.global);
-      } else if (matchedOption.isOption('-U', '--universal')) {
-        modifiers.push(FishSemanticTokenModifiers.universal);
-      } else if (matchedOption.isOption('-f', '--function')) {
-        modifiers.push(FishSemanticTokenModifiers.local);
+        tokens.push({
+          line: capture.node.startPosition.row,
+          startChar: capture.node.startPosition.column,
+          length: capture.node.endIndex - capture.node.startIndex,
+          tokenType: captureMapping.index,
+          tokenModifiers: modifiersMask,
+        });
       }
-      break;
+    } catch (error) {
+      logger.warning(`Failed to execute query for command substitution: ${queryText}`, error);
     }
   }
+}
 
-  // Check for export flags
-  if (args.some(arg => arg.text === '-x' || arg.text === '--export')) {
-    modifiers.push(FishSemanticTokenModifiers.export);
+/**
+ * Add variable definition tokens to array (instead of builder)
+ */
+function addDefinitionSymbolTokensToArray(
+  tokens: SemanticToken[],
+  document: LspDocument,
+  range?: Range,
+): void {
+  const symbols = analyzer.cache.getFlatDocumentSymbols(document.uri);
+  for (const symbol of symbols) {
+    // Skip symbols outside the range if range is specified
+    if (range && !nodeIntersectsRange(symbol.focusedNode, range)) {
+      continue;
+    }
+    const tokenTypeKey = FishSymbolToSemanticToken[symbol.fishKind];
+    const modifiers: FishSemanticTokenModifier[] = getSymbolModifiers(symbol);
+    const tokenIndex = getTokenTypeIndex(tokenTypeKey);
+    if (tokenIndex !== -1) {
+      tokens.push({
+        line: symbol.focusedNode.startPosition.row,
+        startChar: symbol.focusedNode.startPosition.column,
+        length: symbol.focusedNode.endIndex - symbol.focusedNode.startIndex,
+        tokenType: tokenIndex,
+        tokenModifiers: calculateModifiersMask(modifiers),
+      });
+    }
   }
-
-  return modifiers;
-}
-
-/**
- * Get modifiers for function argument definitions
- */
-function getFunctionArgumentModifiers(_node: SyntaxNode): string[] {
-  const modifiers = [
-    FishSemanticTokenModifiers.definition,
-    FishSemanticTokenModifiers.local, // Function arguments are always local to the function
-  ];
-
-  return modifiers;
-}
-
-/**
- * Get modifiers for alias definitions (aliases are like globally exported functions)
- */
-function getAliasDefinitionModifiers(_node: SyntaxNode): string[] {
-  const modifiers = [
-    FishSemanticTokenModifiers.definition,
-    FishSemanticTokenModifiers.global, // Aliases are globally available
-    FishSemanticTokenModifiers.export,  // Aliases are exported to subshells
-  ];
-
-  return modifiers;
-}
-
-/**
- * Get modifiers for export variable definitions (export creates global exported variables)
- */
-function getExportVariableModifiers(_node: SyntaxNode): string[] {
-  const modifiers = [
-    FishSemanticTokenModifiers.definition,
-    FishSemanticTokenModifiers.global, // Export creates global variables
-    FishSemanticTokenModifiers.export,  // Export variables are exported to subshells
-  ];
-
-  return modifiers;
-}
-
-/**
- * Get modifiers for emitted event definitions (emit command)
- */
-function getEmittedEventModifiers(_node: SyntaxNode): string[] {
-  const modifiers = [
-    FishSemanticTokenModifiers.definition,
-    FishSemanticTokenModifiers.global, // Events are globally broadcast
-  ];
-
-  return modifiers;
-}
-
-/**
- * Get modifiers for function event handler definitions (function --on-event)
- */
-function getFunctionEventHandlerModifiers(_node: SyntaxNode): string[] {
-  const modifiers = [
-    FishSemanticTokenModifiers.definition,
-    FishSemanticTokenModifiers.global, // Event handlers respond to global events
-    FishSemanticTokenModifiers.readonly, // Event names in handlers are readonly references
-  ];
-
-  return modifiers;
 }
 
 /**
@@ -970,7 +826,7 @@ function getModifiersForCapture(capture: QueryCapture, _document: LspDocument): 
   const { name, node } = capture;
 
   // Add modifiers based on capture name patterns
-  if (name.includes('builtin')) {
+  if (name.includes('builtin') || name.includes('keyword')) {
     modifiers.push(FishSemanticTokenModifiers.defaultLibrary);
     modifiers.push(FishSemanticTokenModifiers.builtin);
   }
@@ -999,6 +855,10 @@ function getModifiersForCapture(capture: QueryCapture, _document: LspDocument): 
     if (isFunctionDefinition(node.parent!)) {
       modifiers.push(FishSemanticTokenModifiers.definition);
     }
+
+    if (isCommand(node.parent!) && node.parent?.firstNamedChild && isFishShippedFunctionName(node.parent.firstNamedChild)) {
+      modifiers.push(FishSemanticTokenModifiers.defaultLibrary);
+    }
   }
 
   return modifiers;
@@ -1015,16 +875,3 @@ export function isBuiltinCommand(node: SyntaxNode): boolean {
 
   return checkBuiltin(commandName.text);
 }
-
-/**
- * Registration options for semantic tokens
- */
-export const FISH_SEMANTIC_TOKENS_REGISTRATION: SemanticTokensRegistrationOptions = {
-  documentSelector: [{ language: 'fish' }],
-  legend: FISH_SEMANTIC_TOKENS_LEGEND,
-  range: true,
-  full: {
-    delta: false,
-  },
-};
-
