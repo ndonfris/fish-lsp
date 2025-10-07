@@ -19,7 +19,7 @@ export async function build(_customArgs?: string[]): Promise<void> {
   }
 
   // Handle comprehensive file watching                                        
-  if (args.watchAll) {
+  if (args.watchAll || args.watch) {
     console.log(logger.header('`fish-lsp` comprehensive file watcher'));
     console.log(logger.info('Starting comprehensive file watcher...'));
     await startFileWatcher(args.watchMode);

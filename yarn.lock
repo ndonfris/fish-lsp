@@ -566,10 +566,10 @@
     "@emnapi/runtime" "^1.5.0"
     "@tybys/wasm-util" "^0.10.1"
 
-"@ndonfris/tree-sitter-fish@^3.6.0-dev.1759543059758":
-  version "3.6.0-dev.1759543059758"
-  resolved "https://registry.yarnpkg.com/@ndonfris/tree-sitter-fish/-/tree-sitter-fish-3.6.0-dev.1759543059758.tgz#5cffb848ef6892b6de34fd65e55f99387df7884d"
-  integrity sha512-2trscWo1EA20oIN3v01wyZWnn/N9OUpxADrRD37GhtWO2ZuPkwWpDL5A4P9WkUCUjI3W9K2K7X8//U0eK1z/uw==
+"@ndonfris/tree-sitter-fish@^3.6.0-dev.1759885298139":
+  version "3.6.0-dev.1759885298139"
+  resolved "https://registry.yarnpkg.com/@ndonfris/tree-sitter-fish/-/tree-sitter-fish-3.6.0-dev.1759885298139.tgz#eca73a7aabc636c85de583f17c8d8ccee370c127"
+  integrity sha512-pUfMVuTmgiDpKRfjjgIX8TZMa/c9GUuMGvEmubyQIw62nTu9G59e+/0g2e7M6BjxyYxlDDLAvmpAPcjLxfVRtA==
 
 "@nodelib/fs.scandir@2.1.5":
   version "2.1.5"
