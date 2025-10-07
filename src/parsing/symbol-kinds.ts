@@ -5,7 +5,7 @@ import { Option } from './options';
 /**
  * ALL possible `FishSymbol.fishKind` values
  */
-export type FishSymbolKind = 'ARGPARSE' | 'FUNCTION' | 'ALIAS' | 'COMPLETE' | 'SET' | 'READ' | 'FOR' | 'VARIABLE' | 'FUNCTION_VARIABLE' | 'EXPORT' | 'EVENT' | 'FUNCTION_EVENT';
+export type FishSymbolKind = 'ARGPARSE' | 'FUNCTION' | 'ALIAS' | 'COMPLETE' | 'SET' | 'READ' | 'FOR' | 'VARIABLE' | 'FUNCTION_VARIABLE' | 'EXPORT' | 'EVENT' | 'FUNCTION_EVENT' | 'INLINE_VARIABLE';
 
 /**
  * Map/Record of all possible FishSymbolKind values, with lowercase keys to uppercase values.
@@ -25,6 +25,7 @@ export const FishSymbolKindMap: Record<Lowercase<FishSymbolKind>, FishSymbolKind
   ['function_variable']: 'FUNCTION_VARIABLE',
   ['function_event']: 'FUNCTION_EVENT',
   ['export']: 'EXPORT',
+  ['inline_variable']: 'INLINE_VARIABLE',
 };
 
 /**
@@ -44,6 +45,7 @@ export const fishSymbolKindToSymbolKind: Record<FishSymbolKind, SymbolKind> = {
   ['EVENT']: SymbolKind.Event,
   ['FUNCTION_EVENT']: SymbolKind.Event,
   ['EXPORT']: SymbolKind.Variable,
+  ['INLINE_VARIABLE']: SymbolKind.Variable,
 } as const;
 
 /**

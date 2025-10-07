@@ -21,6 +21,7 @@ export const SymbolModifiers: Record<FishSymbolKind, Option[]> = {
   EVENT: [],
   FUNCTION_EVENT: [],
   EXPORT: [Option.create('-g', '--global'), Option.create('-x', '--export')],
+  INLINE_VARIABLE: [Option.create('-x', '--export')],
 };
 
 function getSetReadModifiers(symbol: FishSymbol): FishSemanticTokenModifier[] {
@@ -132,4 +133,5 @@ export const FishSymbolToSemanticToken: Record<FishSymbolKind, FishSemanticToken
   EVENT: 'event',
   FUNCTION_EVENT: 'event',
   EXPORT: 'variable',
+  INLINE_VARIABLE: 'variable',
 };

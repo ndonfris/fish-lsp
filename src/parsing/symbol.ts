@@ -24,6 +24,7 @@ import { isSymbolReference } from './reference-comparator';
 import { equalSymbolDefinitions, equalSymbols, equalSymbolScopes, fishSymbolNameEqualsNodeText, isFishSymbol, symbolContainsNode, symbolContainsPosition, symbolContainsScope, symbolEqualsLocation, symbolEqualsNode, symbolScopeContainsNode } from './equality-utils';
 import { SymbolConverters } from './symbol-converters';
 import { FishKindGroups, FishSymbolInput, FishSymbolKind, fishSymbolKindToSymbolKind, fromFishSymbolKindToSymbolKind } from './symbol-kinds';
+import { isInlineVariableAssignment, processInlineVariables } from './inline-variable';
 
 export const SKIPPABLE_VARIABLE_REFERENCE_NAMES = [
   'argv',
@@ -768,6 +769,11 @@ function buildNested(document: LspDocument, node: SyntaxNode, ...children: FishS
       newSymbols.push(...processForDefinition(document, node, children));
       break;
     case 'command':
+      if (isInlineVariableAssignment(node)) {
+        // Inline variable assignments are handled elsewhere
+        newSymbols.push(...processInlineVariables(document, node));
+        break;
+      }
       if (!firstNamedChild?.text) break;
       switch (firstNamedChild.text) {
         case 'set':

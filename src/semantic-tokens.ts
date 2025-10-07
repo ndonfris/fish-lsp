@@ -135,11 +135,11 @@ export const FishSemanticTokenModifiers = {
   ['not-autoloaded']: 'not-autoloaded',
   builtin: 'builtin',
   script: 'script',
+  'fish-lsp-directive': 'fish-lsp-directive',
 } as const;
 
 export type FishSemanticTokenModifier = keyof typeof FishSemanticTokenModifiers;
 export type FishSemanticTokenType = keyof typeof SemanticTokenTypes;
-
 /**
  * Complete list of semantic token modifiers for Fish LSP
  */
@@ -748,7 +748,7 @@ function addCommandTokensFromNode(
   document: LspDocument,
   range?: Range,
 ): void {
-  const lang = analyzer.cache.getParsedTree(document.uri)?.getLanguage();
+  const lang = analyzer.parser.getLanguage();
   if (!lang) return;
 
   // Use the same tree-sitter queries as the main function
