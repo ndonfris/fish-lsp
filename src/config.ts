@@ -26,6 +26,7 @@ export const ConfigHandlerSchema = z.object({
   codeAction: z.boolean().default(true),
   codeLens: z.boolean().default(true),
   folding: z.boolean().default(true),
+  selectionRange: z.boolean().default(true),
   signature: z.boolean().default(true),
   executeCommand: z.boolean().default(true),
   inlayHint: z.boolean().default(true),
@@ -603,6 +604,7 @@ export namespace Config {
         documentFormattingProvider: configHandlers.formatting,
         documentRangeFormattingProvider: configHandlers.formatRange,
         foldingRangeProvider: configHandlers.folding,
+        selectionRangeProvider: configHandlers.selectionRange,
         codeActionProvider: configHandlers.codeAction ? {
           codeActionKinds: [...AllSupportedActions],
           workDoneProgress: true,

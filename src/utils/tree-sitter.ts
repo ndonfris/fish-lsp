@@ -566,6 +566,24 @@ export function isNodeWithinOtherNode(node: SyntaxNode, otherNode: SyntaxNode): 
   return isNodeWithinRange(node, getRange(otherNode));
 }
 
+/**
+ * Checks if a server position is within a tree-sitter node
+ */
+export function isPositionInNode(position: Position, node: SyntaxNode): boolean {
+  const start = node.startPosition;
+  const end = node.endPosition;
+
+  // Check if position is before the node
+  if (position.line < start.row) return false;
+  if (position.line === start.row && position.character < start.column) return false;
+
+  // Check if position is after the node
+  if (position.line > end.row) return false;
+  if (position.line === end.row && position.character > end.column) return false;
+
+  return true;
+}
+
 export function getLeafNodes(node: SyntaxNode): SyntaxNode[] {
   function gatherLeafNodes(node: SyntaxNode, leafNodes: SyntaxNode[] = []): SyntaxNode[] {
     if (node.childCount === 0 && node.text !== '') {

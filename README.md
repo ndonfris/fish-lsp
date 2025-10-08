@@ -61,6 +61,7 @@ A detailed explanation of how a language server connection works is described on
 | __Logger__ | Logs all server activity | ✅ |
 | __Diagnostic__ | Shows all diagnostics | ✅ |
 | __Folding Range__ | Toggle ranges to fold text  | ✅ |
+| __Selection Range__ | Expand ranges when selecting text  | ✅ |
 | __Semantic Tokens__ | Server provides extra syntax highlighting | ✖ |
 | __CLI Interactivity__ | Provides a CLI for server interaction. <br/>Built by `fish-lsp complete` | ✅ |
 | __Client Tree__ | Shows the defined scope as a Tree | ✅ |
