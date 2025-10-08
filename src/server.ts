@@ -4,7 +4,7 @@ import './utils/array-polyfills';
 import './virtual-fs';
 import { SyntaxNode } from 'web-tree-sitter';
 import { AnalyzedDocument, analyzer, Analyzer } from './analyze';
-import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, ImplementationParams, CodeLensParams, CodeLens, WorkspaceFoldersChangeEvent } from 'vscode-languageserver';
+import { InitializeParams, CompletionParams, Connection, CompletionList, CompletionItem, MarkupContent, DocumentSymbolParams, DefinitionParams, Location, ReferenceParams, DocumentSymbol, InitializeResult, HoverParams, Hover, RenameParams, TextDocumentPositionParams, TextDocumentIdentifier, WorkspaceEdit, TextEdit, DocumentFormattingParams, DocumentRangeFormattingParams, FoldingRangeParams, FoldingRange, InlayHintParams, MarkupKind, WorkspaceSymbolParams, WorkspaceSymbol, SymbolKind, CompletionTriggerKind, SignatureHelpParams, SignatureHelp, ImplementationParams, CodeLensParams, CodeLens, WorkspaceFoldersChangeEvent, SelectionRangeParams, SelectionRange } from 'vscode-languageserver';
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, documents } from './document';
 import { formatDocumentWithIndentComments, formatDocumentContent } from './formatting';
@@ -40,6 +40,7 @@ import { isSourceCommandArgumentName } from './parsing/source';
 import { getReferences } from './references';
 import { getRenames } from './renames';
 import { getReferenceCountCodeLenses } from './code-lens';
+import { getSelectionRanges } from './selection-range';
 import { PkgJson } from './utils/commander-cli-subcommands';
 
 export type SupportedFeatures = {
@@ -269,6 +270,9 @@ export default class FishServer {
 
     connection.onCodeLens(this.onCodeLens.bind(this));
     connection.onFoldingRanges(this.onFoldingRanges.bind(this));
+    if (connection.onSelectionRanges) {
+      connection.onSelectionRanges(this.onSelectionRanges.bind(this));
+    }
 
     connection.onDocumentHighlight(documentHighlightHandler);
     connection.languages.inlayHint.on(this.onInlayHints.bind(this));
@@ -934,6 +938,17 @@ export default class FishServer {
     folds.forEach((fold) => logger.log({ fold }));
 
     return folds;
+  }
+
+  async onSelectionRanges(params: SelectionRangeParams): Promise<SelectionRange[] | null> {
+    this.logParams('onSelectionRanges', params);
+
+    const { doc } = this.getDefaultsForPartialParams(params);
+    if (!doc) {
+      return null;
+    }
+
+    return getSelectionRanges(doc, params.positions);
   }
 
   // works but is super slow and resource intensive, plus it doesn't really display much
