@@ -385,7 +385,8 @@ You can store them directly in your `config.fish` to be autoloaded for every fis
 #           'reference', 'logger', 'formatting', 'formatRange', 
 #           'typeFormatting', 'codeAction', 'codeLens', 'folding', 
 #           'selectionRange', 'signature', 'executeCommand', 'inlayHint', 
-#           'highlight', 'diagnostic', 'popups', 'semanticTokens')
+#           'highlight', 'diagnostic', 'popups', 'semanticTokens', 
+#           'linkedEditingRange')
 # (Default: [])
 set -gx fish_lsp_enabled_handlers 
 
@@ -395,7 +396,8 @@ set -gx fish_lsp_enabled_handlers
 #           'reference', 'logger', 'formatting', 'formatRange', 
 #           'typeFormatting', 'codeAction', 'codeLens', 'folding', 
 #           'selectionRange', 'signature', 'executeCommand', 'inlayHint', 
-#           'highlight', 'diagnostic', 'popups', 'semanticTokens')
+#           'highlight', 'diagnostic', 'popups', 'semanticTokens', 
+#           'linkedEditingRange')
 # (Default: [])
 set -gx fish_lsp_disabled_handlers 
 
@@ -540,7 +542,8 @@ set -gx fish_lsp_fish_path 'fish'
 #           'reference', 'logger', 'formatting', 'formatRange', 
 #           'typeFormatting', 'codeAction', 'codeLens', 'folding', 
 #           'selectionRange', 'signature', 'executeCommand', 'inlayHint', 
-#           'highlight', 'diagnostic', 'popups', 'semanticTokens')
+#           'highlight', 'diagnostic', 'popups', 'semanticTokens', 
+#           'linkedEditingRange')
 # (Default: [])
 set -gx fish_lsp_enabled_handlers 
 
@@ -550,7 +553,8 @@ set -gx fish_lsp_enabled_handlers
 #           'reference', 'logger', 'formatting', 'formatRange', 
 #           'typeFormatting', 'codeAction', 'codeLens', 'folding', 
 #           'selectionRange', 'signature', 'executeCommand', 'inlayHint', 
-#           'highlight', 'diagnostic', 'popups', 'semanticTokens')
+#           'highlight', 'diagnostic', 'popups', 'semanticTokens', 
+#           'linkedEditingRange')
 # (Default: [])
 set -gx fish_lsp_disabled_handlers 
 
