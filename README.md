@@ -369,23 +369,23 @@ Environment variables provide a way to globally configure the server across all 
 
 You can store them directly in your `config.fish` to be autoloaded for every fish session. Or if you prefer a more modular approach, checkout the [`--confd`](#environment-variables-confd) flag which will structure the autoloaded environment variables to only be sourced when the `fish-lsp` command exists.
 
-<!-- <summary style="flex: 1;"><span style="white-space:nowrap;"><a id="environment-variables-default">:package:</a> <h6><b> Default Values:</b> <code> fish-lsp env --show-defaults </code></h6></span></summary> -->
 <blockquote>
 <details>
 <summary>
 
-###### <a id="environment-variables-default">:package:</a> <b> Default Values: <code> fish-lsp env --show-defaults </code></b>
+###### <a id="environment-variables-default">:package:</a> <b> Default Values: <code> fish-lsp env --show-default </code></b>
 
 </summary>
 
+<!-- FISH_LSP_UPDATE_CODEBLOCK: fish-lsp env --show-default -->
 ```fish
 # $fish_lsp_enabled_handlers <ARRAY>
 # Enables the fish-lsp handlers. By default, all handlers are enabled.
 # (Options: 'complete', 'hover', 'rename', 'definition', 'implementation', 
 #           'reference', 'logger', 'formatting', 'formatRange', 
 #           'typeFormatting', 'codeAction', 'codeLens', 'folding', 
-#           'signature', 'executeCommand', 'inlayHint', 'highlight', 
-#           'diagnostic', 'popups')
+#           'selectionRange', 'signature', 'executeCommand', 'inlayHint', 
+#           'highlight', 'diagnostic', 'popups', 'semanticTokens')
 # (Default: [])
 set -gx fish_lsp_enabled_handlers 
 
@@ -394,8 +394,8 @@ set -gx fish_lsp_enabled_handlers
 # (Options: 'complete', 'hover', 'rename', 'definition', 'implementation', 
 #           'reference', 'logger', 'formatting', 'formatRange', 
 #           'typeFormatting', 'codeAction', 'codeLens', 'folding', 
-#           'signature', 'executeCommand', 'inlayHint', 'highlight', 
-#           'diagnostic', 'popups')
+#           'selectionRange', 'signature', 'executeCommand', 'inlayHint', 
+#           'highlight', 'diagnostic', 'popups', 'semanticTokens')
 # (Default: [])
 set -gx fish_lsp_disabled_handlers 
 
@@ -480,7 +480,7 @@ set -gx fish_lsp_allow_fish_wrapper_functions true
 set -gx fish_lsp_require_autoloaded_functions_to_have_description true
 
 # $fish_lsp_max_background_files <NUMBER>
-    # The maximum number of background files to read into buffer on startup.
+# The maximum number of background files to read into buffer on startup.
 # (Example Options: 100, 250, 500, 1000, 5000, 10000)
 # (Default: 10000)
 set -gx fish_lsp_max_background_files 10000
@@ -517,29 +517,30 @@ set -gx fish_lsp_max_workspace_depth 3
 # Typically, this is used in the language-client's `FishServer.initialize(connection, InitializeParams.initializationOptions)`, NOT as an environment variable
 # (Example Options: 'fish', '/usr/bin/fish', '/usr/.local/bin/fish', 
 #                   '~/.local/bin/fish')
-# (Default: 'fish')
+# (Default: '')
 set -gx fish_lsp_fish_path 'fish'
 ```
 
-</details></blockquote>
+</details>
+</blockquote>
 
 <blockquote>
 <details>
 <summary>
-<!-- <summary style="flex: 1;"><span style="white-space:nowrap;"><a id="environment-variables-template">:gear:</a> <h6><b>Complete Configuration Template:</b> <code> fish-lsp env --create </code></h6></span></summary> -->
 
 ###### <a id="environment-variables-template">:gear:</a> <b>Complete Configuration Template: <code> fish-lsp env --create </code></b>
 
 </summary>
 
+<!-- FISH_LSP_UPDATE_CODEBLOCK: fish-lsp env --create -->
 ```fish
 # $fish_lsp_enabled_handlers <ARRAY>
 # Enables the fish-lsp handlers. By default, all handlers are enabled.
 # (Options: 'complete', 'hover', 'rename', 'definition', 'implementation', 
 #           'reference', 'logger', 'formatting', 'formatRange', 
 #           'typeFormatting', 'codeAction', 'codeLens', 'folding', 
-#           'signature', 'executeCommand', 'inlayHint', 'highlight', 
-#           'diagnostic', 'popups', 'semanticTokens')
+#           'selectionRange', 'signature', 'executeCommand', 'inlayHint', 
+#           'highlight', 'diagnostic', 'popups', 'semanticTokens')
 # (Default: [])
 set -gx fish_lsp_enabled_handlers 
 
@@ -548,8 +549,8 @@ set -gx fish_lsp_enabled_handlers
 # (Options: 'complete', 'hover', 'rename', 'definition', 'implementation', 
 #           'reference', 'logger', 'formatting', 'formatRange', 
 #           'typeFormatting', 'codeAction', 'codeLens', 'folding', 
-#           'signature', 'executeCommand', 'inlayHint', 'highlight', 
-#           'diagnostic', 'popups', 'semanticTokens')
+#           'selectionRange', 'signature', 'executeCommand', 'inlayHint', 
+#           'highlight', 'diagnostic', 'popups', 'semanticTokens')
 # (Default: [])
 set -gx fish_lsp_disabled_handlers 
 
@@ -664,29 +665,29 @@ set -gx fish_lsp_ignore_paths
 # The maximum depth for the lsp to search when starting up.
 # (Example Options: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20)
 # (Default: 5)
-set -gx fish_lsp_max_workspace_depth
-
+set -gx fish_lsp_max_workspace_depth 
 
 # $fish_lsp_fish_path <STRING>
 # A path to the fish executable to use exposing fish binary to use in server's spawned child_processes.
 # Typically, this is used in the language-client's `FishServer.initialize(connection, InitializeParams.initializationOptions)`, NOT as an environment variable
 # (Example Options: 'fish', '/usr/bin/fish', '/usr/.local/bin/fish', 
 #                   '~/.local/bin/fish')
-# (Default: 'fish')
+# (Default: '')
 set -gx fish_lsp_fish_path
 ```
 
-</details></blockquote>
+</details>
+</blockquote>
 
 <blockquote>
 <details>
-<!-- <summary style="flex:1;"><span style="white-space:nowrap;"><h6><a id="environment-variables-json">:floppy_disk:</a> <b> Formatting as JSON:</b> <code> fish-lsp env --show-default --json </code></h6></span></summary> -->
 <summary>
 
 ###### <a id="environment-variables-json">:floppy_disk:</a> <b> Formatting as JSON:</b> <code> fish-lsp env --show-default --json </code>
 
 </summary>
 
+<!-- FISH_LSP_UPDATE_CODEBLOCK: fish-lsp env --show-default --json -->
 ```json
 {
   "fish_lsp_enabled_handlers": [],
@@ -731,7 +732,7 @@ set -gx fish_lsp_fish_path
 <details>
 <summary>
 
-###### <a id="environment-variables-confd">:jigsaw:</a> <b> Writing current values to <code> ~/.config/fish/conf.d/fish-lsp.fish </code></b>
+###### <a id="environment-variables-writing"> :jigsaw: </a> <b> Writing current values to <code> ~/.config/fish/conf.d/fish-lsp.fish </code></b>
 
 </summary>
 
@@ -746,9 +747,9 @@ fish-lsp env --show-default --only fish_lsp_all_indexed_paths fish_lsp_diagnosti
 fish-lsp env --show --confd > ~/.config/fish/conf.d/fish-lsp.fish
 ```
 
-</details></blockquote>
+</details>
+</blockquote>
 
-<!-- , environment variables can be passed to the server in the client's configuration via [`initializeParams.initializationOptions`](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#initializeParams), but this removes the flexible/interactive behavior that directly using the binary would allow. -->
 For language clients that import the source code directly and manually connect with the server (e.g., [VSCode](https://github.com/ndonfris/vscode-fish-lsp/blob/4aa63803a0d0a65ceabf164eaeb5a3e360662ef9/package.json#L136)), passing the environment configuration through the [`initializeParams.initializationOptions`](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#initializeParams) is also possible.
 
 #### Command Flags

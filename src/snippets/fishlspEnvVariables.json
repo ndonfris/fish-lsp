@@ -24,7 +24,8 @@
       "inlayHint",
       "highlight",
       "diagnostic",
-      "popups"
+      "popups",
+      "semanticTokens"
     ],
     "defaultValue": [],
     "valueType": "array"
@@ -54,7 +55,8 @@
       "inlayHint",
       "highlight",
       "diagnostic",
-      "popups"
+      "popups",
+      "semanticTokens"
     ],
     "defaultValue": [],
     "valueType": "array"

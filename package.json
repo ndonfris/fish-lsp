@@ -97,6 +97,7 @@
     "lint:check": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "lint:check-fix": "eslint . --ext .ts --fix-dry-run",
+    "update-codeblocks-in-docs": "tsx scripts/update-codeblocks-in-docs.ts",
     "update-changelog": "fish scripts/update-changelog.fish",
     "util:update-changelog": "conventional-changelog -i docs/CHANGELOG.md --same-file",
     "util:update-changelog:dry": "conventional-changelog -i docs/CHANGELOG.md --stdout",
