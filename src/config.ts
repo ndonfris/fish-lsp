@@ -355,6 +355,7 @@ function escapeValue(value: string | number | boolean): string {
   if (typeof value === 'string') {
     // for config values that are variables, surround w/ -> "
     if (value.startsWith('$__fish')) return `"${value}"`;
+    if (value === '') return "''"; // empty string -> ''
     // Replace special characters with their escaped equivalents
     return `'${value.replace(/\\/g, '\\\\').replace(/\t/g, '\\t').replace(/'/g, "\\'")}'`;
   } else {

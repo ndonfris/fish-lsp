@@ -162,6 +162,8 @@ function buildBodySection(subtitle: string, body: string, shouldWrap: boolean = 
   let currentLine = titleStr;
   const leftpadBody = !hasTitle() ? '' : ' '.repeat(titleStr.length);
 
+  // handle special case where body is empty or just quotes given for default section
+  body = subtitle === 'Default' && ['""', "''", ''].includes(body.trim()) ? "''" : body;
   const splitBody = body.split(' ');
   const addComma = (idx: number) => idx === splitBody.length - 1 ? '' : ',';
   const words = asMarkdown
