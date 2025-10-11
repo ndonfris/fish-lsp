@@ -21,6 +21,237 @@ import { getChildNodes, getNamedChildNodes } from '../src/utils/tree-sitter';
 import { Workspace } from '../src/utils/workspace';
 import { workspaceManager } from '../src/utils/workspace-manager';
 
+/**
+ * Sets up mock for the startup module.
+ * Call this BEFORE importing FishServer or any module that imports from startup.
+ *
+ * @example
+ * ```typescript
+ * import { setupStartupMock } from './helpers';
+ *
+ * // At the top of your test file, before other imports
+ * setupStartupMock();
+ *
+ * // Now import FishServer
+ * import FishServer from '../src/server';
+ * ```
+ */
+export function setupStartupMock() {
+  vi.mock('../src/utils/startup', () => ({
+    connection: {
+      listen: vi.fn(),
+      onInitialize: vi.fn(),
+      onInitialized: vi.fn(),
+      onShutdown: vi.fn(),
+      onExit: vi.fn(),
+      onDidOpenTextDocument: vi.fn(),
+      onDidChangeTextDocument: vi.fn(),
+      onDidCloseTextDocument: vi.fn(),
+      onDidSaveTextDocument: vi.fn(),
+      onWillSaveTextDocument: vi.fn(),
+      onWillSaveTextDocumentWaitUntil: vi.fn(),
+      onCompletion: vi.fn(),
+      onCompletionResolve: vi.fn(),
+      onDocumentSymbol: vi.fn(),
+      onWorkspaceSymbol: vi.fn(),
+      onWorkspaceSymbolResolve: vi.fn(),
+      onDefinition: vi.fn(),
+      onImplementation: vi.fn(),
+      onReferences: vi.fn(),
+      onHover: vi.fn(),
+      onRenameRequest: vi.fn(),
+      onPrepareRename: vi.fn(),
+      onDocumentFormatting: vi.fn(),
+      onDocumentRangeFormatting: vi.fn(),
+      onDocumentOnTypeFormatting: vi.fn(),
+      onCodeAction: vi.fn(),
+      onCodeActionResolve: vi.fn(),
+      onCodeLens: vi.fn(),
+      onCodeLensResolve: vi.fn(),
+      onFoldingRanges: vi.fn(),
+      onSelectionRanges: vi.fn(),
+      onDocumentHighlight: vi.fn(),
+      onDocumentLinks: vi.fn(),
+      onDocumentLinkResolve: vi.fn(),
+      onDocumentColor: vi.fn(),
+      onColorPresentation: vi.fn(),
+      onTypeDefinition: vi.fn(),
+      onDeclaration: vi.fn(),
+      onSignatureHelp: vi.fn(),
+      onExecuteCommand: vi.fn(),
+      languages: {
+        inlayHint: {
+          on: vi.fn(),
+          resolve: vi.fn(),
+        },
+        semanticTokens: {
+          on: vi.fn(),
+          onDelta: vi.fn(),
+          onRange: vi.fn(),
+        },
+        onLinkedEditingRange: vi.fn(),
+      },
+      onRequest: vi.fn(),
+      onNotification: vi.fn(),
+      sendRequest: vi.fn(),
+      sendNotification: vi.fn(),
+      sendDiagnostics: vi.fn(),
+      sendProgress: vi.fn(),
+      onProgress: vi.fn(),
+      console: {
+        error: vi.fn(),
+        warn: vi.fn(),
+        info: vi.fn(),
+        log: vi.fn(),
+        connection: {} as any,
+      },
+      window: {
+        createWorkDoneProgress: vi.fn().mockResolvedValue({
+          begin: vi.fn(),
+          report: vi.fn(),
+          done: vi.fn(),
+        }),
+        showErrorMessage: vi.fn(),
+        showWarningMessage: vi.fn(),
+        showInformationMessage: vi.fn(),
+        showDocument: vi.fn(),
+      },
+      workspace: {
+        onDidChangeWorkspaceFolders: vi.fn(),
+        onDidCreateFiles: vi.fn(),
+        onDidRenameFiles: vi.fn(),
+        onDidDeleteFiles: vi.fn(),
+        onWillCreateFiles: vi.fn(),
+        onWillRenameFiles: vi.fn(),
+        onWillDeleteFiles: vi.fn(),
+        getConfiguration: vi.fn(),
+        getWorkspaceFolders: vi.fn(),
+        applyEdit: vi.fn(),
+      },
+      tracer: {
+        log: vi.fn(),
+        connection: {} as any,
+      },
+      telemetry: {
+        logEvent: vi.fn(),
+        connection: {} as any,
+      },
+      client: {
+        register: vi.fn(),
+        connection: {} as any,
+      },
+      dispose: vi.fn(),
+      onDispose: vi.fn(),
+    } as unknown as LSP.Connection,
+    createBrowserConnection: vi.fn().mockImplementation(() => ({
+      listen: vi.fn(),
+      onInitialize: vi.fn(),
+      onInitialized: vi.fn(),
+      onShutdown: vi.fn(),
+      onExit: vi.fn(),
+      onDidOpenTextDocument: vi.fn(),
+      onDidChangeTextDocument: vi.fn(),
+      onDidCloseTextDocument: vi.fn(),
+      onDidSaveTextDocument: vi.fn(),
+      onWillSaveTextDocument: vi.fn(),
+      onWillSaveTextDocumentWaitUntil: vi.fn(),
+      onCompletion: vi.fn(),
+      onCompletionResolve: vi.fn(),
+      onDocumentSymbol: vi.fn(),
+      onWorkspaceSymbol: vi.fn(),
+      onWorkspaceSymbolResolve: vi.fn(),
+      onDefinition: vi.fn(),
+      onImplementation: vi.fn(),
+      onReferences: vi.fn(),
+      onHover: vi.fn(),
+      onRenameRequest: vi.fn(),
+      onPrepareRename: vi.fn(),
+      onDocumentFormatting: vi.fn(),
+      onDocumentRangeFormatting: vi.fn(),
+      onDocumentOnTypeFormatting: vi.fn(),
+      onCodeAction: vi.fn(),
+      onCodeActionResolve: vi.fn(),
+      onCodeLens: vi.fn(),
+      onCodeLensResolve: vi.fn(),
+      onFoldingRanges: vi.fn(),
+      onSelectionRanges: vi.fn(),
+      onDocumentHighlight: vi.fn(),
+      onDocumentLinks: vi.fn(),
+      onDocumentLinkResolve: vi.fn(),
+      onDocumentColor: vi.fn(),
+      onColorPresentation: vi.fn(),
+      onTypeDefinition: vi.fn(),
+      onDeclaration: vi.fn(),
+      onSignatureHelp: vi.fn(),
+      onExecuteCommand: vi.fn(),
+      languages: {
+        inlayHint: {
+          on: vi.fn(),
+          resolve: vi.fn(),
+        },
+        semanticTokens: {
+          on: vi.fn(),
+          onDelta: vi.fn(),
+          onRange: vi.fn(),
+        },
+        onLinkedEditingRange: vi.fn(),
+      },
+      onRequest: vi.fn(),
+      onNotification: vi.fn(),
+      sendRequest: vi.fn(),
+      sendNotification: vi.fn(),
+      sendDiagnostics: vi.fn(),
+      sendProgress: vi.fn(),
+      onProgress: vi.fn(),
+      console: {
+        error: vi.fn(),
+        warn: vi.fn(),
+        info: vi.fn(),
+        log: vi.fn(),
+        connection: {} as any,
+      },
+      window: {
+        createWorkDoneProgress: vi.fn().mockResolvedValue({
+          begin: vi.fn(),
+          report: vi.fn(),
+          done: vi.fn(),
+        }),
+        showErrorMessage: vi.fn(),
+        showWarningMessage: vi.fn(),
+        showInformationMessage: vi.fn(),
+        showDocument: vi.fn(),
+      },
+      workspace: {
+        onDidChangeWorkspaceFolders: vi.fn(),
+        onDidCreateFiles: vi.fn(),
+        onDidRenameFiles: vi.fn(),
+        onDidDeleteFiles: vi.fn(),
+        onWillCreateFiles: vi.fn(),
+        onWillRenameFiles: vi.fn(),
+        onWillDeleteFiles: vi.fn(),
+        getConfiguration: vi.fn(),
+        getWorkspaceFolders: vi.fn(),
+        applyEdit: vi.fn(),
+      },
+      tracer: {
+        log: vi.fn(),
+        connection: {} as any,
+      },
+      telemetry: {
+        logEvent: vi.fn(),
+        connection: {} as any,
+      },
+      client: {
+        register: vi.fn(),
+        connection: {} as any,
+      },
+      dispose: vi.fn(),
+      onDispose: vi.fn(),
+    } as unknown as LSP.Connection)),
+    setExternalConnection: vi.fn(),
+  }));
+}
+
 export const fail = () => {
   return (msg?: string) => {
     expect(true).toBe(false);
@@ -155,6 +386,40 @@ export function createMockConnection(): LSP.Connection {
     dispose: vi.fn(),
     onDispose: vi.fn(),
   } as unknown as LSP.Connection;
+}
+
+/**
+ * Helper function to get references to mocked initialization functions
+ * Use this AFTER you've set up vi.mock() for the modules in your test file.
+ *
+ * @example
+ * ```typescript
+ * import { getMockedInitializationFunctions } from './helpers';
+ *
+ * // In your test (after vi.mock calls)
+ * const { initializeDocumentationCache } = await import('../src/utils/documentation-cache');
+ *
+ * await FishServer.create(mockConnection, mockParams);
+ *
+ * // Verify initialization was called
+ * expect(initializeDocumentationCache).toHaveBeenCalled();
+ * ```
+ */
+export async function getMockedInitializationFunctions() {
+  const docCache = await import('../src/utils/documentation-cache');
+  const workspace = await import('../src/utils/workspace');
+  const completionCache = await import('../src/utils/completion/startup-cache');
+  const pager = await import('../src/utils/completion/pager');
+  const processEnv = await import('../src/utils/process-env');
+
+  return {
+    initializeDocumentationCache: docCache.initializeDocumentationCache,
+    initializeDefaultFishWorkspaces: workspace.initializeDefaultFishWorkspaces,
+    getWorkspacePathsFromInitializationParams: workspace.getWorkspacePathsFromInitializationParams,
+    CompletionItemMapInitialize: completionCache.CompletionItemMap.initialize,
+    initializeCompletionPager: pager.initializeCompletionPager,
+    setupProcessEnvExecFile: processEnv.setupProcessEnvExecFile,
+  };
 }
 
 /**
