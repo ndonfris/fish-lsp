@@ -1,3 +1,16 @@
+## <small>1.1.1-pre.0 (2025-10-11)</small>
+
+* test: `tests/helpers.ts` file includes `setupStartupMock()` to mock connection ([a0b83b0](https://github.com/ndonfris/fish-lsp/commit/a0b83b0))
+* feat: `server.linkedEditingRange()` handler ([aecf1a2](https://github.com/ndonfris/fish-lsp/commit/aecf1a2))
+* feat: added initial inline-variable parser support ([a480d2d](https://github.com/ndonfris/fish-lsp/commit/a480d2d))
+* feat: added selectionRange handler `src/selection-range.ts` ([3b55336](https://github.com/ndonfris/fish-lsp/commit/3b55336))
+* feat: updates to semanticTokens ([79b8f6f](https://github.com/ndonfris/fish-lsp/commit/79b8f6f))
+* docs: added automatic `README.md` replace code-block automation ([0bcee74](https://github.com/ndonfris/fish-lsp/commit/0bcee74))
+* build: `yarn dev` <-> `yarn build` ([133731b](https://github.com/ndonfris/fish-lsp/commit/133731b))
+* chore: initial semantic-tokens support using tree-sitter ([5bca0c7](https://github.com/ndonfris/fish-lsp/commit/5bca0c7))
+
+
+
 ## 1.1.0 (2025-10-01)
 
 * fix: `scripts/*.fish` now use `scripts/utils.fish` for npm pkg info ([420c436](https://github.com/ndonfris/fish-lsp/commit/420c436))
