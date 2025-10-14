@@ -81,7 +81,7 @@ function getFallbackModifierScope(document: LspDocument, node: SyntaxNode) {
  * @param node The node to check isCommandWithName(node, 'read')
  * @returns nodes that are variable names and the modifier if seen
  */
-function findReadChildren(node: SyntaxNode): { definitionNodes: SyntaxNode[]; modifier: Option | undefined; } {
+export function findReadChildren(node: SyntaxNode): { definitionNodes: SyntaxNode[]; modifier: Option | undefined; } {
   let modifier: Option | undefined = undefined;
   const definitionNodes: SyntaxNode[] = [];
   const allFocused: SyntaxNode[] = node.childrenForFieldName('argument')

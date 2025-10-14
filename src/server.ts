@@ -8,7 +8,7 @@ import { InitializeParams, CompletionParams, Connection, CompletionList, Complet
 import * as LSP from 'vscode-languageserver';
 import { LspDocument, documents } from './document';
 import { formatDocumentWithIndentComments, formatDocumentContent } from './formatting';
-import { createServerLogger, logger } from './logger';
+import { createServerLogger, logger, now } from './logger';
 import { connection, createBrowserConnection, setExternalConnection } from './utils/startup';
 import { formatTextWithIndents, symbolKindsFromNode, uriToPath } from './utils/translation';
 import { getChildNodes } from './utils/tree-sitter';
@@ -17,7 +17,7 @@ import { DocumentationCache, initializeDocumentationCache } from './utils/docume
 import { getWorkspacePathsFromInitializationParams, initializeDefaultFishWorkspaces } from './utils/workspace';
 import { workspaceManager } from './utils/workspace-manager';
 import { formatFishSymbolTree, filterLastPerScopeSymbol, FishSymbol } from './parsing/symbol';
-import { CompletionPager, initializeCompletionPager, SetupData } from './utils/completion/pager';
+import { CompletionPager, initializeCompletionPager, isInVariableExpansionContext, SetupData } from './utils/completion/pager';
 import { FishCompletionItem } from './utils/completion/types';
 import { getDocumentationResolver } from './utils/completion/documentation';
 import { FishCompletionList } from './utils/completion/list';
@@ -75,7 +75,7 @@ export default class FishServer {
     initializeResult: InitializeResult;
   }> {
     const connection = props.connection || createBrowserConnection();
-    logger.info(`(${new Date().toISOString()}) FishServer.createWebServer()`, {
+    logger.info(`(${now()}) FishServer.createWebServer()`, {
       version: PkgJson.version,
       buildTime: PkgJson.buildTime,
       props,
@@ -433,6 +433,7 @@ export default class FishServer {
   // • Add local file items.
   // • Lastly add parameterInformation items.  [ 1477 : ParameterInformation ]
   // convert to CompletionItem[]
+
   async onCompletion(params: CompletionParams): Promise<CompletionList> {
     this.logParams('onCompletion', params);
     if (!this.backgroundAnalysisComplete) {
@@ -468,7 +469,7 @@ export default class FishServer {
         logger.log('completeComment');
         return buildCommentCompletions(line, params.position, current, fishCompletionData, word);
       }
-      if (word.trim().endsWith('$') || line.trim().endsWith('$') || word.trim() === '$' && !word.startsWith('$$')) {
+      if (isInVariableExpansionContext(doc, params.position, line, word, current ?? null)) {
         logger.log('completeVariables');
         return this.completion.completeVariables(line, word, fishCompletionData, symbols);
       }
