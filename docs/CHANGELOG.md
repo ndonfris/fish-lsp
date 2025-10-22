@@ -1,3 +1,21 @@
+## <small>1.1.1-pre.1 (2025-10-22)</small>
+
+* revert: removed `linkedEditingRange` handler ([5aa1820](https://github.com/ndonfris/fish-lsp/commit/5aa1820))
+* refactor: semantic tokens + bump `v1.1.1-pre.1` + docs ([963efb8](https://github.com/ndonfris/fish-lsp/commit/963efb8))
+* feat: `server.linkedEditingRange()` handler ([19d8321](https://github.com/ndonfris/fish-lsp/commit/19d8321))
+* feat: added initial inline-variable parser support ([a480d2d](https://github.com/ndonfris/fish-lsp/commit/a480d2d))
+* feat: added selectionRange handler `src/selection-range.ts` ([57902d6](https://github.com/ndonfris/fish-lsp/commit/57902d6))
+* feat: semantic tokens implemented more thoroughly ([3baac83](https://github.com/ndonfris/fish-lsp/commit/3baac83))
+* feat: updated snippet generation for `{envVariables,specialFishVariables}.json` ([a3669ec](https://github.com/ndonfris/fish-lsp/commit/a3669ec))
+* feat: updates to semanticTokens ([79b8f6f](https://github.com/ndonfris/fish-lsp/commit/79b8f6f))
+* chore: auto-commit fish-lsp@1.1.1-pre.0 ([df8b264](https://github.com/ndonfris/fish-lsp/commit/df8b264))
+* chore: initial semantic-tokens support using tree-sitter ([5bca0c7](https://github.com/ndonfris/fish-lsp/commit/5bca0c7))
+* test: `tests/helpers.ts` file includes `setupStartupMock()` to mock connection ([4634637](https://github.com/ndonfris/fish-lsp/commit/4634637))
+* docs: added automatic `README.md` replace code-block automation ([01c1eb6](https://github.com/ndonfris/fish-lsp/commit/01c1eb6))
+* build: `yarn dev` <-> `yarn build` ([4c72cb1](https://github.com/ndonfris/fish-lsp/commit/4c72cb1))
+
+
+
 ## <small>1.1.1-pre.0 (2025-10-11)</small>
 
 * test: `tests/helpers.ts` file includes `setupStartupMock()` to mock connection ([a0b83b0](https://github.com/ndonfris/fish-lsp/commit/a0b83b0))

@@ -34,7 +34,6 @@ export const ConfigHandlerSchema = z.object({
   diagnostic: z.boolean().default(true),
   popups: z.boolean().default(true),
   semanticTokens: z.boolean().default(true),
-  linkedEditingRange: z.boolean().default(true),
 });
 
 /**
@@ -69,7 +68,6 @@ export const validHandlers: Array<keyof typeof ConfigHandlerSchema.shape> = [
   'complete', 'hover', 'rename', 'definition', 'implementation', 'reference', 'formatting',
   'formatRange', 'typeFormatting', 'codeAction', 'codeLens', 'folding', 'signature',
   'executeCommand', 'inlayHint', 'highlight', 'diagnostic', 'popups', 'semanticTokens',
-  'linkedEditingRange',
 ];
 
 export function updateHandlers(keys: string[], value: boolean): void {
@@ -635,7 +633,7 @@ export namespace Config {
           firstTriggerCharacter: '.',
           moreTriggerCharacter: [';', '}', ']', ')'],
         } : undefined,
-        linkedEditingRangeProvider: configHandlers.linkedEditingRange,
+        // linkedEditingRangeProvider: configHandlers.linkedEditingRange,
         // Add this for workspace folder support:
         workspace: {
           workspaceFolders: {

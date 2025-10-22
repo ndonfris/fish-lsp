@@ -798,11 +798,6 @@ export function isBraceExpansion(node: SyntaxNode) {
   return node.type === 'brace_expansion';
 }
 
-// export function isPath(node: SyntaxNode) {
-//   if (node.text.includes('/')) return true;
-//   return false;
-// }
-
 /**
  * Check if a node represents a file path (with filename modifier)
  * This matches the exact logic from the original addPathTokensToArray function.
@@ -878,13 +873,6 @@ export function isDirectoryPath(node: SyntaxNode): boolean {
 
   return false;
 }
-
-/**
- * Check if a node represents any kind of path (file or directory)
- */
-// export function isPath(node: SyntaxNode): boolean {
-//   return isFilepath(node) || isDirectoryPath(node);
-// }
 
 /**
  * Check if a node represents any kind of path (file or directory)

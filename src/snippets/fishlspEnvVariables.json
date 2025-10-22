@@ -1,7 +1,7 @@
 [
   {
     "name": "fish_lsp_enabled_handlers",
-    "description": "Enables the fish-lsp handlers. By default, all handlers are enabled.",
+    "description": "Enables the fish-lsp handlers. By default, all stable handlers are enabled.",
     "shortDescription": "server handlers to enable",
     "exactMatchOptions": true,
     "options": [
@@ -25,15 +25,14 @@
       "highlight",
       "diagnostic",
       "popups",
-      "semanticTokens",
-      "linkedEditingRange"
+      "semanticTokens"
     ],
     "defaultValue": [],
     "valueType": "array"
   },
   {
     "name": "fish_lsp_disabled_handlers",
-    "description": "Disables the fish-lsp handlers. By default, no handlers are disabled.",
+    "description": "Disables the fish-lsp handlers. By default, non-stable handlers are disabled.",
     "shortDescription": "server handlers to disable",
     "exactMatchOptions": true,
     "options": [
@@ -57,8 +56,7 @@
       "highlight",
       "diagnostic",
       "popups",
-      "semanticTokens",
-      "linkedEditingRange"
+      "semanticTokens"
     ],
     "defaultValue": [],
     "valueType": "array"
