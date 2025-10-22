@@ -425,7 +425,7 @@ export function analyzeValueType(text: string): { tokenType: string; modifiers?:
     return { tokenType: 'string' };
   }
 
-  if (/^(true|false|yes|no|on|off)$/i.test(text)) {
+  if (/^(true|false)$/i.test(text)) {
     return { tokenType: 'keyword' };
   }
 
