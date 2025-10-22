@@ -160,8 +160,14 @@ export function buildExportDetail(doc: LspDocument, commandNode: SyntaxNode, var
 export function processExportCommand(document: LspDocument, node: SyntaxNode, children: FishSymbol[] = []): FishSymbol[] {
   if (!isExportDefinition(node)) return [];
 
+  // Get the second argument (the variable assignment part)
+  const args = node.namedChildren.slice(1); // Skip 'export' command name
+  if (args.length === 0) return [];
+
+  const argNode = args[0]!;
+
   // Find the variable definition in the command's arguments
-  const found = findVariableDefinitionNameNode(node);
+  const found = findVariableDefinitionNameNode(argNode);
 
   const varDefNode = found?.nameNode;
   if (!found || !varDefNode) return [];
@@ -169,7 +175,7 @@ export function processExportCommand(document: LspDocument, node: SyntaxNode, ch
   const {
     name,
     nameRange,
-  } = extractExportVariable(varDefNode) as ExtractedExportVariable;
+  } = extractExportVariable(node) as ExtractedExportVariable;
 
   // Get the scope - export always creates global exported variables
   const scope = DefinitionScope.create(node.parent || node, 'global');

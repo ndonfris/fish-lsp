@@ -5,7 +5,7 @@ import { CompleteOptions } from './complete';
 import { FunctionOptions, FunctionVariableOptions } from './function';
 import { FishSymbolKind } from './symbol-kinds';
 import { Option } from './options';
-import { FishSemanticTokenModifier, FishSemanticTokenType } from '../semantic-tokens';
+import { FishSemanticTokenModifier, FishSemanticTokenType } from '../utils/semantics';
 import { FishSymbol } from './symbol';
 
 export const SymbolModifiers: Record<FishSymbolKind, Option[]> = {

@@ -3,7 +3,7 @@ import { getLeafNodes } from './tree-sitter';
 import { isDefinitionName, isEmittedEventDefinitionName, VariableDefinitionKeywords } from '../parsing/barrel';
 import { Option, isMatchingOption, isMatchingOptionOrOptionValue, isMatchingOptionValue } from '../parsing/options';
 import { isVariableDefinitionName, isFunctionDefinitionName, isAliasDefinitionName, isExportVariableDefinitionName, isArgparseVariableDefinitionName } from '../parsing/barrel';
-import { BuiltInList } from './builtins';
+import { isBuiltin as checkBuiltinName, BuiltInList } from './builtins';
 import { PrebuiltDocumentationMap } from './snippets';
 
 // use the `../parsing/barrel` barrel file's imports for finding the definition names
@@ -240,16 +240,12 @@ export function isEnd(node: SyntaxNode): boolean {
   return node.type === 'end';
 }
 
-//export function isLocalBlock(node: SyntaxNode): boolean {
-//return ['begin_statement'].includes(node.type);
-//}
-
 /**
  * Any SyntaxNode that will enclose a new local scope:
  *      Program, Function, if, for, while
  */
 export function isScope(node: SyntaxNode): boolean {
-  return isProgram(node) || isFunctionDefinition(node) || isStatement(node); // || isLocalBlock(node)//
+  return isProgram(node) || isFunctionDefinition(node) || isStatement(node);
 }
 
 export function isSemicolon(node: SyntaxNode): boolean {
@@ -802,9 +798,99 @@ export function isBraceExpansion(node: SyntaxNode) {
   return node.type === 'brace_expansion';
 }
 
-export function isPath(node: SyntaxNode) {
-  if (node.text.includes('/')) return true;
+// export function isPath(node: SyntaxNode) {
+//   if (node.text.includes('/')) return true;
+//   return false;
+// }
+
+/**
+ * Check if a node represents a file path (with filename modifier)
+ * This matches the exact logic from the original addPathTokensToArray function.
+ *
+ * Matches:
+ * - Absolute paths with file extensions that don't end with /: /path/to/file.txt
+ * - Relative filenames with extensions (no path separators): config.fish, file.txt
+ */
+export function isFilepath(node: SyntaxNode): boolean {
+  // home_dir_expansion nodes are always treated as directory paths in the original
+  if (node.type === 'home_dir_expansion') {
+    return false;
+  }
+
+  if (node.type !== 'word') {
+    return false;
+  }
+
+  const text = node.text;
+
+  // Detect absolute paths that start with /
+  if (text.match(/^\/[a-zA-Z0-9_\-\/\.]+/)) {
+    // Original logic: it's a filename if it has an extension AND doesn't end with /
+    const hasExtension = text.match(/\.[a-zA-Z0-9]+$/);
+    const endsWithSlash = text.endsWith('/');
+    return hasExtension !== null && !endsWithSlash;
+  }
+
+  // Detect relative paths with file extensions (no leading slash or ~)
+  // Pattern: word characters, dash, underscore, then dot, then extension
+  if (text.match(/^[a-zA-Z0-9_\-]+\.[a-zA-Z0-9]+$/)) {
+    return true;
+  }
+
   return false;
+}
+
+/**
+ * Check if a node represents a directory path (with path modifier)
+ * This matches the exact logic from the original addPathTokensToArray function.
+ *
+ * Matches:
+ * - Absolute paths without file extension or ending with /: /path/to/dir, /usr/bin/
+ * - Home directory paths: ~, ~/dir, ~/path/to/dir
+ * - home_dir_expansion nodes
+ */
+export function isDirectoryPath(node: SyntaxNode): boolean {
+  // home_dir_expansion nodes are always directory paths
+  if (node.type === 'home_dir_expansion') {
+    return true;
+  }
+
+  if (node.type !== 'word') {
+    return false;
+  }
+
+  const text = node.text;
+
+  // Detect home directory paths: ~ or ~/something
+  if (text.match(/^~(\/[a-zA-Z0-9_\-\/\.]*)?$/)) {
+    return true;
+  }
+
+  // Detect absolute paths that start with /
+  if (text.match(/^\/[a-zA-Z0-9_\-\/\.]+/)) {
+    // Original logic: it's a directory path if it's NOT a filename
+    // A filename has an extension AND doesn't end with /
+    const hasExtension = text.match(/\.[a-zA-Z0-9]+$/);
+    const endsWithSlash = text.endsWith('/');
+    const isFilename = hasExtension !== null && !endsWithSlash;
+    return !isFilename;
+  }
+
+  return false;
+}
+
+/**
+ * Check if a node represents any kind of path (file or directory)
+ */
+// export function isPath(node: SyntaxNode): boolean {
+//   return isFilepath(node) || isDirectoryPath(node);
+// }
+
+/**
+ * Check if a node represents any kind of path (file or directory)
+ */
+export function isPath(node: SyntaxNode): boolean {
+  return isFilepath(node) || isDirectoryPath(node);
 }
 
 export function isBuiltin(node: SyntaxNode) {
@@ -820,4 +906,16 @@ export function isCompleteCommandName(node: SyntaxNode) {
     return !isOption(node);
   }
   return false;
+}
+
+/**
+ * Checks if a command name is a built-in fish command
+ */
+export function isBuiltinCommand(node: SyntaxNode): boolean {
+  if (!isCommand(node)) return false;
+
+  const commandName = node.firstNamedChild;
+  if (!commandName || !isCommandName(commandName)) return false;
+
+  return checkBuiltinName(commandName.text);
 }

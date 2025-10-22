@@ -6,7 +6,7 @@ import { AllSupportedActions } from './code-actions/action-kinds';
 import { LspCommands } from './command';
 import { PackageVersion, SubcommandEnv } from './utils/commander-cli-subcommands';
 import { ErrorCodes } from './diagnostics/error-codes';
-import { FISH_SEMANTIC_TOKENS_LEGEND } from './semantic-tokens';
+import { FISH_SEMANTIC_TOKENS_LEGEND } from './utils/semantics';
 
 /********************************************
  **********  Handlers/Providers   ***********

@@ -304,6 +304,11 @@ export class FishSymbol {
     return false;
   }
 
+  skippableVariableName(): boolean {
+    if (!this.isVariable()) return false;
+    return SKIPPABLE_VARIABLE_REFERENCE_NAMES.includes(this.name);
+  }
+
   get path() {
     return uriToPath(this.uri);
   }
@@ -380,6 +385,12 @@ export class FishSymbol {
 
   isGlobal() {
     return this.scope.scopeTag === 'global' || this.scope.scopeTag === 'universal';
+  }
+
+  isAutoloaded() {
+    const doc = this.document.getAutoLoadName();
+    if (!doc) return false;
+    return this.name === doc && this.document.isAutoloaded() && this.isRootLevel();
   }
 
   isRootLevel() {

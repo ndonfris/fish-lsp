@@ -380,24 +380,22 @@ You can store them directly in your `config.fish` to be autoloaded for every fis
 <!-- FISH_LSP_UPDATE_CODEBLOCK: fish-lsp env --show-default -->
 ```fish
 # $fish_lsp_enabled_handlers <ARRAY>
-# Enables the fish-lsp handlers. By default, all handlers are enabled.
+# Enables the fish-lsp handlers. By default, all stable handlers are enabled.
 # (Options: 'complete', 'hover', 'rename', 'definition', 'implementation', 
 #           'reference', 'logger', 'formatting', 'formatRange', 
 #           'typeFormatting', 'codeAction', 'codeLens', 'folding', 
 #           'selectionRange', 'signature', 'executeCommand', 'inlayHint', 
-#           'highlight', 'diagnostic', 'popups', 'semanticTokens', 
-#           'linkedEditingRange')
+#           'highlight', 'diagnostic', 'popups', 'semanticTokens')
 # (Default: [])
 set -gx fish_lsp_enabled_handlers 
 
 # $fish_lsp_disabled_handlers <ARRAY>
-# Disables the fish-lsp handlers. By default, no handlers are disabled.
+# Disables the fish-lsp handlers. By default, non-stable handlers are disabled.
 # (Options: 'complete', 'hover', 'rename', 'definition', 'implementation', 
 #           'reference', 'logger', 'formatting', 'formatRange', 
 #           'typeFormatting', 'codeAction', 'codeLens', 'folding', 
 #           'selectionRange', 'signature', 'executeCommand', 'inlayHint', 
-#           'highlight', 'diagnostic', 'popups', 'semanticTokens', 
-#           'linkedEditingRange')
+#           'highlight', 'diagnostic', 'popups', 'semanticTokens')
 # (Default: [])
 set -gx fish_lsp_disabled_handlers 
 
@@ -537,24 +535,22 @@ set -gx fish_lsp_fish_path 'fish'
 <!-- FISH_LSP_UPDATE_CODEBLOCK: fish-lsp env --create -->
 ```fish
 # $fish_lsp_enabled_handlers <ARRAY>
-# Enables the fish-lsp handlers. By default, all handlers are enabled.
+# Enables the fish-lsp handlers. By default, all stable handlers are enabled.
 # (Options: 'complete', 'hover', 'rename', 'definition', 'implementation', 
 #           'reference', 'logger', 'formatting', 'formatRange', 
 #           'typeFormatting', 'codeAction', 'codeLens', 'folding', 
 #           'selectionRange', 'signature', 'executeCommand', 'inlayHint', 
-#           'highlight', 'diagnostic', 'popups', 'semanticTokens', 
-#           'linkedEditingRange')
+#           'highlight', 'diagnostic', 'popups', 'semanticTokens')
 # (Default: [])
 set -gx fish_lsp_enabled_handlers 
 
 # $fish_lsp_disabled_handlers <ARRAY>
-# Disables the fish-lsp handlers. By default, no handlers are disabled.
+# Disables the fish-lsp handlers. By default, non-stable handlers are disabled.
 # (Options: 'complete', 'hover', 'rename', 'definition', 'implementation', 
 #           'reference', 'logger', 'formatting', 'formatRange', 
 #           'typeFormatting', 'codeAction', 'codeLens', 'folding', 
 #           'selectionRange', 'signature', 'executeCommand', 'inlayHint', 
-#           'highlight', 'diagnostic', 'popups', 'semanticTokens', 
-#           'linkedEditingRange')
+#           'highlight', 'diagnostic', 'popups', 'semanticTokens')
 # (Default: [])
 set -gx fish_lsp_disabled_handlers 
 

@@ -1197,4 +1197,35 @@ complete -c foo -s d -l describe -d 'describe'`);
       expect(new Set([...results.map(n => n.text)]).size).toEqual(1);
     });
   });
+
+  describe('paths', () => {
+    it('isFilepath(node) === true', () => {
+      const { rootNode } = parser.parse('alias foo /usr/local/bin/fish');
+      const fileName = getChildNodes(rootNode).find(child => NodeTypes.isPath(child));
+      console.log(fileName?.text);
+      // expect(NodeTypes.isFilepath(fileName)).toBeTruthy();
+    });
+
+    it('isDirectorypath(node)', () => {
+      const { rootNode } = parser.parse('alias foo /usr/local/bin/');
+      const results: SyntaxNode[] = [];
+      for (const child of getChildNodes(rootNode)) {
+        if (NodeTypes.isDirectoryPath(child)) {
+          results.push(child);
+        }
+      }
+      expect(results.length).toBe(1);
+    });
+
+    it('isPath', () => {
+      const { rootNode } = parser.parse('alias foo /usr/local/bin/fish');
+      const results: SyntaxNode[] = [];
+      for (const child of getChildNodes(rootNode)) {
+        if (NodeTypes.isPath(child)) {
+          results.push(child);
+        }
+      }
+      expect(results.length).toBe(1);
+    });
+  });
 });
