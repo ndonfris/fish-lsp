@@ -3,11 +3,15 @@ import { SyntaxNode } from 'web-tree-sitter';
 import { LspDocument } from './document';
 import { analyzer } from './analyze';
 import { isBuiltinCommand, isCommand, isCommandWithName, isComment, isShebang, isEscapeSequence, isOption } from './utils/node-types';
-import { getTokenTypeIndex, SemanticToken, calculateModifiersMask, getQueriesList, getCaptureToTokenMapping } from './utils/semantics';
+import { getTokenTypeIndex, SemanticToken, calculateModifiersMask, getQueriesList, getCaptureToTokenMapping, FISH_SEMANTIC_TOKENS_LEGEND } from './utils/semantics';
 import { FishSymbolToSemanticToken, getSymbolModifiers } from './parsing/symbol-modifiers';
 import { getChildNodes } from './utils/tree-sitter';
 import { highlights } from '@ndonfris/tree-sitter-fish';
 import { isBuiltin } from './utils/builtins';
+import { config } from './config';
+
+// Re-export for tests and external usage
+export { FISH_SEMANTIC_TOKENS_LEGEND };
 
 // ============================================================================
 // Type Definitions
@@ -412,12 +416,27 @@ const semanticTokenHandlers: NodeTokenHandler[] = [
   ]
 ];
 
+/**
+ * Mini mode handlers - only commands and keywords
+ * Used when fish_lsp_semantic_handler_type is set to 'mini'
+ */
+const semanticTokenHandlersMini: NodeTokenHandler[] = [
+  // Special handling for `[` test command
+  semanticTokenHandlers[0],
+  // Builtin commands
+  semanticTokenHandlers[1],
+  // User-defined commands
+  semanticTokenHandlers[2],
+];
+
 // ============================================================================
 // Main Handler
 // ============================================================================
 
 /**
- * Mini semantic token handler that supports:
+ * Semantic token handler that supports multiple modes based on config:
+ *
+ * **Full mode** (fish_lsp_semantic_handler_type = 'full'):
  * 1. FishSymbol highlighting (functions, variables, etc.)
  * 2. Builtin commands and user-defined commands
  * 3. Reserved keywords (if, else, end, for, while, switch, begin, and, or, not, etc.)
@@ -430,8 +449,23 @@ const semanticTokenHandlers: NodeTokenHandler[] = [
  * 10. Escape sequences:
  *     - Line continuations (\<newline>) highlighted as operators
  *     - Other escapes (\n, \t, \', \", \\) highlighted as strings
+ *
+ * **Mini mode** (fish_lsp_semantic_handler_type = 'mini'):
+ * 1. FishSymbol highlighting (functions, variables, etc.) - definitions only
+ * 2. Commands (builtins and user-defined)
+ * 3. Special handling for `[` test command
+ *
+ * **Off mode** (fish_lsp_semantic_handler_type = 'off'):
+ * Returns empty tokens
  */
-export function provideMiniSemanticTokens(document: LspDocument): LSP.SemanticTokens {
+export function provideSemanticTokens(document: LspDocument): LSP.SemanticTokens {
+  const mode = config.fish_lsp_semantic_handler_type;
+
+  // Off mode - return empty tokens
+  if (mode === 'off') {
+    return { data: [] };
+  }
+
   analyzer.analyze(document);
   const tree = analyzer.cache.getParsedTree(document.uri);
 
@@ -448,21 +482,29 @@ export function provideMiniSemanticTokens(document: LspDocument): LSP.SemanticTo
   // Process FishSymbols
   processFishSymbols(context);
 
+  // Choose handlers based on mode
+  const handlers = mode === 'mini' ? semanticTokenHandlersMini : semanticTokenHandlers;
+
   // Process all syntax nodes in a single traversal
   const allNodes = getChildNodes(tree.rootNode);
   for (const node of allNodes) {
-    for (const [predicate, transform] of semanticTokenHandlers) {
+    for (const [predicate, transform] of handlers) {
       if (predicate(node)) {
         transform(node, context);
       }
     }
   }
 
-  // Apply highlights.scm queries to fill in gaps
-  applyHighlightQueries(context, tree);
+  // Apply highlights.scm queries to fill in gaps (only in full mode)
+  if (mode === 'full') {
+    applyHighlightQueries(context, tree);
+  }
 
   return buildTokens(tokens);
 }
+
+// Keep old name for backward compatibility
+export const provideMiniSemanticTokens = provideSemanticTokens;
 
 /**
  * Process all FishSymbols in the document
@@ -728,16 +770,19 @@ function buildTokens(tokens: SemanticToken[]): LSP.SemanticTokens {
 /**
  * Create handler callbacks for LSP semantic tokens requests
  */
-export function miniSemanticTokensHandlerCallback() {
+export function semanticTokensHandlerCallback() {
   return {
     semanticTokensHandler: (params: LSP.SemanticTokensParams) => {
       const document = analyzer.getDocument(params.textDocument.uri);
-      return document ? provideMiniSemanticTokens(document) : { data: [] };
+      return document ? provideSemanticTokens(document) : { data: [] };
     },
     semanticTokensRangeHandler: (params: LSP.SemanticTokensRangeParams) => {
-      // Note: Mini handler doesn't support range-based tokens, so we return full document tokens
+      // Note: Handler doesn't support range-based tokens, so we return full document tokens
       const document = analyzer.getDocument(params.textDocument.uri);
-      return document ? provideMiniSemanticTokens(document) : { data: [] };
+      return document ? provideSemanticTokens(document) : { data: [] };
     },
   };
 }
+
+// Keep old name for backward compatibility
+export const miniSemanticTokensHandlerCallback = semanticTokensHandlerCallback;
