@@ -84,8 +84,28 @@ const verbose = (...args) => flags.verbose && console.log(...args);
 const exit = (code = 0) => process.exit(flags.forceSuccess ? 0 : code);
 
 try {
-    const now = new Date();
-    const timestamp = new Date().toLocaleString(undefined, {dateStyle: 'short', timeStyle: 'medium'});
+    // Check for reproducible build mode (for Nix and other package managers)
+    // Use SOURCE_DATE_EPOCH if provided for deterministic builds
+    let now;
+    let usingSourceDateEpoch = false;
+
+    if (process.env.SOURCE_DATE_EPOCH) {
+        // Nix and other reproducible build systems set this to make builds deterministic
+        // This allows the build-time.json to exist but with a fixed timestamp
+        now = new Date(parseInt(process.env.SOURCE_DATE_EPOCH) * 1000);
+        usingSourceDateEpoch = true;
+        verbose('Using SOURCE_DATE_EPOCH for deterministic build:'.green(), process.env.SOURCE_DATE_EPOCH);
+    } else if (process.env.REPRODUCIBLE_BUILD === '1') {
+        // Skip build-time.json creation entirely (alternative approach)
+        log('Skipping build-time.json creation for reproducible build'.yellow());
+        verbose('REPRODUCIBLE_BUILD=1 detected, skipping...'.dim());
+        exit(0);
+    } else {
+        // Normal build - use current time
+        now = new Date();
+    }
+
+    const timestamp = now.toLocaleString(undefined, {dateStyle: 'short', timeStyle: 'medium'});
     const buildTimeData = {
         date: now.toDateString(),
         timestamp,
@@ -131,7 +151,11 @@ try {
     }
 
     log('✓  created JSON at:'.bgGreen().black().bold(), path.basename(jsonFilePath).cyan().dim());
-    log('✓  with timestamp: '.bgGreen().black().bold(), timestamp.blue().dim());
+    if (usingSourceDateEpoch) {
+        log('✓  with timestamp: '.bgGreen().black().bold(), timestamp.blue().dim(), '(from SOURCE_DATE_EPOCH)'.gray().dim());
+    } else {
+        log('✓  with timestamp: '.bgGreen().black().bold(), timestamp.blue().dim());
+    }
 
 } catch (error) {
     error("ERROR:".bgRed().white().bold(), "Script execution failed.".red());

@@ -272,19 +272,22 @@ const getOutTime = () => {
     }
   }
 
-  // Fallback to reading from file (for development version)
+  // Try reading from file (for development version)
   const buildFile = getFishBuildTimeFilePath();
   try {
     const fileContent = readFileSync(buildFile, 'utf8');
     const buildTimeData = JSON.parse(fileContent);
     return buildTimeData.timestamp || buildTimeData.isoTimestamp;
   } catch (e) {
-    logger.logToStderr(`Error reading build-time file: ${buildFile}`);
-    logger.error([
-      `Error reading build-time file: ${buildFile}`,
-      `Could not read build time from file: ${e}`,
-    ]);
-    return 'unknown';
+    // Fallback to executable modification time for reproducible builds
+    try {
+      const execPath = getCurrentExecutablePath();
+      const stats = fs.statSync(execPath);
+      return stats.mtime.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'medium' });
+    } catch (statErr) {
+      logger.logToStderr(`Error reading executable stats: ${statErr}`);
+      return 'unknown';
+    }
   }
 };
 
@@ -308,15 +311,30 @@ export const getBuildTimeJsonObj = (): BuildTimeJsonObj | undefined => {
     }
   }
 
-  // Fallback to reading from file (for development version)
+  // Try reading from file (for development version)
   try {
     const jsonFile = getFishBuildTimeFilePath();
     const jsonContent = readFileSync(jsonFile, 'utf8');
     const jsonObj: BuildTimeJsonObj = JSON.parse(jsonContent);
     return { ...jsonObj, date: new Date(jsonObj.date) };
   } catch (e) {
-    logger.logToStderr(`Error reading build-time JSON file: ${e}`);
-    logger.error(`Error reading build-time JSON file: ${e}`);
+    // Fallback to executable modification time for reproducible builds
+    try {
+      const execPath = getCurrentExecutablePath();
+      const stats = fs.statSync(execPath);
+      const mtime = stats.mtime;
+
+      return {
+        date: mtime.toDateString(),
+        timestamp: mtime.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'medium' }),
+        isoTimestamp: mtime.toISOString(),
+        unix: Math.floor(mtime.getTime() / 1000),
+        version: PackageJSON.version,
+        nodeVersion: process.version,
+      };
+    } catch (statErr) {
+      logger.logToStderr(`Error reading executable stats: ${statErr}`);
+    }
   }
   return undefined;
 };
