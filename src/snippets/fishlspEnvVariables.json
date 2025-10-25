@@ -374,5 +374,18 @@
     ],
     "defaultValue": "fish",
     "valueType": "string"
+  },
+  {
+    "name": "fish_lsp_semantic_handler_type",
+    "description": "Controls the semantic token highlighting mode for Fish shell scripts.\n\n'off' - Disables semantic token highlighting completely\n'full' - Full highlighting with all features (commands, keywords, variables, strings, operators, escape sequences, etc.)\n'mini' - Minimal highlighting (only commands and symbol definitions)",
+    "shortDescription": "semantic token handler mode: 'off', 'full', or 'mini'",
+    "exactMatchOptions": true,
+    "options": [
+      "off",
+      "full",
+      "mini"
+    ],
+    "defaultValue": "full",
+    "valueType": "string"
   }
 ]

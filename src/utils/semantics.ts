@@ -5,6 +5,10 @@ import {
 } from 'vscode-languageserver';
 import { SyntaxNode } from 'web-tree-sitter';
 import { highlights } from '@ndonfris/tree-sitter-fish';
+import { isBuiltin } from './builtins';
+import { PrebuiltDocumentationMap } from './snippets';
+import { analyzer } from '../analyze';
+import { cachedCompletionMap } from '../server';
 
 /**
  * Internal semantic token representation
@@ -435,3 +439,217 @@ export function analyzeValueType(text: string): { tokenType: string; modifiers?:
 
   return { tokenType: 'string' };
 }
+
+/**
+ * Get semantic token modifiers for a command based on its definition
+ * @param commandName - The name of the command
+ * @returns Bitmask of token modifiers
+ */
+export function getCommandModifiers(commandNode: SyntaxNode): number {
+  const commandName = commandNode.firstNamedChild?.text;
+
+  if (!commandName) {
+    return 0;
+  }
+
+  // Check if it's a builtin command
+  if (isBuiltin(commandName)) {
+    // Note: We can't check isBuiltinCommand without a node, so builtins are handled separately
+    return calculateModifiersMask('builtin');
+  }
+
+  const allCommands = PrebuiltDocumentationMap.getByType('command');
+  if (allCommands.some(s => commandName === s.name)) {
+    return calculateModifiersMask('global');
+  }
+
+  // Look up the command in global symbols
+  const symbols = analyzer.globalSymbols.find(commandName);
+  const firstGlobal = cachedCompletionMap.get('function').find(c => c.label === commandName);
+
+  if (symbols.length === 0) {
+    // No definition found - could be an external command or not found
+
+    if (firstGlobal) {
+      return calculateModifiersMask('global');
+    }
+
+    return 0;
+  }
+
+  // Use the first symbol found (most relevant)
+  const symbol = symbols[0]!;
+
+  // Check if it's a function
+  if (symbol.fishKind === 'FUNCTION') {
+    const modifiers: string[] = [];
+
+    // Check if it's autoloaded
+    if (symbol.isGlobal() && symbol.document.isAutoloaded() &&
+      symbol.name === symbol.document.getAutoLoadName()) {
+      modifiers.push('global', 'autoloaded');
+    } else if (symbol.isGlobal()) {
+      // Global but not autoloaded
+      modifiers.push('global', 'script');
+    } else if (symbol.isLocal()) {
+      modifiers.push('local');
+    }
+
+    return calculateModifiersMask(...modifiers);
+  }
+
+  // Check if it's an alias
+  if (symbol.fishKind === 'ALIAS') {
+    const modifiers: string[] = [];
+    if (symbol.document.isAutoloaded() && symbol.scope.scopeTag === 'global') {
+      modifiers.push('global');
+    }
+    modifiers.push('script');
+    return calculateModifiersMask(...modifiers);
+  }
+
+  return 0;
+}
+ 
+
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+export type TextMatchPosition = {
+  startLine: number;
+  startChar: number;
+  endLine: number;
+  endChar: number;
+  matchLength: number;
+  matchText: string;
+};
+
+/**
+ * Search for text within a SyntaxNode and return position information for matches
+ * @param node - The SyntaxNode to search within
+ * @param filter - String or RegExp to search for
+ * @returns Array of TextMatchPosition objects for all matches
+ */
+export function getTextMatchPositions(node: SyntaxNode, filter: string | RegExp): TextMatchPosition[] {
+  const matches: TextMatchPosition[] = [];
+  const text = node.text;
+  const nodeStartLine = node.startPosition.row;
+  const nodeStartCol = node.startPosition.column;
+
+  if (typeof filter === 'string') {
+    // Simple string search
+    let index = 0;
+    while ((index = text.indexOf(filter, index)) !== -1) {
+      const matchPosition = calculatePositionFromOffset(
+        text,
+        index,
+        nodeStartLine,
+        nodeStartCol,
+      );
+
+      matches.push({
+        startLine: matchPosition.line,
+        startChar: matchPosition.char,
+        endLine: matchPosition.line, // Single line match for string search
+        endChar: matchPosition.char + filter.length,
+        matchLength: filter.length,
+        matchText: filter,
+      });
+
+      index += filter.length;
+    }
+  } else {
+    // RegExp search
+    const regex = new RegExp(filter.source, filter.flags.includes('g') ? filter.flags : filter.flags + 'g');
+    let match;
+
+    while ((match = regex.exec(text)) !== null) {
+      const matchPosition = calculatePositionFromOffset(
+        text,
+        match.index,
+        nodeStartLine,
+        nodeStartCol,
+      );
+
+      const matchText = match[0];
+      const newlineCount = (matchText.match(/\n/g) || []).length;
+
+      const endLine = matchPosition.line + newlineCount;
+      let endChar: number;
+
+      if (newlineCount > 0) {
+        // Multi-line match - calculate end position from last line
+        const lastLineStart = matchText.lastIndexOf('\n') + 1;
+        endChar = matchText.length - lastLineStart;
+      } else {
+        // Single line match
+        endChar = matchPosition.char + matchText.length;
+      }
+
+      matches.push({
+        startLine: matchPosition.line,
+        startChar: matchPosition.char,
+        endLine,
+        endChar,
+        matchLength: matchText.length,
+        matchText,
+      });
+    }
+  }
+
+  return matches;
+}
+
+/**
+ * Calculate line and character position from text offset
+ */
+export function calculatePositionFromOffset(
+  text: string,
+  offset: number,
+  baseLineNumber: number,
+  baseColumnNumber: number,
+): { line: number; char: number; } {
+  const textUpToOffset = text.substring(0, offset);
+  const lines = textUpToOffset.split('\n');
+  const lineOffset = lines.length - 1;
+
+  if (lineOffset === 0) {
+    // Same line as node start
+    return {
+      line: baseLineNumber,
+      char: baseColumnNumber + offset,
+    };
+  } else {
+    // Different line - calculate from last newline
+    return {
+      line: baseLineNumber + lineOffset,
+      char: lines[lines.length - 1]!.length,
+    };
+  }
+}
+
+/**
+ * Create SemanticTokens from TextMatchPosition results
+ * @param matches - Array of TextMatchPosition results from getTextMatchPositions
+ * @param tokenType - Token type index
+ * @param modifiers - Token modifiers mask (default: 0)
+ * @returns Array of SemanticTokens
+ */
+export function createTokensFromMatches(
+  matches: TextMatchPosition[],
+  tokenType: number,
+  modifiers: number = 0,
+): SemanticToken[] {
+  return matches.map(match =>
+    SemanticToken.create(
+      match.startLine,
+      match.startChar,
+      match.matchLength,
+      tokenType,
+      modifiers,
+    ),
+  );
+}
+
+

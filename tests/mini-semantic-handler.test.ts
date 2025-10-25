@@ -4,6 +4,7 @@ import { Analyzer, analyzer } from '../src/analyze';
 import { createFakeLspDocument } from './helpers';
 import { FISH_SEMANTIC_TOKENS_LEGEND } from '../src/utils/semantics';
 import type { SemanticTokens } from 'vscode-languageserver';
+import { setupProcessEnvExecFile } from '../src/utils/process-env';
 
 /**
  * Utility function to decode and log semantic tokens for debugging
@@ -14,7 +15,7 @@ import type { SemanticTokens } from 'vscode-languageserver';
 function logSemanticTokens(
   result: SemanticTokens,
   content: string,
-  options: { showSeparators?: boolean; title?: string } = {},
+  options: { showSeparators?: boolean; title?: string; } = {},
 ): void {
   const { showSeparators = true, title } = options;
   const tokens = result.data;
@@ -48,7 +49,7 @@ function logSemanticTokens(
     // Reverse map modifiers from bitmask
     const modifiers: string[] = [];
     for (let j = 0; j < FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers.length; j++) {
-      if (tokenModifiersMask & (1 << j)) {
+      if (tokenModifiersMask & 1 << j) {
         modifiers.push(FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers[j]!);
       }
     }
@@ -73,6 +74,7 @@ function logSemanticTokens(
 describe('Mini Semantic Token Handler', () => {
   beforeAll(async () => {
     await Analyzer.initialize();
+    await setupProcessEnvExecFile();
   });
 
   it('should highlight builtin commands', () => {
@@ -292,7 +294,7 @@ alias gs='git status'
   });
 
   it('should highlight alias keyword', () => {
-    const content = `alias bar='echo bar'`;
+    const content = 'alias bar=\'echo bar\'';
 
     const doc = createFakeLspDocument('test.fish', content);
     const result = provideMiniSemanticTokens(doc);
@@ -353,7 +355,7 @@ echo $VAR
   });
 
   it('should highlight [ test command brackets', () => {
-    const content = `[ -d /tmp ] && [ -f /tmp/file.fish ] || return 1`;
+    const content = '[ -d /tmp ] && [ -f /tmp/file.fish ] || return 1';
 
     const doc = createFakeLspDocument('test.fish', content);
     const result = provideMiniSemanticTokens(doc);
@@ -363,7 +365,7 @@ echo $VAR
   });
 
   it('should not highlight [ ] in array indexing', () => {
-    const content = `echo paths_checked[$i]`;
+    const content = 'echo paths_checked[$i]';
 
     const doc = createFakeLspDocument('test.fish', content);
     const result = provideMiniSemanticTokens(doc);
@@ -417,7 +419,7 @@ end
   });
 
   it('should apply highlights.scm queries for operators', () => {
-    const content = `test -f file.txt && echo yes || echo no`;
+    const content = 'test -f file.txt && echo yes || echo no';
 
     const doc = createFakeLspDocument('test.fish', content);
     const result = provideMiniSemanticTokens(doc);
@@ -427,7 +429,7 @@ end
   });
 
   it('should apply highlights.scm queries for strings', () => {
-    const content = `echo "hello world" 'single quoted'`;
+    const content = 'echo "hello world" \'single quoted\'';
 
     const doc = createFakeLspDocument('test.fish', content);
     const result = provideMiniSemanticTokens(doc);
@@ -437,7 +439,7 @@ end
   });
 
   it('should NOT highlight test command flags as operators', () => {
-    const content = `[ -f /tmp/foo.fish ]`;
+    const content = '[ -f /tmp/foo.fish ]';
 
     const doc = createFakeLspDocument('test.fish', content);
     const result = provideMiniSemanticTokens(doc);
@@ -452,7 +454,7 @@ end
   });
 
   it('should NOT highlight test builtin flags as operators', () => {
-    const content = `test -d /tmp -a -f /tmp/foo.fish`;
+    const content = 'test -d /tmp -a -f /tmp/foo.fish';
 
     const doc = createFakeLspDocument('test.fish', content);
     const result = provideMiniSemanticTokens(doc);
@@ -463,7 +465,7 @@ end
   });
 
   it('should highlight variables within double-quoted strings', () => {
-    const content = `test -n "/a/$argv"`;
+    const content = 'test -n "/a/$argv"';
 
     const doc = createFakeLspDocument('test.fish', content);
     const result = provideMiniSemanticTokens(doc);
@@ -477,7 +479,7 @@ end
   });
 
   it('should handle multiple variables in a string', () => {
-    const content = `echo "Hello $USER, your home is $HOME"`;
+    const content = 'echo "Hello $USER, your home is $HOME"';
 
     const doc = createFakeLspDocument('test.fish', content);
     const result = provideMiniSemanticTokens(doc);
@@ -493,7 +495,7 @@ end
   });
 
   it('should handle command substitution in strings', () => {
-    const content = `echo "Current dir: (pwd)"`;
+    const content = 'echo "Current dir: (pwd)"';
 
     const doc = createFakeLspDocument('test.fish', content);
     const result = provideMiniSemanticTokens(doc);
@@ -507,7 +509,7 @@ end
   });
 
   it('should handle plain strings without expansions', () => {
-    const content = `echo "foo" 'bar'`;
+    const content = 'echo "foo" \'bar\'';
 
     const doc = createFakeLspDocument('test.fish', content);
     const result = provideMiniSemanticTokens(doc);
@@ -520,7 +522,7 @@ end
   });
 
   it('should highlight escape sequences', () => {
-    const content = `echo \"baz\" \\'qux\\'`;
+    const content = 'echo \"baz\" \\\'qux\\\'';
 
     const doc = createFakeLspDocument('test.fish', content);
     const result = provideMiniSemanticTokens(doc);
@@ -540,7 +542,7 @@ end
   });
 
   it('should highlight escape sequences within strings', () => {
-    const content = `echo "hello\\nworld\\t"`;
+    const content = 'echo "hello\\nworld\\t"';
 
     const doc = createFakeLspDocument('test.fish', content);
     const result = provideMiniSemanticTokens(doc);
@@ -571,7 +573,7 @@ line2`;
   });
 
   it('should highlight escaped spaces as strings', () => {
-    const content = `echo asdfs\\ bar\\ baz`;
+    const content = 'echo asdfs\\ bar\\ baz';
 
     const doc = createFakeLspDocument('test.fish', content);
     const result = provideMiniSemanticTokens(doc);
@@ -587,7 +589,7 @@ line2`;
   });
 
   it('should highlight escaped space after string interpolation', () => {
-    const content = `test -n "/a/$v"\\ foo`;
+    const content = 'test -n "/a/$v"\\ foo';
 
     const doc = createFakeLspDocument('test.fish', content);
     const result = provideMiniSemanticTokens(doc);
@@ -637,7 +639,7 @@ end
   });
 
   it('should specifically handle line with test -n "/a/$v"', () => {
-    const content = `test -n "/a/$v"`;
+    const content = 'test -n "/a/$v"';
 
     const doc = createFakeLspDocument('test.fish', content);
     const result = provideMiniSemanticTokens(doc);
@@ -664,7 +666,7 @@ end
   });
 
   it('should handle echo "foo$a" with variable at end', () => {
-    const content = `echo "foo$a"`;
+    const content = 'echo "foo$a"';
 
     const doc = createFakeLspDocument('test.fish', content);
     const result = provideMiniSemanticTokens(doc);
@@ -681,7 +683,7 @@ end
   });
 
   it('should handle export v="variable" with plain string', () => {
-    const content = `export v="variable"`;
+    const content = 'export v="variable"';
 
     const doc = createFakeLspDocument('test.fish', content);
     const result = provideMiniSemanticTokens(doc);
@@ -700,7 +702,7 @@ describe('Mini Semantic Token Handler - Command Modifiers', () => {
   });
 
   it('should apply builtin modifiers to builtin commands', () => {
-    const content = `echo "hello"`;
+    const content = 'echo "hello"';
 
     const doc = createFakeLspDocument('test.fish', content);
     const result = provideMiniSemanticTokens(doc);
@@ -723,8 +725,8 @@ describe('Mini Semantic Token Handler - Command Modifiers', () => {
     const builtinModifierIndex = FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers.indexOf('builtin');
     const defaultLibraryModifierIndex = FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers.indexOf('defaultLibrary');
 
-    expect(echoToken.mods & (1 << builtinModifierIndex)).toBeGreaterThan(0);
-    expect(echoToken.mods & (1 << defaultLibraryModifierIndex)).toBeGreaterThan(0);
+    expect(echoToken.mods & 1 << builtinModifierIndex).toBeGreaterThan(0);
+    expect(echoToken.mods & 1 << defaultLibraryModifierIndex).toBeGreaterThan(0);
   });
 
   it('should apply local modifiers to locally defined functions', () => {
@@ -759,7 +761,7 @@ my_local_func
 
         if (localModifierIndex !== -1) {
           foundCallToken = true;
-          expect(mods & (1 << localModifierIndex)).toBeGreaterThan(0);
+          expect(mods & 1 << localModifierIndex).toBeGreaterThan(0);
         }
         break;
       }
@@ -771,7 +773,7 @@ my_local_func
   });
 
   it('should handle commands with no definition (external commands)', () => {
-    const content = `external_command arg1 arg2`;
+    const content = 'external_command arg1 arg2';
 
     const doc = createFakeLspDocument('test.fish', content);
     const result = provideMiniSemanticTokens(doc);

@@ -69,6 +69,9 @@ type WebServerProps = {
   params?: InitializeParams;
 };
 
+export let cachedDocumentation: DocumentationCache;
+export let cachedCompletionMap: CompletionItemMap;
+
 export default class FishServer {
   public static async createWebServer(props: WebServerProps): Promise<{
     server: FishServer;
@@ -184,6 +187,9 @@ export default class FishServer {
       initializeDefaultFishWorkspaces(...initializeUris),
       CompletionItemMap.initialize(),
     ]);
+
+    cachedDocumentation = cache;
+    cachedCompletionMap = completionsMap;
 
     await Analyzer.initialize();
 
