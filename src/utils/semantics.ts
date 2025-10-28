@@ -296,6 +296,12 @@ export function calculateModifiersMask(...modifiers: string[]): number {
   return mask;
 }
 
+export function hasModifier(mask: number, modifier: string): boolean {
+  const index = getModifierIndex(modifier);
+  if (index === -1) return false;
+  return (mask & 1 << index) !== 0;
+}
+
 export function getModifiersFromMask(mask: number): string[] {
   const modifiers: string[] = [];
   for (let i = 0; i < FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers.length; i++) {
@@ -445,7 +451,60 @@ export function analyzeValueType(text: string): { tokenType: string; modifiers?:
  * @param commandName - The name of the command
  * @returns Bitmask of token modifiers
  */
-export function getCommandModifiers(commandNode: SyntaxNode): number {
+/**
+ * Get semantic token modifiers for a variable based on its definition
+ * @param variableName - The name of the variable (without $)
+ * @param documentUri - Optional document URI to search for local symbols
+ * @returns Bitmask of token modifiers
+ */
+export function getVariableModifiers(variableName: string, documentUri?: string): number {
+  // Look up the variable in both local and global symbols
+  let symbols = analyzer.globalSymbols.find(variableName);
+
+  // If we have a document URI, also check local symbols
+  if (documentUri && symbols.length === 0) {
+    const localSymbols = analyzer.cache.getFlatDocumentSymbols(documentUri);
+    const localMatches = localSymbols.filter(s => s.name === variableName &&
+      (s.fishKind === 'SET' || s.fishKind === 'READ' || s.fishKind === 'VARIABLE' ||
+       s.fishKind === 'FUNCTION_VARIABLE' || s.fishKind === 'EXPORT' ||
+       s.fishKind === 'FOR' || s.fishKind === 'ARGPARSE' || s.fishKind === 'INLINE_VARIABLE'));
+    if (localMatches.length > 0) {
+      symbols = localMatches;
+    }
+  }
+
+  if (symbols.length === 0) {
+    // No definition found
+    return 0;
+  }
+
+  // Use the first symbol found (most relevant)
+  const symbol = symbols[0]!;
+
+  // Get modifiers based on the symbol's scope
+  const modifiers: string[] = [];
+
+  if (symbol.isGlobal()) {
+    modifiers.push('global');
+  } else if (symbol.isLocal()) {
+    modifiers.push('local');
+  }
+
+  // Add export modifier if applicable
+  if (symbol.fishKind === 'EXPORT' || symbol.fishKind === 'SET' || symbol.fishKind === 'FUNCTION_VARIABLE') {
+    const options = symbol.options || [];
+    for (const opt of options) {
+      if (opt.isOption('-x', '--export')) {
+        modifiers.push('export');
+        break;
+      }
+    }
+  }
+
+  return calculateModifiersMask(...modifiers);
+}
+
+export function getCommandModifiers(commandNode: SyntaxNode, documentUri?: string): number {
   const commandName = commandNode.firstNamedChild?.text;
 
   if (!commandName) {
@@ -463,9 +522,19 @@ export function getCommandModifiers(commandNode: SyntaxNode): number {
     return calculateModifiersMask('global');
   }
 
-  // Look up the command in global symbols
-  const symbols = analyzer.globalSymbols.find(commandName);
-  const firstGlobal = cachedCompletionMap.get('function').find(c => c.label === commandName);
+  // Look up the command in both local and global symbols
+  let symbols = analyzer.globalSymbols.find(commandName);
+
+  // If we have a document URI, also check local symbols
+  if (documentUri && symbols.length === 0) {
+    const localSymbols = analyzer.cache.getFlatDocumentSymbols(documentUri);
+    const localMatches = localSymbols.filter(s => s.name === commandName);
+    if (localMatches.length > 0) {
+      symbols = localMatches;
+    }
+  }
+
+  const firstGlobal = cachedCompletionMap?.get('function')?.find(c => c.label === commandName);
 
   if (symbols.length === 0) {
     // No definition found - could be an external command or not found
@@ -510,8 +579,6 @@ export function getCommandModifiers(commandNode: SyntaxNode): number {
 
   return 0;
 }
- 
-
 
 // ============================================================================
 // Helper Functions
@@ -652,4 +719,31 @@ export function createTokensFromMatches(
   );
 }
 
+/**
+ * Check if a node's position is already covered by existing tokens
+ * @param node - The syntax node to check
+ * @param tokens - Array of existing semantic tokens
+ * @returns True if the node is covered by any existing token
+ */
+export function isNodeCoveredByTokens(node: SyntaxNode, tokens: SemanticToken[]): boolean {
+  const nodeStart = { line: node.startPosition.row, char: node.startPosition.column };
+  const nodeEnd = { line: node.endPosition.row, char: node.endPosition.column };
+
+  for (const token of tokens) {
+    const tokenEnd = token.startChar + token.length;
+
+    // Check if the node overlaps with this token
+    if (token.line === nodeStart.line) {
+      // Same line - check character ranges
+      if (token.startChar <= nodeStart.char && tokenEnd >= nodeEnd.char) {
+        return true; // Node is completely covered by this token
+      }
+      if (token.startChar < nodeEnd.char && tokenEnd > nodeStart.char) {
+        return true; // Partial overlap
+      }
+    }
+  }
+
+  return false;
+}
 

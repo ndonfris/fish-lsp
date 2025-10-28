@@ -706,7 +706,6 @@ export function isInlineComment(node: SyntaxNode) {
 
 export function isCommandWithName(node: SyntaxNode, ...commandNames: string[]) {
   if (node.type !== 'command') return false;
-  // const currentCommandName = node.firstChild?.text
   return !!node.firstChild && commandNames.includes(node.firstChild.text);
 }
 

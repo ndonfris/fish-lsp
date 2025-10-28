@@ -63,7 +63,8 @@ export const scopeTagToModifierMap: Record<string, FishSemanticTokenModifier> = 
 };
 
 export function getSymbolModifiers(symbol: FishSymbol): FishSemanticTokenModifier[] {
-  const mods: FishSemanticTokenModifier[] = ['definition'];
+  // const mods: FishSemanticTokenModifier[] = ['definition'];
+  const mods: FishSemanticTokenModifier[] = [];
   switch (symbol.fishKind) {
     case 'SET':
     case 'READ':

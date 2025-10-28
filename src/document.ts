@@ -11,7 +11,7 @@ import { SyncFileHelper } from './utils/file-operations';
 import { logger } from './logger';
 import * as Locations from './utils/locations';
 import { FishSymbol } from './parsing/symbol';
-import { logTreeSitterDocumentDebug, returnParseTreeString } from './utils/dump-parse-tree';
+import { logTreeSitterDocumentDebug, returnParseTreeString } from './utils/cli-dump-tree';
 
 export class LspDocument implements TextDocument {
   protected document: TextDocument;

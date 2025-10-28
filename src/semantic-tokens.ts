@@ -1,13 +1,35 @@
 import * as LSP from 'vscode-languageserver';
-import { SyntaxNode } from 'web-tree-sitter';
+import { SyntaxNode, Tree } from 'web-tree-sitter';
 import { LspDocument } from './document';
 import { analyzer } from './analyze';
-import { isBuiltinCommand, isCommand, isCommandWithName, isComment, isShebang, isEscapeSequence, isOption } from './utils/node-types';
-import { getTokenTypeIndex, SemanticToken, calculateModifiersMask, getQueriesList, getCaptureToTokenMapping } from './utils/semantics';
+import {
+  isBuiltinCommand,
+  isCommand,
+  isCommandWithName,
+  isComment,
+  isShebang,
+  isEscapeSequence,
+  isOption,
+} from './utils/node-types';
+import {
+  getTokenTypeIndex,
+  SemanticToken,
+  calculateModifiersMask,
+  getQueriesList,
+  getCaptureToTokenMapping,
+  getCommandModifiers,
+  getVariableModifiers,
+  createTokensFromMatches,
+  getTextMatchPositions,
+  nodeIntersectsRange,
+  isNodeCoveredByTokens,
+  hasModifier,
+} from './utils/semantics';
 import { FishSymbolToSemanticToken, getSymbolModifiers } from './parsing/symbol-modifiers';
-import { getChildNodes } from './utils/tree-sitter';
+import { collectNodesByTypes, getNamedChildNodes } from './utils/tree-sitter';
 import { highlights } from '@ndonfris/tree-sitter-fish';
-import { isBuiltin } from './utils/builtins';
+import { BuiltInList } from './utils/builtins';
+import { config } from './config';
 
 // ============================================================================
 // Type Definitions
@@ -21,31 +43,22 @@ type TokenTransformContext = {
 type NodeTokenHandler = [
   predicate: (node: SyntaxNode) => boolean,
   transform: (node: SyntaxNode, context: TokenTransformContext) => void,
+  modes: ('off' | 'mini' | 'full')[],
 ];
 
-type TextMatchPosition = {
-  startLine: number;
-  startChar: number;
-  endLine: number;
-  endChar: number;
-  matchLength: number;
-  matchText: string;
-};
-
-
 type TokenTypeKey = 'command' | 'function' | 'variable' | 'keyword' | 'decorator' | 'string' | 'operator';
-const TokenTypes: Record<TokenTypeKey, number> = {
-  command: getTokenTypeIndex('function')!,
-  function: getTokenTypeIndex('function')!,
-  variable: getTokenTypeIndex('variable')!,
-  keyword: getTokenTypeIndex('keyword')!,
-  decorator: getTokenTypeIndex('decorator')!,
-  string: getTokenTypeIndex('string')!,
-  operator: getTokenTypeIndex('operator')!,
+export const TokenTypes: Record<TokenTypeKey, number> = {
+  command: getTokenTypeIndex('function'),
+  function: getTokenTypeIndex('function'),
+  variable: getTokenTypeIndex('variable'),
+  keyword: getTokenTypeIndex('keyword'),
+  decorator: getTokenTypeIndex('decorator'),
+  string: getTokenTypeIndex('string'),
+  operator: getTokenTypeIndex('operator'),
 };
 
-const ModifierTypes: Record<TokenTypeKey, number> = {
-  command: calculateModifiersMask('builtin', 'defaultLibrary')!,
+export const ModifierTypes: Record<TokenTypeKey, number> = {
+  command: calculateModifiersMask('builtin'),
   function: 0,
   variable: 0,
   keyword: 0,
@@ -55,189 +68,40 @@ const ModifierTypes: Record<TokenTypeKey, number> = {
 };
 
 // ============================================================================
-// Helper Functions
+// Predicate Functions
 // ============================================================================
+const isBracketCommand = (n: SyntaxNode) => isCommandWithName(n, '[');
 
-/**
- * Search for text within a SyntaxNode and return position information for matches
- * @param node - The SyntaxNode to search within
- * @param filter - String or RegExp to search for
- * @returns Array of TextMatchPosition objects for all matches
- */
-function getTextMatchPositions(node: SyntaxNode, filter: string | RegExp): TextMatchPosition[] {
-  const matches: TextMatchPosition[] = [];
-  const text = node.text;
-  const nodeStartLine = node.startPosition.row;
-  const nodeStartCol = node.startPosition.column;
+const commandsToSkip = () => config.fish_lsp_semantic_handler_type === 'mini' ? ['['] : ['alias', '['];
+const isCommandCall = (n: SyntaxNode) => isBuiltinCommand(n) && !isCommandWithName(n, ...commandsToSkip());
 
-  if (typeof filter === 'string') {
-    // Simple string search
-    let index = 0;
-    while ((index = text.indexOf(filter, index)) !== -1) {
-      const matchPosition = calculatePositionFromOffset(
-        text,
-        index,
-        nodeStartLine,
-        nodeStartCol,
-      );
+const isFunctionCall = (n: SyntaxNode) => isCommand(n) && !isBuiltinCommand(n) && !isCommandWithName(n, ...commandsToSkip());
 
-      matches.push({
-        startLine: matchPosition.line,
-        startChar: matchPosition.char,
-        endLine: matchPosition.line, // Single line match for string search
-        endChar: matchPosition.char + filter.length,
-        matchLength: filter.length,
-        matchText: filter,
-      });
+const isKeyword = (n: SyntaxNode) => [
+  ...BuiltInList,
+].includes(n.type);
 
-      index += filter.length;
-    }
-  } else {
-    // RegExp search
-    const regex = new RegExp(filter.source, filter.flags.includes('g') ? filter.flags : filter.flags + 'g');
-    let match;
+const isVariableName = (n: SyntaxNode) => n.type === 'variable_name';
 
-    while ((match = regex.exec(text)) !== null) {
-      const matchPosition = calculatePositionFromOffset(
-        text,
-        match.index,
-        nodeStartLine,
-        nodeStartCol,
-      );
+const isAliasNode = (n: SyntaxNode) => n.parent && isCommandWithName(n.parent, 'alias') && n.text === 'alias' && n.type === 'word' || false;
 
-      const matchText = match[0];
-      const newlineCount = (matchText.match(/\n/g) || []).length;
+const isSemanticWord = (n: SyntaxNode) => {
+  if (n.type !== 'word') return false;
 
-      const endLine = matchPosition.line + newlineCount;
-      let endChar: number;
-
-      if (newlineCount > 0) {
-        // Multi-line match - calculate end position from last line
-        const lastLineStart = matchText.lastIndexOf('\n') + 1;
-        endChar = matchText.length - lastLineStart;
-      } else {
-        // Single line match
-        endChar = matchPosition.char + matchText.length;
-      }
-
-      matches.push({
-        startLine: matchPosition.line,
-        startChar: matchPosition.char,
-        endLine,
-        endChar,
-        matchLength: matchText.length,
-        matchText,
-      });
-    }
+  // Don't highlight if it's a command name (first child of command node)
+  const parent = n.parent;
+  if (parent && parent.type === 'command' && parent.firstNamedChild === n) {
+    return false;
   }
 
-  return matches;
-}
+  // Don't highlight if it's the 'alias' keyword (already handled)
+  if (n.text === 'alias') return false;
 
-/**
- * Calculate line and character position from text offset
- */
-function calculatePositionFromOffset(
-  text: string,
-  offset: number,
-  baseLineNumber: number,
-  baseColumnNumber: number,
-): { line: number; char: number; } {
-  const textUpToOffset = text.substring(0, offset);
-  const lines = textUpToOffset.split('\n');
-  const lineOffset = lines.length - 1;
+  // Don't highlight if it's an option/flag (like -n, --flag, etc.)
+  if (isOption(n)) return false;
 
-  if (lineOffset === 0) {
-    // Same line as node start
-    return {
-      line: baseLineNumber,
-      char: baseColumnNumber + offset,
-    };
-  } else {
-    // Different line - calculate from last newline
-    return {
-      line: baseLineNumber + lineOffset,
-      char: lines[lines.length - 1]!.length,
-    };
-  }
-}
-
-/**
- * Create SemanticTokens from TextMatchPosition results
- * @param matches - Array of TextMatchPosition results from getTextMatchPositions
- * @param tokenType - Token type index
- * @param modifiers - Token modifiers mask (default: 0)
- * @returns Array of SemanticTokens
- */
-function createTokensFromMatches(
-  matches: TextMatchPosition[],
-  tokenType: number,
-  modifiers: number = 0,
-): SemanticToken[] {
-  return matches.map(match =>
-    SemanticToken.create(
-      match.startLine,
-      match.startChar,
-      match.matchLength,
-      tokenType,
-      modifiers,
-    ),
-  );
-}
-
-/**
- * Get semantic token modifiers for a command based on its definition
- * @param commandName - The name of the command
- * @returns Bitmask of token modifiers
- */
-function getCommandModifiers(commandName: string): number {
-  // Check if it's a builtin command
-  if (isBuiltin(commandName)) {
-    // Note: We can't check isBuiltinCommand without a node, so builtins are handled separately
-    return calculateModifiersMask('builtin', 'defaultLibrary');
-  }
-
-  // Look up the command in global symbols
-  const symbols = analyzer.globalSymbols.find(commandName);
-
-  if (symbols.length === 0) {
-    // No definition found - could be an external command or not found
-    return 0;
-  }
-
-  // Use the first symbol found (most relevant)
-  const symbol = symbols[0]!;
-
-  // Check if it's a function
-  if (symbol.fishKind === 'FUNCTION') {
-    const modifiers: string[] = [];
-
-    // Check if it's autoloaded
-    if (symbol.isGlobal() && symbol.document.isAutoloaded() &&
-        symbol.name === symbol.document.getAutoLoadName()) {
-      modifiers.push('global', 'autoloaded');
-    } else if (symbol.isGlobal()) {
-      // Global but not autoloaded
-      modifiers.push('global', 'script');
-    } else if (symbol.isLocal()) {
-      modifiers.push('local');
-    }
-
-    return calculateModifiersMask(...modifiers);
-  }
-
-  // Check if it's an alias
-  if (symbol.fishKind === 'ALIAS') {
-    const modifiers: string[] = [];
-    if (symbol.document.isAutoloaded() && symbol.scope.scopeTag === 'global') {
-      modifiers.push('global');
-    }
-    modifiers.push('script');
-    return calculateModifiersMask(...modifiers);
-  }
-
-  return 0;
-}
+  return true;
+};
 
 // ============================================================================
 // Token Transform Handlers Map
@@ -250,7 +114,7 @@ function getCommandModifiers(commandName: string): number {
 const semanticTokenHandlers: NodeTokenHandler[] = [
   // Special handling for `[` test command - highlight opening [ and closing ]
   [
-    (node) => isCommandWithName(node, '['),
+    isBracketCommand,
     (node, ctx) => {
       const firstChild = node.firstNamedChild;
       if (firstChild && firstChild.type === 'word') {
@@ -274,31 +138,45 @@ const semanticTokenHandlers: NodeTokenHandler[] = [
         }
       }
     },
+    ['full'],
   ],
   // Builtin commands (echo, set, read, etc.) - exclude 'alias' and '['
   [
-    (node) => isBuiltinCommand(node) && !isCommandWithName(node, 'alias') && !isCommandWithName(node, '['),
+    isCommandCall,
     (node, ctx) => {
+      const type = isBuiltinCommand(node) ? TokenTypes.command : TokenTypes.function;
+      const modifiers = getCommandModifiers(node, ctx.document.uri);
+
       // Builtins always get 'builtin' and 'defaultLibrary' modifiers
       ctx.tokens.push(
         SemanticToken.fromNode(
           node.firstNamedChild!,
-          TokenTypes.function,
-          calculateModifiersMask('builtin', 'defaultLibrary'),
+          type,
+          modifiers,
         ),
       );
     },
+    ['full'],
   ],
   // Function calls and user-defined commands - exclude 'alias' and '['
+  // In mini mode: only highlight calls to local functions defined in this document
+  // In full mode: highlight all function calls
   [
-    (node) => isCommand(node) && !isBuiltinCommand(node) && !isCommandWithName(node, 'alias') && !isCommandWithName(node, '['),
+    isFunctionCall,
     (node, ctx) => {
-      const commandName = node.firstNamedChild?.text || '';
-      const modifiers = getCommandModifiers(commandName);
+      const modifiers = getCommandModifiers(node, ctx.document.uri);
+
+      // In mini mode, only add token if it's a local function
+      if (config.fish_lsp_semantic_handler_type === 'mini' && !hasModifier(modifiers, 'local')) {
+        return;
+      }
+
       ctx.tokens.push(
         SemanticToken.fromNode(node.firstNamedChild!, TokenTypes.function, modifiers),
       );
     },
+
+    ['mini', 'full'],
   ],
 
   // Shebang lines (#!/usr/bin/env fish)
@@ -309,6 +187,8 @@ const semanticTokenHandlers: NodeTokenHandler[] = [
         SemanticToken.fromNode(node, TokenTypes.decorator, ModifierTypes.decorator),
       );
     },
+
+    ['full'],
   ],
 
   // @fish-lsp directives in comments
@@ -323,11 +203,12 @@ const semanticTokenHandlers: NodeTokenHandler[] = [
         ),
       );
     },
+    ['full'],
   ],
 
   // Variable names (excludes leading $)
   [
-    (node) => node.type === 'variable_name',
+    isVariableName,
     (node, ctx) => {
       ctx.tokens.push(
         ...createTokensFromMatches(
@@ -336,38 +217,29 @@ const semanticTokenHandlers: NodeTokenHandler[] = [
         ),
       );
     },
+    ['mini', 'full'],
   ],
 
   // Reserved keywords as specific node types (from tree-sitter grammar)
   [
-    (node) => {
-      const keywordNodeTypes = new Set([
-        'if', 'else', 'end',
-        'for', 'in',
-        'while',
-        'switch', 'case',
-        'begin',
-        'function',
-        'and', 'or', 'not',
-        'return', 'break', 'continue',
-      ]);
-      return keywordNodeTypes.has(node.type);
-    },
+    isKeyword,
     (node, ctx) => {
       ctx.tokens.push(
         SemanticToken.fromNode(node, TokenTypes.keyword, ModifierTypes.keyword),
       );
     },
+    ['full'],
   ],
 
   // Special case: 'alias' keyword (appears as word node)
   [
-    (node) => node.type === 'word' && node.text === 'alias',
+    isAliasNode,
     (node, ctx) => {
       ctx.tokens.push(
         SemanticToken.fromNode(node, TokenTypes.keyword, ModifierTypes.keyword),
       );
     },
+    ['full'],
   ],
 
   // Escape sequences - distinguish line continuations from other escapes
@@ -382,34 +254,20 @@ const semanticTokenHandlers: NodeTokenHandler[] = [
         SemanticToken.fromNode(node, tokenType, 0),
       );
     },
+    ['full'],
   ],
 
   // Plain word nodes (arguments, words in concatenations, etc.)
   // These should be highlighted as strings when they're not command names or options
   [
-    (node) => {
-      if (node.type !== 'word') return false;
-
-      // Don't highlight if it's a command name (first child of command node)
-      const parent = node.parent;
-      if (parent && parent.type === 'command' && parent.firstNamedChild === node) {
-        return false;
-      }
-
-      // Don't highlight if it's the 'alias' keyword (already handled)
-      if (node.text === 'alias') return false;
-
-      // Don't highlight if it's an option/flag (like -n, --flag, etc.)
-      if (isOption(node)) return false;
-
-      return true;
-    },
+    isSemanticWord,
     (node, ctx) => {
       ctx.tokens.push(
         SemanticToken.fromNode(node, TokenTypes.string, 0),
       );
     },
-  ]
+    ['full'],
+  ],
 ];
 
 // ============================================================================
@@ -417,7 +275,7 @@ const semanticTokenHandlers: NodeTokenHandler[] = [
 // ============================================================================
 
 /**
- * Mini semantic token handler that supports:
+ * Full semantic token handler that supports:
  * 1. FishSymbol highlighting (functions, variables, etc.)
  * 2. Builtin commands and user-defined commands
  * 3. Reserved keywords (if, else, end, for, while, switch, begin, and, or, not, etc.)
@@ -430,8 +288,13 @@ const semanticTokenHandlers: NodeTokenHandler[] = [
  * 10. Escape sequences:
  *     - Line continuations (\<newline>) highlighted as operators
  *     - Other escapes (\n, \t, \', \", \\) highlighted as strings
+ * @param document - The document to provide semantic tokens for
+ * @param range - Optional range to filter tokens within
  */
-export function provideMiniSemanticTokens(document: LspDocument): LSP.SemanticTokens {
+export function provideSemanticTokens(
+  document: LspDocument,
+  range?: LSP.Range,
+): LSP.SemanticTokens {
   analyzer.analyze(document);
   const tree = analyzer.cache.getParsedTree(document.uri);
 
@@ -445,21 +308,20 @@ export function provideMiniSemanticTokens(document: LspDocument): LSP.SemanticTo
     document,
   };
 
-  // Process FishSymbols
-  processFishSymbols(context);
-
-  // Process all syntax nodes in a single traversal
-  const allNodes = getChildNodes(tree.rootNode);
-  for (const node of allNodes) {
-    for (const [predicate, transform] of semanticTokenHandlers) {
-      if (predicate(node)) {
-        transform(node, context);
-      }
-    }
+  if (config.fish_lsp_semantic_handler_type === 'off') {
+    return buildTokens(tokens);
   }
 
-  // Apply highlights.scm queries to fill in gaps
-  applyHighlightQueries(context, tree);
+  // Process FishSymbols
+  processFishSymbols(context, range);
+
+  // Process all syntax nodes in a single traversal using getNamedChildNodes
+  processAllSyntaxNodes(context, tree, range);
+
+  // Apply highlights.scm queries to fill in gaps (full mode only)
+  if (config.fish_lsp_semantic_handler_type === 'full') {
+    processHighlightQueries(context, tree, range);
+  }
 
   return buildTokens(tokens);
 }
@@ -470,13 +332,20 @@ export function provideMiniSemanticTokens(document: LspDocument): LSP.SemanticTo
  * - Uses selectionRange for precise token positioning
  * - Excludes leading $ from variable names
  * - Excludes trailing = from export/alias definitions
+ * @param context - The token transform context
+ * @param filterRange - Optional range to filter symbols within
  */
-function processFishSymbols(context: TokenTransformContext): void {
+function processFishSymbols(context: TokenTransformContext, filterRange?: LSP.Range): void {
   const symbols = analyzer.cache.getFlatDocumentSymbols(context.document.uri);
 
   for (const symbol of symbols) {
     // Skip symbols with null focusedNode
     if (!symbol.focusedNode) continue;
+
+    // Skip symbols outside the requested range
+    if (filterRange && symbol.focusedNode && !nodeIntersectsRange(symbol.focusedNode, filterRange)) {
+      continue;
+    }
 
     const tokenTypeKey = FishSymbolToSemanticToken[symbol.fishKind];
     const tokenIndex = getTokenTypeIndex(tokenTypeKey);
@@ -490,7 +359,7 @@ function processFishSymbols(context: TokenTransformContext): void {
     const range = symbol.selectionRange;
     const startRow = range.start.line;
     const startCol = range.start.character;
-    let length = range.end.character - range.start.character;
+    const length = range.end.character - range.start.character;
 
     // Only add token if there's actual content
     if (length > 0) {
@@ -508,23 +377,6 @@ function processFishSymbols(context: TokenTransformContext): void {
 }
 
 /**
- * Check if a string node contains variable expansions or command substitutions
- */
-function containsVariableExpansionsOrCommands(node: SyntaxNode): boolean {
-  if (node.type === 'variable_expansion' || node.type === 'command_substitution') {
-    return true;
-  }
-
-  for (const child of node.namedChildren) {
-    if (containsVariableExpansionsOrCommands(child)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-/**
  * Add partial string tokens for strings containing variable expansions
  * This highlights the string parts separately from the variables
  */
@@ -534,20 +386,8 @@ function addPartialStringTokens(
   stringTokenType: number,
   document: LspDocument,
 ): void {
-  const expansions: SyntaxNode[] = [];
-
-  function collectExpansions(node: SyntaxNode) {
-    if (node.type === 'variable_expansion' || node.type === 'command_substitution') {
-      expansions.push(node);
-      return;
-    }
-
-    for (const child of node.namedChildren) {
-      collectExpansions(child);
-    }
-  }
-
-  collectExpansions(stringNode);
+  // Collect expansions using breadth-first iteration
+  const expansions = collectNodesByTypes(stringNode, ['variable_expansion', 'command_substitution']);
 
   if (expansions.length === 0) {
     tokens.push(SemanticToken.fromNode(stringNode, stringTokenType, 0));
@@ -605,35 +445,36 @@ function addPartialStringTokens(
   }
 }
 
-/**
- * Check if a node's position is already covered by existing tokens
- */
-function isNodeCoveredByTokens(node: SyntaxNode, tokens: SemanticToken[]): boolean {
-  const nodeStart = { line: node.startPosition.row, char: node.startPosition.column };
-  const nodeEnd = { line: node.endPosition.row, char: node.endPosition.column };
+function processAllSyntaxNodes(
+  context: TokenTransformContext,
+  tree: Tree,
+  filterRange?: LSP.Range,
+) {
+  const allNodes = getNamedChildNodes(tree.rootNode);
+  const handlers = semanticTokenHandlers.filter(([, , modes]) =>
+    modes.includes(config.fish_lsp_semantic_handler_type),
+  );
+  for (const node of allNodes) {
+    // Skip nodes outside the requested range
+    if (filterRange && !nodeIntersectsRange(node, filterRange)) {
+      continue;
+    }
 
-  for (const token of tokens) {
-    const tokenEnd = token.startChar + token.length;
-
-    // Check if the node overlaps with this token
-    if (token.line === nodeStart.line) {
-      // Same line - check character ranges
-      if (token.startChar <= nodeStart.char && tokenEnd >= nodeEnd.char) {
-        return true; // Node is completely covered by this token
-      }
-      if (token.startChar < nodeEnd.char && tokenEnd > nodeStart.char) {
-        return true; // Partial overlap
+    for (const [predicate, transform] of handlers) {
+      if (predicate(node)) {
+        transform(node, context);
       }
     }
   }
-
-  return false;
 }
 
 /**
  * Apply highlights.scm queries to fill in gaps not covered by existing tokens
+ * @param context - The token transform context
+ * @param tree - The syntax tree
+ * @param filterRange - Optional range to filter tokens within
  */
-function applyHighlightQueries(context: TokenTransformContext, tree: any): void {
+function processHighlightQueries(context: TokenTransformContext, tree: Tree, filterRange?: LSP.Range): void {
   const lang = analyzer.parser.getLanguage();
   if (!lang) return;
 
@@ -645,7 +486,7 @@ function applyHighlightQueries(context: TokenTransformContext, tree: any): void 
     // These queries match test command flags like -f, -d, -eq, etc. as operators
     // Patterns: (command name: ... argument: (word) @operator (#match? @operator "^(!?=|-[a-zA-Z]+)$"))
     if (queryText.includes('argument:') && queryText.includes('@operator') &&
-        (queryText.includes('@function') || queryText.includes('@punctuation.bracket'))) {
+      (queryText.includes('@function') || queryText.includes('@punctuation.bracket'))) {
       continue;
     }
 
@@ -654,6 +495,11 @@ function applyHighlightQueries(context: TokenTransformContext, tree: any): void 
       const captures = query.captures(tree.rootNode);
 
       for (const capture of captures) {
+        // Skip nodes outside the requested range
+        if (filterRange && !nodeIntersectsRange(capture.node, filterRange)) {
+          continue;
+        }
+
         const captureMapping = mapping[capture.name];
         if (!captureMapping || captureMapping.index === -1) {
           continue;
@@ -661,9 +507,12 @@ function applyHighlightQueries(context: TokenTransformContext, tree: any): void 
 
         // Special handling for strings with variable expansions FIRST
         // (before checking if covered, because the variables inside will overlap)
-        if (capture.name === 'string' && containsVariableExpansionsOrCommands(capture.node)) {
-          addPartialStringTokens(context.tokens, capture.node, captureMapping.index, context.document);
-          continue;
+        if (capture.name === 'string') {
+          const expansions = collectNodesByTypes(capture.node, ['variable_expansion', 'command_substitution']);
+          if (expansions.length > 0) {
+            addPartialStringTokens(context.tokens, capture.node, captureMapping.index, context.document);
+            continue;
+          }
         }
 
         // Skip if this node is already covered by existing tokens
@@ -728,16 +577,15 @@ function buildTokens(tokens: SemanticToken[]): LSP.SemanticTokens {
 /**
  * Create handler callbacks for LSP semantic tokens requests
  */
-export function miniSemanticTokensHandlerCallback() {
+export function semanticTokensHandlerCallback() {
   return {
     semanticTokensHandler: (params: LSP.SemanticTokensParams) => {
       const document = analyzer.getDocument(params.textDocument.uri);
-      return document ? provideMiniSemanticTokens(document) : { data: [] };
+      return document ? provideSemanticTokens(document) : { data: [] };
     },
     semanticTokensRangeHandler: (params: LSP.SemanticTokensRangeParams) => {
-      // Note: Mini handler doesn't support range-based tokens, so we return full document tokens
       const document = analyzer.getDocument(params.textDocument.uri);
-      return document ? provideMiniSemanticTokens(document) : { data: [] };
+      return document ? provideSemanticTokens(document, params.range) : { data: [] };
     },
   };
 }

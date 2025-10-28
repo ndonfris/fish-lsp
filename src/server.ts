@@ -28,7 +28,7 @@ import { enrichToMarkdown, handleBraceExpansionHover, handleEndStdinHover, handl
 import { findActiveParameterStringRegex, getAliasedCompletionItemSignature, getDefaultSignatures, getFunctionSignatureHelp, isRegexStringSignature } from './signature';
 import { CompletionItemMap } from './utils/completion/startup-cache';
 import { getDocumentHighlights } from './document-highlight';
-import { miniSemanticTokensHandlerCallback } from './mini-semantic-handler';
+import { semanticTokensHandlerCallback } from './semantic-tokens';
 import { buildCommentCompletions } from './utils/completion/comment-completions';
 import { codeActionHandlers } from './code-actions/code-action-handler';
 import { createExecuteCommandHandler } from './command';
@@ -239,7 +239,7 @@ export default class FishServer {
     const { onCodeAction } = codeActionHandlers(documents, analyzer);
     const documentHighlightHandler = getDocumentHighlights(analyzer);
     // Semantic tokens handler using tree-sitter queries
-    const { semanticTokensHandler, semanticTokensRangeHandler } = miniSemanticTokensHandlerCallback();
+    const { semanticTokensHandler, semanticTokensRangeHandler } = semanticTokensHandlerCallback();
     const commandCallback = createExecuteCommandHandler(connection, documents, analyzer);
 
     // register the handlers

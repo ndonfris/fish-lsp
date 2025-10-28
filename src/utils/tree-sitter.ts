@@ -83,6 +83,29 @@ export function findChildNodes(root: SyntaxNode, predicate: (node: SyntaxNode) =
 }
 
 /**
+ * Collect all nodes of specific types using breadth-first iteration
+ * @param root - The root node to search from
+ * @param types - Array of node types to collect
+ * @returns Array of nodes matching the specified types
+ */
+export function collectNodesByTypes(root: SyntaxNode, types: string[]): SyntaxNode[] {
+  const results: SyntaxNode[] = [];
+  const queue: SyntaxNode[] = [root];
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+
+    if (types.includes(current.type)) {
+      results.push(current);
+    }
+
+    queue.push(...current.namedChildren);
+  }
+
+  return results;
+}
+
+/**
  * Gets path to root starting where index 0 is child node passed in.
  * Format: [child, child.parent, ..., root]
  *

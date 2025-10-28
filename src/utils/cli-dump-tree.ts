@@ -5,12 +5,20 @@ import { SyncFileHelper } from './file-operations';
 import path from 'path';
 import chalk from 'chalk';
 import { CommanderSubcommand } from './commander-cli-subcommands';
+import { provideSemanticTokens } from '../semantic-tokens';
+import { FISH_SEMANTIC_TOKENS_LEGEND } from './semantics';
+import { createInterface } from 'node:readline';
+import { startServer } from './startup';
 
 interface ParseTreeOutput {
   source: string;
   parseTree: string;
 }
-import { createInterface } from 'node:readline';
+
+interface SemanticTokensOutput {
+  source: string;
+  tokens: string;
+}
 
 /**
  * Reads all content from stdin, line by line.
@@ -246,6 +254,8 @@ export async function cliDumpParseTree(document: LspDocument, useColors: boolean
 
 // Entire wrapper for `src/cli.ts` usage of this function
 export async function handleCLiDumpParseTree(args: CommanderSubcommand.info.schemaType): Promise<0 | 1> {
+  startServer();
+
   // Initialize the analyzer without starting the full server
   await Analyzer.initialize();
 
@@ -270,4 +280,186 @@ export async function handleCLiDumpParseTree(args: CommanderSubcommand.info.sche
   }
   const doc = LspDocument.createFromPath(filePath);
   return await cliDumpParseTree(doc, useColors);
+}
+
+// ============================================================================
+// Semantic Tokens Dumping Functions
+// ============================================================================
+
+/**
+ * Color scheme for semantic token types
+ */
+const tokenTypeColors = {
+  function: chalk.blue.bold,
+  variable: chalk.red,
+  keyword: chalk.magenta.bold,
+  decorator: chalk.yellow,
+  string: chalk.green,
+  operator: chalk.cyan,
+  comment: chalk.gray,
+  default: chalk.white,
+};
+
+/**
+ * Get color function for a given token type
+ */
+function getTokenTypeColor(tokenType: string, useColors: boolean): (text: string) => string {
+  if (!useColors) return (text: string) => text;
+  return tokenTypeColors[tokenType as keyof typeof tokenTypeColors] || tokenTypeColors.default;
+}
+
+/**
+ * Decode modifiers from bitmask
+ */
+function decodeModifiers(modifiersMask: number): string[] {
+  const modifiers: string[] = [];
+  const legend = FISH_SEMANTIC_TOKENS_LEGEND.tokenModifiers;
+
+  for (let i = 0; i < legend.length; i++) {
+    if (modifiersMask & 1 << i) {
+      modifiers.push(legend[i]!);
+    }
+  }
+
+  return modifiers;
+}
+
+/**
+ * Formats semantic tokens into a human-readable string representation.
+ * Shows each token with its position, length, type, and modifiers.
+ */
+function formatSemanticTokens(data: number[], source: string, useColors: boolean): string {
+  if (data.length === 0) {
+    return useColors ? chalk.gray('(no semantic tokens)') : '(no semantic tokens)';
+  }
+
+  const lines = source.split('\n');
+  const legend = FISH_SEMANTIC_TOKENS_LEGEND;
+  const results: string[] = [];
+
+  // Semantic tokens are encoded as a flat array of integers
+  // [deltaLine, deltaStart, length, tokenType, modifiers, ...]
+  let currentLine = 0;
+  let currentChar = 0;
+
+  for (let i = 0; i < data.length; i += 5) {
+    const deltaLine = data[i]!;
+    const deltaStart = data[i + 1]!;
+    const length = data[i + 2]!;
+    const tokenTypeIndex = data[i + 3]!;
+    const modifiersMask = data[i + 4]!;
+
+    // Update position
+    currentLine += deltaLine;
+    if (deltaLine > 0) {
+      currentChar = deltaStart;
+    } else {
+      currentChar += deltaStart;
+    }
+
+    // Get token information
+    const tokenType = legend.tokenTypes[tokenTypeIndex] || 'unknown';
+    const modifiers = decodeModifiers(modifiersMask);
+
+    // Extract the actual text from the source
+    const line = lines[currentLine] || '';
+    const tokenText = line.substring(currentChar, currentChar + length);
+
+    // Format the output
+    const posStr = `${currentLine}:${currentChar}`;
+    const typeColor = getTokenTypeColor(tokenType, useColors);
+    const dimColor = useColors ? chalk.dim : (text: string) => text;
+    const boldColor = useColors ? chalk.bold : (text: string) => text;
+
+    let tokenInfo = `${dimColor(posStr.padEnd(10))} `;
+    tokenInfo += `${typeColor(tokenType.padEnd(12))} `;
+    tokenInfo += `${dimColor('len=')}${length.toString().padEnd(3)} `;
+
+    if (modifiers.length > 0) {
+      const modStr = `[${modifiers.join(', ')}]`;
+      tokenInfo += `${dimColor(modStr.padEnd(30))} `;
+    } else {
+      tokenInfo += `${dimColor(''.padEnd(30))} `;
+    }
+
+    tokenInfo += `${boldColor('"')}${tokenText}${boldColor('"')}`;
+
+    results.push(tokenInfo);
+  }
+
+  return results.join('\n');
+}
+
+/**
+ * Debug utility that shows semantic tokens for a source file.
+ * Displays the source code and the semantic tokens.
+ *
+ * @param document - The LspDocument to debug
+ * @param useColors - Whether to use color output
+ * @returns Object containing both source and semantic tokens as strings
+ */
+export function debugSemanticTokens(document: LspDocument, useColors: boolean = true): SemanticTokensOutput {
+  const source = document.getText();
+
+  // Get semantic tokens for the document
+  const semanticTokens = provideSemanticTokens(document);
+
+  // Format the semantic tokens into a readable string
+  const tokens = formatSemanticTokens(semanticTokens.data, source, useColors);
+
+  return {
+    source,
+    tokens,
+  };
+}
+
+/**
+ * CLI handler for dumping semantic tokens
+ */
+export async function cliDumpSemanticTokens(document: LspDocument, useColors: boolean = true): Promise<0 | 1> {
+  await Analyzer.initialize();
+
+  // Analyze the document to ensure the analyzer cache is populated
+  analyzer.analyze(document);
+
+  const { tokens } = debugSemanticTokens(document, useColors);
+
+  // Output the semantic tokens to stdout
+  logger.logToStdout(tokens);
+  if (tokens.trim().length === 0 || tokens.includes('(no semantic tokens)')) {
+    const errorMsg = useColors ? chalk.red('No semantic tokens available for this document.') : 'No semantic tokens available for this document.';
+    logger.logToStderr(errorMsg);
+    return 1;
+  }
+  return 0;
+}
+
+/**
+ * Main wrapper for `src/cli.ts` usage of semantic tokens dumping
+ */
+export async function handleCLiDumpSemanticTokens(args: CommanderSubcommand.info.schemaType): Promise<0 | 1> {
+  // This initializes the server
+  startServer();
+
+  const useColors = !args.noColor; // Use colors unless --no-color flag is set
+
+  // If no file path provided (either empty string, true boolean, or undefined), read from stdin
+  if (!args.dumpSemanticTokens || args.dumpSemanticTokens === true || typeof args.dumpSemanticTokens === 'string' && args.dumpSemanticTokens.trim() === '') {
+    const stdinContent = await readFromStdin();
+    if (stdinContent.trim() === '') {
+      logger.logToStderr('Error: No input provided. Please provide either a file path or pipe content to stdin.');
+      return 1;
+    }
+    const doc = LspDocument.createTextDocumentItem('stdin.fish', stdinContent);
+    return await cliDumpSemanticTokens(doc, useColors);
+  }
+
+  // Original file-based logic
+  const filePath = expandParseCliTreeFile(args.dumpSemanticTokens);
+  if (!SyncFileHelper.isFile(filePath)) {
+    logger.logToStderr(`Error: Cannot read file at ${filePath}. Please check the file path and permissions.`);
+    process.exit(1);
+  }
+  const doc = LspDocument.createFromPath(filePath);
+  return await cliDumpSemanticTokens(doc, useColors);
 }

@@ -616,6 +616,7 @@ export namespace CommanderSubcommand {
         remove: z.boolean().optional().default(false),
         status: z.boolean().optional().default(false),
         dumpParseTree: z.union([z.string(), z.boolean()]).optional().default(''),
+        dumpSemanticTokens: z.union([z.string(), z.boolean()]).optional().default(''),
         virtualFs: z.boolean().optional().default(false),
       }),
     );
