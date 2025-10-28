@@ -519,6 +519,15 @@ set -gx fish_lsp_max_workspace_depth 3
 #                   '~/.local/bin/fish')
 # (Default: '')
 set -gx fish_lsp_fish_path 'fish'
+
+# $fish_lsp_semantic_handler_type <STRING>
+# Controls the semantic token highlighting mode for Fish shell scripts.
+# 'off' - Disables semantic token highlighting completely
+# 'full' - Full highlighting with all features (commands, keywords, variables, strings, operators, escape sequences, etc.)
+# 'mini' - Minimal highlighting (only commands and symbol definitions)
+# (Options: 'off', 'full', 'mini')
+# (Default: '')
+set -gx fish_lsp_semantic_handler_type 'full'
 ```
 
 </details>
@@ -673,7 +682,16 @@ set -gx fish_lsp_max_workspace_depth
 # (Example Options: 'fish', '/usr/bin/fish', '/usr/.local/bin/fish', 
 #                   '~/.local/bin/fish')
 # (Default: '')
-set -gx fish_lsp_fish_path
+set -gx fish_lsp_fish_path 
+
+# $fish_lsp_semantic_handler_type <STRING>
+# Controls the semantic token highlighting mode for Fish shell scripts.
+# 'off' - Disables semantic token highlighting completely
+# 'full' - Full highlighting with all features (commands, keywords, variables, strings, operators, escape sequences, etc.)
+# 'mini' - Minimal highlighting (only commands and symbol definitions)
+# (Options: 'off', 'full', 'mini')
+# (Default: '')
+set -gx fish_lsp_semantic_handler_type
 ```
 
 </details>
@@ -722,7 +740,8 @@ set -gx fish_lsp_fish_path
     "**/docker/**"
   ],
   "fish_lsp_max_workspace_depth": 3,
-  "fish_lsp_fish_path": "fish"
+  "fish_lsp_fish_path": "fish",
+  "fish_lsp_semantic_handler_type": "full"
 }
 ```
 
